@@ -77,7 +77,7 @@ GROUP BY   m.uuid, m.net_node_uuid, mci.instance_id, m.life_id
 	if err != nil {
 		return errors.Errorf("preparing status statements: %w", err)
 	}
-	volumeTargetStmt, filesystemTargetStmt, err := st.prepareReprovisionStorageTargetStatements()
+	storageTargetStmts, err := st.prepareReprovisionStorageTargetStatements()
 	if err != nil {
 		return errors.Errorf("preparing storage target statements: %w", err)
 	}
@@ -99,7 +99,7 @@ GROUP BY   m.uuid, m.net_node_uuid, mci.instance_id, m.life_id
 		}
 
 		storageTargets, err := st.getReprovisionStorageTargets(
-			ctx, tx, volumeTargetStmt, filesystemTargetStmt,
+			ctx, tx, storageTargetStmts,
 			reprovisionStorageTargetParams{
 				NetNodeUUID:    target.NetNodeUUID,
 				AliveLifeID:    int(life.Alive),
@@ -386,11 +386,20 @@ type reprovisionStorageTargets struct {
 	filesystemAttachments, blockDevices map[string]struct{}
 }
 
+type reprovisionStorageTargetStatements struct {
+	volumes, volumeLogicalAttachments         *sqlair.Statement
+	volumeAttachments, volumePlans            *sqlair.Statement
+	filesystems, filesystemLogicalAttachments *sqlair.Statement
+	filesystemAttachments                     *sqlair.Statement
+}
+
 func (st *State) prepareReprovisionStorageTargetStatements() (
-	*sqlair.Statement, *sqlair.Statement, error,
+	reprovisionStorageTargetStatements, error,
 ) {
-	volumeStmt, err := st.Prepare(`
-WITH volume_target_uuids AS (
+	var statements reprovisionStorageTargetStatements
+	var err error
+	statements.volumes, err = st.Prepare(`
+WITH target_volume_uuids AS (
     SELECT mv.volume_uuid
     FROM machine AS m
     JOIN machine_volume AS mv ON m.uuid = mv.machine_uuid
@@ -407,78 +416,66 @@ WITH volume_target_uuids AS (
     SELECT svap.storage_volume_uuid
     FROM storage_volume_attachment_plan AS svap
     WHERE svap.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
-),
-volume_targets AS (
-    SELECT DISTINCT sv.uuid AS volume_uuid,
-           sv.life_id AS volume_life_id,
-           sv.provision_scope_id AS volume_scope_id,
-           siv.storage_instance_uuid AS storage_instance_uuid,
-           si.life_id AS storage_instance_life_id,
-           sva.uuid AS attachment_uuid,
-           sva.life_id AS attachment_life_id,
-           sva.provision_scope_id AS attachment_scope_id,
-           svap.uuid AS plan_uuid,
-           svap.provision_scope_id AS plan_scope_id,
-           sva.block_device_uuid AS block_device_uuid
-    FROM volume_target_uuids AS vtu
-    JOIN storage_volume AS sv ON vtu.volume_uuid = sv.uuid
-    LEFT JOIN storage_instance_volume AS siv
-        ON sv.uuid = siv.storage_volume_uuid
-    LEFT JOIN storage_instance AS si
-        ON siv.storage_instance_uuid = si.uuid
-    LEFT JOIN storage_volume_attachment AS sva
-        ON sv.uuid = sva.storage_volume_uuid
-        AND sva.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
-    LEFT JOIN storage_volume_attachment_plan AS svap
-        ON sv.uuid = svap.storage_volume_uuid
-        AND svap.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
-),
-classified_volume_targets AS (
-    SELECT vt.volume_uuid,
-           vt.volume_scope_id,
-           vt.storage_instance_uuid,
-           vt.storage_instance_life_id,
-           vt.attachment_uuid,
-           vt.plan_uuid,
-           vt.block_device_uuid,
-           CASE
-               WHEN vt.storage_instance_uuid IS NULL OR vt.attachment_uuid IS NULL
-                   THEN TRUE
-               ELSE vt.volume_life_id = $reprovisionStorageTargetParams.alive_life_id
-                   AND vt.attachment_life_id = $reprovisionStorageTargetParams.alive_life_id
-                   AND vt.storage_instance_life_id = $reprovisionStorageTargetParams.alive_life_id
-           END AS all_alive,
-           CASE
-               WHEN vt.storage_instance_uuid IS NULL OR vt.attachment_uuid IS NULL
-                   THEN 'ambiguous'
-               WHEN vt.volume_scope_id NOT IN (
-                   $reprovisionStorageTargetParams.model_scope_id,
-                   $reprovisionStorageTargetParams.machine_scope_id
-               ) THEN 'ambiguous'
-               WHEN vt.attachment_uuid IS NOT NULL
-                   AND vt.attachment_scope_id != vt.volume_scope_id
-                   THEN 'ambiguous'
-               WHEN vt.plan_uuid IS NOT NULL
-                   AND vt.plan_scope_id != vt.volume_scope_id
-                   THEN 'ambiguous'
-               WHEN vt.volume_scope_id = $reprovisionStorageTargetParams.model_scope_id
-                   THEN 'model'
-               ELSE 'machine'
-           END AS scope_class
-    FROM volume_targets AS vt
+
+    UNION
+
+    SELECT siv.storage_volume_uuid
+    FROM storage_attachment AS sa
+    JOIN unit AS u ON sa.unit_uuid = u.uuid
+    JOIN storage_instance_volume AS siv
+        ON sa.storage_instance_uuid = siv.storage_instance_uuid
+    WHERE u.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
 )
-SELECT cvt.volume_uuid AS &reprovisionVolumeTarget.volume_uuid,
-       cvt.all_alive AS &reprovisionVolumeTarget.all_alive,
-       cvt.scope_class AS &reprovisionVolumeTarget.scope_class,
-       cvt.attachment_uuid AS &reprovisionVolumeTarget.attachment_uuid,
-       cvt.plan_uuid AS &reprovisionVolumeTarget.plan_uuid,
-       cvt.block_device_uuid AS &reprovisionVolumeTarget.block_device_uuid
-FROM classified_volume_targets AS cvt`, reprovisionStorageTargetParams{}, reprovisionVolumeTarget{})
+SELECT sv.uuid AS &reprovisionStorageEntityTarget.entity_uuid,
+       sv.life_id AS &reprovisionStorageEntityTarget.life_id,
+       sv.provision_scope_id AS &reprovisionStorageEntityTarget.scope_id,
+       siv.storage_instance_uuid AS &reprovisionStorageEntityTarget.storage_instance_uuid,
+       si.life_id AS &reprovisionStorageEntityTarget.storage_instance_life_id
+FROM target_volume_uuids AS tvu
+JOIN storage_volume AS sv ON tvu.volume_uuid = sv.uuid
+LEFT JOIN storage_instance_volume AS siv ON sv.uuid = siv.storage_volume_uuid
+LEFT JOIN storage_instance AS si ON siv.storage_instance_uuid = si.uuid
+`, reprovisionStorageTargetParams{}, reprovisionStorageEntityTarget{})
 	if err != nil {
-		return nil, nil, errors.Capture(err)
+		return reprovisionStorageTargetStatements{}, errors.Capture(err)
 	}
-	filesystemStmt, err := st.Prepare(`
-WITH filesystem_target_uuids AS (
+	statements.volumeLogicalAttachments, err = st.Prepare(`
+SELECT siv.storage_volume_uuid AS &reprovisionStorageLogicalAttachment.entity_uuid,
+       sa.life_id AS &reprovisionStorageLogicalAttachment.life_id
+FROM storage_attachment AS sa
+JOIN unit AS u ON sa.unit_uuid = u.uuid
+JOIN storage_instance_volume AS siv
+    ON sa.storage_instance_uuid = siv.storage_instance_uuid
+WHERE u.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
+`, reprovisionStorageTargetParams{}, reprovisionStorageLogicalAttachment{})
+	if err != nil {
+		return reprovisionStorageTargetStatements{}, errors.Capture(err)
+	}
+	statements.volumeAttachments, err = st.Prepare(`
+SELECT sva.uuid AS &reprovisionStoragePhysicalAttachment.uuid,
+       sva.storage_volume_uuid AS &reprovisionStoragePhysicalAttachment.entity_uuid,
+       sva.life_id AS &reprovisionStoragePhysicalAttachment.life_id,
+       sva.provision_scope_id AS &reprovisionStoragePhysicalAttachment.scope_id,
+       sva.block_device_uuid AS &reprovisionStoragePhysicalAttachment.block_device_uuid
+FROM storage_volume_attachment AS sva
+WHERE sva.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
+`, reprovisionStorageTargetParams{}, reprovisionStoragePhysicalAttachment{})
+	if err != nil {
+		return reprovisionStorageTargetStatements{}, errors.Capture(err)
+	}
+	statements.volumePlans, err = st.Prepare(`
+SELECT svap.uuid AS &reprovisionStoragePlanTarget.uuid,
+       svap.storage_volume_uuid AS &reprovisionStoragePlanTarget.entity_uuid,
+       svap.life_id AS &reprovisionStoragePlanTarget.life_id,
+       svap.provision_scope_id AS &reprovisionStoragePlanTarget.scope_id
+FROM storage_volume_attachment_plan AS svap
+WHERE svap.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
+`, reprovisionStorageTargetParams{}, reprovisionStoragePlanTarget{})
+	if err != nil {
+		return reprovisionStorageTargetStatements{}, errors.Capture(err)
+	}
+	statements.filesystems, err = st.Prepare(`
+WITH target_filesystem_uuids AS (
     SELECT mf.filesystem_uuid
     FROM machine AS m
     JOIN machine_filesystem AS mf ON m.uuid = mf.machine_uuid
@@ -489,63 +486,55 @@ WITH filesystem_target_uuids AS (
     SELECT sfa.storage_filesystem_uuid
     FROM storage_filesystem_attachment AS sfa
     WHERE sfa.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
-),
-filesystem_targets AS (
-    SELECT sf.uuid AS filesystem_uuid,
-           sf.life_id AS filesystem_life_id,
-           sf.provision_scope_id AS filesystem_scope_id,
-           sif.storage_instance_uuid AS storage_instance_uuid,
-           si.life_id AS storage_instance_life_id,
-           sfa.uuid AS attachment_uuid,
-           sfa.life_id AS attachment_life_id,
-           sfa.provision_scope_id AS attachment_scope_id
-    FROM filesystem_target_uuids AS ftu
-    JOIN storage_filesystem AS sf ON ftu.filesystem_uuid = sf.uuid
-    LEFT JOIN storage_instance_filesystem AS sif
-        ON sf.uuid = sif.storage_filesystem_uuid
-    LEFT JOIN storage_instance AS si
-        ON sif.storage_instance_uuid = si.uuid
-    LEFT JOIN storage_filesystem_attachment AS sfa
-        ON sf.uuid = sfa.storage_filesystem_uuid
-        AND sfa.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
-),
-classified_filesystem_targets AS (
-    SELECT ft.filesystem_uuid,
-           ft.filesystem_scope_id,
-           ft.storage_instance_uuid,
-           ft.storage_instance_life_id,
-           ft.attachment_uuid,
-           CASE
-               WHEN ft.storage_instance_uuid IS NULL OR ft.attachment_uuid IS NULL
-                   THEN TRUE
-               ELSE ft.filesystem_life_id = $reprovisionStorageTargetParams.alive_life_id
-                   AND ft.attachment_life_id = $reprovisionStorageTargetParams.alive_life_id
-                   AND ft.storage_instance_life_id = $reprovisionStorageTargetParams.alive_life_id
-           END AS all_alive,
-           CASE
-               WHEN ft.storage_instance_uuid IS NULL OR ft.attachment_uuid IS NULL
-                   THEN 'ambiguous'
-               WHEN ft.filesystem_scope_id NOT IN (
-                   $reprovisionStorageTargetParams.model_scope_id,
-                   $reprovisionStorageTargetParams.machine_scope_id
-               ) THEN 'ambiguous'
-               WHEN ft.attachment_scope_id != ft.filesystem_scope_id
-                   THEN 'ambiguous'
-               WHEN ft.filesystem_scope_id = $reprovisionStorageTargetParams.model_scope_id
-                   THEN 'model'
-               ELSE 'machine'
-           END AS scope_class
-    FROM filesystem_targets AS ft
+
+    UNION
+
+    SELECT sif.storage_filesystem_uuid
+    FROM storage_attachment AS sa
+    JOIN unit AS u ON sa.unit_uuid = u.uuid
+    JOIN storage_instance_filesystem AS sif
+        ON sa.storage_instance_uuid = sif.storage_instance_uuid
+    WHERE u.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
 )
-SELECT cft.filesystem_uuid AS &reprovisionFilesystemTarget.filesystem_uuid,
-       cft.all_alive AS &reprovisionFilesystemTarget.all_alive,
-       cft.scope_class AS &reprovisionFilesystemTarget.scope_class,
-       cft.attachment_uuid AS &reprovisionFilesystemTarget.attachment_uuid
-FROM classified_filesystem_targets AS cft`, reprovisionStorageTargetParams{}, reprovisionFilesystemTarget{})
+SELECT sf.uuid AS &reprovisionStorageEntityTarget.entity_uuid,
+       sf.life_id AS &reprovisionStorageEntityTarget.life_id,
+       sf.provision_scope_id AS &reprovisionStorageEntityTarget.scope_id,
+       sif.storage_instance_uuid AS &reprovisionStorageEntityTarget.storage_instance_uuid,
+       si.life_id AS &reprovisionStorageEntityTarget.storage_instance_life_id
+FROM target_filesystem_uuids AS tfu
+JOIN storage_filesystem AS sf ON tfu.filesystem_uuid = sf.uuid
+LEFT JOIN storage_instance_filesystem AS sif
+    ON sf.uuid = sif.storage_filesystem_uuid
+LEFT JOIN storage_instance AS si ON sif.storage_instance_uuid = si.uuid
+`, reprovisionStorageTargetParams{}, reprovisionStorageEntityTarget{})
 	if err != nil {
-		return nil, nil, errors.Capture(err)
+		return reprovisionStorageTargetStatements{}, errors.Capture(err)
 	}
-	return volumeStmt, filesystemStmt, nil
+	statements.filesystemLogicalAttachments, err = st.Prepare(`
+SELECT sif.storage_filesystem_uuid AS &reprovisionStorageLogicalAttachment.entity_uuid,
+       sa.life_id AS &reprovisionStorageLogicalAttachment.life_id
+FROM storage_attachment AS sa
+JOIN unit AS u ON sa.unit_uuid = u.uuid
+JOIN storage_instance_filesystem AS sif
+    ON sa.storage_instance_uuid = sif.storage_instance_uuid
+WHERE u.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
+`, reprovisionStorageTargetParams{}, reprovisionStorageLogicalAttachment{})
+	if err != nil {
+		return reprovisionStorageTargetStatements{}, errors.Capture(err)
+	}
+	statements.filesystemAttachments, err = st.Prepare(`
+SELECT sfa.uuid AS &reprovisionStoragePhysicalAttachment.uuid,
+       sfa.storage_filesystem_uuid AS &reprovisionStoragePhysicalAttachment.entity_uuid,
+       sfa.life_id AS &reprovisionStoragePhysicalAttachment.life_id,
+       sfa.provision_scope_id AS &reprovisionStoragePhysicalAttachment.scope_id,
+       NULL AS &reprovisionStoragePhysicalAttachment.block_device_uuid
+FROM storage_filesystem_attachment AS sfa
+WHERE sfa.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
+`, reprovisionStorageTargetParams{}, reprovisionStoragePhysicalAttachment{})
+	if err != nil {
+		return reprovisionStorageTargetStatements{}, errors.Capture(err)
+	}
+	return statements, nil
 }
 
 // getReprovisionStorageTargets captures the machine-scoped storage that must
@@ -556,21 +545,64 @@ FROM classified_filesystem_targets AS cft`, reprovisionStorageTargetParams{}, re
 // sets. Model-scoped, inconsistent, incomplete, or non-alive storage fails
 // closed. Maps are used because joins may return the same physical entity more
 // than once, while each reset statement must target every UUID only once.
-// machine_volume and machine_filesystem are retained as logical associations;
-// they participate in target discovery so incomplete physical state cannot be
-// skipped.
+// storage_attachment, machine_volume, and machine_filesystem are retained as
+// logical associations; they participate in target discovery so incomplete
+// physical state cannot be skipped.
 func (st *State) getReprovisionStorageTargets(
 	ctx context.Context, tx *sqlair.TX,
-	volumeStmt, filesystemStmt *sqlair.Statement,
+	statements reprovisionStorageTargetStatements,
 	params reprovisionStorageTargetParams,
 ) (reprovisionStorageTargets, error) {
-	var volumeRows []reprovisionVolumeTarget
-	if err := tx.Query(ctx, volumeStmt, params).GetAll(&volumeRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+	var volumeRows []reprovisionStorageEntityTarget
+	if err := tx.Query(ctx, statements.volumes, params).GetAll(&volumeRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return reprovisionStorageTargets{}, errors.Errorf("querying attached volumes: %w", err)
 	}
-	var filesystemRows []reprovisionFilesystemTarget
-	if err := tx.Query(ctx, filesystemStmt, params).GetAll(&filesystemRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+	var volumeLogicalRows []reprovisionStorageLogicalAttachment
+	if err := tx.Query(ctx, statements.volumeLogicalAttachments, params).GetAll(&volumeLogicalRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return reprovisionStorageTargets{}, errors.Errorf("querying logical volume attachments: %w", err)
+	}
+	var volumeAttachmentRows []reprovisionStoragePhysicalAttachment
+	if err := tx.Query(ctx, statements.volumeAttachments, params).GetAll(&volumeAttachmentRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return reprovisionStorageTargets{}, errors.Errorf("querying volume attachments: %w", err)
+	}
+	var volumePlanRows []reprovisionStoragePlanTarget
+	if err := tx.Query(ctx, statements.volumePlans, params).GetAll(&volumePlanRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return reprovisionStorageTargets{}, errors.Errorf("querying volume attachment plans: %w", err)
+	}
+	var filesystemRows []reprovisionStorageEntityTarget
+	if err := tx.Query(ctx, statements.filesystems, params).GetAll(&filesystemRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return reprovisionStorageTargets{}, errors.Errorf("querying attached filesystems: %w", err)
+	}
+	var filesystemLogicalRows []reprovisionStorageLogicalAttachment
+	if err := tx.Query(ctx, statements.filesystemLogicalAttachments, params).GetAll(&filesystemLogicalRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return reprovisionStorageTargets{}, errors.Errorf("querying logical filesystem attachments: %w", err)
+	}
+	var filesystemAttachmentRows []reprovisionStoragePhysicalAttachment
+	if err := tx.Query(ctx, statements.filesystemAttachments, params).GetAll(&filesystemAttachmentRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return reprovisionStorageTargets{}, errors.Errorf("querying filesystem attachments: %w", err)
+	}
+
+	logicalAttachments := func(rows []reprovisionStorageLogicalAttachment) map[string][]int {
+		result := make(map[string][]int)
+		for _, row := range rows {
+			result[row.EntityUUID] = append(result[row.EntityUUID], row.LifeID)
+		}
+		return result
+	}
+	physicalAttachments := func(rows []reprovisionStoragePhysicalAttachment) map[string][]reprovisionStoragePhysicalAttachment {
+		result := make(map[string][]reprovisionStoragePhysicalAttachment)
+		for _, row := range rows {
+			result[row.EntityUUID] = append(result[row.EntityUUID], row)
+		}
+		return result
+	}
+	volumeLogical := logicalAttachments(volumeLogicalRows)
+	filesystemLogical := logicalAttachments(filesystemLogicalRows)
+	volumeAttachments := physicalAttachments(volumeAttachmentRows)
+	filesystemAttachments := physicalAttachments(filesystemAttachmentRows)
+	volumePlans := make(map[string][]reprovisionStoragePlanTarget)
+	for _, row := range volumePlanRows {
+		volumePlans[row.EntityUUID] = append(volumePlans[row.EntityUUID], row)
 	}
 
 	targets := reprovisionStorageTargets{
@@ -582,68 +614,105 @@ func (st *State) getReprovisionStorageTargets(
 		blockDevices:          make(map[string]struct{}),
 	}
 	for _, row := range volumeRows {
-		if !row.AllAlive {
-			return reprovisionStorageTargets{}, errors.Errorf(
-				"volume %q: %w", row.VolumeUUID, machineerrors.MachineStorageNotAlive,
-			)
+		attachments := volumeAttachments[row.EntityUUID]
+		plans := volumePlans[row.EntityUUID]
+		if err := validateReprovisionStorageEntity(
+			"volume", row, volumeLogical[row.EntityUUID], attachments, plans, params,
+		); err != nil {
+			return reprovisionStorageTargets{}, errors.Capture(err)
 		}
-		switch row.ScopeClass {
-		case "model":
-			return reprovisionStorageTargets{}, errors.Errorf(
-				"volume %q: %w", row.VolumeUUID, machineerrors.ModelScopedStorageAttached,
-			)
-		case "machine":
-			// An empty Go case exits the switch; it does not fall through.
-		case "ambiguous":
-			return reprovisionStorageTargets{}, errors.Errorf(
-				"volume %q: %w", row.VolumeUUID, machineerrors.StorageScopeAmbiguous,
-			)
-		default:
-			return reprovisionStorageTargets{}, errors.Errorf(
-				"volume %q has unknown scope classification %q: %w",
-				row.VolumeUUID, row.ScopeClass, machineerrors.StorageScopeAmbiguous,
-			)
+		targets.volumes[row.EntityUUID] = struct{}{}
+		for _, attachment := range attachments {
+			targets.volumeAttachments[attachment.UUID] = struct{}{}
+			if attachment.BlockDeviceUUID.Valid {
+				targets.blockDevices[attachment.BlockDeviceUUID.V] = struct{}{}
+			}
 		}
-		targets.volumes[row.VolumeUUID] = struct{}{}
-		if row.AttachmentUUID.Valid {
-			targets.volumeAttachments[row.AttachmentUUID.V] = struct{}{}
-		}
-		if row.PlanUUID.Valid {
-			targets.plans[row.PlanUUID.V] = struct{}{}
-		}
-		if row.BlockDeviceUUID.Valid {
-			targets.blockDevices[row.BlockDeviceUUID.V] = struct{}{}
+		for _, plan := range plans {
+			targets.plans[plan.UUID] = struct{}{}
 		}
 	}
 	for _, row := range filesystemRows {
-		if !row.AllAlive {
-			return reprovisionStorageTargets{}, errors.Errorf(
-				"filesystem %q: %w", row.FilesystemUUID, machineerrors.MachineStorageNotAlive,
-			)
+		attachments := filesystemAttachments[row.EntityUUID]
+		if err := validateReprovisionStorageEntity(
+			"filesystem", row, filesystemLogical[row.EntityUUID], attachments, nil, params,
+		); err != nil {
+			return reprovisionStorageTargets{}, errors.Capture(err)
 		}
-		switch row.ScopeClass {
-		case "model":
-			return reprovisionStorageTargets{}, errors.Errorf(
-				"filesystem %q: %w", row.FilesystemUUID, machineerrors.ModelScopedStorageAttached,
-			)
-		case "machine":
-			// An empty Go case exits the switch; it does not fall through.
-		case "ambiguous":
-			return reprovisionStorageTargets{}, errors.Errorf(
-				"filesystem %q: %w", row.FilesystemUUID, machineerrors.StorageScopeAmbiguous,
-			)
-		default:
-			return reprovisionStorageTargets{}, errors.Errorf(
-				"filesystem %q has unknown scope classification %q: %w",
-				row.FilesystemUUID, row.ScopeClass, machineerrors.StorageScopeAmbiguous,
-			)
-		}
-		targets.filesystems[row.FilesystemUUID] = struct{}{}
-		if row.AttachmentUUID.Valid {
-			targets.filesystemAttachments[row.AttachmentUUID.V] = struct{}{}
+		targets.filesystems[row.EntityUUID] = struct{}{}
+		for _, attachment := range attachments {
+			targets.filesystemAttachments[attachment.UUID] = struct{}{}
 		}
 	}
 	return targets, nil
+}
+
+func validateReprovisionStorageEntity(
+	entityType string,
+	entity reprovisionStorageEntityTarget,
+	logicalAttachmentLives []int,
+	attachments []reprovisionStoragePhysicalAttachment,
+	plans []reprovisionStoragePlanTarget,
+	params reprovisionStorageTargetParams,
+) error {
+	if !entity.StorageInstanceUUID.Valid || !entity.StorageInstanceLifeID.Valid {
+		return errors.Errorf(
+			"%s %q: %w", entityType, entity.EntityUUID,
+			machineerrors.StorageScopeAmbiguous,
+		)
+	}
+	if len(logicalAttachmentLives) == 0 || len(attachments) == 0 {
+		return errors.Errorf(
+			"%s %q: %w", entityType, entity.EntityUUID,
+			machineerrors.StorageScopeAmbiguous,
+		)
+	}
+
+	lifeIDs := []int{entity.LifeID, entity.StorageInstanceLifeID.V}
+	lifeIDs = append(lifeIDs, logicalAttachmentLives...)
+	for _, attachment := range attachments {
+		lifeIDs = append(lifeIDs, attachment.LifeID)
+	}
+	for _, plan := range plans {
+		lifeIDs = append(lifeIDs, plan.LifeID)
+	}
+	for _, lifeID := range lifeIDs {
+		if lifeID != params.AliveLifeID {
+			return errors.Errorf(
+				"%s %q: %w", entityType, entity.EntityUUID,
+				machineerrors.MachineStorageNotAlive,
+			)
+		}
+	}
+
+	if entity.ScopeID != params.ModelScopeID && entity.ScopeID != params.MachineScopeID {
+		return errors.Errorf(
+			"%s %q: %w", entityType, entity.EntityUUID,
+			machineerrors.StorageScopeAmbiguous,
+		)
+	}
+	attachmentScopeIDs := make([]int, 0, len(attachments)+len(plans))
+	for _, attachment := range attachments {
+		attachmentScopeIDs = append(attachmentScopeIDs, attachment.ScopeID)
+	}
+	for _, plan := range plans {
+		attachmentScopeIDs = append(attachmentScopeIDs, plan.ScopeID)
+	}
+	for _, scopeID := range attachmentScopeIDs {
+		if scopeID != entity.ScopeID {
+			return errors.Errorf(
+				"%s %q: %w", entityType, entity.EntityUUID,
+				machineerrors.StorageScopeAmbiguous,
+			)
+		}
+	}
+	if entity.ScopeID == params.ModelScopeID {
+		return errors.Errorf(
+			"%s %q: %w", entityType, entity.EntityUUID,
+			machineerrors.ModelScopedStorageAttached,
+		)
+	}
+	return nil
 }
 
 type reprovisionStorageResetStatements struct {
@@ -676,12 +745,16 @@ WHERE uuid IN ($reprovisionUUIDs[:])`},
 		{stmt: &statements.volumeAttachments, query: `
 UPDATE storage_volume_attachment
 SET provider_id = NULL,
-    block_device_uuid = NULL
+    block_device_uuid = NULL,
+    read_only = NULL
 WHERE uuid IN ($reprovisionUUIDs[:])`},
-		// Keep mount intent, but remove the old provider attachment identifier.
+		// Keep attachment identity, but remove completion data reported for the
+		// old mount.
 		{stmt: &statements.filesystemAttachments, query: `
 UPDATE storage_filesystem_attachment
-SET provider_id = NULL
+SET provider_id = NULL,
+    mount_point = NULL,
+    read_only = NULL
 WHERE uuid IN ($reprovisionUUIDs[:])`},
 		// Attachment references are now clear, so old block-device links can
 		// be removed.

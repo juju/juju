@@ -306,20 +306,31 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceCleansVolumeAndPreservesI
 	} {
 		c.Check(s.rowCount(c, table), tc.Equals, 1, tc.Commentf("table %s", table))
 	}
-	var providerID, attachmentProviderID, blockDeviceUUID sql.Null[string]
+	var providerID, hardwareID, wwn sql.Null[string]
+	var attachmentProviderID, blockDeviceUUID sql.Null[string]
+	var sizeMiB sql.Null[int]
+	var persistent sql.Null[bool]
+	var readOnly sql.Null[bool]
 	var volumeStatus int
 	err = s.DB().QueryRowContext(c.Context(), `
-SELECT sv.provider_id, sva.provider_id, sva.block_device_uuid, svs.status_id
+SELECT sv.provider_id, sv.size_mib, sv.hardware_id, sv.wwn, sv.persistent,
+       sva.provider_id, sva.block_device_uuid, sva.read_only, svs.status_id
 FROM storage_volume AS sv
 JOIN storage_volume_attachment AS sva ON sv.uuid = sva.storage_volume_uuid
 JOIN storage_volume_status AS svs ON sv.uuid = svs.volume_uuid
 WHERE sv.uuid = ?`, "storage-volume").Scan(
-		&providerID, &attachmentProviderID, &blockDeviceUUID, &volumeStatus,
+		&providerID, &sizeMiB, &hardwareID, &wwn, &persistent,
+		&attachmentProviderID, &blockDeviceUUID, &readOnly, &volumeStatus,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(providerID.Valid, tc.IsFalse)
+	c.Check(sizeMiB.Valid, tc.IsFalse)
+	c.Check(hardwareID.Valid, tc.IsFalse)
+	c.Check(wwn.Valid, tc.IsFalse)
+	c.Check(persistent.Valid, tc.IsFalse)
 	c.Check(attachmentProviderID.Valid, tc.IsFalse)
 	c.Check(blockDeviceUUID.Valid, tc.IsFalse)
+	c.Check(readOnly.Valid, tc.IsFalse)
 	c.Check(volumeStatus, tc.Equals, 0)
 	c.Check(s.rowCountWhere(c, "block_device", "uuid = ?", "storage-block"), tc.Equals, 0)
 
@@ -357,20 +368,27 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceCleansFilesystemAndPreser
 	} {
 		c.Check(s.rowCount(c, table), tc.Equals, 1, tc.Commentf("table %s", table))
 	}
-	var providerID, attachmentProviderID sql.Null[string]
+	var providerID, attachmentProviderID, mountPoint sql.Null[string]
+	var sizeMiB sql.Null[int]
+	var readOnly sql.Null[bool]
 	var filesystemStatus int
 	err = s.DB().QueryRowContext(c.Context(), `
-SELECT sf.provider_id, sfa.provider_id, sfs.status_id
+SELECT sf.provider_id, sf.size_mib, sfa.provider_id, sfa.mount_point,
+       sfa.read_only, sfs.status_id
 FROM storage_filesystem AS sf
 JOIN storage_filesystem_attachment AS sfa
     ON sf.uuid = sfa.storage_filesystem_uuid
 JOIN storage_filesystem_status AS sfs ON sf.uuid = sfs.filesystem_uuid
 WHERE sf.uuid = ?`, "storage-filesystem").Scan(
-		&providerID, &attachmentProviderID, &filesystemStatus,
+		&providerID, &sizeMiB, &attachmentProviderID, &mountPoint, &readOnly,
+		&filesystemStatus,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(providerID.Valid, tc.IsFalse)
+	c.Check(sizeMiB.Valid, tc.IsFalse)
 	c.Check(attachmentProviderID.Valid, tc.IsFalse)
+	c.Check(mountPoint.Valid, tc.IsFalse)
+	c.Check(readOnly.Valid, tc.IsFalse)
 	c.Check(filesystemStatus, tc.Equals, 0)
 }
 
@@ -574,9 +592,11 @@ func (s *stateSuite) addReprovisionVolumeStorage(
 	s.addReprovisionStorageIntent(c, 0)
 	s.runQuery(c, `
 INSERT INTO storage_volume
-    (uuid, volume_id, life_id, provision_scope_id, provider_id)
-VALUES (?, ?, 0, ?, ?)`, "storage-volume", "storage-volume/0", volumeScope,
-		"old-volume-provider")
+    (uuid, volume_id, life_id, provision_scope_id, provider_id, size_mib,
+     hardware_id, wwn, persistent)
+VALUES (?, ?, 0, ?, ?, 2048, ?, ?, TRUE)`, "storage-volume",
+		"storage-volume/0", volumeScope, "old-volume-provider", "old-hardware",
+		"old-wwn")
 	s.runQuery(c, "INSERT INTO storage_instance_volume VALUES (?, ?)",
 		"storage-instance", "storage-volume")
 	s.runQuery(c, "INSERT INTO storage_volume_status VALUES (?, 3, ?, NULL)",
@@ -591,6 +611,8 @@ INSERT INTO storage_volume_attachment
      provision_scope_id, provider_id, block_device_uuid)
 VALUES (?, ?, ?, 0, ?, ?, ?)`, "storage-volume-attachment", "storage-volume",
 		netNodeUUID, attachmentScope, "old-attachment-provider", "storage-block")
+	s.runQuery(c, "UPDATE storage_volume_attachment SET read_only = TRUE WHERE uuid = ?",
+		"storage-volume-attachment")
 	s.runQuery(c, `
 INSERT INTO storage_volume_attachment_plan
     (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id)
@@ -627,8 +649,8 @@ func (s *stateSuite) addReprovisionFilesystemStorage(
 	s.addReprovisionStorageIntent(c, 1)
 	s.runQuery(c, `
 INSERT INTO storage_filesystem
-    (uuid, filesystem_id, life_id, provision_scope_id, provider_id)
-VALUES (?, ?, 0, ?, ?)`, "storage-filesystem", "storage-filesystem/0",
+    (uuid, filesystem_id, life_id, provision_scope_id, provider_id, size_mib)
+VALUES (?, ?, 0, ?, ?, 2048)`, "storage-filesystem", "storage-filesystem/0",
 		filesystemScope, "old-filesystem-provider")
 	s.runQuery(c, "INSERT INTO storage_instance_filesystem VALUES (?, ?)",
 		"storage-instance", "storage-filesystem")
@@ -640,6 +662,10 @@ INSERT INTO storage_filesystem_attachment
      provider_id, life_id)
 VALUES (?, ?, ?, ?, ?, 0)`, "storage-filesystem-attachment", "storage-filesystem",
 		netNodeUUID, attachmentScope, "old-attachment-provider")
+	s.runQuery(c, `
+UPDATE storage_filesystem_attachment
+SET mount_point = ?, read_only = TRUE
+WHERE uuid = ?`, "/old/mount", "storage-filesystem-attachment")
 	s.runQuery(c, "INSERT INTO machine_filesystem VALUES (?, ?)",
 		machineUUID, "storage-filesystem")
 }

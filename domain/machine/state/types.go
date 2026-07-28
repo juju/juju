@@ -551,20 +551,32 @@ type netNode struct {
 	UUID string `db:"net_node_uuid"`
 }
 
-type reprovisionVolumeTarget struct {
-	VolumeUUID      string           `db:"volume_uuid"`
-	AllAlive        bool             `db:"all_alive"`
-	ScopeClass      string           `db:"scope_class"`
-	AttachmentUUID  sql.Null[string] `db:"attachment_uuid"`
-	PlanUUID        sql.Null[string] `db:"plan_uuid"`
+type reprovisionStorageEntityTarget struct {
+	EntityUUID            string           `db:"entity_uuid"`
+	LifeID                int              `db:"life_id"`
+	ScopeID               int              `db:"scope_id"`
+	StorageInstanceUUID   sql.Null[string] `db:"storage_instance_uuid"`
+	StorageInstanceLifeID sql.Null[int]    `db:"storage_instance_life_id"`
+}
+
+type reprovisionStorageLogicalAttachment struct {
+	EntityUUID string `db:"entity_uuid"`
+	LifeID     int    `db:"life_id"`
+}
+
+type reprovisionStoragePhysicalAttachment struct {
+	UUID            string           `db:"uuid"`
+	EntityUUID      string           `db:"entity_uuid"`
+	LifeID          int              `db:"life_id"`
+	ScopeID         int              `db:"scope_id"`
 	BlockDeviceUUID sql.Null[string] `db:"block_device_uuid"`
 }
 
-type reprovisionFilesystemTarget struct {
-	FilesystemUUID string           `db:"filesystem_uuid"`
-	AllAlive       bool             `db:"all_alive"`
-	ScopeClass     string           `db:"scope_class"`
-	AttachmentUUID sql.Null[string] `db:"attachment_uuid"`
+type reprovisionStoragePlanTarget struct {
+	UUID       string `db:"uuid"`
+	EntityUUID string `db:"entity_uuid"`
+	LifeID     int    `db:"life_id"`
+	ScopeID    int    `db:"scope_id"`
 }
 
 type reprovisionUUIDs []string
