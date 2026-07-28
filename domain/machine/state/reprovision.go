@@ -21,8 +21,9 @@ import (
 // DetachLostMachineCloudInstance atomically rechecks the critical
 // reprovisioning preconditions, clears stale provider-observed state, and
 // moves the machine and its cloud instance back to pending. Machine-scoped
-// storage is reset to pending while its Juju identity and logical intent are
-// preserved. Unsupported storage is rejected in the same transaction.
+// storage provider state is reset so the normal provisioning paths can create
+// empty replacement storage while preserving Juju identity and intent.
+// Unsupported storage is rejected in the same transaction.
 func (st *State) DetachLostMachineCloudInstance(
 	ctx context.Context,
 	mName string,
@@ -402,6 +403,8 @@ type reprovisionStorageTargetStatements struct {
 	filesystemAttachments                     *sqlair.Statement
 }
 
+// prepareReprovisionStorageLifeStatement returns a query for the first
+// non-alive lifecycle-managed storage row related to the target machine.
 func (st *State) prepareReprovisionStorageLifeStatement() (*sqlair.Statement, error) {
 	stmt, err := st.Prepare(`
 WITH target_volume_uuids AS (
@@ -659,8 +662,9 @@ WHERE sfa.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
 	return statements, nil
 }
 
-// validateReprovisionStorageLives rejects non-alive storage before reset
-// targets are collected or any reprovisioning mutations are run.
+// validateReprovisionStorageLives rejects non-alive storage instances,
+// volumes, filesystems, attachments, and attachment plans before reset targets
+// are collected or any reprovisioning mutations are run.
 func validateReprovisionStorageLives(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -679,14 +683,14 @@ func validateReprovisionStorageLives(
 	return nil
 }
 
-// getReprovisionStorageTargets captures the machine-scoped storage that must
-// be reset before any references are changed. Model-scoped, inconsistent, or
-// incomplete storage fails closed. Maps ensure each reset statement targets a
-// UUID only once.
+// getReprovisionStorageTargets captures storage associated with the machine
+// after lifecycle validation. Model-scoped, inconsistent, or incomplete
+// storage fails closed. Maps ensure each reset statement targets a UUID only
+// once.
 //
 // storage_attachment, machine_volume, and machine_filesystem are retained as
-// logical associations; they participate in target discovery so incomplete
-// physical state cannot be skipped.
+// Juju associations. They participate in target discovery so incomplete
+// provider state cannot be skipped.
 func (st *State) getReprovisionStorageTargets(
 	ctx context.Context, tx *sqlair.TX,
 	statements reprovisionStorageTargetStatements,
@@ -949,7 +953,7 @@ ON CONFLICT (filesystem_uuid) DO UPDATE SET
 // resetReprovisionStorage discards provider-observed storage state for the
 // lost machine while preserving Juju storage identities and intent. Volume,
 // filesystem, instance-link, machine-link, and attachment rows remain so the
-// normal provisioner can create empty replacement storage.
+// normal provisioning paths can create empty replacement storage.
 //
 // Provider-specific attachment plans are deleted first. Attachments are then
 // marked unprovisioned before their old block devices are removed. Finally the
