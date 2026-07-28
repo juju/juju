@@ -1076,6 +1076,11 @@ func refreshConfig(ctx context.Context, charmName string, origin corecharm.Origi
 		normalizedChannel := origin.Channel.Normalize().String()
 		channel = &normalizedChannel
 	} else if revision == nil {
+		// Do not default the channel for revision-only requests. The deploy
+		// command first resolves every repository reference as a possible bundle.
+		// Constraining that probe to the default channel can fail before a charm
+		// is identified and repoCharmDeployer can report that a charm revision
+		// requires an explicit channel.
 		defaultChannel := corecharm.DefaultChannel.Normalize().String()
 		channel = &defaultChannel
 	}
