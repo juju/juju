@@ -1459,6 +1459,10 @@ func (s *machineSuite) TestDeleteMachine(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
 	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO machine_reprovision (machine_name, requested_at)
+VALUES (?, ?)`, machineRes.MachineName.String(), time.Now())
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Grab the net node UUID before deletion so we can verify it's removed.
 	var netNodeUUID string
@@ -1478,9 +1482,12 @@ func (s *machineSuite) TestDeleteMachine(c *tc.C) {
 	exists, err := st.MachineExists(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.IsFalse)
+	var count int
+	err = s.DB().QueryRow("SELECT count(*) FROM machine_reprovision").Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
 
 	// And its net node should also be deleted.
-	var count int
 	err = s.DB().QueryRow("SELECT count(*) FROM net_node WHERE uuid = ?", netNodeUUID).Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
