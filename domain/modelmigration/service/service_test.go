@@ -293,9 +293,10 @@ func (s *serviceSuite) TestActivateImportRejectsUnitNotInRelation(c *tc.C) {
 	mExp.GetSecretBackendUUIDsInUse(gomock.Any()).Return(nil, nil)
 	mExp.GetExternalSecretRevisionBackends(gomock.Any()).Return(nil, nil)
 	mExp.GetRelationValidationData(gomock.Any()).Return([]modelmigrationinternal.RelationValidationData{{
-		UUID: "relation-uuid",
-		ID:   7,
-		Key:  "wordpress:db mysql:db",
+		UUID:         "relation-uuid",
+		ID:           7,
+		Key:          "wordpress:db mysql:db",
+		Applications: []string{"mysql", "wordpress"},
 	}}, nil)
 	mExp.GetApplicationUnitNames(gomock.Any()).Return(map[string][]string{
 		"wordpress": {"wordpress/0", "wordpress/1"},
@@ -335,9 +336,10 @@ func (s *serviceSuite) TestActivateImportRelationValidationPasses(c *tc.C) {
 	mExp.GetSecretBackendUUIDsInUse(gomock.Any()).Return(nil, nil)
 	mExp.GetExternalSecretRevisionBackends(gomock.Any()).Return(nil, nil)
 	mExp.GetRelationValidationData(gomock.Any()).Return([]modelmigrationinternal.RelationValidationData{{
-		UUID: "relation-uuid",
-		ID:   7,
-		Key:  "wordpress:db mysql:db",
+		UUID:         "relation-uuid",
+		ID:           7,
+		Key:          "wordpress:db mysql:db",
+		Applications: []string{"mysql", "wordpress"},
 	}}, nil)
 	mExp.GetApplicationUnitNames(gomock.Any()).Return(map[string][]string{
 		"wordpress": {"wordpress/0"},

@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 	"sort"
-	"strings"
 
 	"github.com/juju/collections/set"
 
@@ -27,21 +26,22 @@ var serviceLogger = internallogger.GetLogger("juju.domain.modelmigration.service
 // before activation clears the model_migrating gate. It performs no writes; a
 // non-nil error means the imported model must not be activated.
 //
-// It verifies the external secret-backend re-attachment (the WS10 concern):
+// It checks the invariants the model schema cannot enforce with foreign keys
+// alone:
 //
-//   - every secret backend referenced by the model's external secret value refs
-//     exists on this controller (an un-rewritten source-controller-local backend
-//     UUID would not), and
+//   - every secret backend referenced by the model's external secret value
+//     refs exists on this controller (an un-rewritten source-controller-local
+//     backend UUID would not),
 //   - every externally backed secret revision has a matching
 //     secret_backend_reference row on this controller (so external content
-//     resolves and backend ref-counting stays correct after import).
+//     resolves and backend ref-counting stays correct after import), and
+//   - every unit of an application participating in a relation has the
+//     corresponding relation-unit row (schema foreign keys do not enforce this
+//     membership invariant, and an import that omits the row would otherwise
+//     activate a structurally incomplete relation).
 //
-// It deliberately does not re-check relation/unit structure (enforced by model
-// schema foreign keys and the domain import operations), charm availability
-// (remote/CMR application charms are legitimately unavailable), or agent
-// liveness (agents are not connected before activation); machine/instance
-// validation stays in [Service.CheckMachines], which the master worker drives
-// during the VALIDATION phase.
+// Machine, instance and credential validation lives in [Service.CheckMachines],
+// which the master worker drives during the same VALIDATION phase.
 func (s *Service) ValidateImportedModel(ctx context.Context) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -55,10 +55,12 @@ func (s *Service) ValidateImportedModel(ctx context.Context) error {
 	return s.validateRelationConsistency(ctx)
 }
 
-// validateRelationConsistency fails if any unit belonging to an application
-// that participates in a relation lacks the corresponding relation-unit row.
-// Schema foreign keys do not enforce this invariant, and an import that omits
-// the row would otherwise activate a structurally incomplete relation.
+// validateRelationConsistency fails if any alive unit belonging to an
+// application that participates in an alive relation lacks the corresponding
+// relation-unit row. Schema foreign keys do not enforce this invariant, and an
+// import that omits the row would otherwise activate a structurally incomplete
+// relation. Dying or dead relations and units are excluded: they legitimately
+// leave relation scope before removal.
 func (s *Service) validateRelationConsistency(ctx context.Context) error {
 	relations, err := s.modelState.GetRelationValidationData(ctx)
 	if err != nil {
@@ -78,15 +80,7 @@ func (s *Service) validateRelationConsistency(ctx context.Context) error {
 	}
 
 	for _, relation := range relations {
-		endpoints := strings.Split(strings.TrimSpace(relation.Key), " ")
-		applications := set.NewStrings()
-		for _, endpoint := range endpoints {
-			app, _, ok := strings.Cut(endpoint, ":")
-			if ok {
-				applications.Add(app)
-			}
-		}
-		for app := range applications {
+		for _, app := range relation.Applications {
 			unitsInScope := set.NewStrings(relationUnits[relation.UUID][app]...)
 			for _, unitName := range appUnits[app] {
 				if !unitsInScope.Contains(unitName) {

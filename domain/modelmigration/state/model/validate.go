@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/set"
 
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/internal/errors"
@@ -206,8 +207,11 @@ JOIN   architecture AS a ON a.id = ra.architecture_id
 	return names, nil
 }
 
-// GetRelationValidationData returns the relation identities and keys needed
-// to validate imported relation-unit consistency before activation.
+// GetRelationValidationData returns the relation identities, keys and
+// participating application names needed to validate imported relation-unit
+// consistency before activation. Only alive relations are returned: units
+// legitimately depart a dying or dead relation, so requiring membership there
+// would report false inconsistencies.
 func (s *State) GetRelationValidationData(ctx context.Context) ([]modelmigrationinternal.RelationValidationData, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -217,6 +221,7 @@ func (s *State) GetRelationValidationData(ctx context.Context) ([]modelmigration
 	stmt, err := s.Prepare(`
 SELECT (r.uuid, r.relation_id) AS (&relationValidationRow.*)
 FROM   relation AS r
+WHERE  r.life_id = 0
 `, relationValidationRow{})
 	if err != nil {
 		return nil, errors.Errorf("preparing relation validation data statement: %w", err)
@@ -241,10 +246,18 @@ FROM   relation AS r
 
 	result := make([]modelmigrationinternal.RelationValidationData, len(rows))
 	for i, row := range rows {
+		endpoints := relationKeys[row.UUID]
+		keys := make([]string, 0, len(endpoints))
+		applications := set.NewStrings()
+		for _, endpoint := range endpoints {
+			keys = append(keys, endpoint.ApplicationName+":"+endpoint.EndpointName)
+			applications.Add(endpoint.ApplicationName)
+		}
 		result[i] = modelmigrationinternal.RelationValidationData{
-			UUID: row.UUID,
-			ID:   row.ID,
-			Key:  strings.Join(relationKeys[row.UUID], " "),
+			UUID:         row.UUID,
+			ID:           row.ID,
+			Key:          strings.Join(keys, " "),
+			Applications: applications.SortedValues(),
 		}
 	}
 	return result, nil
@@ -258,10 +271,10 @@ type relationEndpointKey struct {
 	EndpointName    string `db:"endpoint_name"`
 }
 
-// getRelationKeys returns a map from relation UUID to its endpoint
-// application:endpoint pairs, used to build readable relation keys for
-// validation error messages.
-func (s *State) getRelationKeys(ctx context.Context) (map[string][]string, error) {
+// getRelationKeys returns the endpoint rows of every relation, grouped by
+// relation UUID, used to build the participating application list and readable
+// relation keys for validation error messages.
+func (s *State) getRelationKeys(ctx context.Context) (map[string][]relationEndpointKey, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -287,17 +300,18 @@ FROM   v_relation_endpoint_identifier
 		return nil, errors.Errorf("retrieving relation endpoint keys: %w", err)
 	}
 
-	result := make(map[string][]string)
+	result := make(map[string][]relationEndpointKey)
 	for _, row := range rows {
-		result[row.RelationUUID] = append(result[row.RelationUUID],
-			row.ApplicationName+":"+row.EndpointName)
+		result[row.RelationUUID] = append(result[row.RelationUUID], row)
 	}
 	return result, nil
 }
 
 // GetApplicationUnitNames returns a map from application name to the names of
 // its units, used to ensure every unit in a relation has a corresponding
-// relation-unit row.
+// relation-unit row. Only alive applications and units are returned: a dying or
+// dead unit legitimately leaves relation scope before being removed, so
+// requiring membership for it would report false inconsistencies.
 func (s *State) GetApplicationUnitNames(ctx context.Context) (map[string][]string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -309,6 +323,8 @@ SELECT a.name AS &applicationUnitRow.application_name,
        u.name AS &applicationUnitRow.unit_name
 FROM   application AS a
 JOIN   unit AS u ON u.application_uuid = a.uuid
+WHERE  a.life_id = 0
+AND    u.life_id = 0
 `, applicationUnitRow{})
 	if err != nil {
 		return nil, errors.Errorf("preparing application unit names statement: %w", err)
@@ -334,7 +350,10 @@ JOIN   unit AS u ON u.application_uuid = a.uuid
 }
 
 // GetRelationUnitsByApplication returns a map from relation UUID to the set of
-// unit names in scope for that relation, grouped by application name.
+// unit names in scope for that relation, grouped by application name. Rows for
+// non-alive relations or units are not filtered out: the caller only looks up
+// alive relations and checks membership for alive units, so extra rows are
+// harmless.
 func (s *State) GetRelationUnitsByApplication(ctx context.Context) (map[string]map[string][]string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {

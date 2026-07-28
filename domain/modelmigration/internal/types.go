@@ -116,5 +116,10 @@ type RedirectUserAccess struct {
 type RelationValidationData struct {
 	UUID string
 	ID   int
-	Key  string
+	// Key is the display key (space-separated application:endpoint pairs),
+	// used in validation error messages.
+	Key string
+	// Applications are the sorted, de-duplicated names of the applications
+	// participating in the relation.
+	Applications []string
 }

@@ -565,6 +565,56 @@ func (s *migrationSuite) TestGetRelationValidationData(c *tc.C) {
 	c.Check(relations[0].UUID, tc.Equals, relationUUID)
 	c.Check(relations[0].ID, tc.Equals, 7)
 	c.Check(relations[0].Key, tc.Equals, "wordpress:db")
+	c.Check(relations[0].Applications, tc.DeepEquals, []string{"wordpress"})
+}
+
+// TestGetRelationValidationDataExcludesNonAlive verifies dying and dead
+// relations are not returned: their units legitimately depart scope, so they
+// must not be checked for relation-unit consistency.
+func (s *migrationSuite) TestGetRelationValidationDataExcludesNonAlive(c *tc.C) {
+	db := s.DB()
+	charmUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)",
+		charmUUID, "wordpress")
+	c.Assert(err, tc.ErrorIsNil)
+
+	charmRelationUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, scope_id, interface, optional, capacity) VALUES (?, ?, 'db', 1, 1, 'mysql', false, 1)",
+		charmRelationUUID, charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	appUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, 'wordpress', 0, ?, ?)",
+		appUUID, charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+
+	endpointUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, NULL, ?)",
+		endpointUUID, appUUID, charmRelationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// One dying and one dead relation, both with endpoints: neither is
+	// returned.
+	for i, lifeID := range []int{1, 2} {
+		relationUUID := uuid.MustNewUUID().String()
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, 1)",
+			relationUUID, lifeID, 7+i)
+		c.Assert(err, tc.ErrorIsNil)
+
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?)",
+			uuid.MustNewUUID().String(), relationUUID, endpointUUID)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	relations, err := New(s.TxnRunnerFactory(), s.modelUUID).GetRelationValidationData(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relations, tc.HasLen, 0)
 }
 
 // TestGetApplicationUnitNamesEmpty verifies no units return an empty map.
@@ -601,6 +651,54 @@ func (s *migrationSuite) TestGetApplicationUnitNames(c *tc.C) {
 	units, err := New(s.TxnRunnerFactory(), s.modelUUID).GetApplicationUnitNames(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(units, tc.DeepEquals, map[string][]string{"wordpress": {"wordpress/0"}})
+}
+
+// TestGetApplicationUnitNamesExcludesNonAlive verifies dying and dead
+// applications and units are not returned: they legitimately leave relation
+// scope before removal, so they must not be checked for relation-unit
+// consistency.
+func (s *migrationSuite) TestGetApplicationUnitNamesExcludesNonAlive(c *tc.C) {
+	db := s.DB()
+	charmUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)",
+		charmUUID, "wordpress")
+	c.Assert(err, tc.ErrorIsNil)
+
+	appUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, 'wordpress', 0, ?, ?)",
+		appUUID, charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A dying and a dead unit on the alive application.
+	for i, lifeID := range []int{1, 2} {
+		unitNetNodeUUID := uuid.MustNewUUID().String()
+		_, err = db.ExecContext(c.Context(), "INSERT INTO net_node (uuid) VALUES (?)", unitNetNodeUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid) VALUES (?, ?, ?, ?, ?, ?)",
+			uuid.MustNewUUID().String(), fmt.Sprintf("wordpress/%d", i), lifeID, appUUID, unitNetNodeUUID, charmUUID)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	// A dying application with an (anachronistically) alive unit.
+	dyingAppUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, 'mysql', 1, ?, ?)",
+		dyingAppUUID, charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+	unitNetNodeUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(), "INSERT INTO net_node (uuid) VALUES (?)", unitNetNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid) VALUES (?, 'mysql/0', 0, ?, ?, ?)",
+		uuid.MustNewUUID().String(), dyingAppUUID, unitNetNodeUUID, charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	units, err := New(s.TxnRunnerFactory(), s.modelUUID).GetApplicationUnitNames(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.HasLen, 0)
 }
 
 // TestGetRelationUnitsByApplicationEmpty verifies no relation units return an

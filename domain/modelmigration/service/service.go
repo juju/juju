@@ -232,11 +232,12 @@ type ModelState interface {
 	// to the backend UUID its external value ref points at, for revisions whose
 	// content is stored externally.
 	GetExternalSecretRevisionBackends(ctx context.Context) (map[string]string, error)
-	// GetRelationValidationData returns the relation identities and keys used
-	// to validate imported relation-unit consistency.
+	// GetRelationValidationData returns the relation identities, keys and
+	// participating application names used to validate imported relation-unit
+	// consistency. Only alive relations are returned.
 	GetRelationValidationData(ctx context.Context) ([]modelmigrationinternal.RelationValidationData, error)
 	// GetApplicationUnitNames returns a map from application name to the names
-	// of its units.
+	// of its units. Only alive applications and units are returned.
 	GetApplicationUnitNames(ctx context.Context) (map[string][]string, error)
 	// GetRelationUnitsByApplication returns a map from relation UUID to the
 	// unit names in scope for that relation, grouped by application name.
@@ -427,6 +428,9 @@ func (s *Service) checkModelCredential(ctx context.Context) error {
 	if err != nil {
 		return errors.Errorf("getting model cloud credential: %w", err)
 	}
+	// A model can legitimately have no credential (cloud_credential_uuid is
+	// nullable: clouds with an "empty" auth type, such as local LXD, need
+	// none), in which case there is nothing to validate.
 	if credential == nil {
 		return nil
 	}
