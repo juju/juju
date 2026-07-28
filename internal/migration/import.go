@@ -91,12 +91,13 @@ type ImportModelArgs struct {
 // the modelmigration domain).
 func ImportControllerModelInfo(
 	ctx context.Context,
+	svc ImportServices,
 	deps Deps,
 	sourceMigrationUUID string,
 	info coremodelmigration.ControllerModelInfo,
 	view export.ProjectionView,
 ) error {
-	return newImportCoordinator(deps, sourceMigrationUUID, info, view).Import(ctx)
+	return newImportCoordinator(svc, deps, sourceMigrationUUID, info, view).Import(ctx)
 }
 
 // RemoveOnAbortImport is the abort seam Task 11 will call from AbortImport. It
@@ -105,11 +106,12 @@ func ImportControllerModelInfo(
 // more than once.
 func RemoveOnAbortImport(
 	ctx context.Context,
+	svc ImportServices,
 	deps Deps,
 	args ImportModelArgs,
 ) error {
 	return newImportCoordinator(
-		deps, args.SourceMigrationUUID, args.ControllerModelInfo, export.ProjectionView{},
+		svc, deps, args.SourceMigrationUUID, args.ControllerModelInfo, export.ProjectionView{},
 	).RemoveOnAbort(ctx)
 }
 
@@ -169,6 +171,7 @@ func (c *importCoordinator) RemoveOnAbort(ctx context.Context) error {
 }
 
 func newImportCoordinator(
+	svc ImportServices,
 	deps Deps,
 	sourceMigrationUUID string,
 	info coremodelmigration.ControllerModelInfo,
@@ -176,8 +179,6 @@ func newImportCoordinator(
 ) *importCoordinator {
 	modelUUIDStr := info.ModelInfo.UUID
 	modelUUID := coremodel.UUID(modelUUIDStr)
-
-	svc := newImportServices(deps, modelUUID)
 
 	var secretBackendName string
 	if info.SecretBackend != nil {
@@ -187,18 +188,18 @@ func newImportCoordinator(
 
 	ops := []controllerImportOp{
 		&opBeginImport{
-			claim:         svc.claim,
+			claim:         svc.Claim,
 			modelUUID:     modelUUID,
 			modelUUIDStr:  modelUUIDStr,
 			sourceMigUUID: sourceMigrationUUID,
 		},
 		&opImportUsers{
-			access:       svc.access,
+			access:       svc.Access,
 			modelUUIDStr: modelUUIDStr,
 			users:        info.Users,
 		},
 		&opImportCredential{
-			credential:      svc.credential,
+			credential:      svc.Credential,
 			modelUUIDStr:    modelUUIDStr,
 			modelCredential: info.ModelCredential,
 		},
@@ -212,44 +213,44 @@ func newImportCoordinator(
 			agentTargetVersion: view.AgentTargetVersion,
 		},
 		&opImportExternalControllers{
-			claim:        svc.claim,
+			claim:        svc.Claim,
 			modelUUID:    modelUUID,
 			modelUUIDStr: modelUUIDStr,
 			refs:         info.ExternalControllers,
 		},
 		&opImportPermissions{
-			access:       svc.access,
-			claim:        svc.claim,
+			access:       svc.Access,
+			claim:        svc.Claim,
 			modelUUID:    modelUUID,
 			modelUUIDStr: modelUUIDStr,
 			perms:        info.Permissions,
 		},
 		&opImportAuthorizedKeys{
-			keymanager:   svc.keymanager,
-			access:       svc.access,
+			keymanager:   svc.KeyManager,
+			access:       svc.Access,
 			modelUUIDStr: modelUUIDStr,
 			keys:         info.AuthorizedKeys,
 		},
 		&opImportSecretBackendReferences{
-			secretBackend: svc.secretBackend,
+			secretBackend: svc.SecretBackend,
 			modelUUID:     modelUUID,
 			modelUUIDStr:  modelUUIDStr,
 			refs:          info.SecretBackendRefs,
 		},
 		&opImportLeadership{
-			lease:        svc.lease,
+			lease:        svc.Lease,
 			modelUUID:    modelUUID,
 			modelUUIDStr: modelUUIDStr,
 			leaders:      info.Leaders,
 		},
 		&opImportLastLogins{
-			access:       svc.access,
+			access:       svc.Access,
 			modelUUID:    modelUUID,
 			modelUUIDStr: modelUUIDStr,
 			users:        info.Users,
 		},
 		&opImportCloudImageMetadata{
-			cloudImage:   svc.cloudImage,
+			cloudImage:   svc.CloudImage,
 			logger:       deps.Logger,
 			modelUUIDStr: modelUUIDStr,
 			metadata:     info.CloudImageMetadata,
@@ -262,7 +263,7 @@ func newImportCoordinator(
 // ---- per-op structs ---------------------------------------------------------
 
 type opBeginImport struct {
-	claim         *migrationclaimservice.Service
+	claim         ImportClaimService
 	modelUUID     coremodel.UUID
 	modelUUIDStr  string
 	sourceMigUUID string
@@ -286,7 +287,7 @@ func (op *opBeginImport) RemoveOnAbort(_ context.Context) error { return nil }
 // ----
 
 type opImportUsers struct {
-	access       *accessservice.Service
+	access       ImportAccessService
 	modelUUIDStr string
 	users        []coremodelmigration.ModelUser
 }
@@ -309,7 +310,7 @@ func (op *opImportUsers) RemoveOnAbort(_ context.Context) error { return nil }
 // ----
 
 type opImportCredential struct {
-	credential      *credentialservice.Service
+	credential      ImportCredentialService
 	modelUUIDStr    string
 	modelCredential *coremodelmigration.ModelCloudCredential
 }
@@ -369,7 +370,7 @@ func (op *opBootstrapModel) RemoveOnAbort(ctx context.Context) error {
 // ----
 
 type opImportExternalControllers struct {
-	claim        *migrationclaimservice.Service
+	claim        ImportClaimService
 	modelUUID    coremodel.UUID
 	modelUUIDStr string
 	refs         []coremodelmigration.ExternalController
@@ -394,8 +395,8 @@ func (op *opImportExternalControllers) RemoveOnAbort(_ context.Context) error { 
 // ----
 
 type opImportPermissions struct {
-	access       *accessservice.Service
-	claim        *migrationclaimservice.Service
+	access       ImportAccessService
+	claim        ImportClaimService
 	modelUUID    coremodel.UUID
 	modelUUIDStr string
 	perms        []coremodelmigration.ModelPermission
@@ -433,8 +434,8 @@ func (op *opImportPermissions) RemoveOnAbort(ctx context.Context) error {
 // ----
 
 type opImportAuthorizedKeys struct {
-	keymanager   *keymanagerservice.Service
-	access       *accessservice.Service
+	keymanager   ImportKeyManagerService
+	access       ImportAccessService
 	modelUUIDStr string
 	keys         []coremodelmigration.ModelAuthorizedKey
 }
@@ -460,7 +461,7 @@ func (op *opImportAuthorizedKeys) RemoveOnAbort(ctx context.Context) error {
 // ----
 
 type opImportSecretBackendReferences struct {
-	secretBackend *secretbackendservice.Service
+	secretBackend ImportSecretBackendService
 	modelUUID     coremodel.UUID
 	modelUUIDStr  string
 	refs          []coremodelmigration.SecretBackendReference
@@ -485,7 +486,7 @@ func (op *opImportSecretBackendReferences) RemoveOnAbort(_ context.Context) erro
 // ----
 
 type opImportLeadership struct {
-	lease        *leaseservice.Service
+	lease        ImportLeaseService
 	modelUUID    coremodel.UUID
 	modelUUIDStr string
 	leaders      []coremodelmigration.ApplicationLeadership
@@ -511,7 +512,7 @@ func (op *opImportLeadership) RemoveOnAbort(ctx context.Context) error {
 // ----
 
 type opImportLastLogins struct {
-	access       *accessservice.Service
+	access       ImportAccessService
 	modelUUID    coremodel.UUID
 	modelUUIDStr string
 	users        []coremodelmigration.ModelUser
@@ -536,7 +537,7 @@ func (op *opImportLastLogins) RemoveOnAbort(_ context.Context) error { return ni
 // ----
 
 type opImportCloudImageMetadata struct {
-	cloudImage   *cloudimagemetadataservice.Service
+	cloudImage   ImportCloudImageMetadataService
 	logger       logger.Logger
 	modelUUIDStr string
 	metadata     []coremodelmigration.CloudImageMetadata
@@ -570,40 +571,47 @@ func (op *opImportCloudImageMetadata) RemoveOnAbort(_ context.Context) error { r
 // importServices bundles the controller-scoped domain services the v8 import
 // driver orchestrates. They are constructed once at the start of
 // ImportControllerModelInfo and shared across the import steps.
-type importServices struct {
-	claim         *migrationclaimservice.Service
-	access        *accessservice.Service
-	credential    *credentialservice.Service
-	keymanager    *keymanagerservice.Service
-	secretBackend *secretbackendservice.Service
-	lease         *leaseservice.Service
-	cloudImage    *cloudimagemetadataservice.Service
+// ImportServices are the controller-scoped domain services the v8 import driver
+// calls. They are constructed above the coordinator rather than inside it, so
+// that a caller - production or test - decides what the import writes through.
+type ImportServices struct {
+	Claim         ImportClaimService
+	Access        ImportAccessService
+	Credential    ImportCredentialService
+	KeyManager    ImportKeyManagerService
+	SecretBackend ImportSecretBackendService
+	Lease         ImportLeaseService
+	CloudImage    ImportCloudImageMetadataService
 }
 
 // newImportServices constructs the controller-scoped domain services the v8
 // import driver needs. Each service owns its state and is independent of the
 // others; the import driver is responsible for calling them in FK-safe order.
-func newImportServices(deps Deps, modelUUID coremodel.UUID) importServices {
-	return importServices{
-		claim: migrationclaimservice.NewImportService(
+// NewImportServices constructs the real controller-scoped services from the
+// database handles in deps. Each service owns its own state and is independent
+// of the others; the import driver is responsible for calling them in FK-safe
+// order.
+func NewImportServices(deps Deps, modelUUID coremodel.UUID) ImportServices {
+	return ImportServices{
+		Claim: migrationclaimservice.NewImportService(
 			migrationclaimstate.New(deps.ControllerDB, deps.Clock), deps.Logger,
 		),
-		access: accessservice.NewService(
+		Access: accessservice.NewService(
 			accessstate.NewState(deps.ControllerDB, deps.Clock, deps.Logger), deps.Clock,
 		),
-		credential: credentialservice.NewService(
+		Credential: credentialservice.NewService(
 			credentialstate.NewState(deps.ControllerDB), deps.Logger,
 		),
-		keymanager: keymanagerservice.NewService(
+		KeyManager: keymanagerservice.NewService(
 			modelUUID, keymanagerstate.NewState(deps.ControllerDB),
 		),
-		secretBackend: secretbackendservice.NewService(
+		SecretBackend: secretbackendservice.NewService(
 			secretbackendstate.NewState(deps.ControllerDB, deps.Logger), deps.Logger,
 		),
-		lease: leaseservice.NewService(
+		Lease: leaseservice.NewService(
 			leasestate.NewState(deps.ControllerDB, deps.Logger),
 		),
-		cloudImage: cloudimagemetadataservice.NewService(
+		CloudImage: cloudimagemetadataservice.NewService(
 			cloudimagemetadatastate.NewState(deps.ControllerDB, deps.Clock, deps.Logger),
 		),
 	}

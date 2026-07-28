@@ -41,7 +41,8 @@ func (s *controllerImportSuite) importForActivation(
 	info := s.baseControllerModelInfo(modelUUID)
 	view := export.ProjectionView{AgentTargetVersion: jujuversion.Current}
 	err := migration.ImportControllerModelInfo(
-		c.Context(), deps, uuid.MustNewUUID().String(), info, view)
+		c.Context(), migration.NewImportServices(deps, modelUUID), deps,
+		uuid.MustNewUUID().String(), info, view)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The model-DB content import (agent version, import gate) is a separate

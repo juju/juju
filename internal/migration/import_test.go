@@ -184,7 +184,9 @@ func (s *controllerImportSuite) TestImportModelHappyPath(c *tc.C) {
 
 	view := export.ProjectionView{AgentTargetVersion: jujuversion.Current}
 
-	err := migration.ImportControllerModelInfo(c.Context(), deps, sourceMigrationUUID, info, view)
+	err := migration.ImportControllerModelInfo(
+		c.Context(), migration.NewImportServices(deps, modelUUID), deps,
+		sourceMigrationUUID, info, view)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The claim must still be in the "importing" phase: activation is a
@@ -279,9 +281,13 @@ func (s *controllerImportSuite) TestImportModelDuplicateClaim(c *tc.C) {
 	info := s.baseControllerModelInfo(modelUUID)
 	view := export.ProjectionView{AgentTargetVersion: jujuversion.Current}
 
-	err := migration.ImportControllerModelInfo(c.Context(), deps, sourceMigrationUUID, info, view)
+	err := migration.ImportControllerModelInfo(
+		c.Context(), migration.NewImportServices(deps, modelUUID), deps,
+		sourceMigrationUUID, info, view)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = migration.ImportControllerModelInfo(c.Context(), deps, sourceMigrationUUID, info, view)
+	err = migration.ImportControllerModelInfo(
+		c.Context(), migration.NewImportServices(deps, modelUUID), deps,
+		sourceMigrationUUID, info, view)
 	c.Check(err, tc.ErrorIs, coreerrors.AlreadyExists)
 }

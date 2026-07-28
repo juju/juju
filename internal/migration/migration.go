@@ -116,8 +116,12 @@ func (i *ModelImporter) ImportModel(
 	// Apply the controller-scoped data (claim, bootstrap, users, credential,
 	// permissions, secret backend references, ...). Writes only; no return
 	// value beyond the error.
+	//
+	// The services are built here rather than inside the import so that what
+	// the import writes through is decided by its caller.
 	if err := ImportControllerModelInfo(
-		ctx, deps, args.SourceMigrationUUID, args.ControllerModelInfo, view,
+		ctx, NewImportServices(deps, modelUUID), deps,
+		args.SourceMigrationUUID, args.ControllerModelInfo, view,
 	); err != nil {
 		return internalerrors.Capture(err)
 	}
