@@ -126,8 +126,9 @@ type ControllerState interface {
 
 	// GetMigrationPhase derives the model's migration phase in both
 	// directions: importing while a target import claim exists, otherwise the
-	// active export's phase, otherwise none.
-	GetMigrationPhase(ctx context.Context, modelUUID string) (migration.Phase, error)
+	// active export's phase, otherwise none. The phase is returned as its
+	// name.
+	GetMigrationPhase(ctx context.Context, modelUUID string) (string, error)
 
 	// SetPhase transitions an export migration to a new phase, enforcing valid
 	// phase transitions with optimistic locking.
@@ -501,9 +502,13 @@ func (s *Service) MigrationPhase(ctx context.Context) (migration.Phase, error) {
 
 	// GetMigrationPhase resolves both tables in one transaction, so it cannot
 	// report a stale mix of the two sides.
-	phase, err := s.controllerState.GetMigrationPhase(ctx, s.modelUUID)
+	phaseName, err := s.controllerState.GetMigrationPhase(ctx, s.modelUUID)
 	if err != nil {
 		return migration.UNKNOWN, errors.Capture(err)
+	}
+	phase, ok := migration.ParsePhase(phaseName)
+	if !ok {
+		return migration.UNKNOWN, errors.Errorf("unknown migration phase %q", phaseName)
 	}
 	return phase, nil
 }

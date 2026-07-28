@@ -871,13 +871,14 @@ func (s *stateSuite) TestGetMigrationMode(c *tc.C) {
 // TestGetMigrationPhase asserts the derived phase considers both directions in
 // one read: an import claim reports IMPORT, an active export reports its own
 // phase, neither reports NONE, and a claim takes precedence over an export.
+// The phase is returned as its name, parseable with [migration.ParsePhase].
 func (s *stateSuite) TestGetMigrationPhase(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
 	// No migration: none.
 	phase, err := st.GetMigrationPhase(c.Context(), s.modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(phase, tc.Equals, migration.NONE)
+	c.Check(phase, tc.Equals, migration.NONE.String())
 
 	// Active export: its own phase (exports start in QUIESCE).
 	spec := s.newMigrationSpec()
@@ -885,7 +886,7 @@ func (s *stateSuite) TestGetMigrationPhase(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	phase, err = st.GetMigrationPhase(c.Context(), s.modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(phase, tc.Equals, migration.QUIESCE)
+	c.Check(phase, tc.Equals, migration.QUIESCE.String())
 
 	// An import claim takes precedence over the active export: a model with
 	// both is inconsistent, and IMPORT keeps it frozen.
@@ -895,14 +896,14 @@ func (s *stateSuite) TestGetMigrationPhase(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	phase, err = st.GetMigrationPhase(c.Context(), s.modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(phase, tc.Equals, migration.IMPORT)
+	c.Check(phase, tc.Equals, migration.IMPORT.String())
 
 	// Ending the export leaves the claim reporting IMPORT.
 	err = st.MarkExportEnded(c.Context(), spec.MigrationUUID, migration.DONE)
 	c.Assert(err, tc.ErrorIsNil)
 	phase, err = st.GetMigrationPhase(c.Context(), s.modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(phase, tc.Equals, migration.IMPORT)
+	c.Check(phase, tc.Equals, migration.IMPORT.String())
 
 	// Deleting the claim - the moment the imported model becomes usable -
 	// reports none.
@@ -911,7 +912,7 @@ func (s *stateSuite) TestGetMigrationPhase(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	phase, err = st.GetMigrationPhase(c.Context(), s.modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(phase, tc.Equals, migration.NONE)
+	c.Check(phase, tc.Equals, migration.NONE.String())
 }
 
 // TestGetControllerModelInfoIdentity verifies that the model bootstrap

@@ -140,7 +140,7 @@ type MockControllerStateMockRecorder struct {
 	getImportClaimExpects                    []*gomock.Call2_2[context.Context, string, modelmigration0.ImportClaim, error]
 	getImportedOfferUUIDsExpects             []*gomock.Call2_2[context.Context, string, []string, error]
 	getMigrationModeExpects                  []*gomock.Call2_2[context.Context, string, modelmigration0.MigrationMode, error]
-	getMigrationPhaseExpects                 []*gomock.Call2_2[context.Context, string, migration.Phase, error]
+	getMigrationPhaseExpects                 []*gomock.Call2_2[context.Context, string, string, error]
 	getModelUsersForRedirectExpects          []*gomock.Call2_2[context.Context, string, []internal.RedirectUserAccess, error]
 	getSourceControllerInfoExpects           []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
 	importExternalControllersExpects         []*gomock.Call4_1[context.Context, string, string, []internal.ExternalController, error]
@@ -531,7 +531,7 @@ func (mr *MockControllerStateMockRecorder) GetMigrationMode(ctx, modelUUID any) 
 type MockControllerStateGetMigrationModeCall = gomock.Call2_2[context.Context, string, modelmigration0.MigrationMode, error]
 
 // GetMigrationPhase mocks base method.
-func (m *MockControllerState) GetMigrationPhase(ctx context.Context, modelUUID string) (migration.Phase, error) {
+func (m *MockControllerState) GetMigrationPhase(ctx context.Context, modelUUID string) (string, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2_2(&m.recorder.getMigrationPhaseExpects, m.ctrl, m, "GetMigrationPhase", ctx, modelUUID)
 }
@@ -539,14 +539,14 @@ func (m *MockControllerState) GetMigrationPhase(ctx context.Context, modelUUID s
 // GetMigrationPhase indicates an expected call of GetMigrationPhase.
 func (mr *MockControllerStateMockRecorder) GetMigrationPhase(ctx, modelUUID any) *MockControllerStateGetMigrationPhaseCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, migration.Phase, error](mr.mock.ctrl.T, mr.mock, "GetMigrationPhase", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	call := gomock.NewCall2_2[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "GetMigrationPhase", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
 	mr.getMigrationPhaseExpects = append(mr.getMigrationPhaseExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockControllerStateGetMigrationPhaseCall is the typed call wrapper for GetMigrationPhase.
-type MockControllerStateGetMigrationPhaseCall = gomock.Call2_2[context.Context, string, migration.Phase, error]
+type MockControllerStateGetMigrationPhaseCall = gomock.Call2_2[context.Context, string, string, error]
 
 // GetModelUsersForRedirect mocks base method.
 func (m *MockControllerState) GetModelUsersForRedirect(ctx context.Context, modelUUID string) ([]internal.RedirectUserAccess, error) {

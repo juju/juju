@@ -1015,16 +1015,17 @@ WHERE  model_uuid = $modelUUIDArg.model_uuid
 // GetMigrationPhase derives the model's migration phase considering migration
 // in both directions: [migration.IMPORT] while a target import claim exists in
 // any phase, otherwise the active export's phase, otherwise [migration.NONE].
-// Both tables are read in one transaction so the answer is never a stale mix
-// of the two sides.
+// The phase is returned as its name; constructing the [migration.Phase] is the
+// caller's concern. Both tables are read in one transaction so the answer is
+// never a stale mix of the two sides.
 //
 // The import claim takes precedence over an active export: a model with both
 // is in an inconsistent state, and IMPORT is non-terminal, so consumers that
 // gate work on the phase stay frozen.
-func (s *State) GetMigrationPhase(ctx context.Context, modelUUID string) (migration.Phase, error) {
+func (s *State) GetMigrationPhase(ctx context.Context, modelUUID string) (string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
-		return migration.UNKNOWN, errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	mUUID := modelUUIDArg{ModelUUID: modelUUID}
@@ -1035,7 +1036,7 @@ FROM   model_migration_import
 WHERE  model_uuid = $modelUUIDArg.model_uuid
 `, mUUID, countResult{})
 	if err != nil {
-		return migration.UNKNOWN, errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 	exportStmt, err := s.Prepare(`
 SELECT &currentPhase.current_phase_id
@@ -1047,23 +1048,23 @@ AND    current_phase_id NOT IN (
        $terminalPhaseIDArgs.abort_done_id)
 `, mUUID, terminalIDs, currentPhase{})
 	if err != nil {
-		return migration.UNKNOWN, errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
-	var phase migration.Phase
+	var phase string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var importCount countResult
 		if err := tx.Query(ctx, importStmt, mUUID).Get(&importCount); err != nil {
 			return errors.Errorf("counting import claims for model %q: %w", modelUUID, err)
 		}
 		if importCount.Count > 0 {
-			phase = migration.IMPORT
+			phase = migration.IMPORT.String()
 			return nil
 		}
 		var current currentPhase
 		err := tx.Query(ctx, exportStmt, mUUID, terminalIDs).Get(&current)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			phase = migration.NONE
+			phase = migration.NONE.String()
 			return nil
 		} else if err != nil {
 			return errors.Errorf("reading active export phase for model %q: %w", modelUUID, err)
@@ -1072,11 +1073,11 @@ AND    current_phase_id NOT IN (
 		if err != nil {
 			return errors.Errorf("translating export phase for model %q: %w", modelUUID, err)
 		}
-		phase = exportPhase
+		phase = exportPhase.String()
 		return nil
 	})
 	if err != nil {
-		return migration.UNKNOWN, errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 	return phase, nil
 }

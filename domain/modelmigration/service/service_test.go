@@ -434,7 +434,7 @@ func (s *serviceSuite) TestMigrationPhaseImportClaimReportsImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
-		migration.IMPORT, nil)
+		migration.IMPORT.String(), nil)
 
 	phase, err := s.service(c).MigrationPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -450,7 +450,7 @@ func (s *serviceSuite) TestMigrationPhaseExportReportsExportPhase(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
-		migration.QUIESCE, nil)
+		migration.QUIESCE.String(), nil)
 
 	phase, err := s.service(c).MigrationPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -463,12 +463,25 @@ func (s *serviceSuite) TestMigrationPhaseIdleReportsNone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
-		migration.NONE, nil)
+		migration.NONE.String(), nil)
 
 	phase, err := s.service(c).MigrationPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(phase, tc.Equals, migration.NONE)
 	c.Check(phase.IsTerminal(), tc.IsTrue)
+}
+
+// TestMigrationPhaseUnparsableErrors asserts a phase name from state that does
+// not parse is an error with the UNKNOWN phase, not silently a wrong answer.
+func (s *serviceSuite) TestMigrationPhaseUnparsableErrors(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		"NOTAPHASE", nil)
+
+	phase, err := s.service(c).MigrationPhase(c.Context())
+	c.Check(err, tc.ErrorMatches, `unknown migration phase "NOTAPHASE"`)
+	c.Check(phase, tc.Equals, migration.UNKNOWN)
 }
 
 // TestMigrationPhaseErrorPropagates asserts a state error surfaces with the
@@ -477,7 +490,7 @@ func (s *serviceSuite) TestMigrationPhaseErrorPropagates(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
-		migration.UNKNOWN, errors.New("boom"))
+		"", errors.New("boom"))
 
 	_, err := s.service(c).MigrationPhase(c.Context())
 	c.Check(err, tc.ErrorMatches, "boom")
