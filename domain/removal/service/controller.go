@@ -31,10 +31,12 @@ type ControllerState interface {
 	// GetModelUUIDs retrieves the UUIDs of all models in the controller.
 	GetModelUUIDs(ctx context.Context) ([]string, error)
 
-	// EnsureModelNotAlive ensures that there is no model identified
-	// by the input model UUID, that is still alive. This does not cascade
-	// all entities associated with the model will still be alive.
-	EnsureModelNotAlive(ctx context.Context, modelUUID string, force bool) error
+	// EnsureModelNotAliveUnlessMigrating ensures that there is no model
+	// identified by the input model UUID, that is still alive. This does not
+	// cascade all entities associated with the model will still be alive.
+	// It refuses to begin the removal of a model that holds a migration
+	// import claim.
+	EnsureModelNotAliveUnlessMigrating(ctx context.Context, modelUUID string, force bool) error
 
 	// MarkModelAsDead marks the model with the input UUID as dead.
 	MarkModelAsDead(ctx context.Context, modelUUID string) error
@@ -117,7 +119,7 @@ func (s *Service) removeControllerModel(
 
 	// If the model doesn't exist we can still run this, it just will be a
 	// no-op.
-	if err := s.controllerState.EnsureModelNotAlive(ctx, s.modelUUID.String(), force); err != nil {
+	if err := s.controllerState.EnsureModelNotAliveUnlessMigrating(ctx, s.modelUUID.String(), force); err != nil {
 		return "", errors.Errorf("ensuring controller model %q is not alive: %w", s.modelUUID, err)
 	}
 

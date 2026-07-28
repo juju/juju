@@ -32,18 +32,18 @@ type MockControllerDBState struct {
 
 // MockControllerDBStateMockRecorder is the mock recorder for MockControllerDBState.
 type MockControllerDBStateMockRecorder struct {
-	mock                                *MockControllerDBState
-	deleteModelExpects                  []*gomock.Call2_1[context.Context, string, error]
-	deleteOfferAccessExpects            []*gomock.Call2_1[context.Context, string, error]
-	ensureModelNotAliveExpects          []*gomock.Call3_1[context.Context, string, bool, error]
-	getActiveModelSecretBackendExpects  []*gomock.Call2_3[context.Context, string, string, *provider.ModelBackendConfig, error]
-	getModelLifeExpects                 []*gomock.Call2_2[context.Context, string, life.Life, error]
-	getModelUUIDsExpects                []*gomock.Call1_2[context.Context, []string, error]
-	isMigratingModelExpects             []*gomock.Call2_2[context.Context, string, bool, error]
-	markMigratingModelAsDeadExpects     []*gomock.Call2_1[context.Context, string, error]
-	markModelAsDeadExpects              []*gomock.Call2_1[context.Context, string, error]
-	modelExistsExpects                  []*gomock.Call2_2[context.Context, string, bool, error]
-	removeSecretBackendReferenceExpects []*gomock.Call1V_1[context.Context, string, error]
+	mock                                      *MockControllerDBState
+	deleteModelExpects                        []*gomock.Call2_1[context.Context, string, error]
+	deleteOfferAccessExpects                  []*gomock.Call2_1[context.Context, string, error]
+	ensureModelNotAliveUnlessMigratingExpects []*gomock.Call3_1[context.Context, string, bool, error]
+	getActiveModelSecretBackendExpects        []*gomock.Call2_3[context.Context, string, string, *provider.ModelBackendConfig, error]
+	getModelLifeExpects                       []*gomock.Call2_2[context.Context, string, life.Life, error]
+	getModelUUIDsExpects                      []*gomock.Call1_2[context.Context, []string, error]
+	isMigratingModelExpects                   []*gomock.Call2_2[context.Context, string, bool, error]
+	markMigratingModelAsDeadExpects           []*gomock.Call2_1[context.Context, string, error]
+	markModelAsDeadExpects                    []*gomock.Call2_1[context.Context, string, error]
+	modelExistsExpects                        []*gomock.Call2_2[context.Context, string, bool, error]
+	removeSecretBackendReferenceExpects       []*gomock.Call1V_1[context.Context, string, error]
 }
 
 // NewMockControllerDBState creates a new mock instance.
@@ -94,23 +94,23 @@ func (mr *MockControllerDBStateMockRecorder) DeleteOfferAccess(ctx, offerUUID an
 // MockControllerDBStateDeleteOfferAccessCall is the typed call wrapper for DeleteOfferAccess.
 type MockControllerDBStateDeleteOfferAccessCall = gomock.Call2_1[context.Context, string, error]
 
-// EnsureModelNotAlive mocks base method.
-func (m *MockControllerDBState) EnsureModelNotAlive(ctx context.Context, modelUUID string, force bool) error {
+// EnsureModelNotAliveUnlessMigrating mocks base method.
+func (m *MockControllerDBState) EnsureModelNotAliveUnlessMigrating(ctx context.Context, modelUUID string, force bool) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.ensureModelNotAliveExpects, m.ctrl, m, "EnsureModelNotAlive", ctx, modelUUID, force)
+	return gomock.Dispatch3_1(&m.recorder.ensureModelNotAliveUnlessMigratingExpects, m.ctrl, m, "EnsureModelNotAliveUnlessMigrating", ctx, modelUUID, force)
 }
 
-// EnsureModelNotAlive indicates an expected call of EnsureModelNotAlive.
-func (mr *MockControllerDBStateMockRecorder) EnsureModelNotAlive(ctx, modelUUID, force any) *MockControllerDBStateEnsureModelNotAliveCall {
+// EnsureModelNotAliveUnlessMigrating indicates an expected call of EnsureModelNotAliveUnlessMigrating.
+func (mr *MockControllerDBStateMockRecorder) EnsureModelNotAliveUnlessMigrating(ctx, modelUUID, force any) *MockControllerDBStateEnsureModelNotAliveUnlessMigratingCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "EnsureModelNotAlive", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(force))
-	mr.ensureModelNotAliveExpects = append(mr.ensureModelNotAliveExpects, call)
+	call := gomock.NewCall3_1[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "EnsureModelNotAliveUnlessMigrating", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(force))
+	mr.ensureModelNotAliveUnlessMigratingExpects = append(mr.ensureModelNotAliveUnlessMigratingExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockControllerDBStateEnsureModelNotAliveCall is the typed call wrapper for EnsureModelNotAlive.
-type MockControllerDBStateEnsureModelNotAliveCall = gomock.Call3_1[context.Context, string, bool, error]
+// MockControllerDBStateEnsureModelNotAliveUnlessMigratingCall is the typed call wrapper for EnsureModelNotAliveUnlessMigrating.
+type MockControllerDBStateEnsureModelNotAliveUnlessMigratingCall = gomock.Call3_1[context.Context, string, bool, error]
 
 // GetActiveModelSecretBackend mocks base method.
 func (m *MockControllerDBState) GetActiveModelSecretBackend(ctx context.Context, modelUUID string) (string, *provider.ModelBackendConfig, error) {

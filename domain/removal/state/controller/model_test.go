@@ -83,25 +83,25 @@ VALUES ('foo', ?, 'source-migration-uuid')`, modelUUID)
 	c.Check(isMigrating, tc.IsTrue)
 }
 
-func (s *modelSuite) TestEnsureModelNotAlive(c *tc.C) {
+func (s *modelSuite) TestEnsureModelNotAliveUnlessMigrating(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	modelUUID := s.getModelUUID(c)
 
-	err := st.EnsureModelNotAlive(c.Context(), modelUUID, false)
+	err := st.EnsureModelNotAliveUnlessMigrating(c.Context(), modelUUID, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkModelLife(c, modelUUID, life.Dying)
 }
 
-// TestEnsureModelNotAliveRefusesMigratingModel asserts that generic removal
-// cannot begin on a model holding a migration import claim.
+// TestEnsureModelNotAliveUnlessMigratingRefusesMigratingModel asserts that
+// generic removal cannot begin on a model holding a migration import claim.
 //
 // Such a model is mid-import. Marking it dying here would let the undertaker
 // drop the model database underneath the writes still arriving, and would skip
 // the claim protocol that proves the database is actually gone before the model
 // UUID is released. Tearing down a migrating model is the abort path's job.
-func (s *modelSuite) TestEnsureModelNotAliveRefusesMigratingModel(c *tc.C) {
+func (s *modelSuite) TestEnsureModelNotAliveUnlessMigratingRefusesMigratingModel(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	modelUUID := s.getModelUUID(c)
@@ -117,7 +117,7 @@ VALUES ('claim-uuid', ?, 'source-migration-uuid')`, modelUUID)
 	// Force is not an escape hatch: the objection is about who owns the
 	// teardown, not about the model's contents.
 	for _, force := range []bool{false, true} {
-		err := st.EnsureModelNotAlive(c.Context(), modelUUID, force)
+		err := st.EnsureModelNotAliveUnlessMigrating(c.Context(), modelUUID, force)
 		c.Check(err, tc.ErrorIs, removalerrors.MigrationImportActive)
 		s.checkModelLife(c, modelUUID, life.Alive)
 	}

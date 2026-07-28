@@ -164,7 +164,7 @@ func (s *Service) removeModel(
 
 	// If the model doesn't exist we can still run this, it just will be a
 	// no-op.
-	if err := s.controllerState.EnsureModelNotAlive(ctx, modelUUID.String(), force); err != nil {
+	if err := s.controllerState.EnsureModelNotAliveUnlessMigrating(ctx, modelUUID.String(), force); err != nil {
 		return "", errors.Errorf("ensuring model %q is not alive: %w", modelUUID, err)
 	}
 
