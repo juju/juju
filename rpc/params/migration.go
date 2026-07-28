@@ -315,7 +315,7 @@ type SecretBackendReference struct {
 // Lease is a model-scoped application-leadership lease. Only the application
 // and its leader travel; the target claims a fresh lease on import, so Start
 // and Expiry are not honoured. Singular-controller leases and lease pins do
-// not travel (see spec §6.2 row 25).
+// not travel.
 type Lease struct {
 	// Type is "application-leadership".
 	Type string `json:"type"`

@@ -24,6 +24,12 @@ type modelUUIDArg struct {
 	ModelUUID string `db:"model_uuid"`
 }
 
+// modelLifeRow projects a model row's life id (see
+// [github.com/juju/juju/domain/life]).
+type modelLifeRow struct {
+	LifeID int `db:"life_id"`
+}
+
 // migrationUUIDArg is a query argument holding a migration uuid (the export
 // migration's primary key, referenced as migration_uuid by child tables).
 type migrationUUIDArg struct {
@@ -137,6 +143,17 @@ type addressValue struct {
 // countResult holds a COUNT(*) projection.
 type countResult struct {
 	Count int `db:"count"`
+}
+
+// abortFinalizeChecks projects the three existence predicates
+// FinalizeAbortedImport asserts in a single round trip before releasing an
+// aborted import claim: the controller model identity row, its
+// model_namespace mapping, and any still-staged model_database_deletion for
+// the model's namespace.
+type abortFinalizeChecks struct {
+	ModelExists     bool `db:"model_exists"`
+	NamespaceExists bool `db:"namespace_exists"`
+	DeletionStaged  bool `db:"deletion_staged"`
 }
 
 // cloudImageRow is a custom cloud_image_metadata row with its architecture
@@ -359,6 +376,23 @@ type importClaimArg struct {
 // transaction.
 type importPhaseRow struct {
 	PhaseType string `db:"phase_type"`
+}
+
+// importClaimStatusRow maps a full model_migration_import row (including its
+// model UUID) joined to its phase type, for the abort reconciler's scan of all
+// outstanding claims. UpdatedAt is read as text and canonicalised to RFC3339
+// via strftime, as for importClaimRow.
+type importClaimStatusRow struct {
+	ModelUUID           string `db:"model_uuid"`
+	SourceMigrationUUID string `db:"source_migration_uuid"`
+	PhaseType           string `db:"phase_type"`
+	UpdatedAt           string `db:"updated_at"`
+}
+
+// namespaceArg binds a dqlite namespace name (a model UUID) for existence
+// reads against namespace_list.
+type namespaceArg struct {
+	Namespace string `db:"namespace"`
 }
 
 // importPhaseNames binds the source and target phase names of a claim phase

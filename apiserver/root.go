@@ -893,6 +893,7 @@ func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
 	return migration.NewModelImporter(
 		ctx.migrationScope,
 		ctx.r.domainServicesGetter,
+		ctx.r.domainServices,
 		ctx.ControllerUUID(),
 		ctx.Logger(),
 		ctx.r.clock,

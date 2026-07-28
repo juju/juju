@@ -49,7 +49,7 @@ func (s *ExportImportSuite) exportImport(c *tc.C, leaders map[string]string) {
 		return modelmigration.NewScope(nil, nil, nil, nil, tc.Must0(c, model.NewUUID))
 	}
 	importer := migration.NewModelImporter(
-		scope, s.domainServicesGetter,
+		scope, s.domainServicesGetter, nil,
 		"controller-uuid",
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,

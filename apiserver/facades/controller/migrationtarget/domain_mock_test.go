@@ -228,6 +228,7 @@ type MockModelImporter struct {
 // MockModelImporterMockRecorder is the mock recorder for MockModelImporter.
 type MockModelImporterMockRecorder struct {
 	mock                     *MockModelImporter
+	abortModelExpects        []*gomock.Call2_1[context.Context, model.UUID, error]
 	activateModelExpects     []*gomock.Call2_1[context.Context, migration.ActivateModelArgs, error]
 	importModelExpects       []*gomock.Call3_1[context.Context, migration.ImportModelArgs, export.ProjectionView, error]
 	importModelLegacyExpects []*gomock.Call2_1[context.Context, []byte, error]
@@ -244,6 +245,24 @@ func NewMockModelImporter(ctrl *gomock.Controller) *MockModelImporter {
 func (m *MockModelImporter) EXPECT() *MockModelImporterMockRecorder {
 	return m.recorder
 }
+
+// AbortModel mocks base method.
+func (m *MockModelImporter) AbortModel(ctx context.Context, modelUUID model.UUID) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.abortModelExpects, m.ctrl, m, "AbortModel", ctx, modelUUID)
+}
+
+// AbortModel indicates an expected call of AbortModel.
+func (mr *MockModelImporterMockRecorder) AbortModel(ctx, modelUUID any) *MockModelImporterAbortModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, model.UUID, error](mr.mock.ctrl.T, mr.mock, "AbortModel", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.abortModelExpects = append(mr.abortModelExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelImporterAbortModelCall is the typed call wrapper for AbortModel.
+type MockModelImporterAbortModelCall = gomock.Call2_1[context.Context, model.UUID, error]
 
 // ActivateModel mocks base method.
 func (m *MockModelImporter) ActivateModel(ctx context.Context, args migration.ActivateModelArgs) error {

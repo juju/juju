@@ -78,6 +78,16 @@ type Service struct {
 // WatcherFactory describes methods for creating watchers used by the
 // [Service].
 type WatcherFactory interface {
+	// NewNamespaceWatcher returns a watcher that emits the initial collection
+	// members followed by changed identifiers in the input namespace.
+	NewNamespaceWatcher(
+		ctx context.Context,
+		initialQuery eventsource.NamespaceQuery,
+		summary string,
+		filterOption eventsource.FilterOption,
+		filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
+
 	// NewNotifyWatcher returns a new watcher that filters changes from the
 	// input base watcher's db/queue. A single filter option is required,
 	// though additional filter options can be provided.
@@ -92,6 +102,10 @@ type WatcherFactory interface {
 // ControllerState defines the interface required for accessing the underlying
 // state of the model during migration.
 type ControllerState interface {
+	// InitialWatchImportClaimsStatement returns the changestream namespace and
+	// initial query for target-side import claims, keyed by model UUID.
+	InitialWatchImportClaimsStatement() (string, string)
+
 	// NamespaceForWatchExport returns the changestream namespace for export
 	// migration start/end changes keyed by model UUID.
 	NamespaceForWatchExport() string
@@ -103,6 +117,11 @@ type ControllerState interface {
 	// NamespaceForWatchMinionSync returns the changestream namespace for minion
 	// sync report changes keyed by migration UUID.
 	NamespaceForWatchMinionSync() string
+
+	// NamespaceForWatchModelDatabaseDeletion returns the changestream namespace
+	// for staged model-database deletion changes, keyed by the model's namespace
+	// (its UUID).
+	NamespaceForWatchModelDatabaseDeletion() string
 
 	// InsertExport records a new export migration attempt for a model,
 	// returning [modelmigrationerrors.ErrMigrationAlreadyActive] if the model already
@@ -260,6 +279,40 @@ type ControllerState interface {
 	// deletion, completes the redirect, marks the export DONE, and scrubs
 	// target auth. It fails unless the export is still in phase REAP.
 	CompleteModelRedirectAndPurge(ctx context.Context, migrationUUID, modelUUID string) error
+
+	// SetImportPhaseAborting transitions the model's import claim from the
+	// importing phase to the aborting phase. It is idempotent when the claim is
+	// already aborting and returns
+	// [modelmigrationerrors.ErrAbortActivating] when the claim is activating.
+	SetImportPhaseAborting(ctx context.Context, modelUUID string) error
+
+	// FinalizeAbortedImport deletes the model's import claim, its FK-dependent
+	// companion rows, and its namespace registration once abort cleanup is
+	// provably complete, asserting the claim is aborting and the controller
+	// model identity and namespace mapping are both gone. It returns
+	// [modelmigrationerrors.ErrAbortNotFinalizable] when cleanup is not yet
+	// provable, and is idempotent when no claim exists.
+	FinalizeAbortedImport(ctx context.Context, modelUUID string) error
+
+	// IsModelDying reports whether the model row exists and has left the alive
+	// state (dying or dead), indicating the generic removal undertaker has taken
+	// over teardown after a v7/legacy abort. A missing model row reports false.
+	IsModelDying(ctx context.Context, modelUUID string) (bool, error)
+
+	// GetAllImportClaims returns a snapshot of every outstanding
+	// model_migration_import claim, used by the abort reconciler.
+	GetAllImportClaims(ctx context.Context) ([]modelmigration.ImportClaimStatus, error)
+
+	// IsImportNamespaceRegistered reports whether the model's dqlite namespace
+	// is still registered, i.e. whether the model database may still need
+	// dropping before abort finalization.
+	IsImportNamespaceRegistered(ctx context.Context, modelUUID string) (bool, error)
+
+	// StageAbortedModelDatabaseDeletion removes the aborted model's namespace
+	// registration and stages its dqlite database for deletion by the
+	// undertaker's model-database deleter. It asserts the claim is aborting and
+	// is idempotent.
+	StageAbortedModelDatabaseDeletion(ctx context.Context, modelUUID string) error
 }
 
 // ModelState defines the interface required for accessing the underlying state
@@ -301,6 +354,29 @@ func NewImportService(controllerState ControllerState, logger logger.Logger) *Se
 	return &Service{
 		controllerState: controllerState,
 		logger:          logger,
+	}
+}
+
+// WatchableService is a controller-scoped import [Service] extended with the
+// watchers the migration reconciler needs. It composes the base [Service] so
+// the non-watching claim methods (scan, finalize, ...) are shared, and adds the
+// changestream-backed watcher support on top.
+type WatchableService struct {
+	*Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableImportService constructs a controller-scoped import service with
+// watcher support for the migration reconciler. The regular import path does
+// not need a changestream dependency and continues to use [NewImportService].
+func NewWatchableImportService(
+	controllerState ControllerState,
+	watcherFactory WatcherFactory,
+	logger logger.Logger,
+) *WatchableService {
+	return &WatchableService{
+		Service:        NewImportService(controllerState, logger),
+		watcherFactory: watcherFactory,
 	}
 }
 

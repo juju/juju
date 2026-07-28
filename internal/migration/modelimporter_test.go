@@ -12,21 +12,17 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/cloud"
 	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
-	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
-	accessstate "github.com/juju/juju/domain/access/state"
-	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	"github.com/juju/juju/domain/export"
 	"github.com/juju/juju/domain/export/types/latest"
 	v4_1_0 "github.com/juju/juju/domain/export/types/v4_1_0"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
 	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
-	schematesting "github.com/juju/juju/domain/schema/testing"
+	domainservicestesting "github.com/juju/juju/domain/services/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/uuid"
@@ -36,11 +32,14 @@ import (
 // public method the migrationtarget facade calls. The orchestration itself is
 // covered in this package's direct ImportControllerModelInfo tests; this only
 // proves the delegator resolves the migration scope for the model UUID and
-// wires it through correctly.
+// wires it through correctly, and that it activates the imported model so it is
+// connectable during the source VALIDATION phase.
+//
+// It embeds DomainServicesSuite (rather than a bare schema suite) because
+// ImportModel now resolves real domain services for the model to flip
+// model.activated at the end of the import.
 type modelImporterSuite struct {
-	schematesting.ControllerModelSuite
-
-	cloudName string
+	domainservicestesting.DomainServicesSuite
 }
 
 func TestModelImporterSuite(t *testing.T) {
@@ -48,25 +47,9 @@ func TestModelImporterSuite(t *testing.T) {
 }
 
 func (s *modelImporterSuite) SetUpTest(c *tc.C) {
-	s.ControllerSuite.SetUpTest(c)
-
-	controllerModelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "controller")
-	s.SeedControllerTable(c, controllerModelUUID)
-
-	adminUserUUID := tc.Must(c, coreuser.NewUUID)
-	accessState := accessstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	err := accessState.AddUser(c.Context(), adminUserUUID, coreuser.AdminUserName, coreuser.AdminUserName.Name(), false, adminUserUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.cloudName = "test-cloud"
-	fn := cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
-		Name:      s.cloudName,
-		Type:      "ec2",
-		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType},
-	})
-	err = fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, tc.ErrorIsNil)
-
+	// DomainServicesSuite seeds the controller row, admin user, and
+	// cloud+credential (as s.CloudName), and provisions the model databases.
+	s.DomainServicesSuite.SetUpTest(c)
 	modeltesting.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 }
 
@@ -81,7 +64,7 @@ func (s *modelImporterSuite) TestImportModel(c *tc.C) {
 	scope := func(coremodel.UUID) coremodelmigration.Scope {
 		return coremodelmigration.NewScope(controllerFactory, modelFactory, nil, nil, modelUUID)
 	}
-	importer := migration.NewModelImporter(scope, nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
+	importer := migration.NewModelImporter(scope, s.ModelDomainServicesGetter(c), nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
 
 	importArgs := migration.ImportModelArgs{
 		SourceMigrationUUID: uuid.MustNewUUID().String(),
@@ -91,7 +74,7 @@ func (s *modelImporterSuite) TestImportModel(c *tc.C) {
 				Name:      "imported-model",
 				Qualifier: "prod",
 				Type:      "iaas",
-				Cloud:     s.cloudName,
+				Cloud:     s.CloudName,
 				Life:      "alive",
 			},
 		},
@@ -101,7 +84,17 @@ func (s *modelImporterSuite) TestImportModel(c *tc.C) {
 	err := importer.ImportModel(c.Context(), importArgs, view)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// The claim landed against the same controller DB the scope resolved to.
+	// The model is activated by the import so the migrating model's agents can
+	// connect to it during VALIDATION. CheckModelExists reads v_model, which
+	// only lists activated models, so a true result proves activation.
+	exists, err := s.ControllerDomainServices(c).Model().CheckModelExists(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsTrue)
+
+	// The import claim is still present and importing: activation of the model
+	// row must not have deleted the claim (that happens only in the target
+	// Activate call). It landed against the same controller DB the scope
+	// resolved to.
 	claimSt := migrationclaimstate.New(controllerFactory, clock.WallClock)
 	claim, err := claimSt.GetImportClaim(c.Context(), modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -133,7 +126,7 @@ func (s *modelImporterSuite) TestImportModelNoSecretBackendRewriteRows(c *tc.C) 
 	scope := func(coremodel.UUID) coremodelmigration.Scope {
 		return coremodelmigration.NewScope(controllerFactory, modelFactory, nil, nil, modelUUID)
 	}
-	importer := migration.NewModelImporter(scope, nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
+	importer := migration.NewModelImporter(scope, s.ModelDomainServicesGetter(c), nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
 
 	importArgs := migration.ImportModelArgs{
 		SourceMigrationUUID: uuid.MustNewUUID().String(),
@@ -143,7 +136,7 @@ func (s *modelImporterSuite) TestImportModelNoSecretBackendRewriteRows(c *tc.C) 
 				Name:      "imported-model",
 				Qualifier: "prod",
 				Type:      "iaas",
-				Cloud:     s.cloudName,
+				Cloud:     s.CloudName,
 				Life:      "alive",
 			},
 		},
@@ -230,7 +223,7 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewrite(c *tc.C) {
 	scope := func(coremodel.UUID) coremodelmigration.Scope {
 		return coremodelmigration.NewScope(controllerFactory, modelFactory, nil, nil, modelUUID)
 	}
-	importer := migration.NewModelImporter(scope, nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
+	importer := migration.NewModelImporter(scope, s.ModelDomainServicesGetter(c), nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
 
 	importArgs := migration.ImportModelArgs{
 		SourceMigrationUUID: uuid.MustNewUUID().String(),
@@ -240,7 +233,7 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewrite(c *tc.C) {
 				Name:      "imported-model",
 				Qualifier: "prod",
 				Type:      "iaas",
-				Cloud:     s.cloudName,
+				Cloud:     s.CloudName,
 				Life:      "alive",
 			},
 			SecretBackendRefs: []coremodelmigration.SecretBackendReference{
@@ -319,7 +312,7 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewriteMissingRef(c *tc
 	scope := func(coremodel.UUID) coremodelmigration.Scope {
 		return coremodelmigration.NewScope(controllerFactory, modelFactory, nil, nil, modelUUID)
 	}
-	importer := migration.NewModelImporter(scope, nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
+	importer := migration.NewModelImporter(scope, s.ModelDomainServicesGetter(c), nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
 
 	importArgs := migration.ImportModelArgs{
 		SourceMigrationUUID: uuid.MustNewUUID().String(),
@@ -329,7 +322,7 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewriteMissingRef(c *tc
 				Name:      "imported-model",
 				Qualifier: "prod",
 				Type:      "iaas",
-				Cloud:     s.cloudName,
+				Cloud:     s.CloudName,
 				Life:      "alive",
 			},
 			// Deliberately omit SecretBackendRefs — the revision has no mapping.
@@ -387,7 +380,7 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewriteMissingBackend(c
 	scope := func(coremodel.UUID) coremodelmigration.Scope {
 		return coremodelmigration.NewScope(controllerFactory, modelFactory, nil, nil, modelUUID)
 	}
-	importer := migration.NewModelImporter(scope, nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
+	importer := migration.NewModelImporter(scope, s.ModelDomainServicesGetter(c), nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
 
 	importArgs := migration.ImportModelArgs{
 		SourceMigrationUUID: uuid.MustNewUUID().String(),
@@ -397,7 +390,7 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewriteMissingBackend(c
 				Name:      "imported-model",
 				Qualifier: "prod",
 				Type:      "iaas",
-				Cloud:     s.cloudName,
+				Cloud:     s.CloudName,
 				Life:      "alive",
 			},
 			SecretBackendRefs: []coremodelmigration.SecretBackendReference{{

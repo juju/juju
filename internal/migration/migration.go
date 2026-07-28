@@ -21,6 +21,7 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/export"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelimport"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -46,6 +47,12 @@ type ConfigSchemaSourceProvider = func(environs.CloudService) config.ConfigSchem
 type ModelImporter struct {
 	domainServices services.DomainServicesGetter
 
+	// controllerServices provides the controller-scoped import claim service
+	// (with its watcher) used by the abort path. It is resolved directly rather
+	// than via domainServices.ServicesForModel because abort runs after the
+	// model namespace may have been removed, which would fail model resolution.
+	controllerServices services.ControllerDomainServices
+
 	controllerUUID string
 	scope          modelmigration.ScopeForModel
 	logger         corelogger.Logger
@@ -58,16 +65,18 @@ type ModelImporter struct {
 func NewModelImporter(
 	scope modelmigration.ScopeForModel,
 	domainServices services.DomainServicesGetter,
+	controllerServices services.ControllerDomainServices,
 	controllerUUID string,
 	logger corelogger.Logger,
 	clock clock.Clock,
 ) *ModelImporter {
 	return &ModelImporter{
-		scope:          scope,
-		controllerUUID: controllerUUID,
-		domainServices: domainServices,
-		logger:         logger,
-		clock:          clock,
+		scope:              scope,
+		controllerUUID:     controllerUUID,
+		domainServices:     domainServices,
+		controllerServices: controllerServices,
+		logger:             logger,
+		clock:              clock,
 	}
 }
 
@@ -91,6 +100,40 @@ func (i *ModelImporter) ActivateModel(ctx context.Context, args ActivateModelArg
 		)
 	}
 	return activateModel(ctx, domainServices, args)
+}
+
+// AbortModel drives target-side cleanup of a partially imported v8 model. It
+// resolves the controller-database scope for the model UUID and delegates to
+// [AbortModelImport], then blocks (via [WaitAbortFinalized]) until the model
+// database has been dropped and the import claim released, so the model UUID is
+// free when this returns and an immediate re-migration succeeds. The model
+// database is never opened during abort, so no model-DB scope is needed.
+//
+// The controller-scoped modelmigration import service comes from the controller
+// domain services rather than ServicesForModel: the abort path only uses
+// controller-DB state (import claims, namespace registrations, staged
+// deletions), and a re-invocation after a prior partial abort may have already
+// removed the model namespace, which would make ServicesForModel fail.
+//
+// If the claim cannot be finalized within the wait budget the abort is still
+// accepted: the claim stays in the aborting phase and the abort reconciler
+// completes it later.
+//
+// It returns an error wrapping
+// [github.com/juju/juju/domain/modelmigration/errors.ErrAbortActivating] when
+// activation has already crossed the point of no return.
+func (i *ModelImporter) AbortModel(ctx context.Context, modelUUID coremodel.UUID) error {
+	scope := i.scope(modelUUID)
+	deps := Deps{
+		ControllerDB: scope.ControllerDB(),
+		Clock:        i.clock,
+		Logger:       i.logger,
+	}
+	claim := i.controllerServices.ModelMigrationImport()
+	if err := AbortModelImport(ctx, deps, claim.Service, modelUUID); err != nil {
+		return err
+	}
+	return WaitAbortFinalized(ctx, deps, claim, modelUUID, DefaultAbortFinalizeWait)
 }
 
 // ImportModel applies a v8 import's controller-scoped semantic data to the
@@ -122,25 +165,39 @@ func (i *ModelImporter) ImportModel(
 		return internalerrors.Capture(err)
 	}
 
-	if args.ModelDBPayload == nil {
-		return nil
+	if args.ModelDBPayload != nil {
+		// Now that the controller data is applied, rewrite the model-DB payload's
+		// live secret value ref backend UUIDs from the source controller's to the
+		// target's (matched by name) before the insert. An unmapped live revision
+		// is a hard error; no model-DB rows are written.
+		if err := reconcileSecretBackendUUIDs(ctx, deps, args.ControllerModelInfo, args.ModelDBPayload); err != nil {
+			return internalerrors.Errorf(
+				"rewriting secret backend UUIDs for model %q: %w", modelUUID, err)
+		}
+
+		// Model-DB import: insert the transformed, target-version payload into the
+		// model DB. The importer is constructed per import because it binds to the
+		// model DB resolved from the scope for this model UUID (the ModelImporter
+		// itself is not bound to a single model).
+		if err := modelimport.NewImporter(scope.ModelDB()).Import(ctx, args.ModelDBPayload); err != nil {
+			return internalerrors.Errorf("model-DB import for model %q: %w", modelUUID, err)
+		}
 	}
 
-	// Now that the controller data is applied, rewrite the model-DB payload's
-	// live secret value ref backend UUIDs from the source controller's to the
-	// target's (matched by name) before the insert. An unmapped live revision
-	// is a hard error; no model-DB rows are written.
-	if err := reconcileSecretBackendUUIDs(ctx, deps, args.ControllerModelInfo, args.ModelDBPayload); err != nil {
-		return internalerrors.Errorf(
-			"rewriting secret backend UUIDs for model %q: %w", modelUUID, err)
+	// Activate the imported model so it is visible in v_model and connectable by
+	// the migrating model's agents during the source VALIDATION phase. The model
+	// stays gated by the model_migrating flag and the importing import claim until
+	// the target Activate call clears them; activation here only flips
+	// model.activated, mirroring the legacy importModelActivatorOperation. This is
+	// idempotent: a retried import (or the later Activate) tolerates
+	// AlreadyActivated.
+	modelDomainServices, err := i.domainServices.ServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return internalerrors.Errorf("retrieving domain services for model %q: %w", modelUUID, err)
 	}
-
-	// Model-DB import: insert the transformed, target-version payload into the
-	// model DB. The importer is constructed per import because it binds to the
-	// model DB resolved from the scope for this model UUID (the ModelImporter
-	// itself is not bound to a single model).
-	if err := modelimport.NewImporter(scope.ModelDB()).Import(ctx, args.ModelDBPayload); err != nil {
-		return internalerrors.Errorf("model-DB import for model %q: %w", modelUUID, err)
+	if err := modelDomainServices.Model().ActivateModel(ctx, modelUUID); err != nil &&
+		!internalerrors.Is(err, modelerrors.AlreadyActivated) {
+		return internalerrors.Errorf("activating imported model %q: %w", modelUUID, err)
 	}
 	return nil
 }

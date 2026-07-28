@@ -601,6 +601,44 @@ func (s *v8Suite) TestActivatePropagatesActivateModelError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
+// TestAbortDelegatesToAbortModel verifies the v8 Abort parses the model tag and
+// delegates to the model importer's AbortModel (not the v7 RemoveMigratingModel
+// path).
+func (s *v8Suite) TestAbortDelegatesToAbortModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := model.UUID(uuid.MustNewUUID().String())
+	s.modelImporter.EXPECT().AbortModel(gomock.Any(), modelUUID).Return(nil)
+
+	err := s.mustNewAPIV8(c).Abort(c.Context(), params.ModelArgs{
+		ModelTag: names.NewModelTag(modelUUID.String()).String(),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestAbortPropagatesAbortModelError verifies an error from AbortModel (such as
+// an activation-in-progress conflict) is returned rather than swallowed.
+func (s *v8Suite) TestAbortPropagatesAbortModelError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelImporter.EXPECT().AbortModel(gomock.Any(), gomock.Any()).
+		Return(errors.Errorf("boom"))
+
+	err := s.mustNewAPIV8(c).Abort(c.Context(), params.ModelArgs{
+		ModelTag: names.NewModelTag(uuid.MustNewUUID().String()).String(),
+	})
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+// TestAbortInvalidModelTag verifies a malformed model tag is rejected before any
+// delegation to the model importer.
+func (s *v8Suite) TestAbortInvalidModelTag(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.mustNewAPIV8(c).Abort(c.Context(), params.ModelArgs{ModelTag: "not-a-tag"})
+	c.Assert(err, tc.ErrorMatches, `.*"not-a-tag".*`)
+}
+
 // TestV8Registered asserts MigrationTarget v8 is advertised alongside the
 // legacy versions so the new-path source worker can negotiate it.
 func (s *v8Suite) TestV8Registered(c *tc.C) {
