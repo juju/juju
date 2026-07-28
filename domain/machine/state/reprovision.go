@@ -86,6 +86,15 @@ GROUP BY   m.uuid, m.net_node_uuid, mci.instance_id, m.life_id
 	if err != nil {
 		return errors.Errorf("preparing storage target statements: %w", err)
 	}
+	reprovisionStmt, err := st.Prepare(`
+INSERT INTO machine_reprovision (*)
+VALUES ($machineReprovision.*)
+ON CONFLICT (machine_name) DO UPDATE SET
+    requested_at = excluded.requested_at
+`, machineReprovision{})
+	if err != nil {
+		return errors.Errorf("preparing reprovision statement: %w", err)
+	}
 	storageResetStmts, err := st.prepareReprovisionStorageResetStatements()
 	if err != nil {
 		return errors.Errorf("preparing storage reset statements: %w", err)
@@ -155,6 +164,12 @@ GROUP BY   m.uuid, m.net_node_uuid, mci.instance_id, m.life_id
 		statusValue.StatusID = instanceStatusID
 		if err := tx.Query(ctx, instanceStatusStmt, statusValue).Run(); err != nil {
 			return errors.Errorf("setting reprovisioning instance status: %w", err)
+		}
+		if err := tx.Query(ctx, reprovisionStmt, machineReprovision{
+			MachineName: mName,
+			RequestedAt: updatedAt,
+		}).Run(); err != nil {
+			return errors.Errorf("recording reprovision wake-up: %w", err)
 		}
 		return nil
 	})

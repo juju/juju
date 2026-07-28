@@ -1476,6 +1476,12 @@ func (*State) NamespaceForWatchMachineCloudInstance() string {
 	return "machine_cloud_instance"
 }
 
+// NamespaceForWatchMachineReprovision returns the namespace used to wake the
+// provisioner after a machine is detached for reprovisioning.
+func (*State) NamespaceForWatchMachineReprovision() string {
+	return "machine_reprovision"
+}
+
 // NamespaceForWatchMachineReboot returns the namespace string used for
 // tracking machine reboot events in the model.
 func (*State) NamespaceForWatchMachineReboot() string {

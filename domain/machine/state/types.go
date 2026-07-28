@@ -587,3 +587,8 @@ type reprovisionStorageTargetParams struct {
 	ModelScopeID   int    `db:"model_scope_id"`
 	MachineScopeID int    `db:"machine_scope_id"`
 }
+
+type machineReprovision struct {
+	MachineName string    `db:"machine_name"`
+	RequestedAt time.Time `db:"requested_at"`
+}
