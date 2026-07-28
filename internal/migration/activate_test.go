@@ -82,7 +82,7 @@ func (g activationDomainServicesGetter) ServicesForModel(
 	_ context.Context, modelUUID coremodel.UUID,
 ) (services.DomainServices, error) {
 	return activationDomainServices{
-		modelMigration: modelmigrationservice.NewService(
+		modelMigration: modelmigrationservice.NewWatchableService(
 			migrationclaimstate.New(g.deps.ControllerDB, g.deps.Clock),
 			migrationmodelstate.New(g.deps.ModelDB, modelUUID),
 			modelUUID.String(),
@@ -112,12 +112,12 @@ func (g activationDomainServicesGetter) ServicesForModel(
 type activationDomainServices struct {
 	services.DomainServices
 
-	modelMigration *modelmigrationservice.Service
+	modelMigration *modelmigrationservice.WatchableService
 	model          *modelservice.WatchableService
 	cmr            *crossmodelrelationservice.WatchableService
 }
 
-func (s activationDomainServices) ModelMigration() *modelmigrationservice.Service {
+func (s activationDomainServices) ModelMigration() *modelmigrationservice.WatchableService {
 	return s.modelMigration
 }
 

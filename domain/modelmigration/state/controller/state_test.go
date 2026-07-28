@@ -868,6 +868,52 @@ func (s *stateSuite) TestGetMigrationMode(c *tc.C) {
 	c.Check(mode, tc.Equals, modelmigration.MigrationModeImporting)
 }
 
+// TestGetMigrationPhase asserts the derived phase considers both directions in
+// one read: an import claim reports IMPORT, an active export reports its own
+// phase, neither reports NONE, and a claim takes precedence over an export.
+func (s *stateSuite) TestGetMigrationPhase(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	// No migration: none.
+	phase, err := st.GetMigrationPhase(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.NONE)
+
+	// Active export: its own phase (exports start in QUIESCE).
+	spec := s.newMigrationSpec()
+	err = st.InsertExport(c.Context(), spec)
+	c.Assert(err, tc.ErrorIsNil)
+	phase, err = st.GetMigrationPhase(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.QUIESCE)
+
+	// An import claim takes precedence over the active export: a model with
+	// both is inconsistent, and IMPORT keeps it frozen.
+	_, err = s.DB().ExecContext(c.Context(),
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'src')",
+		uuid.MustNewUUID().String(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	phase, err = st.GetMigrationPhase(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.IMPORT)
+
+	// Ending the export leaves the claim reporting IMPORT.
+	err = st.MarkExportEnded(c.Context(), spec.MigrationUUID, migration.DONE)
+	c.Assert(err, tc.ErrorIsNil)
+	phase, err = st.GetMigrationPhase(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.IMPORT)
+
+	// Deleting the claim - the moment the imported model becomes usable -
+	// reports none.
+	_, err = s.DB().ExecContext(c.Context(),
+		"DELETE FROM model_migration_import WHERE model_uuid = ?", s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	phase, err = st.GetMigrationPhase(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.NONE)
+}
+
 // TestGetControllerModelInfoIdentity verifies that the model bootstrap
 // identity, credential, the seeded admin model permission and the model secret
 // backend are read back in target-portable form for a model created by the

@@ -124,6 +124,11 @@ type ControllerState interface {
 	// GetMigrationMode derives the migration mode for the model.
 	GetMigrationMode(ctx context.Context, modelUUID string) (modelmigration.MigrationMode, error)
 
+	// GetMigrationPhase derives the model's migration phase in both
+	// directions: importing while a target import claim exists, otherwise the
+	// active export's phase, otherwise none.
+	GetMigrationPhase(ctx context.Context, modelUUID string) (migration.Phase, error)
+
 	// SetPhase transitions an export migration to a new phase, enforcing valid
 	// phase transitions with optimistic locking.
 	SetPhase(ctx context.Context, migrationUUID string, newPhase migration.Phase) error
@@ -330,6 +335,37 @@ func NewService(
 	}
 }
 
+// WatchableService provides the means for supporting model migration actions
+// between controllers and the ability to create watchers.
+type WatchableService struct {
+	Service
+}
+
+// NewWatchableService is responsible for constructing a new
+// [WatchableService] to handle model migration tasks with watching
+// capabilities.
+func NewWatchableService(
+	controllerState ControllerState,
+	modelState ModelState,
+	modelUUID string,
+	watcherFactory WatcherFactory,
+	instanceProviderGetter providertracker.ProviderGetter[InstanceProvider],
+	resourceProviderGetter providertracker.ProviderGetter[ResourceProvider],
+	logger logger.Logger,
+) *WatchableService {
+	return &WatchableService{
+		Service: *NewService(
+			controllerState,
+			modelState,
+			modelUUID,
+			watcherFactory,
+			instanceProviderGetter,
+			resourceProviderGetter,
+			logger,
+		),
+	}
+}
+
 // AdoptResources is responsible for taking ownership of the cloud resources of
 // a model when it has been migrated into this controller.
 func (s *Service) AdoptResources(
@@ -463,22 +499,13 @@ func (s *Service) MigrationPhase(ctx context.Context) (migration.Phase, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// GetMigrationMode resolves both tables in one transaction and already
-	// treats any import claim as importing, so it cannot report a stale mix of
-	// the two sides.
-	mode, err := s.controllerState.GetMigrationMode(ctx, s.modelUUID)
+	// GetMigrationPhase resolves both tables in one transaction, so it cannot
+	// report a stale mix of the two sides.
+	phase, err := s.controllerState.GetMigrationPhase(ctx, s.modelUUID)
 	if err != nil {
 		return migration.UNKNOWN, errors.Capture(err)
 	}
-	if mode == modelmigration.MigrationModeImporting {
-		return migration.IMPORT, nil
-	}
-
-	mig, err := s.Migration(ctx)
-	if err != nil {
-		return migration.UNKNOWN, errors.Capture(err)
-	}
-	return mig.Phase, nil
+	return phase, nil
 }
 
 // Migration returns status about migration of this model. If the model is not
@@ -705,11 +732,14 @@ func (s *Service) WatchMigrationPhase(ctx context.Context) (watcher.NotifyWatche
 // phase, or being deleted on the target side.
 //
 // It is the watcher behind [Service.MigrationPhase], and exists because
-// [Service.WatchMigrationPhase] observes exports only. A target import is
-// invisible to it, so on its own it would never fire when an imported model
-// becomes usable. Claim deletion is exactly that moment, so watching both
-// namespaces is what lets the migration flag unfreeze a target model.
-func (s *Service) WatchMigrationActivity(ctx context.Context) (watcher.NotifyWatcher, error) {
+// [Service.WatchMigrationPhase] observes exports only: a target import is
+// invisible to that watcher, so on its own it would never fire when an
+// imported model becomes usable. Claim deletion is exactly that moment, so
+// watching both namespaces is what lets the migration flag unfreeze a target
+// model. Extending [Service.WatchMigrationPhase] to also observe claims was
+// rejected: it feeds the migration minion, which follows the source's phase
+// machine and must not be woken by target-side claim changes.
+func (s *WatchableService) WatchMigrationActivity(ctx context.Context) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

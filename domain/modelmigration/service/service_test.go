@@ -340,6 +340,19 @@ func (s *serviceSuite) service(c *tc.C) *Service {
 	)
 }
 
+// watchableService constructs a WatchableService backed by the suite mocks.
+func (s *serviceSuite) watchableService(c *tc.C) *WatchableService {
+	return NewWatchableService(
+		s.controllerState,
+		s.modelState,
+		s.modelUUID,
+		s.watcherFactory,
+		func(context.Context) (InstanceProvider, error) { return s.instanceProvider, nil },
+		func(context.Context) (ResourceProvider, error) { return s.resourceProvider, nil },
+		loggertesting.WrapCheckLog(c),
+	)
+}
+
 // validTargetInfo returns a TargetInfo that passes validation.
 func (s *serviceSuite) validTargetInfo() migration.TargetInfo {
 	return migration.TargetInfo{
@@ -420,8 +433,8 @@ func (s *serviceSuite) TestMigrationNone(c *tc.C) {
 func (s *serviceSuite) TestMigrationPhaseImportClaimReportsImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerState.EXPECT().GetMigrationMode(gomock.Any(), s.modelUUID).Return(
-		modelmigration.MigrationModeImporting, nil)
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		migration.IMPORT, nil)
 
 	phase, err := s.service(c).MigrationPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -436,10 +449,8 @@ func (s *serviceSuite) TestMigrationPhaseImportClaimReportsImport(c *tc.C) {
 func (s *serviceSuite) TestMigrationPhaseExportReportsExportPhase(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerState.EXPECT().GetMigrationMode(gomock.Any(), s.modelUUID).Return(
-		modelmigration.MigrationModeExporting, nil)
-	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
-		modelmigrationinternal.Migration{Phase: migration.QUIESCE}, nil)
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		migration.QUIESCE, nil)
 
 	phase, err := s.service(c).MigrationPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -451,15 +462,25 @@ func (s *serviceSuite) TestMigrationPhaseExportReportsExportPhase(c *tc.C) {
 func (s *serviceSuite) TestMigrationPhaseIdleReportsNone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerState.EXPECT().GetMigrationMode(gomock.Any(), s.modelUUID).Return(
-		modelmigration.MigrationModeNone, nil)
-	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
-		modelmigrationinternal.Migration{}, modelmigrationerrors.ErrMigrationNotFound)
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		migration.NONE, nil)
 
 	phase, err := s.service(c).MigrationPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(phase, tc.Equals, migration.NONE)
 	c.Check(phase.IsTerminal(), tc.IsTrue)
+}
+
+// TestMigrationPhaseErrorPropagates asserts a state error surfaces with the
+// UNKNOWN phase rather than being mistaken for a real phase answer.
+func (s *serviceSuite) TestMigrationPhaseErrorPropagates(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		migration.UNKNOWN, errors.New("boom"))
+
+	_, err := s.service(c).MigrationPhase(c.Context())
+	c.Check(err, tc.ErrorMatches, "boom")
 }
 
 // TestWatchMigrationActivityWatchesBothSides asserts the activity watcher
@@ -490,7 +511,7 @@ func (s *serviceSuite) TestWatchMigrationActivityWatchesBothSides(c *tc.C) {
 		},
 	)
 
-	w, err := s.service(c).WatchMigrationActivity(c.Context())
+	w, err := s.watchableService(c).WatchMigrationActivity(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 

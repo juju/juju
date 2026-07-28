@@ -84,7 +84,7 @@ func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 // domainServicesFacade is a local facade adapter that satisfies the Facade
 // interface by reading from domain services directly.
 type domainServicesFacade struct {
-	migrationSvc *modelmigrationservice.Service
+	migrationSvc *modelmigrationservice.WatchableService
 }
 
 // Phase is part of the Facade interface.

@@ -160,7 +160,7 @@ type ModelDomainServices interface {
 	ModelInfo() *modelservice.ProviderModelService
 	// ModelMigration returns the model's migration service for support
 	// migration operations.
-	ModelMigration() *modelmigrationservice.Service
+	ModelMigration() *modelmigrationservice.WatchableService
 	// ModelSecretBackend returns the model secret backend service.
 	ModelSecretBackend() *secretbackendservice.ModelSecretBackendService
 	// Operation returns the operation service.
