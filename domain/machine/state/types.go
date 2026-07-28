@@ -552,22 +552,18 @@ type netNode struct {
 }
 
 type reprovisionStorageEntityTarget struct {
-	EntityUUID            string           `db:"entity_uuid"`
-	LifeID                int              `db:"life_id"`
-	ScopeID               int              `db:"scope_id"`
-	StorageInstanceUUID   sql.Null[string] `db:"storage_instance_uuid"`
-	StorageInstanceLifeID sql.Null[int]    `db:"storage_instance_life_id"`
+	EntityUUID          string           `db:"entity_uuid"`
+	ScopeID             int              `db:"scope_id"`
+	StorageInstanceUUID sql.Null[string] `db:"storage_instance_uuid"`
 }
 
 type reprovisionStorageLogicalAttachment struct {
 	EntityUUID string `db:"entity_uuid"`
-	LifeID     int    `db:"life_id"`
 }
 
 type reprovisionStoragePhysicalAttachment struct {
 	UUID            string           `db:"uuid"`
 	EntityUUID      string           `db:"entity_uuid"`
-	LifeID          int              `db:"life_id"`
 	ScopeID         int              `db:"scope_id"`
 	BlockDeviceUUID sql.Null[string] `db:"block_device_uuid"`
 }
@@ -575,8 +571,12 @@ type reprovisionStoragePhysicalAttachment struct {
 type reprovisionStoragePlanTarget struct {
 	UUID       string `db:"uuid"`
 	EntityUUID string `db:"entity_uuid"`
-	LifeID     int    `db:"life_id"`
 	ScopeID    int    `db:"scope_id"`
+}
+
+type reprovisionStorageLife struct {
+	EntityType string `db:"entity_type"`
+	EntityUUID string `db:"entity_uuid"`
 }
 
 type reprovisionUUIDs []string
