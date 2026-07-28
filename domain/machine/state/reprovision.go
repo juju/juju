@@ -81,6 +81,10 @@ GROUP BY   m.uuid, m.net_node_uuid, mci.instance_id, m.life_id
 	if err != nil {
 		return errors.Errorf("preparing storage target statements: %w", err)
 	}
+	storageResetStmts, err := st.prepareReprovisionStorageResetStatements()
+	if err != nil {
+		return errors.Errorf("preparing storage reset statements: %w", err)
+	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var target reprovisionDetachTarget
@@ -119,7 +123,7 @@ GROUP BY   m.uuid, m.net_node_uuid, mci.instance_id, m.life_id
 		}
 
 		if err := st.resetReprovisionStorage(
-			ctx, tx, storageTargets,
+			ctx, tx, storageResetStmts, storageTargets,
 		); err != nil {
 			return errors.Errorf("clearing machine-scoped storage: %w", err)
 		}
@@ -456,7 +460,19 @@ FROM classified_volume_targets AS cvt`, reprovisionStorageTargetParams{}, reprov
 		return nil, nil, errors.Capture(err)
 	}
 	filesystemStmt, err := st.Prepare(`
-WITH filesystem_targets AS (
+WITH filesystem_target_uuids AS (
+    SELECT mf.filesystem_uuid
+    FROM machine AS m
+    JOIN machine_filesystem AS mf ON m.uuid = mf.machine_uuid
+    WHERE m.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
+
+    UNION
+
+    SELECT sfa.storage_filesystem_uuid
+    FROM storage_filesystem_attachment AS sfa
+    WHERE sfa.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
+),
+filesystem_targets AS (
     SELECT sf.uuid AS filesystem_uuid,
            sf.life_id AS filesystem_life_id,
            sf.provision_scope_id AS filesystem_scope_id,
@@ -465,14 +481,15 @@ WITH filesystem_targets AS (
            sfa.uuid AS attachment_uuid,
            sfa.life_id AS attachment_life_id,
            sfa.provision_scope_id AS attachment_scope_id
-    FROM storage_filesystem AS sf
+    FROM filesystem_target_uuids AS ftu
+    JOIN storage_filesystem AS sf ON ftu.filesystem_uuid = sf.uuid
     LEFT JOIN storage_instance_filesystem AS sif
         ON sf.uuid = sif.storage_filesystem_uuid
     LEFT JOIN storage_instance AS si
         ON sif.storage_instance_uuid = si.uuid
-    JOIN storage_filesystem_attachment AS sfa
+    LEFT JOIN storage_filesystem_attachment AS sfa
         ON sf.uuid = sfa.storage_filesystem_uuid
-    WHERE sfa.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
+        AND sfa.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
 ),
 classified_filesystem_targets AS (
     SELECT ft.filesystem_uuid,
@@ -481,14 +498,14 @@ classified_filesystem_targets AS (
            ft.storage_instance_life_id,
            ft.attachment_uuid,
            CASE
-               WHEN ft.storage_instance_uuid IS NULL
+               WHEN ft.storage_instance_uuid IS NULL OR ft.attachment_uuid IS NULL
                    THEN TRUE
                ELSE ft.filesystem_life_id = $reprovisionStorageTargetParams.alive_life_id
                    AND ft.attachment_life_id = $reprovisionStorageTargetParams.alive_life_id
                    AND ft.storage_instance_life_id = $reprovisionStorageTargetParams.alive_life_id
            END AS all_alive,
            CASE
-               WHEN ft.storage_instance_uuid IS NULL
+               WHEN ft.storage_instance_uuid IS NULL OR ft.attachment_uuid IS NULL
                    THEN 'ambiguous'
                WHEN ft.filesystem_scope_id NOT IN (
                    $reprovisionStorageTargetParams.model_scope_id,
@@ -601,9 +618,117 @@ func (st *State) getReprovisionStorageTargets(
 			)
 		}
 		targets.filesystems[row.FilesystemUUID] = struct{}{}
-		targets.filesystemAttachments[row.AttachmentUUID] = struct{}{}
+		if row.AttachmentUUID.Valid {
+			targets.filesystemAttachments[row.AttachmentUUID.V] = struct{}{}
+		}
 	}
 	return targets, nil
+}
+
+type reprovisionStorageResetStatements struct {
+	planAttrs, plans                         *sqlair.Statement
+	volumeAttachments, filesystemAttachments *sqlair.Statement
+	blockDeviceLinks, blockDevices           *sqlair.Statement
+	volumes, volumeStatuses                  *sqlair.Statement
+	filesystems, filesystemStatuses          *sqlair.Statement
+}
+
+func (st *State) prepareReprovisionStorageResetStatements() (
+	reprovisionStorageResetStatements, error,
+) {
+	var statements reprovisionStorageResetStatements
+	queries := []struct {
+		stmt  **sqlair.Statement
+		query string
+	}{
+		// Plan attributes describe the old provider attachment and cannot be
+		// reused.
+		{stmt: &statements.planAttrs, query: `
+DELETE FROM storage_volume_attachment_plan_attr
+WHERE attachment_plan_uuid IN ($reprovisionUUIDs[:])`},
+		// Attachment plans must be recalculated for the replacement machine.
+		{stmt: &statements.plans, query: `
+DELETE FROM storage_volume_attachment_plan
+WHERE uuid IN ($reprovisionUUIDs[:])`},
+		// Keep attachment intent, but remove evidence of the old provider
+		// attachment.
+		{stmt: &statements.volumeAttachments, query: `
+UPDATE storage_volume_attachment
+SET provider_id = NULL,
+    block_device_uuid = NULL
+WHERE uuid IN ($reprovisionUUIDs[:])`},
+		// Keep mount intent, but remove the old provider attachment identifier.
+		{stmt: &statements.filesystemAttachments, query: `
+UPDATE storage_filesystem_attachment
+SET provider_id = NULL
+WHERE uuid IN ($reprovisionUUIDs[:])`},
+		// Attachment references are now clear, so old block-device links can
+		// be removed.
+		{stmt: &statements.blockDeviceLinks, query: `
+DELETE FROM block_device_link_device
+WHERE block_device_uuid IN ($reprovisionUUIDs[:])
+AND NOT EXISTS (
+    SELECT 1 FROM storage_volume_attachment AS sva
+    WHERE sva.block_device_uuid = block_device_link_device.block_device_uuid
+)`},
+		// Remove old block-device evidence only when no attachment still
+		// references it.
+		{stmt: &statements.blockDevices, query: `
+DELETE FROM block_device
+WHERE uuid IN ($reprovisionUUIDs[:])
+AND NOT EXISTS (
+    SELECT 1 FROM storage_volume_attachment AS sva
+    WHERE sva.block_device_uuid = block_device.uuid
+)`},
+		// Clear the old provider realization while retaining the Juju volume
+		// identity.
+		{stmt: &statements.volumes, query: `
+UPDATE storage_volume
+SET provider_id = NULL,
+    size_mib = NULL,
+    hardware_id = NULL,
+    wwn = NULL,
+    persistent = NULL,
+    obliterate_on_cleanup = NULL
+WHERE uuid IN ($reprovisionUUIDs[:])`},
+		// Ensure the retained volume is visible to provisioning as pending work.
+		{stmt: &statements.volumeStatuses, query: `
+INSERT INTO storage_volume_status (volume_uuid, status_id, message, updated_at)
+SELECT sv.uuid, 0, 'waiting for replacement machine', NULL
+FROM storage_volume AS sv
+WHERE sv.uuid IN ($reprovisionUUIDs[:])
+ON CONFLICT (volume_uuid) DO UPDATE SET
+    status_id = excluded.status_id,
+    message = excluded.message,
+    updated_at = excluded.updated_at`},
+		// Clear the old provider realization while retaining the filesystem
+		// identity.
+		{stmt: &statements.filesystems, query: `
+UPDATE storage_filesystem
+SET provider_id = NULL,
+    size_mib = NULL,
+    obliterate_on_cleanup = NULL
+WHERE uuid IN ($reprovisionUUIDs[:])`},
+		// Ensure the retained filesystem is visible to provisioning as pending
+		// work.
+		{stmt: &statements.filesystemStatuses, query: `
+INSERT INTO storage_filesystem_status (filesystem_uuid, status_id, message, updated_at)
+SELECT sf.uuid, 0, 'waiting for replacement machine', NULL
+FROM storage_filesystem AS sf
+WHERE sf.uuid IN ($reprovisionUUIDs[:])
+ON CONFLICT (filesystem_uuid) DO UPDATE SET
+    status_id = excluded.status_id,
+    message = excluded.message,
+    updated_at = excluded.updated_at`},
+	}
+	for _, item := range queries {
+		stmt, err := st.Prepare(item.query, reprovisionUUIDs{})
+		if err != nil {
+			return reprovisionStorageResetStatements{}, errors.Capture(err)
+		}
+		*item.stmt = stmt
+	}
+	return statements, nil
 }
 
 // resetReprovisionStorage discards provider-observed storage state for the
@@ -617,107 +742,42 @@ func (st *State) getReprovisionStorageTargets(
 // moved back to pending.
 func (st *State) resetReprovisionStorage(
 	ctx context.Context, tx *sqlair.TX,
+	statements reprovisionStorageResetStatements,
 	targets reprovisionStorageTargets,
 ) error {
 	ids := func(values map[string]struct{}) reprovisionUUIDs {
 		return reprovisionUUIDs(slices.Collect(maps.Keys(values)))
 	}
-	run := func(query string, ids reprovisionUUIDs) error {
-		if len(ids) == 0 {
-			return nil
-		}
-		stmt, err := st.Prepare(query, reprovisionUUIDs{})
-		if err != nil {
-			return errors.Capture(err)
-		}
-		return errors.Capture(tx.Query(ctx, stmt, ids).Run())
-	}
+
+	var (
+		plans                 = ids(targets.plans)
+		volumeAttachments     = ids(targets.volumeAttachments)
+		filesystemAttachments = ids(targets.filesystemAttachments)
+		blockDevices          = ids(targets.blockDevices)
+		volumes               = ids(targets.volumes)
+		filesystems           = ids(targets.filesystems)
+	)
+
 	steps := []struct {
-		query string
-		ids   reprovisionUUIDs
+		stmt *sqlair.Statement
+		ids  reprovisionUUIDs
 	}{
-		// Plan attributes describe the old provider attachment and cannot be
-		// reused.
-		{query: `
-DELETE FROM storage_volume_attachment_plan_attr
-WHERE attachment_plan_uuid IN ($reprovisionUUIDs[:])`, ids: ids(targets.plans)},
-		// Attachment plans must be recalculated for the replacement machine.
-		{query: `
-DELETE FROM storage_volume_attachment_plan
-WHERE uuid IN ($reprovisionUUIDs[:])`, ids: ids(targets.plans)},
-		// Keep attachment intent, but remove evidence of the old provider
-		// attachment.
-		{query: `
-UPDATE storage_volume_attachment
-SET provider_id = NULL,
-    block_device_uuid = NULL
-WHERE uuid IN ($reprovisionUUIDs[:])`, ids: ids(targets.volumeAttachments)},
-		// Keep mount intent, but remove the old provider attachment identifier.
-		{query: `
-UPDATE storage_filesystem_attachment
-SET provider_id = NULL
-WHERE uuid IN ($reprovisionUUIDs[:])`, ids: ids(targets.filesystemAttachments)},
-		// Attachment references are now clear, so old block-device links can
-		// be removed.
-		{query: `
-DELETE FROM block_device_link_device
-WHERE block_device_uuid IN ($reprovisionUUIDs[:])
-AND NOT EXISTS (
-    SELECT 1 FROM storage_volume_attachment AS sva
-    WHERE sva.block_device_uuid = block_device_link_device.block_device_uuid
-)`, ids: ids(targets.blockDevices)},
-		// Remove old block-device evidence only when no attachment still
-		// references it.
-		{query: `
-DELETE FROM block_device
-WHERE uuid IN ($reprovisionUUIDs[:])
-AND NOT EXISTS (
-    SELECT 1 FROM storage_volume_attachment AS sva
-    WHERE sva.block_device_uuid = block_device.uuid
-)`, ids: ids(targets.blockDevices)},
-		// Clear the old provider realization while retaining the Juju volume
-		// identity.
-		{query: `
-UPDATE storage_volume
-SET provider_id = NULL,
-    size_mib = NULL,
-    hardware_id = NULL,
-    wwn = NULL,
-    persistent = NULL,
-    obliterate_on_cleanup = NULL
-WHERE uuid IN ($reprovisionUUIDs[:])`, ids: ids(targets.volumes)},
-		// Ensure the retained volume is visible to provisioning as pending work.
-		{query: `
-INSERT INTO storage_volume_status (volume_uuid, status_id, message, updated_at)
-SELECT sv.uuid, 0, 'waiting for replacement machine', NULL
-FROM storage_volume AS sv
-WHERE sv.uuid IN ($reprovisionUUIDs[:])
-ON CONFLICT (volume_uuid) DO UPDATE SET
-    status_id = excluded.status_id,
-    message = excluded.message,
-    updated_at = excluded.updated_at`, ids: ids(targets.volumes)},
-		// Clear the old provider realization while retaining the filesystem
-		// identity.
-		{query: `
-UPDATE storage_filesystem
-SET provider_id = NULL,
-    size_mib = NULL,
-    obliterate_on_cleanup = NULL
-WHERE uuid IN ($reprovisionUUIDs[:])`, ids: ids(targets.filesystems)},
-		// Ensure the retained filesystem is visible to provisioning as pending
-		// work.
-		{query: `
-INSERT INTO storage_filesystem_status (filesystem_uuid, status_id, message, updated_at)
-SELECT sf.uuid, 0, 'waiting for replacement machine', NULL
-FROM storage_filesystem AS sf
-WHERE sf.uuid IN ($reprovisionUUIDs[:])
-ON CONFLICT (filesystem_uuid) DO UPDATE SET
-    status_id = excluded.status_id,
-    message = excluded.message,
-    updated_at = excluded.updated_at`, ids: ids(targets.filesystems)},
+		{stmt: statements.planAttrs, ids: plans},
+		{stmt: statements.plans, ids: plans},
+		{stmt: statements.volumeAttachments, ids: volumeAttachments},
+		{stmt: statements.filesystemAttachments, ids: filesystemAttachments},
+		{stmt: statements.blockDeviceLinks, ids: blockDevices},
+		{stmt: statements.blockDevices, ids: blockDevices},
+		{stmt: statements.volumes, ids: volumes},
+		{stmt: statements.volumeStatuses, ids: volumes},
+		{stmt: statements.filesystems, ids: filesystems},
+		{stmt: statements.filesystemStatuses, ids: filesystems},
 	}
 	for _, step := range steps {
-		if err := run(step.query, step.ids); err != nil {
+		if len(step.ids) == 0 {
+			continue
+		}
+		if err := tx.Query(ctx, step.stmt, step.ids).Run(); err != nil {
 			return errors.Capture(err)
 		}
 	}

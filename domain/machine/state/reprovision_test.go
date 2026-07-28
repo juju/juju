@@ -215,6 +215,22 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsAmbiguousFilesyste
 	c.Check(s.rowCountWhere(c, "storage_filesystem", "uuid = ?", "storage-filesystem"), tc.Equals, 1)
 }
 
+func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsFilesystemWithoutAttachment(c *tc.C) {
+	machineUUID, machineName := s.ensureInstance(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionFilesystemStorage(c, machineUUID.String(), netNodeUUID, 1, 1)
+	s.runQuery(c, "DELETE FROM storage_filesystem_attachment WHERE uuid = ?",
+		"storage-filesystem-attachment")
+
+	err := s.state.DetachLostMachineCloudInstance(
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+	)
+	c.Assert(err, tc.ErrorIs, machineerrors.StorageScopeAmbiguous)
+	s.checkInstanceID(c, machineUUID.String(), "123")
+	c.Check(s.rowCountWhere(c, "storage_filesystem", "uuid = ?", "storage-filesystem"), tc.Equals, 1)
+}
+
 func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsNonAliveVolume(c *tc.C) {
 	machineUUID, machineName := s.ensureInstance(c)
 	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())

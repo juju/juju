@@ -561,10 +561,10 @@ type reprovisionVolumeTarget struct {
 }
 
 type reprovisionFilesystemTarget struct {
-	FilesystemUUID string `db:"filesystem_uuid"`
-	AllAlive       bool   `db:"all_alive"`
-	ScopeClass     string `db:"scope_class"`
-	AttachmentUUID string `db:"attachment_uuid"`
+	FilesystemUUID string           `db:"filesystem_uuid"`
+	AllAlive       bool             `db:"all_alive"`
+	ScopeClass     string           `db:"scope_class"`
+	AttachmentUUID sql.Null[string] `db:"attachment_uuid"`
 }
 
 type reprovisionUUIDs []string
