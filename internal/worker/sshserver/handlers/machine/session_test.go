@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"time"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/tc"
@@ -120,7 +119,7 @@ func (s *machineSuite) TestSessionHandlerProxiesPTYAndWindowChanges(c *tc.C) {
 
 	select {
 	case <-ready:
-	case <-time.After(5 * time.Second):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for shell to start")
 	}
 	c.Assert(session.WindowChange(30, 100), tc.ErrorIsNil)
