@@ -31,6 +31,7 @@ import (
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -72,6 +73,7 @@ func (s *serviceSuite) TestAdoptResources(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -99,6 +101,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *tc.C) {
 		s.instanceProviderGetter(c),
 		resourceGetter,
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -127,6 +130,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -159,6 +163,7 @@ func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(discrepancies, tc.DeepEquals, []modelmigration.MigrationMachineDiscrepancy{{
@@ -192,6 +197,7 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(discrepancies, tc.DeepEquals, []modelmigration.MigrationMachineDiscrepancy{{
@@ -217,6 +223,7 @@ func (s *serviceSuite) TestCheckMachinesCredentialError(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*validating model credential: getting model cloud credential: boom")
 }
@@ -242,6 +249,7 @@ func (s *serviceSuite) TestCheckMachinesRevokedCredential(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*credential.*revoked.*")
 }
@@ -271,6 +279,7 @@ func (s *serviceSuite) TestCheckMachinesCredentialValidationError(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*invalid credential.*")
 }
@@ -325,6 +334,7 @@ func (s *serviceSuite) TestActivateImportRejectsUnitNotInRelation(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Assert(err, tc.ErrorMatches, `.*unit wordpress/1 hasn't joined relation "wordpress:db mysql:db" yet.*`)
 }
@@ -382,6 +392,7 @@ func (s *serviceSuite) TestActivateImportRelationValidationPasses(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -426,6 +437,7 @@ func (s *serviceSuite) TestActivateImport(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -467,6 +479,7 @@ func (s *serviceSuite) TestActivateImportSkipsBumpWhenBinariesMissing(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -492,6 +505,7 @@ func (s *serviceSuite) TestActivateImportRejectsUnknownSecretBackend(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*secret backend.*source-backend-uuid.*do not exist.*")
 }
@@ -518,8 +532,37 @@ func (s *serviceSuite) TestActivateImportRejectsMissingBackendReference(c *tc.C)
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*missing secret backend references.*rev-1.*")
+}
+
+// TestActivateImportRejectsMismatchedBackendReference checks that activation
+// refuses an imported model whose controller secret_backend_reference row
+// points at a different backend than the model's own secret value ref.
+func (s *serviceSuite) TestActivateImportRejectsMismatchedBackendReference(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mExp := s.modelState.EXPECT()
+	cExp := s.controllerState.EXPECT()
+
+	mExp.GetSecretBackendUUIDsInUse(gomock.Any()).Return([]string{"backend-1"}, nil)
+	cExp.GetKnownSecretBackends(gomock.Any(), []string{"backend-1"}).Return([]string{"backend-1"}, nil)
+	mExp.GetExternalSecretRevisionBackends(gomock.Any()).Return(map[string]string{"rev-1": "backend-1"}, nil)
+	cExp.GetSecretBackendReferencesForModel(gomock.Any(), s.modelUUID).
+		Return(map[string]string{"rev-1": "backend-2"}, nil)
+
+	err := NewService(
+		s.controllerState,
+		s.modelState,
+		s.modelUUID,
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
+	).ActivateImport(c.Context())
+	c.Check(err, tc.ErrorMatches, ".*do not match the secret value refs.*rev-1.*")
 }
 
 // TestActivateImportSubordinateOnOtherPrincipalPasses checks 3.6 parity for
@@ -590,6 +633,7 @@ func (s *serviceSuite) TestActivateImportSubordinateOnOtherPrincipalPasses(c *tc
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -634,6 +678,7 @@ func (s *serviceSuite) TestActivateImportRejectsSubordinateNotInOwnRelation(c *t
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Assert(err, tc.ErrorMatches, `.*unit nrpe/0 hasn't joined relation "nrpe:general-info ubuntu:juju-info" yet.*`)
 }
@@ -667,6 +712,7 @@ func (s *serviceSuite) TestActivateImportSameVersion(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -688,6 +734,7 @@ func (s *serviceSuite) TestActivateImportControllerFails(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*front fell off")
 }
@@ -713,6 +760,7 @@ func (s *serviceSuite) TestActivateImportModelFails(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*front fell off")
 }
@@ -757,6 +805,7 @@ func (s *serviceSuite) TestWatchForMigration(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	)
 	w, err := svc.WatchForMigration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -787,6 +836,7 @@ func (s *serviceSuite) TestWatchForMigrationError(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	)
 	_, err := svc.WatchForMigration(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*boom")
@@ -867,6 +917,7 @@ func (s *serviceSuite) service(c *tc.C) *Service {
 		func(context.Context) (InstanceProvider, error) { return s.instanceProvider, nil },
 		func(context.Context) (ResourceProvider, error) { return s.resourceProvider, nil },
 		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	)
 }
 

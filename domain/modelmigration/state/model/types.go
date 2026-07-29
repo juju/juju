@@ -30,6 +30,11 @@ type machineInstanceID struct {
 	InstanceID  string `db:"instance_id"`
 }
 
+// instanceID is a machine's provider cloud instance ID on its own.
+type instanceID struct {
+	InstanceID string `db:"instance_id"`
+}
+
 // secretBackendUUID represents a secret backend UUID as referenced by a
 // model-database secret value ref.
 type secretBackendUUID struct {

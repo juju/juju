@@ -456,6 +456,9 @@ JOIN   unit AS u ON ru.unit_uuid = u.uuid
 
 // GetAgentBinaryArchitecturesForVersion returns the architecture names for
 // which the model's object store holds agent binaries at the given version.
+//
+// The agent_binary_store table is owned by domain/agentbinary/state/model; keep
+// this query in step with it.
 func (s *State) GetAgentBinaryArchitecturesForVersion(ctx context.Context, version string) ([]string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -566,26 +569,32 @@ func (s *State) GetMachineInstanceID(ctx context.Context, machineUUID string) (s
 
 	arg := machineUUIDArg{UUID: machineUUID}
 	stmt, err := s.Prepare(`
-SELECT mci.instance_id AS &machineInstanceID.instance_id
+SELECT mci.instance_id AS &instanceID.instance_id
 FROM   machine_cloud_instance AS mci
 WHERE  mci.machine_uuid = $machineUUIDArg.uuid
-`, machineInstanceID{}, arg)
+`, instanceID{}, arg)
 	if err != nil {
 		return "", errors.Errorf("preparing machine instance ID statement: %w", err)
 	}
 
-	var row machineInstanceID
+	// A machine with no cloud instance row, and one whose instance ID is empty,
+	// are the same thing to the caller: the machine is not provisioned. Both are
+	// reported the same way, from inside the transaction, so the returned error
+	// reads identically either way.
+	var row instanceID
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, arg).Get(&row)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("machine %q %w", machineUUID, machineerrors.NotProvisioned)
+			return errors.Errorf("machine %q: %w", machineUUID, machineerrors.NotProvisioned)
+		} else if err != nil {
+			return err
 		}
-		return err
+		if row.InstanceID == "" {
+			return errors.Errorf("machine %q: %w", machineUUID, machineerrors.NotProvisioned)
+		}
+		return nil
 	}); err != nil {
 		return "", errors.Errorf("retrieving machine instance ID: %w", err)
-	}
-	if row.InstanceID == "" {
-		return "", errors.Errorf("machine %q %w", machineUUID, machineerrors.NotProvisioned)
 	}
 	return row.InstanceID, nil
 }

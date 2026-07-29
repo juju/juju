@@ -24,6 +24,10 @@ import (
 // GetKnownSecretBackends returns the subset of the supplied secret backend
 // UUIDs that exist on the controller. It is used to detect model secret value
 // refs that still carry a source-controller-local backend UUID after import.
+//
+// The secret_backend table is owned by domain/secretbackend/state; keep this
+// query in step with it if that domain changes which rows count as existing
+// (for example by adding soft deletion).
 func (s *State) GetKnownSecretBackends(ctx context.Context, uuids []string) ([]string, error) {
 	if len(uuids) == 0 {
 		return nil, nil
@@ -162,6 +166,9 @@ WHERE  m.uuid = $modelUUIDArg.model_uuid
 // GetAgentBinaryArchitecturesForVersion returns the architecture names for
 // which the controller's object store holds agent binaries at the given
 // version.
+//
+// The agent_binary_store table is owned by domain/agentbinary/state/controller;
+// keep this query in step with it.
 func (s *State) GetAgentBinaryArchitecturesForVersion(ctx context.Context, version string) ([]string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {

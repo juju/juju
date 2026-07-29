@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
@@ -80,6 +81,7 @@ type Service struct {
 	watcherFactory      WatcherFactory
 	credentialValidator CredentialValidator
 	modelUUID           string
+	logger              logger.Logger
 }
 
 // WatcherFactory describes methods for creating watchers used by the
@@ -305,6 +307,7 @@ func NewService(
 	instanceProviderGetter providertracker.ProviderGetter[InstanceProvider],
 	resourceProviderGetter providertracker.ProviderGetter[ResourceProvider],
 	credentialValidator CredentialValidator,
+	logger logger.Logger,
 ) *Service {
 	return &Service{
 		controllerState:        controllerState,
@@ -314,6 +317,7 @@ func NewService(
 		resourceProviderGetter: resourceProviderGetter,
 		credentialValidator:    credentialValidator,
 		modelUUID:              modelUUID,
+		logger:                 logger,
 	}
 }
 
@@ -1075,16 +1079,19 @@ func (s *Service) ActivateImport(ctx context.Context) error {
 			)
 		}
 		if len(missing) > 0 {
-			serviceLogger.Warningf(ctx,
+			s.logger.Warningf(ctx,
 				"not upgrading migrated model %q agent version from %q to %q: "+
 					"no agent binaries for architecture(s) %q on this controller; "+
 					"run 'juju upgrade-model' once binaries are available",
 				s.modelUUID, currentTargetVersion.String(), desiredTargetVersion.String(), missing,
 			)
-		} else if err = s.modelState.SetModelTargetAgentVersion(
-			ctx, currentTargetVersion.String(), desiredTargetVersion.String(),
-		); err != nil {
-			return errors.Capture(err)
+		} else {
+			err := s.modelState.SetModelTargetAgentVersion(
+				ctx, currentTargetVersion.String(), desiredTargetVersion.String(),
+			)
+			if err != nil {
+				return errors.Capture(err)
+			}
 		}
 	}
 

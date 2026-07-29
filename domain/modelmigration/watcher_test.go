@@ -248,5 +248,6 @@ func (s *exportWatcherSuite) setupService(c *tc.C, factory domain.WatchableDBFac
 		providertracker.ProviderGetter[service.InstanceProvider](noopInstanceGetter),
 		providertracker.ProviderGetter[service.ResourceProvider](noopResourceGetter),
 		noopCredentialValidator,
+		loggertesting.WrapCheckLog(c),
 	)
 }

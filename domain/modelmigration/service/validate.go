@@ -13,14 +13,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/internal/errors"
-	internallogger "github.com/juju/juju/internal/logger"
 )
-
-// serviceLogger is used for the rare operator-facing notices the migration
-// service emits during activation (for example, skipping the agent-version bump
-// when the target lacks agent binaries). The service is otherwise constructed
-// without an injected logger.
-var serviceLogger = internallogger.GetLogger("juju.domain.modelmigration.service")
 
 // ValidateImportedModel runs read-only consistency checks over an imported,
 // still-gated model, used by the target VALIDATION phase (via ActivateImport)

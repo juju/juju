@@ -428,6 +428,7 @@ func (s *ModelServices) ModelMigration() *modelmigrationservice.Service {
 		providertracker.ProviderRunner[modelmigrationservice.InstanceProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[modelmigrationservice.ResourceProvider](s.providerFactory, s.modelUUID.String()),
 		modelmigrationservice.NewCredentialValidator(controllerState, modelState),
+		s.logger.Child("modelmigration"),
 	)
 }
 
