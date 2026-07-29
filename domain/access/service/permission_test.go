@@ -10,8 +10,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
+	corecontroller "github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -205,6 +207,101 @@ func (s *serviceSuite) TestReadUserAccessLevelForTargetError(c *tc.C) {
 			Key:        "aws",
 		})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid, tc.Commentf("%+v", err))
+}
+
+func (s *serviceSuite) TestHasSSHAccessModelAdmin(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	subject := usertesting.GenNewName(c, "testme")
+	modelUUID := coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee")
+	controllerUUID := corecontroller.UUID("d4e5f6a7-b8c9-4012-3456-7890abcdef01")
+	s.state.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), subject, corepermission.ID{
+		ObjectType: corepermission.Model,
+		Key:        modelUUID.String(),
+	}).Return(corepermission.AdminAccess, nil)
+
+	allowed, err := NewService(s.state, clock.WallClock).HasSSHAccess(
+		c.Context(), subject, modelUUID, controllerUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(allowed, tc.IsTrue)
+}
+
+func (s *serviceSuite) TestHasSSHAccessControllerSuperuser(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	subject := usertesting.GenNewName(c, "testme")
+	modelUUID := coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee")
+	controllerUUID := corecontroller.UUID("d4e5f6a7-b8c9-4012-3456-7890abcdef01")
+	s.state.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), subject, corepermission.ID{
+		ObjectType: corepermission.Model,
+		Key:        modelUUID.String(),
+	}).Return(corepermission.NoAccess, accesserrors.AccessNotFound)
+	s.state.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), subject, corepermission.ID{
+		ObjectType: corepermission.Controller,
+		Key:        controllerUUID.String(),
+	}).Return(corepermission.SuperuserAccess, nil)
+
+	allowed, err := NewService(s.state, clock.WallClock).HasSSHAccess(
+		c.Context(), subject, modelUUID, controllerUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(allowed, tc.IsTrue)
+}
+
+func (s *serviceSuite) TestHasSSHAccessDenied(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	subject := usertesting.GenNewName(c, "testme")
+	modelUUID := coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee")
+	controllerUUID := corecontroller.UUID("d4e5f6a7-b8c9-4012-3456-7890abcdef01")
+	s.state.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), subject, gomock.Any()).
+		Return(corepermission.NoAccess, accesserrors.AccessNotFound).Times(2)
+
+	allowed, err := NewService(s.state, clock.WallClock).HasSSHAccess(
+		c.Context(), subject, modelUUID, controllerUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(allowed, tc.IsFalse)
+}
+
+func (s *serviceSuite) TestHasSSHAccessUnexpectedModelAccessError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	subject := usertesting.GenNewName(c, "testme")
+	modelUUID := coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee")
+	controllerUUID := corecontroller.UUID("d4e5f6a7-b8c9-4012-3456-7890abcdef01")
+	errBoom := errors.New("boom")
+	s.state.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), subject, gomock.Any()).
+		Return(corepermission.NoAccess, errBoom)
+
+	allowed, err := NewService(s.state, clock.WallClock).HasSSHAccess(
+		c.Context(), subject, modelUUID, controllerUUID,
+	)
+	c.Check(allowed, tc.IsFalse)
+	c.Assert(err, tc.ErrorIs, errBoom)
+}
+
+func (s *serviceSuite) TestHasSSHAccessValidation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	validModelUUID := coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee")
+	validControllerUUID := corecontroller.UUID("d4e5f6a7-b8c9-4012-3456-7890abcdef01")
+	service := NewService(s.state, clock.WallClock)
+
+	for _, test := range []struct {
+		name           string
+		subject        coreuser.Name
+		modelUUID      coremodel.UUID
+		controllerUUID corecontroller.UUID
+	}{
+		{name: "empty subject", modelUUID: validModelUUID, controllerUUID: validControllerUUID},
+		{name: "invalid model UUID", subject: usertesting.GenNewName(c, "testme"), modelUUID: "invalid", controllerUUID: validControllerUUID},
+		{name: "invalid controller UUID", subject: usertesting.GenNewName(c, "testme"), modelUUID: validModelUUID, controllerUUID: "invalid"},
+	} {
+		_, err := service.HasSSHAccess(c.Context(), test.subject, test.modelUUID, test.controllerUUID)
+		c.Check(err, tc.ErrorIs, coreerrors.NotValid, tc.Commentf("%s", test.name))
+	}
 }
 
 func (s *serviceSuite) TestReadAllUserAccessForTarget(c *tc.C) {

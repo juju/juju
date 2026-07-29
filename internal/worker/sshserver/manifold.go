@@ -5,19 +5,31 @@ package sshserver
 
 import (
 	"context"
-	"net"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
+	gossh "golang.org/x/crypto/ssh"
 
+	corecontroller "github.com/juju/juju/core/controller"
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/internal/featureflag"
+	"github.com/juju/juju/internal/jwtparser"
+	"github.com/juju/juju/internal/provider/kubernetes"
+	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/services"
+	internalTunneler "github.com/juju/juju/internal/sshtunneler"
+	workerTunneler "github.com/juju/juju/internal/worker/sshtunneler"
 )
+
+const machineConnectionTimeout = 60 * time.Second
 
 // GetControllerConfigServiceFunc is a helper function that gets
 // a controller config service from the manifold.
@@ -75,6 +87,14 @@ func GetSSHService(ctx context.Context, domainServicesGetter services.DomainServ
 type ManifoldConfig struct {
 	// DomainServicesName is the name of the domain services worker.
 	DomainServicesName string
+	// SSHTunnelerName is the name of the SSH tunneler worker.
+	SSHTunnelerName string
+	// JWTParserName is the name of the JWT parser worker.
+	JWTParserName string
+	// ControllerID is the ID of the controller node.
+	ControllerID string
+	// ControllerUUID is the UUID of the controller entity.
+	ControllerUUID string
 	// NewServerWrapperWorker is the function that creates the embedded SSH server worker.
 	NewServerWrapperWorker func(ServerWrapperWorkerConfig) (worker.Worker, error)
 	// NewServerWorker is the function that creates a worker that has a catacomb
@@ -98,6 +118,9 @@ type ManifoldConfig struct {
 func (config ManifoldConfig) Validate() error {
 	if config.DomainServicesName == "" {
 		return errors.NotValidf("empty DomainServicesName")
+	}
+	if config.ControllerUUID == "" {
+		return errors.NotValidf("empty ControllerUUID")
 	}
 	if config.NewServerWrapperWorker == nil {
 		return errors.NotValidf("nil NewServerWrapperWorker")
@@ -126,11 +149,16 @@ func (config ManifoldConfig) Validate() error {
 // Manifold returns a dependency.Manifold that will run an embedded SSH server
 // worker. The manifold has no outputs.
 func Manifold(config ManifoldConfig) dependency.Manifold {
+	inputs := []string{config.DomainServicesName}
+	if config.SSHTunnelerName != "" {
+		inputs = append(inputs, config.SSHTunnelerName)
+	}
+	if config.JWTParserName != "" {
+		inputs = append(inputs, config.JWTParserName)
+	}
 	return dependency.Manifold{
-		Inputs: []string{
-			config.DomainServicesName,
-		},
-		Start: config.startWrapperWorker,
+		Inputs: inputs,
+		Start:  config.startWrapperWorker,
 	}
 }
 
@@ -143,6 +171,19 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 		return nil, dependency.ErrUninstall
 	}
 	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if config.SSHTunnelerName == "" {
+		return nil, errors.NotValidf("empty SSHTunnelerName")
+	}
+	if config.JWTParserName == "" {
+		return nil, errors.NotValidf("empty JWTParserName")
+	}
+	if config.ControllerID == "" {
+		return nil, errors.NotValidf("empty ControllerID")
+	}
+	controllerUUID, err := corecontroller.ParseUUID(config.ControllerUUID)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -158,10 +199,30 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	var tunnelTracker workerTunneler.TunnelTracker
+	if err := getter.Get(config.SSHTunnelerName, &tunnelTracker); err != nil {
+		return nil, errors.Trace(err)
+	}
+	var jwtParser *jwtparser.Parser
+	if err := getter.Get(config.JWTParserName, &jwtParser); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	sshService := sshService{
 		controllerSSHHostKeyService: controllerSSHHostKeyService,
 		domainServicesGetter:        domainServicesGetter,
 		getSSHService:               config.GetSSHService,
+		controllerUUID:              controllerUUID,
+	}
+	proxyFactory := proxyFactory{
+		k8sResolver: sshService,
+		logger:      config.Logger,
+		connector: tunnelConnector{
+			tunnelTracker: tunnelTracker,
+			controllerID:  config.ControllerID,
+			resolver:      sshService,
+		},
+		getExecutor: k8sexec.NewInCluster,
 	}
 
 	return config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
@@ -169,22 +230,18 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 		SSHService:              sshService,
 		NewServerWorker:         config.NewServerWorker,
 		Logger:                  config.Logger,
-		// TODO(Kian): Complete wiring below.
-		Authenticator: authenticator{},
-		Authorizer:    authorizer{},
-		ProxyFactory:  proxyFactory{},
-		TunnelTracker: stubTunnelTracker{},
+		Authenticator: authenticator{
+			logger:        config.Logger,
+			jwtParser:     jwtParser,
+			tunnelTracker: tunnelTracker,
+		},
+		Authorizer: authorizer{
+			access: sshService,
+			logger: config.Logger,
+		},
+		ProxyFactory:  proxyFactory,
+		TunnelTracker: tunnelTracker,
 	})
-}
-
-type stubTunnelTracker struct{}
-
-func (stubTunnelTracker) AuthenticateTunnel(username, password string) (string, error) {
-	return "", nil
-}
-
-func (stubTunnelTracker) PushTunnel(context.Context, string, net.Conn) error {
-	return nil
 }
 
 // sshService wraps our ssh domain services to enable two things:
@@ -197,6 +254,7 @@ type sshService struct {
 	controllerSSHHostKeyService ControllerSSHHostKeyService
 	domainServicesGetter        services.DomainServicesGetter
 	getSSHService               GetSSHServiceFunc
+	controllerUUID              corecontroller.UUID
 }
 
 // SSHServerHostKey returns the controller SSH server host key.
@@ -212,4 +270,125 @@ func (s sshService) VirtualHostKey(ctx context.Context, info virtualhostname.Inf
 		return "", errors.Trace(err)
 	}
 	return sshService.VirtualHostKey(ctx, info)
+}
+
+// HasSSHAccess grants SSH access to model administrators and controller
+// superusers. A controller superuser need not hold an explicit grant to every
+// target model.
+func (s sshService) HasSSHAccess(ctx context.Context, username string, destination virtualhostname.Info) (bool, error) {
+	name, err := user.NewName(username)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	domainServices, err := s.domainServicesGetter.ServicesForModel(ctx, destination.ModelUUID())
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return domainServices.Access().HasSSHAccess(ctx, name, destination.ModelUUID(), s.controllerUUID)
+}
+
+// ResolveK8sExecInfo resolves the namespace and pod name for a destination
+func (s sshService) ResolveK8sExecInfo(ctx context.Context, destination virtualhostname.Info) (string, string, error) {
+	domainServices, err := s.domainServicesGetter.ServicesForModel(ctx, destination.ModelUUID())
+	if err != nil {
+		return "", "", err
+	}
+	modelInfo, err := domainServices.ModelInfo().GetModelType(ctx)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	if modelInfo != model.CAAS {
+		return "", "", errors.NotValidf("model %q is not a CAAS model", destination.ModelUUID())
+	}
+	unitName, ok := destination.Unit()
+	if !ok {
+		return "", "", errors.NotValidf("destination has no unit")
+	}
+	podInfo, err := domainServices.Application().GetUnitK8sPodInfo(ctx, coreunit.Name(unitName))
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	modelRecord, err := domainServices.Model().Model(ctx, destination.ModelUUID())
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	namespace, err := modelNamespace(ctx, domainServices, modelRecord)
+	if err != nil {
+		return "", "", err
+	}
+	return namespace, podInfo.ProviderID.String(), nil
+}
+
+// MachineForDestination resolves an IAAS machine or machine-backed unit to the
+// machine name expected by the reverse tunnel tracker.
+func (s sshService) MachineForDestination(ctx context.Context, destination virtualhostname.Info) (coremachine.Name, error) {
+	domainServices, err := s.domainServicesGetter.ServicesForModel(ctx, destination.ModelUUID())
+	if err != nil {
+		return "", err
+	}
+	modelInfo, err := domainServices.ModelInfo().GetModelType(ctx)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if modelInfo != model.IAAS {
+		return "", errors.NotValidf("destination model %q is not IAAS", destination.ModelUUID())
+	}
+	switch destination.Target() {
+	case virtualhostname.MachineTarget:
+		machineName, ok := destination.Machine()
+		if !ok {
+			return "", errors.NotValidf("destination has no machine")
+		}
+		// Verify that the machine exists.
+		if _, err := domainServices.Machine().GetMachineLife(ctx, machineName); err != nil {
+			return "", errors.Trace(err)
+		}
+		return machineName, nil
+	case virtualhostname.UnitTarget:
+		unitName, ok := destination.Unit()
+		if !ok {
+			return "", errors.NotValidf("destination has no unit")
+		}
+		machineName, err := domainServices.Application().GetUnitMachineName(ctx, coreunit.Name(unitName))
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		return machineName, nil
+	default:
+		return "", errors.NotValidf("destination is not a machine target")
+	}
+}
+
+func modelNamespace(ctx context.Context, domainServices services.DomainServices, modelRecord model.Model) (string, error) {
+	if modelRecord.Name != model.ControllerModelName {
+		return modelRecord.Name, nil
+	}
+	controllerConfig, err := domainServices.ControllerConfig().ControllerConfig(ctx)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return kubernetes.DecideControllerNamespace(controllerConfig.ControllerName()), nil
+}
+
+type tunnelConnector struct {
+	tunnelTracker workerTunneler.TunnelTracker
+	controllerID  string
+	resolver      sshService
+}
+
+// Connect requests a one-shot reverse tunnel to the machine resolved from a
+// routed SSH destination. The local controller node ID preserves HA affinity:
+// the machine connects back to the controller handling the client session.
+func (c tunnelConnector) Connect(ctx context.Context, destination virtualhostname.Info) (*gossh.Client, error) {
+	machineName, err := c.resolver.MachineForDestination(ctx, destination)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ctx, cancel := context.WithTimeout(ctx, machineConnectionTimeout)
+	defer cancel()
+	return c.tunnelTracker.RequestTunnel(ctx, internalTunneler.RequestArgs{
+		MachineID:        machineName.String(),
+		ModelUUID:        destination.ModelUUID().String(),
+		ControllerNodeID: c.controllerID,
+	})
 }
