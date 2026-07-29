@@ -481,6 +481,10 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachinePlatform statement: %w", err)
 	}
+	stmtMachineReprovision, err := sqlair.Prepare(`SELECT &MachineReprovision.* FROM "machine_reprovision"`, v4_1_0.MachineReprovision{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing MachineReprovision statement: %w", err)
+	}
 	stmtMachineRequiresReboot, err := sqlair.Prepare(`SELECT &MachineRequiresReboot.* FROM "machine_requires_reboot"`, v4_1_0.MachineRequiresReboot{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineRequiresReboot statement: %w", err)
@@ -1368,6 +1372,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		}
 		if err := tx.Query(ctx, stmtMachinePlatform).GetAll(&modelExport.MachinePlatform); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying MachinePlatform (table machine_platform): %w", err)
+		}
+		if err := tx.Query(ctx, stmtMachineReprovision).GetAll(&modelExport.MachineReprovision); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying MachineReprovision (table machine_reprovision): %w", err)
 		}
 		if err := tx.Query(ctx, stmtMachineRequiresReboot).GetAll(&modelExport.MachineRequiresReboot); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying MachineRequiresReboot (table machine_requires_reboot): %w", err)

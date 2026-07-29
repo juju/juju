@@ -786,6 +786,11 @@ type MachinePlatform struct {
 	ArchitectureID int64   `db:"architecture_id" json:"architecture_id" yaml:"architecture_id"`
 }
 
+type MachineReprovision struct {
+	MachineName string    `db:"machine_name" json:"machine_name" yaml:"machine_name"`
+	RequestedAt time.Time `db:"requested_at" json:"requested_at" yaml:"requested_at"`
+}
+
 type MachineRequiresReboot struct {
 	MachineUUID string    `db:"machine_uuid" json:"machine_uuid" yaml:"machine_uuid"`
 	CreatedAt   time.Time `db:"created_at" json:"created_at" yaml:"created_at"`
@@ -1747,6 +1752,7 @@ type ModelExport struct {
 	MachinePlacement                         []MachinePlacement                         `json:"machine_placement" yaml:"machine_placement"`
 	MachinePlacementScope                    []MachinePlacementScope                    `json:"machine_placement_scope" yaml:"machine_placement_scope"`
 	MachinePlatform                          []MachinePlatform                          `json:"machine_platform" yaml:"machine_platform"`
+	MachineReprovision                       []MachineReprovision                       `json:"machine_reprovision" yaml:"machine_reprovision"`
 	MachineRequiresReboot                    []MachineRequiresReboot                    `json:"machine_requires_reboot" yaml:"machine_requires_reboot"`
 	MachineSshHostKey                        []MachineSshHostKey                        `json:"machine_ssh_host_key" yaml:"machine_ssh_host_key"`
 	MachineStatus                            []MachineStatus                            `json:"machine_status" yaml:"machine_status"`
