@@ -104,9 +104,9 @@ type State interface {
 	GetMachineLifeAndIsManuallyProvisioned(context.Context, machine.Name) (life.Life, bool, error)
 
 	// CheckMachineReprovisioningEligibility checks machine life, controller
-	// status, manual-provision status, and child-container presence in a
-	// single round-trip. It returns a sentinel error for each ineligible
-	// condition.
+	// status, manual-provision status, child-container presence, and attached
+	// model-scoped storage in a single round-trip. It returns a sentinel error
+	// for each ineligible condition.
 	CheckMachineReprovisioningEligibility(context.Context, machine.Name) error
 
 	// IsMachineAgentPresent returns whether presence exists for the specified

@@ -30,6 +30,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -397,7 +398,8 @@ GROUP BY   m.uuid
 
 // CheckMachineReprovisioningEligibility checks whether the machine identified
 // by name is eligible for reprovisioning. It queries life, controller status,
-// manual-provision status, and child-container presence in a single round-trip.
+// manual-provision status, child-container presence, and model-scoped storage
+// in a single round-trip.
 // It returns a [machineerrors.MachineNotFound] if the machine doesn't exist.
 func (st *State) CheckMachineReprovisioningEligibility(ctx context.Context, mName machine.Name) error {
 	db, err := st.DB(ctx)
@@ -405,29 +407,51 @@ func (st *State) CheckMachineReprovisioningEligibility(ctx context.Context, mNam
 		return errors.Capture(err)
 	}
 
-	machineNameParam := machineName{Name: mName.String()}
+	params := reprovisionEligibilityParams{
+		Name:         mName.String(),
+		ModelScopeID: int(domainstorage.ProvisionScopeModel),
+	}
 	query := `
+WITH model_storage_net_node AS (
+    SELECT sva.net_node_uuid
+    FROM storage_volume_attachment AS sva
+    WHERE sva.provision_scope_id = $reprovisionEligibilityParams.model_scope_id
+
+    UNION
+
+    SELECT svap.net_node_uuid
+    FROM storage_volume_attachment_plan AS svap
+    WHERE svap.provision_scope_id = $reprovisionEligibilityParams.model_scope_id
+
+    UNION
+
+    SELECT sfa.net_node_uuid
+    FROM storage_filesystem_attachment AS sfa
+    WHERE sfa.provision_scope_id = $reprovisionEligibilityParams.model_scope_id
+)
 SELECT     m.life_id AS &reprovisionEligibility.life_id,
            COUNT(mpc.machine_uuid) AS &reprovisionEligibility.is_container,
            COUNT(mic.machine_uuid) AS &reprovisionEligibility.is_controller,
            COUNT(mm.machine_uuid) AS &reprovisionEligibility.is_manual,
-           COUNT(mp.machine_uuid) AS &reprovisionEligibility.has_containers
+           COUNT(mp.machine_uuid) AS &reprovisionEligibility.has_containers,
+           COUNT(msn.net_node_uuid) AS &reprovisionEligibility.has_model_storage
 FROM       machine AS m
 LEFT JOIN  machine_parent AS mpc ON m.uuid = mpc.machine_uuid
 LEFT JOIN  v_machine_is_controller AS mic ON m.uuid = mic.machine_uuid
 LEFT JOIN  machine_manual AS mm ON m.uuid = mm.machine_uuid
 LEFT JOIN  machine_parent AS mp ON m.uuid = mp.parent_uuid
-WHERE      m.name = $machineName.name
+LEFT JOIN  model_storage_net_node AS msn ON m.net_node_uuid = msn.net_node_uuid
+WHERE      m.name = $reprovisionEligibilityParams.name
 GROUP BY   m.uuid
 `
-	queryStmt, err := st.Prepare(query, machineNameParam, reprovisionEligibility{})
+	queryStmt, err := st.Prepare(query, params, reprovisionEligibility{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	var result reprovisionEligibility
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&result)
+		err := tx.Query(ctx, queryStmt, params).Get(&result)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return machineerrors.MachineNotFound
 		}
@@ -454,6 +478,9 @@ GROUP BY   m.uuid
 	}
 	if result.HasContainers > 0 {
 		return errors.Capture(machineerrors.MachineHasChildContainers)
+	}
+	if result.HasModelStorage > 0 {
+		return errors.Capture(machineerrors.ModelScopedStorageAttached)
 	}
 	return nil
 }

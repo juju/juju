@@ -619,6 +619,47 @@ func (s *providerServiceSuite) TestReprovisionMachineAgentPresent(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineAgentPresent)
 }
 
+func (s *providerServiceSuite) TestReprovisionMachineInstanceIDError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().CheckMachineReprovisioningEligibility(
+		gomock.Any(), machine.Name("0"),
+	).Return(nil)
+	s.state.EXPECT().GetInstanceIDByMachineName(
+		gomock.Any(), machine.Name("0"),
+	).Return("", errors.New("instance lookup failed"))
+
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
+	c.Assert(err, tc.ErrorMatches, `machine "0": instance lookup failed`)
+}
+
+func (s *providerServiceSuite) TestReprovisionMachineAgentPresenceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectReprovisionMachineValidated(c, "i-1234")
+	s.state.EXPECT().IsMachineAgentPresent(
+		gomock.Any(), machine.Name("0"),
+	).Return(false, errors.New("presence lookup failed"))
+
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
+	c.Assert(err, tc.ErrorMatches,
+		`checking machine "0" agent presence: presence lookup failed`)
+}
+
+func (s *providerServiceSuite) TestReprovisionMachineProviderGetterError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectReprovisionMachineValidated(c, "i-1234")
+	s.expectMachineAgentAbsent()
+	s.service.providerGetter = func(context.Context) (Provider, error) {
+		return nil, errors.New("provider unavailable")
+	}
+
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
+	c.Assert(err, tc.ErrorMatches,
+		`getting provider for machine "0" reprovisioning: provider unavailable`)
+}
+
 func (s *providerServiceSuite) TestReprovisionMachineProviderEmptyInstances(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -626,6 +667,48 @@ func (s *providerServiceSuite) TestReprovisionMachineProviderEmptyInstances(c *t
 	s.expectReprovisionMachineValidated(c, instanceID)
 	s.expectMachineAgentAbsent()
 	s.provider.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return(nil, nil)
+	s.expectMachineDetached()
+
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *providerServiceSuite) TestReprovisionMachineModelScopedStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().CheckMachineReprovisioningEligibility(
+		gomock.Any(), machine.Name("0"),
+	).Return(machineerrors.ModelScopedStorageAttached)
+
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
+	c.Assert(err, tc.ErrorIs, machineerrors.ModelScopedStorageAttached)
+}
+
+func (s *providerServiceSuite) TestReprovisionMachineModelScopedStorageAddedAfterEligibility(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	instanceID := instance.Id("i-1234")
+	s.expectReprovisionMachineValidated(c, instanceID)
+	s.expectMachineAgentAbsent()
+	s.provider.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return([]instances.Instance{
+		reprovisionInstance{id: instanceID, status: status.Error},
+	}, nil)
+	s.state.EXPECT().DetachLostMachineCloudInstance(
+		gomock.Any(), "0", instanceID.String(), reprovisioningStatusMessage,
+		[]byte(`{"old-instance-id":"i-1234"}`), gomock.Any(),
+	).Return(machineerrors.ModelScopedStorageAttached)
+
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
+	c.Assert(err, tc.ErrorIs, machineerrors.ModelScopedStorageAttached)
+}
+
+func (s *providerServiceSuite) TestReprovisionMachineAgentAbsentNoInstance(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	instanceID := instance.Id("i-1234")
+	s.expectReprovisionMachineValidated(c, instanceID)
+	s.expectMachineAgentAbsent()
+	s.provider.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return(nil, environs.ErrNoInstances)
 	s.expectMachineDetached()
 
 	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
@@ -715,6 +798,26 @@ func (s *providerServiceSuite) TestDetachLostMachineCloudInstanceStatusData(c *t
 	s.statusHistory.EXPECT().RecordStatus(
 		gomock.Any(), domainstatus.MachineInstanceNamespace.WithID("0"), statusInfo,
 	).Return(nil)
+
+	err := s.service.detachLostMachineCloudInstance(
+		c.Context(), machine.Name("0"), instance.Id("i-1234"),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *providerServiceSuite) TestDetachLostMachineCloudInstanceStatusHistoryErrors(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().DetachLostMachineCloudInstance(
+		gomock.Any(), "0", "i-1234", reprovisioningStatusMessage,
+		[]byte(`{"old-instance-id":"i-1234"}`), gomock.Any(),
+	).Return(nil)
+	s.statusHistory.EXPECT().RecordStatus(
+		gomock.Any(), domainstatus.MachineNamespace.WithID("0"), gomock.Any(),
+	).Return(errors.New("machine history failed"))
+	s.statusHistory.EXPECT().RecordStatus(
+		gomock.Any(), domainstatus.MachineInstanceNamespace.WithID("0"), gomock.Any(),
+	).Return(errors.New("instance history failed"))
 
 	err := s.service.detachLostMachineCloudInstance(
 		c.Context(), machine.Name("0"), instance.Id("i-1234"),

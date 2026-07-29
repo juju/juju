@@ -83,4 +83,16 @@ const (
 	// MachineProviderInstanceRunning describes an error when the provider still
 	// reports the machine's cloud instance as running.
 	MachineProviderInstanceRunning = errors.ConstError("machine provider instance is running")
+
+	// ModelScopedStorageAttached describes an error that occurs during
+	// reprovisioning when model-scoped storage is attached to the machine.
+	ModelScopedStorageAttached = errors.ConstError("model-scoped storage attached to machine")
+
+	// StorageScopeAmbiguous describes an error that occurs during reprovisioning
+	// when Juju cannot safely classify attached storage.
+	StorageScopeAmbiguous = errors.ConstError("storage scope is ambiguous")
+
+	// MachineStorageNotAlive describes an error that occurs during
+	// reprovisioning when attached machine storage is not alive.
+	MachineStorageNotAlive = errors.ConstError("machine storage is not alive")
 )

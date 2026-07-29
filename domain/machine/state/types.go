@@ -127,11 +127,17 @@ type machineLifeAndManual struct {
 // reprovisionEligibility holds the results of a compressed eligibility check
 // for reprovisioning.
 type reprovisionEligibility struct {
-	LifeID        life.Life `db:"life_id"`
-	IsContainer   int64     `db:"is_container"`
-	IsController  int64     `db:"is_controller"`
-	IsManual      int64     `db:"is_manual"`
-	HasContainers int64     `db:"has_containers"`
+	LifeID          life.Life `db:"life_id"`
+	IsContainer     int64     `db:"is_container"`
+	IsController    int64     `db:"is_controller"`
+	IsManual        int64     `db:"is_manual"`
+	HasContainers   int64     `db:"has_containers"`
+	HasModelStorage int64     `db:"has_model_storage"`
+}
+
+type reprovisionEligibilityParams struct {
+	Name         string `db:"name"`
+	ModelScopeID int    `db:"model_scope_id"`
 }
 
 // instanceID represents the struct to be used for the instance_id column within
@@ -543,4 +549,41 @@ type reprovisionDetachTarget struct {
 
 type netNode struct {
 	UUID string `db:"net_node_uuid"`
+}
+
+type reprovisionStorageEntityTarget struct {
+	EntityUUID          string           `db:"entity_uuid"`
+	ScopeID             int              `db:"scope_id"`
+	StorageInstanceUUID sql.Null[string] `db:"storage_instance_uuid"`
+}
+
+type reprovisionStorageLogicalAttachment struct {
+	EntityUUID string `db:"entity_uuid"`
+}
+
+type reprovisionStoragePhysicalAttachment struct {
+	UUID            string           `db:"uuid"`
+	EntityUUID      string           `db:"entity_uuid"`
+	ScopeID         int              `db:"scope_id"`
+	BlockDeviceUUID sql.Null[string] `db:"block_device_uuid"`
+}
+
+type reprovisionStoragePlanTarget struct {
+	UUID       string `db:"uuid"`
+	EntityUUID string `db:"entity_uuid"`
+	ScopeID    int    `db:"scope_id"`
+}
+
+type reprovisionStorageLife struct {
+	EntityType string `db:"entity_type"`
+	EntityUUID string `db:"entity_uuid"`
+}
+
+type reprovisionUUIDs []string
+
+type reprovisionStorageTargetParams struct {
+	NetNodeUUID    string `db:"net_node_uuid"`
+	AliveLifeID    int    `db:"alive_life_id"`
+	ModelScopeID   int    `db:"model_scope_id"`
+	MachineScopeID int    `db:"machine_scope_id"`
 }
