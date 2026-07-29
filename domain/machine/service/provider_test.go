@@ -633,6 +633,20 @@ func (s *providerServiceSuite) TestReprovisionMachineInstanceIDError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `machine "0": instance lookup failed`)
 }
 
+func (s *providerServiceSuite) TestReprovisionMachineMissingInstanceID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().CheckMachineReprovisioningEligibility(
+		gomock.Any(), machine.Name("0"),
+	).Return(nil)
+	s.state.EXPECT().GetInstanceIDByMachineName(
+		gomock.Any(), machine.Name("0"),
+	).Return("", machineerrors.NotProvisioned)
+
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
+	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
+}
+
 func (s *providerServiceSuite) TestReprovisionMachineAgentPresenceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -340,7 +340,8 @@ WHERE machine_uuid = $entityUUID.uuid`,
 		`
 UPDATE machine
 SET nonce = NULL,
-    hostname = NULL
+    hostname = NULL,
+    agent_started_at = NULL
 WHERE uuid = $entityUUID.uuid`,
 		// Clear the old provider instance association and its observed hardware
 		// characteristics.
