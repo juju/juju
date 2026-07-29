@@ -31,7 +31,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		sshHostKeysC,
 		statusesC,
 		statusesHistoryC,
-		virtualHostKeysC,
 
 		// machine
 		instanceDataC,
@@ -209,10 +208,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Secret backends are per controller.
 		secretBackendsC,
 		secretBackendsRotateC,
-
-		// sshConnRequestsC is a new collection and doesn't need to be
-		// migrated.
-		sshConnRequestsC,
 
 		// secretBackendIssuedTokensC does not need to be migrated as the units
 		// using the tokens will only be migrated after they have been quiesced.

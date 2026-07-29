@@ -119,8 +119,6 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 // machineTemplateMatcher is a custom matcher
 // for machine templates in Go mock tests.
-// We verify all fields matches except for the
-// VirtualHostKey which is dynamically generated.
 type machineTemplateMatcher struct {
 	expected state.MachineTemplate
 }
@@ -131,19 +129,7 @@ func (m machineTemplateMatcher) Matches(x interface{}) bool {
 		return false
 	}
 
-	// Verify the VirtualHostKey is non-empty.
-	if len(mt.VirtualHostKey) == 0 {
-		return false
-	}
-
-	// Create copies to compare all fields except VirtualHostKey
-	expectedCopy := m.expected
-	actualCopy := mt
-
-	expectedCopy.VirtualHostKey = nil
-	actualCopy.VirtualHostKey = nil
-
-	return reflect.DeepEqual(expectedCopy, actualCopy)
+	return reflect.DeepEqual(m.expected, mt)
 }
 
 func (m machineTemplateMatcher) String() string {

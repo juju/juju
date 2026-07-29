@@ -691,7 +691,6 @@ func (s *EnableHASuite) TestEnableHAOpensExpectedPorts(c *gc.C) {
 	config, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedAPIPort := config.APIPort()
-	expectedSSHPort := config.SSHServerPort()
 
 	for _, unit := range units {
 		ports, err := unit.OpenedPortRanges()
@@ -699,16 +698,13 @@ func (s *EnableHASuite) TestEnableHAOpensExpectedPorts(c *gc.C) {
 		openPorts := ports.UniquePortRanges()
 
 		foundAPIPort := false
-		foundSSHProxyPort := false
 		for _, portRange := range openPorts {
 			foundAPIPort = foundAPIPort || portRange.FromPort <= expectedAPIPort && portRange.ToPort >= expectedAPIPort
-			foundSSHProxyPort = foundSSHProxyPort || portRange.FromPort <= expectedSSHPort && portRange.ToPort >= expectedSSHPort
-			if foundAPIPort && foundSSHProxyPort {
+			if foundAPIPort {
 				break
 			}
 		}
 
 		c.Check(foundAPIPort, jc.IsTrue)
-		c.Assert(foundSSHProxyPort, jc.IsTrue)
 	}
 }

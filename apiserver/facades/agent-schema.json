@@ -9553,18 +9553,6 @@
         }
     },
     {
-        "Name": "SSHSession",
-        "Description": "",
-        "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent"
-        ],
-        "Schema": {
-            "type": "object"
-        }
-    },
-    {
         "Name": "SecretsManager",
         "Description": "",
         "Version": 4,

@@ -391,10 +391,9 @@ func (s *BootstrapSuite) assertControllerApplication(c *gc.C, extraOpenPorts ...
 	c.Assert(openPorts, gc.HasLen, expectedTotal)
 	ctrlConfig, err := st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	sshServerPort := ctrlConfig.SSHServerPort()
 	apiPort := ctrlConfig.APIPort()
 
-	mustContain := []int{sshServerPort, apiPort}
+	mustContain := []int{apiPort}
 	for _, p := range extraOpenPorts {
 		mustContain = append(mustContain, p)
 	}
