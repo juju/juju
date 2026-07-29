@@ -386,7 +386,7 @@ func (s *BootstrapSuite) assertControllerApplication(c *gc.C, extraOpenPorts ...
 	unitPorts, err := units[0].OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	openPorts := unitPorts.UniquePortRanges()
-	expectedBase := 2
+	expectedBase := 1
 	expectedTotal := expectedBase + len(extraOpenPorts)
 	c.Assert(openPorts, gc.HasLen, expectedTotal)
 	ctrlConfig, err := st.ControllerConfig()
