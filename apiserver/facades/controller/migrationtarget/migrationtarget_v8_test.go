@@ -645,3 +645,48 @@ func newMacaroon(c *tc.C) *macaroon.Macaroon {
 	c.Assert(err, tc.ErrorIsNil)
 	return mac
 }
+
+// TestAdoptResourcesCommitsActivation asserts that the AdoptResources RPC is
+// what drives the activation commit, and that it hands the source's version
+// straight through.
+//
+// AdoptResources is the first call a source makes after durably recording
+// SUCCESS - the point from which its phase machine can never reach ABORT - so
+// its arrival is the source's commit decision, and the only reliable one the
+// wire protocol offers. Committing here is what lets Activate stay abortable.
+// The ordering within the commit (release the model, then re-tag its
+// resources) is the importer's concern and is asserted there.
+func (s *v8Suite) TestAdoptResourcesCommitsActivation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must0(c, model.NewUUID)
+	sourceVersion := semversion.MustParse("4.0.12")
+
+	s.modelImporter.EXPECT().CommitActivation(gomock.Any(), modelUUID, sourceVersion).Return(nil)
+
+	api := s.mustNewAPIV8(c)
+	err := api.AdoptResources(c.Context(), params.AdoptResourcesArgs{
+		ModelTag:                names.NewModelTag(modelUUID.String()).String(),
+		SourceControllerVersion: sourceVersion,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestAdoptResourcesPropagatesCommitError asserts a refused commit surfaces to
+// the source, which retries the call rather than treating it as fatal.
+func (s *v8Suite) TestAdoptResourcesPropagatesCommitError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must0(c, model.NewUUID)
+	sourceVersion := semversion.MustParse("4.0.12")
+
+	s.modelImporter.EXPECT().CommitActivation(gomock.Any(), modelUUID, sourceVersion).
+		Return(errors.New("boom"))
+
+	api := s.mustNewAPIV8(c)
+	err := api.AdoptResources(c.Context(), params.AdoptResourcesArgs{
+		ModelTag:                names.NewModelTag(modelUUID.String()).String(),
+		SourceControllerVersion: sourceVersion,
+	})
+	c.Check(err, tc.ErrorMatches, ".*boom.*")
+}

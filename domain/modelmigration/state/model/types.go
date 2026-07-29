@@ -49,3 +49,8 @@ type setAgentVersionTarget struct {
 	TargetVersion   string `db:"target_version"`
 	PreviousVersion string `db:"previous_version"`
 }
+
+// importGateCount holds a COUNT(*) projection over the model's import gate.
+type importGateCount struct {
+	Count int `db:"count"`
+}

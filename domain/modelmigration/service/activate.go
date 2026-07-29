@@ -126,6 +126,16 @@ func (s *Service) GetControllerTargetVersion(ctx context.Context) (string, error
 	return s.controllerState.GetControllerTargetVersion(ctx)
 }
 
+// IsModelImporting reports whether the model database still carries its import
+// gate. Used to confirm that a model with no import claim really was released by
+// a completed commit, rather than never imported at all.
+func (s *Service) IsModelImporting(ctx context.Context) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.modelState.IsModelImporting(ctx)
+}
+
 // DeleteModelImportingStatus clears the model-database import gate, making the
 // model visible once activation completes.
 func (s *Service) DeleteModelImportingStatus(ctx context.Context) error {

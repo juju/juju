@@ -278,6 +278,10 @@ type ModelState interface {
 	// GetControllerUUID returns the UUID of the controller that owns this
 	// model.
 	GetControllerUUID(context.Context) (string, error)
+
+	// IsModelImporting reports whether the model database still carries its
+	// import gate.
+	IsModelImporting(ctx context.Context) (bool, error)
 	// GetAllInstanceIDs returns all instance IDs from the current model as
 	// juju/collections set.
 	GetAllInstanceIDs(ctx context.Context) (set.Strings, error)
