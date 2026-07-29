@@ -246,9 +246,13 @@ type ModelState interface {
 	// content is stored externally.
 	GetExternalSecretRevisionBackends(ctx context.Context) (map[string]string, error)
 	// GetRelationValidationData returns the relation identities, keys and
-	// participating application names used to validate imported relation-unit
-	// consistency. Only alive relations are returned.
+	// endpoints used to validate imported relation-unit consistency. Only alive
+	// relations are returned.
 	GetRelationValidationData(ctx context.Context) ([]modelmigrationinternal.RelationValidationData, error)
+	// GetSubordinateUnitPrincipals returns a map from subordinate unit name to
+	// the name of the application its principal unit belongs to. Units absent
+	// from the map are principals themselves.
+	GetSubordinateUnitPrincipals(ctx context.Context) (map[string]string, error)
 	// GetApplicationUnitNames returns a map from application name to the names
 	// of its units. Only alive applications and units are returned.
 	GetApplicationUnitNames(ctx context.Context) (map[string][]string, error)

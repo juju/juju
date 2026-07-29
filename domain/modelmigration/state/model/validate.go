@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/set"
 
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
@@ -209,11 +208,10 @@ JOIN   architecture AS a ON a.id = ra.architecture_id
 	return names, nil
 }
 
-// GetRelationValidationData returns the relation identities, keys and
-// participating application names needed to validate imported relation-unit
-// consistency before activation. Only alive relations are returned: units
-// legitimately depart a dying or dead relation, so requiring membership there
-// would report false inconsistencies.
+// GetRelationValidationData returns the relation identities, keys and endpoints
+// needed to validate imported relation-unit consistency before activation. Only
+// alive relations are returned: units legitimately depart a dying or dead
+// relation, so requiring membership there would report false inconsistencies.
 func (s *State) GetRelationValidationData(ctx context.Context) ([]modelmigrationinternal.RelationValidationData, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -241,56 +239,67 @@ WHERE  r.life_id = 0
 		return nil, errors.Errorf("retrieving relation validation data: %w", err)
 	}
 
-	relationKeys, err := s.getRelationKeys(ctx)
+	endpointsByRelation, err := s.getRelationEndpoints(ctx)
 	if err != nil {
-		return nil, errors.Errorf("retrieving relation keys: %w", err)
+		return nil, errors.Errorf("retrieving relation endpoints: %w", err)
 	}
 
 	result := make([]modelmigrationinternal.RelationValidationData, len(rows))
 	for i, row := range rows {
-		endpoints := relationKeys[row.UUID]
+		endpoints := endpointsByRelation[row.UUID]
 		keys := make([]string, 0, len(endpoints))
-		applications := set.NewStrings()
+		validationEndpoints := make([]modelmigrationinternal.RelationValidationEndpoint, 0, len(endpoints))
 		for _, endpoint := range endpoints {
 			keys = append(keys, endpoint.ApplicationName+":"+endpoint.EndpointName)
-			applications.Add(endpoint.ApplicationName)
+			validationEndpoints = append(validationEndpoints, modelmigrationinternal.RelationValidationEndpoint{
+				ApplicationName: endpoint.ApplicationName,
+				ContainerScoped: endpoint.Scope == containerRelationScope,
+				Subordinate:     endpoint.Subordinate,
+			})
 		}
 		result[i] = modelmigrationinternal.RelationValidationData{
-			UUID:         row.UUID,
-			ID:           row.ID,
-			Key:          strings.Join(keys, " "),
-			Applications: applications.SortedValues(),
+			UUID:      row.UUID,
+			ID:        row.ID,
+			Key:       strings.Join(keys, " "),
+			Endpoints: validationEndpoints,
 		}
 	}
 	return result, nil
 }
 
-// relationEndpointKey maps a row from v_relation_endpoint_identifier into
-// a relation's UUID, application and endpoint names.
-type relationEndpointKey struct {
-	RelationUUID    string `db:"relation_uuid"`
-	ApplicationName string `db:"application_name"`
-	EndpointName    string `db:"endpoint_name"`
-}
+// containerRelationScope is the charm_relation_scope name for endpoints that
+// only ever hold the subordinate units co-located with a principal.
+const containerRelationScope = "container"
 
-// getRelationKeys returns the endpoint rows of every relation, grouped by
-// relation UUID, used to build the participating application list and readable
-// relation keys for validation error messages.
-func (s *State) getRelationKeys(ctx context.Context) (map[string][]relationEndpointKey, error) {
+// getRelationEndpoints returns the endpoint rows of every relation, grouped by
+// relation UUID and ordered by application name, used to build the readable
+// relation key for validation error messages and to decide which of an
+// application's units are expected in scope.
+func (s *State) getRelationEndpoints(ctx context.Context) (map[string][]relationEndpointRow, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	stmt, err := s.Prepare(`
-SELECT (relation_uuid, application_name, endpoint_name) AS (&relationEndpointKey.*)
-FROM   v_relation_endpoint_identifier
-`, relationEndpointKey{})
+SELECT re.relation_uuid AS &relationEndpointRow.relation_uuid,
+       a.name AS &relationEndpointRow.application_name,
+       cr.name AS &relationEndpointRow.endpoint_name,
+       crs.name AS &relationEndpointRow.scope,
+       COALESCE(cm.subordinate, FALSE) AS &relationEndpointRow.subordinate
+FROM   relation_endpoint AS re
+JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN   charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
+JOIN   charm_relation_scope AS crs ON cr.scope_id = crs.id
+JOIN   application AS a ON ae.application_uuid = a.uuid
+LEFT JOIN charm_metadata AS cm ON cm.charm_uuid = a.charm_uuid
+ORDER BY a.name
+`, relationEndpointRow{})
 	if err != nil {
-		return nil, errors.Errorf("preparing relation endpoint keys statement: %w", err)
+		return nil, errors.Errorf("preparing relation endpoints statement: %w", err)
 	}
 
-	var rows []relationEndpointKey
+	var rows []relationEndpointRow
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		rows = nil
 		err := tx.Query(ctx, stmt).GetAll(&rows)
@@ -299,12 +308,57 @@ FROM   v_relation_endpoint_identifier
 		}
 		return nil
 	}); err != nil {
-		return nil, errors.Errorf("retrieving relation endpoint keys: %w", err)
+		return nil, errors.Errorf("retrieving relation endpoints: %w", err)
 	}
 
-	result := make(map[string][]relationEndpointKey)
+	result := make(map[string][]relationEndpointRow)
 	for _, row := range rows {
 		result[row.RelationUUID] = append(result[row.RelationUUID], row)
+	}
+	return result, nil
+}
+
+// GetSubordinateUnitPrincipals returns a map from subordinate unit name to the
+// name of the application its principal unit belongs to. Units absent from the
+// map are principals themselves.
+//
+// Imported relation validation uses it to tell a subordinate unit that is
+// missing from a container-scoped relation because it lives on a principal
+// outside that relation - which is normal - from one that is genuinely missing
+// its relation-unit row.
+func (s *State) GetSubordinateUnitPrincipals(ctx context.Context) (map[string]string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT u.name AS &subordinateUnitPrincipalRow.unit_name,
+       pa.name AS &subordinateUnitPrincipalRow.application_name
+FROM   unit_principal AS up
+JOIN   unit AS u ON u.uuid = up.unit_uuid
+JOIN   unit AS pu ON pu.uuid = up.principal_uuid
+JOIN   application AS pa ON pa.uuid = pu.application_uuid
+`, subordinateUnitPrincipalRow{})
+	if err != nil {
+		return nil, errors.Errorf("preparing subordinate unit principals statement: %w", err)
+	}
+
+	var rows []subordinateUnitPrincipalRow
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		rows = nil
+		err := tx.Query(ctx, stmt).GetAll(&rows)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Errorf("retrieving subordinate unit principals: %w", err)
+	}
+
+	result := make(map[string]string, len(rows))
+	for _, row := range rows {
+		result[row.UnitName] = row.ApplicationName
 	}
 	return result, nil
 }

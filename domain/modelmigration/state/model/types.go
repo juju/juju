@@ -90,6 +90,24 @@ type applicationUnitRow struct {
 	UnitName        string `db:"unit_name"`
 }
 
+// relationEndpointRow is one endpoint of a relation: the application it belongs
+// to, the charm endpoint name, the endpoint's scope and whether the
+// application's charm is a subordinate.
+type relationEndpointRow struct {
+	RelationUUID    string `db:"relation_uuid"`
+	ApplicationName string `db:"application_name"`
+	EndpointName    string `db:"endpoint_name"`
+	Scope           string `db:"scope"`
+	Subordinate     bool   `db:"subordinate"`
+}
+
+// subordinateUnitPrincipalRow pairs a subordinate unit's name with the name of
+// the application its principal unit belongs to.
+type subordinateUnitPrincipalRow struct {
+	UnitName        string `db:"unit_name"`
+	ApplicationName string `db:"application_name"`
+}
+
 // relationUnitScopeRow identifies the application for one unit in scope of a
 // relation, along with the relation it belongs to.
 type relationUnitScopeRow struct {

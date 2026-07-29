@@ -566,7 +566,76 @@ func (s *migrationSuite) TestGetRelationValidationData(c *tc.C) {
 	c.Check(relations[0].UUID, tc.Equals, relationUUID)
 	c.Check(relations[0].ID, tc.Equals, 7)
 	c.Check(relations[0].Key, tc.Equals, "wordpress:db")
-	c.Check(relations[0].Applications, tc.DeepEquals, []string{"wordpress"})
+	c.Check(relations[0].Endpoints, tc.DeepEquals, []modelmigrationinternal.RelationValidationEndpoint{
+		{ApplicationName: "wordpress", ContainerScoped: true},
+	})
+}
+
+// TestGetRelationValidationDataEndpointScope verifies each endpoint reports the
+// charm relation's scope and whether its application runs a subordinate charm,
+// which is what decides which units are expected in the relation's scope.
+func (s *migrationSuite) TestGetRelationValidationDataEndpointScope(c *tc.C) {
+	db := s.DB()
+
+	// A principal (ubuntu, global endpoint) and a subordinate (nrpe, container
+	// endpoint) joined by one relation.
+	principalCharmUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'ubuntu', 0)", principalCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm_metadata (charm_uuid, name, subordinate) VALUES (?, 'ubuntu', false)", principalCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	subordinateCharmUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'nrpe', 0)", subordinateCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm_metadata (charm_uuid, name, subordinate) VALUES (?, 'nrpe', true)", subordinateCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	relationUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, 0, 7, 1)", relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// scope_id 0 is global, 1 is container.
+	addEndpoint := func(charmUUID, appName, endpointName string, scopeID int) {
+		charmRelationUUID := uuid.MustNewUUID().String()
+		_, err := db.ExecContext(c.Context(),
+			"INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, scope_id, interface, optional, capacity) VALUES (?, ?, ?, 1, ?, 'juju-info', false, 1)",
+			charmRelationUUID, charmUUID, endpointName, scopeID)
+		c.Assert(err, tc.ErrorIsNil)
+
+		appUUID := uuid.MustNewUUID().String()
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, 0, ?, ?)",
+			appUUID, appName, charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+		c.Assert(err, tc.ErrorIsNil)
+
+		endpointUUID := uuid.MustNewUUID().String()
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, NULL, ?)",
+			endpointUUID, appUUID, charmRelationUUID)
+		c.Assert(err, tc.ErrorIsNil)
+
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?)",
+			uuid.MustNewUUID().String(), relationUUID, endpointUUID)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+	addEndpoint(subordinateCharmUUID, "nrpe", "general-info", 1)
+	addEndpoint(principalCharmUUID, "ubuntu", "juju-info", 0)
+
+	relations, err := New(s.TxnRunnerFactory(), s.modelUUID).GetRelationValidationData(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(relations, tc.HasLen, 1)
+	c.Check(relations[0].Key, tc.Equals, "nrpe:general-info ubuntu:juju-info")
+	c.Check(relations[0].Endpoints, tc.DeepEquals, []modelmigrationinternal.RelationValidationEndpoint{
+		{ApplicationName: "nrpe", ContainerScoped: true, Subordinate: true},
+		{ApplicationName: "ubuntu", ContainerScoped: false, Subordinate: false},
+	})
 }
 
 // TestGetRelationValidationDataExcludesNonAlive verifies dying and dead
@@ -652,6 +721,56 @@ func (s *migrationSuite) TestGetApplicationUnitNames(c *tc.C) {
 	units, err := New(s.TxnRunnerFactory(), s.modelUUID).GetApplicationUnitNames(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(units, tc.DeepEquals, map[string][]string{"wordpress": {"wordpress/0"}})
+}
+
+// TestGetSubordinateUnitPrincipalsEmpty verifies a model with only principal
+// units returns an empty map.
+func (s *migrationSuite) TestGetSubordinateUnitPrincipalsEmpty(c *tc.C) {
+	principals, err := New(s.TxnRunnerFactory(), s.modelUUID).GetSubordinateUnitPrincipals(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(principals, tc.HasLen, 0)
+}
+
+// TestGetSubordinateUnitPrincipals verifies subordinate units are mapped to the
+// application of the principal unit they run alongside, and that principal
+// units are absent from the result.
+func (s *migrationSuite) TestGetSubordinateUnitPrincipals(c *tc.C) {
+	db := s.DB()
+
+	addUnit := func(appName, unitName string) string {
+		charmUUID := uuid.MustNewUUID().String()
+		_, err := db.ExecContext(c.Context(),
+			"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)", charmUUID, appName)
+		c.Assert(err, tc.ErrorIsNil)
+
+		appUUID := uuid.MustNewUUID().String()
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, 0, ?, ?)",
+			appUUID, appName, charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+		c.Assert(err, tc.ErrorIsNil)
+
+		netNodeUUID := uuid.MustNewUUID().String()
+		_, err = db.ExecContext(c.Context(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
+		c.Assert(err, tc.ErrorIsNil)
+
+		unitUUID := uuid.MustNewUUID().String()
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid) VALUES (?, ?, 0, ?, ?, ?)",
+			unitUUID, unitName, appUUID, netNodeUUID, charmUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		return unitUUID
+	}
+
+	ubuntuUnitUUID := addUnit("ubuntu", "ubuntu/0")
+	nrpeUnitUUID := addUnit("nrpe", "nrpe/0")
+
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO unit_principal (unit_uuid, principal_uuid) VALUES (?, ?)", nrpeUnitUUID, ubuntuUnitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	principals, err := New(s.TxnRunnerFactory(), s.modelUUID).GetSubordinateUnitPrincipals(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(principals, tc.DeepEquals, map[string]string{"nrpe/0": "ubuntu"})
 }
 
 // TestGetApplicationUnitNamesExcludesNonAlive verifies dying and dead

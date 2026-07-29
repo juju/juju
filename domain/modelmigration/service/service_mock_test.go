@@ -616,6 +616,7 @@ type MockModelStateMockRecorder struct {
 	getRelationValidationDataExpects             []*gomock.Call1_2[context.Context, []internal.RelationValidationData, error]
 	getRunningAgentArchitecturesExpects          []*gomock.Call1_2[context.Context, []string, error]
 	getSecretBackendUUIDsInUseExpects            []*gomock.Call1_2[context.Context, []string, error]
+	getSubordinateUnitPrincipalsExpects          []*gomock.Call1_2[context.Context, map[string]string, error]
 	getThirdPartyOffererModelsExpects            []*gomock.Call1_2[context.Context, []internal.OffererModel, error]
 	setModelTargetAgentVersionExpects            []*gomock.Call3_1[context.Context, string, string, error]
 }
@@ -937,6 +938,24 @@ func (mr *MockModelStateMockRecorder) GetSecretBackendUUIDsInUse(ctx any) *MockM
 
 // MockModelStateGetSecretBackendUUIDsInUseCall is the typed call wrapper for GetSecretBackendUUIDsInUse.
 type MockModelStateGetSecretBackendUUIDsInUseCall = gomock.Call1_2[context.Context, []string, error]
+
+// GetSubordinateUnitPrincipals mocks base method.
+func (m *MockModelState) GetSubordinateUnitPrincipals(ctx context.Context) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getSubordinateUnitPrincipalsExpects, m.ctrl, m, "GetSubordinateUnitPrincipals", ctx)
+}
+
+// GetSubordinateUnitPrincipals indicates an expected call of GetSubordinateUnitPrincipals.
+func (mr *MockModelStateMockRecorder) GetSubordinateUnitPrincipals(ctx any) *MockModelStateGetSubordinateUnitPrincipalsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, map[string]string, error](mr.mock.ctrl.T, mr.mock, "GetSubordinateUnitPrincipals", gomock.EnsureMatcher(ctx))
+	mr.getSubordinateUnitPrincipalsExpects = append(mr.getSubordinateUnitPrincipalsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateGetSubordinateUnitPrincipalsCall is the typed call wrapper for GetSubordinateUnitPrincipals.
+type MockModelStateGetSubordinateUnitPrincipalsCall = gomock.Call1_2[context.Context, map[string]string, error]
 
 // GetThirdPartyOffererModels mocks base method.
 func (m *MockModelState) GetThirdPartyOffererModels(ctx context.Context) ([]internal.OffererModel, error) {
