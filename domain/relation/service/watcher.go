@@ -796,11 +796,18 @@ func (w *applicationLifeSuspendedStatusWatcher) processChange(
 ) (corerelation.UUID, error) {
 	changedRelationData, err := w.s.st.GetMapperDataForWatchLifeSuspendedStatus(ctx, relUUID, w.appUUID)
 	if errors.Is(err, relationerrors.ApplicationNotFoundForRelation) {
+		if _, seen := w.currentRelations[relUUID]; seen {
+			delete(w.currentRelations, relUUID)
+			return relUUID, nil
+		}
 		relationsIgnored.Add(relUUID.String())
 		return "", continueError
 	} else if errors.Is(err, relationerrors.RelationNotFound) {
+		if _, seen := w.currentRelations[relUUID]; !seen {
+			return "", continueError
+		}
 		delete(w.currentRelations, relUUID)
-		return "", continueError
+		return relUUID, nil
 	} else if err != nil {
 		return "", errors.Capture(err)
 	}
