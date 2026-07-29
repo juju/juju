@@ -461,6 +461,16 @@ func (s *Service) checkModelCredential(ctx context.Context) error {
 			credential.Name, credential.Cloud, credential.Owner,
 		)
 	}
+	// A credential Juju has already marked invalid is rejected here rather than
+	// left to the provider: some providers still open successfully with one, so
+	// relying on the open alone would let an unusable credential through. 3.6
+	// refused the same way, in its validator.
+	if credential.Invalid {
+		return errors.Errorf(
+			"model cloud credential %q on cloud %q for owner %q is not valid: %s",
+			credential.Name, credential.Cloud, credential.Owner, credential.InvalidReason,
+		)
+	}
 	return s.credentialValidator.Validate(ctx, *credential)
 }
 

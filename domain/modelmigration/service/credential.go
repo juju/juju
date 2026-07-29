@@ -118,7 +118,10 @@ func (v credentialValidator) validationContext(ctx context.Context) (credentials
 }
 
 // modelConfig returns the model's configuration, ready to open the provider
-// with.
+// with. NoDefaults is correct here: v_model_config holds the model's fully
+// resolved configuration, with defaults already materialised when the model was
+// created, so re-applying them would only overwrite stored values. This matches
+// how the rest of the codebase reconstitutes stored model config.
 func (v credentialValidator) modelConfig(ctx context.Context) (*config.Config, error) {
 	attrs, err := v.modelState.GetModelConfig(ctx)
 	if err != nil {

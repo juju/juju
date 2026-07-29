@@ -271,10 +271,11 @@ WHERE  r.life_id = 0
 // only ever hold the subordinate units co-located with a principal.
 const containerRelationScope = "container"
 
-// getRelationEndpoints returns the endpoint rows of every relation, grouped by
-// relation UUID and ordered by application name, used to build the readable
-// relation key for validation error messages and to decide which of an
-// application's units are expected in scope.
+// getRelationEndpoints returns the endpoint rows of every alive relation,
+// grouped by relation UUID and ordered by application name, used to build the
+// readable relation key for validation error messages and to decide which of an
+// application's units are expected in scope. Only alive relations are returned,
+// matching the relations [State.GetRelationValidationData] validates.
 func (s *State) getRelationEndpoints(ctx context.Context) (map[string][]relationEndpointRow, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -288,11 +289,13 @@ SELECT re.relation_uuid AS &relationEndpointRow.relation_uuid,
        crs.name AS &relationEndpointRow.scope,
        COALESCE(cm.subordinate, FALSE) AS &relationEndpointRow.subordinate
 FROM   relation_endpoint AS re
+JOIN   relation AS r ON re.relation_uuid = r.uuid
 JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
 JOIN   charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
 JOIN   charm_relation_scope AS crs ON cr.scope_id = crs.id
 JOIN   application AS a ON ae.application_uuid = a.uuid
 LEFT JOIN charm_metadata AS cm ON cm.charm_uuid = a.charm_uuid
+WHERE  r.life_id = 0
 ORDER BY a.name
 `, relationEndpointRow{})
 	if err != nil {

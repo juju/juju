@@ -284,6 +284,57 @@ func (s *serviceSuite) TestCheckMachinesCredentialValidationError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, ".*invalid credential.*")
 }
 
+// TestCheckMachinesInvalidCredential checks that a credential Juju has already
+// marked invalid is refused outright, without asking the provider.
+func (s *serviceSuite) TestCheckMachinesInvalidCredential(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	credential := modelmigration.ModelCloudCredential{
+		Cloud:         "aws",
+		Owner:         "fred",
+		Name:          "default",
+		AuthType:      "access-key",
+		Invalid:       true,
+		InvalidReason: "cloud rejected the key",
+	}
+	s.controllerState.EXPECT().GetModelCloudCredential(gomock.Any(), s.modelUUID).
+		Return(&credential, nil)
+
+	_, err := NewService(
+		s.controllerState,
+		s.modelState,
+		s.modelUUID,
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
+	).CheckMachines(c.Context())
+	c.Assert(err, tc.ErrorMatches, `.*credential "default" on cloud "aws" for owner "fred" is not valid: cloud rejected the key.*`)
+}
+
+// TestMissingAgentBinaryArchitecturesCAAS checks the CAAS short-circuit: CAAS
+// agents run from OCI images, not the agent binary store, so no architecture is
+// ever reported missing and neither object store is consulted.
+func (s *serviceSuite) TestMissingAgentBinaryArchitecturesCAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
+
+	missing, err := NewService(
+		s.controllerState,
+		s.modelState,
+		s.modelUUID,
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
+	).MissingAgentBinaryArchitectures(c.Context(), "4.0.1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(missing, tc.HasLen, 0)
+}
+
 // expectImportValidationPasses sets up the read-only ValidateImportedModel
 // state reads to report a model with no external secrets, so validation passes.
 func (s *serviceSuite) expectImportValidationPasses() {
