@@ -36,7 +36,9 @@ type exportWatcherSuite struct {
 
 type stubCredentialValidator struct{}
 
-func (stubCredentialValidator) Validate(context.Context, modelmigration.ModelCloudCredential) error {
+func (stubCredentialValidator) Validate(
+	context.Context, modelmigration.CredentialValidationInfo, modelmigration.ModelCloudCredential,
+) error {
 	return nil
 }
 

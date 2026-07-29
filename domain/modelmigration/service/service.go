@@ -61,7 +61,15 @@ type ResourceProvider interface {
 // CredentialValidator checks whether the imported model's credential can
 // access its cloud on this controller.
 type CredentialValidator interface {
-	Validate(ctx context.Context, credential modelmigration.ModelCloudCredential) error
+	// Validate opens the model's cloud with the given credential and reports
+	// whether it grants access to the model's resources. info describes the
+	// model the credential belongs to. A non-nil error means the imported model
+	// must not be activated.
+	Validate(
+		ctx context.Context,
+		info modelmigration.CredentialValidationInfo,
+		credential modelmigration.ModelCloudCredential,
+	) error
 }
 
 // Service provides the means for supporting model migration actions between
@@ -226,16 +234,16 @@ type ModelState interface {
 	// model.
 	GetControllerUUID(context.Context) (string, error)
 	// GetMachineInstanceIDs returns a map from provider cloud instance ID to the
-	// name of the model machine it backs, for every provisioned machine.
+	// name of the model machine it backs, for every provisioned machine the
+	// cloud is expected to know about.
 	GetMachineInstanceIDs(ctx context.Context) (map[string]string, error)
 	// GetModelType returns the model's deployment type (for example "iaas" or
 	// "caas").
 	GetModelType(ctx context.Context) (string, error)
-	// GetModelCloudInfo returns the name of the cloud the model is deployed on
-	// and its region (empty when the model has no region).
-	GetModelCloudInfo(ctx context.Context) (cloudName string, region string, err error)
-	// GetModelConfig returns the model's configuration as key/value pairs.
-	GetModelConfig(ctx context.Context) (map[string]string, error)
+	// GetCredentialValidationInfo returns the model's owning controller,
+	// deployment type, cloud placement and stored configuration, as needed to
+	// validate the model's cloud credential.
+	GetCredentialValidationInfo(ctx context.Context) (modelmigration.CredentialValidationInfo, error)
 	// GetMachineInstanceID returns the provider instance ID of the machine
 	// with the given UUID.
 	GetMachineInstanceID(ctx context.Context, machineUUID string) (string, error)
@@ -370,13 +378,21 @@ func (s *Service) AdoptResources(
 // into this target controller. We validate the model's cloud credential and
 // check the machines that exist in the model against the machines reported by
 // the models cloud and report any discrepancies.
+//
+// This is the counterpart of 3.6's migrationtarget CheckMachines facade, which
+// validated the credential and reconciled the machines in the same call.
 func (s *Service) CheckMachines(
 	ctx context.Context,
 ) ([]modelmigration.MigrationMachineDiscrepancy, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := s.checkModelCredential(ctx); err != nil {
+	info, err := s.modelState.GetCredentialValidationInfo(ctx)
+	if err != nil {
+		return nil, errors.Errorf("getting credential validation info for model: %w", err)
+	}
+
+	if err := s.checkModelCredential(ctx, info); err != nil {
 		return nil, errors.Errorf("validating model credential: %w", err)
 	}
 
@@ -431,47 +447,18 @@ func (s *Service) CheckMachines(
 	}
 
 	// A provider instance not tracked by any model machine: the cloud has an
-	// instance Juju does not know about. MachineName is left empty.
-	for _, instanceID := range providerInstanceIDsSet.Difference(modelInstanceIDsSet).SortedValues() {
-		discrepancies = append(discrepancies, modelmigration.MigrationMachineDiscrepancy{
-			CloudInstanceId: instance.Id(instanceID),
-		})
+	// instance Juju does not know about. MachineName is left empty. On a cloud
+	// whose machines Juju does not provision this is normal rather than a
+	// discrepancy, see [checkCloudInstances].
+	if checkCloudInstances(info.CloudType) {
+		for _, instanceID := range providerInstanceIDsSet.Difference(modelInstanceIDsSet).SortedValues() {
+			discrepancies = append(discrepancies, modelmigration.MigrationMachineDiscrepancy{
+				CloudInstanceId: instance.Id(instanceID),
+			})
+		}
 	}
 
 	return discrepancies, nil
-}
-
-// checkModelCredential validates the credential assigned to the model against
-// the target controller. It runs for both IAAS and CAAS models so an imported
-// model with unusable credentials fails VALIDATION before activation.
-func (s *Service) checkModelCredential(ctx context.Context) error {
-	credential, err := s.controllerState.GetModelCloudCredential(ctx, s.modelUUID)
-	if err != nil {
-		return errors.Errorf("getting model cloud credential: %w", err)
-	}
-	// A model can legitimately have no credential (cloud_credential_uuid is
-	// nullable: clouds with an "empty" auth type, such as local LXD, need
-	// none), in which case there is nothing to validate.
-	if credential == nil {
-		return nil
-	}
-	if credential.Revoked {
-		return errors.Errorf(
-			"model cloud credential %q on cloud %q for owner %q is revoked",
-			credential.Name, credential.Cloud, credential.Owner,
-		)
-	}
-	// A credential Juju has already marked invalid is rejected here rather than
-	// left to the provider: some providers still open successfully with one, so
-	// relying on the open alone would let an unusable credential through. 3.6
-	// refused the same way, in its validator.
-	if credential.Invalid {
-		return errors.Errorf(
-			"model cloud credential %q on cloud %q for owner %q is not valid: %s",
-			credential.Name, credential.Cloud, credential.Owner, credential.InvalidReason,
-		)
-	}
-	return s.credentialValidator.Validate(ctx, *credential)
 }
 
 // ModelMigrationMode returns the current migration mode for the model.

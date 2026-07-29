@@ -603,12 +603,11 @@ type MockModelStateMockRecorder struct {
 	getAgentBinaryArchitecturesForVersionExpects []*gomock.Call2_2[context.Context, string, []string, error]
 	getApplicationUnitNamesExpects               []*gomock.Call1_2[context.Context, map[string][]string, error]
 	getControllerUUIDExpects                     []*gomock.Call1_2[context.Context, string, error]
+	getCredentialValidationInfoExpects           []*gomock.Call1_2[context.Context, modelmigration.CredentialValidationInfo, error]
 	getExternalSecretRevisionBackendsExpects     []*gomock.Call1_2[context.Context, map[string]string, error]
 	getMachineInstanceIDExpects                  []*gomock.Call2_2[context.Context, string, string, error]
 	getMachineInstanceIDsExpects                 []*gomock.Call1_2[context.Context, map[string]string, error]
 	getMigrationAgentsExpects                    []*gomock.Call1_2[context.Context, internal.MigrationAgents, error]
-	getModelCloudInfoExpects                     []*gomock.Call1_3[context.Context, string, string, error]
-	getModelConfigExpects                        []*gomock.Call1_2[context.Context, map[string]string, error]
 	getModelTargetAgentVersionExpects            []*gomock.Call1_2[context.Context, string, error]
 	getModelTypeExpects                          []*gomock.Call1_2[context.Context, string, error]
 	getOfferUUIDsExpects                         []*gomock.Call1_2[context.Context, []string, error]
@@ -705,6 +704,24 @@ func (mr *MockModelStateMockRecorder) GetControllerUUID(arg0 any) *MockModelStat
 // MockModelStateGetControllerUUIDCall is the typed call wrapper for GetControllerUUID.
 type MockModelStateGetControllerUUIDCall = gomock.Call1_2[context.Context, string, error]
 
+// GetCredentialValidationInfo mocks base method.
+func (m *MockModelState) GetCredentialValidationInfo(ctx context.Context) (modelmigration.CredentialValidationInfo, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getCredentialValidationInfoExpects, m.ctrl, m, "GetCredentialValidationInfo", ctx)
+}
+
+// GetCredentialValidationInfo indicates an expected call of GetCredentialValidationInfo.
+func (mr *MockModelStateMockRecorder) GetCredentialValidationInfo(ctx any) *MockModelStateGetCredentialValidationInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, modelmigration.CredentialValidationInfo, error](mr.mock.ctrl.T, mr.mock, "GetCredentialValidationInfo", gomock.EnsureMatcher(ctx))
+	mr.getCredentialValidationInfoExpects = append(mr.getCredentialValidationInfoExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateGetCredentialValidationInfoCall is the typed call wrapper for GetCredentialValidationInfo.
+type MockModelStateGetCredentialValidationInfoCall = gomock.Call1_2[context.Context, modelmigration.CredentialValidationInfo, error]
+
 // GetExternalSecretRevisionBackends mocks base method.
 func (m *MockModelState) GetExternalSecretRevisionBackends(ctx context.Context) (map[string]string, error) {
 	m.ctrl.T.Helper()
@@ -776,42 +793,6 @@ func (mr *MockModelStateMockRecorder) GetMigrationAgents(ctx any) *MockModelStat
 
 // MockModelStateGetMigrationAgentsCall is the typed call wrapper for GetMigrationAgents.
 type MockModelStateGetMigrationAgentsCall = gomock.Call1_2[context.Context, internal.MigrationAgents, error]
-
-// GetModelCloudInfo mocks base method.
-func (m *MockModelState) GetModelCloudInfo(ctx context.Context) (string, string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_3(&m.recorder.getModelCloudInfoExpects, m.ctrl, m, "GetModelCloudInfo", ctx)
-}
-
-// GetModelCloudInfo indicates an expected call of GetModelCloudInfo.
-func (mr *MockModelStateMockRecorder) GetModelCloudInfo(ctx any) *MockModelStateGetModelCloudInfoCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_3[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "GetModelCloudInfo", gomock.EnsureMatcher(ctx))
-	mr.getModelCloudInfoExpects = append(mr.getModelCloudInfoExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockModelStateGetModelCloudInfoCall is the typed call wrapper for GetModelCloudInfo.
-type MockModelStateGetModelCloudInfoCall = gomock.Call1_3[context.Context, string, string, error]
-
-// GetModelConfig mocks base method.
-func (m *MockModelState) GetModelConfig(ctx context.Context) (map[string]string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getModelConfigExpects, m.ctrl, m, "GetModelConfig", ctx)
-}
-
-// GetModelConfig indicates an expected call of GetModelConfig.
-func (mr *MockModelStateMockRecorder) GetModelConfig(ctx any) *MockModelStateGetModelConfigCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, map[string]string, error](mr.mock.ctrl.T, mr.mock, "GetModelConfig", gomock.EnsureMatcher(ctx))
-	mr.getModelConfigExpects = append(mr.getModelConfigExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockModelStateGetModelConfigCall is the typed call wrapper for GetModelConfig.
-type MockModelStateGetModelConfigCall = gomock.Call1_2[context.Context, map[string]string, error]
 
 // GetModelTargetAgentVersion mocks base method.
 func (m *MockModelState) GetModelTargetAgentVersion(arg0 context.Context) (string, error) {
@@ -1047,7 +1028,7 @@ type MockCredentialValidator struct {
 // MockCredentialValidatorMockRecorder is the mock recorder for MockCredentialValidator.
 type MockCredentialValidatorMockRecorder struct {
 	mock            *MockCredentialValidator
-	validateExpects []*gomock.Call2_1[context.Context, modelmigration.ModelCloudCredential, error]
+	validateExpects []*gomock.Call3_1[context.Context, modelmigration.CredentialValidationInfo, modelmigration.ModelCloudCredential, error]
 }
 
 // NewMockCredentialValidator creates a new mock instance.
@@ -1063,19 +1044,19 @@ func (m *MockCredentialValidator) EXPECT() *MockCredentialValidatorMockRecorder 
 }
 
 // Validate mocks base method.
-func (m *MockCredentialValidator) Validate(ctx context.Context, credential modelmigration.ModelCloudCredential) error {
+func (m *MockCredentialValidator) Validate(ctx context.Context, info modelmigration.CredentialValidationInfo, credential modelmigration.ModelCloudCredential) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.validateExpects, m.ctrl, m, "Validate", ctx, credential)
+	return gomock.Dispatch3_1(&m.recorder.validateExpects, m.ctrl, m, "Validate", ctx, info, credential)
 }
 
 // Validate indicates an expected call of Validate.
-func (mr *MockCredentialValidatorMockRecorder) Validate(ctx, credential any) *MockCredentialValidatorValidateCall {
+func (mr *MockCredentialValidatorMockRecorder) Validate(ctx, info, credential any) *MockCredentialValidatorValidateCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, modelmigration.ModelCloudCredential, error](mr.mock.ctrl.T, mr.mock, "Validate", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(credential))
+	call := gomock.NewCall3_1[context.Context, modelmigration.CredentialValidationInfo, modelmigration.ModelCloudCredential, error](mr.mock.ctrl.T, mr.mock, "Validate", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(info), gomock.EnsureMatcher(credential))
 	mr.validateExpects = append(mr.validateExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockCredentialValidatorValidateCall is the typed call wrapper for Validate.
-type MockCredentialValidatorValidateCall = gomock.Call2_1[context.Context, modelmigration.ModelCloudCredential, error]
+type MockCredentialValidatorValidateCall = gomock.Call3_1[context.Context, modelmigration.CredentialValidationInfo, modelmigration.ModelCloudCredential, error]

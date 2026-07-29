@@ -71,11 +71,14 @@ type relationValidationRow struct {
 	ID   int    `db:"relation_id"`
 }
 
-// modelCloudInfo is the model's cloud identity, used to build the cloud spec
-// for credential validation.
+// modelCloudInfo is the model's identity and cloud placement, used to build the
+// cloud spec for credential validation.
 type modelCloudInfo struct {
-	CloudName string `db:"cloud"`
-	Region    string `db:"cloud_region"`
+	ControllerUUID string `db:"controller_uuid"`
+	Type           string `db:"type"`
+	CloudName      string `db:"cloud"`
+	CloudType      string `db:"cloud_type"`
+	Region         string `db:"cloud_region"`
 }
 
 // configKeyValue is one model configuration entry.

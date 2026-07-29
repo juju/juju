@@ -227,8 +227,11 @@ func (s *Service) validateSecretBackendReferences(ctx context.Context) error {
 // MissingAgentBinaryArchitectures returns the architectures for which the
 // running machine and unit agents would have no agent binary at the given
 // version, checking the controller and model object stores. It returns an empty
-// slice when every running architecture has a binary, or for a CAAS model
-// (whose agents run from OCI images, not the agent binary store).
+// slice when every running architecture has a binary.
+//
+// A CAAS model short-circuits to an empty result without either store being
+// consulted: its agents run from OCI images rather than the agent binary store,
+// so no architecture can ever be missing from it.
 //
 // The activation path uses it to decide whether the migrated model's agent
 // version can safely be bumped to the controller target: 3.6 never changed a

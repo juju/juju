@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/sqlair"
 
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -20,9 +21,16 @@ import (
 // still-gated model before activation clears the model_migrating gate.
 
 // GetMachineInstanceIDs returns a map from provider cloud instance ID to the
-// name of the model machine it backs, for every provisioned machine. It is used
-// by CheckMachines to reconcile the model's machines against the instances the
-// provider reports, naming the offending machine for each discrepancy.
+// name of the model machine it backs, for every provisioned machine the cloud
+// is expected to know about. It is used by CheckMachines to reconcile the
+// model's machines against the instances the provider reports, naming the
+// offending machine for each discrepancy.
+//
+// Container machines and manually provisioned machines are excluded, the same
+// two skips 3.6 applied in its own reconciliation
+// (apiserver/common/credentialcommon.checkMachineInstances): a container has no
+// instance at the provider level, and a manual machine was never created by the
+// provider, so neither can be found among the cloud's instances.
 func (s *State) GetMachineInstanceIDs(ctx context.Context) (map[string]string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -34,6 +42,8 @@ SELECT (m.name, mci.instance_id) AS (&machineInstanceID.*)
 FROM   machine_cloud_instance AS mci
 JOIN   machine AS m ON m.uuid = mci.machine_uuid
 WHERE  mci.instance_id != ''
+AND    NOT EXISTS (SELECT 1 FROM machine_parent AS mp WHERE mp.machine_uuid = m.uuid)
+AND    NOT EXISTS (SELECT 1 FROM machine_manual AS mm WHERE mm.machine_uuid = m.uuid)
 `, machineInstanceID{})
 	if err != nil {
 		return nil, errors.Errorf("preparing machine instance IDs statement: %w", err)
@@ -409,10 +419,10 @@ AND    u.life_id = 0
 }
 
 // GetRelationUnitsByApplication returns a map from relation UUID to the set of
-// unit names in scope for that relation, grouped by application name. Rows for
-// non-alive relations or units are not filtered out: the caller only looks up
-// alive relations and checks membership for alive units, so extra rows are
-// harmless.
+// unit names in scope for that relation, grouped by application name. Only alive
+// relations are returned, matching the relations
+// [State.GetRelationValidationData] validates; units are not filtered by life,
+// the caller only checks membership for alive units.
 func (s *State) GetRelationUnitsByApplication(ctx context.Context) (map[string]map[string][]string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -425,9 +435,11 @@ SELECT re.relation_uuid AS &relationUnitScopeRow.relation_uuid,
        a.name AS &relationUnitScopeRow.application_name
 FROM   relation_unit AS ru
 JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+JOIN   relation AS r ON re.relation_uuid = r.uuid
 JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
 JOIN   application AS a ON ae.application_uuid = a.uuid
 JOIN   unit AS u ON ru.unit_uuid = u.uuid
+WHERE  r.life_id = 0
 `, relationUnitScopeRow{})
 	if err != nil {
 		return nil, errors.Errorf("preparing relation units by application statement: %w", err)
@@ -498,67 +510,66 @@ WHERE  abs.version = $versionArg.version
 	return names, nil
 }
 
-// GetModelCloudInfo returns the name of the cloud the model is deployed on
-// and its region (empty when the model has no region), used to build the
-// cloud spec for validating the imported model's credential.
-func (s *State) GetModelCloudInfo(ctx context.Context) (string, string, error) {
+// GetCredentialValidationInfo returns everything the VALIDATION phase needs to
+// know about the model itself before validating its cloud credential: the
+// owning controller, the model's deployment type, the cloud it is placed on and
+// its stored configuration. It is read in a single transaction so the credential
+// check and the machine reconciliation that follows it see one consistent view.
+func (s *State) GetCredentialValidationInfo(ctx context.Context) (modelmigration.CredentialValidationInfo, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
-		return "", "", errors.Capture(err)
+		return modelmigration.CredentialValidationInfo{}, errors.Capture(err)
 	}
 
-	stmt, err := s.Prepare(`
-SELECT m.cloud AS &modelCloudInfo.cloud,
+	modelStmt, err := s.Prepare(`
+SELECT m.controller_uuid AS &modelCloudInfo.controller_uuid,
+       m.type AS &modelCloudInfo.type,
+       m.cloud AS &modelCloudInfo.cloud,
+       m.cloud_type AS &modelCloudInfo.cloud_type,
        COALESCE(m.cloud_region, '') AS &modelCloudInfo.cloud_region
 FROM   model AS m
 `, modelCloudInfo{})
 	if err != nil {
-		return "", "", errors.Errorf("preparing model cloud info statement: %w", err)
+		return modelmigration.CredentialValidationInfo{}, errors.Errorf("preparing model cloud info statement: %w", err)
+	}
+	configStmt, err := s.Prepare(`SELECT &configKeyValue.* FROM v_model_config`, configKeyValue{})
+	if err != nil {
+		return modelmigration.CredentialValidationInfo{}, errors.Errorf("preparing model config statement: %w", err)
 	}
 
-	var info modelCloudInfo
+	var (
+		info       modelCloudInfo
+		configRows []configKeyValue
+	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).Get(&info)
+		configRows = nil
+		err := tx.Query(ctx, modelStmt).Get(&info)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.New("model information is missing from database")
+		} else if err != nil {
+			return err
 		}
-		return err
-	}); err != nil {
-		return "", "", errors.Errorf("retrieving model cloud info: %w", err)
-	}
-	return info.CloudName, info.Region, nil
-}
-
-// GetModelConfig returns the model's configuration as key/value pairs, used
-// to open the provider for validating the imported model's credential.
-func (s *State) GetModelConfig(ctx context.Context) (map[string]string, error) {
-	db, err := s.DB(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	stmt, err := s.Prepare(`SELECT &configKeyValue.* FROM v_model_config`, configKeyValue{})
-	if err != nil {
-		return nil, errors.Errorf("preparing model config statement: %w", err)
-	}
-
-	var rows []configKeyValue
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		rows = nil
-		err := tx.Query(ctx, stmt).GetAll(&rows)
+		err = tx.Query(ctx, configStmt).GetAll(&configRows)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return err
 		}
 		return nil
 	}); err != nil {
-		return nil, errors.Errorf("retrieving model config: %w", err)
+		return modelmigration.CredentialValidationInfo{}, errors.Errorf("retrieving credential validation info: %w", err)
 	}
 
-	result := make(map[string]string, len(rows))
-	for _, r := range rows {
-		result[r.Key] = r.Value
+	config := make(map[string]string, len(configRows))
+	for _, r := range configRows {
+		config[r.Key] = r.Value
 	}
-	return result, nil
+	return modelmigration.CredentialValidationInfo{
+		ControllerUUID: info.ControllerUUID,
+		ModelType:      info.Type,
+		CloudName:      info.CloudName,
+		CloudType:      info.CloudType,
+		CloudRegion:    info.Region,
+		Config:         config,
+	}, nil
 }
 
 // GetMachineInstanceID returns the provider instance ID of the machine with

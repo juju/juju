@@ -46,6 +46,7 @@ import (
 	containerimageresourcestorestate "github.com/juju/juju/domain/containerimageresourcestore/state"
 	controllerupgraderservice "github.com/juju/juju/domain/controllerupgrader/service"
 	controllerupgraderstate "github.com/juju/juju/domain/controllerupgrader/state"
+	credentialservice "github.com/juju/juju/domain/credential/service"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	crossmodelrelationstatecontroller "github.com/juju/juju/domain/crossmodelrelation/state/controller"
 	crossmodelrelationstatemodel "github.com/juju/juju/domain/crossmodelrelation/state/model"
@@ -427,7 +428,9 @@ func (s *ModelServices) ModelMigration() *modelmigrationservice.Service {
 		s.controllerWatcherFactory("modelmigration"),
 		providertracker.ProviderRunner[modelmigrationservice.InstanceProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[modelmigrationservice.ResourceProvider](s.providerFactory, s.modelUUID.String()),
-		modelmigrationservice.NewCredentialValidator(controllerState, modelState),
+		modelmigrationservice.NewCredentialValidator(
+			controllerState, modelState, credentialservice.NewCredentialValidator(),
+		),
 		s.logger.Child("modelmigration"),
 	)
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -172,6 +173,51 @@ func (s *migrationSuite) TestGetMachineInstanceIDs(c *tc.C) {
 	c.Check(mapping, tc.DeepEquals, map[string]string{
 		"instance-0": machineNames0[0].String(),
 		"instance-1": machineNames1[0].String(),
+	})
+}
+
+// TestGetMachineInstanceIDsSkipsContainersAndManual asserts that container and
+// manually provisioned machines are left out of the mapping. Neither is created
+// by the provider, so requiring the cloud to report an instance for them would
+// be a false discrepancy.
+func (s *migrationSuite) TestGetMachineInstanceIDsSkipsContainersAndManual(c *tc.C) {
+	db := s.DB()
+	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	arch := "arm64"
+
+	addProvisioned := func(instanceID string) (machine.Name, string) {
+		_, names, err := machineState.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+			Platform: deployment.Platform{
+				Channel: "24.04",
+				OSType:  deployment.Ubuntu,
+			},
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		mUUID, err := machineState.GetMachineUUID(c.Context(), names[0])
+		c.Assert(err, tc.ErrorIsNil)
+		err = machineState.SetMachineCloudInstance(
+			c.Context(), mUUID.String(), instance.Id(instanceID), "", "nonce",
+			&instance.HardwareCharacteristics{Arch: &arch},
+		)
+		c.Assert(err, tc.ErrorIsNil)
+		return names[0], mUUID.String()
+	}
+
+	hostName, hostUUID := addProvisioned("instance-host")
+	_, containerUUID := addProvisioned("instance-container")
+	_, manualUUID := addProvisioned("instance-manual")
+
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES (?, ?)", containerUUID, hostUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO machine_manual (machine_uuid) VALUES (?)", manualUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	mapping, err := New(s.TxnRunnerFactory(), s.modelUUID).GetMachineInstanceIDs(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(mapping, tc.DeepEquals, map[string]string{
+		"instance-host": hostName.String(),
 	})
 }
 
@@ -981,27 +1027,23 @@ INSERT INTO application_remote_offerer (
 	})
 }
 
-// TestGetModelCloudInfo verifies the model's cloud name and region are read
-// from the model record.
-func (s *migrationSuite) TestGetModelCloudInfo(c *tc.C) {
-	cloudName, region, err := New(s.TxnRunnerFactory(), s.modelUUID).GetModelCloudInfo(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(cloudName, tc.Equals, "aws")
-	c.Check(region, tc.Equals, "myregion")
-}
-
-// TestGetModelConfig verifies model config entries are returned as key/value
-// pairs.
-func (s *migrationSuite) TestGetModelConfig(c *tc.C) {
+// TestGetCredentialValidationInfo verifies the model's identity, cloud
+// placement and stored configuration are read together from the model record.
+func (s *migrationSuite) TestGetCredentialValidationInfo(c *tc.C) {
 	db := s.DB()
 	_, err := db.ExecContext(c.Context(),
 		"INSERT INTO model_config (key, value) VALUES ('ftp-proxy', 'http://proxy'), ('apt-mirror', 'http://mirror')")
 	c.Assert(err, tc.ErrorIsNil)
 
-	cfg, err := New(s.TxnRunnerFactory(), s.modelUUID).GetModelConfig(c.Context())
+	info, err := New(s.TxnRunnerFactory(), s.modelUUID).GetCredentialValidationInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(cfg["ftp-proxy"], tc.Equals, "http://proxy")
-	c.Check(cfg["apt-mirror"], tc.Equals, "http://mirror")
+	c.Check(info.ControllerUUID, tc.Equals, s.controllerUUID.String())
+	c.Check(info.ModelType, tc.Equals, "iaas")
+	c.Check(info.CloudName, tc.Equals, "aws")
+	c.Check(info.CloudType, tc.Equals, "ec2")
+	c.Check(info.CloudRegion, tc.Equals, "myregion")
+	c.Check(info.Config["ftp-proxy"], tc.Equals, "http://proxy")
+	c.Check(info.Config["apt-mirror"], tc.Equals, "http://mirror")
 }
 
 // TestGetMachineInstanceID verifies the provisioned machine's instance ID is
