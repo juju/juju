@@ -4,11 +4,11 @@
 package machine
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"io"
+	"time"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/tc"
@@ -83,26 +83,20 @@ func (s *machineSuite) TestSessionHandlerPropagatesCommandExitCode(c *tc.C) {
 func (s *machineSuite) TestSessionHandlerProxiesPTYAndWindowChanges(c *tc.C) {
 	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
 	c.Assert(err, tc.ErrorIsNil)
+	ready := make(chan struct{})
 
-	machine := startSSHTestServer(c, &ssh.Server{Handler: func(session ssh.Session) {
-		pty, windowChanges, hasPTY := session.Pty()
-		c.Check(hasPTY, tc.IsTrue)
-		c.Check(pty.Term, tc.Equals, "xterm")
-
-		_, _ = io.WriteString(session, "shell ready\n")
-		var window ssh.Window
-		// This loop terminates when we get what we expect
-		// or when the server is shutdown and windowChanges closes.
-		for {
-			window = <-windowChanges
-			if window.Height == 30 && window.Width == 100 {
-				break
-			}
-		}
-		c.Check(window.Height, tc.Equals, 30)
-		c.Check(window.Width, tc.Equals, 100)
-		_, _ = io.WriteString(session, "shell done\n")
-	}})
+	machine := startSSHTestServer(c, &ssh.Server{
+		PtyCallback: func(_ ssh.Context, pty ssh.Pty) bool {
+			c.Check(pty.Term, tc.Equals, "xterm")
+			c.Check(pty.Window.Height, tc.Equals, 24)
+			c.Check(pty.Window.Width, tc.Equals, 80)
+			return true
+		},
+		Handler: func(session ssh.Session) {
+			close(ready)
+			_, _ = io.WriteString(session, "shell done\n")
+		},
+	})
 
 	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
@@ -117,35 +111,21 @@ func (s *machineSuite) TestSessionHandlerProxiesPTYAndWindowChanges(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer session.Close()
 
-	stdoutReader, stdoutWriter := io.Pipe()
-	defer stdoutReader.Close()
-	defer stdoutWriter.Close()
-	session.Stdout = stdoutWriter
-	c.Assert(session.RequestPty("xterm", 24, 80, gossh.TerminalModes{}), tc.ErrorIsNil)
+	var stdout bytes.Buffer
+	session.Stdout = &stdout
+
+	err = session.RequestPty("xterm", 24, 80, gossh.TerminalModes{})
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(session.Shell(), tc.ErrorIsNil)
 
-	type outputResult struct {
-		message string
-		err     error
+	select {
+	case <-ready:
+	case <-time.After(5 * time.Second):
+		c.Fatal("timed out waiting for shell to start")
 	}
-	outputs := make(chan outputResult, 2)
-	go func() {
-		stdout := bufio.NewReader(stdoutReader)
-		message, err := stdout.ReadString('\n')
-		outputs <- outputResult{message: message, err: err}
-		message, err = stdout.ReadString('\n')
-		outputs <- outputResult{message: message, err: err}
-	}()
-
-	output := <-outputs
-	c.Assert(output.err, tc.ErrorIsNil)
-	c.Check(output.message, tc.Equals, "shell ready\r\n")
 	c.Assert(session.WindowChange(30, 100), tc.ErrorIsNil)
 	c.Assert(session.Wait(), tc.ErrorIsNil)
-
-	output = <-outputs
-	c.Assert(output.err, tc.ErrorIsNil)
-	c.Check(output.message, tc.Equals, "shell done\r\n")
+	c.Check(stdout.String(), tc.Equals, "shell done\r\n")
 }
 
 func (s *machineSuite) TestSessionHandlerReportsConnectionFailure(c *tc.C) {
