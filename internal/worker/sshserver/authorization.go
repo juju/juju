@@ -47,10 +47,13 @@ func (a authorizer) Authorize(ctx ssh.Context, destination virtualhostname.Info)
 		return false, errors.New("SSH JWT is missing from connection context")
 	}
 
-	claims := map[string]any{}
-	err := token.Get("access", &claims)
-	if err != nil {
+	var rawClaims any
+	if err := token.Get("access", &rawClaims); err != nil {
 		return false, errors.New("invalid SSH JWT token, missing access claim")
+	}
+	claims, ok := rawClaims.(map[string]any)
+	if !ok {
+		return false, errors.New("invalid SSH JWT token, invalid access claim")
 	}
 	access, _ := claims["model-"+destination.ModelUUID().String()].(string)
 	return permission.Access(access).EqualOrGreaterModelAccessThan(permission.AdminAccess), nil

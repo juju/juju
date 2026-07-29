@@ -285,6 +285,7 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 
 	ch, reqs, err := newChan.Accept()
 	if err != nil {
+		s.config.Logger.Errorf(ctx, "accepting direct-tcpip channel: %v", err)
 		return
 	}
 
@@ -304,14 +305,12 @@ func (s *ServerWorker) reverseTunnelHandler(_ *ssh.Server, conn *gossh.ServerCon
 	tunnelID, _ := ctx.Value(tunnelIDKey{}).(string)
 	if tunnelID == "" {
 		s.rejectChannel(ctx, newChan, "missing tunnel ID")
-		_ = conn.Close()
 		return
 	}
 
 	channel, requests, err := newChan.Accept()
 	if err != nil {
 		s.config.Logger.Errorf(ctx, "accepting reverse tunnel channel: %v", err)
-		_ = conn.Close()
 		return
 	}
 	go gossh.DiscardRequests(requests)
@@ -320,7 +319,7 @@ func (s *ServerWorker) reverseTunnelHandler(_ *ssh.Server, conn *gossh.ServerCon
 	defer cancel()
 	if err := s.config.TunnelTracker.PushTunnel(pushCtx, tunnelID, newChannelConn(channel)); err != nil {
 		s.config.Logger.Errorf(ctx, "pushing reverse tunnel: %v", err)
-		_ = conn.Close()
+		_ = channel.Close()
 	}
 }
 

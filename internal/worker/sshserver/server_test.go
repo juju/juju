@@ -386,7 +386,6 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *tc.C) {
 	// otherwise we face a race condition in tests where the server hasn't yet
 	// decreased the connection count.
 	checkConnCount := func(c *tc.C, expected int32) {
-		done := time.After(200 * time.Millisecond)
 		for {
 			connCount := srv.concurrentConnections.Load()
 			if connCount == expected {
@@ -394,7 +393,7 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *tc.C) {
 			}
 			select {
 			case <-time.After(10 * time.Millisecond):
-			case <-done:
+			case <-c.Context().Done():
 				c.Error("timeout waiting for expected connection count")
 				return
 			}
