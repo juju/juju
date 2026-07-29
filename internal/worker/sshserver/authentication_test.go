@@ -19,10 +19,6 @@ import (
 	"github.com/juju/juju/internal/pki/test"
 )
 
-// TODO(Kian): Remove these once authz and authn are wired into the SSH server.
-var _ Authenticator = authenticator{}
-var _ Authorizer = authorizer{}
-
 type authenticationSuite struct{}
 
 func TestAuthenticationSuite(t *testing.T) {
