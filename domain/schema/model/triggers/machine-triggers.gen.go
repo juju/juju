@@ -73,7 +73,7 @@ END;
 -- update trigger for MachineCloudInstance
 CREATE TRIGGER trg_log_machine_cloud_instance_update
 AFTER UPDATE ON machine_cloud_instance FOR EACH ROW
-WHEN
+WHEN 
 	NEW.machine_uuid != OLD.machine_uuid OR
 	NEW.life_id != OLD.life_id OR
 	(NEW.instance_id != OLD.instance_id OR (NEW.instance_id IS NOT NULL AND OLD.instance_id IS NULL) OR (NEW.instance_id IS NULL AND OLD.instance_id IS NOT NULL)) OR
@@ -156,7 +156,7 @@ END;
 -- update trigger for MachineReprovision
 CREATE TRIGGER trg_log_machine_reprovision_update
 AFTER UPDATE ON machine_reprovision FOR EACH ROW
-WHEN
+WHEN 
 	NEW.machine_name != OLD.machine_name OR
 	NEW.requested_at != OLD.requested_at
 BEGIN
@@ -192,7 +192,7 @@ END;
 -- update trigger for MachineRequiresReboot
 CREATE TRIGGER trg_log_machine_requires_reboot_update
 AFTER UPDATE ON machine_requires_reboot FOR EACH ROW
-WHEN
+WHEN 
 	NEW.machine_uuid != OLD.machine_uuid OR
 	NEW.created_at != OLD.created_at
 BEGIN
@@ -208,3 +208,4 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
+
