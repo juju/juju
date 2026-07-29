@@ -931,6 +931,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The ssh server worker runs on the controller machine.
 		sshServerName: ifController(sshserver.Manifold(sshserver.ManifoldConfig{
 			DomainServicesName:             domainServicesName,
+			ControllerID:                   config.ControllerID,
+			ControllerUUID:                 config.ControllerUUID,
 			Logger:                         internallogger.GetLogger("juju.worker.sshserver"),
 			NewServerWrapperWorker:         sshserver.NewServerWrapperWorker,
 			NewServerWorker:                sshserver.NewServerWorker,

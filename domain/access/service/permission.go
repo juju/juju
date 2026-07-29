@@ -6,11 +6,14 @@ package service
 import (
 	"context"
 
+	corecontroller "github.com/juju/juju/core/controller"
 	coreerrors "github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -125,6 +128,51 @@ func (s *PermissionService) ReadUserAccessLevelForTarget(ctx context.Context, su
 	}
 	access, err := s.st.ReadUserAccessLevelForTarget(ctx, subject, target)
 	return access, errors.Capture(err)
+}
+
+// HasSSHAccess returns whether the user can access the model over SSH. Model
+// administrators and controller superusers are allowed to access the model.
+func (s *PermissionService) HasSSHAccess(
+	ctx context.Context,
+	subject user.Name,
+	modelUUID coremodel.UUID,
+	controllerUUID corecontroller.UUID,
+) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if subject.IsZero() {
+		return false, errors.Errorf("empty subject %w", coreerrors.NotValid)
+	}
+	if err := modelUUID.Validate(); err != nil {
+		return false, errors.Capture(err)
+	}
+	if err := controllerUUID.Validate(); err != nil {
+		return false, errors.Capture(err)
+	}
+
+	modelAccess, err := s.st.ReadUserAccessLevelForTarget(ctx, subject, corepermission.ID{
+		ObjectType: corepermission.Model,
+		Key:        modelUUID.String(),
+	})
+	if err == nil && modelAccess.EqualOrGreaterModelAccessThan(corepermission.AdminAccess) {
+		return true, nil
+	}
+	if err != nil && !errors.Is(err, accesserrors.AccessNotFound) && !errors.Is(err, accesserrors.UserNotFound) {
+		return false, errors.Capture(err)
+	}
+
+	controllerAccess, err := s.st.ReadUserAccessLevelForTarget(ctx, subject, corepermission.ID{
+		ObjectType: corepermission.Controller,
+		Key:        controllerUUID.String(),
+	})
+	if err != nil {
+		if errors.Is(err, accesserrors.AccessNotFound) || errors.Is(err, accesserrors.UserNotFound) {
+			return false, nil
+		}
+		return false, errors.Capture(err)
+	}
+	return controllerAccess.EqualOrGreaterControllerAccessThan(corepermission.SuperuserAccess), nil
 }
 
 // ReadAllUserAccessForTarget return a slice of user access for all users

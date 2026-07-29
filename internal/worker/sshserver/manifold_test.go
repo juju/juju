@@ -5,6 +5,7 @@ package sshserver
 
 import (
 	"context"
+	"net"
 	"os"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/worker/v5/dependency"
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
+	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
@@ -22,8 +24,10 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/featureflag"
+	"github.com/juju/juju/internal/jwtparser"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/services"
+	internalTunneler "github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -59,6 +63,7 @@ func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 	// Entirely missing.
 	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
 		cfg.DomainServicesName = ""
+		cfg.ControllerUUID = ""
 		cfg.NewServerWrapperWorker = nil
 		cfg.NewServerWorker = nil
 		cfg.GetControllerConfigService = nil
@@ -72,6 +77,12 @@ func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 	// Missing domain services name.
 	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
 		cfg.DomainServicesName = ""
+	})
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
+
+	// Missing ControllerUUID.
+	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
+		cfg.ControllerUUID = ""
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
@@ -126,6 +137,10 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 	// Setup the manifold
 	manifold := Manifold(ManifoldConfig{
 		DomainServicesName:     "domain-services",
+		SSHTunnelerName:        "ssh-tunneler",
+		JWTParserName:          "jwt-parser",
+		ControllerID:           "0",
+		ControllerUUID:         "8419cd78-4993-4c3a-928e-c646226beeee",
 		NewServerWrapperWorker: NewServerWrapperWorker,
 		NewServerWorker: func(ServerWorkerConfig) (worker.Worker, error) {
 			return workertest.NewErrorWorker(nil), nil
@@ -147,12 +162,15 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 	})
 
 	// Check the inputs are as expected
-	c.Assert(manifold.Inputs, tc.DeepEquals, []string{"domain-services"})
+	c.Assert(manifold.Inputs, tc.DeepEquals, []string{"domain-services", "ssh-tunneler", "jwt-parser"})
 
 	// Start the worker
 	result, err := manifold.Start(
 		c.Context(),
-		dt.StubGetter(map[string]any{}),
+		dt.StubGetter(map[string]any{
+			"ssh-tunneler": stubTunnelTracker{},
+			"jwt-parser":   &jwtparser.Parser{},
+		}),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, result)
@@ -205,6 +223,10 @@ func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *manifoldSuite) newManifoldConfig(c *tc.C, modifier func(cfg *ManifoldConfig)) *ManifoldConfig {
 	cfg := &ManifoldConfig{
 		DomainServicesName: "domain-services",
+		SSHTunnelerName:    "ssh-tunneler",
+		JWTParserName:      "jwt-parser",
+		ControllerID:       "0",
+		ControllerUUID:     "8419cd78-4993-4c3a-928e-c646226beeee",
 		NewServerWrapperWorker: func(ServerWrapperWorkerConfig) (worker.Worker, error) {
 			return nil, nil
 		},
@@ -241,6 +263,9 @@ func (s *manifoldSuite) TestManifoldUninstall(c *tc.C) {
 	// Setup the manifold
 	manifold := Manifold(ManifoldConfig{
 		DomainServicesName:     "domain-services",
+		SSHTunnelerName:        "ssh-tunneler",
+		JWTParserName:          "jwt-parser",
+		ControllerID:           "0",
 		NewServerWrapperWorker: NewServerWrapperWorker,
 		NewServerWorker: func(ServerWorkerConfig) (worker.Worker, error) {
 			return workertest.NewErrorWorker(nil), nil
@@ -261,7 +286,7 @@ func (s *manifoldSuite) TestManifoldUninstall(c *tc.C) {
 	})
 
 	// Check the inputs are as expected
-	c.Assert(manifold.Inputs, tc.DeepEquals, []string{"domain-services"})
+	c.Assert(manifold.Inputs, tc.DeepEquals, []string{"domain-services", "ssh-tunneler", "jwt-parser"})
 
 	// Start the worker
 	_, err := manifold.Start(
@@ -275,4 +300,18 @@ type stubDomainServicesGetter struct{}
 
 func (stubDomainServicesGetter) ServicesForModel(context.Context, model.UUID) (services.DomainServices, error) {
 	return nil, errors.NotImplementedf("unexpected ServicesForModel call")
+}
+
+type stubTunnelTracker struct{}
+
+func (stubTunnelTracker) RequestTunnel(context.Context, internalTunneler.RequestArgs) (*gossh.Client, error) {
+	return nil, errors.NotImplementedf("unexpected RequestTunnel call")
+}
+
+func (stubTunnelTracker) AuthenticateTunnel(string, string) (string, error) {
+	return "", errors.NotImplementedf("unexpected AuthenticateTunnel call")
+}
+
+func (stubTunnelTracker) PushTunnel(context.Context, string, net.Conn) error {
+	return errors.NotImplementedf("unexpected PushTunnel call")
 }
