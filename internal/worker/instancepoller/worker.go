@@ -298,12 +298,17 @@ func (u *updaterWorker) queueMachineForPolling(ctx context.Context, machineName 
 		return u.setManualMachineRunning(ctx, machineName)
 	}
 
-	// 3. If already being polled, move to short poll group so we
-	// immediately re-check its status on the next interval.
+	// 3. If already being polled, discard cached provider data and move to
+	// the short poll group. Reprovisioning keeps the machine name but changes
+	// its provider instance, so watcher events must force polling info to be
+	// reloaded before the provider is queried again.
 	if entry != nil {
+		oldInstanceID := entry.instanceID
+		entry.instanceID = ""
+		entry.hadDevices = false
 		u.moveEntryToPollGroup(shortPollGroup, entry)
 		if groupType == longPollGroup {
-			u.config.Logger.Debugf(ctx, "moving machine %q (instance ID %q) to short poll group", entry.machineName, entry.instanceID)
+			u.config.Logger.Debugf(ctx, "moving machine %q (instance ID %q) to short poll group", entry.machineName, oldInstanceID)
 		}
 		return nil
 	}
