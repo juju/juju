@@ -194,6 +194,27 @@ func nameVolume(zone string) (string, error) {
 	return volumeName, nil
 }
 
+func isValidDiskType(dt google.DiskType) bool {
+	switch dt {
+	case google.DiskPersistentSSD, google.DiskPersistentStandard, google.DiskPersistentBalanced, google.DiskPersistentExtreme,
+		google.DiskHyperdiskBalanced, google.DiskHyperdiskBalancedHighAvailability, google.DiskHyperdiskML,
+		google.DiskHyperdiskExtreme, google.DiskHyperdiskThroughput:
+		return true
+	default:
+		return false
+	}
+}
+
+func isValidHyperDiskType(dt google.DiskType) bool {
+	switch dt {
+	case google.DiskHyperdiskBalanced, google.DiskHyperdiskBalancedHighAvailability, google.DiskHyperdiskML,
+		google.DiskHyperdiskExtreme, google.DiskHyperdiskThroughput:
+		return true
+	default:
+		return false
+	}
+}
+
 func (v *volumeSource) createOneVolume(ctx context.ProviderCallContext, p storage.VolumeParams, instances instanceCache) (volume *storage.Volume, volumeAttachment *storage.VolumeAttachment, err error) {
 	var volumeName, zone string
 	defer func() {
@@ -219,12 +240,16 @@ func (v *volumeSource) createOneVolume(ctx context.ProviderCallContext, p storag
 	diskType := google.DiskPersistentStandard
 	if val, ok := p.Attributes[diskTypeAttribute].(string); ok {
 		dt := google.DiskType(val)
-		switch dt {
-		case google.DiskPersistentSSD, google.DiskPersistentStandard:
-			diskType = dt
-		case google.DiskLocalSSD:
+		if dt == google.DiskLocalSSD {
 			return nil, nil, errors.NotValidf("local SSD disk storage")
-		default:
+		} else if isValidDiskType(dt) {
+			instanceTypeName := path.Base(inst.GetMachineType())
+			if google.IsLegacyMachineSeries(instanceTypeName) && isValidHyperDiskType(dt) {
+				return nil, nil, errors.NotSupportedf("hyperdisk storage for legacy instance %q", instanceTypeName)
+			}
+			diskType = dt
+		} else {
+			return nil, nil, errors.NotValidf("unknown disk type %q", val)
 		}
 	}
 

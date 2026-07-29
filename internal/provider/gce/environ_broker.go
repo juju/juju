@@ -223,7 +223,7 @@ func (env *environ) startInstance(
 	}
 	imageURL := imageURLBase + imageID
 
-	disks, err := getDisks(imageURL, os, args.AvailabilityZone, args.Constraints, args.RootDisk)
+	disks, err := getDisks(imageURL, instanceTypeName, os, args.AvailabilityZone, args.Constraints, args.RootDisk)
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
@@ -342,7 +342,7 @@ func getMetadata(args environs.StartInstanceParams, os ostype.OSType) (map[strin
 // the new instances and returns it. This will always include a root
 // disk with characteristics determined by the provides args and
 // constraints.
-func getDisks(imageURL string, os ostype.OSType, zone string, cons constraints.Value, rootDisk *storage.VolumeParams) ([]*computepb.AttachedDisk, error) {
+func getDisks(imageURL, instanceTypeName string, os ostype.OSType, zone string, cons constraints.Value, rootDisk *storage.VolumeParams) ([]*computepb.AttachedDisk, error) {
 	size := common.MinRootDiskSizeGiB(os)
 	if cons.RootDisk != nil && *cons.RootDisk > size {
 		size = common.MiBToGiB(*cons.RootDisk)
@@ -377,13 +377,15 @@ func getDisks(imageURL string, os ostype.OSType, zone string, cons constraints.V
 	if rootDisk != nil {
 		if val, ok := rootDisk.Attributes[diskTypeAttribute].(string); ok && val != "" {
 			dt := google.DiskType(val)
-			switch dt {
-			case google.DiskPersistentSSD, google.DiskPersistentStandard:
+			if dt == google.DiskLocalSSD {
+				return nil, errors.NotValidf("local SSD disk storage")
+			} else if isValidDiskType(dt) {
+				if google.IsLegacyMachineSeries(instanceTypeName) && isValidHyperDiskType(dt) {
+					return nil, errors.NotSupportedf("hyperdisk storage for legacy instance %q", instanceTypeName)
+				}
 				dtStr := formatDiskType(zone, string(dt))
 				disk.InitializeParams.DiskType = &dtStr
-			case google.DiskLocalSSD:
-				return nil, errors.NotValidf("local SSD disk storage")
-			default:
+			} else {
 				return nil, errors.NotValidf("disk type %q for root disk", val)
 			}
 		}
@@ -393,13 +395,15 @@ func getDisks(imageURL string, os ostype.OSType, zone string, cons constraints.V
 		// if it were specified as the root disk source,
 		// otherwise we return an error.
 		dt := google.DiskType(*cons.RootDiskSource)
-		switch dt {
-		case google.DiskPersistentSSD, google.DiskPersistentStandard:
+		if dt == google.DiskLocalSSD {
+			return nil, errors.NotValidf("local SSD disk storage")
+		} else if isValidDiskType(dt) {
+			if google.IsLegacyMachineSeries(instanceTypeName) && isValidHyperDiskType(dt) {
+				return nil, errors.NotSupportedf("hyperdisk storage for legacy instance %q", instanceTypeName)
+			}
 			dtStr := formatDiskType(zone, string(dt))
 			disk.InitializeParams.DiskType = &dtStr
-		case google.DiskLocalSSD:
-			return nil, errors.NotValidf("local SSD disk storage")
-		default:
+		} else {
 			return nil, errors.NotValidf("root disk source %q", dt)
 		}
 	}

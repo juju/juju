@@ -6,11 +6,30 @@ package google
 import (
 	"context"
 	"path"
+	"strings"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
 	"google.golang.org/api/iterator"
 )
+
+// legacyMachineSeries are older v1 or v2 instance families
+// which do not support HyperDisk storage.
+var legacyMachineSeries = []string{
+	"N1-", "N1+GPU-", "E2-", "C2-", "C2D-", "T2A-",
+	"N2-", "N2D-",
+}
+
+// IsLegacyMachineSeries returns true if the instance type is for
+// an older v1 or v2 machine series.
+func IsLegacyMachineSeries(instanceTypeName string) bool {
+	for _, series := range legacyMachineSeries {
+		if strings.HasPrefix(strings.ToUpper(instanceTypeName), series) {
+			return true
+		}
+	}
+	return false
+}
 
 // AvailabilityZones returns the list of availability zones for a given
 // GCE region. If none are found the the list is empty. Any failure in
