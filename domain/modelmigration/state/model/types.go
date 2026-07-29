@@ -66,6 +66,24 @@ type relationValidationRow struct {
 	ID   int    `db:"relation_id"`
 }
 
+// modelCloudInfo is the model's cloud identity, used to build the cloud spec
+// for credential validation.
+type modelCloudInfo struct {
+	CloudName string `db:"cloud"`
+	Region    string `db:"cloud_region"`
+}
+
+// configKeyValue is one model configuration entry.
+type configKeyValue struct {
+	Key   string `db:"key"`
+	Value string `db:"value"`
+}
+
+// machineUUIDArg carries a machine UUID for use as a query argument.
+type machineUUIDArg struct {
+	UUID string `db:"uuid"`
+}
+
 // applicationUnitRow pairs a unit's name with the application it belongs to.
 type applicationUnitRow struct {
 	ApplicationName string `db:"application_name"`

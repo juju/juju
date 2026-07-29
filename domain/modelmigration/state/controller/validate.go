@@ -8,6 +8,9 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/juju/cloud"
+	clouderrors "github.com/juju/juju/domain/cloud/errors"
+	cloudstate "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 )
@@ -189,4 +192,30 @@ WHERE  abs.version = $agentVersionArg.version
 		names = append(names, r.Name)
 	}
 	return names, nil
+}
+
+// GetCloud returns the full definition of the named cloud (auth types,
+// regions, endpoints and CA certificates), used to build the cloud spec for
+// validating an imported model's credential before activation.
+func (s *State) GetCloud(ctx context.Context, name string) (cloud.Cloud, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return cloud.Cloud{}, errors.Capture(err)
+	}
+
+	var result cloud.Cloud
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		clouds, err := cloudstate.LoadClouds(ctx, s, tx, name)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if len(clouds) == 0 {
+			return errors.Errorf("cloud %q %w", name, clouderrors.NotFound)
+		}
+		result = clouds[0]
+		return nil
+	}); err != nil {
+		return cloud.Cloud{}, errors.Errorf("retrieving cloud %q: %w", name, err)
+	}
+	return result, nil
 }

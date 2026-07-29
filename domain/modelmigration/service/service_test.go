@@ -12,10 +12,13 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/migration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -257,7 +260,7 @@ func (s *serviceSuite) TestCheckMachinesCredentialValidationError(c *tc.C) {
 	}
 	s.controllerState.EXPECT().GetModelCloudCredential(gomock.Any(), s.modelUUID).
 		Return(&credential, nil)
-	s.credentialValidator.EXPECT().Validate(gomock.Any(), s.modelUUID, credential).
+	s.credentialValidator.EXPECT().Validate(gomock.Any(), credential).
 		Return(errors.Errorf("invalid credential"))
 
 	_, err := NewService(
@@ -1270,4 +1273,79 @@ func (i *instanceStub) Status(context.Context) instance.Status {
 
 func (i *instanceStub) Addresses(context.Context) (network.ProviderAddresses, error) {
 	return network.ProviderAddresses{}, nil
+}
+
+// TestCredentialValidationContext verifies the credential validation context
+// is assembled from the migration state.
+func (s *serviceSuite) TestCredentialValidationContext(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cld := cloud.Cloud{
+		Name:      "aws",
+		Type:      "ec2",
+		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType},
+	}
+	s.modelState.EXPECT().GetModelCloudInfo(gomock.Any()).Return("aws", "myregion", nil)
+	s.controllerState.EXPECT().GetCloud(gomock.Any(), "aws").Return(cld, nil)
+	s.modelState.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
+	s.modelState.EXPECT().GetControllerUUID(gomock.Any()).Return(s.controllerUUID, nil)
+	s.modelState.EXPECT().GetModelConfig(gomock.Any()).Return(map[string]string{
+		"uuid":      s.modelUUID,
+		"name":      "my-model",
+		"type":      "iaas",
+		"ftp-proxy": "http://proxy",
+	}, nil)
+
+	v := credentialValidator{
+		controllerState: s.controllerState,
+		modelState:      s.modelState,
+	}
+	got, err := v.validationContext(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.ControllerUUID, tc.Equals, s.controllerUUID)
+	c.Check(got.ModelType, tc.Equals, coremodel.IAAS)
+	c.Check(got.Cloud, tc.DeepEquals, cld)
+	c.Check(got.Region, tc.Equals, "myregion")
+	c.Assert(got.Config, tc.NotNil)
+	c.Check(got.Config.AllAttrs()["ftp-proxy"], tc.Equals, "http://proxy")
+	c.Assert(got.MachineService, tc.NotNil)
+}
+
+// TestCredentialValidationContextCloudInfoError verifies a failure reading the
+// model's cloud info aborts the context assembly.
+func (s *serviceSuite) TestCredentialValidationContextCloudInfoError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetModelCloudInfo(gomock.Any()).Return("", "", errors.Errorf("boom"))
+
+	v := credentialValidator{
+		controllerState: s.controllerState,
+		modelState:      s.modelState,
+	}
+	_, err := v.validationContext(c.Context())
+	c.Assert(err, tc.ErrorMatches, ".*getting model cloud info: boom")
+}
+
+// TestCredentialMachineService verifies the migration state is adapted to the
+// credential domain's machine interface.
+func (s *serviceSuite) TestCredentialMachineService(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetMachineInstanceIDs(gomock.Any()).Return(map[string]string{
+		"instance-0": "0",
+		"instance-1": "1",
+	}, nil)
+	s.modelState.EXPECT().GetMachineInstanceID(gomock.Any(), "machine-uuid").Return("instance-0", nil)
+
+	ms := machineService{modelState: s.modelState}
+	all, err := ms.GetAllProvisionedMachineInstanceID(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(all, tc.DeepEquals, map[machine.Name]instance.Id{
+		"0": instance.Id("instance-0"),
+		"1": instance.Id("instance-1"),
+	})
+
+	id, err := ms.InstanceID(c.Context(), machine.UUID("machine-uuid"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(id, tc.Equals, "instance-0")
 }

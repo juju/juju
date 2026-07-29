@@ -18,6 +18,7 @@ import (
 	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/model"
 	statemodel "github.com/juju/juju/domain/model/state/model"
@@ -859,4 +860,77 @@ INSERT INTO application_remote_offerer (
 		{ControllerUUID: controllerUUID, ModelUUID: modelUUID},
 		{ControllerUUID: otherControllerUUID, ModelUUID: otherModelUUID},
 	})
+}
+
+// TestGetModelCloudInfo verifies the model's cloud name and region are read
+// from the model record.
+func (s *migrationSuite) TestGetModelCloudInfo(c *tc.C) {
+	cloudName, region, err := New(s.TxnRunnerFactory(), s.modelUUID).GetModelCloudInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cloudName, tc.Equals, "aws")
+	c.Check(region, tc.Equals, "myregion")
+}
+
+// TestGetModelConfig verifies model config entries are returned as key/value
+// pairs.
+func (s *migrationSuite) TestGetModelConfig(c *tc.C) {
+	db := s.DB()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO model_config (key, value) VALUES ('ftp-proxy', 'http://proxy'), ('apt-mirror', 'http://mirror')")
+	c.Assert(err, tc.ErrorIsNil)
+
+	cfg, err := New(s.TxnRunnerFactory(), s.modelUUID).GetModelConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg["ftp-proxy"], tc.Equals, "http://proxy")
+	c.Check(cfg["apt-mirror"], tc.Equals, "http://mirror")
+}
+
+// TestGetMachineInstanceID verifies the provisioned machine's instance ID is
+// returned for its machine UUID.
+func (s *migrationSuite) TestGetMachineInstanceID(c *tc.C) {
+	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	_, machineNames, err := machineState.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "24.04",
+			OSType:  deployment.Ubuntu,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := machineState.GetMachineUUID(c.Context(), machineNames[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = machineState.SetMachineCloudInstance(
+		c.Context(),
+		machineUUID.String(),
+		instance.Id("instance-0"),
+		"",
+		"nonce",
+		nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	instanceID, err := New(s.TxnRunnerFactory(), s.modelUUID).GetMachineInstanceID(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(instanceID, tc.Equals, "instance-0")
+}
+
+// TestGetMachineInstanceIDNotProvisioned verifies an error satisfying
+// [machineerrors.NotProvisioned] is returned when the machine has no cloud
+// instance.
+func (s *migrationSuite) TestGetMachineInstanceIDNotProvisioned(c *tc.C) {
+	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	_, machineNames, err := machineState.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "24.04",
+			OSType:  deployment.Ubuntu,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := machineState.GetMachineUUID(c.Context(), machineNames[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = New(s.TxnRunnerFactory(), s.modelUUID).GetMachineInstanceID(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 }

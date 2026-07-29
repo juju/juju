@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
 
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -33,6 +34,7 @@ func (s *State) GetMachineInstanceIDs(ctx context.Context) (map[string]string, e
 SELECT (m.name, mci.instance_id) AS (&machineInstanceID.*)
 FROM   machine_cloud_instance AS mci
 JOIN   machine AS m ON m.uuid = mci.machine_uuid
+WHERE  mci.instance_id != ''
 `, machineInstanceID{})
 	if err != nil {
 		return nil, errors.Errorf("preparing machine instance IDs statement: %w", err)
@@ -434,4 +436,102 @@ WHERE  abs.version = $versionArg.version
 		names = append(names, r.Name)
 	}
 	return names, nil
+}
+
+// GetModelCloudInfo returns the name of the cloud the model is deployed on
+// and its region (empty when the model has no region), used to build the
+// cloud spec for validating the imported model's credential.
+func (s *State) GetModelCloudInfo(ctx context.Context) (string, string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT m.cloud AS &modelCloudInfo.cloud,
+       COALESCE(m.cloud_region, '') AS &modelCloudInfo.cloud_region
+FROM   model AS m
+`, modelCloudInfo{})
+	if err != nil {
+		return "", "", errors.Errorf("preparing model cloud info statement: %w", err)
+	}
+
+	var info modelCloudInfo
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&info)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New("model information is missing from database")
+		}
+		return err
+	}); err != nil {
+		return "", "", errors.Errorf("retrieving model cloud info: %w", err)
+	}
+	return info.CloudName, info.Region, nil
+}
+
+// GetModelConfig returns the model's configuration as key/value pairs, used
+// to open the provider for validating the imported model's credential.
+func (s *State) GetModelConfig(ctx context.Context) (map[string]string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`SELECT &configKeyValue.* FROM v_model_config`, configKeyValue{})
+	if err != nil {
+		return nil, errors.Errorf("preparing model config statement: %w", err)
+	}
+
+	var rows []configKeyValue
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		rows = nil
+		err := tx.Query(ctx, stmt).GetAll(&rows)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Errorf("retrieving model config: %w", err)
+	}
+
+	result := make(map[string]string, len(rows))
+	for _, r := range rows {
+		result[r.Key] = r.Value
+	}
+	return result, nil
+}
+
+// GetMachineInstanceID returns the provider instance ID of the machine with
+// the given UUID, or an error satisfying [machineerrors.NotProvisioned] when
+// the machine has no cloud instance.
+func (s *State) GetMachineInstanceID(ctx context.Context, machineUUID string) (string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	arg := machineUUIDArg{UUID: machineUUID}
+	stmt, err := s.Prepare(`
+SELECT mci.instance_id AS &machineInstanceID.instance_id
+FROM   machine_cloud_instance AS mci
+WHERE  mci.machine_uuid = $machineUUIDArg.uuid
+`, machineInstanceID{}, arg)
+	if err != nil {
+		return "", errors.Errorf("preparing machine instance ID statement: %w", err)
+	}
+
+	var row machineInstanceID
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, arg).Get(&row)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("machine %q %w", machineUUID, machineerrors.NotProvisioned)
+		}
+		return err
+	}); err != nil {
+		return "", errors.Errorf("retrieving machine instance ID: %w", err)
+	}
+	if row.InstanceID == "" {
+		return "", errors.Errorf("machine %q %w", machineUUID, machineerrors.NotProvisioned)
+	}
+	return row.InstanceID, nil
 }

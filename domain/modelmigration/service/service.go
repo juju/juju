@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
@@ -59,7 +60,7 @@ type ResourceProvider interface {
 // CredentialValidator checks whether the imported model's credential can
 // access its cloud on this controller.
 type CredentialValidator interface {
-	Validate(ctx context.Context, modelUUID string, credential modelmigration.ModelCloudCredential) error
+	Validate(ctx context.Context, credential modelmigration.ModelCloudCredential) error
 }
 
 // Service provides the means for supporting model migration actions between
@@ -122,6 +123,10 @@ type ControllerState interface {
 	// which the controller's object store holds agent binaries at the given
 	// version.
 	GetAgentBinaryArchitecturesForVersion(ctx context.Context, version string) ([]string, error)
+
+	// GetCloud returns the full definition of the named cloud (auth types,
+	// regions, endpoints and CA certificates).
+	GetCloud(ctx context.Context, name string) (cloud.Cloud, error)
 
 	// DeleteModelImportingStatus removes the entry from the model_migrating
 	// table in the model database, indicating that the model import has
@@ -224,6 +229,14 @@ type ModelState interface {
 	// GetModelType returns the model's deployment type (for example "iaas" or
 	// "caas").
 	GetModelType(ctx context.Context) (string, error)
+	// GetModelCloudInfo returns the name of the cloud the model is deployed on
+	// and its region (empty when the model has no region).
+	GetModelCloudInfo(ctx context.Context) (cloudName string, region string, err error)
+	// GetModelConfig returns the model's configuration as key/value pairs.
+	GetModelConfig(ctx context.Context) (map[string]string, error)
+	// GetMachineInstanceID returns the provider instance ID of the machine
+	// with the given UUID.
+	GetMachineInstanceID(ctx context.Context, machineUUID string) (string, error)
 	// GetSecretBackendUUIDsInUse returns the distinct secret backend UUIDs
 	// referenced by the model's external secret value refs, including deleted
 	// value refs pending cleanup.
@@ -440,7 +453,7 @@ func (s *Service) checkModelCredential(ctx context.Context) error {
 			credential.Name, credential.Cloud, credential.Owner,
 		)
 	}
-	return s.credentialValidator.Validate(ctx, s.modelUUID, *credential)
+	return s.credentialValidator.Validate(ctx, *credential)
 }
 
 // ModelMigrationMode returns the current migration mode for the model.

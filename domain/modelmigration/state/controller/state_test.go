@@ -25,6 +25,7 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	accessstate "github.com/juju/juju/domain/access/state"
+	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/domain/credential"
@@ -1590,4 +1591,23 @@ type preparer struct{}
 
 func (p preparer) Prepare(query string, args ...any) (*sqlair.Statement, error) {
 	return sqlair.Prepare(query, args...)
+}
+
+// TestGetCloud verifies the full cloud definition is returned for the named
+// cloud.
+func (s *stateSuite) TestGetCloud(c *tc.C) {
+	cld, err := New(s.TxnRunnerFactory(), clock.WallClock).GetCloud(c.Context(), "my-cloud")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cld.Name, tc.Equals, "my-cloud")
+	c.Check(cld.Type, tc.Equals, "ec2")
+	c.Check(cld.AuthTypes, tc.DeepEquals, cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType})
+	c.Assert(cld.Regions, tc.HasLen, 1)
+	c.Check(cld.Regions[0].Name, tc.Equals, "my-region")
+}
+
+// TestGetCloudNotFound verifies an error satisfying [clouderrors.NotFound] is
+// returned for an unknown cloud.
+func (s *stateSuite) TestGetCloudNotFound(c *tc.C) {
+	_, err := New(s.TxnRunnerFactory(), clock.WallClock).GetCloud(c.Context(), "no-such-cloud")
+	c.Assert(err, tc.ErrorIs, clouderrors.NotFound)
 }
