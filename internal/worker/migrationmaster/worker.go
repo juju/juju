@@ -591,8 +591,12 @@ func (w *Worker) doVALIDATION(ctx context.Context, status coremigration.Migratio
 		return coremigration.ABORT, nil
 	}
 
-	// Once all agents have validated, activate the model in the
-	// target controller.
+	// Once all agents have validated, activate the model in the target
+	// controller. Activation only prepares there: it leaves the import claim
+	// importing and the model gated, so any failure - including a reply that
+	// never arrives - leaves the model abortable. The target's point of no
+	// return is AdoptResources, which is sent from SUCCESS, a phase this
+	// migration can no longer reach ABORT from.
 	err = w.activateModel(ctx, client, status.ModelUUID)
 	if err != nil {
 		w.setErrorStatus(ctx, "model activation failed, %v", err)

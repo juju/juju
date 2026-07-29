@@ -341,3 +341,20 @@ type modelDatabaseDeletion struct {
 	Namespace string    `db:"namespace"`
 	CreatedAt time.Time `db:"created_at"`
 }
+
+// secretBackendRef pairs a secret revision UUID with the secret backend UUID it
+// is recorded against in secret_backend_reference.
+type secretBackendRef struct {
+	RevisionUUID string `db:"secret_revision_uuid"`
+	BackendUUID  string `db:"secret_backend_uuid"`
+}
+
+// architectureName represents an architecture's name.
+type architectureName struct {
+	Name string `db:"name"`
+}
+
+// agentVersionArg carries an agent binary version for use as a query argument.
+type agentVersionArg struct {
+	Version string `db:"version"`
+}

@@ -123,6 +123,24 @@ type ModelCloudCredential struct {
 	InvalidReason string
 }
 
+// CredentialValidationInfo describes the model whose cloud credential the
+// migration VALIDATION phase is validating. It is read from the model database
+// in a single query so the credential check, and the machine reconciliation
+// that follows it, share one consistent view of the model.
+type CredentialValidationInfo struct {
+	// ControllerUUID is the UUID of the controller that now owns the model.
+	ControllerUUID string
+	// ModelType is the model's deployment type ("iaas" or "caas").
+	ModelType string
+	// CloudName, CloudType and CloudRegion identify the cloud the model is
+	// deployed on. CloudRegion is empty when the cloud has no regions.
+	CloudName   string
+	CloudType   string
+	CloudRegion string
+	// Config is the model's stored configuration as key/value pairs.
+	Config map[string]string
+}
+
 // ModelPermission is a single permission grant on the model or on an offer in
 // the model, with the grantee carried by username.
 type ModelPermission struct {

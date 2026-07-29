@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
-	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
@@ -29,17 +28,19 @@ import (
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceSuite struct {
-	controllerState  *MockControllerState
-	modelState       *MockModelState
-	watcherFactory   *MockWatcherFactory
-	instanceProvider *MockInstanceProvider
-	resourceProvider *MockResourceProvider
-	modelUUID        string
-	controllerUUID   string
+	controllerState     *MockControllerState
+	modelState          *MockModelState
+	watcherFactory      *MockWatcherFactory
+	instanceProvider    *MockInstanceProvider
+	resourceProvider    *MockResourceProvider
+	credentialValidator *MockCredentialValidator
+	modelUUID           string
+	controllerUUID      string
 }
 
 func TestServiceSuite(t *testing.T) {
@@ -68,6 +69,8 @@ func (s *serviceSuite) TestAdoptResources(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -94,6 +97,8 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		resourceGetter,
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -121,15 +126,20 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
 
-// TestMachinesFromProviderDiscrepancy is testing the return value from
-// [Service.CheckMachines] and that it reports discrepancies from the cloud.
+// TestMachinesFromProviderNotInModel checks that [Service.CheckMachines]
+// reports a discrepancy, with an empty machine name, for a provider instance
+// that is not tracked by any model machine.
 func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectCredentialValidationInfo("ec2")
+	s.controllerState.EXPECT().GetModelCloudCredential(gomock.Any(), s.modelUUID).Return(nil, nil)
 	s.instanceProvider.EXPECT().AllInstances(gomock.Any()).
 		Return([]instances.Instance{
 			&instanceStub{
@@ -140,26 +150,34 @@ func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 			},
 		},
 			nil)
-	s.modelState.EXPECT().GetAllInstanceIDs(gomock.Any()).
-		Return(set.NewStrings("instance0"), nil)
+	s.modelState.EXPECT().GetMachineInstanceIDs(gomock.Any()).
+		Return(map[string]string{"instance0": "0"}, nil)
 
-	_, err := NewService(
+	discrepancies, err := NewService(
 		s.controllerState,
 		s.modelState,
 		s.modelUUID,
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
-	c.Check(err, tc.ErrorMatches, "provider instance IDs.*instance1.*")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(discrepancies, tc.DeepEquals, []modelmigration.MigrationMachineDiscrepancy{{
+		MachineName:     "",
+		CloudInstanceId: instance.Id("instance1"),
+	}})
 }
 
-// TestMachineInstanceIDsNotInProvider is testing the return value from
-// [Service.CheckMachines] and that it reports discrepancies from the model
-// on the DB.
+// TestMachineInstanceIDsNotInProvider checks that [Service.CheckMachines]
+// reports a discrepancy, naming the offending machine, for a model machine
+// whose cloud instance the provider does not report.
 func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectCredentialValidationInfo("ec2")
+	s.controllerState.EXPECT().GetModelCloudCredential(gomock.Any(), s.modelUUID).Return(nil, nil)
 	s.instanceProvider.EXPECT().AllInstances(gomock.Any()).
 		Return([]instances.Instance{
 			&instanceStub{
@@ -167,18 +185,42 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 			},
 		},
 			nil)
-	s.modelState.EXPECT().GetAllInstanceIDs(gomock.Any()).
-		Return(set.NewStrings("instance0", "instance1"), nil)
+	s.modelState.EXPECT().GetMachineInstanceIDs(gomock.Any()).
+		Return(map[string]string{"instance0": "0", "instance1": "1"}, nil)
 
-	_, err := NewService(
+	discrepancies, err := NewService(
 		s.controllerState,
 		s.modelState,
 		s.modelUUID,
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
-	c.Check(err, tc.ErrorMatches, "instance IDs.*instance1.*")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(discrepancies, tc.DeepEquals, []modelmigration.MigrationMachineDiscrepancy{{
+		MachineName:     "1",
+		CloudInstanceId: instance.Id("instance1"),
+	}})
+}
+
+// expectImportValidationPasses sets up the read-only ValidateImportedModel
+// state reads to report a model with no external secrets, so validation passes.
+func (s *serviceSuite) expectImportValidationPasses() {
+	mExp := s.modelState.EXPECT()
+	mExp.GetSecretBackendUUIDsInUse(gomock.Any()).Return(nil, nil)
+	mExp.GetExternalSecretRevisionBackends(gomock.Any()).Return(nil, nil)
+	mExp.GetRelationValidationData(gomock.Any()).Return(nil, nil)
+}
+
+// expectAgentBinaryCheckAllPresent sets up MissingAgentBinaryArchitectures to
+// report a model with no running agents, so nothing is missing and the
+// agent-version bump proceeds.
+func (s *serviceSuite) expectAgentBinaryCheckAllPresent() {
+	mExp := s.modelState.EXPECT()
+	mExp.GetModelType(gomock.Any()).Return("iaas", nil)
+	mExp.GetRunningAgentArchitectures(gomock.Any()).Return(nil, nil)
 }
 
 func (s *serviceSuite) TestActivateImport(c *tc.C) {
@@ -186,6 +228,9 @@ func (s *serviceSuite) TestActivateImport(c *tc.C) {
 
 	currentVersion := semversion.MustParse("4.0.0").String()
 	desiredVersion := semversion.MustParse("4.0.1").String()
+
+	s.expectImportValidationPasses()
+	s.expectAgentBinaryCheckAllPresent()
 
 	mExp := s.modelState.EXPECT()
 	cExp := s.controllerState.EXPECT()
@@ -208,6 +253,8 @@ func (s *serviceSuite) TestActivateImport(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -217,6 +264,8 @@ func (s *serviceSuite) TestActivateImportSameVersion(c *tc.C) {
 
 	currentVersion := semversion.MustParse("4.0.0").String()
 	desiredVersion := semversion.MustParse("4.0.0").String()
+
+	s.expectImportValidationPasses()
 
 	mExp := s.modelState.EXPECT()
 	cExp := s.controllerState.EXPECT()
@@ -238,12 +287,16 @@ func (s *serviceSuite) TestActivateImportSameVersion(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestActivateImportControllerFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.expectImportValidationPasses()
 
 	cExp := s.controllerState.EXPECT()
 
@@ -256,6 +309,8 @@ func (s *serviceSuite) TestActivateImportControllerFails(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*front fell off")
 }
@@ -264,6 +319,8 @@ func (s *serviceSuite) TestActivateImportModelFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	desiredVersion := semversion.MustParse("4.0.1").String()
+
+	s.expectImportValidationPasses()
 
 	mExp := s.modelState.EXPECT()
 	cExp := s.controllerState.EXPECT()
@@ -278,6 +335,8 @@ func (s *serviceSuite) TestActivateImportModelFails(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*front fell off")
 }
@@ -321,6 +380,8 @@ func (s *serviceSuite) TestWatchForMigration(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	)
 	w, err := svc.WatchForMigration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -350,6 +411,8 @@ func (s *serviceSuite) TestWatchForMigrationError(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	)
 	_, err := svc.WatchForMigration(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*boom")
@@ -429,6 +492,8 @@ func (s *serviceSuite) service(c *tc.C) *Service {
 		s.watcherFactory,
 		func(context.Context) (InstanceProvider, error) { return s.instanceProvider, nil },
 		func(context.Context) (ResourceProvider, error) { return s.resourceProvider, nil },
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	)
 }
 
@@ -910,6 +975,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerState = NewMockControllerState(ctrl)
 	s.modelState = NewMockModelState(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
+	s.credentialValidator = NewMockCredentialValidator(ctrl)
 
 	s.instanceProvider = NewMockInstanceProvider(ctrl)
 	s.resourceProvider = NewMockResourceProvider(ctrl)
@@ -918,6 +984,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.controllerState = nil
 		s.modelState = nil
 		s.watcherFactory = nil
+		s.credentialValidator = nil
 		s.instanceProvider = nil
 		s.resourceProvider = nil
 		s.modelUUID = ""
