@@ -109,8 +109,9 @@ type State interface {
 
 	// CheckMachineReprovisioningEligibility checks machine life, controller
 	// status, manual-provision status, child-container presence, and attached
-	// model-scoped storage in a single round-trip. It returns a sentinel error
-	// for each ineligible condition.
+	// model-scoped storage and verifies that no reprovision request exists in a
+	// single round-trip. It returns a sentinel error for each ineligible
+	// condition.
 	CheckMachineReprovisioningEligibility(context.Context, machine.Name) error
 
 	// IsMachineAgentPresent returns whether presence exists for the specified

@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	stdtesting "testing"
+	"time"
 
 	"github.com/juju/tc"
 
@@ -1049,6 +1050,16 @@ func (s *stateSuite) TestCheckMachineReprovisioningEligibilitySuccess(c *tc.C) {
 
 	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityReprovisionAlreadyExists(c *tc.C) {
+	_, machineName := s.addMachine(c)
+	s.runQuery(c, `
+INSERT INTO machine_reprovision (machine_name, requested_at)
+VALUES (?, ?)`, machineName, time.Now())
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineReprovisionAlreadyExists)
 }
 
 func (s *stateSuite) TestCheckMachineReprovisioningEligibilityNotFound(c *tc.C) {

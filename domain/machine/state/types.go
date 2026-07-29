@@ -133,6 +133,7 @@ type reprovisionEligibility struct {
 	IsManual        int64     `db:"is_manual"`
 	HasContainers   int64     `db:"has_containers"`
 	HasModelStorage int64     `db:"has_model_storage"`
+	HasReprovision  int64     `db:"has_reprovision"`
 }
 
 type reprovisionEligibilityParams struct {

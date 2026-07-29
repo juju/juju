@@ -163,8 +163,21 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRepeated(c *tc.C) {
 	err = s.state.DetachLostMachineCloudInstance(
 		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
 	)
-	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineReprovisionAlreadyExists)
 	s.checkInstanceID(c, machineUUID.String(), "")
+}
+
+func (s *stateSuite) TestDetachLostMachineCloudInstanceReprovisionAlreadyExists(c *tc.C) {
+	machineUUID, machineName := s.ensureInstance(c)
+	s.runQuery(c, `
+INSERT INTO machine_reprovision (machine_name, requested_at)
+VALUES (?, ?)`, machineName.String(), time.Now())
+
+	err := s.state.DetachLostMachineCloudInstance(
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+	)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineReprovisionAlreadyExists)
+	s.checkInstanceID(c, machineUUID.String(), "123")
 }
 
 func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsModelScopedStorage(c *tc.C) {
