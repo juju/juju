@@ -38,6 +38,14 @@ func (st *State) DetachLostMachineCloudInstance(
 	}
 
 	machineNameParam := machineName{Name: mName}
+	existingReprovisionStmt, err := st.Prepare(`
+SELECT mr.* AS &machineReprovision.*
+FROM machine_reprovision AS mr
+WHERE mr.machine_name = $machineName.name
+`, machineNameParam, machineReprovision{})
+	if err != nil {
+		return errors.Errorf("preparing existing reprovision query: %w", err)
+	}
 	targetStmt, err := st.Prepare(`
 SELECT     m.uuid AS &reprovisionDetachTarget.machine_uuid,
            m.net_node_uuid AS &reprovisionDetachTarget.net_node_uuid,
@@ -86,12 +94,26 @@ GROUP BY   m.uuid, m.net_node_uuid, mci.instance_id, m.life_id
 	if err != nil {
 		return errors.Errorf("preparing storage target statements: %w", err)
 	}
+	reprovisionStmt, err := st.Prepare(`
+INSERT INTO machine_reprovision (*)
+VALUES ($machineReprovision.*)
+`, machineReprovision{})
+	if err != nil {
+		return errors.Errorf("preparing reprovision statement: %w", err)
+	}
 	storageResetStmts, err := st.prepareReprovisionStorageResetStatements()
 	if err != nil {
 		return errors.Errorf("preparing storage reset statements: %w", err)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var existingReprovision machineReprovision
+		if err := tx.Query(ctx, existingReprovisionStmt, machineNameParam).Get(&existingReprovision); err == nil {
+			return machineerrors.MachineReprovisionAlreadyExists
+		} else if !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying existing reprovision request for machine %q: %w", mName, err)
+		}
+
 		var target reprovisionDetachTarget
 		if err := tx.Query(ctx, targetStmt, machineNameParam).Get(&target); errors.Is(err, sqlair.ErrNoRows) {
 			return machineerrors.MachineNotFound
@@ -155,6 +177,12 @@ GROUP BY   m.uuid, m.net_node_uuid, mci.instance_id, m.life_id
 		statusValue.StatusID = instanceStatusID
 		if err := tx.Query(ctx, instanceStatusStmt, statusValue).Run(); err != nil {
 			return errors.Errorf("setting reprovisioning instance status: %w", err)
+		}
+		if err := tx.Query(ctx, reprovisionStmt, machineReprovision{
+			MachineName: mName,
+			RequestedAt: updatedAt,
+		}).Run(); err != nil {
+			return errors.Errorf("recording reprovision wake-up: %w", err)
 		}
 		return nil
 	})

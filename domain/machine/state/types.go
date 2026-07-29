@@ -133,6 +133,7 @@ type reprovisionEligibility struct {
 	IsManual        int64     `db:"is_manual"`
 	HasContainers   int64     `db:"has_containers"`
 	HasModelStorage int64     `db:"has_model_storage"`
+	HasReprovision  int64     `db:"has_reprovision"`
 }
 
 type reprovisionEligibilityParams struct {
@@ -586,4 +587,9 @@ type reprovisionStorageTargetParams struct {
 	AliveLifeID    int    `db:"alive_life_id"`
 	ModelScopeID   int    `db:"model_scope_id"`
 	MachineScopeID int    `db:"machine_scope_id"`
+}
+
+type machineReprovision struct {
+	MachineName string    `db:"machine_name"`
+	RequestedAt time.Time `db:"requested_at"`
 }

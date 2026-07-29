@@ -237,14 +237,20 @@ func (s *WatchableService) WatchModelMachines(ctx context.Context) (watcher.Stri
 	defer span.End()
 
 	table, stmt := s.st.InitialWatchModelMachinesStatement()
+	notContainer := func(changed string) bool {
+		return !strings.Contains(changed, "/")
+	}
 	return s.watcherFactory.NewNamespaceWatcher(
 		ctx,
 		eventsource.InitialNamespaceChanges(stmt),
 		"model machines watcher",
-		eventsource.PredicateFilter(table, changestream.All,
-			func(changed string) bool {
-				return !strings.Contains(changed, "/")
-			},
+		eventsource.PredicateFilter(
+			table, changestream.All, notContainer,
+		),
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchMachineReprovision(),
+			changestream.Changed,
+			notContainer,
 		),
 	)
 }

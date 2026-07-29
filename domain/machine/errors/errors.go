@@ -84,6 +84,10 @@ const (
 	// reports the machine's cloud instance as running.
 	MachineProviderInstanceRunning = errors.ConstError("machine provider instance is running")
 
+	// MachineReprovisionAlreadyExists describes an error when a reprovision
+	// request already exists for the machine.
+	MachineReprovisionAlreadyExists = errors.ConstError("reprovision request already exists")
+
 	// ModelScopedStorageAttached describes an error that occurs during
 	// reprovisioning when model-scoped storage is attached to the machine.
 	ModelScopedStorageAttached = errors.ConstError("model-scoped storage attached to machine")

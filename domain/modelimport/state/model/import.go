@@ -462,6 +462,10 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 	if err != nil {
 		return errors.Errorf("preparing MachinePlatform insert statement: %w", err)
 	}
+	stmtMachineReprovision, err := sqlair.Prepare(`INSERT INTO "machine_reprovision" (*) VALUES ($MachineReprovision.*)`, v4_1_0.MachineReprovision{})
+	if err != nil {
+		return errors.Errorf("preparing MachineReprovision insert statement: %w", err)
+	}
 	stmtMachineRequiresReboot, err := sqlair.Prepare(`INSERT INTO "machine_requires_reboot" (*) VALUES ($MachineRequiresReboot.*)`, v4_1_0.MachineRequiresReboot{})
 	if err != nil {
 		return errors.Errorf("preparing MachineRequiresReboot insert statement: %w", err)
@@ -1510,6 +1514,11 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 		if len(p.MachinePlatform) > 0 {
 			if err := tx.Query(ctx, stmtMachinePlatform, p.MachinePlatform).Run(); err != nil {
 				return errors.Errorf("inserting MachinePlatform (table machine_platform): %w", err)
+			}
+		}
+		if len(p.MachineReprovision) > 0 {
+			if err := tx.Query(ctx, stmtMachineReprovision, p.MachineReprovision).Run(); err != nil {
+				return errors.Errorf("inserting MachineReprovision (table machine_reprovision): %w", err)
 			}
 		}
 		if len(p.MachineRequiresReboot) > 0 {

@@ -215,6 +215,20 @@ VALUES ($instanceTag.*)
 	if err != nil {
 		return errors.Capture(err)
 	}
+	clearReprovisionStmt, err := st.Prepare(`
+WITH provisioned_machine AS (
+    SELECT name
+    FROM machine
+    WHERE uuid = $entityUUID.uuid
+)
+DELETE FROM machine_reprovision
+WHERE machine_name IN (
+    SELECT name FROM provisioned_machine
+)
+`, entityUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
 
 	azName := availabilityZoneName{}
 	if hardwareCharacteristics != nil && hardwareCharacteristics.AvailabilityZone != nil {
@@ -296,6 +310,11 @@ WHERE  availability_zone.name = $availabilityZoneName.name
 		if instanceTags := tagsFromHardwareCharacteristics(mUUID, hardwareCharacteristics); len(instanceTags) > 0 {
 			if err := tx.Query(ctx, setInstanceTagStmt, instanceTags).Run(); err != nil {
 				return errors.Errorf("inserting instance tags for machine %q: %w", mUUID, err)
+			}
+		}
+		if instID.Valid {
+			if err := tx.Query(ctx, clearReprovisionStmt, entityUUID{UUID: mUUID}).Run(); err != nil {
+				return errors.Errorf("clearing machine reprovision marker: %w", err)
 			}
 		}
 		return nil

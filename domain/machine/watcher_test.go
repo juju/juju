@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -54,6 +55,7 @@ type watcherSuite struct {
 	changestreamtesting.ModelSuite
 
 	svc *service.WatchableService
+	st  *state.State
 }
 
 func TestWatcherSuite(t *testing.T) {
@@ -73,12 +75,13 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "machine")
+	s.st = state.NewState(
+		func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) },
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
 	s.svc = service.NewWatchableService(
-		state.NewState(
-			func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) },
-			clock.WallClock,
-			loggertesting.WrapCheckLog(c),
-		),
+		s.st,
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		func(ctx context.Context) (service.Provider, error) {
 			return service.NewNoopProvider(), nil
@@ -87,6 +90,67 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
+}
+
+func (s *watcherSuite) TestWatchModelMachinesReprovision(c *tc.C) {
+	res, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "24.04",
+			OSType:  deployment.Ubuntu,
+		},
+		Nonce: new("nonce-123"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := s.svc.GetMachineUUID(c.Context(), res.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.svc.SetMachineCloudInstance(
+		c.Context(), machineUUID, "i-1234", "old-instance", "nonce-123", nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.AssertChangeStreamIdle(c, "before watcher start")
+
+	watcher, err := s.svc.WatchModelMachines(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Clearing cloud-instance data alone is not a reprovision request.
+	harness.AddTest(c, func(c *tc.C) {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `
+UPDATE machine_cloud_instance
+SET display_name = NULL
+WHERE machine_uuid = ?`, machineUUID.String())
+			return err
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.AddTest(c, func(c *tc.C) {
+		err := s.st.DetachLostMachineCloudInstance(
+			c.Context(), res.MachineName.String(), "i-1234",
+			"reprovisioning requested", nil, time.Now(),
+		)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{res.MachineName.String()}))
+	})
+
+	// Recording the replacement instance clears the marker without emitting
+	// another provisioning event.
+	harness.AddTest(c, func(c *tc.C) {
+		err := s.svc.SetMachineCloudInstance(
+			c.Context(), machineUUID, "i-5678", "replacement-instance",
+			"replacement-nonce", nil,
+		)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, []string{res.MachineName.String()})
 }
 
 func (s *watcherSuite) TestWatchModelMachines(c *tc.C) {

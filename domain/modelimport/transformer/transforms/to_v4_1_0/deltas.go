@@ -115,13 +115,6 @@ func (d deltas) RelationUnitSetting(_ context.Context, src []v4_0_12.RelationUni
 	return result, nil
 }
 
-// MachineVirtualSshHostKey returns no rows for 4.0.12 payloads. The source
-// schema has no machine virtual SSH host key table.
-func (d deltas) MachineVirtualSshHostKey(_ context.Context,
-	_ *v4_0_12.ModelExport) ([]v4_1_0.MachineVirtualSshHostKey, error) {
-	return nil, nil
-}
-
 // SshKeyAlgorithmType synthesises the static lookup table introduced in
 // 4.1.0. The table is schema-owned data, so it is produced unconditionally.
 func (d deltas) SshKeyAlgorithmType(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.SshKeyAlgorithmType, error) {
@@ -133,22 +126,42 @@ func (d deltas) SshKeyAlgorithmType(_ context.Context, _ *v4_0_12.ModelExport) (
 	}, nil
 }
 
+// MachineReprovision returns no rows for 4.0.12 payloads. The source schema has
+// no machine reprovision table.
+func (d deltas) MachineReprovision(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.MachineReprovision, error) {
+	// The machine_reprovision table was added in 4.1.0, so there are no rows to
+	// transform from 4.0.12.
+	return nil, nil
+}
+
+// MachineVirtualSshHostKey returns no rows for 4.0.12 payloads. The source
+// schema has no machine virtual SSH host key table.
+func (d deltas) MachineVirtualSshHostKey(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.MachineVirtualSshHostKey, error) {
+	// The machine_virtual_ssh_host_key table was added in 4.1.0, so there
+	// are no rows to transform from 4.0.12.
+	return nil, nil
+}
+
 // UnitVirtualSshHostKey returns no rows for 4.0.12 payloads. The source schema
 // has no unit virtual SSH host key table.
-func (d deltas) UnitVirtualSshHostKey(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.UnitVirtualSshHostKey,
-	error) {
+func (d deltas) UnitVirtualSshHostKey(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.UnitVirtualSshHostKey, error) {
+	// The unit_virtual_ssh_host_key table was added in 4.1.0, so there
+	// are no rows to transform from 4.0.12.
 	return nil, nil
 }
 
 // SshConnectionRequest returns no rows for 4.0.12 payloads. The source schema
 // has no SSH connection request table.
 func (d deltas) SshConnectionRequest(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.SshConnectionRequest, error) {
+	// The ssh_connection_request table was added in 4.1.0, so there are no rows
+	// to transform from 4.0.12.
 	return nil, nil
 }
 
-// SshConnectionRequestAddress returns no rows for 4.0.12 payloads. The source schema
-// has no SSH connection request address table.
-func (d deltas) SshConnectionRequestAddress(_ context.Context,
-	_ *v4_0_12.ModelExport) ([]v4_1_0.SshConnectionRequestAddress, error) {
+// SshConnectionRequestAddress returns no rows for 4.0.12 payloads. The source
+// schema has no SSH connection request address table.
+func (d deltas) SshConnectionRequestAddress(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.SshConnectionRequestAddress, error) {
+	// The ssh_connection_request_address table was added in 4.1.0, so there
+	// are no rows to transform from 4.0.12.
 	return nil, nil
 }

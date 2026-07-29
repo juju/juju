@@ -18,9 +18,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/secret-triggers.gen.go -package=triggers -tables=secret_metadata,secret_rotation,secret_revision,secret_revision_expire,secret_revision_obsolete,secret_reference,secret_deleted_value_ref
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/network-triggers.gen.go -package=triggers -tables=subnet,ip_address
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine,machine_lxd_profile
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-cloud-instance-triggers.gen.go -package=triggers -tables=machine_cloud_instance
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-requires-reboot-triggers.gen.go -package=triggers -tables=machine_requires_reboot
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine,machine_lxd_profile,machine_cloud_instance,machine_requires_reboot,machine_reprovision
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/ssh-connection-request-triggers.gen.go -package=triggers -tables=ssh_connection_request
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,application_setting,charm,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit-triggers.gen.go -package triggers -tables=unit,unit_principal,unit_resolved
@@ -111,6 +109,7 @@ const (
 	tableRelationNetworkIngress
 	tableRelationNetworkEgress
 	tableModelMigrating
+	tableMachineReprovision
 )
 
 // modelPostPatchFilesByVersion is used to categorise the post patch files
@@ -159,6 +158,7 @@ func ModelDDLForVersion(version semversion.Number) *schema.Schema {
 		triggers.ChangeLogTriggersForMachineLxdProfile("machine_uuid", tableMachineLxdProfile),
 		triggers.ChangeLogTriggersForMachineCloudInstance("machine_uuid", tableMachineCloudInstance),
 		triggers.ChangeLogTriggersForMachineRequiresReboot("machine_uuid", tableMachineRequireReboot),
+		triggers.ChangeLogTriggersForMachineReprovision("machine_name", tableMachineReprovision),
 		triggers.ChangeLogTriggersForSshConnectionRequest("tunnel_id", tableSSHConnectionRequest),
 		triggers.ChangeLogTriggersForCharm("uuid", tableCharm),
 		triggers.ChangeLogTriggersForUnit("uuid", tableUnit),

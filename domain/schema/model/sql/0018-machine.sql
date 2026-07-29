@@ -192,6 +192,14 @@ CREATE TABLE machine_requires_reboot (
     REFERENCES machine (uuid)
 );
 
+CREATE TABLE machine_reprovision (
+    machine_name TEXT NOT NULL PRIMARY KEY,
+    requested_at DATETIME NOT NULL,
+    CONSTRAINT fk_machine_reprovision_machine
+    FOREIGN KEY (machine_name)
+    REFERENCES machine (name)
+);
+
 CREATE TABLE machine_status_value (
     id INT PRIMARY KEY,
     status TEXT NOT NULL

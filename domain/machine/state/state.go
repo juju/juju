@@ -398,8 +398,8 @@ GROUP BY   m.uuid
 
 // CheckMachineReprovisioningEligibility checks whether the machine identified
 // by name is eligible for reprovisioning. It queries life, controller status,
-// manual-provision status, child-container presence, and model-scoped storage
-// in a single round-trip.
+// manual-provision status, child-container presence, model-scoped storage, and
+// an existing reprovision request in a single round-trip.
 // It returns a [machineerrors.MachineNotFound] if the machine doesn't exist.
 func (st *State) CheckMachineReprovisioningEligibility(ctx context.Context, mName machine.Name) error {
 	db, err := st.DB(ctx)
@@ -434,13 +434,15 @@ SELECT     m.life_id AS &reprovisionEligibility.life_id,
            COUNT(mic.machine_uuid) AS &reprovisionEligibility.is_controller,
            COUNT(mm.machine_uuid) AS &reprovisionEligibility.is_manual,
            COUNT(mp.machine_uuid) AS &reprovisionEligibility.has_containers,
-           COUNT(msn.net_node_uuid) AS &reprovisionEligibility.has_model_storage
+           COUNT(msn.net_node_uuid) AS &reprovisionEligibility.has_model_storage,
+           COUNT(mr.machine_name) AS &reprovisionEligibility.has_reprovision
 FROM       machine AS m
 LEFT JOIN  machine_parent AS mpc ON m.uuid = mpc.machine_uuid
 LEFT JOIN  v_machine_is_controller AS mic ON m.uuid = mic.machine_uuid
 LEFT JOIN  machine_manual AS mm ON m.uuid = mm.machine_uuid
 LEFT JOIN  machine_parent AS mp ON m.uuid = mp.parent_uuid
 LEFT JOIN  model_storage_net_node AS msn ON m.net_node_uuid = msn.net_node_uuid
+LEFT JOIN  machine_reprovision AS mr ON m.name = mr.machine_name
 WHERE      m.name = $reprovisionEligibilityParams.name
 GROUP BY   m.uuid
 `
@@ -464,6 +466,9 @@ GROUP BY   m.uuid
 		return errors.Errorf("checking reprovisioning eligibility for machine %q: %w", mName, err)
 	}
 
+	if result.HasReprovision > 0 {
+		return errors.Capture(machineerrors.MachineReprovisionAlreadyExists)
+	}
 	if result.LifeID != life.Alive {
 		return errors.Capture(machineerrors.MachineNotAlive)
 	}
@@ -1474,6 +1479,12 @@ VALUES      ($sshHostKey.*)`, sshHostKey{})
 // machine cloud instance changes.
 func (*State) NamespaceForWatchMachineCloudInstance() string {
 	return "machine_cloud_instance"
+}
+
+// NamespaceForWatchMachineReprovision returns the namespace used to wake the
+// provisioner after a machine is detached for reprovisioning.
+func (*State) NamespaceForWatchMachineReprovision() string {
+	return "machine_reprovision"
 }
 
 // NamespaceForWatchMachineReboot returns the namespace string used for

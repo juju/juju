@@ -111,6 +111,14 @@ WHERE ms.machine_uuid = ?`, machineUUID.String()).Scan(
 		c.Check(s.rowCount(c, table), tc.Equals, count, tc.Commentf("table %s", table))
 	}
 	c.Check(s.rowCountWhere(c, "unit", "net_node_uuid = ?", netNodeUUID), tc.Equals, 1)
+
+	var reprovisionMachineName string
+	err = db.QueryRowContext(c.Context(), `
+SELECT machine_name
+FROM machine_reprovision
+WHERE machine_name = ?`, machineName.String()).Scan(&reprovisionMachineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(reprovisionMachineName, tc.Equals, machineName.String())
 }
 
 func (s *stateSuite) TestDetachLostMachineCloudInstanceRechecksLife(c *tc.C) {
@@ -155,8 +163,21 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRepeated(c *tc.C) {
 	err = s.state.DetachLostMachineCloudInstance(
 		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
 	)
-	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineReprovisionAlreadyExists)
 	s.checkInstanceID(c, machineUUID.String(), "")
+}
+
+func (s *stateSuite) TestDetachLostMachineCloudInstanceReprovisionAlreadyExists(c *tc.C) {
+	machineUUID, machineName := s.ensureInstance(c)
+	s.runQuery(c, `
+INSERT INTO machine_reprovision (machine_name, requested_at)
+VALUES (?, ?)`, machineName.String(), time.Now())
+
+	err := s.state.DetachLostMachineCloudInstance(
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+	)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineReprovisionAlreadyExists)
+	s.checkInstanceID(c, machineUUID.String(), "123")
 }
 
 func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsModelScopedStorage(c *tc.C) {
@@ -509,6 +530,7 @@ END`)
 	} {
 		c.Check(s.rowCount(c, table), tc.Equals, 1, tc.Commentf("table %s", table))
 	}
+	c.Check(s.rowCount(c, "machine_reprovision"), tc.Equals, 0)
 }
 
 func (s *stateSuite) machineNetNodeUUID(c *tc.C, machineUUID string) string {
