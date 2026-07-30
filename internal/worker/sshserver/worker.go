@@ -29,23 +29,6 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
-// ControllerSSHHostKeyService resolves the controller jump host key.
-type ControllerSSHHostKeyService interface {
-	// SSHServerHostKey returns the controller jump host key.
-	SSHServerHostKey(context.Context) (string, error)
-}
-
-// SSHModelService resolves routed destination host keys.
-type SSHModelService interface {
-	// VirtualHostKey returns the terminating host key for a routed destination.
-	VirtualHostKey(context.Context, virtualhostname.Info) (string, error)
-	// ResolveK8sExecInfo resolves Kubernetes execution information for a routed
-	// destination.
-	ResolveK8sExecInfo(context.Context, virtualhostname.Info) (namespace, podName string, err error)
-	// MachineForDestination resolves the machine for a routed destination.
-	MachineForDestination(context.Context, virtualhostname.Info) (coremachine.Name, error)
-}
-
 // TunnelTracker authenticates and track reverse SSH tunnels.
 //
 // It authenticates the tunnel request to obtain a tunnel ID
@@ -59,10 +42,17 @@ type TunnelTracker interface {
 	PushTunnel(context.Context, string, net.Conn) error
 }
 
-// SSHService resolves controller and terminating SSH host keys.
+// SSHService resolves controller host keys, user public keys, and terminating
+// host keys for routed destinations.
 type SSHService interface {
-	ControllerSSHHostKeyService
-	SSHModelService
+	// VirtualHostKey returns the terminating host key for a routed destination.
+	VirtualHostKey(context.Context, virtualhostname.Info) (string, error)
+	// ResolveK8sExecInfo resolves Kubernetes execution information for a routed
+	// destination.
+	ResolveK8sExecInfo(context.Context, virtualhostname.Info) (namespace, podName string, err error)
+	// MachineForDestination resolves the machine for a routed destination.
+	MachineForDestination(context.Context, virtualhostname.Info) (coremachine.Name, error)
+	SSHServerHostKey(context.Context) (string, error)
 }
 
 // ServerWrapperWorkerConfig holds the configuration required by the server wrapper worker.

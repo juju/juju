@@ -10,6 +10,8 @@ import (
 
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	coressh "github.com/juju/juju/core/ssh"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/errors"
@@ -98,6 +100,45 @@ WHERE id = $controllerSSHHostKeyID.id`, controllerSSHHostKey{}, controllerSSHHos
 	return key.PublicKey, nil
 }
 
+// GetPublicKeysForUser returns all public keys registered for a user. Keys are
+// stored globally in the controller database and are not scoped to a model.
+func (st *State) GetPublicKeysForUser(ctx context.Context, username user.Name) ([]coressh.PublicKey, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	arg := userName{Name: username.Name()}
+	stmt, err := st.Prepare(`
+SELECT &userPublicSSHKey.public_key
+FROM user_public_ssh_key AS userPublicSSHKey
+JOIN v_user_auth AS userAuth ON userPublicSSHKey.user_uuid = userAuth.uuid
+WHERE userAuth.name = $userName.name
+  AND userAuth.removed = FALSE
+  AND userAuth.disabled = FALSE`, userPublicSSHKey{}, arg)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	rows := []userPublicSSHKey{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, arg).GetAll(&rows)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting public SSH keys for user %q: %w", username, err)
+	}
+
+	keys := make([]coressh.PublicKey, 0, len(rows))
+	for _, row := range rows {
+		keys = append(keys, coressh.PublicKey{Key: row.PublicKey})
+	}
+	return keys, nil
+}
+
 type controllerSSHHostKey struct {
 	ID              string `db:"id"`
 	AlgorithmTypeID int    `db:"algorithm_type_id"`
@@ -107,4 +148,12 @@ type controllerSSHHostKey struct {
 
 type controllerSSHHostKeyID struct {
 	ID string `db:"id"`
+}
+
+type userName struct {
+	Name string `db:"name"`
+}
+
+type userPublicSSHKey struct {
+	PublicKey string `db:"public_key"`
 }

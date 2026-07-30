@@ -19,7 +19,8 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/virtualhostname"
-	"github.com/juju/juju/internal/featureflag"
+	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
+	modelsshservice "github.com/juju/juju/domain/ssh/service/model"
 	"github.com/juju/juju/internal/jwtparser"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/services"
@@ -33,17 +34,13 @@ const machineConnectionTimeout = 60 * time.Second
 // a controller config service from the manifold.
 type GetControllerConfigServiceFunc = func(getter dependency.Getter, name string) (ControllerConfigService, error)
 
-// GetControllerSSHHostKeyServiceFunc is a helper function that gets the
-// controller SSH host key service from the manifold.
-type GetControllerSSHHostKeyServiceFunc = func(getter dependency.Getter, name string) (ControllerSSHHostKeyService, error)
-
 // GetDomainServicesGetterFunc is a helper function that gets the model domain
 // services getter from the manifold.
 type GetDomainServicesGetterFunc = func(getter dependency.Getter, name string) (services.DomainServicesGetter, error)
 
 // GetSSHServiceFunc is a helper function that gets the model SSH service from
 // the manifold.
-type GetSSHServiceFunc = func(context.Context, services.DomainServicesGetter, model.UUID) (SSHModelService, error)
+type GetSSHServiceFunc = func(context.Context, services.DomainServicesGetter, model.UUID) (*modelsshservice.WatchableService, error)
 
 // GetControllerConfigService is a helper function that gets a service from the
 // manifold.
@@ -55,8 +52,8 @@ func GetControllerConfigService(getter dependency.Getter, name string) (Controll
 
 // GetControllerSSHHostKeyService gets the controller SSH host key service from
 // the controller domain services dependency.
-func GetControllerSSHHostKeyService(getter dependency.Getter, name string) (ControllerSSHHostKeyService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerDomainServices) ControllerSSHHostKeyService {
+func GetControllerSSHService(getter dependency.Getter, name string) (*controllersshservice.Service, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerDomainServices) *controllersshservice.Service {
 		return factory.SSHServerHostKey()
 	})
 }
@@ -72,7 +69,7 @@ func GetDomainServicesGetter(getter dependency.Getter, name string) (services.Do
 
 // GetSSHService gets the model SSH service from the current model domain
 // services dependency.
-func GetSSHService(ctx context.Context, domainServicesGetter services.DomainServicesGetter, modelUUID model.UUID) (SSHModelService, error) {
+func GetSSHService(ctx context.Context, domainServicesGetter services.DomainServicesGetter, modelUUID model.UUID) (*modelsshservice.WatchableService, error) {
 	domainServices, err := domainServicesGetter.ServicesForModel(ctx, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -100,9 +97,9 @@ type ManifoldConfig struct {
 	NewServerWorker func(ServerWorkerConfig) (worker.Worker, error)
 	// GetControllerConfigService is used to get a service from the manifold.
 	GetControllerConfigService GetControllerConfigServiceFunc
-	// GetControllerSSHHostKeyService is used to get the controller SSH host key
-	// service from the manifold.
-	GetControllerSSHHostKeyService GetControllerSSHHostKeyServiceFunc
+	// GetControllerSSHService is used to get the concrete controller SSH service
+	// from the manifold.
+	GetControllerSSHService func(getter dependency.Getter, name string) (*controllersshservice.Service, error)
 	// GetDomainServicesGetter is used to get the model domain services getter
 	// from the manifold.
 	GetDomainServicesGetter GetDomainServicesGetterFunc
@@ -129,8 +126,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.GetControllerConfigService == nil {
 		return errors.NotValidf("nil GetControllerConfigService")
 	}
-	if config.GetControllerSSHHostKeyService == nil {
-		return errors.NotValidf("nil GetControllerSSHHostKeyService")
+	if config.GetControllerSSHService == nil {
+		return errors.NotValidf("nil GetControllerSSHService")
 	}
 	if config.GetDomainServicesGetter == nil {
 		return errors.NotValidf("nil GetDomainServicesGetter")
@@ -162,12 +159,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // startWrapperWorker starts the SSH server worker wrapper passing the necessary dependencies.
 func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
-	// ssh jump server is not enabled by default, but it must be enabled
-	// via a feature flag.
-	if !featureflag.Enabled(featureflag.SSHJump) {
-		config.Logger.Debugf(context.Background(), "SSH jump server worker is not enabled.")
-		return nil, dependency.ErrUninstall
-	}
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -189,7 +180,7 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	controllerSSHHostKeyService, err := config.GetControllerSSHHostKeyService(getter, config.DomainServicesName)
+	controllerSSHService, err := config.GetControllerSSHService(getter, config.DomainServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -207,10 +198,10 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 	}
 
 	sshService := sshService{
-		controllerSSHHostKeyService: controllerSSHHostKeyService,
-		domainServicesGetter:        domainServicesGetter,
-		getSSHService:               config.GetSSHService,
-		controllerUUID:              controllerUUID,
+		controllerSSHService: controllerSSHService,
+		domainServicesGetter: domainServicesGetter,
+		getSSHService:        config.GetSSHService,
+		controllerUUID:       controllerUUID,
 	}
 	proxyFactory := proxyFactory{
 		k8sResolver: sshService,
@@ -232,6 +223,7 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 			logger:        config.Logger,
 			jwtParser:     jwtParser,
 			tunnelTracker: tunnelTracker,
+			publicKeys:    sshService,
 		},
 		Authorizer: authorizer{
 			access: sshService,
@@ -244,20 +236,45 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 
 // sshService wraps our ssh domain services to enable two things:
 //  1. Direct controller model access via the ControllerSSHHostKeyService interface.
-//  2. Model-scoped access to the SSHModelService interface with underlying calls to "ServicesForModel".
+//  2. Model-scoped access to the SSHService interface with underlying calls to
+//     "ServicesForModel".
 //     The SSH server doesn't take the apiserver approach where the model uuid is populated
 //     by the time we reach the service, and instead, we must call the methods WITH the UUID received
 //     from the virtual host name.
 type sshService struct {
-	controllerSSHHostKeyService ControllerSSHHostKeyService
-	domainServicesGetter        services.DomainServicesGetter
-	getSSHService               GetSSHServiceFunc
-	controllerUUID              corecontroller.UUID
+	controllerSSHService *controllersshservice.Service
+	domainServicesGetter services.DomainServicesGetter
+	getSSHService        GetSSHServiceFunc
+	controllerUUID       corecontroller.UUID
+}
+
+// PublicKeys returns all public SSH keys registered for a user.
+// It calls the domain service to get the user's keys and converts
+// them to the gossh.PublicKey type.
+func (s sshService) PublicKeys(ctx context.Context, username string) ([]gossh.PublicKey, error) {
+	name, err := user.NewName(username)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	keys, err := s.controllerSSHService.GetPublicKeysForUser(ctx, name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	publicKeys := make([]gossh.PublicKey, 0, len(keys))
+	for _, key := range keys {
+		publicKey, _, _, _, err := gossh.ParseAuthorizedKey([]byte(key.Key))
+		if err != nil {
+			return nil, errors.Annotatef(err, "parsing public key for user %q", username)
+		}
+		publicKeys = append(publicKeys, publicKey)
+	}
+	return publicKeys, nil
 }
 
 // SSHServerHostKey returns the controller SSH server host key.
 func (s sshService) SSHServerHostKey(ctx context.Context) (string, error) {
-	return s.controllerSSHHostKeyService.SSHServerHostKey(ctx)
+	return s.controllerSSHService.SSHServerHostKey(ctx)
 }
 
 // VirtualHostKey returns the terminating SSH host key for a virtual hostname.

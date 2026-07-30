@@ -15,6 +15,8 @@ import (
 
 	"github.com/juju/juju/controller"
 	coremachine "github.com/juju/juju/core/machine"
+	coressh "github.com/juju/juju/core/ssh"
+	"github.com/juju/juju/core/user"
 	virtualhostname "github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -435,6 +437,10 @@ type stubSSHService struct {
 
 func (s stubSSHService) SSHServerHostKey(context.Context) (string, error) {
 	return s.jumpHostKey, s.jumpErr
+}
+
+func (s stubSSHService) GetPublicKeysForUser(context.Context, user.Name) ([]coressh.PublicKey, error) {
+	return nil, nil
 }
 
 func (s stubSSHService) VirtualHostKey(context.Context, virtualhostname.Info) (string, error) {

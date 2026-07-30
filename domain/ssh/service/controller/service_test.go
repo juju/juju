@@ -10,6 +10,8 @@ import (
 	"github.com/juju/tc"
 	gossh "golang.org/x/crypto/ssh"
 
+	coressh "github.com/juju/juju/core/ssh"
+	"github.com/juju/juju/core/user"
 	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
 )
 
@@ -70,6 +72,17 @@ func (s *serviceSuite) TestSSHServerHostPublicKeyErrorsWhenMissing(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, context.Canceled)
 }
 
+func (s *serviceSuite) TestGetPublicKeysForUser(c *tc.C) {
+	keys := []coressh.PublicKey{{Key: "ssh-ed25519 AAAA"}}
+	controllerState := &stubControllerState{publicKeys: keys}
+	username, err := user.NewName("alice")
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := controllersshservice.NewService(controllerState).GetPublicKeysForUser(c.Context(), username)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, keys)
+}
+
 type stubControllerState struct {
 	key             string
 	getErr          error
@@ -77,6 +90,7 @@ type stubControllerState struct {
 	publicKey       []byte
 	publicKeyGetErr error
 	publicKeyGets   int
+	publicKeys      []coressh.PublicKey
 }
 
 func (s *stubControllerState) GetSSHServerHostKey(_ context.Context) (string, error) {
@@ -87,6 +101,10 @@ func (s *stubControllerState) GetSSHServerHostKey(_ context.Context) (string, er
 func (s *stubControllerState) GetSSHServerHostPublicKey(_ context.Context) ([]byte, error) {
 	s.publicKeyGets++
 	return s.publicKey, s.publicKeyGetErr
+}
+
+func (s *stubControllerState) GetPublicKeysForUser(context.Context, user.Name) ([]coressh.PublicKey, error) {
+	return s.publicKeys, nil
 }
 
 const testPrivateKey = "-----BEGIN OPENSSH PRIVATE KEY-----\n" +
