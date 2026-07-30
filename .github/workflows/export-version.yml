@@ -1,0 +1,82 @@
+name: Export Version
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  export-version:
+    name: Check export payload version sync
+    runs-on: ubuntu-latest
+    # Skip draft PRs; dispatch has no pull_request context.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: "go.mod"
+          cache: false
+
+      - name: Check freshness
+        shell: bash
+        run: |
+          # Regenerate the export surface and fail on any drift: either a
+          # model-DB schema change without moving exportVersionStrings to
+          # the current dev version (a released payload version is frozen),
+          # or regenerated output that was not committed.
+          go generate ./generate/export
+
+          drift_paths=(domain/export)
+          [[ -d domain/modelimport ]] && drift_paths+=(domain/modelimport)
+          if [[ -n $(git status --porcelain -- "${drift_paths[@]}") ]]; then
+            git status --porcelain -- "${drift_paths[@]}"
+            echo "*****"
+            echo "The generated export surface is stale. Either a model-DB schema change was made"
+            echo "without moving exportVersionStrings to the current dev version (a released"
+            echo "payload version is frozen; see the domain/export/version.go godoc), or the"
+            echo "regenerated output was not committed. Run \`go generate ./generate/export\`"
+            echo "and commit the result."
+            echo "*****"
+            exit 1
+          fi
+
+      - name: Check sync
+        shell: bash
+        run: |
+          # Every non-own exportVersionStrings entry must be the latest
+          # payload version of its minor line on the canonical source branch.
+          VERSION_FILE=domain/export/version.go
+          parse_entries() {
+            sed -n '/exportVersionStrings = \[\]string{/,/^}/p' | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' || true
+          }
+          mapfile -t entries < <(parse_entries < "$VERSION_FILE")
+          count=${#entries[@]}
+          if [[ $count -eq 0 ]]; then
+            echo "invalid exportVersionStrings shape (0 entries); see $VERSION_FILE godoc"
+            exit 1
+          fi
+          if [[ $count -eq 1 ]]; then
+            echo "source-only branch (one export payload version); skipping source-branch sync check"
+            exit 0
+          fi
+          own=${entries[-1]}
+          for ((i = 0; i < count - 1; i++)); do
+            prev=${entries[i]}
+            branch=${prev%.*}
+            git fetch --depth=1 https://github.com/juju/juju.git "$branch"
+            remote=$(git show "FETCH_HEAD:$VERSION_FILE" | parse_entries | grep -E "^${branch//./\\.}\." | sort -V | tail -1 || true)
+            if [[ "$remote" != "$prev" ]]; then
+              echo "the $branch source branch moved its export payload version to $remote. On this branch:"
+              echo "(1) update the $branch entry of exportVersionStrings in $VERSION_FILE to $remote;"
+              echo "(2) copy domain/export/types/v${remote//./_}/ from the $branch branch and delete the superseded types directory;"
+              echo "(3) run \`go generate ./generate/export\` to regenerate the transform scaffolding;"
+              echo "(4) implement any new Deltas methods in domain/modelimport/transformer/transforms/to_v${own//./_}/deltas.go;"
+              echo "(5) run the modelimport and export tests."
+              exit 1
+            fi
+            echo "export payload version sync OK: $branch source branch is at $prev"
+          done
