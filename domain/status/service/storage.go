@@ -249,11 +249,12 @@ func (s *Service) transformStorageInstanceResults(
 	storageMap := map[storage.StorageInstanceUUID]*StorageInstance{}
 	for _, dsi := range storageInstances {
 		si := StorageInstance{
-			UUID:  dsi.UUID,
-			ID:    dsi.ID,
-			Kind:  dsi.Kind,
-			Owner: dsi.Owner,
-			Name:  dsi.Name,
+			UUID:       dsi.UUID,
+			ID:         dsi.ID,
+			Kind:       dsi.Kind,
+			Owner:      dsi.Owner,
+			Name:       dsi.Name,
+			Persistent: dsi.Persistent,
 		}
 		var err error
 		si.Life, err = dsi.Life.Value()

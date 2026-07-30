@@ -508,6 +508,8 @@ func (a *StorageAPI) ListStorageDetails(
 		retVal.Kind = storageKind
 
 		retVal.Life = si.Life
+		retVal.Persistent = si.Persistent
+
 		retVal.Status = params.EntityStatus{
 			Status: si.Status.Status,
 			Info:   si.Status.Message,
