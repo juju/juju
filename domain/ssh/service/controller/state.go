@@ -3,7 +3,12 @@
 
 package controller
 
-import "context"
+import (
+	"context"
+
+	coressh "github.com/juju/juju/core/ssh"
+	"github.com/juju/juju/core/user"
+)
 
 // State describes controller-scoped persistence for SSH host keys.
 type State interface {
@@ -15,4 +20,7 @@ type State interface {
 	// and stored alongside the private key, so this method never handles
 	// private key material.
 	GetSSHServerHostPublicKey(context.Context) ([]byte, error)
+
+	// GetPublicKeysForUser returns all public keys registered for a user.
+	GetPublicKeysForUser(context.Context, user.Name) ([]coressh.PublicKey, error)
 }
