@@ -17,12 +17,10 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
-	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/jwtparser"
-	"github.com/juju/juju/internal/provider/kubernetes"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/services"
 	internalTunneler "github.com/juju/juju/internal/sshtunneler"
@@ -287,87 +285,23 @@ func (s sshService) HasSSHAccess(ctx context.Context, username string, destinati
 	return domainServices.Access().HasSSHAccess(ctx, name, destination.ModelUUID(), s.controllerUUID)
 }
 
-// ResolveK8sExecInfo resolves the namespace and pod name for a destination
+// ResolveK8sExecInfo resolves the namespace and pod name for a destination.
 func (s sshService) ResolveK8sExecInfo(ctx context.Context, destination virtualhostname.Info) (string, string, error) {
-	domainServices, err := s.domainServicesGetter.ServicesForModel(ctx, destination.ModelUUID())
+	sshService, err := s.getSSHService(ctx, s.domainServicesGetter, destination.ModelUUID())
 	if err != nil {
 		return "", "", err
 	}
-	modelInfo, err := domainServices.ModelInfo().GetModelType(ctx)
-	if err != nil {
-		return "", "", errors.Trace(err)
-	}
-	if modelInfo != model.CAAS {
-		return "", "", errors.NotValidf("model %q is not a CAAS model", destination.ModelUUID())
-	}
-	unitName, ok := destination.Unit()
-	if !ok {
-		return "", "", errors.NotValidf("destination has no unit")
-	}
-	podInfo, err := domainServices.Application().GetUnitK8sPodInfo(ctx, coreunit.Name(unitName))
-	if err != nil {
-		return "", "", errors.Trace(err)
-	}
-	modelRecord, err := domainServices.Model().Model(ctx, destination.ModelUUID())
-	if err != nil {
-		return "", "", errors.Trace(err)
-	}
-	namespace, err := modelNamespace(ctx, domainServices, modelRecord)
-	if err != nil {
-		return "", "", err
-	}
-	return namespace, podInfo.ProviderID.String(), nil
+	return sshService.ResolveK8sExecInfo(ctx, destination)
 }
 
 // MachineForDestination resolves an IAAS machine or machine-backed unit to the
 // machine name expected by the reverse tunnel tracker.
 func (s sshService) MachineForDestination(ctx context.Context, destination virtualhostname.Info) (coremachine.Name, error) {
-	domainServices, err := s.domainServicesGetter.ServicesForModel(ctx, destination.ModelUUID())
+	sshService, err := s.getSSHService(ctx, s.domainServicesGetter, destination.ModelUUID())
 	if err != nil {
 		return "", err
 	}
-	modelInfo, err := domainServices.ModelInfo().GetModelType(ctx)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if modelInfo != model.IAAS {
-		return "", errors.NotValidf("destination model %q is not IAAS", destination.ModelUUID())
-	}
-	switch destination.Target() {
-	case virtualhostname.MachineTarget:
-		machineName, ok := destination.Machine()
-		if !ok {
-			return "", errors.NotValidf("destination has no machine")
-		}
-		// Verify that the machine exists.
-		if _, err := domainServices.Machine().GetMachineLife(ctx, machineName); err != nil {
-			return "", errors.Trace(err)
-		}
-		return machineName, nil
-	case virtualhostname.UnitTarget:
-		unitName, ok := destination.Unit()
-		if !ok {
-			return "", errors.NotValidf("destination has no unit")
-		}
-		machineName, err := domainServices.Application().GetUnitMachineName(ctx, coreunit.Name(unitName))
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-		return machineName, nil
-	default:
-		return "", errors.NotValidf("destination is not a machine target")
-	}
-}
-
-func modelNamespace(ctx context.Context, domainServices services.DomainServices, modelRecord model.Model) (string, error) {
-	if modelRecord.Name != model.ControllerModelName {
-		return modelRecord.Name, nil
-	}
-	controllerConfig, err := domainServices.ControllerConfig().ControllerConfig(ctx)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return kubernetes.DecideControllerNamespace(controllerConfig.ControllerName()), nil
+	return sshService.MachineForDestination(ctx, destination)
 }
 
 type tunnelConnector struct {

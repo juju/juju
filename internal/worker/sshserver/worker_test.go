@@ -14,6 +14,7 @@ import (
 	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/controller"
+	coremachine "github.com/juju/juju/core/machine"
 	virtualhostname "github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -428,6 +429,8 @@ type stubSSHService struct {
 	virtualHostKey string
 	jumpErr        error
 	virtualErr     error
+	resolveErr     error
+	machineErr     error
 }
 
 func (s stubSSHService) SSHServerHostKey(context.Context) (string, error) {
@@ -436,6 +439,14 @@ func (s stubSSHService) SSHServerHostKey(context.Context) (string, error) {
 
 func (s stubSSHService) VirtualHostKey(context.Context, virtualhostname.Info) (string, error) {
 	return s.virtualHostKey, s.virtualErr
+}
+
+func (s stubSSHService) ResolveK8sExecInfo(context.Context, virtualhostname.Info) (string, string, error) {
+	return "", "", s.resolveErr
+}
+
+func (s stubSSHService) MachineForDestination(context.Context, virtualhostname.Info) (coremachine.Name, error) {
+	return "", s.machineErr
 }
 
 const testHostKey = `-----BEGIN OPENSSH PRIVATE KEY-----

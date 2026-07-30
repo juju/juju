@@ -10,11 +10,12 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/database"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainssh "github.com/juju/juju/domain/ssh"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
@@ -23,11 +24,180 @@ import (
 // State represents model-scoped SSH host key state.
 type State struct {
 	*domain.StateBase
+	controllerState *domain.StateBase
 }
 
 // NewState returns a new model-scoped SSH state.
-func NewState(factory database.TxnRunnerFactory) *State {
-	return &State{StateBase: domain.NewStateBase(factory)}
+func NewState(factory database.TxnRunnerFactory, controllerFactory database.TxnRunnerFactory) *State {
+	return &State{
+		StateBase:       domain.NewStateBase(factory),
+		controllerState: domain.NewStateBase(controllerFactory),
+	}
+}
+
+// GetModelInfo returns the model metadata needed to route SSH destinations.
+func (st *State) GetModelInfo(ctx context.Context) (ModelInfo, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return ModelInfo{}, errors.Capture(err)
+	}
+	row := modelInfo{}
+	stmt, err := st.Prepare(`
+	SELECT name AS &modelInfo.name,
+       type AS &modelInfo.type,
+       is_controller_model AS &modelInfo.is_controller_model
+FROM model`, row)
+	if err != nil {
+		return ModelInfo{}, errors.Capture(err)
+	}
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt).Get(&row); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("model does not exist").Add(modelerrors.NotFound)
+		} else if err != nil {
+			return errors.Errorf("querying model info: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return ModelInfo{}, errors.Capture(err)
+	}
+	return ModelInfo{
+		Name:              row.Name,
+		Type:              row.Type,
+		IsControllerModel: row.IsControllerModel,
+	}, nil
+}
+
+// GetControllerName returns the controller name from controller state.
+func (st *State) GetControllerName(ctx context.Context) (string, error) {
+	db, err := st.controllerState.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	row := controllerName{}
+	stmt, err := st.controllerState.Prepare(`
+SELECT value AS &controllerName.name
+FROM v_controller_config
+WHERE key = 'controller-name'`, row)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt).Get(&row); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("controller name not found")
+		} else if err != nil {
+			return errors.Errorf("querying controller name: %w", err)
+		}
+		return nil
+	})
+	return row.Name, errors.Capture(err)
+}
+
+// GetUnitK8sPodInfo returns the Kubernetes pod provider ID for a live unit.
+func (st *State) GetUnitK8sPodInfo(ctx context.Context, unitName string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	arg := entityName{Name: unitName}
+	row := unitK8sPodInfo{}
+	stmt, err := st.Prepare(`
+SELECT k.provider_id AS &unitK8sPodInfo.provider_id
+	,u.life_id AS &unitK8sPodInfo.life_id
+FROM unit AS u
+LEFT JOIN k8s_pod AS k ON u.uuid = k.unit_uuid
+WHERE u.name = $entityName.name
+	`, row, arg)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, arg).Get(&row); errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.UnitNotFound
+		} else if err != nil {
+			return errors.Errorf("querying Kubernetes pod info for unit %q: %w", unitName, err)
+		}
+		if row.LifeID == domainlife.Dead {
+			return applicationerrors.UnitIsDead
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	if !row.ProviderID.Valid {
+		return "", nil
+	}
+	return row.ProviderID.String, nil
+}
+
+// GetUnitMachineName returns the backing machine name for a live unit.
+func (st *State) GetUnitMachineName(ctx context.Context, unitName string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	arg := entityName{Name: unitName}
+	row := unitMachineRouting{}
+	stmt, err := st.Prepare(`
+SELECT u.life_id AS &unitMachineRouting.life_id,
+       m.name AS &unitMachineRouting.machine_name
+FROM unit AS u
+LEFT JOIN machine AS m ON u.net_node_uuid = m.net_node_uuid
+WHERE u.name = $entityName.name`, row, arg)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, arg).Get(&row); errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.UnitNotFound
+		} else if err != nil {
+			return errors.Errorf("querying machine for unit %q: %w", unitName, err)
+		}
+		if row.LifeID == domainlife.Dead {
+			return applicationerrors.UnitIsDead
+		}
+		if !row.MachineName.Valid {
+			return applicationerrors.UnitMachineNotAssigned
+		}
+		return nil
+	})
+	return row.MachineName.String, errors.Capture(err)
+}
+
+// CheckMachineExists reports whether a machine with the supplied name exists
+// and is not dead.
+func (st *State) CheckMachineExists(ctx context.Context, machineName string) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	arg := entityName{Name: machineName}
+	stmt, err := st.Prepare(`
+SELECT uuid AS &machineExists.uuid,
+       life_id AS &machineExists.life_id
+FROM machine
+WHERE name = $entityName.name`, machineExists{}, arg)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	var row machineExists
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, arg).Get(&row)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf("checking machine %q exists: %w", machineName, err)
+		}
+		if row.LifeID == domainlife.Dead {
+			return errors.Errorf("machine %q is dead", machineName).Add(machineerrors.MachineIsDead)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	return row.UUID != "", nil
 }
 
 // GetMachineVirtualHostKeyByMachineName returns the virtual host key stored for
@@ -377,7 +547,7 @@ VALUES ($sshConnRequestAddress.*)`, sshConnRequestAddress{})
 		existing := tunnelID{}
 		err = tx.Query(ctx, checkExistsStmt, tunnelID{TunnelID: req.TunnelID}).Get(&existing)
 		if err == nil {
-			return errors.Errorf("SSH connection request %q already exists", req.TunnelID).Add(coreerrors.AlreadyExists)
+			return errors.Errorf("SSH connection request %q already exists", req.TunnelID)
 		} else if !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("checking SSH connection request %q: %w", req.TunnelID, err)
 		}
@@ -454,7 +624,7 @@ ORDER BY index_id ASC`, sshConnRequestAddress{}, tunnelID{})
 		row := sshConnRequestRecord{}
 		err := tx.Query(ctx, stmt, tunnelID{TunnelID: requestTunnelID}, entityName{Name: machineName}).Get(&row)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("SSH connection request %q not found", requestTunnelID).Add(coreerrors.NotFound)
+			return errors.Errorf("SSH connection request %q not found", requestTunnelID)
 		}
 		if err != nil {
 			return errors.Errorf("querying SSH connection request %q: %w", requestTunnelID, err)

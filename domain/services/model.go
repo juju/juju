@@ -422,7 +422,10 @@ func (s *ModelServices) Secret() *secretservice.WatchableService {
 // SSH returns the model SSH service for the current model.
 func (s *ModelServices) SSH() *sshmodelservice.WatchableService {
 	return sshmodelservice.NewWatchableService(
-		sshmodelstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		sshmodelstate.NewState(
+			changestream.NewTxnRunnerFactory(s.modelDB),
+			changestream.NewTxnRunnerFactory(s.controllerDB),
+		),
 		s.modelUUID,
 		s.clock,
 		s.modelWatcherFactory("ssh"),
