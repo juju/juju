@@ -2819,6 +2819,7 @@ func (s *uniterRelationSuite) TestSetRelationStatus(c *tc.C) {
 	relID := 42
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 	s.expectGetRelationUUIDByID(relID, relationUUID, nil)
+	s.expectGetRelationDetails(c, relationUUID, relID, names.NewRelationTag("mysql:mysql wordpress:database"))
 	relStatus := status.StatusInfo{
 		Status: status.Joined,
 		Since:  new(s.uniter.clock.Now()),
@@ -2858,6 +2859,53 @@ func (s *uniterRelationSuite) TestSetRelationStatusRelationNotFound(c *tc.C) {
 	relID := 42
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 	s.expectGetRelationUUIDByID(relID, relationUUID, relationerrors.RelationNotFound)
+
+	// act
+	args := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
+		UnitTag:    s.wordpressUnitTag.String(),
+		RelationId: relID,
+		Status:     params.Joined,
+	}}}
+	result, err := s.uniter.SetRelationStatus(c.Context(), args)
+
+	// assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
+}
+
+// TestSetRelationStatusErrUnauthorized checks that a unit cannot set the
+// relation status on behalf of another unit. The relation is never looked up
+// for the refused unit, so the leadership check that the status service makes
+// against the supplied name is not reached.
+func (s *uniterRelationSuite) TestSetRelationStatusErrUnauthorized(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+
+	// act
+	args := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
+		UnitTag:    names.NewUnitTag("mysql/0").String(),
+		RelationId: 42,
+		Status:     params.Joined,
+	}}}
+	result, err := s.uniter.SetRelationStatus(c.Context(), args)
+
+	// assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
+}
+
+// TestSetRelationStatusRelationNotOfCaller checks that a unit cannot set the
+// status of a relation its application is not an endpoint of, since the
+// relation ID is only unique within the model.
+func (s *uniterRelationSuite) TestSetRelationStatusRelationNotOfCaller(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relID := 101
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	s.expectGetRelationUUIDByID(relID, relationUUID, nil)
+	s.expectGetRelationDetailsUnexpectedAppName(c, relationUUID)
 
 	// act
 	args := params.RelationStatusArgs{Args: []params.RelationStatusArg{{

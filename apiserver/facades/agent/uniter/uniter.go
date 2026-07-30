@@ -2097,11 +2097,22 @@ func (u *UniterAPI) watchOneRelationUnit(
 // SetRelationStatus updates the status of the specified relations.
 func (u *UniterAPI) SetRelationStatus(ctx context.Context, args params.RelationStatusArgs) (params.ErrorResults, error) {
 	var statusResults params.ErrorResults
+	canAccess, err := u.accessUnit(ctx)
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
 	results := make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
 		unitTag, err := names.ParseUnitTag(arg.UnitTag)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		// The status is recorded against the unit named here, and the
+		// leadership check in the status service is made against that same
+		// name, so the caller has to be that unit.
+		if !canAccess(unitTag) {
+			results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
 		unitName, err := coreunit.NewName(unitTag.Id())
@@ -2132,6 +2143,17 @@ func (u *UniterAPI) oneSetRelationStatus(
 		return internalerrors.Capture(err)
 	}
 
+	// The relation ID is only unique within the model, so it has to be
+	// scoped to the caller the same way the read path does in
+	// getOneRelationById.
+	applicationName, err := u.authApplicationName()
+	if err != nil {
+		return err
+	}
+	if err := u.checkApplicationInRelation(ctx, relationUUID, applicationName); err != nil {
+		return err
+	}
+
 	err = u.statusService.SetRelationStatus(ctx, unitName, relationUUID, status.StatusInfo{
 		Status:  status.Status(relStatus),
 		Message: message,
@@ -2143,6 +2165,27 @@ func (u *UniterAPI) oneSetRelationStatus(
 		return internalerrors.Capture(err)
 	}
 	return nil
+}
+
+// checkApplicationInRelation returns ErrPerm unless the named application is
+// an endpoint of the relation.
+func (u *UniterAPI) checkApplicationInRelation(
+	ctx context.Context,
+	relUUID corerelation.UUID,
+	applicationName string,
+) error {
+	details, err := u.relationService.GetRelationDetails(ctx, relUUID)
+	if errors.Is(err, relationerrors.RelationNotFound) {
+		return apiservererrors.ErrPerm
+	} else if err != nil {
+		return internalerrors.Capture(err)
+	}
+	for _, ep := range details.Endpoints {
+		if ep.ApplicationName == applicationName {
+			return nil
+		}
+	}
+	return apiservererrors.ErrPerm
 }
 
 func (u *UniterAPI) getOneRelationById(ctx context.Context, relID int) (params.RelationResultV2, error) {
