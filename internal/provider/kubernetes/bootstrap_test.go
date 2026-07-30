@@ -928,11 +928,6 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 					SubPath:   "charm/bin/containeragent",
 				},
 				{
-					Name:      "juju-controller-test-agent-conf",
-					MountPath: "/var/lib/juju/template-agent.conf",
-					SubPath:   "controller-unit-agent.conf",
-				},
-				{
 					Name:      "storage",
 					MountPath: "/var/lib/juju",
 				},
@@ -958,7 +953,7 @@ export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 mkdir -p $JUJU_TOOLS_DIR
 cp /opt/jujuagentd $JUJU_TOOLS_DIR/jujuagentd
 
-if ! test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf; then mkdir -p $JUJU_DATA_DIR/charms; until test -e $JUJU_DATA_DIR/charms/controller.charm; do sleep 1; done; JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s; fi
+controller_id="${HOSTNAME##*-}"; if [ "${controller_id}" = "0" ]; then if ! test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf; then mkdir -p $JUJU_DATA_DIR/charms; until test -e $JUJU_DATA_DIR/charms/controller.charm; do sleep 1; done; JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s; fi; else until test -e "$JUJU_DATA_DIR/agents/controller-${controller_id}/agent.conf"; do sleep 1; done; fi
 
 mkdir -p /var/lib/pebble/default/layers
 cat > /var/lib/pebble/default/layers/001-jujuagentd.yaml <<EOF
@@ -968,7 +963,7 @@ services:
         summary: Juju controller agent
         startup: enabled
         override: replace
-        command: $JUJU_TOOLS_DIR/jujuagentd machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
+        command: /bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec $JUJU_TOOLS_DIR/jujuagentd machine --data-dir "$JUJU_DATA_DIR" --controller-id "${controller_id}" --log-to-stderr --debug'
         environment:
             JUJU_DEV_FEATURE_FLAGS: developer-mode
 
@@ -1099,6 +1094,61 @@ exec /opt/pebble run --http :38811 --verbose
 		},
 	}
 	statefulSetSpec.Spec.Template.Spec.InitContainers = []core.Container{{
+		Name:            "controller-config-seed",
+		ImagePullPolicy: core.PullIfNotPresent,
+		Image:           "ghcr.io/juju/jujud-operator:" + expectedVersion.String(),
+		Command:         []string{"/bin/sh", "-c"},
+		Args: []string{`
+set -eu
+controller_id="${JUJU_K8S_POD_NAME##*-}"
+controller_dir="/var/lib/juju/agents/controller-${controller_id}"
+mkdir -p "${controller_dir}"
+if [ "${controller_id}" = "0" ]; then
+    if [ ! -e "/var/lib/juju/template-agent.conf" ]; then
+        cp "/var/lib/juju-controller-bootstrap/controller-unit-agent.conf" "/var/lib/juju/template-agent.conf"
+    fi
+elif [ ! -e "${controller_dir}/agent.conf" ]; then
+    sed -e "s/controller-0/controller-${controller_id}/g" \
+        -e "s/^oldpassword: .*/oldpassword: ${JUJU_K8S_UNIT_PASSWORD}/" "/var/lib/juju-controller-bootstrap/controller-agent.conf" | \
+        sed "/^- localhost:456$/a- juju-controller-test-service:17777" > "${controller_dir}/agent.conf"
+    chmod 600 "${controller_dir}/agent.conf"
+fi
+`},
+		Env: []core.EnvVar{
+			{
+				Name: "JUJU_K8S_POD_NAME",
+				ValueFrom: &core.EnvVarSource{
+					FieldRef: &core.ObjectFieldSelector{FieldPath: "metadata.name"},
+				},
+			},
+			{
+				Name: "JUJU_K8S_UNIT_PASSWORD",
+				ValueFrom: &core.EnvVarSource{
+					SecretKeyRef: &core.SecretKeySelector{
+						LocalObjectReference: core.LocalObjectReference{
+							Name: "juju-controller-test-application-config",
+						},
+						Key: "JUJU_K8S_UNIT_PASSWORD",
+					},
+				},
+			},
+		},
+		VolumeMounts: []core.VolumeMount{
+			{
+				Name:      "storage",
+				MountPath: "/var/lib/juju",
+			},
+			{
+				Name:      "juju-controller-test-agent-conf",
+				MountPath: "/var/lib/juju-controller-bootstrap",
+				ReadOnly:  true,
+			},
+		},
+		SecurityContext: &core.SecurityContext{
+			RunAsUser:  pointer.Int64(170),
+			RunAsGroup: pointer.Int64(170),
+		},
+	}, {
 		Name:            "charm-init",
 		ImagePullPolicy: core.PullIfNotPresent,
 		Image:           "ghcr.io/juju/jujud-operator:" + expectedVersion.String(),
@@ -1136,6 +1186,33 @@ exec /opt/pebble run --http :38811 --verbose
 					},
 				},
 			},
+			{
+				Name:  "JUJU_K8S_APPLICATION",
+				Value: "controller",
+			},
+			{
+				Name:  "JUJU_K8S_MODEL",
+				Value: coretesting.ModelTag.Id(),
+			},
+			{
+				Name: "JUJU_K8S_APPLICATION_PASSWORD",
+				ValueFrom: &core.EnvVarSource{
+					SecretKeyRef: &core.SecretKeySelector{
+						LocalObjectReference: core.LocalObjectReference{
+							Name: "juju-controller-test-application-config",
+						},
+						Key: "JUJU_K8S_UNIT_PASSWORD",
+					},
+				},
+			},
+			{
+				Name:  "JUJU_K8S_CONTROLLER_ADDRESSES",
+				Value: "juju-controller-test-service:17777",
+			},
+			{
+				Name:  "JUJU_K8S_CONTROLLER_CA_CERT",
+				Value: coretesting.CACert,
+			},
 		},
 		EnvFrom: []core.EnvFromSource{
 			{
@@ -1148,10 +1225,6 @@ exec /opt/pebble run --http :38811 --verbose
 		},
 		VolumeMounts: []core.VolumeMount{
 			{
-				Name:      "charm-data",
-				MountPath: "/var/lib/juju",
-				SubPath:   "var/lib/juju",
-			}, {
 				Name:      "charm-data",
 				MountPath: "/charm/bin",
 				SubPath:   "charm/bin",
@@ -1172,9 +1245,8 @@ exec /opt/pebble run --http :38811 --verbose
 				MountPath: "/charm/etc/pebble/",
 				SubPath:   "charm/etc/pebble/",
 			}, {
-				Name:      "juju-controller-test-agent-conf",
-				MountPath: "/var/lib/juju/template-agent.conf",
-				SubPath:   "controller-unit-agent.conf",
+				Name:      "storage",
+				MountPath: "/var/lib/juju",
 			},
 		},
 		SecurityContext: &core.SecurityContext{

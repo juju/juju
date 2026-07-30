@@ -94,7 +94,11 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 			modelCount = fmt.Sprintf("%d", *c.ModelCount)
 		}
 		w.Print(modelName, userName, access, cloudRegion, modelCount, machineCount)
-		controllerMachineInfo, warn := controllerMachineStatus(c.ControllerMachines)
+		controllerMachines := c.ControllerMachines
+		if controllerMachines == nil {
+			controllerMachines = c.ControllerNodes
+		}
+		controllerMachineInfo, warn := controllerMachineStatus(controllerMachines)
 		if warn {
 			w.PrintColor(output.WarningHighlight, controllerMachineInfo)
 		} else {
