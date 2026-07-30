@@ -118,3 +118,29 @@ type RedirectUserAccess struct {
 	UserName string
 	Access   string
 }
+
+// RelationValidationData identifies a relation for imported-model validation.
+type RelationValidationData struct {
+	UUID string
+	ID   int
+	// Key is the display key (space-separated application:endpoint pairs),
+	// used in validation error messages.
+	Key string
+	// Endpoints are the relation's endpoints, ordered by application name.
+	Endpoints []RelationValidationEndpoint
+}
+
+// RelationValidationEndpoint is one endpoint of a relation, carrying the two
+// charm properties that decide which of the application's units are expected to
+// be in scope: the endpoint's scope and whether its charm is a subordinate.
+type RelationValidationEndpoint struct {
+	// ApplicationName is the name of the application this endpoint belongs to.
+	ApplicationName string
+	// ContainerScoped reports whether the endpoint's charm relation is
+	// container scoped, meaning the relation only ever holds the subordinate
+	// units co-located with a principal in the same relation.
+	ContainerScoped bool
+	// Subordinate reports whether the endpoint's application runs a
+	// subordinate charm.
+	Subordinate bool
+}

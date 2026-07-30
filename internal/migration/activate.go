@@ -7,6 +7,7 @@ import (
 	"context"
 
 	corecontroller "github.com/juju/juju/core/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -74,7 +75,12 @@ type ActivateModelArgs struct {
 // importing, gate still closed, workers still parked. That is the point - the
 // source treats any failure here, or a reply it never receives, as a reason to
 // abort, so nothing done here may prevent that abort from succeeding.
-func prepareActivation(ctx context.Context, domainServices services.DomainServices, args ActivateModelArgs) error {
+func prepareActivation(
+	ctx context.Context,
+	domainServices services.DomainServices,
+	args ActivateModelArgs,
+	logger corelogger.Logger,
+) error {
 	modelUUID := args.ModelUUID
 
 	// Every import creates a claim, legacy ones included, so claim existence
@@ -108,12 +114,19 @@ func prepareActivation(ctx context.Context, domainServices services.DomainServic
 		return errors.Errorf("model %q: unexpected import claim phase %q", modelUUID, claim.Phase)
 	}
 
+	// Validate the imported model before any write below. The checks are
+	// read-only, so a validation failure leaves the model exactly as it was:
+	// claim still importing, gate still closed, and the source free to abort.
+	if err := domainServices.ModelMigration().ValidateImportedModel(ctx); err != nil {
+		return errors.Errorf("validating imported model %q: %w", modelUUID, err)
+	}
+
 	if err := reconcileOffererControllers(ctx, domainServices, modelUUID, args); err != nil {
 		return errors.Errorf(
 			"reconciling offerer controller UUIDs for model %q: %w", modelUUID, err)
 	}
 
-	if err := reconcileModelAgentVersion(ctx, domainServices, modelUUID.String()); err != nil {
+	if err := reconcileModelAgentVersion(ctx, domainServices, modelUUID.String(), logger); err != nil {
 		return errors.Errorf(
 			"reconciling model agent version during activation of model %q: %w", modelUUID, err)
 	}
@@ -368,10 +381,18 @@ func reconcileOffererControllers(
 // reconcileModelAgentVersion updates the model's target agent version to match
 // the controller's target version when they differ.  It is idempotent: if the
 // versions already match it is a no-op.
+//
+// 3.6 never changed a migrated model's agent version, so a missing agent binary
+// is never fatal here: if the target lacks binaries for a running architecture
+// at the desired version, the model is left at its current version (whose
+// binaries the source uploaded during import) and a warning is logged. The
+// operator upgrades later via upgrade-model, which consults simplestreams.
+// Activation is never blocked on binary availability.
 func reconcileModelAgentVersion(
 	ctx context.Context,
 	domainServices services.DomainServices,
 	modelUUIDStr string,
+	logger corelogger.Logger,
 ) error {
 	desiredStr, err := domainServices.ModelMigration().GetControllerTargetVersion(ctx)
 	if err != nil {
@@ -401,5 +422,22 @@ func reconcileModelAgentVersion(
 	if current == desired {
 		return nil
 	}
+
+	missing, err := domainServices.ModelMigration().MissingAgentBinaryArchitectures(ctx, desiredStr)
+	if err != nil {
+		return errors.Errorf(
+			"checking agent binary availability for version %q: %w", desiredStr, err,
+		)
+	}
+	if len(missing) > 0 {
+		logger.Warningf(ctx,
+			"not upgrading migrated model %q agent version from %q to %q: "+
+				"no agent binaries for architecture(s) %q on this controller; "+
+				"run 'juju upgrade-model' once binaries are available",
+			modelUUIDStr, currentStr, desiredStr, missing,
+		)
+		return nil
+	}
+
 	return domainServices.ModelMigration().SetModelTargetAgentVersion(ctx, currentStr, desiredStr)
 }

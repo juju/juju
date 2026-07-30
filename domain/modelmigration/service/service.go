@@ -13,9 +13,12 @@ import (
 	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/migration"
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
@@ -56,6 +59,20 @@ type ResourceProvider interface {
 	AdoptResources(context.Context, string, semversion.Number) error
 }
 
+// CredentialValidator checks whether the imported model's credential can
+// access its cloud on this controller.
+type CredentialValidator interface {
+	// Validate opens the model's cloud with the given credential and reports
+	// whether it grants access to the model's resources. info describes the
+	// model the credential belongs to. A non-nil error means the imported model
+	// must not be activated.
+	Validate(
+		ctx context.Context,
+		info modelmigration.CredentialValidationInfo,
+		credential coremodelmigration.ModelCloudCredential,
+	) error
+}
+
 // Service provides the means for supporting model migration actions between
 // controllers and answering questions about the underlying model(s) that are
 // being migrated.
@@ -68,11 +85,12 @@ type Service struct {
 	// [ResourceProvider]
 	resourceProviderGetter func(context.Context) (ResourceProvider, error)
 
-	controllerState ControllerState
-	modelState      ModelState
-	watcherFactory  WatcherFactory
-	modelUUID       string
-	logger          logger.Logger
+	controllerState     ControllerState
+	modelState          ModelState
+	watcherFactory      WatcherFactory
+	credentialValidator CredentialValidator
+	modelUUID           string
+	logger              logger.Logger
 }
 
 // WatcherFactory describes methods for creating watchers used by the
@@ -92,6 +110,36 @@ type WatcherFactory interface {
 // ControllerState defines the interface required for accessing the underlying
 // state of the model during migration.
 type ControllerState interface {
+	// GetKnownSecretBackends returns the subset of the supplied secret backend
+	// UUIDs that exist on the controller, used to detect model secret value
+	// refs that still carry a source-controller-local backend UUID after
+	// import.
+	GetKnownSecretBackends(ctx context.Context, uuids []string) ([]string, error)
+
+	// GetSecretBackendReferencesForModel returns a map from secret revision
+	// UUID to the secret backend UUID recorded for it in
+	// secret_backend_reference for the given model.
+	GetSecretBackendReferencesForModel(ctx context.Context, modelUUID string) (map[string]string, error)
+
+	// GetModelCloudCredential returns the natural key, auth material and
+	// status of the credential assigned to the given model, or nil when the
+	// model has no credential.
+	GetModelCloudCredential(ctx context.Context, modelUUID string) (*coremodelmigration.ModelCloudCredential, error)
+
+	// GetAgentBinaryArchitecturesForVersion returns the architecture names for
+	// which the controller's object store holds agent binaries at the given
+	// version.
+	GetAgentBinaryArchitecturesForVersion(ctx context.Context, version string) ([]string, error)
+
+	// GetCloud returns the full definition of the named cloud (auth types,
+	// regions, endpoints and CA certificates).
+	GetCloud(ctx context.Context, name string) (cloud.Cloud, error)
+
+	// DeleteModelImportingStatus removes the entry from the model_migrating
+	// table in the model database, indicating that the model import has
+	// completed or been aborted.
+	DeleteModelImportingStatus(ctx context.Context, modelUUID string) error
+
 	// NamespaceForWatchExport returns the changestream namespace for export
 	// migration start/end changes keyed by model UUID.
 	NamespaceForWatchExport() string
@@ -282,9 +330,48 @@ type ModelState interface {
 	// IsModelImporting reports whether the model database still carries its
 	// import gate.
 	IsModelImporting(ctx context.Context) (bool, error)
-	// GetAllInstanceIDs returns all instance IDs from the current model as
-	// juju/collections set.
-	GetAllInstanceIDs(ctx context.Context) (set.Strings, error)
+	// GetMachineInstanceIDs returns a map from provider cloud instance ID to the
+	// name of the model machine it backs, for every provisioned machine the
+	// cloud is expected to know about.
+	GetMachineInstanceIDs(ctx context.Context) (map[string]string, error)
+	// GetModelType returns the model's deployment type (for example "iaas" or
+	// "caas").
+	GetModelType(ctx context.Context) (string, error)
+	// GetCredentialValidationInfo returns the model's owning controller,
+	// deployment type, cloud placement and stored configuration, as needed to
+	// validate the model's cloud credential.
+	GetCredentialValidationInfo(ctx context.Context) (modelmigration.CredentialValidationInfo, error)
+	// GetMachineInstanceID returns the provider instance ID of the machine
+	// with the given UUID.
+	GetMachineInstanceID(ctx context.Context, machineUUID string) (string, error)
+	// GetSecretBackendUUIDsInUse returns the distinct secret backend UUIDs
+	// referenced by the model's external secret value refs, including deleted
+	// value refs pending cleanup.
+	GetSecretBackendUUIDsInUse(ctx context.Context) ([]string, error)
+	// GetExternalSecretRevisionBackends returns a map from secret revision UUID
+	// to the backend UUID its external value ref points at, for revisions whose
+	// content is stored externally.
+	GetExternalSecretRevisionBackends(ctx context.Context) (map[string]string, error)
+	// GetRelationValidationData returns the relation identities, keys and
+	// endpoints used to validate imported relation-unit consistency. Only alive
+	// relations are returned.
+	GetRelationValidationData(ctx context.Context) ([]modelmigrationinternal.RelationValidationData, error)
+	// GetSubordinateUnitPrincipals returns a map from subordinate unit name to
+	// the name of the application its principal unit belongs to. Units absent
+	// from the map are principals themselves.
+	GetSubordinateUnitPrincipals(ctx context.Context) (map[string]string, error)
+	// GetApplicationUnitNames returns a map from application name to the names
+	// of its units. Only alive applications and units are returned.
+	GetApplicationUnitNames(ctx context.Context) (map[string][]string, error)
+	// GetRelationUnitsByApplication returns a map from relation UUID to the
+	// unit names in scope for that relation, grouped by application name.
+	GetRelationUnitsByApplication(ctx context.Context) (map[string]map[string][]string, error)
+	// GetRunningAgentArchitectures returns the distinct architecture names
+	// reported by the model's machine and unit agents.
+	GetRunningAgentArchitectures(ctx context.Context) ([]string, error)
+	// GetAgentBinaryArchitecturesForVersion returns the architecture names for
+	// which the model's object store holds agent binaries at the given version.
+	GetAgentBinaryArchitecturesForVersion(ctx context.Context, version string) ([]string, error)
 
 	// GetMigrationAgents returns all agents that must report migration
 	// minion progress for this model.
@@ -327,6 +414,7 @@ func NewService(
 	watcherFactory WatcherFactory,
 	instanceProviderGetter providertracker.ProviderGetter[InstanceProvider],
 	resourceProviderGetter providertracker.ProviderGetter[ResourceProvider],
+	credentialValidator CredentialValidator,
 	logger logger.Logger,
 ) *Service {
 	return &Service{
@@ -335,6 +423,7 @@ func NewService(
 		watcherFactory:         watcherFactory,
 		instanceProviderGetter: instanceProviderGetter,
 		resourceProviderGetter: resourceProviderGetter,
+		credentialValidator:    credentialValidator,
 		modelUUID:              modelUUID,
 		logger:                 logger,
 	}
@@ -356,6 +445,7 @@ func NewWatchableService(
 	watcherFactory WatcherFactory,
 	instanceProviderGetter providertracker.ProviderGetter[InstanceProvider],
 	resourceProviderGetter providertracker.ProviderGetter[ResourceProvider],
+	credentialValidator CredentialValidator,
 	logger logger.Logger,
 ) *WatchableService {
 	return &WatchableService{
@@ -366,6 +456,7 @@ func NewWatchableService(
 			watcherFactory,
 			instanceProviderGetter,
 			resourceProviderGetter,
+			credentialValidator,
 			logger,
 		),
 	}
@@ -417,14 +508,26 @@ func (s *Service) AdoptResources(
 }
 
 // CheckMachines is responsible for checking a model after it has been migrated
-// into this target controller. We check the machines that exist in the model
-// against the machines reported by the models cloud and report any
-// discrepancies.
+// into this target controller. We validate the model's cloud credential and
+// check the machines that exist in the model against the machines reported by
+// the models cloud and report any discrepancies.
+//
+// This is the counterpart of 3.6's migrationtarget CheckMachines facade, which
+// validated the credential and reconciled the machines in the same call.
 func (s *Service) CheckMachines(
 	ctx context.Context,
 ) ([]modelmigration.MigrationMachineDiscrepancy, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	info, err := s.modelState.GetCredentialValidationInfo(ctx)
+	if err != nil {
+		return nil, errors.Errorf("getting credential validation info for model: %w", err)
+	}
+
+	if err := s.checkModelCredential(ctx, info); err != nil {
+		return nil, errors.Errorf("validating model credential: %w", err)
+	}
 
 	provider, err := s.instanceProviderGetter(ctx)
 	if err != nil && !errors.Is(err, coreerrors.NotSupported) {
@@ -453,21 +556,42 @@ func (s *Service) CheckMachines(
 		providerInstanceIDsSet.Add(instance.Id().String())
 	}
 
-	instanceIDsSet, err := s.modelState.GetAllInstanceIDs(ctx)
+	// instanceToMachine maps each provisioned model machine's cloud instance ID
+	// to its machine name, so discrepancies can name the offending machine.
+	instanceToMachine, err := s.modelState.GetMachineInstanceIDs(ctx)
 	if err != nil {
-		return nil, errors.Errorf("cannot get all instance IDs for model when checking machines: %w", err)
+		return nil, errors.Errorf("cannot get instance IDs for model when checking machines: %w", err)
 	}
-	// First check that all the instance IDs in the model are in the provider.
-	if difference := instanceIDsSet.Difference(providerInstanceIDsSet); difference.Size() > 0 {
-		return nil, errors.Errorf("instance IDs %q are not part of the provider instance IDs", difference.Values())
-	}
-	// Then check that all the instance ids in the provider correspond to model
-	// machines instance IDs
-	if difference := providerInstanceIDsSet.Difference(instanceIDsSet); difference.Size() > 0 {
-		return nil, errors.Errorf("provider instance IDs %q are not part of the model machines instance IDs", difference.Values())
+	modelInstanceIDsSet := make(set.Strings, len(instanceToMachine))
+	for instanceID := range instanceToMachine {
+		modelInstanceIDsSet.Add(instanceID)
 	}
 
-	return nil, nil
+	var discrepancies []modelmigration.MigrationMachineDiscrepancy
+
+	// A model machine whose cloud instance is not reported by the provider: the
+	// instance the model references does not exist in the cloud. Both fields are
+	// populated.
+	for _, instanceID := range modelInstanceIDsSet.Difference(providerInstanceIDsSet).SortedValues() {
+		discrepancies = append(discrepancies, modelmigration.MigrationMachineDiscrepancy{
+			MachineName:     machine.Name(instanceToMachine[instanceID]),
+			CloudInstanceId: instance.Id(instanceID),
+		})
+	}
+
+	// A provider instance not tracked by any model machine: the cloud has an
+	// instance Juju does not know about. MachineName is left empty. On a cloud
+	// whose machines Juju does not provision this is normal rather than a
+	// discrepancy, see [checkCloudInstances].
+	if checkCloudInstances(info.CloudType) {
+		for _, instanceID := range providerInstanceIDsSet.Difference(modelInstanceIDsSet).SortedValues() {
+			discrepancies = append(discrepancies, modelmigration.MigrationMachineDiscrepancy{
+				CloudInstanceId: instance.Id(instanceID),
+			})
+		}
+	}
+
+	return discrepancies, nil
 }
 
 // ModelMigrationMode returns the current migration mode for the model.
