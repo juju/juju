@@ -63,7 +63,7 @@ func handleProxy[T io.Closer](h *Handlers, ctx context.Context, cfg proxyConfig[
 
 func (h *Handlers) handleError(session ssh.Session, err error) {
 	h.logger.Errorf(session.Context(), "machine proxy failure: %v", err)
-	_, _ = session.Stderr().Write([]byte(err.Error() + "\n"))
+	_, _ = session.Stderr().Write([]byte(err.Error() + "\r\n"))
 
 	var exitErr *gossh.ExitError
 	if errors.As(err, &exitErr) {
