@@ -294,6 +294,38 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimesInitialEvent(c *tc.C) 
 	watcherC.AssertChange(res0.MachineName.String())
 }
 
+func (s *watcherSuite) TestWatchModelMachineLifeStartTimesReprovision(c *tc.C) {
+	res, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "24.04",
+			OSType:  deployment.Ubuntu,
+		},
+		Nonce: new("old-nonce"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := s.svc.GetMachineUUID(c.Context(), res.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.svc.SetMachineCloudInstance(
+		c.Context(), machineUUID, "old-instance", "old-display-name",
+		"old-nonce", nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.AssertChangeStreamIdle(c, "before watcher start")
+
+	watcher, err := s.svc.WatchModelMachineLifeAndStartTimes(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	watcherC := watchertest.NewStringsWatcherC(c, watcher)
+	watcherC.AssertChange(res.MachineName.String())
+
+	err = s.st.DetachLostMachineCloudInstance(
+		c.Context(), res.MachineName.String(), "old-instance",
+		"reprovisioning requested", nil, time.Now(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	watcherC.AssertChange(res.MachineName.String())
+}
+
 func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
 	removalSt := removalstatemodel.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
