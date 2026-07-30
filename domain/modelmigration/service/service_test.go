@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
-	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
@@ -34,13 +33,14 @@ import (
 )
 
 type serviceSuite struct {
-	controllerState  *MockControllerState
-	modelState       *MockModelState
-	watcherFactory   *MockWatcherFactory
-	instanceProvider *MockInstanceProvider
-	resourceProvider *MockResourceProvider
-	modelUUID        string
-	controllerUUID   string
+	controllerState     *MockControllerState
+	modelState          *MockModelState
+	watcherFactory      *MockWatcherFactory
+	instanceProvider    *MockInstanceProvider
+	resourceProvider    *MockResourceProvider
+	credentialValidator *MockCredentialValidator
+	modelUUID           string
+	controllerUUID      string
 }
 
 func TestServiceSuite(t *testing.T) {
@@ -69,6 +69,7 @@ func (s *serviceSuite) TestAdoptResources(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
@@ -96,6 +97,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		resourceGetter,
+		s.credentialValidator,
 		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
@@ -124,16 +126,20 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
 
-// TestMachinesFromProviderDiscrepancy is testing the return value from
-// [Service.CheckMachines] and that it reports discrepancies from the cloud.
+// TestMachinesFromProviderNotInModel checks that [Service.CheckMachines]
+// reports a discrepancy, with an empty machine name, for a provider instance
+// that is not tracked by any model machine.
 func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectCredentialValidationInfo("ec2")
+	s.controllerState.EXPECT().GetModelCloudCredential(gomock.Any(), s.modelUUID).Return(nil, nil)
 	s.instanceProvider.EXPECT().AllInstances(gomock.Any()).
 		Return([]instances.Instance{
 			&instanceStub{
@@ -144,27 +150,34 @@ func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 			},
 		},
 			nil)
-	s.modelState.EXPECT().GetAllInstanceIDs(gomock.Any()).
-		Return(set.NewStrings("instance0"), nil)
+	s.modelState.EXPECT().GetMachineInstanceIDs(gomock.Any()).
+		Return(map[string]string{"instance0": "0"}, nil)
 
-	_, err := NewService(
+	discrepancies, err := NewService(
 		s.controllerState,
 		s.modelState,
 		s.modelUUID,
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
-	c.Check(err, tc.ErrorMatches, "provider instance IDs.*instance1.*")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(discrepancies, tc.DeepEquals, []modelmigration.MigrationMachineDiscrepancy{{
+		MachineName:     "",
+		CloudInstanceId: instance.Id("instance1"),
+	}})
 }
 
-// TestMachineInstanceIDsNotInProvider is testing the return value from
-// [Service.CheckMachines] and that it reports discrepancies from the model
-// on the DB.
+// TestMachineInstanceIDsNotInProvider checks that [Service.CheckMachines]
+// reports a discrepancy, naming the offending machine, for a model machine
+// whose cloud instance the provider does not report.
 func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectCredentialValidationInfo("ec2")
+	s.controllerState.EXPECT().GetModelCloudCredential(gomock.Any(), s.modelUUID).Return(nil, nil)
 	s.instanceProvider.EXPECT().AllInstances(gomock.Any()).
 		Return([]instances.Instance{
 			&instanceStub{
@@ -172,19 +185,24 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 			},
 		},
 			nil)
-	s.modelState.EXPECT().GetAllInstanceIDs(gomock.Any()).
-		Return(set.NewStrings("instance0", "instance1"), nil)
+	s.modelState.EXPECT().GetMachineInstanceIDs(gomock.Any()).
+		Return(map[string]string{"instance0": "0", "instance1": "1"}, nil)
 
-	_, err := NewService(
+	discrepancies, err := NewService(
 		s.controllerState,
 		s.modelState,
 		s.modelUUID,
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
-	c.Check(err, tc.ErrorMatches, "instance IDs.*instance1.*")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(discrepancies, tc.DeepEquals, []modelmigration.MigrationMachineDiscrepancy{{
+		MachineName:     "1",
+		CloudInstanceId: instance.Id("instance1"),
+	}})
 }
 
 // TestWatchForMigration asserts that WatchForMigration asks the watcher
@@ -226,6 +244,7 @@ func (s *serviceSuite) TestWatchForMigration(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 		loggertesting.WrapCheckLog(c),
 	)
 	w, err := svc.WatchForMigration(c.Context())
@@ -256,6 +275,7 @@ func (s *serviceSuite) TestWatchForMigrationError(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 		loggertesting.WrapCheckLog(c),
 	)
 	_, err := svc.WatchForMigration(c.Context())
@@ -336,6 +356,7 @@ func (s *serviceSuite) service(c *tc.C) *Service {
 		s.watcherFactory,
 		func(context.Context) (InstanceProvider, error) { return s.instanceProvider, nil },
 		func(context.Context) (ResourceProvider, error) { return s.resourceProvider, nil },
+		s.credentialValidator,
 		loggertesting.WrapCheckLog(c),
 	)
 }
@@ -349,6 +370,7 @@ func (s *serviceSuite) watchableService(c *tc.C) *WatchableService {
 		s.watcherFactory,
 		func(context.Context) (InstanceProvider, error) { return s.instanceProvider, nil },
 		func(context.Context) (ResourceProvider, error) { return s.resourceProvider, nil },
+		s.credentialValidator,
 		loggertesting.WrapCheckLog(c),
 	)
 }
@@ -894,6 +916,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerState = NewMockControllerState(ctrl)
 	s.modelState = NewMockModelState(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
+	s.credentialValidator = NewMockCredentialValidator(ctrl)
 
 	s.instanceProvider = NewMockInstanceProvider(ctrl)
 	s.resourceProvider = NewMockResourceProvider(ctrl)
@@ -902,6 +925,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.controllerState = nil
 		s.modelState = nil
 		s.watcherFactory = nil
+		s.credentialValidator = nil
 		s.instanceProvider = nil
 		s.resourceProvider = nil
 		s.modelUUID = ""

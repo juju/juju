@@ -46,6 +46,7 @@ import (
 	containerimageresourcestorestate "github.com/juju/juju/domain/containerimageresourcestore/state"
 	controllerupgraderservice "github.com/juju/juju/domain/controllerupgrader/service"
 	controllerupgraderstate "github.com/juju/juju/domain/controllerupgrader/state"
+	credentialservice "github.com/juju/juju/domain/credential/service"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	crossmodelrelationstatecontroller "github.com/juju/juju/domain/crossmodelrelation/state/controller"
 	crossmodelrelationstatemodel "github.com/juju/juju/domain/crossmodelrelation/state/model"
@@ -432,13 +433,18 @@ func (s *ModelServices) SSH() *sshmodelservice.WatchableService {
 // ModelMigration returns the model's migration service for supporting migration
 // operations.
 func (s *ModelServices) ModelMigration() *modelmigrationservice.WatchableService {
+	controllerState := modelmigrationstatecontroller.New(changestream.NewTxnRunnerFactory(s.controllerDB), s.clock)
+	modelState := modelmigrationstatemodel.New(changestream.NewTxnRunnerFactory(s.modelDB), s.modelUUID)
 	return modelmigrationservice.NewWatchableService(
-		modelmigrationstatecontroller.New(changestream.NewTxnRunnerFactory(s.controllerDB), s.clock),
-		modelmigrationstatemodel.New(changestream.NewTxnRunnerFactory(s.modelDB), s.modelUUID),
+		controllerState,
+		modelState,
 		s.modelUUID.String(),
 		s.controllerWatcherFactory("modelmigration"),
 		providertracker.ProviderRunner[modelmigrationservice.InstanceProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[modelmigrationservice.ResourceProvider](s.providerFactory, s.modelUUID.String()),
+		modelmigrationservice.NewCredentialValidator(
+			controllerState, modelState, credentialservice.NewCredentialValidator(),
+		),
 		s.logger.Child("modelmigration"),
 	)
 }

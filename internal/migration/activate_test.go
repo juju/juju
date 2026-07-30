@@ -114,6 +114,9 @@ func (g activationDomainServicesGetter) ServicesForModel(
 				}
 				return recordingResourceProvider{adopted: g.adopted}, nil
 			},
+			// Credential validation is driven separately by CheckMachines, so
+			// the activation path never reaches the validator.
+			nil,
 			g.deps.Logger,
 		),
 		model: modelservice.NewWatchableService(

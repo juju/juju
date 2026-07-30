@@ -173,6 +173,24 @@ type ImportPrecheckCredential struct {
 	Revoked bool
 }
 
+// CredentialValidationInfo describes the model whose cloud credential the
+// migration VALIDATION phase is validating. It is read from the model database
+// in a single query so the credential check, and the machine reconciliation
+// that follows it, share one consistent view of the model.
+type CredentialValidationInfo struct {
+	// ControllerUUID is the UUID of the controller that now owns the model.
+	ControllerUUID string
+	// ModelType is the model's deployment type ("iaas" or "caas").
+	ModelType string
+	// CloudName, CloudType and CloudRegion identify the cloud the model is
+	// deployed on. CloudRegion is empty when the cloud has no regions.
+	CloudName   string
+	CloudType   string
+	CloudRegion string
+	// Config is the model's stored configuration as key/value pairs.
+	Config map[string]string
+}
+
 // ImportPrecheckImageMetadata is one custom cloud image metadata row carried in
 // the v8 import precheck: its natural key plus the image id the source imports.
 type ImportPrecheckImageMetadata struct {

@@ -873,6 +873,41 @@ func (s *Suite) TestVALIDATIONCheckMachinesOtherError(c *tc.C) {
 	))
 }
 
+// TestVALIDATIONActivateFailureAborts checks that a failed target Activate
+// moves the migration to ABORT.
+//
+// Activation only prepares on the target: it leaves the import claim importing
+// and the model gated, so every failure - a structured error, a transport
+// failure, or a reply that never arrives - leaves the model abortable. The
+// target's point of no return is AdoptResources, sent from SUCCESS, which this
+// migration can no longer reach ABORT from.
+func (s *Suite) TestVALIDATIONActivateFailureAborts(c *tc.C) {
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.VALIDATION))
+	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
+	s.connection.activateErr = errors.Errorf("something went bang")
+
+	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
+	s.stub.CheckCalls(c, joinCalls(
+		watchStatusLockdownCalls,
+		[]testhelpers.StubCall{
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			{FuncName: "modelMigrationService.WatchMinionReports", Args: nil},
+			{FuncName: "modelMigrationService.MinionReports", Args: nil},
+			apiOpenControllerCall,
+			checkMachinesCall,
+			{FuncName: "modelMigrationService.SourceControllerInfo", Args: nil},
+			activateCall,
+			apiCloseCall,
+		},
+		abortCalls,
+	))
+	lastMessages := s.modelMigrationService.statuses[len(s.modelMigrationService.statuses)-2:]
+	c.Assert(lastMessages, tc.DeepEquals, []string{
+		"model activation failed, something went bang",
+		"aborted, removing model from target controller: model activation failed, something went bang",
+	})
+}
+
 func (s *Suite) TestSUCCESSMinionWaitWatchError(c *tc.C) {
 	s.checkMinionWaitWatchError(c, coremigration.SUCCESS)
 }
@@ -1705,6 +1740,7 @@ type stubConnection struct {
 	stub          *testhelpers.Stub
 	prechecksErr  error
 	importErr     error
+	activateErr   error
 	controllerTag names.ControllerTag
 
 	streamErr error
@@ -1734,7 +1770,9 @@ func (c *stubConnection) APICall(ctx context.Context, objType string, _ int, _, 
 			return c.prechecksErr
 		case "Import":
 			return c.importErr
-		case "Activate", "AdoptResources":
+		case "Activate":
+			return c.activateErr
+		case "AdoptResources":
 			return nil
 		case "LatestLogTime":
 			responseTime := response.(*time.Time)

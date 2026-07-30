@@ -92,7 +92,7 @@ func (i *ModelImporter) ActivateModel(ctx context.Context, args ActivateModelArg
 			"retrieving domain services for model %q: %w", args.ModelUUID, err,
 		)
 	}
-	return prepareActivation(ctx, domainServices, args)
+	return prepareActivation(ctx, domainServices, args, i.logger)
 }
 
 // CommitActivation crosses the point of no return for an imported model: it
