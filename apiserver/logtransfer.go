@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -17,6 +18,22 @@ import (
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/rpc/params"
 )
+
+// MigrationLogModelService provides the controller-scoped model lookup needed
+// to establish that a log transfer request names a model that actually exists
+// on this controller.
+type MigrationLogModelService interface {
+	// CheckModelExists returns whether the model with the given UUID exists
+	// and is active on this controller.
+	CheckModelExists(ctx context.Context, modelUUID coremodel.UUID) (bool, error)
+}
+
+// MigrationLogModeService reports the migration mode of the model that a log
+// transfer request is for.
+type MigrationLogModeService interface {
+	// ModelMigrationMode returns the current migration mode for the model.
+	ModelMigrationMode(ctx context.Context) (modelmigration.MigrationMode, error)
+}
 
 type migrationLoggingStrategy struct {
 	modelLogger corelogger.ModelLogger
@@ -39,12 +56,45 @@ func newMigrationLogWriteFunc(ctxt httpContext, modelLogger corelogger.ModelLogg
 	}
 }
 
-func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
-	domainServices, err := ctxt.domainServicesForRequest(req)
+// migrationLogModelUUID returns the UUID of the model that a log transfer
+// request is for.
+//
+// The model is named by the migration header, not by the request context:
+// /migrate/logtransfer is a controller-scoped route, so the context carries the
+// *controller* model's UUID rather than the UUID of the model being migrated.
+// Reading the header here keeps it local to this handler; it must never be used
+// to populate the request context, which feeds authorization and service
+// resolution elsewhere.
+func migrationLogModelUUID(req *http.Request) (coremodel.UUID, error) {
+	uuidStr, ok := httpcontext.MigrationRequestModelUUID(req)
+	if !ok {
+		return "", errors.Trace(apiservererrors.ErrPerm)
+	}
+	modelUUID := coremodel.UUID(uuidStr)
+	if err := modelUUID.Validate(); err != nil {
+		return "", errors.BadRequestf("invalid migration model UUID %q", uuidStr)
+	}
+	return modelUUID, nil
+}
+
+// validateMigrationLogTarget checks that modelUUID names a model this
+// controller can accept migrated log records for. The model must exist, and it
+// must have finished importing.
+func validateMigrationLogTarget(
+	ctx context.Context,
+	modelUUID coremodel.UUID,
+	models MigrationLogModelService,
+	migration MigrationLogModeService,
+) error {
+	exists, err := models.CheckModelExists(ctx, modelUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	migrationMode, err := domainServices.ModelMigration().ModelMigrationMode(req.Context())
+	if !exists {
+		return errors.NotFoundf("model %q", modelUUID)
+	}
+
+	migrationMode, err := migration.ModelMigrationMode(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -54,6 +104,14 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 		return errors.BadRequestf(
 			"model migration mode is %q instead of None", migrationMode)
 	}
+	return nil
+}
+
+func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
+	modelUUID, err := migrationLogModelUUID(req)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// Here the log messages are expected to be coming from another
 	// Juju controller, so the version number provided should be the
@@ -61,17 +119,32 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 	// passed, even though we don't use it anywhere at the moment - it
 	// provides future-proofing if we need to do some kind of
 	// conversion of log messages from an old client.
-	_, err = common.JujuClientVersionFromRequest(req)
-	if err != nil {
+	//
+	// This is another header-only check, so it runs before any database work.
+	if _, err := common.JujuClientVersionFromRequest(req); err != nil {
 		return errors.Trace(err)
 	}
 
-	modelUUID, valid := httpcontext.RequestModelUUID(req.Context())
-	if !valid {
-		return errors.Trace(apiservererrors.ErrPerm)
+	// Resolve the domain services for the model being migrated, as named by the
+	// migration header, rather than for the model implied by the route.
+	domainServices, err := ctxt.domainServicesDuringMigrationForRequest(req)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	s.modelUUID = coremodel.UUID(modelUUID)
+	if err := validateMigrationLogTarget(
+		req.Context(),
+		modelUUID,
+		domainServices.Model(),
+		domainServices.ModelMigration(),
+	); err != nil {
+		return errors.Trace(err)
+	}
 
+	s.modelUUID = modelUUID
+
+	// Obtain the log writer last. Doing so starts a logger worker keyed on the
+	// model UUID, so it must only happen once the request is known to name a
+	// real model that is ready to receive migrated records.
 	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), s.modelUUID); err != nil {
 		return errors.Trace(err)
 	}
