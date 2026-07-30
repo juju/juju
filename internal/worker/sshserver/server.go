@@ -188,7 +188,7 @@ func (s *ServerWorker) NewJumpServer() *ssh.Server {
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
 			ok, err := s.config.Authenticator.PublicKeyAuthentication(ctx, key)
 			if err != nil {
-				s.config.Logger.Errorf(ctx, "failed to authenticate public key: %v", err)
+				s.config.Logger.Warningf(ctx, "failed to authenticate public key: %v", err)
 				return false
 			}
 			return ok
@@ -196,7 +196,7 @@ func (s *ServerWorker) NewJumpServer() *ssh.Server {
 		PasswordHandler: func(ctx ssh.Context, password string) bool {
 			ok, err := s.config.Authenticator.PasswordAuthentication(ctx, password)
 			if err != nil {
-				s.config.Logger.Errorf(ctx, "failed to authenticate password: %v", err)
+				s.config.Logger.Warningf(ctx, "failed to authenticate password: %v", err)
 				return false
 			}
 			return ok
