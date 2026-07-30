@@ -17,8 +17,8 @@ import (
 
 // AccessService checks local user access to an SSH target.
 type AccessService interface {
-	// HasSSHAccess checks if the given username has SSH access to the specified destination.
-	HasSSHAccess(context.Context, string, virtualhostname.Info) (bool, error)
+	// HasSSHAccessToModel checks if the given username has SSH access to the specified destination.
+	HasSSHAccessToModel(context.Context, string, virtualhostname.Info) (bool, error)
 }
 
 type authorizer struct {
@@ -35,7 +35,7 @@ func (a authorizer) Authorize(ctx ssh.Context, destination virtualhostname.Info)
 		return false, errors.New("SSH authentication method is missing from connection context")
 	}
 	if publicKey {
-		ok, err := a.access.HasSSHAccess(ctx, ctx.User(), destination)
+		ok, err := a.access.HasSSHAccessToModel(ctx, ctx.User(), destination)
 		if err != nil {
 			return false, errors.Annotate(err, "checking SSH access")
 		}

@@ -220,7 +220,7 @@ func (s *serviceSuite) TestHasSSHAccessModelAdmin(c *tc.C) {
 		Key:        modelUUID.String(),
 	}).Return(corepermission.AdminAccess, nil)
 
-	allowed, err := NewService(s.state, clock.WallClock).HasSSHAccess(
+	allowed, err := NewService(s.state, clock.WallClock).HasSSHAccessToModel(
 		c.Context(), subject, modelUUID, controllerUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -242,7 +242,7 @@ func (s *serviceSuite) TestHasSSHAccessControllerSuperuser(c *tc.C) {
 		Key:        controllerUUID.String(),
 	}).Return(corepermission.SuperuserAccess, nil)
 
-	allowed, err := NewService(s.state, clock.WallClock).HasSSHAccess(
+	allowed, err := NewService(s.state, clock.WallClock).HasSSHAccessToModel(
 		c.Context(), subject, modelUUID, controllerUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -258,7 +258,7 @@ func (s *serviceSuite) TestHasSSHAccessDenied(c *tc.C) {
 	s.state.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), subject, gomock.Any()).
 		Return(corepermission.NoAccess, accesserrors.AccessNotFound).Times(2)
 
-	allowed, err := NewService(s.state, clock.WallClock).HasSSHAccess(
+	allowed, err := NewService(s.state, clock.WallClock).HasSSHAccessToModel(
 		c.Context(), subject, modelUUID, controllerUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -275,7 +275,7 @@ func (s *serviceSuite) TestHasSSHAccessUnexpectedModelAccessError(c *tc.C) {
 	s.state.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), subject, gomock.Any()).
 		Return(corepermission.NoAccess, errBoom)
 
-	allowed, err := NewService(s.state, clock.WallClock).HasSSHAccess(
+	allowed, err := NewService(s.state, clock.WallClock).HasSSHAccessToModel(
 		c.Context(), subject, modelUUID, controllerUUID,
 	)
 	c.Check(allowed, tc.IsFalse)
@@ -299,7 +299,7 @@ func (s *serviceSuite) TestHasSSHAccessValidation(c *tc.C) {
 		{name: "invalid model UUID", subject: usertesting.GenNewName(c, "testme"), modelUUID: "invalid", controllerUUID: validControllerUUID},
 		{name: "invalid controller UUID", subject: usertesting.GenNewName(c, "testme"), modelUUID: validModelUUID, controllerUUID: "invalid"},
 	} {
-		_, err := service.HasSSHAccess(c.Context(), test.subject, test.modelUUID, test.controllerUUID)
+		_, err := service.HasSSHAccessToModel(c.Context(), test.subject, test.modelUUID, test.controllerUUID)
 		c.Check(err, tc.ErrorIs, coreerrors.NotValid, tc.Commentf("%s", test.name))
 	}
 }
