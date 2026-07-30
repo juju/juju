@@ -141,23 +141,33 @@ func (a *machineStateAdapter) MachineHostKeys(ctx context.Context, modelUUID, ma
 }
 
 // controllerInfoAdapter adapts a ControllerNodeService to the
-// sshtunneler.ControllerInfo interface, building SpaceAddresses from
-// the address strings returned by the controller node service.
+// sshtunneler.ControllerInfo interface, building host-only SpaceAddresses
+// from the API endpoints returned by the controller node service.
 type controllerInfoAdapter struct {
 	controllerNodeService ControllerNodeService
 }
 
 // LocalAddresses implements sshtunneler.ControllerInfo.
-// It returns the API addresses for the given controller node as
-// SpaceAddresses. Only the local node's addresses are returned so that
-// the machine's reverse tunnel connects back to the node holding the
-// waiting client SSH session.
+// It returns the hosts from the API addresses for the given controller node as
+// SpaceAddresses. The API ports are discarded because the reverse tunnel uses
+// the controller SSH port. Only the local node's addresses are returned so that
+// the machine's reverse tunnel connects back to the node holding the waiting
+// client SSH session.
 func (a *controllerInfoAdapter) LocalAddresses(ctx context.Context, controllerNodeID string) (network.SpaceAddresses, error) {
 	addrs, err := a.controllerNodeService.GetAPIAddressesForControllerIDForAgents(ctx, controllerNodeID)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get controller node addresses")
 	}
-	return network.NewSpaceAddresses(addrs...), nil
+
+	hosts := make(network.SpaceAddresses, len(addrs))
+	for i, addr := range addrs {
+		hostPort, err := network.ParseMachineHostPort(addr)
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to parse controller node address %q", addr)
+		}
+		hosts[i] = network.NewSpaceAddress(hostPort.Host())
+	}
+	return hosts, nil
 }
 
 // NewWorker returns a worker that provides an SSH tunnel tracker.
