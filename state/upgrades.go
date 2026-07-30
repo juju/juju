@@ -454,3 +454,35 @@ func ConvertScalingToCurrentOperationEnumField(pool *StatePool) error {
 		return st.runRawTransaction(ops)
 	})
 }
+
+// virtualHostKeysCollectionName is the name of the MongoDB collection that
+// held per-machine and per-CAAS-unit virtual SSH host keys for the
+// controller-proxied SSH feature. The feature was removed from the 3.6 line
+// but the collection was left behind in upgraded controllers' model
+// databases. DropVirtualHostKeysCollection removes the orphaned collection
+// from every model so no dead data remains.
+//
+// The collection constant is defined locally here rather than in
+// allcollections.go because the collection is no longer registered as a known
+// collection; the upgrade step only needs the name to drop it.
+const virtualHostKeysCollectionName = "virtualhostkeys"
+
+// DropVirtualHostKeysCollection drops the orphaned virtual host keys
+// collection from every model in the pool. It is a no-op for models where the
+// collection does not exist (mgo's DropCollection returns nil for a missing
+// collection), so the step is idempotent and safe to run on controllers that
+// never had the feature.
+func DropVirtualHostKeysCollection(pool *StatePool) error {
+	return runForAllModelStates(pool, func(st *State) error {
+		coll, closer, err := st.db().GetRawCollection(virtualHostKeysCollectionName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer closer()
+		if err := coll.DropCollection(); err != nil {
+			return errors.Annotatef(err, "dropping %q collection",
+				virtualHostKeysCollectionName)
+		}
+		return nil
+	})
+}

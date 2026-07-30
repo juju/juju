@@ -550,3 +550,49 @@ func (s *upgradesSuite) TestConvertScalingToCurrentOperationEnumField(c *gc.C) {
 		},
 	)
 }
+
+func (s *upgradesSuite) TestDropVirtualHostKeysCollection(c *gc.C) {
+	// The virtual host keys collection is model-namespaced, so create a
+	// second model and seed both it and the controller model with a doc.
+	state1 := s.makeModel(c, "m1", coretesting.Attrs{},
+		ModelArgs{Type: ModelTypeIAAS})
+	defer func() { _ = state1.Close() }()
+
+	seedVirtualHostKeys := func(st *State, docID, hostKey string) {
+		coll, closer, err := st.db().GetRawCollection("virtualhostkeys")
+		c.Assert(err, jc.ErrorIsNil)
+		defer closer()
+		err = coll.Insert(bson.M{
+			"_id":     st.docID(docID),
+			"hostkey": []byte(hostKey),
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	seedVirtualHostKeys(s.state, "machine-0-hostkey", "controller-key")
+	seedVirtualHostKeys(state1, "machine-1-hostkey", "model1-key")
+
+	collectionExists := func(st *State) bool {
+		coll, closer, err := st.db().GetRawCollection("virtualhostkeys")
+		c.Assert(err, jc.ErrorIsNil)
+		defer closer()
+		var n int
+		n, err = coll.Count()
+		c.Assert(err, jc.ErrorIsNil)
+		return n > 0
+	}
+
+	c.Check(collectionExists(s.state), jc.IsTrue)
+	c.Check(collectionExists(state1), jc.IsTrue)
+
+	// Two rounds to check idempotency: dropping an already-absent collection
+	// must not error.
+	for i := 0; i < 2; i++ {
+		c.Logf("Run: %d", i)
+		err := DropVirtualHostKeysCollection(s.pool)
+		c.Assert(err, jc.ErrorIsNil)
+
+		c.Check(collectionExists(s.state), jc.IsFalse)
+		c.Check(collectionExists(state1), jc.IsFalse)
+	}
+}

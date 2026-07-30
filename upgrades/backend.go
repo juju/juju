@@ -25,6 +25,7 @@ type StateBackend interface {
 	OpenControllerAPIPort() error
 	ConvertScalingToCurrentOperationEnumField() error
 	ExposeControllerApplication() error
+	DropVirtualHostKeysCollection() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -76,6 +77,13 @@ func (s stateBackend) ConvertScalingToCurrentOperationEnumField() error {
 // the controller application.
 func (s stateBackend) ExposeControllerApplication() error {
 	return state.ExposeControllerApplication(s.pool)
+}
+
+// DropVirtualHostKeysCollection runs an upgrade to drop the orphaned
+// virtual host keys collection left behind after the SSH proxy feature was
+// removed from the 3.6 line.
+func (s stateBackend) DropVirtualHostKeysCollection() error {
+	return state.DropVirtualHostKeysCollection(s.pool)
 }
 
 // newK8sClient initializes a new k8s client for a given model.
