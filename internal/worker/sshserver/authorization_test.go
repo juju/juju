@@ -159,7 +159,7 @@ type stubAccessService struct {
 	destination virtualhostname.Info
 }
 
-func (s *stubAccessService) HasSSHAccess(_ context.Context, username string, destination virtualhostname.Info) (bool, error) {
+func (s *stubAccessService) HasSSHAccessToModel(_ context.Context, username string, destination virtualhostname.Info) (bool, error) {
 	s.username = username
 	s.destination = destination
 	return s.allowed, s.err

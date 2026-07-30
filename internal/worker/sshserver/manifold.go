@@ -287,10 +287,10 @@ func (s sshService) VirtualHostKey(ctx context.Context, info virtualhostname.Inf
 	return sshService.VirtualHostKey(ctx, info)
 }
 
-// HasSSHAccess grants SSH access to model administrators and controller
+// HasSSHAccessToModel grants SSH access to model administrators and controller
 // superusers. A controller superuser need not hold an explicit grant to every
 // target model.
-func (s sshService) HasSSHAccess(ctx context.Context, username string, destination virtualhostname.Info) (bool, error) {
+func (s sshService) HasSSHAccessToModel(ctx context.Context, username string, destination virtualhostname.Info) (bool, error) {
 	name, err := user.NewName(username)
 	if err != nil {
 		return false, errors.Trace(err)
@@ -299,7 +299,7 @@ func (s sshService) HasSSHAccess(ctx context.Context, username string, destinati
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return domainServices.Access().HasSSHAccess(ctx, name, destination.ModelUUID(), s.controllerUUID)
+	return domainServices.Access().HasSSHAccessToModel(ctx, name, destination.ModelUUID(), s.controllerUUID)
 }
 
 // ResolveK8sExecInfo resolves the namespace and pod name for a destination.

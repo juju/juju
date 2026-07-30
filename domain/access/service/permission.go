@@ -130,9 +130,9 @@ func (s *PermissionService) ReadUserAccessLevelForTarget(ctx context.Context, su
 	return access, errors.Capture(err)
 }
 
-// HasSSHAccess returns whether the user can access the model over SSH. Model
+// HasSSHAccessToModel returns whether the user can access the model over SSH. Model
 // administrators and controller superusers are allowed to access the model.
-func (s *PermissionService) HasSSHAccess(
+func (s *PermissionService) HasSSHAccessToModel(
 	ctx context.Context,
 	subject user.Name,
 	modelUUID coremodel.UUID,
