@@ -4,13 +4,13 @@
 package state
 
 import (
+	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v11"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
-	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
 
@@ -404,7 +404,11 @@ func (im *ImportRemoteEntities) Execute(src RemoteEntitiesInput, runner Transact
 			ok  bool
 			err error
 		)
-		if id, ok = im.maybeConvertApplicationOffer(src, entity.ID()); !ok {
+		id, ok, err = im.maybeConvertApplicationOffer(src, entity.ID())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !ok {
 			id, err = im.legacyAppToOffer(entity.ID(), src.OfferUUIDForApp)
 			if err != nil {
 				return errors.Trace(err)
@@ -427,16 +431,27 @@ func (im *ImportRemoteEntities) Execute(src RemoteEntitiesInput, runner Transact
 	return nil
 }
 
-// maybeConvertApplicationOffer returns the offer uuid if an offer name is passed in.
-func (im *ImportRemoteEntities) maybeConvertApplicationOffer(src RemoteEntitiesInput, id string) (string, bool) {
+// maybeConvertApplicationOffer returns the offer uuid if an offer or
+// application name is passed in.
+func (im *ImportRemoteEntities) maybeConvertApplicationOffer(
+	src RemoteEntitiesInput,
+	id string,
+) (string, bool, error) {
 	if !strings.HasPrefix(id, names.ApplicationOfferTagKind+"-") {
-		return id, false
+		return id, false, nil
 	}
-	offerName := strings.TrimPrefix(id, names.ApplicationOfferTagKind+"-")
-	if uuid, ok := src.OfferUUID(offerName); ok {
-		return names.NewApplicationOfferTag(uuid).String(), true
+	name := strings.TrimPrefix(id, names.ApplicationOfferTagKind+"-")
+	if uuid, ok := src.OfferUUID(name); ok {
+		return names.NewApplicationOfferTag(uuid).String(), true, nil
 	}
-	return id, false
+	uuid, err := src.OfferUUIDForApp(name)
+	if errors.Is(err, errors.NotFound) {
+		return id, false, nil
+	}
+	if err != nil {
+		return id, false, errors.Trace(err)
+	}
+	return names.NewApplicationOfferTag(uuid).String(), true, nil
 }
 
 func (im *ImportRemoteEntities) legacyAppToOffer(id string, offerUUIDForApp func(string) (string, error)) (string, error) {
@@ -455,7 +470,13 @@ func (im *ImportRemoteEntities) legacyAppToOffer(id string, offerUUIDForApp func
 type applicationOffersStateShim struct {
 	stateModelNamspaceShim
 
-	offerUUIDByName map[string]string
+	offerUUIDByName         map[string]string
+	offersByApplicationName map[string][]applicationOfferDetails
+}
+
+type applicationOfferDetails struct {
+	name string
+	uuid string
 }
 
 func (s *applicationOffersStateShim) OfferUUID(offerName string) (string, bool) {
@@ -463,22 +484,24 @@ func (s *applicationOffersStateShim) OfferUUID(offerName string) (string, bool) 
 	return uuid, ok
 }
 
-func (a applicationOffersStateShim) OfferUUIDForApp(appName string) (string, error) {
-	applicationOffersCollection, closer, err := a.st.db().GetCollection(applicationOffersC)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	defer closer()
-
-	var doc applicationOfferDoc
-	err = applicationOffersCollection.Find(bson.D{{"application-name", appName}}).One(&doc)
-	if err == mgo.ErrNotFound {
+func (s applicationOffersStateShim) OfferUUIDForApp(appName string) (string, error) {
+	offers := s.offersByApplicationName[appName]
+	switch len(offers) {
+	case 0:
 		return "", errors.NotFoundf("offer for app %q", appName)
+	case 1:
+		return offers[0].uuid, nil
 	}
-	if err != nil {
-		return "", errors.Annotate(err, "getting application offer documents")
+
+	matches := make([]string, len(offers))
+	for i, offer := range offers {
+		matches[i] = fmt.Sprintf("%q (%s)", offer.name, offer.uuid)
 	}
-	return doc.OfferUUID, nil
+	sort.Strings(matches)
+	return "", errors.Errorf(
+		"application %q has multiple offers: %s",
+		appName, strings.Join(matches, ", "),
+	)
 }
 
 // RelationNetworksDescription defines an in-place usage for reading relation networks.

@@ -1836,15 +1836,25 @@ func (i *importer) remoteEntities() error {
 		dst: i.st.db(),
 	}
 	offerUUIDByName := make(map[string]string)
+	offersByApplicationName := make(map[string][]applicationOfferDetails)
 	for _, app := range i.model.Applications() {
 		for _, offer := range app.Offers() {
 			offerUUIDByName[offer.OfferName()] = offer.OfferUUID()
+			appName := offer.ApplicationName()
+			offersByApplicationName[appName] = append(
+				offersByApplicationName[appName],
+				applicationOfferDetails{
+					name: offer.OfferName(),
+					uuid: offer.OfferUUID(),
+				},
+			)
 		}
 	}
 	migration.Add(func() error {
 		m := ImportRemoteEntities{}
 		return m.Execute(&applicationOffersStateShim{
-			offerUUIDByName: offerUUIDByName,
+			offerUUIDByName:         offerUUIDByName,
+			offersByApplicationName: offersByApplicationName,
 			stateModelNamspaceShim: stateModelNamspaceShim{
 				Model: migration.src,
 				st:    i.st,
