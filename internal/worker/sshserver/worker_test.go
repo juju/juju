@@ -38,12 +38,19 @@ func newServerWrapperWorkerConfig(
 		ControllerConfigService: NewMockControllerConfigService(ctrl),
 		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
-		SessionHandler:          &MockSessionHandler{},
 	}
+	setMockServerDependencies(ctrl, cfg)
 
 	modifier(cfg)
 
 	return cfg
+}
+
+func setMockServerDependencies(ctrl *gomock.Controller, cfg *ServerWrapperWorkerConfig) {
+	cfg.Authenticator = NewMockAuthenticator(ctrl)
+	cfg.Authorizer = NewMockAuthorizer(ctrl)
+	cfg.ProxyFactory = NewMockProxyFactory(ctrl)
+	cfg.TunnelTracker = NewMockTunnelTracker(ctrl)
 }
 
 func (s *workerSuite) TestValidate(c *tc.C) {
@@ -73,12 +80,12 @@ func (s *workerSuite) TestValidate(c *tc.C) {
 	)
 	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*is required.*")
 
-	// Test no SessionHandler.
+	// Test no ProxyFactory.
 	cfg = newServerWrapperWorkerConfig(
 		c,
 		ctrl,
 		func(cfg *ServerWrapperWorkerConfig) {
-			cfg.SessionHandler = nil
+			cfg.ProxyFactory = nil
 		},
 	)
 	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*is required.*")
@@ -123,8 +130,8 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *tc.C) {
 			c.Check(swc.JumpHostKey, tc.Equals, testHostKey)
 			return serverWorker, nil
 		},
-		SessionHandler: &stubSessionHandler{},
 	}
+	setMockServerDependencies(ctrl, &cfg)
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -203,8 +210,8 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *tc.C) {
 			c.Check(swc.JumpHostKey, tc.Equals, testHostKey)
 			return serverWorker, nil
 		},
-		SessionHandler: &stubSessionHandler{},
 	}
+	setMockServerDependencies(ctrl, &cfg)
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -290,8 +297,8 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorkerOnPortChange
 			c.Check(swc.JumpHostKey, tc.Equals, testHostKey)
 			return serverWorker, nil
 		},
-		SessionHandler: &stubSessionHandler{},
 	}
+	setMockServerDependencies(ctrl, &cfg)
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -335,8 +342,8 @@ func (s *workerSuite) TestSSHServerWrapperWorkerConfigWatcherClosed(c *tc.C) {
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
 		},
-		SessionHandler: &stubSessionHandler{},
 	}
+	setMockServerDependencies(ctrl, &cfg)
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -381,8 +388,8 @@ func (s *workerSuite) TestWrapperWorkerReport(c *tc.C) {
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return &reportWorker{serverWorker}, nil
 		},
-		SessionHandler: &stubSessionHandler{},
 	}
+	setMockServerDependencies(ctrl, &cfg)
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)

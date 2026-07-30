@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/virtualhostname"
@@ -103,6 +103,22 @@ func (s *authorizationSuite) TestJWTAccessRejectsJWTWithMissingAccessClaim(c *tc
 	authorizer := authorizer{logger: loggertesting.WrapCheckLog(c)}
 	authorized, err := authorizer.Authorize(ctx, destination)
 	c.Check(err, tc.ErrorMatches, "invalid SSH JWT token, missing access claim")
+	c.Check(authorized, tc.IsFalse)
+}
+
+func (s *authorizationSuite) TestJWTAccessRejectsJWTWithInvalidAccessClaim(c *tc.C) {
+	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
+	c.Assert(err, tc.ErrorIsNil)
+	token, err := jwt.NewBuilder().Claim("access", "invalid").Build()
+	c.Assert(err, tc.ErrorIsNil)
+
+	ctx := &stubAuthenticationContext{values: map[any]any{
+		authenticatedViaPublicKey{}: false,
+		userJWT{}:                   token,
+	}}
+	authorizer := authorizer{logger: loggertesting.WrapCheckLog(c)}
+	authorized, err := authorizer.Authorize(ctx, destination)
+	c.Check(err, tc.ErrorMatches, "invalid SSH JWT token, invalid access claim")
 	c.Check(authorized, tc.IsFalse)
 }
 

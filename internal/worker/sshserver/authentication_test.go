@@ -11,17 +11,13 @@ import (
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/tc"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 	gossh "golang.org/x/crypto/ssh"
 
 	coressh "github.com/juju/juju/core/ssh"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki/test"
 )
-
-// TODO(Kian): Remove these once authz and authn are wired into the SSH server.
-var _ Authenticator = authenticator{}
-var _ Authorizer = authorizer{}
 
 type authenticationSuite struct{}
 
