@@ -168,9 +168,9 @@ func (s *RemoveMachineSuite) TestRemoveOutput(c *tc.C) {
 	}, {
 		Info: &params.DestroyMachineInfo{
 			MachineId:        "2/lxd/1",
-			DestroyedUnits:   []params.Entity{{"unit-foo-0"}},
-			DestroyedStorage: []params.Entity{{"storage-bar-1"}},
-			DetachedStorage:  []params.Entity{{"storage-baz-2"}},
+			DestroyedUnits:   []params.Entity{{Tag: "unit-foo-0"}},
+			DestroyedStorage: []params.Entity{{Tag: "storage-bar-1"}},
+			DetachedStorage:  []params.Entity{{Tag: "storage-baz-2"}},
 		},
 	}}
 	s.mockApi.EXPECT().DestroyMachinesWithParams(gomock.Any(), false, false, false, gomock.Any(), "1", "2/lxd/1").Return(results, nil)
@@ -228,15 +228,15 @@ func (s *RemoveMachineSuite) TestRemoveWithContainers(c *tc.C) {
 	results := []params.DestroyMachineResult{{
 		Info: &params.DestroyMachineInfo{
 			MachineId:        "1",
-			DestroyedUnits:   []params.Entity{{"unit-foo-0"}},
-			DestroyedStorage: []params.Entity{{"storage-bar-1"}},
-			DetachedStorage:  []params.Entity{{"storage-baz-2"}},
+			DestroyedUnits:   []params.Entity{{Tag: "unit-foo-0"}},
+			DestroyedStorage: []params.Entity{{Tag: "storage-bar-1"}},
+			DetachedStorage:  []params.Entity{{Tag: "storage-baz-2"}},
 			DestroyedContainers: []params.DestroyMachineResult{{
 				Info: &params.DestroyMachineInfo{
 					MachineId:        "1/lxd/2",
-					DestroyedUnits:   []params.Entity{{"unit-foo-1"}},
-					DestroyedStorage: []params.Entity{{"storage-bar-2"}},
-					DetachedStorage:  []params.Entity{{"storage-baz-3"}},
+					DestroyedUnits:   []params.Entity{{Tag: "unit-foo-1"}},
+					DestroyedStorage: []params.Entity{{Tag: "storage-bar-2"}},
+					DetachedStorage:  []params.Entity{{Tag: "storage-baz-3"}},
 				},
 			}},
 		},
@@ -299,7 +299,7 @@ func (s *RemoveMachineSuite) TestRemovePrompt(c *tc.C) {
 	select {
 	case err := <-errc:
 		c.Check(err, tc.ErrorIsNil)
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("command took too long")
 	}
 }
@@ -321,7 +321,7 @@ func (s *RemoveMachineSuite) TestRemovePromptAborted(c *tc.C) {
 	select {
 	case err := <-errc:
 		c.Check(err, tc.ErrorMatches, "machine removal: aborted")
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("command took too long")
 	}
 }
