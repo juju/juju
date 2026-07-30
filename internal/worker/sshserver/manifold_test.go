@@ -6,7 +6,6 @@ package sshserver
 import (
 	"context"
 	"net"
-	"os"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -28,13 +27,11 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
 	modelsshservice "github.com/juju/juju/domain/ssh/service/model"
-	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/jwtparser"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/services"
 	internalTunneler "github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/juju/osenv"
 )
 
 type manifoldSuite struct {
@@ -49,12 +46,6 @@ func TestManifoldSuite(t *testing.T) {
 	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
 		tc.Run(t, &manifoldSuite{})
 	})
-}
-
-func (s *manifoldSuite) SetUpTest(c *tc.C) {
-	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, featureflag.SSHJump)
-	c.Assert(err, tc.ErrorIsNil)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
