@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher"
 )
@@ -38,6 +39,11 @@ type ControllerSSHHostKeyService interface {
 type SSHModelService interface {
 	// VirtualHostKey returns the terminating host key for a routed destination.
 	VirtualHostKey(context.Context, virtualhostname.Info) (string, error)
+	// ResolveK8sExecInfo resolves Kubernetes execution information for a routed
+	// destination.
+	ResolveK8sExecInfo(context.Context, virtualhostname.Info) (namespace, podName string, err error)
+	// MachineForDestination resolves the machine for a routed destination.
+	MachineForDestination(context.Context, virtualhostname.Info) (coremachine.Name, error)
 }
 
 // TunnelTracker authenticates and track reverse SSH tunnels.

@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainssh "github.com/juju/juju/domain/ssh"
 	modelsshservice "github.com/juju/juju/domain/ssh/service/model"
+	sshstate "github.com/juju/juju/domain/ssh/state/model"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -145,6 +146,33 @@ func (s *serviceSuite) TestVirtualHostKeyErrorsForNestedMachine(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `cannot SSH directly to nested machine "1/lxd/0", connect to parent machine "1" instead`)
 }
 
+func (s *serviceSuite) TestResolveK8sExecInfo(c *tc.C) {
+	state := newStubModelState()
+	state.modelInfo = sshstate.ModelInfo{Type: string(coremodel.CAAS), Name: "test-model"}
+	state.podID = "pod-id"
+	svc := modelsshservice.NewService(state, coremodel.UUID(testModelUUID), clock.WallClock)
+	info, err := virtualhostname.NewInfoUnitTarget(testModelUUID, "app/0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	namespace, podName, err := svc.ResolveK8sExecInfo(c.Context(), info)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(namespace, tc.Equals, "test-model")
+	c.Check(podName, tc.Equals, "pod-id")
+}
+
+func (s *serviceSuite) TestMachineForDestination(c *tc.C) {
+	state := newStubModelState()
+	state.modelInfo = sshstate.ModelInfo{Type: string(coremodel.IAAS)}
+	state.machineExists["1"] = true
+	svc := modelsshservice.NewService(state, coremodel.UUID(testModelUUID), clock.WallClock)
+	info, err := virtualhostname.NewInfoMachineTarget(testModelUUID, "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	machineName, err := svc.MachineForDestination(c.Context(), info)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(machineName, tc.Equals, coremachine.Name("1"))
+}
+
 func (s *serviceSuite) TestInsertSSHConnRequest(c *tc.C) {
 	clk := testclock.NewClock(time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC))
 	modelUUID := coremodel.UUID(testModelUUID)
@@ -255,6 +283,31 @@ type stubModelState struct {
 	removedTunnelID    string
 	machineUUIDs       map[string]string
 	machineUUIDName    string
+	modelInfo          sshstate.ModelInfo
+	podID              string
+}
+
+func (s *stubModelState) GetModelInfo(context.Context) (sshstate.ModelInfo, error) {
+	if s.modelInfo.Type == "" {
+		return sshstate.ModelInfo{Type: string(coremodel.IAAS), Name: "test-model"}, nil
+	}
+	return s.modelInfo, nil
+}
+
+func (s *stubModelState) GetControllerName(context.Context) (string, error) {
+	return "", nil
+}
+
+func (s *stubModelState) GetUnitK8sPodInfo(context.Context, string) (string, error) {
+	return s.podID, nil
+}
+
+func (s *stubModelState) GetUnitMachineName(context.Context, string) (string, error) {
+	return "1", nil
+}
+
+func (s *stubModelState) CheckMachineExists(_ context.Context, machineName string) (bool, error) {
+	return s.machineExists[machineName], nil
 }
 
 func newStubModelState() *stubModelState {

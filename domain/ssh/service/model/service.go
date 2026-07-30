@@ -19,8 +19,10 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	domainssh "github.com/juju/juju/domain/ssh"
+	sshstate "github.com/juju/juju/domain/ssh/state/model"
 	"github.com/juju/juju/internal/errors"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
+	"github.com/juju/juju/internal/provider/kubernetes"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -219,6 +221,98 @@ func (s *Service) VirtualHostKey(ctx context.Context, info virtualhostname.Info)
 	default:
 		return "", errors.Errorf("virtual hostname target %d %w", info.Target(), coreerrors.NotSupported)
 	}
+}
+
+// ResolveK8sExecInfo resolves the Kubernetes namespace and pod name for a
+// destination in this model.
+func (s *Service) ResolveK8sExecInfo(ctx context.Context, destination virtualhostname.Info) (string, string, error) {
+	if err := s.validateDestinationModel(destination); err != nil {
+		return "", "", err
+	}
+	modelInfo, err := s.state.GetModelInfo(ctx)
+	if err != nil {
+		return "", "", errors.Errorf("getting model info: %w", err)
+	}
+	if modelInfo.Type != string(coremodel.CAAS) {
+		return "", "", errors.Errorf("model %q is not a CAAS model", s.modelUUID)
+	}
+	unitName, ok := destination.Unit()
+	if !ok {
+		return "", "", errors.Errorf("destination has no unit")
+	}
+	podInfo, err := s.state.GetUnitK8sPodInfo(ctx, unitName)
+	if err != nil {
+		return "", "", errors.Errorf("getting Kubernetes pod info: %w", err)
+	}
+	namespace, err := s.modelNamespace(ctx, modelInfo)
+	if err != nil {
+		return "", "", err
+	}
+	return namespace, podInfo, nil
+}
+
+// MachineForDestination resolves an IAAS machine or machine-backed unit to
+// the machine name expected by the reverse tunnel tracker.
+func (s *Service) MachineForDestination(ctx context.Context, destination virtualhostname.Info) (coremachine.Name, error) {
+	if err := s.validateDestinationModel(destination); err != nil {
+		return "", err
+	}
+	modelInfo, err := s.state.GetModelInfo(ctx)
+	if err != nil {
+		return "", errors.Errorf("getting model info: %w", err)
+	}
+	if modelInfo.Type != string(coremodel.IAAS) {
+		return "", errors.Errorf("destination model %q is not IAAS", s.modelUUID)
+	}
+	switch destination.Target() {
+	case virtualhostname.MachineTarget:
+		machineName, ok := destination.Machine()
+		if !ok {
+			return "", errors.Errorf("destination has no machine")
+		}
+		exists, err := s.state.CheckMachineExists(ctx, machineName.String())
+		if err != nil {
+			return "", errors.Errorf("checking machine %q exists: %w", machineName, err)
+		}
+		if !exists {
+			return "", errors.Errorf("machine %q does not exist", machineName)
+		}
+		return machineName, nil
+	case virtualhostname.UnitTarget:
+		unitName, ok := destination.Unit()
+		if !ok {
+			return "", errors.Errorf("destination has no unit")
+		}
+		machineName, err := s.state.GetUnitMachineName(ctx, unitName)
+		if err != nil {
+			return "", errors.Errorf("getting machine for unit %q: %w", unitName, err)
+		}
+		return coremachine.Name(machineName), nil
+	default:
+		return "", errors.Errorf("destination is not a machine target")
+	}
+}
+
+func (s *Service) validateDestinationModel(destination virtualhostname.Info) error {
+	modelUUID := destination.ModelUUID()
+	if err := modelUUID.Validate(); err != nil {
+		return errors.Errorf("validating model UUID %q: %w", modelUUID, err)
+	}
+	if modelUUID != s.modelUUID {
+		return errors.Errorf("virtual hostname model UUID %q does not match service model %q", modelUUID, s.modelUUID)
+	}
+	return nil
+}
+
+func (s *Service) modelNamespace(ctx context.Context, modelInfo sshstate.ModelInfo) (string, error) {
+	if !modelInfo.IsControllerModel {
+		return modelInfo.Name, nil
+	}
+	controllerName, err := s.state.GetControllerName(ctx)
+	if err != nil {
+		return "", errors.Errorf("getting controller config: %w", err)
+	}
+	return kubernetes.DecideControllerNamespace(controllerName), nil
 }
 
 // MachineVirtualHostKey returns the machine terminating host key, generating
