@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/agentpassword"
-	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -41,14 +40,14 @@ func (s *ControllerState) SetControllerNodePasswordHash(ctx context.Context, id 
 		PasswordHash: passwordHash,
 	}
 
-	query := `
-SELECT COUNT(*) AS &count.count
-FROM controller_node
-WHERE controller_id = $entityPasswordHash.uuid;
+	ensureControllerNodeQuery := `
+INSERT INTO controller_node (controller_id)
+VALUES ($entityPasswordHash.uuid)
+ON CONFLICT (controller_id) DO NOTHING;
 `
-	stmt, err := s.Prepare(query, args, count{})
+	ensureControllerNodeStmt, err := s.Prepare(ensureControllerNodeQuery, args)
 	if err != nil {
-		return errors.Errorf("preparing statement to check if password hash exists: %w", err)
+		return errors.Errorf("preparing statement to ensure controller node exists: %w", err)
 	}
 
 	insertQuery := `
@@ -63,11 +62,8 @@ SET password_hash = $entityPasswordHash.password_hash;
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var count count
-		if err := tx.Query(ctx, stmt, args).Get(&count); count.Count == 0 {
-			return errors.Errorf("controller node %q: %w", id, controllernodeerrors.NotFound)
-		} else if err != nil {
-			return errors.Errorf("checking if password hash exists: %w", err)
+		if err := tx.Query(ctx, ensureControllerNodeStmt, args).Run(); err != nil {
+			return errors.Errorf("ensuring controller node exists: %w", err)
 		}
 
 		if err := tx.Query(ctx, insertStmt, args).Run(); err != nil {

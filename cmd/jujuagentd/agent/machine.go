@@ -782,6 +782,9 @@ func bootstrapStartupValues(config agent.Config) (int, string) {
 	if apiInfo, ok := config.APIInfo(); ok {
 		password = apiInfo.Password
 	}
+	if password == "" {
+		password = config.OldPassword()
+	}
 
 	return apiPort, password
 }

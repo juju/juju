@@ -11,7 +11,6 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/agentpassword"
-	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	internalpassword "github.com/juju/juju/internal/password"
 )
@@ -42,13 +41,22 @@ func (s *controllerModelState) TestSetControllerNodePassword(c *tc.C) {
 	c.Assert(hash, tc.Equals, string(passwordHash))
 }
 
-func (s *controllerModelState) TestSetControllerNodePasswordDoesNotExist(c *tc.C) {
+func (s *controllerModelState) TestSetControllerNodePasswordCreatesControllerNode(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
 
 	passwordHash := s.genPasswordHash(c)
 
 	err := st.SetControllerNodePasswordHash(c.Context(), "1", passwordHash)
-	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var hash string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT password_hash FROM controller_node_password WHERE controller_id = 1",
+		).Scan(&hash)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hash, tc.Equals, string(passwordHash))
 }
 
 func (s *controllerModelState) TestMatchesUnitPasswordHash(c *tc.C) {

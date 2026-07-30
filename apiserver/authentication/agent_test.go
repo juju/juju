@@ -253,6 +253,54 @@ func (s *agentAuthenticatorSuite) TestControllerNodeLogin(c *tc.C) {
 	c.Check(authenticatedTag, tc.DeepEquals, authTag)
 }
 
+func (s *agentAuthenticatorSuite) TestControllerNodeLoginUsesBootstrapPasswordForNewNode(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.agentPasswordService.EXPECT().MatchesControllerNodePasswordHash(
+		gomock.Any(), "1", "password",
+	).Return(false, nil)
+	s.agentPasswordService.EXPECT().MatchesControllerNodePasswordHash(
+		gomock.Any(), "0", "password",
+	).Return(true, nil)
+
+	authTag := names.NewControllerAgentTag("1")
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(
+		s.agentPasswordService, loggertesting.WrapCheckLog(c),
+	)
+	authenticatedTag, err := authenticatorGetter.Authenticator().Authenticate(
+		c.Context(), authentication.AuthParams{
+			AuthTag:     authTag,
+			Credentials: "password",
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(authenticatedTag, tc.DeepEquals, authTag)
+}
+
+func (s *agentAuthenticatorSuite) TestControllerNodeLoginUsesBootstrapUnitPasswordForNewNode(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.agentPasswordService.EXPECT().MatchesControllerNodePasswordHash(
+		gomock.Any(), "2", "password",
+	).Return(false, controllernodeerrors.NotFound)
+	s.agentPasswordService.EXPECT().MatchesControllerNodePasswordHash(
+		gomock.Any(), "0", "password",
+	).Return(false, nil)
+	s.agentPasswordService.EXPECT().MatchesUnitPasswordHash(
+		gomock.Any(), unit.Name("controller/0"), "password",
+	).Return(true, nil)
+
+	authTag := names.NewControllerAgentTag("2")
+
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
+	authenticatedTag, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
+		AuthTag:     authTag,
+		Credentials: "password",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(authenticatedTag, tc.DeepEquals, authTag)
+}
+
 func (s *agentAuthenticatorSuite) TestControllerNodeLoginEmptyCredentials(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -319,6 +367,27 @@ func (s *agentAuthenticatorSuite) TestApplicationLogin(c *tc.C) {
 	s.agentPasswordService.EXPECT().MatchesApplicationPasswordHash(gomock.Any(), "foo", "password").Return(true, nil)
 
 	authTag := names.NewApplicationTag("foo")
+
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
+	authenticatedTag, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
+		AuthTag:     authTag,
+		Credentials: "password",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(authenticatedTag, tc.DeepEquals, authTag)
+}
+
+func (s *agentAuthenticatorSuite) TestControllerApplicationLoginUsesBootstrapUnitPassword(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.agentPasswordService.EXPECT().MatchesApplicationPasswordHash(
+		gomock.Any(), "controller", "password",
+	).Return(false, nil)
+	s.agentPasswordService.EXPECT().MatchesUnitPasswordHash(
+		gomock.Any(), unit.Name("controller/0"), "password",
+	).Return(true, nil)
+
+	authTag := names.NewApplicationTag("controller")
 
 	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, loggertesting.WrapCheckLog(c))
 	authenticatedTag, err := authenticatorGetter.Authenticator().Authenticate(c.Context(), authentication.AuthParams{
