@@ -464,12 +464,11 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesApplicationOfferNoMa
 		"", errors.NotFoundf("offer for app %q", "missing"))
 
 	runner := NewMockTransactionRunner(ctrl)
-	// No call to RunTransaction for an invalid tag.
+	// No call to RunTransaction when no matching offer exists.
 
 	m := ImportRemoteEntities{}
 	err := m.Execute(model, runner)
-	c.Assert(err, gc.ErrorMatches,
-		`"applicationoffer-missing" is not a valid applicationoffer tag`)
+	c.Assert(err, gc.ErrorMatches, `offer for app "missing" not found`)
 }
 
 func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesWithNoEntities(c *gc.C) {

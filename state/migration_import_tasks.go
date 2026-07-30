@@ -446,7 +446,7 @@ func (im *ImportRemoteEntities) maybeConvertApplicationOffer(
 	}
 	uuid, err := src.OfferUUIDForApp(name)
 	if errors.Is(err, errors.NotFound) {
-		return id, false, nil
+		return id, false, errors.Trace(err)
 	}
 	if err != nil {
 		return id, false, errors.Trace(err)
@@ -475,6 +475,7 @@ type applicationOffersStateShim struct {
 }
 
 type applicationOfferDetails struct {
+	// name is only used for diagnostics, since offersByApplicationName is indexed by name
 	name string
 	uuid string
 }
