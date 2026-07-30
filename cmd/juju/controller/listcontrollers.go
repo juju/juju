@@ -19,6 +19,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
 )
@@ -193,7 +194,18 @@ func (c *listControllersCommand) refreshControllerDetails(ctx context.Context, c
 		machineCount += s.TotalMachineCount
 	}
 	details.MachineCount = &machineCount
-	details.ActiveControllerMachineCount, details.ControllerMachineCount = ControllerMachineCounts(controllerModelUUID, modelStatus)
+	activeControllerCount, controllerCount := ControllerMachineCounts(controllerModelUUID, modelStatus)
+	for _, s := range modelStatus {
+		if s.Error == nil && s.UUID == controllerModelUUID && s.ModelType == model.CAAS {
+			machineCount = s.UnitCount
+			details.MachineCount = &machineCount
+			activeControllerCount = s.UnitCount
+			controllerCount = s.UnitCount
+			break
+		}
+	}
+	details.ActiveControllerMachineCount = activeControllerCount
+	details.ControllerMachineCount = controllerCount
 	return c.store.UpdateController(controllerName, *details)
 }
 

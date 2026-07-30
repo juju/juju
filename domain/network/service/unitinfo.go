@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/collections/transform"
 
+	coreapplication "github.com/juju/juju/core/application"
 	corenetwork "github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
@@ -78,6 +79,7 @@ func (s *ProviderService) GetUnitRelationNetworks(
 		infos, err := s.getUnitEndpointNetworks(
 			ctx, unitUUID.String(), []string{endpointName}, egressSubnets,
 			supportsNetworking, isCaas, fqdns,
+			unitName.Application() == coreapplication.ControllerApplicationName,
 		)
 		if err != nil {
 			return nil, internalerrors.Errorf("getting unit endpoint networks: %w", err)
@@ -135,6 +137,7 @@ func (s *ProviderService) GetUnitEndpointNetworks(
 	return s.getUnitEndpointNetworks(
 		ctx, unitUUID.String(), endpointNames, defaultEgressSubnets,
 		supportsNetworking, isCaas, fqdns,
+		unitName.Application() == coreapplication.ControllerApplicationName,
 	)
 }
 
@@ -176,10 +179,12 @@ func (s *ProviderService) getUnitEndpointNetworks(
 	supportsNetworking bool,
 	isCaas bool,
 	fqdns []string,
+	useFQDNIngress bool,
 ) ([]domainnetwork.UnitNetwork, error) {
 	if !supportsNetworking {
 		return s.getUnitEndpointNetworksWithoutProviderNetworking(
 			ctx, unitUUID, endpointNames, fqdns, isCaas, defaultEgressSubnets,
+			useFQDNIngress,
 		)
 	}
 
@@ -196,6 +201,9 @@ func (s *ProviderService) getUnitEndpointNetworks(
 			fqdns,
 			isCaas,
 		)
+		if useFQDNIngress && len(fqdns) > 0 {
+			info.IngressAddresses = []string{fqdns[0]}
+		}
 		info.EndpointName = endpointNetwork.EndpointName
 		info.EgressSubnets = defaultEgressSubnets
 		if len(info.EgressSubnets) == 0 {
@@ -270,6 +278,7 @@ func buildUnitNetworkWithIngressAddresses(
 				return domainnetwork.AddressInfo{
 					Hostname: fqdn,
 					Value:    fqdn,
+					CIDR:     "0.0.0.0/0",
 				}
 			}),
 		}}
@@ -334,6 +343,7 @@ func (s *ProviderService) getUnitEndpointNetworksWithoutProviderNetworking(
 	fqdns []string,
 	isCaas bool,
 	defaultEgressSubnets []string,
+	useFQDNIngress bool,
 ) ([]domainnetwork.UnitNetwork, error) {
 	unitNetwork, err := s.st.GetUnitNetworkInfo(ctx, unitUUID)
 	if err != nil {
@@ -342,6 +352,9 @@ func (s *ProviderService) getUnitEndpointNetworksWithoutProviderNetworking(
 	info := buildUnitNetworkWithIngressAddresses(
 		unitNetwork.Addresses, unitNetwork.IngressAddresses, fqdns, isCaas,
 	)
+	if useFQDNIngress && len(fqdns) > 0 {
+		info.IngressAddresses = []string{fqdns[0]}
+	}
 	info.EgressSubnets = defaultEgressSubnets
 	if len(info.EgressSubnets) == 0 {
 		info.EgressSubnets = subnetsForAddresses(info.IngressAddresses)

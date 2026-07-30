@@ -125,6 +125,11 @@ func (s *ListControllersSuite) setupAPIForControllerMachines() {
 					{Id: "2", Status: "active"},
 				},
 			}
+			fakeController.units = map[string]int{"xyz": 3}
+			fakeController.modelTypes = map[string]model.ModelType{
+				"xyz": model.CAAS,
+				"def": model.CAAS,
+			}
 		}
 		return fakeController
 	}
@@ -133,13 +138,11 @@ func (s *ListControllersSuite) setupAPIForControllerMachines() {
 func (s *ListControllersSuite) TestListControllersKnownHAStatus(c *tc.C) {
 	s.createTestClientStore(c)
 	s.setupAPIForControllerMachines()
-	s.expectedOutput = `
-Controller           Model              User   Access     Cloud/Region        Models  Nodes    HA  Version
-aws-test             prod/controller    admin  (unknown)  aws/us-east-1            1      2   2/3  2.0.1      
-k8s-controller       prod/my-k8s-model  admin  superuser  microk8s/localhost       2      4     -  6.6.6      
-mallards*            prod/my-model      admin  superuser  mallards/mallards1       2      4  none  (unknown)  
-mark-test-prodstack  -                  admin  (unknown)  prodstack                -      -     -  (unknown)  
-`[1:]
+	s.expectedOutput = "Controller           Model              User   Access     Cloud/Region        Models  Nodes    HA  Version\n" +
+		"aws-test             prod/controller    admin  (unknown)  aws/us-east-1            1      2   2/3  2.0.1      \n" +
+		"k8s-controller       prod/my-k8s-model  admin  superuser  microk8s/localhost       2      3     3  6.6.6      \n" +
+		"mallards*            prod/my-model      admin  superuser  mallards/mallards1       2      4  none  (unknown)  \n" +
+		"mark-test-prodstack  -                  admin  (unknown)  prodstack                -      -     -  (unknown)  \n"
 	s.assertListControllers(c, "--refresh")
 }
 
@@ -173,10 +176,10 @@ controllers:
     region: localhost
     agent-version: 6.6.6
     model-count: 2
-    node-count: 4
+    node-count: 3
     controller-nodes:
-      active: 1
-      total: 1
+      active: 3
+      total: 3
   mallards:
     current-model: prod/my-model
     user: admin
