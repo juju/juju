@@ -361,6 +361,116 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntities(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesApplicationOfferApplicationName(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	entity := s.remoteEntity(ctrl, "applicationoffer-app2", "xxx-yyy-ccc")
+	lookup := applicationOffersStateShim{
+		offersByApplicationName: map[string][]applicationOfferDetails{
+			"app2": {{name: "offer2", uuid: "uuid2"}},
+		},
+	}
+
+	model := NewMockRemoteEntitiesInput(ctrl)
+	model.EXPECT().RemoteEntities().Return([]description.RemoteEntity{entity})
+	model.EXPECT().OfferUUID("app2").Return("", false)
+	model.EXPECT().OfferUUIDForApp("app2").DoAndReturn(lookup.OfferUUIDForApp)
+	model.EXPECT().DocID("applicationoffer-uuid2").Return("doc-uuid2")
+
+	runner := NewMockTransactionRunner(ctrl)
+	runner.EXPECT().RunTransaction([]txn.Op{{
+		C:      remoteEntitiesC,
+		Id:     "doc-uuid2",
+		Assert: txn.DocMissing,
+		Insert: &remoteEntityDoc{
+			DocID: "doc-uuid2",
+			Token: "xxx-yyy-ccc",
+		},
+	}}).Return(nil)
+
+	m := ImportRemoteEntities{}
+	err := m.Execute(model, runner)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesOfferNameTakesPrecedence(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	entity := s.remoteEntity(ctrl, "applicationoffer-shared-name", "xxx-yyy-ccc")
+
+	model := NewMockRemoteEntitiesInput(ctrl)
+	model.EXPECT().RemoteEntities().Return([]description.RemoteEntity{entity})
+	model.EXPECT().OfferUUID("shared-name").Return("offer-uuid", true)
+	model.EXPECT().DocID("applicationoffer-offer-uuid").Return("doc-offer-uuid")
+
+	runner := NewMockTransactionRunner(ctrl)
+	runner.EXPECT().RunTransaction([]txn.Op{{
+		C:      remoteEntitiesC,
+		Id:     "doc-offer-uuid",
+		Assert: txn.DocMissing,
+		Insert: &remoteEntityDoc{
+			DocID: "doc-offer-uuid",
+			Token: "xxx-yyy-ccc",
+		},
+	}}).Return(nil)
+
+	m := ImportRemoteEntities{}
+	err := m.Execute(model, runner)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesApplicationNameAmbiguous(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	entity := NewMockRemoteEntity(ctrl)
+	entity.EXPECT().ID().Return("applicationoffer-app2").AnyTimes()
+	lookup := applicationOffersStateShim{
+		offersByApplicationName: map[string][]applicationOfferDetails{
+			"app2": {
+				{name: "offer-z", uuid: "uuid-z"},
+				{name: "offer-a", uuid: "uuid-a"},
+			},
+		},
+	}
+
+	model := NewMockRemoteEntitiesInput(ctrl)
+	model.EXPECT().RemoteEntities().Return([]description.RemoteEntity{entity})
+	model.EXPECT().OfferUUID("app2").Return("", false)
+	model.EXPECT().OfferUUIDForApp("app2").DoAndReturn(lookup.OfferUUIDForApp)
+
+	runner := NewMockTransactionRunner(ctrl)
+	// No call to RunTransaction when the application name is ambiguous.
+
+	m := ImportRemoteEntities{}
+	err := m.Execute(model, runner)
+	c.Assert(err, gc.ErrorMatches,
+		`application "app2" has multiple offers: "offer-a" \(uuid-a\), "offer-z" \(uuid-z\)`)
+}
+
+func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesApplicationOfferNoMatch(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	entity := NewMockRemoteEntity(ctrl)
+	entity.EXPECT().ID().Return("applicationoffer-missing").AnyTimes()
+
+	model := NewMockRemoteEntitiesInput(ctrl)
+	model.EXPECT().RemoteEntities().Return([]description.RemoteEntity{entity})
+	model.EXPECT().OfferUUID("missing").Return("", false)
+	model.EXPECT().OfferUUIDForApp("missing").Return(
+		"", errors.NotFoundf("offer for app %q", "missing"))
+
+	runner := NewMockTransactionRunner(ctrl)
+	// No call to RunTransaction when no matching offer exists.
+
+	m := ImportRemoteEntities{}
+	err := m.Execute(model, runner)
+	c.Assert(err, gc.ErrorMatches, `offer for app "missing" not found`)
+}
+
 func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesWithNoEntities(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
