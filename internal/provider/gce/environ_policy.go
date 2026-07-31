@@ -26,6 +26,17 @@ func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args envir
 		if !env.checkInstanceType(ctx, args.Constraints) {
 			return errors.Errorf("invalid GCE instance type %q", *args.Constraints.InstanceType)
 		}
+		if args.Constraints.HasRootDiskSource() {
+			instanceTypeName := *args.Constraints.InstanceType
+			dt := google.DiskType(*args.Constraints.RootDiskSource)
+			if dt == google.DiskLocalSSD {
+				return errors.NotValidf("local SSD disk storage")
+			} else if isValidDiskType(dt) {
+				if google.IsLegacyMachineSeries(instanceTypeName) && isValidHyperDiskType(dt) {
+					return errors.NotSupportedf("hyperdisk storage for legacy instance %q", instanceTypeName)
+				}
+			}
+		}
 	}
 
 	vpcLink, autosubnets, err := env.getVpcInfo(ctx)
@@ -55,7 +66,7 @@ var unsupportedConstraints = []string{
 // instance types. See instancetypes.go.
 var instanceTypeConstraints = []string{
 	// TODO: move to a dynamic conflict for arch when gce supports more than amd64
-	//constraints.Arch, // Arches
+	// constraints.Arch, // Arches
 	constraints.Cores,
 	constraints.CpuPower,
 	constraints.Mem,

@@ -26,6 +26,14 @@ const (
 	// persistent
 	DiskPersistentStandard DiskType = "pd-standard"
 	DiskPersistentSSD      DiskType = "pd-ssd"
+	DiskPersistentBalanced DiskType = "pd-balanced"
+	DiskPersistentExtreme  DiskType = "pd-extreme"
+	// hyperdisk
+	DiskHyperdiskBalanced                 DiskType = "hyperdisk-balanced"
+	DiskHyperdiskBalancedHighAvailability DiskType = "hyperdisk-balanced-high-availability"
+	DiskHyperdiskML                       DiskType = "hyperdisk-ml"
+	DiskHyperdiskExtreme                  DiskType = "hyperdisk-extreme"
+	DiskHyperdiskThroughput               DiskType = "hyperdisk-throughput"
 	// scratch
 	DiskLocalSSD DiskType = "local-ssd"
 )
