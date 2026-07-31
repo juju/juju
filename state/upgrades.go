@@ -455,34 +455,114 @@ func ConvertScalingToCurrentOperationEnumField(pool *StatePool) error {
 	})
 }
 
-// virtualHostKeysCollectionName is the name of the MongoDB collection that
-// held per-machine and per-CAAS-unit virtual SSH host keys for the
-// controller-proxied SSH feature. The feature was removed from the 3.6 line
-// but the collection was left behind in upgraded controllers' model
-// databases. DropVirtualHostKeysCollection removes the orphaned collection
-// from every model so no dead data remains.
+// sshProxyCollectionNames holds the names of the MongoDB collections that
+// were used by the controller-proxied SSH feature. The feature was removed
+// from the 3.6 line but the collections were left behind in upgraded
+// controllers' model databases. DropSSHProxyCollections removes the
+// orphaned collections from every model so no dead data remains.
 //
-// The collection constant is defined locally here rather than in
-// allcollections.go because the collection is no longer registered as a known
-// collection; the upgrade step only needs the name to drop it.
-const virtualHostKeysCollectionName = "virtualhostkeys"
+// The collection constants are defined locally here rather than in
+// allcollections.go because the collections are no longer registered as
+// known collections; the upgrade step only needs the names to drop them.
+var sshProxyCollectionNames = []string{
+	"virtualhostkeys",
+	"sshrequests",
+}
 
-// DropVirtualHostKeysCollection drops the orphaned virtual host keys
-// collection from every model in the pool. It is a no-op for models where the
-// collection does not exist (mgo's DropCollection returns nil for a missing
-// collection), so the step is idempotent and safe to run on controllers that
-// never had the feature.
-func DropVirtualHostKeysCollection(pool *StatePool) error {
+// sshProxyCleanupKind is the cleanupKind value that was used for expired
+// SSH connection requests. The cleanup handler was removed along with the
+// rest of the feature, so any leftover cleanup documents of this kind
+// would fail (or attempt to access a dropped collection) when processed.
+const sshProxyCleanupKind cleanupKind = "sshConnRequests"
+
+// sshProxyControllerConfigKeys are the controller configuration keys that
+// were added for the controller-proxied SSH feature. They are no longer
+// part of the controller config schema, so any values left behind in the
+// controller settings document by an upgraded controller are orphaned and
+// would be surfaced to clients as unexpected config entries.
+var sshProxyControllerConfigKeys = []string{
+	"ssh-server-port",
+	"ssh-max-concurrent-connections",
+}
+
+// DropSSHProxyCollections removes all state left behind by the removed
+// controller-proxied SSH feature from every model in the pool:
+//
+//   - the virtualhostkeys and sshrequests collections are dropped, and
+//   - any leftover "sshConnRequests" cleanup documents are removed so they
+//     cannot trigger a handler that no longer exists.
+//
+// Each operation is a no-op where the underlying data does not exist
+// (mgo's DropCollection returns nil for a missing collection, and removing
+// absent documents or settings keys is harmless), so the step is
+// idempotent and safe to run on controllers that never had the feature.
+func DropSSHProxyCollections(pool *StatePool) error {
 	return runForAllModelStates(pool, func(st *State) error {
-		coll, closer, err := st.db().GetRawCollection(virtualHostKeysCollectionName)
-		if err != nil {
-			return errors.Trace(err)
+		for _, name := range sshProxyCollectionNames {
+			coll, closer, err := st.db().GetRawCollection(name)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if err := coll.DropCollection(); err != nil {
+				closer()
+				return errors.Annotatef(err, "dropping %q collection", name)
+			}
+			closer()
 		}
-		defer closer()
-		if err := coll.DropCollection(); err != nil {
-			return errors.Annotatef(err, "dropping %q collection",
-				virtualHostKeysCollectionName)
+		if err := st.removeSSHProxyCleanupDocs(); err != nil {
+			return errors.Trace(err)
 		}
 		return nil
 	})
+}
+
+// RemoveSSHProxyControllerConfig removes the orphaned controller-proxied
+// SSH configuration keys from the controller settings document. It only
+// needs to run once against the system (controller) state, as controller
+// config is global rather than per-model.
+func RemoveSSHProxyControllerConfig(pool *StatePool) error {
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	settings, err := readSettings(st.db(), controllersC, ControllerSettingsGlobalKey)
+	if err != nil {
+		return errors.Annotatef(err, "controller %q", st.ControllerUUID())
+	}
+	for _, key := range sshProxyControllerConfigKeys {
+		settings.Delete(key)
+	}
+	_, ops := settings.settingsUpdateOps()
+	if len(ops) == 0 {
+		return nil
+	}
+	return errors.Trace(settings.write(ops))
+}
+
+// removeSSHProxyCleanupDocs removes any leftover cleanup documents for the
+// removed "sshConnRequests" cleanup kind. Without this, the cleanup worker
+// could pick up such a document and fail trying to run a handler that no
+// longer exists against a collection that has been dropped.
+func (st *State) removeSSHProxyCleanupDocs() error {
+	coll, closer, err := st.db().GetCollection(cleanupsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer closer()
+	var docs []cleanupDoc
+	if err := coll.Find(bson.D{{Name: "kind", Value: sshProxyCleanupKind}}).All(&docs); err != nil {
+		return errors.Annotate(err, "cannot read ssh proxy cleanup documents")
+	}
+	if len(docs) == 0 {
+		return nil
+	}
+	ops := make([]txn.Op, 0, len(docs))
+	for _, doc := range docs {
+		ops = append(ops, txn.Op{
+			C:      cleanupsC,
+			Id:     doc.DocID,
+			Remove: true,
+		})
+	}
+	return errors.Trace(st.runRawTransaction(ops))
 }

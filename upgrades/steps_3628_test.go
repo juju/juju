@@ -20,7 +20,12 @@ type steps3628Suite struct {
 
 var _ = gc.Suite(&steps3628Suite{})
 
-func (s *steps3628Suite) TestDropVirtualHostKeysCollection(c *gc.C) {
-	step := findStateStep(c, v3628, "drop unused virtual host keys collection")
+func (s *steps3628Suite) TestDropSSHProxyCollections(c *gc.C) {
+	step := findStateStep(c, v3628, "drop unused ssh proxy collections and cleanup docs")
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
+
+func (s *steps3628Suite) TestRemoveSSHProxyControllerConfig(c *gc.C) {
+	step := findStateStep(c, v3628, "remove orphaned ssh proxy controller config keys")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }

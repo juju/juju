@@ -25,7 +25,8 @@ type StateBackend interface {
 	OpenControllerAPIPort() error
 	ConvertScalingToCurrentOperationEnumField() error
 	ExposeControllerApplication() error
-	DropVirtualHostKeysCollection() error
+	DropSSHProxyCollections() error
+	RemoveSSHProxyControllerConfig() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -79,11 +80,19 @@ func (s stateBackend) ExposeControllerApplication() error {
 	return state.ExposeControllerApplication(s.pool)
 }
 
-// DropVirtualHostKeysCollection runs an upgrade to drop the orphaned
-// virtual host keys collection left behind after the SSH proxy feature was
-// removed from the 3.6 line.
-func (s stateBackend) DropVirtualHostKeysCollection() error {
-	return state.DropVirtualHostKeysCollection(s.pool)
+// DropSSHProxyCollections runs an upgrade to drop the orphaned
+// virtualhostkeys and sshrequests collections and remove leftover SSH
+// connection request cleanup documents left behind after the SSH proxy
+// feature was removed from the 3.6 line.
+func (s stateBackend) DropSSHProxyCollections() error {
+	return state.DropSSHProxyCollections(s.pool)
+}
+
+// RemoveSSHProxyControllerConfig runs an upgrade to remove the orphaned
+// ssh-server-port and ssh-max-concurrent-connections controller config keys
+// left behind after the SSH proxy feature was removed from the 3.6 line.
+func (s stateBackend) RemoveSSHProxyControllerConfig() error {
+	return state.RemoveSSHProxyControllerConfig(s.pool)
 }
 
 // newK8sClient initializes a new k8s client for a given model.
