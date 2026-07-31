@@ -53,14 +53,16 @@ the corresponding cloud instance by using the ` + "`--keep-instance`" + ` option
 
 Machines responsible for the model cannot be removed.
 
-Machines running units or containers can be removed using the ` + "`--force`" + `
-option; this will also remove those units and containers without giving
-them an opportunity to shut down cleanly.
+When ` + "`requires-prompts`" + ` is present in the model's ` + "`mode`" + `
+configuration, removing machines that host units or containers requires
+confirmation. Use ` + "`--no-prompt`" + ` to skip this confirmation.
 
 Machine removal is a multi-step process. Under normal circumstances, Juju will not
 proceed to the next step until the current step has finished.
-However, when using ` + "`--force`" + `, users can also specify ` + "`--no-wait`" + `
-to progress through steps without delay waiting for each step to complete.
+Use ` + "`--force`" + ` to continue removal despite errors accessing cloud
+resources. This does not bypass any required confirmation. When using
+` + "`--force`" + `, users can also specify ` + "`--no-wait`" + ` to progress
+through steps without waiting for each step to complete.
 `
 
 const destroyMachineExamples = `
@@ -97,7 +99,7 @@ func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.RemoveConfirmationCommandBase.SetFlags(f)
 	f.BoolVar(&c.DryRun, "dry-run", false, "Print what this command would be removed without removing")
-	f.BoolVar(&c.Force, "force", false, "Completely remove a machine and all its dependencies")
+	f.BoolVar(&c.Force, "force", false, "Force removal despite errors accessing cloud resources")
 	f.BoolVar(&c.KeepInstance, "keep-instance", false, "Do not stop the running cloud instance")
 	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through machine removal without waiting for each individual step to complete")
 	c.fs = f
@@ -121,6 +123,7 @@ func (c *removeCommand) Init(args []string) error {
 
 type RemoveMachineAPI interface {
 	DestroyMachinesWithParams(force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
+	DestroyMachinesWithHostedUnitsAndContainers(force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
 	BestAPIVersion() int
 	Close() error
 }
@@ -168,6 +171,8 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
+	facadeVersion := client.BestAPIVersion()
+
 	modelConfigClient, err := c.getModelConfigAPI()
 	if err != nil {
 		return err
@@ -175,28 +180,86 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	defer modelConfigClient.Close()
 
 	if c.DryRun {
-		return c.performDryRun(ctx, client)
-	}
-
-	needsConfirmation := c.NeedsConfirmation(modelConfigClient)
-	if needsConfirmation {
-		err := c.performDryRun(ctx, client)
-		if err == errDryRunNotSupported {
-			ctx.Warningf(removeMachineMsgNoDryRun, strings.Join(c.MachineIds, ", "))
-		} else if err != nil {
+		// TODO(jack-w-shaw) Drop this once machinemanager 9 support is dropped
+		if facadeVersion < 10 {
+			return errDryRunNotSupported
+		}
+		results, err := c.dryRun(client)
+		if err != nil {
 			return err
 		}
-		if err := jujucmd.UserConfirmYes(ctx); err != nil {
-			return errors.Annotate(err, "machine removal")
+		if err := c.logErrors(ctx, results); err != nil {
+			return err
+		}
+		c.logDryRun(ctx, results)
+		if facadeVersion < 11 &&
+			c.runHasHostedUnitsOrContainers(results) && !c.Force {
+			ctx.Infof("\nThis will require `--force`")
+		}
+		return nil
+	}
+
+	confirmationEnabled := c.NeedsConfirmation(modelConfigClient)
+	supportsHostedRemoval := facadeVersion >= 11
+	destroyHostedUnitsAndContainers := !confirmationEnabled &&
+		supportsHostedRemoval
+	prompted := false
+	if confirmationEnabled {
+		if supportsHostedRemoval {
+			results, err := c.dryRun(client)
+			if err != nil {
+				return err
+			}
+			if err := c.logErrors(ctx, results); err != nil {
+				return err
+			}
+			if c.runHasHostedUnitsOrContainers(results) || c.Force {
+				c.logDryRun(ctx, results)
+				if err := jujucmd.UserConfirmYes(ctx); err != nil {
+					return errors.Annotate(err, "machine removal")
+				}
+				destroyHostedUnitsAndContainers = true
+				prompted = true
+			}
+		} else {
+			if facadeVersion < 10 {
+				ctx.Warningf(removeMachineMsgNoDryRun, strings.Join(c.MachineIds, ", "))
+			} else {
+				results, err := c.dryRun(client)
+				if err != nil {
+					return err
+				}
+				if err := c.logErrors(ctx, results); err != nil {
+					return err
+				}
+				c.logDryRun(ctx, results)
+				if c.runHasHostedUnitsOrContainers(results) && !c.Force {
+					ctx.Infof("\nThis will require `--force`")
+				}
+			}
+			if err := jujucmd.UserConfirmYes(ctx); err != nil {
+				return errors.Annotate(err, "machine removal")
+			}
+			prompted = true
 		}
 	}
 
-	results, err := client.DestroyMachinesWithParams(c.Force, c.KeepInstance, false, maxWait, c.MachineIds...)
+	destroyMachines := client.DestroyMachinesWithParams
+	if destroyHostedUnitsAndContainers {
+		destroyMachines = client.DestroyMachinesWithHostedUnitsAndContainers
+	}
+	results, err := destroyMachines(
+		c.Force,
+		c.KeepInstance,
+		false,
+		maxWait,
+		c.MachineIds...,
+	)
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return errors.Trace(err)
 	}
 
-	logAll := !needsConfirmation || client.BestAPIVersion() < 10
+	logAll := !prompted || facadeVersion < 10
 	if logAll {
 		return c.logResults(ctx, results)
 	} else {
@@ -204,27 +267,26 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 }
 
-func (c *removeCommand) performDryRun(ctx *cmd.Context, client RemoveMachineAPI) error {
-	// TODO(jack-w-shaw) Drop this once machinemanager 9 support is dropped
-	if client.BestAPIVersion() < 10 {
-		return errDryRunNotSupported
-	}
-	results, err := client.DestroyMachinesWithParams(c.Force, c.KeepInstance, true, nil, c.MachineIds...)
+func (c *removeCommand) dryRun(client RemoveMachineAPI) ([]params.DestroyMachineResult, error) {
+	results, err := client.DestroyMachinesWithParams(
+		c.Force,
+		c.KeepInstance,
+		true,
+		nil,
+		c.MachineIds...,
+	)
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	if err := c.logErrors(ctx, results); err != nil {
-		return err
-	}
-	ctx.Warningf(removeMachineMsgPrefix)
-	_ = c.logResults(ctx, results)
-	if c.runNeedsForce(results) && !c.Force {
-		ctx.Infof("\nThis will require `--force`")
-	}
-	return nil
+	return results, nil
 }
 
-func (c *removeCommand) runNeedsForce(results []params.DestroyMachineResult) bool {
+func (c *removeCommand) logDryRun(ctx *cmd.Context, results []params.DestroyMachineResult) {
+	ctx.Warningf(removeMachineMsgPrefix)
+	_ = c.logResults(ctx, results)
+}
+
+func (c *removeCommand) runHasHostedUnitsOrContainers(results []params.DestroyMachineResult) bool {
 	for _, result := range results {
 		if result.Error != nil {
 			continue

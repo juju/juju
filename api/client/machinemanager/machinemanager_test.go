@@ -202,7 +202,7 @@ func (s *MachinemanagerSuite) TestProvisioningScript(c *gc.C) {
 	c.Assert(script, gc.Equals, "script")
 }
 
-func (s *MachinemanagerSuite) clientToTestDestroyMachinesWithParams(maxWait *time.Duration, ctrl *gomock.Controller) (*machinemanager.Client, []params.DestroyMachineResult) {
+func (s *MachinemanagerSuite) clientToTestDestroyMachinesWithParams(maxWait *time.Duration, method string, ctrl *gomock.Controller) (*machinemanager.Client, []params.DestroyMachineResult) {
 	expectedResults := []params.DestroyMachineResult{{
 		Error: &params.Error{Message: "boo"},
 	}, {
@@ -225,7 +225,10 @@ func (s *MachinemanagerSuite) clientToTestDestroyMachinesWithParams(maxWait *tim
 	res := new(params.DestroyMachineResults)
 	ress := params.DestroyMachineResults{Results: expectedResults}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("DestroyMachineWithParams", args, res).SetArg(2, ress).Return(nil)
+	if method == "DestroyMachineWithHostedUnitsAndContainers" {
+		mockFacadeCaller.EXPECT().BestAPIVersion().Return(11)
+	}
+	mockFacadeCaller.EXPECT().FacadeCall(method, args, res).SetArg(2, ress).Return(nil)
 	client := machinemanager.NewClientFromCaller(mockFacadeCaller)
 
 	return client, expectedResults
@@ -235,7 +238,7 @@ func (s *MachinemanagerSuite) TestDestroyMachinesWithParamsNoWait(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	noWait := 0 * time.Second
-	client, expected := s.clientToTestDestroyMachinesWithParams(&noWait, ctrl)
+	client, expected := s.clientToTestDestroyMachinesWithParams(&noWait, "DestroyMachineWithParams", ctrl)
 	results, err := client.DestroyMachinesWithParams(true, true, false, &noWait, "0", "0/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expected)
@@ -244,10 +247,36 @@ func (s *MachinemanagerSuite) TestDestroyMachinesWithParamsNoWait(c *gc.C) {
 func (s *MachinemanagerSuite) TestDestroyMachinesWithParamsNilWait(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	client, expected := s.clientToTestDestroyMachinesWithParams((*time.Duration)(nil), ctrl)
+	client, expected := s.clientToTestDestroyMachinesWithParams((*time.Duration)(nil), "DestroyMachineWithParams", ctrl)
 	results, err := client.DestroyMachinesWithParams(true, true, false, (*time.Duration)(nil), "0", "0/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expected)
+}
+
+func (s *MachinemanagerSuite) TestDestroyMachinesWithHostedUnitsAndContainers(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	client, expected := s.clientToTestDestroyMachinesWithParams(
+		(*time.Duration)(nil),
+		"DestroyMachineWithHostedUnitsAndContainers",
+		ctrl,
+	)
+	results, err := client.DestroyMachinesWithHostedUnitsAndContainers(true, true, false, (*time.Duration)(nil), "0", "0/lxd/1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, expected)
+}
+
+func (s *MachinemanagerSuite) TestDestroyMachinesWithHostedUnitsAndContainersNotSupported(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().BestAPIVersion().Return(10)
+	client := machinemanager.NewClientFromCaller(mockFacadeCaller)
+
+	_, err := client.DestroyMachinesWithHostedUnitsAndContainers(false, false, false, nil, "0")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, gc.ErrorMatches, "destroying machines with hosted units and containers on this version of Juju not supported")
 }
 
 func (s *MachinemanagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
