@@ -36,13 +36,13 @@ func (w *recordingLogWriter) Log(records []corelogger.LogRecord) error {
 // model the migrated log records belong to, and which requests are refused.
 //
 // /migrate/logtransfer is a controller-scoped route, so the request context
-// carries the *controller* model's UUID. The model being migrated is named by
-// the migration header instead. Getting this wrong is not loud: it silently
-// files a migrated model's entire log history under the controller model, where
-// `juju debug-log -m <controller>:<model>` will never show it.
+// carries the *controller* model's UUID; the model being migrated is named by
+// the migration header instead. Records filed under the wrong model are not
+// lost, only invisible to `juju debug-log -m <controller>:<model>`, so nothing
+// downstream catches the mistake.
 type migrationLogTransferSuite struct {
-	modelService *MockMigrationLogModelService
-	modeService  *MockMigrationLogModeService
+	modelService         *MockLogTransferModelService
+	migrationModeService *MockLogTransferMigrationModeService
 }
 
 // TestMigrationLogTransferSuite runs all of the tests that are a part of the
@@ -53,12 +53,12 @@ func TestMigrationLogTransferSuite(t *testing.T) {
 
 func (s *migrationLogTransferSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.modelService = NewMockMigrationLogModelService(ctrl)
-	s.modeService = NewMockMigrationLogModeService(ctrl)
+	s.modelService = NewMockLogTransferModelService(ctrl)
+	s.migrationModeService = NewMockLogTransferMigrationModeService(ctrl)
 
 	c.Cleanup(func() {
 		s.modelService = nil
-		s.modeService = nil
+		s.migrationModeService = nil
 	})
 	return ctrl
 }
@@ -74,10 +74,10 @@ func newLogTransferRequest(modelUUID string) *http.Request {
 }
 
 // TestModelUUIDMissingHeader checks that a request which does not name a model
-// is refused rather than silently falling back to the model implied by the
-// route, which for this endpoint is the controller model.
+// is refused rather than falling back to the model implied by the route, which
+// for this endpoint is the controller model.
 func (s *migrationLogTransferSuite) TestModelUUIDMissingHeader(c *tc.C) {
-	_, err := migrationLogModelUUID(newLogTransferRequest(""))
+	_, err := logTransferModelUUID(newLogTransferRequest(""))
 	tc.Check(c, err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -85,13 +85,10 @@ func (s *migrationLogTransferSuite) TestModelUUIDMissingHeader(c *tc.C) {
 // rejected. This matters because the value goes on to key a logger worker, so
 // accepting arbitrary strings would let a caller spawn an unbounded number of
 // them.
-//
-// Note that [migrationLogModelUUID] takes no services at all, so a malformed
-// UUID structurally cannot reach the model lookup.
 func (s *migrationLogTransferSuite) TestModelUUIDMalformed(c *tc.C) {
 	for _, value := range []string{"not-a-uuid", "  ", "deadbeef"} {
 		c.Run(value, func(c *testing.T) {
-			_, err := migrationLogModelUUID(newLogTransferRequest(value))
+			_, err := logTransferModelUUID(newLogTransferRequest(value))
 			tc.Check(c, err, tc.ErrorIs, errors.BadRequest)
 		})
 	}
@@ -102,18 +99,15 @@ func (s *migrationLogTransferSuite) TestModelUUIDMalformed(c *tc.C) {
 func (s *migrationLogTransferSuite) TestModelUUIDFromHeader(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 
-	got, err := migrationLogModelUUID(newLogTransferRequest(modelUUID.String()))
+	got, err := logTransferModelUUID(newLogTransferRequest(modelUUID.String()))
 	tc.Assert(c, err, tc.ErrorIsNil)
 	tc.Check(c, got, tc.Equals, modelUUID)
 }
 
-// TestModelUUIDPrefersHeaderOverContext is the regression test for the defect
-// this endpoint had: the request context is populated by ControllerModelHandler
-// with the *controller* model's UUID, and reading it instead of the migration
-// header filed every migrated record under the controller model.
-//
-// The header and the context are deliberately set to different models here, and
-// the header must win.
+// TestModelUUIDPrefersHeaderOverContext checks that the migration header names
+// the model even when the request context carries a different one, which on
+// this route it always does: ControllerModelHandler populates the context with
+// the controller model's UUID.
 func (s *migrationLogTransferSuite) TestModelUUIDPrefersHeaderOverContext(c *tc.C) {
 	migratedModel := tc.Must(c, coremodel.NewUUID)
 	controllerModel := tc.Must(c, coremodel.NewUUID)
@@ -121,7 +115,7 @@ func (s *migrationLogTransferSuite) TestModelUUIDPrefersHeaderOverContext(c *tc.
 	req := newLogTransferRequest(migratedModel.String())
 	req = req.WithContext(httpcontext.SetContextModelUUID(req.Context(), controllerModel))
 
-	got, err := migrationLogModelUUID(req)
+	got, err := logTransferModelUUID(req)
 	tc.Assert(c, err, tc.ErrorIsNil)
 	tc.Check(c, got, tc.Equals, migratedModel)
 	tc.Check(c, got, tc.Not(tc.Equals), controllerModel)
@@ -136,7 +130,7 @@ func (s *migrationLogTransferSuite) TestValidateUnknownModel(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 	s.modelService.EXPECT().CheckModelExists(gomock.Any(), modelUUID).Return(false, nil)
 
-	err := validateMigrationLogTarget(c.Context(), modelUUID, s.modelService, s.modeService)
+	err := validateLogTransferTarget(c.Context(), modelUUID, s.modelService, s.migrationModeService)
 	tc.Check(c, err, tc.ErrorIs, errors.NotFound)
 }
 
@@ -149,7 +143,7 @@ func (s *migrationLogTransferSuite) TestValidateModelLookupError(c *tc.C) {
 	boom := errors.New("boom")
 	s.modelService.EXPECT().CheckModelExists(gomock.Any(), modelUUID).Return(false, boom)
 
-	err := validateMigrationLogTarget(c.Context(), modelUUID, s.modelService, s.modeService)
+	err := validateLogTransferTarget(c.Context(), modelUUID, s.modelService, s.migrationModeService)
 	tc.Check(c, err, tc.ErrorMatches, ".*boom.*")
 }
 
@@ -166,9 +160,9 @@ func (s *migrationLogTransferSuite) TestValidateWrongMigrationMode(c *tc.C) {
 
 		modelUUID := tc.Must(c, coremodel.NewUUID)
 		s.modelService.EXPECT().CheckModelExists(gomock.Any(), modelUUID).Return(true, nil)
-		s.modeService.EXPECT().ModelMigrationMode(gomock.Any()).Return(mode, nil)
+		s.migrationModeService.EXPECT().ModelMigrationMode(gomock.Any()).Return(mode, nil)
 
-		err := validateMigrationLogTarget(c.Context(), modelUUID, s.modelService, s.modeService)
+		err := validateLogTransferTarget(c.Context(), modelUUID, s.modelService, s.migrationModeService)
 		tc.Check(c, err, tc.ErrorIs, errors.BadRequest)
 
 		ctrl.Finish()
@@ -182,10 +176,10 @@ func (s *migrationLogTransferSuite) TestValidateModeError(c *tc.C) {
 
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 	s.modelService.EXPECT().CheckModelExists(gomock.Any(), modelUUID).Return(true, nil)
-	s.modeService.EXPECT().ModelMigrationMode(gomock.Any()).Return(
+	s.migrationModeService.EXPECT().ModelMigrationMode(gomock.Any()).Return(
 		modelmigration.MigrationModeNone, errors.New("boom"))
 
-	err := validateMigrationLogTarget(c.Context(), modelUUID, s.modelService, s.modeService)
+	err := validateLogTransferTarget(c.Context(), modelUUID, s.modelService, s.migrationModeService)
 	tc.Check(c, err, tc.ErrorMatches, ".*boom.*")
 }
 
@@ -196,17 +190,17 @@ func (s *migrationLogTransferSuite) TestValidateAcceptsImportedModel(c *tc.C) {
 
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 	s.modelService.EXPECT().CheckModelExists(gomock.Any(), modelUUID).Return(true, nil)
-	s.modeService.EXPECT().ModelMigrationMode(gomock.Any()).Return(
+	s.migrationModeService.EXPECT().ModelMigrationMode(gomock.Any()).Return(
 		modelmigration.MigrationModeNone, nil)
 
-	err := validateMigrationLogTarget(c.Context(), modelUUID, s.modelService, s.modeService)
+	err := validateLogTransferTarget(c.Context(), modelUUID, s.modelService, s.migrationModeService)
 	tc.Check(c, err, tc.ErrorIsNil)
 }
 
-// TestWriteLogStampsMigratedModel checks that records are filed under the model
-// named by the migration header. This is the property the whole endpoint exists
-// to get right: the record's ModelUUID is what `juju debug-log -m <model>`
-// filters on, so a wrong value makes the migrated history invisible.
+// TestWriteLogStampsMigratedModel checks that records are stamped with the
+// model the strategy was initialised for. The record's ModelUUID is what
+// `juju debug-log -m <model>` filters on, so a wrong value makes the migrated
+// history invisible.
 func (s *migrationLogTransferSuite) TestWriteLogStampsMigratedModel(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 	writer := &recordingLogWriter{}

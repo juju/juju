@@ -116,7 +116,13 @@ func (ctxt *httpContext) domainServicesDuringMigrationForRequest(r *http.Request
 	if !found {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
 	}
-	return ctxt.srv.shared.domainServicesGetter.ServicesForModel(r.Context(), model.UUID(modelUUID))
+	return ctxt.domainServicesForModelUUID(r.Context(), model.UUID(modelUUID))
+}
+
+// domainServicesForModelUUID returns the domain services for the named model,
+// for callers that have already established which model they are acting on.
+func (ctxt *httpContext) domainServicesForModelUUID(ctx context.Context, modelUUID model.UUID) (services.DomainServices, error) {
+	return ctxt.srv.shared.domainServicesGetter.ServicesForModel(ctx, modelUUID)
 }
 
 // stop returns a channel which will be closed when a handler should
