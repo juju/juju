@@ -5,9 +5,7 @@ package state
 
 import (
 	"context"
-	"fmt"
 	"slices"
-	"sort"
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
@@ -22,7 +20,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -112,73 +109,6 @@ func defaultModelArgs(modelArgs *ModelArgs, cfg *config.Config, owner names.User
 	}
 
 	return *modelArgs
-}
-
-// TestUpgradeAddVirtualHostKeys tests that after an upgrade,
-// machines and CAAS units have a virtual host key.
-func (s *upgradesSuite) TestUpgradeAddVirtualHostKeys(c *gc.C) {
-	machineModel := s.makeModel(c, "model-1", coretesting.Attrs{}, ModelArgs{Type: ModelTypeIAAS})
-	k8sModel := s.makeModel(c, "model-2", coretesting.Attrs{}, ModelArgs{Type: ModelTypeCAAS})
-	defer func() {
-		_ = machineModel.Close()
-		_ = k8sModel.Close()
-	}()
-
-	machinesColl, machinesCloser, err := s.state.db().GetRawCollection(machinesC)
-	c.Assert(err, jc.ErrorIsNil)
-	defer machinesCloser()
-
-	err = machinesColl.Insert(bson.M{
-		"_id":        ensureModelUUID(machineModel.ModelUUID(), "1"),
-		"machineid":  "1",
-		"model-uuid": machineModel.ModelUUID(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	unitsColl, unitsCloser, err := s.state.db().GetRawCollection(unitsC)
-	c.Assert(err, jc.ErrorIsNil)
-	defer unitsCloser()
-
-	// The first unit is on a machine model and the second on a k8s model.
-	// The first unit is not expected to have a key while the second is.
-	err = unitsColl.Insert(
-		bson.M{
-			"_id":        ensureModelUUID(machineModel.ModelUUID(), "machineunit/1"),
-			"name":       "machineunit/1",
-			"model-uuid": machineModel.ModelUUID(),
-			"machineid":  "1",
-		}, bson.M{
-			"_id":        ensureModelUUID(k8sModel.ModelUUID(), "k8sunit/1"),
-			"name":       "k8sunit/1",
-			"model-uuid": k8sModel.ModelUUID(),
-		})
-	c.Assert(err, jc.ErrorIsNil)
-
-	virtualHostKeysColl, vhkCloser, err := s.state.db().GetRawCollection(virtualHostKeysC)
-	c.Assert(err, jc.ErrorIsNil)
-	defer vhkCloser()
-
-	// The hostkey values below are ignored by the checker but must still exist for deepEquals to work.
-	expectedVirtualHostKeys := []bson.M{
-		{
-			"_id":     fmt.Sprintf("%s:machine-1-hostkey", machineModel.ModelUUID()),
-			"hostkey": []byte("placeholder"),
-		}, {
-			"_id":     fmt.Sprintf("%s:unit-k8sunit/1-hostkey", k8sModel.ModelUUID()),
-			"hostkey": []byte("placeholder"),
-		}}
-
-	// Sort the values since the model UUIDs are random and assertUpgradedData fetches
-	// the actual data in sorted order.
-	sort.Slice(expectedVirtualHostKeys, func(i, j int) bool {
-		return expectedVirtualHostKeys[i]["_id"].(string) < expectedVirtualHostKeys[j]["_id"].(string)
-	})
-
-	mc := jc.NewMultiChecker()
-	mc.AddExpr(`_[_]["hostkey"]`, testing.BytesToStringMatch, `-----BEGIN OPENSSH PRIVATE KEY-----.*`)
-	s.assertUpgradedData(c, AddVirtualHostKeys, mc,
-		upgradedData(virtualHostKeysColl, expectedVirtualHostKeys),
-	)
 }
 
 func (s *upgradesSuite) TestSplitMigrationStatusMessages(c *gc.C) {
@@ -619,4 +549,138 @@ func (s *upgradesSuite) TestConvertScalingToCurrentOperationEnumField(c *gc.C) {
 			},
 		},
 	)
+}
+
+func (s *upgradesSuite) TestDropSSHProxyCollections(c *gc.C) {
+	// The collections are model-namespaced, so create a second model and
+	// seed both it and the controller model with a doc in each collection.
+	state1 := s.makeModel(c, "m1", coretesting.Attrs{},
+		ModelArgs{Type: ModelTypeIAAS})
+	defer func() { _ = state1.Close() }()
+
+	seedCollection := func(st *State, collection, docID string) {
+		coll, closer, err := st.db().GetRawCollection(collection)
+		c.Assert(err, jc.ErrorIsNil)
+		defer closer()
+		err = coll.Insert(bson.M{
+			"_id":  st.docID(docID),
+			"data": "unused",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	seedCollection(s.state, "virtualhostkeys", "machine-0-hostkey")
+	seedCollection(state1, "virtualhostkeys", "machine-1-hostkey")
+	seedCollection(s.state, "sshrequests", "conn-0")
+	seedCollection(state1, "sshrequests", "conn-1")
+
+	collectionExists := func(st *State, name string) bool {
+		coll, closer, err := st.db().GetRawCollection(name)
+		c.Assert(err, jc.ErrorIsNil)
+		defer closer()
+		n, err := coll.Count()
+		c.Assert(err, jc.ErrorIsNil)
+		return n > 0
+	}
+
+	c.Check(collectionExists(s.state, "virtualhostkeys"), jc.IsTrue)
+	c.Check(collectionExists(state1, "virtualhostkeys"), jc.IsTrue)
+	c.Check(collectionExists(s.state, "sshrequests"), jc.IsTrue)
+	c.Check(collectionExists(state1, "sshrequests"), jc.IsTrue)
+
+	// Two rounds to check idempotency: dropping already-absent collections
+	// must not error.
+	for i := 0; i < 2; i++ {
+		c.Logf("Run: %d", i)
+		err := DropSSHProxyCollections(s.pool)
+		c.Assert(err, jc.ErrorIsNil)
+
+		c.Check(collectionExists(s.state, "virtualhostkeys"), jc.IsFalse)
+		c.Check(collectionExists(state1, "virtualhostkeys"), jc.IsFalse)
+		c.Check(collectionExists(s.state, "sshrequests"), jc.IsFalse)
+		c.Check(collectionExists(state1, "sshrequests"), jc.IsFalse)
+	}
+}
+
+func (s *upgradesSuite) TestDropSSHProxyCollectionsRemovesCleanupDocs(c *gc.C) {
+	// Seed a leftover "sshConnRequests" cleanup document. The cleanup kind
+	// was removed along with the rest of the feature, so the upgrade step
+	// must remove any such documents or the cleanup worker would fail
+	// trying to run a handler that no longer exists.
+	coll, closer, err := s.state.db().GetRawCollection(cleanupsC)
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":    "ssh-conn-cleanup-0",
+		"kind":   "sshConnRequests",
+		"prefix": "some-prefix",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	closer()
+
+	// Also seed an unrelated cleanup doc to ensure only the ssh proxy kind
+	// is removed.
+	coll, closer, err = s.state.db().GetRawCollection(cleanupsC)
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":    "other-cleanup-0",
+		"kind":   "settings",
+		"prefix": "other-prefix",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	closer()
+
+	cleanupCount := func(kind string) int {
+		coll, closer, err := s.state.db().GetRawCollection(cleanupsC)
+		c.Assert(err, jc.ErrorIsNil)
+		defer closer()
+		n, err := coll.Find(bson.D{{Name: "kind", Value: kind}}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		return n
+	}
+
+	c.Check(cleanupCount("sshConnRequests"), gc.Equals, 1)
+	c.Check(cleanupCount("settings"), gc.Equals, 1)
+
+	// Idempotent: a second run finds nothing to remove but must not error.
+	for i := 0; i < 2; i++ {
+		c.Logf("Run: %d", i)
+		err := DropSSHProxyCollections(s.pool)
+		c.Assert(err, jc.ErrorIsNil)
+
+		c.Check(cleanupCount("sshConnRequests"), gc.Equals, 0)
+		c.Check(cleanupCount("settings"), gc.Equals, 1)
+	}
+}
+
+func (s *upgradesSuite) TestRemoveSSHProxyControllerConfig(c *gc.C) {
+	// Seed the controller config with the orphaned ssh proxy keys. They are
+	// written directly to the settings document because they are no longer
+	// part of the controller config schema and so cannot be set through
+	// UpdateControllerConfig; this mirrors the state left behind on a
+	// controller upgraded from a version that had the feature.
+	settings, err := readSettings(s.state.db(), controllersC, ControllerSettingsGlobalKey)
+	c.Assert(err, jc.ErrorIsNil)
+	settings.Update(map[string]interface{}{
+		"ssh-server-port":                17022,
+		"ssh-max-concurrent-connections": 100,
+	})
+	_, ops := settings.settingsUpdateOps()
+	c.Assert(s.state.db().RunTransaction(ops), jc.ErrorIsNil)
+
+	cfg, err := s.state.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg["ssh-server-port"], gc.Equals, 17022)
+	c.Check(cfg["ssh-max-concurrent-connections"], gc.Equals, 100)
+
+	// Idempotent: a second run finds nothing to remove but must not error.
+	for i := 0; i < 2; i++ {
+		c.Logf("Run: %d", i)
+		err := RemoveSSHProxyControllerConfig(s.pool)
+		c.Assert(err, jc.ErrorIsNil)
+
+		cfg, err := s.state.ControllerConfig()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(cfg["ssh-server-port"], gc.IsNil)
+		c.Check(cfg["ssh-max-concurrent-connections"], gc.IsNil)
+	}
 }

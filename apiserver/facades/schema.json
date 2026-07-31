@@ -13943,7 +13943,7 @@
     {
         "Name": "SSHClient",
         "Description": "",
-        "Version": 5,
+        "Version": 4,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -14002,17 +14002,6 @@
                         }
                     }
                 },
-                "PublicHostKeyForTarget": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SSHVirtualHostKeyRequestArg"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/PublicSSHHostKeyResult"
-                        }
-                    }
-                },
                 "PublicKeys": {
                     "type": "object",
                     "properties": {
@@ -14021,17 +14010,6 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/SSHPublicKeysResults"
-                        }
-                    }
-                },
-                "VirtualHostname": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/VirtualHostnameTargetArg"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/SSHAddressResult"
                         }
                     }
                 }
@@ -14170,31 +14148,6 @@
                         "code"
                     ]
                 },
-                "PublicSSHHostKeyResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "jump-server-public-key": {
-                            "type": "array",
-                            "items": {
-                                "type": "integer"
-                            }
-                        },
-                        "public-key": {
-                            "type": "array",
-                            "items": {
-                                "type": "integer"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "public-key",
-                        "jump-server-public-key"
-                    ]
-                },
                 "SSHAddressResult": {
                     "type": "object",
                     "properties": {
@@ -14295,33 +14248,6 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
-                    ]
-                },
-                "SSHVirtualHostKeyRequestArg": {
-                    "type": "object",
-                    "properties": {
-                        "hostname": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "hostname"
-                    ]
-                },
-                "VirtualHostnameTargetArg": {
-                    "type": "object",
-                    "properties": {
-                        "container": {
-                            "type": "string"
-                        },
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag"
                     ]
                 }
             }

@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/pki/ssh"
 )
 
 // Until we add 3.0 upgrade steps, keep static analysis happy.
@@ -115,94 +114,6 @@ func applyToAllModelSettings(st *State, change func(*settingsDoc) (bool, error))
 		return errors.Trace(st.runRawTransaction(ops))
 	}
 	return nil
-}
-
-// AddVirtualHostKeys creates virtual host keys for CAAS units and machines.
-func AddVirtualHostKeys(pool *StatePool) error {
-	st, err := pool.SystemState()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	virtualHostKeysCollection, vhkCloser, err := st.db().GetRawCollection(virtualHostKeysC)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer vhkCloser()
-	virtualHostKeys := []virtualHostKeyDoc{}
-	err = virtualHostKeysCollection.Find(nil).All(&virtualHostKeys)
-	if err != nil {
-		return errors.Annotatef(err, "cannot get all virtual host keys")
-	}
-
-	hostKeyMap := map[string]struct{}{}
-	for _, virtualHostKey := range virtualHostKeys {
-		hostKeyMap[virtualHostKey.DocId] = struct{}{}
-	}
-
-	machinesCollection, machineCloser, err := st.db().GetRawCollection(machinesC)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer machineCloser()
-	mdocs := machineDocSlice{}
-	err = machinesCollection.Find(nil).All(&mdocs)
-	if err != nil {
-		return errors.Annotatef(err, "cannot get all machines")
-	}
-
-	var ops []txn.Op
-	for _, doc := range mdocs {
-		machineLookup := ensureModelUUID(doc.ModelUUID, machineHostKeyID(doc.Id))
-		if _, ok := hostKeyMap[machineLookup]; ok {
-			continue
-		}
-		key, err := ssh.NewMarshalledED25519()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		addOps, err := newMachineVirtualHostKeysOps(doc.ModelUUID, doc.Id, key)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		ops = append(ops, addOps...)
-	}
-
-	err = runForAllModelStates(pool, func(st *State) error {
-		model, err := st.Model()
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		if model.Type() == ModelTypeCAAS {
-			// add host keys for CaaS units.
-			units, err := st.allUnits()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			for _, unit := range units {
-				unitLookup := ensureModelUUID(st.ModelUUID(), unitHostKeyID(unit.Tag().Id()))
-				if _, ok := hostKeyMap[unitLookup]; ok {
-					continue
-				}
-				key, err := ssh.NewMarshalledED25519()
-				if err != nil {
-					return errors.Trace(err)
-				}
-				addOps, err := newUnitVirtualHostKeysOps(st.ModelUUID(), unit.Tag().Id(), key)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				ops = append(ops, addOps...)
-			}
-		}
-		return nil
-	})
-
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return st.runRawTransaction(ops)
 }
 
 func SplitMigrationStatusMessages(pool *StatePool) error {
@@ -542,4 +453,116 @@ func ConvertScalingToCurrentOperationEnumField(pool *StatePool) error {
 		}
 		return st.runRawTransaction(ops)
 	})
+}
+
+// sshProxyCollectionNames holds the names of the MongoDB collections that
+// were used by the controller-proxied SSH feature. The feature was removed
+// from the 3.6 line but the collections were left behind in upgraded
+// controllers' model databases. DropSSHProxyCollections removes the
+// orphaned collections from every model so no dead data remains.
+//
+// The collection constants are defined locally here rather than in
+// allcollections.go because the collections are no longer registered as
+// known collections; the upgrade step only needs the names to drop them.
+var sshProxyCollectionNames = []string{
+	"virtualhostkeys",
+	"sshrequests",
+}
+
+// sshProxyCleanupKind is the cleanupKind value that was used for expired
+// SSH connection requests. The cleanup handler was removed along with the
+// rest of the feature, so any leftover cleanup documents of this kind
+// would fail (or attempt to access a dropped collection) when processed.
+const sshProxyCleanupKind cleanupKind = "sshConnRequests"
+
+// sshProxyControllerConfigKeys are the controller configuration keys that
+// were added for the controller-proxied SSH feature. They are no longer
+// part of the controller config schema, so any values left behind in the
+// controller settings document by an upgraded controller are orphaned and
+// would be surfaced to clients as unexpected config entries.
+var sshProxyControllerConfigKeys = []string{
+	"ssh-server-port",
+	"ssh-max-concurrent-connections",
+}
+
+// DropSSHProxyCollections removes all state left behind by the removed
+// controller-proxied SSH feature from every model in the pool:
+//
+//   - the virtualhostkeys and sshrequests collections are dropped, and
+//   - any leftover "sshConnRequests" cleanup documents are removed so they
+//     cannot trigger a handler that no longer exists.
+//
+// Each operation is a no-op where the underlying data does not exist
+// (mgo's DropCollection returns nil for a missing collection, and removing
+// absent documents or settings keys is harmless), so the step is
+// idempotent and safe to run on controllers that never had the feature.
+func DropSSHProxyCollections(pool *StatePool) error {
+	return runForAllModelStates(pool, func(st *State) error {
+		for _, name := range sshProxyCollectionNames {
+			coll, closer, err := st.db().GetRawCollection(name)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if err := coll.DropCollection(); err != nil {
+				closer()
+				return errors.Annotatef(err, "dropping %q collection", name)
+			}
+			closer()
+		}
+		if err := st.removeSSHProxyCleanupDocs(); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+}
+
+// RemoveSSHProxyControllerConfig removes the orphaned controller-proxied
+// SSH configuration keys from the controller settings document. It only
+// needs to run once against the system (controller) state, as controller
+// config is global rather than per-model.
+func RemoveSSHProxyControllerConfig(pool *StatePool) error {
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	settings, err := readSettings(st.db(), controllersC, ControllerSettingsGlobalKey)
+	if err != nil {
+		return errors.Annotatef(err, "controller %q", st.ControllerUUID())
+	}
+	for _, key := range sshProxyControllerConfigKeys {
+		settings.Delete(key)
+	}
+	_, ops := settings.settingsUpdateOps()
+	if len(ops) == 0 {
+		return nil
+	}
+	return errors.Trace(settings.write(ops))
+}
+
+// removeSSHProxyCleanupDocs removes any leftover cleanup documents for the
+// removed "sshConnRequests" cleanup kind. Without this, the cleanup worker
+// could pick up such a document and fail trying to run a handler that no
+// longer exists against a collection that has been dropped.
+func (st *State) removeSSHProxyCleanupDocs() error {
+	coll, closer, err := st.db().GetCollection(cleanupsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer closer()
+	var docs []cleanupDoc
+	if err := coll.Find(bson.D{{Name: "kind", Value: sshProxyCleanupKind}}).All(&docs); err != nil {
+		return errors.Annotate(err, "cannot read ssh proxy cleanup documents")
+	}
+	if len(docs) == 0 {
+		return nil
+	}
+	ops := make([]txn.Op, 0, len(docs))
+	for _, doc := range docs {
+		ops = append(ops, txn.Op{
+			C:      cleanupsC,
+			Id:     doc.DocID,
+			Remove: true,
+		})
+	}
+	return errors.Trace(st.runRawTransaction(ops))
 }

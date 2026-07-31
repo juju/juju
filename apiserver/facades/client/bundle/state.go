@@ -41,7 +41,6 @@ func (m *stateShim) GetExportConfig() state.ExportConfig {
 	cfg.SkipInstanceData = true
 	cfg.SkipExternalControllers = true
 	cfg.SkipSecrets = true
-	cfg.SkipVirtualHostKeys = true
 
 	return cfg
 }

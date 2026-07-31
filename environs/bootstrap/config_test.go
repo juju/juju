@@ -30,7 +30,6 @@ func (*ConfigSuite) TestDefaultConfig(c *gc.C) {
 	c.Assert(cfg.AdminSecret, gc.Not(gc.HasLen), 0)
 	c.Assert(cfg.CACert, gc.Not(gc.HasLen), 0)
 	c.Assert(cfg.CAPrivateKey, gc.Not(gc.HasLen), 0)
-	c.Assert(cfg.SSHServerHostKey, gc.HasLen, 0)
 
 	c.Assert(cfg.BootstrapTimeout, gc.Equals, time.Second*1200)
 	c.Assert(cfg.BootstrapRetryDelay, gc.Equals, time.Second*5)
@@ -47,7 +46,6 @@ func (*ConfigSuite) TestConfigValuesSpecified(c *gc.C) {
 			"admin-secret":              "sekrit",
 			"ca-cert":                   testing.CACert,
 			"ca-private-key":            testing.CAKey,
-			"ssh-server-host-key":       testing.SSHServerHostKey,
 			"bootstrap-timeout":         1,
 			"bootstrap-retry-delay":     2,
 			"bootstrap-addresses-delay": 3,
@@ -61,7 +59,6 @@ func (*ConfigSuite) TestConfigValuesSpecified(c *gc.C) {
 			AdminSecret:             "sekrit",
 			CACert:                  testing.CACert,
 			CAPrivateKey:            testing.CAKey,
-			SSHServerHostKey:        testing.SSHServerHostKey,
 			BootstrapTimeout:        time.Second * 1,
 			BootstrapRetryDelay:     time.Second * 2,
 			BootstrapAddressesDelay: time.Second * 3,
@@ -192,18 +189,11 @@ func (*ConfigSuite) TestValidateExternalIpsAndLoadBalancer(c *gc.C) {
 	c.Assert(cfg.Validate(), gc.ErrorMatches, `only 1 external IP is allowed with service type "loadbalancer"`)
 }
 
-func (*ConfigSuite) TestValidateSSHServerHostKey(c *gc.C) {
-	cfg := validConfig()
-	cfg.SSHServerHostKey = "bad key"
-	c.Assert(cfg.Validate(), gc.ErrorMatches, "validating ssh-server-host-key: ssh: no key found")
-}
-
 func validConfig() bootstrap.Config {
 	return bootstrap.Config{
 		AdminSecret:             "sekrit",
 		CACert:                  testing.CACert,
 		CAPrivateKey:            testing.CAKey,
-		SSHServerHostKey:        testing.SSHServerHostKey,
 		BootstrapTimeout:        time.Second * 1,
 		BootstrapRetryDelay:     time.Second * 2,
 		BootstrapAddressesDelay: time.Second * 3,

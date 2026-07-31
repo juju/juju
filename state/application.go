@@ -2463,7 +2463,6 @@ func (a *Application) addUnitOps(
 		ports:              args.Ports,
 		unitName:           args.UnitName,
 		passwordHash:       args.PasswordHash,
-		VirtualHostKey:     args.VirtualHostKey,
 	})
 	if err != nil {
 		return uNames, ops, errors.Trace(err)
@@ -2483,12 +2482,11 @@ type applicationAddUnitOpsArgs struct {
 	attachStorage []names.StorageTag
 
 	// These optional attributes are relevant to CAAS models.
-	providerId     *string
-	address        *string
-	ports          *[]string
-	unitName       *string
-	passwordHash   *string
-	VirtualHostKey []byte
+	providerId   *string
+	address      *string
+	ports        *[]string
+	unitName     *string
+	passwordHash *string
 }
 
 // addUnitOpsWithCons is a helper method for returning addUnitOps.
@@ -2606,14 +2604,6 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		})
 	} else {
 		ops = append(ops, createConstraintsOp(agentGlobalKey, args.cons))
-	}
-
-	if len(args.VirtualHostKey) > 0 {
-		hostKeyOps, err := newUnitVirtualHostKeysOps(a.st.ModelUUID(), name, args.VirtualHostKey)
-		if err != nil {
-			return "", nil, errors.Trace(err)
-		}
-		ops = append(ops, hostKeyOps...)
 	}
 
 	// At the last moment we still have the statusDocs in scope, set the initial
@@ -2822,12 +2812,6 @@ type AddUnitParams struct {
 
 	// PasswordHash is only passed for CAAS sidecar units on creation.
 	PasswordHash *string
-
-	// VirtualHostKey holds an SSH private key that will be used
-	// when making controller-proxied SSH sessions to the unit.
-	// Only passed for CAAS units, on IAAS units the machine's
-	// host key is used instead.
-	VirtualHostKey []byte
 }
 
 // AddUnit adds a new principal unit to the application.

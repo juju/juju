@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
-	sshkeys "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/watcher"
@@ -1460,19 +1459,10 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 		// Collect unit-adding operations.
 		for x := 0; x < args.NumUnits; x++ {
-			var virtualHostKey []byte
-			if model.Type() == ModelTypeCAAS {
-				// We require a distinct virtual host key for each CAAS unit.
-				virtualHostKey, err = sshkeys.NewMarshalledED25519()
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-			}
 			unitName, unitOps, err := app.addUnitOpsWithCons(applicationAddUnitOpsArgs{
-				cons:           args.Constraints,
-				storageCons:    args.Storage,
-				attachStorage:  args.AttachStorage,
-				VirtualHostKey: virtualHostKey,
+				cons:          args.Constraints,
+				storageCons:   args.Storage,
+				attachStorage: args.AttachStorage,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -2684,31 +2674,6 @@ func (st *State) SLACredential() ([]byte, error) {
 		return []byte{}, errors.Trace(err)
 	}
 	return model.SLACredential(), nil
-}
-
-// allUnits returns a slice of all units.
-// It is not exported as it is currently
-// only used during upgrades.
-func (st *State) allUnits() ([]*Unit, error) {
-	unitsCollection, closer, err := st.db().GetCollection(unitsC)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer closer()
-	var udocs []unitDoc
-	err = unitsCollection.Find(nil).All(&udocs)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get all units")
-	}
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	units := make([]*Unit, len(udocs))
-	for i, doc := range udocs {
-		units[i] = newUnit(st, model.Type(), &doc)
-	}
-	return units, nil
 }
 
 var tagPrefix = map[byte]string{

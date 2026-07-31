@@ -224,7 +224,6 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 		AdminSecret:             AdminSecret,
 		CAPrivateKey:            coretesting.CAKey,
 		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
-		SSHServerHostKey:        coretesting.SSHServerHostKey,
 	}
 
 	e := t.Prepare(c)

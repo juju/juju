@@ -167,7 +167,6 @@ type controllerStack struct {
 	storageClass               string
 	storageSize                resource.Quantity
 	portMongoDB, portAPIServer int
-	portSSHServer              int
 
 	resourceNameService,
 	resourceNameConfigMap,
@@ -313,7 +312,6 @@ func newcontrollerStack(
 		storageClass:  storageClass,
 		portMongoDB:   pcfg.Bootstrap.ControllerConfig.StatePort(),
 		portAPIServer: pcfg.Bootstrap.ControllerConfig.APIPort(),
-		portSSHServer: pcfg.Bootstrap.ControllerConfig.SSHServerPort(),
 	}
 	cs.resourceNameService = cs.getResourceName("service")
 	cs.resourceNameConfigMap = cs.getResourceName("configmap")
@@ -650,11 +648,6 @@ func (c *controllerStack) createControllerService(ctx context.Context) error {
 					Name:       "api-server",
 					TargetPort: intstr.FromInt(c.portAPIServer),
 					Port:       int32(c.portAPIServer),
-				},
-				{
-					Name:       "ssh-server",
-					TargetPort: intstr.FromInt(c.portSSHServer),
-					Port:       int32(c.portSSHServer),
 				},
 			},
 			ExternalName:   controllerSvcSpec.ExternalName,

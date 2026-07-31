@@ -1133,7 +1133,6 @@ func (s *controllerSuite) TestConfigSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Sanity check.
 	c.Assert(config.AuditingEnabled(), gc.Equals, false)
-	c.Assert(config.SSHServerPort(), gc.Equals, 17022)
 
 	err = s.controller.ConfigSet(params.ControllerConfigSet{Config: map[string]interface{}{
 		"auditing-enabled": true,
