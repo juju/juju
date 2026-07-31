@@ -80,7 +80,7 @@ var facadeVersions = facades.FacadeVersions{
 	"LogForwarding":                {1},
 	"Logger":                       {1},
 	"MachineActions":               {1},
-	"MachineManager":               {9, 10},
+	"MachineManager":               {9, 10, 11},
 	"MachineUndertaker":            {1},
 	"Machiner":                     {5},
 	// MeterStatus methods are noops, but we retain it for compatibility.
