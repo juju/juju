@@ -63,6 +63,35 @@ func (client *Client) AddMachines(machineParams []params.AddMachineParams) ([]pa
 // DestroyMachinesWithParams removes the given set of machines, the semantics of which
 // is determined by the force and keep parameters.
 func (client *Client) DestroyMachinesWithParams(force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
+	return client.destroyMachinesWithParams(
+		"DestroyMachineWithParams",
+		force,
+		keep,
+		dryRun,
+		maxWait,
+		machines...,
+	)
+}
+
+// DestroyMachinesWithHostedUnitsAndContainers removes the given machines and
+// any units or containers hosted on them. When dryRun is true, it reports what
+// would be removed without removing anything. This method requires
+// MachineManager facade version 11 or later.
+func (client *Client) DestroyMachinesWithHostedUnitsAndContainers(force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
+	if client.facade.BestAPIVersion() < 11 {
+		return nil, errors.NotSupportedf("destroying machines with hosted units and containers on this version of Juju")
+	}
+	return client.destroyMachinesWithParams(
+		"DestroyMachineWithHostedUnitsAndContainers",
+		force,
+		keep,
+		dryRun,
+		maxWait,
+		machines...,
+	)
+}
+
+func (client *Client) destroyMachinesWithParams(method string, force, keep, dryRun bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	args := params.DestroyMachinesParams{
 		Force:       force,
 		Keep:        keep,
@@ -84,7 +113,7 @@ func (client *Client) DestroyMachinesWithParams(force, keep, dryRun bool, maxWai
 	}
 	if len(args.MachineTags) > 0 {
 		var result params.DestroyMachineResults
-		if err := client.facade.FacadeCall("DestroyMachineWithParams", args, &result); err != nil {
+		if err := client.facade.FacadeCall(method, args, &result); err != nil {
 			return nil, errors.Trace(err)
 		}
 		if n := len(result.Results); n != len(args.MachineTags) {

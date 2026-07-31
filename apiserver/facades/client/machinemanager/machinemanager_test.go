@@ -13,6 +13,7 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"github.com/juju/rpcreflect"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -70,6 +72,58 @@ func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 		nil,
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *MachineManagerSuite) TestRegisteredFacadeTypesAndDestroyMethods(c *gc.C) {
+	registry := new(facade.Registry)
+	machinemanager.Register(registry)
+
+	tests := []struct {
+		version       int
+		facadeType    reflect.Type
+		destroyParams reflect.Type
+		hostedParams  reflect.Type
+		hostedResult  reflect.Type
+	}{
+		{
+			version:       9,
+			facadeType:    reflect.TypeOf((*machinemanager.MachineManagerV9)(nil)),
+			destroyParams: reflect.TypeOf(params.DestroyMachinesParamsV9{}),
+			hostedParams:  reflect.TypeOf(struct{}{}),
+		},
+		{
+			version:       10,
+			facadeType:    reflect.TypeOf((*machinemanager.MachineManagerV10)(nil)),
+			destroyParams: reflect.TypeOf(params.DestroyMachinesParams{}),
+			hostedParams:  reflect.TypeOf(struct{}{}),
+		},
+		{
+			version:       11,
+			facadeType:    reflect.TypeOf((*machinemanager.MachineManagerAPI)(nil)),
+			destroyParams: reflect.TypeOf(params.DestroyMachinesParams{}),
+			hostedParams:  reflect.TypeOf(params.DestroyMachinesParams{}),
+			hostedResult:  reflect.TypeOf(params.DestroyMachineResults{}),
+		},
+	}
+
+	for _, test := range tests {
+		registeredType, err := registry.GetType("MachineManager", test.version)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(registeredType, gc.Equals, test.facadeType)
+
+		objType := rpcreflect.ObjTypeOf(registeredType)
+		destroyMethod, err := objType.Method("DestroyMachineWithParams")
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(destroyMethod.Params, gc.Equals, test.destroyParams)
+
+		hostedMethod, err := objType.Method("DestroyMachineWithHostedUnitsAndContainers")
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(hostedMethod.Params, gc.Equals, test.hostedParams)
+		c.Check(hostedMethod.Result, gc.Equals, test.hostedResult)
+
+		_, err = objType.Method("DestroyMachineWithParamsV11")
+		c.Check(err, gc.Equals, rpcreflect.ErrMethodNotFound)
+	}
 }
 
 var _ = gc.Suite(&AddMachineManagerSuite{})
@@ -228,6 +282,7 @@ type DestroyMachineManagerSuite struct {
 	storageAccess *mocks.MockStorageInterface
 	leadership    *mocks.MockLeadership
 	api           *machinemanager.MachineManagerAPI
+	v10           *machinemanager.MachineManagerV10
 }
 
 func (s *DestroyMachineManagerSuite) SetUpTest(c *gc.C) {
@@ -262,6 +317,7 @@ func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	s.v10 = &machinemanager.MachineManagerV10{MachineManagerAPI: s.api}
 
 	return ctrl
 }
@@ -292,15 +348,13 @@ func (s *DestroyMachineManagerSuite) expectDestroyMachine(ctrl *gomock.Controlle
 
 	if attemptDestroy {
 		if force {
-			machine.EXPECT().ForceDestroy(gomock.Any()).Return(nil)
+			machine.EXPECT().DestroyWithParams(true, true, gomock.Any()).Return(nil)
+		} else if len(containers) > 0 {
+			machine.EXPECT().DestroyWithParams(force, false, gomock.Any()).Return(stateerrors.NewHasContainersError("0", containers))
+		} else if len(units) > 0 {
+			machine.EXPECT().DestroyWithParams(force, false, gomock.Any()).Return(stateerrors.NewHasAssignedUnitsError("0", []string{"foo/0", "foo/1", "foo/2"}))
 		} else {
-			if len(containers) > 0 {
-				machine.EXPECT().Destroy().Return(stateerrors.NewHasContainersError("0", containers))
-			} else if len(units) > 0 {
-				machine.EXPECT().Destroy().Return(stateerrors.NewHasAssignedUnitsError("0", []string{"foo/0", "foo/1", "foo/2"}))
-			} else {
-				machine.EXPECT().Destroy().Return(nil)
-			}
+			machine.EXPECT().DestroyWithParams(force, false, gomock.Any()).Return(nil)
 		}
 	}
 	return machine
@@ -646,7 +700,105 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *gc.C) {
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersWithForce(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithHostedUnitsAndContainers(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.expectUnpinAppLeaders("0")
+
+	machine0 := s.expectDestroyMachine(ctrl, nil, nil, false, false, false)
+	machine0.EXPECT().DestroyWithParams(false, true, gomock.Any()).Return(nil)
+	s.st.EXPECT().Machine("0").Return(machine0, nil)
+
+	results, err := s.api.DestroyMachineWithHostedUnitsAndContainers(params.DestroyMachinesParams{
+		MachineTags: []string{"machine-0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].Info.MachineId, gc.Equals, "0")
+	c.Assert(results.Results[0].Info.DestroyedUnits, gc.HasLen, 3)
+}
+
+func (s *DestroyMachineManagerSuite) TestDestroyMachineFacadeV10StillRejectsHostedUnitsAndContainers(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	machine0 := s.expectDestroyMachine(ctrl, nil, nil, true, false, false)
+	s.st.EXPECT().Machine("0").Return(machine0, nil)
+	s.leadership.EXPECT().GetMachineApplicationNames("0").Return(nil, nil)
+
+	results, err := s.v10.DestroyMachineWithParams(params.DestroyMachinesParams{
+		MachineTags: []string{"machine-0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(params.IsCodeHasAssignedUnits(results.Results[0].Error), jc.IsTrue)
+}
+
+func (s *DestroyMachineManagerSuite) TestDestroyMachineFacadeV10ForceStillDestroysHostedUnitsAndContainers(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.expectUnpinAppLeaders("0")
+
+	machine0 := s.expectDestroyMachine(ctrl, nil, nil, true, false, true)
+	s.st.EXPECT().Machine("0").Return(machine0, nil)
+
+	results, err := s.v10.DestroyMachineWithParams(params.DestroyMachinesParams{
+		Force:       true,
+		MachineTags: []string{"machine-0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *DestroyMachineManagerSuite) TestDestroyMachineFacadeV9ForceStillDestroysHostedUnitsAndContainers(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.expectUnpinAppLeaders("0")
+
+	machine0 := s.expectDestroyMachine(ctrl, nil, nil, true, false, true)
+	s.st.EXPECT().Machine("0").Return(machine0, nil)
+
+	v9 := &machinemanager.MachineManagerV9{MachineManagerV10: s.v10}
+	results, err := v9.DestroyMachineWithParams(params.DestroyMachinesParamsV9{
+		Force:       true,
+		MachineTags: []string{"machine-0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithHostedUnitsAndContainersRecursesIntoContainers(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.expectUnpinAppLeaders("0")
+	s.expectUnpinAppLeaders("0/lxd/0")
+
+	machine0 := s.expectDestroyMachine(ctrl, nil, []string{"0/lxd/0"}, false, false, false)
+	machine0.EXPECT().DestroyWithParams(false, true, gomock.Any()).Return(nil)
+	s.st.EXPECT().Machine("0").Return(machine0, nil)
+
+	container0 := s.expectDestroyMachine(ctrl, nil, nil, false, false, false)
+	container0.EXPECT().DestroyWithParams(false, true, gomock.Any()).Return(nil)
+	s.st.EXPECT().Machine("0/lxd/0").Return(container0, nil)
+
+	results, err := s.api.DestroyMachineWithHostedUnitsAndContainers(params.DestroyMachinesParams{
+		MachineTags: []string{"machine-0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].Info.DestroyedContainers, gc.HasLen, 1)
+	c.Assert(results.Results[0].Info.DestroyedContainers[0].Info.MachineId, gc.Equals, "0/lxd/0")
+}
+
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithForceAndHostedUnitsAndContainers(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -654,12 +806,14 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersWithForce(c
 
 	s.expectUnpinAppLeaders("0/lxd/0")
 
-	machine0 := s.expectDestroyMachine(ctrl, nil, []string{"0/lxd/0"}, true, false, true)
+	machine0 := s.expectDestroyMachine(ctrl, nil, []string{"0/lxd/0"}, false, false, true)
+	machine0.EXPECT().DestroyWithParams(true, true, gomock.Any()).Return(nil)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
-	container0 := s.expectDestroyMachine(ctrl, nil, nil, true, false, true)
+	container0 := s.expectDestroyMachine(ctrl, nil, nil, false, false, true)
+	container0.EXPECT().DestroyWithParams(true, true, gomock.Any()).Return(nil)
 	s.st.EXPECT().Machine("0/lxd/0").Return(container0, nil)
 
-	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithHostedUnitsAndContainers(params.DestroyMachinesParams{
 		Force:       true,
 		MachineTags: []string{"machine-0"},
 	})
@@ -698,6 +852,24 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersWithForce(c
 			},
 		}},
 	})
+}
+
+func (s *DestroyMachineManagerSuite) TestDestroyMachineFacadeV11OldMethodStillDestroysHostedUnitsAndContainers(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.expectUnpinAppLeaders("0")
+
+	machine0 := s.expectDestroyMachine(ctrl, nil, nil, true, false, true)
+	s.st.EXPECT().Machine("0").Return(machine0, nil)
+
+	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
+		Force:       true,
+		MachineTags: []string{"machine-0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
 }
 
 // Alternate placing storage instaces in detached, then destroyed

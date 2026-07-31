@@ -1311,16 +1311,19 @@ func (st *State) cleanupForceDestroyedMachine(machineId string, cleanupArgs []bs
 			}
 		}
 	}
-	return st.cleanupForceDestroyedMachineInternal(machineId, maxWait)
+	return st.cleanupForceDestroyedMachineInternal(machineId, true, maxWait)
 }
 
-func (st *State) cleanupForceDestroyedMachineInternal(machineID string, maxWait time.Duration) error {
+func (st *State) cleanupForceDestroyedMachineInternal(machineID string, force bool, maxWait time.Duration) error {
 	// The first thing we want to do is remove any series upgrade machine
 	// locks that might prevent other resources from being removed.
 	// We don't tie the lock cleanup to existence of the machine.
-	// Just always delete it if it exists.
-	if err := st.cleanupUpgradeSeriesLock(machineID); err != nil {
-		return errors.Trace(err)
+	// Just delete it if it exists, but only when forcing; the non-forced
+	// path asserts the lock is absent instead.
+	if force {
+		if err := st.cleanupUpgradeSeriesLock(machineID); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	machine, err := st.Machine(machineID)
@@ -1331,7 +1334,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineID string, maxWait 
 	}
 
 	// Schedule a forced cleanup if not already done.
-	if !machine.ForceDestroyed() {
+	if force && !machine.ForceDestroyed() {
 		st.scheduleForceCleanup(cleanupForceRemoveMachine, machineID, maxWait)
 		if err := st.db().RunTransaction(machine.forceDestroyedOps()); err != nil {
 			return errors.Trace(err)
@@ -1347,11 +1350,11 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineID string, maxWait 
 	// But machine destruction is unsophisticated, and doesn't allow for
 	// destruction while dependencies exist; so we just have to deal with that
 	// possibility below.
-	if err := st.cleanupContainers(machine, maxWait); err != nil {
+	if err := st.cleanupContainers(machine, force, maxWait); err != nil {
 		return errors.Trace(err)
 	}
 	for _, unitName := range machine.doc.Principals {
-		opErrs, err := st.obliterateUnit(unitName, true, maxWait)
+		opErrs, err := st.obliterateUnit(unitName, force, maxWait)
 		if len(opErrs) != 0 {
 			logger.Warningf("while obliterating unit %v: %v", unitName, opErrs)
 		}
@@ -1359,7 +1362,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineID string, maxWait 
 			return errors.Trace(err)
 		}
 	}
-	if err := cleanupDyingMachineResources(machine, true); err != nil {
+	if err := cleanupDyingMachineResources(machine, force); err != nil {
 		return errors.Trace(err)
 	}
 	if machine.IsManager() {
@@ -1367,11 +1370,14 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineID string, maxWait 
 		if err != nil {
 			return errors.Annotatef(err, "cannot get controller node for machine %v", machineID)
 		}
-		if node.HasVote() {
+		if force && node.HasVote() {
 			// we remove the vote from the controller so that it can be torn
 			// down cleanly. Note that this isn't reflected in the actual
 			// replicaset, so users using --force should be careful.
 			if err := node.SetHasVote(false); err != nil {
+				return errors.Trace(err)
+			}
+			if err := node.Refresh(); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -1394,7 +1400,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineID string, maxWait 
 	// again -- which it *probably* will anyway -- the issue can be resolved by
 	// force-destroying the machine again; that's better than adding layer
 	// upon layer of complication here.
-	if err := machine.advanceLifecycle(Dead, true, false, maxWait); err != nil {
+	if err := machine.advanceLifecycle(Dead, force, false, maxWait); err != nil {
 		return errors.Trace(err)
 	}
 	removePortsOps, err := machine.removePortsOps()
@@ -1470,21 +1476,33 @@ func (st *State) cleanupForceRemoveMachine(machineId string, cleanupArgs []bson.
 	return machine.Remove()
 }
 
-// cleanupEvacuateMachine is initiated by machine.Destroy() to gracefully remove units
-// from the machine before then kicking off machine destroy.
+// cleanupEvacuateMachine removes hosted units before cleaning up the machine.
+// Cleanups created before force and maxWait were added have no arguments.
 func (st *State) cleanupEvacuateMachine(machineId string, cleanupArgs []bson.Raw) error {
-	if len(cleanupArgs) > 0 {
-		return errors.Errorf("expected no arguments, got %d", len(cleanupArgs))
+	force := true
+	var maxWait time.Duration
+	switch n := len(cleanupArgs); n {
+	case 0:
+		// Existing cleanups are only created by ForceDestroy.
+	case 2:
+		if err := cleanupArgs[0].Unmarshal(&force); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+		}
+		if err := cleanupArgs[1].Unmarshal(&maxWait); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
+		}
+	default:
+		return errors.Errorf("expected 0 or 2 arguments, got %d", n)
 	}
+	return st.cleanupEvacuateMachineInternal(machineId, force, maxWait)
+}
 
+func (st *State) cleanupEvacuateMachineInternal(machineId string, force bool, maxWait time.Duration) error {
 	machine, err := st.Machine(machineId)
 	if errors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)
-	}
-	if machine.Life() != Alive {
-		return nil
 	}
 
 	units, err := machine.Units()
@@ -1493,10 +1511,9 @@ func (st *State) cleanupEvacuateMachine(machineId string, cleanupArgs []bson.Raw
 	}
 
 	if len(units) == 0 {
-		if err := machine.advanceLifecycle(Dying, false, false, 0); err != nil {
-			return errors.Trace(err)
-		}
-		return nil
+		return st.cleanupForceDestroyedMachineInternal(
+			machineId, force, maxWait,
+		)
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -1509,6 +1526,8 @@ func (st *State) cleanupEvacuateMachine(machineId string, cleanupArgs []bson.Raw
 		var ops []txn.Op
 		for _, unit := range units {
 			destroyOp := unit.DestroyOperation()
+			destroyOp.Force = force
+			destroyOp.MaxWait = maxWait
 			op, err := destroyOp.Build(attempt)
 			if err != nil && !errors.Is(err, jujutxn.ErrNoOperations) {
 				return nil, errors.Trace(err)
@@ -1518,17 +1537,15 @@ func (st *State) cleanupEvacuateMachine(machineId string, cleanupArgs []bson.Raw
 		return ops, nil
 	}
 
-	err = st.db().Run(buildTxn)
-	if err != nil {
+	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
-
 	return errors.Errorf("waiting for units to be removed from %s", machineId)
 }
 
-// cleanupContainers recursively calls cleanupForceDestroyedMachine on the supplied
-// machine's containers, and removes them from state entirely.
-func (st *State) cleanupContainers(machine *Machine, maxWait time.Duration) error {
+// cleanupContainers recursively cleans up the supplied machine's containers
+// and removes them from state.
+func (st *State) cleanupContainers(machine *Machine, force bool, maxWait time.Duration) error {
 	containerIds, err := machine.Containers()
 	if errors.IsNotFound(err) {
 		return nil
@@ -1536,7 +1553,17 @@ func (st *State) cleanupContainers(machine *Machine, maxWait time.Duration) erro
 		return err
 	}
 	for _, containerId := range containerIds {
-		if err := st.cleanupForceDestroyedMachineInternal(containerId, maxWait); err != nil {
+		var err error
+		if force {
+			err = st.cleanupForceDestroyedMachineInternal(
+				containerId, force, maxWait,
+			)
+		} else {
+			err = st.cleanupEvacuateMachineInternal(
+				containerId, force, maxWait,
+			)
+		}
+		if err != nil {
 			return err
 		}
 		container, err := st.Machine(containerId)
