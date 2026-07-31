@@ -116,6 +116,30 @@ func (s *environPolSuite) TestPrecheckInstanceInvalidInstanceType(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*invalid GCE instance type.*`)
 }
 
+func (s *environPolSuite) TestPrecheckInstanceInvalidRootDiskSource(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   new("home-zone"),
+		Status: new("UP"),
+	}}, nil)
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
+		Id:           new(uint64(0)),
+		Name:         new("n1-standard-1"),
+		GuestCpus:    new(int32(2)),
+		Architecture: new("amd64"),
+	}}, nil)
+
+	cons := constraints.MustParse("instance-type=n1-standard-1 root-disk-source=hyperdisk-balanced")
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+		Base: version.DefaultSupportedLTSBase(), Constraints: cons})
+
+	c.Assert(err, tc.ErrorMatches, `hyperdisk storage for legacy instance "n1-standard-1" not supported`)
+}
+
 func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
