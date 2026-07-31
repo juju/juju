@@ -152,8 +152,20 @@ type ExecParams struct {
 	Stdout io.Writer
 	Stderr io.Writer
 	TTY    bool
+	// TerminalSizeQueue supplies terminal sizes for non-local TTY streams.
+	// When set and TTY is true, the streams are not treated as local
+	// terminal descriptors, useful if proxying a remote TTY session.
+	TerminalSizeQueue TerminalSizeQueue
 
 	Signal <-chan syscall.Signal
+}
+
+// TerminalSize is the dimensions of a terminal.
+type TerminalSize = remotecommand.TerminalSize
+
+// TerminalSizeQueue supplies terminal dimensions to a Kubernetes exec stream.
+type TerminalSizeQueue interface {
+	Next() *TerminalSize
 }
 
 func (ep *ExecParams) validate(ctx context.Context, podGetter typedcorev1.PodInterface) (err error) {
@@ -203,13 +215,14 @@ func processEnv(env []string) (string, error) {
 
 func (c client) safeRun(opts ExecParams, executor remotecommand.Executor) (err error) {
 	streamOptions := remotecommand.StreamOptions{
-		Stdin:  opts.Stdin,
-		Stdout: opts.Stdout,
-		Stderr: opts.Stderr,
-		Tty:    opts.TTY,
+		Stdin:             opts.Stdin,
+		Stdout:            opts.Stdout,
+		Stderr:            opts.Stderr,
+		Tty:               opts.TTY,
+		TerminalSizeQueue: opts.TerminalSizeQueue,
 	}
 
-	if opts.TTY {
+	if opts.TTY && opts.TerminalSizeQueue == nil {
 		inFd := getFdInfo(opts.Stdin)
 		oldState, err := terminal.MakeRaw(inFd)
 		if err != nil {

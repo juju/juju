@@ -233,11 +233,17 @@ func (s *k8sSuite) TestSessionHandlerWithPTY(c *tc.C) {
 	var stdout bytes.Buffer
 	session.Stdout = &stdout
 
-	c.Assert(session.RequestPty("xterm", 80, 24, nil), tc.ErrorIsNil)
+	c.Assert(session.RequestPty("xterm", 24, 80, nil), tc.ErrorIsNil)
 	c.Assert(session.Run("echo hello"), tc.ErrorIsNil)
 
 	params := <-executed
 	c.Check(params.TTY, tc.IsTrue)
+	c.Check(params.Stderr, tc.IsNil)
+	c.Assert(params.TerminalSizeQueue, tc.NotNil)
+	c.Check(params.TerminalSizeQueue.Next(), tc.DeepEquals, &k8sexec.TerminalSize{
+		Width:  80,
+		Height: 24,
+	})
 	c.Check(params.Env, tc.DeepEquals, []string{"TERM=xterm"})
 	c.Check(stdout.String(), tc.Equals, "final output\r\n")
 }
@@ -245,6 +251,34 @@ func (s *k8sSuite) TestSessionHandlerWithPTY(c *tc.C) {
 func (s *k8sSuite) TestSessionEnvironmentPreservesExplicitTerm(c *tc.C) {
 	env := []string{"LANG=en_US.UTF-8", "TERM=screen"}
 	c.Check(sessionEnvironment(env, "xterm", true), tc.DeepEquals, env)
+}
+
+func (s *k8sSuite) TestTerminalSizeQueue(c *tc.C) {
+	windowChanges := make(chan ssh.Window, 1)
+	queue := newTerminalSizeQueue(c.Context(), ssh.Window{
+		Width:  80,
+		Height: 24,
+	}, windowChanges)
+
+	c.Check(queue.Next(), tc.DeepEquals, &k8sexec.TerminalSize{
+		Width:  80,
+		Height: 24,
+	})
+
+	windowChanges <- ssh.Window{Width: 120, Height: 40}
+	c.Check(queue.Next(), tc.DeepEquals, &k8sexec.TerminalSize{
+		Width:  120,
+		Height: 40,
+	})
+}
+
+func (s *k8sSuite) TestTerminalSizeQueueStopsWithContext(c *tc.C) {
+	ctx, cancel := context.WithCancel(c.Context())
+	queue := newTerminalSizeQueue(ctx, ssh.Window{}, make(chan ssh.Window))
+	_ = queue.Next()
+	cancel()
+
+	c.Check(queue.Next(), tc.IsNil)
 }
 
 func (s *k8sSuite) TestSessionHandlerWithPTYDrainsOutputBeforeErrorExit(c *tc.C) {

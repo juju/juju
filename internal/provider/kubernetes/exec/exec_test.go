@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 
 	"github.com/juju/juju/internal/provider/kubernetes/exec"
+	"github.com/juju/juju/internal/provider/kubernetes/exec/mocks"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -91,6 +92,35 @@ func (s *execSuite) TestProcessEnv(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.Equals, "export AAA=1; export BBB='1 2'; export CCC='1\n2'; export DDD=1=\\'2\\'; export EEE=1\\;2\\;\\\"foo\\\"; ")
+}
+
+func (s *execSuite) TestSafeRunUsesExternalTerminalSizeQueue(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	executor := mocks.NewMockExecutor(ctrl)
+	queue := &terminalSizeQueueStub{}
+	var stdin, stdout bytes.Buffer
+	executor.EXPECT().Stream(remotecommand.StreamOptions{
+		Stdin:             &stdin,
+		Stdout:            &stdout,
+		Tty:               true,
+		TerminalSizeQueue: queue,
+	}).Return(nil)
+
+	err := exec.SafeRun(exec.ExecParams{
+		Stdin:             &stdin,
+		Stdout:            &stdout,
+		TTY:               true,
+		TerminalSizeQueue: queue,
+	}, executor)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+type terminalSizeQueueStub struct{}
+
+func (*terminalSizeQueueStub) Next() *exec.TerminalSize {
+	return nil
 }
 
 func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *tc.C) {
