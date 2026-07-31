@@ -68,6 +68,26 @@ func (mr *MockRemoveMachineAPIMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockRemoveMachineAPI)(nil).Close))
 }
 
+// DestroyMachinesWithHostedUnitsAndContainers mocks base method.
+func (m *MockRemoveMachineAPI) DestroyMachinesWithHostedUnitsAndContainers(arg0, arg1, arg2 bool, arg3 *time.Duration, arg4 ...string) ([]params.DestroyMachineResult, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1, arg2, arg3}
+	for _, a := range arg4 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DestroyMachinesWithHostedUnitsAndContainers", varargs...)
+	ret0, _ := ret[0].([]params.DestroyMachineResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DestroyMachinesWithHostedUnitsAndContainers indicates an expected call of DestroyMachinesWithHostedUnitsAndContainers.
+func (mr *MockRemoveMachineAPIMockRecorder) DestroyMachinesWithHostedUnitsAndContainers(arg0, arg1, arg2, arg3 any, arg4 ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1, arg2, arg3}, arg4...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyMachinesWithHostedUnitsAndContainers", reflect.TypeOf((*MockRemoveMachineAPI)(nil).DestroyMachinesWithHostedUnitsAndContainers), varargs...)
+}
+
 // DestroyMachinesWithParams mocks base method.
 func (m *MockRemoveMachineAPI) DestroyMachinesWithParams(arg0, arg1, arg2 bool, arg3 *time.Duration, arg4 ...string) ([]params.DestroyMachineResult, error) {
 	m.ctrl.T.Helper()

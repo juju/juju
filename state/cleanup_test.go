@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/status"
 	k8sprovider "github.com/juju/juju/internal/provider/kubernetes"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/state/testing"
@@ -243,9 +244,13 @@ func (s *CleanupSuite) testCleanupModelMachines(c *gc.C, force bool) {
 
 	// Clean up, and check that the unit has been removed...
 	if force {
-		// There are 4 jobs for the destroy and then the model
-		// cleanup task queues another set because force is used.
-		s.assertCleanupCountDirty(c, 4)
+		// Forced unit cleanup may need several passes before the
+		// machine can be marked dead.
+		s.runMachineCleanupsUntilDead(c, modelMachine, time.Minute)
+		// The force-remove fallback removes the dead machine on the
+		// following cleanup pass.
+		s.assertNeedsCleanup(c)
+		s.assertCleanupRuns(c)
 		assertRemoved(c, pr.u0)
 		// ...and the unit has departed relation scope...
 		assertNotJoined(c, pr.ru0)
@@ -549,7 +554,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// Clean up, and check that the unit has been removed...
-	s.assertCleanupCountDirty(c, 2)
+	s.runMachineCleanupsUntilDead(c, machine, time.Minute)
 	assertRemoved(c, pr.u0)
 
 	// ...and the unit has departed relation scope...
@@ -594,20 +599,165 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	controllerIds, err := s.State.ControllerIds()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(controllerIds, gc.DeepEquals, append([]string{machine.Id()}, changes.Added...))
-	// ForceDestroy still won't kill the controller if it is flagged as having a vote
-	// We don't see the error because it is logged, but not returned.
+	// Forced cleanup clears the stale vote and removes the controller
+	// reference.
 	s.assertCleanupRuns(c)
-	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
-	// However, if we remove the vote, it can be cleaned up.
-	// ForceDestroy sets up a cleanupEvacuateMachine, which will not
-	// add any other cleanup ops.
-	// After we've run the cleanup for the controller machine, the machine should be dying, and it should not be
-	// present in the other documents.
-	assertLife(c, machine, state.Dying)
+	assertLife(c, machine, state.Dead)
+	c.Assert(node.Refresh(), jc.ErrorIsNil)
+	c.Check(node.WantsVote(), jc.IsFalse)
+	c.Check(node.HasVote(), jc.IsFalse)
 	controllerIds, err = s.State.ControllerIds()
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(controllerIds)
 	sort.Strings(changes.Added)
+	c.Assert(controllerIds, jc.DeepEquals, changes.Added)
+}
+
+func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachineEvacuatesUnitsWithForce(c *gc.C) {
+	changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 3)
+
+	machine, err := s.State.Machine(changes.Added[0])
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch := s.AddTestingCharm(c, "dummy")
+	application := s.AddTestingApplicationForBase(c, state.UbuntuBase("12.04"), "dummy", ch)
+	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+	preventUnitDestroyRemove(c, unit)
+
+	s.assertDoesNotNeedCleanup(c)
+
+	err = machine.ForceDestroy(dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertNeedsCleanup(c)
+	state.AssertEvacuateMachineCleanupParams(
+		c, s.State, machine.Id(), true, dontWait,
+	)
+
+	for i := 0; i < 5; i++ {
+		if err := unit.Refresh(); errors.IsNotFound(err) {
+			break
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		s.assertNeedsCleanup(c)
+		s.assertCleanupRuns(c)
+	}
+	assertRemoved(c, unit)
+
+	for i := 0; i < 5; i++ {
+		c.Assert(machine.Refresh(), jc.ErrorIsNil)
+		if machine.Life() == state.Dead {
+			break
+		}
+		s.assertNeedsCleanup(c)
+		s.assertCleanupRuns(c)
+	}
+	assertLife(c, machine, state.Dead)
+
+	s.assertNeedsCleanup(c)
+	s.assertCleanupRuns(c)
+	c.Assert(machine.Refresh(), jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CleanupSuite) TestCleanupLegacyEvacuateMachineDefaultsToForce(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Machine: machine})
+	preventUnitDestroyRemove(c, unit)
+
+	err := s.State.ScheduleLegacyEvacuateMachineCleanup(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertCleanupRuns(c)
+	c.Assert(unit.Refresh(), jc.ErrorIsNil)
+	c.Assert(unit.Life(), gc.Equals, state.Dying)
+
+	// The unit cleanup schedules the force fallback on the next pass.
+	s.assertCleanupRuns(c)
+	state.AssertCleanupMaxWait(
+		c, s.State, state.CleanupForceDestroyedUnit, unit.Name(), 0,
+	)
+}
+
+func (s *CleanupSuite) TestDestroyControllerWithHostedUnitsAndContainersNoLongerWantsVote(c *gc.C) {
+	changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 3)
+
+	machine, err := s.State.Machine(changes.Added[0])
+	c.Assert(err, jc.ErrorIsNil)
+	node, err := s.State.ControllerNode(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(node.WantsVote(), jc.IsTrue)
+
+	err = machine.DestroyWithParams(false, true, time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(node.Refresh(), jc.ErrorIsNil)
+	c.Assert(node.WantsVote(), jc.IsFalse)
+}
+
+func (s *CleanupSuite) TestCleanupDestroyControllerMachineWithForceDoesNotWait(c *gc.C) {
+	changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 3)
+
+	machine, err := s.State.Machine(changes.Added[0])
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.DestroyWithParams(true, true, time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCleanupRuns(c)
+	assertLife(c, machine, state.Dead)
+}
+
+func (s *CleanupSuite) TestCleanupDestroyMachineWithHostedUnitsAndContainersWithoutForce(c *gc.C) {
+	s.assertCleanupDestroyMachineWithHostedUnitsAndContainers(c, false)
+}
+
+func (s *CleanupSuite) TestCleanupDestroyMachineWithHostedUnitsAndContainersWithForce(c *gc.C) {
+	s.assertCleanupDestroyMachineWithHostedUnitsAndContainers(c, true)
+}
+
+func (s *CleanupSuite) assertCleanupDestroyMachineWithHostedUnitsAndContainers(c *gc.C, force bool) {
+	machine := s.Factory.MakeMachine(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Machine: machine})
+	preventUnitDestroyRemove(c, unit)
+
+	err := machine.DestroyWithParams(force, true, time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertCleanupRuns(c)
+	c.Assert(unit.Refresh(), jc.ErrorIsNil)
+	c.Assert(unit.Life(), gc.Equals, state.Dying)
+
+	// The first pass marks the unit Dying. Its cleanup runs on the next pass.
+	s.assertCleanupRuns(c)
+	if force {
+		state.AssertCleanupsWithKind(c, s.State, state.CleanupForceDestroyedUnit)
+		return
+	}
+	state.AssertNoCleanupsWithKind(c, s.State, state.CleanupForceDestroyedUnit)
+}
+
+func (s *CleanupSuite) TestDestroyMachineForceStillRequiresHostedUnitAndContainerAuthorization(c *gc.C) {
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch := s.AddTestingCharm(c, "dummy")
+	application := s.AddTestingApplication(c, "dummy", ch)
+	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.DestroyWithParams(true, false, time.Minute)
+	c.Assert(errors.Is(err, stateerrors.HasAssignedUnitsError), jc.IsTrue)
+	c.Assert(machine.Refresh(), jc.ErrorIsNil)
+	c.Assert(machine.Life(), gc.Equals, state.Alive)
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c *gc.C) {
@@ -643,7 +793,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Run cleanups to remove the unit and make the machine dead.
-	s.assertCleanupCountDirty(c, 2)
+	s.runMachineCleanupsUntilDead(c, machine, time.Minute)
 
 	// After running the cleanups, the storage attachment should
 	// have been removed; the storage instance should be floating,
@@ -696,7 +846,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// Clean up, and check that the container has been removed...
-	s.assertCleanupCountDirty(c, 2)
+	s.runMachineCleanupsUntilDead(c, machine, time.Minute)
 	err = container.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
@@ -1728,6 +1878,19 @@ func (s *CleanupSuite) assertCleanupCountDirty(c *gc.C, count int) {
 		s.assertCleanupRuns(c)
 	}
 	s.assertNeedsCleanup(c)
+}
+
+func (s *CleanupSuite) runMachineCleanupsUntilDead(c *gc.C, machine *state.Machine, maxWait time.Duration) {
+	for i := 0; i < 10; i++ {
+		c.Assert(machine.Refresh(), jc.ErrorIsNil)
+		if machine.Life() == state.Dead {
+			return
+		}
+		s.Clock.Advance(maxWait)
+		s.assertNeedsCleanup(c)
+		s.assertCleanupRuns(c)
+	}
+	assertLife(c, machine, state.Dead)
 }
 
 // assertNextCleanup tracks that the next cleanup runs, and logs what cleanup we are expecting.

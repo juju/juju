@@ -284,7 +284,7 @@ type DestroyMachinesParamsV9 struct {
 	MaxWait *time.Duration `json:"max-wait,omitempty"`
 }
 
-// DestroyMachinesParams holds parameters for the latest DestroyMachinesWithParams call.
+// DestroyMachinesParams holds parameters for machine removal calls.
 type DestroyMachinesParams struct {
 	MachineTags []string `json:"machine-tags"`
 	Force       bool     `json:"force,omitempty"`
