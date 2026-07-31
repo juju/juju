@@ -10337,7 +10337,7 @@
     {
         "Name": "MachineManager",
         "Description": "",
-        "Version": 10,
+        "Version": 11,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -10355,6 +10355,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/AddMachinesResults"
+                        }
+                    }
+                },
+                "DestroyMachineWithHostedUnitsAndContainers": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/DestroyMachinesParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/DestroyMachineResults"
                         }
                     }
                 },

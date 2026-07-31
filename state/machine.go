@@ -19,7 +19,6 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	"github.com/kr/pretty"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/actions"
@@ -630,54 +629,112 @@ func (m *Machine) DestroyWithContainers() error {
 // ForceDestroy queues the machine for complete removal, including the
 // destruction of all units and containers on the machine.
 func (m *Machine) ForceDestroy(maxWait time.Duration) error {
-	ops, err := m.forceDestroyOps(maxWait)
-	if err != nil {
-		return errors.Trace(err)
+	return errors.Trace(m.DestroyWithParams(true, true, maxWait))
+}
+
+// DestroyWithParams queues the machine for removal. When
+// destroyHostedUnitsAndContainers is true, hosted units and containers are
+// removed before the machine. Force allows cleanup to proceed despite errors,
+// and maxWait controls forced fallback timing.
+func (m *Machine) DestroyWithParams(force, destroyHostedUnitsAndContainers bool, maxWait time.Duration) error {
+	if !destroyHostedUnitsAndContainers {
+		return errors.Trace(m.advanceLifecycle(Dying, force, false, maxWait))
 	}
-	if err := m.st.db().RunTransaction(ops); err != txn.ErrAborted {
-		return errors.Annotatef(err, "failed to run transaction: %s", pretty.Sprint(ops))
+	machine := m
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt != 0 {
+			var err error
+			machine, err = machine.st.Machine(machine.Id())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if machine.Life() != Alive {
+			if force {
+				var ops []txn.Op
+				if machine.IsManager() {
+					controllerOp, err := machine.controllerIDsOp()
+					if err != nil {
+						return nil, errors.Trace(err)
+					}
+					ops = append(ops, controllerOp)
+				}
+				return append(ops, newCleanupOp(
+					cleanupEvacuateMachine,
+					machine.doc.Id,
+					force,
+					maxWait,
+				)), nil
+			}
+			return nil, jujutxn.ErrNoOperations
+		}
+		if !force {
+			locked, err := machine.IsLockedForSeriesUpgrade()
+			if err != nil {
+				return nil, errors.Annotatef(
+					err,
+					"reading machine %s upgrade-series lock",
+					machine.Id(),
+				)
+			}
+			if locked {
+				return nil, errors.Errorf(
+					"machine %s is locked for series upgrade",
+					machine.Id(),
+				)
+			}
+		}
+		if force {
+			return machine.forceDestroyOps(maxWait)
+		}
+		return machine.evacuateMachineOps(false, maxWait)
 	}
-	return nil
+	return m.st.db().Run(buildTxn)
 }
 
 func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
-	if m.IsManager() {
-		controllerIds, err := m.st.ControllerIds()
-		if err != nil {
-			return nil, errors.Annotatef(err, "reading controller info")
-		}
-		if len(controllerIds) <= 1 {
-			return nil, errors.Errorf("controller %s is the only controller", m.Id())
-		}
-		return []txn.Op{
-			{
-				C:  machinesC,
-				Id: m.doc.DocID,
-				Assert: bson.D{
-					{"life", Alive},
-					advanceLifecycleUnitAsserts(m.doc.Principals),
-				},
-				// To prevent race conditions, we remove the ability for new
-				// units to be deployed to the machine.
-				Update: bson.D{{"$pull", bson.D{{"jobs", JobHostUnits}}}},
-			},
-			{
-				C:      controllersC,
-				Id:     modelGlobalKey,
-				Assert: bson.D{{"controller-ids", controllerIds}},
-			},
-			setControllerWantsVoteOp(m.st, m.Id(), false),
-			newCleanupOp(cleanupEvacuateMachine, m.doc.Id),
-		}, nil
-	} else {
-		// Make sure the machine doesn't become a manager while we're destroying it
-		return []txn.Op{{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
-		}, newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id, maxWait),
-		}, nil
+	return m.evacuateMachineOps(true, maxWait)
+}
+
+func (m *Machine) evacuateMachineOps(force bool, maxWait time.Duration) ([]txn.Op, error) {
+	asserts := bson.D{
+		{"life", Alive},
+		advanceLifecycleUnitAsserts(m.doc.Principals),
 	}
+	if !m.IsManager() {
+		asserts = append(asserts, bson.DocElem{
+			Name: "jobs",
+			Value: bson.D{{
+				"$nin", []MachineJob{JobManageModel},
+			}},
+		})
+	}
+	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: asserts,
+		Update: bson.D{{"$pull", bson.D{{"jobs", JobHostUnits}}}},
+	}}
+	if m.IsManager() {
+		controllerOp, err := m.controllerIDsOp()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops,
+			controllerOp,
+			setControllerWantsVoteOp(m.st, m.Id(), false),
+		)
+	}
+	if !force {
+		ops = append(ops, txn.Op{
+			C:      machineUpgradeSeriesLocksC,
+			Id:     m.doc.Id,
+			Assert: txn.DocMissing,
+		})
+	}
+	return append(ops, newCleanupOp(
+		cleanupEvacuateMachine, m.doc.Id, force, maxWait,
+	)), nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
