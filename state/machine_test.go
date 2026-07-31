@@ -545,6 +545,74 @@ func (s *MachineSuite) TestDestroyContention(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "machine 1 cannot advance lifecycle: state changing too quickly; try again soon")
 }
 
+func (s *MachineSuite) TestDestroyWithParamsRetriesWhenUnitAssigned(c *gc.C) {
+	app := s.Factory.MakeApplication(c, nil)
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(unit.AssignToMachine(s.machine), jc.ErrorIsNil)
+	}).Check()
+
+	err = s.machine.DestroyWithParams(false, true, time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.machine.Refresh(), jc.ErrorIsNil)
+	c.Assert(s.machine.Jobs(), gc.HasLen, 0)
+}
+
+func (s *MachineSuite) TestDestroyWithParamsDoesNothingWhenDying(c *gc.C) {
+	err := s.machine.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.DestroyWithParams(false, true, time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MachineSuite) TestForceDestroySchedulesCleanupWhenNotAlive(c *gc.C) {
+	for _, ensureDead := range []bool{false, true} {
+		machine := s.Factory.MakeMachine(c, nil)
+		c.Assert(machine.Destroy(), jc.ErrorIsNil)
+		if ensureDead {
+			c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
+		}
+
+		c.Assert(machine.ForceDestroy(time.Minute), jc.ErrorIsNil)
+		state.AssertEvacuateMachineCleanupParams(
+			c, s.State, machine.Id(), true, time.Minute,
+		)
+	}
+}
+
+func (s *MachineSuite) TestDestroyWithParamsSchedulesCleanupForEachRequest(c *gc.C) {
+	err := s.machine.DestroyWithParams(false, true, time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.DestroyWithParams(false, true, time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.AssertCleanupCountWithKind(
+		c, s.State, state.CleanupEvacuateMachine, 2,
+	)
+}
+
+func (s *MachineSuite) TestDestroyWithParamsForceRetrySchedulesSeparateCleanup(c *gc.C) {
+	err := s.machine.DestroyWithParams(false, true, time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.DestroyWithParams(true, true, 0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.AssertCleanupCountWithKind(
+		c, s.State, state.CleanupEvacuateMachine, 2,
+	)
+	state.AssertEvacuateMachineCleanupParams(
+		c, s.State, s.machine.Id(), false, time.Minute,
+	)
+	state.AssertEvacuateMachineCleanupParams(
+		c, s.State, s.machine.Id(), true, 0,
+	)
+}
+
 func (s *MachineSuite) TestDestroyWithApplicationDestroyPending(c *gc.C) {
 	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := app.AddUnit(state.AddUnitParams{})
