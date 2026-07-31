@@ -285,7 +285,7 @@ In addition to generic storage providers, Google GCE provides the following {ref
 
 **Configuration options:**
 
-- `disk-type`: Disk type. Valid values: `pd-standard` (default), `pd-ssd`.
+- `disk-type`: Disk type. Valid values: `pd-standard` (default), `pd-ssd`, `pd-balanced`, `pd-extreme`, `hyperdisk-balanced`, `hyperdisk-balanced-high-availability`, `hyperdisk-extreme`, `hyperdisk-ml`, `hyperdisk-throughput`.
 
 (gce-appendix-example-workflows)=
 ## Appendix: Example workflows
