@@ -930,14 +930,18 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The ssh server worker runs on the controller machine.
 		sshServerName: ifController(sshserver.Manifold(sshserver.ManifoldConfig{
-			DomainServicesName:             domainServicesName,
-			Logger:                         internallogger.GetLogger("juju.worker.sshserver"),
-			NewServerWrapperWorker:         sshserver.NewServerWrapperWorker,
-			NewServerWorker:                sshserver.NewServerWorker,
-			GetControllerConfigService:     sshserver.GetControllerConfigService,
-			GetControllerSSHHostKeyService: sshserver.GetControllerSSHHostKeyService,
-			GetDomainServicesGetter:        sshserver.GetDomainServicesGetter,
-			GetSSHService:                  sshserver.GetSSHService,
+			SSHTunnelerName:            sshTunnelerName,
+			JWTParserName:              jwtParserName,
+			DomainServicesName:         domainServicesName,
+			ControllerID:               config.ControllerID,
+			ControllerUUID:             config.ControllerUUID,
+			Logger:                     internallogger.GetLogger("juju.worker.sshserver"),
+			NewServerWrapperWorker:     sshserver.NewServerWrapperWorker,
+			NewServerWorker:            sshserver.NewServerWorker,
+			GetControllerConfigService: sshserver.GetControllerConfigService,
+			GetControllerSSHService:    sshserver.GetControllerSSHService,
+			GetDomainServicesGetter:    sshserver.GetDomainServicesGetter,
+			GetSSHService:              sshserver.GetSSHService,
 		})),
 
 		// The ssh tunneler worker runs on the controller machine and creates

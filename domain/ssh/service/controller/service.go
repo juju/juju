@@ -6,7 +6,9 @@ package controller
 import (
 	"context"
 
+	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -45,4 +47,16 @@ func (s *Service) SSHServerHostPublicKey(ctx context.Context) ([]byte, error) {
 		return nil, errors.Errorf("getting controller SSH server host public key: %w", err)
 	}
 	return key, nil
+}
+
+// GetPublicKeysForUser returns all public SSH keys registered for a user.
+func (s *Service) GetPublicKeysForUser(ctx context.Context, username user.Name) ([]coressh.PublicKey, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	keys, err := s.state.GetPublicKeysForUser(ctx, username)
+	if err != nil {
+		return nil, errors.Errorf("getting public SSH keys for user %q: %w", username, err)
+	}
+	return keys, nil
 }

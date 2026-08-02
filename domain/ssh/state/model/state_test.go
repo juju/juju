@@ -5,16 +5,18 @@ package model_test
 
 import (
 	"context"
+	"database/sql"
 	stdtesting "testing"
 	"time"
 
 	"github.com/juju/tc"
 
 	coredatabase "github.com/juju/juju/core/database"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/schema"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainssh "github.com/juju/juju/domain/ssh"
 	sshmodelstate "github.com/juju/juju/domain/ssh/state/model"
@@ -23,14 +25,173 @@ import (
 
 type stateSuite struct {
 	schematesting.ModelSuite
+	controllerDB     *sql.DB
+	controllerRunner coredatabase.TxnRunner
 }
 
 func TestStateSuite(t *stdtesting.T) {
 	tc.Run(t, &stateSuite{})
 }
 
+func (s *stateSuite) SetUpTest(c *tc.C) {
+	s.ModelSuite.SetUpTest(c)
+
+	s.controllerRunner, s.controllerDB = s.OpenDB(c)
+	s.ApplyDDLForRunner(c, &schematesting.SchemaApplier{
+		Schema:  schema.ControllerDDL(),
+		Verbose: s.Verbose,
+	}, s.controllerRunner)
+}
+
+func (s *stateSuite) newState() *sshmodelstate.State {
+	return sshmodelstate.NewState(
+		txRunnerFactory(s.ModelTxnRunner()),
+		txRunnerFactory(s.controllerRunner),
+	)
+}
+
+func (s *stateSuite) addControllerConfig(c *tc.C, key, value string) {
+	_, err := s.controllerDB.ExecContext(c.Context(),
+		`INSERT INTO controller_config (key, value) VALUES (?, ?)`, key, value)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestGetModelInfo(c *tc.C) {
+	st := s.newState()
+	_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type, is_controller_model)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		s.ModelUUID(), "controller-uuid", "test-model", "prod", "iaas", "test-cloud", "ec2", true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := st.GetModelInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, sshmodelstate.ModelInfo{
+		Name:              "test-model",
+		Type:              "iaas",
+		IsControllerModel: true,
+	})
+}
+
+func (s *stateSuite) TestGetModelInfoNotFound(c *tc.C) {
+	_, err := s.newState().GetModelInfo(c.Context())
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *stateSuite) TestGetControllerName(c *tc.C) {
+	s.addControllerConfig(c, "controller-name", "test-controller")
+
+	got, err := s.newState().GetControllerName(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, "test-controller")
+}
+
+func (s *stateSuite) TestGetControllerNameNotFound(c *tc.C) {
+	_, err := s.newState().GetControllerName(c.Context())
+	c.Assert(err, tc.ErrorMatches, `controller name not found`)
+}
+
+func (s *stateSuite) TestGetUnitK8sPodInfo(c *tc.C) {
+	st := s.newState()
+	unitUUID := s.addUnit(c, "postgresql/0")
+	_, err := s.DB().ExecContext(c.Context(),
+		`INSERT INTO k8s_pod (unit_uuid, provider_id) VALUES (?, ?)`, unitUUID, "pod-0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := st.GetUnitK8sPodInfo(c.Context(), "postgresql/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, "pod-0")
+}
+
+func (s *stateSuite) TestGetUnitK8sPodInfoWithoutPod(c *tc.C) {
+	s.addUnit(c, "postgresql/0")
+
+	got, err := s.newState().GetUnitK8sPodInfo(c.Context(), "postgresql/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, "")
+}
+
+func (s *stateSuite) TestGetUnitK8sPodInfoDead(c *tc.C) {
+	st := s.newState()
+	unitUUID := s.addUnit(c, "postgresql/0")
+	_, err := s.DB().ExecContext(c.Context(),
+		`INSERT INTO k8s_pod (unit_uuid, provider_id) VALUES (?, ?)`, unitUUID, "pod-0")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(),
+		`UPDATE unit SET life_id = (SELECT id FROM life WHERE value = 'dead') WHERE uuid = ?`, unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.GetUnitK8sPodInfo(c.Context(), "postgresql/0")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitIsDead)
+}
+
+func (s *stateSuite) TestGetUnitMachineName(c *tc.C) {
+	st := s.newState()
+	unitUUID := s.addUnit(c, "postgresql/0")
+	machineUUID := s.addMachine(c, "1")
+	s.connectUnitToMachine(c, unitUUID, machineUUID)
+
+	got, err := st.GetUnitMachineName(c.Context(), "postgresql/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, "1")
+}
+
+func (s *stateSuite) TestGetUnitMachineNameNotAssigned(c *tc.C) {
+	s.addUnit(c, "postgresql/0")
+
+	got, err := s.newState().GetUnitMachineName(c.Context(), "postgresql/0")
+	c.Check(got, tc.Equals, "")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitMachineNotAssigned)
+}
+
+func (s *stateSuite) TestCheckMachineExists(c *tc.C) {
+	st := s.newState()
+	s.addMachine(c, "1")
+
+	exists, err := st.CheckMachineExists(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsTrue)
+
+	exists, err = st.CheckMachineExists(c.Context(), "99")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+}
+
+func (s *stateSuite) TestCheckMachineExistsDead(c *tc.C) {
+	st := s.newState()
+	machineUUID := s.addMachine(c, "1")
+	_, err := s.DB().ExecContext(c.Context(),
+		`UPDATE machine SET life_id = (SELECT id FROM life WHERE value = 'dead') WHERE uuid = ?`, machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.CheckMachineExists(c.Context(), "1")
+	c.Check(exists, tc.IsFalse)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineIsDead)
+}
+
+func (s *stateSuite) TestGetMachineNameForUnit(c *tc.C) {
+	st := s.newState()
+	unitUUID := s.addUnit(c, "postgresql/0")
+	machineUUID := s.addMachine(c, "1")
+	s.connectUnitToMachine(c, unitUUID, machineUUID)
+
+	got, backed, err := st.GetMachineNameForUnit(c.Context(), "postgresql/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, "1")
+	c.Check(backed, tc.IsTrue)
+}
+
+func (s *stateSuite) TestGetMachineNameForUnitNotMachineBacked(c *tc.C) {
+	s.addUnit(c, "postgresql/0")
+
+	got, backed, err := s.newState().GetMachineNameForUnit(c.Context(), "postgresql/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, "")
+	c.Check(backed, tc.IsFalse)
+}
+
 func (s *stateSuite) TestGetMachineVirtualHostKeyMissing(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 	machineUUID := s.addMachine(c, "1")
 	_ = machineUUID
 
@@ -41,7 +202,7 @@ func (s *stateSuite) TestGetMachineVirtualHostKeyMissing(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetMachineVirtualHostKeyMissingMachine(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 
 	key, found, err := st.GetMachineVirtualHostKeyByMachineName(c.Context(), "99")
 	c.Check(key, tc.Equals, "")
@@ -50,7 +211,7 @@ func (s *stateSuite) TestGetMachineVirtualHostKeyMissingMachine(c *tc.C) {
 }
 
 func (s *stateSuite) TestEnsureAndGetMachineVirtualHostKey(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 	s.addMachine(c, "1")
 
 	key, err := st.EnsureMachineVirtualHostKeyByMachineName(c.Context(), "1", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
@@ -72,7 +233,7 @@ func (s *stateSuite) TestEnsureAndGetMachineVirtualHostKey(c *tc.C) {
 }
 
 func (s *stateSuite) TestEnsureMachineVirtualHostKeyMissingMachine(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 
 	key, err := st.EnsureMachineVirtualHostKeyByMachineName(c.Context(), "99", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
@@ -80,7 +241,7 @@ func (s *stateSuite) TestEnsureMachineVirtualHostKeyMissingMachine(c *tc.C) {
 }
 
 func (s *stateSuite) TestEnsureMachineVirtualHostKeyReturnsExistingOnConflict(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 	s.addMachine(c, "1")
 
 	key, err := st.EnsureMachineVirtualHostKeyByMachineName(c.Context(), "1", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
@@ -98,7 +259,7 @@ func (s *stateSuite) TestEnsureMachineVirtualHostKeyReturnsExistingOnConflict(c 
 }
 
 func (s *stateSuite) TestGetUnitVirtualHostKeyMissingUnit(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 
 	key, found, err := st.GetUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0")
 	c.Check(key, tc.Equals, "")
@@ -107,7 +268,7 @@ func (s *stateSuite) TestGetUnitVirtualHostKeyMissingUnit(c *tc.C) {
 }
 
 func (s *stateSuite) TestEnsureUnitVirtualHostKeyMissingUnit(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 
 	key, err := st.EnsureUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
 	c.Check(key, tc.Equals, "")
@@ -115,7 +276,7 @@ func (s *stateSuite) TestEnsureUnitVirtualHostKeyMissingUnit(c *tc.C) {
 }
 
 func (s *stateSuite) TestEnsureUnitVirtualHostKeyReturnsExistingOnConflict(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 	s.addUnit(c, "postgresql/0")
 
 	key, err := st.EnsureUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
@@ -133,7 +294,7 @@ func (s *stateSuite) TestEnsureUnitVirtualHostKeyReturnsExistingOnConflict(c *tc
 }
 
 func (s *stateSuite) TestGetMachineNameForUnitMissingUnit(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 
 	machineName, machineBacked, err := st.GetMachineNameForUnit(c.Context(), "postgresql/0")
 	c.Check(machineName, tc.Equals, "")
@@ -142,7 +303,7 @@ func (s *stateSuite) TestGetMachineNameForUnitMissingUnit(c *tc.C) {
 }
 
 func (s *stateSuite) TestEnsureAndGetUnitVirtualHostKey(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 	s.addUnit(c, "postgresql/0")
 
 	key, err := st.EnsureUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
@@ -161,7 +322,7 @@ func (s *stateSuite) TestEnsureAndGetUnitVirtualHostKey(c *tc.C) {
 }
 
 func (s *stateSuite) TestInsertAndGetSSHConnRequest(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 	s.addMachine(c, "1")
 	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
 	req := domainssh.SSHConnRequest{
@@ -194,7 +355,7 @@ func (s *stateSuite) TestInsertAndGetSSHConnRequest(c *tc.C) {
 // machine cannot be read when scoped to another machine, so a machine agent
 // cannot fetch another machine's request (and its credentials).
 func (s *stateSuite) TestGetSSHConnRequestOtherMachineNotFound(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 	s.addMachine(c, "1")
 	s.addMachine(c, "2")
 	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
@@ -217,11 +378,11 @@ func (s *stateSuite) TestGetSSHConnRequestOtherMachineNotFound(c *tc.C) {
 	// Machine "2" cannot read machine "1"'s request; it is reported as not
 	// found rather than being returned.
 	_, err = st.GetSSHConnRequest(c.Context(), "2", req.TunnelID, now)
-	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorMatches, `SSH connection request "tunnel-machine-1" not found`)
 }
 
 func (s *stateSuite) TestInsertSSHConnRequestMachineNotFound(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
 
 	err := st.InsertSSHConnRequest(c.Context(), domainssh.SSHConnRequest{
@@ -235,7 +396,7 @@ func (s *stateSuite) TestInsertSSHConnRequestMachineNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestRemoveSSHConnRequest(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 	s.addMachine(c, "1")
 	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
 	req := domainssh.SSHConnRequest{
@@ -254,11 +415,11 @@ func (s *stateSuite) TestRemoveSSHConnRequest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.GetSSHConnRequest(c.Context(), "1", req.TunnelID, now)
-	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorMatches, `SSH connection request "remove-me" not found`)
 }
 
 func (s *stateSuite) TestPruneExpiredSSHConnRequests(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 	s.addMachine(c, "1")
 	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
 	expiredReq := domainssh.SSHConnRequest{TunnelID: "expired", MachineName: "1", Expires: now.Add(-time.Minute), SSHUsername: "juju-reverse-tunnel", SSHPassword: "secret", EphemeralPublicKey: []byte("pub")}
@@ -275,11 +436,11 @@ func (s *stateSuite) TestPruneExpiredSSHConnRequests(c *tc.C) {
 	_, err = st.GetSSHConnRequest(c.Context(), "1", activeReq.TunnelID, now)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = st.GetSSHConnRequest(c.Context(), "1", expiredReq.TunnelID, now)
-	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorMatches, `SSH connection request "expired" not found`)
 }
 
 func (s *stateSuite) TestWatchSSHConnRequestStatement(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 	table, stmt := st.InitialWatchSSHConnRequestsStatement()
 	c.Check(table, tc.Equals, "ssh_connection_request")
 	c.Check(stmt, tc.Equals, "SELECT tunnel_id FROM ssh_connection_request WHERE machine_uuid = ?")
@@ -288,7 +449,7 @@ func (s *stateSuite) TestWatchSSHConnRequestStatement(c *tc.C) {
 // TestGetMachineUUIDByName checks the machine name is resolved to its UUID and
 // that a missing machine yields MachineNotFound.
 func (s *stateSuite) TestGetMachineUUIDByName(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 	machineUUID := s.addMachine(c, "1")
 
 	got, err := st.GetMachineUUIDByName(c.Context(), "1")
@@ -303,7 +464,7 @@ func (s *stateSuite) TestGetMachineUUIDByName(c *tc.C) {
 // the given machine are returned, so a machine cannot observe another machine's
 // requests.
 func (s *stateSuite) TestFilterSSHConnRequestsForMachine(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 	machine1UUID := s.addMachine(c, "1")
 	s.addMachine(c, "2")
 	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
@@ -326,7 +487,7 @@ func (s *stateSuite) TestFilterSSHConnRequestsForMachine(c *tc.C) {
 // TestFilterSSHConnRequestsForMachineEmpty checks the no-op path for an empty
 // input avoids an invalid IN () query.
 func (s *stateSuite) TestFilterSSHConnRequestsForMachineEmpty(c *tc.C) {
-	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()), nil)
 	got, err := st.FilterSSHConnRequestsForMachine(c.Context(), nil, "some-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.HasLen, 0)
@@ -343,6 +504,14 @@ VALUES (?, ?, ?, (SELECT id FROM life WHERE value = 'alive'))
 `, machineUUID, name, netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	return machineUUID
+}
+
+func (s *stateSuite) connectUnitToMachine(c *tc.C, unitUUID, machineUUID string) {
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE unit
+SET net_node_uuid = (SELECT net_node_uuid FROM machine WHERE uuid = ?)
+WHERE uuid = ?`, machineUUID, unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *stateSuite) addUnit(c *tc.C, name string) string {

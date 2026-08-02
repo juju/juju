@@ -8,11 +8,28 @@ import (
 	"time"
 
 	domainssh "github.com/juju/juju/domain/ssh"
+	sshstate "github.com/juju/juju/domain/ssh/state/model"
 )
 
 // State describes model-scoped persistence for SSH virtual host keys and SSH
 // connection requests.
 type State interface {
+	// GetModelInfo returns the model metadata needed to route SSH destinations.
+	GetModelInfo(context.Context) (sshstate.ModelInfo, error)
+
+	// GetControllerName returns the controller name from controller state.
+	GetControllerName(context.Context) (string, error)
+
+	// GetUnitK8sPodInfo returns the Kubernetes pod provider ID for a unit.
+	GetUnitK8sPodInfo(context.Context, string) (string, error)
+
+	// GetUnitMachineName returns the backing machine name for a live unit.
+	GetUnitMachineName(context.Context, string) (string, error)
+
+	// CheckMachineExists reports whether a live machine with the supplied name
+	// exists.
+	CheckMachineExists(context.Context, string) (bool, error)
+
 	// GetMachineVirtualHostKeyByMachineName returns the machine virtual host key.
 	// The boolean indicates whether a key row exists.
 	GetMachineVirtualHostKeyByMachineName(context.Context, string) (string, bool, error)

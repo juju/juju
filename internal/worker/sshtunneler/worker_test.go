@@ -15,6 +15,7 @@ import (
 
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
@@ -194,20 +195,34 @@ func (s *workerSuite) TestStateAdapterMachineHostKeysInvalidModelUUID(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `invalid model UUID "not-a-uuid": .*`)
 }
 
-// TestControllerInfoAdapterLocalAddresses verifies that only the local
-// controller node's addresses are returned as SpaceAddresses.
+// TestControllerInfoAdapterLocalAddresses verifies that only the hosts from
+// the local controller node's API endpoints are returned as SpaceAddresses.
 func (s *workerSuite) TestControllerInfoAdapterLocalAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerNodeService.EXPECT().GetAPIAddressesForControllerIDForAgents(gomock.Any(), "0").Return(
-		[]string{"10.0.0.1:17070"}, nil,
+		[]string{"10.0.0.1:17070", "[2001:db8::1]:17070"}, nil,
 	)
 
 	adapter := &controllerInfoAdapter{controllerNodeService: s.controllerNodeService}
 	addrs, err := adapter.LocalAddresses(c.Context(), "0")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(addrs, tc.HasLen, 1)
-	c.Check(addrs[0].Value, tc.Equals, "10.0.0.1:17070")
+	c.Check(addrs, tc.DeepEquals, network.NewSpaceAddresses("10.0.0.1", "2001:db8::1"))
+}
+
+// TestControllerInfoAdapterLocalAddressesInvalidEndpoint verifies that a
+// malformed controller API endpoint is rejected rather than used as an SSH
+// hostname.
+func (s *workerSuite) TestControllerInfoAdapterLocalAddressesInvalidEndpoint(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerNodeService.EXPECT().GetAPIAddressesForControllerIDForAgents(gomock.Any(), "0").Return(
+		[]string{"10.0.0.1"}, nil,
+	)
+
+	adapter := &controllerInfoAdapter{controllerNodeService: s.controllerNodeService}
+	_, err := adapter.LocalAddresses(c.Context(), "0")
+	c.Assert(err, tc.ErrorMatches, `failed to parse controller node address "10.0.0.1": cannot parse "10.0.0.1" as address:port: .*`)
 }
 
 // TestControllerInfoAdapterLocalAddressesUnknownNode verifies that an error
