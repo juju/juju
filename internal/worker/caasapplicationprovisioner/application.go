@@ -257,14 +257,8 @@ func (a *appWorker) loop() error {
 				return errors.Trace(err)
 			}
 			if ps.Scaling {
-				if statusOnly {
-					// Clear provisioning state for status only app.
-					err = a.applicationService.SetApplicationScalingState(ctx, name, 0, false)
-					if err != nil {
-						return errors.Trace(err)
-					}
-				} else {
-					scaleChan = a.clock.After(0)
+				scaleChan = a.clock.After(0)
+				if !statusOnly {
 					reconcileDeadChan = a.clock.After(0)
 				}
 			}
@@ -375,10 +369,6 @@ func (a *appWorker) loop() error {
 			}
 			shouldRefresh = false
 		case <-scaleChan:
-			if statusOnly {
-				scaleChan = nil
-				break
-			}
 			if !ready {
 				scaleChan = a.clock.After(retryDelay)
 				shouldRefresh = false

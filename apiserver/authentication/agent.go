@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
+	"github.com/juju/juju/agent"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
@@ -174,6 +175,24 @@ func (a *agentAuthenticator) authenticateControllerAgent(ctx context.Context, ta
 	// - Any other error, is considered an internal server error.
 
 	valid, err := a.agentPasswordService.MatchesControllerNodePasswordHash(ctx, tag.Id(), credentials)
+	if tag.Id() != agent.BootstrapControllerId &&
+		((err == nil && !valid) || errors.Is(err, controllernodeerrors.NotFound)) {
+		// Prototype CAAS HA onboarding: a new StatefulSet replica starts from
+		// the bootstrap controller's agent configuration. Try its credential
+		// first for compatibility with an unrotated bootstrap config.
+		valid, err = a.agentPasswordService.MatchesControllerNodePasswordHash(
+			ctx, agent.BootstrapControllerId, credentials,
+		)
+	}
+	if tag.Id() != agent.BootstrapControllerId && err == nil && !valid {
+		// The bootstrap controller normally rotates its agent password before a
+		// replica is added. The replica seed therefore uses controller/0's stable
+		// unit credential. The normal password changer immediately replaces it
+		// with credentials for the replica's own controller ID.
+		valid, err = a.agentPasswordService.MatchesUnitPasswordHash(
+			ctx, unit.Name("controller/0"), credentials,
+		)
+	}
 	if errors.Is(err, agentpassworderrors.EmptyPassword) {
 		return nil, errors.Trace(fmt.Errorf("controller node authentication: %w", apiservererrors.ErrBadRequest))
 	} else if errors.Is(err, agentpassworderrors.InvalidPassword) || errors.Is(err, controllernodeerrors.NotFound) {
@@ -202,6 +221,14 @@ func (a *agentAuthenticator) authenticateApplication(ctx context.Context, tag na
 	// - Any other error, is considered an internal server error.
 
 	valid, err := a.agentPasswordService.MatchesApplicationPasswordHash(ctx, appName, credentials)
+	if appName == "controller" && err == nil && !valid {
+		// Prototype CAAS HA onboarding: the bootstrap controller application
+		// does not have an application password. Its extra pods use the
+		// controller/0 unit credential solely to introduce their charm units.
+		valid, err = a.agentPasswordService.MatchesUnitPasswordHash(
+			ctx, unit.Name("controller/0"), credentials,
+		)
+	}
 	if errors.Is(err, agentpassworderrors.EmptyPassword) {
 		return nil, errors.Trace(fmt.Errorf("application authentication: %w", apiservererrors.ErrBadRequest))
 	} else if errors.Is(err, agentpassworderrors.InvalidPassword) || errors.Is(err, applicationerrors.ApplicationNotFound) {

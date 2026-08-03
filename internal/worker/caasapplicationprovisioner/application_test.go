@@ -314,6 +314,10 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 	appReplicasChan := make(chan struct{}, 1)
 
 	ops.EXPECT().RefreshOperatorStatus(x, "con-troll-er", s.appUUID, app, x, x, x, x).Return(nil).AnyTimes()
+	ops.EXPECT().EnsureScale(
+		x, "con-troll-er", s.appUUID, app, life.Alive, facade,
+		applicationService, s.logger,
+	).Return(nil).AnyTimes()
 
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("con-troll-er", nil),
@@ -328,7 +332,6 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 		// handleChange
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
 		applicationService.EXPECT().GetApplicationScalingState(x, "con-troll-er").Return(applicationservice.ScalingState{Scaling: true, ScaleTarget: 1}, nil),
-		applicationService.EXPECT().SetApplicationScalingState(x, "con-troll-er", 0, false).Return(nil),
 		facade.EXPECT().WatchProvisioningInfo(x, "con-troll-er").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
 		app.EXPECT().Watch(x).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {

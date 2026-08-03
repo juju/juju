@@ -308,7 +308,7 @@ func (s *infoSuite) TestGetUnitRelationNetworksLoadsCaasFQDNsOnce(c *tc.C) {
 	for _, relationUUID := range []corerelation.UUID{relationUUID1, relationUUID2} {
 		c.Assert(infoMap[relationUUID].DeviceInfos, tc.HasLen, 1)
 		c.Check(infoMap[relationUUID].DeviceInfos[0].Addresses, tc.DeepEquals,
-			[]domainnetwork.AddressInfo{{Hostname: fqdn, Value: fqdn}})
+			[]domainnetwork.AddressInfo{{Hostname: fqdn, Value: fqdn, CIDR: "0.0.0.0/0"}})
 	}
 }
 
@@ -614,6 +614,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksCaasUsesServiceAddressForIngress(
 			Addresses: []domainnetwork.AddressInfo{{
 				Hostname: "controller-0.example.test",
 				Value:    "controller-0.example.test",
+				CIDR:     "0.0.0.0/0",
 			}},
 		}, {
 			Name:       "eth0",
@@ -627,6 +628,37 @@ func (s *infoSuite) TestGetUnitEndpointNetworksCaasUsesServiceAddressForIngress(
 		IngressAddresses: []string{"10.0.0.2"},
 		EgressSubnets:    []string{"10.0.0.0/24"},
 	})
+}
+
+func (s *infoSuite) TestGetControllerEndpointNetworksCaasUsesFQDNForIngress(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("controller/0")
+	unitUUID := coreunit.UUID("unit-uuid-123")
+	endpointNames := []string{"dbcluster"}
+	fqdn := "controller-0.controller-service-endpoints.test.svc.cluster.local"
+
+	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.st.EXPECT().GetModelEgressSubnets(gomock.Any()).Return([]string{"10.0.0.0/24"}, nil)
+	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(true, nil)
+	s.st.EXPECT().GetUnitFQDNs(gomock.Any(), unitUUID.String()).Return([]string{fqdn}, nil)
+	s.st.EXPECT().GetUnitEndpointNetworkInfo(
+		gomock.Any(), unitUUID.String(), endpointNames,
+	).Return([]networkinternal.EndpointNetworkInfo{
+		endpointNetworkInfo("dbcluster", []string{"10.0.0.2"}),
+	}, nil)
+
+	service := NewProviderService(s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c))
+	infos, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(infos, tc.HasLen, 1)
+	c.Check(infos[0].IngressAddresses, tc.DeepEquals, []string{fqdn})
+	c.Assert(infos[0].DeviceInfos, tc.HasLen, 1)
+	c.Check(infos[0].DeviceInfos[0].Addresses, tc.DeepEquals, []domainnetwork.AddressInfo{{
+		Hostname: fqdn,
+		Value:    fqdn,
+		CIDR:     "0.0.0.0/0",
+	}})
 }
 
 func (s *infoSuite) TestBuildUnitNetworkPreservesDeviceAndAddressOrder(c *tc.C) {
@@ -698,6 +730,7 @@ func (s *infoSuite) TestBuildUnitNetworkCaasPrependsFQDNs(c *tc.C) {
 		Addresses: []domainnetwork.AddressInfo{{
 			Hostname: "controller-0.example.test",
 			Value:    "controller-0.example.test",
+			CIDR:     "0.0.0.0/0",
 		}},
 	}, {
 		Name:       "eth0",
@@ -850,9 +883,11 @@ func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedCaasPrependsFQDNs(c *
 			Addresses: []domainnetwork.AddressInfo{{
 				Hostname: "controller-0.example.test",
 				Value:    "controller-0.example.test",
+				CIDR:     "0.0.0.0/0",
 			}, {
 				Hostname: "controller-1.example.test",
 				Value:    "controller-1.example.test",
+				CIDR:     "0.0.0.0/0",
 			}},
 		}, {
 			Name:       "eth0",
@@ -894,6 +929,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedCaasUsesFQDNWithoutPo
 			Addresses: []domainnetwork.AddressInfo{{
 				Hostname: "controller-0.example.test",
 				Value:    "controller-0.example.test",
+				CIDR:     "0.0.0.0/0",
 			}},
 		}},
 		IngressAddresses: []string{},

@@ -238,6 +238,19 @@ func (s *machineControllerStartupValueProviderSuite) TestBootstrapStartupValuesA
 	c.Check(password, tc.Equals, "")
 }
 
+func (s *machineControllerStartupValueProviderSuite) TestBootstrapStartupValuesUseOldPassword(c *tc.C) {
+	apiPort, password := bootstrapStartupValues(&fakeMachineConfig{
+		controllerInfoFound: true,
+		controllerAgentInfo: controller.ControllerAgentInfo{APIPort: 17070},
+		apiInfoFound:        true,
+		apiInfo:             &api.Info{},
+		oldPassword:         "secret",
+	})
+
+	c.Check(apiPort, tc.Equals, 17070)
+	c.Check(password, tc.Equals, "secret")
+}
+
 func (s *machineControllerStartupValueProviderSuite) TestBootstrapStartupValuesReadCurrentAgentConfig(c *tc.C) {
 	apiPort, password := bootstrapStartupValues(&fakeMachineConfig{
 		controllerInfoFound: true,
@@ -273,6 +286,7 @@ type fakeMachineConfig struct {
 	controllerInfoFound   bool
 	apiInfo               *api.Info
 	apiInfoFound          bool
+	oldPassword           string
 }
 
 func (f *fakeMachineConfig) DataDir() string {
@@ -318,6 +332,10 @@ func (f *fakeMachineConfig) APIInfo() (*api.Info, bool) {
 		return f.apiInfo, true
 	}
 	return &api.Info{Password: "password"}, true
+}
+
+func (f *fakeMachineConfig) OldPassword() string {
+	return f.oldPassword
 }
 
 func (f *fakeMachineConfig) Value(key string) string {
