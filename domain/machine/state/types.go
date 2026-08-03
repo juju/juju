@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
@@ -121,6 +122,23 @@ type machineLife struct {
 type machineLifeAndManual struct {
 	LifeID   life.Life `db:"life_id"`
 	IsManual int64     `db:"is_manual"`
+}
+
+// reprovisionEligibility holds the results of a compressed eligibility check
+// for reprovisioning.
+type reprovisionEligibility struct {
+	LifeID          life.Life `db:"life_id"`
+	IsContainer     int64     `db:"is_container"`
+	IsController    int64     `db:"is_controller"`
+	IsManual        int64     `db:"is_manual"`
+	HasContainers   int64     `db:"has_containers"`
+	HasModelStorage int64     `db:"has_model_storage"`
+	HasReprovision  int64     `db:"has_reprovision"`
+}
+
+type reprovisionEligibilityParams struct {
+	Name         string `db:"name"`
+	ModelScopeID int    `db:"model_scope_id"`
 }
 
 // instanceID represents the struct to be used for the instance_id column within
@@ -290,6 +308,7 @@ type machineConstraint struct {
 	VirtType         sql.NullString  `db:"virt_type"`
 	AllocatePublicIP sql.NullBool    `db:"allocate_public_ip"`
 	ImageID          sql.NullString  `db:"image_id"`
+	IPFamily         sql.NullString  `db:"ip_family"`
 	SpaceName        sql.NullString  `db:"space_name"`
 	SpaceExclude     sql.NullBool    `db:"space_exclude"`
 	Tag              sql.NullString  `db:"tag"`
@@ -323,6 +342,7 @@ type machineProvisioningRow struct {
 	VirtType         sql.NullString  `db:"virt_type"`
 	AllocatePublicIP sql.NullBool    `db:"allocate_public_ip"`
 	ImageID          sql.NullString  `db:"image_id"`
+	IPFamily         sql.NullString  `db:"ip_family"`
 	SpaceName        sql.NullString  `db:"space_name"`
 	SpaceExclude     sql.NullBool    `db:"space_exclude"`
 	Tag              sql.NullString  `db:"tag"`
@@ -343,19 +363,20 @@ type setMachineConstraint struct {
 }
 
 type setConstraint struct {
-	UUID             string  `db:"uuid"`
-	Arch             *string `db:"arch"`
-	CPUCores         *uint64 `db:"cpu_cores"`
-	CPUPower         *uint64 `db:"cpu_power"`
-	Mem              *uint64 `db:"mem"`
-	RootDisk         *uint64 `db:"root_disk"`
-	RootDiskSource   *string `db:"root_disk_source"`
-	InstanceRole     *string `db:"instance_role"`
-	InstanceType     *string `db:"instance_type"`
-	ContainerTypeID  *uint64 `db:"container_type_id"`
-	VirtType         *string `db:"virt_type"`
-	AllocatePublicIP *bool   `db:"allocate_public_ip"`
-	ImageID          *string `db:"image_id"`
+	UUID             string             `db:"uuid"`
+	Arch             *string            `db:"arch"`
+	CPUCores         *uint64            `db:"cpu_cores"`
+	CPUPower         *uint64            `db:"cpu_power"`
+	Mem              *uint64            `db:"mem"`
+	RootDisk         *uint64            `db:"root_disk"`
+	RootDiskSource   *string            `db:"root_disk_source"`
+	InstanceRole     *string            `db:"instance_role"`
+	InstanceType     *string            `db:"instance_type"`
+	ContainerTypeID  *uint64            `db:"container_type_id"`
+	VirtType         *string            `db:"virt_type"`
+	AllocatePublicIP *bool              `db:"allocate_public_ip"`
+	ImageID          *string            `db:"image_id"`
+	IPFamily         *ipfamily.IPFamily `db:"ip_family"`
 }
 
 type setConstraintTag struct {
@@ -396,6 +417,7 @@ type dbConstraint struct {
 	VirtType         sql.NullString  `db:"virt_type"`
 	AllocatePublicIP sql.NullBool    `db:"allocate_public_ip"`
 	ImageID          sql.NullString  `db:"image_id"`
+	IPFamily         sql.NullString  `db:"ip_family"`
 }
 
 func (c dbConstraint) toValue(
@@ -439,6 +461,10 @@ func (c dbConstraint) toValue(
 	}
 	if c.ImageID.Valid {
 		rval.ImageID = &c.ImageID.String
+	}
+	if c.IPFamily.Valid {
+		f := ipfamily.IPFamily(c.IPFamily.String)
+		rval.IPFamily = &f
 	}
 	if c.ContainerType.Valid {
 		containerType := instance.ContainerType(c.ContainerType.String)
@@ -512,4 +538,58 @@ type sshHostKey struct {
 	UUID        string `db:"uuid"`
 	MachineUUID string `db:"machine_uuid"`
 	Key         string `db:"ssh_key"`
+}
+
+type reprovisionDetachTarget struct {
+	UUID         string           `db:"machine_uuid"`
+	NetNodeUUID  string           `db:"net_node_uuid"`
+	InstanceID   sql.Null[string] `db:"instance_id"`
+	LifeID       life.Life        `db:"life_id"`
+	AgentPresent int64            `db:"agent_present"`
+}
+
+type netNode struct {
+	UUID string `db:"net_node_uuid"`
+}
+
+type reprovisionStorageEntityTarget struct {
+	EntityUUID          string           `db:"entity_uuid"`
+	ScopeID             int              `db:"scope_id"`
+	StorageInstanceUUID sql.Null[string] `db:"storage_instance_uuid"`
+}
+
+type reprovisionStorageLogicalAttachment struct {
+	EntityUUID string `db:"entity_uuid"`
+}
+
+type reprovisionStoragePhysicalAttachment struct {
+	UUID            string           `db:"uuid"`
+	EntityUUID      string           `db:"entity_uuid"`
+	ScopeID         int              `db:"scope_id"`
+	BlockDeviceUUID sql.Null[string] `db:"block_device_uuid"`
+}
+
+type reprovisionStoragePlanTarget struct {
+	UUID       string `db:"uuid"`
+	EntityUUID string `db:"entity_uuid"`
+	ScopeID    int    `db:"scope_id"`
+}
+
+type reprovisionStorageLife struct {
+	EntityType string `db:"entity_type"`
+	EntityUUID string `db:"entity_uuid"`
+}
+
+type reprovisionUUIDs []string
+
+type reprovisionStorageTargetParams struct {
+	NetNodeUUID    string `db:"net_node_uuid"`
+	AliveLifeID    int    `db:"alive_life_id"`
+	ModelScopeID   int    `db:"model_scope_id"`
+	MachineScopeID int    `db:"machine_scope_id"`
+}
+
+type machineReprovision struct {
+	MachineName string    `db:"machine_name"`
+	RequestedAt time.Time `db:"requested_at"`
 }

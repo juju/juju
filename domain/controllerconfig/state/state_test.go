@@ -13,7 +13,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/controllerconfig/bootstrap"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/juju/internal/errors"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
@@ -49,7 +48,7 @@ func (s *stateSuite) TestControllerConfigRead(c *tc.C) {
 		controller.PublicDNSAddress:    "controller.test.com:1234",
 	}
 
-	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	controllerConfig, err := st.ControllerConfig(c.Context())
@@ -71,6 +70,30 @@ func (s *stateSuite) TestControllerConfigReadWithoutData(c *tc.C) {
 	})
 }
 
+// TestGetControllerConfigValue checks that a single config key can be read
+// directly, and that an unset key reports ok=false so callers can fall back to
+// a default.
+func (s *stateSuite) TestGetControllerConfigValue(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	err := st.UpdateControllerConfig(c.Context(), map[string]string{
+		controller.ControllerUUIDKey: jujutesting.ControllerTag.Id(),
+		controller.CACertKey:         jujutesting.CACert,
+		controller.SSHServerPort:     "2223",
+	}, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	value, ok, err := st.GetControllerConfigValue(c.Context(), controller.SSHServerPort)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(ok, tc.IsTrue)
+	c.Check(value, tc.Equals, "2223")
+
+	// An unset key reports ok=false rather than erroring.
+	_, ok, err = st.GetControllerConfigValue(c.Context(), controller.PublicDNSAddress)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(ok, tc.IsFalse)
+}
+
 func (s *stateSuite) TestControllerConfigUpdateTwice(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -83,10 +106,10 @@ func (s *stateSuite) TestControllerConfigUpdateTwice(c *tc.C) {
 		controller.PublicDNSAddress:    "controller.test.com:1234",
 	}
 
-	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
+	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	controllerConfig, err := st.ControllerConfig(c.Context())
@@ -106,12 +129,12 @@ func (s *stateSuite) TestControllerConfigUpdate(c *tc.C) {
 		controller.PublicDNSAddress:    "controller.test.com:1234",
 	}
 
-	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctrlConfig[controller.AuditLogMaxBackups] = "11"
 
-	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
+	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	controllerConfig, err := st.ControllerConfig(c.Context())
@@ -131,14 +154,14 @@ func (s *stateSuite) TestControllerConfigUpdateTwiceWithDifferentControllerUUID(
 		controller.PublicDNSAddress:    "controller.test.com:1234",
 	}
 
-	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// This is just ignored, the service layer will not allow this.
 
 	ctrlConfig[controller.ControllerUUIDKey] = "new-controller-uuid"
 
-	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
+	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -147,12 +170,12 @@ func (s *stateSuite) TestUpdateControllerConfigNewData(c *tc.C) {
 
 	err := st.UpdateControllerConfig(c.Context(), map[string]string{
 		controller.PublicDNSAddress: "controller.test.com:1234",
-	}, nil, alwaysValid)
+	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.UpdateControllerConfig(c.Context(), map[string]string{
 		controller.AuditLogMaxBackups: "10",
-	}, nil, alwaysValid)
+	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	db := s.DB()
@@ -176,13 +199,13 @@ func (s *stateSuite) TestUpdateControllerUpsertAndReplace(c *tc.C) {
 	}
 
 	// Initial values.
-	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Now with different DNS address and API port open delay.
 	ctrlConfig[controller.PublicDNSAddress] = "updated-controller.test.com:1234"
 
-	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
+	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	db := s.DB()
@@ -205,7 +228,7 @@ func (s *stateSuite) TestUpdateControllerUpsertAndReplaceAPIPort(c *tc.C) {
 	}
 
 	// Initial values.
-	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err := st.ControllerConfig(c.Context())
@@ -214,7 +237,7 @@ func (s *stateSuite) TestUpdateControllerUpsertAndReplaceAPIPort(c *tc.C) {
 
 	ctrlConfig[controller.APIPort] = "5678"
 
-	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
+	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err = st.ControllerConfig(c.Context())
@@ -238,14 +261,14 @@ func (s *stateSuite) TestUpdateControllerRemoveAPIPort(c *tc.C) {
 	}
 
 	// Initial values.
-	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err := st.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cfg[controller.APIPort], tc.Equals, "1234")
 
-	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, []string{controller.APIPort}, alwaysValid)
+	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, []string{controller.APIPort})
 	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err = st.ControllerConfig(c.Context())
@@ -273,7 +296,7 @@ func (s *stateSuite) TestControllerConfigRemove(c *tc.C) {
 		controller.PublicDNSAddress:    "controller.test.com:1234",
 	}
 
-	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctrlConfig[controller.AuditLogMaxBackups] = "11"
@@ -284,7 +307,7 @@ func (s *stateSuite) TestControllerConfigRemove(c *tc.C) {
 
 	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, []string{
 		controller.AuditLogCaptureArgs,
-	}, alwaysValid)
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	controllerConfig, err := st.ControllerConfig(c.Context())
@@ -310,7 +333,7 @@ func (s *stateSuite) TestControllerConfigRemoveWithAdditionalValues(c *tc.C) {
 		controller.PublicDNSAddress:    "controller.test.com:1234",
 	}
 
-	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, alwaysValid)
+	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctrlConfig[controller.AuditLogMaxBackups] = "11"
@@ -320,7 +343,7 @@ func (s *stateSuite) TestControllerConfigRemoveWithAdditionalValues(c *tc.C) {
 
 	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, []string{
 		controller.AuditLogCaptureArgs,
-	}, alwaysValid)
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	controllerConfig, err := st.ControllerConfig(c.Context())
@@ -332,22 +355,4 @@ func (s *stateSuite) TestControllerConfigRemoveWithAdditionalValues(c *tc.C) {
 		controller.AuditLogMaxBackups: "11",
 		controller.PublicDNSAddress:   "controller.test.com:1234",
 	})
-}
-
-func (s *stateSuite) TestUpdateControllerWithValidation(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	ctrlConfig := map[string]string{
-		controller.PublicDNSAddress: "controller.test.com:1234",
-	}
-
-	// Initial values.
-	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil, func(m map[string]string) error {
-		return errors.Errorf("boom")
-	})
-	c.Assert(err, tc.ErrorMatches, `boom`)
-}
-
-func alwaysValid(_ map[string]string) error {
-	return nil
 }

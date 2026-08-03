@@ -21,7 +21,12 @@ INSERT INTO removal_type VALUES
 (11, 'storage filesystem attachment'),
 (12, 'remote application offerer'),
 (13, 'relation with remote offerer'),
-(14, 'relation with remote consumer');
+(14, 'relation with remote consumer'),
+(15, 'controller-model'),
+(16, 'user secret'),
+(17, 'obsolete user secret revisions'),
+(18, 'charm secret');
+
 
 CREATE TABLE removal (
     uuid TEXT NOT NULL PRIMARY KEY,
@@ -37,3 +42,9 @@ CREATE TABLE removal (
     FOREIGN KEY (removal_type_id)
     REFERENCES removal_type (id)
 );
+
+CREATE INDEX idx_removal_type_entity_arg
+ON removal (removal_type_id, entity_uuid, arg);
+
+CREATE INDEX idx_removal_scheduled_for
+ON removal (scheduled_for);

@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"net"
 	"net/http"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -17,6 +18,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -33,14 +35,32 @@ const (
 	ForwardPortTimeout time.Duration = time.Minute * 10
 )
 
+type portForwarder interface {
+	ForwardPorts() error
+	GetPorts() ([]portforward.ForwardedPort, error)
+}
+
+var newPortForwarder = func(
+	dialer httpstream.Dialer,
+	addresses []string,
+	ports []string,
+	stopChan <-chan struct{},
+	readyChan chan struct{},
+	out, errOut io.Writer,
+) (portForwarder, error) {
+	return portforward.NewOnAddresses(dialer, addresses, ports, stopChan, readyChan, out, errOut)
+}
+
 // Tunnel represents an ssh like tunnel to a Kubernetes Pod or Service
 type Tunnel struct {
 	client     rest.Interface
 	config     *rest.Config
 	Kind       TunnelKind
+	errChan    chan error
 	LocalPort  string
 	Namespace  string
 	Out        io.Writer
+	closeOnce  sync.Once
 	readyChan  chan struct{}
 	RemotePort string
 	stopChan   chan struct{}
@@ -56,10 +76,22 @@ const (
 
 // Close disconnects a tunnel connection
 func (t *Tunnel) Close() {
-	select {
-	case <-t.stopChan:
-	default:
+	t.closeOnce.Do(func() {
 		close(t.stopChan)
+	})
+}
+
+// ForwardError returns a port-forwarding error observed after the tunnel was
+// reported as ready.
+func (t *Tunnel) ForwardError() error {
+	if t.errChan == nil {
+		return nil
+	}
+	select {
+	case err := <-t.errChan:
+		return err
+	default:
+		return nil
 	}
 }
 
@@ -94,6 +126,9 @@ func (t *Tunnel) findSuitablePodForService(ctx context.Context) (*corev1.Pod, er
 	return &pods.Items[rand.Intn(podCount-1)], nil
 }
 
+// ForwardPort starts forwarding RemotePort to an assigned IPv4 localhost port.
+// A Tunnel is single-use for forwarding; call ForwardPort at most once, then
+// Close to stop the forwarding session.
 func (t *Tunnel) ForwardPort(ctx context.Context) error {
 	if !t.IsValidTunnelKind() {
 		return fmt.Errorf("invalid tunnel kind %s", t.Kind)
@@ -129,48 +164,49 @@ func (t *Tunnel) ForwardPort(ctx context.Context) error {
 	}
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, http.MethodPost, u)
 
-	local, err := getAvailablePort()
-	if err != nil {
-		return fmt.Errorf("could not find an available port: %w", err)
-	}
-	t.LocalPort = local
+	return t.forwardPort(ctx, dialer)
+}
 
-	ports := []string{fmt.Sprintf("%s:%s", t.LocalPort, t.RemotePort)}
-
-	pf, err := portforward.New(dialer, ports, t.stopChan, t.readyChan, t.Out, t.Out)
+func (t *Tunnel) forwardPort(ctx context.Context, dialer httpstream.Dialer) error {
+	ports := []string{fmt.Sprintf("0:%s", t.RemotePort)}
+	pf, err := newPortForwarder(
+		dialer,
+		[]string{"127.0.0.1"},
+		ports,
+		t.stopChan,
+		t.readyChan,
+		t.Out,
+		t.Out,
+	)
 	if err != nil {
 		return err
 	}
 
-	errChan := make(chan error, 1)
+	t.errChan = make(chan error, 1)
 	go func() {
-		errChan <- pf.ForwardPorts()
+		t.errChan <- pf.ForwardPorts()
 	}()
 
 	select {
 	case <-ctx.Done():
-		close(t.stopChan)
+		t.Close()
 		return ctx.Err()
-	case err = <-errChan:
-		close(t.stopChan)
+	case err = <-t.errChan:
+		t.Close()
 		return fmt.Errorf("forwarding ports: %v", err)
-	case <-pf.Ready:
+	case <-t.readyChan:
+		forwardedPorts, err := pf.GetPorts()
+		if err != nil {
+			t.Close()
+			return fmt.Errorf("getting forwarded ports: %w", err)
+		}
+		if len(forwardedPorts) == 0 {
+			t.Close()
+			return errors.New("no forwarded ports")
+		}
+		t.LocalPort = strconv.Itoa(int(forwardedPorts[0].Local))
 		return nil
 	}
-}
-
-func getAvailablePort() (string, error) {
-	l, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return "", err
-	}
-	defer l.Close()
-
-	_, p, err := net.SplitHostPort(l.Addr().String())
-	if err != nil {
-		return "", err
-	}
-	return p, err
 }
 
 // IsValidTunnelKind tests that the tunnel kind supplied to this tunnel is valid
@@ -189,7 +225,8 @@ func NewTunnelForConfig(
 	kind TunnelKind,
 	namespace,
 	target,
-	remotePort string) (*Tunnel, error) {
+	remotePort string,
+) (*Tunnel, error) {
 
 	config := *c
 	gv := corev1.SchemeGroupVersion

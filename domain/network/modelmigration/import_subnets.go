@@ -64,6 +64,12 @@ func (i *importSubnetsOperation) Execute(ctx context.Context, model description.
 		// Kubernetes environments do not support spaces or subnets, though
 		// we do need to provide a fallback subnets. This is for RI purposes
 		// only.
+		//
+		// Importing only FallbackSubnetInfo here is correct for 3.x -> 4.x
+		// CAAS migrations: the target controller re-discovers the real pod
+		// subnets via ReloadSpaces() -> the Kubernetes provider's Subnets()
+		// discoverer chain on model creation, so any exported subnet data can
+		// be safely discarded.
 		return i.populateFallbackSubnets(ctx)
 	}
 

@@ -12,9 +12,10 @@ import (
 	"strings"
 	"sync"
 	stdtesting "testing"
-	time "time"
+	"time"
 
 	gomock "github.com/canonical/gomock/gomock"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
@@ -22,7 +23,6 @@ import (
 
 	objectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/internal/testing"
 )
 
 const (
@@ -101,21 +101,21 @@ func (s *drainerSuite) TestDrainFilesWithError(c *tc.C) {
 		Path:   "foo",
 		Size:   12,
 	}})
-	done := s.expectHashToExistError("foo", errors.Errorf("boom"))
+	s.hashFileSystemAccessor.EXPECT().HashExists(gomock.Any(), "foo").Return(errors.Errorf("boom"))
 
-	_, store := s.newDrainerWorker(c)
+	ch, store := s.newDrainerWorker(c)
 	defer workertest.DirtyKill(c, store)
 
-	// Note: the drained state is never reached because of the error.
-
+	// The worker signals failure after exhausting retries (maxRetries=1 in
+	// tests), so we receive the result on the channel.
 	select {
-	case <-done:
-	case <-time.After(testing.ShortWait * 10):
-		c.Fatalf("timed out waiting for drain")
+	case result := <-ch:
+		c.Check(result.Err, tc.ErrorMatches, `.*boom.*`)
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for drain result")
 	}
 
-	err := workertest.CheckKill(c, store)
-	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
+	workertest.CleanKill(c, store)
 }
 
 func (s *drainerSuite) TestDrainFileDoesNotExist(c *tc.C) {
@@ -236,41 +236,56 @@ func (s *drainerSuite) TestDrainFilePut(c *tc.C) {
 	s.expectObjectExistsError("foo", errors.NotFoundf("not found"))
 	s.expectGetByHash("foo", reader, size)
 	s.expectHashPut(c, "foo", "KQ9JPET11j0Gs3TQpavSkvrji5LKsvrl7+/hsOk0f1Y=", "some content")
-	s.expectDeleteHash("foo")
 
 	err := store.drainFile(c.Context(), "/path", "foo", 12)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(reader.Closed(), tc.IsTrue)
 }
 
-func (s *drainerSuite) TestDrainFileDeleteError(c *tc.C) {
+func (s *drainerSuite) TestDrainFileCreatesNamespacedObjectKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Test that we can handle an error when we try to delete the hash
-	// from the file system.
-	// In this case we should just return nil, otherwise we'll end up
-	// crashing the worker.
+	const content = "some content"
+	s3Hash := s.calculateBase64SHA256(c, content)
 
-	store := &drainWorker{
-		rootBucket: defaultBucketName,
-		namespace:  "inferi",
-		fileSystem: s.hashFileSystemAccessor,
-		client:     &client{s3Session: s.s3Session},
-		logger:     s.logger,
+	for _, namespace := range []string{
+		"model-uuid",
+		"controller",
+		"01234567-89ab-cdef-0123-456789abcdef",
+	} {
+		reader := &readCloser{Reader: strings.NewReader(content)}
+		s.hashFileSystemAccessor.EXPECT().HashExists(
+			gomock.Any(), "object-sha",
+		).Return(nil)
+		s.s3Session.EXPECT().ObjectExists(
+			gomock.Any(), defaultBucketName, namespace+"/object-sha",
+		).Return(errors.NotFoundf("not found"))
+		s.hashFileSystemAccessor.EXPECT().GetByHash(
+			gomock.Any(), "object-sha",
+		).Return(reader, int64(len(content)), nil)
+		s.s3Session.EXPECT().PutObject(
+			gomock.Any(), defaultBucketName, namespace+"/object-sha",
+			gomock.Any(), s3Hash,
+		).DoAndReturn(func(_ context.Context, _, _ string, body io.Reader, _ string) error {
+			got, err := io.ReadAll(body)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(string(got), tc.Equals, content)
+			return nil
+		})
+
+		store := &drainWorker{
+			rootBucket: defaultBucketName,
+			namespace:  namespace,
+			fileSystem: s.hashFileSystemAccessor,
+			client:     &client{s3Session: s.s3Session},
+			logger:     s.logger,
+		}
+		err := store.drainFile(
+			c.Context(), "/path", "object-sha", int64(len(content)),
+		)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(reader.Closed(), tc.IsTrue)
 	}
-
-	reader := &readCloser{Reader: strings.NewReader("some content")}
-	size := int64(12)
-
-	s.expectHashToExist("foo")
-	s.expectObjectExistsError("foo", errors.NotFoundf("not found"))
-	s.expectGetByHash("foo", reader, size)
-	s.expectHashPut(c, "foo", "KQ9JPET11j0Gs3TQpavSkvrji5LKsvrl7+/hsOk0f1Y=", "some content")
-	s.expectDeleteHashError("foo", errors.Errorf("boom"))
-
-	err := store.drainFile(c.Context(), "/path", "foo", 12)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(reader.Closed(), tc.IsTrue)
 }
 
 func (s *drainerSuite) TestComputeS3Hash(c *tc.C) {
@@ -315,21 +330,25 @@ func (s *drainerSuite) TestComputeS3HashNoSeekerReader(c *tc.C) {
 	c.Check(string(bytes), tc.Equals, content)
 }
 
-func (s *drainerSuite) newDrainerWorker(c *tc.C) (<-chan string, worker.Worker) {
-	ch := make(chan string, 1)
-	store := NewDrainWorker(
-		ch,
-		s.hashFileSystemAccessor,
-		&client{s3Session: s.s3Session},
-		s.objectStoreMetadata,
-		defaultBucketName,
-		"inferi",
-		func(m objectstore.Metadata) string {
+func (s *drainerSuite) newDrainerWorker(c *tc.C) (<-chan drainResult, worker.Worker) {
+	ch := make(chan drainResult, 1)
+	w := &drainWorker{
+		completed:       ch,
+		fileSystem:      s.hashFileSystemAccessor,
+		client:          &client{s3Session: s.s3Session},
+		metadataService: s.objectStoreMetadata,
+		rootBucket:      defaultBucketName,
+		namespace:       "inferi",
+		selectFileHash: func(m objectstore.Metadata) string {
 			return m.SHA384
 		},
-		s.logger,
-	)
-	return ch, store
+		maxRetries: 1,
+		retryDelay: time.Millisecond,
+		clock:      clock.WallClock,
+		logger:     s.logger,
+	}
+	w.tomb.Go(w.loop)
+	return ch, w
 }
 
 func (s *drainerSuite) expectListMetadata(metadata []objectstore.Metadata) {
@@ -347,14 +366,6 @@ func (s *drainerSuite) expectHashToExistError(hash string, err error) <-chan str
 		return err
 	})
 	return ch
-}
-
-func (s *drainerSuite) expectDeleteHash(hash string) {
-	s.hashFileSystemAccessor.EXPECT().DeleteByHash(gomock.Any(), hash).Return(nil)
-}
-
-func (s *drainerSuite) expectDeleteHashError(hash string, err error) {
-	s.hashFileSystemAccessor.EXPECT().DeleteByHash(gomock.Any(), hash).Return(err)
 }
 
 func (s *drainerSuite) expectObjectExists(hash string) {

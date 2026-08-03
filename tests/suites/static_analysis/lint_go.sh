@@ -106,8 +106,8 @@ run_go_tidy() {
 run_go_fanout() {
 	# Ensure that the following binaries don't import each other, or are not
 	# imported by any other package outside of their own package.
-	for cmd in "containeragent" "jujuc" "jujud"; do
-		LIST=$(find . -type f -name "*.go" | sort -u | xargs grep -EH "github\.com\/juju\/juju\/cmd\/$cmd(\/|\")" | grep -v "^./cmd/$cmd")
+	for cmd in "containeragent" "jujuc" "jujuagentd"; do
+		LIST=$(find . -type f -name "*.go" | sort -u | xargs grep -EH "github\.com\/juju\/juju\/cmd\/$cmd(\/|\")" | grep -v "^./cmd/$cmd" | grep -v "scripts/engine-dag")
 		if [[ -n ${LIST} ]]; then
 			(echo >&2 -e "\\nError: $cmd binary is being used outside of it's package. Refactor the following list:\\n\\n${LIST}")
 			exit 1
@@ -151,6 +151,10 @@ run_govulncheck() {
 		# LXD daemon vulnerability not client
 		# https://pkg.go.dev/vuln/GO-2026-4595
 		"GO-2026-4595"
+		# GO-2026-5932: golang.org/x/crypto/openpgp is deprecated/unsafe.
+		# Migrating to ProtonMail/go-crypto is tracked as a separate task.
+		# May be removed once https://github.com/juju/juju/pull/22828 lands
+		"GO-2026-5932"
 	)
 	ignoreMatcher=$(join "|" "${ignore[@]}")
 

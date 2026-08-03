@@ -5,6 +5,7 @@ package kubernetes_test
 
 import (
 	"context"
+	"io"
 	"testing"
 	"time"
 
@@ -22,10 +23,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	clientkubernetes "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
@@ -37,6 +40,7 @@ import (
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/provider/kubernetes"
+	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/provider/kubernetes/mocks"
 	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
 	k8swatchertest "github.com/juju/juju/internal/provider/kubernetes/watcher/test"
@@ -68,7 +72,8 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.namespace = controllerName
 
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
-		config.NameKey: "controller-1",
+		config.NameKey:   "controller-1",
+		"logging-config": "<root>=WARNING;juju.bootstrap=INFO",
 	}))
 	c.Assert(err, tc.ErrorIsNil)
 	s.cfg = cfg
@@ -103,6 +108,10 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	}
 	pcfg.Bootstrap.ControllerConfig = s.controllerCfg
 	s.pcfg = pcfg
+	if s.pcfg.AgentEnvironment == nil {
+		s.pcfg.AgentEnvironment = make(map[string]string)
+	}
+	s.pcfg.AgentEnvironment[agent.LoggingOverride] = "juju.bootstrap=TRACE"
 	s.controllerStackerGetter = func() kubernetes.ControllerStackerForTest {
 		controllerStacker, err := kubernetes.NewcontrollerStackForTest(
 			envtesting.BootstrapContext(c.Context(), c), "juju-controller-test", "some-storage", s.broker, s.pcfg,
@@ -292,6 +301,263 @@ func (s *bootstrapSuite) TestGetControllerSvcSpec(c *tc.C) {
 	}
 }
 
+func (s *bootstrapSuite) TestControllerSpecWaitsForLocalControllerCharm(c *tc.C) {
+	newK8sClientFunc, newK8sRestClientFunc := s.setupK8sRestClient(c, s.pcfg.ControllerName)
+	var bootstrapWatchers []k8swatcher.KubernetesNotifyWatcher
+	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, &bootstrapWatchers)
+
+	s.pcfg.Bootstrap.Timeout = 10 * time.Minute
+	s.pcfg.Bootstrap.ControllerCharmPath = "/tmp/controller.charm"
+
+	spec := s.controllerStackerGetter().BuildContainerSpecForController(c)
+	var apiServer *core.Container
+	for i := range spec.Containers {
+		if spec.Containers[i].Name == "api-server" {
+			apiServer = &spec.Containers[i]
+			break
+		}
+	}
+	c.Assert(apiServer, tc.NotNil)
+	c.Assert(apiServer.Args, tc.HasLen, 2)
+
+	startup := apiServer.Args[1]
+	c.Check(startup, tc.Contains, "mkdir -p $JUJU_DATA_DIR/charms")
+	c.Check(startup, tc.Contains, "until test -e $JUJU_DATA_DIR/charms/controller.charm; do sleep 1; done")
+	c.Check(startup, tc.Contains, "$JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s")
+	c.Check(startup, tc.Not(tc.Contains), "test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf ||")
+}
+
+func (s *bootstrapSuite) TestIsLocalControllerCharmPath(c *tc.C) {
+	c.Check(kubernetes.IsLocalControllerCharmPath("/tmp/controller.charm"), tc.IsTrue)
+	c.Check(kubernetes.IsLocalControllerCharmPath("./controller.charm"), tc.IsTrue)
+	c.Check(kubernetes.IsLocalControllerCharmPath("../controller.charm"), tc.IsTrue)
+	c.Check(kubernetes.IsLocalControllerCharmPath(""), tc.IsFalse)
+	c.Check(kubernetes.IsLocalControllerCharmPath("ch:juju-controller"), tc.IsFalse)
+}
+
+func (s *bootstrapSuite) TestControllerExecClientWithEmptyRestConfig(c *tc.C) {
+	newK8sClientFunc, newK8sRestClientFunc := s.setupK8sRestClient(c, s.pcfg.ControllerName)
+	var bootstrapWatchers []k8swatcher.KubernetesNotifyWatcher
+	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, &bootstrapWatchers)
+	s.broker.SetRestConfigForTest(nil)
+
+	_, err := s.controllerStackerGetter().ControllerExecClient()
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
+func (s *bootstrapSuite) TestUploadLocalControllerCharmSkipsNonLocalCharmPath(c *tc.C) {
+	s.pcfg.Bootstrap.ControllerCharmPath = "ch:juju-controller"
+	stack := s.controllerStackerGetter()
+
+	called := false
+	stack.SetControllerExecClientFactory(func() (k8sexec.Executor, error) {
+		called = true
+		return &localControllerCharmExec{}, nil
+	})
+
+	err := stack.UploadLocalControllerCharm(c.Context(), s.pcfg.GetPodName())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(called, tc.IsFalse)
+}
+
+func (s *bootstrapSuite) TestUploadLocalControllerCharm(c *tc.C) {
+	s.pcfg.Bootstrap.ControllerCharmPath = "/tmp/controller.charm"
+	stack := s.controllerStackerGetter()
+	execClient := &localControllerCharmExec{}
+	stack.SetControllerExecClientFactory(func() (k8sexec.Executor, error) {
+		return execClient, nil
+	})
+
+	err := stack.UploadLocalControllerCharm(c.Context(), s.pcfg.GetPodName())
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(execClient.execCommands, tc.DeepEquals, [][]string{
+		{"mkdir", "-p", "/var/lib/juju/charms"},
+		{"chmod", "0644", "/var/lib/juju/charms/controller.charm.uploading"},
+		{"mv", "-f", "/var/lib/juju/charms/controller.charm.uploading", "/var/lib/juju/charms/controller.charm"},
+	})
+	c.Assert(execClient.copyParams, tc.HasLen, 1)
+	c.Check(execClient.copyParams[0].Src.Path, tc.Equals, "/tmp/controller.charm")
+	c.Check(execClient.copyParams[0].Dest.Path, tc.Equals, "/var/lib/juju/charms/controller.charm.uploading")
+	c.Check(execClient.copyParams[0].Dest.PodName, tc.Equals, s.pcfg.GetPodName())
+	c.Check(execClient.copyParams[0].Dest.ContainerName, tc.Equals, "api-server")
+}
+
+func (s *bootstrapSuite) TestUploadLocalControllerCharmExecClientError(c *tc.C) {
+	s.pcfg.Bootstrap.ControllerCharmPath = "/tmp/controller.charm"
+	stack := s.controllerStackerGetter()
+	stack.SetControllerExecClientFactory(func() (k8sexec.Executor, error) {
+		return nil, errors.NotValidf("empty kubernetes rest config")
+	})
+
+	err := stack.UploadLocalControllerCharm(c.Context(), s.pcfg.GetPodName())
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
+func (s *bootstrapSuite) TestUploadLocalControllerCharmMkdirError(c *tc.C) {
+	s.pcfg.Bootstrap.ControllerCharmPath = "/tmp/controller.charm"
+	stack := s.controllerStackerGetter()
+	execClient := &localControllerCharmExec{
+		execErrAt: 1,
+		execErr:   errors.Errorf("mkdir failed"),
+		stderr:    "permission denied\n",
+	}
+	stack.SetControllerExecClientFactory(func() (k8sexec.Executor, error) {
+		return execClient, nil
+	})
+
+	err := stack.UploadLocalControllerCharm(c.Context(), s.pcfg.GetPodName())
+	c.Assert(err, tc.ErrorMatches, "creating local controller charm directory: permission denied: mkdir failed")
+}
+
+func (s *bootstrapSuite) TestUploadLocalControllerCharmCopyError(c *tc.C) {
+	s.pcfg.Bootstrap.ControllerCharmPath = "/tmp/controller.charm"
+	stack := s.controllerStackerGetter()
+	execClient := &localControllerCharmExec{copyErr: errors.Errorf("copy failed")}
+	stack.SetControllerExecClientFactory(func() (k8sexec.Executor, error) {
+		return execClient, nil
+	})
+
+	err := stack.UploadLocalControllerCharm(c.Context(), s.pcfg.GetPodName())
+	c.Assert(err, tc.ErrorMatches, "copying local controller charm: copy failed")
+}
+
+func (s *bootstrapSuite) TestUploadLocalControllerCharmChmodError(c *tc.C) {
+	s.pcfg.Bootstrap.ControllerCharmPath = "/tmp/controller.charm"
+	stack := s.controllerStackerGetter()
+	execClient := &localControllerCharmExec{
+		execErrAt: 2,
+		execErr:   errors.Errorf("chmod failed"),
+		stderr:    "read-only filesystem\n",
+	}
+	stack.SetControllerExecClientFactory(func() (k8sexec.Executor, error) {
+		return execClient, nil
+	})
+
+	err := stack.UploadLocalControllerCharm(c.Context(), s.pcfg.GetPodName())
+	c.Assert(err, tc.ErrorMatches, "setting local controller charm permissions: read-only filesystem: chmod failed")
+}
+
+func (s *bootstrapSuite) TestUploadLocalControllerCharmMvError(c *tc.C) {
+	s.pcfg.Bootstrap.ControllerCharmPath = "/tmp/controller.charm"
+	stack := s.controllerStackerGetter()
+	execClient := &localControllerCharmExec{
+		execErrAt: 3,
+		execErr:   errors.Errorf("mv failed"),
+		stderr:    "no space left on device\n",
+	}
+	stack.SetControllerExecClientFactory(func() (k8sexec.Executor, error) {
+		return execClient, nil
+	})
+
+	err := stack.UploadLocalControllerCharm(c.Context(), s.pcfg.GetPodName())
+	c.Assert(err, tc.ErrorMatches, "installing local controller charm: no space left on device: mv failed")
+}
+
+func (s *bootstrapSuite) TestUploadLocalControllerCharmWithRetry(c *tc.C) {
+	newK8sClientFunc, newK8sRestClientFunc := s.setupK8sRestClient(c, s.pcfg.ControllerName)
+	var bootstrapWatchers []k8swatcher.KubernetesNotifyWatcher
+	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, &bootstrapWatchers)
+
+	s.pcfg.Bootstrap.ControllerCharmPath = "/tmp/controller.charm"
+	stack := s.controllerStackerGetter()
+	attempts := 0
+	stack.SetControllerExecClientFactory(func() (k8sexec.Executor, error) {
+		attempts++
+		if attempts < 3 {
+			return &localControllerCharmExec{copyErr: errors.Errorf("copy failed")}, nil
+		}
+		return &localControllerCharmExec{}, nil
+	})
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- stack.UploadLocalControllerCharmWithRetry(c.Context(), s.pcfg.GetPodName())
+	}()
+
+	err := s.clock.WaitAdvance(time.Second, coretesting.ShortWait, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.clock.WaitAdvance(time.Second, coretesting.ShortWait, 1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case err := <-errChan:
+		c.Assert(err, tc.ErrorIsNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for upload retry")
+	}
+	c.Check(attempts, tc.Equals, 3)
+}
+
+func (s *bootstrapSuite) TestUploadLocalControllerCharmWithRetryExhaustsAttempts(c *tc.C) {
+	newK8sClientFunc, newK8sRestClientFunc := s.setupK8sRestClient(c, s.pcfg.ControllerName)
+	var bootstrapWatchers []k8swatcher.KubernetesNotifyWatcher
+	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, &bootstrapWatchers)
+
+	s.pcfg.Bootstrap.ControllerCharmPath = "/tmp/controller.charm"
+	stack := s.controllerStackerGetter()
+	attempts := 0
+	stack.SetControllerExecClientFactory(func() (k8sexec.Executor, error) {
+		attempts++
+		return &localControllerCharmExec{copyErr: errors.Errorf("copy failed")}, nil
+	})
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- stack.UploadLocalControllerCharmWithRetry(c.Context(), s.pcfg.GetPodName())
+	}()
+
+	for range 11 {
+		err := s.clock.WaitAdvance(time.Second, coretesting.ShortWait, 1)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	select {
+	case err := <-errChan:
+		c.Assert(err, tc.ErrorMatches, ".*copying local controller charm: copy failed")
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for upload retry")
+	}
+	c.Check(attempts, tc.Equals, 12)
+}
+
+func (s *bootstrapSuite) TestUploadLocalControllerCharmWithRetrySkipsNonLocalCharmPath(c *tc.C) {
+	newK8sClientFunc, newK8sRestClientFunc := s.setupK8sRestClient(c, s.pcfg.ControllerName)
+	var bootstrapWatchers []k8swatcher.KubernetesNotifyWatcher
+	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, &bootstrapWatchers)
+
+	s.pcfg.Bootstrap.ControllerCharmPath = "ch:juju-controller"
+	stack := s.controllerStackerGetter()
+
+	called := false
+	stack.SetControllerExecClientFactory(func() (k8sexec.Executor, error) {
+		called = true
+		return &localControllerCharmExec{}, nil
+	})
+
+	err := stack.UploadLocalControllerCharmWithRetry(c.Context(), s.pcfg.GetPodName())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(called, tc.IsFalse)
+}
+
+func (s *bootstrapSuite) TestUploadLocalControllerCharmWithRetryDoesNotRetryNotValid(c *tc.C) {
+	newK8sClientFunc, newK8sRestClientFunc := s.setupK8sRestClient(c, s.pcfg.ControllerName)
+	var bootstrapWatchers []k8swatcher.KubernetesNotifyWatcher
+	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, &bootstrapWatchers)
+
+	s.pcfg.Bootstrap.ControllerCharmPath = "/tmp/controller.charm"
+	stack := s.controllerStackerGetter()
+	attempts := 0
+	stack.SetControllerExecClientFactory(func() (k8sexec.Executor, error) {
+		attempts++
+		return nil, errors.NotValidf("empty kubernetes rest config")
+	})
+
+	err := stack.UploadLocalControllerCharmWithRetry(c.Context(), s.pcfg.GetPodName())
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Check(attempts, tc.Equals, 1)
+}
+
 func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestWatcher()
 	eventWatcher, _ := k8swatchertest.NewKubernetesTestWatcher()
@@ -333,9 +599,14 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 
 	s.pcfg.Bootstrap.Timeout = 10 * time.Minute
 	s.pcfg.Bootstrap.ControllerExternalIPs = []string{"10.0.0.1"}
+	s.pcfg.Bootstrap.ControllerCharmPath = "/tmp/controller.charm"
 	s.pcfg.Bootstrap.IgnoreProxy = true
 
 	controllerStacker := s.controllerStackerGetter()
+	execClient := &localControllerCharmExec{}
+	controllerStacker.SetControllerExecClientFactory(func() (k8sexec.Executor, error) {
+		return execClient, nil
+	})
 
 	scName := "some-storage"
 	sc := k8sstorage.StorageClass{
@@ -408,6 +679,25 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 		},
 	}
 
+	headlessSvc := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "juju-controller-test-service-endpoints",
+			Namespace: s.namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "juju",
+				"app.kubernetes.io/name":       "juju-controller-test",
+				"service.juju.is/type":         "endpoints",
+			},
+			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
+		},
+		Spec: core.ServiceSpec{
+			Selector:                 map[string]string{"app.kubernetes.io/name": "juju-controller-test"},
+			Type:                     core.ServiceType("ClusterIP"),
+			ClusterIP:                "None",
+			PublishNotReadyAddresses: true,
+		},
+	}
+
 	secretControllerAppConfig := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "juju-controller-test-application-config",
@@ -469,7 +759,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
 		},
 		Spec: apps.StatefulSetSpec{
-			ServiceName: "juju-controller-test-service",
+			ServiceName: "juju-controller-test-service-endpoints",
 			Replicas:    &numberOfPods,
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": "juju-controller-test"},
@@ -666,19 +956,19 @@ export JUJU_DATA_DIR=/var/lib/juju
 export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 
 mkdir -p $JUJU_TOOLS_DIR
-cp /opt/jujud $JUJU_TOOLS_DIR/jujud
+cp /opt/jujuagentd $JUJU_TOOLS_DIR/jujuagentd
 
-test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf || JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud bootstrap-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s
+if ! test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf; then mkdir -p $JUJU_DATA_DIR/charms; until test -e $JUJU_DATA_DIR/charms/controller.charm; do sleep 1; done; JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s; fi
 
 mkdir -p /var/lib/pebble/default/layers
-cat > /var/lib/pebble/default/layers/001-jujud.yaml <<EOF
-summary: jujud service
+cat > /var/lib/pebble/default/layers/001-jujuagentd.yaml <<EOF
+summary: jujuagentd service
 services:
-    jujud:
+    jujuagentd:
         summary: Juju controller agent
         startup: enabled
         override: replace
-        command: $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
+        command: $JUJU_TOOLS_DIR/jujuagentd machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
         environment:
             JUJU_DEV_FEATURE_FLAGS: developer-mode
 
@@ -1036,6 +1326,10 @@ exec /opt/pebble run --http :38811 --verbose
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(svc, tc.DeepEquals, svcProvisioned)
 
+		headless, err := s.mockServices.Get(c.Context(), `juju-controller-test-service-endpoints`, v1.GetOptions{})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(headless, tc.DeepEquals, headlessSvc)
+
 		secret, err := s.mockSecrets.Get(c.Context(), "juju-controller-test-application-config", v1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(secret, tc.DeepEquals, secretControllerAppConfig)
@@ -1051,6 +1345,8 @@ exec /opt/pebble run --http :38811 --verbose
 		c.Assert(bootstrapWatchers, tc.HasLen, 2)
 		c.Assert(workertest.CheckKilled(c, bootstrapWatchers[0]), tc.ErrorIsNil)
 		c.Assert(workertest.CheckKilled(c, bootstrapWatchers[1]), tc.ErrorIsNil)
+		c.Assert(execClient.copyParams, tc.HasLen, 1)
+		c.Check(execClient.copyParams[0].Src.Path, tc.Equals, "/tmp/controller.charm")
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for deploy return")
 	}
@@ -1100,6 +1396,10 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *tc.C) {
 
 	ctxDoneChan := make(chan struct{}, 1)
 
+	// Logging during bootstrap/cleanup extracts the trace ID from the
+	// context, so allow Value lookups from the mock context.
+	mockStdCtx.EXPECT().Value(gomock.Any()).Return(nil).AnyTimes()
+
 	gomock.InOrder(
 		mockStdCtx.EXPECT().Err().Return(nil),
 		mockStdCtx.EXPECT().Done().DoAndReturn(func() <-chan struct{} {
@@ -1121,4 +1421,42 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *tc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for deploy return")
 	}
+}
+
+type localControllerCharmExec struct {
+	execErrAt int
+	execErr   error
+	stderr    string
+	copyErr   error
+
+	execCommands [][]string
+	copyParams   []k8sexec.CopyParams
+}
+
+func (e *localControllerCharmExec) Status(context.Context, k8sexec.StatusParams) (*k8sexec.Status, error) {
+	return nil, nil
+}
+
+func (e *localControllerCharmExec) Exec(_ context.Context, params k8sexec.ExecParams, _ <-chan struct{}) error {
+	e.execCommands = append(e.execCommands, params.Commands)
+	if e.execErrAt != len(e.execCommands) {
+		return nil
+	}
+	if e.stderr != "" && params.Stderr != nil {
+		_, _ = io.WriteString(params.Stderr, e.stderr)
+	}
+	return e.execErr
+}
+
+func (e *localControllerCharmExec) Copy(_ context.Context, params k8sexec.CopyParams, _ <-chan struct{}) error {
+	e.copyParams = append(e.copyParams, params)
+	return e.copyErr
+}
+
+func (e *localControllerCharmExec) RawClient() clientkubernetes.Interface {
+	return nil
+}
+
+func (e *localControllerCharmExec) NameSpace() string {
+	return "controller-1"
 }

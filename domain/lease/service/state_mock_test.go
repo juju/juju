@@ -27,16 +27,17 @@ type MockState struct {
 
 // MockStateMockRecorder is the mock recorder for MockState.
 type MockStateMockRecorder struct {
-	mock                *MockState
-	claimLeaseExpects   []*gomock.Call4_1[context.Context, uuid.UUID, lease.Key, lease.Request, error]
-	expireLeasesExpects []*gomock.Call1_1[context.Context, error]
-	extendLeaseExpects  []*gomock.Call3_1[context.Context, lease.Key, lease.Request, error]
-	leaseGroupExpects   []*gomock.Call3_2[context.Context, string, string, map[lease.Key]lease.Info, error]
-	leasesExpects       []*gomock.Call1V_2[context.Context, lease.Key, map[lease.Key]lease.Info, error]
-	pinLeaseExpects     []*gomock.Call3_1[context.Context, lease.Key, string, error]
-	pinnedExpects       []*gomock.Call1_2[context.Context, map[lease.Key][]string, error]
-	revokeLeaseExpects  []*gomock.Call3_1[context.Context, lease.Key, string, error]
-	unpinLeaseExpects   []*gomock.Call3_1[context.Context, lease.Key, string, error]
+	mock                            *MockState
+	claimLeaseExpects               []*gomock.Call4_1[context.Context, uuid.UUID, lease.Key, lease.Request, error]
+	deleteLeadershipForModelExpects []*gomock.Call2_1[context.Context, string, error]
+	expireLeasesExpects             []*gomock.Call1_1[context.Context, error]
+	extendLeaseExpects              []*gomock.Call3_1[context.Context, lease.Key, lease.Request, error]
+	leaseGroupExpects               []*gomock.Call3_2[context.Context, string, string, map[lease.Key]lease.Info, error]
+	leasesExpects                   []*gomock.Call1V_2[context.Context, lease.Key, map[lease.Key]lease.Info, error]
+	pinLeaseExpects                 []*gomock.Call3_1[context.Context, lease.Key, string, error]
+	pinnedExpects                   []*gomock.Call1_2[context.Context, map[lease.Key][]string, error]
+	revokeLeaseExpects              []*gomock.Call3_1[context.Context, lease.Key, string, error]
+	unpinLeaseExpects               []*gomock.Call3_1[context.Context, lease.Key, string, error]
 }
 
 // NewMockState creates a new mock instance.
@@ -68,6 +69,24 @@ func (mr *MockStateMockRecorder) ClaimLease(arg0, arg1, arg2, arg3 any) *MockSta
 
 // MockStateClaimLeaseCall is the typed call wrapper for ClaimLease.
 type MockStateClaimLeaseCall = gomock.Call4_1[context.Context, uuid.UUID, lease.Key, lease.Request, error]
+
+// DeleteLeadershipForModel mocks base method.
+func (m *MockState) DeleteLeadershipForModel(ctx context.Context, modelUUID string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.deleteLeadershipForModelExpects, m.ctrl, m, "DeleteLeadershipForModel", ctx, modelUUID)
+}
+
+// DeleteLeadershipForModel indicates an expected call of DeleteLeadershipForModel.
+func (mr *MockStateMockRecorder) DeleteLeadershipForModel(ctx, modelUUID any) *MockStateDeleteLeadershipForModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "DeleteLeadershipForModel", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.deleteLeadershipForModelExpects = append(mr.deleteLeadershipForModelExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateDeleteLeadershipForModelCall is the typed call wrapper for DeleteLeadershipForModel.
+type MockStateDeleteLeadershipForModelCall = gomock.Call2_1[context.Context, string, error]
 
 // ExpireLeases mocks base method.
 func (m *MockState) ExpireLeases(arg0 context.Context) error {

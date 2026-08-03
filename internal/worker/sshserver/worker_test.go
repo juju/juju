@@ -14,6 +14,7 @@ import (
 	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/controller"
+	virtualhostname "github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -35,13 +36,21 @@ func newServerWrapperWorkerConfig(
 	cfg := &ServerWrapperWorkerConfig{
 		NewServerWorker:         func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
 		ControllerConfigService: NewMockControllerConfigService(ctrl),
+		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
-		SessionHandler:          &MockSessionHandler{},
 	}
+	setMockServerDependencies(ctrl, cfg)
 
 	modifier(cfg)
 
 	return cfg
+}
+
+func setMockServerDependencies(ctrl *gomock.Controller, cfg *ServerWrapperWorkerConfig) {
+	cfg.Authenticator = NewMockAuthenticator(ctrl)
+	cfg.Authorizer = NewMockAuthorizer(ctrl)
+	cfg.ProxyFactory = NewMockProxyFactory(ctrl)
+	cfg.TunnelTracker = NewMockTunnelTracker(ctrl)
 }
 
 func (s *workerSuite) TestValidate(c *tc.C) {
@@ -71,12 +80,22 @@ func (s *workerSuite) TestValidate(c *tc.C) {
 	)
 	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*is required.*")
 
-	// Test no SessionHandler.
+	// Test no ProxyFactory.
 	cfg = newServerWrapperWorkerConfig(
 		c,
 		ctrl,
 		func(cfg *ServerWrapperWorkerConfig) {
-			cfg.SessionHandler = nil
+			cfg.ProxyFactory = nil
+		},
+	)
+	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*is required.*")
+
+	// Test no SSHService.
+	cfg = newServerWrapperWorkerConfig(
+		c,
+		ctrl,
+		func(cfg *ServerWrapperWorkerConfig) {
+			cfg.SSHService = nil
 		},
 	)
 	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*is required.*")
@@ -105,12 +124,14 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *tc.C) {
 
 	cfg := ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
+		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
+			c.Check(swc.JumpHostKey, tc.Equals, testHostKey)
 			return serverWorker, nil
 		},
-		SessionHandler: &stubSessionHandler{},
 	}
+	setMockServerDependencies(ctrl, &cfg)
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -181,14 +202,16 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *tc.C) {
 	var serverStarted int32
 	cfg := ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
+		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			atomic.StoreInt32(&serverStarted, 1)
 			c.Check(swc.Port, tc.Equals, 22)
+			c.Check(swc.JumpHostKey, tc.Equals, testHostKey)
 			return serverWorker, nil
 		},
-		SessionHandler: &stubSessionHandler{},
 	}
+	setMockServerDependencies(ctrl, &cfg)
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -267,13 +290,15 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorkerOnPortChange
 
 	cfg := ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
+		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			c.Check(swc.Port, tc.Equals, 22)
+			c.Check(swc.JumpHostKey, tc.Equals, testHostKey)
 			return serverWorker, nil
 		},
-		SessionHandler: &stubSessionHandler{},
 	}
+	setMockServerDependencies(ctrl, &cfg)
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -312,12 +337,13 @@ func (s *workerSuite) TestSSHServerWrapperWorkerConfigWatcherClosed(c *tc.C) {
 
 	cfg := ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
+		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
 		},
-		SessionHandler: &stubSessionHandler{},
 	}
+	setMockServerDependencies(ctrl, &cfg)
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -357,12 +383,13 @@ func (s *workerSuite) TestWrapperWorkerReport(c *tc.C) {
 
 	cfg := ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
+		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return &reportWorker{serverWorker}, nil
 		},
-		SessionHandler: &stubSessionHandler{},
 	}
+	setMockServerDependencies(ctrl, &cfg)
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -395,3 +422,27 @@ func (r *reportWorker) Report(ctx context.Context) map[string]any {
 		"test": "test",
 	}
 }
+
+type stubSSHService struct {
+	jumpHostKey    string
+	virtualHostKey string
+	jumpErr        error
+	virtualErr     error
+}
+
+func (s stubSSHService) SSHServerHostKey(context.Context) (string, error) {
+	return s.jumpHostKey, s.jumpErr
+}
+
+func (s stubSSHService) VirtualHostKey(context.Context, virtualhostname.Info) (string, error) {
+	return s.virtualHostKey, s.virtualErr
+}
+
+const testHostKey = `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz
+c2gtZWQyNTUxOQAAACBT8UidoqUmpUFFCGEhZhHWGE7VHoJY7LZ7yXzuWlSVYAAA
+AIiZq0wRmatMEQAAAAtzc2gtZWQyNTUxOQAAACBT8UidoqUmpUFFCGEhZhHWGE7V
+HoJY7LZ7yXzuWlSVYAAAAEBYRsJTytYJUidtOuv3s3tdjyDA+4TSdCz9+hFKjyqz
+v1PxSJ2ipSalQUUIYSFmEdYYTtUegljstnvJfO5aVJVgAAAAAAECAwQF
+-----END OPENSSH PRIVATE KEY-----
+`

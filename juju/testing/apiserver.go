@@ -28,7 +28,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
@@ -39,7 +38,6 @@ import (
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
@@ -129,8 +127,7 @@ type ApiServerSuite struct {
 	// These attributes are set before SetUpTest to indicate we want to
 	// set up the api server with real components instead of stubs.
 
-	WithLeaseManager       bool
-	WithEmbeddedCLICommand func(ctx *cmd.Context, store jujuclient.ClientStore, whitelist []string, cmdPlusArgs string) int
+	WithLeaseManager bool
 
 	// These can be set prior to login being called.
 
@@ -273,9 +270,6 @@ func (s *ApiServerSuite) setupAPIServer(c *tc.C, controllerCfg controller.Config
 	if s.WithIntrospection != nil {
 		cfg.RegisterIntrospectionHandlers = s.WithIntrospection
 	}
-	if s.WithEmbeddedCLICommand != nil {
-		cfg.ExecEmbeddedCommand = s.WithEmbeddedCLICommand
-	}
 	if s.WithLeaseManager {
 		leaseManager, err := leaseManager(c, coretesting.ControllerTag.Id(), databasetesting.SingularDBGetter(s.TxnRunner()), s.Clock)
 		c.Assert(err, tc.ErrorIsNil)
@@ -372,7 +366,6 @@ func (s *ApiServerSuite) TearDownTest(c *tc.C) {
 	s.WithAuditLogConfig = nil
 	s.WithUpgrading = false
 	s.WithIntrospection = nil
-	s.WithEmbeddedCLICommand = nil
 
 	s.tearDownConn(c)
 	if s.Server != nil {
@@ -648,6 +641,8 @@ func (s noopLogSink) Close() error {
 }
 
 func (noopLogSink) Log([]corelogger.LogRecord) error { return nil }
+
+func (noopLogSink) WatchRefresh() <-chan struct{} { return corelogger.NoRefresh() }
 
 type mockAuthenticator struct {
 	macaroon.LocalMacaroonAuthenticator

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network/ipfamily"
 )
 
 type ConstraintsSuite struct{}
@@ -392,6 +393,37 @@ var parseConstraintsTests = []struct {
 		err:     `bad "image-id" constraint: already set`,
 	},
 
+	// IPFamily
+	{
+		summary: "set ip-family ipv4",
+		args:    []string{"ip-family=ipv4"},
+		result:  &constraints.Value{IPFamily: new(ipfamily.IPv4)},
+	}, {
+		summary: "set ip-family ipv6",
+		args:    []string{"ip-family=ipv6"},
+		result:  &constraints.Value{IPFamily: new(ipfamily.IPv6)},
+	}, {
+		summary: "set ip-family dual",
+		args:    []string{"ip-family=dual"},
+		result:  &constraints.Value{IPFamily: new(ipfamily.Dual)},
+	}, {
+		summary: "set ip-family empty",
+		args:    []string{"ip-family="},
+		err:     `bad "ip-family" constraint: must be one of "ipv4", "ipv6", "dual"`,
+	}, {
+		summary: "set ip-family unknown value",
+		args:    []string{"ip-family=v4"},
+		err:     `bad "ip-family" constraint: "v4" not recognized; valid values are "ipv4", "ipv6", "dual"`,
+	}, {
+		summary: "set ip-family comma-separated (not valid)",
+		args:    []string{"ip-family=ipv4,ipv6"},
+		err:     `bad "ip-family" constraint: "ipv4,ipv6" not recognized; valid values are "ipv4", "ipv6", "dual"`,
+	}, {
+		summary: "double set ip-family",
+		args:    []string{"ip-family=dual ip-family=ipv4"},
+		err:     `bad "ip-family" constraint: already set`,
+	},
+
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
@@ -638,6 +670,20 @@ func (s *ConstraintsSuite) TestHasImageID(c *tc.C) {
 	c.Check(con.HasImageID(), tc.IsFalse)
 }
 
+func (s *ConstraintsSuite) TestHasIPFamily(c *tc.C) {
+	con := constraints.MustParse("ip-family=ipv4")
+	c.Check(con.HasIPFamily(), tc.IsTrue)
+	con = constraints.MustParse("ip-family=ipv6")
+	c.Check(con.HasIPFamily(), tc.IsTrue)
+	con = constraints.MustParse("ip-family=dual")
+	c.Check(con.HasIPFamily(), tc.IsTrue)
+	con = constraints.Value{}
+	c.Check(con.HasIPFamily(), tc.IsFalse)
+	// A non-nil pointer to the zero value of IPFamily is also treated as unset.
+	con = constraints.Value{IPFamily: new(ipfamily.IPFamily(""))}
+	c.Check(con.HasIPFamily(), tc.IsFalse)
+}
+
 func (s *ConstraintsSuite) TestIsEmpty(c *tc.C) {
 	con := constraints.Value{}
 	c.Check(&con, tc.Satisfies, constraints.IsEmpty)
@@ -722,6 +768,10 @@ var constraintsRoundtripTests = []roundTrip{
 	{"ImageID1", constraints.Value{ImageID: nil}},
 	{"ImageID1", constraints.Value{ImageID: new("")}},
 	{"ImageID1", constraints.Value{ImageID: new("ubuntu-bf2")}},
+	{"IPFamily1", constraints.Value{IPFamily: nil}},
+	{"IPFamily2", constraints.Value{IPFamily: new(ipfamily.IPv4)}},
+	{"IPFamily3", constraints.Value{IPFamily: new(ipfamily.IPv6)}},
+	{"IPFamily4", constraints.Value{IPFamily: new(ipfamily.Dual)}},
 	{"All", constraints.Value{
 		Arch:             new("arm64"),
 		Container:        ctypep("lxd"),
@@ -736,6 +786,7 @@ var constraintsRoundtripTests = []roundTrip{
 		Zones:            &[]string{"az1", "az2"},
 		AllocatePublicIP: new(true),
 		ImageID:          new("ubuntu-bf2"),
+		IPFamily:         new(ipfamily.Dual),
 	}},
 }
 

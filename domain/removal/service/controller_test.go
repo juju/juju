@@ -37,7 +37,7 @@ func (s *controllerSuite) TestRemoveController(c *tc.C) {
 	cExp.GetModelUUIDs(gomock.Any()).Return([]string{"model-1"}, nil)
 
 	cExp.ModelExists(gomock.Any(), s.modelUUID.String()).Return(true, nil)
-	cExp.EnsureModelNotAlive(gomock.Any(), s.modelUUID.String(), false).Return(nil)
+	cExp.EnsureModelNotAliveUnlessMigrating(gomock.Any(), s.modelUUID.String(), false).Return(nil)
 
 	mExp.ModelExists(gomock.Any(), s.modelUUID.String()).Return(false, nil)
 	mExp.EnsureModelNotAlive(gomock.Any(), s.modelUUID.String(), false).Return(nil)
@@ -61,7 +61,7 @@ func (s *controllerSuite) TestRemoveControllerModelExists(c *tc.C) {
 	cExp.GetModelUUIDs(gomock.Any()).Return([]string{"model-1"}, nil)
 
 	cExp.ModelExists(gomock.Any(), s.modelUUID.String()).Return(true, nil)
-	cExp.EnsureModelNotAlive(gomock.Any(), s.modelUUID.String(), false).Return(nil)
+	cExp.EnsureModelNotAliveUnlessMigrating(gomock.Any(), s.modelUUID.String(), false).Return(nil)
 
 	mExp.ModelExists(gomock.Any(), s.modelUUID.String()).Return(true, nil)
 	mExp.EnsureModelNotAlive(gomock.Any(), s.modelUUID.String(), false).Return(nil)
@@ -82,7 +82,7 @@ func (s *controllerSuite) TestRemoveControllerModelDoesNotExists(c *tc.C) {
 	cExp.GetModelUUIDs(gomock.Any()).Return([]string{"model-1"}, nil)
 
 	cExp.ModelExists(gomock.Any(), s.modelUUID.String()).Return(false, nil)
-	cExp.EnsureModelNotAlive(gomock.Any(), s.modelUUID.String(), false).Return(nil)
+	cExp.EnsureModelNotAliveUnlessMigrating(gomock.Any(), s.modelUUID.String(), false).Return(nil)
 
 	mExp.ModelExists(gomock.Any(), s.modelUUID.String()).Return(false, nil)
 
@@ -103,7 +103,7 @@ func (s *controllerSuite) TestRemoveControllerWithForce(c *tc.C) {
 	cExp.GetModelUUIDs(gomock.Any()).Return([]string{"model-1"}, nil)
 
 	cExp.ModelExists(gomock.Any(), s.modelUUID.String()).Return(true, nil)
-	cExp.EnsureModelNotAlive(gomock.Any(), s.modelUUID.String(), true).Return(nil)
+	cExp.EnsureModelNotAliveUnlessMigrating(gomock.Any(), s.modelUUID.String(), true).Return(nil)
 
 	mExp.ModelExists(gomock.Any(), s.modelUUID.String()).Return(true, nil)
 	mExp.EnsureModelNotAlive(gomock.Any(), s.modelUUID.String(), true).Return(nil)
@@ -130,7 +130,7 @@ func (s *controllerSuite) TestRemoveControllerEmptyController(c *tc.C) {
 	cExp := s.controllerState.EXPECT()
 	cExp.GetModelUUIDs(gomock.Any()).Return([]string{}, nil)
 	cExp.ModelExists(gomock.Any(), s.modelUUID.String()).Return(true, nil)
-	cExp.EnsureModelNotAlive(gomock.Any(), s.modelUUID.String(), false).Return(nil)
+	cExp.EnsureModelNotAliveUnlessMigrating(gomock.Any(), s.modelUUID.String(), false).Return(nil)
 
 	modelUUIDs, err := s.newService(c).RemoveController(c.Context(), false, 0)
 	c.Assert(err, tc.ErrorIsNil)
@@ -184,7 +184,7 @@ func (s *controllerSuite) TestExecuteJobForControllerModelWithNoModels(c *tc.C) 
 	cExp := s.controllerState.EXPECT()
 	cExp.GetModelUUIDs(gomock.Any()).Return([]string{}, nil)
 	cExp.ModelExists(gomock.Any(), j.EntityUUID).Return(false, nil)
-	cExp.EnsureModelNotAlive(gomock.Any(), j.EntityUUID, false).Return(nil)
+	cExp.EnsureModelNotAliveUnlessMigrating(gomock.Any(), j.EntityUUID, false).Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIs, removalerrors.RemovalModelRemoved)
@@ -204,7 +204,7 @@ func (s *controllerSuite) TestExecuteJobForControllerModelNotFound(c *tc.C) {
 	cExp := s.controllerState.EXPECT()
 	cExp.GetModelUUIDs(gomock.Any()).Return([]string{j.EntityUUID}, nil)
 	cExp.ModelExists(gomock.Any(), j.EntityUUID).Return(false, nil)
-	cExp.EnsureModelNotAlive(gomock.Any(), j.EntityUUID, false).Return(nil)
+	cExp.EnsureModelNotAliveUnlessMigrating(gomock.Any(), j.EntityUUID, false).Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIs, removalerrors.RemovalModelRemoved)

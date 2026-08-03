@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -1113,6 +1114,7 @@ type assertStartInstanceRequestsParams struct {
 	hasSpaceConstraints    bool
 	managedIdentity        string
 	storageAccountType     *armcompute.StorageAccountType
+	dualStackIPFamily      bool // ip-family=dual: expect IPv6 PIP + IPv6 NIC IP config
 }
 
 func (s *environSuite) assertStartInstanceRequests(
@@ -1153,6 +1155,19 @@ func (s *environSuite) assertStartInstanceRequests(
 				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 			},
 		}, &armnetwork.SecurityRule{
+			Name: new("JujuAPIInbound443IPv6"),
+			Properties: &armnetwork.SecurityRulePropertiesFormat{
+				Description:              new("Allow API connections to controller machines (IPv6)"),
+				Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+				SourceAddressPrefix:      new("*"),
+				SourcePortRange:          new("*"),
+				DestinationAddressPrefix: new("fd00:0:0:10::/64"),
+				DestinationPortRange:     new("443"),
+				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+				Priority:                 new(int32(102)),
+				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+			},
+		}, &armnetwork.SecurityRule{
 			Name: new("JujuAPIInbound80"),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Description:              new("Allow API connections to controller machines"),
@@ -1162,7 +1177,20 @@ func (s *environSuite) assertStartInstanceRequests(
 				DestinationAddressPrefix: new("192.168.16.0/20"),
 				DestinationPortRange:     new("80"),
 				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-				Priority:                 new(int32(102)),
+				Priority:                 new(int32(103)),
+				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+			},
+		}, &armnetwork.SecurityRule{
+			Name: new("JujuAPIInbound80IPv6"),
+			Properties: &armnetwork.SecurityRulePropertiesFormat{
+				Description:              new("Allow API connections to controller machines (IPv6)"),
+				Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+				SourceAddressPrefix:      new("*"),
+				SourcePortRange:          new("*"),
+				DestinationAddressPrefix: new("fd00:0:0:10::/64"),
+				DestinationPortRange:     new("80"),
+				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+				Priority:                 new(int32(104)),
 				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 			},
 		})
@@ -1181,12 +1209,25 @@ func (s *environSuite) assertStartInstanceRequests(
 				Priority:                 new(int32(101)),
 				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 			},
+		}, &armnetwork.SecurityRule{
+			Name: new("JujuAPIInbound" + port + "IPv6"),
+			Properties: &armnetwork.SecurityRulePropertiesFormat{
+				Description:              new("Allow API connections to controller machines (IPv6)"),
+				Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+				SourceAddressPrefix:      new("*"),
+				SourcePortRange:          new("*"),
+				DestinationAddressPrefix: new("fd00:0:0:10::/64"),
+				DestinationPortRange:     new(port),
+				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+				Priority:                 new(int32(102)),
+				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+			},
 		})
 	}
 	subnets := []*armnetwork.Subnet{{
 		Name: new("juju-internal-subnet"),
 		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: new("192.168.0.0/20"),
+			AddressPrefixes: []*string{new("192.168.0.0/20"), new("fd00::/64")},
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
 				ID: new(nsgId),
 			},
@@ -1194,7 +1235,7 @@ func (s *environSuite) assertStartInstanceRequests(
 	}, {
 		Name: new("juju-controller-subnet"),
 		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: new("192.168.16.0/20"),
+			AddressPrefixes: []*string{new("192.168.16.0/20"), new("fd00:0:0:10::/64")},
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
 				ID: new(nsgId),
 			},
@@ -1215,7 +1256,7 @@ func (s *environSuite) assertStartInstanceRequests(
 	var vmDependsOn []string
 	if bootstrapping {
 		if args.existingNetwork == "" {
-			addressPrefixes := to.SliceOfPtrs("192.168.0.0/20", "192.168.16.0/20")
+			addressPrefixes := to.SliceOfPtrs("192.168.0.0/20", "fd00::/48", "192.168.16.0/20")
 			templateResources = append(templateResources, armtemplates.Resource{
 				APIVersion: azure.NetworkAPIVersion,
 				Type:       "Microsoft.Network/networkSecurityGroups",
@@ -1306,10 +1347,17 @@ func (s *environSuite) assertStartInstanceRequests(
 		}
 	}
 	var publicIPAddress *armnetwork.PublicIPAddress
+	var ipv6PublicIPAddress *armnetwork.PublicIPAddress
 	if args.publicIP {
 		publicIPAddressId := `[resourceId('Microsoft.Network/publicIPAddresses', 'juju-06f00d-0-public-ip')]`
 		publicIPAddress = &armnetwork.PublicIPAddress{
 			ID: new(publicIPAddressId),
+		}
+		if args.dualStackIPFamily {
+			ipv6PIPId := `[resourceId('Microsoft.Network/publicIPAddresses', 'juju-06f00d-0-public-ip-ipv6')]`
+			ipv6PublicIPAddress = &armnetwork.PublicIPAddress{
+				ID: new(ipv6PIPId),
+			}
 		}
 	}
 
@@ -1332,6 +1380,23 @@ func (s *environSuite) assertStartInstanceRequests(
 		if primary && publicIPAddress != nil {
 			ipConfigurations[0].Properties.PublicIPAddress = publicIPAddress
 			nicDependsOn = append(nicDependsOn, *publicIPAddress.ID)
+		}
+		// For dual-stack, add an IPv6 IP configuration to the primary NIC.
+		if primary && args.dualStackIPFamily {
+			ipv6Props := &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+				Primary:                   new(false),
+				PrivateIPAddressVersion:   to.Ptr(armnetwork.IPVersionIPv6),
+				PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
+				Subnet:                    &armnetwork.Subnet{ID: new(subnetId)},
+			}
+			if ipv6PublicIPAddress != nil {
+				ipv6Props.PublicIPAddress = ipv6PublicIPAddress
+				nicDependsOn = append(nicDependsOn, *ipv6PublicIPAddress.ID)
+			}
+			ipConfigurations = append(ipConfigurations, &armnetwork.InterfaceIPConfiguration{
+				Name:       new("primary-ipv6"),
+				Properties: ipv6Props,
+			})
 		}
 
 		nicId := fmt.Sprintf(`[resourceId('Microsoft.Network/networkInterfaces', 'juju-06f00d-0-%s')]`, name)
@@ -1389,6 +1454,20 @@ func (s *environSuite) assertStartInstanceRequests(
 			},
 			Sku: &armtemplates.Sku{Name: "Standard"},
 		})
+		if args.dualStackIPFamily {
+			templateResources = append(templateResources, armtemplates.Resource{
+				APIVersion: azure.NetworkAPIVersion,
+				Type:       "Microsoft.Network/publicIPAddresses",
+				Name:       "juju-06f00d-0-public-ip-ipv6",
+				Location:   "westus",
+				Tags:       s.vmTags,
+				Properties: &armnetwork.PublicIPAddressPropertiesFormat{
+					PublicIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodStatic),
+					PublicIPAddressVersion:   to.Ptr(armnetwork.IPVersionIPv6),
+				},
+				Sku: &armtemplates.Sku{Name: "Standard"},
+			})
+		}
 	}
 	templateResources = append(templateResources, nicResources...)
 	vmTemplate := armtemplates.Resource{
@@ -1472,7 +1551,13 @@ func (s *environSuite) assertStartInstanceRequests(
 			if args.diskEncryptionSet != "" && args.vaultName != "" {
 				c.Assert(requests, tc.HasLen, numExpectedStartInstanceRequests+4)
 			} else if args.hasSpaceConstraints {
-				c.Assert(requests, tc.HasLen, numExpectedStartInstanceRequests-1)
+				if args.dualStackIPFamily {
+					// Dual + space constraint adds a subnets-list
+					// request from findSubnetByID resolution.
+					c.Assert(requests, tc.HasLen, numExpectedStartInstanceRequests)
+				} else {
+					c.Assert(requests, tc.HasLen, numExpectedStartInstanceRequests-1)
+				}
 			} else if args.withConflictRetry {
 				c.Assert(requests, tc.HasLen, numExpectedStartInstanceRequests+3)
 			} else if args.withQuotaRetry {
@@ -1503,6 +1588,9 @@ func (s *environSuite) assertStartInstanceRequests(
 		c.Assert(requests[nexti()].Method, tc.Equals, "GET") // wait for common deployment
 		if len(args.subnets) == 0 {
 			c.Assert(requests[nexti()].Method, tc.Equals, "GET") // subnets
+		}
+		if args.hasSpaceConstraints && args.dualStackIPFamily {
+			c.Assert(requests[nexti()].Method, tc.Equals, "GET") // subnets (findSubnetByID)
 		}
 	}
 	if args.placementSubnet != "" {
@@ -2101,6 +2189,640 @@ func (s *environSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unsupported, tc.SameContents, []string{"tags", "cpu-power", "virt-type"})
+}
+
+func (s *environSuite) TestConstraintsValidatorIPFamilyIPv4(c *tc.C) {
+	validator := s.constraintsValidator(c)
+	_, err := validator.Validate(constraints.MustParse("ip-family=ipv4"))
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *environSuite) TestConstraintsValidatorIPFamilyDual(c *tc.C) {
+	validator := s.constraintsValidator(c)
+	_, err := validator.Validate(constraints.MustParse("ip-family=dual"))
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *environSuite) TestConstraintsValidatorIPFamilyIPv6Rejected(c *tc.C) {
+	validator := s.constraintsValidator(c)
+	_, err := validator.Validate(constraints.MustParse("ip-family=ipv6"))
+	c.Assert(err, tc.ErrorMatches,
+		"invalid constraint value: ip-family=ipv6\nvalid values are: ipv4 dual",
+	)
+}
+
+func (s *environSuite) TestPrecheckInstanceIPFamilyDualBasicSKURejected(c *tc.C) {
+	env := s.openEnviron(c, testing.Attrs{"load-balancer-sku-name": "Basic"})
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+		Constraints: constraints.MustParse("ip-family=dual"),
+	})
+	c.Assert(err, tc.ErrorMatches,
+		"ip-family=dual requires load-balancer-sku-name=Standard on Azure; "+
+			"Basic SKU is not supported for this configuration",
+	)
+}
+
+func (s *environSuite) TestPrecheckInstanceIPFamilyDualStandardSKUAccepted(c *tc.C) {
+	env := s.openEnviron(c)
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+		Constraints: constraints.MustParse("ip-family=dual"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *environSuite) TestPrecheckInstanceIPFamilyIPv4BasicSKUAccepted(c *tc.C) {
+	env := s.openEnviron(c, testing.Attrs{"load-balancer-sku-name": "Basic"})
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+		Constraints: constraints.MustParse("ip-family=ipv4"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *environSuite) TestBootstrapIPFamilyDualBasicSKURejected(c *tc.C) {
+	defer envtesting.DisableFinishBootstrap(c)()
+
+	ctx := envtesting.BootstrapTestContext(c)
+	env := prepareForBootstrap(c, ctx, s.provider, s.credentialInvalidator, &s.sender, testing.Attrs{"load-balancer-sku-name": "Basic"})
+
+	// ConstraintsValidator is invoked before Bootstrap and needs the SKU
+	// listing to succeed so that the bootstrap-specific conflict check in
+	// azureEnviron.Bootstrap is reached.
+	s.sender = append(s.sender, s.resourceSKUsSender())
+
+	err := bootstrap.Bootstrap(
+		ctx, env, bootstrap.BootstrapParams{
+			ControllerConfig:     testing.FakeControllerConfig(),
+			AdminSecret:          jujutesting.AdminSecret,
+			CAPrivateKey:         testing.CAKey,
+			BootstrapBase:        corebase.MustParseBaseFromString("ubuntu@22.04"),
+			BootstrapConstraints: constraints.MustParse("ip-family=dual"),
+			BuildAgentTarball: func(
+				build bool, _ string, _ func(semversion.Number) semversion.Number,
+			) (*sync.BuiltAgent, error) {
+				c.Assert(build, tc.IsFalse)
+				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+			},
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+		},
+	)
+	c.Assert(err, tc.ErrorMatches,
+		"ip-family=dual requires load-balancer-sku-name=Standard on Azure; "+
+			"Basic SKU is not supported for this configuration",
+	)
+}
+
+func (s *environSuite) TestBootstrapIPFamilyDualStandardSKUAccepted(c *tc.C) {
+	defer envtesting.DisableFinishBootstrap(c)()
+
+	ctx := envtesting.BootstrapTestContext(c)
+	env := prepareForBootstrap(c, ctx, s.provider, s.credentialInvalidator, &s.sender)
+
+	authorizedKeys := make([]string, 0, len(s.sshPublicKeys))
+	for _, key := range s.sshPublicKeys {
+		authorizedKeys = append(authorizedKeys, *key.KeyData)
+	}
+
+	s.sender = append(s.sender, s.resourceSKUsSender())
+	s.sender = append(s.sender, s.initResourceGroupSenders(resourceGroupName)...)
+	s.sender = append(s.sender, s.startInstanceSendersNoSizes()...)
+	s.requests = nil
+	err := bootstrap.Bootstrap(
+		ctx, env, bootstrap.BootstrapParams{
+			ControllerModelAuthorizedKeys: authorizedKeys,
+			ControllerConfig:              testing.FakeControllerConfig(),
+			AdminSecret:                   jujutesting.AdminSecret,
+			CAPrivateKey:                  testing.CAKey,
+			BootstrapBase:                 corebase.MustParseBaseFromString("ubuntu@22.04"),
+			BootstrapConstraints:          constraints.MustParse("ip-family=dual"),
+			BuildAgentTarball: func(
+				build bool, _ string, _ func(semversion.Number) semversion.Number,
+			) (*sync.BuiltAgent, error) {
+				c.Assert(build, tc.IsFalse)
+				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+			},
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+		},
+	)
+
+	if corearch.HostArch() != "amd64" && corearch.HostArch() != "arm64" {
+		// Non amd64/arm64 architectures are not supported for bootstrap.
+		c.Assert(err, tc.ErrorMatches,
+			fmt.Sprintf("model %q of type %s does not support instances running on %q",
+				env.Config().Name(),
+				env.Config().Type(),
+				corearch.HostArch(),
+			),
+		)
+		return
+	}
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *environSuite) TestStartInstanceIPFamilyDualBootstrapPlacementIPv4OnlySubnet(c *tc.C) {
+	env := s.openEnviron(c)
+	subnets := []*armnetwork.Subnet{{
+		ID:   new("/path/to/subnet1"),
+		Name: new("subnet1"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: new("192.168.0.0/20"),
+		},
+	}, {
+		ID:   new("/path/to/subnet2"),
+		Name: new("subnet2"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: new("10.0.0.0/24"),
+		},
+	}}
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
+		bootstrap: false,
+		subnets:   subnets,
+	})
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
+	params.Placement = "subnet=subnet2"
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+	params.InstanceConfig.Bootstrap = &instancecfg.BootstrapConfig{}
+
+	_, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorMatches,
+		`.*subnet "subnet2" does not support ip-family=dual: no IPv6 /64 prefix found; add a /64 IPv6 prefix to the subnet or use ip-family=ipv4`)
+}
+
+func (s *environSuite) TestStartInstanceIPFamilyDual(c *tc.C) {
+	env := s.openEnviron(c)
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
+		bootstrap: false,
+		subnets: []*armnetwork.Subnet{{
+			ID:   new("/virtualNetworks/juju-internal-network/subnet/juju-internal-subnet"),
+			Name: new("juju-internal-subnet"),
+			Properties: &armnetwork.SubnetPropertiesFormat{
+				AddressPrefixes: []*string{new("192.168.0.0/20"), new("fd00::/64")},
+			},
+		}},
+	})
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	result, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
+
+	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
+		imageReference:    &jammyImageReferenceGen2,
+		diskSizeGB:        32,
+		osProfile:         &s.linuxOsProfile,
+		instanceType:      "Standard_A1",
+		publicIP:          true,
+		dualStackIPFamily: true,
+	})
+}
+
+func (s *environSuite) TestStartInstanceIPFamilyIPv4(c *tc.C) {
+	env := s.openEnviron(c)
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.IPv4)
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	result, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
+
+	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
+		imageReference: &jammyImageReferenceGen2,
+		diskSizeGB:     32,
+		osProfile:      &s.linuxOsProfile,
+		instanceType:   "Standard_A1",
+		publicIP:       true,
+	})
+}
+
+func (s *environSuite) TestStartInstanceIPFamilyDualNoPublicIP(c *tc.C) {
+	env := s.openEnviron(c)
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
+		bootstrap: false,
+		subnets: []*armnetwork.Subnet{{
+			ID:   new("/virtualNetworks/juju-internal-network/subnet/juju-internal-subnet"),
+			Name: new("juju-internal-subnet"),
+			Properties: &armnetwork.SubnetPropertiesFormat{
+				AddressPrefixes: []*string{new("192.168.0.0/20"), new("fd00::/64")},
+			},
+		}},
+	})
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
+	params.Constraints.AllocatePublicIP = new(bool)
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	result, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
+
+	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
+		imageReference:    &jammyImageReferenceGen2,
+		diskSizeGB:        32,
+		osProfile:         &s.linuxOsProfile,
+		instanceType:      "Standard_A1",
+		publicIP:          false,
+		dualStackIPFamily: true,
+	})
+}
+
+func (s *environSuite) TestStartInstanceIPFamilyDualPlacementIPv6Subnet(c *tc.C) {
+	env := s.openEnviron(c)
+	subnets := []*armnetwork.Subnet{{
+		ID:   new("/path/to/subnet1"),
+		Name: new("subnet1"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: new("192.168.0.0/20"),
+		},
+	}, {
+		ID:   new("/path/to/subnet2"),
+		Name: new("subnet2"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefixes: []*string{new("10.0.0.0/24"), new("fd00::/64")},
+		},
+	}}
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
+		bootstrap: false,
+		subnets:   subnets,
+	})
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
+	params.Placement = "subnet=subnet2"
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	result, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
+
+	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
+		imageReference:    &jammyImageReferenceGen2,
+		diskSizeGB:        32,
+		osProfile:         &s.linuxOsProfile,
+		instanceType:      "Standard_A1",
+		publicIP:          true,
+		subnets:           []string{"/path/to/subnet2"},
+		placementSubnet:   "subnet2",
+		dualStackIPFamily: true,
+	})
+}
+
+func (s *environSuite) TestStartInstanceIPFamilyDualPlacementIPv4OnlySubnet(c *tc.C) {
+	env := s.openEnviron(c)
+	subnets := []*armnetwork.Subnet{{
+		ID:   new("/path/to/subnet1"),
+		Name: new("subnet1"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: new("192.168.0.0/20"),
+		},
+	}, {
+		ID:   new("/path/to/subnet2"),
+		Name: new("subnet2"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: new("10.0.0.0/24"),
+		},
+	}}
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
+		bootstrap: false,
+		subnets:   subnets,
+	})
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
+	params.Placement = "subnet=subnet2"
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	_, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorMatches,
+		`.*subnet "subnet2" does not support ip-family=dual: no IPv6 /64 prefix found; add a /64 IPv6 prefix to the subnet or use ip-family=ipv4`)
+}
+
+func (s *environSuite) TestStartInstanceIPFamilyDualPlacementNon64IPv6Subnet(c *tc.C) {
+	env := s.openEnviron(c)
+	subnets := []*armnetwork.Subnet{{
+		ID:   new("/path/to/subnet1"),
+		Name: new("subnet1"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: new("192.168.0.0/20"),
+		},
+	}, {
+		ID:   new("/path/to/subnet3"),
+		Name: new("subnet3"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefixes: []*string{new("10.0.0.0/24"), new("fd00::/56")}, // IPv6 /56, not /64
+		},
+	}}
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
+		bootstrap: false,
+		subnets:   subnets,
+	})
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
+	params.Placement = "subnet=subnet3"
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	_, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorMatches,
+		`.*subnet "subnet3" does not support ip-family=dual: no IPv6 /64 prefix found; add a /64 IPv6 prefix to the subnet or use ip-family=ipv4`)
+}
+
+func (s *environSuite) TestStartInstanceIPFamilyDualSpaceConstraintIPv4OnlySubnet(c *tc.C) {
+	// When ip-family=dual is set with a space constraint and the selected
+	// subnet is IPv4-only, the provider should fail validation early
+	// instead of deferring to Azure.
+	env := s.openEnviron(c)
+	subnets := []*armnetwork.Subnet{{
+		ID:   new("/path/to/subnet1"),
+		Name: new("subnet1"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: new("192.168.0.0/20"),
+		},
+	}}
+	// Build senders manually because the space-constraint + dual path
+	// makes extra API calls (common-deployment + subnets-list for
+	// findSubnetByID). Senders are consumed sequentially:
+	//   tenantID, RG → consumed by openEnviron
+	//   resourceSKUs, ubuntuSKUs, common-deployment, subnets-list
+	//   → consumed by StartInstance
+	s.sender = azuretesting.Senders{
+		makeSender(".*/skus", armcompute.ResourceSKUsResult{Value: s.skus}),
+		makeSender(".*/Canonical/.*/0001-com-ubuntu-server-jammy/skus", s.ubuntuServerSKUs),
+		makeSender("/deployments/common", s.commonDeployment),
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: subnets,
+		}),
+	}
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
+	params.Constraints.Spaces = &[]string{"foo"}
+	params.SubnetsToZones = []map[corenetwork.Id][]string{
+		{"/path/to/subnet1": nil},
+	}
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	_, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorMatches,
+		`.*subnet "subnet1" does not support ip-family=dual: no IPv6 /64 prefix found; add a /64 IPv6 prefix to the subnet or use ip-family=ipv4`)
+}
+
+func (s *environSuite) TestStartInstanceIPFamilyDualPlacementWithSpaceConstraint(c *tc.C) {
+	// When ip-family=dual is set with both a space constraint and a placement
+	// directive, and the space contains only the :ipv6-suffixed variant of a
+	// dual-stack subnet, the provider must still resolve the placement subnet
+	// correctly.  Previously, the bare placement ID did not match the
+	// :ipv6-suffixed SubnetsToZones key, causing a spurious "subnet not found"
+	// error.
+	env := s.openEnviron(c)
+	subnets := []*armnetwork.Subnet{{
+		ID:   new("/path/to/subnet1"),
+		Name: new("subnet1"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefixes: []*string{new("192.168.0.0/20"), new("fd00::/64")},
+		},
+	}}
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
+		bootstrap: false,
+		subnets:   subnets,
+	})
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
+	params.Constraints.Spaces = &[]string{"beta"}
+	params.SubnetsToZones = []map[corenetwork.Id][]string{
+		{"/path/to/subnet1:ipv6": nil},
+	}
+	params.Placement = "subnet=subnet1"
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	result, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
+
+	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
+		imageReference:    &jammyImageReferenceGen2,
+		diskSizeGB:        32,
+		osProfile:         &s.linuxOsProfile,
+		instanceType:      "Standard_A1",
+		publicIP:          true,
+		subnets:           []string{"/path/to/subnet1"},
+		placementSubnet:   "subnet1",
+		dualStackIPFamily: true,
+	})
+}
+
+func (s *environSuite) TestStartInstanceIPFamilyDualLegacyIPv4OnlySubnet(c *tc.C) {
+	// When ip-family=dual is set without placement, the provider validates
+	// the resolved default subnet. If it is IPv4-only, validation should fail
+	// early rather than deferring to Azure.
+	env := s.openEnviron(c)
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	_, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorMatches,
+		`.*subnet "juju-internal-subnet" does not support ip-family=dual: no IPv6 /64 prefix found; add a /64 IPv6 prefix to the subnet or use ip-family=ipv4`)
+}
+
+func (s *environSuite) TestStartInstanceIPFamilyDualSpaceConstraintDualStackSubnet(c *tc.C) {
+	// When ip-family=dual is set with a space constraint and the selected
+	// subnet is dual-stack, the provider should succeed.
+	env := s.openEnviron(c)
+	subnets := []*armnetwork.Subnet{{
+		ID:   new("/path/to/subnet1"),
+		Name: new("subnet1"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefixes: []*string{new("192.168.0.0/20"), new("fd00::/64")},
+		},
+	}}
+	s.sender = azuretesting.Senders{
+		makeSender(".*/skus", armcompute.ResourceSKUsResult{Value: s.skus}),
+		makeSender(".*/Canonical/.*/0001-com-ubuntu-server-jammy/skus", s.ubuntuServerSKUs),
+		makeSender("/deployments/common", s.commonDeployment),
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: subnets,
+		}),
+		makeSender("/deployments/juju-06f00d-0", s.deployment),
+	}
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
+	params.Constraints.Spaces = &[]string{"foo"}
+	params.SubnetsToZones = []map[corenetwork.Id][]string{
+		{"/path/to/subnet1": nil},
+	}
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	result, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
+
+	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
+		imageReference:      &jammyImageReferenceGen2,
+		diskSizeGB:          32,
+		osProfile:           &s.linuxOsProfile,
+		instanceType:        "Standard_A1",
+		publicIP:            true,
+		subnets:             []string{"/path/to/subnet1"},
+		hasSpaceConstraints: true,
+		dualStackIPFamily:   true,
+	})
+}
+
+func (s *environSuite) TestStartInstanceIPFamilyDualSpaceConstraintSubnetResolutionMiss(c *tc.C) {
+	// When ip-family=dual is set with a space constraint and the
+	// selected subnet ID cannot be resolved against Azure's subnets,
+	// the provider should log a warning, skip the IPv6 /64 pre-check,
+	// and proceed — relying on Azure to reject the NIC if the subnet
+	// lacks IPv6.
+	env := s.openEnviron(c)
+	s.sender = azuretesting.Senders{
+		makeSender(".*/skus", armcompute.ResourceSKUsResult{Value: s.skus}),
+		makeSender(".*/Canonical/.*/0001-com-ubuntu-server-jammy/skus", s.ubuntuServerSKUs),
+		makeSender("/deployments/common", s.commonDeployment),
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: []*armnetwork.Subnet{},
+		}),
+		makeSender("/deployments/juju-06f00d-0", s.deployment),
+	}
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
+	params.Constraints.Spaces = &[]string{"foo"}
+	params.SubnetsToZones = []map[corenetwork.Id][]string{
+		{"/path/to/subnet1": nil},
+	}
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	result, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
+}
+
+func (s *environSuite) TestStartInstanceIPv6SpaceConstraintIPv4Family(c *tc.C) {
+	// When a space contains only the :ipv6 variant of a dual-stack subnet
+	// and ip-family=ipv4 is set, the provider must reject the constraint
+	// rather than silently provisioning IPv4-only.
+	env := s.openEnviron(c)
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.IPv4)
+	params.Constraints.Spaces = &[]string{"beta"}
+	params.SubnetsToZones = []map[corenetwork.Id][]string{
+		{"/path/to/subnet1:ipv6": nil},
+	}
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	_, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorMatches,
+		`.*subnet "/path/to/subnet1" was selected via an IPv6-only space; set ip-family=dual to provision an IPv6 address`)
+}
+
+func (s *environSuite) TestStartInstanceIPv6SpaceConstraintDefaultFamily(c *tc.C) {
+	// When a space contains only the :ipv6 variant of a dual-stack subnet
+	// and ip-family is not set (default), the provider must reject the
+	// constraint rather than silently provisioning IPv4-only.
+	env := s.openEnviron(c)
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.Spaces = &[]string{"beta"}
+	params.SubnetsToZones = []map[corenetwork.Id][]string{
+		{"/path/to/subnet1:ipv6": nil},
+	}
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	_, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorMatches,
+		`.*subnet "/path/to/subnet1" was selected via an IPv6-only space; set ip-family=dual to provision an IPv6 address`)
+}
+
+func (s *environSuite) TestStartInstanceIPv6SpaceConstraintPlacement(c *tc.C) {
+	// When placement targets a subnet whose space only has the :ipv6
+	// variant and ip-family is not set, the provider must still detect
+	// the violation. Previously the :ipv6 suffix was silently dropped
+	// at the placement-dedup merge.
+	env := s.openEnviron(c)
+	subnets := []*armnetwork.Subnet{{
+		ID:   new("/path/to/subnet1"),
+		Name: new("subnet1"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefixes: []*string{new("192.168.0.0/20"), new("fd00::/64")},
+		},
+	}}
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
+		bootstrap: false,
+		subnets:   subnets,
+	})
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.Spaces = &[]string{"beta"}
+	params.SubnetsToZones = []map[corenetwork.Id][]string{
+		{"/path/to/subnet1:ipv6": nil},
+	}
+	params.Placement = "subnet=subnet1"
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	_, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorMatches,
+		`.*subnet "/path/to/subnet1" was selected via an IPv6-only space; set ip-family=dual to provision an IPv6 address`)
+}
+
+func (s *environSuite) TestStartInstanceIPv6SpaceConstraintDualFamily(c *tc.C) {
+	// When ip-family=dual is set and the space contains only the :ipv6
+	// variant, provisioning should succeed with IPv6 on the primary NIC.
+	env := s.openEnviron(c)
+	subnets := []*armnetwork.Subnet{{
+		ID:   new("/path/to/subnet1"),
+		Name: new("subnet1"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefixes: []*string{new("192.168.0.0/20"), new("fd00::/64")},
+		},
+	}}
+	s.sender = azuretesting.Senders{
+		makeSender(".*/skus", armcompute.ResourceSKUsResult{Value: s.skus}),
+		makeSender(".*/Canonical/.*/0001-com-ubuntu-server-jammy/skus", s.ubuntuServerSKUs),
+		makeSender("/deployments/common", s.commonDeployment),
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: subnets,
+		}),
+		makeSender("/deployments/juju-06f00d-0", s.deployment),
+	}
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
+	params.Constraints.Spaces = &[]string{"beta"}
+	params.SubnetsToZones = []map[corenetwork.Id][]string{
+		{"/path/to/subnet1:ipv6": nil},
+	}
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	result, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
+
+	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
+		imageReference:      &jammyImageReferenceGen2,
+		diskSizeGB:          32,
+		osProfile:           &s.linuxOsProfile,
+		instanceType:        "Standard_A1",
+		publicIP:            true,
+		subnets:             []string{"/path/to/subnet1"},
+		hasSpaceConstraints: true,
+		dualStackIPFamily:   true,
+	})
 }
 
 func (s *environSuite) TestConstraintsValidatorVocabulary(c *tc.C) {
@@ -2711,4 +3433,16 @@ func (s *environSuite) TestGetArchFromResourceSKUAMD64(c *tc.C) {
 		Family: new("StandardNCADSA100v4Family"),
 	})
 	c.Assert(arch, tc.Equals, corearch.AMD64)
+}
+
+func (s *environSuite) TestSupportsRulesWithIPV6CIDRs(c *tc.C) {
+	env := s.openEnviron(c)
+
+	// Azure should support IPv6 CIDRs in firewall rules.
+	fwQuerier, ok := env.(environs.FirewallFeatureQuerier)
+	c.Assert(ok, tc.IsTrue)
+
+	supported, err := fwQuerier.SupportsRulesWithIPV6CIDRs(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(supported, tc.IsTrue)
 }

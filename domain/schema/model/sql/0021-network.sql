@@ -17,7 +17,8 @@ INSERT INTO link_layer_device_type VALUES
 (3, '802.1q'),
 (4, 'bond'),
 (5, 'bridge'),
-(6, 'vxlan');
+(6, 'vxlan'),
+(7, 'veth');
 
 CREATE TABLE virtual_port_type (
     id INT PRIMARY KEY,
@@ -75,6 +76,9 @@ CREATE TABLE link_layer_device_parent (
     FOREIGN KEY (parent_uuid)
     REFERENCES link_layer_device (uuid)
 );
+
+CREATE INDEX idx_link_layer_device_parent_parent_device
+ON link_layer_device_parent (parent_uuid, device_uuid);
 
 CREATE TABLE provider_link_layer_device (
     provider_id TEXT NOT NULL PRIMARY KEY,
@@ -324,28 +328,6 @@ CREATE TABLE net_node_hostname_address (
     PRIMARY KEY (net_node_uuid, address_uuid)
 );
 
--- v_address exposes ip and fqdn addresses as a single table.
--- Used for compatibility with the current core network model.
-CREATE VIEW v_address AS
-SELECT
-    ipa.address_value,
-    ipa.type_id,
-    ipa.config_type_id,
-    ipa.origin_id,
-    ipa.scope_id
-FROM ip_address AS ipa
-UNION
-SELECT
-    fa.hostname AS address_value,
-    -- FQDN address type is always "hostname".
-    0 AS type_id,
-    -- FQDN address config type is always "manual".
-    3 AS config_type_id,
-    -- FQDN address doesn't have an origin.
-    null AS origin_id,
-    fa.scope_id
-FROM fqdn_address AS fa;
-
 -- v_ip_address_with_names returns a ip_address with the
 -- type ids converted to their names.
 CREATE VIEW v_ip_address_with_names AS
@@ -366,52 +348,6 @@ JOIN ip_address_config_type AS iact ON ipa.config_type_id = iact.id
 JOIN ip_address_scope AS ias ON ipa.scope_id = ias.id
 JOIN ip_address_origin AS iao ON ipa.origin_id = iao.id
 JOIN ip_address_type AS iat ON ipa.type_id = iat.id;
-
-CREATE VIEW v_machine_interface AS
-SELECT
-    m.uuid AS machine_uuid,
-    m.name AS machine_name,
-    d.net_node_uuid,
-    d.uuid AS device_uuid,
-    d.name AS device_name,
-    d.mtu,
-    d.mac_address,
-    d.device_type_id,
-    d.virtual_port_type_id,
-    d.is_auto_start,
-    d.is_enabled,
-    d.is_default_gateway,
-    d.gateway_address,
-    d.vlan_tag,
-    pd.provider_id AS device_provider_id,
-    dp.parent_uuid AS parent_device_uuid,
-    dd.name AS parent_device_name,
-    dnsa.dns_address,
-    dnsd.search_domain,
-    a.uuid AS address_uuid,
-    pa.provider_id AS provider_address_id,
-    a.address_value,
-    a.subnet_uuid,
-    s.cidr,
-    ps.provider_id AS provider_subnet_id,
-    a.type_id AS address_type_id,
-    a.config_type_id,
-    a.origin_id,
-    a.scope_id,
-    a.is_secondary,
-    a.is_shadow
-FROM machine AS m
-JOIN link_layer_device AS d ON m.net_node_uuid = d.net_node_uuid
-LEFT JOIN provider_link_layer_device AS pd ON d.uuid = pd.device_uuid
-LEFT JOIN link_layer_device_parent AS dp ON d.uuid = dp.device_uuid
-LEFT JOIN link_layer_device AS dd ON dp.parent_uuid = dd.uuid
-LEFT JOIN link_layer_device_dns_address AS dnsa ON d.uuid = dnsa.device_uuid
-LEFT JOIN link_layer_device_dns_domain AS dnsd ON d.uuid = dnsd.device_uuid
-LEFT JOIN ip_address AS a ON d.uuid = a.device_uuid
-LEFT JOIN provider_ip_address AS pa ON a.uuid = pa.address_uuid
-LEFT JOIN subnet AS s ON a.subnet_uuid = s.uuid
-LEFT JOIN provider_subnet AS ps ON a.subnet_uuid = ps.subnet_uuid;
-
 
 -- This view allows to retrieves any address belonging to a unit.
 -- It is useful when we have a unit UUID and we want all addresses relative to this unit,
@@ -444,3 +380,78 @@ FROM (
 ) AS n
 JOIN v_ip_address_with_names AS ipa ON n.net_node_uuid = ipa.net_node_uuid
 LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid;
+
+CREATE VIEW v_unit_relation_network AS
+WITH unit_net_node AS (
+    SELECT
+        s.net_node_uuid,
+        u.uuid
+    FROM unit AS u
+    JOIN application AS a ON u.application_uuid = a.uuid
+    JOIN k8s_service AS s ON a.uuid = s.application_uuid
+    UNION
+    SELECT
+        net_node_uuid,
+        uuid
+    FROM unit
+),
+
+candidate AS (
+    SELECT
+        unn.uuid AS unit_uuid,
+        ipa.address_value,
+        ipa.device_uuid,
+        sn.space_uuid,
+        sn.cidr,
+        iact.name AS config_type_name,
+        iat.name AS type_name,
+        iao.name AS origin_name,
+        ias.name AS scope_name,
+        ipa.origin_id,
+        ipa.is_secondary,
+        lld.device_type_id,
+        CASE
+            WHEN ipa.scope_id = 2 /* local-cloud */
+                AND ipa.type_id = 0 /* ipv4 */
+                THEN 1
+            WHEN ipa.scope_id = 2 /* local-cloud */
+                AND ipa.type_id = 1 /* ipv6 */
+                THEN 2
+            WHEN ipa.scope_id IN (1 /* public */, 0 /* unknown */)
+                AND ipa.type_id = 0 /* ipv4 */
+                THEN 3
+            WHEN ipa.scope_id IN (1 /* public */, 0 /* unknown */)
+                AND ipa.type_id = 1 /* ipv6 */
+                THEN 4
+        END AS scope_rank
+    FROM unit_net_node AS unn
+    JOIN ip_address AS ipa ON unn.net_node_uuid = ipa.net_node_uuid
+    JOIN link_layer_device AS lld ON ipa.device_uuid = lld.uuid
+    JOIN ip_address_config_type AS iact ON ipa.config_type_id = iact.id
+    JOIN ip_address_type AS iat ON ipa.type_id = iat.id
+    JOIN ip_address_origin AS iao ON ipa.origin_id = iao.id
+    JOIN ip_address_scope AS ias ON ipa.scope_id = ias.id
+    LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
+)
+
+SELECT
+    candidate.unit_uuid,
+    candidate.address_value,
+    candidate.device_uuid,
+    candidate.space_uuid,
+    candidate.cidr,
+    candidate.config_type_name,
+    candidate.type_name,
+    candidate.origin_name,
+    candidate.scope_name,
+    candidate.scope_rank,
+    candidate.origin_id,
+    candidate.is_secondary,
+    candidate.device_type_id
+FROM candidate;
+
+CREATE INDEX idx_provider_link_layer_device_device_uuid
+ON provider_link_layer_device (device_uuid);
+
+CREATE INDEX idx_provider_ip_address_address_uuid
+ON provider_ip_address (address_uuid);

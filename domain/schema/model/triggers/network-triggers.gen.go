@@ -39,7 +39,7 @@ WHEN
 	NEW.origin_id != OLD.origin_id OR
 	NEW.scope_id != OLD.scope_id OR
 	(NEW.is_secondary != OLD.is_secondary OR (NEW.is_secondary IS NOT NULL AND OLD.is_secondary IS NULL) OR (NEW.is_secondary IS NULL AND OLD.is_secondary IS NOT NULL)) OR
-	(NEW.is_shadow != OLD.is_shadow OR (NEW.is_shadow IS NOT NULL AND OLD.is_shadow IS NULL) OR (NEW.is_shadow IS NULL AND OLD.is_shadow IS NOT NULL)) 
+	(NEW.is_shadow != OLD.is_shadow OR (NEW.is_shadow IS NOT NULL AND OLD.is_shadow IS NULL) OR (NEW.is_shadow IS NULL AND OLD.is_shadow IS NOT NULL))
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -77,7 +77,7 @@ WHEN
 	NEW.uuid != OLD.uuid OR
 	NEW.cidr != OLD.cidr OR
 	(NEW.vlan_tag != OLD.vlan_tag OR (NEW.vlan_tag IS NOT NULL AND OLD.vlan_tag IS NULL) OR (NEW.vlan_tag IS NULL AND OLD.vlan_tag IS NOT NULL)) OR
-	(NEW.space_uuid != OLD.space_uuid OR (NEW.space_uuid IS NOT NULL AND OLD.space_uuid IS NULL) OR (NEW.space_uuid IS NULL AND OLD.space_uuid IS NOT NULL)) 
+	(NEW.space_uuid != OLD.space_uuid OR (NEW.space_uuid IS NOT NULL AND OLD.space_uuid IS NULL) OR (NEW.space_uuid IS NULL AND OLD.space_uuid IS NOT NULL))
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

@@ -3304,6 +3304,9 @@
                         "instance-type": {
                             "type": "string"
                         },
+                        "ip-family": {
+                            "type": "string"
+                        },
                         "mem": {
                             "type": "integer"
                         },
@@ -9227,6 +9230,9 @@
                         "instance-type": {
                             "type": "string"
                         },
+                        "ip-family": {
+                            "type": "string"
+                        },
                         "mem": {
                             "type": "integer"
                         },
@@ -9685,7 +9691,7 @@
     {
         "Name": "MachineManager",
         "Description": "",
-        "Version": 11,
+        "Version": 12,
         "Schema": {
             "type": "object",
             "properties": {
@@ -9730,6 +9736,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/ProvisioningScriptResult"
+                        }
+                    }
+                },
+                "ReprovisionMachine": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ReprovisionMachineArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResult"
                         }
                     }
                 },
@@ -10254,6 +10271,18 @@
                         "script"
                     ]
                 },
+                "ReprovisionMachineArgs": {
+                    "type": "object",
+                    "properties": {
+                        "machine-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "machine-tag"
+                    ]
+                },
                 "RetryProvisioningArgs": {
                     "type": "object",
                     "properties": {
@@ -10297,6 +10326,9 @@
                             "type": "string"
                         },
                         "instance-type": {
+                            "type": "string"
+                        },
+                        "ip-family": {
                             "type": "string"
                         },
                         "mem": {
@@ -10609,6 +10641,9 @@
                             "type": "string"
                         },
                         "instance-type": {
+                            "type": "string"
+                        },
+                        "ip-family": {
                             "type": "string"
                         },
                         "mem": {

@@ -25,6 +25,9 @@ ON application_endpoint (application_uuid);
 CREATE UNIQUE INDEX idx_application_endpoint_app_relation
 ON application_endpoint (application_uuid, charm_relation_uuid);
 
+CREATE INDEX idx_application_endpoint_space
+ON application_endpoint (space_uuid);
+
 -- The application_endpoint ties an application's relation definition to an
 -- endpoint binding via a space. Only endpoint bindings which differ from the
 -- application default binding will be listed.
@@ -50,6 +53,9 @@ ON application_extra_endpoint (application_uuid);
 CREATE UNIQUE INDEX idx_application_extra_endpoint_app_relation
 ON application_extra_endpoint (application_uuid, charm_extra_binding_uuid);
 
+CREATE INDEX idx_application_extra_endpoint_space
+ON application_extra_endpoint (space_uuid);
+
 -- The relation_endpoint table links a relation to a single
 -- application endpoint. If the relation is of type peer,
 -- there will be one row in the table. If the relation has
@@ -70,6 +76,9 @@ CREATE TABLE relation_endpoint (
 CREATE UNIQUE INDEX idx_relation_endpoint
 ON relation_endpoint (relation_uuid, endpoint_uuid);
 
+CREATE INDEX idx_relation_endpoint_relation
+ON relation_endpoint (relation_uuid);
+
 -- The relation table represents a relation between two
 -- applications, or a peer relation.
 CREATE TABLE relation (
@@ -83,6 +92,8 @@ CREATE TABLE relation (
     -- the relation itself. This is because a relation is considered
     -- container-scoped if either of it's endpoints are container-scoped.
     scope_id INT NOT NULL,
+    CONSTRAINT chk_empty_relation_uuid
+    CHECK (uuid != ''),
     CONSTRAINT fk_relation_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
@@ -110,14 +121,18 @@ CREATE TABLE relation_unit (
 CREATE UNIQUE INDEX idx_relation_unit
 ON relation_unit (relation_endpoint_uuid, unit_uuid);
 
+CREATE INDEX idx_relation_unit_unit
+ON relation_unit (unit_uuid);
+
 -- The relation_unit_setting holds key value pair settings
 -- for a relation at the unit level. Keys must be unique
 -- per unit.
 CREATE TABLE relation_unit_setting (
     relation_unit_uuid TEXT NOT NULL,
     "key" TEXT NOT NULL,
-    value TEXT,
+    value TEXT NOT NULL,
     CONSTRAINT chk_key_empty CHECK ("key" != ''),
+    CONSTRAINT chk_value_empty CHECK (value != ''),
     CONSTRAINT fk_relation_unit_uuid
     FOREIGN KEY (relation_unit_uuid)
     REFERENCES relation_unit (uuid),
@@ -165,8 +180,9 @@ CREATE TABLE relation_unit_setting_archive (
 CREATE TABLE relation_application_setting (
     relation_endpoint_uuid TEXT NOT NULL,
     "key" TEXT NOT NULL,
-    value TEXT,
+    value TEXT NOT NULL,
     CONSTRAINT chk_key_empty CHECK ("key" != ''),
+    CONSTRAINT chk_value_empty CHECK (value != ''),
     CONSTRAINT fk_relation_endpoint_uuid
     FOREIGN KEY (relation_endpoint_uuid)
     REFERENCES relation_endpoint (uuid),
@@ -217,6 +233,10 @@ CREATE TABLE relation_status (
     FOREIGN KEY (relation_status_type_id)
     REFERENCES relation_status_type (id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_relation_status_type_relation
+ON relation_status (relation_status_type_id, relation_uuid);
+
 
 CREATE VIEW v_application_endpoint AS
 SELECT
@@ -274,3 +294,9 @@ SELECT
     rs.updated_at
 FROM relation_status AS rs
 JOIN relation_status_type AS rst ON rs.relation_status_type_id = rst.id;
+
+CREATE INDEX idx_application_endpoint_charm_relation_uuid
+ON application_endpoint (charm_relation_uuid);
+
+CREATE INDEX idx_relation_endpoint_endpoint_uuid
+ON relation_endpoint (endpoint_uuid);

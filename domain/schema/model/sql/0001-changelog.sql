@@ -47,3 +47,6 @@ CREATE TABLE change_log_witness (
     upper_bound INT NOT NULL DEFAULT (-1),
     updated_at DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc'))
 );
+
+CREATE INDEX idx_change_log_witness_watermark
+ON change_log_witness (lower_bound, updated_at);

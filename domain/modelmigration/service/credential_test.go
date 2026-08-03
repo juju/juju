@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs/instances"
@@ -70,7 +71,7 @@ func (s *serviceSuite) TestCheckMachinesRevokedCredential(c *tc.C) {
 
 	s.expectCredentialValidationInfo("ec2")
 	s.controllerState.EXPECT().GetModelCloudCredential(gomock.Any(), s.modelUUID).
-		Return(&modelmigration.ModelCloudCredential{
+		Return(&coremodelmigration.ModelCloudCredential{
 			Cloud:   "aws",
 			Owner:   "fred",
 			Name:    "default",
@@ -95,7 +96,7 @@ func (s *serviceSuite) TestCheckMachinesRevokedCredential(c *tc.C) {
 func (s *serviceSuite) TestCheckMachinesCredentialValidationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	credential := modelmigration.ModelCloudCredential{
+	credential := coremodelmigration.ModelCloudCredential{
 		Cloud:      "aws",
 		Owner:      "fred",
 		Name:       "default",
@@ -126,7 +127,7 @@ func (s *serviceSuite) TestCheckMachinesCredentialValidationError(c *tc.C) {
 func (s *serviceSuite) TestCheckMachinesInvalidCredential(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	credential := modelmigration.ModelCloudCredential{
+	credential := coremodelmigration.ModelCloudCredential{
 		Cloud:         "aws",
 		Owner:         "fred",
 		Name:          "default",
@@ -242,7 +243,7 @@ func (s *serviceSuite) TestCredentialValidationContextCloudError(c *tc.C) {
 // missing part of its natural key, or its auth type, is refused before any
 // provider is opened with it.
 func (s *serviceSuite) TestCredentialKeyRejectsIncompleteCredential(c *tc.C) {
-	complete := modelmigration.ModelCloudCredential{
+	complete := coremodelmigration.ModelCloudCredential{
 		Cloud:    "aws",
 		Owner:    "fred",
 		Name:     "default",
@@ -306,7 +307,7 @@ func (s *serviceSuite) TestCredentialValidatorSkipsCloudInstancesForUnmanaged(c 
 	s.controllerState.EXPECT().GetCloud(gomock.Any(), "aws").
 		Return(cloud.Cloud{Name: "aws", Type: "ec2"}, nil).Times(2)
 
-	credential := modelmigration.ModelCloudCredential{
+	credential := coremodelmigration.ModelCloudCredential{
 		Cloud:    "aws",
 		Owner:    "fred",
 		Name:     "default",
@@ -350,7 +351,7 @@ func (s *serviceSuite) TestCredentialValidatorReportsMachineErrors(c *tc.C) {
 			CloudType:      "ec2",
 			Config:         map[string]string{"uuid": s.modelUUID, "name": "my-model", "type": "iaas"},
 		},
-		modelmigration.ModelCloudCredential{
+		coremodelmigration.ModelCloudCredential{
 			Cloud:    "aws",
 			Owner:    "fred",
 			Name:     "default",

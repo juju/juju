@@ -56,6 +56,15 @@ func (s *removeSpaceAPISuite) TestRemoveSpaceNotMutable(c *tc.C) {
 	c.Assert(result.Results, tc.HasLen, 0)
 }
 
+func (s *removeSpaceAPISuite) TestRemoveSpaceNotSupported(c *tc.C) {
+	defer s.SetupMocks(c, false, false).Finish()
+
+	result, err := s.API.RemoveSpace(c.Context(), s.getRemoveSpaceArgs("test", false, false))
+	c.Assert(err, tc.ErrorMatches, "spaces not supported")
+	c.Check(err, tc.Satisfies, params.IsCodeNotSupported)
+	c.Check(result, tc.DeepEquals, params.RemoveSpaceResults{})
+}
+
 // TestRemoveSpaceControllerConfigFails tests that RemoveSpace returns an error
 // when controller config fetch fails
 func (s *removeSpaceAPISuite) TestRemoveSpaceControllerConfigFails(c *tc.C) {

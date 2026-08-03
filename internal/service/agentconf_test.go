@@ -93,7 +93,7 @@ func (s *agentConfSuite) setUpAgentConf(c *tc.C) {
 }
 
 func (s *agentConfSuite) setUpServices(ctrl *gomock.Controller) {
-	s.addService(ctrl, "jujud-"+s.machineName)
+	s.addService(ctrl, "jujuagentd-"+s.machineName)
 }
 
 func (s *agentConfSuite) addService(ctrl *gomock.Controller, name string) {

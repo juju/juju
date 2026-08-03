@@ -5,6 +5,7 @@ package state
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/juju/tc"
 
@@ -98,10 +99,13 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, machineName := s.addMachine(c)
 	// Add a reference AZ.
 	_, err := db.ExecContext(c.Context(), "INSERT INTO availability_zone VALUES('deadbeef-0bad-400d-8000-4b1d0d06f00d', 'az-1')")
 	c.Assert(err, tc.ErrorIsNil)
+	s.runQuery(c, `
+INSERT INTO machine_reprovision (machine_name, requested_at)
+VALUES (?, ?)`, machineName.String(), time.Now())
 
 	err = s.state.SetMachineCloudInstance(
 		c.Context(),
@@ -167,13 +171,17 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 	c.Check(instanceTags, tc.HasLen, 2)
 	c.Check(instanceTags[0], tc.Equals, "tag1")
 	c.Check(instanceTags[1], tc.Equals, "tag2")
+	c.Check(s.rowCount(c, "machine_reprovision"), tc.Equals, 0)
 }
 
 func (s *stateSuite) TestSetInstanceDataEmptyInstanceID(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, machineName := s.addMachine(c)
+	s.runQuery(c, `
+INSERT INTO machine_reprovision (machine_name, requested_at)
+VALUES (?, ?)`, machineName.String(), time.Now())
 
 	err := s.state.SetMachineCloudInstance(
 		c.Context(),
@@ -193,6 +201,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyInstanceID(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(row.Err(), tc.ErrorIsNil)
 	c.Check(instanceID.Valid, tc.IsFalse)
+	c.Check(s.rowCount(c, "machine_reprovision"), tc.Equals, 1)
 }
 
 func (s *stateSuite) TestSetInstanceDataEmptyDisplayName(c *tc.C) {
@@ -219,6 +228,32 @@ func (s *stateSuite) TestSetInstanceDataEmptyDisplayName(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(displayName.Valid, tc.IsFalse)
+}
+
+func (s *stateSuite) TestSetInstanceDataNonceOnlyUpdatesTargetMachine(c *tc.C) {
+	otherMachineUUID, _ := s.addMachine(c)
+	s.runQuery(c, "UPDATE machine SET nonce = '' WHERE uuid = ?", otherMachineUUID.String())
+	targetMachineUUID, _ := s.addMachine(c)
+
+	err := s.state.SetMachineCloudInstance(
+		c.Context(), targetMachineUUID.String(), instance.Id("1"), "",
+		"replacement-nonce", &instance.HardwareCharacteristics{},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var otherNonce, targetNonce sql.Null[string]
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT nonce FROM machine WHERE uuid = ?", otherMachineUUID.String(),
+	).Scan(&otherNonce)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT nonce FROM machine WHERE uuid = ?", targetMachineUUID.String(),
+	).Scan(&targetNonce)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(otherNonce.V, tc.Equals, "")
+	c.Check(otherNonce.Valid, tc.IsTrue)
+	c.Check(targetNonce.V, tc.Equals, "replacement-nonce")
+	c.Check(targetNonce.Valid, tc.IsTrue)
 }
 
 func (s *stateSuite) TestSetInstanceDataEmptyUniqueIndex(c *tc.C) {
@@ -284,6 +319,26 @@ func (s *stateSuite) TestInstanceIdError(c *tc.C) {
 
 	_, err := s.state.GetInstanceID(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
+}
+
+func (s *stateSuite) TestInstanceIDByMachineNameSuccess(c *tc.C) {
+	_, machineName := s.ensureInstance(c)
+
+	instanceID, err := s.state.GetInstanceIDByMachineName(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(instanceID, tc.Equals, "123")
+}
+
+func (s *stateSuite) TestInstanceIDByMachineNameNotProvisioned(c *tc.C) {
+	_, machineName := s.addMachine(c)
+
+	_, err := s.state.GetInstanceIDByMachineName(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
+}
+
+func (s *stateSuite) TestInstanceIDByMachineNameNotFound(c *tc.C) {
+	_, err := s.state.GetInstanceIDByMachineName(c.Context(), "666")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 func (s *stateSuite) TestInstanceNameSuccess(c *tc.C) {

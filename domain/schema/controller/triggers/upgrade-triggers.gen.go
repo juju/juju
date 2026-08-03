@@ -32,7 +32,7 @@ WHEN
 	NEW.uuid != OLD.uuid OR
 	NEW.previous_version != OLD.previous_version OR
 	NEW.target_version != OLD.target_version OR
-	NEW.state_type_id != OLD.state_type_id 
+	NEW.state_type_id != OLD.state_type_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -70,7 +70,7 @@ WHEN
 	NEW.uuid != OLD.uuid OR
 	NEW.controller_node_id != OLD.controller_node_id OR
 	NEW.upgrade_info_uuid != OLD.upgrade_info_uuid OR
-	(NEW.node_upgrade_completed_at != OLD.node_upgrade_completed_at OR (NEW.node_upgrade_completed_at IS NOT NULL AND OLD.node_upgrade_completed_at IS NULL) OR (NEW.node_upgrade_completed_at IS NULL AND OLD.node_upgrade_completed_at IS NOT NULL)) 
+	(NEW.node_upgrade_completed_at != OLD.node_upgrade_completed_at OR (NEW.node_upgrade_completed_at IS NOT NULL AND OLD.node_upgrade_completed_at IS NULL) OR (NEW.node_upgrade_completed_at IS NULL AND OLD.node_upgrade_completed_at IS NOT NULL))
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

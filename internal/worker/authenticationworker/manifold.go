@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/agent/keyupdater"
 	"github.com/juju/juju/api/base"
+	coressh "github.com/juju/juju/core/ssh"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
@@ -21,10 +22,14 @@ type ManifoldConfig engine.AgentAPIManifoldConfig
 
 // Manifold returns a dependency manifold that runs a authenticationworker worker,
 // using the resource names defined in the supplied config.
-func Manifold(config ManifoldConfig) dependency.Manifold {
+func Manifold(config ManifoldConfig, output dependency.OutputFunc) dependency.Manifold {
 	typedConfig := engine.AgentAPIManifoldConfig(config)
 
-	return engine.AgentAPIManifold(typedConfig, newWorker)
+	manifold := engine.AgentAPIManifold(typedConfig, newWorker)
+	// Expose the worker's EphemeralKeysUpdater so that the sshsession worker can
+	// inject and remove ephemeral keys for the lifetime of a reverse tunnel.
+	manifold.Output = output
+	return manifold
 }
 
 func newWorker(_ context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
@@ -33,4 +38,19 @@ func newWorker(_ context.Context, a agent.Agent, apiCaller base.APICaller) (work
 		return nil, errors.Annotate(err, "cannot start ssh auth-keys updater worker")
 	}
 	return w, nil
+}
+
+// output extracts an EphemeralKeysUpdater from the running AuthWorker.
+func Output(in worker.Worker, out any) error {
+	w, ok := in.(*AuthWorker)
+	if !ok {
+		return errors.Errorf("expected *AuthWorker, got %T", in)
+	}
+	switch outPtr := out.(type) {
+	case *coressh.EphemeralKeysUpdater:
+		*outPtr = w
+	default:
+		return errors.Errorf("expected *coressh.EphemeralKeysUpdater, got %T", out)
+	}
+	return nil
 }

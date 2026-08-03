@@ -20,6 +20,8 @@ import (
 	domainsecret "github.com/juju/juju/domain/secret"
 )
 
+type uuids []string
+
 // nameAndUUID is an agnostic container for the pair of
 // `uuid` and `name` columns.
 type nameAndUUID struct {

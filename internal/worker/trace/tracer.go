@@ -18,7 +18,15 @@ import (
 )
 
 // NewClientFunc is the function signature for creating a new client.
-type NewClientFunc func(context.Context, coretrace.TaggedTracerNamespace, string, bool, float64, time.Duration, logger.Logger) (Client, ClientTracerProvider, ClientTracer, error)
+type NewClientFunc func(
+	context.Context,
+	coretrace.TaggedTracerNamespace,
+	string, string, string,
+	bool,
+	float64,
+	time.Duration,
+	logger.Logger,
+) (Client, ClientTracerProvider, ClientTracer, error)
 
 type tracer struct {
 	tomb tomb.Tomb
@@ -35,7 +43,7 @@ type tracer struct {
 func NewTracerWorker(
 	ctx context.Context,
 	namespace coretrace.TaggedTracerNamespace,
-	endpoint string,
+	httpEndpoint, grpcEndpoint, caCertificate string,
 	insecureSkipVerify bool,
 	stackTracesEnabled bool,
 	sampleRatio float64,
@@ -43,7 +51,16 @@ func NewTracerWorker(
 	logger logger.Logger,
 	newClient NewClientFunc,
 ) (TrackedTracer, error) {
-	client, clientProvider, clientTracer, err := newClient(ctx, namespace, endpoint, insecureSkipVerify, sampleRatio, tailSamplingThreshold, logger)
+	client, clientProvider, clientTracer, err := newClient(ctx,
+		namespace,
+		httpEndpoint,
+		grpcEndpoint,
+		caCertificate,
+		insecureSkipVerify,
+		sampleRatio,
+		tailSamplingThreshold,
+		logger,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -73,21 +90,26 @@ func (t *tracer) Wait() error {
 
 // Start creates a span and a context.Context containing the newly-created span.
 func (t *tracer) Start(ctx context.Context, name string, opts ...coretrace.Option) (context.Context, coretrace.Span) {
+	select {
+	case <-t.tomb.Dying():
+		return ctx, coretrace.NoopSpan{}
+	default:
+	}
+
 	o := coretrace.NewTracerOptions()
 	for _, opt := range opts {
 		opt(o)
 	}
 
-	// Tie the lifetime of the span to the lifetime of the worker. If the
-	// worker dies then the span will be ended. The consumer of the span
-	// should use the context returned from this method to ensure that the
-	// they also die at the same time as the worker.
-	var (
-		cancel context.CancelFunc
-		span   ClientSpan
-	)
 	ctx = t.buildRequestContext(ctx)
-	ctx, cancel = t.scopedContext(ctx)
+	originalCtx := ctx
+
+	// Tie the lifetime of the internal tracing context to the worker without
+	// allowing tracer shutdown to cancel the caller's operation context.
+	tracerCtx := t.tomb.Context(ctx)
+	if t.isDyingContext(originalCtx) {
+		return originalCtx, coretrace.NoopSpan{}
+	}
 
 	// Grab any attributes from the options and add them to the span.
 	attrs := attributes(o.Attributes())
@@ -98,22 +120,26 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...coretrace.Optio
 		attribute.Stringer("namespace.kind", t.namespace.Kind),
 	)
 
-	ctx, span = t.clientTracer.Start(ctx, name, trace.WithAttributes(attrs...))
+	var span ClientSpan
+	tracerCtx, span = t.clientTracer.Start(tracerCtx, name, trace.WithAttributes(attrs...))
+	if t.isDyingContext(originalCtx) {
+		span.End()
+		return originalCtx, coretrace.NoopSpan{}
+	}
 
 	// If the span is sampled then we should log the trace and span ID.
 	if t.logger.IsLevelEnabled(logger.TRACE) {
 		if spanContext := span.SpanContext(); spanContext.IsSampled() {
-			t.logger.Tracef(ctx, "SpanContext: trace-id %s, span-id %s", spanContext.TraceID(), spanContext.SpanID())
+			t.logger.Tracef(tracerCtx, "SpanContext: trace-id %s, span-id %s", spanContext.TraceID(), spanContext.SpanID())
 		}
 	}
 
 	managed := &managedSpan{
 		span:               span,
-		cancel:             cancel,
 		scope:              managedScope{span: span},
 		stackTracesEnabled: t.requiresStackTrace(o.StackTrace()),
 	}
-	return coretrace.WithSpan(ctx, &limitedSpan{
+	return contextWithSpan(originalCtx, span, &limitedSpan{
 		Span:   managed,
 		logger: t.logger,
 	}), managed
@@ -155,12 +181,27 @@ func (t *tracer) loop() error {
 	return tomb.ErrDying
 }
 
-// scopedContext returns a context that is in the scope of the worker lifetime.
-// It returns a cancellable context that is cancelled when the action has
-// completed.
-func (w *tracer) scopedContext(ctx context.Context) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(ctx)
-	return w.tomb.Context(ctx), cancel
+func (t *tracer) isDyingContext(originalCtx context.Context) bool {
+	if originalCtx.Err() != nil {
+		return false
+	}
+	select {
+	case <-t.tomb.Dying():
+		return true
+	default:
+		return false
+	}
+}
+
+func contextWithSpan(ctx context.Context, span ClientSpan, coreSpan coretrace.Span) context.Context {
+	if otelSpan, ok := span.(trace.Span); ok {
+		ctx = trace.ContextWithSpan(ctx, otelSpan)
+	}
+	spanContext := span.SpanContext()
+	if spanContext.TraceID().IsValid() {
+		ctx = coretrace.WithTraceID(ctx, spanContext.TraceID().String())
+	}
+	return coretrace.WithSpan(ctx, coreSpan)
 }
 
 // buildRequestContext returns a context that may contain a remote span context.
@@ -207,7 +248,6 @@ func (t *tracer) buildRequestContext(ctx context.Context) context.Context {
 
 type managedSpan struct {
 	span               ClientSpan
-	cancel             context.CancelFunc
 	scope              coretrace.Scope
 	stackTracesEnabled bool
 }
@@ -246,8 +286,6 @@ func (s *managedSpan) RecordError(err error, attrs ...coretrace.Attribute) {
 // is called. Therefore, updates to the Span are not allowed after this
 // method has been called.
 func (s *managedSpan) End(attrs ...coretrace.Attribute) {
-	defer s.cancel()
-
 	s.span.SetAttributes(attributes(attrs)...)
 	s.span.End(trace.WithStackTrace(s.stackTracesEnabled))
 }
@@ -289,8 +327,8 @@ func (s *limitedSpan) End(attrs ...coretrace.Attribute) {
 
 func attributes(attrs []coretrace.Attribute) []attribute.KeyValue {
 	kv := make([]attribute.KeyValue, len(attrs))
-	for _, attr := range attrs {
-		kv = append(kv, attribute.String(attr.Key(), attr.Value()))
+	for i, attr := range attrs {
+		kv[i] = attribute.String(attr.Key(), attr.Value())
 	}
 	return kv
 }

@@ -326,6 +326,7 @@ SELECT sm.secret_id AS &secretInfo.secret_id,
        sm.rotate_policy_id AS &secretInfo.rotate_policy_id,
        sm.auto_prune AS &secretInfo.auto_prune,
        sm.latest_revision_checksum AS &secretInfo.latest_revision_checksum,
+       sm.create_time AS &secretInfo.create_time,
        sm.update_time AS &secretInfo.update_time,
        MAX(sr.revision) AS &secretInfo.latest_revision,
 	   sr.uuid AS &secretInfo.latest_revision_uuid
@@ -354,8 +355,8 @@ GROUP BY sm.secret_id`
 	}
 
 	upsertMdStmt, err := st.Prepare(`
-INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id, auto_prune, latest_revision_checksum, update_time)
-VALUES ($secretInfo.secret_id, $secretInfo.version, $secretInfo.description, $secretInfo.rotate_policy_id, $secretInfo.auto_prune, $secretInfo.latest_revision_checksum, $secretInfo.update_time)
+INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id, auto_prune, latest_revision_checksum, create_time, update_time)
+VALUES ($secretInfo.secret_id, $secretInfo.version, $secretInfo.description, $secretInfo.rotate_policy_id, $secretInfo.auto_prune, $secretInfo.latest_revision_checksum, $secretInfo.create_time, $secretInfo.update_time)
 ON CONFLICT(secret_id) DO UPDATE SET
     description=excluded.description,
     rotate_policy_id=excluded.rotate_policy_id,
@@ -373,6 +374,7 @@ ON CONFLICT(secret_id) DO UPDATE SET
 		RotatePolicyID:         rotatePolicyID,
 		AutoPrune:              info.AutoPrune,
 		LatestRevisionChecksum: info.LatestRevisionChecksum,
+		CreateTime:             info.CreateTime,
 		UpdateTime:             st.clock.Now().UTC(),
 	}
 	if update.Description != nil {

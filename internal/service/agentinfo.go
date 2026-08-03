@@ -75,7 +75,7 @@ func (ai AgentInfo) ToolsDir(renderer shell.Renderer) string {
 }
 
 func (ai AgentInfo) jujud(renderer shell.Renderer) string {
-	exeName := "jujud" + renderer.ExeSuffix()
+	exeName := "jujuagentd" + renderer.ExeSuffix()
 	return renderer.Join(ai.ToolsDir(renderer), exeName)
 }
 

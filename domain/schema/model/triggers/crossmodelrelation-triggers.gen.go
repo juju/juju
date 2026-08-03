@@ -33,7 +33,7 @@ WHEN
 	NEW.offerer_application_uuid != OLD.offerer_application_uuid OR
 	NEW.consumer_application_uuid != OLD.consumer_application_uuid OR
 	NEW.consumer_model_uuid != OLD.consumer_model_uuid OR
-	NEW.life_id != OLD.life_id 
+	NEW.life_id != OLD.life_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -75,7 +75,7 @@ WHEN
 	NEW.offer_url != OLD.offer_url OR
 	(NEW.offerer_controller_uuid != OLD.offerer_controller_uuid OR (NEW.offerer_controller_uuid IS NOT NULL AND OLD.offerer_controller_uuid IS NULL) OR (NEW.offerer_controller_uuid IS NULL AND OLD.offerer_controller_uuid IS NOT NULL)) OR
 	NEW.offerer_model_uuid != OLD.offerer_model_uuid OR
-	NEW.macaroon != OLD.macaroon 
+	NEW.macaroon != OLD.macaroon
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -111,7 +111,7 @@ CREATE TRIGGER trg_log_relation_network_egress_update
 AFTER UPDATE ON relation_network_egress FOR EACH ROW
 WHEN 
 	NEW.relation_uuid != OLD.relation_uuid OR
-	NEW.cidr != OLD.cidr 
+	NEW.cidr != OLD.cidr
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -147,7 +147,7 @@ CREATE TRIGGER trg_log_relation_network_ingress_update
 AFTER UPDATE ON relation_network_ingress FOR EACH ROW
 WHEN 
 	NEW.relation_uuid != OLD.relation_uuid OR
-	NEW.cidr != OLD.cidr 
+	NEW.cidr != OLD.cidr
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

@@ -21,6 +21,7 @@ import (
 // HTTPClientWorker is the interface for the http client worker.
 type HTTPClientWorker interface {
 	corehttp.HTTPClient
+	corehttp.CACertUpdater
 	worker.Worker
 }
 

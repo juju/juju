@@ -85,37 +85,37 @@ func (s *environSuite) TestDestroyController(c *tc.C) {
 		c.Assert(host, tc.Equals, "hostname")
 		c.Assert(command, tc.DeepEquals, []string{"sudo", "/bin/bash"})
 		c.Assert(stdin, tc.Equals, `
-# Signal the jujud process to stop, then check it has done so.
+# Signal the jujuagentd process to stop, then check it has done so.
 set -x
 
 stopped=0
-function wait_for_jujud {
+function wait_for_jujuagentd {
     for i in {1..30}; do
-        if pgrep jujud > /dev/null ; then
+        if pgrep jujuagentd > /dev/null ; then
             sleep 1
         else
-            echo jujud stopped
+            echo jujuagentd stopped
             stopped=1
-            logger --id jujud stopped on attempt $i
+            logger --id jujuagentd stopped on attempt $i
             break
         fi
     done
 }
 
-# There might be no jujud at all (for example, after a failed deployment) so
-# don't require pkill to succeed before looking for a jujud process.
+# There might be no jujuagentd at all (for example, after a failed deployment) so
+# don't require pkill to succeed before looking for a jujuagentd process.
 # SIGABRT not SIGTERM, as abort lets the worker know it should uninstall itself,
 # rather than terminate normally.
-pkill -SIGABRT jujud
-wait_for_jujud
+pkill -SIGABRT jujuagentd
+wait_for_jujuagentd
 
 [[ $stopped -ne 1 ]] && {
-    # If jujud didn't stop nicely, we kill it hard here.
-    pkill -SIGKILL jujud && wait_for_jujud
+    # If jujuagentd didn't stop nicely, we kill it hard here.
+    pkill -SIGKILL jujuagentd && wait_for_jujuagentd
 }
 [[ $stopped -ne 1 ]] && {
-    echo stopping jujud failed
-    logger --id $(ps -o pid,cmd,state -p $(pgrep jujud) | awk 'NR != 1 {printf("Process %d (%s) has state %s\n", $1, $2, $3)}')
+    echo stopping jujuagentd failed
+    logger --id $(ps -o pid,cmd,state -p $(pgrep jujuagentd) | awk 'NR != 1 {printf("Process %d (%s) has state %s\n", $1, $2, $3)}')
     exit 1
 }
 exit 0
@@ -164,9 +164,9 @@ func (s *environSuite) TestConstraintsValidator(c *tc.C) {
 }
 
 func (s *environSuite) TestConstraintsValidatorInsideController(c *tc.C) {
-	// Patch os.Args so it appears that we're running in "jujud", and then
+	// Patch os.Args so it appears that we're running in "jujuagentd", and then
 	// patch the host arch so it looks like we're running arm64.
-	s.PatchValue(&os.Args, []string{"/some/where/containing/jujud", "whatever"})
+	s.PatchValue(&os.Args, []string{"/some/where/containing/jujuagentd", "whatever"})
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 
 	validator, err := s.env.ConstraintsValidator(c.Context())
@@ -177,9 +177,9 @@ func (s *environSuite) TestConstraintsValidatorInsideController(c *tc.C) {
 }
 
 func (s *environSuite) TestPrecheck(c *tc.C) {
-	// Patch os.Args so it appears that we're running in "jujud", and then
+	// Patch os.Args so it appears that we're running in "jujuagentd", and then
 	// patch the host arch so it looks like we're running amd64.
-	s.PatchValue(&os.Args, []string{"/some/where/containing/jujud", "whatever"})
+	s.PatchValue(&os.Args, []string{"/some/where/containing/jujuagentd", "whatever"})
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	constraint := constraints.MustParse("arch=amd64")
@@ -262,8 +262,8 @@ func (s *controllerInstancesSuite) TestControllerInstancesError(c *tc.C) {
 }
 
 func (s *controllerInstancesSuite) TestControllerInstancesInternal(c *tc.C) {
-	// Patch os.Args so it appears that we're running in "jujud".
-	s.PatchValue(&os.Args, []string{"/some/where/containing/jujud", "whatever"})
+	// Patch os.Args so it appears that we're running in "jujuagentd".
+	s.PatchValue(&os.Args, []string{"/some/where/containing/jujuagentd", "whatever"})
 	// Patch the ssh executable so that it would cause an error if we
 	// were to call it.
 	testhelpers.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")

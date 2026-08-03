@@ -248,6 +248,36 @@ WHERE  c.source_id < 2
 	return agents, nil
 }
 
+// IsModelImporting reports whether the model database still carries its import
+// gate, which a committed import clears when it releases the model.
+//
+// It is the model-database half of confirming that a model with no import claim
+// really was released by a completed commit, rather than never imported at all.
+func (s *State) IsModelImporting(ctx context.Context) (bool, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return false, errors.Errorf("cannot get database to read importing status: %w", err)
+	}
+
+	arg := entityUUID{UUID: s.modelUUID.String()}
+	stmt, err := s.Prepare(`
+SELECT COUNT(*) AS &importGateCount.count
+FROM   model_migrating
+WHERE  model_uuid = $entityUUID.uuid
+`, arg, importGateCount{})
+	if err != nil {
+		return false, errors.Errorf("preparing importing status statement: %w", err)
+	}
+
+	var c importGateCount
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, arg).Get(&c)
+	}); err != nil {
+		return false, errors.Errorf("checking if model is importing: %w", err)
+	}
+	return c.Count > 0, nil
+}
+
 // DeleteModelImportingStatus removes the entry from the model_migrating table
 // in the model database, indicating that the model import has completed or been
 // aborted.

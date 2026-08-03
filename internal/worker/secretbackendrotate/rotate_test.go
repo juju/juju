@@ -26,10 +26,10 @@ type workerSuite struct {
 	clock  testclock.AdvanceableClock
 	config secretbackendrotate.Config
 
-	facade              *mocks.MockSecretBackendManagerFacade
+	facade              *mocks.MockSecretBackendService
 	rotateWatcher       *mocks.MockSecretBackendRotateWatcher
 	rotateConfigChanges chan []corewatcher.SecretBackendRotateChange
-	rotatedTokens       chan []string
+	rotatedTokens       chan string
 }
 
 func TestWorkerSuite(t *stdtesting.T) {
@@ -40,10 +40,10 @@ func (s *workerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clock = testclock.NewDilatedWallClock(100 * time.Millisecond)
-	s.facade = mocks.NewMockSecretBackendManagerFacade(ctrl)
+	s.facade = mocks.NewMockSecretBackendService(ctrl)
 	s.rotateWatcher = mocks.NewMockSecretBackendRotateWatcher(ctrl)
 	s.rotateConfigChanges = make(chan []corewatcher.SecretBackendRotateChange)
-	s.rotatedTokens = make(chan []string, 5)
+	s.rotatedTokens = make(chan string, 5)
 	s.config = secretbackendrotate.Config{
 		Clock:                      s.clock,
 		SecretBackendManagerFacade: s.facade,
@@ -75,14 +75,14 @@ func (s *workerSuite) testValidateConfig(c *tc.C, f func(*secretbackendrotate.Co
 }
 
 func (s *workerSuite) expectWorker() {
-	s.facade.EXPECT().WatchTokenRotationChanges(gomock.Any()).Return(s.rotateWatcher, nil)
+	s.facade.EXPECT().WatchSecretBackendRotationChanges(gomock.Any()).Return(s.rotateWatcher, nil)
 	s.rotateWatcher.EXPECT().Changes().AnyTimes().Return(s.rotateConfigChanges)
 	s.rotateWatcher.EXPECT().Kill().MaxTimes(1)
 	s.rotateWatcher.EXPECT().Wait().Return(nil).MinTimes(1)
 
-	s.facade.EXPECT().RotateBackendTokens(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, ids ...string) error {
-			s.rotatedTokens <- ids
+	s.facade.EXPECT().RotateBackendToken(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, id string) error {
+			s.rotatedTokens <- id
 			return nil
 		},
 	).AnyTimes()
@@ -102,19 +102,23 @@ func (s *workerSuite) TestStartStop(c *tc.C) {
 }
 
 func (s *workerSuite) expectRotated(c *tc.C, expected ...string) {
-	select {
-	case ids, ok := <-s.rotatedTokens:
-		c.Assert(ok, tc.IsTrue)
-		c.Assert(ids, tc.SameContents, expected)
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for token to be rotated")
+	var got []string
+	for range expected {
+		select {
+		case id, ok := <-s.rotatedTokens:
+			c.Assert(ok, tc.IsTrue)
+			got = append(got, id)
+		case <-time.After(testing.LongWait):
+			c.Fatal("timed out waiting for token to be rotated")
+		}
 	}
+	c.Assert(got, tc.SameContents, expected)
 }
 
 func (s *workerSuite) expectNoRotates(c *tc.C) {
 	select {
-	case ids := <-s.rotatedTokens:
-		c.Fatalf("got unexpected secret rotation %q", ids)
+	case id := <-s.rotatedTokens:
+		c.Fatalf("got unexpected secret rotation %q", id)
 	case <-time.After(testing.ShortWait):
 	}
 }

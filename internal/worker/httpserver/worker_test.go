@@ -29,11 +29,9 @@ import (
 type workerFixture struct {
 	testhelpers.IsolationSuite
 
-	agentName string
-	mux       *apiserverhttp.Mux
-	clock     *testclock.Clock
-	config    httpserver.Config
-	logDir    string
+	mux    *apiserverhttp.Mux
+	clock  *testclock.Clock
+	config httpserver.Config
 }
 
 func (s *workerFixture) SetUpTest(c *tc.C) {
@@ -49,15 +47,10 @@ func (s *workerFixture) SetUpTest(c *tc.C) {
 	s.mux = apiserverhttp.NewMux()
 	s.clock = testclock.NewClock(time.Now())
 
-	s.agentName = "machine-42"
-	s.logDir = c.MkDir()
-
 	s.config = httpserver.Config{
-		AgentName:       s.agentName,
 		Clock:           s.clock,
 		TLSConfig:       tlsConfig,
 		Mux:             s.mux,
-		LogDir:          s.logDir,
 		MuxShutdownWait: 1 * time.Minute,
 		APIPort:         0,
 		Logger:          loggertesting.WrapCheckLog(c),
@@ -78,9 +71,6 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *tc.C) {
 		expect string
 	}
 	tests := []test{{
-		f:      func(cfg *httpserver.Config) { cfg.AgentName = "" },
-		expect: "empty AgentName not valid",
-	}, {
 		f:      func(cfg *httpserver.Config) { cfg.TLSConfig = nil },
 		expect: "nil TLSConfig not valid",
 	}, {

@@ -6,6 +6,7 @@ package model
 import (
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -367,8 +368,8 @@ func (s *modelStateSuite) TestGetProvisioningInfoConstraintsAllFields(c *tc.C) {
 	s.addSpace(c, "myspace")
 
 	consUUID := uuid.MustNewUUID().String()
-	s.runQuery(c, `INSERT INTO "constraint" (uuid, arch, cpu_cores, cpu_power, mem, root_disk, root_disk_source, instance_role, instance_type, virt_type, allocate_public_ip, image_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
-		consUUID, "arm64", 8, 2000, 16384, 51200, "ebs", "worker", "m5.large", "hvm", 1, "ami-custom")
+	s.runQuery(c, `INSERT INTO "constraint" (uuid, arch, cpu_cores, cpu_power, mem, root_disk, root_disk_source, instance_role, instance_type, virt_type, allocate_public_ip, image_id, ip_family) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		consUUID, "arm64", 8, 2000, 16384, 51200, "ebs", "worker", "m5.large", "hvm", 1, "ami-custom", "ipv4")
 	s.runQuery(c, `INSERT INTO machine_constraint (machine_uuid, constraint_uuid) VALUES (?,?)`,
 		machineUUID, consUUID)
 	s.runQuery(c, `INSERT INTO constraint_tag (constraint_uuid, tag) VALUES (?,?)`,
@@ -399,6 +400,8 @@ func (s *modelStateSuite) TestGetProvisioningInfoConstraintsAllFields(c *tc.C) {
 	c.Assert(cons.HasAllocatePublicIP(), tc.IsTrue)
 	c.Check(*cons.AllocatePublicIP, tc.IsTrue)
 	c.Check(*cons.ImageID, tc.Equals, "ami-custom")
+	c.Assert(cons.IPFamily, tc.Not(tc.IsNil))
+	c.Check(*cons.IPFamily, tc.Equals, ipfamily.IPv4)
 	c.Assert(cons.Tags, tc.Not(tc.IsNil))
 	c.Check(*cons.Tags, tc.HasLen, 2)
 	c.Assert(cons.Zones, tc.Not(tc.IsNil))

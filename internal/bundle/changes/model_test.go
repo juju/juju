@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/deployment/charm"

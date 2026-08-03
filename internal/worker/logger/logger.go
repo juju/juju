@@ -74,6 +74,13 @@ func NewLogger(config WorkerConfig) (worker.Worker, error) {
 	return w, nil
 }
 
+// setLogging applies the current logging configuration to the logger context.
+// NOTE: This function is a near-duplicate of the setLogging method in
+// internal/worker/controllerlogger/worker.go. That worker serves the same
+// purpose but uses a domain service (ModelConfigService) and a
+// StringsWatcher, whereas this one uses a facade (LoggerAPI) and a
+// NotifyWatcher. Any logic changes here should be considered for the other
+// implementation too.
 func (l *loggerWorker) setLogging(ctx context.Context) {
 	loggingConfig := ""
 	logger := l.config.Logger

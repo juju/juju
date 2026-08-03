@@ -70,7 +70,7 @@ func (s *watcherSuite) TestWatchUnitTaskNotificationsCreation(c *tc.C) {
 
 	unitNameParsed := coreunittesting.GenNewName(c, unitName)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 	watcher, err := s.svc.WatchUnitTaskNotifications(c.Context(), unitNameParsed)
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -103,7 +103,7 @@ func (s *watcherSuite) TestWatchUnitTaskNotificationsCreateRunning(c *tc.C) {
 
 	unitNameParsed := coreunittesting.GenNewName(c, unitName)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 	watcher, err := s.svc.WatchUnitTaskNotifications(c.Context(), unitNameParsed)
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -131,7 +131,7 @@ func (s *watcherSuite) TestWatchUnitTaskNotificationsMixedPendingAndNonPending(c
 
 	unitNameParsed := coreunittesting.GenNewName(c, unitName)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 	watcher, err := s.svc.WatchUnitTaskNotifications(c.Context(), unitNameParsed)
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -157,7 +157,7 @@ func (s *watcherSuite) TestWatchMachineTaskNotificationsCreatePending(c *tc.C) {
 	s.addOperationMachineTask(c, task0UUID, machineUUID)
 	s.addOperationMachineTask(c, task1UUID, machineUUID)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 	watcher, err := s.svc.WatchMachineTaskNotifications(c.Context(), coremachine.Name(machineName))
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -181,7 +181,7 @@ func (s *watcherSuite) TestWatchMachineTaskNotificationsPendingToAborting(c *tc.
 	taskUUID := s.addOperationTaskWithID(c, operationUUID, "task-0", corestatus.Pending)
 	s.addOperationMachineTask(c, taskUUID, machineUUID)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 	watcher, err := s.svc.WatchMachineTaskNotifications(c.Context(), coremachine.Name(machineName))
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -220,7 +220,7 @@ func (s *watcherSuite) TestWatchTaskLogs(c *tc.C) {
 	}
 	initialLogStrings := s.addOperationTaskLogs(c, taskUUID.String(), logMessages)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 	watcher, err := s.svc.WatchTaskLogs(c.Context(), taskID)
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))

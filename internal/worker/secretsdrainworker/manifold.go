@@ -88,7 +88,7 @@ func (cfg ManifoldConfig) Validate() error {
 }
 
 // start is a StartFunc for a Worker manifold.
-func (cfg ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
+func (cfg ManifoldConfig) start(_ context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -112,7 +112,7 @@ func (cfg ManifoldConfig) start(context context.Context, getter dependency.Gette
 		return leadershipTracker
 	}
 
-	worker, err := cfg.NewWorker(Config{
+	w, err := cfg.NewWorker(Config{
 		SecretsDrainFacade: cfg.NewSecretsDrainFacade(apiCaller),
 		Logger:             cfg.Logger,
 		SecretsBackendGetter: func() (jujusecrets.BackendsClient, error) {
@@ -123,7 +123,7 @@ func (cfg ManifoldConfig) start(context context.Context, getter dependency.Gette
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return worker, nil
+	return w, nil
 }
 
 type passThroughLeadershipTracker struct{}

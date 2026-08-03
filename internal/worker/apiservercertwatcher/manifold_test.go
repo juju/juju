@@ -4,7 +4,6 @@
 package apiservercertwatcher_test
 
 import (
-	"sync"
 	"testing"
 
 	"github.com/juju/tc"
@@ -13,8 +12,6 @@ import (
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -26,7 +23,15 @@ type ManifoldSuite struct {
 
 	manifold dependency.Manifold
 	getter   dependency.Getter
-	agent    *mockAgent
+}
+
+type stubCertReader struct {
+	material apiservercertwatcher.CertMaterial
+	err      error
+}
+
+func (s stubCertReader) CertMaterial() (apiservercertwatcher.CertMaterial, error) {
+	return s.material, s.err
 }
 
 func TestManifoldSuite(t *testing.T) {
@@ -36,40 +41,69 @@ func TestManifoldSuite(t *testing.T) {
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.agent = &mockAgent{
-		conf: mockConfig{
-			caCert: coretesting.OtherCACert,
-			info: &controller.ControllerAgentInfo{
-				CAPrivateKey: coretesting.OtherCAKey,
-				Cert:         coretesting.ServerCert,
-				PrivateKey:   coretesting.ServerKey,
-			},
-		},
-	}
-	s.getter = dt.StubGetter(map[string]any{
-		"agent": s.agent,
-	})
+	s.getter = dt.StubGetter(map[string]any{})
 	s.manifold = apiservercertwatcher.Manifold(apiservercertwatcher.ManifoldConfig{
-		AgentName: "agent",
+		CertReader: stubCertReader{material: apiservercertwatcher.CertMaterial{
+			CACert:               coretesting.OtherCACert,
+			CAPrivateKey:         coretesting.OtherCAKey,
+			ControllerCert:       coretesting.ServerCert,
+			ControllerPrivateKey: coretesting.ServerKey,
+		}},
 	})
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Assert(s.manifold.Inputs, tc.SameContents, []string{"agent"})
+	c.Assert(s.manifold.Inputs, tc.HasLen, 0)
 }
 
-func (s *ManifoldSuite) TestNoAgent(c *tc.C) {
-	getter := dt.StubGetter(map[string]any{
-		"agent": dependency.ErrMissing,
-	})
-	_, err := s.manifold.Start(c.Context(), getter)
-	c.Assert(err, tc.Equals, dependency.ErrMissing)
+func (s *ManifoldSuite) TestValidate_EmptyCACert(c *tc.C) {
+	cfg := apiservercertwatcher.ManifoldConfig{
+		CertReader: stubCertReader{material: apiservercertwatcher.CertMaterial{
+			CAPrivateKey:         coretesting.OtherCAKey,
+			ControllerCert:       coretesting.ServerCert,
+			ControllerPrivateKey: coretesting.ServerKey,
+		}},
+	}
+	c.Assert(cfg.Validate(), tc.ErrorIsNil)
+	_, err := cfg.CertReader.CertMaterial()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.CertReader.(stubCertReader).material.Validate(), tc.ErrorMatches, `.*CACert.*not valid`)
 }
 
-func (s *ManifoldSuite) TestNoControllerAgentInfo(c *tc.C) {
-	s.agent.conf.info = nil
-	_, err := s.manifold.Start(c.Context(), s.getter)
-	c.Assert(err, tc.ErrorMatches, "setting up initial ca authority: no controller agent info in agent config")
+func (s *ManifoldSuite) TestValidate_EmptyCAPrivateKey(c *tc.C) {
+	cfg := apiservercertwatcher.ManifoldConfig{
+		CertReader: stubCertReader{material: apiservercertwatcher.CertMaterial{
+			CACert:               coretesting.OtherCACert,
+			ControllerCert:       coretesting.ServerCert,
+			ControllerPrivateKey: coretesting.ServerKey,
+		}},
+	}
+	c.Assert(cfg.Validate(), tc.ErrorIsNil)
+	c.Assert(cfg.CertReader.(stubCertReader).material.Validate(), tc.ErrorMatches, `.*CAPrivateKey.*not valid`)
+}
+
+func (s *ManifoldSuite) TestValidate_EmptyControllerCert(c *tc.C) {
+	cfg := apiservercertwatcher.ManifoldConfig{
+		CertReader: stubCertReader{material: apiservercertwatcher.CertMaterial{
+			CACert:               coretesting.OtherCACert,
+			CAPrivateKey:         coretesting.OtherCAKey,
+			ControllerPrivateKey: coretesting.ServerKey,
+		}},
+	}
+	c.Assert(cfg.Validate(), tc.ErrorIsNil)
+	c.Assert(cfg.CertReader.(stubCertReader).material.Validate(), tc.ErrorMatches, `.*ControllerCert.*not valid`)
+}
+
+func (s *ManifoldSuite) TestValidate_EmptyControllerPrivateKey(c *tc.C) {
+	cfg := apiservercertwatcher.ManifoldConfig{
+		CertReader: stubCertReader{material: apiservercertwatcher.CertMaterial{
+			CACert:         coretesting.OtherCACert,
+			CAPrivateKey:   coretesting.OtherCAKey,
+			ControllerCert: coretesting.ServerCert,
+		}},
+	}
+	c.Assert(cfg.Validate(), tc.ErrorIsNil)
+	c.Assert(cfg.CertReader.(stubCertReader).material.Validate(), tc.ErrorMatches, `.*ControllerPrivateKey.*not valid`)
 }
 
 func (s *ManifoldSuite) TestStart(c *tc.C) {
@@ -86,41 +120,44 @@ func (s *ManifoldSuite) TestOutput(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestStart_NoAgentDependency verifies the manifold does not depend on agent.
+func (s *ManifoldSuite) TestStart_NoAgentDependency(c *tc.C) {
+	// The getter has no "agent" entry; start must succeed without it.
+	getter := dt.StubGetter(map[string]any{})
+	w, err := s.manifold.Start(c.Context(), getter)
+	c.Assert(err, tc.ErrorIsNil)
+	workertest.CleanKill(c, w)
+}
+
+// TestStart_CertFieldsPassedToWorker verifies that the explicit cert fields
+// are passed to the worker constructor (via CertWatcherWorkerFn).
+func (s *ManifoldSuite) TestStart_CertFieldsPassedToWorker(c *tc.C) {
+	var gotCACert, gotCAKey, gotCert, gotKey string
+	manifold := apiservercertwatcher.Manifold(apiservercertwatcher.ManifoldConfig{
+		CertReader: stubCertReader{material: apiservercertwatcher.CertMaterial{
+			CACert:               coretesting.OtherCACert,
+			CAPrivateKey:         coretesting.OtherCAKey,
+			ControllerCert:       coretesting.ServerCert,
+			ControllerPrivateKey: coretesting.ServerKey,
+		}},
+		CertWatcherWorkerFn: func(material apiservercertwatcher.CertMaterial) (apiservercertwatcher.AuthorityWorker, error) {
+			gotCACert = material.CACert
+			gotCAKey = material.CAPrivateKey
+			gotCert = material.ControllerCert
+			gotKey = material.ControllerPrivateKey
+			return nil, dependency.ErrUninstall
+		},
+	})
+	_, _ = manifold.Start(c.Context(), s.getter)
+	c.Check(gotCACert, tc.Equals, coretesting.OtherCACert)
+	c.Check(gotCAKey, tc.Equals, coretesting.OtherCAKey)
+	c.Check(gotCert, tc.Equals, coretesting.ServerCert)
+	c.Check(gotKey, tc.Equals, coretesting.ServerKey)
+}
+
 func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
-}
-
-type mockAgent struct {
-	agent.Agent
-	conf mockConfig
-}
-
-func (ma *mockAgent) CurrentConfig() agent.Config {
-	return &ma.conf
-}
-
-type mockConfig struct {
-	agent.Config
-
-	mu     sync.Mutex
-	info   *controller.ControllerAgentInfo
-	caCert string
-}
-
-func (mc *mockConfig) CACert() string {
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
-	return mc.caCert
-}
-
-func (mc *mockConfig) ControllerAgentInfo() (controller.ControllerAgentInfo, bool) {
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
-	if mc.info != nil {
-		return *mc.info, true
-	}
-	return controller.ControllerAgentInfo{}, false
 }

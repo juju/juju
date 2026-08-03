@@ -49,6 +49,7 @@ var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.VirtType,
 	constraints.ImageID,
+	constraints.IPFamily,
 }
 
 // instanceTypeConstraints defines the fields defined on each of the

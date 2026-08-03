@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
 	domaincloud "github.com/juju/juju/domain/cloud"
@@ -83,7 +84,7 @@ func NewCredentialValidator(
 func (v credentialValidator) Validate(
 	ctx context.Context,
 	info modelmigration.CredentialValidationInfo,
-	credential modelmigration.ModelCloudCredential,
+	credential coremodelmigration.ModelCloudCredential,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -126,7 +127,7 @@ func (v credentialValidator) Validate(
 // credentialKey converts the model's credential into the natural key the
 // credential domain identifies it by, rejecting a credential the import left
 // incomplete before any provider is opened with it.
-func credentialKey(credential modelmigration.ModelCloudCredential) (corecredential.Key, error) {
+func credentialKey(credential coremodelmigration.ModelCloudCredential) (corecredential.Key, error) {
 	owner, err := user.NewName(credential.Owner)
 	if err != nil {
 		return corecredential.Key{}, errors.Errorf("parsing credential owner %q: %w", credential.Owner, err)

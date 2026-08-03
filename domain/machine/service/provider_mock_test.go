@@ -14,6 +14,7 @@ import (
 
 	gomock "github.com/canonical/gomock/gomock"
 	constraints "github.com/juju/juju/core/constraints"
+	instance "github.com/juju/juju/core/instance"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	instances "github.com/juju/juju/environs/instances"
@@ -36,6 +37,7 @@ type MockProviderMockRecorder struct {
 	destroyExpects                []*gomock.Call1_1[context.Context, error]
 	destroyControllerExpects      []*gomock.Call2_1[context.Context, string, error]
 	instanceTypesExpects          []*gomock.Call2_2[context.Context, constraints.Value, instances.InstanceTypesWithCostMetadata, error]
+	instancesExpects              []*gomock.Call2_2[context.Context, []instance.Id, []instances.Instance, error]
 	precheckInstanceExpects       []*gomock.Call2_1[context.Context, environs.PrecheckInstanceParams, error]
 	prepareForBootstrapExpects    []*gomock.Call2_1[environs.BootstrapContext, string, error]
 	recommendedPoolForKindExpects []*gomock.Call1_1[storage.StorageKind, *storage.Config]
@@ -163,6 +165,24 @@ func (mr *MockProviderMockRecorder) InstanceTypes(arg0, arg1 any) *MockProviderI
 
 // MockProviderInstanceTypesCall is the typed call wrapper for InstanceTypes.
 type MockProviderInstanceTypesCall = gomock.Call2_2[context.Context, constraints.Value, instances.InstanceTypesWithCostMetadata, error]
+
+// Instances mocks base method.
+func (m *MockProvider) Instances(ctx context.Context, ids []instance.Id) ([]instances.Instance, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.instancesExpects, m.ctrl, m, "Instances", ctx, ids)
+}
+
+// Instances indicates an expected call of Instances.
+func (mr *MockProviderMockRecorder) Instances(ctx, ids any) *MockProviderInstancesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, []instance.Id, []instances.Instance, error](mr.mock.ctrl.T, mr.mock, "Instances", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(ids))
+	mr.instancesExpects = append(mr.instancesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockProviderInstancesCall is the typed call wrapper for Instances.
+type MockProviderInstancesCall = gomock.Call2_2[context.Context, []instance.Id, []instances.Instance, error]
 
 // PrecheckInstance mocks base method.
 func (m *MockProvider) PrecheckInstance(arg0 context.Context, arg1 environs.PrecheckInstanceParams) error {

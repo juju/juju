@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	stdtesting "testing"
+	"time"
 
 	"github.com/juju/tc"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/ipfamily"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	domainagentbinary "github.com/juju/juju/domain/agentbinary"
@@ -730,10 +732,12 @@ func (s *stateSuite) TestConstraintPartial(c *tc.C) {
 			CpuCores:         new(uint64(2)),
 			AllocatePublicIP: new(true),
 			ImageID:          new("image-id"),
+			IPFamily:         new(ipfamily.IPv4),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	machineName := machineNames[0]
+	c.Assert(machineName.String(), tc.Equals, "0")
 
 	_, _, cons, err := s.state.GetMachineProvisioningInfo(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -742,6 +746,7 @@ func (s *stateSuite) TestConstraintPartial(c *tc.C) {
 		CpuCores:         new(uint64(2)),
 		AllocatePublicIP: new(true),
 		ImageID:          new("image-id"),
+		IPFamily:         new(ipfamily.IPv4),
 	})
 }
 
@@ -1038,6 +1043,148 @@ func (s *stateSuite) TestSetSSHHostKeysMachineNotFound(c *tc.C) {
 func (s *stateSuite) TestGetSSHHostKeysMachineNotFound(c *tc.C) {
 	_, err := s.state.GetSSHHostKeys(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilitySuccess(c *tc.C) {
+	_, machineName := s.addMachine(c)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityReprovisionAlreadyExists(c *tc.C) {
+	_, machineName := s.addMachine(c)
+	s.runQuery(c, `
+INSERT INTO machine_reprovision (machine_name, requested_at)
+VALUES (?, ?)`, machineName, time.Now())
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineReprovisionAlreadyExists)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityNotFound(c *tc.C) {
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), "666")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityNotAlive(c *tc.C) {
+	_, machineName := s.addMachine(c)
+
+	s.runQuery(c, "UPDATE machine SET life_id = ? WHERE name = ?", life.Dying, machineName)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotAlive)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityIsController(c *tc.C) {
+	machineName := s.createApplicationWithUnitAndMachine(c, true, false)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineIsController)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityIsContainer(c *tc.C) {
+	_, childUUID := s.createContainer(c)
+
+	namesForUUIDs, err := s.state.GetNamesForUUIDs(c.Context(), []string{childUUID.String()})
+	c.Assert(err, tc.ErrorIsNil)
+	machineName := namesForUUIDs[childUUID]
+
+	err = s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineIsContainer)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityIsManual(c *tc.C) {
+	machineUUID, machineName := s.addMachine(c)
+
+	s.runQuery(c, "INSERT INTO machine_manual (machine_uuid) VALUES (?)", machineUUID)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineIsManual)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityHasChildContainers(c *tc.C) {
+	parentUUID, _ := s.createContainer(c)
+
+	namesForUUIDs, err := s.state.GetNamesForUUIDs(c.Context(), []string{parentUUID.String()})
+	c.Assert(err, tc.ErrorIsNil)
+	machineName := namesForUUIDs[parentUUID]
+
+	err = s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineHasChildContainers)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityHasModelScopedVolume(c *tc.C) {
+	machineUUID, machineName := s.addMachine(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionVolumeStorage(c, machineUUID.String(), netNodeUUID, 0, 0)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.ModelScopedStorageAttached)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityHasModelScopedFilesystem(c *tc.C) {
+	machineUUID, machineName := s.addMachine(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionFilesystemStorage(c, machineUUID.String(), netNodeUUID, 0, 0)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.ModelScopedStorageAttached)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityAllowsMachineScopedVolume(c *tc.C) {
+	machineUUID, machineName := s.addMachine(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionVolumeStorage(c, machineUUID.String(), netNodeUUID, 1, 1)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityAllowsMachineScopedFilesystem(c *tc.C) {
+	machineUUID, machineName := s.addMachine(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionFilesystemStorage(c, machineUUID.String(), netNodeUUID, 1, 1)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityHasModelScopedVolumePlan(c *tc.C) {
+	machineUUID, machineName := s.addMachine(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionVolumePlanStorage(c, machineUUID.String(), netNodeUUID, 0)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.ModelScopedStorageAttached)
+}
+
+func (s *stateSuite) TestIsMachineAgentPresent(c *tc.C) {
+	machineUUID, machineName := s.addMachine(c)
+	s.runQuery(c, "INSERT INTO machine_agent_presence (machine_uuid) VALUES (?)", machineUUID)
+
+	present, err := s.state.IsMachineAgentPresent(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(present, tc.IsTrue)
+}
+
+func (s *stateSuite) TestIsMachineAgentPresentAbsent(c *tc.C) {
+	_, machineName := s.addMachine(c)
+
+	present, err := s.state.IsMachineAgentPresent(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(present, tc.IsFalse)
+}
+
+func (s *stateSuite) TestIsMachineAgentPresentNotFound(c *tc.C) {
+	_, err := s.state.IsMachineAgentPresent(c.Context(), "666")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorMatches, "machine not found")
 }
 
 func (s *stateSuite) addMachine(c *tc.C) (machine.UUID, machine.Name) {

@@ -16,10 +16,14 @@ import (
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
 
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/featureflag"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -27,7 +31,9 @@ import (
 type manifoldSuite struct {
 	testhelpers.IsolationSuite
 
-	controllerConfigService *MockControllerConfigService
+	controllerConfigService     *MockControllerConfigService
+	controllerSSHHostKeyService ControllerSSHHostKeyService
+	sshService                  SSHModelService
 }
 
 func TestManifoldSuite(t *testing.T) {
@@ -56,6 +62,9 @@ func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 		cfg.NewServerWrapperWorker = nil
 		cfg.NewServerWorker = nil
 		cfg.GetControllerConfigService = nil
+		cfg.GetControllerSSHHostKeyService = nil
+		cfg.GetDomainServicesGetter = nil
+		cfg.GetSSHService = nil
 		cfg.Logger = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
@@ -84,9 +93,27 @@ func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
+	// Missing GetControllerSSHHostKeyService.
+	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
+		cfg.GetControllerSSHHostKeyService = nil
+	})
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
+
+	// Missing GetDomainServicesGetter.
+	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
+		cfg.GetDomainServicesGetter = nil
+	})
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
+
 	// Missing Logger.
 	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
 		cfg.Logger = nil
+	})
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
+
+	// Missing GetSSHService.
+	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
+		cfg.GetSSHService = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
@@ -94,6 +121,7 @@ func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 
 func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+	sshServiceCalled := false
 
 	// Setup the manifold
 	manifold := Manifold(ManifoldConfig{
@@ -104,6 +132,16 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 		},
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
+		},
+		GetControllerSSHHostKeyService: func(getter dependency.Getter, name string) (ControllerSSHHostKeyService, error) {
+			return s.controllerSSHHostKeyService, nil
+		},
+		GetDomainServicesGetter: func(dependency.Getter, string) (services.DomainServicesGetter, error) {
+			return stubDomainServicesGetter{}, nil
+		},
+		GetSSHService: func(context.Context, services.DomainServicesGetter, model.UUID) (SSHModelService, error) {
+			sshServiceCalled = true
+			return s.sshService, nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),
 	})
@@ -120,16 +158,46 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 	defer workertest.DirtyKill(c, result)
 
 	c.Check(result, tc.NotNil)
+	c.Check(sshServiceCalled, tc.IsFalse)
 	workertest.CleanKill(c, result)
+}
+
+func (s *manifoldSuite) TestSSHServiceVirtualHostKeyUsesRequestModelUUID(c *tc.C) {
+	info, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	var resolvedModelUUID model.UUID
+	sshService := sshService{
+		controllerSSHHostKeyService: stubSSHService{jumpHostKey: testHostKey},
+		domainServicesGetter:        stubDomainServicesGetter{},
+		getSSHService: func(_ context.Context, _ services.DomainServicesGetter, modelUUID model.UUID) (SSHModelService, error) {
+			resolvedModelUUID = modelUUID
+			return stubSSHService{virtualHostKey: testHostKey}, nil
+		},
+	}
+
+	virtualHostKey, err := sshService.VirtualHostKey(c.Context(), info)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(virtualHostKey, tc.Equals, testHostKey)
+	c.Check(resolvedModelUUID, tc.Equals, info.ModelUUID())
 }
 
 func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	sshService := stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey}
+	s.controllerSSHHostKeyService = sshService
+	s.sshService = sshService
 
 	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
 		return watchertest.NewMockStringsWatcher(make(<-chan []string)), nil
+	}).AnyTimes()
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (controller.Config, error) {
+		return controller.Config{
+			controller.SSHServerPort:               22,
+			controller.SSHMaxConcurrentConnections: 10,
+		}, nil
 	}).AnyTimes()
 	return ctrl
 }
@@ -146,6 +214,15 @@ func (s *manifoldSuite) newManifoldConfig(c *tc.C, modifier func(cfg *ManifoldCo
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
 		},
+		GetControllerSSHHostKeyService: func(getter dependency.Getter, name string) (ControllerSSHHostKeyService, error) {
+			return s.controllerSSHHostKeyService, nil
+		},
+		GetDomainServicesGetter: func(dependency.Getter, string) (services.DomainServicesGetter, error) {
+			return stubDomainServicesGetter{}, nil
+		},
+		GetSSHService: func(context.Context, services.DomainServicesGetter, model.UUID) (SSHModelService, error) {
+			return s.sshService, nil
+		},
 		Logger: loggertesting.WrapCheckLog(c),
 	}
 
@@ -156,7 +233,7 @@ func (s *manifoldSuite) newManifoldConfig(c *tc.C, modifier func(cfg *ManifoldCo
 
 func (s *manifoldSuite) TestManifoldUninstall(c *tc.C) {
 	// Unset feature flag
-	os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+	_ = os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
 	defer s.setupMocks(c).Finish()
@@ -171,6 +248,15 @@ func (s *manifoldSuite) TestManifoldUninstall(c *tc.C) {
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
 		},
+		GetControllerSSHHostKeyService: func(getter dependency.Getter, name string) (ControllerSSHHostKeyService, error) {
+			return s.controllerSSHHostKeyService, nil
+		},
+		GetDomainServicesGetter: func(dependency.Getter, string) (services.DomainServicesGetter, error) {
+			return stubDomainServicesGetter{}, nil
+		},
+		GetSSHService: func(context.Context, services.DomainServicesGetter, model.UUID) (SSHModelService, error) {
+			return s.sshService, nil
+		},
 		Logger: loggertesting.WrapCheckLog(c),
 	})
 
@@ -183,4 +269,10 @@ func (s *manifoldSuite) TestManifoldUninstall(c *tc.C) {
 		dt.StubGetter(map[string]any{}),
 	)
 	c.Assert(err, tc.ErrorIs, dependency.ErrUninstall)
+}
+
+type stubDomainServicesGetter struct{}
+
+func (stubDomainServicesGetter) ServicesForModel(context.Context, model.UUID) (services.DomainServices, error) {
+	return nil, errors.NotImplementedf("unexpected ServicesForModel call")
 }

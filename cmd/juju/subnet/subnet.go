@@ -56,7 +56,6 @@ var logger = internallogger.GetLogger("juju.cmd.juju.subnet")
 // subcommands.
 type SubnetCommandBase struct {
 	modelcmd.ModelCommandBase
-	modelcmd.IAASOnlyCommand
 	api SubnetAPI
 }
 

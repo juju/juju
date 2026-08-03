@@ -10,12 +10,13 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"net/http/httputil"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
-	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 	internallogger "github.com/juju/juju/internal/logger"
 )
@@ -172,9 +173,37 @@ func newOptions() *options {
 
 // Client represents an http client.
 type Client struct {
-	corehttp.HTTPClient
-
+	// logger records request tracing and retry diagnostics.
 	logger logger.Logger
+
+	// mu serializes transport reconfiguration so CA and TLS verification
+	// changes are applied as one atomic swap of the inner round tripper.
+	mu sync.Mutex
+
+	// httpClient is the shared stdlib client used to execute requests.
+	httpClient *http.Client
+	// transport remains installed on httpClient for the lifetime of the
+	// client and atomically delegates to the current transport stack.
+	transport *swappableRoundTripper
+
+	// disableKeepAlives controls whether HTTP keep-alives are disabled on new
+	// transports.
+	disableKeepAlives bool
+	// skipHostnameVerification controls whether TLS hostname verification is
+	// skipped on new transports.
+	skipHostnameVerification bool
+	// tlsHandshakeTimeout is applied to new transports for TLS handshakes.
+	tlsHandshakeTimeout time.Duration
+	// middlewares are applied in order when constructing a new base transport.
+	middlewares []TransportMiddleware
+	// requestRecorder, when present, wraps the transport to record request
+	// outcomes.
+	requestRecorder RequestRecorder
+	// retryPolicy, when present, wraps the transport with retry behavior.
+	retryPolicy *RetryPolicy
+	// caCertificates are the custom CA certificates installed on new
+	// transports.
+	caCertificates []string
 }
 
 // NewClient returns a new juju http client defined
@@ -186,45 +215,25 @@ func NewClient(options ...Option) *Client {
 	}
 
 	client := opts.httpClient
-	transport := NewHTTPTLSTransport(TransportConfig{
-		DisableKeepAlives:   opts.disableKeepAlives,
-		TLSHandshakeTimeout: opts.tlsHandshakeTimeout,
-		Middlewares:         opts.middlewares,
-	})
-	switch {
-	case len(opts.caCertificates) > 0:
-		transport = transportWithCerts(transport, opts.caCertificates, opts.skipHostnameVerification)
-	case opts.skipHostnameVerification:
-		transport = transportWithSkipVerify(transport, opts.skipHostnameVerification)
-	}
-
-	if opts.requestRecorder != nil {
-		client.Transport = roundTripRecorder{
-			requestRecorder:     opts.requestRecorder,
-			wrappedRoundTripper: transport,
-		}
-	} else {
-		client.Transport = transport
-	}
-
-	// Ensure we add the retry middleware after request recorder if there is
-	// one, to ensure that we get all the logging at the right level.
-	if opts.retryPolicy != nil {
-		client.Transport = makeRetryMiddleware(
-			client.Transport,
-			*opts.retryPolicy,
-			clock.WallClock,
-			opts.logger,
-		)
-	}
-
 	if opts.cookieJar != nil {
 		client.Jar = opts.cookieJar
 	}
-	return &Client{
-		HTTPClient: client,
-		logger:     opts.logger,
+	transport := newSwappableRoundTripper(http.DefaultTransport)
+	client.Transport = transport
+	c := &Client{
+		logger:                   opts.logger,
+		httpClient:               client,
+		transport:                transport,
+		disableKeepAlives:        opts.disableKeepAlives,
+		skipHostnameVerification: opts.skipHostnameVerification,
+		tlsHandshakeTimeout:      opts.tlsHandshakeTimeout,
+		middlewares:              opts.middlewares,
+		requestRecorder:          opts.requestRecorder,
+		retryPolicy:              opts.retryPolicy,
+		caCertificates:           append([]string(nil), opts.caCertificates...),
 	}
+	c.applyTransport()
+	return c
 }
 
 func transportWithSkipVerify(defaultTransport *http.Transport, skipHostnameVerify bool) *http.Transport {
@@ -262,7 +271,7 @@ func transportWithCerts(defaultTransport *http.Transport, caCerts []string, skip
 // Client returns the underlying http.Client.  Used in testing
 // only.
 func (c *Client) Client() *http.Client {
-	return c.HTTPClient.(*http.Client)
+	return c.httpClient
 }
 
 // Get issues a GET to the specified URL.  It mimics the net/http Get,
@@ -296,7 +305,59 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 		err = errors.Annotatef(err, "setup of http client tracing failed")
 		c.logger.Tracef(req.Context(), "%s", err)
 	}
-	return c.HTTPClient.Do(req)
+	return c.httpClient.Do(req)
+}
+
+// ReplaceCACert replaces the CA certificate and TLS verification mode used for
+// TLS validation. Passing an empty string clears any custom CA certificate.
+func (c *Client) ReplaceCACert(caCert string, insecureSkipVerify bool) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if caCert == "" {
+		c.caCertificates = nil
+	} else {
+		if !x509.NewCertPool().AppendCertsFromPEM([]byte(caCert)) {
+			return errors.NotValidf("CA certificate")
+		}
+		c.caCertificates = []string{caCert}
+	}
+	c.skipHostnameVerification = insecureSkipVerify
+	c.applyTransport()
+	return nil
+}
+
+func (c *Client) applyTransport() {
+	baseTransport := NewHTTPTLSTransport(TransportConfig{
+		DisableKeepAlives:   c.disableKeepAlives,
+		TLSHandshakeTimeout: c.tlsHandshakeTimeout,
+		Middlewares:         c.middlewares,
+	})
+	switch {
+	case len(c.caCertificates) > 0:
+		baseTransport = transportWithCerts(baseTransport, c.caCertificates, c.skipHostnameVerification)
+	case c.skipHostnameVerification:
+		baseTransport = transportWithSkipVerify(baseTransport, c.skipHostnameVerification)
+	}
+	var transport http.RoundTripper = baseTransport
+
+	if c.requestRecorder != nil {
+		transport = roundTripRecorder{
+			requestRecorder:     c.requestRecorder,
+			wrappedRoundTripper: transport,
+		}
+	}
+
+	if c.retryPolicy != nil {
+		transport = makeRetryMiddleware(
+			transport,
+			*c.retryPolicy,
+			clock.WallClock,
+			c.logger,
+		)
+	}
+
+	c.transport.Store(transport)
 }
 
 // traceRequest enabled debugging on the http request if log level for ths
@@ -374,4 +435,36 @@ func (c *Client) traceRequest(req *http.Request, url string) error {
 	}
 	*req = *req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
 	return nil
+}
+
+type swappableRoundTripper struct {
+	transport atomic.Pointer[roundTripperHolder]
+}
+
+type roundTripperHolder struct {
+	transport http.RoundTripper
+}
+
+// newSwappableRoundTripper returns a stable outer round tripper that can swap
+// its inner transport stack without mutating http.Client.Transport while
+// requests are in flight.
+func newSwappableRoundTripper(initial http.RoundTripper) *swappableRoundTripper {
+	rt := &swappableRoundTripper{}
+	rt.Store(initial)
+	return rt
+}
+
+// RoundTrip delegates to the currently active inner transport.
+func (s *swappableRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return s.Load().RoundTrip(req)
+}
+
+func (s *swappableRoundTripper) Load() http.RoundTripper {
+	return s.transport.Load().transport
+}
+
+// Store atomically replaces the inner transport stack used for subsequent
+// requests. In-flight requests continue on the transport they already loaded.
+func (s *swappableRoundTripper) Store(transport http.RoundTripper) {
+	s.transport.Store(&roundTripperHolder{transport: transport})
 }

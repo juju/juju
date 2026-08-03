@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -48,6 +49,7 @@ func (*constraintsSuite) TestFromCoreConstraints(c *tc.C) {
 				Zones:            new([]string{"zone1", "zone2"}),
 				AllocatePublicIP: new(true),
 				ImageID:          new("image-123"),
+				IPFamily:         new(ipfamily.Dual),
 				Spaces:           new([]string{"space1", "space2", "^space3"}),
 			},
 			Out: Constraints{
@@ -65,6 +67,7 @@ func (*constraintsSuite) TestFromCoreConstraints(c *tc.C) {
 				Zones:            new([]string{"zone1", "zone2"}),
 				AllocatePublicIP: new(true),
 				ImageID:          new("image-123"),
+				IPFamily:         new(ipfamily.Dual),
 				Spaces: new([]SpaceConstraint{
 					{SpaceName: "space1", Exclude: false},
 					{SpaceName: "space2", Exclude: false},
@@ -106,6 +109,20 @@ func (*constraintsSuite) TestFromCoreConstraints(c *tc.C) {
 			Out: Constraints{
 				Arch: new("test"),
 			},
+		},
+		{
+			Comment: "ip-family is decoded when set",
+			In: constraints.Value{
+				IPFamily: new(ipfamily.Dual),
+			},
+			Out: Constraints{
+				IPFamily: new(ipfamily.Dual),
+			},
+		},
+		{
+			Comment: "ip-family is nil when not set",
+			In:      constraints.Value{},
+			Out:     Constraints{},
 		},
 	}
 
@@ -142,6 +159,7 @@ func (*constraintsSuite) TestToCoreConstraints(c *tc.C) {
 				Zones:            new([]string{"zone1", "zone2"}),
 				AllocatePublicIP: new(true),
 				ImageID:          new("image-123"),
+				IPFamily:         new(ipfamily.Dual),
 				Spaces: new([]SpaceConstraint{
 					{SpaceName: "space1", Exclude: false},
 					{SpaceName: "space2", Exclude: false},
@@ -163,6 +181,7 @@ func (*constraintsSuite) TestToCoreConstraints(c *tc.C) {
 				Zones:            new([]string{"zone1", "zone2"}),
 				AllocatePublicIP: new(true),
 				ImageID:          new("image-123"),
+				IPFamily:         new(ipfamily.Dual),
 				Spaces:           new([]string{"space1", "space2", "^space3"}),
 			},
 		},
@@ -200,6 +219,20 @@ func (*constraintsSuite) TestToCoreConstraints(c *tc.C) {
 			Out: constraints.Value{
 				Arch: new("test"),
 			},
+		},
+		{
+			Comment: "ip-family is encoded when set",
+			In: Constraints{
+				IPFamily: new(ipfamily.Dual),
+			},
+			Out: constraints.Value{
+				IPFamily: new(ipfamily.Dual),
+			},
+		},
+		{
+			Comment: "ip-family is nil when not set",
+			In:      Constraints{},
+			Out:     constraints.Value{},
 		},
 	}
 

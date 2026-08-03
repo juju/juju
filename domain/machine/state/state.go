@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
@@ -29,6 +30,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -392,6 +394,139 @@ GROUP BY   m.uuid
 		return -1, false, errors.Errorf("getting life and manual status for machine %q: %w", mName, err)
 	}
 	return result.LifeID, result.IsManual > 0, nil
+}
+
+// CheckMachineReprovisioningEligibility checks whether the machine identified
+// by name is eligible for reprovisioning. It queries life, controller status,
+// manual-provision status, child-container presence, model-scoped storage, and
+// an existing reprovision request in a single round-trip.
+// It returns a [machineerrors.MachineNotFound] if the machine doesn't exist.
+func (st *State) CheckMachineReprovisioningEligibility(ctx context.Context, mName machine.Name) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	params := reprovisionEligibilityParams{
+		Name:         mName.String(),
+		ModelScopeID: int(domainstorage.ProvisionScopeModel),
+	}
+	query := `
+WITH model_storage_net_node AS (
+    SELECT sva.net_node_uuid
+    FROM storage_volume_attachment AS sva
+    WHERE sva.provision_scope_id = $reprovisionEligibilityParams.model_scope_id
+
+    UNION
+
+    SELECT svap.net_node_uuid
+    FROM storage_volume_attachment_plan AS svap
+    WHERE svap.provision_scope_id = $reprovisionEligibilityParams.model_scope_id
+
+    UNION
+
+    SELECT sfa.net_node_uuid
+    FROM storage_filesystem_attachment AS sfa
+    WHERE sfa.provision_scope_id = $reprovisionEligibilityParams.model_scope_id
+)
+SELECT     m.life_id AS &reprovisionEligibility.life_id,
+           COUNT(mpc.machine_uuid) AS &reprovisionEligibility.is_container,
+           COUNT(mic.machine_uuid) AS &reprovisionEligibility.is_controller,
+           COUNT(mm.machine_uuid) AS &reprovisionEligibility.is_manual,
+           COUNT(mp.machine_uuid) AS &reprovisionEligibility.has_containers,
+           COUNT(msn.net_node_uuid) AS &reprovisionEligibility.has_model_storage,
+           COUNT(mr.machine_name) AS &reprovisionEligibility.has_reprovision
+FROM       machine AS m
+LEFT JOIN  machine_parent AS mpc ON m.uuid = mpc.machine_uuid
+LEFT JOIN  v_machine_is_controller AS mic ON m.uuid = mic.machine_uuid
+LEFT JOIN  machine_manual AS mm ON m.uuid = mm.machine_uuid
+LEFT JOIN  machine_parent AS mp ON m.uuid = mp.parent_uuid
+LEFT JOIN  model_storage_net_node AS msn ON m.net_node_uuid = msn.net_node_uuid
+LEFT JOIN  machine_reprovision AS mr ON m.name = mr.machine_name
+WHERE      m.name = $reprovisionEligibilityParams.name
+GROUP BY   m.uuid
+`
+	queryStmt, err := st.Prepare(query, params, reprovisionEligibility{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var result reprovisionEligibility
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt, params).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		}
+		if err != nil {
+			return errors.Errorf("checking reprovisioning eligibility for machine %q: %w", mName, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("checking reprovisioning eligibility for machine %q: %w", mName, err)
+	}
+
+	if result.HasReprovision > 0 {
+		return errors.Capture(machineerrors.MachineReprovisionAlreadyExists)
+	}
+	if result.LifeID != life.Alive {
+		return errors.Capture(machineerrors.MachineNotAlive)
+	}
+	if result.IsContainer > 0 {
+		return errors.Capture(machineerrors.MachineIsContainer)
+	}
+	if result.IsController > 0 {
+		return errors.Capture(machineerrors.MachineIsController)
+	}
+	if result.IsManual > 0 {
+		return errors.Capture(machineerrors.MachineIsManual)
+	}
+	if result.HasContainers > 0 {
+		return errors.Capture(machineerrors.MachineHasChildContainers)
+	}
+	if result.HasModelStorage > 0 {
+		return errors.Capture(machineerrors.ModelScopedStorageAttached)
+	}
+	return nil
+}
+
+// IsMachineAgentPresent returns whether presence exists for the specified
+// machine agent. It returns a [machineerrors.MachineNotFound] if the machine
+// doesn't exist.
+func (st *State) IsMachineAgentPresent(ctx context.Context, mName machine.Name) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	machineNameParam := machineName{Name: mName.String()}
+	query := `
+SELECT     COUNT(mapr.machine_uuid) AS &count.count
+FROM       machine AS m
+LEFT JOIN  machine_agent_presence AS mapr ON m.uuid = mapr.machine_uuid
+WHERE      m.name = $machineName.name
+GROUP BY   m.uuid
+`
+	queryStmt, err := st.Prepare(query, machineNameParam, count{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var result count
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		}
+		if err != nil {
+			return errors.Errorf("checking machine %q agent presence: %w", mName, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	return result.Count > 0, nil
 }
 
 func (st *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName machine.Name) (entityUUID, error) {
@@ -1188,6 +1323,7 @@ WHERE m.name = $machineName.name
 			VirtType:         row.VirtType,
 			AllocatePublicIP: row.AllocatePublicIP,
 			ImageID:          row.ImageID,
+			IPFamily:         row.IPFamily,
 			SpaceName:        row.SpaceName,
 			SpaceExclude:     row.SpaceExclude,
 			Tag:              row.Tag,
@@ -1345,6 +1481,12 @@ func (*State) NamespaceForWatchMachineCloudInstance() string {
 	return "machine_cloud_instance"
 }
 
+// NamespaceForWatchMachineReprovision returns the namespace used to wake the
+// provisioner after a machine is detached for reprovisioning.
+func (*State) NamespaceForWatchMachineReprovision() string {
+	return "machine_reprovision"
+}
+
 // NamespaceForWatchMachineReboot returns the namespace string used for
 // tracking machine reboot events in the model.
 func (*State) NamespaceForWatchMachineReboot() string {
@@ -1464,6 +1606,10 @@ func decodeConstraints(cons machineConstraints) constraints.Constraints {
 		}
 		if row.ImageID.Valid {
 			res.ImageID = &row.ImageID.String
+		}
+		if row.IPFamily.Valid {
+			f := ipfamily.IPFamily(row.IPFamily.String)
+			res.IPFamily = &f
 		}
 		if row.SpaceName.Valid {
 			var exclude bool

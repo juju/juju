@@ -15,9 +15,18 @@ RUN useradd --system --no-create-home --shell /usr/sbin/nologin syslog \
     && rm -rf /root/.cache
 
 WORKDIR /var/lib/juju
-COPY ${TARGETOS}_${TARGETARCH}/bin/jujud \
+COPY ${TARGETOS}_${TARGETARCH}/bin/jujuagentd \
      ${TARGETOS}_${TARGETARCH}/bin/jujuc \
      ${TARGETOS}_${TARGETARCH}/bin/containeragent \
      ${TARGETOS}_${TARGETARCH}/bin/pebble /opt/
+
+# Compatibility shim for upgrades from controllers bootstrapped before the
+# agent binary was renamed from `jujud` to `jujuagentd`. The pre-rename
+# StatefulSet pod template bakes Args that reference `/opt/jujud` and
+# `<tools-dir>/jujud`. Kubernetes upgrade only swaps the container image,
+# leaving those Args intact, so without this symlink the old `cp /opt/jujud`
+# in the Args fails on the new image and the old binary on the PVC keeps
+# running. With the symlink, the legacy paths resolve to the new binary.
+RUN ln -s jujuagentd /opt/jujud
 
 ENTRYPOINT ["sh", "-c"]

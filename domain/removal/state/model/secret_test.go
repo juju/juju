@@ -264,7 +264,9 @@ func (s *secretSuite) addSecretWithRevisionsAndContentWithSuffix(c *tc.C, appUUI
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().ExecContext(
-		ctx, "INSERT INTO secret_metadata (secret_id, version, rotate_policy_id) VALUES (?, ?, ?)", sec, 1, 0)
+		ctx, `
+INSERT INTO secret_metadata (secret_id, version, rotate_policy_id, create_time, update_time) VALUES (?, ?, ?, ?, ?)`, sec,
+		1, 0, s.now, s.now)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().ExecContext(
@@ -284,7 +286,9 @@ VALUES (?, ?, ?, ?)`, sec, 0, appUUID, time.Now().UTC())
 		}
 
 		_, err := s.DB().ExecContext(
-			ctx, "INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, ?)", rev, sec, i)
+			ctx, `
+INSERT INTO secret_revision (uuid, secret_id, revision, create_time, update_time) 
+VALUES (?, ?, ?, ?, ?)`, rev, sec, i, s.now, s.now)
 		c.Assert(err, tc.ErrorIsNil)
 
 		_, err = s.DB().ExecContext(
@@ -333,8 +337,10 @@ func (s *secretSuite) addSecretWithRevisions(
 	_, err := s.DB().ExecContext(ctx, "INSERT INTO secret VALUES (?)", uri.ID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	q := "INSERT INTO secret_metadata (secret_id, version, rotate_policy_id, auto_prune) VALUES (?, ?, ?, ?)"
-	_, err = s.DB().ExecContext(ctx, q, uri.ID, 1, 0, autoPrune)
+	q := `
+INSERT INTO secret_metadata (secret_id, version, rotate_policy_id, auto_prune, create_time, update_time)
+VALUES (?, ?, ?, ?, ?, ?)`
+	_, err = s.DB().ExecContext(ctx, q, uri.ID, 1, 0, autoPrune, s.now, s.now)
 	c.Assert(err, tc.ErrorIsNil)
 
 	if modelOwned {
@@ -351,8 +357,8 @@ func (s *secretSuite) addSecretWithRevisions(
 		revUUID := uri.ID + "_revision_" + strconv.Itoa(revision)
 		revUUIDs[revision] = revUUID
 
-		q := "INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, ?)"
-		_, err := s.DB().ExecContext(ctx, q, revUUID, uri.ID, revision)
+		q := "INSERT INTO secret_revision (uuid, secret_id, revision, create_time, update_time) VALUES (?, ?, ?, ?, ?)"
+		_, err := s.DB().ExecContext(ctx, q, revUUID, uri.ID, revision, s.now, s.now)
 		c.Assert(err, tc.ErrorIsNil)
 
 		q = "INSERT INTO secret_content (revision_uuid, name, content) VALUES (?, ?, ?)"

@@ -205,142 +205,6 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 	}})
 }
 
-// expectImportValidationPasses sets up the read-only ValidateImportedModel
-// state reads to report a model with no external secrets, so validation passes.
-func (s *serviceSuite) expectImportValidationPasses() {
-	mExp := s.modelState.EXPECT()
-	mExp.GetSecretBackendUUIDsInUse(gomock.Any()).Return(nil, nil)
-	mExp.GetExternalSecretRevisionBackends(gomock.Any()).Return(nil, nil)
-	mExp.GetRelationValidationData(gomock.Any()).Return(nil, nil)
-}
-
-// expectAgentBinaryCheckAllPresent sets up MissingAgentBinaryArchitectures to
-// report a model with no running agents, so nothing is missing and the
-// agent-version bump proceeds.
-func (s *serviceSuite) expectAgentBinaryCheckAllPresent() {
-	mExp := s.modelState.EXPECT()
-	mExp.GetModelType(gomock.Any()).Return("iaas", nil)
-	mExp.GetRunningAgentArchitectures(gomock.Any()).Return(nil, nil)
-}
-
-func (s *serviceSuite) TestActivateImport(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	currentVersion := semversion.MustParse("4.0.0").String()
-	desiredVersion := semversion.MustParse("4.0.1").String()
-
-	s.expectImportValidationPasses()
-	s.expectAgentBinaryCheckAllPresent()
-
-	mExp := s.modelState.EXPECT()
-	cExp := s.controllerState.EXPECT()
-
-	// These are expected to be called in order. The agent version must be
-	// updated before the model importing status is deleted. And we want the
-	// controller state to have the model importing status deleted last.
-	gomock.InOrder(
-		cExp.GetControllerTargetVersion(gomock.Any()).Return(desiredVersion, nil),
-		mExp.GetModelTargetAgentVersion(gomock.Any()).Return(currentVersion, nil),
-		mExp.SetModelTargetAgentVersion(gomock.Any(), currentVersion, desiredVersion).Return(nil),
-		mExp.DeleteModelImportingStatus(gomock.Any()).Return(nil),
-		cExp.DeleteModelImportingStatus(gomock.Any(), s.modelUUID).Return(nil),
-	)
-
-	err := NewService(
-		s.controllerState,
-		s.modelState,
-		s.modelUUID,
-		s.watcherFactory,
-		s.instanceProviderGetter(c),
-		s.resourceProviderGetter(c),
-		s.credentialValidator,
-		loggertesting.WrapCheckLog(c),
-	).ActivateImport(c.Context())
-	c.Check(err, tc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestActivateImportSameVersion(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	currentVersion := semversion.MustParse("4.0.0").String()
-	desiredVersion := semversion.MustParse("4.0.0").String()
-
-	s.expectImportValidationPasses()
-
-	mExp := s.modelState.EXPECT()
-	cExp := s.controllerState.EXPECT()
-
-	// These are expected to be called in order. The agent version must be
-	// updated before the model importing status is deleted. And we want the
-	// controller state to have the model importing status deleted last.
-	gomock.InOrder(
-		cExp.GetControllerTargetVersion(gomock.Any()).Return(desiredVersion, nil),
-		mExp.GetModelTargetAgentVersion(gomock.Any()).Return(currentVersion, nil),
-		mExp.DeleteModelImportingStatus(gomock.Any()).Return(nil),
-		cExp.DeleteModelImportingStatus(gomock.Any(), s.modelUUID).Return(nil),
-	)
-
-	err := NewService(
-		s.controllerState,
-		s.modelState,
-		s.modelUUID,
-		s.watcherFactory,
-		s.instanceProviderGetter(c),
-		s.resourceProviderGetter(c),
-		s.credentialValidator,
-		loggertesting.WrapCheckLog(c),
-	).ActivateImport(c.Context())
-	c.Check(err, tc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestActivateImportControllerFails(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.expectImportValidationPasses()
-
-	cExp := s.controllerState.EXPECT()
-
-	cExp.GetControllerTargetVersion(gomock.Any()).Return("", errors.Errorf("front fell off"))
-
-	err := NewService(
-		s.controllerState,
-		s.modelState,
-		s.modelUUID,
-		s.watcherFactory,
-		s.instanceProviderGetter(c),
-		s.resourceProviderGetter(c),
-		s.credentialValidator,
-		loggertesting.WrapCheckLog(c),
-	).ActivateImport(c.Context())
-	c.Check(err, tc.ErrorMatches, ".*front fell off")
-}
-
-func (s *serviceSuite) TestActivateImportModelFails(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	desiredVersion := semversion.MustParse("4.0.1").String()
-
-	s.expectImportValidationPasses()
-
-	mExp := s.modelState.EXPECT()
-	cExp := s.controllerState.EXPECT()
-
-	cExp.GetControllerTargetVersion(gomock.Any()).Return(desiredVersion, nil)
-	mExp.GetModelTargetAgentVersion(gomock.Any()).Return("", errors.Errorf("front fell off"))
-
-	err := NewService(
-		s.controllerState,
-		s.modelState,
-		s.modelUUID,
-		s.watcherFactory,
-		s.instanceProviderGetter(c),
-		s.resourceProviderGetter(c),
-		s.credentialValidator,
-		loggertesting.WrapCheckLog(c),
-	).ActivateImport(c.Context())
-	c.Check(err, tc.ErrorMatches, ".*front fell off")
-}
-
 // TestWatchForMigration asserts that WatchForMigration asks the watcher
 // factory for a notify watcher filtering on the controller-side export
 // namespace scoped to this service's model UUID.
@@ -497,6 +361,20 @@ func (s *serviceSuite) service(c *tc.C) *Service {
 	)
 }
 
+// watchableService constructs a WatchableService backed by the suite mocks.
+func (s *serviceSuite) watchableService(c *tc.C) *WatchableService {
+	return NewWatchableService(
+		s.controllerState,
+		s.modelState,
+		s.modelUUID,
+		s.watcherFactory,
+		func(context.Context) (InstanceProvider, error) { return s.instanceProvider, nil },
+		func(context.Context) (ResourceProvider, error) { return s.resourceProvider, nil },
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
+	)
+}
+
 // validTargetInfo returns a TargetInfo that passes validation.
 func (s *serviceSuite) validTargetInfo() migration.TargetInfo {
 	return migration.TargetInfo{
@@ -570,29 +448,115 @@ func (s *serviceSuite) TestMigrationNone(c *tc.C) {
 	c.Check(mig.Phase, tc.Equals, migration.NONE)
 }
 
-// TestGetControllerModelInfo asserts the service reads the model's offer UUIDs
-// and third-party remote-offerer pairs from the model DB and passes them to
-// the controller-state read, returning the aggregated controller model info.
-func (s *serviceSuite) TestGetControllerModelInfo(c *tc.C) {
+// TestMigrationPhaseImportClaimReportsImport asserts that a live target-side
+// import claim reports IMPORT, so a model being imported into this controller
+// is frozen exactly as one being exported from it. Without this, the migration
+// flag would report NONE for a half-imported model and let its workers run.
+func (s *serviceSuite) TestMigrationPhaseImportClaimReportsImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	offerUUIDs := []string{"offer-1", "offer-2"}
-	offererModels := []modelmigrationinternal.OffererModel{
-		{ControllerUUID: "ctrl-1", ModelUUID: "consumed-1"},
-	}
-	expected := modelmigration.ControllerModelInfo{
-		ModelInfo: modelmigration.ModelIdentityInfo{UUID: s.modelUUID, Name: "prod"},
-	}
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		migration.IMPORT.String(), nil)
 
-	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(offerUUIDs, nil)
-	s.modelState.EXPECT().GetThirdPartyOffererModels(gomock.Any()).Return(offererModels, nil)
-	s.controllerState.EXPECT().
-		GetControllerModelInfo(gomock.Any(), s.modelUUID, offerUUIDs, offererModels).
-		Return(expected, nil)
-
-	info, err := s.service(c).GetControllerModelInfo(c.Context())
+	phase, err := s.service(c).MigrationPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(info, tc.DeepEquals, expected)
+	c.Check(phase, tc.Equals, migration.IMPORT)
+	// IMPORT must be non-terminal, or a flag built on IsTerminal would report
+	// the model as usable while it is still claimed.
+	c.Check(phase.IsTerminal(), tc.IsFalse)
+}
+
+// TestMigrationPhaseExportReportsExportPhase asserts that with no import claim
+// the source-side export phase is reported unchanged.
+func (s *serviceSuite) TestMigrationPhaseExportReportsExportPhase(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		migration.QUIESCE.String(), nil)
+
+	phase, err := s.service(c).MigrationPhase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.QUIESCE)
+}
+
+// TestMigrationPhaseIdleReportsNone asserts a model that is neither importing
+// nor exporting reports NONE, which is terminal and therefore unfreezes it.
+func (s *serviceSuite) TestMigrationPhaseIdleReportsNone(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		migration.NONE.String(), nil)
+
+	phase, err := s.service(c).MigrationPhase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.NONE)
+	c.Check(phase.IsTerminal(), tc.IsTrue)
+}
+
+// TestMigrationPhaseUnparsableErrors asserts a phase name from state that does
+// not parse is an error with the UNKNOWN phase, not silently a wrong answer.
+func (s *serviceSuite) TestMigrationPhaseUnparsableErrors(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		"NOTAPHASE", nil)
+
+	phase, err := s.service(c).MigrationPhase(c.Context())
+	c.Check(err, tc.ErrorMatches, `unknown migration phase "NOTAPHASE"`)
+	c.Check(phase, tc.Equals, migration.UNKNOWN)
+}
+
+// TestMigrationPhaseErrorPropagates asserts a state error surfaces with the
+// UNKNOWN phase rather than being mistaken for a real phase answer.
+func (s *serviceSuite) TestMigrationPhaseErrorPropagates(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		"", errors.New("boom"))
+
+	_, err := s.service(c).MigrationPhase(c.Context())
+	c.Check(err, tc.ErrorMatches, "boom")
+}
+
+// TestWatchMigrationActivityWatchesBothSides asserts the activity watcher
+// covers the export phase namespace *and* the import claim namespace, both
+// scoped to this model. Watching exports alone would never fire when a target
+// import claim is deleted - the moment the model becomes usable.
+func (s *serviceSuite) TestWatchMigrationActivityWatchesBothSides(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	var namespaces []string
+	matchesUUID := map[string]bool{}
+	matchesOther := map[string]bool{}
+
+	otherUUID := tc.Must(c, uuid.NewUUID).String()
+	ch := make(chan struct{}, 1)
+	s.controllerState.EXPECT().NamespaceForWatchPhase().Return("model_migration_export_phase")
+	s.controllerState.EXPECT().NamespaceForWatchImportClaim().Return("model_migration_import")
+	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ string, fo eventsource.FilterOption, extra ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+			for _, f := range append([]eventsource.FilterOption{fo}, extra...) {
+				namespaces = append(namespaces, f.Namespace())
+				if pred := f.ChangePredicate(); pred != nil {
+					matchesUUID[f.Namespace()] = pred(s.modelUUID)
+					matchesOther[f.Namespace()] = pred(otherUUID)
+				}
+			}
+			return watchertest.NewMockNotifyWatcher(ch), nil
+		},
+	)
+
+	w, err := s.watchableService(c).WatchMigrationActivity(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	c.Check(namespaces, tc.SameContents, []string{
+		"model_migration_export_phase", "model_migration_import",
+	})
+	for _, ns := range namespaces {
+		c.Check(matchesUUID[ns], tc.IsTrue)
+		c.Check(matchesOther[ns], tc.IsFalse)
+	}
 }
 
 // TestSourceControllerInfoArrangesRawStateAddresses asserts the service
@@ -709,29 +673,6 @@ func (s *serviceSuite) TestSourceControllerInfoError(c *tc.C) {
 
 	_, err := s.service(c).SourceControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*boom")
-}
-
-// TestGetControllerModelInfoOffererModelsError asserts offerer-pair read
-// failures are surfaced and the controller-state read is not attempted.
-func (s *serviceSuite) TestGetControllerModelInfoOffererModelsError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return([]string{"offer-1"}, nil)
-	s.modelState.EXPECT().GetThirdPartyOffererModels(gomock.Any()).Return(nil, errors.New("boom"))
-
-	_, err := s.service(c).GetControllerModelInfo(c.Context())
-	c.Assert(err, tc.ErrorMatches, ".*reading model offerer models.*boom")
-}
-
-// TestGetControllerModelInfoOfferUUIDsError asserts a model-DB read failure is
-// surfaced and the controller-state read is not attempted.
-func (s *serviceSuite) TestGetControllerModelInfoOfferUUIDsError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(nil, errors.New("boom"))
-
-	_, err := s.service(c).GetControllerModelInfo(c.Context())
-	c.Assert(err, tc.ErrorMatches, ".*reading model offer UUIDs.*boom")
 }
 
 // TestModelMigrationMode asserts the mode is passed through from state.

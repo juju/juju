@@ -32,9 +32,8 @@ func (s *RequestLoggerSuite) TestAgentLoginWritesLog(c *tc.C) {
 	model := names.NewModelTag("fake-uuid")
 	notifier.Login(c.Context(), agent, model, "abc", false, "user data")
 
-	c.Assert(logger.entries, tc.SameContents, []string{
-		`INFO: connection agent login: machine-42 for fake-uuid`,
-	})
+	c.Assert(logger.entries, tc.HasLen, 1)
+	c.Check(logger.entries[0], tc.Matches, `.*INFO: connection agent login: machine-42 for fake-uuid`)
 }
 
 func (s *RequestLoggerSuite) TestUserConnectionsNoLogs(c *tc.C) {
@@ -83,10 +82,8 @@ func (s *RequestLoggerSuite) TestAgentDisconnectionLogs(c *tc.C) {
 	c.Assert(logger.entries, tc.HasLen, 3)
 
 	// Ignore the last log entry, which is about connection termination.
-	c.Check(logger.entries[:2], tc.DeepEquals, []string{
-		"INFO: connection agent login: machine-42 for fake-uuid",
-		"INFO: connection agent disconnected: machine-42 for fake-uuid",
-	})
+	c.Check(logger.entries[0], tc.Matches, fmt.Sprintf(`.*INFO: connection agent login: %s for fake-uuid`, agent.String()))
+	c.Check(logger.entries[1], tc.Matches, fmt.Sprintf(`.*INFO: connection agent disconnected: %s for fake-uuid`, agent.String()))
 }
 
 func (s *RequestLoggerSuite) TestControllerAgentDisconnectionLogs(c *tc.C) {
@@ -129,7 +126,7 @@ func (s *RequestLoggerSuite) assertAgentConnectionLogs(c *tc.C, agent names.Tag)
 	notifier.Login(c.Context(), agent, model, "abc", false, "user data")
 
 	c.Assert(logger.entries, tc.HasLen, 1)
-	c.Check(logger.entries[0], tc.Matches, fmt.Sprintf(`INFO: connection agent login: %s for fake-uuid`, agent.String()))
+	c.Check(logger.entries[0], tc.Matches, fmt.Sprintf(`.*INFO: connection agent login: %s for fake-uuid`, agent.String()))
 }
 
 func (*RequestLoggerSuite) makeNotifier(c *tc.C) (*observer.RequestLogger, *testLogger) {

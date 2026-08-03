@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/ipfamily"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	domainconstraints "github.com/juju/juju/domain/constraints"
@@ -811,6 +812,10 @@ func decodeConstraintRows(rows []constraintRow) constraints.Value {
 	}
 	if first.ImageID.Valid {
 		cons.ImageID = &first.ImageID.String
+	}
+	if first.IPFamily.Valid {
+		f := ipfamily.IPFamily(first.IPFamily.String)
+		cons.IPFamily = &f
 	}
 
 	// Collect multi-valued fields from all rows (tags, spaces, zones).

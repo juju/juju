@@ -251,6 +251,14 @@ VALUES (?, ?, ?, ?,?)`, opUUID, opID,
 // addOperationTaskWithID adds a new operation task to the database with a specific task ID.
 func (s *baseSuite) addOperationTaskWithID(c *tc.C, operationUUID string, taskID string, status string) string {
 	taskUUID := internaluuid.MustNewUUID().String()
+	return s.addOperationTaskWithUUIDAndID(c, operationUUID, taskUUID, taskID, status)
+}
+
+// addOperationTaskWithUUIDAndID adds a new operation task to the database with
+// a specific task UUID and ID.
+func (s *baseSuite) addOperationTaskWithUUIDAndID(
+	c *tc.C, operationUUID, taskUUID, taskID, status string,
+) string {
 	s.query(c, `
 INSERT INTO operation_task (uuid, operation_uuid, task_id, enqueued_at)
 VALUES (?, ?, ?, datetime('now'))`, taskUUID, operationUUID, taskID)

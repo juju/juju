@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api/controller/crosscontroller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/watcher"
+	externalcontrollererrors "github.com/juju/juju/domain/externalcontroller/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc"
@@ -27,13 +28,20 @@ import (
 
 var logger = internallogger.GetLogger("juju.worker.externalcontrollerupdater")
 
-// ExternalControllerUpdaterClient defines the interface for watching changes
-// to the local controller's external controller records, and obtaining and
-// updating their values. This will communicate only with the local controller.
-type ExternalControllerUpdaterClient interface {
-	WatchExternalControllers(ctx context.Context) (watcher.StringsWatcher, error)
-	ExternalControllerInfo(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
-	SetExternalControllerInfo(context.Context, crossmodel.ControllerInfo) error
+// ExternalControllerService defines the interface for watching changes to the
+// local controller's external controller records, and obtaining and updating
+// their values. It is satisfied by the controller domain external-controller
+// WatchableService.
+type ExternalControllerService interface {
+	// Watch returns a watcher that emits the UUIDs of external
+	// controllers whenever they are added or removed.
+	Watch(ctx context.Context) (watcher.StringsWatcher, error)
+	// Controller returns the cached info for the external controller
+	// identified by the given UUID.
+	Controller(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
+	// UpdateExternalController persists the given controller info to
+	// the local controller's external controller records.
+	UpdateExternalController(context.Context, crossmodel.ControllerInfo) error
 }
 
 // ExternalControllerWatcherClientCloser extends the ExternalControllerWatcherClient
@@ -60,7 +68,7 @@ type NewExternalControllerWatcherClientFunc func(context.Context, *api.Info) (Ex
 
 // New returns a new external controller updater worker.
 func New(
-	externalControllers ExternalControllerUpdaterClient,
+	externalControllers ExternalControllerService,
 	newExternalControllerWatcherClient NewExternalControllerWatcherClientFunc,
 	clock clock.Clock,
 	// If not nil, used for testing.
@@ -82,9 +90,9 @@ func New(
 	}
 
 	w := updaterWorker{
-		watchExternalControllers:           externalControllers.WatchExternalControllers,
-		externalControllerInfo:             externalControllers.ExternalControllerInfo,
-		setExternalControllerInfo:          externalControllers.SetExternalControllerInfo,
+		watchExternalControllers:           externalControllers.Watch,
+		externalControllerInfo:             externalControllers.Controller,
+		setExternalControllerInfo:          externalControllers.UpdateExternalController,
 		newExternalControllerWatcherClient: newExternalControllerWatcherClient,
 		noChanges:                          noChanges,
 		runner:                             runner,
@@ -250,7 +258,7 @@ func (w *controllerWatcher) loop() error {
 
 	// We get the API info from the local controller initially.
 	info, err := w.externalControllerInfo(ctx, w.tag.Id())
-	if errors.Is(err, errors.NotFound) {
+	if errors.Is(err, externalcontrollererrors.NotFound) {
 		return nil
 	} else if err != nil {
 		return errors.Annotate(err, "getting cached external controller info")

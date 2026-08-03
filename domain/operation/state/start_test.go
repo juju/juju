@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"strconv"
 	"testing"
 	"time"
 
@@ -665,11 +666,14 @@ func (s *startSuite) TestOperationSummaryGeneration(c *tc.C) {
 	result, err := s.state.AddExecOperation(c.Context(), operationUUID, target, args)
 	c.Assert(err, tc.IsNil)
 
+	operationId, err := strconv.ParseUint(result.OperationID, 10, 64)
+	c.Assert(err, tc.IsNil)
+
 	// Verify operation summary was generated correctly.
 	var summary string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow("SELECT summary FROM operation WHERE operation_id = ?",
-			result.OperationID).Scan(&summary)
+			operationId).Scan(&summary)
 	})
 	c.Assert(err, tc.IsNil)
 	c.Check(summary, tc.Equals, "exec \"test command\"")
@@ -688,10 +692,13 @@ func (s *startSuite) TestOperationSummaryGeneration(c *tc.C) {
 	actionResult, err := s.state.AddActionOperation(c.Context(), actionOperationUUID, targetUnits, actionArgs)
 	c.Assert(err, tc.IsNil)
 
+	actionOperationId, err := strconv.ParseUint(actionResult.OperationID, 10, 64)
+	c.Assert(err, tc.IsNil)
+
 	var actionSummary string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow("SELECT summary FROM operation WHERE operation_id = ?",
-			actionResult.OperationID).Scan(&actionSummary)
+			actionOperationId).Scan(&actionSummary)
 	})
 	c.Assert(err, tc.IsNil)
 	c.Check(actionSummary, tc.Equals, "action \"test-action\"")

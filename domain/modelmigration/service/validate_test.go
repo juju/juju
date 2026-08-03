@@ -34,14 +34,13 @@ func (s *serviceSuite) TestMissingAgentBinaryArchitecturesCAAS(c *tc.C) {
 	c.Check(missing, tc.HasLen, 0)
 }
 
-// TestActivateImportRejectsUnitNotInRelation checks that activation refuses
+// TestValidateImportedModelRejectsUnitNotInRelation checks that validation refuses
 // an imported model whose relation endpoint application has a unit without
 // a relation_unit row.
-func (s *serviceSuite) TestActivateImportRejectsUnitNotInRelation(c *tc.C) {
+func (s *serviceSuite) TestValidateImportedModelRejectsUnitNotInRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mExp := s.modelState.EXPECT()
-	cExp := s.controllerState.EXPECT()
 
 	mExp.GetSecretBackendUUIDsInUse(gomock.Any()).Return(nil, nil)
 	mExp.GetExternalSecretRevisionBackends(gomock.Any()).Return(nil, nil)
@@ -65,7 +64,6 @@ func (s *serviceSuite) TestActivateImportRejectsUnitNotInRelation(c *tc.C) {
 		},
 	}, nil)
 	mExp.GetSubordinateUnitPrincipals(gomock.Any()).Return(nil, nil)
-	cExp.GetControllerTargetVersion(gomock.Any()).Return("4.0.1", nil).AnyTimes()
 
 	err := NewService(
 		s.controllerState,
@@ -76,20 +74,16 @@ func (s *serviceSuite) TestActivateImportRejectsUnitNotInRelation(c *tc.C) {
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
 		loggertesting.WrapCheckLog(c),
-	).ActivateImport(c.Context())
+	).ValidateImportedModel(c.Context())
 	c.Assert(err, tc.ErrorMatches, `.*unit wordpress/1 hasn't joined relation "wordpress:db mysql:db" yet.*`)
 }
 
-// TestActivateImportRelationValidationPasses checks activation proceeds when
+// TestValidateImportedModelRelationValidationPasses checks validation passes when
 // all units in relation endpoint applications have relation_unit rows.
-func (s *serviceSuite) TestActivateImportRelationValidationPasses(c *tc.C) {
+func (s *serviceSuite) TestValidateImportedModelRelationValidationPasses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	currentVersion := semversion.MustParse("4.0.0").String()
-	desiredVersion := semversion.MustParse("4.0.1").String()
-
 	mExp := s.modelState.EXPECT()
-	cExp := s.controllerState.EXPECT()
 
 	mExp.GetSecretBackendUUIDsInUse(gomock.Any()).Return(nil, nil)
 	mExp.GetExternalSecretRevisionBackends(gomock.Any()).Return(nil, nil)
@@ -114,17 +108,6 @@ func (s *serviceSuite) TestActivateImportRelationValidationPasses(c *tc.C) {
 	}, nil)
 	mExp.GetSubordinateUnitPrincipals(gomock.Any()).Return(nil, nil)
 
-	mExp.GetModelType(gomock.Any()).Return("iaas", nil)
-	mExp.GetRunningAgentArchitectures(gomock.Any()).Return(nil, nil)
-
-	gomock.InOrder(
-		cExp.GetControllerTargetVersion(gomock.Any()).Return(desiredVersion, nil),
-		mExp.GetModelTargetAgentVersion(gomock.Any()).Return(currentVersion, nil),
-		mExp.SetModelTargetAgentVersion(gomock.Any(), currentVersion, desiredVersion).Return(nil),
-		mExp.DeleteModelImportingStatus(gomock.Any()).Return(nil),
-		cExp.DeleteModelImportingStatus(gomock.Any(), s.modelUUID).Return(nil),
-	)
-
 	err := NewService(
 		s.controllerState,
 		s.modelState,
@@ -134,40 +117,30 @@ func (s *serviceSuite) TestActivateImportRelationValidationPasses(c *tc.C) {
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
 		loggertesting.WrapCheckLog(c),
-	).ActivateImport(c.Context())
+	).ValidateImportedModel(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
 
-// TestActivateImportSkipsBumpWhenBinariesMissing checks 3.6 parity: when the
-// target lacks agent binaries for a running architecture at the desired
-// version, activation does not bump the model agent version and does not fail.
-func (s *serviceSuite) TestActivateImportSkipsBumpWhenBinariesMissing(c *tc.C) {
+// TestMissingAgentBinaryArchitecturesReportsMissing checks 3.6 parity: when the
+// target lacks agent binaries for a running architecture at the desired version,
+// that architecture is reported so activation can skip the version bump instead
+// of failing. The skip itself is asserted in internal/migration.
+func (s *serviceSuite) TestMissingAgentBinaryArchitecturesReportsMissing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	currentVersion := semversion.MustParse("4.0.0").String()
 	desiredVersion := semversion.MustParse("4.0.1").String()
-
-	s.expectImportValidationPasses()
 
 	mExp := s.modelState.EXPECT()
 	cExp := s.controllerState.EXPECT()
 
 	// A running arm64 agent exists, but the target has no arm64 binary for the
-	// desired version in either store: the bump is skipped, activation proceeds,
-	// and SetModelTargetAgentVersion is never called.
+	// desired version in either store.
 	mExp.GetModelType(gomock.Any()).Return("iaas", nil)
 	mExp.GetRunningAgentArchitectures(gomock.Any()).Return([]string{"arm64"}, nil)
 	cExp.GetAgentBinaryArchitecturesForVersion(gomock.Any(), desiredVersion).Return([]string{"amd64"}, nil)
 	mExp.GetAgentBinaryArchitecturesForVersion(gomock.Any(), desiredVersion).Return(nil, nil)
 
-	gomock.InOrder(
-		cExp.GetControllerTargetVersion(gomock.Any()).Return(desiredVersion, nil),
-		mExp.GetModelTargetAgentVersion(gomock.Any()).Return(currentVersion, nil),
-		mExp.DeleteModelImportingStatus(gomock.Any()).Return(nil),
-		cExp.DeleteModelImportingStatus(gomock.Any(), s.modelUUID).Return(nil),
-	)
-
-	err := NewService(
+	missing, err := NewService(
 		s.controllerState,
 		s.modelState,
 		s.modelUUID,
@@ -176,15 +149,16 @@ func (s *serviceSuite) TestActivateImportSkipsBumpWhenBinariesMissing(c *tc.C) {
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
 		loggertesting.WrapCheckLog(c),
-	).ActivateImport(c.Context())
-	c.Check(err, tc.ErrorIsNil)
+	).MissingAgentBinaryArchitectures(c.Context(), desiredVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(missing, tc.SameContents, []string{"arm64"})
 }
 
-// TestActivateImportRejectsUnknownSecretBackend checks that activation refuses
+// TestValidateImportedModelRejectsUnknownSecretBackend checks that activation refuses
 // an imported model whose external secrets reference a backend that does not
 // exist on this controller (an un-rewritten source backend UUID), before any
 // activation write.
-func (s *serviceSuite) TestActivateImportRejectsUnknownSecretBackend(c *tc.C) {
+func (s *serviceSuite) TestValidateImportedModelRejectsUnknownSecretBackend(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mExp := s.modelState.EXPECT()
@@ -202,14 +176,14 @@ func (s *serviceSuite) TestActivateImportRejectsUnknownSecretBackend(c *tc.C) {
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
 		loggertesting.WrapCheckLog(c),
-	).ActivateImport(c.Context())
+	).ValidateImportedModel(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*secret backend.*source-backend-uuid.*do not exist.*")
 }
 
-// TestActivateImportRejectsMissingBackendReference checks that activation
+// TestValidateImportedModelRejectsMissingBackendReference checks that activation
 // refuses an imported model whose external secret revision has no matching
 // controller secret_backend_reference row (re-attach did not happen).
-func (s *serviceSuite) TestActivateImportRejectsMissingBackendReference(c *tc.C) {
+func (s *serviceSuite) TestValidateImportedModelRejectsMissingBackendReference(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mExp := s.modelState.EXPECT()
@@ -229,14 +203,14 @@ func (s *serviceSuite) TestActivateImportRejectsMissingBackendReference(c *tc.C)
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
 		loggertesting.WrapCheckLog(c),
-	).ActivateImport(c.Context())
+	).ValidateImportedModel(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*missing secret backend references.*rev-1.*")
 }
 
-// TestActivateImportRejectsMismatchedBackendReference checks that activation
+// TestValidateImportedModelRejectsMismatchedBackendReference checks that activation
 // refuses an imported model whose controller secret_backend_reference row
 // points at a different backend than the model's own secret value ref.
-func (s *serviceSuite) TestActivateImportRejectsMismatchedBackendReference(c *tc.C) {
+func (s *serviceSuite) TestValidateImportedModelRejectsMismatchedBackendReference(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mExp := s.modelState.EXPECT()
@@ -257,21 +231,18 @@ func (s *serviceSuite) TestActivateImportRejectsMismatchedBackendReference(c *tc
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
 		loggertesting.WrapCheckLog(c),
-	).ActivateImport(c.Context())
+	).ValidateImportedModel(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*do not match the secret value refs.*rev-1.*")
 }
 
-// TestActivateImportSubordinateOnOtherPrincipalPasses checks 3.6 parity for
+// TestValidateImportedModelSubordinateOnOtherPrincipalPasses checks 3.6 parity for
 // container-scoped relations (state.RelationUnit.Valid): a subordinate deployed
 // against two principals only enters the scope of the relation belonging to its
 // own principal, so its other units must not be reported as missing.
-func (s *serviceSuite) TestActivateImportSubordinateOnOtherPrincipalPasses(c *tc.C) {
+func (s *serviceSuite) TestValidateImportedModelSubordinateOnOtherPrincipalPasses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	currentVersion := semversion.MustParse("4.0.0").String()
-
 	mExp := s.modelState.EXPECT()
-	cExp := s.controllerState.EXPECT()
 
 	mExp.GetSecretBackendUUIDsInUse(gomock.Any()).Return(nil, nil)
 	mExp.GetExternalSecretRevisionBackends(gomock.Any()).Return(nil, nil)
@@ -314,13 +285,6 @@ func (s *serviceSuite) TestActivateImportSubordinateOnOtherPrincipalPasses(c *tc
 		"nrpe/1": "mysql",
 	}, nil)
 
-	gomock.InOrder(
-		cExp.GetControllerTargetVersion(gomock.Any()).Return(currentVersion, nil),
-		mExp.GetModelTargetAgentVersion(gomock.Any()).Return(currentVersion, nil),
-		mExp.DeleteModelImportingStatus(gomock.Any()).Return(nil),
-		cExp.DeleteModelImportingStatus(gomock.Any(), s.modelUUID).Return(nil),
-	)
-
 	err := NewService(
 		s.controllerState,
 		s.modelState,
@@ -330,18 +294,17 @@ func (s *serviceSuite) TestActivateImportSubordinateOnOtherPrincipalPasses(c *tc
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
 		loggertesting.WrapCheckLog(c),
-	).ActivateImport(c.Context())
+	).ValidateImportedModel(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
 
-// TestActivateImportRejectsSubordinateNotInOwnRelation checks that the
+// TestValidateImportedModelRejectsSubordinateNotInOwnRelation checks that the
 // container-scope skip is narrow: a subordinate unit missing from the relation
 // of its own principal is still a structural inconsistency.
-func (s *serviceSuite) TestActivateImportRejectsSubordinateNotInOwnRelation(c *tc.C) {
+func (s *serviceSuite) TestValidateImportedModelRejectsSubordinateNotInOwnRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mExp := s.modelState.EXPECT()
-	cExp := s.controllerState.EXPECT()
 
 	mExp.GetSecretBackendUUIDsInUse(gomock.Any()).Return(nil, nil)
 	mExp.GetExternalSecretRevisionBackends(gomock.Any()).Return(nil, nil)
@@ -364,7 +327,6 @@ func (s *serviceSuite) TestActivateImportRejectsSubordinateNotInOwnRelation(c *t
 	mExp.GetSubordinateUnitPrincipals(gomock.Any()).Return(map[string]string{
 		"nrpe/0": "ubuntu",
 	}, nil)
-	cExp.GetControllerTargetVersion(gomock.Any()).Return("4.0.1", nil).AnyTimes()
 
 	err := NewService(
 		s.controllerState,
@@ -375,6 +337,6 @@ func (s *serviceSuite) TestActivateImportRejectsSubordinateNotInOwnRelation(c *t
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
 		loggertesting.WrapCheckLog(c),
-	).ActivateImport(c.Context())
+	).ValidateImportedModel(c.Context())
 	c.Assert(err, tc.ErrorMatches, `.*unit nrpe/0 hasn't joined relation "nrpe:general-info ubuntu:juju-info" yet.*`)
 }

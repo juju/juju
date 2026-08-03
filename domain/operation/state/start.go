@@ -129,7 +129,7 @@ func (st *State) AddActionOperation(ctx context.Context,
 		// Insert the operation first.
 		err = st.insertOperation(ctx, tx, insertOperation{
 			UUID:           operationUUID.String(),
-			OperationID:    strconv.FormatUint(operationID, 10),
+			OperationID:    operationID,
 			Summary:        fmt.Sprintf("action %q", args.ActionName),
 			EnqueuedAt:     st.clock.Now().UTC(),
 			Parallel:       args.IsParallel,
@@ -212,7 +212,7 @@ func (st *State) addExecOperation(
 	// Insert the operation first.
 	err = st.insertOperation(ctx, tx, insertOperation{
 		UUID:           operationUUID,
-		OperationID:    strconv.FormatUint(operationID, 10),
+		OperationID:    operationID,
 		Summary:        fmt.Sprintf("exec %q", args.Command),
 		EnqueuedAt:     now,
 		Parallel:       args.Parallel,

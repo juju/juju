@@ -237,20 +237,27 @@ func (s *WatchableService) WatchModelMachines(ctx context.Context) (watcher.Stri
 	defer span.End()
 
 	table, stmt := s.st.InitialWatchModelMachinesStatement()
+	notContainer := func(changed string) bool {
+		return !strings.Contains(changed, "/")
+	}
 	return s.watcherFactory.NewNamespaceWatcher(
 		ctx,
 		eventsource.InitialNamespaceChanges(stmt),
 		"model machines watcher",
-		eventsource.PredicateFilter(table, changestream.All,
-			func(changed string) bool {
-				return !strings.Contains(changed, "/")
-			},
+		eventsource.PredicateFilter(
+			table, changestream.All, notContainer,
+		),
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchMachineReprovision(),
+			changestream.Changed,
+			notContainer,
 		),
 	)
 }
 
 // WatchModelMachineLifeAndStartTimes returns a string watcher that emits
-// machine names for changes to machine life or agent start times.
+// machine names for changes to machine life, agent start times, or
+// reprovisioning state.
 func (s *WatchableService) WatchModelMachineLifeAndStartTimes(ctx context.Context) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -261,6 +268,10 @@ func (s *WatchableService) WatchModelMachineLifeAndStartTimes(ctx context.Contex
 		eventsource.InitialNamespaceChanges(stmt),
 		"model machine life and start times watcher",
 		eventsource.NamespaceFilter(table, changestream.All),
+		eventsource.NamespaceFilter(
+			s.st.NamespaceForWatchMachineReprovision(),
+			changestream.Changed,
+		),
 	)
 }
 

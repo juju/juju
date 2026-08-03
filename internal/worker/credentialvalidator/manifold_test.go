@@ -155,3 +155,123 @@ func (*ManifoldSuite) TestStartSuccess(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(w, tc.Equals, expectWorker)
 }
+
+func (*ManifoldSuite) TestModelManifoldInputs(c *tc.C) {
+	manifold := credentialvalidator.ModelManifold(validModelManifoldConfig(c))
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{"domain-services"})
+}
+
+func (*ManifoldSuite) TestModelManifoldOutputBadWorker(c *tc.C) {
+	manifold := credentialvalidator.ModelManifold(credentialvalidator.ModelManifoldConfig{})
+	in := &struct{ worker.Worker }{}
+	var out engine.Flag
+	err := manifold.Output(in, &out)
+	c.Check(err, tc.ErrorMatches, "expected in to implement Flag; got a .*")
+}
+
+func (*ManifoldSuite) TestModelManifoldFilterNil(c *tc.C) {
+	manifold := credentialvalidator.ModelManifold(credentialvalidator.ModelManifoldConfig{})
+	err := manifold.Filter(nil)
+	c.Check(err, tc.ErrorIsNil)
+}
+
+func (*ManifoldSuite) TestModelManifoldFilterErrChanged(c *tc.C) {
+	manifold := credentialvalidator.ModelManifold(credentialvalidator.ModelManifoldConfig{})
+	err := manifold.Filter(credentialvalidator.ErrValidityChanged)
+	c.Check(err, tc.Equals, dependency.ErrBounce)
+}
+
+func (*ManifoldSuite) TestModelManifoldFilterErrModelCredentialChanged(c *tc.C) {
+	manifold := credentialvalidator.ModelManifold(credentialvalidator.ModelManifoldConfig{})
+	err := manifold.Filter(credentialvalidator.ErrModelCredentialChanged)
+	c.Check(err, tc.Equals, dependency.ErrBounce)
+}
+
+func (*ManifoldSuite) TestModelManifoldFilterOther(c *tc.C) {
+	manifold := credentialvalidator.ModelManifold(credentialvalidator.ModelManifoldConfig{})
+	expect := errors.New("whatever")
+	actual := manifold.Filter(expect)
+	c.Check(actual, tc.Equals, expect)
+}
+
+func (*ManifoldSuite) TestModelManifoldStartMissingDomainServicesName(c *tc.C) {
+	config := validModelManifoldConfig(c)
+	config.DomainServicesName = ""
+	checkModelManifoldNotValid(c, config, "empty DomainServicesName not valid")
+}
+
+func (*ManifoldSuite) TestModelManifoldStartMissingModelUUID(c *tc.C) {
+	config := validModelManifoldConfig(c)
+	config.ModelUUID = ""
+	checkModelManifoldNotValid(c, config, "empty ModelUUID not valid")
+}
+
+func (*ManifoldSuite) TestModelManifoldStartMissingNewWorker(c *tc.C) {
+	config := validModelManifoldConfig(c)
+	config.NewWorker = nil
+	checkModelManifoldNotValid(c, config, "nil NewWorker not valid")
+}
+
+func (*ManifoldSuite) TestModelManifoldStartMissingLogger(c *tc.C) {
+	config := validModelManifoldConfig(c)
+	config.Logger = nil
+	checkModelManifoldNotValid(c, config, "nil Logger not valid")
+}
+
+func (*ManifoldSuite) TestModelManifoldStartMissingDomainServices(c *tc.C) {
+	getter := dt.StubGetter(map[string]any{
+		"domain-services": dependency.ErrMissing,
+	})
+	manifold := credentialvalidator.ModelManifold(validModelManifoldConfig(c))
+
+	w, err := manifold.Start(c.Context(), getter)
+	c.Check(w, tc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
+}
+
+func (*ManifoldSuite) TestModelManifoldStartNewWorkerError(c *tc.C) {
+	getter := dt.StubGetter(map[string]any{
+		"domain-services": &stubDomainServices{},
+	})
+	config := validModelManifoldConfig(c)
+	config.NewWorker = func(_ context.Context, workerConfig credentialvalidator.Config) (worker.Worker, error) {
+		c.Check(workerConfig.Facade, tc.NotNil)
+		return nil, errors.New("snerk")
+	}
+	manifold := credentialvalidator.ModelManifold(config)
+
+	w, err := manifold.Start(c.Context(), getter)
+	c.Check(w, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "snerk")
+}
+
+func (*ManifoldSuite) TestModelManifoldStartSuccess(c *tc.C) {
+	getter := dt.StubGetter(map[string]any{
+		"domain-services": &stubDomainServices{},
+	})
+	expectWorker := &struct{ worker.Worker }{}
+	config := validModelManifoldConfig(c)
+	config.NewWorker = func(context.Context, credentialvalidator.Config) (worker.Worker, error) {
+		return expectWorker, nil
+	}
+	manifold := credentialvalidator.ModelManifold(config)
+
+	w, err := manifold.Start(c.Context(), getter)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(w, tc.Equals, expectWorker)
+}
+
+func (*ManifoldSuite) TestModelManifoldStartDoesNotRequestAPICaller(c *tc.C) {
+	getter := dt.StubGetter(map[string]any{
+		"domain-services": &stubDomainServices{},
+	})
+	config := validModelManifoldConfig(c)
+	config.NewWorker = func(_ context.Context, workerConfig credentialvalidator.Config) (worker.Worker, error) {
+		c.Check(workerConfig.Facade, tc.NotNil)
+		return &struct{ worker.Worker }{}, nil
+	}
+	manifold := credentialvalidator.ModelManifold(config)
+
+	_, err := manifold.Start(c.Context(), getter)
+	c.Check(err, tc.ErrorIsNil)
+}

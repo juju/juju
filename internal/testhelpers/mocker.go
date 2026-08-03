@@ -4,10 +4,11 @@
 package testhelpers
 
 import (
+	"context"
 	"reflect"
 	"sync"
 
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 )
 
 // NewCallMocker returns a CallMocker which will log calls and results
@@ -34,9 +35,9 @@ type CallMocker struct {
 // nil.
 func (m *CallMocker) MethodCall(receiver any, fnName string, args ...any) []any {
 	m.Stub.MethodCall(receiver, fnName, args...)
-	m.logger.Debugf("Call: %s(%v)", fnName, args)
+	_ = m.logger.Debugf(context.Background(), "Call: %s(%v)", fnName, args)
 	results := m.Results(fnName, args...)
-	m.logger.Debugf("Results: %v", results)
+	_ = m.logger.Debugf(context.Background(), "Results: %v", results)
 	return results
 }
 

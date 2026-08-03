@@ -4,12 +4,13 @@
 package securitylog
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 )
 
 var logger = loggo.GetLogger("juju.security")
@@ -168,33 +169,33 @@ type SystemLifecycleSecurityEvent struct {
 }
 
 // LogUser logs a user creation or deletion security event in a unified way.
-func LogUser(ev UserSecurityEvent) {
+func LogUser(ctx context.Context, ev UserSecurityEvent) {
 	securityEvent := formLogUserSecurityEvent(ev)
-	logSecurityEvent(securityEvent)
+	logSecurityEvent(ctx, securityEvent)
 }
 
 // LogAuthz logs an authorization event
-func LogAuthz(ev AuthzSecurityEvent) {
+func LogAuthz(ctx context.Context, ev AuthzSecurityEvent) {
 	securityEvent := formLogAuthzSecurityEvent(ev)
-	logSecurityEvent(securityEvent)
+	logSecurityEvent(ctx, securityEvent)
 }
 
 // LogPasswordChange logs a password change security event.
-func LogPasswordChange(ev PasswordChangeSecurityEvent) {
+func LogPasswordChange(ctx context.Context, ev PasswordChangeSecurityEvent) {
 	securityEvent := formPasswordChangeSecurityEvent(ev)
-	logSecurityEvent(securityEvent)
+	logSecurityEvent(ctx, securityEvent)
 }
 
 // LogLoginSuccess logs a successful login (authentication) event.
-func LogLoginSuccess(ev LoginSuccessSecurityEvent) {
+func LogLoginSuccess(ctx context.Context, ev LoginSuccessSecurityEvent) {
 	securityEvent := formLoginSuccessSecurityEvent(ev)
-	logSecurityEvent(securityEvent)
+	logSecurityEvent(ctx, securityEvent)
 }
 
 // LogSystem logs a system startup/shutdown/restart/crash events.
-func LogSystem(ev SystemLifecycleSecurityEvent) {
+func LogSystem(ctx context.Context, ev SystemLifecycleSecurityEvent) {
 	securityEvent := formSystemLifecycleSecurityEvent(ev)
-	logSecurityEvent(securityEvent)
+	logSecurityEvent(ctx, securityEvent)
 }
 
 // formLogUserSecurityEvent creates a SecurityEvent from a UserSecurityEvent
@@ -409,21 +410,23 @@ func formSystemLifecycleSecurityEvent(ev SystemLifecycleSecurityEvent) SecurityE
 }
 
 // logSecurityEvent logs a security event as structured JSON
-func logSecurityEvent(event SecurityEvent) {
+func logSecurityEvent(ctx context.Context, event SecurityEvent) {
 	jsonData, err := json.Marshal(event)
 	if err != nil {
-		logger.Errorf("Failed to marshal security event: %v", err)
+		_ = logger.Errorf(ctx, "Failed to marshal security event: %v", err)
 		return
 	}
 
+	strData := string(jsonData)
+
 	switch event.Level {
 	case "INFO":
-		logger.Infof(string(jsonData))
+		_ = logger.Infof(ctx, strData)
 	case "WARN":
-		logger.Warningf(string(jsonData))
+		_ = logger.Warningf(ctx, strData)
 	case "CRITICAL":
-		logger.Criticalf(string(jsonData))
+		_ = logger.Criticalf(ctx, strData)
 	default:
-		logger.Infof(string(jsonData))
+		_ = logger.Infof(ctx, strData)
 	}
 }

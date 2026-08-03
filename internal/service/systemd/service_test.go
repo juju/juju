@@ -49,7 +49,7 @@ WantedBy=multi-user.target
 
 `
 
-const jujud = "/var/lib/juju/bin/jujud"
+const jujuagentd = "/var/lib/juju/bin/jujuagentd"
 
 var listCmdArg = exec.RunParams{
 	Commands: `/bin/systemctl list-unit-files --no-legend --no-page -l -t service | grep -o -P '^\w[\S]*(?=\.service)'`,
@@ -85,10 +85,10 @@ func (s *initSystemSuite) SetUpTest(c *tc.C) {
 	tag, err := names.ParseTag(tagStr)
 	c.Assert(err, tc.ErrorIsNil)
 	s.tag = tag
-	s.name = "jujud-" + tagStr
+	s.name = "jujuagentd-" + tagStr
 	s.conf = common.Conf{
 		Desc:      "juju agent for " + tagStr,
-		ExecStart: jujud + " " + tagStr,
+		ExecStart: jujuagentd + " " + tagStr,
 	}
 }
 
@@ -125,7 +125,7 @@ func (s *initSystemSuite) expectConf(c *tc.C, conf common.Conf) *gomock.Call {
 
 	return s.exec.EXPECT().RunCommands(
 		exec.RunParams{
-			Commands: "cat /etc/systemd/system/jujud-machine-0.service",
+			Commands: "cat /etc/systemd/system/jujuagentd-machine-0.service",
 		},
 	).Return(&exec.ExecResponse{Stdout: data}, nil).Call
 }
@@ -135,9 +135,9 @@ func (s *initSystemSuite) newConfStr(name string) string {
 }
 
 func (s *initSystemSuite) newConfStrCmd(name, cmd string) string {
-	tag := name[len("jujud-"):]
+	tag := name[len("jujuagentd-"):]
 	if cmd == "" {
-		cmd = jujud + " " + tag
+		cmd = jujuagentd + " " + tag
 	}
 	return fmt.Sprintf(confStr[1:], tag, cmd)
 }
@@ -158,12 +158,12 @@ func (s *initSystemSuite) TestListServices(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.exec.EXPECT().RunCommands(listCmdArg).Return(&exec.ExecResponse{
-		Stdout: []byte("jujud-machine-0\njujud-unit-wordpress-0"),
+		Stdout: []byte("jujuagentd-machine-0\njujuagentd-unit-wordpress-0"),
 	}, nil)
 
 	services, err := systemd.ListServices()
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(services, tc.SameContents, []string{"jujud-machine-0", "jujud-unit-wordpress-0"})
+	c.Check(services, tc.SameContents, []string{"jujuagentd-machine-0", "jujuagentd-unit-wordpress-0"})
 }
 
 func (s *initSystemSuite) TestListServicesEmpty(c *tc.C) {
@@ -201,7 +201,7 @@ exec >> '/var/log/juju/machine-0.log'
 exec 2>&1
 
 # Run the script.
-` + jujud + " machine-0"
+` + jujuagentd + " machine-0"
 
 	c.Check(svc.Service, tc.DeepEquals, common.Service{
 		Name: s.name,
@@ -248,7 +248,7 @@ func (s *initSystemSuite) TestNewServiceExtraScript(c *tc.C) {
 #!/usr/bin/env bash
 
 '/path/to/another/command'
-`[1:] + jujud + " machine-0"
+`[1:] + jujuagentd + " machine-0"
 
 	c.Check(svc.Service, tc.DeepEquals, common.Service{
 		Name: s.name,
@@ -296,7 +296,7 @@ func (s *initSystemSuite) TestInstalledTrue(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.exec.EXPECT().RunCommands(listCmdArg).Return(&exec.ExecResponse{
-		Stdout: []byte("jujud-machine-0\njuju-mongod"),
+		Stdout: []byte("jujuagentd-machine-0\njuju-mongod"),
 	}, nil)
 
 	installed, err := s.newService(c).Installed()
@@ -362,7 +362,7 @@ func (s *initSystemSuite) TestExistsError(c *tc.C) {
 
 	s.exec.EXPECT().RunCommands(
 		exec.RunParams{
-			Commands: "cat /etc/systemd/system/jujud-machine-0.service",
+			Commands: "cat /etc/systemd/system/jujuagentd-machine-0.service",
 		},
 	).Return(nil, errFailure)
 
@@ -384,7 +384,7 @@ func (s *initSystemSuite) TestRunningTrue(c *tc.C) {
 
 	gomock.InOrder(
 		s.dBus.EXPECT().ListUnits().Return([]dbus.UnitStatus{
-			{Name: "jujud-machine-0.service", LoadState: "loaded", ActiveState: "active"},
+			{Name: "jujuagentd-machine-0.service", LoadState: "loaded", ActiveState: "active"},
 			{Name: "juju-mongod.service", LoadState: "loaded", ActiveState: "active"},
 		}, nil),
 		s.dBus.EXPECT().Close(),
@@ -401,7 +401,7 @@ func (s *initSystemSuite) TestRunningFalse(c *tc.C) {
 
 	gomock.InOrder(
 		s.dBus.EXPECT().ListUnits().Return([]dbus.UnitStatus{
-			{Name: "jujud-machine-0.service", LoadState: "loaded", ActiveState: "inactive"},
+			{Name: "jujuagentd-machine-0.service", LoadState: "loaded", ActiveState: "inactive"},
 			{Name: "juju-mongod.service", LoadState: "loaded", ActiveState: "active"},
 		}, nil),
 		s.dBus.EXPECT().Close(),
@@ -449,7 +449,7 @@ func (s *initSystemSuite) TestStart(c *tc.C) {
 
 	gomock.InOrder(
 		s.exec.EXPECT().RunCommands(listCmdArg).Return(&exec.ExecResponse{
-			Stdout: []byte("jujud-machine-0\njuju-mongod"),
+			Stdout: []byte("jujuagentd-machine-0\njuju-mongod"),
 		}, nil),
 		s.dBus.EXPECT().ListUnits().Return([]dbus.UnitStatus{
 			{Name: svc.UnitName, LoadState: "loaded", ActiveState: "inactive"},
@@ -479,7 +479,7 @@ func (s *initSystemSuite) TestStartAlreadyRunning(c *tc.C) {
 
 	gomock.InOrder(
 		s.exec.EXPECT().RunCommands(listCmdArg).Return(&exec.ExecResponse{
-			Stdout: []byte("jujud-machine-0\njuju-mongod"),
+			Stdout: []byte("jujuagentd-machine-0\njuju-mongod"),
 		}, nil),
 		s.dBus.EXPECT().ListUnits().Return([]dbus.UnitStatus{
 			{Name: svc.UnitName, LoadState: "loaded", ActiveState: "active"},
@@ -699,7 +699,7 @@ func (s *initSystemSuite) TestInstallEmptyConf(c *tc.C) {
 }
 
 func (s *initSystemSuite) TestInstallCommands(c *tc.C) {
-	name := "jujud-machine-0"
+	name := "jujuagentd-machine-0"
 	commands, err := s.newService(c).InstallCommands()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -712,7 +712,7 @@ func (s *initSystemSuite) TestInstallCommands(c *tc.C) {
 }
 
 func (s *initSystemSuite) TestInstallCommandsLogfile(c *tc.C) {
-	name := "jujud-machine-0"
+	name := "jujuagentd-machine-0"
 	s.conf.Logfile = "/var/log/juju/machine-0.log"
 	svc := s.newService(c)
 	commands, err := svc.InstallCommands()
@@ -724,8 +724,8 @@ func (s *initSystemSuite) TestInstallCommandsLogfile(c *tc.C) {
 		DataDir: systemd.EtcSystemdDir,
 		Expected: strings.Replace(
 			s.newConfStr(name),
-			"ExecStart=/var/lib/juju/bin/jujud machine-0",
-			"ExecStart=/etc/systemd/system/jujud-machine-0-exec-start.sh",
+			"ExecStart=/var/lib/juju/bin/jujuagentd machine-0",
+			"ExecStart=/etc/systemd/system/jujuagentd-machine-0-exec-start.sh",
 			-1),
 		Script: `
 # Set up logging.
@@ -736,7 +736,7 @@ exec >> '/var/log/juju/machine-0.log'
 exec 2>&1
 
 # Run the script.
-` + jujud + " machine-0",
+` + jujuagentd + " machine-0",
 	}
 
 	test.CheckCommands(c, commands)
@@ -792,14 +792,14 @@ func (s *initSystemSuite) TestInstallCommandsEmptyConf(c *tc.C) {
 func (s *initSystemSuite) TestStartCommands(c *tc.C) {
 	commands, err := s.newService(c).StartCommands()
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(commands, tc.DeepEquals, []string{"/bin/systemctl start jujud-machine-0.service"})
+	c.Check(commands, tc.DeepEquals, []string{"/bin/systemctl start jujuagentd-machine-0.service"})
 }
 
 func (s *initSystemSuite) TestInstallLimits(c *tc.C) {
 	name := "juju-job"
 	conf := common.Conf{
 		Desc:      "juju agent for juju-job",
-		ExecStart: "/usr/bin/jujud juju-job",
+		ExecStart: "/usr/bin/jujuagentd juju-job",
 		Limit: map[string]string{
 			"fsize":   "unlimited",
 			"cpu":     "unlimited",
@@ -828,7 +828,7 @@ LimitCPU=infinity
 LimitFSIZE=infinity
 LimitMEMLOCK=infinity
 LimitNOFILE=64000
-ExecStart=/usr/bin/jujud juju-job
+ExecStart=/usr/bin/jujuagentd juju-job
 Restart=on-failure
 
 [Install]

@@ -36,7 +36,13 @@ func (k *kubernetesClient) ensureK8sService(ctx context.Context, spec *core.Serv
 		var svcCreated *core.Service
 		svcCreated, err = api.Create(ctx, spec, meta.CreateOptions{})
 		if err == nil {
-			cleanUp = func() { _ = k.deleteService(ctx, svcCreated.GetName()) }
+			cleanUp = func() {
+				if err := k.deleteService(ctx, svcCreated.GetName()); err != nil {
+					logger.Warningf(ctx,
+						"could not clean up service %q, it may be left dangling: %v",
+						svcCreated.GetName(), err)
+				}
+			}
 		}
 	}
 	return cleanUp, errors.Trace(err)
@@ -77,17 +83,16 @@ func findServiceForApplication(
 	}
 
 	services := []core.Service{}
-	endpointSvcName := application.HeadlessServiceName(appName)
-	// We want to filter out the endpoints services made by juju as they should
-	// not be considered.
+	// We want to filter out the headless endpoints services made by juju as
+	// they carry no routable address and should not be considered.
 	for _, svc := range servicesList.Items {
-		if svc.Name != endpointSvcName {
+		if !application.IsManagedHeadlessService(svc) {
 			services = append(services, svc)
 		}
 	}
 
 	if len(services) != 1 {
-		return nil, errors.NotValidf("unable to handle mutiple services %d for application %s", len(servicesList.Items), appName)
+		return nil, errors.NotValidf("unable to handle multiple services %d for application %s", len(services), appName)
 	}
 
 	return &services[0], nil

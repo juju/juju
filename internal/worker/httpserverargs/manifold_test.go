@@ -7,10 +7,8 @@ import (
 	"context"
 	"maps"
 	"testing"
-	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
@@ -34,7 +32,6 @@ type ManifoldSuite struct {
 	config         httpserverargs.ManifoldConfig
 	manifold       dependency.Manifold
 	getter         dependency.Getter
-	clock          *testclock.Clock
 	authenticator  mockLocalMacaroonAuthenticator
 	domainServices stubDomainServices
 
@@ -46,13 +43,12 @@ func TestManifoldSuite(t *testing.T) {
 }
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
-	s.clock = testclock.NewClock(time.Time{})
 	s.domainServices = stubDomainServices{}
 	s.stub.ResetCalls()
 
 	s.getter = s.newGetter(nil)
 	s.config = httpserverargs.ManifoldConfig{
-		ClockName:             "clock",
+		Clock:                 clock.WallClock,
 		DomainServicesName:    "domain-services",
 		NewStateAuthenticator: s.newStateAuthenticator,
 	}
@@ -61,7 +57,6 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
-		"clock":           s.clock,
 		"domain-services": &s.domainServices,
 	}
 	maps.Copy(resources, overlay)
@@ -85,7 +80,7 @@ func (s *ManifoldSuite) newStateAuthenticator(
 	return &s.authenticator, nil
 }
 
-var expectedInputs = []string{"clock", "domain-services"}
+var expectedInputs = []string{"domain-services"}
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
@@ -165,8 +160,8 @@ func (s *ManifoldSuite) TestValidate(c *tc.C) {
 		expect string
 	}
 	tests := []test{{
-		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.ClockName = "" },
-		expect: "empty ClockName not valid",
+		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.Clock = nil },
+		expect: "nil Clock not valid",
 	}, {
 		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.DomainServicesName = "" },
 		expect: "empty DomainServicesName not valid",

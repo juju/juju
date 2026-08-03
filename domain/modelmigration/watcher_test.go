@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
@@ -37,7 +38,7 @@ type exportWatcherSuite struct {
 type stubCredentialValidator struct{}
 
 func (stubCredentialValidator) Validate(
-	context.Context, modelmigration.CredentialValidationInfo, modelmigration.ModelCloudCredential,
+	context.Context, modelmigration.CredentialValidationInfo, coremodelmigration.ModelCloudCredential,
 ) error {
 	return nil
 }
@@ -57,7 +58,7 @@ func (s *exportWatcherSuite) TestWatchForMigration(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model_migration_export")
 	svc := s.setupService(c, factory)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 	w, err := svc.WatchForMigration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -101,7 +102,7 @@ func (s *exportWatcherSuite) TestWatchMigrationPhase(c *tc.C) {
 
 	migrationUUID := s.insertExport(c)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 	w, err := svc.WatchMigrationPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -147,7 +148,7 @@ func (s *exportWatcherSuite) TestWatchMinionReports(c *tc.C) {
 	// already exist.
 	migrationUUID := s.insertExport(c)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 	w, err := svc.WatchMinionReports(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 

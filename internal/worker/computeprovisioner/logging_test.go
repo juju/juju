@@ -53,7 +53,7 @@ func (s *logSuite) TestFlagSet(c *tc.C) {
 	err := errors.New("test error")
 	err2 := loggedErrorStack(logger, err)
 	c.Assert(err, tc.Equals, err2)
-	c.Assert(entries, tc.SameContents, []string{
-		"ERROR: error stack:\n[test error]",
-	})
+
+	c.Assert(entries, tc.HasLen, 1)
+	c.Check(entries[0], tc.Matches, ".*ERROR: error stack:\n\\[test error\\]")
 }

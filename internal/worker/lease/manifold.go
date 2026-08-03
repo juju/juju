@@ -13,7 +13,6 @@ import (
 	"github.com/juju/worker/v5/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
@@ -34,11 +33,18 @@ const (
 // ManifoldConfig holds the resources needed to start the lease
 // manager in a dependency engine.
 type ManifoldConfig struct {
-	AgentName      string
-	ClockName      string
 	DBAccessorName string
 	TraceName      string
 
+	// ControllerUUID is the controller entity UUID used by the
+	// secretary finder and passed as the lease entity UUID.
+	ControllerUUID string
+
+	// ControllerModelUUID is the controller model UUID used to build
+	// the trace namespace for the lease manager.
+	ControllerModelUUID string
+
+	Clock                clock.Clock
 	Logger               logger.Logger
 	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
@@ -49,11 +55,11 @@ type ManifoldConfig struct {
 
 // Validate checks that the config has all the required values.
 func (c ManifoldConfig) Validate() error {
-	if c.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
+	if c.ControllerUUID == "" {
+		return errors.NotValidf("empty ControllerUUID")
 	}
-	if c.ClockName == "" {
-		return errors.NotValidf("empty ClockName")
+	if c.ControllerModelUUID == "" {
+		return errors.NotValidf("empty ControllerModelUUID")
 	}
 	if c.DBAccessorName == "" {
 		return errors.NotValidf("empty DBAccessor")
@@ -61,8 +67,14 @@ func (c ManifoldConfig) Validate() error {
 	if c.TraceName == "" {
 		return errors.NotValidf("empty TraceName")
 	}
+	if c.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if c.LogDir == "" {
+		return errors.NotValidf("empty LogDir")
 	}
 	if c.NewSecretaryFinder == nil {
 		return errors.NotValidf("nil NewSecretaryFinder")
@@ -88,16 +100,6 @@ func (s *manifoldState) start(ctx context.Context, getter dependency.Getter) (wo
 		return nil, errors.Trace(err)
 	}
 
-	var agent agent.Agent
-	if err := getter.Get(s.config.AgentName, &agent); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var clock clock.Clock
-	if err := getter.Get(s.config.ClockName, &clock); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	var dbGetter database.DBGetter
 	if err := getter.Get(s.config.DBAccessorName, &dbGetter); err != nil {
 		return nil, errors.Trace(err)
@@ -108,21 +110,19 @@ func (s *manifoldState) start(ctx context.Context, getter dependency.Getter) (wo
 		return nil, errors.Trace(err)
 	}
 
-	currentConfig := agent.CurrentConfig()
-
-	tracer, err := tracerGetter.GetTracer(ctx, coretrace.Namespace("leaseexpiry", currentConfig.Model().Id()))
+	tracer, err := tracerGetter.GetTracer(ctx, coretrace.Namespace("leaseexpiry", s.config.ControllerModelUUID))
 	if err != nil {
 		tracer = coretrace.NoopTracer{}
 	}
 
 	store := s.config.NewStore(dbGetter, s.config.Logger)
 
-	controllerUUID := currentConfig.Controller().Id()
+	controllerUUID := s.config.ControllerUUID
 	w, err := s.config.NewWorker(ManagerConfig{
 		SecretaryFinder:      s.config.NewSecretaryFinder(controllerUUID),
 		Store:                store,
 		Tracer:               tracer,
-		Clock:                clock,
+		Clock:                s.config.Clock,
 		Logger:               s.config.Logger,
 		MaxSleep:             MaxSleep,
 		EntityUUID:           controllerUUID,
@@ -154,8 +154,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	s := manifoldState{config: config}
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
-			config.ClockName,
 			config.DBAccessorName,
 			config.TraceName,
 		},

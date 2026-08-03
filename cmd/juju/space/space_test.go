@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/juju/space/mocks"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 type SpaceCommandSuite struct {
@@ -27,6 +28,31 @@ func setUpMocks(c *tc.C) (*gomock.Controller, *mocks.MockAPI) {
 }
 func TestSpaceCommandSuite(t *testing.T) {
 	tc.Run(t, &SpaceCommandSuite{})
+}
+
+// isIAASOnly reports whether the inner command carries the IAAS-only
+// marker, meaning the modelcmd wrapper blocks it on CAAS models.
+func isIAASOnly(command modelcmd.ModelCommand) bool {
+	_, ok := modelcmd.InnerCommand(command).(modelcmd.IAASOnlyCommand)
+	return ok
+}
+
+func (s *SpaceCommandSuite) TestReloadAllowedOnCAAS(c *tc.C) {
+	// reload-spaces must run on CAAS models so operators can discover
+	// pod subnets, so it MUST NOT carry the IAAS-only marker.
+	c.Check(isIAASOnly(space.NewReloadCommand()), tc.IsFalse)
+}
+
+func (s *SpaceCommandSuite) TestSpaceManagementBlockedOnCAAS(c *tc.C) {
+	// Space mutation and inspection commands remain IAAS-only.
+	for _, newCommand := range []func() modelcmd.ModelCommand{
+		space.NewAddCommand,
+		space.NewMoveCommand,
+		space.NewRemoveCommand,
+		space.NewRenameCommand,
+	} {
+		c.Check(isIAASOnly(newCommand()), tc.IsTrue)
+	}
 }
 
 func (s *SpaceCommandSuite) TestInit(c *tc.C) {

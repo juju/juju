@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
@@ -72,7 +73,12 @@ func (s *Service) GetOperationByID(ctx context.Context, operationID string) (ope
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	res, err := s.st.GetOperationByID(ctx, operationID)
+	id, err := strconv.ParseUint(operationID, 10, 64)
+	if err != nil {
+		return operation.OperationInfo{}, errors.Errorf("invalid operation ID %q: %w", operationID, err).Add(coreerrors.NotValid)
+	}
+
+	res, err := s.st.GetOperationByID(ctx, id)
 	if err != nil {
 		return operation.OperationInfo{}, errors.Capture(err)
 	}

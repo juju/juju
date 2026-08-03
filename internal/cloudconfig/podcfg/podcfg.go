@@ -108,13 +108,11 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		QueryTracingEnabled:                cfg.Controller.QueryTracingEnabled(),
 		QueryTracingThreshold:              cfg.Controller.QueryTracingThreshold(),
 		DqliteBusyTimeout:                  cfg.Controller.DqliteBusyTimeout(),
-		OpenTelemetryEnabled:               cfg.Controller.OpenTelemetryEnabled(),
-		OpenTelemetryEndpoint:              cfg.Controller.OpenTelemetryEndpoint(),
-		OpenTelemetryInsecure:              cfg.Controller.OpenTelemetryInsecure(),
-		OpenTelemetryStackTraces:           cfg.Controller.OpenTelemetryStackTraces(),
-		OpenTelemetrySampleRatio:           cfg.Controller.OpenTelemetrySampleRatio(),
-		OpenTelemetryTailSamplingThreshold: cfg.Controller.OpenTelemetryTailSamplingThreshold(),
-		ObjectStoreType:                    cfg.Controller.ObjectStoreType(),
+		OpenTelemetryEnabled:               agent.DefaultOpenTelemetryEnabled,
+		OpenTelemetryInsecure:              agent.DefaultOpenTelemetryInsecure,
+		OpenTelemetryStackTraces:           agent.DefaultOpenTelemetryStackTraces,
+		OpenTelemetrySampleRatio:           agent.DefaultOpenTelemetrySampleRatio,
+		OpenTelemetryTailSamplingThreshold: agent.DefaultOpenTelemetryTailSamplingThreshold,
 	}
 	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.ControllerAgentInfo)
 }
@@ -144,12 +142,11 @@ func (cfg *ControllerPodConfig) UnitAgentConfig() (agent.ConfigSetterWriter, err
 		Controller: cfg.ControllerTag,
 		Model:      cfg.APIInfo.ModelTag,
 
-		OpenTelemetryEnabled:               cfg.Controller.OpenTelemetryEnabled(),
-		OpenTelemetryEndpoint:              cfg.Controller.OpenTelemetryEndpoint(),
-		OpenTelemetryInsecure:              cfg.Controller.OpenTelemetryInsecure(),
-		OpenTelemetryStackTraces:           cfg.Controller.OpenTelemetryStackTraces(),
-		OpenTelemetrySampleRatio:           cfg.Controller.OpenTelemetrySampleRatio(),
-		OpenTelemetryTailSamplingThreshold: cfg.Controller.OpenTelemetryTailSamplingThreshold(),
+		OpenTelemetryEnabled:               agent.DefaultOpenTelemetryEnabled,
+		OpenTelemetryInsecure:              agent.DefaultOpenTelemetryInsecure,
+		OpenTelemetryStackTraces:           agent.DefaultOpenTelemetryStackTraces,
+		OpenTelemetrySampleRatio:           agent.DefaultOpenTelemetrySampleRatio,
+		OpenTelemetryTailSamplingThreshold: agent.DefaultOpenTelemetryTailSamplingThreshold,
 	}
 	conf, err := agent.NewAgentConfig(configParams)
 	if err != nil {

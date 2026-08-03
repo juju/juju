@@ -13,13 +13,13 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/modelmigration"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
-	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
@@ -133,6 +133,7 @@ func (*EnvelopeSuite) TestEnvelopeFromControllerModelInfo(c *tc.C) {
 			DisplayName: "Fred",
 			CreatedBy:   "admin",
 			CreatedAt:   created,
+			LastLogin:   &created,
 		}},
 		ModelCredential: &params.ModelCloudCredential{
 			Cloud:         "aws",
@@ -172,10 +173,6 @@ func (*EnvelopeSuite) TestEnvelopeFromControllerModelInfo(c *tc.C) {
 			Type:   "application-leadership",
 			Name:   "app",
 			Holder: "app/0",
-		}},
-		LastLogins: []params.ModelLastLogin{{
-			Username: "fred",
-			Time:     created,
 		}},
 		CloudImageMetadata: []params.ModelCloudImageMetadata{{
 			Stream:          "released",

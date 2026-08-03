@@ -14,7 +14,6 @@ import (
 
 	gomock "github.com/canonical/gomock/gomock"
 	api "github.com/juju/juju/api"
-	firewaller "github.com/juju/juju/api/controller/firewaller"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
 	firewall "github.com/juju/juju/core/network/firewall"
@@ -22,7 +21,7 @@ import (
 	watcher "github.com/juju/juju/core/watcher"
 	config "github.com/juju/juju/environs/config"
 	instances "github.com/juju/juju/environs/instances"
-	firewaller0 "github.com/juju/juju/internal/worker/firewaller"
+	firewaller "github.com/juju/juju/internal/worker/firewaller"
 	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v6"
 )
@@ -39,12 +38,12 @@ type MockFirewallerAPIMockRecorder struct {
 	mock                             *MockFirewallerAPI
 	allSpaceInfosExpects             []*gomock.Call1_2[context.Context, network.SpaceInfos, error]
 	controllerAPIInfoForModelExpects []*gomock.Call2_2[context.Context, string, *api.Info, error]
-	machineExpects                   []*gomock.Call2_2[context.Context, names.MachineTag, firewaller0.Machine, error]
+	machineExpects                   []*gomock.Call2_2[context.Context, names.MachineTag, firewaller.Machine, error]
 	modelConfigExpects               []*gomock.Call1_2[context.Context, *config.Config, error]
 	modelFirewallRulesExpects        []*gomock.Call1_2[context.Context, firewall.IngressRules, error]
 	relationExpects                  []*gomock.Call2_2[context.Context, names.RelationTag, *firewaller.Relation, error]
 	setRelationStatusExpects         []*gomock.Call4_1[context.Context, string, relation.Status, string, error]
-	unitExpects                      []*gomock.Call2_2[context.Context, names.UnitTag, firewaller0.Unit, error]
+	unitExpects                      []*gomock.Call2_2[context.Context, names.UnitTag, firewaller.Unit, error]
 	watchModelFirewallRulesExpects   []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
 	watchModelMachinesExpects        []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
 	watchSubnetsExpects              []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
@@ -99,7 +98,7 @@ func (mr *MockFirewallerAPIMockRecorder) ControllerAPIInfoForModel(ctx, modelUUI
 type MockFirewallerAPIControllerAPIInfoForModelCall = gomock.Call2_2[context.Context, string, *api.Info, error]
 
 // Machine mocks base method.
-func (m *MockFirewallerAPI) Machine(ctx context.Context, tag names.MachineTag) (firewaller0.Machine, error) {
+func (m *MockFirewallerAPI) Machine(ctx context.Context, tag names.MachineTag) (firewaller.Machine, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2_2(&m.recorder.machineExpects, m.ctrl, m, "Machine", ctx, tag)
 }
@@ -107,14 +106,14 @@ func (m *MockFirewallerAPI) Machine(ctx context.Context, tag names.MachineTag) (
 // Machine indicates an expected call of Machine.
 func (mr *MockFirewallerAPIMockRecorder) Machine(ctx, tag any) *MockFirewallerAPIMachineCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, names.MachineTag, firewaller0.Machine, error](mr.mock.ctrl.T, mr.mock, "Machine", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(tag))
+	call := gomock.NewCall2_2[context.Context, names.MachineTag, firewaller.Machine, error](mr.mock.ctrl.T, mr.mock, "Machine", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(tag))
 	mr.machineExpects = append(mr.machineExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockFirewallerAPIMachineCall is the typed call wrapper for Machine.
-type MockFirewallerAPIMachineCall = gomock.Call2_2[context.Context, names.MachineTag, firewaller0.Machine, error]
+type MockFirewallerAPIMachineCall = gomock.Call2_2[context.Context, names.MachineTag, firewaller.Machine, error]
 
 // ModelConfig mocks base method.
 func (m *MockFirewallerAPI) ModelConfig(arg0 context.Context) (*config.Config, error) {
@@ -189,7 +188,7 @@ func (mr *MockFirewallerAPIMockRecorder) SetRelationStatus(ctx, relationKey, sta
 type MockFirewallerAPISetRelationStatusCall = gomock.Call4_1[context.Context, string, relation.Status, string, error]
 
 // Unit mocks base method.
-func (m *MockFirewallerAPI) Unit(ctx context.Context, tag names.UnitTag) (firewaller0.Unit, error) {
+func (m *MockFirewallerAPI) Unit(ctx context.Context, tag names.UnitTag) (firewaller.Unit, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2_2(&m.recorder.unitExpects, m.ctrl, m, "Unit", ctx, tag)
 }
@@ -197,14 +196,14 @@ func (m *MockFirewallerAPI) Unit(ctx context.Context, tag names.UnitTag) (firewa
 // Unit indicates an expected call of Unit.
 func (mr *MockFirewallerAPIMockRecorder) Unit(ctx, tag any) *MockFirewallerAPIUnitCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, names.UnitTag, firewaller0.Unit, error](mr.mock.ctrl.T, mr.mock, "Unit", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(tag))
+	call := gomock.NewCall2_2[context.Context, names.UnitTag, firewaller.Unit, error](mr.mock.ctrl.T, mr.mock, "Unit", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(tag))
 	mr.unitExpects = append(mr.unitExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockFirewallerAPIUnitCall is the typed call wrapper for Unit.
-type MockFirewallerAPIUnitCall = gomock.Call2_2[context.Context, names.UnitTag, firewaller0.Unit, error]
+type MockFirewallerAPIUnitCall = gomock.Call2_2[context.Context, names.UnitTag, firewaller.Unit, error]
 
 // WatchModelFirewallRules mocks base method.
 func (m *MockFirewallerAPI) WatchModelFirewallRules(arg0 context.Context) (watcher.NotifyWatcher, error) {

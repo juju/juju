@@ -57,6 +57,7 @@ type ProvisionerAPI struct {
 	applicationService      ApplicationService
 	removalService          RemovalService
 	provisioningService     ProvisioningService
+	tracingService          TracingService
 	authorizer              facade.Authorizer
 	getAuthFunc             common.GetAuthFunc
 	getCanModify            common.GetAuthFunc
@@ -129,6 +130,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	provisioningService := domainServices.Provisioning()
 	removalService := domainServices.Removal()
 	statusService := domainServices.Status()
+	tracingService := domainServices.Tracing()
 
 	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
 	if err != nil {
@@ -164,6 +166,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		applicationService:      applicationService,
 		removalService:          removalService,
 		provisioningService:     provisioningService,
+		tracingService:          tracingService,
 		authorizer:              authorizer,
 		getAuthFunc:             getAuthFunc,
 		getCanModify:            getCanModify,

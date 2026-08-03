@@ -324,6 +324,7 @@ var commandNames = []string{
 	"remove-unit",
 	"remove-user",
 	"rename-space",
+	"reprovision-machine",
 	"resolve",
 	"resolved",
 	"resources",

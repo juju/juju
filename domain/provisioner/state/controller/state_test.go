@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/tc"
 
+	loggingerrors "github.com/juju/juju/domain/logging/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -225,6 +226,27 @@ func (s *controllerStateSuite) TestGetCachedImageMetadataFilteredByImageID(c *tc
 	result, err = s.state.GetCachedImageMetadata(c.Context(), "22.04", "amd64", "us-east-1", "released", "img-nonexistent")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.HasLen, 0)
+}
+
+// TestGetLokiConfigNotFound verifies that when no Loki config row exists,
+// LokiConfigNotFound is returned.
+func (s *controllerStateSuite) TestGetLokiConfigNotFound(c *tc.C) {
+	_, err := s.state.GetLokiConfig(c.Context())
+	c.Assert(err, tc.ErrorIs, loggingerrors.LokiConfigNotFound)
+}
+
+// TestGetLokiConfig verifies that a stored Loki config row is returned
+// with endpoint, CA cert, and insecure skip verify.
+func (s *controllerStateSuite) TestGetLokiConfig(c *tc.C) {
+	s.runQuery(c, `INSERT INTO logging_loki_config (uuid, endpoint, ca_cert, insecure_skip_verify) VALUES (?, ?, ?, ?)`,
+		"loki-uuid-1", "https://loki.example.com/loki/api/v1/push", "ca-cert", true)
+
+	config, err := s.state.GetLokiConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config.Endpoint, tc.Equals, "https://loki.example.com/loki/api/v1/push")
+	c.Check(config.CACertificate, tc.Equals, "ca-cert")
+	c.Assert(config.InsecureSkipVerify, tc.NotNil)
+	c.Check(*config.InsecureSkipVerify, tc.IsTrue)
 }
 
 // setupCloud inserts a cloud and returns its UUID.

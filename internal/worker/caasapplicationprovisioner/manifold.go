@@ -11,8 +11,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/api/base"
-	apicaasapplicationprovisioner "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
@@ -22,21 +20,32 @@ import (
 	"github.com/juju/juju/internal/services"
 )
 
+// GetDomainServicesFunc is a function that returns a services.DomainServices
+// from a dependency getter. It exists to allow tests to inject mock services.
+type GetDomainServicesFunc func(getter dependency.Getter, name string) (services.DomainServices, error)
+
+// GetDomainServices is a helper function that gets the domain services from
+// the manifold.
+func GetDomainServices(getter dependency.Getter, name string) (services.DomainServices, error) {
+	var domainServices services.DomainServices
+	if err := getter.Get(name, &domainServices); err != nil {
+		return nil, err
+	}
+	return domainServices, nil
+}
+
 // ManifoldConfig defines a CAAS operator provisioner's dependencies.
 type ManifoldConfig struct {
-	APICallerName      string
 	DomainServicesName string
 	BrokerName         string
 	ClockName          string
 	NewWorker          func(Config) (worker.Worker, error)
+	GetDomainServices  GetDomainServicesFunc
 	Logger             logger.Logger
 }
 
 // Validate is called by start to check for bad configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.APICallerName == "" {
-		return errors.NotValidf("empty APICallerName")
-	}
 	if config.DomainServicesName == "" {
 		return errors.NotValidf("empty DomainServicesName")
 	}
@@ -49,24 +58,22 @@ func (config ManifoldConfig) Validate() error {
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
+	if config.GetDomainServices == nil {
+		return errors.NotValidf("nil GetDomainServices")
+	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
 	return nil
 }
 
-func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
+func (config ManifoldConfig) start(_ context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var apiCaller base.APICaller
-	if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var domainServices services.ModelDomainServices
-	if err := getter.Get(config.DomainServicesName, &domainServices); err != nil {
+	domainServices, err := config.GetDomainServices(getter, config.DomainServicesName)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -78,6 +85,15 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	var broker caas.Broker
 	if err := getter.Get(config.BrokerName, &broker); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	facade := &provisionerFacadeShim{
+		appSvc:        domainServices.Application(),
+		ctrlConfigSvc: domainServices.ControllerConfig(),
+		ctrlNodeSvc:   domainServices.ControllerNode(),
+		modelCfgSvc:   domainServices.Config(),
+		modelInfoSvc:  domainServices.ModelInfo(),
+		removalSvc:    domainServices.Removal(),
 	}
 
 	resourceOpenerArgs := resource.ResourceOpenerArgs{
@@ -97,7 +113,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		AgentPasswordService:       domainServices.AgentPassword(),
 		StorageProvisioningService: domainServices.StorageProvisioning(),
 		ResourceOpenerGetter:       rog,
-		Facade:                     apicaasapplicationprovisioner.NewClient(apiCaller),
+		Facade:                     facade,
 		Broker:                     broker,
 		Clock:                      clock,
 		Logger:                     config.Logger,
@@ -114,7 +130,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.APICallerName,
 			config.DomainServicesName,
 			config.BrokerName,
 			config.ClockName,

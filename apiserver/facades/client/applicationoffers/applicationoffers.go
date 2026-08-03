@@ -393,7 +393,7 @@ func (api *OffersAPI) applicationOffersFromModel(
 		return nil, errors.Capture(err)
 	}
 
-	offers, err := crossModelRelationService.GetOffers(ctx, filters)
+	offers, err := crossModelRelationService.GetOffersWithConnections(ctx, filters)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -406,6 +406,10 @@ func (api *OffersAPI) applicationOffersFromModel(
 
 	var results []params.ApplicationOfferAdminDetailsV5
 	for _, appOffer := range offers {
+		if appOffer == nil {
+			continue
+		}
+
 		// If the user is not a model admin, check whether they have
 		// access to this specific offer. Users with offer-level access
 		// can see offers even without model-level access.
@@ -417,24 +421,24 @@ func (api *OffersAPI) applicationOffersFromModel(
 				continue
 			}
 		}
-
 		offerParams := api.makeOfferParams(
 			model.UUID(modelUUID),
-			appOffer,
+			appOffer.OfferDetail,
 			apiUser,
 			apiUserDisplayName,
 			isModelAdmin,
 		)
-
 		charmURL, err := charms.CharmURLFromLocator(appOffer.CharmLocator.Name, appOffer.CharmLocator)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		results = append(results, params.ApplicationOfferAdminDetailsV5{
+		result := params.ApplicationOfferAdminDetailsV5{
 			ApplicationOfferDetailsV5: *offerParams,
 			ApplicationName:           appOffer.ApplicationName,
 			CharmURL:                  charmURL,
-		})
+		}
+
+		results = append(results, result)
 	}
 
 	// If the user is not a model admin or there are no results,
@@ -445,23 +449,22 @@ func (api *OffersAPI) applicationOffersFromModel(
 
 	// Populate offer connections only when the caller requires admin access
 	// (i.e. ListApplicationOffers) and the user is verified as model admin.
-	offerUUIDs := make([]string, len(results))
 	offerIndexByUUID := make(map[string]int, len(results))
 	for i, r := range results {
-		offerUUIDs[i] = r.OfferUUID
 		offerIndexByUUID[r.OfferUUID] = i
 	}
 
-	connections, err := crossModelRelationService.GetOfferConnections(ctx, offerUUIDs)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	for _, conn := range connections {
-		idx, ok := offerIndexByUUID[conn.OfferUUID]
+	for _, appOffer := range offers {
+		if appOffer == nil {
+			continue
+		}
+		idx, ok := offerIndexByUUID[appOffer.OfferUUID]
 		if !ok {
 			continue
 		}
-		results[idx].Connections = append(results[idx].Connections, makeOfferConnection(conn))
+		for _, conn := range appOffer.OfferConnections {
+			results[idx].Connections = append(results[idx].Connections, makeOfferConnection(conn))
+		}
 	}
 
 	return results, nil
@@ -490,14 +493,11 @@ func (api *OffersAPI) hasUserAccessToOffer(
 
 func (api *OffersAPI) makeOfferParams(
 	modelUUID model.UUID,
-	offer *crossmodelrelation.OfferDetail,
+	offer crossmodelrelation.OfferDetail,
 	apiUser names.UserTag,
 	apiUserDisplayName string,
 	listAllUsers bool,
 ) *params.ApplicationOfferDetailsV5 {
-	if offer == nil {
-		return nil
-	}
 	result := params.ApplicationOfferDetailsV5{
 		SourceModelTag:         names.NewModelTag(modelUUID.String()).String(),
 		OfferName:              offer.OfferName,
@@ -543,7 +543,6 @@ func (api *OffersAPI) makeOfferParams(
 			Access:      permission.AdminAccess.String(),
 		})
 	}
-
 	return &result
 }
 
@@ -884,7 +883,7 @@ func (api *OffersAPI) getApplicationOffers(ctx context.Context, apiUser names.Us
 		if !ok {
 			results[i].Error = &params.Error{
 				Code:    params.CodeNotFound,
-				Message: fmt.Sprintf("application offer %q", urlStr),
+				Message: fmt.Sprintf("application offer %q not found", urlStr),
 			}
 			continue
 		}

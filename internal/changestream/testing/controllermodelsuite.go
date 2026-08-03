@@ -79,6 +79,6 @@ type Idler struct {
 // AssertChangeStreamIdle returns if and when the change stream is idle.
 // This is useful to ensure that the change stream is not processing any
 // events before running a test.
-func (idler *Idler) AssertChangeStreamIdle(c *tc.C) {
-	assertChangeStreamIdle(c, idler.watchableDB.states)
+func (idler *Idler) AssertChangeStreamIdle(c *tc.C, label string) {
+	assertChangeStreamIdle(c, label, idler.watchableDB.states)
 }

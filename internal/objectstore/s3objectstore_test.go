@@ -49,6 +49,84 @@ func TestS3ObjectStoreSuite(t *stdtesting.T) {
 	})
 }
 
+func (s *s3ObjectStoreSuite) TestFilePathUsesNamespace(c *tc.C) {
+	for _, test := range []struct {
+		namespace string
+		hash      string
+		expected  string
+	}{
+		{
+			namespace: "model-uuid",
+			hash:      "abc123",
+			expected:  "model-uuid/abc123",
+		}, {
+			namespace: "controller",
+			hash:      "def456",
+			expected:  "controller/def456",
+		}, {
+			namespace: "01234567-89ab-cdef-0123-456789abcdef",
+			hash:      "fedcba",
+			expected:  "01234567-89ab-cdef-0123-456789abcdef/fedcba",
+		},
+	} {
+		store := &s3ObjectStore{namespace: test.namespace}
+		c.Check(store.filePath(test.hash), tc.Equals, test.expected)
+	}
+}
+
+func (s *s3ObjectStoreSuite) TestPutFileCreatesNamespacedObjectKey(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	for _, namespace := range []string{
+		"model-uuid",
+		"controller",
+		"01234567-89ab-cdef-0123-456789abcdef",
+	} {
+		s.session.EXPECT().PutObject(
+			gomock.Any(), defaultBucketName, namespace+"/object-sha",
+			gomock.Any(), "s3-hash",
+		).DoAndReturn(func(_ context.Context, _, _ string, body io.Reader, _ string) error {
+			content, err := io.ReadAll(body)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(string(content), tc.Equals, "some content")
+			return nil
+		})
+
+		store := &s3ObjectStore{
+			client:     s.client,
+			rootBucket: defaultBucketName,
+			namespace:  namespace,
+		}
+		err := store.putFile(
+			c.Context(), strings.NewReader("some content"),
+			"object-sha", "s3-hash",
+		)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+}
+
+func (s *s3ObjectStoreSuite) TestDeleteObjectUsesNamespace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	for _, namespace := range []string{
+		"model-uuid",
+		"controller",
+		"01234567-89ab-cdef-0123-456789abcdef",
+	} {
+		s.session.EXPECT().DeleteObject(
+			gomock.Any(), defaultBucketName, namespace+"/object-sha",
+		).Return(nil)
+
+		store := &s3ObjectStore{
+			client:     s.client,
+			rootBucket: defaultBucketName,
+			namespace:  namespace,
+		}
+		err := store.deleteObject(c.Context(), "object-sha")
+		c.Assert(err, tc.ErrorIsNil)
+	}
+}
+
 func (s *s3ObjectStoreSuite) TestGetMetadataNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -717,6 +795,80 @@ func (s *s3ObjectStoreSuite) TestRemoveDoesNotDeleteSharedHash(c *tc.C) {
 	workertest.CleanKill(c, store)
 }
 
+func (s *s3ObjectStoreSuite) TestRemoveAll(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	objects := map[string]bool{
+		filePath("foo"):        true,
+		filePath("bar"):        true,
+		"limbo/foo":            true,
+		"limbo/bar":            true,
+		"inferior/foo":         true,
+		"controller/foo":       true,
+		"another-model/shared": true,
+	}
+
+	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
+	s.session.EXPECT().ListObjects(gomock.Any(), defaultBucketName, "inferi/").DoAndReturn(
+		func(_ context.Context, _, prefix string) ([]string, error) {
+			var result []string
+			for object := range objects {
+				if strings.HasPrefix(object, prefix) {
+					result = append(result, object)
+				}
+			}
+			return result, nil
+		},
+	)
+	s.session.EXPECT().DeleteObject(gomock.Any(), defaultBucketName, gomock.Any()).DoAndReturn(
+		func(_ context.Context, _, object string) error {
+			c.Check(strings.HasPrefix(object, "inferi/"), tc.IsTrue)
+			delete(objects, object)
+			return nil
+		},
+	).Times(2)
+
+	store := s.newS3ObjectStore(c).(*s3ObjectStore)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	s.expectStartup(c)
+
+	store.Kill()
+
+	err := store.RemoveAll(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(objects, tc.DeepEquals, map[string]bool{
+		"limbo/foo":            true,
+		"limbo/bar":            true,
+		"inferior/foo":         true,
+		"controller/foo":       true,
+		"another-model/shared": true,
+	})
+
+	workertest.CleanKill(c, store)
+}
+
+func (s *s3ObjectStoreSuite) TestRemoveAllWithListError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
+	s.session.EXPECT().ListObjects(gomock.Any(), defaultBucketName, "inferi/").Return(nil, errors.Errorf("boom"))
+
+	store := s.newS3ObjectStore(c).(*s3ObjectStore)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	s.expectStartup(c)
+
+	store.Kill()
+
+	err := store.RemoveAll(c.Context())
+	c.Assert(err, tc.ErrorMatches, `.*boom`)
+
+	workertest.CleanKill(c, store)
+}
+
 func (s *s3ObjectStoreSuite) TestList(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -734,7 +886,7 @@ func (s *s3ObjectStoreSuite) TestList(c *tc.C) {
 		Path:   fileName,
 		Size:   size,
 	}}, nil)
-	s.session.EXPECT().ListObjects(gomock.Any(), defaultBucketName).Return([]string{hexSHA384}, nil)
+	s.session.EXPECT().ListObjects(gomock.Any(), defaultBucketName, "inferi/").Return([]string{filePath(hexSHA384)}, nil)
 
 	store := s.newS3ObjectStore(c).(*s3ObjectStore)
 	defer workertest.DirtyKill(c, store)
@@ -750,6 +902,37 @@ func (s *s3ObjectStoreSuite) TestList(c *tc.C) {
 		Path:   fileName,
 		Size:   size,
 	}})
+	c.Check(files, tc.DeepEquals, []string{hexSHA384})
+
+	workertest.CleanKill(c, store)
+}
+
+func (s *s3ObjectStoreSuite) TestListStripsNamespacePrefix(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	content := "some content"
+	hexSHA384 := s.calculateHexSHA384(c, content)
+	hexSHA256 := s.calculateHexSHA256(c, content)
+
+	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
+	s.service.EXPECT().ListMetadata(gomock.Any()).Return([]objectstore.Metadata{{
+		SHA384: hexSHA384,
+		SHA256: hexSHA256,
+		Path:   "foo",
+		Size:   12,
+	}}, nil)
+	s.session.EXPECT().ListObjects(gomock.Any(), defaultBucketName, "inferi/").Return([]string{
+		filePath(hexSHA384),
+	}, nil)
+
+	store := s.newS3ObjectStore(c).(*s3ObjectStore)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	s.expectStartup(c)
+
+	_, files, err := store.list(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(files, tc.DeepEquals, []string{hexSHA384})
 
 	workertest.CleanKill(c, store)

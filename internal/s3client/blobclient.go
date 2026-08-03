@@ -17,8 +17,10 @@ type Session interface {
 	GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, int64, string, error)
 }
 
-// Blobs is the client desienged to interact with the
-// s3 compatible object store hosted by the apiserver
+// Blobs is the client designed to interact with the apiserver's S3-compatible
+// object store. The bucket name is a route-level pseudo-bucket that identifies
+// the model; it is not the name of the physical S3 bucket used by the
+// controller.
 type Blobs struct {
 	session Session
 }

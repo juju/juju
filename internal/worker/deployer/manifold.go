@@ -9,48 +9,94 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/engine"
 	apideployer "github.com/juju/juju/api/agent/deployer"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/flightrecorder"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
-	AgentName      string
-	APICallerName  string
-	FlightRecorder flightrecorder.FlightRecorder
-	Clock          clock.Clock
-	Logger         logger.Logger
+	AgentName          string
+	APICallerName      string
+	HTTPClientName     string
+	AgentConfigChanged *voyeur.Value
+	FlightRecorder     flightrecorder.FlightRecorder
+	Clock              clock.Clock
+	Logger             logger.Logger
 
 	UnitEngineConfig func() dependency.EngineConfig
 	SetupLogging     func(logger.LoggerContext, agent.Config)
 	NewDeployContext func(ContextConfig) (Context, error)
 }
 
-// TODO: add ManifoldConfig.Validate.
+// Validate validates the manifold configuration.
+func (c ManifoldConfig) Validate() error {
+	if c.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
+	if c.APICallerName == "" {
+		return errors.NotValidf("empty APICallerName")
+	}
+	if c.HTTPClientName == "" {
+		return errors.NotValidf("empty HTTPClientName")
+	}
+	if c.AgentConfigChanged == nil {
+		return errors.NotValidf("nil AgentConfigChanged")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
+	if c.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	if c.NewDeployContext == nil {
+		return errors.NotValidf("nil NewDeployContext")
+	}
+	return nil
+}
 
 // Manifold returns a dependency manifold that runs a deployer worker,
 // using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	typedConfig := engine.AgentAPIManifoldConfig{
-		AgentName:     config.AgentName,
-		APICallerName: config.APICallerName,
+	return dependency.Manifold{
+		Inputs: []string{
+			config.AgentName,
+			config.APICallerName,
+			config.HTTPClientName,
+		},
+		Start: config.start,
 	}
-	return engine.AgentAPIManifold(typedConfig, config.newWorker)
 }
 
-// newWorker trivially wraps NewDeployer for use in a engine.AgentAPIManifold.
+// start trivially wraps NewDeployer for use in a dependency manifold.
 //
-// It's not tested at the moment, because the scaffolding
-// necessary is too unwieldy/distracting to introduce at this point.
-func (config ManifoldConfig) newWorker(_ context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
-	// TODO: run config.Validate()
+// It's not tested at the moment, because the scaffolding necessary is too
+// unwieldy/distracting to introduce at this point.
+func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var a agent.Agent
+	if err := getter.Get(config.AgentName, &a); err != nil {
+		return nil, err
+	}
+	var apiCaller base.APICaller
+	if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
+		return nil, err
+	}
+	var httpClientGetter corehttp.HTTPClientGetter
+	if err := getter.Get(config.HTTPClientName, &httpClientGetter); err != nil {
+		return nil, err
+	}
+
 	cfg := a.CurrentConfig()
 	// Grab the tag and ensure that it's for a machine.
 	if cfg.Tag().Kind() != names.MachineTagKind {
@@ -59,13 +105,15 @@ func (config ManifoldConfig) newWorker(_ context.Context, a agent.Agent, apiCall
 
 	deployerFacade := apideployer.NewClient(apiCaller)
 	contextConfig := ContextConfig{
-		Agent:            a,
-		FlightRecorder:   config.FlightRecorder,
-		Clock:            config.Clock,
-		Logger:           config.Logger,
-		UnitEngineConfig: config.UnitEngineConfig,
-		SetupLogging:     config.SetupLogging,
-		UnitManifolds:    UnitManifolds,
+		Agent:              a,
+		AgentConfigChanged: config.AgentConfigChanged,
+		FlightRecorder:     config.FlightRecorder,
+		Clock:              config.Clock,
+		Logger:             config.Logger,
+		UnitEngineConfig:   config.UnitEngineConfig,
+		SetupLogging:       config.SetupLogging,
+		UnitManifolds:      UnitManifolds,
+		HTTPClientGetter:   httpClientGetter,
 	}
 
 	context, err := config.NewDeployContext(contextConfig)

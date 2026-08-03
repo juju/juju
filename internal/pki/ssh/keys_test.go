@@ -85,3 +85,38 @@ func (s *KeySuite) TestGenerateMarshalledED25519Key(c *tc.C) {
 
 	c.Assert(signer.PublicKey().Type(), tc.Equals, "ssh-ed25519")
 }
+
+func (s *KeySuite) TestPrivateKeyAlgorithm(c *tc.C) {
+	keyStr, err := ssh.NewMarshalledED25519()
+	c.Assert(err, tc.ErrorIsNil)
+
+	algorithm, err := ssh.PrivateKeyAlgorithm(keyStr)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(algorithm, tc.Equals, ssh.AlgorithmED25519)
+}
+
+func (s *KeySuite) TestPrivateKeyAlgorithm_Error(c *tc.C) {
+	_, err := ssh.PrivateKeyAlgorithm([]byte("not a valid key"))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+}
+
+// TestMarshalPublicKey checks that the marshalled public key derived from a
+// private key can be parsed back into a valid SSH public key.
+func (s *KeySuite) TestMarshalPublicKey(c *tc.C) {
+	keyStr, err := ssh.NewMarshalledED25519()
+	c.Assert(err, tc.ErrorIsNil)
+
+	marshalled, err := ssh.MarshalPublicKey(keyStr)
+	c.Assert(err, tc.ErrorIsNil)
+
+	publicKey, err := gossh.ParsePublicKey(marshalled)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(publicKey.Type(), tc.Equals, ssh.AlgorithmED25519)
+}
+
+// TestMarshalPublicKeyError checks that an invalid private key produces an
+// error rather than silently returning empty bytes.
+func (s *KeySuite) TestMarshalPublicKeyError(c *tc.C) {
+	_, err := ssh.MarshalPublicKey([]byte("not a valid key"))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+}

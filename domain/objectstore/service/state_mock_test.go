@@ -16,6 +16,7 @@ import (
 	objectstore "github.com/juju/juju/core/objectstore"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
+	objectstore0 "github.com/juju/juju/domain/objectstore"
 )
 
 // MockState is a mock of State interface.
@@ -243,18 +244,22 @@ type MockDrainingState struct {
 type MockDrainingStateMockRecorder struct {
 	mock                                   *MockDrainingState
 	addControllerIDHintExpects             []*gomock.Call3_1[context.Context, string, string, error]
-	getActiveDrainingPhaseExpects          []*gomock.Call1_3[context.Context, string, objectstore.Phase, error]
+	getActiveDrainingInfoExpects           []*gomock.Call1_2[context.Context, objectstore0.DrainingInfo, error]
+	getActiveObjectStoreBackendExpects     []*gomock.Call1_2[context.Context, objectstore0.BackendInfo, error]
 	getControllerIDHintsExpects            []*gomock.Call2_2[context.Context, string, []string, error]
 	getMetadataExpects                     []*gomock.Call2_2[context.Context, string, objectstore.Metadata, error]
 	getMetadataBySHA256Expects             []*gomock.Call2_2[context.Context, string, objectstore.Metadata, error]
 	getMetadataBySHA256PrefixExpects       []*gomock.Call2_2[context.Context, string, objectstore.Metadata, error]
+	getObjectStoreBackendExpects           []*gomock.Call2_2[context.Context, string, objectstore0.BackendInfo, error]
+	initialWatchBackendTableExpects        []*gomock.Call0_2[string, string]
 	initialWatchDrainingTableExpects       []*gomock.Call0_1[string]
 	initialWatchStatementExpects           []*gomock.Call0_2[string, string]
 	listMetadataExpects                    []*gomock.Call1_2[context.Context, []objectstore.Metadata, error]
 	putMetadataExpects                     []*gomock.Call3_2[context.Context, string, objectstore.Metadata, string, error]
 	putMetadataWithControllerIDHintExpects []*gomock.Call4_2[context.Context, string, objectstore.Metadata, string, string, error]
 	removeMetadataExpects                  []*gomock.Call2_1[context.Context, string, error]
-	setDrainingPhaseExpects                []*gomock.Call3_1[context.Context, string, objectstore.Phase, error]
+	transitionBackendToS3Expects           []*gomock.Call4_1[context.Context, string, string, objectstore0.S3Credentials, error]
+	transitionDrainingPhaseExpects         []*gomock.Call3_1[context.Context, string, objectstore.Phase, error]
 }
 
 // NewMockDrainingState creates a new mock instance.
@@ -287,23 +292,41 @@ func (mr *MockDrainingStateMockRecorder) AddControllerIDHint(ctx, sha384, contro
 // MockDrainingStateAddControllerIDHintCall is the typed call wrapper for AddControllerIDHint.
 type MockDrainingStateAddControllerIDHintCall = gomock.Call3_1[context.Context, string, string, error]
 
-// GetActiveDrainingPhase mocks base method.
-func (m *MockDrainingState) GetActiveDrainingPhase(ctx context.Context) (string, objectstore.Phase, error) {
+// GetActiveDrainingInfo mocks base method.
+func (m *MockDrainingState) GetActiveDrainingInfo(ctx context.Context) (objectstore0.DrainingInfo, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_3(&m.recorder.getActiveDrainingPhaseExpects, m.ctrl, m, "GetActiveDrainingPhase", ctx)
+	return gomock.Dispatch1_2(&m.recorder.getActiveDrainingInfoExpects, m.ctrl, m, "GetActiveDrainingInfo", ctx)
 }
 
-// GetActiveDrainingPhase indicates an expected call of GetActiveDrainingPhase.
-func (mr *MockDrainingStateMockRecorder) GetActiveDrainingPhase(ctx any) *MockDrainingStateGetActiveDrainingPhaseCall {
+// GetActiveDrainingInfo indicates an expected call of GetActiveDrainingInfo.
+func (mr *MockDrainingStateMockRecorder) GetActiveDrainingInfo(ctx any) *MockDrainingStateGetActiveDrainingInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_3[context.Context, string, objectstore.Phase, error](mr.mock.ctrl.T, mr.mock, "GetActiveDrainingPhase", gomock.EnsureMatcher(ctx))
-	mr.getActiveDrainingPhaseExpects = append(mr.getActiveDrainingPhaseExpects, call)
+	call := gomock.NewCall1_2[context.Context, objectstore0.DrainingInfo, error](mr.mock.ctrl.T, mr.mock, "GetActiveDrainingInfo", gomock.EnsureMatcher(ctx))
+	mr.getActiveDrainingInfoExpects = append(mr.getActiveDrainingInfoExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockDrainingStateGetActiveDrainingPhaseCall is the typed call wrapper for GetActiveDrainingPhase.
-type MockDrainingStateGetActiveDrainingPhaseCall = gomock.Call1_3[context.Context, string, objectstore.Phase, error]
+// MockDrainingStateGetActiveDrainingInfoCall is the typed call wrapper for GetActiveDrainingInfo.
+type MockDrainingStateGetActiveDrainingInfoCall = gomock.Call1_2[context.Context, objectstore0.DrainingInfo, error]
+
+// GetActiveObjectStoreBackend mocks base method.
+func (m *MockDrainingState) GetActiveObjectStoreBackend(ctx context.Context) (objectstore0.BackendInfo, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getActiveObjectStoreBackendExpects, m.ctrl, m, "GetActiveObjectStoreBackend", ctx)
+}
+
+// GetActiveObjectStoreBackend indicates an expected call of GetActiveObjectStoreBackend.
+func (mr *MockDrainingStateMockRecorder) GetActiveObjectStoreBackend(ctx any) *MockDrainingStateGetActiveObjectStoreBackendCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, objectstore0.BackendInfo, error](mr.mock.ctrl.T, mr.mock, "GetActiveObjectStoreBackend", gomock.EnsureMatcher(ctx))
+	mr.getActiveObjectStoreBackendExpects = append(mr.getActiveObjectStoreBackendExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockDrainingStateGetActiveObjectStoreBackendCall is the typed call wrapper for GetActiveObjectStoreBackend.
+type MockDrainingStateGetActiveObjectStoreBackendCall = gomock.Call1_2[context.Context, objectstore0.BackendInfo, error]
 
 // GetControllerIDHints mocks base method.
 func (m *MockDrainingState) GetControllerIDHints(ctx context.Context, sha384 string) ([]string, error) {
@@ -376,6 +399,42 @@ func (mr *MockDrainingStateMockRecorder) GetMetadataBySHA256Prefix(ctx, sha256 a
 
 // MockDrainingStateGetMetadataBySHA256PrefixCall is the typed call wrapper for GetMetadataBySHA256Prefix.
 type MockDrainingStateGetMetadataBySHA256PrefixCall = gomock.Call2_2[context.Context, string, objectstore.Metadata, error]
+
+// GetObjectStoreBackend mocks base method.
+func (m *MockDrainingState) GetObjectStoreBackend(ctx context.Context, uuid string) (objectstore0.BackendInfo, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getObjectStoreBackendExpects, m.ctrl, m, "GetObjectStoreBackend", ctx, uuid)
+}
+
+// GetObjectStoreBackend indicates an expected call of GetObjectStoreBackend.
+func (mr *MockDrainingStateMockRecorder) GetObjectStoreBackend(ctx, uuid any) *MockDrainingStateGetObjectStoreBackendCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, objectstore0.BackendInfo, error](mr.mock.ctrl.T, mr.mock, "GetObjectStoreBackend", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid))
+	mr.getObjectStoreBackendExpects = append(mr.getObjectStoreBackendExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockDrainingStateGetObjectStoreBackendCall is the typed call wrapper for GetObjectStoreBackend.
+type MockDrainingStateGetObjectStoreBackendCall = gomock.Call2_2[context.Context, string, objectstore0.BackendInfo, error]
+
+// InitialWatchBackendTable mocks base method.
+func (m *MockDrainingState) InitialWatchBackendTable() (string, string) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_2(&m.recorder.initialWatchBackendTableExpects, m.ctrl, m, "InitialWatchBackendTable")
+}
+
+// InitialWatchBackendTable indicates an expected call of InitialWatchBackendTable.
+func (mr *MockDrainingStateMockRecorder) InitialWatchBackendTable() *MockDrainingStateInitialWatchBackendTableCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_2[string, string](mr.mock.ctrl.T, mr.mock, "InitialWatchBackendTable")
+	mr.initialWatchBackendTableExpects = append(mr.initialWatchBackendTableExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockDrainingStateInitialWatchBackendTableCall is the typed call wrapper for InitialWatchBackendTable.
+type MockDrainingStateInitialWatchBackendTableCall = gomock.Call0_2[string, string]
 
 // InitialWatchDrainingTable mocks base method.
 func (m *MockDrainingState) InitialWatchDrainingTable() string {
@@ -485,23 +544,41 @@ func (mr *MockDrainingStateMockRecorder) RemoveMetadata(ctx, path any) *MockDrai
 // MockDrainingStateRemoveMetadataCall is the typed call wrapper for RemoveMetadata.
 type MockDrainingStateRemoveMetadataCall = gomock.Call2_1[context.Context, string, error]
 
-// SetDrainingPhase mocks base method.
-func (m *MockDrainingState) SetDrainingPhase(ctx context.Context, uuid string, phase objectstore.Phase) error {
+// TransitionBackendToS3 mocks base method.
+func (m *MockDrainingState) TransitionBackendToS3(ctx context.Context, backendUUID, drainUUID string, credential objectstore0.S3Credentials) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.setDrainingPhaseExpects, m.ctrl, m, "SetDrainingPhase", ctx, uuid, phase)
+	return gomock.Dispatch4_1(&m.recorder.transitionBackendToS3Expects, m.ctrl, m, "TransitionBackendToS3", ctx, backendUUID, drainUUID, credential)
 }
 
-// SetDrainingPhase indicates an expected call of SetDrainingPhase.
-func (mr *MockDrainingStateMockRecorder) SetDrainingPhase(ctx, uuid, phase any) *MockDrainingStateSetDrainingPhaseCall {
+// TransitionBackendToS3 indicates an expected call of TransitionBackendToS3.
+func (mr *MockDrainingStateMockRecorder) TransitionBackendToS3(ctx, backendUUID, drainUUID, credential any) *MockDrainingStateTransitionBackendToS3Call {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, string, objectstore.Phase, error](mr.mock.ctrl.T, mr.mock, "SetDrainingPhase", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid), gomock.EnsureMatcher(phase))
-	mr.setDrainingPhaseExpects = append(mr.setDrainingPhaseExpects, call)
+	call := gomock.NewCall4_1[context.Context, string, string, objectstore0.S3Credentials, error](mr.mock.ctrl.T, mr.mock, "TransitionBackendToS3", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(backendUUID), gomock.EnsureMatcher(drainUUID), gomock.EnsureMatcher(credential))
+	mr.transitionBackendToS3Expects = append(mr.transitionBackendToS3Expects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockDrainingStateSetDrainingPhaseCall is the typed call wrapper for SetDrainingPhase.
-type MockDrainingStateSetDrainingPhaseCall = gomock.Call3_1[context.Context, string, objectstore.Phase, error]
+// MockDrainingStateTransitionBackendToS3Call is the typed call wrapper for TransitionBackendToS3.
+type MockDrainingStateTransitionBackendToS3Call = gomock.Call4_1[context.Context, string, string, objectstore0.S3Credentials, error]
+
+// TransitionDrainingPhase mocks base method.
+func (m *MockDrainingState) TransitionDrainingPhase(ctx context.Context, newDrainUUID string, phase objectstore.Phase) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.transitionDrainingPhaseExpects, m.ctrl, m, "TransitionDrainingPhase", ctx, newDrainUUID, phase)
+}
+
+// TransitionDrainingPhase indicates an expected call of TransitionDrainingPhase.
+func (mr *MockDrainingStateMockRecorder) TransitionDrainingPhase(ctx, newDrainUUID, phase any) *MockDrainingStateTransitionDrainingPhaseCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, string, objectstore.Phase, error](mr.mock.ctrl.T, mr.mock, "TransitionDrainingPhase", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(newDrainUUID), gomock.EnsureMatcher(phase))
+	mr.transitionDrainingPhaseExpects = append(mr.transitionDrainingPhaseExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockDrainingStateTransitionDrainingPhaseCall is the typed call wrapper for TransitionDrainingPhase.
+type MockDrainingStateTransitionDrainingPhaseCall = gomock.Call3_1[context.Context, string, objectstore.Phase, error]
 
 // MockWatcherFactory is a mock of WatcherFactory interface.
 type MockWatcherFactory struct {

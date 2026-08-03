@@ -53,7 +53,7 @@ func (s *SymlinksSuite) TestEnsureSymlinksSymlinkedDir(c *tc.C) {
 func (s *SymlinksSuite) testEnsureSymlinks(c *tc.C, dir string) {
 	// If we have both 'jujuc' and 'jujud' prefer 'jujuc'
 	jujucPath := filepath.Join(s.toolsDir, names.Jujuc)
-	jujudPath := filepath.Join(s.toolsDir, names.Jujud)
+	jujudPath := filepath.Join(s.toolsDir, names.JujuAgentd)
 	err := os.WriteFile(jujucPath, []byte("first pick"), 0755)
 	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(jujudPath, []byte("assume sane"), 0755)

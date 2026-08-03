@@ -156,6 +156,18 @@ func (a *Authenticator) CreateLocalLoginMacaroon(ctx context.Context, tag names.
 	return mac.M(), nil
 }
 
+// CreateMigrationMacaroon is part of the macaroon.LocalMacaroonAuthenticator
+// interface. It mints a directly-presentable 24h login macaroon for the given
+// user so the migrationmaster worker can reconnect to this controller without
+// a discharge ceremony.
+func (a *Authenticator) CreateMigrationMacaroon(ctx context.Context, tag names.UserTag, version bakery.Version) (*macaroon.Macaroon, error) {
+	mac, err := a.authContext.CreateMigrationMacaroon(ctx, tag, version)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return mac.M(), nil
+}
+
 // AddHandlers adds the handlers to the given mux for handling local
 // macaroon logins.
 func (a *Authenticator) AddHandlers(mux *apiserverhttp.Mux) error {

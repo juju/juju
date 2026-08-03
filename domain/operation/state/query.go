@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -104,7 +105,7 @@ func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) 
 			allTaskLogs[op.UUID],
 		)
 		if err != nil {
-			return operation.QueryResult{}, errors.Errorf("encoding operation info for operation %q: %w", op.OperationID, err)
+			return operation.QueryResult{}, errors.Errorf("encoding operation info for operation %d: %w", op.OperationID, err)
 		}
 		opInfos = append(opInfos, opInfo)
 	}
@@ -119,7 +120,7 @@ func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) 
 //
 // The following errors may be returned:
 // - [operationerrors.OperationNotFound]: when the operation was not found.
-func (st *State) GetOperationByID(ctx context.Context, operationID string) (operation.OperationInfo, error) {
+func (st *State) GetOperationByID(ctx context.Context, operationID uint64) (operation.OperationInfo, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return operation.OperationInfo{}, errors.Capture(err)
@@ -157,7 +158,7 @@ func (st *State) GetOperationByID(ctx context.Context, operationID string) (oper
 
 	opInfo, err := encodeOperationInfo(op, tasks, parameters, taskLogs)
 	if err != nil {
-		return operation.OperationInfo{}, errors.Errorf("encoding operation info for operation %q: %w", operationID, err)
+		return operation.OperationInfo{}, errors.Errorf("encoding operation info for operation %d: %w", operationID, err)
 	}
 	return opInfo, nil
 }
@@ -187,7 +188,7 @@ func (st *State) getFullTasksForOperation(ctx context.Context, tx *sqlair.TX, op
 }
 
 // getOperation retrieves the operation row for a given operation_id.
-func (st *State) getOperation(ctx context.Context, tx *sqlair.TX, oID string) (operationResult, error) {
+func (st *State) getOperation(ctx context.Context, tx *sqlair.TX, oID uint64) (operationResult, error) {
 	ident := operationID{OperationID: oID}
 	query := `
 SELECT uuid AS &operationResult.uuid,
@@ -206,7 +207,7 @@ WHERE  operation_id = $operationID.operation_id
 	}
 	err = tx.Query(ctx, stmt, ident).Get(&op)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return operationResult{}, errors.Errorf("operation %q not found", oID).Add(operationerrors.OperationNotFound)
+		return operationResult{}, errors.Errorf("operation %d not found", oID).Add(operationerrors.OperationNotFound)
 	} else if err != nil {
 		return operationResult{}, errors.Errorf("querying operation: %w", err)
 	}
@@ -222,7 +223,7 @@ func encodeOperationInfo(
 	taskLogs map[string][]taskLogEntryByOperation,
 ) (operation.OperationInfo, error) {
 	var opInfo operation.OperationInfo
-	opInfo.OperationID = op.OperationID
+	opInfo.OperationID = strconv.FormatUint(op.OperationID, 10)
 	opInfo.Summary = ""
 	if op.Summary.Valid {
 		opInfo.Summary = op.Summary.String

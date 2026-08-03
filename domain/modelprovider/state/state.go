@@ -46,14 +46,18 @@ func (st *State) GetModelCloudAndCredential(ctx context.Context, uuid coremodel.
 	}
 
 	credStmt, err := st.Prepare(`
-SELECT    ca.auth_type AS &cloudCredentialWithAttribute.auth_type,
-          ca.attribute_key AS &cloudCredentialWithAttribute.attribute_key,
-          ca.attribute_value AS &cloudCredentialWithAttribute.attribute_value,
+SELECT    at.type AS &cloudCredentialWithAttribute.auth_type,
+          cca."key" AS &cloudCredentialWithAttribute.attribute_key,
+          cca.value AS &cloudCredentialWithAttribute.attribute_value,
           m.cloud_uuid AS &cloudCredentialWithAttribute.cloud_uuid,
-          m.cloud_region_name AS &cloudCredentialWithAttribute.cloud_region_name
-FROM      v_model m
-LEFT JOIN v_cloud_credential_attribute ca ON ca.uuid = m.cloud_credential_uuid
+          cr.name AS &cloudCredentialWithAttribute.cloud_region_name
+FROM      model AS m
+LEFT JOIN cloud_region AS cr ON cr.uuid = m.cloud_region_uuid
+LEFT JOIN cloud_credential AS cc ON cc.uuid = m.cloud_credential_uuid
+LEFT JOIN auth_type AS at ON at.id = cc.auth_type_id
+LEFT JOIN cloud_credential_attribute AS cca ON cca.cloud_credential_uuid = cc.uuid
 WHERE     m.uuid = $modelUUID.uuid
+AND       m.activated = TRUE
 `, cloudCredentialWithAttribute{}, modelUUID)
 	if err != nil {
 		return nil, "", nil, errors.Capture(err)

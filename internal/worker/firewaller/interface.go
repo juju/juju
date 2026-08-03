@@ -11,7 +11,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/controller/firewaller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
@@ -38,7 +37,7 @@ type FirewallerAPI interface {
 	ModelConfig(context.Context) (*config.Config, error)
 	Machine(ctx context.Context, tag names.MachineTag) (Machine, error)
 	Unit(ctx context.Context, tag names.UnitTag) (Unit, error)
-	Relation(ctx context.Context, tag names.RelationTag) (*firewaller.Relation, error)
+	Relation(ctx context.Context, tag names.RelationTag) (*Relation, error)
 	ControllerAPIInfoForModel(ctx context.Context, modelUUID string) (*api.Info, error)
 	SetRelationStatus(ctx context.Context, relationKey string, status relation.Status, message string) error
 	AllSpaceInfos(ctx context.Context) (network.SpaceInfos, error)

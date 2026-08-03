@@ -20,6 +20,7 @@ import (
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -192,6 +193,63 @@ func (s *stateSuite) TestDeleteModelImportingStatusSuccess(c *tc.C) {
 		s.modelUUID).Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
+}
+
+// TestDeleteModelImportingStatusWithCompanions tests that clearing an
+// existing model_migration_import entry also deletes its companion rows in
+// model_migration_import_offer and
+// model_migration_import_external_controller_model, rather than failing on
+// the parent delete's foreign key constraint.
+func (s *stateSuite) TestDeleteModelImportingStatusWithCompanions(c *tc.C) {
+	db := s.DB()
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	migratingUUID := uuid.MustNewUUID().String()
+	sourceMigrationUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		migratingUUID, s.modelUUID, sourceMigrationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Companion: an offer permission recorded during the import.
+	offerUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO model_migration_import_offer (migration_uuid, offer_uuid) VALUES (?, ?)",
+		migratingUUID, offerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Companion: a third-party external controller model mapping recorded
+	// during the import.
+	extCtrlUUID := uuid.MustNewUUID().String()
+	consumedModelUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO external_controller (uuid, alias, ca_cert) VALUES (?, 'other-ctrl', 'CACERT')",
+		extCtrlUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		`INSERT INTO model_migration_import_external_controller_model
+		 (migration_uuid, offerer_model_uuid, controller_uuid) VALUES (?, ?, ?)`,
+		migratingUUID, consumedModelUUID, extCtrlUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Clearing the importing status must not fail on the parent delete's
+	// foreign key constraint.
+	err = st.DeleteModelImportingStatus(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	tableKeyColumns := map[string]string{
+		"model_migration_import":                           "uuid",
+		"model_migration_import_offer":                     "migration_uuid",
+		"model_migration_import_external_controller_model": "migration_uuid",
+	}
+	for table, keyColumn := range tableKeyColumns {
+		var count int
+		err = db.QueryRowContext(c.Context(),
+			fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE %s = ?", table, keyColumn),
+			migratingUUID).Scan(&count)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(count, tc.Equals, 0, tc.Commentf("expected table %q to have no rows for migration %q", table, migratingUUID))
+	}
 }
 
 // TestGetKnownSecretBackends asserts only the supplied backend UUIDs that
@@ -855,6 +913,53 @@ func (s *stateSuite) TestGetMigrationMode(c *tc.C) {
 	c.Check(mode, tc.Equals, modelmigration.MigrationModeImporting)
 }
 
+// TestGetMigrationPhase asserts the derived phase considers both directions in
+// one read: an import claim reports IMPORT, an active export reports its own
+// phase, neither reports NONE, and a claim takes precedence over an export.
+// The phase is returned as its name, parseable with [migration.ParsePhase].
+func (s *stateSuite) TestGetMigrationPhase(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	// No migration: none.
+	phase, err := st.GetMigrationPhase(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.NONE.String())
+
+	// Active export: its own phase (exports start in QUIESCE).
+	spec := s.newMigrationSpec()
+	err = st.InsertExport(c.Context(), spec)
+	c.Assert(err, tc.ErrorIsNil)
+	phase, err = st.GetMigrationPhase(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.QUIESCE.String())
+
+	// An import claim takes precedence over the active export: a model with
+	// both is inconsistent, and IMPORT keeps it frozen.
+	_, err = s.DB().ExecContext(c.Context(),
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'src')",
+		uuid.MustNewUUID().String(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	phase, err = st.GetMigrationPhase(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.IMPORT.String())
+
+	// Ending the export leaves the claim reporting IMPORT.
+	err = st.MarkExportEnded(c.Context(), spec.MigrationUUID, migration.DONE)
+	c.Assert(err, tc.ErrorIsNil)
+	phase, err = st.GetMigrationPhase(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.IMPORT.String())
+
+	// Deleting the claim - the moment the imported model becomes usable -
+	// reports none.
+	_, err = s.DB().ExecContext(c.Context(),
+		"DELETE FROM model_migration_import WHERE model_uuid = ?", s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	phase, err = st.GetMigrationPhase(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.NONE.String())
+}
+
 // TestGetControllerModelInfoIdentity verifies that the model bootstrap
 // identity, credential, the seeded admin model permission and the model secret
 // backend are read back in target-portable form for a model created by the
@@ -1198,7 +1303,7 @@ func (s *stateSuite) TestGetControllerModelInfoIncludesModelQualifierUser(c *tc.
 	info, err = st.GetControllerModelInfo(c.Context(), s.modelUUID.String(), nil, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	var qualifierUsers []modelmigration.ModelUser
+	var qualifierUsers []coremodelmigration.ModelUser
 	for _, u := range info.Users {
 		if u.Name == ownerName.String() {
 			qualifierUsers = append(qualifierUsers, u)
@@ -1378,15 +1483,15 @@ func (s *stateSuite) TestGetControllerModelInfoFullSet(c *tc.C) {
 	}
 	c.Check(foundOffer, tc.IsTrue, tc.Commentf("expected offer permission, got %#v", info.Permissions))
 
-	c.Check(info.AuthorizedKeys, tc.DeepEquals, []modelmigration.ModelAuthorizedKey{
+	c.Check(info.AuthorizedKeys, tc.DeepEquals, []coremodelmigration.ModelAuthorizedKey{
 		{Username: "test-user", PublicKey: "ssh-ed25519 AAAAkey"},
 	})
 
-	c.Check(info.Leaders, tc.DeepEquals, []modelmigration.ApplicationLeadership{
+	c.Check(info.Leaders, tc.DeepEquals, []coremodelmigration.ApplicationLeadership{
 		{Application: "app", Leader: "app/0"},
 	})
 
-	c.Check(info.SecretBackendRefs, tc.DeepEquals, []modelmigration.SecretBackendReference{
+	c.Check(info.SecretBackendRefs, tc.DeepEquals, []coremodelmigration.SecretBackendReference{
 		{BackendName: backendName, SecretRevisionUUID: revUUID, SecretID: secretID},
 	})
 
@@ -1408,7 +1513,7 @@ func (s *stateSuite) TestGetControllerModelInfoFullSet(c *tc.C) {
 	))
 
 	c.Assert(info.CloudImageMetadata, tc.HasLen, 1)
-	c.Check(info.CloudImageMetadata[0], tc.DeepEquals, modelmigration.CloudImageMetadata{
+	c.Check(info.CloudImageMetadata[0], tc.DeepEquals, coremodelmigration.CloudImageMetadata{
 		Stream:          "released",
 		Region:          "us-east-1",
 		Version:         "22.04",

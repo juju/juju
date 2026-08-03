@@ -198,6 +198,7 @@ VMware vSphere supports the following {ref}`constraints <constraint>`:
 
 **Networking**
 
+- {ref}`constraint-ip-family`. The IP family depends on the VM network and DHCP configuration.
 - {ref}`constraint-zones`. Specifies resource pools within a host or cluster. Examples: `zones=myhost`, `zones=myfolder/myhost`, `zones=mycluster/mypool`, `zones=mycluster/myparent/mypool`.
 
 **Storage**

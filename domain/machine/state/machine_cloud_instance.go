@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -200,7 +201,7 @@ WHERE machine_uuid=$instanceData.machine_uuid
 UPDATE machine
 SET    nonce = $machineNonce.nonce
 WHERE  uuid = $machineNonce.machine_uuid
-AND    nonce IS NULL OR nonce = ''
+AND    (nonce IS NULL OR nonce = '')
 `, mNonce)
 	if err != nil {
 		return errors.Capture(err)
@@ -211,6 +212,20 @@ INSERT INTO instance_tag (*)
 VALUES ($instanceTag.*)
 `
 	setInstanceTagStmt, err := st.Prepare(setInstanceTags, instanceTag{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	clearReprovisionStmt, err := st.Prepare(`
+WITH provisioned_machine AS (
+    SELECT name
+    FROM machine
+    WHERE uuid = $entityUUID.uuid
+)
+DELETE FROM machine_reprovision
+WHERE machine_name IN (
+    SELECT name FROM provisioned_machine
+)
+`, entityUUID{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -297,6 +312,11 @@ WHERE  availability_zone.name = $availabilityZoneName.name
 				return errors.Errorf("inserting instance tags for machine %q: %w", mUUID, err)
 			}
 		}
+		if instID.Valid {
+			if err := tx.Query(ctx, clearReprovisionStmt, entityUUID{UUID: mUUID}).Run(); err != nil {
+				return errors.Errorf("clearing machine reprovision marker: %w", err)
+			}
+		}
 		return nil
 	})
 }
@@ -347,6 +367,48 @@ func (st *State) GetInstanceID(ctx context.Context, mUUID string) (string, error
 	}
 
 	return instanceId, nil
+}
+
+// GetInstanceIDByMachineName returns the cloud specific instance ID for the
+// machine identified by name. If the machine is not provisioned, it returns a
+// [machineerrors.NotProvisioned] error.
+func (st *State) GetInstanceIDByMachineName(ctx context.Context, mName machine.Name) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	machineNameParam := machineName{Name: mName.String()}
+	query := `
+SELECT     &instanceID.instance_id
+FROM       machine AS m
+LEFT JOIN  machine_cloud_instance AS mci ON m.uuid = mci.machine_uuid
+WHERE      m.name = $machineName.name
+`
+	queryStmt, err := st.Prepare(query, machineNameParam, instanceID{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var result instanceID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		}
+		if err != nil {
+			return errors.Errorf("querying instance for machine %q: %w", mName, err)
+		}
+		if result.ID == "" {
+			return errors.Errorf("getting machine instance id for %q: %w", mName, machineerrors.NotProvisioned)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return result.ID, nil
 }
 
 func (st *State) getInstanceID(ctx context.Context, tx *sqlair.TX, mUUID string) (string, error) {

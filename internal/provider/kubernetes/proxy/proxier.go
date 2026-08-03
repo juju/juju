@@ -36,7 +36,7 @@ const (
 )
 
 func (p *Proxier) Host() string {
-	return "localhost"
+	return "127.0.0.1"
 }
 
 func NewProxier(config ProxierConfig) *Proxier {
@@ -98,6 +98,15 @@ func (p *Proxier) MarshalYAML() (any, error) {
 
 func (p *Proxier) Port() string {
 	return p.tunnel.LocalPort
+}
+
+// ProxyError reports asynchronous port-forwarding errors observed after the
+// tunnel was reported as ready.
+func (p *Proxier) ProxyError() error {
+	if p.tunnel == nil {
+		return nil
+	}
+	return p.tunnel.ForwardError()
 }
 
 func (p *Proxier) Start(ctx context.Context) (err error) {

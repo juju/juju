@@ -27,6 +27,9 @@ ON machine (name);
 CREATE UNIQUE INDEX idx_machine_net_node
 ON machine (net_node_uuid);
 
+CREATE INDEX idx_machine_life_name
+ON machine (life_id, name);
+
 CREATE TABLE machine_manual (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     CONSTRAINT fk_machine_manual_machine
@@ -87,6 +90,9 @@ CREATE TABLE machine_parent (
     FOREIGN KEY (parent_uuid)
     REFERENCES machine (uuid)
 );
+
+CREATE INDEX idx_machine_parent_parent_uuid
+ON machine_parent (parent_uuid);
 
 -- machine_agent_version tracks the reported agent version running for each
 -- machine.
@@ -160,6 +166,9 @@ CREATE TABLE machine_volume (
     PRIMARY KEY (machine_uuid, volume_uuid)
 );
 
+CREATE INDEX idx_machine_volume_volume
+ON machine_volume (volume_uuid, machine_uuid);
+
 CREATE TABLE machine_filesystem (
     machine_uuid TEXT NOT NULL,
     filesystem_uuid TEXT NOT NULL,
@@ -172,12 +181,23 @@ CREATE TABLE machine_filesystem (
     PRIMARY KEY (machine_uuid, filesystem_uuid)
 );
 
+CREATE INDEX idx_machine_filesystem_filesystem
+ON machine_filesystem (filesystem_uuid, machine_uuid);
+
 CREATE TABLE machine_requires_reboot (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     created_at DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
     CONSTRAINT fk_machine_requires_reboot_machine
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid)
+);
+
+CREATE TABLE machine_reprovision (
+    machine_name TEXT NOT NULL PRIMARY KEY,
+    requested_at DATETIME NOT NULL,
+    CONSTRAINT fk_machine_reprovision_machine
+    FOREIGN KEY (machine_name)
+    REFERENCES machine (name)
 );
 
 CREATE TABLE machine_status_value (
@@ -207,14 +227,25 @@ CREATE TABLE machine_status (
 );
 
 CREATE VIEW v_machine_status AS
+WITH machine_presence AS (
+    SELECT machine_uuid
+    FROM machine_agent_presence
+    UNION
+    SELECT mp.parent_uuid AS machine_uuid
+    FROM machine_parent AS mp
+    JOIN machine_agent_presence AS map ON mp.machine_uuid = map.machine_uuid
+)
+
 SELECT
     ms.machine_uuid,
     ms.message,
     ms.data,
     ms.updated_at,
-    msv.status
+    msv.status,
+    mp.machine_uuid IS NOT NULL AS present
 FROM machine_status AS ms
-JOIN machine_status_value AS msv ON ms.status_id = msv.id;
+JOIN machine_status_value AS msv ON ms.status_id = msv.id
+LEFT JOIN machine_presence AS mp ON ms.machine_uuid = mp.machine_uuid;
 
 -- machine_lxd_profile table keeps track of the lxd profiles (previously
 -- charm-profiles) for a machine.
@@ -281,6 +312,7 @@ SELECT
     c.virt_type,
     c.allocate_public_ip,
     c.image_id,
+    c.ip_family,
     ctag.tag,
     cspace.space AS space_name,
     cspace."exclude" AS space_exclude,

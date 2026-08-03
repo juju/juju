@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/migration"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -68,7 +69,7 @@ type CredentialValidator interface {
 	Validate(
 		ctx context.Context,
 		info modelmigration.CredentialValidationInfo,
-		credential modelmigration.ModelCloudCredential,
+		credential coremodelmigration.ModelCloudCredential,
 	) error
 }
 
@@ -109,10 +110,6 @@ type WatcherFactory interface {
 // ControllerState defines the interface required for accessing the underlying
 // state of the model during migration.
 type ControllerState interface {
-	// GetControllerTargetVersion returns the target controller version in use
-	// by the cluster.
-	GetControllerTargetVersion(ctx context.Context) (string, error)
-
 	// GetKnownSecretBackends returns the subset of the supplied secret backend
 	// UUIDs that exist on the controller, used to detect model secret value
 	// refs that still carry a source-controller-local backend UUID after
@@ -127,7 +124,7 @@ type ControllerState interface {
 	// GetModelCloudCredential returns the natural key, auth material and
 	// status of the credential assigned to the given model, or nil when the
 	// model has no credential.
-	GetModelCloudCredential(ctx context.Context, modelUUID string) (*modelmigration.ModelCloudCredential, error)
+	GetModelCloudCredential(ctx context.Context, modelUUID string) (*coremodelmigration.ModelCloudCredential, error)
 
 	// GetAgentBinaryArchitecturesForVersion returns the architecture names for
 	// which the controller's object store holds agent binaries at the given
@@ -155,6 +152,10 @@ type ControllerState interface {
 	// sync report changes keyed by migration UUID.
 	NamespaceForWatchMinionSync() string
 
+	// NamespaceForWatchImportClaim returns the changestream namespace for
+	// target-side import claim changes keyed by model UUID.
+	NamespaceForWatchImportClaim() string
+
 	// InsertExport records a new export migration attempt for a model,
 	// returning [modelmigrationerrors.ErrMigrationAlreadyActive] if the model already
 	// has an active export.
@@ -171,6 +172,12 @@ type ControllerState interface {
 	// GetMigrationMode derives the migration mode for the model.
 	GetMigrationMode(ctx context.Context, modelUUID string) (modelmigration.MigrationMode, error)
 
+	// GetMigrationPhase derives the model's migration phase in both
+	// directions: importing while a target import claim exists, otherwise the
+	// active export's phase, otherwise none. The phase is returned as its
+	// name.
+	GetMigrationPhase(ctx context.Context, modelUUID string) (string, error)
+
 	// SetPhase transitions an export migration to a new phase, enforcing valid
 	// phase transitions with optimistic locking.
 	SetPhase(ctx context.Context, migrationUUID string, newPhase migration.Phase) error
@@ -185,23 +192,109 @@ type ControllerState interface {
 	// reported for the given migration and phase.
 	AggregateMinionReports(ctx context.Context, migrationUUID string, phase migration.Phase) (modelmigrationinternal.MinionReports, error)
 
-	// GetControllerModelInfo reads the controller-database records scoped to
-	// the given migrating model in target-portable semantic form. offerUUIDs
-	// are the model's hosted offer UUIDs and offererModels are the distinct
-	// third-party (offerer controller, offerer model) pairs referenced by the
-	// model's remote applications, both read from the model database by the
-	// caller.
-	GetControllerModelInfo(
-		ctx context.Context,
-		modelUUID string,
-		offerUUIDs []string,
-		offererModels []modelmigrationinternal.OffererModel,
-	) (modelmigration.ControllerModelInfo, error)
-
 	// GetSourceControllerInfo returns the source controller's identity and
 	// client connection details used by the target controller to dial back
 	// during model activation.
 	GetSourceControllerInfo(ctx context.Context) (modelmigrationinternal.SourceControllerInfo, error)
+
+	// CheckImportModelCollision reports model identity collisions that would
+	// block importing the model on the target controller.
+	CheckImportModelCollision(
+		ctx context.Context, modelUUID, name, qualifier string,
+	) (modelmigration.ImportModelCollision, error)
+
+	// CheckCloudRegion reports whether the named cloud exists and, when a
+	// region name is supplied, whether that region is known to the cloud.
+	CheckCloudRegion(ctx context.Context, cloudName, regionName string) (
+		cloudExists bool, regionExists bool, err error,
+	)
+
+	// GetDisabledUsers reports the active users from names that are disabled
+	// on the controller. Missing and removed users are omitted.
+	GetDisabledUsers(ctx context.Context, names []string) ([]string, error)
+
+	// GetCredentialRevoked reports whether a cloud credential with the given
+	// natural key exists on the controller and, when it does, whether it is
+	// revoked.
+	GetCredentialRevoked(ctx context.Context, cloud, owner, name string) (revoked bool, exists bool, err error)
+
+	// SecretBackendExists reports whether a secret backend with the given name
+	// exists on the controller.
+	SecretBackendExists(ctx context.Context, name string) (bool, error)
+
+	// GetConflictingCloudImageMetadata reports, for each supplied custom image
+	// metadata row, the existing target image id when a row with the same
+	// natural key already exists on the controller with a different image id.
+	GetConflictingCloudImageMetadata(ctx context.Context, rows []modelmigration.ImportPrecheckImageMetadata) ([]modelmigration.CloudImageMetadataConflict, error)
+
+	// BeginImport inserts a new durable model_migration_import claim
+	// (phase=importing) for modelUUID as the first target-side write of a v8
+	// import, using claimUUID as the claim's UUID, and returns the resulting
+	// claim. If a claim already exists, the existing claim is returned
+	// alongside [modelmigrationerrors.ErrImportClaimExists].
+	BeginImport(ctx context.Context, modelUUID, claimUUID, sourceMigrationUUID string) (modelmigration.ImportClaim, error)
+
+	// GetImportClaim returns the target-side import claim for the given model
+	// UUID, or [modelmigrationerrors.ErrImportNotFound] when no claim exists.
+	GetImportClaim(ctx context.Context, modelUUID string) (modelmigration.ImportClaim, error)
+
+	// AssertImporting returns nil if a model_migration_import claim exists for
+	// modelUUID and its phase is 'importing'. It returns
+	// [modelmigrationerrors.ErrImportNotFound] if no claim exists, or
+	// [modelmigrationerrors.ErrImportNotImporting] if the claim has moved past
+	// the importing phase.
+	AssertImporting(ctx context.Context, modelUUID string) error
+
+	// ImportOfferPermissions records the offer UUIDs granted permission during
+	// this import claim into model_migration_import_offer, atomically with an
+	// importing-phase assertion for modelUUID.
+	ImportOfferPermissions(ctx context.Context, modelUUID, claimUUID string, offerUUIDs []string) error
+
+	// EnsureExternalControllerExists compares-or-inserts a single third-party
+	// controller's connection details, failing with
+	// [modelmigrationerrors.ErrExternalControllerMismatch] on a mismatch
+	// rather than overwriting live CMR connection data.
+	EnsureExternalControllerExists(ctx context.Context, ref modelmigrationinternal.ExternalController) error
+
+	// ImportExternalControllers applies the third-party external controller
+	// references from a v8 import envelope to the target controller,
+	// atomically with an importing-phase assertion for modelUUID, and records
+	// the durable (offerer_model_uuid, controller_uuid) handoff for Activate.
+	ImportExternalControllers(
+		ctx context.Context, modelUUID, claimUUID string, refs []modelmigrationinternal.ExternalController,
+	) error
+
+	// GetImportedOfferUUIDs returns the offer UUIDs recorded in
+	// model_migration_import_offer for the import claim of the given model.
+	// Returns nil (not an error) when no offer rows exist.
+	GetImportedOfferUUIDs(ctx context.Context, modelUUID string) ([]string, error)
+
+	// SetImportPhaseActivating transitions the model's import claim from the
+	// importing phase to the activating phase. It is idempotent when the
+	// claim is already activating and returns
+	// [modelmigrationerrors.ErrActivationAborting] when the claim is aborting.
+	SetImportPhaseActivating(ctx context.Context, modelUUID string) error
+
+	// DeleteActivatedImport removes the model's import claim and its
+	// FK-dependent companion rows, asserting the claim is in the activating
+	// phase. It is idempotent when no claim exists.
+	DeleteActivatedImport(ctx context.Context, modelUUID string) error
+
+	// EnsureSourceControllerExists compares-or-inserts the migration source
+	// controller's connection details and records the models it offers,
+	// failing with [modelmigrationerrors.ErrExternalControllerMismatch] on a
+	// mismatch rather than overwriting live CMR connection data.
+	EnsureSourceControllerExists(
+		ctx context.Context, controllerUUID, alias, caCert string, addrs, addrUUIDs, consumedModels []string,
+	) error
+
+	// ExternalControllerModelsForImport returns the third-party offerer-model
+	// to controller mappings recorded for the model's import claim. Returns an
+	// empty slice when no mappings exist or the model has no claim.
+	ExternalControllerModelsForImport(ctx context.Context, modelUUID string) ([]coremodelmigration.OffererModel, error)
+
+	// GetControllerTargetVersion returns the controller's target agent version.
+	GetControllerTargetVersion(ctx context.Context) (string, error)
 
 	// EnsureExportOffers records the hosted offer UUIDs for a migration into
 	// model_migration_export_offer. Idempotent.
@@ -233,6 +326,10 @@ type ModelState interface {
 	// GetControllerUUID returns the UUID of the controller that owns this
 	// model.
 	GetControllerUUID(context.Context) (string, error)
+
+	// IsModelImporting reports whether the model database still carries its
+	// import gate.
+	IsModelImporting(ctx context.Context) (bool, error)
 	// GetMachineInstanceIDs returns a map from provider cloud instance ID to the
 	// name of the model machine it backs, for every provisioned machine the
 	// cloud is expected to know about.
@@ -275,20 +372,6 @@ type ModelState interface {
 	// GetAgentBinaryArchitecturesForVersion returns the architecture names for
 	// which the model's object store holds agent binaries at the given version.
 	GetAgentBinaryArchitecturesForVersion(ctx context.Context, version string) ([]string, error)
-	// GetModelTargetAgentVersion returns the target agent version for this
-	// model.
-	GetModelTargetAgentVersion(context.Context) (string, error)
-	// SetModelTargetAgentVersion is responsible for setting the current target
-	// agent version of the model. This function expects a precondition version
-	// to be supplied. The model's target version at the time the operation is
-	// applied must match the preCondition version or else an error is returned.
-	SetModelTargetAgentVersion(
-		ctx context.Context, preCondition, toVersion string,
-	) error
-	// DeleteModelImportingStatus removes the entry from the model_migrating
-	// table in the model database, indicating that the model import has
-	// completed or been aborted.
-	DeleteModelImportingStatus(ctx context.Context) error
 
 	// GetMigrationAgents returns all agents that must report migration
 	// minion progress for this model.
@@ -298,11 +381,28 @@ type ModelState interface {
 	// to select the offer-scoped permission rows that travel with the migration.
 	GetOfferUUIDs(ctx context.Context) ([]string, error)
 
-	// GetThirdPartyOffererModels returns the distinct (offerer controller,
-	// offerer model) pairs referenced by this model's remote applications,
-	// excluding pairs offered by this model's own controller, used to select
-	// the third-party external controllers that travel with the migration.
-	GetThirdPartyOffererModels(ctx context.Context) ([]modelmigrationinternal.OffererModel, error)
+	// DeleteModelImportingStatus clears the model-database import gate, making
+	// the model visible once activation completes.
+	DeleteModelImportingStatus(ctx context.Context) error
+
+	// GetModelTargetAgentVersion returns the target agent version currently set
+	// for the model.
+	GetModelTargetAgentVersion(ctx context.Context) (string, error)
+
+	// SetModelTargetAgentVersion sets the model's target agent version,
+	// asserting that the current version matches preCondition.
+	SetModelTargetAgentVersion(ctx context.Context, preCondition, toVersion string) error
+}
+
+// NewImportService constructs a new [Service] for the v8 import driver, which
+// only needs controller-scoped claim methods. The model-export-only
+// dependencies (modelState, watcherFactory, the provider getters, modelUUID)
+// are intentionally left unset rather than passed as nil by the caller.
+func NewImportService(controllerState ControllerState, logger logger.Logger) *Service {
+	return &Service{
+		controllerState: controllerState,
+		logger:          logger,
+	}
 }
 
 // NewService is responsible for constructing a new [Service] to handle model
@@ -326,6 +426,39 @@ func NewService(
 		credentialValidator:    credentialValidator,
 		modelUUID:              modelUUID,
 		logger:                 logger,
+	}
+}
+
+// WatchableService provides the means for supporting model migration actions
+// between controllers and the ability to create watchers.
+type WatchableService struct {
+	Service
+}
+
+// NewWatchableService is responsible for constructing a new
+// [WatchableService] to handle model migration tasks with watching
+// capabilities.
+func NewWatchableService(
+	controllerState ControllerState,
+	modelState ModelState,
+	modelUUID string,
+	watcherFactory WatcherFactory,
+	instanceProviderGetter providertracker.ProviderGetter[InstanceProvider],
+	resourceProviderGetter providertracker.ProviderGetter[ResourceProvider],
+	credentialValidator CredentialValidator,
+	logger logger.Logger,
+) *WatchableService {
+	return &WatchableService{
+		Service: *NewService(
+			controllerState,
+			modelState,
+			modelUUID,
+			watcherFactory,
+			instanceProviderGetter,
+			resourceProviderGetter,
+			credentialValidator,
+			logger,
+		),
 	}
 }
 
@@ -473,9 +606,47 @@ func (s *Service) ModelMigrationMode(ctx context.Context) (modelmigration.Migrat
 	return mode, nil
 }
 
+// MigrationPhase returns the migration phase of this model considering
+// migration in *both* directions:
+//
+//   - a live target-side import claim, in any phase, reports [migration.IMPORT];
+//   - otherwise an active source-side export reports its own phase;
+//   - otherwise [migration.NONE].
+//
+// It exists because [Service.Migration] deliberately reports only exports: the
+// migration master needs export identity and target info, and must never treat
+// an import claim as something it should drive. Callers that only want to know
+// "is this model migrating, either way?" - the migration flag on both the
+// controller and agent sides - must use this instead, so that a target model
+// stays frozen for the whole of an import rather than only during an export.
+//
+// [migration.IMPORT] is reported for every claim phase, including aborting,
+// because none of them make the model usable. Since IMPORT is non-terminal, a
+// flag built on [IsTerminal] reports false and workers stay parked until the
+// claim is gone.
+func (s *Service) MigrationPhase(ctx context.Context) (migration.Phase, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// GetMigrationPhase resolves both tables in one transaction, so it cannot
+	// report a stale mix of the two sides.
+	phaseName, err := s.controllerState.GetMigrationPhase(ctx, s.modelUUID)
+	if err != nil {
+		return migration.UNKNOWN, errors.Capture(err)
+	}
+	phase, ok := migration.ParsePhase(phaseName)
+	if !ok {
+		return migration.UNKNOWN, errors.Errorf("unknown migration phase %q", phaseName)
+	}
+	return phase, nil
+}
+
 // Migration returns status about migration of this model. If the model is not
 // currently being migrated, a migration with phase [migration.NONE] is
 // returned.
+//
+// This reports source-side exports only. See [Service.MigrationPhase] for the
+// direction-agnostic read used by the migration flag.
 func (s *Service) Migration(ctx context.Context) (modelmigration.Migration, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -487,30 +658,6 @@ func (s *Service) Migration(ctx context.Context) (modelmigration.Migration, erro
 		return modelmigration.Migration{}, errors.Capture(err)
 	}
 	return decodeMigration(mig)
-}
-
-// GetControllerModelInfo reads the controller-database records scoped to this
-// migrating model and returns them in target-portable semantic form. It first
-// reads the model's hosted offer UUIDs and third-party remote-offerer pairs
-// from the model database, then reads the matching controller-database rows.
-func (s *Service) GetControllerModelInfo(ctx context.Context) (modelmigration.ControllerModelInfo, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	offerUUIDs, err := s.modelState.GetOfferUUIDs(ctx)
-	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading model offer UUIDs: %w", err)
-	}
-	offererModels, err := s.modelState.GetThirdPartyOffererModels(ctx)
-	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading model offerer models: %w", err)
-	}
-
-	info, err := s.controllerState.GetControllerModelInfo(ctx, s.modelUUID, offerUUIDs, offererModels)
-	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading controller model info for %q: %w", s.modelUUID, err)
-	}
-	return info, nil
 }
 
 // SourceControllerInfo returns this (source) controller's identity and the
@@ -709,6 +856,39 @@ func (s *Service) WatchMigrationPhase(ctx context.Context) (watcher.NotifyWatche
 
 	return s.watchControllerNamespace(
 		ctx, "watch for migration phase change", s.controllerState.NamespaceForWatchPhase(),
+	)
+}
+
+// WatchMigrationActivity returns a notification watcher that fires whenever
+// this model's migration activity changes in either direction: an export phase
+// transition on the source side, or an import claim being created, changing
+// phase, or being deleted on the target side.
+//
+// It is the watcher behind [Service.MigrationPhase], and exists because
+// [Service.WatchMigrationPhase] observes exports only: a target import is
+// invisible to that watcher, so on its own it would never fire when an
+// imported model becomes usable. Claim deletion is exactly that moment, so
+// watching both namespaces is what lets the migration flag unfreeze a target
+// model. Extending [Service.WatchMigrationPhase] to also observe claims was
+// rejected: it feeds the migration minion, which follows the source's phase
+// machine and must not be woken by target-side claim changes.
+func (s *WatchableService) WatchMigrationActivity(ctx context.Context) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
+		"watch for migration activity",
+		eventsource.PredicateFilter(
+			s.controllerState.NamespaceForWatchPhase(),
+			changestream.All,
+			eventsource.EqualsPredicate(s.modelUUID),
+		),
+		eventsource.PredicateFilter(
+			s.controllerState.NamespaceForWatchImportClaim(),
+			changestream.All,
+			eventsource.EqualsPredicate(s.modelUUID),
+		),
 	)
 }
 
@@ -1004,120 +1184,4 @@ func unitNameFromMinionReportKey(key string) (string, error) {
 		unitNumber = nextUnitNumber
 	}
 	return "", errors.Errorf("missing unit number")
-}
-
-// ActivateImport finalises the import of the model by clearing the
-// model_migrating table entry in the model database.
-func (s *Service) ActivateImport(ctx context.Context) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	// Validate the imported model before making it live. This is read-only and
-	// runs before any write below, so a validation failure leaves the model
-	// gated and abortable.
-	if err := s.ValidateImportedModel(ctx); err != nil {
-		return errors.Errorf("validating imported model: %w", err)
-	}
-
-	// Before we activate the model after the import, we need to update the
-	// agent version to match the current controller version. This ensures that
-	// all agents after a migration are running the correct version. This was
-	// done previously in two steps, and could cause a model after a migration
-	// to be in a state where it was running a very old agent version until the
-	// the operator manually upgraded the agents.
-
-	desiredTargetVersionStr, err := s.controllerState.GetControllerTargetVersion(ctx)
-	if err != nil {
-		return errors.Errorf("getting current controller agent version: %w", err)
-	} else if desiredTargetVersionStr == "" {
-		// This shouldn't happen, and indicates a programming error somewhere.
-		return errors.Errorf("current controller agent version is not set")
-	}
-
-	desiredTargetVersion, err := semversion.Parse(desiredTargetVersionStr)
-	if err != nil {
-		return errors.Errorf(
-			"parsing current controller agent version %q: %w",
-			desiredTargetVersionStr,
-			err,
-		)
-	}
-
-	currentTargetVersionStr, err := s.modelState.GetModelTargetAgentVersion(ctx)
-	if err != nil {
-		return errors.Errorf("getting current model agent version: %w", err)
-	}
-
-	currentTargetVersion, err := semversion.Parse(currentTargetVersionStr)
-	if err != nil {
-		return errors.Errorf(
-			"parsing current model agent version %q: %w",
-			currentTargetVersionStr,
-			err,
-		)
-	}
-
-	// If the current target version doesn't match the desired target version,
-	// we need to update it, but only if the target has the agent binaries for
-	// every running architecture at the desired version.
-	//
-	// 3.6 never changed a migrated model's agent version, so a missing binary is
-	// never fatal here: if the target lacks binaries for a running architecture
-	// at the desired version, the model is left at its current version (whose
-	// binaries the source uploaded during import) and a warning is logged. The
-	// operator upgrades later via upgrade-model, which consults simplestreams.
-	// Activation is never blocked on binary availability.
-	if currentTargetVersion != desiredTargetVersion {
-		missing, err := s.MissingAgentBinaryArchitectures(ctx, desiredTargetVersion.String())
-		if err != nil {
-			return errors.Errorf(
-				"checking agent binary availability for version %q: %w",
-				desiredTargetVersion.String(), err,
-			)
-		}
-		if len(missing) > 0 {
-			s.logger.Warningf(ctx,
-				"not upgrading migrated model %q agent version from %q to %q: "+
-					"no agent binaries for architecture(s) %q on this controller; "+
-					"run 'juju upgrade-model' once binaries are available",
-				s.modelUUID, currentTargetVersion.String(), desiredTargetVersion.String(), missing,
-			)
-		} else {
-			err := s.modelState.SetModelTargetAgentVersion(
-				ctx, currentTargetVersion.String(), desiredTargetVersion.String(),
-			)
-			if err != nil {
-				return errors.Capture(err)
-			}
-		}
-	}
-
-	// Delete the migration importing status from the model database. This
-	// should ensure that the model is no longer considered to be importing.
-
-	// As we need to affect both the controller and model databases, we need to
-	// attempt this is a best effort manner. The state layer should ensure
-	// idempotency, so if one operation succeeds and the other fails, we can
-	// retry safely.
-
-	// Attempt to delete the importing status from the model database first, as
-	// that should allow the model to be considered active in this controller.
-	// The controller database entry can be removed later if this step fails,
-	// it shouldn't prevent the model from being used (in theory).
-
-	if err := s.modelState.DeleteModelImportingStatus(ctx); err != nil {
-		return errors.Errorf(
-			"deleting model importing status from model database: %w",
-			err,
-		)
-	}
-
-	if err := s.controllerState.DeleteModelImportingStatus(ctx, s.modelUUID); err != nil {
-		return errors.Errorf(
-			"deleting model importing status from controller database: %w",
-			err,
-		)
-	}
-
-	return nil
 }

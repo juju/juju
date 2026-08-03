@@ -312,6 +312,7 @@ type VolumeInfo struct {
 type Unit struct {
 	Id             string
 	Address        string
+	FQDN           string
 	Ports          []string
 	Dying          bool
 	Stateful       bool

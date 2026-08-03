@@ -117,20 +117,18 @@ func (s *WorkerStateSuite) TestStart(c *tc.C) {
 	// compare it.
 	config.GetAuditConfig = nil
 
-	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
-
 	jwtAuthenticator := jwt.NewAuthenticator(&jwtparser.Parser{})
 
 	c.Assert(config, tc.DeepEquals, coreapiserver.ServerConfig{
 		LocalMacaroonAuthenticator: s.authenticator,
 		Mux:                        s.mux,
 		Clock:                      s.clock,
-		Tag:                        s.agentConfig.Tag(),
-		DataDir:                    s.agentConfig.DataDir(),
-		LogDir:                     s.agentConfig.LogDir(),
+		Tag:                        s.controllerTag,
+		DataDir:                    s.dataDir,
+		LogDir:                     s.logDir,
 		PublicDNSName:              "",
 		AllowModelAccess:           false,
-		LogSinkConfig:              &logSinkConfig,
+		LogSinkConfig:              new(coreapiserver.DefaultLogSinkConfig()),
 		LeaseManager:               s.leaseManager,
 		FlightRecorder:             flightrecorder.NoopRecorder{},
 		MetricsCollector:           s.metricsCollector,

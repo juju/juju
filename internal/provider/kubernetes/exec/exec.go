@@ -227,9 +227,6 @@ func (c client) safeRun(opts ExecParams, executor remotecommand.Executor) (err e
 }
 
 func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
-	defer func() {
-		err = handleExecRetryableError(err)
-	}()
 	pidFile := fmt.Sprintf("/tmp/%s.pid", randomString(8, utils.LowerAlpha))
 	cmd := ""
 	if opts.WorkingDir != "" {

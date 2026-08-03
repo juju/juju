@@ -52,7 +52,7 @@ func (s *servicesSuite) TestFindServiceForApplication(c *tc.C) {
 	)
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(svc.Name, tc.Equals, "wallyworld")
+	c.Check(svc.Name, tc.Equals, "wallyworld")
 }
 
 func (s *servicesSuite) TestFindServiceForApplicationWithEndpoints(c *tc.C) {
@@ -94,7 +94,53 @@ func (s *servicesSuite) TestFindServiceForApplicationWithEndpoints(c *tc.C) {
 	)
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(svc.Name, tc.Equals, "wallyworld")
+	c.Check(svc.Name, tc.Equals, "wallyworld")
+}
+
+func (s *servicesSuite) TestFindServiceForApplicationWithLabelledHeadless(c *tc.C) {
+	_, err := s.client.CoreV1().Services("test").Create(
+		c.Context(),
+		&core.Service{
+			ObjectMeta: meta.ObjectMeta{
+				Name: "wallyworld",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "wallyworld",
+					"app.kubernetes.io/managed-by": "juju",
+				},
+			},
+		},
+		meta.CreateOptions{},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A headless service whose name does not end in "-endpoints"; it must be
+	// filtered out via the LabelJujuServiceType label rather than the legacy
+	// suffix.
+	_, err = s.client.CoreV1().Services("test").Create(
+		c.Context(),
+		&core.Service{
+			ObjectMeta: meta.ObjectMeta{
+				Name: "wallyworld-dqlite",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "wallyworld",
+					"app.kubernetes.io/managed-by": "juju",
+					constants.LabelJujuServiceType: constants.ServiceTypeEndpoints,
+				},
+			},
+		},
+		meta.CreateOptions{},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	svc, err := findServiceForApplication(
+		c.Context(),
+		s.client.CoreV1().Services("test"),
+		"wallyworld",
+		constants.LabelVersion1,
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(svc.Name, tc.Equals, "wallyworld")
 }
 
 func (s *servicesSuite) TestFindServiceForApplicationWithMultiple(c *tc.C) {

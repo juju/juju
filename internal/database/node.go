@@ -21,69 +21,82 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v3"
 
-	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/client"
 	"github.com/juju/juju/internal/database/dqlite"
 	dqlitedriver "github.com/juju/juju/internal/database/driver"
-	"github.com/juju/juju/internal/network"
 )
 
 const (
-	dqliteBootstrapBindIP = "127.0.0.1"
 	dqliteDataDir         = "dqlite"
 	dqlitePort            = 17666
 	dqliteClusterFileName = "cluster.yaml"
 )
 
+// NodeManagerConfig holds the static startup values required by NodeManager
+// to configure and operate a Dqlite node. All values are set once at
+// construction and treated as immutable thereafter.
+type NodeManagerConfig struct {
+	// DataDir is the root data directory of the controller agent. Dqlite
+	// stores its data under <DataDir>/dqlite.
+	DataDir string
+
+	// DqlitePort is the TCP port Dqlite listens on. Zero means use the
+	// compiled-in default (17666).
+	DqlitePort int
+
+	// QueryTracingEnabled enables per-query tracing in Dqlite, routing
+	// log output through the slow-query logger.
+	QueryTracingEnabled bool
+
+	// QueryTracingThreshold is the minimum query duration that triggers
+	// a slow-query log entry. Only relevant when QueryTracingEnabled is true.
+	QueryTracingThreshold time.Duration
+
+	// DqliteBusyTimeout is the duration Dqlite waits when a table is
+	// locked before returning SQLITE_BUSY. Zero disables the timeout.
+	DqliteBusyTimeout time.Duration
+
+	// CACert is the PEM-encoded CA certificate used to verify Dqlite
+	// peer TLS connections.
+	CACert string
+
+	// ControllerCert is the PEM-encoded controller TLS certificate
+	// presented to Dqlite peers.
+	ControllerCert string
+
+	// ControllerPrivateKey is the PEM-encoded private key corresponding
+	// to ControllerCert.
+	ControllerPrivateKey string
+}
+
 // NodeManager is responsible for interrogating a single Dqlite node,
 // and emitting configuration for starting its Dqlite `App` based on
 // operational requirements and controller agent config.
 type NodeManager struct {
-	cfg                 agent.Config
-	port                int
-	isLoopbackPreferred bool
-	logger              logger.Logger
-	slowQueryLogger     coredatabase.SlowQueryLogger
+	cfg             NodeManagerConfig
+	port            int
+	logger          logger.Logger
+	slowQueryLogger coredatabase.SlowQueryLogger
 
 	dataDir string
 }
 
 // NewNodeManager returns a new NodeManager reference
-// based on the input agent configuration.
-//
-// If isLoopbackPreferred is true, we bind Dqlite to 127.0.0.1 and eschew TLS
-// termination. This is useful primarily in unit testing and a temporary
-// workaround for CAAS, which does not yet support high availability.
-//
-// If it is false, we attempt to identify a unique local-cloud address.
-// If we find one, we use it as the bind address. Otherwise, we fall back
-// to the loopback binding.
-func NewNodeManager(cfg agent.Config, isLoopbackPreferred bool, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) *NodeManager {
+// based on the input controller runtime configuration.
+func NewNodeManager(cfg NodeManagerConfig, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) *NodeManager {
 	m := &NodeManager{
-		cfg:                 cfg,
-		port:                dqlitePort,
-		isLoopbackPreferred: isLoopbackPreferred,
-		logger:              logger,
-		slowQueryLogger:     slowQueryLogger,
+		cfg:             cfg,
+		port:            dqlitePort,
+		logger:          logger,
+		slowQueryLogger: slowQueryLogger,
 	}
-	if cfg != nil {
-		if port, ok := cfg.DqlitePort(); ok {
-			m.port = port
-		}
+	if cfg.DqlitePort != 0 {
+		m.port = cfg.DqlitePort
 	}
 	return m
-}
-
-// IsLoopbackPreferred returns true if we should prefer to bind Dqlite
-// to the loopback IP address.
-// This is currently true for CAAS and unit testing. Once CAAS supports
-// high availability we'll have to revisit this.
-func (m *NodeManager) IsLoopbackPreferred() bool {
-	return m.isLoopbackPreferred
 }
 
 // IsLoopbackBound returns true if we are a cluster of one,
@@ -106,7 +119,12 @@ func (m *NodeManager) IsLoopbackBound(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	return strings.HasPrefix(servers[0].Address, "127."), nil
+	host, _, err := net.SplitHostPort(servers[0].Address)
+	if err != nil {
+		return false, errors.Annotate(err, "parsing Dqlite node address")
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback(), nil
 }
 
 // IsExistingNode returns true if this machine or container has
@@ -137,7 +155,7 @@ func (m *NodeManager) IsExistingNode() (bool, error) {
 // a path determined by the agent config, then returns that path.
 func (m *NodeManager) EnsureDataDir() (string, error) {
 	if m.dataDir == "" {
-		dir := filepath.Join(m.cfg.DataDir(), dqliteDataDir)
+		dir := filepath.Join(m.cfg.DataDir, dqliteDataDir)
 		if err := os.MkdirAll(dir, 0700); err != nil {
 			return "", errors.Annotatef(err, "creating directory for Dqlite data")
 		}
@@ -215,8 +233,8 @@ func (m *NodeManager) SetNodeInfo(server dqlite.NodeInfo) error {
 // WithLogFuncOption returns a Dqlite application Option that will proxy Dqlite
 // log output via this factory's logger where the level is recognised.
 func (m *NodeManager) WithLogFuncOption() app.Option {
-	if m.cfg.QueryTracingEnabled() {
-		return app.WithLogFunc(m.slowQueryLogFunc(m.cfg.QueryTracingThreshold()))
+	if m.cfg.QueryTracingEnabled {
+		return app.WithLogFunc(m.slowQueryLogFunc(m.cfg.QueryTracingThreshold))
 	}
 	return app.WithLogFunc(m.appLogFunc)
 }
@@ -224,7 +242,7 @@ func (m *NodeManager) WithLogFuncOption() app.Option {
 // WithTracingOption returns a Dqlite application Option that will enable
 // tracing of Dqlite queries.
 func (m *NodeManager) WithTracingOption() app.Option {
-	if m.cfg.QueryTracingEnabled() {
+	if m.cfg.QueryTracingEnabled {
 		return app.WithTracing(client.LogWarn)
 	}
 	return app.WithTracing(client.LogNone)
@@ -233,76 +251,26 @@ func (m *NodeManager) WithTracingOption() app.Option {
 // WithBusyTimeoutOption returns a Dqlite application Option that sets
 // the busy timeout based on the agent configuration.
 func (m *NodeManager) WithBusyTimeoutOption() app.Option {
-	timeout := m.cfg.DqliteBusyTimeout()
-	return app.WithBusyTimeout(max(timeout, 0))
-}
-
-// WithPreferredCloudLocalAddressOption uses the input network config source to
-// return a local-cloud address to which to bind Dqlite, provided that a unique
-// one can be determined.
-// If there are zero or multiple local-cloud addresses detected on the host,
-// we fall back to binding to the loopback address.
-// This method is only relevant to bootstrap. At all other times (such as when
-// joining a cluster) the bind address is determined externally and passed as
-// the argument to WithAddressOption.
-func (m *NodeManager) WithPreferredCloudLocalAddressOption(source corenetwork.ConfigSource) (app.Option, error) {
-	nics, err := source.Interfaces()
-	if err != nil {
-		return nil, errors.Annotate(err, "querying local network interfaces")
-	}
-
-	var addrs corenetwork.MachineAddresses
-	for _, nic := range nics {
-		name := nic.Name()
-		if nic.Type() == corenetwork.LoopbackDevice ||
-			name == network.DefaultLXDBridge ||
-			name == network.DefaultDockerBridge {
-			continue
-		}
-
-		sysAddrs, err := nic.Addresses()
-		if err != nil || len(sysAddrs) == 0 {
-			continue
-		}
-
-		for _, addr := range sysAddrs {
-			addrs = append(addrs, corenetwork.NewMachineAddress(addr.IP().String()))
-		}
-	}
-
-	cloudLocal := addrs.AllMatchingScope(corenetwork.ScopeMatchCloudLocal).Values()
-	if len(cloudLocal) == 1 {
-		return m.WithAddressOption(cloudLocal[0]), nil
-	}
-
-	m.logger.Warningf(context.TODO(), "failed to determine a unique local-cloud address; falling back to 127.0.0.1 for Dqlite")
-	return m.WithLoopbackAddressOption(), nil
-}
-
-// WithLoopbackAddressOption returns a Dqlite application
-// Option that will bind Dqlite to the loopback IP.
-func (m *NodeManager) WithLoopbackAddressOption() app.Option {
-	return m.WithAddressOption(dqliteBootstrapBindIP)
+	return app.WithBusyTimeout(max(m.cfg.DqliteBusyTimeout, 0))
 }
 
 // WithAddressOption returns a Dqlite application Option
 // for specifying the local address:port to use.
-func (m *NodeManager) WithAddressOption(ip string) app.Option {
+func (m *NodeManager) WithAddressOption(address string) app.Option {
 	// dqlite expects an ipv6 address to be in square brackets
 	// e.g. [::1]:1234 so we need to use net.JoinHostPort.
-	return app.WithAddress(net.JoinHostPort(ip, strconv.Itoa(m.port)))
+	return app.WithAddress(net.JoinHostPort(address, strconv.Itoa(m.port)))
 }
 
 // WithTLSOption returns a Dqlite application Option for TLS encryption
 // of traffic between clients and clustered application nodes.
 func (m *NodeManager) WithTLSOption() (app.Option, error) {
-	stateInfo, ok := m.cfg.ControllerAgentInfo()
-	if !ok {
+	if m.cfg.ControllerCert == "" {
 		return nil, errors.NotSupportedf("Dqlite node initialisation on non-controller machine/container")
 	}
 
 	listen, dial, err := dqliteTLSConfig(
-		m.cfg.CACert(), stateInfo.Cert, stateInfo.PrivateKey,
+		m.cfg.CACert, m.cfg.ControllerCert, m.cfg.ControllerPrivateKey,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -376,18 +344,17 @@ func (m *NodeManager) TLSDialer(ctx context.Context) (client.DialFunc, error) {
 		return client.DefaultDialFunc, nil
 	}
 
-	stateInfo, ok := m.cfg.ControllerAgentInfo()
-	if !ok {
+	if m.cfg.ControllerCert == "" {
 		return nil, errors.NotSupportedf("Dqlite node initialisation on non-controller machine/container")
 	}
 
-	cert, err := tls.X509KeyPair([]byte(stateInfo.Cert), []byte(stateInfo.PrivateKey))
+	cert, err := tls.X509KeyPair([]byte(m.cfg.ControllerCert), []byte(m.cfg.ControllerPrivateKey))
 	if err != nil {
 		return nil, errors.Annotate(err, "parsing controller certificate")
 	}
 
 	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM([]byte(stateInfo.Cert)) {
+	if !pool.AppendCertsFromPEM([]byte(m.cfg.ControllerCert)) {
 		return nil, errors.New("failed to append controller cert to pool")
 	}
 

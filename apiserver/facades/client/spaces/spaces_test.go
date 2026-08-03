@@ -126,8 +126,34 @@ func (s *APISuite) TestCreateSpacesSuccess(c *tc.C) {
 	c.Check(res, tc.DeepEquals, expected)
 }
 
+func (s *APISuite) TestCreateSpacesNotSupported(c *tc.C) {
+	ctrl := s.SetupMocks(c, false, false)
+	defer ctrl.Finish()
+
+	res, err := s.API.CreateSpaces(c.Context(), params.CreateSpacesParams{})
+	c.Assert(err, tc.ErrorMatches, "spaces not supported")
+	c.Check(err, tc.Satisfies, params.IsCodeNotSupported)
+	c.Check(res, tc.DeepEquals, params.ErrorResults{})
+}
+
+func (s *APISuite) TestListSpacesWithoutProviderSpaceSupport(c *tc.C) {
+	ctrl := s.SetupMocks(c, false, false)
+	defer ctrl.Finish()
+
+	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any()).Return(network.SpaceInfos{{
+		ID:   network.AlphaSpaceId,
+		Name: network.AlphaSpaceName,
+	}}, nil)
+
+	res, err := s.API.ListSpaces(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Id, tc.Equals, network.AlphaSpaceId.String())
+	c.Check(res.Results[0].Name, tc.Equals, network.AlphaSpaceName.String())
+}
+
 func (s *APISuite) TestShowSpaceDefault(c *tc.C) {
-	ctrl := s.SetupMocks(c, true, false)
+	ctrl := s.SetupMocks(c, false, false)
 	defer ctrl.Finish()
 
 	expectedApplications := []string{"mysql", "mediawiki"}
@@ -222,6 +248,16 @@ func (s *APISuite) TestShowSpaceErrorGettingMachines(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	expectedErr := fmt.Sprintf("fetching machine count: %v", bamErr.Error())
 	c.Assert(res.Results[0].Error, tc.ErrorMatches, expectedErr)
+}
+
+func (s *APISuite) TestReloadSpacesWithoutProviderSpaceSupport(c *tc.C) {
+	ctrl := s.SetupMocks(c, false, false)
+	defer ctrl.Finish()
+
+	s.NetworkService.EXPECT().ReloadSpaces(gomock.Any()).Return(nil)
+
+	err := s.API.ReloadSpaces(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *APISuite) TestRenameSpaceErrorToAlreadyExist(c *tc.C) {
@@ -322,6 +358,16 @@ func (s *APISuite) TestRenameSpaceErrorProviderSpacesSupport(c *tc.C) {
 	res, err := s.API.RenameSpace(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, "modifying provider-sourced spaces not supported")
 	c.Assert(res, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult(nil)})
+}
+
+func (s *APISuite) TestRenameSpaceNotSupported(c *tc.C) {
+	ctrl := s.SetupMocks(c, false, false)
+	defer ctrl.Finish()
+
+	res, err := s.API.RenameSpace(c.Context(), s.getRenameArgs("from", "to"))
+	c.Assert(err, tc.ErrorMatches, "spaces not supported")
+	c.Check(err, tc.Satisfies, params.IsCodeNotSupported)
+	c.Check(res, tc.DeepEquals, params.ErrorResults{})
 }
 
 func (s *APISuite) getShowSpaceArg(name string) params.Entities {

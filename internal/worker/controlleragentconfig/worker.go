@@ -49,7 +49,7 @@ func (c *WorkerConfig) Validate() error {
 		return errors.NotValidf("nil Logger")
 	}
 	if c.Clock == nil {
-		return errors.NotValidf("nil Clock")
+		return errors.NotValidf("missing worker clock")
 	}
 	if c.SocketName == "" {
 		return errors.NotValidf("empty SocketName")

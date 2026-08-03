@@ -126,8 +126,9 @@ func defaultOptions() *options {
 // objectsClient is a Juju shim around the AWS S3 client,
 // which Juju uses to drive it's object store requirents
 type S3Client struct {
-	logger logger.Logger
-	client *s3.Client
+	logger       logger.Logger
+	client       *s3.Client
+	bucketRegion string
 }
 
 // NewS3Client returns a new s3Caller client for accessing the object store.
@@ -147,6 +148,7 @@ func NewS3Client(endpoint string, httpClient HTTPClient, credentials Credentials
 	}
 
 	region, err := resolveRegion(o.region, endpoint)
+	bucketRegion := region
 	if err != nil {
 		if credentials.Kind() == StaticCredentialsKind {
 			o.logger.Warningf(context.Background(),
@@ -190,7 +192,8 @@ func NewS3Client(endpoint string, httpClient HTTPClient, credentials Credentials
 		client: s3.NewFromConfig(cfg, func(o *s3.Options) {
 			o.UsePathStyle = true
 		}),
-		logger: o.logger,
+		logger:       o.logger,
+		bucketRegion: bucketRegion,
 	}, nil
 }
 
@@ -243,13 +246,15 @@ func (c *S3Client) GetObject(ctx context.Context, bucketName, objectName string)
 	return obj.Body, size, hash, nil
 }
 
-// ListObjects returns a list of objects in the specified bucket.
-func (c *S3Client) ListObjects(ctx context.Context, bucketName string) ([]string, error) {
-	c.logger.Tracef(ctx, "listing objects in bucket %s from s3 storage", bucketName)
+// ListObjects returns a list of objects in the specified bucket, optionally
+// filtered by prefix.
+func (c *S3Client) ListObjects(ctx context.Context, bucketName, prefix string) ([]string, error) {
+	c.logger.Tracef(ctx, "listing objects in bucket %s with prefix %s from s3 storage", bucketName, prefix)
 
 	objs, err := c.client.ListObjectsV2(ctx,
 		&s3.ListObjectsV2Input{
 			Bucket: aws.String(bucketName),
+			Prefix: aws.String(prefix),
 		})
 	if err != nil {
 		if err := handleError(err); err != nil {
@@ -327,15 +332,35 @@ func (c *S3Client) DeleteObject(ctx context.Context, bucketName, objectName stri
 	return nil
 }
 
-// CreateBucket creates a bucket in the object store based on the bucket name.
+// CreateBucket ensures that a bucket with the supplied name exists in the
+// object store.
 func (c *S3Client) CreateBucket(ctx context.Context, bucketName string) error {
-	c.logger.Tracef(ctx, "creating bucket %s in s3 storage", bucketName)
+	c.logger.Tracef(ctx, "ensuring bucket %s exists in s3 storage", bucketName)
 
-	_, err := c.client.CreateBucket(ctx,
-		&s3.CreateBucketInput{
-			Bucket:                     aws.String(bucketName),
-			ObjectLockEnabledForBucket: aws.Bool(true),
-		})
+	_, err := c.client.HeadBucket(ctx, &s3.HeadBucketInput{
+		Bucket: aws.String(bucketName),
+	})
+	if err == nil {
+		return nil
+	}
+	if err = handleError(err); !errors.Is(err, errors.NotFound) {
+		return errors.Annotatef(err, "checking if bucket %s exists using S3 client", bucketName)
+	}
+
+	input := &s3.CreateBucketInput{
+		Bucket:                     aws.String(bucketName),
+		ObjectLockEnabledForBucket: aws.Bool(true),
+	}
+	// AWS requires an explicit location constraint when creating a bucket
+	// outside us-east-1. S3-compatible stores with a configured region receive
+	// the same standard S3 field.
+	if c.bucketRegion != "" && c.bucketRegion != awsGlobalEndpointRegion {
+		input.CreateBucketConfiguration = &types.CreateBucketConfiguration{
+			LocationConstraint: types.BucketLocationConstraint(c.bucketRegion),
+		}
+	}
+
+	_, err = c.client.CreateBucket(ctx, input)
 	if err != nil {
 		if err := handleError(err); err != nil {
 			return errors.Trace(err)

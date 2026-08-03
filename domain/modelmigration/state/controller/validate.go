@@ -9,9 +9,9 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/cloud"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
-	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -104,13 +104,13 @@ WHERE  model_uuid = $modelUUIDArg.model_uuid
 //
 // It reads the credential the same way the export path does, through
 // [State.getModelCredential], so the two cannot drift.
-func (s *State) GetModelCloudCredential(ctx context.Context, modelUUID string) (*modelmigration.ModelCloudCredential, error) {
+func (s *State) GetModelCloudCredential(ctx context.Context, modelUUID string) (*coremodelmigration.ModelCloudCredential, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var credential *modelmigration.ModelCloudCredential
+	var credential *coremodelmigration.ModelCloudCredential
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		cred, err := s.getModelCredential(ctx, tx, modelUUID)
 		if err != nil {

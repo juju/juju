@@ -4,14 +4,16 @@
 package kubernetes
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"path"
 	"strings"
 	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
 	"gopkg.in/yaml.v3"
@@ -46,6 +48,7 @@ import (
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/provider/kubernetes/application"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/provider/kubernetes/pebble"
 	k8sproxy "github.com/juju/juju/internal/provider/kubernetes/proxy"
 	"github.com/juju/juju/internal/provider/kubernetes/resources"
@@ -61,7 +64,9 @@ const (
 )
 
 const (
-	apiServerContainerName = "api-server"
+	apiServerContainerName                  = "api-server"
+	localControllerCharmUploadRetryAttempts = 12
+	localControllerCharmUploadRetryDelay    = time.Second
 
 	// startupGraceTime is the number of seconds afforded to startup probes to
 	// become successful before considering them a failure.
@@ -154,11 +159,13 @@ type controllerStack struct {
 	portSSHServer int
 
 	resourceNameService,
+	resourceNameHeadlessService,
 	resourceNameConfigMap,
 	resourceNameSecret, resourceNamedockerSecret,
 	resourceNameVolBootstrapParams, resourceNameVolAgentConf string
 
-	dockerAuthSecretData []byte
+	dockerAuthSecretData        []byte
+	controllerExecClientFactory func() (k8sexec.Executor, error)
 
 	cleanUps []func()
 }
@@ -288,7 +295,9 @@ func newControllerStack(
 		portAPIServer: pcfg.Bootstrap.ControllerConfig.APIPort(),
 		portSSHServer: pcfg.Bootstrap.ControllerConfig.SSHServerPort(),
 	}
+	cs.controllerExecClientFactory = cs.controllerExecClient
 	cs.resourceNameService = cs.getResourceName("service")
+	cs.resourceNameHeadlessService = cs.getResourceName("service-endpoints")
 	cs.resourceNameConfigMap = cs.getResourceName("configmap")
 	cs.resourceNameSecret = cs.getResourceName("secret")
 	cs.resourceNamedockerSecret = constants.CAASImageRepoSecretName
@@ -323,6 +332,100 @@ func newControllerStack(
 	return cs, nil
 }
 
+func isLocalControllerCharmPath(charmPath string) bool {
+	// Mirrors refresher.IsLocalURL (cmd/juju/application/refresher/refresher.go).
+	return strings.HasPrefix(charmPath, "/") || strings.HasPrefix(charmPath, "./") ||
+		strings.HasPrefix(charmPath, "../")
+}
+
+func (c *controllerStack) localControllerCharmArchivePath() string {
+	return path.Join(c.pcfg.DataDir, "charms", environsbootstrap.ControllerCharmArchive)
+}
+
+func (c *controllerStack) uploadLocalControllerCharm(ctx context.Context, podName string) error {
+	charmPath := c.pcfg.Bootstrap.ControllerCharmPath
+	if !isLocalControllerCharmPath(charmPath) {
+		return nil
+	}
+
+	execClient, err := c.controllerExecClientFactory()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	archivePath := c.localControllerCharmArchivePath()
+	uploadPath := archivePath + ".uploading"
+	archiveDir := path.Dir(archivePath)
+	execCommand := func(commands []string) error {
+		var stdout, stderr bytes.Buffer
+		err := execClient.Exec(ctx, k8sexec.ExecParams{
+			PodName:       podName,
+			ContainerName: apiServerContainerName,
+			Commands:      commands,
+			Stdout:        &stdout,
+			Stderr:        &stderr,
+		}, nil)
+		if err != nil && stderr.Len() > 0 {
+			return errors.Annotate(err, strings.TrimSpace(stderr.String()))
+		}
+		return err
+	}
+	if err := execCommand([]string{"mkdir", "-p", archiveDir}); err != nil {
+		return errors.Annotate(err, "creating local controller charm directory")
+	}
+
+	if err := execClient.Copy(ctx, k8sexec.CopyParams{
+		Src: k8sexec.FileResource{
+			Path: charmPath,
+		},
+		Dest: k8sexec.FileResource{
+			Path:          uploadPath,
+			PodName:       podName,
+			ContainerName: apiServerContainerName,
+		},
+	}, nil); err != nil {
+		return errors.Annotate(err, "copying local controller charm")
+	}
+
+	if err := execCommand([]string{"chmod", "0644", uploadPath}); err != nil {
+		return errors.Annotate(err, "setting local controller charm permissions")
+	}
+
+	if err := execCommand([]string{"mv", "-f", uploadPath, archivePath}); err != nil {
+		return errors.Annotate(err, "installing local controller charm")
+	}
+	return nil
+}
+
+func (c *controllerStack) uploadLocalControllerCharmWithRetry(ctx context.Context, podName string) error {
+	if !isLocalControllerCharmPath(c.pcfg.Bootstrap.ControllerCharmPath) {
+		return nil
+	}
+	return retry.Call(retry.CallArgs{
+		Attempts: localControllerCharmUploadRetryAttempts,
+		Delay:    localControllerCharmUploadRetryDelay,
+		Stop:     ctx.Done(),
+		Clock:    c.broker.clock,
+		Func: func() error {
+			return c.uploadLocalControllerCharm(ctx, podName)
+		},
+		IsFatalError: func(err error) bool {
+			return errors.Is(err, errors.NotValid)
+		},
+		NotifyFunc: func(err error, attempt int) {
+			logger.Debugf(ctx, "uploading local controller charm, attempt %d/%d failed: %v", attempt, localControllerCharmUploadRetryAttempts, err)
+		},
+	})
+}
+
+func (c *controllerStack) controllerExecClient() (k8sexec.Executor, error) {
+	restConfig := c.broker.restConfig()
+	if restConfig == nil {
+		return nil, errors.NotValidf("empty kubernetes rest config")
+	}
+	return k8sexec.New(c.broker.Namespace(), c.broker.client(), restConfig), nil
+}
+
 func (c *controllerStack) isPrivateRepo() bool {
 	return len(c.dockerAuthSecretData) > 0
 }
@@ -333,13 +436,6 @@ func getBootstrapResourceName(stackName string, name string) string {
 
 func (c *controllerStack) getResourceName(name string) string {
 	return getBootstrapResourceName(c.stackName, name)
-}
-
-func (c *controllerStack) pathJoin(elem ...string) string {
-	// Setting series for bootstrapping to kubernetes is currently not supported.
-	// We always use forward-slash because Linux is the only OS we support now.
-	pathSeparator := "/"
-	return strings.Join(elem, pathSeparator)
 }
 
 func (c *controllerStack) getControllerConfigMap(ctx context.Context) (cm *core.ConfigMap, err error) {
@@ -398,6 +494,15 @@ func (c *controllerStack) Deploy(ctx context.Context) (err error) {
 	// create service for controller pod.
 	if err = c.createControllerService(ctx); err != nil {
 		return errors.Annotate(err, "creating service for controller")
+	}
+	if environsbootstrap.IsContextDone(ctx) {
+		return environsbootstrap.Cancelled()
+	}
+
+	// Create the headless service governing the controller statefulset so
+	// each pod gets a stable per-ordinal DNS name for Dqlite peering.
+	if err = c.createControllerHeadlessService(ctx); err != nil {
+		return errors.Annotate(err, "creating headless service for controller")
 	}
 	if environsbootstrap.IsContextDone(ctx) {
 		return environsbootstrap.Cancelled()
@@ -484,6 +589,7 @@ func (c *controllerStack) getControllerSvcSpec(cloudType string, cfg *podcfg.Boo
 	if cfg == nil {
 		return spec, nil
 	}
+
 	if len(cfg.ControllerServiceType) > 0 {
 		if spec.ServiceType, err = CaasServiceToK8s(caas.ServiceType(cfg.ControllerServiceType)); err != nil {
 			return nil, errors.Trace(err)
@@ -600,8 +706,12 @@ func (c *controllerStack) createControllerService(ctx context.Context) error {
 	}
 
 	c.addCleanUp(func() {
-		logger.Debugf(context.TODO(), "deleting %q", svcName)
-		_ = c.broker.deleteService(ctx, svcName)
+		logger.Debugf(ctx, "deleting %q", svcName)
+		if err := c.broker.deleteService(ctx, svcName); err != nil {
+			logger.Warningf(ctx,
+				"could not clean up service %q, it may be left dangling: %v",
+				svcName, err)
+		}
 	})
 
 	publicAddressPoller := func() error {
@@ -635,6 +745,54 @@ func (c *controllerStack) createControllerService(ctx context.Context) error {
 		return errors.Timeoutf("waiting for controller service address fully provisioned")
 	}
 	return errors.Trace(err)
+}
+
+// createControllerHeadlessService creates the headless service that governs
+// the controller StatefulSet. Unlike the routable controller API service, this
+// service has no cluster IP; its sole purpose is to give each controller pod a
+// stable per-ordinal DNS name (controller-<ordinal>.<service>.<namespace>.svc)
+// that Dqlite peers can bind to and dial. PublishNotReadyAddresses is set so a
+// joining pod is resolvable before it becomes Ready, avoiding a join/readiness
+// deadlock. It is labelled as an endpoints service so address lookups exclude
+// it when resolving the controller's routable service.
+func (c *controllerStack) createControllerHeadlessService(ctx context.Context) error {
+	svcName := c.resourceNameHeadlessService
+
+	spec := &core.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: svcName,
+			Labels: providerutils.LabelsMerge(c.stackLabels, labels.Set{
+				constants.LabelJujuServiceType: constants.ServiceTypeEndpoints,
+			}),
+			Namespace:   c.broker.Namespace(),
+			Annotations: c.stackAnnotations,
+		},
+		Spec: core.ServiceSpec{
+			Selector:  c.selectorLabels,
+			Type:      core.ServiceTypeClusterIP,
+			ClusterIP: "None",
+			// Publish addresses for not-yet-Ready pods so a joining node is
+			// DNS-resolvable before it becomes Ready; otherwise peers cannot
+			// dial it to admit it into the cluster and it can never become
+			// Ready (a join/readiness deadlock).
+			PublishNotReadyAddresses: true,
+		},
+	}
+
+	logger.Debugf(ctx, "creating controller headless service: \n%+v", spec)
+	if _, err := c.broker.ensureK8sService(ctx, spec); err != nil {
+		return errors.Trace(err)
+	}
+
+	c.addCleanUp(func() {
+		logger.Debugf(ctx, "deleting %q", svcName)
+		if err := c.broker.deleteService(ctx, svcName); err != nil {
+			logger.Warningf(ctx,
+				"could not clean up controller headless service %q, it may be left dangling: %v",
+				svcName, err)
+		}
+	})
+	return nil
 }
 
 func (c *controllerStack) addCleanUp(cleanUp func()) {
@@ -827,7 +985,7 @@ func (c *controllerStack) createControllerStatefulset(ctx context.Context) error
 			Annotations: c.stackAnnotations,
 		},
 		Spec: apps.StatefulSetSpec{
-			ServiceName: c.resourceNameService,
+			ServiceName: c.resourceNameHeadlessService,
 			Replicas:    &numberOfPods,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: c.selectorLabels,
@@ -857,8 +1015,12 @@ func (c *controllerStack) createControllerStatefulset(ctx context.Context) error
 
 	logger.Tracef(context.TODO(), "creating controller statefulset: \n%+v", controllerStatefulSet)
 	c.addCleanUp(func() {
-		logger.Debugf(context.TODO(), "deleting %q statefulset", controllerStatefulSet.Name)
-		_ = c.broker.deleteStatefulSet(ctx, controllerStatefulSet.Name)
+		logger.Debugf(ctx, "deleting %q statefulset", controllerStatefulSet.Name)
+		if err := c.broker.deleteStatefulSet(ctx, controllerStatefulSet.Name); err != nil {
+			logger.Warningf(ctx,
+				"could not clean up statefulset %q, it may be left dangling: %v",
+				controllerStatefulSet.Name, err)
+		}
 	})
 	w, err := c.broker.WatchUnits(c.stackName)
 	if err != nil {
@@ -874,6 +1036,9 @@ func (c *controllerStack) createControllerStatefulset(ctx context.Context) error
 		podName := c.pcfg.GetPodName() // TODO(caas): HA mode!
 		if err = c.waitForPod(ctx, w, podName); err != nil {
 			return errors.Trace(err)
+		}
+		if err = c.uploadLocalControllerCharmWithRetry(ctx, podName); err != nil {
+			return errors.Annotate(err, "uploading local controller charm")
 		}
 	}
 	return nil
@@ -1180,18 +1345,18 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 			},
 			{
 				Name: storageName,
-				MountPath: c.pathJoin(
+				MountPath: path.Join(
 					c.pcfg.DataDir,
 					"agents",
 					"controller-"+c.pcfg.ControllerId,
 				),
-				SubPath: c.pathJoin("agents",
+				SubPath: path.Join("agents",
 					"controller-"+c.pcfg.ControllerId,
 				),
 			},
 			{
 				Name: c.resourceNameVolAgentConf,
-				MountPath: c.pathJoin(
+				MountPath: path.Join(
 					c.pcfg.DataDir,
 					"agents",
 					"controller-"+c.pcfg.ControllerId,
@@ -1202,7 +1367,7 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 			},
 			{
 				Name:      c.resourceNameVolBootstrapParams,
-				MountPath: c.pathJoin(c.pcfg.DataDir, cloudconfig.FileNameBootstrapParams),
+				MountPath: path.Join(c.pcfg.DataDir, cloudconfig.FileNameBootstrapParams),
 				SubPath:   cloudconfig.FileNameBootstrapParams,
 				ReadOnly:  true,
 			},
@@ -1252,9 +1417,9 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 // service. This will be written to a file in the Pebble layers directory.
 func jujudPebbleLayer(machineCmd string, env map[string]string) ([]byte, error) {
 	layer := plan.Layer{
-		Summary: "jujud service",
+		Summary: "jujuagentd service",
 		Services: map[string]*plan.Service{
-			"jujud": {
+			"jujuagentd": {
 				Override: plan.ReplaceOverride,
 				Summary:  "Juju controller agent",
 				Command:  machineCmd,
@@ -1263,7 +1428,7 @@ func jujudPebbleLayer(machineCmd string, env map[string]string) ([]byte, error) 
 		},
 	}
 	if env != nil {
-		layer.Services["jujud"].Environment = env
+		layer.Services["jujuagentd"].Environment = env
 	}
 
 	return yaml.Marshal(layer)
@@ -1277,7 +1442,7 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 		loggingOption = "--debug"
 	}
 
-	agentConfigRelativePath := c.pathJoin(
+	agentConfigRelativePath := path.Join(
 		"agents",
 		fmt.Sprintf("controller-%s", c.pcfg.ControllerId),
 		agentconstants.AgentConfigFilename,
@@ -1294,23 +1459,31 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 		// only do bootstrap-state on the bootstrap controller - controller-0.
 		bootstrapStateCmd := fmt.Sprintf(
 			"%s bootstrap-state --data-dir $JUJU_DATA_DIR %s --timeout %s",
-			c.pathJoin("$JUJU_TOOLS_DIR", "jujud"),
+			path.Join("$JUJU_TOOLS_DIR", "jujuagentd"),
 			loggingOption,
 			c.timeout.String(),
 		)
 		if featureFlags != "" {
 			bootstrapStateCmd = fmt.Sprintf("%s=%s %s", osenv.JujuFeatureFlagEnvKey, featureFlags, bootstrapStateCmd)
 		}
-		setupCmd = fmt.Sprintf(
-			"test -e %s || %s",
-			c.pathJoin("$JUJU_DATA_DIR", agentConfigRelativePath),
-			bootstrapStateCmd,
-		)
+		agentConfigPath := path.Join("$JUJU_DATA_DIR", agentConfigRelativePath)
+		if isLocalControllerCharmPath(c.pcfg.Bootstrap.ControllerCharmPath) {
+			charmArchivePath := path.Join("$JUJU_DATA_DIR", "charms", environsbootstrap.ControllerCharmArchive)
+			setupCmd = fmt.Sprintf(
+				"if ! test -e %s; then mkdir -p %s; until test -e %s; do sleep 1; done; %s; fi",
+				agentConfigPath,
+				path.Dir(charmArchivePath),
+				charmArchivePath,
+				bootstrapStateCmd,
+			)
+		} else {
+			setupCmd = fmt.Sprintf("test -e %s || %s", agentConfigPath, bootstrapStateCmd)
+		}
 	}
 
 	machineCmd := fmt.Sprintf(
 		"%s machine --data-dir $JUJU_DATA_DIR --controller-id %s --log-to-stderr %s",
-		c.pathJoin("$JUJU_TOOLS_DIR", "jujud"),
+		path.Join("$JUJU_TOOLS_DIR", "jujuagentd"),
 		c.pcfg.ControllerId,
 		loggingOption,
 	)
@@ -1381,7 +1554,7 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 
 	agentConfigMount := core.VolumeMount{
 		Name: c.resourceNameVolAgentConf,
-		MountPath: c.pathJoin(
+		MountPath: path.Join(
 			c.pcfg.DataDir,
 			constants.TemplateFileNameAgentConf,
 		),

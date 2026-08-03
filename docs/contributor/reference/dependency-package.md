@@ -27,7 +27,7 @@ will maintain the dependency graph defined by any installed instances of the {re
 
 > See more: [
 `NewEngine`](https://github.com/juju/worker/blob/HEAD/dependency/engine.go), [example usage of
-`NewEngine` in the model agent](https://github.com/juju/juju/blob/HEAD/cmd/jujud/agent/model.go)
+`NewEngine` in the model agent](https://github.com/juju/juju/blob/HEAD/cmd/jujuagentd/agent/model.go)
 
 ## `Install`
 
@@ -36,7 +36,7 @@ will maintain the dependency graph defined by any installed instances of the {re
 > See more: [
 `Install`](https://github.com/juju/worker/blob/HEAD/dependency/util.go),
 > [example usage of
-`Install` in the model agent](https://github.com/juju/juju/blob/HEAD/cmd/jujud/agent/model.go)
+`Install` in the model agent](https://github.com/juju/juju/blob/HEAD/cmd/jujuagentd/agent/model.go)
 
 (manifolds)=
 ## `Manifolds`
@@ -46,7 +46,7 @@ will maintain the dependency graph defined by any installed instances of the {re
 > See more: [
 `Manifolds`](https://github.com/juju/worker/blob/HEAD/dependency/interface.go),
 > [example usage of
-`Manifolds` in the model agent](https://github.com/juju/juju/blob/HEAD/cmd/jujud/agent/model.go)
+`Manifolds` in the model agent](https://github.com/juju/juju/blob/HEAD/cmd/jujuagentd/agent/model.go)
 
 (manifold)=
 ## `Manifold`

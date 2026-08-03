@@ -80,14 +80,12 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 	s.getter = s.newGetter(nil)
 	s.config = httpserver.ManifoldConfig{
-		AgentName:           "machine-42",
 		AuthorityName:       "authority",
 		DomainServicesName:  "domain-services",
 		MuxName:             "mux",
 		APIServerName:       "api-server",
 		Clock:               s.clock,
 		MuxShutdownWait:     1 * time.Minute,
-		LogDir:              "log-dir",
 		GetControllerConfig: s.getControllerConfig,
 		NewTLSConfig:        s.newTLSConfig,
 		NewWorker:           s.newWorker,
@@ -168,13 +166,11 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	config := newWorkerArgs[0].(httpserver.Config)
 
 	c.Assert(config, tc.DeepEquals, httpserver.Config{
-		AgentName:              "machine-42",
 		Clock:                  s.clock,
 		TLSConfig:              s.tlsConfig,
 		Mux:                    s.mux,
 		APIPort:                1024,
 		MuxShutdownWait:        1 * time.Minute,
-		LogDir:                 "log-dir",
 		Logger:                 s.config.Logger,
 		IdleConnectionTimeout:  30 * time.Second,
 		HTTPServerReadTimeout:  0 * time.Second,
@@ -188,9 +184,6 @@ func (s *ManifoldSuite) TestValidate(c *tc.C) {
 		expect string
 	}
 	tests := []test{{
-		f:      func(cfg *httpserver.ManifoldConfig) { cfg.AgentName = "" },
-		expect: "empty AgentName not valid",
-	}, {
 		f:      func(cfg *httpserver.ManifoldConfig) { cfg.AuthorityName = "" },
 		expect: "empty AuthorityName not valid",
 	}, {
@@ -202,9 +195,6 @@ func (s *ManifoldSuite) TestValidate(c *tc.C) {
 	}, {
 		f:      func(cfg *httpserver.ManifoldConfig) { cfg.MuxShutdownWait = 0 },
 		expect: "MuxShutdownWait 0s not valid",
-	}, {
-		f:      func(cfg *httpserver.ManifoldConfig) { cfg.LogDir = "" },
-		expect: "empty LogDir not valid",
 	}, {
 		f:      func(cfg *httpserver.ManifoldConfig) { cfg.APIServerName = "" },
 		expect: "empty APIServerName not valid",

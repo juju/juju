@@ -140,13 +140,13 @@ WHERE u.name=?`,
 	c.Assert(gotPorts, tc.SameContents, ports)
 }
 
-func (s *unitStateSuite) TestUpdateCAASUnitCloudContainer(c *tc.C) {
+func (s *unitStateSuite) TestUpdateCAASUnitK8sPod(c *tc.C) {
 	u := application.AddCAASUnitArg{
-		CloudContainer: &application.CloudContainer{
+		K8sPod: &application.K8sPod{
 			ProviderID: "some-id",
 			Ports:      new([]string{"666", "668"}),
-			Address: new(application.ContainerAddress{
-				Device: application.ContainerDevice{
+			Address: new(application.K8sPodAddress{
+				Device: application.K8sPodDevice{
 					Name:              "placeholder",
 					DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
 					VirtualPortTypeID: domainnetwork.NonVirtualPortType,
@@ -257,6 +257,136 @@ func (s *unitStateSuite) TestRegisterCAASUnit(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertCAASUnit(c, "bar/0", "passwordhash", "10.6.6.6/8", []string{"0"})
+}
+
+func (s *unitStateSuite) TestRegisterCAASUnitWithFQDN(c *tc.C) {
+	s.createCAASScalingApplication(c, "bar", life.Alive, 1)
+
+	// Allow scaling.
+	err := s.state.SetApplicationScalingState(c.Context(), "bar", 1, true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	fqdn := "controller-0.controller-service-endpoints.controller-foo.svc.cluster.local"
+	p := application.RegisterCAASUnitArg{
+		UnitUUID:     tc.Must(c, coreunit.NewUUID),
+		UnitName:     "bar/0",
+		PasswordHash: "passwordhash",
+		ProviderID:   "some-id",
+		Address:      new("10.6.6.6/8"),
+		Ports:        new([]string{"0"}),
+		OrderedScale: true,
+		OrderedId:    0,
+		FQDN:         &fqdn,
+	}
+	err = s.state.RegisterCAASUnit(c.Context(), "bar", p)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The FQDN is persisted as a local-cloud fqdn_address row linked to the
+	// unit's net_node.
+	var (
+		gotAddress string
+		gotScopeID int
+		gotLinked  bool
+	)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT fa.address, fa.scope_id, 1
+FROM   fqdn_address AS fa
+JOIN   net_node_fqdn_address AS nnfa ON nnfa.address_uuid = fa.uuid
+JOIN   unit AS u ON u.net_node_uuid = nnfa.net_node_uuid
+WHERE  u.name = ?`, "bar/0").Scan(&gotAddress, &gotScopeID, &gotLinked)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotAddress, tc.Equals, fqdn)
+	c.Check(gotScopeID, tc.Equals, 1)
+	c.Check(gotLinked, tc.IsTrue)
+}
+
+// TestRegisterCAASUnitDuplicateFQDN verifies that persisting a unit FQDN that
+// collides with an existing fqdn_address (globally unique) is surfaced as an
+// error rather than silently reused: a given FQDN identifies exactly one unit.
+func (s *unitStateSuite) TestRegisterCAASUnitDuplicateFQDN(c *tc.C) {
+	s.createCAASScalingApplication(c, "bar", life.Alive, 1)
+
+	err := s.state.SetApplicationScalingState(c.Context(), "bar", 1, true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	fqdn := "controller-0.controller-service-endpoints.controller-foo.svc.cluster.local"
+
+	// Seed a pre-existing fqdn_address row with the same address.
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			"INSERT INTO fqdn_address (uuid, address, scope_id) VALUES (?, ?, ?)",
+			"existing-fqdn-uuid", fqdn, 1,
+		)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	p := application.RegisterCAASUnitArg{
+		UnitUUID:     tc.Must(c, coreunit.NewUUID),
+		UnitName:     "bar/0",
+		PasswordHash: "passwordhash",
+		ProviderID:   "some-id",
+		Address:      new("10.6.6.6/8"),
+		Ports:        new([]string{"0"}),
+		OrderedScale: true,
+		OrderedId:    0,
+		FQDN:         &fqdn,
+	}
+	err = s.state.RegisterCAASUnit(c.Context(), "bar", p)
+	c.Assert(err, tc.ErrorMatches, `.*fqdn address ".*" already exists.*`)
+}
+
+// TestUpdateCAASUnitSetsFQDN verifies that the FQDN supplied to UpdateCAASUnit
+// (the flow used at bootstrap for controller/0) is persisted as a local-cloud
+// fqdn_address row linked to the unit's net_node, in the same flow that upserts
+// the k8s pod. It is also idempotent across repeated updates.
+func (s *unitStateSuite) TestUpdateCAASUnitSetsFQDN(c *tc.C) {
+	u := application.AddCAASUnitArg{
+		K8sPod: &application.K8sPod{
+			ProviderID: "some-id",
+		},
+	}
+	appUUID := s.createCAASApplication(c, "foo", life.Alive, u)
+
+	unitNames, err := s.state.GetUnitNamesForApplication(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	fqdn := "controller-0.controller-service-endpoints.controller-foo.svc.cluster.local"
+	params := application.UpdateCAASUnitParams{
+		ProviderID: new("some-id"),
+		FQDN:       &fqdn,
+	}
+	err = s.state.UpdateCAASUnit(c.Context(), unitNames[0], params)
+	c.Assert(err, tc.ErrorIsNil)
+
+	assertFQDN := func() {
+		var (
+			gotAddress string
+			gotScopeID int
+			gotCount   int
+		)
+		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			return tx.QueryRowContext(ctx, `
+SELECT fa.address, fa.scope_id, count(*)
+FROM   fqdn_address AS fa
+JOIN   net_node_fqdn_address AS nnfa ON nnfa.address_uuid = fa.uuid
+JOIN   unit AS un ON un.net_node_uuid = nnfa.net_node_uuid
+WHERE  un.name = ?`, unitNames[0].String()).Scan(&gotAddress, &gotScopeID, &gotCount)
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(gotAddress, tc.Equals, fqdn)
+		c.Check(gotScopeID, tc.Equals, 1)
+		c.Check(gotCount, tc.Equals, 1)
+	}
+	assertFQDN()
+
+	// A repeated update with the same FQDN is a no-op (the k8s pod is upserted
+	// again) rather than an error.
+	err = s.state.UpdateCAASUnit(c.Context(), unitNames[0], params)
+	c.Assert(err, tc.ErrorIsNil)
+	assertFQDN()
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnitErrorNotScaling(c *tc.C) {
@@ -1590,10 +1720,10 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 			UnitUUID:    tc.Must(c, coreunit.NewUUID),
 			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 		},
-		CloudContainer: &application.CloudContainer{
+		K8sPod: &application.K8sPod{
 			ProviderID: "foo-id",
 			Ports:      new([]string{"666", "668"}),
-			Address: new(application.ContainerAddress{
+			Address: new(application.K8sPodAddress{
 				Value: "10.6.6.6/24",
 			}),
 		},
@@ -1607,10 +1737,10 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 			UnitUUID:    tc.Must(c, coreunit.NewUUID),
 			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 		},
-		CloudContainer: &application.CloudContainer{
+		K8sPod: &application.K8sPod{
 			ProviderID: "bar-id",
 			Ports:      new([]string{"777"}),
-			Address: new(application.ContainerAddress{
+			Address: new(application.K8sPodAddress{
 				Value: "10.6.6.7/24",
 			}),
 		},
@@ -1625,10 +1755,10 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 			UnitUUID:    tc.Must(c, coreunit.NewUUID),
 			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 		},
-		CloudContainer: &application.CloudContainer{
+		K8sPod: &application.K8sPod{
 			ProviderID: "zoo-id",
 			Ports:      new([]string{"666", "668"}),
-			Address: new(application.ContainerAddress{
+			Address: new(application.K8sPodAddress{
 				Value: "10.6.6.8/24",
 			}),
 		},
@@ -1658,11 +1788,11 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 func (s *unitStateSuite) TestGetUnitK8sPodInfo(c *tc.C) {
 	// Arrange:
 	appUUID := s.createCAASApplication(c, "foo", life.Alive, application.AddCAASUnitArg{
-		CloudContainer: &application.CloudContainer{
+		K8sPod: &application.K8sPod{
 			ProviderID: "some-id",
 			Ports:      new([]string{"666", "668"}),
-			Address: new(application.ContainerAddress{
-				Device: application.ContainerDevice{
+			Address: new(application.K8sPodAddress{
+				Device: application.K8sPodDevice{
 					Name:              "placeholder",
 					DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
 					VirtualPortTypeID: domainnetwork.NonVirtualPortType,
@@ -1825,24 +1955,24 @@ VALUES (?, ?, ?, 1)
 	c.Check(gotNetNodeUUID, tc.Equals, netNodeUUID)
 }
 
-func (s *unitStateSuite) GetAllUnitCloudContainerIDsForApplication(c *tc.C) {
+func (s *unitStateSuite) GetAllUnitK8sPodIDsForApplication(c *tc.C) {
 	appID := s.createCAASApplication(c, "foo", life.Alive, application.AddCAASUnitArg{
-		CloudContainer: &application.CloudContainer{
+		K8sPod: &application.K8sPod{
 			ProviderID: "a",
 		},
 	}, application.AddCAASUnitArg{
-		CloudContainer: &application.CloudContainer{
+		K8sPod: &application.K8sPod{
 			ProviderID: "b",
 		},
 	})
 
 	_ = s.createCAASApplication(c, "bar", life.Alive, application.AddCAASUnitArg{
-		CloudContainer: &application.CloudContainer{
+		K8sPod: &application.K8sPod{
 			ProviderID: "c",
 		},
 	})
 
-	result, err := s.state.GetAllUnitCloudContainerIDsForApplication(c.Context(), appID)
+	result, err := s.state.GetAllUnitK8sPodIDsForApplication(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, map[coreunit.Name]string{
 		"foo/0": "a",

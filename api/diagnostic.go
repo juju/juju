@@ -9,7 +9,7 @@ import (
 	"runtime/debug"
 	"sync/atomic"
 
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 )
 
 var connCount int64
@@ -34,15 +34,15 @@ func newTrackedConn(c net.Conn, addr string) *trackedConn {
 		logger:       loggo.GetLogger("juju.api.diagnostic"),
 	}
 
-	tc.logger.Criticalf("[diagnostic] Opened conn id=%d to %s; created by:\n%s\n", tc.id, addr, string(tc.createdStack))
+	_ = tc.logger.Criticalf(context.Background(), "[diagnostic] Opened conn id=%d to %s; created by:\n%s\n", tc.id, addr, string(tc.createdStack))
 	return tc
 }
 
 func (t *trackedConn) Close() error {
 	if atomic.CompareAndSwapInt32(&t.closed, 0, 1) {
-		t.logger.Criticalf("[diagnostic] Closing conn id=%d created by::\n%s\n", t.id, string(t.createdStack))
+		_ = t.logger.Criticalf(context.Background(), "[diagnostic] Closing conn id=%d created by::\n%s\n", t.id, string(t.createdStack))
 	} else {
-		t.logger.Criticalf("[diagnostic] Close called again id=%d\n", t.id)
+		_ = t.logger.Criticalf(context.Background(), "[diagnostic] Close called again id=%d\n", t.id)
 	}
 	return t.Conn.Close()
 }

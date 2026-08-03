@@ -6,16 +6,33 @@ package dbaccessor
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/testhelpers"
 )
+
+type stubStartupValuesProvider struct{}
+
+func (stubStartupValuesProvider) ControllerStartupValues() (ControllerStartupValues, error) {
+	return ControllerStartupValues{
+		ControllerID:          "0",
+		DataDir:               "/var/lib/juju",
+		DqlitePort:            17666,
+		QueryTracingEnabled:   true,
+		QueryTracingThreshold: time.Second,
+		DqliteBusyTimeout:     time.Second,
+		CACert:                "ca-cert",
+		ControllerCert:        "controller-cert",
+		ControllerPrivateKey:  "controller-key",
+	}, nil
+}
 
 type manifoldSuite struct {
 	baseSuite
@@ -33,9 +50,6 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg := s.getConfig()
 	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
-	cfg.AgentName = ""
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
 	cfg = s.getConfig()
 	cfg.QueryLoggerName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
@@ -45,15 +59,11 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.Clock = nil
+	cfg.ControllerStartupValues = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.Logger = nil
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
-	cfg.LogDir = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -79,12 +89,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:                 "agent",
 		QueryLoggerName:           "query-logger",
 		ControllerAgentConfigName: "controller-agent-config",
-		Clock:                     s.clock,
+		ControllerStartupValues:   stubStartupValuesProvider{},
 		Logger:                    s.logger,
-		LogDir:                    "log-dir",
 		PrometheusRegisterer:      s.prometheusRegisterer,
 		NewApp: func(string, ...app.Option) (DBApp, error) {
 			return s.dbApp, nil
@@ -95,7 +103,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewMetricsCollector: func() *Collector {
 			return &Collector{}
 		},
-		NewNodeManager: func(agent.Config, logger.Logger, coredatabase.SlowQueryLogger) NodeManager {
+		NewNodeManager: func(database.NodeManagerConfig, logger.Logger, coredatabase.SlowQueryLogger) NodeManager {
 			return s.nodeManager
 		},
 	}

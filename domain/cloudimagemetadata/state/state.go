@@ -214,6 +214,119 @@ VALUES ($inputMetadata.*)`, inputMetadata{})
 
 }
 
+// CompareOrInsertMetadata inserts cloud image metadata rows that are not
+// already present, comparing on the natural key
+// (stream, region, version, architecture, virt_type, root_storage_type, source)
+// and never updating an existing row. A row whose natural key already exists
+// with the same image id is a no-op; a row whose natural key exists with a
+// different image id is left unchanged and returned as a conflict.
+func (s *State) CompareOrInsertMetadata(
+	ctx context.Context, metadata []cloudimagemetadata.Metadata,
+) ([]cloudimagemetadata.MetadataConflict, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type indexed struct {
+		input  inputMetadata
+		source cloudimagemetadata.Metadata
+	}
+	values := make([]indexed, 0, len(metadata))
+	for _, m := range metadata {
+		archId, ok := getArchitectureID(m.Arch)
+		if !ok {
+			// If we get this error, something went wrong in the service layer,
+			// which should have validated it.
+			return nil, errors.Errorf("unknown architecture %q", m.Arch)
+		}
+		createdAt := s.clock.Now()
+		if !m.CreationTime.IsZero() {
+			createdAt = m.CreationTime
+		}
+		mUUID, err := uuid.NewUUID()
+		if err != nil {
+			return nil, errors.Errorf("failed to generate metadata uuid: %w", err)
+		}
+		values = append(values, indexed{
+			input: inputMetadata{
+				UUID:            mUUID.String(),
+				CreatedAt:       createdAt,
+				Source:          m.Source,
+				Stream:          m.Stream,
+				Region:          m.Region,
+				Version:         m.Version,
+				VirtType:        m.VirtType,
+				ArchitectureID:  archId,
+				RootStorageType: m.RootStorageType,
+				RootStorageSize: m.RootStorageSize,
+				Priority:        m.Priority,
+				ImageID:         m.ImageID,
+			},
+			source: m,
+		})
+	}
+
+	checkExistStmt, err := sqlair.Prepare(`
+SELECT &existingMetadata.* FROM cloud_image_metadata
+WHERE stream = $inputMetadata.stream
+AND region = $inputMetadata.region
+AND version = $inputMetadata.version
+AND architecture_id = $inputMetadata.architecture_id
+AND virt_type = $inputMetadata.virt_type
+AND root_storage_type = $inputMetadata.root_storage_type
+AND source = $inputMetadata.source
+`, existingMetadata{}, inputMetadata{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	insertMetadataStmt, err := sqlair.Prepare(`
+INSERT INTO cloud_image_metadata (*)
+VALUES ($inputMetadata.*)`, inputMetadata{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var conflicts []cloudimagemetadata.MetadataConflict
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		conflicts = nil
+		toInsert := make([]inputMetadata, 0, len(values))
+		for _, v := range values {
+			var existing existingMetadata
+			err := tx.Query(ctx, checkExistStmt, v.input).Get(&existing)
+			if dberrors.IsErrNotFound(err) {
+				// Absent on the target => insert.
+				toInsert = append(toInsert, v.input)
+			} else if err == nil {
+				// Present: leave the existing row unchanged. Report a conflict
+				// only when the existing image id differs from the one supplied.
+				if existing.ImageID != v.input.ImageID {
+					conflicts = append(conflicts, cloudimagemetadata.MetadataConflict{
+						MetadataAttributes: v.source.MetadataAttributes,
+						ExistingImageID:    existing.ImageID,
+						IncomingImageID:    v.input.ImageID,
+					})
+				}
+			} else {
+				return errors.Capture(err)
+			}
+		}
+
+		if len(toInsert) == 0 {
+			return nil
+		}
+		if err := tx.Query(ctx, insertMetadataStmt, toInsert).Run(); err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return conflicts, nil
+}
+
 // DeleteMetadataWithImageID deletes all metadata associated with the given image ID from the database.
 func (s *State) DeleteMetadataWithImageID(ctx context.Context, imageID string) error {
 	db, err := s.DB(ctx)

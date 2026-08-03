@@ -50,6 +50,14 @@ type metadataUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// existingMetadata holds the identifying and mutable fields of a row matched by
+// natural key, used by CompareOrInsertMetadata to decide insert/no-op/conflict.
+// Its only purpose is to inject data in sql statement or extract query results.
+type existingMetadata struct {
+	UUID    string `db:"uuid"`
+	ImageID string `db:"image_id"`
+}
+
 // ttl represents a Time-To-Live (TTL) structure used to specify expiration time.
 // Its only purpose is to inject data in sql statement or extract query results.
 type ttl struct {

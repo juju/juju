@@ -363,13 +363,6 @@ WHERE  a.uuid = $entityUUID.uuid
 		return errors.Capture(err)
 	}
 
-	deleteFqdnAddressStmt, err := st.Prepare(`
-DELETE FROM net_node_fqdn_address
-WHERE net_node_uuid IN ($uuids[:])`, uuids{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	deleteHostnameAddressStmt, err := st.Prepare(`
 DELETE FROM net_node_hostname_address
 WHERE net_node_uuid IN ($uuids[:])`, uuids{})
@@ -408,7 +401,7 @@ WHERE application_uuid = $entityUUID.uuid`, synthApp)
 
 	netNodeUUIDs := uuids(transform.Slice(netNodeEntityUUIDs, func(e entityUUID) string { return e.UUID }))
 
-	if err := tx.Query(ctx, deleteFqdnAddressStmt, netNodeUUIDs).Run(); err != nil {
+	if err := st.deleteNetNodesFQDNAddresses(ctx, tx, netNodeUUIDs); err != nil {
 		return errors.Errorf("deleting net node fqdn address for synth units: %w", err)
 	}
 
@@ -439,13 +432,6 @@ WHERE uuid = $entityUUID.uuid`, synthUnit)
 		return errors.Capture(err)
 	}
 
-	deleteFqdnAddressStmt, err := st.Prepare(`
-DELETE FROM net_node_fqdn_address
-WHERE net_node_uuid = $entityUUID.uuid`, entityUUID{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	deleteHostnameAddressStmt, err := st.Prepare(`
 DELETE FROM net_node_hostname_address
 WHERE net_node_uuid = $entityUUID.uuid`, entityUUID{})
@@ -470,7 +456,8 @@ WHERE uuid = $entityUUID.uuid`, entityUUID{})
 		return errors.Errorf("deleting synthetic unit: %w", err)
 	}
 
-	if err := tx.Query(ctx, deleteFqdnAddressStmt, netNode).Run(); err != nil {
+	// Delete the fqdn junction rows and any now-orphaned fqdn_address rows.
+	if err := st.deleteNetNodeFQDNAddresses(ctx, tx, netNode.UUID); err != nil {
 		return errors.Errorf("deleting net node fqdn address for synthetic unit: %w", err)
 	}
 

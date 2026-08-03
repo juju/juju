@@ -190,7 +190,6 @@ type MockNodeManagerMockRecorder struct {
 	ensureDataDirExpects         []*gomock.Call0_2[string, error]
 	isExistingNodeExpects        []*gomock.Call0_2[bool, error]
 	isLoopbackBoundExpects       []*gomock.Call1_2[context.Context, bool, error]
-	isLoopbackPreferredExpects   []*gomock.Call0_1[bool]
 	setClusterServersExpects     []*gomock.Call2_1[context.Context, []dqlite.NodeInfo, error]
 	setClusterToLocalNodeExpects []*gomock.Call1_1[context.Context, error]
 	setNodeInfoExpects           []*gomock.Call1_1[dqlite.NodeInfo, error]
@@ -285,24 +284,6 @@ func (mr *MockNodeManagerMockRecorder) IsLoopbackBound(arg0 any) *MockNodeManage
 
 // MockNodeManagerIsLoopbackBoundCall is the typed call wrapper for IsLoopbackBound.
 type MockNodeManagerIsLoopbackBoundCall = gomock.Call1_2[context.Context, bool, error]
-
-// IsLoopbackPreferred mocks base method.
-func (m *MockNodeManager) IsLoopbackPreferred() bool {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.isLoopbackPreferredExpects, m.ctrl, m, "IsLoopbackPreferred")
-}
-
-// IsLoopbackPreferred indicates an expected call of IsLoopbackPreferred.
-func (mr *MockNodeManagerMockRecorder) IsLoopbackPreferred() *MockNodeManagerIsLoopbackPreferredCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[bool](mr.mock.ctrl.T, mr.mock, "IsLoopbackPreferred")
-	mr.isLoopbackPreferredExpects = append(mr.isLoopbackPreferredExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockNodeManagerIsLoopbackPreferredCall is the typed call wrapper for IsLoopbackPreferred.
-type MockNodeManagerIsLoopbackPreferredCall = gomock.Call0_1[bool]
 
 // SetClusterServers mocks base method.
 func (m *MockNodeManager) SetClusterServers(arg0 context.Context, arg1 []dqlite.NodeInfo) error {

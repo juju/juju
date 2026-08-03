@@ -30,6 +30,7 @@ import (
 	flagservice "github.com/juju/juju/domain/flag/service"
 	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
 	keyupdaterservice "github.com/juju/juju/domain/keyupdater/service"
+	loggingservice "github.com/juju/juju/domain/logging/service"
 	macaroonservice "github.com/juju/juju/domain/macaroon/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	modelservice "github.com/juju/juju/domain/model/service"
@@ -52,10 +53,13 @@ import (
 	resourceservice "github.com/juju/juju/domain/resource/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	sshcontrollerservice "github.com/juju/juju/domain/ssh/service/controller"
+	sshmodelservice "github.com/juju/juju/domain/ssh/service/model"
 	statusservice "github.com/juju/juju/domain/status/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	storageprovisioningservice "github.com/juju/juju/domain/storageprovisioning/service"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
+	unitlessservice "github.com/juju/juju/domain/unitless/service"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 )
@@ -98,7 +102,11 @@ type ControllerDomainServices interface {
 	// ControllerChangeStream returns the global controller change stream.
 	ControllerChangeStream() *changestreamservice.Service
 	// Tracing returns the service for accessing tracing configuration.
-	Tracing() *tracingservice.Service
+	Tracing() *tracingservice.WatchableService
+	// Logging returns the service for accessing logging configuration.
+	Logging() *loggingservice.WatchableService
+	// SSHServerHostKey returns the service for controller SSH server host keys.
+	SSHServerHostKey() *sshcontrollerservice.Service
 }
 
 // ModelDomainServices provides access to the services required by the
@@ -152,7 +160,7 @@ type ModelDomainServices interface {
 	ModelInfo() *modelservice.ProviderModelService
 	// ModelMigration returns the model's migration service for support
 	// migration operations.
-	ModelMigration() *modelmigrationservice.Service
+	ModelMigration() *modelmigrationservice.WatchableService
 	// ModelSecretBackend returns the model secret backend service.
 	ModelSecretBackend() *secretbackendservice.ModelSecretBackendService
 	// Operation returns the operation service.
@@ -163,6 +171,8 @@ type ModelDomainServices interface {
 	// state. This is used to reconcile with local state to determine which
 	// hooks to run, and is saved upon hook completion.
 	UnitState() *unitstateservice.LeadershipService
+	// Unitless returns the service for unitless application scriptlets.
+	Unitless() *unitlessservice.WatchableService
 	// CloudImageMetadata returns the service for persisting and retrieving
 	// cloud image metadata for a specific model.
 	CloudImageMetadata() *cloudimagemetadataservice.Service
@@ -187,6 +197,8 @@ type ModelDomainServices interface {
 	ChangeStream() *changestreamservice.Service
 	// Export returns the service for accessing model exports.
 	Export() *exportservice.Service
+	// SSH returns the service for model-scoped SSH workflows.
+	SSH() *sshmodelservice.WatchableService
 }
 
 // DomainServices provides access to the services required by the apiserver.
@@ -260,6 +272,14 @@ type ObjectStoreServices interface {
 type ObjectStoreServicesGetter interface {
 	// ServicesForModel returns a ObjectStoreServices for the given model.
 	ServicesForModel(modelUUID model.UUID) ObjectStoreServices
+}
+
+// TraceServices provides access to the services required by the trace worker.
+// This is a subset of the controller domain services, for use by trace workers
+// that need to operate before the full domain services graph is available.
+type TraceServices interface {
+	// Tracing returns the service for accessing tracing configuration.
+	Tracing() *tracingservice.WatchableService
 }
 
 // UpgradeServices represents a way to get a upgrade services for a controller.

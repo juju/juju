@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
@@ -43,8 +44,12 @@ type State interface {
 	// watch statement for watching life changes of non-container machines.
 	InitialWatchModelMachinesStatement() (string, string)
 
-	// InitialWatchModelMachineLifeAndStartTimesStatement returns the namespace and the initial watch
-	// statement for watching life and agent start time changes machines.
+	// NamespaceForWatchMachineReprovision returns the namespace used to wake
+	// the provisioner after a machine is detached for reprovisioning.
+	NamespaceForWatchMachineReprovision() string
+
+	// InitialWatchModelMachineLifeAndStartTimesStatement returns the namespace
+	// and initial statement for watching machine life and agent start times.
 	InitialWatchModelMachineLifeAndStartTimesStatement() (string, string)
 
 	// GetMachineLife returns the life status of the specified machine.
@@ -57,6 +62,10 @@ type State interface {
 
 	// GetInstanceID returns the cloud specific instance id for this machine.
 	GetInstanceID(context.Context, string) (string, error)
+
+	// GetInstanceIDByMachineName returns the cloud specific instance ID for the
+	// machine identified by name.
+	GetInstanceIDByMachineName(context.Context, machine.Name) (string, error)
 
 	// GetInstanceIDAndName returns the cloud specific instance ID and display name
 	// for this machine.
@@ -72,6 +81,12 @@ type State interface {
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
 	SetMachineCloudInstance(context.Context, string, instance.Id, string, string, *instance.HardwareCharacteristics) error
+
+	// DetachLostMachineCloudInstance atomically clears the provider-observed
+	// state for a lost machine instance and moves the machine back to pending.
+	DetachLostMachineCloudInstance(
+		context.Context, string, string, string, []byte, time.Time,
+	) error
 
 	// SetRunningAgentBinaryVersion sets the running agent version for the
 	// machine. A MachineNotFound error will be returned if the machine does not
@@ -91,6 +106,17 @@ type State interface {
 	// It returns a [machineerrors.MachineNotFound] if the machine doesn't
 	// exist.
 	GetMachineLifeAndIsManuallyProvisioned(context.Context, machine.Name) (life.Life, bool, error)
+
+	// CheckMachineReprovisioningEligibility checks machine life, controller
+	// status, manual-provision status, child-container presence, and attached
+	// model-scoped storage and verifies that no reprovision request exists in a
+	// single round-trip. It returns a sentinel error for each ineligible
+	// condition.
+	CheckMachineReprovisioningEligibility(context.Context, machine.Name) error
+
+	// IsMachineAgentPresent returns whether presence exists for the specified
+	// machine agent.
+	IsMachineAgentPresent(context.Context, machine.Name) (bool, error)
 
 	// ShouldKeepInstance reports whether a machine, when removed from Juju,
 	// should cause the corresponding cloud instance to be stopped.
@@ -306,6 +332,19 @@ func (s *Service) GetMachineLifeAndIsManuallyProvisioned(ctx context.Context, ma
 		return corelife.Dead, false, errors.Errorf("getting life and manual status for machine %q: %w", machineName, err)
 	}
 	return lifeVal, isManual, nil
+}
+
+func (s *Service) validateReprovisionMachine(ctx context.Context, machineName machine.Name) (instance.Id, error) {
+	if err := s.st.CheckMachineReprovisioningEligibility(ctx, machineName); err != nil {
+		return "", errors.Errorf("reprovisioning machine %q: %w", machineName, err)
+	}
+
+	instanceID, err := s.st.GetInstanceIDByMachineName(ctx, machineName)
+	if err != nil {
+		return "", errors.Errorf("machine %q: %w", machineName, err)
+	}
+
+	return instance.Id(instanceID), nil
 }
 
 // ShouldKeepInstance reports whether a machine, when removed from Juju, should cause
@@ -586,6 +625,33 @@ func (s *Service) GetSSHHostKeys(ctx context.Context, mUUID machine.UUID) ([]str
 	keys, err := s.st.GetSSHHostKeys(ctx, mUUID.String())
 	if err != nil {
 		return nil, errors.Errorf("getting SSH host keys for machine with UUID %q: %w", mUUID, err)
+	}
+	return keys, nil
+}
+
+// GetSSHHostKeysByMachineName returns the SSH host keys for the machine
+// identified by its name.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the machine name is not valid.
+// - [machineerrors.MachineNotFound] when no machine exists for the supplied
+// name.
+func (s *Service) GetSSHHostKeysByMachineName(ctx context.Context, name machine.Name) ([]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := name.Validate(); err != nil {
+		return nil, errors.Errorf("validating machine name %q: %w", name, err)
+	}
+
+	mUUID, err := s.st.GetMachineUUID(ctx, name)
+	if err != nil {
+		return nil, errors.Errorf("getting UUID for machine %q: %w", name, err)
+	}
+
+	keys, err := s.st.GetSSHHostKeys(ctx, mUUID.String())
+	if err != nil {
+		return nil, errors.Errorf("getting SSH host keys for machine %q: %w", name, err)
 	}
 	return keys, nil
 }

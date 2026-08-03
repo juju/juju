@@ -64,7 +64,7 @@ func (s *migrationSuite) TestImportOperationsWithSingleUnitTask(c *tc.C) {
 
 	args := internal.ImportOperationsArgs{
 		{
-			ID:             "op-1",
+			ID:             1,
 			UUID:           opUUID,
 			Summary:        "imported-op",
 			Enqueued:       enqOp,
@@ -192,7 +192,7 @@ func (s *migrationSuite) TestImportOperationsWithMultipleUnitTask(c *tc.C) {
 
 	args := internal.ImportOperationsArgs{
 		{
-			ID:          "op-1",
+			ID:          1,
 			UUID:        internaluuid.MustNewUUID().String(),
 			Enqueued:    time.Now(),
 			Application: "miniapp",
@@ -249,7 +249,7 @@ func (s *migrationSuite) TestImportOperationsWithSingleMachineTask(c *tc.C) {
 
 	args := internal.ImportOperationsArgs{
 		{
-			ID:         "op-m1",
+			ID:         1,
 			UUID:       opUUID,
 			Enqueued:   time.Now().Add(-10 * time.Minute).UTC(),
 			Started:    time.Time{}, // left zero
@@ -308,7 +308,7 @@ func (s *migrationSuite) TestImportOperationsWithMultipleMachineTasks(c *tc.C) {
 
 	args := internal.ImportOperationsArgs{
 		{
-			ID:       "op-m1",
+			ID:       1,
 			UUID:     opUUID,
 			Enqueued: time.Now().Add(-10 * time.Minute).UTC(),
 			Tasks: []internal.ImportTaskArg{

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
+	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
@@ -834,6 +835,38 @@ func (s *placementSuite) TestCreateMachineWithNameIndicatesUnmanagedMachine(c *t
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 1)
+}
+
+func (s *placementSuite) TestPlaceMachineWithIPFamilyConstraint(c *tc.C) {
+	// Arrange: Create a machine with IP family constraint.
+	machineUUID := machinetesting.GenUUID(c)
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, err := PlaceMachine(ctx, tx, s.st, clock.WallClock, domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type: deployment.PlacementTypeUnset,
+			},
+			MachineUUID: machineUUID,
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
+			Constraints: constraints.Constraints{
+				IPFamily: new(ipfamily.IPv6),
+			},
+		})
+		return err
+	})
+	// Assert: the placement succeeds.
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify the constraint was saved.
+	var ipFamily *string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT ip_family
+FROM   v_machine_constraint
+WHERE  machine_uuid = ?`, machineUUID.String()).Scan(&ipFamily)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ipFamily, tc.Not(tc.IsNil))
+	c.Check(*ipFamily, tc.Equals, "ipv6")
 }
 
 func (s *placementSuite) checkSequenceForMachineNamespace(c *tc.C, expected int) {

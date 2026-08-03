@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
+	jujunames "github.com/juju/juju/juju/names"
 )
 
 var logger = internallogger.GetLogger("juju.cloudconfig.instancecfg")
@@ -198,6 +199,53 @@ type InstanceConfig struct {
 
 	// Profiles is a slice of (lxd) profile names to be used by a container
 	Profiles []string
+
+	// LokiEndpoint is the Loki push API endpoint the machine agent should
+	// forward logs to on first boot. Empty means logs are sent through the
+	// controller logsink.
+	LokiEndpoint string
+
+	// LokiCACert is the CA certificate used to validate the Loki endpoint.
+	LokiCACert string
+
+	// LokiInsecureSkipVerify controls whether TLS validation is disabled
+	// for the Loki endpoint. A nil value means the default (verify
+	// enabled) is in effect.
+	LokiInsecureSkipVerify *bool
+
+	// LokiOrgID is the organization/tenant ID for multi-tenant Loki
+	// deployments. Empty means no X-Scope-OrgID header is sent.
+	LokiOrgID string
+
+	// TracingHTTPEndpoint is the HTTP endpoint for the OpenTelemetry
+	// collector. Empty means no HTTP tracing endpoint is configured.
+	TracingHTTPEndpoint string
+
+	// TracingGRPCEndpoint is the gRPC endpoint for the OpenTelemetry
+	// collector. Empty means no gRPC tracing endpoint is configured.
+	TracingGRPCEndpoint string
+
+	// TracingCACertificate is the CA certificate used to validate the
+	// tracing endpoint TLS connection.
+	TracingCACertificate string
+
+	// TracingInsecureSkipVerify controls whether TLS validation is
+	// disabled for the tracing endpoint. A nil value means the default
+	// (verify enabled) is in effect.
+	TracingInsecureSkipVerify *bool
+
+	// TracingStackTraces controls whether debug stack traces are
+	// attached to spans. A nil value means the default is in effect.
+	TracingStackTraces *bool
+
+	// TracingSampleRatio is the ratio of spans to sample. A nil value
+	// means the default ratio is in effect.
+	TracingSampleRatio *float64
+
+	// TracingTailSamplingThreshold is the duration threshold for
+	// tail-based sampling, as a string parseable by time.ParseDuration.
+	// A nil value means the default is in effect.
+	TracingTailSamplingThreshold *string
 }
 
 // BootstrapConfig represents bootstrap-specific initialization information
@@ -514,14 +562,41 @@ func (cfg *InstanceConfig) AgentConfig(
 		configParams.QueryTracingEnabled = cfg.ControllerConfig.QueryTracingEnabled()
 		configParams.QueryTracingThreshold = cfg.ControllerConfig.QueryTracingThreshold()
 		configParams.DqliteBusyTimeout = cfg.ControllerConfig.DqliteBusyTimeout()
-		configParams.OpenTelemetryEnabled = cfg.ControllerConfig.OpenTelemetryEnabled()
-		configParams.OpenTelemetryEndpoint = cfg.ControllerConfig.OpenTelemetryEndpoint()
-		configParams.OpenTelemetryInsecure = cfg.ControllerConfig.OpenTelemetryInsecure()
-		configParams.OpenTelemetryStackTraces = cfg.ControllerConfig.OpenTelemetryStackTraces()
-		configParams.OpenTelemetrySampleRatio = cfg.ControllerConfig.OpenTelemetrySampleRatio()
-		configParams.OpenTelemetryTailSamplingThreshold = cfg.ControllerConfig.OpenTelemetryTailSamplingThreshold()
-		configParams.ObjectStoreType = cfg.ControllerConfig.ObjectStoreType()
 	}
+	// Resolve the workload tracing config from the raw fields injected
+	// during provisioning. When no endpoint is configured the agent
+	// falls back to tracing disabled. Optional fields that are nil use
+	// the agent defaults.
+	configParams.OpenTelemetryEnabled = cfg.TracingGRPCEndpoint != "" || cfg.TracingHTTPEndpoint != ""
+	configParams.OpenTelemetryHTTPEndpoint = cfg.TracingHTTPEndpoint
+	configParams.OpenTelemetryGRPCEndpoint = cfg.TracingGRPCEndpoint
+	configParams.OpenTelemetryInsecure = agent.DefaultOpenTelemetryInsecure
+	if cfg.TracingInsecureSkipVerify != nil {
+		configParams.OpenTelemetryInsecure = *cfg.TracingInsecureSkipVerify
+	}
+	configParams.OpenTelemetryStackTraces = agent.DefaultOpenTelemetryStackTraces
+	if cfg.TracingStackTraces != nil {
+		configParams.OpenTelemetryStackTraces = *cfg.TracingStackTraces
+	}
+	configParams.OpenTelemetrySampleRatio = agent.DefaultOpenTelemetrySampleRatio
+	if cfg.TracingSampleRatio != nil {
+		configParams.OpenTelemetrySampleRatio = *cfg.TracingSampleRatio
+	}
+	configParams.OpenTelemetryTailSamplingThreshold = agent.DefaultOpenTelemetryTailSamplingThreshold
+	if cfg.TracingTailSamplingThreshold != nil && *cfg.TracingTailSamplingThreshold != "" {
+		d, err := time.ParseDuration(*cfg.TracingTailSamplingThreshold)
+		if err != nil {
+			return nil, errors.Annotatef(err, "parsing open telemetry tail sampling threshold %q", *cfg.TracingTailSamplingThreshold)
+		}
+		if d < 0 {
+			return nil, errors.NotValidf("open telemetry tail sampling threshold %q", *cfg.TracingTailSamplingThreshold)
+		}
+		configParams.OpenTelemetryTailSamplingThreshold = d
+	}
+	configParams.LokiEndpoint = cfg.LokiEndpoint
+	configParams.LokiCACert = cfg.LokiCACert
+	configParams.LokiInsecureSkipVerify = cfg.LokiInsecureSkipVerify
+	configParams.LokiOrgID = cfg.LokiOrgID
 	if cfg.Bootstrap == nil {
 		return agent.NewAgentConfig(configParams)
 	}
@@ -546,8 +621,10 @@ func (cfg *InstanceConfig) CharmDir() string {
 func (cfg *InstanceConfig) APIHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap != nil {
-		hosts = append(hosts, net.JoinHostPort(
-			"localhost", strconv.Itoa(cfg.Bootstrap.ControllerAgentInfo.APIPort)),
+		hosts = append(
+			hosts, net.JoinHostPort(
+				"localhost", strconv.Itoa(cfg.Bootstrap.ControllerAgentInfo.APIPort),
+			),
 		)
 	}
 	if cfg.APIInfo != nil {
@@ -769,7 +846,7 @@ func NewInstanceConfig(
 		Jobs:                    []model.MachineJob{model.JobHostUnits},
 		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
 		TransientDataDir:        paths.TransientDataDir(osType),
-		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
+		MachineAgentServiceName: jujunames.JujuAgentd + "-" + names.NewMachineTag(machineID).String(),
 		Base:                    base,
 		Tags:                    map[string]string{},
 

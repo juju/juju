@@ -1,0 +1,21 @@
+options:
+  bucket:
+    type: string
+    default: ""
+    description: S3 bucket name advertised to Juju.
+  region:
+    type: string
+    default: ""
+    description: S3 region advertised to Juju.
+  endpoint:
+    type: string
+    default: ""
+    description: S3-compatible endpoint advertised to Juju.
+  static_key:
+    type: string
+    default: ""
+    description: Static access key advertised to Juju.
+  static_secret:
+    type: string
+    default: ""
+    description: Static secret key advertised to Juju.

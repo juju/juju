@@ -359,7 +359,7 @@ func (s *unitServiceSuite) TestUpdateCAASUnit(c *tc.C) {
 			Data:    map[string]any{"foo": "bar"},
 			Since:   new(now),
 		}),
-		CloudContainerStatus: new(corestatus.StatusInfo{
+		K8sPodStatus: new(corestatus.StatusInfo{
 			Status:  corestatus.Running,
 			Message: "container status",
 			Data:    map[string]any{"foo": "bar"},
@@ -829,7 +829,7 @@ func (s *unitServiceSuite) TestGetAllUnitLifeForApplicationError(c *tc.C) {
 	c.Check(allUnitLife, tc.IsNil)
 }
 
-func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplication(c *tc.C) {
+func (s *unitServiceSuite) TestGetAllUnitK8sPodIDsForApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := tc.Must(c, coreapplication.NewUUID)
@@ -838,31 +838,31 @@ func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplication(c *tc.C
 		"test/4": "foo",
 		"test/5": "bar",
 	}
-	s.state.EXPECT().GetAllUnitCloudContainerIDsForApplication(gomock.Any(), appID).
+	s.state.EXPECT().GetAllUnitK8sPodIDsForApplication(gomock.Any(), appID).
 		Return(expectedResult, nil)
 
-	result, err := s.service.GetAllUnitCloudContainerIDsForApplication(c.Context(), appID)
+	result, err := s.service.GetAllUnitK8sPodIDsForApplication(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, expectedResult)
 }
 
-func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplicationErrors(c *tc.C) {
+func (s *unitServiceSuite) TestGetAllUnitK8sPodIDsForApplicationErrors(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := tc.Must(c, coreapplication.NewUUID)
 
-	s.state.EXPECT().GetAllUnitCloudContainerIDsForApplication(gomock.Any(), appID).
+	s.state.EXPECT().GetAllUnitK8sPodIDsForApplication(gomock.Any(), appID).
 		Return(nil, errors.New("nope"))
 
-	_, err := s.service.GetAllUnitCloudContainerIDsForApplication(c.Context(), appID)
+	_, err := s.service.GetAllUnitK8sPodIDsForApplication(c.Context(), appID)
 	c.Assert(err, tc.NotNil)
 }
 
-func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplicationInvalidApplicationUUID(c *tc.C) {
+func (s *unitServiceSuite) TestGetAllUnitK8sPodIDsForApplicationInvalidApplicationUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := coreapplication.UUID("$")
-	_, err := s.service.GetAllUnitCloudContainerIDsForApplication(c.Context(), appID)
+	_, err := s.service.GetAllUnitK8sPodIDsForApplication(c.Context(), appID)
 	c.Assert(err, tc.NotNil)
 }
 

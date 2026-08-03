@@ -191,6 +191,13 @@ func (ctxt *authContext) CreateLocalLoginMacaroon(ctx context.Context, tag names
 	return authentication.CreateLocalLoginMacaroon(ctx, tag, ctxt.localUserThirdPartyBakery.Oven, ctxt.clock, version)
 }
 
+// CreateMigrationMacaroon mints a directly-presentable 24h login macaroon for
+// the given user using the storage bakery, so the target's
+// LocalUserAuthenticator can verify it at worker login without a discharge.
+func (ctxt *authContext) CreateMigrationMacaroon(ctx context.Context, tag names.UserTag, version bakery.Version) (*bakery.Macaroon, error) {
+	return authentication.CreateMigrationMacaroon(ctx, tag, ctxt.localUserBakery, ctxt.clock, version)
+}
+
 // CheckLocalLoginCaveat parses and checks that the given caveat string is
 // valid for a local login request, and returns the tag of the local user
 // that the caveat asserts is logged in. checkers.ErrCaveatNotRecognized will

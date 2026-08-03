@@ -14,7 +14,10 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	credentialservice "github.com/juju/juju/domain/credential/service"
+	modelservice "github.com/juju/juju/domain/model/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
@@ -118,4 +121,38 @@ type stubCaller struct {
 // ModelTag is part of the base.APICaller interface.
 func (*stubCaller) ModelTag() (names.ModelTag, bool) {
 	return coretesting.ModelTag, true
+}
+
+// stubDomainServices is a minimal stub that satisfies services.DomainServices
+// for tests that only need Credential() and Model() methods.
+type stubDomainServices struct {
+	services.ControllerDomainServices
+	services.ModelDomainServices
+}
+
+func (s *stubDomainServices) Credential() *credentialservice.WatchableService {
+	return nil
+}
+
+func (s *stubDomainServices) Model() *modelservice.WatchableService {
+	return nil
+}
+
+// validModelManifoldConfig returns a minimal ModelManifoldConfig stuffed with
+// dummy objects that will explode when used.
+func validModelManifoldConfig(c *tc.C) credentialvalidator.ModelManifoldConfig {
+	return credentialvalidator.ModelManifoldConfig{
+		DomainServicesName: "domain-services",
+		ModelUUID:          "mock-model-uuid",
+		NewWorker:          panicWorker,
+		Logger:             loggertesting.WrapCheckLog(c),
+	}
+}
+
+// checkModelManifoldNotValid checks that the supplied ModelManifoldConfig
+// creates a manifold that cannot be started.
+func checkModelManifoldNotValid(c *tc.C, config credentialvalidator.ModelManifoldConfig, expect string) {
+	err := config.Validate()
+	c.Check(err, tc.ErrorMatches, expect)
+	c.Check(err, tc.ErrorIs, errors.NotValid)
 }

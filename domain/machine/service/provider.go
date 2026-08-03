@@ -5,25 +5,36 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/providertracker"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	domainconstraints "github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/statushistory"
 )
+
+const reprovisioningStatusMessage = "reprovisioning requested"
 
 // Provider represents an underlying cloud provider.
 type Provider interface {
 	environs.BootstrapEnviron
+	environs.InstanceLister
 	environs.InstanceTypesFetcher
 	environs.InstancePrechecker
 }
@@ -41,7 +52,8 @@ func NewProviderService(
 	st State,
 	statusHistory StatusHistory,
 	providerGetter providertracker.ProviderGetter[Provider],
-	clock clock.Clock, logger logger.Logger,
+	clock clock.Clock,
+	logger logger.Logger,
 ) *ProviderService {
 	return &ProviderService{
 		Service: Service{
@@ -52,6 +64,95 @@ func NewProviderService(
 		},
 		providerGetter: providerGetter,
 	}
+}
+
+// ReprovisionMachine validates that the machine identified by name is eligible
+// for reprovisioning, then applies the split-brain prevention liveness gates.
+func (s *ProviderService) ReprovisionMachine(ctx context.Context, machineName machine.Name) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	instanceID, err := s.validateReprovisionMachine(ctx, machineName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	present, err := s.st.IsMachineAgentPresent(ctx, machineName)
+	if err != nil {
+		return errors.Errorf("checking machine %q agent presence: %w", machineName, err)
+	}
+	if present {
+		return errors.Errorf("machine %q: %w", machineName, machineerrors.MachineAgentPresent)
+	}
+
+	provider, err := s.providerGetter(ctx)
+	if err != nil {
+		return errors.Errorf("getting provider for machine %q reprovisioning: %w", machineName, err)
+	}
+	instances, err := provider.Instances(ctx, []instance.Id{instanceID})
+	if err != nil && !errors.Is(err, environs.ErrNoInstances) && !errors.Is(err, environs.ErrPartialInstances) {
+		return errors.Errorf("checking provider instance %q for machine %q: %w", instanceID, machineName, err)
+	}
+
+	// If the provider reports that the instance is missing, then we can safely
+	// detach the instance and move the machine back to pending.
+	if len(instances) == 0 || instances[0] == nil {
+		return s.detachLostMachineCloudInstance(ctx, machineName, instanceID)
+	}
+
+	// If the provider reports that the instance is running, then there isn't
+	// anything we should do.
+	providerStatus := instances[0].Status(ctx)
+	if providerStatus.Status == corestatus.Running {
+		return errors.Errorf("machine %q instance %q: %w", machineName, instanceID, machineerrors.MachineProviderInstanceRunning)
+	}
+	return s.detachLostMachineCloudInstance(ctx, machineName, instanceID)
+}
+
+// detachLostMachineCloudInstance atomically clears provider-observed state for
+// a lost machine instance and moves the machine back to pending. The expected
+// instance ID prevents detaching a replacement that appeared after the
+// provider liveness check.
+func (s *ProviderService) detachLostMachineCloudInstance(
+	ctx context.Context,
+	machineName machine.Name,
+	expectedInstanceID instance.Id,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	statusData := map[string]any{
+		"old-instance-id": expectedInstanceID.String(),
+	}
+	encodedStatusData, err := json.Marshal(statusData)
+	if err != nil {
+		return errors.Errorf("encoding reprovisioning status data: %w", err)
+	}
+
+	now := s.clock.Now().UTC()
+	if err := s.st.DetachLostMachineCloudInstance(
+		ctx, machineName.String(), expectedInstanceID.String(), reprovisioningStatusMessage,
+		encodedStatusData, now,
+	); err != nil {
+		return errors.Errorf("detaching lost cloud instance for machine %q: %w", machineName, err)
+	}
+
+	statusInfo := corestatus.StatusInfo{
+		Status:  corestatus.Pending,
+		Message: reprovisioningStatusMessage,
+		Data:    statusData,
+		Since:   &now,
+	}
+	for _, namespace := range []statushistory.Namespace{
+		domainstatus.MachineNamespace.WithID(machineName.String()),
+		domainstatus.MachineInstanceNamespace.WithID(machineName.String()),
+	} {
+		if err := s.statusHistory.RecordStatus(ctx, namespace, statusInfo); err != nil {
+			s.logger.Warningf(ctx, "recording reprovisioning status history: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // AddMachine creates the net node and machines if required, depending
@@ -154,6 +255,17 @@ func (s *ProviderService) mergeMachineAndModelConstraints(ctx context.Context, c
 	)
 	if err != nil {
 		return constraints.Value{}, errors.Errorf("merging machine and model constraints: %w", err)
+	}
+
+	// Validate merged constraints to catch unsupported constraints.
+	unsupported, err := validator.Validate(mergedCons)
+	if err != nil {
+		// Should never happen; constraints are validated during merge.
+		return constraints.Value{}, errors.Capture(err)
+	}
+	if len(unsupported) > 0 {
+		s.logger.Warningf(ctx,
+			"unsupported constraints: %v", strings.Join(unsupported, ","))
 	}
 
 	return mergedCons, nil

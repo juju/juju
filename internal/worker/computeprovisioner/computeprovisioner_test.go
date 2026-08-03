@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/worker/v5/workertest"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/controller"
@@ -31,7 +29,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs"
@@ -43,7 +40,9 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/computeprovisioner"
+	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -184,28 +183,10 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *tc.C) computeprovision
 	c.Assert(s.machinesAPI, tc.NotNil)
 	s.expectMachinesWatcher()
 
-	machineTag := names.NewMachineTag("0")
-	defaultPaths := agent.DefaultPaths
-	defaultPaths.DataDir = c.MkDir()
-	agentConfig, err := agent.NewAgentConfig(
-		agent.AgentConfigParams{
-			Paths:             defaultPaths,
-			Tag:               machineTag,
-			UpgradedToVersion: jujuversion.Current,
-			Password:          "password",
-			Nonce:             "nonce",
-			APIAddresses:      []string{"0.0.0.0:12345"},
-			CACert:            coretesting.CACert,
-			Controller:        coretesting.ControllerTag,
-			Model:             coretesting.ModelTag,
-		})
-	c.Assert(err, tc.ErrorIsNil)
-
 	w, err := computeprovisioner.NewEnvironProvisioner(
 		s.controllerAPI, s.machineService, s.machinesAPI,
 		mockToolsFinder{},
 		&mockDistributionGroupFinder{},
-		agentConfig,
 		loggertesting.WrapCheckLog(c),
 		s.broker)
 	c.Assert(err, tc.ErrorIsNil)
@@ -351,8 +332,9 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *tc.C) {
 	s.sendModelMachinesChange(c, mTag.Id())
 	s.waitForRemovalMark(c, m666)
 
-	// Make sure the nonce is set correctly.
-	c.Assert(strings.HasPrefix(nonce, "machine-0:"), tc.IsTrue)
+	// Make sure the nonce is set.
+	_, err := uuid.UUIDFromString(nonce)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ProvisionerSuite) TestEnvironProvisionerObservesConfigChangesWorkerCount(c *tc.C) {
@@ -395,7 +377,7 @@ func machineStartInstanceArg(id string) *environs.StartInstanceParams {
 	tag := names.NewMachineTag(id)
 	result.InstanceConfig.APIInfo.Tag = tag
 	result.InstanceConfig.MachineId = id
-	result.InstanceConfig.MachineAgentServiceName = fmt.Sprintf("jujud-%s", tag)
+	result.InstanceConfig.MachineAgentServiceName = fmt.Sprintf("%s-%s", jujunames.JujuAgentd, tag)
 	return &result
 }
 

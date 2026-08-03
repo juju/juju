@@ -96,6 +96,8 @@ import (
 	secretstate "github.com/juju/juju/domain/secret/state"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
+	sshmodelservice "github.com/juju/juju/domain/ssh/service/model"
+	sshmodelstate "github.com/juju/juju/domain/ssh/state/model"
 	statusservice "github.com/juju/juju/domain/status/service"
 	statusstatecontroller "github.com/juju/juju/domain/status/state/controller"
 	statusstatemodel "github.com/juju/juju/domain/status/state/model"
@@ -103,6 +105,8 @@ import (
 	storagestate "github.com/juju/juju/domain/storage/state"
 	storageprovisioningservice "github.com/juju/juju/domain/storageprovisioning/service"
 	storageprovisioningstate "github.com/juju/juju/domain/storageprovisioning/state"
+	unitlessservice "github.com/juju/juju/domain/unitless/service"
+	unitlessstate "github.com/juju/juju/domain/unitless/state"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	unitstatestate "github.com/juju/juju/domain/unitstate/state"
 	"github.com/juju/juju/environs"
@@ -416,12 +420,22 @@ func (s *ModelServices) Secret() *secretservice.WatchableService {
 	)
 }
 
+// SSH returns the model SSH service for the current model.
+func (s *ModelServices) SSH() *sshmodelservice.WatchableService {
+	return sshmodelservice.NewWatchableService(
+		sshmodelstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.modelUUID,
+		s.clock,
+		s.modelWatcherFactory("ssh"),
+	)
+}
+
 // ModelMigration returns the model's migration service for supporting migration
 // operations.
-func (s *ModelServices) ModelMigration() *modelmigrationservice.Service {
+func (s *ModelServices) ModelMigration() *modelmigrationservice.WatchableService {
 	controllerState := modelmigrationstatecontroller.New(changestream.NewTxnRunnerFactory(s.controllerDB), s.clock)
 	modelState := modelmigrationstatemodel.New(changestream.NewTxnRunnerFactory(s.modelDB), s.modelUUID)
-	return modelmigrationservice.NewService(
+	return modelmigrationservice.NewWatchableService(
 		controllerState,
 		modelState,
 		s.modelUUID.String(),
@@ -478,6 +492,11 @@ func (s *ModelServices) ModelInfo() *modelservice.ProviderModelService {
 func (s *ModelServices) Export() *exportservice.Service {
 	return exportservice.NewService(
 		exportstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		exportservice.ControllerInfoState{
+			Controller: modelmigrationstatecontroller.New(changestream.NewTxnRunnerFactory(s.controllerDB), s.clock),
+			Model:      modelmigrationstatemodel.New(changestream.NewTxnRunnerFactory(s.modelDB), s.modelUUID),
+			ModelUUID:  s.modelUUID.String(),
+		},
 	)
 }
 
@@ -500,6 +519,13 @@ func (s *ModelServices) UnitState() *unitstateservice.LeadershipService {
 		domain.NewLeaseService(s.leaseManager),
 		s.clock,
 		log,
+	)
+}
+
+// Unitless returns the service for unitless application scriptlets.
+func (s *ModelServices) Unitless() *unitlessservice.WatchableService {
+	return unitlessservice.NewWatchableService(
+		unitlessstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }
 
