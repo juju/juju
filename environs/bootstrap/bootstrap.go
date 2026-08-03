@@ -118,6 +118,10 @@ type BootstrapParams struct {
 	// It is an error to specify BuildAgent with a nil BuildAgentTarball.
 	BuildAgent bool
 
+	// BuildSnap reports whether we should build the controller snap local from
+	// source via 'make build-snap' before bootstrapping.
+	BuildSnap bool
+
 	// BuildAgentTarball, if non-nil, is a function that may be used to
 	// build tools to upload. If this is nil, tools uploading will never
 	// take place.
@@ -245,7 +249,7 @@ func withDefaultControllerConstraints(cons constraints.Value) constraints.Value 
 	// ensure that it has at least 2 cores. Less than 2 cores can cause the
 	// controller to become unresponsive when installing.
 	if !cons.HasCpuCores() && cons.HasVirtType() && *cons.VirtType == instance.VirtTypeMachine {
-		var cores = uint64(2)
+		cores := uint64(2)
 		cons.CpuCores = &cores
 	}
 	return cons
@@ -416,7 +420,8 @@ func bootstrapIAAS(
 	}
 
 	ctx.Verbosef("Loading image metadata")
-	imageMetadata, err := bootstrapImageMetadata(ctx, environ,
+	imageMetadata, err := bootstrapImageMetadata(
+		ctx, environ,
 		ss,
 		&bootstrapBase,
 		bootstrapArchForImageSearch,
@@ -723,8 +728,8 @@ func bootstrapIAAS(
 		cred, err := finalizer.FinaliseBootstrapCredential(
 			ctx,
 			bootstrapParams,
-			args.CloudCredential)
-
+			args.CloudCredential,
+		)
 		if err != nil {
 			return errors.Annotate(err, "finalizing bootstrap credential")
 		}
@@ -826,7 +831,8 @@ func finalizeInstanceBootstrapConfig(
 	}
 
 	authority, err := pki.NewDefaultAuthorityPemCAKey(
-		[]byte(caCert), []byte(args.CAPrivateKey))
+		[]byte(caCert), []byte(args.CAPrivateKey),
+	)
 	if err != nil {
 		return errors.Annotate(err, "loading juju certificate authority")
 	}
@@ -834,7 +840,6 @@ func finalizeInstanceBootstrapConfig(
 	leaf, err := authority.LeafRequestForGroup(pki.DefaultLeafGroup).
 		AddDNSNames(controller.DefaultDNSNames...).
 		Commit()
-
 	if err != nil {
 		return errors.Annotate(err, "make juju default controller cert")
 	}
@@ -898,7 +903,8 @@ func finalizePodBootstrapConfig(
 	}
 
 	authority, err := pki.NewDefaultAuthorityPemCAKey(
-		[]byte(caCert), []byte(args.CAPrivateKey))
+		[]byte(caCert), []byte(args.CAPrivateKey),
+	)
 	if err != nil {
 		return errors.Annotate(err, "loading juju certificate authority")
 	}
@@ -909,7 +915,6 @@ func finalizePodBootstrapConfig(
 	leaf, err := authority.LeafRequestForGroup(pki.DefaultLeafGroup).
 		AddDNSNames(controller.DefaultDNSNames...).
 		Commit()
-
 	if err != nil {
 		return errors.Annotate(err, "make juju default controller cert")
 	}
@@ -985,7 +990,6 @@ func bootstrapImageMetadata(
 	bootstrapImageId string,
 	customImageMetadata *[]*imagemetadata.ImageMetadata,
 ) ([]*imagemetadata.ImageMetadata, error) {
-
 	hasRegion, ok := environ.(simplestreams.HasRegion)
 	if !ok {
 		if bootstrapImageId != "" {
@@ -1075,7 +1079,8 @@ func getBootstrapToolsVersion(ctx context.Context, possibleTools coretools.List)
 	if !isCompatibleVersion(newVersion, jujuversion.Current) {
 		compatibleVersion, compatibleTools := findCompatibleTools(possibleTools, jujuversion.Current)
 		if len(compatibleTools) == 0 {
-			logger.Infof(ctx,
+			logger.Infof(
+				ctx,
 				"failed to find %s agent binaries, will attempt to use %s",
 				jujuversion.Current, newVersion,
 			)
