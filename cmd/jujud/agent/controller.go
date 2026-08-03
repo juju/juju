@@ -434,6 +434,11 @@ type ControllerApplication struct {
 	// testEngineCreator, when non-nil, replaces makeEngineCreator in Run.
 	// It exists only to allow unit tests to inject a lightweight worker
 	// without spinning up the full dependency engine.
+	//
+	// WARNING: This is a test-only field must NEVER be set in production code
+	// paths. If it leaks into production the controller will not start
+	// the dependency engine. Run() logs a warning when this is non-nil so
+	// that accidental production use is observable in logs.
 	testEngineCreator func(context.Context) (worker.Worker, error)
 }
 
@@ -528,6 +533,7 @@ func (a *ControllerApplication) Run(ctx *cmd.Context) (err error) {
 
 	createEngine := a.makeEngineCreator(agentName, controllerRuntimeConfig.UpgradedToVersion(), logSink)
 	if a.testEngineCreator != nil {
+		logger.Warningf(context.TODO(), "testEngineCreator is set; replacing controller engine with test stub. This must only happen in test builds.")
 		createEngine = a.testEngineCreator
 	}
 	_ = a.runner.StartWorker(ctx, "engine", createEngine)
