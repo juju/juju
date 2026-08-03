@@ -48,7 +48,7 @@ func snapArch(goarch string) string {
 // from the bootstrap command's Run() when --build-snap is set, populating
 // ControllerSnapPath so the existing upload pipeline handles the locally built
 // snap.
-func BuildControllerSnap(ctx context.Context) (string, error) {
+var BuildControllerSnap = func(ctx context.Context) (string, error) {
 	sourceRoot, err := tools.FindJujuSourceRoot()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot locate juju source root")

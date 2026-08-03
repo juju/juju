@@ -429,8 +429,14 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	}
 
 	if c.ControllerSnapAssertPath != "" {
-		if c.BuildSnap {
-			return errors.New("--controller-snap-assert-path requires --controller-snap-path; it cannot be used with --build-snap")
+		// --controller-snap-assert-path requires --controller-snap-path. When only
+		// --build-snap is set without an explicit path, this combination is
+		// rejected because there is no snap path to associate the assertion with.
+		// When both --build-snap and --controller-snap-path are set, --build-snap
+		// is ignored in Run() and the explicit path + assert path are used.
+		if c.BuildSnap && c.ControllerSnapPath == "" {
+			return errors.New("--controller-snap-assert-path requires --controller-snap-path; " +
+				"it cannot be used with --build-snap")
 		}
 
 		_, err := c.Filesystem().Stat(c.ControllerSnapAssertPath)
@@ -468,9 +474,6 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	}
 	if c.AgentVersionParam != "" && c.BuildSnap {
 		return errors.New("--agent-version and --build-snap can't be used together")
-	}
-	if c.BuildSnap && c.ControllerSnapPath != "" {
-		return errors.New("--build-snap and --controller-snap-path cannot be used together; use one or the other")
 	}
 	if c.AgentVersionParam != "" && c.BuildAgent {
 		return errors.New("--agent-version and --build-agent can't be used together")
@@ -724,6 +727,20 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	if !isCAASController {
+		// TODO(ice): when --controller-snap-path is not explicitly provided,
+		// building the controller snap from local source is a temporary
+		// workaround. Once the jujud snap is published to the store, the default
+		// should resolve the snap from the store instead and this implicit build
+		// block should be removed.
+		if c.ControllerSnapPath == "" {
+			c.BuildSnap = true
+			ctx.Warningf("building controller snap and agent from local source; " +
+				"this is temporary and will be replaced by store-based resolution in a future release")
+		}
+		if c.BuildSnap && c.ControllerSnapPath != "" {
+			c.BuildSnap = false
+			ctx.Warningf("ignoring --build-snap because --controller-snap-path is explicitly provided")
+		}
 		if c.BuildSnap {
 			builtPath, err := bootstrap.BuildControllerSnap(ctx)
 			if err != nil {
