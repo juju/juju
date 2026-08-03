@@ -515,6 +515,18 @@ var bootstrapTests = []bootstrapTest{{
 	info: "missing storage pool type",
 	args: []string{"--storage-pool", "name=test"},
 	err:  `storage pool requires a "type" key to be set not valid`,
+}, {
+	info: "--agent-version with --build-snap",
+	args: []string{"--agent-version", "1.1.0", "--build-snap"},
+	err:  `--agent-version and --build-snap can't be used together`,
+}, {
+	info: "--build-snap with --controller-snap-path",
+	args: []string{"--build-snap", "--controller-snap-path", "/tmp/foo.snap"},
+	err:  `--build-snap and --controller-snap-path cannot be used together; use one or the other`,
+}, {
+	info: "--build-snap with --controller-snap-assert-path",
+	args: []string{"--build-snap", "--controller-snap-assert-path", "/tmp/foo.assert"},
+	err:  `--controller-snap-assert-path requires --controller-snap-path; it cannot be used with --build-snap`,
 }}
 
 func (s *BootstrapSuite) TestRunCloudNameUnknown(c *tc.C) {
