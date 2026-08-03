@@ -11,4 +11,7 @@ var (
 	FindBootstrapTools         = findBootstrapTools
 	FindPackagedTools          = findPackagedTools
 	InspectLocalSnapVersion    = inspectLocalSnapVersion
+	SnapArch                   = snapArch
+	BuildCommandFunc           = &buildCommandFunc
+	LookPathFunc               = &lookPathFunc
 )
