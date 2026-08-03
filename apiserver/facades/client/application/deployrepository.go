@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -306,15 +307,33 @@ func (v *deployFromRepositoryValidator) resolveResources(
 	ctx context.Context,
 	curl *charm.URL,
 	origin corecharm.Origin,
+	defaultRepositoryResources map[string]resource.Resource,
 	deployResArg map[string]string,
 	resMeta map[string]resource.Meta,
 ) (applicationservice.ResolvedResources, []*params.PendingResourceUpload, error) {
 	var resourcesToUpload []*params.PendingResourceUpload
-	var resources []resource.Resource
+	// resourcesNeedingResolution contains resources that cannot be satisfied
+	// directly from the resolved charm revision. This includes:
+	//   - explicit CLI overrides, either as a revision or a local file
+	//   - resources missing from defaultRepositoryResources
+	var resourcesNeedingResolution []resource.Resource
+	// resolvedResourcesByName holds the final resource choice keyed by name so
+	// we can merge defaults and overrides, then emit results in stable order.
+	resolvedResourcesByName := make(map[string]resource.Resource, len(resMeta))
 
-	// Solve charm meta against resources args.
-	for name, meta := range resMeta {
-		r := resource.Resource{
+	// Preserve a deterministic output order for callers and tests.
+	resourceNames := make([]string, 0, len(resMeta))
+	for name := range resMeta {
+		resourceNames = append(resourceNames, name)
+	}
+	sort.Strings(resourceNames)
+
+	// Walk the charm metadata and decide, per resource, whether we can reuse the
+	// resolved charm revision's co-released resource, or whether we need the
+	// repository to resolve an explicit override.
+	for _, name := range resourceNames {
+		meta := resMeta[name]
+		resourceToResolve := resource.Resource{
 			Meta:     meta,
 			Origin:   resource.OriginStore,
 			Revision: -1,
@@ -324,7 +343,7 @@ func (v *deployFromRepositoryValidator) resolveResources(
 			providedRev, err := strconv.Atoi(deployValue)
 			if err != nil {
 				// A file is coming from the client.
-				r.Origin = resource.OriginUpload
+				resourceToResolve.Origin = resource.OriginUpload
 
 				// Record resources that the client needs to upload.
 				resourcesToUpload = append(resourcesToUpload, &params.PendingResourceUpload{
@@ -333,26 +352,48 @@ func (v *deployFromRepositoryValidator) resolveResources(
 					Filename: deployValue,
 				})
 			} else {
-				// A revision is coming from client.
-				r.Revision = providedRev
+				// A specific store revision is requested by the client.
+				resourceToResolve.Revision = providedRev
 			}
+			resourcesNeedingResolution = append(resourcesNeedingResolution, resourceToResolve)
+			continue
 		}
-		resources = append(resources, r)
+
+		if res, ok := defaultRepositoryResources[name]; ok {
+			// ResolveForDeploy already gave us the co-released resource for the
+			// resolved charm revision, so reuse it directly.
+			resolvedResourcesByName[name] = res
+			continue
+		}
+
+		// No explicit override and no co-released resource available: ask the
+		// repository to determine the best matching resource revision.
+		resourcesNeedingResolution = append(resourcesNeedingResolution, resourceToResolve)
 	}
 
-	// Solve revision against charm repository.
-	repo, err := v.getCharmRepository(ctx)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	resolvedResources, resolveErr := repo.ResolveResources(ctx, resources, corecharm.CharmID{URL: curl, Origin: origin})
-	if resolveErr != nil {
-		return nil, nil, resolveErr
+	if len(resourcesNeedingResolution) > 0 {
+		// Resolve any outstanding resource selections against the repository.
+		repo, err := v.getCharmRepository(ctx)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		resolvedResources, resolveErr := repo.ResolveResources(ctx, resourcesNeedingResolution, corecharm.CharmID{URL: curl, Origin: origin})
+		if resolveErr != nil {
+			return nil, nil, resolveErr
+		}
+		for _, res := range resolvedResources {
+			resolvedResourcesByName[res.Name] = res
+		}
 	}
 
-	// Convert it in resolved resources.
-	result := make(applicationservice.ResolvedResources, 0, len(resolvedResources))
-	for _, res := range resolvedResources {
+	// Convert the selected resources into the format expected by the
+	// application service, preserving deterministic ordering.
+	result := make(applicationservice.ResolvedResources, 0, len(resourceNames))
+	for _, name := range resourceNames {
+		res, ok := resolvedResourcesByName[name]
+		if !ok {
+			continue
+		}
 		var revision *int
 		if res.Revision >= 0 {
 			revision = &res.Revision
@@ -518,7 +559,7 @@ func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params
 	}
 
 	// Resolve resources and validate against the charm metadata.
-	resources, resourcesToUpload, resolveResErr := v.resolveResources(ctx, dt.charmURL, dt.origin, dt.resources, charmResult.Charm.Meta().Resources)
+	resources, resourcesToUpload, resolveResErr := v.resolveResources(ctx, dt.charmURL, dt.origin, charmResult.RepositoryResources, dt.resources, charmResult.Charm.Meta().Resources)
 	if resolveResErr != nil {
 		errs = append(errs, resolveResErr)
 	}
@@ -954,9 +995,12 @@ func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}
 
-	// TODO (hml) 2023-05-16
-	// Use resource data found in resolvedData as part of ResolveResource.
-	// Will require a new method on the repo.
+	// ResolveForDeploy returns the resources co-released with the resolved
+	// charm revision in resolvedData.Resources. These are threaded through
+	// charmResult.RepositoryResources into resolveResources, where they are
+	// used directly when the caller supplies no resource overrides — avoiding
+	// a separate ResolveResources call and ensuring the resource revisions
+	// match the charm revision rather than the channel tip.
 	resolvedData, resolveErr := repo.ResolveForDeploy(ctx, corecharm.CharmID{URL: curl, Origin: requestedOrigin})
 	if corecharm.IsUnsupportedBaseError(resolveErr) {
 		if !force {
@@ -1043,6 +1087,9 @@ type charmResult struct {
 	Origin       corecharm.Origin
 	Charm        charm.Charm
 	DownloadInfo corecharm.DownloadInfo
+	// RepositoryResources is a map of resource name to resource.Resource
+	// for all resources defined in the charm's metadata.
+	RepositoryResources map[string]resource.Resource
 }
 
 // getCharm returns the charm being deployed. Either it already has been
@@ -1089,19 +1136,21 @@ func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params
 	})
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return charmResult{
-			CharmURL:     resolvedData.URL,
-			Origin:       resolvedOrigin,
-			Charm:        resolvedCharm,
-			DownloadInfo: essentialMetadata.DownloadInfo,
+			CharmURL:            resolvedData.URL,
+			Origin:              resolvedOrigin,
+			Charm:               resolvedCharm,
+			DownloadInfo:        essentialMetadata.DownloadInfo,
+			RepositoryResources: resolvedData.Resources,
 		}, nil
 	} else if err != nil {
 		return charmResult{}, errors.Trace(err)
 	}
 	return charmResult{
-		CharmURL:     resolvedData.URL,
-		Origin:       resolvedOrigin,
-		Charm:        deployedCharm,
-		DownloadInfo: essentialMetadata.DownloadInfo,
+		CharmURL:            resolvedData.URL,
+		Origin:              resolvedOrigin,
+		Charm:               deployedCharm,
+		DownloadInfo:        essentialMetadata.DownloadInfo,
+		RepositoryResources: resolvedData.Resources,
 	}, nil
 
 }
