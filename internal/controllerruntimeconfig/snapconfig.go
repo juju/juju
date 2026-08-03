@@ -6,6 +6,7 @@ package controllerruntimeconfig
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/juju/errors"
@@ -54,12 +55,7 @@ func ValidateSnapConfigOverlay(vals map[string]string) error {
 }
 
 func isSupportedSnapConfigKey(key string) bool {
-	for _, k := range SupportedSnapConfigKeys {
-		if k == key {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(SupportedSnapConfigKeys, key)
 }
 
 // DeferredLoggingOverridePath returns the path to the deferred

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/controllerruntimeconfig"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testhelpers"
@@ -507,11 +508,13 @@ func (s *controllerLifecycleSuite) TestSigtermWiringCleanExit(c *tc.C) {
 		dead:                  make(chan struct{}),
 		// Inject a minimal blocking worker so the runner stays alive
 		// until killed, without starting the full dependency engine.
-		testEngineCreator: func(ctx context.Context) (worker.Worker, error) {
-			return internalworker.NewSimpleWorker(func(ctx context.Context) error {
-				<-ctx.Done()
-				return nil
-			}), nil
+		engineCreatorFunc: func(string, semversion.Number, corelogger.LogSink) func(context.Context) (worker.Worker, error) {
+			return func(ctx context.Context) (worker.Worker, error) {
+				return internalworker.NewSimpleWorker(func(ctx context.Context) error {
+					<-ctx.Done()
+					return nil
+				}), nil
+			}
 		},
 	}
 
