@@ -25,55 +25,41 @@ const (
 
 // SupportedSnapConfigKeys is the explicit allowlist of snap-config keys
 // that are supported in Phase 1. Only these keys may be applied through
-// the snap configure hook and overlay helper.
+// the snap configure hook and overlay helper. Keys not listed here are
+// rejected with a clear error.
 var SupportedSnapConfigKeys = []string{
 	"logging-override",
 }
 
-// UnsupportedDBSnapConfigKeys is the list of controller-database-owned
-// runtime config keys that must NOT be set through snap config in Phase 1.
-// These keys are seeded from controller config at bootstrap and stay under
-// controller-database ownership after bootstrap. Snap config must not create
-// a second competing source of truth for them.
-var UnsupportedDBSnapConfigKeys = []string{
-	"agent-logfile-max-size-mb",
-	"agent-logfile-max-backups",
-	"query-tracing-enabled",
-	"query-tracing-threshold",
-	"dqlite-busy-timeout",
-}
-
-// isUnsupportedDBSnapConfigKey reports whether the given key is a
-// known controller-database-owned key that must not be set through
-// snap config.
-func isUnsupportedDBSnapConfigKey(key string) bool {
-	for _, k := range UnsupportedDBSnapConfigKeys {
-		if k == key {
-			return true
-		}
-	}
-	return false
-}
-
 // ValidateSnapConfigOverlay checks that a set of snap-config key-value pairs
 // contains only supported Phase 1 keys. It returns an error if any
-// controller-database-owned key is present.
+// controller-database-owned key is present, or if any key is not listed in
+// SupportedSnapConfigKeys.
 func ValidateSnapConfigOverlay(vals map[string]string) error {
 	var unsupported []string
 	for k := range vals {
-		if isUnsupportedDBSnapConfigKey(k) {
+		if !isSupportedSnapConfigKey(k) {
 			unsupported = append(unsupported, k)
 		}
 	}
 	if len(unsupported) > 0 {
 		return errors.Errorf(
-			"cannot apply snap config: %d controller-database-owned key(s) "+
+			"cannot apply snap config: %d unsupported key(s) "+
 				"are not supported through snap set in Phase 1: %v",
 			len(unsupported),
 			unsupported,
 		)
 	}
 	return nil
+}
+
+func isSupportedSnapConfigKey(key string) bool {
+	for _, k := range SupportedSnapConfigKeys {
+		if k == key {
+			return true
+		}
+	}
+	return false
 }
 
 // DeferredLoggingOverridePath returns the path to the deferred
@@ -118,7 +104,7 @@ func WriteDeferredLoggingOverride(snapCommon, value string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return errors.Annotatef(err, "creating snap-init directory")
 	}
-	if err := utils.AtomicWriteFile(path, []byte(value+"\n"), 0o644); err != nil {
+	if err := utils.AtomicWriteFile(path, []byte(value+"\n"), 0o600); err != nil {
 		return errors.Annotatef(err, "writing deferred logging-override %q", path)
 	}
 	return nil
