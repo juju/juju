@@ -68,7 +68,7 @@ func (s *EngineStartupSuite) TestS3CallerManifoldStartsBackendNotFound(c *tc.C) 
 		},
 	}
 
-	newClient := func(_ string, _ s3client.HTTPClient, _ s3client.Credentials, _ logger.Logger) (objectstore.Session, error) {
+	newClient := func(_ string, _ s3client.HTTPClient, _ s3client.Credentials, _ string, _ logger.Logger) (objectstore.Session, error) {
 		c.Fatalf("NewClient should not be called when backend is not found")
 		return nil, nil
 	}
@@ -125,7 +125,13 @@ func (s *EngineStartupSuite) TestS3CallerManifoldFailsNonFatalErrorDropped(c *tc
 		},
 	}
 
-	newClient := func(_ string, _ s3client.HTTPClient, _ s3client.Credentials, _ logger.Logger) (objectstore.Session, error) {
+	newClient := func(
+		_ string,
+		_ s3client.HTTPClient,
+		_ s3client.Credentials,
+		_ string,
+		_ logger.Logger,
+	) (objectstore.Session, error) {
 		c.Fatalf("NewClient should not be called on error")
 		return nil, nil
 	}
@@ -181,7 +187,7 @@ type stubHTTPClientGetter struct {
 	client corehttp.HTTPClient
 }
 
-func (s *stubHTTPClientGetter) GetHTTPClient(ctx context.Context, purpose corehttp.Purpose) (corehttp.HTTPClient, error) {
+func (s *stubHTTPClientGetter) GetHTTPClient(_ context.Context, _ corehttp.Purpose) (corehttp.HTTPClient, error) {
 	return s.client, nil
 }
 
@@ -207,16 +213,16 @@ func (s *stubObjStoreService) WatchObjectStoreBackend(ctx context.Context) (watc
 
 type stubHTTPClient struct{}
 
-func (s *stubHTTPClient) Do(req *http.Request) (*http.Response, error) {
+func (s *stubHTTPClient) Do(_ *http.Request) (*http.Response, error) {
 	return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
 }
 
 type stubEngineLogger struct{}
 
-func (l *stubEngineLogger) Tracef(format string, args ...any) {}
-func (l *stubEngineLogger) Debugf(format string, args ...any) {}
-func (l *stubEngineLogger) Infof(format string, args ...any)  {}
-func (l *stubEngineLogger) Errorf(format string, args ...any) {}
+func (l *stubEngineLogger) Tracef(_ string, _ ...any) {}
+func (l *stubEngineLogger) Debugf(_ string, _ ...any) {}
+func (l *stubEngineLogger) Infof(_ string, _ ...any)  {}
+func (l *stubEngineLogger) Errorf(_ string, _ ...any) {}
 
 func TestEngineStartupSuite(t *stdtesting.T) {
 	tc.Run(t, &EngineStartupSuite{})
