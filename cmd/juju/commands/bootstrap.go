@@ -230,6 +230,7 @@ type bootstrapCommand struct {
 	BootstrapBase           string
 	BootstrapImage          string
 	BuildAgent              bool
+	BuildSnap               bool
 	MetadataSource          string
 	Placement               string
 	KeepBrokenEnvironment   bool
@@ -366,6 +367,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.BootstrapBase, "bootstrap-base", "", "Specify the base of the bootstrap machine")
 	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine (requires `--bootstrap-constraints` specifying architecture)")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
+	f.BoolVar(&c.BuildSnap, "build-snap", false, "Build local controller snap before bootstrapping")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as agent and/or image metadata source")
 	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false,
@@ -428,6 +430,10 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	}
 
 	if c.ControllerSnapAssertPath != "" {
+		if c.BuildSnap {
+			return errors.New("--controller-snap-assert-path requires --controller-snap-path; it cannot be used with --build-snap")
+		}
+
 		_, err := c.Filesystem().Stat(c.ControllerSnapAssertPath)
 		if err != nil {
 			return errors.Annotatef(err, "--controller-snap-assert-path %q cannot be read", c.ControllerSnapAssertPath)
@@ -460,6 +466,12 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	}
 	if c.showRegionsForCloud != "" {
 		return cmd.CheckEmpty(args)
+	}
+	if c.AgentVersionParam != "" && c.BuildSnap {
+		return errors.New("--agent-version and --build-snap can't be used together")
+	}
+	if c.BuildSnap && c.ControllerSnapPath != "" {
+		return errors.New("--build-snap and --controller-snap-path cannot be used together; use one or the other")
 	}
 	if c.AgentVersionParam != "" && c.BuildAgent {
 		return errors.New("--agent-version and --build-agent can't be used together")
@@ -708,7 +720,20 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	isCAASController = jujucloud.CloudIsCAAS(cloud)
+	if isCAASController && c.BuildSnap {
+		return errors.NotSupportedf("--build-snap when bootstrapping a k8s controller")
+	}
+
 	if !isCAASController {
+		if c.BuildSnap {
+			builtPath, err := bootstrap.BuildControllerSnap(ctx)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			c.ControllerSnapPath = builtPath
+			c.BuildAgent = true
+		}
+
 		if bootstrapCfg.bootstrap.ControllerServiceType != "" ||
 			bootstrapCfg.bootstrap.ControllerExternalName != "" ||
 			len(bootstrapCfg.bootstrap.ControllerExternalIPs) > 0 {
@@ -899,6 +924,7 @@ to create a new model to deploy %sworkloads.
 		BootstrapImage:                c.BootstrapImage,
 		Placement:                     c.Placement,
 		BuildAgent:                    c.BuildAgent,
+		BuildSnap:                     c.BuildSnap,
 		BuildAgentTarball:             sync.BuildAgentTarball,
 		AgentVersion:                  c.AgentVersion,
 		Cloud:                         cloud,
