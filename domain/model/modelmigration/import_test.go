@@ -152,7 +152,7 @@ func (i *importSuite) TestModelCreate(c *tc.C) {
 		UUID: modelUUID,
 	}
 
-	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(nil)
+	i.modelImportService.EXPECT().ImportModelLegacy(gomock.Any(), args).Return(nil)
 	i.modelDetailService.EXPECT().CreateImportingModelWithAgentVersionStream(
 		gomock.Any(),
 		jujuversion.Current,
@@ -230,7 +230,7 @@ func (i *importSuite) TestModelCreateWithAgentStream(c *tc.C) {
 
 	c.Assert(err, tc.ErrorIsNil)
 
-	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(nil)
+	i.modelImportService.EXPECT().ImportModelLegacy(gomock.Any(), args).Return(nil)
 	i.modelDetailService.EXPECT().CreateImportingModelWithAgentVersionStream(
 		gomock.Any(),
 		jujuversion.Current,
@@ -300,7 +300,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *tc.C) {
 		UUID: modelUUID,
 	}
 
-	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(nil)
+	i.modelImportService.EXPECT().ImportModelLegacy(gomock.Any(), args).Return(nil)
 	i.modelDetailService.EXPECT().CreateImportingModelWithAgentVersionStream(
 		gomock.Any(), jujuversion.Current, agentbinary.AgentStreamReleased,
 	).Return(errors.New("boom"))
@@ -367,7 +367,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *tc
 		UUID: modelUUID,
 	}
 
-	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(nil)
+	i.modelImportService.EXPECT().ImportModelLegacy(gomock.Any(), args).Return(nil)
 	i.modelDetailService.EXPECT().CreateImportingModelWithAgentVersionStream(
 		gomock.Any(), jujuversion.Current, agentbinary.AgentStreamReleased,
 	).Return(errors.New("boom"))
@@ -434,7 +434,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 		UUID: modelUUID,
 	}
 
-	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(nil)
+	i.modelImportService.EXPECT().ImportModelLegacy(gomock.Any(), args).Return(nil)
 	i.modelDetailService.EXPECT().CreateImportingModelWithAgentVersionStream(
 		gomock.Any(), jujuversion.Current, agentbinary.AgentStreamReleased,
 	).Return(errors.New("boom"))

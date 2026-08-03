@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	coremodel "github.com/juju/juju/core/model"
+	externalcontrollererrors "github.com/juju/juju/domain/externalcontroller/errors"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/rpc/params"
 )
@@ -134,7 +135,7 @@ func (s *ControllerConfigAPI) getModelControllerInfo(ctx context.Context, model 
 			CACert:    ctrl.CACert,
 		}, nil
 	}
-	if !errors.Is(err, errors.NotFound) {
+	if !errors.Is(err, externalcontrollererrors.NotFound) {
 		return params.ControllerAPIInfoResult{}, errors.Trace(err)
 	}
 

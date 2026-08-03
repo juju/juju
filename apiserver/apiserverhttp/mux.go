@@ -10,7 +10,7 @@ import (
 
 	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 
 	corelogger "github.com/juju/juju/core/logger"
 )
@@ -76,9 +76,9 @@ func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		rawFD = -1
 	}
 	requestStart := time.Now()
-	m.logger.Debugf("<- fd:%v ServeHTTP %s %s", rawFD, r.Method, r.URL)
+	_ = m.logger.Debugf(r.Context(), "<- fd:%v ServeHTTP %s %s", rawFD, r.Method, r.URL)
 	p.ServeHTTP(w, r)
-	m.logger.Debugf("-> fd:%v %s ServeHTTP %s %s", rawFD, time.Since(requestStart), r.Method, r.URL)
+	_ = m.logger.Debugf(r.Context(), "-> fd:%v %s ServeHTTP %s %s", rawFD, time.Since(requestStart), r.Method, r.URL)
 }
 
 // AddHandler adds an http.Handler for the given method and pattern.

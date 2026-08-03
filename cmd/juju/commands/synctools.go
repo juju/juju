@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 
 	"github.com/juju/juju/api/client/modelupgrader"
 	jujucmd "github.com/juju/juju/cmd"

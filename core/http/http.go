@@ -26,6 +26,15 @@ type HTTPClientGetter interface {
 	GetHTTPClient(context.Context, Purpose) (HTTPClient, error)
 }
 
+// CACertUpdater is implemented by HTTP clients that support replacing the CA
+// certificate used for TLS validation after the client has been created.
+type CACertUpdater interface {
+	// ReplaceCACert replaces the CA certificate and TLS verification mode used
+	// for TLS validation. Passing an empty string clears any custom CA
+	// certificate.
+	ReplaceCACert(string, bool) error
+}
+
 // HTTPClient is the interface that is used to do http requests.
 type HTTPClient interface {
 	// Do sends an HTTP request and returns an HTTP response. The client will
@@ -41,6 +50,8 @@ type Purpose string
 const (
 	// CharmhubPurpose is the namespace for the charmhub http client.
 	CharmhubPurpose Purpose = "charmhub"
+	// LokiPurpose is the namespace for the loki http client.
+	LokiPurpose Purpose = "loki"
 	// S3Purpose is the namespace for the s3 http client.
 	S3Purpose Purpose = "s3"
 	// SSHImporterPurpose is the namespace for the ssh importer http client.

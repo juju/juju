@@ -6,6 +6,7 @@ package objectstoreservices
 import (
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
@@ -41,6 +42,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.Clock = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.NewWorker = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -62,6 +67,8 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 
 	manifold := Manifold(ManifoldConfig{
 		ChangeStreamName:             "changestream",
+		ControllerUUID:               "controller-uuid",
+		Clock:                        clock.WallClock,
 		Logger:                       s.logger,
 		NewWorker:                    NewWorker,
 		NewObjectStoreServices:       NewObjectStoreServices,
@@ -74,11 +81,39 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	workertest.CheckAlive(c, w)
 }
 
+func (s *manifoldSuite) TestStartUsesWallClock(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	getter := map[string]any{
+		"changestream": s.dbGetter,
+	}
+
+	var workerConfig Config
+	manifold := Manifold(ManifoldConfig{
+		ChangeStreamName: "changestream",
+		ControllerUUID:   "controller-uuid",
+		Clock:            clock.WallClock,
+		Logger:           s.logger,
+		NewWorker: func(cfg Config) (worker.Worker, error) {
+			workerConfig = cfg
+			return nil, nil
+		},
+		NewObjectStoreServices:       NewObjectStoreServices,
+		NewObjectStoreServicesGetter: NewObjectStoreServicesGetter,
+	})
+
+	_, err := manifold.Start(c.Context(), dt.StubGetter(getter))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(workerConfig.Clock, tc.Equals, clock.WallClock)
+}
+
 func (s *manifoldSuite) TestOutputObjectStoreServicesGetter(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewWorker(Config{
 		DBGetter:                     s.dbGetter,
+		ControllerUUID:               "controller-uuid",
+		Clock:                        clock.WallClock,
 		Logger:                       s.logger,
 		NewObjectStoreServices:       NewObjectStoreServices,
 		NewObjectStoreServicesGetter: NewObjectStoreServicesGetter,
@@ -98,6 +133,8 @@ func (s *manifoldSuite) TestOutputInvalid(c *tc.C) {
 
 	w, err := NewWorker(Config{
 		DBGetter:                     s.dbGetter,
+		ControllerUUID:               "controller-uuid",
+		Clock:                        clock.WallClock,
 		Logger:                       s.logger,
 		NewObjectStoreServices:       NewObjectStoreServices,
 		NewObjectStoreServicesGetter: NewObjectStoreServicesGetter,
@@ -115,14 +152,16 @@ func (s *manifoldSuite) TestOutputInvalid(c *tc.C) {
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		ChangeStreamName: "changestream",
+		ControllerUUID:   "controller-uuid",
+		Clock:            clock.WallClock,
 		Logger:           s.logger,
 		NewWorker: func(Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewObjectStoreServices: func(model.UUID, changestream.WatchableDBGetter, logger.Logger) services.ObjectStoreServices {
+		NewObjectStoreServices: func(model.UUID, changestream.WatchableDBGetter, string, clock.Clock, logger.Logger) services.ObjectStoreServices {
 			return nil
 		},
-		NewObjectStoreServicesGetter: func(ObjectStoreServicesFn, changestream.WatchableDBGetter, logger.Logger) services.ObjectStoreServicesGetter {
+		NewObjectStoreServicesGetter: func(ObjectStoreServicesFn, changestream.WatchableDBGetter, string, clock.Clock, logger.Logger) services.ObjectStoreServicesGetter {
 			return nil
 		},
 	}

@@ -75,6 +75,13 @@ const (
 	// Since LabelVersion1.
 	LabelJujuStorageName = "storage.juju.is/name"
 
+	// LabelJujuServiceType is the juju label applied to Juju-managed
+	// Kubernetes services to describe their role, so that auxiliary services
+	// (such as the headless service backing a StatefulSet) can be
+	// distinguished from an application's primary service without relying on
+	// a fragile name suffix.
+	LabelJujuServiceType = "service.juju.is/type"
+
 	// LegacyLabelKubernetesAppName is the legacy label key used for juju app
 	// identification. This purely exists to maintain backwards functionality.
 	// See https://bugs.launchpad.net/juju/+bug/1888513
@@ -104,4 +111,11 @@ const (
 	// See https://bugs.launchpad.net/juju/+bug/1888513
 	// For LegacyLabelVersion.
 	LegacyLabelStorageName = "juju-storage"
+)
+
+const (
+	// ServiceTypeEndpoints is the value of LabelJujuServiceType marking a
+	// headless service that exists solely to provide stable per-pod DNS
+	// (endpoints) for a StatefulSet's pods.
+	ServiceTypeEndpoints = "endpoints"
 )

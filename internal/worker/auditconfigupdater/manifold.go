@@ -10,7 +10,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	jujuagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	coredependency "github.com/juju/juju/core/dependency"
@@ -25,7 +24,8 @@ type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) 
 // ManifoldConfig holds the information needed to run an
 // auditconfigupdater in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName                  string
+	// LogDir is the controller log directory where audit logs are written.
+	LogDir                     string
 	DomainServicesName         string
 	NewWorker                  func(ControllerConfigService, auditlog.Config, AuditLogFactory) (worker.Worker, error)
 	GetControllerConfigService GetControllerConfigServiceFunc
@@ -33,8 +33,8 @@ type ManifoldConfig struct {
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
+	if config.LogDir == "" {
+		return errors.NotValidf("empty LogDir")
 	}
 	if config.DomainServicesName == "" {
 		return errors.NotValidf("empty DomainServicesName")
@@ -53,7 +53,6 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.DomainServicesName,
 		},
 		Start:  config.start,
@@ -66,11 +65,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	var agent jujuagent.Agent
-	if err := getter.Get(config.AgentName, &agent); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	controllerConfigService, err := config.GetControllerConfigService(getter, config.DomainServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -80,10 +74,8 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	logDir := agent.CurrentConfig().LogDir()
-
 	logFactory := func(cfg auditlog.Config) auditlog.AuditLog {
-		return auditlog.NewLogFile(logDir, cfg.MaxSizeMB, cfg.MaxBackups)
+		return auditlog.NewLogFile(config.LogDir, cfg.MaxSizeMB, cfg.MaxBackups)
 	}
 	auditConfig, err := initialConfig(controllerConfig)
 	if err != nil {

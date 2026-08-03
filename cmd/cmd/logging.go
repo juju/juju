@@ -4,14 +4,15 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
-	"github.com/juju/loggo/v2/loggocolor"
+	"github.com/juju/loggo/v3"
+	"github.com/juju/loggo/v3/loggocolor"
 )
 
 // Log supplies the necessary functionality for Commands that wish to set up
@@ -122,14 +123,16 @@ type commandLogWriter struct {
 }
 
 // Write implements loggo's Writer interface.
-func (s *commandLogWriter) Write(entry loggo.Entry) {
+func (s *commandLogWriter) Write(ctx context.Context, entry loggo.Entry) error {
+	var err error
 	if entry.Module == s.name {
 		if entry.Level <= loggo.INFO {
-			fmt.Fprintf(s.out, "%s\n", entry.Message)
+			_, err = fmt.Fprintf(s.out, "%s\n", entry.Message)
 		} else {
-			fmt.Fprintf(s.err, "%s\n", entry.Message)
+			_, err = fmt.Fprintf(s.err, "%s\n", entry.Message)
 		}
 	}
+	return err
 }
 
 type warningWriter struct {
@@ -145,7 +148,8 @@ func NewWarningWriter(writer io.Writer) loggo.Writer {
 
 // Write implements Writer.
 // WARNING The message...
-func (w *warningWriter) Write(entry loggo.Entry) {
+func (w *warningWriter) Write(ctx context.Context, entry loggo.Entry) error {
 	loggocolor.SeverityColor[entry.Level].Fprintf(w.writer, "%s", entry.Level.String())
-	fmt.Fprintf(w.writer, " %s\n", entry.Message)
+	_, err := fmt.Fprintf(w.writer, " %s\n", entry.Message)
+	return err
 }

@@ -52,10 +52,6 @@ type NodeManager interface {
 	// Dqlite node in the past.
 	IsExistingNode() (bool, error)
 
-	// IsLoopbackPreferred returns true if the Dqlite application should
-	// be bound to the loopback address.
-	IsLoopbackPreferred() bool
-
 	// IsLoopbackBound returns true if we are a cluster of one,
 	// and bound to the loopback IP address.
 	IsLoopbackBound(context.Context) (bool, error)
@@ -574,33 +570,21 @@ func (w *dbWorker) DeleteDB(namespace string) error {
 // when this host has run a node previously.
 func (w *dbWorker) startExistingDqliteNode(ctx context.Context) error {
 	mgr := w.cfg.NodeManager
-	if mgr.IsLoopbackPreferred() {
+	loopbackBound, err := mgr.IsLoopbackBound(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if loopbackBound {
 		w.cfg.Logger.Infof(ctx, "Dqlite node is configured to bind to the loopback address")
-
 		return errors.Trace(w.initialiseDqlite(ctx))
 	}
 
 	w.cfg.Logger.Infof(ctx, "Dqlite node is configured to bind to a cloud-local address")
-
-	asBootstrapped, err := mgr.IsLoopbackBound(ctx)
+	withTLS, err := mgr.WithTLSOption()
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	// If this existing node is not as bootstrapped, then it is part of a
-	// cluster. The Dqlite Raft log and configuration in the Dqlite data
-	// directory will indicate the cluster members, but we need to ensure
-	// TLS for traffic between nodes explicitly.
-	var options []app.Option
-	if !asBootstrapped {
-		withTLS, err := mgr.WithTLSOption()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		options = append(options, withTLS)
-	}
-
-	return errors.Trace(w.initialiseDqlite(ctx, options...))
+	return errors.Trace(w.initialiseDqlite(ctx, withTLS))
 }
 
 // initialiseDqlite starts the local Dqlite app node,
@@ -819,30 +803,6 @@ func (w *dbWorker) handleClusterConfigChange(ctx context.Context, noConfigIsFata
 	extant, err := mgr.IsExistingNode()
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	// If we prefer the loopback address, we shouldn't need to do anything.
-	// We double-check that we are bound to the loopback address. if not,
-	// we bounce the worker and try and resolve that in the next go around.
-	if mgr.IsLoopbackPreferred() {
-		if extant {
-			isLoopbackBound, err := mgr.IsLoopbackBound(ctx)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			// Everything is fine, we're bound to the loopback address and
-			// can return early.
-			if isLoopbackBound {
-				return nil
-			}
-
-			// This should never happen, but we want to be conservative.
-			w.cfg.Logger.Warningf(ctx, "existing Dqlite node is not bound to loopback, but should be; restarting worker")
-		}
-
-		// We don't have a Dqlite node, but somehow we got here, we should just
-		// bounce the worker and try again.
-		return dependency.ErrBounce
 	}
 
 	// If we are an existing node, we need to check whether we must rebind for

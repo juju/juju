@@ -118,6 +118,10 @@ type apiHandler struct {
 	// used for cross model operations.
 	crossModelAuthContext facade.CrossModelAuthContext
 
+	// localMacaroonMinter mints directly-presentable login macaroons for
+	// local users; used by the migrationtarget v8 facade.
+	localMacaroonMinter facade.LocalMacaroonMinter
+
 	// ephemeralProviderTracker is used to create providers for operations that
 	// require them.
 	ephemeralProviderTracker providertracker.EphemeralProviderFactory
@@ -151,34 +155,14 @@ func newAPIHandler(
 	connectionID uint64,
 	serverHost string,
 	crossModelAuthContext facade.CrossModelAuthContext,
-) (*apiHandler, error) {
-	exists, err := domainServices.Model().CheckModelExists(ctx, modelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !exists {
-		// If this model used to be hosted on this controller but got
-		// migrated allow clients to connect and wait for a login
-		// request to decide whether the users should be redirected to
-		// the new controller for this model or not.
-		if _, migErr := domainServices.Model().ModelRedirection(ctx, modelUUID); migErr != nil {
-			// Return not found on any error.
-			// TODO (stickupkid): This is very brute force. What if there
-			// is an error with the database? The caller will assume that it
-			// is no longer on this controller. If we return a different error
-			// then it can at least retry the request.
-			return nil, errors.NotFoundf("model %q", modelUUID)
-		}
-	}
-
-	r := &apiHandler{
+) *apiHandler {
+	return &apiHandler{
 		domainServices:           domainServices,
 		domainServicesGetter:     domainServicesGetter,
 		tracer:                   tracer,
 		objectStore:              objectStore,
 		objectStoreGetter:        objectStoreGetter,
 		controllerObjectStore:    controllerObjectStore,
-		ephemeralProviderTracker: ephemeralProviderTracker,
 		watcherRegistry:          watcherRegistry,
 		shared:                   srv.shared,
 		rpcConn:                  rpcConn,
@@ -187,9 +171,9 @@ func newAPIHandler(
 		connectionID:             connectionID,
 		serverHost:               serverHost,
 		crossModelAuthContext:    crossModelAuthContext,
+		localMacaroonMinter:      srv.localMacaroonAuthenticator,
+		ephemeralProviderTracker: ephemeralProviderTracker,
 	}
-
-	return r, nil
 }
 
 // WatcherRegistry returns the watcher registry for tracking watchers between
@@ -248,6 +232,12 @@ func (r *apiHandler) Authorizer() facade.Authorizer {
 // for cross model operations.
 func (r *apiHandler) CrossModelAuthContext() facade.CrossModelAuthContext {
 	return r.crossModelAuthContext
+}
+
+// LocalMacaroonMinter returns the minter for directly-presentable login
+// macaroons for local users.
+func (r *apiHandler) LocalMacaroonMinter() facade.LocalMacaroonMinter {
+	return r.localMacaroonMinter
 }
 
 // EphemeralProviderFactory returns the ephemeral provider factory.
@@ -426,6 +416,9 @@ type apiRootHandler interface {
 	// CrossModelAuthContext provides methods to create and authorize macaroons
 	// for cross model operations.
 	CrossModelAuthContext() facade.CrossModelAuthContext
+	// LocalMacaroonMinter mints directly-presentable login macaroons for
+	// local users.
+	LocalMacaroonMinter() facade.LocalMacaroonMinter
 	// EphemeralProviderFactory returns the ephemeral provider factory.
 	// Ephemeral providers are not updated when the cloud is updated. They
 	// are single use entities, requiring a provider configuration, for use
@@ -454,6 +447,7 @@ type apiRoot struct {
 	objectCache              map[objectKey]reflect.Value
 	requestRecorder          facade.RequestRecorder
 	crossModelAuthContext    facade.CrossModelAuthContext
+	localMacaroonMinter      facade.LocalMacaroonMinter
 	ephemeralProviderFactory providertracker.EphemeralProviderFactory
 
 	// modelUUID is the UUID of the model that the client is connected to.
@@ -489,6 +483,7 @@ func newAPIRoot(
 		ephemeralProviderFactory: root.EphemeralProviderFactory(),
 		modelUUID:                root.ModelUUID(),
 		crossModelAuthContext:    root.CrossModelAuthContext(),
+		localMacaroonMinter:      root.LocalMacaroonMinter(),
 	}, nil
 }
 
@@ -738,6 +733,11 @@ func (ctx *facadeContext) Auth() facade.Authorizer {
 // for cross model operations.
 func (ctx *facadeContext) CrossModelAuthContext() facade.CrossModelAuthContext {
 	return ctx.r.crossModelAuthContext
+}
+
+// LocalMacaroonMinter is part of the facade.ModelContext interface.
+func (ctx *facadeContext) LocalMacaroonMinter() facade.LocalMacaroonMinter {
+	return ctx.r.localMacaroonMinter
 }
 
 // Dispose is part of the facade.ModelContext interface.

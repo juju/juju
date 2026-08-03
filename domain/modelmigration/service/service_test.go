@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
-	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
@@ -29,17 +28,19 @@ import (
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceSuite struct {
-	controllerState  *MockControllerState
-	modelState       *MockModelState
-	watcherFactory   *MockWatcherFactory
-	instanceProvider *MockInstanceProvider
-	resourceProvider *MockResourceProvider
-	modelUUID        string
-	controllerUUID   string
+	controllerState     *MockControllerState
+	modelState          *MockModelState
+	watcherFactory      *MockWatcherFactory
+	instanceProvider    *MockInstanceProvider
+	resourceProvider    *MockResourceProvider
+	credentialValidator *MockCredentialValidator
+	modelUUID           string
+	controllerUUID      string
 }
 
 func TestServiceSuite(t *testing.T) {
@@ -68,6 +69,8 @@ func (s *serviceSuite) TestAdoptResources(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -94,6 +97,8 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		resourceGetter,
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -121,15 +126,20 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
 
-// TestMachinesFromProviderDiscrepancy is testing the return value from
-// [Service.CheckMachines] and that it reports discrepancies from the cloud.
+// TestMachinesFromProviderNotInModel checks that [Service.CheckMachines]
+// reports a discrepancy, with an empty machine name, for a provider instance
+// that is not tracked by any model machine.
 func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectCredentialValidationInfo("ec2")
+	s.controllerState.EXPECT().GetModelCloudCredential(gomock.Any(), s.modelUUID).Return(nil, nil)
 	s.instanceProvider.EXPECT().AllInstances(gomock.Any()).
 		Return([]instances.Instance{
 			&instanceStub{
@@ -140,26 +150,34 @@ func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 			},
 		},
 			nil)
-	s.modelState.EXPECT().GetAllInstanceIDs(gomock.Any()).
-		Return(set.NewStrings("instance0"), nil)
+	s.modelState.EXPECT().GetMachineInstanceIDs(gomock.Any()).
+		Return(map[string]string{"instance0": "0"}, nil)
 
-	_, err := NewService(
+	discrepancies, err := NewService(
 		s.controllerState,
 		s.modelState,
 		s.modelUUID,
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
-	c.Check(err, tc.ErrorMatches, "provider instance IDs.*instance1.*")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(discrepancies, tc.DeepEquals, []modelmigration.MigrationMachineDiscrepancy{{
+		MachineName:     "",
+		CloudInstanceId: instance.Id("instance1"),
+	}})
 }
 
-// TestMachineInstanceIDsNotInProvider is testing the return value from
-// [Service.CheckMachines] and that it reports discrepancies from the model
-// on the DB.
+// TestMachineInstanceIDsNotInProvider checks that [Service.CheckMachines]
+// reports a discrepancy, naming the offending machine, for a model machine
+// whose cloud instance the provider does not report.
 func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectCredentialValidationInfo("ec2")
+	s.controllerState.EXPECT().GetModelCloudCredential(gomock.Any(), s.modelUUID).Return(nil, nil)
 	s.instanceProvider.EXPECT().AllInstances(gomock.Any()).
 		Return([]instances.Instance{
 			&instanceStub{
@@ -167,119 +185,24 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 			},
 		},
 			nil)
-	s.modelState.EXPECT().GetAllInstanceIDs(gomock.Any()).
-		Return(set.NewStrings("instance0", "instance1"), nil)
+	s.modelState.EXPECT().GetMachineInstanceIDs(gomock.Any()).
+		Return(map[string]string{"instance0": "0", "instance1": "1"}, nil)
 
-	_, err := NewService(
+	discrepancies, err := NewService(
 		s.controllerState,
 		s.modelState,
 		s.modelUUID,
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
-	c.Check(err, tc.ErrorMatches, "instance IDs.*instance1.*")
-}
-
-func (s *serviceSuite) TestActivateImport(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	currentVersion := semversion.MustParse("4.0.0").String()
-	desiredVersion := semversion.MustParse("4.0.1").String()
-
-	mExp := s.modelState.EXPECT()
-	cExp := s.controllerState.EXPECT()
-
-	// These are expected to be called in order. The agent version must be
-	// updated before the model importing status is deleted. And we want the
-	// controller state to have the model importing status deleted last.
-	gomock.InOrder(
-		cExp.GetControllerTargetVersion(gomock.Any()).Return(desiredVersion, nil),
-		mExp.GetModelTargetAgentVersion(gomock.Any()).Return(currentVersion, nil),
-		mExp.SetModelTargetAgentVersion(gomock.Any(), currentVersion, desiredVersion).Return(nil),
-		mExp.DeleteModelImportingStatus(gomock.Any()).Return(nil),
-		cExp.DeleteModelImportingStatus(gomock.Any(), s.modelUUID).Return(nil),
-	)
-
-	err := NewService(
-		s.controllerState,
-		s.modelState,
-		s.modelUUID,
-		s.watcherFactory,
-		s.instanceProviderGetter(c),
-		s.resourceProviderGetter(c),
-	).ActivateImport(c.Context())
-	c.Check(err, tc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestActivateImportSameVersion(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	currentVersion := semversion.MustParse("4.0.0").String()
-	desiredVersion := semversion.MustParse("4.0.0").String()
-
-	mExp := s.modelState.EXPECT()
-	cExp := s.controllerState.EXPECT()
-
-	// These are expected to be called in order. The agent version must be
-	// updated before the model importing status is deleted. And we want the
-	// controller state to have the model importing status deleted last.
-	gomock.InOrder(
-		cExp.GetControllerTargetVersion(gomock.Any()).Return(desiredVersion, nil),
-		mExp.GetModelTargetAgentVersion(gomock.Any()).Return(currentVersion, nil),
-		mExp.DeleteModelImportingStatus(gomock.Any()).Return(nil),
-		cExp.DeleteModelImportingStatus(gomock.Any(), s.modelUUID).Return(nil),
-	)
-
-	err := NewService(
-		s.controllerState,
-		s.modelState,
-		s.modelUUID,
-		s.watcherFactory,
-		s.instanceProviderGetter(c),
-		s.resourceProviderGetter(c),
-	).ActivateImport(c.Context())
-	c.Check(err, tc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestActivateImportControllerFails(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	cExp := s.controllerState.EXPECT()
-
-	cExp.GetControllerTargetVersion(gomock.Any()).Return("", errors.Errorf("front fell off"))
-
-	err := NewService(
-		s.controllerState,
-		s.modelState,
-		s.modelUUID,
-		s.watcherFactory,
-		s.instanceProviderGetter(c),
-		s.resourceProviderGetter(c),
-	).ActivateImport(c.Context())
-	c.Check(err, tc.ErrorMatches, ".*front fell off")
-}
-
-func (s *serviceSuite) TestActivateImportModelFails(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	desiredVersion := semversion.MustParse("4.0.1").String()
-
-	mExp := s.modelState.EXPECT()
-	cExp := s.controllerState.EXPECT()
-
-	cExp.GetControllerTargetVersion(gomock.Any()).Return(desiredVersion, nil)
-	mExp.GetModelTargetAgentVersion(gomock.Any()).Return("", errors.Errorf("front fell off"))
-
-	err := NewService(
-		s.controllerState,
-		s.modelState,
-		s.modelUUID,
-		s.watcherFactory,
-		s.instanceProviderGetter(c),
-		s.resourceProviderGetter(c),
-	).ActivateImport(c.Context())
-	c.Check(err, tc.ErrorMatches, ".*front fell off")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(discrepancies, tc.DeepEquals, []modelmigration.MigrationMachineDiscrepancy{{
+		MachineName:     "1",
+		CloudInstanceId: instance.Id("instance1"),
+	}})
 }
 
 // TestWatchForMigration asserts that WatchForMigration asks the watcher
@@ -321,6 +244,8 @@ func (s *serviceSuite) TestWatchForMigration(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	)
 	w, err := svc.WatchForMigration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -350,6 +275,8 @@ func (s *serviceSuite) TestWatchForMigrationError(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	)
 	_, err := svc.WatchForMigration(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*boom")
@@ -429,6 +356,22 @@ func (s *serviceSuite) service(c *tc.C) *Service {
 		s.watcherFactory,
 		func(context.Context) (InstanceProvider, error) { return s.instanceProvider, nil },
 		func(context.Context) (ResourceProvider, error) { return s.resourceProvider, nil },
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
+	)
+}
+
+// watchableService constructs a WatchableService backed by the suite mocks.
+func (s *serviceSuite) watchableService(c *tc.C) *WatchableService {
+	return NewWatchableService(
+		s.controllerState,
+		s.modelState,
+		s.modelUUID,
+		s.watcherFactory,
+		func(context.Context) (InstanceProvider, error) { return s.instanceProvider, nil },
+		func(context.Context) (ResourceProvider, error) { return s.resourceProvider, nil },
+		s.credentialValidator,
+		loggertesting.WrapCheckLog(c),
 	)
 }
 
@@ -505,29 +448,115 @@ func (s *serviceSuite) TestMigrationNone(c *tc.C) {
 	c.Check(mig.Phase, tc.Equals, migration.NONE)
 }
 
-// TestGetControllerModelInfo asserts the service reads the model's offer UUIDs
-// and third-party remote-offerer pairs from the model DB and passes them to
-// the controller-state read, returning the aggregated controller model info.
-func (s *serviceSuite) TestGetControllerModelInfo(c *tc.C) {
+// TestMigrationPhaseImportClaimReportsImport asserts that a live target-side
+// import claim reports IMPORT, so a model being imported into this controller
+// is frozen exactly as one being exported from it. Without this, the migration
+// flag would report NONE for a half-imported model and let its workers run.
+func (s *serviceSuite) TestMigrationPhaseImportClaimReportsImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	offerUUIDs := []string{"offer-1", "offer-2"}
-	offererModels := []modelmigrationinternal.OffererModel{
-		{ControllerUUID: "ctrl-1", ModelUUID: "consumed-1"},
-	}
-	expected := modelmigration.ControllerModelInfo{
-		ModelInfo: modelmigration.ModelIdentityInfo{UUID: s.modelUUID, Name: "prod"},
-	}
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		migration.IMPORT.String(), nil)
 
-	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(offerUUIDs, nil)
-	s.modelState.EXPECT().GetThirdPartyOffererModels(gomock.Any()).Return(offererModels, nil)
-	s.controllerState.EXPECT().
-		GetControllerModelInfo(gomock.Any(), s.modelUUID, offerUUIDs, offererModels).
-		Return(expected, nil)
-
-	info, err := s.service(c).GetControllerModelInfo(c.Context())
+	phase, err := s.service(c).MigrationPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(info, tc.DeepEquals, expected)
+	c.Check(phase, tc.Equals, migration.IMPORT)
+	// IMPORT must be non-terminal, or a flag built on IsTerminal would report
+	// the model as usable while it is still claimed.
+	c.Check(phase.IsTerminal(), tc.IsFalse)
+}
+
+// TestMigrationPhaseExportReportsExportPhase asserts that with no import claim
+// the source-side export phase is reported unchanged.
+func (s *serviceSuite) TestMigrationPhaseExportReportsExportPhase(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		migration.QUIESCE.String(), nil)
+
+	phase, err := s.service(c).MigrationPhase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.QUIESCE)
+}
+
+// TestMigrationPhaseIdleReportsNone asserts a model that is neither importing
+// nor exporting reports NONE, which is terminal and therefore unfreezes it.
+func (s *serviceSuite) TestMigrationPhaseIdleReportsNone(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		migration.NONE.String(), nil)
+
+	phase, err := s.service(c).MigrationPhase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.NONE)
+	c.Check(phase.IsTerminal(), tc.IsTrue)
+}
+
+// TestMigrationPhaseUnparsableErrors asserts a phase name from state that does
+// not parse is an error with the UNKNOWN phase, not silently a wrong answer.
+func (s *serviceSuite) TestMigrationPhaseUnparsableErrors(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		"NOTAPHASE", nil)
+
+	phase, err := s.service(c).MigrationPhase(c.Context())
+	c.Check(err, tc.ErrorMatches, `unknown migration phase "NOTAPHASE"`)
+	c.Check(phase, tc.Equals, migration.UNKNOWN)
+}
+
+// TestMigrationPhaseErrorPropagates asserts a state error surfaces with the
+// UNKNOWN phase rather than being mistaken for a real phase answer.
+func (s *serviceSuite) TestMigrationPhaseErrorPropagates(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		"", errors.New("boom"))
+
+	_, err := s.service(c).MigrationPhase(c.Context())
+	c.Check(err, tc.ErrorMatches, "boom")
+}
+
+// TestWatchMigrationActivityWatchesBothSides asserts the activity watcher
+// covers the export phase namespace *and* the import claim namespace, both
+// scoped to this model. Watching exports alone would never fire when a target
+// import claim is deleted - the moment the model becomes usable.
+func (s *serviceSuite) TestWatchMigrationActivityWatchesBothSides(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	var namespaces []string
+	matchesUUID := map[string]bool{}
+	matchesOther := map[string]bool{}
+
+	otherUUID := tc.Must(c, uuid.NewUUID).String()
+	ch := make(chan struct{}, 1)
+	s.controllerState.EXPECT().NamespaceForWatchPhase().Return("model_migration_export_phase")
+	s.controllerState.EXPECT().NamespaceForWatchImportClaim().Return("model_migration_import")
+	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ string, fo eventsource.FilterOption, extra ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+			for _, f := range append([]eventsource.FilterOption{fo}, extra...) {
+				namespaces = append(namespaces, f.Namespace())
+				if pred := f.ChangePredicate(); pred != nil {
+					matchesUUID[f.Namespace()] = pred(s.modelUUID)
+					matchesOther[f.Namespace()] = pred(otherUUID)
+				}
+			}
+			return watchertest.NewMockNotifyWatcher(ch), nil
+		},
+	)
+
+	w, err := s.watchableService(c).WatchMigrationActivity(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	c.Check(namespaces, tc.SameContents, []string{
+		"model_migration_export_phase", "model_migration_import",
+	})
+	for _, ns := range namespaces {
+		c.Check(matchesUUID[ns], tc.IsTrue)
+		c.Check(matchesOther[ns], tc.IsFalse)
+	}
 }
 
 // TestSourceControllerInfoArrangesRawStateAddresses asserts the service
@@ -644,29 +673,6 @@ func (s *serviceSuite) TestSourceControllerInfoError(c *tc.C) {
 
 	_, err := s.service(c).SourceControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*boom")
-}
-
-// TestGetControllerModelInfoOffererModelsError asserts offerer-pair read
-// failures are surfaced and the controller-state read is not attempted.
-func (s *serviceSuite) TestGetControllerModelInfoOffererModelsError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return([]string{"offer-1"}, nil)
-	s.modelState.EXPECT().GetThirdPartyOffererModels(gomock.Any()).Return(nil, errors.New("boom"))
-
-	_, err := s.service(c).GetControllerModelInfo(c.Context())
-	c.Assert(err, tc.ErrorMatches, ".*reading model offerer models.*boom")
-}
-
-// TestGetControllerModelInfoOfferUUIDsError asserts a model-DB read failure is
-// surfaced and the controller-state read is not attempted.
-func (s *serviceSuite) TestGetControllerModelInfoOfferUUIDsError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(nil, errors.New("boom"))
-
-	_, err := s.service(c).GetControllerModelInfo(c.Context())
-	c.Assert(err, tc.ErrorMatches, ".*reading model offer UUIDs.*boom")
 }
 
 // TestModelMigrationMode asserts the mode is passed through from state.
@@ -910,6 +916,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerState = NewMockControllerState(ctrl)
 	s.modelState = NewMockModelState(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
+	s.credentialValidator = NewMockCredentialValidator(ctrl)
 
 	s.instanceProvider = NewMockInstanceProvider(ctrl)
 	s.resourceProvider = NewMockResourceProvider(ctrl)
@@ -918,6 +925,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.controllerState = nil
 		s.modelState = nil
 		s.watcherFactory = nil
+		s.credentialValidator = nil
 		s.instanceProvider = nil
 		s.resourceProvider = nil
 		s.modelUUID = ""

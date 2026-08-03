@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -18,6 +19,7 @@ import (
 	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/model"
 	statemodel "github.com/juju/juju/domain/model/state/model"
@@ -111,9 +113,9 @@ func (s *migrationSuite) TestGetControllerUUID(c *tc.C) {
 	c.Check(controllerId, tc.Equals, s.controllerUUID.String())
 }
 
-// TestGetAllInstanceIDs is asserting the happy path of getting all instance
-// IDs for the model.
-func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
+// TestGetMachineInstanceIDs is asserting the happy path of mapping each
+// provisioned machine's cloud instance ID to its machine name.
+func (s *migrationSuite) TestGetMachineInstanceIDs(c *tc.C) {
 	// Add two different instances.
 	db := s.DB()
 	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
@@ -166,18 +168,120 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	instanceIDs, err := New(s.TxnRunnerFactory(), s.modelUUID).GetAllInstanceIDs(c.Context())
+	mapping, err := New(s.TxnRunnerFactory(), s.modelUUID).GetMachineInstanceIDs(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(instanceIDs, tc.HasLen, 2)
-	c.Check(instanceIDs.Values(), tc.SameContents, []string{"instance-0", "instance-1"})
+	c.Check(mapping, tc.DeepEquals, map[string]string{
+		"instance-0": machineNames0[0].String(),
+		"instance-1": machineNames1[0].String(),
+	})
+}
+
+// TestGetMachineInstanceIDsSkipsContainersAndManual asserts that container and
+// manually provisioned machines are left out of the mapping. Neither is created
+// by the provider, so requiring the cloud to report an instance for them would
+// be a false discrepancy.
+func (s *migrationSuite) TestGetMachineInstanceIDsSkipsContainersAndManual(c *tc.C) {
+	db := s.DB()
+	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	arch := "arm64"
+
+	addProvisioned := func(instanceID string) (machine.Name, string) {
+		_, names, err := machineState.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+			Platform: deployment.Platform{
+				Channel: "24.04",
+				OSType:  deployment.Ubuntu,
+			},
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		mUUID, err := machineState.GetMachineUUID(c.Context(), names[0])
+		c.Assert(err, tc.ErrorIsNil)
+		err = machineState.SetMachineCloudInstance(
+			c.Context(), mUUID.String(), instance.Id(instanceID), "", "nonce",
+			&instance.HardwareCharacteristics{Arch: &arch},
+		)
+		c.Assert(err, tc.ErrorIsNil)
+		return names[0], mUUID.String()
+	}
+
+	hostName, hostUUID := addProvisioned("instance-host")
+	_, containerUUID := addProvisioned("instance-container")
+	_, manualUUID := addProvisioned("instance-manual")
+
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES (?, ?)", containerUUID, hostUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO machine_manual (machine_uuid) VALUES (?)", manualUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	mapping, err := New(s.TxnRunnerFactory(), s.modelUUID).GetMachineInstanceIDs(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(mapping, tc.DeepEquals, map[string]string{
+		"instance-host": hostName.String(),
+	})
 }
 
 // TestEmptyInstanceIDs tests that no error is returned when there are no
 // instances in the model.
 func (s *migrationSuite) TestEmptyInstanceIDs(c *tc.C) {
-	instanceIDs, err := New(s.TxnRunnerFactory(), s.modelUUID).GetAllInstanceIDs(c.Context())
+	mapping, err := New(s.TxnRunnerFactory(), s.modelUUID).GetMachineInstanceIDs(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(instanceIDs, tc.HasLen, 0)
+	c.Check(mapping, tc.HasLen, 0)
+}
+
+// TestGetModelType asserts the model's deployment type is returned.
+func (s *migrationSuite) TestGetModelType(c *tc.C) {
+	modelType, err := New(s.TxnRunnerFactory(), s.modelUUID).GetModelType(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(modelType, tc.Equals, "iaas")
+}
+
+// TestGetSecretBackendUUIDsInUse asserts the distinct backend UUIDs across
+// external value refs and deleted value refs are returned.
+func (s *migrationSuite) TestGetSecretBackendUUIDsInUse(c *tc.C) {
+	db := s.DB()
+	// secret_deleted_value_ref has no foreign keys, so it is the cheapest way
+	// to exercise the union query. Two rows share a backend to prove DISTINCT.
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO secret_deleted_value_ref (revision_uuid, backend_uuid, revision_id) VALUES "+
+			"('rev-1', 'backend-a', 'r1'), ('rev-2', 'backend-a', 'r2'), ('rev-3', 'backend-b', 'r3')")
+	c.Assert(err, tc.ErrorIsNil)
+
+	backends, err := New(s.TxnRunnerFactory(), s.modelUUID).GetSecretBackendUUIDsInUse(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(backends, tc.SameContents, []string{"backend-a", "backend-b"})
+}
+
+// TestGetSecretBackendUUIDsInUseEmpty asserts no error and no rows for a model
+// with no external secrets.
+func (s *migrationSuite) TestGetSecretBackendUUIDsInUseEmpty(c *tc.C) {
+	backends, err := New(s.TxnRunnerFactory(), s.modelUUID).GetSecretBackendUUIDsInUse(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(backends, tc.HasLen, 0)
+}
+
+// TestGetExternalSecretRevisionBackendsEmpty exercises the query against a
+// model with no external secret revisions.
+func (s *migrationSuite) TestGetExternalSecretRevisionBackendsEmpty(c *tc.C) {
+	refs, err := New(s.TxnRunnerFactory(), s.modelUUID).GetExternalSecretRevisionBackends(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(refs, tc.HasLen, 0)
+}
+
+// TestGetRunningAgentArchitecturesEmpty exercises the query against a model
+// with no reported machine or unit agent versions.
+func (s *migrationSuite) TestGetRunningAgentArchitecturesEmpty(c *tc.C) {
+	archs, err := New(s.TxnRunnerFactory(), s.modelUUID).GetRunningAgentArchitectures(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(archs, tc.HasLen, 0)
+}
+
+// TestGetAgentBinaryArchitecturesForVersionEmpty exercises the query against a
+// model whose object store holds no agent binaries for the version.
+func (s *migrationSuite) TestGetAgentBinaryArchitecturesForVersionEmpty(c *tc.C) {
+	archs, err := New(s.TxnRunnerFactory(), s.modelUUID).GetAgentBinaryArchitecturesForVersion(c.Context(), "4.0.1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(archs, tc.HasLen, 0)
 }
 
 func (s *migrationSuite) TestGetMigrationAgentsIAAS(c *tc.C) {
@@ -455,6 +559,383 @@ func (s *migrationSuite) TestSetModelTargetAgentVersionDifferentVersion(c *tc.C)
 	c.Assert(err, tc.ErrorMatches, `.*expected current version "6.6.6"`)
 }
 
+// TestGetRelationValidationDataEmpty verifies a model with no relations
+// returns no rows and no error.
+func (s *migrationSuite) TestGetRelationValidationDataEmpty(c *tc.C) {
+	relations, err := New(s.TxnRunnerFactory(), s.modelUUID).GetRelationValidationData(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relations, tc.HasLen, 0)
+}
+
+// TestGetRelationValidationData verifies relation identity and display keys
+// are returned for validation.
+func (s *migrationSuite) TestGetRelationValidationData(c *tc.C) {
+	db := s.DB()
+	charmUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)",
+		charmUUID, "wordpress")
+	c.Assert(err, tc.ErrorIsNil)
+
+	charmRelationUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, scope_id, interface, optional, capacity) VALUES (?, ?, 'db', 1, 1, 'mysql', false, 1)",
+		charmRelationUUID, charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	appUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, 'wordpress', 0, ?, ?)",
+		appUUID, charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+
+	endpointUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, NULL, ?)",
+		endpointUUID, appUUID, charmRelationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	relationUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, 0, 7, 1)",
+		relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?)",
+		uuid.MustNewUUID().String(), relationUUID, endpointUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	relations, err := New(s.TxnRunnerFactory(), s.modelUUID).GetRelationValidationData(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(relations, tc.HasLen, 1)
+	c.Check(relations[0].UUID, tc.Equals, relationUUID)
+	c.Check(relations[0].ID, tc.Equals, 7)
+	c.Check(relations[0].Key, tc.Equals, "wordpress:db")
+	c.Check(relations[0].Endpoints, tc.DeepEquals, []modelmigrationinternal.RelationValidationEndpoint{
+		{ApplicationName: "wordpress", ContainerScoped: true},
+	})
+}
+
+// TestGetRelationValidationDataEndpointScope verifies each endpoint reports the
+// charm relation's scope and whether its application runs a subordinate charm,
+// which is what decides which units are expected in the relation's scope.
+func (s *migrationSuite) TestGetRelationValidationDataEndpointScope(c *tc.C) {
+	db := s.DB()
+
+	// A principal (ubuntu, global endpoint) and a subordinate (nrpe, container
+	// endpoint) joined by one relation.
+	principalCharmUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'ubuntu', 0)", principalCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm_metadata (charm_uuid, name, subordinate) VALUES (?, 'ubuntu', false)", principalCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	subordinateCharmUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'nrpe', 0)", subordinateCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm_metadata (charm_uuid, name, subordinate) VALUES (?, 'nrpe', true)", subordinateCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	relationUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, 0, 7, 1)", relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// scope_id 0 is global, 1 is container.
+	addEndpoint := func(charmUUID, appName, endpointName string, scopeID int) {
+		charmRelationUUID := uuid.MustNewUUID().String()
+		_, err := db.ExecContext(c.Context(),
+			"INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, scope_id, interface, optional, capacity) VALUES (?, ?, ?, 1, ?, 'juju-info', false, 1)",
+			charmRelationUUID, charmUUID, endpointName, scopeID)
+		c.Assert(err, tc.ErrorIsNil)
+
+		appUUID := uuid.MustNewUUID().String()
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, 0, ?, ?)",
+			appUUID, appName, charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+		c.Assert(err, tc.ErrorIsNil)
+
+		endpointUUID := uuid.MustNewUUID().String()
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, NULL, ?)",
+			endpointUUID, appUUID, charmRelationUUID)
+		c.Assert(err, tc.ErrorIsNil)
+
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?)",
+			uuid.MustNewUUID().String(), relationUUID, endpointUUID)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+	addEndpoint(subordinateCharmUUID, "nrpe", "general-info", 1)
+	addEndpoint(principalCharmUUID, "ubuntu", "juju-info", 0)
+
+	relations, err := New(s.TxnRunnerFactory(), s.modelUUID).GetRelationValidationData(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(relations, tc.HasLen, 1)
+	c.Check(relations[0].Key, tc.Equals, "nrpe:general-info ubuntu:juju-info")
+	c.Check(relations[0].Endpoints, tc.DeepEquals, []modelmigrationinternal.RelationValidationEndpoint{
+		{ApplicationName: "nrpe", ContainerScoped: true, Subordinate: true},
+		{ApplicationName: "ubuntu", ContainerScoped: false, Subordinate: false},
+	})
+}
+
+// TestGetRelationValidationDataExcludesNonAlive verifies dying and dead
+// relations are not returned: their units legitimately depart scope, so they
+// must not be checked for relation-unit consistency.
+func (s *migrationSuite) TestGetRelationValidationDataExcludesNonAlive(c *tc.C) {
+	db := s.DB()
+	charmUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)",
+		charmUUID, "wordpress")
+	c.Assert(err, tc.ErrorIsNil)
+
+	charmRelationUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, scope_id, interface, optional, capacity) VALUES (?, ?, 'db', 1, 1, 'mysql', false, 1)",
+		charmRelationUUID, charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	appUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, 'wordpress', 0, ?, ?)",
+		appUUID, charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+
+	endpointUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, NULL, ?)",
+		endpointUUID, appUUID, charmRelationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// One dying and one dead relation, both with endpoints: neither is
+	// returned.
+	for i, lifeID := range []int{1, 2} {
+		relationUUID := uuid.MustNewUUID().String()
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, 1)",
+			relationUUID, lifeID, 7+i)
+		c.Assert(err, tc.ErrorIsNil)
+
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?)",
+			uuid.MustNewUUID().String(), relationUUID, endpointUUID)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	relations, err := New(s.TxnRunnerFactory(), s.modelUUID).GetRelationValidationData(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relations, tc.HasLen, 0)
+}
+
+// TestGetApplicationUnitNamesEmpty verifies no units return an empty map.
+func (s *migrationSuite) TestGetApplicationUnitNamesEmpty(c *tc.C) {
+	units, err := New(s.TxnRunnerFactory(), s.modelUUID).GetApplicationUnitNames(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.HasLen, 0)
+}
+
+// TestGetApplicationUnitNames verifies units are grouped by application.
+func (s *migrationSuite) TestGetApplicationUnitNames(c *tc.C) {
+	db := s.DB()
+	charmUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)",
+		charmUUID, "wordpress")
+	c.Assert(err, tc.ErrorIsNil)
+
+	appUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, 'wordpress', 0, ?, ?)",
+		appUUID, charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+
+	unitNetNodeUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(), "INSERT INTO net_node (uuid) VALUES (?)", unitNetNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	unitUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid) VALUES (?, 'wordpress/0', 0, ?, ?, ?)",
+		unitUUID, appUUID, unitNetNodeUUID, charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	units, err := New(s.TxnRunnerFactory(), s.modelUUID).GetApplicationUnitNames(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.DeepEquals, map[string][]string{"wordpress": {"wordpress/0"}})
+}
+
+// TestGetSubordinateUnitPrincipalsEmpty verifies a model with only principal
+// units returns an empty map.
+func (s *migrationSuite) TestGetSubordinateUnitPrincipalsEmpty(c *tc.C) {
+	principals, err := New(s.TxnRunnerFactory(), s.modelUUID).GetSubordinateUnitPrincipals(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(principals, tc.HasLen, 0)
+}
+
+// TestGetSubordinateUnitPrincipals verifies subordinate units are mapped to the
+// application of the principal unit they run alongside, and that principal
+// units are absent from the result.
+func (s *migrationSuite) TestGetSubordinateUnitPrincipals(c *tc.C) {
+	db := s.DB()
+
+	addUnit := func(appName, unitName string) string {
+		charmUUID := uuid.MustNewUUID().String()
+		_, err := db.ExecContext(c.Context(),
+			"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)", charmUUID, appName)
+		c.Assert(err, tc.ErrorIsNil)
+
+		appUUID := uuid.MustNewUUID().String()
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, 0, ?, ?)",
+			appUUID, appName, charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+		c.Assert(err, tc.ErrorIsNil)
+
+		netNodeUUID := uuid.MustNewUUID().String()
+		_, err = db.ExecContext(c.Context(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
+		c.Assert(err, tc.ErrorIsNil)
+
+		unitUUID := uuid.MustNewUUID().String()
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid) VALUES (?, ?, 0, ?, ?, ?)",
+			unitUUID, unitName, appUUID, netNodeUUID, charmUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		return unitUUID
+	}
+
+	ubuntuUnitUUID := addUnit("ubuntu", "ubuntu/0")
+	nrpeUnitUUID := addUnit("nrpe", "nrpe/0")
+
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO unit_principal (unit_uuid, principal_uuid) VALUES (?, ?)", nrpeUnitUUID, ubuntuUnitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	principals, err := New(s.TxnRunnerFactory(), s.modelUUID).GetSubordinateUnitPrincipals(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(principals, tc.DeepEquals, map[string]string{"nrpe/0": "ubuntu"})
+}
+
+// TestGetApplicationUnitNamesExcludesNonAlive verifies dying and dead
+// applications and units are not returned: they legitimately leave relation
+// scope before removal, so they must not be checked for relation-unit
+// consistency.
+func (s *migrationSuite) TestGetApplicationUnitNamesExcludesNonAlive(c *tc.C) {
+	db := s.DB()
+	charmUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)",
+		charmUUID, "wordpress")
+	c.Assert(err, tc.ErrorIsNil)
+
+	appUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, 'wordpress', 0, ?, ?)",
+		appUUID, charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A dying and a dead unit on the alive application.
+	for i, lifeID := range []int{1, 2} {
+		unitNetNodeUUID := uuid.MustNewUUID().String()
+		_, err = db.ExecContext(c.Context(), "INSERT INTO net_node (uuid) VALUES (?)", unitNetNodeUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid) VALUES (?, ?, ?, ?, ?, ?)",
+			uuid.MustNewUUID().String(), fmt.Sprintf("wordpress/%d", i), lifeID, appUUID, unitNetNodeUUID, charmUUID)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	// A dying application with an (anachronistically) alive unit.
+	dyingAppUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, 'mysql', 1, ?, ?)",
+		dyingAppUUID, charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+	unitNetNodeUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(), "INSERT INTO net_node (uuid) VALUES (?)", unitNetNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid) VALUES (?, 'mysql/0', 0, ?, ?, ?)",
+		uuid.MustNewUUID().String(), dyingAppUUID, unitNetNodeUUID, charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	units, err := New(s.TxnRunnerFactory(), s.modelUUID).GetApplicationUnitNames(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.HasLen, 0)
+}
+
+// TestGetRelationUnitsByApplicationEmpty verifies no relation units return an
+// empty map.
+func (s *migrationSuite) TestGetRelationUnitsByApplicationEmpty(c *tc.C) {
+	units, err := New(s.TxnRunnerFactory(), s.modelUUID).GetRelationUnitsByApplication(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.HasLen, 0)
+}
+
+// TestGetRelationUnitsByApplication verifies in-scope units are grouped by
+// relation and application.
+func (s *migrationSuite) TestGetRelationUnitsByApplication(c *tc.C) {
+	db := s.DB()
+	charmUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)",
+		charmUUID, "wordpress")
+	c.Assert(err, tc.ErrorIsNil)
+
+	charmRelationUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, scope_id, interface, optional, capacity) VALUES (?, ?, 'db', 1, 1, 'mysql', false, 1)",
+		charmRelationUUID, charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	appUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, 'wordpress', 0, ?, ?)",
+		appUUID, charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+
+	endpointUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, NULL, ?)",
+		endpointUUID, appUUID, charmRelationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	relationUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, 0, 7, 1)",
+		relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	relationEndpointUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?)",
+		relationEndpointUUID, relationUUID, endpointUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	unitNetNodeUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(), "INSERT INTO net_node (uuid) VALUES (?)", unitNetNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	unitUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid) VALUES (?, 'wordpress/0', 0, ?, ?, ?)",
+		unitUUID, appUUID, unitNetNodeUUID, charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
+		uuid.MustNewUUID().String(), relationEndpointUUID, unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	units, err := New(s.TxnRunnerFactory(), s.modelUUID).GetRelationUnitsByApplication(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.DeepEquals, map[string]map[string][]string{
+		relationUUID: {"wordpress": {"wordpress/0"}},
+	})
+}
+
 // TestGetOfferUUIDsEmpty verifies that a model with no offers returns an empty
 // slice and no error.
 func (s *migrationSuite) TestGetOfferUUIDsEmpty(c *tc.C) {
@@ -544,4 +1025,73 @@ INSERT INTO application_remote_offerer (
 		{ControllerUUID: controllerUUID, ModelUUID: modelUUID},
 		{ControllerUUID: otherControllerUUID, ModelUUID: otherModelUUID},
 	})
+}
+
+// TestGetCredentialValidationInfo verifies the model's identity, cloud
+// placement and stored configuration are read together from the model record.
+func (s *migrationSuite) TestGetCredentialValidationInfo(c *tc.C) {
+	db := s.DB()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO model_config (key, value) VALUES ('ftp-proxy', 'http://proxy'), ('apt-mirror', 'http://mirror')")
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err := New(s.TxnRunnerFactory(), s.modelUUID).GetCredentialValidationInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.ControllerUUID, tc.Equals, s.controllerUUID.String())
+	c.Check(info.ModelType, tc.Equals, "iaas")
+	c.Check(info.CloudName, tc.Equals, "aws")
+	c.Check(info.CloudType, tc.Equals, "ec2")
+	c.Check(info.CloudRegion, tc.Equals, "myregion")
+	c.Check(info.Config["ftp-proxy"], tc.Equals, "http://proxy")
+	c.Check(info.Config["apt-mirror"], tc.Equals, "http://mirror")
+}
+
+// TestGetMachineInstanceID verifies the provisioned machine's instance ID is
+// returned for its machine UUID.
+func (s *migrationSuite) TestGetMachineInstanceID(c *tc.C) {
+	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	_, machineNames, err := machineState.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "24.04",
+			OSType:  deployment.Ubuntu,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := machineState.GetMachineUUID(c.Context(), machineNames[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = machineState.SetMachineCloudInstance(
+		c.Context(),
+		machineUUID.String(),
+		instance.Id("instance-0"),
+		"",
+		"nonce",
+		nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	instanceID, err := New(s.TxnRunnerFactory(), s.modelUUID).GetMachineInstanceID(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(instanceID, tc.Equals, "instance-0")
+}
+
+// TestGetMachineInstanceIDNotProvisioned verifies an error satisfying
+// [machineerrors.NotProvisioned] is returned when the machine has no cloud
+// instance.
+func (s *migrationSuite) TestGetMachineInstanceIDNotProvisioned(c *tc.C) {
+	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	_, machineNames, err := machineState.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "24.04",
+			OSType:  deployment.Ubuntu,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := machineState.GetMachineUUID(c.Context(), machineNames[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = New(s.TxnRunnerFactory(), s.modelUUID).GetMachineInstanceID(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 }

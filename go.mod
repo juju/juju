@@ -31,8 +31,11 @@ require (
 	github.com/canonical/lxd v0.0.0-20260715195557-cb924b1ad286
 	github.com/canonical/pebble v1.26.0
 	github.com/canonical/sqlair v0.0.0-20260218132926-bd54c4999dea
+	github.com/canonical/starform v0.0.0-20260521120235-5b4249f3efd2
+	github.com/canonical/starlark v0.0.0-20250127110116-8c33ed2b410b
 	github.com/chzyer/readline v1.5.1
 	github.com/coreos/go-systemd/v22 v22.5.0
+	github.com/creack/pty v1.1.24
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/distribution/reference v0.5.0
 	github.com/docker/distribution v2.8.3+incompatible
@@ -64,7 +67,7 @@ require (
 	github.com/juju/gomaasapi/v3 v3.0.0
 	github.com/juju/idmclient/v2 v2.0.1
 	github.com/juju/jsonschema v1.0.1
-	github.com/juju/loggo/v2 v2.2.0
+	github.com/juju/loggo/v3 v3.0.0-20260430073220-8e1a5fe19b98
 	github.com/juju/lumberjack/v2 v2.0.2
 	github.com/juju/mutex/v2 v2.0.0
 	github.com/juju/names/v6 v6.0.0
@@ -88,7 +91,6 @@ require (
 	github.com/microsoft/kiota-abstractions-go v1.9.4
 	github.com/microsoft/kiota-http-go v1.5.6
 	github.com/microsoftgraph/msgraph-sdk-go v1.28.0
-	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mittwald/vaultgo v0.1.4
 	github.com/moby/sys/mountinfo v0.7.1
@@ -104,8 +106,11 @@ require (
 	go.opentelemetry.io/otel v1.44.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.44.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.44.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.44.0
 	go.opentelemetry.io/otel/sdk v1.44.0
 	go.opentelemetry.io/otel/trace v1.44.0
+	go.uber.org/goleak v1.3.0
+	go.uber.org/mock v0.6.0
 	golang.org/x/crypto v0.54.0
 	golang.org/x/net v0.57.0
 	golang.org/x/oauth2 v0.36.0
@@ -114,7 +119,7 @@ require (
 	golang.org/x/time v0.15.0
 	golang.org/x/tools v0.48.0
 	google.golang.org/api v0.256.0
-	google.golang.org/grpc v1.82.0
+	google.golang.org/grpc v1.82.1
 	gopkg.in/errgo.v1 v1.0.1
 	gopkg.in/httprequest.v1 v1.2.1
 	gopkg.in/ini.v1 v1.67.0
@@ -209,6 +214,7 @@ require (
 	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/loggo v1.0.0 // indirect
+	github.com/juju/loggo/v2 v2.2.0 // indirect
 	github.com/juju/mgo/v2 v2.0.3 // indirect
 	github.com/juju/usso v1.0.1 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
@@ -307,6 +313,14 @@ replace gopkg.in/check.v1 => github.com/hpidcock/gc-compat-tc v0.0.0-20260112233
 replace github.com/juju/testing => ./internal/testhelpers/compat
 
 replace go.opencensus.io => github.com/census-instrumentation/opencensus-go v0.24.0
+
+// github.com/juju/tc version v1.0.0 randomises the order of test cases, which
+// causes a lot of tests suites to fail. We need to fix this, but libraries that
+// depend on tc, should not be prohibited from using the latest version of tc.
+// We just need to make sure that juju/juju uses a version of tc that does not
+// randomise the order of test cases. Pin to a specific commit until the issue
+// is resolved.
+exclude github.com/juju/tc v1.0.0
 
 // Needed to work around a broken transitive dependency of lxd, testcontainers-go/docker.
 replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.3

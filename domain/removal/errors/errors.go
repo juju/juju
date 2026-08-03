@@ -87,4 +87,10 @@ const (
 	// StorageInstanceStillAttached indicates that the storage instance cannot
 	// be removed without force as it still has attachments.
 	StorageInstanceStillAttached = errors.ConstError("storage instance still attached")
+
+	// MigrationImportActive indicates that generic model removal was attempted
+	// on a model that holds a migration import claim. Such a model is mid-import
+	// and is torn down by aborting the import, which owns the protocol that
+	// proves the model database is gone before the model UUID is released.
+	MigrationImportActive = errors.ConstError("model has an active migration import claim")
 )

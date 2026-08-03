@@ -203,6 +203,7 @@ LXD supports the following {ref}`constraints <constraint>`:
 
 **Networking**
 
+- {ref}`constraint-ip-family`. The IP family is determined by the LXD bridge (`lxdbr0`) configuration on the host.
 - {ref}`constraint-zones`. LXD node name(s). In clustered LXD, specifies which cluster member to place the instance on.
 
 **Storage**

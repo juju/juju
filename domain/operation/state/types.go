@@ -36,7 +36,7 @@ type uuid struct {
 
 // operationID represents a simple wrapper for operation ID queries.
 type operationID struct {
-	OperationID string `db:"operation_id"`
+	OperationID uint64 `db:"operation_id"`
 }
 
 // taskParameter represents a parameter key-value pair for a task.
@@ -65,7 +65,7 @@ type taskLogEntryByOperation struct {
 // operationResult represents the operation row for GetOperationByID.
 type operationResult struct {
 	UUID        string         `db:"uuid"`
-	OperationID string         `db:"operation_id"`
+	OperationID uint64         `db:"operation_id"`
 	Summary     sql.NullString `db:"summary"`
 	EnqueuedAt  time.Time      `db:"enqueued_at"`
 	StartedAt   sql.NullTime   `db:"started_at"`
@@ -121,7 +121,7 @@ type outputStore struct {
 
 type insertOperation struct {
 	UUID           string     `db:"uuid"`
-	OperationID    string     `db:"operation_id"`
+	OperationID    uint64     `db:"operation_id"`
 	Summary        string     `db:"summary"`
 	EnqueuedAt     time.Time  `db:"enqueued_at"`
 	StartedAt      *time.Time `db:"started_at"`

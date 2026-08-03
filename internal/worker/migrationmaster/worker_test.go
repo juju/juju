@@ -5,16 +5,18 @@ package migrationmaster_test
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/textproto"
 	"net/url"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
@@ -34,6 +36,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	coreresource "github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/semversion"
@@ -64,6 +67,7 @@ type Suite struct {
 	modelAgentService       *stubModelAgentService
 	resourceService         *stubResourceService
 	charmService            *stubCharmService
+	loggingService          *stubLoggingService
 	config                  migrationmaster.Config
 }
 
@@ -109,8 +113,8 @@ var (
 		fakeToolsSHA256: semversion.MustParseBinary("2.1.0-ubuntu-amd64"),
 	}
 
-	fakeControllerModelInfo = modelmigration.ControllerModelInfo{
-		ModelInfo: modelmigration.ModelIdentityInfo{
+	fakeControllerModelInfo = coremodelmigration.ControllerModelInfo{
+		ModelInfo: coremodelmigration.ModelIdentityInfo{
 			UUID:      modelUUID,
 			Name:      modelName,
 			Qualifier: modelQualifier.String(),
@@ -162,8 +166,9 @@ var (
 			params.ModelArgs{ModelTag: modelTag.String()},
 		},
 	}
-	apiCloseCall = testhelpers.StubCall{FuncName: "Connection.Close"}
-	abortCall    = testhelpers.StubCall{
+	apiCloseCall      = testhelpers.StubCall{FuncName: "Connection.Close"}
+	getLokiConfigCall = testhelpers.StubCall{FuncName: "loggingService.IsLokiEnabled"}
+	abortCall         = testhelpers.StubCall{
 		FuncName: "MigrationTarget.Abort",
 		Args: []any{
 			params.ModelArgs{ModelTag: modelTag.String()},
@@ -177,7 +182,7 @@ var (
 	// assembleCalls are the service calls recorded by one envelope assembly.
 	assembleCalls = []testhelpers.StubCall{
 		{FuncName: "exportService.Export", Args: nil},
-		{FuncName: "modelMigrationService.GetControllerModelInfo", Args: nil},
+		{FuncName: "exportService.GetControllerModelInfo", Args: nil},
 		{FuncName: "charmService.ListCharmLocators", Args: nil},
 		{FuncName: "modelAgentService.GetModelAgentBinaryMetadata", Args: nil},
 		{FuncName: "resourceService.ListAllModelResources", Args: nil},
@@ -222,12 +227,12 @@ func (s *Suite) SetUpTest(c *tc.C) {
 	s.modelAgentService = &stubModelAgentService{stub: s.stub}
 	s.resourceService = &stubResourceService{stub: s.stub}
 	s.charmService = &stubCharmService{stub: s.stub}
+	s.loggingService = &stubLoggingService{stub: s.stub}
 
 	// The default worker Config used by most of the tests. Tests may
 	// tweak parts of this as needed.
 	s.config = migrationmaster.Config{
 		ModelUUID:               modelUUID,
-		Facade:                  s.facade,
 		CharmService:            s.charmService,
 		ModelMigrationService:   s.modelMigrationService,
 		ExportService:           s.exportService,
@@ -238,7 +243,10 @@ func (s *Suite) SetUpTest(c *tc.C) {
 		APIOpen:                 s.apiOpen,
 		UploadBinaries:          nullUploadBinaries,
 		AgentBinaryStore:        fakeAgentBinaryStore,
+		LoggingService:          s.loggingService,
 		Clock:                   s.clock,
+		SourcePrecheck:          s.facade.Prechecks,
+		StreamModelLog:          s.facade.StreamModelLog,
 	}
 }
 
@@ -372,6 +380,7 @@ func (s *Suite) TestSuccessfulMigration(c *tc.C) {
 			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.LOGTRANSFER}},
 
 			// LOGTRANSFER
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -432,6 +441,7 @@ func (s *Suite) TestMigrationResume(c *tc.C) {
 			adoptResourcesCall,
 			apiCloseCall,
 			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.LOGTRANSFER}},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -594,7 +604,7 @@ func (s *Suite) TestQUIESCESourceChecksFail(c *tc.C) {
 
 func (s *Suite) TestQUIESCEControllerModelInfoFail(c *tc.C) {
 	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.QUIESCE))
-	s.modelMigrationService.controllerModelInfoErr = errors.New("boom")
+	s.exportService.controllerModelInfoErr = errors.New("boom")
 
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
@@ -603,7 +613,7 @@ func (s *Suite) TestQUIESCEControllerModelInfoFail(c *tc.C) {
 			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			{FuncName: "facade.Prechecks", Args: []any{}},
 			{FuncName: "exportService.Export", Args: nil},
-			{FuncName: "modelMigrationService.GetControllerModelInfo", Args: nil},
+			{FuncName: "exportService.GetControllerModelInfo", Args: nil},
 		},
 		abortCalls,
 	))
@@ -863,6 +873,41 @@ func (s *Suite) TestVALIDATIONCheckMachinesOtherError(c *tc.C) {
 	))
 }
 
+// TestVALIDATIONActivateFailureAborts checks that a failed target Activate
+// moves the migration to ABORT.
+//
+// Activation only prepares on the target: it leaves the import claim importing
+// and the model gated, so every failure - a structured error, a transport
+// failure, or a reply that never arrives - leaves the model abortable. The
+// target's point of no return is AdoptResources, sent from SUCCESS, which this
+// migration can no longer reach ABORT from.
+func (s *Suite) TestVALIDATIONActivateFailureAborts(c *tc.C) {
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.VALIDATION))
+	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
+	s.connection.activateErr = errors.Errorf("something went bang")
+
+	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
+	s.stub.CheckCalls(c, joinCalls(
+		watchStatusLockdownCalls,
+		[]testhelpers.StubCall{
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			{FuncName: "modelMigrationService.WatchMinionReports", Args: nil},
+			{FuncName: "modelMigrationService.MinionReports", Args: nil},
+			apiOpenControllerCall,
+			checkMachinesCall,
+			{FuncName: "modelMigrationService.SourceControllerInfo", Args: nil},
+			activateCall,
+			apiCloseCall,
+		},
+		abortCalls,
+	))
+	lastMessages := s.modelMigrationService.statuses[len(s.modelMigrationService.statuses)-2:]
+	c.Assert(lastMessages, tc.DeepEquals, []string{
+		"model activation failed, something went bang",
+		"aborted, removing model from target controller: model activation failed, something went bang",
+	})
+}
+
 func (s *Suite) TestSUCCESSMinionWaitWatchError(c *tc.C) {
 	s.checkMinionWaitWatchError(c, coremigration.SUCCESS)
 }
@@ -893,6 +938,7 @@ func (s *Suite) TestSUCCESSMinionWaitFailedMachine(c *tc.C) {
 			adoptResourcesCall,
 			apiCloseCall,
 			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.LOGTRANSFER}},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -926,6 +972,7 @@ func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *tc.C) {
 			adoptResourcesCall,
 			apiCloseCall,
 			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.LOGTRANSFER}},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -968,6 +1015,7 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *tc.C) {
 			adoptResourcesCall,
 			apiCloseCall,
 			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.LOGTRANSFER}},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -1117,6 +1165,7 @@ func (s *Suite) TestLogTransferErrorOpeningTargetAPI(c *tc.C) {
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
 			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 		},
 	))
@@ -1131,6 +1180,7 @@ func (s *Suite) TestLogTransferErrorGettingStartTime(c *tc.C) {
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
 			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			apiCloseCall,
@@ -1147,6 +1197,7 @@ func (s *Suite) TestLogTransferErrorOpeningLogSource(c *tc.C) {
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
 			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -1164,6 +1215,7 @@ func (s *Suite) TestLogTransferErrorOpeningLogDest(c *tc.C) {
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
 			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -1184,6 +1236,7 @@ func (s *Suite) TestLogTransferErrorWriting(c *tc.C) {
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
 			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -1221,6 +1274,7 @@ func (s *Suite) TestLogTransferSendsRecords(c *tc.C) {
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
 			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -1291,6 +1345,7 @@ func (s *Suite) TestLogTransferChecksLatestTime(c *tc.C) {
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
 			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{t}},
@@ -1371,6 +1426,13 @@ func assertExpectedCallArgs(c *tc.C, stub *testhelpers.Stub, expectedCalls []tes
 			continue
 		}
 
+		if call.FuncName == "UploadBinaries" {
+			mc := tc.NewMultiChecker()
+			mc.AddExpr(`_[5]`, tc.NotNil)
+			c.Assert(stubCall.Args[:5], mc, call.Args[:5], tc.Commentf("call %s", call.FuncName))
+			continue
+		}
+
 		c.Assert(stubCall, tc.DeepEquals, call, tc.Commentf("call %s", call.FuncName))
 	}
 }
@@ -1410,8 +1472,6 @@ func newStubMasterFacade(stub *testhelpers.Stub) *stubMasterFacade {
 }
 
 type stubMasterFacade struct {
-	migrationmaster.Facade
-
 	stub *testhelpers.Stub
 
 	prechecksErr error
@@ -1437,8 +1497,6 @@ type stubModelMigrationService struct {
 	watchErr       error
 	status         []coremigration.MigrationStatus
 	statusErr      error
-
-	controllerModelInfoErr error
 
 	minionReportsChanges  chan struct{}
 	minionReportsWatchErr error
@@ -1485,14 +1543,6 @@ func (s *stubModelMigrationService) Migration(ctx context.Context) (modelmigrati
 		PhaseChangedTime: out.PhaseChangedTime,
 		Target:           out.TargetInfo,
 	}, nil
-}
-
-func (s *stubModelMigrationService) GetControllerModelInfo(ctx context.Context) (modelmigration.ControllerModelInfo, error) {
-	s.stub.AddCall("modelMigrationService.GetControllerModelInfo")
-	if s.controllerModelInfoErr != nil {
-		return modelmigration.ControllerModelInfo{}, s.controllerModelInfoErr
-	}
-	return fakeControllerModelInfo, nil
 }
 
 func (s *stubModelMigrationService) SetMigrationPhase(ctx context.Context, phase coremigration.Phase) error {
@@ -1560,8 +1610,9 @@ func (f *stubMasterFacade) Prechecks(ctx context.Context) error {
 }
 
 type stubExportService struct {
-	stub      *testhelpers.Stub
-	exportErr error
+	stub                   *testhelpers.Stub
+	exportErr              error
+	controllerModelInfoErr error
 }
 
 func (s *stubExportService) Export(ctx context.Context) (*domainexport.ModelExport, error) {
@@ -1573,6 +1624,14 @@ func (s *stubExportService) Export(ctx context.Context) (*domainexport.ModelExpo
 		Version: fakeExportVersion,
 		Payload: fakeExportPayload,
 	}, nil
+}
+
+func (s *stubExportService) GetControllerModelInfo(ctx context.Context) (coremodelmigration.ControllerModelInfo, error) {
+	s.stub.AddCall("exportService.GetControllerModelInfo")
+	if s.controllerModelInfoErr != nil {
+		return coremodelmigration.ControllerModelInfo{}, s.controllerModelInfoErr
+	}
+	return fakeControllerModelInfo, nil
 }
 
 type stubControllerConfigService struct {
@@ -1607,6 +1666,16 @@ func (s *stubResourceService) ListAllModelResources(ctx context.Context) ([]core
 	return s.resources, nil
 }
 
+func (s *stubResourceService) GetResourceUUIDByApplicationAndResourceName(ctx context.Context, appName, resName string) (coreresource.UUID, error) {
+	s.stub.AddCall("resourceService.GetResourceUUIDByApplicationAndResourceName", appName, resName)
+	return coreresource.UUID(""), nil
+}
+
+func (s *stubResourceService) OpenResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, io.ReadCloser, error) {
+	s.stub.AddCall("resourceService.OpenResource", resourceUUID)
+	return coreresource.Resource{}, io.NopCloser(strings.NewReader("")), nil
+}
+
 type stubCharmService struct {
 	migrationmaster.CharmService
 
@@ -1616,6 +1685,20 @@ type stubCharmService struct {
 func (s *stubCharmService) ListCharmLocators(ctx context.Context, names ...string) ([]applicationcharm.CharmLocator, error) {
 	s.stub.AddCall("charmService.ListCharmLocators")
 	return fakeCharmLocators, nil
+}
+
+type stubLoggingService struct {
+	migrationmaster.LoggingService
+
+	stub *testhelpers.Stub
+
+	// lokiEnabled is returned by IsLokiEnabled.
+	lokiEnabled bool
+}
+
+func (s *stubLoggingService) IsLokiEnabled(ctx context.Context) (bool, error) {
+	s.stub.AddCall("loggingService.IsLokiEnabled")
+	return s.lokiEnabled, nil
 }
 
 func (f *stubMasterFacade) StreamModelLog(_ context.Context, start time.Time) (<-chan common.LogMessage, error) {
@@ -1657,6 +1740,7 @@ type stubConnection struct {
 	stub          *testhelpers.Stub
 	prechecksErr  error
 	importErr     error
+	activateErr   error
 	controllerTag names.ControllerTag
 
 	streamErr error
@@ -1686,7 +1770,9 @@ func (c *stubConnection) APICall(ctx context.Context, objType string, _ int, _, 
 			return c.prechecksErr
 		case "Import":
 			return c.importErr
-		case "Activate", "AdoptResources":
+		case "Activate":
+			return c.activateErr
+		case "AdoptResources":
 			return nil
 		case "LatestLogTime":
 			responseTime := response.(*time.Time)

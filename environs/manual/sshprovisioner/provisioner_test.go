@@ -184,7 +184,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *tc.C) {
 		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
 		AgentEnvironment:        map[string]string{agent.ProviderType: "dummy"},
 		AuthorizedKeys:          "wheredidileavemykeys",
-		MachineAgentServiceName: "jujud-machine-10",
+		MachineAgentServiceName: "jujuagentd-machine-10",
 	}
 	tools := []*coretools.Tools{{
 		Version: semversion.MustParseBinary("6.6.6-ubuntu-amd64"),

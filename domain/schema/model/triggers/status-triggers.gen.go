@@ -33,7 +33,7 @@ WHEN
 	NEW.status_id != OLD.status_id OR
 	(NEW.message != OLD.message OR (NEW.message IS NOT NULL AND OLD.message IS NULL) OR (NEW.message IS NULL AND OLD.message IS NOT NULL)) OR
 	(NEW.data != OLD.data OR (NEW.data IS NOT NULL AND OLD.data IS NULL) OR (NEW.data IS NULL AND OLD.data IS NOT NULL)) OR
-	(NEW.updated_at != OLD.updated_at OR (NEW.updated_at IS NOT NULL AND OLD.updated_at IS NULL) OR (NEW.updated_at IS NULL AND OLD.updated_at IS NOT NULL)) 
+	(NEW.updated_at != OLD.updated_at OR (NEW.updated_at IS NOT NULL AND OLD.updated_at IS NULL) OR (NEW.updated_at IS NULL AND OLD.updated_at IS NOT NULL))
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

@@ -48,6 +48,10 @@ const (
 	// when adding cloud instance on a machine that already exists.
 	MachineCloudInstanceAlreadyExists = errors.ConstError("machine cloud instance already exists")
 
+	// MachineCloudInstanceChanged describes an error that occurs when the
+	// machine's cloud instance changes during a reprovisioning request.
+	MachineCloudInstanceChanged = errors.ConstError("machine cloud instance changed")
+
 	// InvalidMachineConstraints describes an error that occurs when the
 	// machine constraints are not valid. This happens when if the
 	// provided space constraints do not exist or the container type is not
@@ -57,4 +61,42 @@ const (
 	// MachineCloudInstanceNotFound describes an error that occurs when
 	// a machine cloud instance does not satisfy some given constraints.
 	MachineConstraintViolation = errors.ConstError("machine constraint violation")
+
+	// MachineIsContainer is an error when a machine is a container type.
+	MachineIsContainer = errors.ConstError("machine is a container")
+
+	// MachineIsController is an error when the machine is a controller machine.
+	MachineIsController = errors.ConstError("machine is a controller machine")
+
+	// MachineIsManual describes an error when the machine is manually
+	// provisioned.
+	MachineIsManual = errors.ConstError("machine is manually provisioned")
+
+	// MachineHasChildContainers describes an error when the machine has child
+	// containers.
+	MachineHasChildContainers = errors.ConstError("machine hosts child containers")
+
+	// MachineAgentPresent describes an error when the machine agent is still
+	// present in the model.
+	MachineAgentPresent = errors.ConstError("machine agent is still present")
+
+	// MachineProviderInstanceRunning describes an error when the provider still
+	// reports the machine's cloud instance as running.
+	MachineProviderInstanceRunning = errors.ConstError("machine provider instance is running")
+
+	// MachineReprovisionAlreadyExists describes an error when a reprovision
+	// request already exists for the machine.
+	MachineReprovisionAlreadyExists = errors.ConstError("reprovision request already exists")
+
+	// ModelScopedStorageAttached describes an error that occurs during
+	// reprovisioning when model-scoped storage is attached to the machine.
+	ModelScopedStorageAttached = errors.ConstError("model-scoped storage attached to machine")
+
+	// StorageScopeAmbiguous describes an error that occurs during reprovisioning
+	// when Juju cannot safely classify attached storage.
+	StorageScopeAmbiguous = errors.ConstError("storage scope is ambiguous")
+
+	// MachineStorageNotAlive describes an error that occurs during
+	// reprovisioning when attached machine storage is not alive.
+	MachineStorageNotAlive = errors.ConstError("machine storage is not alive")
 )

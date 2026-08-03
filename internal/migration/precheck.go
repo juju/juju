@@ -174,6 +174,42 @@ func ImportDescriptionPrecheck(
 	return nil
 }
 
+// TargetControllerPrecheck runs the target-controller readiness checks
+// (upgrade in progress, controller machines at the target agent version, with
+// sane status/life, and a target agent version not older than the migrating
+// model) without requiring a description.Model. It is used by the v8
+// migrationtarget prechecks.
+func TargetControllerPrecheck(
+	ctx context.Context,
+	upgradeService UpgradeService,
+	statusService StatusService,
+	modelAgentService ModelAgentService,
+	machineService MachineService,
+	modelAgentVersion semversion.Number,
+) error {
+	controllerCtx := newPrecheckController(
+		upgradeService,
+		statusService,
+		modelAgentService,
+		machineService)
+	if err := controllerCtx.checkController(ctx); err != nil {
+		return errors.Trace(err)
+	}
+
+	if modelAgentVersion == (semversion.Number{}) {
+		return nil
+	}
+	controllerVersion, err := modelAgentService.GetModelTargetAgentVersion(ctx)
+	if err != nil {
+		return errors.Annotate(err, "retrieving target controller version")
+	}
+	if controllerVersion.Compare(modelAgentVersion) < 0 {
+		return errors.Errorf("model has higher version than target controller (%s > %s)",
+			modelAgentVersion, controllerVersion)
+	}
+	return nil
+}
+
 // TargetPrecheck checks the state of the target controller to make
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the target controller.

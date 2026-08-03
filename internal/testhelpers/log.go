@@ -4,13 +4,14 @@
 package testhelpers
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
 
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/tc"
 )
 
@@ -34,12 +35,13 @@ var logConfig = func() string {
 	return "DEBUG"
 }()
 
-func (w *gocheckWriter) Write(entry loggo.Entry) {
+func (w *gocheckWriter) Write(ctx context.Context, entry loggo.Entry) error {
 	w.s.mut.RLock()
 	defer w.s.mut.RUnlock()
 	filename := filepath.Base(entry.Filename)
-	fmt.Fprintf(w.c.Output(), "%s:%d: %s %s %s\n", filename, entry.Line,
+	_, err := fmt.Fprintf(w.c.Output(), "%s:%d: %s %s %s\n", filename, entry.Line,
 		entry.Level, entry.Module, entry.Message)
+	return err
 }
 
 func (s *LoggingSuite) SetUpSuite(c *tc.C) {
@@ -93,7 +95,8 @@ func (discardC) Output() io.Writer {
 
 type discardWriter struct{}
 
-func (discardWriter) Write(entry loggo.Entry) {
+func (discardWriter) Write(ctx context.Context, entry loggo.Entry) error {
+	return nil
 }
 
 // LoggingCleanupSuite is defined for backward compatibility.

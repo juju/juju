@@ -150,7 +150,7 @@ func (*CloudInitSuite) testUserData(c *tc.C, base corebase.Base, bootstrap bool)
 		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
 		AgentEnvironment:        map[string]string{agent.ProviderType: "dummy"},
 		AuthorizedKeys:          "wheredidileavemykeys",
-		MachineAgentServiceName: "jujud-machine-10",
+		MachineAgentServiceName: "jujuagentd-machine-10",
 		EnableOSUpgrade:         true,
 		CloudInitUserData:       cloudInitUserDataMap,
 	}

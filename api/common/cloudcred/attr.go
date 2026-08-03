@@ -62,6 +62,7 @@ var attr = map[string]bool{
 	"openstack,userpass,project-domain-name":                 true,
 	"openstack,userpass,tenant-id":                           true,
 	"openstack,userpass,tenant-name":                         true,
+	"openstack,userpass,trust-id":                            true,
 	"openstack,userpass,user-domain-name":                    true,
 	"openstack,userpass,username":                            true,
 	"openstack,userpass,version":                             true,

@@ -28,10 +28,20 @@ type LogSinkWriter interface {
 	logger.LoggerContext
 }
 
+// LogRouter provides access to the log router's LogSink, which delegates to
+// the active backend (logsink, Loki, or drain) and fires a refresh channel
+// when the backend changes.
+type LogRouter interface {
+	// LogSink returns a sink that forwards records to the active
+	// backend. The sink's WatchRefresh channel fires whenever the
+	// active backend changes.
+	LogSink() logger.LogSink
+}
+
 // Config defines the attributes used to create a log sink worker.
 type Config struct {
 	AgentTag       names.Tag
-	LogSink        logger.LogSink
+	LogRouter      LogRouter
 	Clock          clock.Clock
 	MachineID      string
 	NewModelLogger NewModelLoggerFunc
@@ -225,7 +235,7 @@ func (w *LogSink) workerFromCache(modelUUID model.UUID) (LogSinkWriter, error) {
 
 func (w *LogSink) initLogger(ctx context.Context, modelUUID model.UUID) error {
 	err := w.runner.StartWorker(ctx, modelUUID.String(), func(ctx context.Context) (worker.Worker, error) {
-		return w.cfg.NewModelLogger(w.cfg.LogSink, modelUUID, w.cfg.AgentTag)
+		return w.cfg.NewModelLogger(w.cfg.LogRouter.LogSink(), modelUUID, w.cfg.AgentTag)
 	})
 	if errors.Is(err, errors.AlreadyExists) {
 		return nil

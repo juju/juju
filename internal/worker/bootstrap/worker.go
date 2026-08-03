@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/logger"
@@ -47,7 +46,6 @@ const (
 // WorkerConfig encapsulates the configuration options for the
 // bootstrap worker.
 type WorkerConfig struct {
-	Agent                      agent.Agent
 	ObjectStoreGetter          ObjectStoreGetter
 	ControllerAgentBinaryStore AgentBinaryStore
 	ControllerConfigService    ControllerConfigService
@@ -67,10 +65,13 @@ type WorkerConfig struct {
 	BakeryConfigService        BakeryConfigService
 	BootstrapAddressFinder     BootstrapAddressFinderFunc
 	BootstrapUnlocker          gate.Unlocker
+	DataDir                    string
+	APIPort                    int
 	AgentBinaryUploader        AgentBinaryBootstrapFunc
 	ControllerCharmDeployer    ControllerCharmDeployerFunc
 	PopulateControllerCharm    PopulateControllerCharmFunc
 	AgentFinalizer             AgentFinalizerFunc
+	AgentPassword              string
 	CharmhubHTTPClient         HTTPClient
 	UnitPassword               string
 	ServiceManagerGetter       ServiceManagerGetterFunc
@@ -81,9 +82,6 @@ type WorkerConfig struct {
 
 // Validate ensures that the config values are valid.
 func (c *WorkerConfig) Validate() error {
-	if c.Agent == nil {
-		return errors.NotValidf("nil Agent")
-	}
 	if c.ObjectStoreGetter == nil {
 		return errors.NotValidf("nil ObjectStoreGetter")
 	}
@@ -123,6 +121,12 @@ func (c *WorkerConfig) Validate() error {
 	if c.BootstrapUnlocker == nil {
 		return errors.NotValidf("nil BootstrapUnlocker")
 	}
+	if c.DataDir == "" {
+		return errors.NotValidf("missing DataDir")
+	}
+	if c.APIPort == 0 {
+		return errors.NotValidf("missing APIPort")
+	}
 	if c.AgentBinaryUploader == nil {
 		return errors.NotValidf("nil AgentBinaryUploader")
 	}
@@ -146,6 +150,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.AgentFinalizer == nil {
 		return errors.NotValidf("nil AgentFinalizer")
+	}
+	if c.AgentPassword == "" {
+		return errors.NotValidf("missing AgentPassword")
 	}
 	if c.StatusHistory == nil {
 		return errors.NotValidf("nil StatusHistory")
@@ -219,8 +226,7 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Annotatef(err, "inserting initial users")
 	}
 
-	agentConfig := w.cfg.Agent.CurrentConfig()
-	dataDir := agentConfig.DataDir()
+	dataDir := w.cfg.DataDir
 
 	// Seed the agent binary to the object store.
 	cleanup, err := w.seedAgentBinary(ctx, dataDir)
@@ -250,11 +256,6 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	servingInfo, ok := agentConfig.ControllerAgentInfo()
-	if !ok {
-		return errors.Errorf("state serving information not available")
-	}
-
 	// Load spaces from the underlying substrate.
 	if err := w.cfg.NetworkService.ReloadSpaces(ctx); err != nil {
 		if !errors.Is(err, errors.NotSupported) {
@@ -276,13 +277,13 @@ func (w *bootstrapWorker) loop() error {
 
 	// Finialize the agent by either setting the machine as provisioned
 	// or by setting the controller node password.
-	if err := w.cfg.AgentFinalizer(ctx, w.cfg.AgentPasswordService, w.cfg.MachineService, bootstrapParams, agentConfig); err != nil {
+	if err := w.cfg.AgentFinalizer(ctx, w.cfg.AgentPasswordService, w.cfg.MachineService, bootstrapParams, w.cfg.AgentPassword); err != nil {
 		return errors.Annotatef(err, "finalizing agent")
 	}
 
 	// Convert the provider addresses that we got from the bootstrap instance
 	// to space ID decorated addresses.
-	if err := w.initAPIHostPorts(ctx, controllerConfig, bootstrapAddresses, servingInfo.APIPort); err != nil {
+	if err := w.initAPIHostPorts(ctx, controllerConfig, bootstrapAddresses, w.cfg.APIPort); err != nil {
 		w.logger.Errorf(ctx, "unable to set API host ports %v:%w", bootstrapAddresses, err)
 		return errors.Trace(err)
 	}

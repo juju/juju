@@ -74,7 +74,6 @@ var logger = internallogger.GetLogger("juju.cmd.juju.space")
 // SpaceCommandBase is the base type embedded into all space subcommands.
 type SpaceCommandBase struct {
 	modelcmd.ModelCommandBase
-	modelcmd.IAASOnlyCommand
 	api API
 }
 

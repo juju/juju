@@ -7,6 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agentconstants "github.com/juju/juju/agent/constants"
+	corepebble "github.com/juju/juju/core/pebble"
 )
 
 const (
@@ -32,8 +33,9 @@ const (
 	AgentHTTPPathStartup = "/startup"
 
 	// DefaultPebbleDir is the default directory Pebble considers when starting
-	// up.
-	DefaultPebbleDir = "/var/lib/pebble/default"
+	// up. It re-exports the canonical value from core/pebble so existing
+	// callers within the k8s provider can continue to use this package.
+	DefaultPebbleDir = corepebble.DefaultPebbleDir
 
 	// JujuExecServerSocketPort is the port used by juju run callbacks.
 	JujuExecServerSocketPort = 30666
@@ -64,21 +66,33 @@ const (
 	// ControllerServiceFQDNTemplate is the FQDN of the controller service using the cluster DNS.
 	ControllerServiceFQDNTemplate = "controller-service.controller-%s.svc.cluster.local"
 
+	// ControllerServiceEndpointsName is the name of the headless service that
+	// governs the controller StatefulSet. It gives each controller pod a
+	// stable per-ordinal DNS name for Dqlite peering. It must match the name
+	// derived for the headless service during bootstrap
+	// (getBootstrapResourceName(JujuControllerStackName, "service-endpoints")).
+	ControllerServiceEndpointsName = JujuControllerStackName + "-service-endpoints"
+
+	// ClusterLocalDomain is the default cluster-internal DNS domain suffix used
+	// by Kubernetes for service and pod FQDNs. Non-default cluster DNS domains
+	// are not currently supported.
+	ClusterLocalDomain = "svc.cluster.local"
+
 	// CharmVolumeName is the name of the k8s volume where shared charm data is stored.
 	CharmVolumeName = "charm-data"
 
 	// JujuUserID is the juju user id for rootless juju agents.
 	// NOTE: 170 uid/gid must be updated here and in caas/Dockerfile and caas/scripts.go
-	JujuUserID = 170
+	JujuUserID int64 = 170
 	// JujuGroupID is the juju group id for rootless juju agents.
-	JujuGroupID = 170
+	JujuGroupID int64 = 170
 	// JujuSudoUserID is the juju user id for rootless juju agents with sudo.
 	// NOTE: 171 uid/gid must be updated here and in caas/Dockerfile
-	JujuSudoUserID = 171
+	JujuSudoUserID int64 = 171
 	// JujuSudoGroupID is the juju group id for rootless juju agents with sudo.
-	JujuSudoGroupID = 171
+	JujuSudoGroupID int64 = 171
 	// JujuFSGroupID is the group id for all fs entries written to k8s volumes.
-	JujuFSGroupID = 170
+	JujuFSGroupID int64 = 170
 )
 
 const (

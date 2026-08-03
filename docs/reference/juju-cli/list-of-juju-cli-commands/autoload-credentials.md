@@ -57,7 +57,7 @@ including the locations searched.
   - Credentials:
     - On Linux, `$HOME/.novarc`.
     - Environment variables: `OS_USERNAME`, `OS_PASSWORD`, `OS_TENANT_NAME`,
-	   `OS_DOMAIN_NAME`.
+	   `OS_DOMAIN_NAME`, `OS_TRUST_ID`.
 
 - LXD
   - Credentials:

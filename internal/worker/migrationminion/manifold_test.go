@@ -9,11 +9,14 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 
 	"github.com/juju/juju/api"
+	loggerapi "github.com/juju/juju/api/agent/logger"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/watcher"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/migrationminion"
@@ -41,9 +44,12 @@ func (s *ManifoldSuite) validConfig(c *tc.C) migrationminion.ManifoldConfig {
 		Clock:             struct{ clock.Clock }{},
 		APIOpen:           func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
 		ValidateMigration: func(context.Context, base.APICaller) error { return nil },
-		NewFacade:         func(base.APICaller) (migrationminion.Facade, error) { return nil, nil },
 		NewWorker:         func(migrationminion.Config) (worker.Worker, error) { return nil, nil },
 		Logger:            loggertesting.WrapCheckLog(c),
+		SendReport:        func(context.Context, api.Connection, watcher.MigrationStatus, bool) error { return nil },
+		FetchTargetLokiConfig: func(context.Context, api.Connection, names.Tag) (loggerapi.ControllerLokiConfig, error) {
+			return loggerapi.ControllerLokiConfig{}, nil
+		},
 	}
 }
 
@@ -81,11 +87,6 @@ func (s *ManifoldSuite) TestMissingValidateMigration(c *tc.C) {
 	s.checkNotValid(c, "nil ValidateMigration not valid")
 }
 
-func (s *ManifoldSuite) TestMissingNewFacade(c *tc.C) {
-	s.config.NewFacade = nil
-	s.checkNotValid(c, "nil NewFacade not valid")
-}
-
 func (s *ManifoldSuite) TestMissingNewWorker(c *tc.C) {
 	s.config.NewWorker = nil
 	s.checkNotValid(c, "nil NewWorker not valid")
@@ -94,6 +95,11 @@ func (s *ManifoldSuite) TestMissingNewWorker(c *tc.C) {
 func (s *ManifoldSuite) TestMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	s.checkNotValid(c, "nil Logger not valid")
+}
+
+func (s *ManifoldSuite) TestMissingSendReport(c *tc.C) {
+	s.config.SendReport = nil
+	s.checkNotValid(c, "nil SendReport not valid")
 }
 
 func (s *ManifoldSuite) checkNotValid(c *tc.C, expect string) {

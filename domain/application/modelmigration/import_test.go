@@ -152,7 +152,7 @@ func (s *importSuite) TestApplicationImportWithMinimalCharmForCAAS(c *tc.C) {
 			UnitName:     "prometheus/0",
 			PasswordHash: new("passwordhash"),
 		},
-		CloudContainer: new(application.CloudContainerParams{
+		K8sPod: new(application.K8sPodParams{
 			ProviderID: "provider-id",
 			Address: new(network.SpaceAddress{
 				MachineAddress: network.MachineAddress{

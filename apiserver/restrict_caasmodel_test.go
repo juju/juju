@@ -29,7 +29,34 @@ func (s *RestrictCAASModelSuite) SetUpSuite(c *tc.C) {
 }
 
 func (s *RestrictCAASModelSuite) TestAllowed(c *tc.C) {
-	s.assertMethod(c, "CAASModelOperator", 1, "ModelOperatorProvisioningInfo")
+	s.assertMethod(c, "CAASApplication", 1, "UnitIntroduction")
+}
+
+func (s *RestrictCAASModelSuite) TestSubnetsAllowed(c *tc.C) {
+	s.assertMethod(c, "Subnets", 5, "ListSubnets")
+}
+
+func (s *RestrictCAASModelSuite) TestSpacesReloadAllowed(c *tc.C) {
+	s.assertMethod(c, "Spaces", 6, "ReloadSpaces")
+}
+
+func (s *RestrictCAASModelSuite) TestSpacesReadMethodsAllowed(c *tc.C) {
+	s.assertMethod(c, "Spaces", 6, "ListSpaces")
+	s.assertMethod(c, "Spaces", 6, "ShowSpace")
+}
+
+func (s *RestrictCAASModelSuite) TestSpacesMutationMethodsNotAllowed(c *tc.C) {
+	for _, method := range []string{
+		"CreateSpaces",
+		"MoveSubnets",
+		"RemoveSpace",
+		"RenameSpace",
+	} {
+		caller, err := s.root.FindMethod("Spaces", 6, method)
+		c.Check(err, tc.ErrorMatches, `facade method "Spaces\.`+method+`" not supported on container models`)
+		c.Check(err, tc.ErrorIs, errors.NotSupported)
+		c.Check(caller, tc.IsNil)
+	}
 }
 
 func (s *RestrictCAASModelSuite) TestNotAllowed(c *tc.C) {

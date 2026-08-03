@@ -12,20 +12,38 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
-	modeloperatorapi "github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/internal/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasmodeloperator"
 )
 
+type errorConfigProvider struct{}
+
+type errorTracingService struct{}
+
+func (errorConfigProvider) CACert() (string, error) {
+	return "", errors.New("read failed")
+}
+
+func (errorConfigProvider) ControllerAgentInfo() (controller.ControllerAgentInfo, error) {
+	return controller.ControllerAgentInfo{}, errors.New("read failed")
+}
+
+func (errorTracingService) GetWorkloadTracingConfig(context.Context) (tracingservice.WorkloadTracingConfig, error) {
+	return tracingservice.WorkloadTracingConfig{}, errors.New("tracing failed")
+}
+
 type dummyAPI struct {
-	provInfo      func() (modeloperatorapi.ModelOperatorProvisioningInfo, error)
+	provInfo      func() (caasmodeloperator.ModelOperatorProvisioningInfo, error)
 	setPassword   func(password string) error
 	watchProvInfo func() (watcher.NotifyWatcher, error)
 }
@@ -70,9 +88,9 @@ func (b *dummyBroker) GetModelOperatorDeploymentImage(ctx context.Context) (stri
 	return b.getModelOperatorDeploymentImage(ctx)
 }
 
-func (a *dummyAPI) ModelOperatorProvisioningInfo(ctx context.Context) (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
+func (a *dummyAPI) ModelOperatorProvisioningInfo(_ context.Context) (caasmodeloperator.ModelOperatorProvisioningInfo, error) {
 	if a.provInfo == nil {
-		return modeloperatorapi.ModelOperatorProvisioningInfo{}, nil
+		return caasmodeloperator.ModelOperatorProvisioningInfo{}, nil
 	}
 	return a.provInfo()
 }
@@ -84,7 +102,7 @@ func (a *dummyAPI) WatchModelOperatorProvisioningInfo(ctx context.Context) (watc
 	return a.watchProvInfo()
 }
 
-func (a *dummyAPI) SetPassword(ctx context.Context, p string) error {
+func (a *dummyAPI) SetPassword(_ context.Context, p string) error {
 	if a.setPassword == nil {
 		return nil
 	}
@@ -107,8 +125,8 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 
 	changed := make(chan struct{})
 	api := &dummyAPI{
-		provInfo: func() (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
-			return modeloperatorapi.ModelOperatorProvisioningInfo{
+		provInfo: func() (caasmodeloperator.ModelOperatorProvisioningInfo, error) {
+			return caasmodeloperator.ModelOperatorProvisioningInfo{
 				APIAddresses: apiAddresses[iteration],
 				ImageDetails: resource.DockerImageDetails{RegistryPath: imagePath[iteration]},
 				Version:      ver[iteration],
@@ -136,6 +154,11 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 			addresses, _ := ac.APIAddresses()
 			c.Check(addresses, tc.DeepEquals, apiAddresses[iteration])
 			c.Check(ac.UpgradedToVersion(), tc.Equals, ver[iteration])
+			controllerInfo, ok := ac.ControllerAgentInfo()
+			c.Check(ok, tc.IsTrue)
+			c.Check(controllerInfo.Cert, tc.Equals, "controller-cert")
+			c.Check(controllerInfo.PrivateKey, tc.Equals, "controller-key")
+			c.Check(controllerInfo.CAPrivateKey, tc.Equals, "ca-key")
 
 			if password == "" {
 				password = ac.OldPassword()
@@ -164,7 +187,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 
 	worker, err := caasmodeloperator.NewModelOperatorManager(
 		loggertesting.WrapCheckLog(c),
-		api, broker, modelUUID, &mockAgentConfig{})
+		api, broker, modelUUID, "/var/lib/juju", "/var/log/juju", coretesting.ControllerTag, &mockConfigProvider{}, &mockTracingService{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	for range n {
@@ -188,7 +211,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerWatchErrorContainsSh
 	}
 
 	worker, err := caasmodeloperator.NewModelOperatorManager(logger.Noop(),
-		api, &dummyBroker{}, modelUUID, &mockAgentConfig{})
+		api, &dummyBroker{}, modelUUID, "/var/lib/juju", "/var/log/juju", coretesting.ControllerTag, &mockConfigProvider{}, &mockTracingService{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = worker.Wait()
@@ -200,8 +223,8 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerUpdateErrorContainsS
 
 	changed := make(chan struct{}, 1)
 	api := &dummyAPI{
-		provInfo: func() (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
-			return modeloperatorapi.ModelOperatorProvisioningInfo{}, errors.New("provisioning info failed")
+		provInfo: func() (caasmodeloperator.ModelOperatorProvisioningInfo, error) {
+			return caasmodeloperator.ModelOperatorProvisioningInfo{}, errors.New("provisioning info failed")
 		},
 		watchProvInfo: func() (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(changed), nil
@@ -209,7 +232,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerUpdateErrorContainsS
 	}
 
 	worker, err := caasmodeloperator.NewModelOperatorManager(logger.Noop(),
-		api, &dummyBroker{}, modelUUID, &mockAgentConfig{})
+		api, &dummyBroker{}, modelUUID, "/var/lib/juju", "/var/log/juju", coretesting.ControllerTag, &mockConfigProvider{}, &mockTracingService{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Trigger one update cycle which will return an error.
@@ -217,4 +240,58 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerUpdateErrorContainsS
 
 	err = worker.Wait()
 	c.Assert(err, tc.ErrorMatches, `failed to update model operator \[deadbe\]: provisioning info failed`)
+}
+
+func (m *ModelOperatorManagerSuite) TestModelOperatorManagerCACertErrorContainsShortModelUUID(c *tc.C) {
+	modelUUID := "deadbee0-0bad-400d-8000-4b1d0d06f00d"
+
+	changed := make(chan struct{}, 1)
+	api := &dummyAPI{
+		provInfo: func() (caasmodeloperator.ModelOperatorProvisioningInfo, error) {
+			return caasmodeloperator.ModelOperatorProvisioningInfo{
+				APIAddresses: []string{"fe80:abcd::1"},
+				ImageDetails: resource.DockerImageDetails{RegistryPath: "docker.io/jujusolutions/jujud-operator:1"},
+				Version:      semversion.MustParse("2.8.2"),
+			}, nil
+		},
+		watchProvInfo: func() (watcher.NotifyWatcher, error) {
+			return watchertest.NewMockNotifyWatcher(changed), nil
+		},
+	}
+
+	worker, err := caasmodeloperator.NewModelOperatorManager(logger.Noop(),
+		api, &dummyBroker{}, modelUUID, "/var/lib/juju", "/var/log/juju", coretesting.ControllerTag, errorConfigProvider{}, &mockTracingService{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	changed <- struct{}{}
+
+	err = worker.Wait()
+	c.Assert(err, tc.ErrorMatches, `failed to update model operator \[deadbe\]: reading CA cert: read failed`)
+}
+
+func (m *ModelOperatorManagerSuite) TestModelOperatorManagerTracingErrorContainsShortModelUUID(c *tc.C) {
+	modelUUID := "deadbee0-0bad-400d-8000-4b1d0d06f00d"
+
+	changed := make(chan struct{}, 1)
+	api := &dummyAPI{
+		provInfo: func() (caasmodeloperator.ModelOperatorProvisioningInfo, error) {
+			return caasmodeloperator.ModelOperatorProvisioningInfo{
+				APIAddresses: []string{"fe80:abcd::1"},
+				ImageDetails: resource.DockerImageDetails{RegistryPath: "docker.io/jujusolutions/jujud-operator:1"},
+				Version:      semversion.MustParse("2.8.2"),
+			}, nil
+		},
+		watchProvInfo: func() (watcher.NotifyWatcher, error) {
+			return watchertest.NewMockNotifyWatcher(changed), nil
+		},
+	}
+
+	worker, err := caasmodeloperator.NewModelOperatorManager(logger.Noop(),
+		api, &dummyBroker{}, modelUUID, "/var/lib/juju", "/var/log/juju", coretesting.ControllerTag, &mockConfigProvider{}, errorTracingService{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	changed <- struct{}{}
+
+	err = worker.Wait()
+	c.Assert(err, tc.ErrorMatches, `failed to update model operator \[deadbe\]: reading workload tracing config: tracing failed`)
 }

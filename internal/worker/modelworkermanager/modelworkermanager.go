@@ -65,6 +65,7 @@ type NewModelConfig struct {
 	ControllerConfig              controller.Config
 	ProviderServicesGetter        ProviderServicesGetter
 	DomainServices                services.DomainServices
+	DomainServicesGetter          services.DomainServicesGetter
 	LeaseManager                  lease.Manager
 	HTTPClientGetter              http.HTTPClientGetter
 	APIRemoteRelationClientGetter apiremoterelationcaller.APIRemoteCallerGetter
@@ -276,6 +277,7 @@ func (m *modelWorkerManager) newWorkerFuncFromConfig(ctx context.Context, cfg Ne
 	cfg.LeaseManager = m.config.LeaseManager
 	cfg.HTTPClientGetter = m.config.HTTPClientGetter
 	cfg.APIRemoteRelationClientGetter = m.config.APIRemoteRelationClientGetter
+	cfg.DomainServicesGetter = m.config.DomainServicesGetter
 
 	// We don't want to get this in the start worker function because it
 	// won't change. Hammering the domainservices getter to get the services

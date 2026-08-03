@@ -57,7 +57,13 @@ func (k *kubernetesClient) ensureSecret(ctx context.Context, sec *core.Secret) (
 	out, err := k.createSecret(ctx, sec)
 	if err == nil {
 		logger.Debugf(context.TODO(), "secret %q created", out.GetName())
-		cleanUp = func() { _ = k.deleteSecret(ctx, out.GetName(), out.GetUID()) }
+		cleanUp = func() {
+			if err := k.deleteSecret(ctx, out.GetName(), out.GetUID()); err != nil {
+				logger.Warningf(ctx,
+					"could not clean up secret %q, it may be left dangling: %v",
+					out.GetName(), err)
+			}
+		}
 		return cleanUp, nil
 	}
 	if !errors.Is(err, errors.AlreadyExists) {

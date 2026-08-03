@@ -31,7 +31,7 @@ AFTER UPDATE ON secret_deleted_value_ref FOR EACH ROW
 WHEN 
 	NEW.revision_uuid != OLD.revision_uuid OR
 	NEW.backend_uuid != OLD.backend_uuid OR
-	NEW.revision_id != OLD.revision_id 
+	NEW.revision_id != OLD.revision_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -73,7 +73,7 @@ WHEN
 	NEW.auto_prune != OLD.auto_prune OR
 	(NEW.latest_revision_checksum != OLD.latest_revision_checksum OR (NEW.latest_revision_checksum IS NOT NULL AND OLD.latest_revision_checksum IS NULL) OR (NEW.latest_revision_checksum IS NULL AND OLD.latest_revision_checksum IS NOT NULL)) OR
 	NEW.create_time != OLD.create_time OR
-	NEW.update_time != OLD.update_time 
+	NEW.update_time != OLD.update_time
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -81,6 +81,84 @@ END;
 -- delete trigger for SecretMetadata
 CREATE TRIGGER trg_log_secret_metadata_delete
 AFTER DELETE ON secret_metadata FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
+
+// ChangeLogTriggersForSecretReference generates the triggers for the
+// secret_reference table.
+func ChangeLogTriggersForSecretReference(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for SecretReference
+INSERT INTO change_log_namespace VALUES (%[2]d, 'secret_reference', 'SecretReference changes based on %[1]s');
+
+-- insert trigger for SecretReference
+CREATE TRIGGER trg_log_secret_reference_insert
+AFTER INSERT ON secret_reference FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for SecretReference
+CREATE TRIGGER trg_log_secret_reference_update
+AFTER UPDATE ON secret_reference FOR EACH ROW
+WHEN 
+	NEW.secret_id != OLD.secret_id OR
+	NEW.latest_revision != OLD.latest_revision OR
+	(NEW.owner_application_uuid != OLD.owner_application_uuid OR (NEW.owner_application_uuid IS NOT NULL AND OLD.owner_application_uuid IS NULL) OR (NEW.owner_application_uuid IS NULL AND OLD.owner_application_uuid IS NOT NULL)) OR
+	NEW.updated_at != OLD.updated_at OR
+	NEW.migrated != OLD.migrated
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for SecretReference
+CREATE TRIGGER trg_log_secret_reference_delete
+AFTER DELETE ON secret_reference FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
+
+// ChangeLogTriggersForSecretRevision generates the triggers for the
+// secret_revision table.
+func ChangeLogTriggersForSecretRevision(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for SecretRevision
+INSERT INTO change_log_namespace VALUES (%[2]d, 'secret_revision', 'SecretRevision changes based on %[1]s');
+
+-- insert trigger for SecretRevision
+CREATE TRIGGER trg_log_secret_revision_insert
+AFTER INSERT ON secret_revision FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for SecretRevision
+CREATE TRIGGER trg_log_secret_revision_update
+AFTER UPDATE ON secret_revision FOR EACH ROW
+WHEN 
+	NEW.uuid != OLD.uuid OR
+	NEW.secret_id != OLD.secret_id OR
+	NEW.revision != OLD.revision OR
+	NEW.create_time != OLD.create_time OR
+	(NEW.update_time != OLD.update_time OR (NEW.update_time IS NOT NULL AND OLD.update_time IS NULL) OR (NEW.update_time IS NULL AND OLD.update_time IS NOT NULL))
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for SecretRevision
+CREATE TRIGGER trg_log_secret_revision_delete
+AFTER DELETE ON secret_revision FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -109,7 +187,7 @@ CREATE TRIGGER trg_log_secret_revision_expire_update
 AFTER UPDATE ON secret_revision_expire FOR EACH ROW
 WHEN 
 	NEW.revision_uuid != OLD.revision_uuid OR
-	NEW.expire_time != OLD.expire_time 
+	NEW.expire_time != OLD.expire_time
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -146,7 +224,7 @@ AFTER UPDATE ON secret_revision_obsolete FOR EACH ROW
 WHEN 
 	NEW.revision_uuid != OLD.revision_uuid OR
 	NEW.obsolete != OLD.obsolete OR
-	NEW.pending_delete != OLD.pending_delete 
+	NEW.pending_delete != OLD.pending_delete
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -182,7 +260,7 @@ CREATE TRIGGER trg_log_secret_rotation_update
 AFTER UPDATE ON secret_rotation FOR EACH ROW
 WHEN 
 	NEW.secret_id != OLD.secret_id OR
-	NEW.next_rotation_time != OLD.next_rotation_time 
+	NEW.next_rotation_time != OLD.next_rotation_time
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

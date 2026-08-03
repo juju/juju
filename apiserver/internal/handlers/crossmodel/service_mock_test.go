@@ -10,8 +10,6 @@
 package crossmodel
 
 import (
-	context "context"
-
 	gomock "github.com/canonical/gomock/gomock"
 	facade "github.com/juju/juju/apiserver/facade"
 )
@@ -26,7 +24,7 @@ type MockCrossModelAuthContextProvider struct {
 // MockCrossModelAuthContextProviderMockRecorder is the mock recorder for MockCrossModelAuthContextProvider.
 type MockCrossModelAuthContextProviderMockRecorder struct {
 	mock                            *MockCrossModelAuthContextProvider
-	newCrossModelAuthContextExpects []*gomock.Call2_2[context.Context, string, facade.CrossModelAuthContext, error]
+	newCrossModelAuthContextExpects []*gomock.Call1_2[string, facade.CrossModelAuthContext, error]
 }
 
 // NewMockCrossModelAuthContextProvider creates a new mock instance.
@@ -42,19 +40,19 @@ func (m *MockCrossModelAuthContextProvider) EXPECT() *MockCrossModelAuthContextP
 }
 
 // NewCrossModelAuthContext mocks base method.
-func (m *MockCrossModelAuthContextProvider) NewCrossModelAuthContext(ctx context.Context, requestHost string) (facade.CrossModelAuthContext, error) {
+func (m *MockCrossModelAuthContextProvider) NewCrossModelAuthContext(requestHost string) (facade.CrossModelAuthContext, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.newCrossModelAuthContextExpects, m.ctrl, m, "NewCrossModelAuthContext", ctx, requestHost)
+	return gomock.Dispatch1_2(&m.recorder.newCrossModelAuthContextExpects, m.ctrl, m, "NewCrossModelAuthContext", requestHost)
 }
 
 // NewCrossModelAuthContext indicates an expected call of NewCrossModelAuthContext.
-func (mr *MockCrossModelAuthContextProviderMockRecorder) NewCrossModelAuthContext(ctx, requestHost any) *MockCrossModelAuthContextProviderNewCrossModelAuthContextCall {
+func (mr *MockCrossModelAuthContextProviderMockRecorder) NewCrossModelAuthContext(requestHost any) *MockCrossModelAuthContextProviderNewCrossModelAuthContextCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, facade.CrossModelAuthContext, error](mr.mock.ctrl.T, mr.mock, "NewCrossModelAuthContext", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(requestHost))
+	call := gomock.NewCall1_2[string, facade.CrossModelAuthContext, error](mr.mock.ctrl.T, mr.mock, "NewCrossModelAuthContext", gomock.EnsureMatcher(requestHost))
 	mr.newCrossModelAuthContextExpects = append(mr.newCrossModelAuthContextExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockCrossModelAuthContextProviderNewCrossModelAuthContextCall is the typed call wrapper for NewCrossModelAuthContext.
-type MockCrossModelAuthContextProviderNewCrossModelAuthContextCall = gomock.Call2_2[context.Context, string, facade.CrossModelAuthContext, error]
+type MockCrossModelAuthContextProviderNewCrossModelAuthContextCall = gomock.Call1_2[string, facade.CrossModelAuthContext, error]

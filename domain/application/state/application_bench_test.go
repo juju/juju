@@ -369,7 +369,9 @@ ON CONFLICT (uuid) DO UPDATE SET
     container_type_id = excluded.container_type_id,
     virt_type = excluded.virt_type,
     allocate_public_ip = excluded.allocate_public_ip,
-    image_id = excluded.image_id
+    image_id = excluded.image_id,
+    ip_family = excluded.ip_family
+
 `
 	insertConstraintsStmt, err := st.Prepare(insertConstraintsQuery, setConstraint{})
 	if err != nil {

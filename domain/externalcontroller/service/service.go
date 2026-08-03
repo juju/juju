@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/crossmodel"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
+	externalcontrollererrors "github.com/juju/juju/domain/externalcontroller/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -91,7 +91,7 @@ func (s *Service) ControllerForModel(
 	}
 
 	if len(controllers) == 0 {
-		return nil, errors.Errorf("external controller for model %q %w", modelUUID, coreerrors.NotFound)
+		return nil, errors.Errorf("%w for model %q", externalcontrollererrors.NotFound, modelUUID)
 	}
 
 	return &controllers[0], nil

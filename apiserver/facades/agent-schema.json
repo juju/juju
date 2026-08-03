@@ -3061,10 +3061,21 @@
     {
         "Name": "Logger",
         "Description": "",
-        "Version": 1,
+        "Version": 2,
         "Schema": {
             "type": "object",
             "properties": {
+                "GetControllerLokiConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/LokiConfigResult"
+                        }
+                    }
+                },
                 "LoggingConfig": {
                     "type": "object",
                     "properties": {
@@ -3073,6 +3084,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/StringResults"
+                        }
+                    }
+                },
+                "WatchControllerLokiConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResult"
                         }
                     }
                 },
@@ -3139,6 +3161,30 @@
                     "required": [
                         "message",
                         "code"
+                    ]
+                },
+                "LokiConfigResult": {
+                    "type": "object",
+                    "properties": {
+                        "ca-cert": {
+                            "type": "string"
+                        },
+                        "endpoint": {
+                            "type": "string"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "insecure-skip-verify": {
+                            "type": "boolean"
+                        },
+                        "org-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "endpoint"
                     ]
                 },
                 "NotifyWatchResult": {
@@ -6144,6 +6190,18 @@
                                 "type": "string"
                             }
                         },
+                        "loki-cacert": {
+                            "type": "string"
+                        },
+                        "loki-endpoint": {
+                            "type": "string"
+                        },
+                        "loki-insecure-skip-verify": {
+                            "type": "boolean"
+                        },
+                        "loki-org-id": {
+                            "type": "string"
+                        },
                         "placement": {
                             "type": "string"
                         },
@@ -6180,6 +6238,27 @@
                                 }
                             }
                         },
+                        "tracing-ca-certificate": {
+                            "type": "string"
+                        },
+                        "tracing-grpc-endpoint": {
+                            "type": "string"
+                        },
+                        "tracing-http-endpoint": {
+                            "type": "string"
+                        },
+                        "tracing-insecure-skip-verify": {
+                            "type": "boolean"
+                        },
+                        "tracing-sample-ratio": {
+                            "type": "number"
+                        },
+                        "tracing-stack-traces": {
+                            "type": "boolean"
+                        },
+                        "tracing-tail-sampling-threshold": {
+                            "type": "string"
+                        },
                         "volume-attachments": {
                             "type": "array",
                             "items": {
@@ -6195,13 +6274,13 @@
                     },
                     "additionalProperties": false,
                     "required": [
+                        "subnet-zones",
+                        "space-subnets",
+                        "ProvisioningNetworkTopology",
                         "constraints",
                         "base",
                         "placement",
-                        "jobs",
-                        "subnet-zones",
-                        "space-subnets",
-                        "ProvisioningNetworkTopology"
+                        "jobs"
                     ]
                 },
                 "ProvisioningInfoResult": {
@@ -6578,6 +6657,9 @@
                             "type": "string"
                         },
                         "instance-type": {
+                            "type": "string"
+                        },
+                        "ip-family": {
                             "type": "string"
                         },
                         "mem": {
@@ -7547,6 +7629,185 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                }
+            }
+        }
+    },
+    {
+        "Name": "SSHSession",
+        "Description": "",
+        "Version": 1,
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "ControllerPublicKey": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/SSHControllerPublicKeyResult"
+                        }
+                    }
+                },
+                "ControllerSSHPort": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/SSHControllerSSHPortResult"
+                        }
+                    }
+                },
+                "GetSSHConnRequest": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SSHConnRequestArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SSHConnRequestResult"
+                        }
+                    }
+                },
+                "WatchSSHConnRequest": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResult"
+                        }
+                    }
+                }
+            },
+            "definitions": {
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "SSHConnRequestArg": {
+                    "type": "object",
+                    "properties": {
+                        "tunnel-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tunnel-id"
+                    ]
+                },
+                "SSHConnRequestResult": {
+                    "type": "object",
+                    "properties": {
+                        "controller-addresses": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "ephemeral-public-key": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "machine-name": {
+                            "type": "string"
+                        },
+                        "password": {
+                            "type": "string"
+                        },
+                        "unit-port": {
+                            "type": "integer"
+                        },
+                        "username": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "machine-name",
+                        "controller-addresses",
+                        "username",
+                        "password",
+                        "unit-port",
+                        "ephemeral-public-key"
+                    ]
+                },
+                "SSHControllerPublicKeyResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "public-key": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "public-key"
+                    ]
+                },
+                "SSHControllerSSHPortResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "port": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "port"
+                    ]
+                },
+                "StringsWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id"
                     ]
                 }
             }
@@ -9959,6 +10220,122 @@
                     "required": [
                         "volumes"
                     ]
+                }
+            }
+        }
+    },
+    {
+        "Name": "Tracer",
+        "Description": "",
+        "Version": 1,
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "GetControllerTracingConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/TracingConfigResult"
+                        }
+                    }
+                },
+                "WatchControllerTracingConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResult"
+                        }
+                    }
+                }
+            },
+            "definitions": {
+                "Entity": {
+                    "type": "object",
+                    "properties": {
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
+                    ]
+                },
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "NotifyWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "NotifyWatcherId": {
+                            "type": "string"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "NotifyWatcherId"
+                    ]
+                },
+                "TracingConfigResult": {
+                    "type": "object",
+                    "properties": {
+                        "ca-cert": {
+                            "type": "string"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "grpc-endpoint": {
+                            "type": "string"
+                        },
+                        "http-endpoint": {
+                            "type": "string"
+                        },
+                        "insecure-skip-verify": {
+                            "type": "boolean"
+                        },
+                        "sample-ratio": {
+                            "type": "number"
+                        },
+                        "stack-traces": {
+                            "type": "boolean"
+                        },
+                        "tail-sampling-threshold": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
                 }
             }
         }

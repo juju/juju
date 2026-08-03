@@ -80,6 +80,12 @@ CREATE TABLE permission (
 CREATE UNIQUE INDEX idx_permission_type_to
 ON permission (grant_on, grant_to);
 
+CREATE INDEX idx_permission_grant_to
+ON permission (grant_to);
+
+CREATE INDEX idx_permission_object_type_grant_on
+ON permission (object_type_id, grant_on);
+
 -- All permissions
 CREATE VIEW v_permission AS
 SELECT

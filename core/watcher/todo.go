@@ -5,6 +5,7 @@ package watcher
 
 import (
 	"context"
+	"sync"
 
 	"gopkg.in/tomb.v2"
 )
@@ -18,9 +19,12 @@ func TODO[T any]() Watcher[T] {
 	w := &todoWatcher[T]{
 		ch: ch,
 	}
+	var once sync.Once
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-		close(w.ch)
+		once.Do(func() {
+			close(w.ch)
+		})
 		return tomb.ErrDying
 	})
 	return w

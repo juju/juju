@@ -21,7 +21,13 @@ func (k *kubernetesClient) ensureConfigMap(ctx context.Context, cm *core.ConfigM
 	out, err := k.createConfigMap(ctx, cm)
 	if err == nil {
 		logger.Debugf(context.TODO(), "configmap %q created", out.GetName())
-		cleanUp = func() { _ = k.deleteConfigMap(ctx, out.GetName(), out.GetUID()) }
+		cleanUp = func() {
+			if err := k.deleteConfigMap(ctx, out.GetName(), out.GetUID()); err != nil {
+				logger.Warningf(ctx,
+					"could not clean up configmap %q, it may be left dangling: %v",
+					out.GetName(), err)
+			}
+		}
 		return cleanUp, nil
 	}
 	if !errors.Is(err, errors.AlreadyExists) {

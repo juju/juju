@@ -158,44 +158,6 @@ Controller configuration keys:
       type: string
       description: The maximum size of the log file written out by the controller on behalf
         of workers running for a model
-    object-store-s3-endpoint:
-      type: string
-      description: The s3 endpoint for the object store backend
-    object-store-s3-region:
-      type: string
-      description: The s3 region for signing requests to the object store backend. If
-        empty, the region is derived from the endpoint URL for common AWS forms. If derivation
-        fails, a placeholder is used and a warning is logged for static credentials.
-    object-store-s3-static-key:
-      type: string
-      description: The s3 static key for the object store backend
-    object-store-s3-static-secret:
-      type: string
-      description: The s3 static secret for the object store backend
-    object-store-s3-static-session:
-      type: string
-      description: The s3 static session for the object store backend
-    object-store-type:
-      type: string
-      description: The type of object store backend to use for storing blobs
-    open-telemetry-enabled:
-      type: bool
-      description: Enable open telemetry tracing
-    open-telemetry-endpoint:
-      type: string
-      description: Endpoint open telemetry tracing
-    open-telemetry-insecure:
-      type: bool
-      description: Allows insecure endpoint for open telemetry tracing
-    open-telemetry-sample-ratio:
-      type: string
-      description: Allows defining a sample ratio open telemetry tracing
-    open-telemetry-stack-traces:
-      type: bool
-      description: Allows stack traces open telemetry tracing per span
-    open-telemetry-tail-sampling-threshold:
-      type: string
-      description: Allows defining a tail sampling threshold open telemetry tracing
     prune-txn-query-count:
       type: int
       description: The number of transactions to read in a single query

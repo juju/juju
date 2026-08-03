@@ -161,7 +161,7 @@ func (b *buildSuite) TestGetVersionFromJujud(c *tc.C) {
 	b.PatchValue(&tools.ExecCommand, execCommand)
 
 	dir := c.MkDir()
-	cmd := filepath.Join(dir, names.Jujud)
+	cmd := filepath.Join(dir, names.JujuAgentd)
 	err := os.WriteFile(cmd, []byte{}, 0644)
 	c.Assert(err, tc.ErrorIsNil)
 	v, err := tools.GetVersionFromJujud(dir)
@@ -187,11 +187,11 @@ func (b *buildSuite) TestGetVersionFromJujudWithParseError(c *tc.C) {
 	b.PatchValue(&tools.ExecCommand, execCommand)
 
 	dir := c.MkDir()
-	cmd := filepath.Join(dir, names.Jujud)
+	cmd := filepath.Join(dir, names.JujuAgentd)
 	err := os.WriteFile(cmd, []byte{}, 0644)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = tools.GetVersionFromJujud(dir)
-	c.Assert(err, tc.ErrorMatches, `invalid version "oops, not a valid version" printed by jujud`)
+	c.Assert(err, tc.ErrorMatches, `invalid version "oops, not a valid version" printed by jujuagentd`)
 
 	select {
 	case args := <-argsCh:
@@ -213,7 +213,7 @@ func (b *buildSuite) TestGetVersionFromJujudWithRunError(c *tc.C) {
 	b.PatchValue(&tools.ExecCommand, execCommand)
 
 	dir := c.MkDir()
-	cmd := filepath.Join(dir, names.Jujud)
+	cmd := filepath.Join(dir, names.JujuAgentd)
 	err := os.WriteFile(cmd, []byte{}, 0644)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = tools.GetVersionFromJujud(dir)
@@ -246,10 +246,10 @@ func (b *buildSuite) setUpFakeBinaries(c *tc.C, versionFile string) string {
 	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(dir, "jujuc"), []byte(fakeBinary), 0755)
 	c.Assert(err, tc.ErrorIsNil)
-	err = os.WriteFile(filepath.Join(dir, "jujud"), []byte(fakeBinary), 0755)
+	err = os.WriteFile(filepath.Join(dir, "jujuagentd"), []byte(fakeBinary), 0755)
 	c.Assert(err, tc.ErrorIsNil)
 	if versionFile != "" {
-		err = os.WriteFile(filepath.Join(dir, "jujud-versions.yaml"), []byte(versionFile), 0755)
+		err = os.WriteFile(filepath.Join(dir, "jujuagentd-versions.yaml"), []byte(versionFile), 0755)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 

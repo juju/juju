@@ -198,6 +198,79 @@ func (s *stateSuite) TestSaveMetadataUpdateMetadata(c *tc.C) {
 	})
 }
 
+func importTestAttrs() cloudimagemetadata.MetadataAttributes {
+	return cloudimagemetadata.MetadataAttributes{
+		Stream:          "released",
+		Region:          "us-east-1",
+		Version:         "24.04",
+		Arch:            "amd64",
+		VirtType:        "hvm",
+		RootStorageType: "ebs",
+		Source:          "custom",
+	}
+}
+
+func (s *stateSuite) importedImageIDs(c *tc.C) []string {
+	obtained, err := s.retrieveMetadataFromDB(c)
+	c.Assert(err, tc.ErrorIsNil)
+	ids := make([]string, len(obtained))
+	for i := range obtained {
+		ids[i] = obtained[i].ImageID
+	}
+	return ids
+}
+
+// TestImportMetadataInsertsWhenAbsent verifies a custom row absent on the
+// target is inserted, with no conflict reported.
+func (s *stateSuite) TestImportMetadataInsertsWhenAbsent(c *tc.C) {
+	conflicts, err := s.state.CompareOrInsertMetadata(c.Context(), []cloudimagemetadata.Metadata{
+		{MetadataAttributes: importTestAttrs(), ImageID: "ami-1"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(conflicts, tc.HasLen, 0)
+	c.Check(s.importedImageIDs(c), tc.SameContents, []string{"ami-1"})
+}
+
+// TestImportMetadataNoOpWhenIdentical verifies re-importing the same key with
+// the same image id is a no-op and reports no conflict.
+func (s *stateSuite) TestImportMetadataNoOpWhenIdentical(c *tc.C) {
+	attrs := importTestAttrs()
+	_, err := s.state.CompareOrInsertMetadata(c.Context(), []cloudimagemetadata.Metadata{
+		{MetadataAttributes: attrs, ImageID: "ami-1"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	conflicts, err := s.state.CompareOrInsertMetadata(c.Context(), []cloudimagemetadata.Metadata{
+		{MetadataAttributes: attrs, ImageID: "ami-1"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(conflicts, tc.HasLen, 0)
+	c.Check(s.importedImageIDs(c), tc.SameContents, []string{"ami-1"})
+}
+
+// TestImportMetadataConflictKeepsTarget verifies a natural-key conflict keeps
+// the existing target row (never overwrites) and reports the conflict.
+func (s *stateSuite) TestImportMetadataConflictKeepsTarget(c *tc.C) {
+	attrs := importTestAttrs()
+	_, err := s.state.CompareOrInsertMetadata(c.Context(), []cloudimagemetadata.Metadata{
+		{MetadataAttributes: attrs, ImageID: "ami-target"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	conflicts, err := s.state.CompareOrInsertMetadata(c.Context(), []cloudimagemetadata.Metadata{
+		{MetadataAttributes: attrs, ImageID: "ami-source"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(conflicts, tc.HasLen, 1)
+	c.Check(conflicts[0].ExistingImageID, tc.Equals, "ami-target")
+	c.Check(conflicts[0].IncomingImageID, tc.Equals, "ami-source")
+	c.Check(conflicts[0].Stream, tc.Equals, attrs.Stream)
+	c.Check(conflicts[0].Arch, tc.Equals, attrs.Arch)
+
+	// The target row is preserved, not overwritten.
+	c.Check(s.importedImageIDs(c), tc.SameContents, []string{"ami-target"})
+}
+
 func (s *stateSuite) TestSaveMetadataEmptyImageID(c *tc.C) {
 	// Arrange
 	testBeginTime := time.Now().Truncate(time.Second) // avoid truncate issue on dqlite creationTime check

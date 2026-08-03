@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -94,6 +94,28 @@ type StringResult struct {
 // that returns a string or an error.
 type StringResults struct {
 	Results []StringResult `json:"results"`
+}
+
+// LokiConfigResult holds a controller Loki configuration or an error.
+type LokiConfigResult struct {
+	Error              *Error  `json:"error,omitempty"`
+	Endpoint           string  `json:"endpoint"`
+	CACert             *string `json:"ca-cert,omitempty"`
+	InsecureSkipVerify *bool   `json:"insecure-skip-verify,omitempty"`
+	OrgID              string  `json:"org-id,omitempty"`
+}
+
+// TracingConfigResult holds a controller-wide tracing configuration or an
+// error. A nil pointer field means the default value is in effect.
+type TracingConfigResult struct {
+	Error                 *Error   `json:"error,omitempty"`
+	HTTPEndpoint          string   `json:"http-endpoint,omitempty"`
+	GRPCEndpoint          string   `json:"grpc-endpoint,omitempty"`
+	CACert                *string  `json:"ca-cert,omitempty"`
+	InsecureSkipVerify    *bool    `json:"insecure-skip-verify,omitempty"`
+	StackTraces           *bool    `json:"stack-traces,omitempty"`
+	SampleRatio           *float64 `json:"sample-ratio,omitempty"`
+	TailSamplingThreshold *string  `json:"tail-sampling-threshold,omitempty"`
 }
 
 // MapResult holds a generic map or an error.
@@ -817,6 +839,11 @@ type RetryProvisioningArgs struct {
 	All      bool     `json:"all"`
 }
 
+// ReprovisionMachineArgs holds args for reprovisioning a machine.
+type ReprovisionMachineArgs struct {
+	MachineTag string `json:"machine-tag"`
+}
+
 // ProvisioningNetworkTopology holds a network topology that is based on
 // positive machine space constraints.
 // This is used for creating NICs on instances where the provider is not space
@@ -836,6 +863,8 @@ type ProvisioningNetworkTopology struct {
 
 // ProvisioningInfo holds machine provisioning info.
 type ProvisioningInfo struct {
+	ProvisioningNetworkTopology
+
 	Constraints       constraints.Value        `json:"constraints"`
 	Base              Base                     `json:"base"`
 	Placement         string                   `json:"placement"`
@@ -850,7 +879,51 @@ type ProvisioningInfo struct {
 	CloudInitUserData map[string]any           `json:"cloudinit-userdata,omitempty"`
 	CharmLXDProfiles  []string                 `json:"charm-lxd-profiles,omitempty"`
 
-	ProvisioningNetworkTopology
+	// LokiEndpoint is the controller-wide Loki push API endpoint the
+	// provisioned agent should forward logs to on first boot. Empty means
+	// logs are sent through the controller logsink.
+	LokiEndpoint string `json:"loki-endpoint,omitempty"`
+
+	// LokiCACert is the CA certificate used to validate the Loki endpoint.
+	LokiCACert string `json:"loki-cacert,omitempty"`
+
+	// LokiInsecureSkipVerify controls whether TLS validation is disabled
+	// for the Loki endpoint. A nil value means the default (verify
+	// enabled) is in effect.
+	LokiInsecureSkipVerify *bool `json:"loki-insecure-skip-verify,omitempty"`
+
+	// LokiOrgID is the organization/tenant ID for multi-tenant Loki
+	// deployments. Empty means no X-Scope-OrgID header is sent.
+	LokiOrgID string `json:"loki-org-id,omitempty"`
+
+	// TracingHTTPEndpoint is the HTTP endpoint for the OpenTelemetry
+	// collector. Empty means no HTTP tracing endpoint is configured.
+	TracingHTTPEndpoint string `json:"tracing-http-endpoint,omitempty"`
+
+	// TracingGRPCEndpoint is the gRPC endpoint for the OpenTelemetry
+	// collector. Empty means no gRPC tracing endpoint is configured.
+	TracingGRPCEndpoint string `json:"tracing-grpc-endpoint,omitempty"`
+
+	// TracingCACertificate is the CA certificate used to validate the
+	// tracing endpoint TLS connection.
+	TracingCACertificate string `json:"tracing-ca-certificate,omitempty"`
+
+	// TracingInsecureSkipVerify controls whether TLS validation is
+	// disabled for the tracing endpoint. A nil value means the default
+	// (verify enabled) is in effect.
+	TracingInsecureSkipVerify *bool `json:"tracing-insecure-skip-verify,omitempty"`
+
+	// TracingStackTraces controls whether debug stack traces are
+	// attached to spans. A nil value means the default is in effect.
+	TracingStackTraces *bool `json:"tracing-stack-traces,omitempty"`
+
+	// TracingSampleRatio is the ratio of spans to sample. A nil value
+	// means the default ratio is in effect.
+	TracingSampleRatio *float64 `json:"tracing-sample-ratio,omitempty"`
+
+	// TracingTailSamplingThreshold is the duration threshold for
+	// tail-based sampling. A nil value means the default is in effect.
+	TracingTailSamplingThreshold *string `json:"tracing-tail-sampling-threshold,omitempty"`
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

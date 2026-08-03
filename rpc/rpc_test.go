@@ -14,7 +14,7 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/flightrecorder"

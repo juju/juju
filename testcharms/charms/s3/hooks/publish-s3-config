@@ -1,0 +1,29 @@
+#!/bin/sh
+set -eu
+
+if ! is-leader; then
+    status-set waiting "waiting for leader to publish S3 config"
+    exit 0
+fi
+
+bucket="$(config-get bucket)"
+region="$(config-get region)"
+endpoint="$(config-get endpoint)"
+static_key="$(config-get static_key)"
+static_secret="$(config-get static_secret)"
+relation_id="${1:-}"
+
+relation_args=""
+if [ -n "${relation_id}" ]; then
+    relation_args="-r ${relation_id}"
+fi
+
+# shellcheck disable=SC2086
+relation-set ${relation_args} --app \
+    bucket="${bucket}" \
+    region="${region}" \
+    endpoint="${endpoint}" \
+    access-key="${static_key}" \
+    secret-key="${static_secret}"
+
+status-set active "published S3 config"

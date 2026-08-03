@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/logging"
+	loggingerrors "github.com/juju/juju/domain/logging/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/provisioner"
 	"github.com/juju/juju/environs/tags"
@@ -104,6 +106,59 @@ func (s *serviceSuite) TestGetProvisioningInfoInvalidMachineName(c *tc.C) {
 	_, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("invalid/name"), false, testSharedInfo())
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 	c.Check(err, tc.ErrorMatches, `validating machine name "invalid/name":.*`)
+}
+
+// TestGetPreludeProvisioningInfoLokiConfig verifies that the controller-wide
+// Loki config is fetched and included in the shared provisioning info so
+// newly provisioned agents start in the correct forwarding mode.
+func (s *serviceSuite) TestGetPreludeProvisioningInfoLokiConfig(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetPreludeProvisioningInfo(gomock.Any()).
+		Return(provisioner.SharedProvisioningInfoState{
+			CloudName:   "aws",
+			CloudRegion: "us-east-1",
+		}, nil)
+	s.controllerState.EXPECT().GetCloudEndpoint(gomock.Any(), "aws", "us-east-1").
+		Return("https://ec2.us-east-1.amazonaws.com", nil)
+	insecure := true
+	s.controllerState.EXPECT().GetLokiConfig(gomock.Any()).
+		Return(logging.LokiConfig{
+			Endpoint:           "https://loki.example.com/loki/api/v1/push",
+			CACertificate:      "ca-cert",
+			InsecureSkipVerify: &insecure,
+		}, nil)
+
+	svc := s.newService(c)
+	shared, err := svc.GetPreludeProvisioningInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(shared.LokiEndpoint, tc.Equals, "https://loki.example.com/loki/api/v1/push")
+	c.Check(shared.LokiCACert, tc.Equals, "ca-cert")
+	c.Assert(shared.LokiInsecureSkipVerify, tc.NotNil)
+	c.Check(*shared.LokiInsecureSkipVerify, tc.IsTrue)
+}
+
+// TestGetPreludeProvisioningInfoLokiNotFound verifies that when no Loki config
+// is configured, the shared info has empty Loki fields (logsink mode).
+func (s *serviceSuite) TestGetPreludeProvisioningInfoLokiNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetPreludeProvisioningInfo(gomock.Any()).
+		Return(provisioner.SharedProvisioningInfoState{
+			CloudName:   "aws",
+			CloudRegion: "us-east-1",
+		}, nil)
+	s.controllerState.EXPECT().GetCloudEndpoint(gomock.Any(), "aws", "us-east-1").
+		Return("https://ec2.us-east-1.amazonaws.com", nil)
+	s.controllerState.EXPECT().GetLokiConfig(gomock.Any()).
+		Return(logging.LokiConfig{}, loggingerrors.LokiConfigNotFound)
+
+	svc := s.newService(c)
+	shared, err := svc.GetPreludeProvisioningInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(shared.LokiEndpoint, tc.Equals, "")
+	c.Check(shared.LokiCACert, tc.Equals, "")
+	c.Check(shared.LokiInsecureSkipVerify, tc.IsNil)
 }
 
 // TestGetProvisioningInfoMachineNotFound verifies that a MachineNotFound

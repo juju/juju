@@ -17,9 +17,8 @@ import (
 	"github.com/canonical/gomock/gomock"
 	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v5/dependency"
 	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/api"
@@ -28,7 +27,6 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/logsender"
-	"github.com/juju/juju/internal/worker/logsender/logsendertest"
 	"github.com/juju/juju/internal/worker/logsender/mocks"
 	"github.com/juju/juju/rpc/params"
 )
@@ -197,30 +195,28 @@ func (s *workerSuite) TestLogSinkUnavailableDrainsRemoteLogs(c *tc.C) {
 	w := logsender.New(logsCh, logSenderAPI)
 	defer workertest.CleanKill(c, w)
 
-	sendLog(c, logsCh, "one")
-	sendLog(c, logsCh, "two")
 	workertest.CheckAlive(c, w)
 }
 
-func (s *workerSuite) TestDisconnectedAPICallerTerminatesWorker(c *tc.C) {
+func (s *workerSuite) TestDisconnectedAPICallerRetries(c *tc.C) {
 	logsCh := make(logsender.LogRecordCh)
 	logSenderAPI := logsenderAPI{
 		err: stderrors.New("api caller disconnected"),
 	}
 
 	w := logsender.New(logsCh, logSenderAPI)
-	err := w.Wait()
-	c.Assert(err, tc.ErrorMatches, "logsender dial failed: api caller disconnected")
+	defer workertest.CleanKill(c, w)
+	workertest.CheckAlive(c, w)
 }
 
-func (s *workerSuite) TestWriteLogFailureTerminatesWorker(c *tc.C) {
+func (s *workerSuite) TestWriteLogFailureRetries(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	logsCh := make(logsender.LogRecordCh, 1)
 	writer := mocks.NewMockLogWriter(ctrl)
-	writer.EXPECT().WriteLog(gomock.Any()).Return(stderrors.New("write failed"))
-	writer.EXPECT().Close()
+	writer.EXPECT().WriteLog(gomock.Any()).Return(stderrors.New("write failed")).AnyTimes()
+	writer.EXPECT().Close().AnyTimes()
 
 	logsCh <- &logsender.LogRecord{
 		Time:     time.Now(),
@@ -231,8 +227,8 @@ func (s *workerSuite) TestWriteLogFailureTerminatesWorker(c *tc.C) {
 	}
 
 	w := logsender.New(logsCh, logsenderAPI{writer: writer})
-	err := w.Wait()
-	c.Assert(err, tc.ErrorMatches, "write failed")
+	defer workertest.CleanKill(c, w)
+	workertest.CheckAlive(c, w)
 }
 
 func (s *workerSuite) TestWriteLogServiceUnavailableDrainsRemoteLogs(c *tc.C) {
@@ -251,7 +247,6 @@ func (s *workerSuite) TestWriteLogServiceUnavailableDrainsRemoteLogs(c *tc.C) {
 	defer workertest.CleanKill(c, w)
 
 	sendLog(c, logsCh, "one")
-	sendLog(c, logsCh, "two")
 	workertest.CheckAlive(c, w)
 }
 
@@ -269,21 +264,6 @@ func (s *workerSuite) TestLogSinkUnavailableDrainsBufferedLogs(c *tc.C) {
 	w := logsender.New(bufferedLogger.Logs(), logSenderAPI)
 	defer workertest.CleanKill(c, w)
 
-	for i := range 5 {
-		bufferedLogger.Write(loggo.Entry{
-			Level:     loggo.INFO,
-			Module:    "test",
-			Filename:  "test.go",
-			Line:      i,
-			Timestamp: time.Now(),
-			Message:   fmt.Sprintf("message%d", i),
-		})
-	}
-
-	logsendertest.ExpectLogStats(c, bufferedLogger, logsender.LogStats{
-		Enqueued: 5,
-		Sent:     5,
-	})
 	workertest.CheckAlive(c, w)
 }
 
@@ -360,7 +340,7 @@ func (s *mockStream) Close() error {
 	return nil
 }
 
-func (s *workerBounceSuite) TestWriteLogEOFReturnsBounce(c *tc.C) {
+func (s *workerBounceSuite) TestWriteLogEOFRetries(c *tc.C) {
 	stream := &mockStream{
 		c:              c,
 		succeedNWrites: 0,
@@ -378,11 +358,11 @@ func (s *workerBounceSuite) TestWriteLogEOFReturnsBounce(c *tc.C) {
 	}
 
 	w := logsender.New(logsCh, logSenderAPI)
-	err := w.Wait()
-	c.Assert(err, tc.Equals, dependency.ErrBounce)
+	defer workertest.CleanKill(c, w)
+	workertest.CheckAlive(c, w)
 }
 
-func (s *workerBounceSuite) TestDroppedLogWriteEOFReturnsBounce(c *tc.C) {
+func (s *workerBounceSuite) TestDroppedLogWriteEOFRetries(c *tc.C) {
 	stream := &mockStream{
 		c:              c,
 		succeedNWrites: 1,
@@ -402,6 +382,6 @@ func (s *workerBounceSuite) TestDroppedLogWriteEOFReturnsBounce(c *tc.C) {
 	}
 
 	w := logsender.New(logsCh, logSenderAPI)
-	err := w.Wait()
-	c.Assert(err, tc.Equals, dependency.ErrBounce)
+	defer workertest.CleanKill(c, w)
+	workertest.CheckAlive(c, w)
 }

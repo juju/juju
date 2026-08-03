@@ -49,10 +49,17 @@ WHERE  uuid = $entityUUID.uuid`, modelUUID)
 	return modelExists, errors.Capture(err)
 }
 
-// EnsureModelNotAlive ensures that there is no model identified
-// by the input model UUID, that is still alive. This does not cascade, as
-// it is only used to set the model life to dying.
-func (st *State) EnsureModelNotAlive(ctx context.Context, modelUUID string, force bool) error {
+// EnsureModelNotAliveUnlessMigrating ensures that there is no model
+// identified by the input model UUID, that is still alive. This does not
+// cascade, as it is only used to set the model life to dying.
+//
+// It refuses to begin the removal of a model that holds a migration import
+// claim. Such a model is mid-import: its rows are still being written, and
+// tearing it down here would race those writes and drop the model database
+// underneath them, while the claim's own cleanup protocol - which proves the
+// database is gone before releasing the model UUID - never runs. The migration
+// abort path owns that teardown and reaches it without this call.
+func (st *State) EnsureModelNotAliveUnlessMigrating(ctx context.Context, modelUUID string, force bool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -68,6 +75,13 @@ func (st *State) EnsureModelNotAlive(ctx context.Context, modelUUID string, forc
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if migrating, err := st.isModelMigrating(ctx, tx, modelUUID); err != nil {
+			return errors.Errorf("checking migration import claim: %w", err)
+		} else if migrating {
+			return errors.Errorf(
+				"model %q is being migrated: %w", modelUUID, removalerrors.MigrationImportActive)
+		}
+
 		// Update the model life to dying.
 		if err := tx.Query(ctx, updateModelLife, eUUID).Run(); err != nil {
 			return errors.Errorf("setting model life to dying: %w", err)
@@ -363,6 +377,17 @@ func (st *State) removeBasicModelData(ctx context.Context, tx *sqlair.TX, mUUID 
 		"DELETE FROM secret_backend_reference WHERE model_uuid = $entityUUID.uuid",
 		"DELETE FROM model_authorized_keys WHERE model_uuid = $entityUUID.uuid",
 		"DELETE FROM model_last_login WHERE model_uuid = $entityUUID.uuid",
+		// The two import companion tables are keyed by the import claim UUID
+		// and FK onto model_migration_import. They must be deleted before the
+		// claim row itself, otherwise the parent delete fails an enforced
+		// foreign-key constraint when an aborted v8 import had recorded offer
+		// permissions or external controllers.
+		`DELETE FROM model_migration_import_offer
+		 WHERE migration_uuid IN (
+		     SELECT uuid FROM model_migration_import WHERE model_uuid = $entityUUID.uuid)`,
+		`DELETE FROM model_migration_import_external_controller_model
+		 WHERE migration_uuid IN (
+		     SELECT uuid FROM model_migration_import WHERE model_uuid = $entityUUID.uuid)`,
 		"DELETE FROM model_migration_import WHERE model_uuid = $entityUUID.uuid",
 	}
 

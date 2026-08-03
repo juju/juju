@@ -17,7 +17,10 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
+	internaltesting "github.com/juju/juju/internal/testing"
 )
+
+var testCACert = internaltesting.CACert
 
 type tracerSuite struct {
 	baseSuite
@@ -28,6 +31,186 @@ func TestTracerSuite(t *testing.T) {
 }
 
 var _ coretrace.Tracer = (*tracer)(nil)
+
+func (s *tracerSuite) TestNewClientRejectsInvalidCACertificate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ns := coretrace.Namespace("agent", "controller").WithTagAndKind(names.NewMachineTag("0"), coretrace.KindController)
+	_, _, _, err := NewClient(
+		c.Context(),
+		ns,
+		"", "localhost:4317",
+		"not a pem certificate",
+		false,
+		0.42,
+		time.Second,
+		s.logger,
+	)
+	c.Assert(err, tc.ErrorMatches, "failed to append trace CA cert to pool")
+}
+
+func (s *tracerSuite) TestNewClientRejectsInvalidCACertificateHTTPEndpoint(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ns := coretrace.Namespace("agent", "controller").WithTagAndKind(names.NewMachineTag("0"), coretrace.KindController)
+	_, _, _, err := NewClient(
+		c.Context(),
+		ns,
+		"http://otel.example.com:4318/v1/traces", "",
+		"not a pem certificate",
+		false,
+		0.42,
+		time.Second,
+		s.logger,
+	)
+	c.Assert(err, tc.ErrorMatches, "failed to append trace CA cert to pool")
+}
+
+func (s *tracerSuite) TestIsHTTPEndpoint(c *tc.C) {
+	tests := []struct {
+		endpoint string
+		expected bool
+	}{
+		{"http://localhost:4318/v1/traces", true},
+		{"https://otel.example.com:4318/v1/traces", true},
+		{"http://otel.example.com:4318", true},
+		{"localhost:4317", false},
+		{"otel.example.com:4317", false},
+		{"grpc://otel.example.com:4317", false},
+		{"", false},
+	}
+	for _, test := range tests {
+		c.Check(isHTTPEndpoint(test.endpoint), tc.Equals, test.expected, tc.Commentf("endpoint %q", test.endpoint))
+	}
+}
+
+func (s *tracerSuite) TestNewClientWithGRPCEndpoint(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ns := coretrace.Namespace("agent", "controller").WithTagAndKind(names.NewMachineTag("0"), coretrace.KindController)
+	client, _, _, err := NewClient(
+		c.Context(),
+		ns,
+		"", "localhost:4317",
+		"",
+		true,
+		0.42,
+		time.Second,
+		s.logger,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(client, tc.NotNil)
+}
+
+func (s *tracerSuite) TestNewClientWithHTTPEndpoint(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ns := coretrace.Namespace("agent", "controller").WithTagAndKind(names.NewMachineTag("0"), coretrace.KindController)
+	client, _, _, err := NewClient(
+		c.Context(),
+		ns,
+		"http://otel.example.com:4318/v1/traces", "",
+		"",
+		true,
+		0.42,
+		time.Second,
+		s.logger,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(client, tc.NotNil)
+}
+
+func (s *tracerSuite) TestNewClientWithHTTPSEndpoint(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ns := coretrace.Namespace("agent", "controller").WithTagAndKind(names.NewMachineTag("0"), coretrace.KindController)
+	client, _, _, err := NewClient(
+		c.Context(),
+		ns,
+		"https://otel.example.com:4318/v1/traces", "",
+		"",
+		true,
+		0.42,
+		time.Second,
+		s.logger,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(client, tc.NotNil)
+}
+
+func (s *tracerSuite) TestNewClientWithHTTPSEndpointAndCACert(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ns := coretrace.Namespace("agent", "controller").WithTagAndKind(names.NewMachineTag("0"), coretrace.KindController)
+	client, _, _, err := NewClient(
+		c.Context(),
+		ns,
+		"https://otel.example.com:4318/v1/traces", "",
+		testCACert,
+		false,
+		0.42,
+		time.Second,
+		s.logger,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(client, tc.NotNil)
+}
+
+func (s *tracerSuite) TestNewClientWithGRPCEndpointAndCACert(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ns := coretrace.Namespace("agent", "controller").WithTagAndKind(names.NewMachineTag("0"), coretrace.KindController)
+	client, _, _, err := NewClient(
+		c.Context(),
+		ns,
+		"", "localhost:4317",
+		testCACert,
+		false,
+		0.42,
+		time.Second,
+		s.logger,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(client, tc.NotNil)
+}
+
+func (s *tracerSuite) TestNewClientPrefersGRPCOverHTTP(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ns := coretrace.Namespace("agent", "controller").WithTagAndKind(names.NewMachineTag("0"), coretrace.KindController)
+	// When both endpoints are provided, the gRPC endpoint should be
+	// used (preferred over HTTP). We can't easily assert the exporter
+	// type, but we verify the client is created without error.
+	client, _, _, err := NewClient(
+		c.Context(),
+		ns,
+		"http://otel.example.com:4318", "localhost:4317",
+		"",
+		true,
+		0.42,
+		time.Second,
+		s.logger,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(client, tc.NotNil)
+}
+
+func (s *tracerSuite) TestNewClientNoEndpointReturnsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ns := coretrace.Namespace("agent", "controller").WithTagAndKind(names.NewMachineTag("0"), coretrace.KindController)
+	_, _, _, err := NewClient(
+		c.Context(),
+		ns,
+		"", "",
+		"",
+		true,
+		0.42,
+		time.Second,
+		s.logger,
+	)
+	c.Assert(err, tc.ErrorMatches, "no valid endpoint provided .*")
+}
 
 func (s *tracerSuite) TestTracer(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -60,6 +243,104 @@ func (s *tracerSuite) TestTracerStartContext(c *tc.C) {
 		c.Fatalf("context should not be done")
 	default:
 	}
+}
+
+func (s *tracerSuite) TestTracerStartAfterKilledReturnsNoop(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClient()
+
+	tracer := s.newTracer(c)
+	workertest.DirtyKill(c, tracer)
+
+	parentCtx := c.Context()
+	ctx, span := tracer.Start(parentCtx, "foo")
+	c.Check(ctx, tc.Equals, parentCtx)
+	c.Check(ctx.Err(), tc.ErrorIsNil)
+
+	_, ok := span.(coretrace.NoopSpan)
+	c.Check(ok, tc.IsTrue)
+}
+
+func (s *tracerSuite) TestTracerStartContextNotCanceledWhenTracerDies(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClient()
+
+	tracer := s.newTracer(c)
+
+	ctx, span := tracer.Start(c.Context(), "foo")
+	workertest.DirtyKill(c, tracer)
+	defer span.End()
+
+	select {
+	case <-ctx.Done():
+		c.Fatalf("context should not be done")
+	default:
+	}
+}
+
+func (s *tracerSuite) TestTracerStartContextCarriesCoreSpan(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClient()
+
+	tracer := s.newTracer(c)
+	defer workertest.CleanKill(c, tracer)
+
+	ctx, span := tracer.Start(c.Context(), "foo")
+	defer span.End()
+
+	_, ok := coretrace.SpanFromContext(ctx).(*limitedSpan)
+	c.Check(ok, tc.IsTrue)
+}
+
+func (s *tracerSuite) TestTracerStartReturnsBuiltRequestContext(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClient()
+
+	tracer := s.newTracer(c)
+	defer workertest.CleanKill(c, tracer)
+
+	ctx := coretrace.WithTraceScope(c.Context(), "80f198ee56343ba864fe8b2a57d3eff7", "ff00000000000000", 1)
+	ctx, span := tracer.Start(ctx, "foo")
+	defer span.End()
+
+	traceID, spanID, flags, ok := coretrace.ScopeFromContext(ctx)
+	c.Check(ok, tc.IsFalse)
+	c.Check(traceID, tc.Equals, "")
+	c.Check(spanID, tc.Equals, "")
+	c.Check(flags, tc.Equals, 0)
+
+	traceID, ok = coretrace.TraceIDFromContext(ctx)
+	c.Check(ok, tc.IsTrue)
+	c.Check(traceID, tc.Equals, "80f198ee56343ba864fe8b2a57d3eff7")
+}
+
+func (s *tracerSuite) TestContextWithSpanCarriesTraceValues(c *tc.C) {
+	traceID, err := trace.TraceIDFromHex("80f198ee56343ba864fe8b2a57d3eff7")
+	c.Assert(err, tc.ErrorIsNil)
+	spanID, err := trace.SpanIDFromHex("ff00000000000000")
+	c.Assert(err, tc.ErrorIsNil)
+
+	spanContext := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID: traceID,
+		SpanID:  spanID,
+	})
+	otelCtx := trace.ContextWithSpanContext(c.Context(), spanContext)
+	otelSpan := trace.SpanFromContext(otelCtx)
+	coreSpan := coretrace.NoopSpan{}
+
+	ctx := contextWithSpan(c.Context(), otelSpan, coreSpan)
+	c.Check(ctx.Err(), tc.ErrorIsNil)
+	c.Check(coretrace.SpanFromContext(ctx), tc.Equals, coreSpan)
+
+	gotTraceID, ok := coretrace.TraceIDFromContext(ctx)
+	c.Check(ok, tc.IsTrue)
+	c.Check(gotTraceID, tc.Equals, traceID.String())
+	c.Check(trace.SpanFromContext(ctx).SpanContext().TraceID(), tc.Equals, traceID)
+	c.Check(trace.SpanFromContext(ctx).SpanContext().SpanID(), tc.Equals, spanID)
 }
 
 func (s *tracerSuite) TestTracerStartContextShouldBeCanceled(c *tc.C) {
@@ -216,10 +497,10 @@ func (s *tracerSuite) TestBuildRequestContext(c *tc.C) {
 
 func (s *tracerSuite) newTracer(c *tc.C) TrackedTracer {
 	ns := coretrace.Namespace("agent", "controller").WithTagAndKind(names.NewMachineTag("0"), coretrace.KindController)
-	newClient := func(context.Context, coretrace.TaggedTracerNamespace, string, bool, float64, time.Duration, logger.Logger) (Client, ClientTracerProvider, ClientTracer, error) {
+	newClient := func(context.Context, coretrace.TaggedTracerNamespace, string, string, string, bool, float64, time.Duration, logger.Logger) (Client, ClientTracerProvider, ClientTracer, error) {
 		return s.client, s.clientTracerProvider, s.clientTracer, nil
 	}
-	tracer, err := NewTracerWorker(c.Context(), ns, "http://meshuggah.com", false, false, 0.42, time.Second, s.logger, newClient)
+	tracer, err := NewTracerWorker(c.Context(), ns, "http://meshuggah.com", "", "", false, false, 0.42, time.Second, s.logger, newClient)
 	c.Assert(err, tc.ErrorIsNil)
 	return tracer
 }

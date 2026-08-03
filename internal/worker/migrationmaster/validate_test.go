@@ -6,12 +6,14 @@ package migrationmaster_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/testhelpers"
@@ -45,10 +47,16 @@ func (*ValidateSuite) TestMissingGuard(c *tc.C) {
 	checkNotValid(c, config, "nil Guard not valid")
 }
 
-func (*ValidateSuite) TestMissingFacade(c *tc.C) {
+func (*ValidateSuite) TestMissingSourcePrecheck(c *tc.C) {
 	config := validConfig()
-	config.Facade = nil
-	checkNotValid(c, config, "nil Facade not valid")
+	config.SourcePrecheck = nil
+	checkNotValid(c, config, "nil SourcePrecheck not valid")
+}
+
+func (*ValidateSuite) TestMissingStreamModelLog(c *tc.C) {
+	config := validConfig()
+	config.StreamModelLog = nil
+	checkNotValid(c, config, "nil StreamModelLog not valid")
 }
 
 func (*ValidateSuite) TestMissingAPIOpen(c *tc.C) {
@@ -105,6 +113,12 @@ func (*ValidateSuite) TestMissingAgentBinaryStore(c *tc.C) {
 	checkNotValid(c, config, "nil AgentBinaryStore not valid")
 }
 
+func (*ValidateSuite) TestMissingLoggingService(c *tc.C) {
+	config := validConfig()
+	config.LoggingService = nil
+	checkNotValid(c, config, "nil LoggingService not valid")
+}
+
 func (*ValidateSuite) TestMissingClock(c *tc.C) {
 	config := validConfig()
 	config.Clock = nil
@@ -115,7 +129,6 @@ func validConfig() migrationmaster.Config {
 	return migrationmaster.Config{
 		ModelUUID:      coretesting.ModelTag.Id(),
 		Guard:          struct{ fortress.Guard }{},
-		Facade:         struct{ migrationmaster.Facade }{},
 		APIOpen:        func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
 		UploadBinaries: func(context.Context, migration.UploadBinariesConfig, logger.Logger) error { return nil },
 		CharmService:   struct{ migrationmaster.CharmService }{},
@@ -133,7 +146,12 @@ func validConfig() migrationmaster.Config {
 			migrationmaster.ResourceService
 		}{},
 		AgentBinaryStore: struct{ migration.AgentBinaryStore }{},
+		LoggingService:   struct{ migrationmaster.LoggingService }{},
 		Clock:            struct{ clock.Clock }{},
+		SourcePrecheck:   func(context.Context) error { return nil },
+		StreamModelLog: func(context.Context, time.Time) (<-chan common.LogMessage, error) {
+			return nil, nil
+		},
 	}
 }
 

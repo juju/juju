@@ -1,7 +1,7 @@
 CREATE TABLE controller_node (
     controller_id TEXT NOT NULL PRIMARY KEY,
     dqlite_node_id TEXT,              -- This is the uint64 from Dqlite NodeInfo, stored as text.
-    dqlite_bind_address TEXT          -- IP address (no port) that Dqlite is bound to.
+    dqlite_bind_address TEXT          -- Hostname or IP address (no port) that Dqlite is bound to.
 );
 
 CREATE UNIQUE INDEX idx_controller_node_dqlite_node
@@ -23,6 +23,9 @@ CREATE TABLE controller_node_agent_version (
     FOREIGN KEY (architecture_id)
     REFERENCES architecture (id)
 );
+
+CREATE INDEX idx_controller_node_agent_version_architecture
+ON controller_node_agent_version (architecture_id);
 
 CREATE TABLE controller_api_address (
     controller_id TEXT NOT NULL,

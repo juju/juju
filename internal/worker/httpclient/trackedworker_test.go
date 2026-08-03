@@ -10,11 +10,12 @@ import (
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 
+	corehttp "github.com/juju/juju/core/http"
 	internalhttp "github.com/juju/juju/internal/http"
-	"github.com/juju/juju/internal/testhelpers"
 )
 
 type trackedWorkerSuite struct {
@@ -25,19 +26,19 @@ type trackedWorkerSuite struct {
 }
 
 func TestTrackedWorkerSuite(t *testing.T) {
-	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
-		tc.Run(t, &trackedWorkerSuite{})
-	})
+	tc.Run(t, &trackedWorkerSuite{})
 }
 
-func (s *trackedWorkerSuite) TestKilled(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	w, err := NewTrackedWorker(s.client)
+func (s *trackedWorkerSuite) TestImplementsCACertUpdater(c *tc.C) {
+	w, err := NewTrackedWorker(internalhttp.NewClient())
 	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.CheckKill(c, w)
+	defer workertest.CleanKill(c, w)
 
-	w.Kill()
+	updater, ok := w.(corehttp.CACertUpdater)
+	c.Assert(ok, tc.IsTrue)
+
+	err = updater.ReplaceCACert("not a cert", false)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *trackedWorkerSuite) TestProxyConfigChanges(c *tc.C) {

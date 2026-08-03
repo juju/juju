@@ -12,8 +12,8 @@ juju_version() {
 	echo "${version}"
 }
 
-jujud_version() {
-	version=$(jujud version)
+jujuagentd_version() {
+	version=$(jujuagentd version)
 
 	# shellcheck disable=SC2116
 	version=$(echo "${version%-*}")

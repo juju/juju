@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/metricobserver"
@@ -19,7 +18,6 @@ import (
 )
 
 func newObserverFn(
-	agentConfig agent.Config,
 	domainServicesGetter services.DomainServicesGetter,
 	clock clock.Clock,
 	metricsCollector *apiserver.Collector,

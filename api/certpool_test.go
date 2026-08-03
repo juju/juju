@@ -4,13 +4,14 @@
 package api_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	stdtesting "testing"
 
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
@@ -150,8 +151,9 @@ type certLogs struct {
 	messages []string
 }
 
-func (c *certLogs) Write(entry loggo.Entry) {
+func (c *certLogs) Write(ctx context.Context, entry loggo.Entry) error {
 	if strings.HasSuffix(entry.Filename, "certpool.go") {
 		c.messages = append(c.messages, fmt.Sprintf("%s %s", entry.Level, entry.Message))
 	}
+	return nil
 }

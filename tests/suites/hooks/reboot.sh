@@ -28,7 +28,7 @@ run_start_hook_fires_after_reboot() {
 	# does not fire. In juju 2.9+, we use a unified agent so we need to restart
 	# the machine agent.
 	echo "[+] ensuring that implicit start hook does not fire after restarting the (unified) unit agent"
-	juju ssh juju-qa-test/0 'sudo service jujud-machine-0 restart'
+	juju ssh juju-qa-test/0 'sudo service jujuagentd-machine-0 restart'
 	echo
 	wait_for "$charm" "$(charm_rev "$charm" 22)"
 	logs=$(juju debug-log --include-module juju.worker.uniter --replay --no-tail | grep -n "reboot detected" || true)

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
@@ -71,40 +70,6 @@ FROM model`, modelInfo{})
 	}
 
 	return result.ControllerUUID, nil
-}
-
-// GetAllInstanceIDs returns all instance IDs from the current model as
-// juju/collections set.
-func (s *State) GetAllInstanceIDs(ctx context.Context) (set.Strings, error) {
-	db, err := s.DB(ctx)
-	if err != nil {
-		return nil, errors.Errorf("cannot get database to retrieve instance IDs: %w", err)
-	}
-
-	query := `
-SELECT &instanceID.instance_id
-FROM   machine_cloud_instance`
-	queryStmt, err := s.Prepare(query, instanceID{})
-	if err != nil {
-		return nil, errors.Errorf("preparing retrieve all instance IDs statement: %w", err)
-	}
-
-	var result []instanceID
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, queryStmt).GetAll(&result)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("retrieving all instance IDs: %w", err)
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	instanceIDs := make(set.Strings, len(result))
-	for _, instanceID := range result {
-		instanceIDs.Add(instanceID.ID)
-	}
-	return instanceIDs, nil
 }
 
 // GetOfferUUIDs returns the UUIDs of all offers hosted by this model. These are
@@ -281,6 +246,36 @@ WHERE  c.source_id < 2
 		agents.Applications = append(agents.Applications, a.Name)
 	}
 	return agents, nil
+}
+
+// IsModelImporting reports whether the model database still carries its import
+// gate, which a committed import clears when it releases the model.
+//
+// It is the model-database half of confirming that a model with no import claim
+// really was released by a completed commit, rather than never imported at all.
+func (s *State) IsModelImporting(ctx context.Context) (bool, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return false, errors.Errorf("cannot get database to read importing status: %w", err)
+	}
+
+	arg := entityUUID{UUID: s.modelUUID.String()}
+	stmt, err := s.Prepare(`
+SELECT COUNT(*) AS &importGateCount.count
+FROM   model_migrating
+WHERE  model_uuid = $entityUUID.uuid
+`, arg, importGateCount{})
+	if err != nil {
+		return false, errors.Errorf("preparing importing status statement: %w", err)
+	}
+
+	var c importGateCount
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, arg).Get(&c)
+	}); err != nil {
+		return false, errors.Errorf("checking if model is importing: %w", err)
+	}
+	return c.Count > 0, nil
 }
 
 // DeleteModelImportingStatus removes the entry from the model_migrating table

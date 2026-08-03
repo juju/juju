@@ -157,12 +157,12 @@ func (m *Coordinator) Len() int {
 // returned to the caller on the source, and we want them to be reflected
 // in *this* controller's logs.
 func (m *Coordinator) Perform(ctx context.Context, scope Scope, model description.Model) (err error) {
-	var current int
+	rollbackFrom := -1
 	defer func() {
 		if err != nil {
 			m.logger.Errorf(ctx, "import failed: %s", err.Error())
 
-			for ; current >= 0; current-- {
+			for current := rollbackFrom; current >= 0; current-- {
 				op := m.operations[current]
 
 				m.logger.Infof(ctx, "rolling back operation: %s", op.Name())
@@ -174,11 +174,11 @@ func (m *Coordinator) Perform(ctx context.Context, scope Scope, model descriptio
 		}
 	}()
 
-	var op Operation
-	for current, op = range m.operations {
+	for current, op := range m.operations {
 		opName := op.Name()
 		m.logger.Infof(ctx, "running operation: %s", opName)
 
+		rollbackFrom = current
 		if err := op.Setup(scope); err != nil {
 			return errors.Errorf("setup operation %s: %w", opName, err)
 		}

@@ -262,7 +262,6 @@ func (p *containerProvisioner) getStartTask(ctx context.Context, workerCount int
 
 	task, err := provisionertask.NewProvisionerTask(provisionertask.TaskConfig{
 		ControllerUUID:               controllerCfg.ControllerUUID(),
-		HostTag:                      hostTag,
 		Logger:                       p.logger,
 		ControllerAPI:                p.controllerAPI,
 		MachinesAPI:                  p.machinesAPI,

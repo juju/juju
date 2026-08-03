@@ -51,6 +51,6 @@ func (s *ControllerSuite) GetWatchableDB(ctx context.Context, namespace string) 
 // AssertChangeStreamIdle returns if and when the change stream is idle.
 // This is useful to ensure that the change stream is not processing any
 // events before running a test.
-func (w *ControllerSuite) AssertChangeStreamIdle(c *tc.C) {
-	assertChangeStreamIdle(c, w.watchableDB.states)
+func (w *ControllerSuite) AssertChangeStreamIdle(c *tc.C, label string) {
+	assertChangeStreamIdle(c, label, w.watchableDB.states)
 }

@@ -31,6 +31,10 @@ import (
 type ServiceManager interface {
 	// GetService returns the service for the specified application.
 	GetService(ctx context.Context, appName string, includeClusterIP bool) (*caas.Service, error)
+
+	// ControllerUnitFQDN returns the stable, cluster-resolvable per-pod DNS
+	// name for the controller unit with the given ordinal.
+	ControllerUnitFQDN(ordinal int) string
 }
 
 // ServiceManagerGetterFunc is the function that is used to get a service manager.
@@ -106,11 +110,16 @@ func CAASControllerCharmUploader(ctx context.Context, cfg ControllerCharmDeploye
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return bootstrap.NewCAASDeployer(bootstrap.CAASDeployerConfig{
 		BaseDeployerConfig: makeBaseDeployerConfig(cfg),
 		ApplicationService: cfg.ApplicationService,
 		UnitPassword:       cfg.UnitPassword,
 		ServiceManager:     serviceManager,
+		// The provider owns Kubernetes naming, so it supplies the deterministic
+		// controller/0 pod FQDN that the deployer persists as the controller
+		// unit's stable network identity.
+		ControllerFQDN: serviceManager.ControllerUnitFQDN(0),
 	})
 }
 

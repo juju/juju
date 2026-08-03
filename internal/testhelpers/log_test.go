@@ -6,7 +6,7 @@ package testhelpers
 import (
 	"testing"
 
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/tc"
 )
 
@@ -28,18 +28,18 @@ func (*logSuite) TestLog(c *tc.C) {
 	c.Assert(logger.EffectiveLogLevel(), tc.Equals, loggo.DEBUG)
 	c.Assert(jujuLogger.EffectiveLogLevel(), tc.Equals, loggo.TRACE)
 
-	logger.Debugf("message 1")
-	logger.Tracef("message 2")
-	jujuLogger.Tracef("message 3")
+	logger.Debugf(c.Context(), "message 1")
+	logger.Tracef(c.Context(), "message 2")
+	jujuLogger.Tracef(c.Context(), "message 3")
 
 	//c.Assert(c.GetTestLog(), tc.Matches,
 	//	".*DEBUG test message 1\n"+
 	//		".*TRACE juju message 3\n",
 	//)
 	suite.TearDownSuite(c)
-	logger.Debugf("message 1")
-	logger.Tracef("message 2")
-	jujuLogger.Tracef("message 3")
+	logger.Debugf(c.Context(), "message 1")
+	logger.Tracef(c.Context(), "message 2")
+	jujuLogger.Tracef(c.Context(), "message 3")
 
 	//c.Assert(c.GetTestLog(), tc.Matches,
 	//	".*DEBUG test message 1\n"+

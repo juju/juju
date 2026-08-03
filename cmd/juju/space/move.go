@@ -31,6 +31,7 @@ func NewMoveCommand() modelcmd.ModelCommand {
 // subnet.
 type MoveCommand struct {
 	SpaceCommandBase
+	modelcmd.IAASOnlyCommand
 	out cmd.Output
 
 	Name  string

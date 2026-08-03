@@ -707,6 +707,15 @@ func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, mUUI
 	machineUUIDRec := entityUUID{UUID: mUUID}
 
 	tables := []string{
+		`WITH machine_to_delete AS (
+    SELECT name
+    FROM machine
+    WHERE uuid = $entityUUID.uuid
+)
+DELETE FROM machine_reprovision
+WHERE machine_name IN (
+    SELECT name FROM machine_to_delete
+)`,
 		"DELETE FROM machine_manual WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_agent_version WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM instance_tag WHERE machine_uuid = $entityUUID.uuid",
@@ -722,6 +731,7 @@ func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, mUUI
 		"DELETE FROM machine_agent_presence WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_container_type WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_ssh_host_key WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_virtual_ssh_host_key WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_placement WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_parent WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM block_device_link_device WHERE machine_uuid = $entityUUID.uuid",

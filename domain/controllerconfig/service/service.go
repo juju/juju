@@ -5,14 +5,13 @@ package service
 
 import (
 	"context"
-	"slices"
+	"strconv"
 
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -28,8 +27,12 @@ type State interface {
 	// ControllerConfig returns the config values for the controller.
 	ControllerConfig(context.Context) (map[string]string, error)
 
+	// GetControllerConfigValue returns the value for a single controller config
+	// key. The boolean is false when the key is not set.
+	GetControllerConfigValue(ctx context.Context, key string) (string, bool, error)
+
 	// UpdateControllerConfig updates the controller config.
-	UpdateControllerConfig(ctx context.Context, updateAttrs map[string]string, removeAttrs []string, validateModification ModificationValidatorFunc) error
+	UpdateControllerConfig(ctx context.Context, updateAttrs map[string]string, removeAttrs []string) error
 
 	// AllKeysQuery is used to get the initial state
 	// for the controller configuration watcher.
@@ -103,6 +106,27 @@ func (s *Service) ControllerConfig(ctx context.Context) (controller.Config, erro
 	return ctrlConfig, nil
 }
 
+// GetSSHServerPort returns the port the controller SSH jump server listens on.
+// It reads only the single config key rather than building the whole
+// controller config, falling back to the default port when unset.
+func (s *Service) GetSSHServerPort(ctx context.Context) (int, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	value, ok, err := s.st.GetControllerConfigValue(ctx, controller.SSHServerPort)
+	if err != nil {
+		return 0, errors.Errorf("getting SSH server port: %w", err)
+	}
+	if !ok {
+		return controller.DefaultSSHServerPort, nil
+	}
+	port, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, errors.Errorf("parsing SSH server port %q: %w", value, err)
+	}
+	return port, nil
+}
+
 // UpdateControllerConfig updates the controller config.
 func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs controller.Config, removeAttrs []string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -121,19 +145,7 @@ func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs contro
 	// in the validate config. It's not possible to update it.
 	delete(coerced, controller.ControllerUUIDKey)
 
-	err = s.st.UpdateControllerConfig(ctx, coerced, removeAttrs, func(current map[string]string) error {
-		// Validate the updateAttrs against the current config.
-		// This is done to ensure that the update config values are allowed
-		// to be modified to the updated ones.
-		//
-		// For example, is it possible to move from filestorage to s3storage.
-		// But it is not possible to move from s3storage to filestorage.
-		if err := validObjectStoreProgression(current, updateAttrs, removeAttrs); err != nil {
-			return errors.Capture(err)
-		}
-
-		return nil
-	})
+	err = s.st.UpdateControllerConfig(ctx, coerced, removeAttrs)
 	if err != nil {
 		return errors.Errorf("updating controller config state: %w", err)
 	}
@@ -199,61 +211,6 @@ func deserializeMap(m map[string]string) (map[string]any, error) {
 		result[key] = v
 	}
 	return result, nil
-}
-
-// validObjectStoreProgression validates that the object store type is allowed
-// to be changed from the current config to the update config.
-func validObjectStoreProgression(current map[string]string, updateAttrs controller.Config, removeAttrs []string) error {
-	if contains(removeAttrs, controller.ObjectStoreType) {
-		return errors.Errorf("can not remove %q", controller.ObjectStoreType)
-	}
-
-	// If we're not changing the object store type, we don't need to validate
-	// anything.
-	if _, ok := updateAttrs[controller.ObjectStoreType]; !ok {
-		return nil
-	}
-
-	// We should always have a valid object store type in the current config,
-	// so we don't need to check for errors.
-	cur := objectstore.BackendType(current[controller.ObjectStoreType])
-	upd := updateAttrs.ObjectStoreType()
-
-	// We're not changing the object store type, or we're changing from
-	// filestorage to s3storage.
-	if cur == upd {
-		return nil
-	} else if cur == objectstore.FileBackend && upd == objectstore.S3Backend {
-		// To be 100% sure that we can change from filestorage to s3storage,
-		// we're going to check if the updated config will have a complete s3 config.
-		// This is rather expensive, but it's the only way to be sure that we
-		// can change from filestorage to s3storage.
-		if err := updateCompletesS3Config(current, updateAttrs); err != nil {
-			return errors.Errorf("can not change %q from %q to %q without complete s3 config: %w", controller.ObjectStoreType, cur, upd, err)
-		}
-		return nil
-	}
-	return errors.Errorf("can not change %q from %q to %q", controller.ObjectStoreType, cur, upd)
-}
-
-func contains(s []string, e string) bool {
-	return slices.Contains(s, e)
-}
-
-func updateCompletesS3Config(config map[string]string, updateAttrs controller.Config) error {
-	endpoint := updateAttrs.ObjectStoreS3Endpoint()
-	if endpoint == "" {
-		endpoint = config[controller.ObjectStoreS3Endpoint]
-	}
-	staticKey := updateAttrs.ObjectStoreS3StaticKey()
-	if staticKey == "" {
-		staticKey = config[controller.ObjectStoreS3StaticKey]
-	}
-	secretKey := updateAttrs.ObjectStoreS3StaticSecret()
-	if secretKey == "" {
-		secretKey = config[controller.ObjectStoreS3StaticSecret]
-	}
-	return controller.HasCompleteS3Config(endpoint, staticKey, secretKey)
 }
 
 // WatchableService defines a service for interacting with the underlying state

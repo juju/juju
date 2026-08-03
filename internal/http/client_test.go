@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/errors"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -30,6 +31,10 @@ func TestClientSuite(t *testing.T) {
 func (s *clientSuite) TestNewClient(c *tc.C) {
 	client := NewClient()
 	c.Assert(client, tc.NotNil)
+}
+
+func currentTransport(client *Client) *http.Transport {
+	return client.Client().Transport.(*swappableRoundTripper).Load().(*http.Transport)
 }
 
 type httpSuite struct {
@@ -70,7 +75,7 @@ func (s *httpSuite) TestDefaultClientJarNotOverwritten(c *tc.C) {
 
 	client := NewClient(WithCookieJar(jar))
 
-	hc := client.HTTPClient.(*http.Client)
+	hc := client.Client()
 	c.Assert(hc.Jar, tc.Equals, jar)
 	c.Assert(http.DefaultClient.Jar, tc.Not(tc.Equals), jar)
 	c.Assert(http.DefaultClient.Jar, tc.Equals, oldJar)
@@ -248,16 +253,69 @@ func (s *httpTLSServerSuite) testGetHTTPClientWithCerts(c *tc.C, skip bool) {
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 }
 
+func (s *httpTLSServerSuite) TestReplaceCACert(c *tc.C) {
+	client := NewClient()
+	_, err := client.Get(c.Context(), s.server.URL) //nolint:bodyclose
+	c.Assert(err, tc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
+
+	caPEM := new(bytes.Buffer)
+	err = pem.Encode(caPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: s.server.Certificate().Raw,
+	})
+	c.Assert(err, tc.IsNil)
+
+	err = client.ReplaceCACert(caPEM.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	resp, err := client.Get(c.Context(), s.server.URL)
+	c.Assert(err, tc.IsNil)
+	c.Assert(resp.Body.Close(), tc.IsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
+
+	err = client.ReplaceCACert("", false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = client.Get(c.Context(), s.server.URL) //nolint:bodyclose
+	c.Assert(err, tc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
+}
+
+func (s *httpTLSServerSuite) TestReplaceCACertInvalid(c *tc.C) {
+	client := NewClient()
+	err := client.ReplaceCACert("not a cert", false)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
+func (s *httpTLSServerSuite) TestReplaceCACertWithInsecureSkipVerify(c *tc.C) {
+	client := NewClient()
+	transport := client.Client().Transport
+
+	err := client.ReplaceCACert("", true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(client.Client().Transport, tc.Equals, transport)
+
+	resp, err := client.Get(c.Context(), s.server.URL)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.Body.Close(), tc.ErrorIsNil)
+	c.Check(resp.StatusCode, tc.Equals, http.StatusOK)
+
+	err = client.ReplaceCACert("", false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = client.Get(c.Context(), s.server.URL) //nolint:bodyclose
+	c.Assert(err, tc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
+}
+
 func (s *clientSuite) TestDisableKeepAlives(c *tc.C) {
 	client := NewClient()
-	transport := client.Client().Transport.(*http.Transport)
+	transport := currentTransport(client)
 	c.Assert(transport.DisableKeepAlives, tc.Equals, false)
 
 	client = NewClient(WithDisableKeepAlives(false))
-	transport = client.Client().Transport.(*http.Transport)
+	transport = currentTransport(client)
 	c.Assert(transport.DisableKeepAlives, tc.Equals, false)
 
 	client = NewClient(WithDisableKeepAlives(true))
-	transport = client.Client().Transport.(*http.Transport)
+	transport = currentTransport(client)
 	c.Assert(transport.DisableKeepAlives, tc.Equals, true)
 }

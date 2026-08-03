@@ -35,6 +35,8 @@ import (
 	externalcontrollerstate "github.com/juju/juju/domain/externalcontroller/state"
 	flagservice "github.com/juju/juju/domain/flag/service"
 	flagstate "github.com/juju/juju/domain/flag/state"
+	loggingservice "github.com/juju/juju/domain/logging/service"
+	loggingstate "github.com/juju/juju/domain/logging/state"
 	macaroonservice "github.com/juju/juju/domain/macaroon/service"
 	macaroonstate "github.com/juju/juju/domain/macaroon/state"
 	modelservice "github.com/juju/juju/domain/model/service"
@@ -43,6 +45,8 @@ import (
 	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
+	sshcontrollerservice "github.com/juju/juju/domain/ssh/service/controller"
+	sshcontrollerstate "github.com/juju/juju/domain/ssh/state/controller"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	tracingstate "github.com/juju/juju/domain/tracing/state"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
@@ -221,11 +225,30 @@ func (s *ControllerServices) ControllerChangeStream() *changestreamservice.Servi
 
 // Tracing returns the tracing service which provides access to tracing
 // configuration for charms.
-func (s *ControllerServices) Tracing() *tracingservice.Service {
-	return tracingservice.NewService(
+func (s *ControllerServices) Tracing() *tracingservice.WatchableService {
+	return tracingservice.NewWatchableService(
 		tracingstate.NewState(
 			changestream.NewTxnRunnerFactory(s.controllerDB),
 		),
+		s.controllerWatcherFactory("tracing"),
+	)
+}
+
+// Logging returns the logging service which provides access to logging
+// configuration such as the Loki push API endpoint.
+func (s *ControllerServices) Logging() *loggingservice.WatchableService {
+	return loggingservice.NewWatchableService(
+		loggingstate.NewState(
+			changestream.NewTxnRunnerFactory(s.controllerDB),
+		),
+		s.controllerWatcherFactory("logging"),
+	)
+}
+
+// SSHServerHostKey returns the controller SSH server host key service.
+func (s *ControllerServices) SSHServerHostKey() *sshcontrollerservice.Service {
+	return sshcontrollerservice.NewService(
+		sshcontrollerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }
 

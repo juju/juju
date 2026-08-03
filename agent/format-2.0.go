@@ -5,6 +5,7 @@ package agent
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -14,7 +15,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 )
 
@@ -47,9 +47,13 @@ type format_2_0Serialization struct {
 	APIAddresses []string `yaml:"apiaddresses,omitempty"`
 	APIPassword  string   `yaml:"apipassword,omitempty"`
 
-	OldPassword   string            `yaml:"oldpassword,omitempty"`
-	LoggingConfig string            `yaml:"loggingconfig,omitempty"`
-	Values        map[string]string `yaml:"values"`
+	OldPassword            string            `yaml:"oldpassword,omitempty"`
+	LoggingConfig          string            `yaml:"loggingconfig,omitempty"`
+	LokiEndpoint           string            `yaml:"lokiendpoint,omitempty"`
+	LokiCACert             string            `yaml:"lokicacert,omitempty"`
+	LokiInsecureSkipVerify *bool             `yaml:"lokiinsecureskipverify,omitempty"`
+	LokiOrgID              string            `yaml:"lokiorgid,omitempty"`
+	Values                 map[string]string `yaml:"values"`
 
 	AgentLogfileMaxSizeMB  int `yaml:"agent-logfile-max-size"`
 	AgentLogfileMaxBackups int `yaml:"agent-logfile-max-backups"`
@@ -65,13 +69,20 @@ type format_2_0Serialization struct {
 	DqliteBusyTimeout     time.Duration `yaml:"dqlitebusytimeout,omitempty"`
 
 	OpenTelemetryEnabled               bool          `yaml:"opentelemetryenabled,omitempty"`
-	OpenTelemetryEndpoint              string        `yaml:"opentelemetryendpoint,omitempty"`
+	OpenTelemetryHTTPEndpoint          string        `yaml:"opentelemetryhttpendpoint,omitempty"`
+	OpenTelemetryGRPCEndpoint          string        `yaml:"opentelemetrygrpcendpoint,omitempty"`
+	OpenTelemetryCACertificate         string        `yaml:"opentelemetrycacertificate,omitempty"`
 	OpenTelemetryInsecure              bool          `yaml:"opentelemetryinsecure,omitempty"`
 	OpenTelemetryStackTraces           bool          `yaml:"opentelemetrystacktraces,omitempty"`
 	OpenTelemetrySampleRatio           string        `yaml:"opentelemetrysampleratio,omitempty"`
 	OpenTelemetryTailSamplingThreshold time.Duration `yaml:"opentelemetrytailsamplingthreshold,omitempty"`
 
-	ObjectStoreType string `yaml:"objectstoretype,omitempty"`
+	// OpenTelemetryEndpoint is the legacy single-endpoint field from
+	// pre-4.1 agent configs. It is retained for backwards-compatible
+	// unmarshalling only and is never written by the marshaler. On read,
+	// if the split HTTP/gRPC fields are empty, the value is migrated to
+	// the gRPC endpoint (matching the old gRPC-preferred behaviour).
+	OpenTelemetryEndpoint string `yaml:"opentelemetryendpoint,omitempty"`
 
 	DqlitePort int `yaml:"dqlite-port,omitempty"`
 }
@@ -111,16 +122,20 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 			LogDir:           format.LogDir,
 			MetricsSpoolDir:  format.MetricsSpoolDir,
 		}),
-		jobs:              format.Jobs,
-		upgradedToVersion: *format.UpgradedToVersion,
-		nonce:             format.Nonce,
-		controller:        controllerTag,
-		model:             modelTag,
-		caCert:            format.CACert,
-		statePassword:     format.StatePassword,
-		oldPassword:       format.OldPassword,
-		loggingConfig:     format.LoggingConfig,
-		values:            format.Values,
+		jobs:                   format.Jobs,
+		upgradedToVersion:      *format.UpgradedToVersion,
+		nonce:                  format.Nonce,
+		controller:             controllerTag,
+		model:                  modelTag,
+		caCert:                 format.CACert,
+		statePassword:          format.StatePassword,
+		oldPassword:            format.OldPassword,
+		loggingConfig:          format.LoggingConfig,
+		lokiEndpoint:           format.LokiEndpoint,
+		lokiCACert:             format.LokiCACert,
+		lokiInsecureSkipVerify: format.LokiInsecureSkipVerify,
+		lokiOrgID:              format.LokiOrgID,
+		values:                 format.Values,
 
 		agentLogfileMaxSizeMB:  format.AgentLogfileMaxSizeMB,
 		agentLogfileMaxBackups: format.AgentLogfileMaxBackups,
@@ -130,11 +145,31 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		dqliteBusyTimeout:     format.DqliteBusyTimeout,
 
 		openTelemetryEnabled:               format.OpenTelemetryEnabled,
+		openTelemetryHTTPEndpoint:          format.OpenTelemetryHTTPEndpoint,
+		openTelemetryGRPCEndpoint:          format.OpenTelemetryGRPCEndpoint,
+		openTelemetryCACertificate:         format.OpenTelemetryCACertificate,
 		openTelemetryInsecure:              format.OpenTelemetryInsecure,
 		openTelemetryStackTraces:           format.OpenTelemetryStackTraces,
 		openTelemetryTailSamplingThreshold: format.OpenTelemetryTailSamplingThreshold,
 
 		dqlitePort: format.DqlitePort,
+	}
+
+	// Migrate the legacy single-endpoint field. If the old
+	// opentelemetryendpoint key is set and the split HTTP/gRPC fields
+	// are both empty, assign the value to the gRPC endpoint. This
+	// matches the pre-4.1 behaviour where the gRPC exporter was
+	// preferred. If the endpoint has an http:// or https:// scheme, it
+	// is assigned to the HTTP endpoint instead.
+	if format.OpenTelemetryEndpoint != "" &&
+		config.openTelemetryHTTPEndpoint == "" &&
+		config.openTelemetryGRPCEndpoint == "" {
+		if isHTTPEndpoint(format.OpenTelemetryEndpoint) {
+			config.openTelemetryHTTPEndpoint = format.OpenTelemetryEndpoint
+		} else {
+			config.openTelemetryGRPCEndpoint = format.OpenTelemetryEndpoint
+		}
+		config.openTelemetryEnabled = true
 	}
 	if len(format.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
@@ -152,22 +187,12 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		}
 	}
 
-	if format.OpenTelemetryEndpoint != "" {
-		config.openTelemetryEndpoint = format.OpenTelemetryEndpoint
-	}
 	if format.OpenTelemetrySampleRatio != "" {
 		sampleRatio, err := strconv.ParseFloat(format.OpenTelemetrySampleRatio, 64)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		config.openTelemetrySampleRatio = sampleRatio
-	}
-	if format.ObjectStoreType != "" {
-		objectStoreType, err := objectstore.ParseObjectStoreType(format.ObjectStoreType)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		config.objectStoreType = objectStoreType
 	}
 	return config, nil
 }
@@ -176,20 +201,24 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 	controllerTag := config.controller.String()
 	modelTag := config.model.String()
 	format := &format_2_0Serialization{
-		Tag:               config.tag.String(),
-		DataDir:           config.paths.DataDir,
-		TransientDataDir:  config.paths.TransientDataDir,
-		LogDir:            config.paths.LogDir,
-		MetricsSpoolDir:   config.paths.MetricsSpoolDir,
-		Jobs:              config.jobs,
-		UpgradedToVersion: &config.upgradedToVersion,
-		Nonce:             config.nonce,
-		Controller:        controllerTag,
-		Model:             modelTag,
-		CACert:            config.caCert,
-		OldPassword:       config.oldPassword,
-		LoggingConfig:     config.loggingConfig,
-		Values:            config.values,
+		Tag:                    config.tag.String(),
+		DataDir:                config.paths.DataDir,
+		TransientDataDir:       config.paths.TransientDataDir,
+		LogDir:                 config.paths.LogDir,
+		MetricsSpoolDir:        config.paths.MetricsSpoolDir,
+		Jobs:                   config.jobs,
+		UpgradedToVersion:      &config.upgradedToVersion,
+		Nonce:                  config.nonce,
+		Controller:             controllerTag,
+		Model:                  modelTag,
+		CACert:                 config.caCert,
+		OldPassword:            config.oldPassword,
+		LoggingConfig:          config.loggingConfig,
+		LokiEndpoint:           config.lokiEndpoint,
+		LokiCACert:             config.lokiCACert,
+		LokiInsecureSkipVerify: config.lokiInsecureSkipVerify,
+		LokiOrgID:              config.lokiOrgID,
+		Values:                 config.values,
 
 		AgentLogfileMaxSizeMB:  config.agentLogfileMaxSizeMB,
 		AgentLogfileMaxBackups: config.agentLogfileMaxBackups,
@@ -199,6 +228,9 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		DqliteBusyTimeout:     config.dqliteBusyTimeout,
 
 		OpenTelemetryEnabled:               config.openTelemetryEnabled,
+		OpenTelemetryHTTPEndpoint:          config.openTelemetryHTTPEndpoint,
+		OpenTelemetryGRPCEndpoint:          config.openTelemetryGRPCEndpoint,
+		OpenTelemetryCACertificate:         config.openTelemetryCACertificate,
 		OpenTelemetryInsecure:              config.openTelemetryInsecure,
 		OpenTelemetryStackTraces:           config.openTelemetryStackTraces,
 		OpenTelemetryTailSamplingThreshold: config.openTelemetryTailSamplingThreshold,
@@ -217,14 +249,17 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		format.APIAddresses = config.apiDetails.addresses
 		format.APIPassword = config.apiDetails.password
 	}
-	if config.openTelemetryEndpoint != "" {
-		format.OpenTelemetryEndpoint = config.openTelemetryEndpoint
-	}
 	if config.openTelemetrySampleRatio != 0 {
 		format.OpenTelemetrySampleRatio = fmt.Sprintf("%.04f", config.openTelemetrySampleRatio)
 	}
-	if config.objectStoreType != "" {
-		format.ObjectStoreType = config.objectStoreType.String()
-	}
 	return goyaml.Marshal(format)
+}
+
+// isHTTPEndpoint reports whether the endpoint uses an http or https scheme.
+func isHTTPEndpoint(endpoint string) bool {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return false
+	}
+	return u.Scheme == "http" || u.Scheme == "https"
 }

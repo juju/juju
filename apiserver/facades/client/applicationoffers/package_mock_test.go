@@ -177,12 +177,11 @@ type MockCrossModelRelationService struct {
 
 // MockCrossModelRelationServiceMockRecorder is the mock recorder for MockCrossModelRelationService.
 type MockCrossModelRelationServiceMockRecorder struct {
-	mock                       *MockCrossModelRelationService
-	createOfferExpects         []*gomock.Call2_1[context.Context, crossmodelrelation.ApplicationOfferArgs, error]
-	getConsumeDetailsExpects   []*gomock.Call2_2[context.Context, crossmodel.OfferURL, crossmodelrelation.ConsumeDetails, error]
-	getOfferConnectionsExpects []*gomock.Call2_2[context.Context, []string, []crossmodelrelation.OfferConnectionDetail, error]
-	getOfferUUIDExpects        []*gomock.Call2_2[context.Context, crossmodel.OfferURL, offer.UUID, error]
-	getOffersExpects           []*gomock.Call2_2[context.Context, []service.OfferFilter, []*crossmodelrelation.OfferDetail, error]
+	mock                            *MockCrossModelRelationService
+	createOfferExpects              []*gomock.Call2_1[context.Context, crossmodelrelation.ApplicationOfferArgs, error]
+	getConsumeDetailsExpects        []*gomock.Call2_2[context.Context, crossmodel.OfferURL, crossmodelrelation.ConsumeDetails, error]
+	getOfferUUIDExpects             []*gomock.Call2_2[context.Context, crossmodel.OfferURL, offer.UUID, error]
+	getOffersWithConnectionsExpects []*gomock.Call2_2[context.Context, []service.OfferFilter, []*crossmodelrelation.OfferDetailWithConnections, error]
 }
 
 // NewMockCrossModelRelationService creates a new mock instance.
@@ -233,24 +232,6 @@ func (mr *MockCrossModelRelationServiceMockRecorder) GetConsumeDetails(ctx, offe
 // MockCrossModelRelationServiceGetConsumeDetailsCall is the typed call wrapper for GetConsumeDetails.
 type MockCrossModelRelationServiceGetConsumeDetailsCall = gomock.Call2_2[context.Context, crossmodel.OfferURL, crossmodelrelation.ConsumeDetails, error]
 
-// GetOfferConnections mocks base method.
-func (m *MockCrossModelRelationService) GetOfferConnections(ctx context.Context, offerUUIDs []string) ([]crossmodelrelation.OfferConnectionDetail, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getOfferConnectionsExpects, m.ctrl, m, "GetOfferConnections", ctx, offerUUIDs)
-}
-
-// GetOfferConnections indicates an expected call of GetOfferConnections.
-func (mr *MockCrossModelRelationServiceMockRecorder) GetOfferConnections(ctx, offerUUIDs any) *MockCrossModelRelationServiceGetOfferConnectionsCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, []string, []crossmodelrelation.OfferConnectionDetail, error](mr.mock.ctrl.T, mr.mock, "GetOfferConnections", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(offerUUIDs))
-	mr.getOfferConnectionsExpects = append(mr.getOfferConnectionsExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockCrossModelRelationServiceGetOfferConnectionsCall is the typed call wrapper for GetOfferConnections.
-type MockCrossModelRelationServiceGetOfferConnectionsCall = gomock.Call2_2[context.Context, []string, []crossmodelrelation.OfferConnectionDetail, error]
-
 // GetOfferUUID mocks base method.
 func (m *MockCrossModelRelationService) GetOfferUUID(ctx context.Context, offerURL crossmodel.OfferURL) (offer.UUID, error) {
 	m.ctrl.T.Helper()
@@ -269,23 +250,23 @@ func (mr *MockCrossModelRelationServiceMockRecorder) GetOfferUUID(ctx, offerURL 
 // MockCrossModelRelationServiceGetOfferUUIDCall is the typed call wrapper for GetOfferUUID.
 type MockCrossModelRelationServiceGetOfferUUIDCall = gomock.Call2_2[context.Context, crossmodel.OfferURL, offer.UUID, error]
 
-// GetOffers mocks base method.
-func (m *MockCrossModelRelationService) GetOffers(ctx context.Context, filters []service.OfferFilter) ([]*crossmodelrelation.OfferDetail, error) {
+// GetOffersWithConnections mocks base method.
+func (m *MockCrossModelRelationService) GetOffersWithConnections(ctx context.Context, filters []service.OfferFilter) ([]*crossmodelrelation.OfferDetailWithConnections, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getOffersExpects, m.ctrl, m, "GetOffers", ctx, filters)
+	return gomock.Dispatch2_2(&m.recorder.getOffersWithConnectionsExpects, m.ctrl, m, "GetOffersWithConnections", ctx, filters)
 }
 
-// GetOffers indicates an expected call of GetOffers.
-func (mr *MockCrossModelRelationServiceMockRecorder) GetOffers(ctx, filters any) *MockCrossModelRelationServiceGetOffersCall {
+// GetOffersWithConnections indicates an expected call of GetOffersWithConnections.
+func (mr *MockCrossModelRelationServiceMockRecorder) GetOffersWithConnections(ctx, filters any) *MockCrossModelRelationServiceGetOffersWithConnectionsCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, []service.OfferFilter, []*crossmodelrelation.OfferDetail, error](mr.mock.ctrl.T, mr.mock, "GetOffers", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(filters))
-	mr.getOffersExpects = append(mr.getOffersExpects, call)
+	call := gomock.NewCall2_2[context.Context, []service.OfferFilter, []*crossmodelrelation.OfferDetailWithConnections, error](mr.mock.ctrl.T, mr.mock, "GetOffersWithConnections", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(filters))
+	mr.getOffersWithConnectionsExpects = append(mr.getOffersWithConnectionsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockCrossModelRelationServiceGetOffersCall is the typed call wrapper for GetOffers.
-type MockCrossModelRelationServiceGetOffersCall = gomock.Call2_2[context.Context, []service.OfferFilter, []*crossmodelrelation.OfferDetail, error]
+// MockCrossModelRelationServiceGetOffersWithConnectionsCall is the typed call wrapper for GetOffersWithConnections.
+type MockCrossModelRelationServiceGetOffersWithConnectionsCall = gomock.Call2_2[context.Context, []service.OfferFilter, []*crossmodelrelation.OfferDetailWithConnections, error]
 
 // MockRemovalService is a mock of RemovalService interface.
 type MockRemovalService struct {

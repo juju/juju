@@ -58,8 +58,8 @@ func (s *ModelSuite) GetWatchableDB(ctx context.Context, namespace string) (chan
 // AssertChangeStreamIdle returns if and when the change stream is idle.
 // This is useful to ensure that the change stream is not processing any
 // events before running a test.
-func (s *ModelSuite) AssertChangeStreamIdle(c *tc.C) {
-	assertChangeStreamIdle(c, s.watchableDB.states)
+func (s *ModelSuite) AssertChangeStreamIdle(c *tc.C, label string) {
+	assertChangeStreamIdle(c, label, s.watchableDB.states)
 }
 
 // PrimeChangeStream the change stream with some initial data. This ensures

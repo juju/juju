@@ -45,12 +45,13 @@ func (s *UnitAgentSuite) SetUpTest(c *tc.C) {
 	}
 
 	s.config = deployer.UnitAgentConfig{
-		Name:           "someunit/42",
-		DataDir:        c.MkDir(),
-		FlightRecorder: flightrecorder.NoopRecorder{},
-		Clock:          clock.WallClock,
-		Logger:         loggertesting.WrapCheckLog(c).Child("unit-agent"),
-		SetupLogging:   func(logger.LoggerContext, agent.Config) {},
+		Name:             "someunit/42",
+		DataDir:          c.MkDir(),
+		FlightRecorder:   flightrecorder.NoopRecorder{},
+		Clock:            clock.WallClock,
+		Logger:           loggertesting.WrapCheckLog(c).Child("unit-agent"),
+		HTTPClientGetter: stubHTTPClientGetter{},
+		SetupLogging:     func(logger.LoggerContext, agent.Config) {},
 		UnitEngineConfig: func() dependency.EngineConfig {
 			return engine.DependencyEngineConfig(
 				dependency.DefaultMetrics(),
@@ -87,6 +88,13 @@ func (s *UnitAgentSuite) TestConfigMissingLogger(c *tc.C) {
 	err := s.config.Validate()
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing Logger not valid")
+}
+
+func (s *UnitAgentSuite) TestConfigMissingHTTPClientGetter(c *tc.C) {
+	s.config.HTTPClientGetter = nil
+	err := s.config.Validate()
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Assert(err.Error(), tc.Equals, "missing HTTPClientGetter not valid")
 }
 
 func (s *UnitAgentSuite) TestConfigMissingSetupLogging(c *tc.C) {

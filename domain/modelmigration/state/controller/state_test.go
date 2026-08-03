@@ -20,11 +20,13 @@ import (
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	accessstate "github.com/juju/juju/domain/access/state"
+	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/domain/credential"
@@ -191,6 +193,107 @@ func (s *stateSuite) TestDeleteModelImportingStatusSuccess(c *tc.C) {
 		s.modelUUID).Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
+}
+
+// TestDeleteModelImportingStatusWithCompanions tests that clearing an
+// existing model_migration_import entry also deletes its companion rows in
+// model_migration_import_offer and
+// model_migration_import_external_controller_model, rather than failing on
+// the parent delete's foreign key constraint.
+func (s *stateSuite) TestDeleteModelImportingStatusWithCompanions(c *tc.C) {
+	db := s.DB()
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	migratingUUID := uuid.MustNewUUID().String()
+	sourceMigrationUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		migratingUUID, s.modelUUID, sourceMigrationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Companion: an offer permission recorded during the import.
+	offerUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO model_migration_import_offer (migration_uuid, offer_uuid) VALUES (?, ?)",
+		migratingUUID, offerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Companion: a third-party external controller model mapping recorded
+	// during the import.
+	extCtrlUUID := uuid.MustNewUUID().String()
+	consumedModelUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO external_controller (uuid, alias, ca_cert) VALUES (?, 'other-ctrl', 'CACERT')",
+		extCtrlUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		`INSERT INTO model_migration_import_external_controller_model
+		 (migration_uuid, offerer_model_uuid, controller_uuid) VALUES (?, ?, ?)`,
+		migratingUUID, consumedModelUUID, extCtrlUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Clearing the importing status must not fail on the parent delete's
+	// foreign key constraint.
+	err = st.DeleteModelImportingStatus(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	tableKeyColumns := map[string]string{
+		"model_migration_import":                           "uuid",
+		"model_migration_import_offer":                     "migration_uuid",
+		"model_migration_import_external_controller_model": "migration_uuid",
+	}
+	for table, keyColumn := range tableKeyColumns {
+		var count int
+		err = db.QueryRowContext(c.Context(),
+			fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE %s = ?", table, keyColumn),
+			migratingUUID).Scan(&count)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(count, tc.Equals, 0, tc.Commentf("expected table %q to have no rows for migration %q", table, migratingUUID))
+	}
+}
+
+// TestGetKnownSecretBackends asserts only the supplied backend UUIDs that
+// exist on the controller are returned.
+func (s *stateSuite) TestGetKnownSecretBackends(c *tc.C) {
+	db := s.DB()
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	// backend_type_id 2 is 'vault' from the seeded secret_backend_type rows.
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO secret_backend (uuid, name, backend_type_id) VALUES (?, 'b1', 2), (?, 'b2', 2)",
+		"backend-1", "backend-2")
+	c.Assert(err, tc.ErrorIsNil)
+
+	known, err := st.GetKnownSecretBackends(c.Context(), []string{"backend-1", "backend-2", "backend-missing"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(known, tc.SameContents, []string{"backend-1", "backend-2"})
+}
+
+// TestGetKnownSecretBackendsEmptyInput asserts an empty input returns no rows
+// without querying.
+func (s *stateSuite) TestGetKnownSecretBackendsEmptyInput(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	known, err := st.GetKnownSecretBackends(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(known, tc.HasLen, 0)
+}
+
+// TestGetSecretBackendReferencesForModelEmpty exercises the query for a model
+// with no secret backend references.
+func (s *stateSuite) TestGetSecretBackendReferencesForModelEmpty(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	refs, err := st.GetSecretBackendReferencesForModel(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(refs, tc.HasLen, 0)
+}
+
+// TestGetAgentBinaryArchitecturesForVersionEmpty exercises the query when the
+// controller object store holds no agent binaries for the version.
+func (s *stateSuite) TestGetAgentBinaryArchitecturesForVersionEmpty(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	archs, err := st.GetAgentBinaryArchitecturesForVersion(c.Context(), "4.0.1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(archs, tc.HasLen, 0)
 }
 
 // TestDeleteModelImportingStatusNoEntry tests that clearing a non-existent
@@ -810,6 +913,53 @@ func (s *stateSuite) TestGetMigrationMode(c *tc.C) {
 	c.Check(mode, tc.Equals, modelmigration.MigrationModeImporting)
 }
 
+// TestGetMigrationPhase asserts the derived phase considers both directions in
+// one read: an import claim reports IMPORT, an active export reports its own
+// phase, neither reports NONE, and a claim takes precedence over an export.
+// The phase is returned as its name, parseable with [migration.ParsePhase].
+func (s *stateSuite) TestGetMigrationPhase(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	// No migration: none.
+	phase, err := st.GetMigrationPhase(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.NONE.String())
+
+	// Active export: its own phase (exports start in QUIESCE).
+	spec := s.newMigrationSpec()
+	err = st.InsertExport(c.Context(), spec)
+	c.Assert(err, tc.ErrorIsNil)
+	phase, err = st.GetMigrationPhase(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.QUIESCE.String())
+
+	// An import claim takes precedence over the active export: a model with
+	// both is inconsistent, and IMPORT keeps it frozen.
+	_, err = s.DB().ExecContext(c.Context(),
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'src')",
+		uuid.MustNewUUID().String(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	phase, err = st.GetMigrationPhase(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.IMPORT.String())
+
+	// Ending the export leaves the claim reporting IMPORT.
+	err = st.MarkExportEnded(c.Context(), spec.MigrationUUID, migration.DONE)
+	c.Assert(err, tc.ErrorIsNil)
+	phase, err = st.GetMigrationPhase(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.IMPORT.String())
+
+	// Deleting the claim - the moment the imported model becomes usable -
+	// reports none.
+	_, err = s.DB().ExecContext(c.Context(),
+		"DELETE FROM model_migration_import WHERE model_uuid = ?", s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	phase, err = st.GetMigrationPhase(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.NONE.String())
+}
+
 // TestGetControllerModelInfoIdentity verifies that the model bootstrap
 // identity, credential, the seeded admin model permission and the model secret
 // backend are read back in target-portable form for a model created by the
@@ -863,6 +1013,51 @@ func (s *stateSuite) TestGetControllerModelInfoIdentity(c *tc.C) {
 	// The fixture creates the model with the juju (internal) secret backend.
 	c.Assert(info.SecretBackend, tc.NotNil)
 	c.Check(info.SecretBackend.Name, tc.Not(tc.Equals), "")
+}
+
+// TestGetModelCloudCredential asserts the natural key, auth attributes and
+// status of the model's credential are returned.
+func (s *stateSuite) TestGetModelCloudCredential(c *tc.C) {
+	credential, err := New(s.TxnRunnerFactory(), clock.WallClock).GetModelCloudCredential(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credential, tc.NotNil)
+	c.Check(credential.Cloud, tc.Equals, "my-cloud")
+	c.Check(credential.Owner, tc.Equals, "test-user")
+	c.Check(credential.Name, tc.Equals, "foobar")
+	c.Check(credential.AuthType, tc.Equals, "access-key")
+	c.Check(credential.Attributes, tc.DeepEquals, map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	})
+	c.Check(credential.Revoked, tc.IsFalse)
+	c.Check(credential.Invalid, tc.IsFalse)
+	c.Check(credential.InvalidReason, tc.Equals, "")
+}
+
+// TestGetModelCloudCredentialRevokedAndInvalid asserts revoked and invalid
+// status are carried through.
+func (s *stateSuite) TestGetModelCloudCredentialRevokedAndInvalid(c *tc.C) {
+	credSt := credentialstate.NewState(s.TxnRunnerFactory())
+	key := corecredential.Key{
+		Cloud: "my-cloud",
+		Owner: usertesting.GenNewName(c, "test-user"),
+		Name:  "foobar",
+	}
+	err := credSt.UpsertCloudCredential(c.Context(), key, credential.CloudCredentialInfo{
+		Label:         "foobar",
+		AuthType:      string(cloud.AccessKeyAuthType),
+		Revoked:       true,
+		Invalid:       true,
+		InvalidReason: "expired",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	credential, err := New(s.TxnRunnerFactory(), clock.WallClock).GetModelCloudCredential(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credential, tc.NotNil)
+	c.Check(credential.Revoked, tc.IsTrue)
+	c.Check(credential.Invalid, tc.IsTrue)
+	c.Check(credential.InvalidReason, tc.Equals, "expired")
 }
 
 // TestGetSourceControllerInfo asserts the source controller's identity, alias,
@@ -1108,7 +1303,7 @@ func (s *stateSuite) TestGetControllerModelInfoIncludesModelQualifierUser(c *tc.
 	info, err = st.GetControllerModelInfo(c.Context(), s.modelUUID.String(), nil, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	var qualifierUsers []modelmigration.ModelUser
+	var qualifierUsers []coremodelmigration.ModelUser
 	for _, u := range info.Users {
 		if u.Name == ownerName.String() {
 			qualifierUsers = append(qualifierUsers, u)
@@ -1288,15 +1483,15 @@ func (s *stateSuite) TestGetControllerModelInfoFullSet(c *tc.C) {
 	}
 	c.Check(foundOffer, tc.IsTrue, tc.Commentf("expected offer permission, got %#v", info.Permissions))
 
-	c.Check(info.AuthorizedKeys, tc.DeepEquals, []modelmigration.ModelAuthorizedKey{
+	c.Check(info.AuthorizedKeys, tc.DeepEquals, []coremodelmigration.ModelAuthorizedKey{
 		{Username: "test-user", PublicKey: "ssh-ed25519 AAAAkey"},
 	})
 
-	c.Check(info.Leaders, tc.DeepEquals, []modelmigration.ApplicationLeadership{
+	c.Check(info.Leaders, tc.DeepEquals, []coremodelmigration.ApplicationLeadership{
 		{Application: "app", Leader: "app/0"},
 	})
 
-	c.Check(info.SecretBackendRefs, tc.DeepEquals, []modelmigration.SecretBackendReference{
+	c.Check(info.SecretBackendRefs, tc.DeepEquals, []coremodelmigration.SecretBackendReference{
 		{BackendName: backendName, SecretRevisionUUID: revUUID, SecretID: secretID},
 	})
 
@@ -1318,7 +1513,7 @@ func (s *stateSuite) TestGetControllerModelInfoFullSet(c *tc.C) {
 	))
 
 	c.Assert(info.CloudImageMetadata, tc.HasLen, 1)
-	c.Check(info.CloudImageMetadata[0], tc.DeepEquals, modelmigration.CloudImageMetadata{
+	c.Check(info.CloudImageMetadata[0], tc.DeepEquals, coremodelmigration.CloudImageMetadata{
 		Stream:          "released",
 		Region:          "us-east-1",
 		Version:         "22.04",
@@ -1501,4 +1696,23 @@ type preparer struct{}
 
 func (p preparer) Prepare(query string, args ...any) (*sqlair.Statement, error) {
 	return sqlair.Prepare(query, args...)
+}
+
+// TestGetCloud verifies the full cloud definition is returned for the named
+// cloud.
+func (s *stateSuite) TestGetCloud(c *tc.C) {
+	cld, err := New(s.TxnRunnerFactory(), clock.WallClock).GetCloud(c.Context(), "my-cloud")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cld.Name, tc.Equals, "my-cloud")
+	c.Check(cld.Type, tc.Equals, "ec2")
+	c.Check(cld.AuthTypes, tc.DeepEquals, cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType})
+	c.Assert(cld.Regions, tc.HasLen, 1)
+	c.Check(cld.Regions[0].Name, tc.Equals, "my-region")
+}
+
+// TestGetCloudNotFound verifies an error satisfying [clouderrors.NotFound] is
+// returned for an unknown cloud.
+func (s *stateSuite) TestGetCloudNotFound(c *tc.C) {
+	_, err := New(s.TxnRunnerFactory(), clock.WallClock).GetCloud(c.Context(), "no-such-cloud")
+	c.Assert(err, tc.ErrorIs, clouderrors.NotFound)
 }

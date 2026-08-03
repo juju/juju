@@ -16,7 +16,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
-	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/application"
@@ -40,6 +39,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner/mocks"
+	provisionertypes "github.com/juju/juju/internal/worker/caasapplicationprovisioner/types"
 )
 
 func TestOpsSuite(t *testing.T) {
@@ -136,7 +136,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 		},
 		Since: &now,
 	}
-	cloudContainerIDs := map[unit.Name]string{
+	k8sPodIDs := map[unit.Name]string{
 		"test/0": "a",
 		"test/1": "b",
 	}
@@ -149,7 +149,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 			Status: status.Idle,
 			Since:  &now,
 		},
-		CloudContainerStatus: &status.StatusInfo{
+		K8sPodStatus: &status.StatusInfo{
 			Status:  status.Running,
 			Message: "different",
 			Since:   &now,
@@ -163,7 +163,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 			SpaceName:      "space-name",
 		}}).Return(nil),
 		statusService.EXPECT().SetOperatorStatus(gomock.Any(), "test", appStatus).Return(nil),
-		applicationService.EXPECT().GetAllUnitCloudContainerIDsForApplication(gomock.Any(), appId).Return(cloudContainerIDs, nil),
+		applicationService.EXPECT().GetAllUnitK8sPodIDsForApplication(gomock.Any(), appId).Return(k8sPodIDs, nil),
 		app.EXPECT().Units().Return(units, nil),
 		applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unit.Name("test/0"), gomock.Any()).DoAndReturn(func(_ context.Context, _ unit.Name, args applicationservice.UpdateCAASUnitParams) error {
 			c.Check(args.ProviderID, tc.DeepEquals, unit0Update.ProviderID)
@@ -172,9 +172,9 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 			c.Assert(args.AgentStatus, tc.NotNil, tc.Commentf("AgentStatus should not be nil"))
 			c.Assert(args.AgentStatus.Since, tc.NotNil, tc.Commentf("AgentStatus.Since should not be nil"))
 			c.Check(*args.AgentStatus.Since, tc.Equals, now, tc.Commentf("AgentStatus.Since should be set to current time"))
-			c.Assert(args.CloudContainerStatus, tc.NotNil, tc.Commentf("CloudContainerStatus should not be nil"))
-			c.Assert(args.CloudContainerStatus.Since, tc.NotNil, tc.Commentf("CloudContainerStatus.Since should not be nil"))
-			c.Check(*args.CloudContainerStatus.Since, tc.Equals, now, tc.Commentf("CloudContainerStatus.Since should be set to current time"))
+			c.Assert(args.K8sPodStatus, tc.NotNil, tc.Commentf("K8sPodStatus should not be nil"))
+			c.Assert(args.K8sPodStatus.Since, tc.NotNil, tc.Commentf("K8sPodStatus.Since should not be nil"))
+			c.Check(*args.K8sPodStatus.Since, tc.Equals, now, tc.Commentf("K8sPodStatus.Since should be set to current time"))
 			return nil
 		}),
 		broker.EXPECT().AnnotateUnit(gomock.Any(), "test", "a", names.NewUnitTag("test/0")).Return(nil),
@@ -190,7 +190,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 				Message: "same",
 				Since:   &now,
 			},
-			CloudContainerStatus: &status.StatusInfo{
+			K8sPodStatus: &status.StatusInfo{
 				Status:  status.Waiting,
 				Message: "same",
 				Since:   &now,
@@ -208,7 +208,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 				Status: status.Idle,
 				Since:  &now,
 			},
-			CloudContainerStatus: &status.StatusInfo{
+			K8sPodStatus: &status.StatusInfo{
 				Status:  status.Running,
 				Message: "different",
 				Since:   &now,
@@ -223,7 +223,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 				Message: "same",
 				Since:   &now,
 			},
-			CloudContainerStatus: &status.StatusInfo{
+			K8sPodStatus: &status.StatusInfo{
 				Status:  status.Waiting,
 				Message: "same",
 				Since:   &now,
@@ -403,7 +403,7 @@ func (s *OpsSuite) TestReconcileDeadUnitScale(c *tc.C) {
 	gomock.InOrder(
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(units, nil),
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(ps, nil),
-		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(api.FilesystemProvisioningInfo{}, nil),
+		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(provisionertypes.FilesystemProvisioningInfo{}, nil),
 		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), storageUniqueID),
 		app.EXPECT().Scale(1).Return(nil),
 		app.EXPECT().State().Return(appState, nil),
@@ -579,7 +579,7 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *tc.C) {
 	}
 
 	// FilesystemProvisioningInfo with filesystem attachments
-	provisioningInfo := api.FilesystemProvisioningInfo{
+	provisioningInfo := provisionertypes.FilesystemProvisioningInfo{
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "data",
 			Size:        100,
@@ -627,7 +627,7 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorageEnsurePVCsFails(c *tc.C) {
 	}
 
 	// FilesystemProvisioningInfo with filesystem attachments
-	provisioningInfo := api.FilesystemProvisioningInfo{
+	provisioningInfo := provisionertypes.FilesystemProvisioningInfo{
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "data",
 			Size:        100,
@@ -826,7 +826,7 @@ func (s *OpsSuite) TestAppDying(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, true).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(nil, nil),
-		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(api.FilesystemProvisioningInfo{}, nil),
+		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(provisionertypes.FilesystemProvisioningInfo{}, nil),
 		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), storageUniqueID).Return(nil),
 		app.EXPECT().Scale(0).Return(nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, false).Return(nil),
@@ -871,7 +871,7 @@ func (s *OpsSuite) TestProvisioningInfo(c *tc.C) {
 	ro := mocks.NewMockOpener(ctrl)
 	resourceOpenerGetter.EXPECT().ResourceOpenerForApplication(gomock.Any(), appId, "test").Return(ro, nil)
 
-	facadePi := api.ProvisioningInfo{
+	facadePi := provisionertypes.ProvisioningInfo{
 		ImageDetails: coreresource.DockerImageDetails{
 			RegistryPath: "test-repo/jujud-operator:2.9.99",
 			ImageRepoDetails: coreresource.ImageRepoDetails{

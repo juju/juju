@@ -32,11 +32,18 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
+
+// MachineManagerAPIv11 provides access to the MachineManager API facade for
+// version 11.
+type MachineManagerAPIv11 struct {
+	*MachineManagerAPI
+}
 
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
@@ -55,10 +62,12 @@ type MachineManagerAPI struct {
 	controllerNodeService   ControllerNodeService
 	keyUpdaterService       KeyUpdaterService
 	machineService          MachineService
+	modelMigrationService   ModelMigrationService
 	statusService           StatusService
 	modelConfigService      ModelConfigService
 	networkService          NetworkService
 	removalService          RemovalService
+	upgradeService          UpgradeService
 
 	logger corelogger.Logger
 }
@@ -90,10 +99,12 @@ func NewMachineManagerAPI(
 		cloudService:            services.CloudService,
 		keyUpdaterService:       services.KeyUpdaterService,
 		machineService:          services.MachineService,
+		modelMigrationService:   services.ModelMigrationService,
 		statusService:           services.StatusService,
 		modelConfigService:      services.ModelConfigService,
 		networkService:          services.NetworkService,
 		removalService:          services.RemovalService,
+		upgradeService:          services.UpgradeService,
 	}
 	return api
 }
@@ -363,6 +374,66 @@ func (mm *MachineManagerAPI) maybeUpdateInstanceStatus(ctx context.Context, all 
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// ReprovisionMachine is implemented on the v11 API so a v12 client calling a
+// v11 server gets a not-supported response instead of the v12 implementation.
+func (mm *MachineManagerAPIv11) ReprovisionMachine(context.Context, params.ReprovisionMachineArgs) (params.ErrorResult, error) {
+	return params.ErrorResult{
+		Error: apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"reprovisioning machines is not supported by this controller",
+		),
+	}, nil
+}
+
+// ReprovisionMachine reprovisions a machine whose backing cloud instance
+// is operator-declared lost.
+func (mm *MachineManagerAPI) ReprovisionMachine(ctx context.Context, args params.ReprovisionMachineArgs) (params.ErrorResult, error) {
+	if err := mm.authorizer.CanWrite(ctx); err != nil {
+		return params.ErrorResult{}, err
+	}
+
+	if err := mm.check.ChangeAllowed(ctx); err != nil {
+		return params.ErrorResult{}, errors.Trace(err)
+	}
+
+	machineTag, err := names.ParseMachineTag(args.MachineTag)
+	if err != nil {
+		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+	machineName := coremachine.Name(machineTag.Id())
+
+	migrationMode, err := mm.modelMigrationService.ModelMigrationMode(ctx)
+	if err != nil {
+		return params.ErrorResult{}, errors.Annotate(err, "checking model migration status")
+	}
+	if migrationMode != modelmigration.MigrationModeNone {
+		return params.ErrorResult{
+			Error: apiservererrors.ServerError(errors.Errorf(
+				"model migration is in progress; cannot reprovision machine %q", machineName,
+			)),
+		}, nil
+	}
+
+	upgrading, err := mm.upgradeService.IsUpgrading(ctx)
+	if err != nil {
+		return params.ErrorResult{}, errors.Annotate(err, "checking controller upgrade status")
+	}
+	if upgrading {
+		return params.ErrorResult{
+			Error: apiservererrors.ServerError(errors.Errorf(
+				"controller upgrade is in progress; cannot reprovision machine %q", machineName,
+			)),
+		}, nil
+	}
+
+	if err := mm.machineService.ReprovisionMachine(ctx, machineName); err != nil {
+		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+
+	mm.logger.Infof(ctx, "reprovisioning requested for machine %q", machineTag.Id())
+	return params.ErrorResult{}, nil
 }
 
 // DestroyMachineWithParams removes a set of machines from the model.

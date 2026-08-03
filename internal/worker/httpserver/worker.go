@@ -30,12 +30,10 @@ var (
 
 // Config is the configuration required for running an API server worker.
 type Config struct {
-	AgentName              string
 	Clock                  clock.Clock
 	TLSConfig              *tls.Config
 	Mux                    *apiserverhttp.Mux
 	MuxShutdownWait        time.Duration
-	LogDir                 string
 	Logger                 logger.Logger
 	APIPort                int
 	IdleConnectionTimeout  time.Duration
@@ -45,9 +43,6 @@ type Config struct {
 
 // Validate validates the API server configuration.
 func (config Config) Validate() error {
-	if config.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
 	if config.TLSConfig == nil {
 		return errors.NotValidf("nil TLSConfig")
 	}
@@ -184,7 +179,10 @@ func (w *Worker) loop() error {
 		ConnContext:  recordRawFd,
 	}
 
+	serveStopped := make(chan struct{})
 	go func() {
+		defer close(serveStopped)
+
 		err := server.Serve(tls.NewListener(w.listener, w.config.TLSConfig))
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			w.logger.Errorf(ctx, "server finished with error %v", err)
@@ -208,6 +206,11 @@ func (w *Worker) loop() error {
 		if err := w.listener.Close(); err != nil {
 			w.logger.Errorf(ctx, "error closing listener: %v", err)
 		}
+
+		// Shutdown normally causes Serve to return, but closing the listener
+		// also unblocks it when Shutdown fails. Do not let the worker finish
+		// while the serving goroutine can still use worker-owned resources.
+		<-serveStopped
 	}()
 
 	shutDownCtx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)

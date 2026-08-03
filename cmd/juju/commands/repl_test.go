@@ -10,7 +10,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/jujuclient"

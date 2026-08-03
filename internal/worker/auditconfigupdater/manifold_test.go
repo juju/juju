@@ -4,6 +4,8 @@
 package auditconfigupdater
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/juju/errors"
@@ -33,14 +35,14 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg := s.getConfig()
 	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
-	cfg.AgentName = ""
+	cfg.LogDir = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg.DomainServicesName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
-var expectedInputs = []string{"agent", "domain-services"}
+var expectedInputs = []string{"domain-services"}
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, tc.SameContents, expectedInputs)
@@ -49,7 +51,6 @@ func (s *manifoldSuite) TestInputs(c *tc.C) {
 func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAgentConfig(c)
 	s.expectControllerConfig()
 
 	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newGetter())
@@ -57,14 +58,31 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *manifoldSuite) expectAgentConfig(c *tc.C) {
-	s.agentConfig.EXPECT().LogDir().Return(c.MkDir())
-	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
+func (s *manifoldSuite) TestStartConfig(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectControllerConfig()
+
+	logDir := c.MkDir()
+	cfg := s.getConfig()
+	cfg.LogDir = logDir
+	cfg.NewWorker = func(_ ControllerConfigService, _ auditlog.Config, logFactory AuditLogFactory) (worker.Worker, error) {
+		auditLog := logFactory(auditlog.Config{})
+		c.Assert(auditLog.Close(), tc.ErrorIsNil)
+		info, err := os.Stat(filepath.Join(logDir, "audit.log"))
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(info.IsDir(), tc.IsFalse)
+		return newStubWorker(), nil
+	}
+
+	w, err := Manifold(cfg).Start(c.Context(), s.newGetter())
+	c.Assert(err, tc.ErrorIsNil)
+	workertest.CleanKill(c, w)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:          "agent",
+		LogDir:             "log-dir",
 		DomainServicesName: "domain-services",
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
@@ -77,7 +95,6 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
-		"agent":           s.agent,
 		"domain-services": &stubDomainServicesGetter{},
 	}
 	return dt.StubGetter(resources)

@@ -52,6 +52,15 @@ func ValueWorkerOutput(in worker.Worker, out any) error {
 	return nil
 }
 
+// ExtractValue extracts the wrapped value from a value worker.
+func ExtractValue(in worker.Worker) (any, error) {
+	inWorker, _ := in.(*valueWorker)
+	if inWorker == nil {
+		return nil, errors.Errorf("in should be a *valueWorker; is %#v", in)
+	}
+	return inWorker.value, nil
+}
+
 // valueWorker implements a degenerate worker wrapping a single value.
 type valueWorker struct {
 	tomb  tomb.Tomb

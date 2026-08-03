@@ -18,6 +18,7 @@ CREATE TABLE "constraint" (
     -- limitations with NULL bools.
     allocate_public_ip INT,
     image_id TEXT,
+    ip_family TEXT,
     CONSTRAINT fk_constraint_container_type
     FOREIGN KEY (container_type_id)
     REFERENCES container_type (id)
@@ -39,7 +40,8 @@ SELECT
     ct.value AS container_type,
     c.virt_type,
     c.allocate_public_ip,
-    c.image_id
+    c.image_id,
+    c.ip_family
 FROM "constraint" AS c
 LEFT JOIN container_type AS ct ON c.container_type_id = ct.id;
 
@@ -64,6 +66,9 @@ CREATE TABLE constraint_space (
     REFERENCES space (name),
     PRIMARY KEY (constraint_uuid, space)
 );
+
+CREATE INDEX idx_constraint_space_space
+ON constraint_space (space);
 
 CREATE TABLE constraint_zone (
     constraint_uuid TEXT NOT NULL,

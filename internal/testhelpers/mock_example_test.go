@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 
 	testing "github.com/juju/juju/internal/testhelpers"
 )

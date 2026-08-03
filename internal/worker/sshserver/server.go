@@ -5,8 +5,7 @@ package sshserver
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
+	"fmt"
 	"net"
 	"strconv"
 	"sync/atomic"
@@ -19,14 +18,33 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
+	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/virtualhostname"
 )
 
-type authenticatedViaPublicKey struct{}
-
 // SessionHandler is an interface that proxies SSH sessions to a target unit/machine.
 type SessionHandler interface {
+	// Handle proxies the SSH session to the target unit/machine.
 	Handle(s ssh.Session, destination virtualhostname.Info)
+}
+
+// Authenticator authenticates jump SSH connections.
+type Authenticator interface {
+	// PublicKeyAuthentication authenticates a jump SSH connection using a public key.
+	// Returns true if the public key is valid for the user.
+	// Handles auth for user public keys.
+	PublicKeyAuthentication(ssh.Context, ssh.PublicKey) (bool, error)
+	// PasswordAuthentication authenticates a jump SSH connection using a password.
+	// Returns true if the password is valid for the user.
+	// Handles auth for external-auth and reverse-tunnel connections.
+	PasswordAuthentication(ssh.Context, string) (bool, error)
+}
+
+// Authorizer checks whether an authenticated user may access a destination.
+type Authorizer interface {
+	// Authorize checks whether the authenticated user in the SSH connection
+	// context is allowed to access the target destination.
+	Authorize(ssh.Context, virtualhostname.Info) (bool, error)
 }
 
 // ServerWorkerConfig holds the configuration required by the server worker.
@@ -49,11 +67,16 @@ type ServerWorkerConfig struct {
 	// we accept for our ssh server.
 	MaxConcurrentConnections int
 
-	// disableAuth is a test-only flag that disables authentication.
-	disableAuth bool
-
-	// SessionHandler handles proxying SSH sessions to the target machine.
-	SessionHandler SessionHandler
+	// SSHService resolves terminating SSH host keys for virtual destinations.
+	SSHService SSHService
+	// Authenticator authenticates jump and terminating SSH connections.
+	Authenticator Authenticator
+	// Authorizer checks whether an authenticated user may access a destination.
+	Authorizer Authorizer
+	// ProxyFactory creates target-specific session, forwarding, and SFTP handlers.
+	ProxyFactory ProxyFactory
+	// TunnelTracker accepts incoming reverse SSH tunnel connections.
+	TunnelTracker TunnelTracker
 }
 
 // Validate validates the workers configuration is as expected.
@@ -64,8 +87,20 @@ func (c ServerWorkerConfig) Validate() error {
 	if c.JumpHostKey == "" {
 		return errors.NotValidf("empty JumpHostKey")
 	}
-	if c.SessionHandler == nil {
-		return errors.NotValidf("missing SessionHandler")
+	if c.SSHService == nil {
+		return errors.NotValidf("missing SSHService")
+	}
+	if c.Authenticator == nil {
+		return errors.NotValidf("missing Authenticator")
+	}
+	if c.Authorizer == nil {
+		return errors.NotValidf("missing Authorizer")
+	}
+	if c.ProxyFactory == nil {
+		return errors.NotValidf("missing ProxyFactory")
+	}
+	if c.TunnelTracker == nil {
+		return errors.NotValidf("missing TunnelTracker")
 	}
 	return nil
 }
@@ -151,20 +186,27 @@ func (s *ServerWorker) NewJumpServer() *ssh.Server {
 	server := ssh.Server{
 		ConnCallback: s.connCallback(),
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
-			ctx.SetValue(authenticatedViaPublicKey{}, true)
-			return true
+			ok, err := s.config.Authenticator.PublicKeyAuthentication(ctx, key)
+			if err != nil {
+				s.config.Logger.Warningf(ctx, "failed to authenticate public key: %v", err)
+				return false
+			}
+			return ok
 		},
 		PasswordHandler: func(ctx ssh.Context, password string) bool {
-			return false
+			ok, err := s.config.Authenticator.PasswordAuthentication(ctx, password)
+			if err != nil {
+				s.config.Logger.Warningf(ctx, "failed to authenticate password: %v", err)
+				return false
+			}
+			return ok
 		},
 		ChannelHandlers: map[string]ssh.ChannelHandler{
+			// Handle direct-tcpip channels for jump server connections from users.
 			"direct-tcpip": s.directTCPIPHandler,
+			// Handle reverse-tunnel channels for machine sshsession workers.
+			coressh.JujuTunnelChannel: s.reverseTunnelHandler,
 		},
-	}
-
-	if s.config.disableAuth {
-		server.PublicKeyHandler = nil
-		server.PasswordHandler = nil
 	}
 
 	return &server
@@ -205,48 +247,87 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 		}
 		return
 	}
-	info, err := virtualhostname.Parse(d.DestAddr)
+
+	destination, err := virtualhostname.Parse(d.DestAddr)
 	if err != nil {
 		s.rejectChannel(ctx, newChan, "Failed to parse destination address")
 		return
 	}
 
-	ch, reqs, err := newChan.Accept()
-	if err != nil {
+	if ok, err := s.config.Authorizer.Authorize(ctx, destination); err != nil {
+		s.config.Logger.Errorf(ctx, "failed to authorize access to destination: %v", err)
+		s.rejectChannel(ctx, newChan, fmt.Sprintf("failed to authorize access to destination: %v", err))
+		return
+	} else if !ok {
+		s.rejectChannel(ctx, newChan, "unauthorized")
 		return
 	}
 
-	// gossh.Request are requests sent outside of the normal stream of data (ex. pty-req for an interactive session).
-	// Since we only need the raw data to redirect, we can discard them.
-	go gossh.DiscardRequests(reqs)
-
-	server, err := s.newEmbeddedSSHServer(ctx, info)
+	server, err := s.newTerminatingSSHServer(ctx, destination)
 	if err != nil {
 		s.config.Logger.Errorf(ctx, "failed to create embedded server: %v", err)
-		ch.Close()
+		s.rejectChannel(ctx, newChan, fmt.Sprintf("failed to create embedded server: %v", err))
 		return
 	}
 
-	// TODO(ale8k): Update later to generate host keys per unit.
-	terminatingHostKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	terminatingHostKey, err := s.config.SSHService.VirtualHostKey(ctx, destination)
 	if err != nil {
-		s.config.Logger.Errorf(ctx, "failed to generate host key: %v", err)
+		s.config.Logger.Errorf(ctx, "failed to resolve host key: %v", err)
+		s.rejectChannel(ctx, newChan, fmt.Sprintf("failed to resolve host key: %v", err))
 		return
 	}
-	signer, err := gossh.NewSignerFromKey(terminatingHostKey)
+	signer, err := gossh.ParsePrivateKey([]byte(terminatingHostKey))
 	if err != nil {
-		s.config.Logger.Errorf(ctx, "failed to create signer: %v", err)
+		s.config.Logger.Errorf(ctx, "failed to parse host key: %v", err)
+		s.rejectChannel(ctx, newChan, fmt.Sprintf("failed to parse host key: %v", err))
 		return
 	}
+
+	ch, reqs, err := newChan.Accept()
+	if err != nil {
+		s.config.Logger.Errorf(ctx, "accepting direct-tcpip channel: %v", err)
+		return
+	}
+
+	// gossh.Request are requests sent outside of the normal stream of data (for
+	// example, pty-req for an interactive session). The jump server only needs
+	// the raw data channel, so it can discard these requests.
+	go gossh.DiscardRequests(reqs)
 
 	server.AddHostKey(signer)
 	server.HandleConn(newChannelConn(ch))
+}
+
+// reverseTunnelHandler accepts a reverse SSH tunnel established by a machine
+// sshsession worker. Ownership of a successfully pushed connection transfers
+// to the tunnel tracker.
+func (s *ServerWorker) reverseTunnelHandler(_ *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
+	tunnelID, _ := ctx.Value(tunnelIDKey{}).(string)
+	if tunnelID == "" {
+		s.rejectChannel(ctx, newChan, "missing tunnel ID")
+		return
+	}
+
+	channel, requests, err := newChan.Accept()
+	if err != nil {
+		s.config.Logger.Errorf(ctx, "accepting reverse tunnel channel: %v", err)
+		return
+	}
+	go gossh.DiscardRequests(requests)
+
+	pushCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := s.config.TunnelTracker.PushTunnel(pushCtx, tunnelID, newChannelConn(channel)); err != nil {
+		s.config.Logger.Errorf(ctx, "pushing reverse tunnel: %v", err)
+		_ = channel.Close()
+	}
 }
 
 // connCallback returns a connCallback function that limits the number of concurrent connections.
 func (s *ServerWorker) connCallback() ssh.ConnCallback {
 	return func(ctx ssh.Context, conn net.Conn) net.Conn {
 		current := s.concurrentConnections.Add(1)
+
 		if int(current) > s.config.MaxConcurrentConnections {
 			// set the deadline because we don't want to block the connection to write an error.
 			err := conn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
@@ -257,7 +338,7 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 			if err != nil {
 				s.config.Logger.Errorf(context.TODO(), "failed to write to connection: %v", err)
 			}
-			// The connection is close before returning, otherwise
+			// The connection is closed before returning, otherwise
 			// the context is not cancelled and the counter is not decremented.
 			conn.Close()
 			s.concurrentConnections.Add(-1)
@@ -271,37 +352,25 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 	}
 }
 
-// newEmbeddedSSHServer creates a new embedded SSH server for the given context and model info.
-func (s *ServerWorker) newEmbeddedSSHServer(ctx ssh.Context, info virtualhostname.Info) (*ssh.Server, error) {
-
-	forwardHandler := &ssh.ForwardedTCPHandler{}
-	server := &ssh.Server{
-		PublicKeyHandler: func(ctx ssh.Context, keyPresented ssh.PublicKey) bool {
-			return true
-		},
-		LocalPortForwardingCallback: ssh.LocalPortForwardingCallback(func(ctx ssh.Context, dhost string, dport uint32) bool {
-			return true
-		}),
-		// ReversePortForwarding will not be supported.
-		ReversePortForwardingCallback: ssh.ReversePortForwardingCallback(func(ctx ssh.Context, host string, port uint32) bool {
-			return false
-		}),
-		ChannelHandlers: map[string]ssh.ChannelHandler{
-			"session":      ssh.DefaultSessionHandler,
-			"direct-tcpip": ssh.DirectTCPIPHandler,
-		},
-		RequestHandlers: map[string]ssh.RequestHandler{
-			"tcpip-forward":        forwardHandler.HandleSSHRequest,
-			"cancel-tcpip-forward": forwardHandler.HandleSSHRequest,
-		},
-		Handler: func(session ssh.Session) {
-			s.config.SessionHandler.Handle(session, info)
-		},
+// newTerminatingSSHServer creates an embedded SSH server that terminates the
+// user's SSH connection and proxies it to the routed target.
+func (s *ServerWorker) newTerminatingSSHServer(_ ssh.Context, destination virtualhostname.Info) (*ssh.Server, error) {
+	handlers, err := s.config.ProxyFactory.New(destination)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	if s.config.disableAuth {
-		server.PublicKeyHandler = nil
-		server.PasswordHandler = nil
+	server := &ssh.Server{
+		ChannelHandlers: map[string]ssh.ChannelHandler{
+			"session":      ssh.DefaultSessionHandler,
+			"direct-tcpip": handlers.DirectTCPIPHandler(),
+		},
+		Handler: func(session ssh.Session) {
+			handlers.SessionHandler(session)
+		},
+		SubsystemHandlers: map[string]ssh.SubsystemHandler{
+			"sftp": handlers.SFTPHandler(),
+		},
 	}
 
 	return server, nil

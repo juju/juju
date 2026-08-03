@@ -63,6 +63,17 @@ Indicates that the specified role/profile for the given cloud should be used.  <
 
 Cloud-specific instance-type name. Values vary by provider, and individual deployment in some cases. <p> **Note:** When compatibility between clouds is desired, use corresponding values for `cores`, `mem`, and `root-disk` instead.
 
+(constraint-ip-family)=
+### `ip-family`
+
+```{versionadded} 4.1.0
+```
+
+The IP address family for the machine's network interfaces. <p> **Valid values:**
+`ipv4`, `ipv6`, `dual` (`ipv6`-only is not currently supported by any
+provider). <p> See the cloud-specific documentation for supported values
+and behavior.
+
 (constraint-mem)=
 ### `mem`
 

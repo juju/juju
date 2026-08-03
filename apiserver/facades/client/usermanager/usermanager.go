@@ -137,6 +137,7 @@ func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (p
 		result.Results[i] = api.addOneUser(ctx, arg)
 		// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
 		securitylog.LogUser(
+			ctx,
 			securitylog.UserSecurityEvent{
 				Actor:  api.apiUser.Name.String(),
 				Target: arg.Username,
@@ -235,6 +236,7 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 
 		// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
 		securitylog.LogUser(
+			ctx,
 			securitylog.UserSecurityEvent{
 				Actor:  api.apiUser.Name.String(),
 				Target: user.String(),
@@ -484,6 +486,7 @@ func (api *UserManagerAPI) SetPassword(ctx context.Context, args params.EntityPa
 		}
 		// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
 		securitylog.LogPasswordChange(
+			ctx,
 			securitylog.PasswordChangeSecurityEvent{
 				User: api.apiUser.Name.String(),
 			},
@@ -564,6 +567,7 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 		}
 		// Security Event Logging: This log statement is required to comply with Canonical's SSDLC Security Event Logging policy.
 		securitylog.LogPasswordChange(
+			ctx,
 			securitylog.PasswordChangeSecurityEvent{
 				User: api.apiUser.Name.String(),
 			},

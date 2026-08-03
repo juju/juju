@@ -13,7 +13,6 @@ import (
 	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -81,13 +80,11 @@ func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 
 func validConfig(c *tc.C) firewaller.ManifoldConfig {
 	return firewaller.ManifoldConfig{
-		AgentName:               "agent",
-		APICallerName:           "api-caller",
 		EnvironName:             "environ",
 		DomainServicesName:      "domain-services",
+		ModelUUID:               "deadbeef-0bad-400d-8000-4b2d03000100",
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewControllerConnection: func(context.Context, *api.Info) (api.Connection, error) { return nil, nil },
-		NewFirewallerFacade:     func(base.APICaller) (firewaller.FirewallerAPI, error) { return nil, nil },
 		NewFirewallerWorker:     func(firewaller.Config) (worker.Worker, error) { return nil, nil },
 	}
 }
@@ -96,14 +93,9 @@ func (s *ManifoldConfigSuite) TestValid(c *tc.C) {
 	c.Check(s.config.Validate(), tc.ErrorIsNil)
 }
 
-func (s *ManifoldConfigSuite) TestMissingAgentName(c *tc.C) {
-	s.config.AgentName = ""
-	s.checkNotValid(c, "empty AgentName not valid")
-}
-
-func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *tc.C) {
-	s.config.APICallerName = ""
-	s.checkNotValid(c, "empty APICallerName not valid")
+func (s *ManifoldConfigSuite) TestMissingModelUUID(c *tc.C) {
+	s.config.ModelUUID = ""
+	s.checkNotValid(c, "empty ModelUUID not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingDomainServicesName(c *tc.C) {
@@ -119,11 +111,6 @@ func (s *ManifoldConfigSuite) TestMissingEnvironName(c *tc.C) {
 func (s *ManifoldConfigSuite) TestMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	s.checkNotValid(c, "nil Logger not valid")
-}
-
-func (s *ManifoldConfigSuite) TestMissingNewFirewallerFacade(c *tc.C) {
-	s.config.NewFirewallerFacade = nil
-	s.checkNotValid(c, "nil NewFirewallerFacade not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingNewFirewallerWorker(c *tc.C) {

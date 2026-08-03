@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/juju/sockets"
 )
 
-var logger = internallogger.GetLogger("juju.cmd.jujud.run")
+var logger = internallogger.GetLogger("juju.cmd.jujuagentd.run")
 
 type RunCommand struct {
 	cmd.CommandBase

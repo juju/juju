@@ -1015,6 +1015,54 @@ func (s *unitSuite) TestDeleteCAASUnit(c *tc.C) {
 	s.checkCharmsCount(c, 1)
 }
 
+// TestDeleteCAASUnitCleansUpFQDNAddress verifies that deleting a CAAS unit
+// removes both the net_node_fqdn_address junction and the referenced
+// fqdn_address row, so a deterministic FQDN does not collide on re-creation.
+func (s *unitSuite) TestDeleteCAASUnitCleansUpFQDNAddress(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createCAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	const fqdn = "controller-0.controller-service-endpoints.controller-foo.svc.cluster.local"
+	fqdnUUID := "test-fqdn-uuid"
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		var netNodeUUID string
+		if err := tx.QueryRowContext(
+			ctx, "SELECT net_node_uuid FROM unit WHERE uuid = ?", unitUUID.String(),
+		).Scan(&netNodeUUID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx,
+			"INSERT INTO fqdn_address (uuid, address, scope_id) VALUES (?, ?, ?)",
+			fqdnUUID, fqdn, 1,
+		); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx,
+			"INSERT INTO net_node_fqdn_address (net_node_uuid, address_uuid) VALUES (?, ?)",
+			netNodeUUID, fqdnUUID,
+		)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.getRowCount(c, "fqdn_address"), tc.Equals, 1)
+	c.Check(s.getRowCount(c, "net_node_fqdn_address"), tc.Equals, 1)
+
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Both the junction and the orphaned fqdn_address row are gone.
+	c.Check(s.getRowCount(c, "net_node_fqdn_address"), tc.Equals, 0)
+	c.Check(s.getRowCount(c, "fqdn_address"), tc.Equals, 0)
+}
+
 // TestDeleteUnitWithDanglingCharmReference ensures that unit removal and
 // charm's cleanup are in two different transactions. So even if the latter fails, the unit
 // is still removed.

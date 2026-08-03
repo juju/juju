@@ -44,7 +44,7 @@ jobs:
           # and any batch with no match makes grep exit 1, which under
           # `set -o pipefail` fails the whole step (exit 123) even though every
           # go generate succeeded.
-          git grep -l -e '//go:generate' -- '*.go' | xargs -n 1 -P 8 -I% sh -c "go generate -x $(realpath %) || (echo FAIL: % && exit 1)"
+          git grep -l -e '//go:generate' -- '*.go' | xargs -n 1 -P 8 -I% sh -c 'go generate -x "$(realpath %)" || (echo FAIL: % && exit 1)'
 
       - name: "Check diff"
         shell: bash

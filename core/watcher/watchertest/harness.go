@@ -4,6 +4,7 @@
 package watchertest
 
 import (
+	"fmt"
 	"sync/atomic"
 
 	"github.com/juju/tc"
@@ -25,7 +26,7 @@ type TestHelper interface {
 
 // Idler is an interface that ensures that the change stream is idle.
 type Idler interface {
-	AssertChangeStreamIdle(c *tc.C)
+	AssertChangeStreamIdle(c *tc.C, label string)
 }
 
 // Harness is a test harness for testing watchers.
@@ -103,19 +104,19 @@ func (h *Harness[T]) Run(c *tc.C, initial ...T) {
 
 	// Ensure that the initial event is sent by the watcher.
 	h.watcher.CheckInitial(SliceAssert(initial...))
-	h.idler.AssertChangeStreamIdle(c)
+	h.idler.AssertChangeStreamIdle(c, "after initial event")
 
 	for i, test := range h.tests {
 		c.Logf("running test %d", i)
 
 		// Assert the changes.
 		test.setup(c)
-		h.idler.AssertChangeStreamIdle(c)
+		h.idler.AssertChangeStreamIdle(c, fmt.Sprintf("after setup %d", i))
 		test.assert(h.watcher)
 
 		// Ensure that the watcher doesn't emit any more changes.
 		h.watcher.AssertNoChange()
-		h.idler.AssertChangeStreamIdle(c)
+		h.idler.AssertChangeStreamIdle(c, fmt.Sprintf("after assert %d", i))
 	}
 
 	// Ensure that the watcher is killed cleanly.

@@ -211,14 +211,15 @@ func (s *deleteOperationSuite) TestDeleteTaskByUUIDsNilInput(c *tc.C) {
 // TestGetTaskUUIDsByOperationUUIDs tests that the get task UUIDs by operation
 // UUIDs function returns the UUIDs of the tasks associated with the operations
 func (s *deleteOperationSuite) TestGetTaskUUIDsByOperationUUIDs(c *tc.C) {
-	// Arrange: three tasks in the database in various ops
+	// Arrange: three tasks in the database in various ops. Insert them out of
+	// task ID order to ensure the query provides the ordering.
 	operation1 := s.addOperation(c)
 	operation2 := s.addOperation(c)
 	controlOperation := s.addOperation(c)
-	taskToGet1 := s.addOperationTask(c, operation1)
-	taskToGet2 := s.addOperationTask(c, operation1)
-	taskToGet3 := s.addOperationTask(c, operation2)
-	controlTask := s.addOperationTask(c, controlOperation)
+	taskToGet3 := s.addOperationTaskWithID(c, operation1, "task-3", "pending")
+	taskToGet1 := s.addOperationTaskWithID(c, operation2, "task-1", "pending")
+	taskToGet2 := s.addOperationTaskWithID(c, operation1, "task-2", "pending")
+	controlTask := s.addOperationTaskWithID(c, controlOperation, "task-0", "pending")
 
 	// Act: get task for operation 1 & 2
 	var taskUUIDs []string
@@ -355,6 +356,58 @@ func (s *retrieveAndFilterSuite) TestGetMachineUUIDByNameNotFound(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `getting machine UUID for "999": machine "999" not found`)
 	c.Check(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *retrieveAndFilterSuite) TestInitialWatchStatementUnitTaskOrderedByTaskID(c *tc.C) {
+	operationUUID := s.addOperation(c)
+	unitUUID := s.addUnit(c, s.addCharm(c))
+	controlUnitUUID := s.addUnit(c, s.addCharm(c))
+
+	task3 := s.addOperationTaskWithUUIDAndID(c, operationUUID,
+		"00000000-0000-4000-8000-000000000001", "task-3", "running")
+	task1 := s.addOperationTaskWithUUIDAndID(c, operationUUID,
+		"00000000-0000-4000-8000-000000000003", "task-1", "aborting")
+	task2 := s.addOperationTaskWithUUIDAndID(c, operationUUID,
+		"00000000-0000-4000-8000-000000000002", "task-2", "pending")
+	controlTask := s.addOperationTaskWithID(c, operationUUID, "task-0", "pending")
+	s.addOperationUnitTask(c, task3, unitUUID)
+	s.addOperationUnitTask(c, task1, unitUUID)
+	s.addOperationUnitTask(c, task2, unitUUID)
+	s.addOperationUnitTask(c, controlTask, controlUnitUUID)
+
+	_, query := s.state.InitialWatchStatementUnitTask()
+	result := s.queryRows(c, query, unitUUID)
+
+	c.Check(result, tc.DeepEquals, []map[string]any{
+		{"task_id": "task-1"},
+		{"task_id": "task-2"},
+	})
+}
+
+func (s *retrieveAndFilterSuite) TestInitialWatchStatementMachineTaskOrderedByTaskID(c *tc.C) {
+	operationUUID := s.addOperation(c)
+	machineUUID := s.addMachine(c, "0")
+	controlMachineUUID := s.addMachine(c, "1")
+
+	task3 := s.addOperationTaskWithUUIDAndID(c, operationUUID,
+		"00000000-0000-4000-8000-000000000001", "task-3", "aborting")
+	task1 := s.addOperationTaskWithUUIDAndID(c, operationUUID,
+		"00000000-0000-4000-8000-000000000003", "task-1", "pending")
+	task2 := s.addOperationTaskWithUUIDAndID(c, operationUUID,
+		"00000000-0000-4000-8000-000000000002", "task-2", "pending")
+	controlTask := s.addOperationTaskWithID(c, operationUUID, "task-0", "pending")
+	s.addOperationMachineTask(c, task3, machineUUID)
+	s.addOperationMachineTask(c, task1, machineUUID)
+	s.addOperationMachineTask(c, task2, machineUUID)
+	s.addOperationMachineTask(c, controlTask, controlMachineUUID)
+
+	_, query := s.state.InitialWatchStatementMachineTask()
+	result := s.queryRows(c, query, machineUUID)
+
+	c.Check(result, tc.DeepEquals, []map[string]any{
+		{"task_id": "task-1"},
+		{"task_id": "task-2"},
+	})
 }
 
 func (s *retrieveAndFilterSuite) TestFilterTaskUUIDsForUnit(c *tc.C) {

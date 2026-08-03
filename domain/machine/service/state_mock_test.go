@@ -11,6 +11,7 @@ package service
 
 import (
 	context "context"
+	time "time"
 
 	gomock "github.com/canonical/gomock/gomock"
 	agentbinary "github.com/juju/juju/core/agentbinary"
@@ -39,12 +40,15 @@ type MockStateMockRecorder struct {
 	allMachineNamesExpects                                    []*gomock.Call1_2[context.Context, []machine.Name, error]
 	appliedLXDProfileNamesExpects                             []*gomock.Call2_2[context.Context, string, []string, error]
 	availabilityZoneExpects                                   []*gomock.Call2_2[context.Context, string, string, error]
+	checkMachineReprovisioningEligibilityExpects              []*gomock.Call2_1[context.Context, machine.Name, error]
 	clearMachineRebootExpects                                 []*gomock.Call2_1[context.Context, machine.UUID, error]
 	countMachinesInSpaceExpects                               []*gomock.Call2_2[context.Context, string, int64, error]
+	detachLostMachineCloudInstanceExpects                     []*gomock.Call6_1[context.Context, string, string, string, []byte, time.Time, error]
 	getAllProvisionedMachineInstanceIDExpects                 []*gomock.Call1_2[context.Context, map[machine.Name]string, error]
 	getHardwareCharacteristicsExpects                         []*gomock.Call2_2[context.Context, string, instance.HardwareCharacteristics, error]
 	getInstanceIDExpects                                      []*gomock.Call2_2[context.Context, string, string, error]
 	getInstanceIDAndNameExpects                               []*gomock.Call2_3[context.Context, string, string, string, error]
+	getInstanceIDByMachineNameExpects                         []*gomock.Call2_2[context.Context, machine.Name, string, error]
 	getLXDProfilesForMachineExpects                           []*gomock.Call2_2[context.Context, string, []internal.CreateLXDProfileDetails, error]
 	getMachineBaseExpects                                     []*gomock.Call2_2[context.Context, string, base.Base, error]
 	getMachineContainersExpects                               []*gomock.Call2_2[context.Context, string, []string, error]
@@ -63,6 +67,7 @@ type MockStateMockRecorder struct {
 	initialWatchModelMachineLifeAndStartTimesStatementExpects []*gomock.Call0_2[string, string]
 	initialWatchModelMachinesStatementExpects                 []*gomock.Call0_2[string, string]
 	initialWatchStatementExpects                              []*gomock.Call0_2[string, string]
+	isMachineAgentPresentExpects                              []*gomock.Call2_2[context.Context, machine.Name, bool, error]
 	isMachineControllerExpects                                []*gomock.Call2_2[context.Context, machine.Name, bool, error]
 	isMachineManuallyProvisionedExpects                       []*gomock.Call2_2[context.Context, machine.Name, bool, error]
 	isMachineRebootRequiredExpects                            []*gomock.Call2_2[context.Context, machine.UUID, bool, error]
@@ -70,6 +75,7 @@ type MockStateMockRecorder struct {
 	namespaceForMachineLifeAndDependantsExpects               []*gomock.Call0_1[string]
 	namespaceForWatchMachineCloudInstanceExpects              []*gomock.Call0_1[string]
 	namespaceForWatchMachineRebootExpects                     []*gomock.Call0_1[string]
+	namespaceForWatchMachineReprovisionExpects                []*gomock.Call0_1[string]
 	requireMachineRebootExpects                               []*gomock.Call2_1[context.Context, machine.UUID, error]
 	setKeepInstanceExpects                                    []*gomock.Call3_1[context.Context, machine.Name, bool, error]
 	setMachineCloudInstanceExpects                            []*gomock.Call6_1[context.Context, string, instance.Id, string, string, *instance.HardwareCharacteristics, error]
@@ -164,6 +170,24 @@ func (mr *MockStateMockRecorder) AvailabilityZone(arg0, arg1 any) *MockStateAvai
 // MockStateAvailabilityZoneCall is the typed call wrapper for AvailabilityZone.
 type MockStateAvailabilityZoneCall = gomock.Call2_2[context.Context, string, string, error]
 
+// CheckMachineReprovisioningEligibility mocks base method.
+func (m *MockState) CheckMachineReprovisioningEligibility(arg0 context.Context, arg1 machine.Name) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.checkMachineReprovisioningEligibilityExpects, m.ctrl, m, "CheckMachineReprovisioningEligibility", arg0, arg1)
+}
+
+// CheckMachineReprovisioningEligibility indicates an expected call of CheckMachineReprovisioningEligibility.
+func (mr *MockStateMockRecorder) CheckMachineReprovisioningEligibility(arg0, arg1 any) *MockStateCheckMachineReprovisioningEligibilityCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, machine.Name, error](mr.mock.ctrl.T, mr.mock, "CheckMachineReprovisioningEligibility", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.checkMachineReprovisioningEligibilityExpects = append(mr.checkMachineReprovisioningEligibilityExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateCheckMachineReprovisioningEligibilityCall is the typed call wrapper for CheckMachineReprovisioningEligibility.
+type MockStateCheckMachineReprovisioningEligibilityCall = gomock.Call2_1[context.Context, machine.Name, error]
+
 // ClearMachineReboot mocks base method.
 func (m *MockState) ClearMachineReboot(ctx context.Context, uuid machine.UUID) error {
 	m.ctrl.T.Helper()
@@ -199,6 +223,24 @@ func (mr *MockStateMockRecorder) CountMachinesInSpace(ctx, spUUID any) *MockStat
 
 // MockStateCountMachinesInSpaceCall is the typed call wrapper for CountMachinesInSpace.
 type MockStateCountMachinesInSpaceCall = gomock.Call2_2[context.Context, string, int64, error]
+
+// DetachLostMachineCloudInstance mocks base method.
+func (m *MockState) DetachLostMachineCloudInstance(arg0 context.Context, arg1, arg2, arg3 string, arg4 []byte, arg5 time.Time) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch6_1(&m.recorder.detachLostMachineCloudInstanceExpects, m.ctrl, m, "DetachLostMachineCloudInstance", arg0, arg1, arg2, arg3, arg4, arg5)
+}
+
+// DetachLostMachineCloudInstance indicates an expected call of DetachLostMachineCloudInstance.
+func (mr *MockStateMockRecorder) DetachLostMachineCloudInstance(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockStateDetachLostMachineCloudInstanceCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall6_1[context.Context, string, string, string, []byte, time.Time, error](mr.mock.ctrl.T, mr.mock, "DetachLostMachineCloudInstance", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), gomock.EnsureMatcher(arg3), gomock.EnsureMatcher(arg4), gomock.EnsureMatcher(arg5))
+	mr.detachLostMachineCloudInstanceExpects = append(mr.detachLostMachineCloudInstanceExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateDetachLostMachineCloudInstanceCall is the typed call wrapper for DetachLostMachineCloudInstance.
+type MockStateDetachLostMachineCloudInstanceCall = gomock.Call6_1[context.Context, string, string, string, []byte, time.Time, error]
 
 // GetAllProvisionedMachineInstanceID mocks base method.
 func (m *MockState) GetAllProvisionedMachineInstanceID(ctx context.Context) (map[machine.Name]string, error) {
@@ -271,6 +313,24 @@ func (mr *MockStateMockRecorder) GetInstanceIDAndName(ctx, mUUID any) *MockState
 
 // MockStateGetInstanceIDAndNameCall is the typed call wrapper for GetInstanceIDAndName.
 type MockStateGetInstanceIDAndNameCall = gomock.Call2_3[context.Context, string, string, string, error]
+
+// GetInstanceIDByMachineName mocks base method.
+func (m *MockState) GetInstanceIDByMachineName(arg0 context.Context, arg1 machine.Name) (string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getInstanceIDByMachineNameExpects, m.ctrl, m, "GetInstanceIDByMachineName", arg0, arg1)
+}
+
+// GetInstanceIDByMachineName indicates an expected call of GetInstanceIDByMachineName.
+func (mr *MockStateMockRecorder) GetInstanceIDByMachineName(arg0, arg1 any) *MockStateGetInstanceIDByMachineNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, machine.Name, string, error](mr.mock.ctrl.T, mr.mock, "GetInstanceIDByMachineName", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getInstanceIDByMachineNameExpects = append(mr.getInstanceIDByMachineNameExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetInstanceIDByMachineNameCall is the typed call wrapper for GetInstanceIDByMachineName.
+type MockStateGetInstanceIDByMachineNameCall = gomock.Call2_2[context.Context, machine.Name, string, error]
 
 // GetLXDProfilesForMachine mocks base method.
 func (m *MockState) GetLXDProfilesForMachine(ctx context.Context, mName string) ([]internal.CreateLXDProfileDetails, error) {
@@ -596,6 +656,24 @@ func (mr *MockStateMockRecorder) InitialWatchStatement() *MockStateInitialWatchS
 // MockStateInitialWatchStatementCall is the typed call wrapper for InitialWatchStatement.
 type MockStateInitialWatchStatementCall = gomock.Call0_2[string, string]
 
+// IsMachineAgentPresent mocks base method.
+func (m *MockState) IsMachineAgentPresent(arg0 context.Context, arg1 machine.Name) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.isMachineAgentPresentExpects, m.ctrl, m, "IsMachineAgentPresent", arg0, arg1)
+}
+
+// IsMachineAgentPresent indicates an expected call of IsMachineAgentPresent.
+func (mr *MockStateMockRecorder) IsMachineAgentPresent(arg0, arg1 any) *MockStateIsMachineAgentPresentCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, machine.Name, bool, error](mr.mock.ctrl.T, mr.mock, "IsMachineAgentPresent", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.isMachineAgentPresentExpects = append(mr.isMachineAgentPresentExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateIsMachineAgentPresentCall is the typed call wrapper for IsMachineAgentPresent.
+type MockStateIsMachineAgentPresentCall = gomock.Call2_2[context.Context, machine.Name, bool, error]
+
 // IsMachineController mocks base method.
 func (m *MockState) IsMachineController(arg0 context.Context, arg1 machine.Name) (bool, error) {
 	m.ctrl.T.Helper()
@@ -721,6 +799,24 @@ func (mr *MockStateMockRecorder) NamespaceForWatchMachineReboot() *MockStateName
 
 // MockStateNamespaceForWatchMachineRebootCall is the typed call wrapper for NamespaceForWatchMachineReboot.
 type MockStateNamespaceForWatchMachineRebootCall = gomock.Call0_1[string]
+
+// NamespaceForWatchMachineReprovision mocks base method.
+func (m *MockState) NamespaceForWatchMachineReprovision() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.namespaceForWatchMachineReprovisionExpects, m.ctrl, m, "NamespaceForWatchMachineReprovision")
+}
+
+// NamespaceForWatchMachineReprovision indicates an expected call of NamespaceForWatchMachineReprovision.
+func (mr *MockStateMockRecorder) NamespaceForWatchMachineReprovision() *MockStateNamespaceForWatchMachineReprovisionCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "NamespaceForWatchMachineReprovision")
+	mr.namespaceForWatchMachineReprovisionExpects = append(mr.namespaceForWatchMachineReprovisionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateNamespaceForWatchMachineReprovisionCall is the typed call wrapper for NamespaceForWatchMachineReprovision.
+type MockStateNamespaceForWatchMachineReprovisionCall = gomock.Call0_1[string]
 
 // RequireMachineReboot mocks base method.
 func (m *MockState) RequireMachineReboot(ctx context.Context, uuid machine.UUID) error {

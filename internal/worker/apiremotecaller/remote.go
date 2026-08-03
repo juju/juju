@@ -139,10 +139,10 @@ func (w *remoteServer) UpdateAddresses(addresses []string) {
 	case w.changes <- addressChange{addresses: addresses, processed: processed}:
 	}
 
-	// Wait for the inner goroutine to acknowledge receipt and cancel
-	// the previous request context. This prevents a race where the
-	// main loop picks up a stale request before the cancellation
-	// has been applied.
+	// Wait for the inner goroutine to acknowledge that the latest request
+	// has been published into the handoff queue. This prevents a race where
+	// a caller observes UpdateAddresses returning before the replacement
+	// request has replaced any stale queued request.
 	select {
 	case <-w.tomb.Dying():
 	case <-processed:
@@ -199,9 +199,9 @@ type report struct {
 
 // addressChange carries address data through the changes channel along
 // with an optional acknowledgment channel. When processed is non-nil,
-// the inner goroutine closes it after cancelling the previous request
-// context, guaranteeing the caller that the prior context is cancelled
-// before UpdateAddresses returns.
+// the inner goroutine closes it after publishing the replacement request,
+// guaranteeing the caller that the latest request has replaced any stale
+// queued request before UpdateAddresses returns.
 type addressChange struct {
 	addresses []string
 	processed chan struct{}
@@ -251,11 +251,6 @@ func (w *remoteServer) loop() error {
 					canceler(newChangeRequestError)
 				}
 
-				// Signal that the previous context has been cancelled.
-				if change.processed != nil {
-					close(change.processed)
-				}
-
 				// Create a new context for the next connection attempt.
 				requestCtx, requestCancel := context.WithCancelCause(ctx)
 				canceler = requestCancel
@@ -274,6 +269,9 @@ func (w *remoteServer) loop() error {
 						requestCancel(context.Canceled)
 						return tomb.ErrDying
 					case requests <- req:
+						if change.processed != nil {
+							close(change.processed)
+						}
 						break enqueue
 					case stale := <-requests:
 						stale.cancel(newChangeRequestError)

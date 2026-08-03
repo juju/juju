@@ -46,3 +46,11 @@ type TunnelProxier interface {
 	// Port returns the host port to connect to for tunneling connections.
 	Port() string
 }
+
+// ProxierErrorReporter describes a proxier that can report asynchronous proxy
+// errors observed after Start has returned successfully.
+type ProxierErrorReporter interface {
+	// ProxyError returns the asynchronous proxy error, if one has been
+	// observed. It returns nil when the proxier has no error to report.
+	ProxyError() error
+}

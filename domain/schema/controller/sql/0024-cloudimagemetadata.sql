@@ -18,3 +18,12 @@ CREATE TABLE cloud_image_metadata (
 
 CREATE UNIQUE INDEX idx_cloud_image_metadata_unique_fields
 ON cloud_image_metadata (stream, region, version, architecture_id, virt_type, root_storage_type, source);
+
+CREATE INDEX idx_cloud_image_metadata_source
+ON cloud_image_metadata (source);
+
+CREATE INDEX idx_cloud_image_metadata_created_at
+ON cloud_image_metadata (created_at);
+
+CREATE INDEX idx_cloud_image_metadata_image_id
+ON cloud_image_metadata (image_id);

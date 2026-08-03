@@ -261,6 +261,7 @@ The constraints `instance-type` and `[arch, cores, cpu-power, mem]` are mutually
 - {ref}`constraint-mem`
 **Networking**
 
+- {ref}`constraint-ip-family`. Not supported; the effective IP family depends on VPC subnet configuration.
 - {ref}`constraint-spaces`
 - {ref}`constraint-zones`
 

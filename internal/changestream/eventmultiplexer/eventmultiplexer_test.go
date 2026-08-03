@@ -301,11 +301,15 @@ func (s *eventMultiplexerSuite) TestSubscriptionDoneWhenEventQueueKilled(c *tc.C
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
 	s.metrics.EXPECT().SubscriptionsInc()
-	s.metrics.EXPECT().SubscriptionsDec()
+	// There is a race between loop select completion and worker Kill.
+	// Killing the worker kills the subs attached to its catacomb,
+	// so they might or might not be dead when we come back to the top
+	// of the loop and clean up.
+	s.metrics.EXPECT().SubscriptionsDec().MaxTimes(1)
 	s.clock.EXPECT().Now().MinTimes(1)
 	// We might encounter a dispatch error, therefore we cannot hard-code
 	// a false on the second argument of DispatchDurationObserve.
-	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), gomock.Any())
+	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), gomock.Any()).MaxTimes(1)
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c), 0)
 	c.Assert(err, tc.ErrorIsNil)
@@ -779,6 +783,11 @@ func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *tc.C) {
 	s.clock.EXPECT().Now().AnyTimes()
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(10)
+	// There is a race between loop select completion and worker Kill.
+	// Killing the worker kills the subs attached to its catacomb,
+	// so they might or might not be dead when we come back to the top
+	// of the loop and clean up.
+	s.metrics.EXPECT().SubscriptionsDec().AnyTimes()
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c), 0)
 	c.Assert(err, tc.ErrorIsNil)
@@ -813,6 +822,11 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *tc.C
 	s.clock.EXPECT().Now().AnyTimes()
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(10)
+	// There is a race between loop select completion and worker Kill.
+	// Killing the worker kills the subs attached to its catacomb,
+	// so they might or might not be dead when we come back to the top
+	// of the loop and clean up.
+	s.metrics.EXPECT().SubscriptionsDec().AnyTimes()
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c), 0)
 	c.Assert(err, tc.ErrorIsNil)
@@ -851,6 +865,11 @@ func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *tc.
 	s.clock.EXPECT().Now().AnyTimes()
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(10)
+	// There is a race between loop select completion and worker Kill.
+	// Killing the worker kills the subs attached to its catacomb,
+	// so they might or might not be dead when we come back to the top
+	// of the loop and clean up.
+	s.metrics.EXPECT().SubscriptionsDec().AnyTimes()
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c), 0)
 	c.Assert(err, tc.ErrorIsNil)
@@ -889,6 +908,11 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscription
 	s.clock.EXPECT().Now().AnyTimes()
 
 	s.metrics.EXPECT().SubscriptionsInc().Times(10)
+	// There is a race between loop select completion and worker Kill.
+	// Killing the worker kills the subs attached to its catacomb,
+	// so they might or might not be dead when we come back to the top
+	// of the loop and clean up.
+	s.metrics.EXPECT().SubscriptionsDec().AnyTimes()
 
 	queue, err := New(s.stream, s.clock, s.metrics, loggertesting.WrapCheckLog(c), 0)
 	c.Assert(err, tc.ErrorIsNil)

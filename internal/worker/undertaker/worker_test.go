@@ -5,6 +5,7 @@ package undertaker
 
 import (
 	"context"
+	"strings"
 	stdtesting "testing"
 
 	gomock "github.com/canonical/gomock/gomock"
@@ -16,6 +17,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -232,6 +234,52 @@ func (s *workerSuite) TestNoPendingDeletions(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *workerSuite) TestDeleteModelTrace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tracer := &recordingTracer{}
+	s.removalService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
+	s.dbDeleter.EXPECT().DeleteDB("model-1").Return(nil)
+
+	w := &modelWorker{
+		modelUUID:      model.UUID("model-1"),
+		removalService: s.removalService,
+		dbDeleter:      s.dbDeleter,
+		tracer:         tracer,
+	}
+	err := w.deleteModel(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	span := tracer.singleSpan(c)
+	c.Check(strings.HasSuffix(span.name, ".deleteModel"), tc.IsTrue)
+	c.Check(span.attributes["undertaker.model.uuid"], tc.Equals, "model-1")
+	c.Check(span.recordedErr, tc.ErrorIsNil)
+	c.Check(span.ended, tc.IsTrue)
+}
+
+func (s *workerSuite) TestDeleteDatabaseTraceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tracer := &recordingTracer{}
+	s.dbDeleter.EXPECT().DeleteDB("model-1").Return(errors.Errorf("boom"))
+
+	w := &dbDeletionWorker{
+		namespace: "model-1",
+		service:   s.controllerModelService,
+		dbDeleter: s.dbDeleter,
+		logger:    s.logger,
+		tracer:    tracer,
+	}
+	err := w.deleteDatabase(c.Context())
+	c.Assert(err, tc.ErrorMatches, `deleting database for model "model-1": boom`)
+
+	span := tracer.singleSpan(c)
+	c.Check(strings.HasSuffix(span.name, ".deleteDatabase"), tc.IsTrue)
+	c.Check(span.attributes["undertaker.database.namespace"], tc.Equals, "model-1")
+	c.Check(span.recordedErr, tc.ErrorMatches, `deleting database for model "model-1": boom`)
+	c.Check(span.ended, tc.IsTrue)
+}
+
 func (s *workerSuite) expectWatchModels(ch chan struct{}) {
 	s.controllerModelService.EXPECT().WatchModels(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 		return watchertest.NewMockNotifyWatcher(ch), nil
@@ -288,5 +336,61 @@ func (s *workerSuite) getConfig() Config {
 		RemovalServiceGetter:   s.removalServiceGetter,
 		Clock:                  clock.WallClock,
 		Logger:                 s.logger,
+		Tracer:                 coretrace.NoopTracer{},
 	}
+}
+
+type recordingTracer struct {
+	spans []*recordingSpan
+}
+
+func (t *recordingTracer) Start(
+	ctx context.Context,
+	name string,
+	options ...coretrace.Option,
+) (context.Context, coretrace.Span) {
+	traceOptions := coretrace.NewTracerOptions()
+	for _, option := range options {
+		option(traceOptions)
+	}
+	attributes := make(map[string]string)
+	for _, attribute := range traceOptions.Attributes() {
+		attributes[attribute.Key()] = attribute.Value()
+	}
+	span := &recordingSpan{
+		name:       name,
+		attributes: attributes,
+	}
+	t.spans = append(t.spans, span)
+	return coretrace.WithSpan(ctx, span), span
+}
+
+func (*recordingTracer) Enabled() bool {
+	return true
+}
+
+func (t *recordingTracer) singleSpan(c *tc.C) *recordingSpan {
+	c.Assert(t.spans, tc.HasLen, 1)
+	return t.spans[0]
+}
+
+type recordingSpan struct {
+	name        string
+	attributes  map[string]string
+	recordedErr error
+	ended       bool
+}
+
+func (*recordingSpan) Scope() coretrace.Scope {
+	return coretrace.NoopScope{}
+}
+
+func (*recordingSpan) AddEvent(string, ...coretrace.Attribute) {}
+
+func (s *recordingSpan) RecordError(err error, _ ...coretrace.Attribute) {
+	s.recordedErr = err
+}
+
+func (s *recordingSpan) End(...coretrace.Attribute) {
+	s.ended = true
 }

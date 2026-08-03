@@ -12,7 +12,9 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecontroller "github.com/juju/juju/core/controller"
 	coreerrors "github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/unit"
@@ -862,6 +864,91 @@ func (s *migrationSuite) TestImportRemoteSecretsImportFail(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, ".*boom")
+}
+
+func (s *migrationSuite) TestSetOffererControllerForOffererModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	offererModelUUID := coremodel.UUID(uuid.MustNewUUID().String())
+	controllerUUID := corecontroller.UUID(uuid.MustNewUUID().String())
+	s.modelMigrationState.EXPECT().SetOffererControllerForOffererModel(
+		gomock.Any(), offererModelUUID.String(), controllerUUID.String()).Return(nil)
+
+	// Act
+	err := s.service(c).SetOffererControllerForOffererModel(c.Context(), offererModelUUID, controllerUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *migrationSuite) TestSetOffererControllerForOffererModelInvalidModelUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Act: an invalid offerer model UUID is rejected by the service before
+	// reaching state.
+	err := s.service(c).SetOffererControllerForOffererModel(
+		c.Context(), coremodel.UUID("not-a-uuid"), corecontroller.UUID(uuid.MustNewUUID().String()))
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *migrationSuite) TestSetOffererControllerForOffererModelInvalidControllerUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Act: an invalid controller UUID is rejected by the service before
+	// reaching state.
+	err := s.service(c).SetOffererControllerForOffererModel(
+		c.Context(), coremodel.UUID(uuid.MustNewUUID().String()), corecontroller.UUID("not-a-uuid"))
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *migrationSuite) TestSetOffererControllerForOffererModels(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	modelA := coremodel.UUID(uuid.MustNewUUID().String())
+	modelB := coremodel.UUID(uuid.MustNewUUID().String())
+	controllerUUID := corecontroller.UUID(uuid.MustNewUUID().String())
+	s.modelMigrationState.EXPECT().SetOffererControllerForOffererModels(
+		gomock.Any(), []string{modelA.String(), modelB.String()}, controllerUUID.String()).Return(nil)
+
+	// Act
+	err := s.service(c).SetOffererControllerForOffererModels(
+		c.Context(), []coremodel.UUID{modelA, modelB}, controllerUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *migrationSuite) TestSetOffererControllerForOffererModelsInvalidModelUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Act: an invalid entry in the model UUID slice is rejected by the service
+	// before reaching state.
+	err := s.service(c).SetOffererControllerForOffererModels(
+		c.Context(),
+		[]coremodel.UUID{coremodel.UUID(uuid.MustNewUUID().String()), "not-a-uuid"},
+		corecontroller.UUID(uuid.MustNewUUID().String()),
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *migrationSuite) TestSetOffererControllerForOffererModelsInvalidControllerUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Act: an invalid controller UUID is rejected by the service before
+	// reaching state.
+	err := s.service(c).SetOffererControllerForOffererModels(
+		c.Context(), []coremodel.UUID{coremodel.UUID(uuid.MustNewUUID().String())}, corecontroller.UUID("not-a-uuid"))
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 // syntheticCharmMatcher is a custom gomock matcher that verifies

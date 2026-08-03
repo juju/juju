@@ -1,0 +1,11 @@
+name: s3
+maintainer: Juju QA <juju-qa@canonical.com>
+summary: Test S3-compatible configuration provider
+description: |
+  Test charm that publishes S3-compatible configuration over the s3
+  relation interface.
+provides:
+  s3-credentials:
+    interface: s3
+series:
+  - noble

@@ -126,6 +126,20 @@ func makeIPConfiguration(privateIPAddress string) *armnetwork.InterfaceIPConfigu
 	return ipConfiguration
 }
 
+func makeIPv6Configuration(privateIPAddress string) *armnetwork.InterfaceIPConfiguration {
+	ipConfiguration := &armnetwork.InterfaceIPConfiguration{
+		Name: new("primary-ipv6"),
+		Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+			Primary:                 new(false),
+			PrivateIPAddressVersion: to.Ptr(armnetwork.IPVersionIPv6),
+		},
+	}
+	if privateIPAddress != "" {
+		ipConfiguration.Properties.PrivateIPAddress = new(privateIPAddress)
+	}
+	return ipConfiguration
+}
+
 func makePublicIPAddress(pipName, vmName, ipAddress string) *armnetwork.PublicIPAddress {
 	tags := map[string]*string{"juju-machine-name": &vmName}
 	pip := &armnetwork.PublicIPAddress{
@@ -313,7 +327,7 @@ func (s *instanceSuite) TestMultipleInstanceAddresses(c *tc.C) {
 func (s *instanceSuite) TestIngressRulesEmpty(c *tc.C) {
 	inst := s.getInstance(c, "machine-0")
 	fwInst, ok := inst.(instances.InstanceFirewaller)
-	c.Assert(ok, tc.Equals, true)
+	c.Assert(ok, tc.IsTrue)
 	nsgSender := networkSecurityGroupSender(nil)
 	s.sender = azuretesting.Senders{nsgSender}
 	rules, err := fwInst.IngressRules(c.Context(), "0")
@@ -442,7 +456,7 @@ func (s *instanceSuite) TestIngressRules(c *tc.C) {
 	s.sender = *nsgSender
 
 	fwInst, ok := inst.(instances.InstanceFirewaller)
-	c.Assert(ok, tc.Equals, true)
+	c.Assert(ok, tc.IsTrue)
 
 	rules, err := fwInst.IngressRules(c.Context(), "0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -458,7 +472,7 @@ func (s *instanceSuite) TestInstanceClosePorts(c *tc.C) {
 	nsgSender := s.setupSecurityGroupRules()
 	inst := s.getInstance(c, "machine-0")
 	fwInst, ok := inst.(instances.InstanceFirewaller)
-	c.Assert(ok, tc.Equals, true)
+	c.Assert(ok, tc.IsTrue)
 
 	sender := &azuretesting.MockSender{}
 	notFoundSender := &azuretesting.MockSender{}
@@ -491,7 +505,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *tc.C) {
 	nsgSender := s.setupSecurityGroupRules()
 	inst := s.getInstance(c, "machine-0")
 	fwInst, ok := inst.(instances.InstanceFirewaller)
-	c.Assert(ok, tc.Equals, true)
+	c.Assert(ok, tc.IsTrue)
 
 	okSender := &azuretesting.MockSender{}
 	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}")) //nolint:bodyclose
@@ -583,7 +597,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *tc.C) {
 	nsgSender := s.setupSecurityGroupRules(nsgRule)
 	inst := s.getInstance(c, "machine-0")
 	fwInst, ok := inst.(instances.InstanceFirewaller)
-	c.Assert(ok, tc.Equals, true)
+	c.Assert(ok, tc.IsTrue)
 
 	okSender := &azuretesting.MockSender{}
 	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}")) //nolint:bodyclose
@@ -621,10 +635,512 @@ func (s *instanceSuite) TestInstanceOpenPortsNoInternalAddress(c *tc.C) {
 	}
 	inst := s.getInstance(c, "machine-0")
 	fwInst, ok := inst.(instances.InstanceFirewaller)
-	c.Assert(ok, tc.Equals, true)
+	c.Assert(ok, tc.IsTrue)
 	err := fwInst.OpenPorts(c.Context(), "0", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.requests, tc.HasLen, 0)
+}
+
+func (s *instanceSuite) TestInstanceOpenPortsDualStack(c *tc.C) {
+	// Dual-stack NIC with both IPv4 (10.0.0.4) and IPv6 (fd00::4) addresses.
+	nsg := &armnetwork.SecurityGroup{
+		ID:   &internalSecurityGroupPath,
+		Name: new("juju-internal-nsg"),
+		Properties: &armnetwork.SecurityGroupPropertiesFormat{
+			SecurityRules: []*armnetwork.SecurityRule{},
+		},
+	}
+	nic0IPv4Config := makeIPConfiguration("10.0.0.4")
+	nic0IPv4Config.Properties.Primary = new(true)
+	nic0IPv4Config.Properties.Subnet = &armnetwork.Subnet{
+		ID: &internalSubnetPath,
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			NetworkSecurityGroup: nsg,
+		},
+	}
+	nic0IPv6Config := makeIPv6Configuration("fd00::4")
+	nic0IPv6Config.Properties.Subnet = &armnetwork.Subnet{
+		ID: &internalSubnetPath,
+	}
+	nic0 := makeNetworkInterface("nic-0", "machine-0", nic0IPv4Config, nic0IPv6Config)
+
+	s.networkInterfaces = []*armnetwork.Interface{nic0}
+
+	inst := s.getInstance(c, "machine-0")
+	fwInst, ok := inst.(instances.InstanceFirewaller)
+	c.Assert(ok, tc.IsTrue)
+
+	subnetSender := makeSender(internalSubnetPath, nic0IPv4Config.Properties.Subnet)
+	okSender := &azuretesting.MockSender{}
+	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}")) //nolint:bodyclose
+	// Five requests: 1 subnet GET + 4 PUTs (IPv4 wildcard, IPv4
+	// specific, IPv6 wildcard, specific IPv6)
+	s.sender = azuretesting.Senders{subnetSender, okSender, okSender, okSender, okSender}
+
+	// Rules with IPv4 wildcard, IPv4 specific, IPv6 wildcard, and
+	// specific IPv6 sources
+	err := fwInst.OpenPorts(c.Context(), "0", firewall.IngressRules{
+		firewall.NewIngressRule(corenetwork.MustParsePortRange("4321/tcp")),                               // IPv4 wildcard (*)
+		firewall.NewIngressRule(corenetwork.MustParsePortRange("1234/tcp"), "10.0.0.0/24"),                // IPv4 specific
+		firewall.NewIngressRule(corenetwork.MustParsePortRange("5678/tcp"), firewall.AllNetworksIPV6CIDR), // IPv6 wildcard
+		firewall.NewIngressRule(corenetwork.MustParsePortRange("9999/tcp"), "2002:db8::1/128"),            // Specific IPv6
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(s.requests, tc.HasLen, 5)
+	// Request 0: GET subnet (to resolve security group)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET")
+	c.Assert(s.requests[0].URL.Path, tc.Equals, internalSubnetPath)
+
+	// Request 1: PUT IPv4 rule for wildcard source → IPv4 destination
+	c.Assert(s.requests[1].Method, tc.Equals, "PUT")
+	c.Assert(s.requests[1].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-4321"))
+	assertRequestBody(c, s.requests[1], &armnetwork.SecurityRule{
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Description:              new("4321/tcp from *"),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			SourcePortRange:          new("*"),
+			SourceAddressPrefix:      new("*"),
+			DestinationPortRange:     new("4321"),
+			DestinationAddressPrefix: new("10.0.0.4"), // IPv4 destination
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 new(int32(200)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+		},
+	})
+
+	// Request 2: PUT IPv4 rule for IPv4 source → IPv4 destination
+	c.Assert(s.requests[2].Method, tc.Equals, "PUT")
+	c.Assert(s.requests[2].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-1234-cidr-10-0-0-0-24"))
+	assertRequestBody(c, s.requests[2], &armnetwork.SecurityRule{
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Description:              new("1234/tcp from 10.0.0.0/24"),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			SourcePortRange:          new("*"),
+			SourceAddressPrefix:      new("10.0.0.0/24"),
+			DestinationPortRange:     new("1234"),
+			DestinationAddressPrefix: new("10.0.0.4"), // IPv4 destination
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 new(int32(201)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+		},
+	})
+
+	// Request 3: PUT IPv6 rule for IPv6 wildcard source → IPv6 destination
+	c.Assert(s.requests[3].Method, tc.Equals, "PUT")
+	c.Assert(s.requests[3].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-5678-v6"))
+	assertRequestBody(c, s.requests[3], &armnetwork.SecurityRule{
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Description:              new("5678/tcp"),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			SourcePortRange:          new("*"),
+			SourceAddressPrefix:      new(firewall.AllNetworksIPV6CIDR), // IPv6 wildcard source
+			DestinationPortRange:     new("5678"),
+			DestinationAddressPrefix: new("fd00::4"), // IPv6 destination
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 new(int32(202)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+		},
+	})
+
+	// Request 4: PUT IPv6 rule for specific IPv6 source → IPv6 destination
+	c.Assert(s.requests[4].Method, tc.Equals, "PUT")
+	assertRequestBody(c, s.requests[4], &armnetwork.SecurityRule{
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Description:              new("9999/tcp from 2002:db8::1/128"),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			SourcePortRange:          new("*"),
+			SourceAddressPrefix:      new("2002:db8::1/128"), // Specific IPv6 source
+			DestinationPortRange:     new("9999"),
+			DestinationAddressPrefix: new("fd00::4"), // IPv6 destination
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 new(int32(203)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+		},
+	})
+}
+
+func (s *instanceSuite) TestInstanceOpenPortsDualStackSamePort(c *tc.C) {
+	// Regression test: a single ingress rule with BOTH IPv4 and IPv6
+	// wildcards for the SAME port must produce two distinct NSG rules.
+	// Previously both got the same securityRuleName (no -v6 suffix),
+	// causing the IPv6 rule to be silently skipped as a duplicate.
+	nsg := &armnetwork.SecurityGroup{
+		ID:   &internalSecurityGroupPath,
+		Name: new("juju-internal-nsg"),
+		Properties: &armnetwork.SecurityGroupPropertiesFormat{
+			SecurityRules: []*armnetwork.SecurityRule{},
+		},
+	}
+	nic0IPv4Config := makeIPConfiguration("10.0.0.4")
+	nic0IPv4Config.Properties.Primary = new(true)
+	nic0IPv4Config.Properties.Subnet = &armnetwork.Subnet{
+		ID: &internalSubnetPath,
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			NetworkSecurityGroup: nsg,
+		},
+	}
+	nic0IPv6Config := makeIPv6Configuration("fd00::4")
+	nic0IPv6Config.Properties.Subnet = &armnetwork.Subnet{
+		ID: &internalSubnetPath,
+	}
+	nic0 := makeNetworkInterface("nic-0", "machine-0", nic0IPv4Config, nic0IPv6Config)
+
+	s.networkInterfaces = []*armnetwork.Interface{nic0}
+
+	inst := s.getInstance(c, "machine-0")
+	fwInst, ok := inst.(instances.InstanceFirewaller)
+	c.Assert(ok, tc.IsTrue)
+
+	subnetSender := makeSender(internalSubnetPath, nic0IPv4Config.Properties.Subnet)
+	okSender := &azuretesting.MockSender{}
+	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}")) //nolint:bodyclose
+	// Three requests: 1 subnet GET + 2 PUTs (IPv4 wildcard, IPv6 wildcard).
+	// CIDRs sort lexicographically: "0.0.0.0/0" before "::/0", so IPv4
+	// rule is created first.
+	s.sender = azuretesting.Senders{subnetSender, okSender, okSender}
+
+	// Single rule with BOTH IPv4 and IPv6 wildcards for the same port —
+	// this is what the firewaller actually sends after juju expose.
+	err := fwInst.OpenPorts(c.Context(), "0", firewall.IngressRules{
+		firewall.NewIngressRule(
+			corenetwork.MustParsePortRange("80/tcp"),
+			firewall.AllNetworksIPV4CIDR,
+			firewall.AllNetworksIPV6CIDR,
+		),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(s.requests, tc.HasLen, 3)
+
+	// Request 0: GET subnet (to resolve security group)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET")
+	c.Assert(s.requests[0].URL.Path, tc.Equals, internalSubnetPath)
+
+	// Request 1: PUT IPv4 wildcard rule → IPv4 destination.
+	// String() omits wildcard CIDRs from the description.
+	c.Assert(s.requests[1].Method, tc.Equals, "PUT")
+	c.Assert(s.requests[1].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-80"))
+	assertRequestBody(c, s.requests[1], &armnetwork.SecurityRule{
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Description:              new("80/tcp"),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			SourcePortRange:          new("*"),
+			SourceAddressPrefix:      new(firewall.AllNetworksIPV4CIDR),
+			DestinationPortRange:     new("80"),
+			DestinationAddressPrefix: new("10.0.0.4"),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 new(int32(200)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+		},
+	})
+
+	// Request 2: PUT IPv6 wildcard rule → IPv6 destination
+	c.Assert(s.requests[2].Method, tc.Equals, "PUT")
+	c.Assert(s.requests[2].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-80-v6"))
+	assertRequestBody(c, s.requests[2], &armnetwork.SecurityRule{
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Description:              new("80/tcp"),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			SourcePortRange:          new("*"),
+			SourceAddressPrefix:      new(firewall.AllNetworksIPV6CIDR),
+			DestinationPortRange:     new("80"),
+			DestinationAddressPrefix: new("fd00::4"),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 new(int32(201)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+		},
+	})
+}
+
+func (s *instanceSuite) TestInstanceOpenPortsIPv6NilPrivateIPAddress(c *tc.C) {
+	// Dual-stack NIC with an IPv6 config that has nil PrivateIPAddress
+	// (skipped) followed by a valid IPv6 config. The IPv6 rule should
+	// route to the valid IPv6 address.
+	nsg := &armnetwork.SecurityGroup{
+		ID:   &internalSecurityGroupPath,
+		Name: new("juju-internal-nsg"),
+		Properties: &armnetwork.SecurityGroupPropertiesFormat{
+			SecurityRules: []*armnetwork.SecurityRule{},
+		},
+	}
+	nic0IPv4Config := makeIPConfiguration("10.0.0.4")
+	nic0IPv4Config.Properties.Primary = new(true)
+	nic0IPv4Config.Properties.Subnet = &armnetwork.Subnet{
+		ID: &internalSubnetPath,
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			NetworkSecurityGroup: nsg,
+		},
+	}
+	nic0IPv6ConfigNil := makeIPv6Configuration("")
+	nic0IPv6Config := makeIPv6Configuration("fd00::4")
+	nic0 := makeNetworkInterface(
+		"nic-0", "machine-0",
+		nic0IPv4Config, nic0IPv6ConfigNil, nic0IPv6Config,
+	)
+
+	s.networkInterfaces = []*armnetwork.Interface{nic0}
+
+	inst := s.getInstance(c, "machine-0")
+	fwInst, ok := inst.(instances.InstanceFirewaller)
+	c.Assert(ok, tc.IsTrue)
+
+	subnetSender := makeSender(internalSubnetPath, nic0IPv4Config.Properties.Subnet)
+	okSender := &azuretesting.MockSender{}
+	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}")) //nolint:bodyclose
+	// Two requests: 1 subnet GET + 1 PUT (IPv6 wildcard)
+	s.sender = azuretesting.Senders{subnetSender, okSender}
+
+	err := fwInst.OpenPorts(c.Context(), "0", firewall.IngressRules{
+		firewall.NewIngressRule(corenetwork.MustParsePortRange("5678/tcp"), firewall.AllNetworksIPV6CIDR),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(s.requests, tc.HasLen, 2)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET")
+	// IPv6 wildcard rule should route to the valid IPv6 address.
+	c.Assert(s.requests[1].Method, tc.Equals, "PUT")
+	assertRequestBody(c, s.requests[1], &armnetwork.SecurityRule{
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Description:              new("5678/tcp"),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			SourcePortRange:          new("*"),
+			SourceAddressPrefix:      new(firewall.AllNetworksIPV6CIDR),
+			DestinationPortRange:     new("5678"),
+			DestinationAddressPrefix: new("fd00::4"),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 new(int32(200)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+		},
+	})
+}
+
+func (s *instanceSuite) TestInstanceOpenPortsIPv6OnIPv4OnlyNIC(c *tc.C) {
+	// IPv4-only NIC with no IPv6 configuration.
+	nsg := &armnetwork.SecurityGroup{
+		ID:   &internalSecurityGroupPath,
+		Name: new("juju-internal-nsg"),
+		Properties: &armnetwork.SecurityGroupPropertiesFormat{
+			SecurityRules: []*armnetwork.SecurityRule{},
+		},
+	}
+	nic0IPv4Config := makeIPConfiguration("10.0.0.4")
+	nic0IPv4Config.Properties.Primary = new(true)
+	nic0IPv4Config.Properties.Subnet = &armnetwork.Subnet{
+		ID: &internalSubnetPath,
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			NetworkSecurityGroup: nsg,
+		},
+	}
+	nic0 := makeNetworkInterface("nic-0", "machine-0", nic0IPv4Config)
+
+	s.networkInterfaces = []*armnetwork.Interface{nic0}
+
+	inst := s.getInstance(c, "machine-0")
+	fwInst, ok := inst.(instances.InstanceFirewaller)
+	c.Assert(ok, tc.IsTrue)
+
+	subnetSender := makeSender(internalSubnetPath, nic0IPv4Config.Properties.Subnet)
+	okSender := &azuretesting.MockSender{}
+	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}")) //nolint:bodyclose
+	// Two requests: 1 subnet GET + 1 PUT (IPv6 rule skipped, no PUT)
+	s.sender = azuretesting.Senders{subnetSender, okSender}
+
+	// Try to open IPv4, IPv6 wildcard, and specific IPv6 CIDR rules
+	err := fwInst.OpenPorts(c.Context(), "0", firewall.IngressRules{
+		firewall.NewIngressRule(corenetwork.MustParsePortRange("1234/tcp"), "10.0.0.0/24"),                // IPv4
+		firewall.NewIngressRule(corenetwork.MustParsePortRange("5678/tcp"), firewall.AllNetworksIPV6CIDR), // IPv6 wildcard - should skip
+		firewall.NewIngressRule(corenetwork.MustParsePortRange("9999/tcp"), "2002:db8::1/128"),            // Specific IPv6 - should skip
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Should have only 2 requests: GET NSG, PUT IPv4 rule
+	// (both IPv6 rules skipped, no PUT)
+	c.Assert(s.requests, tc.HasLen, 2)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET")
+	c.Assert(s.requests[1].Method, tc.Equals, "PUT")
+	c.Assert(s.requests[1].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-1234-cidr-10-0-0-0-24"))
+}
+
+func (s *instanceSuite) TestIngressRulesIPv6Wildcard(c *tc.C) {
+	// NSG rule with wildcard source and IPv6 destination should normalise to "::/0",
+	// not "0.0.0.0/0".
+	nsgRules := []*armnetwork.SecurityRule{{
+		Name: new("machine-0-tcp-1234"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			DestinationPortRange:     new("1234"),
+			SourceAddressPrefix:      new("*"),       // Wildcard needs normalisation
+			DestinationAddressPrefix: new("fd00::4"), // IPv6 destination
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 new(int32(200)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+		},
+	}, {
+		Name: new("machine-0-tcp-5678"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			DestinationPortRange:     new("5678"),
+			SourceAddressPrefix:      new("*"),        // Wildcard on IPv4 destination
+			DestinationAddressPrefix: new("10.0.0.4"), // IPv4 destination
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 new(int32(201)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+		},
+	}}
+
+	nsgSender := s.setupSecurityGroupRules(nsgRules...)
+	inst := s.getInstance(c, "machine-0")
+	s.sender = *nsgSender
+
+	fwInst, ok := inst.(instances.InstanceFirewaller)
+	c.Assert(ok, tc.IsTrue)
+
+	rules, err := fwInst.IngressRules(c.Context(), "0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Should have two rules:
+	// - IPv6 wildcard normalized to "::/0" for port 1234
+	// - IPv4 wildcard normalized to "0.0.0.0/0" for port 5678
+	c.Assert(rules, tc.HasLen, 2)
+	c.Assert(rules[0], tc.DeepEquals, firewall.NewIngressRule(corenetwork.MustParsePortRange("1234/tcp"), firewall.AllNetworksIPV6CIDR))
+	c.Assert(rules[1], tc.DeepEquals, firewall.NewIngressRule(corenetwork.MustParsePortRange("5678/tcp"), firewall.AllNetworksIPV4CIDR))
+}
+
+func (s *instanceSuite) TestInstanceClosePortsDualStack(c *tc.C) {
+	// Verify that ClosePorts works correctly for dual-stack machines.
+	// Both IPv4 and IPv6 rules should be deleted by their correct names.
+	nsgRules := []*armnetwork.SecurityRule{{
+		Name: new("machine-0-tcp-1234"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			DestinationPortRange: new("1234"),
+			SourceAddressPrefix:  new("10.0.0.0/24"),
+			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:             new(int32(200)),
+			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+		},
+	}, {
+		Name: new("machine-0-tcp-5678-cidr-2002-db8--1-128"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			DestinationPortRange: new("5678"),
+			SourceAddressPrefix:  new("2002:db8::1/128"),
+			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:             new(int32(201)),
+			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+		},
+	}}
+
+	nsgSender := s.setupSecurityGroupRules(nsgRules...)
+	inst := s.getInstance(c, "machine-0")
+	fwInst, ok := inst.(instances.InstanceFirewaller)
+	c.Assert(ok, tc.IsTrue)
+
+	sender := &azuretesting.MockSender{}
+	notFoundSender := &azuretesting.MockSender{}
+	notFoundSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus( //nolint:bodyclose
+		"rule not found", http.StatusNotFound,
+	), 2)
+	s.sender = azuretesting.Senders{nsgSender, sender, sender, notFoundSender}
+
+	err := fwInst.ClosePorts(c.Context(), "0", firewall.IngressRules{
+		firewall.NewIngressRule(corenetwork.MustParsePortRange("1234/tcp"), "10.0.0.0/24"),
+		firewall.NewIngressRule(corenetwork.MustParsePortRange("5678/tcp"), "2002:db8::1/128"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// GET NSG, DELETE IPv4 rule, DELETE IPv6 rule
+	c.Assert(s.requests, tc.HasLen, 3)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET")
+	c.Assert(s.requests[1].Method, tc.Equals, "DELETE")
+	c.Assert(s.requests[1].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-1234-cidr-10-0-0-0-24"))
+	c.Assert(s.requests[2].Method, tc.Equals, "DELETE")
+	c.Assert(s.requests[2].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-5678-cidr-2002-db8--1-128"))
+}
+
+func (s *instanceSuite) TestInstanceClosePortsDualStackWildcard(c *tc.C) {
+	// Regression test: ClosePorts must delete both IPv4 and IPv6 wildcard
+	// rules for the same port. Previously both computed the same
+	// securityRuleName, so only one DELETE was ever issued.
+	nsgRules := []*armnetwork.SecurityRule{{
+		Name: new("machine-0-tcp-80"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			DestinationPortRange:     new("80"),
+			SourceAddressPrefix:      new("0.0.0.0/0"),
+			DestinationAddressPrefix: new("10.0.0.4"),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 new(int32(200)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+		},
+	}, {
+		Name: new("machine-0-tcp-80-v6"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			DestinationPortRange:     new("80"),
+			SourceAddressPrefix:      new("::/0"),
+			DestinationAddressPrefix: new("fd00::4"),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 new(int32(201)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+		},
+	}}
+
+	nsg := &armnetwork.SecurityGroup{
+		ID:   &internalSecurityGroupPath,
+		Name: new("juju-internal-nsg"),
+		Properties: &armnetwork.SecurityGroupPropertiesFormat{
+			SecurityRules: nsgRules,
+		},
+	}
+	nic0IPv4Config := makeIPConfiguration("10.0.0.4")
+	nic0IPv4Config.Properties.Primary = new(true)
+	nic0IPv4Config.Properties.Subnet = &armnetwork.Subnet{
+		ID: &internalSubnetPath,
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			NetworkSecurityGroup: nsg,
+		},
+	}
+	nic0IPv6Config := makeIPv6Configuration("fd00::4")
+	nic0IPv6Config.Properties.Subnet = &armnetwork.Subnet{
+		ID: &internalSubnetPath,
+	}
+	nic0 := makeNetworkInterface("nic-0", "machine-0", nic0IPv4Config, nic0IPv6Config)
+
+	s.networkInterfaces = []*armnetwork.Interface{nic0}
+
+	inst := s.getInstance(c, "machine-0")
+	fwInst, ok := inst.(instances.InstanceFirewaller)
+	c.Assert(ok, tc.IsTrue)
+
+	subnetSender := makeSender(internalSubnetPath, nic0IPv4Config.Properties.Subnet)
+	nsgSender := networkSecurityGroupSender(nsgRules)
+	okSender := &azuretesting.MockSender{}
+	notFoundSender := &azuretesting.MockSender{}
+	notFoundSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus( //nolint:bodyclose
+		"rule not found", http.StatusNotFound,
+	), 2)
+	s.sender = azuretesting.Senders{subnetSender, nsgSender, okSender, okSender, notFoundSender}
+
+	// Single rule with BOTH wildcards for the same port — mirrors the
+	// real firewaller flow after juju expose.
+	err := fwInst.ClosePorts(c.Context(), "0", firewall.IngressRules{
+		firewall.NewIngressRule(
+			corenetwork.MustParsePortRange("80/tcp"),
+			firewall.AllNetworksIPV4CIDR,
+			firewall.AllNetworksIPV6CIDR,
+		),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// GET NSG + 2 DELETEs with distinct paths
+	c.Assert(s.requests, tc.HasLen, 3)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET")
+	c.Assert(s.requests[1].Method, tc.Equals, "DELETE")
+	c.Assert(s.requests[1].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-80"))
+	c.Assert(s.requests[2].Method, tc.Equals, "DELETE")
+	c.Assert(s.requests[2].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-80-v6"))
 }
 
 func (s *instanceSuite) TestAllInstances(c *tc.C) {
@@ -677,4 +1193,62 @@ var internalSubnetPath = path.Join(
 
 func securityRulePath(ruleName string) string {
 	return path.Join(internalSecurityGroupPath, "securityRules", ruleName)
+}
+
+func TestIsIPv6SourceCIDR(t *stdtesting.T) {
+	tests := []struct {
+		name   string
+		from   string
+		expect bool
+	}{
+		{
+			name:   "IPv6 wildcard",
+			from:   "::/0",
+			expect: true,
+		},
+		{
+			name:   "specific IPv6 CIDR",
+			from:   "2002:db8::1/128",
+			expect: true,
+		},
+		{
+			name:   "IPv6 CIDR range",
+			from:   "fd00::/64",
+			expect: true,
+		},
+		{
+			name:   "IPv4 wildcard",
+			from:   "0.0.0.0/0",
+			expect: false,
+		},
+		{
+			name:   "Azure wildcard star",
+			from:   "*",
+			expect: false,
+		},
+		{
+			name:   "empty string",
+			from:   "",
+			expect: false,
+		},
+		{
+			name:   "specific IPv4 CIDR",
+			from:   "10.0.0.0/8",
+			expect: false,
+		},
+		{
+			name:   "invalid CIDR falls back to IPv4",
+			from:   "not-a-cidr",
+			expect: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *stdtesting.T) {
+			got := azure.IsIPv6SourceCIDR(tt.from)
+			if got != tt.expect {
+				t.Errorf("IsIPv6SourceCIDR(%q) = %v, want %v", tt.from, got, tt.expect)
+			}
+		})
+	}
 }

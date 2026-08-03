@@ -1,21 +1,21 @@
 run_simplestream_metadata_last_stable() {
-	local jujud_version previous_version
+	local jujuagentd_version previous_version
 
-	jujud_version=$(jujud_version)
-	previous_version=$(last_stable_version "${jujud_version}")
+	jujuagentd_version=$(jujuagentd_version)
+	previous_version=$(last_stable_version "${jujuagentd_version}")
 	if [[ $previous_version == '--' ]]; then
-		echo "SKIPPING: no stable release for version ${jujud_version}"
+		echo "SKIPPING: no stable release for version ${jujuagentd_version}"
 		exit 0
 	fi
 
-	exec_simplestream_metadata "stable" "juju" "${jujud_version}" "${previous_version}"
+	exec_simplestream_metadata "stable" "juju" "${jujuagentd_version}" "${previous_version}"
 }
 
 run_simplestream_metadata_prior_stable() {
-	local jujud_version previous_version
+	local jujuagentd_version previous_version
 
-	jujud_version=$(jujud_version)
-	previous_version=$(prior_stable_version "${jujud_version}")
+	jujuagentd_version=$(jujuagentd_version)
+	previous_version=$(prior_stable_version "${jujuagentd_version}")
 	major=$(echo "${previous_version}" | cut -d '.' -f 1)
 	minor=$(echo "${previous_version}" | cut -d '.' -f 2)
 
@@ -33,20 +33,20 @@ run_simplestream_metadata_prior_stable() {
 		sudo snap "${action}" juju --classic --channel "${major}.${minor}/stable" "${opts}" 2>&1 && break || sleep 10
 	done
 
-	exec_simplestream_metadata "prior" "/snap/bin/juju" "${jujud_version}" "${previous_version}"
+	exec_simplestream_metadata "prior" "/snap/bin/juju" "${jujuagentd_version}" "${previous_version}"
 }
 
 exec_simplestream_metadata() {
-	local test_name version jujud_version stable_version
+	local test_name version jujuagentd_version stable_version
 
-	version=$(jujud version)
+	version=$(jujuagentd version)
 
 	test_name=${1}
 	bootstrap_juju_client=${2}
-	jujud_version=${3}
+	jujuagentd_version=${3}
 	stable_version=${4}
 
-	echo "===> Using jujud version ${version}"
+	echo "===> Using jujuagentd version ${version}"
 	echo "===> Testing against stable version ${stable_version}"
 
 	add_clean_func "remove_upgrade_tools"
@@ -89,7 +89,7 @@ exec_simplestream_metadata() {
 	CURRENT=$(juju machines -m controller --format=json | yq -r '.machines | .["0"] | .["juju-status"] | .version')
 	echo "==> Current juju version ${CURRENT}"
 
-	juju upgrade-controller --agent-version="${jujud_version}"
+	juju upgrade-controller --agent-version="${jujuagentd_version}"
 
 	attempt=0
 	while true; do
@@ -212,15 +212,15 @@ series_version() {
 }
 
 add_upgrade_tools() {
-	local version jujud_path
+	local version jujuagentd_path
 
 	version=${1}
 
-	jujud_path=$(which jujud)
-	cp "${jujud_path}" "${TEST_DIR}"
+	jujuagentd_path=$(which jujuagentd)
+	cp "${jujuagentd_path}" "${TEST_DIR}"
 	cd "${TEST_DIR}" || exit
 
-	tar -zcvf "juju-${version}.tgz" jujud >/dev/null
+	tar -zcvf "juju-${version}.tgz" jujuagentd >/dev/null
 	cd "${CURRENT_DIR}/.." || exit
 
 	mkdir -p "./tests/suites/upgrade/streams/tools/released/"

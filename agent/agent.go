@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/semversion"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -42,6 +41,26 @@ const (
 
 	// BootstrapControllerId is the ID of the initial controller.
 	BootstrapControllerId = "0"
+
+	// DefaultOpenTelemetryEnabled is the default value for whether open
+	// telemetry tracing is enabled.
+	DefaultOpenTelemetryEnabled = false
+
+	// DefaultOpenTelemetryInsecure is the default value for whether the open
+	// telemetry tracing endpoint is insecure.
+	DefaultOpenTelemetryInsecure = false
+
+	// DefaultOpenTelemetryStackTraces is the default value for whether open
+	// telemetry tracing has stack traces.
+	DefaultOpenTelemetryStackTraces = false
+
+	// DefaultOpenTelemetrySampleRatio is the default sample ratio for open
+	// telemetry.
+	DefaultOpenTelemetrySampleRatio = 0.1
+
+	// DefaultOpenTelemetryTailSamplingThreshold is the default tail sampling
+	// threshold for open telemetry.
+	DefaultOpenTelemetryTailSamplingThreshold = time.Millisecond
 )
 
 // These are base values used for the corresponding defaults.
@@ -253,6 +272,24 @@ type Config interface {
 	// changes this value is saved.
 	LoggingConfig() string
 
+	// LokiEndpoint returns the Loki endpoint for this agent. Empty means
+	// logs are sent through the controller logsink.
+	LokiEndpoint() string
+
+	// LokiCACert returns the CA certificate used to validate the Loki
+	// endpoint.
+	LokiCACert() string
+
+	// LokiInsecureSkipVerify returns whether TLS validation is disabled for
+	// the Loki endpoint. A nil value means the default (verify enabled) is
+	// in effect when connecting to the Loki endpoint, while true/false are
+	// explicit values.
+	LokiInsecureSkipVerify() *bool
+
+	// LokiOrgID returns the organization/tenant ID for multi-tenant Loki
+	// deployments. Empty means no X-Scope-OrgID header is sent.
+	LokiOrgID() string
+
 	// Value returns the value associated with the key, or an empty string if
 	// the key is not found.
 	Value(key string) string
@@ -290,9 +327,17 @@ type Config interface {
 	// OpenTelemetryEnabled returns whether the open telemetry is enabled.
 	OpenTelemetryEnabled() bool
 
-	// OpenTelemetryEndpoint returns the endpoint to use for open telemetry
-	// collection.
-	OpenTelemetryEndpoint() string
+	// OpenTelemetryHTTPEndpoint returns the HTTP endpoint to use for open
+	// telemetry collection.
+	OpenTelemetryHTTPEndpoint() string
+
+	// OpenTelemetryGRPCEndpoint returns the gRPC endpoint to use for open
+	// telemetry collection.
+	OpenTelemetryGRPCEndpoint() string
+
+	// OpenTelemetryCACertificate returns the CA certificate to use for open
+	// telemetry collection.
+	OpenTelemetryCACertificate() string
 
 	// OpenTelemetryInsecure returns if the endpoint is insecure. This is useful
 	// for local/development testing
@@ -309,9 +354,6 @@ type Config interface {
 	// OpenTelemetryTailSamplingThreshold returns the threshold for tail-based
 	// sampling. The lower the threshold, the more spans will be sampled.
 	OpenTelemetryTailSamplingThreshold() time.Duration
-
-	// ObjectStoreType returns the type of object store to use.
-	ObjectStoreType() objectstore.BackendType
 
 	// DqlitePort returns the port that should be used by Dqlite. This should
 	// only be set during testing.
@@ -353,6 +395,10 @@ type configSetterOnly interface {
 	// SetLoggingConfig sets the logging config value for the agent.
 	SetLoggingConfig(string)
 
+	// SetLokiConfig sets the Loki config values for the agent. The endpoint,
+	// CA certificate, insecure skip verify flag, and org ID are updated together.
+	SetLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool, orgID string)
+
 	// SetQueryTracingEnabled sets whether query tracing is enabled.
 	SetQueryTracingEnabled(bool)
 
@@ -366,9 +412,17 @@ type configSetterOnly interface {
 	// SetOpenTelemetryEnabled sets whether open telemetry is enabled.
 	SetOpenTelemetryEnabled(bool)
 
-	// SetOpenTelemetryEndpoint sets the endpoint to use for open telemetry
-	// collection.
-	SetOpenTelemetryEndpoint(string)
+	// SetOpenTelemetryHTTPEndpoint sets the HTTP endpoint to use for open
+	// telemetry collection.
+	SetOpenTelemetryHTTPEndpoint(string)
+
+	// SetOpenTelemetryGRPCEndpoint sets the gRPC endpoint to use for open
+	// telemetry collection.
+	SetOpenTelemetryGRPCEndpoint(string)
+
+	// SetOpenTelemetryCACertificate sets the CA certificate to use for open
+	// telemetry collection.
+	SetOpenTelemetryCACertificate(string)
 
 	// SetOpenTelemetryInsecure sets if the endpoint is insecure. This is
 	// useful for local/development testing
@@ -385,9 +439,6 @@ type configSetterOnly interface {
 	// SetOpenTelemetryTailSamplingThreshold sets the threshold for tail-based
 	// sampling. The lower the threshold, the more spans will be sampled.
 	SetOpenTelemetryTailSamplingThreshold(time.Duration)
-
-	// SetObjectStoreType sets the type of object store to use.
-	SetObjectStoreType(objectstore.BackendType)
 }
 
 // LogFileName returns the filename for the Agent's log file.
@@ -458,6 +509,10 @@ type configInternal struct {
 	oldPassword                        string
 	controllerAgentInfo                *controller.ControllerAgentInfo
 	loggingConfig                      string
+	lokiEndpoint                       string
+	lokiCACert                         string
+	lokiInsecureSkipVerify             *bool
+	lokiOrgID                          string
 	values                             map[string]string
 	agentLogfileMaxSizeMB              int
 	agentLogfileMaxBackups             int
@@ -465,12 +520,13 @@ type configInternal struct {
 	queryTracingThreshold              time.Duration
 	dqliteBusyTimeout                  time.Duration
 	openTelemetryEnabled               bool
-	openTelemetryEndpoint              string
+	openTelemetryHTTPEndpoint          string
+	openTelemetryGRPCEndpoint          string
+	openTelemetryCACertificate         string
 	openTelemetryInsecure              bool
 	openTelemetryStackTraces           bool
 	openTelemetrySampleRatio           float64
 	openTelemetryTailSamplingThreshold time.Duration
-	objectStoreType                    objectstore.BackendType
 	dqlitePort                         int
 }
 
@@ -494,13 +550,27 @@ type AgentConfigParams struct {
 	QueryTracingThreshold              time.Duration
 	DqliteBusyTimeout                  time.Duration
 	OpenTelemetryEnabled               bool
-	OpenTelemetryEndpoint              string
+	OpenTelemetryHTTPEndpoint          string
+	OpenTelemetryGRPCEndpoint          string
+	OpenTelemetryCACertificate         string
 	OpenTelemetryInsecure              bool
 	OpenTelemetryStackTraces           bool
 	OpenTelemetrySampleRatio           float64
 	OpenTelemetryTailSamplingThreshold time.Duration
-	ObjectStoreType                    objectstore.BackendType
 	DqlitePort                         int
+
+	// LokiEndpoint is the initial Loki push API endpoint for this agent.
+	// Empty means logs are sent through the controller logsink.
+	LokiEndpoint string
+	// LokiCACert is the CA certificate used to validate the Loki endpoint.
+	LokiCACert string
+	// LokiInsecureSkipVerify controls whether TLS validation is disabled
+	// for the Loki endpoint. A nil value means the default (verify
+	// enabled) is in effect.
+	LokiInsecureSkipVerify *bool
+	// LokiOrgID is the organization/tenant ID for multi-tenant Loki
+	// deployments. Empty means no X-Scope-OrgID header is sent.
+	LokiOrgID string
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -566,13 +636,18 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		queryTracingThreshold:              configParams.QueryTracingThreshold,
 		dqliteBusyTimeout:                  configParams.DqliteBusyTimeout,
 		openTelemetryEnabled:               configParams.OpenTelemetryEnabled,
-		openTelemetryEndpoint:              configParams.OpenTelemetryEndpoint,
+		openTelemetryHTTPEndpoint:          configParams.OpenTelemetryHTTPEndpoint,
+		openTelemetryGRPCEndpoint:          configParams.OpenTelemetryGRPCEndpoint,
+		openTelemetryCACertificate:         configParams.OpenTelemetryCACertificate,
 		openTelemetryInsecure:              configParams.OpenTelemetryInsecure,
 		openTelemetryStackTraces:           configParams.OpenTelemetryStackTraces,
 		openTelemetrySampleRatio:           configParams.OpenTelemetrySampleRatio,
 		openTelemetryTailSamplingThreshold: configParams.OpenTelemetryTailSamplingThreshold,
-		objectStoreType:                    configParams.ObjectStoreType,
 		dqlitePort:                         configParams.DqlitePort,
+		lokiEndpoint:                       configParams.LokiEndpoint,
+		lokiCACert:                         configParams.LokiCACert,
+		lokiInsecureSkipVerify:             configParams.LokiInsecureSkipVerify,
+		lokiOrgID:                          configParams.LokiOrgID,
 	}
 	if len(configParams.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
@@ -676,6 +751,7 @@ func (c0 *configInternal) Clone() Config {
 		info := *c0.controllerAgentInfo
 		c1.controllerAgentInfo = &info
 	}
+	c1.lokiInsecureSkipVerify = copyBoolPointer(c0.lokiInsecureSkipVerify)
 	return &c1
 }
 
@@ -721,6 +797,49 @@ func (c *configInternal) LoggingConfig() string {
 // SetLoggingConfig implements configSetterOnly.
 func (c *configInternal) SetLoggingConfig(value string) {
 	c.loggingConfig = value
+}
+
+// LokiEndpoint implements Config.
+func (c *configInternal) LokiEndpoint() string {
+	return c.lokiEndpoint
+}
+
+// LokiCACert implements Config.
+func (c *configInternal) LokiCACert() string {
+	return c.lokiCACert
+}
+
+// LokiInsecureSkipVerify implements Config.
+func (c *configInternal) LokiInsecureSkipVerify() *bool {
+	return copyBoolPointer(c.lokiInsecureSkipVerify)
+}
+
+// LokiOrgID implements Config.
+func (c *configInternal) LokiOrgID() string {
+	return c.lokiOrgID
+}
+
+// SetLokiConfig implements configSetterOnly.
+func (c *configInternal) SetLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool, orgID string) {
+	c.lokiEndpoint = endpoint
+	if caCert != nil {
+		c.lokiCACert = *caCert
+	} else {
+		c.lokiCACert = ""
+	}
+	c.lokiInsecureSkipVerify = copyBoolPointer(insecureSkipVerify)
+	c.lokiOrgID = orgID
+}
+
+// copyBoolPointer preserves the Config snapshot contract: callers must not be
+// able to mutate shared agent config state by holding or editing returned
+// pointers outside ChangeConfig.
+func copyBoolPointer(value *bool) *bool {
+	if value == nil {
+		return nil
+	}
+	copied := *value
+	return &copied
 }
 
 func (c *configInternal) SetOldPassword(oldPassword string) {
@@ -906,14 +1025,34 @@ func (c *configInternal) SetOpenTelemetryEnabled(v bool) {
 	c.openTelemetryEnabled = v
 }
 
-// OpenTelemetryEndpoint implements Config.
-func (c *configInternal) OpenTelemetryEndpoint() string {
-	return c.openTelemetryEndpoint
+// OpenTelemetryHTTPEndpoint implements Config.
+func (c *configInternal) OpenTelemetryHTTPEndpoint() string {
+	return c.openTelemetryHTTPEndpoint
 }
 
-// SetOpenTelemetryEndpoint implements configSetterOnly.
-func (c *configInternal) SetOpenTelemetryEndpoint(v string) {
-	c.openTelemetryEndpoint = v
+// SetOpenTelemetryHTTPEndpoint implements configSetterOnly.
+func (c *configInternal) SetOpenTelemetryHTTPEndpoint(v string) {
+	c.openTelemetryHTTPEndpoint = v
+}
+
+// OpenTelemetryGRPCEndpoint implements Config.
+func (c *configInternal) OpenTelemetryGRPCEndpoint() string {
+	return c.openTelemetryGRPCEndpoint
+}
+
+// SetOpenTelemetryGRPCEndpoint implements configSetterOnly.
+func (c *configInternal) SetOpenTelemetryGRPCEndpoint(v string) {
+	c.openTelemetryGRPCEndpoint = v
+}
+
+// OpenTelemetryCACertificate implements Config.
+func (c *configInternal) OpenTelemetryCACertificate() string {
+	return c.openTelemetryCACertificate
+}
+
+// SetOpenTelemetryCACertificate implements configSetterOnly.
+func (c *configInternal) SetOpenTelemetryCACertificate(v string) {
+	c.openTelemetryCACertificate = v
 }
 
 // OpenTelemetryInsecure implements Config.
@@ -954,16 +1093,6 @@ func (c *configInternal) OpenTelemetryTailSamplingThreshold() time.Duration {
 // SetOpenTelemetryTailSamplingThreshold implements configSetterOnly.
 func (c *configInternal) SetOpenTelemetryTailSamplingThreshold(v time.Duration) {
 	c.openTelemetryTailSamplingThreshold = v
-}
-
-// ObjectStoreType implements Config.
-func (c *configInternal) ObjectStoreType() objectstore.BackendType {
-	return c.objectStoreType
-}
-
-// SetObjectStoreType implements configSetterOnly.
-func (c *configInternal) SetObjectStoreType(v objectstore.BackendType) {
-	c.objectStoreType = v
 }
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")

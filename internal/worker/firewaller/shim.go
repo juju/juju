@@ -11,44 +11,9 @@ import (
 	"github.com/juju/worker/v5"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/crossmodelrelations"
-	"github.com/juju/juju/api/controller/firewaller"
 	"github.com/juju/juju/internal/worker/apicaller"
 )
-
-// NewFirewallerFacade creates a firewaller API facade.
-func NewFirewallerFacade(apiCaller base.APICaller) (FirewallerAPI, error) {
-	facade, err := firewaller.NewClient(apiCaller)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &firewallerShim{Client: facade}, nil
-}
-
-type firewallerShim struct {
-	*firewaller.Client
-}
-
-func (s *firewallerShim) Machine(ctx context.Context, tag names.MachineTag) (Machine, error) {
-	return s.Client.Machine(ctx, tag)
-}
-
-func (s *firewallerShim) Unit(ctx context.Context, tag names.UnitTag) (Unit, error) {
-	u, err := s.Client.Unit(ctx, tag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &unitShim{Unit: u}, nil
-}
-
-type unitShim struct {
-	*firewaller.Unit
-}
-
-func (s *unitShim) Application() (Application, error) {
-	return s.Unit.Application()
-}
 
 // NewWorker creates a firewaller worker.
 func NewWorker(cfg Config) (worker.Worker, error) {

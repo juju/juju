@@ -100,7 +100,6 @@ func matches(hr statushistory.HistoryRecord, req StatusHistoryRequest, now time.
 		}
 
 	default:
-		// TODO: support other kinds.
 		return false, errors.Errorf("%q", req.Kind)
 	}
 

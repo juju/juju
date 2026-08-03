@@ -74,7 +74,7 @@ func (s *ControllerUpgraderSuite) TestControllerUpgrade(c *tc.C) {
 					Spec: core.PodSpec{
 						Containers: []core.Container{
 							{
-								Name:  "jujud",
+								Name:  "jujuagentd",
 								Image: oldImagePath,
 							},
 						},

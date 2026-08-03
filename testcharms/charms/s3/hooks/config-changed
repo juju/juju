@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+
+for relation_id in $(relation-ids s3-credentials); do
+    "$(dirname "$0")/publish-s3-config" "${relation_id}"
+done
+
+status-set active "published S3 config"

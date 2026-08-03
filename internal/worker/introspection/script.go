@@ -172,9 +172,9 @@ juju_db_repl () {
   local flag="--${type}-id=${id}"
 
   if [ -x "$(which sudo)" ]; then
-    sudo /var/lib/juju/tools/$agent/jujud db-repl ${flag}
+    sudo /var/lib/juju/tools/$agent/jujuagentd db-repl ${flag}
   else
-    /var/lib/juju/tools/$agent/jujud db-repl ${flag}
+    /var/lib/juju/tools/$agent/jujuagentd db-repl ${flag}
   fi
 }
 

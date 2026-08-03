@@ -18,7 +18,6 @@ import (
 	controller "github.com/juju/juju/controller"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
-	objectstore "github.com/juju/juju/core/objectstore"
 	semversion "github.com/juju/juju/core/semversion"
 	names "github.com/juju/names/v6"
 	shell "github.com/juju/utils/v4/shell"
@@ -110,13 +109,18 @@ type MockConfigMockRecorder struct {
 	jobsExpects                               []*gomock.Call0_1[[]model.MachineJob]
 	logDirExpects                             []*gomock.Call0_1[string]
 	loggingConfigExpects                      []*gomock.Call0_1[string]
+	lokiCACertExpects                         []*gomock.Call0_1[string]
+	lokiEndpointExpects                       []*gomock.Call0_1[string]
+	lokiInsecureSkipVerifyExpects             []*gomock.Call0_1[*bool]
+	lokiOrgIDExpects                          []*gomock.Call0_1[string]
 	metricsSpoolDirExpects                    []*gomock.Call0_1[string]
 	modelExpects                              []*gomock.Call0_1[names.ModelTag]
 	nonceExpects                              []*gomock.Call0_1[string]
-	objectStoreTypeExpects                    []*gomock.Call0_1[objectstore.BackendType]
 	oldPasswordExpects                        []*gomock.Call0_1[string]
+	openTelemetryCACertificateExpects         []*gomock.Call0_1[string]
 	openTelemetryEnabledExpects               []*gomock.Call0_1[bool]
-	openTelemetryEndpointExpects              []*gomock.Call0_1[string]
+	openTelemetryGRPCEndpointExpects          []*gomock.Call0_1[string]
+	openTelemetryHTTPEndpointExpects          []*gomock.Call0_1[string]
 	openTelemetryInsecureExpects              []*gomock.Call0_1[bool]
 	openTelemetrySampleRatioExpects           []*gomock.Call0_1[float64]
 	openTelemetryStackTracesExpects           []*gomock.Call0_1[bool]
@@ -395,6 +399,78 @@ func (mr *MockConfigMockRecorder) LoggingConfig() *MockConfigLoggingConfigCall {
 // MockConfigLoggingConfigCall is the typed call wrapper for LoggingConfig.
 type MockConfigLoggingConfigCall = gomock.Call0_1[string]
 
+// LokiCACert mocks base method.
+func (m *MockConfig) LokiCACert() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.lokiCACertExpects, m.ctrl, m, "LokiCACert")
+}
+
+// LokiCACert indicates an expected call of LokiCACert.
+func (mr *MockConfigMockRecorder) LokiCACert() *MockConfigLokiCACertCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "LokiCACert")
+	mr.lokiCACertExpects = append(mr.lokiCACertExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigLokiCACertCall is the typed call wrapper for LokiCACert.
+type MockConfigLokiCACertCall = gomock.Call0_1[string]
+
+// LokiEndpoint mocks base method.
+func (m *MockConfig) LokiEndpoint() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.lokiEndpointExpects, m.ctrl, m, "LokiEndpoint")
+}
+
+// LokiEndpoint indicates an expected call of LokiEndpoint.
+func (mr *MockConfigMockRecorder) LokiEndpoint() *MockConfigLokiEndpointCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "LokiEndpoint")
+	mr.lokiEndpointExpects = append(mr.lokiEndpointExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigLokiEndpointCall is the typed call wrapper for LokiEndpoint.
+type MockConfigLokiEndpointCall = gomock.Call0_1[string]
+
+// LokiInsecureSkipVerify mocks base method.
+func (m *MockConfig) LokiInsecureSkipVerify() *bool {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.lokiInsecureSkipVerifyExpects, m.ctrl, m, "LokiInsecureSkipVerify")
+}
+
+// LokiInsecureSkipVerify indicates an expected call of LokiInsecureSkipVerify.
+func (mr *MockConfigMockRecorder) LokiInsecureSkipVerify() *MockConfigLokiInsecureSkipVerifyCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*bool](mr.mock.ctrl.T, mr.mock, "LokiInsecureSkipVerify")
+	mr.lokiInsecureSkipVerifyExpects = append(mr.lokiInsecureSkipVerifyExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigLokiInsecureSkipVerifyCall is the typed call wrapper for LokiInsecureSkipVerify.
+type MockConfigLokiInsecureSkipVerifyCall = gomock.Call0_1[*bool]
+
+// LokiOrgID mocks base method.
+func (m *MockConfig) LokiOrgID() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.lokiOrgIDExpects, m.ctrl, m, "LokiOrgID")
+}
+
+// LokiOrgID indicates an expected call of LokiOrgID.
+func (mr *MockConfigMockRecorder) LokiOrgID() *MockConfigLokiOrgIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "LokiOrgID")
+	mr.lokiOrgIDExpects = append(mr.lokiOrgIDExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigLokiOrgIDCall is the typed call wrapper for LokiOrgID.
+type MockConfigLokiOrgIDCall = gomock.Call0_1[string]
+
 // MetricsSpoolDir mocks base method.
 func (m *MockConfig) MetricsSpoolDir() string {
 	m.ctrl.T.Helper()
@@ -449,24 +525,6 @@ func (mr *MockConfigMockRecorder) Nonce() *MockConfigNonceCall {
 // MockConfigNonceCall is the typed call wrapper for Nonce.
 type MockConfigNonceCall = gomock.Call0_1[string]
 
-// ObjectStoreType mocks base method.
-func (m *MockConfig) ObjectStoreType() objectstore.BackendType {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.objectStoreTypeExpects, m.ctrl, m, "ObjectStoreType")
-}
-
-// ObjectStoreType indicates an expected call of ObjectStoreType.
-func (mr *MockConfigMockRecorder) ObjectStoreType() *MockConfigObjectStoreTypeCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[objectstore.BackendType](mr.mock.ctrl.T, mr.mock, "ObjectStoreType")
-	mr.objectStoreTypeExpects = append(mr.objectStoreTypeExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockConfigObjectStoreTypeCall is the typed call wrapper for ObjectStoreType.
-type MockConfigObjectStoreTypeCall = gomock.Call0_1[objectstore.BackendType]
-
 // OldPassword mocks base method.
 func (m *MockConfig) OldPassword() string {
 	m.ctrl.T.Helper()
@@ -484,6 +542,24 @@ func (mr *MockConfigMockRecorder) OldPassword() *MockConfigOldPasswordCall {
 
 // MockConfigOldPasswordCall is the typed call wrapper for OldPassword.
 type MockConfigOldPasswordCall = gomock.Call0_1[string]
+
+// OpenTelemetryCACertificate mocks base method.
+func (m *MockConfig) OpenTelemetryCACertificate() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.openTelemetryCACertificateExpects, m.ctrl, m, "OpenTelemetryCACertificate")
+}
+
+// OpenTelemetryCACertificate indicates an expected call of OpenTelemetryCACertificate.
+func (mr *MockConfigMockRecorder) OpenTelemetryCACertificate() *MockConfigOpenTelemetryCACertificateCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "OpenTelemetryCACertificate")
+	mr.openTelemetryCACertificateExpects = append(mr.openTelemetryCACertificateExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigOpenTelemetryCACertificateCall is the typed call wrapper for OpenTelemetryCACertificate.
+type MockConfigOpenTelemetryCACertificateCall = gomock.Call0_1[string]
 
 // OpenTelemetryEnabled mocks base method.
 func (m *MockConfig) OpenTelemetryEnabled() bool {
@@ -503,23 +579,41 @@ func (mr *MockConfigMockRecorder) OpenTelemetryEnabled() *MockConfigOpenTelemetr
 // MockConfigOpenTelemetryEnabledCall is the typed call wrapper for OpenTelemetryEnabled.
 type MockConfigOpenTelemetryEnabledCall = gomock.Call0_1[bool]
 
-// OpenTelemetryEndpoint mocks base method.
-func (m *MockConfig) OpenTelemetryEndpoint() string {
+// OpenTelemetryGRPCEndpoint mocks base method.
+func (m *MockConfig) OpenTelemetryGRPCEndpoint() string {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.openTelemetryEndpointExpects, m.ctrl, m, "OpenTelemetryEndpoint")
+	return gomock.Dispatch0_1(&m.recorder.openTelemetryGRPCEndpointExpects, m.ctrl, m, "OpenTelemetryGRPCEndpoint")
 }
 
-// OpenTelemetryEndpoint indicates an expected call of OpenTelemetryEndpoint.
-func (mr *MockConfigMockRecorder) OpenTelemetryEndpoint() *MockConfigOpenTelemetryEndpointCall {
+// OpenTelemetryGRPCEndpoint indicates an expected call of OpenTelemetryGRPCEndpoint.
+func (mr *MockConfigMockRecorder) OpenTelemetryGRPCEndpoint() *MockConfigOpenTelemetryGRPCEndpointCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "OpenTelemetryEndpoint")
-	mr.openTelemetryEndpointExpects = append(mr.openTelemetryEndpointExpects, call)
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "OpenTelemetryGRPCEndpoint")
+	mr.openTelemetryGRPCEndpointExpects = append(mr.openTelemetryGRPCEndpointExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockConfigOpenTelemetryEndpointCall is the typed call wrapper for OpenTelemetryEndpoint.
-type MockConfigOpenTelemetryEndpointCall = gomock.Call0_1[string]
+// MockConfigOpenTelemetryGRPCEndpointCall is the typed call wrapper for OpenTelemetryGRPCEndpoint.
+type MockConfigOpenTelemetryGRPCEndpointCall = gomock.Call0_1[string]
+
+// OpenTelemetryHTTPEndpoint mocks base method.
+func (m *MockConfig) OpenTelemetryHTTPEndpoint() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.openTelemetryHTTPEndpointExpects, m.ctrl, m, "OpenTelemetryHTTPEndpoint")
+}
+
+// OpenTelemetryHTTPEndpoint indicates an expected call of OpenTelemetryHTTPEndpoint.
+func (mr *MockConfigMockRecorder) OpenTelemetryHTTPEndpoint() *MockConfigOpenTelemetryHTTPEndpointCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "OpenTelemetryHTTPEndpoint")
+	mr.openTelemetryHTTPEndpointExpects = append(mr.openTelemetryHTTPEndpointExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigOpenTelemetryHTTPEndpointCall is the typed call wrapper for OpenTelemetryHTTPEndpoint.
+type MockConfigOpenTelemetryHTTPEndpointCall = gomock.Call0_1[string]
 
 // OpenTelemetryInsecure mocks base method.
 func (m *MockConfig) OpenTelemetryInsecure() bool {
@@ -762,13 +856,18 @@ type MockConfigSetterMockRecorder struct {
 	jobsExpects                                  []*gomock.Call0_1[[]model.MachineJob]
 	logDirExpects                                []*gomock.Call0_1[string]
 	loggingConfigExpects                         []*gomock.Call0_1[string]
+	lokiCACertExpects                            []*gomock.Call0_1[string]
+	lokiEndpointExpects                          []*gomock.Call0_1[string]
+	lokiInsecureSkipVerifyExpects                []*gomock.Call0_1[*bool]
+	lokiOrgIDExpects                             []*gomock.Call0_1[string]
 	metricsSpoolDirExpects                       []*gomock.Call0_1[string]
 	modelExpects                                 []*gomock.Call0_1[names.ModelTag]
 	nonceExpects                                 []*gomock.Call0_1[string]
-	objectStoreTypeExpects                       []*gomock.Call0_1[objectstore.BackendType]
 	oldPasswordExpects                           []*gomock.Call0_1[string]
+	openTelemetryCACertificateExpects            []*gomock.Call0_1[string]
 	openTelemetryEnabledExpects                  []*gomock.Call0_1[bool]
-	openTelemetryEndpointExpects                 []*gomock.Call0_1[string]
+	openTelemetryGRPCEndpointExpects             []*gomock.Call0_1[string]
+	openTelemetryHTTPEndpointExpects             []*gomock.Call0_1[string]
 	openTelemetryInsecureExpects                 []*gomock.Call0_1[bool]
 	openTelemetrySampleRatioExpects              []*gomock.Call0_1[float64]
 	openTelemetryStackTracesExpects              []*gomock.Call0_1[bool]
@@ -780,10 +879,12 @@ type MockConfigSetterMockRecorder struct {
 	setControllerAgentInfoExpects                []*gomock.Call1_0[controller.ControllerAgentInfo]
 	setDqliteBusyTimeoutExpects                  []*gomock.Call1_0[time.Duration]
 	setLoggingConfigExpects                      []*gomock.Call1_0[string]
-	setObjectStoreTypeExpects                    []*gomock.Call1_0[objectstore.BackendType]
+	setLokiConfigExpects                         []*gomock.Call4_0[string, *string, *bool, string]
 	setOldPasswordExpects                        []*gomock.Call1_0[string]
+	setOpenTelemetryCACertificateExpects         []*gomock.Call1_0[string]
 	setOpenTelemetryEnabledExpects               []*gomock.Call1_0[bool]
-	setOpenTelemetryEndpointExpects              []*gomock.Call1_0[string]
+	setOpenTelemetryGRPCEndpointExpects          []*gomock.Call1_0[string]
+	setOpenTelemetryHTTPEndpointExpects          []*gomock.Call1_0[string]
 	setOpenTelemetryInsecureExpects              []*gomock.Call1_0[bool]
 	setOpenTelemetrySampleRatioExpects           []*gomock.Call1_0[float64]
 	setOpenTelemetryStackTracesExpects           []*gomock.Call1_0[bool]
@@ -1083,6 +1184,78 @@ func (mr *MockConfigSetterMockRecorder) LoggingConfig() *MockConfigSetterLogging
 // MockConfigSetterLoggingConfigCall is the typed call wrapper for LoggingConfig.
 type MockConfigSetterLoggingConfigCall = gomock.Call0_1[string]
 
+// LokiCACert mocks base method.
+func (m *MockConfigSetter) LokiCACert() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.lokiCACertExpects, m.ctrl, m, "LokiCACert")
+}
+
+// LokiCACert indicates an expected call of LokiCACert.
+func (mr *MockConfigSetterMockRecorder) LokiCACert() *MockConfigSetterLokiCACertCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "LokiCACert")
+	mr.lokiCACertExpects = append(mr.lokiCACertExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigSetterLokiCACertCall is the typed call wrapper for LokiCACert.
+type MockConfigSetterLokiCACertCall = gomock.Call0_1[string]
+
+// LokiEndpoint mocks base method.
+func (m *MockConfigSetter) LokiEndpoint() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.lokiEndpointExpects, m.ctrl, m, "LokiEndpoint")
+}
+
+// LokiEndpoint indicates an expected call of LokiEndpoint.
+func (mr *MockConfigSetterMockRecorder) LokiEndpoint() *MockConfigSetterLokiEndpointCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "LokiEndpoint")
+	mr.lokiEndpointExpects = append(mr.lokiEndpointExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigSetterLokiEndpointCall is the typed call wrapper for LokiEndpoint.
+type MockConfigSetterLokiEndpointCall = gomock.Call0_1[string]
+
+// LokiInsecureSkipVerify mocks base method.
+func (m *MockConfigSetter) LokiInsecureSkipVerify() *bool {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.lokiInsecureSkipVerifyExpects, m.ctrl, m, "LokiInsecureSkipVerify")
+}
+
+// LokiInsecureSkipVerify indicates an expected call of LokiInsecureSkipVerify.
+func (mr *MockConfigSetterMockRecorder) LokiInsecureSkipVerify() *MockConfigSetterLokiInsecureSkipVerifyCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*bool](mr.mock.ctrl.T, mr.mock, "LokiInsecureSkipVerify")
+	mr.lokiInsecureSkipVerifyExpects = append(mr.lokiInsecureSkipVerifyExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigSetterLokiInsecureSkipVerifyCall is the typed call wrapper for LokiInsecureSkipVerify.
+type MockConfigSetterLokiInsecureSkipVerifyCall = gomock.Call0_1[*bool]
+
+// LokiOrgID mocks base method.
+func (m *MockConfigSetter) LokiOrgID() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.lokiOrgIDExpects, m.ctrl, m, "LokiOrgID")
+}
+
+// LokiOrgID indicates an expected call of LokiOrgID.
+func (mr *MockConfigSetterMockRecorder) LokiOrgID() *MockConfigSetterLokiOrgIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "LokiOrgID")
+	mr.lokiOrgIDExpects = append(mr.lokiOrgIDExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigSetterLokiOrgIDCall is the typed call wrapper for LokiOrgID.
+type MockConfigSetterLokiOrgIDCall = gomock.Call0_1[string]
+
 // MetricsSpoolDir mocks base method.
 func (m *MockConfigSetter) MetricsSpoolDir() string {
 	m.ctrl.T.Helper()
@@ -1137,24 +1310,6 @@ func (mr *MockConfigSetterMockRecorder) Nonce() *MockConfigSetterNonceCall {
 // MockConfigSetterNonceCall is the typed call wrapper for Nonce.
 type MockConfigSetterNonceCall = gomock.Call0_1[string]
 
-// ObjectStoreType mocks base method.
-func (m *MockConfigSetter) ObjectStoreType() objectstore.BackendType {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.objectStoreTypeExpects, m.ctrl, m, "ObjectStoreType")
-}
-
-// ObjectStoreType indicates an expected call of ObjectStoreType.
-func (mr *MockConfigSetterMockRecorder) ObjectStoreType() *MockConfigSetterObjectStoreTypeCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[objectstore.BackendType](mr.mock.ctrl.T, mr.mock, "ObjectStoreType")
-	mr.objectStoreTypeExpects = append(mr.objectStoreTypeExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockConfigSetterObjectStoreTypeCall is the typed call wrapper for ObjectStoreType.
-type MockConfigSetterObjectStoreTypeCall = gomock.Call0_1[objectstore.BackendType]
-
 // OldPassword mocks base method.
 func (m *MockConfigSetter) OldPassword() string {
 	m.ctrl.T.Helper()
@@ -1172,6 +1327,24 @@ func (mr *MockConfigSetterMockRecorder) OldPassword() *MockConfigSetterOldPasswo
 
 // MockConfigSetterOldPasswordCall is the typed call wrapper for OldPassword.
 type MockConfigSetterOldPasswordCall = gomock.Call0_1[string]
+
+// OpenTelemetryCACertificate mocks base method.
+func (m *MockConfigSetter) OpenTelemetryCACertificate() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.openTelemetryCACertificateExpects, m.ctrl, m, "OpenTelemetryCACertificate")
+}
+
+// OpenTelemetryCACertificate indicates an expected call of OpenTelemetryCACertificate.
+func (mr *MockConfigSetterMockRecorder) OpenTelemetryCACertificate() *MockConfigSetterOpenTelemetryCACertificateCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "OpenTelemetryCACertificate")
+	mr.openTelemetryCACertificateExpects = append(mr.openTelemetryCACertificateExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigSetterOpenTelemetryCACertificateCall is the typed call wrapper for OpenTelemetryCACertificate.
+type MockConfigSetterOpenTelemetryCACertificateCall = gomock.Call0_1[string]
 
 // OpenTelemetryEnabled mocks base method.
 func (m *MockConfigSetter) OpenTelemetryEnabled() bool {
@@ -1191,23 +1364,41 @@ func (mr *MockConfigSetterMockRecorder) OpenTelemetryEnabled() *MockConfigSetter
 // MockConfigSetterOpenTelemetryEnabledCall is the typed call wrapper for OpenTelemetryEnabled.
 type MockConfigSetterOpenTelemetryEnabledCall = gomock.Call0_1[bool]
 
-// OpenTelemetryEndpoint mocks base method.
-func (m *MockConfigSetter) OpenTelemetryEndpoint() string {
+// OpenTelemetryGRPCEndpoint mocks base method.
+func (m *MockConfigSetter) OpenTelemetryGRPCEndpoint() string {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.openTelemetryEndpointExpects, m.ctrl, m, "OpenTelemetryEndpoint")
+	return gomock.Dispatch0_1(&m.recorder.openTelemetryGRPCEndpointExpects, m.ctrl, m, "OpenTelemetryGRPCEndpoint")
 }
 
-// OpenTelemetryEndpoint indicates an expected call of OpenTelemetryEndpoint.
-func (mr *MockConfigSetterMockRecorder) OpenTelemetryEndpoint() *MockConfigSetterOpenTelemetryEndpointCall {
+// OpenTelemetryGRPCEndpoint indicates an expected call of OpenTelemetryGRPCEndpoint.
+func (mr *MockConfigSetterMockRecorder) OpenTelemetryGRPCEndpoint() *MockConfigSetterOpenTelemetryGRPCEndpointCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "OpenTelemetryEndpoint")
-	mr.openTelemetryEndpointExpects = append(mr.openTelemetryEndpointExpects, call)
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "OpenTelemetryGRPCEndpoint")
+	mr.openTelemetryGRPCEndpointExpects = append(mr.openTelemetryGRPCEndpointExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockConfigSetterOpenTelemetryEndpointCall is the typed call wrapper for OpenTelemetryEndpoint.
-type MockConfigSetterOpenTelemetryEndpointCall = gomock.Call0_1[string]
+// MockConfigSetterOpenTelemetryGRPCEndpointCall is the typed call wrapper for OpenTelemetryGRPCEndpoint.
+type MockConfigSetterOpenTelemetryGRPCEndpointCall = gomock.Call0_1[string]
+
+// OpenTelemetryHTTPEndpoint mocks base method.
+func (m *MockConfigSetter) OpenTelemetryHTTPEndpoint() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.openTelemetryHTTPEndpointExpects, m.ctrl, m, "OpenTelemetryHTTPEndpoint")
+}
+
+// OpenTelemetryHTTPEndpoint indicates an expected call of OpenTelemetryHTTPEndpoint.
+func (mr *MockConfigSetterMockRecorder) OpenTelemetryHTTPEndpoint() *MockConfigSetterOpenTelemetryHTTPEndpointCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "OpenTelemetryHTTPEndpoint")
+	mr.openTelemetryHTTPEndpointExpects = append(mr.openTelemetryHTTPEndpointExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigSetterOpenTelemetryHTTPEndpointCall is the typed call wrapper for OpenTelemetryHTTPEndpoint.
+type MockConfigSetterOpenTelemetryHTTPEndpointCall = gomock.Call0_1[string]
 
 // OpenTelemetryInsecure mocks base method.
 func (m *MockConfigSetter) OpenTelemetryInsecure() bool {
@@ -1407,23 +1598,23 @@ func (mr *MockConfigSetterMockRecorder) SetLoggingConfig(arg0 any) *MockConfigSe
 // MockConfigSetterSetLoggingConfigCall is the typed call wrapper for SetLoggingConfig.
 type MockConfigSetterSetLoggingConfigCall = gomock.Call1_0[string]
 
-// SetObjectStoreType mocks base method.
-func (m *MockConfigSetter) SetObjectStoreType(arg0 objectstore.BackendType) {
+// SetLokiConfig mocks base method.
+func (m *MockConfigSetter) SetLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool, orgID string) {
 	m.ctrl.T.Helper()
-	gomock.Dispatch1_0(&m.recorder.setObjectStoreTypeExpects, m.ctrl, m, "SetObjectStoreType", arg0)
+	gomock.Dispatch4_0(&m.recorder.setLokiConfigExpects, m.ctrl, m, "SetLokiConfig", endpoint, caCert, insecureSkipVerify, orgID)
 }
 
-// SetObjectStoreType indicates an expected call of SetObjectStoreType.
-func (mr *MockConfigSetterMockRecorder) SetObjectStoreType(arg0 any) *MockConfigSetterSetObjectStoreTypeCall {
+// SetLokiConfig indicates an expected call of SetLokiConfig.
+func (mr *MockConfigSetterMockRecorder) SetLokiConfig(endpoint, caCert, insecureSkipVerify, orgID any) *MockConfigSetterSetLokiConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_0[objectstore.BackendType](mr.mock.ctrl.T, mr.mock, "SetObjectStoreType", gomock.EnsureMatcher(arg0))
-	mr.setObjectStoreTypeExpects = append(mr.setObjectStoreTypeExpects, call)
+	call := gomock.NewCall4_0[string, *string, *bool, string](mr.mock.ctrl.T, mr.mock, "SetLokiConfig", gomock.EnsureMatcher(endpoint), gomock.EnsureMatcher(caCert), gomock.EnsureMatcher(insecureSkipVerify), gomock.EnsureMatcher(orgID))
+	mr.setLokiConfigExpects = append(mr.setLokiConfigExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockConfigSetterSetObjectStoreTypeCall is the typed call wrapper for SetObjectStoreType.
-type MockConfigSetterSetObjectStoreTypeCall = gomock.Call1_0[objectstore.BackendType]
+// MockConfigSetterSetLokiConfigCall is the typed call wrapper for SetLokiConfig.
+type MockConfigSetterSetLokiConfigCall = gomock.Call4_0[string, *string, *bool, string]
 
 // SetOldPassword mocks base method.
 func (m *MockConfigSetter) SetOldPassword(oldPassword string) {
@@ -1443,6 +1634,24 @@ func (mr *MockConfigSetterMockRecorder) SetOldPassword(oldPassword any) *MockCon
 // MockConfigSetterSetOldPasswordCall is the typed call wrapper for SetOldPassword.
 type MockConfigSetterSetOldPasswordCall = gomock.Call1_0[string]
 
+// SetOpenTelemetryCACertificate mocks base method.
+func (m *MockConfigSetter) SetOpenTelemetryCACertificate(arg0 string) {
+	m.ctrl.T.Helper()
+	gomock.Dispatch1_0(&m.recorder.setOpenTelemetryCACertificateExpects, m.ctrl, m, "SetOpenTelemetryCACertificate", arg0)
+}
+
+// SetOpenTelemetryCACertificate indicates an expected call of SetOpenTelemetryCACertificate.
+func (mr *MockConfigSetterMockRecorder) SetOpenTelemetryCACertificate(arg0 any) *MockConfigSetterSetOpenTelemetryCACertificateCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_0[string](mr.mock.ctrl.T, mr.mock, "SetOpenTelemetryCACertificate", gomock.EnsureMatcher(arg0))
+	mr.setOpenTelemetryCACertificateExpects = append(mr.setOpenTelemetryCACertificateExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigSetterSetOpenTelemetryCACertificateCall is the typed call wrapper for SetOpenTelemetryCACertificate.
+type MockConfigSetterSetOpenTelemetryCACertificateCall = gomock.Call1_0[string]
+
 // SetOpenTelemetryEnabled mocks base method.
 func (m *MockConfigSetter) SetOpenTelemetryEnabled(arg0 bool) {
 	m.ctrl.T.Helper()
@@ -1461,23 +1670,41 @@ func (mr *MockConfigSetterMockRecorder) SetOpenTelemetryEnabled(arg0 any) *MockC
 // MockConfigSetterSetOpenTelemetryEnabledCall is the typed call wrapper for SetOpenTelemetryEnabled.
 type MockConfigSetterSetOpenTelemetryEnabledCall = gomock.Call1_0[bool]
 
-// SetOpenTelemetryEndpoint mocks base method.
-func (m *MockConfigSetter) SetOpenTelemetryEndpoint(arg0 string) {
+// SetOpenTelemetryGRPCEndpoint mocks base method.
+func (m *MockConfigSetter) SetOpenTelemetryGRPCEndpoint(arg0 string) {
 	m.ctrl.T.Helper()
-	gomock.Dispatch1_0(&m.recorder.setOpenTelemetryEndpointExpects, m.ctrl, m, "SetOpenTelemetryEndpoint", arg0)
+	gomock.Dispatch1_0(&m.recorder.setOpenTelemetryGRPCEndpointExpects, m.ctrl, m, "SetOpenTelemetryGRPCEndpoint", arg0)
 }
 
-// SetOpenTelemetryEndpoint indicates an expected call of SetOpenTelemetryEndpoint.
-func (mr *MockConfigSetterMockRecorder) SetOpenTelemetryEndpoint(arg0 any) *MockConfigSetterSetOpenTelemetryEndpointCall {
+// SetOpenTelemetryGRPCEndpoint indicates an expected call of SetOpenTelemetryGRPCEndpoint.
+func (mr *MockConfigSetterMockRecorder) SetOpenTelemetryGRPCEndpoint(arg0 any) *MockConfigSetterSetOpenTelemetryGRPCEndpointCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_0[string](mr.mock.ctrl.T, mr.mock, "SetOpenTelemetryEndpoint", gomock.EnsureMatcher(arg0))
-	mr.setOpenTelemetryEndpointExpects = append(mr.setOpenTelemetryEndpointExpects, call)
+	call := gomock.NewCall1_0[string](mr.mock.ctrl.T, mr.mock, "SetOpenTelemetryGRPCEndpoint", gomock.EnsureMatcher(arg0))
+	mr.setOpenTelemetryGRPCEndpointExpects = append(mr.setOpenTelemetryGRPCEndpointExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockConfigSetterSetOpenTelemetryEndpointCall is the typed call wrapper for SetOpenTelemetryEndpoint.
-type MockConfigSetterSetOpenTelemetryEndpointCall = gomock.Call1_0[string]
+// MockConfigSetterSetOpenTelemetryGRPCEndpointCall is the typed call wrapper for SetOpenTelemetryGRPCEndpoint.
+type MockConfigSetterSetOpenTelemetryGRPCEndpointCall = gomock.Call1_0[string]
+
+// SetOpenTelemetryHTTPEndpoint mocks base method.
+func (m *MockConfigSetter) SetOpenTelemetryHTTPEndpoint(arg0 string) {
+	m.ctrl.T.Helper()
+	gomock.Dispatch1_0(&m.recorder.setOpenTelemetryHTTPEndpointExpects, m.ctrl, m, "SetOpenTelemetryHTTPEndpoint", arg0)
+}
+
+// SetOpenTelemetryHTTPEndpoint indicates an expected call of SetOpenTelemetryHTTPEndpoint.
+func (mr *MockConfigSetterMockRecorder) SetOpenTelemetryHTTPEndpoint(arg0 any) *MockConfigSetterSetOpenTelemetryHTTPEndpointCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_0[string](mr.mock.ctrl.T, mr.mock, "SetOpenTelemetryHTTPEndpoint", gomock.EnsureMatcher(arg0))
+	mr.setOpenTelemetryHTTPEndpointExpects = append(mr.setOpenTelemetryHTTPEndpointExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigSetterSetOpenTelemetryHTTPEndpointCall is the typed call wrapper for SetOpenTelemetryHTTPEndpoint.
+type MockConfigSetterSetOpenTelemetryHTTPEndpointCall = gomock.Call1_0[string]
 
 // SetOpenTelemetryInsecure mocks base method.
 func (m *MockConfigSetter) SetOpenTelemetryInsecure(arg0 bool) {

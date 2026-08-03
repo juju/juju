@@ -6,21 +6,18 @@ package bootstrap
 import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/internal/uuid"
 )
 
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination addressfinder_mock_test.go github.com/juju/juju/environs InstanceLister
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination providertracker_mock_test.go github.com/juju/juju/core/providertracker ProviderFactory
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination caas_broker_mock_test.go github.com/juju/juju/caas ServiceManager
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination instance_mock_test.go github.com/juju/juju/environs/instances Instance
-//go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination storage_mock_test.go github.com/juju/juju/core/storage StorageRegistryGetter
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Unlocker
@@ -33,8 +30,6 @@ type baseSuite struct {
 
 	dataDir string
 
-	agent                      *MockAgent
-	agentConfig                *MockConfig
 	controllerAgentBinaryStore *MockAgentBinaryStore
 	objectStore                *MockObjectStore
 	objectStoreGetter          *MockObjectStoreGetter
@@ -66,8 +61,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.dataDir = c.MkDir()
 
-	s.agent = NewMockAgent(ctrl)
-	s.agentConfig = NewMockConfig(ctrl)
 	s.controllerAgentBinaryStore = NewMockAgentBinaryStore(ctrl)
 	s.objectStore = NewMockObjectStore(ctrl)
 	s.objectStoreGetter = NewMockObjectStoreGetter(ctrl)
@@ -94,8 +87,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.statusHistory = domain.NewStatusHistory(s.logger, clock.WallClock)
 
 	c.Cleanup(func() {
-		s.agent = nil
-		s.agentConfig = nil
 		s.controllerAgentBinaryStore = nil
 		s.objectStore = nil
 		s.objectStoreGetter = nil
@@ -128,11 +119,4 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *baseSuite) expectGateUnlock() {
 	s.bootstrapUnlocker.EXPECT().Unlock()
 	s.domainServices.EXPECT().Flag().AnyTimes()
-}
-
-func (s *baseSuite) expectAgentConfig() {
-	s.agentConfig.EXPECT().DataDir().Return(s.dataDir).AnyTimes()
-	s.agentConfig.EXPECT().Controller().Return(names.NewControllerTag(uuid.MustNewUUID().String())).AnyTimes()
-	s.agentConfig.EXPECT().Model().Return(names.NewModelTag("test-model")).AnyTimes()
-	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig).AnyTimes()
 }

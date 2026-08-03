@@ -8,8 +8,8 @@ import (
 	stdtesting "testing"
 
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
 	dependencytesting "github.com/juju/worker/v5/dependency/testing"
@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/trace"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
@@ -27,6 +28,15 @@ import (
 
 type manifoldSuite struct {
 	baseSuite
+}
+
+type stubRootDirReader struct {
+	rootDir string
+	err     error
+}
+
+func (s stubRootDirReader) ObjectStoreRootDir() (string, error) {
+	return s.rootDir, s.err
 }
 
 func TestManifoldSuite(t *stdtesting.T) {
@@ -40,10 +50,6 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 	cfg := s.getConfig()
 	c.Check(cfg.Validate(), tc.ErrorIsNil)
-
-	cfg = s.getConfig()
-	cfg.AgentName = ""
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.TraceName = ""
@@ -66,7 +72,11 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.Clock = nil
+	cfg.RootDirReader = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.ControllerNodeID = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -74,25 +84,49 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.Clock = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.NewObjectStoreWorker = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.GetControllerConfigService = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.GetObjectStoreService = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.GetMetadataService = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.IsBootstrapController = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:               "agent",
 		TraceName:               "trace",
 		ObjectStoreServicesName: "object-store-services",
 		LeaseManagerName:        "lease-manager",
 		S3ClientName:            "s3-client",
 		APIRemoteCallerName:     "api-remote-caller",
-		Clock:                   s.clock,
+		RootDirReader:           stubRootDirReader{rootDir: "/var/lib/juju"},
+		ControllerNodeID:        "0",
+		Clock:                   clock.WallClock,
 		Logger:                  s.logger,
 		NewObjectStoreWorker: func(context.Context, objectstore.BackendType, string, ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
 			return nil, nil
 		},
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
+		},
+		GetObjectStoreService: func(getter dependency.Getter, name string) (ObjectStoreService, error) {
+			return s.objectStoreService, nil
 		},
 		GetMetadataService: func(getter dependency.Getter, name string) (MetadataService, error) {
 			return s.metadataService, nil
@@ -105,7 +139,6 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
-		"agent":                 s.agent,
 		"trace":                 &stubTracerGetter{},
 		"object-store-services": &stubObjectStoreServicesGetter{},
 		"lease-manager":         s.leaseManager,
@@ -115,7 +148,7 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"agent", "trace", "object-store-services", "lease-manager", "s3-client", "api-remote-caller"}
+var expectedInputs = []string{"trace", "object-store-services", "lease-manager", "s3-client", "api-remote-caller"}
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, tc.SameContents, expectedInputs)
@@ -124,18 +157,18 @@ func (s *manifoldSuite) TestInputs(c *tc.C) {
 func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAgentConfig(c)
 	s.expectControllerConfig()
+	s.expectBackendInfo()
 
 	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 }
 
-func (s *manifoldSuite) expectAgentConfig(c *tc.C) {
-	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
-	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
-	s.agentConfig.EXPECT().Tag().Return(names.NewMachineTag("0"))
+func (s *manifoldSuite) expectBackendInfo() {
+	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(objectstoreservice.BackendInfo{
+		Type: objectstore.FileBackend,
+	}, nil)
 }
 
 func (s *manifoldSuite) expectControllerConfig() {

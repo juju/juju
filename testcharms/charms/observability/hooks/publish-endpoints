@@ -1,0 +1,52 @@
+#!/bin/sh
+set -eu
+
+http_endpoint="$(config-get http-endpoint)"
+grpc_endpoint="$(config-get grpc-endpoint)"
+ca_cert="$(config-get ca-cert)"
+loki_url="$(config-get loki-url)"
+loki_endpoint="$(printf '{"url":"%s"}' "${loki_url}")"
+relation_id="${1:-}"
+receivers="$(python3 -c '
+import json
+import sys
+
+grpc_endpoint, http_endpoint = sys.argv[1:3]
+print(json.dumps([
+    {
+        "protocol": {"name": "otlp_grpc", "type": "grpc"},
+        "url": grpc_endpoint,
+    },
+    {
+        "protocol": {"name": "otlp_http", "type": "http"},
+        "url": http_endpoint,
+    },
+]))
+' "${grpc_endpoint}" "${http_endpoint}")"
+
+relation_args=""
+if [ -n "${relation_id}" ]; then
+    relation_args="-r ${relation_id}"
+fi
+
+# shellcheck disable=SC2086
+relation-set ${relation_args} \
+    receivers="${receivers}" \
+    http_endpoint="${http_endpoint}" \
+    grpc_endpoint="${grpc_endpoint}" \
+    ca_cert="${ca_cert}" \
+    url="${loki_url}" \
+    endpoint="${loki_endpoint}"
+
+if is-leader; then
+    # shellcheck disable=SC2086
+    relation-set ${relation_args} --app \
+        receivers="${receivers}" \
+        http_endpoint="${http_endpoint}" \
+        grpc_endpoint="${grpc_endpoint}" \
+        ca_cert="${ca_cert}" \
+        url="${loki_url}" \
+        endpoint="${loki_endpoint}"
+fi
+
+status-set active "published endpoints"

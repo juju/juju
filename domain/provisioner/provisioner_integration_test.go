@@ -15,6 +15,8 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/logging"
+	loggingerrors "github.com/juju/juju/domain/logging/errors"
 	"github.com/juju/juju/domain/provisioner"
 	"github.com/juju/juju/domain/provisioner/service"
 	modelstate "github.com/juju/juju/domain/provisioner/state/model"
@@ -544,6 +546,10 @@ func (stubControllerState) GetCloudEndpoint(_ context.Context, cloudName, region
 func (stubControllerState) GetCachedImageMetadata(_ context.Context, _, _, _, _, _ string) ([]provisioner.CloudImageMetadata, error) {
 	// Return empty — forces fallback to image metadata fetcher.
 	return nil, nil
+}
+
+func (stubControllerState) GetLokiConfig(_ context.Context) (logging.LokiConfig, error) {
+	return logging.LokiConfig{}, loggingerrors.LokiConfigNotFound
 }
 
 // stubImageMetadataFetcher implements service.ImageMetadataFetcher with

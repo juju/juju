@@ -21,10 +21,10 @@ check_go_version() {
 		exit_code=1
 	fi
 
-	juju_build_steps="$(yq -r '.parts | .["jujud"] | .override-build' snap/snapcraft.yaml)"
+	juju_build_steps="$(yq -r '.parts | .["jujuagentd"] | .override-build' snap/snapcraft.yaml)"
 	echo "${juju_build_steps}" | grep -q "GOTOOLCHAIN=go${target_minor_version}+auto"
 	if [ $? -ne 0 ]; then
-		echo "Go version in go.mod (${target_version}) does not match snapcraft.yaml GOTOOLCHAIN value for jujud"
+		echo "Go version in go.mod (${target_version}) does not match snapcraft.yaml GOTOOLCHAIN value for jujuagentd"
 		exit_code=1
 	fi
 

@@ -13,9 +13,11 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/domain/modelmigration/service"
 	migrationstatecontroller "github.com/juju/juju/domain/modelmigration/state/controller"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
@@ -33,6 +35,14 @@ type exportWatcherSuite struct {
 	modelUUID string
 }
 
+type stubCredentialValidator struct{}
+
+func (stubCredentialValidator) Validate(
+	context.Context, modelmigration.CredentialValidationInfo, coremodelmigration.ModelCloudCredential,
+) error {
+	return nil
+}
+
 func TestExportWatcherSuite(t *testing.T) {
 	tc.Run(t, &exportWatcherSuite{})
 }
@@ -48,7 +58,7 @@ func (s *exportWatcherSuite) TestWatchForMigration(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model_migration_export")
 	svc := s.setupService(c, factory)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 	w, err := svc.WatchForMigration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -92,7 +102,7 @@ func (s *exportWatcherSuite) TestWatchMigrationPhase(c *tc.C) {
 
 	migrationUUID := s.insertExport(c)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 	w, err := svc.WatchMigrationPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -138,7 +148,7 @@ func (s *exportWatcherSuite) TestWatchMinionReports(c *tc.C) {
 	// already exist.
 	migrationUUID := s.insertExport(c)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 	w, err := svc.WatchMinionReports(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -231,6 +241,7 @@ func (s *exportWatcherSuite) setupService(c *tc.C, factory domain.WatchableDBFac
 	noopResourceGetter := func(context.Context) (service.ResourceProvider, error) {
 		return nil, nil
 	}
+	noopCredentialValidator := stubCredentialValidator{}
 
 	return service.NewService(
 		migrationstatecontroller.New(s.controllerDBFactory(), clock.WallClock),
@@ -239,5 +250,7 @@ func (s *exportWatcherSuite) setupService(c *tc.C, factory domain.WatchableDBFac
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		providertracker.ProviderGetter[service.InstanceProvider](noopInstanceGetter),
 		providertracker.ProviderGetter[service.ResourceProvider](noopResourceGetter),
+		noopCredentialValidator,
+		loggertesting.WrapCheckLog(c),
 	)
 }

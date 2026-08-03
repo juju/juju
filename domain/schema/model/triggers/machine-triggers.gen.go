@@ -39,7 +39,7 @@ WHEN
 	(NEW.force_destroyed != OLD.force_destroyed OR (NEW.force_destroyed IS NOT NULL AND OLD.force_destroyed IS NULL) OR (NEW.force_destroyed IS NULL AND OLD.force_destroyed IS NOT NULL)) OR
 	(NEW.agent_started_at != OLD.agent_started_at OR (NEW.agent_started_at IS NOT NULL AND OLD.agent_started_at IS NULL) OR (NEW.agent_started_at IS NULL AND OLD.agent_started_at IS NOT NULL)) OR
 	(NEW.hostname != OLD.hostname OR (NEW.hostname IS NOT NULL AND OLD.hostname IS NULL) OR (NEW.hostname IS NULL AND OLD.hostname IS NOT NULL)) OR
-	(NEW.keep_instance != OLD.keep_instance OR (NEW.keep_instance IS NOT NULL AND OLD.keep_instance IS NULL) OR (NEW.keep_instance IS NULL AND OLD.keep_instance IS NOT NULL)) 
+	(NEW.keep_instance != OLD.keep_instance OR (NEW.keep_instance IS NOT NULL AND OLD.keep_instance IS NULL) OR (NEW.keep_instance IS NULL AND OLD.keep_instance IS NOT NULL))
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -47,6 +47,52 @@ END;
 -- delete trigger for Machine
 CREATE TRIGGER trg_log_machine_delete
 AFTER DELETE ON machine FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
+
+// ChangeLogTriggersForMachineCloudInstance generates the triggers for the
+// machine_cloud_instance table.
+func ChangeLogTriggersForMachineCloudInstance(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for MachineCloudInstance
+INSERT INTO change_log_namespace VALUES (%[2]d, 'machine_cloud_instance', 'MachineCloudInstance changes based on %[1]s');
+
+-- insert trigger for MachineCloudInstance
+CREATE TRIGGER trg_log_machine_cloud_instance_insert
+AFTER INSERT ON machine_cloud_instance FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for MachineCloudInstance
+CREATE TRIGGER trg_log_machine_cloud_instance_update
+AFTER UPDATE ON machine_cloud_instance FOR EACH ROW
+WHEN 
+	NEW.machine_uuid != OLD.machine_uuid OR
+	NEW.life_id != OLD.life_id OR
+	(NEW.instance_id != OLD.instance_id OR (NEW.instance_id IS NOT NULL AND OLD.instance_id IS NULL) OR (NEW.instance_id IS NULL AND OLD.instance_id IS NOT NULL)) OR
+	(NEW.display_name != OLD.display_name OR (NEW.display_name IS NOT NULL AND OLD.display_name IS NULL) OR (NEW.display_name IS NULL AND OLD.display_name IS NOT NULL)) OR
+	(NEW.arch != OLD.arch OR (NEW.arch IS NOT NULL AND OLD.arch IS NULL) OR (NEW.arch IS NULL AND OLD.arch IS NOT NULL)) OR
+	(NEW.availability_zone_uuid != OLD.availability_zone_uuid OR (NEW.availability_zone_uuid IS NOT NULL AND OLD.availability_zone_uuid IS NULL) OR (NEW.availability_zone_uuid IS NULL AND OLD.availability_zone_uuid IS NOT NULL)) OR
+	(NEW.cpu_cores != OLD.cpu_cores OR (NEW.cpu_cores IS NOT NULL AND OLD.cpu_cores IS NULL) OR (NEW.cpu_cores IS NULL AND OLD.cpu_cores IS NOT NULL)) OR
+	(NEW.cpu_power != OLD.cpu_power OR (NEW.cpu_power IS NOT NULL AND OLD.cpu_power IS NULL) OR (NEW.cpu_power IS NULL AND OLD.cpu_power IS NOT NULL)) OR
+	(NEW.mem != OLD.mem OR (NEW.mem IS NOT NULL AND OLD.mem IS NULL) OR (NEW.mem IS NULL AND OLD.mem IS NOT NULL)) OR
+	(NEW.root_disk != OLD.root_disk OR (NEW.root_disk IS NOT NULL AND OLD.root_disk IS NULL) OR (NEW.root_disk IS NULL AND OLD.root_disk IS NOT NULL)) OR
+	(NEW.root_disk_source != OLD.root_disk_source OR (NEW.root_disk_source IS NOT NULL AND OLD.root_disk_source IS NULL) OR (NEW.root_disk_source IS NULL AND OLD.root_disk_source IS NOT NULL)) OR
+	(NEW.virt_type != OLD.virt_type OR (NEW.virt_type IS NOT NULL AND OLD.virt_type IS NULL) OR (NEW.virt_type IS NULL AND OLD.virt_type IS NOT NULL))
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for MachineCloudInstance
+CREATE TRIGGER trg_log_machine_cloud_instance_delete
+AFTER DELETE ON machine_cloud_instance FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -76,7 +122,7 @@ AFTER UPDATE ON machine_lxd_profile FOR EACH ROW
 WHEN 
 	NEW.machine_uuid != OLD.machine_uuid OR
 	NEW.name != OLD.name OR
-	NEW.array_index != OLD.array_index 
+	NEW.array_index != OLD.array_index
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -84,6 +130,78 @@ END;
 -- delete trigger for MachineLxdProfile
 CREATE TRIGGER trg_log_machine_lxd_profile_delete
 AFTER DELETE ON machine_lxd_profile FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
+
+// ChangeLogTriggersForMachineReprovision generates the triggers for the
+// machine_reprovision table.
+func ChangeLogTriggersForMachineReprovision(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for MachineReprovision
+INSERT INTO change_log_namespace VALUES (%[2]d, 'machine_reprovision', 'MachineReprovision changes based on %[1]s');
+
+-- insert trigger for MachineReprovision
+CREATE TRIGGER trg_log_machine_reprovision_insert
+AFTER INSERT ON machine_reprovision FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for MachineReprovision
+CREATE TRIGGER trg_log_machine_reprovision_update
+AFTER UPDATE ON machine_reprovision FOR EACH ROW
+WHEN 
+	NEW.machine_name != OLD.machine_name OR
+	NEW.requested_at != OLD.requested_at
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for MachineReprovision
+CREATE TRIGGER trg_log_machine_reprovision_delete
+AFTER DELETE ON machine_reprovision FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
+
+// ChangeLogTriggersForMachineRequiresReboot generates the triggers for the
+// machine_requires_reboot table.
+func ChangeLogTriggersForMachineRequiresReboot(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for MachineRequiresReboot
+INSERT INTO change_log_namespace VALUES (%[2]d, 'machine_requires_reboot', 'MachineRequiresReboot changes based on %[1]s');
+
+-- insert trigger for MachineRequiresReboot
+CREATE TRIGGER trg_log_machine_requires_reboot_insert
+AFTER INSERT ON machine_requires_reboot FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for MachineRequiresReboot
+CREATE TRIGGER trg_log_machine_requires_reboot_update
+AFTER UPDATE ON machine_requires_reboot FOR EACH ROW
+WHEN 
+	NEW.machine_uuid != OLD.machine_uuid OR
+	NEW.created_at != OLD.created_at
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for MachineRequiresReboot
+CREATE TRIGGER trg_log_machine_requires_reboot_delete
+AFTER DELETE ON machine_requires_reboot FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
