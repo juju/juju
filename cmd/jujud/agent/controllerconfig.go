@@ -24,6 +24,7 @@ type controllerConfigCommand struct {
 	loggingOverride   string
 	runtimeConfigPath string
 	snapCommon        string
+	flagSet           *gnuflag.FlagSet
 }
 
 // NewControllerConfigCommand returns a new controllerConfigCommand.
@@ -39,6 +40,7 @@ func (c *controllerConfigCommand) Info() *cmd.Info {
 }
 
 func (c *controllerConfigCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.flagSet = f
 	f.StringVar(&c.loggingOverride, "logging-override", "", "logging override value to apply")
 	f.StringVar(&c.runtimeConfigPath, "runtime-config-path", "", "path to runtime.conf")
 	f.StringVar(&c.snapCommon, "snap-common", "", "path to $SNAP_COMMON directory")
@@ -55,9 +57,6 @@ func (c *controllerConfigCommand) Init(args []string) error {
 }
 
 func (c *controllerConfigCommand) Run(ctx *cmd.Context) error {
-	// Validate the supplied keys against the Phase 1 ownership
-	// allowlist before touching any on-disk state. This enforces the
-	// same ownership boundary at the Go layer regardless of caller.
 	vals := map[string]string{
 		"logging-override": c.loggingOverride,
 	}
@@ -67,20 +66,38 @@ func (c *controllerConfigCommand) Run(ctx *cmd.Context) error {
 
 	_, err := os.Stat(c.runtimeConfigPath)
 	if os.IsNotExist(err) {
-		// runtime.conf does not exist yet: defer the value.
 		return controllerruntimeconfig.WriteDeferredLoggingOverride(c.snapCommon, c.loggingOverride)
 	}
 	if err != nil {
 		return errors.Annotatef(err, "checking runtime config %q", c.runtimeConfigPath)
 	}
 
-	// If logging-override is explicitly empty (-logging-override ""),
-	// clear the field. If the flag was not set (also empty), no-op.
+	// logging-override maps directly to the flag value. When the flag
+	// is not set the empty default is indistinguishable from an
+	// explicit clear (--logging-override ""). Use gnuflag.Visit to
+	// detect whether the operator actually passed the flag so that
+	// an invocation without --logging-override does not accidentally
+	// wipe a previously-applied value.
+	loggingOverrideSet := false
+	if c.flagSet != nil {
+		c.flagSet.Visit(func(f *gnuflag.Flag) {
+			if f.Name == "logging-override" {
+				loggingOverrideSet = true
+			}
+		})
+	}
+	if c.flagSet != nil && !loggingOverrideSet {
+		return nil
+	}
+
 	snapOverlay := controllerruntimeconfig.SnapConfigOverlay{
 		LoggingOverride: strings.TrimSpace(c.loggingOverride),
 	}
 	if err := controllerruntimeconfig.ApplySnapConfigOverlay(c.runtimeConfigPath, snapOverlay); err != nil {
 		return errors.Annotate(err, "applying snap config to runtime config")
+	}
+	if err := controllerruntimeconfig.WriteDeferredLoggingOverride(c.snapCommon, strings.TrimSpace(c.loggingOverride)); err != nil {
+		return errors.Annotate(err, "writing state file")
 	}
 
 	_, _ = ctx.Stdout.Write([]byte("applied logging-override\n"))
