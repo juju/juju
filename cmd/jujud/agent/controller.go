@@ -397,6 +397,7 @@ func NewControllerAgent(
 		preUpgradeSteps:    preUpgradeSteps,
 		upgradeSteps:       upgradeSteps,
 	}
+	a.engineCreatorFunc = a.makeEngineCreator
 	return a, nil
 }
 
@@ -431,15 +432,10 @@ type ControllerApplication struct {
 	upgradeDBLock         gate.Waiter
 	upgradeStepsLock      gate.Lock
 
-	// testEngineCreator, when non-nil, replaces makeEngineCreator in Run.
-	// It exists only to allow unit tests to inject a lightweight worker
-	// without spinning up the full dependency engine.
-	//
-	// WARNING: This is a test-only field must NEVER be set in production code
-	// paths. If it leaks into production the controller will not start
-	// the dependency engine. Run() logs a warning when this is non-nil so
-	// that accidental production use is observable in logs.
-	testEngineCreator func(context.Context) (worker.Worker, error)
+	// engineCreatorFunc creates the dependency engine worker.
+	// Defaults to makeEngineCreator in the production constructor;
+	// tests inject their own lightweight implementation.
+	engineCreatorFunc func(string, semversion.Number, corelogger.LogSink) func(context.Context) (worker.Worker, error)
 }
 
 // Wait waits for the controller agent to finish.
@@ -531,11 +527,7 @@ func (a *ControllerApplication) Run(ctx *cmd.Context) (err error) {
 
 	a.initStandaloneControllerLocks()
 
-	createEngine := a.makeEngineCreator(agentName, controllerRuntimeConfig.UpgradedToVersion(), logSink)
-	if a.testEngineCreator != nil {
-		logger.Warningf(context.TODO(), "testEngineCreator is set; replacing controller engine with test stub. This must only happen in test builds.")
-		createEngine = a.testEngineCreator
-	}
+	createEngine := a.engineCreatorFunc(agentName, controllerRuntimeConfig.UpgradedToVersion(), logSink)
 	_ = a.runner.StartWorker(ctx, "engine", createEngine)
 
 	// At this point, all workers will have been configured to start.
