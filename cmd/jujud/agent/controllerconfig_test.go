@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/controllerruntimeconfig"
@@ -89,6 +90,10 @@ func (s *ControllerConfigSuite) TestApplyLoggingOverride_WhenRuntimeConfExists(c
 	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(runtimePath)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got.LoggingOverride, tc.Equals, "juju.bootstrap=TRACE")
+
+	deferredVal, err := controllerruntimeconfig.ReadDeferredLoggingOverride(snapCommon)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(deferredVal, tc.Equals, "juju.bootstrap=TRACE")
 }
 
 func (s *ControllerConfigSuite) TestClearLoggingOverride_WhenRuntimeConfExists(c *tc.C) {
@@ -127,6 +132,10 @@ func (s *ControllerConfigSuite) TestClearLoggingOverride_WhenRuntimeConfExists(c
 	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(runtimePath)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got.LoggingOverride, tc.Equals, "")
+
+	deferredVal, err := controllerruntimeconfig.ReadDeferredLoggingOverride(snapCommon)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(deferredVal, tc.Equals, "")
 }
 
 func (s *ControllerConfigSuite) TestDeferLoggingOverride_WhenRuntimeConfMissing(c *tc.C) {
@@ -220,4 +229,66 @@ func (s *ControllerConfigSuite) TestRunPassesValidationForSupportedKey(c *tc.C) 
 	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(runtimePath)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got.LoggingOverride, tc.Equals, "juju.worker=TRACE")
+}
+
+func (s *ControllerConfigSuite) TestRunNoOpWhenLoggingOverrideNotSet(c *tc.C) {
+	dir := c.MkDir()
+	snapCommon := c.MkDir()
+	runtimePath := filepath.Join(dir, controllerruntimeconfig.Filename)
+
+	cfg := controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:         "0",
+		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
+		DataDir:              "/var/lib/juju",
+		LogDir:               "/var/log/juju",
+		APIPort:              17070,
+		AgentPassword:        "agent-password",
+		CACert:               "ca-cert-pem",
+		CAPrivateKey:         "ca-private-key-pem",
+		ControllerCert:       "controller-cert-pem",
+		ControllerPrivateKey: "controller-private-key-pem",
+		LoggingOverride:      "juju.worker=DEBUG",
+	}
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	app := NewControllerConfigCommand()
+	fs := gnuflag.NewFlagSet("test", gnuflag.ContinueOnError)
+	app.SetFlags(fs)
+	err = fs.Parse(false, []string{
+		"--runtime-config-path", runtimePath,
+		"--snap-common", snapCommon,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	ctx := newTestContext()
+	err = app.Run(ctx)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(runtimePath)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.LoggingOverride, tc.Equals, "juju.worker=DEBUG")
+}
+
+func (s *ControllerConfigSuite) TestRunStatErrorNotIsNotExist(c *tc.C) {
+	dir := c.MkDir()
+	snapCommon := c.MkDir()
+
+	blocker := filepath.Join(dir, "not-a-directory")
+	err := os.WriteFile(blocker, nil, 0o644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	runtimePath := filepath.Join(blocker, controllerruntimeconfig.Filename)
+
+	app := new(controllerConfigCommand)
+	app.loggingOverride = "juju.bootstrap=TRACE"
+	app.runtimeConfigPath = runtimePath
+	app.snapCommon = snapCommon
+	err = app.Init(nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	ctx := newTestContext()
+	err = app.Run(ctx)
+	c.Assert(err, tc.ErrorMatches, `checking runtime config.*`)
 }
