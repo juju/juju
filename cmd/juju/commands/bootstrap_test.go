@@ -519,14 +519,6 @@ var bootstrapTests = []bootstrapTest{{
 	info: "--agent-version with --build-snap",
 	args: []string{"--agent-version", "1.1.0", "--build-snap"},
 	err:  `--agent-version and --build-snap can't be used together`,
-}, {
-	info: "--build-snap with --controller-snap-path",
-	args: []string{"--build-snap", "--controller-snap-path", "/tmp/foo.snap"},
-	err:  `--build-snap and --controller-snap-path cannot be used together; use one or the other`,
-}, {
-	info: "--build-snap with --controller-snap-assert-path",
-	args: []string{"--build-snap", "--controller-snap-assert-path", "/tmp/foo.assert"},
-	err:  `--controller-snap-assert-path requires --controller-snap-path; it cannot be used with --build-snap`,
 }}
 
 func (s *BootstrapSuite) TestRunCloudNameUnknown(c *tc.C) {
@@ -2258,17 +2250,153 @@ func (s *BootstrapSuite) TestBootstrapControllerSnapPathAlwaysAvailable(c *tc.C)
 	}
 }
 
-// TestBootstrapIAASRequiresSnapPath verifies that an IAAS bootstrap without
-// --controller-snap-path fails in Run() after cloud type is resolved, before
-// any provisioning occurs. The check must not fire for CAAS bootstraps.
-func (s *BootstrapSuite) TestBootstrapIAASRequiresSnapPath(c *tc.C) {
+// TestBootstrapImplicitBuild tests that an IAAS bootstrap without
+// --controller-snap-path triggers the implicit build flow, including the
+// WARNING log message about the temporary behavior.
+func (s *BootstrapSuite) TestBootstrapImplicitBuild(c *tc.C) {
+	s.patchVersion(c)
+	s.tw.Clear()
+
+	var gotArgs bootstrap.BootstrapParams
+	bootstrapFuncs := &fakeBootstrapFuncs{
+		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, args bootstrap.BootstrapParams) error {
+			gotArgs = args
+			return errors.New("test error")
+		},
+	}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return bootstrapFuncs
+	})
+
+	// Patch BuildControllerSnap to return a fake snap file.
+	tempSnapPath := filepath.Join(c.MkDir(), "jujud_4.0.0_amd64.snap")
+	err := os.WriteFile(tempSnapPath, []byte("fake snap"), 0644)
+	c.Assert(err, tc.ErrorIsNil)
+	s.PatchValue(&bootstrap.BuildControllerSnap, func(ctx context.Context) (string, error) {
+		return tempSnapPath, nil
+	})
+
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+	)
+	c.Assert(err, tc.Equals, cmd.ErrSilent)
+	c.Check(gotArgs.ControllerSnapPath, tc.Equals, tempSnapPath)
+
+	// Verify the WARNING log message.
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Check(s.tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
+		Level:   loggo.WARNING,
+		Message: "building controller snap and agent from local source; this is temporary and will be replaced by store-based resolution in a future release",
+	}})
+}
+
+// TestBootstrapExplicitSnapPathBypassesImplicitBuild verifies that when
+// --controller-snap-path is explicitly provided, the implicit build is NOT
+// triggered and the explicit path is used as-is.
+func (s *BootstrapSuite) TestBootstrapExplicitSnapPathBypassesImplicitBuild(c *tc.C) {
+	s.patchVersion(c)
+	s.tw.Clear()
+
+	var gotArgs bootstrap.BootstrapParams
+	bootstrapFuncs := &fakeBootstrapFuncs{
+		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, args bootstrap.BootstrapParams) error {
+			gotArgs = args
+			return errors.New("test error")
+		},
+	}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return bootstrapFuncs
+	})
+
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--controller-snap-path", s.controllerSnapPath,
+		"--build-agent",
+	)
+	c.Assert(err, tc.Equals, cmd.ErrSilent)
+	c.Check(gotArgs.ControllerSnapPath, tc.Equals, s.controllerSnapPath)
+
+	// Verify no implicit build WARNING was logged.
+	for _, entry := range s.tw.Log() {
+		c.Check(entry.Message, tc.Not(tc.Contains), "building controller snap and agent from local source")
+	}
+}
+
+// TestBootstrapBuildSnapIgnoredWithExplicitPath verifies that when both
+// --build-snap and --controller-snap-path are provided, --build-snap is
+// ignored and a warning is logged, and the explicit path is used.
+func (s *BootstrapSuite) TestBootstrapBuildSnapIgnoredWithExplicitPath(c *tc.C) {
+	s.patchVersion(c)
+	s.tw.Clear()
+
+	var gotArgs bootstrap.BootstrapParams
+	bootstrapFuncs := &fakeBootstrapFuncs{
+		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, args bootstrap.BootstrapParams) error {
+			gotArgs = args
+			return errors.New("test error")
+		},
+	}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return bootstrapFuncs
+	})
+
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--build-snap",
+		"--controller-snap-path", s.controllerSnapPath,
+		"--build-agent",
+	)
+	c.Assert(err, tc.Equals, cmd.ErrSilent)
+	c.Check(gotArgs.ControllerSnapPath, tc.Equals, s.controllerSnapPath)
+
+	// Verify the "ignoring --build-snap" warning.
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Check(s.tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
+		Level:   loggo.WARNING,
+		Message: "ignoring --build-snap because --controller-snap-path is explicitly provided",
+	}})
+}
+
+// TestBootstrapIAASControllerSnapPathRequired verifies that when all implicit
+// build mechanisms fail (e.g., BuildControllerSnap returns an empty path), the
+// original --controller-snap-path is required error still fires.
+func (s *BootstrapSuite) TestBootstrapIAASControllerSnapPathRequired(c *tc.C) {
 	s.patchVersion(c)
 
-	// IAAS bootstrap without a snap path must fail before provisioning.
+	// Leave BuildControllerSnap unpatched; the real function will fail
+	// (no snapcraft, no source root), which means the implicit build
+	// fails, and the original "required" error will surface.
+	// Instead, patch it to return an empty string to simulate build
+	// success but no path set (should not happen normally, but tests
+	// the fallback).
+	s.PatchValue(&bootstrap.BuildControllerSnap, func(ctx context.Context) (string, error) {
+		return "", nil
+	})
+
 	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 	)
 	c.Assert(err, tc.ErrorMatches, `--controller-snap-path is required for IAAS bootstrap.*`)
+}
+
+// TestBootstrapBuildSnapWithAssertPathNoSnapPath verifies that
+// --controller-snap-assert-path requires --controller-snap-path when used
+// with --build-snap without an explicit snap path.
+func (s *BootstrapSuite) TestBootstrapBuildSnapWithAssertPathNoSnapPath(c *tc.C) {
+	s.patchVersion(c)
+
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"--build-snap",
+		"--controller-snap-assert-path", "/tmp/foo.assert",
+	)
+	c.Assert(err, tc.ErrorMatches,
+		`--controller-snap-assert-path requires --controller-snap-path; it cannot be used with --build-snap`)
 }
 
 // TestBootstrapIAASRequiresBuildAgent verifies that an IAAS bootstrap with
