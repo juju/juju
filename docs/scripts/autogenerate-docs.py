@@ -51,37 +51,6 @@ def get_tree_juju_version():
     return major_minor, version
 
 
-def get_juju_version():
-    """Check to see what version of Juju we are running.
-
-    Returns None, None if juju is not installed or fails to execute.
-
-    Note: This function intentionally treats all errors (binary not found,
-    execution failure, etc.) as "juju not present" to allow docs generation
-    in CI environments where juju is not installed. If juju is installed but
-    failing, the actual doc generation (via `go run scripts/docgen.go`) will
-    fail with a clearer error message.
-    """
-    # There is probably more that could be done here about all the possible
-    # version strings juju spits out, but this should cover stripping things
-    # like 'genericlinux' and the architecture out.
-    try:
-        result = subprocess.run(['juju', 'version'], capture_output=True, text=True)
-    except FileNotFoundError:
-        # juju binary not found in PATH (expected in CI without juju installed)
-        return None, None
-
-    if result.returncode != 0:
-        # juju exists but failed to run - treat as not present to allow CI to proceed.
-        # If there's a real problem, doc generation will fail later with clearer errors.
-        return None, None
-
-    version = result.stdout.rstrip()
-    major_minor = _major_minor_from_version_string(version)
-    if major_minor is None:
-        raise RuntimeError('could not determine version from `juju version`: {}'.format(version))
-    return major_minor, version
-
 
 def generate_cli_docs(force=False):
     cli_dir = "reference/juju-cli/"
@@ -89,8 +58,8 @@ def generate_cli_docs(force=False):
     cli_index_header = cli_dir + 'cli_index'
 
     if not force and os.path.exists(generated_cli_docs_dir) and os.listdir(generated_cli_docs_dir):
-        print("cli command docs already present, skipping generation "
-              "(run 'make regenerate-docs' after changing Go source)")
+        print("cli command docs already present, skipping generation. "
+              "Run 'make regenerate-docs' to regenerate after changing Go source.")
         return
 
     _, tree_version = get_tree_juju_version()
@@ -131,8 +100,8 @@ def generate_controller_config_docs(force=False):
     controller_config_header = config_reference_dir + 'list-of-controller-configuration-keys.header'
 
     if not force and os.path.exists(controller_config_file):
-        print("controller config docs already present, skipping generation "
-              "(run 'make regenerate-docs' after changing Go source)")
+        print("controller config docs already present, skipping generation. "
+              "Run 'make regenerate-docs' to regenerate after changing Go source.")
         return
 
     # Generate the controller config using script. The first argument of the script
@@ -163,8 +132,8 @@ def generate_hook_command_docs(force=False):
     hook_index_header = hook_commands_reference_dir + 'hook_index'
 
     if not force and os.path.exists(generated_hook_commands_dir) and os.listdir(generated_hook_commands_dir):
-        print("hook command docs already present, skipping generation "
-              "(run 'make regenerate-docs' after changing Go source)")
+        print("hook command docs already present, skipping generation. "
+              "Run 'make regenerate-docs' to regenerate after changing Go source.")
         return
 
     # Remove existing hook command folder to regenerate it
@@ -203,9 +172,10 @@ def generate_hook_command_docs(force=False):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--force', action='store_true',
-                    help='Regenerate docs even if output already exists. '
-                         'Required when Go source has changed. '
-                         'Without this flag, generation is skipped if output is present.')
+                    help='Regenerate the committed reference Markdown files even '
+                         'if they already exist in the working tree. Without this '
+                         'flag, generation is skipped when output is present. '
+                         'Run with --force whenever you change Go source.')
 args = parser.parse_args()
 
 generate_cli_docs(args.force)
