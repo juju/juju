@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/tools"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -114,7 +115,7 @@ func (s *snapBuildSuite) TestBuildControllerSnapFileNotFound(c *tc.C) {
 func (s *snapBuildSuite) TestBuildControllerSnapSuccess(c *tc.C) {
 	tmpDir := c.MkDir()
 
-	snapName := fmt.Sprintf("jujud_%s_%s.snap", "4.1-beta2", runtime.GOARCH)
+	snapName := fmt.Sprintf("jujud_%s_%s.snap", version.Current.String(), bootstrap.SnapArch(runtime.GOARCH))
 	snapPath := filepath.Join(tmpDir, snapName)
 	err := os.WriteFile(snapPath, []byte("fake snap"), 0644)
 	c.Assert(err, tc.ErrorIsNil)

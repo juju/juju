@@ -118,10 +118,6 @@ type BootstrapParams struct {
 	// It is an error to specify BuildAgent with a nil BuildAgentTarball.
 	BuildAgent bool
 
-	// BuildSnap reports whether we should build the controller snap local from
-	// source via 'make build-snap' before bootstrapping.
-	BuildSnap bool
-
 	// BuildAgentTarball, if non-nil, is a function that may be used to
 	// build tools to upload. If this is nil, tools uploading will never
 	// take place.

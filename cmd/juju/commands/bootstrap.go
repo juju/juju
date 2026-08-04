@@ -733,15 +733,18 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		// should resolve the snap from the store instead and this implicit build
 		// block should be removed.
 		if c.ControllerSnapPath == "" {
+			if !c.BuildSnap {
+				ctx.Warningf("building controller snap and agent from local source; " +
+					"this is temporary and will be replaced by store-based resolution in a future release")
+			}
 			c.BuildSnap = true
-			ctx.Warningf("building controller snap and agent from local source; " +
-				"this is temporary and will be replaced by store-based resolution in a future release")
 		}
 		if c.BuildSnap && c.ControllerSnapPath != "" {
 			c.BuildSnap = false
 			ctx.Warningf("ignoring --build-snap because --controller-snap-path is explicitly provided")
 		}
 		if c.BuildSnap {
+			ctx.Infof("Building controller snap from local source via 'make build-snap'; this may take several minutes...")
 			builtPath, err := bootstrap.BuildControllerSnap(ctx)
 			if err != nil {
 				return errors.Trace(err)
@@ -929,7 +932,6 @@ to create a new model to deploy %sworkloads.
 		BootstrapImage:                c.BootstrapImage,
 		Placement:                     c.Placement,
 		BuildAgent:                    c.BuildAgent,
-		BuildSnap:                     c.BuildSnap,
 		BuildAgentTarball:             sync.BuildAgentTarball,
 		AgentVersion:                  c.AgentVersion,
 		Cloud:                         cloud,
