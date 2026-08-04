@@ -54,6 +54,7 @@ jobs:
 
       - name: Make documentation
         run: |
+          make docs-regenerate-docs
           make docs-html
 
       - name: Check for changes

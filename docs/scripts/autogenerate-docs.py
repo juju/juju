@@ -1,3 +1,4 @@
+import argparse
 import os
 import re
 import shutil
@@ -82,10 +83,15 @@ def get_juju_version():
     return major_minor, version
 
 
-def generate_cli_docs():
+def generate_cli_docs(force=False):
     cli_dir = "reference/juju-cli/"
     generated_cli_docs_dir = cli_dir + "list-of-juju-cli-commands/"
     cli_index_header = cli_dir + 'cli_index'
+
+    if not force and os.path.exists(generated_cli_docs_dir) and os.listdir(generated_cli_docs_dir):
+        print("cli command docs already present, skipping generation "
+              "(run 'make regenerate-docs' after changing Go source)")
+        return
 
     _, tree_version = get_tree_juju_version()
 
@@ -119,10 +125,15 @@ def generate_cli_docs():
     subprocess.run(['cp', cli_index_header, generated_cli_docs_dir + 'index.md'])
 
 
-def generate_controller_config_docs():
+def generate_controller_config_docs(force=False):
     config_reference_dir = 'reference/configuration/'
     controller_config_file = config_reference_dir + 'list-of-controller-configuration-keys.md'
     controller_config_header = config_reference_dir + 'list-of-controller-configuration-keys.header'
+
+    if not force and os.path.exists(controller_config_file):
+        print("controller config docs already present, skipping generation "
+              "(run 'make regenerate-docs' after changing Go source)")
+        return
 
     # Generate the controller config using script. The first argument of the script
     # is the root directory of the juju source code. This is the parent directory
@@ -146,10 +157,15 @@ def generate_controller_config_docs():
     print("generated controller config key list")
 
 
-def generate_hook_command_docs():
+def generate_hook_command_docs(force=False):
     hook_commands_reference_dir = 'reference/hook-command/'
     generated_hook_commands_dir = hook_commands_reference_dir + 'list-of-hook-commands/'
     hook_index_header = hook_commands_reference_dir + 'hook_index'
+
+    if not force and os.path.exists(generated_hook_commands_dir) and os.listdir(generated_hook_commands_dir):
+        print("hook command docs already present, skipping generation "
+              "(run 'make regenerate-docs' after changing Go source)")
+        return
 
     # Remove existing hook command folder to regenerate it
     if os.path.exists(generated_hook_commands_dir):
@@ -185,6 +201,13 @@ def generate_hook_command_docs():
 
     print("generated hook command list")
 
-generate_cli_docs()
-generate_controller_config_docs()
-generate_hook_command_docs()
+parser = argparse.ArgumentParser()
+parser.add_argument('--force', action='store_true',
+                    help='Regenerate docs even if output already exists. '
+                         'Required when Go source has changed. '
+                         'Without this flag, generation is skipped if output is present.')
+args = parser.parse_args()
+
+generate_cli_docs(args.force)
+generate_controller_config_docs(args.force)
+generate_hook_command_docs(args.force)
