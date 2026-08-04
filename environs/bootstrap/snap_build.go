@@ -4,8 +4,10 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,10 +24,19 @@ const (
 		"install it with 'sudo snap install snapcraft --classic'"
 )
 
-var buildCommandFunc = func(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
+// buildCommandFunc runs the build command, streaming its output live to the
+// supplied writers while also capturing it so callers can include it in an
+// error message. Declared as a var for test injection.
+var buildCommandFunc = func(
+	ctx context.Context, stdout, stderr io.Writer, dir, name string, args ...string,
+) ([]byte, error) {
+	var buf bytes.Buffer
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
-	return cmd.CombinedOutput()
+	cmd.Stdout = io.MultiWriter(stdout, &buf)
+	cmd.Stderr = io.MultiWriter(stderr, &buf)
+	err := cmd.Run()
+	return buf.Bytes(), err
 }
 
 var lookPathFunc = exec.LookPath
@@ -40,14 +51,14 @@ func snapArch(goarch string) string {
 }
 
 // BuildControllerSnap builds the controller snap from local source via 'make
-// build-snap' and returns the path to the resulting .snap file. It is called
+// jujud-snap-build' and returns the path to the resulting .snap file. It is called
 // from the bootstrap command's Run() when --build-snap is set, populating
 // ControllerSnapPath so the existing upload pipeline handles the locally built
-// snap.
+// snap. Build output is streamed live to stdout and stderr.
 //
 // Declared as a var to allow test injection without a config struct; tests
 // swap the value directly via the exported alias in export_test.go.
-var BuildControllerSnap = func(ctx context.Context) (string, error) {
+var BuildControllerSnap = func(ctx context.Context, stdout, stderr io.Writer) (string, error) {
 	sourceRoot, err := tools.FindJujuSourceRoot()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot locate juju source root")
@@ -57,7 +68,7 @@ var BuildControllerSnap = func(ctx context.Context) (string, error) {
 		return "", errors.New(snapcraftRequiredMessage)
 	}
 
-	out, err := buildCommandFunc(ctx, sourceRoot, "make", "build-snap")
+	out, err := buildCommandFunc(ctx, stdout, stderr, sourceRoot, "make", "jujud-snap-build")
 	if err != nil {
 		return "", errors.Errorf(
 			"building controller snap failed: %v\n%s\n"+

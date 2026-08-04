@@ -156,7 +156,16 @@ test_bootstrap_build_snap() {
 		set_verbosity
 
 		cd .. || exit
+		# Pin GOBIN so 'make jujud' installs the controller binary to a
+		# known location within the test dir. GO_INSTALL_PATH falls back to
+		# $(go env GOPATH)/bin when GOBIN is unset, but CI runners may not
+		# have a writable GOPATH/bin, so we set it explicitly here.
+		export GOBIN="${TEST_DIR}/gobin"
+		mkdir -p "${GOBIN}"
 
+		# Note: run_build_snap_explicit runs first and produces the base
+		# snap via a full build; run_build_snap_implicit then exercises the
+		# fast-patch path because the artifact already exists.
 		run "run_build_snap_explicit"
 		run "run_build_snap_implicit"
 	)

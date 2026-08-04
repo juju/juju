@@ -78,6 +78,13 @@ OCI_IMAGE_PLATFORMS ?= linux/$(GOARCH)
 # Multi-snap layout: source-of-truth under snaps/<name>/, staging at snap/
 SNAPS_DIR := snaps
 SNAP_STAGE_DIR := snap
+JUJUD_SNAP_PATCH_DIR := _jujud-snap-patch
+JUJUD_SNAP_PATCH_UNPACK := ${JUJUD_SNAP_PATCH_DIR}/squashfs-root
+JUJUD_SNAP_PATCH_LOG := ${JUJUD_SNAP_PATCH_DIR}/build.log
+# Map Go arch to snap arch. Must match snapArch in environs/bootstrap/snap_build.go.
+JUJUD_SNAP_ARCH := $(patsubst ppc64le,ppc64el,$(GOARCH))
+JUJUD_SNAP_VERSION = $(shell sed -n 's/^version: *//p' ${SNAPS_DIR}/jujud/snapcraft.yaml | tr -d '"')
+JUJUD_SNAP_NAME = jujud_$(JUJUD_SNAP_VERSION)_$(JUJUD_SNAP_ARCH).snap
 
 # Build tags passed to go install/build.
 # Passing no-dqlite will disable building with dqlite.
@@ -619,9 +626,83 @@ jujud-snap:
 	$(call snap_stage,jujud)
 	snapcraft pack --use-lxd
 
-.PHONY: build-snap
-build-snap: jujud-snap
-## build-snap: Alias for jujud-snap; produces the jujud controller snap for local bootstrap.
+.PHONY: jujud-snap-build
+jujud-snap-build:
+## jujud-snap-build: Build the jujud controller snap; fast-patch when possible, else full rebuild.
+# The full-build branch pipes snapcraft output through tee rather than
+# redirecting to a plain file: snapcraft's LXD provider spawns snap-confine,
+# which refuses to run ("elevated permissions ... permission escalation", exit
+# 120) when the build's stdout is a regular file. A pipe keeps stdout valid
+# while still capturing output to the log for display on failure.
+	@set -e; \
+	BASE_SNAP="${JUJUD_SNAP_NAME}"; \
+	if [ -f "$$BASE_SNAP" ] && [ -z "$$(find ${SNAPS_DIR}/jujud -newer "$$BASE_SNAP" -print -quit 2>/dev/null)" ]; then \
+		echo "Patching controller snap..."; \
+		$(MAKE) --no-print-directory jujud-snap-patch; \
+	else \
+		echo "Building controller snap from source. This may take a while..."; \
+		rm -rf ${JUJUD_SNAP_PATCH_DIR}; \
+		mkdir -p ${JUJUD_SNAP_PATCH_DIR}; \
+		set +e; \
+		{ $(MAKE) --no-print-directory jujud-snap 2>&1; echo $$? >${JUJUD_SNAP_PATCH_DIR}/.rc; } \
+			| tee ${JUJUD_SNAP_PATCH_LOG} >/dev/null; \
+		set -e; \
+		if [ "$$(cat ${JUJUD_SNAP_PATCH_DIR}/.rc 2>/dev/null)" != 0 ]; then \
+			cat ${JUJUD_SNAP_PATCH_LOG}; exit 1; \
+		fi; \
+		if $(MAKE) --no-print-directory jujud >> ${JUJUD_SNAP_PATCH_LOG} 2>&1; then \
+			sha256sum "${GO_INSTALL_PATH}/jujud" | cut -d' ' -f1 \
+				> ${JUJUD_SNAP_PATCH_DIR}/.jujud.sha256; \
+		fi; \
+		echo "Built snap: $$BASE_SNAP"; \
+	fi
+
+.PHONY: jujud-snap-patch
+jujud-snap-patch:
+## jujud-snap-patch: Fast-patch the base jujud snap with a freshly built jujud binary.
+	@set -e; \
+	mkdir -p ${JUJUD_SNAP_PATCH_DIR}; \
+	$(MAKE) --no-print-directory jujud > ${JUJUD_SNAP_PATCH_LOG} 2>&1 \
+		|| { cat ${JUJUD_SNAP_PATCH_LOG}; exit 1; }; \
+	BASE_SNAP="${JUJUD_SNAP_NAME}"; \
+	if [ ! -f "$$BASE_SNAP" ]; then \
+		echo "ERROR: no base snap found. Run 'make jujud-snap-build' first to create the base snap artifact."; \
+		exit 1; \
+	fi; \
+	JUJUD_BIN="${GO_INSTALL_PATH}/jujud"; \
+	if [ ! -f "$$JUJUD_BIN" ]; then \
+		echo "ERROR: jujud binary not found at $$JUJUD_BIN."; \
+		exit 1; \
+	fi; \
+	JUJUD_SHA="$$(sha256sum "$$JUJUD_BIN" | cut -d' ' -f1)"; \
+	STORED_SHA="$$(cat ${JUJUD_SNAP_PATCH_DIR}/.jujud.sha256 2>/dev/null || true)"; \
+	if [ "$$JUJUD_SHA" = "$$STORED_SHA" ]; then \
+		echo "jujud binary unchanged; snap is up to date."; \
+		exit 0; \
+	fi; \
+	CACHE_SNAP="${JUJUD_SNAP_PATCH_DIR}/base.snap"; \
+	if [ ! -f "$$CACHE_SNAP" ]; then \
+		cp "$$BASE_SNAP" "$$CACHE_SNAP"; \
+	fi; \
+	if [ ! -d ${JUJUD_SNAP_PATCH_UNPACK} ]; then \
+		unsquashfs -d ${JUJUD_SNAP_PATCH_UNPACK} "$$CACHE_SNAP" >> ${JUJUD_SNAP_PATCH_LOG} 2>&1 \
+			|| { cat ${JUJUD_SNAP_PATCH_LOG}; exit 1; }; \
+	fi; \
+	cp "$$JUJUD_BIN" ${JUJUD_SNAP_PATCH_UNPACK}/bin/jujud; \
+	test -L ${JUJUD_SNAP_PATCH_UNPACK}/bin/juju-introspect || \
+		ln -sf jujud ${JUJUD_SNAP_PATCH_UNPACK}/bin/juju-introspect; \
+	if [ ! -x ${JUJUD_SNAP_PATCH_UNPACK}/bin/jujud ]; then \
+		echo "ERROR: jujud binary is not executable."; \
+		exit 1; \
+	fi; \
+	if ! file ${JUJUD_SNAP_PATCH_UNPACK}/bin/jujud | grep -q 'ELF'; then \
+		echo "ERROR: jujud is not a valid ELF binary."; \
+		exit 1; \
+	fi; \
+	snap pack ${JUJUD_SNAP_PATCH_UNPACK} --filename="$$BASE_SNAP" >> ${JUJUD_SNAP_PATCH_LOG} 2>&1 \
+		|| { cat ${JUJUD_SNAP_PATCH_LOG}; exit 1; }; \
+	echo "$$JUJUD_SHA" > ${JUJUD_SNAP_PATCH_DIR}/.jujud.sha256; \
+	echo "Patched snap: $$BASE_SNAP"
 
 .PHONY: install-snap-dependencies
 # Install packages required to develop Juju and run tests. The stable

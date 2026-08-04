@@ -2,6 +2,7 @@ _build/
 _build
 _deps*/
 _deps
+_jujud-snap-patch/
 cmd/juju/juju
 cmd/jujud/jujud
 cmd/builddb/builddb

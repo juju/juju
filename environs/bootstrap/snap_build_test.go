@@ -4,8 +4,10 @@
 package bootstrap_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -47,7 +49,7 @@ func (s *snapBuildSuite) TestBuildControllerSnapSnapcraftNotFound(c *tc.C) {
 	restoreBuild := func() { *bootstrap.BuildCommandFunc = *origBuild }
 	defer restoreBuild()
 
-	*bootstrap.BuildCommandFunc = func(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
+	*bootstrap.BuildCommandFunc = func(ctx context.Context, stdout, stderr io.Writer, dir, name string, args ...string) ([]byte, error) {
 		return nil, fmt.Errorf("should not be called")
 	}
 
@@ -65,7 +67,7 @@ func (s *snapBuildSuite) TestBuildControllerSnapSnapcraftNotFound(c *tc.C) {
 		return c.MkDir(), nil
 	}
 
-	_, err := bootstrap.BuildControllerSnap(context.Background())
+	_, err := bootstrap.BuildControllerSnap(context.Background(), io.Discard, io.Discard)
 	c.Assert(err, tc.ErrorMatches, "snapcraft is required to build the controller snap.*")
 }
 
@@ -74,7 +76,7 @@ func (s *snapBuildSuite) TestBuildControllerSnapMakeFails(c *tc.C) {
 	restoreBuild := func() { *bootstrap.BuildCommandFunc = *origBuild }
 	defer restoreBuild()
 
-	*bootstrap.BuildCommandFunc = func(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
+	*bootstrap.BuildCommandFunc = func(ctx context.Context, stdout, stderr io.Writer, dir, name string, args ...string) ([]byte, error) {
 		return []byte("build output\nbuild failed\n"), fmt.Errorf("exit status 2")
 	}
 
@@ -92,8 +94,8 @@ func (s *snapBuildSuite) TestBuildControllerSnapMakeFails(c *tc.C) {
 		return c.MkDir(), nil
 	}
 
-	_, err := bootstrap.BuildControllerSnap(context.Background())
-	c.Assert(err, tc.ErrorMatches, "building controller snap failed: exit status 2(?s).*")
+	_, err := bootstrap.BuildControllerSnap(context.Background(), io.Discard, io.Discard)
+	c.Assert(err, tc.ErrorMatches, "building controller snap failed: exit status 2(?s).*build failed.*")
 }
 
 func (s *snapBuildSuite) TestBuildControllerSnapFileNotFound(c *tc.C) {
@@ -103,7 +105,7 @@ func (s *snapBuildSuite) TestBuildControllerSnapFileNotFound(c *tc.C) {
 	restoreBuild := func() { *bootstrap.BuildCommandFunc = *origBuild }
 	defer restoreBuild()
 
-	*bootstrap.BuildCommandFunc = func(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
+	*bootstrap.BuildCommandFunc = func(ctx context.Context, stdout, stderr io.Writer, dir, name string, args ...string) ([]byte, error) {
 		return []byte("build complete\n"), nil
 	}
 
@@ -121,7 +123,7 @@ func (s *snapBuildSuite) TestBuildControllerSnapFileNotFound(c *tc.C) {
 		return tmpDir, nil
 	}
 
-	_, err := bootstrap.BuildControllerSnap(context.Background())
+	_, err := bootstrap.BuildControllerSnap(context.Background(), io.Discard, io.Discard)
 	c.Assert(err, tc.ErrorMatches, "controller snap build completed but expected file.*was not found.*")
 }
 
@@ -138,11 +140,12 @@ func (s *snapBuildSuite) TestBuildControllerSnapSuccess(c *tc.C) {
 	defer restoreBuild()
 
 	buildCalled := false
-	*bootstrap.BuildCommandFunc = func(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
+	*bootstrap.BuildCommandFunc = func(ctx context.Context, stdout, stderr io.Writer, dir, name string, args ...string) ([]byte, error) {
 		c.Check(dir, tc.Equals, tmpDir)
 		c.Check(name, tc.Equals, "make")
-		c.Check(args, tc.DeepEquals, []string{"build-snap"})
+		c.Check(args, tc.DeepEquals, []string{"jujud-snap-build"})
 		buildCalled = true
+		fmt.Fprint(stdout, "build complete\n")
 		return []byte("build complete\n"), nil
 	}
 
@@ -160,8 +163,10 @@ func (s *snapBuildSuite) TestBuildControllerSnapSuccess(c *tc.C) {
 		return tmpDir, nil
 	}
 
-	result, err := bootstrap.BuildControllerSnap(context.Background())
+	var stdout bytes.Buffer
+	result, err := bootstrap.BuildControllerSnap(context.Background(), &stdout, io.Discard)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(buildCalled, tc.IsTrue)
 	c.Check(result, tc.Equals, snapPath)
+	c.Check(stdout.String(), tc.Equals, "build complete\n")
 }
