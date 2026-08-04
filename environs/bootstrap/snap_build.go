@@ -20,8 +20,6 @@ import (
 const (
 	snapcraftRequiredMessage = "snapcraft is required to build the controller snap; " +
 		"install it with 'sudo snap install snapcraft --classic'"
-	buildSnapProgressMessage = "Building controller snap via make build-snap; " +
-		"this may take several minutes..."
 )
 
 var buildCommandFunc = func(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
@@ -48,6 +46,9 @@ func snapArch(goarch string) string {
 // from the bootstrap command's Run() when --build-snap is set, populating
 // ControllerSnapPath so the existing upload pipeline handles the locally built
 // snap.
+//
+// Declared as a var to allow test injection without a config struct; tests
+// swap the value directly via the exported alias in export_test.go.
 var BuildControllerSnap = func(ctx context.Context) (string, error) {
 	sourceRoot, err := tools.FindJujuSourceRoot()
 	if err != nil {
@@ -58,11 +59,9 @@ var BuildControllerSnap = func(ctx context.Context) (string, error) {
 		return "", errors.New(snapcraftRequiredMessage)
 	}
 
-	logger.Infof(ctx, buildSnapProgressMessage)
-
 	out, err := buildCommandFunc(ctx, sourceRoot, "make", "build-snap")
 	if err != nil {
-		return "", fmt.Errorf(
+		return "", errors.Errorf(
 			"building controller snap failed: %v\n%s\n"+
 				"use --controller-snap-path to supply a pre-built snap instead",
 			err, string(out),
@@ -77,9 +76,9 @@ var BuildControllerSnap = func(ctx context.Context) (string, error) {
 	snapPath := filepath.Join(sourceRoot, expectedFile)
 
 	if _, err := os.Stat(snapPath); err != nil {
-		return "", fmt.Errorf(
-			"controller snap build completed but expected file %q was not found at %s",
-			expectedFile, sourceRoot,
+		return "", errors.Errorf(
+			"controller snap build completed but expected file %q was not found at %s: %v",
+			expectedFile, sourceRoot, err,
 		)
 	}
 
