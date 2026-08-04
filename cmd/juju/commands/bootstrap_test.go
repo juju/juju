@@ -2272,7 +2272,7 @@ func (s *BootstrapSuite) TestBootstrapImplicitBuild(c *tc.C) {
 	tempSnapPath := filepath.Join(c.MkDir(), "jujud_4.0.0_amd64.snap")
 	err := os.WriteFile(tempSnapPath, []byte("fake snap"), 0644)
 	c.Assert(err, tc.ErrorIsNil)
-	s.PatchValue(&bootstrap.BuildControllerSnap, func(ctx context.Context) (string, error) {
+	s.PatchValue(&bootstrap.BuildControllerSnap, func(ctx context.Context, stdout, stderr io.Writer) (string, error) {
 		return tempSnapPath, nil
 	})
 
@@ -2376,7 +2376,7 @@ func (s *BootstrapSuite) TestBootstrapIAASControllerSnapPathRequired(c *tc.C) {
 	// Instead, patch it to return an empty string to simulate build
 	// success but no path set (should not happen normally, but tests
 	// the fallback).
-	s.PatchValue(&bootstrap.BuildControllerSnap, func(ctx context.Context) (string, error) {
+	s.PatchValue(&bootstrap.BuildControllerSnap, func(ctx context.Context, stdout, stderr io.Writer) (string, error) {
 		return "", nil
 	})
 
