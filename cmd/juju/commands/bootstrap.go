@@ -744,8 +744,8 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			ctx.Warningf("ignoring --build-snap because --controller-snap-path is explicitly provided")
 		}
 		if c.BuildSnap {
-			ctx.Infof("Building controller snap from local source via 'make build-snap'; this may take several minutes...")
-			builtPath, err := bootstrap.BuildControllerSnap(ctx)
+			ctx.Infof("Building controller snap from local source...")
+			builtPath, err := bootstrap.BuildControllerSnap(ctx, ctx.Stdout, ctx.Stderr)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -764,7 +764,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		// absent or unreadable.
 		if c.ControllerSnapPath == "" {
 			return errors.New("--controller-snap-path is required for IAAS bootstrap; " +
-				"build the snap with 'make build-snap' and supply the path")
+				"build the snap with 'make jujud-snap-build' and supply the path")
 		}
 		if _, err := c.Filesystem().Stat(c.ControllerSnapPath); err != nil {
 			return errors.Annotatef(err, "--controller-snap-path %q cannot be read", c.ControllerSnapPath)

@@ -177,7 +177,7 @@ type BootstrapParams struct {
 	SupportedBootstrapBases []corebase.Base
 
 	// ControllerSnapPath is the path of a local snap file built locally
-	// with 'make build-snap'. In the current phase only the local dangerous
+	// with 'make jujud-snap-build'. In the current phase only the local dangerous
 	// path is active; assertion, channel, and revision paths remain as
 	// optional inputs for future store-install phases.
 	ControllerSnapPath string
@@ -513,7 +513,7 @@ func bootstrapIAAS(
 		if snapCompat.Compare(clientCompat) != 0 {
 			return errors.Errorf(
 				"local snap version %s is not compatible with bootstrap client %s; "+
-					"rebuild the snap with 'make build-snap' to match the current client version",
+					"rebuild the snap with 'make jujud-snap-build' to match the current client version",
 				snapVersion, jujuversion.Current,
 			)
 		}
