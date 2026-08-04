@@ -239,6 +239,15 @@ func (c *Connection) MachineType(ctx context.Context, zone, instanceType string)
 	})
 }
 
+// ImageByProject retrieves the image metadata for the specified project and image name.
+func (c *Connection) ImageByProject(ctx context.Context, project, image string) (*computepb.Image, error) {
+	img, err := c.images.Get(ctx, &computepb.GetImageRequest{
+		Project: project,
+		Image:   image,
+	})
+	return img, errors.Trace(err)
+}
+
 func (c *Connection) updateInstanceMetadata(ctx context.Context, instance *computepb.Instance, key, value string) error {
 	metadata := instance.GetMetadata()
 	existingItem := findMetadataItem(metadata.GetItems(), key)

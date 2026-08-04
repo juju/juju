@@ -633,9 +633,17 @@ func (e *environ) StartInstance(
 		return nil, errors.Trace(err)
 	}
 
+	imageMetadata := args.ImageMetadata
+	if args.Constraints.HasImageID() {
+		imageMetadata, err = e.resolveImageIDMetadata(ctx, args)
+		if err != nil {
+			return nil, wrapError(err)
+		}
+	}
+
 	spec, err := findInstanceSpec(
 		args.InstanceConfig.IsController(),
-		args.ImageMetadata,
+		imageMetadata,
 		instanceTypes,
 		&instances.InstanceConstraint{
 			Region:      e.cloud.Region,
@@ -695,11 +703,6 @@ func (e *environ) StartInstance(
 	rootVolumeTags[tagName] = hostname + "-root"
 	volumeTags := CreateTagSpecification(types.ResourceTypeVolume, rootVolumeTags)
 
-	imageID := aws.String(spec.Image.Id)
-	if args.Constraints.HasImageID() {
-		imageID = aws.String(*args.Constraints.ImageID)
-	}
-
 	var instResp *ec2.RunInstancesOutput
 	commonRunArgs := &ec2.RunInstancesInput{
 		MinCount:            aws.Int32(1),
@@ -708,7 +711,7 @@ func (e *environ) StartInstance(
 		InstanceType:        types.InstanceType(spec.InstanceType.Name),
 		SecurityGroupIds:    groupIDs,
 		BlockDeviceMappings: blockDeviceMappings,
-		ImageId:             imageID,
+		ImageId:             aws.String(spec.Image.Id),
 		MetadataOptions: &types.InstanceMetadataOptionsRequest{
 			HttpEndpoint: types.InstanceMetadataEndpointStateEnabled,
 			// By forcing HTTP tokens here we move all created instances over to

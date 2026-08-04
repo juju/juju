@@ -188,6 +188,21 @@ func (mr *MockComputeServiceMockRecorder) Firewalls(arg0, arg1 any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Firewalls", reflect.TypeOf((*MockComputeService)(nil).Firewalls), arg0, arg1)
 }
 
+// ImageByProject mocks base method.
+func (m *MockComputeService) ImageByProject(arg0 context.Context, arg1, arg2 string) (*computepb.Image, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ImageByProject", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*computepb.Image)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ImageByProject indicates an expected call of ImageByProject.
+func (mr *MockComputeServiceMockRecorder) ImageByProject(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageByProject", reflect.TypeOf((*MockComputeService)(nil).ImageByProject), arg0, arg1, arg2)
+}
+
 // Instance mocks base method.
 func (m *MockComputeService) Instance(arg0 context.Context, arg1, arg2 string) (*computepb.Instance, error) {
 	m.ctrl.T.Helper()
