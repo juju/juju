@@ -52,9 +52,9 @@ def get_tree_juju_version():
 
 def get_juju_version():
     """Check to see what version of Juju we are running.
-    
+
     Returns None, None if juju is not installed or fails to execute.
-    
+
     Note: This function intentionally treats all errors (binary not found,
     execution failure, etc.) as "juju not present" to allow docs generation
     in CI environments where juju is not installed. If juju is installed but
@@ -69,12 +69,12 @@ def get_juju_version():
     except FileNotFoundError:
         # juju binary not found in PATH (expected in CI without juju installed)
         return None, None
-    
+
     if result.returncode != 0:
         # juju exists but failed to run - treat as not present to allow CI to proceed.
         # If there's a real problem, doc generation will fail later with clearer errors.
         return None, None
-    
+
     version = result.stdout.rstrip()
     major_minor = _major_minor_from_version_string(version)
     if major_minor is None:
@@ -87,19 +87,12 @@ def generate_cli_docs():
     generated_cli_docs_dir = cli_dir + "list-of-juju-cli-commands/"
     cli_index_header = cli_dir + 'cli_index'
 
-    tree_major_minor, tree_version = get_tree_juju_version()
-    juju_major_minor, juju_version = get_juju_version()
-    
-    # If juju is not installed, skip the version check and use tree version
-    if juju_major_minor is None:
-        print("juju binary not found in PATH, generating cli command docs using tree version {}".format(tree_version))
-    elif tree_major_minor != juju_major_minor:
-        warning = ("refusing to rebuild docs with a mismatched minor juju version.\n" +
-                "Found juju {} in $PATH, but the tree reports version {}".format(juju_version, tree_version))
-        print(warning)
-        raise RuntimeError(warning)
-    else:
-        print("generating cli command docs using juju version found in path: {} for tree version {}".format(juju_version, tree_version))
+    _, tree_version = get_tree_juju_version()
+
+    # The doc generator (go run scripts/docgen.go) compiles from the source
+    # tree and does not use any installed juju binary, so no version check
+    # against $PATH is needed.
+    print("generating cli command docs using tree version {}".format(tree_version))
 
     # Remove existing cli folder to regenerate it
     if os.path.exists(generated_cli_docs_dir):
