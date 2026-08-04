@@ -1,3 +1,4 @@
+import argparse
 import os
 import re
 import shutil
@@ -50,56 +51,23 @@ def get_tree_juju_version():
     return major_minor, version
 
 
-def get_juju_version():
-    """Check to see what version of Juju we are running.
 
-    Returns None, None if juju is not installed or fails to execute.
-
-    Note: This function intentionally treats all errors (binary not found,
-    execution failure, etc.) as "juju not present" to allow docs generation
-    in CI environments where juju is not installed. If juju is installed but
-    failing, the actual doc generation (via `go run scripts/docgen.go`) will
-    fail with a clearer error message.
-    """
-    # There is probably more that could be done here about all the possible
-    # version strings juju spits out, but this should cover stripping things
-    # like 'genericlinux' and the architecture out.
-    try:
-        result = subprocess.run(['juju', 'version'], capture_output=True, text=True)
-    except FileNotFoundError:
-        # juju binary not found in PATH (expected in CI without juju installed)
-        return None, None
-
-    if result.returncode != 0:
-        # juju exists but failed to run - treat as not present to allow CI to proceed.
-        # If there's a real problem, doc generation will fail later with clearer errors.
-        return None, None
-
-    version = result.stdout.rstrip()
-    major_minor = _major_minor_from_version_string(version)
-    if major_minor is None:
-        raise RuntimeError('could not determine version from `juju version`: {}'.format(version))
-    return major_minor, version
-
-
-def generate_cli_docs():
+def generate_cli_docs(force=False):
     cli_dir = "reference/juju-cli/"
     generated_cli_docs_dir = cli_dir + "list-of-juju-cli-commands/"
     cli_index_header = cli_dir + 'cli_index'
 
-    tree_major_minor, tree_version = get_tree_juju_version()
-    juju_major_minor, juju_version = get_juju_version()
+    if not force and os.path.exists(generated_cli_docs_dir) and os.listdir(generated_cli_docs_dir):
+        print("cli command docs already present, skipping generation. "
+              "Run 'make regenerate-docs' to regenerate after changing Go source.")
+        return
 
-    # If juju is not installed, skip the version check and use tree version
-    if juju_major_minor is None:
-        print("juju binary not found in PATH, generating cli command docs using tree version {}".format(tree_version))
-    elif tree_major_minor != juju_major_minor:
-        warning = ("refusing to rebuild docs with a mismatched minor juju version.\n" +
-                "Found juju {} in $PATH, but the tree reports version {}".format(juju_version, tree_version))
-        print(warning)
-        raise RuntimeError(warning)
-    else:
-        print("generating cli command docs using juju version found in path: {} for tree version {}".format(juju_version, tree_version))
+    _, tree_version = get_tree_juju_version()
+
+    # The doc generator (go run scripts/docgen.go) compiles from the source
+    # tree and does not use any installed juju binary, so no version check
+    # against $PATH is needed.
+    print("generating cli command docs using tree version {}".format(tree_version))
 
     # Remove existing cli folder to regenerate it
     if os.path.exists(generated_cli_docs_dir):
@@ -126,10 +94,15 @@ def generate_cli_docs():
     subprocess.run(['cp', cli_index_header, generated_cli_docs_dir + 'index.md'])
 
 
-def generate_controller_config_docs():
+def generate_controller_config_docs(force=False):
     config_reference_dir = 'reference/configuration/'
     controller_config_file = config_reference_dir + 'list-of-controller-configuration-keys.md'
     controller_config_header = config_reference_dir + 'list-of-controller-configuration-keys.header'
+
+    if not force and os.path.exists(controller_config_file):
+        print("controller config docs already present, skipping generation. "
+              "Run 'make regenerate-docs' to regenerate after changing Go source.")
+        return
 
     # Generate the controller config using script. The first argument of the script
     # is the root directory of the juju source code. This is the parent directory
@@ -153,10 +126,15 @@ def generate_controller_config_docs():
     print("generated controller config key list")
 
 
-def generate_hook_command_docs():
+def generate_hook_command_docs(force=False):
     hook_commands_reference_dir = 'reference/hook-command/'
     generated_hook_commands_dir = hook_commands_reference_dir + 'list-of-hook-commands/'
     hook_index_header = hook_commands_reference_dir + 'hook_index'
+
+    if not force and os.path.exists(generated_hook_commands_dir) and os.listdir(generated_hook_commands_dir):
+        print("hook command docs already present, skipping generation. "
+              "Run 'make regenerate-docs' to regenerate after changing Go source.")
+        return
 
     # Remove existing hook command folder to regenerate it
     if os.path.exists(generated_hook_commands_dir):
@@ -192,6 +170,14 @@ def generate_hook_command_docs():
 
     print("generated hook command list")
 
-generate_cli_docs()
-generate_controller_config_docs()
-generate_hook_command_docs()
+parser = argparse.ArgumentParser()
+parser.add_argument('--force', action='store_true',
+                    help='Regenerate the committed reference Markdown files even '
+                         'if they already exist in the working tree. Without this '
+                         'flag, generation is skipped when output is present. '
+                         'Run with --force whenever you change Go source.')
+args = parser.parse_args()
+
+generate_cli_docs(args.force)
+generate_controller_config_docs(args.force)
+generate_hook_command_docs(args.force)
