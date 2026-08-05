@@ -969,7 +969,7 @@ func bootstrapImageMetadata(
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: region,
 		Stream:    environ.Config().ImageStream(),
-	}, nil)
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1131,7 +1131,7 @@ func setPrivateMetadataSources(fetcher imagemetadata.SimplestreamsFetcher, metad
 	dataSource := fetcher.NewDataSource(dataSourceConfig)
 
 	// Read the image metadata, as we'll want to upload it to the environment.
-	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{}, nil)
+	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
