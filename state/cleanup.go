@@ -1311,10 +1311,10 @@ func (st *State) cleanupForceDestroyedMachine(machineId string, cleanupArgs []bs
 			}
 		}
 	}
-	return st.cleanupForceDestroyedMachineInternal(machineId, true, maxWait)
+	return st.cleanupDestroyedMachineInternal(machineId, true, maxWait)
 }
 
-func (st *State) cleanupForceDestroyedMachineInternal(machineID string, force bool, maxWait time.Duration) error {
+func (st *State) cleanupDestroyedMachineInternal(machineID string, force bool, maxWait time.Duration) error {
 	// The first thing we want to do is remove any series upgrade machine
 	// locks that might prevent other resources from being removed.
 	// We don't tie the lock cleanup to existence of the machine.
@@ -1511,7 +1511,7 @@ func (st *State) cleanupEvacuateMachineInternal(machineId string, force bool, ma
 	}
 
 	if len(units) == 0 {
-		return st.cleanupForceDestroyedMachineInternal(
+		return st.cleanupDestroyedMachineInternal(
 			machineId, force, maxWait,
 		)
 	}
@@ -1555,7 +1555,7 @@ func (st *State) cleanupContainers(machine *Machine, force bool, maxWait time.Du
 	for _, containerId := range containerIds {
 		var err error
 		if force {
-			err = st.cleanupForceDestroyedMachineInternal(
+			err = st.cleanupDestroyedMachineInternal(
 				containerId, force, maxWait,
 			)
 		} else {

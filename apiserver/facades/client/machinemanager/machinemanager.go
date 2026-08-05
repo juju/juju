@@ -92,10 +92,10 @@ type MachineManagerV10 struct {
 
 type destroyMachineOptions struct {
 	force                           bool
+	maxWait                         time.Duration
 	keep                            bool
 	dryRun                          bool
 	destroyHostedUnitsAndContainers bool
-	maxWait                         time.Duration
 }
 
 // NewFacadeV9 create a new server-side MachineManager API facade. This
@@ -467,10 +467,10 @@ func (mm *MachineManagerAPI) maybeUpdateInstanceStatus(all bool, m Machine, data
 func (mm *MachineManagerAPI) DestroyMachineWithHostedUnitsAndContainers(args params.DestroyMachinesParams) (params.DestroyMachineResults, error) {
 	return mm.destroyMachine(destroyMachineEntities(args.MachineTags), destroyMachineOptions{
 		force:                           args.Force,
+		maxWait:                         common.MaxWait(args.MaxWait),
 		keep:                            args.Keep,
 		dryRun:                          args.DryRun,
 		destroyHostedUnitsAndContainers: true,
-		maxWait:                         common.MaxWait(args.MaxWait),
 	})
 }
 
