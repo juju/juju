@@ -1556,17 +1556,9 @@ func (st *State) cleanupContainers(machine *Machine, force bool, maxWait time.Du
 		return err
 	}
 	for _, containerId := range containerIds {
-		var err error
-		if force {
-			err = st.cleanupDestroyedMachineInternal(
-				containerId, force, maxWait,
-			)
-		} else {
-			err = st.cleanupEvacuateMachineInternal(
-				containerId, force, maxWait,
-			)
-		}
-		if err != nil {
+		if err := st.cleanupEvacuateMachineInternal(
+			containerId, force, maxWait,
+		); err != nil {
 			return err
 		}
 		container, err := st.Machine(containerId)
