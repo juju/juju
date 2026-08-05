@@ -150,6 +150,24 @@ func (s *internalStateSuite) newCAASState(c *gc.C) *State {
 	return st
 }
 
+type cleanupInternalSuite struct {
+	internalStateSuite
+}
+
+var _ = gc.Suite(&cleanupInternalSuite{})
+
+func (s *cleanupInternalSuite) TestCleanupEvacuateDyingMachineWithoutForceIsNoOp(c *gc.C) {
+	st := s.newState(c)
+	machine, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.Destroy(), jc.ErrorIsNil)
+
+	err = st.cleanupEvacuateMachineInternal(machine.Id(), false, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.Refresh(), jc.ErrorIsNil)
+	c.Check(machine.Life(), gc.Equals, Dying)
+}
+
 type internalStatePolicy struct{}
 
 func (internalStatePolicy) Prechecker() (environs.InstancePrechecker, error) {
