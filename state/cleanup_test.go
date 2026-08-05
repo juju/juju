@@ -846,7 +846,16 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// Clean up, and check that the container has been removed...
-	s.runMachineCleanupsUntilDead(c, machine, time.Minute)
+	for i := 0; i < 20; i++ {
+		err = machine.Refresh()
+		if errors.IsNotFound(err) {
+			break
+		}
+		c.Assert(err, jc.ErrorIsNil)
+		s.Clock.Advance(time.Minute)
+		s.assertNeedsCleanup(c)
+		s.assertCleanupRuns(c)
+	}
 	err = container.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
@@ -862,9 +871,35 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	assertNotInScope(c, prr.rru0)
 	assertNotInScope(c, prr.rru1)
 
-	// ...but that the machine remains, and is Dead, ready for removal by the
-	// provisioner.
-	assertLife(c, machine, state.Dead)
+	// ...and the force-removal cleanup has removed the machine.
+	err = machine.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CleanupSuite) TestCleanupForceDestroyedMachineEvacuatesContainerUnits(c *gc.C) {
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	}, machine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+	err = container.SetProvisioned("container-inst-id", "", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer, container, container)
+	prr.allEnterScope(c)
+	preventProReqUnitsDestroyRemove(c, prr)
+
+	err = machine.ForceDestroy(time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCleanupRuns(c)
+
+	c.Assert(container.Refresh(), jc.ErrorIsNil)
+	assertLife(c, prr.pu0, state.Dying)
+	assertLife(c, prr.pu1, state.Dying)
 }
 
 func (s *CleanupSuite) TestForceDestroyMachineSchedulesRemove(c *gc.C) {
