@@ -645,7 +645,9 @@ func (m *Machine) DestroyWithParams(force, destroyHostedUnitsAndContainers bool,
 		if attempt != 0 {
 			var err error
 			machine, err = machine.st.Machine(machine.Id())
-			if err != nil {
+			if errors.IsNotFound(err) {
+				return nil, jujutxn.ErrNoOperations
+			} else if err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
