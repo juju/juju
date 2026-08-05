@@ -1,6 +1,5 @@
 # <old URL> <new URL>
 # redirect old version release notes to main releasenotes page
-releasenotes/juju_3.6.x releasenotes
 releasenotes/juju_2.9.x releasenotes
 reference/juju/juju-roadmap-and-releases releasenotes
 reference/plugin/ reference
@@ -11,8 +10,6 @@ howto/manage-plugins/ howto
 reference/plugin/list-of-known-juju-plugins/plugin-juju-metadata reference/juju-cli/plugin-juju-metadata
 reference/cloud/list-of-supported-clouds/the-manual-cloud-and-juju reference/cloud/list-of-supported-clouds/unmanaged
 reference/cloud/list-of-supported-clouds/the-unmanaged-cloud-and-juju reference/cloud/list-of-supported-clouds/unmanaged
-contributor/reference/architectural-overview contributor/reference
-contributor/howto/create-new-mongo-db-collection contributor/howto
 reference/charm/charm-development-best-practices/ reference/charm
 # redirects after updating landing pages
 explanation/performance-with-juju explanation/juju-performance
@@ -43,10 +40,8 @@ contributor/unsorted/test-failure-FAQ contributor
 contributor/unsorted/third-party-go-clients contributor
 contributor/unsorted/what-we-run-and-why contributor
 contributor/unsorted/simplestreams-metadata reference/metadata
-contributor/unsorted/architectural-overview contributor/reference/architectural-overview
 contributor/unsorted/high-availability contributor/reference/high-availability
 contributor/unsorted/observing-mongodb-performance contributor/howto/
-contributor/howto/manage-mongodb contributor/howto/
 contributor/unsorted/writing-workers contributor/reference/writing-workers/
 contributor/unsorted contributor
 contributor/tutorial contributor
@@ -61,7 +56,6 @@ user/explanation/juju-security explanation/juju-security
 user/explanation/performance-with-juju explanation/performance-with-juju
 user/howto/define-resource-tags-in-a-cloud howto/define-resource-tags-in-a-cloud
 user/howto/fan-container-networking howto/
-howto/fan-container-networking howto/
 user/howto howto
 user/howto/manage-actions howto/manage-actions
 user/howto/manage-applications howto/manage-applications

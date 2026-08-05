@@ -1,11 +1,18 @@
 (command-juju-controllers)=
 # `juju controllers`
-> See also: [models](#models), [show-controller](#show-controller)
+(command-juju-controllers)=
+# `juju controllers`
+> See also: [models](#command-juju-models), [show-controller](#command-juju-show-controller)
 
 **Aliases:** list-controllers
 
 ## Summary
 Lists all controllers.
+
+## Usage
+```text
+juju controllers [options]
+```
 
 ### Options
 | Flag | Default | Usage |

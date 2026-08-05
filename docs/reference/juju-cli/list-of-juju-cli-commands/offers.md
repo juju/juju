@@ -1,6 +1,6 @@
 (command-juju-offers)=
 # `juju offers`
-> See also: [find-offers](#find-offers), [show-offer](#show-offer)
+> See also: [find-offers](#command-juju-find-offers), [show-offer](#command-juju-show-offer)
 
 **Aliases:** list-offers
 
@@ -8,7 +8,9 @@
 Lists shared endpoints.
 
 ## Usage
-```juju offers [options] [<offer-name>]```
+```text
+juju offers [options] [<offer-name>]
+```
 
 ### Options
 | Flag | Default | Usage |

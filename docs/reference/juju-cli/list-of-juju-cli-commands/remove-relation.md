@@ -1,12 +1,16 @@
 (command-juju-remove-relation)=
 # `juju remove-relation`
-> See also: [integrate](#integrate), [remove-application](#remove-application)
+(command-juju-remove-relation)=
+# `juju remove-relation`
+> See also: [integrate](#command-juju-integrate), [remove-application](#command-juju-remove-application)
 
 ## Summary
 Removes an existing relation between two applications.
 
 ## Usage
-```juju remove-relation [options] <application1>[:<relation name1>] <application2>[:<relation name2>] | <relation-id>```
+```text
+juju remove-relation [options] <application1>[:<relation name1>] <application2>[:<relation name2>] | <relation-id>
+```
 
 ### Options
 | Flag | Default | Usage |

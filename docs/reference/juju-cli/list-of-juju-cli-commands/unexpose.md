@@ -1,12 +1,16 @@
 (command-juju-unexpose)=
 # `juju unexpose`
-> See also: [expose](#expose)
+(command-juju-unexpose)=
+# `juju unexpose`
+> See also: [expose](#command-juju-expose)
 
 ## Summary
 Removes public availability over the network for an application.
 
 ## Usage
-```juju unexpose [options] <application name>```
+```text
+juju unexpose [options] <application name>
+```
 
 ### Options
 | Flag | Default | Usage |

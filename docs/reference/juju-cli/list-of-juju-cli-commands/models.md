@@ -1,11 +1,16 @@
 (command-juju-models)=
 # `juju models`
-> See also: [add-model](#add-model)
+> See also: [add-model](#command-juju-add-model)
 
 **Aliases:** list-models
 
 ## Summary
 Lists models a user can access on a controller.
+
+## Usage
+```text
+juju models [options]
+```
 
 ### Options
 | Flag | Default | Usage |

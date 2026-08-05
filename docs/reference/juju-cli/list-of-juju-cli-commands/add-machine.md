@@ -1,12 +1,16 @@
 (command-juju-add-machine)=
 # `juju add-machine`
-> See also: [remove-machine](#remove-machine), [model-constraints](#model-constraints), [set-model-constraints](#set-model-constraints)
+(command-juju-add-machine)=
+# `juju add-machine`
+> See also: [remove-machine](#command-juju-remove-machine), [model-constraints](#command-juju-model-constraints), [set-model-constraints](#command-juju-set-model-constraints)
 
 ## Summary
 Provision a new machine or assign one to the model.
 
 ## Usage
-```juju add-machine [options] [lxd[:<machine-id>] | ssh:[<user>@]<host> | <placement>] | <private-key> | <public-key>```
+```text
+juju add-machine [options] [lxd[:<machine-id>] | ssh:[<user>@]<host> | <placement>] | <private-key> | <public-key>
+```
 
 ### Options
 | Flag | Default | Usage |

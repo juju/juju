@@ -1,12 +1,16 @@
 (command-juju-import-ssh-key)=
 # `juju import-ssh-key`
-> See also: [add-ssh-key](#add-ssh-key), [ssh-keys](#ssh-keys)
+(command-juju-import-ssh-key)=
+# `juju import-ssh-key`
+> See also: [add-ssh-key](#command-juju-add-ssh-key), [ssh-keys](#command-juju-ssh-keys)
 
 ## Summary
 Adds a public SSH key from a trusted identity source to a model.
 
 ## Usage
-```juju import-ssh-key [options] <lp|gh>:<user identity> ...```
+```text
+juju import-ssh-key [options] <lp|gh>:<user identity> ...
+```
 
 ### Options
 | Flag | Default | Usage |

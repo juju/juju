@@ -1,9 +1,16 @@
 (command-juju-logout)=
 # `juju logout`
-> See also: [change-user-password](#change-user-password), [login](#login)
+(command-juju-logout)=
+# `juju logout`
+> See also: [change-user-password](#command-juju-change-user-password), [login](#command-juju-login)
 
 ## Summary
 Logs a Juju user out of a controller.
+
+## Usage
+```text
+juju logout [options]
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -1,12 +1,16 @@
 (command-juju-run)=
 # `juju run`
-> See also: [operations](#operations), [show-operation](#show-operation), [show-task](#show-task)
+(command-juju-run)=
+# `juju run`
+> See also: [operations](#command-juju-operations), [show-operation](#command-juju-show-operation), [show-task](#command-juju-show-task)
 
 ## Summary
 Run an action on a specified unit.
 
 ## Usage
-```juju run [options] <unit> [<unit> ...] <action-name> [<key>=<value> [<key>[.<key> ...]=<value>]]```
+```text
+juju run [options] <unit> [<unit> ...] <action-name> [<key>=<value> [<key>[.<key> ...]=<value>]]
+```
 
 ### Options
 | Flag | Default | Usage |

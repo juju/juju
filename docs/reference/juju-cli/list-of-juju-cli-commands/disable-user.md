@@ -1,12 +1,16 @@
 (command-juju-disable-user)=
 # `juju disable-user`
-> See also: [users](#users), [enable-user](#enable-user), [login](#login)
+(command-juju-disable-user)=
+# `juju disable-user`
+> See also: [users](#command-juju-users), [enable-user](#command-juju-enable-user), [login](#command-juju-login)
 
 ## Summary
 Disables a Juju user.
 
 ## Usage
-```juju disable-user [options] <user name>```
+```text
+juju disable-user [options] <user name>
+```
 
 ### Options
 | Flag | Default | Usage |

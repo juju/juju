@@ -1,12 +1,16 @@
 (command-juju-info)=
 # `juju info`
-> See also: [find](#find), [download](#download)
+(command-juju-info)=
+# `juju info`
+> See also: [find](#command-juju-find), [download](#command-juju-download)
 
 ## Summary
 Displays detailed information about CharmHub charms.
 
 ## Usage
-```juju info [options] [options] <charm>```
+```text
+juju info [options] [options] <charm>
+```
 
 ### Options
 | Flag | Default | Usage |

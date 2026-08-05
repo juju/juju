@@ -1,12 +1,16 @@
 (command-juju-consume)=
 # `juju consume`
-> See also: [integrate](#integrate), [offer](#offer), [remove-saas](#remove-saas)
+(command-juju-consume)=
+# `juju consume`
+> See also: [integrate](#command-juju-integrate), [offer](#command-juju-offer), [remove-saas](#command-juju-remove-saas)
 
 ## Summary
 Add a remote offer to the model.
 
 ## Usage
-```juju consume [options] <remote offer path> [<local application name>]```
+```text
+juju consume [options] <remote offer path> [<local application name>]
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -1,6 +1,8 @@
 (command-juju-charm-resources)=
 # `juju charm-resources`
-> See also: [resources](#resources), [attach-resource](#attach-resource)
+(command-juju-charm-resources)=
+# `juju charm-resources`
+> See also: [resources](#command-juju-resources), [attach-resource](#command-juju-attach-resource)
 
 **Aliases:** list-charm-resources
 
@@ -8,7 +10,9 @@
 Display the resources for a charm in a repository.
 
 ## Usage
-```juju charm-resources [options] <charm>```
+```text
+juju charm-resources [options] <charm>
+```
 
 ### Options
 | Flag | Default | Usage |

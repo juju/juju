@@ -1,12 +1,16 @@
 (command-juju-controller-config)=
 # `juju controller-config`
-> See also: [controllers](#controllers), [model-config](#model-config), [show-cloud](#show-cloud)
+(command-juju-controller-config)=
+# `juju controller-config`
+> See also: [controllers](#command-juju-controllers), [model-config](#command-juju-model-config), [show-cloud](#command-juju-show-cloud)
 
 ## Summary
 Displays or sets configuration settings for a controller.
 
 ## Usage
-```juju controller-config [options] [<attribute key>[=<value>] ...]```
+```text
+juju controller-config [options] [<attribute key>[=<value>] ...]
+```
 
 ### Options
 | Flag | Default | Usage |

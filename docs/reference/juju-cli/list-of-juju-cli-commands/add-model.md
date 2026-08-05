@@ -1,12 +1,16 @@
 (command-juju-add-model)=
 # `juju add-model`
-> See also: [model-config](#model-config), [model-defaults](#model-defaults), [add-credential](#add-credential), [autoload-credentials](#autoload-credentials)
+(command-juju-add-model)=
+# `juju add-model`
+> See also: [model-config](#command-juju-model-config), [model-defaults](#command-juju-model-defaults), [add-credential](#command-juju-add-credential), [autoload-credentials](#command-juju-autoload-credentials)
 
 ## Summary
 Adds a workload model.
 
 ## Usage
-```juju add-model [options] <model name> [cloud|region|(cloud/region)]```
+```text
+juju add-model [options] <model name> [cloud|region|(cloud/region)]
+```
 
 ### Options
 | Flag | Default | Usage |

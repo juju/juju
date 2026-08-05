@@ -4,7 +4,9 @@
 Grants access to a secret.
 
 ## Usage
-``` secret-grant [options] <ID>```
+```text
+secret-grant [options] <ID>
+```
 
 ### Options
 | Flag | Default | Usage |

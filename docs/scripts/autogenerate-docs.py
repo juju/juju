@@ -5,6 +5,20 @@ import shutil
 import subprocess
 
 
+def _fix_see_also_anchors(content, anchor_prefix):
+    """Rewrite bare fragment links in SeeAlso lines to use the correct anchor prefix.
+
+    The documentation command generates SeeAlso links as '#name', which MyST
+    resolves ambiguously when both a label (anchor_prefix-name)= and a file
+    name.md exist. Rewrite to '#anchor_prefix-name' to match the label added
+    by this script during post-processing.
+    """
+    def replace_anchor(m):
+        name = m.group(1)
+        return '(#{}{})'.format(anchor_prefix, name)
+    return re.sub(r'\(#(?!' + re.escape(anchor_prefix) + r')([^)]+)\)', replace_anchor, content)
+
+
 ##################################
 # Auto-generation of documentation
 ##################################
@@ -85,6 +99,10 @@ def generate_cli_docs(force=False):
             content = mdfile.read()
             # Remove trailing seperated (e.g. ----)
             content = content.rstrip(" -\n")
+            # Rewrite bare SeeAlso fragment links to use the MyST label anchor.
+            # Without this, '#show-storage' matches both the label and the
+            # filename, producing an ambiguous cross-reference warning.
+            content = _fix_see_also_anchors(content, 'command-juju-')
             mdfile.seek(0, 0)
             mdfile.write('(' + anchor + ')=\n' +
                          '# ' + title + '\n' +
@@ -160,6 +178,8 @@ def generate_hook_command_docs(force=False):
             content = mdfile.read()
             # Remove trailing seperated (e.g. ----)
             content = content.rstrip(" -\n")
+            # Rewrite bare SeeAlso fragment links to use the MyST label anchor.
+            content = _fix_see_also_anchors(content, 'hook-command-')
             mdfile.seek(0, 0)
             mdfile.write('(' + anchor + ')=\n' +
                          '# ' + title + '\n' +

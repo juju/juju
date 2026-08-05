@@ -1,12 +1,16 @@
 (command-juju-set-credential)=
 # `juju set-credential`
-> See also: [credentials](#credentials), [show-credential](#show-credential), [update-credential](#update-credential)
+(command-juju-set-credential)=
+# `juju set-credential`
+> See also: [credentials](#command-juju-credentials), [show-credential](#command-juju-show-credential), [update-credential](#command-juju-update-credential)
 
 ## Summary
 Relates a remote credential to a model.
 
 ## Usage
-```juju set-credential [options] <cloud name> <credential name>```
+```text
+juju set-credential [options] <cloud name> <credential name>
+```
 
 ### Options
 | Flag | Default | Usage |

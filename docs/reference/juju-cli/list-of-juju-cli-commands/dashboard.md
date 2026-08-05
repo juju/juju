@@ -1,7 +1,14 @@
 (command-juju-dashboard)=
 # `juju dashboard`
+(command-juju-dashboard)=
+# `juju dashboard`
 ## Summary
 Print the Juju Dashboard URL, or open the Juju Dashboard in the default browser.
+
+## Usage
+```text
+juju dashboard [options]
+```
 
 ### Options
 | Flag | Default | Usage |

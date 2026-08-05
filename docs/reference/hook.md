@@ -589,7 +589,7 @@ This event is triggered when an operator runs `juju upgrade-series <machine> pre
 
 |  Scenario | Example command | Resulting events |
 |:-:|-|-|
-| {ref}`upgrade-a-machine` | `juju upgrade-series <machine> prepare`| `pre-series-upgrade` -> (events on pause until upgrade completes) |
+| {ref}`upgrade-series-hooks` | `juju upgrade-series <machine> prepare`| `pre-series-upgrade` -> (events on pause until upgrade completes) |
 
  Notably, after this event fires and before the {ref}`hook-post-series-upgrade` hook fires, Juju will pause events and changes for all units on the machine being upgraded.  There will be no config-changed, update-status, etc. events to interrupt the upgrade process until after the upgrade process is completed via `juju upgrade-series <machine> complete`.
 

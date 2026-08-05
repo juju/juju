@@ -1,12 +1,16 @@
 (command-juju-show-controller)=
 # `juju show-controller`
-> See also: [controllers](#controllers)
+(command-juju-show-controller)=
+# `juju show-controller`
+> See also: [controllers](#command-juju-controllers)
 
 ## Summary
 Shows detailed information of a controller.
 
 ## Usage
-```juju show-controller [options] [<controller name> ...]```
+```text
+juju show-controller [options] [<controller name> ...]
+```
 
 ### Options
 | Flag | Default | Usage |

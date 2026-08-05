@@ -26,7 +26,7 @@ This reference assumes basic familiarity with Juju. If you are new to Juju, star
 (eks-cloud-adding)=
 ### Adding the cloud
 
-When adding this cloud to Juju using the {ref}`juju CLI client <juju-client>`, starting with Juju 3.0 you must run the `add-k8s` command with the 'raw' client because the `juju` client snap is strictly confined but the EKS cloud CLI snap is not.
+When adding this cloud to Juju using the {ref}`juju CLI client <client>`, starting with Juju 3.0 you must run the `add-k8s` command with the 'raw' client because the `juju` client snap is strictly confined but the EKS cloud CLI snap is not.
 
 ```{ibnote}
 See more: {ref}`add-a-kubernetes-cloud`

@@ -1,12 +1,16 @@
 (command-juju-status)=
 # `juju status`
-> See also: [machines](#machines), [show-model](#show-model), [show-status-log](#show-status-log), [storage](#storage)
+(command-juju-status)=
+# `juju status`
+> See also: [machines](#command-juju-machines), [show-model](#command-juju-show-model), [show-status-log](#command-juju-show-status-log), [storage](#command-juju-storage)
 
 ## Summary
 Report the status of the model, its machines, applications and units.
 
 ## Usage
-```juju status [options] [<selector> [...]]```
+```text
+juju status [options] [<selector> [...]]
+```
 
 ### Options
 | Flag | Default | Usage |

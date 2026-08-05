@@ -1,12 +1,14 @@
 (command-juju-destroy-model)=
 # `juju destroy-model`
-> See also: [destroy-controller](#destroy-controller)
+> See also: [destroy-controller](#command-juju-destroy-controller)
 
 ## Summary
 Terminate all machines/containers and resources for a non-controller model.
 
 ## Usage
-```juju destroy-model [options] [<controller name>:]<model name>```
+```text
+juju destroy-model [options] [<controller name>:]<model name>
+```
 
 ### Options
 | Flag | Default | Usage |

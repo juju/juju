@@ -1,12 +1,16 @@
 (command-juju-remove-ssh-key)=
 # `juju remove-ssh-key`
-> See also: [ssh-keys](#ssh-keys), [add-ssh-key](#add-ssh-key), [import-ssh-key](#import-ssh-key)
+(command-juju-remove-ssh-key)=
+# `juju remove-ssh-key`
+> See also: [ssh-keys](#command-juju-ssh-keys), [add-ssh-key](#command-juju-add-ssh-key), [import-ssh-key](#command-juju-import-ssh-key)
 
 ## Summary
 Removes a public SSH key (or keys) from a model.
 
 ## Usage
-```juju remove-ssh-key [options] <ssh key id> ...```
+```text
+juju remove-ssh-key [options] <ssh key id> ...
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -1,12 +1,16 @@
 (command-juju-remove-space)=
 # `juju remove-space`
-> See also: [add-space](#add-space), [spaces](#spaces), [reload-spaces](#reload-spaces), [rename-space](#rename-space), [show-space](#show-space)
+(command-juju-remove-space)=
+# `juju remove-space`
+> See also: [add-space](#command-juju-add-space), [spaces](#command-juju-spaces), [reload-spaces](#command-juju-reload-spaces), [rename-space](#command-juju-rename-space), [show-space](#command-juju-show-space)
 
 ## Summary
 Remove a network space.
 
 ## Usage
-```juju remove-space [options] <name>```
+```text
+juju remove-space [options] <name>
+```
 
 ### Options
 | Flag | Default | Usage |

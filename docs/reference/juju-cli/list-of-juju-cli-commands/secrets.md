@@ -1,11 +1,18 @@
 (command-juju-secrets)=
 # `juju secrets`
-> See also: [add-secret](#add-secret), [remove-secret](#remove-secret), [show-secret](#show-secret), [update-secret](#update-secret)
+(command-juju-secrets)=
+# `juju secrets`
+> See also: [add-secret](#command-juju-add-secret), [remove-secret](#command-juju-remove-secret), [show-secret](#command-juju-show-secret), [update-secret](#command-juju-update-secret)
 
 **Aliases:** list-secrets
 
 ## Summary
 Lists secrets available in the model.
+
+## Usage
+```text
+juju secrets [options]
+```
 
 ### Options
 | Flag | Default | Usage |

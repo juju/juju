@@ -1,12 +1,14 @@
 (command-juju-remove-cloud)=
 # `juju remove-cloud`
-> See also: [add-cloud](#add-cloud), [update-cloud](#update-cloud), [clouds](#clouds)
+> See also: [add-cloud](#command-juju-add-cloud), [update-cloud](#command-juju-update-cloud), [clouds](#command-juju-clouds)
 
 ## Summary
 Removes a cloud from Juju.
 
 ## Usage
-```juju remove-cloud [options] <cloud name>```
+```text
+juju remove-cloud [options] <cloud name>
+```
 
 ### Options
 | Flag | Default | Usage |

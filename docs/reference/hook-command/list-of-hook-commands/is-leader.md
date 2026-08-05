@@ -3,6 +3,11 @@
 ## Summary
 Prints application leadership status.
 
+## Usage
+```text
+is-leader [options]
+```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

@@ -1,9 +1,16 @@
 (command-juju-find-offers)=
 # `juju find-offers`
-> See also: [show-offer](#show-offer)
+(command-juju-find-offers)=
+# `juju find-offers`
+> See also: [show-offer](#command-juju-show-offer)
 
 ## Summary
 Find offered application endpoints.
+
+## Usage
+```text
+juju find-offers [options]
+```
 
 ### Options
 | Flag | Default | Usage |

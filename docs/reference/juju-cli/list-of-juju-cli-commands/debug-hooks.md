@@ -1,6 +1,8 @@
 (command-juju-debug-hooks)=
 # `juju debug-hooks`
-> See also: [ssh](#ssh), [debug-code](#debug-code)
+(command-juju-debug-hooks)=
+# `juju debug-hooks`
+> See also: [ssh](#command-juju-ssh), [debug-code](#command-juju-debug-code)
 
 **Aliases:** debug-hook
 
@@ -8,7 +10,9 @@
 Launch a tmux session to debug hooks and/or actions.
 
 ## Usage
-```juju debug-hooks [options] <unit name> [hook or action names]```
+```text
+juju debug-hooks [options] <unit name> [hook or action names]
+```
 
 ### Options
 | Flag | Default | Usage |

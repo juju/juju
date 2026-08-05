@@ -1,12 +1,16 @@
 (command-juju-register)=
 # `juju register`
-> See also: [add-user](#add-user), [change-user-password](#change-user-password), [unregister](#unregister)
+(command-juju-register)=
+# `juju register`
+> See also: [add-user](#command-juju-add-user), [change-user-password](#command-juju-change-user-password), [unregister](#command-juju-unregister)
 
 ## Summary
 Registers a controller.
 
 ## Usage
-```juju register [options] <registration string>|<controller host name>```
+```text
+juju register [options] <registration string>|<controller host name>
+```
 
 ### Options
 | Flag | Default | Usage |

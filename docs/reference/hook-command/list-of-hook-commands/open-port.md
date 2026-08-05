@@ -4,7 +4,9 @@
 Registers a request to open a port or port range.
 
 ## Usage
-``` open-port [options] <port>[/<protocol>] or <from>-<to>[/<protocol>] or icmp```
+```text
+open-port [options] <port>[/<protocol>] or <from>-<to>[/<protocol>] or icmp
+```
 
 ### Options
 | Flag | Default | Usage |

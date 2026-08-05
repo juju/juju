@@ -1,6 +1,8 @@
 (command-juju-resources)=
 # `juju resources`
-> See also: [attach-resource](#attach-resource), [charm-resources](#charm-resources)
+(command-juju-resources)=
+# `juju resources`
+> See also: [attach-resource](#command-juju-attach-resource), [charm-resources](#command-juju-charm-resources)
 
 **Aliases:** list-resources
 
@@ -8,7 +10,9 @@
 Show the resources for an application or unit.
 
 ## Usage
-```juju resources [options] <application or unit>```
+```text
+juju resources [options] <application or unit>
+```
 
 ### Options
 | Flag | Default | Usage |

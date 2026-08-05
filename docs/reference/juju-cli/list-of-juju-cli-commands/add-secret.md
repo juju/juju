@@ -4,7 +4,9 @@
 Add a new secret.
 
 ## Usage
-```juju add-secret [options] <name> [key[#base64|#file]=value...]```
+```text
+juju add-secret [options] <name> [key[#base64|#file]=value...]
+```
 
 ### Options
 | Flag | Default | Usage |

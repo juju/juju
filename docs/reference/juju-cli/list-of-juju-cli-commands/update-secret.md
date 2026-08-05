@@ -1,10 +1,14 @@
 (command-juju-update-secret)=
 # `juju update-secret`
+(command-juju-update-secret)=
+# `juju update-secret`
 ## Summary
 Update an existing secret.
 
 ## Usage
-```juju update-secret [options] <ID>|<name> [key[#base64|#file]=value...]```
+```text
+juju update-secret [options] <ID>|<name> [key[#base64|#file]=value...]
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -1,10 +1,14 @@
 (command-juju-documentation)=
 # `juju documentation`
+(command-juju-documentation)=
+# `juju documentation`
 ## Summary
 Generate the documentation for all commands
 
 ## Usage
-```juju documentation [options] --out <target-folder> --no-index --split --url <base-url> --discourse-ids <filepath>```
+```text
+juju documentation [options] --out <target-folder> --no-index --split --url <base-url> --discourse-ids <filepath>
+```
 
 ### Options
 | Flag | Default | Usage |

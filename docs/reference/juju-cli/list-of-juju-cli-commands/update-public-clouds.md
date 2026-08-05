@@ -1,9 +1,14 @@
 (command-juju-update-public-clouds)=
 # `juju update-public-clouds`
-> See also: [clouds](#clouds)
+> See also: [clouds](#command-juju-clouds)
 
 ## Summary
 Updates public cloud information available to Juju.
+
+## Usage
+```text
+juju update-public-clouds [options]
+```
 
 ### Options
 | Flag | Default | Usage |

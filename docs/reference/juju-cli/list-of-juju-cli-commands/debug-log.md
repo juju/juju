@@ -1,9 +1,16 @@
 (command-juju-debug-log)=
 # `juju debug-log`
-> See also: [status](#status), [ssh](#ssh)
+(command-juju-debug-log)=
+# `juju debug-log`
+> See also: [status](#command-juju-status), [ssh](#command-juju-ssh)
 
 ## Summary
 Displays log messages for a model.
+
+## Usage
+```text
+juju debug-log [options]
+```
 
 ### Options
 | Flag | Default | Usage |

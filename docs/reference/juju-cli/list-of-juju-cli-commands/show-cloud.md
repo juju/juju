@@ -1,12 +1,16 @@
 (command-juju-show-cloud)=
 # `juju show-cloud`
-> See also: [clouds](#clouds), [add-cloud](#add-cloud), [update-cloud](#update-cloud)
+(command-juju-show-cloud)=
+# `juju show-cloud`
+> See also: [clouds](#command-juju-clouds), [add-cloud](#command-juju-add-cloud), [update-cloud](#command-juju-update-cloud)
 
 ## Summary
 Shows detailed information for a cloud.
 
 ## Usage
-```juju show-cloud [options] <cloud name>```
+```text
+juju show-cloud [options] <cloud name>
+```
 
 ### Options
 | Flag | Default | Usage |

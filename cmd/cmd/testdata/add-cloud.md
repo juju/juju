@@ -8,7 +8,9 @@
 Add a cloud definition to Juju.
 
 ## Usage
-```juju add-cloud [options] <cloud name> [<cloud definition file>]```
+```text
+juju add-cloud [options] <cloud name> [<cloud definition file>]
+```
 
 ### Options
 | Flag | Default | Usage |

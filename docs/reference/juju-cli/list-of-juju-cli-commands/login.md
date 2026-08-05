@@ -1,12 +1,16 @@
 (command-juju-login)=
 # `juju login`
-> See also: [disable-user](#disable-user), [enable-user](#enable-user), [logout](#logout), [register](#register), [unregister](#unregister)
+(command-juju-login)=
+# `juju login`
+> See also: [disable-user](#command-juju-disable-user), [enable-user](#command-juju-enable-user), [logout](#command-juju-logout), [register](#command-juju-register), [unregister](#command-juju-unregister)
 
 ## Summary
 Logs a user in to a controller.
 
 ## Usage
-```juju login [options] [controller host name or alias]```
+```text
+juju login [options] [controller host name or alias]
+```
 
 ### Options
 | Flag | Default | Usage |

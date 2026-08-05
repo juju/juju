@@ -1,12 +1,16 @@
 (command-juju-scale-application)=
 # `juju scale-application`
-> See also: [remove-application](#remove-application), [add-unit](#add-unit), [remove-unit](#remove-unit)
+(command-juju-scale-application)=
+# `juju scale-application`
+> See also: [remove-application](#command-juju-remove-application), [add-unit](#command-juju-add-unit), [remove-unit](#command-juju-remove-unit)
 
 ## Summary
 Set the desired number of k8s application units.
 
 ## Usage
-```juju scale-application [options] <application> <scale>```
+```text
+juju scale-application [options] <application> <scale>
+```
 
 ### Options
 | Flag | Default | Usage |

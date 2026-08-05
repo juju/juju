@@ -1,12 +1,16 @@
 (command-juju-migrate)=
 # `juju migrate`
-> See also: [login](#login), [controllers](#controllers), [status](#status)
+(command-juju-migrate)=
+# `juju migrate`
+> See also: [login](#command-juju-login), [controllers](#command-juju-controllers), [status](#command-juju-status)
 
 ## Summary
 Migrate a workload model to another controller.
 
 ## Usage
-```juju migrate [options] <model-name> <target-controller-name>```
+```text
+juju migrate [options] <model-name> <target-controller-name>
+```
 
 ### Options
 | Flag | Default | Usage |

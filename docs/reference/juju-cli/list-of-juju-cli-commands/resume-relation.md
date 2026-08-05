@@ -1,12 +1,14 @@
 (command-juju-resume-relation)=
 # `juju resume-relation`
-> See also: [integrate](#integrate), [offers](#offers), [remove-relation](#remove-relation), [suspend-relation](#suspend-relation)
+> See also: [integrate](#command-juju-integrate), [offers](#command-juju-offers), [remove-relation](#command-juju-remove-relation), [suspend-relation](#command-juju-suspend-relation)
 
 ## Summary
 Resumes a suspended relation to an application offer.
 
 ## Usage
-```juju resume-relation [options] <relation-id>[,<relation-id>]```
+```text
+juju resume-relation [options] <relation-id>[,<relation-id>]
+```
 
 ### Options
 | Flag | Default | Usage |

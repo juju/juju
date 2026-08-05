@@ -1,12 +1,16 @@
 (command-juju-remove-user)=
 # `juju remove-user`
-> See also: [unregister](#unregister), [revoke](#revoke), [show-user](#show-user), [users](#users), [disable-user](#disable-user), [enable-user](#enable-user), [change-user-password](#change-user-password)
+(command-juju-remove-user)=
+# `juju remove-user`
+> See also: [unregister](#command-juju-unregister), [revoke](#command-juju-revoke), [show-user](#command-juju-show-user), [users](#command-juju-users), [disable-user](#command-juju-disable-user), [enable-user](#command-juju-enable-user), [change-user-password](#command-juju-change-user-password)
 
 ## Summary
 Deletes a Juju user from a controller.
 
 ## Usage
-```juju remove-user [options] <user name>```
+```text
+juju remove-user [options] <user name>
+```
 
 ### Options
 | Flag | Default | Usage |

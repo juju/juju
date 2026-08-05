@@ -1,12 +1,14 @@
 (command-juju-show-secret-backend)=
 # `juju show-secret-backend`
-> See also: [add-secret-backend](#add-secret-backend), [secret-backends](#secret-backends), [remove-secret-backend](#remove-secret-backend), [update-secret-backend](#update-secret-backend)
+> See also: [add-secret-backend](#command-juju-add-secret-backend), [secret-backends](#command-juju-secret-backends), [remove-secret-backend](#command-juju-remove-secret-backend), [update-secret-backend](#command-juju-update-secret-backend)
 
 ## Summary
 Displays the specified secret backend.
 
 ## Usage
-```juju show-secret-backend [options] <backend-name>```
+```text
+juju show-secret-backend [options] <backend-name>
+```
 
 ### Options
 | Flag | Default | Usage |

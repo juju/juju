@@ -1,12 +1,16 @@
 (command-juju-show-offer)=
 # `juju show-offer`
-> See also: [find-offers](#find-offers)
+(command-juju-show-offer)=
+# `juju show-offer`
+> See also: [find-offers](#command-juju-find-offers)
 
 ## Summary
 Shows extended information about the offered application.
 
 ## Usage
-```juju show-offer [options] [<controller>:]<offer url>```
+```text
+juju show-offer [options] [<controller>:]<offer url>
+```
 
 ### Options
 | Flag | Default | Usage |

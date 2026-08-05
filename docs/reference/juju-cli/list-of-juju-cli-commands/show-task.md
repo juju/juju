@@ -1,12 +1,16 @@
 (command-juju-show-task)=
 # `juju show-task`
-> See also: [cancel-task](#cancel-task), [run](#run), [operations](#operations), [show-operation](#show-operation)
+(command-juju-show-task)=
+# `juju show-task`
+> See also: [cancel-task](#command-juju-cancel-task), [run](#command-juju-run), [operations](#command-juju-operations), [show-operation](#command-juju-show-operation)
 
 ## Summary
 Show results of a task by ID.
 
 ## Usage
-```juju show-task [options] <task ID>```
+```text
+juju show-task [options] <task ID>
+```
 
 ### Options
 | Flag | Default | Usage |

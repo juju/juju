@@ -1,11 +1,16 @@
 (command-juju-firewall-rules)=
 # `juju firewall-rules`
-> See also: [set-firewall-rule](#set-firewall-rule)
+> See also: [set-firewall-rule](#command-juju-set-firewall-rule)
 
 **Aliases:** list-firewall-rules
 
 ## Summary
 Prints the firewall rules.
+
+## Usage
+```text
+juju firewall-rules [options]
+```
 
 ### Options
 | Flag | Default | Usage |
