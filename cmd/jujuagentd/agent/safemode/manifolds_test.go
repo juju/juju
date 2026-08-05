@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/cmd/jujuagentd/agent/safemode"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/worker/gate"
 )
 
 type ManifoldsSuite struct {
@@ -34,7 +35,8 @@ func (s *ManifoldsSuite) SetUpTest(c *tc.C) {
 
 func (s *ManifoldsSuite) TestStartFuncs(c *tc.C) {
 	s.assertStartFuncs(c, safemode.Manifolds(safemode.ManifoldsConfig{
-		Agent: &mockAgent{},
+		Agent:              &mockAgent{},
+		ControllerUnlocker: gate.NewLock(),
 	}))
 }
 
@@ -48,7 +50,8 @@ func (*ManifoldsSuite) assertStartFuncs(c *tc.C, manifolds dependency.Manifolds)
 func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 	s.assertManifoldNames(c,
 		safemode.Manifolds(safemode.ManifoldsConfig{
-			Agent: &mockAgent{},
+			Agent:              &mockAgent{},
+			ControllerUnlocker: gate.NewLock(),
 		}),
 		[]string{
 			"agent",
@@ -73,7 +76,8 @@ func (*ManifoldsSuite) assertManifoldNames(c *tc.C, manifolds dependency.Manifol
 
 func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 	manifolds := safemode.Manifolds(safemode.ManifoldsConfig{
-		Agent: &mockAgent{},
+		Agent:              &mockAgent{},
+		ControllerUnlocker: gate.NewLock(),
 	})
 
 	// Explicitly guarded by ifController.
@@ -126,7 +130,8 @@ func checkNotContains(c *tc.C, names []string, seek string) {
 func (s *ManifoldsSuite) TestManifoldsDependencies(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		safemode.Manifolds(safemode.ManifoldsConfig{
-			Agent: &mockAgent{},
+			Agent:              &mockAgent{},
+			ControllerUnlocker: gate.NewLock(),
 		}),
 		expectedManifoldsWithDependencies,
 	)
