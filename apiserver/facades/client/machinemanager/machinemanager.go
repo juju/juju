@@ -486,7 +486,7 @@ func (mm *MachineManagerAPI) DestroyMachineWithParams(args params.DestroyMachine
 }
 
 // DestroyMachineWithHostedUnitsAndContainers isn't on the V10 API.
-func (mm *MachineManagerV10) DestroyMachineWithHostedUnitsAndContainers(_ struct{}) {}
+func (*MachineManagerV10) DestroyMachineWithHostedUnitsAndContainers(_, _ struct{}) {}
 
 // DestroyMachineWithParams removes a set of machines from the model.
 func (mm *MachineManagerV9) DestroyMachineWithParams(args params.DestroyMachinesParamsV9) (params.DestroyMachineResults, error) {
