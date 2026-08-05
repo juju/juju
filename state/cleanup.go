@@ -1568,7 +1568,7 @@ func (st *State) cleanupContainers(machine *Machine, force bool, maxWait time.Du
 		}
 		container, err := st.Machine(containerId)
 		if errors.IsNotFound(err) {
-			return nil
+			continue
 		} else if err != nil {
 			return err
 		}
