@@ -35,3 +35,4 @@ dqlite-deps.tar.bz2
 .envrc
 .direnv
 .codex
+.opencode
