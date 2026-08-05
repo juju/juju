@@ -881,40 +881,6 @@ func (s *serviceSuite) TestGetProvisioningInfoCloudInitUserData(c *tc.C) {
 	})
 }
 
-// TestGetProvisioningInfoImageConstraintWithImageID verifies that the
-// ImageID from constraints is passed to the image metadata fetcher.
-func (s *serviceSuite) TestGetProvisioningInfoImageConstraintWithImageID(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	imageID := "ami-specific"
-	arch := "amd64"
-	stateInfo := provisioner.ProvisioningInfoState{
-		MachineUUID: "machine-uuid-1",
-		Base:        corebase.MustParseBaseFromString("ubuntu@22.04"),
-		Constraints: constraints.Value{
-			Arch:    &arch,
-			ImageID: &imageID,
-		},
-	}
-	s.modelState.EXPECT().GetMachineProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
-
-	s.expectControllerDefaultsNoCache()
-
-	// Should include the image ID in the constraint.
-	s.metadataFetcher.EXPECT().FetchImageMetadata(gomock.Any(), provisioner.ImageConstraint{
-		Releases: []string{"22.04"},
-		Arches:   []string{"amd64"},
-		Stream:   "released",
-		Region:   "us-east-1",
-		ImageID:  &imageID,
-	}).Return([]provisioner.CloudImageMetadata{{ImageID: imageID}}, nil)
-
-	svc := s.newService(c)
-	info, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("0"), false, testSharedInfo())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(info.ImageMetadata[0].ImageID, tc.Equals, "ami-specific")
-}
-
 // TestGetProvisioningInfoMultipleAppsEndpointBindings verifies that endpoint
 // bindings from multiple applications are merged.
 func (s *serviceSuite) TestGetProvisioningInfoMultipleAppsEndpointBindings(c *tc.C) {

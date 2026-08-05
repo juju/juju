@@ -37,6 +37,7 @@ type MockComputeServiceMockRecorder struct {
 	diskExpects                  []*gomock.Call3_2[context.Context, string, string, *computepb.Disk, error]
 	disksExpects                 []*gomock.Call1_2[context.Context, []*computepb.Disk, error]
 	firewallsExpects             []*gomock.Call2_2[context.Context, string, []*computepb.Firewall, error]
+	imageByProjectExpects        []*gomock.Call3_2[context.Context, string, string, *computepb.Image, error]
 	instanceExpects              []*gomock.Call3_2[context.Context, string, string, *computepb.Instance, error]
 	instanceDisksExpects         []*gomock.Call3_2[context.Context, string, string, []*computepb.AttachedDisk, error]
 	instancesExpects             []*gomock.Call2V_2[context.Context, string, string, []*computepb.Instance, error]
@@ -247,6 +248,24 @@ func (mr *MockComputeServiceMockRecorder) Firewalls(ctx, prefix any) *MockComput
 
 // MockComputeServiceFirewallsCall is the typed call wrapper for Firewalls.
 type MockComputeServiceFirewallsCall = gomock.Call2_2[context.Context, string, []*computepb.Firewall, error]
+
+// ImageByProject mocks base method.
+func (m *MockComputeService) ImageByProject(ctx context.Context, project, image string) (*computepb.Image, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.imageByProjectExpects, m.ctrl, m, "ImageByProject", ctx, project, image)
+}
+
+// ImageByProject indicates an expected call of ImageByProject.
+func (mr *MockComputeServiceMockRecorder) ImageByProject(ctx, project, image any) *MockComputeServiceImageByProjectCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, string, *computepb.Image, error](mr.mock.ctrl.T, mr.mock, "ImageByProject", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(project), gomock.EnsureMatcher(image))
+	mr.imageByProjectExpects = append(mr.imageByProjectExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockComputeServiceImageByProjectCall is the typed call wrapper for ImageByProject.
+type MockComputeServiceImageByProjectCall = gomock.Call3_2[context.Context, string, string, *computepb.Image, error]
 
 // Instance mocks base method.
 func (m *MockComputeService) Instance(ctx context.Context, id, zone string) (*computepb.Instance, error) {
