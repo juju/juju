@@ -1583,6 +1583,9 @@ func (st *State) cleanupEvacuateMachineInternal(machineId string, force bool, ma
 	} else if err != nil {
 		return errors.Trace(err)
 	}
+	if !force && machine.Life() != Alive {
+		return nil
+	}
 
 	units, err := machine.Units()
 	if err != nil {
