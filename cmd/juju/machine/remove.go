@@ -193,55 +193,21 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 		}
 		c.logDryRun(ctx, results)
 		if facadeVersion < 11 &&
-			c.runHasHostedUnitsOrContainers(results) && !c.Force {
+			c.hasHostedUnitsOrContainers(results) && !c.Force {
 			ctx.Infof("\nThis will require `--force`")
 		}
 		return nil
 	}
 
-	confirmationEnabled := c.NeedsConfirmation(modelConfigClient)
-	supportsHostedRemoval := facadeVersion >= 11
-	destroyHostedUnitsAndContainers := !confirmationEnabled &&
-		supportsHostedRemoval
-	prompted := false
-	if confirmationEnabled {
-		if supportsHostedRemoval {
-			results, err := c.dryRun(client)
-			if err != nil {
-				return err
-			}
-			if err := c.logErrors(ctx, results); err != nil {
-				return err
-			}
-			if c.runHasHostedUnitsOrContainers(results) || c.Force {
-				c.logDryRun(ctx, results)
-				if err := jujucmd.UserConfirmYes(ctx); err != nil {
-					return errors.Annotate(err, "machine removal")
-				}
-				destroyHostedUnitsAndContainers = true
-				prompted = true
-			}
-		} else {
-			if facadeVersion < 10 {
-				ctx.Warningf(removeMachineMsgNoDryRun, strings.Join(c.MachineIds, ", "))
-			} else {
-				results, err := c.dryRun(client)
-				if err != nil {
-					return err
-				}
-				if err := c.logErrors(ctx, results); err != nil {
-					return err
-				}
-				c.logDryRun(ctx, results)
-				if c.runHasHostedUnitsOrContainers(results) && !c.Force {
-					ctx.Infof("\nThis will require `--force`")
-				}
-			}
-			if err := jujucmd.UserConfirmYes(ctx); err != nil {
-				return errors.Annotate(err, "machine removal")
-			}
-			prompted = true
-		}
+	needsConfirmation := c.NeedsConfirmation(modelConfigClient)
+	destroyHostedUnitsAndContainers, prompted, err := c.confirmRemoval(
+		ctx,
+		client,
+		facadeVersion,
+		needsConfirmation,
+	)
+	if err != nil {
+		return err
 	}
 
 	destroyMachines := client.DestroyMachinesWithParams
@@ -286,7 +252,53 @@ func (c *removeCommand) logDryRun(ctx *cmd.Context, results []params.DestroyMach
 	_ = c.logResults(ctx, results)
 }
 
-func (c *removeCommand) runHasHostedUnitsOrContainers(results []params.DestroyMachineResult) bool {
+func (c *removeCommand) confirmRemoval(ctx *cmd.Context, client RemoveMachineAPI, facadeVersion int, needsConfirmation bool) (destroyHostedUnitsAndContainers, prompted bool, err error) {
+	supportsHostedRemoval := facadeVersion >= 11
+	destroyHostedUnitsAndContainers = !needsConfirmation && supportsHostedRemoval
+	if !needsConfirmation {
+		return destroyHostedUnitsAndContainers, false, nil
+	}
+
+	if supportsHostedRemoval {
+		results, err := c.dryRun(client)
+		if err != nil {
+			return false, false, err
+		}
+		if err := c.logErrors(ctx, results); err != nil {
+			return false, false, err
+		}
+		if c.hasHostedUnitsOrContainers(results) || c.Force {
+			c.logDryRun(ctx, results)
+			if err := jujucmd.UserConfirmYes(ctx); err != nil {
+				return false, false, errors.Annotate(err, "machine removal")
+			}
+			return true, true, nil
+		}
+		return false, false, nil
+	}
+
+	if facadeVersion < 10 {
+		ctx.Warningf(removeMachineMsgNoDryRun, strings.Join(c.MachineIds, ", "))
+	} else {
+		results, err := c.dryRun(client)
+		if err != nil {
+			return false, false, err
+		}
+		if err := c.logErrors(ctx, results); err != nil {
+			return false, false, err
+		}
+		c.logDryRun(ctx, results)
+		if c.hasHostedUnitsOrContainers(results) && !c.Force {
+			ctx.Infof("\nThis will require `--force`")
+		}
+	}
+	if err := jujucmd.UserConfirmYes(ctx); err != nil {
+		return false, false, errors.Annotate(err, "machine removal")
+	}
+	return false, true, nil
+}
+
+func (c *removeCommand) hasHostedUnitsOrContainers(results []params.DestroyMachineResult) bool {
 	for _, result := range results {
 		if result.Error != nil {
 			continue
