@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 	"github.com/juju/juju/internal/worker/dbaccessor"
+	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/querylogger"
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
 	"github.com/juju/juju/internal/worker/terminationworker"
@@ -46,6 +47,12 @@ type ManifoldsConfig struct {
 
 	// ConfigChangeSocketPath is the path to the config-change reload socket.
 	ConfigChangeSocketPath string
+
+	// ControllerUnlocker is passed to the controller agent config manifold.
+	// It is unlocked once the configchange.socket exists. Safe mode has no
+	// dependent waiting on this signal, but the unlocker must be non-nil to
+	// satisfy the controlleragentconfig manifold.
+	ControllerUnlocker gate.Unlocker
 
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
@@ -81,6 +88,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:            internallogger.GetLogger("juju.worker.controlleragentconfig"),
 			NewSocketListener: controlleragentconfig.NewSocketListener,
 			SocketName:        config.ConfigChangeSocketPath,
+			ReadyUnlocker:     config.ControllerUnlocker,
 		})),
 
 		// The stateconfigwatcher manifold watches the machine agent's

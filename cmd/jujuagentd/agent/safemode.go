@@ -35,6 +35,7 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
+	"github.com/juju/juju/internal/worker/gate"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
 )
@@ -307,6 +308,7 @@ func (a *SafeModeMachineAgent) makeEngineCreator(
 			AgentConfigChanged:      a.configChangedVal,
 			NewDBWorkerFunc:         a.newDBWorkerFunc,
 			ControllerStartupValues: startupValueProvider,
+			ControllerUnlocker:      gate.NewLock(),
 			ControllerID:            a.Tag().Id(),
 			LogDir:                  agentConfig.LogDir(),
 			ConfigChangeSocketPath:  path.Join(agentConfig.DataDir(), "configchange.socket"),

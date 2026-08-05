@@ -336,3 +336,7 @@ func (f *fakeMachineConfig) Tag() names.Tag {
 	}
 	return names.NewMachineTag("0")
 }
+
+func (*fakeMachineConfig) Model() names.ModelTag {
+	return names.NewModelTag("mock-model-uuid")
+}
