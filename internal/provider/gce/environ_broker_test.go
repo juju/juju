@@ -715,6 +715,115 @@ func (s *environBrokerSuite) TestBuildInstanceSpec(c *tc.C) {
 	})
 }
 
+func (s *environBrokerSuite) TestBuildInstanceSpecWithImageID(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.StartInstArgs.Constraints = constraints.MustParse("instance-type=n1-standard-1 image-id=ubuntu-2204-jammy-v20260803")
+
+	s.expectImageMetadata()
+	s.MockService.EXPECT().ImageByProject(gomock.Any(), "ubuntu-os-cloud", "ubuntu-2204-jammy-v20260803").Return(&computepb.Image{
+		Name:         new("ubuntu-2204-jammy-v20260803"),
+		Architecture: new("X86_64"),
+	}, nil)
+
+	spec, err := gce.BuildInstanceSpec(env, c.Context(), s.StartInstArgs)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(spec.Image.Id, tc.Equals, "projects/ubuntu-os-cloud/global/images/ubuntu-2204-jammy-v20260803")
+	c.Check(spec.Image.Arch, tc.Equals, "amd64")
+}
+
+func (s *environBrokerSuite) TestBuildInstanceSpecWithImageIDFullReference(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.StartInstArgs.Constraints = constraints.MustParse("instance-type=n1-standard-1 image-id=projects/custom-images/global/images/custom-ubuntu")
+
+	s.expectImageMetadata()
+	s.MockService.EXPECT().ImageByProject(gomock.Any(), "custom-images", "custom-ubuntu").Return(&computepb.Image{
+		Name:         new("custom-ubuntu"),
+		Architecture: new("X86_64"),
+	}, nil)
+
+	spec, err := gce.BuildInstanceSpec(env, c.Context(), s.StartInstArgs)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(spec.Image.Id, tc.Equals, "projects/custom-images/global/images/custom-ubuntu")
+}
+
+func (s *environBrokerSuite) TestBuildInstanceSpecWithImageIDAndMatchingArchConstraint(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.StartInstArgs.Constraints = constraints.MustParse("instance-type=n1-standard-1 arch=amd64 image-id=ubuntu-2204-jammy-v20260803")
+
+	s.expectImageMetadata()
+	s.MockService.EXPECT().ImageByProject(gomock.Any(), "ubuntu-os-cloud", "ubuntu-2204-jammy-v20260803").Return(&computepb.Image{
+		Name:         new("ubuntu-2204-jammy-v20260803"),
+		Architecture: new("X86_64"),
+	}, nil)
+
+	spec, err := gce.BuildInstanceSpec(env, c.Context(), s.StartInstArgs)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(spec.Image.Arch, tc.Equals, "amd64")
+}
+
+func (s *environBrokerSuite) TestBuildInstanceSpecWithImageIDAndMismatchedArchConstraint(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.StartInstArgs.Constraints = constraints.MustParse("instance-type=n1-standard-1 arch=amd64 image-id=ubuntu-2204-jammy-v20260803")
+
+	s.expectImageMetadata()
+	s.MockService.EXPECT().ImageByProject(gomock.Any(), "ubuntu-os-cloud", "ubuntu-2204-jammy-v20260803").Return(&computepb.Image{
+		Name:         new("ubuntu-2204-jammy-v20260803"),
+		Architecture: new("ARM64"),
+	}, nil)
+
+	_, err := gce.BuildInstanceSpec(env, c.Context(), s.StartInstArgs)
+
+	c.Assert(err, tc.ErrorMatches, `image "ubuntu-2204-jammy-v20260803" has architecture "arm64" but agent requires "amd64"`)
+}
+
+func (s *environBrokerSuite) TestBuildInstanceSpecWithImageIDUnsupportedArch(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.StartInstArgs.Constraints = constraints.MustParse("instance-type=n1-standard-1 image-id=ubuntu-2204-jammy-v20260803")
+
+	s.expectImageMetadata()
+	s.MockService.EXPECT().ImageByProject(gomock.Any(), "ubuntu-os-cloud", "ubuntu-2204-jammy-v20260803").Return(&computepb.Image{
+		Name:         new("ubuntu-2204-jammy-v20260803"),
+		Architecture: new("unsupported"),
+	}, nil)
+
+	_, err := gce.BuildInstanceSpec(env, c.Context(), s.StartInstArgs)
+
+	c.Assert(err, tc.ErrorMatches, `getting image "ubuntu-2204-jammy-v20260803": unsupported image architecture "unsupported"`)
+}
+
+func (s *environBrokerSuite) TestBuildInstanceSpecWithImageIDNotFound(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.StartInstArgs.Constraints = constraints.MustParse("instance-type=n1-standard-1 image-id=ubuntu-2204-jammy-v20260803")
+
+	s.expectImageMetadata()
+	s.MockService.EXPECT().ImageByProject(gomock.Any(), "ubuntu-os-cloud", "ubuntu-2204-jammy-v20260803").Return(nil, errors.New("not found"))
+
+	_, err := gce.BuildInstanceSpec(env, c.Context(), s.StartInstArgs)
+
+	c.Assert(err, tc.ErrorMatches, `getting image "ubuntu-2204-jammy-v20260803": not found`)
+}
+
 func (s *environBrokerSuite) TestFindInstanceSpec(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()

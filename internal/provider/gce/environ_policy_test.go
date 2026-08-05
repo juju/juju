@@ -382,6 +382,23 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	c.Assert(unsupported, tc.SameContents, []string{"tags", "virt-type"})
 }
 
+func (s *environPolSuite) TestConstraintsValidatorImageIDSupported(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.expectConstraintsCalls()
+
+	validator, err := env.ConstraintsValidator(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	cons := constraints.MustParse("arch=amd64 image-id=ubuntu-2204-jammy-v20260803")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(unsupported, tc.HasLen, 0)
+}
+
 func (s *environPolSuite) TestConstraintsValidatorVocabInstType(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()

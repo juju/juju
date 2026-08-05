@@ -411,9 +411,6 @@ func (s *Service) resolveImageMetadata(
 		Region:   shared.CloudRegion,
 		Endpoint: shared.CloudEndpoint,
 	}
-	if stateInfo.Constraints.ImageID != nil {
-		constraint.ImageID = stateInfo.Constraints.ImageID
-	}
 
 	metadata, err := s.imageMetadataFetcher.FetchImageMetadata(ctx, constraint)
 	if err != nil {

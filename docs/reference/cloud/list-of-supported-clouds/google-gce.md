@@ -200,6 +200,7 @@ The constraints `instance-type` and `[cores, cpu-power, mem]` are mutually exclu
 - {ref}`constraint-container`
 - {ref}`constraint-cores`
 - {ref}`constraint-cpu-power`
+- {ref}`constraint-image-id`. Starting with Juju 3.6.28. Valid values: A GCE image ID.
 - {ref}`constraint-instance-role`. Valid values: A service account email.
 - {ref}`constraint-instance-type`. Valid values: Any GCE machine type. Default: `n1-standard-1`.
 - {ref}`constraint-mem`
