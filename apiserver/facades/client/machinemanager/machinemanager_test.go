@@ -89,13 +89,11 @@ func (s *MachineManagerSuite) TestRegisteredFacadeTypesAndDestroyMethods(c *gc.C
 			version:       9,
 			facadeType:    reflect.TypeOf((*machinemanager.MachineManagerV9)(nil)),
 			destroyParams: reflect.TypeOf(params.DestroyMachinesParamsV9{}),
-			hostedParams:  reflect.TypeOf(struct{}{}),
 		},
 		{
 			version:       10,
 			facadeType:    reflect.TypeOf((*machinemanager.MachineManagerV10)(nil)),
 			destroyParams: reflect.TypeOf(params.DestroyMachinesParams{}),
-			hostedParams:  reflect.TypeOf(struct{}{}),
 		},
 		{
 			version:       11,
@@ -117,9 +115,13 @@ func (s *MachineManagerSuite) TestRegisteredFacadeTypesAndDestroyMethods(c *gc.C
 		c.Check(destroyMethod.Params, gc.Equals, test.destroyParams)
 
 		hostedMethod, err := objType.Method("DestroyMachineWithHostedUnitsAndContainers")
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(hostedMethod.Params, gc.Equals, test.hostedParams)
-		c.Check(hostedMethod.Result, gc.Equals, test.hostedResult)
+		if test.hostedParams != nil {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Check(hostedMethod.Params, gc.Equals, test.hostedParams)
+			c.Check(hostedMethod.Result, gc.Equals, test.hostedResult)
+		} else {
+			c.Check(err, gc.Equals, rpcreflect.ErrMethodNotFound)
+		}
 
 		_, err = objType.Method("DestroyMachineWithParamsV11")
 		c.Check(err, gc.Equals, rpcreflect.ErrMethodNotFound)
