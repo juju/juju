@@ -1501,6 +1501,9 @@ func (st *State) cleanupEvacuateMachineInternal(machineId string, force bool, ma
 	} else if err != nil {
 		return errors.Trace(err)
 	}
+	if !force && machine.Life() != Alive {
+		return nil
+	}
 
 	units, err := machine.Units()
 	if err != nil {
@@ -1550,22 +1553,14 @@ func (st *State) cleanupContainers(machine *Machine, force bool, maxWait time.Du
 		return err
 	}
 	for _, containerId := range containerIds {
-		var err error
-		if force {
-			err = st.cleanupDestroyedMachineInternal(
-				containerId, force, maxWait,
-			)
-		} else {
-			err = st.cleanupEvacuateMachineInternal(
-				containerId, force, maxWait,
-			)
-		}
-		if err != nil {
+		if err := st.cleanupEvacuateMachineInternal(
+			containerId, force, maxWait,
+		); err != nil {
 			return err
 		}
 		container, err := st.Machine(containerId)
 		if errors.IsNotFound(err) {
-			return nil
+			continue
 		} else if err != nil {
 			return err
 		}
