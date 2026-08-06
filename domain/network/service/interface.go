@@ -83,26 +83,29 @@ type SpaceState interface {
 
 // SubnetState describes persistence layer methods for the subnet (sub-) domain.
 type SubnetState interface {
-	// AddSubnet creates a subnet.
-	AddSubnet(ctx context.Context, subnet network.SubnetInfo) error
+	// ImportSubnets imports the provided subnets as a single bulk
+	// operation. Each subnet's UUID must be set by the caller; the
+	// service layer does not generate UUIDs for this path. This is
+	// distinct from [UpsertSubnets], which is used for provider
+	// discovery.
+	ImportSubnets(ctx context.Context, subnets []domainnetwork.ImportSubnetArgs) error
 	// GetAllSubnets returns all known subnets in the model.
-	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
-	// GetSubnet returns the subnet by UUID.
-	GetSubnet(ctx context.Context, uuid string) (*network.SubnetInfo, error)
+	GetAllSubnets(ctx context.Context) (domainnetwork.SubnetInfos, error)
 	// GetSubnetsByCIDR returns the subnets by CIDR.
 	//
 	// Deprecated: this method should be removed when we re-work the API
 	// for moving subnets.
-	GetSubnetsByCIDR(ctx context.Context, cidrs ...string) (network.SubnetInfos, error)
+	GetSubnetsByCIDR(ctx context.Context, cidrs ...string) (domainnetwork.SubnetInfos, error)
 	// UpdateSubnet updates the subnet identified by the passed uuid.
 	UpdateSubnet(ctx context.Context, uuid string, spaceID network.SpaceUUID) error
 	// DeleteSubnet deletes the subnet identified by the passed uuid.
 	DeleteSubnet(ctx context.Context, uuid string) error
 	// UpsertSubnets updates or adds each one of the provided subnets in one
-	// transaction.
-	UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo) error
-	// AllSubnetsQuery returns the SQL query that finds all subnet UUIDs from the
-	// subnet table, needed for the subnets watcher.
+	// transaction. Each subnet's UUID must be set by the caller; the
+	// service layer generates UUIDs before calling this method.
+	UpsertSubnets(ctx context.Context, subnets []domainnetwork.SubnetInfo) error
+	// AllSubnetsQuery returns the SQL query that finds all subnet UUIDs from
+	// the subnet table, needed for the subnets watcher.
 	AllSubnetsQuery(ctx context.Context, db database.TxnRunner) ([]string, error)
 
 	// NamespaceForWatchSubnet returns the namespace identifier used for

@@ -4,6 +4,7 @@
 package modelmigration
 
 import (
+	"context"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -17,7 +18,8 @@ import (
 )
 
 type importSubnetsSuite struct {
-	importService *MockSubnetsImportService
+	importService *MockSubnetImportService
+	spaceService  *MockSpaceImportService
 }
 
 func TestImportSubnetsSuite(t *testing.T) {
@@ -27,10 +29,12 @@ func TestImportSubnetsSuite(t *testing.T) {
 func (s *importSubnetsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.importService = NewMockSubnetsImportService(ctrl)
+	s.importService = NewMockSubnetImportService(ctrl)
+	s.spaceService = NewMockSpaceImportService(ctrl)
 
 	c.Cleanup(func() {
 		s.importService = nil
+		s.spaceService = nil
 	})
 
 	return ctrl
@@ -38,6 +42,7 @@ func (s *importSubnetsSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *importSubnetsSuite) newImportOperation(c *tc.C) *importSubnetsOperation {
 	return &importSubnetsOperation{
+		spaceService:  s.spaceService,
 		importService: s.importService,
 		logger:        loggertesting.WrapCheckLog(c),
 	}
@@ -60,13 +65,16 @@ func (s *importSubnetsSuite) TestImportIAASSubnetWithoutSpacesNotLXD(c *tc.C) {
 		FanLocalUnderlay:  "198.51.100.0/24",
 		FanOverlay:        "203.0.113.0/24",
 	})
-	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
-		CIDR:              "192.0.2.0/24",
-		ProviderId:        "network-provider-id",
-		ProviderNetworkId: "subnet-provider-network-id",
-		VLANTag:           42,
-		AvailabilityZones: []string{"az1", "az2"},
-	})
+	s.importService.EXPECT().ImportSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args []domainnetwork.ImportSubnetArgs) error {
+			c.Assert(args, tc.HasLen, 1)
+			c.Check(args[0].CIDR, tc.Equals, "192.0.2.0/24")
+			c.Check(args[0].ProviderId, tc.Equals, network.Id("network-provider-id"))
+			c.Check(args[0].ProviderNetworkId, tc.Equals, network.Id("subnet-provider-network-id"))
+			c.Check(args[0].VLANTag, tc.Equals, 42)
+			c.Check(args[0].AvailabilityZones, tc.SameContents, []string{"az1", "az2"})
+			return nil
+		})
 
 	op := s.newImportOperation(c)
 	err := op.Execute(c.Context(), model)
@@ -90,12 +98,15 @@ func (s *importSubnetsSuite) TestImportIAASSubnetWithoutSpacesLXD(c *tc.C) {
 		FanLocalUnderlay:  "198.51.100.0/24",
 		FanOverlay:        "203.0.113.0/24",
 	})
-	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
-		CIDR:              "192.0.2.0/24",
-		ProviderNetworkId: "docker",
-		VLANTag:           42,
-		AvailabilityZones: []string{"az1", "az2"},
-	})
+	s.importService.EXPECT().ImportSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args []domainnetwork.ImportSubnetArgs) error {
+			c.Assert(args, tc.HasLen, 1)
+			c.Check(args[0].CIDR, tc.Equals, "192.0.2.0/24")
+			c.Check(args[0].ProviderNetworkId, tc.Equals, network.Id("docker"))
+			c.Check(args[0].VLANTag, tc.Equals, 42)
+			c.Check(args[0].AvailabilityZones, tc.SameContents, []string{"az1", "az2"})
+			return nil
+		})
 
 	op := s.newImportOperation(c)
 	err := op.Execute(c.Context(), model)
@@ -118,19 +129,22 @@ func (s *importSubnetsSuite) TestImportIAASSubnetAndSpaceNotLinked(c *tc.C) {
 		VLANTag:           42,
 		AvailabilityZones: []string{"az1", "az2"},
 	})
-	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
-		CIDR:              "192.0.2.0/24",
-		ProviderId:        "subnet-provider-id",
-		ProviderNetworkId: "subnet-provider-network-id",
-		VLANTag:           42,
-		AvailabilityZones: []string{"az1", "az2"},
-	})
+	s.importService.EXPECT().ImportSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args []domainnetwork.ImportSubnetArgs) error {
+			c.Assert(args, tc.HasLen, 1)
+			c.Check(args[0].CIDR, tc.Equals, "192.0.2.0/24")
+			c.Check(args[0].ProviderId, tc.Equals, network.Id("subnet-provider-id"))
+			c.Check(args[0].ProviderNetworkId, tc.Equals, network.Id("subnet-provider-network-id"))
+			c.Check(args[0].VLANTag, tc.Equals, 42)
+			c.Check(args[0].AvailabilityZones, tc.SameContents, []string{"az1", "az2"})
+			return nil
+		})
 	model.AddSpace(description.SpaceArgs{
 		Id:         "previous-space-id",
 		Name:       "space-name",
 		ProviderID: "space-provider-id",
 	})
-	s.importService.EXPECT().AddSpace(gomock.Any(), domainnetwork.AddSpaceArgs{
+	s.spaceService.EXPECT().AddSpace(gomock.Any(), domainnetwork.AddSpaceArgs{
 		Name:       "space-name",
 		ProviderID: "space-provider-id",
 	})
@@ -154,7 +168,7 @@ func (s *importSubnetsSuite) TestImportIAASSpaceWithSubnet(c *tc.C) {
 		Name:       "space-name",
 		ProviderID: "space-provider-id",
 	})
-	s.importService.EXPECT().AddSpace(gomock.Any(), domainnetwork.AddSpaceArgs{
+	s.spaceService.EXPECT().AddSpace(gomock.Any(), domainnetwork.AddSpaceArgs{
 		Name:       "space-name",
 		ProviderID: "space-provider-id",
 	}).Return(spUUID, nil)
@@ -167,14 +181,17 @@ func (s *importSubnetsSuite) TestImportIAASSpaceWithSubnet(c *tc.C) {
 		AvailabilityZones: []string{"az1", "az2"},
 		SpaceID:           "previous-space-id",
 	})
-	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
-		CIDR:              "192.0.2.0/24",
-		ProviderId:        "subnet-provider-id",
-		ProviderNetworkId: "subnet-provider-network-id",
-		VLANTag:           42,
-		AvailabilityZones: []string{"az1", "az2"},
-		SpaceID:           spUUID,
-	})
+	s.importService.EXPECT().ImportSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args []domainnetwork.ImportSubnetArgs) error {
+			c.Assert(args, tc.HasLen, 1)
+			c.Check(args[0].CIDR, tc.Equals, "192.0.2.0/24")
+			c.Check(args[0].ProviderId, tc.Equals, network.Id("subnet-provider-id"))
+			c.Check(args[0].ProviderNetworkId, tc.Equals, network.Id("subnet-provider-network-id"))
+			c.Check(args[0].VLANTag, tc.Equals, 42)
+			c.Check(args[0].AvailabilityZones, tc.SameContents, []string{"az1", "az2"})
+			c.Check(args[0].SpaceID, tc.Equals, spUUID)
+			return nil
+		})
 
 	op := s.newImportOperation(c)
 	err := op.Execute(c.Context(), model)
@@ -200,10 +217,68 @@ func (s *importSubnetsSuite) TestImportSpaces(c *tc.C) {
 	})
 
 	// don't import the alpha space
-	s.importService.EXPECT().AddSpace(gomock.Any(), domainnetwork.AddSpaceArgs{
+	s.spaceService.EXPECT().AddSpace(gomock.Any(), domainnetwork.AddSpaceArgs{
 		Name:       "space-name",
 		ProviderID: "space-provider-id",
 	}).Return(spUUID, nil)
+
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSubnetsSuite) TestImportIASSubnetsWithoutUUIDsGeneratesDistinctUUIDs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// 3.6 exports subnets at schema version 6, which has no uuid field.
+	// The import must generate a UUID for each subnet.
+	s.importService.EXPECT().GetModelCloudType(c.Context()).Return("ec2", nil)
+	model := description.NewModel(description.ModelArgs{
+		Type: description.IAAS,
+	})
+	model.AddSubnet(description.SubnetArgs{
+		ID:   "subnet-id-1",
+		CIDR: "192.0.2.0/24",
+	})
+	model.AddSubnet(description.SubnetArgs{
+		ID:   "subnet-id-2",
+		CIDR: "198.51.100.0/24",
+	})
+	s.importService.EXPECT().ImportSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args []domainnetwork.ImportSubnetArgs) error {
+			c.Assert(args, tc.HasLen, 2)
+			c.Check(args[0].UUID, tc.Not(tc.Equals), "")
+			c.Check(args[1].UUID, tc.Not(tc.Equals), "")
+			c.Check(args[0].UUID, tc.Not(tc.Equals), args[1].UUID)
+			return nil
+		})
+
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSubnetsSuite) TestImportIASSubnetWithUUIDPreservesUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// 4.x exports subnets at schema version 7, which includes a uuid
+	// field. The import must preserve the source-model UUID.
+	subnetUUID := tc.Must(c, domainnetwork.NewSubnetUUID)
+	s.importService.EXPECT().GetModelCloudType(c.Context()).Return("ec2", nil)
+	model := description.NewModel(description.ModelArgs{
+		Type: description.IAAS,
+	})
+	model.AddSubnet(description.SubnetArgs{
+		ID:   "subnet-id-1",
+		UUID: subnetUUID.String(),
+		CIDR: "192.0.2.0/24",
+	})
+	s.importService.EXPECT().ImportSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args []domainnetwork.ImportSubnetArgs) error {
+			c.Assert(args, tc.HasLen, 1)
+			c.Check(args[0].UUID, tc.Equals, subnetUUID)
+			return nil
+		})
 
 	op := s.newImportOperation(c)
 	err := op.Execute(c.Context(), model)
@@ -222,12 +297,13 @@ func (s *importSubnetsSuite) TestImportCAASSubnet(c *tc.C) {
 	model.AddSubnet(description.SubnetArgs{
 		CIDR: network.FallbackSubnetInfo[1].CIDR,
 	})
-	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
-		CIDR: network.FallbackSubnetInfo[0].CIDR,
-	})
-	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
-		CIDR: network.FallbackSubnetInfo[1].CIDR,
-	})
+	s.importService.EXPECT().ImportSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args []domainnetwork.ImportSubnetArgs) error {
+			c.Assert(args, tc.HasLen, 2)
+			c.Check(args[0].CIDR, tc.Equals, network.FallbackSubnetInfo[0].CIDR)
+			c.Check(args[1].CIDR, tc.Equals, network.FallbackSubnetInfo[1].CIDR)
+			return nil
+		})
 
 	op := s.newImportOperation(c)
 	err := op.Execute(c.Context(), model)

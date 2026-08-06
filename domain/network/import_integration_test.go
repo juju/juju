@@ -40,6 +40,7 @@ type importSuite struct {
 	coordinator *modelmigration.Coordinator
 	scope       modelmigration.Scope
 	svc         *service.Service
+	st          *state.State
 }
 
 func TestImportSuite(t *stdtesting.T) {
@@ -52,14 +53,17 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 	s.coordinator = modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
 	s.scope = modelmigration.NewScope(nil, s.TxnRunnerFactory(), nil, nil, model.UUID(s.ModelUUID()))
 
+	st := state.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	s.st = st
 	s.svc = service.NewService(
-		state.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)),
+		st,
 		loggertesting.WrapCheckLog(c),
 	)
 
 	c.Cleanup(func() {
 		s.coordinator = nil
 		s.svc = nil
+		s.st = nil
 		s.scope = modelmigration.Scope{}
 	})
 }
@@ -264,19 +268,11 @@ func (s *importSuite) TestImportSpacesWithSubnets(c *tc.C) {
 
 	subnets, err := s.svc.GetAllSubnets(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(subnets, tc.HasLen, 3)
-
-	subnet1, err := s.svc.Subnet(c.Context(), subnet1UUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(subnet1, tc.DeepEquals, &subnet1Info)
-
-	subnet2, err := s.svc.Subnet(c.Context(), subnet2UUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(subnet2, tc.DeepEquals, &subnet2Info)
-
-	subnet3, err := s.svc.Subnet(c.Context(), subnet3UUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(subnet3, tc.DeepEquals, &subnet3Info)
+	c.Check(subnets, tc.SameContents, network.SubnetInfos{
+		subnet1Info,
+		subnet2Info,
+		subnet3Info,
+	})
 }
 func (s *importSuite) TestImportSpacesWithSubnetsLXD(c *tc.C) {
 	s.setModel(c, "lxd", model.IAAS.String())
@@ -368,15 +364,10 @@ func (s *importSuite) TestImportSpacesWithSubnetsLXD(c *tc.C) {
 
 	subnets, err := s.svc.GetAllSubnets(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(subnets, tc.HasLen, 2)
-
-	subnet1, err := s.svc.Subnet(c.Context(), subnet1UUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(subnet1, tc.DeepEquals, &subnet1Info)
-
-	subnet2, err := s.svc.Subnet(c.Context(), subnet2UUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(subnet2, tc.DeepEquals, &subnet2Info)
+	c.Check(subnets, tc.SameContents, network.SubnetInfos{
+		subnet1Info,
+		subnet2Info,
+	})
 }
 
 func (s *importSuite) TestImportLinkLayerDevices(c *tc.C) {
@@ -436,15 +427,8 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddresses(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.svc.AddSubnet(c.Context(), network.SubnetInfo{
-		CIDR: "192.168.0.0/24",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = s.svc.AddSubnet(c.Context(), network.SubnetInfo{
-		CIDR: "2001:db8::/64",
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	s.importSubnet(c, "192.168.0.0/24")
+	s.importSubnet(c, "2001:db8::/64")
 
 	desc := description.NewModel(description.ModelArgs{
 		Type: string(model.IAAS),
@@ -516,15 +500,8 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddressesLXD(c *tc.C) {
 
 	// Arrange: add 2 subnets for 3 devices. Import will create the 3rd
 	// subnet
-	_, err = s.svc.AddSubnet(c.Context(), network.SubnetInfo{
-		CIDR: "192.0.2.0/24",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = s.svc.AddSubnet(c.Context(), network.SubnetInfo{
-		CIDR: "2001:db8::/64",
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	s.importSubnet(c, "192.0.2.0/24")
+	s.importSubnet(c, "2001:db8::/64")
 
 	desc := description.NewModel(description.ModelArgs{
 		Type: string(model.IAAS),
@@ -752,10 +729,7 @@ func (s *importSuite) TestImportK8sServices(c *tc.C) {
 	s.createCAASApplication(c, "bar")
 
 	for _, subnet := range network.FallbackSubnetInfo {
-		_, err := s.svc.AddSubnet(c.Context(), network.SubnetInfo{
-			CIDR: subnet.CIDR,
-		})
-		c.Assert(err, tc.ErrorIsNil)
+		s.importSubnet(c, subnet.CIDR)
 	}
 
 	desc := description.NewModel(description.ModelArgs{
@@ -815,6 +789,18 @@ func (s *importSuite) setupMachineService(c *tc.C) *machineservice.ProviderServi
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
+}
+
+// importSubnet inserts a single subnet row directly via the state layer,
+// generating a fresh UUID. It is used by tests that need pre-seeded subnets
+// without going through the migration service.
+func (s *importSuite) importSubnet(c *tc.C, cidr string) {
+	uuid := tc.Must(c, domainnetwork.NewSubnetUUID)
+	err := s.st.ImportSubnets(c.Context(), []domainnetwork.ImportSubnetArgs{{
+		UUID: uuid,
+		CIDR: cidr,
+	}})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) setModel(c *tc.C, cloudType, modelType string) {

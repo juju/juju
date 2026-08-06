@@ -22,8 +22,9 @@ import (
 // MigrationState describes methods required
 // for migrating machine network configuration.
 type MigrationState interface {
-	// AddSubnet creates a subnet.
-	AddSubnet(ctx context.Context, subnet corenetwork.SubnetInfo) error
+	// ImportSubnets imports the provided subnets as a single bulk operation.
+	// Each subnet's UUID must be set by the caller.
+	ImportSubnets(ctx context.Context, subnets []network.ImportSubnetArgs) error
 
 	// AllMachinesAndNetNodes returns all machine names mapped to their
 	// net mode UUIDs in the model.
@@ -38,7 +39,7 @@ type MigrationState interface {
 	GetAllSpaces(ctx context.Context) (corenetwork.SpaceInfos, error)
 
 	// GetAllSubnets returns all known subnets in the model.
-	GetAllSubnets(ctx context.Context) (corenetwork.SubnetInfos, error)
+	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 
 	// GetModelCloudType returns the type of the cloud that is in use by this model.
 	GetModelCloudType(context.Context) (string, error)
@@ -73,6 +74,19 @@ func (s *MigrationService) GetModelCloudType(ctx context.Context) (string, error
 	return cloudType, errors.Capture(err)
 }
 
+// ImportSubnets imports the provided subnets as a single bulk operation. The
+// caller is responsible for supplying a UUID for each subnet; none are
+// generated here. The entire batch is persisted in one transaction.
+func (s *MigrationService) ImportSubnets(ctx context.Context, args []network.ImportSubnetArgs) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if len(args) == 0 {
+		return nil
+	}
+	return errors.Capture(s.st.ImportSubnets(ctx, args))
+}
+
 // ImportLinkLayerDevices is part of the [modelmigration.MigrationService]
 // interface.
 func (s *MigrationService) ImportLinkLayerDevices(ctx context.Context, data []internal.ImportLinkLayerDevice) error {
@@ -94,7 +108,7 @@ func (s *MigrationService) ImportLinkLayerDevices(ctx context.Context, data []in
 	}
 
 	// Create a map of provider subnet ID to subnet info for quick lookup
-	subnetByProviderId := make(map[string]corenetwork.SubnetInfo)
+	subnetByProviderId := make(map[string]network.SubnetInfo)
 	for _, subnet := range subnets {
 		subnetByProviderId[subnet.ProviderId.String()] = subnet
 	}
@@ -125,8 +139,8 @@ func (s *MigrationService) transformImportLinkLayerDevice(
 	ctx context.Context,
 	device internal.ImportLinkLayerDevice,
 	namesToUUIDs map[string]string,
-	subnets corenetwork.SubnetInfos,
-	subnetByProviderId map[string]corenetwork.SubnetInfo,
+	subnets network.SubnetInfos,
+	subnetByProviderId map[string]network.SubnetInfo,
 	createdSubnetsByCIDR map[string]string,
 ) (internal.ImportLinkLayerDevice, error) {
 	// Set the net node UUID
@@ -156,8 +170,8 @@ func (s *MigrationService) transformImportLinkLayerDevice(
 func (s *MigrationService) transformImportIPAddress(
 	ctx context.Context,
 	addr internal.ImportIPAddress,
-	subnets corenetwork.SubnetInfos,
-	subnetByProviderId map[string]corenetwork.SubnetInfo,
+	subnets network.SubnetInfos,
+	subnetByProviderId map[string]network.SubnetInfo,
 	createdSubnetsByCIDR map[string]string,
 ) (internal.ImportIPAddress, error) {
 	if addr.ConfigType == corenetwork.ConfigLoopback {
@@ -166,7 +180,7 @@ func (s *MigrationService) transformImportIPAddress(
 		return addr, nil
 	}
 
-	var candidateSubnets corenetwork.SubnetInfos
+	var candidateSubnets network.SubnetInfos
 
 	// If provider subnet ID is provided, use it to find the subnet
 	if addr.ProviderSubnetID != nil {
@@ -174,15 +188,18 @@ func (s *MigrationService) transformImportIPAddress(
 		if !ok {
 			return addr, errors.Errorf("no subnet found for provider subnet ID %q", *addr.ProviderSubnetID)
 		}
-		candidateSubnets = corenetwork.SubnetInfos{subnet}
+		candidateSubnets = network.SubnetInfos{subnet}
 	} else {
-		// Otherwise, use the subnet CIDR to find matching subnets
+		// Otherwise, use the subnet CIDR to find matching subnets using
+		// the domain type's GetByCIDR method, which performs an exact
+		// match first, then falls back to bidirectional containment.
 		var err error
 		candidateSubnets, err = subnets.GetByCIDR(addr.SubnetCIDR)
 		if err != nil {
-			return addr, errors.Capture(err)
+			return addr, errors.Errorf("matching subnets by CIDR %q: %w", addr.SubnetCIDR, err)
 		}
 	}
+
 	var err error
 	addr.SubnetUUID, err = s.ensureOneSubnet(candidateSubnets)
 	if errors.Is(err, networkerrors.SubnetNotFound) {
@@ -212,8 +229,8 @@ func (s *MigrationService) maybeAddSubnet(ctx context.Context, addr internal.Imp
 		return internal.ImportIPAddress{}, errors.Capture(err)
 	}
 
-	if uuid, ok := createdSubnetsByCIDR[addr.SubnetCIDR]; ok {
-		addr.SubnetUUID = uuid
+	if uuidStr, ok := createdSubnetsByCIDR[addr.SubnetCIDR]; ok {
+		addr.SubnetUUID = uuidStr
 		return addr, nil
 	}
 
@@ -226,11 +243,11 @@ func (s *MigrationService) maybeAddSubnet(ctx context.Context, addr internal.Imp
 	if err != nil {
 		return internal.ImportIPAddress{}, errors.Capture(err)
 	}
-	subnetInfo := corenetwork.SubnetInfo{
-		ID:   corenetwork.Id(subnetUUID.String()),
+
+	if err := s.st.ImportSubnets(ctx, []network.ImportSubnetArgs{{
+		UUID: network.SubnetUUID(subnetUUID.String()),
 		CIDR: addr.SubnetCIDR,
-	}
-	if err := s.st.AddSubnet(ctx, subnetInfo); err != nil {
+	}}); err != nil {
 		return internal.ImportIPAddress{}, errors.Capture(err)
 	}
 	createdSubnetsByCIDR[addr.SubnetCIDR] = subnetUUID.String()
@@ -281,9 +298,9 @@ func (s *MigrationService) getPlaceholderSubnetUUIDByAddressType(ctx context.Con
 	for _, subnet := range subnets {
 		switch subnet.CIDR {
 		case "0.0.0.0/0":
-			result[corenetwork.IPv4Address] = subnet.ID.String()
+			result[corenetwork.IPv4Address] = subnet.UUID.String()
 		case "::/0":
-			result[corenetwork.IPv6Address] = subnet.ID.String()
+			result[corenetwork.IPv6Address] = subnet.UUID.String()
 		}
 	}
 
@@ -296,7 +313,7 @@ func (s *MigrationService) getPlaceholderSubnetUUIDByAddressType(ctx context.Con
 		if _, exists := result[addrType]; exists {
 			continue
 		}
-		result[addrType] = subnet.ID.String()
+		result[addrType] = subnet.UUID.String()
 	}
 
 	return result, nil
@@ -370,7 +387,7 @@ func (s *MigrationService) transformK8sServiceAddress(
 	}, nil
 }
 
-func (s *MigrationService) ensureOneSubnet(subnets corenetwork.SubnetInfos) (string, error) {
+func (s *MigrationService) ensureOneSubnet(subnets network.SubnetInfos) (string, error) {
 	// Check if we found any subnets
 	if len(subnets) == 0 {
 		return "", errors.Errorf("no subnet found").Add(networkerrors.SubnetNotFound)
@@ -386,5 +403,5 @@ func (s *MigrationService) ensureOneSubnet(subnets corenetwork.SubnetInfos) (str
 			strings.Join(cidrs, ","))
 	}
 
-	return subnets[0].ID.String(), nil
+	return subnets[0].UUID.String(), nil
 }
