@@ -12,9 +12,11 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
+	dependencytesting "github.com/juju/worker/v5/dependency/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
+	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/cmd/jujuagentd/agent/safemode"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/internal/testing"
@@ -135,6 +137,26 @@ func (s *ManifoldsSuite) TestManifoldsDependencies(c *tc.C) {
 		}),
 		expectedManifoldsWithDependencies,
 	)
+}
+
+// TestControllerAgentConfigRequiresUnlocker verifies the safemode wiring
+// must supply a non-nil ControllerUnlocker: without it the
+// controller-agent-config manifold fails validation with a nil
+// ReadyUnlocker error instead of starting.
+func (s *ManifoldsSuite) TestControllerAgentConfigRequiresUnlocker(c *tc.C) {
+	manifolds := safemode.Manifolds(safemode.ManifoldsConfig{
+		Agent:                  &mockAgent{},
+		ControllerID:           "0",
+		ConfigChangeSocketPath: "configchange.socket",
+	})
+
+	getter := dependencytesting.StubGetter(map[string]any{
+		"is-controller-flag": engine.NewStaticFlagWorker(true),
+	})
+
+	worker, err := manifolds["controller-agent-config"].Start(c.Context(), getter)
+	c.Check(worker, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, ".*nil ReadyUnlocker.*")
 }
 
 var expectedManifoldsWithDependencies = map[string][]string{
