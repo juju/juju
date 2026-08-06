@@ -1,7 +1,5 @@
 (command-juju-logout)=
 # `juju logout`
-(command-juju-logout)=
-# `juju logout`
 > See also: [change-user-password](#command-juju-change-user-password), [login](#command-juju-login)
 
 ## Summary

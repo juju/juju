@@ -1,7 +1,5 @@
 (command-juju-help-hook-commands)=
 # `juju help-hook-commands`
-(command-juju-help-hook-commands)=
-# `juju help-hook-commands`
 > See also: [help](#command-juju-help), [help-action-commands](#command-juju-help-action-commands)
 
 ## Summary

@@ -1,7 +1,5 @@
 (command-juju-update-secret)=
 # `juju update-secret`
-(command-juju-update-secret)=
-# `juju update-secret`
 ## Summary
 Update an existing secret.
 

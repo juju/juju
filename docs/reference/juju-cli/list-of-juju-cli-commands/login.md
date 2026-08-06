@@ -1,7 +1,5 @@
 (command-juju-login)=
 # `juju login`
-(command-juju-login)=
-# `juju login`
 > See also: [disable-user](#command-juju-disable-user), [enable-user](#command-juju-enable-user), [logout](#command-juju-logout), [register](#command-juju-register), [unregister](#command-juju-unregister)
 
 ## Summary

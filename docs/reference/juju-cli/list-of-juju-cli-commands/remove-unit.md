@@ -1,7 +1,5 @@
 (command-juju-remove-unit)=
 # `juju remove-unit`
-(command-juju-remove-unit)=
-# `juju remove-unit`
 > See also: [remove-application](#command-juju-remove-application), [scale-application](#command-juju-scale-application)
 
 ## Summary

@@ -1,7 +1,5 @@
 (command-juju-remove-ssh-key)=
 # `juju remove-ssh-key`
-(command-juju-remove-ssh-key)=
-# `juju remove-ssh-key`
 > See also: [ssh-keys](#command-juju-ssh-keys), [add-ssh-key](#command-juju-add-ssh-key), [import-ssh-key](#command-juju-import-ssh-key)
 
 ## Summary

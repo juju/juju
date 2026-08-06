@@ -1,7 +1,5 @@
 (command-juju-show-model)=
 # `juju show-model`
-(command-juju-show-model)=
-# `juju show-model`
 > See also: [add-model](#command-juju-add-model)
 
 ## Summary

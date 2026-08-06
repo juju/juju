@@ -1,7 +1,5 @@
 (command-juju-grant)=
 # `juju grant`
-(command-juju-grant)=
-# `juju grant`
 > See also: [revoke](#command-juju-revoke), [add-user](#command-juju-add-user), [grant-cloud](#command-juju-grant-cloud)
 
 ## Summary

@@ -1,7 +1,5 @@
 (command-juju-version)=
 # `juju version`
-(command-juju-version)=
-# `juju version`
 > See also: [show-controller](#command-juju-show-controller), [show-model](#command-juju-show-model)
 
 ## Summary

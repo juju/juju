@@ -1,7 +1,5 @@
 (command-juju-model-defaults)=
 # `juju model-defaults`
-(command-juju-model-defaults)=
-# `juju model-defaults`
 > See also: [models](#command-juju-models), [model-config](#command-juju-model-config)
 
 **Aliases:** model-default

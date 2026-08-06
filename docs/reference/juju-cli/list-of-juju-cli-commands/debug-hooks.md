@@ -1,7 +1,5 @@
 (command-juju-debug-hooks)=
 # `juju debug-hooks`
-(command-juju-debug-hooks)=
-# `juju debug-hooks`
 > See also: [ssh](#command-juju-ssh), [debug-code](#command-juju-debug-code)
 
 **Aliases:** debug-hook

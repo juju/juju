@@ -1,7 +1,5 @@
 (command-juju-remove-relation)=
 # `juju remove-relation`
-(command-juju-remove-relation)=
-# `juju remove-relation`
 > See also: [integrate](#command-juju-integrate), [remove-application](#command-juju-remove-application)
 
 ## Summary

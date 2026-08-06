@@ -1,7 +1,5 @@
 (command-juju-diff-bundle)=
 # `juju diff-bundle`
-(command-juju-diff-bundle)=
-# `juju diff-bundle`
 > See also: [deploy](#command-juju-deploy)
 
 ## Summary

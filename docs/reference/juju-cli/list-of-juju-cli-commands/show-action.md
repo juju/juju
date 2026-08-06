@@ -1,7 +1,5 @@
 (command-juju-show-action)=
 # `juju show-action`
-(command-juju-show-action)=
-# `juju show-action`
 > See also: [actions](#command-juju-actions), [run](#command-juju-run)
 
 ## Summary

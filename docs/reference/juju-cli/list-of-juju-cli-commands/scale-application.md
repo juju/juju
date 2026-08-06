@@ -1,7 +1,5 @@
 (command-juju-scale-application)=
 # `juju scale-application`
-(command-juju-scale-application)=
-# `juju scale-application`
 > See also: [remove-application](#command-juju-remove-application), [add-unit](#command-juju-add-unit), [remove-unit](#command-juju-remove-unit)
 
 ## Summary

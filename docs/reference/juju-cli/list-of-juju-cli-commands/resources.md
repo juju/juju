@@ -1,7 +1,5 @@
 (command-juju-resources)=
 # `juju resources`
-(command-juju-resources)=
-# `juju resources`
 > See also: [attach-resource](#command-juju-attach-resource), [charm-resources](#command-juju-charm-resources)
 
 **Aliases:** list-resources

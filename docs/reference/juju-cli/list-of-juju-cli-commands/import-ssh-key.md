@@ -1,7 +1,5 @@
 (command-juju-import-ssh-key)=
 # `juju import-ssh-key`
-(command-juju-import-ssh-key)=
-# `juju import-ssh-key`
 > See also: [add-ssh-key](#command-juju-add-ssh-key), [ssh-keys](#command-juju-ssh-keys)
 
 ## Summary

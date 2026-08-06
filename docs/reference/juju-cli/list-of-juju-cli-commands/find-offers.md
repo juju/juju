@@ -1,7 +1,5 @@
 (command-juju-find-offers)=
 # `juju find-offers`
-(command-juju-find-offers)=
-# `juju find-offers`
 > See also: [show-offer](#command-juju-show-offer)
 
 ## Summary

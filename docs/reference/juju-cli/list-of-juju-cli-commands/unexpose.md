@@ -1,7 +1,5 @@
 (command-juju-unexpose)=
 # `juju unexpose`
-(command-juju-unexpose)=
-# `juju unexpose`
 > See also: [expose](#command-juju-expose)
 
 ## Summary

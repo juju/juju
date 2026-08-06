@@ -1,7 +1,5 @@
 (command-juju-status)=
 # `juju status`
-(command-juju-status)=
-# `juju status`
 > See also: [machines](#command-juju-machines), [show-model](#command-juju-show-model), [show-status-log](#command-juju-show-status-log), [storage](#command-juju-storage)
 
 ## Summary

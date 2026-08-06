@@ -1,7 +1,5 @@
 (command-juju-show-secret)=
 # `juju show-secret`
-(command-juju-show-secret)=
-# `juju show-secret`
 > See also: [add-secret](#command-juju-add-secret), [update-secret](#command-juju-update-secret), [remove-secret](#command-juju-remove-secret)
 
 ## Summary

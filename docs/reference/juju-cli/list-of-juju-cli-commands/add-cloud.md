@@ -1,7 +1,5 @@
 (command-juju-add-cloud)=
 # `juju add-cloud`
-(command-juju-add-cloud)=
-# `juju add-cloud`
 > See also: [clouds](#command-juju-clouds), [update-cloud](#command-juju-update-cloud), [remove-cloud](#command-juju-remove-cloud), [update-credential](#command-juju-update-credential)
 
 ## Summary

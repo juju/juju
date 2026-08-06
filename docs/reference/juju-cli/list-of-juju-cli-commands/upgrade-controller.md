@@ -1,7 +1,5 @@
 (command-juju-upgrade-controller)=
 # `juju upgrade-controller`
-(command-juju-upgrade-controller)=
-# `juju upgrade-controller`
 > See also: [upgrade-model](#command-juju-upgrade-model)
 
 ## Summary

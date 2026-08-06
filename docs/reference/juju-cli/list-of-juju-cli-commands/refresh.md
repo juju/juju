@@ -1,7 +1,5 @@
 (command-juju-refresh)=
 # `juju refresh`
-(command-juju-refresh)=
-# `juju refresh`
 > See also: [deploy](#command-juju-deploy)
 
 ## Summary

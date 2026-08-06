@@ -1,7 +1,5 @@
 (command-juju-whoami)=
 # `juju whoami`
-(command-juju-whoami)=
-# `juju whoami`
 > See also: [controllers](#command-juju-controllers), [login](#command-juju-login), [logout](#command-juju-logout), [models](#command-juju-models), [users](#command-juju-users)
 
 ## Summary

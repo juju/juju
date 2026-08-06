@@ -1,7 +1,5 @@
 (command-juju-show-space)=
 # `juju show-space`
-(command-juju-show-space)=
-# `juju show-space`
 > See also: [add-space](#command-juju-add-space), [spaces](#command-juju-spaces), [reload-spaces](#command-juju-reload-spaces), [rename-space](#command-juju-rename-space), [remove-space](#command-juju-remove-space)
 
 ## Summary

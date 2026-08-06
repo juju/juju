@@ -1,7 +1,5 @@
 (command-juju-show-cloud)=
 # `juju show-cloud`
-(command-juju-show-cloud)=
-# `juju show-cloud`
 > See also: [clouds](#command-juju-clouds), [add-cloud](#command-juju-add-cloud), [update-cloud](#command-juju-update-cloud)
 
 ## Summary

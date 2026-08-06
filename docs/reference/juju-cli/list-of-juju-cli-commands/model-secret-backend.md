@@ -1,7 +1,5 @@
 (command-juju-model-secret-backend)=
 # `juju model-secret-backend`
-(command-juju-model-secret-backend)=
-# `juju model-secret-backend`
 > See also: [add-secret-backend](#command-juju-add-secret-backend), [secret-backends](#command-juju-secret-backends), [remove-secret-backend](#command-juju-remove-secret-backend), [show-secret-backend](#command-juju-show-secret-backend), [update-secret-backend](#command-juju-update-secret-backend)
 
 ## Summary

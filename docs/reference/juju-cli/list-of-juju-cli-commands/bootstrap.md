@@ -1,7 +1,5 @@
 (command-juju-bootstrap)=
 # `juju bootstrap`
-(command-juju-bootstrap)=
-# `juju bootstrap`
 > See also: [add-credential](#command-juju-add-credential), [autoload-credentials](#command-juju-autoload-credentials), [add-model](#command-juju-add-model), [controller-config](#command-juju-controller-config), [model-config](#command-juju-model-config), [set-constraints](#command-juju-set-constraints), [show-cloud](#command-juju-show-cloud)
 
 ## Summary

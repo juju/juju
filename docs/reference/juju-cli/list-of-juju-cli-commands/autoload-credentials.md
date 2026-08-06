@@ -1,7 +1,5 @@
 (command-juju-autoload-credentials)=
 # `juju autoload-credentials`
-(command-juju-autoload-credentials)=
-# `juju autoload-credentials`
 > See also: [add-credential](#command-juju-add-credential), [credentials](#command-juju-credentials), [default-credential](#command-juju-default-credential), [remove-credential](#command-juju-remove-credential)
 
 ## Summary

@@ -1,7 +1,5 @@
 (command-juju-download)=
 # `juju download`
-(command-juju-download)=
-# `juju download`
 > See also: [info](#command-juju-info), [find](#command-juju-find)
 
 ## Summary

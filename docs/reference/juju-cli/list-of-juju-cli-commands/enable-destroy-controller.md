@@ -1,7 +1,5 @@
 (command-juju-enable-destroy-controller)=
 # `juju enable-destroy-controller`
-(command-juju-enable-destroy-controller)=
-# `juju enable-destroy-controller`
 > See also: [disable-command](#command-juju-disable-command), [disabled-commands](#command-juju-disabled-commands), [enable-command](#command-juju-enable-command)
 
 ## Summary

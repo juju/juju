@@ -1,7 +1,5 @@
 (command-juju-ssh)=
 # `juju ssh`
-(command-juju-ssh)=
-# `juju ssh`
 > See also: [scp](#command-juju-scp)
 
 ## Summary

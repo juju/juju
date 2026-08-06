@@ -1,7 +1,5 @@
 (command-juju-set-credential)=
 # `juju set-credential`
-(command-juju-set-credential)=
-# `juju set-credential`
 > See also: [credentials](#command-juju-credentials), [show-credential](#command-juju-show-credential), [update-credential](#command-juju-update-credential)
 
 ## Summary

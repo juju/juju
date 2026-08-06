@@ -1,7 +1,5 @@
 (command-juju-controllers)=
 # `juju controllers`
-(command-juju-controllers)=
-# `juju controllers`
 > See also: [models](#command-juju-models), [show-controller](#command-juju-show-controller)
 
 **Aliases:** list-controllers

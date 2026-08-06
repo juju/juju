@@ -1,7 +1,5 @@
 (command-juju-consume)=
 # `juju consume`
-(command-juju-consume)=
-# `juju consume`
 > See also: [integrate](#command-juju-integrate), [offer](#command-juju-offer), [remove-saas](#command-juju-remove-saas)
 
 ## Summary

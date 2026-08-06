@@ -1,7 +1,5 @@
 (command-juju-remove-machine)=
 # `juju remove-machine`
-(command-juju-remove-machine)=
-# `juju remove-machine`
 > See also: [add-machine](#command-juju-add-machine)
 
 ## Summary

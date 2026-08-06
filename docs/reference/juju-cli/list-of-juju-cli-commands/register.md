@@ -1,7 +1,5 @@
 (command-juju-register)=
 # `juju register`
-(command-juju-register)=
-# `juju register`
 > See also: [add-user](#command-juju-add-user), [change-user-password](#command-juju-change-user-password), [unregister](#command-juju-unregister)
 
 ## Summary

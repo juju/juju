@@ -1,7 +1,5 @@
 (command-juju-show-controller)=
 # `juju show-controller`
-(command-juju-show-controller)=
-# `juju show-controller`
 > See also: [controllers](#command-juju-controllers)
 
 ## Summary

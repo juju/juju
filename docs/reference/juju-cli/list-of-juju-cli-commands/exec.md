@@ -1,7 +1,5 @@
 (command-juju-exec)=
 # `juju exec`
-(command-juju-exec)=
-# `juju exec`
 > See also: [run](#command-juju-run), [ssh](#command-juju-ssh)
 
 ## Summary

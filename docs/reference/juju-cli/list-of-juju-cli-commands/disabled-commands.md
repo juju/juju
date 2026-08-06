@@ -1,7 +1,5 @@
 (command-juju-disabled-commands)=
 # `juju disabled-commands`
-(command-juju-disabled-commands)=
-# `juju disabled-commands`
 > See also: [disable-command](#command-juju-disable-command), [enable-command](#command-juju-enable-command)
 
 **Aliases:** list-disabled-commands

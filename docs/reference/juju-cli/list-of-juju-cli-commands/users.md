@@ -1,7 +1,5 @@
 (command-juju-users)=
 # `juju users`
-(command-juju-users)=
-# `juju users`
 > See also: [add-user](#command-juju-add-user), [register](#command-juju-register), [show-user](#command-juju-show-user), [disable-user](#command-juju-disable-user), [enable-user](#command-juju-enable-user)
 
 **Aliases:** list-users

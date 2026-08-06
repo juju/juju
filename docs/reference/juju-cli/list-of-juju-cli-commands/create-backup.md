@@ -1,7 +1,5 @@
 (command-juju-create-backup)=
 # `juju create-backup`
-(command-juju-create-backup)=
-# `juju create-backup`
 > See also: [download-backup](#command-juju-download-backup)
 
 ## Summary

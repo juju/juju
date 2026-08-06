@@ -1,7 +1,5 @@
 (command-juju-show-operation)=
 # `juju show-operation`
-(command-juju-show-operation)=
-# `juju show-operation`
 > See also: [run](#command-juju-run), [operations](#command-juju-operations), [show-task](#command-juju-show-task)
 
 ## Summary

@@ -1,7 +1,5 @@
 (command-juju-remove-user)=
 # `juju remove-user`
-(command-juju-remove-user)=
-# `juju remove-user`
 > See also: [unregister](#command-juju-unregister), [revoke](#command-juju-revoke), [show-user](#command-juju-show-user), [users](#command-juju-users), [disable-user](#command-juju-disable-user), [enable-user](#command-juju-enable-user), [change-user-password](#command-juju-change-user-password)
 
 ## Summary
