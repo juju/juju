@@ -1,12 +1,14 @@
 (command-juju-diff-bundle)=
 # `juju diff-bundle`
-> See also: [deploy](#deploy)
+> See also: [deploy](#command-juju-deploy)
 
 ## Summary
 Compares a bundle with a model and reports any differences.
 
 ## Usage
-```juju diff-bundle [options] <bundle file or name>```
+```text
+juju diff-bundle [options] <bundle file or name>
+```
 
 ### Options
 | Flag | Default | Usage |

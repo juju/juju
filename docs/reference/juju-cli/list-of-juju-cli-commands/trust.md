@@ -1,12 +1,14 @@
 (command-juju-trust)=
 # `juju trust`
-> See also: [config](#config)
+> See also: [config](#command-juju-config)
 
 ## Summary
 Sets the trust status of a deployed application to true.
 
 ## Usage
-```juju trust [options] <application name>```
+```text
+juju trust [options] <application name>
+```
 
 ### Options
 | Flag | Default | Usage |

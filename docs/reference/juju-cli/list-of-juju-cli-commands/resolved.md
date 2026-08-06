@@ -6,7 +6,9 @@
 Marks unit errors resolved and re-executes failed hooks.
 
 ## Usage
-```juju resolved [options] [<unit> ...]```
+```text
+juju resolved [options] [<unit> ...]
+```
 
 ### Options
 | Flag | Default | Usage |

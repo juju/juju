@@ -1,12 +1,14 @@
 (command-juju-deploy)=
 # `juju deploy`
-> See also: [integrate](#integrate), [add-unit](#add-unit), [config](#config), [expose](#expose), [constraints](#constraints), [refresh](#refresh), [set-constraints](#set-constraints), [spaces](#spaces), [charm-resources](#charm-resources)
+> See also: [integrate](#command-juju-integrate), [add-unit](#command-juju-add-unit), [config](#command-juju-config), [expose](#command-juju-expose), [constraints](#command-juju-constraints), [refresh](#command-juju-refresh), [set-constraints](#command-juju-set-constraints), [spaces](#command-juju-spaces), [charm-resources](#command-juju-charm-resources)
 
 ## Summary
 Deploys a new application or bundle.
 
 ## Usage
-```juju deploy [options] <charm or bundle> [<application name>]```
+```text
+juju deploy [options] <charm or bundle> [<application name>]
+```
 
 ### Options
 | Flag | Default | Usage |

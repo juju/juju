@@ -4,7 +4,9 @@
 Gets the path to the locally cached resource file.
 
 ## Usage
-``` resource-get [options] <resource name>```
+```text
+resource-get [options] <resource name>
+```
 
 ## Examples
 

@@ -1,12 +1,14 @@
 (command-juju-remove-saas)=
 # `juju remove-saas`
-> See also: [consume](#consume), [offer](#offer)
+> See also: [consume](#command-juju-consume), [offer](#command-juju-offer)
 
 ## Summary
 Remove consumed applications (SAAS) from the model.
 
 ## Usage
-```juju remove-saas [options] <saas-application-name> [<saas-application-name>...]```
+```text
+juju remove-saas [options] <saas-application-name> [<saas-application-name>...]
+```
 
 ### Options
 | Flag | Default | Usage |

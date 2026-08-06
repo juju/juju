@@ -50,5 +50,5 @@ github.com/juju/juju/internal/provider/magic:
 
 > See more:
 > - [Unit test suite](unit-test-suite.md)
-    >     - [Util suite](util-suite)
+    >     - [Util suite](util-suite.md)
 > - [Checker](checker.md)

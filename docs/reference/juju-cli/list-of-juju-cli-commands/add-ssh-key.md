@@ -1,12 +1,14 @@
 (command-juju-add-ssh-key)=
 # `juju add-ssh-key`
-> See also: [ssh-keys](#ssh-keys), [remove-ssh-key](#remove-ssh-key), [import-ssh-key](#import-ssh-key)
+> See also: [ssh-keys](#command-juju-ssh-keys), [remove-ssh-key](#command-juju-remove-ssh-key), [import-ssh-key](#command-juju-import-ssh-key)
 
 ## Summary
 Adds a public SSH key to a model.
 
 ## Usage
-```juju add-ssh-key [options] <ssh key> ...```
+```text
+juju add-ssh-key [options] <ssh key> ...
+```
 
 ### Options
 | Flag | Default | Usage |

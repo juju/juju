@@ -1,12 +1,14 @@
 (command-juju-add-credential)=
 # `juju add-credential`
-> See also: [credentials](#credentials), [remove-credential](#remove-credential), [update-credential](#update-credential), [default-credential](#default-credential), [default-region](#default-region), [autoload-credentials](#autoload-credentials)
+> See also: [credentials](#command-juju-credentials), [remove-credential](#command-juju-remove-credential), [update-credential](#command-juju-update-credential), [default-credential](#command-juju-default-credential), [default-region](#command-juju-default-region), [autoload-credentials](#command-juju-autoload-credentials)
 
 ## Summary
 Adds a credential for a cloud to a local client and uploads it to a controller.
 
 ## Usage
-```juju add-credential [options] <cloud name>```
+```text
+juju add-credential [options] <cloud name>
+```
 
 ### Options
 | Flag | Default | Usage |

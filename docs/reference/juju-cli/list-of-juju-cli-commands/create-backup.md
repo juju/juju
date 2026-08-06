@@ -1,12 +1,14 @@
 (command-juju-create-backup)=
 # `juju create-backup`
-> See also: [download-backup](#download-backup)
+> See also: [download-backup](#command-juju-download-backup)
 
 ## Summary
 Create a backup.
 
 ## Usage
-```juju create-backup [options] [<notes>]```
+```text
+juju create-backup [options] [<notes>]
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -1,6 +1,6 @@
 (command-juju-actions)=
 # `juju actions`
-> See also: [run](#run), [show-action](#show-action)
+> See also: [run](#command-juju-run), [show-action](#command-juju-show-action)
 
 **Aliases:** list-actions
 
@@ -8,7 +8,9 @@
 List actions defined for an application.
 
 ## Usage
-```juju actions [options] <application>```
+```text
+juju actions [options] <application>
+```
 
 ### Options
 | Flag | Default | Usage |

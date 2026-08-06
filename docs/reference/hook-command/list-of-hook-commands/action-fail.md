@@ -4,7 +4,9 @@
 Sets action fail status with message.
 
 ## Usage
-``` action-fail [options] ["<failure message>"]```
+```text
+action-fail [options] ["<failure message>"]
+```
 
 ## Examples
 

@@ -1,12 +1,14 @@
 (command-juju-refresh)=
 # `juju refresh`
-> See also: [deploy](#deploy)
+> See also: [deploy](#command-juju-deploy)
 
 ## Summary
 Refresh an application's charm.
 
 ## Usage
-```juju refresh [options] <application>```
+```text
+juju refresh [options] <application>
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -1,12 +1,14 @@
 (command-juju-show-storage)=
 # `juju show-storage`
-> See also: [storage](#storage), [attach-storage](#attach-storage), [detach-storage](#detach-storage), [remove-storage](#remove-storage)
+> See also: [storage](#command-juju-storage), [attach-storage](#command-juju-attach-storage), [detach-storage](#command-juju-detach-storage), [remove-storage](#command-juju-remove-storage)
 
 ## Summary
 Shows storage instance information.
 
 ## Usage
-```juju show-storage [options] <storage ID> [...]```
+```text
+juju show-storage [options] <storage ID> [...]
+```
 
 ### Options
 | Flag | Default | Usage |

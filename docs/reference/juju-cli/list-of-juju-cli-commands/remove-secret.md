@@ -4,7 +4,9 @@
 Remove a existing secret.
 
 ## Usage
-```juju remove-secret [options] <ID>|<name>```
+```text
+juju remove-secret [options] <ID>|<name>
+```
 
 ### Options
 | Flag | Default | Usage |

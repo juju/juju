@@ -3,6 +3,11 @@
 ## Summary
 Lists relation units.
 
+## Usage
+```text
+relation-list [options]
+```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

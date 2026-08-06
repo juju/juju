@@ -4,7 +4,9 @@
 Retries provisioning for failed machines.
 
 ## Usage
-```juju retry-provisioning [options] <machine> [...]```
+```text
+juju retry-provisioning [options] <machine> [...]
+```
 
 ### Options
 | Flag | Default | Usage |

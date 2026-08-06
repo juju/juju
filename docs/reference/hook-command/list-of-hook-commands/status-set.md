@@ -4,7 +4,9 @@
 Sets status information.
 
 ## Usage
-``` status-set [options] <status> [<message>]```
+```text
+status-set [options] <status> [<message>]
+```
 
 ### Options
 | Flag | Default | Usage |

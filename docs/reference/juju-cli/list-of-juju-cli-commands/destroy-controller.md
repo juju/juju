@@ -1,12 +1,14 @@
 (command-juju-destroy-controller)=
 # `juju destroy-controller`
-> See also: [kill-controller](#kill-controller), [unregister](#unregister)
+> See also: [kill-controller](#command-juju-kill-controller), [unregister](#command-juju-unregister)
 
 ## Summary
 Destroys a controller.
 
 ## Usage
-```juju destroy-controller [options] <controller name>```
+```text
+juju destroy-controller [options] <controller name>
+```
 
 ### Options
 | Flag | Default | Usage |

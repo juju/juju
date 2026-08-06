@@ -4,7 +4,9 @@
 Attaches existing storage to a unit.
 
 ## Usage
-```juju attach-storage [options] <unit> <storage> [<storage> ...]```
+```text
+juju attach-storage [options] <unit> <storage> [<storage> ...]
+```
 
 ### Options
 | Flag | Default | Usage |

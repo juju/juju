@@ -1,12 +1,14 @@
 (command-juju-attach-resource)=
 # `juju attach-resource`
-> See also: [resources](#resources), [charm-resources](#charm-resources)
+> See also: [resources](#command-juju-resources), [charm-resources](#command-juju-charm-resources)
 
 ## Summary
 Update a resource for an application.
 
 ## Usage
-```juju attach-resource [options] application <resource name>=<resource>```
+```text
+juju attach-resource [options] application <resource name>=<resource>
+```
 
 ### Options
 | Flag | Default | Usage |

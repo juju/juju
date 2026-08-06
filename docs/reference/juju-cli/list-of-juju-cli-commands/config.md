@@ -1,12 +1,14 @@
 (command-juju-config)=
 # `juju config`
-> See also: [deploy](#deploy), [status](#status), [model-config](#model-config), [controller-config](#controller-config)
+> See also: [deploy](#command-juju-deploy), [status](#command-juju-status), [model-config](#command-juju-model-config), [controller-config](#command-juju-controller-config)
 
 ## Summary
 Get, set, or reset configuration for a deployed application.
 
 ## Usage
-```juju config [options] <application name> [--reset <key[,key]>] [<attribute-key>][=<value>] ...]```
+```text
+juju config [options] <application name> [--reset <key[,key]>] [<attribute-key>][=<value>] ...]
+```
 
 ### Options
 | Flag | Default | Usage |

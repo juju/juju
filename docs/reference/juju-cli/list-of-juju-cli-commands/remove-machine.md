@@ -1,12 +1,14 @@
 (command-juju-remove-machine)=
 # `juju remove-machine`
-> See also: [add-machine](#add-machine)
+> See also: [add-machine](#command-juju-add-machine)
 
 ## Summary
 Removes one or more machines from a model.
 
 ## Usage
-```juju remove-machine [options] <machine number> ...```
+```text
+juju remove-machine [options] <machine number> ...
+```
 
 ### Options
 | Flag | Default | Usage |

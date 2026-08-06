@@ -1,6 +1,6 @@
 (command-juju-storage)=
 # `juju storage`
-> See also: [show-storage](#show-storage), [add-storage](#add-storage), [remove-storage](#remove-storage)
+> See also: [show-storage](#command-juju-show-storage), [add-storage](#command-juju-add-storage), [remove-storage](#command-juju-remove-storage)
 
 **Aliases:** list-storage
 
@@ -8,7 +8,9 @@
 Lists storage details.
 
 ## Usage
-```juju storage [options] <filesystem|volume> ...```
+```text
+juju storage [options] <filesystem|volume> ...
+```
 
 ### Options
 | Flag | Default | Usage |

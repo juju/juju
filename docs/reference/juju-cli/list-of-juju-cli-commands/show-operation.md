@@ -1,12 +1,14 @@
 (command-juju-show-operation)=
 # `juju show-operation`
-> See also: [run](#run), [operations](#operations), [show-task](#show-task)
+> See also: [run](#command-juju-run), [operations](#command-juju-operations), [show-task](#command-juju-show-task)
 
 ## Summary
 Show results of an operation.
 
 ## Usage
-```juju show-operation [options] <operation-id>```
+```text
+juju show-operation [options] <operation-id>
+```
 
 ### Options
 | Flag | Default | Usage |

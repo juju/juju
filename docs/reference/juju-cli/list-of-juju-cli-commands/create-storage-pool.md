@@ -1,12 +1,14 @@
 (command-juju-create-storage-pool)=
 # `juju create-storage-pool`
-> See also: [remove-storage-pool](#remove-storage-pool), [update-storage-pool](#update-storage-pool), [storage-pools](#storage-pools)
+> See also: [remove-storage-pool](#command-juju-remove-storage-pool), [update-storage-pool](#command-juju-update-storage-pool), [storage-pools](#command-juju-storage-pools)
 
 ## Summary
 Create or define a storage pool.
 
 ## Usage
-```juju create-storage-pool [options] <name> <storage provider> [<key>=<value> [<key>=<value>...]]```
+```text
+juju create-storage-pool [options] <name> <storage provider> [<key>=<value> [<key>=<value>...]]
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -1,6 +1,6 @@
 (command-juju-model-defaults)=
 # `juju model-defaults`
-> See also: [models](#models), [model-config](#model-config)
+> See also: [models](#command-juju-models), [model-config](#command-juju-model-config)
 
 **Aliases:** model-default
 
@@ -8,7 +8,9 @@
 Displays or sets default configuration settings for new models.
 
 ## Usage
-```juju model-defaults [options] [<model-key>[<=value>] ...]```
+```text
+juju model-defaults [options] [<model-key>[<=value>] ...]
+```
 
 ### Options
 | Flag | Default | Usage |

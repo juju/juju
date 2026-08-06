@@ -1,12 +1,14 @@
 (hook-command-state-delete)=
 # `state-delete`
-> See also: [state-get](#state-get), [state-set](#state-set)
+> See also: [state-get](#hook-command-state-get), [state-set](#hook-command-state-set)
 
 ## Summary
 Deletes server-side-state key-value pairs.
 
 ## Usage
-``` state-delete [options] <key>```
+```text
+state-delete [options] <key>
+```
 
 ## Details
 

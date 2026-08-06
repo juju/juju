@@ -4,7 +4,9 @@
 Gets the content of a secret.
 
 ## Usage
-``` secret-get [options] <ID> [key[#base64]]```
+```text
+secret-get [options] <ID> [key[#base64]]
+```
 
 ### Options
 | Flag | Default | Usage |

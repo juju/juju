@@ -1,12 +1,14 @@
 (command-juju-scp)=
 # `juju scp`
-> See also: [ssh](#ssh)
+> See also: [ssh](#command-juju-ssh)
 
 ## Summary
 Securely transfer files within a model.
 
 ## Usage
-```juju scp [options] <source> <destination>```
+```text
+juju scp [options] <source> <destination>
+```
 
 ### Options
 | Flag | Default | Usage |

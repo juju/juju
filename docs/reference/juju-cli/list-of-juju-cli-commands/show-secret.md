@@ -1,12 +1,14 @@
 (command-juju-show-secret)=
 # `juju show-secret`
-> See also: [add-secret](#add-secret), [update-secret](#update-secret), [remove-secret](#remove-secret)
+> See also: [add-secret](#command-juju-add-secret), [update-secret](#command-juju-update-secret), [remove-secret](#command-juju-remove-secret)
 
 ## Summary
 Shows details for a specific secret.
 
 ## Usage
-```juju show-secret [options] <ID>|<name>```
+```text
+juju show-secret [options] <ID>|<name>
+```
 
 ### Options
 | Flag | Default | Usage |

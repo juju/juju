@@ -1,12 +1,14 @@
 (command-juju-help-hook-commands)=
 # `juju help-hook-commands`
-> See also: [help](#help), [help-action-commands](#help-action-commands)
+> See also: [help](#command-juju-help), [help-action-commands](#command-juju-help-action-commands)
 
 ## Summary
 Show help on a Juju charm hook command.
 
 ## Usage
-```juju help-hook-commands [options] [hook]```
+```text
+juju help-hook-commands [options] [hook]
+```
 
 ## Examples
 

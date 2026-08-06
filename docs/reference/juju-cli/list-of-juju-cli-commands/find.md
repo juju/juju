@@ -1,12 +1,14 @@
 (command-juju-find)=
 # `juju find`
-> See also: [info](#info), [download](#download)
+> See also: [info](#command-juju-info), [download](#command-juju-download)
 
 ## Summary
 Queries the Charmhub store for available charms or bundles.
 
 ## Usage
-```juju find [options] [options] <query>```
+```text
+juju find [options] [options] <query>
+```
 
 ### Options
 | Flag | Default | Usage |

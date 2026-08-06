@@ -1,12 +1,14 @@
 (command-juju-ssh)=
 # `juju ssh`
-> See also: [scp](#scp)
+> See also: [scp](#command-juju-scp)
 
 ## Summary
 Initiates an SSH session or executes a command on a Juju machine or container.
 
 ## Usage
-```juju ssh [options] <[user@]target> [openssh options] [command]```
+```text
+juju ssh [options] <[user@]target> [openssh options] [command]
+```
 
 ### Options
 | Flag | Default | Usage |

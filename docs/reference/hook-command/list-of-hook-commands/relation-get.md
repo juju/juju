@@ -4,7 +4,9 @@
 Get relation settings.
 
 ## Usage
-``` relation-get [options] <key> <unit id>```
+```text
+relation-get [options] <key> <unit id>
+```
 
 ### Options
 | Flag | Default | Usage |
