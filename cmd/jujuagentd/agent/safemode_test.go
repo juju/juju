@@ -50,8 +50,8 @@ func (*safeModeEngineSuite) TestControllerAgentConfigStarts(c *tc.C) {
 
 	for {
 		report := engine.Report(c.Context())
-		manifolds := report[dependency.KeyManifolds].(map[string]interface{})
-		controllerConfig := manifolds["controller-agent-config"].(map[string]interface{})
+		manifolds := report[dependency.KeyManifolds].(map[string]any)
+		controllerConfig := manifolds["controller-agent-config"].(map[string]any)
 		if err, ok := controllerConfig[dependency.KeyError]; ok &&
 			strings.Contains(fmt.Sprint(err), "nil ReadyUnlocker") {
 			c.Fatalf("controller-agent-config did not start: %v", err)
