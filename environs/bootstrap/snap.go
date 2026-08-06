@@ -82,10 +82,10 @@ func inspectLocalSnapVersion(ctx context.Context, path string) (semversion.Numbe
 	}
 
 	rawVersion := strings.TrimSpace(matches[1])
-	vers, err := semversion.Parse(rawVersion)
+	v, err := ParseSnapVersion(rawVersion)
 	if err != nil {
 		return semversion.Zero, errors.Annotatef(err,
 			"inspecting local snap %q: cannot parse version %q", path, rawVersion)
 	}
-	return vers, nil
+	return v, nil
 }
