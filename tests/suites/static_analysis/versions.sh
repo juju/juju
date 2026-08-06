@@ -44,19 +44,28 @@ run_check_juju_version() {
 }
 
 check_juju_version() {
+	local target_version
 	target_version="$(go run scripts/version/main.go)"
-	snapcraft_yaml="snaps/juju/snapcraft.yaml"
+	exit_code=0
 
-	snapcraft_juju_version="$(yq -r '.version' "${snapcraft_yaml}")"
-	echo "${snapcraft_juju_version}" | grep -q "${target_version}"
-	if [ $? -ne 0 ]; then
-		echo "Juju version in version/version.go (${target_version}) does not match snapcraft.yaml (${snapcraft_juju_version}) for juju"
-		exit_code=1
-	fi
+	check_snapcraft_version() {
+		local snapcraft_yaml="$1"
+		local snap_namespace="$2"
 
+		local snapcraft_version
+		snapcraft_version="$(yq -r '.version' "${snapcraft_yaml}")"
+		if [ "${snapcraft_version}" != "${target_version}" ]; then
+			echo "Juju version in version/version.go (${target_version}) does not match snapcraft.yaml (${snapcraft_version}) for ${snap_namespace}"
+			exit_code=1
+		fi
+	}
+
+	check_snapcraft_version "snaps/juju/snapcraft.yaml" "juju"
+	check_snapcraft_version "snaps/jujud/snapcraft.yaml" "jujud"
+
+	local win_installer_juju_version
 	win_installer_juju_version="$(cat scripts/win-installer/setup.iss | sed -n 's/.*MyAppVersion="\(.*\)".*/\1/p')"
-	echo "${win_installer_juju_version}" | grep -q "${target_version}"
-	if [ $? -ne 0 ]; then
+	if [ "${win_installer_juju_version}" != "${target_version}" ]; then
 		echo "Juju version in version/version.go (${target_version}) does not match setup.iss (${win_installer_juju_version}) for juju"
 		exit_code=1
 	fi
