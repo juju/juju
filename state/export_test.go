@@ -1086,6 +1086,70 @@ func AssertCleanupsWithKind(c *gc.C, st *State, kind cleanupKind) {
 	c.Fatalf("found no cleanups of kind %q", kind)
 }
 
+func AssertCleanupCountWithKind(c *gc.C, st *State, kind cleanupKind, expected int) {
+	var docs []cleanupDoc
+	cleanups, closer, err := st.db().GetCollection(cleanupsC)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	err = cleanups.Find(bson.D{{"kind", kind}}).All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(docs, gc.HasLen, expected)
+}
+
+func cleanupArgsFor(c *gc.C, st *State, kind cleanupKind, prefix string) [][]bson.Raw {
+	cleanups, closer, err := st.db().GetCollection(cleanupsC)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	var docs []cleanupDoc
+	err = cleanups.Find(bson.D{
+		{"kind", kind},
+		{"prefix", prefix},
+	}).All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	argsByCleanup := make([][]bson.Raw, len(docs))
+	for i, doc := range docs {
+		argsByCleanup[i] = make([]bson.Raw, len(doc.Args))
+		for j, arg := range doc.Args {
+			argsByCleanup[i][j] = arg.Value.(bson.Raw)
+		}
+	}
+	return argsByCleanup
+}
+
+func AssertEvacuateMachineCleanupParams(c *gc.C, st *State, machineID string, force bool, maxWait time.Duration) {
+	argsByCleanup := cleanupArgsFor(c, st, cleanupEvacuateMachine, machineID)
+	for _, args := range argsByCleanup {
+		c.Assert(args, gc.HasLen, 2)
+		var actualForce bool
+		c.Assert(args[0].Unmarshal(&actualForce), jc.ErrorIsNil)
+		var actualMaxWait time.Duration
+		c.Assert(args[1].Unmarshal(&actualMaxWait), jc.ErrorIsNil)
+		if actualForce == force && actualMaxWait == maxWait {
+			return
+		}
+	}
+	c.Fatalf(
+		"found no evacuation cleanup for machine %q with force %t and max wait %s",
+		machineID, force, maxWait,
+	)
+}
+
+func AssertCleanupMaxWait(c *gc.C, st *State, kind cleanupKind, prefix string, maxWait time.Duration) {
+	argsByCleanup := cleanupArgsFor(c, st, kind, prefix)
+	for _, args := range argsByCleanup {
+		c.Assert(args, gc.HasLen, 1)
+		var actualMaxWait time.Duration
+		c.Assert(args[0].Unmarshal(&actualMaxWait), jc.ErrorIsNil)
+		if actualMaxWait == maxWait {
+			return
+		}
+	}
+	c.Fatalf(
+		"found no %q cleanup for %q with max wait %s",
+		kind, prefix, maxWait,
+	)
+}
+
 // AssertNoCleanups checks that there are no cleanups scheduled.
 func AssertNoCleanups(c *gc.C, st *State) {
 	var docs []cleanupDoc
@@ -1312,10 +1376,17 @@ var (
 	CleanupForceDestroyedUnit = cleanupForceDestroyedUnit
 	CleanupForceRemoveUnit    = cleanupForceRemoveUnit
 	CleanupForceApplication   = cleanupForceApplication
+	CleanupEvacuateMachine    = cleanupEvacuateMachine
 )
 
 func (st *State) ScheduleForceCleanup(kind cleanupKind, name string, maxWait time.Duration) {
 	st.scheduleForceCleanup(kind, name, maxWait)
+}
+
+func (st *State) ScheduleLegacyEvacuateMachineCleanup(machineID string) error {
+	return st.db().RunTransaction([]txn.Op{
+		newCleanupOp(cleanupEvacuateMachine, machineID),
+	})
 }
 
 func GetCollectionCappedInfo(coll *mgo.Collection) (bool, int, error) {
