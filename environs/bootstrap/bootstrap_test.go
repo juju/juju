@@ -1032,7 +1032,7 @@ func (s *bootstrapSuite) TestBootstrapControllerCharmChannel(c *tc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapControllerSnapLocal(c *tc.C) {
-	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
+	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
 	err := os.WriteFile(snapPath, []byte("snap"), 0644)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1060,8 +1060,8 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocal(c *tc.C) {
 
 func (s *bootstrapSuite) TestBootstrapControllerSnapLocalWithAssert(c *tc.C) {
 	dir := c.MkDir()
-	snapPath := filepath.Join(dir, "juju-controller.snap")
-	assertPath := filepath.Join(dir, "juju-controller.assert")
+	snapPath := filepath.Join(dir, "jujud.snap")
+	assertPath := filepath.Join(dir, "jujud.assert")
 	c.Assert(os.WriteFile(snapPath, []byte("snap"), 0644), tc.ErrorIsNil)
 	c.Assert(os.WriteFile(assertPath, []byte("assert"), 0644), tc.ErrorIsNil)
 
@@ -1233,7 +1233,7 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapDefaultStoreMode(c *tc.C) {
 func (s *bootstrapSuite) TestBootstrapControllerSnapLocalVersionCoupling(c *tc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 	snapVersion := jujuversion.Current.ToPatch()
-	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
+	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
 	err := os.WriteFile(snapPath, []byte("snap content"), 0644)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1277,7 +1277,7 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocalVersionCoupling(c *tc.C
 
 func (s *bootstrapSuite) TestBootstrapControllerSnapLocalVersionMismatch(c *tc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
-	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
+	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
 	err := os.WriteFile(snapPath, []byte("snap content"), 0644)
 	c.Assert(err, tc.ErrorIsNil)
 

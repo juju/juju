@@ -175,7 +175,7 @@ func (s *BootstrapSuite) SetUpTest(c *tc.C) {
 
 	// Create a fake controller snap file for IAAS bootstrap tests.
 	// All IAAS bootstraps now require --controller-snap-path.
-	s.controllerSnapPath = filepath.Join(c.MkDir(), "juju-controller.snap")
+	s.controllerSnapPath = filepath.Join(c.MkDir(), "jujud.snap")
 	c.Assert(os.WriteFile(s.controllerSnapPath, []byte("fake snap"), 0644), tc.ErrorIsNil)
 }
 

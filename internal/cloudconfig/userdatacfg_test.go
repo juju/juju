@@ -713,7 +713,7 @@ echo -n %s | base64 -d > '/var/lib/juju/charms/controller.charm'
 
 func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapOnly(c *tc.C) {
 	snapContent := []byte("fake snap binary content")
-	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
+	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
 	err := os.WriteFile(snapPath, snapContent, 0644)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -766,7 +766,7 @@ snap install --dangerous %[1]s`,
 func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapAndCharm(c *tc.C) {
 	snapContent := []byte("fake snap binary content")
 	dir := c.MkDir()
-	snapPath := filepath.Join(dir, "juju-controller.snap")
+	snapPath := filepath.Join(dir, "jujud.snap")
 	err := os.WriteFile(snapPath, snapContent, 0644)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -805,8 +805,8 @@ func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapAndAssert(c *tc.C) 
 	snapContent := []byte("fake snap binary content")
 	assertContent := []byte("fake snap assert content")
 	dir := c.MkDir()
-	snapPath := filepath.Join(dir, "juju-controller.snap")
-	assertPath := filepath.Join(dir, "juju-controller.assert")
+	snapPath := filepath.Join(dir, "jujud.snap")
+	assertPath := filepath.Join(dir, "jujud.assert")
 	err := os.WriteFile(snapPath, snapContent, 0644)
 	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(assertPath, assertContent, 0644)
