@@ -48,7 +48,15 @@ backends:
             cloud_config="$(mktemp)"
             sed "s|SPREAD_PASSWORD|$SPREAD_PASSWORD|g" tests/spread/cloud-config.yaml > "$cloud_config"
 
-            lxc launch --vm \
+            launch_args=()
+            if [[ -e /dev/kvm ]]; then
+                launch_args+=(--vm)
+            else
+                echo "KVM is unavailable; using a nested LXD container"
+                launch_args+=(-c security.nesting=true)
+            fi
+
+            lxc launch "${launch_args[@]}" \
                 "ubuntu:${BASE}" \
                 "${VM_NAME}" \
                 -c user.user-data="$(cat "$cloud_config")" \
@@ -69,7 +77,7 @@ backends:
             lxc delete -f $instance_name
 
         prepare: |
-            # Provider-specific setup inside the VM.
+            # Provider-specific setup inside the runner instance.
             case "${BOOTSTRAP_PROVIDER}" in
             "lxd")
                 snap install lxd
@@ -121,30 +129,33 @@ prepare: |
     GOBIN="$PWD/../go/bin"
     mkdir -p "$GOBIN"
 
+    # In CI the binaries are built in the build job and staged into the project
+    # under .spread-bin; copy them in and skip the in-VM build. For local runs
+    # .spread-bin is absent and we build in the VM as before.
+    if [[ -f "$SPREAD_PATH/.spread-bin/juju" && -f "$SPREAD_PATH/.spread-bin/jujud" ]]; then
+        cp "$SPREAD_PATH/.spread-bin/juju" "$GOBIN/juju"
+        cp "$SPREAD_PATH/.spread-bin/jujud" "$GOBIN/jujud"
+        echo "====> Using prebuilt juju/jujud binaries staged from CI"
+    fi
+
     if [[ -f "$GOBIN/juju" ]]; then
         chown $(id -u):$(id -g) "$GOBIN/juju"
         chmod a+x "$GOBIN/juju"
+    else
+        apt-get update
+        apt-get install -y build-essential
+        snap install go --classic
+        make juju
     fi
 
     if [[ -f "$GOBIN/jujud" ]]; then
         chown $(id -u):$(id -g) "$GOBIN/jujud"
         chmod a+x "$GOBIN/jujud"
-    fi
-
-    if [[ ! -f "$GOBIN/juju" ]]; then
-        apt-get update
-        apt-get install -y build-essential
-        snap install go --classic
-        make juju
-        chmod 755 "$GOBIN/juju"
-    fi
-
-    if [[ ! -f "$GOBIN/jujud" ]]; then
+    else
         apt-get update
         apt-get install -y build-essential
         snap install go --classic
         make jujud-controller
-        chmod 755 "$GOBIN/jujud"
     fi
 
     export PATH="$GOBIN:$PATH"

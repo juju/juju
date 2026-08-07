@@ -1,5 +1,10 @@
 summary: Deploy a charm with placement directive to specific machines
 
+# Excluded from automated runs: on the lxd provider this needs nested KVM
+# (virt-type=virtual-machine) and a nested LXD container, which has proven
+# slow/flaky in CI. Revisit once cloud (non-lxd) runs exist.
+manual: true
+
 execute: |
     # Under lxd this test needs nested kvm (virt-type=virtual-machine); skip
     # cleanly when it is not available (matches the bash suite's `if kvm-ok`).

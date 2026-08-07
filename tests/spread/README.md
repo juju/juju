@@ -11,18 +11,18 @@ from this repository.
 
 ## Prerequisites
 
-- A Linux host with **LXD** (including VM support) and **KVM** enabled. The
-  lxd backend launches an Ubuntu VM with `lxc launch --vm` and runs LXD inside
-  it, so nested virtualization is required for tests that add machines.
+- A Linux host with **LXD**. When KVM is available, the lxd backend launches
+  an Ubuntu VM; otherwise it launches a container with LXD nesting enabled.
+  Tests requiring an additional nested VM are excluded when KVM is unavailable.
 - The `spread` binary, built from the `canonical/spread` source **with a local
   fix** in `spread/client.go` (see below). `juju`, `yq`, `charmcraft` do *not*
-  need to be installed on the host — they are set up inside the VM.
+  need to be installed on the host — they are set up inside the runner instance.
 
 ### Building the patched `spread`
 
 The upstream `SendTar` emits `tar --no-same-owner xz`, which GNU tar misparses
 (the bare `xz` is treated as a file operand), breaking project delivery to the
-VM. The working binary is a local build with that one line fixed:
+runner instance. The working binary is a local build with that one line fixed:
 
 ```sh
 # In the checked-out canonical/spread source (spread/spread/client.go):
@@ -57,23 +57,23 @@ spread -v lxd:ubuntu-22.04:tests/spread/deploy/deploy-charm \
 Run an entire suite (all runnable tasks in `deploy/`, sharing one controller):
 
 ```sh
-spread -v lxd:ubuntu-22.04:tests/spread/deploy
+spread -v lxd:ubuntu-22.04:tests/spread/deploy/...
 ```
 
 Run a suite on every declared system, or everything:
 
 ```sh
-spread -v lxd:tests/spread/deploy     # all systems
+spread -v lxd:tests/spread/deploy/... # all systems
 spread -v                             # all suites, all systems
 ```
 
 `-v` shows progress; use `-vv` for debug output. Add `-abend` to stop on the
 first failure instead of continuing.
 
-### Reusing the VM (important for speed)
+### Reusing the runner instance (important for speed)
 
-On a fresh VM, spread builds `juju` and `jujud-controller` inside the VM
-(~10–15 min). Keep a VM alive across runs to skip the rebuild:
+On a fresh runner instance, spread builds `juju` and `jujud-controller` inside
+it (~10–15 min). Keep an instance alive across runs to skip the rebuild:
 
 ```sh
 spread -reuse -v lxd:ubuntu-22.04:tests/spread/deploy/deploy-charm
@@ -85,14 +85,15 @@ After changing any repository content while reusing, re-send the project:
 spread -reuse -resend -v lxd:ubuntu-22.04:tests/spread/deploy/deploy-charm
 ```
 
-If the reuse VM is no longer valid (deleted, or reused for a different
+If the reused instance is no longer valid (deleted, or reused for a different
 setup), clear the reuse metadata:
 
 ```sh
 rm -f .spread-reuse*
 ```
 
-A kept VM is left running after a `-reuse` run and is reused by the next one.
+A kept instance is left running after a `-reuse` run and is reused by the next
+one.
 
 ## Reading results and logs
 
@@ -108,7 +109,7 @@ see what happened.
 - `spread -abend` — stop on the first failure, so the output is not buried
   under subsequent tasks.
 
-### 2. Inspect the saved logs on the runner VM (recommended)
+### 2. Inspect the saved logs on the runner instance (recommended)
 
 The juju-level logs are **not** kept on the host. Each spread task sources
 `tests/lib/spread-env.sh`, which sets `TEST_DIR` (the `deploy` suite sets it to
@@ -120,21 +121,21 @@ The juju-level logs are **not** kept on the host. Each spread task sources
 - `*-destroy.log` / `*-bootstrap.log` — teardown/bootstrap captures,
 - `jujus`, `models`, `pids` — bookkeeping files.
 
-The VM must still exist to read them, so run with `-reuse` (which keeps the VM
+The instance must still exist to read them, so run with `-reuse` (which keeps it
 running instead of discarding it at the end). Then:
 
 ```sh
-# find the runner VM spread is using
+# find the runner instance spread is using
 lxc list | grep juju-ubuntu
 
 # list the log files
-lxc exec <vm> -- ls -la /tmp/spread-juju-deploy
+lxc exec <instance> -- ls -la /tmp/spread-juju-deploy
 
 # pull the whole log dir to the host
-lxc file pull -r <vm>/tmp/spread-juju-deploy ./spread-logs
+lxc file pull -r <instance>/tmp/spread-juju-deploy ./spread-logs
 
 # or cat a specific log
-lxc exec <vm> -- cat /tmp/spread-juju-deploy/test-deploy-charm.log
+lxc exec <instance> -- cat /tmp/spread-juju-deploy/test-deploy-charm.log
 ```
 
 > Note: `spread -artifacts <dir>` only copies files a task *declares* in its
@@ -142,11 +143,11 @@ lxc exec <vm> -- cat /tmp/spread-juju-deploy/test-deploy-charm.log
 > `TEST_DIR` outside the task directory, so the `lxc` commands above are the way
 > to fetch them.
 
-### 3. When the VM is gone
+### 3. When the runner instance is gone
 
-If you ran without `-reuse`, the VM (and its `/tmp` logs) is discarded when the
-run ends and the logs are lost. Use `-reuse` (or `-reuse -resend`) whenever you
-may want to inspect the logs afterwards.
+If you ran without `-reuse`, the instance (and its `/tmp` logs) is discarded
+when the run ends and the logs are lost. Use `-reuse` (or `-reuse -resend`)
+whenever you may want to inspect the logs afterwards.
 
 ## Configuration
 
@@ -158,24 +159,24 @@ Most knobs are overridable via environment variables (see `spread.yaml`):
 | `BOOTSTRAP_CLOUD` | Cloud name for non-lxd providers | *(empty)* |
 | `BOOTSTRAP_BASE` | Controller base; must be non-empty for controller reuse to work | `ubuntu@24.04` (`deploy` suite) |
 | `BOOTSTRAP_ARCH` / `MODEL_ARCH` | Architecture constraints | *(empty)* |
-| `BASE` | Base image of the runner VM (`noble`, `jammy`, …) | `noble` |
-| `DISK` / `CPU` / `MEM` | Runner VM sizing | `40` / `8` / `16` |
+| `BASE` | Base image of the runner instance (`noble`, `jammy`, …) | `noble` |
+| `DISK` / `CPU` / `MEM` | Runner instance sizing | `40` / `8` / `16` |
 
 Example: run the deploy suite with an explicit runner image:
 
 ```sh
-BASE=jammy spread -v lxd:ubuntu-22.04:tests/spread/deploy
+BASE=jammy spread -v lxd:ubuntu-22.04:tests/spread/deploy/...
 ```
 
-These variables are exported into the runner VM (via the `$(HOST: ...)`
+These variables are exported into the runner instance (via the `$(HOST: ...)`
 expressions in `spread.yaml`), so they can be set on the host before invoking
 `spread`. No spread-specific config file is needed beyond `spread.yaml`.
 
 ## Running against AWS (local proof-of-concept)
 
-The `lxd` backend VM is only the *runner*; Juju boots the controller wherever
-`BOOTSTRAP_PROVIDER` points. To run a test against AWS, set the provider and
-pass the credentials on the command line:
+The `lxd` backend runner instance is only the *runner*; Juju boots the
+controller wherever `BOOTSTRAP_PROVIDER` points. To run a test against AWS,
+set the provider and pass the credentials on the command line:
 
 ```sh
 BOOTSTRAP_PROVIDER=ec2 \

@@ -8,7 +8,7 @@ description: |
     juju trust trust-checker
     juju trust trust-checker --remove
 type: "charm"
-base: ubuntu@22.04
+base: ubuntu@24.04
 platforms:
   amd64:
   arm64:
