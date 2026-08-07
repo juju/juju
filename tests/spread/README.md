@@ -94,6 +94,60 @@ rm -f .spread-reuse*
 
 A kept VM is left running after a `-reuse` run and is reused by the next one.
 
+## Reading results and logs
+
+By default spread prints only the *phase* summary (`Preparing`/`Executing`/
+`Restoring`, then `Successful tasks: N`). On a failure it prints the failing
+task's output between `----- ... -----` markers. There are two ways to actually
+see what happened.
+
+### 1. See output live while it runs
+
+- `spread -v` — show progress and each task's output as it runs (folded).
+- `spread -vv` — full trace of every script line as it runs (very verbose).
+- `spread -abend` — stop on the first failure, so the output is not buried
+  under subsequent tasks.
+
+### 2. Inspect the saved logs on the runner VM (recommended)
+
+The juju-level logs are **not** kept on the host. Each spread task sources
+`tests/lib/spread-env.sh`, which sets `TEST_DIR` (the `deploy` suite sets it to
+`/tmp/spread-juju-deploy`) and writes everything there:
+
+- `test-<model>.log` — the `ensure`/bootstrap output for that model,
+- `<controller>-<model>-debug.log` — a `juju debug-log` tail for that model,
+- `<controller>-controller-debug.log` — the controller debug log,
+- `*-destroy.log` / `*-bootstrap.log` — teardown/bootstrap captures,
+- `jujus`, `models`, `pids` — bookkeeping files.
+
+The VM must still exist to read them, so run with `-reuse` (which keeps the VM
+running instead of discarding it at the end). Then:
+
+```sh
+# find the runner VM spread is using
+lxc list | grep juju-ubuntu
+
+# list the log files
+lxc exec <vm> -- ls -la /tmp/spread-juju-deploy
+
+# pull the whole log dir to the host
+lxc file pull -r <vm>/tmp/spread-juju-deploy ./spread-logs
+
+# or cat a specific log
+lxc exec <vm> -- cat /tmp/spread-juju-deploy/test-deploy-charm.log
+```
+
+> Note: `spread -artifacts <dir>` only copies files a task *declares* in its
+> `artifacts:` field (relative to the task directory). The juju logs live under
+> `TEST_DIR` outside the task directory, so the `lxc` commands above are the way
+> to fetch them.
+
+### 3. When the VM is gone
+
+If you ran without `-reuse`, the VM (and its `/tmp` logs) is discarded when the
+run ends and the logs are lost. Use `-reuse` (or `-reuse -resend`) whenever you
+may want to inspect the logs afterwards.
+
 ## Configuration
 
 Most knobs are overridable via environment variables (see `spread.yaml`):
