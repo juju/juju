@@ -239,11 +239,6 @@ const (
 	// agents of this controller regardless of the model.
 	SystemSSHKeys = "system-ssh-keys"
 
-	// JujudControllerSnapSource returns the source for the controller snap.
-	// Can be set to "legacy", "snapstore", "local" or "local-dangerous".
-	// Cannot be changed.
-	JujudControllerSnapSource = "jujud-controller-snap-source"
-
 	// SSHServerPort is the port used for the embedded SSH server.
 	SSHServerPort = "ssh-server-port"
 
@@ -395,10 +390,6 @@ const (
 	// listed in apiserver/observer/auditfilter.go
 	DefaultAuditLogExcludeMethods = ReadOnlyMethodsWildcard
 
-	// DefaultJujudControllerSnapSource is the default value for the jujud
-	// controller snap source. All new bootstraps use the local dangerous path.
-	DefaultJujudControllerSnapSource = "local-dangerous"
-
 	// DefaultObjectStoreType is the default type of object store to use for
 	// storing blobs.
 	DefaultObjectStoreType = objectstore.FileBackend
@@ -465,7 +456,6 @@ var (
 		DqliteBusyTimeout,
 
 		SystemSSHKeys,
-		JujudControllerSnapSource,
 		SSHMaxConcurrentConnections,
 		SSHServerPort,
 	}
@@ -825,14 +815,6 @@ func (c Config) IdentityPublicKey() *bakery.PublicKey {
 // LoginTokenRefreshURL returns the URL of the login jwt well known endpoint.
 func (c Config) LoginTokenRefreshURL() string {
 	return c.asString(LoginTokenRefreshURL)
-}
-
-// JujudControllerSnapSource returns the source of the jujud-controller snap.
-func (c Config) JujudControllerSnapSource() string {
-	if src, ok := c[JujudControllerSnapSource]; ok {
-		return src.(string)
-	}
-	return DefaultJujudControllerSnapSource
 }
 
 // NUMACtlPreference returns if numactl is preferred.
@@ -1210,15 +1192,6 @@ func Validate(c Config) error {
 	} else if err == nil {
 		if v < 0 {
 			return errors.Errorf("%s value %q must be a positive duration", DqliteBusyTimeout, v)
-		}
-	}
-
-	if v, ok := c[JujudControllerSnapSource].(string); ok {
-		switch v {
-		case "legacy": // TODO(jujud-controller-snap): remove once jujud-controller snap is fully implemented.
-		case "snapstore", "local", "local-dangerous":
-		default:
-			return errors.Errorf("%s value %q must be one of legacy, snapstore, local or local-dangerous.", JujudControllerSnapSource, v)
 		}
 	}
 
