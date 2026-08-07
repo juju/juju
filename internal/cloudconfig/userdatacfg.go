@@ -771,16 +771,19 @@ func (w *userdataConfig) addControllerSnapUpload() error {
 
 // addControllerSnapInstall appends cloud-init run commands that install the
 // controller snap that was previously uploaded by addControllerSnapUpload.
-// When an assertion file is present the snap is acknowledged before
-// installation; otherwise --dangerous is used to allow sideloading from a
-// local path without an assertion.
+// The machine only ever installs from the file the client uploaded; it never
+// contacts the store. A file install tracks no channel, so snapd never
+// auto-refreshes a running controller, for every source mode. When an
+// assertion file is present the snap is acknowledged before installation;
+// otherwise --dangerous is used to allow sideloading from a local path without
+// an assertion.
 func (w *userdataConfig) addControllerSnapInstall() error {
 	if w.icfg.Bootstrap == nil {
 		return nil
 	}
 
 	if w.icfg.Bootstrap.ControllerSnapPath == "" {
-		return w.addControllerSnapStoreInstall()
+		return nil
 	}
 
 	snapFile := path.Join(w.icfg.SnapDir(), bootstrap.ControllerSnapArchive)
@@ -805,42 +808,6 @@ func (w *userdataConfig) addControllerSnapInstall() error {
 				shquote(bootstrap.ControllerSnapPackageName), shquote(expected), expected,
 			))
 		}
-	}
-
-	return nil
-}
-
-func (w *userdataConfig) addControllerSnapStoreInstall() error {
-	packageName := bootstrap.ControllerSnapPackageName
-	channel := w.icfg.Bootstrap.ControllerSnapChannel
-	if channel == "" {
-		agentVersion := w.icfg.AgentVersion().Number
-		channel = fmt.Sprintf("%d.%d/edge", agentVersion.Major, agentVersion.Minor)
-	}
-
-	snapDir := w.icfg.SnapDir()
-	snapFile := path.Join(snapDir, packageName+".snap")
-	assertFile := path.Join(snapDir, packageName+".assert")
-
-	w.conf.AddRunCmd(fmt.Sprintf("mkdir -p %s", shquote(snapDir)))
-	w.conf.AddRunCmd(cloudinit.LogProgressCmd(
-		"Downloading controller snap %q from channel %q", packageName, channel,
-	))
-	w.conf.AddRunCmd(fmt.Sprintf(
-		"(cd %s && snap download %s --channel=%s --basename=%s)",
-		shquote(snapDir), shquote(packageName), shquote(channel), shquote(packageName),
-	))
-	w.conf.AddRunCmd(fmt.Sprintf("snap ack %s", shquote(assertFile)))
-	w.conf.AddRunCmd(fmt.Sprintf("snap install %s", shquote(snapFile)))
-
-	if expected := w.icfg.Bootstrap.ControllerSnapExpectedVersion; expected != "" {
-		w.conf.AddRunCmd(cloudinit.LogProgressCmd(
-			"Validating installed controller snap version matches %q", expected,
-		))
-		w.conf.AddRunCmd(fmt.Sprintf(
-			`installed_version=$(snap list %s | awk 'NR>1 {print $2; exit}'); test "$installed_version" = %s || (echo "controller snap version mismatch: expected %s, got $installed_version"; exit 1)`,
-			shquote(packageName), shquote(expected), expected,
-		))
 	}
 
 	return nil
