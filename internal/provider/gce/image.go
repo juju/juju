@@ -18,6 +18,10 @@ import (
 )
 
 func (env *environ) resolveImageIDMetadata(ctx context.Context, args environs.StartInstanceParams) ([]*imagemetadata.ImageMetadata, error) {
+	// Should not happen - caller checks image id value.
+	if args.Constraints.ImageID == nil {
+		return nil, errors.Errorf("image ID is required")
+	}
 	imageID := *args.Constraints.ImageID
 	project, imageName, err := env.parseImageIDReference(args.InstanceConfig.Base.OS, imageID)
 	if err != nil {

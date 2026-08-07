@@ -933,7 +933,7 @@ func (s *environBrokerSuite) TestGetDisksRootDiskAttributesOverrideConstraint(c 
 
 func (s *environBrokerSuite) TestGetDisksRootDiskAttributesHyperDisk(c *tc.C) {
 	rootDisk := &storage.VolumeParams{
-		Attributes: map[string]interface{}{
+		Attributes: map[string]any{
 			"disk-type": "hyperdisk-extreme",
 		},
 	}
@@ -947,7 +947,7 @@ func (s *environBrokerSuite) TestGetDisksRootDiskAttributesHyperDisk(c *tc.C) {
 
 func (s *environBrokerSuite) TestGetDisksRootDiskAttributesHyperDiskNotSupported(c *tc.C) {
 	rootDisk := &storage.VolumeParams{
-		Attributes: map[string]interface{}{
+		Attributes: map[string]any{
 			"disk-type": "hyperdisk-extreme",
 		},
 	}
