@@ -308,6 +308,7 @@ extensions = [
     'sphinx_new_tab_link',
     'sphinxcontrib.lightbox2',
     'ibnote',
+    'sphinxcontrib.mermaid',
 ]
 
 # Customize sphinx_llm.txt
