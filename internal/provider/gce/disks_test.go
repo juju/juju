@@ -244,7 +244,7 @@ func (s *volumeSourceSuite) TestCreateVolumesHyperDiskNotSupported(c *tc.C) {
 		MachineType: new("path/to/zone/n1-standard"),
 	}}, nil)
 
-	s.params[0].Attributes = map[string]interface{}{
+	s.params[0].Attributes = map[string]any{
 		"disk-type": "hyperdisk-extreme",
 	}
 	source := s.setUpSource(c)

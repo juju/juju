@@ -158,7 +158,7 @@ func (b testLocator) ThirdPartyInfo(ctx context.Context, loc string) (bakery.Thi
 	}, nil
 }
 
-func fillResponse(c *tc.C, resp interface{}, value interface{}) {
+func fillResponse(c *tc.C, resp any, value any) {
 	b, err := json.Marshal(value)
 	c.Assert(err, tc.ErrorIsNil)
 	err = json.Unmarshal(b, resp)
@@ -189,7 +189,7 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfoDischargeRequired(c
 		callCount     int
 		dischargedMac macaroon.Slice
 	)
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		var resultErr *params.Error
 		if callCount == 0 {
 			// First call: return a discharge-required error.
@@ -267,7 +267,7 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfoDischargeFailure(c 
 	c.Assert(err, tc.ErrorIsNil)
 
 	callCount := 0
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		callCount++
 		resp := params.SecretContentResults{
 			Results: []params.SecretContentResult{{
