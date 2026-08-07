@@ -3,7 +3,7 @@
 # an assertion file.
 #
 # It downloads the `juju` snap from the snap store as a stand-in for the
-# not-yet-published `juju-controller` snap.  The test verifies that:
+# not-yet-published `jujud` controller snap.  The test verifies that:
 #   1. The snap and assert files are written to /var/lib/juju/snap/.
 #   2. The snap is installed on the controller machine via cloud-init.
 run_bootstrap_controller_snap_path() {
@@ -15,16 +15,16 @@ run_bootstrap_controller_snap_path() {
 
   # Download a real signed snap + assert pair from the store so that the
   # embedded cloud-init payload contains a valid assertion file.  We use
-  # the `juju` snap as a stand-in because `juju-controller`
+  # the `juju` snap as a stand-in because the `jujud` controller snap
   # is not yet published in the snap store.
   echo "==> Downloading juju snap from store for transport test"
   (
     cd "${TEST_DIR}" || exit 1
-    snap download juju --channel=4.0/stable --basename=juju-controller 2>&1
+    snap download juju --channel=4.0/stable --basename=jujud 2>&1
   )
 
-  snap_path="${TEST_DIR}/juju-controller.snap"
-  assert_path="${TEST_DIR}/juju-controller.assert"
+  snap_path="${TEST_DIR}/jujud.snap"
+  assert_path="${TEST_DIR}/jujud.assert"
 
   # Verify the download produced both required files.
   if [ ! -f "${snap_path}" ]; then
@@ -58,8 +58,8 @@ run_bootstrap_controller_snap_path() {
   # Assert the snap and assert files are present in the snap dir.
   snap_check=$(juju exec -m controller --unit controller/0 -- ls -h /var/lib/juju/snap)
   echo "${snap_check}"
-  check_contains "${snap_check}" "juju-controller.snap"
-  check_contains "${snap_check}" "juju-controller.assert"
+  check_contains "${snap_check}" "jujud.snap"
+  check_contains "${snap_check}" "jujud.assert"
 
   echo "==> Verifying snap was installed on the controller machine"
 
@@ -88,10 +88,10 @@ run_bootstrap_controller_snap_path_without_assert() {
   echo "==> Downloading juju snap from store (snap only, no assert)"
   (
     cd "${TEST_DIR}" || exit 1
-    snap download juju --channel=4.0/stable --basename=juju-controller-noassert 2>&1
+    snap download juju --channel=4.0/stable --basename=jujud-noassert 2>&1
   )
 
-  snap_path="${TEST_DIR}/juju-controller-noassert.snap"
+  snap_path="${TEST_DIR}/jujud-noassert.snap"
 
   if [ ! -f "${snap_path}" ]; then
     echo "ERROR: snap file not found at ${snap_path}" >&2
@@ -113,7 +113,7 @@ run_bootstrap_controller_snap_path_without_assert() {
 
   snap_check=$(juju exec -m controller --unit controller/0 -- ls -h /var/lib/juju/snap)
   echo "${snap_check}"
-  check_contains "${snap_check}" "juju-controller.snap"
+  check_contains "${snap_check}" "jujud.snap"
 
   echo "==> Verifying snap was installed via --dangerous on the controller machine"
 

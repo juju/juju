@@ -55,7 +55,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	QueryTracingThreshold:            schema.TimeDurationString(),
 	DqliteBusyTimeout:                schema.TimeDurationString(),
 	SystemSSHKeys:                    schema.String(),
-	JujudControllerSnapSource:        schema.String(),
 	SSHServerPort:                    schema.ForceInt(),
 	SSHMaxConcurrentConnections:      schema.ForceInt(),
 }, schema.Defaults{
@@ -102,7 +101,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	QueryTracingThreshold:            DefaultQueryTracingThreshold,
 	DqliteBusyTimeout:                DefaultDqliteBusyTimeout,
 	SystemSSHKeys:                    schema.Omit,
-	JujudControllerSnapSource:        DefaultJujudControllerSnapSource,
 	SSHServerPort:                    DefaultSSHServerPort,
 	SSHMaxConcurrentConnections:      DefaultSSHMaxConcurrentConnections,
 })
@@ -299,10 +297,6 @@ same database.`[1:],
 	SystemSSHKeys: {
 		Type:        configschema.Tstring,
 		Description: `Defines the system ssh keys`,
-	},
-	JujudControllerSnapSource: {
-		Type:        configschema.Tstring,
-		Description: `The source for the jujud-controller snap.`,
 	},
 	SSHServerPort: {
 		Type:        configschema.Tint,

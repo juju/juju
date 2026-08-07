@@ -138,7 +138,7 @@ func (*instancecfgSuite) TestSetControllerSnapEmpty(c *tc.C) {
 }
 
 func (*instancecfgSuite) TestSetControllerSnapSnapOnly(c *tc.C) {
-	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
+	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
 	err := os.WriteFile(snapPath, []byte("snap"), 0644)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -153,8 +153,8 @@ func (*instancecfgSuite) TestSetControllerSnapSnapOnly(c *tc.C) {
 
 func (*instancecfgSuite) TestSetControllerSnapWithAssert(c *tc.C) {
 	dir := c.MkDir()
-	snapPath := filepath.Join(dir, "juju-controller.snap")
-	assertPath := filepath.Join(dir, "juju-controller.assert")
+	snapPath := filepath.Join(dir, "jujud.snap")
+	assertPath := filepath.Join(dir, "jujud.assert")
 	c.Assert(os.WriteFile(snapPath, []byte("snap"), 0644), tc.ErrorIsNil)
 	c.Assert(os.WriteFile(assertPath, []byte("assert"), 0644), tc.ErrorIsNil)
 
@@ -171,19 +171,19 @@ func (*instancecfgSuite) TestSetControllerSnapMissingSnapFile(c *tc.C) {
 	icfg := &instancecfg.InstanceConfig{
 		Bootstrap: &instancecfg.BootstrapConfig{},
 	}
-	err := icfg.SetControllerSnap("/nonexistent/juju-controller.snap", "")
-	c.Assert(err, tc.ErrorMatches, `unable to set local controller snap \(at /nonexistent/juju-controller\.snap\):.*`)
+	err := icfg.SetControllerSnap("/nonexistent/jujud.snap", "")
+	c.Assert(err, tc.ErrorMatches, `unable to set local controller snap \(at /nonexistent/jujud.snap\):.*`)
 }
 
 func (*instancecfgSuite) TestSetControllerSnapMissingAssertFile(c *tc.C) {
-	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
+	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
 	c.Assert(os.WriteFile(snapPath, []byte("snap"), 0644), tc.ErrorIsNil)
 
 	icfg := &instancecfg.InstanceConfig{
 		Bootstrap: &instancecfg.BootstrapConfig{},
 	}
-	err := icfg.SetControllerSnap(snapPath, "/nonexistent/juju-controller.assert")
-	c.Assert(err, tc.ErrorMatches, `unable to set local controller snap assert \(at /nonexistent/juju-controller\.assert\):.*`)
+	err := icfg.SetControllerSnap(snapPath, "/nonexistent/jujud.assert")
+	c.Assert(err, tc.ErrorMatches, `unable to set local controller snap assert \(at /nonexistent/jujud.assert\):.*`)
 }
 
 func (*instancecfgSuite) TestAgentConfigLogParams(c *tc.C) {
