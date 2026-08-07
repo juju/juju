@@ -253,6 +253,7 @@ type bootstrapCommand struct {
 	ControllerSnapChannelStr string
 	ControllerSnapChannel    charm.Channel
 	ControllerSnapRevision   string
+	ControllerSnapStoreURL   string
 
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
@@ -391,6 +392,8 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 		fmt.Sprintf("%d.%d/stable", jujuversion.Current.Major, jujuversion.Current.Minor),
 		"The channel to install the controller snap from (store installs; not used in local-snap mode)")
 	f.StringVar(&c.ControllerSnapRevision, "controller-snap-revision", "", "Controller snap revision (store installs; not used in local-snap mode)")
+	f.StringVar(&c.ControllerSnapStoreURL, "controller-snap-store-url", "",
+		"URL of the snap store to fetch the controller snap from (overrides the default; covers both resolution and download)")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -961,6 +964,7 @@ to create a new model to deploy %sworkloads.
 		ControllerSnapAssertPath:      c.ControllerSnapAssertPath,
 		ControllerSnapChannel:         c.ControllerSnapChannel,
 		ControllerSnapRevision:        c.ControllerSnapRevision,
+		ControllerSnapStoreURL:        c.ControllerSnapStoreURL,
 		DialOpts: environs.BootstrapDialOpts{
 			IdentityFiles:  bootstrapSSHKeyFiles,
 			Timeout:        bootstrapCfg.bootstrap.BootstrapTimeout,
