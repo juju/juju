@@ -208,9 +208,9 @@ func (s *networkSuite) TestVerifyNetworkDevicePresentBadNicType(c *gc.C) {
 
 	err = jujuSvr.VerifyNetworkDevice(profile, "")
 	c.Assert(err, gc.ErrorMatches,
-		`profile "default": no network device found with nictype "bridged" or "macvlan"\n`+
+		`profile "default": no network device found with nictype "bridged", "macvlan", or "ovn"\n`+
 			`\tthe following devices were checked: eth0\n`+
-			`Reconfigure lxd to use a network of type "bridged" or "macvlan".`)
+			`Reconfigure lxd to use a network of type "bridged", "macvlan", or "ovn".`)
 }
 
 // Juju used to fail when IPv6 was enabled on the lxd network. This test now
