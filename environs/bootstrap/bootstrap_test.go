@@ -96,6 +96,17 @@ func (s *bootstrapSuite) TearDownTest(c *tc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
+// patchSnapReader replaces the unsquashfs-backed snap reader so tests can
+// supply arbitrary meta/snap.yaml content without requiring a real squashfs.
+func (s *bootstrapSuite) patchSnapReader(c *tc.C, snapOut string) {
+	s.PatchValue(bootstrap.FindUnsquashfs, func() (string, error) {
+		return "/usr/bin/unsquashfs", nil
+	})
+	s.PatchValue(bootstrap.RunUnsquashfsCommand, func(_ context.Context, _, _ string) ([]byte, error) {
+		return []byte(snapOut), nil
+	})
+}
+
 func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *tc.C) {
 	env := newEnviron("bar", noKeysDefined, nil)
 	s.setDummyStorage(c, env)
@@ -1025,9 +1036,7 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocal(c *tc.C) {
 	err := os.WriteFile(snapPath, []byte("snap"), 0644)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
-		return fmt.Sprintf("version: %s -\n", jujuversion.Current.ToPatch().String()), nil
-	})
+	s.patchSnapReader(c, fmt.Sprintf("name: jujud\nversion: %s\n", jujuversion.Current.ToPatch().String()))
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
@@ -1056,9 +1065,7 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocalWithAssert(c *tc.C) {
 	c.Assert(os.WriteFile(snapPath, []byte("snap"), 0644), tc.ErrorIsNil)
 	c.Assert(os.WriteFile(assertPath, []byte("assert"), 0644), tc.ErrorIsNil)
 
-	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
-		return fmt.Sprintf("version: %s -\n", jujuversion.Current.ToPatch().String()), nil
-	})
+	s.patchSnapReader(c, fmt.Sprintf("name: jujud\nversion: %s\n", jujuversion.Current.ToPatch().String()))
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
@@ -1140,9 +1147,7 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocalVersionCoupling(c *tc.C
 	err := os.WriteFile(snapPath, []byte("snap content"), 0644)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
-		return fmt.Sprintf("version: %s -\n", snapVersion.String()), nil
-	})
+	s.patchSnapReader(c, fmt.Sprintf("name: jujud\nversion: %s\n", snapVersion.String()))
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	var capturedForceVersion semversion.Number
@@ -1186,9 +1191,7 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocalVersionMismatch(c *tc.C
 	err := os.WriteFile(snapPath, []byte("snap content"), 0644)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
-		return fmt.Sprintf("version: 99.0.0 -\n"), nil
-	})
+	s.patchSnapReader(c, "name: jujud\nversion: 99.0.0\n")
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err = bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), cmdtesting.Context(c)), env,

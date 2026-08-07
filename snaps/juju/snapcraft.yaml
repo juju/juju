@@ -78,6 +78,13 @@ apps:
       - network
 
 parts:
+  unsquashfs:
+    plugin: nil
+    stage-packages:
+      - squashfs-tools
+    prime:
+      - -usr/lib/python3/dist-packages
+
   wrappers:
     plugin: dump
     source: snap/local
