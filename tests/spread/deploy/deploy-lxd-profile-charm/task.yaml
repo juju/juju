@@ -1,7 +1,8 @@
 summary: Deploy a charm that uses LXD profiles
 
-# LXD profile tests are currently skipped when BOOTSTRAP_PROVIDER=lxd
-# (nested LXD profile support not re-implemented).
+# Kept manual: the bash suite does not run this on any provider (LXD profile
+# support is not re-implemented; it is commented out / skipped everywhere), so
+# there is no working equivalent to enable here yet.
 manual: true
 
 execute: |

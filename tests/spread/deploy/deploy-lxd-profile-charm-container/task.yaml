@@ -1,9 +1,13 @@
 summary: Deploy a charm with LXD profiles to a container
 
-# LXD profile container tests are skipped when BOOTSTRAP_PROVIDER=lxd.
-manual: true
-
 execute: |
+    # LXD profile container tests are non-LXD-only (see the bash suite): skip
+    # cleanly under the lxd provider instead of failing.
+    if [ "${BOOTSTRAP_PROVIDER}" = "lxd" ]; then
+        echo "SKIPPED: deploy-lxd-profile-charm-container is non-LXD only"
+        exit 0
+    fi
+
     . "$TESTSLIB/spread-env.sh"
 
     model_name="test-deploy-lxd-profile-container"

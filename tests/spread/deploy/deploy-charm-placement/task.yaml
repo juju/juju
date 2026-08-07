@@ -1,6 +1,13 @@
 summary: Deploy a charm with placement directive to specific machines
 
 execute: |
+    # Under lxd this test needs nested kvm (virt-type=virtual-machine); skip
+    # cleanly when it is not available (matches the bash suite's `if kvm-ok`).
+    if [ "${BOOTSTRAP_PROVIDER}" = "lxd" ] && [ ! -r /dev/kvm ]; then
+        echo "SKIPPED: deploy-charm-placement requires nested kvm"
+        exit 0
+    fi
+
     . "$TESTSLIB/spread-env.sh"
 
     ensure "test-deploy-charm-placement-directive" "${TEST_DIR}/test-deploy-charm-placement-directive.log"

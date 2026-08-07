@@ -1,6 +1,8 @@
 summary: Deploy a local charm with LXD profile and subordinate
 
-# LXD profile tests are currently skipped when BOOTSTRAP_PROVIDER=lxd.
+# Kept manual: the bash suite does not run this on any provider (LXD profile
+# support is not re-implemented; it is commented out / skipped everywhere), so
+# there is no working equivalent to enable here yet.
 manual: true
 
 execute: |
