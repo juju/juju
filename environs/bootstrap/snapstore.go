@@ -17,8 +17,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/core/semversion"
 )
 
 const (
@@ -304,17 +302,12 @@ func (c *snapStoreClient) acquire(ctx context.Context, dir string, target snapSt
 }
 
 // acquiredControllerSnap is the result of acquiring a controller snap from the
-// store on the client: the paths to the downloaded .snap and .assert files,
-// plus the version metadata read from the downloaded file.
+// store on the client: the paths to the downloaded .snap and .assert files.
 type acquiredControllerSnap struct {
 	// SnapPath is the path to the downloaded .snap file.
 	SnapPath string
 	// AssertPath is the path to the assembled .assert file.
 	AssertPath string
-	// RawVersion is the raw version: string read from the snap's meta/snap.yaml.
-	RawVersion string
-	// Version is the normalized version derived from RawVersion.
-	Version semversion.Number
 }
 
 // acquireControllerSnap acquires the controller snap for a store-based source
@@ -348,14 +341,8 @@ var acquireControllerSnap = func(
 		return nil, errors.Annotate(err, "acquiring controller snap from store")
 	}
 
-	rawVersion, version, err := ReadSnapVersion(ctx, snapPath)
-	if err != nil {
-		return nil, errors.Annotate(err, "reading downloaded controller snap version")
-	}
 	return &acquiredControllerSnap{
 		SnapPath:   snapPath,
 		AssertPath: assertPath,
-		RawVersion: rawVersion,
-		Version:    version,
 	}, nil
 }

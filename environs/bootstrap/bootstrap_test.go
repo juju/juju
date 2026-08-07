@@ -1104,8 +1104,6 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLatestFromSnapStore(c *tc.C)
 		return &bootstrap.AcquiredSnap{
 			SnapPath:   snapPath,
 			AssertPath: assertPath,
-			RawVersion: resolvedVersion.String(),
-			Version:    resolvedVersion,
 		}, nil
 	})
 
@@ -1149,8 +1147,6 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapPinnedRevision(c *tc.C) {
 		return &bootstrap.AcquiredSnap{
 			SnapPath:   snapPath,
 			AssertPath: assertPath,
-			RawVersion: resolvedVersion.String(),
-			Version:    resolvedVersion,
 		}, nil
 	})
 
@@ -1190,6 +1186,48 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapStoreAcquireFails(c *tc.C) {
 		})
 	c.Assert(err, tc.NotNil)
 	c.Check(strings.Contains(err.Error(), "acquiring controller snap from store"), tc.IsTrue)
+}
+
+func (s *bootstrapSuite) TestBootstrapControllerSnapDefaultStoreMode(c *tc.C) {
+	// Store mode with an empty channel/revision resolves the default
+	// <major>.<minor>/edge channel via the store client.
+	resolvedVersion := jujuversion.Current.ToPatch()
+	defaultChannel := fmt.Sprintf("%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor)
+
+	snapDir := c.MkDir()
+	snapPath := filepath.Join(snapDir, "jujud.snap")
+	assertPath := filepath.Join(snapDir, "jujud.assert")
+	c.Assert(os.WriteFile(snapPath, []byte("fake"), 0644), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(assertPath, []byte("assert"), 0644), tc.ErrorIsNil)
+	s.patchSnapReader(c, fmt.Sprintf("name: jujud\nversion: %s\n", resolvedVersion.String()))
+
+	var gotChannel string
+	var gotRevision int
+	s.PatchValue(bootstrap.AcquireControllerSnap, func(_ context.Context, _, _, _, channel string, revision int, _ string) (*bootstrap.AcquiredSnap, error) {
+		gotChannel = channel
+		gotRevision = revision
+		return &bootstrap.AcquiredSnap{
+			SnapPath:   snapPath,
+			AssertPath: assertPath,
+		}, nil
+	})
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+			ControllerSnapStoreMode: true,
+		})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(gotChannel, tc.Equals, defaultChannel)
+	c.Assert(gotRevision, tc.Equals, 0)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapPath, tc.Equals, snapPath)
 }
 
 func (s *bootstrapSuite) TestBootstrapControllerSnapLocalVersionCoupling(c *tc.C) {
