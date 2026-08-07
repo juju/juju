@@ -204,13 +204,16 @@ func (s *BootstrapSuite) runIAASBootstrap(c tc.LikeC, args ...string) (*cmd.Cont
 	return cmdtesting.RunCommand(c, s.newBootstrapCommand(), allArgs...)
 }
 
-// patchSnapInfo patches the snap info command to return a version matching
-// jujuversion.Current (ignoring Build) so that version coupling checks pass.
+// patchSnapInfo patches the snapd-free version reader to return a version
+// matching jujuversion.Current (ignoring Build) so that version coupling checks
+// pass for the local-snap path.
 func (s *BootstrapSuite) patchSnapInfo(c tc.LikeC) {
-	r := testhelpers.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
-		return fmt.Sprintf("version: %s -\n", jujuversion.Current.ToPatch().String()), nil
-	})
-	c.Cleanup(r)
+	c.Cleanup(testhelpers.PatchValue(bootstrap.RunUnsquashfsCommand, func(_ context.Context, _, _ string) ([]byte, error) {
+		return fmt.Appendf(nil, "version: %s\n", jujuversion.Current.ToPatch().String()), nil
+	}))
+	c.Cleanup(testhelpers.PatchValue(bootstrap.FindUnsquashfs, func() (string, error) {
+		return "/usr/bin/unsquashfs", nil
+	}))
 }
 
 func (s *BootstrapSuite) TestRunTests(c *tc.C) {
@@ -288,11 +291,9 @@ func (s *BootstrapSuite) run(c tc.LikeC, test bootstrapTest) {
 		"--build-agent",
 	}, test.args...)
 
-	// Patch snap info to return the current jujuversion as the snap
+	// Patch the snapd-free reader to return the current jujuversion as the snap
 	// version so that version coupling passes for all table tests.
-	c.Cleanup(testhelpers.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
-		return fmt.Sprintf("version: %s -\n", jujuversion.Current.ToPatch().String()), nil
-	}))
+	s.patchSnapInfo(c)
 
 	opc, errc := runCommandWithDummyProvider(cmdtesting.Context(c), s.newBootstrapCommand(), args...)
 	var err error
