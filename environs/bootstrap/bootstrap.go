@@ -9,6 +9,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -195,6 +196,11 @@ type BootstrapParams struct {
 	// ControllerSnapRevision is used to install a specific revision of the
 	// controller snap. Not active in the current local-snap phase.
 	ControllerSnapRevision string
+
+	// ControllerSnapStoreURL overrides the snap store base URL for controller
+	// snap resolution and download. A single flag covers both, so an air-gapped
+	// or proxied deployment can redirect acquisition without a second option.
+	ControllerSnapStoreURL string
 
 	// ControllerSnapResolvedChannel is the effective channel used for
 	// controller snapstore bootstrap. Populated by channel resolution when
@@ -476,22 +482,55 @@ func bootstrapIAAS(
 	var snapVersion semversion.Number
 
 	// For store-based snap bootstrap: when no local path is given but a
-	// channel or revision is specified, resolve the channel and fetch the
-	// expected version from the snap store. This path is not active in the
-	// current local-snap demo phase (ControllerSnapPath is always set).
-	if args.ControllerSnapPath == "" && args.ControllerSnapRevision == "" &&
-		!args.ControllerSnapChannel.Empty() {
-		args.ControllerSnapResolvedChannel = resolveSnapChannel(args.ControllerSnapChannel)
-		resolvedVersion, err := resolveSnapChannelVersion(ctx, args.ControllerSnapResolvedChannel)
-		if err != nil {
-			return errors.Annotate(err, "resolving controller snap version")
+	// channel or revision is specified, acquire the snap from the store on the
+	// client. The client downloads the exact .snap and .assert, verifies the
+	// pair, and reads the version from the downloaded file — the machine never
+	// contacts the store. This path is not active yet (ControllerSnapPath is
+	// always set).
+	if args.ControllerSnapPath == "" {
+		channel := args.ControllerSnapChannel
+		revision := 0
+		if args.ControllerSnapRevision != "" {
+			r, err := strconv.Atoi(args.ControllerSnapRevision)
+			if err != nil {
+				return errors.Annotatef(err, "invalid controller snap revision %q", args.ControllerSnapRevision)
+			}
+			revision = r
 		}
-		args.ControllerSnapExpectedVersion = resolvedVersion
-		ctx.Infof(
-			"Resolved controller snap channel %q to version %s",
-			args.ControllerSnapResolvedChannel,
-			args.ControllerSnapExpectedVersion,
-		)
+		if !channel.Empty() || revision != 0 {
+			resolvedChannel := resolveSnapChannel(channel)
+			args.ControllerSnapResolvedChannel = resolvedChannel
+			dir, err := os.MkdirTemp("", "jujud-acquire-")
+			if err != nil {
+				return errors.Annotate(err, "creating temp dir for controller snap acquisition")
+			}
+			defer func() {
+				if err := os.RemoveAll(dir); err != nil {
+					ctx.Infof("failed to remove controller snap acquisition dir %q: %v", dir, err)
+				}
+			}()
+
+			acquired, err := acquireControllerSnap(
+				ctx,
+				args.ControllerSnapStoreURL,
+				ControllerSnapPackageName,
+				bootstrapArch,
+				resolvedChannel,
+				revision,
+				dir,
+			)
+			if err != nil {
+				return errors.Annotate(err, "acquiring controller snap from store")
+			}
+			args.ControllerSnapPath = acquired.SnapPath
+			args.ControllerSnapAssertPath = acquired.AssertPath
+			args.ControllerSnapExpectedVersion = acquired.RawVersion
+			snapVersion = acquired.Version
+			ctx.Infof(
+				"Acquired controller snap from channel/revision %q (version %s, revision %d)",
+				resolvedChannel, acquired.RawVersion, revision,
+			)
+		}
 	}
 
 	// For local-dangerous snap path: inspect the snap version and enforce
