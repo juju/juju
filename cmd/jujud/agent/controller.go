@@ -7,8 +7,11 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
+	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/juju/clock"
@@ -394,6 +397,7 @@ func NewControllerAgent(
 		preUpgradeSteps:    preUpgradeSteps,
 		upgradeSteps:       upgradeSteps,
 	}
+	a.engineCreatorFunc = a.makeEngineCreator
 	return a, nil
 }
 
@@ -427,6 +431,11 @@ type ControllerApplication struct {
 	controllerUpgradeLock gate.Lock
 	upgradeDBLock         gate.Waiter
 	upgradeStepsLock      gate.Lock
+
+	// engineCreatorFunc creates the dependency engine worker.
+	// Defaults to makeEngineCreator in the production constructor;
+	// tests inject their own lightweight implementation.
+	engineCreatorFunc func(string, semversion.Number, corelogger.LogSink) func(context.Context) (worker.Worker, error)
 }
 
 // Wait waits for the controller agent to finish.
@@ -518,12 +527,36 @@ func (a *ControllerApplication) Run(ctx *cmd.Context) (err error) {
 
 	a.initStandaloneControllerLocks()
 
-	createEngine := a.makeEngineCreator(agentName, controllerRuntimeConfig.UpgradedToVersion(), logSink)
+	createEngine := a.engineCreatorFunc(agentName, controllerRuntimeConfig.UpgradedToVersion(), logSink)
 	_ = a.runner.StartWorker(ctx, "engine", createEngine)
 
 	// At this point, all workers will have been configured to start.
 	close(a.workersStarted)
+
+	// Register a SIGTERM handler so snapd's normal service-stop signal
+	// triggers the controller's graceful in-process shutdown. On SIGTERM
+	// the runner is killed, causing workers to drain and the process to
+	// exit cleanly rather than being forcibly terminated.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+
+	var stoppedBySigterm atomic.Bool
+	go func() {
+		select {
+		case sig := <-sigCh:
+			logger.Infof(context.TODO(), "received signal %v, initiating graceful shutdown", sig)
+			stoppedBySigterm.Store(true)
+			a.runner.Kill()
+		case <-a.dead:
+		}
+	}()
+
 	err = a.runner.Wait()
+
+	if stoppedBySigterm.Load() {
+		return cmdutil.AgentDone(logger, internalworker.ErrTerminateAgent)
+	}
 	return cmdutil.AgentDone(logger, err)
 }
 

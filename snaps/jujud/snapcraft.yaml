@@ -31,6 +31,14 @@ apps:
     command: wrappers/jujud-controller
     daemon: simple
     restart-condition: on-failure
+    restart-delay: 5s
+    install-mode: disable
+    stop-mode: sigterm
+    # stop-timeout must exceed the controller's graceful drain (dqlite
+    # leadership transfer + worker shutdown). If drain exceeds 70s snapd
+    # sends SIGKILL, resulting in an unclean exit. Bump this value if
+    # controllers under load exceed the window.
+    stop-timeout: 70s
     environment:
       PATH: "$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
       JUJU_DATA: "$SNAP_DATA"
@@ -80,6 +88,10 @@ apps:
       - network
   safemode:
     command: wrappers/juju-safemode
+
+hooks:
+  install: {}
+  configure: {}
 
 parts:
   dqlite:
