@@ -99,12 +99,3 @@ func resolveSnapChannel(channel charm.Channel) string {
 		"%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor,
 	)
 }
-
-func inspectLocalSnapVersion(ctx context.Context, path string) (semversion.Number, error) {
-	_, vers, err := ReadSnapVersion(ctx, path)
-	if err != nil {
-		return semversion.Zero, errors.Annotatef(err,
-			"inspecting local snap %q", path)
-	}
-	return vers, nil
-}

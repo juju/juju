@@ -40,7 +40,7 @@ func (s *snapReaderSuite) setupUnsquashfs(c *tc.C, snapOut string, cmdErr error)
 	}
 }
 
-func (s *snapReaderSuite) TestInspectLocalSnapVersionSuccess(c *tc.C) {
+func (s *snapReaderSuite) TestReadSnapVersionSuccess(c *tc.C) {
 	snapOut := `name:    jujud
 summary: Juju Controller Daemon
 publisher: Canonical
@@ -49,8 +49,9 @@ contact: https://bugs.launchpad.net/juju
 `
 	s.setupUnsquashfs(c, snapOut, nil)
 
-	vers, err := bootstrap.InspectLocalSnapVersion(context.Background(), "/path/to/jujud.snap")
+	raw, vers, err := bootstrap.ReadSnapVersion(context.Background(), "/path/to/jujud.snap")
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(raw, tc.Equals, "4.1-beta2")
 	c.Check(vers, tc.DeepEquals, semversion.MustParse("4.1-beta2"))
 }
 
@@ -78,19 +79,20 @@ func (s *snapReaderSuite) TestReadSnapVersionUnsquashfsUnavailable(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*unsquashfs is required to inspect a controller snap.*`)
 }
 
-func (s *snapReaderSuite) TestInspectLocalSnapVersionUnsquashfsFails(c *tc.C) {
+func (s *snapReaderSuite) TestReadSnapVersionUnsquashfsFails(c *tc.C) {
 	const snapPath = "/path/to/jujud.snap"
 	s.setupUnsquashfs(c, "", fmt.Errorf("unsquashfs bombed"))
 
-	_, err := bootstrap.InspectLocalSnapVersion(context.Background(), snapPath)
-	c.Assert(err, tc.ErrorMatches, `.*inspecting local snap.*extract meta/snap.yaml.*`)
+	raw, _, err := bootstrap.ReadSnapVersion(context.Background(), snapPath)
+	c.Assert(raw, tc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, `.*reading controller snap.*extract meta/snap.yaml.*`)
 	c.Check(
 		strings.Contains(err.Error(), snapPath), tc.IsTrue,
 		tc.Commentf("expected error to mention snap path %q, got: %s", snapPath, err),
 	)
 }
 
-func (s *snapReaderSuite) TestInspectLocalSnapVersionNoVersionLine(c *tc.C) {
+func (s *snapReaderSuite) TestReadSnapVersionNoVersionLine(c *tc.C) {
 	const snapPath = "/path/to/jujud.snap"
 	snapOut := `name:    jujud
 summary: Juju Controller Daemon
@@ -98,7 +100,7 @@ summary: Juju Controller Daemon
 
 	s.setupUnsquashfs(c, snapOut, nil)
 
-	_, err := bootstrap.InspectLocalSnapVersion(context.Background(), snapPath)
+	_, _, err := bootstrap.ReadSnapVersion(context.Background(), snapPath)
 	c.Assert(err, tc.ErrorMatches, `.*no version.*`)
 	c.Check(
 		strings.Contains(err.Error(), snapPath), tc.IsTrue,
@@ -106,7 +108,7 @@ summary: Juju Controller Daemon
 	)
 }
 
-func (s *snapReaderSuite) TestInspectLocalSnapVersionUnparsableVersion(c *tc.C) {
+func (s *snapReaderSuite) TestReadSnapVersionUnparsableVersion(c *tc.C) {
 	const snapPath = "/path/to/jujud.snap"
 	snapOut := `name:    jujud
 version: not-a-version
@@ -114,7 +116,7 @@ version: not-a-version
 
 	s.setupUnsquashfs(c, snapOut, nil)
 
-	_, err := bootstrap.InspectLocalSnapVersion(context.Background(), snapPath)
+	_, _, err := bootstrap.ReadSnapVersion(context.Background(), snapPath)
 	c.Assert(err, tc.ErrorMatches, `.*cannot parse.*not-a-version.*`)
 	c.Check(
 		strings.Contains(err.Error(), snapPath), tc.IsTrue,
