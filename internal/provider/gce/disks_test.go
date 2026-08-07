@@ -234,6 +234,26 @@ func (s *volumeSourceSuite) testCreateVolumes(c *tc.C, diskType string) {
 	c.Assert(res[0].VolumeAttachment.Volume.String(), tc.Equals, "volume-0")
 }
 
+func (s *volumeSourceSuite) TestCreateVolumesHyperDiskNotSupported(c *tc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	s.MockService.EXPECT().Instances(gomock.Any(), "", google.StatusRunning).Return([]*computepb.Instance{{
+		Name:        new("inst-0"),
+		Zone:        new("path/to/zone"),
+		MachineType: new("path/to/zone/n1-standard"),
+	}}, nil)
+
+	s.params[0].Attributes = map[string]any{
+		"disk-type": "hyperdisk-extreme",
+	}
+	source := s.setUpSource(c)
+	res, err := source.CreateVolumes(c.Context(), s.params)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(res, tc.HasLen, 1)
+	c.Assert(res[0].Error, tc.ErrorMatches, `hyperdisk storage for legacy instance "n1-standard" not supported`)
+}
+
 func (s *volumeSourceSuite) TestDestroyVolumesInvalidCredentialError(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()

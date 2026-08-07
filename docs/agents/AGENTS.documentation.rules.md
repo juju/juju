@@ -149,7 +149,7 @@ This ensures users get the full picture: **what** it is (entity reference), **ho
 - For CLI commands: Update command definitions in the source code and command help text
 - For hook commands: Update hook command definitions in `scripts/md-gen/hook-commands/`
 - For controller configs: Update controller configuration schema in source code
-- Regenerate: Run `make autogenerate-docs` from the `docs/` directory
+- Regenerate: Run `make regenerate-docs` from the `docs/` directory
 
 **See:** `docs/scripts/autogenerate-docs.py` for the complete autogeneration implementation.
 
