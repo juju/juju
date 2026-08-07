@@ -641,6 +641,26 @@ func checkCloudInitWithContent(c *tc.C, cfg *testInstanceConfig, expectedScripts
 	assertScriptMatch(c, scripts, expectedScripts, false)
 }
 
+// renderedScripts renders the cloud-init for cfg and returns the run scripts
+// joined by newlines, for assertions that inspect the whole command set.
+func (s *cloudinitSuite) renderedScripts(c *tc.C, cfg *testInstanceConfig) string {
+	envConfig := minimalModelConfig(c)
+	testConfig := cfg.maybeSetModelConfig(envConfig).render()
+	ci, err := cloudinit.New(testConfig.Base.OS)
+	c.Assert(err, tc.ErrorIsNil)
+	udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
+	c.Assert(err, tc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, tc.ErrorIsNil)
+	data, err := ci.RenderYAML()
+	c.Assert(err, tc.ErrorIsNil)
+
+	configKeyValues := make(map[any]any)
+	err = goyaml.Unmarshal(data, &configKeyValues)
+	c.Assert(err, tc.ErrorIsNil)
+	return strings.Join(getScripts(configKeyValues), "\n")
+}
+
 func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmDir(c *tc.C) {
 	tmpDir := c.MkDir()
 	controllerCharmPath := filepath.Join(tmpDir, "controller.charm")
@@ -809,19 +829,45 @@ snap install %[1]s`,
 	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 }
 
-func (s *cloudinitSuite) TestCloudInitWithSnapStoreControllerSnap(c *tc.C) {
+func (s *cloudinitSuite) TestCloudInitWithSnapStoreControllerSnapInstallsFileOnly(c *tc.C) {
+	// The client acquires the snap and its assertion from the store, and the
+	// machine only ever installs from the uploaded file (Decision 6). No
+	// command may download the snap on the machine.
+	snapContent := []byte("fake snap binary content")
+	assertContent := []byte("fake snap assert content")
+	dir := c.MkDir()
+	snapPath := filepath.Join(dir, "jujud.snap")
+	assertPath := filepath.Join(dir, "jujud.assert")
+	err := os.WriteFile(snapPath, snapContent, 0644)
+	c.Assert(err, tc.ErrorIsNil)
+	err = os.WriteFile(assertPath, assertContent, 0644)
+	c.Assert(err, tc.ErrorIsNil)
+
 	cfg := makeBootstrapConfig(jammy, 0).mutate(func(cfg *testInstanceConfig) {
 		cfg.Bootstrap.ControllerSnapChannel = "4.0/stable"
 		cfg.Bootstrap.ControllerSnapExpectedVersion = "4.0.1"
+		cfg.Bootstrap.ControllerSnapPath = snapPath
+		cfg.Bootstrap.ControllerSnapAssertPath = assertPath
 	})
+	base64Snap := base64.StdEncoding.EncodeToString(snapContent)
+	base64Assert := base64.StdEncoding.EncodeToString(assertContent)
+	snapFile := fmt.Sprintf("/var/lib/juju/snap/%s", bootstrap.ControllerSnapArchive)
+	assertFile := fmt.Sprintf("/var/lib/juju/snap/%s", bootstrap.ControllerSnapAssertArchive)
 
-	expectedScripts := regexp.QuoteMeta(`
-mkdir -p '/var/lib/juju/snap'
-(cd '/var/lib/juju/snap' && snap download 'jujud' --channel='4.0/stable' --basename='jujud')
-snap ack '/var/lib/juju/snap/jujud.assert'
-snap install '/var/lib/juju/snap/jujud.snap'
-installed_version=$(snap list 'jujud' | awk 'NR>1 {print $2; exit}'); test "$installed_version" = '4.0.1' || (echo "controller snap version mismatch: expected 4.0.1, got $installed_version"; exit 1)`)
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`
+install -D -m 644 /dev/null '%s'
+echo -n %s | base64 -d > '%[1]s'
+install -D -m 644 /dev/null '%[3]s'
+echo -n %s | base64 -d > '%[3]s'
+snap ack %[3]s
+snap install %[1]s`,
+		snapFile, base64Snap, assertFile, base64Assert,
+	))
 	checkCloudInitWithContent(c, cfg, expectedScripts, "")
+
+	// The machine must never contact the store.
+	all := s.renderedScripts(c, cfg)
+	c.Check(all, tc.Not(tc.Contains), "snap download")
 }
 
 func (s *cloudinitSuite) TestCloudInitWithNoControllerSnapDoesNotEmitSnapCommands(c *tc.C) {
