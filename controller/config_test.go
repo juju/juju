@@ -366,12 +366,6 @@ var newConfigTests = []struct {
 	},
 	expectError: `dqlite-busy-timeout value "-1s" must be a positive duration`,
 }, {
-	about: "invalid jujud-controller-snap-source value",
-	config: controller.Config{
-		controller.JujudControllerSnapSource: "latest/stable",
-	},
-	expectError: `jujud-controller-snap-source value "latest/stable" must be one of legacy, snapstore, local or local-dangerous.`,
-}, {
 	about: "empty controller name",
 	config: controller.Config{
 		controller.ControllerName: "",
@@ -565,17 +559,6 @@ func (s *ConfigSuite) TestAuditLogFloatBackupsLoadedDirectly(c *tc.C) {
 		controller.AuditLogMaxBackups: 10.0,
 	}
 	c.Assert(cfg.AuditLogMaxBackups(), tc.Equals, 10)
-}
-
-func (s *ConfigSuite) TestJujudControllerSnapSourceDefault(c *tc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]any{},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(cfg.JujudControllerSnapSource(), tc.Equals, controller.DefaultJujudControllerSnapSource)
-	c.Check(controller.DefaultJujudControllerSnapSource, tc.Equals, "local-dangerous")
 }
 
 func (s *ConfigSuite) TestConfigAllSpacesAsMergedConstraints(c *tc.C) {
