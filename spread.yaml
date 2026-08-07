@@ -157,7 +157,7 @@ restore: |
     export PATH="$SPREAD_PATH/../go/bin:$PATH"
 
     # Clean up any leftover controllers.
-    for ctrl in $(juju controllers --format=json 2>/dev/null | yq -r '.controllers | keys[]' 2>/dev/null); do
+    for ctrl in $(juju controllers --format=json 2>/dev/null | yq -r '.controllers // {} | keys[]' 2>/dev/null); do
         juju destroy-controller --no-prompt --destroy-all-models --destroy-storage "$ctrl" 2>/dev/null || true
     done
 
@@ -165,25 +165,40 @@ suites:
     tests/spread/deploy/:
         summary: Deploy integration tests
         environment:
-            JUJU_MODEL: deploy
+            # Shared across the suite's prepare/execute/restore hooks so the
+            # controller bootstrapped in `prepare` is reused by every task's
+            # `ensure` and cleaned up in `restore`.
+            TEST_DIR: /tmp/spread-juju-deploy
+            # ensure()'s reuse check (juju.sh) forces a re-bootstrap when this is
+            # empty, so it must be a concrete base matching the bootstrapped
+            # controller. The ad hoc VM defaults to noble (24.04).
+            BOOTSTRAP_BASE: ubuntu@24.04
         kill-timeout: 30m
         prepare: |
             export PATH="$SPREAD_PATH/../go/bin:$PATH"
-            . "$TESTSLIB/juju.sh"
+            . "$TESTSLIB/spread-env.sh"
 
-            if ! juju controllers --format=json 2>/dev/null | yq -r '.controllers | keys[]' | grep -q test-deploy; then
-                bootstrap "test-deploy" "/tmp/test-deploy-bootstrap.log"
+            # Bootstrap the suite controller once (unless one is already recorded
+            # and still alive), then have every task reuse it via `ensure`.
+            last_ctrl="$(tail -n 1 "${TEST_DIR}/jujus" 2>/dev/null || true)"
+            if [[ -z "${last_ctrl}" ]] || ! juju controllers --format=json 2>/dev/null | yq -r '.controllers // {} | keys[]' | grep -qx "${last_ctrl}"; then
+                bootstrap "test-deploy" "${TEST_DIR}/test-deploy-bootstrap.log"
             fi
         debug-each: |
             export PATH="$SPREAD_PATH/../go/bin:$PATH"
             juju status 2>&1 || true
         restore: |
             export PATH="$SPREAD_PATH/../go/bin:$PATH"
-            . "$TESTSLIB/juju.sh"
-            destroy_controller "test-deploy" || true
+            . "$TESTSLIB/spread-env.sh"
+
+            # Destroy the actually bootstrapped (random-named) controllers.
+            for ctrl in $(cat "${TEST_DIR}/jujus" 2>/dev/null || true); do
+                destroy_controller "${ctrl}" || true
+            done
+            rm -f "${TEST_DIR}/jujus" || true
         prepare-each: |
             export PATH="$SPREAD_PATH/../go/bin:$PATH"
-            . "$TESTSLIB/juju.sh"
+            . "$TESTSLIB/spread-env.sh"
         restore-each: |
             export PATH="$SPREAD_PATH/../go/bin:$PATH"
-            . "$TESTSLIB/juju.sh"
+            . "$TESTSLIB/spread-env.sh"

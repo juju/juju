@@ -397,7 +397,7 @@ post_bootstrap() {
 
 	# Setup up log tailing on the controller.
 	# shellcheck disable=SC2069
-	juju debug-log -m "${controller}:controller" --replay --tail 2>&1 >"${TEST_DIR}/${controller}-controller-debug.log" &
+	juju debug-log -m "${controller}:controller" --replay --tail >"${TEST_DIR}/${controller}-controller-debug.log" 2>&1 &
 	CMD_PID=$!
 	track_daemon_pid "${CMD_PID}"
 
@@ -426,7 +426,7 @@ post_add_model() {
 
 	# Setup up log tailing on the controller.
 	# shellcheck disable=SC2069
-	juju debug-log -m "${ctrl_arg}" --replay --tail 2>&1 >"${TEST_DIR}/${log_file}" &
+	juju debug-log -m "${ctrl_arg}" --replay --tail >"${TEST_DIR}/${log_file}" 2>&1 &
 	CMD_PID=$!
 	track_daemon_pid "${CMD_PID}"
 
@@ -490,7 +490,7 @@ add_client_ssh_key_to_juju_model() {
 # destroy_model <model name>
 # ```
 destroy_model() {
-	if [[ -n ${SKIP_DESTROY} ]]; then
+	if [[ -n ${SKIP_DESTROY:-} ]]; then
 		echo "====> Skipping destroy model"
 		return
 	fi
@@ -532,7 +532,7 @@ destroy_model() {
 # destroy_controller <controller name>
 # ```
 destroy_controller() {
-	if [[ -n ${SKIP_DESTROY} ]]; then
+	if [[ -n ${SKIP_DESTROY:-} ]]; then
 		echo "====> Skipping destroy controller"
 		return
 	fi

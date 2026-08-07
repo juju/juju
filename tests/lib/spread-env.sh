@@ -16,6 +16,10 @@ if [ -z "${TEST_DIR:-}" ]; then
     export TEST_DIR
 fi
 
+# TEST_DIR may be a fixed shared path (e.g. set by the suite environment), so
+# ensure it exists before libraries write into it.
+mkdir -p "${TEST_DIR}"
+
 # Ensure the test dir cleanup file exists (used by cleanup.sh).
 touch "${TEST_DIR}/cleanup"
 
