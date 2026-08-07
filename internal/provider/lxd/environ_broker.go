@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	stderrors "errors"
 	"fmt"
 	"maps"
 	"strings"
@@ -47,6 +48,31 @@ func (env *environ) StartInstance(
 			_ = args.StatusCallback(status.ProvisioningError, err.Error(), nil)
 		}
 		return nil, errors.Trace(err)
+	}
+	if args.InstanceConfig.IsController() {
+		err := env.ensureControllerNetworkForward(
+			ctx, container, args.InstanceConfig, args.ControllerUUID,
+		)
+		if err != nil {
+			if deleteErr := env.deleteControllerNetworkForwards(
+				args.ControllerUUID, container.Name,
+			); deleteErr != nil {
+				logger.Errorf(
+					"deleting network forward after controller provisioning failure: %v",
+					deleteErr,
+				)
+			}
+			if removeErr := env.server().RemoveContainer(container.Name); removeErr != nil {
+				logger.Errorf(
+					"removing controller %q after network forward failure: %v",
+					container.Name, removeErr,
+				)
+			}
+			if args.StatusCallback != nil {
+				_ = args.StatusCallback(status.ProvisioningError, err.Error(), nil)
+			}
+			return nil, errors.Annotate(err, "creating controller network forward")
+		}
 	}
 	logger.Infof("started instance %q", container.Name)
 	inst := newInstance(container, env)
@@ -481,5 +507,12 @@ func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...
 		return errors.Trace(err)
 	}
 
-	return nil
+	var cleanupErrors []error
+	for _, name := range names {
+		if err := env.deleteControllerNetworkForwards("", name); err != nil {
+			cleanupErrors = append(cleanupErrors, errors.Annotatef(
+				err, "deleting network forward for instance %q", name))
+		}
+	}
+	return stderrors.Join(cleanupErrors...)
 }

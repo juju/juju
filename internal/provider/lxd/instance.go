@@ -58,5 +58,22 @@ func (i *environInstance) Status(ctx context.ProviderCallContext) instance.Statu
 // Addresses implements instances.Instance.
 func (i *environInstance) Addresses(_ context.ProviderCallContext) (network.ProviderAddresses, error) {
 	addrs, err := i.env.server().ContainerAddresses(i.container.Name)
-	return addrs, errors.Trace(err)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	controllerUUID, ok := isController(i.container)
+	if !ok {
+		return addrs, nil
+	}
+	address, found, err := i.env.controllerNetworkForwardAddress(
+		controllerUUID, i.container.Name,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if found {
+		addrs = append(addrs, controllerForwardAddress(address))
+	}
+	return addrs, nil
 }

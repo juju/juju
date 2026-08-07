@@ -36,6 +36,10 @@ func (s *serverSuite) TestParseAPIVersion(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `minor version number  b not valid`)
 }
 
+func (s *serverSuite) TestEnsureHTTPSHostIPv6(c *gc.C) {
+	c.Check(EnsureHTTPSHost("2001:db8::1"), gc.Equals, "https://[2001:db8::1]")
+}
+
 func (s *serverSuite) TestValidateAPIVersion(c *gc.C) {
 	err := ValidateAPIVersion("5.0")
 	c.Check(err, jc.ErrorIsNil)

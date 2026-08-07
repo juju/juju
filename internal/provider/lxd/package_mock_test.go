@@ -75,6 +75,22 @@ func (mr *MockServerMockRecorder) ContainerAddresses(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerAddresses", reflect.TypeOf((*MockServer)(nil).ContainerAddresses), arg0)
 }
 
+// ControllerNetworkForwardAddress mocks base method.
+func (m *MockServer) ControllerNetworkForwardAddress(arg0, arg1, arg2 string) (string, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerNetworkForwardAddress", arg0, arg1, arg2)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ControllerNetworkForwardAddress indicates an expected call of ControllerNetworkForwardAddress.
+func (mr *MockServerMockRecorder) ControllerNetworkForwardAddress(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerNetworkForwardAddress", reflect.TypeOf((*MockServer)(nil).ControllerNetworkForwardAddress), arg0, arg1, arg2)
+}
+
 // CreateCertificate mocks base method.
 func (m *MockServer) CreateCertificate(arg0 api.CertificatesPost) error {
 	m.ctrl.T.Helper()
@@ -174,6 +190,21 @@ func (mr *MockServerMockRecorder) CreateVolume(arg0, arg1, arg2 any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVolume", reflect.TypeOf((*MockServer)(nil).CreateVolume), arg0, arg1, arg2)
 }
 
+// DefaultNetwork mocks base method.
+func (m *MockServer) DefaultNetwork() (*api.Network, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DefaultNetwork")
+	ret0, _ := ret[0].(*api.Network)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DefaultNetwork indicates an expected call of DefaultNetwork.
+func (mr *MockServerMockRecorder) DefaultNetwork() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultNetwork", reflect.TypeOf((*MockServer)(nil).DefaultNetwork))
+}
+
 // DeleteCertificate mocks base method.
 func (m *MockServer) DeleteCertificate(arg0 string) error {
 	m.ctrl.T.Helper()
@@ -186,6 +217,20 @@ func (m *MockServer) DeleteCertificate(arg0 string) error {
 func (mr *MockServerMockRecorder) DeleteCertificate(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCertificate", reflect.TypeOf((*MockServer)(nil).DeleteCertificate), arg0)
+}
+
+// DeleteControllerNetworkForwards mocks base method.
+func (m *MockServer) DeleteControllerNetworkForwards(arg0, arg1, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteControllerNetworkForwards", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteControllerNetworkForwards indicates an expected call of DeleteControllerNetworkForwards.
+func (mr *MockServerMockRecorder) DeleteControllerNetworkForwards(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteControllerNetworkForwards", reflect.TypeOf((*MockServer)(nil).DeleteControllerNetworkForwards), arg0, arg1, arg2)
 }
 
 // DeleteProfile mocks base method.
@@ -229,6 +274,21 @@ func (m *MockServer) EnableHTTPSListener() error {
 func (mr *MockServerMockRecorder) EnableHTTPSListener() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableHTTPSListener", reflect.TypeOf((*MockServer)(nil).EnableHTTPSListener))
+}
+
+// EnsureControllerNetworkForward mocks base method.
+func (m *MockServer) EnsureControllerNetworkForward(arg0, arg1, arg2, arg3 string, arg4 []int) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureControllerNetworkForward", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EnsureControllerNetworkForward indicates an expected call of EnsureControllerNetworkForward.
+func (mr *MockServerMockRecorder) EnsureControllerNetworkForward(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureControllerNetworkForward", reflect.TypeOf((*MockServer)(nil).EnsureControllerNetworkForward), arg0, arg1, arg2, arg3, arg4)
 }
 
 // EnsureDefaultStorage mocks base method.
@@ -596,6 +656,20 @@ func (m *MockServer) LocalBridgeName() string {
 func (mr *MockServerMockRecorder) LocalBridgeName() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalBridgeName", reflect.TypeOf((*MockServer)(nil).LocalBridgeName))
+}
+
+// LocalNetworkType mocks base method.
+func (m *MockServer) LocalNetworkType() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LocalNetworkType")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// LocalNetworkType indicates an expected call of LocalNetworkType.
+func (mr *MockServerMockRecorder) LocalNetworkType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalNetworkType", reflect.TypeOf((*MockServer)(nil).LocalNetworkType))
 }
 
 // Name mocks base method.
