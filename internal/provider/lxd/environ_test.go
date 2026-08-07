@@ -308,6 +308,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
+		{"DefaultNetwork", []interface{}{}},
 	})
 }
 

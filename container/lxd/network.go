@@ -20,8 +20,9 @@ const (
 	nic            = "nic"
 	nicTypeBridged = "bridged"
 	nicTypeMACVLAN = "macvlan"
-	nicTypeOVN     = "ovn"
 	netTypeBridge  = "bridge"
+	netTypeMACVLAN = "macvlan"
+	netTypeOVN     = "ovn"
 )
 
 // device is a type alias for profile devices.
@@ -30,6 +31,11 @@ type device = map[string]string
 // LocalBridgeName returns the name of the local LXD network bridge.
 func (s *Server) LocalBridgeName() string {
 	return s.localBridgeName
+}
+
+// LocalNetworkType returns the type of the local LXD network.
+func (s *Server) LocalNetworkType() string {
+	return s.localNetworkType
 }
 
 // EnableHTTPSListener configures LXD to listen for HTTPS requests, rather than
@@ -160,6 +166,7 @@ func (s *Server) ensureDefaultNetworking(profile *api.Profile, eTag string) erro
 	}
 
 	s.localBridgeName = network.DefaultLXDBridge
+	s.localNetworkType = net.Type
 
 	nicName := generateNICDeviceName(profile)
 	if nicName == "" {
@@ -190,6 +197,44 @@ func (s *Server) ensureDefaultNetworking(profile *api.Profile, eTag string) erro
 // verifyNICsWithAPI uses the LXD network API to check if one of the input NIC
 // devices is suitable for LXD to work with Juju.
 func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
+	net, netName, checked, err := s.findUsableNetwork(nics)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if net == nil {
+		// No nics with a nictype of nicTypeBridged, nicTypeMACVLAN was found.
+		return errors.Errorf(
+			"no network device found with nictype %q or %q"+
+				"\n\tthe following devices were checked: %s"+
+				"\nReconfigure lxd to use a network of type %q or %q.",
+			nicTypeBridged, nicTypeMACVLAN, strings.Join(checked, ", "), nicTypeBridged, nicTypeMACVLAN)
+	}
+
+	logger.Tracef("found usable network device with parent %q", netName)
+	s.localBridgeName = netName
+	s.localNetworkType = net.Type
+	return nil
+}
+
+// DefaultNetwork returns the managed network used by a NIC in the default
+// profile.
+func (s *Server) DefaultNetwork() (*api.Network, error) {
+	profile, _, err := s.GetProfile("default")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	net, _, _, err := s.findUsableNetwork(getProfileNICs(profile))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if net == nil {
+		return nil, errors.NotFoundf("usable network in profile %q", profile.Name)
+	}
+	return net, nil
+}
+
+func (s *Server) findUsableNetwork(nics map[string]device) (*api.Network, string, []string, error) {
 	checked := make([]string, 0, len(nics))
 	for name, nic := range nics {
 		checked = append(checked, name)
@@ -207,7 +252,7 @@ func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
 
 		net, _, err := s.GetNetwork(netName)
 		if err != nil {
-			return errors.Annotatef(err, "retrieving network %q", netName)
+			return nil, "", checked, errors.Annotatef(err, "retrieving network %q", netName)
 		}
 
 		// Versions of the LXD profile prior to 3.22 have a "nictype" member
@@ -219,16 +264,9 @@ func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
 		}
 
 		logger.Tracef("found usable network device %q with parent %q", name, netName)
-		s.localBridgeName = netName
-		return nil
+		return net, netName, checked, nil
 	}
-
-	// No nics with a nictype of nicTypeBridged, nicTypeMACVLAN was found.
-	return errors.Errorf(
-		"no network device found with nictype %q, %q, or %q"+
-			"\n\tthe following devices were checked: %s"+
-			"\nReconfigure lxd to use a network of type %q, %q, or %q.",
-		nicTypeBridged, nicTypeMACVLAN, nicTypeOVN, strings.Join(checked, ", "), nicTypeBridged, nicTypeMACVLAN, nicTypeOVN)
+	return nil, "", checked, nil
 }
 
 // generateNICDeviceName attempts to generate a new NIC device name that is not
@@ -266,11 +304,11 @@ func getProfileNICs(profile *api.Profile) map[string]device {
 }
 
 func isValidNICType(nic device) bool {
-	return nic["nictype"] == nicTypeBridged || nic["nictype"] == nicTypeMACVLAN || nic["nictype"] == nicTypeOVN
+	return nic["nictype"] == nicTypeBridged || nic["nictype"] == nicTypeMACVLAN
 }
 
 func isValidNetworkType(net *api.Network) bool {
-	return net.Type == netTypeBridge || net.Type == nicTypeMACVLAN || net.Type == nicTypeOVN
+	return net.Type == netTypeBridge || net.Type == netTypeMACVLAN || net.Type == netTypeOVN
 }
 
 // NetworkName returns the network name from the

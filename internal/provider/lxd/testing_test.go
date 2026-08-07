@@ -397,6 +397,8 @@ type StubClient struct {
 	NetworkNames       []string
 	NetworkState       map[string]api.NetworkState
 	ProfileNames       []string
+	NetworkType        string
+	NetworkForwardAddr string
 }
 
 func (conn *StubClient) FilterContainers(prefix string, statuses ...string) ([]lxd.Container, error) {
@@ -485,6 +487,45 @@ func (conn *StubClient) UpdateContainerConfig(container string, cfg map[string]s
 func (conn *StubClient) LocalBridgeName() string {
 	conn.AddCall("LocalBridgeName")
 	return "test-bridge"
+}
+
+func (conn *StubClient) LocalNetworkType() string {
+	return conn.NetworkType
+}
+
+func (conn *StubClient) DefaultNetwork() (*api.Network, error) {
+	conn.AddCall("DefaultNetwork")
+	return &api.Network{
+		Name: "test-network",
+		Type: conn.NetworkType,
+		Config: map[string]string{
+			"ipv4.address": "10.0.0.1/24",
+		},
+	}, conn.NextErr()
+}
+
+func (conn *StubClient) EnsureControllerNetworkForward(
+	networkName, controllerUUID, instanceID, targetAddress string, ports []int,
+) (string, error) {
+	conn.AddCall(
+		"EnsureControllerNetworkForward",
+		networkName, controllerUUID, instanceID, targetAddress, ports,
+	)
+	return conn.NetworkForwardAddr, conn.NextErr()
+}
+
+func (conn *StubClient) ControllerNetworkForwardAddress(
+	networkName, controllerUUID, instanceID string,
+) (string, bool, error) {
+	conn.AddCall("ControllerNetworkForwardAddress", networkName, controllerUUID, instanceID)
+	return conn.NetworkForwardAddr, conn.NetworkForwardAddr != "", conn.NextErr()
+}
+
+func (conn *StubClient) DeleteControllerNetworkForwards(
+	networkName, controllerUUID, instanceID string,
+) error {
+	conn.AddCall("DeleteControllerNetworkForwards", networkName, controllerUUID, instanceID)
+	return conn.NextErr()
 }
 
 func (conn *StubClient) GetProfile(name string) (*api.Profile, string, error) {
