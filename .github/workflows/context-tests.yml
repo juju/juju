@@ -157,7 +157,7 @@ jobs:
   docs:
     needs: [changed-files]
     name: Documentation
-    if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-docs == 'true' && github.event_name != 'merge_group'
+    if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-docs == 'true'
     uses: ./.github/workflows/docs.yml
 
   client:
