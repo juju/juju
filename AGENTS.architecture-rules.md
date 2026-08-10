@@ -69,10 +69,11 @@ Respect Juju layering. Never create new cross-layer dependencies.
 - Domain packages should generally avoid `github.com/juju/names`. Prefer
   converting Juju tags to primitive values at API, facade, worker, or command
   boundaries before calling domain services.
-- Variables and accumulators populated inside a `db.Txn` closure MUST be reset
-  at the top of the closure to ensure correctness on transaction retry. The
-  `db.Txn` runner may re-execute the closure on transient errors; stale or
-  partial data from a previous attempt will corrupt results if not cleared.
+- Values populated inside a `db.Txn` closure MUST remain correct if the closure
+  is retried. Reset mutable targets only when a previous attempt can leave
+  partial data that would produce duplicate or inconsistent results. Do not add
+  redundant resets for retry-consistent assignments or Sqlair `GetAll` targets,
+  which Sqlair clears before populating.
 
 ## Worker Boundaries
 
