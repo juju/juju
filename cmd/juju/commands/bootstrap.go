@@ -808,10 +808,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 		if isStoreMode {
 			c.ControllerSnapStoreMode = true
-			// TODO(ice): Store modes require --build-agent to anchor the locally built
-			// agent to the resolved snap version until machine agent with new
-			// binary name (jujuagentd) is released to simplestreams.
-			c.BuildAgent = true
 		} else if isLocalBuild {
 			ctx.Infof("Building controller snap from local source...")
 			builtPath, err := bootstrap.BuildControllerSnap(ctx, ctx.Stdout, ctx.Stderr)

@@ -2359,7 +2359,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultStoreMode(c *tc.C) {
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 	c.Check(gotArgs.ControllerSnapPath, tc.Equals, "")
 	c.Check(gotArgs.ControllerSnapStoreMode, tc.Equals, true)
-	c.Check(gotArgs.BuildAgent, tc.Equals, true)
+	c.Check(gotArgs.BuildAgent, tc.Equals, false)
 }
 
 // TestBootstrapExplicitBuildSnap verifies that an explicit --build-snap builds
@@ -2474,7 +2474,7 @@ func (s *BootstrapSuite) TestBootstrapIAASNoSnapSourceDefaultsToStore(c *tc.C) {
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 	c.Check(gotArgs.ControllerSnapPath, tc.Equals, "")
 	c.Check(gotArgs.ControllerSnapStoreMode, tc.Equals, true)
-	c.Check(gotArgs.BuildAgent, tc.Equals, true)
+	c.Check(gotArgs.BuildAgent, tc.Equals, false)
 }
 
 // TestBootstrapBuildSnapWithAssertPathNoSnapPath verifies that
