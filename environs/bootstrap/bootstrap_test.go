@@ -2012,3 +2012,97 @@ func (s *BootstrapContextSuite) TestContextDone(c *tc.C) {
 		c.Assert(done, tc.DeepEquals, t.done)
 	}
 }
+
+func (s *bootstrapSuite) TestBootstrapStoreModeNoBuildAgentFindsExactTools(c *tc.C) {
+	// Store mode without --build-agent must find exact published tools
+	// at the snap version without calling BuildAgentTarball.
+	snapVersion := jujuversion.Current.ToPatch()
+	snapDir := c.MkDir()
+	snapPath := filepath.Join(snapDir, "jujud.snap")
+	assertPath := filepath.Join(snapDir, "jujud.assert")
+	c.Assert(os.WriteFile(snapPath, []byte("fake"), 0644), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(assertPath, []byte("assert"), 0644), tc.ErrorIsNil)
+	s.patchSnapReader(c, fmt.Sprintf("name: jujud\nversion: %s\n", snapVersion.String()))
+
+	s.PatchValue(bootstrap.AcquireControllerSnap, func(_ context.Context, _, _, _, _ string, _ int, _ string) (*bootstrap.AcquiredSnap, error) {
+		return &bootstrap.AcquiredSnap{
+			SnapPath:   snapPath,
+			AssertPath: assertPath,
+		}, nil
+	})
+
+	// Patch findTools to return an exact match for the snap version.
+	s.PatchValue(bootstrap.FindTools, func(_ context.Context, _ envtools.SimplestreamsFetcher, _ environs.BootstrapEnviron, _ int, _ int, _ []string, filter tools.Filter) (tools.List, error) {
+		c.Check(filter.Number, tc.DeepEquals, snapVersion,
+			tc.Commentf("filter must be anchored to the snap version"))
+		return tools.List{&tools.Tools{
+			Version: semversion.Binary{
+				Number:  snapVersion,
+				Release: "ubuntu",
+				Arch:    "amd64",
+			},
+			URL: "file:///dummy/tools.tgz",
+		}}, nil
+	})
+
+	var buildAgentCalled bool
+	s.PatchValue(&sync.BuildAgentTarball, func(build bool, _ string,
+		_ func(semversion.Number) semversion.Number,
+	) (*sync.BuiltAgent, error) {
+		buildAgentCalled = true
+		return nil, errors.New("unexpected call to BuildAgentTarball")
+	})
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+			ControllerSnapStoreMode: true,
+		})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(buildAgentCalled, tc.IsFalse,
+		tc.Commentf("store mode without --build-agent must not call BuildAgentTarball"))
+}
+
+func (s *bootstrapSuite) TestBootstrapStoreModeNoExactToolsFails(c *tc.C) {
+	// Store mode without --build-agent with no exact published tools
+	// must fail before provisioning with an actionable diagnostic.
+	snapVersion := jujuversion.Current.ToPatch()
+	snapDir := c.MkDir()
+	snapPath := filepath.Join(snapDir, "jujud.snap")
+	assertPath := filepath.Join(snapDir, "jujud.assert")
+	c.Assert(os.WriteFile(snapPath, []byte("fake"), 0644), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(assertPath, []byte("assert"), 0644), tc.ErrorIsNil)
+	s.patchSnapReader(c, fmt.Sprintf("name: jujud\nversion: %s\n", snapVersion.String()))
+
+	s.PatchValue(bootstrap.AcquireControllerSnap, func(_ context.Context, _, _, _, _ string, _ int, _ string) (*bootstrap.AcquiredSnap, error) {
+		return &bootstrap.AcquiredSnap{
+			SnapPath:   snapPath,
+			AssertPath: assertPath,
+		}, nil
+	})
+
+	// Patch findTools to return no matches.
+	s.PatchValue(bootstrap.FindTools, func(_ context.Context, _ envtools.SimplestreamsFetcher, _ environs.BootstrapEnviron, _ int, _ int, _ []string, _ tools.Filter) (tools.List, error) {
+		return nil, errors.NotFoundf("no tools")
+	})
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+			ControllerSnapStoreMode: true,
+		})
+	c.Assert(err, tc.ErrorMatches,
+		`no packaged agent binaries match the controller snap version .* use --build-agent to build from source`)
+}

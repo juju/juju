@@ -584,22 +584,28 @@ func bootstrapIAAS(
 	var availableTools coretools.List
 	if !args.BuildAgent {
 		latestPatchTxt := ""
-		versionTxt := fmt.Sprintf("%v", args.AgentVersion)
-		if args.AgentVersion == nil {
+		lookupVersion := args.AgentVersion
+		if !snapVersion.IsZero() {
+			lookupVersion = &snapVersion
+		}
+		versionTxt := fmt.Sprintf("%v", lookupVersion)
+		if lookupVersion == nil {
 			latestPatchTxt = "latest patch of "
 			versionTxt = fmt.Sprintf("%v.%v", agentVersion.Major, agentVersion.Minor)
 		}
 		ctx.Infof("Looking for %vpackaged Juju agent version %s for %s", latestPatchTxt, versionTxt, bootstrapArch)
 
-		availableTools, err = findPackagedTools(ctx, environ, ss, args.AgentVersion, &bootstrapArch, &bootstrapBase)
+		availableTools, err = findPackagedTools(ctx, environ, ss, lookupVersion, &bootstrapArch, &bootstrapBase)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return err
 		}
 		if len(availableTools) != 0 {
-			if args.AgentVersion == nil {
+			if lookupVersion == nil {
 				// If agent version was not specified in the arguments,
 				// we always want the latest/newest available.
 				agentVersion, availableTools = availableTools.Newest()
+			} else if !snapVersion.IsZero() {
+				agentVersion = snapVersion
 			}
 			for _, tool := range availableTools {
 				ctx.Infof("Located Juju agent version %s at %s", tool.Version, tool.URL)
@@ -610,6 +616,17 @@ func bootstrapIAAS(
 	// requested, look for or build a local binary.
 	var builtTools *sync.BuiltAgent
 	if len(availableTools) == 0 && (args.AgentVersion == nil || isCompatibleVersion(*args.AgentVersion, jujuversion.Current)) {
+		// In published-snap modes (store mode), the local-copy fallback is
+		// not invoked; bootstrap fails before provisioning unless
+		// --build-agent is set.
+		if args.ControllerSnapStoreMode && !args.BuildAgent {
+			return errors.Errorf(
+				"no packaged agent binaries match the controller snap version %s for %s/%s; "+
+					"use --build-agent to build from source",
+				snapVersion, bootstrapArch, bootstrapBase.String(),
+			)
+		}
+
 		if args.BuildAgentTarball == nil {
 			return errors.New("cannot build agent binary to upload")
 		}
@@ -680,7 +697,9 @@ func bootstrapIAAS(
 	// agent-version set anyway, to appease FinishInstanceConfig.
 	// In the latter case, setBootstrapTools will later set
 	// agent-version to the correct thing.
-	if args.AgentVersion != nil {
+	if !snapVersion.IsZero() {
+		agentVersion = snapVersion
+	} else if args.AgentVersion != nil {
 		agentVersion = *args.AgentVersion
 	}
 	if cfg, err = cfg.Apply(map[string]any{
