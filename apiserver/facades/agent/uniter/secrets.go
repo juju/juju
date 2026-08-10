@@ -362,10 +362,10 @@ func (u *UniterAPI) resolveSecretOwnerKinds(
 }
 
 // prepareSecretGrants converts wire-format grant args to domain types,
-// filtering out secrets the unit cannot manage and resolving subject/scope
-// UUIDs and ownership.
+// resolving subject and scope UUIDs. Authorization and ownership are resolved
+// with the complete hook change set by the unit state service.
 func (u *UniterAPI) prepareSecretGrants(
-	ctx context.Context, unitName coreunit.Name, grants []params.GrantRevokeSecretArg,
+	ctx context.Context, grants []params.GrantRevokeSecretArg,
 ) ([]unitstate.GrantSecretArg, error) {
 	secretGrants := make([]unitstate.GrantSecretArg, 0, len(grants))
 	var grantErrs []error
@@ -379,14 +379,6 @@ func (u *UniterAPI) prepareSecretGrants(
 		uri, err := coresecrets.ParseURI(g.URI)
 		if err != nil {
 			return nil, internalerrors.Capture(err)
-		}
-		if err := u.secretService.CheckSecretManageAccess(ctx, uri, unitName); err != nil {
-			if errors.Is(err, secreterrors.SecretNotFound) {
-				u.logger.Infof(ctx, "secret %q no longer exists, skipping grant", g.URI)
-				continue
-			}
-			grantErrs = append(grantErrs, err)
-			continue
 		}
 
 		args, err := u.resolveGrantSubjects(ctx, accessor, g)
@@ -413,7 +405,7 @@ func (u *UniterAPI) prepareSecretGrants(
 			"granting secrets access: %w", internalerrors.Join(grantErrs...))
 	}
 
-	return u.resolveGrantOwnerKinds(ctx, secretGrants)
+	return secretGrants, nil
 }
 
 // grantSubjectResult holds the resolved grant params or an error.
@@ -484,41 +476,6 @@ func (u *UniterAPI) resolveGrantSubjects(
 		}
 	}
 	return results, nil
-}
-
-// resolveGrantOwnerKinds resolves ownership for a slice of grant args,
-// filtering out secrets that disappeared between the access check and the
-// ownership query (deleted concurrently).
-func (u *UniterAPI) resolveGrantOwnerKinds(
-	ctx context.Context, grants []unitstate.GrantSecretArg,
-) ([]unitstate.GrantSecretArg, error) {
-	if len(grants) == 0 {
-		return grants, nil
-	}
-	uris := make([]*coresecrets.URI, len(grants))
-	for i, g := range grants {
-		uris[i] = g.URI
-	}
-	ownerInfos, err := u.secretService.GetSecretOwnerKinds(ctx, uris)
-	if err != nil {
-		return nil, err
-	}
-	ownerByID := make(map[string]secret.CharmSecretOwnerKind, len(ownerInfos))
-	for _, info := range ownerInfos {
-		ownerByID[info.SecretID] = info.OwnerKind
-	}
-	// Filter: secrets that disappeared between the access check and
-	// the ownership query were deleted concurrently.
-	filtered := grants[:0]
-	for i := range grants {
-		kind, ok := ownerByID[grants[i].URI.ID]
-		if !ok {
-			continue
-		}
-		grants[i].OwnerKind = kind
-		filtered = append(filtered, grants[i])
-	}
-	return filtered, nil
 }
 
 // prepareSecretDeletes validates and resolves a list of delete args from the

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	domainsecret "github.com/juju/juju/domain/secret"
@@ -55,6 +56,12 @@ func (s *LeadershipService) CommitHookChanges(ctx context.Context, arg unitstate
 	if err != nil {
 		return errors.Capture(err)
 	}
+
+	secretGrants, err := s.prepareSecretGrants(ctx, arg.UnitName, arg.SecretCreates, arg.SecretGrants)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	arg.SecretGrants = secretGrants
 
 	// Pre-compute secret updates outside the transaction because
 	// AddSecretBackendReference writes to the controller DB (a separate
@@ -106,6 +113,83 @@ func (s *LeadershipService) CommitHookChanges(ctx context.Context, arg unitstate
 	}
 
 	return nil
+}
+
+// prepareSecretGrants authorizes grants for persisted secrets and resolves
+// their owner kinds. A secret created in this hook has no persisted metadata
+// yet, so its incoming create argument provides both facts instead.
+func (s *LeadershipService) prepareSecretGrants(
+	ctx context.Context,
+	unitName coreunit.Name,
+	creates []unitstate.CreateSecretArg,
+	grants []unitstate.GrantSecretArg,
+) ([]unitstate.GrantSecretArg, error) {
+	if len(grants) == 0 {
+		return nil, nil
+	}
+
+	createdOwnerKinds := make(map[string]domainsecret.CharmSecretOwnerKind, len(creates))
+	for i, create := range creates {
+		if create.URI == nil {
+			return nil, errors.Errorf("create secret arg at index %d has nil URI", i)
+		}
+		createdOwnerKinds[create.URI.ID] = create.CharmOwner.Kind
+	}
+
+	candidates := make([]unitstate.GrantSecretArg, 0, len(grants))
+	persistedURIs := make([]*coresecrets.URI, 0, len(grants))
+	var grantErrs []error
+	for _, grant := range grants {
+		if ownerKind, ok := createdOwnerKinds[grant.URI.ID]; ok {
+			grant.OwnerKind = ownerKind
+			candidates = append(candidates, grant)
+			continue
+		}
+
+		if err := s.secretGrantAuthorizer.CheckSecretManageAccess(ctx, grant.URI, unitName); err != nil {
+			if errors.Is(err, secreterrors.SecretNotFound) {
+				s.logger.Infof(ctx, "secret %q no longer exists, skipping grant", grant.URI)
+				continue
+			}
+			grantErrs = append(grantErrs, err)
+			continue
+		}
+
+		candidates = append(candidates, grant)
+		persistedURIs = append(persistedURIs, grant.URI)
+	}
+	if len(grantErrs) > 0 {
+		return nil, errors.Errorf("granting secrets access: %w", errors.Join(grantErrs...))
+	}
+	if len(persistedURIs) == 0 {
+		return candidates, nil
+	}
+
+	ownerInfos, err := s.secretGrantAuthorizer.GetSecretOwnerKinds(ctx, persistedURIs)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	ownerKinds := make(map[string]domainsecret.CharmSecretOwnerKind, len(ownerInfos))
+	for _, ownerInfo := range ownerInfos {
+		ownerKinds[ownerInfo.SecretID] = ownerInfo.OwnerKind
+	}
+
+	filtered := candidates[:0]
+	for _, grant := range candidates {
+		if _, ok := createdOwnerKinds[grant.URI.ID]; ok {
+			filtered = append(filtered, grant)
+			continue
+		}
+
+		ownerKind, ok := ownerKinds[grant.URI.ID]
+		if !ok {
+			// The secret disappeared between the access and ownership queries.
+			continue
+		}
+		grant.OwnerKind = ownerKind
+		filtered = append(filtered, grant)
+	}
+	return filtered, nil
 }
 
 func (s *LeadershipService) getManagementCaveat(

@@ -3655,7 +3655,6 @@ func (s *commitHookChangesSuite) TestCommitHookChangesGrantSecrets(c *tc.C) {
 
 	uri := coresecrets.NewURI()
 
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).Return(nil)
 	s.secretService.EXPECT().ResolveGrantParams(gomock.Any(), []domainsecret.SecretAccessParams{{
 		Accessor: domainsecret.SecretAccessor{Kind: domainsecret.UnitAccessor, ID: "wordpress/0"},
 		Scope:    domainsecret.SecretAccessScope{Kind: domainsecret.RelationAccessScope, ID: "one:db two:use"},
@@ -3670,11 +3669,6 @@ func (s *commitHookChangesSuite) TestCommitHookChangesGrantSecrets(c *tc.C) {
 			RoleID:        domainsecret.RoleView,
 		},
 	}})
-	s.secretService.EXPECT().GetSecretOwnerKinds(gomock.Any(), []*coresecrets.URI{uri}).
-		Return([]domainsecret.SecretOwnerInfo{{
-			SecretID:  uri.ID,
-			OwnerKind: domainsecret.UnitCharmSecretOwner,
-		}}, nil)
 	s.unitStateService.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, arg unitstate.CommitHookChangesArg) error {
 			c.Check(arg.UnitName, tc.Equals, unitName)
@@ -3685,7 +3679,6 @@ func (s *commitHookChangesSuite) TestCommitHookChangesGrantSecrets(c *tc.C) {
 			c.Check(arg.SecretGrants[0].ScopeUUID, tc.Equals, "relation-scope-uuid")
 			c.Check(arg.SecretGrants[0].ScopeTypeID, tc.Equals, domainsecret.ScopeRelation)
 			c.Check(arg.SecretGrants[0].RoleID, tc.Equals, domainsecret.RoleView)
-			c.Check(arg.SecretGrants[0].OwnerKind, tc.Equals, domainsecret.UnitCharmSecretOwner)
 			return nil
 		})
 
