@@ -5,7 +5,6 @@ package bootstrap
 
 import (
 	"context"
-	"fmt"
 	"os/exec"
 	"strings"
 
@@ -13,7 +12,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/semversion"
-	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/snapstore"
 )
@@ -96,7 +94,5 @@ func resolveSnapChannel(channel charm.Channel) string {
 		return channel.String()
 	}
 
-	return fmt.Sprintf(
-		"%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor,
-	)
+	return "latest/edge"
 }

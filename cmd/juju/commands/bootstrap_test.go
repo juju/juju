@@ -2428,23 +2428,11 @@ func (s *BootstrapSuite) TestBootstrapExplicitSnapPathBypassesImplicitBuild(c *t
 	}
 }
 
-// TestBootstrapBuildSnapIgnoredWithExplicitPath verifies that when both
-// --build-snap and --controller-snap-path are provided, --build-snap is
-// ignored and a warning is logged, and the explicit path is used.
-func (s *BootstrapSuite) TestBootstrapBuildSnapIgnoredWithExplicitPath(c *tc.C) {
+// TestBootstrapBuildSnapRejectedWithExplicitPath verifies that when both
+// --build-snap and --controller-snap-path are provided, the combination is
+// rejected because the artifact source must be unambiguous.
+func (s *BootstrapSuite) TestBootstrapBuildSnapRejectedWithExplicitPath(c *tc.C) {
 	s.patchVersion(c)
-	s.tw.Clear()
-
-	var gotArgs bootstrap.BootstrapParams
-	bootstrapFuncs := &fakeBootstrapFuncs{
-		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, args bootstrap.BootstrapParams) error {
-			gotArgs = args
-			return errors.New("test error")
-		},
-	}
-	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return bootstrapFuncs
-	})
 
 	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
@@ -2452,18 +2440,7 @@ func (s *BootstrapSuite) TestBootstrapBuildSnapIgnoredWithExplicitPath(c *tc.C) 
 		"--controller-snap-path", s.controllerSnapPath,
 		"--build-agent",
 	)
-	c.Assert(err, tc.Equals, cmd.ErrSilent)
-	c.Check(gotArgs.ControllerSnapPath, tc.Equals, s.controllerSnapPath)
-
-	// Verify the "ignoring --build-snap" warning.
-	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_._`, tc.Ignore)
-	c.Check(s.tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
-		Level:   loggo.WARNING,
-		Message: "ignoring --build-snap because --controller-snap-path is explicitly provided",
-	}})
+	c.Assert(err, tc.ErrorMatches, `--build-snap and --controller-snap-path cannot be used together`)
 }
 
 // TestBootstrapIAASNoSnapSourceDefaultsToStore verifies that an IAAS bootstrap
@@ -2552,6 +2529,24 @@ func (s *BootstrapSuite) TestBootstrapIAASRequiresBuildAgent(c *tc.C) {
 		"--controller-snap-path", s.controllerSnapPath,
 	)
 	c.Assert(err, tc.ErrorMatches, `--build-agent is required when --controller-snap-path.*`)
+}
+
+// TestBootstrapSnapPathRejectsAgentVersion verifies that
+// --controller-snap-path rejects an explicit --agent-version, because the
+// local snap is the version anchor. The Init-level check catches
+// --agent-version with --build-agent; this Run-level check catches
+// --agent-version without --build-agent (before the build-agent requirement
+// check fires).
+func (s *BootstrapSuite) TestBootstrapSnapPathRejectsAgentVersion(c *tc.C) {
+	s.patchVersion(c)
+
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--controller-snap-path", s.controllerSnapPath,
+		"--agent-version", "1.0.0",
+	)
+	c.Assert(err, tc.ErrorMatches,
+		`--agent-version cannot be used with a controller snap.*`)
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *tc.C) {

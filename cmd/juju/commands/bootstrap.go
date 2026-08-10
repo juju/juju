@@ -758,6 +758,16 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
+	isCAASController = jujucloud.CloudIsCAAS(cloud)
+	if isCAASController && (c.ControllerSnapPath != "" ||
+		c.ControllerSnapAssertPath != "" ||
+		!c.ControllerSnapChannel.Empty() ||
+		c.ControllerSnapRevision != "" ||
+		c.ControllerSnapStoreURL != "" ||
+		c.BuildSnap) {
+		return errors.NotSupportedf("controller-snap flags when bootstrapping a Kubernetes controller")
+	}
+
 	if bootstrapCfg.bootstrap.ControllerServiceType != "" ||
 		bootstrapCfg.bootstrap.ControllerExternalName != "" ||
 		len(bootstrapCfg.bootstrap.ControllerExternalIPs) > 0 {
@@ -766,11 +776,19 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	if !isCAASController {
-		// An explicit local path takes precedence over --build-snap (both are
-		// local modes; this combination is permitted and the path wins).
+		// --build-snap and --controller-snap-path are mutually exclusive
+		// local source modes; the artifact source must be unambiguous.
 		if c.BuildSnap && c.ControllerSnapPath != "" {
-			c.BuildSnap = false
-			ctx.Warningf("ignoring --build-snap because --controller-snap-path is explicitly provided")
+			return errors.New("--build-snap and --controller-snap-path cannot be used together")
+		}
+
+		// All snap source modes use the snap as the version anchor;
+		// --agent-version would silently detach the agent tools from the
+		// selected snap and is rejected for every mode that supplies a
+		// controller snap.
+		if (c.ControllerSnapPath != "" || c.BuildSnap) && c.AgentVersionParam != "" {
+			return errors.New("--agent-version cannot be used with a controller snap;" +
+				" the snap version is the authoritative bootstrap version")
 		}
 
 		// Determine the controller-snap source mode:
@@ -779,7 +797,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		//   - channel:      --controller-snap-channel
 		//   - pinned rev:   --controller-snap-revision
 		//   - default:      no snap source flag -> store channel mode,
-		//                    resolving the default <major>.<minor>/edge channel
+		//                    resolving the default latest/edge channel
 		isStoreMode := !c.ControllerSnapChannel.Empty() || c.ControllerSnapRevision != ""
 		isLocalBuild := c.BuildSnap
 		if !isStoreMode && !isLocalBuild && c.ControllerSnapPath == "" {

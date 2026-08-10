@@ -1144,7 +1144,7 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapPinnedRevision(c *tc.C) {
 		})
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(gotChannel, tc.Equals, fmt.Sprintf("%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor))
+	c.Assert(gotChannel, tc.Equals, "latest/edge")
 	c.Assert(gotRevision, tc.Equals, 42)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapExpectedVersion, tc.Equals, resolvedVersion.String())
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapRevision, tc.Equals, 42)
@@ -1171,9 +1171,9 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapStoreResolveFails(c *tc.C) {
 
 func (s *bootstrapSuite) TestBootstrapControllerSnapDefaultStoreMode(c *tc.C) {
 	// Store mode with an empty channel/revision resolves the default
-	// <major>.<minor>/edge channel via the store client.
+	// latest/edge channel via the store client.
 	resolvedVersion := jujuversion.Current.ToPatch()
-	defaultChannel := fmt.Sprintf("%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor)
+	defaultChannel := "latest/edge"
 
 	var gotChannel string
 	var gotRevision int
