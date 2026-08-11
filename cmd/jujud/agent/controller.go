@@ -432,9 +432,8 @@ type ControllerApplication struct {
 	upgradeDBLock         gate.Waiter
 	upgradeStepsLock      gate.Lock
 
-	// engineCreatorFunc creates the dependency engine worker.
-	// Defaults to makeEngineCreator in the production constructor;
-	// tests inject their own lightweight implementation.
+	// engineCreatorFunc creates the dependency engine worker. Tests inject
+	// their own lightweight implementation.
 	engineCreatorFunc func(string, semversion.Number, corelogger.LogSink) func(context.Context) (worker.Worker, error)
 }
 
@@ -530,13 +529,13 @@ func (a *ControllerApplication) Run(ctx *cmd.Context) (err error) {
 	createEngine := a.engineCreatorFunc(agentName, controllerRuntimeConfig.UpgradedToVersion(), logSink)
 	_ = a.runner.StartWorker(ctx, "engine", createEngine)
 
-	// At this point, all workers will have been configured to start.
-	close(a.workersStarted)
-
 	// Register a SIGTERM handler so snapd's normal service-stop signal
 	// triggers the controller's graceful in-process shutdown. On SIGTERM
 	// the runner is killed, causing workers to drain and the process to
 	// exit cleanly rather than being forcibly terminated.
+	// This must happen before workersStarted is closed so that tests
+	// waiting on that channel can safely deliver SIGTERM without racing
+	// against signal.Notify registration.
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM)
 	defer signal.Stop(sigCh)
@@ -551,6 +550,9 @@ func (a *ControllerApplication) Run(ctx *cmd.Context) (err error) {
 		case <-a.dead:
 		}
 	}()
+
+	// At this point, all workers will have been configured to start.
+	close(a.workersStarted)
 
 	err = a.runner.Wait()
 
