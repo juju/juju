@@ -68,10 +68,8 @@ type CommitHookState interface {
 // persisted secrets. Grants for secrets created in the same hook commit are
 // resolved from the incoming create arguments instead.
 type SecretGrantAuthorizer interface {
-	// CheckSecretManageAccess verifies the unit has RoleManage access on
-	// the given secret, including app-owned secrets if the unit is the
-	// leader. Returns an error satisfying [secreterrors.PermissionDenied]
-	// if access is denied.
+	// CheckSecretManageAccess verifies the unit has RoleManage access on the
+	// given secret, including app-owned secrets if the unit is the leader.
 	CheckSecretManageAccess(ctx context.Context, uri *coresecrets.URI, unitName coreunit.Name) error
 
 	// GetSecretOwnerKinds returns the owner kind for each of the given

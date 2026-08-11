@@ -3655,6 +3655,8 @@ func (s *commitHookChangesSuite) TestCommitHookChangesGrantSecrets(c *tc.C) {
 
 	uri := coresecrets.NewURI()
 
+	s.unitStateService.EXPECT().ResolveSecretGrantOwners(gomock.Any(), unitName, nil, []*coresecrets.URI{uri}).
+		Return(map[string]domainsecret.CharmSecretOwnerKind{uri.ID: domainsecret.UnitCharmSecretOwner}, nil)
 	s.secretService.EXPECT().ResolveGrantParams(gomock.Any(), []domainsecret.SecretAccessParams{{
 		Accessor: domainsecret.SecretAccessor{Kind: domainsecret.UnitAccessor, ID: "wordpress/0"},
 		Scope:    domainsecret.SecretAccessScope{Kind: domainsecret.RelationAccessScope, ID: "one:db two:use"},

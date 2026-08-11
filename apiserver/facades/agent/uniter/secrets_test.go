@@ -29,9 +29,10 @@ type UniterSecretsSuite struct {
 
 	authorizer *facademocks.MockAuthorizer
 
-	secretService *MockSecretService
-	authTag       names.Tag
-	clock         clock.Clock
+	secretService    *MockSecretService
+	unitStateService *MockUnitStateService
+	authTag          names.Tag
+	clock            clock.Clock
 
 	facade *UniterAPI
 }
@@ -52,12 +53,13 @@ func (s *UniterSecretsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 
 	s.secretService = NewMockSecretService(ctrl)
+	s.unitStateService = NewMockUnitStateService(ctrl)
 	s.expectAuthUnitAgent()
 
 	s.clock = testclock.NewClock(time.Now())
 
 	var err error
-	s.facade, err = NewTestAPI(c, s.authorizer, s.secretService, nil, s.clock)
+	s.facade, err = NewTestAPI(c, s.authorizer, s.secretService, nil, s.unitStateService, s.clock)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
@@ -588,9 +590,10 @@ func (s *UniterSecretsSuite) TestResolveSecretOwnerKindsFiltersDisappeared(c *tc
 func (s *UniterSecretsSuite) TestPrepareSecretGrantsInvalidRole(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	unitName := unittesting.GenNewName(c, "mariadb/0")
 	uri := coresecrets.NewURI()
 
-	_, err := s.facade.prepareSecretGrants(c.Context(), []params.GrantRevokeSecretArg{{
+	_, err := s.facade.prepareSecretGrants(c.Context(), unitName, nil, []params.GrantRevokeSecretArg{{
 		URI:         uri.String(),
 		ScopeTag:    names.NewRelationTag("one:db two:use").String(),
 		SubjectTags: []string{names.NewApplicationTag("two").String()},
@@ -602,9 +605,11 @@ func (s *UniterSecretsSuite) TestPrepareSecretGrantsInvalidRole(c *tc.C) {
 func (s *UniterSecretsSuite) TestPrepareSecretGrantsMultipleSubjectsPartialFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	unitName := unittesting.GenNewName(c, "mariadb/0")
 	uri := coresecrets.NewURI()
 
-	// Both subjects resolved in one call: first succeeds, second fails.
+	s.unitStateService.EXPECT().ResolveSecretGrantOwners(gomock.Any(), unitName, nil, []*coresecrets.URI{uri}).
+		Return(map[string]secret.CharmSecretOwnerKind{uri.ID: secret.UnitCharmSecretOwner}, nil)
 	s.secretService.EXPECT().ResolveGrantParams(gomock.Any(), gomock.Any()).
 		Return([]secret.GrantResult{
 			{GrantParams: secret.GrantParams{SubjectUUID: "uuid-1", SubjectTypeID: secret.SubjectApplication,
@@ -612,7 +617,7 @@ func (s *UniterSecretsSuite) TestPrepareSecretGrantsMultipleSubjectsPartialFailu
 			{Error: errors.New("resolve boom")},
 		})
 
-	_, err := s.facade.prepareSecretGrants(c.Context(), []params.GrantRevokeSecretArg{{
+	_, err := s.facade.prepareSecretGrants(c.Context(), unitName, nil, []params.GrantRevokeSecretArg{{
 		URI:         uri.String(),
 		ScopeTag:    names.NewRelationTag("one:db two:use").String(),
 		SubjectTags: []string{names.NewApplicationTag("app1").String(), names.NewApplicationTag("app2").String()},
@@ -624,16 +629,22 @@ func (s *UniterSecretsSuite) TestPrepareSecretGrantsMultipleSubjectsPartialFailu
 func (s *UniterSecretsSuite) TestPrepareSecretGrantsMultiple(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	unitName := unittesting.GenNewName(c, "mariadb/0")
 	uri1 := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 
+	s.unitStateService.EXPECT().ResolveSecretGrantOwners(gomock.Any(), unitName, nil, gomock.Any()).
+		Return(map[string]secret.CharmSecretOwnerKind{
+			uri1.ID: secret.ApplicationCharmSecretOwner,
+			uri2.ID: secret.UnitCharmSecretOwner,
+		}, nil)
 	s.secretService.EXPECT().ResolveGrantParams(gomock.Any(), gomock.Any()).
 		Return([]secret.GrantResult{{GrantParams: secret.GrantParams{
 			SubjectUUID: "uuid-1", SubjectTypeID: secret.SubjectApplication,
 			ScopeUUID: "scope-1", ScopeTypeID: secret.ScopeApplication, RoleID: secret.RoleView,
 		}}}).Times(2)
 
-	result, err := s.facade.prepareSecretGrants(c.Context(), []params.GrantRevokeSecretArg{
+	result, err := s.facade.prepareSecretGrants(c.Context(), unitName, nil, []params.GrantRevokeSecretArg{
 		{URI: uri1.String(), ScopeTag: names.NewApplicationTag("app1").String(),
 			SubjectTags: []string{names.NewApplicationTag("app1").String()}, Role: "view"},
 		{URI: uri2.String(), ScopeTag: names.NewApplicationTag("app1").String(),
@@ -648,14 +659,17 @@ func (s *UniterSecretsSuite) TestPrepareSecretGrantsMultiple(c *tc.C) {
 func (s *UniterSecretsSuite) TestPrepareSecretGrantsSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	unitName := unittesting.GenNewName(c, "mariadb/0")
 	uri := coresecrets.NewURI()
 
+	s.unitStateService.EXPECT().ResolveSecretGrantOwners(gomock.Any(), unitName, nil, []*coresecrets.URI{uri}).
+		Return(map[string]secret.CharmSecretOwnerKind{uri.ID: secret.UnitCharmSecretOwner}, nil)
 	s.secretService.EXPECT().ResolveGrantParams(gomock.Any(), gomock.Any()).
 		Return([]secret.GrantResult{{GrantParams: secret.GrantParams{
 			SubjectUUID: "uuid-app", SubjectTypeID: secret.SubjectApplication,
 			ScopeUUID: "scope-rel", ScopeTypeID: secret.ScopeRelation, RoleID: secret.RoleView,
 		}}})
-	result, err := s.facade.prepareSecretGrants(c.Context(), []params.GrantRevokeSecretArg{{
+	result, err := s.facade.prepareSecretGrants(c.Context(), unitName, nil, []params.GrantRevokeSecretArg{{
 		URI:         uri.String(),
 		ScopeTag:    names.NewRelationTag("one:db two:use").String(),
 		SubjectTags: []string{names.NewApplicationTag("two").String()},

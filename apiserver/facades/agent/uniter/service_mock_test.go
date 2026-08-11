@@ -22,6 +22,7 @@ import (
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	relation "github.com/juju/juju/core/relation"
+	secrets "github.com/juju/juju/core/secrets"
 	status "github.com/juju/juju/core/status"
 	storage "github.com/juju/juju/core/storage"
 	unit "github.com/juju/juju/core/unit"
@@ -37,6 +38,7 @@ import (
 	relation0 "github.com/juju/juju/domain/relation"
 	removal "github.com/juju/juju/domain/removal"
 	resolve "github.com/juju/juju/domain/resolve"
+	secret "github.com/juju/juju/domain/secret"
 	storage0 "github.com/juju/juju/domain/storage"
 	storageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	service0 "github.com/juju/juju/domain/tracing/service"
@@ -2112,10 +2114,11 @@ type MockUnitStateService struct {
 
 // MockUnitStateServiceMockRecorder is the mock recorder for MockUnitStateService.
 type MockUnitStateServiceMockRecorder struct {
-	mock                     *MockUnitStateService
-	commitHookChangesExpects []*gomock.Call2_1[context.Context, unitstate.CommitHookChangesArg, error]
-	getStateExpects          []*gomock.Call2_2[context.Context, unit.Name, unitstate.RetrievedUnitState, error]
-	setStateExpects          []*gomock.Call2_1[context.Context, unitstate.UnitState, error]
+	mock                            *MockUnitStateService
+	commitHookChangesExpects        []*gomock.Call2_1[context.Context, unitstate.CommitHookChangesArg, error]
+	getStateExpects                 []*gomock.Call2_2[context.Context, unit.Name, unitstate.RetrievedUnitState, error]
+	resolveSecretGrantOwnersExpects []*gomock.Call4_2[context.Context, unit.Name, []unitstate.CreateSecretArg, []*secrets.URI, map[string]secret.CharmSecretOwnerKind, error]
+	setStateExpects                 []*gomock.Call2_1[context.Context, unitstate.UnitState, error]
 }
 
 // NewMockUnitStateService creates a new mock instance.
@@ -2165,6 +2168,24 @@ func (mr *MockUnitStateServiceMockRecorder) GetState(ctx, uuid any) *MockUnitSta
 
 // MockUnitStateServiceGetStateCall is the typed call wrapper for GetState.
 type MockUnitStateServiceGetStateCall = gomock.Call2_2[context.Context, unit.Name, unitstate.RetrievedUnitState, error]
+
+// ResolveSecretGrantOwners mocks base method.
+func (m *MockUnitStateService) ResolveSecretGrantOwners(ctx context.Context, unitName unit.Name, creates []unitstate.CreateSecretArg, grantURIs []*secrets.URI) (map[string]secret.CharmSecretOwnerKind, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4_2(&m.recorder.resolveSecretGrantOwnersExpects, m.ctrl, m, "ResolveSecretGrantOwners", ctx, unitName, creates, grantURIs)
+}
+
+// ResolveSecretGrantOwners indicates an expected call of ResolveSecretGrantOwners.
+func (mr *MockUnitStateServiceMockRecorder) ResolveSecretGrantOwners(ctx, unitName, creates, grantURIs any) *MockUnitStateServiceResolveSecretGrantOwnersCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall4_2[context.Context, unit.Name, []unitstate.CreateSecretArg, []*secrets.URI, map[string]secret.CharmSecretOwnerKind, error](mr.mock.ctrl.T, mr.mock, "ResolveSecretGrantOwners", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitName), gomock.EnsureMatcher(creates), gomock.EnsureMatcher(grantURIs))
+	mr.resolveSecretGrantOwnersExpects = append(mr.resolveSecretGrantOwnersExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockUnitStateServiceResolveSecretGrantOwnersCall is the typed call wrapper for ResolveSecretGrantOwners.
+type MockUnitStateServiceResolveSecretGrantOwnersCall = gomock.Call4_2[context.Context, unit.Name, []unitstate.CreateSecretArg, []*secrets.URI, map[string]secret.CharmSecretOwnerKind, error]
 
 // SetState mocks base method.
 func (m *MockUnitStateService) SetState(arg0 context.Context, arg1 unitstate.UnitState) error {

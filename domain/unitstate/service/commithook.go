@@ -57,12 +57,6 @@ func (s *LeadershipService) CommitHookChanges(ctx context.Context, arg unitstate
 		return errors.Capture(err)
 	}
 
-	secretGrants, err := s.prepareSecretGrants(ctx, arg.UnitName, arg.SecretCreates, arg.SecretGrants)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	arg.SecretGrants = secretGrants
-
 	// Pre-compute secret updates outside the transaction because
 	// AddSecretBackendReference writes to the controller DB (a separate
 	// DQLite database from the model DB), so it cannot run inside a model
@@ -115,16 +109,19 @@ func (s *LeadershipService) CommitHookChanges(ctx context.Context, arg unitstate
 	return nil
 }
 
-// prepareSecretGrants authorizes grants for persisted secrets and resolves
-// their owner kinds. A secret created in this hook has no persisted metadata
-// yet, so its incoming create argument provides both facts instead.
-func (s *LeadershipService) prepareSecretGrants(
+// ResolveSecretGrantOwners returns the owner kind for each granted URI
+// that survives authorization. A grant whose URI matches an incoming
+// secret create is always accepted, with ownership derived from the
+// creates argument. For persisted secrets the caller must have manage
+// access; a concurrently removed secret is silently omitted. The map
+// only contains entries for grants that should be performed.
+func (s *LeadershipService) ResolveSecretGrantOwners(
 	ctx context.Context,
 	unitName coreunit.Name,
 	creates []unitstate.CreateSecretArg,
-	grants []unitstate.GrantSecretArg,
-) ([]unitstate.GrantSecretArg, error) {
-	if len(grants) == 0 {
+	grantURIs []*coresecrets.URI,
+) (map[string]domainsecret.CharmSecretOwnerKind, error) {
+	if len(grantURIs) == 0 {
 		return nil, nil
 	}
 
@@ -136,60 +133,42 @@ func (s *LeadershipService) prepareSecretGrants(
 		createdOwnerKinds[create.URI.ID] = create.CharmOwner.Kind
 	}
 
-	candidates := make([]unitstate.GrantSecretArg, 0, len(grants))
-	persistedURIs := make([]*coresecrets.URI, 0, len(grants))
+	result := make(map[string]domainsecret.CharmSecretOwnerKind, len(grantURIs))
+	persistedURIs := make([]*coresecrets.URI, 0, len(grantURIs))
 	var grantErrs []error
-	for _, grant := range grants {
-		if ownerKind, ok := createdOwnerKinds[grant.URI.ID]; ok {
-			grant.OwnerKind = ownerKind
-			candidates = append(candidates, grant)
+	for _, uri := range grantURIs {
+		if ownerKind, ok := createdOwnerKinds[uri.ID]; ok {
+			result[uri.ID] = ownerKind
 			continue
 		}
 
-		if err := s.secretGrantAuthorizer.CheckSecretManageAccess(ctx, grant.URI, unitName); err != nil {
+		if err := s.secretGrantAuthorizer.CheckSecretManageAccess(ctx, uri, unitName); err != nil {
 			if errors.Is(err, secreterrors.SecretNotFound) {
-				s.logger.Infof(ctx, "secret %q no longer exists, skipping grant", grant.URI)
+				s.logger.Infof(ctx, "secret %q no longer exists, skipping grant", uri)
 				continue
 			}
 			grantErrs = append(grantErrs, err)
 			continue
 		}
 
-		candidates = append(candidates, grant)
-		persistedURIs = append(persistedURIs, grant.URI)
+		persistedURIs = append(persistedURIs, uri)
 	}
 	if len(grantErrs) > 0 {
 		return nil, errors.Errorf("granting secrets access: %w", errors.Join(grantErrs...))
 	}
 	if len(persistedURIs) == 0 {
-		return candidates, nil
+		return result, nil
 	}
 
 	ownerInfos, err := s.secretGrantAuthorizer.GetSecretOwnerKinds(ctx, persistedURIs)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	ownerKinds := make(map[string]domainsecret.CharmSecretOwnerKind, len(ownerInfos))
 	for _, ownerInfo := range ownerInfos {
-		ownerKinds[ownerInfo.SecretID] = ownerInfo.OwnerKind
+		result[ownerInfo.SecretID] = ownerInfo.OwnerKind
 	}
 
-	filtered := candidates[:0]
-	for _, grant := range candidates {
-		if _, ok := createdOwnerKinds[grant.URI.ID]; ok {
-			filtered = append(filtered, grant)
-			continue
-		}
-
-		ownerKind, ok := ownerKinds[grant.URI.ID]
-		if !ok {
-			// The secret disappeared between the access and ownership queries.
-			continue
-		}
-		grant.OwnerKind = ownerKind
-		filtered = append(filtered, grant)
-	}
-	return filtered, nil
+	return result, nil
 }
 
 func (s *LeadershipService) getManagementCaveat(
