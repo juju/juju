@@ -31,7 +31,7 @@ func (s *configSuite) TestValidateSnapConfigOverlay_SingleUnsupported(c *tc.C) {
 		"query-tracing-threshold": "100ms",
 	}
 	err := controllerruntimeconfig.ValidateSnapConfigOverlay(vals)
-	c.Assert(err, tc.ErrorMatches, `.*cannot apply snap config: 1 unsupported key.*not supported through snap set in Phase 1.*`)
+	c.Assert(err, tc.ErrorMatches, `.*cannot apply snap config: 1 unsupported key.*not supported through snap set.*`)
 }
 
 func (s *configSuite) TestValidateSnapConfigOverlay_MultipleUnsupported(c *tc.C) {
@@ -41,7 +41,7 @@ func (s *configSuite) TestValidateSnapConfigOverlay_MultipleUnsupported(c *tc.C)
 		"agent-logfile-max-size-mb": "64",
 	}
 	err := controllerruntimeconfig.ValidateSnapConfigOverlay(vals)
-	c.Assert(err, tc.ErrorMatches, `.*cannot apply snap config: 3 unsupported key.*not supported through snap set in Phase 1.*`)
+	c.Assert(err, tc.ErrorMatches, `.*cannot apply snap config: 3 unsupported key.*not supported through snap set.*`)
 }
 
 func (s *configSuite) TestValidateSnapConfigOverlay_MixedSupportedAndUnsupported(c *tc.C) {
@@ -51,7 +51,7 @@ func (s *configSuite) TestValidateSnapConfigOverlay_MixedSupportedAndUnsupported
 		"agent-logfile-max-backups": "10",
 	}
 	err := controllerruntimeconfig.ValidateSnapConfigOverlay(vals)
-	c.Assert(err, tc.ErrorMatches, `.*cannot apply snap config: 2 unsupported key.*not supported through snap set in Phase 1.*`)
+	c.Assert(err, tc.ErrorMatches, `.*cannot apply snap config: 2 unsupported key.*not supported through snap set.*`)
 }
 
 func (s *configSuite) TestValidateSnapConfigOverlay_UnknownKey(c *tc.C) {
@@ -59,7 +59,7 @@ func (s *configSuite) TestValidateSnapConfigOverlay_UnknownKey(c *tc.C) {
 		"frobnicate": "1",
 	}
 	err := controllerruntimeconfig.ValidateSnapConfigOverlay(vals)
-	c.Assert(err, tc.ErrorMatches, `.*cannot apply snap config: 1 unsupported key.*not supported through snap set in Phase 1.*`)
+	c.Assert(err, tc.ErrorMatches, `.*cannot apply snap config: 1 unsupported key.*not supported through snap set.*`)
 }
 
 func (s *configSuite) TestApplySnapConfigOverlay_MutatesLoggingOverride(c *tc.C) {
