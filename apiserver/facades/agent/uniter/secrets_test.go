@@ -602,6 +602,26 @@ func (s *UniterSecretsSuite) TestPrepareSecretGrantsInvalidRole(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `secret role "bad-role" not valid`)
 }
 
+func (s *UniterSecretsSuite) TestPrepareSecretGrantsFiltersBeforeResolvingSubjects(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "mariadb/0")
+	uri := coresecrets.NewURI()
+
+	s.unitStateService.EXPECT().ResolveSecretGrantOwners(
+		gomock.Any(), unitName, nil, []*coresecrets.URI{uri},
+	).Return(nil, nil)
+
+	result, err := s.facade.prepareSecretGrants(c.Context(), unitName, nil, []params.GrantRevokeSecretArg{{
+		URI:         uri.String(),
+		ScopeTag:    names.NewRelationTag("one:db two:use").String(),
+		SubjectTags: []string{names.NewApplicationTag("two").String()},
+		Role:        "view",
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.HasLen, 0)
+}
+
 func (s *UniterSecretsSuite) TestPrepareSecretGrantsMultipleSubjectsPartialFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
