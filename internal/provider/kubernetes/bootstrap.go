@@ -1329,6 +1329,14 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		return nil, errors.Trace(err)
 	}
 
+	enableServiceLinks := true
+	brokerCfg := c.broker.Config()
+	if v, ok := brokerCfg.AllAttrs()[EnableServiceLinksKey]; ok {
+		if b, ok := v.(bool); ok {
+			enableServiceLinks = b
+		}
+	}
+
 	controllerApp := application.NewApplication(
 		environsbootstrap.ControllerApplicationName,
 		c.broker.namespace,
@@ -1342,6 +1350,7 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		c.broker.newWatcher,
 		c.broker.clock,
 		c.broker.controllerUUID,
+		enableServiceLinks,
 	)
 
 	defaultBase := version.DefaultSupportedLTSBase()

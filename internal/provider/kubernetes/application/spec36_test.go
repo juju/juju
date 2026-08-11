@@ -21,6 +21,7 @@ func getPodSpec36() corev1.PodSpec {
 		AutomountServiceAccountToken:  pointer.BoolPtr(true),
 		ImagePullSecrets:              []corev1.LocalObjectReference{{Name: "gitlab-nginx-secret"}},
 		TerminationGracePeriodSeconds: pointer.Int64Ptr(30),
+		EnableServiceLinks:            pointer.Bool(true),
 		SecurityContext: &corev1.PodSecurityContext{
 			FSGroup:            new(int64(170)),
 			SupplementalGroups: []int64{170},

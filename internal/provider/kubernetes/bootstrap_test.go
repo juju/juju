@@ -506,6 +506,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 					ServiceAccountName:            "controller",
 					AutomountServiceAccountToken:  pointer.Bool(true),
 					TerminationGracePeriodSeconds: new(int64(30)),
+					EnableServiceLinks:            pointer.Bool(true),
 					SecurityContext: &core.PodSecurityContext{
 						SupplementalGroups: []int64{170},
 						FSGroup:            pointer.Int64(170),

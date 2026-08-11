@@ -155,7 +155,6 @@ func newK8sBroker(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	modelUUID := newCfg.UUID()
 	if modelUUID == "" {
 		return nil, errors.NotValidf("modelUUID is required")

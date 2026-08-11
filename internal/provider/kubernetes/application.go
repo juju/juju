@@ -10,6 +10,15 @@ import (
 
 // Application returns an Application interface.
 func (k *kubernetesClient) Application(name string, deploymentType caas.DeploymentType) caas.Application {
+	enableServiceLinks := true
+	k.lock.Lock()
+	if v, ok := k.envCfgUnlocked.AllAttrs()[EnableServiceLinksKey]; ok {
+		if b, ok := v.(bool); ok {
+			enableServiceLinks = b
+		}
+	}
+	k.lock.Unlock()
+
 	return application.NewApplication(name,
 		k.Namespace(),
 		k.ModelUUID(),
@@ -22,5 +31,6 @@ func (k *kubernetesClient) Application(name string, deploymentType caas.Deployme
 		k.newWatcher,
 		k.clock,
 		k.controllerUUID,
+		enableServiceLinks,
 	)
 }

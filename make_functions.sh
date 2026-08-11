@@ -127,6 +127,7 @@ build_push_operator_image() {
             output="-o type=docker"
         fi
         BUILDX_NO_DEFAULT_ATTESTATIONS=true DOCKER_BUILDKIT=1 "$DOCKER_BIN" buildx build \
+            --no-cache \
             --builder "$DOCKER_BUILDX_CONTEXT" \
             -f "${WORKDIR}/Dockerfile" \
             -t "$(operator_image_path)" \
