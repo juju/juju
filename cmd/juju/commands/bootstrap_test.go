@@ -2477,6 +2477,29 @@ func (s *BootstrapSuite) TestBootstrapIAASNoSnapSourceDefaultsToStore(c *tc.C) {
 	c.Check(gotArgs.BuildAgent, tc.Equals, false)
 }
 
+// TestBootstrapDefaultStoreModeRejectsAgentVersion verifies that the default
+// store mode (no explicit snap flags) rejects --agent-version and
+// --auto-upgrade. Init's isStoreMode requires explicit channel/revision flags
+// and does not fire for the default case; the rejection must occur in Run
+// after the default store mode is determined.
+func (s *BootstrapSuite) TestBootstrapDefaultStoreModeRejectsAgentVersion(c *tc.C) {
+	s.patchVersion(c)
+
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--agent-version", "1.0.0",
+	)
+	c.Assert(err, tc.ErrorMatches,
+		`--agent-version and --auto-upgrade cannot be used with a store-based controller snap.*`)
+
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--auto-upgrade",
+	)
+	c.Assert(err, tc.ErrorMatches,
+		`--agent-version and --auto-upgrade cannot be used with a store-based controller snap.*`)
+}
+
 // TestBootstrapBuildSnapWithAssertPathNoSnapPath verifies that
 // --controller-snap-assert-path requires --controller-snap-path when used
 // with --build-snap without an explicit snap path.

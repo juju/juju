@@ -769,6 +769,31 @@ snap install --dangerous %[1]s`,
 	c.Check(allScripts, tc.Not(tc.Contains), "agents/controller-0/agent.conf")
 }
 
+// TestCloudInitWithLocalControllerSnapAndExpectedVersion verifies that the
+// dangerous install path includes a ControllerSnapExpectedVersion shell check
+// when the expected version is set.
+func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapAndExpectedVersion(c *tc.C) {
+	snapContent := []byte("fake snap binary content")
+	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
+	err := os.WriteFile(snapPath, snapContent, 0644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cfg := makeBootstrapConfig(jammy, 0).mutate(func(cfg *testInstanceConfig) {
+		cfg.Bootstrap.ControllerSnapExpectedVersion = "4.0.1"
+		cfg.Bootstrap.ControllerSnapPath = snapPath
+	})
+	base64Content := base64.StdEncoding.EncodeToString(snapContent)
+	snapFile := fmt.Sprintf("/var/lib/juju/snap/%s", bootstrap.ControllerSnapArchive)
+
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`install -D -m 644 /dev/null '%s'
+echo -n %s | base64 -d > '%[1]s'
+snap install --dangerous %[1]s
+installed_version=$(snap list 'jujud' | awk 'NR>1 {print $2; exit}'); test "$installed_version" = '4.0.1' || (echo "controller snap version mismatch: expected '4.0.1', got $installed_version"; exit 1)`,
+		snapFile, base64Content,
+	))
+	checkCloudInitWithContent(c, cfg, expectedScripts, "")
+}
+
 func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapAndCharm(c *tc.C) {
 	snapContent := []byte("fake snap binary content")
 	dir := c.MkDir()

@@ -809,7 +809,7 @@ func (w *userdataConfig) addControllerSnapInstall() error {
 			))
 			w.conf.AddRunCmd(fmt.Sprintf(
 				`installed_version=$(snap list %s | awk 'NR>1 {print $2; exit}'); test "$installed_version" = %s || (echo "controller snap version mismatch: expected %s, got $installed_version"; exit 1)`,
-				shquote(bootstrap.ControllerSnapPackageName), shquote(expected), expected,
+				shquote(bootstrap.ControllerSnapPackageName), shquote(expected), shquote(expected),
 			))
 		}
 	} else {
@@ -822,7 +822,7 @@ func (w *userdataConfig) addControllerSnapInstall() error {
 			))
 			w.conf.AddRunCmd(fmt.Sprintf(
 				`installed_version=$(snap list %s | awk 'NR>1 {print $2; exit}'); test "$installed_version" = %s || (echo "controller snap version mismatch: expected %s, got $installed_version"; exit 1)`,
-				shquote(bootstrap.ControllerSnapPackageName), shquote(expected), expected,
+				shquote(bootstrap.ControllerSnapPackageName), shquote(expected), shquote(expected),
 			))
 		}
 	}
