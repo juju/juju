@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -166,6 +167,40 @@ func (s *cleanupInternalSuite) TestCleanupEvacuateDyingMachineWithoutForceIsNoOp
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Refresh(), jc.ErrorIsNil)
 	c.Check(machine.Life(), gc.Equals, Dying)
+}
+
+func (s *cleanupInternalSuite) TestCleanupContainersWaitsForDyingContainerWithoutForce(c *gc.C) {
+	st := s.newState(c)
+	parent, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	child, err := st.AddMachineInsideMachine(MachineTemplate{
+		Base: UbuntuBase("12.10"),
+		Jobs: []MachineJob{JobHostUnits},
+	}, parent.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(child.Destroy(), jc.ErrorIsNil)
+	c.Assert(parent.DestroyWithParams(false, true, 0), jc.ErrorIsNil)
+
+	err = st.cleanupEvacuateMachineInternal(parent.Id(), false, 0)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+		"waiting for container %s to be removed from %s",
+		child.Id(), parent.Id(),
+	))
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	AssertEvacuateMachineCleanupParams(c, st, parent.Id(), false, 0)
+	c.Assert(parent.Refresh(), jc.ErrorIsNil)
+	c.Check(parent.Life(), gc.Equals, Alive)
+	c.Assert(child.Refresh(), jc.ErrorIsNil)
+	c.Check(child.Life(), gc.Equals, Dying)
+
+	c.Assert(child.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	c.Assert(child.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(parent.Refresh(), jc.ErrorIsNil)
+	c.Check(parent.Life(), gc.Equals, Dead)
+	needsCleanup, err := st.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(needsCleanup, jc.IsFalse)
 }
 
 type internalStatePolicy struct{}

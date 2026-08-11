@@ -1546,8 +1546,9 @@ func (st *State) cleanupEvacuateMachineInternal(machineId string, force bool, ma
 	return errors.Errorf("waiting for units to be removed from %s", machineId)
 }
 
-// cleanupContainers recursively cleans up the supplied machine's containers
-// and removes them from state.
+// cleanupContainers recursively cleans up and removes the supplied machine's containers.
+// If a container has Dying units or is itself Dying while waiting for the provisioner to mark it Dead,
+// the method returns a "waiting" error so the parent cleanup is retried without calling container.Remove().
 func (st *State) cleanupContainers(machine *Machine, force bool, maxWait time.Duration) error {
 	containerIds, err := machine.Containers()
 	if errors.IsNotFound(err) {
@@ -1566,6 +1567,12 @@ func (st *State) cleanupContainers(machine *Machine, force bool, maxWait time.Du
 			continue
 		} else if err != nil {
 			return err
+		}
+		if container.Life() != Dead {
+			return errors.Errorf(
+				"waiting for container %s to be removed from %s",
+				containerId, machine.Id(),
+			)
 		}
 		if err := container.Remove(); err != nil {
 			return err
