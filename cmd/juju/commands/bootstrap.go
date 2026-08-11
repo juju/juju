@@ -807,6 +807,13 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 
 		if isStoreMode {
+			// The default-store case (no explicit snap flags) is
+			// determined here; Init only rejects --agent-version and
+			// --auto-upgrade for explicit channel/revision inputs.
+			if c.AgentVersionParam != "" || c.AutoUpgrade {
+				return errors.New("--agent-version and --auto-upgrade cannot be used with a store-based controller snap;" +
+					" the snap version is the authoritative bootstrap version")
+			}
 			c.ControllerSnapStoreMode = true
 		} else if isLocalBuild {
 			ctx.Infof("Building controller snap from local source...")
