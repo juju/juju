@@ -845,7 +845,8 @@ func (s *cloudinitSuite) TestCloudInitWithSnapStoreControllerSnapDownloadsRevisi
 mkdir -p '/var/lib/juju/snap'
 (cd '/var/lib/juju/snap' && snap download 'jujud' --revision=42 --basename='jujud')
 snap ack '/var/lib/juju/snap/jujud.assert'
-snap install '/var/lib/juju/snap/jujud.snap'`))
+snap install '/var/lib/juju/snap/jujud.snap'
+installed_version=$(snap list 'jujud' | awk 'NR>1 {print $2; exit}'); test "$installed_version" = '4.0.1' || (echo "controller snap version mismatch: expected 4.0.1, got $installed_version"; exit 1`))
 	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 
 	// The downloaded revision must be installed from the file, and the
