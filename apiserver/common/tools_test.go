@@ -6,6 +6,8 @@ package common_test
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"path"
 	"strings"
 	"testing"
 
@@ -345,4 +347,36 @@ func (s *getUrlSuite) TestToolsURLGetter(c *tc.C) {
 	c.Assert(urls, tc.DeepEquals, []string{
 		"https://0.1.2.3:1234/model/my-uuid/tools/" + current.String(),
 	})
+}
+
+// TestToolsURLGetterPlusInPathSegment asserts that a "+" in the version string
+// is emitted literally in the tools URL path.
+func (s *getUrlSuite) TestToolsURLGetterPlusInPathSegment(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	addrs := []string{"0.1.2.3:1234"}
+	s.apiHostPortsGetter.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs, nil)
+
+	// Release is stored verbatim on Binary, so it can carry a "+" directly.
+	vers := semversion.Binary{
+		Number:  semversion.MustParse("4.0.0"),
+		Release: "ubuntu+lts",
+		Arch:    "amd64",
+	}
+	c.Assert(vers.String(), tc.Equals, "4.0.0-ubuntu+lts-amd64")
+
+	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
+	urls, err := g.ToolsURLs(c.Context(), vers)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(urls, tc.HasLen, 1)
+
+	c.Check(urls[0], tc.Equals,
+		"https://0.1.2.3:1234/model/my-uuid/tools/4.0.0-ubuntu+lts-amd64")
+	// Query-style encoding would have produced "%2B" here.
+	c.Check(strings.Contains(urls[0], "%2B"), tc.IsFalse)
+
+	// A client parsing the URL must recover the exact version string.
+	parsed, err := url.Parse(urls[0])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(path.Base(parsed.Path), tc.Equals, vers.String())
 }
