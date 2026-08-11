@@ -54,8 +54,10 @@ fi
 
 temp_dir=/tmp
 if [[ "${client}" == "/snap/bin/juju-db.mongo" ]]; then
-	temp_dir=/var/snap/juju-db/common
+	temp_dir=/var/snap/juju-db/common/tmp
+	sudo mkdir -p "${temp_dir}"
 fi
+# These must be set before the EXIT trap so nounset does not abort cleanup.
 user_file=""
 password_file=""
 cleanup() {
@@ -73,8 +75,8 @@ trap '{ set +ex; } 2>/dev/null; cleanup' EXIT
 user_file=$(sudo mktemp -p "${temp_dir}" mongo-user.XXXXXX)
 password_file=$(sudo mktemp -p "${temp_dir}" mongo-password.XXXXXX)
 
-sudo awk '/^tag:/ {print $2}' ${conf} | sudo tee "${user_file}" >/dev/null
-sudo awk '/^statepassword:/ {print $2}' ${conf} | sudo tee "${password_file}" >/dev/null
+sudo cat ${conf} | awk '/^tag:/ {print $2}' | sudo tee "${user_file}" >/dev/null
+sudo cat ${conf} | awk '/^statepassword:/ {print $2}' | sudo tee "${password_file}" >/dev/null
 sudo chown root:root "${user_file}" "${password_file}"
 sudo chmod 600 "${user_file}" "${password_file}"
 if ! sudo test -s "${user_file}"; then
@@ -85,6 +87,7 @@ if ! sudo test -s "${password_file}"; then
 	echo "statepassword not found in ${conf}"
 	exit 2
 fi
+# This depends on the legacy mongo shell's cat() helper.
 mongo_auth_js="if (!db.getSiblingDB(\"admin\").auth(cat(\"${user_file}\").trim(), cat(\"${password_file}\").trim())) { print(\"mongo authentication failed\"); quit(3); }"
 
 set -x
