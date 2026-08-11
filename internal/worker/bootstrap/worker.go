@@ -473,41 +473,6 @@ func (w *bootstrapWorker) initAPIHostPorts(ctx context.Context, controllerConfig
 	return w.cfg.ControllerNodeService.SetAPIAddresses(ctx, args)
 }
 
-// We filter the collection of API addresses based on the configured
-// management space for the controller.
-// If there is no space configured, or if one of the slices is filtered down
-// to zero elements, just use the unfiltered slice for safety - we do not
-// want to cut off communication to the controller based on erroneous config.
-func (w *bootstrapWorker) filterHostPortsForManagementSpace(
-	ctx context.Context,
-	mgmtSpace network.SpaceName,
-	apiHostPorts []network.SpaceHostPorts,
-	allSpaces network.SpaceInfos,
-) []network.SpaceHostPorts {
-	var hostPortsForAgents []network.SpaceHostPorts
-
-	if mgmtSpace == "" {
-		hostPortsForAgents = apiHostPorts
-	} else {
-		mgmtSpaceInfo := allSpaces.GetByName(mgmtSpace)
-		if mgmtSpaceInfo == nil {
-			return apiHostPorts
-		}
-		hostPortsForAgents = make([]network.SpaceHostPorts, len(apiHostPorts))
-		for i, apiHostPort := range apiHostPorts {
-			filtered, addrsIsInSpace := apiHostPort.InSpaces(*mgmtSpaceInfo)
-			if addrsIsInSpace {
-				hostPortsForAgents[i] = filtered
-			} else {
-				w.logger.Warningf(ctx, "API addresses %v not in the management space %s", apiHostPort, mgmtSpace)
-				hostPortsForAgents[i] = apiHostPort
-			}
-		}
-	}
-
-	return hostPortsForAgents
-}
-
 // scopedContext returns a context that is in the scope of the worker lifetime.
 // It returns a cancellable context that is cancelled when the action has
 // completed.

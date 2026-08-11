@@ -364,8 +364,10 @@ AND address = $controllerAPIAddress.address
 			}
 		}
 		if len(toUpdate) > 0 {
-			if err := tx.Query(ctx, updateAddressesStmt, toUpdate).Run(); err != nil {
-				return errors.Errorf("updating api address for controller nodes %q: %w", nodes, err)
+			for _, update := range toUpdate {
+				if err := tx.Query(ctx, updateAddressesStmt, update).Run(); err != nil {
+					return errors.Errorf("updating api address for controller nodes %q: %w", nodes, err)
+				}
 			}
 		}
 

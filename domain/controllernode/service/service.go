@@ -174,18 +174,17 @@ func (s *Service) SetControllerNodeReportedAgentVersion(ctx context.Context, con
 func (s *Service) SetAPIAddresses(ctx context.Context, args controllernode.SetAPIAddressArgs) error {
 	addresses := make(map[string]controllernode.APIAddresses, 0)
 	for controllerID, addrs := range args.APIAddresses {
-		addresses[controllerID] = s.encodeAPIAddresses(ctx, args.MgmtSpace, addrs)
+		addresses[controllerID] = s.encodeAPIAddresses(args.MgmtSpace, addrs)
 	}
 	return s.st.SetAPIAddresses(ctx, addresses)
 }
 
-func (s *Service) encodeAPIAddresses(ctx context.Context, mgmtSpace *network.SpaceInfo, addrs network.SpaceHostPorts) controllernode.APIAddresses {
+func (s *Service) encodeAPIAddresses(mgmtSpace *network.SpaceInfo, addrs network.SpaceHostPorts) controllernode.APIAddresses {
 	// We map the SpaceHostPorts addresses to controller api addresses by
 	// checking if the address is available for agents (this is the case if the
 	// space ID of the address matches the management space ID), and also by
 	// joining the address host and port to a string "host:port".
 	addresses := make(controllernode.APIAddresses, 0, len(addrs))
-	emptyAgentAddresses := true
 	for _, spHostPort := range addrs {
 		// Check if the address is available for agents. If no management space
 		// is set, all addresses are available for agents.
@@ -197,15 +196,6 @@ func (s *Service) encodeAPIAddresses(ctx context.Context, mgmtSpace *network.Spa
 			IsAgent: isAvailableForAgents,
 			Scope:   spHostPort.Scope,
 		})
-		emptyAgentAddresses = emptyAgentAddresses && !isAvailableForAgents
-	}
-	// If we have filtered out all addresses, set all to agents to ensure that
-	// the API is always reachable for agents.
-	if emptyAgentAddresses {
-		for i := range addresses {
-			addresses[i].IsAgent = true
-		}
-		s.logger.Warningf(ctx, "all provided API addresses were filtered out with regards to the management space, forcing all addresses to be agents to ensure API connectivity")
 	}
 	return addresses
 }

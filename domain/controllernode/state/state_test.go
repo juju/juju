@@ -336,6 +336,34 @@ func (s *stateSuite) TestSetAPIAddressesNoDelta(c *tc.C) {
 	s.checkControllerAPIAddress(c, controllerID, addrs)
 }
 
+func (s *stateSuite) TestSetAPIAddressesUpdateIsAgent(c *tc.C) {
+	nodeID := uint64(15237855465837235027)
+	controllerID := "1"
+	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Insert addresses with IsAgent=true.
+	addrs := []controllernode.APIAddress{
+		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+	}
+	s.addControllerAPIAddresses(c, controllerID, addrs)
+
+	// Update: flip IsAgent from true to false.
+	updatedAddrs := []controllernode.APIAddress{
+		{Address: "10.0.0.1:17070", IsAgent: false, Scope: network.ScopeCloudLocal},
+		{Address: "10.0.0.2:17070", IsAgent: false, Scope: network.ScopeCloudLocal},
+	}
+	err = s.state.SetAPIAddresses(
+		c.Context(),
+		map[string]controllernode.APIAddresses{
+			controllerID: updatedAddrs,
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkControllerAPIAddress(c, controllerID, updatedAddrs)
+}
+
 func (s *stateSuite) TestDeltaAddressesEmpty(c *tc.C) {
 	existing := []controllerAPIAddress{
 		{Address: "10.0.0.1:17070", IsAgent: true},

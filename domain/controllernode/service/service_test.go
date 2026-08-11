@@ -284,11 +284,11 @@ func (s *serviceSuite) TestSetAPIAddressesAllAddrsFilteredAgents(c *tc.C) {
 		controllerID: {
 			{
 				Address: "10.0.0.1:17070",
-				IsAgent: true,
+				IsAgent: false,
 				Scope:   network.ScopeCloudLocal,
 			}, {
 				Address: "10.0.0.2:17070",
-				IsAgent: true,
+				IsAgent: false,
 				Scope:   network.ScopeCloudLocal,
 			},
 		},
@@ -374,6 +374,74 @@ func (s *serviceSuite) TestSetAPIAddressesNotAllAddrsFilteredAgents(c *tc.C) {
 							Scope: network.ScopeCloudLocal,
 						},
 						SpaceID: "space0-uuid",
+					},
+					NetPort: network.NetPort(17070),
+				},
+			},
+		},
+	}
+	err := svc.SetAPIAddresses(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetAPIAddressesDualStackNoMismatchLeak(c *tc.C) {
+	// Reproduces GitHub issue #22787: when alpha has both IPv4 and IPv6
+	// subnets and beta has only the IPv6 subnets, controller addresses
+	// from alpha (IPv4) must not leak into agent config when
+	// juju-mgmt-space is set to beta.
+	//
+	//   alpha: 192.168.0.0/20, 192.168.16.0/20, fd00::/64, fd00:0:0:10::/64
+	//   beta:  fd00::/64, fd00:0:0:10::/64
+	//   mgmt-space = beta
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	const alphaUUID = "656b4a82-e28c-53d6-a014-f0dd53417eb6"
+	const betaUUID = "e7d1d55c-d6b7-4989-896e-ddf996aaca65"
+
+	controllerID := "0"
+	controllerApiAddrs := map[string]controllernode.APIAddresses{
+		controllerID: {
+			{
+				Address: "192.168.16.4:17070",
+				IsAgent: false,
+				Scope:   network.ScopeCloudLocal,
+			},
+			{
+				Address: "[fd00::1]:17070",
+				IsAgent: true,
+				Scope:   network.ScopeCloudLocal,
+			},
+		},
+	}
+	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerApiAddrs).Return(nil)
+
+	args := controllernode.SetAPIAddressArgs{
+		MgmtSpace: &network.SpaceInfo{
+			ID:   betaUUID,
+			Name: "beta",
+		},
+		APIAddresses: map[string]network.SpaceHostPorts{
+			controllerID: {
+				{
+					// IPv4 controller address in alpha space.
+					SpaceAddress: network.SpaceAddress{
+						MachineAddress: network.MachineAddress{
+							Value: "192.168.16.4",
+							Scope: network.ScopeCloudLocal,
+						},
+						SpaceID: alphaUUID,
+					},
+					NetPort: network.NetPort(17070),
+				},
+				{
+					// IPv6 controller address in beta space.
+					SpaceAddress: network.SpaceAddress{
+						MachineAddress: network.MachineAddress{
+							Value: "fd00::1",
+							Scope: network.ScopeCloudLocal,
+						},
+						SpaceID: betaUUID,
 					},
 					NetPort: network.NetPort(17070),
 				},
