@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
+	coresecrets "github.com/juju/juju/core/secrets"
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
+	domainsecret "github.com/juju/juju/domain/secret"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
@@ -349,6 +351,11 @@ type UnitStateService interface {
 	// CommitHookChanges persists a set of changes after a hook successfully
 	// completes and executes them in a single transaction.
 	CommitHookChanges(ctx context.Context, arg unitstate.CommitHookChangesArg) error
+	// ResolveSecretGrantOwners returns the owner kind for each URI in grantURIs
+	// that should be granted. A URI matching an incoming secret create is always
+	// accepted. For persisted secrets the caller must have manage access; a
+	// concurrently removed secret is silently omitted.
+	ResolveSecretGrantOwners(ctx context.Context, unitName coreunit.Name, creates []unitstate.CreateSecretArg, grantURIs []*coresecrets.URI) (map[string]domainsecret.CharmSecretOwnerKind, error)
 	// SetState persists the input unit state.
 	SetState(context.Context, unitstate.UnitState) error
 	// GetState returns the full unit state. The state may be empty.

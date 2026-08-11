@@ -3012,10 +3012,10 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 		}
 		arg.TrackLatestSecrets = trackLatest
 	}
-	// Convert secret grants to domain types, filtering out any the unit
-	// does not have manage access on.
+	// Convert secret grants to domain types, resolving subject and scope
+	// only for grants that the unit-state service determines should survive.
 	if len(changes.SecretGrants) > 0 {
-		secretGrants, err := u.prepareSecretGrants(ctx, unitName, changes.SecretGrants)
+		secretGrants, err := u.prepareSecretGrants(ctx, unitName, arg.SecretCreates, changes.SecretGrants)
 		if err != nil {
 			return apiservererrors.ServerError(err)
 		}

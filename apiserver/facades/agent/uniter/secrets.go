@@ -22,7 +22,6 @@ import (
 
 // SecretService provides core secrets operations.
 type SecretService interface {
-
 	// GetSecretValue retrieves the value and reference of a secret for a
 	// specified URI and revision, using a secret accessor.
 	GetSecretValue(context.Context, *coresecrets.URI, int, secret.SecretAccessor) (coresecrets.SecretValue, *coresecrets.ValueRef, error)
@@ -86,7 +85,8 @@ func (u *UniterAPI) prepareSecretCreates(
 	}
 	if len(createErrs) > 0 {
 		return nil, internalerrors.Errorf(
-			"creating secrets: %w", internalerrors.Join(createErrs...))
+			"creating secrets: %w", internalerrors.Join(createErrs...),
+		)
 	}
 	return secretCreates, nil
 }
@@ -256,7 +256,8 @@ func (u *UniterAPI) prepareSecretRevokes(
 	}
 	if len(revokeErrs) > 0 {
 		return nil, internalerrors.Errorf(
-			"revoking secrets access: %w", internalerrors.Join(revokeErrs...))
+			"revoking secrets access: %w", internalerrors.Join(revokeErrs...),
+		)
 	}
 
 	return u.resolveSecretOwnerKinds(ctx, secretRevokes)
@@ -361,35 +362,73 @@ func (u *UniterAPI) resolveSecretOwnerKinds(
 	return filtered, nil
 }
 
-// prepareSecretGrants converts wire-format grant args to domain types,
-// filtering out secrets the unit cannot manage and resolving subject/scope
-// UUIDs and ownership.
+// prepareSecretGrants converts wire-format grant args to domain types. It
+// first parses URIs and validates roles, then asks the unitstate service which
+// grants survive authorization. Only surviving grants have their subjects and
+// scopes resolved, preserving teardown-safe ordering where grants for missing
+// secrets are silently skipped before target resolution is attempted.
 func (u *UniterAPI) prepareSecretGrants(
-	ctx context.Context, unitName coreunit.Name, grants []params.GrantRevokeSecretArg,
+	ctx context.Context,
+	unitName coreunit.Name,
+	creates []unitstate.CreateSecretArg,
+	grants []params.GrantRevokeSecretArg,
 ) ([]unitstate.GrantSecretArg, error) {
-	secretGrants := make([]unitstate.GrantSecretArg, 0, len(grants))
-	var grantErrs []error
+	if len(grants) == 0 {
+		return nil, nil
+	}
+
+	// Pass 1: parse every grant URI and validate the role so that
+	// malformed requests are rejected before we call into the service.
+	type parsedGrant struct {
+		uri  *coresecrets.URI
+		arg  params.GrantRevokeSecretArg
+		role coresecrets.SecretRole
+	}
+	parsed := make([]parsedGrant, 0, len(grants))
+	grantURIs := make([]*coresecrets.URI, 0, len(grants))
+	for _, g := range grants {
+		uri, err := coresecrets.ParseURI(g.URI)
+		if err != nil {
+			return nil, internalerrors.Capture(err)
+		}
+		role := coresecrets.SecretRole(g.Role)
+		if role != "" && !role.IsValid() {
+			return nil, errors.NotValidf("secret role %q", g.Role)
+		}
+		parsed = append(parsed, parsedGrant{uri: uri, arg: g, role: role})
+		grantURIs = append(grantURIs, uri)
+	}
+
+	// Pass 2: ask the service which grants should survive. Pending
+	// creates are always accepted; persisted secrets require manage
+	// access. Grants for missing secrets are silently dropped here so
+	// that a disappearing relation or application never causes a
+	// target-resolution error during teardown.
+	ownerKinds, err := u.unitStateService.ResolveSecretGrantOwners(ctx, unitName, creates, grantURIs)
+	if err != nil {
+		return nil, err
+	}
+	if len(ownerKinds) == 0 {
+		return nil, nil
+	}
 
 	accessor := secret.SecretAccessor{
 		Kind: secret.UnitAccessor,
 		ID:   u.auth.GetAuthTag().Id(),
 	}
 
-	for _, g := range grants {
-		uri, err := coresecrets.ParseURI(g.URI)
-		if err != nil {
-			return nil, internalerrors.Capture(err)
-		}
-		if err := u.secretService.CheckSecretManageAccess(ctx, uri, unitName); err != nil {
-			if errors.Is(err, secreterrors.SecretNotFound) {
-				u.logger.Infof(ctx, "secret %q no longer exists, skipping grant", g.URI)
-				continue
-			}
-			grantErrs = append(grantErrs, err)
+	// Pass 3: resolve subject and scope tags into UUIDs only for
+	// grants that survived the service filter. Each grant also
+	// receives the owner kind that the service returned.
+	secretGrants := make([]unitstate.GrantSecretArg, 0, len(ownerKinds))
+	var grantErrs []error
+	for _, pg := range parsed {
+		ownerKind, ok := ownerKinds[pg.uri.ID]
+		if !ok {
 			continue
 		}
 
-		args, err := u.resolveGrantSubjects(ctx, accessor, g)
+		args, err := u.resolveGrantSubjects(ctx, accessor, pg.arg)
 		if err != nil {
 			return nil, err
 		}
@@ -399,21 +438,23 @@ func (u *UniterAPI) prepareSecretGrants(
 				continue
 			}
 			secretGrants = append(secretGrants, unitstate.GrantSecretArg{
-				URI:           uri,
+				URI:           pg.uri,
 				SubjectUUID:   a.SubjectUUID,
 				SubjectTypeID: a.SubjectTypeID,
 				ScopeUUID:     a.ScopeUUID,
 				ScopeTypeID:   a.ScopeTypeID,
 				RoleID:        a.RoleID,
+				OwnerKind:     ownerKind,
 			})
 		}
 	}
 	if len(grantErrs) > 0 {
 		return nil, internalerrors.Errorf(
-			"granting secrets access: %w", internalerrors.Join(grantErrs...))
+			"granting secrets access: %w", internalerrors.Join(grantErrs...),
+		)
 	}
 
-	return u.resolveGrantOwnerKinds(ctx, secretGrants)
+	return secretGrants, nil
 }
 
 // grantSubjectResult holds the resolved grant params or an error.
@@ -486,41 +527,6 @@ func (u *UniterAPI) resolveGrantSubjects(
 	return results, nil
 }
 
-// resolveGrantOwnerKinds resolves ownership for a slice of grant args,
-// filtering out secrets that disappeared between the access check and the
-// ownership query (deleted concurrently).
-func (u *UniterAPI) resolveGrantOwnerKinds(
-	ctx context.Context, grants []unitstate.GrantSecretArg,
-) ([]unitstate.GrantSecretArg, error) {
-	if len(grants) == 0 {
-		return grants, nil
-	}
-	uris := make([]*coresecrets.URI, len(grants))
-	for i, g := range grants {
-		uris[i] = g.URI
-	}
-	ownerInfos, err := u.secretService.GetSecretOwnerKinds(ctx, uris)
-	if err != nil {
-		return nil, err
-	}
-	ownerByID := make(map[string]secret.CharmSecretOwnerKind, len(ownerInfos))
-	for _, info := range ownerInfos {
-		ownerByID[info.SecretID] = info.OwnerKind
-	}
-	// Filter: secrets that disappeared between the access check and
-	// the ownership query were deleted concurrently.
-	filtered := grants[:0]
-	for i := range grants {
-		kind, ok := ownerByID[grants[i].URI.ID]
-		if !ok {
-			continue
-		}
-		grants[i].OwnerKind = kind
-		filtered = append(filtered, grants[i])
-	}
-	return filtered, nil
-}
-
 // prepareSecretDeletes validates and resolves a list of delete args from the
 // wire format into domain types ready for CommitHookChanges. It:
 //   - parses the URI
@@ -555,7 +561,8 @@ func (u *UniterAPI) prepareSecretDeletes(
 	}
 	if len(deleteErrs) > 0 {
 		return nil, internalerrors.Errorf(
-			"removing secrets: %w", internalerrors.Join(deleteErrs...))
+			"removing secrets: %w", internalerrors.Join(deleteErrs...),
+		)
 	}
 
 	return u.resolveDeleteOwnerKinds(ctx, secretDeletes)
@@ -654,7 +661,8 @@ func (u *UniterAPI) prepareSecretUpdates(
 	}
 	if len(updateErrs) > 0 {
 		return nil, internalerrors.Errorf(
-			"updating secrets: %w", internalerrors.Join(updateErrs...))
+			"updating secrets: %w", internalerrors.Join(updateErrs...),
+		)
 	}
 
 	return u.resolveUpdateOwnerKinds(ctx, secretUpdates)
