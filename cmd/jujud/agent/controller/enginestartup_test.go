@@ -68,7 +68,7 @@ func (s *EngineStartupSuite) TestS3CallerManifoldStartsBackendNotFound(c *tc.C) 
 		},
 	}
 
-	newClient := func(_ string, _ s3client.HTTPClient, _ s3client.Credentials, _ logger.Logger) (objectstore.Session, error) {
+	newClient := func(_ string, _ s3client.HTTPClient, _ s3client.Credentials, _ string, _ logger.Logger) (objectstore.Session, error) {
 		c.Fatalf("NewClient should not be called when backend is not found")
 		return nil, nil
 	}
@@ -125,7 +125,7 @@ func (s *EngineStartupSuite) TestS3CallerManifoldFailsNonFatalErrorDropped(c *tc
 		},
 	}
 
-	newClient := func(_ string, _ s3client.HTTPClient, _ s3client.Credentials, _ logger.Logger) (objectstore.Session, error) {
+	newClient := func(_ string, _ s3client.HTTPClient, _ s3client.Credentials, _ string, _ logger.Logger) (objectstore.Session, error) {
 		c.Fatalf("NewClient should not be called on error")
 		return nil, nil
 	}
