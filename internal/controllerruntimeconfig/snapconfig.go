@@ -14,26 +14,25 @@ import (
 )
 
 const (
-	// SnapInitDir is the directory under $SNAP_COMMON where the configure
-	// hook stores deferred snap-config overlay state that was set before
-	// runtime.conf exists.
+	// SnapInitDir is the directory under $SNAP_COMMON where the configure hook
+	// stores deferred snap-config overlay state that was set before runtime.conf
+	// exists.
 	SnapInitDir = ".snap-init"
 
-	// deferredLoggingOverrideFile is the name of the file that persists
-	// the deferred logging-override snap config value.
+	// deferredLoggingOverrideFile is the name of the file that persists the
+	// deferred logging-override snap config value.
 	deferredLoggingOverrideFile = "logging-override"
 )
 
-// SupportedSnapConfigKeys is the explicit allowlist of snap-config keys
-// that are supported in Phase 1. Only these keys may be applied through
-// the snap configure hook and overlay helper. Keys not listed here are
-// rejected with a clear error.
+// SupportedSnapConfigKeys is the explicit allowlist of supported snap-config
+// keys. Only these keys may be applied through the snap configure hook and
+// overlay helper. Keys not listed here are rejected with a clear error.
 var SupportedSnapConfigKeys = []string{
 	"logging-override",
 }
 
 // ValidateSnapConfigOverlay checks that a set of snap-config key-value pairs
-// contains only supported Phase 1 keys. It returns an error if any
+// contains only supported keys. It returns an error if any
 // controller-database-owned key is present, or if any key is not listed in
 // SupportedSnapConfigKeys.
 func ValidateSnapConfigOverlay(vals map[string]string) error {
@@ -45,8 +44,7 @@ func ValidateSnapConfigOverlay(vals map[string]string) error {
 	}
 	if len(unsupported) > 0 {
 		return errors.Errorf(
-			"cannot apply snap config: %d unsupported key(s) "+
-				"are not supported through snap set in Phase 1: %v",
+			"cannot apply snap config: %d unsupported key(s) are not supported through snap set: %v",
 			len(unsupported),
 			unsupported,
 		)
@@ -114,7 +112,7 @@ func WriteDeferredLoggingOverride(snapCommon, value string) error {
 // with errors.Is(err, os.ErrNotExist). The caller is expected to defer the
 // value in that case rather than fabricating a replacement file.
 //
-// This function is the exclusive Phase 1 mutation path for snap-config
+// This function is the exclusive mutation path for snap-config
 // overlays. The SnapConfigOverlay struct acts as a compile-time allowlist:
 // only fields present on it can be mutated through this path.
 func ApplySnapConfigOverlay(runtimeConfigPath string, overlay SnapConfigOverlay) error {
