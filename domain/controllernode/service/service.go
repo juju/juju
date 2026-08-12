@@ -174,7 +174,24 @@ func (s *Service) SetControllerNodeReportedAgentVersion(ctx context.Context, con
 func (s *Service) SetAPIAddresses(ctx context.Context, args controllernode.SetAPIAddressArgs) error {
 	addresses := make(map[string]controllernode.APIAddresses, 0)
 	for controllerID, addrs := range args.APIAddresses {
-		addresses[controllerID] = s.encodeAPIAddresses(args.MgmtSpace, addrs)
+		encoded := s.encodeAPIAddresses(args.MgmtSpace, addrs)
+		addresses[controllerID] = encoded
+
+		if args.MgmtSpace != nil && len(encoded) > 0 {
+			hasAgent := false
+			for _, a := range encoded {
+				if a.IsAgent {
+					hasAgent = true
+					break
+				}
+			}
+			if !hasAgent {
+				s.logger.Warningf(ctx,
+					"controller %q has no API addresses in management space %q; agents will not be able to connect",
+					controllerID, args.MgmtSpace.Name,
+				)
+			}
+		}
 	}
 	return s.st.SetAPIAddresses(ctx, addresses)
 }

@@ -275,7 +275,7 @@ func (s *serviceSuite) TestSetAPIAddressesNilMgmtSpace(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestSetAPIAddressesAllAddrsFilteredAgents(c *tc.C) {
+func (s *serviceSuite) TestSetAPIAddressesAllAddrsNotAgent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
