@@ -4,7 +4,9 @@
 Prints application configuration.
 
 ## Usage
-``` config-get [options] [<key>]```
+```text
+config-get [options] [<key>]
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -1,9 +1,14 @@
 (command-juju-model-constraints)=
 # `juju model-constraints`
-> See also: [models](#models), [constraints](#constraints), [set-constraints](#set-constraints), [set-model-constraints](#set-model-constraints)
+> See also: [models](#command-juju-models), [constraints](#command-juju-constraints), [set-constraints](#command-juju-set-constraints), [set-model-constraints](#command-juju-set-model-constraints)
 
 ## Summary
 Displays machine constraints for a model.
+
+## Usage
+```text
+juju model-constraints [options]
+```
 
 ### Options
 | Flag | Default | Usage |

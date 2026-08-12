@@ -5,7 +5,7 @@ package common
 
 import (
 	"context"
-	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -406,15 +406,7 @@ func (t *toolsURLGetter) ToolsURLs(ctx context.Context, v semversion.Binary) ([]
 	}
 	var urls []string
 	for _, addr := range addrs {
-		serverRoot := fmt.Sprintf("https://%s/model/%s", addr, t.modelUUID)
-		url := ToolsURL(serverRoot, v.String())
-		urls = append(urls, url)
+		urls = append(urls, (&url.URL{Scheme: "https", Host: addr}).JoinPath("model", t.modelUUID, "tools", v.String()).String())
 	}
 	return urls, nil
-}
-
-// ToolsURL returns a tools URL pointing the API server
-// specified by the "serverRoot".
-func ToolsURL(serverRoot string, v string) string {
-	return fmt.Sprintf("%s/tools/%s", serverRoot, v)
 }

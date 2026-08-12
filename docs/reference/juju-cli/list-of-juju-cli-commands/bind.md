@@ -1,12 +1,14 @@
 (command-juju-bind)=
 # `juju bind`
-> See also: [spaces](#spaces), [show-space](#show-space), [show-application](#show-application)
+> See also: [spaces](#command-juju-spaces), [show-space](#command-juju-show-space), [show-application](#command-juju-show-application)
 
 ## Summary
 Change bindings for a deployed application.
 
 ## Usage
-```juju bind [options] <application> [<default-space>] [<endpoint-name>=<space> ...]```
+```text
+juju bind [options] <application> [<default-space>] [<endpoint-name>=<space> ...]
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -4,7 +4,9 @@
 Prints public-address or private-address.
 
 ## Usage
-``` unit-get [options] <setting>```
+```text
+unit-get [options] <setting>
+```
 
 ### Options
 | Flag | Default | Usage |

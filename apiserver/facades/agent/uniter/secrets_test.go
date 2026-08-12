@@ -29,9 +29,10 @@ type UniterSecretsSuite struct {
 
 	authorizer *facademocks.MockAuthorizer
 
-	secretService *MockSecretService
-	authTag       names.Tag
-	clock         clock.Clock
+	secretService    *MockSecretService
+	unitStateService *MockUnitStateService
+	authTag          names.Tag
+	clock            clock.Clock
 
 	facade *UniterAPI
 }
@@ -52,12 +53,13 @@ func (s *UniterSecretsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 
 	s.secretService = NewMockSecretService(ctrl)
+	s.unitStateService = NewMockUnitStateService(ctrl)
 	s.expectAuthUnitAgent()
 
 	s.clock = testclock.NewClock(time.Now())
 
 	var err error
-	s.facade, err = NewTestAPI(c, s.authorizer, s.secretService, nil, s.clock)
+	s.facade, err = NewTestAPI(c, s.authorizer, s.secretService, nil, s.unitStateService, s.clock)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
@@ -585,51 +587,13 @@ func (s *UniterSecretsSuite) TestResolveSecretOwnerKindsFiltersDisappeared(c *tc
 
 // --- prepareSecretGrants tests ---
 
-func (s *UniterSecretsSuite) TestPrepareSecretGrantsSecretNotFound(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName := unittesting.GenNewName(c, "mariadb/0")
-	uri := coresecrets.NewURI()
-
-	// Secret not found — should be silently skipped.
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).
-		Return(secreterrors.SecretNotFound)
-
-	result, err := s.facade.prepareSecretGrants(c.Context(), unitName, []params.GrantRevokeSecretArg{{
-		URI:         uri.String(),
-		ScopeTag:    names.NewRelationTag("one:db two:use").String(),
-		SubjectTags: []string{names.NewApplicationTag("two").String()},
-	}})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.HasLen, 0)
-}
-
-func (s *UniterSecretsSuite) TestPrepareSecretGrantsPermissionDenied(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName := unittesting.GenNewName(c, "mariadb/0")
-	uri := coresecrets.NewURI()
-
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).
-		Return(secreterrors.PermissionDenied)
-
-	_, err := s.facade.prepareSecretGrants(c.Context(), unitName, []params.GrantRevokeSecretArg{{
-		URI:         uri.String(),
-		ScopeTag:    names.NewRelationTag("one:db two:use").String(),
-		SubjectTags: []string{names.NewApplicationTag("two").String()},
-	}})
-	c.Assert(err, tc.ErrorMatches, `granting secrets access: permission denied`)
-}
-
 func (s *UniterSecretsSuite) TestPrepareSecretGrantsInvalidRole(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unittesting.GenNewName(c, "mariadb/0")
 	uri := coresecrets.NewURI()
 
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).Return(nil)
-
-	_, err := s.facade.prepareSecretGrants(c.Context(), unitName, []params.GrantRevokeSecretArg{{
+	_, err := s.facade.prepareSecretGrants(c.Context(), unitName, nil, []params.GrantRevokeSecretArg{{
 		URI:         uri.String(),
 		ScopeTag:    names.NewRelationTag("one:db two:use").String(),
 		SubjectTags: []string{names.NewApplicationTag("two").String()},
@@ -638,14 +602,34 @@ func (s *UniterSecretsSuite) TestPrepareSecretGrantsInvalidRole(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `secret role "bad-role" not valid`)
 }
 
+func (s *UniterSecretsSuite) TestPrepareSecretGrantsFiltersBeforeResolvingSubjects(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "mariadb/0")
+	uri := coresecrets.NewURI()
+
+	s.unitStateService.EXPECT().ResolveSecretGrantOwners(
+		gomock.Any(), unitName, nil, []*coresecrets.URI{uri},
+	).Return(nil, nil)
+
+	result, err := s.facade.prepareSecretGrants(c.Context(), unitName, nil, []params.GrantRevokeSecretArg{{
+		URI:         uri.String(),
+		ScopeTag:    names.NewRelationTag("one:db two:use").String(),
+		SubjectTags: []string{names.NewApplicationTag("two").String()},
+		Role:        "view",
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.HasLen, 0)
+}
+
 func (s *UniterSecretsSuite) TestPrepareSecretGrantsMultipleSubjectsPartialFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unittesting.GenNewName(c, "mariadb/0")
 	uri := coresecrets.NewURI()
 
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).Return(nil)
-	// Both subjects resolved in one call: first succeeds, second fails.
+	s.unitStateService.EXPECT().ResolveSecretGrantOwners(gomock.Any(), unitName, nil, []*coresecrets.URI{uri}).
+		Return(map[string]secret.CharmSecretOwnerKind{uri.ID: secret.UnitCharmSecretOwner}, nil)
 	s.secretService.EXPECT().ResolveGrantParams(gomock.Any(), gomock.Any()).
 		Return([]secret.GrantResult{
 			{GrantParams: secret.GrantParams{SubjectUUID: "uuid-1", SubjectTypeID: secret.SubjectApplication,
@@ -653,7 +637,7 @@ func (s *UniterSecretsSuite) TestPrepareSecretGrantsMultipleSubjectsPartialFailu
 			{Error: errors.New("resolve boom")},
 		})
 
-	_, err := s.facade.prepareSecretGrants(c.Context(), unitName, []params.GrantRevokeSecretArg{{
+	_, err := s.facade.prepareSecretGrants(c.Context(), unitName, nil, []params.GrantRevokeSecretArg{{
 		URI:         uri.String(),
 		ScopeTag:    names.NewRelationTag("one:db two:use").String(),
 		SubjectTags: []string{names.NewApplicationTag("app1").String(), names.NewApplicationTag("app2").String()},
@@ -662,37 +646,34 @@ func (s *UniterSecretsSuite) TestPrepareSecretGrantsMultipleSubjectsPartialFailu
 	c.Assert(err, tc.ErrorMatches, `granting secrets access: resolve boom`)
 }
 
-func (s *UniterSecretsSuite) TestPrepareSecretGrantsOwnerFiltered(c *tc.C) {
+func (s *UniterSecretsSuite) TestPrepareSecretGrantsMultiple(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unittesting.GenNewName(c, "mariadb/0")
 	uri1 := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
 
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri1, unitName).Return(nil)
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri2, unitName).Return(nil)
+	s.unitStateService.EXPECT().ResolveSecretGrantOwners(gomock.Any(), unitName, nil, gomock.Any()).
+		Return(map[string]secret.CharmSecretOwnerKind{
+			uri1.ID: secret.ApplicationCharmSecretOwner,
+			uri2.ID: secret.UnitCharmSecretOwner,
+		}, nil)
 	s.secretService.EXPECT().ResolveGrantParams(gomock.Any(), gomock.Any()).
 		Return([]secret.GrantResult{{GrantParams: secret.GrantParams{
 			SubjectUUID: "uuid-1", SubjectTypeID: secret.SubjectApplication,
 			ScopeUUID: "scope-1", ScopeTypeID: secret.ScopeApplication, RoleID: secret.RoleView,
 		}}}).Times(2)
-	// Only uri1 returned — uri2 was concurrently deleted.
-	s.secretService.EXPECT().GetSecretOwnerKinds(gomock.Any(), gomock.Any()).
-		Return([]secret.SecretOwnerInfo{{
-			SecretID:  uri1.ID,
-			OwnerKind: secret.ApplicationCharmSecretOwner,
-		}}, nil)
 
-	result, err := s.facade.prepareSecretGrants(c.Context(), unitName, []params.GrantRevokeSecretArg{
+	result, err := s.facade.prepareSecretGrants(c.Context(), unitName, nil, []params.GrantRevokeSecretArg{
 		{URI: uri1.String(), ScopeTag: names.NewApplicationTag("app1").String(),
 			SubjectTags: []string{names.NewApplicationTag("app1").String()}, Role: "view"},
 		{URI: uri2.String(), ScopeTag: names.NewApplicationTag("app1").String(),
 			SubjectTags: []string{names.NewApplicationTag("app2").String()}, Role: "view"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.HasLen, 1)
+	c.Assert(result, tc.HasLen, 2)
 	c.Check(result[0].URI.ID, tc.Equals, uri1.ID)
-	c.Check(result[0].OwnerKind, tc.Equals, secret.ApplicationCharmSecretOwner)
+	c.Check(result[1].URI.ID, tc.Equals, uri2.ID)
 }
 
 func (s *UniterSecretsSuite) TestPrepareSecretGrantsSuccess(c *tc.C) {
@@ -701,19 +682,14 @@ func (s *UniterSecretsSuite) TestPrepareSecretGrantsSuccess(c *tc.C) {
 	unitName := unittesting.GenNewName(c, "mariadb/0")
 	uri := coresecrets.NewURI()
 
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).Return(nil)
+	s.unitStateService.EXPECT().ResolveSecretGrantOwners(gomock.Any(), unitName, nil, []*coresecrets.URI{uri}).
+		Return(map[string]secret.CharmSecretOwnerKind{uri.ID: secret.UnitCharmSecretOwner}, nil)
 	s.secretService.EXPECT().ResolveGrantParams(gomock.Any(), gomock.Any()).
 		Return([]secret.GrantResult{{GrantParams: secret.GrantParams{
 			SubjectUUID: "uuid-app", SubjectTypeID: secret.SubjectApplication,
 			ScopeUUID: "scope-rel", ScopeTypeID: secret.ScopeRelation, RoleID: secret.RoleView,
 		}}})
-	s.secretService.EXPECT().GetSecretOwnerKinds(gomock.Any(), []*coresecrets.URI{uri}).
-		Return([]secret.SecretOwnerInfo{{
-			SecretID:  uri.ID,
-			OwnerKind: secret.UnitCharmSecretOwner,
-		}}, nil)
-
-	result, err := s.facade.prepareSecretGrants(c.Context(), unitName, []params.GrantRevokeSecretArg{{
+	result, err := s.facade.prepareSecretGrants(c.Context(), unitName, nil, []params.GrantRevokeSecretArg{{
 		URI:         uri.String(),
 		ScopeTag:    names.NewRelationTag("one:db two:use").String(),
 		SubjectTags: []string{names.NewApplicationTag("two").String()},
@@ -727,7 +703,6 @@ func (s *UniterSecretsSuite) TestPrepareSecretGrantsSuccess(c *tc.C) {
 	c.Check(result[0].ScopeUUID, tc.Equals, "scope-rel")
 	c.Check(result[0].ScopeTypeID, tc.Equals, secret.ScopeRelation)
 	c.Check(result[0].RoleID, tc.Equals, secret.RoleView)
-	c.Check(result[0].OwnerKind, tc.Equals, secret.UnitCharmSecretOwner)
 }
 
 // --- resolveGrantSubjects tests ---
@@ -801,51 +776,6 @@ func (s *UniterSecretsSuite) TestResolveGrantSubjectsSuccess(c *tc.C) {
 	c.Check(results[0].err, tc.ErrorIsNil)
 	c.Check(results[1].SubjectUUID, tc.Equals, "uuid-unit")
 	c.Check(results[1].err, tc.ErrorIsNil)
-}
-
-// --- resolveGrantOwnerKinds tests ---
-
-func (s *UniterSecretsSuite) TestResolveGrantOwnerKindsEmpty(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	result, err := s.facade.resolveGrantOwnerKinds(c.Context(), nil)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.HasLen, 0)
-}
-
-func (s *UniterSecretsSuite) TestResolveGrantOwnerKindsServiceError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	uri := coresecrets.NewURI()
-	s.secretService.EXPECT().GetSecretOwnerKinds(gomock.Any(), []*coresecrets.URI{uri}).
-		Return(nil, errors.New("db gone"))
-
-	_, err := s.facade.resolveGrantOwnerKinds(c.Context(), []unitstate.GrantSecretArg{{
-		URI: uri,
-	}})
-	c.Assert(err, tc.ErrorMatches, "db gone")
-}
-
-func (s *UniterSecretsSuite) TestResolveGrantOwnerKindsFiltersDisappeared(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	uri1 := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
-
-	s.secretService.EXPECT().GetSecretOwnerKinds(gomock.Any(), gomock.Any()).
-		Return([]secret.SecretOwnerInfo{{
-			SecretID:  uri1.ID,
-			OwnerKind: secret.ApplicationCharmSecretOwner,
-		}}, nil)
-
-	result, err := s.facade.resolveGrantOwnerKinds(c.Context(), []unitstate.GrantSecretArg{
-		{URI: uri1, SubjectUUID: "a"},
-		{URI: uri2, SubjectUUID: "b"},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.HasLen, 1)
-	c.Check(result[0].URI.ID, tc.Equals, uri1.ID)
-	c.Check(result[0].OwnerKind, tc.Equals, secret.ApplicationCharmSecretOwner)
 }
 
 // --- prepareSecretDeletes tests ---

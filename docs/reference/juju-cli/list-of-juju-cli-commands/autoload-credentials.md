@@ -1,12 +1,14 @@
 (command-juju-autoload-credentials)=
 # `juju autoload-credentials`
-> See also: [add-credential](#add-credential), [credentials](#credentials), [default-credential](#default-credential), [remove-credential](#remove-credential)
+> See also: [add-credential](#command-juju-add-credential), [credentials](#command-juju-credentials), [default-credential](#command-juju-default-credential), [remove-credential](#command-juju-remove-credential)
 
 ## Summary
 Attempts to automatically detect and add credentials for a cloud.
 
 ## Usage
-```juju autoload-credentials [options] [<cloud-type>]```
+```text
+juju autoload-credentials [options] [<cloud-type>]
+```
 
 ### Options
 | Flag | Default | Usage |

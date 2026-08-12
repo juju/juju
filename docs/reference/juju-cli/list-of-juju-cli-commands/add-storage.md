@@ -1,12 +1,14 @@
 (command-juju-add-storage)=
 # `juju add-storage`
-> See also: [import-filesystem](#import-filesystem), [storage](#storage), [storage-pools](#storage-pools)
+> See also: [import-filesystem](#command-juju-import-filesystem), [storage](#command-juju-storage), [storage-pools](#command-juju-storage-pools)
 
 ## Summary
 Adds storage to a unit after it has been deployed.
 
 ## Usage
-```juju add-storage [options] <unit> <storage-directive>```
+```text
+juju add-storage [options] <unit> <storage-directive>
+```
 
 ### Options
 | Flag | Default | Usage |

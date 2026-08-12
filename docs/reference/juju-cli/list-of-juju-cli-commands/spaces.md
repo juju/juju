@@ -1,6 +1,6 @@
 (command-juju-spaces)=
 # `juju spaces`
-> See also: [add-space](#add-space), [reload-spaces](#reload-spaces)
+> See also: [add-space](#command-juju-add-space), [reload-spaces](#command-juju-reload-spaces)
 
 **Aliases:** list-spaces
 
@@ -8,7 +8,9 @@
 List known spaces, including associated subnets.
 
 ## Usage
-```juju spaces [options] [--short] [--format yaml|json] [--output <path>]```
+```text
+juju spaces [options] [--short] [--format yaml|json] [--output <path>]
+```
 
 ### Options
 | Flag | Default | Usage |

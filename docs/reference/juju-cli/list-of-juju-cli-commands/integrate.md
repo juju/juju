@@ -1,6 +1,6 @@
 (command-juju-integrate)=
 # `juju integrate`
-> See also: [consume](#consume), [find-offers](#find-offers), [set-firewall-rule](#set-firewall-rule), [suspend-relation](#suspend-relation)
+> See also: [consume](#command-juju-consume), [find-offers](#command-juju-find-offers), [set-firewall-rule](#command-juju-set-firewall-rule), [suspend-relation](#command-juju-suspend-relation)
 
 **Aliases:** relate
 
@@ -8,7 +8,9 @@
 Integrate two applications.
 
 ## Usage
-```juju integrate [options] <application>[:<endpoint>] <application>[:<endpoint>]```
+```text
+juju integrate [options] <application>[:<endpoint>] <application>[:<endpoint>]
+```
 
 ### Options
 | Flag | Default | Usage |

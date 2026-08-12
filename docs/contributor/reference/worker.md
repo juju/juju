@@ -7,7 +7,7 @@ myst:
 (worker-cont)=
 # Worker
 
-> See first: {ref}`User docs | Worker <worker>`
+> See first: {ref}`User docs | Worker <worker-cont>`
 
 In Juju, a **worker** is any type that implements {ref}`the worker interface <worker-interface>`.
 

@@ -1,12 +1,14 @@
 (command-juju-add-space)=
 # `juju add-space`
-> See also: [spaces](#spaces), [remove-space](#remove-space)
+> See also: [spaces](#command-juju-spaces), [remove-space](#command-juju-remove-space)
 
 ## Summary
 Add a new network space.
 
 ## Usage
-```juju add-space [options] <name> [<CIDR1> <CIDR2> ...]```
+```text
+juju add-space [options] <name> [<CIDR1> <CIDR2> ...]
+```
 
 ### Options
 | Flag | Default | Usage |

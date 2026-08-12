@@ -1,9 +1,14 @@
 (command-juju-upgrade-model)=
 # `juju upgrade-model`
-> See also: [sync-agent-binary](#sync-agent-binary)
+> See also: [sync-agent-binary](#command-juju-sync-agent-binary)
 
 ## Summary
 Upgrades Juju on all machines in a model.
+
+## Usage
+```text
+juju upgrade-model [options]
+```
 
 ### Options
 | Flag | Default | Usage |

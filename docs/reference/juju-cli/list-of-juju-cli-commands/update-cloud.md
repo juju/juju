@@ -1,12 +1,14 @@
 (command-juju-update-cloud)=
 # `juju update-cloud`
-> See also: [add-cloud](#add-cloud), [remove-cloud](#remove-cloud), [clouds](#clouds)
+> See also: [add-cloud](#command-juju-add-cloud), [remove-cloud](#command-juju-remove-cloud), [clouds](#command-juju-clouds)
 
 ## Summary
 Updates cloud information available to Juju.
 
 ## Usage
-```juju update-cloud [options] <cloud name>```
+```text
+juju update-cloud [options] <cloud name>
+```
 
 ### Options
 | Flag | Default | Usage |

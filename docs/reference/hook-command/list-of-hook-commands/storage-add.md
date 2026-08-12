@@ -4,7 +4,9 @@
 Adds storage instances.
 
 ## Usage
-``` storage-add [options] <charm storage name>[=count] ...```
+```text
+storage-add [options] <charm storage name>[=count] ...
+```
 
 ## Examples
 

@@ -1,12 +1,14 @@
 (command-juju-revoke)=
 # `juju revoke`
-> See also: [grant](#grant)
+> See also: [grant](#command-juju-grant)
 
 ## Summary
 Revokes access from a Juju user for a model, controller, or application offer.
 
 ## Usage
-```juju revoke [options] <user name> <permission> [<model name> ... | <offer url> ...]```
+```text
+juju revoke [options] <user name> <permission> [<model name> ... | <offer url> ...]
+```
 
 ### Options
 | Flag | Default | Usage |

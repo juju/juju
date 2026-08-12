@@ -4,7 +4,9 @@
 Revoke access to a secret.
 
 ## Usage
-```juju revoke-secret [options] <ID>|<name> <application>[,<application>...]```
+```text
+juju revoke-secret [options] <ID>|<name> <application>[,<application>...]
+```
 
 ### Options
 | Flag | Default | Usage |

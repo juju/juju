@@ -30,11 +30,12 @@ func NewService(st State, logger logger.Logger) *Service {
 // checks.
 type LeadershipService struct {
 	*Service
-	leaderEnsurer      leadership.Ensurer
-	secretBackendState SecretBackendReferenceMutator
-	clock              clock.Clock
-	uuidGenerator      func() (uuid.UUID, error)
-	logger             logger.Logger
+	leaderEnsurer         leadership.Ensurer
+	secretBackendState    SecretBackendReferenceMutator
+	secretGrantAuthorizer SecretGrantAuthorizer
+	clock                 clock.Clock
+	uuidGenerator         func() (uuid.UUID, error)
+	logger                logger.Logger
 }
 
 // NewLeadershipService returns a new LeadershipService for working with
@@ -42,16 +43,18 @@ type LeadershipService struct {
 func NewLeadershipService(
 	st State,
 	secretBackendState SecretBackendReferenceMutator,
+	secretGrantAuthorizer SecretGrantAuthorizer,
 	leaderEnsurer leadership.Ensurer,
 	clk clock.Clock,
 	logger logger.Logger,
 ) *LeadershipService {
 	return &LeadershipService{
-		Service:            NewService(st, logger),
-		leaderEnsurer:      leaderEnsurer,
-		secretBackendState: secretBackendState,
-		clock:              clk,
-		uuidGenerator:      uuid.NewUUID,
-		logger:             logger,
+		Service:               NewService(st, logger),
+		leaderEnsurer:         leaderEnsurer,
+		secretBackendState:    secretBackendState,
+		secretGrantAuthorizer: secretGrantAuthorizer,
+		clock:                 clk,
+		uuidGenerator:         uuid.NewUUID,
+		logger:                logger,
 	}
 }

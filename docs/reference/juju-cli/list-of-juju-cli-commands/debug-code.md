@@ -1,12 +1,14 @@
 (command-juju-debug-code)=
 # `juju debug-code`
-> See also: [ssh](#ssh), [debug-hooks](#debug-hooks)
+> See also: [ssh](#command-juju-ssh), [debug-hooks](#command-juju-debug-hooks)
 
 ## Summary
 Launch a tmux session to debug hooks and/or actions.
 
 ## Usage
-```juju debug-code [options] <unit name> [hook or action names]```
+```text
+juju debug-code [options] <unit name> [hook or action names]
+```
 
 ### Options
 | Flag | Default | Usage |

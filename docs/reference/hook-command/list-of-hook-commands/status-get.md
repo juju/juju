@@ -4,7 +4,9 @@
 Prints status information.
 
 ## Usage
-``` status-get [options] [--include-data] [--application]```
+```text
+status-get [options] [--include-data] [--application]
+```
 
 ### Options
 | Flag | Default | Usage |

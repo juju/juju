@@ -1,6 +1,6 @@
 (command-juju-regions)=
 # `juju regions`
-> See also: [add-cloud](#add-cloud), [clouds](#clouds), [show-cloud](#show-cloud), [update-cloud](#update-cloud), [update-public-clouds](#update-public-clouds)
+> See also: [add-cloud](#command-juju-add-cloud), [clouds](#command-juju-clouds), [show-cloud](#command-juju-show-cloud), [update-cloud](#command-juju-update-cloud), [update-public-clouds](#command-juju-update-public-clouds)
 
 **Aliases:** list-regions
 
@@ -8,7 +8,9 @@
 Lists regions for a given cloud.
 
 ## Usage
-```juju regions [options] <cloud>```
+```text
+juju regions [options] <cloud>
+```
 
 ### Options
 | Flag | Default | Usage |

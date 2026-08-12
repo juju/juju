@@ -1,12 +1,14 @@
 (command-juju-remove-secret-backend)=
 # `juju remove-secret-backend`
-> See also: [add-secret-backend](#add-secret-backend), [secret-backends](#secret-backends), [show-secret-backend](#show-secret-backend), [update-secret-backend](#update-secret-backend)
+> See also: [add-secret-backend](#command-juju-add-secret-backend), [secret-backends](#command-juju-secret-backends), [show-secret-backend](#command-juju-show-secret-backend), [update-secret-backend](#command-juju-update-secret-backend)
 
 ## Summary
 Removes a secret backend from the controller.
 
 ## Usage
-```juju remove-secret-backend [options] <backend-name>```
+```text
+juju remove-secret-backend [options] <backend-name>
+```
 
 ### Options
 | Flag | Default | Usage |

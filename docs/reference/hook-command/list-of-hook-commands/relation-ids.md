@@ -4,7 +4,9 @@
 Lists all relation IDs for the given endpoint.
 
 ## Usage
-``` relation-ids [options] <name>```
+```text
+relation-ids [options] <name>
+```
 
 ### Options
 | Flag | Default | Usage |

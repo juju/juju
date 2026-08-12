@@ -34,11 +34,12 @@ import (
 type commitHookSuite struct {
 	svc *LeadershipService
 
-	st                *MockState
-	leadershipEnsurer *MockEnsurer
-	secretBackend     *MockSecretBackendReferenceMutator
-	clock             *testclock.Clock
-	uuidGen           func() (uuid.UUID, error)
+	st                    *MockState
+	leadershipEnsurer     *MockEnsurer
+	secretBackend         *MockSecretBackendReferenceMutator
+	secretGrantAuthorizer *MockSecretGrantAuthorizer
+	clock                 *testclock.Clock
+	uuidGen               func() (uuid.UUID, error)
 }
 
 func TestCommitHookSuite(t *testing.T) {
@@ -139,6 +140,7 @@ func (s *commitHookSuite) TestCommitHookChangesLeadershipGrantAppSecret(c *tc.C)
 
 	unitName := unittesting.GenNewName(c, "test/0")
 	unitUUID := tc.Must(c, coreunit.NewUUID)
+	uri := coresecrets.NewURI()
 	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
 	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
 	s.leadershipEnsurer.EXPECT().WithLeader(gomock.Any(), "test", "test/0", gomock.Any()).Return(nil)
@@ -146,7 +148,7 @@ func (s *commitHookSuite) TestCommitHookChangesLeadershipGrantAppSecret(c *tc.C)
 	arg := unitstate.CommitHookChangesArg{
 		UnitName: unitName,
 		SecretGrants: []unitstate.GrantSecretArg{{
-			URI:         coresecrets.NewURI(),
+			URI:         uri,
 			SubjectUUID: "subject-uuid",
 			ScopeUUID:   "scope-uuid",
 			OwnerKind:   secret.ApplicationCharmSecretOwner,
@@ -163,13 +165,14 @@ func (s *commitHookSuite) TestCommitHookChangesNoLeadershipGrantUnitSecret(c *tc
 	unitName := unittesting.GenNewName(c, "test/0")
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	uri := coresecrets.NewURI()
 	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
 	s.st.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).Return(nil)
 
 	arg := unitstate.CommitHookChangesArg{
 		UnitName: unitName,
 		SecretGrants: []unitstate.GrantSecretArg{{
-			URI:         coresecrets.NewURI(),
+			URI:         uri,
 			SubjectUUID: "subject-uuid",
 			ScopeUUID:   "scope-uuid",
 			OwnerKind:   secret.UnitCharmSecretOwner,
@@ -178,6 +181,153 @@ func (s *commitHookSuite) TestCommitHookChangesNoLeadershipGrantUnitSecret(c *tc
 
 	err := s.svc.CommitHookChanges(c.Context(), arg)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookSuite) TestResolveSecretGrantOwnersSkipsMissingSecret(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	uri := coresecrets.NewURI()
+	s.secretGrantAuthorizer.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).
+		Return(secreterrors.SecretNotFound)
+
+	result, err := s.svc.ResolveSecretGrantOwners(c.Context(), unitName, nil, []*coresecrets.URI{uri})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.HasLen, 0)
+}
+
+func (s *commitHookSuite) TestResolveSecretGrantOwnersPendingApplicationSecret(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	uri := coresecrets.NewURI()
+
+	// No authorizer calls expected — the create provides the owner kind.
+
+	result, err := s.svc.ResolveSecretGrantOwners(c.Context(), unitName,
+		[]unitstate.CreateSecretArg{{
+			CreateCharmSecretParams: secret.CreateCharmSecretParams{
+				Version: 1,
+				CharmOwner: secret.CharmSecretOwner{
+					Kind: secret.ApplicationCharmSecretOwner,
+					ID:   "test",
+				},
+				UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+					Data:     coresecrets.SecretData{"key": "value"},
+					Checksum: "checksum",
+				},
+			},
+			URI: uri,
+		}},
+		[]*coresecrets.URI{uri},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 1)
+	c.Check(result[uri.ID], tc.Equals, secret.ApplicationCharmSecretOwner)
+}
+
+func (s *commitHookSuite) TestResolveSecretGrantOwnersPermissionDenied(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	uri := coresecrets.NewURI()
+
+	s.secretGrantAuthorizer.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).
+		Return(secreterrors.PermissionDenied)
+
+	_, err := s.svc.ResolveSecretGrantOwners(c.Context(), unitName, nil, []*coresecrets.URI{uri})
+	c.Assert(err, tc.ErrorMatches, `granting secrets access: permission denied`)
+}
+
+func (s *commitHookSuite) TestResolveSecretGrantOwnersFiltersConcurrentlyDeleted(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+
+	s.secretGrantAuthorizer.EXPECT().CheckSecretManageAccess(gomock.Any(), uri1, unitName).Return(nil)
+	s.secretGrantAuthorizer.EXPECT().CheckSecretManageAccess(gomock.Any(), uri2, unitName).Return(nil)
+	// Only uri1 is returned — uri2 was concurrently deleted.
+	s.secretGrantAuthorizer.EXPECT().GetSecretOwnerKinds(gomock.Any(), gomock.Any()).
+		Return([]secret.SecretOwnerInfo{{
+			SecretID:  uri1.ID,
+			OwnerKind: secret.ApplicationCharmSecretOwner,
+		}}, nil)
+
+	result, err := s.svc.ResolveSecretGrantOwners(c.Context(), unitName, nil, []*coresecrets.URI{uri1, uri2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 1)
+	c.Check(result[uri1.ID], tc.Equals, secret.ApplicationCharmSecretOwner)
+}
+
+func (s *commitHookSuite) TestResolveSecretGrantOwnersMixedPendingAndPersisted(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	pendingURI := coresecrets.NewURI()
+	persistedURI := coresecrets.NewURI()
+
+	// Pending create: no CheckSecretManageAccess call expected.
+	// Persisted secret: requires both access and owner lookups.
+	s.secretGrantAuthorizer.EXPECT().CheckSecretManageAccess(gomock.Any(), persistedURI, unitName).Return(nil)
+	s.secretGrantAuthorizer.EXPECT().GetSecretOwnerKinds(gomock.Any(), gomock.Any()).
+		Return([]secret.SecretOwnerInfo{{
+			SecretID:  persistedURI.ID,
+			OwnerKind: secret.ApplicationCharmSecretOwner,
+		}}, nil)
+
+	result, err := s.svc.ResolveSecretGrantOwners(c.Context(), unitName,
+		[]unitstate.CreateSecretArg{{
+			CreateCharmSecretParams: secret.CreateCharmSecretParams{
+				Version: 1,
+				CharmOwner: secret.CharmSecretOwner{
+					Kind: secret.UnitCharmSecretOwner,
+					ID:   "test/0",
+				},
+				UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+					Data:     coresecrets.SecretData{"key": "value"},
+					Checksum: "checksum",
+				},
+			},
+			URI: pendingURI,
+		}},
+		[]*coresecrets.URI{pendingURI, persistedURI},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 2)
+	c.Check(result[pendingURI.ID], tc.Equals, secret.UnitCharmSecretOwner)
+	c.Check(result[persistedURI.ID], tc.Equals, secret.ApplicationCharmSecretOwner)
+}
+
+func (s *commitHookSuite) TestResolveSecretGrantOwnersPendingUnitSecret(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	uri := coresecrets.NewURI()
+
+	// No authorizer calls — owner kind is derived from the create argument.
+
+	result, err := s.svc.ResolveSecretGrantOwners(c.Context(), unitName,
+		[]unitstate.CreateSecretArg{{
+			CreateCharmSecretParams: secret.CreateCharmSecretParams{
+				Version: 1,
+				CharmOwner: secret.CharmSecretOwner{
+					Kind: secret.UnitCharmSecretOwner,
+					ID:   "test/0",
+				},
+				UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+					Data:     coresecrets.SecretData{"key": "value"},
+					Checksum: "checksum",
+				},
+			},
+			URI: uri,
+		}},
+		[]*coresecrets.URI{uri},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 1)
+	c.Check(result[uri.ID], tc.Equals, secret.UnitCharmSecretOwner)
 }
 
 func (s *commitHookSuite) TestCommitHookChangesLeadershipRevokeAppSecret(c *tc.C) {
@@ -1047,12 +1197,14 @@ func (s *commitHookSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.st = NewMockState(ctrl)
 	s.leadershipEnsurer = NewMockEnsurer(ctrl)
 	s.secretBackend = NewMockSecretBackendReferenceMutator(ctrl)
+	s.secretGrantAuthorizer = NewMockSecretGrantAuthorizer(ctrl)
 	s.clock = testclock.NewClock(time.Now())
 	s.uuidGen = uuid.NewUUID
 
 	s.svc = NewLeadershipService(
 		s.st,
 		s.secretBackend,
+		s.secretGrantAuthorizer,
 		s.leadershipEnsurer,
 		s.clock,
 		loggertesting.WrapCheckLog(c),
@@ -1063,6 +1215,7 @@ func (s *commitHookSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.st = nil
 		s.leadershipEnsurer = nil
 		s.secretBackend = nil
+		s.secretGrantAuthorizer = nil
 	})
 
 	return ctrl

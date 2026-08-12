@@ -4,7 +4,9 @@
 Gets a secret's metadata info.
 
 ## Usage
-``` secret-info-get [options] <ID>```
+```text
+secret-info-get [options] <ID>
+```
 
 ### Options
 | Flag | Default | Usage |

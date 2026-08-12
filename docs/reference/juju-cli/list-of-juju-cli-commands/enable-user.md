@@ -1,12 +1,14 @@
 (command-juju-enable-user)=
 # `juju enable-user`
-> See also: [users](#users), [disable-user](#disable-user), [login](#login)
+> See also: [users](#command-juju-users), [disable-user](#command-juju-disable-user), [login](#command-juju-login)
 
 ## Summary
 Re-enables a previously disabled Juju user.
 
 ## Usage
-```juju enable-user [options] <user name>```
+```text
+juju enable-user [options] <user name>
+```
 
 ### Options
 | Flag | Default | Usage |

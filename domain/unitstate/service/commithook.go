@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	domainsecret "github.com/juju/juju/domain/secret"
@@ -106,6 +107,68 @@ func (s *LeadershipService) CommitHookChanges(ctx context.Context, arg unitstate
 	}
 
 	return nil
+}
+
+// ResolveSecretGrantOwners returns the owner kind for each granted URI
+// that survives authorization. A grant whose URI matches an incoming
+// secret create is always accepted, with ownership derived from the
+// creates argument. For persisted secrets the caller must have manage
+// access; a concurrently removed secret is silently omitted. The map
+// only contains entries for grants that should be performed.
+func (s *LeadershipService) ResolveSecretGrantOwners(
+	ctx context.Context,
+	unitName coreunit.Name,
+	creates []unitstate.CreateSecretArg,
+	grantURIs []*coresecrets.URI,
+) (map[string]domainsecret.CharmSecretOwnerKind, error) {
+	if len(grantURIs) == 0 {
+		return nil, nil
+	}
+
+	createdOwnerKinds := make(map[string]domainsecret.CharmSecretOwnerKind, len(creates))
+	for i, create := range creates {
+		if create.URI == nil {
+			return nil, errors.Errorf("create secret arg at index %d has nil URI", i)
+		}
+		createdOwnerKinds[create.URI.ID] = create.CharmOwner.Kind
+	}
+
+	result := make(map[string]domainsecret.CharmSecretOwnerKind, len(grantURIs))
+	persistedURIs := make([]*coresecrets.URI, 0, len(grantURIs))
+	var grantErrs []error
+	for _, uri := range grantURIs {
+		if ownerKind, ok := createdOwnerKinds[uri.ID]; ok {
+			result[uri.ID] = ownerKind
+			continue
+		}
+
+		if err := s.secretGrantAuthorizer.CheckSecretManageAccess(ctx, uri, unitName); err != nil {
+			if errors.Is(err, secreterrors.SecretNotFound) {
+				s.logger.Infof(ctx, "secret %q no longer exists, skipping grant", uri)
+				continue
+			}
+			grantErrs = append(grantErrs, err)
+			continue
+		}
+
+		persistedURIs = append(persistedURIs, uri)
+	}
+	if len(grantErrs) > 0 {
+		return nil, errors.Errorf("granting secrets access: %w", errors.Join(grantErrs...))
+	}
+	if len(persistedURIs) == 0 {
+		return result, nil
+	}
+
+	ownerInfos, err := s.secretGrantAuthorizer.GetSecretOwnerKinds(ctx, persistedURIs)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	for _, ownerInfo := range ownerInfos {
+		result[ownerInfo.SecretID] = ownerInfo.OwnerKind
+	}
+
+	return result, nil
 }
 
 func (s *LeadershipService) getManagementCaveat(

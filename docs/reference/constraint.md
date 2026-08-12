@@ -34,6 +34,11 @@ Supplying this constraint will determine whether machines are issued an IP addre
 
 The architecture. <br> <br>**Valid values:** `amd64`, `arm64`, `ppc64el`, `s390x`, `riscv64`.
 
+(constraint-container)=
+### `container`
+
+If not nil, indicates that a machine must be the specified container type. <br> <br> **Valid values:** `lxd`.
+
 (constraint-cores)=
 ### `cores`
 

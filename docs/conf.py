@@ -325,6 +325,12 @@ markdown_http_base = "https://documentation.ubuntu.com/juju/latest"
 exclude_patterns = [
     "doc-cheat-sheet*",
     "agents/**",
+    "reference/cloud/list-of-supported-clouds/reuse/**",
+    "_build/**",
+    ".sphinx/**",
+    ".venv/**",
+    "venv/**",
+    "__pycache__/**",
 ]
 
 # Adds custom CSS files, located under 'html_static_path'
@@ -345,10 +351,7 @@ html_js_files = [
 
 # Specifies a reST snippet to be appended to each .rst file
 
-rst_epilog = """
-.. include:: /reuse/links.txt
-.. include:: /reuse/substitutions.txt
-"""
+rst_epilog = """"""
 
 # Feedback button at the top; enabled by default
 #

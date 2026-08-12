@@ -1,12 +1,14 @@
 (command-juju-revoke-cloud)=
 # `juju revoke-cloud`
-> See also: [grant-cloud](#grant-cloud)
+> See also: [grant-cloud](#command-juju-grant-cloud)
 
 ## Summary
 Revokes access from a Juju user for a cloud.
 
 ## Usage
-```juju revoke-cloud [options] <user name> <permission> <cloud name> ...```
+```text
+juju revoke-cloud [options] <user name> <permission> <cloud name> ...
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -1,12 +1,14 @@
 (command-juju-add-user)=
 # `juju add-user`
-> See also: [register](#register), [grant](#grant), [users](#users), [show-user](#show-user), [disable-user](#disable-user), [enable-user](#enable-user), [change-user-password](#change-user-password), [remove-user](#remove-user)
+> See also: [register](#command-juju-register), [grant](#command-juju-grant), [users](#command-juju-users), [show-user](#command-juju-show-user), [disable-user](#command-juju-disable-user), [enable-user](#command-juju-enable-user), [change-user-password](#command-juju-change-user-password), [remove-user](#command-juju-remove-user)
 
 ## Summary
 Adds a Juju user to a controller.
 
 ## Usage
-```juju add-user [options] <user name> [<display name>]```
+```text
+juju add-user [options] <user name> [<display name>]
+```
 
 ### Options
 | Flag | Default | Usage |

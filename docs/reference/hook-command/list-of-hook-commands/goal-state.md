@@ -3,6 +3,11 @@
 ## Summary
 Prints the status of the charm's peers and related units.
 
+## Usage
+```text
+goal-state [options]
+```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

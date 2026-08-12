@@ -4,7 +4,9 @@
 Displays information about an application.
 
 ## Usage
-```juju show-application [options] <application name or alias>```
+```text
+juju show-application [options] <application name or alias>
+```
 
 ### Options
 | Flag | Default | Usage |

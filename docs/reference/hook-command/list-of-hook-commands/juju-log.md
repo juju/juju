@@ -4,7 +4,9 @@
 Writes a message to Juju logs.
 
 ## Usage
-``` juju-log [options] <message>```
+```text
+juju-log [options] <message>
+```
 
 ### Options
 | Flag | Default | Usage |

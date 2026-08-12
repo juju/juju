@@ -3,6 +3,11 @@
 ## Summary
 Exports the current model configuration as a reusable bundle.
 
+## Usage
+```text
+juju export-bundle [options]
+```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

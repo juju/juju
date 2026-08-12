@@ -4,7 +4,9 @@
 Update an existing secret.
 
 ## Usage
-```juju update-secret [options] <ID>|<name> [key[#base64|#file]=value...]```
+```text
+juju update-secret [options] <ID>|<name> [key[#base64|#file]=value...]
+```
 
 ### Options
 | Flag | Default | Usage |

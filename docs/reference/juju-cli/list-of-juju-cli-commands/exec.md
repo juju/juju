@@ -1,12 +1,14 @@
 (command-juju-exec)=
 # `juju exec`
-> See also: [run](#run), [ssh](#ssh)
+> See also: [run](#command-juju-run), [ssh](#command-juju-ssh)
 
 ## Summary
 Run the commands on the remote targets specified.
 
 ## Usage
-```juju exec [options] <commands>```
+```text
+juju exec [options] <commands>
+```
 
 ### Options
 | Flag | Default | Usage |

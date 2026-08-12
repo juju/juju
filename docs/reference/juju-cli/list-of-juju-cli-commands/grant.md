@@ -1,12 +1,14 @@
 (command-juju-grant)=
 # `juju grant`
-> See also: [revoke](#revoke), [add-user](#add-user), [grant-cloud](#grant-cloud)
+> See also: [revoke](#command-juju-revoke), [add-user](#command-juju-add-user), [grant-cloud](#command-juju-grant-cloud)
 
 ## Summary
 Grants access level to a Juju user for a model, controller, or application offer.
 
 ## Usage
-```juju grant [options] <user name> <permission> [<model name> ... | <offer url> ...]```
+```text
+juju grant [options] <user name> <permission> [<model name> ... | <offer url> ...]
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -50,7 +50,9 @@ func (s *documentationSuite) TestFormatCommand(c *tc.C) {
 summary for add-cloud...
 
 ## Usage
-` + "```" + `juju add-cloud [options] <cloud name> [<cloud definition file>]` + "```" + `
+` + "```" + `text
+juju add-cloud [options] <cloud name> [<cloud definition file>]
+` + "```" + `
 
 ### Options
 | Flag | Default | Usage |
@@ -84,7 +86,37 @@ details for add-cloud...
 insert summary here...
 
 ## Usage
-` + "```" + `juju foo [options] <args>` + "```" + `
+` + "```" + `text
+juju foo [options] <args>
+` + "```" + `
+
+## Examples
+insert examples here...
+
+## Details
+insert details here...
+
+`)[1:],
+	}, {
+		// no args - still print the "Usage" section
+		command: &docTestCommand{
+			info: &cmd.Info{
+				Name:     "bar",
+				Purpose:  "insert summary here...",
+				Doc:      "insert details here...",
+				Examples: "insert examples here...",
+			},
+			flags: []testFlag{},
+		},
+		title: false,
+		expected: (`
+## Summary
+insert summary here...
+
+## Usage
+` + "```" + `text
+juju bar [options]
+` + "```" + `
 
 ## Examples
 insert examples here...
