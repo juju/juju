@@ -4,7 +4,9 @@
 Grant access to a secret.
 
 ## Usage
-```juju grant-secret [options] <ID>|<name> <application>[,<application>...]```
+```text
+juju grant-secret [options] <ID>|<name> <application>[,<application>...]
+```
 
 ### Options
 | Flag | Default | Usage |

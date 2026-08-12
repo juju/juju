@@ -6,7 +6,7 @@ Juju 4.0.0 introduces a major architectural step toward a relational, Dqlite con
 domain model. It removes long-deprecated surfaces (e.g., series, podspec charms) and tightens CLI behavior around 
 bases and deployment safety. Several legacy APIs and workflows are intentionally deferred to the `4.0.x` / `4.x` cycle.
 
-#### 🎯 Highlights:
+## 🎯 Highlights:
 
 * **New controller database architecture (Dqlite-first)**: A relational model backed by Dqlite (high-availability SQLite 
 via Raft).
@@ -16,7 +16,7 @@ to specify OS/runtime (the 3.6 docs already steer operations toward bases).
 * **Provider rename**: The "Manual" provider type is renamed to "Unmanaged" across the codebase. Update any scripts/CI 
 currently using 'manual'.
 
-#### 🔄 Lifecycle upgrade/migrate path clarified
+## 🔄 Lifecycle upgrade/migrate path clarified
 
 As in `3.6`, upgrade-controller does not allow jumping major/minor; `4.0` upgrades are expected via model migration to a 
 `4.0` controller.  
@@ -25,7 +25,7 @@ As in `3.6`, upgrade-controller does not allow jumping major/minor; `4.0` upgrad
 Model migration will appear in next patch versions.
 ```
 
-#### ⚠️ Breaking changes
+## ⚠️ Breaking changes
 
 * **Controller HA enablement**: Use controller scaling with `juju add-unit` in the controller model instead of `enable-ha`. 
 The `juju-ha-space` controller config item is removed in favour of binding the controller application `dbcluster` endpoint.
@@ -68,7 +68,7 @@ of `ingres-address`, which is the only value that should be used now.
 value no longer matches JSONSchema, and is instead `false`. Explicitly include `additionalProperties` rather than relying 
 on the default value to have consistency across Juju 3.6 and Juju 4.
 
-#### 🐛 Known issues / deferred items
+## 🐛 Known issues / deferred items
 
 * Model migrations (`≤3.x` → `4.0`): not available at GA; planned for `4.0.x`
 * LXD profiles for Kubernetes workloads: planned for `4.x`
@@ -76,7 +76,7 @@ on the default value to have consistency across Juju 3.6 and Juju 4.
 * Server-side status filtering replacement: client-side filtering only for now; a new server-side mechanism is planned for 4.x
 * SSH keys are no longer automatically added to newly created models.
 
-#### 📚  Notes for charm authors
+## 📚  Notes for charm authors
 
 * Ensure charms declare the correct bases; behavior that previously relied on series or on `--force-series`
 (undeclared bases) is no longer accepted by the client.
@@ -84,7 +84,7 @@ on the default value to have consistency across Juju 3.6 and Juju 4.
 * `leader-get, leader-set` hook tools are removed.
 * LXD profiles are removed.
 
-#### 📘 Summary
+## 📘 Summary
 
 Juju `4.0.0` represents a significant architectural milestone, delivering a scalable controller foundation built 
 on Dqlite while streamlining the operational model through the removal of legacy features. While this major version 

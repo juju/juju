@@ -4,7 +4,9 @@
 Updates an existing secret.
 
 ## Usage
-``` secret-set [options] <ID> [key[#base64]=value...]```
+```text
+secret-set [options] <ID> [key[#base64]=value...]
+```
 
 ### Options
 | Flag | Default | Usage |

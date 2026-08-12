@@ -1,12 +1,14 @@
 (command-juju-offer)=
 # `juju offer`
-> See also: [consume](#consume), [integrate](#integrate), [remove-saas](#remove-saas)
+> See also: [consume](#command-juju-consume), [integrate](#command-juju-integrate), [remove-saas](#command-juju-remove-saas)
 
 ## Summary
 Offer application endpoints for use in other models.
 
 ## Usage
-```juju offer [options] [model-name.]<application-name>:<endpoint-name>[,...] [offer-name]```
+```text
+juju offer [options] [model-name.]<application-name>:<endpoint-name>[,...] [offer-name]
+```
 
 ### Options
 | Flag | Default | Usage |

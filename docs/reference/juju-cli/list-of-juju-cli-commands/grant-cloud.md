@@ -1,12 +1,14 @@
 (command-juju-grant-cloud)=
 # `juju grant-cloud`
-> See also: [grant](#grant), [revoke-cloud](#revoke-cloud), [add-user](#add-user)
+> See also: [grant](#command-juju-grant), [revoke-cloud](#command-juju-revoke-cloud), [add-user](#command-juju-add-user)
 
 ## Summary
 Grants access level to a Juju user for a cloud.
 
 ## Usage
-```juju grant-cloud [options] <user name> <permission> <cloud name> ...```
+```text
+juju grant-cloud [options] <user name> <permission> <cloud name> ...
+```
 
 ### Options
 | Flag | Default | Usage |

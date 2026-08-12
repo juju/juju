@@ -4,7 +4,9 @@
 Specifies which version of the application is deployed.
 
 ## Usage
-``` application-version-set [options] <new-version>```
+```text
+application-version-set [options] <new-version>
+```
 
 ## Examples
 

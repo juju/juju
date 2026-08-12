@@ -1,5 +1,17 @@
 (list-of-model-configuration-keys)=
 # List of model configuration keys
 
-
 This document gives a list of all the configuration keys that can be applied to a Juju model.
+
+```{important}
+
+Some are only defined for a given cloud; see {ref}`model-config-cloud-specific-key`. Others are defined generally but may still only be available for some clouds; e.g., {ref}`model-config-container-inherit-properties`.
+
+```
+
+(model-config-cloud-specific-key)=
+## `<cloud-specific key>`
+
+```{ibnote}
+See {ref}`list-of-supported-clouds`> `<cloud name>` > Cloud > definition <list-of-supported-clouds>` or run `juju show-cloud <cloud> --include-config`.
+```

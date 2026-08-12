@@ -1,12 +1,14 @@
 (command-juju-remove-storage-pool)=
 # `juju remove-storage-pool`
-> See also: [create-storage-pool](#create-storage-pool), [update-storage-pool](#update-storage-pool), [storage-pools](#storage-pools)
+> See also: [create-storage-pool](#command-juju-create-storage-pool), [update-storage-pool](#command-juju-update-storage-pool), [storage-pools](#command-juju-storage-pools)
 
 ## Summary
 Remove an existing storage pool.
 
 ## Usage
-```juju remove-storage-pool [options] <name>```
+```text
+juju remove-storage-pool [options] <name>
+```
 
 ### Options
 | Flag | Default | Usage |

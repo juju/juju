@@ -42,3 +42,5 @@ dqlite-deps.tar.bz2
 *.bin
 .cache
 .hermes
+.kilo
+.opencode

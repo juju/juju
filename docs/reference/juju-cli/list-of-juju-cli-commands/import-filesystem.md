@@ -1,12 +1,13 @@
 (command-juju-import-filesystem)=
 # `juju import-filesystem`
-> See also: [storage](#storage)
+> See also: [storage](#command-juju-storage)
 
 ## Summary
 Imports a filesystem into the model.
 
 ## Usage
-```juju import-filesystem [options] 
+```text
+juju import-filesystem [options] 
 <storage-provider> <provider-id> <storage-name>
 ```
 

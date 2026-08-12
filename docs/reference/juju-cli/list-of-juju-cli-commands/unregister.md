@@ -1,12 +1,14 @@
 (command-juju-unregister)=
 # `juju unregister`
-> See also: [destroy-controller](#destroy-controller), [kill-controller](#kill-controller), [register](#register)
+> See also: [destroy-controller](#command-juju-destroy-controller), [kill-controller](#command-juju-kill-controller), [register](#command-juju-register)
 
 ## Summary
 Unregisters a Juju controller.
 
 ## Usage
-```juju unregister [options] <controller name>```
+```text
+juju unregister [options] <controller name>
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -1,11 +1,16 @@
 (command-juju-storage-pools)=
 # `juju storage-pools`
-> See also: [create-storage-pool](#create-storage-pool), [remove-storage-pool](#remove-storage-pool)
+> See also: [create-storage-pool](#command-juju-create-storage-pool), [remove-storage-pool](#command-juju-remove-storage-pool)
 
 **Aliases:** list-storage-pools
 
 ## Summary
 List storage pools.
+
+## Usage
+```text
+juju storage-pools [options]
+```
 
 ### Options
 | Flag | Default | Usage |

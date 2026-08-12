@@ -1,12 +1,14 @@
 (command-juju-set-model-constraints)=
 # `juju set-model-constraints`
-> See also: [models](#models), [model-constraints](#model-constraints), [constraints](#constraints), [set-constraints](#set-constraints)
+> See also: [models](#command-juju-models), [model-constraints](#command-juju-model-constraints), [constraints](#command-juju-constraints), [set-constraints](#command-juju-set-constraints)
 
 ## Summary
 Sets machine constraints on a model.
 
 ## Usage
-```juju set-model-constraints [options] <constraint>=<value> ...```
+```text
+juju set-model-constraints [options] <constraint>=<value> ...
+```
 
 ### Options
 | Flag | Default | Usage |

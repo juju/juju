@@ -1,12 +1,14 @@
 (command-juju-remove-application)=
 # `juju remove-application`
-> See also: [scale-application](#scale-application), [show-application](#show-application)
+> See also: [scale-application](#command-juju-scale-application), [show-application](#command-juju-show-application)
 
 ## Summary
 Remove applications from the model.
 
 ## Usage
-```juju remove-application [options] <application> [<application>...]```
+```text
+juju remove-application [options] <application> [<application>...]
+```
 
 ### Options
 | Flag | Default | Usage |

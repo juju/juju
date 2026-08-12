@@ -1,12 +1,14 @@
 (command-juju-remove-unit)=
 # `juju remove-unit`
-> See also: [remove-application](#remove-application), [scale-application](#scale-application)
+> See also: [remove-application](#command-juju-remove-application), [scale-application](#command-juju-scale-application)
 
 ## Summary
 Remove application units from the model.
 
 ## Usage
-```juju remove-unit [options] <unit> [...] | <application>```
+```text
+juju remove-unit [options] <unit> [...] | <application>
+```
 
 ### Options
 | Flag | Default | Usage |

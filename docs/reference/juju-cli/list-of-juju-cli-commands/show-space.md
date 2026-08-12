@@ -1,12 +1,14 @@
 (command-juju-show-space)=
 # `juju show-space`
-> See also: [add-space](#add-space), [spaces](#spaces), [reload-spaces](#reload-spaces), [rename-space](#rename-space), [remove-space](#remove-space)
+> See also: [add-space](#command-juju-add-space), [spaces](#command-juju-spaces), [reload-spaces](#command-juju-reload-spaces), [rename-space](#command-juju-rename-space), [remove-space](#command-juju-remove-space)
 
 ## Summary
 Shows information about the network space.
 
 ## Usage
-```juju show-space [options] <name>```
+```text
+juju show-space [options] <name>
+```
 
 ### Options
 | Flag | Default | Usage |

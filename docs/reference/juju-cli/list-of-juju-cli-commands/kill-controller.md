@@ -1,12 +1,14 @@
 (command-juju-kill-controller)=
 # `juju kill-controller`
-> See also: [destroy-controller](#destroy-controller), [unregister](#unregister)
+> See also: [destroy-controller](#command-juju-destroy-controller), [unregister](#command-juju-unregister)
 
 ## Summary
 Forcibly terminate all machines and other associated resources for a Juju controller.
 
 ## Usage
-```juju kill-controller [options] <controller name>```
+```text
+juju kill-controller [options] <controller name>
+```
 
 ### Options
 | Flag | Default | Usage |

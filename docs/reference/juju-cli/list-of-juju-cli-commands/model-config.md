@@ -1,12 +1,14 @@
 (command-juju-model-config)=
 # `juju model-config`
-> See also: [models](#models), [model-defaults](#model-defaults), [show-cloud](#show-cloud), [controller-config](#controller-config)
+> See also: [models](#command-juju-models), [model-defaults](#command-juju-model-defaults), [show-cloud](#command-juju-show-cloud), [controller-config](#command-juju-controller-config)
 
 ## Summary
 Displays or sets configuration values on a model.
 
 ## Usage
-```juju model-config [options] [<model-key>[=<value>] ...]```
+```text
+juju model-config [options] [<model-key>[=<value>] ...]
+```
 
 ### Options
 | Flag | Default | Usage |

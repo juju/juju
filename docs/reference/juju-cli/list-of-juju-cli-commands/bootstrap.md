@@ -1,12 +1,14 @@
 (command-juju-bootstrap)=
 # `juju bootstrap`
-> See also: [add-credential](#add-credential), [autoload-credentials](#autoload-credentials), [add-model](#add-model), [controller-config](#controller-config), [model-config](#model-config), [set-constraints](#set-constraints), [show-cloud](#show-cloud)
+> See also: [add-credential](#command-juju-add-credential), [autoload-credentials](#command-juju-autoload-credentials), [add-model](#command-juju-add-model), [controller-config](#command-juju-controller-config), [model-config](#command-juju-model-config), [set-constraints](#command-juju-set-constraints), [show-cloud](#command-juju-show-cloud)
 
 ## Summary
 Initializes a cloud environment.
 
 ## Usage
-```juju bootstrap [options] [<cloud name>[/region] [<controller name>]]```
+```text
+juju bootstrap [options] [<cloud name>[/region] [<controller name>]]
+```
 
 ### Options
 | Flag | Default | Usage |

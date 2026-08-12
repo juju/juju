@@ -8,7 +8,6 @@ As for all Kubernetes clouds, credentials are stored in `credentials.yaml` on th
 If using the Juju CLI, you can skip writing this file manually -- `juju add-k8s` can read `kubeconfig` and create the matching credential entry for the selected context.
 ```
 
-(kubernetes-credential-definition)=
 
 ```yaml
 credentials:
@@ -18,12 +17,10 @@ credentials:
       <auth-attributes>               # fill using one of the mappings below
 ```
 
-(kubernetes-supported-authentication-types)=
 ### Authentication types
 
 As for all Kubernetes clouds, the supported authentication types are:
 
-(kubernetes-auth-clientcertificate)=
 #### `clientcertificate`
 
 Kubernetes client certificate and key.
@@ -32,7 +29,6 @@ Kubernetes client certificate and key.
 - `ClientKeyData`: The Kubernetes certificate key (required).
 - `rbac-id`: The unique ID key name of the RBAC resources (optional).
 
-(kubernetes-auth-oauth2)=
 #### `oauth2`
 
 OAuth2 token authentication.
@@ -40,7 +36,6 @@ OAuth2 token authentication.
 - `Token`: The Kubernetes token (required).
 - `rbac-id`: The unique ID key name of the RBAC resources (optional).
 
-(kubernetes-auth-userpass)=
 #### `userpass`
 
 Username and password authentication.
@@ -48,7 +43,6 @@ Username and password authentication.
 - `username`: The username to authenticate with (required).
 - `password`: The password for the specified username (required).
 
-(kubernetes-auth-certificate)=
 #### `certificate` (legacy)
 
 Kubernetes service account token with certificate.
@@ -57,7 +51,6 @@ Kubernetes service account token with certificate.
 - `Token`: The Kubernetes service account bearer token (required).
 - `rbac-id`: The unique ID key name of the RBAC resources (optional).
 
-(kubernetes-auth-oauth2withcert)=
 #### `oauth2withcert` (legacy)
 
 OAuth2 token with certificate.

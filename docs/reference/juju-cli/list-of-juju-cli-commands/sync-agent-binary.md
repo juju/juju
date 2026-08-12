@@ -1,9 +1,14 @@
 (command-juju-sync-agent-binary)=
 # `juju sync-agent-binary`
-> See also: [upgrade-controller](#upgrade-controller)
+> See also: [upgrade-controller](#command-juju-upgrade-controller)
 
 ## Summary
 Copy agent binaries from the official agent store into a local controller.
+
+## Usage
+```text
+juju sync-agent-binary [options]
+```
 
 ### Options
 | Flag | Default | Usage |

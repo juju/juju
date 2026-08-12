@@ -1,9 +1,14 @@
 (command-juju-whoami)=
 # `juju whoami`
-> See also: [controllers](#controllers), [login](#login), [logout](#logout), [models](#models), [users](#users)
+> See also: [controllers](#command-juju-controllers), [login](#command-juju-login), [logout](#command-juju-logout), [models](#command-juju-models), [users](#command-juju-users)
 
 ## Summary
 Print current login details.
+
+## Usage
+```text
+juju whoami [options]
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -1,12 +1,14 @@
 (command-juju-remove-storage)=
 # `juju remove-storage`
-> See also: [add-storage](#add-storage), [attach-storage](#attach-storage), [detach-storage](#detach-storage), [list-storage](#list-storage), [show-storage](#show-storage), [storage](#storage)
+> See also: [add-storage](#command-juju-add-storage), [attach-storage](#command-juju-attach-storage), [detach-storage](#command-juju-detach-storage), [show-storage](#command-juju-show-storage), [storage](#command-juju-storage)
 
 ## Summary
 Removes storage from the model.
 
 ## Usage
-```juju remove-storage [options] <storage> [<storage> ...]```
+```text
+juju remove-storage [options] <storage> [<storage> ...]
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -4,7 +4,9 @@
 Gets network config.
 
 ## Usage
-``` network-get [options] <binding-name> [--ingress-address] [--bind-address] [--egress-subnets]```
+```text
+network-get [options] <binding-name> [--ingress-address] [--bind-address] [--egress-subnets]
+```
 
 ### Options
 | Flag | Default | Usage |

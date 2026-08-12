@@ -73,15 +73,12 @@ func PrintMarkdown(w io.Writer, cmd InfoCommand, opts MarkdownOptions) error {
 	fmt.Fprintln(&doc)
 
 	// Usage
-	if strings.TrimSpace(info.Args) != "" {
-		fmt.Fprintln(&doc, "## Usage")
-		fmt.Fprintf(&doc, "```")
-		fmt.Fprint(&doc, opts.UsagePrefix)
-		fmt.Fprintf(&doc, "%s [%ss] %s", info.Name, getFlagsName(info.FlagKnownAs), info.Args)
-		fmt.Fprintf(&doc, "```")
-		fmt.Fprintln(&doc)
-		fmt.Fprintln(&doc)
-	}
+	fmt.Fprintln(&doc, "## Usage")
+	fmt.Fprintln(&doc, "```text")
+	fmt.Fprint(&doc, opts.UsagePrefix)
+	fmt.Fprintln(&doc, strings.TrimSpace(fmt.Sprintf("%s [%ss] %s", info.Name, getFlagsName(info.FlagKnownAs), info.Args)))
+	fmt.Fprintln(&doc, "```")
+	fmt.Fprintln(&doc)
 
 	// Options
 	printFlags(&doc, cmd)

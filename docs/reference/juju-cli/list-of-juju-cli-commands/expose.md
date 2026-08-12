@@ -1,12 +1,14 @@
 (command-juju-expose)=
 # `juju expose`
-> See also: [unexpose](#unexpose)
+> See also: [unexpose](#command-juju-unexpose)
 
 ## Summary
 Makes an application publicly available over the network.
 
 ## Usage
-```juju expose [options] <application name>```
+```text
+juju expose [options] <application name>
+```
 
 ### Options
 | Flag | Default | Usage |

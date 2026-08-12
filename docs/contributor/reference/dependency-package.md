@@ -10,7 +10,7 @@ myst:
 The **`dependency`** package is a subpackage in {ref}`the Go worker package <worker-package>` that provides constructs
 that help
 manage shared resources and their lifetimes. In Juju, it provides constructs that enable {ref}`agents <agent>` to run
-acyclic graphs of {ref}`workers <worker>` (i.e., workers and their dependencies, i.e., other workers).
+acyclic graphs of {ref}`workers <worker-cont>` (i.e., workers and their dependencies, i.e., other workers).
 
 > See more: [Go packages | `worker` > `dependency`](https://pkg.go.dev/github.com/juju/worker/v3@v3.3.0/dependency)
 

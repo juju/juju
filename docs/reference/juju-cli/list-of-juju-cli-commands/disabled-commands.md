@@ -1,11 +1,16 @@
 (command-juju-disabled-commands)=
 # `juju disabled-commands`
-> See also: [disable-command](#disable-command), [enable-command](#enable-command)
+> See also: [disable-command](#command-juju-disable-command), [enable-command](#command-juju-enable-command)
 
 **Aliases:** list-disabled-commands
 
 ## Summary
 Lists disabled commands.
+
+## Usage
+```text
+juju disabled-commands [options]
+```
 
 ### Options
 | Flag | Default | Usage |

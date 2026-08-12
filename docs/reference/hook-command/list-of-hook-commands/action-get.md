@@ -4,7 +4,9 @@
 Gets action parameters.
 
 ## Usage
-``` action-get [options] [<key>[.<key>.<key>...]]```
+```text
+action-get [options] [<key>[.<key>.<key>...]]
+```
 
 ### Options
 | Flag | Default | Usage |

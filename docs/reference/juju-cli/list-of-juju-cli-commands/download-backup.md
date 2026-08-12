@@ -1,12 +1,14 @@
 (command-juju-download-backup)=
 # `juju download-backup`
-> See also: [create-backup](#create-backup)
+> See also: [create-backup](#command-juju-create-backup)
 
 ## Summary
 Download a backup archive file.
 
 ## Usage
-```juju download-backup [options] /full/path/to/backup/on/controller```
+```text
+juju download-backup [options] /full/path/to/backup/on/controller
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -4,7 +4,9 @@
 Show help on a command or other topic.
 
 ## Usage
-```juju help [options] [topic]```
+```text
+juju help [options] [topic]
+```
 
 ## Details
 

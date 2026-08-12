@@ -1,12 +1,14 @@
 (command-juju-show-machine)=
 # `juju show-machine`
-> See also: [add-machine](#add-machine)
+> See also: [add-machine](#command-juju-add-machine)
 
 ## Summary
 Show a machine's status.
 
 ## Usage
-```juju show-machine [options] <machineID> ...```
+```text
+juju show-machine [options] <machineID> ...
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -4,7 +4,9 @@
 Revokes access to a secret.
 
 ## Usage
-``` secret-revoke [options] <ID>```
+```text
+secret-revoke [options] <ID>
+```
 
 ### Options
 | Flag | Default | Usage |

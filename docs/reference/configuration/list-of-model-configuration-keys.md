@@ -15,7 +15,6 @@ Some are only defined for a given cloud; see {ref}`model-config-cloud-specific-k
 ```{ibnote}
 See {ref}`list-of-supported-clouds`> `<cloud name>` > Cloud > definition <list-of-supported-clouds>` or run `juju show-cloud <cloud> --include-config`.
 ```
-
 (model-config-agent-metadata-url)=
 ## `agent-metadata-url`
 
@@ -32,8 +31,6 @@ URL of private stream.
 Version of Juju to use for deploy/upgrades.
 
 **Default value:** `""`
-
-**Valid values:** `released`, `devel`, `proposed`
 
 **Type:** string
 
@@ -149,6 +146,7 @@ List of domain addresses not to be proxied for APT (comma-separated).
 **Default value:** `""`
 
 **Type:** string
+
 
 (model-config-automatically-retry-hooks)=
 ## `automatically-retry-hooks`
@@ -289,14 +287,17 @@ been previously set.
 - custom cloudinit-userdata must be passed via file, not as options on the command
 line (like the config command)
 
+
+
 (model-config-container-image-metadata-defaults-disabled)=
 ## `container-image-metadata-defaults-disabled`
 
-`container-image-metadata-defaults-disabled` determines whether default simplestreams sources are used for image metadata with containers.
+Whether default simplestreams sources are used for image metadata with containers.
 
 **Default value:** `false`
 
 **Type:** bool
+
 
 (model-config-container-image-metadata-url)=
 ## `container-image-metadata-url`
@@ -307,6 +308,7 @@ The URL at which the metadata used to locate container OS image ids is located.
 
 **Type:** string
 
+
 (model-config-container-image-stream)=
 ## `container-image-stream`
 
@@ -315,6 +317,7 @@ The simplestreams stream used to identify which image ids to search when startin
 **Default value:** `released`
 
 **Type:** string
+
 
 (model-config-container-inherit-properties)=
 ## `container-inherit-properties`
@@ -326,6 +329,7 @@ List of properties to be copied from the host machine to new containers created 
 **Type:** string
 
 **Description:**
+
 
 The container-inherit-properties key allows for a limited set of parameters
 enabled on a Juju machine to be inherited by any hosted containers (KVM guests
@@ -501,7 +505,7 @@ Arbitrary user specified string data that is stored against the model.
 (model-config-firewall-mode)=
 ## `firewall-mode`
 
-*Note: This value cannot be changed after model creation.*
+*Note: This value cannot be changed after model creation.* 
 
 The mode to use for network firewalling.
 
@@ -564,6 +568,7 @@ Whether default simplestreams sources are used for image metadata.
 
 **Type:** bool
 
+
 (model-config-image-metadata-url)=
 ## `image-metadata-url`
 
@@ -606,11 +611,12 @@ The FTP proxy value to pass to charms in the `JUJU_CHARM_FTP_PROXY` environment 
 (model-config-juju-http-proxy)=
 ## `juju-http-proxy`
 
-`juju-http-proxy` is the HTTP proxy value to pass to charms in the `JUJU_CHARM_HTTP_PROXY` environment variable.
+The HTTP proxy value to pass to charms in the `JUJU_CHARM_HTTP_PROXY` environment variable.
+
+**Default value:** `""`
 
 **Type:** string
 
-**Default value:** ""
 
 (model-config-juju-https-proxy)=
 ## `juju-https-proxy`
@@ -672,7 +678,7 @@ The currently supported labels are:
 | `#cmr-auth` | Authentication for cross model relations |
 | `#secrets` | Juju secrets |
 
-and where `<verbosity level>` can be, in decreasing order of severity:
+and where <verbosity level> can be, in decreasing order of severity:
 
 | Level | Description |
 |-|-|
@@ -683,11 +689,10 @@ and where `<verbosity level>` can be, in decreasing order of severity:
 | `DEBUG` | Information intended to assist developers in debugging.
 | `TRACE` | The lowest level - includes the full details of input args, return values, HTTP requests sent/received, etc. |
 
-When you set `logging-config` to `module=level`, then Juju saves that module's logs for the given severity level **and above.** For example, setting `logging-config` to `juju.worker.uniter=WARNING` will capture all `CRITICAL`, `ERROR` and `WARNING` logs for the uniter, but discard logs for lower severity levels (`INFO`, `DEBUG`, `TRACE`).
-
-```{ibnote}
-See more: [https://github.com/juju/loggo/blob/master/level.go#L13](https://github.com/juju/loggo/blob/master/level.go#L13)
-```
+When you set `logging-config` to `module=level`, then Juju saves that module's logs
+for the given severity level **and above.** For example, setting `logging-config`
+to `juju.worker.uniter=WARNING` will capture all `CRITICAL`, `ERROR` and `WARNING` logs
+for the uniter, but discard logs for lower severity levels (`INFO`, `DEBUG`, `TRACE`).
 
 **Examples:**
 
@@ -760,9 +765,9 @@ potentially valuable resources.
 (model-config-name)=
 ## `name`
 
-*Note: This value cannot be changed after model creation.*
+*Note: This value cannot be changed after model creation.* 
 
-*Note: This value must be set.*
+*Note: This value must be set.* 
 
 The name of the current model.
 
@@ -959,9 +964,9 @@ Determines whether metrics declared by charms deployed into this model are sent 
 (model-config-type)=
 ## `type`
 
-*Note: This value cannot be changed after model creation.*
+*Note: This value cannot be changed after model creation.* 
 
-*Note: This value must be set.*
+*Note: This value must be set.* 
 
 Type of model, e.g. local, ec2.
 

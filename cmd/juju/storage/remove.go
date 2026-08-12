@@ -80,7 +80,6 @@ func (c *removeStorageCommand) Info() *cmd.Info {
 			"add-storage",
 			"attach-storage",
 			"detach-storage",
-			"list-storage",
 			"show-storage",
 			"storage",
 		},

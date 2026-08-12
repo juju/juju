@@ -1,12 +1,14 @@
 (hook-command-state-get)=
 # `state-get`
-> See also: [state-delete](#state-delete), [state-set](#state-set)
+> See also: [state-delete](#hook-command-state-delete), [state-set](#hook-command-state-set)
 
 ## Summary
 Prints server-side-state value.
 
 ## Usage
-``` state-get [options] [<key>]```
+```text
+state-get [options] [<key>]
+```
 
 ### Options
 | Flag | Default | Usage |

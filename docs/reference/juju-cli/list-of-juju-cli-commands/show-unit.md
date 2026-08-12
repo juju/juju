@@ -1,12 +1,14 @@
 (command-juju-show-unit)=
 # `juju show-unit`
-> See also: [add-unit](#add-unit), [remove-unit](#remove-unit)
+> See also: [add-unit](#command-juju-add-unit), [remove-unit](#command-juju-remove-unit)
 
 ## Summary
 Displays information about a unit.
 
 ## Usage
-```juju show-unit [options] <unit name>```
+```text
+juju show-unit [options] <unit name>
+```
 
 ### Options
 | Flag | Default | Usage |
