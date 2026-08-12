@@ -151,6 +151,9 @@ run_govulncheck() {
 		# LXD daemon vulnerability not client
 		# https://pkg.go.dev/vuln/GO-2026-4595
 		"GO-2026-4595"
+		# LXD daemon vulnerability not client
+		# https://pkg.go.dev/vuln/GO-2026-5306
+		"GO-2026-5306"
 	)
 	ignoreMatcher=$(join "|" "${ignore[@]}")
 
