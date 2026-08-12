@@ -13,7 +13,6 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
-	provisioner "github.com/juju/juju/api/agent/provisioner"
 	network "github.com/juju/juju/core/network"
 	network0 "github.com/juju/juju/domain/network"
 	params "github.com/juju/juju/rpc/params"
@@ -31,7 +30,6 @@ type MockAPICalls struct {
 type MockAPICallsMockRecorder struct {
 	mock                                 *MockAPICalls
 	containerConfigExpects               []*gomock.Call1_2[context.Context, params.ContainerConfig, error]
-	getContainerProfileInfoExpects       []*gomock.Call2_2[context.Context, names.MachineTag, []*provisioner.LXDProfileResult, error]
 	hostChangesForContainerExpects       []*gomock.Call2_2[context.Context, names.MachineTag, []network0.DeviceToBridge, error]
 	prepareContainerInterfaceInfoExpects []*gomock.Call2_2[context.Context, names.MachineTag, network.InterfaceInfos, error]
 	releaseContainerAddressesExpects     []*gomock.Call2_1[context.Context, names.MachineTag, error]
@@ -67,24 +65,6 @@ func (mr *MockAPICallsMockRecorder) ContainerConfig(arg0 any) *MockAPICallsConta
 
 // MockAPICallsContainerConfigCall is the typed call wrapper for ContainerConfig.
 type MockAPICallsContainerConfigCall = gomock.Call1_2[context.Context, params.ContainerConfig, error]
-
-// GetContainerProfileInfo mocks base method.
-func (m *MockAPICalls) GetContainerProfileInfo(arg0 context.Context, arg1 names.MachineTag) ([]*provisioner.LXDProfileResult, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getContainerProfileInfoExpects, m.ctrl, m, "GetContainerProfileInfo", arg0, arg1)
-}
-
-// GetContainerProfileInfo indicates an expected call of GetContainerProfileInfo.
-func (mr *MockAPICallsMockRecorder) GetContainerProfileInfo(arg0, arg1 any) *MockAPICallsGetContainerProfileInfoCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, names.MachineTag, []*provisioner.LXDProfileResult, error](mr.mock.ctrl.T, mr.mock, "GetContainerProfileInfo", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
-	mr.getContainerProfileInfoExpects = append(mr.getContainerProfileInfoExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockAPICallsGetContainerProfileInfoCall is the typed call wrapper for GetContainerProfileInfo.
-type MockAPICallsGetContainerProfileInfoCall = gomock.Call2_2[context.Context, names.MachineTag, []*provisioner.LXDProfileResult, error]
 
 // HostChangesForContainer mocks base method.
 func (m *MockAPICalls) HostChangesForContainer(arg0 context.Context, arg1 names.MachineTag) ([]network0.DeviceToBridge, error) {

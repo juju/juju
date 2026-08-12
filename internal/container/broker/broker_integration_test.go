@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
-	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -201,14 +200,6 @@ func (f *fakeAPI) PrepareHost(ctx context.Context, containerTag names.MachineTag
 		return f.fakePreparer(ctx, containerTag, log, abort)
 	}
 	return nil
-}
-
-func (f *fakeAPI) GetContainerProfileInfo(ctx context.Context, containerTag names.MachineTag) ([]*apiprovisioner.LXDProfileResult, error) {
-	f.MethodCall(f, "GetContainerProfileInfo", containerTag)
-	if err := f.NextErr(); err != nil {
-		return nil, err
-	}
-	return []*apiprovisioner.LXDProfileResult{}, nil
 }
 
 type fakeContainerManager struct {

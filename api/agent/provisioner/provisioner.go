@@ -52,14 +52,6 @@ type DistributionGroupResult struct {
 	Err        *params.Error
 }
 
-// LXDProfileResult provides a charm.LXDProfile, adding the name.
-type LXDProfileResult struct {
-	Config      map[string]string            `json:"config" yaml:"config"`
-	Description string                       `json:"description" yaml:"description"`
-	Devices     map[string]map[string]string `json:"devices" yaml:"devices"`
-	Name        string                       `json:"name" yaml:"name"`
-}
-
 // Option is a function that can be used to configure a Client.
 type Option = base.Option
 
@@ -310,38 +302,6 @@ func (st *Client) CACert(ctx context.Context) (string, error) {
 		return "", err
 	}
 	return string(result.Result), nil
-}
-
-// GetContainerProfileInfo returns a slice of ContainerLXDProfile, 1 for each unit's charm
-// which contains an lxd-profile.yaml.
-func (st *Client) GetContainerProfileInfo(ctx context.Context, containerTag names.MachineTag) ([]*LXDProfileResult, error) {
-	var result params.ContainerProfileResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: containerTag.String()}},
-	}
-	if err := st.facade.FacadeCall(ctx, "GetContainerProfileInfo", args, &result); err != nil {
-		return nil, err
-	}
-	if len(result.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
-	}
-	if err := result.Results[0].Error; err != nil {
-		return nil, err
-	}
-	profiles := result.Results[0].LXDProfiles
-	var res []*LXDProfileResult
-	for _, p := range profiles {
-		if p == nil {
-			continue
-		}
-		res = append(res, &LXDProfileResult{
-			Config:      p.Profile.Config,
-			Description: p.Profile.Description,
-			Devices:     p.Profile.Devices,
-			Name:        p.Name,
-		})
-	}
-	return res, nil
 }
 
 // ModelUUID returns the model UUID to connect to the model
