@@ -129,6 +129,7 @@ type Charm struct {
 	Meta       *CharmMeta             `json:"meta,omitempty"`
 	Actions    *CharmActions          `json:"actions,omitempty"`
 	Manifest   *CharmManifest         `json:"manifest,omitempty"`
+	// Deprecated: LXD profiles are no longer supported.
 	LXDProfile *CharmLXDProfile       `json:"lxd-profile,omitempty"`
 	Version    string                 `json:"version,omitempty"`
 }
