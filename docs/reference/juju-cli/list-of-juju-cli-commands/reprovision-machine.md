@@ -4,7 +4,9 @@
 Reprovision a machine whose cloud instance has been lost.
 
 ## Usage
-```juju reprovision-machine [options] <machine>```
+```text
+juju reprovision-machine [options] <machine>
+```
 
 ### Options
 | Flag | Default | Usage |
