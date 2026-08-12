@@ -6,7 +6,6 @@ package charms
 import (
 	"context"
 	"fmt"
-	"maps"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -67,7 +66,6 @@ type CharmInfo struct {
 	Meta       *charm.Meta
 	Actions    *charm.Actions
 	Manifest   *charm.Manifest
-	LXDProfile *charm.LXDProfile
 	Version    string
 }
 
@@ -91,7 +89,6 @@ func convertCharm(info *params.Charm) (*CharmInfo, error) {
 		Meta:       meta,
 		Actions:    convertCharmActions(info.Actions),
 		Manifest:   manifest,
-		LXDProfile: convertCharmLXDProfile(info.LXDProfile),
 		Version:    info.Version,
 	}
 	return result, nil
@@ -246,33 +243,6 @@ func convertCharmExtraBindingMap(bindings map[string]string) map[string]charm.Ex
 	result := make(map[string]charm.ExtraBinding)
 	for key, value := range bindings {
 		result[key] = charm.ExtraBinding{Name: value}
-	}
-	return result
-}
-
-func convertCharmLXDProfile(lxdProfile *params.CharmLXDProfile) *charm.LXDProfile {
-	if lxdProfile == nil {
-		return nil
-	}
-	return &charm.LXDProfile{
-		Description: lxdProfile.Description,
-		Config:      convertCharmLXDProfileConfigMap(lxdProfile.Config),
-		Devices:     convertCharmLXDProfileDevicesMap(lxdProfile.Devices),
-	}
-}
-
-func convertCharmLXDProfileConfigMap(config map[string]string) map[string]string {
-	result := make(map[string]string, len(config))
-	maps.Copy(result, config)
-	return result
-}
-
-func convertCharmLXDProfileDevicesMap(devices map[string]map[string]string) map[string]map[string]string {
-	result := make(map[string]map[string]string, len(devices))
-	for k, v := range devices {
-		nested := make(map[string]string, len(v))
-		maps.Copy(nested, v)
-		result[k] = nested
 	}
 	return result
 }
