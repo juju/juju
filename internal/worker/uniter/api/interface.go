@@ -39,8 +39,6 @@ type Unit interface {
 	ClearResolved(context.Context) error
 	DestroyAllSubordinates(context.Context) error
 	HasSubordinates(context.Context) (bool, error)
-	LXDProfileName(context.Context) (string, error)
-	CanApplyLXDProfile(context.Context) (bool, error)
 	CharmURL(context.Context) (string, error)
 	Watch(context.Context) (watcher.NotifyWatcher, error)
 
@@ -75,7 +73,6 @@ type Unit interface {
 	WatchAddressesHash(context.Context) (watcher.StringsWatcher, error)
 	WatchActionNotifications(context.Context) (watcher.StringsWatcher, error)
 	WatchStorage(context.Context) (watcher.StringsWatcher, error)
-	WatchInstanceData(context.Context) (watcher.NotifyWatcher, error)
 
 	// Used by relationer.
 
@@ -133,7 +130,6 @@ type RelationUnit interface {
 // Charm defines the methods on uniter.api.Charm.
 type Charm interface {
 	URL() string
-	LXDProfileRequired(context.Context) (bool, error)
 	ArchiveSha256(context.Context) (string, error)
 }
 
