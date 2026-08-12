@@ -753,13 +753,3 @@ docs-%:
 ## docs-clean: Clean the docs build artifacts
 	cd docs && $(MAKE) -f Makefile $* ALLFILES='*.md **/*.md'
 
-.PHONY: git-hooks
-git-hooks:
-## git-hooks: Install local git hooks from scripts/git-hooks
-	@for hook in scripts/git-hooks/*; do \
-		name=$$(basename "$$hook"); \
-		test -e ".git/hooks/$$name" && rm ".git/hooks/$$name"; \
-		cp "$$hook" ".git/hooks/$$name"; \
-		chmod +x ".git/hooks/$$name"; \
-		echo "installed .git/hooks/$$name"; \
-	done
