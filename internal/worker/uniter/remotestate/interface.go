@@ -45,8 +45,3 @@ type UniterClient interface {
 	WatchUpdateStatusHookInterval(context.Context) (watcher.NotifyWatcher, error)
 	UpdateStatusHookInterval(context.Context) (time.Duration, error)
 }
-
-type Charm interface {
-	// LXDProfileRequired returns true if this charm has an lxdprofile.yaml
-	LXDProfileRequired() (bool, error)
-}
