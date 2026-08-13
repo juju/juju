@@ -1293,6 +1293,103 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocalUnreadableSnap(c *tc.C)
 	)
 }
 
+func (s *bootstrapSuite) TestBootstrapControllerSnapPathPackagedToolsMatch(c *tc.C) {
+	// A developer-mode controller snap (--controller-snap-path without
+	// --build-agent) that has an exact packaged tools match must select the
+	// published tools and not invoke BuildAgentTarball.
+	snapVersion := jujuversion.Current.ToPatch()
+	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
+	c.Assert(os.WriteFile(snapPath, []byte("snap content"), 0644), tc.ErrorIsNil)
+
+	s.PatchValue(bootstrap.FindTools, func(_ context.Context, _ envtools.SimplestreamsFetcher, _ environs.BootstrapEnviron, _ int, _ int, _ []string, filter tools.Filter) (tools.List, error) {
+		c.Check(filter.Number, tc.DeepEquals, snapVersion,
+			tc.Commentf("filter must be anchored to the snap version"))
+		return tools.List{&tools.Tools{
+			Version: semversion.Binary{
+				Number:  snapVersion,
+				Release: "ubuntu",
+				Arch:    "amd64",
+			},
+			URL: "file:///dummy/tools.tgz",
+		}}, nil
+	})
+
+	var buildAgentCalled bool
+	s.PatchValue(&sync.BuildAgentTarball, func(_ bool, _ string,
+		_ func(semversion.Number) semversion.Number,
+	) (*sync.BuiltAgent, error) {
+		buildAgentCalled = true
+		return nil, errors.New("unexpected call to BuildAgentTarball")
+	})
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+			ControllerSnapPath:      snapPath,
+			SnapVersionReader:       s.snapVersionReader(c, snapVersion.String()),
+		})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(buildAgentCalled, tc.IsFalse,
+		tc.Commentf("developer mode with packaged tools must not call BuildAgentTarball"))
+}
+
+func (s *bootstrapSuite) TestBootstrapControllerSnapPathLocalCopyFallback(c *tc.C) {
+	// A developer-mode controller snap (--controller-snap-path without
+	// --build-agent) that has no packaged tools match must fall back to
+	// BuildAgentTarball(false, ...) for the local-copy path.
+	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
+	snapVersion := jujuversion.Current.ToPatch()
+	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
+	c.Assert(os.WriteFile(snapPath, []byte("snap content"), 0644), tc.ErrorIsNil)
+
+	// No packaged tools exist.
+	s.PatchValue(bootstrap.FindTools, func(context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
+		return nil, errors.NotFoundf("tools")
+	})
+
+	var capturedBuild bool
+	var capturedForceVersion semversion.Number
+	s.PatchValue(&sync.BuildAgentTarball, func(build bool, _ string,
+		getForceVersion func(semversion.Number) semversion.Number,
+	) (*sync.BuiltAgent, error) {
+		capturedBuild = build
+		capturedForceVersion = getForceVersion(semversion.Zero)
+		return &sync.BuiltAgent{
+			Dir:      c.MkDir(),
+			Official: true,
+			Version: semversion.Binary{
+				Number:  capturedForceVersion.ToPatch(),
+				Release: "ubuntu",
+				Arch:    "arm64",
+			},
+		}, nil
+	})
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+			ControllerSnapPath:      snapPath,
+			BuildAgentTarball:       sync.BuildAgentTarball,
+			SnapVersionReader:       s.snapVersionReader(c, snapVersion.String()),
+		})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(capturedBuild, tc.IsFalse,
+		tc.Commentf("local-copy fallback must not build from source"))
+	c.Check(capturedForceVersion, tc.DeepEquals, snapVersion,
+		tc.Commentf("local copy must be forced to the snap version"))
+}
+
 func createImageMetadata(c *tc.C) (dir string, _ []*imagemetadata.ImageMetadata) {
 	return createImageMetadataForArch(c, "amd64")
 }
@@ -2017,19 +2114,6 @@ func (s *bootstrapSuite) TestBootstrapStoreModeNoBuildAgentFindsExactTools(c *tc
 	// Store mode without --build-agent must find exact published tools
 	// at the snap version without calling BuildAgentTarball.
 	snapVersion := jujuversion.Current.ToPatch()
-	snapDir := c.MkDir()
-	snapPath := filepath.Join(snapDir, "jujud.snap")
-	assertPath := filepath.Join(snapDir, "jujud.assert")
-	c.Assert(os.WriteFile(snapPath, []byte("fake"), 0644), tc.ErrorIsNil)
-	c.Assert(os.WriteFile(assertPath, []byte("assert"), 0644), tc.ErrorIsNil)
-	s.patchSnapReader(c, fmt.Sprintf("name: jujud\nversion: %s\n", snapVersion.String()))
-
-	s.PatchValue(bootstrap.AcquireControllerSnap, func(_ context.Context, _, _, _, _ string, _ int, _ string) (*bootstrap.AcquiredSnap, error) {
-		return &bootstrap.AcquiredSnap{
-			SnapPath:   snapPath,
-			AssertPath: assertPath,
-		}, nil
-	})
 
 	// Patch findTools to return an exact match for the snap version.
 	s.PatchValue(bootstrap.FindTools, func(_ context.Context, _ envtools.SimplestreamsFetcher, _ environs.BootstrapEnviron, _ int, _ int, _ []string, filter tools.Filter) (tools.List, error) {
@@ -2063,6 +2147,9 @@ func (s *bootstrapSuite) TestBootstrapStoreModeNoBuildAgentFindsExactTools(c *tc
 			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			SupportedBootstrapBases: supportedJujuBases,
 			ControllerSnapStoreMode: true,
+			SnapStoreResolver: func(_ context.Context, _, _, _, _ string, _ int) (string, int, error) {
+				return snapVersion.String(), 42, nil
+			},
 		})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(buildAgentCalled, tc.IsFalse,
@@ -2073,19 +2160,6 @@ func (s *bootstrapSuite) TestBootstrapStoreModeNoExactToolsFails(c *tc.C) {
 	// Store mode without --build-agent with no exact published tools
 	// must fail before provisioning with an actionable diagnostic.
 	snapVersion := jujuversion.Current.ToPatch()
-	snapDir := c.MkDir()
-	snapPath := filepath.Join(snapDir, "jujud.snap")
-	assertPath := filepath.Join(snapDir, "jujud.assert")
-	c.Assert(os.WriteFile(snapPath, []byte("fake"), 0644), tc.ErrorIsNil)
-	c.Assert(os.WriteFile(assertPath, []byte("assert"), 0644), tc.ErrorIsNil)
-	s.patchSnapReader(c, fmt.Sprintf("name: jujud\nversion: %s\n", snapVersion.String()))
-
-	s.PatchValue(bootstrap.AcquireControllerSnap, func(_ context.Context, _, _, _, _ string, _ int, _ string) (*bootstrap.AcquiredSnap, error) {
-		return &bootstrap.AcquiredSnap{
-			SnapPath:   snapPath,
-			AssertPath: assertPath,
-		}, nil
-	})
 
 	// Patch findTools to return no matches.
 	s.PatchValue(bootstrap.FindTools, func(_ context.Context, _ envtools.SimplestreamsFetcher, _ environs.BootstrapEnviron, _ int, _ int, _ []string, _ tools.Filter) (tools.List, error) {
@@ -2102,6 +2176,9 @@ func (s *bootstrapSuite) TestBootstrapStoreModeNoExactToolsFails(c *tc.C) {
 			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			SupportedBootstrapBases: supportedJujuBases,
 			ControllerSnapStoreMode: true,
+			SnapStoreResolver: func(_ context.Context, _, _, _, _ string, _ int) (string, int, error) {
+				return snapVersion.String(), 42, nil
+			},
 		})
 	c.Assert(err, tc.ErrorMatches,
 		`no packaged agent binaries match the controller snap version .* use --build-agent to build from source`)

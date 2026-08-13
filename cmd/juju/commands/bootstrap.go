@@ -822,17 +822,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 				return errors.Trace(err)
 			}
 			c.ControllerSnapPath = builtPath
-			c.BuildAgent = true
 		} else if c.ControllerSnapPath != "" {
 			if _, err := c.Filesystem().Stat(c.ControllerSnapPath); err != nil {
 				return errors.Annotatef(err, "--controller-snap-path %q cannot be read", c.ControllerSnapPath)
-			}
-			// --build-agent is mandatory when --controller-snap-path is supplied for
-			// IAAS bootstraps. It provides exact development-version coupling between
-			// the snap and the machine agent.
-			if !c.BuildAgent {
-				return errors.New("--build-agent is required when --controller-snap-path is supplied; " +
-					"it provides exact development-version coupling between the snap and the machine agent")
 			}
 		}
 	}
