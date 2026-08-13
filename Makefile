@@ -78,6 +78,7 @@ OCI_IMAGE_PLATFORMS ?= linux/$(GOARCH)
 # Multi-snap layout: source-of-truth under snaps/<name>/, staging at snap/
 SNAPS_DIR := snaps
 SNAP_STAGE_DIR := snap
+SNAP_BUILD_DIR := ${BUILD_DIR}/snap
 JUJUD_SNAP_PATCH_DIR := _jujud-snap-patch
 JUJUD_SNAP_PATCH_UNPACK := ${JUJUD_SNAP_PATCH_DIR}/squashfs-root
 JUJUD_SNAP_PATCH_LOG := ${JUJUD_SNAP_PATCH_DIR}/build.log
@@ -85,6 +86,7 @@ JUJUD_SNAP_PATCH_LOG := ${JUJUD_SNAP_PATCH_DIR}/build.log
 JUJUD_SNAP_ARCH := $(patsubst ppc64le,ppc64el,$(GOARCH))
 JUJUD_SNAP_VERSION = $(shell sed -n 's/^version: *//p' ${SNAPS_DIR}/jujud/snapcraft.yaml | tr -d '"')
 JUJUD_SNAP_NAME = jujud_$(JUJUD_SNAP_VERSION)_$(JUJUD_SNAP_ARCH).snap
+JUJUD_SNAP_PATH = ${SNAP_BUILD_DIR}/${JUJUD_SNAP_NAME}
 
 # Build tags passed to go install/build.
 # Passing no-dqlite will disable building with dqlite.
@@ -618,13 +620,15 @@ endef
 juju-snap:
 ## juju-snap: Build the juju snap from snaps/juju/
 	$(call snap_stage,juju)
-	snapcraft pack --use-lxd
+	mkdir -p ${SNAP_BUILD_DIR}
+	snapcraft pack --use-lxd --output ${SNAP_BUILD_DIR}
 
 .PHONY: jujud-snap
 jujud-snap:
 ## jujud-snap: Build the jujud controller snap from snaps/jujud/
 	$(call snap_stage,jujud)
-	snapcraft pack --use-lxd
+	mkdir -p ${SNAP_BUILD_DIR}
+	snapcraft pack --use-lxd --output ${SNAP_BUILD_DIR}
 
 .PHONY: jujud-snap-build
 jujud-snap-build:
@@ -635,7 +639,7 @@ jujud-snap-build:
 # 120) when the build's stdout is a regular file. A pipe keeps stdout valid
 # while still capturing output to the log for display on failure.
 	@set -e; \
-	BASE_SNAP="${JUJUD_SNAP_NAME}"; \
+	BASE_SNAP="${JUJUD_SNAP_PATH}"; \
 	if [ -f "$$BASE_SNAP" ] && [ -z "$$(find ${SNAPS_DIR}/jujud -newer "$$BASE_SNAP" -print -quit 2>/dev/null)" ]; then \
 		echo "Patching controller snap..."; \
 		$(MAKE) --no-print-directory jujud-snap-patch; \
@@ -664,7 +668,7 @@ jujud-snap-patch:
 	mkdir -p ${JUJUD_SNAP_PATCH_DIR}; \
 	$(MAKE) --no-print-directory jujud > ${JUJUD_SNAP_PATCH_LOG} 2>&1 \
 		|| { cat ${JUJUD_SNAP_PATCH_LOG}; exit 1; }; \
-	BASE_SNAP="${JUJUD_SNAP_NAME}"; \
+	BASE_SNAP="${JUJUD_SNAP_PATH}"; \
 	if [ ! -f "$$BASE_SNAP" ]; then \
 		echo "ERROR: no base snap found. Run 'make jujud-snap-build' first to create the base snap artifact."; \
 		exit 1; \
