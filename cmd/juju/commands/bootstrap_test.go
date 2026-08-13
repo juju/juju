@@ -2393,7 +2393,7 @@ func (s *BootstrapSuite) TestBootstrapExplicitBuildSnap(c *tc.C) {
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 	c.Check(gotArgs.ControllerSnapPath, tc.Equals, tempSnapPath)
 	c.Check(gotArgs.ControllerSnapStoreMode, tc.Equals, false)
-	c.Check(gotArgs.BuildAgent, tc.Equals, true)
+	c.Check(gotArgs.BuildAgent, tc.Equals, false)
 }
 
 // TestBootstrapExplicitSnapPathBypassesImplicitBuild verifies that when
@@ -2541,17 +2541,32 @@ clouds:
 }
 
 // TestBootstrapIAASRequiresBuildAgent verifies that an IAAS bootstrap with
-// --controller-snap-path but without --build-agent fails in Run() after cloud
-// type is resolved, before any provisioning occurs. The check must not fire
-// for CAAS bootstraps because !isCAASController guards both checks.
+// --controller-snap-path but without --build-agent is allowed and passes the
+// snap path correctly. The snap version is read from the file and used as the
+// tool version anchor; BuildAgentTarball is invoked with build=false for the
+// local-copy fallback when no packaged tools match.
 func (s *BootstrapSuite) TestBootstrapIAASRequiresBuildAgent(c *tc.C) {
 	s.patchVersion(c)
+
+	var gotArgs bootstrap.BootstrapParams
+	bootstrapFuncs := &fakeBootstrapFuncs{
+		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, args bootstrap.BootstrapParams) error {
+			gotArgs = args
+			return errors.New("test error")
+		},
+	}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return bootstrapFuncs
+	})
 
 	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 		"--controller-snap-path", s.controllerSnapPath,
 	)
-	c.Assert(err, tc.ErrorMatches, `--build-agent is required when --controller-snap-path.*`)
+	c.Assert(err, tc.Equals, cmd.ErrSilent)
+	c.Check(gotArgs.ControllerSnapPath, tc.Equals, s.controllerSnapPath)
+	c.Check(gotArgs.BuildAgent, tc.Equals, false)
+	c.Check(gotArgs.ControllerSnapStoreMode, tc.Equals, false)
 }
 
 // TestBootstrapSnapPathRejectsAgentVersion verifies that
