@@ -55,16 +55,16 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          rm -rf snap
-          mkdir -p snap
+          rm -rf snap _build/snap
+          mkdir -p snap _build/snap
           cp -a snaps/juju/. snap/
-          snapcraft --use-lxd
+          snapcraft --use-lxd --output _build/snap
 
       - name: Install snap
         shell: bash
         run: |
           set -euxo pipefail
-          sudo snap install *.snap --dangerous
+          sudo snap install _build/snap/*.snap --dangerous
           # Since we're installing dangerously, we need to
           # manually grant permissions to juju
           sudo snap connect juju:lxd lxd
@@ -124,16 +124,16 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          rm -rf snap
-          mkdir -p snap
+          rm -rf snap _build/snap
+          mkdir -p snap _build/snap
           cp -a snaps/jujud/. snap/
-          snapcraft --use-lxd
+          snapcraft --use-lxd --output _build/snap
 
       - name: Verify snap artifact
         shell: bash
         run: |
           set -euxo pipefail
-          ls -la jujud_*.snap
-          sudo snap install jujud_*.snap --dangerous
+          ls -la _build/snap/jujud_*.snap
+          sudo snap install _build/snap/jujud_*.snap --dangerous
           snap services jujud
           sudo snap remove jujud
