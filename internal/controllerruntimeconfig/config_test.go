@@ -543,7 +543,7 @@ func (s *configSuite) TestResolveStagedControllerRuntimeConfig_ResolvesPathField
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(resolved.DataDir, tc.Equals, snapData)
-	c.Check(resolved.LogDir, tc.Equals, snapCommon+"/var/log/juju")
+	c.Check(resolved.LogDir, tc.Equals, snapCommon+"/logs")
 	c.Check(resolved.SocketDir, tc.Equals, snapCommon+"/sockets")
 	c.Check(resolved.SharedAgentDir, tc.Equals, snapCommon+"/agents/controller-0")
 
@@ -560,7 +560,7 @@ func (s *configSuite) TestResolveStagedControllerRuntimeConfig_TokenInCredential
 		"controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d\n" +
 		"controller-model-uuid: feedface-dead-beef-cafe-c0ffee000000\n" +
 		"data-dir: \"@SNAP_DATA@\"\n" +
-		"log-dir: \"@SNAP_COMMON@/var/log/juju\"\n" +
+		"log-dir: \"@SNAP_COMMON@/logs\"\n" +
 		"api-port: 17070\n" +
 		"agent-password: \"@SNAP_DATA@-should-not-be-here\"\n" +
 		"ca-cert: ca-cert-pem\n" +

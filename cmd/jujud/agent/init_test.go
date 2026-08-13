@@ -192,7 +192,7 @@ func (s *InitCommandSuite) TestSuccessfulInit(c *tc.C) {
 	c.Check(runtimeStr, tc.Not(tc.Contains), controllerruntimeconfig.TokenSnapData)
 	c.Check(runtimeStr, tc.Not(tc.Contains), controllerruntimeconfig.TokenSnapCommon)
 	c.Check(runtimeStr, tc.Contains, "data-dir: "+snapData)
-	c.Check(runtimeStr, tc.Contains, "log-dir: "+snapCommon+"/var/log/juju")
+	c.Check(runtimeStr, tc.Contains, "log-dir: "+snapCommon+"/logs")
 
 	// Verify runtime.conf file permissions.
 	info, err := os.Stat(runtimeDst)
@@ -254,7 +254,7 @@ func (s *InitCommandSuite) TestTokenResolutionFourPaths(c *tc.C) {
 
 	// Verify the four snap-path fields are resolved.
 	c.Check(resolved.DataDir, tc.Equals, snapData)
-	c.Check(resolved.LogDir, tc.Equals, snapCommon+"/var/log/juju")
+	c.Check(resolved.LogDir, tc.Equals, snapCommon+"/logs")
 	c.Check(resolved.SocketDir, tc.Equals, snapCommon+"/sockets")
 	c.Check(resolved.SharedAgentDir, tc.Equals, snapCommon+"/agents/controller-0")
 
@@ -279,7 +279,7 @@ controller-id: "0"
 controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
 controller-model-uuid: feedface-dead-beef-cafe-c0ffee000000
 data-dir: "@SNAP_DATA@"
-log-dir: "@SNAP_COMMON@/var/log/juju"
+log-dir: "@SNAP_COMMON@/logs"
 socket-dir: "@SNAP_COMMON@/sockets"
 shared-agent-dir: "@SNAP_COMMON@/agents/controller-0"
 api-port: 17070
@@ -328,7 +328,7 @@ func (s *InitCommandSuite) TestCredentialLikeStringPreserved(c *tc.C) {
 		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
 		DataDir:              controllerruntimeconfig.TokenSnapData,
-		LogDir:               controllerruntimeconfig.TokenSnapCommon + "/var/log/juju",
+		LogDir:               controllerruntimeconfig.TokenSnapCommon + "/logs",
 		SocketDir:            controllerruntimeconfig.TokenSnapCommon + "/sockets",
 		SharedAgentDir:       controllerruntimeconfig.TokenSnapCommon + "/agents/controller-0",
 		APIPort:              17070,

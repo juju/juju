@@ -381,7 +381,7 @@ func RenderStagedControllerRuntimeConfig(cfg ControllerRuntimeConfig) StagedCont
 	// credential and non-path fields are left byte-for-byte.
 	staged := StagedControllerRuntimeConfig(cfg)
 	staged.DataDir = TokenSnapData
-	staged.LogDir = TokenSnapCommon + "/var/log/juju"
+	staged.LogDir = TokenSnapCommon + "/logs"
 	staged.SocketDir = TokenSnapCommon + "/sockets"
 	staged.SharedAgentDir = TokenSnapCommon + "/agents/controller-0"
 	return staged

@@ -13,8 +13,8 @@ chmod 755 "$SNAP_COMMON/sockets"
 mkdir -p "$SNAP_COMMON/agents/controller-0"
 chmod 755 "$SNAP_COMMON/agents"
 
-mkdir -p "$SNAP_COMMON/var/log/juju"
-chmod 755 "$SNAP_COMMON/var/log/juju"
+mkdir -p "$SNAP_COMMON/logs"
+chmod 755 "$SNAP_COMMON/logs"
 
 mkdir -p "$SNAP_COMMON/.snap-init"
 chmod 755 "$SNAP_COMMON/.snap-init"
