@@ -275,7 +275,7 @@ func (s *serviceSuite) TestSetAPIAddressesNilMgmtSpace(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestSetAPIAddressesAllAddrsNotAgent(c *tc.C) {
+func (s *serviceSuite) TestSetAPIAddressesAllAddrsFilteredForcesAgent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
@@ -284,11 +284,11 @@ func (s *serviceSuite) TestSetAPIAddressesAllAddrsNotAgent(c *tc.C) {
 		controllerID: {
 			{
 				Address: "10.0.0.1:17070",
-				IsAgent: false,
+				IsAgent: true,
 				Scope:   network.ScopeCloudLocal,
 			}, {
 				Address: "10.0.0.2:17070",
-				IsAgent: false,
+				IsAgent: true,
 				Scope:   network.ScopeCloudLocal,
 			},
 		},
