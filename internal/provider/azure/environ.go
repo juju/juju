@@ -1919,9 +1919,19 @@ func (env *azureEnviron) Destroy(ctx context.ProviderCallContext) error {
 // DestroyController is specified in the Environ interface.
 func (env *azureEnviron) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
 	logger.Debugf("destroying model %q", env.modelName)
-	logger.Debugf("deleting resource groups")
-	if err := env.deleteControllerManagedResourceGroups(ctx, controllerUUID); err != nil {
-		return errors.Trace(err)
+	if env.config.resourceGroupName == "" {
+		logger.Debugf("deleting resource groups")
+		if err := env.deleteControllerManagedResourceGroups(ctx, controllerUUID); err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		// The controller model may live in a user-specified resource group that
+		// is not tagged with the controller UUID, so it is not picked up by
+		// deleteControllerManagedResourceGroups above. Clean its contents here.
+		logger.Debugf("deleting resources in user-specified resource group %q", env.resourceGroup)
+		if err := env.deleteResourcesInGroup(ctx, env.resourceGroup); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	logger.Debugf("deleting auto managed identities")
 	if err := env.deleteControllerManagedIdentities(ctx, controllerUUID); err != nil {
