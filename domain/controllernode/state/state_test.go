@@ -392,6 +392,53 @@ func (s *stateSuite) TestSetAPIAddressesUpdateIsAgentFalseToTrue(c *tc.C) {
 	s.checkControllerAPIAddress(c, controllerID, updatedAddrs)
 }
 
+func (s *stateSuite) TestSetAPIAddressesSharedAddress(c *tc.C) {
+	controllerID0 := "0"
+	err := s.state.AddDqliteNode(c.Context(), controllerID0, 1, "10.0.0.1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	controllerID1 := "1"
+	err = s.state.AddDqliteNode(c.Context(), controllerID1, 2, "10.0.0.2")
+	c.Assert(err, tc.ErrorIsNil)
+
+	sharedAddress := "10.0.0.100:17070"
+	controller0Addrs := controllernode.APIAddresses{{
+		Address: sharedAddress,
+		IsAgent: true,
+		Scope:   network.ScopeCloudLocal,
+	}}
+	controller1Addrs := controllernode.APIAddresses{{
+		Address: sharedAddress,
+		IsAgent: true,
+		Scope:   network.ScopeCloudLocal,
+	}}
+
+	err = s.state.SetAPIAddresses(c.Context(), map[string]controllernode.APIAddresses{
+		controllerID0: controller0Addrs,
+		controllerID1: controller1Addrs,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkControllerAPIAddress(c, controllerID0, controller0Addrs)
+	s.checkControllerAPIAddress(c, controllerID1, controller1Addrs)
+
+	controller1Addrs[0].IsAgent = false
+	err = s.state.SetAPIAddresses(c.Context(), map[string]controllernode.APIAddresses{
+		controllerID0: controller0Addrs,
+		controllerID1: controller1Addrs,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkControllerAPIAddress(c, controllerID0, controller0Addrs)
+	s.checkControllerAPIAddress(c, controllerID1, controller1Addrs)
+
+	err = s.state.SetAPIAddresses(c.Context(), map[string]controllernode.APIAddresses{
+		controllerID0: controller0Addrs,
+		controllerID1: {},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkControllerAPIAddress(c, controllerID0, controller0Addrs)
+	s.checkControllerAPIAddress(c, controllerID1, nil)
+}
+
 func (s *stateSuite) TestDeltaAddressesEmpty(c *tc.C) {
 	existing := []controllerAPIAddress{
 		{Address: "10.0.0.1:17070", IsAgent: true},
