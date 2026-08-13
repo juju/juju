@@ -2189,23 +2189,24 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
 		makeSender(".*/networkInterfaces/nic-0", nil),                                                                    // DELETE
 		makeSender(".*/publicIPAddresses/pip-0", nil),                                                                    // DELETE
 		makeSenderWithStatus(".*/deployments/juju-06f00d-0", http.StatusNoContent),                                       // DELETE
+		makeSender(".*/providers", makeNetworkProviderResult()),                                                          // GET
 		s.makeErrorSender("/networkSecurityGroups/nsg-0", newAzureResponseError(c, http.StatusConflict, "InUse", ""), 1), // DELETE
 		makeSender("/networkSecurityGroups/nsg-0", nil),                                                                  // DELETE
 		makeSender(".*/vaults/secret-0", nil),                                                                            // DELETE
 	}
 	err := env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.requests, gc.HasLen, 12)
+	c.Assert(s.requests, gc.HasLen, 13)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET")
 	c.Assert(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
 		"tagName eq 'juju-model-uuid' and tagValue eq '%s'",
 		testing.ModelTag.Id(),
 	))
-	c.Assert(s.requests[7].Method, gc.Equals, "DELETE")
 	c.Assert(s.requests[8].Method, gc.Equals, "DELETE")
-	c.Assert(s.requests[9].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[9].Method, gc.Equals, "GET")
 	c.Assert(s.requests[10].Method, gc.Equals, "DELETE")
 	c.Assert(s.requests[11].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[12].Method, gc.Equals, "DELETE")
 }
 
 func (s *environSuite) TestDestroyHostedModelCustomResourceGroupFilterFallback(c *gc.C) {
@@ -2223,6 +2224,7 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroupFilterFallback(c
 	// fall back to listing all resources and filtering client-side by tag.
 	s.sender = azuretesting.Senders{
 		makeSender(".*/resourceGroups/foo/resources.*", armresources.ResourceListResult{}), // GET with filter, empty
+		makeSender(".*/providers", makeNetworkProviderResult()),                            // GET API versions
 		makeSender(".*/resourceGroups/foo/resources.*", resourceListResult),                // GET without filter
 		makeSender(".*/networkSecurityGroups/nsg-0", armresources.GenericResource{ // GET resource by ID
 			Tags: map[string]*string{tags.JujuModel: to.Ptr(testing.ModelTag.Id())},
@@ -2231,16 +2233,18 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroupFilterFallback(c
 	}
 	err := env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.requests, gc.HasLen, 4)
+	c.Assert(s.requests, gc.HasLen, 5)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET")
 	c.Assert(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
 		"tagName eq 'juju-model-uuid' and tagValue eq '%s'",
 		testing.ModelTag.Id(),
 	))
 	c.Assert(s.requests[1].Method, gc.Equals, "GET")
-	c.Assert(s.requests[1].URL.Query().Get("$filter"), gc.Equals, "")
 	c.Assert(s.requests[2].Method, gc.Equals, "GET")
-	c.Assert(s.requests[3].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[2].URL.Query().Get("$filter"), gc.Equals, "")
+	c.Assert(s.requests[3].Method, gc.Equals, "GET")
+	c.Assert(s.requests[4].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[4].URL.Query().Get("api-version"), gc.Equals, "2021-12-01")
 }
 
 func (s *environSuite) TestDestroyHostedModelCustomResourceGroupInUseRetry(c *gc.C) {
@@ -2266,6 +2270,7 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroupInUseRetry(c *gc
 	// index-addressed write to remainingResources in deleteResources.
 	s.sender = azuretesting.Senders{
 		makeSender(".*/resourceGroups/foo/resources.*", resourceListResult), // GET with filter
+		makeSender(".*/providers", makeNetworkProviderResult()),             // GET API versions
 		s.makeErrorSender("/networkSecurityGroups/nsg-[01]", inUseErr0, 1),  // DELETE (InUse), pass 1
 		s.makeErrorSender("/networkSecurityGroups/nsg-[01]", inUseErr1, 1),  // DELETE (InUse), pass 1
 		makeSender("/networkSecurityGroups/nsg-[01]", nil),                  // DELETE (ok), pass 2
@@ -2273,12 +2278,13 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroupInUseRetry(c *gc
 	}
 	err := env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.requests, gc.HasLen, 5)
+	c.Assert(s.requests, gc.HasLen, 6)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET")
-	c.Assert(s.requests[1].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[1].Method, gc.Equals, "GET")
 	c.Assert(s.requests[2].Method, gc.Equals, "DELETE")
 	c.Assert(s.requests[3].Method, gc.Equals, "DELETE")
 	c.Assert(s.requests[4].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[5].Method, gc.Equals, "DELETE")
 }
 
 func (s *environSuite) TestDestroyHostedModelWithInvalidCredential(c *gc.C) {
@@ -2346,6 +2352,7 @@ func (s *environSuite) TestDestroyControllerCustomResourceGroup(c *gc.C) {
 
 	s.sender = azuretesting.Senders{
 		makeSender(".*/resourceGroups/foo/resources.*", resources),     // GET
+		makeSender(".*/providers", makeNetworkProviderResult()),        // GET
 		makeSender("/networkSecurityGroups/nsg-0", nil),                // DELETE
 		makeSender(".*/roleDefinitions*", nil),                         // GET
 		makeSender(".*/roleAssignments*", nil),                         // GET
@@ -2354,14 +2361,16 @@ func (s *environSuite) TestDestroyControllerCustomResourceGroup(c *gc.C) {
 
 	err := env.DestroyController(s.callCtx, s.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.requests, gc.HasLen, 5)
+	c.Assert(s.requests, gc.HasLen, 6)
 	c.Check(s.requests[0].Method, gc.Equals, "GET")
 	c.Check(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
 		"tagName eq 'juju-model-uuid' and tagValue eq '%s'",
 		testing.ModelTag.Id(),
 	))
-	c.Check(s.requests[1].Method, gc.Equals, "DELETE")
-	c.Check(s.requests[1].URL.Path, gc.Equals, "/networkSecurityGroups/nsg-0")
+	c.Check(s.requests[1].Method, gc.Equals, "GET")
+	c.Check(s.requests[2].Method, gc.Equals, "DELETE")
+	c.Check(s.requests[2].URL.Path, gc.Equals, "/networkSecurityGroups/nsg-0")
+	c.Check(s.requests[2].URL.Query().Get("api-version"), gc.Equals, "2021-12-01")
 }
 
 func (s *environSuite) TestDestroyControllerManagedIdentityDeleteSuccess(c *gc.C) {
@@ -2617,6 +2626,19 @@ func makeProvidersResult() armresources.ProviderListResult {
 		}},
 	}}
 	return armresources.ProviderListResult{Value: providers}
+}
+
+func makeNetworkProviderResult() armresources.ProviderListResult {
+	return armresources.ProviderListResult{Value: []*armresources.Provider{{
+		Namespace: new("Microsoft.Network"),
+		ResourceTypes: []*armresources.ProviderResourceType{{
+			ResourceType: new("networkSecurityGroups"),
+			APIVersions:  to.SliceOfPtrs("2021-12-01"),
+		}, {
+			ResourceType: new("virtualNetworks"),
+			APIVersions:  to.SliceOfPtrs("2021-12-01"),
+		}},
+	}}}
 }
 
 func makeResourcesResult() armresources.ResourceListResult {

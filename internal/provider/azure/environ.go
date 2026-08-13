@@ -2118,14 +2118,19 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext,
 
 	// Find all the resources tagged as belonging to this model.
 	filter := fmt.Sprintf("tagName eq '%s' and tagValue eq '%s'", tags.JujuModel, env.config.UUID())
-	resourceItems, err := env.getModelResources(ctx, resourceGroup, filter)
+	resourceItems, err := env.getModelResources(ctx, resourceGroup, filter, nil)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Older APIs can ignore the filter above, so query the hard way just in case.
+	var apiVersions map[string]string
 	if len(resourceItems) == 0 {
-		resourceItems, err = env.getModelResources(ctx, resourceGroup, "")
+		apiVersions, err = env.resourceAPIVersions(ctx)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		resourceItems, err = env.getModelResources(ctx, resourceGroup, "", apiVersions)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -2167,12 +2172,19 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext,
 		return errors.Annotatef(err, "deleting machine instances %q", instIds)
 	}
 
+	if len(otherResources) > 0 && apiVersions == nil {
+		apiVersions, err = env.resourceAPIVersions(ctx)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	// Loop until all remaining resources are deleted.
 	// For safety, add an upper retry limit; in reality, this will never be hit.
 	remainingResources := otherResources
 	retries := 0
 	for len(remainingResources) > 0 && retries < 10 {
-		remainingResources, err = env.deleteResources(ctx, remainingResources)
+		remainingResources, err = env.deleteResources(ctx, remainingResources, apiVersions)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -2191,7 +2203,7 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext,
 	return nil
 }
 
-func (env *azureEnviron) getModelResources(sdkCtx stdcontext.Context, resourceGroup, modelFilter string) ([]*armresources.GenericResourceExpanded, error) {
+func (env *azureEnviron) getModelResources(sdkCtx stdcontext.Context, resourceGroup, modelFilter string, apiVersions map[string]string) ([]*armresources.GenericResourceExpanded, error) {
 	resources, err := env.resourcesClient()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -2209,7 +2221,11 @@ func (env *azureEnviron) getModelResources(sdkCtx stdcontext.Context, resourceGr
 			// If no modelFilter specified, we need to check that the resource
 			// belongs to this model.
 			if modelFilter == "" {
-				fullRes, err := resources.GetByID(sdkCtx, toValue(res.ID), computeAPIVersion, nil)
+				apiVersion, ok := apiVersions[toValue(res.Type)]
+				if !ok {
+					return nil, errors.Errorf("no API version found for resource type %q", toValue(res.Type))
+				}
+				fullRes, err := resources.GetByID(sdkCtx, toValue(res.ID), apiVersion, nil)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -2223,9 +2239,17 @@ func (env *azureEnviron) getModelResources(sdkCtx stdcontext.Context, resourceGr
 	return resourceItems, nil
 }
 
+func (env *azureEnviron) resourceAPIVersions(ctx context.ProviderCallContext) (map[string]string, error) {
+	providers, err := env.providersClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return collectAPIVersions(ctx, providers)
+}
+
 // deleteResources deletes the specified resources, returning any that
 // cannot be deleted because they are in use.
-func (env *azureEnviron) deleteResources(sdkCtx stdcontext.Context, toDelete []*armresources.GenericResourceExpanded) ([]*armresources.GenericResourceExpanded, error) {
+func (env *azureEnviron) deleteResources(sdkCtx stdcontext.Context, toDelete []*armresources.GenericResourceExpanded, apiVersions map[string]string) ([]*armresources.GenericResourceExpanded, error) {
 	logger.Debugf("deleting %d resources", len(toDelete))
 
 	// Each goroutine below writes to its own pre-sized slice index
@@ -2237,16 +2261,21 @@ func (env *azureEnviron) deleteResources(sdkCtx stdcontext.Context, toDelete []*
 	deleteResults := make([]error, len(toDelete))
 	for i, res := range toDelete {
 		id := toValue(res.ID)
+		apiVersion, ok := apiVersions[toValue(res.Type)]
+		if !ok {
+			deleteResults[i] = errors.Errorf("no API version found for resource type %q", toValue(res.Type))
+			continue
+		}
 		logger.Debugf("- deleting resource %q", id)
 		wg.Add(1)
-		go func(i int, id string) {
+		go func(i int, id, apiVersion string) {
 			defer wg.Done()
 			resources, err := env.resourcesClient()
 			if err != nil {
 				deleteResults[i] = err
 				return
 			}
-			poller, err := resources.BeginDeleteByID(sdkCtx, id, computeAPIVersion, nil)
+			poller, err := resources.BeginDeleteByID(sdkCtx, id, apiVersion, nil)
 			if err == nil {
 				_, err = poller.PollUntilDone(sdkCtx, nil)
 			}
@@ -2262,7 +2291,7 @@ func (env *azureEnviron) deleteResources(sdkCtx stdcontext.Context, toDelete []*
 				}
 				return
 			}
-		}(i, id)
+		}(i, id, apiVersion)
 	}
 	wg.Wait()
 
