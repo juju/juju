@@ -2218,7 +2218,11 @@ func (env *azureEnviron) getModelResources(sdkCtx stdcontext.Context, resourceGr
 func (env *azureEnviron) deleteResources(sdkCtx stdcontext.Context, toDelete []*armresources.GenericResourceExpanded) ([]*armresources.GenericResourceExpanded, error) {
 	logger.Debugf("deleting %d resources", len(toDelete))
 
-	var remainingResources []*armresources.GenericResourceExpanded
+	// Each goroutine below writes to its own pre-sized slice index
+	// so that the shared remainingResources is race-free without a mutex.
+	// This follows the same index-addressed pattern used by cancelResults
+	// in StopInstances and errs in deleteControllerManagedResourceGroups.
+	var remainingResources = make([]*armresources.GenericResourceExpanded, len(toDelete))
 	var wg sync.WaitGroup
 	deleteResults := make([]error, len(toDelete))
 	for i, res := range toDelete {
@@ -2242,7 +2246,7 @@ func (env *azureEnviron) deleteResources(sdkCtx stdcontext.Context, toDelete []*
 				}
 				// If the resource is in use, don't error, just queue it up for another pass.
 				if strings.HasPrefix(errorutils.ErrorCode(err), "InUse") {
-					remainingResources = append(remainingResources, toDelete[i])
+					remainingResources[i] = toDelete[i]
 				} else {
 					deleteResults[i] = errors.Annotatef(err, "deleting resource %q: %v", id, err)
 				}
@@ -2251,6 +2255,14 @@ func (env *azureEnviron) deleteResources(sdkCtx stdcontext.Context, toDelete []*
 		}(i, id)
 	}
 	wg.Wait()
+
+	// Compact the pre-sized slice to remove nil entries before returning.
+	remaining := make([]*armresources.GenericResourceExpanded, 0, len(remainingResources))
+	for _, res := range remainingResources {
+		if res != nil {
+			remaining = append(remaining, res)
+		}
+	}
 
 	var errStrings []string
 	for i, err := range deleteResults {
@@ -2262,7 +2274,7 @@ func (env *azureEnviron) deleteResources(sdkCtx stdcontext.Context, toDelete []*
 	if len(errStrings) > 0 {
 		return nil, errors.Annotate(errors.New(strings.Join(errStrings, "\n")), "deleting resources")
 	}
-	return remainingResources, nil
+	return remaining, nil
 }
 
 // Provider is specified in the Environ interface.
