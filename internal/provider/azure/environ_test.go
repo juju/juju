@@ -2218,6 +2218,41 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *tc.C) {
 	c.Assert(s.requests[11].Method, tc.Equals, "DELETE")
 }
 
+func (s *environSuite) TestDestroyHostedModelCustomResourceGroupFilterFallback(c *tc.C) {
+	env := s.openEnviron(c,
+		testing.Attrs{"controller-uuid": uuid.MustNewUUID().String(), "resource-group-name": "foo"})
+
+	res := []*armresources.GenericResourceExpanded{{
+		ID:   new("networkSecurityGroups/nsg-0"),
+		Name: new("nsg-0"),
+		Type: new("Microsoft.Network/networkSecurityGroups"),
+	}}
+	resourceListResult := armresources.ResourceListResult{Value: res}
+
+	// When the tag-filtered list returns nothing, deleteResourcesInGroup must
+	// fall back to listing all resources and filtering client-side by tag.
+	s.sender = azuretesting.Senders{
+		makeSender(".*/resourceGroups/foo/resources.*", armresources.ResourceListResult{}), // GET with filter, empty
+		makeSender(".*/resourceGroups/foo/resources.*", resourceListResult),                // GET without filter
+		makeSender(".*/networkSecurityGroups/nsg-0", armresources.GenericResource{ // GET resource by ID
+			Tags: map[string]*string{tags.JujuModel: new(testing.ModelTag.Id())},
+		}),
+		makeSender("/networkSecurityGroups/nsg-0", nil), // DELETE
+	}
+	err := env.Destroy(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.requests, tc.HasLen, 4)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET")
+	c.Assert(s.requests[0].URL.Query().Get("$filter"), tc.Equals, fmt.Sprintf(
+		"tagName eq 'juju-model-uuid' and tagValue eq '%s'",
+		testing.ModelTag.Id(),
+	))
+	c.Assert(s.requests[1].Method, tc.Equals, "GET")
+	c.Assert(s.requests[1].URL.Query().Get("$filter"), tc.Equals, "")
+	c.Assert(s.requests[2].Method, tc.Equals, "GET")
+	c.Assert(s.requests[3].Method, tc.Equals, "DELETE")
+}
+
 func (s *environSuite) TestDestroyHostedModelWithInvalidCredential(c *tc.C) {
 	env := s.openEnviron(c, testing.Attrs{"controller-uuid": uuid.MustNewUUID().String()})
 	s.createSenderWithUnauthorisedStatusCode(c)

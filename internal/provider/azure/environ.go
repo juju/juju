@@ -2011,7 +2011,7 @@ func (env *azureEnviron) deleteControllerManagedIdentities(ctx context.Context, 
 		return errors.Trace(err)
 	}
 	_, err = clientFactory.NewUserAssignedIdentitiesClient().Delete(ctx, env.resourceGroup, identityName, nil)
-	if !errorutils.IsNotFoundError(err) {
+	if err != nil && !errorutils.IsNotFoundError(err) {
 		logger.Warningf(ctx, "cannot delete managed identity %q: %v", identityName, err)
 	}
 
@@ -2119,7 +2119,7 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.Context, resourceGro
 
 	// Older APIs can ignore the filter above, so query the hard way just in case.
 	if len(resourceItems) == 0 {
-		resourceItems, err = env.getModelResources(ctx, resourceGroup, filter)
+		resourceItems, err = env.getModelResources(ctx, resourceGroup, "")
 		if err != nil {
 			return errors.Trace(err)
 		}
