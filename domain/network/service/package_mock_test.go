@@ -42,8 +42,8 @@ type MockStateMockRecorder struct {
 	getAllSpacesExpects                         []*gomock.Call1_2[context.Context, network.SpaceInfos, error]
 	getAllSubnetsExpects                        []*gomock.Call1_2[context.Context, network.SubnetInfos, error]
 	getContainerNetworkingMethodExpects         []*gomock.Call1_2[context.Context, string, error]
-	getControllerAPIAddressesExpects            []*gomock.Call2_2[context.Context, unit.UUID, network.SpaceAddresses, error]
-	getControllerUnitUUIDByNameExpects          []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
+	getControllerAPIAddressesExpects            []*gomock.Call2_2[context.Context, string, network0.ControllerAPIAddresses, error]
+	getControllerUnitUUIDByNameExpects          []*gomock.Call2_2[context.Context, string, string, error]
 	getMachineAppBindingsExpects                []*gomock.Call2_2[context.Context, string, []internal.SpaceName, error]
 	getMachineNetNodeUUIDExpects                []*gomock.Call2_2[context.Context, string, string, error]
 	getMachineSpaceConstraintsExpects           []*gomock.Call2_3[context.Context, string, []internal.SpaceName, []internal.SpaceName, error]
@@ -271,7 +271,7 @@ func (mr *MockStateMockRecorder) GetContainerNetworkingMethod(ctx any) *MockStat
 type MockStateGetContainerNetworkingMethodCall = gomock.Call1_2[context.Context, string, error]
 
 // GetControllerAPIAddresses mocks base method.
-func (m *MockState) GetControllerAPIAddresses(ctx context.Context, uuid unit.UUID) (network.SpaceAddresses, error) {
+func (m *MockState) GetControllerAPIAddresses(ctx context.Context, uuid string) (network0.ControllerAPIAddresses, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2_2(&m.recorder.getControllerAPIAddressesExpects, m.ctrl, m, "GetControllerAPIAddresses", ctx, uuid)
 }
@@ -279,17 +279,17 @@ func (m *MockState) GetControllerAPIAddresses(ctx context.Context, uuid unit.UUI
 // GetControllerAPIAddresses indicates an expected call of GetControllerAPIAddresses.
 func (mr *MockStateMockRecorder) GetControllerAPIAddresses(ctx, uuid any) *MockStateGetControllerAPIAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, unit.UUID, network.SpaceAddresses, error](mr.mock.ctrl.T, mr.mock, "GetControllerAPIAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid))
+	call := gomock.NewCall2_2[context.Context, string, network0.ControllerAPIAddresses, error](mr.mock.ctrl.T, mr.mock, "GetControllerAPIAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid))
 	mr.getControllerAPIAddressesExpects = append(mr.getControllerAPIAddressesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateGetControllerAPIAddressesCall is the typed call wrapper for GetControllerAPIAddresses.
-type MockStateGetControllerAPIAddressesCall = gomock.Call2_2[context.Context, unit.UUID, network.SpaceAddresses, error]
+type MockStateGetControllerAPIAddressesCall = gomock.Call2_2[context.Context, string, network0.ControllerAPIAddresses, error]
 
 // GetControllerUnitUUIDByName mocks base method.
-func (m *MockState) GetControllerUnitUUIDByName(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
+func (m *MockState) GetControllerUnitUUIDByName(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2_2(&m.recorder.getControllerUnitUUIDByNameExpects, m.ctrl, m, "GetControllerUnitUUIDByName", arg0, arg1)
 }
@@ -297,14 +297,14 @@ func (m *MockState) GetControllerUnitUUIDByName(arg0 context.Context, arg1 unit.
 // GetControllerUnitUUIDByName indicates an expected call of GetControllerUnitUUIDByName.
 func (mr *MockStateMockRecorder) GetControllerUnitUUIDByName(arg0, arg1 any) *MockStateGetControllerUnitUUIDByNameCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, unit.Name, unit.UUID, error](mr.mock.ctrl.T, mr.mock, "GetControllerUnitUUIDByName", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	call := gomock.NewCall2_2[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "GetControllerUnitUUIDByName", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
 	mr.getControllerUnitUUIDByNameExpects = append(mr.getControllerUnitUUIDByNameExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateGetControllerUnitUUIDByNameCall is the typed call wrapper for GetControllerUnitUUIDByName.
-type MockStateGetControllerUnitUUIDByNameCall = gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
+type MockStateGetControllerUnitUUIDByNameCall = gomock.Call2_2[context.Context, string, string, error]
 
 // GetMachineAppBindings mocks base method.
 func (m *MockState) GetMachineAppBindings(ctx context.Context, machineUUID string) ([]internal.SpaceName, error) {
