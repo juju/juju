@@ -1,6 +1,6 @@
 module github.com/juju/juju
 
-go 1.26.5
+go 1.26.6
 
 require (
 	cloud.google.com/go/compute v1.64.0
