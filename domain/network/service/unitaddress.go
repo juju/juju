@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -91,27 +92,83 @@ func (s *Service) GetUnitPublicAddresses(ctx context.Context, unitName unit.Name
 	return matchedAddrs, nil
 }
 
-// GetControllerAPIAddresses returns all addresses which can be used for
-// API addresses for the specified unit. local-machine scoped addresses
-// will not be returned.
+// GetControllerAPIAddresses returns addresses which can be used for API
+// addresses for the specified unit. Local-machine scoped addresses will
+// not be returned. Non-virtual Ethernet addresses are preferred, with virtual
+// Ethernet addresses retained as a fallback. If a management space is
+// configured, its candidates are selected independently so that it is always
+// honoured.
 //
 // The following errors may be returned:
 //   - [applicationerrors.UnitNotFound] if the unit does not exist or is
 //     not a controller application unit.
 //   - [network.NoAddressError] if the unit has no suitable API addresses.
-func (s *Service) GetControllerAPIAddresses(ctx context.Context, unitName unit.Name) (network.SpaceAddresses, error) {
-	unitUUID, err := s.st.GetControllerUnitUUIDByName(ctx, unitName)
+func (s *Service) GetControllerAPIAddresses(
+	ctx context.Context,
+	unitName unit.Name,
+	managementSpace *network.SpaceInfo,
+) (network.SpaceAddresses, error) {
+	unitUUID, err := s.st.GetControllerUnitUUIDByName(ctx, unitName.String())
 	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	addrs, err := s.st.GetControllerAPIAddresses(ctx, unitUUID)
-	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, errors.Errorf("getting controller unit UUID for %q: %w", unitName, err)
 	}
 
+	candidates, err := s.st.GetControllerAPIAddresses(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Errorf("getting API addresses for %q: %w", unitName, err)
+	}
+
+	addrs := selectControllerAPIAddresses(candidates, managementSpace)
 	if len(addrs) == 0 {
 		return nil, network.NoAddressError("API")
 	}
 
 	return addrs, nil
+}
+
+// selectControllerAPIAddresses selects the preferred client addresses from all
+// candidates. When a management space is configured, its preferred addresses
+// are added to the selection so that agent connectivity honours the explicit
+// operator choice.
+func selectControllerAPIAddresses(
+	candidates domainnetwork.ControllerAPIAddresses,
+	managementSpace *network.SpaceInfo,
+) network.SpaceAddresses {
+	selected := make([]bool, len(candidates))
+	markPreferredControllerAPIAddresses(candidates, nil, selected)
+	if managementSpace != nil {
+		markPreferredControllerAPIAddresses(candidates, &managementSpace.ID, selected)
+	}
+
+	result := make(network.SpaceAddresses, 0, len(candidates))
+	for i, candidate := range candidates {
+		if selected[i] {
+			result = append(result, candidate.SpaceAddress)
+		}
+	}
+	return result
+}
+
+func markPreferredControllerAPIAddresses(
+	candidates domainnetwork.ControllerAPIAddresses,
+	spaceUUID *network.SpaceUUID,
+	selected []bool,
+) {
+	hasNonVeth := false
+	for _, candidate := range candidates {
+		if (spaceUUID == nil || candidate.SpaceID == *spaceUUID) &&
+			candidate.DeviceType != domainnetwork.DeviceTypeVeth {
+			hasNonVeth = true
+			break
+		}
+	}
+
+	for i, candidate := range candidates {
+		if spaceUUID != nil && candidate.SpaceID != *spaceUUID {
+			continue
+		}
+		if !hasNonVeth || candidate.DeviceType != domainnetwork.DeviceTypeVeth {
+			selected[i] = true
+		}
+	}
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -420,50 +421,95 @@ func (s *unitAddressSuite) TestGetPublicAddressesNoAddresses(c *tc.C) {
 	c.Assert(err, tc.Satisfies, network.IsNoAddressError)
 }
 
-func (s *unitAddressSuite) TestGetControllerAPIAddresses(c *tc.C) {
+func (s *unitAddressSuite) TestGetControllerAPIAddressesPrefersNonVeth(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
 	unitName := unit.Name("foo/0")
-	unitAddresses := network.SpaceAddresses{
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "2001:DB8::/32",
-				ConfigType: network.ConfigStatic,
-				Type:       network.IPv6Address,
-				Scope:      network.ScopePublic,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.2/24",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopePublic,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.3/24",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeCloudLocal,
-			},
-		},
+	candidates := domainnetwork.ControllerAPIAddresses{
+		newControllerAPIAddress("10.0.0.1", "space-0", domainnetwork.DeviceTypeVeth),
+		newControllerAPIAddress("10.0.0.2", "space-0", domainnetwork.DeviceTypeEthernet),
 	}
 
-	s.st.EXPECT().GetControllerUnitUUIDByName(gomock.Any(), unitName).Return("foo", nil)
-	s.st.EXPECT().GetControllerAPIAddresses(gomock.Any(), unit.UUID("foo")).Return(unitAddresses, nil)
+	s.st.EXPECT().GetControllerUnitUUIDByName(gomock.Any(), unitName.String()).Return("foo", nil)
+	s.st.EXPECT().GetControllerAPIAddresses(gomock.Any(), "foo").Return(candidates, nil)
 
 	// Act
-	addrs, err := s.service(c).GetControllerAPIAddresses(c.Context(), unitName)
+	addrs, err := s.service(c).GetControllerAPIAddresses(c.Context(), unitName, nil)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addrs, tc.DeepEquals, unitAddresses)
+	c.Check(addrs, tc.DeepEquals, network.SpaceAddresses{candidates[1].SpaceAddress})
+}
+
+func (s *unitAddressSuite) TestGetControllerAPIAddressesFallsBackToVeth(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unit.Name("foo/0")
+	candidates := domainnetwork.ControllerAPIAddresses{
+		newControllerAPIAddress("10.0.0.1", "space-0", domainnetwork.DeviceTypeVeth),
+		newControllerAPIAddress("10.0.0.2", "space-1", domainnetwork.DeviceTypeVeth),
+	}
+
+	s.st.EXPECT().GetControllerUnitUUIDByName(gomock.Any(), unitName.String()).Return("foo", nil)
+	s.st.EXPECT().GetControllerAPIAddresses(gomock.Any(), "foo").Return(candidates, nil)
+
+	addrs, err := s.service(c).GetControllerAPIAddresses(c.Context(), unitName, nil)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addrs, tc.DeepEquals, network.SpaceAddresses{
+		candidates[0].SpaceAddress,
+		candidates[1].SpaceAddress,
+	})
+}
+
+func (s *unitAddressSuite) TestGetControllerAPIAddressesHonoursManagementSpace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unit.Name("foo/0")
+	candidates := domainnetwork.ControllerAPIAddresses{
+		newControllerAPIAddress("10.0.0.1", "management", domainnetwork.DeviceTypeVeth),
+		newControllerAPIAddress("10.0.0.2", "management", domainnetwork.DeviceTypeEthernet),
+		newControllerAPIAddress("10.1.0.1", "other", domainnetwork.DeviceTypeEthernet),
+	}
+	managementSpace := &network.SpaceInfo{ID: "management"}
+
+	s.st.EXPECT().GetControllerUnitUUIDByName(gomock.Any(), unitName.String()).Return("foo", nil)
+	s.st.EXPECT().GetControllerAPIAddresses(gomock.Any(), "foo").Return(candidates, nil)
+
+	addrs, err := s.service(c).GetControllerAPIAddresses(
+		c.Context(), unitName, managementSpace,
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addrs, tc.DeepEquals, network.SpaceAddresses{
+		candidates[1].SpaceAddress,
+		candidates[2].SpaceAddress,
+	})
+}
+
+func (s *unitAddressSuite) TestGetControllerAPIAddressesFallsBackToVethInManagementSpace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unit.Name("foo/0")
+	candidates := domainnetwork.ControllerAPIAddresses{
+		newControllerAPIAddress("10.0.0.1", "management", domainnetwork.DeviceTypeVeth),
+		newControllerAPIAddress("10.1.0.1", "other", domainnetwork.DeviceTypeEthernet),
+	}
+	managementSpace := &network.SpaceInfo{ID: "management"}
+
+	s.st.EXPECT().GetControllerUnitUUIDByName(gomock.Any(), unitName.String()).Return("foo", nil)
+	s.st.EXPECT().GetControllerAPIAddresses(gomock.Any(), "foo").Return(candidates, nil)
+
+	addrs, err := s.service(c).GetControllerAPIAddresses(
+		c.Context(), unitName, managementSpace,
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addrs, tc.DeepEquals, network.SpaceAddresses{
+		candidates[0].SpaceAddress,
+		candidates[1].SpaceAddress,
+	})
 }
 
 func (s *unitAddressSuite) TestGetControllerAPIAddressesNoAddresses(c *tc.C) {
@@ -471,11 +517,11 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesNoAddresses(c *tc.C) {
 
 	// Arrange
 	unitName := unit.Name("foo/0")
-	s.st.EXPECT().GetControllerUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
-	s.st.EXPECT().GetControllerAPIAddresses(gomock.Any(), unit.UUID("foo")).Return(network.SpaceAddresses{}, nil)
+	s.st.EXPECT().GetControllerUnitUUIDByName(gomock.Any(), unitName.String()).Return("foo", nil)
+	s.st.EXPECT().GetControllerAPIAddresses(gomock.Any(), "foo").Return(domainnetwork.ControllerAPIAddresses{}, nil)
 
 	// Act
-	_, err := s.service(c).GetControllerAPIAddresses(c.Context(), unitName)
+	_, err := s.service(c).GetControllerAPIAddresses(c.Context(), unitName, nil)
 
 	// Assert
 	c.Assert(err, tc.Satisfies, network.IsNoAddressError)
@@ -486,10 +532,10 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesUnitNotFound(c *tc.C) {
 
 	// Arrange
 	unitName := unit.Name("foo/0")
-	s.st.EXPECT().GetControllerUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), applicationerrors.UnitNotFound)
+	s.st.EXPECT().GetControllerUnitUUIDByName(gomock.Any(), unitName.String()).Return("foo", applicationerrors.UnitNotFound)
 
 	// Act
-	_, err := s.service(c).GetControllerAPIAddresses(c.Context(), unitName)
+	_, err := s.service(c).GetControllerAPIAddresses(c.Context(), unitName, nil)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
@@ -661,4 +707,20 @@ func (s *unitAddressSuite) TestGetUnitPrivateAddressNoAddress(c *tc.C) {
 
 	_, err := s.service(c).GetUnitPrivateAddress(c.Context(), unitName)
 	c.Assert(err, tc.Satisfies, network.IsNoAddressError)
+}
+
+func newControllerAPIAddress(
+	value string,
+	spaceUUID network.SpaceUUID,
+	deviceType domainnetwork.DeviceType,
+) domainnetwork.ControllerAPIAddress {
+	return domainnetwork.ControllerAPIAddress{
+		SpaceAddress: network.SpaceAddress{
+			SpaceID: spaceUUID,
+			MachineAddress: network.MachineAddress{
+				Value: value,
+			},
+		},
+		DeviceType: deviceType,
+	}
 }
