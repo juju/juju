@@ -217,7 +217,7 @@ type MockNetworkService struct {
 // MockNetworkServiceMockRecorder is the mock recorder for MockNetworkService.
 type MockNetworkServiceMockRecorder struct {
 	mock                             *MockNetworkService
-	getControllerAPIAddressesExpects []*gomock.Call2_2[context.Context, unit.Name, network.SpaceAddresses, error]
+	getControllerAPIAddressesExpects []*gomock.Call3_2[context.Context, unit.Name, *network.SpaceInfo, network.SpaceAddresses, error]
 	spaceByNameExpects               []*gomock.Call2_2[context.Context, network.SpaceName, *network.SpaceInfo, error]
 }
 
@@ -234,22 +234,22 @@ func (m *MockNetworkService) EXPECT() *MockNetworkServiceMockRecorder {
 }
 
 // GetControllerAPIAddresses mocks base method.
-func (m *MockNetworkService) GetControllerAPIAddresses(ctx context.Context, unitName unit.Name) (network.SpaceAddresses, error) {
+func (m *MockNetworkService) GetControllerAPIAddresses(ctx context.Context, unitName unit.Name, managementSpace *network.SpaceInfo) (network.SpaceAddresses, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getControllerAPIAddressesExpects, m.ctrl, m, "GetControllerAPIAddresses", ctx, unitName)
+	return gomock.Dispatch3_2(&m.recorder.getControllerAPIAddressesExpects, m.ctrl, m, "GetControllerAPIAddresses", ctx, unitName, managementSpace)
 }
 
 // GetControllerAPIAddresses indicates an expected call of GetControllerAPIAddresses.
-func (mr *MockNetworkServiceMockRecorder) GetControllerAPIAddresses(ctx, unitName any) *MockNetworkServiceGetControllerAPIAddressesCall {
+func (mr *MockNetworkServiceMockRecorder) GetControllerAPIAddresses(ctx, unitName, managementSpace any) *MockNetworkServiceGetControllerAPIAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, unit.Name, network.SpaceAddresses, error](mr.mock.ctrl.T, mr.mock, "GetControllerAPIAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitName))
+	call := gomock.NewCall3_2[context.Context, unit.Name, *network.SpaceInfo, network.SpaceAddresses, error](mr.mock.ctrl.T, mr.mock, "GetControllerAPIAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitName), gomock.EnsureMatcher(managementSpace))
 	mr.getControllerAPIAddressesExpects = append(mr.getControllerAPIAddressesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockNetworkServiceGetControllerAPIAddressesCall is the typed call wrapper for GetControllerAPIAddresses.
-type MockNetworkServiceGetControllerAPIAddressesCall = gomock.Call2_2[context.Context, unit.Name, network.SpaceAddresses, error]
+type MockNetworkServiceGetControllerAPIAddressesCall = gomock.Call3_2[context.Context, unit.Name, *network.SpaceInfo, network.SpaceAddresses, error]
 
 // SpaceByName mocks base method.
 func (m *MockNetworkService) SpaceByName(ctx context.Context, name network.SpaceName) (*network.SpaceInfo, error) {
