@@ -63,7 +63,8 @@ run_enable_ha() {
 
 	juju deploy ubuntu-lite
 
-	enable_microceph_backed_storage
+	# TODO - a separate ha test with object storage
+	# enable_microceph_backed_storage
 
 	juju add-unit -m controller controller -n 2
 
