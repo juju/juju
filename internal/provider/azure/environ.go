@@ -2116,20 +2116,20 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext,
 		err = errorutils.HandleCredentialError(err, ctx)
 	}()
 
+	apiVersions, err := env.resourceAPIVersions(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// Find all the resources tagged as belonging to this model.
 	filter := fmt.Sprintf("tagName eq '%s' and tagValue eq '%s'", tags.JujuModel, env.config.UUID())
-	resourceItems, err := env.getModelResources(ctx, resourceGroup, filter, nil)
+	resourceItems, err := env.getModelResources(ctx, resourceGroup, filter, apiVersions)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Older APIs can ignore the filter above, so query the hard way just in case.
-	var apiVersions map[string]string
 	if len(resourceItems) == 0 {
-		apiVersions, err = env.resourceAPIVersions(ctx)
-		if err != nil {
-			return errors.Trace(err)
-		}
 		resourceItems, err = env.getModelResources(ctx, resourceGroup, "", apiVersions)
 		if err != nil {
 			return errors.Trace(err)
@@ -2172,13 +2172,6 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext,
 		return errors.Annotatef(err, "deleting machine instances %q", instIds)
 	}
 
-	if len(otherResources) > 0 && apiVersions == nil {
-		apiVersions, err = env.resourceAPIVersions(ctx)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	// Loop until all remaining resources are deleted.
 	// For safety, add an upper retry limit; in reality, this will never be hit.
 	remainingResources := otherResources
@@ -2203,7 +2196,9 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext,
 	return nil
 }
 
-func (env *azureEnviron) getModelResources(sdkCtx stdcontext.Context, resourceGroup, modelFilter string, apiVersions map[string]string) ([]*armresources.GenericResourceExpanded, error) {
+func (env *azureEnviron) getModelResources(
+	sdkCtx stdcontext.Context, resourceGroup, modelFilter string, apiVersions map[string]string,
+) ([]*armresources.GenericResourceExpanded, error) {
 	resources, err := env.resourcesClient()
 	if err != nil {
 		return nil, errors.Trace(err)
