@@ -1,9 +1,14 @@
 (command-juju-upgrade-controller)=
 # `juju upgrade-controller`
-> See also: [upgrade-model](#upgrade-model)
+> See also: [upgrade-model](#command-juju-upgrade-model)
 
 ## Summary
 Upgrades Juju on a controller.
+
+## Usage
+```text
+juju upgrade-controller [options]
+```
 
 ### Options
 | Flag | Default | Usage |

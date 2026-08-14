@@ -248,3 +248,50 @@ func (s *toolsSuite) TestUploadAgentBinary(c *tc.C) {
 		Size:    9,
 	})
 }
+
+// TestUploadAgentBinaryPlusInPathSegment asserts that a "+" in the uploaded
+// binary version appears literally in the tools URL returned to the client.
+func (s *toolsSuite) TestUploadAgentBinaryPlusInPathSegment(c *tc.C) {
+	defer s.SetUpMocks(c).Finish()
+
+	body := strings.NewReader("123456789")
+	handler := newToolsUploadHandler(s.blockCheckGetter, s.agentBinaryStoreGetter)
+	res := httptest.NewRecorder()
+	// "%2B" in the query decodes to a literal "+" in the release component.
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"https://10.0.0.1:17070/tools?binaryVersion=4.0.0-ubuntu%2Blts-amd64",
+		body,
+	)
+	req.Header.Add("Content-Type", "application/x-tar-gz")
+
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	ctx := httpcontext.SetContextModelUUID(req.Context(), modelUUID)
+	req = req.WithContext(ctx)
+
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
+	s.agentBinaryStore.EXPECT().AddAgentBinaryWithSHA256(
+		gomock.Any(),
+		gomock.Any(),
+		coreagentbinary.Version{
+			Number: semversion.MustParse("4.0.0"),
+			Arch:   corearch.AMD64,
+		},
+		int64(9),
+		"15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225",
+	).Return(nil)
+
+	handler.ServeHTTP(res, req)
+
+	toolsResponse := s.assertResponse(c, res.Result(), http.StatusOK)
+	c.Assert(toolsResponse.Error, tc.IsNil)
+	c.Assert(toolsResponse.ToolsList, tc.HasLen, 1)
+
+	agentTools := toolsResponse.ToolsList[0]
+	c.Check(agentTools.Version, tc.Equals, semversion.MustParseBinary("4.0.0-ubuntu+lts-amd64"))
+	c.Check(agentTools.URL, tc.Equals, fmt.Sprintf(
+		"https://10.0.0.1:17070/model/%s/tools/4.0.0-ubuntu+lts-amd64", modelUUID,
+	))
+	// Query-style encoding would have produced "%2B" here.
+	c.Check(strings.Contains(agentTools.URL, "%2B"), tc.IsFalse)
+}

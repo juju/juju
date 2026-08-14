@@ -1,12 +1,14 @@
 (command-juju-show-user)=
 # `juju show-user`
-> See also: [add-user](#add-user), [register](#register), [users](#users)
+> See also: [add-user](#command-juju-add-user), [register](#command-juju-register), [users](#command-juju-users)
 
 ## Summary
 Show information about a user.
 
 ## Usage
-```juju show-user [options] [<user name>]```
+```text
+juju show-user [options] [<user name>]
+```
 
 ### Options
 | Flag | Default | Usage |

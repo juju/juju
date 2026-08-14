@@ -1,12 +1,14 @@
 (command-juju-add-unit)=
 # `juju add-unit`
-> See also: [remove-unit](#remove-unit)
+> See also: [remove-unit](#command-juju-remove-unit)
 
 ## Summary
 Adds one or more units to a deployed application.
 
 ## Usage
-```juju add-unit [options] <application name>```
+```text
+juju add-unit [options] <application name>
+```
 
 ### Options
 | Flag | Default | Usage |

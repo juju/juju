@@ -1,12 +1,14 @@
 (command-juju-add-k8s)=
 # `juju add-k8s`
-> See also: [remove-k8s](#remove-k8s)
+> See also: [remove-k8s](#command-juju-remove-k8s)
 
 ## Summary
 Adds a Kubernetes endpoint and credential to Juju.
 
 ## Usage
-```juju add-k8s [options] <k8s name>```
+```text
+juju add-k8s [options] <k8s name>
+```
 
 ### Options
 | Flag | Default | Usage |

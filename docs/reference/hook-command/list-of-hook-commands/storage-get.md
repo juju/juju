@@ -4,7 +4,9 @@
 Prints information for the storage instance with the specified ID.
 
 ## Usage
-``` storage-get [options] [-s <storage-id>] [<key>]```
+```text
+storage-get [options] [-s <storage-id>] [<key>]
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -1,12 +1,14 @@
 (command-juju-show-status-log)=
 # `juju show-status-log`
-> See also: [status](#status)
+> See also: [status](#command-juju-status)
 
 ## Summary
 Output past statuses for the specified entity.
 
 ## Usage
-```juju show-status-log [options] <entity name>```
+```text
+juju show-status-log [options] <entity name>
+```
 
 ### Options
 | Flag | Default | Usage |

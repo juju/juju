@@ -1,12 +1,14 @@
 (command-juju-switch)=
 # `juju switch`
-> See also: [controllers](#controllers), [models](#models), [show-controller](#show-controller)
+> See also: [controllers](#command-juju-controllers), [models](#command-juju-models), [show-controller](#command-juju-show-controller)
 
 ## Summary
 Selects or identifies the current controller and model.
 
 ## Usage
-```juju switch [options] [<controller>|<model>|<controller>:|:<model>|<controller>:<model>]```
+```text
+juju switch [options] [<controller>|<model>|<controller>:|:<model>|<controller>:<model>]
+```
 
 ### Options
 | Flag | Default | Usage |

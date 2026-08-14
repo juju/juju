@@ -516,6 +516,7 @@ func (s *ModelServices) UnitState() *unitstateservice.LeadershipService {
 	return unitstateservice.NewLeadershipService(
 		unitstatestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, log),
 		secretbackendstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), log),
+		s.Secret(),
 		domain.NewLeaseService(s.leaseManager),
 		s.clock,
 		log,

@@ -4,7 +4,9 @@
 Adds a new secret.
 
 ## Usage
-``` secret-add [options] <key>[#base64]=<value> ...```
+```text
+secret-add [options] <key>[#base64]=<value> ...
+```
 
 ### Options
 | Flag | Default | Usage |

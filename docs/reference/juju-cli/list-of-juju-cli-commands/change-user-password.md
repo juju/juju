@@ -1,12 +1,14 @@
 (command-juju-change-user-password)=
 # `juju change-user-password`
-> See also: [add-user](#add-user), [register](#register)
+> See also: [add-user](#command-juju-add-user), [register](#command-juju-register)
 
 ## Summary
 Changes the password for the current or specified Juju user.
 
 ## Usage
-```juju change-user-password [options] [username]```
+```text
+juju change-user-password [options] [username]
+```
 
 ### Options
 | Flag | Default | Usage |

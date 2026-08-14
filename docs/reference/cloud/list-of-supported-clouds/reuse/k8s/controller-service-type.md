@@ -1,7 +1,5 @@
-(kubernetes-bootstrap-service-type)=
 As for all Kubernetes clouds, the controller service type depends on the host platform.
 
-(kubernetes-bootstrap-service-type)=
 When bootstrapping a controller, Juju creates a Kubernetes `Service` to expose the controller API. The `Service` type depends on the host cloud platform where the Kubernetes cluster is running:
 
 - **`LoadBalancer`**: For managed Kubernetes on public clouds.

@@ -1,12 +1,14 @@
 (command-juju-cancel-task)=
 # `juju cancel-task`
-> See also: [show-task](#show-task)
+> See also: [show-task](#command-juju-show-task)
 
 ## Summary
 Cancel pending or running tasks.
 
 ## Usage
-```juju cancel-task [options] (<task-id>|<task-id-prefix>) [...]```
+```text
+juju cancel-task [options] (<task-id>|<task-id-prefix>) [...]
+```
 
 ### Options
 | Flag | Default | Usage |

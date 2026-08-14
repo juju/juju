@@ -4,7 +4,9 @@
 Lists storage attached to the unit.
 
 ## Usage
-``` storage-list [options] [<storage-name>]```
+```text
+storage-list [options] [<storage-name>]
+```
 
 ### Options
 | Flag | Default | Usage |

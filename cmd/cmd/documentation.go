@@ -372,9 +372,14 @@ func (c *documentationCommand) formatCommand(ref commandReference, title bool, c
 		fmtedTitle = strings.ToUpper(strings.Join(commandSeq[1:], " "))
 	}
 
+	usagePrefix := strings.Join(commandSeq[:len(commandSeq)-1], " ")
+	if usagePrefix != "" {
+		usagePrefix += " "
+	}
+
 	opts := MarkdownOptions{
 		Title:       fmtedTitle,
-		UsagePrefix: strings.Join(commandSeq[:len(commandSeq)-1], " ") + " ",
+		UsagePrefix: usagePrefix,
 		LinkForCommand: func(s string) string {
 			prefix := "#"
 			if c.ids != nil {

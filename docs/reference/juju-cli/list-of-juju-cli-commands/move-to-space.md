@@ -1,12 +1,14 @@
 (command-juju-move-to-space)=
 # `juju move-to-space`
-> See also: [add-space](#add-space), [spaces](#spaces), [reload-spaces](#reload-spaces), [rename-space](#rename-space), [show-space](#show-space), [remove-space](#remove-space)
+> See also: [add-space](#command-juju-add-space), [spaces](#command-juju-spaces), [reload-spaces](#command-juju-reload-spaces), [rename-space](#command-juju-rename-space), [show-space](#command-juju-show-space), [remove-space](#command-juju-remove-space)
 
 ## Summary
 Update a network space's CIDR.
 
 ## Usage
-```juju move-to-space [options] [--format yaml|json] <name> <CIDR1> [ <CIDR2> ...]```
+```text
+juju move-to-space [options] [--format yaml|json] <name> <CIDR1> [ <CIDR2> ...]
+```
 
 ### Options
 | Flag | Default | Usage |

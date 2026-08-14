@@ -4,7 +4,9 @@
 Sets relation settings.
 
 ## Usage
-``` relation-set [options] key=value [key=value ...]```
+```text
+relation-set [options] key=value [key=value ...]
+```
 
 ### Options
 | Flag | Default | Usage |

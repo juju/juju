@@ -1,12 +1,14 @@
 (command-juju-disable-command)=
 # `juju disable-command`
-> See also: [disabled-commands](#disabled-commands), [enable-command](#enable-command)
+> See also: [disabled-commands](#command-juju-disabled-commands), [enable-command](#command-juju-enable-command)
 
 ## Summary
 Disables commands for the model.
 
 ## Usage
-```juju disable-command [options] <command set> [message...]```
+```text
+juju disable-command [options] <command set> [message...]
+```
 
 ### Options
 | Flag | Default | Usage |

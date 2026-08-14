@@ -4,7 +4,9 @@
 Removes an existing secret.
 
 ## Usage
-``` secret-remove [options] <ID>```
+```text
+secret-remove [options] <ID>
+```
 
 ### Options
 | Flag | Default | Usage |

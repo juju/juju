@@ -1,12 +1,14 @@
 (command-juju-update-storage-pool)=
 # `juju update-storage-pool`
-> See also: [create-storage-pool](#create-storage-pool), [remove-storage-pool](#remove-storage-pool), [storage-pools](#storage-pools)
+> See also: [create-storage-pool](#command-juju-create-storage-pool), [remove-storage-pool](#command-juju-remove-storage-pool), [storage-pools](#command-juju-storage-pools)
 
 ## Summary
 Update storage pool attributes.
 
 ## Usage
-```juju update-storage-pool [options] <name> [<key>=<value> [<key>=<value>...]]```
+```text
+juju update-storage-pool [options] <name> [<key>=<value> [<key>=<value>...]]
+```
 
 ### Options
 | Flag | Default | Usage |

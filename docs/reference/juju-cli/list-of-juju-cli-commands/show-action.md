@@ -1,12 +1,14 @@
 (command-juju-show-action)=
 # `juju show-action`
-> See also: [actions](#actions), [run](#run)
+> See also: [actions](#command-juju-actions), [run](#command-juju-run)
 
 ## Summary
 Shows detailed information about an action.
 
 ## Usage
-```juju show-action [options] <application> <action>```
+```text
+juju show-action [options] <application> <action>
+```
 
 ### Options
 | Flag | Default | Usage |

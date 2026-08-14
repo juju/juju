@@ -1,12 +1,14 @@
 (command-juju-set-firewall-rule)=
 # `juju set-firewall-rule`
-> See also: [firewall-rules](#firewall-rules)
+> See also: [firewall-rules](#command-juju-firewall-rules)
 
 ## Summary
 Sets a firewall rule.
 
 ## Usage
-```juju set-firewall-rule [options] <service-name>, --allowlist <cidr>[,<cidr>...]```
+```text
+juju set-firewall-rule [options] <service-name>, --allowlist <cidr>[,<cidr>...]
+```
 
 ### Options
 | Flag | Default | Usage |

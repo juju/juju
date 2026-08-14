@@ -368,25 +368,32 @@ func (h *toolsUploadHandler) processPost(r *http.Request) (tools.Tools, error) {
 		return tools.Tools{}, internalerrors.Capture(err)
 	}
 
-	serverRoot, err := h.getServerRoot(r, query)
+	serverRoot, err := h.getServerRoot(r)
 	if err != nil {
 		return tools.Tools{}, internalerrors.Capture(err)
 	}
 
 	return tools.Tools{
 		Version: parsedBinaryVersion,
-		URL:     common.ToolsURL(serverRoot, parsedBinaryVersion.String()),
+		URL:     serverRoot.JoinPath("tools", parsedBinaryVersion.String()).String(),
 		SHA256:  sha,
 		Size:    size,
 	}, nil
 }
 
-func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values) (string, error) {
+func (h *toolsUploadHandler) getServerRoot(r *http.Request) (*url.URL, error) {
 	modelUUID, valid := httpcontext.RequestModelUUID(r.Context())
 	if !valid {
-		return "", errors.BadRequestf("invalid model UUID")
+		return nil, errors.BadRequestf("invalid model UUID")
 	}
-	return fmt.Sprintf("https://%s/model/%s", r.Host, modelUUID), nil
+
+	u := &url.URL{
+		Scheme: "https",
+		Host:   r.Host,
+		Path:   "/model/" + modelUUID,
+	}
+
+	return u, nil
 }
 
 // handleUpload uploads the tools data from the reader to env storage as the specified version.

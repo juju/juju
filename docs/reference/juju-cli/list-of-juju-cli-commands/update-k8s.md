@@ -1,12 +1,14 @@
 (command-juju-update-k8s)=
 # `juju update-k8s`
-> See also: [add-k8s](#add-k8s), [remove-k8s](#remove-k8s)
+> See also: [add-k8s](#command-juju-add-k8s), [remove-k8s](#command-juju-remove-k8s)
 
 ## Summary
 Updates an existing Kubernetes endpoint used by Juju.
 
 ## Usage
-```juju update-k8s [options] <k8s name>```
+```text
+juju update-k8s [options] <k8s name>
+```
 
 ### Options
 | Flag | Default | Usage |

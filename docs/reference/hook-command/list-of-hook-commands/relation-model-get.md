@@ -3,6 +3,11 @@
 ## Summary
 Gets details about the model housing a related application.
 
+## Usage
+```text
+relation-model-get [options]
+```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

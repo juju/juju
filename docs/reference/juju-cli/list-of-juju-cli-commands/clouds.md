@@ -1,11 +1,16 @@
 (command-juju-clouds)=
 # `juju clouds`
-> See also: [add-cloud](#add-cloud), [credentials](#credentials), [controllers](#controllers), [regions](#regions), [default-credential](#default-credential), [default-region](#default-region), [show-cloud](#show-cloud), [update-cloud](#update-cloud), [update-public-clouds](#update-public-clouds)
+> See also: [add-cloud](#command-juju-add-cloud), [credentials](#command-juju-credentials), [controllers](#command-juju-controllers), [regions](#command-juju-regions), [default-credential](#command-juju-default-credential), [default-region](#command-juju-default-region), [show-cloud](#command-juju-show-cloud), [update-cloud](#command-juju-update-cloud), [update-public-clouds](#command-juju-update-public-clouds)
 
 **Aliases:** list-clouds
 
 ## Summary
 Lists all clouds available to Juju.
+
+## Usage
+```text
+juju clouds [options]
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -1,12 +1,14 @@
 (command-juju-remove-k8s)=
 # `juju remove-k8s`
-> See also: [add-k8s](#add-k8s)
+> See also: [add-k8s](#command-juju-add-k8s)
 
 ## Summary
 Removes a k8s cloud from Juju.
 
 ## Usage
-```juju remove-k8s [options] <k8s name>```
+```text
+juju remove-k8s [options] <k8s name>
+```
 
 ### Options
 | Flag | Default | Usage |

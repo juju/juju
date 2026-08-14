@@ -1,12 +1,14 @@
 (command-juju-add-cloud)=
 # `juju add-cloud`
-> See also: [clouds](#clouds), [update-cloud](#update-cloud), [remove-cloud](#remove-cloud), [update-credential](#update-credential)
+> See also: [clouds](#command-juju-clouds), [update-cloud](#command-juju-update-cloud), [remove-cloud](#command-juju-remove-cloud), [update-credential](#command-juju-update-credential)
 
 ## Summary
 Add a cloud definition to Juju.
 
 ## Usage
-```juju add-cloud [options] <cloud name> [<cloud definition file>]```
+```text
+juju add-cloud [options] <cloud name> [<cloud definition file>]
+```
 
 ### Options
 | Flag | Default | Usage |

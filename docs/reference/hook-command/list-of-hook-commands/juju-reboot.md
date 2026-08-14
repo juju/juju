@@ -3,6 +3,11 @@
 ## Summary
 Reboots the host machine.
 
+## Usage
+```text
+juju-reboot [options]
+```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

@@ -1,12 +1,14 @@
 (command-juju-remove-offer)=
 # `juju remove-offer`
-> See also: [find-offers](#find-offers), [offer](#offer)
+> See also: [find-offers](#command-juju-find-offers), [offer](#command-juju-offer)
 
 ## Summary
 Removes one or more offers specified by their URL.
 
 ## Usage
-```juju remove-offer [options] <offer-url> ...```
+```text
+juju remove-offer [options] <offer-url> ...
+```
 
 ### Options
 | Flag | Default | Usage |

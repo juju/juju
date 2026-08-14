@@ -1,12 +1,14 @@
 (command-juju-remove-credential)=
 # `juju remove-credential`
-> See also: [add-credential](#add-credential), [autoload-credentials](#autoload-credentials), [credentials](#credentials), [default-credential](#default-credential), [set-credential](#set-credential), [update-credential](#update-credential)
+> See also: [add-credential](#command-juju-add-credential), [autoload-credentials](#command-juju-autoload-credentials), [credentials](#command-juju-credentials), [default-credential](#command-juju-default-credential), [set-credential](#command-juju-set-credential), [update-credential](#command-juju-update-credential)
 
 ## Summary
 Removes Juju credentials for a cloud.
 
 ## Usage
-```juju remove-credential [options] <cloud name> <credential name>```
+```text
+juju remove-credential [options] <cloud name> <credential name>
+```
 
 ### Options
 | Flag | Default | Usage |

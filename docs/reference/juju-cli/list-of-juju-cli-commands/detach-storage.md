@@ -1,12 +1,14 @@
 (command-juju-detach-storage)=
 # `juju detach-storage`
-> See also: [storage](#storage), [attach-storage](#attach-storage)
+> See also: [storage](#command-juju-storage), [attach-storage](#command-juju-attach-storage)
 
 ## Summary
 Detaches storage from units.
 
 ## Usage
-```juju detach-storage [options] <storage> [<storage> ...]```
+```text
+juju detach-storage [options] <storage> [<storage> ...]
+```
 
 ### Options
 | Flag | Default | Usage |

@@ -8,7 +8,9 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
-	"github.com/juju/juju/core/secrets"
+	coresecrets "github.com/juju/juju/core/secrets"
+	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
 	"github.com/juju/juju/environs"
@@ -59,7 +61,20 @@ type CommitHookState interface {
 	// GetSecretRotatePolicy returns the current rotate policy for the
 	// secret identified by the given secret ID. If the secret does not
 	// exist, an error satisfying [secreterrors.SecretNotFound] is returned.
-	GetSecretRotatePolicy(ctx context.Context, secretID string) (secrets.RotatePolicy, error)
+	GetSecretRotatePolicy(ctx context.Context, secretID string) (coresecrets.RotatePolicy, error)
+}
+
+// SecretGrantAuthorizer provides access checks and ownership details for
+// persisted secrets. Grants for secrets created in the same hook commit are
+// resolved from the incoming create arguments instead.
+type SecretGrantAuthorizer interface {
+	// CheckSecretManageAccess verifies the unit has RoleManage access on the
+	// given secret, including app-owned secrets if the unit is the leader.
+	CheckSecretManageAccess(ctx context.Context, uri *coresecrets.URI, unitName coreunit.Name) error
+
+	// GetSecretOwnerKinds returns the owner kind for each of the given
+	// secret URIs. Secrets that no longer exist are silently omitted.
+	GetSecretOwnerKinds(ctx context.Context, uris []*coresecrets.URI) ([]secret.SecretOwnerInfo, error)
 }
 
 // UnitStateState defines a persistence layer interface for retrieving
@@ -84,14 +99,14 @@ type SecretBackendReferenceMutator interface {
 	// for the given secret revision. It returns a rollback function which
 	// can be used to revert the changes.
 	AddSecretBackendReference(
-		ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string, secretID string,
+		ctx context.Context, valueRef *coresecrets.ValueRef, modelID coremodel.UUID, revisionID string, secretID string,
 	) (func() error, error)
 
 	// UpdateSecretBackendReference updates the reference to the secret
 	// backend for the given secret revision. It returns a rollback function
 	// which can be used to revert the changes.
 	UpdateSecretBackendReference(
-		ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string, secretID string,
+		ctx context.Context, valueRef *coresecrets.ValueRef, modelID coremodel.UUID, revisionID string, secretID string,
 	) (func() error, error)
 }
 

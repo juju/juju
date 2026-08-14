@@ -1,11 +1,16 @@
 (command-juju-secret-backends)=
 # `juju secret-backends`
-> See also: [add-secret-backend](#add-secret-backend), [remove-secret-backend](#remove-secret-backend), [show-secret-backend](#show-secret-backend), [update-secret-backend](#update-secret-backend)
+> See also: [add-secret-backend](#command-juju-add-secret-backend), [remove-secret-backend](#command-juju-remove-secret-backend), [show-secret-backend](#command-juju-show-secret-backend), [update-secret-backend](#command-juju-update-secret-backend)
 
 **Aliases:** list-secret-backends
 
 ## Summary
 Lists secret backends available in the controller.
+
+## Usage
+```text
+juju secret-backends [options]
+```
 
 ### Options
 | Flag | Default | Usage |

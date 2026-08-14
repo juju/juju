@@ -3,6 +3,11 @@
 ## Summary
 Accesses cloud credentials.
 
+## Usage
+```text
+credential-get [options]
+```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

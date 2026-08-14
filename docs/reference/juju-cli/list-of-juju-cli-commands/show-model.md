@@ -1,12 +1,14 @@
 (command-juju-show-model)=
 # `juju show-model`
-> See also: [add-model](#add-model)
+> See also: [add-model](#command-juju-add-model)
 
 ## Summary
 Shows information about the current or specified model.
 
 ## Usage
-```juju show-model [options] <model name>```
+```text
+juju show-model [options] <model name>
+```
 
 ### Options
 | Flag | Default | Usage |

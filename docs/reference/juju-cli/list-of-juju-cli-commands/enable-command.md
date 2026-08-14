@@ -1,12 +1,14 @@
 (command-juju-enable-command)=
 # `juju enable-command`
-> See also: [disable-command](#disable-command), [disabled-commands](#disabled-commands)
+> See also: [disable-command](#command-juju-disable-command), [disabled-commands](#command-juju-disabled-commands)
 
 ## Summary
 Enable commands that had been previously disabled.
 
 ## Usage
-```juju enable-command [options] <command set>```
+```text
+juju enable-command [options] <command set>
+```
 
 ### Options
 | Flag | Default | Usage |
