@@ -60,7 +60,8 @@ Respect Juju layering. Never create new cross-layer dependencies.
 - SQL queries must use explicit aliases for tables, CTEs, and projected values;
   use `AS` rather than relying on implicit aliasing.
 - State method arguments should be simple types (`string`, `int`, etc.) or types local to that domain.
-- UUID should be created in the service layer and pushed to the state layer as a string.
+- UUIDs for state-persisted entities should be created in the service layer
+  and pushed to the state layer as strings.
 - UUID parameters accepted by service-layer methods should use their typed form
   (e.g. `coremodel.UUID`) whenever such a type exists, and the service method
   must validate them (e.g. `modelUUID.Validate()`) before use.
