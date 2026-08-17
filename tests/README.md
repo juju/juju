@@ -96,7 +96,7 @@ but no other subtests, just `run_deploy_bundle`.
 
 ### Using local controllers
 
-The use of local controllers whilst development is advantagous because you don't
+The use of local controllers whilst development is advantageous because you don't
 have to rebootstrap a controller, or you can test a particular setup that has
 been manually created.
 
