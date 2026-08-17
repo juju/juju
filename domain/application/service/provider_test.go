@@ -2444,7 +2444,7 @@ func (s *providerServiceSuite) TestGetSupportedFeatures(c *tc.C) {
 		Name:        "juju",
 		Description: assumes.UserFriendlyFeatureDescriptions["juju"],
 		Version:     &agentVersion,
-	})
+	}, assumes.UnitlessFeature())
 	c.Check(features, tc.DeepEquals, fs)
 }
 
@@ -2493,7 +2493,7 @@ func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *tc.C) {
 		Name:        "juju",
 		Description: assumes.UserFriendlyFeatureDescriptions["juju"],
 		Version:     &agentVersion,
-	})
+	}, assumes.UnitlessFeature())
 	c.Check(features, tc.DeepEquals, fs)
 }
 
