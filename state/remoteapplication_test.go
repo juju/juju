@@ -1019,6 +1019,55 @@ func (s *remoteApplicationSuite) TestDestroyAlsoDeletesSecretConsumerInfo(c *gc.
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *remoteApplicationSuite) TestDestroyDoesNotDeletePrefixNamedConsumerInfo(c *gc.C) {
+	ch := s.AddTestingCharm(c, "wordpress")
+	app := s.AddTestingApplication(c, "another", ch)
+	store := state.NewSecrets(s.State)
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   app.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Label:       ptr("label"),
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Remote consumer records for the application being destroyed ("mysql").
+	err = s.State.SaveSecretRemoteConsumer(uri, s.application.Tag(), &secrets.SecretConsumerMetadata{CurrentRevision: 1})
+	c.Assert(err, jc.ErrorIsNil)
+	destroyedUnit := names.NewUnitTag(s.application.Name() + "/0")
+	err = s.State.SaveSecretRemoteConsumer(uri, destroyedUnit, &secrets.SecretConsumerMetadata{CurrentRevision: 1})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Remote consumer records for a different application whose name has
+	// "mysql" as a prefix.
+	siblingApp := names.NewApplicationTag("mysql-root")
+	siblingUnit := names.NewUnitTag("mysql-root/0")
+	err = s.State.SaveSecretRemoteConsumer(uri, siblingApp, &secrets.SecretConsumerMetadata{CurrentRevision: 1})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SaveSecretRemoteConsumer(uri, siblingUnit, &secrets.SecretConsumerMetadata{CurrentRevision: 1})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.application.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The destroyed application's records are gone.
+	_, err = s.State.GetSecretRemoteConsumer(uri, s.application.Tag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.State.GetSecretRemoteConsumer(uri, destroyedUnit)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// The prefix-named application's records survive.
+	_, err = s.State.GetSecretRemoteConsumer(uri, siblingApp)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.GetSecretRemoteConsumer(uri, siblingUnit)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *remoteApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
 	wpEP := []charm.Relation{
 		{Name: "db", Interface: "mysql", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal},

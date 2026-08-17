@@ -84,8 +84,10 @@ func (w *remoteRelationsWorker) loop() error {
 
 		case relChanges, ok := <-w.relationsWatcher.Changes():
 			if !ok {
-				// We are dying.
-				return w.catacomb.ErrDying()
+				// The underlying watcher has shut down, typically because
+				// the relation was removed on the remote side.
+				// Exit cleanly - the parent worker will perform cleanup.
+				return nil
 			}
 			if len(relChanges) == 0 {
 				w.logger.Warningf("relation status watcher event with no changes")

@@ -2361,7 +2361,8 @@ func (st *State) removeRemoteSecretConsumer(appName string) error {
 	}
 	defer closer()
 
-	match := fmt.Sprintf("(unit|application)-%s(\\/\\d)?", appName)
+	quoted := regexp.QuoteMeta(appName)
+	match := fmt.Sprintf("^(application-%s|unit-%s-[0-9]+)$", quoted, quoted)
 	q := bson.D{{"consumer-tag", bson.D{{"$regex", match}}}}
 	_, err = secretConsumersCollection.Writeable().RemoveAll(q)
 	return err

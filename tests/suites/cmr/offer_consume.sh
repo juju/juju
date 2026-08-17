@@ -73,6 +73,109 @@ run_offer_consume() {
 	destroy_model "model-consume"
 }
 
+# This test is for an edge case observed in a Sunbeam deployment (but it could
+# happen in any Juju deployment).
+# Test charms to reproduce the exact scenario don't exist in the charmstore,
+# but an equivalent scenario can be set up using  juju-qa-dummy-source and
+# juju-qa-dummy-sink. A single application in model "yang" (dummy-sink) both:
+#   - consumes an offer from yin (direction 1: yin.dummy-source is offered as
+#     src-offer, and yang.dummy-sink relates to it);
+#   - shares its name with an offer created in yang (direction 2: yang offers
+#     yang.alpha:source as "dummy-sink", consumed by yin.yin-src).
+run_offer_consume_same_app() {
+	# Echo out to ensure nice output to the test suite.
+	echo
+
+	# The following ensures that a bootstrap juju exists.
+	file="${TEST_DIR}/test-offer-consume-same-app.log"
+	ensure "yin" "${file}"
+
+	echo "Deploy applications in yin and create the offer"
+	# NB: the dummy-sink charm hard codes reading the token from dummy-source/0,
+	# so the offered token source must keep the name dummy-source.
+	juju deploy juju-qa-dummy-source dummy-source --series jammy
+	# yin-src consumes yang's colliding name offer (direction 2).
+	juju deploy juju-qa-dummy-source yin-src --series jammy
+	juju offer dummy-source:sink src-offer
+
+	wait_for "idle" '.applications["dummy-source"].units["dummy-source/0"]."juju-status".current'
+	wait_for "idle" '.applications["yin-src"].units["yin-src/0"]."juju-status".current'
+
+	echo "Deploy applications in yang"
+	juju add-model yang
+	# dummy-sink is the local consumer whose name will collide with the
+	# direction 2 offer.
+	juju deploy juju-qa-dummy-sink dummy-sink --series jammy
+	# alpha's source endpoint is offered back to yin as dummy-sink.
+	juju deploy juju-qa-dummy-sink alpha --series jammy
+	wait_for "idle" '.applications["dummy-sink"].units["dummy-sink/0"]."juju-status".current'
+	wait_for "idle" '.applications["alpha"].units["alpha/0"]."juju-status".current'
+
+	echo "direction 1: yang.dummy-sink consumes yin.src-offer"
+	juju consume -m yang yin.src-offer
+	juju relate -m yang dummy-sink src-offer
+	juju switch yang
+	wait_for "src-offer" '.applications["dummy-sink"] | .relations.source[0]'
+
+	echo "Verify direction 1: token propagates yin -> yang (phase-one)"
+	juju switch yin
+	juju config dummy-source token=phase-one
+	juju switch yang
+	wait_for "phase-one" '.applications["dummy-sink"].units["dummy-sink/0"]."workload-status".message'
+
+	echo "direction 2: yang offers alpha:source as the colliding name dummy-sink"
+	juju offer yang.alpha:source dummy-sink
+	juju consume -m yin yang.dummy-sink
+	juju relate -m yin yin-src:sink dummy-sink
+	juju switch yin
+	wait_for "dummy-sink" '.applications["yin-src"] | .relations.sink[0]'
+
+	echo "Remove direction 2 relation and offer"
+	juju remove-relation -m yin yin-src:sink dummy-sink
+	juju remove-saas -m yin dummy-sink
+	juju switch yang
+	wait_for null '.offers["dummy-sink"]."total-connected-count"'
+	juju remove-offer yang.dummy-sink -y
+	wait_for null '.offers["dummy-sink"]'
+
+	echo "Add direction 2 back"
+	juju offer yang.alpha:source dummy-sink
+	juju consume -m yin yang.dummy-sink
+	juju relate -m yin yin-src:sink dummy-sink
+	juju switch yin
+	wait_for "dummy-sink" '.applications["yin-src"] | .relations.sink[0]'
+
+	echo "Check direction 1's relation data still flows after adding back the relation"
+	juju config dummy-source token=phase-two
+	juju switch yang
+	wait_for "phase-two" '.applications["dummy-sink"].units["dummy-sink/0"]."workload-status".message'
+
+	echo "tear down direction 1 and confirm yin's offer connection drains"
+	# This is the closest reliable observation possible with the dummy charms.
+	# This check will need to be re-written if the dummy charms ever change.
+	juju remove-relation -m yang dummy-sink src-offer
+	juju remove-saas -m yang src-offer
+	juju switch yin
+	# "Short" timeout so the failure can surface asap.
+	if ! (wait_for null '.offers["src-offer"]."total-connected-count"' 180); then
+		echo "remove-offer yang.dummy-sink did not drain the connection count in 3 minutes"
+		exit 1
+	fi
+	juju remove-offer yin.src-offer -y
+	wait_for null '.offers["src-offer"]'
+
+	echo "Clean up remaining direction 2 state before destroying models"
+	juju remove-relation -m yin yin-src:sink dummy-sink
+	juju remove-saas -m yin dummy-sink
+	juju switch yang
+	wait_for null '.offers["dummy-sink"]."total-connected-count"'
+	juju remove-offer yang.dummy-sink -y
+	wait_for null '.offers["dummy-sink"]'
+
+	destroy_model "yang"
+	destroy_model "yin"
+}
+
 # Previous test's features will be run on multiple controllers
 # where each controller is in a different cloud.
 run_offer_consume_cross_controller() {
@@ -271,6 +374,7 @@ test_offer_consume() {
 		cd .. || exit
 
 		run "run_offer_consume"
+		run "run_offer_consume_same_app"
 		run "run_offer_consume_cross_controller"
 	)
 }

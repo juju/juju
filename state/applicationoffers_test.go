@@ -86,7 +86,7 @@ func (s *applicationOffersSuite) TestEndpoints(c *gc.C) {
 func (s *applicationOffersSuite) TestRemove(c *gc.C) {
 	offer := s.createDefaultOffer(c)
 	r := s.State.RemoteEntities()
-	_, err := r.ExportLocalEntity(names.NewApplicationTag(offer.OfferName))
+	_, err := r.ExportLocalEntity(names.NewApplicationOfferTag(offer.OfferUUID))
 	c.Assert(err, jc.ErrorIsNil)
 
 	sd := state.NewApplicationOffers(s.State)
@@ -95,12 +95,40 @@ func (s *applicationOffersSuite) TestRemove(c *gc.C) {
 	_, err = sd.ApplicationOffer(offer.OfferName)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	_, err = r.GetToken(names.NewApplicationTag(offer.OfferName))
+	_, err = r.GetToken(names.NewApplicationOfferTag(offer.OfferUUID))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	userPerms, err := s.State.GetOfferUsers(offer.OfferUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(userPerms, gc.HasLen, 0)
+}
+
+// TestRemoveKeepsSameNamedApplicationEntity ensures that removing an offer does
+// not delete the remote entity for an application that shares the offer's name.
+func (s *applicationOffersSuite) TestRemoveKeepsSameNamedApplicationEntity(c *gc.C) {
+	sd := state.NewApplicationOffers(s.State)
+	owner := s.Factory.MakeUser(c, nil)
+	offer, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:              "mysql",
+		ApplicationName:        "mysql",
+		ApplicationDescription: "mysql is a db server",
+		Endpoints:              map[string]string{"db": "server"},
+		Owner:                  owner.Name(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	r := s.State.RemoteEntities()
+	// Simulate the mysql application being a cross-model consumer.
+	appToken, err := r.ExportLocalEntity(names.NewApplicationTag("mysql"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = sd.Remove(offer.OfferName, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The application entity (and its token) must survive offer removal.
+	gotToken, err := r.GetToken(names.NewApplicationTag("mysql"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(gotToken, gc.Equals, appToken)
 }
 
 func (s *applicationOffersSuite) TestAddApplicationOffer(c *gc.C) {

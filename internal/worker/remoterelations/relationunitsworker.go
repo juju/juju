@@ -95,8 +95,10 @@ func (w *relationUnitsWorker) loop() error {
 			return w.catacomb.ErrDying()
 		case change, ok := <-w.rrw.Changes():
 			if !ok {
-				// We are dying.
-				return w.catacomb.ErrDying()
+				// The underlying watcher has shut down, typically because
+				// the relation was removed on the remote side.
+				// Exit cleanly - the parent worker will perform cleanup.
+				return nil
 			}
 			w.logger.Debugf("%v relation units changed for %v: %#v", w.mode, w.relationTag, &change)
 			if isEmpty(change) {

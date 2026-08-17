@@ -443,6 +443,10 @@ You can still bootstrap to an older agent version by explicitly allowing the old
 
 `juju bootstrap lxd --agent-version 3.6.14 --config juju-db-snap-channel 4.4/stable`
 
+**Note:** because the default value of the `juju-db-snap-channel` config is now `4.4.30/stable`, if
+you rely on a snap store proxy to serve snaps to Juju, you will need to seed the store with the updated
+juju-db snap version.
+
 #### Other CVEs
 * fix: [CVE-2026-32691](https://github.com/juju/juju/security/advisories/GHSA-gfgr-6hrj-85ww)
 * fix: [CVE-2026-32692](https://github.com/juju/juju/security/advisories/GHSA-89x7-5m5m-mcmm)
