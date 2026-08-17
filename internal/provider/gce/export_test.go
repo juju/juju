@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -70,4 +71,24 @@ func GetHardwareCharacteristics(env *environ, spec *instances.InstanceSpec, inst
 
 func HasAccelerator(env *environ, ctx context.Context, zone string, instanceType string) (bool, error) {
 	return env.hasAccelerator(ctx, zone, instanceType)
+}
+
+func ImageURL(env *environ, osName, imageID string) (string, error) {
+	return env.imageURL(ostype.OSTypeForName(osName), imageID)
+}
+
+func SplitProjectImagePath(imagePath string) (string, string, bool) {
+	return splitProjectImagePath(imagePath)
+}
+
+func ConvertImageArch(gceArch string) (string, error) {
+	return convertImageArch(gceArch)
+}
+
+func ResolveImageIDMetadata(env *environ, ctx context.Context, args environs.StartInstanceParams) ([]*imagemetadata.ImageMetadata, error) {
+	return env.resolveImageIDMetadata(ctx, args)
+}
+
+func ParseImageIDReference(env *environ, os, imageID string) (string, string, error) {
+	return env.parseImageIDReference(os, imageID)
 }

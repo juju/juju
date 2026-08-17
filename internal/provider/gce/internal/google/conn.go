@@ -27,6 +27,7 @@ type Connection struct {
 	zones        *compute.ZonesClient
 	instances    *compute.InstancesClient
 	machineTypes *compute.MachineTypesClient
+	images       *compute.ImagesClient
 	disks        *compute.DisksClient
 	firewalls    *compute.FirewallsClient
 	networks     *compute.NetworksClient
@@ -62,6 +63,10 @@ func Connect(ctx context.Context, connCfg ConnectionConfig, creds *Credentials) 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	images, err := newRESTClient(ctx, tokenSource, connCfg.HTTPClient, compute.NewImagesRESTClient)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	disks, err := newRESTClient(ctx, tokenSource, connCfg.HTTPClient, compute.NewDisksRESTClient)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -84,6 +89,7 @@ func Connect(ctx context.Context, connCfg ConnectionConfig, creds *Credentials) 
 		zones:        zones,
 		instances:    instances,
 		machineTypes: machineTypes,
+		images:       images,
 		disks:        disks,
 		firewalls:    firewalls,
 		networks:     networks,

@@ -128,14 +128,21 @@ func (p vaultProvider) CleanupModel(ctx context.Context, cfg *provider.ModelBack
 		return errors.Trace(err)
 	}
 	if s == nil || s.Data == nil {
-		return nil
+		logger.Warningf(ctx, "vault list response missing data for mount %q during cleanup", k.mountPath)
+		return sys.UnmountWithContext(ctx, k.mountPath)
 	}
 	keys, ok := s.Data["keys"].([]any)
 	if !ok {
-		return nil
+		logger.Warningf(ctx, "vault list response has invalid keys type %T for mount %q during cleanup", s.Data["keys"], k.mountPath)
+		return sys.UnmountWithContext(ctx, k.mountPath)
 	}
-	for _, id := range keys {
-		err = k.client.KVv1(k.mountPath).Delete(ctx, fmt.Sprintf("%s", id))
+	for i, idVal := range keys {
+		id, ok := idVal.(string)
+		if !ok {
+			logger.Warningf(ctx, "vault list response key at index %d has invalid type %T for mount %q during cleanup", i, idVal, k.mountPath)
+			continue
+		}
+		err = k.KVv1(k.mountPath).Delete(ctx, id)
 		if err != nil && !isNotFound(err) {
 			return errors.Annotatef(err, "deleting secret %q", id)
 		}
