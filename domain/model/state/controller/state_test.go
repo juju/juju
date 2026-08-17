@@ -2177,6 +2177,34 @@ func (m *stateSuite) TestCheckModelExistsNotActivated(c *tc.C) {
 	exists, err := m.modelState.CheckModelExists(c.Context(), modelUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(exists, tc.IsFalse)
+
+	// GetModelPresence is the counterpart that can see the model:
+	// the API server relies on it to tell a model that does not exist
+	// from one a migration has not finished importing.
+	presence, err := m.modelState.GetModelPresence(c.Context(), modelUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(presence.Name, tc.Equals, "my-amazing-model")
+	c.Check(presence.ModelType, tc.Equals, coremodel.IAAS)
+	c.Check(presence.Activated, tc.IsFalse)
+}
+
+// TestGetModelPresenceActivated verifies that an ordinary, fully created model
+// reports as activated.
+func (m *stateSuite) TestGetModelPresenceActivated(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
+	presence, err := m.modelState.GetModelPresence(c.Context(), m.uuid)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(presence.ModelType, tc.Equals, coremodel.IAAS)
+	c.Check(presence.Activated, tc.IsTrue)
+}
+
+// TestGetModelPresenceNotFound verifies that a model with no row at all is
+// reported as not found, so callers can tell it apart from a half built one.
+func (m *stateSuite) TestGetModelPresenceNotFound(c *tc.C) {
+	_, err := m.modelState.GetModelPresence(c.Context(), tc.Must(c, coremodel.NewUUID))
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (m *stateSuite) TestHasValidCredentialModelNotFound(c *tc.C) {

@@ -202,3 +202,21 @@ type RedirectUser struct {
 	UserName string
 	Access   string
 }
+
+// ModelPresence describes a model's existence on this controller independently
+// of whether its creation has been completed. It is the answer to "is there a
+// model row for this UUID, and is it ready for general use", which the API
+// server needs in order to admit agent connections to a model that is still
+// being imported by a migration.
+type ModelPresence struct {
+	// Name is the human friendly name of the model.
+	Name string
+
+	// ModelType is the type of the model.
+	ModelType coremodel.ModelType
+
+	// Activated reports whether the model's creation has been completed. A
+	// model that is not activated is half built: either its creation never
+	// finished, or a migration is still importing it.
+	Activated bool
+}

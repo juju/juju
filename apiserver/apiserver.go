@@ -61,6 +61,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/modelmigration"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/resource"
@@ -1218,7 +1219,9 @@ func (srv *Server) serveConn(
 		return nil, errors.Annotatef(err, "getting domain services for model %q", modelUUID)
 	}
 
-	if err := srv.isModelAvailable(ctx, domainServices.Model(), modelUUID); err != nil {
+	if err := srv.isModelAvailable(
+		ctx, domainServices.Model(), domainServices.ModelMigration(), modelUUID,
+	); err != nil {
 		return nil, errors.Annotatef(err, "checking model %q availability", modelUUID)
 	}
 
@@ -1283,25 +1286,36 @@ func (srv *Server) serveConn(
 // ModelService defines the subset of model.Service used to check
 // model existence and redirection.
 type ModelService interface {
-	// CheckModelExists returns whether the model with the given
-	// UUID exists on this controller.
-	CheckModelExists(ctx context.Context, modelUUID coremodel.UUID) (bool, error)
+	// GetModelPresence returns the model's type and activation state,
+	// regardless of whether the model has been activated.
+	GetModelPresence(ctx context.Context, modelUUID coremodel.UUID) (model.ModelPresence, error)
 	// ModelRedirection returns the model redirection information
 	// for the given model UUID.
 	ModelRedirection(ctx context.Context, modelUUID coremodel.UUID) (model.ModelRedirection, error)
 }
 
+// ModelMigrationService describes the migration state of the model a connection
+// is being served for.
+type ModelMigrationService interface {
+	// ModelMigrationMode returns the current migration mode for the model.
+	ModelMigrationMode(ctx context.Context) (modelmigration.MigrationMode, error)
+}
+
 func (srv *Server) isModelAvailable(
 	ctx context.Context,
 	modelService ModelService,
+	migrationService ModelMigrationService,
 	modelUUID coremodel.UUID,
 ) error {
-	// Check that model exists before proceeding any further. There is no need
-	// in setting up any additional operations if the model is not present.
-	exists, err := modelService.CheckModelExists(ctx, modelUUID)
+	// Check that the model can be served before proceeding any further. There
+	// is no need in setting up any additional operations if the model is not
+	// present. A model that is still being imported by a migration is served
+	// so its agents can validate against this controller; see
+	// modelConnectionFor.
+	conn, err := modelConnectionFor(ctx, modelService, migrationService, modelUUID)
 	if err != nil {
 		return errors.Trace(err)
-	} else if exists {
+	} else if conn.connectable {
 		return nil
 	}
 

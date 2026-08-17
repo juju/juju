@@ -31,7 +31,6 @@ import (
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
@@ -96,12 +95,12 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 		return fail, errAlreadyLoggedIn
 	}
 
-	migrationMode, modelExists, err := a.getModelMigrationDetails(ctx, req)
+	modelConn, err := a.getModelConnection(ctx, req)
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
 
-	authResult, err := a.authenticate(ctx, modelExists, req)
+	authResult, err := a.authenticate(ctx, modelConn.connectable, req)
 	if err, ok := errors.Cause(err).(*apiservererrors.DischargeRequiredError); ok {
 		loginResult := params.LoginResult{
 			DischargeRequired:       err.LegacyMacaroon,
@@ -145,19 +144,11 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 		return fail, errors.Trace(err)
 	}
 
-	modelInfo, err := a.root.domainServices.Model().Model(ctx, a.root.modelUUID)
-	if errors.Is(err, modelerrors.NotFound) {
-		return fail, errors.NotFoundf("model %q", a.root.modelUUID)
-	}
-	if err != nil {
-		return fail, errors.Trace(err)
-	}
-
 	apiRoot, err = restrictAPIRoot(
 		a.srv,
 		apiRoot,
-		migrationMode,
-		modelInfo.ModelType,
+		modelConn.migrationMode,
+		modelConn.modelType,
 		*authResult,
 	)
 	if err != nil {
@@ -177,7 +168,7 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 	}
 
 	auditConfig := a.srv.GetAuditConfig()
-	auditRecorder, err := a.getAuditRecorder(ctx, req, modelInfo.Name, authResult, auditConfig)
+	auditRecorder, err := a.getAuditRecorder(ctx, req, modelConn.modelName, authResult, auditConfig)
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
@@ -239,7 +230,7 @@ type authResult struct {
 	userInfo               *params.AuthUserInfo
 }
 
-func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.LoginRequest) (*authResult, error) {
+func (a *admin) authenticate(ctx context.Context, modelConnectable bool, req params.LoginRequest) (*authResult, error) {
 	result := &authResult{
 		controllerOnlyLogin: a.root.controllerOnlyLogin,
 		userLogin:           true,
@@ -320,10 +311,10 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 			return nil, fmt.Errorf("failed to authenticate request: %w", errors.Unauthorized)
 		}
 
-		// Only consult the model-scoped services when the model exists:
-		// a login to a migrated (removed) model must not leak "model not
-		// found" — it is masked as unauthorized below.
-		if modelExists {
+		// Only consult the model-scoped services when the model can be
+		// served: a login to a migrated (removed) model must not leak "model
+		// not found" — it is masked as unauthorized below.
+		if modelConnectable {
 			isController, err := a.root.domainServices.ModelInfo().IsControllerModel(ctx)
 			if errors.Is(err, modelerrors.NotFound) {
 				return nil, errors.NotFoundf("model")
@@ -340,10 +331,10 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 			}
 		}
 	}
-	if !modelExists {
-		// Login to an unknown or migrated model.
+	if !modelConnectable {
+		// Login to an unknown, migrated or half built model.
 		// See maybeEmitRedirectError for user logins who are redirected.
-		// Hide the fact that the model does not exist.
+		// Hide the fact that the model cannot be served.
 		return nil, errors.Unauthorizedf("invalid entity name or password")
 	}
 	if result.userLogin {
@@ -392,30 +383,30 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 	return result, nil
 }
 
-func (a *admin) getModelMigrationDetails(ctx context.Context, req params.LoginRequest) (modelmigration.MigrationMode, bool, error) {
-	// If the login attempt is by a user for a migrated model,
-	// return a redirect error.
-	// TODO - we'd want to use the model service here but migration
-	//  artefacts still live in mongo.
-	//  Ultimately we'd want a domain service API returning just:
-	//    - model type
-	//    - model name
-	//    - migration mode
-
-	exists, err := a.root.domainServices.Model().CheckModelExists(ctx, a.root.modelUUID)
+// getModelConnection resolves what this login needs to know about the model it
+// is for: whether connections may be served for it at all, and the name, type
+// and migration mode to build the API root from. A model that a migration is
+// still importing is connectable so its agents can validate against this
+// controller; see modelConnectionFor.
+//
+// When the model cannot be served and the login is by a user for a model that
+// migrated away, this emits the redirect error.
+func (a *admin) getModelConnection(ctx context.Context, req params.LoginRequest) (modelConnection, error) {
+	conn, err := modelConnectionFor(
+		ctx,
+		a.root.domainServices.Model(),
+		a.root.domainServices.ModelMigration(),
+		a.root.modelUUID,
+	)
 	if err != nil {
-		return "", false, errors.Trace(err)
-	} else if !exists {
-		err := a.maybeEmitRedirectError(ctx, req)
-		return "", false, errors.Trace(err)
+		return modelConnection{}, errors.Trace(err)
 	}
-
-	migrationMode, err := a.root.domainServices.ModelMigration().ModelMigrationMode(ctx)
-	if err != nil {
-		return "", false, errors.Trace(err)
+	if !conn.connectable {
+		// If the login attempt is by a user for a migrated model,
+		// return a redirect error.
+		return modelConnection{}, errors.Trace(a.maybeEmitRedirectError(ctx, req))
 	}
-
-	return migrationMode, true, nil
+	return conn, nil
 }
 
 func (a *admin) maybeEmitRedirectError(ctx context.Context, req params.LoginRequest) error {

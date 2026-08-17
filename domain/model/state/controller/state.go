@@ -66,6 +66,53 @@ func (s *State) CheckModelExists(
 	})
 }
 
+// GetModelPresence returns the model's type and activation state, regardless of
+// whether the model has been activated. It is the counterpart to
+// [State.CheckModelExists] for callers that must distinguish a model which does
+// not exist at all from one whose creation has not been completed - notably the
+// API server, which admits agent connections to a model that a migration is
+// still importing.
+//
+// The following error types can be expected:
+// - [modelerrors.NotFound]: When no model exists for the given uuid, regardless
+// of the activated status.
+func (s *State) GetModelPresence(
+	ctx context.Context,
+	modelUUID coremodel.UUID,
+) (model.ModelPresence, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return model.ModelPresence{}, errors.Capture(err)
+	}
+
+	uuidArg := dbModelUUID{UUID: modelUUID.String()}
+	stmt, err := s.Prepare(`
+SELECT &dbModelPresence.* FROM v_model_all WHERE uuid = $dbModelUUID.uuid
+`, dbModelPresence{}, uuidArg)
+	if err != nil {
+		return model.ModelPresence{}, errors.Capture(err)
+	}
+
+	var presence dbModelPresence
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, uuidArg).Get(&presence)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("model %q %w", modelUUID, modelerrors.NotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return model.ModelPresence{}, errors.Errorf(
+			"getting presence of model %q: %w", modelUUID, err)
+	}
+
+	return model.ModelPresence{
+		Name:      presence.Name,
+		ModelType: coremodel.ModelType(presence.ModelType),
+		Activated: presence.Activated,
+	}, nil
+}
+
 // checkModelExists is a check that allows the caller to find out if a model
 // exists in the controller. True is returned when the model has been found.
 // This func does not work with models that have not been activated.

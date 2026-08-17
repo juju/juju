@@ -253,6 +253,14 @@ type dbModelActivated struct {
 	Activated bool `db:"activated"`
 }
 
+// dbModelPresence is read from v_model_all, so it sees models whose creation
+// has not been completed as well as activated ones.
+type dbModelPresence struct {
+	Name      string `db:"name"`
+	ModelType string `db:"model_type"`
+	Activated bool   `db:"activated"`
+}
+
 type dbModelNamespace struct {
 	UUID      string         `db:"model_uuid"`
 	Namespace sql.NullString `db:"namespace"`

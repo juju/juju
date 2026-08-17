@@ -246,8 +246,12 @@ func releaseModel(
 	}
 
 	// model.activated is the generic "model creation is complete" flag every
-	// model carries, distinct from the migration claim. The import sets it so
-	// agents can reach the model during validation, so this is usually a no-op.
+	// model carries, distinct from the migration claim. A v8 import leaves it
+	// false until here, so this is where the model becomes generally usable;
+	// agents reach the model during validation without it, because the API
+	// server serves connections for a model an import claim still covers (see
+	// apiserver.modelConnectionFor). A legacy import activates the model as its
+	// final import step, so for those this is a no-op.
 	if err := domainServices.Model().ActivateModel(ctx, modelUUID); err != nil &&
 		!errors.Is(err, modelerrors.AlreadyActivated) {
 		return errors.Errorf("activating model %q: %w", modelUUID, err)

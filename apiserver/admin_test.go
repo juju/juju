@@ -5,6 +5,8 @@ package apiserver_test
 
 import (
 	"bytes"
+	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
@@ -33,6 +35,7 @@ import (
 	"github.com/juju/juju/domain/access"
 	accessservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/controllernode"
+	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/internal/auth"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -480,6 +483,108 @@ func (s *loginSuite) TestNonExistentModel(c *tc.C) {
 		Message: fmt.Sprintf("unknown model: %q", uuid),
 		Code:    "model not found",
 	})
+}
+
+// createUnactivatedModel creates a model row in the controller database
+// without running its activator, leaving it in the half built state a model
+// has while it is being created or imported.
+func (s *loginSuite) createUnactivatedModel(c *tc.C, name string) coremodel.UUID {
+	modelUUID, _, err := s.ControllerDomainServices(c).Model().CreateModel(
+		c.Context(),
+		domainmodel.GlobalModelCreationArgs{
+			Cloud:      s.CloudName,
+			Credential: s.CredentialKey,
+			Name:       name,
+			Qualifier:  "prod",
+			AdminUsers: []user.UUID{s.AdminUserUUID},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	return modelUUID
+}
+
+// seedModelDB writes the model's read-only row into its own database, which a
+// v8 import does when it bootstraps the model, before validation runs.
+func (s *loginSuite) seedModelDB(c *tc.C, modelUUID coremodel.UUID, name string) {
+	err := s.ModelTxnRunner(c, modelUUID.String()).StdTxn(
+		c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+VALUES (?, ?, ?, 'prod', 'iaas', ?, 'dummy')`,
+				modelUUID.String(), s.ControllerUUID, name, s.CloudName)
+			return err
+		})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// beginImport records a migration import claim against the model, which is
+// what a v8 migration's first target-side write does.
+func (s *loginSuite) beginImport(c *tc.C, modelUUID coremodel.UUID) {
+	err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
+VALUES (?, ?, ?)`,
+			uuid.MustNewUUID().String(), modelUUID.String(), uuid.MustNewUUID().String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestLoginToModelBeingImported verifies that the API server serves
+// connections for a model a migration is still importing, even though it has
+// not been activated yet. A migration's VALIDATION phase asks every agent in
+// the model to log in to this controller and confirm it can be served here,
+// and that runs before the import is committed and the model activated.
+//
+// The login below still fails - the credentials are junk and there is no such
+// entity - but it fails on the credentials rather than on the model, which is
+// what shows the connection got past the model gate.
+func (s *loginSuite) TestLoginToModelBeingImported(c *tc.C) {
+	modelUUID := s.createUnactivatedModel(c, "being-imported")
+	s.beginImport(c, modelUUID)
+
+	st := s.openModelAPIWithoutLogin(c, modelUUID.String())
+
+	err := st.Login(c.Context(), names.NewMachineTag("0"), "some-password", "nonce", nil)
+	assertInvalidEntityPassword(c, err)
+}
+
+// TestLoginToUnactivatedModelWithoutImport pins the other side of that window:
+// a model left half built with no migration importing it - an add-model that
+// never completed, say - stays invisible, exactly as it was before importing
+// models were let through.
+func (s *loginSuite) TestLoginToUnactivatedModelWithoutImport(c *tc.C) {
+	modelUUID := s.createUnactivatedModel(c, "half-built")
+
+	st := s.openModelAPIWithoutLogin(c, modelUUID.String())
+
+	err := st.Login(c.Context(), names.NewMachineTag("0"), "some-password", "nonce", nil)
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(rErr, tc.DeepEquals, &rpc.RequestError{
+		Message: fmt.Sprintf("unknown model: %q", modelUUID),
+		Code:    "model not found",
+	})
+}
+
+// TestUserLoginToModelBeingImported verifies that opening the window for
+// agents does not open it for users. The user's login itself succeeds - the
+// importing restriction is applied to the API root rather than to the login -
+// but every call made on that root is refused, which is the treatment an
+// importing model has always had.
+func (s *loginSuite) TestUserLoginToModelBeingImported(c *tc.C) {
+	modelUUID := s.createUnactivatedModel(c, "being-imported")
+	s.seedModelDB(c, modelUUID, "being-imported")
+	s.beginImport(c, modelUUID)
+
+	st := s.openModelAPIWithoutLogin(c, modelUUID.String())
+
+	err := st.Login(c.Context(), jujutesting.AdminUser, jujutesting.AdminSecret, "", nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var result params.FullStatus
+	err = st.APICall(c.Context(), "Client", clientFacadeVersion, "", "FullStatus", nil, &result)
+	c.Assert(err, tc.ErrorMatches, ".*migration in progress, model is importing.*")
 }
 
 func (s *loginSuite) TestInvalidModel(c *tc.C) {
