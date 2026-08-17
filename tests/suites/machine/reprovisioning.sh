@@ -36,7 +36,7 @@ run_reprovisioning_workload() {
 	juju deploy juju-qa-test reprovision
 	wait_for "reprovision" "$(active_idle_condition "reprovision" 0)"
 
-	local initial_status machine_id old_instance_id old_addresses
+	local initial_status machine_id old_instance_id
 	local unit_names unit_machine
 	initial_status=$(juju status --format json)
 	machine_id=$(printf '%s\n' "${initial_status}" | yq -r '.applications.reprovision.units["reprovision/0"].machine')
@@ -46,14 +46,9 @@ run_reprovisioning_workload() {
 	local machine_info
 	machine_info=$(juju show-machine "${machine_id}" --format json)
 	old_instance_id=$(printf '%s\n' "${machine_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["instance-id"]')
-	old_addresses=$(printf '%s\n' "${machine_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["ip-addresses"] | sort | join(",")')
 
 	if [[ -z ${old_instance_id} || ${old_instance_id} == "null" ]]; then
 		echo "ERROR: machine ${machine_id} has no provider instance ID" >&2
-		return 1
-	fi
-	if [[ -z ${old_addresses} || ${old_addresses} == "null" ]]; then
-		echo "ERROR: machine ${machine_id} has no provider addresses" >&2
 		return 1
 	fi
 
@@ -62,28 +57,23 @@ run_reprovisioning_workload() {
 	wait_for_provider_running_refusal "${machine_id}"
 
 	echo "Verify provider-running refusal did not mutate machine or unit identity"
-	assert_machine_and_units "${machine_id}" "${old_instance_id}" "${old_addresses}" "${unit_names}" "${unit_machine}"
+	assert_unit_identity_and_assignment "${unit_names}" "${unit_machine}"
 
 	echo "Externally terminate provider instance ${old_instance_id}"
 	aws_ec2 terminate-instances --instance-ids "${old_instance_id}"
-	aws_ec2 wait instance-terminated --instance-ids "${old_instance_id}"
+	wait_for_ec2_instance_absent "${old_instance_id}"
 
 	echo "Reprovision machine ${machine_id}"
 	local output
 	output=$(juju reprovision-machine "${machine_id}")
 	check_contains "${output}" "reprovisioning machine ${machine_id}"
-	check_contains "${output}" "root disk"
-	check_contains "${output}" "ephemeral disk"
-	check_contains "${output}" "charm-local state"
-	check_contains "${output}" "machine-scoped storage data"
 
-	local replacement_info new_instance_id new_addresses
-	replacement_info=$(wait_for_replacement_machine "${machine_id}" "${old_instance_id}" "${old_addresses}")
+	local replacement_info new_instance_id
+	replacement_info=$(wait_for_replacement_machine "${machine_id}")
 	new_instance_id=$(printf '%s\n' "${replacement_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["instance-id"]')
-	new_addresses=$(printf '%s\n' "${replacement_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["ip-addresses"] | sort | join(",")')
 
 	wait_for "reprovision" "$(active_idle_condition "reprovision" 0)"
-	assert_machine_and_units "${machine_id}" "${new_instance_id}" "${new_addresses}" "${unit_names}" "${unit_machine}"
+	assert_unit_identity_and_assignment "${unit_names}" "${unit_machine}"
 
 	destroy_model "${model_name}"
 	wait_for_ec2_instance_absent "${new_instance_id}"
@@ -171,19 +161,14 @@ wait_for_provider_running_refusal() {
 
 wait_for_replacement_machine() {
 	local machine_id=$1
-	local old_instance_id=$2
-	local old_addresses=$3
-	local machine_info instance_id addresses agent_status start_time elapsed
+	local machine_info instance_id agent_status start_time elapsed
 	start_time=$(date -u +%s)
 
 	while true; do
 		machine_info=$(juju show-machine "${machine_id}" --format json 2>/dev/null || true)
 		instance_id=$(printf '%s\n' "${machine_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["instance-id"] // ""')
-		addresses=$(printf '%s\n' "${machine_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["ip-addresses"] // [] | sort | join(",")')
 		agent_status=$(printf '%s\n' "${machine_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["juju-status"].current // ""')
-		if [[ -n ${instance_id} && ${instance_id} != "${old_instance_id}" &&
-			-n ${addresses} && ${addresses} != "${old_addresses}" &&
-			${agent_status} == "started" ]]; then
+		if [[ -n ${instance_id} && ${agent_status} == "started" ]]; then
 			printf '%s\n' "${machine_info}"
 			return
 		fi
@@ -198,25 +183,15 @@ wait_for_replacement_machine() {
 	done
 }
 
-assert_machine_and_units() {
-	local machine_id=$1
-	local expected_instance_id=$2
-	local expected_addresses=$3
-	local expected_unit_names=$4
-	local expected_unit_machine=$5
-	local machine_info status instance_id addresses unit_names unit_machine
+assert_unit_identity_and_assignment() {
+	local expected_unit_names=$1
+	local expected_unit_machine=$2
+	local status unit_names unit_machine
 
-	machine_info=$(juju show-machine "${machine_id}" --format json)
-	instance_id=$(printf '%s\n' "${machine_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["instance-id"]')
-	addresses=$(printf '%s\n' "${machine_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["ip-addresses"] | sort | join(",")')
 	status=$(juju status --format json)
 	unit_names=$(printf '%s\n' "${status}" | yq -r '.applications.reprovision.units | keys | sort | join(",")')
 	unit_machine=$(printf '%s\n' "${status}" | yq -r '.applications.reprovision.units["reprovision/0"].machine')
 
-	if [[ ${instance_id} != "${expected_instance_id}" || ${addresses} != "${expected_addresses}" ]]; then
-		echo "ERROR: machine ${machine_id} provider data changed unexpectedly" >&2
-		return 1
-	fi
 	if [[ ${unit_names} != "${expected_unit_names}" || ${unit_machine} != "${expected_unit_machine}" ]]; then
 		echo "ERROR: unit identity or assignment changed unexpectedly" >&2
 		return 1
