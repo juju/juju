@@ -59,6 +59,13 @@ func (s *snapBuildSuite) TestBuildControllerSnapSnapcraftNotFound(c *tc.C) {
 		return "", exec.ErrNotFound
 	}
 
+	origFindSourceRoot := tools.FindJujuSourceRoot
+	restoreFindSourceRoot := func() { tools.FindJujuSourceRoot = origFindSourceRoot }
+	defer restoreFindSourceRoot()
+	tools.FindJujuSourceRoot = func() (string, error) {
+		return c.MkDir(), nil
+	}
+
 	_, err := bootstrap.BuildControllerSnap(context.Background())
 	c.Assert(err, tc.ErrorMatches, "snapcraft is required to build the controller snap.*")
 }
@@ -77,6 +84,13 @@ func (s *snapBuildSuite) TestBuildControllerSnapMakeFails(c *tc.C) {
 	defer restoreLookPath()
 	*bootstrap.LookPathFunc = func(file string) (string, error) {
 		return "/usr/bin/snapcraft", nil
+	}
+
+	origFindSourceRoot := tools.FindJujuSourceRoot
+	restoreFindSourceRoot := func() { tools.FindJujuSourceRoot = origFindSourceRoot }
+	defer restoreFindSourceRoot()
+	tools.FindJujuSourceRoot = func() (string, error) {
+		return c.MkDir(), nil
 	}
 
 	_, err := bootstrap.BuildControllerSnap(context.Background())
