@@ -56,7 +56,7 @@ run_build_snap_explicit() {
 	fi
 	local snap_list
 	snap_list=$(lxc exec "${new_container}" -- snap list 2>/dev/null)
-	check_contains "${snap_list}" "juju-controller"
+	check_contains "${snap_list}" "jujud"
 
 	echo "==> Cleaning up controller ${name}..."
 	juju destroy-controller -y "${name}" --destroy-all-models --force --no-prompt 2>&1 || true
@@ -114,18 +114,19 @@ run_build_snap_implicit() {
 	check_contains "${snap_list}" "jujud"
 
 	echo "==> Cleaning up controller ${name}..."
-	juju unregister --no-prompt "${name}" 2>&1 || true
+	juju destroy-controller -y "${name}" --destroy-all-models --force --no-prompt 2>&1 || true
 	lxc delete --force "${new_container}" 2>&1 || true
 }
 
 # check_snapcraft verifies that snapcraft is available on $PATH.
-# If not, the test exits 0 from the subshell so that the suite skips
-# gracefully rather than failing.
+# It returns a non-zero status when snapcraft is missing so that the caller
+# can skip only the build-snap test rather than exiting the whole runner.
 check_snapcraft() {
 	if ! command -v snapcraft &>/dev/null; then
 		echo "SKIP: snapcraft not installed (required for build-snap)"
-		exit 0
+		return 1
 	fi
+	return 0
 }
 
 # test_bootstrap_build_snap is the top-level test entry point for the
@@ -147,7 +148,9 @@ test_bootstrap_build_snap() {
 		return
 	fi
 
-	check_snapcraft
+	if ! check_snapcraft; then
+		return
+	fi
 
 	(
 		set_verbosity
