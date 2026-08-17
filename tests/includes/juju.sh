@@ -578,31 +578,32 @@ destroy_controller() {
 	echo "====> Destroying juju ($(green "${name}"))"
 	if [[ ${KILL_CONTROLLER:-} != "true" ]]; then
 		if [[ ${CLEANUP:-} == "true" ]]; then
-			# Run `juju resolve --no-retry --all` in the background for every
-			# model on this controller, retrying continuously to unblock any
-			# hook errors that may prevent teardown. This must be done as the
-			# tests have already finished, if teardown of the charms was a part
-			# of the test, then destroy_controller should have been called
-			# earlier.
-			# A sentinel file is used to signal the background loops to stop
-			# when this function returns.
-			local resolve_sentinel
-			resolve_sentinel=$(mktemp -p ${TEST_DIR})
-			while IFS= read -r model_uuid; do
-				(
-					while [[ -f ${resolve_sentinel} ]]; do
-						timeout 30s juju resolve --no-retry --all -m "${model_uuid}" >/dev/null 2>&1 || true
-						sleep 5
-					done
-				) &
-			done < <(juju models -c "${name}" --format=json 2>/dev/null | yq -r '.models // [] | .[] | select(.["is-controller"] != "true") | .["model-uuid"]' || true)
-			# Ensure the sentinel file is removed (stopping background loops)
-			# whenever this function exits, whether normally or via error.
-			# shellcheck disable=SC2064
-			trap "rm -f ${resolve_sentinel}" RETURN
-		fi
+			(
+				# Run `juju resolve --no-retry --all` in the background for every
+				# model on this controller, retrying continuously to unblock any
+				# hook errors that may prevent teardown. This must be done as the
+				# tests have already finished, if teardown of the charms was a part
+				# of the test, then destroy_controller should have been called
+				# earlier.
+				# A sentinel file is used to signal the background loops to stop
+				# when this subshell exits.
+				local resolve_sentinel
+				resolve_sentinel=$(mktemp -p "${TEST_DIR}")
+				trap 'rm -f "${resolve_sentinel}"' EXIT
+				while IFS= read -r model_uuid; do
+					(
+						while [[ -f ${resolve_sentinel} ]]; do
+							timeout 30s juju resolve --no-retry --all -m "${model_uuid}" >/dev/null 2>&1 || true
+							sleep 5
+						done
+					) &
+				done < <(juju models -c "${name}" --format=json 2>/dev/null | yq -r '.models // [] | .[] | select(.["is-controller"] != "true") | .["model-uuid"]' || true)
 
-		echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models --destroy-storage --no-prompt % 2>&1 | OUTPUT "${output}"
+				echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models --destroy-storage --no-prompt % 2>&1 | OUTPUT "${output}"
+			)
+		else
+			echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models --destroy-storage --no-prompt % 2>&1 | OUTPUT "${output}"
+		fi
 	else
 		echo "${name}" | xargs -I % timeout "${DESTROY_TIMEOUT}" juju kill-controller -t 0 --no-prompt % 2>&1 | OUTPUT "${output}" || true
 	fi
