@@ -659,6 +659,11 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
+	isCAASController = jujucloud.CloudIsCAAS(cloud)
+	if isCAASController && c.BuildSnap {
+		return errors.NotSupportedf("--build-snap when bootstrapping a k8s controller")
+	}
+
 	// If region is specified by the user, validate it here.
 	// lp#1632735
 	if c.Region != "" {
@@ -719,11 +724,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	bootstrapCfg, err := c.bootstrapConfigs(ctx, cloud, provider)
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	isCAASController = jujucloud.CloudIsCAAS(cloud)
-	if isCAASController && c.BuildSnap {
-		return errors.NotSupportedf("--build-snap when bootstrapping a k8s controller")
 	}
 
 	if !isCAASController {
