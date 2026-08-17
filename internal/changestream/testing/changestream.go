@@ -68,10 +68,11 @@ func NewTestWatchableDB(c *tc.C, id string, db database.TxnRunner) *TestWatchabl
 	}
 
 	logger := loggertesting.WrapCheckLog(c)
+	fileWatcher := newNoopFileWatcher()
 	// NewInternalStates handles a zero termDeadline itself (it falls back to
 	// defaultWaitTermTimeout via termDeadline.IsZero()), so passing the zero
 	// time here is safe.
-	stream := stream.NewInternalStates(id, db, newNoopFileWatcher(), clock.WallClock, noopMetrics{}, logger, termDeadline, states)
+	stream := stream.NewInternalStates(id, db, fileWatcher, clock.WallClock, noopMetrics{}, logger, termDeadline, states)
 	mux, err := eventmultiplexer.New(stream, clock.WallClock, noopMetrics{}, logger, signalTimeout)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -87,6 +88,7 @@ func NewTestWatchableDB(c *tc.C, id string, db database.TxnRunner) *TestWatchabl
 		Site: &h.catacomb,
 		Work: h.loop,
 		Init: []worker.Worker{
+			fileWatcher,
 			h.stream,
 			h.mux,
 		},
