@@ -62,11 +62,13 @@ func (s *payloadSuite) TestDecodePayloadRoundTripV410(c *tc.C) {
 }
 
 // TestDecodePayloadUnknownVersion verifies that an unknown payload version
-// yields a clean NotSupported error.
+// yields a NotSupported error naming the controller to upgrade, rather than
+// only the version that was rejected.
 func (s *payloadSuite) TestDecodePayloadUnknownVersion(c *tc.C) {
 	_, err := DecodePayload(semversion.MustParse("4.0.5"), []byte("{}"))
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
-	c.Check(err, tc.ErrorMatches, `model export payload version "4.0.5": not supported`)
+	c.Check(err, tc.ErrorMatches,
+		`source payload version "4.0.5" predates the 4.0 export format this controller imports \("4.0.12"\); upgrade the source controller in place to the latest 4.0 release, then retry the migration.*`)
 }
 
 // TestDecodePayloadMalformedYAML verifies that undecodable bytes yield a
