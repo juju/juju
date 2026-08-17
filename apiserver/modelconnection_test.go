@@ -79,8 +79,8 @@ func (s *modelConnectionSuite) TestImportingModelIsConnectable(c *tc.C) {
 		Name:      "incoming",
 		ModelType: coremodel.IAAS,
 		Activated: false,
+		Importing: true,
 	})
-	s.expectMode(modelmigration.MigrationModeImporting)
 
 	conn, err := s.connection(c)
 	c.Assert(err, tc.ErrorIsNil)
@@ -89,6 +89,24 @@ func (s *modelConnectionSuite) TestImportingModelIsConnectable(c *tc.C) {
 	c.Check(conn.modelType, tc.Equals, coremodel.IAAS)
 	// The importing mode is what restrictAPIRootDuringMaintenance uses to keep
 	// user logins out while agents are let through.
+	c.Check(conn.migrationMode, tc.Equals, modelmigration.MigrationModeImporting)
+}
+
+// TestActivatedImportingModelUsesTheImportRestriction verifies that a live
+// import claim wins over any separate migration-mode observation. This is
+// fail-closed while the activation handoff is in progress.
+func (s *modelConnectionSuite) TestActivatedImportingModelUsesTheImportRestriction(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectPresence(model.ModelPresence{
+		ModelType: coremodel.IAAS,
+		Activated: true,
+		Importing: true,
+	})
+
+	conn, err := s.connection(c)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(conn.connectable, tc.IsTrue)
 	c.Check(conn.migrationMode, tc.Equals, modelmigration.MigrationModeImporting)
 }
 
@@ -103,21 +121,19 @@ func (s *modelConnectionSuite) TestUnactivatedModelWithoutImportIsNotConnectable
 		ModelType: coremodel.IAAS,
 		Activated: false,
 	})
-	s.expectMode(modelmigration.MigrationModeNone)
 
 	conn, err := s.connection(c)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(conn.connectable, tc.IsFalse)
 }
 
-// TestUnactivatedExportingModelIsNotConnectable verifies that only an import
-// opens the window. Exporting is a source-side mode and never applies to a
-// model that has not been activated here.
-func (s *modelConnectionSuite) TestUnactivatedExportingModelIsNotConnectable(c *tc.C) {
+// TestUnactivatedModelDoesNotReadMigrationMode verifies that the atomic import
+// flag alone decides whether an unactivated model can be served. A separate
+// migration-mode read cannot reopen the activation handoff race.
+func (s *modelConnectionSuite) TestUnactivatedModelDoesNotReadMigrationMode(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectPresence(model.ModelPresence{ModelType: coremodel.IAAS, Activated: false})
-	s.expectMode(modelmigration.MigrationModeExporting)
 
 	conn, err := s.connection(c)
 	c.Assert(err, tc.ErrorIsNil)
@@ -181,8 +197,11 @@ func (s *modelConnectionSuite) available(c *tc.C) error {
 func (s *modelConnectionSuite) TestAvailableWhileImporting(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectPresence(model.ModelPresence{ModelType: coremodel.IAAS, Activated: false})
-	s.expectMode(modelmigration.MigrationModeImporting)
+	s.expectPresence(model.ModelPresence{
+		ModelType: coremodel.IAAS,
+		Activated: false,
+		Importing: true,
+	})
 
 	c.Assert(s.available(c), tc.ErrorIsNil)
 }
@@ -217,7 +236,6 @@ func (s *modelConnectionSuite) TestNotAvailableWhenHalfBuilt(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectPresence(model.ModelPresence{ModelType: coremodel.IAAS, Activated: false})
-	s.expectMode(modelmigration.MigrationModeNone)
 	s.modelService.EXPECT().ModelRedirection(gomock.Any(), s.modelUUID).
 		Return(model.ModelRedirection{}, modelerrors.ModelNotRedirected)
 

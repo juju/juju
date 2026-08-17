@@ -49,11 +49,12 @@ func (d *dummyState) CheckModelExists(ctx context.Context, uuid coremodel.UUID) 
 	return exists, nil
 }
 
-func (d *dummyState) GetModelPresence(ctx context.Context, uuid coremodel.UUID) (model.ModelPresence, error) {
-	if m, exists := d.models[uuid]; exists {
+func (d *dummyState) GetModelPresence(ctx context.Context, uuid string) (model.ModelPresence, error) {
+	modelUUID := coremodel.UUID(uuid)
+	if m, exists := d.models[modelUUID]; exists {
 		return model.ModelPresence{ModelType: m.ModelType, Activated: true}, nil
 	}
-	if m, exists := d.nonActivatedModels[uuid]; exists {
+	if m, exists := d.nonActivatedModels[modelUUID]; exists {
 		return model.ModelPresence{ModelType: m.ModelType, Activated: false}, nil
 	}
 	return model.ModelPresence{}, modelerrors.NotFound

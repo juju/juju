@@ -303,6 +303,10 @@ func (a *admin) authenticate(ctx context.Context, modelConnectable bool, req par
 
 			authenticated = true
 			a.root.authInfo = authInfo
+			// Token and macaroon logins do not necessarily carry an AuthTag in the
+			// request. Use the authenticated identity for maintenance restrictions
+			// so externally authenticated users cannot bypass import/export guards.
+			result.tag = authInfo.Tag
 			result.controllerMachineLogin = authInfo.Controller
 			break
 		}

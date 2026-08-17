@@ -116,9 +116,9 @@ type State interface {
 	// indicating if the model exists.
 	CheckModelExists(context.Context, coremodel.UUID) (bool, error)
 
-	// GetModelPresence returns the model's type and activation state,
-	// regardless of whether the model has been activated.
-	GetModelPresence(context.Context, coremodel.UUID) (model.ModelPresence, error)
+	// GetModelPresence returns the model's type, activation state and target-side
+	// import-claim presence, regardless of whether the model has been activated.
+	GetModelPresence(context.Context, string) (model.ModelPresence, error)
 
 	// GetModel returns the model associated with the provided uuid.
 	GetModel(context.Context, coremodel.UUID) (coremodel.Model, error)
@@ -272,10 +272,11 @@ func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID
 	return s.st.CheckModelExists(ctx, modelUUID)
 }
 
-// GetModelPresence returns the model's type and activation state, regardless of
-// whether the model has been activated. Unlike [Service.CheckModelExists] it
-// can see a model whose creation has not been completed, which lets callers
-// tell a model that does not exist from one a migration is still importing.
+// GetModelPresence returns the model's type, activation state and target-side
+// import-claim presence, regardless of whether the model has been activated.
+// Unlike [Service.CheckModelExists] it can see a model whose creation has not
+// been completed, which lets callers tell a model that does not exist from one
+// a migration is still importing.
 //
 // The following error types can be expected:
 // - [modelerrors.NotFound]: When no model exists for the given uuid, regardless
@@ -287,7 +288,7 @@ func (s *Service) GetModelPresence(ctx context.Context, modelUUID coremodel.UUID
 	if err := modelUUID.Validate(); err != nil {
 		return model.ModelPresence{}, errors.Errorf("model uuid: %w", err)
 	}
-	return s.st.GetModelPresence(ctx, modelUUID)
+	return s.st.GetModelPresence(ctx, modelUUID.String())
 }
 
 // ActivateModel marks the model as active after model creation or import has

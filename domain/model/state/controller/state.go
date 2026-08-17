@@ -66,8 +66,8 @@ func (s *State) CheckModelExists(
 	})
 }
 
-// GetModelPresence returns the model's type and activation state, regardless of
-// whether the model has been activated. It is the counterpart to
+// GetModelPresence returns the model's type, activation state and target-side
+// import-claim presence in one transaction. It is the counterpart to
 // [State.CheckModelExists] for callers that must distinguish a model which does
 // not exist at all from one whose creation has not been completed - notably the
 // API server, which admits agent connections to a model that a migration is
@@ -78,16 +78,22 @@ func (s *State) CheckModelExists(
 // of the activated status.
 func (s *State) GetModelPresence(
 	ctx context.Context,
-	modelUUID coremodel.UUID,
+	modelUUID string,
 ) (model.ModelPresence, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return model.ModelPresence{}, errors.Capture(err)
 	}
 
-	uuidArg := dbModelUUID{UUID: modelUUID.String()}
+	uuidArg := dbModelUUID{UUID: modelUUID}
 	stmt, err := s.Prepare(`
-SELECT &dbModelPresence.* FROM v_model_all WHERE uuid = $dbModelUUID.uuid
+SELECT vm.name AS &dbModelPresence.name,
+       vm.model_type AS &dbModelPresence.model_type,
+       vm.activated AS &dbModelPresence.activated,
+       IIF(mmi.model_uuid IS NOT NULL, TRUE, FALSE) AS &dbModelPresence.importing
+FROM v_model_all AS vm
+LEFT JOIN model_migration_import AS mmi ON mmi.model_uuid = vm.uuid
+WHERE vm.uuid = $dbModelUUID.uuid
 `, dbModelPresence{}, uuidArg)
 	if err != nil {
 		return model.ModelPresence{}, errors.Capture(err)
@@ -95,6 +101,7 @@ SELECT &dbModelPresence.* FROM v_model_all WHERE uuid = $dbModelUUID.uuid
 
 	var presence dbModelPresence
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		presence = dbModelPresence{}
 		err := tx.Query(ctx, stmt, uuidArg).Get(&presence)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("model %q %w", modelUUID, modelerrors.NotFound)
@@ -110,6 +117,7 @@ SELECT &dbModelPresence.* FROM v_model_all WHERE uuid = $dbModelUUID.uuid
 		Name:      presence.Name,
 		ModelType: coremodel.ModelType(presence.ModelType),
 		Activated: presence.Activated,
+		Importing: presence.Importing,
 	}, nil
 }
 

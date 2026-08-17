@@ -25,6 +25,7 @@ import (
 	apiclient "github.com/juju/juju/api/client/client"
 	machineclient "github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/api/client/modelconfig"
+	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -107,6 +108,7 @@ func TestLoginSuite(t *stdtesting.T) {
 
 func (s *loginSuite) SetUpTest(c *tc.C) {
 	s.Clock = testclock.NewDilatedWallClock(time.Second)
+	s.WithJWTTokenParser = &apitesting.InsecureJWTParser{}
 	s.ApiServerSuite.SetUpTest(c)
 
 	controllerNodeService := s.ControllerDomainServices(c).ControllerNode()
@@ -584,6 +586,43 @@ func (s *loginSuite) TestUserLoginToModelBeingImported(c *tc.C) {
 
 	var result params.FullStatus
 	err = st.APICall(c.Context(), "Client", clientFacadeVersion, "", "FullStatus", nil, &result)
+	c.Assert(err, tc.ErrorMatches, ".*migration in progress, model is importing.*")
+}
+
+// TestTokenUserLoginToModelBeingImportedIsRestricted verifies that a JWT user
+// receives the import restriction even though token logins carry no AuthTag in
+// the request. The authenticated tag, rather than the request tag, must drive
+// maintenance restrictions.
+func (s *loginSuite) TestTokenUserLoginToModelBeingImportedIsRestricted(c *tc.C) {
+	modelUUID := s.createUnactivatedModel(c, "being-imported")
+	s.seedModelDB(c, modelUUID, "being-imported")
+	s.beginImport(c, modelUUID)
+
+	err := s.ControllerDomainServices(c).Access().AddExternalUser(
+		c.Context(), permission.EveryoneUserName, "", s.AdminUserUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	token, err := apitesting.NewEncodedJWT(apitesting.JWTParams{
+		Controller: s.ControllerUUID,
+		User:       "user-testuser@external",
+		Access: map[string]string{
+			names.NewControllerTag(s.ControllerUUID).String(): "superuser",
+			names.NewModelTag(modelUUID.String()).String():    "admin",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	conn := s.openModelAPIWithoutLogin(c, modelUUID.String())
+	var loginResult params.LoginResult
+	err = conn.APICall(c.Context(), "Admin", 3, "", "Login", &params.LoginRequest{
+		Token:         token,
+		ClientVersion: jujuversion.Current.String(),
+	}, &loginResult)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var result params.FullStatus
+	err = conn.APICall(c.Context(), "Client", clientFacadeVersion, "", "FullStatus", nil, &result)
 	c.Assert(err, tc.ErrorMatches, ".*migration in progress, model is importing.*")
 }
 

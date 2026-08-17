@@ -219,4 +219,9 @@ type ModelPresence struct {
 	// model that is not activated is half built: either its creation never
 	// finished, or a migration is still importing it.
 	Activated bool
+
+	// Importing reports whether a target-side migration import claim exists for
+	// the model. A live claim keeps the model unavailable to users, but lets its
+	// agents connect during migration validation.
+	Importing bool
 }

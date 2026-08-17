@@ -259,6 +259,7 @@ type dbModelPresence struct {
 	Name      string `db:"name"`
 	ModelType string `db:"model_type"`
 	Activated bool   `db:"activated"`
+	Importing bool   `db:"importing"`
 }
 
 type dbModelNamespace struct {

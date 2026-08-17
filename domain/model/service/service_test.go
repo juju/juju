@@ -220,6 +220,22 @@ func (s *serviceSuite) TestCheckExistsNoModel(c *tc.C) {
 	c.Assert(exists, tc.IsFalse)
 }
 
+func (s *serviceSuite) TestGetModelPresence(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	expected := model.ModelPresence{
+		Name:      "incoming",
+		ModelType: coremodel.IAAS,
+		Importing: true,
+	}
+	s.mockState.EXPECT().GetModelPresence(gomock.Any(), modelUUID.String()).Return(expected, nil)
+
+	presence, err := s.newService(c).GetModelPresence(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(presence, tc.DeepEquals, expected)
+}
+
 // TestModelCreationSecretBackendNotFound is asserting that if we try and add a
 // model and define a secret backend for the new model that doesn't exist we get
 // back a [secretbackenderrors.NotFound] error.

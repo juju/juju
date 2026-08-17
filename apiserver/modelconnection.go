@@ -59,15 +59,22 @@ func modelConnectionFor(
 		return modelConnection{}, errors.Capture(err)
 	}
 
-	// The mode is read for activated models too: an exporting model restricts
-	// its user logins, so the caller needs it either way.
-	mode, err := migrationService.ModelMigrationMode(ctx)
-	if err != nil {
-		return modelConnection{}, errors.Capture(err)
+	// Activation and the import claim are read atomically. This prevents the
+	// activation handoff from producing the impossible-looking combination of
+	// an unactivated model without an import claim.
+	if !presence.Activated && !presence.Importing {
+		return modelConnection{}, nil
 	}
 
-	if !presence.Activated && mode != modelmigration.MigrationModeImporting {
-		return modelConnection{}, nil
+	mode := modelmigration.MigrationModeImporting
+	if !presence.Importing {
+		// An activated model with no target-side import claim may still be
+		// exporting, in which case user logins must be restricted.
+		var err error
+		mode, err = migrationService.ModelMigrationMode(ctx)
+		if err != nil {
+			return modelConnection{}, errors.Capture(err)
+		}
 	}
 
 	return modelConnection{

@@ -2181,11 +2181,25 @@ func (m *stateSuite) TestCheckModelExistsNotActivated(c *tc.C) {
 	// GetModelPresence is the counterpart that can see the model:
 	// the API server relies on it to tell a model that does not exist
 	// from one a migration has not finished importing.
-	presence, err := m.modelState.GetModelPresence(c.Context(), modelUUID)
+	presence, err := m.modelState.GetModelPresence(c.Context(), modelUUID.String())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(presence.Name, tc.Equals, "my-amazing-model")
 	c.Check(presence.ModelType, tc.Equals, coremodel.IAAS)
 	c.Check(presence.Activated, tc.IsFalse)
+	c.Check(presence.Importing, tc.IsFalse)
+
+	err = m.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
+VALUES (?, ?, ?)`, uuid.MustNewUUID().String(), modelUUID.String(), uuid.MustNewUUID().String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	presence, err = m.modelState.GetModelPresence(c.Context(), modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(presence.Activated, tc.IsFalse)
+	c.Check(presence.Importing, tc.IsTrue)
 }
 
 // TestGetModelPresenceActivated verifies that an ordinary, fully created model
@@ -2194,16 +2208,17 @@ func (m *stateSuite) TestGetModelPresenceActivated(c *tc.C) {
 	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
 	m.createModel(c, m.uuid, m.userUUID)
 
-	presence, err := m.modelState.GetModelPresence(c.Context(), m.uuid)
+	presence, err := m.modelState.GetModelPresence(c.Context(), m.uuid.String())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(presence.ModelType, tc.Equals, coremodel.IAAS)
 	c.Check(presence.Activated, tc.IsTrue)
+	c.Check(presence.Importing, tc.IsFalse)
 }
 
 // TestGetModelPresenceNotFound verifies that a model with no row at all is
 // reported as not found, so callers can tell it apart from a half built one.
 func (m *stateSuite) TestGetModelPresenceNotFound(c *tc.C) {
-	_, err := m.modelState.GetModelPresence(c.Context(), tc.Must(c, coremodel.NewUUID))
+	_, err := m.modelState.GetModelPresence(c.Context(), tc.Must(c, coremodel.NewUUID).String())
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
