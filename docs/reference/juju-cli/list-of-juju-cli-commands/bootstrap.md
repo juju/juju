@@ -20,6 +20,7 @@ juju bootstrap [options] [<cloud name>[/region] [<controller name>]]
 | `--bootstrap-constraints` | [] | Specify bootstrap machine constraints |
 | `--bootstrap-image` |  | Specify the image of the bootstrap machine (requires `--bootstrap-constraints` specifying architecture) |
 | `--build-agent` | false | Build local version of agent binary before bootstrapping |
+| `--build-snap` | false | Build local controller snap before bootstrapping |
 | `--clouds` | false | Print the available clouds which can be used to bootstrap a Juju environment |
 | `--config` |  | Specify a controller configuration file, or one or more configuration options. Model config keys only affect the controller model.     (`--config config.yaml [--config key=value ...])` |
 | `--constraints` | [] | Set model constraints |
