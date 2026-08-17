@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/internal/errors"
 )
 
 // exportVersionStrings is the editable source of truth for the model-export
@@ -71,20 +72,20 @@ func parseExportVersions(versions []string) []semversion.Number {
 // or next major at minor 0).
 func validateExportVersions(versions []semversion.Number) error {
 	if len(versions) == 0 {
-		return fmt.Errorf("expected at least 1 entry")
+		return errors.Errorf("expected at least 1 entry")
 	}
 	for i := 1; i < len(versions); i++ {
 		prev, cur := versions[i-1], versions[i]
 		if cur.Compare(prev) <= 0 {
-			return fmt.Errorf("entries must be strictly ascending: %s then %s", prev, cur)
+			return errors.Errorf("entries must be strictly ascending: %s then %s", prev, cur)
 		}
 		if prev.Major == cur.Major && prev.Minor == cur.Minor {
-			return fmt.Errorf("entries %s and %s are on the same minor line; keep only the latest", prev, cur)
+			return errors.Errorf("entries %s and %s are on the same minor line; keep only the latest", prev, cur)
 		}
 		nextMinor := prev.Major == cur.Major && cur.Minor == prev.Minor+1
 		nextMajor := cur.Major == prev.Major+1 && cur.Minor == 0
 		if !nextMinor && !nextMajor {
-			return fmt.Errorf("entries %s and %s are not adjacent minor lines", prev, cur)
+			return errors.Errorf("entries %s and %s are not adjacent minor lines", prev, cur)
 		}
 	}
 	return nil
