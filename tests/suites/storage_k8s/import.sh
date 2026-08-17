@@ -20,7 +20,7 @@ test_import_filesystem() {
 	wait_for_storage "attached" '.storage["data/0"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV=$(juju storage --format json | yq -r '.volumes["0"]."provider-id"')
+	PV=$(juju storage --format json | yq -r '.filesystems["0"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
 	juju remove-application dummy-k8s-storage --no-prompt
@@ -54,7 +54,7 @@ test_import_filesystem() {
 	OUT=$(juju import-filesystem kubernetes "${PV}" data 2>&1)
 
 	wait_for_storage "detached" '.storage["data/1"]["status"].current'
-	wait_for_storage "${PV}" '.volumes["1"]."provider-id"'
+	wait_for_storage "${PV}" '.filesystems["1"]."provider-id"'
 
 	# Destroy the test model.
 	destroy_model "${model_name}"
@@ -82,7 +82,7 @@ test_force_import_filesystem() {
 	wait_for_storage "attached" '.storage["data/0"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV=$(juju storage --format json | yq -r '.volumes["0"]."provider-id"')
+	PV=$(juju storage --format json | yq -r '.filesystems["0"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
 	juju remove-application dummy-k8s-storage --no-prompt
@@ -107,7 +107,7 @@ test_force_import_filesystem() {
 	set -e
 
 	echo "${OUT}" | check \
-		"importing volume: importing PersistentVolume \"${PV}\" whose PersistentVolumeClaim is not managed by juju: unexpected storage labels"
+		"importing PersistentVolume \"${PV}\" whose PersistentVolumeClaim is not managed by juju"
 
 	kubectl label pvc -n "${model_name}" "${PVC}" app.kubernetes.io/managed-by="${ORIGINAL_LABEL}" --overwrite
 

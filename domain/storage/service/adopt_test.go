@@ -534,6 +534,7 @@ func (s *adoptFilesystemSuite) TestAdoptFilesystemFilesystemImportNotSupported(c
 	svc := s.makeService()
 	_, err := svc.AdoptFilesystem(ctx, storageName, poolUUID, providerID, false)
 	c.Assert(err, tc.ErrorIs, domainstorageerrors.AdoptionNotSupported)
+	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 // TestAdoptFilesystemVolumeNotFoundOnProvider tests that when the volume is

@@ -314,8 +314,8 @@ func (s *StorageService) adoptFilesystem(
 		ctx, providerID, storageName.String(), tags, force)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return "", errors.Errorf(
-			"storage provider does not support adopting filesystem %q",
-			providerID,
+			"storage provider does not support adopting filesystem %q: %w",
+			providerID, err,
 		).Add(domainstorageerrors.AdoptionNotSupported)
 	} else if errors.Is(err, coreerrors.NotFound) {
 		return "", errors.Errorf(
