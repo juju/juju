@@ -435,6 +435,9 @@ func (s *Service) validateRequest(req domainssh.SSHConnRequest) error {
 	if len(req.ControllerAddresses) == 0 {
 		return errors.Errorf("empty controller addresses").Add(coreerrors.NotValid)
 	}
+	if req.UnitPort < 0 {
+		return errors.Errorf("invalid unit port %d", req.UnitPort).Add(coreerrors.NotValid)
+	}
 	if len(req.EphemeralPublicKey) == 0 {
 		return errors.Errorf("empty ephemeral public key").Add(coreerrors.NotValid)
 	}

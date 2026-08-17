@@ -125,7 +125,7 @@ WHERE u.name = $entityName.name
 		return "", errors.Capture(err)
 	}
 	if !row.ProviderID.Valid {
-		return "", nil
+		return "", errors.Errorf("unit %q has no Kubernetes pod", unitName).Add(applicationerrors.UnitNotReady)
 	}
 	return row.ProviderID.String, nil
 }

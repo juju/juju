@@ -114,6 +114,15 @@ func (config ManifoldConfig) Validate() error {
 	if config.DomainServicesName == "" {
 		return errors.NotValidf("empty DomainServicesName")
 	}
+	if config.SSHTunnelerName == "" {
+		return errors.NotValidf("empty SSHTunnelerName")
+	}
+	if config.JWTParserName == "" {
+		return errors.NotValidf("empty JWTParserName")
+	}
+	if config.ControllerID == "" {
+		return errors.NotValidf("empty ControllerID")
+	}
 	if config.ControllerUUID == "" {
 		return errors.NotValidf("empty ControllerUUID")
 	}
@@ -144,15 +153,8 @@ func (config ManifoldConfig) Validate() error {
 // Manifold returns a dependency.Manifold that will run an embedded SSH server
 // worker. The manifold has no outputs.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	inputs := []string{config.DomainServicesName}
-	if config.SSHTunnelerName != "" {
-		inputs = append(inputs, config.SSHTunnelerName)
-	}
-	if config.JWTParserName != "" {
-		inputs = append(inputs, config.JWTParserName)
-	}
 	return dependency.Manifold{
-		Inputs: inputs,
+		Inputs: []string{config.DomainServicesName, config.SSHTunnelerName, config.JWTParserName},
 		Start:  config.startWrapperWorker,
 	}
 }
@@ -161,15 +163,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
-	}
-	if config.SSHTunnelerName == "" {
-		return nil, errors.NotValidf("empty SSHTunnelerName")
-	}
-	if config.JWTParserName == "" {
-		return nil, errors.NotValidf("empty JWTParserName")
-	}
-	if config.ControllerID == "" {
-		return nil, errors.NotValidf("empty ControllerID")
 	}
 	controllerUUID, err := corecontroller.ParseUUID(config.ControllerUUID)
 	if err != nil {
@@ -287,9 +280,8 @@ func (s sshService) VirtualHostKey(ctx context.Context, info virtualhostname.Inf
 	return sshService.VirtualHostKey(ctx, info)
 }
 
-// HasSSHAccessToModel grants SSH access to model administrators and controller
-// superusers. A controller superuser need not hold an explicit grant to every
-// target model.
+// HasSSHAccessToModel checks whether a user has SSH access to a model.
+// It resolves the model's domain services and checks access.
 func (s sshService) HasSSHAccessToModel(ctx context.Context, username string, destination virtualhostname.Info) (bool, error) {
 	name, err := user.NewName(username)
 	if err != nil {
@@ -302,7 +294,7 @@ func (s sshService) HasSSHAccessToModel(ctx context.Context, username string, de
 	return domainServices.Access().HasSSHAccessToModel(ctx, name, destination.ModelUUID(), s.controllerUUID)
 }
 
-// ResolveK8sExecInfo resolves the namespace and pod name for a destination.
+// ResolveK8sExecInfo resolves the Kubernetes namespace and pod name for a destination.
 func (s sshService) ResolveK8sExecInfo(ctx context.Context, destination virtualhostname.Info) (string, string, error) {
 	sshService, err := s.getSSHService(ctx, s.domainServicesGetter, destination.ModelUUID())
 	if err != nil {

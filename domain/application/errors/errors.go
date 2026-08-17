@@ -111,6 +111,10 @@ const (
 	// operated on is not assigned.
 	UnitNotAssigned = errors.ConstError("unit not assigned")
 
+	// UnitNotReady describes an error that occurs when the unit has not yet
+	// reached the state required by an operation.
+	UnitNotReady = errors.ConstError("unit not ready")
+
 	// UnitHasSubordinates describes an error that occurs when trying to set a
 	// unit's life to Dead but it still has subordinates.
 	UnitHasSubordinates = errors.ConstError("unit has subordinates")

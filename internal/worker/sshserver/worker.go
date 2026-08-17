@@ -52,6 +52,7 @@ type SSHService interface {
 	ResolveK8sExecInfo(context.Context, virtualhostname.Info) (namespace, podName string, err error)
 	// MachineForDestination resolves the machine for a routed destination.
 	MachineForDestination(context.Context, virtualhostname.Info) (coremachine.Name, error)
+	// SSHServerHostKey returns the controller's SSH server host key.
 	SSHServerHostKey(context.Context) (string, error)
 }
 
