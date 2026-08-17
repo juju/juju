@@ -16,16 +16,18 @@ var (
 	// feature that is not included in the feature set supported by the
 	// current model.
 	UserFriendlyFeatureDescriptions = map[string]string{
-		"juju":    "the version of Juju used by the model",
-		"k8s-api": "the Kubernetes API lets charms query and manipulate the state of API objects in a Kubernetes cluster",
+		"juju":     "the version of Juju used by the model",
+		"k8s-api":  "the Kubernetes API lets charms query and manipulate the state of API objects in a Kubernetes cluster",
+		"unitless": "unitless applications allow charms to run without units",
 	}
 )
 
 // featureMissingErrs is a list of user-friendly error messages to return when
 // a given feature is expected by a charm, but not present in the model.
 var featureMissingErrs = map[string]string{
-	"juju":    "charm requires Juju", // this should never happen
-	"k8s-api": "charm must be deployed on a Kubernetes cloud",
+	"juju":     "charm requires Juju", // this should never happen
+	"k8s-api":  "charm must be deployed on a Kubernetes cloud",
+	"unitless": "charm requires support for unitless applications",
 }
 
 // featureMissingErr returns a user-friendly error message to return when a
@@ -79,5 +81,14 @@ func K8sAPIFeature(ver semversion.Number) Feature {
 		Name:        "k8s-api",
 		Description: UserFriendlyFeatureDescriptions["k8s-api"],
 		Version:     &ver,
+	}
+}
+
+// UnitlessFeature returns a new Feature representing support for applications
+// without units.
+func UnitlessFeature() Feature {
+	return Feature{
+		Name:        "unitless",
+		Description: UserFriendlyFeatureDescriptions["unitless"],
 	}
 }
