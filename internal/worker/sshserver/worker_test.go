@@ -41,6 +41,7 @@ func newServerWrapperWorkerConfig(
 		ControllerConfigService: NewMockControllerConfigService(ctrl),
 		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
+		Metrics:                 NewMetricsCollector(),
 	}
 	setMockServerDependencies(ctrl, cfg)
 

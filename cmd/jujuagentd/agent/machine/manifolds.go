@@ -942,6 +942,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetControllerSSHService:    sshserver.GetControllerSSHService,
 			GetDomainServicesGetter:    sshserver.GetDomainServicesGetter,
 			GetSSHService:              sshserver.GetSSHService,
+			PrometheusRegisterer:       config.PrometheusRegisterer,
 		})),
 
 		// The ssh tunneler worker runs on the controller machine and creates

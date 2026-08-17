@@ -4,12 +4,16 @@
 package sshserver
 
 import (
+	"context"
+	"time"
+
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/virtualhostname"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
+	"github.com/juju/juju/internal/worker/sshserver/handlers/common"
 	"github.com/juju/juju/internal/worker/sshserver/handlers/k8s"
 	"github.com/juju/juju/internal/worker/sshserver/handlers/machine"
 )
@@ -36,16 +40,36 @@ type proxyFactory struct {
 	logger      logger.Logger
 	connector   machine.SSHConnector
 	getExecutor func(string) (k8sexec.Executor, error)
+	metrics     *Collector
+}
+
+type sessionMetrics struct {
+	collector *Collector
+	modelType string
+}
+
+func (m sessionMetrics) ObserveTimeToSession(ctx context.Context) {
+	started, ok := ctx.Value(connectionStartTime{}).(time.Time)
+	if !ok {
+		return
+	}
+	m.collector.timeToSession.WithLabelValues(m.modelType).Observe(time.Since(started).Seconds())
 }
 
 // New returns a set of handlers for the given target based
 // on whether the target is a container, unit or machine.
 func (f proxyFactory) New(destination virtualhostname.Info) (ProxyHandlers, error) {
+	modelType := "machine"
+	if destination.Target() == virtualhostname.ContainerTarget {
+		modelType = "kubernetes"
+	}
+	var metrics common.Metrics = sessionMetrics{collector: f.metrics, modelType: modelType}
+
 	switch destination.Target() {
 	case virtualhostname.ContainerTarget:
-		return k8s.NewHandlers(destination, f.k8sResolver, f.logger, f.getExecutor)
+		return k8s.NewHandlers(destination, f.k8sResolver, f.logger, f.getExecutor, metrics)
 	case virtualhostname.MachineTarget, virtualhostname.UnitTarget:
-		return machine.NewHandlers(destination, f.connector, f.logger)
+		return machine.NewHandlers(destination, f.connector, f.logger, metrics)
 	default:
 		return nil, errors.NotValidf("unknown virtual hostname target %d", destination.Target())
 	}

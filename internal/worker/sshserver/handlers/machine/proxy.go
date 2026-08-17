@@ -56,6 +56,7 @@ func handleProxy[T io.Closer](h *Handlers, ctx context.Context, cfg proxyConfig[
 	})
 	defer stop()
 
+	h.metrics.ObserveTimeToSession(ctx)
 	if err := cfg.run(remote); err != nil {
 		cfg.onError(err)
 	}

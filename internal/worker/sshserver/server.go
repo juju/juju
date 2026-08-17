@@ -47,6 +47,8 @@ type Authorizer interface {
 	Authorize(ssh.Context, virtualhostname.Info) (bool, error)
 }
 
+type connectionStartTime struct{}
+
 // ServerWorkerConfig holds the configuration required by the server worker.
 type ServerWorkerConfig struct {
 	// Logger holds the logger for the server.
@@ -77,6 +79,8 @@ type ServerWorkerConfig struct {
 	ProxyFactory ProxyFactory
 	// TunnelTracker accepts incoming reverse SSH tunnel connections.
 	TunnelTracker TunnelTracker
+	// Metrics collects connection and authentication metrics.
+	Metrics *Collector
 }
 
 // Validate validates the workers configuration is as expected.
@@ -188,6 +192,7 @@ func (s *ServerWorker) NewJumpServer() *ssh.Server {
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
 			ok, err := s.config.Authenticator.PublicKeyAuthentication(ctx, key)
 			if err != nil {
+				s.config.Metrics.authenticationFailures.WithLabelValues("public_key").Inc()
 				s.config.Logger.Warningf(ctx, "failed to authenticate public key: %v", err)
 				return false
 			}
@@ -196,6 +201,7 @@ func (s *ServerWorker) NewJumpServer() *ssh.Server {
 		PasswordHandler: func(ctx ssh.Context, password string) bool {
 			ok, err := s.config.Authenticator.PasswordAuthentication(ctx, password)
 			if err != nil {
+				s.config.Metrics.authenticationFailures.WithLabelValues("password").Inc()
 				s.config.Logger.Warningf(ctx, "failed to authenticate password: %v", err)
 				return false
 			}
@@ -326,7 +332,9 @@ func (s *ServerWorker) reverseTunnelHandler(_ *ssh.Server, conn *gossh.ServerCon
 // connCallback returns a connCallback function that limits the number of concurrent connections.
 func (s *ServerWorker) connCallback() ssh.ConnCallback {
 	return func(ctx ssh.Context, conn net.Conn) net.Conn {
+		ctx.SetValue(connectionStartTime{}, time.Now())
 		current := s.concurrentConnections.Add(1)
+		s.config.Metrics.connectionCount.Inc()
 
 		if int(current) > s.config.MaxConcurrentConnections {
 			// set the deadline because we don't want to block the connection to write an error.
@@ -341,12 +349,17 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 			// The connection is closed before returning, otherwise
 			// the context is not cancelled and the counter is not decremented.
 			conn.Close()
+			s.config.Metrics.connectionCount.Dec()
 			s.concurrentConnections.Add(-1)
 			return conn
 		}
 		go func() {
 			<-ctx.Done()
+			s.config.Metrics.connectionCount.Dec()
 			s.concurrentConnections.Add(-1)
+			if started, ok := ctx.Value(connectionStartTime{}).(time.Time); ok {
+				s.config.Metrics.connectionDuration.Observe(time.Since(started).Seconds())
+			}
 		}()
 		return conn
 	}
@@ -354,12 +367,11 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 
 // newTerminatingSSHServer creates an embedded SSH server that terminates the
 // user's SSH connection and proxies it to the routed target.
-func (s *ServerWorker) newTerminatingSSHServer(_ ssh.Context, destination virtualhostname.Info) (*ssh.Server, error) {
+func (s *ServerWorker) newTerminatingSSHServer(ctx ssh.Context, destination virtualhostname.Info) (*ssh.Server, error) {
 	handlers, err := s.config.ProxyFactory.New(destination)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	server := &ssh.Server{
 		ChannelHandlers: map[string]ssh.ChannelHandler{
 			"session":      ssh.DefaultSessionHandler,

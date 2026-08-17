@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
+	"github.com/juju/juju/internal/worker/sshserver/handlers/common"
 )
 
 func (s *k8sSuite) TestSessionHandler(c *tc.C) {
@@ -33,7 +34,7 @@ func (s *k8sSuite) TestSessionHandler(c *tc.C) {
 			_, err := io.WriteString(params.Stdout, "test output\n")
 			return err
 		}), nil
-	})
+	}, common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
@@ -71,7 +72,7 @@ func (s *k8sSuite) TestSessionHandlerPreservesRawCommand(c *tc.C) {
 			received = params
 			return nil
 		}), nil
-	})
+	}, common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
@@ -99,7 +100,7 @@ func (s *k8sSuite) TestSessionHandlerStartsDefaultShell(c *tc.C) {
 			received = params
 			return nil
 		}), nil
-	})
+	}, common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
@@ -125,7 +126,7 @@ func (s *k8sSuite) TestSessionHandlerPropagatesExitStatus(c *tc.C) {
 		return executorFunc(func(context.Context, k8sexec.ExecParams, <-chan struct{}) error {
 			return testExitError{status: 3}
 		}), nil
-	})
+	}, common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
@@ -159,7 +160,7 @@ func (s *k8sSuite) TestSessionHandlerForwardsSignal(c *tc.C) {
 				return ctx.Err()
 			}
 		}), nil
-	})
+	}, common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
@@ -182,7 +183,7 @@ func (s *k8sSuite) TestSessionHandlerReportsResolverFailure(c *tc.C) {
 
 	handlers, err := NewHandlers(destination, resolverFunc(func(context.Context, virtualhostname.Info) (string, string, error) {
 		return "", "", errors.New("resolver failed")
-	}), loggertesting.WrapCheckLog(c), stubExecutor)
+	}), loggertesting.WrapCheckLog(c), stubExecutor, common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
@@ -217,7 +218,7 @@ func (s *k8sSuite) TestSessionHandlerWithPTY(c *tc.C) {
 			_, err := io.WriteString(params.Stdout, "final output\n")
 			return err
 		}), nil
-	})
+	}, common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
@@ -258,7 +259,7 @@ func (s *k8sSuite) TestSessionHandlerWithPTYDrainsOutputBeforeErrorExit(c *tc.C)
 			c.Assert(err, tc.ErrorIsNil)
 			return testExitError{status: 3}
 		}), nil
-	})
+	}, common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})

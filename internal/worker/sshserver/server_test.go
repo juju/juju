@@ -85,6 +85,7 @@ func (s *sshServerSuite) newServer(c *tc.C) (*ServerWorker, *bufconn.Listener, f
 		Authorizer:               s.authorizer,
 		ProxyFactory:             s.proxyFactory,
 		TunnelTracker:            s.tunnelTracker,
+		Metrics:                  NewMetricsCollector(),
 	}
 
 	worker, err := NewServerWorker(cfg)
@@ -376,6 +377,7 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *tc.C) {
 		Authorizer:               s.authorizer,
 		ProxyFactory:             s.proxyFactory,
 		TunnelTracker:            s.tunnelTracker,
+		Metrics:                  NewMetricsCollector(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
@@ -468,6 +470,7 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *tc.C) {
 		Authorizer:               s.authorizer,
 		ProxyFactory:             s.proxyFactory,
 		TunnelTracker:            s.tunnelTracker,
+		Metrics:                  NewMetricsCollector(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)

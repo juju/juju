@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/worker/sshserver/handlers/common"
 )
 
 func (s *machineSuite) TestSessionHandlerProxiesCommand(c *tc.C) {
@@ -27,7 +28,7 @@ func (s *machineSuite) TestSessionHandlerProxiesCommand(c *tc.C) {
 		_, _ = io.WriteString(session.Stderr(), "warning\n")
 	}})
 
-	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c))
+	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	controller := startSSHTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
@@ -60,7 +61,7 @@ func (s *machineSuite) TestSessionHandlerPropagatesCommandExitCode(c *tc.C) {
 		_ = session.Exit(3)
 	}})
 
-	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c))
+	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	controller := startSSHTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
@@ -97,7 +98,7 @@ func (s *machineSuite) TestSessionHandlerProxiesPTYAndWindowChanges(c *tc.C) {
 		},
 	})
 
-	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c))
+	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	controller := startSSHTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
@@ -132,7 +133,7 @@ func (s *machineSuite) TestSessionHandlerReportsConnectionFailure(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	handlers, err := NewHandlers(destination, connectorFunc(func(context.Context, virtualhostname.Info) (*gossh.Client, error) {
 		return nil, errors.New("connection failed")
-	}), loggertesting.WrapCheckLog(c))
+	}), loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	controller := startSSHTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
