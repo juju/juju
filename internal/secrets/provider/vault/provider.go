@@ -243,11 +243,12 @@ func (p vaultProvider) RestrictedConfig(
 
 	var rules []string
 	if forDrain && (adminUser || accessor.Kind == secrets.ModelAccessor) {
-		// For controller drain worker, we need to be able to update a secret.
-		// Because we may run into a situation that the worker creates a secret in the vault but gets killed/restarted
-		// before it can update the secret to the new backend, we need to allow the worker to update the content
-		// after it's coming up again.
-		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["update"]}`, mountPath)
+		// For controller drain worker, we need to be able to create or update a secret.
+		// When draining from internal backend to vault, the secret does not yet exist in vault,
+		// so we need "create". When the worker creates a secret in vault but gets killed/restarted
+		// before it can update the secret to the new backend, we need to allow the worker to update
+		// the content after it's coming up again.
+		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["create", "update"]}`, mountPath)
 		rules = append(rules, rule)
 	}
 	if adminUser {

@@ -285,7 +285,7 @@ func (s *providerSuite) TestBackendConfigForDrainController(c *tc.C) {
 			}{}
 			_ = json.Unmarshal(b, &policyReq)
 			c.Assert(policyReq.Policy, tc.Equals, strings.Join([]string{
-				`path "fred-06f00d/*" {capabilities = ["update"]}`,
+				`path "fred-06f00d/*" {capabilities = ["create", "update"]}`,
 				`path "fred-06f00d/*" {capabilities = ["read"]}`,
 			}, "\n"))
 			return &http.Response{
