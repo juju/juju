@@ -2281,6 +2281,7 @@ func (s *BootstrapSuite) TestBootstrapImplicitBuild(c *tc.C) {
 	)
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 	c.Check(gotArgs.ControllerSnapPath, tc.Equals, tempSnapPath)
+	c.Check(gotArgs.BuildAgent, tc.IsTrue)
 
 	// Verify the WARNING log message.
 	mc := tc.NewMultiChecker()
@@ -2397,6 +2398,32 @@ func (s *BootstrapSuite) TestBootstrapBuildSnapWithAssertPathNoSnapPath(c *tc.C)
 	)
 	c.Assert(err, tc.ErrorMatches,
 		`--controller-snap-assert-path requires --controller-snap-path; it cannot be used with --build-snap`)
+}
+
+// TestBootstrapBuildSnapCAASNotSupported verifies that --build-snap is
+// rejected before any bootstrap work when the target cloud is a Kubernetes
+// (CAAS) cloud.
+func (s *BootstrapSuite) TestBootstrapBuildSnapCAASNotSupported(c *tc.C) {
+	// Patch getBootstrapFuncs so the real kubernetes provider's CloudFinalizer
+	// (which shells out to microk8s/kubeconfig) is skipped. CloudIsCAAS keys
+	// off the cloud type, so this does not affect the check under test.
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &fakeBootstrapFuncs{}
+	})
+
+	cloudsPath := cloud.JujuPersonalCloudsPath()
+	err := os.WriteFile(cloudsPath, []byte(`
+clouds:
+    testk8s:
+        type: kubernetes
+`), 0o644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"testk8s", "devcontroller",
+		"--build-snap",
+	)
+	c.Assert(err, tc.ErrorMatches, `--build-snap when bootstrapping a k8s controller not supported`)
 }
 
 // TestBootstrapIAASRequiresBuildAgent verifies that an IAAS bootstrap with
