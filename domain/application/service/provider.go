@@ -236,7 +236,7 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 		Name:        "juju",
 		Description: assumes.UserFriendlyFeatureDescriptions["juju"],
 		Version:     &agentVersion,
-	})
+	}, assumes.UnitlessFeature())
 
 	supportedFeatureProvider, err := s.caasApplicationProvider(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
