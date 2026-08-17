@@ -453,7 +453,91 @@ func (s *providerSuite) TestBackendConfigNonAdmin(c *gc.C) {
 	c.Assert(cfg.Config["token"], gc.Equals, "foo")
 }
 
-func (s *providerSuite) TestBackendConfigForDrain(c *gc.C) {
+func (s *providerSuite) TestBackendConfigForDrainController(c *gc.C) {
+	ctrl, newVaultClient := s.newVaultClient(c, nil)
+	defer ctrl.Finish()
+
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.URL.String(), gc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-some-uuid`)
+			c.Assert(req.Method, gc.Equals, http.MethodGet)
+			return &http.Response{
+				Request:    req,
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(strings.NewReader(`{"errors":[]}`)),
+			}, nil
+		},
+	)
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.URL.String(), gc.Equals, `http://vault-ip:8200/v1/sys/policies/acl/fred-06f00d-some-uuid`)
+			c.Assert(req.Method, gc.Equals, http.MethodPut)
+			b, _ := ioutil.ReadAll(req.Body)
+			defer req.Body.Close()
+			policyReq := struct {
+				Policy string
+			}{}
+			_ = json.Unmarshal(b, &policyReq)
+			c.Assert(policyReq.Policy, gc.Equals, strings.Join([]string{
+				`path "fred-06f00d/*" {capabilities = ["create", "update"]}`,
+			}, "\n"))
+			return &http.Response{
+				Request:    req,
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(nil),
+			}, nil
+		},
+	)
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.URL.String(), gc.Equals, `http://vault-ip:8200/v1/auth/token/create`)
+			b, _ := ioutil.ReadAll(req.Body)
+			defer req.Body.Close()
+			tokenReq := api.TokenCreateRequest{}
+			_ = json.Unmarshal(b, &tokenReq)
+			c.Assert(tokenReq, jc.DeepEquals, api.TokenCreateRequest{
+				Policies:        []string{"fred-06f00d-some-uuid"},
+				Metadata:        map[string]string{"juju-issued-token-uuid": "some-uuid"},
+				TTL:             "10m",
+				NoDefaultPolicy: true,
+			})
+			return &http.Response{
+				Request:    req,
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{"auth": {"client_token": "foo"}}`)),
+			}, nil
+		},
+	)
+
+	s.PatchValue(&jujuvault.NewVaultClient, newVaultClient)
+	p, err := provider.Provider(jujuvault.BackendType)
+	c.Assert(err, jc.ErrorIsNil)
+
+	adminCfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "vault",
+			Config: map[string]any{
+				"endpoint":        "http://vault-ip:8200/",
+				"namespace":       "ns",
+				"token":           "vault-token",
+				"ca-cert":         coretesting.CACert,
+				"tls-server-name": "tls-server",
+			},
+		},
+	}
+	issuedTokenUUID := "some-uuid"
+	cfg, err := p.RestrictedConfig(
+		adminCfg, true, true, issuedTokenUUID,
+		coretesting.ModelTag, nil, nil, nil,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Config["token"], gc.Equals, "foo")
+}
+
+func (s *providerSuite) TestBackendConfigForDrainUnit(c *gc.C) {
 	ctrl, newVaultClient := s.newVaultClient(c, nil)
 	defer ctrl.Finish()
 
