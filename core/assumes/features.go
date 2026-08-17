@@ -52,8 +52,8 @@ var featureVersionMismatchErrs = map[string]func(constraint, requiredVersion, ac
 	},
 }
 
-// featureVersionMismatchErr returns a user-friendly error message to return when
-// a given feature is present in the model, but the version is lower than
+// featureVersionMismatchErr returns a user-friendly error message to return
+// when a given feature is present in the model, but the version is lower than
 // required by the charm.
 func featureVersionMismatchErr(featureName, constraint, requiredVersion, actualVersion string) string {
 	if f, ok := featureVersionMismatchErrs[featureName]; ok {
