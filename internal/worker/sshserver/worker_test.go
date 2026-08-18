@@ -41,6 +41,7 @@ func newServerWrapperWorkerConfig(
 		ControllerConfigService: NewMockControllerConfigService(ctrl),
 		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
+		Metrics:                 NewMetricsCollector(),
 	}
 	setMockServerDependencies(ctrl, cfg)
 
@@ -62,6 +63,16 @@ func (s *workerSuite) TestValidate(c *tc.C) {
 
 	cfg := newServerWrapperWorkerConfig(c, ctrl, func(cfg *ServerWrapperWorkerConfig) {})
 	c.Assert(cfg.Validate(), tc.IsNil)
+
+	// Test no Metrics.
+	cfg = newServerWrapperWorkerConfig(
+		c,
+		ctrl,
+		func(cfg *ServerWrapperWorkerConfig) {
+			cfg.Metrics = nil
+		},
+	)
+	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*missing Metrics.*")
 
 	// Test no Logger.
 	cfg = newServerWrapperWorkerConfig(
@@ -129,6 +140,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *tc.C) {
 		ControllerConfigService: controllerConfigService,
 		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
+		Metrics:                 NewMetricsCollector(),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			c.Check(swc.JumpHostKey, tc.Equals, testHostKey)
 			return serverWorker, nil
@@ -207,6 +219,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *tc.C) {
 		ControllerConfigService: controllerConfigService,
 		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
+		Metrics:                 NewMetricsCollector(),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			atomic.StoreInt32(&serverStarted, 1)
 			c.Check(swc.Port, tc.Equals, 22)
@@ -295,6 +308,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorkerOnPortChange
 		ControllerConfigService: controllerConfigService,
 		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
+		Metrics:                 NewMetricsCollector(),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			c.Check(swc.Port, tc.Equals, 22)
 			c.Check(swc.JumpHostKey, tc.Equals, testHostKey)
@@ -342,6 +356,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerConfigWatcherClosed(c *tc.C) {
 		ControllerConfigService: controllerConfigService,
 		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
+		Metrics:                 NewMetricsCollector(),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
 		},
@@ -388,6 +403,7 @@ func (s *workerSuite) TestWrapperWorkerReport(c *tc.C) {
 		ControllerConfigService: controllerConfigService,
 		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
+		Metrics:                 NewMetricsCollector(),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return &reportWorker{serverWorker}, nil
 		},

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/worker/sshserver/handlers/common"
 )
 
 func (s *machineSuite) TestDirectTCPIPHandler(c *tc.C) {
@@ -32,7 +33,7 @@ func (s *machineSuite) TestDirectTCPIPHandler(c *tc.C) {
 		},
 	}})
 
-	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c))
+	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	controller := startSSHTestServer(c, &ssh.Server{
@@ -77,7 +78,7 @@ func (s *machineSuite) TestDirectTCPIPHandlerPreservesHalfClose(c *tc.C) {
 		},
 	}})
 
-	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c))
+	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	controller := startSSHTestServer(c, &ssh.Server{
@@ -112,7 +113,7 @@ func (s *machineSuite) TestDirectTCPIPHandlerReportsConnectionFailure(c *tc.C) {
 
 	handlers, err := NewHandlers(destination, connectorFunc(func(context.Context, virtualhostname.Info) (*gossh.Client, error) {
 		return nil, errors.New("connection failed")
-	}), loggertesting.WrapCheckLog(c))
+	}), loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	controller := startSSHTestServer(c, &ssh.Server{

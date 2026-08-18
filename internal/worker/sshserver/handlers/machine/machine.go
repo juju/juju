@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/internal/worker/sshserver/handlers/common"
 )
 
 // SSHConnector establishes SSH clients to machine targets.
@@ -25,10 +26,11 @@ type Handlers struct {
 	connector   SSHConnector
 	logger      logger.Logger
 	destination virtualhostname.Info
+	metrics     common.Metrics
 }
 
 // NewHandlers returns handlers for a machine or machine-unit target.
-func NewHandlers(destination virtualhostname.Info, connector SSHConnector, logger logger.Logger) (*Handlers, error) {
+func NewHandlers(destination virtualhostname.Info, connector SSHConnector, logger logger.Logger, metrics common.Metrics) (*Handlers, error) {
 	if connector == nil {
 		return nil, errors.New("connector is required")
 	}
@@ -39,9 +41,13 @@ func NewHandlers(destination virtualhostname.Info, connector SSHConnector, logge
 		destination.Target() != virtualhostname.UnitTarget {
 		return nil, errors.New("destination must be a machine or unit target")
 	}
+	if metrics == nil {
+		return nil, errors.New("metrics collector is required")
+	}
 	return &Handlers{
 		connector:   connector,
 		logger:      logger,
 		destination: destination,
+		metrics:     metrics,
 	}, nil
 }

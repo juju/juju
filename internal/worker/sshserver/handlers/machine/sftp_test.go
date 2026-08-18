@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/worker/sshserver/handlers/common"
 )
 
 func (s *machineSuite) TestSFTPHandler(c *tc.C) {
@@ -28,7 +29,7 @@ func (s *machineSuite) TestSFTPHandler(c *tc.C) {
 		},
 	}})
 
-	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c))
+	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	controller := startSSHTestServer(c, &ssh.Server{SubsystemHandlers: map[string]ssh.SubsystemHandler{
@@ -68,7 +69,7 @@ func (s *machineSuite) TestSFTPHandlerProxiesExitStatus(c *tc.C) {
 		"sftp": func(session ssh.Session) { _ = session.Exit(3) },
 	}})
 
-	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c))
+	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	controller := startSSHTestServer(c, &ssh.Server{SubsystemHandlers: map[string]ssh.SubsystemHandler{
@@ -121,7 +122,7 @@ func (s *machineSuite) TestSFTPHandlerProxiesMachineEOF(c *tc.C) {
 		},
 	}})
 
-	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c))
+	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	controller := startSSHTestServer(c, &ssh.Server{SubsystemHandlers: map[string]ssh.SubsystemHandler{
@@ -165,7 +166,7 @@ func (s *machineSuite) TestSFTPHandlerClosesMachineClientWhenClientDisconnects(c
 		},
 	}})
 
-	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c))
+	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	controller := startSSHTestServer(c, &ssh.Server{SubsystemHandlers: map[string]ssh.SubsystemHandler{

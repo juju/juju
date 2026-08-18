@@ -102,6 +102,7 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 	// registering nil will unregister the channel from signal sends.
 	defer session.Signals(nil)
 
+	h.metrics.ObserveTimeToSession(session.Context())
 	err = executor.Exec(session.Context(), k8sexec.ExecParams{
 		PodName:       podName,
 		ContainerName: container,

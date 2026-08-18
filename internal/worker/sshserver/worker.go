@@ -66,12 +66,16 @@ type ServerWrapperWorkerConfig struct {
 	Authorizer              Authorizer
 	ProxyFactory            ProxyFactory
 	TunnelTracker           TunnelTracker
+	Metrics                 *Collector
 }
 
 // Validate validates the workers configuration is as expected.
 func (c ServerWrapperWorkerConfig) Validate() error {
 	if c.ControllerConfigService == nil {
 		return errors.NotValidf("ControllerConfigService is required")
+	}
+	if c.Metrics == nil {
+		return errors.NotValidf("missing Metrics")
 	}
 	if c.NewServerWorker == nil {
 		return errors.NotValidf("NewSSHServer is required")
@@ -199,6 +203,7 @@ func (ssw *serverWrapperWorker) loop() error {
 		Authorizer:               ssw.config.Authorizer,
 		ProxyFactory:             ssw.config.ProxyFactory,
 		TunnelTracker:            ssw.config.TunnelTracker,
+		Metrics:                  ssw.config.Metrics,
 	})
 	ssw.addWorkerReporter("ssh-server", srv)
 	if err != nil {

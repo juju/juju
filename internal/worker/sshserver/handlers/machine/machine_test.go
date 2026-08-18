@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/worker/sshserver/handlers/common"
 )
 
 type machineSuite struct{}
@@ -24,19 +25,19 @@ func (s *machineSuite) TestNewHandlers(c *tc.C) {
 	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
 	c.Assert(err, tc.ErrorIsNil)
 
-	handlers, err := NewHandlers(destination, stubConnector{}, loggertesting.WrapCheckLog(c))
+	handlers, err := NewHandlers(destination, stubConnector{}, loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(handlers.destination, tc.Equals, destination)
 
-	_, err = NewHandlers(destination, nil, loggertesting.WrapCheckLog(c))
+	_, err = NewHandlers(destination, nil, loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Check(err, tc.ErrorMatches, "connector is required")
 
-	_, err = NewHandlers(destination, stubConnector{}, nil)
+	_, err = NewHandlers(destination, stubConnector{}, nil, common.NoopMetrics{})
 	c.Check(err, tc.ErrorMatches, "logger is required")
 
 	container, err := virtualhostname.NewInfoContainerTarget("8419cd78-4993-4c3a-928e-c646226beeee", "app/0", "workload")
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = NewHandlers(container, stubConnector{}, loggertesting.WrapCheckLog(c))
+	_, err = NewHandlers(container, stubConnector{}, loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Check(err, tc.ErrorMatches, "destination must be a machine or unit target")
 }
 

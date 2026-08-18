@@ -16,6 +16,7 @@ import (
 	"github.com/juju/worker/v5/dependency"
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
+	"github.com/prometheus/client_golang/prometheus"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/controller"
@@ -118,6 +119,12 @@ func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
+	// Missing Prometheus registerer.
+	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
+		cfg.PrometheusRegisterer = nil
+	})
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
 	// Missing GetSSHService.
 	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
 		cfg.GetSSHService = nil
@@ -154,7 +161,8 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 			sshServiceCalled = true
 			return s.sshService, nil
 		},
-		Logger: loggertesting.WrapCheckLog(c),
+		Logger:               loggertesting.WrapCheckLog(c),
+		PrometheusRegisterer: prometheus.NewRegistry(),
 	})
 
 	// Check the inputs are as expected
@@ -245,7 +253,8 @@ func (s *manifoldSuite) newManifoldConfig(c *tc.C, modifier func(cfg *ManifoldCo
 		GetSSHService: func(context.Context, services.DomainServicesGetter, model.UUID) (*modelsshservice.WatchableService, error) {
 			return s.sshService, nil
 		},
-		Logger: loggertesting.WrapCheckLog(c),
+		Logger:               loggertesting.WrapCheckLog(c),
+		PrometheusRegisterer: prometheus.NewRegistry(),
 	}
 
 	modifier(cfg)
@@ -279,7 +288,8 @@ func (s *manifoldSuite) TestManifoldMissingDependency(c *tc.C) {
 		GetSSHService: func(context.Context, services.DomainServicesGetter, model.UUID) (*modelsshservice.WatchableService, error) {
 			return s.sshService, nil
 		},
-		Logger: loggertesting.WrapCheckLog(c),
+		Logger:               loggertesting.WrapCheckLog(c),
+		PrometheusRegisterer: prometheus.NewRegistry(),
 	})
 
 	// Check the inputs are as expected

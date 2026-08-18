@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 	gossh "golang.org/x/crypto/ssh"
 
 	corecontroller "github.com/juju/juju/core/controller"
@@ -25,6 +26,7 @@ import (
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/services"
 	internalTunneler "github.com/juju/juju/internal/sshtunneler"
+	"github.com/juju/juju/internal/worker/common"
 	workerTunneler "github.com/juju/juju/internal/worker/sshtunneler"
 )
 
@@ -110,6 +112,8 @@ type ManifoldConfig struct {
 	GetSSHService GetSSHServiceFunc
 	// Logger is the logger to use for the worker.
 	Logger logger.Logger
+	// PrometheusRegisterer registers SSH server metrics.
+	PrometheusRegisterer prometheus.Registerer
 }
 
 // Validate validates the manifold configuration.
@@ -149,6 +153,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if config.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
 	}
 	return nil
 }
@@ -193,6 +200,11 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 		return nil, errors.Trace(err)
 	}
 
+	metricsCollector := NewMetricsCollector()
+	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	sshService := sshService{
 		controllerSSHService: controllerSSHService,
 		domainServicesGetter: domainServicesGetter,
@@ -208,9 +220,10 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 			resolver:      sshService,
 		},
 		getExecutor: k8sexec.NewInCluster,
+		metrics:     metricsCollector,
 	}
 
-	return config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
+	w, err := config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
 		SSHService:              sshService,
 		NewServerWorker:         config.NewServerWorker,
@@ -227,7 +240,15 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 		},
 		ProxyFactory:  proxyFactory,
 		TunnelTracker: tunnelTracker,
+		Metrics:       metricsCollector,
 	})
+	if err != nil {
+		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
+		return nil, errors.Trace(err)
+	}
+	return common.NewCleanupWorker(w, func() {
+		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
+	}), nil
 }
 
 // sshService wraps our ssh domain services to enable two things:

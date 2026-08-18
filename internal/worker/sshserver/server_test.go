@@ -85,6 +85,7 @@ func (s *sshServerSuite) newServer(c *tc.C) (*ServerWorker, *bufconn.Listener, f
 		Authorizer:               s.authorizer,
 		ProxyFactory:             s.proxyFactory,
 		TunnelTracker:            s.tunnelTracker,
+		Metrics:                  NewMetricsCollector(),
 	}
 
 	worker, err := NewServerWorker(cfg)
@@ -199,6 +200,17 @@ func (s *sshServerSuite) TestValidate(c *tc.C) {
 	l := loggertesting.WrapCheckLog(c)
 
 	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	// Test no Metrics.
+	s.SetUpMocks(c)
+	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *ServerWorkerConfig) {
+		cfg.Authenticator = s.authenticator
+		cfg.Authorizer = s.authorizer
+		cfg.ProxyFactory = s.proxyFactory
+		cfg.TunnelTracker = s.tunnelTracker
+		cfg.Metrics = nil
+	})
+	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*missing Metrics.*")
 
 	// Test no Logger.
 	cfg = newServerWorkerConfig(l, "Logger", func(cfg *ServerWorkerConfig) {
@@ -376,6 +388,7 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *tc.C) {
 		Authorizer:               s.authorizer,
 		ProxyFactory:             s.proxyFactory,
 		TunnelTracker:            s.tunnelTracker,
+		Metrics:                  NewMetricsCollector(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
@@ -468,6 +481,7 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *tc.C) {
 		Authorizer:               s.authorizer,
 		ProxyFactory:             s.proxyFactory,
 		TunnelTracker:            s.tunnelTracker,
+		Metrics:                  NewMetricsCollector(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
