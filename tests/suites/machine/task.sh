@@ -14,6 +14,7 @@ test_machine() {
 	# Test that need to be run are added here!
 	test_logs
 	test_provisioning_info
+	test_reprovisioning
 
 	destroy_controller "test-machine"
 }

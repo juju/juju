@@ -89,7 +89,7 @@ func (s *reprovisionMachineSuite) TestSuccess(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, command, "0")
 	c.Check(err, tc.ErrorIsNil)
 	output := cmdtesting.Stdout(ctx)
-	c.Check(strings.TrimSpace(output), tc.Equals, "reprovisioning machine 0")
+	c.Check(strings.TrimSpace(output), tc.Equals, `reprovisioning machine 0`)
 }
 
 func (s *reprovisionMachineSuite) TestAPIError(c *tc.C) {
