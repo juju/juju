@@ -289,6 +289,46 @@ func (b *buildSuite) TestBundleToolsMatchesBinaryUsingOsTypeArch(c *tc.C) {
 	c.Assert(official, tc.IsFalse)
 }
 
+func (b *buildSuite) TestBundleToolsIncludesJujudCompatShim(c *tc.C) {
+	thisArch := arch.HostArch()
+	thisHost := coreos.HostOSTypeName()
+	b.patchExecCommand(c, thisHost, thisArch)
+	dir := b.setUpFakeBinaries(c, "")
+
+	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, _, _, _, err = tools.BundleTools(false, bundleFile,
+		func(localBinaryVersion semversion.Number) semversion.Number { return semversion.MustParse("1.2.3.1") },
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = bundleFile.Seek(0, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	gzr, err := gzip.NewReader(bundleFile)
+	c.Assert(err, tc.ErrorIsNil)
+	r := tar.NewReader(gzr)
+
+	found := false
+	for {
+		hdr, err := r.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		c.Assert(err, tc.ErrorIsNil)
+		if hdr.Name != names.JujuController {
+			continue
+		}
+		found = true
+		c.Assert(hdr.Typeflag, tc.Equals, byte(tar.TypeReg))
+		c.Assert(hdr.Mode, tc.Equals, int64(0755))
+		content, err := io.ReadAll(r)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(string(content), tc.Equals, string(tools.JujudCompatShim))
+	}
+	c.Assert(found, tc.IsTrue)
+}
+
 func (b *buildSuite) TestJujudVersion(c *tc.C) {
 	b.patchExecCommand(c, "", "")
 	dir := b.setUpFakeBinaries(c, "")
