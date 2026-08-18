@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
+	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	accessservice "github.com/juju/juju/domain/access/service"
 	accessstate "github.com/juju/juju/domain/access/state"
@@ -440,17 +441,39 @@ type opImportPermissions struct {
 func (op *opImportPermissions) Name() string { return "import-permissions" }
 
 func (op *opImportPermissions) Execute(ctx context.Context, st *importState) error {
-	offerUUIDs, err := op.access.ImportModelPermissions(ctx, op.perms, st.inactiveUsers)
-	if err != nil {
-		return errors.Errorf("applying permissions for model %q import: %w", op.modelUUIDStr, err)
-	}
+	offerUUIDs := offerPermissionUUIDs(op.perms, st.inactiveUsers)
 	if err := op.claim.ImportOfferPermissions(
 		ctx, op.modelUUID, st.claimUUID, offerUUIDs,
 	); err != nil {
 		return errors.Errorf(
 			"recording offer permissions for model %q import: %w", op.modelUUIDStr, err)
 	}
+	if _, err := op.access.ImportModelPermissions(ctx, op.perms, st.inactiveUsers); err != nil {
+		return errors.Errorf("applying permissions for model %q import: %w", op.modelUUIDStr, err)
+	}
 	return nil
+}
+
+// offerPermissionUUIDs returns the distinct offer UUIDs for permissions that
+// may be written by ImportModelPermissions. It mirrors that method's inactive
+// user filtering and preserves first-seen order for deterministic inserts.
+func offerPermissionUUIDs(
+	permissions []coremodelmigration.ModelPermission, inactiveUsers set.Strings,
+) []string {
+	seen := make(map[string]struct{})
+	var result []string
+	for _, permission := range permissions {
+		if inactiveUsers.Contains(permission.SubjectName) ||
+			corepermission.ObjectType(permission.ObjectType) != corepermission.Offer {
+			continue
+		}
+		if _, ok := seen[permission.GrantOn]; ok {
+			continue
+		}
+		seen[permission.GrantOn] = struct{}{}
+		result = append(result, permission.GrantOn)
+	}
+	return result
 }
 
 // RemoveOnAbort deletes the model-scoped and offer-scoped permission rows. Offer

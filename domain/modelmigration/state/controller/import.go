@@ -147,9 +147,9 @@ AND    mmi.uuid = $importClaimKey.claim_uuid
 // this import claim into model_migration_import_offer, atomically with an
 // importing-phase assertion for modelUUID. AbortImport reads this table to
 // delete the corresponding offer-permission rows without a cross-DB query to
-// the model DB, since the offers themselves live there. The caller is
-// expected to have already written the offer permission rows themselves
-// (owned by the access domain).
+// the model DB, since the offers themselves live there. The caller records
+// this cleanup intent before writing the permission rows owned by the access
+// domain.
 func (s *State) ImportOfferPermissions(
 	ctx context.Context, modelUUID, claimUUID string, offerUUIDs []string,
 ) error {

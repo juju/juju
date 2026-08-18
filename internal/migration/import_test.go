@@ -285,3 +285,42 @@ func (s *controllerImportSuite) TestImportModelDuplicateClaim(c *tc.C) {
 	err = migration.ImportControllerModelInfo(c.Context(), deps, sourceMigrationUUID, info, view)
 	c.Check(err, tc.ErrorIs, coreerrors.AlreadyExists)
 }
+
+// TestImportModelRecordsOfferIntentBeforePermissionFailure verifies that offer
+// cleanup metadata is durable before the access domain starts writing
+// permissions. Duplicate offers are recorded once and permissions for inactive
+// users do not create cleanup intent.
+func (s *controllerImportSuite) TestImportModelRecordsOfferIntentBeforePermissionFailure(c *tc.C) {
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	deps, _, _ := s.deps(c, modelUUID)
+
+	activeOfferUUID := uuid.MustNewUUID().String()
+	inactiveOfferUUID := uuid.MustNewUUID().String()
+	info := s.baseControllerModelInfo(modelUUID)
+	info.Users = []coremodelmigration.ModelUser{
+		{Name: "bob@external", External: true},
+		{Name: "alice@external", External: true, Removed: true},
+	}
+	info.Permissions = []coremodelmigration.ModelPermission{
+		{ObjectType: "offer", GrantOn: activeOfferUUID, SubjectName: "bob@external", Access: "consume"},
+		{ObjectType: "offer", GrantOn: activeOfferUUID, SubjectName: "bob@external", Access: "consume"},
+		{ObjectType: "offer", GrantOn: inactiveOfferUUID, SubjectName: "alice@external", Access: "consume"},
+		{ObjectType: "invalid", GrantOn: modelUUID.String(), SubjectName: "bob@external", Access: "read"},
+	}
+
+	err := migration.ImportControllerModelInfo(
+		c.Context(), deps, uuid.MustNewUUID().String(), info,
+		export.ProjectionView{AgentTargetVersion: jujuversion.Current},
+	)
+	c.Assert(err, tc.ErrorMatches, `.*unknown permission object type "invalid".*`)
+
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model_migration_import_offer WHERE offer_uuid = ?",
+		activeOfferUUID), tc.Equals, 1)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model_migration_import_offer WHERE offer_uuid = ?",
+		inactiveOfferUUID), tc.Equals, 0)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM permission WHERE grant_on = ?",
+		activeOfferUUID), tc.Equals, 0)
+}

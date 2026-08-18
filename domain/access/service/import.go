@@ -186,7 +186,8 @@ func (s *UserService) ImportLastModelLogins(
 // grouped by offer UUID and written in a single ImportOfferAccess call. Users
 // in inactiveUsers (see [UserService.ImportModelUsers]) are skipped: they have
 // no active target identity to grant live permission state to. It returns the
-// offer UUIDs granted, for the caller to record against the import claim.
+// offer UUIDs it processed; the v8 import driver records their cleanup intent
+// before calling this method.
 //
 // It is called directly by the v8 migration import driver in
 // internal/migration.
