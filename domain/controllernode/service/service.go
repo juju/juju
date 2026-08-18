@@ -26,6 +26,9 @@ import (
 // State describes retrieval and persistence
 // methods for controller node concerns.
 type State interface {
+	// AddControllerNode ensures a controller node exists for the supplied ID.
+	AddControllerNode(ctx context.Context, controllerID string) error
+
 	// AddDqliteNode adds the Dqlite node ID and bind address for the input
 	// controller ID. If the controller ID already exists, it updates the
 	// Dqlite node ID and bind address.
@@ -92,6 +95,20 @@ func NewService(st State, logger logger.Logger) *Service {
 		st:     st,
 		logger: logger,
 	}
+}
+
+// AddControllerNode ensures a controller node exists for the supplied ID.
+func (s *Service) AddControllerNode(ctx context.Context, controllerID string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if controllerID == "" {
+		return errors.Errorf("controller ID is empty: %w", coreerrors.NotValid)
+	}
+	if err := s.st.AddControllerNode(ctx, controllerID); err != nil {
+		return errors.Errorf("adding controller node %q: %w", controllerID, err)
+	}
+	return nil
 }
 
 // AddDqliteNode adds the Dqlite node ID and bind address for the input
