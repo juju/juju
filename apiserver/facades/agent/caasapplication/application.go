@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domaincloud "github.com/juju/juju/domain/cloud"
 	"github.com/juju/juju/domain/logging"
 	loggingerrors "github.com/juju/juju/domain/logging/errors"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
@@ -267,13 +268,16 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 				DataDir: dataDir,
 				LogDir:  logDir,
 			},
-			Tag:                                names.NewControllerAgentTag(controllerID),
-			Controller:                         names.NewControllerTag(f.controllerUUID),
-			Model:                              names.NewModelTag(f.modelUUID.String()),
-			APIAddresses:                       addrs,
-			CACert:                             caCert,
-			Password:                           controllerPassword,
-			UpgradedToVersion:                  version,
+			Tag:               names.NewControllerAgentTag(controllerID),
+			Controller:        names.NewControllerTag(f.controllerUUID),
+			Model:             names.NewModelTag(f.modelUUID.String()),
+			APIAddresses:      addrs,
+			CACert:            caCert,
+			Password:          controllerPassword,
+			UpgradedToVersion: version,
+			Values: map[string]string{
+				agent.ProviderType: domaincloud.CloudTypeKubernetes.String(),
+			},
 			QueryTracingEnabled:                controllerConfig.QueryTracingEnabled(),
 			QueryTracingThreshold:              controllerConfig.QueryTracingThreshold(),
 			DqliteBusyTimeout:                  controllerConfig.DqliteBusyTimeout(),
