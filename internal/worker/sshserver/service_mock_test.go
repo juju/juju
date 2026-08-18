@@ -14,10 +14,10 @@ import (
 	net "net"
 
 	gomock "github.com/canonical/gomock/gomock"
-	ssh "github.com/gliderlabs/ssh"
 	controller "github.com/juju/juju/controller"
 	virtualhostname "github.com/juju/juju/core/virtualhostname"
 	watcher "github.com/juju/juju/core/watcher"
+	ssh "github.com/tailscale/gliderssh"
 )
 
 // MockControllerConfigService is a mock of ControllerConfigService interface.

@@ -8,10 +8,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/gliderlabs/ssh"
 	"github.com/juju/tc"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	"github.com/lestrrat-go/jwx/v3/jwt"
+	ssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
 
 	coressh "github.com/juju/juju/core/ssh"

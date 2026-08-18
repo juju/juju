@@ -6,9 +6,9 @@ package machine
 import (
 	"io"
 
-	"github.com/gliderlabs/ssh"
 	"github.com/juju/tc"
 	"github.com/pkg/sftp"
+	ssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/virtualhostname"

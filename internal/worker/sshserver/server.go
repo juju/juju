@@ -11,9 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
+	ssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
 	"gopkg.in/tomb.v2"
 
@@ -192,14 +192,17 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 func (s *ServerWorker) NewJumpServer() *ssh.Server {
 	server := ssh.Server{
 		ConnCallback: s.connCallback(),
-		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
+		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) error {
 			ok, err := s.config.Authenticator.PublicKeyAuthentication(ctx, key)
 			if err != nil {
 				s.config.Metrics.authenticationFailures.WithLabelValues("public_key").Inc()
 				s.config.Logger.Warningf(ctx, "failed to authenticate public key: %v", err)
-				return false
+				return err
 			}
-			return ok
+			if !ok {
+				return errors.New("rejected invalid public key")
+			}
+			return nil
 		},
 		PasswordHandler: func(ctx ssh.Context, password string) bool {
 			ok, err := s.config.Authenticator.PasswordAuthentication(ctx, password)

@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/canonical/gomock/gomock"
-	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
+	ssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
 	"google.golang.org/grpc/test/bufconn"
 

@@ -3,7 +3,7 @@
 
 package k8s
 
-import "github.com/gliderlabs/ssh"
+import ssh "github.com/tailscale/gliderssh"
 
 // SFTPHandler rejects SFTP, which is unsupported for Kubernetes targets.
 func (*Handlers) SFTPHandler() ssh.SubsystemHandler {

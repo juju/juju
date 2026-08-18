@@ -10,8 +10,8 @@ import (
 	"io"
 	"syscall"
 
-	"github.com/gliderlabs/ssh"
 	"github.com/juju/tc"
+	ssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/virtualhostname"
