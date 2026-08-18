@@ -4,6 +4,10 @@
 package unit
 
 import (
+	"context"
+	"net"
+
+	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/voyeur"
 
@@ -61,4 +65,13 @@ func (c *containerUnitAgent) DataDir() string {
 
 func EnsureAgentConf(ac agentconf.AgentConf) error {
 	return ensureAgentConf(ac)
+}
+
+func WaitForControllerConfigSocket(
+	ctx context.Context,
+	clk clock.Clock,
+	dial func(context.Context, string, string) (net.Conn, error),
+	socketPath string,
+) error {
+	return waitForControllerConfigSocket(ctx, clk, dial, socketPath)
 }

@@ -186,7 +186,17 @@ func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 	if err = c.fileReaderWriter.MkdirAll(c.dataDir, 0775); err != nil {
 		return errors.Trace(err)
 	}
-
+	if c.isController && unitConfig.ControllerAgentTag.Id() != "" {
+		controllerConfigPath := agent.ConfigPath(c.dataDir, unitConfig.ControllerAgentTag)
+		if err := c.fileReaderWriter.MkdirAll(path.Dir(controllerConfigPath), 0775); err != nil {
+			return errors.Trace(err)
+		}
+		if err := c.fileReaderWriter.WriteFile(controllerConfigPath, unitConfig.ControllerAgentConf, 0600); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	// The unit template is the completion marker checked above. Write it last
+	// so a partial controller initialization is retried rather than skipped.
 	if err = c.fileReaderWriter.WriteFile(templateConfigPath, unitConfig.AgentConf, 0664); err != nil {
 		return errors.Trace(err)
 	}
