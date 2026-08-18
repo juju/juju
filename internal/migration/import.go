@@ -139,17 +139,25 @@ type importState struct {
 }
 
 // importCoordinator sequences the controller-DB import steps and exposes both
-// an Import (forward) and a RemoveOnAbort (abort) driver.
+// an Import (forward) and a RemoveOnAbort (abort) driver. Forward operations
+// are constructed after the claim exists so every controller transaction can
+// be fenced to that exact import attempt. Abort operations use the ordinary
+// controller database because they run after the phase becomes aborting.
 type importCoordinator struct {
-	ops []controllerImportOp
+	begin      *opBeginImport
+	newGuarded func(claimUUID string) []controllerImportOp
+	abortOps   []controllerImportOp
 }
 
-// Import runs each op's Execute in registration order, threading importState
-// forward. The first error aborts the sequence; the caller is responsible for
-// calling RemoveOnAbort.
+// Import claims the model, then runs each guarded op's Execute in registration
+// order, threading importState forward. The first error aborts the sequence;
+// the caller is responsible for calling RemoveOnAbort.
 func (c *importCoordinator) Import(ctx context.Context) error {
 	var st importState
-	for _, op := range c.ops {
+	if err := c.begin.Execute(ctx, &st); err != nil {
+		return errors.Capture(err)
+	}
+	for _, op := range c.newGuarded(st.claimUUID) {
 		if err := op.Execute(ctx, &st); err != nil {
 			return errors.Capture(err)
 		}
@@ -161,8 +169,8 @@ func (c *importCoordinator) Import(ctx context.Context) error {
 // collecting all errors. It is idempotent and safe to call more than once.
 func (c *importCoordinator) RemoveOnAbort(ctx context.Context) error {
 	var errs []error
-	for i := len(c.ops) - 1; i >= 0; i-- {
-		if err := c.ops[i].RemoveOnAbort(ctx); err != nil {
+	for i := len(c.abortOps) - 1; i >= 0; i-- {
+		if err := c.abortOps[i].RemoveOnAbort(ctx); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -178,7 +186,42 @@ func newImportCoordinator(
 	modelUUIDStr := info.ModelInfo.UUID
 	modelUUID := coremodel.UUID(modelUUIDStr)
 
-	svc := newImportServices(deps, modelUUID)
+	rawServices := newImportServices(deps, modelUUID)
+	begin := &opBeginImport{
+		claim:         rawServices.claim,
+		modelUUID:     modelUUID,
+		modelUUIDStr:  modelUUIDStr,
+		sourceMigUUID: sourceMigrationUUID,
+	}
+	abortOps := newControllerImportOps(deps, rawServices, info, view)
+	newGuarded := func(claimUUID string) []controllerImportOp {
+		guardedDeps := deps
+		guardedDeps.ControllerDB = migrationclaimstate.NewImportTxnRunnerFactory(
+			deps.ControllerDB, modelUUIDStr, claimUUID,
+		)
+		return newControllerImportOps(
+			guardedDeps, newImportServices(guardedDeps, modelUUID), info, view,
+		)
+	}
+
+	return &importCoordinator{
+		begin:      begin,
+		newGuarded: newGuarded,
+		abortOps:   abortOps,
+	}
+}
+
+// newControllerImportOps builds the operations after the durable claim step.
+// deps and svc use either the guarded controller database for forward import,
+// or the ordinary controller database for abort cleanup.
+func newControllerImportOps(
+	deps Deps,
+	svc importServices,
+	info coremodelmigration.ControllerModelInfo,
+	view export.ProjectionView,
+) []controllerImportOp {
+	modelUUIDStr := info.ModelInfo.UUID
+	modelUUID := coremodel.UUID(modelUUIDStr)
 
 	var secretBackendName string
 	if info.SecretBackend != nil {
@@ -186,13 +229,7 @@ func newImportCoordinator(
 	}
 	agentStream := agentStreamFromModelConfig(view)
 
-	ops := []controllerImportOp{
-		&opBeginImport{
-			claim:         svc.claim,
-			modelUUID:     modelUUID,
-			modelUUIDStr:  modelUUIDStr,
-			sourceMigUUID: sourceMigrationUUID,
-		},
+	return []controllerImportOp{
 		&opImportUsers{
 			access:       svc.access,
 			modelUUIDStr: modelUUIDStr,
@@ -256,8 +293,6 @@ func newImportCoordinator(
 			metadata:     info.CloudImageMetadata,
 		},
 	}
-
-	return &importCoordinator{ops: ops}
 }
 
 // ---- per-op structs ---------------------------------------------------------

@@ -24,6 +24,12 @@ type modelUUIDArg struct {
 	ModelUUID string `db:"model_uuid"`
 }
 
+// importClaimKey identifies one exact target-side import attempt.
+type importClaimKey struct {
+	ModelUUID string `db:"model_uuid"`
+	ClaimUUID string `db:"claim_uuid"`
+}
+
 // modelLifeRow projects a model row's life id (see
 // [github.com/juju/juju/domain/life]).
 type modelLifeRow struct {
