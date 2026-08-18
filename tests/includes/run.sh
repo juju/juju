@@ -88,6 +88,11 @@ run_linter() {
 	fi
 }
 
+# add a test to the skip list
+add_skipped() {
+  SKIP_LIST="${SKIP_LIST:+$SKIP_LIST,}${1#,}";
+}
+
 skip() {
 	# For each command, check if it would be skipped (absent from RUN_LIST when
 	# provided or present in SKIP_LIST). Only output "SKIP" if every command

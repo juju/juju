@@ -40,7 +40,7 @@ test_import_filesystem() {
 	kubectl patch pv "${PV}" --type merge -p '{"spec":{"claimRef": null}}'
 
 	# Final attempt: import the PersistentVolume successfully.
-	OUT=$(juju import-filesystem kubernetes "${PV}" data 2>&1)
+	juju import-filesystem kubernetes "${PV}" data
 
 	wait_for_storage "detached" '.storage["data/1"]["status"].current'
 	wait_for_storage "${PV}" '.filesystems["1"]."provider-id"'
@@ -96,7 +96,7 @@ test_force_import_filesystem() {
 	kubectl patch pv "${PV}" --type merge -p '{"spec":{"claimRef": null}}'
 
 	# Final attempt: import the PersistentVolume successfully.
-	OUT=$(juju import-filesystem kubernetes "${PV}" data --force 2>&1)
+	juju import-filesystem kubernetes "${PV}" data --force
 
 	wait_for_storage "detached" '.storage["data/1"]["status"].current'
 
