@@ -404,7 +404,9 @@ func (m *ModelManagerAPI) createModelInfo(
 	// If the user has supplied an agent stream and not target agent version.
 	if suppliedAgentVersion == semversion.Zero &&
 		suppliedAgentStream != coreagentbinary.AgentStream("") {
-		// TODO: We don't have a way to set just the agent stream.
+		return modelInfoService.CreateModelWithAgentStream(
+			ctx, suppliedAgentStream,
+		)
 	}
 
 	// If the user has supplied nothing.

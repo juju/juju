@@ -443,6 +443,34 @@ func (s *modelManagerSuite) TestCreateModelWithTargetControllerSet(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `target-controller parameter is only supported on JAAS`)
 }
 
+func (s *modelManagerSuite) TestCreateModelArgsWithAgentStream(c *tc.C) {
+	ctrl := s.setUpAPI(c)
+	defer ctrl.Finish()
+
+	cloudCredental := credential.Key{
+		Cloud: "dummy",
+		Owner: coreuser.AdminUserName,
+		Name:  "some-credential",
+	}
+	args := params.ModelCreateArgs{
+		Name:      "foo",
+		Qualifier: "admin",
+		Config: map[string]any{
+			"bar":                 "baz",
+			config.AgentStreamKey: "released",
+		},
+		CloudTag:           "cloud-dummy",
+		CloudRegion:        "qux",
+		CloudCredentialTag: "cloudcred-dummy_admin_some-credential",
+	}
+
+	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
+	s.modelInfoService.EXPECT().CreateModelWithAgentStream(gomock.Any(), coreagentbinary.AgentStreamReleased).Return(nil)
+
+	_, err := s.api.CreateModel(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersionAndStream(c *tc.C) {
 	ctrl := s.setUpAPI(c)
 	defer ctrl.Finish()
