@@ -367,6 +367,7 @@ type MockApplicationServiceMockRecorder struct {
 	mock                                  *MockApplicationService
 	createCAASApplicationExpects          []*gomock.Call5V_2[context.Context, string, charm0.Charm, charm.Origin, service0.AddApplicationArgs, service0.AddUnitArg, application.UUID, error]
 	createIAASApplicationExpects          []*gomock.Call5V_2[context.Context, string, charm0.Charm, charm.Origin, service0.AddApplicationArgs, service0.AddIAASUnitArg, application.UUID, error]
+	getApplicationUUIDByNameExpects       []*gomock.Call2_2[context.Context, string, application.UUID, error]
 	resolveControllerCharmDownloadExpects []*gomock.Call2_2[context.Context, application0.ResolveControllerCharmDownload, application0.ResolvedControllerCharmDownload, error]
 	updateCAASUnitExpects                 []*gomock.Call3_1[context.Context, unit.Name, service0.UpdateCAASUnitParams, error]
 	updateK8sServiceExpects               []*gomock.Call4_1[context.Context, string, string, network.ProviderAddresses, error]
@@ -421,6 +422,24 @@ func (mr *MockApplicationServiceMockRecorder) CreateIAASApplication(arg0, arg1, 
 
 // MockApplicationServiceCreateIAASApplicationCall is the typed call wrapper for CreateIAASApplication.
 type MockApplicationServiceCreateIAASApplicationCall = gomock.Call5V_2[context.Context, string, charm0.Charm, charm.Origin, service0.AddApplicationArgs, service0.AddIAASUnitArg, application.UUID, error]
+
+// GetApplicationUUIDByName mocks base method.
+func (m *MockApplicationService) GetApplicationUUIDByName(ctx context.Context, name string) (application.UUID, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getApplicationUUIDByNameExpects, m.ctrl, m, "GetApplicationUUIDByName", ctx, name)
+}
+
+// GetApplicationUUIDByName indicates an expected call of GetApplicationUUIDByName.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationUUIDByName(ctx, name any) *MockApplicationServiceGetApplicationUUIDByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, application.UUID, error](mr.mock.ctrl.T, mr.mock, "GetApplicationUUIDByName", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name))
+	mr.getApplicationUUIDByNameExpects = append(mr.getApplicationUUIDByNameExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockApplicationServiceGetApplicationUUIDByNameCall is the typed call wrapper for GetApplicationUUIDByName.
+type MockApplicationServiceGetApplicationUUIDByNameCall = gomock.Call2_2[context.Context, string, application.UUID, error]
 
 // ResolveControllerCharmDownload mocks base method.
 func (m *MockApplicationService) ResolveControllerCharmDownload(ctx context.Context, resolve application0.ResolveControllerCharmDownload) (application0.ResolvedControllerCharmDownload, error) {
@@ -859,6 +878,7 @@ type MockAgentPasswordService struct {
 // MockAgentPasswordServiceMockRecorder is the mock recorder for MockAgentPasswordService.
 type MockAgentPasswordServiceMockRecorder struct {
 	mock                             *MockAgentPasswordService
+	setApplicationPasswordExpects    []*gomock.Call3_1[context.Context, application.UUID, string, error]
 	setControllerNodePasswordExpects []*gomock.Call3_1[context.Context, string, string, error]
 	setMachinePasswordExpects        []*gomock.Call3_1[context.Context, machine.Name, string, error]
 	setUnitPasswordExpects           []*gomock.Call3_1[context.Context, unit.Name, string, error]
@@ -875,6 +895,24 @@ func NewMockAgentPasswordService(ctrl *gomock.Controller) *MockAgentPasswordServ
 func (m *MockAgentPasswordService) EXPECT() *MockAgentPasswordServiceMockRecorder {
 	return m.recorder
 }
+
+// SetApplicationPassword mocks base method.
+func (m *MockAgentPasswordService) SetApplicationPassword(ctx context.Context, appID application.UUID, password string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.setApplicationPasswordExpects, m.ctrl, m, "SetApplicationPassword", ctx, appID, password)
+}
+
+// SetApplicationPassword indicates an expected call of SetApplicationPassword.
+func (mr *MockAgentPasswordServiceMockRecorder) SetApplicationPassword(ctx, appID, password any) *MockAgentPasswordServiceSetApplicationPasswordCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, application.UUID, string, error](mr.mock.ctrl.T, mr.mock, "SetApplicationPassword", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appID), gomock.EnsureMatcher(password))
+	mr.setApplicationPasswordExpects = append(mr.setApplicationPasswordExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockAgentPasswordServiceSetApplicationPasswordCall is the typed call wrapper for SetApplicationPassword.
+type MockAgentPasswordServiceSetApplicationPasswordCall = gomock.Call3_1[context.Context, application.UUID, string, error]
 
 // SetControllerNodePassword mocks base method.
 func (m *MockAgentPasswordService) SetControllerNodePassword(ctx context.Context, controllerID, password string) error {
