@@ -332,12 +332,22 @@ func (s *Service) SetModelConfig(
 		return errors.Errorf("constructing new model config with model defaults: %w", err)
 	}
 
-	_, err = s.validatorForSetModelConfig().Validate(ctx, setCfg, nil)
+	// Agent stream and version are not model config values. They are
+	// stored in the agent_version table and should never be written to
+	// model_config. The AggregateValidator for SetModelConfig accepts a
+	// nil pointer for old config in Validate(), so we cannot technically
+	// add AgentStreamChange() or AgentVersionChange() validation.
+	strippedCfg, err := setCfg.Remove([]string{config.AgentStreamKey, config.AgentVersionKey})
+	if err != nil {
+		return errors.Errorf("removing agent version and stream keys from model config: %w", err)
+	}
+
+	_, err = s.validatorForSetModelConfig().Validate(ctx, strippedCfg, nil)
 	if err != nil {
 		return errors.Errorf("validating model config to set for model: %w", err)
 	}
 
-	rawCfg, err := CoerceConfigForStorage(setCfg.AllAttrs())
+	rawCfg, err := CoerceConfigForStorage(strippedCfg.AllAttrs())
 	if err != nil {
 		return errors.Errorf("coercing model config for storage: %w", err)
 	}

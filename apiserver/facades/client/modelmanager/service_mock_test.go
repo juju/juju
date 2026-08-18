@@ -14,6 +14,7 @@ import (
 	time "time"
 
 	gomock "github.com/canonical/gomock/gomock"
+
 	modelmanager "github.com/juju/juju/apiserver/facades/client/modelmanager"
 	agentbinary "github.com/juju/juju/core/agentbinary"
 	assumes "github.com/juju/juju/core/assumes"
@@ -606,6 +607,7 @@ type MockModelInfoService struct {
 type MockModelInfoServiceMockRecorder struct {
 	mock                                     *MockModelInfoService
 	createModelExpects                       []*gomock.Call1_1[context.Context, error]
+	createModelWithAgentStreamExpects        []*gomock.Call2_1[context.Context, agentbinary.AgentStream, error]
 	createModelWithAgentVersionExpects       []*gomock.Call2_1[context.Context, semversion.Number, error]
 	createModelWithAgentVersionStreamExpects []*gomock.Call3_1[context.Context, semversion.Number, agentbinary.AgentStream, error]
 	getModelInfoExpects                      []*gomock.Call1_2[context.Context, model.ModelInfo, error]
@@ -644,6 +646,24 @@ func (mr *MockModelInfoServiceMockRecorder) CreateModel(arg0 any) *MockModelInfo
 
 // MockModelInfoServiceCreateModelCall is the typed call wrapper for CreateModel.
 type MockModelInfoServiceCreateModelCall = gomock.Call1_1[context.Context, error]
+
+// CreateModelWithAgentStream mocks base method.
+func (m *MockModelInfoService) CreateModelWithAgentStream(arg0 context.Context, arg1 agentbinary.AgentStream) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.createModelWithAgentStreamExpects, m.ctrl, m, "CreateModelWithAgentStream", arg0, arg1)
+}
+
+// CreateModelWithAgentStream indicates an expected call of CreateModelWithAgentStream.
+func (mr *MockModelInfoServiceMockRecorder) CreateModelWithAgentStream(arg0, arg1 any) *MockModelInfoServiceCreateModelWithAgentStreamCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, agentbinary.AgentStream, error](mr.mock.ctrl.T, mr.mock, "CreateModelWithAgentStream", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.createModelWithAgentStreamExpects = append(mr.createModelWithAgentStreamExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelInfoServiceCreateModelWithAgentStreamCall is the typed call wrapper for CreateModelWithAgentStream.
+type MockModelInfoServiceCreateModelWithAgentStreamCall = gomock.Call2_1[context.Context, agentbinary.AgentStream, error]
 
 // CreateModelWithAgentVersion mocks base method.
 func (m *MockModelInfoService) CreateModelWithAgentVersion(arg0 context.Context, arg1 semversion.Number) error {

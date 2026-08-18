@@ -173,6 +173,12 @@ type ModelInfoService interface {
 	// initialised.
 	CreateModelWithAgentVersion(context.Context, semversion.Number) error
 
+	// CreateModelWithAgentStream is responsible for creating a new model within
+	// the model database using the specified agent stream. Upon creating the
+	// model any information required in the model's provider will be
+	// initialised.
+	CreateModelWithAgentStream(context.Context, agentbinary.AgentStream) error
+
 	// CreateModelWithAgentVersionStream is responsible for creating a new model
 	// within the model database using the specified agent version and agent
 	// stream. Upon creating the model any information required in the model's

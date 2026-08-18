@@ -389,6 +389,78 @@ func (s *modelServiceSuite) TestCreateModelForVersionInvalidStream(c *tc.C) {
 	c.Check(err, tc.ErrorIs, modelerrors.AgentStreamNotValid)
 }
 
+// TestCreateModelWithAgentStream is testing that when
+// [ModelService.CreateModelWithAgentStream] is called with a valid agent
+// stream, the model is created with the current Juju version and the
+// supplied stream.
+func (s *modelServiceSuite) TestCreateModelWithAgentStream(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	controllerUUID := uuid.MustNewUUID()
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+
+	s.mockControllerState.EXPECT().GetModelSeedInformation(gomock.Any(), modelUUID).Return(coremodel.ModelInfo{
+		UUID:           modelUUID,
+		ControllerUUID: controllerUUID,
+		Name:           "my-awesome-model",
+		Qualifier:      "prod",
+		Cloud:          "aws",
+		CloudType:      "ec2",
+		CloudRegion:    "myregion",
+		Type:           coremodel.IAAS,
+	}, nil)
+	s.mockModelState.EXPECT().Create(gomock.Any(), model.ModelDetailArgs{
+		UUID:               modelUUID,
+		ControllerUUID:     controllerUUID,
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
+		AgentStream:        domainagentbinary.AgentStreamTesting,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+	}).Return(nil)
+
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+	err := svc.CreateModelWithAgentStream(
+		c.Context(),
+		agentbinary.AgentStreamTesting,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestCreateModelWithAgentStreamInvalidStream is testing that when
+// [ModelService.CreateModelWithAgentStream] is called with an agent stream
+// that isn't understood or supported we get back an error that satisfies
+// [modelerrors.AgentStreamNotValid].
+func (s *modelServiceSuite) TestCreateModelWithAgentStreamInvalidStream(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	s.mockControllerState.EXPECT().GetModelSeedInformation(gomock.Any(), modelUUID).Return(coremodel.ModelInfo{}, nil)
+
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+	err := svc.CreateModelWithAgentStream(
+		c.Context(),
+		agentbinary.AgentStream("bad stream"),
+	)
+	c.Check(err, tc.ErrorIs, modelerrors.AgentStreamNotValid)
+}
+
 func (s *modelServiceSuite) TestGetEnvironVersion(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

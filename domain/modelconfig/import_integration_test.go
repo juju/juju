@@ -121,11 +121,15 @@ func (s *importSuite) TestImportModelConfig(c *tc.C) {
 	defaultBase, _ := storedConfig.DefaultBase()
 	c.Check(defaultBase, tc.Equals, "ubuntu@20.04")
 
+	// agent-version and agent-stream are no longer stored in
+	// model_config; they are stored in the agent_version table. The
+	// v_model_config view synthesizes them from agent_version, which is
+	// not populated in this test, so the values are empty.
 	agentVersion, _ := storedConfig.AgentVersion()
-	c.Check(agentVersion.String(), tc.Equals, "7.8.9")
+	c.Check(agentVersion.String(), tc.Equals, "0.0.0")
 
 	agentStream := storedConfig.AgentStream()
-	c.Check(agentStream, tc.Equals, "candidate")
+	c.Check(agentStream, tc.Equals, "")
 
 	defaults := config.ConfigDefaults()
 
