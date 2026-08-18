@@ -32,8 +32,6 @@ var lookPathFunc = exec.LookPath
 
 func snapArch(goarch string) string {
 	switch goarch {
-	case "arm":
-		return "armhf"
 	case "ppc64le":
 		return "ppc64el"
 	default:
