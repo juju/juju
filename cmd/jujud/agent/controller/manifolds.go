@@ -84,6 +84,7 @@ import (
 	"github.com/juju/juju/internal/worker/secretbackendrotate"
 	"github.com/juju/juju/internal/worker/singular"
 	"github.com/juju/juju/internal/worker/sshserver"
+	"github.com/juju/juju/internal/worker/sshtunneler"
 	"github.com/juju/juju/internal/worker/storageregistry"
 	"github.com/juju/juju/internal/worker/terminationworker"
 	"github.com/juju/juju/internal/worker/trace"
@@ -706,13 +707,30 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewMetricsCollector:             controlsocket.NewMetricsCollector,
 		})),
 
-		// The ssh server worker runs on the controller.
 		sshServerName: sshserver.Manifold(sshserver.ManifoldConfig{
+			SSHTunnelerName:            sshTunnelerName,
+			JWTParserName:              jwtParserName,
 			DomainServicesName:         domainServicesName,
+			ControllerID:               config.ControllerID,
+			ControllerUUID:             config.ControllerUUID,
 			Logger:                     internallogger.GetLogger("juju.worker.sshserver"),
 			NewServerWrapperWorker:     sshserver.NewServerWrapperWorker,
 			NewServerWorker:            sshserver.NewServerWorker,
 			GetControllerConfigService: sshserver.GetControllerConfigService,
+			GetControllerSSHService:    sshserver.GetControllerSSHService,
+			GetDomainServicesGetter:    sshserver.GetDomainServicesGetter,
+			GetSSHService:              sshserver.GetSSHService,
+			PrometheusRegisterer:       config.PrometheusRegisterer,
+		}),
+
+		// The ssh tunneler worker creates reverse SSH tunnels to machines.
+		sshTunnelerName: sshtunneler.Manifold(sshtunneler.ManifoldConfig{
+			DomainServicesName:       domainServicesName,
+			Clock:                    config.Clock,
+			GetControllerNodeService: sshtunneler.GetControllerNodeService,
+			GetDomainServicesGetter:  sshtunneler.GetDomainServicesGetter,
+			GetSSHService:            sshtunneler.GetSSHService,
+			GetMachineService:        sshtunneler.GetMachineService,
 		}),
 
 		// The objectstore draining workers collaborate to run draining
@@ -1209,6 +1227,7 @@ const (
 	queryLoggerName                    = "query-logger"
 	secretBackendRotateName            = "secret-backend-rotate"
 	sshServerName                      = "ssh-server"
+	sshTunnelerName                    = "ssh-tunneler"
 	storageRegistryName                = "storage-registry"
 	controllerTraceName                = "controller-trace"
 	traceServicesName                  = "trace-services"
