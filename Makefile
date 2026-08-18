@@ -389,7 +389,9 @@ ${BUILD_DIR}/%/bin/pebble: phony_explicit
 ${JUJU_METADATA_SOURCE}/tools/${JUJU_PUBLISH_STREAM}/juju-${JUJU_VERSION}-%.tgz: phony_explicit juju $(BUILD_AGENT_TARGETS) $(BUILD_CGO_AGENT_TARGETS)
 	@echo "Packaging simplestream tools for juju ${JUJU_VERSION} on $*"
 	@mkdir -p ${JUJU_METADATA_SOURCE}/tools/${JUJU_PUBLISH_STREAM}
-	@tar czf "$@" -C $(call bin_platform_paths,$(subst -,/,$*)) jujuagentd jujuc
+	@printf '#!/bin/sh\nexec "$$(dirname "$$0")/jujuagentd" "$$@"\n' > $(call bin_platform_paths,$(subst -,/,$*))/jujud
+	@chmod 0755 $(call bin_platform_paths,$(subst -,/,$*))/jujud
+	@tar czf "$@" -C $(call bin_platform_paths,$(subst -,/,$*)) jujuagentd jujuc jujud
 
 .PHONY: simplestreams
 simplestreams: juju juju-metadata ${SIMPLESTREAMS_TARGETS}
