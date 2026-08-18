@@ -10,8 +10,11 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/juju/collections/set"
 	ziputil "github.com/juju/utils/v4/zip"
@@ -22,10 +25,20 @@ import (
 // CharmArchive type encapsulates access to data and operations
 // on a charm archive.
 type CharmArchive struct {
-	zopen zipOpener
+	zopen                  zipOpener
+	hasHooksOrDispatchFile bool
+	scriptletSources       []ScriptletSource
 
 	Path string // May be empty if CharmArchive wasn't read from a file
 	*charmBase
+}
+
+// ScriptletSource is a Starform source contained in a charm archive.
+type ScriptletSource struct {
+	// Path is the source file name relative to the scriptlets directory.
+	Path string
+	// Content is the raw source file content.
+	Content []byte
 }
 
 // Trick to ensure *CharmArchive implements the Charm interface.
@@ -156,6 +169,11 @@ func readCharmArchive(zopen zipOpener) (archive *CharmArchive, err error) {
 			return nil, err
 		}
 	}
+	b.scriptletSources, err = readScriptletSources(zipr)
+	if err != nil {
+		return nil, err
+	}
+	b.hasHooksOrDispatchFile = archiveHasDirectory(zipr, "hooks") || archiveHasFile(zipr, "dispatch")
 
 	return b, nil
 }
@@ -269,6 +287,72 @@ func (a *CharmArchive) ArchiveMembers() (set.Strings, error) {
 	manifest.Add("revision")
 	manifest.Remove(".")
 	return manifest, nil
+}
+
+// ScriptletSources returns the cached .star files beneath the scriptlets
+// directory.
+func (a *CharmArchive) ScriptletSources() []ScriptletSource {
+	return append([]ScriptletSource(nil), a.scriptletSources...)
+}
+
+// HasHooksOrDispatchFile reports whether the archive contains a hooks
+// directory or a dispatch file.
+func (a *CharmArchive) HasHooksOrDispatchFile() bool {
+	return a.hasHooksOrDispatchFile
+}
+
+func archiveHasDirectory(zipr *zipReadCloser, directory string) bool {
+	prefix := directory + "/"
+	for _, file := range zipr.File {
+		if (file.Name == directory && file.FileInfo().IsDir()) || strings.HasPrefix(file.Name, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func archiveHasFile(zipr *zipReadCloser, name string) bool {
+	for _, file := range zipr.File {
+		if file.Name == name && !file.FileInfo().IsDir() {
+			return true
+		}
+	}
+	return false
+}
+
+func readScriptletSources(zipr *zipReadCloser) ([]ScriptletSource, error) {
+	const scriptletsPrefix = "scriptlets/"
+
+	var files []*zip.File
+	for _, file := range zipr.File {
+		if strings.HasPrefix(file.Name, scriptletsPrefix) && path.Ext(file.Name) == ".star" && !file.FileInfo().IsDir() {
+			files = append(files, file)
+		}
+	}
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].Name < files[j].Name
+	})
+
+	sources := make([]ScriptletSource, len(files))
+	for i, file := range files {
+		reader, err := file.Open()
+		if err != nil {
+			return nil, internalerrors.Errorf("opening scriptlet source %q: %w", file.Name, err)
+		}
+		content, readErr := io.ReadAll(reader)
+		closeErr := reader.Close()
+		if readErr != nil {
+			return nil, internalerrors.Errorf("reading scriptlet source %q: %w", file.Name, readErr)
+		}
+		if closeErr != nil {
+			return nil, internalerrors.Errorf("closing scriptlet source %q: %w", file.Name, closeErr)
+		}
+		sources[i] = ScriptletSource{
+			Path:    strings.TrimPrefix(file.Name, scriptletsPrefix),
+			Content: content,
+		}
+	}
+	return sources, nil
 }
 
 // ExpandTo expands the charm archive into dir, creating it if necessary.
