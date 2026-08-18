@@ -42,8 +42,10 @@ func (s *provisionerSuite) TestUnitIntroduction(c *tc.C) {
 		c.Assert(result, tc.FitsTypeOf, &params.CAASUnitIntroductionResult{})
 		*(result.(*params.CAASUnitIntroductionResult)) = params.CAASUnitIntroductionResult{
 			Result: &params.CAASUnitIntroduction{
-				AgentConf: []byte("config data"),
-				UnitName:  "app/0",
+				AgentConf:           []byte("config data"),
+				UnitName:            "app/0",
+				ControllerAgentTag:  "controller-0",
+				ControllerAgentConf: []byte("controller config data"),
 			},
 		}
 		return nil
@@ -54,6 +56,8 @@ func (s *provisionerSuite) TestUnitIntroduction(c *tc.C) {
 	c.Assert(unitConfig, tc.NotNil)
 	c.Assert(unitConfig.UnitTag.String(), tc.Equals, "unit-app-0")
 	c.Assert(unitConfig.AgentConf, tc.SameContents, []byte("config data"))
+	c.Check(unitConfig.ControllerAgentTag, tc.DeepEquals, names.NewControllerAgentTag("0"))
+	c.Check(unitConfig.ControllerAgentConf, tc.SameContents, []byte("controller config data"))
 }
 
 func (s *provisionerSuite) TestUnitIntroductionFail(c *tc.C) {

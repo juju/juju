@@ -35,6 +35,8 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		ctx.ModelUUID(),
 		domainServices.ControllerConfig(),
 		domainServices.ControllerNode(),
+		domainServices.Controller(),
+		domainServices.AgentPassword(),
 		applicationService,
 		domainServices.Agent(),
 		domainServices.Tracing(),

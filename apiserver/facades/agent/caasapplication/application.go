@@ -6,6 +6,7 @@ package caasapplication
 import (
 	"context"
 	"path"
+	"strconv"
 	"time"
 
 	"github.com/juju/errors"
@@ -15,6 +16,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
@@ -25,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/logging"
 	loggingerrors "github.com/juju/juju/domain/logging/errors"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -35,10 +38,22 @@ type ControllerConfigService interface {
 
 // ControllerNodeService represents a way to get controller api addresses.
 type ControllerNodeService interface {
+	// AddControllerNode ensures a controller node exists for the supplied ID.
+	AddControllerNode(ctx context.Context, controllerID string) error
 	// GetAllAPIAddressesForAgents returns a string of api
 	// addresses available for agents ordered to prefer local-cloud scoped
 	// addresses and IPv4 over IPv6 for each machine.
 	GetAllAPIAddressesForAgents(ctx context.Context) ([]string, error)
+}
+
+// ControllerService provides controller agent configuration.
+type ControllerService interface {
+	GetControllerAgentInfo(ctx context.Context) (controller.ControllerAgentInfo, error)
+}
+
+// AgentPasswordService manages agent passwords.
+type AgentPasswordService interface {
+	SetControllerNodePassword(ctx context.Context, controllerID, password string) error
 }
 
 // ApplicationService instances implement an application service.
@@ -83,6 +98,8 @@ type Facade struct {
 	auth                    facade.Authorizer
 	controllerConfigService ControllerConfigService
 	controllerNodeService   ControllerNodeService
+	controllerService       ControllerService
+	agentPasswordService    AgentPasswordService
 	applicationService      ApplicationService
 	modelAgentService       ModelAgentService
 	tracingService          TracingService
@@ -97,6 +114,8 @@ func NewFacade(
 	modelUUID coremodel.UUID,
 	controllerConfigService ControllerConfigService,
 	controllerNodeService ControllerNodeService,
+	controllerService ControllerService,
+	agentPasswordService AgentPasswordService,
 	applicationService ApplicationService,
 	modelAgentService ModelAgentService,
 	tracingService TracingService,
@@ -109,6 +128,8 @@ func NewFacade(
 		modelUUID:               modelUUID,
 		controllerConfigService: controllerConfigService,
 		controllerNodeService:   controllerNodeService,
+		controllerService:       controllerService,
+		agentPasswordService:    agentPasswordService,
 		applicationService:      applicationService,
 		modelAgentService:       modelAgentService,
 		tracingService:          tracingService,
@@ -230,6 +251,58 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 			UnitName:  unitName.String(),
 			AgentConf: agentConfBytes,
 		},
+	}
+	if tag.Name == coreapplication.ControllerApplicationName {
+		controllerID := strconv.Itoa(unitName.Number())
+		controllerPassword, err := password.RandomPassword()
+		if err != nil {
+			return errResp(errors.Annotate(err, "generating controller agent password"))
+		}
+		controllerAgentInfo, err := f.controllerService.GetControllerAgentInfo(ctx)
+		if err != nil {
+			return errResp(errors.Annotate(err, "getting controller agent info"))
+		}
+		controllerConf, err := agent.NewStateMachineConfig(agent.AgentConfigParams{
+			Paths: agent.Paths{
+				DataDir: dataDir,
+				LogDir:  logDir,
+			},
+			Tag:                                names.NewControllerAgentTag(controllerID),
+			Controller:                         names.NewControllerTag(f.controllerUUID),
+			Model:                              names.NewModelTag(f.modelUUID.String()),
+			APIAddresses:                       addrs,
+			CACert:                             caCert,
+			Password:                           controllerPassword,
+			UpgradedToVersion:                  version,
+			QueryTracingEnabled:                controllerConfig.QueryTracingEnabled(),
+			QueryTracingThreshold:              controllerConfig.QueryTracingThreshold(),
+			DqliteBusyTimeout:                  controllerConfig.DqliteBusyTimeout(),
+			OpenTelemetryEnabled:               tracingConfig.GRPCEndpoint != "" || tracingConfig.HTTPEndpoint != "",
+			OpenTelemetryHTTPEndpoint:          tracingConfig.HTTPEndpoint,
+			OpenTelemetryGRPCEndpoint:          tracingConfig.GRPCEndpoint,
+			OpenTelemetryInsecure:              openTelemetryInsecure(tracingConfig),
+			OpenTelemetryStackTraces:           openTelemetryStackTraces(tracingConfig),
+			OpenTelemetrySampleRatio:           openTelemetrySampleRatio(tracingConfig),
+			OpenTelemetryTailSamplingThreshold: openTelemetryTailSamplingThreshold,
+			LokiEndpoint:                       lokiConfig.Endpoint,
+			LokiCACert:                         lokiConfig.CACertificate,
+			LokiInsecureSkipVerify:             lokiConfig.InsecureSkipVerify,
+		}, controllerAgentInfo)
+		if err != nil {
+			return errResp(errors.Annotate(err, "creating controller agent config"))
+		}
+		controllerConfBytes, err := controllerConf.Render()
+		if err != nil {
+			return errResp(errors.Annotate(err, "rendering controller agent config"))
+		}
+		if err := f.controllerNodeService.AddControllerNode(ctx, controllerID); err != nil {
+			return errResp(err)
+		}
+		if err := f.agentPasswordService.SetControllerNodePassword(ctx, controllerID, controllerPassword); err != nil {
+			return errResp(err)
+		}
+		res.Result.ControllerAgentTag = names.NewControllerAgentTag(controllerID).String()
+		res.Result.ControllerAgentConf = controllerConfBytes
 	}
 	return res, nil
 }

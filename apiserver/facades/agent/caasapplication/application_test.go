@@ -4,6 +4,7 @@
 package caasapplication_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -41,6 +42,8 @@ type CAASApplicationSuite struct {
 	modelUUID               coremodel.UUID
 	controllerConfigService *caasapplication.MockControllerConfigService
 	controllerNodeService   *caasapplication.MockControllerNodeService
+	controllerService       *caasapplication.MockControllerService
+	agentPasswordService    *caasapplication.MockAgentPasswordService
 	applicationService      *caasapplication.MockApplicationService
 	modelAgentService       *caasapplication.MockModelAgentService
 	tracingService          *caasapplication.MockTracingService
@@ -64,6 +67,8 @@ func (s *CAASApplicationSuite) setupMocks(c *tc.C, authTag string) *gomock.Contr
 
 	s.controllerConfigService = caasapplication.NewMockControllerConfigService(ctrl)
 	s.controllerNodeService = caasapplication.NewMockControllerNodeService(ctrl)
+	s.controllerService = caasapplication.NewMockControllerService(ctrl)
+	s.agentPasswordService = caasapplication.NewMockAgentPasswordService(ctrl)
 	s.applicationService = caasapplication.NewMockApplicationService(ctrl)
 	s.modelAgentService = caasapplication.NewMockModelAgentService(ctrl)
 	s.tracingService = caasapplication.NewMockTracingService(ctrl)
@@ -71,7 +76,8 @@ func (s *CAASApplicationSuite) setupMocks(c *tc.C, authTag string) *gomock.Contr
 
 	s.facade = caasapplication.NewFacade(s.authorizer,
 		coretesting.ControllerTag.Id(), s.modelUUID,
-		s.controllerConfigService, s.controllerNodeService, s.applicationService,
+		s.controllerConfigService, s.controllerNodeService, s.controllerService,
+		s.agentPasswordService, s.applicationService,
 		s.modelAgentService, s.tracingService, s.lokiConfigService, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -169,6 +175,55 @@ func (s *CAASApplicationSuite) TestUnitIntroduction(c *tc.C) {
 			AgentConf: confBytes,
 		},
 	})
+}
+
+func (s *CAASApplicationSuite) TestControllerUnitIntroductionCreatesControllerIdentity(c *tc.C) {
+	defer s.setupMocks(c, "application-controller").Finish()
+
+	controllerCfg := controller.Config{controller.CACertKey: coretesting.CACert}
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
+	addrs := []string{"10.6.6.6:17070"}
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs, nil)
+	version := semversion.MustParse("6.6.6")
+	s.modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version, nil)
+	s.tracingService.EXPECT().GetWorkloadTracingConfig(gomock.Any()).Return(tracingservice.WorkloadTracingConfig{}, nil)
+	s.lokiConfigService.EXPECT().GetLokiConfig(gomock.Any()).Return(logging.LokiConfig{}, loggingerrors.LokiConfigNotFound)
+	s.applicationService.EXPECT().RegisterCAASUnit(gomock.Any(), application.RegisterCAASUnitParams{
+		ApplicationName: "controller",
+		ProviderID:      "controller-2",
+	}).Return("controller/2", "unit-secret", nil)
+	s.controllerService.EXPECT().GetControllerAgentInfo(gomock.Any()).Return(controller.ControllerAgentInfo{
+		APIPort:      17070,
+		Cert:         coretesting.ServerCert,
+		PrivateKey:   coretesting.ServerKey,
+		CAPrivateKey: coretesting.CAKey,
+	}, nil)
+	s.controllerNodeService.EXPECT().AddControllerNode(gomock.Any(), "2")
+
+	var storedPassword string
+	s.agentPasswordService.EXPECT().SetControllerNodePassword(gomock.Any(), "2", gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ string, password string) error {
+			storedPassword = password
+			return nil
+		})
+
+	result, err := s.facade.UnitIntroduction(c.Context(), params.CAASUnitIntroductionArgs{
+		PodName: "controller-2",
+		PodUUID: "pod-uuid",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.Result, tc.NotNil)
+	c.Check(result.Result.UnitName, tc.Equals, "controller/2")
+	c.Check(result.Result.ControllerAgentTag, tc.Equals, "controller-2")
+
+	controllerConf, err := agent.ParseConfigData(result.Result.ControllerAgentConf)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(controllerConf.Tag(), tc.DeepEquals, names.NewControllerAgentTag("2"))
+	c.Check(controllerConf.OldPassword(), tc.Equals, storedPassword)
+	apiInfo, ok := controllerConf.APIInfo()
+	c.Assert(ok, tc.IsTrue)
+	c.Check(apiInfo.Addrs, tc.DeepEquals, []string{"localhost:17070", "10.6.6.6:17070"})
 }
 
 func (s *CAASApplicationSuite) TestUnitIntroductionPermissionDenied(c *tc.C) {
