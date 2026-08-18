@@ -35,6 +35,7 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
+	"github.com/juju/juju/internal/worker/gate"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
 )
@@ -307,10 +308,19 @@ func (a *SafeModeMachineAgent) makeEngineCreator(
 			AgentConfigChanged:      a.configChangedVal,
 			NewDBWorkerFunc:         a.newDBWorkerFunc,
 			ControllerStartupValues: startupValueProvider,
-			ControllerID:            a.Tag().Id(),
-			LogDir:                  agentConfig.LogDir(),
-			ConfigChangeSocketPath:  path.Join(agentConfig.DataDir(), "configchange.socket"),
-			Clock:                   clock.WallClock,
+			// Safe mode is only meaningful on a controller, where the
+			// controller-agent-config manifold unlocks this once the socket
+			// listener starts (see controlleragentconfig.Manifold). On a
+			// hypothetical non-controller run the manifold is gated behind
+			// ifController and the lock stays locked, but that is harmless:
+			// no safe-mode worker consumes the gate - it exists only to
+			// satisfy controller-agent-config validation - so there is no
+			// machine-agent-style explicit `if !isController { Unlock() }`.
+			ControllerUnlocker:     gate.NewLock(),
+			ControllerID:           a.Tag().Id(),
+			LogDir:                 agentConfig.LogDir(),
+			ConfigChangeSocketPath: path.Join(agentConfig.DataDir(), "configchange.socket"),
+			Clock:                  clock.WallClock,
 		}
 
 		manifolds := safemode.Manifolds(manifoldsCfg)
