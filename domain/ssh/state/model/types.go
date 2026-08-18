@@ -6,6 +6,8 @@ package model
 import (
 	"database/sql"
 	"time"
+
+	domainlife "github.com/juju/juju/domain/life"
 )
 
 type entityName struct {
@@ -14,6 +16,38 @@ type entityName struct {
 
 type entityUUID struct {
 	UUID string `db:"uuid"`
+}
+
+type machineExists struct {
+	UUID   string          `db:"uuid"`
+	LifeID domainlife.Life `db:"life_id"`
+}
+
+type modelInfo struct {
+	Name              string `db:"name"`
+	Type              string `db:"type"`
+	IsControllerModel bool   `db:"is_controller_model"`
+}
+
+// ModelInfo contains the model metadata needed to route SSH destinations.
+type ModelInfo struct {
+	Name              string
+	Type              string
+	IsControllerModel bool
+}
+
+type controllerName struct {
+	Name string `db:"name"`
+}
+
+type unitK8sPodInfo struct {
+	ProviderID sql.NullString  `db:"provider_id"`
+	LifeID     domainlife.Life `db:"life_id"`
+}
+
+type unitMachineRouting struct {
+	LifeID      domainlife.Life `db:"life_id"`
+	MachineName sql.NullString  `db:"machine_name"`
 }
 
 type sshPrivateKey struct {

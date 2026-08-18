@@ -63,7 +63,7 @@ func handleProxy[T io.Closer](h *Handlers, ctx context.Context, cfg proxyConfig[
 
 func (h *Handlers) handleError(session ssh.Session, err error) {
 	h.logger.Errorf(session.Context(), "machine proxy failure: %v", err)
-	_, _ = session.Stderr().Write([]byte(err.Error() + "\n"))
+	writeError(session, err)
 
 	var exitErr *gossh.ExitError
 	if errors.As(err, &exitErr) {
@@ -71,6 +71,10 @@ func (h *Handlers) handleError(session ssh.Session, err error) {
 		return
 	}
 	_ = session.Exit(1)
+}
+
+func writeError(session ssh.Session, err error) {
+	_, _ = session.Stderr().Write([]byte(err.Error() + "\r\n"))
 }
 
 // proxyStreams proxies data between two streams and attempts

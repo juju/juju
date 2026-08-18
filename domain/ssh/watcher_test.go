@@ -142,7 +142,7 @@ func (s *watcherSuite) setupService(c *tc.C) *sshmodelservice.WatchableService {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "ssh_connection_request")
 
 	return sshmodelservice.NewWatchableService(
-		sshmodelstate.NewState(modelDB),
+		sshmodelstate.NewState(modelDB, modelDB),
 		coremodel.UUID(s.ModelUUID()),
 		clock.WallClock,
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),

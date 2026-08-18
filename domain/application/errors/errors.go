@@ -111,6 +111,10 @@ const (
 	// operated on is not assigned.
 	UnitNotAssigned = errors.ConstError("unit not assigned")
 
+	// UnitK8sProviderIDNotAssigned describes an error that occurs when a
+	// Kubernetes unit has not yet been assigned a provider ID.
+	UnitK8sProviderIDNotAssigned = errors.ConstError("unit Kubernetes provider ID not assigned")
+
 	// UnitHasSubordinates describes an error that occurs when trying to set a
 	// unit's life to Dead but it still has subordinates.
 	UnitHasSubordinates = errors.ConstError("unit has subordinates")

@@ -14,6 +14,7 @@ import (
 
 	gomock "github.com/canonical/gomock/gomock"
 	machine "github.com/juju/juju/core/machine"
+	network "github.com/juju/juju/core/network"
 	ssh "github.com/juju/juju/domain/ssh"
 )
 
@@ -113,7 +114,7 @@ type MockControllerNodeService struct {
 // MockControllerNodeServiceMockRecorder is the mock recorder for MockControllerNodeService.
 type MockControllerNodeServiceMockRecorder struct {
 	mock                                           *MockControllerNodeService
-	getAPIAddressesForControllerIDForAgentsExpects []*gomock.Call2_2[context.Context, string, []string, error]
+	getAPIHostPortsForControllerIDForAgentsExpects []*gomock.Call2_2[context.Context, string, network.HostPorts, error]
 }
 
 // NewMockControllerNodeService creates a new mock instance.
@@ -128,20 +129,20 @@ func (m *MockControllerNodeService) EXPECT() *MockControllerNodeServiceMockRecor
 	return m.recorder
 }
 
-// GetAPIAddressesForControllerIDForAgents mocks base method.
-func (m *MockControllerNodeService) GetAPIAddressesForControllerIDForAgents(ctx context.Context, controllerID string) ([]string, error) {
+// GetAPIHostPortsForControllerIDForAgents mocks base method.
+func (m *MockControllerNodeService) GetAPIHostPortsForControllerIDForAgents(ctx context.Context, controllerID string) (network.HostPorts, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getAPIAddressesForControllerIDForAgentsExpects, m.ctrl, m, "GetAPIAddressesForControllerIDForAgents", ctx, controllerID)
+	return gomock.Dispatch2_2(&m.recorder.getAPIHostPortsForControllerIDForAgentsExpects, m.ctrl, m, "GetAPIHostPortsForControllerIDForAgents", ctx, controllerID)
 }
 
-// GetAPIAddressesForControllerIDForAgents indicates an expected call of GetAPIAddressesForControllerIDForAgents.
-func (mr *MockControllerNodeServiceMockRecorder) GetAPIAddressesForControllerIDForAgents(ctx, controllerID any) *MockControllerNodeServiceGetAPIAddressesForControllerIDForAgentsCall {
+// GetAPIHostPortsForControllerIDForAgents indicates an expected call of GetAPIHostPortsForControllerIDForAgents.
+func (mr *MockControllerNodeServiceMockRecorder) GetAPIHostPortsForControllerIDForAgents(ctx, controllerID any) *MockControllerNodeServiceGetAPIHostPortsForControllerIDForAgentsCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, []string, error](mr.mock.ctrl.T, mr.mock, "GetAPIAddressesForControllerIDForAgents", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(controllerID))
-	mr.getAPIAddressesForControllerIDForAgentsExpects = append(mr.getAPIAddressesForControllerIDForAgentsExpects, call)
+	call := gomock.NewCall2_2[context.Context, string, network.HostPorts, error](mr.mock.ctrl.T, mr.mock, "GetAPIHostPortsForControllerIDForAgents", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(controllerID))
+	mr.getAPIHostPortsForControllerIDForAgentsExpects = append(mr.getAPIHostPortsForControllerIDForAgentsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockControllerNodeServiceGetAPIAddressesForControllerIDForAgentsCall is the typed call wrapper for GetAPIAddressesForControllerIDForAgents.
-type MockControllerNodeServiceGetAPIAddressesForControllerIDForAgentsCall = gomock.Call2_2[context.Context, string, []string, error]
+// MockControllerNodeServiceGetAPIHostPortsForControllerIDForAgentsCall is the typed call wrapper for GetAPIHostPortsForControllerIDForAgents.
+type MockControllerNodeServiceGetAPIHostPortsForControllerIDForAgentsCall = gomock.Call2_2[context.Context, string, network.HostPorts, error]

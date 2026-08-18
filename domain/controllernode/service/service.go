@@ -281,14 +281,14 @@ func (s *Service) GetAPIAddressesByControllerIDForAgents(ctx context.Context) (m
 	return result, nil
 }
 
-// GetAPIAddressesForControllerIDForAgents returns the agent-reachable API
-// addresses for the given controller node ID, ordered to prefer cloud-local
+// GetAPIHostPortsForControllerIDForAgents returns the agent-reachable API
+// host ports for the given controller node ID, ordered to prefer cloud-local
 // addresses.
 //
 // The following errors may be returned:
 // - [controllernodeerrors.EmptyAPIAddresses] when no API addresses are found
 // for the given controller node ID.
-func (s *Service) GetAPIAddressesForControllerIDForAgents(ctx context.Context, controllerID string) ([]string, error) {
+func (s *Service) GetAPIHostPortsForControllerIDForAgents(ctx context.Context, controllerID string) (network.HostPorts, error) {
 	addresses, err := s.st.GetAPIAddressesForAgents(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -301,7 +301,16 @@ func (s *Service) GetAPIAddressesForControllerIDForAgents(ctx context.Context, c
 		).Add(controllernodeerrors.EmptyAPIAddresses)
 	}
 
-	return addrs.PrioritizedForScope(controllernode.ScopeMatchCloudLocal), nil
+	ordered := addrs.PrioritizedForScope(controllernode.ScopeMatchCloudLocal)
+	result := make(network.HostPorts, 0, len(ordered))
+	for _, addr := range ordered {
+		hostPort, err := network.ParseMachineHostPort(addr)
+		if err != nil {
+			return nil, errors.Errorf("parsing controller node address %q: %w", addr, err)
+		}
+		result = append(result, *hostPort)
+	}
+	return result, nil
 }
 
 // GetAllAPIAddressesForAgents returns a string slice of api
