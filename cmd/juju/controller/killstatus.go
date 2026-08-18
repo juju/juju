@@ -108,7 +108,7 @@ func newData(ctx context.Context, api destroyControllerAPI, controllerModelUUID 
 	var volumeCount int
 	var filesystemCount int
 	var modelsData []modelData
-	var aliveModelCount int
+	var hostedModelCount int
 	var ctrModelData modelData
 	var applications []base.Application
 	for _, model := range status {
@@ -153,12 +153,12 @@ func newData(ctx context.Context, api destroyControllerAPI, controllerModelUUID 
 		if model.UUID == controllerModelUUID {
 			ctrModelData = modelData
 		} else {
+			hostedModelCount++
 			if model.Life == life.Dead {
 				// Filter out dead, non-controller models.
 				continue
 			}
 			modelsData = append(modelsData, modelData)
-			aliveModelCount++
 			applications = append(applications, model.Applications...)
 		}
 		hostedMachinesCount += model.HostedMachineCount
@@ -169,7 +169,7 @@ func newData(ctx context.Context, api destroyControllerAPI, controllerModelUUID 
 
 	ctrFinalStatus := ctrData{
 		UUID:                 controllerModelUUID,
-		HostedModelCount:     aliveModelCount,
+		HostedModelCount:     hostedModelCount,
 		HostedMachineCount:   hostedMachinesCount,
 		ApplicationCount:     applicationsCount,
 		TotalVolumeCount:     volumeCount,
@@ -186,6 +186,15 @@ func newData(ctx context.Context, api destroyControllerAPI, controllerModelUUID 
 
 func hasUnreclaimedResources(env environmentStatus) bool {
 	return hasUnDeadModels(env.Models) ||
+		env.Controller.HostedMachineCount > 0
+}
+
+// hasUnremovedModels reports whether any hosted models are still present in
+// the controller, regardless of their life. A model remains present until the
+// undertaker has destroyed its cloud resources (for example the model's
+// namespace on Kubernetes) and removed it from the controller database.
+func hasUnremovedModels(env environmentStatus) bool {
+	return env.Controller.HostedModelCount > 0 ||
 		env.Controller.HostedMachineCount > 0
 }
 
