@@ -144,6 +144,58 @@ INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) VALUES (?, 'foo
 	c.Assert(err, tc.NotNil)
 }
 
+func (s *charmStateSuite) TestAddCharmScriptlet(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock,
+		loggertesting.WrapCheckLog(c))
+
+	id, _, err := st.AddCharm(c.Context(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name:  "foo",
+			RunAs: charm.RunAsRoot,
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		Revision:      42,
+		ReferenceName: "foo",
+		Hash:          "hash",
+		Scriptlet: []charm.ScriptletSource{{
+			Path:    "hook.star",
+			Content: []byte("load hook"),
+		}, {
+			Path:    "status.star",
+			Content: []byte("set status"),
+		}},
+	}, nil, false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var sources []charmScriptlet
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		query := `
+SELECT charm_uuid AS &charmScriptlet.charm_uuid,
+       path AS &charmScriptlet.path,
+       content AS &charmScriptlet.content
+FROM charm_scriptlet
+WHERE charm_uuid = $entityUUID.uuid
+ORDER BY path;
+`
+		stmt, err := st.Prepare(query, charmScriptlet{}, entityUUID{})
+		if err != nil {
+			return err
+		}
+		return tx.Query(ctx, stmt, entityUUID{UUID: id.String()}).GetAll(&sources)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(sources, tc.DeepEquals, []charmScriptlet{{
+		CharmUUID: id.String(),
+		Path:      "hook.star",
+		Content:   []byte("load hook"),
+	}, {
+		CharmUUID: id.String(),
+		Path:      "status.star",
+		Content:   []byte("set status"),
+	}})
+}
+
 func (s *charmStateSuite) TestAddCharmObjectStoreUUID(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock,
 		loggertesting.WrapCheckLog(c))
