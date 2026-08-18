@@ -60,14 +60,20 @@ Respect Juju layering. Never create new cross-layer dependencies.
 - SQL queries must use explicit aliases for tables, CTEs, and projected values;
   use `AS` rather than relying on implicit aliasing.
 - State method arguments should be simple types (`string`, `int`, etc.) or types local to that domain.
-- UUID should be created in the service layer and pushed to the state layer as a string.
+- Generate new UUIDs in the service layer, then pass them into state methods as
+  strings. State should persist supplied UUIDs rather than creating them, so
+  services can return created entity UUIDs directly when needed.
+- When wrapping errors across layers, add identifying context such as entity
+  UUIDs once at the highest useful layer. Keep state-layer `Errorf` messages
+  generic to avoid repeated identifiers in the final error chain.
 - Domain packages should generally avoid `github.com/juju/names`. Prefer
   converting Juju tags to primitive values at API, facade, worker, or command
   boundaries before calling domain services.
-- Variables and accumulators populated inside a `db.Txn` closure MUST be reset
-  at the top of the closure to ensure correctness on transaction retry. The
-  `db.Txn` runner may re-execute the closure on transient errors; stale or
-  partial data from a previous attempt will corrupt results if not cleared.
+- Values populated inside a `db.Txn` closure MUST remain correct if the closure
+  is retried. Reset mutable targets only when a previous attempt can leave
+  partial data that would produce duplicate or inconsistent results. Do not add
+  redundant resets for retry-consistent assignments or Sqlair `GetAll` targets,
+  which Sqlair clears before populating.
 
 ## Worker Boundaries
 
