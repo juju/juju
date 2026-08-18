@@ -10,6 +10,7 @@ import (
 	"github.com/juju/worker/v5/catacomb"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
@@ -43,27 +44,35 @@ func newApplicationRunner(config applicationRunnerConfig) (worker.Worker, error)
 	return r, nil
 }
 
+// Kill is part of the worker.Worker interface.
+func (r *applicationRunner) Kill() {
+	r.catacomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (r *applicationRunner) Wait() error {
+	return r.catacomb.Wait()
+}
+
 func (r *applicationRunner) loop() error {
 	ctx := r.catacomb.Context(context.Background())
 	log := r.config.Logger
+
 	applicationUUID := r.config.ApplicationUUID
 
 	log.Infof(ctx, "starting scriptlet application runner %q", applicationUUID)
-	scriptlet, err := r.config.ScriptletService.GetApplicationScriptlet(ctx, applicationUUID)
+	scriptlet, err := r.config.ScriptletService.GetScriptletApplication(ctx, applicationUUID)
 	if err != nil {
 		return internalerrors.Errorf("getting scriptlet for application %q: %w", applicationUUID, err)
 	}
 
-	executor, err := r.config.NewExecutor(ctx, ExecutorConfig{
-		Scriptlet: scriptlet,
-		MaxAllocs: r.config.MaxAllocs,
-		MaxSteps:  r.config.MaxSteps,
-		Logger:    NewStarformLogAdapter(log),
-	})
+	dyingWatcher, err := r.config.ScriptletService.WatchScriptletApplicationDying(ctx, applicationUUID)
 	if err != nil {
-		return internalerrors.Errorf("creating scriptlet executor for application %q: %w", applicationUUID, err)
+		return internalerrors.Errorf("watching scriptlet application life %q: %w", applicationUUID, err)
 	}
-	r.executor = executor
+	if err := r.catacomb.Add(dyingWatcher); err != nil {
+		return internalerrors.Capture(err)
+	}
 
 	eventWatcher, err := r.config.ScriptletService.WatchApplicationEvents(ctx, applicationUUID)
 	if err != nil {
@@ -73,10 +82,34 @@ func (r *applicationRunner) loop() error {
 		return internalerrors.Capture(err)
 	}
 
+	r.executor, err = r.config.NewExecutor(ctx, ExecutorConfig{
+		Scriptlet: scriptlet,
+		MaxAllocs: r.config.MaxAllocs,
+		MaxSteps:  r.config.MaxSteps,
+		Logger:    NewStarformLogAdapter(log),
+	})
+	if err != nil {
+		return internalerrors.Errorf("creating scriptlet executor for application %q: %w", applicationUUID, err)
+	}
+
 	for {
 		select {
 		case <-r.catacomb.Dying():
 			return r.catacomb.ErrDying()
+
+		case _, ok := <-dyingWatcher.Changes():
+			if !ok {
+				return internalerrors.New("scriptlet application dying watcher closed")
+			}
+			application, err := r.config.ScriptletService.GetScriptletApplication(ctx, applicationUUID)
+			if err != nil {
+				return internalerrors.Errorf("getting scriptlet application life %q: %w", applicationUUID, err)
+			}
+			if life.IsNotAlive(application.Life) {
+				log.Infof(ctx, "scriptlet application %q is no longer alive, stopping runner", applicationUUID)
+				return nil
+			}
+
 		case eventNames, ok := <-eventWatcher.Changes():
 			if !ok {
 				return internalerrors.New("scriptlet event watcher closed")
@@ -115,14 +148,4 @@ func (r *applicationRunner) handleEvent(ctx context.Context, eventName string) e
 			ctx, "scriptlet application %q event %q intent: %s", r.config.ApplicationUUID, event.Name, intent.Type)
 	}
 	return nil
-}
-
-// Kill is part of the worker.Worker interface.
-func (r *applicationRunner) Kill() {
-	r.catacomb.Kill(nil)
-}
-
-// Wait is part of the worker.Worker interface.
-func (r *applicationRunner) Wait() error {
-	return r.catacomb.Wait()
 }

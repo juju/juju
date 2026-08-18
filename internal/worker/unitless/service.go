@@ -17,9 +17,15 @@ type ScriptletService interface {
 	// execution should be scheduled.
 	WatchScriptletApplications(context.Context) (watcher.StringsWatcher, error)
 
-	// GetApplicationScriptlet returns the Starform scriptlet sources for an
+	// WatchScriptletApplicationDying emits when an application changes life or
+	// is removed.
+	WatchScriptletApplicationDying(
+		ctx context.Context, applicationUUID coreapplication.UUID,
+	) (watcher.NotifyWatcher, error)
+
+	// GetScriptletApplication returns the Starform scriptlet application for an
 	// application.
-	GetApplicationScriptlet(ctx context.Context, applicationUUID coreapplication.UUID) (domainunitless.Scriptlet, error)
+	GetScriptletApplication(ctx context.Context, applicationUUID coreapplication.UUID) (domainunitless.ScriptletApplication, error)
 
 	// WatchApplicationEvents emits event names that should be dispatched for
 	// the application.
