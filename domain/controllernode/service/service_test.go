@@ -58,6 +58,22 @@ func (s *serviceSuite) TestAddDqliteNode(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *serviceSuite) TestAddControllerNode(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().AddControllerNode(gomock.Any(), "1")
+
+	err := NewService(s.state, loggertesting.WrapCheckLog(c)).AddControllerNode(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestAddControllerNodeRejectsEmptyID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := NewService(s.state, loggertesting.WrapCheckLog(c)).AddControllerNode(c.Context(), "")
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
 func (s *serviceSuite) TestDeleteDqliteNode(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
