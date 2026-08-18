@@ -5,6 +5,8 @@ package apiserver_test
 
 import (
 	"bytes"
+	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,6 +25,7 @@ import (
 	apiclient "github.com/juju/juju/api/client/client"
 	machineclient "github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/api/client/modelconfig"
+	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -33,8 +36,10 @@ import (
 	"github.com/juju/juju/domain/access"
 	accessservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/controllernode"
+	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/internal/auth"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
@@ -104,6 +109,7 @@ func TestLoginSuite(t *stdtesting.T) {
 
 func (s *loginSuite) SetUpTest(c *tc.C) {
 	s.Clock = testclock.NewDilatedWallClock(time.Second)
+	s.WithJWTTokenParser = &apitesting.InsecureJWTParser{}
 	s.ApiServerSuite.SetUpTest(c)
 
 	controllerNodeService := s.ControllerDomainServices(c).ControllerNode()
@@ -480,6 +486,180 @@ func (s *loginSuite) TestNonExistentModel(c *tc.C) {
 		Message: fmt.Sprintf("unknown model: %q", uuid),
 		Code:    "model not found",
 	})
+}
+
+// createUnactivatedModel creates a model row in the controller database
+// without running its activator, leaving it in the half built state a model
+// has while it is being created or imported.
+func (s *loginSuite) createUnactivatedModel(c *tc.C, name string) coremodel.UUID {
+	modelUUID, _, err := s.ControllerDomainServices(c).Model().CreateModel(
+		c.Context(),
+		domainmodel.GlobalModelCreationArgs{
+			Cloud:      s.CloudName,
+			Credential: s.CredentialKey,
+			Name:       name,
+			Qualifier:  "prod",
+			AdminUsers: []user.UUID{s.AdminUserUUID},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	return modelUUID
+}
+
+// seedModelDB writes the model's read-only row into its own database, which a
+// v8 import does when it bootstraps the model, before validation runs.
+func (s *loginSuite) seedModelDB(c *tc.C, modelUUID coremodel.UUID, name string) {
+	err := s.ModelTxnRunner(c, modelUUID.String()).StdTxn(
+		c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+VALUES (?, ?, ?, 'prod', 'iaas', ?, 'dummy')`,
+				modelUUID.String(), s.ControllerUUID, name, s.CloudName)
+			return err
+		})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *loginSuite) seedMachine(
+	c *tc.C, modelUUID coremodel.UUID, password, nonce string,
+) {
+	err := s.ModelTxnRunner(c, modelUUID.String()).StdTxn(
+		c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			netNodeUUID := uuid.MustNewUUID().String()
+			if _, err := tx.ExecContext(ctx,
+				`INSERT INTO net_node (uuid) VALUES (?)`, netNodeUUID); err != nil {
+				return err
+			}
+
+			machineUUID := uuid.MustNewUUID().String()
+			if _, err := tx.ExecContext(ctx, `
+INSERT INTO machine (
+    uuid, name, net_node_uuid, life_id, nonce,
+    password_hash_algorithm_id, password_hash
+)
+VALUES (?, '0', ?, 0, ?, 0, ?)`,
+				machineUUID, netNodeUUID, nonce,
+				internalpassword.AgentPasswordHash(password)); err != nil {
+				return err
+			}
+
+			_, err := tx.ExecContext(ctx, `
+INSERT INTO machine_cloud_instance (machine_uuid, life_id, instance_id)
+VALUES (?, 0, 'instance-0')`, machineUUID)
+			return err
+		})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// beginImport records a migration import claim against the model, which is
+// what a v8 migration's first target-side write does.
+func (s *loginSuite) beginImport(c *tc.C, modelUUID coremodel.UUID) {
+	err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
+VALUES (?, ?, ?)`,
+			uuid.MustNewUUID().String(), modelUUID.String(), uuid.MustNewUUID().String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestLoginToModelBeingImported verifies that the API server serves
+// connections for a model a migration is still importing, even though it has
+// not been activated yet. A migration's VALIDATION phase asks every agent in
+// the model to log in to this controller and confirm it can be served here,
+// and that runs before the import is committed and the model activated.
+func (s *loginSuite) TestLoginToModelBeingImported(c *tc.C) {
+	modelUUID := s.createUnactivatedModel(c, "being-imported")
+	s.seedModelDB(c, modelUUID, "being-imported")
+	password := tc.Must(c, internalpassword.RandomPassword)
+	nonce := "machine-nonce"
+	s.seedMachine(c, modelUUID, password, nonce)
+	s.beginImport(c, modelUUID)
+
+	st := s.openModelAPIWithoutLogin(c, modelUUID.String())
+
+	machineTag := names.NewMachineTag("0")
+	err := st.Login(c.Context(), machineTag, password, nonce, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = apimachiner.NewClient(st).Machine(c.Context(), machineTag)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestLoginToUnactivatedModelWithoutImport pins the other side of that window:
+// a model left half built with no migration importing it - an add-model that
+// never completed, say - stays invisible, exactly as it was before importing
+// models were let through.
+func (s *loginSuite) TestLoginToUnactivatedModelWithoutImport(c *tc.C) {
+	modelUUID := s.createUnactivatedModel(c, "half-built")
+
+	st := s.openModelAPIWithoutLogin(c, modelUUID.String())
+
+	err := st.Login(c.Context(), names.NewMachineTag("0"), "some-password", "nonce", nil)
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(rErr, tc.DeepEquals, &rpc.RequestError{
+		Message: fmt.Sprintf("unknown model: %q", modelUUID),
+		Code:    "model not found",
+	})
+}
+
+// TestUserLoginToModelBeingImported verifies that opening the window for
+// agents does not open it for users. The user's login itself succeeds - the
+// importing restriction is applied to the API root rather than to the login -
+// but every call made on that root is refused, which is the treatment an
+// importing model has always had.
+func (s *loginSuite) TestUserLoginToModelBeingImported(c *tc.C) {
+	modelUUID := s.createUnactivatedModel(c, "being-imported")
+	s.seedModelDB(c, modelUUID, "being-imported")
+	s.beginImport(c, modelUUID)
+
+	st := s.openModelAPIWithoutLogin(c, modelUUID.String())
+
+	err := st.Login(c.Context(), jujutesting.AdminUser, jujutesting.AdminSecret, "", nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var result params.FullStatus
+	err = st.APICall(c.Context(), "Client", clientFacadeVersion, "", "FullStatus", nil, &result)
+	c.Assert(err, tc.ErrorMatches, ".*migration in progress, model is importing.*")
+}
+
+// TestTokenUserLoginToModelBeingImportedIsRestricted verifies that a JWT user
+// receives the import restriction even though token logins carry no AuthTag in
+// the request. The authenticated tag, rather than the request tag, must drive
+// maintenance restrictions.
+func (s *loginSuite) TestTokenUserLoginToModelBeingImportedIsRestricted(c *tc.C) {
+	modelUUID := s.createUnactivatedModel(c, "being-imported")
+	s.seedModelDB(c, modelUUID, "being-imported")
+	s.beginImport(c, modelUUID)
+
+	err := s.ControllerDomainServices(c).Access().AddExternalUser(
+		c.Context(), permission.EveryoneUserName, "", s.AdminUserUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	token, err := apitesting.NewEncodedJWT(apitesting.JWTParams{
+		Controller: s.ControllerUUID,
+		User:       "user-testuser@external",
+		Access: map[string]string{
+			names.NewControllerTag(s.ControllerUUID).String(): "superuser",
+			names.NewModelTag(modelUUID.String()).String():    "admin",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	conn := s.openModelAPIWithoutLogin(c, modelUUID.String())
+	var loginResult params.LoginResult
+	err = conn.APICall(c.Context(), "Admin", 3, "", "Login", &params.LoginRequest{
+		Token:         token,
+		ClientVersion: jujuversion.Current.String(),
+	}, &loginResult)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var result params.FullStatus
+	err = conn.APICall(c.Context(), "Client", clientFacadeVersion, "", "FullStatus", nil, &result)
+	c.Assert(err, tc.ErrorMatches, ".*migration in progress, model is importing.*")
 }
 
 func (s *loginSuite) TestInvalidModel(c *tc.C) {

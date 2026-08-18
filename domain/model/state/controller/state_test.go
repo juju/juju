@@ -2177,6 +2177,67 @@ func (m *stateSuite) TestCheckModelExistsNotActivated(c *tc.C) {
 	exists, err := m.modelState.CheckModelExists(c.Context(), modelUUID)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(exists, tc.IsFalse)
+
+	// GetModelConnectionInfo is the counterpart that can see the model:
+	// the API server relies on it to tell a model that does not exist
+	// from one a migration has not finished importing.
+	info, err := m.modelState.GetModelConnectionInfo(c.Context(), modelUUID.String())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(info.Name, tc.Equals, "my-amazing-model")
+	c.Check(info.ModelType, tc.Equals, coremodel.IAAS)
+	c.Check(info.Activated, tc.IsFalse)
+	c.Check(info.HasImportClaim, tc.IsFalse)
+
+	err = m.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
+VALUES (?, ?, ?)`, uuid.MustNewUUID().String(), modelUUID.String(), uuid.MustNewUUID().String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err = m.modelState.GetModelConnectionInfo(c.Context(), modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.Activated, tc.IsFalse)
+	c.Check(info.HasImportClaim, tc.IsTrue)
+}
+
+// TestGetModelConnectionInfoActivated verifies that an ordinary, fully created
+// model reports as activated.
+func (m *stateSuite) TestGetModelConnectionInfoActivated(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
+	info, err := m.modelState.GetModelConnectionInfo(c.Context(), m.uuid.String())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(info.ModelType, tc.Equals, coremodel.IAAS)
+	c.Check(info.Activated, tc.IsTrue)
+	c.Check(info.HasImportClaim, tc.IsFalse)
+}
+
+func (m *stateSuite) TestGetModelConnectionInfoActivatedImporting(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
+	err := m.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
+VALUES (?, ?, ?)`, uuid.MustNewUUID().String(), m.uuid.String(), uuid.MustNewUUID().String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err := m.modelState.GetModelConnectionInfo(c.Context(), m.uuid.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.Activated, tc.IsTrue)
+	c.Check(info.HasImportClaim, tc.IsTrue)
+}
+
+// TestGetModelConnectionInfoNotFound verifies that a model with no row at all
+// is reported as not found, so callers can tell it apart from a half built one.
+func (m *stateSuite) TestGetModelConnectionInfoNotFound(c *tc.C) {
+	_, err := m.modelState.GetModelConnectionInfo(c.Context(), tc.Must(c, coremodel.NewUUID).String())
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (m *stateSuite) TestHasValidCredentialModelNotFound(c *tc.C) {

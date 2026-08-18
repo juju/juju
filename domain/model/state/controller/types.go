@@ -253,6 +253,15 @@ type dbModelActivated struct {
 	Activated bool `db:"activated"`
 }
 
+// dbModelConnectionInfo contains the controller-side state that determines
+// whether the API server may accept connections for a model.
+type dbModelConnectionInfo struct {
+	Name           string `db:"name"`
+	ModelType      string `db:"model_type"`
+	Activated      bool   `db:"activated"`
+	HasImportClaim bool   `db:"has_import_claim"`
+}
+
 type dbModelNamespace struct {
 	UUID      string         `db:"model_uuid"`
 	Namespace sql.NullString `db:"namespace"`

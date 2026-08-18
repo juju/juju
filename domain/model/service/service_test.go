@@ -220,6 +220,40 @@ func (s *serviceSuite) TestCheckExistsNoModel(c *tc.C) {
 	c.Assert(exists, tc.IsFalse)
 }
 
+func (s *serviceSuite) TestGetModelConnectionInfo(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	expected := model.ModelConnectionInfo{
+		Name:           "incoming",
+		ModelType:      coremodel.IAAS,
+		HasImportClaim: true,
+	}
+	s.mockState.EXPECT().GetModelConnectionInfo(gomock.Any(), modelUUID.String()).Return(expected, nil)
+
+	info, err := s.newService(c).GetModelConnectionInfo(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info, tc.DeepEquals, expected)
+}
+
+func (s *serviceSuite) TestGetModelConnectionInfoInvalidUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.newService(c).GetModelConnectionInfo(c.Context(), "!!!!")
+	c.Assert(err, tc.ErrorMatches, `.*not valid.*`)
+}
+
+func (s *serviceSuite) TestGetModelConnectionInfoNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	s.mockState.EXPECT().GetModelConnectionInfo(gomock.Any(), modelUUID.String()).
+		Return(model.ModelConnectionInfo{}, modelerrors.NotFound)
+
+	_, err := s.newService(c).GetModelConnectionInfo(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
 // TestModelCreationSecretBackendNotFound is asserting that if we try and add a
 // model and define a secret backend for the new model that doesn't exist we get
 // back a [secretbackenderrors.NotFound] error.
