@@ -36,8 +36,8 @@ func (s *modelConnectionSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *modelConnectionSuite) expectPresence(presence model.ModelPresence) {
-	s.modelService.EXPECT().GetModelPresence(gomock.Any(), s.modelUUID).Return(presence, nil)
+func (s *modelConnectionSuite) expectConnectionInfo(info model.ModelConnectionInfo) {
+	s.modelService.EXPECT().GetModelConnectionInfo(gomock.Any(), s.modelUUID).Return(info, nil)
 }
 
 func (s *modelConnectionSuite) expectMode(mode modelmigration.MigrationMode) {
@@ -45,7 +45,11 @@ func (s *modelConnectionSuite) expectMode(mode modelmigration.MigrationMode) {
 }
 
 func (s *modelConnectionSuite) connection(c *tc.C) (modelConnection, error) {
-	return modelConnectionFor(c.Context(), s.modelService, s.migrationService, s.modelUUID)
+	conn, err := modelIsConnectable(c.Context(), s.modelService, s.modelUUID)
+	if err != nil {
+		return modelConnection{}, err
+	}
+	return modelConnectionFor(c.Context(), s.migrationService, conn)
 }
 
 // TestActivatedModelIsConnectable verifies the ordinary case: an activated
@@ -53,7 +57,7 @@ func (s *modelConnectionSuite) connection(c *tc.C) (modelConnection, error) {
 func (s *modelConnectionSuite) TestActivatedModelIsConnectable(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectPresence(model.ModelPresence{
+	s.expectConnectionInfo(model.ModelConnectionInfo{
 		Name:      "prod",
 		ModelType: coremodel.IAAS,
 		Activated: true,
@@ -68,6 +72,20 @@ func (s *modelConnectionSuite) TestActivatedModelIsConnectable(c *tc.C) {
 	c.Check(conn.migrationMode, tc.Equals, modelmigration.MigrationModeNone)
 }
 
+func (s *modelConnectionSuite) TestActivatedExportingModelPreservesMigrationMode(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectConnectionInfo(model.ModelConnectionInfo{
+		ModelType: coremodel.IAAS,
+		Activated: true,
+	})
+	s.expectMode(modelmigration.MigrationModeExporting)
+
+	conn, err := s.connection(c)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(conn.migrationMode, tc.Equals, modelmigration.MigrationModeExporting)
+}
+
 // TestImportingModelIsConnectable is the case this whole seam exists for: a
 // model a migration is still importing has not been activated yet, but its
 // agents must be able to log in and validate against this controller during
@@ -75,11 +93,11 @@ func (s *modelConnectionSuite) TestActivatedModelIsConnectable(c *tc.C) {
 func (s *modelConnectionSuite) TestImportingModelIsConnectable(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectPresence(model.ModelPresence{
-		Name:      "incoming",
-		ModelType: coremodel.IAAS,
-		Activated: false,
-		Importing: true,
+	s.expectConnectionInfo(model.ModelConnectionInfo{
+		Name:           "incoming",
+		ModelType:      coremodel.IAAS,
+		Activated:      false,
+		HasImportClaim: true,
 	})
 
 	conn, err := s.connection(c)
@@ -98,10 +116,10 @@ func (s *modelConnectionSuite) TestImportingModelIsConnectable(c *tc.C) {
 func (s *modelConnectionSuite) TestActivatedImportingModelUsesTheImportRestriction(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectPresence(model.ModelPresence{
-		ModelType: coremodel.IAAS,
-		Activated: true,
-		Importing: true,
+	s.expectConnectionInfo(model.ModelConnectionInfo{
+		ModelType:      coremodel.IAAS,
+		Activated:      true,
+		HasImportClaim: true,
 	})
 
 	conn, err := s.connection(c)
@@ -116,7 +134,7 @@ func (s *modelConnectionSuite) TestActivatedImportingModelUsesTheImportRestricti
 func (s *modelConnectionSuite) TestUnactivatedModelWithoutImportIsNotConnectable(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectPresence(model.ModelPresence{
+	s.expectConnectionInfo(model.ModelConnectionInfo{
 		Name:      "half-built",
 		ModelType: coremodel.IAAS,
 		Activated: false,
@@ -133,36 +151,34 @@ func (s *modelConnectionSuite) TestUnactivatedModelWithoutImportIsNotConnectable
 func (s *modelConnectionSuite) TestUnactivatedModelDoesNotReadMigrationMode(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectPresence(model.ModelPresence{ModelType: coremodel.IAAS, Activated: false})
+	s.expectConnectionInfo(model.ModelConnectionInfo{ModelType: coremodel.IAAS, Activated: false})
 
 	conn, err := s.connection(c)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(conn.connectable, tc.IsFalse)
 }
 
-// TestAbsentModelIsNotConnectable verifies that a model with no row at all is
-// reported as not connectable rather than as an error, so the caller can fall
-// through to its redirect handling.
-func (s *modelConnectionSuite) TestAbsentModelIsNotConnectable(c *tc.C) {
+// TestAbsentModelReturnsNotFound preserves the error contract used by clients
+// to recognize an unknown model.
+func (s *modelConnectionSuite) TestAbsentModelReturnsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelService.EXPECT().GetModelPresence(gomock.Any(), s.modelUUID).
-		Return(model.ModelPresence{}, modelerrors.NotFound)
+	s.modelService.EXPECT().GetModelConnectionInfo(gomock.Any(), s.modelUUID).
+		Return(model.ModelConnectionInfo{}, modelerrors.NotFound)
 
-	conn, err := s.connection(c)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(conn.connectable, tc.IsFalse)
+	_, err := s.connection(c)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
-// TestPresenceErrorPropagates verifies that a real lookup failure is not
+// TestConnectionInfoErrorPropagates verifies that a real lookup failure is not
 // silently turned into "not connectable", which would make a database problem
 // look like a deleted model.
-func (s *modelConnectionSuite) TestPresenceErrorPropagates(c *tc.C) {
+func (s *modelConnectionSuite) TestConnectionInfoErrorPropagates(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	boom := errors.New("boom")
-	s.modelService.EXPECT().GetModelPresence(gomock.Any(), s.modelUUID).
-		Return(model.ModelPresence{}, boom)
+	s.modelService.EXPECT().GetModelConnectionInfo(gomock.Any(), s.modelUUID).
+		Return(model.ModelConnectionInfo{}, boom)
 
 	_, err := s.connection(c)
 	c.Assert(err, tc.ErrorIs, boom)
@@ -174,7 +190,7 @@ func (s *modelConnectionSuite) TestMigrationModeErrorPropagates(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	boom := errors.New("boom")
-	s.expectPresence(model.ModelPresence{ModelType: coremodel.IAAS, Activated: true})
+	s.expectConnectionInfo(model.ModelConnectionInfo{ModelType: coremodel.IAAS, Activated: true})
 	s.migrationService.EXPECT().ModelMigrationMode(gomock.Any()).
 		Return(modelmigration.MigrationModeNone, boom)
 
@@ -184,11 +200,11 @@ func (s *modelConnectionSuite) TestMigrationModeErrorPropagates(c *tc.C) {
 
 // isModelAvailable is the pre-login gate: it decides whether the websocket is
 // served at all, before Login is ever reached. These cases pin the behaviour
-// it adds on top of modelConnectionFor - the redirect fall-through.
+// it adds on top of modelIsConnectable - the redirect fall-through.
 
 func (s *modelConnectionSuite) available(c *tc.C) error {
-	return (&Server{}).isModelAvailable(
-		c.Context(), s.modelService, s.migrationService, s.modelUUID)
+	_, err := (&Server{}).isModelAvailable(c.Context(), s.modelService, s.modelUUID)
+	return err
 }
 
 // TestAvailableWhileImporting verifies that the connection is served for a
@@ -197,10 +213,10 @@ func (s *modelConnectionSuite) available(c *tc.C) error {
 func (s *modelConnectionSuite) TestAvailableWhileImporting(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectPresence(model.ModelPresence{
-		ModelType: coremodel.IAAS,
-		Activated: false,
-		Importing: true,
+	s.expectConnectionInfo(model.ModelConnectionInfo{
+		ModelType:      coremodel.IAAS,
+		Activated:      false,
+		HasImportClaim: true,
 	})
 
 	c.Assert(s.available(c), tc.ErrorIsNil)
@@ -210,8 +226,7 @@ func (s *modelConnectionSuite) TestAvailableWhileImporting(c *tc.C) {
 func (s *modelConnectionSuite) TestAvailableWhenActivated(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectPresence(model.ModelPresence{ModelType: coremodel.IAAS, Activated: true})
-	s.expectMode(modelmigration.MigrationModeNone)
+	s.expectConnectionInfo(model.ModelConnectionInfo{ModelType: coremodel.IAAS, Activated: true})
 
 	c.Assert(s.available(c), tc.ErrorIsNil)
 }
@@ -221,8 +236,8 @@ func (s *modelConnectionSuite) TestAvailableWhenActivated(c *tc.C) {
 func (s *modelConnectionSuite) TestNotAvailableWhenAbsent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelService.EXPECT().GetModelPresence(gomock.Any(), s.modelUUID).
-		Return(model.ModelPresence{}, modelerrors.NotFound)
+	s.modelService.EXPECT().GetModelConnectionInfo(gomock.Any(), s.modelUUID).
+		Return(model.ModelConnectionInfo{}, modelerrors.NotFound)
 	s.modelService.EXPECT().ModelRedirection(gomock.Any(), s.modelUUID).
 		Return(model.ModelRedirection{}, modelerrors.ModelNotRedirected)
 
@@ -235,7 +250,7 @@ func (s *modelConnectionSuite) TestNotAvailableWhenAbsent(c *tc.C) {
 func (s *modelConnectionSuite) TestNotAvailableWhenHalfBuilt(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectPresence(model.ModelPresence{ModelType: coremodel.IAAS, Activated: false})
+	s.expectConnectionInfo(model.ModelConnectionInfo{ModelType: coremodel.IAAS, Activated: false})
 	s.modelService.EXPECT().ModelRedirection(gomock.Any(), s.modelUUID).
 		Return(model.ModelRedirection{}, modelerrors.ModelNotRedirected)
 
@@ -248,8 +263,8 @@ func (s *modelConnectionSuite) TestNotAvailableWhenHalfBuilt(c *tc.C) {
 func (s *modelConnectionSuite) TestAvailableWhenMigratedAway(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelService.EXPECT().GetModelPresence(gomock.Any(), s.modelUUID).
-		Return(model.ModelPresence{}, modelerrors.NotFound)
+	s.modelService.EXPECT().GetModelConnectionInfo(gomock.Any(), s.modelUUID).
+		Return(model.ModelConnectionInfo{}, modelerrors.NotFound)
 	s.modelService.EXPECT().ModelRedirection(gomock.Any(), s.modelUUID).
 		Return(model.ModelRedirection{ControllerUUID: "other"}, nil)
 

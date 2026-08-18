@@ -253,13 +253,13 @@ type dbModelActivated struct {
 	Activated bool `db:"activated"`
 }
 
-// dbModelPresence is read from v_model_all, so it sees models whose creation
-// has not been completed as well as activated ones.
-type dbModelPresence struct {
-	Name      string `db:"name"`
-	ModelType string `db:"model_type"`
-	Activated bool   `db:"activated"`
-	Importing bool   `db:"importing"`
+// dbModelConnectionInfo contains the controller-side state that determines
+// whether the API server may accept connections for a model.
+type dbModelConnectionInfo struct {
+	Name           string `db:"name"`
+	ModelType      string `db:"model_type"`
+	Activated      bool   `db:"activated"`
+	HasImportClaim bool   `db:"has_import_claim"`
 }
 
 type dbModelNamespace struct {

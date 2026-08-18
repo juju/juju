@@ -66,6 +66,10 @@ type apiHandler struct {
 	// the request model UUID is empty.
 	domainServices services.DomainServices
 
+	// modelConnection is populated by the websocket gate and reused during
+	// login so controller-side connection information is read only once.
+	modelConnection modelConnection
+
 	// domainServicesGetter allows the retrieval of an domain services for a
 	// given model UUID. This should not be used unless you're sure you need to
 	// access a different model's domain services.
@@ -143,6 +147,7 @@ func newAPIHandler(
 	srv *Server,
 	rpcConn *rpc.Conn,
 	domainServices services.DomainServices,
+	modelConnection modelConnection,
 	domainServicesGetter services.DomainServicesGetter,
 	tracer trace.Tracer,
 	objectStore objectstore.ObjectStore,
@@ -158,6 +163,7 @@ func newAPIHandler(
 ) *apiHandler {
 	return &apiHandler{
 		domainServices:           domainServices,
+		modelConnection:          modelConnection,
 		domainServicesGetter:     domainServicesGetter,
 		tracer:                   tracer,
 		objectStore:              objectStore,

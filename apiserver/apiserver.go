@@ -1219,9 +1219,8 @@ func (srv *Server) serveConn(
 		return nil, errors.Annotatef(err, "getting domain services for model %q", modelUUID)
 	}
 
-	if err := srv.isModelAvailable(
-		ctx, domainServices.Model(), domainServices.ModelMigration(), modelUUID,
-	); err != nil {
+	modelConn, err := srv.isModelAvailable(ctx, domainServices.Model(), modelUUID)
+	if err != nil {
 		return nil, errors.Annotatef(err, "checking model %q availability", modelUUID)
 	}
 
@@ -1257,6 +1256,7 @@ func (srv *Server) serveConn(
 		srv,
 		conn,
 		domainServices,
+		modelConn,
 		srv.shared.domainServicesGetter,
 		tracer,
 		objectStore,
@@ -1283,12 +1283,13 @@ func (srv *Server) serveConn(
 	return newAdminRoot(handler, adminAPIs), nil
 }
 
-// ModelService defines the subset of model.Service used to check
-// model existence and redirection.
+// ModelService defines the subset of model.Service used to check model
+// connection information and redirection.
 type ModelService interface {
-	// GetModelPresence returns the model's type and activation state,
-	// regardless of whether the model has been activated.
-	GetModelPresence(ctx context.Context, modelUUID coremodel.UUID) (model.ModelPresence, error)
+	// GetModelConnectionInfo returns the model's type, activation state and
+	// target-side import-claim presence, regardless of whether the model has
+	// been activated.
+	GetModelConnectionInfo(ctx context.Context, modelUUID coremodel.UUID) (model.ModelConnectionInfo, error)
 	// ModelRedirection returns the model redirection information
 	// for the given model UUID.
 	ModelRedirection(ctx context.Context, modelUUID coremodel.UUID) (model.ModelRedirection, error)
@@ -1304,19 +1305,18 @@ type ModelMigrationService interface {
 func (srv *Server) isModelAvailable(
 	ctx context.Context,
 	modelService ModelService,
-	migrationService ModelMigrationService,
 	modelUUID coremodel.UUID,
-) error {
+) (modelConnection, error) {
 	// Check that the model can be served before proceeding any further. There
 	// is no need in setting up any additional operations if the model is not
 	// present. A model that is still being imported by a migration is served
 	// so its agents can validate against this controller; see
-	// modelConnectionFor.
-	conn, err := modelConnectionFor(ctx, modelService, migrationService, modelUUID)
-	if err != nil {
-		return errors.Trace(err)
+	// modelIsConnectable.
+	conn, err := modelIsConnectable(ctx, modelService, modelUUID)
+	if err != nil && !errors.Is(err, modelerrors.NotFound) {
+		return modelConnection{}, errors.Trace(err)
 	} else if conn.connectable {
-		return nil
+		return conn, nil
 	}
 
 	// If this model used to be hosted on this controller but got
@@ -1329,10 +1329,10 @@ func (srv *Server) isModelAvailable(
 		// is an error with the database? The caller will assume that it
 		// is no longer on this controller. If we return a different error
 		// then it can at least retry the request.
-		return modelerrors.NotFound
+		return modelConnection{}, modelerrors.NotFound
 	}
 
-	return nil
+	return conn, nil
 }
 
 // publicDNSName returns the current public hostname.

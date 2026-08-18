@@ -362,9 +362,9 @@ type MockModelService struct {
 
 // MockModelServiceMockRecorder is the mock recorder for MockModelService.
 type MockModelServiceMockRecorder struct {
-	mock                    *MockModelService
-	getModelPresenceExpects []*gomock.Call2_2[context.Context, model.UUID, model0.ModelPresence, error]
-	modelRedirectionExpects []*gomock.Call2_2[context.Context, model.UUID, model0.ModelRedirection, error]
+	mock                          *MockModelService
+	getModelConnectionInfoExpects []*gomock.Call2_2[context.Context, model.UUID, model0.ModelConnectionInfo, error]
+	modelRedirectionExpects       []*gomock.Call2_2[context.Context, model.UUID, model0.ModelRedirection, error]
 }
 
 // NewMockModelService creates a new mock instance.
@@ -379,23 +379,23 @@ func (m *MockModelService) EXPECT() *MockModelServiceMockRecorder {
 	return m.recorder
 }
 
-// GetModelPresence mocks base method.
-func (m *MockModelService) GetModelPresence(ctx context.Context, modelUUID model.UUID) (model0.ModelPresence, error) {
+// GetModelConnectionInfo mocks base method.
+func (m *MockModelService) GetModelConnectionInfo(ctx context.Context, modelUUID model.UUID) (model0.ModelConnectionInfo, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getModelPresenceExpects, m.ctrl, m, "GetModelPresence", ctx, modelUUID)
+	return gomock.Dispatch2_2(&m.recorder.getModelConnectionInfoExpects, m.ctrl, m, "GetModelConnectionInfo", ctx, modelUUID)
 }
 
-// GetModelPresence indicates an expected call of GetModelPresence.
-func (mr *MockModelServiceMockRecorder) GetModelPresence(ctx, modelUUID any) *MockModelServiceGetModelPresenceCall {
+// GetModelConnectionInfo indicates an expected call of GetModelConnectionInfo.
+func (mr *MockModelServiceMockRecorder) GetModelConnectionInfo(ctx, modelUUID any) *MockModelServiceGetModelConnectionInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, model.UUID, model0.ModelPresence, error](mr.mock.ctrl.T, mr.mock, "GetModelPresence", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
-	mr.getModelPresenceExpects = append(mr.getModelPresenceExpects, call)
+	call := gomock.NewCall2_2[context.Context, model.UUID, model0.ModelConnectionInfo, error](mr.mock.ctrl.T, mr.mock, "GetModelConnectionInfo", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.getModelConnectionInfoExpects = append(mr.getModelConnectionInfoExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockModelServiceGetModelPresenceCall is the typed call wrapper for GetModelPresence.
-type MockModelServiceGetModelPresenceCall = gomock.Call2_2[context.Context, model.UUID, model0.ModelPresence, error]
+// MockModelServiceGetModelConnectionInfoCall is the typed call wrapper for GetModelConnectionInfo.
+type MockModelServiceGetModelConnectionInfoCall = gomock.Call2_2[context.Context, model.UUID, model0.ModelConnectionInfo, error]
 
 // ModelRedirection mocks base method.
 func (m *MockModelService) ModelRedirection(ctx context.Context, modelUUID model.UUID) (model0.ModelRedirection, error) {

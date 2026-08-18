@@ -203,12 +203,10 @@ type RedirectUser struct {
 	Access   string
 }
 
-// ModelPresence describes a model's existence on this controller independently
-// of whether its creation has been completed. It is the answer to "is there a
-// model row for this UUID, and is it ready for general use", which the API
-// server needs in order to admit agent connections to a model that is still
-// being imported by a migration.
-type ModelPresence struct {
+// ModelConnectionInfo describes whether a model on this controller is ready to
+// accept API connections. The API server uses it to admit agent connections to
+// a model that is still being imported by a migration.
+type ModelConnectionInfo struct {
 	// Name is the human friendly name of the model.
 	Name string
 
@@ -220,8 +218,8 @@ type ModelPresence struct {
 	// finished, or a migration is still importing it.
 	Activated bool
 
-	// Importing reports whether a target-side migration import claim exists for
-	// the model. A live claim keeps the model unavailable to users, but lets its
-	// agents connect during migration validation.
-	Importing bool
+	// HasImportClaim reports whether a target-side migration import claim exists
+	// for the model. A live claim keeps the model unavailable to users, but lets
+	// its agents connect during migration validation.
+	HasImportClaim bool
 }

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	coremodel "github.com/juju/juju/core/model"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 )
@@ -25,13 +24,18 @@ type modelConnection struct {
 	// modelType is the type of the model.
 	modelType coremodel.ModelType
 
+	// hasImportClaim reports whether a live target-side import claim exists. It
+	// is cached with the other connection information so login does not repeat
+	// the controller database query made by the websocket gate.
+	hasImportClaim bool
+
 	// migrationMode is the model's current migration mode, which decides how
 	// far the resulting API root is restricted.
 	migrationMode modelmigration.MigrationMode
 }
 
-// modelConnectionFor reports whether the API server may serve connections for
-// the given model.
+// modelIsConnectable reports whether the API server may serve connections for
+// the given model without querying its migration mode.
 //
 // An activated model is connectable, as it always has been. A model that has
 // not been activated is connectable only while a migration is importing it:
@@ -46,41 +50,48 @@ type modelConnection struct {
 //
 // A model that does not exist, or one left half built for any other reason -
 // an add-model that never completed, say - is not connectable.
-func modelConnectionFor(
+func modelIsConnectable(
 	ctx context.Context,
 	modelService ModelService,
-	migrationService ModelMigrationService,
 	modelUUID coremodel.UUID,
 ) (modelConnection, error) {
-	presence, err := modelService.GetModelPresence(ctx, modelUUID)
-	if errors.Is(err, modelerrors.NotFound) {
-		return modelConnection{}, nil
-	} else if err != nil {
+	info, err := modelService.GetModelConnectionInfo(ctx, modelUUID)
+	if err != nil {
 		return modelConnection{}, errors.Capture(err)
 	}
 
 	// Activation and the import claim are read atomically. This prevents the
 	// activation handoff from producing the impossible-looking combination of
 	// an unactivated model without an import claim.
-	if !presence.Activated && !presence.Importing {
-		return modelConnection{}, nil
-	}
-
-	mode := modelmigration.MigrationModeImporting
-	if !presence.Importing {
-		// An activated model with no target-side import claim may still be
-		// exporting, in which case user logins must be restricted.
-		var err error
-		mode, err = migrationService.ModelMigrationMode(ctx)
-		if err != nil {
-			return modelConnection{}, errors.Capture(err)
-		}
-	}
-
 	return modelConnection{
-		connectable:   true,
-		modelName:     presence.Name,
-		modelType:     presence.ModelType,
-		migrationMode: mode,
+		connectable:    info.Activated || info.HasImportClaim,
+		modelName:      info.Name,
+		modelType:      info.ModelType,
+		hasImportClaim: info.HasImportClaim,
 	}, nil
+}
+
+// modelConnectionFor completes the cached connection information with the
+// migration mode needed to restrict the authenticated API root.
+func modelConnectionFor(
+	ctx context.Context,
+	migrationService ModelMigrationService,
+	conn modelConnection,
+) (modelConnection, error) {
+	if !conn.connectable {
+		return conn, nil
+	}
+	if conn.hasImportClaim {
+		conn.migrationMode = modelmigration.MigrationModeImporting
+		return conn, nil
+	}
+
+	// An activated model with no target-side import claim may still be
+	// exporting, in which case user logins must be restricted.
+	mode, err := migrationService.ModelMigrationMode(ctx)
+	if err != nil {
+		return modelConnection{}, errors.Capture(err)
+	}
+	conn.migrationMode = mode
+	return conn, nil
 }

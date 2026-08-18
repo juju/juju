@@ -66,8 +66,8 @@ func (s *State) CheckModelExists(
 	})
 }
 
-// GetModelPresence returns the model's type, activation state and target-side
-// import-claim presence in one transaction. It is the counterpart to
+// GetModelConnectionInfo returns the model's type, activation state and
+// target-side import-claim status in one transaction. It is the counterpart to
 // [State.CheckModelExists] for callers that must distinguish a model which does
 // not exist at all from one whose creation has not been completed - notably the
 // API server, which admits agent connections to a model that a migration is
@@ -76,48 +76,48 @@ func (s *State) CheckModelExists(
 // The following error types can be expected:
 // - [modelerrors.NotFound]: When no model exists for the given uuid, regardless
 // of the activated status.
-func (s *State) GetModelPresence(
+func (s *State) GetModelConnectionInfo(
 	ctx context.Context,
 	modelUUID string,
-) (model.ModelPresence, error) {
+) (model.ModelConnectionInfo, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
-		return model.ModelPresence{}, errors.Capture(err)
+		return model.ModelConnectionInfo{}, errors.Capture(err)
 	}
 
 	uuidArg := dbModelUUID{UUID: modelUUID}
 	stmt, err := s.Prepare(`
-SELECT vm.name AS &dbModelPresence.name,
-       vm.model_type AS &dbModelPresence.model_type,
-       vm.activated AS &dbModelPresence.activated,
-       IIF(mmi.model_uuid IS NOT NULL, TRUE, FALSE) AS &dbModelPresence.importing
-FROM v_model_all AS vm
-LEFT JOIN model_migration_import AS mmi ON mmi.model_uuid = vm.uuid
-WHERE vm.uuid = $dbModelUUID.uuid
-`, dbModelPresence{}, uuidArg)
+SELECT m.name AS &dbModelConnectionInfo.name,
+       mt.type AS &dbModelConnectionInfo.model_type,
+       m.activated AS &dbModelConnectionInfo.activated,
+       IIF(mmi.model_uuid IS NOT NULL, TRUE, FALSE) AS &dbModelConnectionInfo.has_import_claim
+FROM model AS m
+JOIN model_type AS mt ON mt.id = m.model_type_id
+LEFT JOIN model_migration_import AS mmi ON mmi.model_uuid = m.uuid
+WHERE m.uuid = $dbModelUUID.uuid
+`, dbModelConnectionInfo{}, uuidArg)
 	if err != nil {
-		return model.ModelPresence{}, errors.Capture(err)
+		return model.ModelConnectionInfo{}, errors.Capture(err)
 	}
 
-	var presence dbModelPresence
+	var info dbModelConnectionInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		presence = dbModelPresence{}
-		err := tx.Query(ctx, stmt, uuidArg).Get(&presence)
+		err := tx.Query(ctx, stmt, uuidArg).Get(&info)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("model %q %w", modelUUID, modelerrors.NotFound)
+			return modelerrors.NotFound
 		}
 		return err
 	})
 	if err != nil {
-		return model.ModelPresence{}, errors.Errorf(
-			"getting presence of model %q: %w", modelUUID, err)
+		return model.ModelConnectionInfo{}, errors.Errorf(
+			"getting connection information for model %q: %w", modelUUID, err)
 	}
 
-	return model.ModelPresence{
-		Name:      presence.Name,
-		ModelType: coremodel.ModelType(presence.ModelType),
-		Activated: presence.Activated,
-		Importing: presence.Importing,
+	return model.ModelConnectionInfo{
+		Name:           info.Name,
+		ModelType:      coremodel.ModelType(info.ModelType),
+		Activated:      info.Activated,
+		HasImportClaim: info.HasImportClaim,
 	}, nil
 }
 

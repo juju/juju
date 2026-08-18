@@ -39,6 +39,7 @@ import (
 	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/internal/auth"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
@@ -519,6 +520,37 @@ VALUES (?, ?, ?, 'prod', 'iaas', ?, 'dummy')`,
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *loginSuite) seedMachine(
+	c *tc.C, modelUUID coremodel.UUID, password, nonce string,
+) {
+	err := s.ModelTxnRunner(c, modelUUID.String()).StdTxn(
+		c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			netNodeUUID := uuid.MustNewUUID().String()
+			if _, err := tx.ExecContext(ctx,
+				`INSERT INTO net_node (uuid) VALUES (?)`, netNodeUUID); err != nil {
+				return err
+			}
+
+			machineUUID := uuid.MustNewUUID().String()
+			if _, err := tx.ExecContext(ctx, `
+INSERT INTO machine (
+    uuid, name, net_node_uuid, life_id, nonce,
+    password_hash_algorithm_id, password_hash
+)
+VALUES (?, '0', ?, 0, ?, 0, ?)`,
+				machineUUID, netNodeUUID, nonce,
+				internalpassword.AgentPasswordHash(password)); err != nil {
+				return err
+			}
+
+			_, err := tx.ExecContext(ctx, `
+INSERT INTO machine_cloud_instance (machine_uuid, life_id, instance_id)
+VALUES (?, 0, 'instance-0')`, machineUUID)
+			return err
+		})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // beginImport records a migration import claim against the model, which is
 // what a v8 migration's first target-side write does.
 func (s *loginSuite) beginImport(c *tc.C, modelUUID coremodel.UUID) {
@@ -537,18 +569,22 @@ VALUES (?, ?, ?)`,
 // not been activated yet. A migration's VALIDATION phase asks every agent in
 // the model to log in to this controller and confirm it can be served here,
 // and that runs before the import is committed and the model activated.
-//
-// The login below still fails - the credentials are junk and there is no such
-// entity - but it fails on the credentials rather than on the model, which is
-// what shows the connection got past the model gate.
 func (s *loginSuite) TestLoginToModelBeingImported(c *tc.C) {
 	modelUUID := s.createUnactivatedModel(c, "being-imported")
+	s.seedModelDB(c, modelUUID, "being-imported")
+	password := tc.Must(c, internalpassword.RandomPassword)
+	nonce := "machine-nonce"
+	s.seedMachine(c, modelUUID, password, nonce)
 	s.beginImport(c, modelUUID)
 
 	st := s.openModelAPIWithoutLogin(c, modelUUID.String())
 
-	err := st.Login(c.Context(), names.NewMachineTag("0"), "some-password", "nonce", nil)
-	assertInvalidEntityPassword(c, err)
+	machineTag := names.NewMachineTag("0")
+	err := st.Login(c.Context(), machineTag, password, nonce, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = apimachiner.NewClient(st).Machine(c.Context(), machineTag)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestLoginToUnactivatedModelWithoutImport pins the other side of that window:

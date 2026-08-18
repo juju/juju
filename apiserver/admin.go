@@ -222,7 +222,8 @@ func (a *admin) getAuditRecorder(
 }
 
 type authResult struct {
-	tag                    names.Tag // nil if external user login
+	// tag is the authenticated identity used by API restrictions.
+	tag                    names.Tag
 	anonymousLogin         bool
 	userLogin              bool // false if anonymous user
 	controllerOnlyLogin    bool
@@ -304,8 +305,9 @@ func (a *admin) authenticate(ctx context.Context, modelConnectable bool, req par
 			authenticated = true
 			a.root.authInfo = authInfo
 			// Token and macaroon logins do not necessarily carry an AuthTag in the
-			// request. Use the authenticated identity for maintenance restrictions
-			// so externally authenticated users cannot bypass import/export guards.
+			// request. Without the authenticated identity here, maintenance
+			// restrictions receive a nil tag and treat the login as anonymous,
+			// skipping the importing and exporting restrictions for users.
 			result.tag = authInfo.Tag
 			result.controllerMachineLogin = authInfo.Controller
 			break
@@ -396,21 +398,16 @@ func (a *admin) authenticate(ctx context.Context, modelConnectable bool, req par
 // When the model cannot be served and the login is by a user for a model that
 // migrated away, this emits the redirect error.
 func (a *admin) getModelConnection(ctx context.Context, req params.LoginRequest) (modelConnection, error) {
-	conn, err := modelConnectionFor(
-		ctx,
-		a.root.domainServices.Model(),
-		a.root.domainServices.ModelMigration(),
-		a.root.modelUUID,
-	)
-	if err != nil {
-		return modelConnection{}, errors.Trace(err)
-	}
+	conn := a.root.modelConnection
 	if !conn.connectable {
 		// If the login attempt is by a user for a migrated model,
 		// return a redirect error.
 		return modelConnection{}, errors.Trace(a.maybeEmitRedirectError(ctx, req))
 	}
-	return conn, nil
+
+	conn, err := modelConnectionFor(
+		ctx, a.root.domainServices.ModelMigration(), conn)
+	return conn, errors.Trace(err)
 }
 
 func (a *admin) maybeEmitRedirectError(ctx context.Context, req params.LoginRequest) error {

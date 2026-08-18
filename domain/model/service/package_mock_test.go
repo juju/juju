@@ -676,8 +676,8 @@ type MockStateMockRecorder struct {
 	getModelByNameExpects                       []*gomock.Call3_2[context.Context, string, string, model.Model, error]
 	getModelCloudAndCredentialExpects           []*gomock.Call2_3[context.Context, model.UUID, cloud0.UUID, credential.UUID, error]
 	getModelCloudInfoExpects                    []*gomock.Call2_3[context.Context, model.UUID, string, string, error]
+	getModelConnectionInfoExpects               []*gomock.Call2_2[context.Context, string, model0.ModelConnectionInfo, error]
 	getModelLifeExpects                         []*gomock.Call2_2[context.Context, model.UUID, life.Life, error]
-	getModelPresenceExpects                     []*gomock.Call2_2[context.Context, string, model0.ModelPresence, error]
 	getModelRedirectUsersExpects                []*gomock.Call2_2[context.Context, model.UUID, []model0.RedirectUser, error]
 	getModelRedirectionExpects                  []*gomock.Call2_2[context.Context, model.UUID, model0.ModelRedirection, error]
 	getModelUUIDsExpects                        []*gomock.Call1_2[context.Context, []model.UUID, error]
@@ -992,6 +992,24 @@ func (mr *MockStateMockRecorder) GetModelCloudInfo(arg0, arg1 any) *MockStateGet
 // MockStateGetModelCloudInfoCall is the typed call wrapper for GetModelCloudInfo.
 type MockStateGetModelCloudInfoCall = gomock.Call2_3[context.Context, model.UUID, string, string, error]
 
+// GetModelConnectionInfo mocks base method.
+func (m *MockState) GetModelConnectionInfo(arg0 context.Context, arg1 string) (model0.ModelConnectionInfo, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getModelConnectionInfoExpects, m.ctrl, m, "GetModelConnectionInfo", arg0, arg1)
+}
+
+// GetModelConnectionInfo indicates an expected call of GetModelConnectionInfo.
+func (mr *MockStateMockRecorder) GetModelConnectionInfo(arg0, arg1 any) *MockStateGetModelConnectionInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, model0.ModelConnectionInfo, error](mr.mock.ctrl.T, mr.mock, "GetModelConnectionInfo", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getModelConnectionInfoExpects = append(mr.getModelConnectionInfoExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetModelConnectionInfoCall is the typed call wrapper for GetModelConnectionInfo.
+type MockStateGetModelConnectionInfoCall = gomock.Call2_2[context.Context, string, model0.ModelConnectionInfo, error]
+
 // GetModelLife mocks base method.
 func (m *MockState) GetModelLife(ctx context.Context, arg1 model.UUID) (life.Life, error) {
 	m.ctrl.T.Helper()
@@ -1009,24 +1027,6 @@ func (mr *MockStateMockRecorder) GetModelLife(ctx, arg1 any) *MockStateGetModelL
 
 // MockStateGetModelLifeCall is the typed call wrapper for GetModelLife.
 type MockStateGetModelLifeCall = gomock.Call2_2[context.Context, model.UUID, life.Life, error]
-
-// GetModelPresence mocks base method.
-func (m *MockState) GetModelPresence(arg0 context.Context, arg1 string) (model0.ModelPresence, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getModelPresenceExpects, m.ctrl, m, "GetModelPresence", arg0, arg1)
-}
-
-// GetModelPresence indicates an expected call of GetModelPresence.
-func (mr *MockStateMockRecorder) GetModelPresence(arg0, arg1 any) *MockStateGetModelPresenceCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, model0.ModelPresence, error](mr.mock.ctrl.T, mr.mock, "GetModelPresence", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
-	mr.getModelPresenceExpects = append(mr.getModelPresenceExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateGetModelPresenceCall is the typed call wrapper for GetModelPresence.
-type MockStateGetModelPresenceCall = gomock.Call2_2[context.Context, string, model0.ModelPresence, error]
 
 // GetModelRedirectUsers mocks base method.
 func (m *MockState) GetModelRedirectUsers(ctx context.Context, modelUUID model.UUID) ([]model0.RedirectUser, error) {
