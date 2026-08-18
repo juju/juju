@@ -45,6 +45,14 @@ test_import_filesystem() {
 	wait_for_storage "detached" '.storage["data/1"]["status"].current'
 	wait_for_storage "${PV}" '.filesystems["1"]."provider-id"'
 
+	# WORKAROUND(juju/juju#23069): Juju 4.0 model destroy does not cascade
+	# removal of detached storage instances, causing the model-removal job to
+	# retry forever on checkNoModelDependents. Remove the imported storage
+	# explicitly before destroying the model. Delete this workaround when
+	# the issue is resolved.
+	juju remove-storage data/1 --no-destroy
+	wait_for "{}" ".storage"
+
 	# Destroy the test model.
 	destroy_model "${model_name}"
 }
@@ -97,6 +105,14 @@ test_force_import_filesystem() {
 	echo "${PVC}" | check ""
 	RECLAIM_POLICY=$(kubectl get pv "${PV}" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}')
 	echo "${RECLAIM_POLICY}" | check "Retain"
+
+	# WORKAROUND(juju/juju#23069): Juju 4.0 model destroy does not cascade
+	# removal of detached storage instances, causing the model-removal job to
+	# retry forever on checkNoModelDependents. Remove the imported storage
+	# explicitly before destroying the model. Delete this workaround when
+	# the issue is resolved.
+	juju remove-storage data/1 --no-destroy
+	wait_for "{}" ".storage"
 
 	# Destroy the test model.
 	destroy_model "${model_name}"
