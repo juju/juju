@@ -1941,7 +1941,8 @@ func (env *azureEnviron) DestroyController(ctx context.Context, controllerUUID s
 		return errors.Trace(err)
 	}
 	// Resource groups are self-contained and fully encompass
-	// all environ armresources. Once you delete the group, there
+	// all environ armresources. Once the group has been deleted,
+	// or its contents cleaned up for a user-specified group, there
 	// is nothing else to do.
 	return nil
 }
@@ -2208,9 +2209,13 @@ func (env *azureEnviron) getModelResources(
 		return nil, errors.Trace(err)
 	}
 	var resourceItems []*armresources.GenericResourceExpanded
-	pager := resources.NewListByResourceGroupPager(resourceGroup, &armresources.ClientListByResourceGroupOptions{
-		Filter: new(modelFilter),
-	})
+	// If no model filter is specified, omit the $filter query parameter
+	// entirely so the resource group is listed without a filter.
+	listOpts := &armresources.ClientListByResourceGroupOptions{}
+	if modelFilter != "" {
+		listOpts.Filter = new(modelFilter)
+	}
+	pager := resources.NewListByResourceGroupPager(resourceGroup, listOpts)
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
@@ -2286,7 +2291,7 @@ func (env *azureEnviron) deleteResources(ctx context.Context, toDelete []*armres
 				if strings.HasPrefix(errorutils.ErrorCode(err), "InUse") {
 					remainingResources[i] = toDelete[i]
 				} else {
-					deleteResults[i] = errors.Annotatef(err, "deleting resource %q: %v", id, err)
+					deleteResults[i] = errors.Annotatef(err, "deleting resource %q", id)
 				}
 				return
 			}
