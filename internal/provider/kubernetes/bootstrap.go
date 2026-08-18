@@ -1329,13 +1329,7 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		return nil, errors.Trace(err)
 	}
 
-	enableServiceLinks := true
-	brokerCfg := c.broker.Config()
-	if v, ok := brokerCfg.AllAttrs()[EnableServiceLinksKey]; ok {
-		if b, ok := v.(bool); ok {
-			enableServiceLinks = b
-		}
-	}
+	enableServiceLinks := enableServiceLinksFromConfig(c.broker.Config())
 
 	controllerApp := application.NewApplication(
 		environsbootstrap.ControllerApplicationName,

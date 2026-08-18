@@ -42,6 +42,17 @@ type brokerConfig struct {
 	attrs map[string]any
 }
 
+// enableServiceLinksFromConfig returns the enable-service-links value from
+// the supplied model configuration, defaulting to true.
+func enableServiceLinksFromConfig(cfg *config.Config) bool {
+	if v, ok := cfg.AllAttrs()[EnableServiceLinksKey]; ok {
+		if b, ok := v.(bool); ok {
+			return b
+		}
+	}
+	return true
+}
+
 func (p kubernetesEnvironProvider) Validate(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
 	newCfg, err := validateConfig(ctx, cfg, old)
 	if err != nil {
