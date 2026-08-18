@@ -89,6 +89,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.ControllerApplicationPassword = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.ControllerUnitPassword = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -118,6 +122,9 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		},
 		ControllerCharmDeployer: func(context.Context, ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
 			return nil, nil
+		},
+		ControllerApplicationPassword: func(context.Context) (string, error) {
+			return "", nil
 		},
 		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 			return nil

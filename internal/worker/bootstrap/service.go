@@ -29,6 +29,8 @@ import (
 
 // AgentPasswordService provides access to agent password management.
 type AgentPasswordService interface {
+	// SetApplicationPassword sets the password for the given application.
+	SetApplicationPassword(ctx context.Context, appID coreapplication.UUID, password string) error
 	// SetUnitPassword sets the password for the given unit.
 	SetUnitPassword(ctx context.Context, unitName unit.Name, password string) error
 	// SetMachinePassword sets the password for the given machine.
@@ -53,6 +55,8 @@ type AgentBinaryStore interface {
 
 // ApplicationService instances save an application to dqlite state.
 type ApplicationService interface {
+	// GetApplicationUUIDByName returns the UUID for the named application.
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 	// CreateIAASApplication creates a new IAAS application with the given name
 	// and charm.
 	CreateIAASApplication(

@@ -77,10 +77,22 @@ func CAASControllerUnitPassword(context.Context) (string, error) {
 	return os.Getenv(k8sconstants.EnvJujuK8sUnitPassword), nil
 }
 
+// CAASControllerApplicationPassword returns the password used by controller
+// pods to introduce themselves to the controller application.
+func CAASControllerApplicationPassword(context.Context) (string, error) {
+	return os.Getenv(k8sconstants.EnvJujuK8sApplicationPassword), nil
+}
+
 // IAASControllerUnitPassword is the function that is used to get the unit
 // password for IAAS.
 func IAASControllerUnitPassword(context.Context) (string, error) {
 	// IAAS doesn't need a unit password.
+	return "", nil
+}
+
+// IAASControllerApplicationPassword returns no application password because
+// IAAS controllers do not use CAAS unit introduction.
+func IAASControllerApplicationPassword(context.Context) (string, error) {
 	return "", nil
 }
 

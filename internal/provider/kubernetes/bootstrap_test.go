@@ -707,7 +707,8 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 		},
 		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
-			"JUJU_K8S_UNIT_PASSWORD": []byte(controllerStacker.GetControllerUnitAgentPassword()),
+			"JUJU_K8S_UNIT_PASSWORD":        []byte(controllerStacker.GetControllerUnitAgentPassword()),
+			"JUJU_K8S_APPLICATION_PASSWORD": []byte(controllerStacker.GetControllerApplicationPassword()),
 		},
 	}
 
@@ -1101,17 +1102,10 @@ exec /opt/pebble run --http :38811 --verbose
 		Args: []string{`
 set -eu
 controller_id="${JUJU_K8S_POD_NAME##*-}"
-controller_dir="/var/lib/juju/agents/controller-${controller_id}"
-mkdir -p "${controller_dir}"
 if [ "${controller_id}" = "0" ]; then
     if [ ! -e "/var/lib/juju/template-agent.conf" ]; then
         cp "/var/lib/juju-controller-bootstrap/controller-unit-agent.conf" "/var/lib/juju/template-agent.conf"
     fi
-elif [ ! -e "${controller_dir}/agent.conf" ]; then
-    sed -e "s/controller-0/controller-${controller_id}/g" \
-        -e "s/^oldpassword: .*/oldpassword: ${JUJU_K8S_UNIT_PASSWORD}/" "/var/lib/juju-controller-bootstrap/controller-agent.conf" | \
-        sed "/^- localhost:456$/a- juju-controller-test-service:17777" > "${controller_dir}/agent.conf"
-    chmod 600 "${controller_dir}/agent.conf"
 fi
 `},
 		Env: []core.EnvVar{
@@ -1119,17 +1113,6 @@ fi
 				Name: "JUJU_K8S_POD_NAME",
 				ValueFrom: &core.EnvVarSource{
 					FieldRef: &core.ObjectFieldSelector{FieldPath: "metadata.name"},
-				},
-			},
-			{
-				Name: "JUJU_K8S_UNIT_PASSWORD",
-				ValueFrom: &core.EnvVarSource{
-					SecretKeyRef: &core.SecretKeySelector{
-						LocalObjectReference: core.LocalObjectReference{
-							Name: "juju-controller-test-application-config",
-						},
-						Key: "JUJU_K8S_UNIT_PASSWORD",
-					},
 				},
 			},
 		},
@@ -1201,7 +1184,7 @@ fi
 						LocalObjectReference: core.LocalObjectReference{
 							Name: "juju-controller-test-application-config",
 						},
-						Key: "JUJU_K8S_UNIT_PASSWORD",
+						Key: "JUJU_K8S_APPLICATION_PASSWORD",
 					},
 				},
 			},

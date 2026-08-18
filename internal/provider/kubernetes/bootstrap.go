@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/featureflag"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/provider/kubernetes/application"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
@@ -155,6 +156,9 @@ type controllerStack struct {
 	agentConfig agent.ConfigSetterWriter
 	// unitAgentConfig is the controller charm agent config.
 	unitAgentConfig agent.ConfigSetterWriter
+	// applicationPassword authenticates controller pods while they introduce
+	// their unit and controller-agent identities.
+	applicationPassword string
 
 	storageClass  string
 	storageSize   resource.Quantity
@@ -275,6 +279,10 @@ func newControllerStack(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	applicationPassword, err := password.RandomPassword()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	selectorLabels := providerutils.SelectorLabelsForApp(stackName, constants.LastLabelVersion)
 	labels := providerutils.LabelsForApp(stackName, constants.LastLabelVersion)
@@ -289,9 +297,10 @@ func newControllerStack(
 		broker:           broker,
 		timeout:          pcfg.Bootstrap.Timeout,
 
-		pcfg:            pcfg,
-		agentConfig:     agentConfig,
-		unitAgentConfig: unitAgentConfig,
+		pcfg:                pcfg,
+		agentConfig:         agentConfig,
+		unitAgentConfig:     unitAgentConfig,
+		applicationPassword: applicationPassword,
 
 		storageSize:   storageSize,
 		storageClass:  storageClass,
@@ -909,7 +918,8 @@ func (c *controllerStack) ensureControllerApplicationSecret(ctx context.Context)
 		},
 		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
-			constants.EnvJujuK8sUnitPassword: []byte(controllerUnitPassword),
+			constants.EnvJujuK8sUnitPassword:        []byte(controllerUnitPassword),
+			constants.EnvJujuK8sApplicationPassword: []byte(c.applicationPassword),
 		},
 	}
 	cleanUp, err := c.broker.ensureSecret(ctx, secret)
@@ -1572,51 +1582,25 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		Args: []string{fmt.Sprintf(`
 set -eu
 controller_id="${%s##*-}"
-controller_dir="%s/agents/controller-${controller_id}"
-mkdir -p "${controller_dir}"
 if [ "${controller_id}" = "0" ]; then
     if [ ! -e "%s/%s" ]; then
         cp "%s/%s" "%s/%s"
     fi
-elif [ ! -e "${controller_dir}/%s" ]; then
-    sed -e "s/controller-0/controller-${controller_id}/g" \
-        -e "s/^oldpassword: .*/oldpassword: ${%s}/" "%s/%s" | \
-        sed "/^- localhost:%d$/a- %s:%d" > "${controller_dir}/%s"
-    chmod 600 "${controller_dir}/%s"
 fi
 `,
 			constants.EnvJujuK8sPodName,
-			c.pcfg.DataDir,
 			c.pcfg.DataDir,
 			constants.TemplateFileNameAgentConf,
 			controllerConfigSeedDir,
 			constants.ControllerUnitAgentConfigFilename,
 			c.pcfg.DataDir,
 			constants.TemplateFileNameAgentConf,
-			agentconstants.AgentConfigFilename,
-			constants.EnvJujuK8sUnitPassword,
-			controllerConfigSeedDir,
-			constants.ControllerAgentConfigFilename,
-			c.pcfg.Bootstrap.ControllerAgentInfo.APIPort,
-			c.resourceNameService,
-			c.portAPIServer,
-			agentconstants.AgentConfigFilename,
-			agentconstants.AgentConfigFilename,
 		)},
 		Env: []core.EnvVar{
 			{
 				Name: constants.EnvJujuK8sPodName,
 				ValueFrom: &core.EnvVarSource{
 					FieldRef: &core.ObjectFieldSelector{FieldPath: "metadata.name"},
-				},
-			},
-			{
-				Name: constants.EnvJujuK8sUnitPassword,
-				ValueFrom: &core.EnvVarSource{
-					SecretKeyRef: &core.SecretKeySelector{
-						LocalObjectReference: core.LocalObjectReference{Name: c.appSecretName()},
-						Key:                  constants.EnvJujuK8sUnitPassword,
-					},
 				},
 			},
 		},
@@ -1656,11 +1640,11 @@ fi
 				Value: c.broker.ModelUUID(),
 			},
 			core.EnvVar{
-				Name: "JUJU_K8S_APPLICATION_PASSWORD",
+				Name: constants.EnvJujuK8sApplicationPassword,
 				ValueFrom: &core.EnvVarSource{
 					SecretKeyRef: &core.SecretKeySelector{
 						LocalObjectReference: core.LocalObjectReference{Name: c.appSecretName()},
-						Key:                  constants.EnvJujuK8sUnitPassword,
+						Key:                  constants.EnvJujuK8sApplicationPassword,
 					},
 				},
 			},

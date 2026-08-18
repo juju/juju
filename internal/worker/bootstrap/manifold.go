@@ -61,6 +61,10 @@ type AgentFinalizerFunc func(context.Context, AgentPasswordService, MachineServi
 // controller unit password.
 type ControllerUnitPasswordFunc func(context.Context) (string, error)
 
+// ControllerApplicationPasswordFunc gets the controller application's unit
+// introduction password.
+type ControllerApplicationPasswordFunc func(context.Context) (string, error)
+
 // RequiresBootstrapFunc is the function that is used to check if the bootstrap
 // process has completed.
 type RequiresBootstrapFunc func(context.Context, FlagService) (bool, error)
@@ -96,14 +100,15 @@ type ManifoldConfig struct {
 	// seed the initial machine or controller-node password in state.
 	AgentPassword string
 
-	AgentBinaryUploader          AgentBinaryBootstrapFunc
-	ControllerCharmDeployer      ControllerCharmDeployerFunc
-	ControllerUnitPassword       ControllerUnitPasswordFunc
-	RequiresBootstrap            RequiresBootstrapFunc
-	PopulateControllerCharm      PopulateControllerCharmFunc
-	BootstrapAddressFinderGetter BootstrapAddressFinderGetter
-	AgentFinalizer               AgentFinalizerFunc
-	StatusHistory                StatusHistory
+	AgentBinaryUploader           AgentBinaryBootstrapFunc
+	ControllerCharmDeployer       ControllerCharmDeployerFunc
+	ControllerApplicationPassword ControllerApplicationPasswordFunc
+	ControllerUnitPassword        ControllerUnitPasswordFunc
+	RequiresBootstrap             RequiresBootstrapFunc
+	PopulateControllerCharm       PopulateControllerCharmFunc
+	BootstrapAddressFinderGetter  BootstrapAddressFinderGetter
+	AgentFinalizer                AgentFinalizerFunc
+	StatusHistory                 StatusHistory
 
 	Logger logger.Logger
 	Clock  clock.Clock
@@ -141,6 +146,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.ControllerCharmDeployer == nil {
 		return errors.NotValidf("nil ControllerCharmDeployer")
+	}
+	if cfg.ControllerApplicationPassword == nil {
+		return errors.NotValidf("nil ControllerApplicationPassword")
 	}
 	if cfg.ControllerUnitPassword == nil {
 		return errors.NotValidf("nil ControllerUnitPassword")
@@ -207,6 +215,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			// Locate the controller unit password.
 			unitPassword, err := config.ControllerUnitPassword(ctx)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			applicationPassword, err := config.ControllerApplicationPassword(ctx)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -280,6 +292,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				PopulateControllerCharm:    config.PopulateControllerCharm,
 				AgentFinalizer:             config.AgentFinalizer,
 				AgentPassword:              config.AgentPassword,
+				ApplicationPassword:        applicationPassword,
 				CharmhubHTTPClient:         charmhubHTTPClient,
 				UnitPassword:               unitPassword,
 				ServiceManagerGetter:       serviceManagerGetter,
