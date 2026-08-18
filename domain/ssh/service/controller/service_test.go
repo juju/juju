@@ -7,6 +7,7 @@ import (
 	"context"
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	gossh "golang.org/x/crypto/ssh"
 
@@ -22,9 +23,8 @@ func TestServiceSuite(t *stdtesting.T) {
 }
 
 func (s *serviceSuite) TestSSHServerHostKeyReturnsExisting(c *tc.C) {
-	controllerState := &stubControllerState{
-		key: testPrivateKey,
-	}
+	controllerState := NewMockState(gomock.NewController(c))
+	controllerState.EXPECT().GetSSHServerHostKey(gomock.Any()).Return(testPrivateKey, nil)
 
 	svc := controllersshservice.NewService(controllerState)
 	key, err := svc.SSHServerHostKey(c.Context())
@@ -33,7 +33,10 @@ func (s *serviceSuite) TestSSHServerHostKeyReturnsExisting(c *tc.C) {
 }
 
 func (s *serviceSuite) TestSSHServerHostKeyErrorsWhenMissing(c *tc.C) {
-	svc := controllersshservice.NewService(&stubControllerState{getErr: context.Canceled})
+	controllerState := NewMockState(gomock.NewController(c))
+	controllerState.EXPECT().GetSSHServerHostKey(gomock.Any()).Return("", context.Canceled)
+
+	svc := controllersshservice.NewService(controllerState)
 
 	key, err := svc.SSHServerHostKey(c.Context())
 	c.Check(key, tc.Equals, "")
@@ -47,25 +50,23 @@ func (s *serviceSuite) TestSSHServerHostPublicKeyReturnsStored(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	want := signer.PublicKey().Marshal()
 
-	controllerState := &stubControllerState{
-		key:       testPrivateKey,
-		publicKey: want,
-	}
+	controllerState := NewMockState(gomock.NewController(c))
+	controllerState.EXPECT().GetSSHServerHostPublicKey(gomock.Any()).Return(want, nil)
 	svc := controllersshservice.NewService(controllerState)
 
 	got, err := svc.SSHServerHostPublicKey(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, want)
 
-	// The public key is read from state; the private key is never fetched.
-	c.Check(controllerState.gets, tc.Equals, 0)
-	c.Check(controllerState.publicKeyGets, tc.Equals, 1)
 }
 
 // TestSSHServerHostPublicKeyErrorsWhenMissing checks that a state error
 // fetching the public key is propagated to the caller.
 func (s *serviceSuite) TestSSHServerHostPublicKeyErrorsWhenMissing(c *tc.C) {
-	svc := controllersshservice.NewService(&stubControllerState{publicKeyGetErr: context.Canceled})
+	controllerState := NewMockState(gomock.NewController(c))
+	controllerState.EXPECT().GetSSHServerHostPublicKey(gomock.Any()).Return(nil, context.Canceled)
+
+	svc := controllersshservice.NewService(controllerState)
 
 	got, err := svc.SSHServerHostPublicKey(c.Context())
 	c.Check(got, tc.IsNil)
@@ -74,37 +75,14 @@ func (s *serviceSuite) TestSSHServerHostPublicKeyErrorsWhenMissing(c *tc.C) {
 
 func (s *serviceSuite) TestGetPublicKeysForUser(c *tc.C) {
 	keys := []coressh.PublicKey{{Key: "ssh-ed25519 AAAA"}}
-	controllerState := &stubControllerState{publicKeys: keys}
+	controllerState := NewMockState(gomock.NewController(c))
 	username, err := user.NewName("alice")
 	c.Assert(err, tc.ErrorIsNil)
+	controllerState.EXPECT().GetPublicKeysForUser(gomock.Any(), username).Return(keys, nil)
 
 	got, err := controllersshservice.NewService(controllerState).GetPublicKeysForUser(c.Context(), username)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, keys)
-}
-
-type stubControllerState struct {
-	key             string
-	getErr          error
-	gets            int
-	publicKey       []byte
-	publicKeyGetErr error
-	publicKeyGets   int
-	publicKeys      []coressh.PublicKey
-}
-
-func (s *stubControllerState) GetSSHServerHostKey(_ context.Context) (string, error) {
-	s.gets++
-	return s.key, s.getErr
-}
-
-func (s *stubControllerState) GetSSHServerHostPublicKey(_ context.Context) ([]byte, error) {
-	s.publicKeyGets++
-	return s.publicKey, s.publicKeyGetErr
-}
-
-func (s *stubControllerState) GetPublicKeysForUser(context.Context, user.Name) ([]coressh.PublicKey, error) {
-	return s.publicKeys, nil
 }
 
 const testPrivateKey = "-----BEGIN OPENSSH PRIVATE KEY-----\n" +
