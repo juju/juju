@@ -74,6 +74,9 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	if c.ControllerConfigService == nil {
 		return errors.NotValidf("ControllerConfigService is required")
 	}
+	if c.Metrics == nil {
+		return errors.NotValidf("missing Metrics")
+	}
 	if c.NewServerWorker == nil {
 		return errors.NotValidf("NewSSHServer is required")
 	}

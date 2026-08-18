@@ -201,6 +201,17 @@ func (s *sshServerSuite) TestValidate(c *tc.C) {
 
 	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
+	// Test no Metrics.
+	s.SetUpMocks(c)
+	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *ServerWorkerConfig) {
+		cfg.Authenticator = s.authenticator
+		cfg.Authorizer = s.authorizer
+		cfg.ProxyFactory = s.proxyFactory
+		cfg.TunnelTracker = s.tunnelTracker
+		cfg.Metrics = nil
+	})
+	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*missing Metrics.*")
+
 	// Test no Logger.
 	cfg = newServerWorkerConfig(l, "Logger", func(cfg *ServerWorkerConfig) {
 		cfg.Logger = nil

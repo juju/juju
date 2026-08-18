@@ -88,6 +88,9 @@ func (c ServerWorkerConfig) Validate() error {
 	if c.Logger == nil {
 		return errors.NotValidf("missing Logger")
 	}
+	if c.Metrics == nil {
+		return errors.NotValidf("missing Metrics")
+	}
 	if c.JumpHostKey == "" {
 		return errors.NotValidf("empty JumpHostKey")
 	}
@@ -332,7 +335,11 @@ func (s *ServerWorker) reverseTunnelHandler(_ *ssh.Server, conn *gossh.ServerCon
 // connCallback returns a connCallback function that limits the number of concurrent connections.
 func (s *ServerWorker) connCallback() ssh.ConnCallback {
 	return func(ctx ssh.Context, conn net.Conn) net.Conn {
-		ctx.SetValue(connectionStartTime{}, time.Now())
+		// Store the connection start time in the context so we can measure
+		// the time to start the session later in the proxy.
+		now := time.Now()
+		ctx.SetValue(connectionStartTime{}, now)
+
 		current := s.concurrentConnections.Add(1)
 		s.config.Metrics.connectionCount.Inc()
 
@@ -353,14 +360,12 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 			s.concurrentConnections.Add(-1)
 			return conn
 		}
-		go func() {
+		go func(start time.Time) {
 			<-ctx.Done()
 			s.config.Metrics.connectionCount.Dec()
 			s.concurrentConnections.Add(-1)
-			if started, ok := ctx.Value(connectionStartTime{}).(time.Time); ok {
-				s.config.Metrics.connectionDuration.Observe(time.Since(started).Seconds())
-			}
-		}()
+			s.config.Metrics.connectionDuration.Observe(time.Since(start).Seconds())
+		}(now)
 		return conn
 	}
 }

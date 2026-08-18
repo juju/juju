@@ -61,7 +61,7 @@ func (m sessionMetrics) ObserveTimeToSession(ctx context.Context) {
 func (f proxyFactory) New(destination virtualhostname.Info) (ProxyHandlers, error) {
 	modelType := "machine"
 	if destination.Target() == virtualhostname.ContainerTarget {
-		modelType = "kubernetes"
+		modelType = "k8s"
 	}
 	var metrics common.Metrics = sessionMetrics{collector: f.metrics, modelType: modelType}
 

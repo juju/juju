@@ -123,7 +123,7 @@ func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
 		cfg.PrometheusRegisterer = nil
 	})
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
+	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	// Missing GetSSHService.
 	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
