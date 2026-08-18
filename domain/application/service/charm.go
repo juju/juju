@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 
+	coreassumes "github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/objectstore"
@@ -21,6 +22,14 @@ import (
 	"github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/errors"
 )
+
+type scriptletSourceCharm interface {
+	ScriptletSources() []internalcharm.ScriptletSource
+}
+
+type hooksOrDispatchCharm interface {
+	HasHooksOrDispatchFile() bool
+}
 
 // CharmState describes retrieval and persistence methods for charms.
 type CharmState interface {
@@ -875,7 +884,8 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 
 func (s *Service) addCharm(ctx context.Context, args charm.AddCharmArgs) (addCharmResult, []string, error) {
 	// We require a valid charm metadata.
-	if meta := args.Charm.Meta(); meta == nil {
+	meta := args.Charm.Meta()
+	if meta == nil {
 		return addCharmResult{}, nil, applicationerrors.CharmMetadataNotValid
 	} else if !application.IsValidCharmName(meta.Name) {
 		return addCharmResult{}, nil, applicationerrors.CharmNameNotValid
@@ -914,9 +924,46 @@ func (s *Service) addCharm(ctx context.Context, args charm.AddCharmArgs) (addCha
 	}
 
 	architecture := encodeArchitecture(args.Architecture)
+	var scriptletSources []internalcharm.ScriptletSource
+	if scriptletCharm, ok := args.Charm.(scriptletSourceCharm); ok {
+		scriptletSources = scriptletCharm.ScriptletSources()
+	}
+	hasScriptlets := len(scriptletSources) > 0
+	hasHooksOrDispatch := false
+	if charmWithHooks, ok := args.Charm.(hooksOrDispatchCharm); ok {
+		hasHooksOrDispatch = charmWithHooks.HasHooksOrDispatchFile()
+	}
+	if hasScriptlets && hasHooksOrDispatch {
+		return addCharmResult{}, nil, errors.Errorf(
+			"charm has scriptlets alongside hooks or a dispatch file: %w",
+			applicationerrors.CharmMetadataNotValid,
+		)
+	}
+	assumesUnitless := coreassumes.HasFeature(meta.Assumes, "unitless")
+	if hasScriptlets && !assumesUnitless {
+		return addCharmResult{}, nil, errors.Errorf(
+			"charm has scriptlets but does not assume unitless: %w",
+			applicationerrors.CharmMetadataNotValid,
+		)
+	} else if assumesUnitless && !hasScriptlets {
+		return addCharmResult{}, nil, errors.Errorf(
+			"charm assumes unitless but has no scriptlets: %w",
+			applicationerrors.CharmMetadataNotValid,
+		)
+	}
+
 	ch, warnings, err := encodeCharm(args.Charm)
 	if err != nil {
 		return addCharmResult{}, warnings, errors.Errorf("encoding charm: %w", err)
+	}
+	if hasScriptlets {
+		ch.Scriptlet = make([]charm.ScriptletSource, len(scriptletSources))
+		for i, source := range scriptletSources {
+			ch.Scriptlet[i] = charm.ScriptletSource{
+				Path:    source.Path,
+				Content: source.Content,
+			}
+		}
 	}
 
 	ch.Source = source
