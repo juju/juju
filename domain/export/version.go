@@ -80,16 +80,16 @@ func CheckPayloadVersionSupported(version semversion.Number) error {
 	// On a minor line we do import, but at a different patch. Only one format
 	// per line is supported, so the side holding the older one has to move; an
 	// in-place upgrade to the latest patch of that line needs no migration.
-	if entry, ok := supportedVersionForLine(version); ok {
-		line := fmt.Sprintf("%d.%d", version.Major, version.Minor)
-		if version.Compare(entry) > 0 {
+	if supported, ok := supportedVersionForLine(version); ok {
+		majorMinor := fmt.Sprintf("%d.%d", version.Major, version.Minor)
+		if version.Compare(supported) > 0 {
 			return errors.Errorf(
 				"source payload version %q is newer than the %s export format this controller imports (%q); upgrade the target controller first: %w",
-				version, line, entry, coreerrors.NotSupported)
+				version, majorMinor, supported, coreerrors.NotSupported)
 		}
 		return errors.Errorf(
 			"source payload version %q predates the %s export format this controller imports (%q); upgrade the source controller in place to the latest %s release, then retry the migration: %w",
-			version, line, entry, line, coreerrors.NotSupported)
+			version, majorMinor, supported, majorMinor, coreerrors.NotSupported)
 	}
 
 	// Below the floor: too old to reach this controller in a single hop.

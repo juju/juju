@@ -71,6 +71,21 @@ func (s *payloadSuite) TestDecodePayloadUnknownVersion(c *tc.C) {
 		`source payload version "4.0.5" predates the 4.0 export format this controller imports \("4.0.12"\); upgrade the source controller in place to the latest 4.0 release, then retry the migration.*`)
 }
 
+// TestDecodePayloadMissingDecoder verifies the fallback error when a supported
+// payload version has no registered decoder.
+func (s *payloadSuite) TestDecodePayloadMissingDecoder(c *tc.C) {
+	originalDecoders := payloadDecoders
+	payloadDecoders = map[semversion.Number]PayloadDecodeFunc{}
+	c.Cleanup(func() {
+		payloadDecoders = originalDecoders
+	})
+
+	_, err := DecodePayload(semversion.MustParse("4.0.12"), []byte("{}"))
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
+	c.Check(err, tc.ErrorMatches,
+		`model export payload version "4.0.12" has no decoder.*`)
+}
+
 // TestDecodePayloadMalformedYAML verifies that undecodable bytes yield a
 // NotValid error.
 func (s *payloadSuite) TestDecodePayloadMalformedYAML(c *tc.C) {
