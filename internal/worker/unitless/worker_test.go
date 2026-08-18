@@ -18,6 +18,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
+	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -96,7 +97,10 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	service := NewMockScriptletService(ctrl)
 	applicationUUID := coreapplication.UUID("app-uuid-1")
-	scriptlet := domainunitless.Scriptlet{
+	scriptlet := domainunitless.ScriptletApplication{
+		UUID: applicationUUID,
+		Name: "app",
+		Life: corelife.Alive,
 		Sources: []domainunitless.ScriptSource{{
 			LoadPath: "hooks.star",
 			Source:   "def init(): pass",
@@ -110,13 +114,18 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	}
 	appChanges := make(chan []string, 1)
 	eventChanges := make(chan []string, 1)
+	dyingChanges := make(chan struct{}, 1)
+	dyingChanges <- struct{}{}
 	eventWatchers := make(chan coreapplication.UUID, 1)
 
 	service.EXPECT().WatchScriptletApplications(gomock.Any()).Return(
 		watchertest.NewMockStringsWatcher(appChanges), nil,
 	)
-	service.EXPECT().GetApplicationScriptlet(gomock.Any(), applicationUUID).Return(
+	service.EXPECT().GetScriptletApplication(gomock.Any(), applicationUUID).Return(
 		scriptlet, nil,
+	).Times(2)
+	service.EXPECT().WatchScriptletApplicationDying(gomock.Any(), applicationUUID).Return(
+		watchertest.NewMockNotifyWatcher(dyingChanges), nil,
 	)
 	service.EXPECT().WatchApplicationEvents(gomock.Any(), applicationUUID).DoAndReturn(
 		func(context.Context, coreapplication.UUID) (watcher.StringsWatcher, error) {

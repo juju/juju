@@ -22,7 +22,7 @@ const requiredSafety = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe |
 // ExecutorConfig is passed to an ExecutorFactory.
 type ExecutorConfig struct {
 	// Scriptlet is the scriptlet to be staged and executed.
-	Scriptlet domainunitless.Scriptlet
+	Scriptlet domainunitless.ScriptletApplication
 
 	// MaxAllocs limits the allocations that can be made
 	// during a single scriptlet function execution.
