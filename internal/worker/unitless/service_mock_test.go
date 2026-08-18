@@ -43,41 +43,41 @@ func (m *MockScriptletService) EXPECT() *MockScriptletServiceMockRecorder {
 	return m.recorder
 }
 
-// GetApplicationScriptlet mocks base method.
-func (m *MockScriptletService) GetApplicationScriptlet(ctx context.Context, applicationUUID application.UUID) (unitless.Scriptlet, error) {
+// GetScriptletApplication mocks base method.
+func (m *MockScriptletService) GetScriptletApplication(ctx context.Context, applicationUUID application.UUID) (unitless.ScriptletApplication, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationScriptlet", ctx, applicationUUID)
-	ret0, _ := ret[0].(unitless.Scriptlet)
+	ret := m.ctrl.Call(m, "GetScriptletApplication", ctx, applicationUUID)
+	ret0, _ := ret[0].(unitless.ScriptletApplication)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetApplicationScriptlet indicates an expected call of GetApplicationScriptlet.
-func (mr *MockScriptletServiceMockRecorder) GetApplicationScriptlet(ctx, applicationUUID any) *MockScriptletServiceGetApplicationScriptletCall {
+// GetScriptletApplication indicates an expected call of GetScriptletApplication.
+func (mr *MockScriptletServiceMockRecorder) GetScriptletApplication(ctx, applicationUUID any) *MockScriptletServiceGetScriptletApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationScriptlet", reflect.TypeOf((*MockScriptletService)(nil).GetApplicationScriptlet), ctx, applicationUUID)
-	return &MockScriptletServiceGetApplicationScriptletCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetScriptletApplication", reflect.TypeOf((*MockScriptletService)(nil).GetScriptletApplication), ctx, applicationUUID)
+	return &MockScriptletServiceGetScriptletApplicationCall{Call: call}
 }
 
-// MockScriptletServiceGetApplicationScriptletCall wrap *gomock.Call
-type MockScriptletServiceGetApplicationScriptletCall struct {
+// MockScriptletServiceGetScriptletApplicationCall wrap *gomock.Call
+type MockScriptletServiceGetScriptletApplicationCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockScriptletServiceGetApplicationScriptletCall) Return(arg0 unitless.Scriptlet, arg1 error) *MockScriptletServiceGetApplicationScriptletCall {
+func (c *MockScriptletServiceGetScriptletApplicationCall) Return(arg0 unitless.ScriptletApplication, arg1 error) *MockScriptletServiceGetScriptletApplicationCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockScriptletServiceGetApplicationScriptletCall) Do(f func(context.Context, application.UUID) (unitless.Scriptlet, error)) *MockScriptletServiceGetApplicationScriptletCall {
+func (c *MockScriptletServiceGetScriptletApplicationCall) Do(f func(context.Context, application.UUID) (unitless.ScriptletApplication, error)) *MockScriptletServiceGetScriptletApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockScriptletServiceGetApplicationScriptletCall) DoAndReturn(f func(context.Context, application.UUID) (unitless.Scriptlet, error)) *MockScriptletServiceGetApplicationScriptletCall {
+func (c *MockScriptletServiceGetScriptletApplicationCall) DoAndReturn(f func(context.Context, application.UUID) (unitless.ScriptletApplication, error)) *MockScriptletServiceGetScriptletApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -119,6 +119,27 @@ func (c *MockScriptletServiceGetScriptletEventCall) Do(f func(context.Context, a
 func (c *MockScriptletServiceGetScriptletEventCall) DoAndReturn(f func(context.Context, application.UUID, string) (unitless.Event, error)) *MockScriptletServiceGetScriptletEventCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
+}
+
+// WatchScriptletApplicationDying mocks base method.
+func (m *MockScriptletService) WatchScriptletApplicationDying(ctx context.Context, applicationUUID application.UUID) (watcher.NotifyWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchScriptletApplicationDying", ctx, applicationUUID)
+	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchScriptletApplicationDying indicates an expected call of WatchScriptletApplicationDying.
+func (mr *MockScriptletServiceMockRecorder) WatchScriptletApplicationDying(ctx, applicationUUID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(
+		mr.mock,
+		"WatchScriptletApplicationDying",
+		reflect.TypeOf((*MockScriptletService)(nil).WatchScriptletApplicationDying),
+		ctx,
+		applicationUUID,
+	)
 }
 
 // WatchApplicationEvents mocks base method.
