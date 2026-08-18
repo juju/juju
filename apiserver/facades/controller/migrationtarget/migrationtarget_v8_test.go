@@ -323,7 +323,8 @@ func (s *v8Suite) TestPrechecksPayloadVersionNewerThanTarget(c *tc.C) {
 }
 
 // TestPrechecksPayloadVersionUnknown verifies that a version at or below the
-// target but unknown to the decoder registry yields a clean error.
+// target but unknown to the decoder registry is rejected with the actionable
+// message telling the operator to upgrade the source controller.
 func (s *v8Suite) TestPrechecksPayloadVersionUnknown(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -332,7 +333,36 @@ func (s *v8Suite) TestPrechecksPayloadVersionUnknown(c *tc.C) {
 
 	err := s.mustNewAPIV8(c).Prechecks(c.Context(), envelope)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
-	c.Check(err, tc.ErrorMatches, `model export payload version "4.0.5": not supported`)
+	c.Check(err, tc.ErrorMatches,
+		`source payload version "4.0.5" predates the 4.0 export format this controller imports \("4.0.12"\); upgrade the source controller in place to the latest 4.0 release, then retry the migration.*`)
+}
+
+// TestPrechecksPayloadVersionNewerPatchOnKnownLine verifies that a payload
+// using a newer patch on a supported release line advises upgrading the target.
+func (s *v8Suite) TestPrechecksPayloadVersionNewerPatchOnKnownLine(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	envelope := s.makeEnvelope(c, s.validPayload())
+	envelope.PayloadVersion = semversion.MustParse("4.0.13")
+
+	err := s.mustNewAPIV8(c).Prechecks(c.Context(), envelope)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
+	c.Check(err, tc.ErrorMatches,
+		`source payload version "4.0.13" is newer than the 4.0 export format this controller imports \("4.0.12"\); upgrade the target controller first.*`)
+}
+
+// TestPrechecksPayloadVersionBelowFloor verifies that a payload below the
+// import window advises upgrading through the intervening releases first.
+func (s *v8Suite) TestPrechecksPayloadVersionBelowFloor(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	envelope := s.makeEnvelope(c, s.validPayload())
+	envelope.PayloadVersion = semversion.MustParse("3.6.1")
+
+	err := s.mustNewAPIV8(c).Prechecks(c.Context(), envelope)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
+	c.Check(err, tc.ErrorMatches,
+		`source payload version "3.6.1" is older than the oldest export format this controller imports \("4.0.12"\); upgrade the source controller through the intervening releases first.*`)
 }
 
 // TestPrechecksModelVersionNewerThanController verifies that the model's

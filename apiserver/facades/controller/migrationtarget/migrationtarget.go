@@ -712,14 +712,11 @@ func (api *APIV8) importGuard(ctx context.Context, args params.SerializedModelV2
 		return export.ProjectionView{}, nil, errors.Capture(err)
 	}
 
-	// Payload-version checks. The newer-than-target check runs before the
-	// decoder registry lookup so a payload from a newer Juju gets the
-	// actionable upgrade message rather than an unknown-version error.
-	targetVersion := export.LatestSupportedPayloadVersion()
-	if args.PayloadVersion.Compare(targetVersion) > 0 {
-		return export.ProjectionView{}, nil, errors.Errorf(
-			"source payload version %q is newer than target %q; upgrade the target controller first %w",
-			args.PayloadVersion, targetVersion, coreerrors.NotSupported)
+	// Payload-version check. It runs before the decoder registry lookup so
+	// every unsupported version gets the actionable upgrade message naming the
+	// controller to move, rather than a bare unknown-version error.
+	if err := export.CheckPayloadVersionSupported(args.PayloadVersion); err != nil {
+		return export.ProjectionView{}, nil, errors.Capture(err)
 	}
 
 	payload, err := export.DecodePayload(args.PayloadVersion, args.Payload)

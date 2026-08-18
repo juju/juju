@@ -53,11 +53,19 @@ func decodeInto[T any](data []byte) (T, error) {
 // error satisfying [coreerrors.NotSupported] when the version is not a known
 // export payload version, and an error satisfying [coreerrors.NotValid] when
 // the bytes cannot be decoded as that version's payload.
+//
+// An unknown version is reported through [CheckPayloadVersionSupported] so the
+// operator is told which controller to upgrade rather than only which version
+// was rejected.
 func DecodePayload(version semversion.Number, data []byte) (any, error) {
 	decode, ok := payloadDecoders[version]
 	if !ok {
+		if err := CheckPayloadVersionSupported(version); err != nil {
+			return nil, errors.Capture(err)
+		}
+		// No decoder found for the version.
 		return nil, errors.Errorf(
-			"model export payload version %q: %w", version, coreerrors.NotSupported)
+			"model export payload version %q has no decoder: %w", version, coreerrors.NotSupported)
 	}
 	payload, err := decode(data)
 	if err != nil {
