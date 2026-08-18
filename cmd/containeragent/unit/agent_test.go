@@ -4,14 +4,18 @@
 package unit_test
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
+	"syscall"
 	stdtesting "testing"
 	"time"
 
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/voyeur"
@@ -40,6 +44,44 @@ type containerUnitAgentSuite struct {
 
 func TestContainerUnitAgentSuite(t *stdtesting.T) {
 	tc.Run(t, &containerUnitAgentSuite{})
+}
+
+func (s *containerUnitAgentSuite) TestWaitForControllerConfigSocketRetries(c *tc.C) {
+	clk := testclock.NewClock(time.Now())
+	attempted := make(chan struct{}, 1)
+	attempts := 0
+	dial := func(context.Context, string, string) (net.Conn, error) {
+		attempts++
+		if attempts == 1 {
+			attempted <- struct{}{}
+			return nil, syscall.ECONNREFUSED
+		}
+		client, server := net.Pipe()
+		c.Cleanup(func() { _ = server.Close() })
+		return client, nil
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- unit.WaitForControllerConfigSocket(
+			c.Context(), clk, dial, "/var/lib/juju/configchange.socket",
+		)
+	}()
+
+	select {
+	case <-attempted:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for initial dial")
+	}
+	clk.Advance(time.Second)
+
+	select {
+	case err := <-done:
+		c.Assert(err, tc.ErrorIsNil)
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for socket retry")
+	}
+	c.Check(attempts, tc.Equals, 2)
 }
 
 var agentConfigContents = `

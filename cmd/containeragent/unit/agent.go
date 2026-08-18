@@ -6,6 +6,7 @@ package unit
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"path"
@@ -58,6 +59,10 @@ var (
 	jujuRun        = paths.JujuExec(paths.CurrentOS())
 	jujuIntrospect = paths.JujuIntrospect(paths.CurrentOS())
 )
+
+const controllerConfigSocketRetryDelay = time.Second
+
+type controllerConfigSocketDialer func(context.Context, string, string) (net.Conn, error)
 
 type containerUnitAgent struct {
 	cmd.CommandBase
@@ -331,6 +336,15 @@ func (c *containerUnitAgent) Run(ctx *cmd.Context) (err error) {
 	ctx.Infof("starting containeragent unit command")
 
 	agentConfig := c.CurrentConfig()
+	if c.colocatedWithController {
+		socketPath := path.Join(agentConfig.DataDir(), "configchange.socket")
+		ctx.Infof("waiting for controller config socket %q", socketPath)
+		if err := waitForControllerConfigSocket(
+			ctx, c.clk, (&net.Dialer{}).DialContext, socketPath,
+		); err != nil {
+			return errors.Annotate(err, "waiting for controller config socket")
+		}
+	}
 	machineLock, err := machinelock.New(machinelock.Config{
 		AgentName:   c.Tag().String(),
 		Clock:       c.clk,
@@ -360,6 +374,28 @@ func (c *containerUnitAgent) Run(ctx *cmd.Context) (err error) {
 	}
 
 	return AgentDone(logger, c.runner.Wait())
+}
+
+func waitForControllerConfigSocket(
+	ctx context.Context,
+	clk clock.Clock,
+	dial controllerConfigSocketDialer,
+	socketPath string,
+) error {
+	for {
+		conn, err := dial(ctx, "unix", socketPath)
+		if err == nil {
+			_ = conn.Close()
+			return nil
+		}
+		logger.Debugf(ctx, "controller config socket %q is not ready: %v", socketPath, err)
+
+		select {
+		case <-ctx.Done():
+			return errors.Trace(ctx.Err())
+		case <-clk.After(controllerConfigSocketRetryDelay):
+		}
+	}
 }
 
 // validateMigration is called by the migrationminion to help check
