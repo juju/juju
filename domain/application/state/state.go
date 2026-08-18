@@ -158,6 +158,10 @@ func (s *State) addCharm(ctx context.Context, tx *sqlair.TX, uuid corecharm.ID, 
 		return errors.Capture(err)
 	}
 
+	if err := s.addCharmScriptlet(ctx, tx, uuid, ch.Scriptlet); err != nil {
+		return errors.Capture(err)
+	}
+
 	// Do not add the charm hash if the charm has provenance of migration. This
 	// is because the upload of charms for migration follows a different workflow
 	// to regular deployment of charms. For migration, the charm blob is added
@@ -181,6 +185,34 @@ func (s *State) addCharm(ctx context.Context, tx *sqlair.TX, uuid corecharm.ID, 
 		}
 	}
 
+	return nil
+}
+
+func (s *State) addCharmScriptlet(
+	ctx context.Context, tx *sqlair.TX, id corecharm.ID, sources []charm.ScriptletSource,
+) error {
+	if len(sources) == 0 {
+		return nil
+	}
+
+	scriptlet := charmScriptlet{}
+	stmt, err := s.Prepare(
+		`INSERT INTO charm_scriptlet (*) VALUES ($charmScriptlet.*);`,
+		scriptlet,
+	)
+	if err != nil {
+		return errors.Errorf("preparing charm scriptlet insert: %w", err)
+	}
+	for _, source := range sources {
+		scriptlet = charmScriptlet{
+			CharmUUID: id.String(),
+			Path:      source.Path,
+			Content:   source.Content,
+		}
+		if err := tx.Query(ctx, stmt, scriptlet).Run(); err != nil {
+			return errors.Errorf("inserting charm scriptlet: %w", err)
+		}
+	}
 	return nil
 }
 
