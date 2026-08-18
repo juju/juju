@@ -5,9 +5,11 @@ package state
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
 
@@ -130,7 +132,17 @@ func (st *State) AddMachineInsideMachine(template MachineTemplate, parentId stri
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot add a new machine")
 	}
-	return st.addMachine(mdoc, ops)
+	machine, err := st.addMachine(mdoc, ops)
+	if errors.Cause(err) == txn.ErrAborted {
+		parent, parentErr := st.Machine(parentId)
+		if parentErr != nil {
+			return nil, errors.Annotate(parentErr, "cannot add a new machine")
+		}
+		if parentErr := validateContainerHost(parent); parentErr != nil {
+			return nil, errors.Annotate(parentErr, "cannot add a new machine")
+		}
+	}
+	return machine, err
 }
 
 // AddMachine adds a machine with the given series and jobs.
@@ -356,6 +368,16 @@ func (m *Machine) supportsContainerType(ctype instance.ContainerType) bool {
 	return false
 }
 
+func validateContainerHost(parent *Machine) error {
+	if parent.Life() != Alive {
+		return machineNotAliveErr
+	}
+	if !slices.Contains(parent.Jobs(), JobHostUnits) {
+		return errors.Errorf("machine %q cannot host containers", parent)
+	}
+	return nil
+}
+
 // addMachineInsideMachineOps returns operations to add a machine inside
 // a container of the given type on an existing machine.
 func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId string, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
@@ -374,6 +396,9 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	// and can support the requested container type.
 	parent, err := st.Machine(parentId)
 	if err != nil {
+		return nil, nil, err
+	}
+	if err := validateContainerHost(parent); err != nil {
 		return nil, nil, err
 	}
 	if !parent.supportsContainerType(containerType) {
@@ -400,6 +425,14 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 		return nil, nil, errors.Trace(err)
 	}
 	prereqOps = append(prereqOps,
+		txn.Op{
+			C:  machinesC,
+			Id: parent.doc.DocID,
+			Assert: bson.D{
+				{"life", Alive},
+				{"jobs", bson.M{"$in": []MachineJob{JobHostUnits}}},
+			},
+		},
 		// Update containers record for host machine.
 		addChildToContainerRefOp(st, parentId, mdoc.Id),
 		// Create a containers reference document for the container itself.
