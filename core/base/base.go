@@ -128,15 +128,12 @@ func (b Base) IsCompatible(other Base) bool {
 
 // ubuntuLTSes lists the Ubuntu LTS releases that
 // this version of Juju knows about
-var ubuntuLTSes []Base
-
-func init() {
-	for _, sv := range ubuntuSeries {
-		if !sv.LTS {
-			continue
-		}
-		ubuntuLTSes = append(ubuntuLTSes, MakeDefaultBase(sv.OS, sv.Version))
-	}
+var ubuntuLTSes = []Base{
+	MakeDefaultBase(UbuntuOS, "20.04"),
+	MakeDefaultBase(UbuntuOS, "22.04"),
+	MakeDefaultBase(UbuntuOS, "24.04"),
+	MakeDefaultBase(UbuntuOS, "26.04"),
+	MakeDefaultBase(UbuntuOS, "28.04"),
 }
 
 // IsUbuntuLTS returns true if this base is a recognised
