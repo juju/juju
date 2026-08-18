@@ -455,10 +455,10 @@ func (s *serviceSuite) TestGetAPIAddressesByControllerIDForAgentsError(c *tc.C) 
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-// TestGetAPIAddressesForControllerIDForAgents verifies that only the
-// addresses for the requested controller node are returned, ordered to prefer
+// TestGetAPIHostPortsForControllerIDForAgents verifies that only the
+// host ports for the requested controller node are returned, ordered to prefer
 // cloud-local addresses.
-func (s *serviceSuite) TestGetAPIAddressesForControllerIDForAgents(c *tc.C) {
+func (s *serviceSuite) TestGetAPIHostPortsForControllerIDForAgents(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
@@ -484,18 +484,15 @@ func (s *serviceSuite) TestGetAPIAddressesForControllerIDForAgents(c *tc.C) {
 	}
 	s.state.EXPECT().GetAPIAddressesForAgents(gomock.Any()).Return(args, nil)
 
-	apiAddrs, err := svc.GetAPIAddressesForControllerIDForAgents(c.Context(), "2")
+	apiAddrs, err := svc.GetAPIHostPortsForControllerIDForAgents(c.Context(), "2")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(apiAddrs, tc.DeepEquals, []string{
-		"10.0.0.7:17070",
-		"10.0.0.43:17070",
-	})
+	c.Check(apiAddrs, tc.DeepEquals, network.NewMachineHostPorts(17070, "10.0.0.7", "10.0.0.43").HostPorts())
 }
 
-// TestGetAPIAddressesForControllerIDForAgentsNotFound verifies that an
+// TestGetAPIHostPortsForControllerIDForAgentsNotFound verifies that an
 // EmptyAPIAddresses error is returned when the requested controller node has
 // no addresses.
-func (s *serviceSuite) TestGetAPIAddressesForControllerIDForAgentsNotFound(c *tc.C) {
+func (s *serviceSuite) TestGetAPIHostPortsForControllerIDForAgentsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
@@ -509,19 +506,19 @@ func (s *serviceSuite) TestGetAPIAddressesForControllerIDForAgentsNotFound(c *tc
 	}
 	s.state.EXPECT().GetAPIAddressesForAgents(gomock.Any()).Return(args, nil)
 
-	_, err := svc.GetAPIAddressesForControllerIDForAgents(c.Context(), "99")
+	_, err := svc.GetAPIHostPortsForControllerIDForAgents(c.Context(), "99")
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyAPIAddresses)
 }
 
-// TestGetAPIAddressesForControllerIDForAgentsError verifies that state errors
+// TestGetAPIHostPortsForControllerIDForAgentsError verifies that state errors
 // are propagated.
-func (s *serviceSuite) TestGetAPIAddressesForControllerIDForAgentsError(c *tc.C) {
+func (s *serviceSuite) TestGetAPIHostPortsForControllerIDForAgentsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	s.state.EXPECT().GetAPIAddressesForAgents(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
 
-	_, err := svc.GetAPIAddressesForControllerIDForAgents(c.Context(), "1")
+	_, err := svc.GetAPIHostPortsForControllerIDForAgents(c.Context(), "1")
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 

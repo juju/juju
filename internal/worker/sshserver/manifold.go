@@ -28,6 +28,9 @@ import (
 	workerTunneler "github.com/juju/juju/internal/worker/sshtunneler"
 )
 
+// machineConnectionTimeout is the maximum time to wait for a machine
+// to establish a reverse tunnel connection back to the controller.
+// This maye be useful to make configurable in the future.
 const machineConnectionTimeout = 60 * time.Second
 
 // GetControllerConfigServiceFunc is a helper function that gets

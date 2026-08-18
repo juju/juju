@@ -234,7 +234,7 @@ func (s *Service) ResolveK8sExecInfo(ctx context.Context, destination virtualhos
 		return "", "", errors.Errorf("getting model info: %w", err)
 	}
 	if modelInfo.Type != string(coremodel.CAAS) {
-		return "", "", errors.Errorf("model %q is not a CAAS model", s.modelUUID)
+		return "", "", errors.Errorf("model %q is not a K8s model", s.modelUUID)
 	}
 	unitName, ok := destination.Unit()
 	if !ok {
@@ -262,7 +262,7 @@ func (s *Service) MachineForDestination(ctx context.Context, destination virtual
 		return "", errors.Errorf("getting model info: %w", err)
 	}
 	if modelInfo.Type != string(coremodel.IAAS) {
-		return "", errors.Errorf("destination model %q is not IAAS", s.modelUUID)
+		return "", errors.Errorf("destination model %q is not machine based model", s.modelUUID)
 	}
 	switch destination.Target() {
 	case virtualhostname.MachineTarget:
@@ -436,6 +436,7 @@ func (s *Service) validateRequest(req domainssh.SSHConnRequest) error {
 		return errors.Errorf("empty controller addresses").Add(coreerrors.NotValid)
 	}
 	if req.UnitPort < 0 {
+		// A zero port tells the unit worker to determine the port.
 		return errors.Errorf("invalid unit port %d", req.UnitPort).Add(coreerrors.NotValid)
 	}
 	if len(req.EphemeralPublicKey) == 0 {

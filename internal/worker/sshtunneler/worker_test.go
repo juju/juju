@@ -200,8 +200,8 @@ func (s *workerSuite) TestStateAdapterMachineHostKeysInvalidModelUUID(c *tc.C) {
 func (s *workerSuite) TestControllerInfoAdapterLocalAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerNodeService.EXPECT().GetAPIAddressesForControllerIDForAgents(gomock.Any(), "0").Return(
-		[]string{"10.0.0.1:17070", "[2001:db8::1]:17070"}, nil,
+	s.controllerNodeService.EXPECT().GetAPIHostPortsForControllerIDForAgents(gomock.Any(), "0").Return(
+		network.NewMachineHostPorts(17070, "10.0.0.1", "2001:db8::1").HostPorts(), nil,
 	)
 
 	adapter := &controllerInfoAdapter{controllerNodeService: s.controllerNodeService}
@@ -210,28 +210,13 @@ func (s *workerSuite) TestControllerInfoAdapterLocalAddresses(c *tc.C) {
 	c.Check(addrs, tc.DeepEquals, network.NewSpaceAddresses("10.0.0.1", "2001:db8::1"))
 }
 
-// TestControllerInfoAdapterLocalAddressesInvalidEndpoint verifies that a
-// malformed controller API endpoint is rejected rather than used as an SSH
-// hostname.
-func (s *workerSuite) TestControllerInfoAdapterLocalAddressesInvalidEndpoint(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.controllerNodeService.EXPECT().GetAPIAddressesForControllerIDForAgents(gomock.Any(), "0").Return(
-		[]string{"10.0.0.1"}, nil,
-	)
-
-	adapter := &controllerInfoAdapter{controllerNodeService: s.controllerNodeService}
-	_, err := adapter.LocalAddresses(c.Context(), "0")
-	c.Assert(err, tc.ErrorMatches, `failed to parse controller node address "10.0.0.1": cannot parse "10.0.0.1" as address:port: .*`)
-}
-
 // TestControllerInfoAdapterLocalAddressesUnknownNode verifies that an error
 // from the controller node service for an unknown node is wrapped and
 // returned.
 func (s *workerSuite) TestControllerInfoAdapterLocalAddressesUnknownNode(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerNodeService.EXPECT().GetAPIAddressesForControllerIDForAgents(gomock.Any(), "99").Return(
+	s.controllerNodeService.EXPECT().GetAPIHostPortsForControllerIDForAgents(gomock.Any(), "99").Return(
 		nil, errors.New(`no API addresses found for controller node "99"`),
 	)
 
@@ -245,7 +230,7 @@ func (s *workerSuite) TestControllerInfoAdapterLocalAddressesUnknownNode(c *tc.C
 func (s *workerSuite) TestControllerInfoAdapterLocalAddressesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerNodeService.EXPECT().GetAPIAddressesForControllerIDForAgents(gomock.Any(), "0").Return(
+	s.controllerNodeService.EXPECT().GetAPIHostPortsForControllerIDForAgents(gomock.Any(), "0").Return(
 		nil, errors.New("db unavailable"),
 	)
 

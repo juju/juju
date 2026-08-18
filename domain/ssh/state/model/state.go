@@ -43,7 +43,7 @@ func (st *State) GetModelInfo(ctx context.Context) (ModelInfo, error) {
 	}
 	row := modelInfo{}
 	stmt, err := st.Prepare(`
-	SELECT name AS &modelInfo.name,
+SELECT name AS &modelInfo.name,
        type AS &modelInfo.type,
        is_controller_model AS &modelInfo.is_controller_model
 FROM model`, row)
@@ -101,12 +101,11 @@ func (st *State) GetUnitK8sPodInfo(ctx context.Context, unitName string) (string
 	arg := entityName{Name: unitName}
 	row := unitK8sPodInfo{}
 	stmt, err := st.Prepare(`
-SELECT k.provider_id AS &unitK8sPodInfo.provider_id
-	,u.life_id AS &unitK8sPodInfo.life_id
+SELECT k.provider_id AS &unitK8sPodInfo.provider_id,
+       u.life_id AS &unitK8sPodInfo.life_id
 FROM unit AS u
 LEFT JOIN k8s_pod AS k ON u.uuid = k.unit_uuid
-WHERE u.name = $entityName.name
-	`, row, arg)
+WHERE u.name = $entityName.name`, row, arg)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -125,7 +124,7 @@ WHERE u.name = $entityName.name
 		return "", errors.Capture(err)
 	}
 	if !row.ProviderID.Valid {
-		return "", errors.Errorf("unit %q has no Kubernetes pod", unitName).Add(applicationerrors.UnitNotReady)
+		return "", errors.Errorf("unit %q has no k8s pod", unitName).Add(applicationerrors.UnitK8sProviderIDNotAssigned)
 	}
 	return row.ProviderID.String, nil
 }

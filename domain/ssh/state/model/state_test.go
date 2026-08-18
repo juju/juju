@@ -106,7 +106,7 @@ func (s *stateSuite) TestGetUnitK8sPodInfoWithoutPod(c *tc.C) {
 	s.addUnit(c, "postgresql/0")
 
 	got, err := s.newState().GetUnitK8sPodInfo(c.Context(), "postgresql/0")
-	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotReady)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitK8sProviderIDNotAssigned)
 	c.Check(got, tc.Equals, "")
 }
 
