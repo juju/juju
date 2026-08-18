@@ -513,7 +513,7 @@ func (op *opImportAuthorizedKeys) Execute(ctx context.Context, st *importState) 
 // RemoveOnAbort deletes all authorized keys stored for the model. A missing
 // model is tolerated as success: on an abort re-drive the model row (and its
 // FK-dependent authorized keys) may already have been deleted by a prior pass's
-// opBootstrapModel.RemoveOnAbort, so re-driving key deletion must be a no-op
+// opBootstrapModel.RemoveOnAbort, so retrying key deletion must be a no-op
 // rather than an error.
 func (op *opImportAuthorizedKeys) RemoveOnAbort(ctx context.Context) error {
 	if err := op.keymanager.DeleteKeysForModel(ctx); err != nil && !errors.Is(err, modelerrors.NotFound) {
