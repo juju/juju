@@ -28,26 +28,15 @@ test_import_filesystem() {
 	juju remove-storage data/0 --no-destroy
 	wait_for "{}" ".storage"
 
-	# Attempt to import the PersistentVolume: expect failure due to reclaim policy.
-	set +e
-	OUT=$(juju import-filesystem kubernetes "${PV}" data 2>&1)
-	set -e
-	echo "${OUT}" | check \
-		"importing volume \"${PV}\" with reclaim policy \"Delete\" not supported \(must be \"Retain\"\)"
-
-	# Fix: update the PersistentVolume's reclaim policy to 'Retain'.
-	kubectl patch pv "${PV}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
-
-	# Attempt to import the PersistentVolume: expect failure due to existing claimRef.
-	set +e
-	OUT=$(juju import-filesystem kubernetes "${PV}" data 2>&1)
-	set -e
-	echo "${OUT}" | check \
-		"importing volume \"${PV}\" already bound to a claim not supported"
-
-	# Fix: delete the PVC and remove the claimRef from the PersistentVolume.
+	# Juju 4.0 storage detach already sets the PV reclaim policy to Retain
+	# and deletes the PVC. The k8s PV controller clears claimRef asynchronously;
+	# clear it explicitly to keep the test deterministic. Error-path assertions
+	# for reclaim policy and claimRef are covered by unit tests in
+	# internal/provider/kubernetes/storage_test.go.
 	PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
-	kubectl delete pvc "${PVC}" -n "${model_name}"
+	if [ -n "${PVC}" ]; then
+		kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found=true
+	fi
 	kubectl patch pv "${PV}" --type merge -p '{"spec":{"claimRef": null}}'
 
 	# Final attempt: import the PersistentVolume successfully.
@@ -90,26 +79,13 @@ test_force_import_filesystem() {
 	juju remove-storage data/0 --no-destroy
 	wait_for "{}" ".storage"
 
-	# Attempt to import the PersistentVolume: expect failure due to reclaim policy.
-	set +e
-	OUT=$(juju import-filesystem kubernetes "${PV}" data 2>&1)
-	set -e
-	echo "${OUT}" | check \
-		"importing volume \"${PV}\" with reclaim policy \"Delete\" not supported \(must be \"Retain\"\)"
-
-	# Test import PV which PVC not managed by juju.
+	# Detach already sets reclaim policy to Retain; clear claimRef explicitly
+	# for determinism. The label-mismatch force rejection is covered by unit tests.
 	PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
-	ORIGINAL_LABEL=$(kubectl get pvc "${PVC}" -n "${model_name}" -o json | yq -r '.metadata.labels["app.kubernetes.io/managed-by"]')
-	kubectl label pvc -n "${model_name}" "${PVC}" app.kubernetes.io/managed-by=not-juju --overwrite
-
-	set +e
-	OUT=$(juju import-filesystem kubernetes "${PV}" data --force 2>&1)
-	set -e
-
-	echo "${OUT}" | check \
-		"importing PersistentVolume \"${PV}\" whose PersistentVolumeClaim is not managed by juju"
-
-	kubectl label pvc -n "${model_name}" "${PVC}" app.kubernetes.io/managed-by="${ORIGINAL_LABEL}" --overwrite
+	if [ -n "${PVC}" ]; then
+		kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found=true
+	fi
+	kubectl patch pv "${PV}" --type merge -p '{"spec":{"claimRef": null}}'
 
 	# Final attempt: import the PersistentVolume successfully.
 	OUT=$(juju import-filesystem kubernetes "${PV}" data --force 2>&1)
