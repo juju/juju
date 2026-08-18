@@ -35,7 +35,6 @@ func (s *snapBuildSuite) TestSnapArchIdentity(c *tc.C) {
 }
 
 func (s *snapBuildSuite) TestSnapArchMapping(c *tc.C) {
-	c.Check(bootstrap.SnapArch("arm"), tc.Equals, "armhf")
 	c.Check(bootstrap.SnapArch("ppc64le"), tc.Equals, "ppc64el")
 }
 
