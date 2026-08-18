@@ -587,9 +587,6 @@ func parseMeta(m map[string]any) (*Meta, error) {
 	}
 	meta.Storage = parseStorage(m["storage"])
 	meta.Devices = parseDevices(m["devices"])
-	if err != nil {
-		return nil, err
-	}
 	meta.MinJujuVersion, err = parseMinJujuVersion(m["min-juju-version"])
 	if err != nil {
 		return nil, err
