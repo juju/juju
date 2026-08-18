@@ -755,7 +755,7 @@ func (s *CleanupSuite) TestDestroyMachineForceStillRequiresHostedUnitAndContaine
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.DestroyWithParams(true, false, time.Minute)
-	c.Assert(errors.Is(err, stateerrors.HasAssignedUnitsError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.HasAssignedUnitsError)
 	c.Assert(machine.Refresh(), jc.ErrorIsNil)
 	c.Assert(machine.Life(), gc.Equals, state.Alive)
 }
