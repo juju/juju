@@ -18,8 +18,10 @@ type CAASUnitIntroductionArgs struct {
 
 // CAASUnitIntroduction contains the agent config for CAASApplication units.
 type CAASUnitIntroduction struct {
-	UnitName  string `json:"unit-name"`
-	AgentConf []byte `json:"agent-conf"`
+	UnitName            string `json:"unit-name"`
+	AgentConf           []byte `json:"agent-conf"`
+	ControllerAgentTag  string `json:"controller-agent-tag,omitempty"`
+	ControllerAgentConf []byte `json:"controller-agent-conf,omitempty"`
 }
 
 // CAASUnitIntroductionResult is returned from CAASApplication facade.
