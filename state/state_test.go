@@ -1080,6 +1080,13 @@ func (s *StateSuite) assertMachineContainers(c *gc.C, m *state.Machine, containe
 	c.Assert(mc, gc.DeepEquals, containers)
 }
 
+func (s *StateSuite) addLXDContainer(parentId string) (*state.Machine, error) {
+	return s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	}, parentId, instance.LXD)
+}
+
 func (s *StateSuite) TestAddContainerToNewMachine(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 
@@ -1151,6 +1158,42 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	c.Assert(m.ContainerType(), gc.Equals, instance.LXD)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
 	s.assertMachineContainers(c, m1, []string{"1/lxd/0", "1/lxd/1"})
+}
+
+func (s *StateSuite) TestAddContainerToDyingMachine(c *gc.C) {
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(host.Destroy(), jc.ErrorIsNil)
+
+	_, err = s.addLXDContainer(host.Id())
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine is not found or not alive")
+	s.assertMachineContainers(c, host, nil)
+}
+
+func (s *StateSuite) TestAddContainerToMachineWithoutHostUnits(c *gc.C) {
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.addLXDContainer(host.Id())
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+		`cannot add a new machine: machine %q cannot host containers`, host,
+	))
+	s.assertMachineContainers(c, host, nil)
+}
+
+func (s *StateSuite) TestAddContainerToMachineRemovalRace(c *gc.C) {
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(host.DestroyWithParams(false, true, 0), jc.ErrorIsNil)
+	}).Check()
+
+	_, err = s.addLXDContainer(host.Id())
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+		`cannot add a new machine: machine %q cannot host containers`, host,
+	))
+	s.assertMachineContainers(c, host, nil)
 }
 
 func (s *StateSuite) TestAddContainerToMachineWithKnownSupportedContainers(c *gc.C) {
