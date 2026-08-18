@@ -35,3 +35,42 @@ func (s *versionSuite) TestLatestSupportedPayloadVersionCurrent(c *tc.C) {
 		semversion.MustParse("4.0.12"),
 	)
 }
+
+// TestValidateExportVersions pins the exportVersionStrings contract: at
+// least one entry, strictly ascending, one entry per minor line, adjacent
+// minor lines throughout.
+func (s *versionSuite) TestValidateExportVersions(c *tc.C) {
+	parse := func(vs ...string) []semversion.Number {
+		parsed := make([]semversion.Number, len(vs))
+		for i, v := range vs {
+			parsed[i] = semversion.MustParse(v)
+		}
+		return parsed
+	}
+
+	for _, valid := range [][]semversion.Number{
+		parse("4.0.12"),
+		parse("4.0.12", "4.1.0"),
+		parse("4.0.12", "4.1.3", "4.2.0"),
+		parse("4.9.9", "5.0.0"),
+	} {
+		c.Check(validateExportVersions(valid), tc.ErrorIsNil)
+	}
+
+	for _, test := range []struct {
+		desc     string
+		versions []semversion.Number
+		errMatch string
+	}{
+		{"empty", parse(), "expected at least 1 entry"},
+		{"same minor line", parse("4.0.6", "4.0.12"), "same minor line"},
+		{"descending", parse("4.1.0", "4.0.12"), "strictly ascending"},
+		{"duplicate", parse("4.0.12", "4.0.12"), "strictly ascending"},
+		{"non-adjacent pair", parse("4.0.12", "4.2.0"), "not adjacent minor lines"},
+		{"gap mid-chain", parse("4.0.12", "4.1.0", "4.3.0"), "not adjacent minor lines"},
+	} {
+		err := validateExportVersions(test.versions)
+		c.Assert(err, tc.NotNil)
+		c.Check(err.Error(), tc.Matches, ".*"+test.errMatch+".*")
+	}
+}
