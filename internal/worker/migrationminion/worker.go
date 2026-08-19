@@ -603,17 +603,23 @@ func (w *Worker) robustReport(ctx context.Context, status watcher.MigrationStatu
 	apiInfo.Addrs = status.SourceAPIAddrs
 	apiInfo.CACert = status.SourceCACert
 
+	// The worker may be torn down mid-report - e.g. when the machine
+	// agent's engine bounces and takes the nested unit engine with it -
+	// so the direct dial and report must complete on a context that is
+	// not cancelled by the teardown.
+	reportCtx := context.WithoutCancel(ctx)
+
 	err = retry.Call(retry.CallArgs{
 		Func: func() error {
 			w.config.Logger.Infof(ctx, "reporting back for phase %s: %v", status.Phase, success)
 
-			conn, err := w.dialWithRedirect(ctx, apiInfo, api.DialOpts{}, 0)
+			conn, err := w.dialWithRedirect(reportCtx, apiInfo, api.DialOpts{}, 0)
 			if err != nil {
 				return fmt.Errorf("cannot dial source controller: %w", err)
 			}
 			defer func() { _ = conn.Close() }()
 
-			return w.config.SendReport(ctx, conn, status, success)
+			return w.config.SendReport(reportCtx, conn, status, success)
 		},
 		IsFatalError: func(err error) bool {
 			return false
