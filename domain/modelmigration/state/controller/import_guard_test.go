@@ -160,3 +160,53 @@ UPDATE model_migration_import SET phase_type_id = 2 WHERE uuid = ?`, claimUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(controllerCount, tc.Equals, 0)
 }
+
+// TestGuardedCompanionWritesSucceedWhileImporting drives ImportOfferPermissions
+// and ImportExternalControllers through the import txn guard while the claim
+// is still importing. Both writes must commit, so the guard does not reject a
+// legitimate in-phase write.
+func (s *stateSuite) TestGuardedCompanionWritesSucceedWhileImporting(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	claimUUID := uuid.MustNewUUID().String()
+	_, err := st.BeginImport(
+		c.Context(), s.modelUUID.String(), claimUUID, uuid.MustNewUUID().String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	guarded := New(
+		NewImportTxnRunnerFactory(
+			s.TxnRunnerFactory(), s.modelUUID.String(), claimUUID,
+		),
+		clock.WallClock,
+	)
+
+	offerUUID := uuid.MustNewUUID().String()
+	err = guarded.ImportOfferPermissions(
+		c.Context(), s.modelUUID.String(), claimUUID, []string{offerUUID},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var offerCount int
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT COUNT(*) FROM model_migration_import_offer WHERE offer_uuid = ?",
+		offerUUID).Scan(&offerCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(offerCount, tc.Equals, 1)
+
+	ref := externalController(
+		uuid.MustNewUUID().String(), "third-party", "ca-cert",
+		[]string{"10.0.0.5:17070"}, []string{uuid.MustNewUUID().String()},
+	)
+	err = guarded.ImportExternalControllers(
+		c.Context(), s.modelUUID.String(), claimUUID,
+		[]modelmigrationinternal.ExternalController{ref},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var controllerCount int
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT COUNT(*) FROM external_controller WHERE uuid = ?",
+		ref.UUID).Scan(&controllerCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(controllerCount, tc.Equals, 1)
+}

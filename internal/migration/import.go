@@ -441,6 +441,15 @@ type opImportPermissions struct {
 
 func (op *opImportPermissions) Name() string { return "import-permissions" }
 
+// Execute records the offer-permission cleanup intent and then applies the
+// permission grants. Both writes target the controller database, not the
+// model database: op.access is built with deps.ControllerDB, so on the
+// guarded forward path that is the import-guarded runner and
+// ImportModelPermissions' db.Txn asserts the importing phase in the same
+// transaction. The permission write is therefore fenced exactly like the
+// intent write: if the phase flips to aborting between the two, the
+// permission write is rejected and never commits, so abort cannot be left
+// with permission rows to clean up.
 func (op *opImportPermissions) Execute(ctx context.Context, st *importState) error {
 	offerUUIDs := accessservice.OfferUUIDsForImport(op.perms, st.inactiveUsers)
 	if err := op.claim.ImportOfferPermissions(

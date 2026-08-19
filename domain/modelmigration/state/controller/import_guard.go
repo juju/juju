@@ -5,12 +5,10 @@ package controller
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/canonical/sqlair"
 
 	coredatabase "github.com/juju/juju/core/database"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	"github.com/juju/juju/internal/errors"
@@ -29,23 +27,29 @@ AND    mmi.uuid = $importClaimKey.claim_uuid
 // NewImportTxnRunnerFactory returns a transaction runner factory that fences
 // every SQLair transaction to one exact target-side import attempt. The claim
 // assertion and the caller's work execute in the same transaction.
+//
+// The phase-assertion statement is prepared eagerly here rather than per
+// transaction. The query is a static constant, so a prepare failure is
+// permanent (replayed from every factory call) and signals a schema mismatch
+// that would defeat every guarded transaction; surfacing it on the first
+// factory use is deliberate rather than a delay.
 func NewImportTxnRunnerFactory(
 	factory coredatabase.TxnRunnerFactory, modelUUID, claimUUID string,
 ) coredatabase.TxnRunnerFactory {
-	stmt, prepareErr := sqlair.Prepare(
-		importPhaseQuery, importPhaseRow{}, importClaimKey{},
-	)
-
 	return func(ctx context.Context) (coredatabase.TxnRunner, error) {
-		if prepareErr != nil {
-			return nil, errors.Capture(prepareErr)
+		stmt, err := sqlair.Prepare(
+			importPhaseQuery, importPhaseRow{}, importClaimKey{},
+		)
+		if err != nil {
+			return nil, errors.Capture(err)
 		}
+
 		runner, err := factory(ctx)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
 		return &importTxnRunner{
-			runner:    runner,
+			TxnRunner: runner,
 			stmt:      stmt,
 			modelUUID: modelUUID,
 			claimUUID: claimUUID,
@@ -56,7 +60,12 @@ func NewImportTxnRunnerFactory(
 // importTxnRunner guards SQLair transactions and deliberately rejects
 // standard-library transactions, which cannot share the SQLair assertion.
 type importTxnRunner struct {
-	runner    coredatabase.TxnRunner
+	// NOTE: We intentionally embed TxnRunner because we know for sure that only
+	// Txn (and not StdTxn) will be called against this runner.
+	// If StdTxn were called, it would be problematic because it would not share
+	// the SQLair assertion with Txn, but the domain TxnRunner will soon not
+	// include StdTxn.
+	coredatabase.TxnRunner
 	stmt      *sqlair.Statement
 	modelUUID string
 	claimUUID string
@@ -67,7 +76,7 @@ type importTxnRunner struct {
 func (r *importTxnRunner) Txn(
 	ctx context.Context, fn func(context.Context, *sqlair.TX) error,
 ) error {
-	return r.runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	return r.TxnRunner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := assertImportingClaim(
 			ctx, tx, r.stmt, r.modelUUID, r.claimUUID,
 		); err != nil {
@@ -75,19 +84,6 @@ func (r *importTxnRunner) Txn(
 		}
 		return fn(ctx, tx)
 	})
-}
-
-// StdTxn always fails closed because its callback cannot share the SQLair
-// transaction used by the import assertion.
-func (*importTxnRunner) StdTxn(
-	context.Context, func(context.Context, *sql.Tx) error,
-) error {
-	return errors.Errorf("standard transaction for guarded import: %w", coreerrors.NotSupported)
-}
-
-// Dying reports the lifetime of the underlying controller database.
-func (r *importTxnRunner) Dying() <-chan struct{} {
-	return r.runner.Dying()
 }
 
 // assertImportingClaim returns nil only while the exact

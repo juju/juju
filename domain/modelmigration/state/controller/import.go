@@ -111,10 +111,11 @@ func (s *State) AssertImporting(ctx context.Context, modelUUID string) error {
 }
 
 // checkImportingState returns nil only while the exact
-// model_migration_import claim is in the importing phase. Companion-table
-// writers keep this check so they stay correct on an unguarded runner;
-// the import coordinator also fences every controller transaction via
-// importTxnRunner using the same query.
+// model_migration_import claim is in the importing phase. On the guarded
+// forward path the importTxnRunner already asserts the same condition at Txn
+// entry, so this is an intentional double-assertion (belt-and-braces) there;
+// it is the load-bearing assertion for callers that run on an unguarded
+// runner, where it is the only fence.
 func (s *State) checkImportingState(
 	ctx context.Context, tx *sqlair.TX, modelUUID, claimUUID string,
 ) error {
