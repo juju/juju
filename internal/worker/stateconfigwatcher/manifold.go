@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
@@ -89,6 +90,9 @@ type stateConfigWatcher struct {
 
 func (w *stateConfigWatcher) isControllerAgent() bool {
 	config := w.agent.CurrentConfig()
+	if config.Tag().Kind() == names.ControllerAgentTagKind {
+		return true
+	}
 	_, ok := config.ControllerAgentInfo()
 	return ok
 }
