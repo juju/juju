@@ -14,9 +14,10 @@ import (
 
 	gomock "github.com/canonical/gomock/gomock"
 	controller "github.com/juju/juju/controller"
+	application "github.com/juju/juju/core/application"
 	semversion "github.com/juju/juju/core/semversion"
 	unit "github.com/juju/juju/core/unit"
-	application "github.com/juju/juju/domain/application"
+	application0 "github.com/juju/juju/domain/application"
 	logging "github.com/juju/juju/domain/logging"
 	service "github.com/juju/juju/domain/tracing/service"
 )
@@ -159,9 +160,11 @@ type MockApplicationService struct {
 
 // MockApplicationServiceMockRecorder is the mock recorder for MockApplicationService.
 type MockApplicationServiceMockRecorder struct {
-	mock                       *MockApplicationService
-	cAASUnitTerminatingExpects []*gomock.Call2_2[context.Context, string, bool, error]
-	registerCAASUnitExpects    []*gomock.Call2_3[context.Context, application.RegisterCAASUnitParams, unit.Name, string, error]
+	mock                            *MockApplicationService
+	cAASUnitTerminatingExpects      []*gomock.Call2_2[context.Context, string, bool, error]
+	getApplicationUUIDByNameExpects []*gomock.Call2_2[context.Context, string, application.UUID, error]
+	isControllerApplicationExpects  []*gomock.Call2_2[context.Context, application.UUID, bool, error]
+	registerCAASUnitExpects         []*gomock.Call2_3[context.Context, application0.RegisterCAASUnitParams, unit.Name, string, error]
 }
 
 // NewMockApplicationService creates a new mock instance.
@@ -194,8 +197,44 @@ func (mr *MockApplicationServiceMockRecorder) CAASUnitTerminating(ctx, unitName 
 // MockApplicationServiceCAASUnitTerminatingCall is the typed call wrapper for CAASUnitTerminating.
 type MockApplicationServiceCAASUnitTerminatingCall = gomock.Call2_2[context.Context, string, bool, error]
 
+// GetApplicationUUIDByName mocks base method.
+func (m *MockApplicationService) GetApplicationUUIDByName(ctx context.Context, name string) (application.UUID, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getApplicationUUIDByNameExpects, m.ctrl, m, "GetApplicationUUIDByName", ctx, name)
+}
+
+// GetApplicationUUIDByName indicates an expected call of GetApplicationUUIDByName.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationUUIDByName(ctx, name any) *MockApplicationServiceGetApplicationUUIDByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, application.UUID, error](mr.mock.ctrl.T, mr.mock, "GetApplicationUUIDByName", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name))
+	mr.getApplicationUUIDByNameExpects = append(mr.getApplicationUUIDByNameExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockApplicationServiceGetApplicationUUIDByNameCall is the typed call wrapper for GetApplicationUUIDByName.
+type MockApplicationServiceGetApplicationUUIDByNameCall = gomock.Call2_2[context.Context, string, application.UUID, error]
+
+// IsControllerApplication mocks base method.
+func (m *MockApplicationService) IsControllerApplication(ctx context.Context, appUUID application.UUID) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.isControllerApplicationExpects, m.ctrl, m, "IsControllerApplication", ctx, appUUID)
+}
+
+// IsControllerApplication indicates an expected call of IsControllerApplication.
+func (mr *MockApplicationServiceMockRecorder) IsControllerApplication(ctx, appUUID any) *MockApplicationServiceIsControllerApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, application.UUID, bool, error](mr.mock.ctrl.T, mr.mock, "IsControllerApplication", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appUUID))
+	mr.isControllerApplicationExpects = append(mr.isControllerApplicationExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockApplicationServiceIsControllerApplicationCall is the typed call wrapper for IsControllerApplication.
+type MockApplicationServiceIsControllerApplicationCall = gomock.Call2_2[context.Context, application.UUID, bool, error]
+
 // RegisterCAASUnit mocks base method.
-func (m *MockApplicationService) RegisterCAASUnit(ctx context.Context, params application.RegisterCAASUnitParams) (unit.Name, string, error) {
+func (m *MockApplicationService) RegisterCAASUnit(ctx context.Context, params application0.RegisterCAASUnitParams) (unit.Name, string, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2_3(&m.recorder.registerCAASUnitExpects, m.ctrl, m, "RegisterCAASUnit", ctx, params)
 }
@@ -203,14 +242,14 @@ func (m *MockApplicationService) RegisterCAASUnit(ctx context.Context, params ap
 // RegisterCAASUnit indicates an expected call of RegisterCAASUnit.
 func (mr *MockApplicationServiceMockRecorder) RegisterCAASUnit(ctx, params any) *MockApplicationServiceRegisterCAASUnitCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_3[context.Context, application.RegisterCAASUnitParams, unit.Name, string, error](mr.mock.ctrl.T, mr.mock, "RegisterCAASUnit", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(params))
+	call := gomock.NewCall2_3[context.Context, application0.RegisterCAASUnitParams, unit.Name, string, error](mr.mock.ctrl.T, mr.mock, "RegisterCAASUnit", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(params))
 	mr.registerCAASUnitExpects = append(mr.registerCAASUnitExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockApplicationServiceRegisterCAASUnitCall is the typed call wrapper for RegisterCAASUnit.
-type MockApplicationServiceRegisterCAASUnitCall = gomock.Call2_3[context.Context, application.RegisterCAASUnitParams, unit.Name, string, error]
+type MockApplicationServiceRegisterCAASUnitCall = gomock.Call2_3[context.Context, application0.RegisterCAASUnitParams, unit.Name, string, error]
 
 // MockModelAgentService is a mock of ModelAgentService interface.
 type MockModelAgentService struct {
