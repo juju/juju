@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	externalcontrollererrors "github.com/juju/juju/domain/externalcontroller/errors"
 	domainmodel "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/services"
@@ -378,7 +379,7 @@ func (a *apiInfoGetter) getAPIInfoForExternalController(ctx context.Context, mod
 	externalControllerService := services.ExternalController()
 
 	controllerInfo, err := externalControllerService.ControllerForModel(ctx, modelUUID.String())
-	if err != nil && !errors.Is(err, modelerrors.NotFound) {
+	if err != nil && !errors.Is(err, externalcontrollererrors.NotFound) {
 		return api.Info{}, errors.Trace(err)
 	} else if err == nil {
 		return api.Info{
