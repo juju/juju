@@ -7,9 +7,9 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	"github.com/lestrrat-go/jwx/v3/jwt"
+	ssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/logger"

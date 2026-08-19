@@ -42,7 +42,6 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fatih/color v1.18.0
 	github.com/fsnotify/fsnotify v1.10.1
-	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-delve/delve v1.26.1
 	github.com/go-goose/goose/v5 v5.1.7
 	github.com/go-logr/logr v1.4.3
@@ -100,6 +99,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
 	github.com/rs/xid v1.6.0
+	github.com/tailscale/gliderssh v0.3.4-0.20260716005906-1a0f895faf28
 	github.com/vallerion/rscanner v0.0.0-20230822073625-4f90454447a3
 	github.com/vishvananda/netlink v1.3.1
 	github.com/vmware/govmomi v0.34.1

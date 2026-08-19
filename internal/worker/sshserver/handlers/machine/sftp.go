@@ -6,8 +6,8 @@ package machine
 import (
 	"context"
 
-	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
+	ssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/logger"

@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
+	ssh "github.com/tailscale/gliderssh"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/virtualhostname"

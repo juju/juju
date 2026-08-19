@@ -4,7 +4,7 @@
 package k8s
 
 import (
-	"github.com/gliderlabs/ssh"
+	ssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
 )
 

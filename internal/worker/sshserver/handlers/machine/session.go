@@ -6,8 +6,8 @@ package machine
 import (
 	"context"
 
-	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
+	ssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
 )
 
@@ -48,14 +48,7 @@ func setupShellOrCommand(userSession ssh.Session, machineSession *gossh.Session)
 		return machineSession.Start(userSession.RawCommand())
 	}
 
-	// The Gliderlabs SSH server does not currently forward terminal modes.
-	// See https://github.com/gliderlabs/ssh/issues/98 and
-	// https://github.com/gliderlabs/ssh/pull/210.
-	// This will impact terminal behaviour for interactive sessions but can be
-	// addressed by using the above patches in a fork of the Gliderlabs SSH server.
-	if err := machineSession.RequestPty(pty.Term, pty.Window.Height, pty.Window.Width, gossh.TerminalModes{
-		gossh.ECHO: 1,
-	}); err != nil {
+	if err := machineSession.RequestPty(pty.Term, pty.Window.Height, pty.Window.Width, pty.Modes); err != nil {
 		return err
 	}
 	if err := machineSession.Shell(); err != nil {

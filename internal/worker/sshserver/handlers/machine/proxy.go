@@ -8,8 +8,8 @@ import (
 	"io"
 	"sync"
 
-	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
+	ssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
 )
 
@@ -63,14 +63,17 @@ func handleProxy[T io.Closer](h *Handlers, ctx context.Context, cfg proxyConfig[
 }
 
 func (h *Handlers) handleError(session ssh.Session, err error) {
-	h.logger.Errorf(session.Context(), "machine proxy failure: %v", err)
-	writeError(session, err)
-
+	// An exit error indicates that proxying was successful,
+	// but the remote process exited with a non-zero status.
+	// Any other error indicates a failure in the proxying process itself.
 	var exitErr *gossh.ExitError
 	if errors.As(err, &exitErr) {
 		_ = session.Exit(exitErr.ExitStatus())
 		return
 	}
+
+	h.logger.Errorf(session.Context(), "machine proxy failure: %v", err)
+	writeError(session, err)
 	_ = session.Exit(1)
 }
 

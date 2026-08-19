@@ -6,9 +6,9 @@ package sshserver
 import (
 	"context"
 
-	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	"github.com/lestrrat-go/jwx/v3/jwt"
+	ssh "github.com/tailscale/gliderssh"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"

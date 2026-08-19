@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/creack/pty"
-	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
+	ssh "github.com/tailscale/gliderssh"
 
 	"github.com/juju/juju/core/logger"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
