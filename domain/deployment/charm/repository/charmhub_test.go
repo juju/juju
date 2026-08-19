@@ -1220,6 +1220,11 @@ func (s *refreshConfigSuite) TestRefreshByRevision(c *tc.C) {
 			InstanceKey: instanceKey,
 			Name:        &name,
 			Revision:    &revision,
+			Base: &transport.Base{
+				Name:         "ubuntu",
+				Channel:      "20.04",
+				Architecture: "amd64",
+			},
 		}},
 		Context: []transport.RefreshRequestContext{},
 		Fields:  expRefreshFields,
@@ -1646,6 +1651,9 @@ func (m charmhubConfigMatcher) Matches(x any) bool {
 		return false
 	}
 	action := h.Actions[0]
+	if action.Action != "download" {
+		return false
+	}
 	matchID := action.ID != nil && *action.ID == "meshuggah"
 	matchName := action.Name != nil && *action.Name == "ubuntu"
 	if m.requireID {

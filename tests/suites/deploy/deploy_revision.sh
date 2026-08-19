@@ -29,7 +29,7 @@ run_deploy_revision() {
 # revision deployed is consistent with the charm revision that was released
 # into the channel. This test could break if the charm revision is
 # re-released into the channel with a different resource revision but this
-# is not conventionally done and is not expected to be done with the JIMM charm.
+# is not conventionally done.
 run_deploy_revision_uses_consistent_resource() {
 	echo
 
@@ -38,14 +38,15 @@ run_deploy_revision_uses_consistent_resource() {
 
 	ensure "${model_name}" "${file}"
 
-	# Use the jimm charm for this test which tracks what
-	# resource revision was released alongside a charm revision.
-	# See https://github.com/canonical/jimm-k8s-operator/releases/tag/rev110
-	juju deploy juju-jimm-k8s --revision 110 --channel 3/edge
-	wait_for "juju-jimm-k8s" "$(charm_rev "juju-jimm-k8s" 110)"
+	# A charm publisher can view the previous charm revisions and resource
+	# revisions released into a channel at https://charmhub.io/juju-qa-test/releases.
+	juju deploy juju-qa-test --revision 31 --channel 2.0/candidate
+	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 31)"
 
-	# check resource revision per channel specified.
-	got=$(juju resources juju-jimm-k8s --format json | yq '.resources[0] | .["revision"] == "63"')
+	# Check resource revision per channel specified.
+	# The latest resource revision released into channel 2.0/candidate is 3,
+	# here we expect 2 as that was the resource revision released with charm revision 31.
+	got=$(juju resources juju-qa-test --format json | yq '.resources[0] | .["revision"] == "2"')
 	check_contains "${got}" "true"
 
 	destroy_model "${model_name}"

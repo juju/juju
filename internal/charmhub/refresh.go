@@ -277,9 +277,6 @@ func InstallOne(ctx context.Context, name string, revision *int, channel *string
 	if name == "" {
 		return nil, logAndReturnError(ctx, errors.NotValidf("empty name"))
 	}
-	if revision != nil && channel == nil {
-		return InstallOneFromRevision(ctx, name, *revision)
-	}
 	if err := validateBase(base); err != nil {
 		return nil, logAndReturnError(ctx, err)
 	}
@@ -291,6 +288,58 @@ func InstallOne(ctx context.Context, name string, revision *int, channel *string
 		action:      installAction,
 		instanceKey: uuid.String(),
 		Name:        name,
+		Revision:    revision,
+		Channel:     channel,
+		Base:        &base,
+		fields:      requiredRefreshFields,
+	}, nil
+}
+
+// DownloadOne creates a request config for downloading one charm. A revision,
+// channel, and base may be supplied independently.
+func DownloadOne(ctx context.Context, name string, revision *int, channel *string, base *RefreshBase) (RefreshConfig, error) {
+	if name == "" {
+		return nil, logAndReturnError(ctx, errors.NotValidf("empty name"))
+	}
+	if base != nil {
+		if err := validateBase(*base); err != nil {
+			return nil, logAndReturnError(ctx, err)
+		}
+	}
+	uuid, err := uuid.NewUUID()
+	if err != nil {
+		return nil, logAndReturnError(ctx, err)
+	}
+	return executeOne{
+		action:      downloadAction,
+		instanceKey: uuid.String(),
+		Name:        name,
+		Revision:    revision,
+		Channel:     channel,
+		Base:        base,
+		fields:      requiredRefreshFields,
+	}, nil
+}
+
+// DownloadOneByID creates a request config for downloading one charm by ID. A
+// revision, channel, and base may be supplied independently.
+func DownloadOneByID(ctx context.Context, id string, revision *int, channel *string, base *RefreshBase) (RefreshConfig, error) {
+	if id == "" {
+		return nil, logAndReturnError(ctx, errors.NotValidf("empty id"))
+	}
+	if base != nil {
+		if err := validateBase(*base); err != nil {
+			return nil, logAndReturnError(ctx, err)
+		}
+	}
+	uuid, err := uuid.NewUUID()
+	if err != nil {
+		return nil, logAndReturnError(ctx, err)
+	}
+	return executeOne{
+		action:      downloadAction,
+		instanceKey: uuid.String(),
+		ID:          id,
 		Revision:    revision,
 		Channel:     channel,
 		Base:        base,
@@ -350,7 +399,7 @@ func InstallOneFromChannel(ctx context.Context, name string, channel string, bas
 		instanceKey: uuid.String(),
 		Name:        name,
 		Channel:     &channel,
-		Base:        base,
+		Base:        &base,
 		fields:      requiredRefreshFields,
 	}, nil
 }
@@ -374,30 +423,6 @@ func DownloadOneFromRevision(ctx context.Context, id string, revision int) (Refr
 	}, nil
 }
 
-// DownloadOneFromChannelRevision creates a request config using both the
-// channel and revision for requesting only one charm.
-func DownloadOneFromChannelRevision(ctx context.Context, id, channel string, revision int, base RefreshBase) (RefreshConfig, error) {
-	if id == "" {
-		return nil, logAndReturnError(ctx, errors.NotValidf("empty id"))
-	}
-	if err := validateBase(base); err != nil {
-		return nil, logAndReturnError(ctx, err)
-	}
-	uuid, err := uuid.NewUUID()
-	if err != nil {
-		return nil, logAndReturnError(ctx, err)
-	}
-	return executeOne{
-		action:      downloadAction,
-		instanceKey: uuid.String(),
-		ID:          id,
-		Channel:     &channel,
-		Revision:    &revision,
-		Base:        base,
-		fields:      requiredRefreshFields,
-	}, nil
-}
-
 // DownloadOneFromRevisionByName creates a request config using the revision and not
 // the channel for requesting only one charm.
 func DownloadOneFromRevisionByName(ctx context.Context, name string, revision int) (RefreshConfig, error) {
@@ -413,30 +438,6 @@ func DownloadOneFromRevisionByName(ctx context.Context, name string, revision in
 		instanceKey: uuid.String(),
 		Name:        name,
 		Revision:    &revision,
-		fields:      requiredRefreshFields,
-	}, nil
-}
-
-// DownloadOneFromChannelRevisionByName creates a request config using both the
-// channel and revision for requesting only one charm.
-func DownloadOneFromChannelRevisionByName(ctx context.Context, name, channel string, revision int, base RefreshBase) (RefreshConfig, error) {
-	if name == "" {
-		return nil, logAndReturnError(ctx, errors.NotValidf("empty name"))
-	}
-	if err := validateBase(base); err != nil {
-		return nil, logAndReturnError(ctx, err)
-	}
-	uuid, err := uuid.NewUUID()
-	if err != nil {
-		return nil, logAndReturnError(ctx, err)
-	}
-	return executeOne{
-		action:      downloadAction,
-		instanceKey: uuid.String(),
-		Name:        name,
-		Channel:     &channel,
-		Revision:    &revision,
-		Base:        base,
 		fields:      requiredRefreshFields,
 	}, nil
 }
@@ -459,7 +460,7 @@ func DownloadOneFromChannel(ctx context.Context, id string, channel string, base
 		instanceKey: uuid.String(),
 		ID:          id,
 		Channel:     &channel,
-		Base:        base,
+		Base:        &base,
 		fields:      requiredRefreshFields,
 	}, nil
 }
@@ -482,7 +483,7 @@ func DownloadOneFromChannelByName(ctx context.Context, name string, channel stri
 		instanceKey: uuid.String(),
 		Name:        name,
 		Channel:     &channel,
-		Base:        base,
+		Base:        &base,
 		fields:      requiredRefreshFields,
 	}, nil
 }

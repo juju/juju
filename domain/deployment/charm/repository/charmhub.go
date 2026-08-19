@@ -606,51 +606,38 @@ func (c *CharmHubRepository) listResourcesIfRevisions(ctx context.Context, resou
 func (c *CharmHubRepository) repositoryResources(ctx context.Context, id corecharm.CharmID) ([]transport.ResourceRevision, error) {
 	curl := id.URL
 	origin := id.Origin
-	refBase := charmhub.RefreshBase{
+	var revision *int
+	if origin.Revision != nil && *origin.Revision >= 0 {
+		revision = origin.Revision
+	}
+
+	var channel *string
+	if origin.Channel != nil && !origin.Channel.Empty() {
+		normalizedChannel := origin.Channel.Normalize().String()
+		channel = &normalizedChannel
+	} else if revision == nil {
+		defaultChannel := corecharm.DefaultChannel.Normalize().String()
+		channel = &defaultChannel
+	}
+
+	base := &charmhub.RefreshBase{
 		Architecture: origin.Platform.Architecture,
 		Name:         origin.Platform.OS,
 		Channel:      origin.Platform.Channel,
 	}
+
 	var cfg charmhub.RefreshConfig
 	var err error
-
-	// Switch based on whether we know the charm's ID or only its name.
-	// Then, if the charm revision is known, we can use that to get more specific resource data.
-	// If the revision is not known, we can only get the latest resource data for the channel.
-
-	fullySpecified := origin.Channel != nil && !origin.Channel.Empty() && origin.Revision != nil && *origin.Revision >= 0
-	switch {
-	case origin.ID != "":
-		if fullySpecified {
-			cfg, err = charmhub.DownloadOneFromChannelRevision(ctx, origin.ID, origin.Channel.String(), *origin.Revision, refBase)
-			if err != nil {
-				c.logger.Errorf(ctx, "creating resources config for charm (%q, %q, %d): %s", origin.ID, origin.Channel.String(), *origin.Revision, err)
-				return nil, internalerrors.Errorf("creating resources config for charm %q: %w", curl.String(), err)
-			}
-			break
-		}
-
-		// Do not get resource data via revision here, it is only provided if explicitly
-		// asked for by resource revision. The purpose here is to find a resource revision
-		// in the channel, if one was not provided on the cli.
-		cfg, err = charmhub.DownloadOneFromChannel(ctx, origin.ID, origin.Channel.String(), refBase)
+	if origin.ID != "" {
+		cfg, err = charmhub.DownloadOneByID(ctx, origin.ID, revision, channel, base)
 		if err != nil {
-			c.logger.Errorf(ctx, "creating resources config for charm (%q, %q): %s", origin.ID, origin.Channel.String(), err)
+			c.logger.Errorf(ctx, "creating resources config for charm %q: %s", curl.String(), err)
 			return nil, internalerrors.Errorf("creating resources config for charm %q: %w", curl.String(), err)
 		}
-	case origin.ID == "":
-		if fullySpecified {
-			cfg, err = charmhub.DownloadOneFromChannelRevisionByName(ctx, curl.Name, origin.Channel.String(), *origin.Revision, refBase)
-			if err != nil {
-				c.logger.Errorf(ctx, "creating resources config for charm (%q, %q, %d): %s", curl.Name, origin.Channel.String(), *origin.Revision, err)
-				return nil, internalerrors.Errorf("creating resources config for charm %q: %w", curl.String(), err)
-			}
-			break
-		}
-
-		cfg, err = charmhub.DownloadOneFromChannelByName(ctx, curl.Name, origin.Channel.String(), refBase)
+	} else {
+		cfg, err = charmhub.DownloadOne(ctx, curl.Name, revision, channel, base)
 		if err != nil {
-			c.logger.Errorf(ctx, "creating resources config for charm (%q, %q): %s", curl.Name, origin.Channel.String(), err)
+			c.logger.Errorf(ctx, "creating resources config for charm %q: %s", curl.String(), err)
 			return nil, internalerrors.Errorf("creating resources config for charm %q: %w", curl.String(), err)
 		}
 	}
@@ -1065,12 +1052,6 @@ func refreshConfig(ctx context.Context, charmName string, origin corecharm.Origi
 		revision = origin.Revision
 	}
 
-	base := charmhub.RefreshBase{
-		Architecture: origin.Platform.Architecture,
-		Name:         origin.Platform.OS,
-		Channel:      origin.Platform.Channel,
-	}
-
 	var channel *string
 	if origin.Channel != nil && !origin.Channel.Empty() {
 		normalizedChannel := origin.Channel.Normalize().String()
@@ -1083,6 +1064,12 @@ func refreshConfig(ctx context.Context, charmName string, origin corecharm.Origi
 		// requires an explicit channel.
 		defaultChannel := corecharm.DefaultChannel.Normalize().String()
 		channel = &defaultChannel
+	}
+
+	base := charmhub.RefreshBase{
+		Architecture: origin.Platform.Architecture,
+		Name:         origin.Platform.OS,
+		Channel:      origin.Platform.Channel,
 	}
 
 	// Bundles cannot use refresh actions by ID.

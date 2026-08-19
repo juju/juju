@@ -664,6 +664,11 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevisionWithoutChannel(c *tc.C) 
 			InstanceKey: "foo-bar",
 			Name:        &name,
 			Revision:    &revision,
+			Base: &transport.Base{
+				Name:         "ubuntu",
+				Channel:      "20.04",
+				Architecture: arch.DefaultArchitecture,
+			},
 		}},
 		Fields: expRefreshFields,
 	})
@@ -838,6 +843,68 @@ func (s *RefreshConfigSuite) TestDownloadOneFromRevisionBuild(c *tc.C) {
 		}},
 		Fields: expRefreshFields,
 	})
+}
+
+func (s *RefreshConfigSuite) TestDownloadOneBuild(c *tc.C) {
+	revision := 4
+	channel := "latest/stable"
+	name := "foo"
+	base := &RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
+		Architecture: arch.DefaultArchitecture,
+	}
+	config, err := DownloadOne(c.Context(), name, &revision, &channel, base)
+	c.Assert(err, tc.ErrorIsNil)
+
+	config = DefineInstanceKey(c, config, "foo-bar")
+	request, err := config.Build(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(request.Actions[0].Action, tc.Equals, "download")
+	c.Assert(request.Actions[0].Name, tc.DeepEquals, &name)
+	c.Assert(request.Actions[0].Revision, tc.DeepEquals, &revision)
+	c.Assert(request.Actions[0].Channel, tc.DeepEquals, &channel)
+	c.Assert(request.Actions[0].Base, tc.NotNil)
+}
+
+func (s *RefreshConfigSuite) TestDownloadOneByIDBuild(c *tc.C) {
+	revision := 4
+	channel := "latest/stable"
+	id := "foo"
+	base := &RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
+		Architecture: arch.DefaultArchitecture,
+	}
+	config, err := DownloadOneByID(c.Context(), id, &revision, &channel, base)
+	c.Assert(err, tc.ErrorIsNil)
+
+	config = DefineInstanceKey(c, config, "foo-bar")
+	request, err := config.Build(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(request.Actions[0].Action, tc.Equals, "download")
+	c.Assert(request.Actions[0].ID, tc.DeepEquals, &id)
+	c.Assert(request.Actions[0].Revision, tc.DeepEquals, &revision)
+	c.Assert(request.Actions[0].Channel, tc.DeepEquals, &channel)
+	c.Assert(request.Actions[0].Base, tc.NotNil)
+}
+
+func (s *RefreshConfigSuite) TestDownloadOneRevisionOnlyBuild(c *tc.C) {
+	revision := 4
+	config, err := DownloadOne(c.Context(), "foo", &revision, nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	config = DefineInstanceKey(c, config, "foo-bar")
+	request, err := config.Build(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(request.Actions[0].Action, tc.Equals, "download")
+	c.Assert(request.Actions[0].Revision, tc.DeepEquals, &revision)
+	c.Assert(request.Actions[0].Base, tc.IsNil)
+}
+
+func (s *RefreshConfigSuite) TestDownloadOneByIDEmptyID(c *tc.C) {
+	_, err := DownloadOneByID(c.Context(), "", nil, nil, nil)
+	c.Assert(err, tc.ErrorMatches, `empty id not valid`)
 }
 
 func (s *RefreshConfigSuite) TestDownloadOneFromRevisionFail(c *tc.C) {
