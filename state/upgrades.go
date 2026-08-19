@@ -458,12 +458,20 @@ func ConvertScalingToCurrentOperationEnumField(pool *StatePool) error {
 // sshProxyCollectionNames holds the names of the MongoDB collections that
 // were used by the controller-proxied SSH feature. The feature was removed
 // from the 3.6 line but the collections were left behind in upgraded
-// controllers' model databases. RemoveSSHProxyArtefacts drops the
-// orphaned collections from every model so no dead data remains.
+// controllers' model databases. RemoveSSHProxyArtefacts removes the
+// orphaned documents from every model so no dead data remains.
 //
 // The collection constants are defined locally here rather than in
 // allcollections.go because the collections are no longer registered as
-// known collections; the upgrade step only needs the names to drop them.
+// known collections; the upgrade step only needs the names to remove the
+// leftover documents.
+//
+// These collections were model-scoped (non-global): documents share the
+// single juju database and are distinguished by a "model-uuid" field and
+// model-UUID-prefixed _id. The upgrade step therefore removes documents
+// per-model using a model-uuid filter rather than dropping the underlying
+// MongoDB collection, which would destroy every model's documents at
+// once.
 var sshProxyCollectionNames = []string{
 	"virtualhostkeys",
 	"sshrequests",
@@ -488,7 +496,7 @@ var sshProxyControllerConfigKeys = []string{
 // RemoveSSHProxyArtefacts removes all state left behind by the removed
 // controller-proxied SSH feature from the controller:
 //
-//   - the virtualhostkeys and sshrequests collections are dropped from every
+//   - the virtualhostkeys and sshrequests documents are removed from every
 //     model in the pool,
 //   - any leftover "sshConnRequests" cleanup documents are removed so they
 //     cannot trigger a handler that no longer exists, and
@@ -497,9 +505,13 @@ var sshProxyControllerConfigKeys = []string{
 //     document.
 //
 // Each operation is a no-op where the underlying data does not exist
-// (mgo's DropCollection returns nil for a missing collection, and removing
-// absent documents or settings keys is harmless), so the step is
+// (removing absent documents or settings keys is harmless), so the step is
 // idempotent and safe to run on controllers that never had the feature.
+//
+// The virtualhostkeys and sshrequests collections were model-scoped, so
+// documents are removed per-model with a model-uuid filter rather than
+// dropping the underlying MongoDB collection, which is shared across all
+// models in the single-juju-database layout used since 3.6.
 func RemoveSSHProxyArtefacts(pool *StatePool) error {
 	if err := dropSSHProxyCollections(pool); err != nil {
 		return errors.Trace(err)
@@ -507,8 +519,8 @@ func RemoveSSHProxyArtefacts(pool *StatePool) error {
 	return errors.Trace(removeSSHProxyControllerConfig(pool))
 }
 
-// dropSSHProxyCollections drops the orphaned virtualhostkeys and
-// sshrequests collections from every model in the pool and removes any
+// dropSSHProxyCollections removes the orphaned virtualhostkeys and
+// sshrequests documents from every model in the pool and removes any
 // leftover "sshConnRequests" cleanup documents so they cannot trigger a
 // handler that no longer exists.
 func dropSSHProxyCollections(pool *StatePool) error {
@@ -518,9 +530,13 @@ func dropSSHProxyCollections(pool *StatePool) error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if err := coll.DropCollection(); err != nil {
+			// Remove only this model's documents. The collection is
+			// shared across all models in the single-juju-database
+			// layout, so dropping the whole collection would destroy
+			// other models' data.
+			if _, err := coll.RemoveAll(bson.D{{Name: "model-uuid", Value: st.ModelUUID()}}); err != nil {
 				closer()
-				return errors.Annotatef(err, "dropping %q collection", name)
+				return errors.Annotatef(err, "removing %q documents for model %q", name, st.ModelUUID())
 			}
 			closer()
 		}

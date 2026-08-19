@@ -552,8 +552,13 @@ func (s *upgradesSuite) TestConvertScalingToCurrentOperationEnumField(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestRemoveSSHProxyArtefactsDropsCollections(c *gc.C) {
-	// The collections are model-namespaced, so create a second model and
-	// seed both it and the controller model with a doc in each collection.
+	// The collections are model-scoped: documents share the underlying
+	// MongoDB collection and are distinguished by a "model-uuid" field
+	// (and model-UUID-prefixed _id). Create a second model and seed both
+	// it and the controller model with a doc in each collection, then
+	// assert the upgrade removes only the target model's documents and
+	// leaves the other model's documents intact. Dropping the whole
+	// collection would fail this test.
 	state1 := s.makeModel(c, "m1", coretesting.Attrs{},
 		ModelArgs{Type: ModelTypeIAAS})
 	defer func() { _ = state1.Close() }()
@@ -563,8 +568,9 @@ func (s *upgradesSuite) TestRemoveSSHProxyArtefactsDropsCollections(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		defer closer()
 		err = coll.Insert(bson.M{
-			"_id":  st.docID(docID),
-			"data": "unused",
+			"_id":        st.docID(docID),
+			"model-uuid": st.ModelUUID(),
+			"data":       "unused",
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -574,32 +580,48 @@ func (s *upgradesSuite) TestRemoveSSHProxyArtefactsDropsCollections(c *gc.C) {
 	seedCollection(s.state, "sshrequests", "conn-0")
 	seedCollection(state1, "sshrequests", "conn-1")
 
-	collectionExists := func(st *State, name string) bool {
+	modelDocCount := func(st *State, name string) int {
 		coll, closer, err := st.db().GetRawCollection(name)
+		c.Assert(err, jc.ErrorIsNil)
+		defer closer()
+		n, err := coll.Find(bson.D{{Name: "model-uuid", Value: st.ModelUUID()}}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		return n
+	}
+
+	// Total document count across both models, to ensure the underlying
+	// collection is not dropped (which would remove everything at once).
+	totalDocCount := func(name string) int {
+		coll, closer, err := s.state.db().GetRawCollection(name)
 		c.Assert(err, jc.ErrorIsNil)
 		defer closer()
 		n, err := coll.Count()
 		c.Assert(err, jc.ErrorIsNil)
-		return n > 0
+		return n
 	}
 
-	c.Check(collectionExists(s.state, "virtualhostkeys"), jc.IsTrue)
-	c.Check(collectionExists(state1, "virtualhostkeys"), jc.IsTrue)
-	c.Check(collectionExists(s.state, "sshrequests"), jc.IsTrue)
-	c.Check(collectionExists(state1, "sshrequests"), jc.IsTrue)
+	c.Check(modelDocCount(s.state, "virtualhostkeys"), gc.Equals, 1)
+	c.Check(modelDocCount(state1, "virtualhostkeys"), gc.Equals, 1)
+	c.Check(modelDocCount(s.state, "sshrequests"), gc.Equals, 1)
+	c.Check(modelDocCount(state1, "sshrequests"), gc.Equals, 1)
 
-	// Two rounds to check idempotency: dropping already-absent collections
+	// Two rounds to check idempotency: removing already-absent documents
 	// must not error.
 	for i := 0; i < 2; i++ {
 		c.Logf("Run: %d", i)
 		err := RemoveSSHProxyArtefacts(s.pool)
 		c.Assert(err, jc.ErrorIsNil)
 
-		c.Check(collectionExists(s.state, "virtualhostkeys"), jc.IsFalse)
-		c.Check(collectionExists(state1, "virtualhostkeys"), jc.IsFalse)
-		c.Check(collectionExists(s.state, "sshrequests"), jc.IsFalse)
-		c.Check(collectionExists(state1, "sshrequests"), jc.IsFalse)
+		c.Check(modelDocCount(s.state, "virtualhostkeys"), gc.Equals, 0)
+		c.Check(modelDocCount(state1, "virtualhostkeys"), gc.Equals, 0)
+		c.Check(modelDocCount(s.state, "sshrequests"), gc.Equals, 0)
+		c.Check(modelDocCount(state1, "sshrequests"), gc.Equals, 0)
 	}
+
+	// The underlying collections may still exist (now empty); what
+	// matters is that no ssh proxy documents remain for any model.
+	c.Check(totalDocCount("virtualhostkeys"), gc.Equals, 0)
+	c.Check(totalDocCount("sshrequests"), gc.Equals, 0)
 }
 
 func (s *upgradesSuite) TestRemoveSSHProxyArtefactsRemovesCleanupDocs(c *gc.C) {
