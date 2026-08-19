@@ -10,38 +10,12 @@ run_expose_app_ec2() {
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
 	# Open ports and verify hook tool behavior
-	assert_opened_ports_output
+	assert_opened_ports_output "ubuntu-lite" "1337-1339/tcp" "ubuntu" "1234/tcp"
 
 	# Ensure that CIDRs are correctly generated
 	assert_ingress_cidrs_for_exposed_app
 
 	destroy_model "expose-app"
-}
-
-assert_opened_ports_output() {
-	echo "==> Checking open/opened-ports hook tools work as expected"
-
-	juju exec --unit ubuntu-lite/0 "open-port 1337-1339/tcp"
-	juju exec --unit ubuntu-lite/0 "open-port 1234/tcp --endpoints ubuntu"
-
-	# Test the backwards-compatible version of opened-ports where the output
-	# includes the unique set of opened ports for all endpoints.
-	exp="1234/tcp 1337-1339/tcp"
-	got=$(juju_exec_output --unit ubuntu-lite/0 "opened-ports" | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')
-	if [ "$got" != "$exp" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "expected opened-ports output to be:\n${exp}\nGOT:\n${got}")
-		exit 1
-	fi
-
-	# Try the new version where we group by endpoint.
-	exp="1234/tcp (ubuntu) 1337-1339/tcp (*)"
-	got=$(juju_exec_output --unit ubuntu-lite/0 "opened-ports --endpoints" | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')
-	if [ "$got" != "$exp" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "expected opened-ports output when using --endpoints to be:\n${exp}\nGOT:\n${got}")
-		exit 1
-	fi
 }
 
 assert_ingress_cidrs_for_exposed_app() {
