@@ -361,6 +361,30 @@ func (s *serviceSuite) TestSetControllerNodePasswordInvalidPassword(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "password is only 3 bytes long, and is not a valid Agent password.*")
 }
 
+func (s *serviceSuite) TestSetControllerNodePasswordIfAbsent(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	password := tc.Must(c, internalpassword.RandomPassword)
+	s.controllerState.EXPECT().SetControllerNodePasswordHashIfAbsent(
+		gomock.Any(), "0", hashPassword(password),
+	).Return(true, nil)
+
+	set, err := NewService(s.modelState, s.controllerState).
+		SetControllerNodePasswordIfAbsent(c.Context(), "0", password)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(set, tc.IsTrue)
+}
+
+func (s *serviceSuite) TestHasControllerNodePassword(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().HasControllerNodePasswordHash(gomock.Any(), "0").Return(true, nil)
+	hasPassword, err := NewService(s.modelState, s.controllerState).
+		HasControllerNodePassword(c.Context(), "0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hasPassword, tc.IsTrue)
+}
+
 func (s *serviceSuite) TestMatchesControllerNodePasswordHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

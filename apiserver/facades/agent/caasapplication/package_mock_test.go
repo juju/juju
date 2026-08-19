@@ -117,8 +117,9 @@ type MockAgentPasswordService struct {
 
 // MockAgentPasswordServiceMockRecorder is the mock recorder for MockAgentPasswordService.
 type MockAgentPasswordServiceMockRecorder struct {
-	mock                             *MockAgentPasswordService
-	setControllerNodePasswordExpects []*gomock.Call3_1[context.Context, string, string, error]
+	mock                                     *MockAgentPasswordService
+	hasControllerNodePasswordExpects         []*gomock.Call2_2[context.Context, string, bool, error]
+	setControllerNodePasswordIfAbsentExpects []*gomock.Call3_2[context.Context, string, string, bool, error]
 }
 
 // NewMockAgentPasswordService creates a new mock instance.
@@ -133,23 +134,41 @@ func (m *MockAgentPasswordService) EXPECT() *MockAgentPasswordServiceMockRecorde
 	return m.recorder
 }
 
-// SetControllerNodePassword mocks base method.
-func (m *MockAgentPasswordService) SetControllerNodePassword(ctx context.Context, controllerID, password string) error {
+// HasControllerNodePassword mocks base method.
+func (m *MockAgentPasswordService) HasControllerNodePassword(ctx context.Context, controllerID string) (bool, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.setControllerNodePasswordExpects, m.ctrl, m, "SetControllerNodePassword", ctx, controllerID, password)
+	return gomock.Dispatch2_2(&m.recorder.hasControllerNodePasswordExpects, m.ctrl, m, "HasControllerNodePassword", ctx, controllerID)
 }
 
-// SetControllerNodePassword indicates an expected call of SetControllerNodePassword.
-func (mr *MockAgentPasswordServiceMockRecorder) SetControllerNodePassword(ctx, controllerID, password any) *MockAgentPasswordServiceSetControllerNodePasswordCall {
+// HasControllerNodePassword indicates an expected call of HasControllerNodePassword.
+func (mr *MockAgentPasswordServiceMockRecorder) HasControllerNodePassword(ctx, controllerID any) *MockAgentPasswordServiceHasControllerNodePasswordCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "SetControllerNodePassword", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(controllerID), gomock.EnsureMatcher(password))
-	mr.setControllerNodePasswordExpects = append(mr.setControllerNodePasswordExpects, call)
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "HasControllerNodePassword", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(controllerID))
+	mr.hasControllerNodePasswordExpects = append(mr.hasControllerNodePasswordExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockAgentPasswordServiceSetControllerNodePasswordCall is the typed call wrapper for SetControllerNodePassword.
-type MockAgentPasswordServiceSetControllerNodePasswordCall = gomock.Call3_1[context.Context, string, string, error]
+// MockAgentPasswordServiceHasControllerNodePasswordCall is the typed call wrapper for HasControllerNodePassword.
+type MockAgentPasswordServiceHasControllerNodePasswordCall = gomock.Call2_2[context.Context, string, bool, error]
+
+// SetControllerNodePasswordIfAbsent mocks base method.
+func (m *MockAgentPasswordService) SetControllerNodePasswordIfAbsent(ctx context.Context, controllerID, password string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.setControllerNodePasswordIfAbsentExpects, m.ctrl, m, "SetControllerNodePasswordIfAbsent", ctx, controllerID, password)
+}
+
+// SetControllerNodePasswordIfAbsent indicates an expected call of SetControllerNodePasswordIfAbsent.
+func (mr *MockAgentPasswordServiceMockRecorder) SetControllerNodePasswordIfAbsent(ctx, controllerID, password any) *MockAgentPasswordServiceSetControllerNodePasswordIfAbsentCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, string, bool, error](mr.mock.ctrl.T, mr.mock, "SetControllerNodePasswordIfAbsent", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(controllerID), gomock.EnsureMatcher(password))
+	mr.setControllerNodePasswordIfAbsentExpects = append(mr.setControllerNodePasswordIfAbsentExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockAgentPasswordServiceSetControllerNodePasswordIfAbsentCall is the typed call wrapper for SetControllerNodePasswordIfAbsent.
+type MockAgentPasswordServiceSetControllerNodePasswordIfAbsentCall = gomock.Call3_2[context.Context, string, string, bool, error]
 
 // MockApplicationService is a mock of ApplicationService interface.
 type MockApplicationService struct {
