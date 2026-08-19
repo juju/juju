@@ -64,4 +64,16 @@ const (
 	// exists for the model. A staged-but-incomplete redirect (completed_at IS
 	// NULL) is not yet active and returns the same error.
 	ErrModelNotRedirected = errors.ConstError("model not redirected")
+
+	// ErrAbortActivating indicates that an abort was attempted on an import
+	// claim that is in the activating phase. Once activation has crossed the
+	// point of no return the model may not be torn down; this is a
+	// non-retryable conflict. The source must retry/continue Activate instead.
+	ErrAbortActivating = errors.ConstError("cannot abort import: activation already in progress")
+
+	// ErrAbortNotFinalizable indicates that abort finalization cannot yet
+	// delete the import claim because cleanup is not provably complete (the
+	// controller model row or its namespace still exists). The caller should
+	// leave the claim in the aborting phase and retry finalization later.
+	ErrAbortNotFinalizable = errors.ConstError("import abort cannot be finalized: cleanup incomplete")
 )
