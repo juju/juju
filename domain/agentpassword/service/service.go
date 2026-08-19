@@ -69,6 +69,12 @@ type ControllerState interface {
 	// SetControllerNodePasswordHash sets the password hash for the given
 	// controller node.
 	SetControllerNodePasswordHash(context.Context, string, agentpassword.PasswordHash) error
+	// SetControllerNodePasswordHashIfAbsent sets the password hash for the
+	// controller node only if it does not already have one.
+	SetControllerNodePasswordHashIfAbsent(context.Context, string, agentpassword.PasswordHash) (bool, error)
+	// HasControllerNodePasswordHash reports whether the controller node has a
+	// password hash.
+	HasControllerNodePasswordHash(context.Context, string) (bool, error)
 	// MatchesControllerNodePasswordHash checks if the password is valid or not
 	// against the password hash stored in the database for the controller node.
 	MatchesControllerNodePasswordHash(context.Context, string, agentpassword.PasswordHash) (bool, error)
@@ -237,6 +243,35 @@ func (s *Service) SetControllerNodePassword(ctx context.Context, id string, pass
 	}
 
 	return s.controllerState.SetControllerNodePasswordHash(ctx, id, hashPassword(password))
+}
+
+// SetControllerNodePasswordIfAbsent sets the password for the given controller
+// node only if it does not already have one. It returns true when the password
+// was set.
+func (s *Service) SetControllerNodePasswordIfAbsent(ctx context.Context, id string, password string) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if id == "" {
+		return false, errors.Errorf("controller node ID %w", coreerrors.NotValid)
+	}
+	if len(password) < internalpassword.MinAgentPasswordLength {
+		return false, errors.Errorf("password is only %d bytes long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+	}
+
+	return s.controllerState.SetControllerNodePasswordHashIfAbsent(ctx, id, hashPassword(password))
+}
+
+// HasControllerNodePassword reports whether the controller node has a
+// password.
+func (s *Service) HasControllerNodePassword(ctx context.Context, id string) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if id == "" {
+		return false, errors.Errorf("controller node ID %w", coreerrors.NotValid)
+	}
+	return s.controllerState.HasControllerNodePasswordHash(ctx, id)
 }
 
 // MatchesControllerNodePasswordHash checks if the password is

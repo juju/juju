@@ -189,6 +189,7 @@ func (s *CAASApplicationSuite) TestControllerUnitIntroductionCreatesControllerId
 	applicationUUID := tc.Must0(c, coreapplication.NewUUID)
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "controller").Return(applicationUUID, nil)
 	s.applicationService.EXPECT().IsControllerApplication(gomock.Any(), applicationUUID).Return(true, nil)
+	s.agentPasswordService.EXPECT().HasControllerNodePassword(gomock.Any(), "2").Return(false, nil)
 	controllerCfg := controller.Config{controller.CACertKey: coretesting.CACert}
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
 	addrs := []string{"10.6.6.6:17070"}
@@ -210,10 +211,10 @@ func (s *CAASApplicationSuite) TestControllerUnitIntroductionCreatesControllerId
 	s.controllerNodeService.EXPECT().AddControllerNode(gomock.Any(), "2")
 
 	var storedPassword string
-	s.agentPasswordService.EXPECT().SetControllerNodePassword(gomock.Any(), "2", gomock.Any()).
-		DoAndReturn(func(_ context.Context, _ string, password string) error {
+	s.agentPasswordService.EXPECT().SetControllerNodePasswordIfAbsent(gomock.Any(), "2", gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ string, password string) (bool, error) {
 			storedPassword = password
-			return nil
+			return true, nil
 		})
 
 	result, err := s.facade.UnitIntroduction(c.Context(), params.CAASUnitIntroductionArgs{
@@ -236,6 +237,22 @@ func (s *CAASApplicationSuite) TestControllerUnitIntroductionCreatesControllerId
 	apiInfo, ok := controllerConf.APIInfo()
 	c.Assert(ok, tc.IsTrue)
 	c.Check(apiInfo.Addrs, tc.DeepEquals, []string{"localhost:17070", "10.6.6.6:17070"})
+}
+
+func (s *CAASApplicationSuite) TestControllerUnitIntroductionCannotReplacePassword(c *tc.C) {
+	defer s.setupMocks(c, "application-controller").Finish()
+
+	applicationUUID := tc.Must0(c, coreapplication.NewUUID)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "controller").Return(applicationUUID, nil)
+	s.applicationService.EXPECT().IsControllerApplication(gomock.Any(), applicationUUID).Return(true, nil)
+	s.agentPasswordService.EXPECT().HasControllerNodePassword(gomock.Any(), "2").Return(true, nil)
+
+	result, err := s.facade.UnitIntroduction(c.Context(), params.CAASUnitIntroductionArgs{
+		PodName: "controller-2",
+		PodUUID: "pod-uuid",
+	})
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+	c.Check(result, tc.DeepEquals, params.CAASUnitIntroductionResult{})
 }
 
 func (s *CAASApplicationSuite) TestControllerUnitIntroductionOutsideControllerModelDenied(c *tc.C) {

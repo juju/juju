@@ -7,6 +7,7 @@ import (
 	"context"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -54,7 +55,8 @@ type ControllerService interface {
 
 // AgentPasswordService manages agent passwords.
 type AgentPasswordService interface {
-	SetControllerNodePassword(ctx context.Context, controllerID, password string) error
+	HasControllerNodePassword(ctx context.Context, controllerID string) (bool, error)
+	SetControllerNodePasswordIfAbsent(ctx context.Context, controllerID, password string) (bool, error)
 }
 
 // ApplicationService instances implement an application service.
@@ -144,7 +146,27 @@ func NewFacade(
 	}
 }
 
-// UnitIntroduction sets the status of each given unit.
+// UnitIntroduction registers a Kubernetes pod belonging to the authenticated
+// application as a CAAS unit and returns the unit agent configuration needed by
+// the pod's charm container. Registration assigns the Juju unit from the
+// StatefulSet ordinal, records the pod details, and sets the unit password.
+//
+// A controller application pod hosts both the controller charm unit agent and
+// a controller agent. Non-bootstrap replicas cannot reuse controller-0's
+// identity, so introduction also creates a controller identity matching the
+// replica ordinal and returns its controller agent configuration. This is done
+// here because unit introduction is where the pod has been matched to its Juju
+// unit and the init container is already receiving its local agent configs.
+// Controller configuration is issued only in the controller model and only for
+// the application marked as the controller application.
+//
+// This method mutates both model and controller state. Unit registration can
+// create or update the unit and its password. Controller introduction also
+// ensures the controller node exists and initializes its password. These writes
+// are not one transaction, so an error can leave partial state for a later
+// retry. An established controller password is never replaced by this method;
+// replayed introduction is denied rather than returning replacement controller
+// credentials.
 func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntroductionArgs) (params.CAASUnitIntroductionResult, error) {
 	tag, ok := f.auth.GetAuthTag().(names.ApplicationTag)
 	if !ok {
@@ -172,7 +194,15 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		return errResp(errors.NotValidf("pod-uuid"))
 	}
 
+	// TODO (stickupkid): We should stream line this into a singular call to
+	// the application service, rather than having the facade orchestrate
+	// multiple calls to the application service. This will allow us to have a
+	// single transaction for the entire introduction process, rather than
+	// having multiple transactions that can leave the model in an inconsistent
+	// state.
+
 	isControllerApplication := tag.Name == coreapplication.ControllerApplicationName
+	var controllerID string
 	if isControllerApplication {
 		if !f.isControllerModelScope {
 			return params.CAASUnitIntroductionResult{}, apiservererrors.ErrPerm
@@ -186,6 +216,17 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 			return errResp(err)
 		}
 		if !isController {
+			return params.CAASUnitIntroductionResult{}, apiservererrors.ErrPerm
+		}
+		controllerID, err = controllerIDFromPodName(args.PodName)
+		if err != nil {
+			return errResp(err)
+		}
+		passwordSet, err := f.agentPasswordService.HasControllerNodePassword(ctx, controllerID)
+		if err != nil {
+			return errResp(err)
+		}
+		if passwordSet {
 			return params.CAASUnitIntroductionResult{}, apiservererrors.ErrPerm
 		}
 	}
@@ -283,7 +324,9 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		return res, nil
 	}
 
-	controllerID := strconv.Itoa(unitName.Number())
+	if controllerID != strconv.Itoa(unitName.Number()) {
+		return errResp(errors.NotValidf("controller pod name %q", args.PodName))
+	}
 	controllerPassword, err := password.RandomPassword()
 	if err != nil {
 		return errResp(errors.Annotate(err, "generating controller agent password"))
@@ -331,13 +374,35 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	if err := f.controllerNodeService.AddControllerNode(ctx, controllerID); err != nil {
 		return errResp(err)
 	}
-	if err := f.agentPasswordService.SetControllerNodePassword(ctx, controllerID, controllerPassword); err != nil {
+	// The application password is shared by controller pods and remains valid
+	// after introduction. Never overwrite an existing controller password here:
+	// anyone retaining that shared credential could replay UnitIntroduction,
+	// rotate a live controller's credentials, and obtain its replacement config.
+	// Insert-if-absent is the final atomic guard against replayed or concurrent
+	// requests.
+	passwordSet, err := f.agentPasswordService.SetControllerNodePasswordIfAbsent(ctx, controllerID, controllerPassword)
+	if err != nil {
 		return errResp(err)
+	}
+	if !passwordSet {
+		return params.CAASUnitIntroductionResult{}, apiservererrors.ErrPerm
 	}
 	res.Result.ControllerAgentTag = names.NewControllerAgentTag(controllerID).String()
 	res.Result.ControllerAgentConf = controllerConfBytes
 
 	return res, nil
+}
+
+func controllerIDFromPodName(podName string) (string, error) {
+	id, ok := strings.CutPrefix(podName, coreapplication.ControllerApplicationName+"-")
+	if !ok {
+		return "", errors.NotValidf("controller pod name %q", podName)
+	}
+	number, err := strconv.Atoi(id)
+	if err != nil || number < 0 {
+		return "", errors.NotValidf("controller pod name %q", podName)
+	}
+	return strconv.Itoa(number), nil
 }
 
 func openTelemetryInsecure(config tracingservice.WorkloadTracingConfig) bool {

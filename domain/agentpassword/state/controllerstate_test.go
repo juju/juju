@@ -51,6 +51,48 @@ func (s *controllerModelState) TestSetControllerNodePasswordDoesNotExist(c *tc.C
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
 }
 
+func (s *controllerModelState) TestSetControllerNodePasswordHashIfAbsent(c *tc.C) {
+	st := NewControllerState(s.TxnRunnerFactory())
+	passwordHash := s.genPasswordHash(c)
+
+	inserted, err := st.SetControllerNodePasswordHashIfAbsent(c.Context(), "0", passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(inserted, tc.IsTrue)
+
+	replacementHash := s.genPasswordHash(c)
+	inserted, err = st.SetControllerNodePasswordHashIfAbsent(c.Context(), "0", replacementHash)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(inserted, tc.IsFalse)
+
+	valid, err := st.MatchesControllerNodePasswordHash(c.Context(), "0", passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsTrue)
+	valid, err = st.MatchesControllerNodePasswordHash(c.Context(), "0", replacementHash)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsFalse)
+}
+
+func (s *controllerModelState) TestSetControllerNodePasswordHashIfAbsentNodeDoesNotExist(c *tc.C) {
+	st := NewControllerState(s.TxnRunnerFactory())
+
+	_, err := st.SetControllerNodePasswordHashIfAbsent(c.Context(), "1", s.genPasswordHash(c))
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
+}
+
+func (s *controllerModelState) TestHasControllerNodePasswordHash(c *tc.C) {
+	st := NewControllerState(s.TxnRunnerFactory())
+
+	hasPassword, err := st.HasControllerNodePasswordHash(c.Context(), "0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hasPassword, tc.IsFalse)
+
+	_, err = st.SetControllerNodePasswordHashIfAbsent(c.Context(), "0", s.genPasswordHash(c))
+	c.Assert(err, tc.ErrorIsNil)
+	hasPassword, err = st.HasControllerNodePasswordHash(c.Context(), "0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hasPassword, tc.IsTrue)
+}
+
 func (s *controllerModelState) TestMatchesUnitPasswordHash(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
 
