@@ -186,8 +186,9 @@ func (s *UserService) ImportLastModelLogins(
 // grouped by offer UUID and written in a single ImportOfferAccess call. Users
 // in inactiveUsers (see [UserService.ImportModelUsers]) are skipped: they have
 // no active target identity to grant live permission state to. It returns the
-// offer UUIDs it processed; the v8 import driver records their cleanup intent
-// before calling this method.
+// offer UUIDs it processed. Callers that must record cleanup intent before
+// these writes should use [OfferUUIDsForImport], which applies the same
+// offer filter.
 //
 // It is called directly by the v8 migration import driver in
 // internal/migration.
@@ -203,8 +204,7 @@ func (s *PermissionService) ImportModelPermissions(
 		return nil, nil
 	}
 
-	offerAccess := make(map[string]map[string]corepermission.Access)
-	var offerUUIDs []string
+	offerAccess, offerUUIDs := collectOfferImportAccess(perms, inactiveUsers)
 
 	for _, p := range perms {
 		if inactiveUsers.Contains(p.SubjectName) {
@@ -228,11 +228,7 @@ func (s *PermissionService) ImportModelPermissions(
 					"granting %q access to %q on model: %w", p.Access, p.SubjectName, err)
 			}
 		case corepermission.Offer:
-			if _, ok := offerAccess[p.GrantOn]; !ok {
-				offerUUIDs = append(offerUUIDs, p.GrantOn)
-				offerAccess[p.GrantOn] = make(map[string]corepermission.Access)
-			}
-			offerAccess[p.GrantOn][p.SubjectName] = corepermission.Access(p.Access)
+			continue
 		default:
 			return nil, errors.Errorf("unknown permission object type %q", p.ObjectType)
 		}
@@ -253,4 +249,38 @@ func (s *PermissionService) ImportModelPermissions(
 	}
 
 	return offerUUIDs, nil
+}
+
+// OfferUUIDsForImport returns the distinct offer UUIDs that
+// [PermissionService.ImportModelPermissions] will write, in first-seen
+// order. Inactive users are skipped. Non-offer object types are ignored so
+// the v8 import driver can record cleanup intent before
+// ImportModelPermissions validates the rest of the envelope.
+func OfferUUIDsForImport(
+	perms []coremodelmigration.ModelPermission, inactiveUsers set.Strings,
+) []string {
+	_, offerUUIDs := collectOfferImportAccess(perms, inactiveUsers)
+	return offerUUIDs
+}
+
+// collectOfferImportAccess groups offer grants the same way
+// ImportModelPermissions writes them: skip inactive users, first-seen
+// offer order, last access wins per subject.
+func collectOfferImportAccess(
+	perms []coremodelmigration.ModelPermission, inactiveUsers set.Strings,
+) (map[string]map[string]corepermission.Access, []string) {
+	offerAccess := make(map[string]map[string]corepermission.Access)
+	var offerUUIDs []string
+	for _, p := range perms {
+		if inactiveUsers.Contains(p.SubjectName) ||
+			corepermission.ObjectType(p.ObjectType) != corepermission.Offer {
+			continue
+		}
+		if _, ok := offerAccess[p.GrantOn]; !ok {
+			offerUUIDs = append(offerUUIDs, p.GrantOn)
+			offerAccess[p.GrantOn] = make(map[string]corepermission.Access)
+		}
+		offerAccess[p.GrantOn][p.SubjectName] = corepermission.Access(p.Access)
+	}
+	return offerAccess, offerUUIDs
 }

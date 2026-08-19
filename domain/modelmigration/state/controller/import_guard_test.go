@@ -13,6 +13,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
+	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -106,7 +107,11 @@ UPDATE model_migration_import SET phase_type_id = 2 WHERE uuid = ?`, claimUUID)
 	c.Check(called, tc.IsFalse)
 }
 
-func (s *stateSuite) TestImportTxnRunnerFactoryRacesAbort(c *tc.C) {
+// TestGuardedCompanionWritesRejectAborting drives ImportOfferPermissions
+// and ImportExternalControllers through the import txn guard after the
+// claim has left importing. The guard must reject both writes before
+// any companion row is committed.
+func (s *stateSuite) TestGuardedCompanionWritesRejectAborting(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 	claimUUID := uuid.MustNewUUID().String()
 	_, err := st.BeginImport(
@@ -115,51 +120,43 @@ func (s *stateSuite) TestImportTxnRunnerFactoryRacesAbort(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().ExecContext(c.Context(), `
-CREATE TABLE import_guard_probe (value TEXT NOT NULL)`)
-	c.Assert(err, tc.ErrorIsNil)
-
-	type probe struct {
-		Value string `db:"value"`
-	}
-	insertStmt, err := sqlair.Prepare(`
-INSERT INTO import_guard_probe (value) VALUES ($probe.value)`, probe{})
-	c.Assert(err, tc.ErrorIsNil)
-
-	factory := NewImportTxnRunnerFactory(
-		s.TxnRunnerFactory(), s.modelUUID.String(), claimUUID,
-	)
-	runner, err := factory(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	start := make(chan struct{})
-	writeResult := make(chan error, 1)
-	phaseResult := make(chan error, 1)
-	go func() {
-		<-start
-		writeResult <- runner.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-			return tx.Query(ctx, insertStmt, probe{Value: "committed"}).Run()
-		})
-	}()
-	go func() {
-		<-start
-		_, err := s.DB().ExecContext(c.Context(), `
 UPDATE model_migration_import SET phase_type_id = 2 WHERE uuid = ?`, claimUUID)
-		phaseResult <- err
-	}()
-	close(start)
-
-	writeErr := <-writeResult
-	phaseErr := <-phaseResult
-	c.Assert(phaseErr, tc.ErrorIsNil)
-
-	var count int
-	err = s.DB().QueryRowContext(c.Context(),
-		"SELECT COUNT(*) FROM import_guard_probe").Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
-	if writeErr == nil {
-		c.Check(count, tc.Equals, 1)
-	} else {
-		c.Check(writeErr, tc.ErrorIs, modelmigrationerrors.ErrImportNotImporting)
-		c.Check(count, tc.Equals, 0)
-	}
+
+	guarded := New(
+		NewImportTxnRunnerFactory(
+			s.TxnRunnerFactory(), s.modelUUID.String(), claimUUID,
+		),
+		clock.WallClock,
+	)
+
+	offerUUID := uuid.MustNewUUID().String()
+	err = guarded.ImportOfferPermissions(
+		c.Context(), s.modelUUID.String(), claimUUID, []string{offerUUID},
+	)
+	c.Check(err, tc.ErrorIs, modelmigrationerrors.ErrImportNotImporting)
+
+	var offerCount int
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT COUNT(*) FROM model_migration_import_offer WHERE offer_uuid = ?",
+		offerUUID).Scan(&offerCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(offerCount, tc.Equals, 0)
+
+	ref := externalController(
+		uuid.MustNewUUID().String(), "third-party", "ca-cert",
+		[]string{"10.0.0.5:17070"}, []string{uuid.MustNewUUID().String()},
+	)
+	err = guarded.ImportExternalControllers(
+		c.Context(), s.modelUUID.String(), claimUUID,
+		[]modelmigrationinternal.ExternalController{ref},
+	)
+	c.Check(err, tc.ErrorIs, modelmigrationerrors.ErrImportNotImporting)
+
+	var controllerCount int
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT COUNT(*) FROM external_controller WHERE uuid = ?",
+		ref.UUID).Scan(&controllerCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(controllerCount, tc.Equals, 0)
 }

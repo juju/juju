@@ -110,37 +110,19 @@ func (s *State) AssertImporting(ctx context.Context, modelUUID string) error {
 	return nil
 }
 
-// checkImportingState returns nil only while the exact model_migration_import
-// claim is in the importing phase. It runs inside the write-group transaction
-// so the phase check and the write it gates commit atomically.
+// checkImportingState returns nil only while the exact
+// model_migration_import claim is in the importing phase. Companion-table
+// writers keep this check so they stay correct on an unguarded runner;
+// the import coordinator also fences every controller transaction via
+// importTxnRunner using the same query.
 func (s *State) checkImportingState(
 	ctx context.Context, tx *sqlair.TX, modelUUID, claimUUID string,
 ) error {
-	arg := importClaimKey{ModelUUID: modelUUID, ClaimUUID: claimUUID}
-	var row importPhaseRow
-	stmt, err := s.Prepare(`
-SELECT mmipt.type AS &importPhaseRow.phase_type
-FROM   model_migration_import AS mmi
-JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
-WHERE  mmi.model_uuid = $importClaimKey.model_uuid
-AND    mmi.uuid = $importClaimKey.claim_uuid
-`, row, arg)
+	stmt, err := s.Prepare(importPhaseQuery, importPhaseRow{}, importClaimKey{})
 	if err != nil {
 		return errors.Capture(err)
 	}
-
-	err = tx.Query(ctx, stmt, arg).Get(&row)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("model %q: %w", modelUUID, modelmigrationerrors.ErrImportNotFound)
-	} else if err != nil {
-		return errors.Errorf("checking import claim phase for model %q: %w", modelUUID, err)
-	}
-	if modelmigration.ImportPhase(row.PhaseType) != modelmigration.ImportPhaseImporting {
-		return errors.Errorf(
-			"model %q import claim is %q: %w", modelUUID, row.PhaseType,
-			modelmigrationerrors.ErrImportNotImporting)
-	}
-	return nil
+	return assertImportingClaim(ctx, tx, stmt, modelUUID, claimUUID)
 }
 
 // ImportOfferPermissions records the offer UUIDs granted permission during

@@ -16,21 +16,25 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// importPhaseQuery is the single importing-phase assertion used by both
+// the txn guard and the companion-table write methods.
+const importPhaseQuery = `
+SELECT mmipt.type AS &importPhaseRow.phase_type
+FROM   model_migration_import AS mmi
+JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
+WHERE  mmi.model_uuid = $importClaimKey.model_uuid
+AND    mmi.uuid = $importClaimKey.claim_uuid
+`
+
 // NewImportTxnRunnerFactory returns a transaction runner factory that fences
 // every SQLair transaction to one exact target-side import attempt. The claim
 // assertion and the caller's work execute in the same transaction.
 func NewImportTxnRunnerFactory(
 	factory coredatabase.TxnRunnerFactory, modelUUID, claimUUID string,
 ) coredatabase.TxnRunnerFactory {
-	arg := importClaimKey{ModelUUID: modelUUID, ClaimUUID: claimUUID}
-	row := importPhaseRow{}
-	stmt, prepareErr := sqlair.Prepare(`
-SELECT mmipt.type AS &importPhaseRow.phase_type
-FROM   model_migration_import AS mmi
-JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
-WHERE  mmi.model_uuid = $importClaimKey.model_uuid
-AND    mmi.uuid = $importClaimKey.claim_uuid
-`, row, arg)
+	stmt, prepareErr := sqlair.Prepare(
+		importPhaseQuery, importPhaseRow{}, importClaimKey{},
+	)
 
 	return func(ctx context.Context) (coredatabase.TxnRunner, error) {
 		if prepareErr != nil {
@@ -64,26 +68,10 @@ func (r *importTxnRunner) Txn(
 	ctx context.Context, fn func(context.Context, *sqlair.TX) error,
 ) error {
 	return r.runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		arg := importClaimKey{ModelUUID: r.modelUUID, ClaimUUID: r.claimUUID}
-		var row importPhaseRow
-		err := tx.Query(ctx, r.stmt, arg).Get(&row)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf(
-				"model %q import claim %q: %w",
-				r.modelUUID, r.claimUUID, modelmigrationerrors.ErrImportNotFound,
-			)
-		} else if err != nil {
-			return errors.Errorf(
-				"checking import claim %q for model %q: %w",
-				r.claimUUID, r.modelUUID, err,
-			)
-		}
-		if modelmigration.ImportPhase(row.PhaseType) != modelmigration.ImportPhaseImporting {
-			return errors.Errorf(
-				"model %q import claim %q is %q: %w",
-				r.modelUUID, r.claimUUID, row.PhaseType,
-				modelmigrationerrors.ErrImportNotImporting,
-			)
+		if err := assertImportingClaim(
+			ctx, tx, r.stmt, r.modelUUID, r.claimUUID,
+		); err != nil {
+			return err
 		}
 		return fn(ctx, tx)
 	})
@@ -100,4 +88,33 @@ func (*importTxnRunner) StdTxn(
 // Dying reports the lifetime of the underlying controller database.
 func (r *importTxnRunner) Dying() <-chan struct{} {
 	return r.runner.Dying()
+}
+
+// assertImportingClaim returns nil only while the exact
+// model_migration_import claim is in the importing phase.
+func assertImportingClaim(
+	ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement, modelUUID, claimUUID string,
+) error {
+	arg := importClaimKey{ModelUUID: modelUUID, ClaimUUID: claimUUID}
+	var row importPhaseRow
+	err := tx.Query(ctx, stmt, arg).Get(&row)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf(
+			"model %q import claim %q: %w",
+			modelUUID, claimUUID, modelmigrationerrors.ErrImportNotFound,
+		)
+	} else if err != nil {
+		return errors.Errorf(
+			"checking import claim %q for model %q: %w",
+			claimUUID, modelUUID, err,
+		)
+	}
+	if modelmigration.ImportPhase(row.PhaseType) != modelmigration.ImportPhaseImporting {
+		return errors.Errorf(
+			"model %q import claim %q is %q: %w",
+			modelUUID, claimUUID, row.PhaseType,
+			modelmigrationerrors.ErrImportNotImporting,
+		)
+	}
+	return nil
 }
