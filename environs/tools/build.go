@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 
@@ -103,15 +104,23 @@ func copyFile(w io.Writer, file string) error {
 
 // tarHeader returns a tar file header given the file's stat
 // information.
+//
+// Timestamps are pinned to the epoch so that bundling the same content
+// always produces the same archive: bootstrapping two controllers from
+// one tree must yield identical agent binary hashes, or a model migrated
+// between them ends up with two entries for the same version and the
+// provisioner refuses to start new machines ("agent binary info
+// mismatch").
 func tarHeader(i os.FileInfo) *tar.Header {
+	epoch := time.Unix(0, 0).UTC()
 	return &tar.Header{
 		Typeflag:   tar.TypeReg,
 		Name:       i.Name(),
 		Size:       i.Size(),
 		Mode:       int64(i.Mode() & 0777),
-		ModTime:    i.ModTime(),
-		AccessTime: i.ModTime(),
-		ChangeTime: i.ModTime(),
+		ModTime:    epoch,
+		AccessTime: epoch,
+		ChangeTime: epoch,
 		Uname:      "ubuntu",
 		Gname:      "ubuntu",
 	}
