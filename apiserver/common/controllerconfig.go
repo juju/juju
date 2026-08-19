@@ -101,7 +101,7 @@ func (s *ControllerConfigAPI) getModelControllerInfo(model params.Entity) (param
 	}
 
 	logger.Debugf("found migrated model on another controller, saving the information")
-	_, err = ec.Save(crossmodel.ControllerInfo{
+	err = ec.Save(crossmodel.ControllerInfo{
 		ControllerTag: target.ControllerTag,
 		Alias:         target.ControllerAlias,
 		Addrs:         target.Addrs,

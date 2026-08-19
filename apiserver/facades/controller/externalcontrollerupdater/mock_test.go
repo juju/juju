@@ -30,11 +30,11 @@ func (m *mockExternalControllers) Controller(uuid string) (state.ExternalControl
 	return nil, errors.NotFoundf("external controller %q", uuid)
 }
 
-func (m *mockExternalControllers) Save(info crossmodel.ControllerInfo, _ ...string) (state.ExternalController, error) {
+func (m *mockExternalControllers) Save(info crossmodel.ControllerInfo, _ ...string) error {
 	for _, c := range m.controllers {
 		if c.id == info.ControllerTag.Id() {
 			c.info = info
-			return c, nil
+			return nil
 		}
 	}
 	c := &mockExternalController{
@@ -42,7 +42,7 @@ func (m *mockExternalControllers) Save(info crossmodel.ControllerInfo, _ ...stri
 		info: info,
 	}
 	m.controllers = append(m.controllers, c)
-	return c, nil
+	return nil
 }
 
 type mockExternalController struct {

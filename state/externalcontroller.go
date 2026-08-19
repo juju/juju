@@ -81,8 +81,7 @@ func (rc *externalController) ControllerInfo() crossmodel.ControllerInfo {
 
 // ExternalControllers instances provide access to external controllers in state.
 type ExternalControllers interface {
-	Save(_ crossmodel.ControllerInfo, modelUUIDs ...string) (ExternalController, error)
-	SaveAndMoveModels(_ crossmodel.ControllerInfo, modelUUIDs ...string) error
+	Save(_ crossmodel.ControllerInfo, modelUUIDs ...string) error
 	Controller(controllerUUID string) (ExternalController, error)
 	ControllerForModel(modelUUID string) (ExternalController, error)
 	Remove(controllerUUID string) error
@@ -105,30 +104,10 @@ func NewExternalControllers(st *State) *externalControllers {
 }
 
 // Save creates or updates an external controller record.
-func (ec *externalControllers) Save(
-	controller crossmodel.ControllerInfo, modelUUIDs ...string,
-) (ExternalController, error) {
-	if err := controller.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	doc := newExternalControllerDoc(controller)
-	buildTxn := func(int) ([]txn.Op, error) {
-		ops, err := ec.upsertExternalControllerOps(doc, modelUUIDs)
-		return ops, errors.Trace(err)
-	}
-	if err := ec.st.db().Run(buildTxn); err != nil {
-		return nil, errors.Annotate(err, "failed to save external controller")
-	}
-
-	return &externalController{
-		doc: *doc,
-	}, nil
-}
-
-// SaveAndMoveModels is the same as `Save`, but if any of the input model UUIDs
-// are in other external external controllers, those records will be updated
-// to disassociate them.
-func (ec *externalControllers) SaveAndMoveModels(controller crossmodel.ControllerInfo, modelUUIDs ...string) error {
+//
+// If any of the input model UUIDs are in other external controllers,
+// those records will be updated to disassociate them.
+func (ec *externalControllers) Save(controller crossmodel.ControllerInfo, modelUUIDs ...string) error {
 	if err := controller.Validate(); err != nil {
 		return errors.Trace(err)
 	}

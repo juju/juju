@@ -799,7 +799,7 @@ func (s *remoteApplicationSuite) TestDestroySimple(c *gc.C) {
 
 func (s *remoteApplicationSuite) TestDestroyRemovesExternalController(c *gc.C) {
 	ec := state.NewExternalControllers(s.State)
-	_, err := ec.Save(crossmodel.ControllerInfo{
+	err := ec.Save(crossmodel.ControllerInfo{
 		ControllerTag: names.NewControllerTag(s.externalControllerUUID),
 		Addrs:         []string{"10.0.0.1:17070"},
 	})
@@ -822,7 +822,7 @@ func (s *remoteApplicationSuite) TestDestroyDoesNotRemoveExternalController(c *g
 	c.Assert(rc, gc.Equals, 2)
 
 	ec := state.NewExternalControllers(s.State)
-	_, err = ec.Save(crossmodel.ControllerInfo{
+	err = ec.Save(crossmodel.ControllerInfo{
 		ControllerTag: names.NewControllerTag(s.externalControllerUUID),
 		Addrs:         []string{"10.0.0.1:17070"},
 	})

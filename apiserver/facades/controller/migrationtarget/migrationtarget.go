@@ -410,7 +410,7 @@ func (api *API) Activate(args params.ActivateModelArgs) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		_, err = ec.Save(crossmodel.ControllerInfo{
+		err = ec.Save(crossmodel.ControllerInfo{
 			ControllerTag: cTag,
 			Alias:         args.ControllerAlias,
 			Addrs:         args.SourceAPIAddrs,

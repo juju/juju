@@ -1129,7 +1129,7 @@ func (s *MigrationImportSuite) TestExternalControllers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	stateExternalCtrl := state.NewExternalControllers(s.State)
-	crossModelController, err := stateExternalCtrl.Save(crossmodel.ControllerInfo{
+	err = stateExternalCtrl.Save(crossmodel.ControllerInfo{
 		ControllerTag: s.Model.ControllerTag(),
 		Addrs:         []string{"192.168.1.1:8080"},
 		Alias:         "magic",
@@ -1150,7 +1150,7 @@ func (s *MigrationImportSuite) TestExternalControllers(c *gc.C) {
 
 	newCtrl, err := newExternalCtrl.ControllerForModel(s.Model.UUID())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newCtrl.ControllerInfo(), jc.DeepEquals, crossModelController.ControllerInfo())
+	c.Assert(newCtrl.ControllerInfo(), jc.DeepEquals, stateExternalController.ControllerInfo())
 
 	newExternalController, err := newSt.ExternalControllerForModel(s.Model.UUID())
 	c.Assert(err, jc.ErrorIsNil)
@@ -2788,7 +2788,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	service := state.NewExternalControllers(s.State)
-	_, err = service.Save(crossmodel.ControllerInfo{
+	err = service.Save(crossmodel.ControllerInfo{
 		ControllerTag: s.Model.ControllerTag(),
 		Addrs:         []string{"192.168.1.1:8080"},
 		Alias:         "magic",
@@ -2867,7 +2867,7 @@ func (s *MigrationImportSuite) TestRemoteApplicationsConsumerProxy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	service := state.NewExternalControllers(s.State)
-	_, err = service.Save(crossmodel.ControllerInfo{
+	err = service.Save(crossmodel.ControllerInfo{
 		ControllerTag: s.Model.ControllerTag(),
 		Addrs:         []string{"192.168.1.1:8080"},
 		Alias:         "magic",
