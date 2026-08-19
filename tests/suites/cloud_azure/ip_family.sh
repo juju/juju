@@ -2,11 +2,9 @@ run_ip_family_dual_stack() {
 	(
 		log_file="${TEST_DIR}/ip-family-dual.log"
 
-		# The SSH reachability probes below require IPv6 egress on the CI
-		# runner; fail fast instead of paying for an Azure bootstrap that
-		# cannot be fully verified.
-		if ! ip -6 route show default | grep -q .; then
-			echo "==> ERROR: no IPv6 egress on CI runner, cannot verify SSH reachability"
+		# Require a global IPv6 address before attempting the probe.
+		if ! ip -6 -o addr show scope global | grep -q .; then
+			echo "==> ERROR: no global IPv6 address on CI runner, cannot verify IPv6 reachability"
 			return 1
 		fi
 

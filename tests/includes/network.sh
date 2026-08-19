@@ -95,7 +95,14 @@ _validate_port_args() {
 	# Reject mixed protocols: the current sorter only compares numeric start
 	# ports, which is valid only when both ranges share the same protocol.
 	if [ -n "${endpoint_ports}" ]; then
-		if [ "${all_ports##*/}" != "${endpoint_ports##*/}" ]; then
+		local all_proto="" endpoint_proto=""
+		if [[ ${all_ports} == */* ]]; then
+			all_proto="${all_ports##*/}"
+		fi
+		if [[ ${endpoint_ports} == */* ]]; then
+			endpoint_proto="${endpoint_ports##*/}"
+		fi
+		if [ "${all_proto}" != "${endpoint_proto}" ]; then
 			echo "ERROR: this helper only accepts ranges with the same protocol: ${all_ports} vs ${endpoint_ports}" >&2
 			return 1
 		fi

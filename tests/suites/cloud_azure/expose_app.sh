@@ -218,10 +218,6 @@ assert_dual_stack_reachability_for_exposed_app_azure() {
 		return 1
 	fi
 
-	if ! ip -6 route show default | grep -q .; then
-		echo "==> ERROR: no IPv6 egress on CI runner, cannot verify IPv6 reachability"
-		return 1
-	fi
 	if ! juju exec --unit "${unit}" -- "command -v python3" >/dev/null 2>&1; then
 		echo "ERROR: python3 is not available on ${unit}"
 		return 1
@@ -267,6 +263,12 @@ test_expose_app_azure() {
 	if [ "$(az account list | yq -r 'length')" -lt 1 ]; then
 		echo "==> TEST SKIPPED: not logged in to Azure cloud"
 		return
+	fi
+
+	# Require a global IPv6 address before attempting the probe.
+	if ! ip -6 -o addr show scope global | grep -q .; then
+		echo "==> ERROR: no global IPv6 address on CI runner, cannot verify IPv6 reachability"
+		return 1
 	fi
 
 	(

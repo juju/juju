@@ -61,7 +61,7 @@ azure_nic_name_for_instance() {
 	local nic_name
 
 	nic_name=$(az network nic list --resource-group "${rg}" -o yaml 2>/dev/null | \
-		yq -r ".[] | select(.virtualMachine.id | downcase | contains(\"${instance_id}\")) | .name" | head -1)
+		yq -r ".[] | select(((.virtualMachine.id // \"\") | downcase | split(\"/\") | .[-1]) == (\"${instance_id}\" | downcase)) | .name" | head -1)
 	if [ -z "${nic_name}" ]; then
 		echo "ERROR: no NIC found in resource group ${rg} for instance ${instance_id}" >&2
 		return 1
@@ -147,7 +147,7 @@ wait_for_azure_nsg_ingress_cidrs_for_port_range() {
 	fi
 
 	attempt=0
-	while [ "${attempt}" -lt 3 ]; do
+	while [ "${attempt}" -lt 12 ]; do
 		echo "[+] (attempt ${attempt}) polling Azure NSG rules for ${port_range} ${cidr_type}"
 		got_cidrs=$(az network nsg rule list --resource-group "${rg}" --nsg-name "${nsg_name}" -o yaml 2>/dev/null | \
 			yq -r ".[] | select(.destinationPortRange == \"${port_range}\" and .access == \"Allow\" and .direction == \"Inbound\") | .sourceAddressPrefix | select(test(\"${fam_re}\"))" | sort | paste -sd, -)
