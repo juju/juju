@@ -85,8 +85,9 @@ func (srv *Server) runModelRemovalWatch(
 				)
 				return
 			}
-			if _, err := modelIsConnectable(ctx, modelService, modelUUID); errors.Is(err, modelerrors.NotFound) {
-				logger.Infof(ctx, "model %q has been removed, closing connection", modelUUID)
+			connInfo, err := modelIsConnectable(ctx, modelService, modelUUID)
+			if errors.Is(err, modelerrors.NotFound) || (err == nil && !connInfo.connectable) {
+				logger.Warningf(ctx, "model %q has been removed, closing connection", modelUUID)
 				_ = conn.Close()
 				return
 			}

@@ -198,3 +198,24 @@ func (s *modelRemovalSuite) TestUnrelatedModelChangeKeepsWatching(c *tc.C) {
 	<-conn.closed
 	<-done
 }
+
+// TestUnactivatedModelClosesConnection covers destroy-model: the
+// model row may still exist but is no longer connectable. The
+// connection must still be closed so agents do not linger.
+func (s *modelRemovalSuite) TestUnactivatedModelClosesConnection(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelService.EXPECT().GetModelConnectionInfo(gomock.Any(), s.modelUUID).
+		Return(model.ModelConnectionInfo{Activated: false}, nil)
+
+	conn := newFakeServedConnection()
+	srv := &Server{}
+
+	changes := make(chan struct{}, 1)
+	changes <- struct{}{}
+	watch := watchertest.NewMockNotifyWatcher(changes)
+	done := runWatch(srv, c.Context(), conn, s.modelService, watch, s.modelUUID)
+
+	<-conn.closed
+	<-done
+}

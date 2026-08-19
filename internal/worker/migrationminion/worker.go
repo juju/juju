@@ -6,6 +6,7 @@ package migrationminion
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/juju/clock"
@@ -162,6 +163,12 @@ type Config struct {
 	// backoff. This is useful when retrying validation requests to
 	// avoid flooding the target controller.
 	ApplyJitter bool
+
+	// ConnCloser, if set, is closed after the agent config is rewritten
+	// to point at the target controller, so the apicaller redials using
+	// the new addresses. apiconfigwatcher also bounces on the voyeur;
+	// closing here does not depend on it.
+	ConnCloser io.Closer
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -518,7 +525,15 @@ func (w *Worker) updateAgentConfigForTargetController(ctx context.Context, statu
 		}
 		return nil
 	})
-	return errors.Annotate(err, "setting agent config")
+	if err != nil {
+		return errors.Annotate(err, "setting agent config")
+	}
+	if w.config.ConnCloser != nil {
+		if closeErr := w.config.ConnCloser.Close(); closeErr != nil {
+			w.config.Logger.Warningf(ctx, "closing source API connection after config update: %v", closeErr)
+		}
+	}
+	return nil
 }
 
 func (w *Worker) ensureTargetControllerDetails(ctx context.Context, status watcher.MigrationStatus) error {

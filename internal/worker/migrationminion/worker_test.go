@@ -471,6 +471,27 @@ func (s *Suite) TestSUCCESS(c *tc.C) {
 	s.stub.CheckCall(c, 4, "Report", "id", migration.SUCCESS, true)
 }
 
+func (s *Suite) TestSUCCESSClosesSourceConnection(c *tc.C) {
+	closer := &stubCloser{}
+	s.config.ConnCloser = closer
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	w, err := migrationminion.NewWorker(s.config)
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case <-s.agent.configChanged:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
+	workertest.CleanKill(c, w)
+	c.Check(closer.closed, tc.IsTrue)
+}
+
 func (s *Suite) TestSUCCESSFetchTargetLokiConfigError(c *tc.C) {
 	s.config.FetchTargetLokiConfig = func(context.Context, api.Connection, names.Tag) (loggerapi.ControllerLokiConfig, error) {
 		return loggerapi.ControllerLokiConfig{}, errors.New("loki fetch boom")
@@ -855,6 +876,15 @@ type stubAgent struct {
 	// changed and configChanged is not signalled. It lets a test model an
 	// agent-config write failing on one attempt and recovering on a later one.
 	changeConfigErrs []error
+}
+
+type stubCloser struct {
+	closed bool
+}
+
+func (c *stubCloser) Close() error {
+	c.closed = true
+	return nil
 }
 
 func (ma *stubAgent) CurrentConfig() agent.Config {
