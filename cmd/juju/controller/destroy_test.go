@@ -69,10 +69,19 @@ type fakeDestroyAPI struct {
 	allModels    []base.UserModel
 	hostedConfig []apicontroller.HostedConfig
 
-	// delayModelRemoval simulates the server-side undertaker taking one extra
-	// poll to reap hosted models after a successful DestroyController.
-	delayModelRemoval       bool
-	destroyCalled           bool
+	// delayModelRemoval simulates the server-side undertaker taking one
+	// extra status poll to remove reaped hosted models from the
+	// controller database after a successful DestroyController.
+	delayModelRemoval bool
+	// delayMachineRemoval simulates machines (for example machines in
+	// the controller model) taking one extra status poll to be removed
+	// after a successful DestroyController.
+	delayMachineRemoval bool
+
+	// The fields below hold the post-destroy state computed by
+	// DestroyController. When either delay is set, that state is only
+	// served from the second status poll after the destroy call.
+	holdStatus              bool
 	reapPending             bool
 	allModelsAfterDestroy   []base.UserModel
 	modelStatusAfterDestroy map[string]base.ModelStatus
@@ -112,7 +121,6 @@ func (f *fakeDestroyAPI) DestroyController(ctx context.Context, args apicontroll
 	if err := f.NextErr(); err != nil {
 		return err
 	}
-	f.destroyCalled = true
 	// Simulate the server-side undertaker removing hosted models: with
 	// DestroyModels all hosted models are destroyed and removed; without it,
 	// already-dead models are still reaped in the background.
@@ -131,11 +139,27 @@ func (f *fakeDestroyAPI) DestroyController(ctx context.Context, args apicontroll
 		remaining = append(remaining, m)
 		remainingStatus[m.UUID] = status
 	}
+	f.allModelsAfterDestroy = remaining
+	f.modelStatusAfterDestroy = remainingStatus
+	if f.delayMachineRemoval {
+		// Machines are torn down after the model reap; serve the reaped
+		// lists with the machines still present for one more poll.
+		cleared := make(map[string]base.ModelStatus, len(remainingStatus))
+		for uuid, status := range remainingStatus {
+			status.HostedMachineCount = 0
+			cleared[uuid] = status
+		}
+		f.allModels = remaining
+		f.modelStatus = remainingStatus
+		f.modelStatusAfterDestroy = cleared
+		f.holdStatus = true
+		return nil
+	}
 	if f.delayModelRemoval {
-		// Hold the reaped lists back so the wait loop observes the dead
-		// model still present for one more poll.
-		f.allModelsAfterDestroy = remaining
-		f.modelStatusAfterDestroy = remainingStatus
+		// The reaped model rows are still present when
+		// DestroyController returns; serve the pre-destroy lists once,
+		// the reaped lists are applied on the next poll.
+		f.holdStatus = true
 		return nil
 	}
 	f.allModels = remaining
@@ -159,10 +183,8 @@ func (f *fakeDestroyAPI) ModelStatus(_ context.Context, tags ...names.ModelTag) 
 
 func (f *fakeDestroyAPI) AllModels(ctx context.Context) ([]base.UserModel, error) {
 	f.MethodCall(f, "AllModels")
-	if f.delayModelRemoval && f.destroyCalled {
-		// Return the pre-reap list once; the reaped lists are applied on
-		// the next poll.
-		f.delayModelRemoval = false
+	if f.holdStatus {
+		f.holdStatus = false
 		f.reapPending = true
 		return f.allModels, f.NextErr()
 	}
@@ -290,9 +312,33 @@ func (s *DestroySuite) runDestroyCommand(c *tc.C, args ...string) (*cmd.Context,
 
 func (s *DestroySuite) newDestroyCommand() cmd.Command {
 	return controller.NewDestroyCommandForTest(
-		s.api, s.store, s.apierror, s.controllerModelConfigAPI,
+		s.api, s.store, s.apierror, s.controllerModelConfigAPI, &mockClock{},
 		s.environsDestroy,
 	)
+}
+
+// countEnvironsDestroy wraps the suite environsDestroy func to count
+// calls to it.
+func (s *DestroySuite) countEnvironsDestroy() *int {
+	calls := new(int)
+	destroy := s.environsDestroy
+	s.environsDestroy = func(controllerName string, env environs.ControllerDestroyer, ctx context.Context, store jujuclient.ControllerStore) error {
+		*calls++
+		return destroy(controllerName, env, ctx, store)
+	}
+	return calls
+}
+
+// allModelsCallCount returns how many times the fake API was asked for
+// the model list.
+func (s *DestroySuite) allModelsCallCount() int {
+	count := 0
+	for _, call := range s.api.Calls() {
+		if call.FuncName == "AllModels" {
+			count++
+		}
+	}
+	return count
 }
 
 func checkControllerExistsInStore(c *tc.C, name string, store jujuclient.ControllerGetter) {
@@ -365,29 +411,69 @@ func (s *DestroySuite) TestDestroyWithDestroyAllModelsFlag(c *tc.C) {
 
 func (s *DestroySuite) TestDestroyWaitsForHostedModelRemoval(c *tc.C) {
 	// Simulate the undertaker needing one extra poll to reap the hosted
-	// model after DestroyController returns.
+	// models after DestroyController returns.
 	s.api.delayModelRemoval = true
 
-	envDestroyCalls := 0
-	destroy := s.environsDestroy
-	s.environsDestroy = func(controllerName string, env environs.ControllerDestroyer, ctx context.Context, store jujuclient.ControllerStore) error {
-		envDestroyCalls++
-		return destroy(controllerName, env, ctx, store)
-	}
-
-	_, err := s.runDestroyCommand(c, "test1", "--no-prompt", "--destroy-all-models")
+	envDestroyCalls := s.countEnvironsDestroy()
+	ctx, err := s.runDestroyCommand(c, "test1", "--no-prompt", "--destroy-all-models")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(envDestroyCalls, tc.Equals, 1)
+	c.Check(*envDestroyCalls, tc.Equals, 1)
+	// The wait loop must poll again after DestroyController while the
+	// dead hosted models are still present, and only proceed to the
+	// controller teardown once they are removed.
+	c.Check(s.allModelsCallCount() >= 3, tc.IsTrue)
+	// The wait status reports the models that are still present,
+	// including the dead ones awaiting removal.
+	c.Check(cmdtesting.Stderr(ctx), tc.Contains, "Waiting for 2 models")
+}
 
-	allModelsCalls := 0
-	for _, call := range s.api.Calls() {
-		if call.FuncName == "AllModels" {
-			allModelsCalls++
-		}
-	}
-	// The wait loop must poll again after DestroyController while the dead
-	// hosted model is still present, and only proceed once it is removed.
-	c.Assert(allModelsCalls >= 3, tc.IsTrue)
+func (s *DestroySuite) TestDestroyWaitsForHostedModelRemovalWithoutDestroyAllModels(c *tc.C) {
+	// The most common workflow: the models were destroyed beforehand and
+	// are still present in the controller (dead) when destroy-controller
+	// runs. Even without --destroy-all-models the command must wait for
+	// the background reap to finish before tearing the controller down.
+	s.api.delayModelRemoval = true
+
+	envDestroyCalls := s.countEnvironsDestroy()
+	_, err := s.runDestroyCommand(c, "test1", "--no-prompt")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(*envDestroyCalls, tc.Equals, 1)
+	s.api.CheckCall(c, 2, "DestroyController", apicontroller.DestroyControllerParams{})
+	c.Check(s.allModelsCallCount() >= 3, tc.IsTrue)
+}
+
+func (s *DestroySuite) TestDestroyWaitsForDyingHostedModelRemoval(c *tc.C) {
+	// A hosted model caught mid-destruction (dying, not yet dead) is
+	// destroyed along with the rest; the wait loop must hold until it is
+	// removed from the controller, not merely until it is dead.
+	s.api.delayModelRemoval = true
+	status := s.api.modelStatus[test2UUID]
+	status.Life = life.Dying
+	s.api.modelStatus[test2UUID] = status
+
+	envDestroyCalls := s.countEnvironsDestroy()
+	ctx, err := s.runDestroyCommand(c, "test1", "--no-prompt", "--destroy-all-models")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(*envDestroyCalls, tc.Equals, 1)
+	c.Check(s.allModelsCallCount() >= 3, tc.IsTrue)
+	c.Check(cmdtesting.Stderr(ctx), tc.Contains, "Waiting for 2 models")
+}
+
+func (s *DestroySuite) TestDestroyWaitsForHostedMachines(c *tc.C) {
+	// Machines may remain (for example in the controller model) after
+	// the hosted models are gone; the wait loop must hold until they are
+	// removed too.
+	s.api.delayMachineRemoval = true
+	status := s.api.modelStatus[test1UUID]
+	status.HostedMachineCount = 1
+	s.api.modelStatus[test1UUID] = status
+
+	envDestroyCalls := s.countEnvironsDestroy()
+	ctx, err := s.runDestroyCommand(c, "test1", "--no-prompt", "--destroy-all-models")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(*envDestroyCalls, tc.Equals, 1)
+	c.Check(s.allModelsCallCount() >= 3, tc.IsTrue)
+	c.Check(cmdtesting.Stderr(ctx), tc.Contains, "1 machine")
 }
 
 func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlag(c *tc.C) {

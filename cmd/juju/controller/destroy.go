@@ -36,7 +36,7 @@ import (
 
 // NewDestroyCommand returns a command to destroy a controller.
 func NewDestroyCommand() cmd.Command {
-	cmd := destroyCommand{}
+	cmd := destroyCommand{clock: clock.WallClock}
 	cmd.environsDestroy = environs.Destroy
 	// Even though this command is all about destroying a controller we end up
 	// needing environment endpoints so we can fall back to the client destroy
@@ -59,6 +59,10 @@ type destroyCommand struct {
 	modelTimeout   time.Duration
 	force          bool
 	noWait         bool
+
+	// clock is used to pace the status polling loop while waiting for
+	// the hosted models to be removed.
+	clock clock.Clock
 }
 
 // usageDetails has backticks which we want to keep for markdown processing.
@@ -259,7 +263,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 
 	ctx.Warningf(destroySysMsg, controllerName)
-	updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
+	updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), c.clock)
 	modelStatus := updateStatus(0)
 
 	// check Alive models and --destroy-all-models flag usage
@@ -333,7 +337,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 
-		updateStatus = newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
+		updateStatus = newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), c.clock)
 		modelStatus = updateStatus(0)
 		if !c.destroyModels {
 			if err := c.checkNoAliveHostedModels(modelStatus.Models); err != nil {
@@ -366,9 +370,8 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		// it is removed. Also wait for live machines, as machines may be in
 		// the controller model.
 		ctx.Infof("Waiting for model resources to be reclaimed")
-		// wait for 2 seconds to let empty hosted models changed from alive to dying.
 		for ; hasUnremovedModels(modelStatus); modelStatus = updateStatus(2 * time.Second) {
-			ctx.Infof("%s", fmtCtrStatus(modelStatus.Controller))
+			ctx.Infof("%s", fmtCtrRemovalStatus(modelStatus.Controller))
 			for _, model := range modelStatus.Models {
 				ctx.Verbosef("%s", fmtModelStatus(model))
 			}

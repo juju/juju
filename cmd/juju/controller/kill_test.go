@@ -591,9 +591,11 @@ func (s *KillSuite) TestControllerStatusCountsDeadHostedModels(c *tc.C) {
 
 	environmentStatus, err := controller.NewData(c.Context(), s.api, "123")
 	c.Assert(err, tc.ErrorIsNil)
-	// A dead hosted model is still present in the controller and must be
-	// counted so destroy-controller waits for it to be removed.
-	c.Assert(environmentStatus.Controller.HostedModelCount, tc.Equals, 1)
+	// A dead hosted model is still present in the controller: it counts
+	// towards the removal wait of destroy-controller, but not towards the
+	// hosted model counts of models still being torn down.
+	c.Assert(environmentStatus.Controller.HostedModelCount, tc.Equals, 0)
+	c.Assert(environmentStatus.Controller.UnremovedModelCount, tc.Equals, 1)
 	// Dead hosted models are still filtered out of the visible model list.
 	c.Assert(environmentStatus.Models, tc.HasLen, 0)
 }
@@ -607,6 +609,20 @@ func (s *KillSuite) TestFmtControllerStatus(c *tc.C) {
 	}
 	out := controller.FmtCtrStatus(data)
 	c.Assert(out, tc.Equals, "Waiting for 3 models, 20 machines, 8 applications")
+}
+
+func (s *KillSuite) TestFmtControllerRemovalStatus(c *tc.C) {
+	// destroy-controller waits for dead-but-present models too, so the
+	// removal status counts them as models being waited for.
+	data := controller.CtrData{
+		UUID:                "uuid",
+		HostedModelCount:    0,
+		UnremovedModelCount: 2,
+		HostedMachineCount:  20,
+		ApplicationCount:    8,
+	}
+	out := controller.FmtCtrRemovalStatus(data)
+	c.Assert(out, tc.Equals, "Waiting for 2 models, 20 machines, 8 applications")
 }
 
 func (s *KillSuite) TestFmtEnvironStatus(c *tc.C) {
