@@ -1227,9 +1227,12 @@ func (srv *Server) serveConn(
 	// Close the connection when the model it serves is removed from this
 	// controller, whether destroyed or deleted by a migration's REAP phase
 	// after migrating away, so that its agents and clients reconnect to the
-	// model's new location.
-	srv.watchServedModelRemoval(ctx, conn, domainServices.Model(),
-		srv.shared.controllerDomainServices.Model(), modelUUID)
+	// model's new location. A connection to a model that is already gone
+	// exists only to answer a redirect, so it is not watched.
+	if modelConn.connectable {
+		srv.watchServedModelRemoval(ctx, conn, domainServices.Model(),
+			srv.shared.controllerDomainServices.Model(), modelUUID)
+	}
 
 	tracer, err := srv.shared.tracerGetter.GetTracer(
 		ctx,
