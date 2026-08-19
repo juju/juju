@@ -12,13 +12,12 @@ package mocks
 import (
 	reflect "reflect"
 
-	names "github.com/juju/names/v5"
-	gomock "go.uber.org/mock/gomock"
-
 	sshclient "github.com/juju/juju/apiserver/facades/client/sshclient"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
+	names "github.com/juju/names/v5"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockBackend is a mock of Backend interface.
