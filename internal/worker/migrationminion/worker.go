@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/worker/fortress"
-	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -476,18 +475,17 @@ func (w *Worker) doSUCCESS(ctx context.Context, status watcher.MigrationStatus) 
 	// Report first because the config update that's about to happen
 	// will cause the API connection to drop. The SUCCESS phase is the
 	// point of no return anyway, so we must retry this step even if
-	// the api connection dies. If the report fails, still update the
-	// agent config: pointing at the source controller forever is worse
-	// than a late report, and the report is retried when the phase
-	// replays on the next worker start.
+	// the api connection dies.
 	reportErr := w.robustReport(ctx, status, true)
-	if reportErr != nil {
-		w.config.Logger.Warningf(ctx,
-			"reporting migration phase %s failed, updating agent config anyway: %v",
-			status.Phase, reportErr)
-	}
 
-	return w.updateAgentConfigForTargetController(ctx, status)
+	// Always update the agent config, even when the report failed -
+	// pointing at the source controller forever is the worst outcome.
+	// A report error is returned so the worker bounces and retries the
+	// report when the phase replays on the next worker start.
+	if cfgErr := w.updateAgentConfigForTargetController(ctx, status); cfgErr != nil {
+		return errors.Trace(cfgErr)
+	}
+	return errors.Annotate(reportErr, "reporting migration status")
 }
 
 func (w *Worker) updateAgentConfigForTargetController(ctx context.Context, status watcher.MigrationStatus) (err error) {
@@ -589,12 +587,14 @@ func (w *Worker) report(ctx context.Context, status watcher.MigrationStatus, suc
 
 func (w *Worker) robustReport(ctx context.Context, status watcher.MigrationStatus, success bool) error {
 	err := w.report(ctx, status, success)
-	if err != nil && !rpc.IsShutdownErr(err) {
-		return fmt.Errorf("cannot report migration status %v success=%v: %w", status, success, err)
-	} else if err == nil {
+	if err == nil {
 		return nil
 	}
-	w.config.Logger.Warningf(ctx, "report migration status failed: %v", err)
+	// Any failure - not just a dying connection - falls back to dialling
+	// the source controller directly. An in-flight report RPC can fail
+	// with "context canceled" when a race-restart tears the worker down
+	// mid-flight, and that error must not lose the report.
+	w.config.Logger.Warningf(ctx, "report migration status failed, retrying with direct dial: %v", err)
 
 	apiInfo, ok := w.config.Agent.CurrentConfig().APIInfo()
 	if !ok {

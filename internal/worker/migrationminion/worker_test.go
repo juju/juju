@@ -480,10 +480,13 @@ func (s *Suite) TestSUCCESSReportFailureStillWritesConfig(c *tc.C) {
 	s.agent.conf.tag = names.NewUnitTag("app/0")
 	s.agent.conf.dir = "/var/lib/juju/agents/unit-app-0"
 
-	// The first report attempt fails with a non-shutdown error, so
-	// robustReport returns immediately; doSUCCESS must still update the
-	// agent config instead of aborting.
+	// The first report attempt fails, and every fallback attempt fails
+	// too, so robustReport returns an error; doSUCCESS must still update
+	// the agent config instead of aborting.
 	s.stub.SetErrors(errors.New("report boom"))
+	s.config.SendReport = func(ctx context.Context, conn api.Connection, status watcher.MigrationStatus, success bool) error {
+		return errors.New("fallback report boom")
+	}
 
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId:    "id",
@@ -493,13 +496,25 @@ func (s *Suite) TestSUCCESSReportFailureStillWritesConfig(c *tc.C) {
 	}
 	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
 
-	select {
-	case <-s.agent.configChanged:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out")
+	// Each WaitAdvance unblocks one retry sleep; loop until the fallback
+	// exhausts and the config is written.
+	closed := func() bool {
+		select {
+		case <-s.agent.configChanged:
+			return true
+		default:
+			return false
+		}
 	}
-	workertest.CleanKill(c, w)
+	for !closed() {
+		err = s.clock.WaitAdvance(10*time.Minute, coretesting.LongWait, 1)
+		if err != nil {
+			break
+		}
+	}
+	c.Assert(closed(), tc.IsTrue)
 	c.Assert(s.agent.conf.addrs, tc.DeepEquals, addrs)
 }
 
