@@ -196,9 +196,6 @@ func (w *tracerWorker) loop() (err error) {
 	// sure why they decided to do it like this.
 	otel.SetLogger(logr.New(&loggerSink{Logger: w.cfg.Logger}))
 
-	// Report the initial started state.
-	w.reportInternalState(stateStarted)
-
 	ctx := w.catacomb.Context(context.Background())
 
 	if err := w.reloadRuntimeConfig(ctx); err != nil {
@@ -213,6 +210,12 @@ func (w *tracerWorker) loop() (err error) {
 	if err := w.catacomb.Add(runtimeConfigWatcher); err != nil {
 		return errors.Trace(err)
 	}
+
+	// Report the initial started state only once the runtime config has been
+	// loaded and the watcher is installed. This ensures that GetTracer
+	// requests are not served before the initial config is applied, which
+	// could otherwise hand out a NoopTracer for an enabled config.
+	w.reportInternalState(stateStarted)
 
 	for {
 		select {
@@ -410,7 +413,8 @@ func runtimeConfigChanged(current, next RuntimeConfig) bool {
 }
 
 func (w *tracerWorker) stopTrackedTracers() error {
-	for _, workerName := range w.tracerRunner.WorkerNames() {
+	workerNames := w.tracerRunner.WorkerNames()
+	for _, workerName := range workerNames {
 		err := w.tracerRunner.StopAndRemoveWorker(workerName, w.catacomb.Dying())
 		if errors.Is(errors.Cause(err), errors.NotFound) {
 			continue
@@ -420,7 +424,9 @@ func (w *tracerWorker) stopTrackedTracers() error {
 		}
 	}
 
-	w.reportInternalState(stateWorkersKilled)
+	if len(workerNames) > 0 {
+		w.reportInternalState(stateWorkersKilled)
+	}
 
 	return nil
 }

@@ -337,10 +337,6 @@ func (s *workerSuite) TestControllerTracingConfigReload(c *tc.C) {
 		c.Fatalf("timed out waiting for initial workload tracing config read")
 	}
 
-	// We need to ensure that the tracers are all drained before we call
-	// GetTracer again to ensure that the new config is applied.
-	s.ensureWorkersKilled(c)
-
 	worker := w
 	_, err = worker.GetTracer(c.Context(), coretrace.Namespace("agent", "anything"))
 	c.Assert(err, tc.ErrorIsNil)
