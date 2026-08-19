@@ -629,12 +629,17 @@ func (s *upgradesSuite) TestRemoveSSHProxyArtefactsRemovesCleanupDocs(c *gc.C) {
 	// was removed along with the rest of the feature, so the upgrade step
 	// must remove any such documents or the cleanup worker would fail
 	// trying to run a handler that no longer exists.
+	//
+	// The cleanups collection is model-scoped, so the seeded docs must
+	// include the model-uuid field to be visible to the model-filtered
+	// query used by removeSSHProxyCleanupDocs.
 	coll, closer, err := s.state.db().GetRawCollection(cleanupsC)
 	c.Assert(err, jc.ErrorIsNil)
 	err = coll.Insert(bson.M{
-		"_id":    "ssh-conn-cleanup-0",
-		"kind":   "sshConnRequests",
-		"prefix": "some-prefix",
+		"_id":        s.state.docID("ssh-conn-cleanup-0"),
+		"model-uuid": s.state.ModelUUID(),
+		"kind":       "sshConnRequests",
+		"prefix":     "some-prefix",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	closer()
@@ -644,9 +649,10 @@ func (s *upgradesSuite) TestRemoveSSHProxyArtefactsRemovesCleanupDocs(c *gc.C) {
 	coll, closer, err = s.state.db().GetRawCollection(cleanupsC)
 	c.Assert(err, jc.ErrorIsNil)
 	err = coll.Insert(bson.M{
-		"_id":    "other-cleanup-0",
-		"kind":   "settings",
-		"prefix": "other-prefix",
+		"_id":        s.state.docID("other-cleanup-0"),
+		"model-uuid": s.state.ModelUUID(),
+		"kind":       "settings",
+		"prefix":     "other-prefix",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	closer()
@@ -655,7 +661,10 @@ func (s *upgradesSuite) TestRemoveSSHProxyArtefactsRemovesCleanupDocs(c *gc.C) {
 		coll, closer, err := s.state.db().GetRawCollection(cleanupsC)
 		c.Assert(err, jc.ErrorIsNil)
 		defer closer()
-		n, err := coll.Find(bson.D{{Name: "kind", Value: kind}}).Count()
+		n, err := coll.Find(bson.D{
+			{Name: "model-uuid", Value: s.state.ModelUUID()},
+			{Name: "kind", Value: kind},
+		}).Count()
 		c.Assert(err, jc.ErrorIsNil)
 		return n
 	}
