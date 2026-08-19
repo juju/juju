@@ -476,9 +476,15 @@ func (w *Worker) doSUCCESS(ctx context.Context, status watcher.MigrationStatus) 
 	// Report first because the config update that's about to happen
 	// will cause the API connection to drop. The SUCCESS phase is the
 	// point of no return anyway, so we must retry this step even if
-	// the api connection dies.
-	if err := w.robustReport(ctx, status, true); err != nil {
-		return errors.Trace(err)
+	// the api connection dies. If the report fails, still update the
+	// agent config: pointing at the source controller forever is worse
+	// than a late report, and the report is retried when the phase
+	// replays on the next worker start.
+	reportErr := w.robustReport(ctx, status, true)
+	if reportErr != nil {
+		w.config.Logger.Warningf(ctx,
+			"reporting migration phase %s failed, updating agent config anyway: %v",
+			status.Phase, reportErr)
 	}
 
 	return w.updateAgentConfigForTargetController(ctx, status)

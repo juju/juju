@@ -471,6 +471,38 @@ func (s *Suite) TestSUCCESS(c *tc.C) {
 	s.stub.CheckCall(c, 4, "Report", "id", migration.SUCCESS, true)
 }
 
+// TestSUCCESSReportFailureStillWritesConfig covers the wedge seen in the
+// integration tests: a report RPC that dies mid-flight (context canceled,
+// connection torn down by a bounce) must not prevent the agent config
+// from being updated, otherwise the unit points at a controller whose
+// model is gone forever.
+func (s *Suite) TestSUCCESSReportFailureStillWritesConfig(c *tc.C) {
+	s.agent.conf.tag = names.NewUnitTag("app/0")
+	s.agent.conf.dir = "/var/lib/juju/agents/unit-app-0"
+
+	// The first report attempt fails with a non-shutdown error, so
+	// robustReport returns immediately; doSUCCESS must still update the
+	// agent config instead of aborting.
+	s.stub.SetErrors(errors.New("report boom"))
+
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	w, err := migrationminion.NewWorker(s.config)
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case <-s.agent.configChanged:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
+	workertest.CleanKill(c, w)
+	c.Assert(s.agent.conf.addrs, tc.DeepEquals, addrs)
+}
+
 func (s *Suite) TestSUCCESSClosesSourceConnection(c *tc.C) {
 	closer := &stubCloser{}
 	s.config.ConnCloser = closer
