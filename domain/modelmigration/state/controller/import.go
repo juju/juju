@@ -110,17 +110,20 @@ func (s *State) AssertImporting(ctx context.Context, modelUUID string) error {
 	return nil
 }
 
-// ensureImportingState returns nil only while the model_migration_import claim
-// for modelUUID is in the importing phase, run inside a write-group
-// transaction so the phase check and the write it gates commit atomically.
-func (s *State) ensureImportingState(ctx context.Context, tx *sqlair.TX, modelUUID string) error {
-	arg := modelUUIDArg{ModelUUID: modelUUID}
+// checkImportingState returns nil only while the exact model_migration_import
+// claim is in the importing phase. It runs inside the write-group transaction
+// so the phase check and the write it gates commit atomically.
+func (s *State) checkImportingState(
+	ctx context.Context, tx *sqlair.TX, modelUUID, claimUUID string,
+) error {
+	arg := importClaimKey{ModelUUID: modelUUID, ClaimUUID: claimUUID}
 	var row importPhaseRow
 	stmt, err := s.Prepare(`
 SELECT mmipt.type AS &importPhaseRow.phase_type
 FROM   model_migration_import AS mmi
 JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
-WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid
+WHERE  mmi.model_uuid = $importClaimKey.model_uuid
+AND    mmi.uuid = $importClaimKey.claim_uuid
 `, row, arg)
 	if err != nil {
 		return errors.Capture(err)
@@ -144,9 +147,9 @@ WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid
 // this import claim into model_migration_import_offer, atomically with an
 // importing-phase assertion for modelUUID. AbortImport reads this table to
 // delete the corresponding offer-permission rows without a cross-DB query to
-// the model DB, since the offers themselves live there. The caller is
-// expected to have already written the offer permission rows themselves
-// (owned by the access domain).
+// the model DB, since the offers themselves live there. The caller records
+// this cleanup intent before writing the permission rows owned by the access
+// domain.
 func (s *State) ImportOfferPermissions(
 	ctx context.Context, modelUUID, claimUUID string, offerUUIDs []string,
 ) error {
@@ -168,7 +171,7 @@ VALUES ($importOfferArg.migration_uuid, $importOfferArg.offer_uuid)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.ensureImportingState(ctx, tx, modelUUID); err != nil {
+		if err := s.checkImportingState(ctx, tx, modelUUID, claimUUID); err != nil {
 			return errors.Capture(err)
 		}
 		args := make([]importOfferArg, len(offerUUIDs))
@@ -547,7 +550,7 @@ VALUES ($importExternalControllerModelArg.migration_uuid,
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.ensureImportingState(ctx, tx, modelUUID); err != nil {
+		if err := s.checkImportingState(ctx, tx, modelUUID, claimUUID); err != nil {
 			return errors.Capture(err)
 		}
 		var mappings []importExternalControllerModelArg
