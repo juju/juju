@@ -1357,28 +1357,6 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 				MountPath: c.pcfg.DataDir,
 			},
 			{
-				Name: storageName,
-				MountPath: path.Join(
-					c.pcfg.DataDir,
-					"agents",
-					"controller-"+c.pcfg.ControllerId,
-				),
-				SubPath: path.Join("agents",
-					"controller-"+c.pcfg.ControllerId,
-				),
-			},
-			{
-				Name: c.resourceNameVolAgentConf,
-				MountPath: path.Join(
-					c.pcfg.DataDir,
-					"agents",
-					"controller-"+c.pcfg.ControllerId,
-					constants.TemplateFileNameAgentConf,
-				),
-				SubPath:  constants.ControllerAgentConfigFilename,
-				ReadOnly: true,
-			},
-			{
 				Name:      c.resourceNameVolBootstrapParams,
 				MountPath: path.Join(c.pcfg.DataDir, cloudconfig.FileNameBootstrapParams),
 				SubPath:   cloudconfig.FileNameBootstrapParams,
@@ -1589,6 +1567,13 @@ if [ "${controller_id}" = "0" ]; then
     if [ ! -e "%s/%s" ]; then
         cp "%s/%s" "%s/%s"
     fi
+    controller_dir="%s/agents/controller-0"
+    controller_template="${controller_dir}/%s"
+    if [ ! -e "${controller_template}" ]; then
+        mkdir -p "${controller_dir}"
+        cp "%s/%s" "${controller_template}"
+        chmod 600 "${controller_template}"
+    fi
 fi
 `,
 			constants.EnvJujuK8sPodName,
@@ -1598,6 +1583,10 @@ fi
 			constants.ControllerUnitAgentConfigFilename,
 			c.pcfg.DataDir,
 			constants.TemplateFileNameAgentConf,
+			c.pcfg.DataDir,
+			constants.TemplateFileNameAgentConf,
+			controllerConfigSeedDir,
+			constants.ControllerAgentConfigFilename,
 		)},
 		Env: []core.EnvVar{
 			{

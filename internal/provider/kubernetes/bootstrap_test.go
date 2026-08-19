@@ -1018,17 +1018,6 @@ exec /opt/pebble run --http :38811 --verbose
 					MountPath: "/var/lib/juju",
 				},
 				{
-					Name:      "storage",
-					MountPath: "/var/lib/juju/agents/controller-0",
-					SubPath:   "agents/controller-0",
-				},
-				{
-					Name:      "juju-controller-test-agent-conf",
-					ReadOnly:  true,
-					MountPath: "/var/lib/juju/agents/controller-0/template-agent.conf",
-					SubPath:   "controller-agent.conf",
-				},
-				{
 					Name:      "juju-controller-test-bootstrap-params",
 					ReadOnly:  true,
 					MountPath: "/var/lib/juju/bootstrap-params",
@@ -1121,6 +1110,13 @@ controller_id="${JUJU_K8S_POD_NAME##*-}"
 if [ "${controller_id}" = "0" ]; then
     if [ ! -e "/var/lib/juju/template-agent.conf" ]; then
         cp "/var/lib/juju-controller-bootstrap/controller-unit-agent.conf" "/var/lib/juju/template-agent.conf"
+    fi
+    controller_dir="/var/lib/juju/agents/controller-0"
+    controller_template="${controller_dir}/template-agent.conf"
+    if [ ! -e "${controller_template}" ]; then
+        mkdir -p "${controller_dir}"
+        cp "/var/lib/juju-controller-bootstrap/controller-agent.conf" "${controller_template}"
+        chmod 600 "${controller_template}"
     fi
 fi
 `},
