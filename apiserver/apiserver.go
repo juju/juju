@@ -1224,6 +1224,13 @@ func (srv *Server) serveConn(
 		return nil, errors.Annotatef(err, "checking model %q availability", modelUUID)
 	}
 
+	// Close the connection when the model it serves is removed from this
+	// controller, whether destroyed or deleted by a migration's REAP phase
+	// after migrating away, so that its agents and clients reconnect to the
+	// model's new location.
+	srv.watchServedModelRemoval(ctx, conn, domainServices.Model(),
+		srv.shared.controllerDomainServices.Model(), modelUUID)
+
 	tracer, err := srv.shared.tracerGetter.GetTracer(
 		ctx,
 		coretrace.Namespace("apiserver", modelUUID.String()),
