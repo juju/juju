@@ -102,5 +102,6 @@ func (st stateShim) ApplicationOfferForUUID(offerUUID string) (*crossmodel.Appli
 // If the model UUID is associated with another external controller record,
 // that record will be modified to remove it.
 func (st stateShim) UpdateControllerForModel(controller crossmodel.ControllerInfo, modelUUID string) error {
-	return errors.Trace(state.NewExternalControllers(st.st).SaveAndMoveModels(controller, modelUUID))
+	err := state.NewExternalControllers(st.st).Save(controller, modelUUID)
+	return errors.Trace(err)
 }

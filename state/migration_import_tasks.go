@@ -431,8 +431,12 @@ func (im *ImportRemoteEntities) Execute(src RemoteEntitiesInput, runner Transact
 	return nil
 }
 
-// maybeConvertApplicationOffer returns the offer uuid if an offer or
-// application name is passed in.
+// maybeConvertApplicationOffer returns the offer uuid if an offer name,
+// application name, or offer UUID is passed in.
+// The id suffix of an "application-offer" entity tag holds either:
+//   - the offer UUID
+//   - an offer name
+//   - the name of the offered application
 func (im *ImportRemoteEntities) maybeConvertApplicationOffer(
 	src RemoteEntitiesInput,
 	id string,
@@ -440,12 +444,22 @@ func (im *ImportRemoteEntities) maybeConvertApplicationOffer(
 	if !strings.HasPrefix(id, names.ApplicationOfferTagKind+"-") {
 		return id, false, nil
 	}
-	name := strings.TrimPrefix(id, names.ApplicationOfferTagKind+"-")
-	if uuid, ok := src.OfferUUID(name); ok {
+	// First check - maybe the tag string is already for an offer UUID.
+	maybeOfferUUID := strings.TrimPrefix(id, names.ApplicationOfferTagKind+"-")
+	if names.IsValidApplicationOffer(maybeOfferUUID) {
+		return id, true, nil
+	}
+	// Second see if we have an offer name.
+	maybeOfferName := maybeOfferUUID
+	if uuid, ok := src.OfferUUID(maybeOfferName); ok {
 		return names.NewApplicationOfferTag(uuid).String(), true, nil
 	}
-	uuid, err := src.OfferUUIDForApp(name)
+	// Last check if we have the offered app name.
+	maybeAppName := maybeOfferName
+	uuid, err := src.OfferUUIDForApp(maybeAppName)
 	if errors.Is(err, errors.NotFound) {
+		// The suffix is not a valid offer UUID, an offer name, or the name of
+		// an offered application, so it cannot be mapped to an offer.
 		return id, false, errors.Trace(err)
 	}
 	if err != nil {

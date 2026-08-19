@@ -472,12 +472,11 @@ func (mr *MockBackendMockRecorder) Resources() *gomock.Call {
 }
 
 // SaveController mocks base method.
-func (m *MockBackend) SaveController(arg0 crossmodel.ControllerInfo, arg1 string) (application.ExternalController, error) {
+func (m *MockBackend) SaveController(arg0 crossmodel.ControllerInfo, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SaveController", arg0, arg1)
-	ret0, _ := ret[0].(application.ExternalController)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // SaveController indicates an expected call of SaveController.

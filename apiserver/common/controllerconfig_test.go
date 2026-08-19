@@ -145,7 +145,7 @@ func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
 		Addrs:         []string{"192.168.1.1:12345"},
 		CACert:        testing.CACert,
 	}
-	_, err := ec.Save(info, modelUUID)
+	err := ec.Save(info, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	cc := common.NewStateControllerConfig(s.State)
 	results, err := cc.ControllerAPIInfoForModels(params.Entities{

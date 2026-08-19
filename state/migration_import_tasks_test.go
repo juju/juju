@@ -471,6 +471,33 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesApplicationOfferNoMa
 	c.Assert(err, gc.ErrorMatches, `offer for app "missing" not found`)
 }
 
+func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesOfferUUID(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	offerUUID := utils.MustNewUUID().String()
+	entity := s.remoteEntity(ctrl, "applicationoffer-"+offerUUID, "xxx-yyy-ccc")
+
+	model := NewMockRemoteEntitiesInput(ctrl)
+	model.EXPECT().RemoteEntities().Return([]description.RemoteEntity{entity})
+	model.EXPECT().DocID("applicationoffer-" + offerUUID).Return("doc-offer-uuid")
+
+	runner := NewMockTransactionRunner(ctrl)
+	runner.EXPECT().RunTransaction([]txn.Op{{
+		C:      remoteEntitiesC,
+		Id:     "doc-offer-uuid",
+		Assert: txn.DocMissing,
+		Insert: &remoteEntityDoc{
+			DocID: "doc-offer-uuid",
+			Token: "xxx-yyy-ccc",
+		},
+	}}).Return(nil)
+
+	m := ImportRemoteEntities{}
+	err := m.Execute(model, runner)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesWithNoEntities(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

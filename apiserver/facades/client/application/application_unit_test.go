@@ -2766,7 +2766,7 @@ func (s *ApplicationSuite) TestConsumeFromExternalController(c *gc.C) {
 		Alias:         "controller-alias",
 		CACert:        coretesting.CACert,
 		Addrs:         []string{"192.168.1.1:1234"},
-	}, coretesting.ModelTag.Id()).Return(nil, nil)
+	}, coretesting.ModelTag.Id()).Return(nil)
 	s.backend.EXPECT().AddRemoteApplication(s.addRemoteApplicationParams).Return(nil, nil)
 
 	results, err := s.api.Consume(s.consumeApplicationArgs)
