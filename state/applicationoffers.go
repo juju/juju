@@ -449,7 +449,7 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 		Remove: true,
 	}, decRefOp)
 	r := op.offerStore.st.RemoteEntities()
-	tokenOps := r.removeRemoteEntityOps(names.NewApplicationTag(offer.OfferName))
+	tokenOps := r.removeRemoteEntityOps(names.NewApplicationOfferTag(offer.OfferUUID))
 	ops = append(ops, tokenOps...)
 	return ops, nil
 }

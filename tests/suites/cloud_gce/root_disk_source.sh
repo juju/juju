@@ -75,16 +75,16 @@ run_root_disk_source() {
 	# Run deploy with no root disk source specified, expect default disk type to be used.
 	assert_root_disk_source_succeed "default" "pd-standard"
 	# Run deploy with root disk source specified as disk type, expect specified disk type to be used.
-	assert_root_disk_source_succeed "disk-type-ssd" "pd-ssd" "root-disk-source=pd-ssd"
+	assert_root_disk_source_succeed "disk-type-hyperdisk" "hyperdisk-balanced" "instance-type=c3-standard-4 root-disk-source=hyperdisk-balanced"
 	assert_root_disk_source_failure "disk-type-local" "root-disk-source=local-ssd" "local SSD disk storage not valid"
 	assert_root_disk_source_failure "disk-type-invalid" "root-disk-source=invalid-disk" 'root disk source ".*" not valid'
 
 	# Create storage pools with different disk types and run deploy with root disk source specified as storage pool, expect disk type of storage pool to be used.
-	juju create-storage-pool ssd-gce gce disk-type=pd-ssd
+	juju create-storage-pool hyperdisk-gce gce disk-type=hyperdisk-balanced
 	juju create-storage-pool local-ssd gce disk-type=pd-ssd
 	juju create-storage-pool local-gce gce disk-type=local-ssd
 	juju create-storage-pool invalid-disk gce disk-type=invalid-disk
-	assert_root_disk_source_succeed "storage-pool-pd-ssd" "pd-ssd" "root-disk-source=ssd-gce"
+	assert_root_disk_source_succeed "storage-pool-hyperdisk-balanced" "hyperdisk-balanced" "instance-type=c3-standard-4 root-disk-source=hyperdisk-gce"
 	assert_root_disk_source_succeed "storage-pool-local-ssd-name" "pd-ssd" "root-disk-source=local-ssd"
 	assert_root_disk_source_failure "storage-pool-local-ssd" "root-disk-source=local-gce" "local SSD disk storage not valid"
 	assert_root_disk_source_failure "storage-pool-invalid" "root-disk-source=invalid-disk" 'disk type ".*" for root disk not valid'

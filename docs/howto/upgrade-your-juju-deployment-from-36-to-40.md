@@ -222,7 +222,28 @@ st, err := client.Status(StatusArgs{})
 // filter locally
 ```
 
-### 5. Offers can’t be “updated” in place via `juju offer`
+### 5. `juju show-unit` relation `application-data` now uses the local side (was remote in `3.6`)
+
+In `4.0`, `juju show-unit <unit>` reports relation `application-data` set by the unit leader in the local application data bag. This differs from `3.6`, where the displayed `application-data` was set by the unit leader on the remote side of the relation. If automation previously parsed `application-data` from `juju show-unit wordpress/0` to inspect a related application's data, query a unit on the other side of that relation instead, for example `juju show-unit mysql/0`, or otherwise update the logic to use the local-side orientation.
+
+**Juju 3.6**
+
+```bash
+# `application-data` is from the remote/opposite application.
+juju show-unit wordpress/0
+```
+
+**Juju 4.0**
+
+```bash
+# `application-data` is from wordpress's local application.
+juju show-unit wordpress/0
+
+# Query a related unit if your automation needs the opposite side.
+juju show-unit mysql/0
+```
+
+### 6. Offers can’t be “updated” in place via `juju offer`
 
 Re-running `juju offer` to change an existing offer is removed. Use remove + create flows.
 
@@ -237,7 +258,7 @@ juju remove-offer hosted-mysql
 juju offer myapp:mysql hosted-mysql
 ```
 
-### 6. Provider type rename: `manual` → `unmanaged`
+### 7. Provider type rename: `manual` → `unmanaged`
 
 The provider name “Manual” is renamed to “Unmanaged”. Update scripts, tests, docs.
 
@@ -251,7 +272,7 @@ The provider name “Manual” is renamed to “Unmanaged”. Update scripts, te
 # cloud/provider type: `unmanaged`
 ```
 
-### 7. Base/series commands removed: `upgrade-machine` and `set-application-base`
+### 8. Base/series commands removed: `upgrade-machine` and `set-application-base`
 
 In-place base/series switching via these commands is removed in `4.0`. Plan base changes as “move/redeploy” workflows instead of mutating machines.
 
@@ -269,7 +290,7 @@ juju set-application-base myapp ubuntu@20.04
 # Use new machines on the new base, migrate workload, then remove old machines.
 ```
 
-### 8. Controller HA: `enable-ha` removed; `juju-ha-space` removed (use binding)
+### 9. Controller HA: `enable-ha` removed; `juju-ha-space` removed (use binding)
 
 `enable-ha` is removed; scale the controller like a normal application with `juju add-unit`.
 Controller config `juju-ha-space` is removed; bind the controller application `dbcluster` endpoint instead.
@@ -285,7 +306,7 @@ juju enable-ha -n 3
 juju add-unit -m controller controller -n 2
 ```
 
-### 9. LXD profiles removed (Kubernetes workloads)
+### 10. LXD profiles removed (Kubernetes workloads)
 
 LXD profiles are removed for Kubernetes workloads in `4.0`.
 
@@ -300,7 +321,7 @@ LXD profiles are removed for Kubernetes workloads in `4.0`.
 # Do not depend on LXD profile behavior in charm operations.
 ```
 
-### 10. KVM provider removed; use LXD + “virtual-machine” constraint
+### 11. KVM provider removed; use LXD + “virtual-machine” constraint
 
 KVM support is removed. Use LXD and a VM constraint instead.
 
@@ -315,7 +336,7 @@ juju add-machine kvm:1
 juju add-machine lxd:1 --constraints virt-type=virtual-machine
 ```
 
-### 11. `juju wait-for` removed (scripts/CI must change)
+### 12. `juju wait-for` removed (scripts/CI must change)
 
 `juju wait-for` and subcommands are removed in `4.0`. Use status polling and check readiness yourself.
 
@@ -330,7 +351,7 @@ juju wait-for application myapp --timeout=10m
 juju status --format=json
 ```
 
-### 12. `juju export-bundle` removed
+### 13. `juju export-bundle` removed
 
 The `juju status` command cannot be used to watch status anymore. Please use the third-party `watch`.
 
@@ -344,7 +365,7 @@ juju export-bundle > bundle.yaml
 # Command removed. Please use Juju Terraform Provider plans.
 ```
 
-### 13. `juju status --watch` flag is dropped
+### 14. `juju status --watch` flag is dropped
 
 Operators can’t use `juju status` to watch the changes (via polling) using this command in `4.0`.
 
@@ -363,7 +384,7 @@ watch --color -n 1 juju status --color
 viddy juju status
 ```
 
-### 14. Volume-backed storage pools are preferred by default
+### 15. Volume-backed storage pools are preferred by default
 
 Where possible, Juju defaults to use volume-backed storage pools to create filesystems.
 

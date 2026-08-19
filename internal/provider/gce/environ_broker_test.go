@@ -717,6 +717,115 @@ func (s *environBrokerSuite) TestBuildInstanceSpec(c *gc.C) {
 	})
 }
 
+func (s *environBrokerSuite) TestBuildInstanceSpecWithImageID(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.StartInstArgs.Constraints = constraints.MustParse("instance-type=n1-standard-1 image-id=ubuntu-2204-jammy-v20260803")
+
+	s.expectImageMetadata()
+	s.MockService.EXPECT().ImageByProject(gomock.Any(), "ubuntu-os-cloud", "ubuntu-2204-jammy-v20260803").Return(&computepb.Image{
+		Name:         ptr("ubuntu-2204-jammy-v20260803"),
+		Architecture: ptr("X86_64"),
+	}, nil)
+
+	spec, err := gce.BuildInstanceSpec(env, s.CallCtx, s.StartInstArgs)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spec.Image.Id, gc.Equals, "projects/ubuntu-os-cloud/global/images/ubuntu-2204-jammy-v20260803")
+	c.Check(spec.Image.Arch, gc.Equals, "amd64")
+}
+
+func (s *environBrokerSuite) TestBuildInstanceSpecWithImageIDFullReference(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.StartInstArgs.Constraints = constraints.MustParse("instance-type=n1-standard-1 image-id=projects/custom-images/global/images/custom-ubuntu")
+
+	s.expectImageMetadata()
+	s.MockService.EXPECT().ImageByProject(gomock.Any(), "custom-images", "custom-ubuntu").Return(&computepb.Image{
+		Name:         ptr("custom-ubuntu"),
+		Architecture: ptr("X86_64"),
+	}, nil)
+
+	spec, err := gce.BuildInstanceSpec(env, s.CallCtx, s.StartInstArgs)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spec.Image.Id, gc.Equals, "projects/custom-images/global/images/custom-ubuntu")
+}
+
+func (s *environBrokerSuite) TestBuildInstanceSpecWithImageIDAndMatchingArchConstraint(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.StartInstArgs.Constraints = constraints.MustParse("instance-type=n1-standard-1 arch=amd64 image-id=ubuntu-2204-jammy-v20260803")
+
+	s.expectImageMetadata()
+	s.MockService.EXPECT().ImageByProject(gomock.Any(), "ubuntu-os-cloud", "ubuntu-2204-jammy-v20260803").Return(&computepb.Image{
+		Name:         ptr("ubuntu-2204-jammy-v20260803"),
+		Architecture: ptr("X86_64"),
+	}, nil)
+
+	spec, err := gce.BuildInstanceSpec(env, s.CallCtx, s.StartInstArgs)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spec.Image.Arch, gc.Equals, "amd64")
+}
+
+func (s *environBrokerSuite) TestBuildInstanceSpecWithImageIDAndMismatchedArchConstraint(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.StartInstArgs.Constraints = constraints.MustParse("instance-type=n1-standard-1 arch=amd64 image-id=ubuntu-2204-jammy-v20260803")
+
+	s.expectImageMetadata()
+	s.MockService.EXPECT().ImageByProject(gomock.Any(), "ubuntu-os-cloud", "ubuntu-2204-jammy-v20260803").Return(&computepb.Image{
+		Name:         ptr("ubuntu-2204-jammy-v20260803"),
+		Architecture: ptr("ARM64"),
+	}, nil)
+
+	_, err := gce.BuildInstanceSpec(env, s.CallCtx, s.StartInstArgs)
+
+	c.Assert(err, gc.ErrorMatches, `image "ubuntu-2204-jammy-v20260803" has architecture "arm64" but agent requires "amd64"`)
+}
+
+func (s *environBrokerSuite) TestBuildInstanceSpecWithImageIDUnsupportedArch(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.StartInstArgs.Constraints = constraints.MustParse("instance-type=n1-standard-1 image-id=ubuntu-2204-jammy-v20260803")
+
+	s.expectImageMetadata()
+	s.MockService.EXPECT().ImageByProject(gomock.Any(), "ubuntu-os-cloud", "ubuntu-2204-jammy-v20260803").Return(&computepb.Image{
+		Name:         ptr("ubuntu-2204-jammy-v20260803"),
+		Architecture: ptr("unsupported"),
+	}, nil)
+
+	_, err := gce.BuildInstanceSpec(env, s.CallCtx, s.StartInstArgs)
+
+	c.Assert(err, gc.ErrorMatches, `getting image "ubuntu-2204-jammy-v20260803": unsupported image architecture "unsupported"`)
+}
+
+func (s *environBrokerSuite) TestBuildInstanceSpecWithImageIDNotFound(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+	s.StartInstArgs.Constraints = constraints.MustParse("instance-type=n1-standard-1 image-id=ubuntu-2204-jammy-v20260803")
+
+	s.expectImageMetadata()
+	s.MockService.EXPECT().ImageByProject(gomock.Any(), "ubuntu-os-cloud", "ubuntu-2204-jammy-v20260803").Return(nil, errors.New("not found"))
+
+	_, err := gce.BuildInstanceSpec(env, s.CallCtx, s.StartInstArgs)
+
+	c.Assert(err, gc.ErrorMatches, `getting image "ubuntu-2204-jammy-v20260803": not found`)
+}
+
 func (s *environBrokerSuite) TestFindInstanceSpec(c *gc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
@@ -767,7 +876,7 @@ func (s *environBrokerSuite) TestGetMetadataOSNotSupported(c *gc.C) {
 
 func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 	os := ostype.OSTypeForName("ubuntu")
-	diskSpecs, err := gce.GetDisks("image-url", os, "home-zone", s.StartInstArgs.Constraints, nil)
+	diskSpecs, err := gce.GetDisks("image-url", "m4-standard", os, "home-zone", s.StartInstArgs.Constraints, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(diskSpecs, gc.HasLen, 1)
 	diskSpec := diskSpecs[0]
@@ -778,7 +887,7 @@ func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 
 func (s *environBrokerSuite) TestGetDisksRootDiskSourceValid(c *gc.C) {
 	cons := constraints.MustParse("root-disk-source=pd-ssd")
-	diskSpecs, err := gce.GetDisks("image-url", ostype.Ubuntu, "home-zone", cons, nil)
+	diskSpecs, err := gce.GetDisks("image-url", "m4-standard", ostype.Ubuntu, "home-zone", cons, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(diskSpecs, gc.HasLen, 1)
 	c.Assert(diskSpecs[0].InitializeParams, gc.NotNil)
@@ -787,13 +896,13 @@ func (s *environBrokerSuite) TestGetDisksRootDiskSourceValid(c *gc.C) {
 
 func (s *environBrokerSuite) TestGetDisksRootDiskSourceLocalSSD(c *gc.C) {
 	cons := constraints.MustParse("root-disk-source=local-ssd")
-	_, err := gce.GetDisks("image-url", ostype.Ubuntu, "home-zone", cons, nil)
+	_, err := gce.GetDisks("image-url", "m4-standard", ostype.Ubuntu, "home-zone", cons, nil)
 	c.Assert(err, gc.ErrorMatches, `local SSD disk storage not valid`)
 }
 
 func (s *environBrokerSuite) TestGetDisksRootDiskSourceInvalid(c *gc.C) {
 	cons := constraints.MustParse("root-disk-source=unknown-type")
-	_, err := gce.GetDisks("image-url", ostype.Ubuntu, "home-zone", cons, nil)
+	_, err := gce.GetDisks("image-url", "m4-standard", ostype.Ubuntu, "home-zone", cons, nil)
 	c.Assert(err, gc.ErrorMatches, `root disk source "unknown-type" not valid`)
 }
 
@@ -803,7 +912,7 @@ func (s *environBrokerSuite) TestGetDisksRootDiskAttributesValid(c *gc.C) {
 			"disk-type": "pd-ssd",
 		},
 	}
-	diskSpecs, err := gce.GetDisks("image-url", ostype.Ubuntu, "home-zone", constraints.Value{}, rootDisk)
+	diskSpecs, err := gce.GetDisks("image-url", "m4-standard", ostype.Ubuntu, "home-zone", constraints.Value{}, rootDisk)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(diskSpecs, gc.HasLen, 1)
 	c.Assert(diskSpecs[0].InitializeParams, gc.NotNil)
@@ -817,11 +926,36 @@ func (s *environBrokerSuite) TestGetDisksRootDiskAttributesOverrideConstraint(c 
 		},
 	}
 	cons := constraints.MustParse("root-disk-source=pd-ssd")
-	diskSpecs, err := gce.GetDisks("image-url", ostype.Ubuntu, "home-zone", cons, rootDisk)
+	diskSpecs, err := gce.GetDisks("image-url", "m4-standard", ostype.Ubuntu, "home-zone", cons, rootDisk)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(diskSpecs, gc.HasLen, 1)
 	c.Assert(diskSpecs[0].InitializeParams, gc.NotNil)
 	c.Check(diskSpecs[0].InitializeParams.GetDiskType(), gc.Equals, "zones/home-zone/diskTypes/pd-standard")
+}
+
+func (s *environBrokerSuite) TestGetDisksRootDiskAttributesHyperDisk(c *gc.C) {
+	rootDisk := &storage.VolumeParams{
+		Attributes: map[string]interface{}{
+			"disk-type": "hyperdisk-extreme",
+		},
+	}
+	cons := constraints.MustParse("root-disk-source=test-storage-pool")
+	diskSpecs, err := gce.GetDisks("image-url", "m4-standard", ostype.Ubuntu, "home-zone", cons, rootDisk)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(diskSpecs, gc.HasLen, 1)
+	c.Assert(diskSpecs[0].InitializeParams, gc.NotNil)
+	c.Check(diskSpecs[0].InitializeParams.GetDiskType(), gc.Equals, "zones/home-zone/diskTypes/hyperdisk-extreme")
+}
+
+func (s *environBrokerSuite) TestGetDisksRootDiskAttributesHyperDiskNotSupported(c *gc.C) {
+	rootDisk := &storage.VolumeParams{
+		Attributes: map[string]interface{}{
+			"disk-type": "hyperdisk-extreme",
+		},
+	}
+	cons := constraints.MustParse("root-disk-source=test-storage-pool")
+	_, err := gce.GetDisks("image-url", "n1-standard", ostype.Ubuntu, "home-zone", cons, rootDisk)
+	c.Assert(err, gc.ErrorMatches, `hyperdisk storage for legacy instance "n1-standard" not supported`)
 }
 
 func (s *environBrokerSuite) TestGetDisksRootDiskAttributesLocalSSD(c *gc.C) {
@@ -831,7 +965,7 @@ func (s *environBrokerSuite) TestGetDisksRootDiskAttributesLocalSSD(c *gc.C) {
 		},
 	}
 	cons := constraints.MustParse("root-disk-source=test-storage-pool")
-	_, err := gce.GetDisks("image-url", ostype.Ubuntu, "home-zone", cons, rootDisk)
+	_, err := gce.GetDisks("image-url", "m4-standard", ostype.Ubuntu, "home-zone", cons, rootDisk)
 	c.Assert(err, gc.ErrorMatches, `local SSD disk storage not valid`)
 }
 
@@ -842,7 +976,7 @@ func (s *environBrokerSuite) TestGetDisksRootDiskAttributesInvalidDiskType(c *gc
 		},
 	}
 	cons := constraints.MustParse("root-disk-source=test-storage-pool")
-	_, err := gce.GetDisks("image-url", ostype.Ubuntu, "home-zone", cons, rootDisk)
+	_, err := gce.GetDisks("image-url", "m4-standard", ostype.Ubuntu, "home-zone", cons, rootDisk)
 	c.Assert(err, gc.ErrorMatches, `disk type "unknown-type" for root disk not valid`)
 }
 

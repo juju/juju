@@ -4,9 +4,12 @@
 package ec2
 
 import (
+	"github.com/juju/errors"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 )
@@ -73,4 +76,20 @@ func withDefaultNonControllerConstraints(cons constraints.Value) constraints.Val
 		cons.CpuPower = instances.CpuPower(100)
 	}
 	return cons
+}
+
+func (e *environ) resolveImageIDMetadata(
+	_ context.ProviderCallContext,
+	args environs.StartInstanceParams,
+) ([]*imagemetadata.ImageMetadata, error) {
+	arch, err := args.Tools.OneArch()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// TODO(wallyworld 2026-08-04): Resolve and validate image-id via DescribeImages.
+	return []*imagemetadata.ImageMetadata{{
+		Id:   *args.Constraints.ImageID,
+		Arch: arch,
+	}}, nil
 }

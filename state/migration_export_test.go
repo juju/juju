@@ -1162,13 +1162,16 @@ func (s *MigrationExportSuite) TestExternalControllers(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	controllerUUID := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	service := state.NewExternalControllers(s.State)
-	stCtrl, err := service.Save(crossmodel.ControllerInfo{
+	err = service.Save(crossmodel.ControllerInfo{
 		Addrs:         []string{"10.224.0.1:8080"},
 		Alias:         "magic",
 		CACert:        "magic-ca-cert",
-		ControllerTag: names.NewControllerTag("f47ac10b-58cc-4372-a567-0e02b2c3d479"),
+		ControllerTag: names.NewControllerTag(controllerUUID),
 	}, s.Model.UUID(), "af5a9137-934c-4b0c-8317-643b69cf4971")
+	c.Assert(err, jc.ErrorIsNil)
+	stCtrl, err := service.Controller(controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We only care for the external controllers
@@ -2802,7 +2805,7 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	service := state.NewExternalControllers(s.State)
-	_, err = service.Save(crossmodel.ControllerInfo{
+	err = service.Save(crossmodel.ControllerInfo{
 		Addrs:         []string{"10.224.0.1:8080"},
 		Alias:         "magic",
 		CACert:        "magic-ca-cert",

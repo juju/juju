@@ -37,13 +37,15 @@ func (s *externalControllerSuite) TestSaveInvalidAddress(c *gc.C) {
 		Addrs:         []string{"192.168.1.0"},
 		CACert:        testing.CACert,
 	}
-	_, err := s.externalControllers.Save(controllerInfo)
+	err := s.externalControllers.Save(controllerInfo)
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`controller api address "192.168.1.0" not valid`))
 }
 
 func (s *externalControllerSuite) TestSaveNoModels(c *gc.C) {
 	controllerInfo := defaultControllerInfo()
-	ec, err := s.externalControllers.Save(controllerInfo)
+	err := s.externalControllers.Save(controllerInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	ec, err := s.externalControllers.Controller(testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ec.Id(), gc.Equals, testing.ControllerTag.Id())
 	c.Assert(ec.ControllerInfo(), jc.DeepEquals, controllerInfo)
@@ -54,7 +56,9 @@ func (s *externalControllerSuite) TestSave(c *gc.C) {
 	controllerInfo := defaultControllerInfo()
 	uuid1 := utils.MustNewUUID().String()
 	uuid2 := utils.MustNewUUID().String()
-	ec, err := s.externalControllers.Save(controllerInfo, uuid1, uuid2)
+	err := s.externalControllers.Save(controllerInfo, uuid1, uuid2)
+	c.Assert(err, jc.ErrorIsNil)
+	ec, err := s.externalControllers.Controller(testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ec.Id(), gc.Equals, testing.ControllerTag.Id())
 	c.Assert(ec.ControllerInfo(), jc.DeepEquals, controllerInfo)
@@ -64,9 +68,11 @@ func (s *externalControllerSuite) TestSave(c *gc.C) {
 func (s *externalControllerSuite) TestSaveIdempotent(c *gc.C) {
 	controllerInfo := defaultControllerInfo()
 	uuid1 := utils.MustNewUUID().String()
-	_, err := s.externalControllers.Save(controllerInfo, uuid1)
+	err := s.externalControllers.Save(controllerInfo, uuid1)
 	c.Assert(err, jc.ErrorIsNil)
-	ec, err := s.externalControllers.Save(controllerInfo, uuid1)
+	err = s.externalControllers.Save(controllerInfo, uuid1)
+	c.Assert(err, jc.ErrorIsNil)
+	ec, err := s.externalControllers.Controller(testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ec.Id(), gc.Equals, testing.ControllerTag.Id())
 	c.Assert(ec.ControllerInfo(), jc.DeepEquals, controllerInfo)
@@ -76,20 +82,20 @@ func (s *externalControllerSuite) TestSaveIdempotent(c *gc.C) {
 func (s *externalControllerSuite) TestUpdateModels(c *gc.C) {
 	controllerInfo := defaultControllerInfo()
 	uuid1 := utils.MustNewUUID().String()
-	_, err := s.externalControllers.Save(controllerInfo, uuid1)
+	err := s.externalControllers.Save(controllerInfo, uuid1)
 	c.Assert(err, jc.ErrorIsNil)
 	uuid2 := utils.MustNewUUID().String()
-	_, err = s.externalControllers.Save(controllerInfo, uuid2)
+	err = s.externalControllers.Save(controllerInfo, uuid2)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSavedControllerInfo(c, controllerInfo, uuid1, uuid2)
 }
 
-func (s *externalControllerSuite) TestSaveAndMoveModels(c *gc.C) {
+func (s *externalControllerSuite) TestSaveMovesModels(c *gc.C) {
 	// Add a new controller associated with 2 models.
 	oldController := defaultControllerInfo()
 	uuid1 := utils.MustNewUUID().String()
 	uuid2 := utils.MustNewUUID().String()
-	_, err := s.externalControllers.Save(oldController, uuid1, uuid2)
+	err := s.externalControllers.Save(oldController, uuid1, uuid2)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSavedControllerInfo(c, oldController, uuid1, uuid2)
 
@@ -103,7 +109,7 @@ func (s *externalControllerSuite) TestSaveAndMoveModels(c *gc.C) {
 	}
 
 	uuid3 := utils.MustNewUUID().String()
-	err = s.externalControllers.SaveAndMoveModels(newController, uuid2, uuid3)
+	err = s.externalControllers.Save(newController, uuid2, uuid3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// New controller is created and associated with models.
@@ -111,24 +117,29 @@ func (s *externalControllerSuite) TestSaveAndMoveModels(c *gc.C) {
 
 	// Old controller is no longer associated with the 2nd model UUID.
 	s.assertSavedControllerInfo(c, oldController, uuid1)
+
+	// The moved model is only associated with the new controller.
+	found, err := s.externalControllers.ControllerForModel(uuid2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.Id(), gc.Equals, newController.ControllerTag.Id())
 }
 
 func (s *externalControllerSuite) TestControllerForModel(c *gc.C) {
 	controllerInfo := defaultControllerInfo()
 	uuid1 := utils.MustNewUUID().String()
 	uuid2 := utils.MustNewUUID().String()
-	ec, err := s.externalControllers.Save(controllerInfo, uuid1, uuid2)
+	err := s.externalControllers.Save(controllerInfo, uuid1, uuid2)
 	c.Assert(err, jc.ErrorIsNil)
 	found, err := s.externalControllers.ControllerForModel(uuid1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ec, jc.DeepEquals, found)
+	c.Assert(found.Id(), gc.Equals, controllerInfo.ControllerTag.Id())
 	_, err = s.externalControllers.ControllerForModel("1234")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *externalControllerSuite) TestController(c *gc.C) {
 	controllerInfo := defaultControllerInfo()
-	_, err := s.externalControllers.Save(controllerInfo)
+	err := s.externalControllers.Save(controllerInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ec, err := s.externalControllers.Controller(testing.ControllerTag.Id())
@@ -152,7 +163,7 @@ func (s *externalControllerSuite) TestWatchController(c *gc.C) {
 		Addrs:         []string{"192.168.1.0:1234"},
 		CACert:        testing.CACert,
 	}
-	_, err := s.externalControllers.Save(controllerInfo)
+	err := s.externalControllers.Save(controllerInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := s.externalControllers.WatchController(testing.ControllerTag.Id())
@@ -164,14 +175,14 @@ func (s *externalControllerSuite) TestWatchController(c *gc.C) {
 
 	// Update the alias, check for one change.
 	controllerInfo.Alias = "alias2"
-	_, err = s.externalControllers.Save(controllerInfo)
+	err = s.externalControllers.Save(controllerInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Update the alias and addresses, check for one change.
 	controllerInfo.Alias = "alias3"
 	controllerInfo.Addrs = []string{"192.168.1.1:1234"}
-	_, err = s.externalControllers.Save(controllerInfo)
+	err = s.externalControllers.Save(controllerInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }
@@ -183,7 +194,7 @@ func (s *externalControllerSuite) TestWatch(c *gc.C) {
 		Addrs:         []string{"192.168.1.0:1234"},
 		CACert:        testing.CACert,
 	}
-	_, err := s.externalControllers.Save(controllerInfo)
+	err := s.externalControllers.Save(controllerInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := s.externalControllers.Watch()
@@ -197,7 +208,7 @@ func (s *externalControllerSuite) TestWatch(c *gc.C) {
 	// Update the controller, expect no change. We only get
 	// updated on addition and removal.
 	controllerInfo.Alias = "alias2"
-	_, err = s.externalControllers.Save(controllerInfo)
+	err = s.externalControllers.Save(controllerInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -214,7 +225,7 @@ func (s *externalControllerSuite) TestWatch(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add the controller again, and we should see a change.
-	_, err = s.externalControllers.Save(controllerInfo)
+	err = s.externalControllers.Save(controllerInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(testing.ControllerTag.Id())
 	wc.AssertNoChange()

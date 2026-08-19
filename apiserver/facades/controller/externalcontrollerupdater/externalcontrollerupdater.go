@@ -94,7 +94,7 @@ func (s *ExternalControllerUpdaterAPI) SetExternalControllerInfo(args params.Set
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if _, err := s.externalControllers.Save(crossmodel.ControllerInfo{
+		if err := s.externalControllers.Save(crossmodel.ControllerInfo{
 			ControllerTag: controllerTag,
 			Alias:         arg.Info.Alias,
 			Addrs:         arg.Info.Addrs,

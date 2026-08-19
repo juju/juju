@@ -2234,7 +2234,7 @@ func (api *APIBase) consumeOne(arg params.ConsumeApplicationArgV5) error {
 		// a different controller.
 		if controllerTag.Id() != api.backend.ControllerTag().Id() {
 			externalControllerUUID = controllerTag.Id()
-			if _, err = api.backend.SaveController(crossmodel.ControllerInfo{
+			if err = api.backend.SaveController(crossmodel.ControllerInfo{
 				ControllerTag: controllerTag,
 				Alias:         arg.ControllerInfo.Alias,
 				Addrs:         arg.ControllerInfo.Addrs,

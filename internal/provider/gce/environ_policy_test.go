@@ -113,6 +113,30 @@ func (s *environPolSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*invalid GCE instance type.*`)
 }
 
+func (s *environPolSuite) TestPrecheckInstanceInvalidRootDiskSource(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
+		Name:   ptr("home-zone"),
+		Status: ptr("UP"),
+	}}, nil)
+	s.MockService.EXPECT().ListMachineTypes(gomock.Any(), "home-zone").Return([]*computepb.MachineType{{
+		Id:           ptr(uint64(0)),
+		Name:         ptr("n1-standard-1"),
+		GuestCpus:    ptr(int32(2)),
+		Architecture: ptr("amd64"),
+	}}, nil)
+
+	cons := constraints.MustParse("instance-type=n1-standard-1 root-disk-source=hyperdisk-balanced")
+	err := env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{
+		Base: version.DefaultSupportedLTSBase(), Constraints: cons})
+
+	c.Assert(err, gc.ErrorMatches, `hyperdisk storage for legacy instance "n1-standard-1" not supported`)
+}
+
 func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
@@ -353,6 +377,23 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(unsupported, jc.SameContents, []string{"tags", "virt-type"})
+}
+
+func (s *environPolSuite) TestConstraintsValidatorImageIDSupported(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
+	env := s.SetupEnv(c, s.MockService)
+
+	s.expectConstraintsCalls()
+
+	validator, err := env.ConstraintsValidator(s.CallCtx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons := constraints.MustParse("arch=amd64 image-id=ubuntu-2204-jammy-v20260803")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unsupported, gc.HasLen, 0)
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabInstType(c *gc.C) {

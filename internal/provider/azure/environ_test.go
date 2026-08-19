@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"path"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -23,6 +24,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -2178,6 +2180,7 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
 	nic0 := makeNetworkInterface("nic-0", "juju-06f00d-0", nic0IPConfiguration)
 
 	s.sender = azuretesting.Senders{
+		makeSender(".*/providers", makeNetworkProviderResult()),                           // GET API versions
 		makeSender(".*/resourceGroups/foo/resources.*", resourceListResult),               // GET
 		makeSenderWithStatus(".*/deployments/juju-06f00d-0/cancel", http.StatusNoContent), // POST
 		s.networkInterfacesSender(nic0),
@@ -2193,17 +2196,161 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
 	}
 	err := env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.requests, gc.HasLen, 12)
+	c.Assert(s.requests, gc.HasLen, 13)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET")
-	c.Assert(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
+	c.Assert(s.requests[1].Method, gc.Equals, "GET")
+	c.Assert(s.requests[1].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
 		"tagName eq 'juju-model-uuid' and tagValue eq '%s'",
 		testing.ModelTag.Id(),
 	))
-	c.Assert(s.requests[7].Method, gc.Equals, "DELETE")
-	c.Assert(s.requests[8].Method, gc.Equals, "DELETE")
 	c.Assert(s.requests[9].Method, gc.Equals, "DELETE")
 	c.Assert(s.requests[10].Method, gc.Equals, "DELETE")
 	c.Assert(s.requests[11].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[12].Method, gc.Equals, "DELETE")
+}
+
+func (s *environSuite) TestDestroyHostedModelCustomResourceGroupFilterFallback(c *gc.C) {
+	env := s.openEnviron(c,
+		testing.Attrs{"controller-uuid": utils.MustNewUUID().String(), "resource-group-name": "foo"})
+
+	res := []*armresources.GenericResourceExpanded{{
+		ID:   to.Ptr("networkSecurityGroups/nsg-0"),
+		Name: to.Ptr("nsg-0"),
+		Type: to.Ptr("Microsoft.Network/networkSecurityGroups"),
+	}, {
+		ID:   to.Ptr("networkSecurityGroups/nsg-1"),
+		Name: to.Ptr("nsg-1"),
+		Type: to.Ptr("Microsoft.Network/networkSecurityGroups"),
+	}}
+	resourceListResult := armresources.ResourceListResult{Value: res}
+
+	// When the tag-filtered list returns nothing, deleteResourcesInGroup must
+	// fall back to listing all resources and filtering client-side by tag.
+	// Only resources tagged as belonging to this model are deleted.
+	s.sender = azuretesting.Senders{
+		makeSender(".*/providers", makeNetworkProviderResult()),                            // GET API versions
+		makeSender(".*/resourceGroups/foo/resources.*", armresources.ResourceListResult{}), // GET with filter, empty
+		makeSender(".*/resourceGroups/foo/resources.*", resourceListResult),                // GET without filter
+		makeSender(".*/networkSecurityGroups/nsg-0", armresources.GenericResource{ // GET resource by ID (model)
+			Tags: map[string]*string{tags.JujuModel: to.Ptr(testing.ModelTag.Id())},
+		}),
+		makeSender(".*/networkSecurityGroups/nsg-1", armresources.GenericResource{ // GET resource by ID (foreign model)
+			Tags: map[string]*string{tags.JujuModel: to.Ptr("00000000-0000-0000-0000-000000000000")},
+		}),
+		makeSender("/networkSecurityGroups/nsg-0", nil), // DELETE
+	}
+	err := env.Destroy(s.callCtx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.requests, gc.HasLen, 6)
+	c.Assert(s.requests[0].Method, gc.Equals, "GET")
+	c.Assert(s.requests[1].Method, gc.Equals, "GET")
+	c.Assert(s.requests[1].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
+		"tagName eq 'juju-model-uuid' and tagValue eq '%s'",
+		testing.ModelTag.Id(),
+	))
+	c.Assert(s.requests[2].Method, gc.Equals, "GET")
+	_, hasFilter := s.requests[2].URL.Query()["$filter"]
+	c.Assert(hasFilter, jc.IsFalse)
+	c.Assert(s.requests[3].Method, gc.Equals, "GET")
+	c.Assert(s.requests[3].URL.Query().Get("api-version"), gc.Equals, "2021-12-01")
+	c.Assert(s.requests[4].Method, gc.Equals, "GET")
+	c.Assert(s.requests[5].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[5].URL.Query().Get("api-version"), gc.Equals, "2021-12-01")
+}
+
+func (s *environSuite) TestDestroyHostedModelCustomResourceGroupInUseRetry(c *gc.C) {
+	env := s.openEnviron(c,
+		testing.Attrs{"controller-uuid": utils.MustNewUUID().String(), "resource-group-name": "foo"})
+
+	res := []*armresources.GenericResourceExpanded{{
+		ID:   to.Ptr("networkSecurityGroups/nsg-0"),
+		Name: to.Ptr("nsg-0"),
+		Type: to.Ptr("Microsoft.Network/networkSecurityGroups"),
+	}, {
+		ID:   to.Ptr("networkSecurityGroups/nsg-1"),
+		Name: to.Ptr("nsg-1"),
+		Type: to.Ptr("Microsoft.Network/networkSecurityGroups"),
+	}}
+	resourceListResult := armresources.ResourceListResult{Value: res}
+
+	inUseErr := newAzureResponseError(c, http.StatusConflict, "InUse", "in use")
+
+	// On the first pass one NSG is deleted while the other is in use, so the
+	// pre-sized remainingResources slice contains a nil hole that must be
+	// compacted before the second pass retries the in-use resource. The first
+	// DELETE to arrive returns InUse regardless of which NSG it targets.
+	s.sender = azuretesting.Senders{
+		makeSender(".*/providers", makeNetworkProviderResult()),             // GET API versions
+		makeSender(".*/resourceGroups/foo/resources.*", resourceListResult), // GET with filter
+		s.makeErrorSender("/networkSecurityGroups/nsg-[01]", inUseErr, 1),   // DELETE (InUse), pass 1
+		makeSender("/networkSecurityGroups/nsg-[01]", nil),                  // DELETE (ok), pass 1
+		makeSender("/networkSecurityGroups/nsg-[01]", nil),                  // DELETE (ok), pass 2
+	}
+	err := env.Destroy(s.callCtx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.requests, gc.HasLen, 5)
+	c.Assert(s.requests[0].Method, gc.Equals, "GET")
+	c.Assert(s.requests[1].Method, gc.Equals, "GET")
+	c.Assert(s.requests[2].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[3].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[4].Method, gc.Equals, "DELETE")
+}
+
+func (s *environSuite) TestDestroyHostedModelCustomResourceGroupMultipleTypes(c *gc.C) {
+	env := s.openEnviron(c,
+		testing.Attrs{"controller-uuid": utils.MustNewUUID().String(), "resource-group-name": "foo"})
+
+	res := []*armresources.GenericResourceExpanded{{
+		ID:   to.Ptr("networkSecurityGroups/nsg-0"),
+		Name: to.Ptr("nsg-0"),
+		Type: to.Ptr("Microsoft.Network/networkSecurityGroups"),
+	}, {
+		ID:   to.Ptr("storageAccounts/sa-0"),
+		Name: to.Ptr("sa-0"),
+		Type: to.Ptr("Microsoft.Storage/storageAccounts"),
+	}}
+	resourceListResult := armresources.ResourceListResult{Value: res}
+
+	providers := armresources.ProviderListResult{Value: []*armresources.Provider{{
+		Namespace: to.Ptr("Microsoft.Network"),
+		ResourceTypes: []*armresources.ProviderResourceType{{
+			ResourceType: to.Ptr("networkSecurityGroups"),
+			APIVersions:  to.SliceOfPtrs("2021-12-01"),
+		}},
+	}, {
+		Namespace: to.Ptr("Microsoft.Storage"),
+		ResourceTypes: []*armresources.ProviderResourceType{{
+			ResourceType: to.Ptr("storageAccounts"),
+			APIVersions:  to.SliceOfPtrs("2023-01-01"),
+		}},
+	}}}
+
+	// The two resources are deleted concurrently, each using the API version
+	// matching its own type.
+	deleteSender := &azuretesting.MockSender{}
+	deleteSender.PathPattern = "(networkSecurityGroups/nsg-0|storageAccounts/sa-0)"
+	deleteSender.AppendResponse(azuretesting.NewResponse()) //nolint:bodyclose
+	deleteSender.AppendResponse(azuretesting.NewResponse()) //nolint:bodyclose
+
+	s.sender = azuretesting.Senders{
+		makeSender(".*/providers", providers),                               // GET API versions
+		makeSender(".*/resourceGroups/foo/resources.*", resourceListResult), // GET with filter
+		deleteSender,
+	}
+	err := env.Destroy(s.callCtx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.requests, gc.HasLen, 4)
+
+	deleteVersions := make(map[string]string)
+	for _, req := range s.requests {
+		if req.Method == "DELETE" {
+			deleteVersions[req.URL.Path] = req.URL.Query().Get("api-version")
+		}
+	}
+	c.Assert(deleteVersions, jc.DeepEquals, map[string]string{
+		"/networkSecurityGroups/nsg-0": "2021-12-01",
+		"/storageAccounts/sa-0":        "2023-01-01",
+	})
 }
 
 func (s *environSuite) TestDestroyHostedModelWithInvalidCredential(c *gc.C) {
@@ -2257,6 +2404,139 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	c.Assert(s.requests[4].Method, gc.Equals, "GET")
 	c.Assert(s.requests[5].Method, gc.Equals, "DELETE")
 	c.Assert(path.Base(s.requests[5].URL.Path), gc.Equals, "juju-controller-"+testing.ControllerTag.Id())
+}
+
+func (s *environSuite) TestDestroyControllerCustomResourceGroup(c *gc.C) {
+	env := s.openEnviron(c, testing.Attrs{"resource-group-name": "foo"})
+	resources := armresources.ResourceListResult{
+		Value: []*armresources.GenericResourceExpanded{{
+			ID:   to.Ptr("networkSecurityGroups/nsg-0"),
+			Name: to.Ptr("nsg-0"),
+			Type: to.Ptr("Microsoft.Network/networkSecurityGroups"),
+		}},
+	}
+
+	s.sender = azuretesting.Senders{
+		makeSender(".*/providers", makeNetworkProviderResult()),        // GET API versions
+		makeSender(".*/resourceGroups/foo/resources.*", resources),     // GET
+		makeSender("/networkSecurityGroups/nsg-0", nil),                // DELETE
+		makeSender(".*/roleDefinitions*", nil),                         // GET
+		makeSender(".*/roleAssignments*", nil),                         // GET
+		makeSender(".*/userAssignedIdentities/juju-controller-*", nil), // DELETE
+	}
+
+	err := env.DestroyController(s.callCtx, s.controllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.requests, gc.HasLen, 6)
+	c.Check(s.requests[0].Method, gc.Equals, "GET")
+	c.Check(s.requests[1].Method, gc.Equals, "GET")
+	c.Check(s.requests[1].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
+		"tagName eq 'juju-model-uuid' and tagValue eq '%s'",
+		testing.ModelTag.Id(),
+	))
+	c.Check(s.requests[2].Method, gc.Equals, "DELETE")
+	c.Check(s.requests[2].URL.Path, gc.Equals, "/networkSecurityGroups/nsg-0")
+	c.Check(s.requests[2].URL.Query().Get("api-version"), gc.Equals, "2021-12-01")
+}
+
+func (s *environSuite) TestDestroyControllerManagedIdentityDeleteSuccess(c *gc.C) {
+	groups := []*armresources.ResourceGroup{{
+		Name: to.Ptr("group1"),
+	}}
+	result := armresources.ResourceGroupListResult{Value: groups}
+
+	var logWriter loggo.TestWriter
+	writerName := "TestDestroyControllerManagedIdentityDeleteSuccess"
+	c.Assert(loggo.RegisterWriter(writerName, &logWriter), jc.ErrorIsNil)
+	defer func() {
+		loggo.RemoveWriter(writerName)
+	}()
+
+	env := s.openEnviron(c)
+	s.sender = azuretesting.Senders{
+		makeSender(".*/resourcegroups", result),                        // GET
+		makeSender(".*/resourcegroups/group1", nil),                    // DELETE
+		makeSender(".*/roleDefinitions*", nil),                         // GET
+		makeSender(".*/roleAssignments*", nil),                         // GET
+		makeSender(".*/userAssignedIdentities/juju-controller-*", nil), // DELETE (success)
+	}
+	err := env.DestroyController(s.callCtx, s.controllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.requests, gc.HasLen, 5)
+
+	for _, entry := range logWriter.Log() {
+		c.Check(entry.Message, gc.Not(gc.Matches), ".*cannot delete managed identity.*")
+	}
+}
+
+func (s *environSuite) TestDestroyControllerManagedIdentityDeleteError(c *gc.C) {
+	groups := []*armresources.ResourceGroup{{
+		Name: to.Ptr("group1"),
+	}}
+	result := armresources.ResourceGroupListResult{Value: groups}
+
+	var logWriter loggo.TestWriter
+	writerName := "TestDestroyControllerManagedIdentityDeleteError"
+	c.Assert(loggo.RegisterWriter(writerName, &logWriter), jc.ErrorIsNil)
+	defer func() {
+		loggo.RemoveWriter(writerName)
+	}()
+
+	identityDeleteErr := newAzureResponseError(c, http.StatusForbidden, "Forbidden", "access denied")
+
+	env := s.openEnviron(c)
+	s.sender = azuretesting.Senders{
+		makeSender(".*/resourcegroups", result),                                                // GET
+		makeSender(".*/resourcegroups/group1", nil),                                            // DELETE
+		makeSender(".*/roleDefinitions*", nil),                                                 // GET
+		makeSender(".*/roleAssignments*", nil),                                                 // GET
+		s.makeErrorSender(".*/userAssignedIdentities/juju-controller-*", identityDeleteErr, 1), // DELETE (error)
+	}
+	err := env.DestroyController(s.callCtx, s.controllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.requests, gc.HasLen, 5)
+
+	var found bool
+	expectedMsg := `cannot delete managed identity "juju-controller-` + testing.ControllerTag.Id() + `"`
+	for _, entry := range logWriter.Log() {
+		if entry.Level == loggo.WARNING && strings.Contains(entry.Message, expectedMsg) {
+			found = true
+			break
+		}
+	}
+	c.Check(found, jc.IsTrue)
+}
+
+func (s *environSuite) TestDestroyControllerManagedIdentityDeleteNotFound(c *gc.C) {
+	groups := []*armresources.ResourceGroup{{
+		Name: to.Ptr("group1"),
+	}}
+	result := armresources.ResourceGroupListResult{Value: groups}
+
+	var logWriter loggo.TestWriter
+	writerName := "TestDestroyControllerManagedIdentityDeleteNotFound"
+	c.Assert(loggo.RegisterWriter(writerName, &logWriter), jc.ErrorIsNil)
+	defer func() {
+		loggo.RemoveWriter(writerName)
+	}()
+
+	identityDeleteErr := newAzureResponseError(c, http.StatusNotFound, "NotFound", "not found")
+
+	env := s.openEnviron(c)
+	s.sender = azuretesting.Senders{
+		makeSender(".*/resourcegroups", result),                                                // GET
+		makeSender(".*/resourcegroups/group1", nil),                                            // DELETE
+		makeSender(".*/roleDefinitions*", nil),                                                 // GET
+		makeSender(".*/roleAssignments*", nil),                                                 // GET
+		s.makeErrorSender(".*/userAssignedIdentities/juju-controller-*", identityDeleteErr, 1), // DELETE (not found)
+	}
+	err := env.DestroyController(s.callCtx, s.controllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.requests, gc.HasLen, 5)
+
+	for _, entry := range logWriter.Log() {
+		c.Check(entry.Message, gc.Not(gc.Matches), ".*cannot delete managed identity.*")
+	}
 }
 
 func (s *environSuite) TestDestroyControllerWithInvalidCredential(c *gc.C) {
@@ -2444,6 +2724,19 @@ func makeProvidersResult() armresources.ProviderListResult {
 		}},
 	}}
 	return armresources.ProviderListResult{Value: providers}
+}
+
+func makeNetworkProviderResult() armresources.ProviderListResult {
+	return armresources.ProviderListResult{Value: []*armresources.Provider{{
+		Namespace: new("Microsoft.Network"),
+		ResourceTypes: []*armresources.ProviderResourceType{{
+			ResourceType: new("networkSecurityGroups"),
+			APIVersions:  to.SliceOfPtrs("2021-12-01"),
+		}, {
+			ResourceType: new("virtualNetworks"),
+			APIVersions:  to.SliceOfPtrs("2021-12-01"),
+		}},
+	}}}
 }
 
 func makeResourcesResult() armresources.ResourceListResult {

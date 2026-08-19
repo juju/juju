@@ -53,7 +53,7 @@ type Backend interface {
 	Model() (Model, error)
 	Unit(string) (Unit, error)
 	UnitsInError() ([]Unit, error)
-	SaveController(info crossmodel.ControllerInfo, modelUUID string) (ExternalController, error)
+	SaveController(info crossmodel.ControllerInfo, modelUUID string) error
 	ControllerTag() names.ControllerTag
 	ControllerConfig() (controller.Config, error)
 	Resources() Resources
@@ -258,11 +258,9 @@ type modelShim struct {
 	*state.Model
 }
 
-type ExternalController state.ExternalController
-
-func (s stateShim) SaveController(controllerInfo crossmodel.ControllerInfo, modelUUID string) (ExternalController, error) {
+func (s stateShim) SaveController(controllerInfo crossmodel.ControllerInfo, modelUUID string) error {
 	api := state.NewExternalControllers(s.State)
-	return api.Save(controllerInfo, modelUUID)
+	return errors.Trace(api.Save(controllerInfo, modelUUID))
 }
 
 type StorageInterface interface {

@@ -1091,12 +1091,21 @@ func (e *Environ) startInstance(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	imageMetadata := args.ImageMetadata
+	if args.Constraints.HasImageID() {
+		imageMetadata, err = e.resolveImageIDMetadata(ctx, args)
+		if err != nil {
+			return nil, environs.ZoneIndependentError(err)
+		}
+	}
+
 	spec, err := findInstanceSpec(e, instances.InstanceConstraint{
 		Region:      e.cloud().Region,
 		Base:        args.InstanceConfig.Base,
 		Arch:        arch,
 		Constraints: args.Constraints,
-	}, args.ImageMetadata)
+	}, imageMetadata)
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
@@ -1618,14 +1627,12 @@ func (e *Environ) configureRootDisk(_ context.ProviderCallContext, args environs
 	}
 	switch rootDiskSource {
 	case rootDiskSourceLocal:
-		if args.Constraints.HasImageID() {
-			runOpts.ImageId = *args.Constraints.ImageID
-		} else {
-			runOpts.ImageId = spec.Image.Id
-		}
+		runOpts.ImageId = spec.Image.Id
 	case rootDiskSourceVolume:
+		// Only preserve image-id for volume-backed roots when image-id was
+		// explicitly requested; local roots always need the image recorded.
 		if args.Constraints.HasImageID() {
-			runOpts.ImageId = *args.Constraints.ImageID
+			runOpts.ImageId = spec.Image.Id
 		}
 		size := uint64(0)
 		if args.Constraints.HasRootDisk() {
