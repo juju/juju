@@ -551,7 +551,7 @@ func (s *upgradesSuite) TestConvertScalingToCurrentOperationEnumField(c *gc.C) {
 	)
 }
 
-func (s *upgradesSuite) TestDropSSHProxyCollections(c *gc.C) {
+func (s *upgradesSuite) TestRemoveSSHProxyArtefactsDropsCollections(c *gc.C) {
 	// The collections are model-namespaced, so create a second model and
 	// seed both it and the controller model with a doc in each collection.
 	state1 := s.makeModel(c, "m1", coretesting.Attrs{},
@@ -592,7 +592,7 @@ func (s *upgradesSuite) TestDropSSHProxyCollections(c *gc.C) {
 	// must not error.
 	for i := 0; i < 2; i++ {
 		c.Logf("Run: %d", i)
-		err := DropSSHProxyCollections(s.pool)
+		err := RemoveSSHProxyArtefacts(s.pool)
 		c.Assert(err, jc.ErrorIsNil)
 
 		c.Check(collectionExists(s.state, "virtualhostkeys"), jc.IsFalse)
@@ -602,7 +602,7 @@ func (s *upgradesSuite) TestDropSSHProxyCollections(c *gc.C) {
 	}
 }
 
-func (s *upgradesSuite) TestDropSSHProxyCollectionsRemovesCleanupDocs(c *gc.C) {
+func (s *upgradesSuite) TestRemoveSSHProxyArtefactsRemovesCleanupDocs(c *gc.C) {
 	// Seed a leftover "sshConnRequests" cleanup document. The cleanup kind
 	// was removed along with the rest of the feature, so the upgrade step
 	// must remove any such documents or the cleanup worker would fail
@@ -644,7 +644,7 @@ func (s *upgradesSuite) TestDropSSHProxyCollectionsRemovesCleanupDocs(c *gc.C) {
 	// Idempotent: a second run finds nothing to remove but must not error.
 	for i := 0; i < 2; i++ {
 		c.Logf("Run: %d", i)
-		err := DropSSHProxyCollections(s.pool)
+		err := RemoveSSHProxyArtefacts(s.pool)
 		c.Assert(err, jc.ErrorIsNil)
 
 		c.Check(cleanupCount("sshConnRequests"), gc.Equals, 0)
@@ -652,7 +652,7 @@ func (s *upgradesSuite) TestDropSSHProxyCollectionsRemovesCleanupDocs(c *gc.C) {
 	}
 }
 
-func (s *upgradesSuite) TestRemoveSSHProxyControllerConfig(c *gc.C) {
+func (s *upgradesSuite) TestRemoveSSHProxyArtefactsRemovesControllerConfig(c *gc.C) {
 	// Seed the controller config with the orphaned ssh proxy keys. They are
 	// written directly to the settings document because they are no longer
 	// part of the controller config schema and so cannot be set through
@@ -675,7 +675,7 @@ func (s *upgradesSuite) TestRemoveSSHProxyControllerConfig(c *gc.C) {
 	// Idempotent: a second run finds nothing to remove but must not error.
 	for i := 0; i < 2; i++ {
 		c.Logf("Run: %d", i)
-		err := RemoveSSHProxyControllerConfig(s.pool)
+		err := RemoveSSHProxyArtefacts(s.pool)
 		c.Assert(err, jc.ErrorIsNil)
 
 		cfg, err := s.state.ControllerConfig()

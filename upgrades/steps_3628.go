@@ -8,17 +8,10 @@ package upgrades
 func stateStepsFor3628() []Step {
 	return []Step{
 		&upgradeStep{
-			description: "drop unused ssh proxy collections and cleanup docs",
+			description: "remove orphaned ssh proxy collections, cleanup docs and controller config",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return context.State().DropSSHProxyCollections()
-			},
-		},
-		&upgradeStep{
-			description: "remove orphaned ssh proxy controller config keys",
-			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
-				return context.State().RemoveSSHProxyControllerConfig()
+				return context.State().RemoveSSHProxyArtefacts()
 			},
 		},
 	}

@@ -458,7 +458,7 @@ func ConvertScalingToCurrentOperationEnumField(pool *StatePool) error {
 // sshProxyCollectionNames holds the names of the MongoDB collections that
 // were used by the controller-proxied SSH feature. The feature was removed
 // from the 3.6 line but the collections were left behind in upgraded
-// controllers' model databases. DropSSHProxyCollections removes the
+// controllers' model databases. RemoveSSHProxyArtefacts drops the
 // orphaned collections from every model so no dead data remains.
 //
 // The collection constants are defined locally here rather than in
@@ -485,18 +485,33 @@ var sshProxyControllerConfigKeys = []string{
 	"ssh-max-concurrent-connections",
 }
 
-// DropSSHProxyCollections removes all state left behind by the removed
-// controller-proxied SSH feature from every model in the pool:
+// RemoveSSHProxyArtefacts removes all state left behind by the removed
+// controller-proxied SSH feature from the controller:
 //
-//   - the virtualhostkeys and sshrequests collections are dropped, and
+//   - the virtualhostkeys and sshrequests collections are dropped from every
+//     model in the pool,
 //   - any leftover "sshConnRequests" cleanup documents are removed so they
-//     cannot trigger a handler that no longer exists.
+//     cannot trigger a handler that no longer exists, and
+//   - the orphaned ssh-server-port and ssh-max-concurrent-connections
+//     controller config keys are removed from the controller settings
+//     document.
 //
 // Each operation is a no-op where the underlying data does not exist
 // (mgo's DropCollection returns nil for a missing collection, and removing
 // absent documents or settings keys is harmless), so the step is
 // idempotent and safe to run on controllers that never had the feature.
-func DropSSHProxyCollections(pool *StatePool) error {
+func RemoveSSHProxyArtefacts(pool *StatePool) error {
+	if err := dropSSHProxyCollections(pool); err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(removeSSHProxyControllerConfig(pool))
+}
+
+// dropSSHProxyCollections drops the orphaned virtualhostkeys and
+// sshrequests collections from every model in the pool and removes any
+// leftover "sshConnRequests" cleanup documents so they cannot trigger a
+// handler that no longer exists.
+func dropSSHProxyCollections(pool *StatePool) error {
 	return runForAllModelStates(pool, func(st *State) error {
 		for _, name := range sshProxyCollectionNames {
 			coll, closer, err := st.db().GetRawCollection(name)
@@ -516,11 +531,11 @@ func DropSSHProxyCollections(pool *StatePool) error {
 	})
 }
 
-// RemoveSSHProxyControllerConfig removes the orphaned controller-proxied
+// removeSSHProxyControllerConfig removes the orphaned controller-proxied
 // SSH configuration keys from the controller settings document. It only
 // needs to run once against the system (controller) state, as controller
 // config is global rather than per-model.
-func RemoveSSHProxyControllerConfig(pool *StatePool) error {
+func removeSSHProxyControllerConfig(pool *StatePool) error {
 	st, err := pool.SystemState()
 	if err != nil {
 		return errors.Trace(err)

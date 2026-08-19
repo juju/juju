@@ -25,8 +25,7 @@ type StateBackend interface {
 	OpenControllerAPIPort() error
 	ConvertScalingToCurrentOperationEnumField() error
 	ExposeControllerApplication() error
-	DropSSHProxyCollections() error
-	RemoveSSHProxyControllerConfig() error
+	RemoveSSHProxyArtefacts() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -80,19 +79,14 @@ func (s stateBackend) ExposeControllerApplication() error {
 	return state.ExposeControllerApplication(s.pool)
 }
 
-// DropSSHProxyCollections runs an upgrade to drop the orphaned
-// virtualhostkeys and sshrequests collections and remove leftover SSH
-// connection request cleanup documents left behind after the SSH proxy
-// feature was removed from the 3.6 line.
-func (s stateBackend) DropSSHProxyCollections() error {
-	return state.DropSSHProxyCollections(s.pool)
-}
-
-// RemoveSSHProxyControllerConfig runs an upgrade to remove the orphaned
-// ssh-server-port and ssh-max-concurrent-connections controller config keys
-// left behind after the SSH proxy feature was removed from the 3.6 line.
-func (s stateBackend) RemoveSSHProxyControllerConfig() error {
-	return state.RemoveSSHProxyControllerConfig(s.pool)
+// RemoveSSHProxyArtefacts runs an upgrade to remove all state left behind
+// after the controller-proxied SSH feature was removed from the 3.6 line:
+// the orphaned virtualhostkeys and sshrequests collections are dropped,
+// leftover SSH connection request cleanup documents are removed, and the
+// orphaned ssh-server-port and ssh-max-concurrent-connections controller
+// config keys are deleted. The step is idempotent.
+func (s stateBackend) RemoveSSHProxyArtefacts() error {
+	return state.RemoveSSHProxyArtefacts(s.pool)
 }
 
 // newK8sClient initializes a new k8s client for a given model.
