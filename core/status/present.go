@@ -67,7 +67,11 @@ func IsUnitWorkloadPresent(status StatusInfo) bool {
 			return false
 		}
 		return true
-	case Blocked, Error, Terminated, Unknown:
+	case Blocked:
+		// Blocked is a recoverable state (e.g. waiting for operator
+		// config) and must not block model migration.
+		return true
+	case Error, Terminated, Unknown:
 		return false
 	default:
 		return false

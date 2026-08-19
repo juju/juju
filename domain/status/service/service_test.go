@@ -1140,8 +1140,7 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyWorkload(c 
 
 	err := s.modelService.CheckUnitStatusesReadyForMigration(c.Context())
 	c.Assert(err, tc.ErrorMatches, `(?m).*
-- unit "foo/66\d" workload not active or viable
-- unit "foo/66\d" workload not active or viable`)
+- unit "foo/668" workload not active or viable`)
 }
 
 func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyWorkloadMessage(c *tc.C) {
