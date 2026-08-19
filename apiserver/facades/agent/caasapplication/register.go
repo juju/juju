@@ -33,6 +33,7 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		authorizer,
 		ctx.ControllerUUID(),
 		ctx.ModelUUID(),
+		ctx.IsControllerModelScoped(),
 		domainServices.ControllerConfig(),
 		domainServices.ControllerNode(),
 		domainServices.Controller(),

@@ -13,9 +13,11 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	coreapplication "github.com/juju/juju/core/application"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application"
@@ -54,7 +56,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
 
-func (s *CAASApplicationSuite) setupMocks(c *tc.C, authTag string) *gomock.Controller {
+func (s *CAASApplicationSuite) setupMocks(c *tc.C, authTag string, controllerModelScope ...bool) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	tag, err := names.ParseTag(authTag)
@@ -74,8 +76,12 @@ func (s *CAASApplicationSuite) setupMocks(c *tc.C, authTag string) *gomock.Contr
 	s.tracingService = caasapplication.NewMockTracingService(ctrl)
 	s.lokiConfigService = caasapplication.NewMockLokiConfigService(ctrl)
 
+	isControllerModelScope := true
+	if len(controllerModelScope) > 0 {
+		isControllerModelScope = controllerModelScope[0]
+	}
 	s.facade = caasapplication.NewFacade(s.authorizer,
-		coretesting.ControllerTag.Id(), s.modelUUID,
+		coretesting.ControllerTag.Id(), s.modelUUID, isControllerModelScope,
 		s.controllerConfigService, s.controllerNodeService, s.controllerService,
 		s.agentPasswordService, s.applicationService,
 		s.modelAgentService, s.tracingService, s.lokiConfigService, loggertesting.WrapCheckLog(c))
@@ -180,6 +186,9 @@ func (s *CAASApplicationSuite) TestUnitIntroduction(c *tc.C) {
 func (s *CAASApplicationSuite) TestControllerUnitIntroductionCreatesControllerIdentity(c *tc.C) {
 	defer s.setupMocks(c, "application-controller").Finish()
 
+	applicationUUID := tc.Must0(c, coreapplication.NewUUID)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "controller").Return(applicationUUID, nil)
+	s.applicationService.EXPECT().IsControllerApplication(gomock.Any(), applicationUUID).Return(true, nil)
 	controllerCfg := controller.Config{controller.CACertKey: coretesting.CACert}
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
 	addrs := []string{"10.6.6.6:17070"}
@@ -227,6 +236,30 @@ func (s *CAASApplicationSuite) TestControllerUnitIntroductionCreatesControllerId
 	apiInfo, ok := controllerConf.APIInfo()
 	c.Assert(ok, tc.IsTrue)
 	c.Check(apiInfo.Addrs, tc.DeepEquals, []string{"localhost:17070", "10.6.6.6:17070"})
+}
+
+func (s *CAASApplicationSuite) TestControllerUnitIntroductionOutsideControllerModelDenied(c *tc.C) {
+	defer s.setupMocks(c, "application-controller", false).Finish()
+
+	_, err := s.facade.UnitIntroduction(c.Context(), params.CAASUnitIntroductionArgs{
+		PodName: "controller-2",
+		PodUUID: "pod-uuid",
+	})
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+}
+
+func (s *CAASApplicationSuite) TestControllerUnitIntroductionForUnmarkedApplicationDenied(c *tc.C) {
+	defer s.setupMocks(c, "application-controller").Finish()
+
+	applicationUUID := tc.Must0(c, coreapplication.NewUUID)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "controller").Return(applicationUUID, nil)
+	s.applicationService.EXPECT().IsControllerApplication(gomock.Any(), applicationUUID).Return(false, nil)
+
+	_, err := s.facade.UnitIntroduction(c.Context(), params.CAASUnitIntroductionArgs{
+		PodName: "controller-2",
+		PodUUID: "pod-uuid",
+	})
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
 func (s *CAASApplicationSuite) TestUnitIntroductionPermissionDenied(c *tc.C) {

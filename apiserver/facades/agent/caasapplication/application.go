@@ -59,6 +59,8 @@ type AgentPasswordService interface {
 
 // ApplicationService instances implement an application service.
 type ApplicationService interface {
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
+	IsControllerApplication(ctx context.Context, appUUID coreapplication.UUID) (bool, error)
 	RegisterCAASUnit(ctx context.Context, params application.RegisterCAASUnitParams) (unit.Name, string, error)
 	CAASUnitTerminating(ctx context.Context, unitName string) (bool, error)
 }
@@ -93,8 +95,9 @@ type LokiConfigService interface {
 
 // Facade defines the API methods on the CAASApplication facade.
 type Facade struct {
-	controllerUUID string
-	modelUUID      coremodel.UUID
+	controllerUUID         string
+	modelUUID              coremodel.UUID
+	isControllerModelScope bool
 
 	auth                    facade.Authorizer
 	controllerConfigService ControllerConfigService
@@ -113,6 +116,7 @@ func NewFacade(
 	authorizer facade.Authorizer,
 	controllerUUID string,
 	modelUUID coremodel.UUID,
+	isControllerModelScope bool,
 	controllerConfigService ControllerConfigService,
 	controllerNodeService ControllerNodeService,
 	controllerService ControllerService,
@@ -127,6 +131,7 @@ func NewFacade(
 		auth:                    authorizer,
 		controllerUUID:          controllerUUID,
 		modelUUID:               modelUUID,
+		isControllerModelScope:  isControllerModelScope,
 		controllerConfigService: controllerConfigService,
 		controllerNodeService:   controllerNodeService,
 		controllerService:       controllerService,
@@ -165,6 +170,24 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	}
 	if args.PodUUID == "" {
 		return errResp(errors.NotValidf("pod-uuid"))
+	}
+
+	isControllerApplication := tag.Name == coreapplication.ControllerApplicationName
+	if isControllerApplication {
+		if !f.isControllerModelScope {
+			return params.CAASUnitIntroductionResult{}, apiservererrors.ErrPerm
+		}
+		appUUID, err := f.applicationService.GetApplicationUUIDByName(ctx, tag.Name)
+		if err != nil {
+			return errResp(err)
+		}
+		isController, err := f.applicationService.IsControllerApplication(ctx, appUUID)
+		if err != nil {
+			return errResp(err)
+		}
+		if !isController {
+			return params.CAASUnitIntroductionResult{}, apiservererrors.ErrPerm
+		}
 	}
 
 	f.logger.Debugf(ctx, "introducing pod %q (%q)", args.PodName, args.PodUUID)
@@ -253,61 +276,67 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 			AgentConf: agentConfBytes,
 		},
 	}
-	if tag.Name == coreapplication.ControllerApplicationName {
-		controllerID := strconv.Itoa(unitName.Number())
-		controllerPassword, err := password.RandomPassword()
-		if err != nil {
-			return errResp(errors.Annotate(err, "generating controller agent password"))
-		}
-		controllerAgentInfo, err := f.controllerService.GetControllerAgentInfo(ctx)
-		if err != nil {
-			return errResp(errors.Annotate(err, "getting controller agent info"))
-		}
-		controllerConf, err := agent.NewStateMachineConfig(agent.AgentConfigParams{
-			Paths: agent.Paths{
-				DataDir: dataDir,
-				LogDir:  logDir,
-			},
-			Tag:               names.NewControllerAgentTag(controllerID),
-			Controller:        names.NewControllerTag(f.controllerUUID),
-			Model:             names.NewModelTag(f.modelUUID.String()),
-			APIAddresses:      addrs,
-			CACert:            caCert,
-			Password:          controllerPassword,
-			UpgradedToVersion: version,
-			Values: map[string]string{
-				agent.ProviderType: domaincloud.CloudTypeKubernetes.String(),
-			},
-			QueryTracingEnabled:                controllerConfig.QueryTracingEnabled(),
-			QueryTracingThreshold:              controllerConfig.QueryTracingThreshold(),
-			DqliteBusyTimeout:                  controllerConfig.DqliteBusyTimeout(),
-			OpenTelemetryEnabled:               tracingConfig.GRPCEndpoint != "" || tracingConfig.HTTPEndpoint != "",
-			OpenTelemetryHTTPEndpoint:          tracingConfig.HTTPEndpoint,
-			OpenTelemetryGRPCEndpoint:          tracingConfig.GRPCEndpoint,
-			OpenTelemetryInsecure:              openTelemetryInsecure(tracingConfig),
-			OpenTelemetryStackTraces:           openTelemetryStackTraces(tracingConfig),
-			OpenTelemetrySampleRatio:           openTelemetrySampleRatio(tracingConfig),
-			OpenTelemetryTailSamplingThreshold: openTelemetryTailSamplingThreshold,
-			LokiEndpoint:                       lokiConfig.Endpoint,
-			LokiCACert:                         lokiConfig.CACertificate,
-			LokiInsecureSkipVerify:             lokiConfig.InsecureSkipVerify,
-		}, controllerAgentInfo)
-		if err != nil {
-			return errResp(errors.Annotate(err, "creating controller agent config"))
-		}
-		controllerConfBytes, err := controllerConf.Render()
-		if err != nil {
-			return errResp(errors.Annotate(err, "rendering controller agent config"))
-		}
-		if err := f.controllerNodeService.AddControllerNode(ctx, controllerID); err != nil {
-			return errResp(err)
-		}
-		if err := f.agentPasswordService.SetControllerNodePassword(ctx, controllerID, controllerPassword); err != nil {
-			return errResp(err)
-		}
-		res.Result.ControllerAgentTag = names.NewControllerAgentTag(controllerID).String()
-		res.Result.ControllerAgentConf = controllerConfBytes
+
+	// If the application is not the controller application, we don't need to
+	// generate a controller agent config, so we can return early.
+	if !isControllerApplication {
+		return res, nil
 	}
+
+	controllerID := strconv.Itoa(unitName.Number())
+	controllerPassword, err := password.RandomPassword()
+	if err != nil {
+		return errResp(errors.Annotate(err, "generating controller agent password"))
+	}
+	controllerAgentInfo, err := f.controllerService.GetControllerAgentInfo(ctx)
+	if err != nil {
+		return errResp(errors.Annotate(err, "getting controller agent info"))
+	}
+	controllerConf, err := agent.NewStateMachineConfig(agent.AgentConfigParams{
+		Paths: agent.Paths{
+			DataDir: dataDir,
+			LogDir:  logDir,
+		},
+		Tag:               names.NewControllerAgentTag(controllerID),
+		Controller:        names.NewControllerTag(f.controllerUUID),
+		Model:             names.NewModelTag(f.modelUUID.String()),
+		APIAddresses:      addrs,
+		CACert:            caCert,
+		Password:          controllerPassword,
+		UpgradedToVersion: version,
+		Values: map[string]string{
+			agent.ProviderType: domaincloud.CloudTypeKubernetes.String(),
+		},
+		QueryTracingEnabled:                controllerConfig.QueryTracingEnabled(),
+		QueryTracingThreshold:              controllerConfig.QueryTracingThreshold(),
+		DqliteBusyTimeout:                  controllerConfig.DqliteBusyTimeout(),
+		OpenTelemetryEnabled:               tracingConfig.GRPCEndpoint != "" || tracingConfig.HTTPEndpoint != "",
+		OpenTelemetryHTTPEndpoint:          tracingConfig.HTTPEndpoint,
+		OpenTelemetryGRPCEndpoint:          tracingConfig.GRPCEndpoint,
+		OpenTelemetryInsecure:              openTelemetryInsecure(tracingConfig),
+		OpenTelemetryStackTraces:           openTelemetryStackTraces(tracingConfig),
+		OpenTelemetrySampleRatio:           openTelemetrySampleRatio(tracingConfig),
+		OpenTelemetryTailSamplingThreshold: openTelemetryTailSamplingThreshold,
+		LokiEndpoint:                       lokiConfig.Endpoint,
+		LokiCACert:                         lokiConfig.CACertificate,
+		LokiInsecureSkipVerify:             lokiConfig.InsecureSkipVerify,
+	}, controllerAgentInfo)
+	if err != nil {
+		return errResp(errors.Annotate(err, "creating controller agent config"))
+	}
+	controllerConfBytes, err := controllerConf.Render()
+	if err != nil {
+		return errResp(errors.Annotate(err, "rendering controller agent config"))
+	}
+	if err := f.controllerNodeService.AddControllerNode(ctx, controllerID); err != nil {
+		return errResp(err)
+	}
+	if err := f.agentPasswordService.SetControllerNodePassword(ctx, controllerID, controllerPassword); err != nil {
+		return errResp(err)
+	}
+	res.Result.ControllerAgentTag = names.NewControllerAgentTag(controllerID).String()
+	res.Result.ControllerAgentConf = controllerConfBytes
+
 	return res, nil
 }
 
