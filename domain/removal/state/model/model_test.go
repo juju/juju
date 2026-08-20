@@ -181,6 +181,23 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeEmpty(c *tc.C) {
 	c.Check(artifacts.Empty(), tc.IsTrue)
 }
 
+func (s *modelSuite) TestEnsureModelNotAliveCascadeDetachedStorage(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	modelUUID := s.getModelUUID(c)
+
+	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(artifacts.StorageInstanceUUIDs, tc.DeepEquals, []string{siUUID})
+
+	s.checkModelLife(c, modelUUID, life.Dying)
+	var storageInstanceLife int
+	res := s.DB().QueryRow("SELECT life_id FROM storage_instance WHERE uuid = ?", siUUID)
+	c.Assert(res.Scan(&storageInstanceLife), tc.ErrorIsNil)
+	c.Check(storageInstanceLife, tc.Equals, 1)
+}
+
 func (s *modelSuite) TestModelRemovalNormalSuccess(c *tc.C) {
 	modelUUID := s.getModelUUID(c)
 

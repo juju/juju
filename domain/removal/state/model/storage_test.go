@@ -1936,29 +1936,6 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 	return storageInstance, storageAttachment
 }
 
-func (s *storageSuite) addStorageInstance(c *tc.C) string {
-	ctx := c.Context()
-
-	charm := "some-charm-name"
-
-	storagePool := "some-storage-pool-uuid"
-	_, err := s.DB().ExecContext(ctx, "INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)",
-		storagePool, "loop", "loop")
-	c.Assert(err, tc.ErrorIsNil)
-
-	storageInstance := "some-storage-instance-uuid"
-	_, err = s.DB().Exec(`
-INSERT INTO storage_instance (
-    uuid, storage_id, storage_kind_id, storage_pool_uuid, requested_size_mib,
-    charm_name, storage_name, life_id
-)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		storageInstance, charm+"/0", 1, storagePool, 100, charm, "storage", 0)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return storageInstance
-}
-
 func (s *storageSuite) addVolume(c *tc.C) string {
 	ctx := c.Context()
 
