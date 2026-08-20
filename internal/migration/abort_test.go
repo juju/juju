@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 
 	coremodel "github.com/juju/juju/core/model"
@@ -42,7 +43,18 @@ func (s *controllerImportSuite) claimService(c *tc.C) *migrationclaimservice.Ser
 // fallback re-check drives the finalize attempts.
 type waitAbortClaim struct {
 	*migrationclaimservice.Service
-	changes chan struct{}
+	changes       chan struct{}
+	afterFinalize func()
+}
+
+func (w waitAbortClaim) FinalizeAbortedImport(
+	ctx context.Context, modelUUID coremodel.UUID,
+) error {
+	err := w.Service.FinalizeAbortedImport(ctx, modelUUID)
+	if w.afterFinalize != nil {
+		w.afterFinalize()
+	}
+	return err
 }
 
 func (w waitAbortClaim) WatchModelDatabaseDeletion(
@@ -303,4 +315,46 @@ func (s *controllerImportSuite) TestWaitAbortFinalizedPendingDropReturnsError(c 
 	claim, err := claimSt.GetImportClaim(c.Context(), modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(claim.Phase, tc.Equals, migrationdomain.ImportPhaseAborting)
+}
+
+// TestWaitAbortFinalizedContextCancelled verifies cancellation interrupts the
+// wait and preserves the aborting claim for a later retry.
+func (s *controllerImportSuite) TestWaitAbortFinalizedContextCancelled(c *tc.C) {
+	modelUUID, _, deps := s.importWithContent(c)
+
+	err := migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	ctx, cancel := context.WithCancel(c.Context())
+	defer cancel()
+	claim := s.waitClaim(c)
+	claim.afterFinalize = cancel
+	deps.Clock = testclock.NewClock(time.Now())
+	err = migration.WaitAbortFinalized(ctx, deps, claim, modelUUID, shortWait)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
+
+	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
+	status, err := claimSt.GetImportClaim(c.Context(), modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(status.Phase, tc.Equals, migrationdomain.ImportPhaseAborting)
+}
+
+// TestWaitAbortFinalizedWatcherClosed verifies a dead watcher terminates the
+// wait and preserves the aborting claim for a later retry.
+func (s *controllerImportSuite) TestWaitAbortFinalizedWatcherClosed(c *tc.C) {
+	modelUUID, _, deps := s.importWithContent(c)
+
+	err := migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	claim := s.waitClaim(c)
+	close(claim.changes)
+	deps.Clock = testclock.NewClock(time.Now())
+	err = migration.WaitAbortFinalized(c.Context(), deps, claim, modelUUID, shortWait)
+	c.Assert(err, tc.ErrorMatches, `model database deletion watcher for model ".*" closed`)
+
+	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
+	status, err := claimSt.GetImportClaim(c.Context(), modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(status.Phase, tc.Equals, migrationdomain.ImportPhaseAborting)
 }

@@ -175,6 +175,10 @@ func (i *ModelImporter) AbortModel(ctx context.Context, modelUUID coremodel.UUID
 func (i *ModelImporter) ImportModel(
 	ctx context.Context, args ImportModelArgs, view export.ProjectionView,
 ) error {
+	if i.domainServices == nil {
+		return internalerrors.New("domain services not configured")
+	}
+
 	modelUUID := coremodel.UUID(args.ControllerModelInfo.ModelInfo.UUID)
 	scope := i.scope(modelUUID)
 	deps := Deps{

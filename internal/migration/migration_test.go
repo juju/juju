@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment/charm"
+	"github.com/juju/juju/domain/export"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/testhelpers"
@@ -75,6 +76,18 @@ func (s *ImportSuite) TestAbortModelWithoutControllerServices(c *tc.C) {
 
 	err := importer.AbortModel(c.Context(), model.UUID("model-uuid"))
 	c.Assert(err, tc.ErrorMatches, "controller services not configured")
+}
+
+func (s *ImportSuite) TestImportModelWithoutDomainServices(c *tc.C) {
+	importer := migration.NewModelImporter(
+		nil, nil, nil,
+		"controller-uuid",
+		loggertesting.WrapCheckLog(c),
+		clock.WallClock,
+	)
+
+	err := importer.ImportModel(c.Context(), migration.ImportModelArgs{}, export.ProjectionView{})
+	c.Assert(err, tc.ErrorMatches, "domain services not configured")
 }
 
 const modelYaml = `
