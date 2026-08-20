@@ -844,7 +844,6 @@ func (s *cloudinitSuite) TestCloudInitWithSnapStoreControllerSnapInstallsFileOnl
 	c.Assert(err, tc.ErrorIsNil)
 
 	cfg := makeBootstrapConfig(jammy, 0).mutate(func(cfg *testInstanceConfig) {
-		cfg.Bootstrap.ControllerSnapChannel = "4.0/stable"
 		cfg.Bootstrap.ControllerSnapExpectedVersion = "4.0.1"
 		cfg.Bootstrap.ControllerSnapPath = snapPath
 		cfg.Bootstrap.ControllerSnapAssertPath = assertPath
