@@ -733,7 +733,135 @@ func (s *migrationSuite) TestGetRelationValidationDataExcludesNonAlive(c *tc.C) 
 	c.Check(relations, tc.HasLen, 0)
 }
 
-// TestGetApplicationUnitNamesEmpty verifies no units return an empty map.
+// addCharm inserts a charm and returns its UUID. A CMR sourced charm is
+// inserted when cmr is true; a locally sourced charm is inserted otherwise.
+func (s *migrationSuite) addCharm(c *tc.C, name string, cmr bool) string {
+	charmUUID := uuid.MustNewUUID().String()
+	var err error
+	if cmr {
+		_, err = s.DB().ExecContext(c.Context(),
+			"INSERT INTO charm (uuid, reference_name, source_id) VALUES (?, ?, 2)", charmUUID, name)
+	} else {
+		_, err = s.DB().ExecContext(c.Context(),
+			"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)", charmUUID, name)
+	}
+	c.Assert(err, tc.ErrorIsNil)
+	return charmUUID
+}
+
+// addCharmRelation inserts a relation endpoint on the given charm and returns
+// its UUID.
+func (s *migrationSuite) addCharmRelation(c *tc.C, charmUUID, name string, roleID int) string {
+	charmRelationUUID := uuid.MustNewUUID().String()
+	_, err := s.DB().ExecContext(c.Context(),
+		"INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, scope_id, interface, optional, capacity) VALUES (?, ?, ?, ?, 0, 'token', false, 1)",
+		charmRelationUUID, charmUUID, name, roleID)
+	c.Assert(err, tc.ErrorIsNil)
+	return charmRelationUUID
+}
+
+// addApplication inserts an application backed by the given charm and returns
+// its UUID.
+func (s *migrationSuite) addApplication(c *tc.C, name, charmUUID string) string {
+	appUUID := uuid.MustNewUUID().String()
+	_, err := s.DB().ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, 0, ?, ?)",
+		appUUID, name, charmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+	return appUUID
+}
+
+// addRelation inserts an alive relation and returns its UUID.
+func (s *migrationSuite) addRelation(c *tc.C, relationID int) string {
+	relationUUID := uuid.MustNewUUID().String()
+	_, err := s.DB().ExecContext(c.Context(),
+		"INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, 0, ?, 1)",
+		relationUUID, relationID)
+	c.Assert(err, tc.ErrorIsNil)
+	return relationUUID
+}
+
+// addRelationEndpoint links an application endpoint to a relation.
+func (s *migrationSuite) addRelationEndpoint(c *tc.C, relationUUID, appUUID, charmRelationUUID string) {
+	endpointUUID := uuid.MustNewUUID().String()
+	_, err := s.DB().ExecContext(c.Context(),
+		"INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, NULL, ?)",
+		endpointUUID, appUUID, charmRelationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(),
+		"INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?)",
+		uuid.MustNewUUID().String(), relationUUID, endpointUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestGetRelationValidationDataExcludesCMRRelations verifies relations with
+// a cross-model relation (CMR) endpoint are excluded from validation data.
+// CMR consumer relations (offering-model side) are imported by the
+// crossmodelrelation domain, which does not create relation_unit rows, so
+// membership validation cannot apply to them.
+func (s *migrationSuite) TestGetRelationValidationDataExcludesCMRRelations(c *tc.C) {
+	charmUUID := s.addCharm(c, "remote-d29ba13b", true)
+	charmRelationUUID := s.addCharmRelation(c, charmUUID, "sink", 0)
+	appUUID := s.addApplication(c, "remote-d29ba13b", charmUUID)
+	relationUUID := s.addRelation(c, 99)
+	s.addRelationEndpoint(c, relationUUID, appUUID, charmRelationUUID)
+
+	relations, err := New(s.TxnRunnerFactory(), s.modelUUID).GetRelationValidationData(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relations, tc.HasLen, 0)
+}
+
+// TestGetRelationValidationDataKeepsLocalWhileExcludingCMR verifies that
+// when a model has both local and CMR relations, only the local relations
+// are returned for validation.
+func (s *migrationSuite) TestGetRelationValidationDataKeepsLocalWhileExcludingCMR(c *tc.C) {
+	// Local relation (wordpress:db <-> mysql:db).
+	wpCharm := s.addCharm(c, "wordpress", false)
+	wpRelation := s.addCharmRelation(c, wpCharm, "db", 0)
+	wpApp := s.addApplication(c, "wordpress", wpCharm)
+	myCharm := s.addCharm(c, "mysql", false)
+	myRelation := s.addCharmRelation(c, myCharm, "db", 1)
+	myApp := s.addApplication(c, "mysql", myCharm)
+	localRelation := s.addRelation(c, 7)
+	s.addRelationEndpoint(c, localRelation, wpApp, wpRelation)
+	s.addRelationEndpoint(c, localRelation, myApp, myRelation)
+
+	// CMR relation (dummy-source:sink <-> remote-*:source).
+	cmrCharm := s.addCharm(c, "remote-d29ba13b", true)
+	cmrRelation := s.addCharmRelation(c, cmrCharm, "source", 0)
+	cmrApp := s.addApplication(c, "remote-d29ba13b", cmrCharm)
+	srcCharm := s.addCharm(c, "dummy-source", false)
+	srcRelation := s.addCharmRelation(c, srcCharm, "sink", 1)
+	srcApp := s.addApplication(c, "dummy-source", srcCharm)
+	cmrRelationUUID := s.addRelation(c, 99)
+	s.addRelationEndpoint(c, cmrRelationUUID, cmrApp, cmrRelation)
+	s.addRelationEndpoint(c, cmrRelationUUID, srcApp, srcRelation)
+
+	relations, err := New(s.TxnRunnerFactory(), s.modelUUID).GetRelationValidationData(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	// Only the local wordpress:db <-> mysql:db relation is returned.
+	c.Assert(relations, tc.HasLen, 1)
+	c.Check(relations[0].UUID, tc.Equals, localRelation)
+	c.Check(relations[0].ID, tc.Equals, 7)
+}
+
+// TestGetRelationValidationDataExcludesCMRBothSides verifies a relation
+// where both endpoints are CMR-sourced is excluded from validation data.
+func (s *migrationSuite) TestGetRelationValidationDataExcludesCMRBothSides(c *tc.C) {
+	charm1 := s.addCharm(c, "remote-app-1", true)
+	relation1 := s.addCharmRelation(c, charm1, "endpoint1", 0)
+	app1 := s.addApplication(c, "remote-app-1", charm1)
+	charm2 := s.addCharm(c, "remote-app-2", true)
+	relation2 := s.addCharmRelation(c, charm2, "endpoint2", 1)
+	app2 := s.addApplication(c, "remote-app-2", charm2)
+	relationUUID := s.addRelation(c, 99)
+	s.addRelationEndpoint(c, relationUUID, app1, relation1)
+	s.addRelationEndpoint(c, relationUUID, app2, relation2)
+
+	relations, err := New(s.TxnRunnerFactory(), s.modelUUID).GetRelationValidationData(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relations, tc.HasLen, 0)
+}
 func (s *migrationSuite) TestGetApplicationUnitNamesEmpty(c *tc.C) {
 	units, err := New(s.TxnRunnerFactory(), s.modelUUID).GetApplicationUnitNames(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
