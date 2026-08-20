@@ -1089,23 +1089,13 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLatestFromSnapStore(c *tc.C)
 	resolvedVersion := jujuversion.Current.ToPatch()
 	channel := fmt.Sprintf("%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor)
 
-	snapDir := c.MkDir()
-	snapPath := filepath.Join(snapDir, "jujud.snap")
-	assertPath := filepath.Join(snapDir, "jujud.assert")
-	c.Assert(os.WriteFile(snapPath, []byte("fake"), 0644), tc.ErrorIsNil)
-	c.Assert(os.WriteFile(assertPath, []byte("assert"), 0644), tc.ErrorIsNil)
-	s.patchSnapReader(c, fmt.Sprintf("name: jujud\nversion: %s\n", resolvedVersion.String()))
-
 	var gotChannel, gotArch string
 	var gotRevision int
-	s.PatchValue(bootstrap.AcquireControllerSnap, func(_ context.Context, _, _, arch, channel string, revision int, _ string) (*bootstrap.AcquiredSnap, error) {
+	s.PatchValue(bootstrap.ResolveControllerSnap, func(_ context.Context, _, _, arch, channel string, revision int) (string, int, error) {
 		gotChannel = channel
 		gotArch = arch
 		gotRevision = revision
-		return &bootstrap.AcquiredSnap{
-			SnapPath:   snapPath,
-			AssertPath: assertPath,
-		}, nil
+		return resolvedVersion.String(), 1234, nil
 	})
 
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -1129,26 +1119,18 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLatestFromSnapStore(c *tc.C)
 	c.Assert(gotArch, tc.Equals, "amd64")
 	c.Assert(gotRevision, tc.Equals, 0)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapExpectedVersion, tc.Equals, resolvedVersion.String())
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapRevision, tc.Equals, 1234)
 }
 
 func (s *bootstrapSuite) TestBootstrapControllerSnapPinnedRevision(c *tc.C) {
 	resolvedVersion := jujuversion.Current.ToPatch()
-	snapDir := c.MkDir()
-	snapPath := filepath.Join(snapDir, "jujud.snap")
-	assertPath := filepath.Join(snapDir, "jujud.assert")
-	c.Assert(os.WriteFile(snapPath, []byte("fake"), 0644), tc.ErrorIsNil)
-	c.Assert(os.WriteFile(assertPath, []byte("assert"), 0644), tc.ErrorIsNil)
-	s.patchSnapReader(c, fmt.Sprintf("name: jujud\nversion: %s\n", resolvedVersion.String()))
 
 	var gotChannel string
 	var gotRevision int
-	s.PatchValue(bootstrap.AcquireControllerSnap, func(_ context.Context, _, _, _, channel string, revision int, _ string) (*bootstrap.AcquiredSnap, error) {
+	s.PatchValue(bootstrap.ResolveControllerSnap, func(_ context.Context, _, _, _, channel string, revision int) (string, int, error) {
 		gotChannel = channel
 		gotRevision = revision
-		return &bootstrap.AcquiredSnap{
-			SnapPath:   snapPath,
-			AssertPath: assertPath,
-		}, nil
+		return resolvedVersion.String(), revision, nil
 	})
 
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -1167,11 +1149,12 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapPinnedRevision(c *tc.C) {
 	c.Assert(gotChannel, tc.Equals, fmt.Sprintf("%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor))
 	c.Assert(gotRevision, tc.Equals, 42)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapExpectedVersion, tc.Equals, resolvedVersion.String())
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapRevision, tc.Equals, 42)
 }
 
-func (s *bootstrapSuite) TestBootstrapControllerSnapStoreAcquireFails(c *tc.C) {
-	s.PatchValue(bootstrap.AcquireControllerSnap, func(_ context.Context, _, _, _, _ string, _ int, _ string) (*bootstrap.AcquiredSnap, error) {
-		return nil, fmt.Errorf("store unreachable")
+func (s *bootstrapSuite) TestBootstrapControllerSnapStoreResolveFails(c *tc.C) {
+	s.PatchValue(bootstrap.ResolveControllerSnap, func(_ context.Context, _, _, _, _ string, _ int) (string, int, error) {
+		return "", 0, fmt.Errorf("store unreachable")
 	})
 
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -1186,7 +1169,7 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapStoreAcquireFails(c *tc.C) {
 			ControllerSnapChannel:   charm.Channel{Track: "4.0", Risk: charm.Candidate},
 		})
 	c.Assert(err, tc.NotNil)
-	c.Check(strings.Contains(err.Error(), "acquiring controller snap from store"), tc.IsTrue)
+	c.Check(strings.Contains(err.Error(), "resolving controller snap in store"), tc.IsTrue)
 }
 
 func (s *bootstrapSuite) TestBootstrapControllerSnapDefaultStoreMode(c *tc.C) {
@@ -1195,22 +1178,12 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapDefaultStoreMode(c *tc.C) {
 	resolvedVersion := jujuversion.Current.ToPatch()
 	defaultChannel := fmt.Sprintf("%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor)
 
-	snapDir := c.MkDir()
-	snapPath := filepath.Join(snapDir, "jujud.snap")
-	assertPath := filepath.Join(snapDir, "jujud.assert")
-	c.Assert(os.WriteFile(snapPath, []byte("fake"), 0644), tc.ErrorIsNil)
-	c.Assert(os.WriteFile(assertPath, []byte("assert"), 0644), tc.ErrorIsNil)
-	s.patchSnapReader(c, fmt.Sprintf("name: jujud\nversion: %s\n", resolvedVersion.String()))
-
 	var gotChannel string
 	var gotRevision int
-	s.PatchValue(bootstrap.AcquireControllerSnap, func(_ context.Context, _, _, _, channel string, revision int, _ string) (*bootstrap.AcquiredSnap, error) {
+	s.PatchValue(bootstrap.ResolveControllerSnap, func(_ context.Context, _, _, _, channel string, revision int) (string, int, error) {
 		gotChannel = channel
 		gotRevision = revision
-		return &bootstrap.AcquiredSnap{
-			SnapPath:   snapPath,
-			AssertPath: assertPath,
-		}, nil
+		return resolvedVersion.String(), 5678, nil
 	})
 
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -1228,7 +1201,8 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapDefaultStoreMode(c *tc.C) {
 
 	c.Assert(gotChannel, tc.Equals, defaultChannel)
 	c.Assert(gotRevision, tc.Equals, 0)
-	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapPath, tc.Equals, snapPath)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapPath, tc.Equals, "")
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapRevision, tc.Equals, 5678)
 }
 
 func (s *bootstrapSuite) TestBootstrapControllerSnapLocalVersionCoupling(c *tc.C) {
