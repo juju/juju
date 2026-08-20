@@ -14,7 +14,6 @@ import (
 	time "time"
 
 	gomock "github.com/canonical/gomock/gomock"
-
 	modelmanager "github.com/juju/juju/apiserver/facades/client/modelmanager"
 	agentbinary "github.com/juju/juju/core/agentbinary"
 	assumes "github.com/juju/juju/core/assumes"
