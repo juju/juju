@@ -36,12 +36,12 @@ AND    mmi.uuid = $importClaimKey.claim_uuid
 func NewImportTxnRunnerFactory(
 	factory coredatabase.TxnRunnerFactory, modelUUID, claimUUID string,
 ) coredatabase.TxnRunnerFactory {
+	stmt, prepareErr := sqlair.Prepare(
+		importPhaseQuery, importPhaseRow{}, importClaimKey{},
+	)
 	return func(ctx context.Context) (coredatabase.TxnRunner, error) {
-		stmt, err := sqlair.Prepare(
-			importPhaseQuery, importPhaseRow{}, importClaimKey{},
-		)
-		if err != nil {
-			return nil, errors.Capture(err)
+		if prepareErr != nil {
+			return nil, errors.Capture(prepareErr)
 		}
 
 		runner, err := factory(ctx)

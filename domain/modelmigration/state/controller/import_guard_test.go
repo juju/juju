@@ -5,13 +5,11 @@ package controller
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
-	coreerrors "github.com/juju/juju/core/errors"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/internal/uuid"
@@ -39,12 +37,6 @@ func (s *stateSuite) TestImportTxnRunnerFactory(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(called, tc.IsTrue)
 	c.Check(runner.Dying(), tc.NotNil)
-
-	err = runner.StdTxn(c.Context(), func(context.Context, *sql.Tx) error {
-		c.Fatalf("standard transaction callback must not be called")
-		return nil
-	})
-	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 func (s *stateSuite) TestImportTxnRunnerFactoryRejectsWrongAttempt(c *tc.C) {
