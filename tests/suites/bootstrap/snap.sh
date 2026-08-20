@@ -1,11 +1,12 @@
 # run_bootstrap_controller_snap_path verifies that the published controller
 # snap can be bootstrapped end-to-end through the snap store (channel mode).
 #
-# The client acquires the published `jujud` controller snap from the store,
-# verifies its assertion, and uploads the signed pair to the controller machine,
-# where cloud-init installs it. This exercises the client-side acquisition path
-# (store client) and the unified client/snap version-compatibility check, using
-# --build-agent until task 4.4 pins packaged tools. The test verifies that:
+# The client resolves the published `jujud` controller snap's version and
+# revision from the store, then the controller machine downloads that exact
+# revision itself during provisioning and cloud-init installs it from the file.
+# This exercises the client-side resolution and the unified client/snap
+# version-compatibility check, using --build-agent until task 4.4 pins packaged
+# tools. The test verifies that:
 #   1. The snap and assert files are written to /var/lib/juju/snap/.
 #   2. The snap is installed and runs as `jujud`.
 run_bootstrap_controller_snap_path() {
@@ -25,10 +26,10 @@ run_bootstrap_controller_snap_path() {
   # bootstrap/controller machine) and verify the snap files and installation.
   juju switch "${name}:controller"
 
-  echo "==> Verifying snap files were transported to the controller machine"
+  echo "==> Verifying snap files were downloaded to the controller machine"
 
-  # The client acquires the jujud snap and its assertion and uploads both to
-  # the snap dir, where cloud-init installs from them.
+  # The machine downloads the resolved jujud revision and its assertion to the
+  # snap dir, where cloud-init installs from them.
   snap_check=$(juju exec -m controller --unit controller/0 -- ls -h /var/lib/juju/snap)
   echo "${snap_check}"
   check_contains "${snap_check}" "jujud.snap"
