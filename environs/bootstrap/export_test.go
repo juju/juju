@@ -10,12 +10,8 @@ var (
 	FindTools                  = &findTools
 	FindBootstrapTools         = findBootstrapTools
 	FindPackagedTools          = findPackagedTools
-	AcquireControllerSnap      = &acquireControllerSnap
+	ResolveControllerSnap      = &resolveControllerSnap
 	SnapArch                   = snapArch
 	BuildCommandFunc           = &buildCommandFunc
 	LookPathFunc               = &lookPathFunc
 )
-
-// AcquiredSnap is a test-only alias for the unexported acquiredControllerSnap,
-// so external test packages can construct and assert on acquisition results.
-type AcquiredSnap = acquiredControllerSnap

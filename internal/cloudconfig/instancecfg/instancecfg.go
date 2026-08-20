@@ -270,6 +270,12 @@ type BootstrapConfig struct {
 	// provided by the installed controller snap (store installs only).
 	ControllerSnapExpectedVersion string
 
+	// ControllerSnapRevision is the store revision of the controller snap the
+	// machine must download and install during provisioning. When non-zero the
+	// machine downloads that exact revision from the store; when zero a locally
+	// provided snap (ControllerSnapPath) is uploaded and installed instead.
+	ControllerSnapRevision int
+
 	// Timeout is the amount of time to wait for bootstrap to complete.
 	Timeout time.Duration
 

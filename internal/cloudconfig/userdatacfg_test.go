@@ -182,6 +182,12 @@ func (cfg *testInstanceConfig) setControllerSnap(snapPath, assertPath string) *t
 	return cfg
 }
 
+func (cfg *testInstanceConfig) setControllerSnapStore(revision int, expectedVersion string) *testInstanceConfig {
+	cfg.Bootstrap.ControllerSnapRevision = revision
+	cfg.Bootstrap.ControllerSnapExpectedVersion = expectedVersion
+	return cfg
+}
+
 // maybeSetModelConfig sets the Config field to the given envConfig, if not
 // nil, and the instance config is for a bootstrap machine.
 func (cfg *testInstanceConfig) maybeSetModelConfig(envConfig *config.Config) *testInstanceConfig {
@@ -829,44 +835,41 @@ snap install %[1]s`,
 	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 }
 
-func (s *cloudinitSuite) TestCloudInitWithSnapStoreControllerSnapInstallsFileOnly(c *tc.C) {
-	// The client acquires the snap and its assertion from the store, and the
-	// machine only ever installs from the uploaded file (Decision 6). No
-	// command may download the snap on the machine.
-	snapContent := []byte("fake snap binary content")
-	assertContent := []byte("fake snap assert content")
-	dir := c.MkDir()
-	snapPath := filepath.Join(dir, "jujud.snap")
-	assertPath := filepath.Join(dir, "jujud.assert")
-	err := os.WriteFile(snapPath, snapContent, 0644)
-	c.Assert(err, tc.ErrorIsNil)
-	err = os.WriteFile(assertPath, assertContent, 0644)
-	c.Assert(err, tc.ErrorIsNil)
-
-	cfg := makeBootstrapConfig(jammy, 0).mutate(func(cfg *testInstanceConfig) {
-		cfg.Bootstrap.ControllerSnapExpectedVersion = "4.0.1"
-		cfg.Bootstrap.ControllerSnapPath = snapPath
-		cfg.Bootstrap.ControllerSnapAssertPath = assertPath
-	})
-	base64Snap := base64.StdEncoding.EncodeToString(snapContent)
-	base64Assert := base64.StdEncoding.EncodeToString(assertContent)
-	snapFile := fmt.Sprintf("/var/lib/juju/snap/%s", bootstrap.ControllerSnapArchive)
-	assertFile := fmt.Sprintf("/var/lib/juju/snap/%s", bootstrap.ControllerSnapAssertArchive)
+func (s *cloudinitSuite) TestCloudInitWithSnapStoreControllerSnapDownloadsRevision(c *tc.C) {
+	// A store-based source mode pins the exact revision the client resolved;
+	// the machine downloads that revision itself during provisioning, then
+	// acknowledges and installs the downloaded file.
+	cfg := makeBootstrapConfig(jammy, 0).setControllerSnapStore(42, "4.0.1")
 
 	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`
-install -D -m 644 /dev/null '%s'
-echo -n %s | base64 -d > '%[1]s'
-install -D -m 644 /dev/null '%[3]s'
-echo -n %s | base64 -d > '%[3]s'
-snap ack %[3]s
-snap install %[1]s`,
-		snapFile, base64Snap, assertFile, base64Assert,
-	))
+mkdir -p '/var/lib/juju/snap'
+(cd '/var/lib/juju/snap' && snap download 'jujud' --revision=42 --basename='jujud')
+snap ack '/var/lib/juju/snap/jujud.assert'
+snap install '/var/lib/juju/snap/jujud.snap'`))
 	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 
-	// The machine must never contact the store.
+	// The downloaded revision must be installed from the file, and the
+	// resolved version must be asserted against the installed snap.
 	all := s.renderedScripts(c, cfg)
-	c.Check(all, tc.Not(tc.Contains), "snap download")
+	c.Check(all, tc.Contains, "snap download 'jujud' --revision=42 --basename='jujud'")
+	c.Check(all, tc.Contains, "snap install '/var/lib/juju/snap/jujud.snap'")
+	c.Check(all, tc.Contains, "installed_version=$(snap list 'jujud'")
+	c.Check(all, tc.Contains, `test "$installed_version" = '4.0.1'`)
+
+	// A store install still routes through the snap-based bootstrap handoff
+	// (not the legacy jujuagentd path).
+	c.Check(all, tc.Contains, "snap run jujud.bootstrap-state")
+	c.Check(all, tc.Not(tc.Contains), "jujuagentd bootstrap-state")
+}
+
+func (s *cloudinitSuite) TestCloudInitWithSnapStoreControllerSnapNoVersionAssertion(c *tc.C) {
+	// Without a resolved expected version, the download/ack/install sequence
+	// still runs but no post-install version assertion is emitted.
+	cfg := makeBootstrapConfig(jammy, 0).setControllerSnapStore(42, "")
+
+	all := s.renderedScripts(c, cfg)
+	c.Check(all, tc.Contains, "snap download 'jujud' --revision=42 --basename='jujud'")
+	c.Check(all, tc.Not(tc.Contains), "installed_version=$(")
 }
 
 func (s *cloudinitSuite) TestCloudInitWithNoControllerSnapDoesNotEmitSnapCommands(c *tc.C) {
