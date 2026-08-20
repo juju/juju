@@ -6,6 +6,7 @@ package bootstrap
 import (
 	"context"
 	"crypto/sha3"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -39,8 +40,12 @@ type snapStoreRevision struct {
 	Version string
 	// DownloadURL is where the .snap bytes can be fetched over HTTPS.
 	DownloadURL string
-	// Sha3 is the store-assigned SHA3-384 digest of the .snap file.
+	// Sha3 is the store-assigned SHA3-384 digest of the .snap file, hex
+	// encoded as reported by the store.
 	Sha3 string
+	// SnapID is the store-assigned snap-id of the snap, needed to fetch the
+	// snap-declaration assertion for the assertion chain.
+	SnapID string
 }
 
 // snapStoreClient acquires the controller snap from the snap store over HTTPS,
@@ -70,6 +75,7 @@ func newSnapStoreClient(storeURL string) *snapStoreClient {
 // snapInfoResponse mirrors the subset of the store /v2/snaps/info response
 // that this client consumes.
 type snapInfoResponse struct {
+	SnapID     string                 `json:"snap-id"`
 	ChannelMap []snapInfoChannelEntry `json:"channel-map"`
 }
 
@@ -105,7 +111,7 @@ func (c *snapStoreClient) resolveChannel(ctx context.Context, snapName, arch, ch
 		return snapStoreRevision{}, err
 	}
 
-	for _, e := range entries {
+	for _, e := range entries.ChannelMap {
 		if e.Channel.Architecture != arch {
 			continue
 		}
@@ -120,6 +126,7 @@ func (c *snapStoreClient) resolveChannel(ctx context.Context, snapName, arch, ch
 			Version:     e.Version,
 			DownloadURL: e.Download.URL,
 			Sha3:        e.Download.Sha3,
+			SnapID:      entries.SnapID,
 		}, nil
 	}
 	return snapStoreRevision{}, fmt.Errorf(
@@ -136,7 +143,7 @@ func (c *snapStoreClient) resolveRevision(ctx context.Context, snapName, arch st
 		return snapStoreRevision{}, err
 	}
 
-	for _, e := range entries {
+	for _, e := range entries.ChannelMap {
 		if e.Revision != revision {
 			continue
 		}
@@ -145,6 +152,7 @@ func (c *snapStoreClient) resolveRevision(ctx context.Context, snapName, arch st
 			Version:     e.Version,
 			DownloadURL: e.Download.URL,
 			Sha3:        e.Download.Sha3,
+			SnapID:      entries.SnapID,
 		}, nil
 	}
 	return snapStoreRevision{}, fmt.Errorf(
@@ -155,31 +163,31 @@ func (c *snapStoreClient) resolveRevision(ctx context.Context, snapName, arch st
 
 // fetchInfo returns the channel-map entries for the snap on the given
 // architecture using the store /v2/snaps/info endpoint.
-func (c *snapStoreClient) fetchInfo(ctx context.Context, snapName, arch string) ([]snapInfoChannelEntry, error) {
-	u := fmt.Sprintf("%s/v2/snaps/info/%s?architecture=%s&fields=version,revision,download,channel", c.baseURL, snapName, arch)
+func (c *snapStoreClient) fetchInfo(ctx context.Context, snapName, arch string) (snapInfoResponse, error) {
+	u := fmt.Sprintf("%s/v2/snaps/info/%s?architecture=%s&fields=version,revision,download,channel-map,snap-id", c.baseURL, snapName, arch)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return nil, errors.Annotatef(err, "creating store info request")
+		return snapInfoResponse{}, errors.Annotatef(err, "creating store info request")
 	}
 	req.Header.Set("Snap-Device-Series", snapDeviceSeries)
 	req.Header.Set("User-Agent", "juju")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, errors.Annotatef(err, "querying snap store for %q", snapName)
+		return snapInfoResponse{}, errors.Annotatef(err, "querying snap store for %q", snapName)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return nil, fmt.Errorf("snap store returned %s for %q: %s", resp.Status, snapName, strings.TrimSpace(string(body)))
+		return snapInfoResponse{}, fmt.Errorf("snap store returned %s for %q: %s", resp.Status, snapName, strings.TrimSpace(string(body)))
 	}
 
 	var info snapInfoResponse
 	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
-		return nil, errors.Annotatef(err, "decoding snap store response for %q", snapName)
+		return snapInfoResponse{}, errors.Annotatef(err, "decoding snap store response for %q", snapName)
 	}
-	return info.ChannelMap, nil
+	return info, nil
 }
 
 // download fetches the .snap to the destination path and returns it.
@@ -214,33 +222,107 @@ func (c *snapStoreClient) download(ctx context.Context, destPath, downloadURL st
 	return nil
 }
 
-// fetchAssertion fetches the assembled assertion chain for the given SHA3-384
-// digest and writes it to destPath.
-func (c *snapStoreClient) fetchAssertion(ctx context.Context, destPath, sha string) error {
-	u := fmt.Sprintf("%s/api/v1/snaps/assertions/%s", c.baseURL, sha)
+// fetchAssertion assembles the assertion chain for the downloaded snap and
+// writes it to destPath. The chain mirrors what `snap download` emits:
+// account-key, account, snap-declaration and the snap-revision that covers the
+// exact downloaded bytes. The store keys each assertion by type plus a
+// primary key: snap-revision by the base64url-encoded snap-sha3-384,
+// snap-declaration by series/snap-id, account by account-id and account-key by
+// public-key-sha3-384.
+func (c *snapStoreClient) fetchAssertion(ctx context.Context, destPath, sha, snapID string) error {
+	shaB64, err := hexToBase64URL(sha)
+	if err != nil {
+		return errors.Annotatef(err, "encoding snap digest for assertion lookup")
+	}
+
+	snapRev, err := c.fetchAssertionType(ctx, "snap-revision", shaB64)
+	if err != nil {
+		return errors.Annotatef(err, "fetching snap-revision assertion")
+	}
+
+	snapDecl, err := c.fetchAssertionType(ctx, "snap-declaration", "16/"+snapID)
+	if err != nil {
+		return errors.Annotatef(err, "fetching snap-declaration assertion")
+	}
+	publisherID := assertionHeader(snapDecl, "publisher-id")
+	if publisherID == "" {
+		return errors.Errorf("snap-declaration assertion for %q has no publisher-id", snapID)
+	}
+
+	account, err := c.fetchAssertionType(ctx, "account", publisherID)
+	if err != nil {
+		return errors.Annotatef(err, "fetching account assertion")
+	}
+	signKey := assertionHeader(account, "sign-key-sha3-384")
+	if signKey == "" {
+		return errors.Errorf("account assertion for %q has no sign-key-sha3-384", publisherID)
+	}
+
+	accountKey, err := c.fetchAssertionType(ctx, "account-key", signKey)
+	if err != nil {
+		return errors.Annotatef(err, "fetching account-key assertion")
+	}
+
+	// Match the ordering `snap download` produces.
+	chain := accountKey + "\n" + account + "\n" + snapDecl + "\n" + snapRev
+	return os.WriteFile(destPath, []byte(chain), 0o644)
+}
+
+// fetchAssertionType fetches a single assertion of the given type for the given
+// primary key from the store's /v2/assertions endpoint and returns its raw
+// text.
+func (c *snapStoreClient) fetchAssertionType(ctx context.Context, assertType, key string) (string, error) {
+	u := fmt.Sprintf("%s/v2/assertions/%s/%s", c.baseURL, assertType, key)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return errors.Annotatef(err, "creating assertion request")
+		return "", errors.Annotatef(err, "creating assertion request")
 	}
 	req.Header.Set("Snap-Device-Series", snapDeviceSeries)
 	req.Header.Set("User-Agent", "juju")
+	req.Header.Set("Accept", "application/x.ubuntu.assertion")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return errors.Annotatef(err, "fetching controller snap assertions")
+		return "", errors.Annotatef(err, "fetching %s assertion", assertType)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return fmt.Errorf("snap store returned %s on assertion fetch: %s", resp.Status, strings.TrimSpace(string(body)))
+		return "", fmt.Errorf("snap store returned %s on %s assertion fetch: %s", resp.Status, assertType, strings.TrimSpace(string(body)))
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return errors.Annotatef(err, "reading controller snap assertion")
+		return "", errors.Annotatef(err, "reading %s assertion", assertType)
 	}
-	return os.WriteFile(destPath, body, 0o644)
+	return string(body), nil
+}
+
+// hexToBase64URL re-encodes a hex-encoded SHA3-384 digest as base64url, which
+// is the encoding the store uses for the snap-revision assertion key
+// (snap-sha3-384).
+func hexToBase64URL(shaHex string) (string, error) {
+	raw, err := hex.DecodeString(shaHex)
+	if err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(raw), nil
+}
+
+// assertionHeader returns the value of the named header from a raw assertion,
+// searching only the header block that precedes the first blank line.
+func assertionHeader(raw, key string) string {
+	prefix := key + ": "
+	for _, line := range strings.Split(raw, "\n") {
+		if line == "" {
+			break
+		}
+		if strings.HasPrefix(line, prefix) {
+			return strings.TrimPrefix(line, prefix)
+		}
+	}
+	return ""
 }
 
 // sha384Hex returns the hex-encoded SHA3-384 digest of the file at path.
@@ -291,7 +373,7 @@ func (c *snapStoreClient) acquire(ctx context.Context, dir string, target snapSt
 	}
 
 	assertPath = filepath.Join(dir, ControllerSnapPackageName+".assert")
-	if err := c.fetchAssertion(ctx, assertPath, target.Sha3); err != nil {
+	if err := c.fetchAssertion(ctx, assertPath, target.Sha3, target.SnapID); err != nil {
 		return "", "", err
 	}
 
