@@ -98,8 +98,9 @@ func (s *modelSuite) TestEnsureModelNotAliveCascade(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	modelUUID := s.getModelUUID(c)
+	destroyStorage := true
 
-	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID)
+	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(artifacts.UnitUUIDs), tc.Equals, 1)
 	c.Check(len(artifacts.ApplicationUUIDs), tc.Equals, 1)
@@ -120,8 +121,9 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeRetryReturnsDyingArtifacts(c 
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	modelUUID := s.getModelUUID(c)
+	destroyStorage := true
 
-	firstArtifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID)
+	firstArtifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(firstArtifacts.UnitUUIDs), tc.Equals, 1)
 	c.Check(len(firstArtifacts.ApplicationUUIDs), tc.Equals, 1)
@@ -131,7 +133,7 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeRetryReturnsDyingArtifacts(c 
 	// Simulate retrying (e.g. destroy-model --force) while dependent entity
 	// removal is still in progress. Dying entities must be returned again so
 	// new jobs can be scheduled.
-	secondArtifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID)
+	secondArtifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(secondArtifacts, tc.DeepEquals, firstArtifacts)
 
@@ -147,8 +149,9 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeRetryReturnsDyingRelations(c 
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	modelUUID := s.getModelUUID(c)
+	destroyStorage := true
 
-	firstArtifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID)
+	firstArtifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(firstArtifacts.RelationUUIDs), tc.Equals, 1)
 	c.Check(len(firstArtifacts.ApplicationUUIDs), tc.Equals, 2)
@@ -159,7 +162,7 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeRetryReturnsDyingRelations(c 
 	// Simulate retrying (e.g. destroy-model --force) while dependent entity
 	// removal is still in progress. Dying entities must be returned again so
 	// new jobs can be scheduled.
-	secondArtifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID)
+	secondArtifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(secondArtifacts, tc.DeepEquals, firstArtifacts)
 
@@ -176,7 +179,7 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeEmpty(c *tc.C) {
 
 	modelUUID := s.getModelUUID(c)
 
-	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID)
+	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(artifacts.Empty(), tc.IsTrue)
 }
@@ -186,8 +189,44 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeDetachedStorage(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	modelUUID := s.getModelUUID(c)
+	destroyStorage := true
 
-	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID)
+	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, &destroyStorage)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(artifacts.StorageInstanceUUIDs, tc.DeepEquals, []string{siUUID})
+
+	s.checkModelLife(c, modelUUID, life.Dying)
+	var storageInstanceLife int
+	res := s.DB().QueryRow("SELECT life_id FROM storage_instance WHERE uuid = ?", siUUID)
+	c.Assert(res.Scan(&storageInstanceLife), tc.ErrorIsNil)
+	c.Check(storageInstanceLife, tc.Equals, 1)
+}
+
+func (s *modelSuite) TestEnsureModelNotAliveCascadeRefusesPersistentStorageWhenNil(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	modelUUID := s.getModelUUID(c)
+
+	_, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, nil)
+	c.Assert(err, tc.ErrorIs, removalerrors.PersistentStorage)
+
+	// Verify model and storage instance are still Alive.
+	s.checkModelLife(c, modelUUID, life.Alive)
+	var storageInstanceLife int
+	res := s.DB().QueryRow("SELECT life_id FROM storage_instance WHERE uuid = ?", siUUID)
+	c.Assert(res.Scan(&storageInstanceLife), tc.ErrorIsNil)
+	c.Check(storageInstanceLife, tc.Equals, 0)
+}
+
+func (s *modelSuite) TestEnsureModelNotAliveCascadeProceedsWhenDestroyStorageFalse(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	modelUUID := s.getModelUUID(c)
+
+	destroyStorage := false
+	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(artifacts.StorageInstanceUUIDs, tc.DeepEquals, []string{siUUID})
 
