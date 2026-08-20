@@ -110,43 +110,29 @@ func (s *State) AssertImporting(ctx context.Context, modelUUID string) error {
 	return nil
 }
 
-// ensureImportingState returns nil only while the model_migration_import claim
-// for modelUUID is in the importing phase, run inside a write-group
-// transaction so the phase check and the write it gates commit atomically.
-func (s *State) ensureImportingState(ctx context.Context, tx *sqlair.TX, modelUUID string) error {
-	arg := modelUUIDArg{ModelUUID: modelUUID}
-	var row importPhaseRow
-	stmt, err := s.Prepare(`
-SELECT mmipt.type AS &importPhaseRow.phase_type
-FROM   model_migration_import AS mmi
-JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
-WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid
-`, row, arg)
+// checkImportingState returns nil only while the exact
+// model_migration_import claim is in the importing phase. On the guarded
+// forward path the importTxnRunner already asserts the same condition at Txn
+// entry, so this is an intentional double-assertion (belt-and-braces) there;
+// it is the load-bearing assertion for callers that run on an unguarded
+// runner, where it is the only fence.
+func (s *State) checkImportingState(
+	ctx context.Context, tx *sqlair.TX, modelUUID, claimUUID string,
+) error {
+	stmt, err := s.Prepare(importPhaseQuery, importPhaseRow{}, importClaimKey{})
 	if err != nil {
 		return errors.Capture(err)
 	}
-
-	err = tx.Query(ctx, stmt, arg).Get(&row)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("model %q: %w", modelUUID, modelmigrationerrors.ErrImportNotFound)
-	} else if err != nil {
-		return errors.Errorf("checking import claim phase for model %q: %w", modelUUID, err)
-	}
-	if modelmigration.ImportPhase(row.PhaseType) != modelmigration.ImportPhaseImporting {
-		return errors.Errorf(
-			"model %q import claim is %q: %w", modelUUID, row.PhaseType,
-			modelmigrationerrors.ErrImportNotImporting)
-	}
-	return nil
+	return assertImportingClaim(ctx, tx, stmt, modelUUID, claimUUID)
 }
 
 // ImportOfferPermissions records the offer UUIDs granted permission during
 // this import claim into model_migration_import_offer, atomically with an
 // importing-phase assertion for modelUUID. AbortImport reads this table to
 // delete the corresponding offer-permission rows without a cross-DB query to
-// the model DB, since the offers themselves live there. The caller is
-// expected to have already written the offer permission rows themselves
-// (owned by the access domain).
+// the model DB, since the offers themselves live there. The caller records
+// this cleanup intent before writing the permission rows owned by the access
+// domain.
 func (s *State) ImportOfferPermissions(
 	ctx context.Context, modelUUID, claimUUID string, offerUUIDs []string,
 ) error {
@@ -168,7 +154,7 @@ VALUES ($importOfferArg.migration_uuid, $importOfferArg.offer_uuid)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.ensureImportingState(ctx, tx, modelUUID); err != nil {
+		if err := s.checkImportingState(ctx, tx, modelUUID, claimUUID); err != nil {
 			return errors.Capture(err)
 		}
 		args := make([]importOfferArg, len(offerUUIDs))
@@ -547,7 +533,7 @@ VALUES ($importExternalControllerModelArg.migration_uuid,
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.ensureImportingState(ctx, tx, modelUUID); err != nil {
+		if err := s.checkImportingState(ctx, tx, modelUUID, claimUUID); err != nil {
 			return errors.Capture(err)
 		}
 		var mappings []importExternalControllerModelArg

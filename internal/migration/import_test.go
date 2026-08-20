@@ -131,6 +131,13 @@ func (s *controllerImportSuite) deps(c *tc.C, modelUUID coremodel.UUID) (migrati
 	}, controllerFactory, modelFactory
 }
 
+func (s *controllerImportSuite) rowCount(c *tc.C, query string, args ...any) int {
+	var count int
+	err := s.DB().QueryRowContext(c.Context(), query, args...).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	return count
+}
+
 func (s *controllerImportSuite) baseControllerModelInfo(modelUUID coremodel.UUID) coremodelmigration.ControllerModelInfo {
 	return coremodelmigration.ControllerModelInfo{
 		ModelInfo: coremodelmigration.ModelIdentityInfo{
@@ -284,4 +291,356 @@ func (s *controllerImportSuite) TestImportModelDuplicateClaim(c *tc.C) {
 
 	err = migration.ImportControllerModelInfo(c.Context(), deps, sourceMigrationUUID, info, view)
 	c.Check(err, tc.ErrorIs, coreerrors.AlreadyExists)
+}
+
+// TestRemoveOnAbortImportCleansSuccessfulImport verifies that abort
+// compensation removes all imported controller data and remains idempotent,
+// while shared controller-scoped rows (users, credentials, external
+// controllers, cloud image metadata) survive the abort. The claim and its
+// companion rows remain until the outer abort flow removes the durable claim
+// anchor.
+func (s *controllerImportSuite) TestRemoveOnAbortImportCleansSuccessfulImport(c *tc.C) {
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	deps, controllerFactory, _ := s.deps(c, modelUUID)
+
+	sourceMigrationUUID := uuid.MustNewUUID().String()
+	offerUUID := uuid.MustNewUUID().String()
+	info := s.baseControllerModelInfo(modelUUID)
+	info.Users = []coremodelmigration.ModelUser{
+		{Name: "bob@external", External: true},
+	}
+	info.Permissions = []coremodelmigration.ModelPermission{
+		{ObjectType: "model", GrantOn: modelUUID.String(), SubjectName: "bob@external", Access: "read"},
+		{ObjectType: "offer", GrantOn: offerUUID, SubjectName: "bob@external", Access: "consume"},
+	}
+	info.AuthorizedKeys = []coremodelmigration.ModelAuthorizedKey{
+		{
+			Username:  "bob@external",
+			PublicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC bob@host",
+		},
+	}
+	info.Leaders = []coremodelmigration.ApplicationLeadership{
+		{Application: "myapp", Leader: "myapp/0"},
+	}
+	extControllerUUID := uuid.MustNewUUID().String()
+	info.ModelCredential = &coremodelmigration.ModelCloudCredential{
+		Cloud:      s.cloudName,
+		Owner:      coreuser.AdminUserName.Name(),
+		Name:       "migrated-cred",
+		AuthType:   string(cloud.AccessKeyAuthType),
+		Attributes: map[string]string{"access-key": "val"},
+	}
+	info.ExternalControllers = []coremodelmigration.ExternalController{
+		{
+			UUID:           extControllerUUID,
+			Alias:          "third-party-controller",
+			CACert:         "ca-cert",
+			Addresses:      []string{"10.0.0.1:17070"},
+			ConsumedModels: []string{uuid.MustNewUUID().String()},
+		},
+	}
+	info.CloudImageMetadata = []coremodelmigration.CloudImageMetadata{
+		{Stream: "released", Region: s.cloudName, Version: "22.04", Arch: "amd64", Source: "custom", Priority: 10, ImageID: "ami-1234"},
+	}
+
+	err := migration.ImportControllerModelInfo(
+		c.Context(), deps, sourceMigrationUUID, info,
+		export.ProjectionView{AgentTargetVersion: jujuversion.Current},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	importedRows := []struct {
+		name  string
+		query string
+		args  []any
+	}{
+		{
+			name:  "permissions",
+			query: "SELECT COUNT(*) FROM permission WHERE grant_on IN (?, ?)",
+			args:  []any{modelUUID.String(), offerUUID},
+		},
+		{
+			name:  "authorized keys",
+			query: "SELECT COUNT(*) FROM model_authorized_keys WHERE model_uuid = ?",
+			args:  []any{modelUUID.String()},
+		},
+		{
+			name:  "leadership leases",
+			query: "SELECT COUNT(*) FROM lease WHERE model_uuid = ?",
+			args:  []any{modelUUID.String()},
+		},
+		{
+			name:  "model",
+			query: "SELECT COUNT(*) FROM model WHERE uuid = ?",
+			args:  []any{modelUUID.String()},
+		},
+	}
+	for _, row := range importedRows {
+		want := 1
+		if row.name == "permissions" {
+			// Bootstrap also grants the model owner admin access.
+			want = 3
+		}
+		c.Check(s.rowCount(c, row.query, row.args...), tc.Equals, want,
+			tc.Commentf("%s before abort", row.name))
+	}
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model_migration_import_offer WHERE offer_uuid = ?",
+		offerUUID), tc.Equals, 1)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model_migration_import WHERE model_uuid = ?",
+		modelUUID.String()), tc.Equals, 1)
+
+	// Shared controller-scoped rows written by the import. Users,
+	// credentials, external controllers and cloud image metadata are shared
+	// across models: abort must leave them in place.
+	sharedRows := []struct {
+		name  string
+		query string
+		args  []any
+	}{
+		{
+			name:  "cloud credential",
+			query: "SELECT COUNT(*) FROM cloud_credential WHERE name = ?",
+			args:  []any{"migrated-cred"},
+		},
+		{
+			name:  "external controller",
+			query: "SELECT COUNT(*) FROM external_controller WHERE uuid = ?",
+			args:  []any{extControllerUUID},
+		},
+		{
+			name:  "cloud image metadata",
+			query: "SELECT COUNT(*) FROM cloud_image_metadata WHERE image_id = ?",
+			args:  []any{"ami-1234"},
+		},
+	}
+	for _, row := range sharedRows {
+		c.Check(s.rowCount(c, row.query, row.args...), tc.Equals, 1,
+			tc.Commentf("%s before abort", row.name))
+	}
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model_migration_import_external_controller_model WHERE controller_uuid = ?",
+		extControllerUUID), tc.Equals, 1)
+
+	_, err = s.DB().ExecContext(c.Context(),
+		"UPDATE model_migration_import SET phase_type_id = 2 WHERE model_uuid = ?",
+		modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	accessSvc := accessservice.NewService(
+		accessstate.NewState(controllerFactory, clock.WallClock, loggertesting.WrapCheckLog(c)),
+		clock.WallClock,
+	)
+	bobName := tc.Must1(c, coreuser.NewName, "bob@external")
+
+	args := migration.ImportModelArgs{
+		SourceMigrationUUID: sourceMigrationUUID,
+		ControllerModelInfo: info,
+	}
+	for attempt := 1; attempt <= 2; attempt++ {
+		err = migration.RemoveOnAbortImport(c.Context(), deps, args)
+		c.Assert(err, tc.ErrorIsNil)
+
+		for _, row := range importedRows {
+			c.Check(s.rowCount(c, row.query, row.args...), tc.Equals, 0,
+				tc.Commentf("%s after abort attempt %d", row.name, attempt))
+		}
+		// The outer abort flow owns the durable claim and its companion rows.
+		c.Check(s.rowCount(c,
+			"SELECT COUNT(*) FROM model_migration_import_offer WHERE offer_uuid = ?",
+			offerUUID), tc.Equals, 1)
+		c.Check(s.rowCount(c,
+			"SELECT COUNT(*) FROM model_migration_import WHERE model_uuid = ?",
+			modelUUID.String()), tc.Equals, 1)
+		c.Check(s.rowCount(c,
+			"SELECT COUNT(*) FROM model_migration_import_external_controller_model WHERE controller_uuid = ?",
+			extControllerUUID), tc.Equals, 1)
+
+		// Shared rows survive the abort; bob stays because external users
+		// are controller-level entities.
+		_, err = accessSvc.GetUserByName(c.Context(), bobName)
+		c.Check(err, tc.ErrorIsNil)
+		for _, row := range sharedRows {
+			c.Check(s.rowCount(c, row.query, row.args...), tc.Equals, 1,
+				tc.Commentf("%s after abort attempt %d", row.name, attempt))
+		}
+	}
+
+	claimState := migrationclaimstate.New(controllerFactory, clock.WallClock)
+	err = claimState.DeleteModelImportingStatus(c.Context(), modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model_migration_import_offer WHERE offer_uuid = ?",
+		offerUUID), tc.Equals, 0)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model_migration_import_external_controller_model WHERE controller_uuid = ?",
+		extControllerUUID), tc.Equals, 0)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model_migration_import WHERE model_uuid = ?",
+		modelUUID.String()), tc.Equals, 0)
+
+	// Shared controller-scoped rows survive claim removal as well.
+	_, err = accessSvc.GetUserByName(c.Context(), bobName)
+	c.Check(err, tc.ErrorIsNil)
+	for _, row := range sharedRows {
+		c.Check(s.rowCount(c, row.query, row.args...), tc.Equals, 1,
+			tc.Commentf("%s after claim removal", row.name))
+	}
+}
+
+// TestRemoveOnAbortImportWithoutClaim verifies abort compensation is a safe
+// no-op when nothing was ever imported for the model: no claim, no model row,
+// no companion rows. This is the outer abort flow retrying after the durable
+// claim anchor was already removed.
+func (s *controllerImportSuite) TestRemoveOnAbortImportWithoutClaim(c *tc.C) {
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	deps, _, _ := s.deps(c, modelUUID)
+
+	args := migration.ImportModelArgs{
+		SourceMigrationUUID: uuid.MustNewUUID().String(),
+		ControllerModelInfo: s.baseControllerModelInfo(modelUUID),
+	}
+	for attempt := 1; attempt <= 2; attempt++ {
+		err := migration.RemoveOnAbortImport(c.Context(), deps, args)
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("abort attempt %d", attempt))
+
+		c.Check(s.rowCount(c,
+			"SELECT COUNT(*) FROM model WHERE uuid = ?",
+			modelUUID.String()), tc.Equals, 0)
+		c.Check(s.rowCount(c,
+			"SELECT COUNT(*) FROM model_migration_import WHERE model_uuid = ?",
+			modelUUID.String()), tc.Equals, 0)
+		c.Check(s.rowCount(c,
+			"SELECT COUNT(*) FROM model_authorized_keys WHERE model_uuid = ?",
+			modelUUID.String()), tc.Equals, 0)
+	}
+}
+
+// TestRemoveOnAbortImportAfterEarlyFailure verifies abort compensation when
+// the import failed at its first forward step: the durable claim exists, but
+// the model row and every later write group were never created.
+func (s *controllerImportSuite) TestRemoveOnAbortImportAfterEarlyFailure(c *tc.C) {
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	deps, controllerFactory, _ := s.deps(c, modelUUID)
+
+	sourceMigrationUUID := uuid.MustNewUUID().String()
+	info := s.baseControllerModelInfo(modelUUID)
+	// An invalid username fails import-users, the first forward op, after
+	// the claim was created but before the model row exists.
+	info.Users = []coremodelmigration.ModelUser{
+		{Name: "not-a-valid-user!"},
+	}
+
+	err := migration.ImportControllerModelInfo(
+		c.Context(), deps, sourceMigrationUUID, info,
+		export.ProjectionView{AgentTargetVersion: jujuversion.Current},
+	)
+	c.Assert(err, tc.ErrorMatches, `.*invalid username.*`)
+
+	// The claim exists; the model row was never written.
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model_migration_import WHERE model_uuid = ?",
+		modelUUID.String()), tc.Equals, 1)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model WHERE uuid = ?",
+		modelUUID.String()), tc.Equals, 0)
+
+	_, err = s.DB().ExecContext(c.Context(),
+		"UPDATE model_migration_import SET phase_type_id = 2 WHERE model_uuid = ?",
+		modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	args := migration.ImportModelArgs{
+		SourceMigrationUUID: sourceMigrationUUID,
+		ControllerModelInfo: info,
+	}
+	for attempt := 1; attempt <= 2; attempt++ {
+		err = migration.RemoveOnAbortImport(c.Context(), deps, args)
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("abort attempt %d", attempt))
+
+		c.Check(s.rowCount(c,
+			"SELECT COUNT(*) FROM model WHERE uuid = ?",
+			modelUUID.String()), tc.Equals, 0)
+		// The outer abort flow owns the durable claim anchor.
+		c.Check(s.rowCount(c,
+			"SELECT COUNT(*) FROM model_migration_import WHERE model_uuid = ?",
+			modelUUID.String()), tc.Equals, 1)
+	}
+
+	claimState := migrationclaimstate.New(controllerFactory, clock.WallClock)
+	err = claimState.DeleteModelImportingStatus(c.Context(), modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model_migration_import WHERE model_uuid = ?",
+		modelUUID.String()), tc.Equals, 0)
+}
+
+// TestImportModelRecordsOfferIntentBeforePermissionFailure verifies that offer
+// cleanup metadata is durable before the access domain starts writing
+// permissions. Duplicate offers are recorded once and permissions for inactive
+// users do not create cleanup intent.
+func (s *controllerImportSuite) TestImportModelRecordsOfferIntentBeforePermissionFailure(c *tc.C) {
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	deps, controllerFactory, _ := s.deps(c, modelUUID)
+
+	sourceMigrationUUID := uuid.MustNewUUID().String()
+	activeOfferUUID := uuid.MustNewUUID().String()
+	inactiveOfferUUID := uuid.MustNewUUID().String()
+	info := s.baseControllerModelInfo(modelUUID)
+	info.Users = []coremodelmigration.ModelUser{
+		{Name: "bob@external", External: true},
+		{Name: "alice@external", External: true, Removed: true},
+	}
+	info.Permissions = []coremodelmigration.ModelPermission{
+		{ObjectType: "offer", GrantOn: activeOfferUUID, SubjectName: "bob@external", Access: "consume"},
+		{ObjectType: "offer", GrantOn: activeOfferUUID, SubjectName: "bob@external", Access: "consume"},
+		{ObjectType: "offer", GrantOn: inactiveOfferUUID, SubjectName: "alice@external", Access: "consume"},
+		{ObjectType: "invalid", GrantOn: modelUUID.String(), SubjectName: "bob@external", Access: "read"},
+	}
+
+	err := migration.ImportControllerModelInfo(
+		c.Context(), deps, sourceMigrationUUID, info,
+		export.ProjectionView{AgentTargetVersion: jujuversion.Current},
+	)
+	c.Assert(err, tc.ErrorMatches, `.*unknown permission object type "invalid".*`)
+
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model_migration_import_offer WHERE offer_uuid = ?",
+		activeOfferUUID), tc.Equals, 1)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model_migration_import_offer WHERE offer_uuid = ?",
+		inactiveOfferUUID), tc.Equals, 0)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM permission WHERE grant_on = ?",
+		activeOfferUUID), tc.Equals, 0)
+
+	_, err = s.DB().ExecContext(c.Context(),
+		"UPDATE model_migration_import SET phase_type_id = 2 WHERE model_uuid = ?",
+		modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = migration.RemoveOnAbortImport(c.Context(), deps, migration.ImportModelArgs{
+		SourceMigrationUUID: sourceMigrationUUID,
+		ControllerModelInfo: info,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM permission WHERE grant_on = ?",
+		activeOfferUUID), tc.Equals, 0)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model WHERE uuid = ?",
+		modelUUID.String()), tc.Equals, 0)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model_migration_import_offer WHERE offer_uuid = ?",
+		activeOfferUUID), tc.Equals, 1)
+
+	// Removing the durable claim is the last outer-abort step and consumes the
+	// cleanup intent after compensation has used it.
+	claimState := migrationclaimstate.New(controllerFactory, clock.WallClock)
+	err = claimState.DeleteModelImportingStatus(c.Context(), modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model_migration_import_offer WHERE offer_uuid = ?",
+		activeOfferUUID), tc.Equals, 0)
 }

@@ -24,6 +24,12 @@ type modelUUIDArg struct {
 	ModelUUID string `db:"model_uuid"`
 }
 
+// importClaimKey identifies one exact target-side import attempt.
+type importClaimKey struct {
+	ModelUUID string `db:"model_uuid"`
+	ClaimUUID string `db:"claim_uuid"`
+}
+
 // migrationUUIDArg is a query argument holding a migration uuid (the export
 // migration's primary key, referenced as migration_uuid by child tables).
 type migrationUUIDArg struct {

@@ -258,6 +258,40 @@ func (s *importServiceSuite) TestImportModelPermissionsEmpty(c *tc.C) {
 	c.Check(offerUUIDs, tc.HasLen, 0)
 }
 
+// TestOfferUUIDsForImport verifies the shared offer filter: inactive
+// users and non-offer object types are skipped, duplicates keep
+// first-seen order.
+func (s *importServiceSuite) TestOfferUUIDsForImport(c *tc.C) {
+	offer1 := uuid.MustNewUUID().String()
+	offer2 := uuid.MustNewUUID().String()
+	got := OfferUUIDsForImport([]coremodelmigration.ModelPermission{{
+		SubjectName: "bob",
+		ObjectType:  string(permission.Offer),
+		GrantOn:     offer1,
+	}, {
+		SubjectName: "bob",
+		ObjectType:  string(permission.Offer),
+		GrantOn:     offer1,
+	}, {
+		SubjectName: "alice",
+		ObjectType:  string(permission.Offer),
+		GrantOn:     offer2,
+	}, {
+		SubjectName: "gone",
+		ObjectType:  string(permission.Offer),
+		GrantOn:     uuid.MustNewUUID().String(),
+	}, {
+		SubjectName: "bob",
+		ObjectType:  string(permission.Model),
+		GrantOn:     "model",
+	}, {
+		SubjectName: "bob",
+		ObjectType:  "invalid",
+		GrantOn:     "x",
+	}}, set.NewStrings("gone"))
+	c.Check(got, tc.DeepEquals, []string{offer1, offer2})
+}
+
 // TestImportLastModelLogins verifies last-login times are set for active users
 // who logged in, and skipped for inactive users or those who never logged in.
 func (s *importServiceSuite) TestImportLastModelLogins(c *tc.C) {
