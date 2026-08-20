@@ -57,14 +57,12 @@ func NewImportTxnRunnerFactory(
 	}
 }
 
-// importTxnRunner guards SQLair transactions and deliberately rejects
-// standard-library transactions, which cannot share the SQLair assertion.
+// importTxnRunner fences SQLair transactions to an import claim. StdTxn is
+// promoted from the embedded runner and is not fenced, so callers must use Txn.
+// This limitation lasts until the domain runner interface drops StdTxn.
 type importTxnRunner struct {
-	// NOTE: We intentionally embed TxnRunner because we know for sure that only
-	// Txn (and not StdTxn) will be called against this runner.
-	// If StdTxn were called, it would be problematic because it would not share
-	// the SQLair assertion with Txn, but the domain TxnRunner will soon not
-	// include StdTxn.
+	// TxnRunner supplies Dying and, temporarily, StdTxn. The promoted StdTxn
+	// method bypasses the import fence and must not be used with this runner.
 	coredatabase.TxnRunner
 	stmt      *sqlair.Statement
 	modelUUID string

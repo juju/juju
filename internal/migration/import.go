@@ -29,6 +29,7 @@ import (
 	leaseservice "github.com/juju/juju/domain/lease/service"
 	leasestate "github.com/juju/juju/domain/lease/state"
 	domainmodel "github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelmigrationservice "github.com/juju/juju/domain/model/service/migration"
 	modelstatecontroller "github.com/juju/juju/domain/model/state/controller"
@@ -78,8 +79,10 @@ type ImportModelArgs struct {
 // separate concerns handled outside this package.
 //
 // Each step calls the owning domain's service import method directly. The
-// coordinator constructs the controller-scoped domain services once and
-// orchestrates the call order FK-/dependency-safely.
+// coordinator builds one service bundle with the ordinary controller database
+// for the claim and abort operations, and another with a fenced controller
+// database for the forward operations. It orchestrates the call order
+// FK-/dependency-safely.
 //
 // It writes only controller-database state. Any source→target rewrite of the
 // model-DB payload (e.g. secret backend UUIDs) is read back and applied
@@ -164,8 +167,11 @@ func (c *importCoordinator) Import(ctx context.Context) error {
 	return nil
 }
 
-// RemoveOnAbort runs each op's RemoveOnAbort in reverse registration order,
-// collecting all errors. It is idempotent and safe to call more than once.
+// RemoveOnAbort runs each abort op's RemoveOnAbort in reverse registration
+// order, collecting all errors. The begin op is intentionally excluded: its
+// cleanup is a no-op because the import claim remains the durable anchor until
+// the outer AbortImport flow removes it after compensation. This method is
+// idempotent and safe to call more than once.
 func (c *importCoordinator) RemoveOnAbort(ctx context.Context) error {
 	var errs []error
 	for i := len(c.abortOps) - 1; i >= 0; i-- {
@@ -498,10 +504,15 @@ func (op *opImportAuthorizedKeys) Execute(ctx context.Context, st *importState) 
 	return nil
 }
 
-// RemoveOnAbort deletes all authorized keys stored for the model. The keymanager
-// service already treats this as idempotent.
+// RemoveOnAbort deletes all authorized keys stored for the model. A missing
+// model means an earlier cleanup attempt already removed the model and its key
+// associations, so it is an idempotent success.
 func (op *opImportAuthorizedKeys) RemoveOnAbort(ctx context.Context) error {
-	return op.keymanager.DeleteKeysForModel(ctx)
+	err := op.keymanager.DeleteKeysForModel(ctx)
+	if errors.Is(err, modelerrors.NotFound) {
+		return nil
+	}
+	return errors.Capture(err)
 }
 
 // ----
@@ -615,8 +626,10 @@ func (op *opImportCloudImageMetadata) RemoveOnAbort(_ context.Context) error { r
 // ---- services bundle --------------------------------------------------------
 
 // importServices bundles the controller-scoped domain services the v8 import
-// driver orchestrates. They are constructed once at the start of
-// ImportControllerModelInfo and shared across the import steps.
+// driver orchestrates. The coordinator builds two independent instances: one
+// with the ordinary controller database for the claim and abort operations,
+// and one with the import-guarded controller database for forward operations.
+// Each is constructed once and shared across the steps that use it.
 type importServices struct {
 	claim         *migrationclaimservice.Service
 	access        *accessservice.Service
