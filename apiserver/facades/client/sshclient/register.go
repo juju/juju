@@ -49,6 +49,7 @@ func newFacadeBase(ctx facade.ModelContext) (*Facade, error) {
 		domainServices.Network(),
 		domainServices.Config(),
 		domainServices.ModelProvider(),
+		domainServices.SSH(),
 		ctx.Auth(),
 	)
 }

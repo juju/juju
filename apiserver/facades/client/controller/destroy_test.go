@@ -176,6 +176,7 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 		authorizer,
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
+		domainServices.SSHServerHostKey(),
 		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
 		domainServices.Access(),

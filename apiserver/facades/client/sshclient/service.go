@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 )
@@ -57,4 +58,9 @@ type MachineService interface {
 	GetMachineUUID(ctx context.Context, machineName machine.Name) (machine.UUID, error)
 	// GetSSHHostKeys returns the SSH host keys for the given machine UUID.
 	GetSSHHostKeys(ctx context.Context, mUUID machine.UUID) ([]string, error)
+}
+
+// ModelSSHService resolves the terminating host key for a virtual hostname.
+type ModelSSHService interface {
+	VirtualHostKey(ctx context.Context, info virtualhostname.Info) (string, error)
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/virtualhostname"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	pkissh "github.com/juju/juju/internal/pki/ssh"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -32,6 +33,7 @@ type Facade struct {
 	networkService       NetworkService
 	modelConfigService   ModelConfigService
 	modelProviderService ModelProviderService
+	modelSSHService      ModelSSHService
 	modelTag             names.ModelTag
 	controllerTag        names.ControllerTag
 }
@@ -55,6 +57,7 @@ func internalFacade(
 	networkService NetworkService,
 	modelConfigService ModelConfigService,
 	modelProviderService ModelProviderService,
+	modelSSHService ModelSSHService,
 	auth facade.Authorizer,
 ) (*Facade, error) {
 	if !auth.AuthClient() {
@@ -67,6 +70,7 @@ func internalFacade(
 		modelProviderService: modelProviderService,
 		machineService:       machineService,
 		networkService:       networkService,
+		modelSSHService:      modelSSHService,
 		controllerTag:        controllerTag,
 		modelTag:             modelTag,
 		authorizer:           auth,
@@ -89,6 +93,9 @@ func (facade *Facade) checkIsModelAdmin(ctx context.Context) error {
 // VirtualHostname is not implemented in v4.
 func (f *FacadeV4) VirtualHostname(_, _, _ struct{}) {}
 
+// PublicHostKeyForTarget is not implemented in v4.
+func (f *FacadeV4) PublicHostKeyForTarget(_, _, _ struct{}) {}
+
 // VirtualHostname returns the virtual hostname for the given entity.
 func (facade *Facade) VirtualHostname(ctx context.Context, arg params.VirtualHostnameTargetArg) (params.SSHAddressResult, error) {
 	if err := facade.checkIsModelAdmin(ctx); err != nil {
@@ -103,6 +110,39 @@ func (facade *Facade) VirtualHostname(ctx context.Context, arg params.VirtualHos
 	}
 	return params.SSHAddressResult{
 		Address: virtualHostname,
+	}, nil
+}
+
+// PublicHostKeyForTarget returns the public SSH host key for the terminating
+// target identified by the supplied virtual hostname.
+func (facade *Facade) PublicHostKeyForTarget(ctx context.Context, arg params.SSHVirtualHostKeyRequestArg) (params.PublicSSHHostKeyResult, error) {
+	if err := facade.checkIsModelAdmin(ctx); err != nil {
+		return params.PublicSSHHostKeyResult{}, errors.Trace(err)
+	}
+
+	info, err := virtualhostname.Parse(arg.Hostname)
+	if err != nil {
+		return params.PublicSSHHostKeyResult{
+			Error: apiservererrors.ServerError(err),
+		}, nil
+	}
+
+	// The service returns the private key; derive the public key for the client.
+	privateHostKey, err := facade.modelSSHService.VirtualHostKey(ctx, info)
+	if err != nil {
+		return params.PublicSSHHostKeyResult{
+			Error: apiservererrors.ServerError(err),
+		}, nil
+	}
+	publicHostKey, err := pkissh.MarshalPublicKey([]byte(privateHostKey))
+	if err != nil {
+		return params.PublicSSHHostKeyResult{
+			Error: apiservererrors.ServerError(err),
+		}, nil
+	}
+
+	return params.PublicSSHHostKeyResult{
+		PublicKey: publicHostKey,
 	}, nil
 }
 

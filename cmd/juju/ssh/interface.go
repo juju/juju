@@ -65,4 +65,5 @@ type SSHClientAPI interface {
 // SSHControllerAPI defines controller related APIs.
 type SSHControllerAPI interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+	SSHServerHostKey(context.Context) ([]byte, error)
 }

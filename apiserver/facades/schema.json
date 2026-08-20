@@ -7902,7 +7902,7 @@
     {
         "Name": "Controller",
         "Description": "",
-        "Version": 14,
+        "Version": 15,
         "Schema": {
             "type": "object",
             "properties": {
@@ -8057,6 +8057,14 @@
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/RemoveBlocksArgs"
+                        }
+                    }
+                },
+                "SSHServerHostKey": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/SSHControllerPublicKeyResult"
                         }
                     }
                 },
@@ -8905,6 +8913,24 @@
                     "additionalProperties": false,
                     "required": [
                         "all"
+                    ]
+                },
+                "SSHControllerPublicKeyResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "public-key": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "public-key"
                     ]
                 },
                 "StringResult": {
@@ -12599,6 +12625,17 @@
                         }
                     }
                 },
+                "PublicHostKeyForTarget": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SSHVirtualHostKeyRequestArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/PublicSSHHostKeyResult"
+                        }
+                    }
+                },
                 "PublicKeys": {
                     "type": "object",
                     "properties": {
@@ -12756,6 +12793,24 @@
                         "code"
                     ]
                 },
+                "PublicSSHHostKeyResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "public-key": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "public-key"
+                    ]
+                },
                 "SSHAddressResult": {
                     "type": "object",
                     "properties": {
@@ -12856,6 +12911,18 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "SSHVirtualHostKeyRequestArg": {
+                    "type": "object",
+                    "properties": {
+                        "hostname": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "hostname"
                     ]
                 },
                 "VirtualHostnameTargetArg": {
