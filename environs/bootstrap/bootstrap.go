@@ -209,11 +209,6 @@ type BootstrapParams struct {
 	// the default <major>.<minor>/edge channel.
 	ControllerSnapStoreMode bool
 
-	// ControllerSnapResolvedChannel is the effective channel used for
-	// controller snapstore bootstrap. Populated by channel resolution when
-	// no local path or revision is supplied.
-	ControllerSnapResolvedChannel string
-
 	// ControllerSnapExpectedVersion is the exact Juju version expected from
 	// the controller snap after a store install.
 	ControllerSnapExpectedVersion string
@@ -505,7 +500,6 @@ func bootstrapIAAS(
 		}
 		if args.ControllerSnapStoreMode || !channel.Empty() || revision != 0 {
 			resolvedChannel := resolveSnapChannel(channel)
-			args.ControllerSnapResolvedChannel = resolvedChannel
 			dir, err := os.MkdirTemp("", "jujud-acquire-")
 			if err != nil {
 				return errors.Annotate(err, "creating temp dir for controller snap acquisition")
@@ -919,7 +913,6 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.Timeout = args.DialOpts.Timeout
 	icfg.Bootstrap.ControllerCharm = args.ControllerCharmPath
 	icfg.Bootstrap.ControllerCharmChannel = args.ControllerCharmChannel
-	icfg.Bootstrap.ControllerSnapChannel = args.ControllerSnapResolvedChannel
 	icfg.Bootstrap.ControllerSnapExpectedVersion = args.ControllerSnapExpectedVersion
 	return nil
 }
