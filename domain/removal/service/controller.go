@@ -216,7 +216,7 @@ func (s *Service) processControllerModelJob(ctx context.Context, job removal.Job
 	// another removal job, otherwise we could end up in a non-deterministic
 	// loop.
 
-	removalUUID, err := s.removeModel(ctx, model.UUID(job.EntityUUID), job.Force, job.ScheduledFor.Sub(s.clock.Now().UTC()))
+	removalUUID, err := s.removeModel(ctx, model.UUID(job.EntityUUID), job.Force, job.ScheduledFor.Sub(s.clock.Now().UTC()), true)
 	if errors.Is(err, modelerrors.NotFound) {
 		return errors.Errorf("controller model %q does not exist, removal job %q complete", job.EntityUUID, job.UUID).
 			Add(removalerrors.RemovalModelRemoved)

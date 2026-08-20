@@ -107,7 +107,7 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 			return apiservererrors.ServerError(err)
 		}
 
-		if _, err := removalService.RemoveModel(ctx, modelUUID, force, maxWait); err != nil && !errors.Is(err, modelerrors.NotFound) {
+		if _, err := removalService.RemoveModel(ctx, modelUUID, force, maxWait, true); err != nil && !errors.Is(err, modelerrors.NotFound) {
 			c.logger.Warningf(ctx, "failed removing model %q: %v", modelUUID, err)
 			return apiservererrors.ServerError(err)
 		}

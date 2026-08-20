@@ -21,6 +21,8 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -80,12 +82,15 @@ type ModelState interface {
 // The input wait duration is the time that we will give for the normal
 // life-cycle advancement and removal to finish before forcefully removing the
 // model. This duration is ignored if the force argument is false.
+// The destroyStorage boolean controls whether storage instances in the model
+// are scheduled for removal.
 // The UUID for the scheduled removal job is returned.
 func (s *Service) RemoveModel(
 	ctx context.Context,
 	modelUUID model.UUID,
 	force bool,
 	wait time.Duration,
+	destroyStorage bool,
 ) (removal.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -98,7 +103,7 @@ func (s *Service) RemoveModel(
 		)
 	}
 
-	return s.removeModel(ctx, modelUUID, force, wait)
+	return s.removeModel(ctx, modelUUID, force, wait, destroyStorage)
 }
 
 // RemoveMigratingModel removes a model that is currently importing/migrating.
@@ -138,6 +143,7 @@ func (s *Service) removeModel(
 	modelUUID model.UUID,
 	force bool,
 	wait time.Duration,
+	destroyStorage bool,
 ) (removal.UUID, error) {
 	// We have to perform the following steps in the following order, to ensure
 	// that we can be reentrant during the removal process:
@@ -152,8 +158,8 @@ func (s *Service) removeModel(
 	// 4. Ensure the model is not alive in the model database and return any
 	//    non-dead artifacts that should have removal jobs.
 	// 5. Schedule the model removal job in the model database.
-	// 6. If there are any relations, units, machines or applications that
-	//    are not dead, schedule their removal as well.
+	// 6. If there are any relations, units, machines, applications or storage
+	//    instances that are not dead, schedule their removal as well.
 
 	controllerModelExists, err := s.controllerState.ModelExists(ctx, modelUUID.String())
 	if err != nil {
@@ -221,9 +227,6 @@ func (s *Service) removeModel(
 		s.removeRelations(ctx, artifacts.RelationUUIDs, force, wait)
 	}
 
-	// We always destroy storage instances with the model.
-	const destroyStorage = true
-
 	if len(artifacts.UnitUUIDs) > 0 {
 		// If there are any units that are not dead, we need to schedule their
 		// removal as well.
@@ -246,6 +249,15 @@ func (s *Service) removeModel(
 		s.logger.Infof(ctx, "model has applications %v, scheduling removal", artifacts.ApplicationUUIDs)
 
 		s.removeApplications(ctx, artifacts.ApplicationUUIDs, destroyStorage, force, wait)
+	}
+
+	if len(artifacts.StorageInstanceUUIDs) > 0 {
+		if destroyStorage {
+			s.logger.Infof(ctx, "model has storage instances %v, scheduling removal", artifacts.StorageInstanceUUIDs)
+			s.removeStorageInstances(ctx, artifacts.StorageInstanceUUIDs, force, wait)
+		} else {
+			s.logger.Infof(ctx, "model has %d storage instance(s), not scheduling removal as destroy-storage was not specified", len(artifacts.StorageInstanceUUIDs))
+		}
 	}
 
 	return modelJobUUID, nil
@@ -521,6 +533,26 @@ func (s *Service) removeApplications(
 			continue
 		} else if err == nil {
 			continue
+		}
+	}
+}
+
+func (s *Service) removeStorageInstances(
+	ctx context.Context, uuids []string, force bool, wait time.Duration,
+) {
+	for _, storageInstanceUUID := range uuids {
+		if err := s.RemoveStorageInstance(
+			ctx, storage.StorageInstanceUUID(storageInstanceUUID), force, wait, true,
+		); errors.Is(err, storageerrors.StorageInstanceNotFound) {
+			// There could be a chance that the storage instance has already
+			// been removed by another process. We can safely ignore this error
+			// and continue with the next storage instance.
+			continue
+		} else if err != nil {
+			// If the storage instance fails to be scheduled for removal, we log
+			// out the error. The storage instances are already transitioned to
+			// dying and there is no way to transition them back to alive.
+			s.logger.Errorf(ctx, "scheduling removal of storage instance %q: %v", storageInstanceUUID, err)
 		}
 	}
 }

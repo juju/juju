@@ -829,7 +829,7 @@ func (m *ModelManagerAPI) DestroyModels(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		_, err = modelDomainServices.Removal().RemoveModel(ctx, mUUID, argForce, argMaxWait)
+		_, err = modelDomainServices.Removal().RemoveModel(ctx, mUUID, argForce, argMaxWait, true)
 		if err != nil && !errors.Is(err, modelerrors.NotFound) {
 			return errors.Annotatef(err, "removing model %q", modelUUID)
 		}
