@@ -139,6 +139,37 @@ func (b *buildSuite) TestArchiveAndSHA256(c *tc.C) {
 	c.Assert(err, tc.Equals, io.EOF)
 }
 
+func (b *buildSuite) TestArchiveDeterministic(c *tc.C) {
+	// The same content bundled at different times (different file mtimes)
+	// must produce byte-identical archives, so two controllers bootstrapped
+	// from the same tree agree on the agent binary hash.
+	write := func() string {
+		dir := c.MkDir()
+		err := os.WriteFile(filepath.Join(dir, "jujuagentd"), []byte("binary"), 0755)
+		c.Assert(err, tc.ErrorIsNil)
+		return dir
+	}
+
+	now := time.Now()
+	old := now.Add(-time.Hour)
+
+	dir1 := write()
+	err := os.Chtimes(dir1+"/jujuagentd", old, old)
+	c.Assert(err, tc.ErrorIsNil)
+	var buf1 bytes.Buffer
+	err = tools.Archive(&buf1, dir1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	dir2 := write()
+	err = os.Chtimes(dir2+"/jujuagentd", now, now)
+	c.Assert(err, tc.ErrorIsNil)
+	var buf2 bytes.Buffer
+	err = tools.Archive(&buf2, dir2)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(buf1.Bytes(), tc.DeepEquals, buf2.Bytes())
+}
+
 func (b *buildSuite) TestGetVersionFromJujud(c *tc.C) {
 	ver := semversion.Binary{
 		Number: semversion.Number{
