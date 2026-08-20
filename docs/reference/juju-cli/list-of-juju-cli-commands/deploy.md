@@ -26,7 +26,7 @@ Deploys a new application or bundle.
 | `-n`, `--num-units` | 1 | Number of application units to deploy for principal charms |
 | `--overlay` |  | Bundles to overlay on the primary bundle, applied in order |
 | `--resource` |  | Resource to be uploaded to the controller |
-| `--revision` | -1 | The revision to deploy |
+| `--revision` | -1 | The charm revision to deploy. This will implicitly change the resource revision to the one released with the specified charm revision. To override that use --resource |
 | `--storage` |  | Charm storage directives |
 | `--to` |  | (Machine models only) Specify a comma-separated list of placement directives. If the length of this list is less than `-n`, the remaining units will be added in the default way (i.e., to new machines). |
 | `--trust` | false | Allows charm to run hooks that require access credentials |

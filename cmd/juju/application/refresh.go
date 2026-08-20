@@ -342,7 +342,7 @@ func (c *refreshCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.SwitchURL, "switch", "", "Crossgrade to a different charm")
 	f.StringVar(&c.CharmPath, "path", "", "Refresh to a charm located at path")
 	f.StringVar(&c.Base, "base", "", "Specifies the base to match when picking the charm.")
-	f.IntVar(&c.Revision, "revision", -1, "Explicit revision of current charm")
+	f.IntVar(&c.Revision, "revision", -1, "Explicit revision of current charm. This will implicitly change the resource revision to the one released with the specified charm revision. To override that use --resource")
 	f.Var(stringMap{mapping: &c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.Var(storageFlag{stores: &c.Storage, bundleStores: nil}, "storage", "Charm storage directives")
 	f.Var(&c.ConfigOptions, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
@@ -509,6 +509,10 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+	}
+
+	if c.Revision > 0 {
+		ctx.Infof("Refreshing to charm revision %d - resources released alongside this revision will be used, unless overridden with --resource", c.Revision)
 	}
 
 	cfg := refresher.RefresherConfig{
