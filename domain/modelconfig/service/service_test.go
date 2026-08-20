@@ -369,6 +369,11 @@ func (s *serviceSuite) TestSetModelConfigDropsAuthorizedKeys(c *tc.C) {
 	// authorized-keys is not stored in the model config.
 	_, ok := persisted[config.AuthorizedKeysKey]
 	c.Check(ok, tc.IsFalse)
+
+	// the other supplied attributes are still persisted.
+	c.Check(persisted[config.NameKey], tc.Equals, "wallyworld")
+	c.Check(persisted[config.UUIDKey], tc.Equals, "a677bdfd-3c96-46b2-912f-38e25faceaf7")
+	c.Check(persisted[config.TypeKey], tc.Equals, "sometype")
 }
 
 // TestModelConfigWithEmptyCloudType checks that ModelConfig handles the case
