@@ -132,7 +132,6 @@ parts:
     override-build: |
       set -ex
 
-      cd "${CRAFT_PROJECT_DIR}"
       export GOTOOLCHAIN=go1.26.0+auto
       export GOBIN="${CRAFT_PART_INSTALL}/bin"
       export CGO_ENABLED=1
@@ -140,6 +139,7 @@ parts:
       export CGO_LDFLAGS="-L${CRAFT_STAGE}/lib/ -L${CRAFT_STAGE}/usr/local/lib/"
       export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
       export GO_LDFLAGS="-s -w -X github.com/juju/juju/core/version.GitCommit= -X github.com/juju/juju/core/version.GitTreeState= -X github.com/juju/juju/core/version.Grade= -X github.com/juju/juju/core/version.build= -X github.com/juju/juju/internal/cloudconfig/podcfg.JujudOCINamespace="
+      go mod download
       go install -tags libsqlite3,dqlite -ldflags "${GO_LDFLAGS}" github.com/juju/juju/cmd/jujud
       ln -s jujud "${CRAFT_PART_INSTALL}/bin/juju-introspect"
       mkdir -p "${CRAFT_PART_INSTALL}/wrappers"
