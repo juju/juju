@@ -98,17 +98,7 @@ func AbortModelImport(ctx context.Context, deps Deps, claim *migrationclaimservi
 		return errors.Errorf("reading import claim for model %q: %w", modelUUID, err)
 	}
 
-	// The model is dying, so the generic removal undertaker already owns its
-	// teardown (a v7/legacy abort marks the model dead and takes the claim's
-	// abort lock). Re-driving v8 compensation over it would race the
-	// undertaker's own DeleteModel/DeleteDB, so leave it alone. A v8 abort
-	// never marks the model dead, so this only fires for the legacy path.
-	if dying, err := claim.IsModelDying(ctx, modelUUID); err != nil {
-		return errors.Errorf("checking model life for %q: %w", modelUUID, err)
-	} else if dying {
-		return nil
-	}
-
+	rerun := false
 	switch c.Phase {
 	case modelmigration.ImportPhaseActivating:
 		// Not a programming error, and not a race: Activate takes the claim past
@@ -127,12 +117,26 @@ func AbortModelImport(ctx context.Context, deps Deps, claim *migrationclaimservi
 				"transitioning import claim to aborting for model %q: %w", modelUUID, err)
 		}
 	case modelmigration.ImportPhaseAborting:
-		// A previous abort was interrupted before it finalized the claim (or the
-		// reconciler is retrying one); re-drive the idempotent compensation below.
-		deps.Logger.Debugf(ctx,
-			"model %q import claim is already aborting; re-driving abort compensation", modelUUID)
+		rerun = true
 	default:
 		return errors.Errorf("model %q: unexpected import claim phase %q", modelUUID, c.Phase)
+	}
+
+	// Check model life after taking or observing the claim's abort lock. This
+	// catches a legacy abort that won between the initial claim read and the
+	// phase transition. A legacy abort can still begin after this check, but
+	// both cleanup paths are idempotent and converge on the same deletion.
+	if dying, err := claim.IsModelDying(ctx, modelUUID); err != nil {
+		return errors.Errorf("checking model life for %q: %w", modelUUID, err)
+	} else if dying {
+		return nil
+	}
+
+	if rerun {
+		// A previous abort was interrupted before it finalized the claim (or the
+		// reconciler is retrying one); re-run the idempotent compensation below.
+		deps.Logger.Debugf(ctx,
+			"model %q import claim is already aborting; re-driving abort compensation", modelUUID)
 	}
 
 	// Undo the controller-database import writes in reverse order. This is
@@ -149,7 +153,7 @@ func AbortModelImport(ctx context.Context, deps Deps, claim *migrationclaimservi
 
 	// Stage the model database for deletion by the undertaker's model-database
 	// deleter (running on every controller node, so this works from any node).
-	// Staging removes the namespace registration, so a re-drive after the drop
+	// Staging removes the namespace registration, so a re-run after the drop
 	// completes sees no registration and skips this; it is idempotent regardless.
 	// A claim that was concurrently finalized reports ErrImportNotFound, which is
 	// success here.

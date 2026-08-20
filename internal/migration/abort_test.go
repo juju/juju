@@ -210,6 +210,37 @@ func (s *controllerImportSuite) TestAbortModelImportStandsAsideForLegacyRemoval(
 		"SELECT COUNT(*) FROM model_database_deletion WHERE namespace = ?", modelUUID.String()), tc.Equals, 0)
 }
 
+// TestAbortModelImportChecksLifeAfterTransition verifies model life is checked
+// after transitioning the claim to aborting.
+func (s *controllerImportSuite) TestAbortModelImportChecksLifeAfterTransition(c *tc.C) {
+	modelUUID, _, deps := s.importWithContent(c)
+
+	// Simulate legacy removal marking the model dead in the window where the v8
+	// abort takes the claim's abort lock. A check made before the transition
+	// would miss this update and incorrectly start v8 compensation.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+CREATE TRIGGER mark_model_dead_after_abort_lock
+AFTER UPDATE OF phase_type_id ON model_migration_import
+BEGIN
+    UPDATE model SET life_id = 2 WHERE uuid = NEW.model_uuid;
+END`)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Legacy removal owns teardown, so v8 compensation and staging did not run.
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model WHERE uuid = ?", modelUUID.String()), tc.Equals, 1)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM namespace_list WHERE namespace = ?", modelUUID.String()), tc.Equals, 1)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model_database_deletion WHERE namespace = ?", modelUUID.String()), tc.Equals, 0)
+}
+
 // shortWait is a tiny finalize-wait budget for the synchronous-finalize tests,
 // polling on the real wall clock so no background clock-advancing goroutine is
 // needed against the live dqlite transactions.

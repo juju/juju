@@ -144,13 +144,20 @@ func (i *ModelImporter) CommitActivation(
 // [github.com/juju/juju/domain/modelmigration/errors.ErrAbortActivating] when
 // activation has already crossed the point of no return.
 func (i *ModelImporter) AbortModel(ctx context.Context, modelUUID coremodel.UUID) error {
+	if i.controllerServices == nil {
+		return internalerrors.New("controller services not configured")
+	}
+	claim := i.controllerServices.ModelMigrationImport()
+	if claim == nil {
+		return internalerrors.New("model migration import service not configured")
+	}
+
 	scope := i.scope(modelUUID)
 	deps := Deps{
 		ControllerDB: scope.ControllerDB(),
 		Clock:        i.clock,
 		Logger:       i.logger,
 	}
-	claim := i.controllerServices.ModelMigrationImport()
 	if err := AbortModelImport(ctx, deps, &claim.Service, modelUUID); err != nil {
 		return err
 	}

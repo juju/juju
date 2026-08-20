@@ -65,6 +65,18 @@ func (s *ImportSuite) TestBadBytes(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "yaml: unmarshal errors:\n.*")
 }
 
+func (s *ImportSuite) TestAbortModelWithoutControllerServices(c *tc.C) {
+	importer := migration.NewModelImporter(
+		nil, nil, nil,
+		"controller-uuid",
+		loggertesting.WrapCheckLog(c),
+		clock.WallClock,
+	)
+
+	err := importer.AbortModel(c.Context(), model.UUID("model-uuid"))
+	c.Assert(err, tc.ErrorMatches, "controller services not configured")
+}
+
 const modelYaml = `
 cloud: dev
 config:
