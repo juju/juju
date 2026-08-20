@@ -87,14 +87,14 @@ run_enable_ha() {
 
 	juju switch enable-ha
 	controller_1=$(juju status -m controller --format json | yq -r '.applications.controller.units["controller/1"].machine')
-	juju remove-machine -m controller "${controller_1}" --force
+	juju remove-machine -m controller "${controller_1}" --force --no-prompt
 	controller_2=$(juju status -m controller --format json | yq -r '.applications.controller.units["controller/2"].machine')
-	juju remove-machine -m controller "${controller_2}" --force
+	juju remove-machine -m controller "${controller_2}" --force --no-prompt
 
 	wait_for_controller_no_leader
 	wait_for_controller_leader
 
-	# Ensure that we have no ha enabled machines.
+	# Ensure that we have no ha enabled machines (this might not be working as intended).
 	juju show-controller --format=json | yq -r '.[] | .["controller-machines"] | (.[] | select(.["instance-id"] == null)) as $i ireduce (0; . + 1)' | grep 0
 
 	destroy_model "enable-ha"
