@@ -17,6 +17,7 @@ test_model() {
 	# Tests that need to be run are added here.
 	test_model_config
 	test_model_migration
+	test_model_migration_abort
 	test_model_migration_version
 	test_model_migration_saas_common
 	test_model_migration_saas_external
