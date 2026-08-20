@@ -1344,7 +1344,7 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		c.broker.newWatcher,
 		c.broker.clock,
 		c.broker.controllerUUID,
-		enableServiceLinks,
+		func() bool { return enableServiceLinks },
 	)
 
 	defaultBase := version.DefaultSupportedLTSBase()

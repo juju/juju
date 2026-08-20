@@ -46,7 +46,7 @@ func NewApplicationForTest(
 	return newApplication(
 		name, namespace, modelUUID, modelName, labelVersion, deploymentType,
 		client, extendedClient, dynamicClient, newWatcher, clock, newApplier,
-		controllerUUID, true,
+		controllerUUID, func() bool { return true },
 	)
 }
 
@@ -69,6 +69,6 @@ func NewApplicationForTestWithServiceLinks(
 	return newApplication(
 		name, namespace, modelUUID, modelName, labelVersion, deploymentType,
 		client, extendedClient, dynamicClient, newWatcher, clock, newApplier,
-		controllerUUID, enableServiceLinks,
+		controllerUUID, func() bool { return enableServiceLinks },
 	)
 }

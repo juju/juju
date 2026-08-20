@@ -109,9 +109,11 @@ type app struct {
 	newApplier     func() resources.Applier
 	controllerUUID string
 
-	// enableServiceLinks controls whether the Kubernetes service link
+	// enableServiceLinksFunc returns whether the Kubernetes service link
 	// environment variables are injected into this application's workload pods.
-	enableServiceLinks bool
+	// It is evaluated at pod-spec generation time so that model config changes
+	// are reflected without reconstructing the application.
+	enableServiceLinksFunc func() bool
 
 	pvcNamePrefixRegexGetter func() (*regexp.Regexp, error)
 }
@@ -143,7 +145,7 @@ func NewApplication(
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
 	controllerUUID string,
-	enableServiceLinks bool,
+	enableServiceLinksFunc func() bool,
 ) caas.Application {
 	return newApplication(
 		name,
@@ -159,7 +161,7 @@ func NewApplication(
 		clock,
 		resources.NewApplier,
 		controllerUUID,
-		enableServiceLinks,
+		enableServiceLinksFunc,
 	)
 }
 
@@ -177,23 +179,23 @@ func newApplication(
 	clock clock.Clock,
 	newApplier func() resources.Applier,
 	controllerUUID string,
-	enableServiceLinks bool,
+	enableServiceLinksFunc func() bool,
 ) *app {
 	return &app{
-		name:               name,
-		namespace:          namespace,
-		modelUUID:          modelUUID,
-		modelName:          modelName,
-		labelVersion:       labelVersion,
-		deploymentType:     deploymentType,
-		client:             client,
-		extendedClient:     extendedClient,
-		dynamicClient:      dynamicClient,
-		newWatcher:         newWatcher,
-		clock:              clock,
-		newApplier:         newApplier,
-		controllerUUID:     controllerUUID,
-		enableServiceLinks: enableServiceLinks,
+		name:                   name,
+		namespace:              namespace,
+		modelUUID:              modelUUID,
+		modelName:              modelName,
+		labelVersion:           labelVersion,
+		deploymentType:         deploymentType,
+		client:                 client,
+		extendedClient:         extendedClient,
+		dynamicClient:          dynamicClient,
+		newWatcher:             newWatcher,
+		clock:                  clock,
+		newApplier:             newApplier,
+		controllerUUID:         controllerUUID,
+		enableServiceLinksFunc: enableServiceLinksFunc,
 		pvcNamePrefixRegexGetter: sync.OnceValues(func() (*regexp.Regexp, error) {
 			return regexp.Compile(`^(.+)-` + regexp.QuoteMeta(name) + `-\d+$`)
 		}),
@@ -2106,7 +2108,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		TerminationGracePeriodSeconds: pointer.Int64(30),
 		InitContainers:                []corev1.Container{charmInitContainer},
 		Containers:                    containerSpecs,
-		EnableServiceLinks:            pointer.Bool(a.enableServiceLinks),
+		EnableServiceLinks:            pointer.Bool(a.enableServiceLinksFunc()),
 		Volumes: []corev1.Volume{
 			{
 				Name: constants.CharmVolumeName,
