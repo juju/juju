@@ -5,15 +5,10 @@ package bootstrap
 
 import (
 	"context"
-	"crypto/sha3"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -22,8 +17,9 @@ import (
 
 const (
 	// defaultSnapStoreBaseURL is the snap store the client talks to unless
-	// --controller-snap-store-url overrides it. The store base URL covers both
-	// channel/revision resolution and the .snap download.
+	// --controller-snap-store-url overrides it. The store base URL covers
+	// channel/revision resolution; the snap itself is downloaded by the
+	// machine's snapd during provisioning.
 	defaultSnapStoreBaseURL = "https://api.snapcraft.io"
 
 	// snapDeviceSeries is the device series header the store demands on its
@@ -31,29 +27,20 @@ const (
 	snapDeviceSeries = "16"
 )
 
-// snapStoreRevision is the resolved download target for a channel or pinned
-// revision of the controller snap for one architecture.
+// snapStoreRevision is the store release the client resolved for a channel or
+// pinned revision of the controller snap for one architecture. The client only
+// reads metadata (version and revision); it never downloads the snap itself.
 type snapStoreRevision struct {
 	// Revision is the store-assigned revision of the snap.
 	Revision int
 	// Version is the snap's version: string as reported by the store.
 	Version string
-	// DownloadURL is where the .snap bytes can be fetched over HTTPS.
-	DownloadURL string
-	// Sha3 is the store-assigned SHA3-384 digest of the .snap file, hex
-	// encoded as reported by the store.
-	Sha3 string
-	// SnapID is the store-assigned snap-id of the snap, needed to fetch the
-	// snap-declaration assertion for the assertion chain.
-	SnapID string
 }
 
-// snapStoreClient acquires the controller snap from the snap store over HTTPS,
-// replacing the machine-side `snap download`. The client resolves a channel or
-// pinned revision for the bootstrap architecture, downloads the exact .snap,
-// verifies the assembled assertion against its digest, and assembles a .assert
-// valid for `snap ack` then `snap install` without --dangerous. The machine
-// never contacts the store.
+// snapStoreClient resolves the controller snap's version and revision from the
+// snap store over HTTPS. The client resolves a channel or pinned revision for
+// the bootstrap architecture and returns the resolved version and revision; the
+// machine downloads that exact revision itself during provisioning.
 type snapStoreClient struct {
 	baseURL    string
 	httpClient *http.Client
@@ -75,15 +62,13 @@ func newSnapStoreClient(storeURL string) *snapStoreClient {
 // snapInfoResponse mirrors the subset of the store /v2/snaps/info response
 // that this client consumes.
 type snapInfoResponse struct {
-	SnapID     string                 `json:"snap-id"`
 	ChannelMap []snapInfoChannelEntry `json:"channel-map"`
 }
 
 type snapInfoChannelEntry struct {
-	Channel  snapInfoChannel  `json:"channel"`
-	Revision int              `json:"revision"`
-	Version  string           `json:"version"`
-	Download snapInfoDownload `json:"download"`
+	Channel  snapInfoChannel `json:"channel"`
+	Revision int             `json:"revision"`
+	Version  string          `json:"version"`
 }
 
 type snapInfoChannel struct {
@@ -92,13 +77,8 @@ type snapInfoChannel struct {
 	Architecture string `json:"architecture"`
 }
 
-type snapInfoDownload struct {
-	URL  string `json:"url"`
-	Sha3 string `json:"sha3-384"`
-}
-
-// resolveChannel resolves a channel (e.g. "4.2/edge") to a download target for
-// the given architecture. channel is already in track/risk form.
+// resolveChannel resolves a channel (e.g. "4.2/edge") to a version and
+// revision for the given architecture. channel is already in track/risk form.
 func (c *snapStoreClient) resolveChannel(ctx context.Context, snapName, arch, channel string) (snapStoreRevision, error) {
 	split := strings.SplitN(channel, "/", 2)
 	track, risk := split[0], ""
@@ -122,11 +102,8 @@ func (c *snapStoreClient) resolveChannel(ctx context.Context, snapName, arch, ch
 			continue
 		}
 		return snapStoreRevision{
-			Revision:    e.Revision,
-			Version:     e.Version,
-			DownloadURL: e.Download.URL,
-			Sha3:        e.Download.Sha3,
-			SnapID:      entries.SnapID,
+			Revision: e.Revision,
+			Version:  e.Version,
 		}, nil
 	}
 	return snapStoreRevision{}, fmt.Errorf(
@@ -135,8 +112,8 @@ func (c *snapStoreClient) resolveChannel(ctx context.Context, snapName, arch, ch
 	)
 }
 
-// resolveRevision resolves a pinned store revision to a download target for
-// the given architecture.
+// resolveRevision resolves a pinned store revision to its version for the
+// given architecture.
 func (c *snapStoreClient) resolveRevision(ctx context.Context, snapName, arch string, revision int) (snapStoreRevision, error) {
 	entries, err := c.fetchInfo(ctx, snapName, arch)
 	if err != nil {
@@ -151,11 +128,8 @@ func (c *snapStoreClient) resolveRevision(ctx context.Context, snapName, arch st
 			continue
 		}
 		return snapStoreRevision{
-			Revision:    e.Revision,
-			Version:     e.Version,
-			DownloadURL: e.Download.URL,
-			Sha3:        e.Download.Sha3,
-			SnapID:      entries.SnapID,
+			Revision: e.Revision,
+			Version:  e.Version,
 		}, nil
 	}
 	return snapStoreRevision{}, fmt.Errorf(
@@ -167,7 +141,7 @@ func (c *snapStoreClient) resolveRevision(ctx context.Context, snapName, arch st
 // fetchInfo returns the channel-map entries for the snap on the given
 // architecture using the store /v2/snaps/info endpoint.
 func (c *snapStoreClient) fetchInfo(ctx context.Context, snapName, arch string) (snapInfoResponse, error) {
-	u := fmt.Sprintf("%s/v2/snaps/info/%s?architecture=%s&fields=version,revision,download,channel-map,snap-id", c.baseURL, snapName, arch)
+	u := fmt.Sprintf("%s/v2/snaps/info/%s?architecture=%s&fields=version,revision,channel-map", c.baseURL, snapName, arch)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return snapInfoResponse{}, errors.Annotatef(err, "creating store info request")
@@ -193,219 +167,20 @@ func (c *snapStoreClient) fetchInfo(ctx context.Context, snapName, arch string) 
 	return info, nil
 }
 
-// download fetches the .snap to the destination path and returns it.
-func (c *snapStoreClient) download(ctx context.Context, destPath, downloadURL string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
-	if err != nil {
-		return errors.Annotatef(err, "creating snap download request")
-	}
-	req.Header.Set("Snap-Device-Series", snapDeviceSeries)
-	req.Header.Set("User-Agent", "juju")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return errors.Annotatef(err, "downloading controller snap")
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return fmt.Errorf("snap store returned %s on download: %s", resp.Status, strings.TrimSpace(string(body)))
-	}
-
-	f, err := os.Create(destPath)
-	if err != nil {
-		return errors.Annotatef(err, "creating snap download file")
-	}
-	defer func() { _ = f.Close() }()
-
-	if _, err := io.Copy(f, resp.Body); err != nil {
-		return errors.Annotatef(err, "writing controller snap download")
-	}
-	return nil
-}
-
-// fetchAssertion assembles the assertion chain for the downloaded snap and
-// writes it to destPath. The chain mirrors what `snap download` emits:
-// account-key, account, snap-declaration and the snap-revision that covers the
-// exact downloaded bytes. The store keys each assertion by type plus a
-// primary key: snap-revision by the base64url-encoded snap-sha3-384,
-// snap-declaration by series/snap-id, account by account-id and account-key by
-// public-key-sha3-384.
-func (c *snapStoreClient) fetchAssertion(ctx context.Context, destPath, sha, snapID string) error {
-	shaB64, err := hexToBase64URL(sha)
-	if err != nil {
-		return errors.Annotatef(err, "encoding snap digest for assertion lookup")
-	}
-
-	snapRev, err := c.fetchAssertionType(ctx, "snap-revision", shaB64)
-	if err != nil {
-		return errors.Annotatef(err, "fetching snap-revision assertion")
-	}
-
-	snapDecl, err := c.fetchAssertionType(ctx, "snap-declaration", "16/"+snapID)
-	if err != nil {
-		return errors.Annotatef(err, "fetching snap-declaration assertion")
-	}
-	publisherID := assertionHeader(snapDecl, "publisher-id")
-	if publisherID == "" {
-		return errors.Errorf("snap-declaration assertion for %q has no publisher-id", snapID)
-	}
-
-	account, err := c.fetchAssertionType(ctx, "account", publisherID)
-	if err != nil {
-		return errors.Annotatef(err, "fetching account assertion")
-	}
-	signKey := assertionHeader(account, "sign-key-sha3-384")
-	if signKey == "" {
-		return errors.Errorf("account assertion for %q has no sign-key-sha3-384", publisherID)
-	}
-
-	accountKey, err := c.fetchAssertionType(ctx, "account-key", signKey)
-	if err != nil {
-		return errors.Annotatef(err, "fetching account-key assertion")
-	}
-
-	// Match the ordering `snap download` produces.
-	chain := accountKey + "\n" + account + "\n" + snapDecl + "\n" + snapRev
-	return os.WriteFile(destPath, []byte(chain), 0o644)
-}
-
-// fetchAssertionType fetches a single assertion of the given type for the given
-// primary key from the store's /v2/assertions endpoint and returns its raw
-// text.
-func (c *snapStoreClient) fetchAssertionType(ctx context.Context, assertType, key string) (string, error) {
-	u := fmt.Sprintf("%s/v2/assertions/%s/%s", c.baseURL, assertType, key)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return "", errors.Annotatef(err, "creating assertion request")
-	}
-	req.Header.Set("Snap-Device-Series", snapDeviceSeries)
-	req.Header.Set("User-Agent", "juju")
-	req.Header.Set("Accept", "application/x.ubuntu.assertion")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", errors.Annotatef(err, "fetching %s assertion", assertType)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return "", fmt.Errorf("snap store returned %s on %s assertion fetch: %s", resp.Status, assertType, strings.TrimSpace(string(body)))
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", errors.Annotatef(err, "reading %s assertion", assertType)
-	}
-	return string(body), nil
-}
-
-// hexToBase64URL re-encodes a hex-encoded SHA3-384 digest as base64url, which
-// is the encoding the store uses for the snap-revision assertion key
-// (snap-sha3-384).
-func hexToBase64URL(shaHex string) (string, error) {
-	raw, err := hex.DecodeString(shaHex)
-	if err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(raw), nil
-}
-
-// assertionHeader returns the value of the named header from a raw assertion,
-// searching only the header block that precedes the first blank line.
-func assertionHeader(raw, key string) string {
-	prefix := key + ": "
-	for _, line := range strings.Split(raw, "\n") {
-		if line == "" {
-			break
-		}
-		if strings.HasPrefix(line, prefix) {
-			return strings.TrimPrefix(line, prefix)
-		}
-	}
-	return ""
-}
-
-// sha3_384Hex returns the hex-encoded SHA3-384 digest of the file at path.
-func sha3_384Hex(path string) (string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = f.Close() }()
-
-	h := sha3.New384()
-	if _, err := io.Copy(h, f); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(h.Sum(nil)), nil
-}
-
-// verify confirms the downloaded snap's SHA3-384 matches the store-reported
-// digest for the resolved revision.
-func (c *snapStoreClient) verify(snapPath, expected string) error {
-	actual, err := sha3_384Hex(snapPath)
-	if err != nil {
-		return errors.Annotatef(err, "hashing downloaded controller snap")
-	}
-	if !strings.EqualFold(actual, expected) {
-		return fmt.Errorf(
-			"downloaded controller snap SHA3-384 %s does not match store revision %s",
-			actual, expected,
-		)
-	}
-	return nil
-}
-
-// acquire downloads the controller snap and its assertion for the resolved
-// target into dir, returning the paths to the .snap and .assert files. It is the
-// client-side acquisition entry point: the client fetches the bytes and
-// verifies the pair, so the machine never contacts the store.
-func (c *snapStoreClient) acquire(ctx context.Context, dir string, target snapStoreRevision) (snapPath, assertPath string, err error) {
-	if target.Sha3 == "" {
-		return "", "", errors.Errorf("store returned no sha3-384 digest for controller snap revision %d", target.Revision)
-	}
-
-	snapPath = filepath.Join(dir, ControllerSnapPackageName+".snap")
-	if err := c.download(ctx, snapPath, target.DownloadURL); err != nil {
-		return "", "", err
-	}
-
-	assertPath = filepath.Join(dir, ControllerSnapPackageName+".assert")
-	if err := c.fetchAssertion(ctx, assertPath, target.Sha3, target.SnapID); err != nil {
-		return "", "", err
-	}
-
-	if err := c.verify(snapPath, target.Sha3); err != nil {
-		return "", "", err
-	}
-	return snapPath, assertPath, nil
-}
-
-// acquiredControllerSnap is the result of acquiring a controller snap from the
-// store on the client: the paths to the downloaded .snap and .assert files.
-type acquiredControllerSnap struct {
-	// SnapPath is the path to the downloaded .snap file.
-	SnapPath string
-	// AssertPath is the path to the assembled .assert file.
-	AssertPath string
-}
-
-// acquireControllerSnap acquires the controller snap for a store-based source
-// mode. When revision is zero (no pinned revision) the channel is resolved for
-// the bootstrap architecture; otherwise the pinned revision is targeted. The
-// .snap and .assert are downloaded to dir, the pair is verified, and the snap's
-// version is read from the downloaded file via the snapd-free reader.
+// resolveControllerSnap resolves the controller snap's version and revision for
+// a store-based source mode. When revision is zero (no pinned revision) the
+// channel is resolved for the bootstrap architecture; otherwise the pinned
+// revision is targeted. The client reads only metadata from the store; the
+// machine downloads the resolved revision itself during provisioning, so the
+// exact resolved bytes are pinned and cannot drift between resolution and
+// install.
 //
 // Declared as a var to allow test injection, mirroring BuildControllerSnap.
-var acquireControllerSnap = func(
+var resolveControllerSnap = func(
 	ctx context.Context,
 	storeURL, snapName, arch, channel string,
 	revision int,
-	dir string,
-) (*acquiredControllerSnap, error) {
+) (string, int, error) {
 	client := newSnapStoreClient(storeURL)
 
 	var target snapStoreRevision
@@ -416,16 +191,7 @@ var acquireControllerSnap = func(
 		target, err = client.resolveChannel(ctx, snapName, arch, channel)
 	}
 	if err != nil {
-		return nil, errors.Annotate(err, "resolving controller snap in store")
+		return "", 0, errors.Annotate(err, "resolving controller snap in store")
 	}
-
-	snapPath, assertPath, err := client.acquire(ctx, dir, target)
-	if err != nil {
-		return nil, errors.Annotate(err, "acquiring controller snap from store")
-	}
-
-	return &acquiredControllerSnap{
-		SnapPath:   snapPath,
-		AssertPath: assertPath,
-	}, nil
+	return target.Version, target.Revision, nil
 }
