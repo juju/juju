@@ -178,36 +178,40 @@ type BootstrapParams struct {
 	SupportedBootstrapBases []corebase.Base
 
 	// ControllerSnapPath is the path of a local snap file built locally
-	// with 'make jujud-snap-build'. In the current phase only the local dangerous
-	// path is active; assertion, channel, and revision paths remain as
-	// optional inputs for future store-install phases.
+	// with 'make jujud-snap-build' or '--build-snap'. When set, the snap is
+	// uploaded to the machine and installed from the file.
 	ControllerSnapPath string
 
 	// ControllerSnapAssertPath is the path of a local snap assertion file
 	// associated with ControllerSnapPath. When provided the snap is installed
-	// with an assertion rather than in dangerous mode. Not active in the
-	// current local-snap phase but retained for future asserted-install phases.
+	// with an assertion rather than in dangerous mode.
 	ControllerSnapAssertPath string
 
-	// ControllerSnapChannel is used when fetching the controller snap from the
-	// snap store. Not active in the current local-snap phase.
+	// ControllerSnapChannel is the store channel to resolve the controller snap
+	// from. An empty channel selects the default <major>.<minor>/edge channel.
 	ControllerSnapChannel charm.Channel
 
-	// ControllerSnapRevision is used to install a specific revision of the
-	// controller snap. Not active in the current local-snap phase.
+	// ControllerSnapRevision is an operator-pinned store revision of the
+	// controller snap. When set, the client resolves that exact revision.
 	ControllerSnapRevision string
 
-	// ControllerSnapStoreURL overrides the snap store base URL for controller
-	// snap resolution and download. A single flag covers both, so an air-gapped
-	// or proxied deployment can redirect acquisition without a second option.
+	// ControllerSnapStoreURL overrides the snap store base URL the client uses
+	// to resolve the controller snap's channel or revision. The machine
+	// downloads the snap from its own configured store during provisioning.
 	ControllerSnapStoreURL string
 
 	// ControllerSnapStoreMode reports that the controller snap is resolved
 	// from the store (channel or pinned revision, or the default channel) rather
 	// than a local path. When set with an empty ControllerSnapPath the client
-	// acquires the snap from the store; an empty ControllerSnapChannel selects
+	// resolves the snap from the store; an empty ControllerSnapChannel selects
 	// the default <major>.<minor>/edge channel.
 	ControllerSnapStoreMode bool
+
+	// ControllerSnapResolvedRevision is the store revision the client resolved
+	// for a store-based source mode. The machine downloads this exact revision
+	// during provisioning, so the bytes installed match the version the client
+	// validated.
+	ControllerSnapResolvedRevision int
 
 	// ControllerSnapExpectedVersion is the exact Juju version expected from
 	// the controller snap after a store install.
@@ -484,10 +488,10 @@ func bootstrapIAAS(
 	var snapVersion semversion.Number
 
 	// Store-based snap bootstrap: when no local path is given but a channel or
-	// revision is specified, acquire the snap from the store on the client.
-	// The client downloads the exact .snap and .assert, verifies the pair, and
-	// stores them locally — the machine never contacts the store. After
-	// acquisition the downloaded .snap is handled identically to a local path.
+	// revision is specified, resolve the snap's version and revision from the
+	// store on the client. The client reads only metadata; the machine downloads
+	// the exact resolved revision itself during provisioning, so the bytes it
+	// installs cannot drift from the version validated here.
 	if args.ControllerSnapPath == "" {
 		channel := args.ControllerSnapChannel
 		revision := 0
@@ -500,43 +504,35 @@ func bootstrapIAAS(
 		}
 		if args.ControllerSnapStoreMode || !channel.Empty() || revision != 0 {
 			resolvedChannel := resolveSnapChannel(channel)
-			dir, err := os.MkdirTemp("", "jujud-acquire-")
-			if err != nil {
-				return errors.Annotate(err, "creating temp dir for controller snap acquisition")
-			}
-			defer func() {
-				if err := os.RemoveAll(dir); err != nil {
-					ctx.Infof("failed to remove controller snap acquisition dir %q: %v", dir, err)
-				}
-			}()
-
-			acquired, err := acquireControllerSnap(
+			rawVersion, rev, err := resolveControllerSnap(
 				ctx,
 				args.ControllerSnapStoreURL,
 				ControllerSnapPackageName,
 				bootstrapArch,
 				resolvedChannel,
 				revision,
-				dir,
 			)
 			if err != nil {
-				return errors.Annotate(err, "acquiring controller snap from store")
+				return errors.Annotate(err, "resolving controller snap in store")
 			}
-			args.ControllerSnapPath = acquired.SnapPath
-			args.ControllerSnapAssertPath = acquired.AssertPath
+			inspectedVersion, err := ParseSnapVersion(rawVersion)
+			if err != nil {
+				return errors.Annotatef(err, "parsing controller snap version %q", rawVersion)
+			}
+			args.ControllerSnapResolvedRevision = rev
+			args.ControllerSnapExpectedVersion = rawVersion
+			snapVersion = inspectedVersion
 			ctx.Infof(
-				"Acquired controller snap from channel/revision %q (revision %d)",
-				resolvedChannel, revision,
+				"Resolved controller snap from channel/revision %q (revision %d, version %s)",
+				resolvedChannel, rev, rawVersion,
 			)
 		}
 	}
 
-	// Every source mode (local path, local build, or a downloaded store snap)
-	// now has a controller snap file on the client. Inspect its version via the
-	// snapd-free reader and enforce exact compatibility with the bootstrap
-	// client, zeroing Build and disregarding any edge sha suffix on both sides
-	// The raw metadata remains available via ControllerSnapExpectedVersion for
-	// an exact installed-version assertion.
+	// A locally provided snap (path or local build) still has its version read
+	// from the file's meta/snap.yaml via the snapd-free reader. Store modes
+	// resolve their version from the store above; both end up with a normalised
+	// snapVersion and the raw metadata in ControllerSnapExpectedVersion.
 	if args.ControllerSnapPath != "" {
 		rawVersion, inspectedVersion, err := ReadSnapVersion(ctx, args.ControllerSnapPath)
 		if err != nil {
@@ -545,8 +541,11 @@ func bootstrapIAAS(
 		args.ControllerSnapExpectedVersion = rawVersion
 		snapVersion = inspectedVersion
 		ctx.Infof("Inspected controller snap version %s", inspectedVersion)
+	}
 
-		// Verify snap version is compatible with the bootstrap client.
+	// Enforce exact compatibility with the bootstrap client on every source
+	// mode, zeroing Build and disregarding any edge sha suffix on both sides.
+	if args.ControllerSnapExpectedVersion != "" {
 		snapCompat := snapVersion
 		snapCompat.Build = 0
 		clientCompat := jujuversion.Current
@@ -914,6 +913,7 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.ControllerCharm = args.ControllerCharmPath
 	icfg.Bootstrap.ControllerCharmChannel = args.ControllerCharmChannel
 	icfg.Bootstrap.ControllerSnapExpectedVersion = args.ControllerSnapExpectedVersion
+	icfg.Bootstrap.ControllerSnapRevision = args.ControllerSnapResolvedRevision
 	return nil
 }
 

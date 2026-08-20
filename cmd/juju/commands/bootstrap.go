@@ -400,7 +400,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 			" (store installs; not used in local-snap mode; defaults to <major>.<minor>/edge)")
 	f.StringVar(&c.ControllerSnapRevision, "controller-snap-revision", "", "Controller snap revision (store installs; not used in local-snap mode)")
 	f.StringVar(&c.ControllerSnapStoreURL, "controller-snap-store-url", "",
-		"URL of the snap store to fetch the controller snap from (overrides the default; covers both resolution and download)")
+		"URL of the snap store the client uses to resolve the controller snap channel/revision (overrides the default)")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
