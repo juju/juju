@@ -493,20 +493,33 @@ var sshProxyControllerConfigKeys = []string{
 	"ssh-max-concurrent-connections",
 }
 
+// sshProxyServerPort is the default port that the removed controller-proxied
+// SSH server listened on. It was opened on every controller unit by the
+// enableHA path (see state/enableha.go addControllerUnitOps) and persisted in
+// the unit's opened port ranges. After the feature was removed the port range
+// is orphaned: no code closes it, so the firewaller keeps it open. The upgrade
+// step closes it on every controller unit so the firewaller reverts the
+// security-group change.
+const sshProxyServerPort = 17022
+
 // RemoveSSHProxyArtefacts removes all state left behind by the removed
 // controller-proxied SSH feature from the controller:
 //
 //   - the virtualhostkeys and sshrequests documents are removed from every
 //     model in the pool,
 //   - any leftover "sshConnRequests" cleanup documents are removed so they
-//     cannot trigger a handler that no longer exists, and
+//     cannot trigger a handler that no longer exists,
 //   - the orphaned ssh-server-port and ssh-max-concurrent-connections
 //     controller config keys are removed from the controller settings
-//     document.
+//     document, and
+//   - the ssh server port (17022) is closed on every controller unit so the
+//     firewaller reverts the security-group opening made by the removed
+//     enableHA path.
 //
 // Each operation is a no-op where the underlying data does not exist
-// (removing absent documents or settings keys is harmless), so the step is
-// idempotent and safe to run on controllers that never had the feature.
+// (removing absent documents or settings keys, or closing an already-closed
+// port range, is harmless), so the step is idempotent and safe to run on
+// controllers that never had the feature.
 //
 // The virtualhostkeys and sshrequests collections were model-scoped, so
 // documents are removed per-model with a model-uuid filter rather than
@@ -514,6 +527,9 @@ var sshProxyControllerConfigKeys = []string{
 // models in the single-juju-database layout used since 3.6.
 func RemoveSSHProxyArtefacts(pool *StatePool) error {
 	if err := dropSSHProxyCollections(pool); err != nil {
+		return errors.Trace(err)
+	}
+	if err := closeSSHProxyControllerPort(pool); err != nil {
 		return errors.Trace(err)
 	}
 	return errors.Trace(removeSSHProxyControllerConfig(pool))
@@ -545,6 +561,52 @@ func dropSSHProxyCollections(pool *StatePool) error {
 		}
 		return nil
 	})
+}
+
+// closeSSHProxyControllerPort closes the ssh server port (17022) on every
+// controller unit. The removed enableHA path opened this port on each
+// controller unit's opened port ranges; with the feature gone no code
+// closes it, so the firewaller keeps the security-group entry open. Closing
+// the range here lets the firewaller revert it.
+//
+// Only the controller (system) model has controller units, so this only
+// needs to run against the system state.
+func closeSSHProxyControllerPort(pool *StatePool) error {
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	unitsColl, closer, err := st.db().GetRawCollection(unitsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer closer()
+	var controllerUnits []unitDoc
+	if err := unitsColl.Find(bson.M{"application": controllerAppName}).Select(bson.M{"name": 1}).All(&controllerUnits); err != nil {
+		return errors.Annotatef(err, "cannot get controller units")
+	}
+	sshPortRange := network.PortRange{
+		FromPort: sshProxyServerPort,
+		ToPort:   sshProxyServerPort,
+		Protocol: "tcp",
+	}
+	for _, unitDoc := range controllerUnits {
+		controllerUnit, err := st.Unit(unitDoc.Name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		pcp, err := controllerUnit.OpenedPortRanges()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// Close is a no-op if the range is not open, so this is safe to
+		// run repeatedly and on controllers that never had the feature.
+		pcp.Close("", sshPortRange)
+		if err := st.ApplyOperation(pcp.Changes()); err != nil {
+			return errors.Annotatef(err, "closing ssh proxy port on unit %q", unitDoc.Name)
+		}
+	}
+	return nil
 }
 
 // removeSSHProxyControllerConfig removes the orphaned controller-proxied

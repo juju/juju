@@ -715,3 +715,63 @@ func (s *upgradesSuite) TestRemoveSSHProxyArtefactsRemovesControllerConfig(c *gc
 		c.Check(cfg["ssh-max-concurrent-connections"], gc.IsNil)
 	}
 }
+
+func (s *upgradesSuite) TestRemoveSSHProxyArtefactsClosesControllerPort(c *gc.C) {
+	// The removed enableHA path opened port 17022 (the ssh server port) on
+	// every controller unit. After the feature was removed no code closes
+	// it, so the firewaller keeps the security-group entry open. The upgrade
+	// step must close the port range on each controller unit so the
+	// firewaller reverts it.
+	m0, err := s.state.AddMachine(UbuntuBase("12.10"), JobManageModel, JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerApp := AddTestingApplication(c, s.state, "controller", AddTestingCharm(c, s.state, "wordpress"))
+	u0, err := controllerApp.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = u0.AssignToMachine(m0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Open the ssh server port on the controller unit, mirroring what the
+	// removed enableHA path did. Also open an unrelated port to ensure only
+	// the ssh port is closed.
+	pcp, err := u0.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	pcp.Open("", network.PortRange{
+		FromPort: sshProxyServerPort,
+		ToPort:   sshProxyServerPort,
+		Protocol: "tcp",
+	})
+	pcp.Open("", network.PortRange{
+		FromPort: 9999,
+		ToPort:   9999,
+		Protocol: "tcp",
+	})
+	err = s.state.ApplyOperation(pcp.Changes())
+	c.Assert(err, jc.ErrorIsNil)
+
+	portOpen := func(unitName string, port int) bool {
+		u, err := s.state.Unit(unitName)
+		c.Assert(err, jc.ErrorIsNil)
+		ranges, err := u.OpenedPortRanges()
+		c.Assert(err, jc.ErrorIsNil)
+		for _, pr := range ranges.UniquePortRanges() {
+			if pr.Protocol == "tcp" && port >= pr.FromPort && port <= pr.ToPort {
+				return true
+			}
+		}
+		return false
+	}
+
+	c.Check(portOpen("controller/0", sshProxyServerPort), jc.IsTrue)
+	c.Check(portOpen("controller/0", 9999), jc.IsTrue)
+
+	// Idempotent: a second run finds nothing to close but must not error.
+	for i := 0; i < 2; i++ {
+		c.Logf("Run: %d", i)
+		err := RemoveSSHProxyArtefacts(s.pool)
+		c.Assert(err, jc.ErrorIsNil)
+
+		c.Check(portOpen("controller/0", sshProxyServerPort), jc.IsFalse)
+		c.Check(portOpen("controller/0", 9999), jc.IsTrue)
+	}
+}
