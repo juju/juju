@@ -488,6 +488,7 @@ type MockModelDefaultsService struct {
 type MockModelDefaultsServiceMockRecorder struct {
 	mock                             *MockModelDefaultsService
 	cloudDefaultsExpects             []*gomock.Call2_2[context.Context, string, modeldefaults.ModelDefaultAttributes, error]
+	modelDefaultsExpects             []*gomock.Call2_2[context.Context, model.UUID, modeldefaults.Defaults, error]
 	removeCloudDefaultsExpects       []*gomock.Call3_1[context.Context, string, []string, error]
 	removeCloudRegionDefaultsExpects []*gomock.Call4_1[context.Context, string, string, []string, error]
 	updateCloudDefaultsExpects       []*gomock.Call3_1[context.Context, string, map[string]any, error]
@@ -523,6 +524,24 @@ func (mr *MockModelDefaultsServiceMockRecorder) CloudDefaults(ctx, cloudName any
 
 // MockModelDefaultsServiceCloudDefaultsCall is the typed call wrapper for CloudDefaults.
 type MockModelDefaultsServiceCloudDefaultsCall = gomock.Call2_2[context.Context, string, modeldefaults.ModelDefaultAttributes, error]
+
+// ModelDefaults mocks base method.
+func (m *MockModelDefaultsService) ModelDefaults(ctx context.Context, uuid model.UUID) (modeldefaults.Defaults, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.modelDefaultsExpects, m.ctrl, m, "ModelDefaults", ctx, uuid)
+}
+
+// ModelDefaults indicates an expected call of ModelDefaults.
+func (mr *MockModelDefaultsServiceMockRecorder) ModelDefaults(ctx, uuid any) *MockModelDefaultsServiceModelDefaultsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, model.UUID, modeldefaults.Defaults, error](mr.mock.ctrl.T, mr.mock, "ModelDefaults", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid))
+	mr.modelDefaultsExpects = append(mr.modelDefaultsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelDefaultsServiceModelDefaultsCall is the typed call wrapper for ModelDefaults.
+type MockModelDefaultsServiceModelDefaultsCall = gomock.Call2_2[context.Context, model.UUID, modeldefaults.Defaults, error]
 
 // RemoveCloudDefaults mocks base method.
 func (m *MockModelDefaultsService) RemoveCloudDefaults(ctx context.Context, cloudName string, removeAttrs []string) error {

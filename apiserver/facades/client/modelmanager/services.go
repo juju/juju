@@ -138,6 +138,10 @@ type ModelService interface {
 // ModelDefaultsService defines a interface for interacting with the model
 // defaults.
 type ModelDefaultsService interface {
+	// ModelDefaults returns the default attribute details for a specified
+	// model.
+	ModelDefaults(ctx context.Context, uuid coremodel.UUID) (modeldefaults.Defaults, error)
+
 	// CloudDefaults returns the default attribute details for a specified
 	// cloud.
 	CloudDefaults(ctx context.Context, cloudName string) (modeldefaults.ModelDefaultAttributes, error)
