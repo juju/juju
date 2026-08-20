@@ -38,8 +38,6 @@ run_deploy_revision_uses_consistent_resource() {
 
 	ensure "${model_name}" "${file}"
 
-	# A charm publisher can view the previous charm revisions and resource
-	# revisions released into a channel at https://charmhub.io/juju-qa-test/releases.
 	juju deploy juju-qa-test --revision 31 --channel 2.0/candidate
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 31)"
 
