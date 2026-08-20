@@ -341,6 +341,36 @@ func (s *serviceSuite) TestSetModelConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestSetModelConfigDropsAuthorizedKeys verifies that authorized-keys
+// supplied in model config is accepted (for backward compatibility with juju
+// 3.x clients) but is dropped before persistence: it is not stored in model
+// config. In juju 4.x SSH keys are managed separately.
+func (s *serviceSuite) TestSetModelConfigDropsAuthorizedKeys(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	attrs := map[string]any{
+		config.NameKey:           "wallyworld",
+		config.UUIDKey:           "a677bdfd-3c96-46b2-912f-38e25faceaf7",
+		config.TypeKey:           "sometype",
+		config.AuthorizedKeysKey: "ssh-rsa AAAAB3NzaC1yc2E comment",
+	}
+
+	var persisted map[string]string
+	s.mockState.EXPECT().SetModelConfig(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, cfg map[string]string) error {
+			persisted = cfg
+			return nil
+		})
+
+	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState)
+	err := svc.SetModelConfig(c.Context(), attrs)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// authorized-keys is not stored in the model config.
+	_, ok := persisted[config.AuthorizedKeysKey]
+	c.Check(ok, tc.IsFalse)
+}
+
 // TestModelConfigWithEmptyCloudType checks that ModelConfig handles the case
 // where cloud type is empty string by converting without coercion.
 func (s *serviceSuite) TestModelConfigWithEmptyCloudType(c *tc.C) {

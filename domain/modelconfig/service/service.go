@@ -320,6 +320,13 @@ func (s *Service) SetModelConfig(
 	cfgCopy := make(map[string]any, len(cfg))
 	maps.Copy(cfgCopy, cfg)
 
+	// authorized-keys is not valid model config in juju 4.x (SSH keys are
+	// managed separately). It is only ever present here for backward
+	// compatibility with juju 3.x clients, which always include it when
+	// creating a model, so drop it before validation and persistence
+	// rather than rejecting it.
+	delete(cfgCopy, config.AuthorizedKeysKey)
+
 	for k, v := range defaults {
 		applyVal := v.ApplyStrategy(cfgCopy[k])
 		if applyVal != nil {
