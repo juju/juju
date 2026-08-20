@@ -471,6 +471,74 @@ func (s *Suite) TestSUCCESS(c *tc.C) {
 	s.stub.CheckCall(c, 4, "Report", "id", migration.SUCCESS, true)
 }
 
+// TestSUCCESSReportFailureStillWritesConfig covers the wedge seen in the
+// integration tests: a report RPC that dies mid-flight (context canceled,
+// connection torn down by a bounce) must not prevent the agent config
+// from being updated, otherwise the unit points at a controller whose
+// model is gone forever.
+func (s *Suite) TestSUCCESSReportFailureStillWritesConfig(c *tc.C) {
+	s.agent.conf.tag = names.NewUnitTag("app/0")
+	s.agent.conf.dir = "/var/lib/juju/agents/unit-app-0"
+
+	// The first report attempt fails, and every fallback attempt fails
+	// too, so robustReport returns an error; doSUCCESS must still update
+	// the agent config instead of aborting.
+	s.stub.SetErrors(errors.New("report boom"))
+	s.config.SendReport = func(ctx context.Context, conn api.Connection, status watcher.MigrationStatus, success bool) error {
+		return errors.New("fallback report boom")
+	}
+
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	w, err := migrationminion.NewWorker(s.config)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	// Each WaitAdvance unblocks one retry sleep; loop until the fallback
+	// exhausts and the config is written.
+	closed := func() bool {
+		select {
+		case <-s.agent.configChanged:
+			return true
+		default:
+			return false
+		}
+	}
+	for !closed() {
+		err = s.clock.WaitAdvance(10*time.Minute, coretesting.LongWait, 1)
+		if err != nil {
+			break
+		}
+	}
+	c.Assert(closed(), tc.IsTrue)
+	c.Assert(s.agent.conf.addrs, tc.DeepEquals, addrs)
+}
+
+func (s *Suite) TestSUCCESSClosesSourceConnection(c *tc.C) {
+	closer := &stubCloser{}
+	s.config.ConnCloser = closer
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	w, err := migrationminion.NewWorker(s.config)
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case <-s.agent.configChanged:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
+	workertest.CleanKill(c, w)
+	c.Check(closer.closed, tc.IsTrue)
+}
+
 func (s *Suite) TestSUCCESSFetchTargetLokiConfigError(c *tc.C) {
 	s.config.FetchTargetLokiConfig = func(context.Context, api.Connection, names.Tag) (loggerapi.ControllerLokiConfig, error) {
 		return loggerapi.ControllerLokiConfig{}, errors.New("loki fetch boom")
@@ -855,6 +923,15 @@ type stubAgent struct {
 	// changed and configChanged is not signalled. It lets a test model an
 	// agent-config write failing on one attempt and recovering on a later one.
 	changeConfigErrs []error
+}
+
+type stubCloser struct {
+	closed bool
+}
+
+func (c *stubCloser) Close() error {
+	c.closed = true
+	return nil
 }
 
 func (ma *stubAgent) CurrentConfig() agent.Config {
