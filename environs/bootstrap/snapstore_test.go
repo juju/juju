@@ -93,6 +93,35 @@ func TestStoreClientResolveRevisionNoMatch(t *testing.T) {
 	})
 }
 
+func TestStoreClientResolveRevisionFiltersArch(t *testing.T) {
+	tc.Run(t, func(c *tc.C) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, `{
+				"channel-map": [
+					{"channel": {"track": "4.2", "risk": "edge", "architecture": "arm64"},
+					 "revision": 42, "version": "4.1-beta2",
+					 "download": {"url": "arm", "sha3-384": "arm"}},
+					{"channel": {"track": "4.2", "risk": "edge", "architecture": "amd64"},
+					 "revision": 43, "version": "4.1-beta3",
+					 "download": {"url": "amd", "sha3-384": "amd"}}
+				]
+			}`)
+		}))
+		defer server.Close()
+
+		client := newSnapStoreClient(server.URL)
+
+		// Revision 42 only exists on arm64, so resolving it for amd64 must
+		// not return the arm64 snap.
+		_, err := client.resolveRevision(context.Background(), "jujud", "amd64", 42)
+		c.Assert(err, tc.ErrorMatches, `.*no controller snap "jujud" revision 42 available.*`)
+
+		rev, err := client.resolveRevision(context.Background(), "jujud", "amd64", 43)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(rev.Sha3, tc.Equals, "amd")
+	})
+}
+
 func TestStoreClientServerError(t *testing.T) {
 	tc.Run(t, func(c *tc.C) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -214,6 +243,24 @@ func TestStoreClientAcquireDigestMismatch(t *testing.T) {
 		}
 		_, _, err = client.acquire(context.Background(), dir, target)
 		c.Assert(err, tc.ErrorMatches, `.*does not match store revision.*`)
+	})
+}
+
+func TestStoreClientAcquireMissingDigest(t *testing.T) {
+	tc.Run(t, func(c *tc.C) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.NotFound(w, r)
+		}))
+		defer server.Close()
+
+		client := newSnapStoreClient(server.URL)
+		target := snapStoreRevision{
+			Revision:    42,
+			DownloadURL: server.URL + "/api/v1/snaps/download/x",
+			SnapID:      "snap-id-1",
+		}
+		_, _, err := client.acquire(context.Background(), c.MkDir(), target)
+		c.Assert(err, tc.ErrorMatches, `.*no sha3-384 digest.*`)
 	})
 }
 
