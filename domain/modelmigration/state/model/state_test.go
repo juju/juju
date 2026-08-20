@@ -733,7 +733,243 @@ func (s *migrationSuite) TestGetRelationValidationDataExcludesNonAlive(c *tc.C) 
 	c.Check(relations, tc.HasLen, 0)
 }
 
-// TestGetApplicationUnitNamesEmpty verifies no units return an empty map.
+// TestGetRelationValidationDataExcludesCMRRelations verifies relations with
+// a cross-model relation (CMR) endpoint are excluded from validation data.
+// CMR consumer relations (offering-model side) are imported by the
+// crossmodelrelation domain, which does not create relation_unit rows, so
+// membership validation cannot apply to them.
+func (s *migrationSuite) TestGetRelationValidationDataExcludesCMRRelations(c *tc.C) {
+	db := s.DB()
+
+	// A CMR relation with a CMR-sourced remote app on one side.
+	// This simulates the offering-model side of a cross-model relation:
+	// dummy-source (local) <-> remote-* (CMR).
+	cmrCharmUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, source_id) VALUES (?, ?, 2)",
+		cmrCharmUUID, "dummy-source-cmr")
+	c.Assert(err, tc.ErrorIsNil)
+
+	cmrCR := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, scope_id, interface, optional, capacity) VALUES (?, ?, 'sink', 0, 0, 'token', false, 1)",
+		cmrCR, cmrCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cmrAppUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, 'remote-d29ba13b', 0, ?, ?)",
+		cmrAppUUID, cmrCharmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+
+	cmrRelationUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, 0, 99, 1)",
+		cmrRelationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cmrEndpointUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, NULL, ?)",
+		cmrEndpointUUID, cmrAppUUID, cmrCR)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?)",
+		uuid.MustNewUUID().String(), cmrRelationUUID, cmrEndpointUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	relations, err := New(s.TxnRunnerFactory(), s.modelUUID).GetRelationValidationData(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relations, tc.HasLen, 0)
+}
+
+// TestGetRelationValidationDataKeepsLocalWhileExcludingCMR verifies that
+// when a model has both local and CMR relations, only the local relations
+// are returned for validation.
+func (s *migrationSuite) TestGetRelationValidationDataKeepsLocalWhileExcludingCMR(c *tc.C) {
+	db := s.DB()
+
+	// --- Local relation (wordpress:db <-> mysql:db) ---
+	localCharmUUID1 := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)",
+		localCharmUUID1, "wordpress")
+	c.Assert(err, tc.ErrorIsNil)
+	localCR1 := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, scope_id, interface, optional, capacity) VALUES (?, ?, 'db', 0, 0, 'mysql', false, 1)",
+		localCR1, localCharmUUID1)
+	c.Assert(err, tc.ErrorIsNil)
+	localAppUUID1 := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, 'wordpress', 0, ?, ?)",
+		localAppUUID1, localCharmUUID1, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+
+	localCharmUUID2 := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)",
+		localCharmUUID2, "mysql")
+	c.Assert(err, tc.ErrorIsNil)
+	localCR2 := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, scope_id, interface, optional, capacity) VALUES (?, ?, 'db', 1, 0, 'mysql', false, 1)",
+		localCR2, localCharmUUID2)
+	c.Assert(err, tc.ErrorIsNil)
+	localAppUUID2 := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, 'mysql', 0, ?, ?)",
+		localAppUUID2, localCharmUUID2, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+
+	localRelationUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, 0, 7, 1)",
+		localRelationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	addLocalEndpoint := func(appUUID, charmRelUUID string) {
+		epUUID := uuid.MustNewUUID().String()
+		_, err := db.ExecContext(c.Context(),
+			"INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, NULL, ?)",
+			epUUID, appUUID, charmRelUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?)",
+			uuid.MustNewUUID().String(), localRelationUUID, epUUID)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+	addLocalEndpoint(localAppUUID1, localCR1)
+	addLocalEndpoint(localAppUUID2, localCR2)
+
+	// --- CMR relation (dummy-source:sink <-> remote-*:source) ---
+	cmrCharmUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, source_id) VALUES (?, ?, 2)",
+		cmrCharmUUID, "dummy-source-cmr")
+	c.Assert(err, tc.ErrorIsNil)
+	cmrCR := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, scope_id, interface, optional, capacity) VALUES (?, ?, 'source', 0, 0, 'token', false, 1)",
+		cmrCR, cmrCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	cmrAppUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, 'remote-d29ba13b', 0, ?, ?)",
+		cmrAppUUID, cmrCharmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+
+	cmrLocalCharmUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, 0)",
+		cmrLocalCharmUUID, "dummy-source")
+	c.Assert(err, tc.ErrorIsNil)
+	cmrCR2 := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, scope_id, interface, optional, capacity) VALUES (?, ?, 'sink', 1, 0, 'token', false, 1)",
+		cmrCR2, cmrLocalCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	cmrLocalAppUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, 'dummy-source-local', 0, ?, ?)",
+		cmrLocalAppUUID, cmrLocalCharmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+
+	cmrRelationUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, 0, 99, 1)",
+		cmrRelationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cmrEP1 := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, NULL, ?)",
+		cmrEP1, cmrAppUUID, cmrCR)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?)",
+		uuid.MustNewUUID().String(), cmrRelationUUID, cmrEP1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cmrEP2 := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, NULL, ?)",
+		cmrEP2, cmrLocalAppUUID, cmrCR2)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?)",
+		uuid.MustNewUUID().String(), cmrRelationUUID, cmrEP2)
+	c.Assert(err, tc.ErrorIsNil)
+
+	relations, err := New(s.TxnRunnerFactory(), s.modelUUID).GetRelationValidationData(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	// Only the local wordpress:db <-> mysql:db relation is returned.
+	c.Assert(relations, tc.HasLen, 1)
+	c.Check(relations[0].UUID, tc.Equals, localRelationUUID)
+	c.Check(relations[0].ID, tc.Equals, 7)
+}
+
+// TestGetRelationValidationDataExcludesCMRBothSides verifies a relation
+// where both endpoints are CMR-sourced is excluded from validation data.
+func (s *migrationSuite) TestGetRelationValidationDataExcludesCMRBothSides(c *tc.C) {
+	db := s.DB()
+
+	cmrCharmUUID1 := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, source_id) VALUES (?, ?, 2)",
+		cmrCharmUUID1, "remote-app-1")
+	c.Assert(err, tc.ErrorIsNil)
+	cmrCR1 := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, scope_id, interface, optional, capacity) VALUES (?, ?, 'endpoint1', 0, 0, 'token', false, 1)",
+		cmrCR1, cmrCharmUUID1)
+	c.Assert(err, tc.ErrorIsNil)
+	cmrAppUUID1 := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, 'remote-app-1', 0, ?, ?)",
+		cmrAppUUID1, cmrCharmUUID1, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+
+	cmrCharmUUID2 := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, source_id) VALUES (?, ?, 2)",
+		cmrCharmUUID2, "remote-app-2")
+	c.Assert(err, tc.ErrorIsNil)
+	cmrCR2 := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, scope_id, interface, optional, capacity) VALUES (?, ?, 'endpoint2', 1, 0, 'token', false, 1)",
+		cmrCR2, cmrCharmUUID2)
+	c.Assert(err, tc.ErrorIsNil)
+	cmrAppUUID2 := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, 'remote-app-2', 0, ?, ?)",
+		cmrAppUUID2, cmrCharmUUID2, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+
+	cmrRelationUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, 0, 99, 1)",
+		cmrRelationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	addCMREndpoint := func(appUUID, charmRelUUID string) {
+		epUUID := uuid.MustNewUUID().String()
+		_, err := db.ExecContext(c.Context(),
+			"INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, NULL, ?)",
+			epUUID, appUUID, charmRelUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?)",
+			uuid.MustNewUUID().String(), cmrRelationUUID, epUUID)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+	addCMREndpoint(cmrAppUUID1, cmrCR1)
+	addCMREndpoint(cmrAppUUID2, cmrCR2)
+
+	relations, err := New(s.TxnRunnerFactory(), s.modelUUID).GetRelationValidationData(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relations, tc.HasLen, 0)
+}
 func (s *migrationSuite) TestGetApplicationUnitNamesEmpty(c *tc.C) {
 	units, err := New(s.TxnRunnerFactory(), s.modelUUID).GetApplicationUnitNames(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

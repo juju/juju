@@ -222,6 +222,11 @@ JOIN   architecture AS a ON a.id = ra.architecture_id
 // needed to validate imported relation-unit consistency before activation. Only
 // alive relations are returned: units legitimately depart a dying or dead
 // relation, so requiring membership there would report false inconsistencies.
+//
+// Relations with a cross-model relation endpoint are excluded: their
+// relation_unit rows are managed outside the standard relation domain and the
+// crossmodelrelation import deliberately does not create them, so membership
+// validation cannot apply.
 func (s *State) GetRelationValidationData(ctx context.Context) ([]modelmigrationinternal.RelationValidationData, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -232,6 +237,16 @@ func (s *State) GetRelationValidationData(ctx context.Context) ([]modelmigration
 SELECT (r.uuid, r.relation_id) AS (&relationValidationRow.*)
 FROM   relation AS r
 WHERE  r.life_id = 0
+AND    NOT EXISTS (
+    SELECT 1
+    FROM   relation_endpoint AS re
+    JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+    JOIN   application AS a ON ae.application_uuid = a.uuid
+    JOIN   charm AS c ON a.charm_uuid = c.uuid
+    JOIN   charm_source AS cs ON c.source_id = cs.id
+    WHERE  re.relation_uuid = r.uuid
+    AND    cs.name = 'cmr'
+)
 `, relationValidationRow{})
 	if err != nil {
 		return nil, errors.Errorf("preparing relation validation data statement: %w", err)
@@ -284,8 +299,8 @@ const containerRelationScope = "container"
 // getRelationEndpoints returns the endpoint rows of every alive relation,
 // grouped by relation UUID and ordered by application name, used to build the
 // readable relation key for validation error messages and to decide which of an
-// application's units are expected in scope. Only alive relations are returned,
-// matching the relations [State.GetRelationValidationData] validates.
+// application's units are expected in scope. Only alive, non-CMR relations are
+// returned, matching the relations [State.GetRelationValidationData] validates.
 func (s *State) getRelationEndpoints(ctx context.Context) (map[string][]relationEndpointRow, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -306,6 +321,16 @@ JOIN   charm_relation_scope AS crs ON cr.scope_id = crs.id
 JOIN   application AS a ON ae.application_uuid = a.uuid
 LEFT JOIN charm_metadata AS cm ON cm.charm_uuid = a.charm_uuid
 WHERE  r.life_id = 0
+AND    NOT EXISTS (
+    SELECT 1
+    FROM   relation_endpoint AS re2
+    JOIN   application_endpoint AS ae2 ON re2.endpoint_uuid = ae2.uuid
+    JOIN   application AS a2 ON ae2.application_uuid = a2.uuid
+    JOIN   charm AS c2 ON a2.charm_uuid = c2.uuid
+    JOIN   charm_source AS cs2 ON c2.source_id = cs2.id
+    WHERE  re2.relation_uuid = r.uuid
+    AND    cs2.name = 'cmr'
+)
 ORDER BY a.name
 `, relationEndpointRow{})
 	if err != nil {
