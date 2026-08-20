@@ -117,31 +117,43 @@ func PopulateAgentBinary(
 }
 
 // findAgentToolsByNumberArch finds tools under dataDir/tools whose binary
-// series version matches number+arch, ignoring the OS release component.
+// version matches number+arch, ignoring the OS release component. The
+// controller snap binary and the agent binary are built by different processes
+// and may carry different build numbers; the build number is the sole exempt
+// version component, so the exact version is tried first and the build-zeroed
+// base version is tried as a fallback.
 func findAgentToolsByNumberArch(dataDir string, number semversion.Number, hostArch string) (*coretools.Tools, error) {
 	entries, err := os.ReadDir(filepath.Join(dataDir, "tools"))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	wantPrefix := number.String() + "-"
 	wantSuffix := "-" + hostArch
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
+	candidates := []semversion.Number{number}
+	if number.Build != 0 {
+		base := number
+		base.Build = 0
+		candidates = append(candidates, base)
+	}
+	for _, candidate := range candidates {
+		wantPrefix := candidate.String() + "-"
+		for _, e := range entries {
+			if !e.IsDir() {
+				continue
+			}
+			name := e.Name()
+			if !strings.HasPrefix(name, wantPrefix) || !strings.HasSuffix(name, wantSuffix) {
+				continue
+			}
+			vers, err := semversion.ParseBinary(name)
+			if err != nil {
+				continue
+			}
+			tools, err := agenttools.ReadTools(dataDir, vers)
+			if err != nil {
+				continue
+			}
+			return tools, nil
 		}
-		name := e.Name()
-		if !strings.HasPrefix(name, wantPrefix) || !strings.HasSuffix(name, wantSuffix) {
-			continue
-		}
-		vers, err := semversion.ParseBinary(name)
-		if err != nil {
-			continue
-		}
-		tools, err := agenttools.ReadTools(dataDir, vers)
-		if err != nil {
-			continue
-		}
-		return tools, nil
 	}
 	return nil, errors.NotFoundf("agent tools matching %s-%s under %s/tools", number, hostArch, dataDir)
 }
