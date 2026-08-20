@@ -202,3 +202,24 @@ type RedirectUser struct {
 	UserName string
 	Access   string
 }
+
+// ModelConnectionInfo describes whether a model on this controller is ready to
+// accept API connections. The API server uses it to admit agent connections to
+// a model that is still being imported by a migration.
+type ModelConnectionInfo struct {
+	// Name is the human friendly name of the model.
+	Name string
+
+	// ModelType is the type of the model.
+	ModelType coremodel.ModelType
+
+	// Activated reports whether the model's creation has been completed. A
+	// model that is not activated is half built: either its creation never
+	// finished, or a migration is still importing it.
+	Activated bool
+
+	// HasImportClaim reports whether a target-side migration import claim exists
+	// for the model. A live claim keeps the model unavailable to users, but lets
+	// its agents connect during migration validation.
+	HasImportClaim bool
+}
