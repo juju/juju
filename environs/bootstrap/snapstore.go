@@ -53,7 +53,7 @@ type snapStoreRevision struct {
 // pinned revision for the bootstrap architecture, downloads the exact .snap,
 // verifies the assembled assertion against its digest, and assembles a .assert
 // valid for `snap ack` then `snap install` without --dangerous. The machine
-// never contacts the store.2
+// never contacts the store.
 type snapStoreClient struct {
 	baseURL    string
 	httpClient *http.Client
@@ -144,6 +144,9 @@ func (c *snapStoreClient) resolveRevision(ctx context.Context, snapName, arch st
 	}
 
 	for _, e := range entries.ChannelMap {
+		if e.Channel.Architecture != arch {
+			continue
+		}
 		if e.Revision != revision {
 			continue
 		}
@@ -325,8 +328,8 @@ func assertionHeader(raw, key string) string {
 	return ""
 }
 
-// sha384Hex returns the hex-encoded SHA3-384 digest of the file at path.
-func sha384Hex(path string) (string, error) {
+// sha3_384Hex returns the hex-encoded SHA3-384 digest of the file at path.
+func sha3_384Hex(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", err
@@ -340,24 +343,18 @@ func sha384Hex(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// assembleAndVerify verifies the downloaded snap against the resolved
-// assertion's store-reported digest and confirms the on-disk assertion matches
-// the downloaded file's SHA3-384. assertPath is the .assert written by
-// fetchAssertion.
-func (c *snapStoreClient) verify(snapPath, assertPath, expected string) error {
-	actual, err := sha384Hex(snapPath)
+// verify confirms the downloaded snap's SHA3-384 matches the store-reported
+// digest for the resolved revision.
+func (c *snapStoreClient) verify(snapPath, expected string) error {
+	actual, err := sha3_384Hex(snapPath)
 	if err != nil {
 		return errors.Annotatef(err, "hashing downloaded controller snap")
 	}
-	if expected != "" && !strings.EqualFold(actual, expected) {
+	if !strings.EqualFold(actual, expected) {
 		return fmt.Errorf(
 			"downloaded controller snap SHA3-384 %s does not match store revision %s",
 			actual, expected,
 		)
-	}
-
-	if _, err := os.Stat(assertPath); err != nil {
-		return errors.Annotatef(err, "assembled controller snap assertion")
 	}
 	return nil
 }
@@ -367,6 +364,10 @@ func (c *snapStoreClient) verify(snapPath, assertPath, expected string) error {
 // client-side acquisition entry point: the client fetches the bytes and
 // verifies the pair, so the machine never contacts the store.
 func (c *snapStoreClient) acquire(ctx context.Context, dir string, target snapStoreRevision) (snapPath, assertPath string, err error) {
+	if target.Sha3 == "" {
+		return "", "", errors.Errorf("store returned no sha3-384 digest for controller snap revision %d", target.Revision)
+	}
+
 	snapPath = filepath.Join(dir, ControllerSnapPackageName+".snap")
 	if err := c.download(ctx, snapPath, target.DownloadURL); err != nil {
 		return "", "", err
@@ -377,7 +378,7 @@ func (c *snapStoreClient) acquire(ctx context.Context, dir string, target snapSt
 		return "", "", err
 	}
 
-	if err := c.verify(snapPath, assertPath, target.Sha3); err != nil {
+	if err := c.verify(snapPath, target.Sha3); err != nil {
 		return "", "", err
 	}
 	return snapPath, assertPath, nil
