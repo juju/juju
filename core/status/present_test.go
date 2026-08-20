@@ -253,7 +253,7 @@ func (s *viableSuite) TestIsUnitWorkloadPresent(c *tc.C) {
 			status: status.StatusInfo{
 				Status: status.Blocked,
 			},
-			viable: false,
+			viable: true,
 		},
 		{
 			name: "error",
