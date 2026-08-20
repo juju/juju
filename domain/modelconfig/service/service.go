@@ -21,7 +21,10 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/errors"
+	internallogger "github.com/juju/juju/internal/logger"
 )
+
+var logger = internallogger.GetLogger("juju.domain.modelconfig")
 
 // ModelDefaultsProvider is responsible for providing the default config values
 // for a model.
@@ -325,7 +328,10 @@ func (s *Service) SetModelConfig(
 	// compatibility with juju 3.x clients, which always include it when
 	// creating a model, so drop it before validation and persistence
 	// rather than rejecting it.
-	delete(cfgCopy, config.AuthorizedKeysKey)
+	if _, ok := cfgCopy[config.AuthorizedKeysKey]; ok {
+		delete(cfgCopy, config.AuthorizedKeysKey)
+		logger.Debugf(ctx, "dropping deprecated %s from model config (SSH keys are managed separately in juju 4.x)", config.AuthorizedKeysKey)
+	}
 
 	for k, v := range defaults {
 		applyVal := v.ApplyStrategy(cfgCopy[k])
