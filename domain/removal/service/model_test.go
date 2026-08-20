@@ -33,6 +33,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mUUID := tc.Must0(c, coremodel.NewUUID)
+	destroyStorage := true
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -44,7 +45,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccess(c *tc.C) {
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String()).Return(removal.ModelArtifacts{
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{
 		RelationUUIDs:    []string{"some-relation-id"},
 		UnitUUIDs:        []string{"some-unit-id"},
 		MachineUUIDs:     []string{"some-machine-id"},
@@ -61,7 +62,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccess(c *tc.C) {
 	mExp.RelationExists(gomock.Any(), "some-relation-id").Return(false, nil)
 	mExp.ApplicationExists(gomock.Any(), "some-application-id").Return(false, nil)
 
-	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, true)
+	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
@@ -70,6 +71,7 @@ func (s *modelSuite) TestRemoveModelRetrySchedulesRemovalJobs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mUUID := tc.Must0(c, coremodel.NewUUID)
+	destroyStorage := true
 	when := time.Now()
 	artifacts := removal.ModelArtifacts{
 		RelationUUIDs:    []string{"some-relation-id"},
@@ -88,7 +90,7 @@ func (s *modelSuite) TestRemoveModelRetrySchedulesRemovalJobs(c *tc.C) {
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil).Times(2)
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil).Times(2)
-	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String()).Return(artifacts, nil).Times(2)
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(artifacts, nil).Times(2)
 	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil).Times(2)
 
 	mExp.RelationExists(gomock.Any(), "some-relation-id").Return(true, nil).Times(2)
@@ -107,12 +109,12 @@ func (s *modelSuite) TestRemoveModelRetrySchedulesRemovalJobs(c *tc.C) {
 	mExp.EnsureApplicationNotAliveCascade(gomock.Any(), "some-application-id", true).Return(removalinternal.CascadedApplicationLives{}, nil).Times(2)
 	mExp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), "some-application-id", false, when.UTC()).Return(nil).Times(2)
 
-	jobUUID1, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, true)
+	jobUUID1, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID1.Validate(), tc.ErrorIsNil)
 
 	// Simulate a second identical call, should be idempotent.
-	jobUUID2, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, true)
+	jobUUID2, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID2.Validate(), tc.ErrorIsNil)
 }
@@ -121,6 +123,7 @@ func (s *modelSuite) TestRemoveModelRetryWithForceSchedulesRemovalJobs(c *tc.C) 
 	defer s.setupMocks(c).Finish()
 
 	mUUID := tc.Must0(c, coremodel.NewUUID)
+	destroyStorage := true
 	when := time.Now()
 	artifacts := removal.ModelArtifacts{
 		RelationUUIDs:    []string{"some-relation-id"},
@@ -141,7 +144,7 @@ func (s *modelSuite) TestRemoveModelRetryWithForceSchedulesRemovalJobs(c *tc.C) 
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil).Times(2)
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil).Times(2)
-	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String()).Return(artifacts, nil).Times(2)
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(artifacts, nil).Times(2)
 	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
 	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), true, when.UTC()).Return(nil)
 
@@ -167,13 +170,13 @@ func (s *modelSuite) TestRemoveModelRetryWithForceSchedulesRemovalJobs(c *tc.C) 
 	mExp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), "some-application-id", false, when.UTC()).Return(nil)
 	mExp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), "some-application-id", true, when.UTC()).Return(nil)
 
-	jobUUID1, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, true)
+	jobUUID1, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID1.Validate(), tc.ErrorIsNil)
 
 	// Simulate a second call with force, should also schedule the same removal
 	// jobs.
-	jobUUID2, err := s.newService(c).RemoveModel(c.Context(), mUUID, true, 0, true)
+	jobUUID2, err := s.newService(c).RemoveModel(c.Context(), mUUID, true, 0, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID2.Validate(), tc.ErrorIsNil)
 }
@@ -182,11 +185,12 @@ func (s *modelSuite) TestRemoveModelControllerModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mUUID := tc.Must0(c, coremodel.NewUUID)
+	destroyStorage := true
 
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(true, nil)
 
-	_, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, true)
+	_, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, &destroyStorage)
 	c.Assert(err, tc.ErrorIs, removalerrors.ForceRequired)
 }
 
@@ -194,6 +198,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccessControllerModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mUUID := tc.Must0(c, coremodel.NewUUID)
+	destroyStorage := true
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -205,7 +210,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccessControllerModel(c *tc.C) {
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(true, nil)
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String()).Return(removal.ModelArtifacts{
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{
 		RelationUUIDs:    []string{"some-relation-id"},
 		UnitUUIDs:        []string{"some-unit-id"},
 		MachineUUIDs:     []string{"some-machine-id"},
@@ -222,7 +227,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccessControllerModel(c *tc.C) {
 	mExp.RelationExists(gomock.Any(), "some-relation-id").Return(false, nil)
 	mExp.ApplicationExists(gomock.Any(), "some-application-id").Return(false, nil)
 
-	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, true, 0, true)
+	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, true, 0, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
@@ -231,6 +236,7 @@ func (s *modelSuite) TestRemoveModelForceNoWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mUUID := tc.Must0(c, coremodel.NewUUID)
+	destroyStorage := true
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -242,10 +248,10 @@ func (s *modelSuite) TestRemoveModelForceNoWaitSuccess(c *tc.C) {
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String()).Return(removal.ModelArtifacts{}, nil)
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{}, nil)
 	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), true, when.UTC()).Return(nil)
 
-	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, true, 0, true)
+	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, true, 0, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
@@ -254,6 +260,7 @@ func (s *modelSuite) TestRemoveModelForceWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mUUID := tc.Must0(c, coremodel.NewUUID)
+	destroyStorage := true
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when).MinTimes(1)
@@ -265,7 +272,7 @@ func (s *modelSuite) TestRemoveModelForceWaitSuccess(c *tc.C) {
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String()).Return(removal.ModelArtifacts{}, nil)
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{}, nil)
 
 	// The first normal removal scheduled immediately.
 	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
@@ -273,7 +280,7 @@ func (s *modelSuite) TestRemoveModelForceWaitSuccess(c *tc.C) {
 	// The forced removal scheduled after the wait duration.
 	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
 
-	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, true, time.Minute, true)
+	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, true, time.Minute, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
@@ -283,6 +290,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccessWithRemoteApplicationOfferer(c
 
 	mUUID := tc.Must0(c, coremodel.NewUUID)
 	remoteAppUUID := tc.Must(c, coreremoteapplication.NewUUID)
+	destroyStorage := true
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when).Times(2)
@@ -294,7 +302,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccessWithRemoteApplicationOfferer(c
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String()).Return(removal.ModelArtifacts{
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{
 		ApplicationUUIDs: []string{"some-application-id"},
 	}, nil)
 	mExp.ModelScheduleRemoval(
@@ -319,7 +327,7 @@ func (s *modelSuite) TestRemoveModelNoForceSuccessWithRemoteApplicationOfferer(c
 		gomock.Any(), gomock.Any(), remoteAppUUID.String(), false, when.UTC(),
 	).Return(nil)
 
-	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, true)
+	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
@@ -328,6 +336,7 @@ func (s *modelSuite) TestRemoveModelIgnoresApplicationErrorWithoutRemoteOffererF
 	defer s.setupMocks(c).Finish()
 
 	mUUID := tc.Must0(c, coremodel.NewUUID)
+	destroyStorage := true
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -339,7 +348,7 @@ func (s *modelSuite) TestRemoveModelIgnoresApplicationErrorWithoutRemoteOffererF
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String()).Return(removal.ModelArtifacts{
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{
 		ApplicationUUIDs: []string{"some-application-id"},
 	}, nil)
 	mExp.ModelScheduleRemoval(
@@ -349,7 +358,7 @@ func (s *modelSuite) TestRemoveModelIgnoresApplicationErrorWithoutRemoteOffererF
 		false, errors.Errorf("the front fell off"),
 	)
 
-	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, true)
+	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
@@ -358,6 +367,7 @@ func (s *modelSuite) TestRemoveModelNotFoundInModelButInController(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mUUID := tc.Must0(c, coremodel.NewUUID)
+	destroyStorage := true
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -369,10 +379,10 @@ func (s *modelSuite) TestRemoveModelNotFoundInModelButInController(c *tc.C) {
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(false, nil)
-	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String()).Return(removal.ModelArtifacts{}, nil)
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{}, nil)
 	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
 
-	_, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, true)
+	_, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -380,6 +390,7 @@ func (s *modelSuite) TestRemoveModelNotFoundInControllerButInModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mUUID := tc.Must0(c, coremodel.NewUUID)
+	destroyStorage := true
 
 	when := time.Now()
 	s.clock.EXPECT().Now().Return(when)
@@ -391,10 +402,10 @@ func (s *modelSuite) TestRemoveModelNotFoundInControllerButInModel(c *tc.C) {
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String()).Return(removal.ModelArtifacts{}, nil)
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{}, nil)
 	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
 
-	_, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, true)
+	_, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -402,6 +413,7 @@ func (s *modelSuite) TestRemoveModelNotFoundInBothControllerAndModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mUUID := tc.Must0(c, coremodel.NewUUID)
+	destroyStorage := true
 
 	cExp := s.controllerState.EXPECT()
 	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(false, nil)
@@ -411,7 +423,7 @@ func (s *modelSuite) TestRemoveModelNotFoundInBothControllerAndModel(c *tc.C) {
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(false, nil)
 
-	_, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, true)
+	_, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, &destroyStorage)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -421,6 +433,7 @@ func (s *modelSuite) TestRemoveModelWithDetachedStorageAndDestroyStorage(c *tc.C
 	mUUID := tc.Must0(c, coremodel.NewUUID)
 	when := time.Now()
 	siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
+	destroyStorage := true
 
 	s.clock.EXPECT().Now().Return(when).Times(2)
 
@@ -431,7 +444,7 @@ func (s *modelSuite) TestRemoveModelWithDetachedStorageAndDestroyStorage(c *tc.C
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String()).Return(removal.ModelArtifacts{
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{
 		StorageInstanceUUIDs: []string{siUUID.String()},
 	}, nil)
 	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
@@ -439,7 +452,7 @@ func (s *modelSuite) TestRemoveModelWithDetachedStorageAndDestroyStorage(c *tc.C
 	mExp.EnsureStorageInstanceNotAliveCascade(gomock.Any(), siUUID.String(), true, false).Return(removalinternal.CascadedStorageInstanceLifeChildren{}, nil)
 	mExp.StorageInstanceScheduleRemoval(gomock.Any(), gomock.Any(), siUUID.String(), false, when.UTC()).Return(nil)
 
-	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, true)
+	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
@@ -450,8 +463,9 @@ func (s *modelSuite) TestRemoveModelWithDetachedStorageAndNoDestroyStorage(c *tc
 	mUUID := tc.Must0(c, coremodel.NewUUID)
 	when := time.Now()
 	siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
+	destroyStorage := false
 
-	s.clock.EXPECT().Now().Return(when)
+	s.clock.EXPECT().Now().Return(when).Times(2)
 
 	cExp := s.controllerState.EXPECT()
 	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
@@ -460,17 +474,38 @@ func (s *modelSuite) TestRemoveModelWithDetachedStorageAndNoDestroyStorage(c *tc
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String()).Return(removal.ModelArtifacts{
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{
 		StorageInstanceUUIDs: []string{siUUID.String()},
 	}, nil)
 	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
 
-	// Note: EnsureStorageInstanceNotAliveCascade and StorageInstanceScheduleRemoval
-	// are NOT expected because destroyStorage is false.
+	// When destroyStorage is false (release), EnsureStorageInstanceNotAliveCascade is called with obliterate = false
+	mExp.EnsureStorageInstanceNotAliveCascade(gomock.Any(), siUUID.String(), false, false).Return(removalinternal.CascadedStorageInstanceLifeChildren{}, nil)
+	mExp.StorageInstanceScheduleRemoval(gomock.Any(), gomock.Any(), siUUID.String(), false, when.UTC()).Return(nil)
 
-	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, false)
+	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *modelSuite) TestRemoveModelRefusesPersistentStorageWhenNil(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID := tc.Must0(c, coremodel.NewUUID)
+
+	cExp := s.controllerState.EXPECT()
+	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), false).Return(nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
+	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), nil).Return(
+		removal.ModelArtifacts{}, removalerrors.PersistentStorage,
+	)
+
+	_, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, nil)
+	c.Assert(err, tc.ErrorIs, removalerrors.PersistentStorage)
 }
 
 func (s *modelSuite) TestRemoveMigratingModel(c *tc.C) {

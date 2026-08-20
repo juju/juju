@@ -301,7 +301,7 @@ type MockModelDBStateMockRecorder struct {
 	ensureApplicationNotAliveCascadeExpects                 []*gomock.Call3_2[context.Context, string, bool, internal.CascadedApplicationLives, error]
 	ensureMachineNotAliveCascadeExpects                     []*gomock.Call3_2[context.Context, string, bool, internal.CascadedMachineLives, error]
 	ensureModelNotAliveExpects                              []*gomock.Call3_1[context.Context, string, bool, error]
-	ensureModelNotAliveCascadeExpects                       []*gomock.Call2_2[context.Context, string, removal.ModelArtifacts, error]
+	ensureModelNotAliveCascadeExpects                       []*gomock.Call3_2[context.Context, string, *bool, removal.ModelArtifacts, error]
 	ensureRelationNotAliveExpects                           []*gomock.Call2_1[context.Context, string, error]
 	ensureRelationWithRemoteConsumerNotAliveCascadeExpects  []*gomock.Call2_2[context.Context, string, internal.CascadedRelationWithRemoteConsumerLives, error]
 	ensureRelationWithRemoteOffererNotAliveCascadeExpects   []*gomock.Call2_2[context.Context, string, internal.CascadedRelationWithRemoteOffererLives, error]
@@ -1008,22 +1008,22 @@ func (mr *MockModelDBStateMockRecorder) EnsureModelNotAlive(ctx, modelUUID, forc
 type MockModelDBStateEnsureModelNotAliveCall = gomock.Call3_1[context.Context, string, bool, error]
 
 // EnsureModelNotAliveCascade mocks base method.
-func (m *MockModelDBState) EnsureModelNotAliveCascade(ctx context.Context, modelUUID string) (removal.ModelArtifacts, error) {
+func (m *MockModelDBState) EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, destroyStorage *bool) (removal.ModelArtifacts, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.ensureModelNotAliveCascadeExpects, m.ctrl, m, "EnsureModelNotAliveCascade", ctx, modelUUID)
+	return gomock.Dispatch3_2(&m.recorder.ensureModelNotAliveCascadeExpects, m.ctrl, m, "EnsureModelNotAliveCascade", ctx, modelUUID, destroyStorage)
 }
 
 // EnsureModelNotAliveCascade indicates an expected call of EnsureModelNotAliveCascade.
-func (mr *MockModelDBStateMockRecorder) EnsureModelNotAliveCascade(ctx, modelUUID any) *MockModelDBStateEnsureModelNotAliveCascadeCall {
+func (mr *MockModelDBStateMockRecorder) EnsureModelNotAliveCascade(ctx, modelUUID, destroyStorage any) *MockModelDBStateEnsureModelNotAliveCascadeCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, removal.ModelArtifacts, error](mr.mock.ctrl.T, mr.mock, "EnsureModelNotAliveCascade", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	call := gomock.NewCall3_2[context.Context, string, *bool, removal.ModelArtifacts, error](mr.mock.ctrl.T, mr.mock, "EnsureModelNotAliveCascade", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(destroyStorage))
 	mr.ensureModelNotAliveCascadeExpects = append(mr.ensureModelNotAliveCascadeExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockModelDBStateEnsureModelNotAliveCascadeCall is the typed call wrapper for EnsureModelNotAliveCascade.
-type MockModelDBStateEnsureModelNotAliveCascadeCall = gomock.Call2_2[context.Context, string, removal.ModelArtifacts, error]
+type MockModelDBStateEnsureModelNotAliveCascadeCall = gomock.Call3_2[context.Context, string, *bool, removal.ModelArtifacts, error]
 
 // EnsureRelationNotAlive mocks base method.
 func (m *MockModelDBState) EnsureRelationNotAlive(ctx context.Context, rUUID string) error {
