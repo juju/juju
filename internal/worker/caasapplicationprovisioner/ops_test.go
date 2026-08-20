@@ -450,8 +450,8 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleMultipleLowestDead(c *tc.C) {
 		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), storageUniqueID),
 		app.EXPECT().Scale(2).Return(nil),
 		app.EXPECT().State().Return(appState, nil),
-		facade.EXPECT().RemoveUnit(gomock.Any(), gomock.Any()).Return(nil),
-		facade.EXPECT().RemoveUnit(gomock.Any(), gomock.Any()).Return(nil),
+		facade.EXPECT().RemoveUnit(gomock.Any(), "test/0").Return(nil),
+		facade.EXPECT().RemoveUnit(gomock.Any(), "test/1").Return(nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, false).Return(nil),
 	)
 
@@ -523,8 +523,8 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleAllLowestDead(c *tc.C) {
 		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), storageUniqueID),
 		app.EXPECT().Scale(1).Return(nil),
 		app.EXPECT().State().Return(appState, nil),
-		facade.EXPECT().RemoveUnit(gomock.Any(), gomock.Any()).Return(nil),
-		facade.EXPECT().RemoveUnit(gomock.Any(), gomock.Any()).Return(nil),
+		facade.EXPECT().RemoveUnit(gomock.Any(), "test/0").Return(nil),
+		facade.EXPECT().RemoveUnit(gomock.Any(), "test/1").Return(nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, false).Return(nil),
 	)
 
@@ -582,6 +582,79 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNotAllDead(c *tc.C) {
 	ps := applicationservice.ScalingState{
 		Scaling:     true,
 		ScaleTarget: 2, // Scale down to 2 units
+	}
+
+	gomock.InOrder(
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
+		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(ps, nil),
+	)
+
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(c.Context(), "test",
+		appId, app, facade, applicationService, s.logger)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestReconcileDeadUnitScaleSparseOrdinals(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appUUID := tc.Must(c, application.NewUUID)
+	storageUniqueID := appUUID.String()[:6]
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+
+	// Ordinals are sparse: {0, 2, 4} (missing 1, 3). Scale down to 2.
+	// Keep the highest 2 ordinals {2, 4}, remove {0}. test/0 is dead.
+	units := map[unit.Name]life.Value{
+		"test/0": life.Dead,
+		"test/2": life.Alive,
+		"test/4": life.Alive,
+	}
+	ps := applicationservice.ScalingState{
+		Scaling:     true,
+		ScaleTarget: 2,
+	}
+	appState := caas.ApplicationState{
+		Replicas: []string{
+			"test/2", "test/4",
+		},
+	}
+	gomock.InOrder(
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(units, nil),
+		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(ps, nil),
+		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(provisionertypes.FilesystemProvisioningInfo{}, nil),
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), storageUniqueID),
+		app.EXPECT().Scale(2).Return(nil),
+		app.EXPECT().State().Return(appState, nil),
+		facade.EXPECT().RemoveUnit(gomock.Any(), "test/0").Return(nil),
+		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, false).Return(nil),
+	)
+
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(c.Context(), "test",
+		appUUID, app, facade, applicationService, s.logger)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestReconcileDeadUnitScaleSparseLowestNotDead(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appId, _ := application.NewUUID()
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+
+	// Ordinals are sparse: {0, 2, 4}. Scale down to 1.
+	// Keep {4}, remove {0, 2}. test/0 is alive → no-op.
+	units := map[unit.Name]life.Value{
+		"test/0": life.Alive,
+		"test/2": life.Dead,
+		"test/4": life.Dead,
+	}
+	ps := applicationservice.ScalingState{
+		Scaling:     true,
+		ScaleTarget: 1,
 	}
 
 	gomock.InOrder(
@@ -796,6 +869,65 @@ func (s *OpsSuite) TestEnsureScaleAliveScaleDownNothingToDestroy(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScale(gomock.Any(), "test").Return(1, nil),
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(ps, nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
+	)
+
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app,
+		life.Alive, facade, applicationService, s.logger)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestEnsureScaleAliveScaleDownSparseOrdinals(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appId, _ := application.NewUUID()
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+
+	// Ordinals are sparse: {0, 2, 4} (missing 1, 3). Scale down to 2.
+	// Keep the highest 2 ordinals {2, 4}, destroy {0}.
+	units := map[unit.Name]life.Value{
+		"test/0": life.Alive,
+		"test/2": life.Alive,
+		"test/4": life.Alive,
+	}
+	gomock.InOrder(
+		applicationService.EXPECT().GetApplicationScale(gomock.Any(), "test").Return(2, nil),
+		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
+		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 2, true).Return(nil),
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
+		facade.EXPECT().DestroyUnits(gomock.Any(), gomock.InAnyOrder([]string{"test/0"})).Return(nil),
+	)
+
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app,
+		life.Alive, facade, applicationService, s.logger)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestEnsureScaleAliveScaleDownSparseOrdinals2(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appId, _ := application.NewUUID()
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+
+	// Ordinals are sparse: {0, 1, 2, 4} (missing 3). Scale down to 2.
+	// Keep the highest 2 ordinals {2, 4}, destroy {0, 1}.
+	units := map[unit.Name]life.Value{
+		"test/0": life.Alive,
+		"test/1": life.Alive,
+		"test/2": life.Alive,
+		"test/4": life.Alive,
+	}
+	gomock.InOrder(
+		applicationService.EXPECT().GetApplicationScale(gomock.Any(), "test").Return(2, nil),
+		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
+		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 2, true).Return(nil),
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
+		facade.EXPECT().DestroyUnits(gomock.Any(), gomock.InAnyOrder([]string{"test/0", "test/1"})).Return(nil),
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app,

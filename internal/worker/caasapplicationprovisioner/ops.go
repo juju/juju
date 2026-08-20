@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -634,20 +635,12 @@ func reconcileDeadUnitScale(
 	}
 
 	desiredScale := ps.ScaleTarget
-
-	unitScale := 0
-	for unitName := range unitNamesAndLives {
-		nextUnitNumber := unitName.Number() + 1
-		if nextUnitNumber > unitScale {
-			unitScale = nextUnitNumber
-		}
-	}
+	threshold := unitRemovalThreshold(unitNamesAndLives, desiredScale)
 
 	unitsToRemove := 0
-
 	var deadUnits []coreunit.Name
 	for unitName, unitLife := range unitNamesAndLives {
-		if unitName.Number() >= unitScale-desiredScale {
+		if unitName.Number() >= threshold {
 			continue
 		}
 		unitsToRemove++
@@ -684,6 +677,9 @@ func reconcileDeadUnitScale(
 		return tryAgain
 	}
 
+	sort.Slice(deadUnits, func(i, j int) bool {
+		return deadUnits[i].Number() < deadUnits[j].Number()
+	})
 	for _, deadUnit := range deadUnits {
 		logger.Infof(ctx, "removing dead unit %s", deadUnit)
 		if err := facade.RemoveUnit(ctx, string(deadUnit)); err != nil && !errors.Is(err, errors.NotFound) {
@@ -737,15 +733,7 @@ func ensureScale(
 		return err
 	}
 
-	unitScale := 0
-	for unitName := range units {
-		nextUnitNumber := unitName.Number() + 1
-		if nextUnitNumber > unitScale {
-			unitScale = nextUnitNumber
-		}
-	}
-
-	if ps.ScaleTarget >= unitScale {
+	if ps.ScaleTarget >= len(units) {
 		storageUniqueID := appUUID.String()[:6]
 		err := ensureScaleWithFsAttachments(
 			ctx,
@@ -781,9 +769,10 @@ func ensureScale(
 		return nil
 	}
 
+	threshold := unitRemovalThreshold(units, ps.ScaleTarget)
 	var unitsToDestroy []string
 	for unitName, unitLife := range units {
-		if unitName.Number() >= unitScale-ps.ScaleTarget {
+		if unitName.Number() >= threshold {
 			continue
 		}
 		if unitLife == life.Alive {
@@ -807,6 +796,28 @@ func ensureScale(
 
 func getStorageUniqueID(appUUID coreapplication.UUID) string {
 	return appUUID.String()[:6]
+}
+
+// unitRemovalThreshold returns the lowest ordinal that should be kept when
+// scaling down to targetScale units. Unit ordinals lower than the returned
+// threshold are removed, keeping the highest targetScale ordinals. The
+// threshold is derived from the sorted ordinal set rather than assuming
+// ordinals are contiguous (0..N-1), so it remains correct when ordinals are
+// sparse (e.g. 0, 2, 4).
+func unitRemovalThreshold(units map[coreunit.Name]life.Value, targetScale int) int {
+	ordinals := make([]int, 0, len(units))
+	for unitName := range units {
+		ordinals = append(ordinals, unitName.Number())
+	}
+	sort.Ints(ordinals)
+
+	if targetScale >= len(ordinals) {
+		return 0
+	}
+	if targetScale <= 0 {
+		return ordinals[len(ordinals)-1] + 1
+	}
+	return ordinals[len(ordinals)-targetScale]
 }
 
 func setOperatorStatus(
