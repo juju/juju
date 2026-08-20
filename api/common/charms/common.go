@@ -60,13 +60,13 @@ func (c *ApplicationCharmInfoClient) ApplicationCharmInfo(ctx context.Context, a
 
 // CharmInfo holds information about a charm.
 type CharmInfo struct {
-	Revision   int
-	URL        string
-	Config     *charm.ConfigSpec
-	Meta       *charm.Meta
-	Actions    *charm.Actions
-	Manifest   *charm.Manifest
-	Version    string
+	Revision int
+	URL      string
+	Config   *charm.ConfigSpec
+	Meta     *charm.Meta
+	Actions  *charm.Actions
+	Manifest *charm.Manifest
+	Version  string
 }
 
 func (info *CharmInfo) Charm() charm.Charm {
@@ -83,13 +83,13 @@ func convertCharm(info *params.Charm) (*CharmInfo, error) {
 		return nil, errors.Trace(err)
 	}
 	result := &CharmInfo{
-		Revision:   info.Revision,
-		URL:        info.URL,
-		Config:     params.FromCharmOptionMap(info.Config),
-		Meta:       meta,
-		Actions:    convertCharmActions(info.Actions),
-		Manifest:   manifest,
-		Version:    info.Version,
+		Revision: info.Revision,
+		URL:      info.URL,
+		Config:   params.FromCharmOptionMap(info.Config),
+		Meta:     meta,
+		Actions:  convertCharmActions(info.Actions),
+		Manifest: manifest,
+		Version:  info.Version,
 	}
 	return result, nil
 }

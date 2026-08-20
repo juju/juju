@@ -123,15 +123,15 @@ type CharmMeta struct {
 // Charm holds all the charm data that the client needs.
 // To be honest, it probably returns way more than what is actually needed.
 type Charm struct {
-	Revision   int                    `json:"revision"`
-	URL        string                 `json:"url"`
-	Config     map[string]CharmOption `json:"config"`
-	Meta       *CharmMeta             `json:"meta,omitempty"`
-	Actions    *CharmActions          `json:"actions,omitempty"`
-	Manifest   *CharmManifest         `json:"manifest,omitempty"`
+	Revision int                    `json:"revision"`
+	URL      string                 `json:"url"`
+	Config   map[string]CharmOption `json:"config"`
+	Meta     *CharmMeta             `json:"meta,omitempty"`
+	Actions  *CharmActions          `json:"actions,omitempty"`
+	Manifest *CharmManifest         `json:"manifest,omitempty"`
 	// Deprecated: LXD profiles are no longer supported.
-	LXDProfile *CharmLXDProfile       `json:"lxd-profile,omitempty"`
-	Version    string                 `json:"version,omitempty"`
+	LXDProfile *CharmLXDProfile `json:"lxd-profile,omitempty"`
+	Version    string           `json:"version,omitempty"`
 }
 
 // CharmActions mirrors charm.Actions.
