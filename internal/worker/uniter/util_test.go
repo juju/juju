@@ -744,13 +744,6 @@ func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 		return watchertest.NewMockNotifyWatcher(ch), nil
 	}).AnyTimes().After(s.stepped)
 
-	ctx.unit.EXPECT().WatchInstanceData(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
-		ch := make(chan struct{}, 1)
-		ch <- struct{}{}
-		w := watchertest.NewMockNotifyWatcher(ch)
-		return w, nil
-	}).AnyTimes().After(s.stepped)
-
 	ctx.api.EXPECT().WatchUpdateStatusHookInterval(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		ch := make(chan struct{}, 1)
 		ch <- struct{}{}
