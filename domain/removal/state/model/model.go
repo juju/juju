@@ -133,6 +133,7 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 	// - All applications in the model.
 	// - All relations in the model.
 	// - All machines in the model.
+	// - All storage instances in the model.
 	selectUnits, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM unit WHERE life_id < 2`, eUUID)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select units query: %w", err)
@@ -148,6 +149,10 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 	selectMachines, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM machine WHERE life_id < 2`, eUUID)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select machines query: %w", err)
+	}
+	selectStorageInstances, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM storage_instance WHERE life_id < 2`, eUUID)
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing select storage instances query: %w", err)
 	}
 
 	updateModelLife, err := st.Prepare(`UPDATE model_life SET life_id = 1 WHERE model_uuid = $entityUUID.uuid AND life_id = 0`, eUUID)
@@ -174,12 +179,18 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing update machine instances query: %w", err)
 	}
+	updateStorageInstances, err := st.Prepare(`UPDATE storage_instance SET life_id = 1 WHERE uuid IN ($uuids[:]) AND life_id = 0`, uuids{})
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing update storage instances query: %w", err)
+	}
 
 	var (
-		units, apps, relations, machines []entityUUID
-		artifacts                        removal.ModelArtifacts
+		units, apps, relations, machines, storageInstances []entityUUID
+		artifacts                                          removal.ModelArtifacts
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		units, apps, relations, machines, storageInstances = nil, nil, nil, nil, nil
+
 		// Update the model life to dying.
 		if err := tx.Query(ctx, updateModelLife, eUUID).Run(); err != nil {
 			return errors.Errorf("setting model life to dying: %w", err)
@@ -196,6 +207,9 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 		}
 		if err := tx.Query(ctx, selectMachines).GetAll(&machines); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("selecting machines: %w", err)
+		}
+		if err := tx.Query(ctx, selectStorageInstances).GetAll(&storageInstances); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("selecting storage instances: %w", err)
 		}
 
 		// Update the life of each entity to dying.
@@ -227,6 +241,12 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 				return errors.Errorf("updating machine instances: %w", err)
 			}
 		}
+		if len(storageInstances) > 0 {
+			u := transform.Slice(storageInstances, func(e entityUUID) string { return e.UUID })
+			if err := tx.Query(ctx, updateStorageInstances, uuids(u)).Run(); err != nil {
+				return errors.Errorf("updating storage instances: %w", err)
+			}
+		}
 
 		return nil
 	})
@@ -249,6 +269,10 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 	artifacts.MachineUUIDs = make([]string, len(machines))
 	for i, m := range machines {
 		artifacts.MachineUUIDs[i] = m.UUID
+	}
+	artifacts.StorageInstanceUUIDs = make([]string, len(storageInstances))
+	for i, s := range storageInstances {
+		artifacts.StorageInstanceUUIDs[i] = s.UUID
 	}
 
 	return artifacts, nil
