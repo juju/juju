@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	externalcontrollererrors "github.com/juju/juju/domain/externalcontroller/errors"
 	domainmodel "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/testhelpers"
@@ -346,7 +347,7 @@ func (s *apiInfoSuite) TestGetAPIInfoForModelNonLocalModelRedirected(c *tc.C) {
 	s.modelService.EXPECT().CheckModelExists(gomock.Any(), modelUUID).Return(false, nil)
 
 	s.domainServices.EXPECT().ExternalController().Return(s.externalController)
-	s.externalController.EXPECT().ControllerForModel(gomock.Any(), modelUUID.String()).Return(nil, modelerrors.NotFound)
+	s.externalController.EXPECT().ControllerForModel(gomock.Any(), modelUUID.String()).Return(nil, externalcontrollererrors.NotFound)
 
 	s.modelService.EXPECT().ModelRedirection(gomock.Any(), modelUUID).Return(domainmodel.ModelRedirection{
 		ControllerUUID:  "f47ac10b-58cc-4372-a567-0e02b2c3d479",
@@ -385,7 +386,7 @@ func (s *apiInfoSuite) TestGetAPIInfoForModelNonLocalModelRedirectedNotFound(c *
 	s.modelService.EXPECT().CheckModelExists(gomock.Any(), modelUUID).Return(false, nil)
 
 	s.domainServices.EXPECT().ExternalController().Return(s.externalController)
-	s.externalController.EXPECT().ControllerForModel(gomock.Any(), modelUUID.String()).Return(nil, modelerrors.NotFound)
+	s.externalController.EXPECT().ControllerForModel(gomock.Any(), modelUUID.String()).Return(nil, externalcontrollererrors.NotFound)
 
 	s.modelService.EXPECT().ModelRedirection(gomock.Any(), modelUUID).Return(domainmodel.ModelRedirection{
 		ControllerUUID:  "f47ac10b-58cc-4372-a567-0e02b2c3d479",
