@@ -111,6 +111,8 @@ func TestStoreClientAcquire(t *testing.T) {
 		// The downloaded .snap bytes.
 		snapBytes := []byte("fake snap content")
 		sha := sha384HexBytes(snapBytes)
+		shaB64, err := hexToBase64URL(sha)
+		c.Assert(err, tc.ErrorIsNil)
 
 		var downloadHits, assertHits int
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -118,9 +120,21 @@ func TestStoreClientAcquire(t *testing.T) {
 			case strings.HasPrefix(r.URL.Path, "/api/v1/snaps/download/"):
 				downloadHits++
 				w.Write(snapBytes)
-			case strings.HasPrefix(r.URL.Path, "/api/v1/snaps/assertions/"):
+			case strings.HasPrefix(r.URL.Path, "/v2/assertions/"):
 				assertHits++
-				fmt.Fprint(w, "type: snap-revision\nsnap-sha3-384: "+sha+"\n")
+				assertType := strings.TrimPrefix(r.URL.Path, "/v2/assertions/")
+				switch assertType {
+				case "snap-revision/" + shaB64:
+					fmt.Fprint(w, "type: snap-revision\nsnap-sha3-384: "+shaB64+"\n")
+				case "snap-declaration/16/snap-id-1":
+					fmt.Fprint(w, "type: snap-declaration\npublisher-id: acct-1\n")
+				case "account/acct-1":
+					fmt.Fprint(w, "type: account\nsign-key-sha3-384: key-1\n")
+				case "account-key/key-1":
+					fmt.Fprint(w, "type: account-key\n")
+				default:
+					http.NotFound(w, r)
+				}
 			default:
 				http.NotFound(w, r)
 			}
@@ -134,17 +148,26 @@ func TestStoreClientAcquire(t *testing.T) {
 			Version:     "4.1-beta2",
 			DownloadURL: server.URL + "/api/v1/snaps/download/" + sha,
 			Sha3:        sha,
+			SnapID:      "snap-id-1",
 		}
 		snapPath, assertPath, err := client.acquire(context.Background(), dir, target)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(downloadHits, tc.Equals, 1)
-		c.Check(assertHits, tc.Equals, 1)
+		c.Check(assertHits, tc.Equals, 4)
 
 		data, err := os.ReadFile(snapPath)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(data, tc.DeepEquals, snapBytes)
 		c.Check(filepath.Base(snapPath), tc.Equals, "jujud.snap")
 		c.Check(filepath.Base(assertPath), tc.Equals, "jujud.assert")
+
+		assertData, err := os.ReadFile(assertPath)
+		c.Assert(err, tc.ErrorIsNil)
+		assertText := string(assertData)
+		c.Check(strings.Contains(assertText, "type: account-key"), tc.IsTrue)
+		c.Check(strings.Contains(assertText, "type: account\n"), tc.IsTrue)
+		c.Check(strings.Contains(assertText, "type: snap-declaration"), tc.IsTrue)
+		c.Check(strings.Contains(assertText, "type: snap-revision"), tc.IsTrue)
 	})
 }
 
@@ -152,13 +175,28 @@ func TestStoreClientAcquireDigestMismatch(t *testing.T) {
 	tc.Run(t, func(c *tc.C) {
 		snapBytes := []byte("fake snap content")
 		realSha := sha384HexBytes(snapBytes)
+		wrongSha := "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+		wrongShaB64, err := hexToBase64URL(wrongSha)
+		c.Assert(err, tc.ErrorIsNil)
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch {
 			case strings.HasPrefix(r.URL.Path, "/api/v1/snaps/download/"):
 				w.Write(snapBytes)
-			case strings.HasPrefix(r.URL.Path, "/api/v1/snaps/assertions/"):
-				fmt.Fprint(w, "type: snap-revision\n")
+			case strings.HasPrefix(r.URL.Path, "/v2/assertions/"):
+				assertType := strings.TrimPrefix(r.URL.Path, "/v2/assertions/")
+				switch assertType {
+				case "snap-revision/" + wrongShaB64:
+					fmt.Fprint(w, "type: snap-revision\n")
+				case "snap-declaration/16/snap-id-1":
+					fmt.Fprint(w, "type: snap-declaration\npublisher-id: acct-1\n")
+				case "account/acct-1":
+					fmt.Fprint(w, "type: account\nsign-key-sha3-384: key-1\n")
+				case "account-key/key-1":
+					fmt.Fprint(w, "type: account-key\n")
+				default:
+					http.NotFound(w, r)
+				}
 			default:
 				http.NotFound(w, r)
 			}
@@ -170,10 +208,11 @@ func TestStoreClientAcquireDigestMismatch(t *testing.T) {
 		target := snapStoreRevision{
 			Revision:    42,
 			DownloadURL: server.URL + "/api/v1/snaps/download/" + realSha,
+			SnapID:      "snap-id-1",
 			// Deliberately wrong digest.
-			Sha3: "deadbeef",
+			Sha3: wrongSha,
 		}
-		_, _, err := client.acquire(context.Background(), dir, target)
+		_, _, err = client.acquire(context.Background(), dir, target)
 		c.Assert(err, tc.ErrorMatches, `.*does not match store revision.*`)
 	})
 }
