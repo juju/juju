@@ -457,7 +457,6 @@ func (s *ModelService) CreateModelWithAgentVersion(
 // The following error types can be expected to be returned:
 // - [modelerrors.AlreadyExists] when the model uuid is already in use.
 // - [coreerrors.NotValid] when the agent stream is not valid.
-// supported.
 func (s *ModelService) CreateModelWithAgentStream(
 	ctx context.Context,
 	agentStream agentbinary.AgentStream,

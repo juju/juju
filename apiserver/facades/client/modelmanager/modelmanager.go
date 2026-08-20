@@ -435,7 +435,7 @@ func (m *ModelManagerAPI) agentStreamFromModelDefaults(
 ) (coreagentbinary.AgentStream, error) {
 	defaults, err := m.modelDefaultsService.ModelDefaults(ctx, modelUUID)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", internalerrors.Capture(err)
 	}
 
 	attr, ok := defaults[config.AgentStreamKey]

@@ -341,6 +341,50 @@ func (s *serviceSuite) TestSetModelConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestSetModelConfigStripsAgentStreamAndVersion verifies that
+// SetModelConfig strips agent-stream and agent-version from the
+// config before persisting to state. These values belong in the
+// agent_version table and must never be written to model_config.
+func (s *serviceSuite) TestSetModelConfigStripsAgentStreamAndVersion(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	var defaults ModelDefaultsProviderFunc = func(_ context.Context) (modeldefaults.Defaults, error) {
+		return modeldefaults.Defaults{
+			config.AgentStreamKey: modeldefaults.DefaultAttributeValue{
+				Controller: "testing",
+			},
+			config.AgentVersionKey: modeldefaults.DefaultAttributeValue{
+				Controller: "4.0.15",
+			},
+			"foo": modeldefaults.DefaultAttributeValue{
+				Controller: "bar",
+			},
+		}, nil
+	}
+
+	attrs := map[string]any{
+		"name":          "tugudd",
+		"uuid":          "a677bdfd-3c96-46b2-912f-38e25faceaf7",
+		"type":          "sometype",
+		"agent-stream":  "proposed",
+		"agent-version": "4.0.14",
+	}
+
+	// The stored config must not contain agent-stream or agent-version.
+	// The cloud default "foo=bar" should still be applied.
+	s.mockState.EXPECT().SetModelConfig(gomock.Any(), map[string]string{
+		"name":           "tugudd",
+		"uuid":           "a677bdfd-3c96-46b2-912f-38e25faceaf7",
+		"type":           "sometype",
+		"foo":            "bar",
+		"logging-config": "<root>=INFO",
+	})
+
+	svc := NewService(defaults, config.ModelValidator(), nil, s.mockState)
+	err := svc.SetModelConfig(c.Context(), attrs)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // TestModelConfigWithEmptyCloudType checks that ModelConfig handles the case
 // where cloud type is empty string by converting without coercion.
 func (s *serviceSuite) TestModelConfigWithEmptyCloudType(c *tc.C) {
