@@ -634,12 +634,20 @@ func reconcileDeadUnitScale(
 	}
 
 	desiredScale := ps.ScaleTarget
+
+	unitScale := 0
+	for unitName := range unitNamesAndLives {
+		nextUnitNumber := unitName.Number() + 1
+		if nextUnitNumber > unitScale {
+			unitScale = nextUnitNumber
+		}
+	}
+
 	unitsToRemove := 0
 
 	var deadUnits []coreunit.Name
 	for unitName, unitLife := range unitNamesAndLives {
-		if unitName.Number() < desiredScale {
-			// This is a unit we want to keep.
+		if unitName.Number() >= unitScale-desiredScale {
 			continue
 		}
 		unitsToRemove++
@@ -775,8 +783,7 @@ func ensureScale(
 
 	var unitsToDestroy []string
 	for unitName, unitLife := range units {
-		if unitName.Number() < ps.ScaleTarget {
-			// This is a unit we want to keep.
+		if unitName.Number() >= unitScale-ps.ScaleTarget {
 			continue
 		}
 		if unitLife == life.Alive {
