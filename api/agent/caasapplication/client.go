@@ -43,11 +43,12 @@ type UnitConfig struct {
 }
 
 // UnitIntroduction introduces the unit and returns an agent config.
-func (c *Client) UnitIntroduction(ctx context.Context, podName string, podUUID string) (*UnitConfig, error) {
+func (c *Client) UnitIntroduction(ctx context.Context, podName string, podUUID string, nonce string) (*UnitConfig, error) {
 	var result params.CAASUnitIntroductionResult
 	args := params.CAASUnitIntroductionArgs{
 		PodName: podName,
 		PodUUID: podUUID,
+		Nonce:   nonce,
 	}
 	err := c.facade.FacadeCall(ctx, "UnitIntroduction", args, &result)
 	if err != nil {
