@@ -181,11 +181,6 @@ const charmContainerName = "charm"
 
 func (c *sshContainer) resolveTarget(ctx context.Context, target string) (*resolvedTarget, error) {
 	if modelNameWithoutUsername(c.modelName) == environsbootstrap.ControllerModelName && names.IsValidMachine(target) {
-		// TODO(caas): change here to controller unit tag once we refactored controller to an application.
-		if target != "0" {
-			// HA is not enabled on CaaS controller yet.
-			return nil, errors.NotFoundf("target %q", target)
-		}
 		if c.container == "" {
 			c.container = "api-server"
 		} else if c.container != "api-server" && c.container != "charm" {
