@@ -136,6 +136,8 @@ func (dl *Download) download(ctx context.Context, req Request) (filename string,
 		return "", errors.Trace(err)
 	}
 
+	logger.Infof(ctx, "downloaded from %s", req.URL)
+
 	return tempFile.Name(), nil
 }
 
