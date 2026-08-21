@@ -251,6 +251,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"charm_resource_kind",
 		"charm_resource",
 		"charm_run_as_kind",
+		"charm_scriptlet",
 		"charm_source",
 		"charm_storage_kind",
 		"charm_storage_property",

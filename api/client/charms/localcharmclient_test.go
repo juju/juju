@@ -4,8 +4,10 @@
 package charms_test
 
 import (
+	"archive/zip"
 	"fmt"
 	"net/http"
+	"os"
 	"regexp"
 	stdtesting "testing"
 
@@ -98,7 +100,49 @@ func (s *addCharmSuite) TestAddLocalCharmNoHooks(c *tc.C) {
 		func(string) (bool, error) {
 			return false, nil
 		},
-		`invalid charm \"dummy\": has no hooks nor dispatch file`)
+		`invalid charm \"dummy\": has no hooks, dispatch file, or scriptlets`)
+}
+
+func (s *addCharmSuite) TestCharmWithOnlyScriptletsIsUploadable(c *tc.C) {
+	path := testcharms.Repo.CharmArchivePath(c.MkDir(), "category")
+	err := testcharms.InjectFilesToCharmArchive(path, map[string]string{
+		"scriptlets/relations/changed.star": "def on_changed(): pass",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	found, err := (*charms.HasHooksOrDispatch)(path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(found, tc.IsTrue)
+}
+
+func (s *addCharmSuite) TestScriptletsRequireRegularFile(c *tc.C) {
+	tests := []struct {
+		name  string
+		path  string
+		mode  os.FileMode
+		valid bool
+	}{
+		{name: "regular", path: "scriptlets/events/changed.star", mode: 0o644, valid: true},
+		{name: "directory", path: "scriptlets/", mode: os.ModeDir | 0o755},
+		{name: "symlink", path: "scriptlets/hook.star", mode: os.ModeSymlink | 0o777},
+	}
+	for _, test := range tests {
+		c.Logf("checking %s", test.name)
+		path := c.MkDir() + "/charm.zip"
+		file, err := os.Create(path)
+		c.Assert(err, tc.ErrorIsNil)
+		writer := zip.NewWriter(file)
+		header := &zip.FileHeader{Name: test.path}
+		header.SetMode(test.mode)
+		_, err = writer.CreateHeader(header)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(writer.Close(), tc.ErrorIsNil)
+		c.Assert(file.Close(), tc.ErrorIsNil)
+
+		found, err := (*charms.HasHooksOrDispatch)(path)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(found, tc.Equals, test.valid, tc.Commentf("case %s", test.name))
+	}
 }
 
 func (s *addCharmSuite) assertAddLocalCharmFailed(c *tc.C, f func(string) (bool, error), msg string) {
