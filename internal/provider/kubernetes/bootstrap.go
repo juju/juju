@@ -159,6 +159,9 @@ type controllerStack struct {
 	// applicationPassword authenticates controller pods while they introduce
 	// their unit and controller-agent identities.
 	applicationPassword string
+	// nonce is the introduction nonce shared by controller pods to prove they
+	// are legitimate replicas of the statefulset.
+	nonce string
 
 	storageClass  string
 	storageSize   resource.Quantity
@@ -283,6 +286,10 @@ func newControllerStack(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	nonce, err := password.RandomPassword()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	selectorLabels := providerutils.SelectorLabelsForApp(stackName, constants.LastLabelVersion)
 	labels := providerutils.LabelsForApp(stackName, constants.LastLabelVersion)
@@ -301,6 +308,7 @@ func newControllerStack(
 		agentConfig:         agentConfig,
 		unitAgentConfig:     unitAgentConfig,
 		applicationPassword: applicationPassword,
+		nonce:               nonce,
 
 		storageSize:   storageSize,
 		storageClass:  storageClass,
@@ -892,6 +900,7 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 	}
 	cm.Data[constants.ControllerAgentConfigFilename] = string(agentConfigFileContent)
 	cm.Data[constants.ControllerUnitAgentConfigFilename] = string(unitAgentConfigFileContent)
+	cm.Data[constants.ControllerNonceConfigMapKey(0)] = c.nonce
 
 	logger.Tracef(context.TODO(), "ensuring agent.conf configmap: \n%+v", cm)
 	cleanUp, err := c.broker.ensureConfigMap(ctx, cm)
@@ -1237,6 +1246,9 @@ func (c *controllerStack) buildStorageSpecForController(ctx context.Context, sta
 					}, {
 						Key:  constants.ControllerUnitAgentConfigFilename,
 						Path: constants.ControllerUnitAgentConfigFilename,
+					}, {
+						Key:  constants.ControllerNonceConfigMapKey(0),
+						Path: constants.ControllerNonceConfigMapKey(0),
 					},
 				},
 			},
@@ -1575,6 +1587,10 @@ if [ "${controller_id}" = "0" ]; then
         chmod 600 "${controller_template}"
     fi
 fi
+seed_nonce="%s-${controller_id}"
+if [ -e "${seed_nonce}" ]; then
+    cp "${seed_nonce}" "%s"
+fi
 `,
 			constants.EnvJujuK8sPodName,
 			c.pcfg.DataDir,
@@ -1587,6 +1603,8 @@ fi
 			constants.TemplateFileNameAgentConf,
 			controllerConfigSeedDir,
 			constants.ControllerAgentConfigFilename,
+			controllerConfigSeedDir+"/"+constants.ControllerNonceFilename,
+			constants.ControllerNonceFilePath,
 		)},
 		Env: []core.EnvVar{
 			{
