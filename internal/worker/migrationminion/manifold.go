@@ -5,6 +5,7 @@ package migrationminion
 
 import (
 	"context"
+	"io"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -92,6 +93,10 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	if err := getter.Get(config.FortressName, &guard); err != nil {
 		return nil, errors.Trace(err)
 	}
+	var closer io.Closer
+	if c, ok := apiCaller.(io.Closer); ok {
+		closer = c
+	}
 
 	worker, err := config.NewWorker(Config{
 		Agent:                 agent,
@@ -104,6 +109,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		SendReport:            config.SendReport,
 		FetchTargetLokiConfig: config.FetchTargetLokiConfig,
 		ApplyJitter:           true,
+		ConnCloser:            closer,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

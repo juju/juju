@@ -6,6 +6,7 @@ package migrationminion
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/juju/clock"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/worker/fortress"
-	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -162,6 +162,12 @@ type Config struct {
 	// backoff. This is useful when retrying validation requests to
 	// avoid flooding the target controller.
 	ApplyJitter bool
+
+	// ConnCloser, if set, is closed after the agent config is rewritten
+	// to point at the target controller, so the apicaller redials using
+	// the new addresses. apiconfigwatcher also bounces on the voyeur;
+	// closing here does not depend on it.
+	ConnCloser io.Closer
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -444,7 +450,13 @@ func (w *Worker) dialWithRedirect(ctx context.Context, apiInfo *api.Info, dialOp
 		return nil, w.catacomb.ErrDying()
 	default:
 	}
+	return w.dialFollowingRedirects(ctx, apiInfo, dialOpts, redirectCount)
+}
 
+// dialFollowingRedirects dials the controller, following redirects. Unlike
+// dialWithRedirect it does not abort when the worker is dying, so a fallback
+// report can complete while the worker is being torn down.
+func (w *Worker) dialFollowingRedirects(ctx context.Context, apiInfo *api.Info, dialOpts api.DialOpts, redirectCount int) (api.Connection, error) {
 	if redirectCount >= maxRedirects {
 		return nil, errors.Errorf("too many redirects (%d) when connecting to target controller", redirectCount)
 	}
@@ -454,7 +466,7 @@ func (w *Worker) dialWithRedirect(ctx context.Context, apiInfo *api.Info, dialOp
 			w.config.Logger.Infof(ctx, "following redirect to %v", redirectErr.Servers)
 			apiInfo.Addrs = network.CollapseToHostPorts(redirectErr.Servers).Strings()
 			apiInfo.CACert = redirectErr.CACert
-			return w.dialWithRedirect(ctx, apiInfo, dialOpts, redirectCount+1)
+			return w.dialFollowingRedirects(ctx, apiInfo, dialOpts, redirectCount+1)
 		}
 		return nil, errors.Annotatef(err, "failed to open API to target controller")
 	}
@@ -470,11 +482,16 @@ func (w *Worker) doSUCCESS(ctx context.Context, status watcher.MigrationStatus) 
 	// will cause the API connection to drop. The SUCCESS phase is the
 	// point of no return anyway, so we must retry this step even if
 	// the api connection dies.
-	if err := w.robustReport(ctx, status, true); err != nil {
-		return errors.Trace(err)
-	}
+	reportErr := w.robustReport(ctx, status, true)
 
-	return w.updateAgentConfigForTargetController(ctx, status)
+	// Always update the agent config, even when the report failed -
+	// pointing at the source controller forever is the worst outcome.
+	// A report error is returned so the worker bounces and retries the
+	// report when the phase replays on the next worker start.
+	if cfgErr := w.updateAgentConfigForTargetController(ctx, status); cfgErr != nil {
+		return errors.Trace(cfgErr)
+	}
+	return errors.Annotate(reportErr, "reporting migration status")
 }
 
 func (w *Worker) updateAgentConfigForTargetController(ctx context.Context, status watcher.MigrationStatus) (err error) {
@@ -518,7 +535,15 @@ func (w *Worker) updateAgentConfigForTargetController(ctx context.Context, statu
 		}
 		return nil
 	})
-	return errors.Annotate(err, "setting agent config")
+	if err != nil {
+		return errors.Annotate(err, "setting agent config")
+	}
+	if w.config.ConnCloser != nil {
+		if closeErr := w.config.ConnCloser.Close(); closeErr != nil {
+			w.config.Logger.Warningf(ctx, "closing source API connection after config update: %v", closeErr)
+		}
+	}
+	return nil
 }
 
 func (w *Worker) ensureTargetControllerDetails(ctx context.Context, status watcher.MigrationStatus) error {
@@ -568,12 +593,14 @@ func (w *Worker) report(ctx context.Context, status watcher.MigrationStatus, suc
 
 func (w *Worker) robustReport(ctx context.Context, status watcher.MigrationStatus, success bool) error {
 	err := w.report(ctx, status, success)
-	if err != nil && !rpc.IsShutdownErr(err) {
-		return fmt.Errorf("cannot report migration status %v success=%v: %w", status, success, err)
-	} else if err == nil {
+	if err == nil {
 		return nil
 	}
-	w.config.Logger.Warningf(ctx, "report migration status failed: %v", err)
+	// Any failure - not just a dying connection - falls back to dialling
+	// the source controller directly. An in-flight report RPC can fail
+	// with "context canceled" when a race-restart tears the worker down
+	// mid-flight, and that error must not lose the report.
+	w.config.Logger.Warningf(ctx, "report migration status failed, retrying with direct dial: %v", err)
 
 	apiInfo, ok := w.config.Agent.CurrentConfig().APIInfo()
 	if !ok {
@@ -582,17 +609,24 @@ func (w *Worker) robustReport(ctx context.Context, status watcher.MigrationStatu
 	apiInfo.Addrs = status.SourceAPIAddrs
 	apiInfo.CACert = status.SourceCACert
 
+	// The worker may be torn down mid-report - e.g. when the machine
+	// agent's engine bounces and takes the nested unit engine with it -
+	// so the direct dial and report must complete on a context that is
+	// not cancelled by the teardown, and the dial must not abort on the
+	// dying catacomb.
+	reportCtx := context.WithoutCancel(ctx)
+
 	err = retry.Call(retry.CallArgs{
 		Func: func() error {
 			w.config.Logger.Infof(ctx, "reporting back for phase %s: %v", status.Phase, success)
 
-			conn, err := w.dialWithRedirect(ctx, apiInfo, api.DialOpts{}, 0)
+			conn, err := w.dialFollowingRedirects(reportCtx, apiInfo, api.DialOpts{}, 0)
 			if err != nil {
 				return fmt.Errorf("cannot dial source controller: %w", err)
 			}
 			defer func() { _ = conn.Close() }()
 
-			return w.config.SendReport(ctx, conn, status, success)
+			return w.config.SendReport(reportCtx, conn, status, success)
 		},
 		IsFatalError: func(err error) bool {
 			return false
