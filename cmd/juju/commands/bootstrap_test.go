@@ -2231,14 +2231,16 @@ func (s *BootstrapSuite) TestBootstrapControllerSnapOptionalFlagsAvailable(c *tc
 
 // TestBootstrapControllerSnapSourceModeContract verifies the mutually-exclusive
 // source-mode and flag contract: a store mode (channel or revision) cannot be
-// combined with a local snap path, and channel and revision are mutually
-// exclusive. Store modes force --build-agent and reject an explicit
-// --agent-version/--auto-upgrade bypass.
+// combined with a local snap path, an assertion path, or --build-snap, and
+// channel and revision are mutually exclusive. Store modes force --build-agent
+// and reject an explicit --agent-version/--auto-upgrade bypass.
 func (s *BootstrapSuite) TestBootstrapControllerSnapSourceModeContract(c *tc.C) {
 	s.patchVersion(c)
 
 	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
 	c.Assert(os.WriteFile(snapPath, []byte("fake"), 0644), tc.ErrorIsNil)
+	assertPath := filepath.Join(c.MkDir(), "jujud.assert")
+	c.Assert(os.WriteFile(assertPath, []byte("fake"), 0644), tc.ErrorIsNil)
 
 	// --controller-snap-path with a store channel is rejected.
 	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
@@ -2255,6 +2257,29 @@ func (s *BootstrapSuite) TestBootstrapControllerSnapSourceModeContract(c *tc.C) 
 		"--controller-snap-revision", "42",
 	)
 	c.Assert(err, tc.ErrorMatches, `--controller-snap-channel and --controller-snap-revision cannot be used together`)
+
+	// --controller-snap-assert-path with a store channel is rejected.
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--controller-snap-assert-path", assertPath,
+		"--controller-snap-channel", "4.2/edge",
+	)
+	c.Assert(err, tc.ErrorMatches, `--controller-snap-assert-path cannot be used with --controller-snap-channel or --controller-snap-revision`)
+
+	// --controller-snap-assert-path with a store revision is rejected.
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--controller-snap-assert-path", assertPath,
+		"--controller-snap-revision", "42",
+	)
+	c.Assert(err, tc.ErrorMatches, `--controller-snap-assert-path cannot be used with --controller-snap-channel or --controller-snap-revision`)
+
+	// --controller-snap-revision=0 is rejected.
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--controller-snap-revision", "0",
+	)
+	c.Assert(err, tc.ErrorMatches, `controller snap revision "0" is not a positive integer.*`)
 }
 
 // TestBootstrapControllerSnapStoreModeRequiresBuildAgent verifies that a store

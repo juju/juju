@@ -463,8 +463,8 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		if err != nil {
 			return errors.NotValidf("controller snap revision %q is not a number", c.ControllerSnapRevision)
 		}
-		if rev < 0 {
-			return errors.NotValidf("controller snap revision %q is negative", c.ControllerSnapRevision)
+		if rev <= 0 {
+			return errors.NotValidf("controller snap revision %q is not a positive integer", c.ControllerSnapRevision)
 		}
 	}
 
@@ -500,6 +500,10 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		}
 		if c.ControllerSnapRevision != "" && !c.ControllerSnapChannel.Empty() {
 			return errors.New("--controller-snap-channel and --controller-snap-revision cannot be used together")
+		}
+		if c.ControllerSnapAssertPath != "" {
+			return errors.New("--controller-snap-assert-path cannot be used with --controller-snap-channel" +
+				" or --controller-snap-revision")
 		}
 		if c.AgentVersionParam != "" || c.AutoUpgrade {
 			return errors.New("--agent-version and --auto-upgrade cannot be used with a store-based controller snap;" +
