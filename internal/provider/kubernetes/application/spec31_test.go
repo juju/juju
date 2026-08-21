@@ -21,6 +21,7 @@ func getPodSpec31() corev1.PodSpec {
 		AutomountServiceAccountToken:  pointer.BoolPtr(true),
 		ImagePullSecrets:              []corev1.LocalObjectReference{{Name: "gitlab-nginx-secret"}},
 		TerminationGracePeriodSeconds: pointer.Int64Ptr(30),
+		EnableServiceLinks:            pointer.Bool(true),
 		InitContainers: []corev1.Container{{
 			Name:            "charm-init",
 			ImagePullPolicy: corev1.PullIfNotPresent,

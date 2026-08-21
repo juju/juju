@@ -46,6 +46,29 @@ func NewApplicationForTest(
 	return newApplication(
 		name, namespace, modelUUID, modelName, labelVersion, deploymentType,
 		client, extendedClient, dynamicClient, newWatcher, clock, newApplier,
-		controllerUUID,
+		controllerUUID, func() bool { return true },
+	)
+}
+
+func NewApplicationForTestWithServiceLinks(
+	name string,
+	namespace string,
+	modelUUID string,
+	modelName string,
+	labelVersion constants.LabelVersion,
+	deploymentType caas.DeploymentType,
+	client kubernetes.Interface,
+	extendedClient clientset.Interface,
+	dynamicClient dynamic.Interface,
+	newWatcher k8swatcher.NewK8sWatcherFunc,
+	clock clock.Clock,
+	newApplier func() resources.Applier,
+	controllerUUID string,
+	enableServiceLinks bool,
+) ApplicationInterfaceForTest {
+	return newApplication(
+		name, namespace, modelUUID, modelName, labelVersion, deploymentType,
+		client, extendedClient, dynamicClient, newWatcher, clock, newApplier,
+		controllerUUID, func() bool { return enableServiceLinks },
 	)
 }
