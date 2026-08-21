@@ -44,11 +44,12 @@ type controllerSuite struct {
 
 	controllerConfigAttrs map[string]any
 
-	controller       *controller.ControllerAPI
-	authorizer       apiservertesting.FakeAuthorizer
-	context          facadetest.MultiModelContext
-	leadershipReader leadership.Reader
-	mockModelService *mocks.MockModelService
+	controller           *controller.ControllerAPI
+	authorizer           apiservertesting.FakeAuthorizer
+	context              facadetest.MultiModelContext
+	leadershipReader     leadership.Reader
+	mockModelService     *mocks.MockModelService
+	controllerSSHService controller.ControllerSSHService
 }
 
 func TestControllerSuite(t *stdtesting.T) {
@@ -107,6 +108,7 @@ func (s *controllerSuite) SetUpTest(c *tc.C) {
 	}
 
 	s.leadershipReader = noopLeadershipReader{}
+	s.controllerSSHService = s.ControllerDomainServices(c).SSHServerHostKey()
 	s.context = facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
 			Auth_:                s.authorizer,
@@ -230,6 +232,7 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		authorizer,
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
+		s.controllerSSHService,
 		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
 		domainServices.Access(),
@@ -255,6 +258,29 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	return api
+}
+
+func (s *controllerSuite) TestSSHServerHostKey(c *tc.C) {
+	key := []byte("controller-host-key")
+	service := &stubControllerSSHService{publicKey: key}
+	s.controllerSSHService = service
+
+	result, err := s.controllerAPI(c).SSHServerHostKey(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(service.called, tc.IsTrue)
+	c.Check(result.PublicKey, tc.DeepEquals, key)
+	c.Check(result.Error, tc.IsNil)
+}
+
+type stubControllerSSHService struct {
+	publicKey []byte
+	err       error
+	called    bool
+}
+
+func (s *stubControllerSSHService) SSHServerHostPublicKey(context.Context) ([]byte, error) {
+	s.called = true
+	return s.publicKey, s.err
 }
 
 func (s *controllerSuite) TestNewAPIRefusesNonClient(c *tc.C) {
@@ -804,6 +830,7 @@ func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		c.Context(),
 		s.authorizer,
 		loggertesting.WrapCheckLog(c),
+		nil,
 		nil,
 		nil,
 		nil,

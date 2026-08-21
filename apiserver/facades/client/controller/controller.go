@@ -50,8 +50,16 @@ type ControllerAPIV12 struct {
 
 // ControllerAPIV13 implements the controller APIV13.
 type ControllerAPIV13 struct {
+	*ControllerAPIV14
+}
+
+// ControllerAPIV14 implements the controller APIV14.
+type ControllerAPIV14 struct {
 	*ControllerAPI
 }
+
+// SSHServerHostKey is not available in v14.
+func (c *ControllerAPIV14) SSHServerHostKey(_ struct{}) {}
 
 // ControllerAPI provides the Controller API.
 type ControllerAPI struct {
@@ -61,6 +69,7 @@ type ControllerAPI struct {
 	authorizer                  facade.Authorizer
 	apiUser                     names.UserTag
 	controllerConfigService     ControllerConfigService
+	controllerSSHService        ControllerSSHService
 	accessService               ControllerAccessService
 	modelService                ModelService
 	modelInfoService            ModelInfoService
@@ -95,6 +104,7 @@ func NewControllerAPI(
 	authorizer facade.Authorizer,
 	logger corelogger.Logger,
 	controllerConfigService ControllerConfigService,
+	controllerSSHService ControllerSSHService,
 	controllerNodeService ControllerNodeService,
 	externalControllerService common.ExternalControllerService,
 	accessService ControllerAccessService,
@@ -150,6 +160,7 @@ func NewControllerAPI(
 		apiUser:                     apiUser,
 		logger:                      logger,
 		controllerConfigService:     controllerConfigService,
+		controllerSSHService:        controllerSSHService,
 		accessService:               accessService,
 		modelService:                modelService,
 		blockCommandService:         blockCommandService,
@@ -189,6 +200,20 @@ func (c *ControllerAPI) ControllerVersion(ctx context.Context) (params.Controlle
 		GitCommit: jujuversion.GitCommit,
 	}
 	return result, nil
+}
+
+// SSHServerHostKey returns the public host key of the controller's embedded SSH
+// jump server.
+func (c *ControllerAPI) SSHServerHostKey(ctx context.Context) (params.SSHControllerPublicKeyResult, error) {
+	publicKey, err := c.controllerSSHService.SSHServerHostPublicKey(ctx)
+	if err != nil {
+		return params.SSHControllerPublicKeyResult{
+			Error: apiservererrors.ServerError(err),
+		}, nil
+	}
+	return params.SSHControllerPublicKeyResult{
+		PublicKey: publicKey,
+	}, nil
 }
 
 // IdentityProviderURL returns the URL of the configured external identity

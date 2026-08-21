@@ -384,6 +384,19 @@ func (c *Client) ControllerVersion(ctx context.Context) (ControllerVersion, erro
 	return out, err
 }
 
+// SSHServerHostKey returns the public host key of the controller's embedded SSH
+// jump server.
+func (c *Client) SSHServerHostKey(ctx context.Context) ([]byte, error) {
+	var result params.SSHControllerPublicKeyResult
+	if err := c.facade.FacadeCall(ctx, "SSHServerHostKey", nil, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if result.Error != nil {
+		return nil, errors.Trace(result.Error)
+	}
+	return result.PublicKey, nil
+}
+
 // DashboardConnectionInfo
 type DashboardConnectionInfo struct {
 	Proxier   proxy.Proxier
