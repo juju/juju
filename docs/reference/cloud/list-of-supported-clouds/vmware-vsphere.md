@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Configure VMware vSphere cloud with Juju, including ESXi requirements, vSAN support, and authentication for vSphere deployments."
+    description: "Configure VMware vSphere cloud with Juju, including ESXi requirements, vSAN support, minimal permissions, and authentication for vSphere deployments."
 ---
 
 (cloud-vsphere)=
@@ -24,6 +24,103 @@ In order to add a vSphere cloud you will need an existing vSphere installation w
 - DNS and DHCP.
 
 Juju supports both high-availability vSAN deployments and standard deployments.
+
+(vsphere-permissions)=
+### Minimal vSphere permissions
+
+Juju does not require full administrator privileges. You can create a
+dedicated vSphere role with the permissions listed below, scoped to the
+datacenter and its children. These permissions allow Juju to import templates,
+provision VMs, manage folders, and tear down resources.
+
+Apply the role at the **datacenter level** with propagation to child
+objects. For a tighter scope, restrict to the specific datacenter,
+cluster, host folder, datastore folder, and network folder that Juju
+will use.
+
+**Global**
+
+| VMware UI path | Privilege ID |
+|---|---|
+| System > Read | `System.Read` |
+
+**Datastore**
+
+| VMware UI path | Privilege ID |
+|---|---|
+| Datastore > Allocate space | `Datastore.AllocateSpace` |
+| Datastore > Browse datastore | `Datastore.Browse` |
+| Datastore > Low level file operations | `Datastore.FileManagement` |
+
+**Folder**
+
+| VMware UI path | Privilege ID |
+|---|---|
+| Folder > Create folder | `Folder.Create` |
+| Folder > Delete folder | `Folder.Delete` |
+| Folder > Move folder | `Folder.Move` |
+
+**Network**
+
+| VMware UI path | Privilege ID |
+|---|---|
+| Network > Assign network | `Network.Assign` |
+
+**Resource**
+
+| VMware UI path | Privilege ID |
+|---|---|
+| Resource > Assign virtual machine to resource pool | `Resource.AssignVMToPool` |
+| Resource > Import | `Resource.Import` |
+
+**vApp**
+
+| VMware UI path | Privilege ID |
+|---|---|
+| vApp > Import | `vApp.Import` |
+| vApp > vApp application configuration | `vApp.VAppApplicationConfig` |
+
+**Virtual Machine > Configuration**
+
+| VMware UI path | Privilege ID |
+|---|---|
+| Virtual Machine > Configuration > Add or remove device | `VirtualMachine.Config.AddRemoveDevice` |
+| Virtual Machine > Configuration > Change CPU count | `VirtualMachine.Config.CPUCount` |
+| Virtual Machine > Configuration > Change Memory | `VirtualMachine.Config.Memory` |
+| Virtual Machine > Configuration > Change Settings | `VirtualMachine.Config.Settings` |
+| Virtual Machine > Configuration > Extend virtual disk | `VirtualMachine.Config.DiskExtend` |
+| Virtual Machine > Configuration > Modify device settings | `VirtualMachine.Config.EditDevice` |
+| Virtual Machine > Configuration > Advanced | `VirtualMachine.Config.AdvancedConfig` |
+| Virtual Machine > Configuration > Upgrade virtual machine compatibility | `VirtualMachine.Config.UpgradeVirtualHardware` |
+
+**Virtual Machine > Interaction**
+
+| VMware UI path | Privilege ID |
+|---|---|
+| Virtual Machine > Interaction > Power On | `VirtualMachine.Interact.PowerOn` |
+| Virtual Machine > Interaction > Power Off | `VirtualMachine.Interact.PowerOff` |
+
+**Virtual Machine > Inventory**
+
+| VMware UI path | Privilege ID |
+|---|---|
+| Virtual Machine > Inventory > Create from existing | `VirtualMachine.Inventory.CreateFromExisting` |
+| Virtual Machine > Inventory > Move | `VirtualMachine.Inventory.Move` |
+| Virtual Machine > Inventory > Remove | `VirtualMachine.Inventory.Delete` |
+
+**Virtual Machine > Provisioning**
+
+| VMware UI path | Privilege ID |
+|---|---|
+| Virtual Machine > Provisioning > Deploy template | `VirtualMachine.Provisioning.DeployTemplate` |
+| Virtual Machine > Provisioning > Mark as template | `VirtualMachine.Provisioning.MarkAsTemplate` |
+
+```{tip}
+The `System.Read` privilege provides read access to the entire inventory tree
+(datacenters, folders, hosts, clusters, datastores, networks, VMs, resource
+pools, and distributed virtual switches). The API session cannot enumerate
+objects without it.
+```
 
 (vsphere-concepts)=
 ## Concepts
