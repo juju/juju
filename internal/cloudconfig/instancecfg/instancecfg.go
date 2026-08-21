@@ -266,13 +266,15 @@ type BootstrapConfig struct {
 	// with an assertion rather than in dangerous mode.
 	ControllerSnapAssertPath string
 
-	// ControllerSnapChannel is the snapstore channel used to resolve and
-	// install the controller snap (store installs only).
-	ControllerSnapChannel string
-
 	// ControllerSnapExpectedVersion is the exact Juju version expected to be
 	// provided by the installed controller snap (store installs only).
 	ControllerSnapExpectedVersion string
+
+	// ControllerSnapRevision is the store revision of the controller snap the
+	// machine must download and install during provisioning. When non-zero the
+	// machine downloads that exact revision from the store; when zero a locally
+	// provided snap (ControllerSnapPath) is uploaded and installed instead.
+	ControllerSnapRevision int
 
 	// Timeout is the amount of time to wait for bootstrap to complete.
 	Timeout time.Duration
@@ -436,7 +438,6 @@ type stateInitializationParamsInternal struct {
 	ControllerCloudCredential               *cloud.Credential                 `yaml:"controller-cloud-credential,omitempty"`
 	ControllerCharmPath                     string                            `yaml:"controller-charm-path,omitempty"`
 	ControllerCharmChannel                  charm.Channel                     `yaml:"controller-charm-channel,omitempty"`
-	ControllerSnapChannel                   string                            `yaml:"controller-snap-channel,omitempty"`
 	ControllerSnapExpectedVersion           string                            `yaml:"controller-snap-expected-version,omitempty"`
 	SSHServerHostKey                        string                            `yaml:"ssh-server-host-key,omitempty"`
 }

@@ -175,7 +175,7 @@ func (s *BootstrapSuite) SetUpTest(c *tc.C) {
 
 	// Create a fake controller snap file for IAAS bootstrap tests.
 	// All IAAS bootstraps now require --controller-snap-path.
-	s.controllerSnapPath = filepath.Join(c.MkDir(), "juju-controller.snap")
+	s.controllerSnapPath = filepath.Join(c.MkDir(), "jujud.snap")
 	c.Assert(os.WriteFile(s.controllerSnapPath, []byte("fake snap"), 0644), tc.ErrorIsNil)
 }
 
@@ -204,13 +204,16 @@ func (s *BootstrapSuite) runIAASBootstrap(c tc.LikeC, args ...string) (*cmd.Cont
 	return cmdtesting.RunCommand(c, s.newBootstrapCommand(), allArgs...)
 }
 
-// patchSnapInfo patches the snap info command to return a version matching
-// jujuversion.Current (ignoring Build) so that version coupling checks pass.
+// patchSnapInfo patches the snapd-free version reader to return a version
+// matching jujuversion.Current (ignoring Build) so that version coupling checks
+// pass for the local-snap path.
 func (s *BootstrapSuite) patchSnapInfo(c tc.LikeC) {
-	r := testhelpers.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
-		return fmt.Sprintf("version: %s -\n", jujuversion.Current.ToPatch().String()), nil
-	})
-	c.Cleanup(r)
+	c.Cleanup(testhelpers.PatchValue(bootstrap.RunUnsquashfsCommand, func(_ context.Context, _, _ string) ([]byte, error) {
+		return fmt.Appendf(nil, "version: %s\n", jujuversion.Current.ToPatch().String()), nil
+	}))
+	c.Cleanup(testhelpers.PatchValue(bootstrap.FindUnsquashfs, func() (string, error) {
+		return "/usr/bin/unsquashfs", nil
+	}))
 }
 
 func (s *BootstrapSuite) TestRunTests(c *tc.C) {
@@ -288,11 +291,9 @@ func (s *BootstrapSuite) run(c tc.LikeC, test bootstrapTest) {
 		"--build-agent",
 	}, test.args...)
 
-	// Patch snap info to return the current jujuversion as the snap
+	// Patch the snapd-free reader to return the current jujuversion as the snap
 	// version so that version coupling passes for all table tests.
-	c.Cleanup(testhelpers.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
-		return fmt.Sprintf("version: %s -\n", jujuversion.Current.ToPatch().String()), nil
-	}))
+	s.patchSnapInfo(c)
 
 	opc, errc := runCommandWithDummyProvider(cmdtesting.Context(c), s.newBootstrapCommand(), args...)
 	var err error
@@ -2228,6 +2229,84 @@ func (s *BootstrapSuite) TestBootstrapControllerSnapOptionalFlagsAvailable(c *tc
 	}
 }
 
+// TestBootstrapControllerSnapSourceModeContract verifies the mutually-exclusive
+// source-mode and flag contract: a store mode (channel or revision) cannot be
+// combined with a local snap path, an assertion path, or --build-snap, and
+// channel and revision are mutually exclusive. Store modes force --build-agent
+// and reject an explicit --agent-version/--auto-upgrade bypass.
+func (s *BootstrapSuite) TestBootstrapControllerSnapSourceModeContract(c *tc.C) {
+	s.patchVersion(c)
+
+	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
+	c.Assert(os.WriteFile(snapPath, []byte("fake"), 0644), tc.ErrorIsNil)
+	assertPath := filepath.Join(c.MkDir(), "jujud.assert")
+	c.Assert(os.WriteFile(assertPath, []byte("fake"), 0644), tc.ErrorIsNil)
+
+	// --controller-snap-path with a store channel is rejected.
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--controller-snap-path", snapPath,
+		"--controller-snap-channel", "4.2/edge",
+	)
+	c.Assert(err, tc.ErrorMatches, `--controller-snap-path cannot be used with --controller-snap-channel or --controller-snap-revision`)
+
+	// --controller-snap-channel with --controller-snap-revision is rejected.
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--controller-snap-channel", "4.2/edge",
+		"--controller-snap-revision", "42",
+	)
+	c.Assert(err, tc.ErrorMatches, `--controller-snap-channel and --controller-snap-revision cannot be used together`)
+
+	// --controller-snap-assert-path with a store channel is rejected.
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--controller-snap-assert-path", assertPath,
+		"--controller-snap-channel", "4.2/edge",
+	)
+	c.Assert(err, tc.ErrorMatches, `--controller-snap-assert-path cannot be used with --controller-snap-channel or --controller-snap-revision`)
+
+	// --controller-snap-assert-path with a store revision is rejected.
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--controller-snap-assert-path", assertPath,
+		"--controller-snap-revision", "42",
+	)
+	c.Assert(err, tc.ErrorMatches, `--controller-snap-assert-path cannot be used with --controller-snap-channel or --controller-snap-revision`)
+
+	// --controller-snap-revision=0 is rejected.
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--controller-snap-revision", "0",
+	)
+	c.Assert(err, tc.ErrorMatches, `controller snap revision "0" is not a positive integer.*`)
+}
+
+// TestBootstrapControllerSnapStoreModeRequiresBuildAgent verifies that a store
+// source mode (channel or revision) forces --build-agent and rejects an
+// explicit --agent-version bypass, so the locally built agent stays anchored to
+// the snap's resolved version.
+func (s *BootstrapSuite) TestBootstrapControllerSnapStoreModeRequiresBuildAgent(c *tc.C) {
+	s.patchVersion(c)
+
+	// A store channel with --agent-version is rejected (would bypass the
+	// anchored-tools contract).
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--controller-snap-channel", "4.2/edge",
+		"--agent-version", "2.99.0",
+	)
+	c.Assert(err, tc.ErrorMatches, `--agent-version and --auto-upgrade cannot be used with a store-based controller snap; .*`)
+
+	// A store channel with --auto-upgrade is rejected.
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--controller-snap-channel", "4.2/edge",
+		"--auto-upgrade",
+	)
+	c.Assert(err, tc.ErrorMatches, `--agent-version and --auto-upgrade cannot be used with a store-based controller snap; .*`)
+}
+
 // TestBootstrapControllerSnapPathAlwaysAvailable verifies that
 // --controller-snap-path is always available without a feature flag.
 func (s *BootstrapSuite) TestBootstrapControllerSnapPathAlwaysAvailable(c *tc.C) {
@@ -2250,12 +2329,12 @@ func (s *BootstrapSuite) TestBootstrapControllerSnapPathAlwaysAvailable(c *tc.C)
 	}
 }
 
-// TestBootstrapImplicitBuild tests that an IAAS bootstrap without
-// --controller-snap-path triggers the implicit build flow, including the
-// WARNING log message about the temporary behavior.
-func (s *BootstrapSuite) TestBootstrapImplicitBuild(c *tc.C) {
+// TestBootstrapDefaultStoreMode verifies that an IAAS bootstrap with no snap
+// source flag defaults to store channel mode: the snap is not built locally,
+// --build-agent is forced, and the client resolves the snap from the store's
+// default channel (ControllerSnapPath left empty).
+func (s *BootstrapSuite) TestBootstrapDefaultStoreMode(c *tc.C) {
 	s.patchVersion(c)
-	s.tw.Clear()
 
 	var gotArgs bootstrap.BootstrapParams
 	bootstrapFuncs := &fakeBootstrapFuncs{
@@ -2268,7 +2347,38 @@ func (s *BootstrapSuite) TestBootstrapImplicitBuild(c *tc.C) {
 		return bootstrapFuncs
 	})
 
-	// Patch BuildControllerSnap to return a fake snap file.
+	// BuildControllerSnap must not be called in store mode.
+	s.PatchValue(&bootstrap.BuildControllerSnap, func(ctx context.Context, stdout, stderr io.Writer) (string, error) {
+		c.Fatal("store mode must not build the controller snap locally")
+		return "", nil
+	})
+
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+	)
+	c.Assert(err, tc.Equals, cmd.ErrSilent)
+	c.Check(gotArgs.ControllerSnapPath, tc.Equals, "")
+	c.Check(gotArgs.ControllerSnapStoreMode, tc.Equals, true)
+	c.Check(gotArgs.BuildAgent, tc.Equals, true)
+}
+
+// TestBootstrapExplicitBuildSnap verifies that an explicit --build-snap builds
+// the controller snap locally and sets the resulting path, without relying on a
+// store source.
+func (s *BootstrapSuite) TestBootstrapExplicitBuildSnap(c *tc.C) {
+	s.patchVersion(c)
+
+	var gotArgs bootstrap.BootstrapParams
+	bootstrapFuncs := &fakeBootstrapFuncs{
+		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, args bootstrap.BootstrapParams) error {
+			gotArgs = args
+			return errors.New("test error")
+		},
+	}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return bootstrapFuncs
+	})
+
 	tempSnapPath := filepath.Join(c.MkDir(), "jujud_4.0.0_amd64.snap")
 	err := os.WriteFile(tempSnapPath, []byte("fake snap"), 0644)
 	c.Assert(err, tc.ErrorIsNil)
@@ -2278,25 +2388,17 @@ func (s *BootstrapSuite) TestBootstrapImplicitBuild(c *tc.C) {
 
 	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
+		"--build-snap",
 	)
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 	c.Check(gotArgs.ControllerSnapPath, tc.Equals, tempSnapPath)
-	c.Check(gotArgs.BuildAgent, tc.IsTrue)
-
-	// Verify the WARNING log message.
-	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_._`, tc.Ignore)
-	c.Check(s.tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
-		Level:   loggo.WARNING,
-		Message: "building controller snap and agent from local source; this is temporary and will be replaced by store-based resolution in a future release",
-	}})
+	c.Check(gotArgs.ControllerSnapStoreMode, tc.Equals, false)
+	c.Check(gotArgs.BuildAgent, tc.Equals, true)
 }
 
 // TestBootstrapExplicitSnapPathBypassesImplicitBuild verifies that when
-// --controller-snap-path is explicitly provided, the implicit build is NOT
-// triggered and the explicit path is used as-is.
+// --controller-snap-path is explicitly provided, the local path is used as-is
+// (no store resolution, no local build).
 func (s *BootstrapSuite) TestBootstrapExplicitSnapPathBypassesImplicitBuild(c *tc.C) {
 	s.patchVersion(c)
 	s.tw.Clear()
@@ -2364,26 +2466,38 @@ func (s *BootstrapSuite) TestBootstrapBuildSnapIgnoredWithExplicitPath(c *tc.C) 
 	}})
 }
 
-// TestBootstrapIAASControllerSnapPathRequired verifies that when all implicit
-// build mechanisms fail (e.g., BuildControllerSnap returns an empty path), the
-// original --controller-snap-path is required error still fires.
-func (s *BootstrapSuite) TestBootstrapIAASControllerSnapPathRequired(c *tc.C) {
+// TestBootstrapIAASNoSnapSourceDefaultsToStore verifies that an IAAS bootstrap
+// with no snap source flag no longer errors with "path required": it defaults
+// to store mode and the store-mode path is used (BuildControllerSnap is never
+// called).
+func (s *BootstrapSuite) TestBootstrapIAASNoSnapSourceDefaultsToStore(c *tc.C) {
 	s.patchVersion(c)
 
-	// Leave BuildControllerSnap unpatched; the real function will fail
-	// (no snapcraft, no source root), which means the implicit build
-	// fails, and the original "required" error will surface.
-	// Instead, patch it to return an empty string to simulate build
-	// success but no path set (should not happen normally, but tests
-	// the fallback).
+	// The implicit local build must not be triggered for a no-source
+	// bootstrap; store mode is the default.
 	s.PatchValue(&bootstrap.BuildControllerSnap, func(ctx context.Context, stdout, stderr io.Writer) (string, error) {
+		c.Fatal("store mode must not build the controller snap locally")
 		return "", nil
+	})
+
+	var gotArgs bootstrap.BootstrapParams
+	bootstrapFuncs := &fakeBootstrapFuncs{
+		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, args bootstrap.BootstrapParams) error {
+			gotArgs = args
+			return errors.New("test error")
+		},
+	}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return bootstrapFuncs
 	})
 
 	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 	)
-	c.Assert(err, tc.ErrorMatches, `--controller-snap-path is required for IAAS bootstrap.*`)
+	c.Assert(err, tc.Equals, cmd.ErrSilent)
+	c.Check(gotArgs.ControllerSnapPath, tc.Equals, "")
+	c.Check(gotArgs.ControllerSnapStoreMode, tc.Equals, true)
+	c.Check(gotArgs.BuildAgent, tc.Equals, true)
 }
 
 // TestBootstrapBuildSnapWithAssertPathNoSnapPath verifies that
