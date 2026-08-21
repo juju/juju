@@ -52,6 +52,7 @@ type ControllerStackerForTest interface {
 	GetControllerUnitAgentConfigContent(*tc.C) string
 	GetControllerUnitAgentPassword() string
 	GetControllerApplicationPassword() string
+	GetControllerNonce() string
 	GetStorageSize() resource.Quantity
 	GetControllerSvcSpec(string, *podcfg.BootstrapConfig) (*controllerServiceSpec, error)
 	SetControllerAgentLokiConfig(string, *string, *bool, string)
@@ -76,6 +77,10 @@ func (cs *controllerStack) GetControllerUnitAgentConfigContent(c *tc.C) string {
 
 func (cs *controllerStack) GetControllerUnitAgentPassword() string {
 	return cs.unitAgentConfig.OldPassword()
+}
+
+func (cs *controllerStack) GetControllerNonce() string {
+	return cs.nonce
 }
 
 func (cs *controllerStack) GetControllerApplicationPassword() string {

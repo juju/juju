@@ -744,6 +744,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 			"bootstrap-params":           string(bootstrapParamsContent),
 			"controller-agent.conf":      controllerStacker.GetControllerAgentConfigContent(c),
 			"controller-unit-agent.conf": controllerStacker.GetControllerUnitAgentConfigContent(c),
+			"controller-nonce-0":         controllerStacker.GetControllerNonce(),
 		},
 	}
 
@@ -830,6 +831,9 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 					}, {
 						Key:  "controller-unit-agent.conf",
 						Path: "controller-unit-agent.conf",
+					}, {
+						Key:  "controller-nonce-0",
+						Path: "controller-nonce-0",
 					},
 				},
 			},
@@ -1101,6 +1105,10 @@ if [ "${controller_id}" = "0" ]; then
         cp "/var/lib/juju-controller-bootstrap/controller-agent.conf" "${controller_template}"
         chmod 600 "${controller_template}"
     fi
+fi
+seed_nonce="/var/lib/juju-controller-bootstrap/controller-nonce-${controller_id}"
+if [ -e "${seed_nonce}" ]; then
+    cp "${seed_nonce}" "/var/lib/juju/nonce.txt"
 fi
 `},
 		Env: []core.EnvVar{

@@ -4,6 +4,8 @@
 package constants
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agentconstants "github.com/juju/juju/agent/constants"
@@ -50,6 +52,20 @@ const (
 	// ControllerUnitAgentConfigFilename is the agent conf filename
 	// for the controller unit agent which runs the charm.
 	ControllerUnitAgentConfigFilename = "controller-unit-agent.conf"
+
+	// ControllerNonceFilename is the filename within the bootstrap seed
+	// ConfigMap data that holds the controller introduction nonce. It is
+	// mounted alongside the agent config files at the bootstrap seed
+	// directory (/var/lib/juju-controller-bootstrap).
+	ControllerNonceFilename = "controller-nonce"
+
+	// ControllerNonceFilePath is the full path where the per-ordinal
+	// controller introduction nonce is placed on the shared data directory
+	// by the controller-config-seed init container. The init container
+	// selects the nonce for its ordinal from the ConfigMap and copies it
+	// to this path. This mirrors the machine nonce at
+	// /var/lib/juju/nonce.txt.
+	ControllerNonceFilePath = "/var/lib/juju/nonce.txt"
 
 	// CAASProviderType is the provider type for k8s.
 	CAASProviderType = "kubernetes"
@@ -128,4 +144,10 @@ func DeletePropagationBackground() *metav1.DeletionPropagation {
 func DeletePropagationOrphan() *metav1.DeletionPropagation {
 	v := metav1.DeletePropagationOrphan
 	return &v
+}
+
+// ControllerNonceConfigMapKey returns the ConfigMap key for a controller
+// ordinal's introduction nonce.
+func ControllerNonceConfigMapKey(ordinal int) string {
+	return fmt.Sprintf("controller-nonce-%d", ordinal)
 }
