@@ -5,7 +5,6 @@ package state
 
 import (
 	"fmt"
-	"slices"
 	"strconv"
 
 	"github.com/juju/errors"
@@ -372,9 +371,6 @@ func validateContainerHost(parent *Machine) error {
 	if parent.Life() != Alive {
 		return machineNotAliveErr
 	}
-	if !slices.Contains(parent.Jobs(), JobHostUnits) {
-		return errors.Errorf("machine %q cannot host containers", parent)
-	}
 	return nil
 }
 
@@ -426,12 +422,9 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	}
 	prereqOps = append(prereqOps,
 		txn.Op{
-			C:  machinesC,
-			Id: parent.doc.DocID,
-			Assert: bson.D{
-				{"life", Alive},
-				{"jobs", bson.M{"$in": []MachineJob{JobHostUnits}}},
-			},
+			C:      machinesC,
+			Id:     parent.doc.DocID,
+			Assert: bson.D{{"life", Alive}},
 		},
 		// Update containers record for host machine.
 		addChildToContainerRefOp(st, parentId, mdoc.Id),
