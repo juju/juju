@@ -6,13 +6,17 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
+	"github.com/juju/clock"
+	jujuerrors "github.com/juju/errors"
+	"github.com/juju/retry"
 )
 
 const (
@@ -25,6 +29,26 @@ const (
 	// snapDeviceSeries is the device series header the store demands on its
 	// v2 API, matching what snapd sends.
 	snapDeviceSeries = "16"
+
+	// snapStoreRequestTimeout is the per-request timeout for a single snap
+	// store request. The retry loop below owns the overall budget, so this
+	// only needs to be long enough for one request to a slow but healthy
+	// store.
+	snapStoreRequestTimeout = 30 * time.Second
+
+	// snapStoreRetryAttempts is the maximum number of attempts (including the
+	// initial) made before giving up on a store request.
+	snapStoreRetryAttempts = 20
+
+	// snapStoreRetryDelay is the initial delay before the first retry.
+	snapStoreRetryDelay = time.Second
+
+	// snapStoreRetryMaxDelay caps the exponential backoff between attempts.
+	snapStoreRetryMaxDelay = 5 * time.Second
+
+	// snapStoreRetryMaxDuration is the total time budget across all attempts
+	// of a single store request.
+	snapStoreRetryMaxDuration = 60 * time.Second
 )
 
 // snapStoreRevision is the store release the client resolved for a channel or
@@ -44,6 +68,7 @@ type snapStoreRevision struct {
 type snapStoreClient struct {
 	baseURL    string
 	httpClient *http.Client
+	clock      clock.Clock
 }
 
 func newSnapStoreClient(storeURL string) *snapStoreClient {
@@ -54,8 +79,9 @@ func newSnapStoreClient(storeURL string) *snapStoreClient {
 	return &snapStoreClient{
 		baseURL: baseURL,
 		httpClient: &http.Client{
-			Timeout: 5 * time.Minute,
+			Timeout: snapStoreRequestTimeout,
 		},
+		clock: clock.WallClock,
 	}
 }
 
@@ -138,33 +164,109 @@ func (c *snapStoreClient) resolveRevision(ctx context.Context, snapName, arch st
 	)
 }
 
+// retryableStoreError wraps a store error that should be retried. The retry
+// loop's IsFatalError recognises this type and continues retrying; any other
+// error is treated as fatal.
+type retryableStoreError struct{ err error }
+
+func (e *retryableStoreError) Error() string { return e.err.Error() }
+func (e *retryableStoreError) Unwrap() error { return e.err }
+
 // fetchInfo returns the channel-map entries for the snap on the given
-// architecture using the store /v2/snaps/info endpoint.
+// architecture using the store /v2/snaps/info endpoint. It retries transient
+// failures (429, 5xx, timeouts) with exponential backoff.
 func (c *snapStoreClient) fetchInfo(ctx context.Context, snapName, arch string) (snapInfoResponse, error) {
+	var lastInfo snapInfoResponse
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			info, retryable, err := c.doFetchInfo(ctx, snapName, arch)
+			if err == nil {
+				lastInfo = info
+				return nil
+			}
+			if retryable {
+				return &retryableStoreError{err: err}
+			}
+			return err
+		},
+		IsFatalError: func(err error) bool {
+			var r *retryableStoreError
+			return !errors.As(err, &r)
+		},
+		Attempts:    snapStoreRetryAttempts,
+		Delay:       snapStoreRetryDelay,
+		MaxDelay:    snapStoreRetryMaxDelay,
+		MaxDuration: snapStoreRetryMaxDuration,
+		BackoffFunc: retry.ExpBackoff(snapStoreRetryDelay, snapStoreRetryMaxDelay, 2.0, false),
+		Clock:       c.clock,
+		Stop:        ctx.Done(),
+	})
+	if err != nil {
+		lastErr := retry.LastError(err)
+		return snapInfoResponse{}, jujuerrors.Annotatef(lastErr, "querying snap store for %q", snapName)
+	}
+	return lastInfo, nil
+}
+
+// doFetchInfo performs a single request to the store /v2/snaps/info endpoint.
+// It returns the response and a boolean indicating whether the error is
+// retryable (429, 5xx, network timeout). The caller owns retry logic.
+func (c *snapStoreClient) doFetchInfo(ctx context.Context, snapName, arch string) (snapInfoResponse, bool, error) {
 	u := fmt.Sprintf("%s/v2/snaps/info/%s?architecture=%s&fields=version,revision,channel-map", c.baseURL, snapName, arch)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return snapInfoResponse{}, errors.Annotatef(err, "creating store info request")
+		return snapInfoResponse{}, false, jujuerrors.Annotatef(err, "creating store info request")
 	}
 	req.Header.Set("Snap-Device-Series", snapDeviceSeries)
 	req.Header.Set("User-Agent", "juju")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return snapInfoResponse{}, errors.Annotatef(err, "querying snap store for %q", snapName)
+		retryable := isRetryableNetworkError(err)
+		return snapInfoResponse{}, retryable, fmt.Errorf("querying snap store for %q: %w", snapName, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if !isRetryableStatusCode(resp.StatusCode) {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return snapInfoResponse{}, false, fmt.Errorf("snap store returned %s for %q: %s", resp.Status, snapName, strings.TrimSpace(string(body)))
+	}
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return snapInfoResponse{}, fmt.Errorf("snap store returned %s for %q: %s", resp.Status, snapName, strings.TrimSpace(string(body)))
+		return snapInfoResponse{}, true, fmt.Errorf("snap store returned %s for %q: %s", resp.Status, snapName, strings.TrimSpace(string(body)))
 	}
 
 	var info snapInfoResponse
 	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
-		return snapInfoResponse{}, errors.Annotatef(err, "decoding snap store response for %q", snapName)
+		return snapInfoResponse{}, false, jujuerrors.Annotatef(err, "decoding snap store response for %q", snapName)
 	}
-	return info, nil
+	return info, false, nil
+}
+
+// isRetryableStatusCode reports whether the status code indicates a transient
+// failure that should be retried.
+func isRetryableStatusCode(code int) bool {
+	switch code {
+	case http.StatusTooManyRequests,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout:
+		return true
+	}
+	return false
+}
+
+// isRetryableNetworkError reports whether the error is a transient network
+// failure (timeout or temporary DNS/connection error) that should be retried.
+func isRetryableNetworkError(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	if netErr, ok := errors.AsType[net.Error](err); ok && netErr.Timeout() {
+		return true
+	}
+	return false
 }
 
 // resolveControllerSnap resolves the controller snap's version and revision for
@@ -191,7 +293,7 @@ var resolveControllerSnap = func(
 		target, err = client.resolveChannel(ctx, snapName, arch, channel)
 	}
 	if err != nil {
-		return "", 0, errors.Annotate(err, "resolving controller snap in store")
+		return "", 0, jujuerrors.Annotate(err, "resolving controller snap in store")
 	}
 	return target.Version, target.Revision, nil
 }
