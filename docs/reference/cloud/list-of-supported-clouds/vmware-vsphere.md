@@ -30,9 +30,8 @@ Juju supports both high-availability vSAN deployments and standard deployments.
 
 Juju does not require full administrator privileges. You can create a
 dedicated vSphere role with the permissions listed below, scoped to the
-datacenter and its children. This gives Juju exactly what it needs to
-import templates, provision VMs, manage folders, and tear down
-resources — and nothing more.
+datacenter and its children. These permissions allow Juju to import templates,
+provision VMs, manage folders, and tear down resources.
 
 Apply the role at the **datacenter level** with propagation to child
 objects. For a tighter scope, restrict to the specific datacenter,
@@ -91,7 +90,6 @@ will use.
 | Virtual Machine > Configuration > Change Settings | `VirtualMachine.Config.Settings` |
 | Virtual Machine > Configuration > Extend virtual disk | `VirtualMachine.Config.DiskExtend` |
 | Virtual Machine > Configuration > Modify device settings | `VirtualMachine.Config.EditDevice` |
-| Virtual Machine > Configuration > Set annotation | `VirtualMachine.Config.Annotation` |
 | Virtual Machine > Configuration > Advanced | `VirtualMachine.Config.AdvancedConfig` |
 | Virtual Machine > Configuration > Upgrade virtual machine compatibility | `VirtualMachine.Config.UpgradeVirtualHardware` |
 
@@ -114,13 +112,8 @@ will use.
 
 | VMware UI path | Privilege ID |
 |---|---|
-| Virtual Machine > Provisioning > Clone template | `VirtualMachine.Provisioning.CloneTemplate` |
-| Virtual Machine > Provisioning > Clone virtual machine | `VirtualMachine.Provisioning.Clone` |
-| Virtual Machine > Provisioning > Customize | `VirtualMachine.Provisioning.Customize` |
 | Virtual Machine > Provisioning > Deploy template | `VirtualMachine.Provisioning.DeployTemplate` |
 | Virtual Machine > Provisioning > Mark as template | `VirtualMachine.Provisioning.MarkAsTemplate` |
-| Virtual Machine > Provisioning > Mark as virtual machine | `VirtualMachine.Provisioning.MarkAsVM` |
-| Virtual Machine > Provisioning > Read customization specifications | `VirtualMachine.Provisioning.ReadCustSpecs` |
 
 ```{tip}
 The `System.Read` privilege provides read access to the entire inventory tree
