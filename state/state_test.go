@@ -1174,11 +1174,10 @@ func (s *StateSuite) TestAddContainerToMachineWithoutHostUnits(c *gc.C) {
 	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.addLXDContainer(host.Id())
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
-		`cannot add a new machine: machine %q cannot host containers`, host,
-	))
-	s.assertMachineContainers(c, host, nil)
+	machine, err := s.addLXDContainer(host.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.Id(), gc.Equals, "0/lxd/0")
+	s.assertMachineContainers(c, host, []string{"0/lxd/0"})
 }
 
 func (s *StateSuite) TestAddContainerToMachineRemovalRace(c *gc.C) {
@@ -1186,13 +1185,11 @@ func (s *StateSuite) TestAddContainerToMachineRemovalRace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		c.Assert(host.DestroyWithParams(false, true, 0), jc.ErrorIsNil)
+		c.Assert(host.Destroy(), jc.ErrorIsNil)
 	}).Check()
 
 	_, err = s.addLXDContainer(host.Id())
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
-		`cannot add a new machine: machine %q cannot host containers`, host,
-	))
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine is not found or not alive")
 	s.assertMachineContainers(c, host, nil)
 }
 
