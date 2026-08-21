@@ -78,6 +78,11 @@ type ControllerState interface {
 	// MatchesControllerNodePasswordHash checks if the password is valid or not
 	// against the password hash stored in the database for the controller node.
 	MatchesControllerNodePasswordHash(context.Context, string, agentpassword.PasswordHash) (bool, error)
+	// SetControllerNodeNonce sets the introduction nonce for the controller.
+	SetControllerNodeNonce(context.Context, string, string) error
+	// ValidateControllerNodeNonce validates the introduction nonce for the
+	// controller. Returns true if the nonce matches.
+	ValidateControllerNodeNonce(context.Context, string, string) (bool, error)
 }
 
 // Service provides the means for interacting with the passwords in a model.
@@ -327,6 +332,39 @@ func (s *Service) MatchesApplicationPasswordHash(ctx context.Context, appName st
 	}
 
 	return s.modelState.MatchesApplicationPasswordHash(ctx, appID, hashPassword(password))
+}
+
+// SetControllerNodeNonce sets the introduction nonce for the given controller
+// node ID. The nonce is verified during UnitIntroduction to prove the pod is
+// the legitimate owner of the ordinal.
+func (s *Service) SetControllerNodeNonce(ctx context.Context, controllerID, nonce string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if controllerID == "" {
+		return errors.Errorf("controller node ID %w", coreerrors.NotValid)
+	}
+	if nonce == "" {
+		return errors.Errorf("nonce %w", coreerrors.NotValid)
+	}
+	return s.controllerState.SetControllerNodeNonce(ctx, controllerID, nonce)
+}
+
+// ValidateControllerNodeNonce verifies the nonce for the given controller node
+// ID matches the stored nonce. The nonce is not consumed; idempotency is
+// provided by the password insert-if-absent guard. Returns true if the nonce
+// matches, false otherwise.
+func (s *Service) ValidateControllerNodeNonce(ctx context.Context, controllerID, nonce string) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if controllerID == "" {
+		return false, errors.Errorf("controller node ID %w", coreerrors.NotValid)
+	}
+	if nonce == "" {
+		return false, nil
+	}
+	return s.controllerState.ValidateControllerNodeNonce(ctx, controllerID, nonce)
 }
 
 func hashPassword(p string) agentpassword.PasswordHash {
