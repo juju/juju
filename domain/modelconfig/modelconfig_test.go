@@ -148,7 +148,7 @@ func (s *modelConfigSuite) TestModelConfigService(c *tc.C) {
 	st := state.NewState(modelTxnRunnerFactory)
 	svc := service.NewService(defaults, config.ModelValidator(), func(context.Context, string) (service.ModelConfigProvider, error) {
 		return modelConfigProvider{}, nil
-	}, st)
+	}, st, loggertesting.WrapCheckLog(c))
 
 	cfg, err := svc.ModelConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -248,7 +248,7 @@ func (s *modelConfigSuite) TestWatchModelConfigService(c *tc.C) {
 	factory := domain.NewWatcherFactory(
 		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelID.String()),
 		loggertesting.WrapCheckLog(c))
-	svc := service.NewWatchableService(defaults, config.ModelValidator(), nil, st, factory)
+	svc := service.NewWatchableService(defaults, config.ModelValidator(), nil, st, factory, loggertesting.WrapCheckLog(c))
 
 	watcher, err := svc.Watch(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

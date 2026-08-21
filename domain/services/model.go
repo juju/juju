@@ -232,6 +232,8 @@ func (s *ModelServices) AgentProvisioner() *agentprovisionerservice.Service {
 
 // Config returns the model's configuration service.
 func (s *ModelServices) Config() *modelconfigservice.WatchableService {
+	logger := s.logger.Child("modelconfig")
+
 	defaultsProvider := modeldefaultsservice.NewService(
 		modeldefaultsservice.ProviderModelConfigGetter(),
 		modeldefaultsstate.NewState(
@@ -245,6 +247,7 @@ func (s *ModelServices) Config() *modelconfigservice.WatchableService {
 		modelconfigservice.ProviderModelConfigGetter(),
 		st,
 		s.modelWatcherFactory("modelconfig"),
+		logger,
 	)
 }
 
