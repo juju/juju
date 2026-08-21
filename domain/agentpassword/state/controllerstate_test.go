@@ -134,3 +134,51 @@ func (s *controllerModelState) genPasswordHash(c *tc.C) agentpassword.PasswordHa
 
 	return agentpassword.PasswordHash(internalpassword.AgentPasswordHash(rand))
 }
+
+func (s *controllerModelState) TestSetControllerNodeNonce(c *tc.C) {
+	st := NewControllerState(s.TxnRunnerFactory())
+
+	err := st.SetControllerNodeNonce(c.Context(), "0", "nonce-abc")
+	c.Assert(err, tc.ErrorIsNil)
+
+	valid, err := st.ValidateControllerNodeNonce(c.Context(), "0", "nonce-abc")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsTrue)
+}
+
+func (s *controllerModelState) TestSetControllerNodeNonceOverwrite(c *tc.C) {
+	st := NewControllerState(s.TxnRunnerFactory())
+
+	err := st.SetControllerNodeNonce(c.Context(), "0", "nonce-first")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.SetControllerNodeNonce(c.Context(), "0", "nonce-second")
+	c.Assert(err, tc.ErrorIsNil)
+
+	valid, err := st.ValidateControllerNodeNonce(c.Context(), "0", "nonce-first")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsFalse)
+
+	valid, err = st.ValidateControllerNodeNonce(c.Context(), "0", "nonce-second")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsTrue)
+}
+
+func (s *controllerModelState) TestValidateControllerNodeNonceNoMatch(c *tc.C) {
+	st := NewControllerState(s.TxnRunnerFactory())
+
+	err := st.SetControllerNodeNonce(c.Context(), "0", "nonce-abc")
+	c.Assert(err, tc.ErrorIsNil)
+
+	valid, err := st.ValidateControllerNodeNonce(c.Context(), "0", "wrong-nonce")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsFalse)
+}
+
+func (s *controllerModelState) TestValidateControllerNodeNonceNotSet(c *tc.C) {
+	st := NewControllerState(s.TxnRunnerFactory())
+
+	valid, err := st.ValidateControllerNodeNonce(c.Context(), "0", "anything")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsFalse)
+}

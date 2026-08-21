@@ -193,3 +193,71 @@ AND    password_hash = $validatePasswordHash.password_hash;
 	})
 	return count > 0, errors.Capture(err)
 }
+
+type controllerNonce struct {
+	ControllerID string `db:"controller_id"`
+	Nonce        string `db:"nonce"`
+}
+
+type controllerNonceCount struct {
+	Count int `db:"count"`
+}
+
+// SetControllerNodeNonce inserts a nonce for the given controller ID. If a
+// nonce already exists for this controller ID it is overwritten.
+func (s *ControllerState) SetControllerNodeNonce(ctx context.Context, controllerID, nonce string) error {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	args := controllerNonce{
+		ControllerID: controllerID,
+		Nonce:        nonce,
+	}
+	stmt, err := s.Prepare(`
+INSERT INTO controller_introduction_nonce (controller_id, nonce)
+VALUES ($controllerNonce.controller_id, $controllerNonce.nonce)
+ON CONFLICT (controller_id) DO UPDATE SET nonce = $controllerNonce.nonce;
+`, args)
+	if err != nil {
+		return errors.Errorf("preparing statement to set controller node nonce: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Capture(tx.Query(ctx, stmt, args).Run())
+	})
+	return errors.Capture(err)
+}
+
+// ValidateControllerNodeNonce checks that the given nonce matches the stored
+// nonce for the controller ID and returns true if it does. The nonce is not
+// consumed; idempotency is provided by the password insert-if-absent guard.
+// Returns false if the nonce does not match or no nonce is stored.
+func (s *ControllerState) ValidateControllerNodeNonce(ctx context.Context, controllerID, nonce string) (bool, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	args := controllerNonce{
+		ControllerID: controllerID,
+		Nonce:        nonce,
+	}
+	stmt, err := s.Prepare(`
+SELECT COUNT(*) AS &controllerNonceCount.count
+FROM controller_introduction_nonce
+WHERE controller_id = $controllerNonce.controller_id
+AND nonce = $controllerNonce.nonce;
+`, args, controllerNonceCount{})
+	if err != nil {
+		return false, errors.Errorf("preparing statement to validate controller node nonce: %w", err)
+	}
+
+	var result controllerNonceCount
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result = controllerNonceCount{}
+		return errors.Capture(tx.Query(ctx, stmt, args).Get(&result))
+	})
+	return result.Count > 0, errors.Capture(err)
+}
