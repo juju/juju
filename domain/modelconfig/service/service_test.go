@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type ModelDefaultsProviderFunc func(context.Context) (modeldefaults.Defaults, error)
@@ -71,7 +72,7 @@ func (s *serviceSuite) TestGetModelConfigContainsAgentInformation(c *tc.C) {
 
 	s.mockModelConfigProvider.EXPECT().ConfigSchema().Return(schema.Fields{})
 
-	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState)
+	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState, loggertesting.WrapCheckLog(c))
 	cfg, err := svc.ModelConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cfg.AgentStream(), tc.Equals, coreagentbinary.AgentStreamReleased.String())
@@ -100,7 +101,7 @@ func (s *serviceSuite) TestModelConfigValuesSupportsMapValues(c *tc.C) {
 		}, nil
 	}
 
-	svc := NewService(defaults, config.ModelValidator(), s.modelConfigProviderFunc, s.mockState)
+	svc := NewService(defaults, config.ModelValidator(), s.modelConfigProviderFunc, s.mockState, loggertesting.WrapCheckLog(c))
 	values, err := svc.ModelConfigValues(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(values[config.ResourceTagsKey].Source, tc.Equals, config.JujuModelConfigSource)
@@ -123,7 +124,7 @@ func (s *serviceSuite) TestUpdateModelConfigAgentStream(c *tc.C) {
 
 	s.mockModelConfigProvider.EXPECT().ConfigSchema().Return(schema.Fields{})
 
-	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState)
+	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState, loggertesting.WrapCheckLog(c))
 	err := svc.UpdateModelConfig(
 		c.Context(),
 		map[string]any{
@@ -159,7 +160,7 @@ func (s *serviceSuite) TestUpdateModelConfigNoAgentStreamChange(c *tc.C) {
 
 	s.mockModelConfigProvider.EXPECT().ConfigSchema().Return(schema.Fields{})
 
-	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState)
+	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState, loggertesting.WrapCheckLog(c))
 	err := svc.UpdateModelConfig(
 		c.Context(),
 		map[string]any{
@@ -189,7 +190,7 @@ func (s *serviceSuite) TestGetModelConfigSchema(c *tc.C) {
 
 	s.mockModelConfigProvider.EXPECT().Schema().Return(schema)
 
-	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState)
+	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState, loggertesting.WrapCheckLog(c))
 	res, err := svc.GetModelConfigSchemaForCloudType(c.Context(), "anytype")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, schema)
@@ -205,7 +206,7 @@ func (s *serviceSuite) TestGetModelConfigSchemaProviderDoesntSuppport(c *tc.C) {
 	defaultSchema, err := config.Schema(nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), providerGetter, s.mockState)
+	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), providerGetter, s.mockState, loggertesting.WrapCheckLog(c))
 	res, err := svc.GetModelConfigSchemaForCloudType(c.Context(), "sometype")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, defaultSchema)
@@ -236,7 +237,7 @@ func (s *serviceSuite) TestModelConfigWithProviderSchemaCoercion(c *tc.C) {
 		},
 	)
 
-	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState)
+	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState, loggertesting.WrapCheckLog(c))
 	cfg, err := svc.ModelConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -260,7 +261,7 @@ func (s *serviceSuite) TestModelConfigWithoutProviderGetter(c *tc.C) {
 		}, nil,
 	)
 
-	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), nil, s.mockState)
+	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), nil, s.mockState, loggertesting.WrapCheckLog(c))
 	_, err := svc.ModelConfig(c.Context())
 	c.Check(err, tc.ErrorMatches, "coercing provider config attributes:.*no model config provider getter")
 }
@@ -284,7 +285,7 @@ func (s *serviceSuite) TestModelConfigWithProviderNotFound(c *tc.C) {
 		return nil, errors.Errorf("unknown cloud type %q", "unknown").Add(coreerrors.NotFound)
 	}
 
-	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), providerGetter, s.mockState)
+	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), providerGetter, s.mockState, loggertesting.WrapCheckLog(c))
 	_, err := svc.ModelConfig(c.Context())
 	c.Check(err, tc.ErrorMatches, `coercing provider config attributes:.*unknown cloud type "unknown"`)
 }
@@ -305,7 +306,7 @@ func (s *serviceSuite) TestModelConfigWithProviderEmptySchema(c *tc.C) {
 
 	s.mockModelConfigProvider.EXPECT().ConfigSchema().Return(schema.Fields{})
 
-	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState)
+	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState, loggertesting.WrapCheckLog(c))
 	cfg, err := svc.ModelConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cfg.Name(), tc.Equals, "wallyworld")
@@ -336,7 +337,7 @@ func (s *serviceSuite) TestSetModelConfig(c *tc.C) {
 		"logging-config": "<root>=INFO",
 	})
 
-	svc := NewService(defaults, config.ModelValidator(), nil, s.mockState)
+	svc := NewService(defaults, config.ModelValidator(), nil, s.mockState, loggertesting.WrapCheckLog(c))
 	err := svc.SetModelConfig(c.Context(), attrs)
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -362,7 +363,7 @@ func (s *serviceSuite) TestSetModelConfigDropsAuthorizedKeys(c *tc.C) {
 			return nil
 		})
 
-	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState)
+	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState, loggertesting.WrapCheckLog(c))
 	err := svc.SetModelConfig(c.Context(), attrs)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -390,7 +391,7 @@ func (s *serviceSuite) TestModelConfigWithEmptyCloudType(c *tc.C) {
 		}, nil,
 	)
 
-	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState)
+	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState, loggertesting.WrapCheckLog(c))
 	_, err := svc.ModelConfig(c.Context())
 	// Even though type is empty string, config.New requires a valid type
 	c.Check(err, tc.ErrorMatches, ".*empty type in model configuration.*")
@@ -414,7 +415,7 @@ func (s *serviceSuite) TestModelConfigWithProviderReturnsNotSupportedError(c *tc
 		return nil, errors.Errorf("unsupported").Add(coreerrors.NotSupported)
 	}
 
-	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), providerGetter, s.mockState)
+	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), providerGetter, s.mockState, loggertesting.WrapCheckLog(c))
 	_, err := svc.ModelConfig(c.Context())
 	c.Check(err, tc.ErrorMatches, "coercing provider config attributes:.*provider not found or doesn't support config schema")
 }
@@ -437,7 +438,7 @@ func (s *serviceSuite) TestModelConfigWithProviderReturnsOtherError(c *tc.C) {
 		return nil, errors.Errorf("some other error")
 	}
 
-	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), providerGetter, s.mockState)
+	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), providerGetter, s.mockState, loggertesting.WrapCheckLog(c))
 	_, err := svc.ModelConfig(c.Context())
 	c.Check(err, tc.ErrorMatches, "coercing provider config attributes:.*some other error")
 }
@@ -462,7 +463,7 @@ func (s *serviceSuite) TestModelConfigCoercionError(c *tc.C) {
 		},
 	)
 
-	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState)
+	svc := NewService(noopDefaultsProvider(), config.ModelValidator(), s.modelConfigProviderFunc, s.mockState, loggertesting.WrapCheckLog(c))
 	_, err := svc.ModelConfig(c.Context())
 	c.Check(err, tc.ErrorMatches, `.*coercing provider config attributes:.*provider-bool.*`)
 }

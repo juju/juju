@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -21,10 +22,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/errors"
-	internallogger "github.com/juju/juju/internal/logger"
 )
-
-var logger = internallogger.GetLogger("juju.domain.modelconfig")
 
 // ModelDefaultsProvider is responsible for providing the default config values
 // for a model.
@@ -104,6 +102,7 @@ type Service struct {
 	modelValidator                config.Validator
 	modelConfigProviderGetterFunc ModelConfigProviderFunc
 	st                            State
+	logger                        logger.Logger
 }
 
 // NewService creates a new ModelConfig service.
@@ -112,12 +111,14 @@ func NewService(
 	modelValidator config.Validator,
 	modelConfigProviderGetterFunc ModelConfigProviderFunc,
 	st State,
+	logger logger.Logger,
 ) *Service {
 	return &Service{
 		defaultsProvider:              defaultsProvider,
 		modelValidator:                modelValidator,
 		modelConfigProviderGetterFunc: modelConfigProviderGetterFunc,
 		st:                            st,
+		logger:                        logger,
 	}
 }
 
@@ -330,7 +331,7 @@ func (s *Service) SetModelConfig(
 	// rather than rejecting it.
 	if _, ok := cfgCopy[config.AuthorizedKeysKey]; ok {
 		delete(cfgCopy, config.AuthorizedKeysKey)
-		logger.Debugf(ctx, "dropping deprecated %s from model config (SSH keys are managed separately in juju 4.x)", config.AuthorizedKeysKey)
+		s.logger.Infof(ctx, "dropping deprecated %s from model config (SSH keys are managed separately in juju 4.x)", config.AuthorizedKeysKey)
 	}
 
 	for k, v := range defaults {
@@ -524,6 +525,7 @@ func NewWatchableService(
 	modelConfigProviderGetterFunc ModelConfigProviderFunc,
 	st State,
 	watcherFactory WatcherFactory,
+	logger logger.Logger,
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
@@ -531,6 +533,7 @@ func NewWatchableService(
 			modelValidator:                modelValidator,
 			modelConfigProviderGetterFunc: modelConfigProviderGetterFunc,
 			st:                            st,
+			logger:                        logger,
 		},
 		watcherFactory: watcherFactory,
 	}
