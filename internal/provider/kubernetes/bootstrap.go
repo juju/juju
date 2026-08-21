@@ -1324,7 +1324,7 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 			FailureThreshold:    apiServerLivenessProbeFailure,
 		},
 		ReadinessProbe: &core.Probe{
-			ProbeHandler:        pebble.ReadinessHandler(pebble.ApiServerHealthCheckPort),
+			ProbeHandler:        pebble.APIServerReadinessHandler(c.portAPIServer),
 			InitialDelaySeconds: apiServerLivenessProbeInitialDelay,
 			TimeoutSeconds:      apiServerLivenessProbeTimeout,
 			PeriodSeconds:       apiServerLivenessProbePeriod,

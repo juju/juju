@@ -1081,9 +1081,8 @@ exec /opt/pebble run --http :38811 --verbose
 			},
 			ReadinessProbe: &core.Probe{
 				ProbeHandler: core.ProbeHandler{
-					HTTPGet: &core.HTTPGetAction{
-						Path: "/v1/health?level=ready",
-						Port: intstr.Parse("38811"),
+					TCPSocket: &core.TCPSocketAction{
+						Port: intstr.FromInt(17777),
 					},
 				},
 				InitialDelaySeconds: 1,

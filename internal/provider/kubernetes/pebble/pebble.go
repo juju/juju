@@ -34,11 +34,26 @@ func LivenessHandler(port string) corev1.ProbeHandler {
 	}
 }
 
+// ReadinessHandler returns the probe handler for checking the readiness of
+// the pebble-based container via a /v1/health?level=ready HTTP GET.
 func ReadinessHandler(port string) corev1.ProbeHandler {
 	return corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Path: readyPath,
 			Port: intstr.Parse(port),
+		},
+	}
+}
+
+// APIServerReadinessHandler returns a probe handler that checks whether the
+// API server is accepting TCP connections on the given port. This is used as
+// the readiness probe for the controller api-server container so that the pod
+// is not added to the service endpoint until the jujuagentd has started and
+// the API server is listening.
+func APIServerReadinessHandler(apiPort int) corev1.ProbeHandler {
+	return corev1.ProbeHandler{
+		TCPSocket: &corev1.TCPSocketAction{
+			Port: intstr.FromInt(apiPort),
 		},
 	}
 }
