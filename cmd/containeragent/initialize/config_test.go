@@ -41,4 +41,5 @@ func (s *initCommandSuit) TestDefaultIdentityOnK8S(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(id.PodName, tc.DeepEquals, `gitlab-0`)
 	c.Assert(id.PodUUID, tc.DeepEquals, `gitlab-uuid`)
+	c.Assert(id.Nonce, tc.DeepEquals, ``)
 }

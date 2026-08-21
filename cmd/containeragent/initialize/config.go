@@ -206,13 +206,25 @@ func identityFromK8sMetadata() (identity, error) {
 		return identity{}, errors.New("unable to extract pod name and UUID from environment")
 	}
 
+	nonce := readNonceFromFile()
+
 	return identity{
 		PodName: podName,
 		PodUUID: podUUID,
+		Nonce:   nonce,
 	}, nil
+}
+
+func readNonceFromFile() string {
+	data, err := os.ReadFile(k8sconstants.ControllerNonceFilePath)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
 }
 
 type identity struct {
 	PodName string
 	PodUUID string
+	Nonce   string
 }
