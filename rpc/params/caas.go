@@ -14,6 +14,7 @@ import (
 type CAASUnitIntroductionArgs struct {
 	PodName string `json:"pod-name"`
 	PodUUID string `json:"pod-uuid"`
+	Nonce   string `json:"nonce,omitempty"`
 }
 
 // CAASUnitIntroduction contains the agent config for CAASApplication units.

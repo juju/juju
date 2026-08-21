@@ -55,8 +55,8 @@ type ControllerService interface {
 
 // AgentPasswordService manages agent passwords.
 type AgentPasswordService interface {
-	HasControllerNodePassword(ctx context.Context, controllerID string) (bool, error)
-	SetControllerNodePasswordIfAbsent(ctx context.Context, controllerID, password string) (bool, error)
+	SetControllerNodePassword(ctx context.Context, controllerID, password string) error
+	ValidateControllerNodeNonce(ctx context.Context, controllerID, nonce string) (bool, error)
 }
 
 // ApplicationService instances implement an application service.
@@ -222,11 +222,14 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		if err != nil {
 			return errResp(err)
 		}
-		passwordSet, err := f.agentPasswordService.HasControllerNodePassword(ctx, controllerID)
+		if args.Nonce == "" {
+			return errResp(errors.NotValidf("nonce for controller pod"))
+		}
+		nonceValid, err := f.agentPasswordService.ValidateControllerNodeNonce(ctx, controllerID, args.Nonce)
 		if err != nil {
 			return errResp(err)
 		}
-		if passwordSet {
+		if !nonceValid {
 			return params.CAASUnitIntroductionResult{}, apiservererrors.ErrPerm
 		}
 	}
@@ -374,18 +377,11 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	if err := f.controllerNodeService.AddControllerNode(ctx, controllerID); err != nil {
 		return errResp(err)
 	}
-	// The application password is shared by controller pods and remains valid
-	// after introduction. Never overwrite an existing controller password here:
-	// anyone retaining that shared credential could replay UnitIntroduction,
-	// rotate a live controller's credentials, and obtain its replacement config.
-	// Insert-if-absent is the final atomic guard against replayed or concurrent
-	// requests.
-	passwordSet, err := f.agentPasswordService.SetControllerNodePasswordIfAbsent(ctx, controllerID, controllerPassword)
-	if err != nil {
+	// The nonce validation above proves this pod is the legitimate owner of
+	// this ordinal. If this is a retry of a previous introduction whose
+	// response was lost, overwriting the password is safe.
+	if err := f.agentPasswordService.SetControllerNodePassword(ctx, controllerID, controllerPassword); err != nil {
 		return errResp(err)
-	}
-	if !passwordSet {
-		return params.CAASUnitIntroductionResult{}, apiservererrors.ErrPerm
 	}
 	res.Result.ControllerAgentTag = names.NewControllerAgentTag(controllerID).String()
 	res.Result.ControllerAgentConf = controllerConfBytes
