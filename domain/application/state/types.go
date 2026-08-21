@@ -30,6 +30,12 @@ type entityUUID struct {
 	UUID string `db:"uuid"`
 }
 
+type charmScriptlet struct {
+	CharmUUID string `db:"charm_uuid"`
+	Path      string `db:"path"`
+	Content   []byte `db:"content"`
+}
+
 // entityUUIDLife represents a UUID and life ID pair.
 type entityUUIDLife struct {
 	UUID   string `db:"uuid"`

@@ -7,5 +7,4 @@ description: |
 provides:
   s3-credentials:
     interface: s3
-series:
-  - noble
+

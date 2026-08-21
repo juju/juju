@@ -533,6 +533,7 @@ func (s *ModelServices) UnitState() *unitstateservice.LeadershipService {
 func (s *ModelServices) Unitless() *unitlessservice.WatchableService {
 	return unitlessservice.NewWatchableService(
 		unitlessstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.modelWatcherFactory("unitless"),
 	)
 }
 

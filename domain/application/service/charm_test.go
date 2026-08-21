@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/application/charm/store"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
+	charmassumes "github.com/juju/juju/domain/deployment/charm/assumes"
 	"github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/testcharms"
@@ -34,6 +35,31 @@ import (
 
 type charmServiceSuite struct {
 	baseSuite
+}
+
+type charmWithScriptletSources struct {
+	internalcharm.Charm
+	sources            []internalcharm.ScriptletSource
+	hasHooksOrDispatch bool
+}
+
+func (c charmWithScriptletSources) ScriptletSources() []internalcharm.ScriptletSource {
+	return c.sources
+}
+
+func (c charmWithScriptletSources) HasHooksOrDispatchFile() bool {
+	return c.hasHooksOrDispatch
+}
+
+func unitlessAssumes() *charmassumes.ExpressionTree {
+	return &charmassumes.ExpressionTree{
+		Expression: charmassumes.CompositeExpression{
+			ExprType: charmassumes.AllOfExpression,
+			SubExpressions: []charmassumes.Expression{
+				charmassumes.FeatureExpression{Name: "unitless"},
+			},
+		},
+	}
 }
 
 func TestCharmServiceSuite(t *testing.T) {
@@ -757,6 +783,132 @@ func (s *charmServiceSuite) TestAddCharm(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(warnings, tc.HasLen, 0)
 	c.Check(got, tc.DeepEquals, id)
+}
+
+func (s *charmServiceSuite) TestAddCharmWithScriptletsRequiresUnitlessAssume(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{Name: "foo"})
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Stable},
+		Architectures: []string{"amd64"},
+	}}})
+
+	_, _, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
+		Charm: charmWithScriptletSources{
+			Charm: s.charm,
+			sources: []internalcharm.ScriptletSource{{
+				Path:    "hook.star",
+				Content: []byte("def init(): pass"),
+			}},
+		},
+		Source:        corecharm.Local,
+		ReferenceName: "foo",
+		Revision:      1,
+		Architecture:  arch.AMD64,
+	})
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmMetadataNotValid)
+	c.Check(err, tc.ErrorMatches, "charm has scriptlets but does not assume unitless: charm metadata not valid")
+}
+
+func (s *charmServiceSuite) TestAddCharmRejectsHooksOrDispatchAndScriptlets(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name:    "foo",
+		Assumes: unitlessAssumes(),
+	})
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Stable},
+		Architectures: []string{"amd64"},
+	}}})
+
+	_, _, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
+		Charm: charmWithScriptletSources{
+			Charm:              s.charm,
+			hasHooksOrDispatch: true,
+			sources: []internalcharm.ScriptletSource{{
+				Path:    "hook.star",
+				Content: []byte("def init(): pass"),
+			}},
+		},
+		Source:        corecharm.Local,
+		ReferenceName: "foo",
+		Revision:      1,
+		Architecture:  arch.AMD64,
+	})
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmMetadataNotValid)
+	c.Check(err, tc.ErrorMatches, "charm has scriptlets alongside hooks or a dispatch file: charm metadata not valid")
+}
+
+func (s *charmServiceSuite) TestAddCharmUnitlessAssumeRequiresScriptlets(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name:    "foo",
+		Assumes: unitlessAssumes(),
+	})
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Stable},
+		Architectures: []string{"amd64"},
+	}}})
+
+	_, _, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
+		Charm:         s.charm,
+		Source:        corecharm.Local,
+		ReferenceName: "foo",
+		Revision:      1,
+		Architecture:  arch.AMD64,
+	})
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmMetadataNotValid)
+	c.Check(err, tc.ErrorMatches, "charm assumes unitless but has no scriptlets: charm metadata not valid")
+}
+
+func (s *charmServiceSuite) TestAddCharmUnitlessWithScriptlets(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+	meta := &internalcharm.Meta{
+		Name:    "foo",
+		Assumes: unitlessAssumes(),
+	}
+	s.charm.EXPECT().Meta().Return(meta).Times(2)
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{Bases: []internalcharm.Base{{
+		Name:          "ubuntu",
+		Channel:       internalcharm.Channel{Risk: internalcharm.Stable},
+		Architectures: []string{"amd64"},
+	}}}).MinTimes(1)
+	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
+	s.charm.EXPECT().Config().Return(&internalcharm.ConfigSpec{})
+
+	s.state.EXPECT().AddCharm(gomock.Any(), gomock.Any(), nil, false).
+		DoAndReturn(func(_ context.Context, ch charm.Charm, _ *charm.DownloadInfo, _ bool) (corecharm.ID, charm.CharmLocator, error) {
+			c.Check(ch.Scriptlet, tc.DeepEquals, []charm.ScriptletSource{{
+				Path:    "hook.star",
+				Content: []byte("def init(): pass"),
+			}})
+			return id, charm.CharmLocator{}, nil
+		})
+
+	got, warnings, err := s.service.AddCharm(c.Context(), charm.AddCharmArgs{
+		Charm: charmWithScriptletSources{
+			Charm: s.charm,
+			sources: []internalcharm.ScriptletSource{{
+				Path:    "hook.star",
+				Content: []byte("def init(): pass"),
+			}},
+		},
+		Source:        corecharm.Local,
+		ReferenceName: "foo",
+		Revision:      1,
+		Architecture:  arch.AMD64,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(warnings, tc.HasLen, 0)
+	c.Check(got, tc.Equals, id)
 }
 
 func (s *charmServiceSuite) TestAddCharmCharmhubWithNoDownloadInfo(c *tc.C) {

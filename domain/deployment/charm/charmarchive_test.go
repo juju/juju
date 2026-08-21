@@ -150,6 +150,46 @@ func (s *CharmArchiveSuite) TestArchiveMembers(c *tc.C) {
 	c.Assert(manifest, tc.DeepEquals, set.NewStrings(dummyArchiveMembers...))
 }
 
+func (s *CharmArchiveSuite) TestScriptletSources(c *tc.C) {
+	srcPath := cloneDir(c, charmDirPath(c, "dummy"))
+	scriptletPath := filepath.Join(srcPath, "scriptlets")
+	err := os.MkdirAll(filepath.Join(scriptletPath, "relations", "changed"), 0o755)
+	c.Assert(err, tc.ErrorIsNil)
+	err = os.WriteFile(filepath.Join(scriptletPath, "hook.star"), []byte("load hook"), 0o644)
+	c.Assert(err, tc.ErrorIsNil)
+	err = os.WriteFile(filepath.Join(scriptletPath, "relations", "status.star"), []byte("set status"), 0o644)
+	c.Assert(err, tc.ErrorIsNil)
+	err = os.WriteFile(filepath.Join(scriptletPath, "relations", "changed", "event.star"), []byte("changed event"), 0o644)
+	c.Assert(err, tc.ErrorIsNil)
+	err = os.WriteFile(filepath.Join(scriptletPath, "README.md"), []byte("ignored"), 0o644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	archive := archiveDir(c, srcPath)
+	sources := archive.ScriptletSources()
+	c.Check(archive.HasHooksOrDispatchFile(), tc.IsTrue)
+	c.Check(sources, tc.DeepEquals, []charm.ScriptletSource{{
+		Path:    "hook.star",
+		Content: []byte("load hook"),
+	}, {
+		Path:    "relations/changed/event.star",
+		Content: []byte("changed event"),
+	}, {
+		Path:    "relations/status.star",
+		Content: []byte("set status"),
+	}})
+}
+
+func (s *CharmArchiveSuite) TestHasHooksOrDispatchFileWithDispatch(c *tc.C) {
+	srcPath := cloneDir(c, charmDirPath(c, "dummy"))
+	err := os.RemoveAll(filepath.Join(srcPath, "hooks"))
+	c.Assert(err, tc.ErrorIsNil)
+	err = os.WriteFile(filepath.Join(srcPath, "dispatch"), []byte("dispatch"), 0o755)
+	c.Assert(err, tc.ErrorIsNil)
+
+	archive := archiveDir(c, srcPath)
+	c.Check(archive.HasHooksOrDispatchFile(), tc.IsTrue)
+}
+
 func (s *CharmArchiveSuite) TestArchiveMembersActions(c *tc.C) {
 	path := archivePath(c, readCharmDir(c, "dummy-actions"))
 	archive, err := charm.ReadCharmArchive(path)

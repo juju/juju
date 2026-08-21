@@ -23,7 +23,7 @@ func (s *starformSuite) TestExecutorConfigValidate(c *tc.C) {
 	config := validExecutorConfig()
 	c.Assert(config.Validate(), tc.ErrorIsNil)
 
-	config.Scriptlet = domainunitless.Scriptlet{}
+	config.Scriptlet = domainunitless.ScriptletApplication{}
 	err := config.Validate()
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, "no scriptlet sources not valid")
@@ -58,7 +58,7 @@ func (s *starformSuite) TestNewStarformExecutorRejectsInvalidConfig(c *tc.C) {
 
 func (s *starformSuite) TestHandleCollectsIntents(c *tc.C) {
 	executor, err := NewStarformExecutor(c.Context(), ExecutorConfig{
-		Scriptlet: domainunitless.Scriptlet{
+		Scriptlet: domainunitless.ScriptletApplication{
 			Sources: []domainunitless.ScriptSource{{
 				LoadPath: "hooks.star",
 				Source: `
@@ -97,7 +97,7 @@ def on_config_changed(event):
 
 func (s *starformSuite) TestHandleScriptErrorDiscardsIntents(c *tc.C) {
 	executor, err := NewStarformExecutor(c.Context(), ExecutorConfig{
-		Scriptlet: domainunitless.Scriptlet{
+		Scriptlet: domainunitless.ScriptletApplication{
 			Sources: []domainunitless.ScriptSource{{
 				LoadPath: "hooks.star",
 				Source: `
@@ -190,7 +190,7 @@ func (s *starformSuite) TestValueToStarlarkRejectsNonStringMapKeys(c *tc.C) {
 
 func validExecutorConfig() ExecutorConfig {
 	return ExecutorConfig{
-		Scriptlet: domainunitless.Scriptlet{
+		Scriptlet: domainunitless.ScriptletApplication{
 			Sources: []domainunitless.ScriptSource{{
 				LoadPath: "hooks.star",
 				Source:   "def init(): pass",
