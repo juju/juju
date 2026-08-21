@@ -66,6 +66,7 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 		config.ModelValidator(),
 		service.ProviderModelConfigGetter(),
 		st,
+		loggertesting.WrapCheckLog(c),
 	)
 
 	// Initialise required model config entries.
