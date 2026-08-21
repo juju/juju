@@ -24,7 +24,7 @@ juju refresh [options] <application>
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--path` |  | Refresh to a charm located at path |
 | `--resource` |  | Resource to be uploaded to the controller |
-| `--revision` | -1 | Explicit revision of current charm |
+| `--revision` | -1 | Explicit revision of current charm. This will implicitly change the resource revision to the one released with the specified charm revision. To override that use --resource |
 | `--storage` |  | Charm storage directives |
 | `--switch` |  | Crossgrade to a different charm |
 | `--trust` | unset | Allows charm to run hooks that require access credentials |

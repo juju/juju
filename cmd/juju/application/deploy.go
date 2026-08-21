@@ -651,7 +651,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.BundleOverlayFile), "overlay", "Bundles to overlay on the primary bundle, applied in order")
 	f.Var(&c.ConstraintsStr, "constraints", "Set application constraints")
 	f.StringVar(&c.Base, "base", "", "The base on which to deploy")
-	f.IntVar(&c.Revision, "revision", -1, "The revision to deploy")
+	f.IntVar(&c.Revision, "revision", -1, "The charm revision to deploy. This will implicitly change the resource revision to the one released with the specified charm revision. To override that use --resource")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the deploy would do")
 	f.BoolVar(&c.Force, "force", false, "Allow a charm/bundle to be deployed which bypasses checks such as supported base or LXD profile allow list")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage directives")
@@ -816,6 +816,9 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	if c.Revision > 0 {
+		ctx.Infof("Deploying charm revision %d - resources released alongside this revision will be used, unless overridden with --resource", c.Revision)
+	}
 	return block.ProcessBlockedError(deploy.PrepareAndDeploy(ctx, deployAPI, charmAdaptor), block.BlockChange)
 }
 

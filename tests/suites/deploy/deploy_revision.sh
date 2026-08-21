@@ -25,6 +25,31 @@ run_deploy_revision() {
 	destroy_model "${model_name}"
 }
 
+# Verify when deploying a charm with a specific revision that the resource
+# revision deployed is consistent with the charm revision that was released
+# into the channel. This test could break if the charm revision is
+# re-released into the channel with a different resource revision but this
+# is not conventionally done.
+run_deploy_revision_uses_consistent_resource() {
+	echo
+
+	model_name="test-deploy-revision-uses-consistent-resource"
+	file="${TEST_DIR}/${model_name}.log"
+
+	ensure "${model_name}" "${file}"
+
+	juju deploy juju-qa-test --revision 31 --channel 2.0/candidate
+	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 31)"
+
+	# Check resource revision per channel specified.
+	# The latest resource revision released into channel 2.0/candidate is 3,
+	# here we expect 2 as that was the resource revision released with charm revision 31.
+	got=$(juju resources juju-qa-test --format json | yq '.resources[0] | .["revision"] == "2"')
+	check_contains "${got}" "true"
+
+	destroy_model "${model_name}"
+}
+
 run_deploy_revision_resource() {
 	echo
 
@@ -76,12 +101,12 @@ run_deploy_revision_refresh() {
 	ensure "${model_name}" "${file}"
 
 	# revision 23 is in channel 2.0/edge
-	juju deploy juju-qa-test --revision 23 --channel latest/edge
+	juju deploy juju-qa-test --revision 23 --channel 2.0/edge
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 23)"
 	wait_for "juju-qa-test" "$(active_idle_condition "juju-qa-test")"
 
 	# Once the application is ready, refresh is expected to immediately work.
-	juju refresh juju-qa-test
+	juju refresh juju-qa-test --channel latest/edge
 
 	# revision 21 is in channel latest/edge
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 21)"
@@ -102,6 +127,7 @@ test_deploy_revision() {
 		cd .. || exit
 
 		run "run_deploy_revision"
+		run "run_deploy_revision_uses_consistent_resource"
 		run "run_deploy_revision_fail"
 		run "run_deploy_revision_refresh"
 		run "run_deploy_revision_resource"

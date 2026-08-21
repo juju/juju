@@ -271,6 +271,82 @@ func InstallOneFromRevision(ctx context.Context, name string, revision int) (Ref
 	}, nil
 }
 
+// InstallOne creates a request config for installing one charm with the
+// supplied channel, revision, and base.
+func InstallOne(ctx context.Context, name string, revision *int, channel *string, base RefreshBase) (RefreshConfig, error) {
+	if name == "" {
+		return nil, logAndReturnError(ctx, errors.NotValidf("empty name"))
+	}
+	if err := validateBase(base); err != nil {
+		return nil, logAndReturnError(ctx, err)
+	}
+	uuid, err := uuid.NewUUID()
+	if err != nil {
+		return nil, logAndReturnError(ctx, err)
+	}
+	return executeOne{
+		action:      installAction,
+		instanceKey: uuid.String(),
+		Name:        name,
+		Revision:    revision,
+		Channel:     channel,
+		Base:        &base,
+		fields:      requiredRefreshFields,
+	}, nil
+}
+
+// DownloadOne creates a request config for downloading one charm. A revision,
+// channel, and base may be supplied independently.
+func DownloadOne(ctx context.Context, name string, revision *int, channel *string, base *RefreshBase) (RefreshConfig, error) {
+	if name == "" {
+		return nil, logAndReturnError(ctx, errors.NotValidf("empty name"))
+	}
+	if base != nil {
+		if err := validateBase(*base); err != nil {
+			return nil, logAndReturnError(ctx, err)
+		}
+	}
+	uuid, err := uuid.NewUUID()
+	if err != nil {
+		return nil, logAndReturnError(ctx, err)
+	}
+	return executeOne{
+		action:      downloadAction,
+		instanceKey: uuid.String(),
+		Name:        name,
+		Revision:    revision,
+		Channel:     channel,
+		Base:        base,
+		fields:      requiredRefreshFields,
+	}, nil
+}
+
+// DownloadOneByID creates a request config for downloading one charm by ID. A
+// revision, channel, and base may be supplied independently.
+func DownloadOneByID(ctx context.Context, id string, revision *int, channel *string, base *RefreshBase) (RefreshConfig, error) {
+	if id == "" {
+		return nil, logAndReturnError(ctx, errors.NotValidf("empty id"))
+	}
+	if base != nil {
+		if err := validateBase(*base); err != nil {
+			return nil, logAndReturnError(ctx, err)
+		}
+	}
+	uuid, err := uuid.NewUUID()
+	if err != nil {
+		return nil, logAndReturnError(ctx, err)
+	}
+	return executeOne{
+		action:      downloadAction,
+		instanceKey: uuid.String(),
+		ID:          id,
+		Revision:    revision,
+		Channel:     channel,
+		Base:        base,
+		fields:      requiredRefreshFields,
+	}, nil
+}
+
 // AddResource adds resource revision data to a executeOne config.
 // Used for install by revision.
 func AddResource(config RefreshConfig, name string, revision int) (RefreshConfig, bool) {
@@ -323,7 +399,7 @@ func InstallOneFromChannel(ctx context.Context, name string, channel string, bas
 		instanceKey: uuid.String(),
 		Name:        name,
 		Channel:     &channel,
-		Base:        base,
+		Base:        &base,
 		fields:      requiredRefreshFields,
 	}, nil
 }
@@ -384,7 +460,7 @@ func DownloadOneFromChannel(ctx context.Context, id string, channel string, base
 		instanceKey: uuid.String(),
 		ID:          id,
 		Channel:     &channel,
-		Base:        base,
+		Base:        &base,
 		fields:      requiredRefreshFields,
 	}, nil
 }
@@ -407,7 +483,7 @@ func DownloadOneFromChannelByName(ctx context.Context, name string, channel stri
 		instanceKey: uuid.String(),
 		Name:        name,
 		Channel:     &channel,
-		Base:        base,
+		Base:        &base,
 		fields:      requiredRefreshFields,
 	}, nil
 }

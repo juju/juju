@@ -92,7 +92,7 @@ type executeOne struct {
 	Name     string
 	Revision *int
 	Channel  *string
-	Base     RefreshBase
+	Base     *RefreshBase
 	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
 	action      action
@@ -107,9 +107,13 @@ func (c executeOne) InstanceKey() string {
 
 // Build a refresh request that can be past to the API.
 func (c executeOne) Build(ctx context.Context) (transport.RefreshRequest, error) {
-	base, err := constructRefreshBase(ctx, c.Base)
-	if err != nil {
-		return transport.RefreshRequest{}, errors.Trace(err)
+	var base *transport.Base
+	if c.Base != nil {
+		constructed, err := constructRefreshBase(ctx, *c.Base)
+		if err != nil {
+			return transport.RefreshRequest{}, errors.Trace(err)
+		}
+		base = &constructed
 	}
 
 	var id *string
@@ -131,7 +135,7 @@ func (c executeOne) Build(ctx context.Context) (transport.RefreshRequest, error)
 			Name:        name,
 			Revision:    c.Revision,
 			Channel:     c.Channel,
-			Base:        &base,
+			Base:        base,
 		}},
 		Fields: c.fields,
 	}
@@ -163,8 +167,12 @@ func (c executeOne) String() string {
 	if c.Revision != nil {
 		revision = fmt.Sprintf(" with revision: %+v", c.Revision)
 	}
-	return fmt.Sprintf("Execute One (action: %s, instanceKey: %s): using %s%s channel %v and base %s",
-		c.action, c.instanceKey, using, revision, channel, c.Base)
+	var base string
+	if c.Base != nil {
+		base = c.Base.String()
+	}
+	return fmt.Sprintf("Execute One (action: %s, instanceKey: %s): using %s%s channel %v and base %q",
+		c.action, c.instanceKey, using, revision, channel, base)
 }
 
 type executeOneByRevision struct {

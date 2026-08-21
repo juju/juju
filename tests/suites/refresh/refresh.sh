@@ -123,7 +123,8 @@ run_refresh_revision() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy juju-qa-test --revision 22 --channel stable --base ubuntu@20.04
+	# Revision 22 is in 2.0/stable
+	juju deploy juju-qa-test --revision 22 --channel 2.0/stable --base ubuntu@20.04
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 
 	# refresh to a revision not at the tip of the stable channel
