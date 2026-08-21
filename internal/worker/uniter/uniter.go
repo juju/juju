@@ -484,6 +484,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				OnIdle:        onIdle,
 				CharmDirGuard: u.charmDirGuard,
 				CharmDir:      u.paths.State.CharmDir,
+				Abort:         u.catacomb.Dying(),
 				Logger:        u.logger.Child("resolver"),
 			}, &localState)
 
@@ -953,7 +954,13 @@ func (u *Uniter) Report(ctx stdcontext.Context) map[string]any {
 // scopedContext returns a context that is in the scope of the worker lifetime.
 // It returns a cancellable context that is cancelled when the action has
 // completed.
+//
+// The context is detached from the uniter's catacomb so that a teardown of the
+// worker tree (for example, when the unit is removed) does not cancel an
+// in-flight operation such as a hook. Values are preserved, but the catacomb's
+// cancellation is dropped; the returned cancel func still allows the loop to
+// scope the context's lifetime itself.
 func (u *Uniter) scopedContext() (stdcontext.Context, stdcontext.CancelFunc) {
-	ctx, cancel := stdcontext.WithCancel(u.catacomb.Context(stdcontext.Background()))
-	return ctx, cancel
+	base := stdcontext.WithoutCancel(u.catacomb.Context(stdcontext.Background()))
+	return stdcontext.WithCancel(base)
 }

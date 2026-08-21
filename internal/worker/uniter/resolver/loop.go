@@ -37,6 +37,12 @@ type LoopConfig struct {
 	CharmDirGuard fortress.Guard
 	CharmDir      string
 	Logger        logger.Logger
+
+	// Abort, when non-nil, signals that the loop should exit with
+	// ErrLoopAborted. It is typically wired to the worker's catacomb Dying
+	// channel so that a teardown of the worker tree aborts the loop without
+	// cancelling the context used by in-flight operations.
+	Abort <-chan struct{}
 }
 
 // Loop repeatedly waits for remote state changes, feeding the local and
@@ -48,8 +54,8 @@ type LoopConfig struct {
 // be called when a change is anticipated (i.e. due to ErrWaiting).
 //
 // The resolver loop can be controlled in the following ways:
-//   - if the "abort" channel is signalled, then the loop will
-//     exit with ErrLoopAborted
+//   - if the context is cancelled, or the "abort" channel is signalled,
+//     then the loop will exit with ErrLoopAborted
 //   - if the resolver returns ErrWaiting, then no operations
 //     will be executed until the remote state has changed
 //     again
@@ -165,6 +171,8 @@ func Loop(ctx context.Context, cfg LoopConfig, localState *LocalState) error {
 
 		select {
 		case <-ctx.Done():
+			return ErrLoopAborted
+		case <-cfg.Abort:
 			return ErrLoopAborted
 		case <-cfg.Watcher.RemoteStateChanged():
 		case <-fire:

@@ -33,6 +33,7 @@ type LoopSuite struct {
 	charmURL  string
 	charmDir  string
 	onIdle    func() error
+	abort     <-chan struct{}
 }
 
 func TestLoopSuite(t *stdtesting.T) {
@@ -50,6 +51,7 @@ func (s *LoopSuite) SetUpTest(c *tc.C) {
 	s.opFactory = &mockOpFactory{}
 	s.executor = &mockOpExecutor{}
 	s.charmURL = "ch:trusty/mysql-1"
+	s.abort = nil
 }
 
 func (s *LoopSuite) loop(c *tc.C) func(context.Context) (resolver.LocalState, error) {
@@ -65,6 +67,7 @@ func (s *LoopSuite) loop(c *tc.C) func(context.Context) (resolver.LocalState, er
 			OnIdle:        s.onIdle,
 			CharmDir:      s.charmDir,
 			CharmDirGuard: &mockCharmDirGuard{},
+			Abort:         s.abort,
 			Logger:        loggertesting.WrapCheckLog(c),
 		}, &localState)
 		return localState, err
@@ -74,6 +77,17 @@ func (s *LoopSuite) loop(c *tc.C) func(context.Context) (resolver.LocalState, er
 func (s *LoopSuite) TestAbort(c *tc.C) {
 	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
+
+	_, err := s.loop(c)(ctx)
+	c.Assert(err, tc.Equals, resolver.ErrLoopAborted)
+}
+
+func (s *LoopSuite) TestAbortChannel(c *tc.C) {
+	abort := make(chan struct{})
+	close(abort)
+	s.abort = abort
+
+	ctx := c.Context()
 
 	_, err := s.loop(c)(ctx)
 	c.Assert(err, tc.Equals, resolver.ErrLoopAborted)
