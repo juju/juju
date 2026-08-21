@@ -510,6 +510,7 @@ func (s *Suite) expectImportModel(c *tc.C) {
 		return migration.NewModelImporter(
 			scope,
 			s.domainServicesGetter,
+			nil,
 			"",
 			loggertesting.WrapCheckLog(c),
 			clock.WallClock,

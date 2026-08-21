@@ -28,7 +28,7 @@ END;
 -- update trigger for ModelMigrationExport
 CREATE TRIGGER trg_log_model_migration_export_update
 AFTER UPDATE ON model_migration_export FOR EACH ROW
-WHEN 
+WHEN
 	NEW.uuid != OLD.uuid OR
 	NEW.model_uuid != OLD.model_uuid OR
 	NEW.target_controller_uuid != OLD.target_controller_uuid OR
@@ -74,7 +74,7 @@ END;
 -- update trigger for ModelMigrationExportMinionSync
 CREATE TRIGGER trg_log_model_migration_export_minion_sync_update
 AFTER UPDATE ON model_migration_export_minion_sync FOR EACH ROW
-WHEN 
+WHEN
 	NEW.migration_uuid != OLD.migration_uuid OR
 	NEW.phase_id != OLD.phase_id OR
 	NEW.entity_key != OLD.entity_key OR
@@ -113,7 +113,7 @@ END;
 -- update trigger for ModelMigrationExportPhase
 CREATE TRIGGER trg_log_model_migration_export_phase_update
 AFTER UPDATE ON model_migration_export_phase FOR EACH ROW
-WHEN 
+WHEN
 	NEW.migration_uuid != OLD.migration_uuid OR
 	NEW.model_uuid != OLD.model_uuid OR
 	NEW.phase_id != OLD.phase_id OR
@@ -125,6 +125,45 @@ END;
 -- delete trigger for ModelMigrationExportPhase
 CREATE TRIGGER trg_log_model_migration_export_phase_delete
 AFTER DELETE ON model_migration_export_phase FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
+
+// ChangeLogTriggersForModelMigrationImport generates the triggers for the
+// model_migration_import table.
+func ChangeLogTriggersForModelMigrationImport(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ModelMigrationImport
+INSERT INTO change_log_namespace VALUES (%[2]d, 'model_migration_import', 'ModelMigrationImport changes based on %[1]s');
+
+-- insert trigger for ModelMigrationImport
+CREATE TRIGGER trg_log_model_migration_import_insert
+AFTER INSERT ON model_migration_import FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for ModelMigrationImport
+CREATE TRIGGER trg_log_model_migration_import_update
+AFTER UPDATE ON model_migration_import FOR EACH ROW
+WHEN
+	NEW.uuid != OLD.uuid OR
+	NEW.model_uuid != OLD.model_uuid OR
+	NEW.source_migration_uuid != OLD.source_migration_uuid OR
+	NEW.phase_type_id != OLD.phase_type_id OR
+	NEW.updated_at != OLD.updated_at
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for ModelMigrationImport
+CREATE TRIGGER trg_log_model_migration_import_delete
+AFTER DELETE ON model_migration_import FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

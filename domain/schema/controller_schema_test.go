@@ -330,6 +330,10 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 		"trg_log_model_migration_export_minion_sync_update",
 		"trg_log_model_migration_export_minion_sync_delete",
 
+		"trg_log_model_migration_import_insert",
+		"trg_log_model_migration_import_update",
+		"trg_log_model_migration_import_delete",
+
 		"trg_log_model_database_deletion_insert",
 		"trg_log_model_database_deletion_update",
 		"trg_log_model_database_deletion_delete",

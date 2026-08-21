@@ -43,6 +43,8 @@ import (
 	statecontroller "github.com/juju/juju/domain/model/state/controller"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
+	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
+	modelmigrationstatecontroller "github.com/juju/juju/domain/modelmigration/state/controller"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 	sshcontrollerservice "github.com/juju/juju/domain/ssh/service/controller"
@@ -119,6 +121,17 @@ func (s *ControllerServices) Model() *modelservice.WatchableService {
 		},
 		s.clock,
 		logger,
+	)
+}
+
+// ModelMigrationImport returns the controller-scoped model migration import
+// service with watcher support, used by the migration reconciler to complete
+// interrupted target-side import claims.
+func (s *ControllerServices) ModelMigrationImport() *modelmigrationservice.WatchableService {
+	return modelmigrationservice.NewWatchableImportService(
+		modelmigrationstatecontroller.New(changestream.NewTxnRunnerFactory(s.controllerDB), s.clock),
+		s.controllerWatcherFactory("modelmigration"),
+		s.logger.Child("modelmigration"),
 	)
 }
 
