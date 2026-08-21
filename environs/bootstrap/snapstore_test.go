@@ -8,17 +8,26 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 )
+
+func newTestSnapStoreClient(storeURL string) *snapStoreClient {
+	client := newSnapStoreClient(storeURL)
+	client.clock = testclock.NewDilatedWallClock(time.Millisecond)
+	return client
+}
 
 func TestStoreClientResolveChannel(t *testing.T) {
 	tc.Run(t, func(c *tc.C) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			c.Check(r.URL.Path, tc.Equals, "/v2/snaps/info/jujud")
 			c.Check(r.URL.Query().Get("architecture"), tc.Equals, "amd64")
-			fmt.Fprint(w, `{
+			_, _ = fmt.Fprint(w, `{
 				"channel-map": [{
 					"channel": {"track": "4.2", "risk": "edge", "architecture": "amd64"},
 					"revision": 42,
@@ -28,7 +37,7 @@ func TestStoreClientResolveChannel(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := newSnapStoreClient(server.URL)
+		client := newTestSnapStoreClient(server.URL)
 		rev, err := client.resolveChannel(context.Background(), "jujud", "amd64", "4.2/edge")
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(rev.Revision, tc.Equals, 42)
@@ -39,11 +48,11 @@ func TestStoreClientResolveChannel(t *testing.T) {
 func TestStoreClientResolveChannelNoMatch(t *testing.T) {
 	tc.Run(t, func(c *tc.C) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprint(w, `{"channel-map": []}`)
+			_, _ = fmt.Fprint(w, `{"channel-map": []}`)
 		}))
 		defer server.Close()
 
-		client := newSnapStoreClient(server.URL)
+		client := newTestSnapStoreClient(server.URL)
 		_, err := client.resolveChannel(context.Background(), "jujud", "amd64", "4.2/edge")
 		c.Assert(err, tc.ErrorMatches, `.*no controller snap "jujud" revision available for channel.*`)
 	})
@@ -52,7 +61,7 @@ func TestStoreClientResolveChannelNoMatch(t *testing.T) {
 func TestStoreClientResolveRevision(t *testing.T) {
 	tc.Run(t, func(c *tc.C) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprint(w, `{
+			_, _ = fmt.Fprint(w, `{
 				"channel-map": [
 					{"channel": {"track": "4.2", "risk": "edge", "architecture": "amd64"},
 					 "revision": 41, "version": "4.1-beta1"},
@@ -63,7 +72,7 @@ func TestStoreClientResolveRevision(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := newSnapStoreClient(server.URL)
+		client := newTestSnapStoreClient(server.URL)
 		rev, err := client.resolveRevision(context.Background(), "jujud", "amd64", 42)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(rev.Revision, tc.Equals, 42)
@@ -74,11 +83,11 @@ func TestStoreClientResolveRevision(t *testing.T) {
 func TestStoreClientResolveRevisionNoMatch(t *testing.T) {
 	tc.Run(t, func(c *tc.C) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprint(w, `{"channel-map": []}`)
+			_, _ = fmt.Fprint(w, `{"channel-map": []}`)
 		}))
 		defer server.Close()
 
-		client := newSnapStoreClient(server.URL)
+		client := newTestSnapStoreClient(server.URL)
 		_, err := client.resolveRevision(context.Background(), "jujud", "amd64", 999)
 		c.Assert(err, tc.ErrorMatches, `.*no controller snap "jujud" revision 999 available.*`)
 	})
@@ -87,7 +96,7 @@ func TestStoreClientResolveRevisionNoMatch(t *testing.T) {
 func TestStoreClientResolveRevisionFiltersArch(t *testing.T) {
 	tc.Run(t, func(c *tc.C) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprint(w, `{
+			_, _ = fmt.Fprint(w, `{
 				"channel-map": [
 					{"channel": {"track": "4.2", "risk": "edge", "architecture": "arm64"},
 					 "revision": 42, "version": "4.1-beta2"},
@@ -98,7 +107,7 @@ func TestStoreClientResolveRevisionFiltersArch(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := newSnapStoreClient(server.URL)
+		client := newTestSnapStoreClient(server.URL)
 
 		// Revision 42 only exists on arm64, so resolving it for amd64 must
 		// not return the arm64 snap.
@@ -118,7 +127,7 @@ func TestStoreClientServerError(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := newSnapStoreClient(server.URL)
+		client := newTestSnapStoreClient(server.URL)
 		_, err := client.resolveChannel(context.Background(), "jujud", "amd64", "4.2/edge")
 		c.Assert(err, tc.ErrorMatches, `.*snap store returned 500 Internal Server Error.*`)
 	})
@@ -166,5 +175,91 @@ func TestResolveControllerSnapRevision(t *testing.T) {
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(version, tc.Equals, "4.1-beta2")
 		c.Check(revision, tc.Equals, 42)
+	})
+}
+
+func TestStoreClientRetryOn429(t *testing.T) {
+	tc.Run(t, func(c *tc.C) {
+		var attempts int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			n := atomic.AddInt32(&attempts, 1)
+			if n < 3 {
+				http.Error(w, "too many requests", http.StatusTooManyRequests)
+				return
+			}
+			_, _ = fmt.Fprint(w, `{
+				"channel-map": [{
+					"channel": {"track": "4.2", "risk": "edge", "architecture": "amd64"},
+					"revision": 42,
+					"version": "4.1-beta2"
+				}]
+			}`)
+		}))
+		defer server.Close()
+
+		client := newTestSnapStoreClient(server.URL)
+		rev, err := client.resolveChannel(context.Background(), "jujud", "amd64", "4.2/edge")
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(rev.Revision, tc.Equals, 42)
+		c.Check(int(atomic.LoadInt32(&attempts)), tc.Equals, 3)
+	})
+}
+
+func TestStoreClientRetryOn502(t *testing.T) {
+	tc.Run(t, func(c *tc.C) {
+		var attempts int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			n := atomic.AddInt32(&attempts, 1)
+			if n < 2 {
+				http.Error(w, "bad gateway", http.StatusBadGateway)
+				return
+			}
+			_, _ = fmt.Fprint(w, `{
+				"channel-map": [{
+					"channel": {"track": "4.2", "risk": "edge", "architecture": "amd64"},
+					"revision": 42,
+					"version": "4.1-beta2"
+				}]
+			}`)
+		}))
+		defer server.Close()
+
+		client := newTestSnapStoreClient(server.URL)
+		rev, err := client.resolveChannel(context.Background(), "jujud", "amd64", "4.2/edge")
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(rev.Revision, tc.Equals, 42)
+		c.Check(int(atomic.LoadInt32(&attempts)), tc.Equals, 2)
+	})
+}
+
+func TestStoreClientNoRetryOn404(t *testing.T) {
+	tc.Run(t, func(c *tc.C) {
+		var attempts int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt32(&attempts, 1)
+			http.NotFound(w, r)
+		}))
+		defer server.Close()
+
+		client := newTestSnapStoreClient(server.URL)
+		_, err := client.resolveChannel(context.Background(), "jujud", "amd64", "4.2/edge")
+		c.Assert(err, tc.ErrorMatches, `.*snap store returned 404 Not Found.*`)
+		c.Check(int(atomic.LoadInt32(&attempts)), tc.Equals, 1)
+	})
+}
+
+func TestStoreClientNoRetryOn500(t *testing.T) {
+	tc.Run(t, func(c *tc.C) {
+		var attempts int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt32(&attempts, 1)
+			http.Error(w, "boom", http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		client := newTestSnapStoreClient(server.URL)
+		_, err := client.resolveChannel(context.Background(), "jujud", "amd64", "4.2/edge")
+		c.Assert(err, tc.ErrorMatches, `.*snap store returned 500 Internal Server Error.*`)
+		c.Check(int(atomic.LoadInt32(&attempts)), tc.Equals, 1)
 	})
 }
