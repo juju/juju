@@ -360,11 +360,14 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 
 		// Even if we've not just requested for hosted models to be destroyed,
 		// there may be some being destroyed already. We need to wait for them.
-		// Check for both undead models and live machines, as machines may be
-		// in the controller model.
+		// Wait until all hosted models are fully removed from the controller,
+		// not merely dead: cloud resources (e.g. the model's namespace on
+		// Kubernetes) are destroyed after the model is marked dead but before
+		// it is removed. Also wait for live machines, as machines may be in
+		// the controller model.
 		ctx.Infof("Waiting for model resources to be reclaimed")
 		// wait for 2 seconds to let empty hosted models changed from alive to dying.
-		for ; hasUnreclaimedResources(modelStatus); modelStatus = updateStatus(2 * time.Second) {
+		for ; hasUnremovedModels(modelStatus); modelStatus = updateStatus(2 * time.Second) {
 			ctx.Infof("%s", fmtCtrStatus(modelStatus.Controller))
 			for _, model := range modelStatus.Models {
 				ctx.Verbosef("%s", fmtModelStatus(model))

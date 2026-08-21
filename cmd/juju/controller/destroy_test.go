@@ -68,6 +68,14 @@ type fakeDestroyAPI struct {
 	modelStatus  map[string]base.ModelStatus
 	allModels    []base.UserModel
 	hostedConfig []apicontroller.HostedConfig
+
+	// delayModelRemoval simulates the server-side undertaker taking one extra
+	// poll to reap hosted models after a successful DestroyController.
+	delayModelRemoval       bool
+	destroyCalled           bool
+	reapPending             bool
+	allModelsAfterDestroy   []base.UserModel
+	modelStatusAfterDestroy map[string]base.ModelStatus
 }
 
 func (f *fakeDestroyAPI) Close() error {
@@ -101,7 +109,38 @@ func (f *fakeDestroyAPI) HostedModelConfigs(ctx context.Context) ([]apicontrolle
 
 func (f *fakeDestroyAPI) DestroyController(ctx context.Context, args apicontroller.DestroyControllerParams) error {
 	f.MethodCall(f, "DestroyController", args)
-	return f.NextErr()
+	if err := f.NextErr(); err != nil {
+		return err
+	}
+	f.destroyCalled = true
+	// Simulate the server-side undertaker removing hosted models: with
+	// DestroyModels all hosted models are destroyed and removed; without it,
+	// already-dead models are still reaped in the background.
+	remaining := make([]base.UserModel, 0, len(f.allModels))
+	remainingStatus := make(map[string]base.ModelStatus, len(f.modelStatus))
+	for _, m := range f.allModels {
+		if m.UUID == test1UUID {
+			remaining = append(remaining, m)
+			remainingStatus[m.UUID] = f.modelStatus[m.UUID]
+			continue
+		}
+		status, ok := f.modelStatus[m.UUID]
+		if args.DestroyModels || (ok && status.Life == life.Dead) {
+			continue
+		}
+		remaining = append(remaining, m)
+		remainingStatus[m.UUID] = status
+	}
+	if f.delayModelRemoval {
+		// Hold the reaped lists back so the wait loop observes the dead
+		// model still present for one more poll.
+		f.allModelsAfterDestroy = remaining
+		f.modelStatusAfterDestroy = remainingStatus
+		return nil
+	}
+	f.allModels = remaining
+	f.modelStatus = remainingStatus
+	return nil
 }
 
 func (f *fakeDestroyAPI) ListBlockedModels(ctx context.Context) ([]params.ModelBlockInfo, error) {
@@ -120,6 +159,18 @@ func (f *fakeDestroyAPI) ModelStatus(_ context.Context, tags ...names.ModelTag) 
 
 func (f *fakeDestroyAPI) AllModels(ctx context.Context) ([]base.UserModel, error) {
 	f.MethodCall(f, "AllModels")
+	if f.delayModelRemoval && f.destroyCalled {
+		// Return the pre-reap list once; the reaped lists are applied on
+		// the next poll.
+		f.delayModelRemoval = false
+		f.reapPending = true
+		return f.allModels, f.NextErr()
+	}
+	if f.reapPending {
+		f.reapPending = false
+		f.allModels = f.allModelsAfterDestroy
+		f.modelStatus = f.modelStatusAfterDestroy
+	}
 	return f.allModels, f.NextErr()
 }
 
@@ -310,6 +361,33 @@ func (s *DestroySuite) TestDestroyWithDestroyAllModelsFlag(c *tc.C) {
 		DestroyModels: true,
 	})
 	assertControllerRemovedFromStore(c, "test1", s.store)
+}
+
+func (s *DestroySuite) TestDestroyWaitsForHostedModelRemoval(c *tc.C) {
+	// Simulate the undertaker needing one extra poll to reap the hosted
+	// model after DestroyController returns.
+	s.api.delayModelRemoval = true
+
+	envDestroyCalls := 0
+	destroy := s.environsDestroy
+	s.environsDestroy = func(controllerName string, env environs.ControllerDestroyer, ctx context.Context, store jujuclient.ControllerStore) error {
+		envDestroyCalls++
+		return destroy(controllerName, env, ctx, store)
+	}
+
+	_, err := s.runDestroyCommand(c, "test1", "--no-prompt", "--destroy-all-models")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(envDestroyCalls, tc.Equals, 1)
+
+	allModelsCalls := 0
+	for _, call := range s.api.Calls() {
+		if call.FuncName == "AllModels" {
+			allModelsCalls++
+		}
+	}
+	// The wait loop must poll again after DestroyController while the dead
+	// hosted model is still present, and only proceed once it is removed.
+	c.Assert(allModelsCalls >= 3, tc.IsTrue)
 }
 
 func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlag(c *tc.C) {

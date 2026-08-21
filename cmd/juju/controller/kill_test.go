@@ -571,6 +571,33 @@ func (s *KillSuite) TestControllerStatus(c *tc.C) {
 
 }
 
+func (s *KillSuite) TestControllerStatusCountsDeadHostedModels(c *tc.C) {
+	s.api.allModels = []base.UserModel{
+		{Name: "admin", UUID: "123", Qualifier: "prod"},
+		{Name: "env1", UUID: "456", Qualifier: "staging"},
+	}
+	s.api.modelStatus = map[string]base.ModelStatus{
+		"123": {
+			UUID:      "123",
+			Life:      life.Alive,
+			Qualifier: "prod",
+		},
+		"456": {
+			UUID:      "456",
+			Life:      life.Dead,
+			Qualifier: "staging",
+		},
+	}
+
+	environmentStatus, err := controller.NewData(c.Context(), s.api, "123")
+	c.Assert(err, tc.ErrorIsNil)
+	// A dead hosted model is still present in the controller and must be
+	// counted so destroy-controller waits for it to be removed.
+	c.Assert(environmentStatus.Controller.HostedModelCount, tc.Equals, 1)
+	// Dead hosted models are still filtered out of the visible model list.
+	c.Assert(environmentStatus.Models, tc.HasLen, 0)
+}
+
 func (s *KillSuite) TestFmtControllerStatus(c *tc.C) {
 	data := controller.CtrData{
 		UUID:               "uuid",
