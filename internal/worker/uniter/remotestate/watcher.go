@@ -1322,5 +1322,9 @@ func (w *RemoteStateWatcher) markShutdown() {
 }
 
 func (w *RemoteStateWatcher) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(w.catacomb.Context(context.Background()))
+	// Detach from the catacomb so a teardown of the worker tree does not
+	// cancel an in-flight remote-state read; the loop observes
+	// catacomb.Dying() directly for shutdown. Values are preserved,
+	// cancellation is dropped.
+	return context.WithCancel(context.WithoutCancel(w.catacomb.Context(context.Background())))
 }
