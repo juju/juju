@@ -69,7 +69,6 @@ func (s *charmInfoSuite) TestCharmInfo(c *tc.C) {
 	c.Check(charmInfo.Manifest, tc.DeepEquals, &params.CharmManifest{Bases: []params.CharmBase{{Name: "ubuntu", Channel: "22.04/stable"}}})
 	c.Check(charmInfo.Config, tc.DeepEquals, map[string]params.CharmOption{"foo": {Type: "string"}})
 	c.Check(charmInfo.Actions, tc.DeepEquals, &params.CharmActions{ActionSpecs: map[string]params.CharmActionSpec{"bar": {Description: "baz"}}})
-	c.Check(charmInfo.LXDProfile, tc.IsNil)
 }
 
 func (s *charmInfoSuite) TestCharmInfoMinimal(c *tc.C) {
@@ -98,7 +97,6 @@ func (s *charmInfoSuite) TestCharmInfoMinimal(c *tc.C) {
 	c.Check(charmInfo.Manifest, tc.IsNil)
 	c.Check(charmInfo.Config, tc.IsNil)
 	c.Check(charmInfo.Actions, tc.IsNil)
-	c.Check(charmInfo.LXDProfile, tc.IsNil)
 }
 
 func (s *charmInfoSuite) TestPermissionDenied(c *tc.C) {

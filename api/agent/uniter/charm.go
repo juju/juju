@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/errors"
-
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -52,27 +50,6 @@ func (c *Charm) ArchiveSha256(ctx context.Context) (string, error) {
 	result := results.Results[0]
 	if result.Error != nil {
 		return "", apiservererrors.RestoreError(result.Error)
-	}
-	return result.Result, nil
-}
-
-// LXDProfileRequired returns true if this charm requires an
-// lxd profile to be applied.
-func (c *Charm) LXDProfileRequired(ctx context.Context) (bool, error) {
-	var results params.BoolResults
-	args := params.CharmURLs{
-		URLs: []params.CharmURL{{URL: c.curl}},
-	}
-	err := c.client.facade.FacadeCall(ctx, "LXDProfileRequired", args, &results)
-	if err != nil {
-		return false, err
-	}
-	if len(results.Results) != 1 {
-		return false, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return false, result.Error
 	}
 	return result.Result, nil
 }
