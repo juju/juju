@@ -532,11 +532,69 @@ func (s *Suite) TestSUCCESSClosesSourceConnection(c *tc.C) {
 
 	select {
 	case <-s.agent.configChanged:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out")
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for agent config change")
 	}
 	workertest.CleanKill(c, w)
 	c.Check(closer.closed, tc.IsTrue)
+}
+
+// TestSUCCESSFallbackReportCompletesDuringTeardown covers the race where the
+// worker is torn down while the SUCCESS report is in flight: the fallback
+// direct dial runs after the catacomb is already dying, and must not abort
+// on it - otherwise the report is lost and the migration master waits
+// forever.
+func (s *Suite) TestSUCCESSFallbackReportCompletesDuringTeardown(c *tc.C) {
+	s.agent.conf.tag = names.NewUnitTag("app/0")
+	s.agent.conf.dir = "/var/lib/juju/agents/unit-app-0"
+
+	facade := &blockingReportFacade{
+		Facade:  s.client,
+		started: make(chan struct{}),
+		proceed: make(chan struct{}),
+	}
+	s.config.Facade = facade
+
+	reported := make(chan struct{})
+	s.config.SendReport = func(ctx context.Context, conn api.Connection, status watcher.MigrationStatus, success bool) error {
+		close(reported)
+		return nil
+	}
+
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+		SourceAPIAddrs: []string{"3.3.3.3:3333"},
+		SourceCACert:   caCert,
+	}
+	w, err := migrationminion.NewWorker(s.config)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Wait for the in-flight report, then kill the worker so the fallback
+	// dial runs with the catacomb already dying.
+	select {
+	case <-facade.started:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for in-flight report")
+	}
+	w.Kill()
+	close(facade.proceed)
+
+	// The fallback dial and report must complete despite the teardown, and
+	// the agent config must still be written.
+	select {
+	case <-reported:
+	case <-c.Context().Done():
+		c.Fatal("fallback report did not complete during teardown")
+	}
+	select {
+	case <-s.agent.configChanged:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for agent config change")
+	}
+	workertest.CleanKill(c, w)
 }
 
 func (s *Suite) TestSUCCESSFetchTargetLokiConfigError(c *tc.C) {
@@ -932,6 +990,20 @@ type stubCloser struct {
 func (c *stubCloser) Close() error {
 	c.closed = true
 	return nil
+}
+
+// blockingReportFacade blocks Report until the test releases it, so a test
+// can tear the worker down while a report is in flight.
+type blockingReportFacade struct {
+	migrationminion.Facade
+	started chan struct{}
+	proceed chan struct{}
+}
+
+func (f *blockingReportFacade) Report(ctx context.Context, id string, phase migration.Phase, success bool) error {
+	close(f.started)
+	<-f.proceed
+	return errors.New("report boom")
 }
 
 func (ma *stubAgent) CurrentConfig() agent.Config {

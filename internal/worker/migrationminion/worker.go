@@ -450,7 +450,13 @@ func (w *Worker) dialWithRedirect(ctx context.Context, apiInfo *api.Info, dialOp
 		return nil, w.catacomb.ErrDying()
 	default:
 	}
+	return w.dialFollowingRedirects(ctx, apiInfo, dialOpts, redirectCount)
+}
 
+// dialFollowingRedirects dials the controller, following redirects. Unlike
+// dialWithRedirect it does not abort when the worker is dying, so a fallback
+// report can complete while the worker is being torn down.
+func (w *Worker) dialFollowingRedirects(ctx context.Context, apiInfo *api.Info, dialOpts api.DialOpts, redirectCount int) (api.Connection, error) {
 	if redirectCount >= maxRedirects {
 		return nil, errors.Errorf("too many redirects (%d) when connecting to target controller", redirectCount)
 	}
@@ -460,7 +466,7 @@ func (w *Worker) dialWithRedirect(ctx context.Context, apiInfo *api.Info, dialOp
 			w.config.Logger.Infof(ctx, "following redirect to %v", redirectErr.Servers)
 			apiInfo.Addrs = network.CollapseToHostPorts(redirectErr.Servers).Strings()
 			apiInfo.CACert = redirectErr.CACert
-			return w.dialWithRedirect(ctx, apiInfo, dialOpts, redirectCount+1)
+			return w.dialFollowingRedirects(ctx, apiInfo, dialOpts, redirectCount+1)
 		}
 		return nil, errors.Annotatef(err, "failed to open API to target controller")
 	}
@@ -606,14 +612,15 @@ func (w *Worker) robustReport(ctx context.Context, status watcher.MigrationStatu
 	// The worker may be torn down mid-report - e.g. when the machine
 	// agent's engine bounces and takes the nested unit engine with it -
 	// so the direct dial and report must complete on a context that is
-	// not cancelled by the teardown.
+	// not cancelled by the teardown, and the dial must not abort on the
+	// dying catacomb.
 	reportCtx := context.WithoutCancel(ctx)
 
 	err = retry.Call(retry.CallArgs{
 		Func: func() error {
 			w.config.Logger.Infof(ctx, "reporting back for phase %s: %v", status.Phase, success)
 
-			conn, err := w.dialWithRedirect(reportCtx, apiInfo, api.DialOpts{}, 0)
+			conn, err := w.dialFollowingRedirects(reportCtx, apiInfo, api.DialOpts{}, 0)
 			if err != nil {
 				return fmt.Errorf("cannot dial source controller: %w", err)
 			}
