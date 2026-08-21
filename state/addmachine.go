@@ -140,6 +140,7 @@ func (st *State) AddMachineInsideMachine(template MachineTemplate, parentId stri
 		if parentErr := validateContainerHost(parent); parentErr != nil {
 			return nil, errors.Annotate(parentErr, "cannot add a new machine")
 		}
+		return nil, errors.Annotate(err, "unexpected error adding a new machine")
 	}
 	return machine, err
 }
