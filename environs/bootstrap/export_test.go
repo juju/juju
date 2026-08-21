@@ -10,7 +10,6 @@ var (
 	FindTools                  = &findTools
 	FindBootstrapTools         = findBootstrapTools
 	FindPackagedTools          = findPackagedTools
-	ResolveControllerSnap      = &resolveControllerSnap
 	SnapArch                   = snapArch
 	BuildCommandFunc           = &buildCommandFunc
 	LookPathFunc               = &lookPathFunc
