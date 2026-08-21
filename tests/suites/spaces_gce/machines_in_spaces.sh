@@ -4,7 +4,10 @@ run_machines_in_spaces() {
 	echo
 
 	model_name='machines-in-spaces'
-	juju --show-log add-model "$model_name"
+	# add_model ensures the client SSH key is added to the model, which is
+	# required for `juju ssh` (e.g. lines below) since Juju 4.0 no longer
+	# auto-registers the client key when creating a model.
+	add_model "$model_name"
 
 	echo "Setup spaces"
 	juju reload-spaces
