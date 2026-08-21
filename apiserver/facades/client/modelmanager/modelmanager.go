@@ -306,7 +306,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	// modelInfoCreate will be calling one of the Create* funcs on the model
 	// info service. When handling the error we need to handle the total set of
 	// possibilities.
-	err = m.createModelInfo(ctx, args.Config, modelDomainServices.ModelInfo())
+	err = m.createModelInfo(ctx, args.Config, modelUUID, modelDomainServices.ModelInfo())
 	switch {
 	case errors.Is(err, modelerrors.AlreadyExists):
 		return result, apiservererrors.ParamsErrorf(
@@ -353,6 +353,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 func (m *ModelManagerAPI) createModelInfo(
 	ctx context.Context,
 	configArgs map[string]any,
+	modelUUID coremodel.UUID,
 	modelInfoService ModelInfoService,
 ) error {
 	suppliedAgentVersion := semversion.Zero
@@ -385,6 +386,16 @@ func (m *ModelManagerAPI) createModelInfo(
 		delete(configArgs, config.AgentStreamKey)
 	}
 
+	// If the user has not supplied an agent stream, check the model
+	// defaults for one.
+	if suppliedAgentStream == coreagentbinary.AgentStream("") {
+		modelDefaultStream, err := m.agentStreamFromModelDefaults(ctx, modelUUID)
+		if err != nil {
+			return err
+		}
+		suppliedAgentStream = modelDefaultStream
+	}
+
 	// If the user has supplied both a target agent version and agent stream
 	if suppliedAgentVersion != semversion.Zero &&
 		suppliedAgentStream != coreagentbinary.AgentStream("") {
@@ -404,11 +415,39 @@ func (m *ModelManagerAPI) createModelInfo(
 	// If the user has supplied an agent stream and not target agent version.
 	if suppliedAgentVersion == semversion.Zero &&
 		suppliedAgentStream != coreagentbinary.AgentStream("") {
-		// TODO: We don't have a way to set just the agent stream.
+		return modelInfoService.CreateModelWithAgentStream(
+			ctx, suppliedAgentStream,
+		)
 	}
 
-	// If the user has supplied nothing.
+	// If the user has supplied nothing and no cloud default exists.
 	return modelInfoService.CreateModel(ctx)
+}
+
+// agentStreamFromModelDefaults reads the model defaults for the given model
+// and returns the agent stream value if one is set. The region default
+// takes priority over the cloud-level (controller) default, which in turn
+// takes priority over the schema default. If no default is set, an empty
+// stream is returned.
+func (m *ModelManagerAPI) agentStreamFromModelDefaults(
+	ctx context.Context,
+	modelUUID coremodel.UUID,
+) (coreagentbinary.AgentStream, error) {
+	defaults, err := m.modelDefaultsService.ModelDefaults(ctx, modelUUID)
+	if err != nil {
+		return "", internalerrors.Capture(err)
+	}
+
+	attr, ok := defaults[config.AgentStreamKey]
+	if !ok {
+		return "", nil
+	}
+
+	if streamStr, ok := attr.Value().(string); ok && streamStr != "" {
+		return coreagentbinary.AgentStream(streamStr), nil
+	}
+
+	return "", nil
 }
 
 func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity) ([]byte, error) {
