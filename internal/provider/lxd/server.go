@@ -47,6 +47,11 @@ type Server interface {
 	DeleteCertificate(fingerprint string) (err error)
 	CreateClientCertificate(certificate *lxd.Certificate) error
 	LocalBridgeName() string
+	LocalNetworkType() string
+	DefaultNetwork() (*lxdapi.Network, error)
+	EnsureControllerNetworkForward(networkName, controllerUUID, instanceID, targetAddress string, ports []int) (string, error)
+	ControllerNetworkForwardAddress(networkName, controllerUUID, instanceID string) (string, bool, error)
+	DeleteControllerNetworkForwards(networkName, controllerUUID, instanceID string) error
 	AliveContainers(prefix string) ([]lxd.Container, error)
 	ContainerAddresses(name string) ([]network.ProviderAddress, error)
 	RemoveContainer(name string) error
@@ -292,14 +297,31 @@ func (s *serverFactory) initLocalServer() (Server, error) {
 }
 
 func (s *serverFactory) bootstrapLocalServer(svr Server) (Server, string, error) {
-	// select the server bridge name, so that we can then try and select
-	// the hostAddress from the current interfaceAddress
-	bridgeName := svr.LocalBridgeName()
-	hostAddress, err := s.interfaceAddress.InterfaceAddress(bridgeName)
-	if err != nil {
-		return nil, "", errors.Trace(err)
+	var hostAddress string
+	if svr.LocalNetworkType() == "ovn" {
+		server, _, err := svr.GetServer()
+		if err != nil {
+			return nil, "", errors.Trace(err)
+		}
+		if clusterAddress, _ := server.Config["cluster.https_address"].(string); clusterAddress != "" {
+			hostAddress, err = addressHost(clusterAddress)
+			if err != nil {
+				return nil, "", errors.Annotate(err, "parsing LXD cluster address")
+			}
+		}
+	} else {
+		// Select the server bridge name, so that we can then select the host
+		// address from the current interface address.
+		bridgeName := svr.LocalBridgeName()
+		var err error
+		hostAddress, err = s.interfaceAddress.InterfaceAddress(bridgeName)
+		if err != nil {
+			return nil, "", errors.Trace(err)
+		}
 	}
-	hostAddress = lxd.EnsureHTTPS(hostAddress)
+	if hostAddress != "" {
+		hostAddress = ensureHTTPSHost(hostAddress)
+	}
 
 	// The following retry mechanism is required for newer LXD versions, where
 	// the new lxd client doesn't propagate the EnableHTTPSListener quick enough
@@ -321,6 +343,9 @@ func (s *serverFactory) bootstrapLocalServer(svr Server) (Server, string, error)
 			}
 
 			connInfoAddresses = cInfo.Addresses
+			if hostAddress == "" {
+				hostAddress = firstIPv4Host(cInfo.Addresses)
+			}
 			for _, addr := range cInfo.Addresses {
 				if strings.HasPrefix(addr, hostAddress+":") {
 					hostAddress = addr
@@ -354,6 +379,37 @@ func (s *serverFactory) bootstrapLocalServer(svr Server) (Server, string, error)
 	}
 
 	return svr, hostAddress, nil
+}
+
+func addressHost(address string) (string, error) {
+	parsed, err := url.Parse(lxd.EnsureHTTPS(address))
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if parsed.Hostname() == "" {
+		return "", errors.NotValidf("LXD address %q", address)
+	}
+	return parsed.Hostname(), nil
+}
+
+func firstIPv4Host(addresses []string) string {
+	for _, address := range addresses {
+		host, err := addressHost(address)
+		if err != nil {
+			continue
+		}
+		if ip := net.ParseIP(host); ip != nil && ip.To4() != nil {
+			return lxd.EnsureHTTPS(host)
+		}
+	}
+	return ""
+}
+
+func ensureHTTPSHost(host string) string {
+	if ip := net.ParseIP(host); ip != nil && ip.To4() == nil {
+		host = "[" + host + "]"
+	}
+	return lxd.EnsureHTTPS(host)
 }
 
 func (s *serverFactory) bootstrapRemoteServer(svr Server) error {

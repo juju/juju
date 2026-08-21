@@ -17,6 +17,7 @@ var (
 	NewInstance     = newInstance
 	GetCertificates = getCertificates
 	ParseAPIVersion = parseAPIVersion
+	EnsureHTTPSHost = ensureHTTPSHost
 )
 
 func NewProviderWithMocks(

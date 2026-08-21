@@ -52,6 +52,7 @@ func (s *serverIntegrationSuite) TestLocalServer(c *gc.C) {
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
 		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
 		server.EXPECT().EnableHTTPSListener().Return(nil),
+		server.EXPECT().LocalNetworkType().Return("bridge"),
 		server.EXPECT().LocalBridgeName().Return(bridgeName),
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
@@ -90,6 +91,7 @@ func (s *serverIntegrationSuite) TestLocalServerRetrySemantics(c *gc.C) {
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
 		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
 		server.EXPECT().EnableHTTPSListener().Return(nil),
+		server.EXPECT().LocalNetworkType().Return("bridge"),
 		server.EXPECT().LocalBridgeName().Return(bridgeName),
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(emptyConnectionInfo, nil),
@@ -126,6 +128,7 @@ func (s *serverIntegrationSuite) TestLocalServerRetrySemanticsFailure(c *gc.C) {
 	server.EXPECT().GetProfile("default").Return(profile, etag, nil).Times(31)
 	server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil).Times(31)
 	server.EXPECT().EnableHTTPSListener().Return(nil).Times(31)
+	server.EXPECT().LocalNetworkType().Return("bridge")
 	server.EXPECT().LocalBridgeName().Return(bridgeName)
 	interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil)
 	server.EXPECT().GetConnectionInfo().Return(emptyConnectionInfo, nil).Times(30)
@@ -156,6 +159,7 @@ func (s *serverIntegrationSuite) TestLocalServerWithInvalidAPIVersion(c *gc.C) {
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
 		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
 		server.EXPECT().EnableHTTPSListener().Return(nil),
+		server.EXPECT().LocalNetworkType().Return("bridge"),
 		server.EXPECT().LocalBridgeName().Return(bridgeName),
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
@@ -307,6 +311,7 @@ func (s *serverIntegrationSuite) TestLocalServerWithStorageNotSupported(c *gc.C)
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
 		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
 		server.EXPECT().EnableHTTPSListener().Return(nil),
+		server.EXPECT().LocalNetworkType().Return("bridge"),
 		server.EXPECT().LocalBridgeName().Return(bridgeName),
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
@@ -339,6 +344,7 @@ func (s *serverIntegrationSuite) TestRemoteServerWithEmptyEndpointYieldsLocalSer
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
 		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
 		server.EXPECT().EnableHTTPSListener().Return(nil),
+		server.EXPECT().LocalNetworkType().Return("bridge"),
 		server.EXPECT().LocalBridgeName().Return(bridgeName),
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
@@ -351,6 +357,75 @@ func (s *serverIntegrationSuite) TestRemoteServerWithEmptyEndpointYieldsLocalSer
 	svr, err := factory.RemoteServer(lxd.CloudSpec{})
 	c.Assert(svr, gc.Not(gc.IsNil))
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *serverIntegrationSuite) TestLocalServerWithOVN(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	profile := &api.Profile{}
+	etag := "etag"
+	hostAddress := "10.19.2.11"
+	serverInfo := &api.Server{
+		ServerUntrusted: api.ServerUntrusted{
+			Config: map[string]interface{}{
+				"cluster.https_address": hostAddress + ":8443",
+			},
+		},
+	}
+	connectionInfo := &client.ConnectionInfo{
+		Addresses: []string{
+			"https://" + hostAddress + ":8443",
+		},
+	}
+
+	factory, server, _ := lxd.NewLocalServerFactory(ctrl)
+
+	gomock.InOrder(
+		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
+		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
+		server.EXPECT().EnableHTTPSListener().Return(nil),
+		server.EXPECT().LocalNetworkType().Return("ovn"),
+		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
+		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
+		server.EXPECT().StorageSupported().Return(false),
+		server.EXPECT().ServerVersion().Return("5.2"),
+	)
+
+	svr, err := factory.LocalServer()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(svr, gc.Equals, server)
+}
+
+func (s *serverIntegrationSuite) TestLocalServerWithOVNUsesAdvertisedAddress(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	profile := &api.Profile{}
+	etag := "etag"
+	hostAddress := "10.19.2.11"
+	connectionInfo := &client.ConnectionInfo{
+		Addresses: []string{
+			"https://" + hostAddress + ":8443",
+		},
+	}
+
+	factory, server, _ := lxd.NewLocalServerFactory(ctrl)
+
+	gomock.InOrder(
+		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
+		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
+		server.EXPECT().EnableHTTPSListener().Return(nil),
+		server.EXPECT().LocalNetworkType().Return("ovn"),
+		server.EXPECT().GetServer().Return(&api.Server{}, etag, nil),
+		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
+		server.EXPECT().StorageSupported().Return(false),
+		server.EXPECT().ServerVersion().Return("5.2"),
+	)
+
+	svr, err := factory.LocalServer()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(svr, gc.Equals, server)
 }
 
 func (s *serverIntegrationSuite) TestRemoteServer(c *gc.C) {

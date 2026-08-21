@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/provider/lxd"
 )
@@ -45,4 +46,27 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(addresses, jc.DeepEquals, s.Addresses)
+}
+
+func (s *instanceSuite) TestAddressesIncludesOVNForward(c *gc.C) {
+	s.Client.NetworkType = "ovn"
+	s.Client.NetworkForwardAddr = "10.19.2.22"
+
+	addresses, err := s.Instance.Addresses(context.NewEmptyCloudCallContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := append(
+		s.Addresses,
+		network.NewMachineAddress(
+			"10.19.2.22",
+			network.WithScope(network.ScopePublic),
+		).AsProviderAddress(),
+	)
+	c.Check(addresses, jc.DeepEquals, expected)
+	s.Stub.CheckCallNames(
+		c,
+		"ContainerAddresses",
+		"DefaultNetwork",
+		"ControllerNetworkForwardAddress",
+	)
 }

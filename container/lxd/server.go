@@ -30,7 +30,8 @@ type Server struct {
 	clusterAPISupport bool
 	storageAPISupport bool
 
-	localBridgeName string
+	localBridgeName  string
+	localNetworkType string
 
 	clock clock.Clock
 }

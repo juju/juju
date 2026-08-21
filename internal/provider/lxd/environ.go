@@ -262,6 +262,10 @@ func (env *environ) DestroyController(ctx context.ProviderCallContext, controlle
 			return errors.Annotate(err, "destroying LXD filesystems for controller")
 		}
 	}
+	if err := env.deleteControllerNetworkForwards(controllerUUID, ""); err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return errors.Annotate(err, "deleting controller network forwards")
+	}
 	return nil
 }
 

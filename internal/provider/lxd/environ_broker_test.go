@@ -4,6 +4,7 @@
 package lxd_test
 
 import (
+	stdcontext "context"
 	"fmt"
 	"reflect"
 
@@ -37,6 +38,7 @@ var _ = gc.Suite(&environBrokerSuite{})
 func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.callCtx = &context.CloudCallContext{
+		Context: stdcontext.Background(),
 		InvalidateCredentialFunc: func(string) error {
 			s.invalidCredential = true
 			return nil
@@ -79,6 +81,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
+	svr.EXPECT().DefaultNetwork().Return(&api.Network{Type: "bridge"}, nil)
 
 	// Check that no custom devices were passed - vanilla cloud-init.
 	check := func(spec containerlxd.ContainerSpec) bool {
@@ -107,10 +110,75 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
 	c.Assert(*res.Hardware.AvailabilityZone, jc.DeepEquals, "node01")
 }
 
+func (s *environBrokerSuite) TestStartControllerInstanceWithOVN(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	svr := lxd.NewMockServer(ctrl)
+
+	args := s.GetStartInstanceArgs(c)
+	containerName := "juju-controller-machine-0"
+	container := &containerlxd.Container{
+		Instance: api.Instance{
+			Name:     containerName,
+			Location: "node01",
+		},
+	}
+	ovnNetwork := &api.Network{
+		Name: "arbitrary-network-name",
+		Type: "ovn",
+		Config: map[string]string{
+			"ipv4.address": "10.241.0.1/16",
+		},
+	}
+	internalAddress := network.NewMachineAddress(
+		"10.241.0.2",
+		network.WithScope(network.ScopeCloudLocal),
+	).AsProviderAddress()
+	controllerConfig := args.InstanceConfig.ControllerConfig
+
+	gomock.InOrder(
+		svr.EXPECT().HostArch().Return(arch.AMD64),
+		svr.EXPECT().FindImage(
+			gomock.Any(),
+			corebase.MakeDefaultBase("ubuntu", "24.04"),
+			arch.AMD64,
+			api.InstanceTypeContainer,
+			gomock.Any(),
+			true,
+			gomock.Any(),
+		).Return(containerlxd.SourcedImage{}, nil),
+		svr.EXPECT().ServerVersion().Return("3.10.0"),
+		svr.EXPECT().GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
+		svr.EXPECT().CreateContainerFromSpec(gomock.Any()).Return(container, nil),
+		svr.EXPECT().DefaultNetwork().Return(ovnNetwork, nil),
+		svr.EXPECT().ContainerAddresses(containerName).Return(
+			network.ProviderAddresses{internalAddress}, nil,
+		),
+		svr.EXPECT().EnsureControllerNetworkForward(
+			ovnNetwork.Name,
+			args.ControllerUUID,
+			containerName,
+			internalAddress.Value,
+			[]int{
+				controllerConfig.SSHServerPort(),
+				controllerConfig.APIPort(),
+				controllerConfig.ControllerAPIPort(),
+			},
+		).Return("10.19.2.22", nil),
+		svr.EXPECT().HostArch().Return(arch.AMD64),
+	)
+
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
+	res, err := env.StartInstance(s.callCtx, args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+}
+
 func (s *environBrokerSuite) TestStartInstanceUseZoneFromServerNameWhenContainerLocationIsNone(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
+	svr.EXPECT().DefaultNetwork().Return(&api.Network{Type: "bridge"}, nil)
 
 	// Check that no custom devices were passed - vanilla cloud-init.
 	check := func(spec containerlxd.ContainerSpec) bool {
@@ -145,6 +213,7 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
+	svr.EXPECT().DefaultNetwork().Return(&api.Network{Type: "bridge"}, nil)
 
 	nics := map[string]map[string]string{
 		"eno9": {
@@ -188,6 +257,7 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
+	svr.EXPECT().DefaultNetwork().Return(&api.Network{Type: "bridge"}, nil)
 
 	profileNICs := map[string]map[string]string{
 		"eno9": {
@@ -294,6 +364,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
+	svr.EXPECT().DefaultNetwork().Return(&api.Network{Type: "bridge"}, nil)
 
 	target := lxdtesting.NewMockInstanceServer(ctrl)
 	tExp := target.EXPECT()
@@ -427,6 +498,7 @@ func (s *environBrokerSuite) TestStartInstanceWithZoneConstraintsAvailable(c *gc
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
+	svr.EXPECT().DefaultNetwork().Return(&api.Network{Type: "bridge"}, nil)
 
 	target := lxdtesting.NewMockInstanceServer(ctrl)
 	tExp := target.EXPECT()
@@ -542,6 +614,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
+	svr.EXPECT().DefaultNetwork().Return(&api.Network{Type: "bridge"}, nil)
 
 	// Check that the constraints were passed through to spec.Config.
 	check := func(spec containerlxd.ContainerSpec) bool {
@@ -593,6 +666,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndCustomNICs(c *gc
 	defer ctrl.Finish()
 
 	svr := lxd.NewMockServer(ctrl)
+	svr.EXPECT().DefaultNetwork().Return(&api.Network{Type: "bridge"}, nil)
 
 	nics := map[string]map[string]string{
 		"eno9": {
@@ -649,6 +723,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *gc.C
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
+	svr.EXPECT().DefaultNetwork().Return(&api.Network{Type: "bridge"}, nil)
 
 	// Check that the constraints were passed through to spec.Config.
 	check := func(spec containerlxd.ContainerSpec) bool {
@@ -695,6 +770,7 @@ func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
+	svr.EXPECT().DefaultNetwork().Return(&api.Network{Type: "bridge"}, nil)
 
 	// Check that the lxd profile name was passed through to spec.Config.
 	check := func(spec containerlxd.ContainerSpec) bool {
@@ -771,11 +847,38 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
+	svr.EXPECT().DefaultNetwork().Return(&api.Network{Type: "bridge"}, nil).Times(2)
 
 	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"})
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
 	err := env.StopInstances(s.callCtx, "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environBrokerSuite) TestStopInstancesDeletesOVNForwards(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	svr := lxd.NewMockServer(ctrl)
+	network := &api.Network{
+		Name: "arbitrary-network-name",
+		Type: "ovn",
+	}
+
+	gomock.InOrder(
+		svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"}),
+		svr.EXPECT().DefaultNetwork().Return(network, nil),
+		svr.EXPECT().DeleteControllerNetworkForwards(
+			network.Name, "", "juju-f75cba-1",
+		).Return(nil),
+		svr.EXPECT().DefaultNetwork().Return(network, nil),
+		svr.EXPECT().DeleteControllerNetworkForwards(
+			network.Name, "", "juju-f75cba-2",
+		).Return(nil),
+	)
+
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
+	err := env.StopInstances(s.callCtx, "juju-f75cba-1", "juju-f75cba-2")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
