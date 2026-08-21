@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package bootstrap
+package snapstore
 
 import (
 	"context"
@@ -149,7 +149,7 @@ func TestResolveControllerSnapChannel(t *testing.T) {
 		}))
 		defer server.Close()
 
-		version, revision, err := resolveControllerSnap(
+		version, revision, err := ResolveControllerSnap(
 			context.Background(), server.URL, "jujud", "amd64", "4.2/edge", 0,
 		)
 		c.Assert(err, tc.ErrorIsNil)
@@ -171,7 +171,7 @@ func TestResolveControllerSnapRevision(t *testing.T) {
 		}))
 		defer server.Close()
 
-		version, revision, err := resolveControllerSnap(
+		version, revision, err := ResolveControllerSnap(
 			context.Background(), server.URL, "jujud", "amd64", "", 42,
 		)
 		c.Assert(err, tc.ErrorIsNil)
