@@ -30,9 +30,9 @@ wait_for_ha() {
 
 	attempt=0
 	# shellcheck disable=SC2143
-	until [[ "$(juju show-controller --format=json | yq -r '.[] | .["controller-machines"] | .[] | select(.["ha-status"] == "ha-enabled") | .["instance-id"]' | wc -l | grep "${amount}")" ]]; do
+	until [[ "$(juju status -m controller --format=json | yq -r '.machines | .[] | select(.["controller-member-status"] == "has-vote") | .["instance-id"]' | wc -l | grep "${amount}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling ha"
-		juju show-controller 2>&1 | yq '.[]["controller-machines"]' | sed 's/^/    | /g'
+		juju status -m controller 2>&1 | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 
@@ -46,7 +46,7 @@ wait_for_ha() {
 
 	if [[ ${attempt} -gt 0 ]]; then
 		echo "[+] $(green 'Completed polling ha')"
-		juju show-controller 2>&1 | sed 's/^/    | /g'
+		juju status -m controller 2>&1 | sed 's/^/    | /g'
 
 		sleep "${SHORT_TIMEOUT}"
 	fi
