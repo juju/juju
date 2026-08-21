@@ -34,11 +34,12 @@ test_add_unit_attach_storage() {
 	juju remove-storage data/2 --no-destroy
 	wait_for "{}" ".storage"
 
-	# Prepare PersistentVolumes for reuse: set reclaim policy to Retain and remove claimRef.
+	# Prepare PersistentVolumes for reuse: clear claimRef explicitly.
 	for pv in "${PV_0}" "${PV_1}" "${PV_2}"; do
-		kubectl patch pv "${pv}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
 		PVC=$(kubectl get pv "${pv}" -o jsonpath='{.spec.claimRef.name}')
-		kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found=true
+		if [ -n "${PVC}" ]; then
+			kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found=true
+		fi
 		kubectl patch pv "${pv}" --type merge -p '{"spec":{"claimRef": null}}'
 	done
 
@@ -184,11 +185,12 @@ test_add_unit_attach_storage_scaling_race_condition() {
 	juju remove-storage data/2 --no-destroy
 	wait_for "{}" ".storage"
 
-	# Prepare PersistentVolumes for reuse: set reclaim policy to Retain and remove claimRef.
+	# Prepare PersistentVolumes for reuse: clear claimRef explicitly.
 	for pv in "${PV_0}" "${PV_1}" "${PV_2}"; do
-		kubectl patch pv "${pv}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
 		PVC=$(kubectl get pv "${pv}" -o jsonpath='{.spec.claimRef.name}')
-		kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found=true
+		if [ -n "${PVC}" ]; then
+			kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found=true
+		fi
 		kubectl patch pv "${pv}" --type merge -p '{"spec":{"claimRef": null}}'
 	done
 
