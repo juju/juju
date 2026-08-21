@@ -129,6 +129,29 @@ assumes:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("expected assumes expression tree to be satisfied"))
 }
 
+func (s *SatCheckerSuite) TestUnitlessAssumeSatisfied(c *tc.C) {
+	var fs FeatureSet
+	fs.Add(UnitlessFeature())
+
+	exprTree := mustParseAssumesExpr(c, `
+assumes:
+  - unitless
+`)
+
+	err := fs.Satisfies(exprTree)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *SatCheckerSuite) TestUnitlessAssumeNotSatisfied(c *tc.C) {
+	exprTree := mustParseAssumesExpr(c, `
+assumes:
+  - unitless
+`)
+
+	err := (FeatureSet{}).Satisfies(exprTree)
+	c.Assert(err, tc.ErrorMatches, `(?s).*charm requires support for unitless applications.*`)
+}
+
 func genFeatureSet(c *tc.C) FeatureSet {
 	var fs FeatureSet
 	fs.Add(

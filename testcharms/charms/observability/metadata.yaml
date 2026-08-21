@@ -10,5 +10,3 @@ provides:
     interface: tracing
   loki-push-api:
     interface: loki_push_api
-series:
-  - noble
