@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/pki"
+	"github.com/juju/juju/internal/snapstore"
 	corestorage "github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
 )
@@ -216,6 +217,18 @@ type BootstrapParams struct {
 	// ControllerSnapExpectedVersion is the exact Juju version expected from
 	// the controller snap after a store install.
 	ControllerSnapExpectedVersion string
+
+	// SnapStoreResolver resolves the controller snap's version and revision
+	// from the snap store for a store-based source mode. When nil, the default
+	// store client (snapstore.ResolveControllerSnap) is used. It exists as a
+	// field so callers can inject a resolver without patching package globals.
+	SnapStoreResolver func(ctx context.Context, storeURL, snapName, arch, channel string, revision int) (string, int, error)
+
+	// SnapVersionReader reads the raw `version:` value and normalised version
+	// from a local controller snap file. When nil, the default unsquashfs-backed
+	// reader (ReadSnapVersion) is used. It exists as a field so callers can
+	// inject a reader without patching package globals.
+	SnapVersionReader func(ctx context.Context, snapPath string) (string, semversion.Number, error)
 }
 
 // Validate validates the bootstrap parameters.
@@ -504,6 +517,10 @@ func bootstrapIAAS(
 		}
 		if args.ControllerSnapStoreMode || !channel.Empty() || revision != 0 {
 			resolvedChannel := resolveSnapChannel(channel)
+			resolveControllerSnap := args.SnapStoreResolver
+			if resolveControllerSnap == nil {
+				resolveControllerSnap = snapstore.ResolveControllerSnap
+			}
 			rawVersion, rev, err := resolveControllerSnap(
 				ctx,
 				args.ControllerSnapStoreURL,
@@ -515,7 +532,7 @@ func bootstrapIAAS(
 			if err != nil {
 				return errors.Annotate(err, "resolving controller snap in store")
 			}
-			inspectedVersion, err := ParseSnapVersion(rawVersion)
+			inspectedVersion, err := snapstore.ParseSnapVersion(rawVersion)
 			if err != nil {
 				return errors.Annotatef(err, "parsing controller snap version %q", rawVersion)
 			}
@@ -534,7 +551,11 @@ func bootstrapIAAS(
 	// resolve their version from the store above; both end up with a normalised
 	// snapVersion and the raw metadata in ControllerSnapExpectedVersion.
 	if args.ControllerSnapPath != "" {
-		rawVersion, inspectedVersion, err := ReadSnapVersion(ctx, args.ControllerSnapPath)
+		readSnapVersion := args.SnapVersionReader
+		if readSnapVersion == nil {
+			readSnapVersion = ReadSnapVersion
+		}
+		rawVersion, inspectedVersion, err := readSnapVersion(ctx, args.ControllerSnapPath)
 		if err != nil {
 			return errors.Annotate(err, "inspecting controller snap version")
 		}
