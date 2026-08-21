@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -23,6 +24,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/worker/gate"
@@ -377,6 +379,20 @@ func CAASAgentFinalizer(
 ) error {
 	// Set the controller node password.
 	if err := agentPasswordService.SetControllerNodePassword(ctx, agent.BootstrapControllerId, agentPassword); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Read the introduction nonce from disk. It is written by the
+	// controller-config-seed init container from the ConfigMap.
+	// If the nonce file is missing (e.g. non-k8s bootstrap or older
+	// charm), skip silently. The UnitIntroduction facade will reject
+	// missing nonces for controller applications.
+	nonceBytes, err := os.ReadFile(k8sconstants.ControllerNonceFilePath)
+	if err != nil {
+		return nil
+	}
+	nonce := string(nonceBytes)
+	if err := agentPasswordService.SetControllerNodeNonce(ctx, agent.BootstrapControllerId, nonce); err != nil {
 		return errors.Trace(err)
 	}
 
