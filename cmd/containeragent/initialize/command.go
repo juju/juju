@@ -69,7 +69,7 @@ type initCommand struct {
 
 // ApplicationAPI provides methods for unit introduction.
 type ApplicationAPI interface {
-	UnitIntroduction(ctx context.Context, podName string, podUUID string) (*caasapplication.UnitConfig, error)
+	UnitIntroduction(ctx context.Context, podName string, podUUID string, nonce string) (*caasapplication.UnitConfig, error)
 	Close() error
 }
 
@@ -165,7 +165,7 @@ func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 	var unitConfig *caasapplication.UnitConfig
 	err = retry.Call(retry.CallArgs{
 		Func: func() error {
-			unitConfig, err = applicationAPI.UnitIntroduction(ctx, identity.PodName, identity.PodUUID)
+			unitConfig, err = applicationAPI.UnitIntroduction(ctx, identity.PodName, identity.PodUUID, identity.Nonce)
 			return errors.Trace(err)
 		},
 		IsFatalError: func(err error) bool {
@@ -186,7 +186,17 @@ func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 	if err = c.fileReaderWriter.MkdirAll(c.dataDir, 0775); err != nil {
 		return errors.Trace(err)
 	}
-
+	if c.isController && unitConfig.ControllerAgentTag.Id() != "" {
+		controllerConfigPath := agent.ConfigPath(c.dataDir, unitConfig.ControllerAgentTag)
+		if err := c.fileReaderWriter.MkdirAll(path.Dir(controllerConfigPath), 0775); err != nil {
+			return errors.Trace(err)
+		}
+		if err := c.fileReaderWriter.WriteFile(controllerConfigPath, unitConfig.ControllerAgentConf, 0600); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	// The unit template is the completion marker checked above. Write it last
+	// so a partial controller initialization is retried rather than skipped.
 	if err = c.fileReaderWriter.WriteFile(templateConfigPath, unitConfig.AgentConf, 0664); err != nil {
 		return errors.Trace(err)
 	}

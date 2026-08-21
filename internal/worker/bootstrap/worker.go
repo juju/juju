@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
@@ -72,6 +73,7 @@ type WorkerConfig struct {
 	PopulateControllerCharm    PopulateControllerCharmFunc
 	AgentFinalizer             AgentFinalizerFunc
 	AgentPassword              string
+	ApplicationPassword        string
 	CharmhubHTTPClient         HTTPClient
 	UnitPassword               string
 	ServiceManagerGetter       ServiceManagerGetterFunc
@@ -270,6 +272,9 @@ func (w *bootstrapWorker) loop() error {
 	if err := w.seedControllerCharm(ctx, dataDir, bootstrapParams, bootstrapAddresses); err != nil {
 		return errors.Trace(err)
 	}
+	if err := w.setControllerApplicationPassword(ctx); err != nil {
+		return errors.Trace(err)
+	}
 
 	if err := w.seedInitialAuthorizedKeys(ctx, bootstrapParams.ControllerModelAuthorizedKeys); err != nil {
 		return errors.Trace(err)
@@ -312,6 +317,24 @@ func (w *bootstrapWorker) loop() error {
 		w.logger.Warningf(ctx, "recording status for model %q: %v", modelUUID, err)
 	}
 
+	return nil
+}
+
+func (w *bootstrapWorker) setControllerApplicationPassword(ctx context.Context) error {
+	if w.cfg.ApplicationPassword == "" {
+		return nil
+	}
+	applicationUUID, err := w.cfg.ApplicationService.GetApplicationUUIDByName(
+		ctx, environsbootstrap.ControllerApplicationName,
+	)
+	if err != nil {
+		return errors.Annotate(err, "getting controller application UUID")
+	}
+	if err := w.cfg.AgentPasswordService.SetApplicationPassword(
+		ctx, applicationUUID, w.cfg.ApplicationPassword,
+	); err != nil {
+		return errors.Annotate(err, "setting controller application password")
+	}
 	return nil
 }
 

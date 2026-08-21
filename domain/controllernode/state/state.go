@@ -33,6 +33,28 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
+// AddControllerNode ensures a controller node exists for the supplied ID.
+func (st *State) AddControllerNode(ctx context.Context, controllerID string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	controllerNode := dbControllerNode{ControllerID: controllerID}
+	stmt, err := st.Prepare(`
+INSERT INTO controller_node (controller_id)
+VALUES ($dbControllerNode.controller_id)
+ON CONFLICT (controller_id) DO NOTHING
+`, controllerNode)
+	if err != nil {
+		return errors.Errorf("preparing insert controller node statement: %w", err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Capture(tx.Query(ctx, stmt, controllerNode).Run())
+	}))
+}
+
 // AddDqliteNode adds the Dqlite node ID and bind address for the input
 // controller ID. If the controller ID already exists, it updates the
 // Dqlite node ID and bind address.

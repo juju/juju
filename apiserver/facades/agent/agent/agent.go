@@ -296,12 +296,6 @@ func (api *AgentAPI) getOneEntity(ctx context.Context, tag names.Tag) params.Age
 		}
 
 	case names.ControllerAgentTagKind:
-		if tag.(names.ControllerAgentTag).Number() > 0 {
-			return params.AgentGetEntitiesResult{
-				Error: apiservererrors.ServerError(apiservererrors.NotSupportedError(tag, "in HA")),
-			}
-		}
-		// TODO(ha): When we support HA on k8s we may need to implement this.
 		return params.AgentGetEntitiesResult{
 			Life: life.Alive,
 		}

@@ -39,21 +39,26 @@ func (s *provisionerSuite) TestUnitIntroduction(c *tc.C) {
 		args := a.(params.CAASUnitIntroductionArgs)
 		c.Assert(args.PodName, tc.Equals, "pod-name")
 		c.Assert(args.PodUUID, tc.Equals, "pod-uuid")
+		c.Assert(args.Nonce, tc.Equals, "nonce")
 		c.Assert(result, tc.FitsTypeOf, &params.CAASUnitIntroductionResult{})
 		*(result.(*params.CAASUnitIntroductionResult)) = params.CAASUnitIntroductionResult{
 			Result: &params.CAASUnitIntroduction{
-				AgentConf: []byte("config data"),
-				UnitName:  "app/0",
+				AgentConf:           []byte("config data"),
+				UnitName:            "app/0",
+				ControllerAgentTag:  "controller-0",
+				ControllerAgentConf: []byte("controller config data"),
 			},
 		}
 		return nil
 	})
-	unitConfig, err := client.UnitIntroduction(c.Context(), "pod-name", "pod-uuid")
+	unitConfig, err := client.UnitIntroduction(c.Context(), "pod-name", "pod-uuid", "nonce")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(called, tc.IsTrue)
 	c.Assert(unitConfig, tc.NotNil)
 	c.Assert(unitConfig.UnitTag.String(), tc.Equals, "unit-app-0")
 	c.Assert(unitConfig.AgentConf, tc.SameContents, []byte("config data"))
+	c.Check(unitConfig.ControllerAgentTag, tc.DeepEquals, names.NewControllerAgentTag("0"))
+	c.Check(unitConfig.ControllerAgentConf, tc.SameContents, []byte("controller config data"))
 }
 
 func (s *provisionerSuite) TestUnitIntroductionFail(c *tc.C) {
@@ -73,7 +78,7 @@ func (s *provisionerSuite) TestUnitIntroductionFail(c *tc.C) {
 		}
 		return nil
 	})
-	_, err := client.UnitIntroduction(c.Context(), "pod-name", "pod-uuid")
+	_, err := client.UnitIntroduction(c.Context(), "pod-name", "pod-uuid", "")
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 	c.Assert(called, tc.IsTrue)
 }
@@ -95,7 +100,7 @@ func (s *provisionerSuite) TestUnitIntroductionFailAlreadyExists(c *tc.C) {
 		}
 		return nil
 	})
-	_, err := client.UnitIntroduction(c.Context(), "pod-name", "pod-uuid")
+	_, err := client.UnitIntroduction(c.Context(), "pod-name", "pod-uuid", "")
 	c.Assert(err, tc.ErrorIs, errors.AlreadyExists)
 	c.Assert(called, tc.IsTrue)
 }
@@ -117,7 +122,7 @@ func (s *provisionerSuite) TestUnitIntroductionFailNotAssigned(c *tc.C) {
 		}
 		return nil
 	})
-	_, err := client.UnitIntroduction(c.Context(), "pod-name", "pod-uuid")
+	_, err := client.UnitIntroduction(c.Context(), "pod-name", "pod-uuid", "")
 	c.Assert(err, tc.ErrorIs, errors.NotAssigned)
 	c.Assert(called, tc.IsTrue)
 }

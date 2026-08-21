@@ -124,6 +124,19 @@ func (s *ManifoldSuite) TestOutputSuccessStateServer(c *tc.C) {
 	c.Check(out, tc.IsTrue)
 }
 
+func (s *ManifoldSuite) TestControllerAgentTagIsAlwaysStateServer(c *tc.C) {
+	s.agent.conf.tag = names.NewControllerAgentTag("1")
+	s.agent.conf.setControllerAgentInfo(false)
+	w, err := s.manifold.Start(c.Context(), s.getter)
+	c.Assert(err, tc.ErrorIsNil)
+	defer checkStop(c, w)
+
+	var out bool
+	err = s.manifold.Output(w, &out)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(out, tc.IsTrue)
+}
+
 func (s *ManifoldSuite) TestBounceOnChange(c *tc.C) {
 	s.agent.conf.setControllerAgentInfo(false)
 	w, err := s.manifold.Start(c.Context(), s.getter)

@@ -361,6 +361,30 @@ func (s *serviceSuite) TestSetControllerNodePasswordInvalidPassword(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "password is only 3 bytes long, and is not a valid Agent password.*")
 }
 
+func (s *serviceSuite) TestSetControllerNodePasswordIfAbsent(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	password := tc.Must(c, internalpassword.RandomPassword)
+	s.controllerState.EXPECT().SetControllerNodePasswordHashIfAbsent(
+		gomock.Any(), "0", hashPassword(password),
+	).Return(true, nil)
+
+	set, err := NewService(s.modelState, s.controllerState).
+		SetControllerNodePasswordIfAbsent(c.Context(), "0", password)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(set, tc.IsTrue)
+}
+
+func (s *serviceSuite) TestHasControllerNodePassword(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().HasControllerNodePasswordHash(gomock.Any(), "0").Return(true, nil)
+	hasPassword, err := NewService(s.modelState, s.controllerState).
+		HasControllerNodePassword(c.Context(), "0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hasPassword, tc.IsTrue)
+}
+
 func (s *serviceSuite) TestMatchesControllerNodePasswordHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -558,4 +582,60 @@ func (s *serviceSuite) TestMatchesModelPasswordHashInvalidPassword(c *tc.C) {
 	service := NewService(s.modelState, s.controllerState)
 	_, err := service.MatchesModelPasswordHash(c.Context(), "foo")
 	c.Assert(err, tc.ErrorMatches, "password is only 3 bytes long, and is not a valid Agent password.*")
+}
+
+func (s *serviceSuite) TestSetControllerNodeNonce(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().SetControllerNodeNonce(gomock.Any(), "0", "nonce-abc").Return(nil)
+
+	service := NewService(s.modelState, s.controllerState)
+	err := service.SetControllerNodeNonce(c.Context(), "0", "nonce-abc")
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetControllerNodeNonceInvalidName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	service := NewService(s.modelState, s.controllerState)
+	err := service.SetControllerNodeNonce(c.Context(), "", "nonce")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestSetControllerNodeNonceInvalidNonce(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	service := NewService(s.modelState, s.controllerState)
+	err := service.SetControllerNodeNonce(c.Context(), "0", "")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestValidateControllerNodeNonce(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().ValidateControllerNodeNonce(
+		gomock.Any(), "0", "nonce-abc",
+	).Return(true, nil)
+
+	service := NewService(s.modelState, s.controllerState)
+	valid, err := service.ValidateControllerNodeNonce(c.Context(), "0", "nonce-abc")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsTrue)
+}
+
+func (s *serviceSuite) TestValidateControllerNodeNonceInvalidName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	service := NewService(s.modelState, s.controllerState)
+	_, err := service.ValidateControllerNodeNonce(c.Context(), "", "nonce")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestValidateControllerNodeNonceEmptyNonce(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	service := NewService(s.modelState, s.controllerState)
+	valid, err := service.ValidateControllerNodeNonce(c.Context(), "0", "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsFalse)
 }

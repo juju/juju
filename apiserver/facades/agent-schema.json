@@ -1314,6 +1314,15 @@
                                 "type": "integer"
                             }
                         },
+                        "controller-agent-conf": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "controller-agent-tag": {
+                            "type": "string"
+                        },
                         "unit-name": {
                             "type": "string"
                         }

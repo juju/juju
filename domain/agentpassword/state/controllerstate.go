@@ -78,6 +78,87 @@ SET password_hash = $entityPasswordHash.password_hash;
 	return errors.Capture(err)
 }
 
+// SetControllerNodePasswordHashIfAbsent sets the password hash for the given
+// controller node only if it does not already have one.
+func (s *ControllerState) SetControllerNodePasswordHashIfAbsent(
+	ctx context.Context, id string, passwordHash agentpassword.PasswordHash,
+) (bool, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	args := entityPasswordHash{
+		UUID:         id,
+		PasswordHash: passwordHash,
+	}
+	checkNodeStmt, err := s.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM controller_node
+WHERE controller_id = $entityPasswordHash.uuid;
+`, args, count{})
+	if err != nil {
+		return false, errors.Errorf("preparing statement to check controller node exists: %w", err)
+	}
+	insertStmt, err := s.Prepare(`
+INSERT INTO controller_node_password (controller_id, password_hash_algorithm_id, password_hash)
+VALUES ($entityPasswordHash.uuid, 0, $entityPasswordHash.password_hash)
+ON CONFLICT (controller_id) DO NOTHING;
+`, args)
+	if err != nil {
+		return false, errors.Errorf("preparing statement to initialize password hash: %w", err)
+	}
+
+	var inserted bool
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		inserted = false
+		var count count
+		if err := tx.Query(ctx, checkNodeStmt, args).Get(&count); err != nil {
+			return errors.Errorf("checking controller node exists: %w", err)
+		} else if count.Count == 0 {
+			return errors.Errorf("controller node %q: %w", id, controllernodeerrors.NotFound)
+		}
+
+		outcome := sqlair.Outcome{}
+		if err := tx.Query(ctx, insertStmt, args).Get(&outcome); err != nil {
+			return errors.Errorf("initializing password hash: %w", err)
+		}
+		rowsAffected, err := outcome.Result().RowsAffected()
+		if err != nil {
+			return errors.Errorf("checking initialized password hash: %w", err)
+		}
+		inserted = rowsAffected == 1
+		return nil
+	})
+	return inserted, errors.Capture(err)
+}
+
+// HasControllerNodePasswordHash reports whether the controller node has a
+// password hash.
+func (s *ControllerState) HasControllerNodePasswordHash(ctx context.Context, id string) (bool, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	args := entityPasswordHash{UUID: id}
+	stmt, err := s.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM controller_node_password
+WHERE controller_id = $entityPasswordHash.uuid;
+`, args, count{})
+	if err != nil {
+		return false, errors.Errorf("preparing statement to check password hash exists: %w", err)
+	}
+
+	var result count
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result = count{}
+		return errors.Capture(tx.Query(ctx, stmt, args).Get(&result))
+	})
+	return result.Count > 0, errors.Capture(err)
+}
+
 // MatchesControllerNodePasswordHash checks if the password is valid or not against the
 // password hash stored in the database.
 func (s *ControllerState) MatchesControllerNodePasswordHash(ctx context.Context, id string, passwordHash agentpassword.PasswordHash) (bool, error) {
@@ -111,4 +192,72 @@ AND    password_hash = $validatePasswordHash.password_hash;
 		return nil
 	})
 	return count > 0, errors.Capture(err)
+}
+
+type controllerNonce struct {
+	ControllerID string `db:"controller_id"`
+	Nonce        string `db:"nonce"`
+}
+
+type controllerNonceCount struct {
+	Count int `db:"count"`
+}
+
+// SetControllerNodeNonce inserts a nonce for the given controller ID. If a
+// nonce already exists for this controller ID it is overwritten.
+func (s *ControllerState) SetControllerNodeNonce(ctx context.Context, controllerID, nonce string) error {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	args := controllerNonce{
+		ControllerID: controllerID,
+		Nonce:        nonce,
+	}
+	stmt, err := s.Prepare(`
+INSERT INTO controller_introduction_nonce (controller_id, nonce)
+VALUES ($controllerNonce.controller_id, $controllerNonce.nonce)
+ON CONFLICT (controller_id) DO UPDATE SET nonce = $controllerNonce.nonce;
+`, args)
+	if err != nil {
+		return errors.Errorf("preparing statement to set controller node nonce: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Capture(tx.Query(ctx, stmt, args).Run())
+	})
+	return errors.Capture(err)
+}
+
+// ValidateControllerNodeNonce checks that the given nonce matches the stored
+// nonce for the controller ID and returns true if it does. The nonce is not
+// consumed; idempotency is provided by the password insert-if-absent guard.
+// Returns false if the nonce does not match or no nonce is stored.
+func (s *ControllerState) ValidateControllerNodeNonce(ctx context.Context, controllerID, nonce string) (bool, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	args := controllerNonce{
+		ControllerID: controllerID,
+		Nonce:        nonce,
+	}
+	stmt, err := s.Prepare(`
+SELECT COUNT(*) AS &controllerNonceCount.count
+FROM controller_introduction_nonce
+WHERE controller_id = $controllerNonce.controller_id
+AND nonce = $controllerNonce.nonce;
+`, args, controllerNonceCount{})
+	if err != nil {
+		return false, errors.Errorf("preparing statement to validate controller node nonce: %w", err)
+	}
+
+	var result controllerNonceCount
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result = controllerNonceCount{}
+		return errors.Capture(tx.Query(ctx, stmt, args).Get(&result))
+	})
+	return result.Count > 0, errors.Capture(err)
 }

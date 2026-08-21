@@ -29,12 +29,16 @@ import (
 
 // AgentPasswordService provides access to agent password management.
 type AgentPasswordService interface {
+	// SetApplicationPassword sets the password for the given application.
+	SetApplicationPassword(ctx context.Context, appID coreapplication.UUID, password string) error
 	// SetUnitPassword sets the password for the given unit.
 	SetUnitPassword(ctx context.Context, unitName unit.Name, password string) error
 	// SetMachinePassword sets the password for the given machine.
 	SetMachinePassword(ctx context.Context, machineName machine.Name, password string) error
 	// SetControllerNodePassword sets the password for the controller node.
 	SetControllerNodePassword(ctx context.Context, controllerID string, password string) error
+	// SetControllerNodeNonce sets the introduction nonce for the controller.
+	SetControllerNodeNonce(ctx context.Context, controllerID, nonce string) error
 }
 
 // AgentBinaryStore is responsible for persisting agent binary's into a long
@@ -53,6 +57,8 @@ type AgentBinaryStore interface {
 
 // ApplicationService instances save an application to dqlite state.
 type ApplicationService interface {
+	// GetApplicationUUIDByName returns the UUID for the named application.
+	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 	// CreateIAASApplication creates a new IAAS application with the given name
 	// and charm.
 	CreateIAASApplication(
