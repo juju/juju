@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/deployment/charm"
+	"github.com/juju/juju/internal/snapstore"
 )
 
 const (
@@ -82,7 +83,7 @@ func ReadSnapVersion(ctx context.Context, snapPath string) (string, semversion.N
 			"reading controller snap %q: no version found in snap metadata", snapPath)
 	}
 
-	vers, err := ParseSnapVersion(raw)
+	vers, err := snapstore.ParseSnapVersion(raw)
 	if err != nil {
 		return "", semversion.Zero, errors.Annotatef(err,
 			"reading controller snap %q: cannot parse version %q", snapPath, raw)
