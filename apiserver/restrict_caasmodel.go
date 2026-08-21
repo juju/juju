@@ -72,6 +72,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"StorageProvisioner",
 	"StringsWatcher",
 	"Subnets",
+	"Tracer",
 	"Undertaker",
 	"Uniter",
 	"Upgrader",

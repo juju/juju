@@ -30,6 +30,7 @@ func (s *RestrictCAASModelSuite) SetUpSuite(c *tc.C) {
 
 func (s *RestrictCAASModelSuite) TestAllowed(c *tc.C) {
 	s.assertMethod(c, "CAASApplication", 1, "UnitIntroduction")
+	s.assertMethod(c, "Tracer", 1, "GetControllerTracingConfig")
 }
 
 func (s *RestrictCAASModelSuite) TestSubnetsAllowed(c *tc.C) {
