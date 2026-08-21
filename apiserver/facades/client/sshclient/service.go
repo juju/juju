@@ -62,5 +62,6 @@ type MachineService interface {
 
 // ModelSSHService resolves the terminating host key for a virtual hostname.
 type ModelSSHService interface {
+	// VirtualHostKey returns the private host key for the virtual hostname.
 	VirtualHostKey(ctx context.Context, info virtualhostname.Info) (string, error)
 }

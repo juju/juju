@@ -45,6 +45,7 @@ type ControllerConfigService interface {
 
 // ControllerSSHService provides the controller's SSH jump server host key.
 type ControllerSSHService interface {
+	// SSHServerHostPublicKey returns the public host key of the SSH jump server.
 	SSHServerHostPublicKey(ctx context.Context) ([]byte, error)
 }
 

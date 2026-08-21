@@ -33,8 +33,11 @@ const finalDestinationUser = "ubuntu"
 
 // SSHAPIJump is the SSH API client used by the SSH jump provider.
 type SSHAPIJump interface {
+	// VirtualHostname returns the virtual hostname for an SSH target.
 	VirtualHostname(ctx context.Context, target string, container *string) (string, error)
+	// PublicHostKeyForTarget returns the public host key for a virtual hostname.
 	PublicHostKeyForTarget(ctx context.Context, virtualHostname string) (params.PublicSSHHostKeyResult, error)
+	// Close releases resources associated with the SSH API client.
 	Close() error
 }
 
@@ -82,7 +85,6 @@ func (p *sshJump) initRun(ctx context.Context, mc ModelCommand) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	details, err := mc.ControllerDetails()
 	if err != nil {
 		return errors.Trace(err)
@@ -183,6 +185,9 @@ func (p *sshJump) resolveTarget(ctx context.Context, target string) (*resolvedTa
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Probe the configured jump endpoints once to select a reachable endpoint
+	// whose host key matches the controller key. The proxy command can then use
+	// that verified endpoint directly.
 	availableAddresses := network.NewMachineHostPorts(p.jumpHostPort, p.controllersAddresses...).HostPorts()
 	address, err := p.hostChecker.FindHost(availableAddresses, []string{string(p.jumpServerHostKey)})
 	if err != nil {
@@ -218,7 +223,7 @@ func (p *sshJump) generateKnownHosts(jumpHost, virtualHostname string, targetHos
 	if err != nil {
 		return errors.Annotate(err, "creating known hosts file")
 	}
-	defer func() { _ = f.Close() }()
+	defer f.Close()
 	p.knownHostsPath = f.Name()
 	if _, err := f.WriteString(jumpLine + targetLine); err != nil {
 		return errors.Trace(err)
@@ -233,6 +238,7 @@ func knownHostsLine(host string, wireKey []byte) (string, error) {
 	if err != nil {
 		return "", errors.Annotatef(err, "parsing host key for %q", host)
 	}
+	// MarshalAuthorizedKey terminates each known_hosts entry with a newline.
 	return host + " " + string(gossh.MarshalAuthorizedKey(pubKey)), nil
 }
 
@@ -264,6 +270,7 @@ func (p *sshJump) maybePopulateTargetViaField(_ context.Context, _ *resolvedTarg
 	return nil
 }
 
+// getSSHOptions returns SSH options that verify both jump and target host keys.
 func (p *sshJump) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*ssh.Options, error) {
 	var options ssh.Options
 	// -o ProxyCommand is a substitute for the -J option, due to a limitation
