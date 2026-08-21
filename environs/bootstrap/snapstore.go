@@ -249,6 +249,7 @@ func (c *snapStoreClient) doFetchInfo(ctx context.Context, snapName, arch string
 func isRetryableStatusCode(code int) bool {
 	switch code {
 	case http.StatusTooManyRequests,
+		http.StatusInternalServerError,
 		http.StatusBadGateway,
 		http.StatusServiceUnavailable,
 		http.StatusGatewayTimeout:
@@ -258,15 +259,24 @@ func isRetryableStatusCode(code int) bool {
 }
 
 // isRetryableNetworkError reports whether the error is a transient network
-// failure (timeout or temporary DNS/connection error) that should be retried.
+// failure (timeout, temporary DNS/connection error) that should be retried.
 func isRetryableNetworkError(err error) bool {
 	if errors.Is(err, context.DeadlineExceeded) {
 		return true
 	}
-	if netErr, ok := errors.AsType[net.Error](err); ok && netErr.Timeout() {
+	netErr, ok := errors.AsType[net.Error](err)
+	if !ok {
+		return false
+	}
+	if netErr.Timeout() {
 		return true
 	}
-	return false
+	if _, ok = errors.AsType[*net.DNSError](netErr); ok {
+		return true
+	}
+	// Remaining net.Error values (connection refused, reset, etc.) are
+	// transient and retryable; net.ErrClosed is a permanent terminal state.
+	return !errors.Is(netErr, net.ErrClosed)
 }
 
 // resolveControllerSnap resolves the controller snap's version and revision for

@@ -5,7 +5,9 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -228,7 +230,20 @@ func TestStoreClientRetryOn502(t *testing.T) {
 		rev, err := client.resolveChannel(context.Background(), "jujud", "amd64", "4.2/edge")
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(rev.Revision, tc.Equals, 42)
-		c.Check(int(atomic.LoadInt32(&attempts)), tc.Equals, 2)
+		c.Check(int(atomic.LoadInt32(&attempts)), tc.Equals, 3)
+	})
+}
+
+func TestIsRetryableNetworkError(t *testing.T) {
+	tc.Run(t, func(c *tc.C) {
+		var dnsErr *net.DNSError
+		testErr := &net.DNSError{Name: "api.snapcraft.io", IsNotFound: true}
+		c.Assert(errors.As(testErr, &dnsErr), tc.IsTrue)
+		c.Check(isRetryableNetworkError(testErr), tc.IsTrue)
+
+		c.Check(isRetryableNetworkError(net.ErrClosed), tc.IsFalse)
+
+		c.Check(isRetryableNetworkError(&net.OpError{Op: "dial", Err: errors.New("connection refused")}), tc.IsTrue)
 	})
 }
 
@@ -248,18 +263,29 @@ func TestStoreClientNoRetryOn404(t *testing.T) {
 	})
 }
 
-func TestStoreClientNoRetryOn500(t *testing.T) {
+func TestStoreClientRetryOn500(t *testing.T) {
 	tc.Run(t, func(c *tc.C) {
 		var attempts int32
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			atomic.AddInt32(&attempts, 1)
-			http.Error(w, "boom", http.StatusInternalServerError)
+			n := atomic.AddInt32(&attempts, 1)
+			if n < 3 {
+				http.Error(w, "boom", http.StatusInternalServerError)
+				return
+			}
+			_, _ = fmt.Fprint(w, `{
+				"channel-map": [{
+					"channel": {"track": "4.2", "risk": "edge", "architecture": "amd64"},
+					"revision": 42,
+					"version": "4.1-beta2"
+				}]
+			}`)
 		}))
 		defer server.Close()
 
 		client := newTestSnapStoreClient(server.URL)
-		_, err := client.resolveChannel(context.Background(), "jujud", "amd64", "4.2/edge")
-		c.Assert(err, tc.ErrorMatches, `.*snap store returned 500 Internal Server Error.*`)
-		c.Check(int(atomic.LoadInt32(&attempts)), tc.Equals, 1)
+		rev, err := client.resolveChannel(context.Background(), "jujud", "amd64", "4.2/edge")
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(rev.Revision, tc.Equals, 42)
+		c.Check(int(atomic.LoadInt32(&attempts)), tc.Equals, 3)
 	})
 }
