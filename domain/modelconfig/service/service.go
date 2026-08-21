@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -101,6 +102,7 @@ type Service struct {
 	modelValidator                config.Validator
 	modelConfigProviderGetterFunc ModelConfigProviderFunc
 	st                            State
+	logger                        logger.Logger
 }
 
 // NewService creates a new ModelConfig service.
@@ -109,12 +111,14 @@ func NewService(
 	modelValidator config.Validator,
 	modelConfigProviderGetterFunc ModelConfigProviderFunc,
 	st State,
+	logger logger.Logger,
 ) *Service {
 	return &Service{
 		defaultsProvider:              defaultsProvider,
 		modelValidator:                modelValidator,
 		modelConfigProviderGetterFunc: modelConfigProviderGetterFunc,
 		st:                            st,
+		logger:                        logger,
 	}
 }
 
@@ -320,6 +324,16 @@ func (s *Service) SetModelConfig(
 	cfgCopy := make(map[string]any, len(cfg))
 	maps.Copy(cfgCopy, cfg)
 
+	// authorized-keys is not valid model config in juju 4.x (SSH keys are
+	// managed separately). It is only ever present here for backward
+	// compatibility with juju 3.x clients, which always include it when
+	// creating a model, so drop it before validation and persistence
+	// rather than rejecting it.
+	if _, ok := cfgCopy[config.AuthorizedKeysKey]; ok {
+		delete(cfgCopy, config.AuthorizedKeysKey)
+		s.logger.Infof(ctx, "dropping deprecated %s from model config (SSH keys are managed separately in juju 4.x)", config.AuthorizedKeysKey)
+	}
+
 	for k, v := range defaults {
 		applyVal := v.ApplyStrategy(cfgCopy[k])
 		if applyVal != nil {
@@ -511,6 +525,7 @@ func NewWatchableService(
 	modelConfigProviderGetterFunc ModelConfigProviderFunc,
 	st State,
 	watcherFactory WatcherFactory,
+	logger logger.Logger,
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
@@ -518,6 +533,7 @@ func NewWatchableService(
 			modelValidator:                modelValidator,
 			modelConfigProviderGetterFunc: modelConfigProviderGetterFunc,
 			st:                            st,
+			logger:                        logger,
 		},
 		watcherFactory: watcherFactory,
 	}
