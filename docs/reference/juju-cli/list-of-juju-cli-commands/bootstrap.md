@@ -202,9 +202,6 @@ Bootstrap configuration keys:
         Controls the kubernetes service type for Juju controllers, see
         https://kubernetes.io/docs/reference/kubernetes-api/service-resources/service-v1/#ServiceSpec
         valid values are one of cluster, loadbalancer, external
-    ssh-server-host-key:
-      type: string
-      description: Sets the bootstrapped controller's SSH server host key
     
 
 Controller configuration keys:
@@ -385,12 +382,6 @@ Controller configuration keys:
     set-numa-control-policy:
       type: bool
       description: Determines if the NUMA control policy is set
-    ssh-max-concurrent-connections:
-      type: int
-      description: The maximum number of concurrent ssh connections to the controller
-    ssh-server-port:
-      type: int
-      description: The port used for ssh connections to the controller
     state-port:
       type: int
       description: The port used for mongo connections

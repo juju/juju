@@ -144,7 +144,6 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
 			SupportedBootstrapBases: supportedJujuBases,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -163,7 +162,6 @@ func (s *bootstrapSuite) TestBootstrapCredentialMismatch(c *gc.C) {
 			SupportedBootstrapBases: supportedJujuBases,
 			BootstrapConstraints:    constraints.MustParse("instance-role=foo"),
 			CloudCredential:         &cred,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 		})
 	c.Assert(err, gc.ErrorMatches, "instance role constraint with instance role credential not supported")
 
@@ -177,7 +175,6 @@ func (s *bootstrapSuite) TestBootstrapCredentialMismatch(c *gc.C) {
 			SupportedBootstrapBases: supportedJujuBases,
 			BootstrapConstraints:    constraints.MustParse("instance-role=foo"),
 			CloudCredential:         &cred,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 		})
 	c.Assert(err, gc.ErrorMatches, "instance role constraint with managed identity credential not supported")
 
@@ -191,7 +188,6 @@ func (s *bootstrapSuite) TestBootstrapTestingOptions(c *gc.C) {
 			ControllerConfig:           coretesting.FakeControllerConfig(),
 			AdminSecret:                "admin-secret",
 			CAPrivateKey:               coretesting.CAKey,
-			SSHServerHostKey:           coretesting.SSHServerHostKey,
 			SupportedBootstrapBases:    supportedJujuBases,
 			ExtraAgentValuesForTesting: map[string]string{"foo": "bar"},
 		})
@@ -209,7 +205,6 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
 			SupportedBootstrapBases: supportedJujuBases,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
@@ -234,7 +229,6 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 			BootstrapConstraints:    bootstrapCons,
 			ModelConstraints:        modelCons,
 			SupportedBootstrapBases: supportedJujuBases,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
@@ -251,7 +245,6 @@ func (s *bootstrapSuite) TestBootstrapWithStoragePools(c *gc.C) {
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
 			SupportedBootstrapBases: supportedJujuBases,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			StoragePools: map[string]corestorage.Attrs{
 				"spool": {
 					"type": "loop",
@@ -285,7 +278,6 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapSeries(c *gc.C) {
 			CAPrivateKey:            coretesting.CAKey,
 			BootstrapBase:           jammyBootstrapBase,
 			SupportedBootstrapBases: supportedJujuBases,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(env.bootstrapCount, gc.Equals, 1)
@@ -308,7 +300,6 @@ func (s *bootstrapSuite) TestBootstrapFallbackBootstrapSeries(c *gc.C) {
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
 			SupportedBootstrapBases: supportedJujuBases,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(env.bootstrapCount, gc.Equals, 1)
@@ -329,7 +320,6 @@ func (s *bootstrapSuite) TestBootstrapForcedBootstrapSeries(c *gc.C) {
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			BootstrapBase:           focalBootstrapBase,
 			SupportedBootstrapBases: supportedJujuBases,
 			Force:                   true,
@@ -354,7 +344,6 @@ func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapBase(c *gc.C) {
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			BootstrapBase:           corebase.MustParseBaseFromString("spock@1"),
 			SupportedBootstrapBases: supportedJujuBases,
 		})
@@ -375,7 +364,6 @@ func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapSeries(c *gc.C) {
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			BootstrapBase:           corebase.MustParseBaseFromString("spock@1"),
 			SupportedBootstrapBases: supportedJujuBases,
 		})
@@ -391,7 +379,6 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			Placement:               placement,
 			SupportedBootstrapBases: supportedJujuBases,
 		})
@@ -423,7 +410,6 @@ func (s *bootstrapSuite) assertFinalizePodBootstrapConfig(c *gc.C, serviceType, 
 	c.Assert(err, jc.ErrorIsNil)
 	params := bootstrap.BootstrapParams{
 		CAPrivateKey:               coretesting.CAKey,
-		SSHServerHostKey:           coretesting.SSHServerHostKey,
 		ControllerServiceType:      serviceType,
 		ControllerExternalName:     externalName,
 		ControllerExternalIPs:      externalIps,
@@ -465,7 +451,6 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			BootstrapImage:          "img-id",
 			BootstrapBase:           jammyBootstrapBase,
 			SupportedBootstrapBases: supportedJujuBases,
@@ -505,7 +490,6 @@ func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToExistingProviderSupport
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			BootstrapImage:          "img-id",
 			BootstrapBase:           jammyBootstrapBase,
 			SupportedBootstrapBases: supportedJujuBases,
@@ -588,7 +572,6 @@ func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToProviderWithNoSupported
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			BootstrapImage:          "img-id",
 			BootstrapBase:           jammyBootstrapBase,
 			SupportedBootstrapBases: supportedJujuBases,
@@ -663,7 +646,6 @@ func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			BootstrapConstraints:    bootstrapCons,
 			MetadataDir:             metadataDir,
 			SupportedBootstrapBases: supportedJujuBases,
@@ -692,7 +674,6 @@ func (s *bootstrapSuite) TestBootstrapLocalTools(c *gc.C) {
 		s.callContext, bootstrap.BootstrapParams{
 			AdminSecret:      "admin-secret",
 			CAPrivateKey:     coretesting.CAKey,
-			SSHServerHostKey: coretesting.SSHServerHostKey,
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			BuildAgentTarball: func(bool, string, func(localBinaryVersion version.Number) version.Number) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
@@ -721,7 +702,6 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsMismatchingOS(c *gc.C) {
 		s.callContext, bootstrap.BootstrapParams{
 			AdminSecret:      "admin-secret",
 			CAPrivateKey:     coretesting.CAKey,
-			SSHServerHostKey: coretesting.SSHServerHostKey,
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			BuildAgentTarball: func(bool, string, func(localBinaryVersion version.Number) version.Number) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
@@ -747,7 +727,6 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
 		s.callContext, bootstrap.BootstrapParams{
 			AdminSecret:      "admin-secret",
 			CAPrivateKey:     coretesting.CAKey,
-			SSHServerHostKey: coretesting.SSHServerHostKey,
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			BuildAgentTarball: func(bool, string, func(localBinaryVersion version.Number) version.Number) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
@@ -777,7 +756,6 @@ func (s *bootstrapSuite) TestBootstrapBuildAgentOfficial(c *gc.C) {
 			BuildAgent:       true,
 			AdminSecret:      "admin-secret",
 			CAPrivateKey:     coretesting.CAKey,
-			SSHServerHostKey: coretesting.SSHServerHostKey,
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			BuildAgentTarball: func(build bool, _ string,
 				getForceVersion func(version.Number) version.Number,
@@ -824,7 +802,6 @@ func (s *bootstrapSuite) TestBootstrapBuildAgentDevel(c *gc.C) {
 			BuildAgent:       true,
 			AdminSecret:      "admin-secret",
 			CAPrivateKey:     coretesting.CAKey,
-			SSHServerHostKey: coretesting.SSHServerHostKey,
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			BuildAgentTarball: func(build bool, _ string,
 				getForceVersion func(version.Number) version.Number,
@@ -880,7 +857,6 @@ func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *gc.C, clientAr
 		s.callContext, bootstrap.BootstrapParams{
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			BootstrapBase:           jammyBootstrapBase,
 			SupportedBootstrapBases: supportedJujuBases,
@@ -912,7 +888,6 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 		s.callContext, bootstrap.BootstrapParams{
 			AdminSecret:      "admin-secret",
 			CAPrivateKey:     coretesting.CAKey,
-			SSHServerHostKey: coretesting.SSHServerHostKey,
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			BuildAgentTarball: func(bool, string, func(localBinaryVersion version.Number) version.Number) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
@@ -936,7 +911,6 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			AdminSecret:      "admin-secret",
 			CAPrivateKey:     coretesting.CAKey,
-			SSHServerHostKey: coretesting.SSHServerHostKey,
 			BuildAgentTarball: func(bool, string, func(localBinaryVersion version.Number) version.Number) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
@@ -1008,7 +982,6 @@ func (s *bootstrapSuite) TestBootstrapControllerCharmLocal(c *gc.C) {
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			SupportedBootstrapBases: supportedJujuBases,
 			ControllerCharmPath:     path,
 		})
@@ -1025,7 +998,6 @@ func (s *bootstrapSuite) TestBootstrapControllerCharmChannel(c *gc.C) {
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			SupportedBootstrapBases: supportedJujuBases,
 			ControllerCharmChannel:  ch,
 		})
@@ -1082,7 +1054,6 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			MetadataDir:             metadataDir,
 			SupportedBootstrapBases: supportedJujuBases,
 		})
@@ -1115,7 +1086,6 @@ func (s *bootstrapSuite) TestBootstrapMetadataDirNonexistend(c *gc.C) {
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			MetadataDir:             nonExistentFileName,
 			SupportedBootstrapBases: supportedJujuBases,
 		})
@@ -1143,7 +1113,6 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesNoTools(c *gc.C) {
 				ControllerConfig:        coretesting.FakeControllerConfig(),
 				AdminSecret:             "admin-secret",
 				CAPrivateKey:            coretesting.CAKey,
-				SSHServerHostKey:        coretesting.SSHServerHostKey,
 				MetadataDir:             filepath.Join(metadataDir, suffix),
 				SupportedBootstrapBases: supportedJujuBases,
 			})
@@ -1179,7 +1148,6 @@ func (s *bootstrapSuite) TestBootstrapMetadataToolsNoImages(c *gc.C) {
 				ControllerConfig:        coretesting.FakeControllerConfig(),
 				AdminSecret:             "admin-secret",
 				CAPrivateKey:            coretesting.CAKey,
-				SSHServerHostKey:        coretesting.SSHServerHostKey,
 				MetadataDir:             filepath.Join(metadataDir, suffix),
 				SupportedBootstrapBases: supportedJujuBases,
 			})
@@ -1202,7 +1170,6 @@ func (s *bootstrapSuite) TestBootstrapCloudCredential(c *gc.C) {
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      "admin-secret",
 		CAPrivateKey:     coretesting.CAKey,
-		SSHServerHostKey: coretesting.SSHServerHostKey,
 		Cloud: cloud.Cloud{
 			Name:      "cloud-name",
 			Type:      "dummy",
@@ -1235,7 +1202,6 @@ func (s *bootstrapSuite) TestPublicKeyEnvVar(c *gc.C) {
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			SupportedBootstrapBases: supportedJujuBases,
 		})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1269,7 +1235,6 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *gc.C) {
 			Cloud:                     dummyCloud,
 			AdminSecret:               password,
 			CAPrivateKey:              coretesting.CAKey,
-			SSHServerHostKey:          coretesting.SSHServerHostKey,
 			SupportedBootstrapBases:   supportedJujuBases,
 		})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1313,7 +1278,6 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			MetadataDir:             noImagesDir,
 			SupportedBootstrapBases: supportedJujuBases,
 		})
@@ -1367,7 +1331,6 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			AdminSecret:      "admin-secret",
 			CAPrivateKey:     coretesting.CAKey,
-			SSHServerHostKey: coretesting.SSHServerHostKey,
 			AgentVersion:     toolsVersion,
 			BuildAgentTarball: func(
 				build bool, _ string,
@@ -1454,7 +1417,6 @@ func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *gc.C) {
 			BuildAgent:       true,
 			AdminSecret:      "admin-secret",
 			CAPrivateKey:     coretesting.CAKey,
-			SSHServerHostKey: coretesting.SSHServerHostKey,
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			BuildAgentTarball: func(
 				build bool, _ string,
@@ -1476,7 +1438,6 @@ func (s *bootstrapSuite) TestTargetSeriesOverride(c *gc.C) {
 		s.callContext, bootstrap.BootstrapParams{
 			AdminSecret:             "fake-moon-landing",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			SupportedBootstrapBases: supportedJujuBases,
 		})
@@ -1490,7 +1451,6 @@ func (s *bootstrapSuite) TestTargetArchOverride(c *gc.C) {
 		s.callContext, bootstrap.BootstrapParams{
 			AdminSecret:             "fake-moon-landing",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			SupportedBootstrapBases: supportedJujuBases,
 			BuildAgentTarball: func(
@@ -1522,7 +1482,6 @@ func (s *bootstrapSuite) TestTargetSeriesAndArchOverridePriority(c *gc.C) {
 		s.callContext, bootstrap.BootstrapParams{
 			AdminSecret:             "fake-moon-landing",
 			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			SupportedBootstrapBases: supportedJujuBases,
 			BuildAgentTarball: func(

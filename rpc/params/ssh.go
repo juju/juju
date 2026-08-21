@@ -3,12 +3,6 @@
 
 package params
 
-import (
-	"time"
-
-	"github.com/juju/juju/core/network"
-)
-
 // SSHHostKeySet defines SSH host keys for one or more entities
 // (typically machines).
 type SSHHostKeySet struct {
@@ -63,73 +57,6 @@ type SSHPublicKeysResults struct {
 type SSHPublicKeysResult struct {
 	Error      *Error   `json:"error,omitempty"`
 	PublicKeys []string `json:"public-keys,omitempty"`
-}
-
-// The parameters below have been introduced to support the
-// SSH proxy feature where we proxy SSH requests through the
-// Juju controller.
-
-// SSHHostKeyRequestArg species a request for a machine's host key.
-type SSHMachineHostKeysArg struct {
-	ModelUUID  string `json:"hostname"`
-	MachineTag string `json:"machine-tag"`
-}
-
-// SSHVirtualHostKeyRequestArg specifies a request for a virtual hostkey.
-type SSHVirtualHostKeyRequestArg struct {
-	Hostname string `json:"hostname"`
-}
-
-// PublicSSHHostKeyResult returns the public key for the target hostname
-// in SSH wire format.
-// Additionally, it returns the controller's jump server's public key
-// in SSH wire format.
-type PublicSSHHostKeyResult struct {
-	Error               *Error `json:"error,omitempty"`
-	PublicKey           []byte `json:"public-key"`
-	JumpServerPublicKey []byte `json:"jump-server-public-key"`
-}
-
-// SSHConnRequestArg holds the necessary info to create a ssh connection requests.
-type SSHConnRequestArg struct {
-	TunnelID            string                 `json:"tunnel-id"`
-	ModelUUID           string                 `json:"model-uuid"`
-	MachineId           string                 `json:"machine-id"`
-	Expires             time.Time              `json:"expires"`
-	Username            string                 `json:"username"`
-	Password            string                 `json:"password"`
-	ControllerAddresses network.SpaceAddresses `json:"controller-addresses"`
-	UnitPort            int                    `json:"unit-port"`
-	EphemeralPublicKey  []byte                 `json:"ephemeral-public-key"`
-}
-
-// SSHConnRequestRemoveArg holds the necessary info to remove a ssh connection requests.
-type SSHConnRequestRemoveArg struct {
-	TunnelID  string `json:"tunnel-id"`
-	ModelUUID string `json:"model-uuid"`
-	MachineId string `json:"machine-id"`
-}
-
-// SSHConnRequest holds the fields returned when you get a SSH connection request.
-type SSHConnRequest struct {
-	Expires             time.Time              `json:"expires"`
-	Username            string                 `json:"username"`
-	Password            string                 `json:"password"`
-	ControllerAddresses network.SpaceAddresses `json:"addresses"`
-	UnitPort            int                    `json:"unit-port"`
-	EphemeralPublicKey  []byte                 `json:"ephemeral-public-key"`
-}
-
-// SSHConnRequestResult holds the result of a SSH connection request.
-type SSHConnRequestResult struct {
-	Error          *Error         `json:"error,omitempty"`
-	SSHConnRequest SSHConnRequest `json:"ssh-conn-request"`
-}
-
-// SSHHostKeyResult holds the private host key.
-type SSHHostKeyResult struct {
-	Error   *Error `json:"error,omitempty"`
-	HostKey []byte `json:"host-key"`
 }
 
 // VerifyPublicKeyArgs is used to verify the Public Key presented is

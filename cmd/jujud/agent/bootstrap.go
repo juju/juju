@@ -45,7 +45,6 @@ import (
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/worker/peergrouper"
 	"github.com/juju/juju/mongo"
-	pkissh "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -296,9 +295,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err := ensureKeys(isCAAS, &args, &info, newConfigAttrs); err != nil {
 		return errors.Trace(err)
 	}
-	if err := ensureSSHServerHostKey(&args); err != nil {
-		return errors.Trace(err)
-	}
 	addrs, err := getAddressesForMongo(isCAAS, env, callCtx, args)
 	if err != nil {
 		return errors.Trace(err)
@@ -416,7 +412,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		channel:      args.ControllerCharmChannel,
 		isCAAS:       isCAAS,
 		unitPassword: controllerUnitPassword,
-		sshProxyPort: args.ControllerConfig.SSHServerPort(),
 		apiPort:      args.ControllerConfig.APIPort(),
 		needHttp:     args.ControllerConfig.AutocertDNSName() != "",
 	}
@@ -456,21 +451,6 @@ func getAddressesForMongo(
 		return nil, errors.Annotate(err, "getting bootstrap instance addresses")
 	}
 	return addrs, nil
-}
-
-// ensureSSHServerHostKey ensures that either a) a user has provided a host key
-// or b) one has been generated for the controller.
-func ensureSSHServerHostKey(args *instancecfg.StateInitializationParams) error {
-	if args.SSHServerHostKey != "" {
-		return nil
-	}
-	// Generate the embedded SSH server host key and store it within StateInitializationParams.
-	hostKey, err := pkissh.NewMarshalledED25519()
-	if err != nil {
-		return errors.Annotatef(err, "failed to ensure ssh server host key")
-	}
-	args.SSHServerHostKey = string(hostKey)
-	return nil
 }
 
 func ensureKeys(

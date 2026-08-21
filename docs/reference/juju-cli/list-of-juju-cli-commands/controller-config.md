@@ -182,6 +182,3 @@ Controller configuration keys:
       description: "The minimum duration of a query for it to be traced. The lower the
         \nthreshold, the more queries will be output. A value of 0 means all queries \nwill
         be output if tracing is enabled."
-    ssh-max-concurrent-connections:
-      type: int
-      description: The maximum number of concurrent ssh connections to the controller

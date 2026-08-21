@@ -20,12 +20,12 @@ import (
 
 // StateBackend provides an interface for upgrading the global state database.
 type StateBackend interface {
-	AddVirtualHostKeys() error
 	SplitMigrationStatusMessages() error
 	PopulateApplicationStorageUniqueID() error
 	OpenControllerAPIPort() error
 	ConvertScalingToCurrentOperationEnumField() error
 	ExposeControllerApplication() error
+	RemoveSSHProxyArtefacts() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -44,12 +44,6 @@ func NewStateBackend(pool *state.StatePool) StateBackend {
 
 type stateBackend struct {
 	pool *state.StatePool
-}
-
-// AddVirtualHostKeys runs an upgrade to
-// create missing virtual host keys.
-func (s stateBackend) AddVirtualHostKeys() error {
-	return state.AddVirtualHostKeys(s.pool)
 }
 
 // SplitMigrationStatusMessages runs an upgrade to
@@ -83,6 +77,16 @@ func (s stateBackend) ConvertScalingToCurrentOperationEnumField() error {
 // the controller application.
 func (s stateBackend) ExposeControllerApplication() error {
 	return state.ExposeControllerApplication(s.pool)
+}
+
+// RemoveSSHProxyArtefacts runs an upgrade to remove all state left behind
+// after the controller-proxied SSH feature was removed from the 3.6 line:
+// the orphaned virtualhostkeys and sshrequests collections are dropped,
+// leftover SSH connection request cleanup documents are removed, and the
+// orphaned ssh-server-port and ssh-max-concurrent-connections controller
+// config keys are deleted. The step is idempotent.
+func (s stateBackend) RemoveSSHProxyArtefacts() error {
+	return state.RemoveSSHProxyArtefacts(s.pool)
 }
 
 // newK8sClient initializes a new k8s client for a given model.

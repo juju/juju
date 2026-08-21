@@ -6,7 +6,6 @@ package sshclient
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/network"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -24,10 +23,6 @@ type Backend interface {
 	ControllerTag() names.ControllerTag
 	Model() (Model, error)
 	CloudSpec() (environscloudspec.CloudSpec, error)
-
-	JumpServerVirtualPublicKey() ([]byte, error)
-	MachineVirtualPublicKey(string) ([]byte, error)
-	UnitVirtualPublicKey(string) ([]byte, error)
 }
 
 // Model defines a point of use interface for the model from state.
@@ -139,58 +134,4 @@ func (b *backend) GetMachineForEntity(tagString string) (SSHMachine, error) {
 	default:
 		return nil, errors.Errorf("unsupported entity: %q", tagString)
 	}
-}
-
-// JumpServerVirtualAuthorizedKey returns the public key in SSH wire format.
-func (b *backend) JumpServerVirtualPublicKey() ([]byte, error) {
-	privKey, err := b.controllerState.SSHServerHostKey()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	key, err := getPublicKeyWireFormat([]byte(privKey))
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return key, nil
-}
-
-// UnitVirtualAuthorizedKey returns the public key in SSH wire format.
-func (b *backend) UnitVirtualPublicKey(unitID string) ([]byte, error) {
-	vhk, err := b.controllerState.UnitVirtualHostKey(unitID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	key, err := getPublicKeyWireFormat(vhk.HostKey())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return key, nil
-}
-
-// MachineVirtualAuthorizedKey returns the public key in SSH wire format.
-func (b *backend) MachineVirtualPublicKey(machineID string) ([]byte, error) {
-	vhk, err := b.controllerState.MachineVirtualHostKey(machineID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	key, err := getPublicKeyWireFormat(vhk.HostKey())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return key, nil
-}
-
-func getPublicKeyWireFormat(hostkey []byte) ([]byte, error) {
-	signer, err := ssh.ParsePrivateKey(hostkey)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return signer.PublicKey().Marshal(), nil
 }

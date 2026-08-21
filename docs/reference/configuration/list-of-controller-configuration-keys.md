@@ -682,31 +682,6 @@ controller policy turned on.
 **Can be changed after bootstrap:** no
 
 
-(controller-config-ssh-max-concurrent-connections)=
-## `ssh-max-concurrent-connections`
-
-`ssh-max-concurrent-connections` is the maximum number of concurrent SSH
-connections to the controller.
-
-**Type:** integer
-
-**Default value:** 100
-
-**Can be changed after bootstrap:** yes
-
-
-(controller-config-ssh-server-port)=
-## `ssh-server-port`
-
-`ssh-server-port` is the port used for the embedded SSH server.
-
-**Type:** integer
-
-**Default value:** 17022
-
-**Can be changed after bootstrap:** no
-
-
 (controller-config-state-port)=
 ## `state-port`
 

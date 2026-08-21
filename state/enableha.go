@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
-	sshkeys "github.com/juju/juju/pki/ssh"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/tools"
 )
@@ -245,12 +244,8 @@ func (st *State) enableHAIntentionOps(
 	}
 
 	var controllerIds []string
+	var err error
 	for i := 0; i < intent.newCount; i++ {
-		virtualHostKey, err := sshkeys.NewMarshalledED25519()
-		if err != nil {
-			return nil, ControllersChanges{}, errors.Trace(err)
-		}
-
 		placement, cons := getPlacementConstraints()
 		template := MachineTemplate{
 			Base: base,
@@ -258,9 +253,8 @@ func (st *State) enableHAIntentionOps(
 				JobHostUnits,
 				JobManageModel,
 			},
-			Constraints:    cons,
-			Placement:      placement,
-			VirtualHostKey: virtualHostKey,
+			Constraints: cons,
+			Placement:   placement,
 		}
 		// Set up the new controller to have a controller charm unit.
 		// The unit itself is created below.
@@ -325,11 +319,6 @@ func (st *State) addControllerUnitOps(attempt int, controllerApp *Application, p
 	pcp.Open("", network.PortRange{
 		FromPort: config.APIPort(),
 		ToPort:   config.APIPort(),
-		Protocol: "tcp",
-	})
-	pcp.Open("", network.PortRange{
-		FromPort: config.SSHServerPort(),
-		ToPort:   config.SSHServerPort(),
 		Protocol: "tcp",
 	})
 	portOps, err := pcp.Changes().Build(attempt)

@@ -1,4 +1,4 @@
-// Copyright 2025 Canonical Ltd.
+// Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package upgrades_test
@@ -12,15 +12,15 @@ import (
 	"github.com/juju/juju/upgrades"
 )
 
-var v364 = version.MustParse("3.6.4")
+var v3628 = version.MustParse("3.6.28")
 
-type steps364Suite struct {
+type steps3628Suite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&steps364Suite{})
+var _ = gc.Suite(&steps3628Suite{})
 
-func (s *steps364Suite) TestAddsVirtualHostKeys(c *gc.C) {
-	step := findStateStep(c, v364, "add virtual host keys")
+func (s *steps3628Suite) TestRemoveSSHProxyArtefacts(c *gc.C) {
+	step := findStateStep(c, v3628, "remove orphaned ssh proxy collections, cleanup docs and controller config")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }

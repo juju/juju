@@ -5,9 +5,7 @@ package state
 
 import (
 	"context"
-	"fmt"
 	"slices"
-	"sort"
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
@@ -22,7 +20,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -112,73 +109,6 @@ func defaultModelArgs(modelArgs *ModelArgs, cfg *config.Config, owner names.User
 	}
 
 	return *modelArgs
-}
-
-// TestUpgradeAddVirtualHostKeys tests that after an upgrade,
-// machines and CAAS units have a virtual host key.
-func (s *upgradesSuite) TestUpgradeAddVirtualHostKeys(c *gc.C) {
-	machineModel := s.makeModel(c, "model-1", coretesting.Attrs{}, ModelArgs{Type: ModelTypeIAAS})
-	k8sModel := s.makeModel(c, "model-2", coretesting.Attrs{}, ModelArgs{Type: ModelTypeCAAS})
-	defer func() {
-		_ = machineModel.Close()
-		_ = k8sModel.Close()
-	}()
-
-	machinesColl, machinesCloser, err := s.state.db().GetRawCollection(machinesC)
-	c.Assert(err, jc.ErrorIsNil)
-	defer machinesCloser()
-
-	err = machinesColl.Insert(bson.M{
-		"_id":        ensureModelUUID(machineModel.ModelUUID(), "1"),
-		"machineid":  "1",
-		"model-uuid": machineModel.ModelUUID(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	unitsColl, unitsCloser, err := s.state.db().GetRawCollection(unitsC)
-	c.Assert(err, jc.ErrorIsNil)
-	defer unitsCloser()
-
-	// The first unit is on a machine model and the second on a k8s model.
-	// The first unit is not expected to have a key while the second is.
-	err = unitsColl.Insert(
-		bson.M{
-			"_id":        ensureModelUUID(machineModel.ModelUUID(), "machineunit/1"),
-			"name":       "machineunit/1",
-			"model-uuid": machineModel.ModelUUID(),
-			"machineid":  "1",
-		}, bson.M{
-			"_id":        ensureModelUUID(k8sModel.ModelUUID(), "k8sunit/1"),
-			"name":       "k8sunit/1",
-			"model-uuid": k8sModel.ModelUUID(),
-		})
-	c.Assert(err, jc.ErrorIsNil)
-
-	virtualHostKeysColl, vhkCloser, err := s.state.db().GetRawCollection(virtualHostKeysC)
-	c.Assert(err, jc.ErrorIsNil)
-	defer vhkCloser()
-
-	// The hostkey values below are ignored by the checker but must still exist for deepEquals to work.
-	expectedVirtualHostKeys := []bson.M{
-		{
-			"_id":     fmt.Sprintf("%s:machine-1-hostkey", machineModel.ModelUUID()),
-			"hostkey": []byte("placeholder"),
-		}, {
-			"_id":     fmt.Sprintf("%s:unit-k8sunit/1-hostkey", k8sModel.ModelUUID()),
-			"hostkey": []byte("placeholder"),
-		}}
-
-	// Sort the values since the model UUIDs are random and assertUpgradedData fetches
-	// the actual data in sorted order.
-	sort.Slice(expectedVirtualHostKeys, func(i, j int) bool {
-		return expectedVirtualHostKeys[i]["_id"].(string) < expectedVirtualHostKeys[j]["_id"].(string)
-	})
-
-	mc := jc.NewMultiChecker()
-	mc.AddExpr(`_[_]["hostkey"]`, testing.BytesToStringMatch, `-----BEGIN OPENSSH PRIVATE KEY-----.*`)
-	s.assertUpgradedData(c, AddVirtualHostKeys, mc,
-		upgradedData(virtualHostKeysColl, expectedVirtualHostKeys),
-	)
 }
 
 func (s *upgradesSuite) TestSplitMigrationStatusMessages(c *gc.C) {
@@ -619,4 +549,229 @@ func (s *upgradesSuite) TestConvertScalingToCurrentOperationEnumField(c *gc.C) {
 			},
 		},
 	)
+}
+
+func (s *upgradesSuite) TestRemoveSSHProxyArtefactsDropsCollections(c *gc.C) {
+	// The collections are model-scoped: documents share the underlying
+	// MongoDB collection and are distinguished by a "model-uuid" field
+	// (and model-UUID-prefixed _id). Create a second model and seed both
+	// it and the controller model with a doc in each collection, then
+	// assert the upgrade removes only the target model's documents and
+	// leaves the other model's documents intact. Dropping the whole
+	// collection would fail this test.
+	state1 := s.makeModel(c, "m1", coretesting.Attrs{},
+		ModelArgs{Type: ModelTypeIAAS})
+	defer func() { _ = state1.Close() }()
+
+	seedCollection := func(st *State, collection, docID string) {
+		coll, closer, err := st.db().GetRawCollection(collection)
+		c.Assert(err, jc.ErrorIsNil)
+		defer closer()
+		err = coll.Insert(bson.M{
+			"_id":        st.docID(docID),
+			"model-uuid": st.ModelUUID(),
+			"data":       "unused",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	seedCollection(s.state, "virtualhostkeys", "machine-0-hostkey")
+	seedCollection(state1, "virtualhostkeys", "machine-1-hostkey")
+	seedCollection(s.state, "sshrequests", "conn-0")
+	seedCollection(state1, "sshrequests", "conn-1")
+
+	modelDocCount := func(st *State, name string) int {
+		coll, closer, err := st.db().GetRawCollection(name)
+		c.Assert(err, jc.ErrorIsNil)
+		defer closer()
+		n, err := coll.Find(bson.D{{Name: "model-uuid", Value: st.ModelUUID()}}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		return n
+	}
+
+	// Total document count across both models, to ensure the underlying
+	// collection is not dropped (which would remove everything at once).
+	totalDocCount := func(name string) int {
+		coll, closer, err := s.state.db().GetRawCollection(name)
+		c.Assert(err, jc.ErrorIsNil)
+		defer closer()
+		n, err := coll.Count()
+		c.Assert(err, jc.ErrorIsNil)
+		return n
+	}
+
+	c.Check(modelDocCount(s.state, "virtualhostkeys"), gc.Equals, 1)
+	c.Check(modelDocCount(state1, "virtualhostkeys"), gc.Equals, 1)
+	c.Check(modelDocCount(s.state, "sshrequests"), gc.Equals, 1)
+	c.Check(modelDocCount(state1, "sshrequests"), gc.Equals, 1)
+
+	// Two rounds to check idempotency: removing already-absent documents
+	// must not error.
+	for i := 0; i < 2; i++ {
+		c.Logf("Run: %d", i)
+		err := RemoveSSHProxyArtefacts(s.pool)
+		c.Assert(err, jc.ErrorIsNil)
+
+		c.Check(modelDocCount(s.state, "virtualhostkeys"), gc.Equals, 0)
+		c.Check(modelDocCount(state1, "virtualhostkeys"), gc.Equals, 0)
+		c.Check(modelDocCount(s.state, "sshrequests"), gc.Equals, 0)
+		c.Check(modelDocCount(state1, "sshrequests"), gc.Equals, 0)
+	}
+
+	// The underlying collections may still exist (now empty); what
+	// matters is that no ssh proxy documents remain for any model.
+	c.Check(totalDocCount("virtualhostkeys"), gc.Equals, 0)
+	c.Check(totalDocCount("sshrequests"), gc.Equals, 0)
+}
+
+func (s *upgradesSuite) TestRemoveSSHProxyArtefactsRemovesCleanupDocs(c *gc.C) {
+	// Seed a leftover "sshConnRequests" cleanup document. The cleanup kind
+	// was removed along with the rest of the feature, so the upgrade step
+	// must remove any such documents or the cleanup worker would fail
+	// trying to run a handler that no longer exists.
+	//
+	// The cleanups collection is model-scoped, so the seeded docs must
+	// include the model-uuid field to be visible to the model-filtered
+	// query used by removeSSHProxyCleanupDocs.
+	coll, closer, err := s.state.db().GetRawCollection(cleanupsC)
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":        s.state.docID("ssh-conn-cleanup-0"),
+		"model-uuid": s.state.ModelUUID(),
+		"kind":       "sshConnRequests",
+		"prefix":     "some-prefix",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	closer()
+
+	// Also seed an unrelated cleanup doc to ensure only the ssh proxy kind
+	// is removed.
+	coll, closer, err = s.state.db().GetRawCollection(cleanupsC)
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":        s.state.docID("other-cleanup-0"),
+		"model-uuid": s.state.ModelUUID(),
+		"kind":       "settings",
+		"prefix":     "other-prefix",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	closer()
+
+	cleanupCount := func(kind string) int {
+		coll, closer, err := s.state.db().GetRawCollection(cleanupsC)
+		c.Assert(err, jc.ErrorIsNil)
+		defer closer()
+		n, err := coll.Find(bson.D{
+			{Name: "model-uuid", Value: s.state.ModelUUID()},
+			{Name: "kind", Value: kind},
+		}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		return n
+	}
+
+	c.Check(cleanupCount("sshConnRequests"), gc.Equals, 1)
+	c.Check(cleanupCount("settings"), gc.Equals, 1)
+
+	// Idempotent: a second run finds nothing to remove but must not error.
+	for i := 0; i < 2; i++ {
+		c.Logf("Run: %d", i)
+		err := RemoveSSHProxyArtefacts(s.pool)
+		c.Assert(err, jc.ErrorIsNil)
+
+		c.Check(cleanupCount("sshConnRequests"), gc.Equals, 0)
+		c.Check(cleanupCount("settings"), gc.Equals, 1)
+	}
+}
+
+func (s *upgradesSuite) TestRemoveSSHProxyArtefactsRemovesControllerConfig(c *gc.C) {
+	// Seed the controller config with the orphaned ssh proxy keys. They are
+	// written directly to the settings document because they are no longer
+	// part of the controller config schema and so cannot be set through
+	// UpdateControllerConfig; this mirrors the state left behind on a
+	// controller upgraded from a version that had the feature.
+	settings, err := readSettings(s.state.db(), controllersC, ControllerSettingsGlobalKey)
+	c.Assert(err, jc.ErrorIsNil)
+	settings.Update(map[string]interface{}{
+		"ssh-server-port":                17022,
+		"ssh-max-concurrent-connections": 100,
+	})
+	_, ops := settings.settingsUpdateOps()
+	c.Assert(s.state.db().RunTransaction(ops), jc.ErrorIsNil)
+
+	cfg, err := s.state.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg["ssh-server-port"], gc.Equals, 17022)
+	c.Check(cfg["ssh-max-concurrent-connections"], gc.Equals, 100)
+
+	// Idempotent: a second run finds nothing to remove but must not error.
+	for i := 0; i < 2; i++ {
+		c.Logf("Run: %d", i)
+		err := RemoveSSHProxyArtefacts(s.pool)
+		c.Assert(err, jc.ErrorIsNil)
+
+		cfg, err := s.state.ControllerConfig()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(cfg["ssh-server-port"], gc.IsNil)
+		c.Check(cfg["ssh-max-concurrent-connections"], gc.IsNil)
+	}
+}
+
+func (s *upgradesSuite) TestRemoveSSHProxyArtefactsClosesControllerPort(c *gc.C) {
+	// The removed enableHA path opened port 17022 (the ssh server port) on
+	// every controller unit. After the feature was removed no code closes
+	// it, so the firewaller keeps the security-group entry open. The upgrade
+	// step must close the port range on each controller unit so the
+	// firewaller reverts it.
+	m0, err := s.state.AddMachine(UbuntuBase("12.10"), JobManageModel, JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerApp := AddTestingApplication(c, s.state, "controller", AddTestingCharm(c, s.state, "wordpress"))
+	u0, err := controllerApp.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = u0.AssignToMachine(m0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Open the ssh server port on the controller unit, mirroring what the
+	// removed enableHA path did. Also open an unrelated port to ensure only
+	// the ssh port is closed.
+	pcp, err := u0.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	pcp.Open("", network.PortRange{
+		FromPort: sshProxyServerPort,
+		ToPort:   sshProxyServerPort,
+		Protocol: "tcp",
+	})
+	pcp.Open("", network.PortRange{
+		FromPort: 9999,
+		ToPort:   9999,
+		Protocol: "tcp",
+	})
+	err = s.state.ApplyOperation(pcp.Changes())
+	c.Assert(err, jc.ErrorIsNil)
+
+	portOpen := func(unitName string, port int) bool {
+		u, err := s.state.Unit(unitName)
+		c.Assert(err, jc.ErrorIsNil)
+		ranges, err := u.OpenedPortRanges()
+		c.Assert(err, jc.ErrorIsNil)
+		for _, pr := range ranges.UniquePortRanges() {
+			if pr.Protocol == "tcp" && port >= pr.FromPort && port <= pr.ToPort {
+				return true
+			}
+		}
+		return false
+	}
+
+	c.Check(portOpen("controller/0", sshProxyServerPort), jc.IsTrue)
+	c.Check(portOpen("controller/0", 9999), jc.IsTrue)
+
+	// Idempotent: a second run finds nothing to close but must not error.
+	for i := 0; i < 2; i++ {
+		c.Logf("Run: %d", i)
+		err := RemoveSSHProxyArtefacts(s.pool)
+		c.Assert(err, jc.ErrorIsNil)
+
+		c.Check(portOpen("controller/0", sshProxyServerPort), jc.IsFalse)
+		c.Check(portOpen("controller/0", 9999), jc.IsTrue)
+	}
 }

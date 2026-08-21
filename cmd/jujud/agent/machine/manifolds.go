@@ -87,8 +87,6 @@ import (
 	"github.com/juju/juju/internal/worker/reboot"
 	"github.com/juju/juju/internal/worker/secretbackendrotate"
 	"github.com/juju/juju/internal/worker/singular"
-	"github.com/juju/juju/internal/worker/sshserver"
-	"github.com/juju/juju/internal/worker/sshtunneler"
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
 	"github.com/juju/juju/internal/worker/stateconverter"
@@ -787,24 +785,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			SocketName: paths.ControlSocket(paths.OSUnixLike),
 		})),
 
-		// The ssh server worker runs on the controller machine.
-		sshServerName: ifController(sshserver.Manifold(sshserver.ManifoldConfig{
-			APICallerName:          apiCallerName,
-			Logger:                 loggo.GetLogger("juju.worker.sshserver"),
-			NewServerWrapperWorker: sshserver.NewServerWrapperWorker,
-			NewServerWorker:        sshserver.NewServerWorker,
-		})),
-
 		// The jwtParser worker runs on the controller machine.
 		jwtParserName: ifController(jwtparser.Manifold(jwtparser.ManifoldConfig{
 			StateName: stateName,
-		})),
-
-		// The sshTunneler creates SSH connections to machines.
-		sshTunnelerName: ifController(sshtunneler.Manifold(sshtunneler.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			ClockName:     clockName,
 		})),
 	}
 
@@ -1218,9 +1201,5 @@ const (
 
 	controlSocketName = "control-socket"
 
-	sshServerName = "ssh-server"
-
 	jwtParserName = "jwt-parser"
-
-	sshTunnelerName = "ssh-tunneler"
 )

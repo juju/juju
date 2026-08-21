@@ -152,8 +152,6 @@ var (
 		"reboot-executor",
 		"secret-backend-rotate",
 		"ssh-authkeys-updater",
-		"ssh-server",
-		"ssh-tunneler",
 		"state",
 		"state-config-watcher",
 		"storage-provisioner",

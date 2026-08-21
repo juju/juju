@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/pki/ssh"
 )
 
 // Until we add 3.0 upgrade steps, keep static analysis happy.
@@ -115,94 +114,6 @@ func applyToAllModelSettings(st *State, change func(*settingsDoc) (bool, error))
 		return errors.Trace(st.runRawTransaction(ops))
 	}
 	return nil
-}
-
-// AddVirtualHostKeys creates virtual host keys for CAAS units and machines.
-func AddVirtualHostKeys(pool *StatePool) error {
-	st, err := pool.SystemState()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	virtualHostKeysCollection, vhkCloser, err := st.db().GetRawCollection(virtualHostKeysC)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer vhkCloser()
-	virtualHostKeys := []virtualHostKeyDoc{}
-	err = virtualHostKeysCollection.Find(nil).All(&virtualHostKeys)
-	if err != nil {
-		return errors.Annotatef(err, "cannot get all virtual host keys")
-	}
-
-	hostKeyMap := map[string]struct{}{}
-	for _, virtualHostKey := range virtualHostKeys {
-		hostKeyMap[virtualHostKey.DocId] = struct{}{}
-	}
-
-	machinesCollection, machineCloser, err := st.db().GetRawCollection(machinesC)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer machineCloser()
-	mdocs := machineDocSlice{}
-	err = machinesCollection.Find(nil).All(&mdocs)
-	if err != nil {
-		return errors.Annotatef(err, "cannot get all machines")
-	}
-
-	var ops []txn.Op
-	for _, doc := range mdocs {
-		machineLookup := ensureModelUUID(doc.ModelUUID, machineHostKeyID(doc.Id))
-		if _, ok := hostKeyMap[machineLookup]; ok {
-			continue
-		}
-		key, err := ssh.NewMarshalledED25519()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		addOps, err := newMachineVirtualHostKeysOps(doc.ModelUUID, doc.Id, key)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		ops = append(ops, addOps...)
-	}
-
-	err = runForAllModelStates(pool, func(st *State) error {
-		model, err := st.Model()
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		if model.Type() == ModelTypeCAAS {
-			// add host keys for CaaS units.
-			units, err := st.allUnits()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			for _, unit := range units {
-				unitLookup := ensureModelUUID(st.ModelUUID(), unitHostKeyID(unit.Tag().Id()))
-				if _, ok := hostKeyMap[unitLookup]; ok {
-					continue
-				}
-				key, err := ssh.NewMarshalledED25519()
-				if err != nil {
-					return errors.Trace(err)
-				}
-				addOps, err := newUnitVirtualHostKeysOps(st.ModelUUID(), unit.Tag().Id(), key)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				ops = append(ops, addOps...)
-			}
-		}
-		return nil
-	})
-
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return st.runRawTransaction(ops)
 }
 
 func SplitMigrationStatusMessages(pool *StatePool) error {
@@ -542,4 +453,209 @@ func ConvertScalingToCurrentOperationEnumField(pool *StatePool) error {
 		}
 		return st.runRawTransaction(ops)
 	})
+}
+
+// sshProxyCollectionNames holds the names of the MongoDB collections that
+// were used by the controller-proxied SSH feature. The feature was removed
+// from the 3.6 line but the collections were left behind in upgraded
+// controllers' model databases. RemoveSSHProxyArtefacts removes the
+// orphaned documents from every model so no dead data remains.
+//
+// The collection constants are defined locally here rather than in
+// allcollections.go because the collections are no longer registered as
+// known collections; the upgrade step only needs the names to remove the
+// leftover documents.
+//
+// These collections were model-scoped (non-global): documents share the
+// single juju database and are distinguished by a "model-uuid" field and
+// model-UUID-prefixed _id. The upgrade step therefore removes documents
+// per-model using a model-uuid filter rather than dropping the underlying
+// MongoDB collection, which would destroy every model's documents at
+// once.
+var sshProxyCollectionNames = []string{
+	"virtualhostkeys",
+	"sshrequests",
+}
+
+// sshProxyCleanupKind is the cleanupKind value that was used for expired
+// SSH connection requests. The cleanup handler was removed along with the
+// rest of the feature, so any leftover cleanup documents of this kind
+// would fail (or attempt to access a dropped collection) when processed.
+const sshProxyCleanupKind cleanupKind = "sshConnRequests"
+
+// sshProxyControllerConfigKeys are the controller configuration keys that
+// were added for the controller-proxied SSH feature. They are no longer
+// part of the controller config schema, so any values left behind in the
+// controller settings document by an upgraded controller are orphaned and
+// would be surfaced to clients as unexpected config entries.
+var sshProxyControllerConfigKeys = []string{
+	"ssh-server-port",
+	"ssh-max-concurrent-connections",
+}
+
+// sshProxyServerPort is the default port that the removed controller-proxied
+// SSH server listened on. It was opened on every controller unit by the
+// enableHA path (see state/enableha.go addControllerUnitOps) and persisted in
+// the unit's opened port ranges. After the feature was removed the port range
+// is orphaned: no code closes it, so the firewaller keeps it open. The upgrade
+// step closes it on every controller unit so the firewaller reverts the
+// security-group change.
+const sshProxyServerPort = 17022
+
+// RemoveSSHProxyArtefacts removes all state left behind by the removed
+// controller-proxied SSH feature from the controller:
+//
+//   - the virtualhostkeys and sshrequests documents are removed from every
+//     model in the pool,
+//   - any leftover "sshConnRequests" cleanup documents are removed so they
+//     cannot trigger a handler that no longer exists,
+//   - the orphaned ssh-server-port and ssh-max-concurrent-connections
+//     controller config keys are removed from the controller settings
+//     document, and
+//   - the ssh server port (17022) is closed on every controller unit so the
+//     firewaller reverts the security-group opening made by the removed
+//     enableHA path.
+//
+// Each operation is a no-op where the underlying data does not exist
+// (removing absent documents or settings keys, or closing an already-closed
+// port range, is harmless), so the step is idempotent and safe to run on
+// controllers that never had the feature.
+//
+// The virtualhostkeys and sshrequests collections were model-scoped, so
+// documents are removed per-model with a model-uuid filter rather than
+// dropping the underlying MongoDB collection, which is shared across all
+// models in the single-juju-database layout used since 3.6.
+func RemoveSSHProxyArtefacts(pool *StatePool) error {
+	if err := dropSSHProxyCollections(pool); err != nil {
+		return errors.Trace(err)
+	}
+	if err := closeSSHProxyControllerPort(pool); err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(removeSSHProxyControllerConfig(pool))
+}
+
+// dropSSHProxyCollections removes the orphaned virtualhostkeys and
+// sshrequests documents from every model in the pool and removes any
+// leftover "sshConnRequests" cleanup documents so they cannot trigger a
+// handler that no longer exists.
+func dropSSHProxyCollections(pool *StatePool) error {
+	return runForAllModelStates(pool, func(st *State) error {
+		for _, name := range sshProxyCollectionNames {
+			coll, closer, err := st.db().GetRawCollection(name)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			// Remove only this model's documents. The collection is
+			// shared across all models in the single-juju-database
+			// layout, so dropping the whole collection would destroy
+			// other models' data.
+			if _, err := coll.RemoveAll(bson.D{{Name: "model-uuid", Value: st.ModelUUID()}}); err != nil {
+				closer()
+				return errors.Annotatef(err, "removing %q documents for model %q", name, st.ModelUUID())
+			}
+			closer()
+		}
+		if err := st.removeSSHProxyCleanupDocs(); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+}
+
+// closeSSHProxyControllerPort closes the ssh server port (17022) on every
+// controller unit. The removed enableHA path opened this port on each
+// controller unit's opened port ranges; with the feature gone no code
+// closes it, so the firewaller keeps the security-group entry open. Closing
+// the range here lets the firewaller revert it.
+//
+// Only the controller (system) model has controller units, so this only
+// needs to run against the system state.
+func closeSSHProxyControllerPort(pool *StatePool) error {
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	unitsColl, closer, err := st.db().GetRawCollection(unitsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer closer()
+	var controllerUnits []unitDoc
+	if err := unitsColl.Find(bson.M{"application": controllerAppName}).Select(bson.M{"name": 1}).All(&controllerUnits); err != nil {
+		return errors.Annotatef(err, "cannot get controller units")
+	}
+	sshPortRange := network.PortRange{
+		FromPort: sshProxyServerPort,
+		ToPort:   sshProxyServerPort,
+		Protocol: "tcp",
+	}
+	for _, unitDoc := range controllerUnits {
+		controllerUnit, err := st.Unit(unitDoc.Name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		pcp, err := controllerUnit.OpenedPortRanges()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// Close is a no-op if the range is not open, so this is safe to
+		// run repeatedly and on controllers that never had the feature.
+		pcp.Close("", sshPortRange)
+		if err := st.ApplyOperation(pcp.Changes()); err != nil {
+			return errors.Annotatef(err, "closing ssh proxy port on unit %q", unitDoc.Name)
+		}
+	}
+	return nil
+}
+
+// removeSSHProxyControllerConfig removes the orphaned controller-proxied
+// SSH configuration keys from the controller settings document. It only
+// needs to run once against the system (controller) state, as controller
+// config is global rather than per-model.
+func removeSSHProxyControllerConfig(pool *StatePool) error {
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	settings, err := readSettings(st.db(), controllersC, ControllerSettingsGlobalKey)
+	if err != nil {
+		return errors.Annotatef(err, "controller %q", st.ControllerUUID())
+	}
+	for _, key := range sshProxyControllerConfigKeys {
+		settings.Delete(key)
+	}
+	_, ops := settings.settingsUpdateOps()
+	if len(ops) == 0 {
+		return nil
+	}
+	return errors.Trace(settings.write(ops))
+}
+
+// removeSSHProxyCleanupDocs removes any leftover cleanup documents for the
+// removed "sshConnRequests" cleanup kind. Without this, the cleanup worker
+// could pick up such a document and fail trying to run a handler that no
+// longer exists against a collection that has been dropped.
+func (st *State) removeSSHProxyCleanupDocs() error {
+	coll, closer, err := st.db().GetCollection(cleanupsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer closer()
+	var docs []cleanupDoc
+	if err := coll.Find(bson.D{{Name: "kind", Value: sshProxyCleanupKind}}).All(&docs); err != nil {
+		return errors.Annotate(err, "cannot read ssh proxy cleanup documents")
+	}
+	if len(docs) == 0 {
+		return nil
+	}
+	ops := make([]txn.Op, 0, len(docs))
+	for _, doc := range docs {
+		ops = append(ops, txn.Op{
+			C:      cleanupsC,
+			Id:     doc.DocID,
+			Remove: true,
+		})
+	}
+	return errors.Trace(st.runRawTransaction(ops))
 }

@@ -33,7 +33,6 @@ require (
 	github.com/distribution/reference v0.6.0
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/dustin/go-humanize v1.0.1
-	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-goose/goose/v5 v5.1.8
 	github.com/go-logr/logr v1.4.3
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.2
@@ -119,7 +118,6 @@ require (
 	golang.org/x/time v0.15.0
 	golang.org/x/tools v0.48.0
 	google.golang.org/api v0.289.0
-	google.golang.org/grpc v1.82.1
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/errgo.v1 v1.0.1
 	gopkg.in/httprequest.v1 v1.2.1
@@ -154,7 +152,6 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20230320061759-8cc1b52080c5 // indirect
 	github.com/Rican7/retry v0.3.1 // indirect
 	github.com/adrg/xdg v0.5.3 // indirect
-	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.8 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.30 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.21 // indirect
@@ -312,6 +309,7 @@ require (
 	google.golang.org/genproto v0.0.0-20260319201613-d00831a3d3e7 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260715232425-e75dac1f907d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260715232425-e75dac1f907d // indirect
+	google.golang.org/grpc v1.82.1 // indirect
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/gobwas/glob.v0 v0.2.3 // indirect

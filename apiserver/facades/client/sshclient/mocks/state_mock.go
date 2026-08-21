@@ -102,36 +102,6 @@ func (mr *MockBackendMockRecorder) GetSSHHostKeys(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSSHHostKeys", reflect.TypeOf((*MockBackend)(nil).GetSSHHostKeys), arg0)
 }
 
-// JumpServerVirtualPublicKey mocks base method.
-func (m *MockBackend) JumpServerVirtualPublicKey() ([]byte, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "JumpServerVirtualPublicKey")
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// JumpServerVirtualPublicKey indicates an expected call of JumpServerVirtualPublicKey.
-func (mr *MockBackendMockRecorder) JumpServerVirtualPublicKey() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JumpServerVirtualPublicKey", reflect.TypeOf((*MockBackend)(nil).JumpServerVirtualPublicKey))
-}
-
-// MachineVirtualPublicKey mocks base method.
-func (m *MockBackend) MachineVirtualPublicKey(arg0 string) ([]byte, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MachineVirtualPublicKey", arg0)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// MachineVirtualPublicKey indicates an expected call of MachineVirtualPublicKey.
-func (mr *MockBackendMockRecorder) MachineVirtualPublicKey(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineVirtualPublicKey", reflect.TypeOf((*MockBackend)(nil).MachineVirtualPublicKey), arg0)
-}
-
 // Model mocks base method.
 func (m *MockBackend) Model() (sshclient.Model, error) {
 	m.ctrl.T.Helper()
@@ -174,21 +144,6 @@ func (m *MockBackend) ModelTag() names.ModelTag {
 func (mr *MockBackendMockRecorder) ModelTag() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelTag", reflect.TypeOf((*MockBackend)(nil).ModelTag))
-}
-
-// UnitVirtualPublicKey mocks base method.
-func (m *MockBackend) UnitVirtualPublicKey(arg0 string) ([]byte, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnitVirtualPublicKey", arg0)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UnitVirtualPublicKey indicates an expected call of UnitVirtualPublicKey.
-func (mr *MockBackendMockRecorder) UnitVirtualPublicKey(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitVirtualPublicKey", reflect.TypeOf((*MockBackend)(nil).UnitVirtualPublicKey), arg0)
 }
 
 // MockModel is a mock of Model interface.

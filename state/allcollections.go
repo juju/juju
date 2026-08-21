@@ -651,25 +651,6 @@ func allCollections() CollectionSchema {
 			}},
 		},
 
-		// virtualHostKeysC holds host keys that are used
-		// for proxying SSH connections through the Juju
-		// controller. They are virtual because they do not
-		// represent the actual host key on a machine.
-		virtualHostKeysC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "_id"},
-			}},
-		},
-
-		// sshConnRequestsC holds the ssh connection requests.
-		// The documents are added/removed by the controller, and units are watching
-		// the collection to start a ssh connection to controllers.
-		sshConnRequestsC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "_id"},
-			}},
-		},
-
 		// ----------------------
 
 		// Raw-access collections
@@ -744,7 +725,6 @@ const (
 	refcountsC                 = "refcounts"
 	resourcesC                 = "resources"
 	sshHostKeysC               = "sshhostkeys"
-	sshConnRequestsC           = "sshrequests"
 	spacesC                    = "spaces"
 	statusesC                  = "statuses"
 	statusesHistoryC           = "statuseshistory"
@@ -763,7 +743,6 @@ const (
 	userLastLoginC             = "userLastLogin"
 	usermodelnameC             = "usermodelname"
 	usersC                     = "users"
-	virtualHostKeysC           = "virtualhostkeys"
 	volumeAttachmentsC         = "volumeattachments"
 	volumeAttachmentPlanC      = "volumeattachmentplan"
 	volumesC                   = "volumes"

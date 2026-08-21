@@ -36,7 +36,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/retrystrategy"
 	"github.com/juju/juju/apiserver/facades/agent/secretsdrain"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
-	"github.com/juju/juju/apiserver/facades/agent/sshsession"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
 	"github.com/juju/juju/apiserver/facades/agent/unitassigner"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
@@ -102,8 +101,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/secretbackendmanager"
 	"github.com/juju/juju/apiserver/facades/controller/secretsrevoker"
 	"github.com/juju/juju/apiserver/facades/controller/singular"
-	"github.com/juju/juju/apiserver/facades/controller/sshserver"
-	"github.com/juju/juju/apiserver/facades/controller/sshtunneler"
 	"github.com/juju/juju/apiserver/facades/controller/statushistory"
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
 	"github.com/juju/juju/apiserver/facades/controller/usersecrets"
@@ -277,9 +274,6 @@ func AllFacades() *facade.Registry {
 	usersecrets.Register(registry)
 	usersecretsdrain.Register(registry)
 	sshclient.Register(registry)
-	sshserver.Register(registry)
-	sshsession.Register(registry)
-	sshtunneler.Register(registry)
 	spaces.Register(registry)
 	statushistory.Register(registry)
 	storage.Register(registry)

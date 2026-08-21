@@ -1223,6 +1223,13 @@ func (s *remoteRelationsSuite) TestRemoteRelationSuspended(c *gc.C) {
 	s.waitForWorkerStubCalls(c, expected)
 	unitsWatcher, ok := s.relationsFacade.remoteRelationWatchers["db2:db django:db"]
 	c.Assert(ok, jc.IsTrue)
+	// The watcher is stopped asynchronously by the worker after the
+	// Relations call returns, so poll until it is killed.
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if unitsWatcher.killed() {
+			break
+		}
+	}
 	c.Assert(unitsWatcher.killed(), jc.IsTrue)
 	s.stub.ResetCalls()
 

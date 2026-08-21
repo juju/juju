@@ -64,7 +64,6 @@ type controllerCharmArgs struct {
 	channel      charm.Channel
 	isCAAS       bool
 	unitPassword string
-	sshProxyPort int
 	apiPort      int
 	needHttp     bool
 }
@@ -194,7 +193,7 @@ func (c *controllerCharmDeployer) openPorts(st *state.State) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ports := []int{c.sshProxyPort, c.apiPort}
+	ports := []int{c.apiPort}
 	if c.needHttp {
 		ports = append(ports, 80)
 	}

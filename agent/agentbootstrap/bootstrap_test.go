@@ -5,7 +5,6 @@ package agentbootstrap_test
 
 import (
 	stdcontext "context"
-	"crypto/ed25519"
 
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
@@ -32,7 +31,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -173,7 +171,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 					"foo":  "bar",
 				},
 			},
-			SSHServerHostKey: testing.SSHServerHostKey,
 		},
 		BootstrapMachineAddresses: initialAddrs,
 		BootstrapMachineJobs:      []model.MachineJob{model.JobManageModel},
@@ -312,14 +309,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		SystemIdentity: "def456",
 	})
 
-	// Check that the machine has a virtual host key.
-	key, err := st.MachineVirtualHostKey(m.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(key.HostKey(), gc.Not(gc.HasLen), 0)
-	privateKey, err := ssh.UnmarshalPrivateKey(key.HostKey())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(privateKey, gc.FitsTypeOf, &ed25519.PrivateKey{})
-
 	// Check the initial storage pool.
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
 	storageCfg, err := pm.Get("spool")
@@ -447,7 +436,6 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			ControllerConfig:      testing.FakeControllerConfig(),
 			ControllerModelConfig: modelCfg,
 			InitialModelConfig:    InitialModelConfigAttrs,
-			SSHServerHostKey:      testing.SSHServerHostKey,
 		},
 		BootstrapMachineJobs: []model.MachineJob{model.JobManageModel},
 		SharedSecret:         "abc123",

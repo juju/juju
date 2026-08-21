@@ -36,7 +36,6 @@ import (
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	sshkeys "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 )
@@ -156,8 +155,7 @@ func InitializeState(
 		modelType = state.ModelTypeCAAS
 	}
 	ctrl, err := state.Initialize(state.InitializeParams{
-		SSHServerHostKey: args.SSHServerHostKey,
-		Clock:            clock.WallClock,
+		Clock: clock.WallClock,
 		ControllerModelArgs: state.ModelArgs{
 			Type:                    modelType,
 			Owner:                   adminUser,
@@ -461,10 +459,6 @@ func initBootstrapMachine(st *state.State, args InitializeStateParams) (bootstra
 		hardware = *args.BootstrapMachineHardwareCharacteristics
 	}
 
-	virtualHostKey, err := sshkeys.NewMarshalledED25519()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	base, err := coreos.HostBase()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -477,7 +471,6 @@ func initBootstrapMachine(st *state.State, args InitializeStateParams) (bootstra
 		HardwareCharacteristics: hardware,
 		Jobs:                    jobs,
 		DisplayName:             args.BootstrapMachineDisplayName,
-		VirtualHostKey:          virtualHostKey,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create bootstrap machine in state")
