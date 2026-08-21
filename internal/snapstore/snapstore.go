@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package bootstrap
+package snapstore
 
 import (
 	"context"
@@ -279,16 +279,14 @@ func isRetryableNetworkError(err error) bool {
 	return !errors.Is(netErr, net.ErrClosed)
 }
 
-// resolveControllerSnap resolves the controller snap's version and revision for
+// ResolveControllerSnap resolves the controller snap's version and revision for
 // a store-based source mode. When revision is zero (no pinned revision) the
 // channel is resolved for the bootstrap architecture; otherwise the pinned
 // revision is targeted. The client reads only metadata from the store; the
 // machine downloads the resolved revision itself during provisioning, so the
 // exact resolved bytes are pinned and cannot drift between resolution and
 // install.
-//
-// Declared as a var to allow test injection, mirroring BuildControllerSnap.
-var resolveControllerSnap = func(
+func ResolveControllerSnap(
 	ctx context.Context,
 	storeURL, snapName, arch, channel string,
 	revision int,

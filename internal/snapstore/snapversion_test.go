@@ -1,14 +1,14 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package bootstrap_test
+package snapstore_test
 
 import (
 	"testing"
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/internal/snapstore"
 )
 
 type snapVersionParserSuite struct{}
@@ -50,7 +50,7 @@ func (*snapVersionParserSuite) TestParseSnapVersion(c *tc.C) {
 
 	for _, tt := range cases {
 		c.Run(tt.raw, func(t *testing.T) {
-			got, err := bootstrap.ParseSnapVersion(tt.raw)
+			got, err := snapstore.ParseSnapVersion(tt.raw)
 			if tt.wantErr {
 				tc.Assert(t, err, tc.NotNil)
 				tc.Assert(t, got.IsZero(), tc.IsTrue)
