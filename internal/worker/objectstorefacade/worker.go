@@ -63,6 +63,17 @@ func NewWorker(config Config) (worker.Worker, error) {
 // draining, it unlocks the guard.
 // The worker will manage the lifecycle of the watcher and will stop
 // watching when the worker is killed or when the context is cancelled.
+//
+// Read methods (Get, GetBySHA256, GetBySHA256Prefix) are passed through
+// directly to the underlying object store without fortress guarding.
+// Reads are safe during draining because the old file-backed store is
+// still running and serving data. The only risk is a transient IO error
+// at the FlushWorkers boundary when the old store children are killed,
+// which callers already handle.
+//
+// Write methods (Put, PutAndCheckHash, Remove, RemoveAll) are guarded by
+// the fortress to prevent data loss: writes to the old store during
+// draining would be lost after the backend switch to S3.
 type Worker struct {
 	tomb   tomb.Tomb
 	config Config
@@ -99,96 +110,33 @@ func (w *Worker) loop() error {
 	return tomb.ErrDying
 }
 
-// objectStoreFacade is a vaneer over the object store which ensures that every
-// method call is guarded by a visit to the fortress. This is necessary because
-// the object store can be draining, and we want to be able to wait for the
-// draining to complete before we start using the object store.
+// objectStoreFacade is a veneer over the object store which guards the write
+// methods with a visit to the fortress. This is necessary because the object
+// store can be draining, and we want to prevent writes to the old backend
+// from being lost once draining completes and the backend switches to S3.
+//
+// Read methods are intentionally not guarded by the fortress; see the
+// package documentation for the rationale.
 type objectStoreFacade struct {
 	ObjectStore     coreobjectstore.ObjectStore
 	FortressVisitor fortress.Guest
 }
 
 // Get returns an io.ReadCloser for data at path, namespaced to the model.
-// The method will block until the fortress is drained or the context
-// is cancelled. If the fortress is draining, the method will return
-// [objectstore.ErrTimeoutWaitingForDraining] error.
 func (o objectStoreFacade) Get(ctx context.Context, path string) (io.ReadCloser, coreobjectstore.Digest, error) {
-	visitCtx, cancel := context.WithTimeout(ctx, visitWaitTimeout)
-	defer cancel()
-
-	var (
-		reader io.ReadCloser
-		digest coreobjectstore.Digest
-	)
-	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
-		var err error
-		reader, digest, err = o.ObjectStore.Get(ctx, path)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return nil
-	}); errors.Is(visitErr, fortress.ErrAborted) {
-		return nil, coreobjectstore.Digest{}, coreobjectstore.ErrTimeoutWaitingForDraining
-	} else if visitErr != nil {
-		return nil, coreobjectstore.Digest{}, errors.Trace(visitErr)
-	}
-	return reader, digest, nil
+	return o.ObjectStore.Get(ctx, path)
 }
 
 // GetBySHA256 returns an io.ReadCloser for the object with the given SHA256
 // hash, namespaced to the model.
-// The method will block until the fortress is drained or the context
-// is cancelled. If the fortress is draining, the method will return
-// [objectstore.ErrTimeoutWaitingForDraining] error.
 func (o objectStoreFacade) GetBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, coreobjectstore.Digest, error) {
-	visitCtx, cancel := context.WithTimeout(ctx, visitWaitTimeout)
-	defer cancel()
-
-	var (
-		reader io.ReadCloser
-		digest coreobjectstore.Digest
-	)
-	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
-		var err error
-		reader, digest, err = o.ObjectStore.GetBySHA256(ctx, sha256)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return nil
-	}); errors.Is(visitErr, fortress.ErrAborted) {
-		return nil, coreobjectstore.Digest{}, coreobjectstore.ErrTimeoutWaitingForDraining
-	} else if visitErr != nil {
-		return nil, coreobjectstore.Digest{}, errors.Trace(visitErr)
-	}
-	return reader, digest, nil
+	return o.ObjectStore.GetBySHA256(ctx, sha256)
 }
 
 // GetBySHA256Prefix returns an io.ReadCloser for any object with the a SHA256
 // hash starting with a given prefix, namespaced to the model.
-// The method will block until the fortress is drained or the context
-// is cancelled. If the fortress is draining, the method will return
-// [objectstore.ErrTimeoutWaitingForDraining] error.
 func (o objectStoreFacade) GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, coreobjectstore.Digest, error) {
-	visitCtx, cancel := context.WithTimeout(ctx, visitWaitTimeout)
-	defer cancel()
-
-	var (
-		reader io.ReadCloser
-		digest coreobjectstore.Digest
-	)
-	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
-		var err error
-		reader, digest, err = o.ObjectStore.GetBySHA256Prefix(ctx, sha256Prefix)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return nil
-	}); errors.Is(visitErr, fortress.ErrAborted) {
-		return nil, coreobjectstore.Digest{}, coreobjectstore.ErrTimeoutWaitingForDraining
-	} else if visitErr != nil {
-		return nil, coreobjectstore.Digest{}, errors.Trace(visitErr)
-	}
-	return reader, digest, nil
+	return o.ObjectStore.GetBySHA256Prefix(ctx, sha256Prefix)
 }
 
 // Put stores data from reader at path, namespaced to the model.
