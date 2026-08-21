@@ -736,6 +736,7 @@ func (s *CleanupSuite) assertCleanupDestroyMachineWithHostedUnitsAndContainers(c
 
 	// The first pass marks the unit Dying. Its cleanup runs on the next pass.
 	s.assertCleanupRuns(c)
+	state.AssertCleanupsWithKind(c, s.State, state.CleanupEvacuateMachine)
 	if force {
 		state.AssertCleanupsWithKind(c, s.State, state.CleanupForceDestroyedUnit)
 		return
