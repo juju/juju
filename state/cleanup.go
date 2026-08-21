@@ -1302,7 +1302,7 @@ func (st *State) cleanupForceDestroyedMachine(machineId string, cleanupArgs []bs
 	var maxWait time.Duration
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
 	if n := len(cleanupArgs); n > 0 {
-		if n > 1 {
+		if n != 1 {
 			return errors.Errorf("expected 0-1 arguments, got %d", n)
 		}
 		if n >= 1 {
