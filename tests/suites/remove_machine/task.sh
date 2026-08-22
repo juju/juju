@@ -8,6 +8,9 @@ test_remove_machine() {
 
 	echo "==> Checking for dependencies"
 	check_dependencies juju
+	if cloud_instance_removal_supported; then
+		check_dependencies lxc
+	fi
 
 	file="${TEST_DIR}/test-remove-machine.log"
 	bootstrap "test-remove-machine" "${file}"
