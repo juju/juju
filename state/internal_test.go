@@ -202,6 +202,39 @@ func (s *cleanupInternalSuite) TestCleanupContainersWaitsForDyingContainerWithou
 	c.Check(needsCleanup, jc.IsFalse)
 }
 
+func (s *cleanupInternalSuite) TestCleanupContainersContinuesAfterMissingContainerWithoutForce(c *gc.C) {
+	st := s.newState(c)
+	parent, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	missingChild, err := st.AddMachineInsideMachine(MachineTemplate{
+		Base: UbuntuBase("12.10"),
+		Jobs: []MachineJob{JobHostUnits},
+	}, parent.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+	dyingChild, err := st.AddMachineInsideMachine(MachineTemplate{
+		Base: UbuntuBase("12.10"),
+		Jobs: []MachineJob{JobHostUnits},
+	}, parent.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+	machines, closer, err := st.db().GetCollection(machinesC)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	c.Assert(machines.Writeable().RemoveId(missingChild.Id()), jc.ErrorIsNil)
+	c.Assert(dyingChild.Destroy(), jc.ErrorIsNil)
+	c.Assert(parent.DestroyWithParams(false, true, 0), jc.ErrorIsNil)
+
+	err = st.cleanupEvacuateMachineInternal(parent.Id(), false, 0)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+		"waiting for container %s to be removed from %s",
+		dyingChild.Id(), parent.Id(),
+	))
+	c.Assert(missingChild.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(dyingChild.Refresh(), jc.ErrorIsNil)
+	c.Check(dyingChild.Life(), gc.Equals, Dying)
+	c.Assert(parent.Refresh(), jc.ErrorIsNil)
+	c.Check(parent.Life(), gc.Equals, Alive)
+}
+
 type internalStatePolicy struct{}
 
 func (internalStatePolicy) Prechecker() (environs.InstancePrechecker, error) {
