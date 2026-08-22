@@ -46,7 +46,7 @@ func (s *RemoveMachineSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.mockApi = mocks.NewMockRemoveMachineAPI(ctrl)
 	s.mockApi.EXPECT().Close().Return(nil).MaxTimes(1)
-	s.mockApi.EXPECT().BestAPIVersion().Return(s.facadeVersion).AnyTimes()
+	s.mockApi.EXPECT().BestAPIVersion().Return(s.facadeVersion).MaxTimes(1)
 
 	s.mockModelConfigApi = mocks.NewMockModelConfigAPI(ctrl)
 	s.mockModelConfigApi.EXPECT().Close().Return(nil).MaxTimes(1)
@@ -70,6 +70,15 @@ func defaultDestroyMachineResult(_, _, _ bool, _ *time.Duration, machines ...str
 		results[i].Info = &params.DestroyMachineInfo{MachineId: machines[i]}
 	}
 	return results, nil
+}
+
+func destroyMachineResultsWithHostedUnit(machine string) []params.DestroyMachineResult {
+	return []params.DestroyMachineResult{{
+		Info: &params.DestroyMachineInfo{
+			MachineId:      machine,
+			DestroyedUnits: []params.Entity{{Tag: "unit-foo-0"}},
+		},
+	}}
 }
 
 func (s *RemoveMachineSuite) TestInit(c *gc.C) {
@@ -143,12 +152,31 @@ func (s *RemoveMachineSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *RemoveMachineSuite) TestRemove(c *gc.C) {
+func (s *RemoveMachineSuite) TestRemoveNoPromptFacadeV11DestroysHostedUnitsAndContainers(c *gc.C) {
+	s.facadeVersion = 11
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1", "2/lxd/1")
+	s.mockApi.EXPECT().DestroyMachinesWithHostedUnitsAndContainers(false, false, false, gomock.Any(), "1", "2/lxd/1")
 
 	_, err := s.run(c, "--no-prompt", "1", "2/lxd/1")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *RemoveMachineSuite) TestRemoveNoPromptFacadeV10DoesNotDestroyHostedUnitsAndContainers(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1")
+
+	_, err := s.run(c, "--no-prompt", "1")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *RemoveMachineSuite) TestRemoveNoPromptFacadeV10ForceUsesExistingMethod(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.mockApi.EXPECT().DestroyMachinesWithParams(true, false, false, gomock.Any(), "1")
+
+	_, err := s.run(c, "--no-prompt", "--force", "1")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -280,6 +308,17 @@ will remove machine 2
 `[1:])
 }
 
+func (s *RemoveMachineSuite) TestRemoveDryRunFacadeV10WithHostedUnitRequiresForce(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1").
+		Return(destroyMachineResultsWithHostedUnit("1"), nil)
+
+	ctx, err := s.run(c, "--dry-run", "1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "\nThis will require `--force`\n")
+}
+
 func (s *RemoveMachineSuite) TestRemoveDryRunOldFacade(c *gc.C) {
 	s.facadeVersion = 9
 	defer s.setup(c).Finish()
@@ -321,7 +360,8 @@ func (s *RemoveMachineSuite) TestRemovePrompt(c *gc.C) {
 
 	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
-	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1", "2")
+	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1", "2").
+		DoAndReturn(defaultDestroyMachineResult)
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1", "2")
 
 	stdin.WriteString("y")
@@ -330,6 +370,103 @@ func (s *RemoveMachineSuite) TestRemovePrompt(c *gc.C) {
 	select {
 	case err := <-errc:
 		c.Check(err, jc.ErrorIsNil)
+	case <-time.After(testing.LongWait):
+		c.Fatal("command took too long")
+	}
+}
+
+func (s *RemoveMachineSuite) TestRemovePromptFacadeV11(c *gc.C) {
+	s.facadeVersion = 11
+	defer s.setup(c).Finish()
+
+	var stdin bytes.Buffer
+	ctx := cmdtesting.Context(c)
+	ctx.Stdin = &stdin
+
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
+	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1", "2").
+		Return(destroyMachineResultsWithHostedUnit("1"), nil)
+	s.mockApi.EXPECT().DestroyMachinesWithHostedUnitsAndContainers(false, false, false, gomock.Any(), "1", "2")
+
+	stdin.WriteString("y")
+	_, errc := s.runWithContext(ctx, "1", "2")
+
+	select {
+	case err := <-errc:
+		c.Check(err, jc.ErrorIsNil)
+	case <-time.After(testing.LongWait):
+		c.Fatal("command took too long")
+	}
+}
+
+func (s *RemoveMachineSuite) TestRemoveFacadeV11DoesNotPromptWithoutHostedUnitsOrContainers(c *gc.C) {
+	s.facadeVersion = 11
+	defer s.setup(c).Finish()
+
+	ctx := cmdtesting.Context(c)
+
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
+	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1").
+		DoAndReturn(defaultDestroyMachineResult)
+	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1").
+		DoAndReturn(defaultDestroyMachineResult)
+
+	_, errc := s.runWithContext(ctx, "1")
+
+	select {
+	case err := <-errc:
+		c.Check(err, jc.ErrorIsNil)
+	case <-time.After(testing.LongWait):
+		c.Fatal("command took too long")
+	}
+}
+
+func (s *RemoveMachineSuite) TestRemoveFacadeV11ForcePromptsWithoutHostedUnitsOrContainers(c *gc.C) {
+	s.facadeVersion = 11
+	defer s.setup(c).Finish()
+
+	var stdin bytes.Buffer
+	ctx := cmdtesting.Context(c)
+	ctx.Stdin = &stdin
+
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
+	s.mockApi.EXPECT().DestroyMachinesWithParams(true, false, true, gomock.Any(), "1").
+		DoAndReturn(defaultDestroyMachineResult)
+	s.mockApi.EXPECT().DestroyMachinesWithHostedUnitsAndContainers(true, false, false, gomock.Any(), "1")
+
+	stdin.WriteString("y")
+	_, errc := s.runWithContext(ctx, "--force", "1")
+
+	select {
+	case err := <-errc:
+		c.Check(err, jc.ErrorIsNil)
+	case <-time.After(testing.LongWait):
+		c.Fatal("command took too long")
+	}
+}
+
+func (s *RemoveMachineSuite) TestRemoveFacadeV11ForceDoesNotAuthorizeHostedUnitAndContainerRemoval(c *gc.C) {
+	s.facadeVersion = 11
+	defer s.setup(c).Finish()
+
+	var stdin bytes.Buffer
+	ctx := cmdtesting.Context(c)
+	ctx.Stdin = &stdin
+
+	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
+	s.mockApi.EXPECT().DestroyMachinesWithParams(true, false, true, gomock.Any(), "1").
+		Return(destroyMachineResultsWithHostedUnit("1"), nil)
+
+	stdin.WriteString("n")
+	_, errc := s.runWithContext(ctx, "--force", "1")
+
+	select {
+	case err := <-errc:
+		c.Check(err, gc.ErrorMatches, "machine removal: aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatal("command took too long")
 	}
@@ -366,7 +503,8 @@ func (s *RemoveMachineSuite) TestRemovePromptAborted(c *gc.C) {
 
 	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
-	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1", "2")
+	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1", "2").
+		DoAndReturn(defaultDestroyMachineResult)
 
 	stdin.WriteString("n")
 	_, errc := s.runWithContext(ctx, "1", "2")
