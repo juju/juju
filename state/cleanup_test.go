@@ -903,6 +903,35 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineEvacuatesContainerUnits(c
 	assertLife(c, prr.pu1, state.Dying)
 }
 
+func (s *CleanupSuite) TestCleanupForceDestroyedMachineRemovesQuickUnitSecrets(c *gc.C) {
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.AssignToMachine(machine), jc.ErrorIsNil)
+
+	store := state.NewSecrets(s.State)
+	uri := secrets.NewURI()
+	_, err = store.CreateSecret(uri, state.CreateSecretParams{
+		Version: 1,
+		Owner:   unit.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(machine.ForceDestroy(time.Minute), jc.ErrorIsNil)
+	s.assertCleanupRuns(c)
+	c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
+	_, err = store.GetSecret(uri)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *CleanupSuite) TestForceDestroyMachineSchedulesRemove(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
