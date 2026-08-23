@@ -214,6 +214,55 @@ func assertPendingForceCleanupCount(c *gc.C, st *State, unitName string, expecte
 	c.Assert(pendingForceCleanupsForUnit(c, st, unitName), gc.HasLen, expected)
 }
 
+func assertValidDyingForceCleanupCount(
+	c *gc.C, st *State, unitName string, maxWait time.Duration, expected int,
+) {
+	docs := pendingForceCleanupsForUnit(c, st, unitName)
+	actual := 0
+	for _, doc := range docs {
+		if doc.Kind != cleanupDyingUnit || len(doc.Args) != 3 {
+			continue
+		}
+		var destroyStorage, force bool
+		var cleanupMaxWait time.Duration
+		if !unmarshalStoredCleanupArg(doc.Args[0], &destroyStorage) ||
+			!unmarshalStoredCleanupArg(doc.Args[1], &force) ||
+			!unmarshalStoredCleanupArg(doc.Args[2], &cleanupMaxWait) {
+			continue
+		}
+		if force && cleanupMaxWait == maxWait {
+			actual++
+		}
+	}
+	c.Check(actual, gc.Equals, expected)
+}
+
+func addUnitToMachine(c *gc.C, application *Application, machine *Machine) *Unit {
+	unit, err := application.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.AssignToMachine(machine), jc.ErrorIsNil)
+	return unit
+}
+
+func setUnitLife(c *gc.C, st *State, unit *Unit, life Life) {
+	c.Assert(st.db().RunTransaction([]txn.Op{{
+		C:      unitsC,
+		Id:     unit.doc.DocID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"life", life}}}},
+	}}), jc.ErrorIsNil)
+	c.Assert(unit.Refresh(), jc.ErrorIsNil)
+}
+
+func removeUnitAgentStatus(c *gc.C, st *State, unit *Unit) {
+	statuses, closer, err := st.db().GetCollection(statusesC)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	c.Assert(statuses.Writeable().RemoveId(st.docID(unit.globalAgentKey())), jc.ErrorIsNil)
+	_, err = getStatus(st.db(), unit.globalAgentKey(), "agent")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *cleanupInternalSuite) TestCleanupForceDestroyedMachineHandlesUnitLifecycle(c *gc.C) {
 	st := s.newState(c)
 	machine, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
@@ -333,6 +382,195 @@ func (s *cleanupInternalSuite) TestCleanupEvacuateMachineEscalatesDyingUnitOnce(
 	err = st.cleanupEvacuateMachineInternal(machine.Id(), true, maxWait/2)
 	c.Assert(err, gc.ErrorMatches, "waiting for units to be removed from "+machine.Id())
 	AssertCleanupCountWithKind(c, st, cleanupDyingUnit, 2)
+}
+
+func (s *cleanupInternalSuite) TestCleanupEvacuateMachineMissingAgentStatusConverges(c *gc.C) {
+	for _, startingLife := range []Life{Alive, Dying} {
+		c.Logf("starting life %s", startingLife)
+		st := s.newState(c)
+		machine, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+		c.Assert(err, jc.ErrorIsNil)
+		application := AddTestingApplication(c, st, "dummy", AddTestingCharm(c, st, "dummy"))
+		unit := addUnitToMachine(c, application, machine)
+		c.Assert(unit.SetAgentStatus(status.StatusInfo{Status: status.Idle}), jc.ErrorIsNil)
+		removeUnitAgentStatus(c, st, unit)
+		if startingLife == Dying {
+			setUnitLife(c, st, unit, Dying)
+		}
+
+		const maxWait = time.Duration(0)
+		for i := 0; i < 3; i++ {
+			err := st.cleanupEvacuateMachineInternal(machine.Id(), true, maxWait)
+			c.Assert(err, gc.ErrorMatches, "waiting for units to be removed from "+machine.Id())
+			c.Assert(unit.Refresh(), jc.ErrorIsNil)
+			c.Check(unit.Life(), gc.Equals, Dying)
+			assertPendingForceCleanupCount(c, st, unit.Name(), 1)
+			assertValidDyingForceCleanupCount(c, st, unit.Name(), maxWait, 1)
+		}
+
+		for i := 0; i < 4; i++ {
+			c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+		}
+		c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
+		assertPendingForceCleanupCount(c, st, unit.Name(), 0)
+	}
+}
+
+func (s *cleanupInternalSuite) TestCleanupEvacuateMachineIgnoresMalformedPendingDyingCleanup(c *gc.C) {
+	st := s.newState(c)
+	machine, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	application := AddTestingApplication(c, st, "dummy", AddTestingCharm(c, st, "dummy"))
+	unit := addUnitToMachine(c, application, machine)
+	c.Assert(unit.SetAgentStatus(status.StatusInfo{Status: status.Idle}), jc.ErrorIsNil)
+	setUnitLife(c, st, unit, Dying)
+
+	const maxWait = time.Minute
+	c.Assert(st.db().RunTransaction([]txn.Op{
+		newCleanupOp(cleanupDyingUnit, unit.Name(), "not-a-bool", true, maxWait),
+	}), jc.ErrorIsNil)
+
+	for i := 0; i < 3; i++ {
+		err := st.cleanupEvacuateMachineInternal(machine.Id(), true, maxWait)
+		c.Assert(err, gc.ErrorMatches, "waiting for units to be removed from "+machine.Id())
+		assertPendingForceCleanupCount(c, st, unit.Name(), 2)
+		assertValidDyingForceCleanupCount(c, st, unit.Name(), maxWait, 1)
+	}
+}
+
+func (s *cleanupInternalSuite) TestCleanupEvacuateMachineContinuesAfterUnitOperationError(c *gc.C) {
+	st := s.newState(c)
+	machine, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	application := AddTestingApplication(c, st, "dummy", AddTestingCharm(c, st, "dummy"))
+	var units []*Unit
+	for i := 0; i < 3; i++ {
+		unit := addUnitToMachine(c, application, machine)
+		c.Assert(unit.SetAgentStatus(status.StatusInfo{Status: status.Idle}), jc.ErrorIsNil)
+		units = append(units, unit)
+	}
+
+	boom := errors.New("min units lookup failed")
+	faultState := *st
+	database := &failCollectionDatabase{
+		Database:   st.database,
+		collection: minUnitsC,
+		failAt:     2,
+		err:        boom,
+	}
+	faultState.database = database
+	const maxWait = time.Minute
+	err = faultState.cleanupEvacuateMachineInternal(machine.Id(), true, maxWait)
+	c.Assert(err, gc.ErrorMatches, "waiting for units to be removed from "+machine.Id())
+	c.Check(database.calls, gc.Equals, 3)
+
+	alive, dying := 0, 0
+	for _, unit := range units {
+		c.Assert(unit.Refresh(), jc.ErrorIsNil)
+		switch unit.Life() {
+		case Alive:
+			alive++
+			assertPendingForceCleanupCount(c, st, unit.Name(), 0)
+		case Dying:
+			dying++
+			assertPendingForceCleanupCount(c, st, unit.Name(), 1)
+		default:
+			c.Fatalf("unit %q has unexpected life %s", unit.Name(), unit.Life())
+		}
+	}
+	c.Check(alive, gc.Equals, 1)
+	c.Check(dying, gc.Equals, 2)
+
+	for i := 0; i < 2; i++ {
+		err = st.cleanupEvacuateMachineInternal(machine.Id(), true, maxWait)
+		c.Assert(err, gc.ErrorMatches, "waiting for units to be removed from "+machine.Id())
+		for _, unit := range units {
+			c.Assert(unit.Refresh(), jc.ErrorIsNil)
+			c.Check(unit.Life(), gc.Equals, Dying)
+			assertPendingForceCleanupCount(c, st, unit.Name(), 1)
+		}
+	}
+}
+
+func (s *cleanupInternalSuite) TestCleanupForceDestroyedMachineLegacyArgsEvacuatesUnit(c *gc.C) {
+	st := s.newState(c)
+	machine, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	application := AddTestingApplication(c, st, "dummy", AddTestingCharm(c, st, "dummy"))
+	unit := addUnitToMachine(c, application, machine)
+	c.Assert(unit.SetAgentStatus(status.StatusInfo{Status: status.Idle}), jc.ErrorIsNil)
+	c.Assert(st.db().RunTransaction([]txn.Op{
+		newCleanupOp(cleanupForceDestroyedMachine, machine.Id()),
+	}), jc.ErrorIsNil)
+
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	c.Assert(unit.Refresh(), jc.ErrorIsNil)
+	c.Check(unit.Life(), gc.Equals, Dying)
+	assertValidDyingForceCleanupCount(c, st, unit.Name(), 0, 1)
+	AssertCleanupCountWithKind(c, st, cleanupForceDestroyedMachine, 1)
+
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	AssertCleanupCountWithKind(c, st, cleanupForceDestroyedUnit, 1)
+	AssertCleanupMaxWait(c, st, cleanupForceDestroyedUnit, unit.Name(), 0)
+
+	for i := 0; i < 10; i++ {
+		needsCleanup, err := st.NeedsCleanup()
+		c.Assert(err, jc.ErrorIsNil)
+		if !needsCleanup {
+			break
+		}
+		c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	}
+	needsCleanup, err := st.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(needsCleanup, jc.IsFalse)
+	c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(machine.Refresh(), jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *cleanupInternalSuite) TestCleanupEvacuateMachineEscalatesPendingNonForceCleanup(c *gc.C) {
+	st := s.newState(c)
+	machine, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	application := AddTestingApplication(c, st, "dummy", AddTestingCharm(c, st, "dummy"))
+	unit := addUnitToMachine(c, application, machine)
+	c.Assert(unit.SetAgentStatus(status.StatusInfo{Status: status.Idle}), jc.ErrorIsNil)
+	c.Assert(unit.Destroy(), jc.ErrorIsNil)
+	c.Assert(unit.Refresh(), jc.ErrorIsNil)
+	c.Check(unit.Life(), gc.Equals, Dying)
+	assertPendingForceCleanupCount(c, st, unit.Name(), 1)
+	assertValidDyingForceCleanupCount(c, st, unit.Name(), 0, 0)
+
+	for i := 0; i < 3; i++ {
+		err := st.cleanupEvacuateMachineInternal(machine.Id(), true, 0)
+		c.Assert(err, gc.ErrorMatches, "waiting for units to be removed from "+machine.Id())
+		assertPendingForceCleanupCount(c, st, unit.Name(), 2)
+		assertValidDyingForceCleanupCount(c, st, unit.Name(), 0, 1)
+	}
+}
+
+func (s *cleanupInternalSuite) TestCleanupsCollectionHasPendingLookupIndex(c *gc.C) {
+	st := s.newState(c)
+	cleanups, closer, err := st.db().GetCollection(cleanupsC)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	indexes, err := cleanups.Writeable().Underlying().Indexes()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var modelIndex, pendingLookupIndex bool
+	for _, index := range indexes {
+		switch {
+		case len(index.Key) == 1 && index.Key[0] == "model-uuid":
+			modelIndex = true
+		case len(index.Key) == 3 &&
+			index.Key[0] == "model-uuid" &&
+			index.Key[1] == "prefix" &&
+			index.Key[2] == "kind":
+			pendingLookupIndex = true
+		}
+	}
+	c.Check(modelIndex, jc.IsTrue)
+	c.Check(pendingLookupIndex, jc.IsTrue)
 }
 
 func (s *cleanupInternalSuite) TestCleanupEvacuateMachineLoadsPendingUnitCleanupsOnce(c *gc.C) {
