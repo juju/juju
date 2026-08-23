@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v3/bson"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/dummy"
@@ -158,6 +160,60 @@ type cleanupInternalSuite struct {
 
 var _ = gc.Suite(&cleanupInternalSuite{})
 
+type failCollectionDatabase struct {
+	Database
+	collection string
+	failAt     int
+	calls      int
+	err        error
+}
+
+func (db *failCollectionDatabase) GetCollection(name string) (mongo.Collection, SessionCloser, error) {
+	if name == db.collection {
+		db.calls++
+		if db.failAt > 0 && db.calls == db.failAt {
+			return nil, nil, db.err
+		}
+	}
+	return db.Database.GetCollection(name)
+}
+
+type failRunTransactionDatabase struct {
+	Database
+	err    error
+	failed bool
+}
+
+func (db *failRunTransactionDatabase) RunTransaction(ops []txn.Op) error {
+	if !db.failed {
+		db.failed = true
+		return db.err
+	}
+	return db.Database.RunTransaction(ops)
+}
+
+func pendingForceCleanupsForUnit(c *gc.C, st *State, unitName string) []cleanupDoc {
+	cleanups, closer, err := st.db().GetCollection(cleanupsC)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+
+	var docs []cleanupDoc
+	err = cleanups.Find(bson.D{
+		{"prefix", unitName},
+		{"kind", bson.D{{"$in", []cleanupKind{
+			cleanupDyingUnit,
+			cleanupForceDestroyedUnit,
+		}}}},
+	}).All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	return docs
+
+}
+
+func assertPendingForceCleanupCount(c *gc.C, st *State, unitName string, expected int) {
+	c.Assert(pendingForceCleanupsForUnit(c, st, unitName), gc.HasLen, expected)
+}
+
 func (s *cleanupInternalSuite) TestCleanupForceDestroyedMachineHandlesUnitLifecycle(c *gc.C) {
 	st := s.newState(c)
 	machine, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
@@ -190,12 +246,364 @@ func (s *cleanupInternalSuite) TestCleanupForceDestroyedMachineHandlesUnitLifecy
 	AssertCleanupsWithKind(c, st, cleanupForceDestroyedMachine)
 
 	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	AssertCleanupCountWithKind(c, st, cleanupForceDestroyedMachine, 1)
+	AssertCleanupCountWithKind(c, st, cleanupDyingUnit, 0)
+	AssertCleanupCountWithKind(c, st, cleanupForceDestroyedUnit, 1)
 	AssertCleanupMaxWait(c, st, cleanupForceDestroyedUnit, unit.Name(), maxWait)
+
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	AssertCleanupCountWithKind(c, st, cleanupForceDestroyedMachine, 1)
+	AssertCleanupCountWithKind(c, st, cleanupDyingUnit, 0)
+	AssertCleanupCountWithKind(c, st, cleanupForceDestroyedUnit, 1)
 
 	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
 	c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
 	AssertCleanupsWithKind(c, st, cleanupForceDestroyedMachine)
+}
+
+func (s *cleanupInternalSuite) TestCleanupEvacuateMachineRemovesDeadUnitAndHistory(c *gc.C) {
+	st := s.newState(c)
+	machine, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	application := AddTestingApplication(c, st, "dummy", AddTestingCharm(c, st, "dummy"))
+	unit, err := application.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.AssignToMachine(machine), jc.ErrorIsNil)
+
+	now := testing.NonZeroTime()
+	for i := 0; i < 3; i++ {
+		c.Assert(unit.SetAgentStatus(status.StatusInfo{
+			Status:  status.Executing,
+			Message: fmt.Sprintf("agent status %d", i),
+			Since:   &now,
+		}), jc.ErrorIsNil)
+		c.Assert(unit.SetStatus(status.StatusInfo{
+			Status:  status.Active,
+			Message: fmt.Sprintf("workload status %d", i),
+			Since:   &now,
+		}), jc.ErrorIsNil)
+		c.Assert(unit.SetWorkloadVersion(fmt.Sprintf("v.%d", i)), jc.ErrorIsNil)
+	}
+	filter := status.StatusHistoryFilter{Size: 100}
+	histories := []func(status.StatusHistoryFilter) ([]status.StatusInfo, error){
+		unit.AgentHistory().StatusHistory,
+		unit.StatusHistory,
+		unit.WorkloadVersionHistory().StatusHistory,
+	}
+	for _, history := range histories {
+		info, err := history(filter)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(len(info), jc.GreaterThan, 0)
+	}
+
+	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)
+	err = st.cleanupEvacuateMachineInternal(machine.Id(), true, time.Minute)
+	c.Assert(err, gc.ErrorMatches, "waiting for units to be removed from "+machine.Id())
+	c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
+	for _, history := range histories {
+		info, err := history(filter)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(info, gc.HasLen, 0)
+	}
+}
+
+func (s *cleanupInternalSuite) TestCleanupEvacuateMachineEscalatesDyingUnitOnce(c *gc.C) {
+	st := s.newState(c)
+	machine, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	application := AddTestingApplication(c, st, "dummy", AddTestingCharm(c, st, "dummy"))
+	unit, err := application.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.AssignToMachine(machine), jc.ErrorIsNil)
+	c.Assert(unit.SetAgentStatus(status.StatusInfo{Status: status.Idle}), jc.ErrorIsNil)
+	c.Assert(unit.Destroy(), jc.ErrorIsNil)
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	AssertCleanupCountWithKind(c, st, cleanupDyingUnit, 0)
+
+	const maxWait = time.Minute
+	err = st.cleanupEvacuateMachineInternal(machine.Id(), true, maxWait)
+	c.Assert(err, gc.ErrorMatches, "waiting for units to be removed from "+machine.Id())
+	AssertCleanupCountWithKind(c, st, cleanupDyingUnit, 1)
+
+	err = st.cleanupEvacuateMachineInternal(machine.Id(), true, maxWait)
+	c.Assert(err, gc.ErrorMatches, "waiting for units to be removed from "+machine.Id())
+	AssertCleanupCountWithKind(c, st, cleanupDyingUnit, 1)
+
+	err = st.cleanupEvacuateMachineInternal(machine.Id(), true, maxWait/2)
+	c.Assert(err, gc.ErrorMatches, "waiting for units to be removed from "+machine.Id())
+	AssertCleanupCountWithKind(c, st, cleanupDyingUnit, 2)
+}
+
+func (s *cleanupInternalSuite) TestCleanupEvacuateMachineLoadsPendingUnitCleanupsOnce(c *gc.C) {
+	st := s.newState(c)
+	machine, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	application := AddTestingApplication(c, st, "dummy", AddTestingCharm(c, st, "dummy"))
+
+	const maxWait = time.Minute
+	var ops []txn.Op
+	var unitNames []string
+	for i := 0; i < 2; i++ {
+		unit, err := application.AddUnit(AddUnitParams{})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(unit.AssignToMachine(machine), jc.ErrorIsNil)
+		c.Assert(st.db().RunTransaction([]txn.Op{{
+			C:      unitsC,
+			Id:     unit.doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+		}}), jc.ErrorIsNil)
+		ops = append(ops, newCleanupOp(
+			cleanupDyingUnit, unit.Name(), false, true, maxWait,
+		))
+		unitNames = append(unitNames, unit.Name())
+	}
+	c.Assert(st.db().RunTransaction(ops), jc.ErrorIsNil)
+
+	faultState := *st
+	database := &failCollectionDatabase{
+		Database:   st.database,
+		collection: cleanupsC,
+	}
+	faultState.database = database
+	err = faultState.cleanupEvacuateMachineInternal(machine.Id(), true, maxWait)
+	c.Assert(err, gc.ErrorMatches, "waiting for units to be removed from "+machine.Id())
+	c.Check(database.calls, gc.Equals, 1)
+	for _, unitName := range unitNames {
+		assertPendingForceCleanupCount(c, st, unitName, 1)
+	}
+}
+
+func (s *cleanupInternalSuite) TestCleanupEvacuateMachineIgnoresForceRemoveForDyingUnit(c *gc.C) {
+	st := s.newState(c)
+	machine, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	application := AddTestingApplication(c, st, "dummy", AddTestingCharm(c, st, "dummy"))
+	unit, err := application.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.AssignToMachine(machine), jc.ErrorIsNil)
+	c.Assert(unit.SetAgentStatus(status.StatusInfo{Status: status.Idle}), jc.ErrorIsNil)
+	c.Assert(unit.Destroy(), jc.ErrorIsNil)
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+
+	const maxWait = time.Minute
+	c.Assert(st.db().RunTransaction([]txn.Op{
+		newCleanupAtOp(st.stateClock.Now().Add(maxWait), cleanupForceRemoveUnit, unit.Name(), maxWait),
+	}), jc.ErrorIsNil)
+
+	err = st.cleanupEvacuateMachineInternal(machine.Id(), true, maxWait)
+	c.Assert(err, gc.ErrorMatches, "waiting for units to be removed from "+machine.Id())
+	AssertCleanupCountWithKind(c, st, cleanupForceRemoveUnit, 1)
+	AssertCleanupCountWithKind(c, st, cleanupDyingUnit, 1)
+}
+
+func (s *cleanupInternalSuite) TestCleanupForceDestroyedUnitEscalatesSubordinateOnce(c *gc.C) {
+	st := s.newState(c)
+	principalApplication := AddTestingApplication(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
+	subordinateApplication := AddTestingApplication(c, st, "logging", AddTestingCharm(c, st, "logging"))
+	endpoints, err := st.InferEndpoints(principalApplication.Name(), subordinateApplication.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := st.AddRelation(endpoints...)
+	c.Assert(err, jc.ErrorIsNil)
+	principal, err := principalApplication.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	principalRelationUnit, err := relation.Unit(principal)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(principalRelationUnit.EnterScope(nil), jc.ErrorIsNil)
+	c.Assert(principalRelationUnit.LeaveScope(), jc.ErrorIsNil)
+	c.Assert(principal.Refresh(), jc.ErrorIsNil)
+	c.Assert(principal.SubordinateNames(), gc.HasLen, 1)
+	subordinate, err := st.Unit(principal.SubordinateNames()[0])
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subordinate.SetAgentStatus(status.StatusInfo{Status: status.Idle}), jc.ErrorIsNil)
+
+	const maxWait = time.Minute
+	c.Assert(st.db().RunTransaction([]txn.Op{
+		newCleanupOp(cleanupForceDestroyedUnit, principal.Name(), maxWait),
+	}), jc.ErrorIsNil)
+
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	docs := pendingForceCleanupsForUnit(c, st, subordinate.Name())
+	c.Assert(docs, gc.HasLen, 1)
+	c.Check(docs[0].Kind, gc.Equals, cleanupDyingUnit)
+
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	docs = pendingForceCleanupsForUnit(c, st, subordinate.Name())
+	c.Assert(docs, gc.HasLen, 1)
+	c.Check(docs[0].Kind, gc.Equals, cleanupForceDestroyedUnit)
+	stableDocID := docs[0].DocID
+	stableWhen := docs[0].When
+
+	for i := 0; i < 3; i++ {
+		c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+		docs = pendingForceCleanupsForUnit(c, st, subordinate.Name())
+		c.Assert(docs, gc.HasLen, 1)
+		c.Check(docs[0].Kind, gc.Equals, cleanupForceDestroyedUnit)
+		c.Check(docs[0].DocID, gc.Equals, stableDocID)
+		c.Check(docs[0].When, gc.Equals, stableWhen)
+	}
+}
+
+func (s *cleanupInternalSuite) TestCleanupEvacuateMissingMachineRemovesUpgradeSeriesLock(c *gc.C) {
+	st := s.newState(c)
+	machine, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.CreateUpgradeSeriesLock(nil, UbuntuBase("16.04")), jc.ErrorIsNil)
+
+	machines, closer, err := st.db().GetCollection(machinesC)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	c.Assert(machines.Writeable().RemoveId(machine.Id()), jc.ErrorIsNil)
+
+	c.Assert(st.cleanupEvacuateMachineInternal(machine.Id(), true, time.Minute), jc.ErrorIsNil)
+	_, err = st.getUpgradeSeriesLock(machine.Id())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *cleanupInternalSuite) TestCleanupForceDestroyedUnitRetriesSubordinateLookupError(c *gc.C) {
+	st := s.newState(c)
+	application := AddTestingApplication(c, st, "dummy", AddTestingCharm(c, st, "dummy"))
+	unit, err := application.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st.db().RunTransaction([]txn.Op{{
+		C:      unitsC,
+		Id:     unit.doc.DocID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"subordinates", []string{"logging/0"}}}}},
+	}}), jc.ErrorIsNil)
+	c.Assert(st.db().RunTransaction([]txn.Op{
+		newCleanupOp(cleanupForceDestroyedUnit, unit.Name(), time.Minute),
+	}), jc.ErrorIsNil)
+
+	boom := errors.New("subordinate lookup failed")
+	faultState := *st
+	database := &failCollectionDatabase{
+		Database:   st.database,
+		collection: unitsC,
+		failAt:     2,
+		err:        boom,
+	}
+	faultState.database = database
+	c.Assert(faultState.Cleanup(nil), jc.ErrorIsNil)
+	c.Check(database.calls, gc.Equals, 2)
+
+	AssertCleanupCountWithKind(c, st, cleanupForceDestroyedUnit, 1)
+	AssertCleanupCountWithKind(c, st, cleanupForceRemoveUnit, 0)
+	c.Assert(unit.Refresh(), jc.ErrorIsNil)
+
+	c.Assert(st.db().RunTransaction([]txn.Op{{
+		C:      unitsC,
+		Id:     unit.doc.DocID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"subordinates", []string{}}}}},
+	}}), jc.ErrorIsNil)
+	c.Assert(unit.Refresh(), jc.ErrorIsNil)
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	c.Assert(unit.Refresh(), jc.ErrorIsNil)
+	c.Check(unit.Life(), gc.Equals, Dead)
+	AssertCleanupCountWithKind(c, st, cleanupForceDestroyedUnit, 0)
+	AssertCleanupCountWithKind(c, st, cleanupForceRemoveUnit, 1)
+}
+
+func (s *cleanupInternalSuite) TestCleanupForceDestroyedUnitRetriesEnsureDeadError(c *gc.C) {
+	st := s.newState(c)
+	application := AddTestingApplication(c, st, "dummy", AddTestingCharm(c, st, "dummy"))
+	unit, err := application.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st.db().RunTransaction([]txn.Op{{
+		C:      unitsC,
+		Id:     unit.doc.DocID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+	}}), jc.ErrorIsNil)
+	c.Assert(unit.Refresh(), jc.ErrorIsNil)
+	c.Assert(st.db().RunTransaction([]txn.Op{
+		newCleanupOp(cleanupForceDestroyedUnit, unit.Name(), time.Minute),
+	}), jc.ErrorIsNil)
+
+	boom := errors.New("ensure dead failed")
+	faultState := *st
+	database := &failRunTransactionDatabase{
+		Database: st.database,
+		err:      boom,
+	}
+	faultState.database = database
+	c.Assert(faultState.Cleanup(nil), jc.ErrorIsNil)
+	c.Check(database.failed, jc.IsTrue)
+
+	AssertCleanupCountWithKind(c, st, cleanupForceDestroyedUnit, 1)
+	AssertCleanupCountWithKind(c, st, cleanupForceRemoveUnit, 0)
+	c.Assert(unit.Refresh(), jc.ErrorIsNil)
+	c.Check(unit.Life(), gc.Equals, Dying)
+
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	c.Assert(unit.Refresh(), jc.ErrorIsNil)
+	c.Check(unit.Life(), gc.Equals, Dead)
+	AssertCleanupCountWithKind(c, st, cleanupForceDestroyedUnit, 0)
+	AssertCleanupCountWithKind(c, st, cleanupForceRemoveUnit, 1)
+}
+
+func (s *cleanupInternalSuite) TestDestroyWithForceApplicationLookupErrorPreservesUnitData(c *gc.C) {
+	st := s.newState(c)
+	application := AddTestingApplication(c, st, "dummy", AddTestingCharm(c, st, "dummy"))
+	unit, err := application.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.AssignToNewMachine(), jc.ErrorIsNil)
+
+	now := testing.NonZeroTime()
+	for i := 0; i < 3; i++ {
+		c.Assert(unit.SetAgentStatus(status.StatusInfo{
+			Status:  status.Executing,
+			Message: fmt.Sprintf("agent status %d", i),
+			Since:   &now,
+		}), jc.ErrorIsNil)
+		c.Assert(unit.SetStatus(status.StatusInfo{
+			Status:  status.Active,
+			Message: fmt.Sprintf("workload status %d", i),
+			Since:   &now,
+		}), jc.ErrorIsNil)
+		c.Assert(unit.SetWorkloadVersion(fmt.Sprintf("v.%d", i)), jc.ErrorIsNil)
+	}
+	c.Assert(unit.UnassignFromMachine(), jc.ErrorIsNil)
+	filter := status.StatusHistoryFilter{Size: 100}
+	histories := []func(status.StatusHistoryFilter) ([]status.StatusInfo, error){
+		unit.AgentHistory().StatusHistory,
+		unit.StatusHistory,
+		unit.WorkloadVersionHistory().StatusHistory,
+	}
+
+	boom := errors.New("application lookup failed")
+	faultState := *st
+	database := &failCollectionDatabase{
+		Database:   st.database,
+		collection: applicationsC,
+		failAt:     1,
+		err:        boom,
+	}
+	faultState.database = database
+	faultUnit := *unit
+	faultUnit.st = &faultState
+
+	opErrs, err := faultUnit.DestroyWithForce(true, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(database.calls, gc.Equals, 1)
+	foundInjectedError := false
+	for _, opErr := range opErrs {
+		if errors.Cause(opErr) == boom {
+			foundInjectedError = true
+			break
+		}
+	}
+	c.Check(foundInjectedError, jc.IsTrue)
+	c.Check(faultUnit.Life(), gc.Equals, Alive)
+	c.Assert(unit.Refresh(), jc.ErrorIsNil)
+	c.Check(unit.Life(), gc.Equals, Alive)
+	for _, history := range histories {
+		info, err := history(filter)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(len(info), jc.GreaterThan, 0)
+	}
 }
 
 func (s *cleanupInternalSuite) TestCleanupEvacuateDyingMachineWithoutForceIsNoOp(c *gc.C) {

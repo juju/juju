@@ -1068,6 +1068,65 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 	c.Assert(target.Destroy(), gc.ErrorMatches, `cannot destroy unit "wordpress/1": state changing too quickly; try again soon`)
 }
 
+func (s *UnitSuite) TestRemoveWithForceTransactionFailurePreservesUnitData(c *gc.C) {
+	ownedURI, consumedURI := s.addOwnedAndConsumedSecrets(c, s.unit)
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
+	c.Assert(err, jc.ErrorIsNil)
+	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.setControllerVote(c, host.Id(), true)
+	c.Assert(s.unit.AssignToMachine(host), jc.ErrorIsNil)
+	filter := primeUnitStatusHistories(c, s.unit)
+	c.Assert(s.unit.EnsureDead(), jc.ErrorIsNil)
+
+	flip := jujutxn.TestHook{Before: func() {
+		s.demoteController(c, host)
+	}}
+	flop := jujutxn.TestHook{Before: func() {
+		s.setControllerVote(c, host.Id(), true)
+	}}
+	state.SetMaxTxnAttempts(c, s.State, 3)
+	defer state.SetTestHooks(c, s.State, flip, flop, flip).Check()
+
+	opErrs, err := s.unit.RemoveWithForce(true, dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.HasLen, 1)
+	c.Check(opErrs[0], gc.ErrorMatches, ".*state changing too quickly; try again soon")
+	assertLife(c, s.unit, state.Dead)
+	assertUnitStatusHistories(c, s.unit, filter, false)
+
+	_, err = state.NewSecrets(s.State).GetSecret(ownedURI)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.GetSecretConsumer(consumedURI, s.unit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *UnitSuite) TestRemoveWithForceRetryObservesRemovedUnit(c *gc.C) {
+	ownedURI, consumedURI := s.addOwnedAndConsumedSecrets(c, s.unit)
+	c.Assert(s.unit.AssignToNewMachine(), jc.ErrorIsNil)
+	filter := primeUnitStatusHistories(c, s.unit)
+	c.Assert(s.unit.EnsureDead(), jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		units, closer := state.GetRawCollection(s.State, "units")
+		err := units.RemoveId(state.DocID(s.State, s.unit.Name()))
+		closer()
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	opErrs, err := s.unit.RemoveWithForce(true, dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.IsNil)
+	c.Assert(s.unit.Refresh(), jc.Satisfies, errors.IsNotFound)
+	assertUnitStatusHistories(c, s.unit, filter, true)
+	_, err = state.NewSecrets(s.State).GetSecret(ownedURI)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.State.GetSecretConsumer(consumedURI, s.unit.Tag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1326,6 +1385,8 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 }
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
+	ownedURI, consumedURI := s.addOwnedAndConsumedSecrets(c, s.unit)
+
 	defer state.SetRetryHooks(c, s.State, func() {
 		err := s.unit.AssignToNewMachine()
 		c.Assert(err, jc.ErrorIsNil)
@@ -1342,6 +1403,55 @@ func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	}).Check()
 
 	err := s.unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = state.NewSecrets(s.State).GetSecret(ownedURI)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.GetSecretConsumer(consumedURI, s.unit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *UnitSuite) TestDestroyWithForceTransactionFailurePreservesUnitData(c *gc.C) {
+	ownedURI, consumedURI := s.addOwnedAndConsumedSecrets(c, s.unit)
+	machines := make([]*state.Machine, 3)
+	for i := range machines {
+		machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+		c.Assert(err, jc.ErrorIsNil)
+		machines[i] = machine
+	}
+	c.Assert(s.unit.AssignToNewMachine(), jc.ErrorIsNil)
+	filter := primeUnitStatusHistories(c, s.unit)
+	c.Assert(s.unit.UnassignFromMachine(), jc.ErrorIsNil)
+	moveUnit := func(machine *state.Machine) jujutxn.TestHook {
+		return jujutxn.TestHook{
+			Before: func() {
+				err := s.unit.AssignToMachine(machine)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+			After: func() {
+				err := s.unit.UnassignFromMachine()
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}
+	}
+	state.SetMaxTxnAttempts(c, s.State, 3)
+	defer state.SetTestHooks(c, s.State,
+		moveUnit(machines[0]),
+		moveUnit(machines[1]),
+		moveUnit(machines[2]),
+	).Check()
+
+	opErrs, err := s.unit.DestroyWithForce(true, dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(opErrs), jc.GreaterThan, 0)
+	c.Check(opErrs[len(opErrs)-1], gc.ErrorMatches, ".*state changing too quickly; try again soon")
+	c.Check(s.unit.Life(), gc.Equals, state.Alive)
+	assertLife(c, s.unit, state.Alive)
+	assertUnitStatusHistories(c, s.unit, filter, false)
+
+	_, err = state.NewSecrets(s.State).GetSecret(ownedURI)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.GetSecretConsumer(consumedURI, s.unit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1601,6 +1711,83 @@ func (s *UnitSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
 	versionInfo, err = s.unit.WorkloadVersionHistory().StatusHistory(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(versionInfo, gc.HasLen, 0)
+}
+
+func (s *UnitSuite) TestRemoveWithForceRemovesStatusHistoryAndSecrets(c *gc.C) {
+	ownedURI, consumedURI := s.addOwnedAndConsumedSecrets(c, s.unit)
+	err := s.unit.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	filter := primeUnitStatusHistories(c, s.unit)
+
+	err = s.unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	opErrs, err := s.unit.RemoveWithForce(true, dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.IsNil)
+	c.Assert(s.unit.Refresh(), jc.Satisfies, errors.IsNotFound)
+
+	assertUnitStatusHistories(c, s.unit, filter, true)
+	_, err = state.NewSecrets(s.State).GetSecret(ownedURI)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.State.GetSecretConsumer(consumedURI, s.unit.Tag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *UnitSuite) TestDestroyWithForceRemovesDeadUnitData(c *gc.C) {
+	ownedURI, consumedURI := s.addOwnedAndConsumedSecrets(c, s.unit)
+	c.Assert(s.unit.AssignToNewMachine(), jc.ErrorIsNil)
+	filter := primeUnitStatusHistories(c, s.unit)
+	c.Assert(s.unit.EnsureDead(), jc.ErrorIsNil)
+
+	opErrs, err := s.unit.DestroyWithForce(true, dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.IsNil)
+	c.Assert(s.unit.Refresh(), jc.Satisfies, errors.IsNotFound)
+	assertUnitStatusHistories(c, s.unit, filter, true)
+	_, err = state.NewSecrets(s.State).GetSecret(ownedURI)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.State.GetSecretConsumer(consumedURI, s.unit.Tag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func primeUnitStatusHistories(c *gc.C, unit *state.Unit) status.StatusHistoryFilter {
+	now := coretesting.NonZeroTime()
+	for i := 0; i < 3; i++ {
+		err := unit.SetAgentStatus(status.StatusInfo{
+			Status:  status.Executing,
+			Message: fmt.Sprintf("agent status %d", i),
+			Since:   &now,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		err = unit.SetStatus(status.StatusInfo{
+			Status:  status.Active,
+			Message: fmt.Sprintf("workload status %d", i),
+			Since:   &now,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		err = unit.SetWorkloadVersion(fmt.Sprintf("v.%d", i))
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	filter := status.StatusHistoryFilter{Size: 100}
+	assertUnitStatusHistories(c, unit, filter, false)
+	return filter
+}
+
+func assertUnitStatusHistories(c *gc.C, unit *state.Unit, filter status.StatusHistoryFilter, empty bool) {
+	histories := []func(status.StatusHistoryFilter) ([]status.StatusInfo, error){
+		unit.AgentHistory().StatusHistory,
+		unit.StatusHistory,
+		unit.WorkloadVersionHistory().StatusHistory,
+	}
+	for _, history := range histories {
+		info, err := history(filter)
+		c.Assert(err, jc.ErrorIsNil)
+		if empty {
+			c.Check(info, gc.HasLen, 0)
+		} else {
+			c.Check(len(info), jc.GreaterThan, 0)
+		}
+	}
 }
 
 func assertLife(c *gc.C, entity state.Living, life state.Life) {
@@ -2081,6 +2268,37 @@ func (s *UnitSuite) TestDestroyAlsoDeletesConsumerInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.GetSecretConsumer(uri, s.unit.Tag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *UnitSuite) addOwnedAndConsumedSecrets(c *gc.C, unit *state.Unit) (*secrets.URI, *secrets.URI) {
+	store := state.NewSecrets(s.State)
+	ownedURI := secrets.NewURI()
+	_, err := store.CreateSecret(ownedURI, state.CreateSecretParams{
+		Version: 1,
+		Owner:   unit.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"owned": "secret"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	owner, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	consumedURI := secrets.NewURI()
+	_, err = store.CreateSecret(consumedURI, state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"consumed": "secret"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SaveSecretConsumer(consumedURI, unit.UnitTag(), &secrets.SecretConsumerMetadata{CurrentRevision: 1})
+	c.Assert(err, jc.ErrorIsNil)
+
+	return ownedURI, consumedURI
 }
 
 func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *gc.C) {
