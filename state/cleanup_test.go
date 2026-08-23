@@ -599,8 +599,10 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	controllerIds, err := s.State.ControllerIds()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(controllerIds, gc.DeepEquals, append([]string{machine.Id()}, changes.Added...))
-	// Forced cleanup clears the stale vote and removes the controller
-	// reference.
+	// The first cleanup clears the stale vote. The cleanup is retried with a
+	// freshly loaded node to remove the controller reference.
+	s.assertCleanupRuns(c)
+	s.assertNeedsCleanup(c)
 	s.assertCleanupRuns(c)
 	assertLife(c, machine, state.Dead)
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
