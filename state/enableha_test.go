@@ -334,8 +334,6 @@ func (s *EnableHASuite) progressControllerToDead(c *gc.C, id string) {
 	// Pretend to be the peergrouper, notice the machine doesn't want to vote, so get rid of its vote, and remove it
 	// as a controller machine.
 	c.Check(node.SetHasVote(false), jc.ErrorIsNil)
-	// TODO(HA) - no longer need to refresh once HasVote is moved off machine
-	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	c.Assert(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
 	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
 	c.Assert(m.EnsureDead(), jc.ErrorIsNil)
@@ -582,12 +580,9 @@ func (s *EnableHASuite) TestRemoveControllerMachineOneMachine(c *gc.C) {
 	err = s.State.RemoveControllerReference(node)
 	c.Assert(err, gc.ErrorMatches, "controller 0 cannot be removed as it still wants to vote")
 	c.Assert(state.SetWantsVote(s.State, m0.Id(), false), jc.ErrorIsNil)
-	// TODO(HA) - no longer need to refresh once HasVote is moved off machine
-	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	err = s.State.RemoveControllerReference(node)
 	c.Assert(err, gc.ErrorMatches, "controller 0 cannot be removed as it still has a vote")
 	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
-	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	// it seems odd that we would end up the last controller but not have a vote, but we care about the DB integrity
 	err = s.State.RemoveControllerReference(node)
 	c.Assert(err, gc.ErrorMatches, "controller 0 cannot be removed as it is the last controller")
@@ -605,7 +600,6 @@ func (s *EnableHASuite) TestRemoveControllerMachine(c *gc.C) {
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
 	c.Assert(m0.Destroy(), jc.ErrorIsNil)
 	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
-	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	err = s.State.RemoveControllerReference(node)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertControllerInfo(c, []string{"1", "2"}, []string{"1", "2"}, nil)
