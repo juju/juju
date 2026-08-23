@@ -1456,9 +1456,6 @@ func (st *State) cleanupDestroyedMachineInternal(machineID string, force bool, m
 			if err := node.SetHasVote(false); err != nil {
 				return errors.Trace(err)
 			}
-			if err := node.Refresh(); err != nil {
-				return errors.Trace(err)
-			}
 		}
 		if err := st.RemoveControllerReference(node); err != nil {
 			return errors.Trace(err)
