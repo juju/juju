@@ -2799,6 +2799,25 @@ func (s *UnitSuite) TestDestroyWithForceWorksOnDyingUnit(c *gc.C) {
 	c.Assert(needsCleanup, gc.Equals, true)
 }
 
+func (s *UnitSuite) TestDestroyWithForceRemovesUnitThatBecomesDeadOnRetry(c *gc.C) {
+	preventUnitDestroyRemove(c, s.unit)
+	c.Assert(s.unit.Destroy(), jc.ErrorIsNil)
+	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
+
+	concurrentUnit, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(concurrentUnit.EnsureDead(), jc.ErrorIsNil)
+		c.Check(concurrentUnit.Life(), gc.Equals, state.Dead)
+	}, nil).Check()
+
+	opErrs, err := s.unit.DestroyWithForce(true, dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.IsNil)
+	c.Check(s.unit.Life(), gc.Equals, state.Dead)
+	c.Assert(s.unit.Refresh(), jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 	// Create 2 spaces
 	sn1, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.0.0/24"})
