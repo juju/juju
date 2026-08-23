@@ -504,13 +504,18 @@ func (u *Unit) Destroy() error {
 // DestroyWithForce does the same thing as Destroy() but
 // ignores errors.
 func (u *Unit) DestroyWithForce(force bool, maxWait time.Duration) (errs []error, err error) {
+	op := u.DestroyOperation()
 	defer func() {
 		if err == nil {
-			// This is a white lie; the document might actually be removed.
+			// The document might actually be removed. Preserve a terminal
+			// lifecycle observed while retrying; otherwise keep the historical
+			// Dying approximation.
 			u.doc.Life = Dying
+			if op.unit.doc.Life == Dead {
+				u.doc.Life = Dead
+			}
 		}
 	}()
-	op := u.DestroyOperation()
 	op.Force = force
 	op.MaxWait = maxWait
 	err = u.st.ApplyOperation(op)
@@ -638,6 +643,19 @@ func deleteUnitSecrets(unit *Unit) error {
 // as well as all operational errors encountered.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
 func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
+	if op.unit.doc.Life == Dead {
+		if !op.Force {
+			return nil, errAlreadyDying
+		}
+		removeOp := op.unit.RemoveOperation(op.Force)
+		removeOp.MaxWait = op.MaxWait
+		ops, err := removeOp.removeOps()
+		op.AddError(removeOp.Errors...)
+		if err == nil {
+			op.Removed = true
+		}
+		return ops, err
+	}
 	if op.unit.doc.Life != Alive {
 		if !op.Force {
 			return nil, errAlreadyDying
