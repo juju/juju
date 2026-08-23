@@ -1292,9 +1292,8 @@ func (st *State) cleanupDyingMachine(machineID string, cleanupArgs []bson.Raw) e
 	return nil
 }
 
-// cleanupForceDestroyedMachine systematically destroys and removes all entities
-// that depend upon the supplied machine, and removes the machine from state. It's
-// expected to be used in response to destroy-machine --force.
+// cleanupForceDestroyedMachine continues force-destroy cleanup through the
+// hosted-unit evacuation workflow.
 func (st *State) cleanupForceDestroyedMachine(machineId string, cleanupArgs []bson.Raw) error {
 	var maxWait time.Duration
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
@@ -1308,9 +1307,11 @@ func (st *State) cleanupForceDestroyedMachine(machineId string, cleanupArgs []bs
 			}
 		}
 	}
-	return st.cleanupDestroyedMachineInternal(machineId, true, maxWait)
+	return st.cleanupEvacuateMachineInternal(machineId, true, maxWait)
 }
 
+// cleanupDestroyedMachineInternal finishes cleanup after directly hosted
+// units have been evacuated.
 func (st *State) cleanupDestroyedMachineInternal(machineID string, force bool, maxWait time.Duration) error {
 	// The first thing we want to do is remove any series upgrade machine
 	// locks that might prevent other resources from being removed.
@@ -1350,15 +1351,6 @@ func (st *State) cleanupDestroyedMachineInternal(machineID string, force bool, m
 	if err := st.cleanupContainers(machine, force, maxWait); err != nil {
 		return errors.Trace(err)
 	}
-	for _, unitName := range machine.doc.Principals {
-		opErrs, err := st.obliterateUnit(unitName, force, maxWait)
-		if len(opErrs) != 0 {
-			logger.Warningf("while obliterating unit %v: %v", unitName, opErrs)
-		}
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
 	if err := cleanupDyingMachineResources(machine, force); err != nil {
 		return errors.Trace(err)
 	}
@@ -1380,9 +1372,8 @@ func (st *State) cleanupDestroyedMachineInternal(machineID string, force bool, m
 		}
 	}
 
-	// We need to refresh the machine at this point, because the local copy
-	// of the document will not reflect changes caused by the unit cleanups
-	// above, and may thus fail immediately.
+	// Refresh because the cleanup operations above may have updated the
+	// machine document.
 	if err := machine.Refresh(); errors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
@@ -1513,29 +1504,17 @@ func (st *State) cleanupEvacuateMachineInternal(machineId string, force bool, ma
 		)
 	}
 
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			units, err = machine.Units()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+	for _, unit := range units {
+		opErrs, err := unit.DestroyWithForce(force, maxWait)
+		if len(opErrs) != 0 {
+			logger.Warningf(
+				"operational errors destroying unit %v while evacuating machine %v: %v",
+				unit.Name(), machineId, opErrs,
+			)
 		}
-		var ops []txn.Op
-		for _, unit := range units {
-			destroyOp := unit.DestroyOperation()
-			destroyOp.Force = force
-			destroyOp.MaxWait = maxWait
-			op, err := destroyOp.Build(attempt)
-			if err != nil && !errors.Is(err, jujutxn.ErrNoOperations) {
-				return nil, errors.Trace(err)
-			}
-			ops = append(ops, op...)
+		if err != nil {
+			return errors.Trace(err)
 		}
-		return ops, nil
-	}
-
-	if err := st.db().Run(buildTxn); err != nil {
-		return errors.Trace(err)
 	}
 	return errors.Errorf("waiting for units to be removed from %s", machineId)
 }
@@ -1610,66 +1589,6 @@ func cleanupDyingMachineResources(m *Machine, force bool) error {
 
 	cleaner := newDyingEntityStorageCleaner(sb, m.Tag(), manual, force)
 	return errors.Trace(cleaner.cleanupStorage(filesystemAttachments, volumeAttachments))
-}
-
-// obliterateUnit removes a unit from state completely. It is not safe or
-// sane to obliterate any unit in isolation; its only reasonable use is in
-// the context of machine obliteration, in which we can be sure that unclean
-// shutdown of units is not going to leave a machine in a difficult state.
-func (st *State) obliterateUnit(unitName string, force bool, maxWait time.Duration) ([]error, error) {
-	var opErrs []error
-	unit, err := st.Unit(unitName)
-	if errors.IsNotFound(err) {
-		return opErrs, nil
-	} else if err != nil {
-		return opErrs, err
-	}
-	// Unlike the machine, we *can* always destroy the unit, and (at least)
-	// prevent further dependencies being added. If we're really lucky, the
-	// unit will be removed immediately.
-	errs, err := unit.DestroyWithForce(force, maxWait)
-	opErrs = append(opErrs, errs...)
-	if err != nil {
-		if !force {
-			return opErrs, errors.Annotatef(err, "cannot destroy unit %q", unitName)
-		}
-		opErrs = append(opErrs, err)
-	}
-	if err := unit.Refresh(); errors.IsNotFound(err) {
-		return opErrs, nil
-	} else if err != nil {
-		if !force {
-			return opErrs, err
-		}
-		opErrs = append(opErrs, err)
-	}
-	// Destroy and remove all storage attachments for the unit.
-	if err := st.cleanupUnitStorageAttachments(unit.UnitTag(), true, force, maxWait); err != nil {
-		err := errors.Annotatef(err, "cannot destroy storage for unit %q", unitName)
-		if !force {
-			return opErrs, err
-		}
-		opErrs = append(opErrs, err)
-	}
-	for _, subName := range unit.SubordinateNames() {
-		errs, err := st.obliterateUnit(subName, force, maxWait)
-		opErrs = append(opErrs, errs...)
-		if err != nil {
-			if !force {
-				return opErrs, err
-			}
-			opErrs = append(opErrs, err)
-		}
-	}
-	if err := unit.EnsureDead(); err != nil {
-		if !force {
-			return opErrs, err
-		}
-		opErrs = append(opErrs, err)
-	}
-	errs, err = unit.RemoveWithForce(force, maxWait)
-	opErrs = append(opErrs, errs...)
-	return opErrs, err
 }
 
 // cleanupAttachmentsForDyingStorage sets all storage attachments related
