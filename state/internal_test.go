@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	mgotesting "github.com/juju/mgo/v3/testing"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -155,6 +157,41 @@ type cleanupInternalSuite struct {
 }
 
 var _ = gc.Suite(&cleanupInternalSuite{})
+
+func (s *cleanupInternalSuite) TestCleanupForceDestroyedMachineEvacuatesUnit(c *gc.C) {
+	st := s.newState(c)
+	machine, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	application := AddTestingApplication(c, st, "dummy", AddTestingCharm(c, st, "dummy"))
+	unit, err := application.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.AssignToMachine(machine), jc.ErrorIsNil)
+	now := testing.NonZeroTime()
+	c.Assert(unit.SetAgentStatus(status.StatusInfo{
+		Status: status.Idle,
+		Since:  &now,
+	}), jc.ErrorIsNil)
+	filter := status.StatusHistoryFilter{Size: 10}
+	history, err := unit.AgentHistory().StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(history), jc.GreaterThan, 0)
+
+	const maxWait = time.Minute
+	c.Assert(st.db().RunTransaction([]txn.Op{
+		newCleanupOp(cleanupForceDestroyedMachine, machine.Id(), maxWait),
+	}), jc.ErrorIsNil)
+
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	c.Assert(unit.Refresh(), jc.ErrorIsNil)
+	c.Check(unit.Life(), gc.Equals, Dying)
+	history, err = unit.AgentHistory().StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(history, gc.HasLen, 0)
+	AssertCleanupsWithKind(c, st, cleanupForceDestroyedMachine)
+
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	AssertCleanupMaxWait(c, st, cleanupForceDestroyedUnit, unit.Name(), maxWait)
+}
 
 func (s *cleanupInternalSuite) TestCleanupEvacuateDyingMachineWithoutForceIsNoOp(c *gc.C) {
 	st := s.newState(c)
