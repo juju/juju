@@ -158,7 +158,7 @@ type cleanupInternalSuite struct {
 
 var _ = gc.Suite(&cleanupInternalSuite{})
 
-func (s *cleanupInternalSuite) TestCleanupForceDestroyedMachineEvacuatesUnit(c *gc.C) {
+func (s *cleanupInternalSuite) TestCleanupForceDestroyedMachineHandlesUnitLifecycle(c *gc.C) {
 	st := s.newState(c)
 	machine, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,6 +191,11 @@ func (s *cleanupInternalSuite) TestCleanupForceDestroyedMachineEvacuatesUnit(c *
 
 	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
 	AssertCleanupMaxWait(c, st, cleanupForceDestroyedUnit, unit.Name(), maxWait)
+
+	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
+	AssertCleanupsWithKind(c, st, cleanupForceDestroyedMachine)
 }
 
 func (s *cleanupInternalSuite) TestCleanupEvacuateDyingMachineWithoutForceIsNoOp(c *gc.C) {
