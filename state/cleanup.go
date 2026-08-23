@@ -1505,11 +1505,18 @@ func (st *State) cleanupEvacuateMachineInternal(machineId string, force bool, ma
 	}
 
 	for _, unit := range units {
-		opErrs, err := unit.DestroyWithForce(force, maxWait)
+		operation := "destroying"
+		var opErrs []error
+		if force && unit.Life() == Dead {
+			operation = "removing"
+			opErrs, err = unit.RemoveWithForce(true, maxWait)
+		} else {
+			opErrs, err = unit.DestroyWithForce(force, maxWait)
+		}
 		if len(opErrs) != 0 {
 			logger.Warningf(
-				"operational errors destroying unit %v while evacuating machine %v: %v",
-				unit.Name(), machineId, opErrs,
+				"operational errors %s unit %v while evacuating machine %v: %v",
+				operation, unit.Name(), machineId, opErrs,
 			)
 		}
 		if err != nil {
