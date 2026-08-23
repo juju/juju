@@ -12,6 +12,7 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
@@ -1127,6 +1128,19 @@ func (s *UnitSuite) TestRemoveWithForceRetryObservesRemovedUnit(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *UnitSuite) TestRemoveWithForceAlreadyRemovedUnitCleansData(c *gc.C) {
+	ownedURI, consumedURI := s.addOwnedAndConsumedSecrets(c, s.unit)
+	c.Assert(s.unit.AssignToNewMachine(), jc.ErrorIsNil)
+	filter := primeUnitStatusHistories(c, s.unit)
+	c.Assert(s.unit.EnsureDead(), jc.ErrorIsNil)
+	removeRawUnitAndApplicationDocs(c, s.State, s.unit, s.application)
+
+	opErrs, err := s.unit.RemoveWithForce(true, dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.IsNil)
+	assertUnitDataRemoved(c, s.State, s.unit, filter, ownedURI, consumedURI)
+}
+
 func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1409,6 +1423,65 @@ func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.GetSecretConsumer(consumedURI, s.unit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *UnitSuite) TestDestroyRetryObservesDyingUnit(c *gc.C) {
+	preventUnitDestroyRemove(c, s.unit)
+	concurrentUnit, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(concurrentUnit.Destroy(), jc.ErrorIsNil)
+		c.Check(concurrentUnit.Life(), gc.Equals, state.Dying)
+	}).Check()
+
+	c.Assert(s.unit.Destroy(), jc.ErrorIsNil)
+	c.Check(s.unit.Life(), gc.Equals, state.Dying)
+	persistedUnit, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(persistedUnit.Life(), gc.Equals, state.Dying)
+}
+
+func (s *UnitSuite) TestDestroyWithForceRetryObservesRemovedUnit(c *gc.C) {
+	ownedURI, consumedURI := s.addOwnedAndConsumedSecrets(c, s.unit)
+	c.Assert(s.unit.AssignToNewMachine(), jc.ErrorIsNil)
+	filter := primeUnitStatusHistories(c, s.unit)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		units, closer := state.GetRawCollection(s.State, "units")
+		err := units.RemoveId(state.DocID(s.State, s.unit.Name()))
+		closer()
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	opErrs, err := s.unit.DestroyWithForce(true, dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.IsNil)
+	c.Assert(s.unit.Refresh(), jc.Satisfies, errors.IsNotFound)
+	assertUnitDataRemoved(c, s.State, s.unit, filter, ownedURI, consumedURI)
+}
+
+func (s *UnitSuite) TestDestroyWithForceAlreadyRemovedUnitCleansData(c *gc.C) {
+	ownedURI, consumedURI := s.addOwnedAndConsumedSecrets(c, s.unit)
+	c.Assert(s.unit.AssignToNewMachine(), jc.ErrorIsNil)
+	filter := primeUnitStatusHistories(c, s.unit)
+	c.Assert(s.unit.UnassignFromMachine(), jc.ErrorIsNil)
+	statuses, closer := state.GetRawCollection(s.State, "statuses")
+	err := statuses.UpdateId(
+		state.DocID(s.State, "u#"+s.unit.Name()),
+		bson.D{{"$set", bson.D{{"status", status.Allocating}}}},
+	)
+	closer()
+	c.Assert(err, jc.ErrorIsNil)
+	agentStatus, err := s.unit.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(agentStatus.Status, gc.Equals, status.Allocating)
+	removeRawUnitAndApplicationDocs(c, s.State, s.unit, s.application)
+
+	opErrs, err := s.unit.DestroyWithForce(true, dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.IsNil)
+	assertUnitDataRemoved(c, s.State, s.unit, filter, ownedURI, consumedURI)
 }
 
 func (s *UnitSuite) TestDestroyWithForceTransactionFailurePreservesUnitData(c *gc.C) {
@@ -1788,6 +1861,32 @@ func assertUnitStatusHistories(c *gc.C, unit *state.Unit, filter status.StatusHi
 			c.Check(len(info), jc.GreaterThan, 0)
 		}
 	}
+}
+
+func assertUnitDataRemoved(
+	c *gc.C,
+	st *state.State,
+	unit *state.Unit,
+	filter status.StatusHistoryFilter,
+	ownedURI, consumedURI *secrets.URI,
+) {
+	assertUnitStatusHistories(c, unit, filter, true)
+	_, err := state.NewSecrets(st).GetSecret(ownedURI)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = st.GetSecretConsumer(consumedURI, unit.Tag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func removeRawUnitAndApplicationDocs(c *gc.C, st *state.State, unit *state.Unit, application *state.Application) {
+	units, closer := state.GetRawCollection(st, "units")
+	err := units.RemoveId(state.DocID(st, unit.Name()))
+	closer()
+	c.Assert(err, jc.ErrorIsNil)
+
+	applications, closer := state.GetRawCollection(st, "applications")
+	err = applications.RemoveId(state.DocID(st, application.Name()))
+	closer()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func assertLife(c *gc.C, entity state.Living, life state.Life) {

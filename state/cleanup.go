@@ -1606,7 +1606,9 @@ func (st *State) pendingUnitForceCleanups(unitNames []string) (pendingUnitForceC
 		var cleanupMaxWait time.Duration
 		switch doc.Kind {
 		case cleanupDyingUnit:
+			var destroyStorage bool
 			if len(doc.Args) != 3 ||
+				!unmarshalStoredCleanupArg(doc.Args[0], &destroyStorage) ||
 				!unmarshalStoredCleanupArg(doc.Args[1], &force) ||
 				!unmarshalStoredCleanupArg(doc.Args[2], &cleanupMaxWait) {
 				continue
