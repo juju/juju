@@ -506,14 +506,12 @@ func (u *Unit) Destroy() error {
 func (u *Unit) DestroyWithForce(force bool, maxWait time.Duration) (errs []error, err error) {
 	op := u.DestroyOperation()
 	defer func() {
-		if err == nil {
-			// The document might actually be removed. Preserve a terminal
-			// lifecycle observed while retrying; otherwise keep the historical
-			// Dying approximation.
+		if op.unit.doc.Life == Dead {
+			u.doc.Life = Dead
+		} else if err == nil && op.lifecycleChanged {
+			// The document might actually be removed, so keep the historical
+			// Dying approximation in that case.
 			u.doc.Life = Dying
-			if op.unit.doc.Life == Dead {
-				u.doc.Life = Dead
-			}
 		}
 	}()
 	op.Force = force
@@ -544,12 +542,20 @@ type DestroyUnitOperation struct {
 
 	// Removed is true if the destroy operation removed the unit.
 	Removed bool
+
+	// lifecycleChanged is true if the operation changed or observed a
+	// terminal lifecycle for the unit.
+	lifecycleChanged bool
 }
 
 // Build is part of the ModelOperation interface.
 func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
+	op.Removed = false
+	op.lifecycleChanged = false
 	if attempt > 0 {
 		if err := op.unit.Refresh(); errors.IsNotFound(err) {
+			op.Removed = true
+			op.lifecycleChanged = true
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
@@ -577,16 +583,21 @@ func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
 // Done is part of the ModelOperation interface.
 func (op *DestroyUnitOperation) Done(err error) error {
 	if err != nil {
+		op.Removed = false
+		op.lifecycleChanged = false
 		if !op.Force {
 			return errors.Annotatef(err, "cannot destroy unit %q", op.unit)
 		}
 		op.AddError(errors.Errorf("force destroy unit %q proceeded despite encountering ERROR %v", op.unit, err))
+		return nil
 	}
-	if err := op.eraseHistory(); err != nil {
-		if !op.Force {
-			logger.Errorf("cannot delete history for unit %q: %v", op.unit.globalKey(), err)
+	if op.lifecycleChanged {
+		if err := eraseUnitHistory(op.unit, &op.ForcedOperation); err != nil {
+			if !op.Force {
+				logger.Errorf("cannot delete history for unit %q: %v", op.unit.globalKey(), err)
+			}
+			op.AddError(errors.Errorf("force erase unit's %q history proceeded despite encountering ERROR %v", op.unit.globalKey(), err))
 		}
-		op.AddError(errors.Errorf("force erase unit's %q history proceeded despite encountering ERROR %v", op.unit.globalKey(), err))
 	}
 	if op.Removed {
 		if err := deleteUnitSecrets(op.unit); err != nil {
@@ -599,21 +610,21 @@ func (op *DestroyUnitOperation) Done(err error) error {
 	return nil
 }
 
-func (op *DestroyUnitOperation) eraseHistory() error {
+func eraseUnitHistory(unit *Unit, op *ForcedOperation) error {
 	var stop <-chan struct{} // stop not used here yet.
-	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalKey()); err != nil {
+	if err := eraseStatusHistory(stop, unit.st, unit.globalKey()); err != nil {
 		one := errors.Annotate(err, "workload")
 		if op.FatalError(one) {
 			return one
 		}
 	}
-	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalAgentKey()); err != nil {
+	if err := eraseStatusHistory(stop, unit.st, unit.globalAgentKey()); err != nil {
 		one := errors.Annotate(err, "agent")
 		if op.FatalError(one) {
 			return one
 		}
 	}
-	if err := eraseStatusHistory(stop, op.unit.st, op.unit.globalWorkloadVersionKey()); err != nil {
+	if err := eraseStatusHistory(stop, unit.st, unit.globalWorkloadVersionKey()); err != nil {
 		one := errors.Annotate(err, "version")
 		if op.FatalError(one) {
 			return one
@@ -647,13 +658,12 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 		if !op.Force {
 			return nil, errAlreadyDying
 		}
-		removeOp := op.unit.RemoveOperation(op.Force)
+		removeOp := op.unit.RemoveOperation(true)
 		removeOp.MaxWait = op.MaxWait
 		ops, err := removeOp.removeOps()
 		op.AddError(removeOp.Errors...)
-		if err == nil {
-			op.Removed = true
-		}
+		op.Removed = removeOp.removed
+		op.lifecycleChanged = removeOp.removed
 		return ops, err
 	}
 	if op.unit.doc.Life != Alive {
@@ -717,6 +727,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 		if dyingErr != nil {
 			op.AddError(errors.Errorf("force destroying dying unit %v despite error %v", op.unit.Name(), dyingErr))
 		}
+		op.lifecycleChanged = true
 		ops := []txn.Op{setDyingOp, cleanupOp}
 		if minUnitsExists {
 			ops = append(ops, minUnitsOp)
@@ -799,8 +810,9 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	// When 'force' is set, this call will return some, if not all, needed operations.
 	// All operational errors encountered will be added to the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	op.Removed = true
 	removeOps, err := op.unit.removeOps(removeAsserts, &op.ForcedOperation, op.DestroyStorage)
+	op.Removed = err == nil
+	op.lifecycleChanged = op.Removed
 	if err == errAlreadyRemoved {
 		return nil, errAlreadyDying
 	} else if op.FatalError(err) {
@@ -1028,12 +1040,17 @@ type RemoveUnitOperation struct {
 
 	// unit holds the unit to remove.
 	unit *Unit
+
+	// removed is true if the remove operation removed the unit.
+	removed bool
 }
 
 // Build is part of the ModelOperation interface.
 func (op *RemoveUnitOperation) Build(attempt int) ([]txn.Op, error) {
+	op.removed = false
 	if attempt > 0 {
 		if err := op.unit.Refresh(); errors.IsNotFound(err) {
+			op.removed = true
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
@@ -1061,16 +1078,26 @@ func (op *RemoveUnitOperation) Build(attempt int) ([]txn.Op, error) {
 // Done is part of the ModelOperation interface.
 func (op *RemoveUnitOperation) Done(err error) error {
 	if err != nil {
+		op.removed = false
 		if !op.Force {
 			return errors.Annotatef(err, "cannot remove unit %q", op.unit)
 		}
 		op.AddError(errors.Errorf("force removing unit %q proceeded despite encountering ERROR %v", op.unit, err))
+		return nil
 	}
-	if err := deleteUnitSecrets(op.unit); err != nil {
-		if !op.Force {
-			logger.Errorf("cannot delete secrets for unit %q: %v", op.unit, err)
+	if op.removed {
+		if err := eraseUnitHistory(op.unit, &op.ForcedOperation); err != nil {
+			if !op.Force {
+				logger.Errorf("cannot delete history for unit %q: %v", op.unit.globalKey(), err)
+			}
+			op.AddError(errors.Errorf("force erase unit's %q history proceeded despite encountering ERROR %v", op.unit.globalKey(), err))
 		}
-		op.AddError(errors.Errorf("force delete unit %q secrets proceeded despite encountering ERROR %v", op.unit.globalKey(), err))
+		if err := deleteUnitSecrets(op.unit); err != nil {
+			if !op.Force {
+				logger.Errorf("cannot delete secrets for unit %q: %v", op.unit, err)
+			}
+			op.AddError(errors.Errorf("force delete unit %q secrets proceeded despite encountering ERROR %v", op.unit.globalKey(), err))
+		}
 	}
 	return nil
 }
@@ -1133,6 +1160,7 @@ func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 	// Now we're sure we haven't left any scopes occupied by this unit, we
 	// can safely remove the document.
 	unitRemoveOps, err := op.unit.removeOps(isDeadDoc, &op.ForcedOperation, false)
+	op.removed = err == nil
 	if op.FatalError(err) {
 		return nil, err
 	}

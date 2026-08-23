@@ -1695,17 +1695,14 @@ func (s *CleanupSuite) TestForceDestroyUnitDestroysSubordinates(c *gc.C) {
 	assertLifeIs(c, subordinate, state.Dead)
 	assertLifeIs(c, unit, state.Dying)
 
-	// forceRemoveUnit(logging/0) runs
-	s.assertNextCleanup(c, "forceRemoveUnit(logging/0)")
+	// The principal cleanup removes the now-dead subordinate and can then
+	// finish making the principal dead.
+	s.assertNextCleanup(c, "forceDestroyUnit(mysql/0)")
 	assertUnitRemoved(c, subordinate)
-
-	// Now forceDestroyUnit(mysql/0) can run successfully and make the unit dead
-	s.assertNextCleanup(c, "forceRemoveUnit(mysql/0)")
 	assertLifeIs(c, unit, state.Dead)
 
-	// forceRemoveUnit
-	s.assertNextCleanup(c, "forceRemoveUnit")
-
+	// forceRemoveUnit(mysql/0) removes the principal.
+	s.assertNextCleanup(c, "forceRemoveUnit(mysql/0)")
 	assertUnitRemoved(c, unit)
 	// After this there are two cleanups remaining: removedUnit, forceRemoveMachine.
 	s.assertCleanupCount(c, 2)
