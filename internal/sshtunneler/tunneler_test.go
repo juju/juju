@@ -169,6 +169,10 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *tc.C) {
 	tunnelRequested := make(chan struct{})
 
 	now := time.Now()
+	machineHostKey, err := test.InsecureKeyProfile()
+	c.Assert(err, tc.ErrorIsNil)
+	publicHostKey, err := gossh.NewPublicKey(machineHostKey.Public())
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.controller.EXPECT().LocalAddresses(gomock.Any(), gomock.Any()).Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
@@ -180,7 +184,8 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *tc.C) {
 			return nil
 		},
 	)
-	s.machines.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil)
+	s.machines.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		[]string{string(gossh.MarshalAuthorizedKey(publicHostKey))}, nil)
 	s.dialer.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("failed-to-connect"))
 	s.clock.EXPECT().Now().AnyTimes().Return(now)
 
@@ -223,6 +228,38 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *tc.C) {
 
 	c.Check(tunnelTracker.tracker, tc.HasLen, 0)
 	c.Check(mockConn.Bool.Load(), tc.Equals, true)
+}
+
+func (s *sshTunnelerSuite) TestMachineHostKeysWithRetry(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tunnelTracker := s.newTracker(c)
+	now := time.Now()
+	machineHostKey, err := test.InsecureKeyProfile()
+	c.Assert(err, tc.ErrorIsNil)
+	publicHostKey, err := gossh.NewPublicKey(machineHostKey.Public())
+	c.Assert(err, tc.ErrorIsNil)
+
+	var hostKeyCalls int
+	s.clock.EXPECT().Now().AnyTimes().Return(now)
+	s.clock.EXPECT().After(gomock.Any()).Return(time.After(1 * time.Nanosecond))
+	s.machines.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(context.Context, string, string) ([]string, error) {
+			if hostKeyCalls == 0 {
+				hostKeyCalls++
+				return []string{}, nil
+			}
+			return []string{string(gossh.MarshalAuthorizedKey(publicHostKey))}, nil
+		}).Times(2)
+
+	tunnelReqArgs := RequestArgs{
+		MachineID:        "0",
+		ControllerNodeID: "0",
+		ModelUUID:        "8419cd78-4993-4c3a-928e-c646226beeee",
+	}
+	hostKeys, err := tunnelTracker.machineHostKeysWithRetry(c.Context(), tunnelReqArgs)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hostKeys, tc.HasLen, 1)
 }
 
 func (s *sshTunnelerSuite) TestGenerateEphemeralSSHKey(c *tc.C) {
@@ -325,7 +362,6 @@ func (s *sshTunnelerSuite) TestRequestTunnelTimeout(c *tc.C) {
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
 	}, nil)
 	s.connRequests.EXPECT().InsertSSHConnRequest(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	s.machines.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil)
 
 	tunnelReqArgs := RequestArgs{
 		MachineID:        "0",
@@ -355,7 +391,6 @@ func (s *sshTunnelerSuite) TestRequestTunnelDeadline(c *tc.C) {
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
 	}, nil)
 	s.connRequests.EXPECT().InsertSSHConnRequest(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	s.machines.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil)
 
 	tunnelReqArgs := RequestArgs{
 		MachineID:        "0",
@@ -390,12 +425,6 @@ func (s *sshTunnelerSuite) TestInvalidMachineHostKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tunnelTracker := s.newTracker(c)
-
-	now := time.Now()
-	s.clock.EXPECT().Now().Times(1).Return(now)
-	s.controller.EXPECT().LocalAddresses(gomock.Any(), gomock.Any()).Return([]network.SpaceAddress{
-		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
-	}, nil)
 	s.machines.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{"fake-host-key"}, nil)
 
 	tunnelReqArgs := RequestArgs{
@@ -404,7 +433,7 @@ func (s *sshTunnelerSuite) TestInvalidMachineHostKey(c *tc.C) {
 		ModelUUID:        "8419cd78-4993-4c3a-928e-c646226beeee",
 	}
 
-	_, err := tunnelTracker.RequestTunnel(c.Context(), tunnelReqArgs)
+	_, err := tunnelTracker.machineHostKeys(c.Context(), tunnelReqArgs)
 	c.Assert(err, tc.ErrorMatches, "failed to parse machine host key: ssh: no key found")
 }
 

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/model"
@@ -24,7 +25,8 @@ import (
 )
 
 var (
-	maxTimeout = 60 * time.Second
+	maxTimeout           = 60 * time.Second
+	errNoMachineHostKeys = errors.New("no machine SSH host keys available")
 )
 
 const (
@@ -176,8 +178,8 @@ func (tt *Tracker) machineHostKeys(ctx context.Context, req RequestArgs) ([]goss
 
 // RequestTunnel requests a tunnel to a model specific unit.
 //
-// The returned tunnelRequest should be used to wait for the tunnel to be established.
-// See Wait() for more information.
+// Use context.WithTimeout to control the maximum time to wait for the tunnel
+// to be established.
 func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.Client, error) {
 	if req.MachineID == "" {
 		return nil, errors.NotValidf("empty MachineID")
@@ -218,11 +220,6 @@ func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.C
 		return nil, err
 	}
 
-	machineHostKeys, err := tt.machineHostKeys(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
 	// Make sure to use an unbuffered channel to ensure someone always
 	// has responsibility of the connection passed around.
 	connRecv := make(chan (net.Conn))
@@ -246,7 +243,7 @@ func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.C
 		return nil, err
 	}
 
-	return tt.wait(ctx, connRecv, privateKey, machineHostKeys)
+	return tt.wait(ctx, connRecv, privateKey, req)
 }
 
 func (tt *Tracker) add(tunnelID string, recv chan net.Conn) {
@@ -309,19 +306,16 @@ func (tt *Tracker) PushTunnel(ctx context.Context, tunnelID string, conn net.Con
 }
 
 // wait blocks until a TCP tunnel to the target unit is established.
-//
-// It is a mistake not to call Wait() after a successful call to RequestTunnel()
-// as this will leak resources in the tunnel tracker.
-// If the tunnel is no longer required, the caller should call Close() on the
-// returned client.
-//
-// Use context.WithTimeout to control the maximum time to wait for the tunnel
-// to be established.
-func (tt *Tracker) wait(ctx context.Context, recv chan (net.Conn), privateKey gossh.Signer, hostKeys []gossh.PublicKey) (*gossh.Client, error) {
+func (tt *Tracker) wait(ctx context.Context, recv chan (net.Conn), privateKey gossh.Signer, req RequestArgs) (*gossh.Client, error) {
 	select {
 	case conn := <-recv:
 		// We now have ownership of the connection, so we should close it
 		// if the SSH dial fails.
+		hostKeys, err := tt.machineHostKeysWithRetry(ctx, req)
+		if err != nil {
+			conn.Close()
+			return nil, err
+		}
 		sshClient, err := tt.dialer.Dial(conn, defaultUser, privateKey, useFixedHostKeys(hostKeys))
 		if err != nil {
 			conn.Close()
@@ -331,6 +325,34 @@ func (tt *Tracker) wait(ctx context.Context, recv chan (net.Conn), privateKey go
 	case <-ctx.Done():
 		return nil, errors.Annotate(ctx.Err(), "waiting for tunnel")
 	}
+}
+
+func (tt *Tracker) machineHostKeysWithRetry(ctx context.Context, req RequestArgs) ([]gossh.PublicKey, error) {
+	var hostKeys []gossh.PublicKey
+	strategy := retry.CallArgs{
+		Clock:    tt.clock,
+		Delay:    time.Second,
+		Attempts: -1,
+		Stop:     ctx.Done(),
+		Func: func() error {
+			var err error
+			hostKeys, err = tt.machineHostKeys(ctx, req)
+			if err != nil {
+				return err
+			}
+			if len(hostKeys) == 0 {
+				return errNoMachineHostKeys
+			}
+			return nil
+		},
+		IsFatalError: func(err error) bool {
+			return !errors.Is(err, errNoMachineHostKeys)
+		},
+	}
+	if err := retry.Call(strategy); err != nil {
+		return nil, errors.Annotate(err, "waiting for machine SSH host keys")
+	}
+	return hostKeys, nil
 }
 
 func useFixedHostKeys(keys []gossh.PublicKey) gossh.HostKeyCallback {
