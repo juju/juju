@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
-	relationerrors "github.com/juju/juju/domain/relation/errors"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/testing"
@@ -118,14 +117,6 @@ var errorTransformTests = []struct {
 	code:       params.CodeAlreadyExists,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeAlreadyExists,
-}, {
-	err:        relationerrors.RelationAlreadyExists,
-	code:       params.CodeAlreadyExists,
-	status:     http.StatusInternalServerError,
-	helperFunc: params.IsCodeAlreadyExists,
-	targetTester: func(e error) bool {
-		return errors.Is(e, errors.AlreadyExists)
-	},
 }, {
 	err:        apiservererrors.ErrUnknownWatcher,
 	code:       params.CodeNotFound,
@@ -236,14 +227,6 @@ var errorTransformTests = []struct {
 	code:       params.CodeQuotaLimitExceeded,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeQuotaLimitExceeded,
-}, {
-	err:        relationerrors.EndpointQuotaLimitExceeded,
-	code:       params.CodeQuotaLimitExceeded,
-	status:     http.StatusInternalServerError,
-	helperFunc: params.IsCodeQuotaLimitExceeded,
-	targetTester: func(e error) bool {
-		return errors.Is(e, errors.QuotaLimitExceeded)
-	},
 }, {
 	err:        errors.NotYetAvailable,
 	code:       params.CodeNotYetAvailable,

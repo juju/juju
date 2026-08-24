@@ -16,7 +16,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/upgrade"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	relationerrors "github.com/juju/juju/domain/relation/errors"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	interrors "github.com/juju/juju/internal/errors"
@@ -194,8 +193,6 @@ func ServerError(err error) *params.Error {
 		code = params.CodeModelNotFound
 	case errors.Is(err, errors.AlreadyExists):
 		code = params.CodeAlreadyExists
-	case errors.Is(err, relationerrors.RelationAlreadyExists):
-		code = params.CodeAlreadyExists
 	case errors.Is(err, secretbackenderrors.AlreadyExists):
 		code = params.CodeSecretBackendAlreadyExists
 	case errors.Is(err, errors.NotAssigned):
@@ -255,8 +252,6 @@ func ServerError(err error) *params.Error {
 			ControllerAlias: redirectError.ControllerAlias,
 		}.AsMap()
 	case errors.Is(err, errors.QuotaLimitExceeded):
-		code = params.CodeQuotaLimitExceeded
-	case errors.Is(err, relationerrors.EndpointQuotaLimitExceeded):
 		code = params.CodeQuotaLimitExceeded
 	case errors.Is(err, errors.NotYetAvailable):
 		code = params.CodeNotYetAvailable
