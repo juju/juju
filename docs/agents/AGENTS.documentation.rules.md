@@ -387,6 +387,22 @@ This provides readers with a complete path: concept → reference details → pr
 
 > **Future enhancement:** Consider using sphinx tags to enforce and validate these cross-reference patterns automatically.
 
+## Diagrams
+
+All diagrams in Juju docs must use **text-based, version-controlled formats** so they can be reviewed and diffed in pull requests. Never commit binary diagram images (`.png`, `.jpeg`) generated from a tool whose editable source is not in the repository -- the image cannot be reviewed or regenerated.
+
+### Diagram style guidelines
+
+Apply these rules to every diagram:
+
+- **One idea per diagram.** If a diagram becomes crowded, split it and use progressive disclosure: open a section with a simple overview diagram, then expand into focused sub-diagrams.
+- **Keep labels short and concrete.** Use real names where possible (`unit agent`, `controller`, `containeragent`) rather than generic boxes. Avoid jargon that is not defined in the surrounding text.
+- **Clarify direction.** Show the direction of data or control flow with labeled edges (`Juju API`, `hook commands`, `Pebble API`). Use solid lines for the primary path and dashed lines for the control/API path where helpful.
+- **Match the surrounding terminology.** Use the same names for components as the reference pages they point to.
+- **Provide an italic caption** under each diagram describing what it shows; this aids accessibility and search.
+- **Reuse across docs, don't duplicate.** If the same diagram would serve two pages, put it in one place and cross-reference it from the others.
+- **Use subgraphs to show boundaries directly.** Two databases, two processes, two deployment modes -- each gets its own subgraph. Never describe a boundary only in the caption while the diagram itself is flat.
+
 ## Architecture Documentation
 
 Architecture docs (in `docs/explanation/`) describe how a system is put together. The structure of an architecture doc should be **derivable from the codebase**, not chosen editorially. This means: before writing or restructuring an architecture doc, read the source artefacts (SQL schema files, package docs, worker entry points) and let their structure determine the doc's structure. A reader who inspects the same source files cold should arrive at the same organisation independently.
