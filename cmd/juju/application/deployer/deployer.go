@@ -244,8 +244,10 @@ func (d *factory) localCharmDeployer(ctx context.Context, getter ModelConfigGett
 	} else if errors.Cause(err) == zip.ErrFormat {
 		return nil, errors.Errorf("invalid charm or bundle provided at %q", d.charmOrBundle)
 	} else if errors.Is(err, errors.NotFound) {
-		hint := utils.SnapConfinementHintFromEnv(d.charmOrBundle)
-		return nil, errors.Errorf("charm or bundle at %q not found%s", d.charmOrBundle, hint)
+		return nil, utils.AnnotateWithSnapHint(
+			errors.Wrap(err, errors.NotFoundf("charm or bundle at %q", d.charmOrBundle)),
+			d.charmOrBundle,
+		)
 	} else if errors.Is(err, os.ErrNotExist) {
 		logger.Debugf(context.TODO(), "cannot interpret as local charm: %v", err)
 		return nil, nil
