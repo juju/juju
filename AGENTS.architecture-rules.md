@@ -66,8 +66,6 @@ Respect Juju layering. Never create new cross-layer dependencies.
 - When wrapping errors across layers, add identifying context such as entity
   UUIDs once at the highest useful layer. Keep state-layer `Errorf` messages
   generic to avoid repeated identifiers in the final error chain.
-- UUIDs for state-persisted entities should be created in the service layer
-  and pushed to the state layer as strings.
 - UUID parameters accepted by service-layer methods should use their typed form
   (e.g. `coremodel.UUID`) whenever such a type exists, and the service method
   must validate them (e.g. `modelUUID.Validate()`) before use.
