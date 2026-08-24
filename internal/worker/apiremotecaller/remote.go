@@ -430,8 +430,7 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) (api.Con
 			return nil
 		},
 		NotifyFunc: func(err error, attempt int) {
-			// This is normal behavior, so we don't need to log it as an error.
-			w.logger.Tracef(ctx, "failed to connect to %s attempt %d, with addresses %v: %v", w.controllerID, attempt, info.Addrs, err)
+			w.logger.Warningf(ctx, "failed to connect to %s attempt %d, with addresses %v: %v", w.controllerID, attempt, info.Addrs, err)
 		},
 		IsFatalError: func(err error) bool {
 			// This is the only legitimist error that can be returned from the
