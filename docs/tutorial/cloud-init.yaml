@@ -46,4 +46,4 @@ runcmd:
   sudo -u ubuntu mkdir -p /home/ubuntu/.kube
   microk8s config | sudo -u ubuntu tee /home/ubuntu/.kube/config > /dev/null
 
-final_message: "The system is finally up, after $UPTIME seconds"
+final_message: "microk8s is running after $UPTIME seconds"
