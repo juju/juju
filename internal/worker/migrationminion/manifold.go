@@ -92,7 +92,6 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	if err := getter.Get(config.FortressName, &guard); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	worker, err := config.NewWorker(Config{
 		Agent:                 agent,
 		Facade:                migrationminionapi.NewClient(apiCaller),
