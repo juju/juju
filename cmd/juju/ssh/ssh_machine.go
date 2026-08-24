@@ -230,7 +230,7 @@ func (c *sshMachine) ssh(ctx Context, enablePty bool, target *resolvedTarget) er
 }
 
 func (c *sshMachine) copy(ctx Context) error {
-	args, targets, err := c.expandSCPArgs(ctx, c.getArgs())
+	args, targets, err := expandSCPArgs(ctx, c.getArgs(), c.resolveTarget)
 	if err != nil {
 		return err
 	}
@@ -257,8 +257,8 @@ func (c *sshMachine) copy(ctx Context) error {
 // expandSCPArgs takes a list of arguments and looks for ones in the form of
 // 0:some/path or application/0:some/path, and translates them into
 // ubuntu@machine:some/path so they can be passed as arguments to scp, and pass
-// the rest verbatim on to scp
-func (c *sshMachine) expandSCPArgs(ctx context.Context, args []string) ([]string, []*resolvedTarget, error) {
+// the rest verbatim on to scp.
+func expandSCPArgs(ctx context.Context, args []string, resolveTarget func(context.Context, string) (*resolvedTarget, error)) ([]string, []*resolvedTarget, error) {
 	outArgs := make([]string, len(args))
 	var targets []*resolvedTarget
 	for i, arg := range args {
@@ -269,7 +269,7 @@ func (c *sshMachine) expandSCPArgs(ctx context.Context, args []string) ([]string
 			continue
 		}
 
-		target, err := c.resolveTarget(ctx, v[0])
+		target, err := resolveTarget(ctx, v[0])
 		if err != nil {
 			return nil, nil, err
 		}

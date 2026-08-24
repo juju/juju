@@ -16,6 +16,7 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -106,7 +107,7 @@ func (s *sshJumpSuite) TestResolveTargetPassesContainerForCAAS(c *tc.C) {
 	}, nil)
 
 	jump := sshJump{
-		modelType:            "caas",
+		modelType:            model.CAAS,
 		container:            container,
 		jumpServerHostKey:    s.hostKey,
 		sshClient:            s.sshAPIJump,
@@ -252,7 +253,7 @@ func (s *sshJumpSuite) TestCopyPinsAllTargetHostKeys(c *tc.C) {
 }
 
 func (s *sshJumpSuite) TestCopyRejectsCAASTarget(c *tc.C) {
-	jump := sshJump{modelType: "caas"}
+	jump := sshJump{modelType: model.CAAS}
 	c.Check(jump.copy(nil), tc.ErrorMatches, "--jump is not supported for scp to Kubernetes targets")
 }
 

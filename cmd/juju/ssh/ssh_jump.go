@@ -12,7 +12,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/retry"
@@ -164,6 +163,7 @@ func (p *sshJump) setArgs(args []string) {
 // resolveTarget resolves the target for the SSH jump provider into a virtual
 // hostname to be reached through the controller jump server.
 func (p *sshJump) resolveTarget(ctx context.Context, target string) (*resolvedTarget, error) {
+	user, target := splitUserTarget(target)
 	resolvedTargetName, err := p.maybeResolveLeaderUnit(ctx, target)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -201,14 +201,18 @@ func (p *sshJump) resolveTarget(ctx context.Context, target string) (*resolvedTa
 	if err := p.generateKnownHosts(address.Host(), virtualHostname, targetKeys.PublicKey); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &resolvedTarget{
+	resolved := &resolvedTarget{
 		user: finalDestinationUser,
 		host: virtualHostname,
 		via: &resolvedTarget{
 			user: p.jumpUser,
 			host: address.Host(),
 		},
-	}, nil
+	}
+	if user != "" {
+		resolved.user = user
+	}
+	return resolved, nil
 }
 
 // generateKnownHosts writes a temporary known_hosts file pinning the jump server
@@ -321,7 +325,7 @@ func (p *sshJump) copy(ctx Context) error {
 		return errors.New("--jump is not supported for scp to Kubernetes targets")
 	}
 
-	args, targets, err := p.expandSCPArgs(ctx, p.args)
+	args, targets, err := expandSCPArgs(ctx, p.args, p.resolveTarget)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -330,38 +334,6 @@ func (p *sshJump) copy(ctx Context) error {
 		return errors.Trace(err)
 	}
 	return ssh.Copy(args, options)
-}
-
-// expandSCPArgs resolves Juju SCP targets to virtual hostnames reachable via
-// the controller jump server and forwards all other arguments unchanged. For
-// example, it rewrites "mysql/0:/var/log/syslog" to
-// "ubuntu@<virtual-hostname>:/var/log/syslog".
-func (p *sshJump) expandSCPArgs(ctx context.Context, args []string) ([]string, []*resolvedTarget, error) {
-	outArgs := make([]string, len(args))
-	var targets []*resolvedTarget
-	for i, arg := range args {
-		parts := strings.SplitN(arg, ":", 2)
-		if strings.HasPrefix(arg, "-") || len(parts) <= 1 {
-			outArgs[i] = arg
-			continue
-		}
-
-		user, targetName := splitUserTarget(parts[0])
-		target, err := p.resolveTarget(ctx, targetName)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		if user != "" {
-			target.user = user
-		}
-		outArg := net.JoinHostPort(target.host, parts[1])
-		if target.user != "" {
-			outArg = target.user + "@" + outArg
-		}
-		outArgs[i] = outArg
-		targets = append(targets, target)
-	}
-	return outArgs, targets, nil
 }
 
 func (p *sshJump) setPublicKeyRetryStrategy(_ retry.CallArgs) {}

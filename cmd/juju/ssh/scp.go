@@ -180,9 +180,11 @@ func (c *scpCommand) Init(args []string) (err error) {
 	if c.modelType, err = c.ModelType(context.TODO()); err != nil {
 		return err
 	}
+	if c.jump && c.modelType == model.CAAS {
+		return errors.New("--jump is not supported for scp to Kubernetes targets")
+	}
 	if c.jump {
 		c.provider = &c.sshJump
-		c.sshJump.container = c.sshContainer.container
 	} else if c.modelType == model.CAAS {
 		c.provider = &c.sshContainer
 	} else {
