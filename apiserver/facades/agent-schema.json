@@ -960,10 +960,26 @@
     {
         "Name": "CAASAgent",
         "Description": "",
-        "Version": 2,
+        "Version": 3,
         "Schema": {
             "type": "object",
             "properties": {
+                "APIAddresses": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/StringsResult"
+                        }
+                    }
+                },
+                "APIHostPorts": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/APIHostPortsResult"
+                        }
+                    }
+                },
                 "CloudSpec": {
                     "type": "object",
                     "properties": {
@@ -1002,6 +1018,14 @@
                         }
                     }
                 },
+                "WatchAPIHostPorts": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResult"
+                        }
+                    }
+                },
                 "WatchCloudSpecsChanges": {
                     "type": "object",
                     "properties": {
@@ -1023,6 +1047,59 @@
                 }
             },
             "definitions": {
+                "APIHostPortsResult": {
+                    "type": "object",
+                    "properties": {
+                        "servers": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/HostPort"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "servers"
+                    ]
+                },
+                "Address": {
+                    "type": "object",
+                    "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
+                        "config-type": {
+                            "type": "string"
+                        },
+                        "is-secondary": {
+                            "type": "boolean"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "space-id": {
+                            "type": "string"
+                        },
+                        "space-name": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "value": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "value",
+                        "type",
+                        "scope"
+                    ]
+                },
                 "CloudCredential": {
                     "type": "object",
                     "properties": {
@@ -1223,6 +1300,49 @@
                         "code"
                     ]
                 },
+                "HostPort": {
+                    "type": "object",
+                    "properties": {
+                        "Address": {
+                            "$ref": "#/definitions/Address"
+                        },
+                        "cidr": {
+                            "type": "string"
+                        },
+                        "config-type": {
+                            "type": "string"
+                        },
+                        "is-secondary": {
+                            "type": "boolean"
+                        },
+                        "port": {
+                            "type": "integer"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "space-id": {
+                            "type": "string"
+                        },
+                        "space-name": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "value": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "value",
+                        "type",
+                        "scope",
+                        "Address",
+                        "port"
+                    ]
+                },
                 "ModelConfigResult": {
                     "type": "object",
                     "properties": {
@@ -1270,6 +1390,21 @@
                     "required": [
                         "results"
                     ]
+                },
+                "StringsResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
                 }
             }
         }
