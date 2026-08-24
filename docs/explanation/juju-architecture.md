@@ -122,7 +122,7 @@ See more: {ref}`secret`
 An external controller record stores the API addresses and CA certificate of a remote Juju controller. It is created when a cross-model integration -- where one model consumes an endpoint published by an application in a different model -- targets an offer on a controller other than the local one. This record is what allows the local controller to authenticate and connect to the remote one.
 
 ```{ibnote}
-See more: {ref}`cross-model-integration`
+See more: {ref}`manage-offers`
 ```
 
 (arch-datamodel-model)=
@@ -183,7 +183,7 @@ See more: {ref}`application`, {ref}`unit`, {ref}`machine`, {ref}`constraint`
 **Offer** -- A named set of application endpoints published for cross-model consumption (`offer`, `offer_endpoint`). When a consumer integrates with an offer, an `offer_connection` record is created on the offering side and a synthetic remote application (`application_remote_offerer`) is created on the consuming side.
 
 ```{ibnote}
-See more: {ref}`relation`, {ref}`cross-model-integration`
+See more: {ref}`relation`, {ref}`manage-offers`
 ```
 
 #### Runtime cluster
@@ -197,7 +197,7 @@ See more: {ref}`relation`, {ref}`cross-model-integration`
 **Resource** -- A runtime record of a versioned binary or file blob (`resource`, `application_resource`, `unit_resource`). Runtime instance of a declared charm resource. Can be refreshed independently of the charm revision.
 
 ```{ibnote}
-See more: {ref}`action`, {ref}`storage`, {ref}`secret`, {ref}`resource`
+See more: {ref}`action`, {ref}`storage`, {ref}`secret`, {ref}`charm-resource`
 ```
 
 #### Network cluster
@@ -209,7 +209,7 @@ See more: {ref}`action`, {ref}`storage`, {ref}`secret`, {ref}`resource`
 **Port range** -- A protocol and port range that a unit exposes (`port_range`), optionally scoped to a relation endpoint. Opened and closed by the charm via hook commands. Used to configure cloud firewall or security-group rules.
 
 ```{ibnote}
-See more: {ref}`space`, {ref}`expose-an-application`
+See more: {ref}`space`, {ref}`command-juju-expose`
 ```
 
 (arch-datamodel-charm)=
@@ -226,7 +226,7 @@ A charm is the software package that tells Juju how to install, configure, scale
 Charmhub is an external registry -- nothing about Charmhub is stored in Juju's databases. What the controller *does* store is the charm's origin: `charm_download_info` records the Charmhub identifier, download URL, and size so the deployment is reproducible and `juju refresh` can locate the newer revision.
 
 ```{ibnote}
-See more: {ref}`charm`, {ref}`charmhub`
+See more: {ref}`charm`, [Charmhub](https://charmhub.io)
 ```
 
 #### Status and configuration
