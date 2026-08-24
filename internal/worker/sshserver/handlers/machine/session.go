@@ -51,9 +51,6 @@ func setupShellOrCommand(userSession ssh.Session, machineSession *gossh.Session)
 	if err := machineSession.RequestPty(pty.Term, pty.Window.Height, pty.Window.Width, pty.Modes); err != nil {
 		return err
 	}
-	if err := machineSession.Shell(); err != nil {
-		return err
-	}
 
 	go func() {
 		for {
@@ -69,5 +66,9 @@ func setupShellOrCommand(userSession ssh.Session, machineSession *gossh.Session)
 			}
 		}
 	}()
-	return nil
+
+	if command := userSession.RawCommand(); command != "" {
+		return machineSession.Start(command)
+	}
+	return machineSession.Shell()
 }
