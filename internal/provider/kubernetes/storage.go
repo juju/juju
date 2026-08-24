@@ -856,7 +856,7 @@ func (v *filesystemSource) ImportFilesystem(
 
 	var importErr error
 	if force {
-		importErr = v.prepareFilesystemForImport(ctx, pv, storageName)
+		importErr = v.preparePersistentVolumeForForcedImport(ctx, pv, storageName)
 	} else {
 		importErr = validateImportPV(pv)
 	}
@@ -897,10 +897,19 @@ func validateImportPV(pv *core.PersistentVolume) error {
 	return nil
 }
 
-// prepareFilesystemForImport prepares a PersistentVolume for forced import.
-// The reclaim policy is changed before deleting the PVC so that Kubernetes does
-// not delete the PV when the PVC is removed.
-func (v *filesystemSource) prepareFilesystemForImport(
+// preparePersistentVolumeForForcedImport mutates a PersistentVolume so that
+// it can be adopted by Juju during a forced filesystem import. Specifically
+// it:
+//
+//   - patches the PV's reclaim policy to Retain (otherwise Kubernetes would
+//     delete the PV when its PVC is removed);
+//   - deletes the Juju-managed PVC that currently binds the PV;
+//   - clears the PV's claimRef so the PV is no longer claimed.
+//
+// It does NOT register or adopt the PV into the Juju storage registry; that
+// is the responsibility of the caller (ImportFilesystem), which then returns
+// the resulting filesystem metadata.
+func (v *filesystemSource) preparePersistentVolumeForForcedImport(
 	ctx context.Context, pv *core.PersistentVolume, storageName string,
 ) error {
 	logger.Debugf(ctx, "force importing PersistentVolume %q", pv.Name)
@@ -983,11 +992,6 @@ func (v *filesystemSource) makePersistentVolumeAvailable(
 		return nil
 	}
 
-	logger.Infof(
-		ctx,
-		"importing PersistentVolume %q is bound to PVC %s/%s, deleting PVC",
-		pv.Name, claimRef.Namespace, claimRef.Name,
-	)
 	if err := v.deletePVCIfJujuManaged(ctx, pv.Name, claimRef, storageName); err != nil {
 		return errors.Capture(err)
 	}
@@ -1020,8 +1024,8 @@ func (v *filesystemSource) deletePVCIfJujuManaged(
 	}
 	if _, labelErr := utils.MatchStorageMetaLabelVersion(pvc.ObjectMeta, storageName); labelErr != nil {
 		return errors.Errorf(
-			"%w: importing PersistentVolume %q whose PersistentVolumeClaim is not managed by juju",
-			labelErr, pvName,
+			"importing PersistentVolume %q whose PersistentVolumeClaim is not managed by juju: %w",
+			pvName, labelErr,
 		).Add(coreerrors.NotSupported)
 	}
 
@@ -1030,12 +1034,12 @@ func (v *filesystemSource) deletePVCIfJujuManaged(
 	})
 	if err != nil {
 		return errors.Errorf(
-			"failed to delete PVC %s/%s: %w",
+			"deleting PVC %s/%s: %w",
 			claimRef.Namespace, claimRef.Name, err,
 		)
 	}
 	logger.Infof(
-		ctx, "successfully deleted PVC %s/%s",
+		ctx, "deleted PVC %s/%s",
 		claimRef.Namespace, claimRef.Name,
 	)
 	return nil

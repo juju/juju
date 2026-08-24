@@ -649,7 +649,7 @@ func (s *storageSuite) TestImportFilesystemWithForceDeletePVCError(c *tc.C) {
 
 	_, err = fc.(storage.FilesystemImporter).ImportFilesystem(
 		c.Context(), fsId, "test-storage", make(map[string]string), true)
-	c.Check(err, tc.ErrorMatches, `failed to delete PVC .*\/my-pvc: failed to delete PVC my-pvc`)
+	c.Check(err, tc.ErrorMatches, `deleting PVC .*\/my-pvc: failed to delete PVC my-pvc`)
 }
 
 func (s *storageSuite) TestImportFilesystemWithForceClaimRefEmptyNamespace(c *tc.C) {
