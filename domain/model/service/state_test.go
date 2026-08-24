@@ -49,6 +49,17 @@ func (d *dummyState) CheckModelExists(ctx context.Context, uuid coremodel.UUID) 
 	return exists, nil
 }
 
+func (d *dummyState) GetModelConnectionInfo(ctx context.Context, uuid string) (model.ModelConnectionInfo, error) {
+	modelUUID := coremodel.UUID(uuid)
+	if m, exists := d.models[modelUUID]; exists {
+		return model.ModelConnectionInfo{ModelType: m.ModelType, Activated: true}, nil
+	}
+	if m, exists := d.nonActivatedModels[modelUUID]; exists {
+		return model.ModelConnectionInfo{ModelType: m.ModelType, Activated: false}, nil
+	}
+	return model.ModelConnectionInfo{}, modelerrors.NotFound
+}
+
 func (d *dummyState) ClearControllerImportingStatus(ctx context.Context, uuid coremodel.UUID) error {
 	// Stub implementation for testing
 	return nil

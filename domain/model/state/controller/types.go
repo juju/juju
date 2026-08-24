@@ -159,6 +159,15 @@ type dbModelType struct {
 	Type string `db:"type"`
 }
 
+// dbModelConnectionInfo contains the controller-side state that determines
+// whether the API server may accept connections for a model.
+type dbModelConnectionInfo struct {
+	Name           string `db:"name"`
+	ModelType      string `db:"model_type"`
+	Activated      bool   `db:"activated"`
+	HasImportClaim bool   `db:"has_import_claim"`
+}
+
 // dbUserModelSummary is summary of the information for a model from the
 // perspective of a user that has access to the model.
 type dbUserModelSummary struct {
