@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	_ "github.com/juju/juju/internal/provider/dummy"
+	"github.com/juju/juju/internal/snapstore"
 	corestorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -94,6 +95,17 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 func (s *bootstrapSuite) TearDownTest(c *tc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
+}
+
+// snapVersionReader returns a SnapVersionReader that returns the given raw
+// version for any snap path. The parsed value is derived via
+// snapstore.ParseSnapVersion, matching the real reader's behaviour.
+func (s *bootstrapSuite) snapVersionReader(c *tc.C, rawVersion string) func(context.Context, string) (string, semversion.Number, error) {
+	vers, err := snapstore.ParseSnapVersion(rawVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	return func(_ context.Context, _ string) (string, semversion.Number, error) {
+		return rawVersion, vers, nil
+	}
 }
 
 func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *tc.C) {
@@ -1021,13 +1033,9 @@ func (s *bootstrapSuite) TestBootstrapControllerCharmChannel(c *tc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapControllerSnapLocal(c *tc.C) {
-	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
+	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
 	err := os.WriteFile(snapPath, []byte("snap"), 0644)
 	c.Assert(err, tc.ErrorIsNil)
-
-	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
-		return fmt.Sprintf("version: %s -\n", jujuversion.Current.ToPatch().String()), nil
-	})
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
@@ -1039,6 +1047,7 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocal(c *tc.C) {
 			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			SupportedBootstrapBases: supportedJujuBases,
 			ControllerSnapPath:      snapPath,
+			SnapVersionReader:       s.snapVersionReader(c, jujuversion.Current.ToPatch().String()),
 		})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapExpectedVersion,
@@ -1051,14 +1060,10 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocal(c *tc.C) {
 
 func (s *bootstrapSuite) TestBootstrapControllerSnapLocalWithAssert(c *tc.C) {
 	dir := c.MkDir()
-	snapPath := filepath.Join(dir, "juju-controller.snap")
-	assertPath := filepath.Join(dir, "juju-controller.assert")
+	snapPath := filepath.Join(dir, "jujud.snap")
+	assertPath := filepath.Join(dir, "jujud.assert")
 	c.Assert(os.WriteFile(snapPath, []byte("snap"), 0644), tc.ErrorIsNil)
 	c.Assert(os.WriteFile(assertPath, []byte("assert"), 0644), tc.ErrorIsNil)
-
-	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
-		return fmt.Sprintf("version: %s -\n", jujuversion.Current.ToPatch().String()), nil
-	})
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
@@ -1071,6 +1076,7 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocalWithAssert(c *tc.C) {
 			SupportedBootstrapBases:  supportedJujuBases,
 			ControllerSnapPath:       snapPath,
 			ControllerSnapAssertPath: assertPath,
+			SnapVersionReader:        s.snapVersionReader(c, jujuversion.Current.ToPatch().String()),
 		})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapPath, tc.Equals, snapPath)
@@ -1080,9 +1086,9 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocalWithAssert(c *tc.C) {
 func (s *bootstrapSuite) TestBootstrapControllerSnapLatestFromSnapStore(c *tc.C) {
 	resolvedVersion := jujuversion.Current.ToPatch()
 	channel := fmt.Sprintf("%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor)
-	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
-		return fmt.Sprintf("%s: %s\n", channel, resolvedVersion.String()), nil
-	})
+
+	var gotChannel, gotArch string
+	var gotRevision int
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
@@ -1098,23 +1104,27 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLatestFromSnapStore(c *tc.C)
 				Track: fmt.Sprintf("%d.%d", jujuversion.Current.Major, jujuversion.Current.Minor),
 				Risk:  charm.Edge,
 			},
+			SnapStoreResolver: func(_ context.Context, _, _, arch, channel string, revision int) (string, int, error) {
+				gotChannel = channel
+				gotArch = arch
+				gotRevision = revision
+				return resolvedVersion.String(), 1234, nil
+			},
 		})
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapChannel, tc.Equals, channel)
+	c.Assert(gotChannel, tc.Equals, channel)
+	c.Assert(gotArch, tc.Equals, "amd64")
+	c.Assert(gotRevision, tc.Equals, 0)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapExpectedVersion, tc.Equals, resolvedVersion.String())
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapRevision, tc.Equals, 1234)
 }
 
-func (s *bootstrapSuite) TestBootstrapControllerSnapCandidateChannel(c *tc.C) {
+func (s *bootstrapSuite) TestBootstrapControllerSnapPinnedRevision(c *tc.C) {
 	resolvedVersion := jujuversion.Current.ToPatch()
-	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
-		return fmt.Sprintf(`
-  4.0/stable:    4.0.5             2026-03-26 (34378) 107MB -
-  4.0/candidate: %s                2026-04-28 (34852) 108MB -
-  4.0/beta:      ↑
-  4.0/edge:      4.0.10-e0c5d0b    2026-04-29 (34868) 108MB -
-`, resolvedVersion.String()), nil
-	})
+
+	var gotChannel string
+	var gotRevision int
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
@@ -1125,24 +1135,79 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapCandidateChannel(c *tc.C) {
 			CAPrivateKey:            coretesting.CAKey,
 			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			SupportedBootstrapBases: supportedJujuBases,
-			ControllerSnapChannel:   charm.Channel{Track: "4.0", Risk: charm.Candidate},
+			ControllerSnapRevision:  "42",
+			SnapStoreResolver: func(_ context.Context, _, _, _, channel string, revision int) (string, int, error) {
+				gotChannel = channel
+				gotRevision = revision
+				return resolvedVersion.String(), revision, nil
+			},
 		})
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapChannel, tc.Equals, "4.0/candidate")
+	c.Assert(gotChannel, tc.Equals, fmt.Sprintf("%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor))
+	c.Assert(gotRevision, tc.Equals, 42)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapExpectedVersion, tc.Equals, resolvedVersion.String())
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapRevision, tc.Equals, 42)
+}
+
+func (s *bootstrapSuite) TestBootstrapControllerSnapStoreResolveFails(c *tc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+			ControllerSnapChannel:   charm.Channel{Track: "4.0", Risk: charm.Candidate},
+			SnapStoreResolver: func(_ context.Context, _, _, _, _ string, _ int) (string, int, error) {
+				return "", 0, fmt.Errorf("store unreachable")
+			},
+		})
+	c.Assert(err, tc.NotNil)
+	c.Check(strings.Contains(err.Error(), "resolving controller snap in store"), tc.IsTrue)
+}
+
+func (s *bootstrapSuite) TestBootstrapControllerSnapDefaultStoreMode(c *tc.C) {
+	// Store mode with an empty channel/revision resolves the default
+	// <major>.<minor>/edge channel via the store client.
+	resolvedVersion := jujuversion.Current.ToPatch()
+	defaultChannel := fmt.Sprintf("%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor)
+
+	var gotChannel string
+	var gotRevision int
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+			ControllerSnapStoreMode: true,
+			SnapStoreResolver: func(_ context.Context, _, _, _, channel string, revision int) (string, int, error) {
+				gotChannel = channel
+				gotRevision = revision
+				return resolvedVersion.String(), 5678, nil
+			},
+		})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(gotChannel, tc.Equals, defaultChannel)
+	c.Assert(gotRevision, tc.Equals, 0)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapPath, tc.Equals, "")
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapRevision, tc.Equals, 5678)
 }
 
 func (s *bootstrapSuite) TestBootstrapControllerSnapLocalVersionCoupling(c *tc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 	snapVersion := jujuversion.Current.ToPatch()
-	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
+	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
 	err := os.WriteFile(snapPath, []byte("snap content"), 0644)
 	c.Assert(err, tc.ErrorIsNil)
-
-	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
-		return fmt.Sprintf("version: %s -\n", snapVersion.String()), nil
-	})
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	var capturedForceVersion semversion.Number
@@ -1154,6 +1219,7 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocalVersionCoupling(c *tc.C
 			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			SupportedBootstrapBases: supportedJujuBases,
 			ControllerSnapPath:      snapPath,
+			SnapVersionReader:       s.snapVersionReader(c, snapVersion.String()),
 			BuildAgent:              true,
 			BuildAgentTarball: func(build bool, _ string,
 				getForceVersion func(semversion.Number) semversion.Number,
@@ -1182,13 +1248,9 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocalVersionCoupling(c *tc.C
 
 func (s *bootstrapSuite) TestBootstrapControllerSnapLocalVersionMismatch(c *tc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
-	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
+	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
 	err := os.WriteFile(snapPath, []byte("snap content"), 0644)
 	c.Assert(err, tc.ErrorIsNil)
-
-	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
-		return fmt.Sprintf("version: 99.0.0 -\n"), nil
-	})
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err = bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), cmdtesting.Context(c)), env,
@@ -1199,6 +1261,7 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocalVersionMismatch(c *tc.C
 			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			SupportedBootstrapBases: supportedJujuBases,
 			ControllerSnapPath:      snapPath,
+			SnapVersionReader:       s.snapVersionReader(c, "99.0.0"),
 			BuildAgent:              true,
 			BuildAgentTarball: func(bool, string, func(semversion.Number) semversion.Number) (*sync.BuiltAgent, error) {
 				c.Fatal("should not call BuildAgentTarball when snap version is incompatible")

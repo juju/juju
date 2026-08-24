@@ -361,20 +361,6 @@ communicate with controllers.
 **Can be changed after bootstrap:** yes
 
 
-(controller-config-jujud-controller-snap-source)=
-## `jujud-controller-snap-source`
-
-`jujud-controller-snap-source` returns the source for the controller snap.
-Can be set to "legacy", "snapstore", "local" or "local-dangerous".
-Cannot be changed.
-
-**Type:** string
-
-**Default value:** local-dangerous
-
-**Can be changed after bootstrap:** no
-
-
 (controller-config-login-token-refresh-url)=
 ## `login-token-refresh-url`
 

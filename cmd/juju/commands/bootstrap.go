@@ -258,6 +258,8 @@ type bootstrapCommand struct {
 	ControllerSnapChannelStr string
 	ControllerSnapChannel    charm.Channel
 	ControllerSnapRevision   string
+	ControllerSnapStoreURL   string
+	ControllerSnapStoreMode  bool
 
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
@@ -393,9 +395,12 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ControllerSnapPath, "controller-snap-path", "", "Path to a locally built controller snap")
 	f.StringVar(&c.ControllerSnapAssertPath, "controller-snap-assert-path", "", "Path to a snap assertion file for the controller snap")
 	f.StringVar(&c.ControllerSnapChannelStr, "controller-snap-channel",
-		fmt.Sprintf("%d.%d/stable", jujuversion.Current.Major, jujuversion.Current.Minor),
-		"The channel to install the controller snap from (store installs; not used in local-snap mode)")
+		"",
+		"The channel to install the controller snap from"+
+			" (store installs; not used in local-snap mode; defaults to <major>.<minor>/edge)")
 	f.StringVar(&c.ControllerSnapRevision, "controller-snap-revision", "", "Controller snap revision (store installs; not used in local-snap mode)")
+	f.StringVar(&c.ControllerSnapStoreURL, "controller-snap-store-url", "",
+		"URL of the snap store the client uses to resolve the controller snap channel/revision (overrides the default)")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -458,8 +463,8 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		if err != nil {
 			return errors.NotValidf("controller snap revision %q is not a number", c.ControllerSnapRevision)
 		}
-		if rev < 0 {
-			return errors.NotValidf("controller snap revision %q is negative", c.ControllerSnapRevision)
+		if rev <= 0 {
+			return errors.NotValidf("controller snap revision %q is not a positive integer", c.ControllerSnapRevision)
 		}
 	}
 
@@ -477,6 +482,33 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	}
 	if c.AgentVersionParam != "" && c.BuildAgent {
 		return errors.New("--agent-version and --build-agent can't be used together")
+	}
+
+	// Controller-snap source-mode contract: a store mode (channel or revision)
+	// is mutually exclusive with a local snap path, and channel and revision
+	// are mutually exclusive. Store modes force --build-agent and reject an
+	// explicit --agent-version/--auto-upgrade bypass that would detach the
+	// locally built agent from the snap's resolved version.
+	isStoreMode := !c.ControllerSnapChannel.Empty() || c.ControllerSnapRevision != ""
+	if isStoreMode {
+		if c.ControllerSnapPath != "" {
+			return errors.New("--controller-snap-path cannot be used with --controller-snap-channel" +
+				" or --controller-snap-revision")
+		}
+		if c.BuildSnap {
+			return errors.New("--build-snap cannot be used with --controller-snap-channel or --controller-snap-revision")
+		}
+		if c.ControllerSnapRevision != "" && !c.ControllerSnapChannel.Empty() {
+			return errors.New("--controller-snap-channel and --controller-snap-revision cannot be used together")
+		}
+		if c.ControllerSnapAssertPath != "" {
+			return errors.New("--controller-snap-assert-path cannot be used with --controller-snap-channel" +
+				" or --controller-snap-revision")
+		}
+		if c.AgentVersionParam != "" || c.AutoUpgrade {
+			return errors.New("--agent-version and --auto-upgrade cannot be used with a store-based controller snap;" +
+				" use --build-agent to build the agent anchored to the snap version")
+		}
 	}
 
 	// Parse the placement directive. Bootstrap currently only
@@ -726,24 +758,43 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
+	if bootstrapCfg.bootstrap.ControllerServiceType != "" ||
+		bootstrapCfg.bootstrap.ControllerExternalName != "" ||
+		len(bootstrapCfg.bootstrap.ControllerExternalIPs) > 0 {
+		return errors.Errorf("%q, %q and %q\nare only allowed for kubernetes controllers",
+			bootstrap.ControllerServiceType, bootstrap.ControllerExternalName, bootstrap.ControllerExternalIPs)
+	}
+
 	if !isCAASController {
-		// TODO(ice): when --controller-snap-path is not explicitly provided,
-		// building the controller snap from local source is a temporary
-		// workaround. Once the jujud snap is published to the store, the default
-		// should resolve the snap from the store instead and this implicit build
-		// block should be removed.
-		if c.ControllerSnapPath == "" {
-			if !c.BuildSnap {
-				ctx.Warningf("building controller snap and agent from local source; " +
-					"this is temporary and will be replaced by store-based resolution in a future release")
-			}
-			c.BuildSnap = true
-		}
+		// An explicit local path takes precedence over --build-snap (both are
+		// local modes; this combination is permitted and the path wins).
 		if c.BuildSnap && c.ControllerSnapPath != "" {
 			c.BuildSnap = false
 			ctx.Warningf("ignoring --build-snap because --controller-snap-path is explicitly provided")
 		}
-		if c.BuildSnap {
+
+		// Determine the controller-snap source mode:
+		//   - local path:   --controller-snap-path
+		//   - local build:  --build-snap
+		//   - channel:      --controller-snap-channel
+		//   - pinned rev:   --controller-snap-revision
+		//   - default:      no snap source flag -> store channel mode,
+		//                    resolving the default <major>.<minor>/edge channel
+		isStoreMode := !c.ControllerSnapChannel.Empty() || c.ControllerSnapRevision != ""
+		isLocalBuild := c.BuildSnap
+		if !isStoreMode && !isLocalBuild && c.ControllerSnapPath == "" {
+			// No snap source flag was given: default to resolving the snap
+			// from the store's default channel.
+			isStoreMode = true
+		}
+
+		if isStoreMode {
+			c.ControllerSnapStoreMode = true
+			// TODO(ice): Store modes require --build-agent to anchor the locally built
+			// agent to the resolved snap version until machine agent with new
+			// binary name (jujuagentd) is released to simplestreams.
+			c.BuildAgent = true
+		} else if isLocalBuild {
 			ctx.Infof("Building controller snap from local source...")
 			builtPath, err := bootstrap.BuildControllerSnap(ctx, ctx.Stdout, ctx.Stderr)
 			if err != nil {
@@ -751,30 +802,17 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			}
 			c.ControllerSnapPath = builtPath
 			c.BuildAgent = true
-		}
-
-		if bootstrapCfg.bootstrap.ControllerServiceType != "" ||
-			bootstrapCfg.bootstrap.ControllerExternalName != "" ||
-			len(bootstrapCfg.bootstrap.ControllerExternalIPs) > 0 {
-			return errors.Errorf("%q, %q and %q\nare only allowed for kubernetes controllers",
-				bootstrap.ControllerServiceType, bootstrap.ControllerExternalName, bootstrap.ControllerExternalIPs)
-		}
-		// For non-CAAS (IAAS) bootstraps, a local controller snap path is
-		// mandatory. Bootstrap fails here, before provisioning, when the path is
-		// absent or unreadable.
-		if c.ControllerSnapPath == "" {
-			return errors.New("--controller-snap-path is required for IAAS bootstrap; " +
-				"build the snap with 'make jujud-snap-build' and supply the path")
-		}
-		if _, err := c.Filesystem().Stat(c.ControllerSnapPath); err != nil {
-			return errors.Annotatef(err, "--controller-snap-path %q cannot be read", c.ControllerSnapPath)
-		}
-		// --build-agent is mandatory when --controller-snap-path is supplied for
-		// IAAS bootstraps. It provides exact development-version coupling between
-		// the snap and the machine agent.
-		if !c.BuildAgent {
-			return errors.New("--build-agent is required when --controller-snap-path is supplied; " +
-				"it provides exact development-version coupling between the snap and the machine agent")
+		} else if c.ControllerSnapPath != "" {
+			if _, err := c.Filesystem().Stat(c.ControllerSnapPath); err != nil {
+				return errors.Annotatef(err, "--controller-snap-path %q cannot be read", c.ControllerSnapPath)
+			}
+			// --build-agent is mandatory when --controller-snap-path is supplied for
+			// IAAS bootstraps. It provides exact development-version coupling between
+			// the snap and the machine agent.
+			if !c.BuildAgent {
+				return errors.New("--build-agent is required when --controller-snap-path is supplied; " +
+					"it provides exact development-version coupling between the snap and the machine agent")
+			}
 		}
 	}
 
@@ -953,6 +991,8 @@ to create a new model to deploy %sworkloads.
 		ControllerSnapAssertPath:      c.ControllerSnapAssertPath,
 		ControllerSnapChannel:         c.ControllerSnapChannel,
 		ControllerSnapRevision:        c.ControllerSnapRevision,
+		ControllerSnapStoreURL:        c.ControllerSnapStoreURL,
+		ControllerSnapStoreMode:       c.ControllerSnapStoreMode,
 		DialOpts: environs.BootstrapDialOpts{
 			Timeout:        bootstrapCfg.bootstrap.BootstrapTimeout,
 			RetryDelay:     bootstrapCfg.bootstrap.BootstrapRetryDelay,

@@ -325,9 +325,6 @@ Controller configuration keys:
     juju-mgmt-space:
       type: string
       description: The network space that agents should use to communicate with controllers
-    jujud-controller-snap-source:
-      type: string
-      description: The source for the jujud-controller snap.
     login-token-refresh-url:
       type: string
       description: The url of the jwt well known endpoint
