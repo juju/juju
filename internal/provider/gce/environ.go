@@ -46,6 +46,8 @@ type ComputeService interface {
 	ListMachineTypes(ctx context.Context, zone string) ([]*computepb.MachineType, error)
 	// MachineType retrieves the machine type definition for the specified instance type.
 	MachineType(ctx context.Context, zone, instanceType string) (*computepb.MachineType, error)
+	// ImageByProject retrieves image metadata for the specified image in the specified project.
+	ImageByProject(ctx context.Context, project, image string) (*computepb.Image, error)
 
 	// Firewalls returns the firewalls with the given prefix.
 	Firewalls(ctx context.Context, prefix string) ([]*computepb.Firewall, error)

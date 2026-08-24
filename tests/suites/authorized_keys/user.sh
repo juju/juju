@@ -30,7 +30,7 @@ run_user_ssh_keys() {
 
 	# Import the ssh keys for wallyworld from Launchpad
 	juju import-ssh-key lp:wallyworld
-	check_contains "$(juju ssh-keys --full)" "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA4OrXnYsxashjP64y5heB1jCgCERz4cTExsqY6n1ANFXP8AlIxLYHx/g4EE1of/DQ0+uDtimQjJfhvwoglmNkOW4WdWQtaFr1qhMivtSDXEnXI7RZQue9xqH6B3u8yweMqMjqr5mLqJ5eY1HEoFtLBh3tHPHKNM62w/Eb2LLCD2JblbuHmFvLnwxGWNp0jMU69DE/bDvKtmOx4idXBGnqTImOCcDTaNy1srSEiJIprwYqJSOXO61pIs9COQVG1EOadqqvgBE0koITMFPPIWm4dBxbh2DREVFSZIz6DuwPwWXaNk8YqcGH5bU4Y7o6I0iUyVrKT4yG0AjMNc1BaEocGQ=="
+	check_contains "$(juju ssh-keys --full)" "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII+PcDps5vuJDL/7QD3UdBJ2EoxxdEqFxNILcShl2rWM"
 }
 
 test_user_ssh_keys() {

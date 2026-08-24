@@ -28,6 +28,7 @@ jobs:
       check-generate: ${{ steps.filter-files.outputs.check-generate }}
       check-docs: ${{ steps.filter-files.outputs.check-docs }}
       check-ddl: ${{ steps.filter-files.outputs.check-ddl }}
+      check-export-version: ${{ steps.filter-files.outputs.check-export-version }}
       check-smoke: ${{ steps.filter-files.outputs.check-smoke }}
       ref: ${{ steps.refs.outputs.head_ref }}
       base: ${{ steps.refs.outputs.base_ref }}
@@ -130,6 +131,12 @@ jobs:
               - 'internal/database/**'
               - 'generate/ddlgen/**'
               - '.github/workflows/ddl.yml'
+            check-export-version:
+              - 'domain/schema/model/sql/**'
+              - 'domain/export/**'
+              - 'domain/modelimport/**'
+              - 'generate/export/**'
+              - '.github/workflows/export-version.yml'
             check-smoke:
               - '**.go'
               - 'go.mod'
@@ -198,6 +205,12 @@ jobs:
     if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-ddl == 'true'
     uses: ./.github/workflows/ddl.yml
 
+  export-version:
+    needs: [changed-files]
+    name: Export Version
+    if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-export-version == 'true'
+    uses: ./.github/workflows/export-version.yml
+
   smoke:
     needs: [changed-files]
     name: Smoke
@@ -209,6 +222,7 @@ jobs:
       - build
       - snap
       - generate
+      - docs
       - client
       - migrate
       - ddl
@@ -230,6 +244,7 @@ jobs:
           if ${{ needs.build.result == 'success' || needs.build.result == 'skipped' }} \
               && ${{ needs.snap.result == 'success' || needs.snap.result == 'skipped' }} \
               && ${{ needs.generate.result == 'success' || needs.generate.result == 'skipped' }} \
+              && ${{ needs.docs.result == 'success' || needs.docs.result == 'skipped' }} \
               && ${{ needs.client.result == 'success' || needs.client.result == 'skipped' }} \
               && ${{ needs.migrate.result == 'success' || needs.migrate.result == 'skipped' }} \
               && ${{ needs.ddl.result == 'success' || needs.ddl.result == 'skipped' }} \

@@ -141,5 +141,8 @@ func (s *storageAttachmentWatcher) Wait() error {
 }
 
 func (s *storageAttachmentWatcher) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(s.catacomb.Context(context.Background()))
+	// Detach from the catacomb so a teardown of the worker tree does not
+	// cancel an in-flight storage read; the loop observes catacomb.Dying()
+	// directly for shutdown. Values are preserved, cancellation is dropped.
+	return context.WithCancel(context.WithoutCancel(s.catacomb.Context(context.Background())))
 }

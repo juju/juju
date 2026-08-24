@@ -108,6 +108,7 @@ type StorageInstance struct {
 	Status      status.StatusInfo
 	Attachments map[unit.Name]StorageAttachment
 	Name        string
+	Persistent  bool
 }
 
 // StorageAttachment represents the status of a storage attachment.

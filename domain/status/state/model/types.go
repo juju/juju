@@ -294,6 +294,7 @@ type storageInstanceStatusDetails struct {
 	VolumeStatusID            sql.Null[int]  `db:"volume_status_id"`
 	VolumeStatusMessage       string         `db:"volume_status_message"`
 	VolumeStatusUpdatedAt     *time.Time     `db:"volume_status_updated_at"`
+	Persistent                sql.NullBool   `db:"persistent"`
 }
 
 // storageAttachmentStatusDetails is used to retrieve all required

@@ -1466,6 +1466,7 @@ func processStorage(
 		details := params.StorageDetails{
 			StorageTag: names.NewStorageTag(v.ID).String(),
 			Life:       v.Life,
+			Persistent: v.Persistent,
 			Status: params.EntityStatus{
 				Status: v.Status.Status,
 				Info:   v.Status.Message,

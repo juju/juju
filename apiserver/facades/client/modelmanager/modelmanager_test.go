@@ -42,6 +42,7 @@ import (
 	domainmodel "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modeldefaults"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/provider/azure"
@@ -87,6 +88,16 @@ type stubExportService struct {
 
 func (s stubExportService) Export(context.Context) (*domainexport.ModelExport, error) {
 	return s.modelExport, s.err
+}
+
+type stubRemovalService struct {
+	err error
+}
+
+func (s stubRemovalService) RemoveModel(
+	context.Context, coremodel.UUID, bool, time.Duration,
+) (removal.UUID, error) {
+	return "", s.err
 }
 
 func (s *modelManagerSuite) setUpMocks(c *tc.C) *gomock.Controller {
@@ -137,12 +148,25 @@ func (s *modelManagerSuite) setUpAPI(c *tc.C) *gomock.Controller {
 }
 
 func (s *modelManagerSuite) setUpAPIWithUser(c *tc.C, user names.UserTag) *gomock.Controller {
+	return s.setUpAPIWithUserAndBlockChecker(c, user, nil)
+}
+
+func (s *modelManagerSuite) setUpAPIWithUserAndBlockChecker(
+	c *tc.C,
+	user names.UserTag,
+	blockChecker modelmanager.BlockCheckerGetter,
+) *gomock.Controller {
 	ctrl := s.setUpMocks(c)
 
 	s.authoriser.Tag = user
 	user, _ = s.authoriser.GetAuthTag().(names.UserTag)
 
 	cred := cloud.NewEmptyCredential()
+	if blockChecker == nil {
+		blockChecker = func(ctx context.Context, modelUUID coremodel.UUID) (common.BlockCheckerInterface, error) {
+			return common.NewBlockChecker(s.blockCommandService), nil
+		}
+	}
 	s.api = modelmanager.NewModelManagerAPI(
 		user.Name() == "admin",
 		user,
@@ -159,9 +183,7 @@ func (s *modelManagerSuite) setUpAPIWithUser(c *tc.C, user names.UserTag) *gomoc
 			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		func(ctx context.Context, modelUUID coremodel.UUID) (common.BlockCheckerInterface, error) {
-			return common.NewBlockChecker(s.blockCommandService), nil
-		},
+		blockChecker,
 		s.authoriser,
 	)
 
@@ -884,6 +906,134 @@ func (s *modelManagerSuite) TestModelInfoDBDeadTranslated(c *tc.C) {
 	c.Assert(results.Results[0].Result, tc.IsNil)
 	c.Assert(results.Results[0].Error, tc.NotNil)
 	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *modelManagerSuite) TestDestroyModelsBlockCheckerDBNotFoundTranslated(c *tc.C) {
+	ctrl := s.setUpAPIWithUserAndBlockChecker(
+		c,
+		jujutesting.AdminUser,
+		func(context.Context, coremodel.UUID) (common.BlockCheckerInterface, error) {
+			return nil, errors.Annotate(coredatabase.ErrDBNotFound, "invoking getDB")
+		},
+	)
+	defer ctrl.Finish()
+
+	_, modelTag := generateModelUUIDAndTag(c)
+	results, err := s.api.DestroyModels(c.Context(), params.DestroyModelsParams{
+		Models: []params.DestroyModelParams{{ModelTag: modelTag.String()}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.NotNil)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *modelManagerSuite) TestDestroyModelsDomainServicesNotFoundTranslated(c *tc.C) {
+	ctrl := s.setUpAPI(c)
+	defer ctrl.Finish()
+
+	modelUUID, modelTag := generateModelUUIDAndTag(c)
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(
+		gomock.Any(), gomock.Any(),
+	).Return("", blockcommanderrors.NotFound).AnyTimes()
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(
+		gomock.Any(), modelUUID,
+	).Return(nil, coredatabase.ErrDBNotFound)
+
+	results, err := s.api.DestroyModels(c.Context(), params.DestroyModelsParams{
+		Models: []params.DestroyModelParams{{ModelTag: modelTag.String()}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.NotNil)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *modelManagerSuite) TestDestroyModelsSucceeds(c *tc.C) {
+	ctrl := s.setUpAPI(c)
+	defer ctrl.Finish()
+
+	modelUUID, modelTag := generateModelUUIDAndTag(c)
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(
+		gomock.Any(), gomock.Any(),
+	).Return("", blockcommanderrors.NotFound).AnyTimes()
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(
+		gomock.Any(), modelUUID,
+	).Return(s.domainServices, nil)
+	s.domainServices.EXPECT().Removal().Return(stubRemovalService{})
+
+	results, err := s.api.DestroyModels(c.Context(), params.DestroyModelsParams{
+		Models: []params.DestroyModelParams{{ModelTag: modelTag.String()}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
+}
+
+func (s *modelManagerSuite) TestDestroyModelsRemovalDBNotFoundTranslated(c *tc.C) {
+	ctrl := s.setUpAPI(c)
+	defer ctrl.Finish()
+
+	modelUUID, modelTag := generateModelUUIDAndTag(c)
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(
+		gomock.Any(), gomock.Any(),
+	).Return("", blockcommanderrors.NotFound).AnyTimes()
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(
+		gomock.Any(), modelUUID,
+	).Return(s.domainServices, nil)
+	s.domainServices.EXPECT().Removal().Return(stubRemovalService{err: coredatabase.ErrDBNotFound})
+
+	results, err := s.api.DestroyModels(c.Context(), params.DestroyModelsParams{
+		Models: []params.DestroyModelParams{{ModelTag: modelTag.String()}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.NotNil)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *modelManagerSuite) TestDestroyModelsRemovalNotFoundIsIdempotent(c *tc.C) {
+	ctrl := s.setUpAPI(c)
+	defer ctrl.Finish()
+
+	modelUUID, modelTag := generateModelUUIDAndTag(c)
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(
+		gomock.Any(), gomock.Any(),
+	).Return("", blockcommanderrors.NotFound).AnyTimes()
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(
+		gomock.Any(), modelUUID,
+	).Return(s.domainServices, nil)
+	s.domainServices.EXPECT().Removal().Return(stubRemovalService{err: modelerrors.NotFound})
+
+	results, err := s.api.DestroyModels(c.Context(), params.DestroyModelsParams{
+		Models: []params.DestroyModelParams{{ModelTag: modelTag.String()}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
+}
+
+func (s *modelManagerSuite) TestDestroyModelsReturnsInternalRemovalError(c *tc.C) {
+	ctrl := s.setUpAPI(c)
+	defer ctrl.Finish()
+
+	modelUUID, modelTag := generateModelUUIDAndTag(c)
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(
+		gomock.Any(), gomock.Any(),
+	).Return("", blockcommanderrors.NotFound).AnyTimes()
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(
+		gomock.Any(), modelUUID,
+	).Return(s.domainServices, nil)
+	s.domainServices.EXPECT().Removal().Return(stubRemovalService{err: errors.New("removal failed")})
+
+	results, err := s.api.DestroyModels(c.Context(), params.DestroyModelsParams{
+		Models: []params.DestroyModelParams{{ModelTag: modelTag.String()}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.NotNil)
+	c.Check(results.Results[0].Error.Code, tc.Equals, "")
+	c.Check(results.Results[0].Error.Message, tc.Equals, "removing model \""+modelUUID.String()+"\": removal failed")
 }
 
 func (s *modelManagerSuite) TestChangeModelCredential(c *tc.C) {

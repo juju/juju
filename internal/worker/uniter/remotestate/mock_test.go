@@ -123,11 +123,6 @@ func (m *mockUniterClient) Charm(string) (api.Charm, error) {
 
 type mockCharm struct {
 	api.Charm
-	required bool
-}
-
-func (c *mockCharm) LXDProfileRequired(_ context.Context) (bool, error) {
-	return c.required, nil
 }
 
 func (m *mockUniterClient) Relation(_ context.Context, tag names.RelationTag) (api.Relation, error) {
@@ -239,10 +234,6 @@ func (u *mockUnit) Life() life.Value {
 	return u.life
 }
 
-func (u *mockUnit) LXDProfileName(_ context.Context) (string, error) {
-	return "", nil
-}
-
 func (u *mockUnit) Refresh(context.Context) error {
 	return nil
 }
@@ -293,10 +284,6 @@ func (u *mockUnit) WatchActionNotifications(_ context.Context) (watcher.StringsW
 
 func (u *mockUnit) WatchRelations(_ context.Context) (watcher.StringsWatcher, error) {
 	return u.relationsWatcher, nil
-}
-
-func (u *mockUnit) WatchInstanceData(_ context.Context) (watcher.NotifyWatcher, error) {
-	return nil, errors.NotSupportedf("LXD profiles are no longer supported; remove this watcher from uniter")
 }
 
 type mockApplication struct {

@@ -121,7 +121,6 @@ func (f *imageMetadataFetcher) FetchImageMetadata(
 			Arches:   constraint.Arches,
 			Stream:   constraint.Stream,
 		},
-		constraint.ImageID,
 	)
 	if err != nil {
 		return nil, errors.Errorf("building image constraint: %w", err)

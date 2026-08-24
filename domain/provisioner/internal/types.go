@@ -184,7 +184,4 @@ type ImageConstraint struct {
 
 	// Endpoint is the cloud endpoint URL.
 	Endpoint string
-
-	// ImageID is a specific image ID to match (optional).
-	ImageID *string
 }

@@ -48,15 +48,6 @@ func (s *suite) TestCharmInfo(c *tc.C) {
 				Description: "config-type option",
 			},
 		},
-		LXDProfile: &params.CharmLXDProfile{
-			Description: "LXDProfile",
-			Devices: map[string]map[string]string{
-				"tun": {
-					"path": "/dev/net/tun",
-					"type": "unix-char",
-				},
-			},
-		},
 		Meta: &params.CharmMeta{
 			Name:           "dummy",
 			Description:    "cockroachdb",
@@ -116,16 +107,6 @@ func (s *suite) TestCharmInfo(c *tc.C) {
 				"config": {
 					Type:        "type",
 					Description: "config-type option",
-				},
-			},
-		},
-		LXDProfile: &charm.LXDProfile{
-			Description: "LXDProfile",
-			Config:      map[string]string{},
-			Devices: map[string]map[string]string{
-				"tun": {
-					"path": "/dev/net/tun",
-					"type": "unix-char",
 				},
 			},
 		},

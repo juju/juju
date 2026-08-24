@@ -222,6 +222,11 @@ JOIN   architecture AS a ON a.id = ra.architecture_id
 // needed to validate imported relation-unit consistency before activation. Only
 // alive relations are returned: units legitimately depart a dying or dead
 // relation, so requiring membership there would report false inconsistencies.
+//
+// Relations with a cross-model relation endpoint are excluded: their
+// relation_unit rows are managed outside the standard relation domain and the
+// crossmodelrelation import deliberately does not create them, so membership
+// validation cannot apply.
 func (s *State) GetRelationValidationData(ctx context.Context) ([]modelmigrationinternal.RelationValidationData, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -229,9 +234,19 @@ func (s *State) GetRelationValidationData(ctx context.Context) ([]modelmigration
 	}
 
 	stmt, err := s.Prepare(`
+WITH cmr_relations AS (
+    SELECT DISTINCT re.relation_uuid
+    FROM   relation_endpoint AS re
+    JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+    JOIN   application AS a ON ae.application_uuid = a.uuid
+    JOIN   charm AS c ON a.charm_uuid = c.uuid
+    JOIN   charm_source AS cs ON c.source_id = cs.id
+    WHERE  cs.name = 'cmr'
+)
 SELECT (r.uuid, r.relation_id) AS (&relationValidationRow.*)
 FROM   relation AS r
 WHERE  r.life_id = 0
+AND    r.uuid NOT IN (SELECT relation_uuid FROM cmr_relations)
 `, relationValidationRow{})
 	if err != nil {
 		return nil, errors.Errorf("preparing relation validation data statement: %w", err)
@@ -284,8 +299,9 @@ const containerRelationScope = "container"
 // getRelationEndpoints returns the endpoint rows of every alive relation,
 // grouped by relation UUID and ordered by application name, used to build the
 // readable relation key for validation error messages and to decide which of an
-// application's units are expected in scope. Only alive relations are returned,
-// matching the relations [State.GetRelationValidationData] validates.
+// application's units are expected in scope. CMR filtering is not applied here
+// because the caller [State.GetRelationValidationData] already excludes CMR
+// relations, so only its relation UUIDs are looked up in this map.
 func (s *State) getRelationEndpoints(ctx context.Context) (map[string][]relationEndpointRow, error) {
 	db, err := s.DB(ctx)
 	if err != nil {

@@ -324,7 +324,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *tc.C) {
 			CloudSpec: simplestreams.CloudSpec{t.region, "ep"},
 			Releases:  []string{"12.04"},
 			Stream:    t.stream,
-		}, nil)
+		})
 		c.Assert(err, tc.ErrorIsNil)
 		dataSource := simplestreams.NewDataSource(simplestreams.Config{
 			Description:          "test",
@@ -369,12 +369,11 @@ func (s *imageSuite) TestFindInstanceSpec(c *tc.C) {
 }
 
 func (s *imageSuite) TestFindInstanceSpecWithImageID(c *tc.C) {
-	imageId := "ami-00000011"
 	cons, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "ep"},
 		Releases:  []string{"12.04"},
 		Arches:    []string{"amd64"},
-	}, &imageId)
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	dataSource := simplestreams.NewDataSource(simplestreams.Config{
@@ -407,7 +406,7 @@ func (s *imageSuite) TestFindInstanceSpecWithImageID(c *tc.C) {
 	}, instanceTypes)
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(spec.Image.Id, tc.Equals, imageId)
+	c.Assert(spec.Image.Id, tc.Equals, "ami-00000011")
 	c.Assert(spec.InstanceType, tc.DeepEquals, instanceTypes[0])
 }
 
@@ -425,7 +424,7 @@ func (s *imageSuite) TestFindInstanceSpecShouldChooseNonSEV(c *tc.C) {
 	cons, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"test", "ep"},
 		Releases:  []string{"12.04"},
-	}, nil)
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	dataSource := simplestreams.NewDataSource(simplestreams.Config{
 		Description:          "test",

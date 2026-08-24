@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
@@ -33,7 +32,6 @@ var logger = internallogger.GetLogger("juju.container.broker")
 type APICalls interface {
 	ContainerConfig(context.Context) (params.ContainerConfig, error)
 	PrepareContainerInterfaceInfo(context.Context, names.MachineTag) (corenetwork.InterfaceInfos, error)
-	GetContainerProfileInfo(context.Context, names.MachineTag) ([]*apiprovisioner.LXDProfileResult, error)
 	ReleaseContainerAddresses(context.Context, names.MachineTag) error
 	SetHostMachineNetworkConfig(context.Context, names.MachineTag, []params.NetworkConfig) error
 	HostChangesForContainer(context.Context, names.MachineTag) ([]network.DeviceToBridge, error)

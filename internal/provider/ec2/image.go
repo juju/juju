@@ -9,8 +9,10 @@ import (
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/errors"
 )
 
 // filterImages returns only that subset of the input (in the same order) that
@@ -76,4 +78,20 @@ func withDefaultNonControllerConstraints(cons constraints.Value) constraints.Val
 		cons.CpuPower = instances.CpuPower(100)
 	}
 	return cons
+}
+
+func (e *environ) resolveImageIDMetadata(
+	_ context.Context,
+	args environs.StartInstanceParams,
+) ([]*imagemetadata.ImageMetadata, error) {
+	arch, err := args.Tools.OneArch()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// TODO(wallyworld 2026-08-04): Resolve and validate image-id via DescribeImages.
+	return []*imagemetadata.ImageMetadata{{
+		Id:   *args.Constraints.ImageID,
+		Arch: arch,
+	}}, nil
 }
