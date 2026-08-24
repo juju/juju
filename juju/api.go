@@ -135,7 +135,7 @@ func NewAPIConnection(ctx context.Context, args NewAPIConnectionParams) (_ api.C
 		authTag != nil &&
 		args.AccountDetails.User != "" &&
 		args.AccountDetails.User != authTag.Id() {
-		logger.Debugf(context.TODO(), "rejecting API connection because authenticated user %q differs from expected user %q", authTag.Id(), args.AccountDetails.User)
+		logger.Debugf(ctx, "rejecting API connection because authenticated user %q differs from expected user %q", authTag.Id(), args.AccountDetails.User)
 		return nil, errors.Unauthorizedf("attempted login as %q for user %q", authTag.Id(), args.AccountDetails.User)
 	}
 

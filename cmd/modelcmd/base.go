@@ -250,11 +250,11 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 		param.DialOpts = *dialOpts
 	}
 	initialSessionToken := param.AccountDetails.SessionToken
-	logger.Debugf(context.TODO(), "opening API connection for controller %q and model %q using login provider %T (session token present: %t)",
+	logger.Debugf(ctx, "opening API connection for controller %q and model %q using login provider %T (session token present: %t)",
 		controllerName, modelName, param.DialOpts.LoginProvider, initialSessionToken != "")
 	conn, err := juju.NewAPIConnection(ctx, param)
 	refreshedSessionToken := param.AccountDetails.SessionToken != initialSessionToken
-	logger.Debugf(context.TODO(), "API connection result for controller %q and model %q (error: %v; session token refreshed: %t; refreshed token persistence requires a successful connection)",
+	logger.Debugf(ctx, "API connection result for controller %q and model %q (error: %v; session token refreshed: %t; refreshed session token persistence depends on connection success)",
 		controllerName, modelName, err, refreshedSessionToken)
 	if modelName != "" && params.ErrCode(err) == params.CodeModelNotFound {
 		return nil, c.missingModelError(store, controllerName, modelName)
