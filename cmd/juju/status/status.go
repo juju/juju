@@ -285,15 +285,19 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 	// Always attempt to get the status at least once, and retry if it fails.
 	status, err := c.getStatus(ctx, showStorage)
 	if err != nil && !modelcmd.IsModelMigratedError(err) {
+		attempts := c.retryCount + 1
+		logger.Debugf(context.TODO(), "status request attempt %d/%d failed (API client initialized: %t): %v", 1, attempts, c.statusAPI != nil, err)
 		for i := 0; i < c.retryCount; i++ {
 			// fun bit - make sure a new api connection is used for each new call
 			c.SetModelAPI(nil)
+			logger.Debugf(context.TODO(), "retrying status request, attempt %d/%d, after %s", i+2, attempts, c.retryDelay)
 			// Wait for a bit before retries.
 			<-c.clock.After(c.retryDelay)
 			status, err = c.getStatus(ctx, showStorage)
 			if err == nil || modelcmd.IsModelMigratedError(err) {
 				break
 			}
+			logger.Debugf(context.TODO(), "status request attempt %d/%d failed (API client initialized: %t): %v", i+2, attempts, c.statusAPI != nil, err)
 		}
 	}
 
