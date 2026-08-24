@@ -12,8 +12,10 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
+	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
+	"github.com/juju/juju/core/network"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -46,7 +48,8 @@ func (s *sshJumpSuite) setupMocks(c *tc.C) *gomock.Controller {
 // a reachable controller jump host is selected. The final destination user is
 // fixed to ubuntu.
 func (s *sshJumpSuite) TestResolveTarget(c *tc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	s.sshAPIJump.EXPECT().VirtualHostname(gomock.Any(), gomock.Any(), gomock.Any()).Return("resolved-target", nil)
 	s.sshAPIJump.EXPECT().PublicHostKeyForTarget(gomock.Any(), gomock.Any()).Return(params.PublicSSHHostKeyResult{
@@ -54,15 +57,19 @@ func (s *sshJumpSuite) TestResolveTarget(c *tc.C) {
 	}, nil)
 
 	controllerAddress := "1.0.0.1"
+	jumpServerHostKey, err := gossh.ParsePublicKey(s.hostKey)
+	c.Assert(err, tc.ErrorIsNil)
+	hostChecker := mocks.NewMockReachableChecker(ctrl)
+	hostChecker.EXPECT().FindHost(
+		network.NewMachineHostPorts(17022, "1.0.0.1", "1.0.0.2").HostPorts(),
+		[]string{string(gossh.MarshalAuthorizedKey(jumpServerHostKey))},
+	).Return(network.NewMachineHostPorts(17022, controllerAddress).HostPorts()[0], nil)
 	jump := sshJump{
-		jumpUser:             "fred",
-		jumpServerHostKey:    s.hostKey,
-		sshClient:            s.sshAPIJump,
-		controllersAddresses: []string{"1.0.0.1", "1.0.0.2"},
-		hostChecker: &fakeHostChecker{
-			acceptedAddresses: set.NewStrings("1.0.0.1"),
-			acceptedPort:      17022,
-		},
+		jumpUser:               "fred",
+		jumpServerHostKey:      s.hostKey,
+		sshClient:              s.sshAPIJump,
+		controllersAddresses:   []string{"1.0.0.1", "1.0.0.2"},
+		hostChecker:            hostChecker,
 		publicKeyRetryStrategy: baseTestingRetryStrategy,
 		jumpHostPort:           17022,
 	}
@@ -77,7 +84,6 @@ func (s *sshJumpSuite) TestResolveTarget(c *tc.C) {
 			host: controllerAddress,
 		},
 	})
-
 	// A known_hosts file pinning both the jump server and target keys is
 	// written.
 	c.Assert(jump.knownHostsPath, tc.Not(tc.Equals), "")

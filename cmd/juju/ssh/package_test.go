@@ -4,4 +4,5 @@
 package ssh_test
 
 //go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/cmd/juju/ssh Context,LeaderAPI,SSHClientAPI,SSHAPIJump,SSHControllerAPI,StatusClientAPI,CloudCredentialAPI,ApplicationAPI,CharmAPI,ModelCommand
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/reachable_checker_mock.go github.com/juju/juju/internal/network/ssh ReachableChecker
 //go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/k8s_exec_mock.go github.com/juju/juju/internal/provider/kubernetes/exec Executor

@@ -189,7 +189,11 @@ func (p *sshJump) resolveTarget(ctx context.Context, target string) (*resolvedTa
 	// whose host key matches the controller key. The proxy command can then use
 	// that verified endpoint directly.
 	availableAddresses := network.NewMachineHostPorts(p.jumpHostPort, p.controllersAddresses...).HostPorts()
-	address, err := p.hostChecker.FindHost(availableAddresses, []string{string(p.jumpServerHostKey)})
+	jumpServerHostKey, err := gossh.ParsePublicKey(p.jumpServerHostKey)
+	if err != nil {
+		return nil, errors.Annotate(err, "parsing controller SSH server host key")
+	}
+	address, err := p.hostChecker.FindHost(availableAddresses, []string{string(gossh.MarshalAuthorizedKey(jumpServerHostKey))})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
