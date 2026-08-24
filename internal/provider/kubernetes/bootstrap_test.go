@@ -293,6 +293,21 @@ func (s *bootstrapSuite) TestGetControllerSvcSpec(c *tc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
+	s.testBootstrap(c, true)
+}
+
+func (s *bootstrapSuite) TestBootstrapServiceLinksDisabled(c *tc.C) {
+	s.testBootstrap(c, false)
+}
+
+func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
+	cfg, err := s.cfg.Apply(coretesting.Attrs{
+		kubernetes.EnableServiceLinksKey: enableServiceLinks,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	s.cfg = cfg
+	s.pcfg.Bootstrap.ControllerModelConfig = cfg
+
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestWatcher()
 	eventWatcher, _ := k8swatchertest.NewKubernetesTestWatcher()
 	<-podWatcher.Changes()
@@ -312,7 +327,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 	// Eventually the namespace wil be set to controllerName.
 	// So we have to specify the final namespace(controllerName) for later use.
 	newK8sClientFunc, newK8sRestClientFunc := s.setupK8sRestClient(c, s.pcfg.ControllerName)
-	_, err := s.mockNamespaces.Get(c.Context(), s.namespace, v1.GetOptions{})
+	_, err = s.mockNamespaces.Get(c.Context(), s.namespace, v1.GetOptions{})
 	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 
 	var bootstrapWatchers []k8swatcher.KubernetesNotifyWatcher
@@ -506,6 +521,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 					ServiceAccountName:            "controller",
 					AutomountServiceAccountToken:  pointer.Bool(true),
 					TerminationGracePeriodSeconds: new(int64(30)),
+					EnableServiceLinks:            pointer.Bool(enableServiceLinks),
 					SecurityContext: &core.PodSecurityContext{
 						SupplementalGroups: []int64{170},
 						FSGroup:            pointer.Int64(170),

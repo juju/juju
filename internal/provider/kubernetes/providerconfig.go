@@ -13,7 +13,17 @@ import (
 	"github.com/juju/juju/internal/configschema"
 )
 
-var configSchema = configschema.Fields{}
+// EnableServiceLinksKey is the model config key that controls whether the
+// Kubernetes service link environment variables are injected into workload
+// pods. It defaults to true, matching the Kubernetes default behaviour.
+const EnableServiceLinksKey = "enable-service-links"
+
+var configSchema = configschema.Fields{
+	EnableServiceLinksKey: {
+		Type:        configschema.Tbool,
+		Description: "Whether to inject the Kubernetes service link environment variables into workload pods.",
+	},
+}
 
 var providerConfigFields = func() schema.Fields {
 	fs, _, err := configSchema.ValidationSchema()
@@ -23,11 +33,24 @@ var providerConfigFields = func() schema.Fields {
 	return fs
 }()
 
-var providerConfigDefaults = schema.Defaults{}
+var providerConfigDefaults = schema.Defaults{
+	EnableServiceLinksKey: schema.Omit,
+}
 
 type brokerConfig struct {
 	*config.Config
 	attrs map[string]any
+}
+
+// enableServiceLinksFromConfig returns the enable-service-links value from
+// the supplied model configuration, defaulting to true.
+func enableServiceLinksFromConfig(cfg *config.Config) bool {
+	if v, ok := cfg.AllAttrs()[EnableServiceLinksKey]; ok {
+		if b, ok := v.(bool); ok {
+			return b
+		}
+	}
+	return true
 }
 
 func (p kubernetesEnvironProvider) Validate(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
@@ -70,7 +93,9 @@ func (p kubernetesEnvironProvider) ConfigDefaults() schema.Defaults {
 // ModelConfigDefaults provides a set of default model config attributes that
 // should be set on a models config if they have not been specified by the user.
 func (p kubernetesEnvironProvider) ModelConfigDefaults(_ context.Context) (map[string]any, error) {
-	return map[string]any{}, nil
+	return map[string]any{
+		EnableServiceLinksKey: true,
+	}, nil
 }
 
 func validateConfig(ctx context.Context, cfg, old *config.Config) (*brokerConfig, error) {

@@ -239,6 +239,22 @@ func (s *K8sBrokerSuite) TestSetConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *K8sBrokerSuite) TestApplicationServiceLinksDisabled(c *tc.C) {
+	cfg, err := s.cfg.Apply(testing.Attrs{
+		kubernetes.EnableServiceLinksKey: false,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	s.cfg = cfg
+
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	app := s.broker.Application("test", caas.DeploymentStateful)
+	podSpec, err := app.ApplicationPodSpec(caas.ApplicationConfig{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(podSpec.EnableServiceLinks, tc.DeepEquals, pointer.Bool(false))
+}
+
 func (s *K8sBrokerSuite) TestBootstrapNoWorkloadStorage(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
