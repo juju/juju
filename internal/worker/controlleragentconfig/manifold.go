@@ -91,6 +91,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				SocketName:        config.SocketName,
 			})
 			if err != nil {
+				config.Logger.Warningf(ctx,
+					"controller agent config socket listener failed to start on %q, dependents will not start: %v",
+					config.SocketName, err)
 				return nil, errors.Trace(err)
 			}
 

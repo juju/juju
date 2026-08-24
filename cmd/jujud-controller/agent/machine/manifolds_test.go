@@ -364,7 +364,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 	controllerWorkers := set.NewStrings(
 		"api-remote-caller",
 		"certificate-watcher",
-		"controller-agent-config",
 		"controller-proxy-config-updater",
 		"controller-proxy-ready-flag",
 		"controller-proxy-ready-gate",
@@ -909,8 +908,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"controller-agent-config": {
 		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
 	},
 
 	"controller-agent-config-ready-gate": {},
@@ -2078,8 +2075,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"controller-agent-config": {
 		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
 	},
 
 	"controller-agent-config-ready-gate": {},

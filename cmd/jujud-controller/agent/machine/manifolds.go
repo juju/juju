@@ -175,9 +175,9 @@ type ManifoldsConfig struct {
 
 	// ControllerAgentConfigReadyLock is passed to the controller agent
 	// config ready gate to coordinate the deployer with the
-	// controlleragentconfig worker. On controller machines the deployer
-	// must not start until the configchange.socket exists; on
-	// non-controller machines the caller pre-unlocks this lock.
+	// controlleragentconfig worker. The controlleragentconfig worker runs
+	// on every machine and unlocks this lock once the configchange.socket
+	// is serving, so the deployer never starts before the socket exists.
 	ControllerAgentConfigReadyLock gate.Lock
 
 	// NewDBWorkerFunc returns a tracked db worker.
@@ -336,8 +336,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// controllerAgentConfigReadyGateName/FlagName coordinate the deployer
 		// with the controlleragentconfig worker. The deployer must not start
-		// on controller machines until the configchange.socket is available.
-		// On non-controller machines the lock is pre-unlocked by the caller.
+		// until the configchange.socket is available. The lock is unlocked by
+		// the controlleragentconfig worker on every machine, so the deployer
+		// always waits for the socket, regardless of controller status.
 		controllerAgentConfigReadyGateName: gate.ManifoldEx(config.ControllerAgentConfigReadyLock),
 		controllerAgentConfigReadyFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
 			GateName:  controllerAgentConfigReadyGateName,
@@ -362,15 +363,20 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		isControllerFlagName: util.IsControllerFlagManifold(stateConfigWatcherName, true),
 
 		// Controller agent config manifold watches the controller
-		// agent config and bounces if it changes.
-		controllerAgentConfigName: ifController(controlleragentconfig.Manifold(controlleragentconfig.ManifoldConfig{
+		// agent config and bounces if it changes. It deliberately runs
+		// on every machine (not just controllers) so that it creates
+		// configchange.socket and unlocks controllerAgentConfigReadyLock
+		// before the deployer starts. A machine may be promoted to a
+		// controller later, and the controller charm's install hook
+		// connects to that socket, so it must already exist.
+		controllerAgentConfigName: controlleragentconfig.Manifold(controlleragentconfig.ManifoldConfig{
 			AgentName:         agentName,
 			Clock:             config.Clock,
 			Logger:            internallogger.GetLogger("juju.worker.controlleragentconfig"),
 			NewSocketListener: controlleragentconfig.NewSocketListener,
 			SocketName:        path.Join(agentConfig.DataDir(), "configchange.socket"),
 			ReadyUnlocker:     config.ControllerAgentConfigReadyLock,
-		})),
+		}),
 
 		// The stateconfigwatcher manifold watches the machine agent's
 		// configuration and reports if state serving info is
@@ -1143,11 +1149,10 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The deployer worker is primarily for deploying and recalling unit
 		// agents, according to changes in a set of state units; and for the
 		// final removal of its agents' units from state when they are no
-		// longer needed. On controller machines it must also wait until the
-		// controlleragentconfig socket is ready (controllerAgentConfigReadyFlag)
-		// so the controller charm's install hook can reach the socket. On
-		// non-controller machines that flag is pre-unlocked.
-		deployerName: ifControllerAgentConfigNeededAndReady(ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
+		// longer needed. It must wait until the controlleragentconfig socket
+		// is ready (controllerAgentConfigReadyFlag) so that the controller
+		// charm's install hook (on a promoted machine) can reach the socket.
+		deployerName: ifControllerAgentConfigReady(ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
 			AgentName:      agentName,
 			APICallerName:  apiCallerName,
 			FlightRecorder: config.FlightRecorder,
@@ -1417,18 +1422,16 @@ var ifControllerProxyReady = engine.Housing{
 	},
 }.Decorate
 
-// ifControllerAgentConfigNeededAndReady gates a manifold on two conditions:
-// "needed"  — the machine is a controller, so configchange.socket must exist
-//
-//	before the gated worker starts (e.g. the controller charm's
-//	install hook connects to it); on non-controller machines the gate
-//	lock is pre-unlocked by the caller, making this a no-op there.
-//
-// "ready"   — the controlleragentconfig worker has started its socket listener,
-//
-//	meaning configchange.socket is on disk (created synchronously
-//	inside NewWorker before the manifold reports as running).
-var ifControllerAgentConfigNeededAndReady = engine.Housing{
+// ifControllerAgentConfigReady gates a manifold on the configchange.socket
+// being ready. The gated worker must not start before the socket exists on
+// disk (e.g. the controller charm's install hook connects to it). The
+// controlleragentconfig manifold is not gated on ifController, so the socket
+// is created on every machine and the lock is unlocked by that worker,
+// meaning gated workers always wait for the socket regardless of controller
+// status. "ready" means the controlleragentconfig worker has started its socket
+// listener, i.e. configchange.socket is on disk (created synchronously inside
+// NewWorker before the manifold reports as running).
+var ifControllerAgentConfigReady = engine.Housing{
 	Flags: []string{
 		controllerAgentConfigReadyFlagName,
 	},
