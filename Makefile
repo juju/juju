@@ -87,6 +87,8 @@ JUJUD_SNAP_ARCH := $(patsubst ppc64le,ppc64el,$(GOARCH))
 JUJUD_SNAP_VERSION = $(shell sed -n 's/^version: *//p' ${SNAPS_DIR}/jujud/snapcraft.yaml | tr -d '"')
 JUJUD_SNAP_NAME = jujud_$(JUJUD_SNAP_VERSION)_$(JUJUD_SNAP_ARCH).snap
 JUJUD_SNAP_PATH = ${SNAP_BUILD_DIR}/${JUJUD_SNAP_NAME}
+JUJU_SNAP_VERSION = $(shell sed -n 's/^version: *//p' ${SNAPS_DIR}/juju/snapcraft.yaml | tr -d '"')
+JUJU_SNAP_NAME = juju_$(JUJU_SNAP_VERSION)_$(JUJUD_SNAP_ARCH).snap
 
 # Build tags passed to go install/build.
 # Passing no-dqlite will disable building with dqlite.
@@ -621,14 +623,16 @@ juju-snap:
 ## juju-snap: Build the juju snap from snaps/juju/
 	$(call snap_stage,juju)
 	mkdir -p ${SNAP_BUILD_DIR}
-	snapcraft pack --use-lxd --output ${SNAP_BUILD_DIR}
+	snapcraft pack --use-lxd
+	mv ${JUJU_SNAP_NAME} ${SNAP_BUILD_DIR}/
 
 .PHONY: jujud-snap
 jujud-snap:
 ## jujud-snap: Build the jujud controller snap from snaps/jujud/
 	$(call snap_stage,jujud)
 	mkdir -p ${SNAP_BUILD_DIR}
-	snapcraft pack --use-lxd --output ${SNAP_BUILD_DIR}
+	snapcraft pack --use-lxd
+	mv ${JUJUD_SNAP_NAME} ${SNAP_BUILD_DIR}/
 
 .PHONY: jujud-snap-build
 jujud-snap-build:
@@ -654,10 +658,14 @@ jujud-snap-build:
 		if [ "$$(cat ${JUJUD_SNAP_PATCH_DIR}/.rc 2>/dev/null)" != 0 ]; then \
 			cat ${JUJUD_SNAP_PATCH_LOG}; exit 1; \
 		fi; \
-		if $(MAKE) --no-print-directory jujud >> ${JUJUD_SNAP_PATCH_LOG} 2>&1; then \
-			sha256sum "${GO_INSTALL_PATH}/jujud" | cut -d' ' -f1 \
-				> ${JUJUD_SNAP_PATCH_DIR}/.jujud.sha256; \
+		$(MAKE) --no-print-directory jujud >> ${JUJUD_SNAP_PATCH_LOG} 2>&1 \
+			|| { cat ${JUJUD_SNAP_PATCH_LOG}; exit 1; }; \
+		if [ ! -f "$$BASE_SNAP" ]; then \
+			echo "ERROR: expected snap artifact not found at $$BASE_SNAP."; \
+			exit 1; \
 		fi; \
+		sha256sum "${GO_INSTALL_PATH}/jujud" | cut -d' ' -f1 \
+			> ${JUJUD_SNAP_PATCH_DIR}/.jujud.sha256; \
 		echo "Built snap: $$BASE_SNAP"; \
 	fi
 
@@ -926,4 +934,3 @@ docs-%:
 ## docs-run: Build and serve the documentation
 ## docs-clean: Clean the docs build artifacts
 	cd docs && $(MAKE) -f Makefile $* ALLFILES='*.md **/*.md'
-
