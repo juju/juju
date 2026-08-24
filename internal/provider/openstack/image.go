@@ -4,9 +4,12 @@
 package openstack
 
 import (
+	"context"
+
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 )
@@ -95,4 +98,20 @@ func findInstanceSpec(
 		spec.InstanceType.VirtType = &spec.Image.VirtType
 	}
 	return spec, nil
+}
+
+func (e *Environ) resolveImageIDMetadata(
+	_ context.Context,
+	args environs.StartInstanceParams,
+) ([]*imagemetadata.ImageMetadata, error) {
+	arch, err := args.Tools.OneArch()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// TODO(wallyworld 2026-08-04): Resolve and validate image-id via Glance API.
+	return []*imagemetadata.ImageMetadata{{
+		Id:   *args.Constraints.ImageID,
+		Arch: arch,
+	}}, nil
 }

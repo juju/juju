@@ -32,6 +32,8 @@ type MockAdmissionregistrationV1Interface struct {
 // MockAdmissionregistrationV1InterfaceMockRecorder is the mock recorder for MockAdmissionregistrationV1Interface.
 type MockAdmissionregistrationV1InterfaceMockRecorder struct {
 	mock                                     *MockAdmissionregistrationV1Interface
+	mutatingAdmissionPoliciesExpects         []*gomock.Call0_1[v12.MutatingAdmissionPolicyInterface]
+	mutatingAdmissionPolicyBindingsExpects   []*gomock.Call0_1[v12.MutatingAdmissionPolicyBindingInterface]
 	mutatingWebhookConfigurationsExpects     []*gomock.Call0_1[v12.MutatingWebhookConfigurationInterface]
 	rESTClientExpects                        []*gomock.Call0_1[rest.Interface]
 	validatingAdmissionPoliciesExpects       []*gomock.Call0_1[v12.ValidatingAdmissionPolicyInterface]
@@ -50,6 +52,42 @@ func NewMockAdmissionregistrationV1Interface(ctrl *gomock.Controller) *MockAdmis
 func (m *MockAdmissionregistrationV1Interface) EXPECT() *MockAdmissionregistrationV1InterfaceMockRecorder {
 	return m.recorder
 }
+
+// MutatingAdmissionPolicies mocks base method.
+func (m *MockAdmissionregistrationV1Interface) MutatingAdmissionPolicies() v12.MutatingAdmissionPolicyInterface {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.mutatingAdmissionPoliciesExpects, m.ctrl, m, "MutatingAdmissionPolicies")
+}
+
+// MutatingAdmissionPolicies indicates an expected call of MutatingAdmissionPolicies.
+func (mr *MockAdmissionregistrationV1InterfaceMockRecorder) MutatingAdmissionPolicies() *MockAdmissionregistrationV1InterfaceMutatingAdmissionPoliciesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[v12.MutatingAdmissionPolicyInterface](mr.mock.ctrl.T, mr.mock, "MutatingAdmissionPolicies")
+	mr.mutatingAdmissionPoliciesExpects = append(mr.mutatingAdmissionPoliciesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockAdmissionregistrationV1InterfaceMutatingAdmissionPoliciesCall is the typed call wrapper for MutatingAdmissionPolicies.
+type MockAdmissionregistrationV1InterfaceMutatingAdmissionPoliciesCall = gomock.Call0_1[v12.MutatingAdmissionPolicyInterface]
+
+// MutatingAdmissionPolicyBindings mocks base method.
+func (m *MockAdmissionregistrationV1Interface) MutatingAdmissionPolicyBindings() v12.MutatingAdmissionPolicyBindingInterface {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.mutatingAdmissionPolicyBindingsExpects, m.ctrl, m, "MutatingAdmissionPolicyBindings")
+}
+
+// MutatingAdmissionPolicyBindings indicates an expected call of MutatingAdmissionPolicyBindings.
+func (mr *MockAdmissionregistrationV1InterfaceMockRecorder) MutatingAdmissionPolicyBindings() *MockAdmissionregistrationV1InterfaceMutatingAdmissionPolicyBindingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[v12.MutatingAdmissionPolicyBindingInterface](mr.mock.ctrl.T, mr.mock, "MutatingAdmissionPolicyBindings")
+	mr.mutatingAdmissionPolicyBindingsExpects = append(mr.mutatingAdmissionPolicyBindingsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockAdmissionregistrationV1InterfaceMutatingAdmissionPolicyBindingsCall is the typed call wrapper for MutatingAdmissionPolicyBindings.
+type MockAdmissionregistrationV1InterfaceMutatingAdmissionPolicyBindingsCall = gomock.Call0_1[v12.MutatingAdmissionPolicyBindingInterface]
 
 // MutatingWebhookConfigurations mocks base method.
 func (m *MockAdmissionregistrationV1Interface) MutatingWebhookConfigurations() v12.MutatingWebhookConfigurationInterface {

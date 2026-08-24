@@ -5,7 +5,6 @@ package charms
 
 import (
 	"context"
-	"maps"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -186,16 +185,6 @@ func convertCharm(name string, ch charm.Charm, locator applicationcharm.CharmLoc
 		Version:  ch.Version(),
 	}
 
-	profiler, ok := ch.(charm.LXDProfiler)
-	if !ok {
-		return result, nil
-	}
-
-	profile := profiler.LXDProfile()
-	if profile != nil && !profile.Empty() {
-		result.LXDProfile = convertCharmLXDProfile(profile)
-	}
-
 	return result, nil
 }
 
@@ -340,30 +329,6 @@ func convertCharmExtraBindingMap(bindings map[string]charm.ExtraBinding) map[str
 	result := make(map[string]string)
 	for key, value := range bindings {
 		result[key] = value.Name
-	}
-	return result
-}
-
-func convertCharmLXDProfile(profile *charm.LXDProfile) *params.CharmLXDProfile {
-	return &params.CharmLXDProfile{
-		Description: profile.Description,
-		Config:      convertCharmLXDProfileConfig(profile.Config),
-		Devices:     convertCharmLXDProfileDevices(profile.Devices),
-	}
-}
-
-func convertCharmLXDProfileConfig(config map[string]string) map[string]string {
-	result := map[string]string{}
-	maps.Copy(result, config)
-	return result
-}
-
-func convertCharmLXDProfileDevices(devices map[string]map[string]string) map[string]map[string]string {
-	result := map[string]map[string]string{}
-	for k, v := range devices {
-		nested := map[string]string{}
-		maps.Copy(nested, v)
-		result[k] = nested
 	}
 	return result
 }

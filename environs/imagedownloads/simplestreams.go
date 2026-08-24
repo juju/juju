@@ -171,7 +171,7 @@ func One(ctx context.Context, fetcher imagemetadata.SimplestreamsFetcher, arch, 
 			Arches:   []string{arch},
 			Releases: []string{release},
 			Stream:   stream,
-		}, nil,
+		},
 	)
 	if err != nil {
 		return nil, errors.Trace(err)

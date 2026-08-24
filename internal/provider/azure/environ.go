@@ -2097,16 +2097,27 @@ func (env *azureEnviron) Destroy(ctx context.Context) error {
 // DestroyController is specified in the Environ interface.
 func (env *azureEnviron) DestroyController(ctx context.Context, controllerUUID string) error {
 	logger.Debugf(ctx, "destroying model %q", env.modelName)
-	logger.Debugf(ctx, "deleting resource groups")
-	if err := env.deleteControllerManagedResourceGroups(ctx, controllerUUID); err != nil {
-		return errors.Trace(err)
+	if env.config.resourceGroupName == "" {
+		logger.Debugf(ctx, "deleting resource groups")
+		if err := env.deleteControllerManagedResourceGroups(ctx, controllerUUID); err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		// The controller model may live in a user-specified resource group that
+		// is not tagged with the controller UUID, so it is not picked up by
+		// deleteControllerManagedResourceGroups above. Clean its contents here.
+		logger.Debugf(ctx, "deleting resources in user-specified resource group %q", env.resourceGroup)
+		if err := env.deleteResourcesInGroup(ctx, env.resourceGroup); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	logger.Debugf(ctx, "deleting auto managed identities")
 	if err := env.deleteControllerManagedIdentities(ctx, controllerUUID); err != nil {
 		return errors.Trace(err)
 	}
 	// Resource groups are self-contained and fully encompass
-	// all environ armresources. Once you delete the group, there
+	// all environ armresources. Once the group has been deleted,
+	// or its contents cleaned up for a user-specified group, there
 	// is nothing else to do.
 	return nil
 }
@@ -2186,7 +2197,7 @@ func (env *azureEnviron) deleteControllerManagedIdentities(ctx context.Context, 
 		return errors.Trace(err)
 	}
 	_, err = clientFactory.NewUserAssignedIdentitiesClient().Delete(ctx, env.resourceGroup, identityName, nil)
-	if !errorutils.IsNotFoundError(err) {
+	if err != nil && !errorutils.IsNotFoundError(err) {
 		logger.Warningf(ctx, "cannot delete managed identity %q: %v", identityName, err)
 	}
 
@@ -2285,16 +2296,21 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.Context, resourceGro
 		_, err = env.MaybeInvalidateCredentialError(ctx, err)
 	}()
 
+	apiVersions, err := env.resourceAPIVersions(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// Find all the resources tagged as belonging to this model.
 	filter := fmt.Sprintf("tagName eq '%s' and tagValue eq '%s'", tags.JujuModel, env.config.UUID())
-	resourceItems, err := env.getModelResources(ctx, resourceGroup, filter)
+	resourceItems, err := env.getModelResources(ctx, resourceGroup, filter, apiVersions)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Older APIs can ignore the filter above, so query the hard way just in case.
 	if len(resourceItems) == 0 {
-		resourceItems, err = env.getModelResources(ctx, resourceGroup, filter)
+		resourceItems, err = env.getModelResources(ctx, resourceGroup, "", apiVersions)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -2341,7 +2357,7 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.Context, resourceGro
 	remainingResources := otherResources
 	retries := 0
 	for len(remainingResources) > 0 && retries < 10 {
-		remainingResources, err = env.deleteResources(ctx, remainingResources)
+		remainingResources, err = env.deleteResources(ctx, remainingResources, apiVersions)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -2360,15 +2376,21 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.Context, resourceGro
 	return nil
 }
 
-func (env *azureEnviron) getModelResources(ctx context.Context, resourceGroup, modelFilter string) ([]*armresources.GenericResourceExpanded, error) {
+func (env *azureEnviron) getModelResources(
+	ctx context.Context, resourceGroup, modelFilter string, apiVersions map[string]string,
+) ([]*armresources.GenericResourceExpanded, error) {
 	resources, err := env.resourcesClient()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var resourceItems []*armresources.GenericResourceExpanded
-	pager := resources.NewListByResourceGroupPager(resourceGroup, &armresources.ClientListByResourceGroupOptions{
-		Filter: new(modelFilter),
-	})
+	// If no model filter is specified, omit the $filter query parameter
+	// entirely so the resource group is listed without a filter.
+	listOpts := &armresources.ClientListByResourceGroupOptions{}
+	if modelFilter != "" {
+		listOpts.Filter = new(modelFilter)
+	}
+	pager := resources.NewListByResourceGroupPager(resourceGroup, listOpts)
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
@@ -2378,7 +2400,11 @@ func (env *azureEnviron) getModelResources(ctx context.Context, resourceGroup, m
 			// If no modelFilter specified, we need to check that the resource
 			// belongs to this model.
 			if modelFilter == "" {
-				fullRes, err := resources.GetByID(ctx, toValue(res.ID), computeAPIVersion, nil)
+				apiVersion, ok := apiVersions[toValue(res.Type)]
+				if !ok {
+					return nil, errors.Errorf("no API version found for resource type %q", toValue(res.Type))
+				}
+				fullRes, err := resources.GetByID(ctx, toValue(res.ID), apiVersion, nil)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -2392,26 +2418,43 @@ func (env *azureEnviron) getModelResources(ctx context.Context, resourceGroup, m
 	return resourceItems, nil
 }
 
+func (env *azureEnviron) resourceAPIVersions(ctx context.Context) (map[string]string, error) {
+	providers, err := env.providersClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return env.collectAPIVersions(ctx, providers)
+}
+
 // deleteResources deletes the specified resources, returning any that
 // cannot be deleted because they are in use.
-func (env *azureEnviron) deleteResources(ctx context.Context, toDelete []*armresources.GenericResourceExpanded) ([]*armresources.GenericResourceExpanded, error) {
+func (env *azureEnviron) deleteResources(ctx context.Context, toDelete []*armresources.GenericResourceExpanded, apiVersions map[string]string) ([]*armresources.GenericResourceExpanded, error) {
 	logger.Debugf(ctx, "deleting %d resources", len(toDelete))
 
-	var remainingResources []*armresources.GenericResourceExpanded
+	// Each goroutine below writes to its own pre-sized slice index
+	// so that the shared remainingResources is race-free without a mutex.
+	// This follows the same index-addressed pattern used by cancelResults
+	// in StopInstances and errs in deleteControllerManagedResourceGroups.
+	var remainingResources = make([]*armresources.GenericResourceExpanded, len(toDelete))
 	var wg sync.WaitGroup
 	deleteResults := make([]error, len(toDelete))
 	for i, res := range toDelete {
 		id := toValue(res.ID)
+		apiVersion, ok := apiVersions[toValue(res.Type)]
+		if !ok {
+			deleteResults[i] = errors.Errorf("no API version found for resource type %q", toValue(res.Type))
+			continue
+		}
 		logger.Debugf(ctx, "- deleting resource %q", id)
 		wg.Add(1)
-		go func(i int, id string) {
+		go func(i int, id, apiVersion string) {
 			defer wg.Done()
 			resources, err := env.resourcesClient()
 			if err != nil {
 				deleteResults[i] = err
 				return
 			}
-			poller, err := resources.BeginDeleteByID(ctx, id, computeAPIVersion, nil)
+			poller, err := resources.BeginDeleteByID(ctx, id, apiVersion, nil)
 			if err == nil {
 				_, err = poller.PollUntilDone(ctx, nil)
 			}
@@ -2421,19 +2464,27 @@ func (env *azureEnviron) deleteResources(ctx context.Context, toDelete []*armres
 				}
 				// If the resource is in use, don't error, just queue it up for another pass.
 				if strings.HasPrefix(errorutils.ErrorCode(err), "InUse") {
-					remainingResources = append(remainingResources, toDelete[i])
+					remainingResources[i] = toDelete[i]
 				} else {
-					deleteResults[i] = errors.Annotatef(err, "deleting resource %q: %v", id, err)
+					deleteResults[i] = errors.Annotatef(err, "deleting resource %q", id)
 				}
 				return
 			}
-		}(i, id)
+		}(i, id, apiVersion)
 	}
 
 	// NOTE (stickupkid): This *could* block forever. Instead we should
 	// have a timeout and return an error if it takes too long or if the
 	// context is cancelled.
 	wg.Wait()
+
+	// Compact the pre-sized slice to remove nil entries before returning.
+	remaining := make([]*armresources.GenericResourceExpanded, 0, len(remainingResources))
+	for _, res := range remainingResources {
+		if res != nil {
+			remaining = append(remaining, res)
+		}
+	}
 
 	var errStrings []string
 	for i, err := range deleteResults {
@@ -2445,7 +2496,7 @@ func (env *azureEnviron) deleteResources(ctx context.Context, toDelete []*armres
 	if len(errStrings) > 0 {
 		return nil, errors.Annotate(errors.New(strings.Join(errStrings, "\n")), "deleting resources")
 	}
-	return remainingResources, nil
+	return remaining, nil
 }
 
 // Provider is specified in the Environ interface.

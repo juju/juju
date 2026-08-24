@@ -94,7 +94,7 @@ const removeUnitExamples = `
 
     juju remove-unit wordpress/2 --force --no-wait
 
-	juju remove-unit wordpress --num-units 2
+    juju remove-unit wordpress --num-units 2
 `
 
 var removeUnitMsgNoDryRun = `

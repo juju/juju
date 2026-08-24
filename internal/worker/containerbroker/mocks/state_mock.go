@@ -32,7 +32,6 @@ type MockStateMockRecorder struct {
 	mock                                 *MockState
 	containerConfigExpects               []*gomock.Call1_2[context.Context, params.ContainerConfig, error]
 	containerManagerConfigExpects        []*gomock.Call2_2[context.Context, params.ContainerManagerConfigParams, params.ContainerManagerConfig, error]
-	getContainerProfileInfoExpects       []*gomock.Call2_2[context.Context, names.MachineTag, []*provisioner.LXDProfileResult, error]
 	hostChangesForContainerExpects       []*gomock.Call2_2[context.Context, names.MachineTag, []network0.DeviceToBridge, error]
 	machinesExpects                      []*gomock.Call1V_2[context.Context, names.MachineTag, []provisioner.MachineResult, error]
 	prepareContainerInterfaceInfoExpects []*gomock.Call2_2[context.Context, names.MachineTag, network.InterfaceInfos, error]
@@ -87,24 +86,6 @@ func (mr *MockStateMockRecorder) ContainerManagerConfig(arg0, arg1 any) *MockSta
 
 // MockStateContainerManagerConfigCall is the typed call wrapper for ContainerManagerConfig.
 type MockStateContainerManagerConfigCall = gomock.Call2_2[context.Context, params.ContainerManagerConfigParams, params.ContainerManagerConfig, error]
-
-// GetContainerProfileInfo mocks base method.
-func (m *MockState) GetContainerProfileInfo(arg0 context.Context, arg1 names.MachineTag) ([]*provisioner.LXDProfileResult, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getContainerProfileInfoExpects, m.ctrl, m, "GetContainerProfileInfo", arg0, arg1)
-}
-
-// GetContainerProfileInfo indicates an expected call of GetContainerProfileInfo.
-func (mr *MockStateMockRecorder) GetContainerProfileInfo(arg0, arg1 any) *MockStateGetContainerProfileInfoCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, names.MachineTag, []*provisioner.LXDProfileResult, error](mr.mock.ctrl.T, mr.mock, "GetContainerProfileInfo", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
-	mr.getContainerProfileInfoExpects = append(mr.getContainerProfileInfoExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateGetContainerProfileInfoCall is the typed call wrapper for GetContainerProfileInfo.
-type MockStateGetContainerProfileInfoCall = gomock.Call2_2[context.Context, names.MachineTag, []*provisioner.LXDProfileResult, error]
 
 // HostChangesForContainer mocks base method.
 func (m *MockState) HostChangesForContainer(arg0 context.Context, arg1 names.MachineTag) ([]network0.DeviceToBridge, error) {

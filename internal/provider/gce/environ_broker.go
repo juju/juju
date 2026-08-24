@@ -74,18 +74,27 @@ func (env *environ) buildInstanceSpec(ctx context.Context, args environs.StartIn
 		return nil, errors.Trace(err)
 	}
 
-	arch, err := args.Tools.OneArch()
+	agentArch, err := args.Tools.OneArch()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	imageMetadata := args.ImageMetadata
+	if args.Constraints.HasImageID() {
+		imageMetadata, err = env.resolveImageIDMetadata(ctx, args)
+		if err != nil {
+			return nil, env.HandleCredentialError(ctx, errors.Trace(err))
+		}
+	}
+
 	spec, err := env.findInstanceSpec(
 		&instances.InstanceConstraint{
 			Region:      env.cloud.Region,
 			Base:        args.InstanceConfig.Base,
-			Arch:        arch,
+			Arch:        agentArch,
 			Constraints: args.Constraints,
 		},
-		args.ImageMetadata,
+		imageMetadata,
 		instTypesAndCosts.InstanceTypes,
 	)
 	return spec, errors.Trace(err)
@@ -217,13 +226,12 @@ func (env *environ) startInstance(
 		hostname,
 	}
 
-	imageURLBase, err := env.imageURLBase(os)
+	imageURL, err := env.imageURL(os, imageID)
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
-	imageURL := imageURLBase + imageID
 
-	disks, err := getDisks(ctx, imageURL, os, args.AvailabilityZone, args.Constraints, args.RootDisk)
+	disks, err := getDisks(ctx, imageURL, instanceTypeName, os, args.AvailabilityZone, args.Constraints, args.RootDisk)
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
@@ -340,7 +348,7 @@ func getMetadata(args environs.StartInstanceParams, os ostype.OSType) (map[strin
 // the new instances and returns it. This will always include a root
 // disk with characteristics determined by the provides args and
 // constraints.
-func getDisks(ctx context.Context, imageURL string, os ostype.OSType, zone string, cons constraints.Value, rootDisk *storage.VolumeParams) ([]*computepb.AttachedDisk, error) {
+func getDisks(ctx context.Context, imageURL, instanceTypeName string, os ostype.OSType, zone string, cons constraints.Value, rootDisk *storage.VolumeParams) ([]*computepb.AttachedDisk, error) {
 	size := common.MinRootDiskSizeGiB(os)
 	if cons.RootDisk != nil && *cons.RootDisk > size {
 		size = common.MiBToGiB(*cons.RootDisk)
@@ -375,13 +383,15 @@ func getDisks(ctx context.Context, imageURL string, os ostype.OSType, zone strin
 	if rootDisk != nil {
 		if val, ok := rootDisk.Attributes[diskTypeAttribute].(string); ok && val != "" {
 			dt := google.DiskType(val)
-			switch dt {
-			case google.DiskPersistentSSD, google.DiskPersistentStandard:
+			if dt == google.DiskLocalSSD {
+				return nil, errors.NotValidf("local SSD disk storage")
+			} else if isValidDiskType(dt) {
+				if google.IsLegacyMachineSeries(instanceTypeName) && isValidHyperDiskType(dt) {
+					return nil, errors.NotSupportedf("hyperdisk storage for legacy instance %q", instanceTypeName)
+				}
 				dtStr := formatDiskType(zone, string(dt))
 				disk.InitializeParams.DiskType = &dtStr
-			case google.DiskLocalSSD:
-				return nil, errors.NotValidf("local SSD disk storage")
-			default:
+			} else {
 				return nil, errors.NotValidf("disk type %q for root disk", val)
 			}
 		}
@@ -391,13 +401,15 @@ func getDisks(ctx context.Context, imageURL string, os ostype.OSType, zone strin
 		// if it were specified as the root disk source,
 		// otherwise we return an error.
 		dt := google.DiskType(*cons.RootDiskSource)
-		switch dt {
-		case google.DiskPersistentSSD, google.DiskPersistentStandard:
+		if dt == google.DiskLocalSSD {
+			return nil, errors.NotValidf("local SSD disk storage")
+		} else if isValidDiskType(dt) {
+			if google.IsLegacyMachineSeries(instanceTypeName) && isValidHyperDiskType(dt) {
+				return nil, errors.NotSupportedf("hyperdisk storage for legacy instance %q", instanceTypeName)
+			}
 			dtStr := formatDiskType(zone, string(dt))
 			disk.InitializeParams.DiskType = &dtStr
-		case google.DiskLocalSSD:
-			return nil, errors.NotValidf("local SSD disk storage")
-		default:
+		} else {
 			return nil, errors.NotValidf("root disk source %q", dt)
 		}
 	}

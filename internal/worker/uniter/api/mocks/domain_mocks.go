@@ -39,7 +39,6 @@ type MockUnitMockRecorder struct {
 	applicationTagExpects               []*gomock.Call0_1[names.ApplicationTag]
 	assignedMachineExpects              []*gomock.Call1_2[context.Context, names.MachineTag, error]
 	availabilityZoneExpects             []*gomock.Call1_2[context.Context, string, error]
-	canApplyLXDProfileExpects           []*gomock.Call1_2[context.Context, bool, error]
 	charmURLExpects                     []*gomock.Call1_2[context.Context, string, error]
 	clearResolvedExpects                []*gomock.Call1_1[context.Context, error]
 	commitHookChangesExpects            []*gomock.Call2_1[context.Context, params.CommitHookChangesArgs, error]
@@ -48,7 +47,6 @@ type MockUnitMockRecorder struct {
 	destroyAllSubordinatesExpects       []*gomock.Call1_1[context.Context, error]
 	ensureDeadExpects                   []*gomock.Call1_1[context.Context, error]
 	hasSubordinatesExpects              []*gomock.Call1_2[context.Context, bool, error]
-	lXDProfileNameExpects               []*gomock.Call1_2[context.Context, string, error]
 	lifeExpects                         []*gomock.Call0_1[life.Value]
 	logActionMessageExpects             []*gomock.Call3_1[context.Context, names.ActionTag, string, error]
 	nameExpects                         []*gomock.Call0_1[string]
@@ -72,7 +70,6 @@ type MockUnitMockRecorder struct {
 	watchActionNotificationsExpects     []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
 	watchAddressesHashExpects           []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
 	watchConfigSettingsHashExpects      []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
-	watchInstanceDataExpects            []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
 	watchRelationsExpects               []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
 	watchResolveModeExpects             []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
 	watchStorageExpects                 []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
@@ -180,24 +177,6 @@ func (mr *MockUnitMockRecorder) AvailabilityZone(arg0 any) *MockUnitAvailability
 
 // MockUnitAvailabilityZoneCall is the typed call wrapper for AvailabilityZone.
 type MockUnitAvailabilityZoneCall = gomock.Call1_2[context.Context, string, error]
-
-// CanApplyLXDProfile mocks base method.
-func (m *MockUnit) CanApplyLXDProfile(arg0 context.Context) (bool, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.canApplyLXDProfileExpects, m.ctrl, m, "CanApplyLXDProfile", arg0)
-}
-
-// CanApplyLXDProfile indicates an expected call of CanApplyLXDProfile.
-func (mr *MockUnitMockRecorder) CanApplyLXDProfile(arg0 any) *MockUnitCanApplyLXDProfileCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, bool, error](mr.mock.ctrl.T, mr.mock, "CanApplyLXDProfile", gomock.EnsureMatcher(arg0))
-	mr.canApplyLXDProfileExpects = append(mr.canApplyLXDProfileExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockUnitCanApplyLXDProfileCall is the typed call wrapper for CanApplyLXDProfile.
-type MockUnitCanApplyLXDProfileCall = gomock.Call1_2[context.Context, bool, error]
 
 // CharmURL mocks base method.
 func (m *MockUnit) CharmURL(arg0 context.Context) (string, error) {
@@ -342,24 +321,6 @@ func (mr *MockUnitMockRecorder) HasSubordinates(arg0 any) *MockUnitHasSubordinat
 
 // MockUnitHasSubordinatesCall is the typed call wrapper for HasSubordinates.
 type MockUnitHasSubordinatesCall = gomock.Call1_2[context.Context, bool, error]
-
-// LXDProfileName mocks base method.
-func (m *MockUnit) LXDProfileName(arg0 context.Context) (string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.lXDProfileNameExpects, m.ctrl, m, "LXDProfileName", arg0)
-}
-
-// LXDProfileName indicates an expected call of LXDProfileName.
-func (mr *MockUnitMockRecorder) LXDProfileName(arg0 any) *MockUnitLXDProfileNameCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "LXDProfileName", gomock.EnsureMatcher(arg0))
-	mr.lXDProfileNameExpects = append(mr.lXDProfileNameExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockUnitLXDProfileNameCall is the typed call wrapper for LXDProfileName.
-type MockUnitLXDProfileNameCall = gomock.Call1_2[context.Context, string, error]
 
 // Life mocks base method.
 func (m *MockUnit) Life() life.Value {
@@ -774,24 +735,6 @@ func (mr *MockUnitMockRecorder) WatchConfigSettingsHash(arg0 any) *MockUnitWatch
 
 // MockUnitWatchConfigSettingsHashCall is the typed call wrapper for WatchConfigSettingsHash.
 type MockUnitWatchConfigSettingsHashCall = gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
-
-// WatchInstanceData mocks base method.
-func (m *MockUnit) WatchInstanceData(arg0 context.Context) (watcher.NotifyWatcher, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.watchInstanceDataExpects, m.ctrl, m, "WatchInstanceData", arg0)
-}
-
-// WatchInstanceData indicates an expected call of WatchInstanceData.
-func (mr *MockUnitMockRecorder) WatchInstanceData(arg0 any) *MockUnitWatchInstanceDataCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, watcher.NotifyWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchInstanceData", gomock.EnsureMatcher(arg0))
-	mr.watchInstanceDataExpects = append(mr.watchInstanceDataExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockUnitWatchInstanceDataCall is the typed call wrapper for WatchInstanceData.
-type MockUnitWatchInstanceDataCall = gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
 
 // WatchRelations mocks base method.
 func (m *MockUnit) WatchRelations(arg0 context.Context) (watcher.StringsWatcher, error) {
@@ -1459,10 +1402,9 @@ type MockCharm struct {
 
 // MockCharmMockRecorder is the mock recorder for MockCharm.
 type MockCharmMockRecorder struct {
-	mock                      *MockCharm
-	archiveSha256Expects      []*gomock.Call1_2[context.Context, string, error]
-	lXDProfileRequiredExpects []*gomock.Call1_2[context.Context, bool, error]
-	uRLExpects                []*gomock.Call0_1[string]
+	mock                 *MockCharm
+	archiveSha256Expects []*gomock.Call1_2[context.Context, string, error]
+	uRLExpects           []*gomock.Call0_1[string]
 }
 
 // NewMockCharm creates a new mock instance.
@@ -1494,24 +1436,6 @@ func (mr *MockCharmMockRecorder) ArchiveSha256(arg0 any) *MockCharmArchiveSha256
 
 // MockCharmArchiveSha256Call is the typed call wrapper for ArchiveSha256.
 type MockCharmArchiveSha256Call = gomock.Call1_2[context.Context, string, error]
-
-// LXDProfileRequired mocks base method.
-func (m *MockCharm) LXDProfileRequired(arg0 context.Context) (bool, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.lXDProfileRequiredExpects, m.ctrl, m, "LXDProfileRequired", arg0)
-}
-
-// LXDProfileRequired indicates an expected call of LXDProfileRequired.
-func (mr *MockCharmMockRecorder) LXDProfileRequired(arg0 any) *MockCharmLXDProfileRequiredCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, bool, error](mr.mock.ctrl.T, mr.mock, "LXDProfileRequired", gomock.EnsureMatcher(arg0))
-	mr.lXDProfileRequiredExpects = append(mr.lXDProfileRequiredExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockCharmLXDProfileRequiredCall is the typed call wrapper for LXDProfileRequired.
-type MockCharmLXDProfileRequiredCall = gomock.Call1_2[context.Context, bool, error]
 
 // URL mocks base method.
 func (m *MockCharm) URL() string {
