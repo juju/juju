@@ -294,7 +294,7 @@ func unTarAll(src FileResource, reader io.Reader, destDir, prefix string) error 
 
 		// All the files will start with the prefix, which is the directory where
 		// they were located on the pod, we need to strip down that prefix, but
-		// if the prefix is missing it means the tar was tempered with.
+		// if the prefix is missing it means the tar was tampered with.
 		// For the case where prefix is empty we need to ensure that the path
 		// is not absolute, which also indicates the tar file was tampered with.
 		if !strings.HasPrefix(header.Name, prefix) {

@@ -357,9 +357,52 @@ func (s *sshJumpSuite) TestCopyPinsAllTargetHostKeys(c *tc.C) {
 	c.Check(string(output), tc.Contains, "machine-1 ")
 }
 
-func (s *sshJumpSuite) TestCopyRejectsCAASTarget(c *tc.C) {
-	jump := sshJump{modelType: model.CAAS}
-	c.Check(jump.copy(nil), tc.ErrorMatches, "--jump is not supported for scp to Kubernetes targets")
+func (s *sshJumpSuite) TestCopyCAASArgValidation(c *tc.C) {
+	jump := sshJump{modelType: model.CAAS, args: []string{"source", ":target"}}
+	c.Check(jump.copy(nil), tc.ErrorMatches, "target must match format: \\[pod\\[/container\\]:\\]path")
+}
+
+func (s *sshJumpSuite) TestCopyToCAAS(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	sshScript := `#!/bin/bash
+{
+    echo "$@"
+    cat >/dev/null
+} >> "$0.args"
+`
+	err := os.WriteFile(filepath.Join(s.binDir, "ssh"), []byte(sshScript), 0777)
+	c.Assert(err, tc.ErrorIsNil)
+
+	srcPath := filepath.Join(c.MkDir(), "source")
+	err = os.WriteFile(srcPath, []byte("test data"), 0600)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.sshAPIJump.EXPECT().VirtualHostname(gomock.Any(), "0", gomock.Any()).Return("pod-0", nil)
+	s.sshAPIJump.EXPECT().PublicHostKeyForTarget(gomock.Any(), "pod-0").Return(params.PublicSSHHostKeyResult{
+		PublicKey: s.hostKey,
+	}, nil)
+
+	jump := sshJump{
+		modelType:            model.CAAS,
+		container:            "charm",
+		args:                 []string{srcPath, "0:/tmp/destination"},
+		jumpUser:             "fred",
+		jumpServerHostKey:    s.hostKey,
+		sshClient:            s.sshAPIJump,
+		controllersAddresses: []string{"1.0.0.1"},
+		hostChecker:          validAddressesWithPort(17022, "1.0.0.1"),
+		jumpHostPort:         17022,
+	}
+	defer jump.cleanupRun()
+	s.sshAPIJump.EXPECT().Close().Return(nil)
+
+	c.Assert(jump.copy(nil), tc.ErrorIsNil)
+	output, err := os.ReadFile(filepath.Join(s.binDir, "ssh.args"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(output), tc.Contains, "ubuntu@pod-0 test -d /tmp/destination")
+	c.Check(string(output), tc.Contains, "ubuntu@pod-0 tar -xmf - -C /tmp")
 }
 
 func (s *sshJumpSuite) TestGenerateKnownHostsSupportsIPv6(c *tc.C) {

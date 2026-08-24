@@ -185,7 +185,7 @@ func (c *scpCommand) Init(args []string) (err error) {
 		return errors.New("--show-command requires --jump")
 	}
 	if c.jump && c.modelType == model.CAAS {
-		return errors.New("--jump is not supported for scp to Kubernetes targets")
+		c.sshJump.container = c.sshContainer.container
 	}
 	if c.jump {
 		c.provider = &c.sshJump
