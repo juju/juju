@@ -1,21 +1,245 @@
 ---
 myst:
   html_meta:
-    description: "Juju architecture explained: the software Juju is made of, the data model it stores, and the operations that drive a deployment through its life."
+    description: "Juju architecture explained: the state Juju stores, the software that acts on it, and the operations that drive a deployment through its life."
 ---
 
 (juju-architecture)=
 # Juju architecture
 
-Juju is a distributed system for deploying and operating applications on cloud infrastructure. At its core, Juju works by keeping a **declared goal state** -- what you want your deployment to look like -- and continuously reconciling the real world towards it.
+Juju is a system for deploying and operating applications on cloud infrastructure. Its central idea is reconciliation: you declare what you want, Juju stores that declaration, and a set of programs continuously drive the real world toward it. Everything in Juju's architecture -- the databases, the processes, the communication patterns -- follows from that single loop.
 
-This document explains how Juju is put together in three parts, each a different facet of the system:
+The key actors are:
 
-1. {ref}`The software <arch-software>` -- the programs Juju is made of, where they run, and how they communicate.
-2. {ref}`The data model <arch-datamodel>` -- what the controller stores: the abstractions that describe a deployment's intended and current state.
-3. {ref}`The operations <arch-operations>` -- how the software changes the data model to bring a deployment to life and keep it running.
+- **The client**: Any program that talks to a Juju controller: the `juju` CLI, the Terraform provider, JAAS. Clients hold no state; they express intent.
+- **The controller**: The Juju control plane. A process running on a cloud machine or pod that holds the API server, the databases, and the workers that drive reconciliation.
+- **The cloud**: The infrastructure provider (AWS, GCP, MAAS, MicroK8s, ...) that the controller talks to in order to provision machines or pods.
+- **The model**: A named deployment environment -- a workspace containing a set of applications, the machines they run on, and everything connecting them. A controller manages one or more models.
+- **The charm**: The software package that tells Juju how to operate an application: install it, configure it, integrate it with others, upgrade it, remove it.
+- **The agent**: A process that runs alongside each machine or unit and drives the reconciliation loop for that entity by watching for state changes and running charm code.
 
-These three facets are distinct. The software is programs that run; the data model is records in a database; the operations are what connect the two. Keeping them separate makes it always clear whether something is a program, a piece of stored state, or an action.
+This document goes deeper on each of these, in three parts:
+
+1. {ref}`The data model <arch-datamodel>` -- what Juju stores and how it is organised.
+2. {ref}`The software <arch-software>` -- the programs that read and write that state.
+3. {ref}`The operations <arch-operations>` -- how state changes over time.
+
+(arch-datamodel)=
+## The data model
+
+The controller stores its state in two databases using **Dqlite**, a distributed SQLite implementation embedded in the controller process. The **controller database** holds entities shared across all models: clouds, credentials, users, and the model registry itself. Each model has its own **model database** holding everything that makes up that deployment. This split is the key structural fact of the Juju data model; everything else follows from it.
+
+(arch-datamodel-controller)=
+### The controller database
+
+The controller database holds the entities that are shared across all models or that govern access to the controller itself. There is exactly one controller database per controller.
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": false}} }%%
+flowchart LR
+    subgraph subController["Controller database"]
+        USER
+        CLOUD
+        CONTROLLER
+        CREDENTIAL
+        MODEL
+        SECRET-BACKEND["SECRET BACKEND"]
+        EXTERNAL-CONTROLLER["EXTERNAL CONTROLLER"]
+        USER -->|owns| CREDENTIAL
+        USER -->|accesses| CLOUD
+        USER -->|accesses| CONTROLLER
+        USER -->|accesses| MODEL
+        CLOUD -->|defines| CREDENTIAL
+        CLOUD -->|hosts| CONTROLLER
+        CONTROLLER -->|stores| CREDENTIAL
+        CONTROLLER -->|stores| SECRET-BACKEND
+        MODEL -->|"deployed on"| CLOUD
+        MODEL -->|uses| CREDENTIAL
+        MODEL -->|"backed by"| SECRET-BACKEND
+        MODEL -->|"may reference"| EXTERNAL-CONTROLLER
+    end
+```
+*The controller database entities and their relationships. The model record lives here with foreign keys to cloud, credential, and secret backend; it points to the model's own Dqlite database via its namespace.*
+
+#### Cloud
+
+A cloud is an infrastructure provider -- a public cloud (AWS, Azure, GCP), a private cloud (OpenStack, MAAS), or a local substrate (LXD, MicroK8s). It plays two roles in Juju: it is the substrate the controller itself runs on, and it is the source of machines and pods that models provision for their applications. A controller can manage models on multiple clouds. Juju records each cloud's endpoint, supported authentication types, regions, and CA certificates.
+
+```{ibnote}
+See more: {ref}`cloud`
+```
+
+#### Credential
+
+A credential is a set of authentication attributes -- an API key, certificate, username/password, or similar -- that authorises Juju to call a cloud provider's API on your behalf. A credential belongs to exactly one cloud and is owned by exactly one user. A model optionally references one credential; when set, that credential is what Juju uses to provision and manage machines on that cloud. A model with no credential set relies on the cloud's ambient authentication (for example, an instance role).
+
+```{ibnote}
+See more: {ref}`credential`
+```
+
+#### Controller
+
+A controller is the Juju management node. There is exactly one controller record per controller database. In high-availability mode the controller runs across multiple machines -- each is a `controller_node` record -- but they all share one controller identity and one Dqlite cluster. The controller runs on a cloud and provisions resources from clouds on behalf of the models it manages.
+
+```{ibnote}
+See more: {ref}`controller`
+```
+
+#### User
+
+A user is a Juju identity that can authenticate to a controller. Users are granted permissions on clouds, controllers, models, and offers (published endpoints for cross-model integration -- covered in the model database section). The available access levels differ by object type: `add-model` and `admin` on a cloud, `login` and `superuser` on a controller, and `read`, `write`, or `admin` on a model. The user who bootstrapped the controller is the initial superuser.
+
+```{ibnote}
+See more: {ref}`user`, {ref}`user-access-levels`
+```
+
+#### Model
+
+A model is a named deployment environment: it contains the applications, machines, relations, storage, and networks that together deliver a service. The model record lives in the controller database, with references to the cloud it runs on, an optional credential, and an optional region. It also points to its own Dqlite database -- the model database -- where the actual deployment entities live. A model is either an IAAS model (running on a machine cloud such as AWS or MAAS) or a CAAS model (running on a Kubernetes cluster). One model, named `controller`, is reserved for the controller itself; all others are user-created workload models.
+
+```{ibnote}
+See more: {ref}`model`
+```
+
+#### SSH keys
+
+A user's public SSH keys are stored in the controller database (`user_public_ssh_key`). Keys are then selectively authorised on models via `model_authorized_keys`, which links a model to specific user keys. This is what populates the `~/.ssh/authorized_keys` on provisioned machines, allowing `juju ssh` to work.
+
+```{ibnote}
+See more: {ref}`manage-ssh-keys`
+```
+
+#### Secret backend
+
+A secret backend is an external store for secret content -- Vault, a Kubernetes secrets store, or the controller's own internal store. Secret backend records live in the controller database (`secret_backend`). Each model is associated with exactly one secret backend via `model_secret_backend`; secret revisions stored in an external backend are tracked by `secret_backend_reference`.
+
+```{ibnote}
+See more: {ref}`secret`
+```
+
+#### External controller
+
+An external controller record stores the API addresses and CA certificate of a remote Juju controller. It is created when a cross-model integration -- where one model consumes an endpoint published by an application in a different model -- targets an offer on a controller other than the local one. This record is what allows the local controller to authenticate and connect to the remote one.
+
+```{ibnote}
+See more: {ref}`cross-model-integration`
+```
+
+(arch-datamodel-model)=
+### The model database
+
+Each model has its own Dqlite database. Model membership is implicit -- records belong to a model by virtue of which database they live in, not by a column in the table. The model database holds everything that makes up a deployment, organised here into four clusters.
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": false}} }%%
+flowchart LR
+    subgraph subDeploy["Deployment cluster"]
+        APPLICATION -->|"consists of"| UNIT
+        APPLICATION -->|"deployed from"| CHARM
+        APPLICATION -->|"bound to"| SPACE
+        APPLICATION -->|has| CONSTRAINT
+        UNIT -->|"runs on"| MACHINE
+        MACHINE -->|has| CONSTRAINT
+    end
+
+    subgraph subIntegration["Integration cluster"]
+        RELATION -->|connects| APPLICATION2[APPLICATION]
+        APPLICATION2 -->|publishes| OFFER
+        RELATION -->|"via"| OFFER
+    end
+
+    subgraph subRuntime["Runtime cluster"]
+        OPERATION -->|targets| UNIT2[UNIT]
+        UNIT2 -->|owns| STORAGE
+        UNIT2 -->|"owns or consumes"| SECRET
+        UNIT2 -->|uses| RESOURCE
+    end
+
+    subgraph subNetwork["Network cluster"]
+        SPACE2[SPACE] -->|contains| SUBNET
+        UNIT3[UNIT] -->|"has"| PORT-RANGE["PORT RANGE"]
+    end
+```
+*The model database organised into clusters. APPLICATION, UNIT, and MACHINE form the deployment core. RELATION and OFFER handle integration within and across models. OPERATION, STORAGE, SECRET, and RESOURCE are runtime records produced as the deployment runs. SPACE, SUBNET, and PORT RANGE describe the network configuration.*
+
+#### Deployment cluster
+
+**Application** -- A running instance of a **charm** (the software package that tells Juju how to operate an application) inside a model. An application consists of one or more units and is always deployed from a specific charm revision. Every application is bound to a network space by default.
+
+**Unit** -- A single running instance of the software an application describes. Runs on a machine (or pod on Kubernetes). Named on the pattern `<application>/<unit ID>` -- for example, `mysql/0`. During a rolling upgrade a unit may temporarily run a different charm revision from its application.
+
+**Machine** -- What a unit runs on. On machine clouds it is a VM or bare-metal host; on Kubernetes it is the pod hosting the unit. LXD system containers are also represented as machines: a container on machine `0` appears as `0/lxd/0` and has a `machine_parent` record pointing to its host machine.
+
+**Constraint** -- A set of hardware or placement requirements (`constraint` table) referenced by applications and machines. Attributes include architecture, CPU, memory, root disk, instance type, virt type, spaces, zones, and tags. Application constraints are passed to the cloud provider when provisioning machines for units.
+
+```{ibnote}
+See more: {ref}`application`, {ref}`unit`, {ref}`machine`, {ref}`constraint`
+```
+
+#### Integration cluster
+
+**Relation** -- Connects two applications so they can exchange data via relation data bags. A relation links to applications via `relation_endpoint → application_endpoint → application`. Relations can also cross model boundaries.
+
+**Offer** -- A named set of application endpoints published for cross-model consumption (`offer`, `offer_endpoint`). When a consumer integrates with an offer, an `offer_connection` record is created on the offering side and a synthetic remote application (`application_remote_offerer`) is created on the consuming side.
+
+```{ibnote}
+See more: {ref}`relation`, {ref}`cross-model-integration`
+```
+
+#### Runtime cluster
+
+**Operation** -- A runtime invocation of an action against one or more units (`operation`, `operation_task`, `operation_unit_task`). Created when a user runs `juju run`. Stores output, logs, and exit status per task.
+
+**Storage** -- A volume or filesystem attached to a unit. The charm declares storage needs (`charm_storage`); at deploy time those declarations are resolved against a storage pool to produce `storage_instance` records owned by a unit and attached via `storage_attachment`.
+
+**Secret** -- A versioned, encrypted value. Has an owner (application, unit, or model) and is granted to consumers with a role of view or manage. Content is stored inline or delegated to the model's secret backend.
+
+**Resource** -- A runtime record of a versioned binary or file blob (`resource`, `application_resource`, `unit_resource`). Runtime instance of a declared charm resource. Can be refreshed independently of the charm revision.
+
+```{ibnote}
+See more: {ref}`action`, {ref}`storage`, {ref}`secret`, {ref}`resource`
+```
+
+#### Network cluster
+
+**Space** -- A named network segment. Every application has a mandatory default space binding. Individual endpoints can be bound to different spaces. Spaces constrain where units are placed.
+
+**Subnet** -- A CIDR range belonging to a space. Units receive IP addresses from subnets.
+
+**Port range** -- A protocol and port range that a unit exposes (`port_range`), optionally scoped to a relation endpoint. Opened and closed by the charm via hook commands. Used to configure cloud firewall or security-group rules.
+
+```{ibnote}
+See more: {ref}`space`, {ref}`expose-an-application`
+```
+
+(arch-datamodel-charm)=
+### Charm declarations
+
+A charm is the software package that tells Juju how to install, configure, scale, and operate an application. It is a ZIP archive containing metadata and operator code. When fetched -- from Charmhub or a local path -- the controller stores a `charm` record in the model database together with four sets of declarations that describe the charm's contract:
+
+- **Integrations** (`charm_relation`) -- the relation endpoints the charm exposes: name, role (provider/requirer/peer), interface, and scope.
+- **Actions** (`charm_action`) -- named operations a user can invoke against a unit: name, description, and parameter schema.
+- **Configuration schema** (`charm_config`) -- the config keys the charm accepts, with types and default values. The *schema*; the live per-application values are stored separately in `application_config`.
+- **Storage specifications** (`charm_storage`) -- the storage mounts the charm declares, with kind (block or filesystem), minimum size, and cardinality.
+- **Resources** (`charm_resource`) -- binary or file blobs (OCI images, tarballs) declared by the charm. The *declaration*; the downloaded blobs are stored in runtime `resource` records.
+
+Charmhub is an external registry -- nothing about Charmhub is stored in Juju's databases. What the controller *does* store is the charm's origin: `charm_download_info` records the Charmhub identifier, download URL, and size so the deployment is reproducible and `juju refresh` can locate the newer revision.
+
+```{ibnote}
+See more: {ref}`charm`, {ref}`charmhub`
+```
+
+#### Status and configuration
+
+Two cross-cutting concerns apply to entities across the model database:
+
+**Status** -- Every application, unit, machine, and model has a status record (separate tables per entity type). Application and unit status is set by a charm via `status-set` and reflects the charm's view of the workload. Machine and model status is derived by the controller from the states of the entities they contain.
+
+**Configuration** -- Applications have live configuration (`application_config`) -- key-value settings a user provides that the charm reads during hooks. Models have model configuration (`model_config`) -- controller-level settings that govern model-wide behaviour such as logging level, update intervals, and image streams.
+
+```{ibnote}
+See more: {ref}`status`, {ref}`configuration`
+```
 
 (arch-software)=
 ## The software
@@ -34,7 +258,7 @@ Where these programs run is the **deployment topology**, described next. How the
 (arch-topology)=
 ### Deployment topology
 
-After you bootstrap a controller and deploy an application -- described in {ref}`the operations <arch-operations>` -- the programs run on infrastructure in a characteristic arrangement. This is what a live deployment looks like.
+In a running deployment the programs run on infrastructure in a characteristic arrangement. Here is what that looks like.
 
 ::::{tab-set}
 
@@ -129,7 +353,7 @@ See more: {ref}`machines-and-system-containers`, {ref}`machine`
 The programs of a Juju deployment talk to each other over four paths:
 
 - **Client to controller** -- The client connects to the controller over a websocket-based RPC API (the Juju API). This is how a client expresses intent -- for example, to deploy an application or change its configuration.
-- **Controller to agents** -- Agents use an event-driven contract built on **watchers**: long-lived API calls that block until a change relevant to that agent occurs, then return a summary of what changed. When the declared state changes, the affected agents are notified and react.
+- **Controller to agents** -- Agents use an event-driven contract built on **watchers**: long-lived API calls that block until a change relevant to that agent occurs, then return a summary of what changed. How watchers drive reconciliation is described in {ref}`the operations section <arch-reconciliation-contract>`.
 - **Unit agent to charm** -- in two directions: downward (the agent sets environment variables and runs the charm's `dispatch` script as a subprocess), and upward (during a hook the charm calls {ref}`hook commands <hook-command>` -- the `jujuc` binaries), over a Unix socket the unit agent listens on.
 - **Charm to workload** -- On Kubernetes, through the **Pebble API**, an HTTP API served by Pebble inside each workload container. On machine clouds, the charm drives its workload directly using standard operating-system mechanisms, since the charm and workload are co-located.
 
@@ -137,109 +361,10 @@ The programs of a Juju deployment talk to each other over four paths:
 See more: {ref}`jujuc`, {ref}`pebble`, {ref}`database`
 ```
 
-(arch-datamodel)=
-## The data model
-
-This section covers what the controller stores. The entities a deployment tracks are **database records**, not running processes: they describe a deployment's intended and current state. They are stored in the model database for each model -- one of the Dqlite stores the controller keeps.
-
-A model in Juju is either a **class model** (created by bootstrap) or a **regular model** (created by a user, holding their workload applications).
-
-The data model:
-
-```{mermaid}
-%%{init: {"flowchart": {"htmlLabels": false}} }%%
-erDiagram
-    MODEL ||--|{ APPLICATION : contains
-    APPLICATION ||--|{ UNIT : consists of
-    APPLICATION ||--|| CHARM : deployed from
-    UNIT ||--|| MACHINE : runs on
-```
-*The core entity relationships in the data model: a model contains applications, each of which consists of units and is deployed from a charm, and each unit runs on a machine.*
-
-### Model
-
-A model is the largest logical container in a deployment. It groups the applications and their supporting components -- machines, storage, networks, relations, and so on -- that work together to deliver a product or service. Every entity Juju manages belongs to exactly one model. A model lives on a controller and is associated with a cloud.
-
-```{ibnote}
-See more: {ref}`model`
-```
-
-### Application
-
-An application is a running instance of a ycharm inside a model. It lives in a model and consists of one or more units.
-
-```{ibnote}
-See more: {ref}`application`
-```
-
-### Unit
-
-A unit is a single running instance of the software an application describes. It runs on a machine. An application can have several units, spread across several machines. A unit is named on the pattern `<application>/<unit ID>` -- for example, `mysql/0`.
-
-```{ibnote}
-See more: {ref}`unit`
-```
-
-### Machine
-
-A machine is what a unit runs on. On machine clouds it is a VM or bare-metal host (or an LXD container); on Kubernetes it is the pod hosting the unit. From Juju's point of view these are all machines, and each is a record in the controller's database.
-
-```{ibnote}
-See more: {ref}`machine`
-```
-
-### Relation
-
-A relation connects two applications so they can exchange data. The controller records relations and their data bags as part of the data model.
-
-```{ibnote}
-See more: {ref}`relation`
-```
-
-### Configuration
-
-Each application has a configuration -- a set of key-value settings provided by a user and kept by the controller. The charm reads and uses the configuration.
-
-```{ibnote}
-See more: {ref}`configuration`
-```
-
-### Secrets
-
-Secrets are versioned sensitive values held by the controller, granted to applications. Charms can create, grant, update, and revoke secrets; users can create and grant user secrets.
-
-```{ibnote}
-See more: {ref}`secret`
-```
-
-### Status
-
-Status is the current state and message of an application or unit, set by a charm via `status-set`. The controller stores it and serves it on demand.
-
-```{ibnote}
-See more: {ref}`status`
-```
-
-### Storage
-
-A unit may draw storage from its cloud -- data volumes that survive the machine or pod. Storage is represented in the model.
-
-```{ibnote}
-See more: {ref}`storage`
-```
-
-### Space and network
-
-A deployment may split traffic across network spaces and subnets. Spaces segment traffic and constrain where units sit.
-
-```{ibnote}
-See more: {ref}`space`
-```
-
 (arch-operations)=
 ## Operations
 
-The software and data model sections show what a deployment is. This section shows how the system comes to life and stays in sync: the ideas that make Juju converge (the reconciliation contract), the operations that carry a deployment through its life (the deployment lifecycle), and, at close range, how a single unit runs its charm.
+The data model and software sections show what a deployment is: the state it keeps and the programs that act on it. This section shows how state transitions happen over time: the ideas that make Juju converge, the operations that carry a deployment through its life, and at close range, how a single unit runs its charm.
 
 (arch-reconciliation-contract)=
 ### How Juju converges
@@ -314,7 +439,65 @@ See more: {ref}`bootstrap-a-controller`
 
 #### Deploy
 
-Deploying an application adds its software to the model and arranges for it to run on a resource. The controller writes an application record (with its units) to the database, a model agent asks the cloud for resources (a VM or a chip pod), and once the resource is ready the controller starts the unit agent, which runs the install sequence.
+Deploying an application adds its software to the model and arranges for it to run on a resource. The controller writes an application record (with its units) to the database, a model agent asks the cloud for resources (a VM or pod), and once the resource is ready the controller starts the unit agent, which runs the install sequence.
+
+:::::{tab-set}
+
+::::{tab-item} Kubernetes
+
+```{mermaid}
+sequenceDiagram
+    actor User
+    participant CLI as juju CLI
+    participant Controller as Controller
+    participant K8s as Kubernetes cluster
+    participant UA as containeragent (unit)
+
+    User->>CLI: juju deploy
+    CLI->>Controller: Deploy RPC call
+    Controller->>Controller: Write application + unit records
+    Controller->>K8s: Schedule unit pod
+    K8s-->>Controller: Pod running
+    Controller->>UA: Start containeragent
+    UA->>Controller: install hook
+    UA->>Controller: config-changed hook
+    UA->>Controller: start hook
+    UA-->>Controller: unit active
+    Controller-->>CLI: deploy complete
+    CLI-->>User: Application deployed
+```
+*Deploying on Kubernetes. The CLI sends a deploy call to the controller, which writes the application and unit records and schedules the unit pod. Once the pod is running the controller starts the unit agent, which runs the installation hooks (`install`, `config-changed`, `start`) and reports active.*
+
+::::
+
+::::{tab-item} Machine
+
+```{mermaid}
+sequenceDiagram
+    actor User
+    participant CLI as juju CLI
+    participant Controller as Controller
+    participant Cloud as Machine cloud
+    participant UA as jujud (unit agent)
+
+    User->>CLI: juju deploy
+    CLI->>Controller: Deploy RPC call
+    Controller->>Controller: Write application + unit records
+    Controller->>Cloud: Provision machine
+    Cloud-->>Controller: Machine ready
+    Controller->>UA: Start jujud (machine + unit agent)
+    UA->>Controller: install hook
+    UA->>Controller: config-changed hook
+    UA->>Controller: start hook
+    UA-->>Controller: unit active
+    Controller-->>CLI: deploy complete
+    CLI-->>User: Application deployed
+```
+*Deploying on a machine cloud. The CLI sends a deploy call to the controller, which writes the application and unit records and asks the cloud to provision a machine. Once the machine is ready the controller installs and starts `jujud`, which runs the installation hooks (`install`, `config-changed`, `start`) and reports active.*
+
+::::
+
+:::::
 
 ```{ibnote}
 See more: {ref}`command-juju-deploy`
@@ -322,7 +505,35 @@ See more: {ref}`command-juju-deploy`
 
 #### Integrate
 
-Integrating connects one application to another so they can exchange data. When you integrate two applications, the controller writes a relation, the connected unit agents are notified, and each runs its relation hooks -- during which the applications exchange data.
+Integrating connects one application to another so they can exchange data. When you integrate two applications, the controller writes a relation record; the unit agents on both sides are notified via their watchers and each runs the relation hooks in sequence.
+
+```{mermaid}
+sequenceDiagram
+    actor User
+    participant CLI as juju CLI
+    participant Controller as Controller
+    participant UA1 as Unit agent (app A)
+    participant UA2 as Unit agent (app B)
+
+    User->>CLI: juju integrate A B
+    CLI->>Controller: Integrate RPC call
+    Controller->>Controller: Write relation record
+    Controller-->>UA1: watcher fires
+    Controller-->>UA2: watcher fires
+    UA1->>Controller: relation-created hook
+    UA2->>Controller: relation-created hook
+    UA1->>Controller: relation-joined hook
+    UA2->>Controller: relation-joined hook
+    UA1->>Controller: relation-changed hook
+    UA2->>Controller: relation-changed hook
+    UA1->>Controller: write relation data (app A bag)
+    Controller-->>UA2: watcher fires (data changed)
+    UA2->>Controller: relation-changed hook
+    UA2->>Controller: write relation data (app B bag)
+    Controller-->>UA1: watcher fires (data changed)
+    UA1->>Controller: relation-changed hook
+```
+*Integrating two applications. The controller writes the relation record, which fires watchers on both unit agents. Each runs `relation-created` then `relation-joined`, followed immediately by `relation-changed`. Thereafter, each time a unit writes its relation data bag, the other unit receives a further `relation-changed`.*
 
 ```{ibnote}
 See more: {ref}`command-juju-integrate`, {ref}`relation`
@@ -348,6 +559,62 @@ See more: {ref}`upgrading-things`
 
 Removing tears down all or part of a deployment. Removal is graded: a unit can be removed without touching its interface, an application with its units, or an entire model or controller. At each level the infrastructure is withdrawn from the cloud and the controller cleans up its recorded state.
 
+Two levels have non-obvious internal sequences worth understanding for troubleshooting: unit removal and model removal.
+
+##### Unit removal
+
+Unit removal is driven by the unit agent itself once the controller marks the unit Dying. The agent runs cleanup hooks in the order prescribed by the teardown phase before the unit can be declared Dead. A hook failure at any stage blocks the unit in its current state until the failure is resolved or the removal is forced.
+
+```{mermaid}
+sequenceDiagram
+    actor User
+    participant Controller as Controller
+    participant UA as Unit agent
+    participant Cloud as Cloud
+
+    User->>Controller: juju remove-unit
+    Controller->>Controller: Mark unit Dying
+    Controller-->>UA: watcher fires
+    UA->>Controller: stop hook
+    note over UA,Controller: storage-detaching (per storage) and relation-broken<br/>(per relation, preceded by relation-departed per remote unit)<br/>run in any order
+    UA->>Controller: remove hook
+    UA->>Controller: Mark unit Dead
+    Controller->>Cloud: Release machine (if no other units)
+    Controller->>Controller: Delete unit records
+```
+*Unit removal. Once the controller marks the unit Dying, the unit agent runs the teardown hooks: `stop` first, then `storage-detaching` and `relation-broken` (each preceded by `relation-departed` for every known remote unit) in any order, then `remove` last. The unit is then marked Dead and the controller releases the machine if no longer needed.*
+
+```{note}
+A hook failure at any stage leaves the unit in `error` state and blocks further progress. Use `juju resolved` to retry or skip the failed hook. Use `juju remove-unit --force` to bypass hooks entirely -- but note that forced removal may leave orphaned relation data or unreleased storage on the cloud side.
+```
+
+##### Model removal
+
+Model removal is orchestrated by the undertaker worker, which watches for models that have been set Dying and drives them through to deletion of both the model records and the model's Dqlite database.
+
+```{mermaid}
+sequenceDiagram
+    actor User
+    participant Controller as Controller
+    participant Undertaker as Undertaker worker
+    participant Cloud as Cloud
+
+    User->>Controller: juju destroy-model
+    Controller->>Controller: Mark model Dying
+    Controller-->>Undertaker: watcher fires
+    Undertaker->>Controller: Destroy all applications
+    note over Controller,Cloud: each unit goes through its removal sequence
+    Controller->>Cloud: Release all machines
+    Controller->>Controller: Mark model Dead
+    Undertaker->>Controller: Delete model records
+    Undertaker->>Controller: Delete model Dqlite database
+```
+*Model removal. The undertaker worker watches for the model to be set Dying, destroys all applications (each unit going through its own removal sequence), waits for all machines to be released, then deletes the model records and its Dqlite database.*
+
+```{note}
+A `juju destroy-model` that hangs is almost always a unit stuck in its removal hook sequence. Use `juju status` on the dying model to identify the blocked unit, then `juju resolved` or `juju remove-unit --force` to unblock it.
+```
+
 ```{ibnote}
 See more: {ref}`removing-things`
 ```
@@ -368,6 +635,18 @@ The unit agent (specifically its uniter worker) runs loops continuously:
 6. Return to step 1.
 
 Only one hook runs at a time per unit. Every hook is dispatched with a set of **environment variables** describing the context (`JUJU_UNIT_NAME`, channel, and so on).
+
+```{mermaid}
+flowchart LR
+    W["Wait\n(watcher)"]
+    S["Snapshot\n(remote state)"]
+    R["Resolve\n(next hook)"]
+    D["Dispatch\n(run charm)"]
+    C["Commit\n(flush writes)"]
+
+    W --> S --> R --> D --> C --> W
+```
+*The unit agent's control loop: wait for a watcher to fire, snapshot remote state, resolve the next hook, dispatch it, commit buffered writes, and repeat.*
 
 ##### Hook dispatch
 
@@ -405,7 +684,7 @@ The `update-status` hook fires on a timer (default: five minutes), not in respon
 
 #### Data synchronisation during a hook
 
-The controller database is the single source of truth Juju state. When a hook runs, the charm has no in-process memory of previous runs: everything it needs comes from the database, via hook commands, on demand.
+The controller database is the single source of truth for Juju state. When a hook runs, the charm has no in-process memory of previous runs: everything it needs comes from the database, via hook commands, on demand.
 
 The timing of that data flow follows from a few invariants Juju maintains while a hook runs. This section covers those invariants first.
 
