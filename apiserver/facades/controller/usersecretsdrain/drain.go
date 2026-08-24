@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/secrets"
@@ -29,6 +31,23 @@ type SecretsDrainAPI struct {
 	modelUUID            model.UUID
 	secretBackendService SecretBackendService
 	secretService        SecretService
+}
+
+// codedSecretError translates well-known secret domain errors into coded
+// params errors at the facade boundary, preserving the message. Other
+// errors are returned unchanged.
+func codedSecretError(err error) error {
+	switch {
+	case errors.Is(err, secreterrors.SecretNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeSecretNotFound, "%s", err.Error())
+	case errors.Is(err, secreterrors.SecretRevisionNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeSecretRevisionNotFound, "%s", err.Error())
+	case errors.Is(err, secretbackenderrors.NotFound):
+		return apiservererrors.ParamsErrorf(params.CodeSecretBackendNotFound, "%s", err.Error())
+	case errors.Is(err, secreterrors.PermissionDenied):
+		return apiservererrors.ParamsErrorf(params.CodeUnauthorized, "%s", err.Error())
+	}
+	return err
 }
 
 // GetSecretBackendConfigs gets the config needed to create a client to secret backends for the drain worker.
@@ -53,7 +72,7 @@ func (s *SecretsDrainAPI) GetSecretBackendConfigs(ctx context.Context, arg param
 		BackendID: backendID,
 	})
 	if err != nil {
-		return results, errors.Trace(err)
+		return results, codedSecretError(err)
 	}
 	if len(cfgInfo.Configs) == 0 {
 		return results, errors.NotFoundf("no secret backends available")
@@ -82,7 +101,7 @@ func (s *SecretsDrainAPI) GetSecretContentInfo(ctx context.Context, args params.
 	for i, arg := range args.Args {
 		content, backend, draining, err := s.getSecretContent(ctx, arg)
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(codedSecretError(err))
 			continue
 		}
 		contentParams := params.SecretContentParams{}
@@ -192,7 +211,7 @@ func (s *SecretsDrainAPI) GetSecretRevisionContentInfo(ctx context.Context, arg 
 			ID:   s.modelUUID.String(),
 		})
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(codedSecretError(err))
 			continue
 		}
 		contentParams := params.SecretContentParams{}
@@ -203,7 +222,7 @@ func (s *SecretsDrainAPI) GetSecretRevisionContentInfo(ctx context.Context, arg 
 			}
 			backend, draining, err := s.getBackend(ctx, valueRef.BackendID)
 			if err != nil {
-				result.Results[i].Error = apiservererrors.ServerError(err)
+				result.Results[i].Error = apiservererrors.ServerError(codedSecretError(err))
 				continue
 			}
 			result.Results[i].BackendConfig = &params.SecretBackendConfigResult{

@@ -59,6 +59,21 @@ func (s *SecretsAPI) checkCanAdmin(ctx context.Context) error {
 	return apiservererrors.ErrPerm
 }
 
+// codedSecretError translates well-known secret domain errors into coded
+// params errors at the facade boundary, preserving the message. Other
+// errors are returned unchanged.
+func codedSecretError(err error) error {
+	switch {
+	case errors.Is(err, secreterrors.SecretNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeSecretNotFound, "%s", err.Error())
+	case errors.Is(err, secreterrors.SecretRevisionNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeSecretRevisionNotFound, "%s", err.Error())
+	case errors.Is(err, secreterrors.PermissionDenied):
+		return apiservererrors.ParamsErrorf(params.CodeUnauthorized, "%s", err.Error())
+	}
+	return err
+}
+
 // ListSecrets lists available secrets.
 // If args specifies secret owners, then only charm secrets are queried because user secret don't have owners as such.
 // If no owners are specified, we use the more generic list method when returns all types of secret.
@@ -143,7 +158,7 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 		}
 		grants, err := s.secretService.GetSecretGrants(ctx, m.URI, coresecrets.RoleView)
 		if err != nil {
-			return result, errors.Trace(err)
+			return result, codedSecretError(err)
 		}
 		for _, g := range grants {
 			accessorTag, err := tagFromSubject(g.Subject)
@@ -186,7 +201,7 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 			}
 			val, err := s.secretService.GetSecretContentFromBackend(ctx, m.URI, rev)
 			valueResult := &params.SecretValueResult{
-				Error: apiservererrors.ServerError(err),
+				Error: apiservererrors.ServerError(codedSecretError(err)),
 			}
 			if err == nil {
 				valueResult.Data = val.EncodedValues()
@@ -325,7 +340,7 @@ func (s *SecretsAPI) updateSecret(ctx context.Context, arg params.UpdateUserSecr
 		arg.Content.Checksum = checksum
 	}
 	err = s.secretService.UpdateUserSecret(ctx, uri, fromUpsertParams(s.modelUUID, arg.AutoPrune, arg.UpsertSecretArg))
-	return errors.Trace(err)
+	return codedSecretError(err)
 }
 
 func (s *SecretsAPI) secretURI(ctx context.Context, uriStr, label string) (*coresecrets.URI, error) {
@@ -337,7 +352,7 @@ func (s *SecretsAPI) secretURI(ctx context.Context, uriStr, label string) (*core
 	}
 	uri, err := s.secretService.GetUserSecretURIByLabel(ctx, label)
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting user secret for label %q", label)
+		return nil, codedSecretError(errors.Annotatef(err, "getting user secret for label %q", label))
 	}
 	return uri, nil
 }
@@ -370,7 +385,7 @@ func (s *SecretsAPI) RemoveSecrets(ctx context.Context, args params.DeleteSecret
 			Revisions: arg.Revisions,
 		})
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(codedSecretError(err))
 			continue
 		}
 	}
@@ -425,7 +440,7 @@ func (s *SecretsAPI) secretsGrantRevoke(ctx context.Context, arg params.GrantRev
 		return nil
 	}
 	for i, appName := range arg.Applications {
-		results.Results[i].Error = apiservererrors.ServerError(one(appName))
+		results.Results[i].Error = apiservererrors.ServerError(codedSecretError(one(appName)))
 	}
 	return results, nil
 }

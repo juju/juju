@@ -32,6 +32,25 @@ func (s *SecretBackendsAPI) checkCanAdmin(ctx context.Context) error {
 	return s.authorizer.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID))
 }
 
+// codedBackendError translates secret backend domain errors into coded
+// params errors at the facade boundary, preserving the message. Other
+// errors are returned unchanged.
+func codedBackendError(err error) error {
+	switch {
+	case errors.Is(err, secretbackenderrors.AlreadyExists):
+		return apiservererrors.ParamsErrorf(params.CodeSecretBackendAlreadyExists, "%s", err.Error())
+	case errors.Is(err, secretbackenderrors.NotFound):
+		return apiservererrors.ParamsErrorf(params.CodeSecretBackendNotFound, "%s", err.Error())
+	case errors.Is(err, secretbackenderrors.NotValid):
+		return apiservererrors.ParamsErrorf(params.CodeSecretBackendNotValid, "%s", err.Error())
+	case errors.Is(err, secretbackenderrors.NotSupported):
+		return apiservererrors.ParamsErrorf(params.CodeSecretBackendNotSupported, "%s", err.Error())
+	case errors.Is(err, secretbackenderrors.Forbidden):
+		return apiservererrors.ParamsErrorf(params.CodeSecretBackendForbidden, "%s", err.Error())
+	}
+	return err
+}
+
 // AddSecretBackends adds new secret backends.
 func (s *SecretBackendsAPI) AddSecretBackends(ctx context.Context, args params.AddSecretBackendArgs) (params.ErrorResults, error) {
 	result := params.ErrorResults{
@@ -56,7 +75,7 @@ func (s *SecretBackendsAPI) AddSecretBackends(ctx context.Context, args params.A
 			TokenRotateInterval: arg.TokenRotateInterval,
 			Config:              arg.Config,
 		})
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(codedBackendError(err))
 	}
 	return result, nil
 }
@@ -85,7 +104,7 @@ func (s *SecretBackendsAPI) UpdateSecretBackends(ctx context.Context, args param
 			params.Config = arg.Config
 		}
 		err := s.backendService.UpdateSecretBackend(ctx, params)
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(codedBackendError(err))
 	}
 	return result, nil
 }
@@ -141,6 +160,8 @@ func (s *SecretBackendsAPI) RemoveSecretBackends(ctx context.Context, args param
 				params.CodeNotSupported,
 				"deleting in use secret backend not supported",
 			)
+		} else {
+			err = codedBackendError(err)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}

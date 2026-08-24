@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/secrets"
@@ -67,6 +68,25 @@ type SecretsManagerAPI struct {
 	logger logger.Logger
 }
 
+// codedSecretError translates well-known secret domain errors into coded
+// params errors at the facade boundary, preserving the message. Other
+// errors are returned unchanged.
+func codedSecretError(err error) error {
+	switch {
+	case errors.Is(err, secreterrors.SecretNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeSecretNotFound, "%s", err.Error())
+	case errors.Is(err, secreterrors.SecretRevisionNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeSecretRevisionNotFound, "%s", err.Error())
+	case errors.Is(err, secreterrors.SecretConsumerNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeSecretConsumerNotFound, "%s", err.Error())
+	case errors.Is(err, secretbackenderrors.NotFound):
+		return apiservererrors.ParamsErrorf(params.CodeSecretBackendNotFound, "%s", err.Error())
+	case errors.Is(err, secreterrors.PermissionDenied):
+		return apiservererrors.ParamsErrorf(params.CodeUnauthorized, "%s", err.Error())
+	}
+	return err
+}
+
 // GetSecretBackendConfigs gets the config needed to create a client to secret backends.
 func (s *SecretsManagerAPI) GetSecretBackendConfigs(ctx context.Context, arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
 	if arg.ForDrain {
@@ -77,7 +97,7 @@ func (s *SecretsManagerAPI) GetSecretBackendConfigs(ctx context.Context, arg par
 	}
 	result, activeID, err := s.getSecretBackendConfig(ctx, arg.BackendIDs)
 	if err != nil {
-		return results, errors.Trace(err)
+		return results, codedSecretError(err)
 	}
 	results.ActiveID = activeID
 	results.Results = result
@@ -109,7 +129,7 @@ func (s *SecretsManagerAPI) getBackendConfigForDrain(ctx context.Context, arg pa
 		BackendID: backendID,
 	})
 	if err != nil {
-		return results, errors.Trace(err)
+		return results, codedSecretError(err)
 	}
 	if len(cfgInfo.Configs) == 0 {
 		return results, errors.NotFoundf("no secret backends available")
@@ -244,7 +264,7 @@ func (s *SecretsManagerAPI) GetConsumerSecretsRevisionInfo(ctx context.Context, 
 	for i, uri := range args.URIs {
 		data, latestRevision, err := s.getSecretConsumerInfo(ctx, unitConsumer, uri)
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(codedSecretError(err))
 			continue
 		}
 		result.Results[i] = params.SecretConsumerInfoResult{
@@ -380,7 +400,7 @@ func (s *SecretsManagerAPI) GetSecretContentInfo(ctx context.Context, args param
 	for i, arg := range args.Args {
 		content, backend, draining, err := s.getSecretContent(ctx, arg)
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(codedSecretError(err))
 			continue
 		}
 		contentParams := params.SecretContentParams{}
@@ -524,7 +544,7 @@ func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(ctx context.Context, ar
 		// TODO(wallworld) - if pendingDelete is true, mark the revision for deletion
 		val, valueRef, err := s.secretService.GetSecretValue(ctx, uri, rev, accessor)
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+			result.Results[i].Error = apiservererrors.ServerError(codedSecretError(err))
 			continue
 		}
 		contentParams := params.SecretContentParams{}
@@ -535,7 +555,7 @@ func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(ctx context.Context, ar
 			}
 			backend, draining, err := s.getBackend(ctx, valueRef.BackendID, accessor, token)
 			if err != nil {
-				result.Results[i].Error = apiservererrors.ServerError(err)
+				result.Results[i].Error = apiservererrors.ServerError(codedSecretError(err))
 				continue
 			}
 			result.Results[i].BackendConfig = &params.SecretBackendConfigResult{
@@ -812,7 +832,7 @@ func (s *SecretsManagerAPI) SecretsRotated(ctx context.Context, args params.Secr
 	}
 	for i, arg := range args.Args {
 		var result params.ErrorResult
-		result.Error = apiservererrors.ServerError(one(arg))
+		result.Error = apiservererrors.ServerError(codedSecretError(one(arg)))
 		results.Results[i] = result
 	}
 	return results, nil

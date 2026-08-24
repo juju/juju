@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/rpc/params"
 )
@@ -168,9 +169,22 @@ func (s *SecretsDrainAPI) ChangeSecretBackend(ctx context.Context, args params.C
 	}
 	for i, arg := range args.Args {
 		err := s.changeSecretBackendForOne(ctx, arg)
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(codedSecretError(err))
 	}
 	return result, nil
+}
+
+// codedSecretError translates well-known secret domain errors into coded
+// params errors at the facade boundary, preserving the message. Other
+// errors are returned unchanged.
+func codedSecretError(err error) error {
+	switch {
+	case errors.Is(err, secreterrors.SecretNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeSecretNotFound, "%s", err.Error())
+	case errors.Is(err, secreterrors.PermissionDenied):
+		return apiservererrors.ParamsErrorf(params.CodeUnauthorized, "%s", err.Error())
+	}
+	return err
 }
 
 func (s *SecretsDrainAPI) changeSecretBackendForOne(ctx context.Context, arg params.ChangeSecretBackendArg) (err error) {

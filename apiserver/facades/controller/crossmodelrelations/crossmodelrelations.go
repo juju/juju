@@ -35,6 +35,7 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -816,6 +817,11 @@ func (api *CrossModelRelationsAPIv3) getSecretChanges(ctx context.Context, uriSt
 	}
 	latest, err := api.secretService.GetLatestRevisions(ctx, uris)
 	if err != nil {
+		// Translate the secret domain error into its wire code at the
+		// call site, preserving the message.
+		if internalerrors.Is(err, secreterrors.SecretNotFound) {
+			return nil, apiservererrors.ParamsErrorf(params.CodeSecretNotFound, "%s", err.Error())
+		}
 		return nil, errors.Trace(err)
 	}
 	changes := make([]params.SecretRevisionChange, len(uris))
