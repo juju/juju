@@ -156,7 +156,7 @@ func (s *RemoveMachineSuite) TestRemoveNoPromptFacadeV11DestroysHostedUnitsAndCo
 	s.facadeVersion = 11
 	defer s.setup(c).Finish()
 
-	s.mockApi.EXPECT().DestroyMachinesWithHostedUnitsAndContainers(false, false, false, gomock.Any(), "1", "2/lxd/1")
+	s.mockApi.EXPECT().DestroyMachinesWithHostedUnitsAndContainers(false, false, gomock.Any(), "1", "2/lxd/1")
 
 	_, err := s.run(c, "--no-prompt", "1", "2/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
@@ -387,7 +387,7 @@ func (s *RemoveMachineSuite) TestRemovePromptFacadeV11(c *gc.C) {
 	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1", "2").
 		Return(destroyMachineResultsWithHostedUnit("1"), nil)
-	s.mockApi.EXPECT().DestroyMachinesWithHostedUnitsAndContainers(false, false, false, gomock.Any(), "1", "2")
+	s.mockApi.EXPECT().DestroyMachinesWithHostedUnitsAndContainers(false, false, gomock.Any(), "1", "2")
 
 	stdin.WriteString("y")
 	_, errc := s.runWithContext(ctx, "1", "2")
@@ -435,7 +435,7 @@ func (s *RemoveMachineSuite) TestRemoveFacadeV11ForcePromptsWithoutHostedUnitsOr
 	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
 	s.mockApi.EXPECT().DestroyMachinesWithParams(true, false, true, gomock.Any(), "1").
 		DoAndReturn(defaultDestroyMachineResult)
-	s.mockApi.EXPECT().DestroyMachinesWithHostedUnitsAndContainers(true, false, false, gomock.Any(), "1")
+	s.mockApi.EXPECT().DestroyMachinesWithHostedUnitsAndContainers(true, false, gomock.Any(), "1")
 
 	stdin.WriteString("y")
 	_, errc := s.runWithContext(ctx, "--force", "1")
