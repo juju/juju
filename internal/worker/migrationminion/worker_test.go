@@ -498,36 +498,10 @@ func (s *Suite) TestSUCCESSReportFailureStillWritesConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	// Each WaitAdvance unblocks one retry sleep; loop until the fallback
-	// exhausts and the config is written.
-	closed := func() bool {
-		select {
-		case <-s.agent.configChanged:
-			return true
-		default:
-			return false
-		}
-	}
-	for !closed() {
-		err = s.clock.WaitAdvance(10*time.Minute, coretesting.LongWait, 1)
-		if err != nil {
-			break
-		}
-	}
-	c.Assert(closed(), tc.IsTrue)
-	c.Assert(s.agent.conf.addrs, tc.DeepEquals, addrs)
-}
-
-func (s *Suite) TestSUCCESSClosesSourceConnection(c *tc.C) {
-	closer := &stubCloser{}
-	s.config.ConnCloser = closer
-	s.client.watcher.changes <- watcher.MigrationStatus{
-		MigrationId:    "id",
-		Phase:          migration.SUCCESS,
-		TargetAPIAddrs: addrs,
-		TargetCACert:   caCert,
-	}
-	w, err := migrationminion.NewWorker(s.config)
+	// The fallback retry is bounded by the same duration as the
+	// validation retry (5m); advance past it so the fallback exhausts
+	// and the config is written.
+	err = s.clock.WaitAdvance(6*time.Minute, coretesting.LongWait, 1)
 	c.Assert(err, tc.ErrorIsNil)
 
 	select {
@@ -535,8 +509,7 @@ func (s *Suite) TestSUCCESSClosesSourceConnection(c *tc.C) {
 	case <-c.Context().Done():
 		c.Fatal("timed out waiting for agent config change")
 	}
-	workertest.CleanKill(c, w)
-	c.Check(closer.closed, tc.IsTrue)
+	c.Assert(s.agent.conf.addrs, tc.DeepEquals, addrs)
 }
 
 // TestSUCCESSFallbackReportCompletesDuringTeardown covers the race where the
@@ -597,6 +570,52 @@ func (s *Suite) TestSUCCESSFallbackReportCompletesDuringTeardown(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
+// TestSUCCESSFallbackReportStopsRetryingDuringTeardown covers the other
+// half of the teardown race: if the worker is killed and the fallback
+// report still fails, the retry loop must not keep retrying into the
+// teardown (the retry context is detached from cancellation). The worker
+// must die promptly.
+func (s *Suite) TestSUCCESSFallbackReportStopsRetryingDuringTeardown(c *tc.C) {
+	s.agent.conf.tag = names.NewUnitTag("app/0")
+	s.agent.conf.dir = "/var/lib/juju/agents/unit-app-0"
+
+	facade := &blockingReportFacade{
+		Facade:  s.client,
+		started: make(chan struct{}),
+		proceed: make(chan struct{}),
+	}
+	s.config.Facade = facade
+
+	s.config.SendReport = func(ctx context.Context, conn api.Connection, status watcher.MigrationStatus, success bool) error {
+		return errors.New("fallback report boom")
+	}
+
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+		SourceAPIAddrs: []string{"3.3.3.3:3333"},
+		SourceCACert:   caCert,
+	}
+	w, err := migrationminion.NewWorker(s.config)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Wait for the in-flight report, then kill the worker; the failing
+	// fallback report must not retry: the worker dies without any clock
+	// advance.
+	select {
+	case <-facade.started:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for in-flight report")
+	}
+	w.Kill()
+	close(facade.proceed)
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, tc.ErrorIsNil)
+}
+
 func (s *Suite) TestSUCCESSFetchTargetLokiConfigError(c *tc.C) {
 	s.config.FetchTargetLokiConfig = func(context.Context, api.Connection, names.Tag) (loggerapi.ControllerLokiConfig, error) {
 		return loggerapi.ControllerLokiConfig{}, errors.New("loki fetch boom")
@@ -632,25 +651,24 @@ func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *tc.C) {
 		}
 		return nil, apiservererrors.ErrTryAgain
 	}
+	// The in-flight report dies on the shut down connection, the fallback
+	// dial to the source gets ErrTryAgain, and the bounded retry keeps
+	// dialling while the phase replays.
 	s.stub.SetErrors(rpc.ErrShutdown)
 	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	// On the first attempt, SendReport fails with rpc.ErrShutdown. On retry
-	// it succeeds (no more errors). One clock tick for the retry delay.
-	err = s.clock.WaitAdvance(100*time.Millisecond, coretesting.ShortWait, 1)
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.waitForStubCalls(c, []string{
-		"Watch",
-		"Lockdown",
-		"API open",
-		"API close",
-		"Report",
-		"API open",
-		"API open",
-	})
+	// Each fallback attempt waits on the bounded backoff delay; advance
+	// the clock past one delay at a time.
+	for _, expected := range [][]string{
+		{"Watch", "Lockdown", "API open", "API close", "Report", "API open"},
+		{"Watch", "Lockdown", "API open", "API close", "Report", "API open", "API open"},
+	} {
+		err = s.clock.WaitAdvance(100*time.Millisecond, coretesting.ShortWait, 1)
+		c.Assert(err, tc.ErrorIsNil)
+		s.waitForStubCalls(c, expected)
+	}
 }
 
 func (s *Suite) TestSUCCESSRetryReport(c *tc.C) {
@@ -981,15 +999,6 @@ type stubAgent struct {
 	// changed and configChanged is not signalled. It lets a test model an
 	// agent-config write failing on one attempt and recovering on a later one.
 	changeConfigErrs []error
-}
-
-type stubCloser struct {
-	closed bool
-}
-
-func (c *stubCloser) Close() error {
-	c.closed = true
-	return nil
 }
 
 // blockingReportFacade blocks Report until the test releases it, so a test

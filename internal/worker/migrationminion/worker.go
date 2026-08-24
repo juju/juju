@@ -6,7 +6,6 @@ package migrationminion
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/juju/clock"
@@ -34,6 +33,12 @@ import (
 const (
 	// ErrRetryable is returned when a retryable error occurs.
 	ErrRetryable = errors.ConstError("retryable")
+
+	// errWorkerDying is returned by the fallback report retry loop when the
+	// worker is being torn down. It is fatal to the retry loop, so the
+	// worker can die promptly instead of retrying into its own teardown,
+	// and it is never reported as an error by robustReport.
+	errWorkerDying = errors.ConstError("worker dying")
 )
 
 // SendReportFunc is a function type that reports the migration phase progress
@@ -162,12 +167,6 @@ type Config struct {
 	// backoff. This is useful when retrying validation requests to
 	// avoid flooding the target controller.
 	ApplyJitter bool
-
-	// ConnCloser, if set, is closed after the agent config is rewritten
-	// to point at the target controller, so the apicaller redials using
-	// the new addresses. apiconfigwatcher also bounces on the voyeur;
-	// closing here does not depend on it.
-	ConnCloser io.Closer
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -535,15 +534,7 @@ func (w *Worker) updateAgentConfigForTargetController(ctx context.Context, statu
 		}
 		return nil
 	})
-	if err != nil {
-		return errors.Annotate(err, "setting agent config")
-	}
-	if w.config.ConnCloser != nil {
-		if closeErr := w.config.ConnCloser.Close(); closeErr != nil {
-			w.config.Logger.Warningf(ctx, "closing source API connection after config update: %v", closeErr)
-		}
-	}
-	return nil
+	return errors.Annotate(err, "setting agent config")
 }
 
 func (w *Worker) ensureTargetControllerDetails(ctx context.Context, status watcher.MigrationStatus) error {
@@ -613,7 +604,9 @@ func (w *Worker) robustReport(ctx context.Context, status watcher.MigrationStatu
 	// agent's engine bounces and takes the nested unit engine with it -
 	// so the direct dial and report must complete on a context that is
 	// not cancelled by the teardown, and the dial must not abort on the
-	// dying catacomb.
+	// dying catacomb. Once torn down, though, the loop must not keep
+	// retrying into it: the errWorkerDying sentinel makes a failed attempt
+	// fatal so the worker can die promptly.
 	reportCtx := context.WithoutCancel(ctx)
 
 	err = retry.Call(retry.CallArgs{
@@ -626,21 +619,33 @@ func (w *Worker) robustReport(ctx context.Context, status watcher.MigrationStatu
 			}
 			defer func() { _ = conn.Close() }()
 
-			return w.config.SendReport(reportCtx, conn, status, success)
+			err = w.config.SendReport(reportCtx, conn, status, success)
+			if err == nil {
+				return nil
+			}
+			// If the worker is being torn down, the next attempt cannot
+			// make progress: stop retrying so the worker can die.
+			select {
+			case <-w.catacomb.Dying():
+				return errWorkerDying
+			default:
+				return err
+			}
 		},
 		IsFatalError: func(err error) bool {
-			return false
+			return errors.Is(err, errWorkerDying)
 		},
 		NotifyFunc: func(lastError error, attempt int) {
 			w.config.Logger.Warningf(ctx, "report migration status failed (attempt %d): %v", attempt, lastError)
 		},
 		Clock:       w.config.Clock,
 		Delay:       initialRetryDelay,
-		Attempts:    maxRetries,
-		BackoffFunc: retry.DoubleDelay,
+		MaxDelay:    retryMaxDelay,
+		MaxDuration: retryMaxDuration,
+		BackoffFunc: retry.ExpBackoff(initialRetryDelay, retryMaxDelay, retryExpBackoff, false),
 		Stop:        ctx.Done(),
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, errWorkerDying) {
 		return fmt.Errorf("cannot report migration status %v success=%v: %w", status, success, err)
 	}
 	return nil
