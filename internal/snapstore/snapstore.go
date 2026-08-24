@@ -227,21 +227,21 @@ func (c *snapStoreClient) doFetchInfo(ctx context.Context, snapName, arch string
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if resp.StatusCode == http.StatusOK {
+		var info snapInfoResponse
+		if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+			return snapInfoResponse{}, false, jujuerrors.Annotatef(err, "decoding snap store response for %q", snapName)
+		}
+		return info, false, nil
+	}
+
 	if !isRetryableStatusCode(resp.StatusCode) {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return snapInfoResponse{}, false, fmt.Errorf("snap store returned %s for %q: %s", resp.Status, snapName, strings.TrimSpace(string(body)))
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return snapInfoResponse{}, true, fmt.Errorf("snap store returned %s for %q: %s", resp.Status, snapName, strings.TrimSpace(string(body)))
-	}
-
-	var info snapInfoResponse
-	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
-		return snapInfoResponse{}, false, jujuerrors.Annotatef(err, "decoding snap store response for %q", snapName)
-	}
-	return info, false, nil
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	return snapInfoResponse{}, true, fmt.Errorf("snap store returned %s for %q: %s", resp.Status, snapName, strings.TrimSpace(string(body)))
 }
 
 // isRetryableStatusCode reports whether the status code indicates a transient
