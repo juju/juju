@@ -30,6 +30,10 @@ func (cp *CopyParams) Validate() error {
 	return cp.validate()
 }
 
+func SafeRun(ctx context.Context, opts ExecParams, executor remotecommand.Executor) error {
+	return client{}.safeRun(ctx, opts, executor)
+}
+
 type SizeQueueInterface interface {
 	Next() *remotecommand.TerminalSize
 	Watch(int)

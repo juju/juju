@@ -6,90 +6,52 @@ package k8s
 import (
 	"context"
 	"io"
-	"os"
 	"strings"
-	"sync"
 	"syscall"
-	"time"
 
-	"github.com/creack/pty"
 	"github.com/juju/errors"
 	ssh "github.com/tailscale/gliderssh"
 
-	"github.com/juju/juju/core/logger"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 )
 
-// Proxy defines the interface for closing an
-// SSH session to a Kubernetes container.
-type Proxy interface {
-	// Streams returns the terminal streams to pass to the Kubernetes executor.
-	Streams() (io.Reader, io.Writer, io.Writer)
-
-	// Close drains final command output, closes the SSH session with the
-	// appropriate status, and waits for all proxy goroutines to stop.
-	Close(status int)
-}
-
-type sessionProxy struct {
-	session ssh.Session
-}
-
-func (p sessionProxy) Streams() (io.Reader, io.Writer, io.Writer) {
-	return p.session, p.session, p.session.Stderr()
-}
-
-func (p sessionProxy) Close(status int) {
-	_ = p.session.Exit(status)
+// SessionChannelHandler adapts the raw session channel to Gliderlabs' session
+// handler. Kubernetes execution needs the parsed session values, unlike the
+// machine proxy which forwards the channel requests unchanged.
+func (h *Handlers) SessionChannelHandler() ssh.ChannelHandler {
+	return ssh.DefaultSessionHandler
 }
 
 // SessionHandler proxies a user SSH session to a Kubernetes container.
 func (h *Handlers) SessionHandler(session ssh.Session) {
-	handleError := func(p Proxy, err error) {
+	handleError := func(err error) {
 		h.logger.Errorf(session.Context(), "Kubernetes session proxy failure: %v", err)
-		_, _, stderr := p.Streams()
-		_, _ = stderr.Write([]byte(err.Error() + "\n"))
-		p.Close(1)
+		_, _ = session.Stderr().Write([]byte(err.Error() + "\n"))
+		_ = session.Exit(1)
 	}
-
-	var proxy Proxy = sessionProxy{session: session}
 
 	namespace, podName, err := h.resolver.ResolveK8sExecInfo(session.Context(), h.destination)
 	if err != nil {
-		handleError(proxy, errors.Annotate(err, "resolving Kubernetes exec information"))
+		handleError(errors.Annotate(err, "resolving Kubernetes exec information"))
 		return
 	}
 
 	executor, err := h.getExecutor(namespace)
 	if err != nil {
-		handleError(proxy, errors.Annotate(err, "getting Kubernetes executor"))
+		handleError(errors.Annotate(err, "getting Kubernetes executor"))
 		return
 	}
 
 	container, ok := h.destination.Container()
 	if !ok {
-		handleError(proxy, errors.New("destination is not a container target"))
+		handleError(errors.New("destination is not a container target"))
 		return
 	}
 
 	ptyRequest, windowChanges, hasPTY := session.Pty()
-
-	var stdin io.Reader = session
-	var stdout, stderr io.Writer = session, session.Stderr()
-
-	// A PTY request needs a real terminal descriptor. The SSH session streams
-	// alone do not satisfy terminal detection performed by the executor.
-	// Further investigation is needed to understand this fully and whether it
-	// can be simplified.
-
+	var terminalSizeQueue k8sexec.TerminalSizeQueue
 	if hasPTY {
-		p, err := newPTYProxy(session, ptyRequest, windowChanges, h.logger)
-		if err != nil {
-			handleError(proxy, err)
-			return
-		}
-		proxy = p
-		stdin, stdout, stderr = proxy.Streams()
+		terminalSizeQueue = newTerminalSizeQueue(session.Context(), ptyRequest.Window, windowChanges)
 	}
 
 	command := session.RawCommand()
@@ -104,25 +66,33 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 
 	h.metrics.ObserveTimeToSession(session.Context())
 	err = executor.Exec(session.Context(), k8sexec.ExecParams{
-		PodName:       podName,
-		ContainerName: container,
-		Commands:      []string{command},
-		Stdout:        stdout,
-		Stderr:        stderr,
-		Stdin:         stdin,
-		TTY:           hasPTY,
-		Env:           sessionEnvironment(session.Environ(), ptyRequest.Term, hasPTY),
-		Signal:        translateSignals(session.Context(), signals),
+		PodName:           podName,
+		ContainerName:     container,
+		Commands:          []string{command},
+		Stdout:            session,
+		Stderr:            sessionStderr(session, hasPTY),
+		Stdin:             session,
+		TTY:               hasPTY,
+		TerminalSizeQueue: terminalSizeQueue,
+		Env:               sessionEnvironment(session.Environ(), ptyRequest.Term, hasPTY),
+		Signal:            translateSignals(session.Context(), signals),
 	}, session.Context().Done())
 	if err != nil {
 		if exitErr, ok := errors.AsType[k8sexec.ExitError](err); ok {
-			proxy.Close(exitErr.ExitStatus())
+			_ = session.Exit(exitErr.ExitStatus())
 			return
 		}
-		handleError(proxy, errors.Annotate(err, "executing command in Kubernetes pod"))
+		handleError(errors.Annotate(err, "executing command in Kubernetes pod"))
 		return
 	}
-	proxy.Close(0)
+	_ = session.Exit(0)
+}
+
+func sessionStderr(session ssh.Session, hasPTY bool) io.Writer {
+	if hasPTY {
+		return nil
+	}
+	return session.Stderr()
 }
 
 func sessionEnvironment(env []string, terminal string, hasPTY bool) []string {
@@ -179,103 +149,44 @@ var sshSignals = map[ssh.Signal]syscall.Signal{
 	ssh.SIGUSR2: syscall.SIGUSR2,
 }
 
-// ptyProxy owns a pseudo-terminal and the goroutines that copy data and resize
-// it for an SSH session.
-type ptyProxy struct {
-	session ssh.Session
-	ptmx    *os.File
-	tty     *os.File
-	logger  logger.Logger
-
-	cancel     context.CancelFunc
-	resizeDone chan struct{}
-	outputDone chan struct{}
-	wg         sync.WaitGroup
+type terminalSizeQueue struct {
+	ctx           context.Context
+	initial       k8sexec.TerminalSize
+	windowChanges <-chan ssh.Window
+	getInitial    bool
 }
 
-const ptyOutputDrainTimeout = 5 * time.Second
-
-func newPTYProxy(session ssh.Session, request ssh.Pty, windowChanges <-chan ssh.Window, logger logger.Logger) (*ptyProxy, error) {
-	ptmx, tty, err := pty.Open()
-	if err != nil {
-		return nil, errors.Annotate(err, "opening pseudo-terminal")
+func newTerminalSizeQueue(ctx context.Context, initial ssh.Window, windowChanges <-chan ssh.Window) *terminalSizeQueue {
+	return &terminalSizeQueue{
+		ctx: ctx,
+		initial: k8sexec.TerminalSize{
+			Width:  uint16(initial.Width),
+			Height: uint16(initial.Height),
+		},
+		windowChanges: windowChanges,
 	}
-	if err := pty.Setsize(ptmx, &pty.Winsize{
-		Rows: uint16(request.Window.Height),
-		Cols: uint16(request.Window.Width),
-	}); err != nil {
-		_ = tty.Close()
-		_ = ptmx.Close()
-		return nil, errors.Annotate(err, "setting pseudo-terminal size")
-	}
-
-	ctx, cancel := context.WithCancel(session.Context())
-	proxy := &ptyProxy{
-		session:    session,
-		ptmx:       ptmx,
-		tty:        tty,
-		cancel:     cancel,
-		logger:     logger,
-		resizeDone: make(chan struct{}),
-		outputDone: make(chan struct{}),
-	}
-	proxy.start(ctx, windowChanges)
-	return proxy, nil
 }
 
-// Streams returns the terminal streams to pass to the Kubernetes executor.
-func (p *ptyProxy) Streams() (io.Reader, io.Writer, io.Writer) {
-	return p.tty, p.tty, p.tty
-}
-
-// Close drains final command output, closes the SSH session with the
-// appropriate status, and waits for all proxy goroutines to stop.
-func (p *ptyProxy) Close(status int) {
-	// Stop resizing before closing descriptors so Setsize cannot race with
-	// File.Close.
-	p.cancel()
-	<-p.resizeDone
-
-	// Closing the slave signals command completion. Keep the master open until
-	// its copier has drained any final command output to the SSH client.
-	_ = p.tty.Close()
-	select {
-	case <-p.outputDone:
-	case <-p.session.Context().Done():
-	case <-time.After(ptyOutputDrainTimeout):
-		p.logger.Debugf(p.session.Context(), "timed out waiting for pty output to drain")
-	}
-
-	_ = p.session.Exit(status)
-	_ = p.ptmx.Close()
-	p.wg.Wait()
-}
-
-func (p *ptyProxy) start(ctx context.Context, windowChanges <-chan ssh.Window) {
-	p.wg.Go(func() {
-		defer close(p.resizeDone)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case window, ok := <-windowChanges:
-				if !ok {
-					return
-				}
-				_ = pty.Setsize(p.ptmx, &pty.Winsize{
-					Rows: uint16(window.Height),
-					Cols: uint16(window.Width),
-				})
-			}
+func (q *terminalSizeQueue) Next() *k8sexec.TerminalSize {
+	// Get initial value once
+	if !q.getInitial {
+		q.getInitial = true
+		return &k8sexec.TerminalSize{
+			Width:  q.initial.Width,
+			Height: q.initial.Height,
 		}
-	})
-	p.wg.Go(func() {
-		// Closing the SSH session or master descriptor interrupts this copy.
-		_, _ = io.Copy(p.ptmx, p.session)
-	})
-	p.wg.Go(func() {
-		_, _ = io.Copy(p.session, p.ptmx)
-		// outputDone lets Close drain output before closing the SSH session.
-		close(p.outputDone)
-	})
+	}
+
+	select {
+	case <-q.ctx.Done():
+		return nil
+	case window, ok := <-q.windowChanges:
+		if !ok {
+			return nil
+		}
+		return &k8sexec.TerminalSize{
+			Width:  uint16(window.Width),
+			Height: uint16(window.Height),
+		}
+	}
 }

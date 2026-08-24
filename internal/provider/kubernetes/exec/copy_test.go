@@ -6,6 +6,7 @@ package exec_test
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -172,7 +173,8 @@ func (s *execSuite) TestCopyToPod(c *tc.C) {
 		// check remote path is dir or not.
 		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-0", metav1.GetOptions{}).Return(&pod, nil),
 		s.restClient.EXPECT().Post().Return(checkRemotePathRequest),
-		s.mockRemoteCmdExecutor.EXPECT().Stream(
+		s.mockRemoteCmdExecutor.EXPECT().StreamWithContext(
+			gomock.Any(),
 			remotecommand.StreamOptions{
 				Stdout: &stdout,
 				Stderr: &stderr,
@@ -183,7 +185,8 @@ func (s *execSuite) TestCopyToPod(c *tc.C) {
 		// copy files.
 		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-0", metav1.GetOptions{}).Return(&pod, nil),
 		s.restClient.EXPECT().Post().Return(copyRequest),
-		s.mockRemoteCmdExecutor.EXPECT().Stream(
+		s.mockRemoteCmdExecutor.EXPECT().StreamWithContext(
+			gomock.Any(),
 			remotecommand.StreamOptions{
 				Stdin:  s.pipReader,
 				Stdout: &stdout,
@@ -267,7 +270,8 @@ func (s *execSuite) TestCopyFromPod(c *tc.C) {
 		// copy files.
 		s.mockPodGetter.EXPECT().Get(gomock.Any(), "gitlab-k8s-0", metav1.GetOptions{}).Return(&pod, nil),
 		s.restClient.EXPECT().Post().Return(copyRequest),
-		s.mockRemoteCmdExecutor.EXPECT().Stream(
+		s.mockRemoteCmdExecutor.EXPECT().StreamWithContext(
+			gomock.Any(),
 			remotecommand.StreamOptions{
 				Stdin:  nil,
 				Stdout: s.pipWriter,
@@ -275,7 +279,7 @@ func (s *execSuite) TestCopyFromPod(c *tc.C) {
 				Tty:    false,
 			},
 		).DoAndReturn(
-			func(ops remotecommand.StreamOptions) error {
+			func(_ context.Context, ops remotecommand.StreamOptions) error {
 				tarWriter := tar.NewWriter(ops.Stdout)
 				err = tarWriter.WriteHeader(&tar.Header{
 					// tar strips the leading '/' if it's there.

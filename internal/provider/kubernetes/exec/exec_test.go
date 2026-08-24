@@ -5,6 +5,7 @@ package exec_test
 
 import (
 	"bytes"
+	"context"
 	"net/url"
 	"sync"
 	"testing"
@@ -20,6 +21,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 
 	"github.com/juju/juju/internal/provider/kubernetes/exec"
+	"github.com/juju/juju/internal/provider/kubernetes/exec/mocks"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -91,6 +93,35 @@ func (s *execSuite) TestProcessEnv(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.Equals, "export AAA=1; export BBB='1 2'; export CCC='1\n2'; export DDD=1=\\'2\\'; export EEE=1\\;2\\;\\\"foo\\\"; ")
+}
+
+func (s *execSuite) TestSafeRunUsesExternalTerminalSizeQueue(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	executor := mocks.NewMockExecutor(ctrl)
+	queue := &terminalSizeQueueStub{}
+	var stdin, stdout bytes.Buffer
+	executor.EXPECT().StreamWithContext(context.Background(), remotecommand.StreamOptions{
+		Stdin:             &stdin,
+		Stdout:            &stdout,
+		Tty:               true,
+		TerminalSizeQueue: queue,
+	}).Return(nil)
+
+	err := exec.SafeRun(context.Background(), exec.ExecParams{
+		Stdin:             &stdin,
+		Stdout:            &stdout,
+		TTY:               true,
+		TerminalSizeQueue: queue,
+	}, executor)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+type terminalSizeQueueStub struct{}
+
+func (*terminalSizeQueueStub) Next() *exec.TerminalSize {
+	return nil
 }
 
 func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *tc.C) {
@@ -346,7 +377,8 @@ func (s *execSuite) TestExec(c *tc.C) {
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 
 		s.restClient.EXPECT().Post().Return(request),
-		s.mockRemoteCmdExecutor.EXPECT().Stream(
+		s.mockRemoteCmdExecutor.EXPECT().StreamWithContext(
+			gomock.Any(),
 			remotecommand.StreamOptions{
 				Stdin:  &stdin,
 				Stdout: &stdout,
@@ -447,7 +479,7 @@ func (s *execSuite) TestExecCancel(c *tc.C) {
 			c.Check(url.String(), tc.Equals, urls[callNum])
 			return s.mockRemoteCmdExecutor, nil
 		})
-	s.mockRemoteCmdExecutor.EXPECT().Stream(gomock.Any()).AnyTimes().DoAndReturn(func(opts remotecommand.StreamOptions) error {
+	s.mockRemoteCmdExecutor.EXPECT().StreamWithContext(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(func(ctx context.Context, opts remotecommand.StreamOptions) error {
 		mut.Lock()
 		currentCall := callNum
 		callNum++
