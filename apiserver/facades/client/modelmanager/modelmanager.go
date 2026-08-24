@@ -388,7 +388,7 @@ func (m *ModelManagerAPI) createModelInfo(
 
 	// If the user has not supplied an agent stream, check the model
 	// defaults for one.
-	if suppliedAgentStream == coreagentbinary.AgentStream("") {
+	if suppliedAgentStream.IsZero() {
 		modelDefaultStream, err := m.agentStreamFromModelDefaults(ctx, modelUUID)
 		if err != nil {
 			return err
@@ -398,7 +398,7 @@ func (m *ModelManagerAPI) createModelInfo(
 
 	// If the user has supplied both a target agent version and agent stream
 	if suppliedAgentVersion != semversion.Zero &&
-		suppliedAgentStream != coreagentbinary.AgentStream("") {
+		!suppliedAgentStream.IsZero() {
 		return modelInfoService.CreateModelWithAgentVersionStream(
 			ctx, suppliedAgentVersion, suppliedAgentStream,
 		)
@@ -406,7 +406,7 @@ func (m *ModelManagerAPI) createModelInfo(
 
 	// If the user has supplied a target agent version but no agent stream
 	if suppliedAgentVersion != semversion.Zero &&
-		suppliedAgentStream == coreagentbinary.AgentStream("") {
+		suppliedAgentStream.IsZero() {
 		return modelInfoService.CreateModelWithAgentVersion(
 			ctx, suppliedAgentVersion,
 		)
@@ -414,7 +414,7 @@ func (m *ModelManagerAPI) createModelInfo(
 
 	// If the user has supplied an agent stream and not target agent version.
 	if suppliedAgentVersion == semversion.Zero &&
-		suppliedAgentStream != coreagentbinary.AgentStream("") {
+		!suppliedAgentStream.IsZero() {
 		return modelInfoService.CreateModelWithAgentStream(
 			ctx, suppliedAgentStream,
 		)
