@@ -10,8 +10,10 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/domain/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
+	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -39,24 +41,25 @@ func (s *State) SetImportPhaseAborting(ctx context.Context, modelUUID string) er
 		return errors.Capture(err)
 	}
 
-	mUUID := modelUUIDArg{ModelUUID: modelUUID}
-	phases := importPhaseNames{
-		Target: string(modelmigration.ImportPhaseAborting),
-		Source: string(modelmigration.ImportPhaseImporting),
+	update := importPhaseUpdate{
+		ModelUUID: modelUUID,
+		Target:    string(modelmigration.ImportPhaseAborting),
+		Source:    string(modelmigration.ImportPhaseImporting),
+		UpdatedAt: s.clock.Now().UTC().Format(time.RFC3339),
 	}
 	updateStmt, err := s.Prepare(`
 WITH target_phase AS (
-    SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseNames.target
+    SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseUpdate.target
 ),
 source_phase AS (
-    SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseNames.source
+    SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseUpdate.source
 )
 UPDATE model_migration_import
 SET    phase_type_id = (SELECT id FROM target_phase),
-       updated_at    = DATETIME('now', 'utc')
-WHERE  model_uuid = $modelUUIDArg.model_uuid
+       updated_at    = $importPhaseUpdate.updated_at
+WHERE  model_uuid = $importPhaseUpdate.model_uuid
 AND    phase_type_id = (SELECT id FROM source_phase)
-`, mUUID, phases)
+`, update)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -75,7 +78,7 @@ AND    phase_type_id = (SELECT id FROM source_phase)
 
 		// Phase is importing; CAS to aborting.
 		var outcome sqlair.Outcome
-		if err := tx.Query(ctx, updateStmt, mUUID, phases).Get(&outcome); err != nil {
+		if err := tx.Query(ctx, updateStmt, update).Get(&outcome); err != nil {
 			return errors.Errorf("transitioning import to aborting: %w", err)
 		}
 		affected, err := outcome.Result().RowsAffected()
@@ -85,11 +88,7 @@ AND    phase_type_id = (SELECT id FROM source_phase)
 		if affected == 1 {
 			return nil
 		}
-		// The read above saw importing, so the CAS should have matched.
-		// This is unreachable under snapshot isolation: a concurrent
-		// phase change on another node would fail the transaction at
-		// commit time and the framework would retry, at which point the
-		// read would see the new phase. Treat it as a defensive guard.
+		// Defensively report a phase change when the update does not match.
 		return errors.Errorf(
 			"import phase changed concurrently: %w",
 			modelmigrationerrors.ErrPhaseTransitionInvalid,
@@ -132,15 +131,8 @@ WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid
 	return nil
 }
 
-// IsModelDying reports whether the model row for modelUUID exists and has left
-// the alive state (it is dying or dead). The v8 abort driver uses this to
-// detect a model that the generic (legacy) removal undertaker is already
-// tearing down after a v7-protocol abort marked it dead and took the claim's
-// abort lock: in that case the v8 abort compensation and model-database staging
-// must stand aside, because the undertaker owns the teardown of the model, its
-// database and the import claim. A missing model row reports false, so a v8
-// abort re-drive after its own compensation has removed the model row still
-// proceeds to finalization.
+// IsModelDying reports whether the model has left the alive state. It returns
+// [modelerrors.NotFound] when the model does not exist.
 func (s *State) IsModelDying(ctx context.Context, modelUUID string) (bool, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -157,24 +149,18 @@ WHERE  m.uuid = $modelUUIDArg.model_uuid`, arg, modelLifeRow{})
 	}
 
 	var row modelLifeRow
-	var found bool
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		found = false
 		err := tx.Query(ctx, stmt, arg).Get(&row)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
+			return modelerrors.NotFound
 		}
-		if err != nil {
-			return err
-		}
-		found = true
-		return nil
+		return err
 	})
+	if errors.Is(err, modelerrors.NotFound) {
+		return false, err
+	}
 	if err != nil {
 		return false, errors.Errorf("reading model life for %q: %w", modelUUID, err)
-	}
-	if !found {
-		return false, nil
 	}
 	// Anything but alive (dying, dead) means the generic removal undertaker
 	// has taken over.
@@ -186,7 +172,7 @@ WHERE  m.uuid = $modelUUIDArg.model_uuid`, arg, modelLifeRow{})
 // in the aborting phase to finalize and stale importing/activating claims to
 // warn about. The table holds at most one row per migrating model and is
 // small, so a full scan is cheap.
-func (s *State) GetAllImportClaims(ctx context.Context) ([]modelmigration.ImportClaimStatus, error) {
+func (s *State) GetAllImportClaims(ctx context.Context) ([]modelmigrationinternal.ImportClaimStatus, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -196,7 +182,7 @@ func (s *State) GetAllImportClaims(ctx context.Context) ([]modelmigration.Import
 SELECT mmi.model_uuid AS &importClaimStatusRow.model_uuid,
        mmi.source_migration_uuid AS &importClaimStatusRow.source_migration_uuid,
        mmipt.type AS &importClaimStatusRow.phase_type,
-       strftime('%Y-%m-%dT%H:%M:%fZ', mmi.updated_at) AS &importClaimStatusRow.updated_at
+	       mmi.updated_at AS &importClaimStatusRow.updated_at
 FROM   model_migration_import AS mmi
 JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
 `, importClaimStatusRow{})
@@ -217,18 +203,13 @@ JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_i
 		return nil, errors.Errorf("getting all import claims: %w", err)
 	}
 
-	claims := make([]modelmigration.ImportClaimStatus, 0, len(rows))
+	claims := make([]modelmigrationinternal.ImportClaimStatus, 0, len(rows))
 	for _, row := range rows {
-		updatedAt, err := time.Parse(time.RFC3339, row.UpdatedAt)
-		if err != nil {
-			return nil, errors.Errorf(
-				"parsing import updated_at for model %q: %w", row.ModelUUID, err)
-		}
-		claims = append(claims, modelmigration.ImportClaimStatus{
+		claims = append(claims, modelmigrationinternal.ImportClaimStatus{
 			ModelUUID:           row.ModelUUID,
 			SourceMigrationUUID: row.SourceMigrationUUID,
-			Phase:               modelmigration.ImportPhase(row.PhaseType),
-			UpdatedAt:           updatedAt,
+			PhaseType:           row.PhaseType,
+			UpdatedAt:           row.UpdatedAt,
 		})
 	}
 	return claims, nil
@@ -311,8 +292,8 @@ LIMIT  1
 		return errors.Capture(err)
 	}
 	stageDeletionStmt, err := s.Prepare(`
-INSERT INTO model_database_deletion (*)
-VALUES ($modelDatabaseDeletion.*)
+INSERT INTO model_database_deletion (namespace, created_at)
+VALUES ($modelDatabaseDeletion.namespace, $modelDatabaseDeletion.created_at)
 `, modelDatabaseDeletion{})
 	if err != nil {
 		return errors.Capture(err)

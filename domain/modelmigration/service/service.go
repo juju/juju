@@ -352,14 +352,13 @@ type ControllerState interface {
 	// provable, and is idempotent when no claim exists.
 	FinalizeAbortedImport(ctx context.Context, modelUUID string) error
 
-	// IsModelDying reports whether the model row exists and has left the alive
-	// state (dying or dead), indicating the generic removal undertaker has taken
-	// over teardown after a v7/legacy abort. A missing model row reports false.
+	// IsModelDying reports whether the model has left the alive state. It returns
+	// a model-not-found error when the model does not exist.
 	IsModelDying(ctx context.Context, modelUUID string) (bool, error)
 
 	// GetAllImportClaims returns a snapshot of every outstanding
 	// model_migration_import claim, used by the abort reconciler.
-	GetAllImportClaims(ctx context.Context) ([]modelmigration.ImportClaimStatus, error)
+	GetAllImportClaims(ctx context.Context) ([]modelmigrationinternal.ImportClaimStatus, error)
 
 	// IsImportNamespaceRegistered reports whether the model's dqlite namespace
 	// is still registered, i.e. whether the model database may still need

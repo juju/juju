@@ -136,7 +136,7 @@ type MockControllerStateMockRecorder struct {
 	getActiveExportExpects                        []*gomock.Call2_2[context.Context, string, internal.Migration, error]
 	getActiveExportUUIDExpects                    []*gomock.Call2_2[context.Context, string, string, error]
 	getAgentBinaryArchitecturesForVersionExpects  []*gomock.Call2_2[context.Context, string, []string, error]
-	getAllImportClaimsExpects                     []*gomock.Call1_2[context.Context, []modelmigration0.ImportClaimStatus, error]
+	getAllImportClaimsExpects                     []*gomock.Call1_2[context.Context, []internal.ImportClaimStatus, error]
 	getCloudExpects                               []*gomock.Call2_2[context.Context, string, cloud.Cloud, error]
 	getConflictingCloudImageMetadataExpects       []*gomock.Call2_2[context.Context, []modelmigration0.ImportPrecheckImageMetadata, []modelmigration0.CloudImageMetadataConflict, error]
 	getControllerTargetVersionExpects             []*gomock.Call1_2[context.Context, string, error]
@@ -473,7 +473,7 @@ func (mr *MockControllerStateMockRecorder) GetAgentBinaryArchitecturesForVersion
 type MockControllerStateGetAgentBinaryArchitecturesForVersionCall = gomock.Call2_2[context.Context, string, []string, error]
 
 // GetAllImportClaims mocks base method.
-func (m *MockControllerState) GetAllImportClaims(ctx context.Context) ([]modelmigration0.ImportClaimStatus, error) {
+func (m *MockControllerState) GetAllImportClaims(ctx context.Context) ([]internal.ImportClaimStatus, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch1_2(&m.recorder.getAllImportClaimsExpects, m.ctrl, m, "GetAllImportClaims", ctx)
 }
@@ -481,14 +481,14 @@ func (m *MockControllerState) GetAllImportClaims(ctx context.Context) ([]modelmi
 // GetAllImportClaims indicates an expected call of GetAllImportClaims.
 func (mr *MockControllerStateMockRecorder) GetAllImportClaims(ctx any) *MockControllerStateGetAllImportClaimsCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, []modelmigration0.ImportClaimStatus, error](mr.mock.ctrl.T, mr.mock, "GetAllImportClaims", gomock.EnsureMatcher(ctx))
+	call := gomock.NewCall1_2[context.Context, []internal.ImportClaimStatus, error](mr.mock.ctrl.T, mr.mock, "GetAllImportClaims", gomock.EnsureMatcher(ctx))
 	mr.getAllImportClaimsExpects = append(mr.getAllImportClaimsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockControllerStateGetAllImportClaimsCall is the typed call wrapper for GetAllImportClaims.
-type MockControllerStateGetAllImportClaimsCall = gomock.Call1_2[context.Context, []modelmigration0.ImportClaimStatus, error]
+type MockControllerStateGetAllImportClaimsCall = gomock.Call1_2[context.Context, []internal.ImportClaimStatus, error]
 
 // GetCloud mocks base method.
 func (m *MockControllerState) GetCloud(ctx context.Context, name string) (cloud.Cloud, error) {

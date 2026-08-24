@@ -23,3 +23,9 @@ type count struct {
 type migrationImportPhase struct {
 	Phase string `db:"phase"`
 }
+
+// migrationImportAbort contains the values for aborting an import claim.
+type migrationImportAbort struct {
+	ModelUUID string `db:"model_uuid"`
+	UpdatedAt string `db:"updated_at"`
+}

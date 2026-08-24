@@ -41,9 +41,9 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// Deps bundles the database and ambient dependencies the v8 import
+// deps bundles the database and ambient dependencies the v8 import
 // orchestrator needs, supplied by the caller's migration scope.
-type Deps struct {
+type deps struct {
 	ControllerDB database.TxnRunnerFactory
 	ModelDB      database.TxnRunnerFactory
 	Clock        clock.Clock
@@ -70,7 +70,7 @@ type ImportModelArgs struct {
 	ModelDBPayload *latest.ModelExport
 }
 
-// ImportControllerModelInfo applies the v8 import's controller-scoped semantic
+// importControllerModelInfo applies the v8 import's controller-scoped semantic
 // data to the target controller: the durable model_migration_import claim, the
 // target-local model bootstrap (controller model row + model DB in importing
 // mode), and the users, credential, permissions, authorized keys, secret
@@ -92,9 +92,9 @@ type ImportModelArgs struct {
 // import claim. If a claim already exists for info.ModelInfo.UUID, the returned
 // error wraps [coreerrors.AlreadyExists] (phase-specific wording is supplied by
 // the modelmigration domain).
-func ImportControllerModelInfo(
+func importControllerModelInfo(
 	ctx context.Context,
-	deps Deps,
+	deps deps,
 	sourceMigrationUUID string,
 	info coremodelmigration.ControllerModelInfo,
 	view export.ProjectionView,
@@ -102,13 +102,11 @@ func ImportControllerModelInfo(
 	return newImportCoordinator(deps, sourceMigrationUUID, info, view).Import(ctx)
 }
 
-// RemoveOnAbortImport is the abort seam Task 11 will call from AbortImport. It
-// undoes the controller-DB writes performed by ImportControllerModelInfo in
-// reverse order. Each step is idempotent: it is safe to call RemoveOnAbortImport
-// more than once.
-func RemoveOnAbortImport(
+// removeOnAbortImport undoes the controller-DB writes performed by
+// importControllerModelInfo in reverse order. Each step is idempotent.
+func removeOnAbortImport(
 	ctx context.Context,
-	deps Deps,
+	deps deps,
 	args ImportModelArgs,
 ) error {
 	return newImportCoordinator(
@@ -183,7 +181,7 @@ func (c *importCoordinator) RemoveOnAbort(ctx context.Context) error {
 }
 
 func newImportCoordinator(
-	deps Deps,
+	deps deps,
 	sourceMigrationUUID string,
 	info coremodelmigration.ControllerModelInfo,
 	view export.ProjectionView,
@@ -223,7 +221,7 @@ func newImportCoordinator(
 // deps and svc use either the guarded controller database for forward import,
 // or the ordinary controller database for abort cleanup.
 func newControllerImportOps(
-	deps Deps,
+	deps deps,
 	svc importServices,
 	info coremodelmigration.ControllerModelInfo,
 	view export.ProjectionView,
@@ -379,7 +377,7 @@ func (op *opImportCredential) RemoveOnAbort(_ context.Context) error { return ni
 // ----
 
 type opBootstrapModel struct {
-	deps               Deps
+	deps               deps
 	modelUUID          coremodel.UUID
 	modelUUIDStr       string
 	identity           coremodelmigration.ModelIdentityInfo
@@ -643,7 +641,7 @@ type importServices struct {
 // newImportServices constructs the controller-scoped domain services the v8
 // import driver needs. Each service owns its state and is independent of the
 // others; the import driver is responsible for calling them in FK-safe order.
-func newImportServices(deps Deps, modelUUID coremodel.UUID) importServices {
+func newImportServices(deps deps, modelUUID coremodel.UUID) importServices {
 	return importServices{
 		claim: migrationclaimservice.NewImportService(
 			migrationclaimstate.New(deps.ControllerDB, deps.Clock), deps.Logger,
@@ -678,7 +676,7 @@ func newImportServices(deps Deps, modelUUID coremodel.UUID) importServices {
 // pure orchestration of two existing model-domain service methods.
 func bootstrapImportedModel(
 	ctx context.Context,
-	deps Deps,
+	deps deps,
 	modelUUID coremodel.UUID,
 	identity coremodelmigration.ModelIdentityInfo,
 	credKey corecredential.Key,

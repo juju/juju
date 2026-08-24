@@ -126,7 +126,7 @@ func (i *ModelImporter) CommitActivation(
 
 // AbortModel drives target-side cleanup of a partially imported v8 model. It
 // resolves the controller-database scope for the model UUID and delegates to
-// [AbortModelImport], then blocks (via [WaitAbortFinalized]) until the model
+// abortModelImport, then blocks via waitAbortFinalized until the model
 // database has been dropped and the import claim released, so the model UUID is
 // free when this returns and an immediate re-migration succeeds. The model
 // database is never opened during abort, so no model-DB scope is needed.
@@ -153,19 +153,19 @@ func (i *ModelImporter) AbortModel(ctx context.Context, modelUUID coremodel.UUID
 	}
 
 	scope := i.scope(modelUUID)
-	deps := Deps{
+	deps := deps{
 		ControllerDB: scope.ControllerDB(),
 		Clock:        i.clock,
 		Logger:       i.logger,
 	}
-	if err := AbortModelImport(ctx, deps, &claim.Service, modelUUID); err != nil {
+	if err := abortModelImport(ctx, deps, &claim.Service, modelUUID); err != nil {
 		return err
 	}
-	return WaitAbortFinalized(ctx, deps, claim, modelUUID, DefaultAbortFinalizeWait)
+	return waitAbortFinalized(ctx, deps, claim, modelUUID, defaultAbortFinalizeWait)
 }
 
 // ImportModel applies a v8 import's controller-scoped semantic data to the
-// target controller. See [ImportControllerModelInfo] for the orchestration;
+// target controller. See importControllerModelInfo for the orchestration;
 // this method only resolves the migration scope for the model UUID and
 // delegates.
 //
@@ -181,7 +181,7 @@ func (i *ModelImporter) ImportModel(
 
 	modelUUID := coremodel.UUID(args.ControllerModelInfo.ModelInfo.UUID)
 	scope := i.scope(modelUUID)
-	deps := Deps{
+	deps := deps{
 		ControllerDB: scope.ControllerDB(),
 		ModelDB:      scope.ModelDB(),
 		Clock:        i.clock,
@@ -191,7 +191,7 @@ func (i *ModelImporter) ImportModel(
 	// Apply the controller-scoped data (claim, bootstrap, users, credential,
 	// permissions, secret backend references, ...). Writes only; no return
 	// value beyond the error.
-	if err := ImportControllerModelInfo(
+	if err := importControllerModelInfo(
 		ctx, deps, args.SourceMigrationUUID, args.ControllerModelInfo, view,
 	); err != nil {
 		return internalerrors.Capture(err)

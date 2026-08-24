@@ -711,7 +711,7 @@ func (api *APIV8) Abort(ctx context.Context, args params.ModelArgs) error {
 		return errors.Capture(err)
 	}
 
-	api.logger.Debugf(ctx, "Abort v8 migrating model %q", args.ModelTag)
+	api.logger.Infof(ctx, "Abort v8 migrating model %q", args.ModelTag)
 
 	return errors.Capture(api.modelImporter.AbortModel(ctx, coremodel.UUID(modelTag.Id())))
 }

@@ -12,15 +12,15 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/watcher"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
-	migrationclaimservice "github.com/juju/juju/domain/modelmigration/service"
 	"github.com/juju/juju/internal/errors"
 )
 
-// AbortFinalizeWait bounds how long [WaitAbortFinalized] blocks waiting for the
+// abortFinalizeWait bounds how long waitAbortFinalized blocks waiting for the
 // model database to be dropped and the import claim released.
-type AbortFinalizeWait struct {
+type abortFinalizeWait struct {
 	// Delay is the interval between fallback finalization re-checks. The wait is
 	// primarily driven by the model-database-deletion watcher; this re-check
 	// backs it up in case an event is coalesced.
@@ -30,63 +30,29 @@ type AbortFinalizeWait struct {
 	MaxDuration time.Duration
 }
 
-// DefaultAbortFinalizeWait is the wait applied on the facade Abort path: wait
-// for finalization for up to twenty seconds, re-checking every half second as a
-// fallback to the watcher. The model database is dropped by the undertaker
-// within milliseconds in the normal case, so finalization usually succeeds on
-// the first attempt; the budget only covers a controller node under load.
-var DefaultAbortFinalizeWait = AbortFinalizeWait{
+var defaultAbortFinalizeWait = abortFinalizeWait{
 	Delay:       500 * time.Millisecond,
 	MaxDuration: 20 * time.Second,
 }
 
-// abortFinalizer is the subset of the modelmigration import service that
-// [WaitAbortFinalized] needs: finalize the aborted claim once the database drop
-// is proven, and watch the staged model-database deletion so the wait reacts to
-// the drop completing instead of polling blindly.
+// abortFinalizer is the subset of the modelmigration import service needed to
+// finalize an aborted claim after its model database is dropped.
 type abortFinalizer interface {
-	// FinalizeAbortedImport deletes the model's import claim once abort cleanup
-	// is provably complete, returning
-	// [modelmigrationerrors.ErrAbortNotFinalizable] while it is not.
 	FinalizeAbortedImport(ctx context.Context, modelUUID coremodel.UUID) error
-
-	// WatchModelDatabaseDeletion fires when the staged model-database deletion
-	// for the model changes, including when the undertaker removes it after
-	// dropping the database.
 	WatchModelDatabaseDeletion(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error)
 }
 
-// AbortModelImport drives target-side cleanup of a partially imported v8 model.
-// It is the single entry point for both the facade Abort call and the abort
-// reconciler's retries, and is idempotent and safe to call repeatedly.
-//
-// It transitions the durable model_migration_import claim to the aborting phase
-// (refusing the transition once activation has crossed the point of no return),
-// undoes the controller-database import writes in reverse order via
-// [RemoveOnAbortImport], then hands the model database off to the undertaker's
-// model-database deleter by staging its deletion. It deliberately leaves the
-// claim in the aborting phase: the claim is deleted only once the database drop
-// is proven complete, by [WaitAbortFinalized] on the facade path or the abort
-// reconciler otherwise. Until then the model UUID stays claimed and every
-// concurrent Import keeps seeing a cleanup-in-progress AlreadyExists.
-//
-// deps.ModelDB is not required: the abort compensation writes only to the
-// controller database, and passing a nil ModelDB makes that structural.
-//
-// The modelmigration import service is injected by the caller (the apiserver
-// domain services on the facade path, or the reconciler's own controller-scoped
-// service): this package never builds it from raw database handles.
-//
-// It returns [modelmigrationerrors.ErrAbortActivating] when the claim is
-// activating (a non-retryable conflict: the model must not be torn down after
-// activation has begun), and nil when no claim exists (nothing was imported, or
-// cleanup already finalized).
-//
-// It also returns nil, doing nothing, when the model is already being torn down
-// by the generic removal undertaker (a v7/legacy abort marked it dead and took
-// the claim's abort lock): that path owns the teardown, and re-driving v8
-// compensation over it would race the undertaker.
-func AbortModelImport(ctx context.Context, deps Deps, claim *migrationclaimservice.Service, modelUUID coremodel.UUID) error {
+type importAbortService interface {
+	GetImportClaim(context.Context, coremodel.UUID) (modelmigration.ImportClaim, error)
+	SetImportPhaseAborting(context.Context, coremodel.UUID) error
+	IsModelDying(context.Context, coremodel.UUID) (bool, error)
+	IsImportNamespaceRegistered(context.Context, coremodel.UUID) (bool, error)
+	StageAbortedModelDatabaseDeletion(context.Context, coremodel.UUID) error
+}
+
+// abortModelImport cleans up a partially imported v8 model. It leaves the
+// durable claim in the aborting phase until the model database is dropped.
+func abortModelImport(ctx context.Context, deps deps, claim importAbortService, modelUUID coremodel.UUID) error {
 	c, err := claim.GetImportClaim(ctx, modelUUID)
 	switch {
 	case errors.Is(err, modelmigrationerrors.ErrImportNotFound):
@@ -98,14 +64,11 @@ func AbortModelImport(ctx context.Context, deps Deps, claim *migrationclaimservi
 		return errors.Errorf("reading import claim for model %q: %w", modelUUID, err)
 	}
 
-	rerun := false
 	switch c.Phase {
 	case modelmigration.ImportPhaseActivating:
 		// Not a programming error, and not a race: Activate takes the claim past
 		// the point of no return before it can fail, and the source cannot tell a
-		// failed Activate from one whose reply it never received. Either way its
-		// VALIDATION phase drives ABORT and lands here. Refuse: the model may in
-		// fact be activated, so it must not be torn down.
+		// failed Activate from one whose reply it never received.
 		return errors.Errorf("model %q: %w", modelUUID, modelmigrationerrors.ErrAbortActivating)
 	case modelmigration.ImportPhaseImporting:
 		if err := claim.SetImportPhaseAborting(ctx, modelUUID); err != nil {
@@ -117,7 +80,8 @@ func AbortModelImport(ctx context.Context, deps Deps, claim *migrationclaimservi
 				"transitioning import claim to aborting for model %q: %w", modelUUID, err)
 		}
 	case modelmigration.ImportPhaseAborting:
-		rerun = true
+		deps.Logger.Debugf(ctx,
+			"model %q import claim is already aborting; re-driving abort compensation", modelUUID)
 	default:
 		return errors.Errorf("model %q: unexpected import claim phase %q", modelUUID, c.Phase)
 	}
@@ -126,17 +90,11 @@ func AbortModelImport(ctx context.Context, deps Deps, claim *migrationclaimservi
 	// catches a legacy abort that won between the initial claim read and the
 	// phase transition. A legacy abort can still begin after this check, but
 	// both cleanup paths are idempotent and converge on the same deletion.
-	if dying, err := claim.IsModelDying(ctx, modelUUID); err != nil {
+	if dying, err := claim.IsModelDying(ctx, modelUUID); err != nil &&
+		!errors.Is(err, modelerrors.NotFound) {
 		return errors.Errorf("checking model life for %q: %w", modelUUID, err)
 	} else if dying {
 		return nil
-	}
-
-	if rerun {
-		// A previous abort was interrupted before it finalized the claim (or the
-		// reconciler is retrying one); re-run the idempotent compensation below.
-		deps.Logger.Debugf(ctx,
-			"model %q import claim is already aborting; re-driving abort compensation", modelUUID)
 	}
 
 	// Undo the controller-database import writes in reverse order. This is
@@ -147,7 +105,7 @@ func AbortModelImport(ctx context.Context, deps Deps, claim *migrationclaimservi
 			ModelInfo: coremodelmigration.ModelIdentityInfo{UUID: modelUUID.String()},
 		},
 	}
-	if err := RemoveOnAbortImport(ctx, deps, args); err != nil {
+	if err := removeOnAbortImport(ctx, deps, args); err != nil {
 		return errors.Errorf("removing partial import for model %q: %w", modelUUID, err)
 	}
 
@@ -168,31 +126,9 @@ func AbortModelImport(ctx context.Context, deps Deps, claim *migrationclaimservi
 	return nil
 }
 
-// WaitAbortFinalized blocks until the aborted model's import claim can be
-// finalized (the model database has been dropped by the undertaker and the
-// claim deleted), or the wait timeout occurs. It is called on the facade
-// Abort path so the model UUID is released before the RPC returns, matching the
-// synchronous abort behaviour of earlier Juju releases.
-//
-// The database drop that unblocks finalization happens out of band in the
-// undertaker's model-database deleter, which removes the model's staged
-// deletion row when it is done. This function watches that row and re-attempts
-// finalization when it changes, rather than polling blindly: FinalizeAbortedImport
-// commits successfully every time and reports
-// [modelmigrationerrors.ErrAbortNotFinalizable] as a normal result while the
-// drop is not yet proven, so only the drop event (or the fallback re-check) can
-// make the condition come true. A periodic re-check backs the watcher up in
-// case an event is coalesced.
-//
-// It returns nil only once the claim is gone. If the request context is
-// cancelled or the budget is exhausted, it returns an error and leaves the
-// claim in the aborting phase for a later retry or recovery worker.
-//
-// The modelmigration import service is injected by the caller; deps supplies
-// only the clock and logger for the bounded wait.
-func WaitAbortFinalized(ctx context.Context, deps Deps, claim abortFinalizer, modelUUID coremodel.UUID, wait AbortFinalizeWait) error {
-	// Subscribe before the first finalize attempt so the drop cannot slip
-	// through between a check and the subscription.
+// waitAbortFinalized waits for the model database drop and releases the aborted
+// import claim, bounded by the supplied duration.
+func waitAbortFinalized(ctx context.Context, deps deps, claim abortFinalizer, modelUUID coremodel.UUID, wait abortFinalizeWait) error {
 	w, err := claim.WatchModelDatabaseDeletion(ctx, modelUUID)
 	if err != nil {
 		return errors.Errorf("watching model database deletion for model %q: %w", modelUUID, err)

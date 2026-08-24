@@ -360,8 +360,6 @@ type credentialRevoked struct {
 }
 
 // importClaimRow maps a model_migration_import row joined to its phase type.
-// UpdatedAt is read as text because model_migration_import.updated_at is a
-// TEXT column; the query canonicalises it to RFC3339 via strftime.
 type importClaimRow struct {
 	SourceMigrationUUID string `db:"source_migration_uuid"`
 	PhaseType           string `db:"phase_type"`
@@ -375,6 +373,7 @@ type importClaimArg struct {
 	UUID                string `db:"uuid"`
 	ModelUUID           string `db:"model_uuid"`
 	SourceMigrationUUID string `db:"source_migration_uuid"`
+	UpdatedAt           string `db:"updated_at"`
 }
 
 // importPhaseRow projects only the phase type of a model_migration_import
@@ -385,9 +384,7 @@ type importPhaseRow struct {
 }
 
 // importClaimStatusRow maps a full model_migration_import row (including its
-// model UUID) joined to its phase type, for the abort reconciler's scan of all
-// outstanding claims. UpdatedAt is read as text and canonicalised to RFC3339
-// via strftime, as for importClaimRow.
+// model UUID) joined to its phase type.
 type importClaimStatusRow struct {
 	ModelUUID           string `db:"model_uuid"`
 	SourceMigrationUUID string `db:"source_migration_uuid"`
@@ -401,12 +398,12 @@ type namespaceArg struct {
 	Namespace string `db:"namespace"`
 }
 
-// importPhaseNames binds the source and target phase names of a claim phase
-// transition, so the phase-type IDs are resolved by name from
-// model_migration_import_phase_type rather than inlined as SQL literals.
-type importPhaseNames struct {
-	Target string `db:"target"`
-	Source string `db:"source"`
+// importPhaseUpdate contains the values for an import phase transition.
+type importPhaseUpdate struct {
+	ModelUUID string `db:"model_uuid"`
+	Target    string `db:"target"`
+	Source    string `db:"source"`
+	UpdatedAt string `db:"updated_at"`
 }
 
 // importOfferArg is the insert argument for a model_migration_import_offer

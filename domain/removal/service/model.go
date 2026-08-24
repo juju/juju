@@ -126,7 +126,10 @@ func (s *Service) RemoveMigratingModel(
 	// controller database. This will cause the undertaker to delete the model
 	// database.
 
-	if err := s.controllerState.MarkMigratingModelAsDead(ctx, modelUUID.String()); err != nil {
+	updatedAt := s.clock.Now().UTC().Format(time.RFC3339)
+	if err := s.controllerState.MarkMigratingModelAsDead(
+		ctx, modelUUID.String(), updatedAt,
+	); err != nil {
 		return errors.Errorf("marking controller model %q as dead: %w", modelUUID, err)
 	}
 

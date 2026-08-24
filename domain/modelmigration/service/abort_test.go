@@ -4,12 +4,15 @@
 package service
 
 import (
+	"time"
+
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/modelmigration"
+	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 )
 
 // TestSetImportPhaseAborting asserts the transition is delegated to state.
@@ -78,15 +81,21 @@ func (s *serviceSuite) TestStageAbortedModelDatabaseDeletionInvalidModelUUID(c *
 func (s *serviceSuite) TestGetAllImportClaims(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	claims := []modelmigration.ImportClaimStatus{{
+	updatedAt := time.Now().UTC().Truncate(time.Second)
+	rows := []modelmigrationinternal.ImportClaimStatus{{
 		ModelUUID: tc.Must(c, coremodel.NewUUID).String(),
-		Phase:     modelmigration.ImportPhaseAborting,
+		PhaseType: string(modelmigration.ImportPhaseAborting),
+		UpdatedAt: updatedAt.Format(time.RFC3339),
 	}}
-	s.controllerState.EXPECT().GetAllImportClaims(gomock.Any()).Return(claims, nil)
+	s.controllerState.EXPECT().GetAllImportClaims(gomock.Any()).Return(rows, nil)
 
 	got, err := s.service(c).GetAllImportClaims(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(got, tc.DeepEquals, claims)
+	c.Check(got, tc.DeepEquals, []modelmigration.ImportClaimStatus{{
+		ModelUUID: rows[0].ModelUUID,
+		Phase:     modelmigration.ImportPhaseAborting,
+		UpdatedAt: updatedAt,
+	}})
 }
 
 // TestIsImportNamespaceRegistered asserts the predicate is delegated to state.

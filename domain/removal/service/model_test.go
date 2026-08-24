@@ -416,9 +416,14 @@ func (s *modelSuite) TestRemoveModelNotFoundInBothControllerAndModel(c *tc.C) {
 func (s *modelSuite) TestRemoveMigratingModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when)
+
 	cExp := s.controllerState.EXPECT()
 	cExp.IsMigratingModel(gomock.Any(), "some-model-uuid").Return(true, nil)
-	cExp.MarkMigratingModelAsDead(gomock.Any(), "some-model-uuid").Return(nil)
+	cExp.MarkMigratingModelAsDead(
+		gomock.Any(), "some-model-uuid", when.UTC().Format(time.RFC3339),
+	).Return(nil)
 
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), "some-model-uuid").Return(false, nil)

@@ -16,6 +16,8 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
+const importAbortUpdatedAt = "2026-08-21T12:00:00Z"
+
 type modelSuite struct {
 	baseSuite
 }
@@ -137,7 +139,7 @@ func (s *modelSuite) TestGetModelUUIDs(c *tc.C) {
 func (s *modelSuite) TestMarkMigratingModelAsDeadNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.MarkMigratingModelAsDead(c.Context(), "non-existent-model-uuid")
+	err := st.MarkMigratingModelAsDead(c.Context(), "non-existent-model-uuid", importAbortUpdatedAt)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -156,7 +158,7 @@ VALUES ('foo', ?, 'source-migration-uuid')`, modelUUID); err != nil {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err = st.MarkMigratingModelAsDead(c.Context(), modelUUID)
+	err = st.MarkMigratingModelAsDead(c.Context(), modelUUID, importAbortUpdatedAt)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -178,7 +180,7 @@ VALUES ('foo', ?, 'source-migration-uuid')`, modelUUID); err != nil {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err = st.MarkMigratingModelAsDead(c.Context(), modelUUID)
+	err = st.MarkMigratingModelAsDead(c.Context(), modelUUID, importAbortUpdatedAt)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -193,7 +195,7 @@ func (s *modelSuite) TestMarkMigratingModelAsDeadAlreadyDead(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err = st.MarkMigratingModelAsDead(c.Context(), modelUUID)
+	err = st.MarkMigratingModelAsDead(c.Context(), modelUUID, importAbortUpdatedAt)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -215,12 +217,18 @@ VALUES ('claim', ?, 'source-migration-uuid')`, modelUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.MarkMigratingModelAsDead(c.Context(), modelUUID)
+	err = st.MarkMigratingModelAsDead(c.Context(), modelUUID, importAbortUpdatedAt)
 	c.Assert(err, tc.ErrorIsNil)
 
 	lifeID, phaseID := s.modelLifeAndClaimPhase(c, modelUUID)
 	c.Check(lifeID, tc.Equals, int(life.Dead))
 	c.Check(phaseID, tc.Equals, 2) // aborting
+	var updatedAt string
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT updated_at FROM model_migration_import WHERE model_uuid = ?", modelUUID,
+	).Scan(&updatedAt)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(updatedAt, tc.Equals, importAbortUpdatedAt)
 }
 
 // TestMarkMigratingModelAsDeadAbortingClaimIsIdempotent verifies that a retried
@@ -238,7 +246,7 @@ VALUES ('claim', ?, 'source-migration-uuid', 2)`, modelUUID) // aborting
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.MarkMigratingModelAsDead(c.Context(), modelUUID)
+	err = st.MarkMigratingModelAsDead(c.Context(), modelUUID, importAbortUpdatedAt)
 	c.Assert(err, tc.ErrorIsNil)
 
 	lifeID, phaseID := s.modelLifeAndClaimPhase(c, modelUUID)
@@ -262,7 +270,7 @@ VALUES ('claim', ?, 'source-migration-uuid', 1)`, modelUUID) // activating
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.MarkMigratingModelAsDead(c.Context(), modelUUID)
+	err = st.MarkMigratingModelAsDead(c.Context(), modelUUID, importAbortUpdatedAt)
 	c.Assert(err, tc.ErrorIs, removalerrors.MigrationImportPastImporting)
 
 	// The model is left alive and the claim untouched.

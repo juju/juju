@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/trace"
@@ -63,11 +64,8 @@ func (s *Service) StageAbortedModelDatabaseDeletion(ctx context.Context, modelUU
 	return s.controllerState.StageAbortedModelDatabaseDeletion(ctx, modelUUID.String())
 }
 
-// IsModelDying reports whether the model row exists and has left the alive
-// state (it is dying or dead), meaning the generic removal undertaker is
-// already tearing it down, as happens after a v7/legacy abort marked it dead.
-// The v8 abort driver uses this to stand aside from such a model rather than
-// re-driving its own compensation over the undertaker's teardown.
+// IsModelDying reports whether the model has left the alive state. It returns
+// a model-not-found error when the model does not exist.
 func (s *Service) IsModelDying(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -85,7 +83,26 @@ func (s *Service) GetAllImportClaims(ctx context.Context) ([]modelmigration.Impo
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.controllerState.GetAllImportClaims(ctx)
+	rows, err := s.controllerState.GetAllImportClaims(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	claims := make([]modelmigration.ImportClaimStatus, 0, len(rows))
+	for _, row := range rows {
+		updatedAt, err := time.Parse(time.RFC3339, row.UpdatedAt)
+		if err != nil {
+			return nil, errors.Errorf(
+				"parsing import updated_at for model %q: %w", row.ModelUUID, err)
+		}
+		claims = append(claims, modelmigration.ImportClaimStatus{
+			ModelUUID:           row.ModelUUID,
+			SourceMigrationUUID: row.SourceMigrationUUID,
+			Phase:               modelmigration.ImportPhase(row.PhaseType),
+			UpdatedAt:           updatedAt,
+		})
+	}
+	return claims, nil
 }
 
 // IsImportNamespaceRegistered reports whether the model's dqlite namespace is

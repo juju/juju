@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	"github.com/canonical/sqlair"
 
@@ -48,14 +49,17 @@ func (s *State) BeginImport(
 		return modelmigration.ImportClaim{}, errors.Capture(err)
 	}
 
+	updatedAt := s.clock.Now().UTC()
 	claim := importClaimArg{
 		UUID:                claimUUID,
 		ModelUUID:           modelUUID,
 		SourceMigrationUUID: sourceMigrationUUID,
+		UpdatedAt:           updatedAt.Format(time.RFC3339),
 	}
 	stmt, err := s.Prepare(`
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
-VALUES ($importClaimArg.uuid, $importClaimArg.model_uuid, $importClaimArg.source_migration_uuid)
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at)
+VALUES ($importClaimArg.uuid, $importClaimArg.model_uuid,
+        $importClaimArg.source_migration_uuid, $importClaimArg.updated_at)
 `, claim)
 	if err != nil {
 		return modelmigration.ImportClaim{}, errors.Capture(err)
@@ -80,6 +84,7 @@ VALUES ($importClaimArg.uuid, $importClaimArg.model_uuid, $importClaimArg.source
 		result = modelmigration.ImportClaim{
 			SourceMigrationUUID: sourceMigrationUUID,
 			Phase:               modelmigration.ImportPhaseImporting,
+			UpdatedAt:           updatedAt,
 		}
 		return nil
 	})
@@ -218,24 +223,25 @@ func (s *State) SetImportPhaseActivating(ctx context.Context, modelUUID string) 
 		return errors.Capture(err)
 	}
 
-	mUUID := modelUUIDArg{ModelUUID: modelUUID}
-	phases := importPhaseNames{
-		Target: string(modelmigration.ImportPhaseActivating),
-		Source: string(modelmigration.ImportPhaseImporting),
+	update := importPhaseUpdate{
+		ModelUUID: modelUUID,
+		Target:    string(modelmigration.ImportPhaseActivating),
+		Source:    string(modelmigration.ImportPhaseImporting),
+		UpdatedAt: s.clock.Now().UTC().Format(time.RFC3339),
 	}
 	updateStmt, err := s.Prepare(`
 WITH target_phase AS (
-    SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseNames.target
+    SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseUpdate.target
 ),
 source_phase AS (
-    SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseNames.source
+    SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseUpdate.source
 )
 UPDATE model_migration_import
 SET    phase_type_id = (SELECT id FROM target_phase),
-       updated_at    = DATETIME('now', 'utc')
-WHERE  model_uuid = $modelUUIDArg.model_uuid
+       updated_at    = $importPhaseUpdate.updated_at
+WHERE  model_uuid = $importPhaseUpdate.model_uuid
 AND    phase_type_id = (SELECT id FROM source_phase)
-`, mUUID, phases)
+`, update)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -254,7 +260,7 @@ AND    phase_type_id = (SELECT id FROM source_phase)
 
 		// Phase is importing; CAS to activating.
 		var outcome sqlair.Outcome
-		if err := tx.Query(ctx, updateStmt, mUUID, phases).Get(&outcome); err != nil {
+		if err := tx.Query(ctx, updateStmt, update).Get(&outcome); err != nil {
 			return errors.Errorf("transitioning import to activating: %w", err)
 		}
 		affected, err := outcome.Result().RowsAffected()

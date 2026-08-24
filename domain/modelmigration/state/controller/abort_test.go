@@ -4,9 +4,12 @@
 package controller
 
 import (
+	"time"
+
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -104,8 +107,9 @@ func (s *stateSuite) TestGetAllImportClaims(c *tc.C) {
 	c.Assert(claims, tc.HasLen, 1)
 	c.Check(claims[0].ModelUUID, tc.Equals, s.modelUUID.String())
 	c.Check(claims[0].SourceMigrationUUID, tc.Equals, sourceUUID)
-	c.Check(claims[0].Phase, tc.Equals, modelmigration.ImportPhaseImporting)
-	c.Check(claims[0].UpdatedAt.IsZero(), tc.IsFalse)
+	c.Check(claims[0].PhaseType, tc.Equals, string(modelmigration.ImportPhaseImporting))
+	_, err = time.Parse(time.RFC3339, claims[0].UpdatedAt)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.SetImportPhaseAborting(c.Context(), s.modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -113,13 +117,14 @@ func (s *stateSuite) TestGetAllImportClaims(c *tc.C) {
 	claims, err = st.GetAllImportClaims(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(claims, tc.HasLen, 1)
-	c.Check(claims[0].Phase, tc.Equals, modelmigration.ImportPhaseAborting)
+	c.Check(claims[0].PhaseType, tc.Equals, string(modelmigration.ImportPhaseAborting))
+	_, err = time.Parse(time.RFC3339, claims[0].UpdatedAt)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestIsModelDying verifies the predicate the v8 abort driver uses
 // to stand aside from a model the generic removal undertaker already owns: it is
-// false for an alive model, true once the model is dying or dead, and false for
-// a model that no longer has a row.
+// false for an alive model and true once the model is dying or dead.
 func (s *stateSuite) TestIsModelDying(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
@@ -142,7 +147,7 @@ func (s *stateSuite) TestIsModelDying(c *tc.C) {
 
 	// No model row.
 	removing, err = st.IsModelDying(c.Context(), uuid.MustNewUUID().String())
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 	c.Check(removing, tc.IsFalse)
 }
 

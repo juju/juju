@@ -205,7 +205,6 @@ func (s *controllerImportSuite) TestAbortModelImportStandsAsideForLegacyRemoval(
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-
 	err = migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -240,6 +239,13 @@ END`)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
+	defer func() {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, "DROP TRIGGER mark_model_dead_after_abort_lock")
+			return err
+		})
+		c.Check(err, tc.ErrorIsNil)
+	}()
 
 	err = migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
