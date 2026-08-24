@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/retry"
@@ -223,13 +224,21 @@ func (p *sshJump) generateKnownHosts(jumpHost, virtualHostname string, targetHos
 	if err != nil {
 		return errors.Trace(err)
 	}
-	f, err := os.CreateTemp("", "ssh_known_hosts")
-	if err != nil {
-		return errors.Annotate(err, "creating known hosts file")
+	var f *os.File
+	if p.knownHostsPath == "" {
+		f, err = os.CreateTemp("", "ssh_known_hosts")
+		if err != nil {
+			return errors.Annotate(err, "creating known hosts file")
+		}
+		// This needs to be set here because it's used to cleanup the file.
+		p.knownHostsPath = f.Name()
+	} else {
+		f, err = os.OpenFile(p.knownHostsPath, os.O_APPEND|os.O_WRONLY, 0600)
+		if err != nil {
+			return errors.Annotate(err, "opening known hosts file")
+		}
 	}
 	defer f.Close()
-	// This needs to be set here because it's used to cleanup the file.
-	p.knownHostsPath = f.Name()
 	if _, err := f.WriteString(jumpLine + targetLine); err != nil {
 		return errors.Trace(err)
 	}
@@ -306,9 +315,53 @@ func (p *sshJump) ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 	return cmd.Run()
 }
 
-// copy is not implemented for the SSH jump provider.
-func (p *sshJump) copy(_ Context) error {
-	return errors.NotImplemented
+// copy transfers files through the controller SSH jump server.
+func (p *sshJump) copy(ctx Context) error {
+	if p.modelType == model.CAAS {
+		return errors.New("--jump is not supported for scp to Kubernetes targets")
+	}
+
+	args, targets, err := p.expandSCPArgs(ctx, p.args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	options, err := p.getSSHOptions(false, targets...)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return ssh.Copy(args, options)
+}
+
+// expandSCPArgs resolves Juju SCP targets to virtual hostnames reachable via
+// the controller jump server and forwards all other arguments unchanged. For
+// example, it rewrites "mysql/0:/var/log/syslog" to
+// "ubuntu@<virtual-hostname>:/var/log/syslog".
+func (p *sshJump) expandSCPArgs(ctx context.Context, args []string) ([]string, []*resolvedTarget, error) {
+	outArgs := make([]string, len(args))
+	var targets []*resolvedTarget
+	for i, arg := range args {
+		parts := strings.SplitN(arg, ":", 2)
+		if strings.HasPrefix(arg, "-") || len(parts) <= 1 {
+			outArgs[i] = arg
+			continue
+		}
+
+		user, targetName := splitUserTarget(parts[0])
+		target, err := p.resolveTarget(ctx, targetName)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		if user != "" {
+			target.user = user
+		}
+		outArg := net.JoinHostPort(target.host, parts[1])
+		if target.user != "" {
+			outArg = target.user + "@" + outArg
+		}
+		outArgs[i] = outArg
+		targets = append(targets, target)
+	}
+	return outArgs, targets, nil
 }
 
 func (p *sshJump) setPublicKeyRetryStrategy(_ retry.CallArgs) {}

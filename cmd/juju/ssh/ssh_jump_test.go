@@ -6,6 +6,7 @@ package ssh
 import (
 	"bytes"
 	"os"
+	"path/filepath"
 	"strings"
 	stdtesting "testing"
 
@@ -184,6 +185,75 @@ func (s *sshJumpSuite) TestSSHEnablesPTY(c *tc.C) {
 	err := jump.ssh(sshCtx, true, target)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(strings.Contains(buffer.String(), "-t -t"), tc.IsTrue)
+}
+
+func (s *sshJumpSuite) TestCopyUsesJumpProxyCommand(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.sshAPIJump.EXPECT().VirtualHostname(gomock.Any(), "0", nil).Return("machine-0", nil)
+	s.sshAPIJump.EXPECT().PublicHostKeyForTarget(gomock.Any(), "machine-0").Return(params.PublicSSHHostKeyResult{
+		PublicKey: s.hostKey,
+	}, nil)
+	s.sshAPIJump.EXPECT().Close().Return(nil)
+
+	jump := sshJump{
+		args:                 []string{"foo.txt", "0:/tmp/foo.txt"},
+		jumpUser:             "fred",
+		jumpServerHostKey:    s.hostKey,
+		sshClient:            s.sshAPIJump,
+		controllersAddresses: []string{"1.0.0.1"},
+		hostChecker:          validAddressesWithPort(17022, "1.0.0.1"),
+		jumpHostPort:         17022,
+	}
+	defer jump.cleanupRun()
+
+	c.Assert(jump.copy(nil), tc.ErrorIsNil)
+	output, err := os.ReadFile(filepath.Join(s.binDir, "scp.args"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(output), tc.Contains, "-o ProxyCommand ssh -o StrictHostKeyChecking=yes")
+	c.Check(string(output), tc.Contains, "-W %h:%p -p 17022 fred@1.0.0.1")
+	c.Check(string(output), tc.Contains, "foo.txt ubuntu@machine-0:/tmp/foo.txt")
+	c.Check(string(output), tc.Contains, "[1.0.0.1]:17022 ")
+	c.Check(string(output), tc.Contains, "machine-0 ")
+}
+
+func (s *sshJumpSuite) TestCopyPinsAllTargetHostKeys(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.sshAPIJump.EXPECT().VirtualHostname(gomock.Any(), "0", nil).Return("machine-0", nil)
+	s.sshAPIJump.EXPECT().PublicHostKeyForTarget(gomock.Any(), "machine-0").Return(params.PublicSSHHostKeyResult{
+		PublicKey: s.hostKey,
+	}, nil)
+	s.sshAPIJump.EXPECT().VirtualHostname(gomock.Any(), "1", nil).Return("machine-1", nil)
+	s.sshAPIJump.EXPECT().PublicHostKeyForTarget(gomock.Any(), "machine-1").Return(params.PublicSSHHostKeyResult{
+		PublicKey: s.hostKey,
+	}, nil)
+	s.sshAPIJump.EXPECT().Close().Return(nil)
+
+	jump := sshJump{
+		args:                 []string{"-3", "0:/tmp/source", "bob@1:/tmp/destination"},
+		jumpUser:             "fred",
+		jumpServerHostKey:    s.hostKey,
+		sshClient:            s.sshAPIJump,
+		controllersAddresses: []string{"1.0.0.1"},
+		hostChecker:          validAddressesWithPort(17022, "1.0.0.1"),
+		jumpHostPort:         17022,
+	}
+	defer jump.cleanupRun()
+
+	c.Assert(jump.copy(nil), tc.ErrorIsNil)
+	output, err := os.ReadFile(filepath.Join(s.binDir, "scp.args"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(output), tc.Contains, "-3 ubuntu@machine-0:/tmp/source bob@machine-1:/tmp/destination")
+	c.Check(string(output), tc.Contains, "machine-0 ")
+	c.Check(string(output), tc.Contains, "machine-1 ")
+}
+
+func (s *sshJumpSuite) TestCopyRejectsCAASTarget(c *tc.C) {
+	jump := sshJump{modelType: "caas"}
+	c.Check(jump.copy(nil), tc.ErrorMatches, "--jump is not supported for scp to Kubernetes targets")
 }
 
 func (s *sshJumpSuite) TestGenerateKnownHostsSupportsIPv6(c *tc.C) {

@@ -74,6 +74,8 @@ add ` + "`-- -3`" + ` to the command-line arguments.
 To enable transfers to/from machines that do not have internet access, you can use
 the Juju controller as a proxy with the ` + "`--proxy`" + ` option.
 
+To proxy transfers through the controller's SSH server, use the ` + "`--jump`" + ` option.
+
 The SSH host keys of the target are verified by default. To disable this, add
  ` + "`--no-host-key-checks`" + ` option. Using this option is strongly discouraged.
 
@@ -119,6 +121,10 @@ Copy a file (` + "`chunks-inspect`" + `) from ` + "`localhost`" + ` to the ` + "
 in a specific container in a Juju unit running in Kubernetes:
 
     juju scp --container loki chunks-inspect loki-k8s/0:/loki
+
+Copy ` + "`foo.txt`" + ` through the controller SSH server to machine ` + "`0`" + `:
+
+	juju scp --jump foo.txt 0:/tmp/foo.txt
 `
 
 func NewSCPCommand(hostChecker jujussh.ReachableChecker, retryStrategy retry.CallArgs, publicKeyRetryStrategy retry.CallArgs) cmd.Command {
@@ -137,10 +143,12 @@ type scpCommand struct {
 
 	sshMachine
 	sshContainer
+	sshJump
 
 	provider sshProvider
 
 	hostChecker jujussh.ReachableChecker
+	jump        bool
 
 	retryStrategy          retry.CallArgs
 	publicKeyRetryStrategy retry.CallArgs
@@ -149,6 +157,7 @@ type scpCommand struct {
 func (c *scpCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.sshMachine.SetFlags(f)
 	c.sshContainer.SetFlags(f)
+	f.BoolVar(&c.jump, "jump", false, "Proxy SSH through the Juju controller")
 }
 
 func (c *scpCommand) Info() *cmd.Info {
@@ -171,7 +180,10 @@ func (c *scpCommand) Init(args []string) (err error) {
 	if c.modelType, err = c.ModelType(context.TODO()); err != nil {
 		return err
 	}
-	if c.modelType == model.CAAS {
+	if c.jump {
+		c.provider = &c.sshJump
+		c.sshJump.container = c.sshContainer.container
+	} else if c.modelType == model.CAAS {
 		c.provider = &c.sshContainer
 	} else {
 		c.provider = &c.sshMachine
