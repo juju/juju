@@ -51,6 +51,21 @@ func NewClient(caller base.APICaller, options ...Option) (*Client, error) {
 	}, nil
 }
 
+// APIAddressClient provides the API address methods required by a controller
+// agent running in a CAAS model.
+type APIAddressClient struct {
+	*common.APIAddresser
+}
+
+// NewAPIAddressClient returns a client for the CAASAgent v3 API address
+// methods.
+func NewAPIAddressClient(caller base.APICaller, options ...Option) *APIAddressClient {
+	facadeCaller := base.NewFacadeCaller(caller, "CAASAgent", options...)
+	return &APIAddressClient{
+		APIAddresser: common.NewAPIAddresser(facadeCaller),
+	}
+}
+
 // WatchCloudSpecChanges returns a NotifyWatcher waiting for the
 // model's cloud to change.
 func (c *Client) WatchCloudSpecChanges(ctx context.Context) (watcher.NotifyWatcher, error) {

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
+	"github.com/juju/juju/api/agent/caasagent"
 	"github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base"
@@ -37,20 +38,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // newWorker trivially wraps NewAPIAddressUpdater for use in a engine.AgentAPIManifold.
-// It's not tested at the moment, because the scaffolding necessary is too
-// unwieldy/distracting to introduce at this point.
 func (config ManifoldConfig) newWorker(_ context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
-	tag := a.CurrentConfig().Tag()
-
-	// TODO(fwereade): use appropriate facade!
-	var facade APIAddresser
-	switch apiTag := tag.(type) {
-	case names.UnitTag:
-		facade = uniter.NewClient(apiCaller, apiTag)
-	case names.MachineTag:
-		facade = machiner.NewClient(apiCaller)
-	default:
-		return nil, errors.Errorf("expected a unit or machine tag; got %q", tag)
+	facade, err := newAPIAddresser(a.CurrentConfig().Tag(), apiCaller)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	setter := agent.APIHostPortsSetter{Agent: a}
@@ -63,4 +54,17 @@ func (config ManifoldConfig) newWorker(_ context.Context, a agent.Agent, apiCall
 		return nil, errors.Trace(err)
 	}
 	return w, nil
+}
+
+func newAPIAddresser(tag names.Tag, apiCaller base.APICaller) (APIAddresser, error) {
+	switch apiTag := tag.(type) {
+	case names.UnitTag:
+		return uniter.NewClient(apiCaller, apiTag), nil
+	case names.MachineTag:
+		return machiner.NewClient(apiCaller), nil
+	case names.ControllerAgentTag:
+		return caasagent.NewAPIAddressClient(apiCaller), nil
+	default:
+		return nil, errors.Errorf("expected a unit, machine, or controller agent tag; got %q", tag)
+	}
 }

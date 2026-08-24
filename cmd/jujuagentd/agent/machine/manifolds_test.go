@@ -196,6 +196,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 			"agent-config-updater",
 			"agent",
 			"api-address-setter",
+			"api-address-updater",
 			"api-caller",
 			"api-config-watcher",
 			"api-remote-caller",
@@ -2516,6 +2517,17 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 }
 
 var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
+	"api-address-updater": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 	"controller-proxy-config-updater": {
 		"agent",
 		"api-caller",
