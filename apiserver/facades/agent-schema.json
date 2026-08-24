@@ -1336,6 +1336,9 @@
                 "CAASUnitIntroductionArgs": {
                     "type": "object",
                     "properties": {
+                        "nonce": {
+                            "type": "string"
+                        },
                         "pod-name": {
                             "type": "string"
                         },
