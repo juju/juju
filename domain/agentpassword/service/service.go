@@ -78,8 +78,9 @@ type ControllerState interface {
 	// MatchesControllerNodePasswordHash checks if the password is valid or not
 	// against the password hash stored in the database for the controller node.
 	MatchesControllerNodePasswordHash(context.Context, string, agentpassword.PasswordHash) (bool, error)
-	// SetControllerNodeNonce sets the introduction nonce for the controller.
-	SetControllerNodeNonce(context.Context, string, string) error
+	// EnsureControllerNodeNonce returns the persisted introduction nonce for the
+	// controller, creating it from the provided nonce only when it is not set.
+	EnsureControllerNodeNonce(context.Context, string, string) (string, error)
 	// ValidateControllerNodeNonce validates the introduction nonce for the
 	// controller. Returns true if the nonce matches.
 	ValidateControllerNodeNonce(context.Context, string, string) (bool, error)
@@ -334,20 +335,20 @@ func (s *Service) MatchesApplicationPasswordHash(ctx context.Context, appName st
 	return s.modelState.MatchesApplicationPasswordHash(ctx, appID, hashPassword(password))
 }
 
-// SetControllerNodeNonce sets the introduction nonce for the given controller
-// node ID. The nonce is verified during UnitIntroduction to prove the pod is
-// the legitimate owner of the ordinal.
-func (s *Service) SetControllerNodeNonce(ctx context.Context, controllerID, nonce string) error {
+// EnsureControllerNodeNonce returns the introduction nonce for the given
+// controller node ID. A nonce is created only when the controller ID does not
+// already have one, making retries safe after partial reconciliation.
+func (s *Service) EnsureControllerNodeNonce(ctx context.Context, controllerID, nonce string) (string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if controllerID == "" {
-		return errors.Errorf("controller node ID %w", coreerrors.NotValid)
+		return "", errors.Errorf("controller node ID %w", coreerrors.NotValid)
 	}
 	if nonce == "" {
-		return errors.Errorf("nonce %w", coreerrors.NotValid)
+		return "", errors.Errorf("nonce %w", coreerrors.NotValid)
 	}
-	return s.controllerState.SetControllerNodeNonce(ctx, controllerID, nonce)
+	return s.controllerState.EnsureControllerNodeNonce(ctx, controllerID, nonce)
 }
 
 // ValidateControllerNodeNonce verifies the nonce for the given controller node

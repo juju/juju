@@ -211,14 +211,14 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 		}),
 
 		// scaleChan fired
-		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x).
+		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			Return(errors.NotFound),
-		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x).
+		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			Return(errors.ConstError("try again")),
-		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x).
+		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			DoAndReturn(func(ctx context.Context, s string, i application.UUID,
 				a caas.Application, v life.Value, cf CAASProvisionerFacade,
-				as ApplicationService, l logger.Logger) error {
+				as ApplicationService, aps AgentPasswordService, l logger.Logger) error {
 				settingsChan <- struct{}{}
 				return nil
 			}),
@@ -316,7 +316,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 	ops.EXPECT().RefreshOperatorStatus(x, "con-troll-er", s.appUUID, app, x, x, x, x).Return(nil).AnyTimes()
 	ops.EXPECT().EnsureScale(
 		x, "con-troll-er", s.appUUID, app, life.Alive, facade,
-		applicationService, s.logger,
+		applicationService, agentPasswordService, s.logger,
 	).Return(nil).AnyTimes()
 
 	gomock.InOrder(
@@ -511,14 +511,14 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 		}),
 
 		// scaleChan fired
-		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x).
+		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			Return(errors.NotFound),
-		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x).
+		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			Return(errors.ConstError("try again")),
-		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x).
+		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			DoAndReturn(func(ctx context.Context, s string,
 				i application.UUID, a caas.Application, v life.Value, cf CAASProvisionerFacade,
-				as ApplicationService, l logger.Logger) error {
+				as ApplicationService, aps AgentPasswordService, l logger.Logger) error {
 				settingsChan <- struct{}{}
 				return nil
 			}),

@@ -169,7 +169,13 @@ func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 			return errors.Trace(err)
 		},
 		IsFatalError: func(err error) bool {
-			return !errors.Is(err, errors.NotAssigned) && !errors.Is(err, errors.AlreadyExists)
+			// A controller pod can ask to be introduced while Kubernetes is
+			// creating or replacing it. A transient NotFound must not leave the
+			// init container permanently failed; authentication errors remain
+			// fatal.
+			return !errors.Is(err, errors.NotAssigned) &&
+				!errors.Is(err, errors.AlreadyExists) &&
+				!errors.Is(err, errors.NotFound)
 		},
 		Attempts: -1,
 		Delay:    10 * time.Second,

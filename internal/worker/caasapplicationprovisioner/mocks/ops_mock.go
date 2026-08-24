@@ -34,7 +34,7 @@ type MockApplicationOpsMockRecorder struct {
 	appAliveExpects               []*gomock.Call10_1[context.Context, string, application.UUID, caas.Application, string, *caas.ApplicationConfig, *caasapplicationprovisioner.ProvisioningInfo, caasapplicationprovisioner.StatusService, clock.Clock, logger.Logger, error]
 	appDeadExpects                []*gomock.Call7_1[context.Context, string, application.UUID, caas.Application, caasapplicationprovisioner.ApplicationService, clock.Clock, logger.Logger, error]
 	appDyingExpects               []*gomock.Call9_1[context.Context, string, application.UUID, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.StatusService, logger.Logger, error]
-	ensureScaleExpects            []*gomock.Call8_1[context.Context, string, application.UUID, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, logger.Logger, error]
+	ensureScaleExpects            []*gomock.Call9_1[context.Context, string, application.UUID, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.AgentPasswordService, logger.Logger, error]
 	ensureTrustExpects            []*gomock.Call5_1[context.Context, string, caas.Application, caasapplicationprovisioner.ApplicationService, logger.Logger, error]
 	provisioningInfoExpects       []*gomock.Call9_2[context.Context, string, application.UUID, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.StorageProvisioningService, caasapplicationprovisioner.ResourceOpenerGetter, *caasapplicationprovisioner.ProvisioningInfo, logger.Logger, *caasapplicationprovisioner.ProvisioningInfo, error]
 	reconcileDeadUnitScaleExpects []*gomock.Call7_1[context.Context, string, application.UUID, caas.Application, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, logger.Logger, error]
@@ -110,22 +110,22 @@ func (mr *MockApplicationOpsMockRecorder) AppDying(ctx, appName, appUUID, app, a
 type MockApplicationOpsAppDyingCall = gomock.Call9_1[context.Context, string, application.UUID, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.StatusService, logger.Logger, error]
 
 // EnsureScale mocks base method.
-func (m *MockApplicationOps) EnsureScale(ctx context.Context, appName string, appUUID application.UUID, app caas.Application, appLife life.Value, facade caasapplicationprovisioner.CAASProvisionerFacade, applicationService caasapplicationprovisioner.ApplicationService, arg7 logger.Logger) error {
+func (m *MockApplicationOps) EnsureScale(ctx context.Context, appName string, appUUID application.UUID, app caas.Application, appLife life.Value, facade caasapplicationprovisioner.CAASProvisionerFacade, applicationService caasapplicationprovisioner.ApplicationService, agentPasswordService caasapplicationprovisioner.AgentPasswordService, arg8 logger.Logger) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch8_1(&m.recorder.ensureScaleExpects, m.ctrl, m, "EnsureScale", ctx, appName, appUUID, app, appLife, facade, applicationService, arg7)
+	return gomock.Dispatch9_1(&m.recorder.ensureScaleExpects, m.ctrl, m, "EnsureScale", ctx, appName, appUUID, app, appLife, facade, applicationService, agentPasswordService, arg8)
 }
 
 // EnsureScale indicates an expected call of EnsureScale.
-func (mr *MockApplicationOpsMockRecorder) EnsureScale(ctx, appName, appUUID, app, appLife, facade, applicationService, arg7 any) *MockApplicationOpsEnsureScaleCall {
+func (mr *MockApplicationOpsMockRecorder) EnsureScale(ctx, appName, appUUID, app, appLife, facade, applicationService, agentPasswordService, arg8 any) *MockApplicationOpsEnsureScaleCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall8_1[context.Context, string, application.UUID, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, logger.Logger, error](mr.mock.ctrl.T, mr.mock, "EnsureScale", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appName), gomock.EnsureMatcher(appUUID), gomock.EnsureMatcher(app), gomock.EnsureMatcher(appLife), gomock.EnsureMatcher(facade), gomock.EnsureMatcher(applicationService), gomock.EnsureMatcher(arg7))
+	call := gomock.NewCall9_1[context.Context, string, application.UUID, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.AgentPasswordService, logger.Logger, error](mr.mock.ctrl.T, mr.mock, "EnsureScale", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appName), gomock.EnsureMatcher(appUUID), gomock.EnsureMatcher(app), gomock.EnsureMatcher(appLife), gomock.EnsureMatcher(facade), gomock.EnsureMatcher(applicationService), gomock.EnsureMatcher(agentPasswordService), gomock.EnsureMatcher(arg8))
 	mr.ensureScaleExpects = append(mr.ensureScaleExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockApplicationOpsEnsureScaleCall is the typed call wrapper for EnsureScale.
-type MockApplicationOpsEnsureScaleCall = gomock.Call8_1[context.Context, string, application.UUID, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, logger.Logger, error]
+type MockApplicationOpsEnsureScaleCall = gomock.Call9_1[context.Context, string, application.UUID, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.AgentPasswordService, logger.Logger, error]
 
 // EnsureTrust mocks base method.
 func (m *MockApplicationOps) EnsureTrust(ctx context.Context, appName string, app caas.Application, applicationService caasapplicationprovisioner.ApplicationService, arg4 logger.Logger) error {

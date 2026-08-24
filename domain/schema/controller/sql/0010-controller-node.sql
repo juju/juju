@@ -61,10 +61,10 @@ CREATE TABLE controller_node_password (
 -- it is the legitimate pod for that ordinal. The row is verified (not
 -- consumed) on each introduction attempt. Idempotency is provided by the
 -- password insert-if-absent guard, not by nonce consumption.
+--
+-- There is deliberately no foreign key to controller_node: this nonce must
+-- exist before the controller pod can introduce itself and create that row.
 CREATE TABLE controller_node_nonce (
     controller_id TEXT NOT NULL PRIMARY KEY,
-    nonce TEXT NOT NULL,
-    CONSTRAINT fk_controller_node_nonce_controller
-    FOREIGN KEY (controller_id)
-    REFERENCES controller_node (controller_id)
+    nonce TEXT NOT NULL
 );

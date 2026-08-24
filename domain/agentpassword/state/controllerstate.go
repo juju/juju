@@ -203,31 +203,45 @@ type controllerNonceCount struct {
 	Count int `db:"count"`
 }
 
-// SetControllerNodeNonce inserts a nonce for the given controller ID. If a
-// nonce already exists for this controller ID it is overwritten.
-func (s *ControllerState) SetControllerNodeNonce(ctx context.Context, controllerID, nonce string) error {
+// EnsureControllerNodeNonce returns the nonce for a controller ID, creating it
+// from nonce when it does not already exist. Once assigned, a nonce is never
+// overwritten: callers may safely retry after a partial reconciliation.
+func (s *ControllerState) EnsureControllerNodeNonce(ctx context.Context, controllerID, nonce string) (string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	args := controllerNonce{
 		ControllerID: controllerID,
 		Nonce:        nonce,
 	}
-	stmt, err := s.Prepare(`
+	insertStmt, err := s.Prepare(`
 INSERT INTO controller_node_nonce (controller_id, nonce)
 VALUES ($controllerNonce.controller_id, $controllerNonce.nonce)
-ON CONFLICT (controller_id) DO UPDATE SET nonce = $controllerNonce.nonce;
+ON CONFLICT (controller_id) DO NOTHING;
 `, args)
 	if err != nil {
-		return errors.Errorf("preparing statement to set controller node nonce: %w", err)
+		return "", errors.Errorf("preparing statement to ensure controller node nonce: %w", err)
+	}
+
+	result := controllerNonce{ControllerID: controllerID}
+	getStmt, err := s.Prepare(`
+SELECT cnn.nonce AS &controllerNonce.nonce
+FROM controller_node_nonce AS cnn
+WHERE cnn.controller_id = $controllerNonce.controller_id;
+`, result)
+	if err != nil {
+		return "", errors.Errorf("preparing statement to get controller node nonce: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Capture(tx.Query(ctx, stmt, args).Run())
+		if err := tx.Query(ctx, insertStmt, args).Run(); err != nil {
+			return errors.Capture(err)
+		}
+		return errors.Capture(tx.Query(ctx, getStmt, result).Get(&result))
 	})
-	return errors.Capture(err)
+	return result.Nonce, errors.Capture(err)
 }
 
 // ValidateControllerNodeNonce checks that the given nonce matches the stored

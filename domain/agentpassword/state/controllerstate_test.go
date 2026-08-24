@@ -135,39 +135,54 @@ func (s *controllerModelState) genPasswordHash(c *tc.C) agentpassword.PasswordHa
 	return agentpassword.PasswordHash(internalpassword.AgentPasswordHash(rand))
 }
 
-func (s *controllerModelState) TestSetControllerNodeNonce(c *tc.C) {
+func (s *controllerModelState) TestEnsureControllerNodeNonce(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
 
-	err := st.SetControllerNodeNonce(c.Context(), "0", "nonce-abc")
+	nonce, err := st.EnsureControllerNodeNonce(c.Context(), "0", "nonce-abc")
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nonce, tc.Equals, "nonce-abc")
 
 	valid, err := st.ValidateControllerNodeNonce(c.Context(), "0", "nonce-abc")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(valid, tc.IsTrue)
 }
 
-func (s *controllerModelState) TestSetControllerNodeNonceOverwrite(c *tc.C) {
+func (s *controllerModelState) TestEnsureControllerNodeNonceBeforeControllerIntroduction(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
 
-	err := st.SetControllerNodeNonce(c.Context(), "0", "nonce-first")
+	nonce, err := st.EnsureControllerNodeNonce(c.Context(), "1", "nonce-abc")
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nonce, tc.Equals, "nonce-abc")
 
-	err = st.SetControllerNodeNonce(c.Context(), "0", "nonce-second")
+	valid, err := st.ValidateControllerNodeNonce(c.Context(), "1", "nonce-abc")
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsTrue)
+}
+
+func (s *controllerModelState) TestEnsureControllerNodeNonceDoesNotOverwrite(c *tc.C) {
+	st := NewControllerState(s.TxnRunnerFactory())
+
+	nonce, err := st.EnsureControllerNodeNonce(c.Context(), "0", "nonce-first")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nonce, tc.Equals, "nonce-first")
+
+	nonce, err = st.EnsureControllerNodeNonce(c.Context(), "0", "nonce-second")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nonce, tc.Equals, "nonce-first")
 
 	valid, err := st.ValidateControllerNodeNonce(c.Context(), "0", "nonce-first")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(valid, tc.IsFalse)
+	c.Check(valid, tc.IsTrue)
 
 	valid, err = st.ValidateControllerNodeNonce(c.Context(), "0", "nonce-second")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(valid, tc.IsTrue)
+	c.Check(valid, tc.IsFalse)
 }
 
 func (s *controllerModelState) TestValidateControllerNodeNonceNoMatch(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
 
-	err := st.SetControllerNodeNonce(c.Context(), "0", "nonce-abc")
+	_, err := st.EnsureControllerNodeNonce(c.Context(), "0", "nonce-abc")
 	c.Assert(err, tc.ErrorIsNil)
 
 	valid, err := st.ValidateControllerNodeNonce(c.Context(), "0", "wrong-nonce")

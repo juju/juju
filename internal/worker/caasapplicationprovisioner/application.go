@@ -375,7 +375,7 @@ func (a *appWorker) loop() error {
 				break
 			}
 			err := a.ops.EnsureScale(ctx, name, a.appUUID, app, a.life, a.facade,
-				a.applicationService, a.logger)
+				a.applicationService, a.agentPasswordService, a.logger)
 			if errors.Is(err, errors.NotFound) {
 				if scaleTries >= maxRetries {
 					return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)

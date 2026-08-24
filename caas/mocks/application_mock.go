@@ -28,22 +28,23 @@ type MockApplication struct {
 
 // MockApplicationMockRecorder is the mock recorder for MockApplication.
 type MockApplicationMockRecorder struct {
-	mock                      *MockApplication
-	applicationPodSpecExpects []*gomock.Call1_2[caas.ApplicationConfig, *v1.PodSpec, error]
-	deleteExpects             []*gomock.Call0_1[error]
-	ensureExpects             []*gomock.Call1_1[caas.ApplicationConfig, error]
-	ensurePVCsExpects         []*gomock.Call3_1[[]storage.KubernetesFilesystemParams, map[string][]storage.KubernetesFilesystemUnitAttachmentParams, string, error]
-	existsExpects             []*gomock.Call0_2[caas.DeploymentState, error]
-	scaleExpects              []*gomock.Call1_1[int, error]
-	serviceExpects            []*gomock.Call0_2[*caas.Service, error]
-	stateExpects              []*gomock.Call0_2[caas.ApplicationState, error]
-	trustExpects              []*gomock.Call1_1[bool, error]
-	unitsExpects              []*gomock.Call0_2[[]caas.Unit, error]
-	unitsToRemoveExpects      []*gomock.Call2_2[context.Context, int, []string, error]
-	updatePortsExpects        []*gomock.Call2_1[[]caas.ServicePort, bool, error]
-	updateServiceExpects      []*gomock.Call1_1[caas.ServiceParam, error]
-	watchExpects              []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
-	watchReplicasExpects      []*gomock.Call0_2[watcher.NotifyWatcher, error]
+	mock                         *MockApplication
+	applicationPodSpecExpects    []*gomock.Call1_2[caas.ApplicationConfig, *v1.PodSpec, error]
+	deleteExpects                []*gomock.Call0_1[error]
+	ensureExpects                []*gomock.Call1_1[caas.ApplicationConfig, error]
+	ensureControllerNonceExpects []*gomock.Call3_1[context.Context, int, string, error]
+	ensurePVCsExpects            []*gomock.Call3_1[[]storage.KubernetesFilesystemParams, map[string][]storage.KubernetesFilesystemUnitAttachmentParams, string, error]
+	existsExpects                []*gomock.Call0_2[caas.DeploymentState, error]
+	scaleExpects                 []*gomock.Call1_1[int, error]
+	serviceExpects               []*gomock.Call0_2[*caas.Service, error]
+	stateExpects                 []*gomock.Call0_2[caas.ApplicationState, error]
+	trustExpects                 []*gomock.Call1_1[bool, error]
+	unitsExpects                 []*gomock.Call0_2[[]caas.Unit, error]
+	unitsToRemoveExpects         []*gomock.Call2_2[context.Context, int, []string, error]
+	updatePortsExpects           []*gomock.Call2_1[[]caas.ServicePort, bool, error]
+	updateServiceExpects         []*gomock.Call1_1[caas.ServiceParam, error]
+	watchExpects                 []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
+	watchReplicasExpects         []*gomock.Call0_2[watcher.NotifyWatcher, error]
 }
 
 // NewMockApplication creates a new mock instance.
@@ -111,6 +112,24 @@ func (mr *MockApplicationMockRecorder) Ensure(config any) *MockApplicationEnsure
 
 // MockApplicationEnsureCall is the typed call wrapper for Ensure.
 type MockApplicationEnsureCall = gomock.Call1_1[caas.ApplicationConfig, error]
+
+// EnsureControllerNonce mocks base method.
+func (m *MockApplication) EnsureControllerNonce(ctx context.Context, ordinal int, nonce string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.ensureControllerNonceExpects, m.ctrl, m, "EnsureControllerNonce", ctx, ordinal, nonce)
+}
+
+// EnsureControllerNonce indicates an expected call of EnsureControllerNonce.
+func (mr *MockApplicationMockRecorder) EnsureControllerNonce(ctx, ordinal, nonce any) *MockApplicationEnsureControllerNonceCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, int, string, error](mr.mock.ctrl.T, mr.mock, "EnsureControllerNonce", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(ordinal), gomock.EnsureMatcher(nonce))
+	mr.ensureControllerNonceExpects = append(mr.ensureControllerNonceExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockApplicationEnsureControllerNonceCall is the typed call wrapper for EnsureControllerNonce.
+type MockApplicationEnsureControllerNonceCall = gomock.Call3_1[context.Context, int, string, error]
 
 // EnsurePVCs mocks base method.
 func (m *MockApplication) EnsurePVCs(arg0 []storage.KubernetesFilesystemParams, arg1 map[string][]storage.KubernetesFilesystemUnitAttachmentParams, arg2 string) error {

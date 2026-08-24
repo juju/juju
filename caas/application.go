@@ -58,6 +58,12 @@ type Application interface {
 		string,
 	) error
 
+	// EnsureControllerNonce reconciles a nonce entry for the given controller
+	// ordinal into the controller ConfigMap. This is called before scaling the
+	// controller StatefulSet so new pods can validate their nonce against the
+	// database. For non-controller applications this is a no-op.
+	EnsureControllerNonce(ctx context.Context, ordinal int, nonce string) error
+
 	ServiceInterface
 }
 

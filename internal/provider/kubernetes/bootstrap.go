@@ -1239,18 +1239,6 @@ func (c *controllerStack) buildStorageSpecForController(ctx context.Context, sta
 				LocalObjectReference: core.LocalObjectReference{
 					Name: c.resourceNameConfigMap,
 				},
-				Items: []core.KeyToPath{
-					{
-						Key:  constants.ControllerAgentConfigFilename,
-						Path: constants.ControllerAgentConfigFilename,
-					}, {
-						Key:  constants.ControllerUnitAgentConfigFilename,
-						Path: constants.ControllerUnitAgentConfigFilename,
-					}, {
-						Key:  constants.ControllerNonceConfigMapKey(0),
-						Path: constants.ControllerNonceConfigMapKey(0),
-					},
-				},
 			},
 		},
 	}, {

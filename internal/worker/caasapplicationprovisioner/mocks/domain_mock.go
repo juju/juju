@@ -481,8 +481,9 @@ type MockAgentPasswordService struct {
 
 // MockAgentPasswordServiceMockRecorder is the mock recorder for MockAgentPasswordService.
 type MockAgentPasswordServiceMockRecorder struct {
-	mock                          *MockAgentPasswordService
-	setApplicationPasswordExpects []*gomock.Call3_1[context.Context, application.UUID, string, error]
+	mock                             *MockAgentPasswordService
+	ensureControllerNodeNonceExpects []*gomock.Call3_2[context.Context, string, string, string, error]
+	setApplicationPasswordExpects    []*gomock.Call3_1[context.Context, application.UUID, string, error]
 }
 
 // NewMockAgentPasswordService creates a new mock instance.
@@ -496,6 +497,24 @@ func NewMockAgentPasswordService(ctrl *gomock.Controller) *MockAgentPasswordServ
 func (m *MockAgentPasswordService) EXPECT() *MockAgentPasswordServiceMockRecorder {
 	return m.recorder
 }
+
+// EnsureControllerNodeNonce mocks base method.
+func (m *MockAgentPasswordService) EnsureControllerNodeNonce(ctx context.Context, controllerID, nonce string) (string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.ensureControllerNodeNonceExpects, m.ctrl, m, "EnsureControllerNodeNonce", ctx, controllerID, nonce)
+}
+
+// EnsureControllerNodeNonce indicates an expected call of EnsureControllerNodeNonce.
+func (mr *MockAgentPasswordServiceMockRecorder) EnsureControllerNodeNonce(ctx, controllerID, nonce any) *MockAgentPasswordServiceEnsureControllerNodeNonceCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, string, string, error](mr.mock.ctrl.T, mr.mock, "EnsureControllerNodeNonce", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(controllerID), gomock.EnsureMatcher(nonce))
+	mr.ensureControllerNodeNonceExpects = append(mr.ensureControllerNodeNonceExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockAgentPasswordServiceEnsureControllerNodeNonceCall is the typed call wrapper for EnsureControllerNodeNonce.
+type MockAgentPasswordServiceEnsureControllerNodeNonceCall = gomock.Call3_2[context.Context, string, string, string, error]
 
 // SetApplicationPassword mocks base method.
 func (m *MockAgentPasswordService) SetApplicationPassword(ctx context.Context, appID application.UUID, password string) error {

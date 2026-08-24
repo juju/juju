@@ -839,20 +839,7 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 	volAgentConf := core.Volume{
 		Name: "juju-controller-test-agent-conf",
 		VolumeSource: core.VolumeSource{
-			ConfigMap: &core.ConfigMapVolumeSource{
-				Items: []core.KeyToPath{
-					{
-						Key:  "controller-agent.conf",
-						Path: "controller-agent.conf",
-					}, {
-						Key:  "controller-unit-agent.conf",
-						Path: "controller-unit-agent.conf",
-					}, {
-						Key:  "controller-nonce-0",
-						Path: "controller-nonce-0",
-					},
-				},
-			},
+			ConfigMap: &core.ConfigMapVolumeSource{},
 		},
 	}
 	volAgentConf.VolumeSource.ConfigMap.Name = "juju-controller-test-configmap"

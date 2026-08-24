@@ -878,8 +878,8 @@ type MockAgentPasswordService struct {
 // MockAgentPasswordServiceMockRecorder is the mock recorder for MockAgentPasswordService.
 type MockAgentPasswordServiceMockRecorder struct {
 	mock                             *MockAgentPasswordService
+	ensureControllerNodeNonceExpects []*gomock.Call3_2[context.Context, string, string, string, error]
 	setApplicationPasswordExpects    []*gomock.Call3_1[context.Context, application.UUID, string, error]
-	setControllerNodeNonceExpects    []*gomock.Call3_1[context.Context, string, string, error]
 	setControllerNodePasswordExpects []*gomock.Call3_1[context.Context, string, string, error]
 	setMachinePasswordExpects        []*gomock.Call3_1[context.Context, machine.Name, string, error]
 	setUnitPasswordExpects           []*gomock.Call3_1[context.Context, unit.Name, string, error]
@@ -896,6 +896,24 @@ func NewMockAgentPasswordService(ctrl *gomock.Controller) *MockAgentPasswordServ
 func (m *MockAgentPasswordService) EXPECT() *MockAgentPasswordServiceMockRecorder {
 	return m.recorder
 }
+
+// EnsureControllerNodeNonce mocks base method.
+func (m *MockAgentPasswordService) EnsureControllerNodeNonce(ctx context.Context, controllerID, nonce string) (string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.ensureControllerNodeNonceExpects, m.ctrl, m, "EnsureControllerNodeNonce", ctx, controllerID, nonce)
+}
+
+// EnsureControllerNodeNonce indicates an expected call of EnsureControllerNodeNonce.
+func (mr *MockAgentPasswordServiceMockRecorder) EnsureControllerNodeNonce(ctx, controllerID, nonce any) *MockAgentPasswordServiceEnsureControllerNodeNonceCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, string, string, error](mr.mock.ctrl.T, mr.mock, "EnsureControllerNodeNonce", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(controllerID), gomock.EnsureMatcher(nonce))
+	mr.ensureControllerNodeNonceExpects = append(mr.ensureControllerNodeNonceExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockAgentPasswordServiceEnsureControllerNodeNonceCall is the typed call wrapper for EnsureControllerNodeNonce.
+type MockAgentPasswordServiceEnsureControllerNodeNonceCall = gomock.Call3_2[context.Context, string, string, string, error]
 
 // SetApplicationPassword mocks base method.
 func (m *MockAgentPasswordService) SetApplicationPassword(ctx context.Context, appID application.UUID, password string) error {
@@ -914,24 +932,6 @@ func (mr *MockAgentPasswordServiceMockRecorder) SetApplicationPassword(ctx, appI
 
 // MockAgentPasswordServiceSetApplicationPasswordCall is the typed call wrapper for SetApplicationPassword.
 type MockAgentPasswordServiceSetApplicationPasswordCall = gomock.Call3_1[context.Context, application.UUID, string, error]
-
-// SetControllerNodeNonce mocks base method.
-func (m *MockAgentPasswordService) SetControllerNodeNonce(ctx context.Context, controllerID, nonce string) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.setControllerNodeNonceExpects, m.ctrl, m, "SetControllerNodeNonce", ctx, controllerID, nonce)
-}
-
-// SetControllerNodeNonce indicates an expected call of SetControllerNodeNonce.
-func (mr *MockAgentPasswordServiceMockRecorder) SetControllerNodeNonce(ctx, controllerID, nonce any) *MockAgentPasswordServiceSetControllerNodeNonceCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "SetControllerNodeNonce", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(controllerID), gomock.EnsureMatcher(nonce))
-	mr.setControllerNodeNonceExpects = append(mr.setControllerNodeNonceExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockAgentPasswordServiceSetControllerNodeNonceCall is the typed call wrapper for SetControllerNodeNonce.
-type MockAgentPasswordServiceSetControllerNodeNonceCall = gomock.Call3_1[context.Context, string, string, error]
 
 // SetControllerNodePassword mocks base method.
 func (m *MockAgentPasswordService) SetControllerNodePassword(ctx context.Context, controllerID, password string) error {

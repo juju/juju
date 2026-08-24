@@ -392,7 +392,7 @@ func CAASAgentFinalizer(
 		return nil
 	}
 	nonce := string(nonceBytes)
-	if err := agentPasswordService.SetControllerNodeNonce(ctx, agent.BootstrapControllerId, nonce); err != nil {
+	if _, err := agentPasswordService.EnsureControllerNodeNonce(ctx, agent.BootstrapControllerId, nonce); err != nil {
 		return errors.Trace(err)
 	}
 

@@ -147,6 +147,7 @@ checks:
 
 	gomock.InOrder(
 		s.fileReaderWriter.EXPECT().Stat("/var/lib/juju/template-agent.conf").Return(nil, os.ErrNotExist),
+		s.applicationAPI.EXPECT().UnitIntroduction(gomock.Any(), `gitlab-0`, `gitlab-uuid`, ``).Times(1).Return(nil, errors.NotFoundf("pod is being created")),
 		s.applicationAPI.EXPECT().UnitIntroduction(gomock.Any(), `gitlab-0`, `gitlab-uuid`, ``).Times(1).Return(nil, errors.NotAssignedf("yo we not needed yet")),
 		s.applicationAPI.EXPECT().UnitIntroduction(gomock.Any(), `gitlab-0`, `gitlab-uuid`, ``).Times(1).Return(nil, errors.AlreadyExistsf("yo we dead atm")),
 		s.applicationAPI.EXPECT().UnitIntroduction(gomock.Any(), `gitlab-0`, `gitlab-uuid`, ``).Times(1).Return(&caasapplication.UnitConfig{

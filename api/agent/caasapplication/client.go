@@ -59,6 +59,8 @@ func (c *Client) UnitIntroduction(ctx context.Context, podName string, podUUID s
 			return nil, errors.AlreadyExists
 		} else if params.IsCodeNotAssigned(err) {
 			return nil, errors.NotAssigned
+		} else if params.IsCodeNotFound(err) {
+			return nil, errors.NotFound
 		}
 		return nil, err
 	}

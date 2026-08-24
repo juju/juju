@@ -281,9 +281,9 @@ type MockControllerState struct {
 // MockControllerStateMockRecorder is the mock recorder for MockControllerState.
 type MockControllerStateMockRecorder struct {
 	mock                                         *MockControllerState
+	ensureControllerNodeNonceExpects             []*gomock.Call3_2[context.Context, string, string, string, error]
 	hasControllerNodePasswordHashExpects         []*gomock.Call2_2[context.Context, string, bool, error]
 	matchesControllerNodePasswordHashExpects     []*gomock.Call3_2[context.Context, string, agentpassword.PasswordHash, bool, error]
-	setControllerNodeNonceExpects                []*gomock.Call3_1[context.Context, string, string, error]
 	setControllerNodePasswordHashExpects         []*gomock.Call3_1[context.Context, string, agentpassword.PasswordHash, error]
 	setControllerNodePasswordHashIfAbsentExpects []*gomock.Call3_2[context.Context, string, agentpassword.PasswordHash, bool, error]
 	validateControllerNodeNonceExpects           []*gomock.Call3_2[context.Context, string, string, bool, error]
@@ -300,6 +300,24 @@ func NewMockControllerState(ctrl *gomock.Controller) *MockControllerState {
 func (m *MockControllerState) EXPECT() *MockControllerStateMockRecorder {
 	return m.recorder
 }
+
+// EnsureControllerNodeNonce mocks base method.
+func (m *MockControllerState) EnsureControllerNodeNonce(arg0 context.Context, arg1, arg2 string) (string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.ensureControllerNodeNonceExpects, m.ctrl, m, "EnsureControllerNodeNonce", arg0, arg1, arg2)
+}
+
+// EnsureControllerNodeNonce indicates an expected call of EnsureControllerNodeNonce.
+func (mr *MockControllerStateMockRecorder) EnsureControllerNodeNonce(arg0, arg1, arg2 any) *MockControllerStateEnsureControllerNodeNonceCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, string, string, error](mr.mock.ctrl.T, mr.mock, "EnsureControllerNodeNonce", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
+	mr.ensureControllerNodeNonceExpects = append(mr.ensureControllerNodeNonceExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateEnsureControllerNodeNonceCall is the typed call wrapper for EnsureControllerNodeNonce.
+type MockControllerStateEnsureControllerNodeNonceCall = gomock.Call3_2[context.Context, string, string, string, error]
 
 // HasControllerNodePasswordHash mocks base method.
 func (m *MockControllerState) HasControllerNodePasswordHash(arg0 context.Context, arg1 string) (bool, error) {
@@ -336,24 +354,6 @@ func (mr *MockControllerStateMockRecorder) MatchesControllerNodePasswordHash(arg
 
 // MockControllerStateMatchesControllerNodePasswordHashCall is the typed call wrapper for MatchesControllerNodePasswordHash.
 type MockControllerStateMatchesControllerNodePasswordHashCall = gomock.Call3_2[context.Context, string, agentpassword.PasswordHash, bool, error]
-
-// SetControllerNodeNonce mocks base method.
-func (m *MockControllerState) SetControllerNodeNonce(arg0 context.Context, arg1, arg2 string) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.setControllerNodeNonceExpects, m.ctrl, m, "SetControllerNodeNonce", arg0, arg1, arg2)
-}
-
-// SetControllerNodeNonce indicates an expected call of SetControllerNodeNonce.
-func (mr *MockControllerStateMockRecorder) SetControllerNodeNonce(arg0, arg1, arg2 any) *MockControllerStateSetControllerNodeNonceCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "SetControllerNodeNonce", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
-	mr.setControllerNodeNonceExpects = append(mr.setControllerNodeNonceExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockControllerStateSetControllerNodeNonceCall is the typed call wrapper for SetControllerNodeNonce.
-type MockControllerStateSetControllerNodeNonceCall = gomock.Call3_1[context.Context, string, string, error]
 
 // SetControllerNodePasswordHash mocks base method.
 func (m *MockControllerState) SetControllerNodePasswordHash(arg0 context.Context, arg1 string, arg2 agentpassword.PasswordHash) error {

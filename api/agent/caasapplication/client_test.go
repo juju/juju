@@ -127,6 +127,18 @@ func (s *provisionerSuite) TestUnitIntroductionFailNotAssigned(c *tc.C) {
 	c.Assert(called, tc.IsTrue)
 }
 
+func (s *provisionerSuite) TestUnitIntroductionFailNotFound(c *tc.C) {
+	client := newClient(func(_ string, _ int, _ string, _ string, _ any, result any) error {
+		*(result.(*params.CAASUnitIntroductionResult)) = params.CAASUnitIntroductionResult{
+			Error: &params.Error{Code: params.CodeNotFound},
+		}
+		return nil
+	})
+
+	_, err := client.UnitIntroduction(c.Context(), "pod-name", "pod-uuid", "")
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
+}
+
 func (s *provisionerSuite) TestUnitTerminating(c *tc.C) {
 	tests := []struct {
 		willRestart bool

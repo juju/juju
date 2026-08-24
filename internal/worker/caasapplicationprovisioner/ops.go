@@ -10,6 +10,7 @@ import (
 	"io"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,6 +39,7 @@ import (
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
+	"github.com/juju/juju/internal/password"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
@@ -112,7 +114,8 @@ type ApplicationOps interface {
 
 	EnsureScale(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		app caas.Application, appLife life.Value, facade CAASProvisionerFacade,
-		applicationService ApplicationService, logger logger.Logger) error
+		applicationService ApplicationService, agentPasswordService AgentPasswordService,
+		logger logger.Logger) error
 }
 
 type applicationOps struct{}
@@ -209,9 +212,10 @@ func (applicationOps) EnsureScale(
 	appName string, appUUID coreapplication.UUID, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade,
 	applicationService ApplicationService,
+	agentPasswordService AgentPasswordService,
 	logger logger.Logger,
 ) error {
-	return ensureScale(ctx, appName, appUUID, app, appLife, facade, applicationService, logger)
+	return ensureScale(ctx, appName, appUUID, app, appLife, facade, applicationService, agentPasswordService, logger)
 }
 
 type Tomb interface {
@@ -379,7 +383,7 @@ func appDying(
 	logger logger.Logger,
 ) (err error) {
 	logger.Debugf(ctx, "application %q dying", appName)
-	err = ensureScale(ctx, appName, appUUID, app, appLife, facade, applicationService, logger)
+	err = ensureScale(ctx, appName, appUUID, app, appLife, facade, applicationService, nil, logger)
 	if err != nil {
 		return errors.Annotate(err, "cannot scale dying application to 0")
 	}
@@ -697,6 +701,7 @@ func ensureScale(
 	appName string, appUUID coreapplication.UUID, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade,
 	applicationService ApplicationService,
+	agentPasswordService AgentPasswordService,
 	logger logger.Logger,
 ) error {
 	var err error
@@ -734,6 +739,21 @@ func ensureScale(
 	}
 
 	if ps.ScaleTarget >= len(units) {
+		// Reconcile every desired controller ordinal rather than only the
+		// apparent scale-up range. Unit rows can be temporarily missing or
+		// sparse after a failed introduction, while StatefulSet ordinals are
+		// always the contiguous range [0, scaleTarget). The persisted nonce is
+		// immutable, so this is safe to repeat during recovery.
+		if ps.ScaleTarget > 0 && appLife == life.Alive {
+			if isController, err := applicationService.IsControllerApplication(ctx, appUUID); err != nil {
+				return errors.Annotate(err, "checking if controller application")
+			} else if isController {
+				if err := ensureControllerNonces(ctx, ps.ScaleTarget, app, agentPasswordService, logger); err != nil {
+					return errors.Annotate(err, "ensuring controller nonces")
+				}
+			}
+		}
+
 		storageUniqueID := appUUID.String()[:6]
 		err := ensureScaleWithFsAttachments(
 			ctx,
@@ -1043,4 +1063,33 @@ func readDockerImageResource(reader io.Reader) (coreresource.DockerImageDetails,
 		RegistryPath:     details.RegistryPath,
 		ImageRepoDetails: docker.ConvertToResourceImageDetails(details.ImageRepoDetails),
 	}, nil
+}
+
+// ensureControllerNonces reconciles introduction nonces for controller
+// ordinals into the database and the controller ConfigMap. These nonces are
+// used by new controller pods during UnitIntroduction to prove they are
+// legitimate replicas of the StatefulSet.
+func ensureControllerNonces(
+	ctx context.Context,
+	targetCount int,
+	app caas.Application,
+	agentPasswordService AgentPasswordService,
+	logger logger.Logger,
+) error {
+	for ordinal := 0; ordinal < targetCount; ordinal++ {
+		controllerID := strconv.Itoa(ordinal)
+		nonce, err := password.RandomPassword()
+		if err != nil {
+			return errors.Annotatef(err, "generating nonce for controller %q", controllerID)
+		}
+		nonce, err = agentPasswordService.EnsureControllerNodeNonce(ctx, controllerID, nonce)
+		if err != nil {
+			return errors.Annotatef(err, "ensuring nonce for controller %q", controllerID)
+		}
+		if err := app.EnsureControllerNonce(ctx, ordinal, nonce); err != nil {
+			return errors.Annotatef(err, "updating ConfigMap nonce for controller %q", controllerID)
+		}
+		logger.Infof(ctx, "ensured nonce for controller %q", controllerID)
+	}
+	return nil
 }
