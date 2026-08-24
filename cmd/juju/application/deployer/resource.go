@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/resources"
+	"github.com/juju/juju/cmd/juju/application/utils"
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/cmd/modelcmd"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
@@ -124,6 +125,9 @@ func UploadExistingPendingResources(
 
 		r, openResErr := resourcecmd.OpenResource(pendingResUpload.Filename, t, filesystem.Open)
 		if openResErr != nil {
+			if t == charmresource.TypeFile {
+				openResErr = utils.AnnotateWithSnapHint(openResErr, pendingResUpload.Filename)
+			}
 			return errors.Annotatef(openResErr, "unable to open resource %v", pendingResUpload.Name)
 		}
 

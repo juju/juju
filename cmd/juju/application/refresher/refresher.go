@@ -189,7 +189,8 @@ func (d *localCharmRefresher) Refresh(ctx context.Context) (*CharmID, error) {
 		}, nil
 	}
 	if errors.Is(err, errors.NotFound) {
-		return nil, errors.Errorf("no charm found at %q", d.charmRef)
+		return nil, utils.AnnotateWithSnapHint(
+			errors.Errorf("no charm found at %q", d.charmRef), d.charmRef)
 	}
 	// If we get a "not exists" or invalid path error then we attempt to interpret
 	// the supplied charm reference as a URL below, otherwise we return the error.
