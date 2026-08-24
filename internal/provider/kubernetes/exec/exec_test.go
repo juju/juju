@@ -5,6 +5,7 @@ package exec_test
 
 import (
 	"bytes"
+	"context"
 	"net/url"
 	"sync"
 	"testing"
@@ -101,14 +102,14 @@ func (s *execSuite) TestSafeRunUsesExternalTerminalSizeQueue(c *tc.C) {
 	executor := mocks.NewMockExecutor(ctrl)
 	queue := &terminalSizeQueueStub{}
 	var stdin, stdout bytes.Buffer
-	executor.EXPECT().Stream(remotecommand.StreamOptions{
+	executor.EXPECT().StreamWithContext(context.Background(), remotecommand.StreamOptions{
 		Stdin:             &stdin,
 		Stdout:            &stdout,
 		Tty:               true,
 		TerminalSizeQueue: queue,
 	}).Return(nil)
 
-	err := exec.SafeRun(exec.ExecParams{
+	err := exec.SafeRun(context.Background(), exec.ExecParams{
 		Stdin:             &stdin,
 		Stdout:            &stdout,
 		TTY:               true,
@@ -376,7 +377,8 @@ func (s *execSuite) TestExec(c *tc.C) {
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 
 		s.restClient.EXPECT().Post().Return(request),
-		s.mockRemoteCmdExecutor.EXPECT().Stream(
+		s.mockRemoteCmdExecutor.EXPECT().StreamWithContext(
+			gomock.Any(),
 			remotecommand.StreamOptions{
 				Stdin:  &stdin,
 				Stdout: &stdout,
@@ -477,7 +479,7 @@ func (s *execSuite) TestExecCancel(c *tc.C) {
 			c.Check(url.String(), tc.Equals, urls[callNum])
 			return s.mockRemoteCmdExecutor, nil
 		})
-	s.mockRemoteCmdExecutor.EXPECT().Stream(gomock.Any()).AnyTimes().DoAndReturn(func(opts remotecommand.StreamOptions) error {
+	s.mockRemoteCmdExecutor.EXPECT().StreamWithContext(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(func(ctx context.Context, opts remotecommand.StreamOptions) error {
 		mut.Lock()
 		currentCall := callNum
 		callNum++

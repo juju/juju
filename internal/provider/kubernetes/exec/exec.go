@@ -196,7 +196,7 @@ func (c client) Exec(ctx context.Context, params ExecParams, cancel <-chan struc
 	if err := params.validate(ctx, c.podGetter); err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(c.exec(params, cancel))
+	return errors.Trace(c.exec(ctx, params, cancel))
 }
 
 func processEnv(env []string) (string, error) {
@@ -213,7 +213,7 @@ func processEnv(env []string) (string, error) {
 	return out.String(), nil
 }
 
-func (c client) safeRun(opts ExecParams, executor remotecommand.Executor) (err error) {
+func (c client) safeRun(ctx context.Context, opts ExecParams, executor remotecommand.Executor) (err error) {
 	streamOptions := remotecommand.StreamOptions{
 		Stdin:             opts.Stdin,
 		Stdout:            opts.Stdout,
@@ -236,10 +236,10 @@ func (c client) safeRun(opts ExecParams, executor remotecommand.Executor) (err e
 			streamOptions.TerminalSizeQueue = sizeQ
 		}
 	}
-	return executor.Stream(streamOptions)
+	return executor.StreamWithContext(ctx, streamOptions)
 }
 
-func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
+func (c client) exec(ctx context.Context, opts ExecParams, cancel <-chan struct{}) (err error) {
 	pidFile := fmt.Sprintf("/tmp/%s.pid", randomString(8, utils.LowerAlpha))
 	cmd := ""
 	if opts.WorkingDir != "" {
@@ -278,7 +278,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- c.safeRun(opts, executor)
+		errChan <- c.safeRun(ctx, opts, executor)
 	}()
 
 	sendSignal := func(sig syscall.Signal, group bool) error {
@@ -307,7 +307,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 			return errors.Trace(err)
 		}
 		out := &bytes.Buffer{}
-		err = executor.Stream(remotecommand.StreamOptions{
+		err = executor.StreamWithContext(ctx, remotecommand.StreamOptions{
 			Stdout: out,
 			Stderr: out,
 			Tty:    false,
