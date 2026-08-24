@@ -32,9 +32,17 @@ func Register(registry facade.FacadeRegistry) {
 		return api, nil
 	}, reflect.TypeFor[*ControllerAPIV13]())
 	registry.MustRegisterForMultiModel("Controller", 14, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
-		api, err := makeControllerAPI(stdCtx, ctx)
+		api, err := makeControllerAPIV14(stdCtx, ctx)
 		if err != nil {
 			return nil, fmt.Errorf("creating Controller facade v14: %w", err)
+		}
+		return api, nil
+	}, reflect.TypeFor[*ControllerAPIV14]())
+	// v15 adds SSHServerHostKey.
+	registry.MustRegisterForMultiModel("Controller", 15, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
+		api, err := makeControllerAPI(stdCtx, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("creating Controller facade v15: %w", err)
 		}
 		return api, nil
 	}, reflect.TypeFor[*ControllerAPI]())
@@ -51,11 +59,21 @@ func makeControllerAPIV12(stdCtx context.Context, ctx facade.MultiModelContext) 
 }
 
 func makeControllerAPIV13(stdCtx context.Context, ctx facade.MultiModelContext) (*ControllerAPIV13, error) {
-	api, err := makeControllerAPI(stdCtx, ctx)
+	api, err := makeControllerAPIV14(stdCtx, ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &ControllerAPIV13{
+		ControllerAPIV14: api,
+	}, nil
+}
+
+func makeControllerAPIV14(stdCtx context.Context, ctx facade.MultiModelContext) (*ControllerAPIV14, error) {
+	api, err := makeControllerAPI(stdCtx, ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ControllerAPIV14{
 		ControllerAPI: api,
 	}, nil
 }
@@ -157,6 +175,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		authorizer,
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
+		domainServices.SSHServerHostKey(),
 		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
 		domainServices.Access(),

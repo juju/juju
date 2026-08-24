@@ -64,5 +64,8 @@ type SSHClientAPI interface {
 
 // SSHControllerAPI defines controller related APIs.
 type SSHControllerAPI interface {
+	// ControllerConfig returns the controller configuration.
 	ControllerConfig(context.Context) (controller.Config, error)
+	// SSHServerHostKey returns the public key of the controller SSH jump server.
+	SSHServerHostKey(context.Context) ([]byte, error)
 }

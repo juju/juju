@@ -103,3 +103,19 @@ type SSHControllerPublicKeyResult struct {
 	// PublicKey is the marshalled controller SSH jump server host public key.
 	PublicKey []byte `json:"public-key"`
 }
+
+// SSHVirtualHostKeyRequestArg identifies the virtual hostname of the SSH target
+// whose host key is being requested.
+type SSHVirtualHostKeyRequestArg struct {
+	// Hostname is the virtual hostname of the SSH target.
+	Hostname string `json:"hostname"`
+}
+
+// PublicSSHHostKeyResult holds the public SSH host key for a virtual hostname
+// target.
+type PublicSSHHostKeyResult struct {
+	Error *Error `json:"error,omitempty"`
+	// PublicKey is the marshalled public host key of the terminating SSH
+	// target.
+	PublicKey []byte `json:"public-key"`
+}

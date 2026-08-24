@@ -187,12 +187,14 @@ type sshCommand struct {
 
 	sshMachine
 	sshContainer
+	sshJump
 
 	provider sshProvider
 
 	hostChecker jujussh.ReachableChecker
 	isTerminal  func(any) bool
 	pty         autoBoolValue
+	jump        bool
 
 	retryStrategy          retry.CallArgs
 	publicKeyRetryStrategy retry.CallArgs
@@ -202,6 +204,7 @@ func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.sshMachine.SetFlags(f)
 	c.sshContainer.SetFlags(f)
 	f.Var(&c.pty, "pty", "Enable pseudo-tty allocation")
+	f.BoolVar(&c.jump, "jump", false, "Proxy SSH through the Juju controller")
 }
 
 func (c *sshCommand) Info() *cmd.Info {
@@ -224,7 +227,13 @@ func (c *sshCommand) Init(args []string) (err error) {
 	if c.modelType, err = c.ModelType(context.TODO()); err != nil {
 		return err
 	}
-	if c.modelType == model.CAAS {
+	// The jump provider is transparent to the model type. The container flag is
+	// registered by the embedded sshContainer, so propagate its value to the
+	// jump provider.
+	if c.jump {
+		c.provider = &c.sshJump
+		c.sshJump.container = c.sshContainer.container
+	} else if c.modelType == model.CAAS {
 		c.provider = &c.sshContainer
 	} else {
 		c.provider = &c.sshMachine
@@ -245,6 +254,7 @@ type ModelCommand interface {
 	NewAPIClient(ctx context.Context) (*client.Client, error)
 	ModelIdentifier() (string, error)
 	ControllerDetails() (*jujuclient.ControllerDetails, error)
+	CurrentAccountDetails() (*jujuclient.AccountDetails, error)
 }
 
 // sshProvider is implemented by either a CaaS or IaaS model instance.

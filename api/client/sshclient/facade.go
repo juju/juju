@@ -93,6 +93,23 @@ func (facade *Facade) VirtualHostname(ctx context.Context, target string, contai
 	return out.Address, nil
 }
 
+// PublicHostKeyForTarget returns the public SSH host key for the target virtual
+// hostname.
+func (facade *Facade) PublicHostKeyForTarget(ctx context.Context, virtualHostname string) (params.PublicSSHHostKeyResult, error) {
+	arg := params.SSHVirtualHostKeyRequestArg{
+		Hostname: virtualHostname,
+	}
+	var out params.PublicSSHHostKeyResult
+	err := facade.caller.FacadeCall(ctx, "PublicHostKeyForTarget", arg, &out)
+	if err != nil {
+		return params.PublicSSHHostKeyResult{}, errors.Trace(err)
+	}
+	if err := out.Error; err != nil {
+		return params.PublicSSHHostKeyResult{}, errors.Trace(apiservererrors.RestoreError(err))
+	}
+	return out, nil
+}
+
 func (facade *Facade) addressCall(ctx context.Context, callName, target string) (string, error) {
 	entities, err := targetToEntities(target)
 	if err != nil {

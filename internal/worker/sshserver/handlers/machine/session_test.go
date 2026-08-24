@@ -52,6 +52,40 @@ func (s *machineSuite) TestSessionHandlerProxiesCommand(c *tc.C) {
 	c.Check(stderr.String(), tc.Equals, "warning\n")
 }
 
+func (s *machineSuite) TestSessionHandlerProxiesCommandWithPTY(c *tc.C) {
+	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	machine := startSSHTestServer(c, &ssh.Server{
+		PtyCallback: func(_ ssh.Context, pty ssh.Pty) bool {
+			c.Check(pty.Term, tc.Equals, "xterm")
+			return true
+		},
+		Handler: func(session ssh.Session) {
+			c.Check(session.RawCommand(), tc.Equals, "echo hello")
+			_, _ = io.WriteString(session, "hello\n")
+		},
+	})
+
+	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c), common.NoopMetrics{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	controller := startSSHTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
+	client, err := controller.client()
+	c.Assert(err, tc.ErrorIsNil)
+	defer client.Close()
+
+	session, err := client.NewSession()
+	c.Assert(err, tc.ErrorIsNil)
+	defer session.Close()
+
+	var stdout bytes.Buffer
+	session.Stdout = &stdout
+	c.Assert(session.RequestPty("xterm", 24, 80, gossh.TerminalModes{}), tc.ErrorIsNil)
+	c.Assert(session.Run("echo hello"), tc.ErrorIsNil)
+	c.Check(stdout.String(), tc.Equals, "hello\r\n")
+}
+
 func (s *machineSuite) TestSessionHandlerPropagatesCommandExitCode(c *tc.C) {
 	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
 	c.Assert(err, tc.ErrorIsNil)
