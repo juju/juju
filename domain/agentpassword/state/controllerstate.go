@@ -216,7 +216,7 @@ func (s *ControllerState) SetControllerNodeNonce(ctx context.Context, controller
 		Nonce:        nonce,
 	}
 	stmt, err := s.Prepare(`
-INSERT INTO controller_introduction_nonce (controller_id, nonce)
+INSERT INTO controller_node_nonce (controller_id, nonce)
 VALUES ($controllerNonce.controller_id, $controllerNonce.nonce)
 ON CONFLICT (controller_id) DO UPDATE SET nonce = $controllerNonce.nonce;
 `, args)
@@ -246,7 +246,7 @@ func (s *ControllerState) ValidateControllerNodeNonce(ctx context.Context, contr
 	}
 	stmt, err := s.Prepare(`
 SELECT COUNT(*) AS &controllerNonceCount.count
-FROM controller_introduction_nonce
+FROM controller_node_nonce
 WHERE controller_id = $controllerNonce.controller_id
 AND nonce = $controllerNonce.nonce;
 `, args, controllerNonceCount{})

@@ -53,3 +53,18 @@ CREATE TABLE controller_node_password (
     FOREIGN KEY (password_hash_algorithm_id)
     REFERENCES password_hash_algorithm (id)
 );
+
+-- controller_node_nonce stores a per-ordinal nonce used to authenticate a
+-- controller pod during UnitIntroduction. Nonces are generated before the
+-- StatefulSet is created and bound to a specific ordinal in the ConfigMap.
+-- The correct nonce must be presented by the pod's init container to prove
+-- it is the legitimate pod for that ordinal. The row is verified (not
+-- consumed) on each introduction attempt. Idempotency is provided by the
+-- password insert-if-absent guard, not by nonce consumption.
+CREATE TABLE controller_node_nonce (
+    controller_id TEXT NOT NULL PRIMARY KEY,
+    nonce TEXT NOT NULL,
+    CONSTRAINT fk_controller_node_nonce_controller
+    FOREIGN KEY (controller_id)
+    REFERENCES controller_node (controller_id)
+);
