@@ -59,9 +59,7 @@ import (
 	"github.com/juju/juju/core/securitylog"
 	coretrace "github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/domain/modelmigration"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/resource"
@@ -1224,6 +1222,16 @@ func (srv *Server) serveConn(
 		return nil, errors.Annotatef(err, "checking model %q availability", modelUUID)
 	}
 
+	// Close the connection when the model it serves is removed from this
+	// controller, whether destroyed or deleted by a migration's REAP phase
+	// after migrating away, so that its agents and clients reconnect to the
+	// model's new location. A connection to a model that is already gone
+	// exists only to answer a redirect, so it is not watched.
+	if modelConn.connectable {
+		srv.watchServedModelRemoval(ctx, conn, domainServices.Model(),
+			srv.shared.controllerDomainServices.Model(), modelUUID)
+	}
+
 	tracer, err := srv.shared.tracerGetter.GetTracer(
 		ctx,
 		coretrace.Namespace("apiserver", modelUUID.String()),
@@ -1281,25 +1289,6 @@ func (srv *Server) serveConn(
 	}
 
 	return newAdminRoot(handler, adminAPIs), nil
-}
-
-// ModelService defines the subset of model.Service used to check model
-// connection information and redirection.
-type ModelService interface {
-	// GetModelConnectionInfo returns the model's type, activation state and
-	// target-side import-claim presence, regardless of whether the model has
-	// been activated.
-	GetModelConnectionInfo(ctx context.Context, modelUUID coremodel.UUID) (model.ModelConnectionInfo, error)
-	// ModelRedirection returns the model redirection information
-	// for the given model UUID.
-	ModelRedirection(ctx context.Context, modelUUID coremodel.UUID) (model.ModelRedirection, error)
-}
-
-// ModelMigrationService describes the migration state of the model a connection
-// is being served for.
-type ModelMigrationService interface {
-	// ModelMigrationMode returns the current migration mode for the model.
-	ModelMigrationMode(ctx context.Context) (modelmigration.MigrationMode, error)
 }
 
 func (srv *Server) isModelAvailable(

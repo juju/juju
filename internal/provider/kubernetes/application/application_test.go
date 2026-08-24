@@ -112,6 +112,12 @@ func (s *applicationSuite) TearDownTest(c *tc.C) {
 }
 
 func (s *applicationSuite) getApp(c *tc.C, deploymentType caas.DeploymentType, mockApplier bool) (application.ApplicationInterfaceForTest, *gomock.Controller) {
+	return s.getAppWithServiceLinks(c, deploymentType, mockApplier, true)
+}
+
+func (s *applicationSuite) getAppWithServiceLinks(
+	c *tc.C, deploymentType caas.DeploymentType, mockApplier bool, enableServiceLinks bool,
+) (application.ApplicationInterfaceForTest, *gomock.Controller) {
 	watcherFn := k8swatcher.NewK8sWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
 		if s.k8sWatcherFn == nil {
 			return nil, errors.NewNotFound(nil, "undefined k8sWatcherFn for base test")
@@ -134,7 +140,7 @@ func (s *applicationSuite) getApp(c *tc.C, deploymentType caas.DeploymentType, m
 
 	s.controllerUUID = controllerUUID.String()
 	s.modelUUID = modelUUID.String()
-	return application.NewApplicationForTest(
+	return application.NewApplicationForTestWithServiceLinks(
 		s.appName, s.namespace, modelUUID.String(), s.namespace, constants.LabelVersion2,
 		deploymentType,
 		s.client,
@@ -149,6 +155,7 @@ func (s *applicationSuite) getApp(c *tc.C, deploymentType caas.DeploymentType, m
 			return resources.NewApplier()
 		},
 		controllerUUID.String(),
+		enableServiceLinks,
 	), ctrl
 }
 
@@ -782,6 +789,34 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 
 		s.assertDelete(c, app)
 	}
+}
+
+func (s *applicationSuite) TestEnsureServiceLinksDisabled(c *tc.C) {
+	app, _ := s.getAppWithServiceLinks(c, caas.DeploymentStateful, false, false)
+
+	expectedPodSpec := getPodSpec31()
+	expectedPodSpec.EnableServiceLinks = pointer.Bool(false)
+
+	s.assertEnsure(
+		c,
+		app,
+		false,
+		constraints.Value{},
+		true,
+		false,
+		"",
+		nil,
+		func() {
+			ss, err := s.client.AppsV1().
+				StatefulSets("test").
+				Get(c.Context(), "gitlab", metav1.GetOptions{})
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(ss.Spec.Template.Spec.EnableServiceLinks, tc.DeepEquals, pointer.Bool(false))
+		},
+		nil,
+	)
+
+	s.assertDelete(c, app)
 }
 
 func assertStatefulResources(
