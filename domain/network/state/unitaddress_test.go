@@ -193,7 +193,7 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesExcludesVeth(c *tc.C) {
 	}})
 }
 
-func (s *unitAddressSuite) TestGetControllerAPIAddressesExcludesK8sServiceVeth(c *tc.C) {
+func (s *unitAddressSuite) TestGetControllerAPIAddressesUsesK8sPodAddress(c *tc.C) {
 	// Arrange
 	podNodeUUID := s.addNetNode(c)
 	podDeviceUUID := s.linkLayerBaseSuite.addLinkLayerDevice(
@@ -236,11 +236,11 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesExcludesK8sServiceVeth(c
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addr, tc.SameContents, corenetwork.SpaceAddresses{{
+	c.Check(addr, tc.DeepEquals, corenetwork.SpaceAddresses{{
 		SpaceID: corenetwork.SpaceUUID(spaceUUID),
 		Origin:  corenetwork.OriginProvider,
 		MachineAddress: corenetwork.MachineAddress{
-			Value:      "10.0.0.3",
+			Value:      "10.0.0.1",
 			CIDR:       cidr,
 			Type:       corenetwork.IPv4Address,
 			Scope:      corenetwork.ScopeCloudLocal,

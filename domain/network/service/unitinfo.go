@@ -202,6 +202,16 @@ func (s *ProviderService) getUnitEndpointNetworks(
 			isCaas,
 		)
 		if useFQDNIngress && len(fqdns) > 0 {
+			// Controller unit network information must use the headless-Service
+			// FQDN as its ingress address. The controller charm consumes this
+			// value as the Dqlite bind address for the dbcluster relation.
+			//
+			// A Kubernetes controller Service has one shared ClusterIP, so using
+			// it here would make every controller advertise the same Dqlite
+			// address. The StatefulSet controller pods instead need their unique,
+			// stable FQDNs (controller-<ordinal>.<headless-service>...) to join
+			// the Dqlite cluster. The FQDN is persisted separately in
+			// fqdn_address; do not replace it with a pod or Service IP.
 			info.IngressAddresses = []string{fqdns[0]}
 		}
 		info.EndpointName = endpointNetwork.EndpointName
@@ -353,6 +363,7 @@ func (s *ProviderService) getUnitEndpointNetworksWithoutProviderNetworking(
 		unitNetwork.Addresses, unitNetwork.IngressAddresses, fqdns, isCaas,
 	)
 	if useFQDNIngress && len(fqdns) > 0 {
+		// See the equivalent branch for providers with endpoint networking.
 		info.IngressAddresses = []string{fqdns[0]}
 	}
 	info.EgressSubnets = defaultEgressSubnets
