@@ -10362,7 +10362,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/DestroyMachinesParams"
+                            "$ref": "#/definitions/DestroyMachinesWithHostedUnitsParams"
                         },
                         "Result": {
                             "$ref": "#/definitions/DestroyMachineResults"
@@ -10710,6 +10710,30 @@
                         "dry-run": {
                             "type": "boolean"
                         },
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "keep": {
+                            "type": "boolean"
+                        },
+                        "machine-tags": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "max-wait": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "machine-tags"
+                    ]
+                },
+                "DestroyMachinesWithHostedUnitsParams": {
+                    "type": "object",
+                    "properties": {
                         "force": {
                             "type": "boolean"
                         },

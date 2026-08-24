@@ -99,7 +99,7 @@ func (s *MachineManagerSuite) TestRegisteredFacadeTypesAndDestroyMethods(c *gc.C
 			version:       11,
 			facadeType:    reflect.TypeOf((*machinemanager.MachineManagerAPI)(nil)),
 			destroyParams: reflect.TypeOf(params.DestroyMachinesParams{}),
-			hostedParams:  reflect.TypeOf(params.DestroyMachinesParams{}),
+			hostedParams:  reflect.TypeOf(params.DestroyMachinesWithHostedUnitsParams{}),
 			hostedResult:  reflect.TypeOf(params.DestroyMachineResults{}),
 		},
 	}
@@ -698,7 +698,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithHostedUnitsAndContain
 	machine0.EXPECT().DestroyWithParams(false, true, gomock.Any()).Return(nil)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
-	results, err := s.api.DestroyMachineWithHostedUnitsAndContainers(params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithHostedUnitsAndContainers(params.DestroyMachinesWithHostedUnitsParams{
 		MachineTags: []string{"machine-0"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -776,7 +776,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithHostedUnitsAndContain
 	container0.EXPECT().DestroyWithParams(false, true, gomock.Any()).Return(nil)
 	s.st.EXPECT().Machine("0/lxd/0").Return(container0, nil)
 
-	results, err := s.api.DestroyMachineWithHostedUnitsAndContainers(params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithHostedUnitsAndContainers(params.DestroyMachinesWithHostedUnitsParams{
 		MachineTags: []string{"machine-0"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -801,7 +801,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithForceAndHostedUnitsAn
 	container0.EXPECT().DestroyWithParams(true, true, gomock.Any()).Return(nil)
 	s.st.EXPECT().Machine("0/lxd/0").Return(container0, nil)
 
-	results, err := s.api.DestroyMachineWithHostedUnitsAndContainers(params.DestroyMachinesParams{
+	results, err := s.api.DestroyMachineWithHostedUnitsAndContainers(params.DestroyMachinesWithHostedUnitsParams{
 		Force:       true,
 		MachineTags: []string{"machine-0"},
 	})
