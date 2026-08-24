@@ -456,14 +456,12 @@ func (mm *MachineManagerAPI) maybeUpdateInstanceStatus(all bool, m Machine, data
 }
 
 // DestroyMachineWithHostedUnitsAndContainers removes a set of machines from
-// the model, including units and containers hosted on them. When DryRun is
-// true, it reports what would be removed without removing anything.
-func (mm *MachineManagerAPI) DestroyMachineWithHostedUnitsAndContainers(args params.DestroyMachinesParams) (params.DestroyMachineResults, error) {
+// the model, including units and containers hosted on them.
+func (mm *MachineManagerAPI) DestroyMachineWithHostedUnitsAndContainers(args params.DestroyMachinesWithHostedUnitsParams) (params.DestroyMachineResults, error) {
 	return mm.destroyMachine(destroyMachineEntities(args.MachineTags), destroyMachineOptions{
 		force:                           args.Force,
 		maxWait:                         common.MaxWait(args.MaxWait),
 		keep:                            args.Keep,
-		dryRun:                          args.DryRun,
 		destroyHostedUnitsAndContainers: true,
 	})
 }
