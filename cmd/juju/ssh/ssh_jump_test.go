@@ -188,6 +188,33 @@ func (s *sshJumpSuite) TestSSHEnablesPTY(c *tc.C) {
 	c.Check(strings.Contains(buffer.String(), "-t -t"), tc.IsTrue)
 }
 
+func (s *sshJumpSuite) TestSSHSkipsHostKeyChecking(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	target := &resolvedTarget{
+		user: finalDestinationUser,
+		host: "resolved-target",
+		via: &resolvedTarget{
+			user: "fred",
+			host: "1.0.0.1",
+		},
+	}
+	jump := sshJump{jumpHostPort: 17022, noHostKeyChecks: true}
+
+	buffer := bytes.NewBuffer(nil)
+	sshCtx := mocks.NewMockContext(ctrl)
+	sshCtx.EXPECT().GetStdin().Return(bytes.NewBuffer(nil)).AnyTimes()
+	sshCtx.EXPECT().GetStdout().Return(buffer).AnyTimes()
+	sshCtx.EXPECT().GetStderr().Return(buffer).AnyTimes()
+
+	c.Assert(jump.ssh(sshCtx, false, target), tc.ErrorIsNil)
+	out := buffer.String()
+	c.Check(strings.Contains(out, "-o ProxyCommand ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -W %h:%p -p 17022 fred@1.0.0.1"), tc.IsTrue)
+	c.Check(strings.Contains(out, "-o StrictHostKeyChecking no"), tc.IsTrue)
+	c.Check(strings.Contains(out, "-o UserKnownHostsFile /dev/null"), tc.IsTrue)
+}
+
 func (s *sshJumpSuite) TestCopyUsesJumpProxyCommand(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

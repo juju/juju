@@ -52,6 +52,7 @@ type sshJump struct {
 	container            string
 	target               string
 	args                 []string
+	noHostKeyChecks      bool
 
 	// jumpUser is the Juju user used to authenticate against the jump server.
 	jumpUser string
@@ -275,25 +276,35 @@ func (p *sshJump) maybePopulateTargetViaField(_ context.Context, _ *resolvedTarg
 	return nil
 }
 
-// getSSHOptions returns SSH options that verify both jump and target host keys.
+// getSSHOptions returns SSH options for the jump server and target.
 func (p *sshJump) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*ssh.Options, error) {
 	if len(targets) == 0 {
 		return nil, errors.New("at least one SSH target is required")
 	}
+	strictHostKeyChecking := "yes"
+	knownHostsPath := p.knownHostsPath
+	if p.noHostKeyChecks {
+		strictHostKeyChecking = "no"
+		knownHostsPath = os.DevNull
+	}
+
 	var options ssh.Options
 	// -o ProxyCommand is a substitute for the -J option, due to a limitation
-	// in the github.com/juju/utils/v4/ssh package. The inner ssh pins the jump
-	// server host key using the same known_hosts file.
+	// in the github.com/juju/utils/v4/ssh package.
 	options.SetProxyCommand(
 		"ssh",
-		"-o", "StrictHostKeyChecking=yes",
-		"-o", "UserKnownHostsFile="+p.knownHostsPath,
+		"-o", "StrictHostKeyChecking="+strictHostKeyChecking,
+		"-o", "UserKnownHostsFile="+knownHostsPath,
 		"-W", "%h:%p",
 		"-p", strconv.Itoa(p.jumpHostPort),
 		targets[0].via.userHost(),
 	)
-	options.SetStrictHostKeyChecking(ssh.StrictHostChecksYes)
-	options.SetKnownHostsFile(p.knownHostsPath)
+	if p.noHostKeyChecks {
+		options.SetStrictHostKeyChecking(ssh.StrictHostChecksNo)
+	} else {
+		options.SetStrictHostKeyChecking(ssh.StrictHostChecksYes)
+	}
+	options.SetKnownHostsFile(knownHostsPath)
 	if enablePty {
 		options.EnablePTY()
 	}
