@@ -9,14 +9,15 @@ package ssh
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"os"
+	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4/ssh"
 	gossh "golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/client"
@@ -66,8 +67,7 @@ type sshJump struct {
 	controllerClient SSHControllerAPI
 	hostChecker      jujussh.ReachableChecker
 
-	publicKeyRetryStrategy retry.CallArgs
-	jumpHostPort           int
+	jumpHostPort int
 }
 
 // initRun initializes the SSH jump provider for a model command.
@@ -170,6 +170,7 @@ func (p *sshJump) resolveTarget(ctx context.Context, target string) (*resolvedTa
 	var container *string
 	if p.modelType == model.CAAS {
 		if p.container == "" {
+			logger.Debugf(ctx, "no container specified for SSH jump target; using %q", charmContainerName)
 			tmpContainer := charmContainerName
 			container = &tmpContainer
 		} else {
@@ -180,8 +181,7 @@ func (p *sshJump) resolveTarget(ctx context.Context, target string) (*resolvedTa
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Wait until the target host key is available.
-	targetKeys, err := p.getKeysWithRetry(ctx, virtualHostname)
+	targetKeys, err := p.getKeys(ctx, virtualHostname)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -214,8 +214,8 @@ func (p *sshJump) resolveTarget(ctx context.Context, target string) (*resolvedTa
 // host key (for the jump address and port) and the target host key (for the
 // virtual hostname).
 func (p *sshJump) generateKnownHosts(jumpHost, virtualHostname string, targetHostKey []byte) error {
-	// known_hosts requires the [host]:port form when a non-default port is used.
-	jumpLine, err := knownHostsLine(fmt.Sprintf("[%s]:%d", jumpHost, p.jumpHostPort), p.jumpServerHostKey)
+	jumpAddress := knownhosts.Normalize(net.JoinHostPort(jumpHost, strconv.Itoa(p.jumpHostPort)))
+	jumpLine, err := knownHostsLine(jumpAddress, p.jumpServerHostKey)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -228,6 +228,7 @@ func (p *sshJump) generateKnownHosts(jumpHost, virtualHostname string, targetHos
 		return errors.Annotate(err, "creating known hosts file")
 	}
 	defer f.Close()
+	// This needs to be set here because it's used to cleanup the file.
 	p.knownHostsPath = f.Name()
 	if _, err := f.WriteString(jumpLine + targetLine); err != nil {
 		return errors.Trace(err)
@@ -246,26 +247,13 @@ func knownHostsLine(host string, wireKey []byte) (string, error) {
 	return host + " " + string(gossh.MarshalAuthorizedKey(pubKey)), nil
 }
 
-// getKeysWithRetry retrieves the target host key, retrying while the machine is
-// not yet provisioned.
-func (p *sshJump) getKeysWithRetry(ctx context.Context, virtualHostname string) (params.PublicSSHHostKeyResult, error) {
-	var hostKeysResult params.PublicSSHHostKeyResult
-	strategy := p.publicKeyRetryStrategy
-	strategy.IsFatalError = func(err error) bool {
-		return !errors.Is(err, errors.NotFound)
+// getKeys retrieves the target host key.
+func (p *sshJump) getKeys(ctx context.Context, virtualHostname string) (params.PublicSSHHostKeyResult, error) {
+	hostKeys, err := p.sshClient.PublicHostKeyForTarget(ctx, virtualHostname)
+	if err != nil {
+		return params.PublicSSHHostKeyResult{}, errors.Annotatef(err, "retrieving SSH host key for %q", virtualHostname)
 	}
-	strategy.Func = func() error {
-		hostKeys, err := p.sshClient.PublicHostKeyForTarget(ctx, virtualHostname)
-		if err != nil {
-			return errors.Annotatef(err, "retrieving SSH host key for %q", virtualHostname)
-		}
-		hostKeysResult = hostKeys
-		return nil
-	}
-	if err := retry.Call(strategy); err != nil {
-		return params.PublicSSHHostKeyResult{}, err
-	}
-	return hostKeysResult, nil
+	return hostKeys, nil
 }
 
 // maybePopulateTargetViaField is a no-op: the via field is set during target
@@ -276,6 +264,9 @@ func (p *sshJump) maybePopulateTargetViaField(_ context.Context, _ *resolvedTarg
 
 // getSSHOptions returns SSH options that verify both jump and target host keys.
 func (p *sshJump) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*ssh.Options, error) {
+	if len(targets) == 0 {
+		return nil, errors.New("at least one SSH target is required")
+	}
 	var options ssh.Options
 	// -o ProxyCommand is a substitute for the -J option, due to a limitation
 	// in the github.com/juju/utils/v4/ssh package. The inner ssh pins the jump
@@ -285,8 +276,8 @@ func (p *sshJump) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*ss
 		"-o", "StrictHostKeyChecking=yes",
 		"-o", "UserKnownHostsFile="+p.knownHostsPath,
 		"-W", "%h:%p",
-		"-p", fmt.Sprint(p.jumpHostPort),
-		fmt.Sprintf("%s@%s", targets[0].via.user, targets[0].via.host),
+		"-p", strconv.Itoa(p.jumpHostPort),
+		targets[0].via.userHost(),
 	)
 	options.SetStrictHostKeyChecking(ssh.StrictHostChecksYes)
 	options.SetKnownHostsFile(p.knownHostsPath)
@@ -320,9 +311,7 @@ func (p *sshJump) copy(_ Context) error {
 	return errors.NotImplemented
 }
 
-func (p *sshJump) setPublicKeyRetryStrategy(retryStrategy retry.CallArgs) {
-	p.publicKeyRetryStrategy = retryStrategy
-}
+func (p *sshJump) setPublicKeyRetryStrategy(_ retry.CallArgs) {}
 
 // setRetryStrategy is a no-op: the jump provider always dials the controller.
 func (p *sshJump) setRetryStrategy(_ retry.CallArgs) {}

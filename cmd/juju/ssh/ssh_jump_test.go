@@ -65,13 +65,12 @@ func (s *sshJumpSuite) TestResolveTarget(c *tc.C) {
 		[]string{string(gossh.MarshalAuthorizedKey(jumpServerHostKey))},
 	).Return(network.NewMachineHostPorts(17022, controllerAddress).HostPorts()[0], nil)
 	jump := sshJump{
-		jumpUser:               "fred",
-		jumpServerHostKey:      s.hostKey,
-		sshClient:              s.sshAPIJump,
-		controllersAddresses:   []string{"1.0.0.1", "1.0.0.2"},
-		hostChecker:            hostChecker,
-		publicKeyRetryStrategy: baseTestingRetryStrategy,
-		jumpHostPort:           17022,
+		jumpUser:             "fred",
+		jumpServerHostKey:    s.hostKey,
+		sshClient:            s.sshAPIJump,
+		controllersAddresses: []string{"1.0.0.1", "1.0.0.2"},
+		hostChecker:          hostChecker,
+		jumpHostPort:         17022,
 	}
 
 	resolved, err := jump.resolveTarget(c.Context(), "test-target")
@@ -115,8 +114,7 @@ func (s *sshJumpSuite) TestResolveTargetPassesContainerForCAAS(c *tc.C) {
 			acceptedAddresses: set.NewStrings("1.0.0.1"),
 			acceptedPort:      17022,
 		},
-		publicKeyRetryStrategy: baseTestingRetryStrategy,
-		jumpHostPort:           17022,
+		jumpHostPort: 17022,
 	}
 
 	_, err := jump.resolveTarget(c.Context(), "test-target")
@@ -186,4 +184,23 @@ func (s *sshJumpSuite) TestSSHEnablesPTY(c *tc.C) {
 	err := jump.ssh(sshCtx, true, target)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(strings.Contains(buffer.String(), "-t -t"), tc.IsTrue)
+}
+
+func (s *sshJumpSuite) TestGenerateKnownHostsSupportsIPv6(c *tc.C) {
+	hostKey, err := pkissh.MarshalPublicKey([]byte(coretesting.SSHServerHostKey))
+	c.Assert(err, tc.ErrorIsNil)
+	jump := sshJump{jumpHostPort: 17022, jumpServerHostKey: hostKey}
+	c.Assert(jump.generateKnownHosts("2001:db8::1", "resolved-target", hostKey), tc.ErrorIsNil)
+	defer func() { _ = os.Remove(jump.knownHostsPath) }()
+
+	contents, err := os.ReadFile(jump.knownHostsPath)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(contents), tc.Contains, "[2001:db8::1]:17022 ")
+}
+
+func (s *sshJumpSuite) TestGetSSHOptionsRequiresTarget(c *tc.C) {
+	jump := sshJump{jumpHostPort: 17022, knownHostsPath: "/tmp/known_hosts"}
+
+	_, err := jump.getSSHOptions(false)
+	c.Check(err, tc.ErrorMatches, "at least one SSH target is required")
 }
