@@ -46,6 +46,41 @@ func (st *State) GetStorageResourceTagInfoForModel(
 	return rval, nil
 }
 
+// GetStorageFilesystemUUIDByProviderID returns the UUID of the
+// storage_filesystem row whose provider_id matches the argument. It returns
+// [domainstorageerrors.FilesystemNotFound] if no such row exists.
+//
+// This is used to prevent adopting the same provider filesystem twice into
+// the same model. Input validation is the caller's responsibility.
+func (st *State) GetStorageFilesystemUUIDByProviderID(
+	ctx context.Context, providerID string,
+) (domainstorage.FilesystemUUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var found domainstorage.FilesystemUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		uuid, lookupErr := st.getStorageFilesystemUUIDByProviderID(ctx, tx, providerID)
+		if lookupErr != nil {
+			return lookupErr
+		}
+		found = uuid
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, domainstorageerrors.FilesystemNotFound) {
+			return "", errors.Errorf(
+				"storage filesystem with provider id %q not found", providerID,
+			).Add(domainstorageerrors.FilesystemNotFound)
+		}
+		return "", errors.Capture(err)
+	}
+
+	return found, nil
+}
+
 // getStorageResourceTagInfoForModel retrieves the model based resource tag
 // information for storage entities.
 func (st *State) getStorageResourceTagInfoForModel(
@@ -182,6 +217,26 @@ VALUES ($insertStorageFilesystemStatus.*)
 			).Add(domainstorageerrors.StoragePoolNotFound)
 		}
 
+		// Reject early if a storage filesystem with this provider_id is
+		// already adopted into the model. The UNIQUE index on
+		// storage_filesystem.provider_id is the source of truth; this check
+		// gives a typed error rather than a raw SQL constraint failure.
+		if args.FilesystemProviderID != "" {
+			foundUUID, lookupErr := st.getStorageFilesystemUUIDByProviderID(
+				ctx, tx, args.FilesystemProviderID)
+			if lookupErr == nil {
+				return errors.Errorf(
+					"storage filesystem with provider id %q already adopted as %q",
+					args.FilesystemProviderID, foundUUID,
+				).Add(domainstorageerrors.StorageFilesystemAlreadyExists)
+			} else if !errors.Is(lookupErr, domainstorageerrors.FilesystemNotFound) {
+				return errors.Errorf(
+					"checking for existing storage filesystem with provider id %q: %w",
+					args.FilesystemProviderID, lookupErr,
+				)
+			}
+		}
+
 		// StorageIDs are type monotonic, not name monotonic.
 		storageSeq, err := sequencestate.NextValue(
 			ctx, st, tx, domainstorage.StorageInstanceSequenceNamespace,
@@ -244,6 +299,36 @@ VALUES ($insertStorageFilesystemStatus.*)
 	}
 
 	return storageID, nil
+}
+
+// getStorageFilesystemUUIDByProviderID is the in-transaction counterpart to
+// [State.GetStorageFilesystemUUIDByProviderID]. It returns a
+// [domainstorageerrors.FilesystemNotFound] if no row matches; callers should
+// check the sentinel with [errors.Is].
+func (st *State) getStorageFilesystemUUIDByProviderID(
+	ctx context.Context, tx *sqlair.TX, providerID string,
+) (domainstorage.FilesystemUUID, error) {
+	type providerIDInput struct {
+		ProviderID string `db:"provider_id"`
+	}
+	input := providerIDInput{ProviderID: providerID}
+	stmt, err := st.Prepare(`
+SELECT &insertStorageFilesystem.uuid
+FROM   storage_filesystem
+WHERE  provider_id = $providerIDInput.provider_id
+`, insertStorageFilesystem{}, input)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	var found insertStorageFilesystem
+	qErr := tx.Query(ctx, stmt, input).Get(&found)
+	if errors.Is(qErr, sqlair.ErrNoRows) {
+		return "", domainstorageerrors.FilesystemNotFound
+	}
+	if qErr != nil {
+		return "", errors.Capture(qErr)
+	}
+	return domainstorage.FilesystemUUID(found.UUID), nil
 }
 
 // CreateStorageInstanceWithExistingVolumeBackedFilesystem creates a new
@@ -354,6 +439,26 @@ VALUES ($insertStorageVolumeStatus.*)
 			return errors.Errorf(
 				"storage pool %q does not exist", args.StoragePoolUUID,
 			).Add(domainstorageerrors.StoragePoolNotFound)
+		}
+
+		// Reject early if a storage filesystem with this provider_id is
+		// already adopted into the model. The UNIQUE index is the source of
+		// truth; this pre-check gives a typed error instead of a raw SQL
+		// constraint failure.
+		if args.FilesystemProviderID != "" {
+			foundUUID, lookupErr := st.getStorageFilesystemUUIDByProviderID(
+				ctx, tx, args.FilesystemProviderID)
+			if lookupErr == nil {
+				return errors.Errorf(
+					"storage filesystem with provider id %q already adopted as %q",
+					args.FilesystemProviderID, foundUUID,
+				).Add(domainstorageerrors.StorageFilesystemAlreadyExists)
+			} else if !errors.Is(lookupErr, domainstorageerrors.FilesystemNotFound) {
+				return errors.Errorf(
+					"checking for existing storage filesystem with provider id %q: %w",
+					args.FilesystemProviderID, lookupErr,
+				)
+			}
 		}
 
 		storageSeq, err := sequencestate.NextValue(

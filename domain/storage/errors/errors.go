@@ -78,6 +78,12 @@ const (
 	// VolumeNotFound describes an error that occurs when the volume being operated
 	// on does not exist.
 	VolumeNotFound = errors.ConstError("volume not found")
+
+	// StorageFilesystemAlreadyExists is used when a storage filesystem with the
+	// given provider ID has already been adopted into the model. Adopting the
+	// same provider filesystem twice would create duplicate storage instances
+	// pointing at the same underlying resource.
+	StorageFilesystemAlreadyExists = errors.ConstError("storage filesystem already exists")
 )
 
 // Error returns a formatted string error message describing the the storage
