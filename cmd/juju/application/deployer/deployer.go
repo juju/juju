@@ -351,8 +351,10 @@ func (d *factory) checkPath() error {
 	}
 	// Check in case we do have a valid path, but it doesn't exist
 	if fileStatErr != nil && charm.IsValidLocalCharmOrBundlePath(d.charmOrBundle) && os.IsNotExist(errors.Cause(fileStatErr)) {
-		hint := utils.SnapConfinementHintFromEnv(d.charmOrBundle)
-		return errors.Errorf("no charm was found at %q%s", d.charmOrBundle, hint)
+		return utils.AnnotateWithSnapHint(
+			errors.Wrap(fileStatErr, errors.Errorf("no charm was found at %q", d.charmOrBundle)),
+			d.charmOrBundle,
+		)
 	}
 	return nil
 }
