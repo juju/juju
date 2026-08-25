@@ -241,6 +241,60 @@ func (s *adoptFilesystemSuite) TestAdoptFilesystemSuccessFilesystem(c *tc.C) {
 	c.Assert(id, tc.Equals, corestorage.ID("instance-1"))
 }
 
+// TestAdoptFilesystemAlreadyImported asserts that adopting the same
+// provider_id twice returns StorageFilesystemAlreadyExists instead of
+// silently creating a duplicate storage instance. The state layer's
+// CreateStorageInstanceWithExistingFilesystem translates the UNIQUE
+// violation on storage_filesystem.provider_id into the typed error.
+func (s *adoptFilesystemSuite) TestAdoptFilesystemAlreadyImported(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	ctx := c.Context()
+
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	pool := domainstorage.StoragePool{
+		Name:     "pool1",
+		Provider: "provider1",
+		Attrs:    map[string]string{},
+	}
+	providerID := "fs-dup-1"
+	storageName := domainstorage.Name("mystorage")
+
+	s.state.EXPECT().GetStoragePool(ctx, poolUUID).Return(pool, nil)
+	s.registry.EXPECT().StorageProvider(
+		internalstorage.ProviderType("provider1"),
+	).Return(s.provider, nil)
+	s.provider.EXPECT().Supports(
+		internalstorage.StorageKindFilesystem).Return(true).AnyTimes()
+	s.provider.EXPECT().Supports(
+		internalstorage.StorageKindBlock).Return(false).AnyTimes()
+	s.provider.EXPECT().Scope().Return(internalstorage.ScopeEnviron)
+	s.provider.EXPECT().FilesystemSource(
+		gomock.Any()).Return(s.filesystemSource, nil)
+
+	s.state.EXPECT().GetStorageResourceTagInfoForModel(
+		ctx, config.ResourceTagsKey,
+	).Return(domainstorageprovisioning.ModelResourceTagInfo{
+		ControllerUUID: "controller-uuid",
+		ModelUUID:      "model-uuid",
+	}, nil)
+
+	s.filesystemSource.MockFilesystemImporter.EXPECT().ImportFilesystem(
+		gomock.Any(), providerID, storageName.String(), gomock.Any(), false,
+	).Return(internalstorage.FilesystemInfo{
+		ProviderId: providerID,
+		Size:       1024,
+	}, nil)
+
+	s.state.EXPECT().CreateStorageInstanceWithExistingFilesystem(
+		gomock.Any(), gomock.Any(),
+	).Return("", domainstorageerrors.StorageFilesystemAlreadyExists)
+
+	svc := s.makeService()
+	_, err := svc.AdoptFilesystem(
+		ctx, storageName, poolUUID, providerID, false)
+	c.Assert(err, tc.ErrorIs, domainstorageerrors.StorageFilesystemAlreadyExists)
+}
+
 // TestAdoptFilesystemSuccessVolumeBacked tests successfully adopting a
 // filesystem backed by a model-scoped volume.
 func (s *adoptFilesystemSuite) TestAdoptFilesystemSuccessVolumeBacked(c *tc.C) {

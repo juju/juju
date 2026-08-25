@@ -387,8 +387,8 @@ func (s *storageSuite) TestImportFilesystemWithForce(c *tc.C) {
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
 		).Return(nil),
 		s.mockPersistentVolumes.EXPECT().Patch(
-			gomock.Any(), fsId, types.StrategicMergePatchType,
-			gomock.Eq([]byte(`{"spec":{"claimRef":null}}`)),
+			gomock.Any(), fsId, types.JSONPatchType,
+			gomock.Eq([]byte(`[{"op":"replace","path":"/spec/claimRef","value":null}]`)),
 			v1.PatchOptions{FieldManager: resources.JujuFieldManager},
 		).Return(nil, nil),
 		s.mockPersistentVolumes.EXPECT().
@@ -543,8 +543,8 @@ func (s *storageSuite) TestImportFilesystemWithForceDeletePVCNotFound(c *tc.C) {
 			Get(gomock.Any(), pvcName, v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockPersistentVolumes.EXPECT().Patch(
-			gomock.Any(), fsId, types.StrategicMergePatchType,
-			gomock.Eq([]byte(`{"spec":{"claimRef":null}}`)),
+			gomock.Any(), fsId, types.JSONPatchType,
+			gomock.Eq([]byte(`[{"op":"replace","path":"/spec/claimRef","value":null}]`)),
 			v1.PatchOptions{FieldManager: resources.JujuFieldManager},
 		).Return(nil, nil),
 		s.mockPersistentVolumes.EXPECT().
@@ -763,8 +763,8 @@ func (s *storageSuite) TestImportFilesystemWithForceUpdatePVError(c *tc.C) {
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
 		).Return(nil),
 		s.mockPersistentVolumes.EXPECT().Patch(
-			gomock.Any(), fsId, types.StrategicMergePatchType,
-			gomock.Eq([]byte(`{"spec":{"claimRef":null}}`)),
+			gomock.Any(), fsId, types.JSONPatchType,
+			gomock.Eq([]byte(`[{"op":"replace","path":"/spec/claimRef","value":null}]`)),
 			v1.PatchOptions{FieldManager: resources.JujuFieldManager},
 		).Return(nil, errors.New("failed to patch PV my-pv")),
 	)
@@ -818,8 +818,8 @@ func (s *storageSuite) TestImportFilesystemWithForceClaimRefVerifyGetError(c *tc
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
 		).Return(nil),
 		s.mockPersistentVolumes.EXPECT().Patch(
-			gomock.Any(), fsId, types.StrategicMergePatchType,
-			gomock.Eq([]byte(`{"spec":{"claimRef":null}}`)),
+			gomock.Any(), fsId, types.JSONPatchType,
+			gomock.Eq([]byte(`[{"op":"replace","path":"/spec/claimRef","value":null}]`)),
 			v1.PatchOptions{FieldManager: resources.JujuFieldManager},
 		).Return(nil, nil),
 		s.mockPersistentVolumes.EXPECT().
@@ -876,8 +876,8 @@ func (s *storageSuite) TestImportFilesystemWithForceClaimRefResurrected(c *tc.C)
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
 		).Return(nil),
 		s.mockPersistentVolumes.EXPECT().Patch(
-			gomock.Any(), fsId, types.StrategicMergePatchType,
-			gomock.Eq([]byte(`{"spec":{"claimRef":null}}`)),
+			gomock.Any(), fsId, types.JSONPatchType,
+			gomock.Eq([]byte(`[{"op":"replace","path":"/spec/claimRef","value":null}]`)),
 			v1.PatchOptions{FieldManager: resources.JujuFieldManager},
 		).Return(nil, nil),
 		s.mockPersistentVolumes.EXPECT().
@@ -901,6 +901,65 @@ func (s *storageSuite) TestImportFilesystemWithForceClaimRefResurrected(c *tc.C)
 	_, err = fc.(storage.FilesystemImporter).ImportFilesystem(
 		c.Context(), fsId, "test-storage", nil, true)
 	c.Check(err, tc.ErrorMatches, `persistent volume "fakeFSId" still has claimRef after patch; a controller may have rebound it; manual cleanup may be required`)
+}
+
+// TestImportFilesystemWithForceClaimRefConflict exercises the case where a
+// concurrent controller rebinds the PV between our read and the JSON Patch.
+// The API server rejects the `test` op with a 409 Conflict and we surface a
+// manual-cleanup-required error rather than clobbering the new claim.
+func (s *storageSuite) TestImportFilesystemWithForceClaimRefConflict(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	fsId := "fakeFSId"
+	pvcName := "my-pvc"
+	pvcNamespace := s.getNamespace()
+	pv := &core.PersistentVolume{
+		ObjectMeta: v1.ObjectMeta{Name: fsId},
+		Spec: core.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: core.PersistentVolumeReclaimRetain,
+			ClaimRef: &core.ObjectReference{
+				Name:      pvcName,
+				Namespace: pvcNamespace,
+			},
+		},
+	}
+	pvc := &core.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pvcName,
+			Namespace: pvcNamespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "juju",
+				"storage.juju.is/name":         "test-storage",
+			},
+		},
+	}
+
+	gomock.InOrder(
+		s.mockPersistentVolumes.EXPECT().
+			Get(gomock.Any(), fsId, v1.GetOptions{}).
+			Return(pv, nil),
+		s.mockPersistentVolumeClaims.EXPECT().
+			Get(gomock.Any(), pvcName, v1.GetOptions{}).
+			Return(pvc, nil),
+		s.mockPersistentVolumeClaims.EXPECT().Delete(
+			gomock.Any(), pvcName,
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
+		).Return(nil),
+		s.mockPersistentVolumes.EXPECT().Patch(
+			gomock.Any(), fsId, types.JSONPatchType,
+			gomock.Any(),
+			v1.PatchOptions{FieldManager: resources.JujuFieldManager},
+		).Return(nil, k8serrors.NewConflict(schema.GroupResource{Resource: "persistentvolumes"}, fsId, errors.Errorf("claimRef changed"))),
+	)
+
+	prov := s.k8sProvider()
+	fc, err := prov.FilesystemSource(&storage.Config{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = fc.(storage.FilesystemImporter).ImportFilesystem(
+		c.Context(), fsId, "test-storage", nil, true)
+	c.Check(err, tc.ErrorMatches, `persistent volume "fakeFSId" claimRef changed before patch; a controller may have rebound it; manual cleanup may be required`)
 }
 
 func (s *storageSuite) TestImportFilesystemWithForceNoModificationsNeeded(c *tc.C) {
@@ -961,6 +1020,107 @@ func (s *storageSuite) TestImportFilesystemWithForcePVCNotManagedByJuju(c *tc.C)
 	_, err = fc.(storage.FilesystemImporter).ImportFilesystem(
 		c.Context(), fsId, "test-storage", make(map[string]string), true)
 	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
+}
+
+// TestImportFilesystemWithForcePVCUIDMismatch verifies that the PVC we
+// fetched is the same one the PV's claimRef points at. The label match alone
+// is not enough; an unrelated PVC that happens to carry the same labels
+// must not be deleted.
+func (s *storageSuite) TestImportFilesystemWithForcePVCUIDMismatch(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	fsId := "fakeFSId"
+	pvcName := "my-pvc"
+	pvcNamespace := s.getNamespace()
+	pv := &core.PersistentVolume{
+		ObjectMeta: v1.ObjectMeta{Name: fsId},
+		Spec: core.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: core.PersistentVolumeReclaimRetain,
+			ClaimRef: &core.ObjectReference{
+				UID:       "expected-uid",
+				Name:      pvcName,
+				Namespace: pvcNamespace,
+			},
+		},
+	}
+	pvc := &core.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pvcName,
+			Namespace: pvcNamespace,
+			UID:       "other-uid",
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "juju",
+				"storage.juju.is/name":         "test-storage",
+			},
+		},
+	}
+
+	s.mockPersistentVolumes.EXPECT().
+		Get(gomock.Any(), fsId, v1.GetOptions{}).
+		Return(pv, nil)
+	s.mockPersistentVolumeClaims.EXPECT().
+		Get(gomock.Any(), pvcName, v1.GetOptions{}).
+		Return(pvc, nil)
+
+	prov := s.k8sProvider()
+	fc, err := prov.FilesystemSource(&storage.Config{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = fc.(storage.FilesystemImporter).ImportFilesystem(
+		c.Context(), fsId, "test-storage", make(map[string]string), true)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `PersistentVolumeClaim .* UID "other-uid" does not match PV claimRef UID "expected-uid"`)
+}
+
+// TestImportFilesystemWithForcePVCBoundToDifferentPV verifies that the PVC
+// we fetched is bound to the PV we are about to import, not some other PV.
+func (s *storageSuite) TestImportFilesystemWithForcePVCBoundToDifferentPV(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	fsId := "fakeFSId"
+	pvcName := "my-pvc"
+	pvcNamespace := s.getNamespace()
+	pv := &core.PersistentVolume{
+		ObjectMeta: v1.ObjectMeta{Name: fsId},
+		Spec: core.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: core.PersistentVolumeReclaimRetain,
+			ClaimRef: &core.ObjectReference{
+				Name:      pvcName,
+				Namespace: pvcNamespace,
+			},
+		},
+	}
+	pvc := &core.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      pvcName,
+			Namespace: pvcNamespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "juju",
+				"storage.juju.is/name":         "test-storage",
+			},
+		},
+		Spec: core.PersistentVolumeClaimSpec{
+			VolumeName: "some-other-pv",
+		},
+	}
+
+	s.mockPersistentVolumes.EXPECT().
+		Get(gomock.Any(), fsId, v1.GetOptions{}).
+		Return(pv, nil)
+	s.mockPersistentVolumeClaims.EXPECT().
+		Get(gomock.Any(), pvcName, v1.GetOptions{}).
+		Return(pvc, nil)
+
+	prov := s.k8sProvider()
+	fc, err := prov.FilesystemSource(&storage.Config{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = fc.(storage.FilesystemImporter).ImportFilesystem(
+		c.Context(), fsId, "test-storage", make(map[string]string), true)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `PersistentVolumeClaim .* is bound to "some-other-pv", expected "fakeFSId"`)
 }
 
 // TestAttachFilesystems tests that the correct mount path corresponds to the

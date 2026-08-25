@@ -1029,6 +1029,23 @@ func (v *filesystemSource) deletePVCIfJujuManaged(
 		).Add(coreerrors.NotSupported)
 	}
 
+	// Confirm this is the same PVC the PV's claimRef points at. The Juju
+	// label match alone is not enough: an unrelated PVC in another model
+	// could carry the same labels and be bound to a different PV. Comparing
+	// the UID and VolumeName prevents deleting the wrong PVC.
+	if claimRef.UID != "" && pvc.UID != claimRef.UID {
+		return errors.Errorf(
+			"PersistentVolumeClaim %s/%s UID %q does not match PV claimRef UID %q",
+			pvc.Namespace, pvc.Name, pvc.UID, claimRef.UID,
+		).Add(coreerrors.NotValid)
+	}
+	if pvc.Spec.VolumeName != "" && pvc.Spec.VolumeName != pvName {
+		return errors.Errorf(
+			"PersistentVolumeClaim %s/%s is bound to %q, expected %q",
+			pvc.Namespace, pvc.Name, pvc.Spec.VolumeName, pvName,
+		).Add(coreerrors.NotValid)
+	}
+
 	err = pvcAPI.Delete(ctx, claimRef.Name, v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	})
@@ -1049,12 +1066,36 @@ func (v *filesystemSource) clearPVClaimRef(
 	ctx context.Context, pv *core.PersistentVolume,
 ) error {
 	pvName := pv.Name
-	patchData := map[string]any{
-		"spec": map[string]any{
-			"claimRef": nil,
-		},
+	expectedClaimRef := pv.Spec.ClaimRef
+	expectedUID := ""
+	expectedRV := pv.ResourceVersion
+	if expectedClaimRef != nil {
+		expectedUID = string(expectedClaimRef.UID)
 	}
-	data, err := json.Marshal(patchData)
+
+	// Use a JSON Patch with a `test` op to guard against a concurrent
+	// controller rebinding the PV between our read and this patch. If the
+	// claim UID (or the PV's resourceVersion) no longer matches what we
+	// observed, the API server rejects the patch with a 409 Conflict and we
+	// do not clobber a freshly rebound claim.
+	patchOps := []map[string]any{
+		{"op": "replace", "path": "/spec/claimRef", "value": nil},
+	}
+	if expectedUID != "" {
+		patchOps = append(
+			[]map[string]any{
+				{"op": "test", "path": "/spec/claimRef/uid", "value": expectedUID},
+			}, patchOps...,
+		)
+	}
+	if expectedRV != "" {
+		patchOps = append(
+			[]map[string]any{
+				{"op": "test", "path": "/metadata/resourceVersion", "value": expectedRV},
+			}, patchOps...,
+		)
+	}
+	data, err := json.Marshal(patchOps)
 	if err != nil {
 		return errors.Errorf(
 			"failed to marshal patch data for PersistentVolume %s: %w",
@@ -1063,10 +1104,16 @@ func (v *filesystemSource) clearPVClaimRef(
 	}
 
 	pvAPI := v.client.client().CoreV1().PersistentVolumes()
-	_, err = pvAPI.Patch(ctx, pvName, types.StrategicMergePatchType, data, v1.PatchOptions{
+	_, err = pvAPI.Patch(ctx, pvName, types.JSONPatchType, data, v1.PatchOptions{
 		FieldManager: resources.JujuFieldManager,
 	})
 	if err != nil {
+		if k8serrors.IsConflict(err) {
+			return errors.Errorf(
+				"persistent volume %q claimRef changed before patch; a controller may have rebound it; manual cleanup may be required",
+				pvName,
+			)
+		}
 		return errors.Errorf(
 			"failed to patch PersistentVolume %s: %w", pvName, err,
 		)
