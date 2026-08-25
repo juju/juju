@@ -36,9 +36,11 @@ import (
 // finalDestinationUser is the user used on the terminating target.
 const finalDestinationUser = "ubuntu"
 
-const openSSHTemplate = `ssh -o "ProxyCommand=ssh -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.DestinationUser}}@{{.VirtualHostname}}{{if .Args}} {{.Args}}{{end}}`
+const openSSHTemplate = `ssh -o "ProxyCommand=ssh -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.DestinationUser}}@{{.VirtualHostname}}{{if .Args}} {{.Args}}{{end}}
+`
 
-const openSCPTemplate = `scp -o "ProxyCommand=ssh -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.Args}}`
+const openSCPTemplate = `scp -o "ProxyCommand=ssh -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.Args}}
+`
 
 // SSHAPIJump is the SSH API client used by the SSH jump provider.
 type SSHAPIJump interface {
@@ -368,6 +370,9 @@ func (p *sshJump) copy(ctx Context) error {
 		return errors.Trace(err)
 	}
 	if p.showCommand {
+		if len(targets) == 0 {
+			return errors.New("at least one remote SCP target is required")
+		}
 		return p.showSCPCommand(ctx.GetStdout(), targets[0], args)
 	}
 	options, err := p.getSSHOptions(false, targets...)

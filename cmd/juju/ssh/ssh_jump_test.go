@@ -16,6 +16,7 @@ import (
 	"github.com/juju/tc"
 	gossh "golang.org/x/crypto/ssh"
 
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -239,7 +240,7 @@ func (s *sshJumpSuite) TestSSHShowsJumpCommand(c *tc.C) {
 	sshCtx.EXPECT().GetStdout().Return(buffer)
 
 	c.Assert(jump.ssh(sshCtx, false, target), tc.ErrorIsNil)
-	c.Check(buffer.String(), tc.Equals, "ssh -o \"ProxyCommand=ssh -W %h:%p -p 17022 fred@1.0.0.1\" ubuntu@resolved-target echo \"hello world\"")
+	c.Check(buffer.String(), tc.Equals, "ssh -o \"ProxyCommand=ssh -W %h:%p -p 17022 fred@1.0.0.1\" ubuntu@resolved-target echo \"hello world\"\n")
 }
 
 func (s *sshJumpSuite) TestCopyShowsJumpCommand(c *tc.C) {
@@ -250,7 +251,46 @@ func (s *sshJumpSuite) TestCopyShowsJumpCommand(c *tc.C) {
 
 	buffer := bytes.NewBuffer(nil)
 	c.Assert(jump.showSCPCommand(buffer, target, []string{"local file", "ubuntu@machine-0:/remote path"}), tc.ErrorIsNil)
-	c.Check(buffer.String(), tc.Equals, "scp -o \"ProxyCommand=ssh -W %h:%p -p 17022 fred@1.0.0.1\" \"local file\" \"ubuntu@machine-0:/remote path\"")
+	c.Check(buffer.String(), tc.Equals, "scp -o \"ProxyCommand=ssh -W %h:%p -p 17022 fred@1.0.0.1\" \"local file\" \"ubuntu@machine-0:/remote path\"\n")
+}
+
+func (s *sshJumpSuite) TestCopyShowsJumpCommandThroughCopy(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.sshAPIJump.EXPECT().VirtualHostname(gomock.Any(), "0", nil).Return("machine-0", nil)
+	s.sshAPIJump.EXPECT().PublicHostKeyForTarget(gomock.Any(), "machine-0").Return(params.PublicSSHHostKeyResult{
+		PublicKey: s.hostKey,
+	}, nil)
+	s.sshAPIJump.EXPECT().Close().Return(nil)
+	outputTemplate, err := template.New("output").Parse(openSCPTemplate)
+	c.Assert(err, tc.ErrorIsNil)
+
+	jump := sshJump{
+		args:                 []string{"foo.txt", "0:/tmp/foo.txt"},
+		jumpUser:             "fred",
+		jumpServerHostKey:    s.hostKey,
+		showCommand:          true,
+		scpOutputTemplate:    outputTemplate,
+		sshClient:            s.sshAPIJump,
+		controllersAddresses: []string{"1.0.0.1"},
+		hostChecker:          validAddressesWithPort(17022, "1.0.0.1"),
+		jumpHostPort:         17022,
+	}
+	defer jump.cleanupRun()
+
+	ctx := cmdtesting.Context(c)
+	c.Assert(jump.copy(ctx), tc.ErrorIsNil)
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "scp -o \"ProxyCommand=ssh -W %h:%p -p 17022 fred@1.0.0.1\" foo.txt ubuntu@machine-0:/tmp/foo.txt\n")
+}
+
+func (*sshJumpSuite) TestCopyShowCommandRequiresRemoteTarget(c *tc.C) {
+	jump := sshJump{
+		args:        []string{"foo.txt", "bar.txt"},
+		showCommand: true,
+	}
+
+	c.Assert(jump.copy(nil), tc.ErrorMatches, "at least one remote SCP target is required")
 }
 
 func (s *sshJumpSuite) TestCopyUsesJumpProxyCommand(c *tc.C) {
