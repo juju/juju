@@ -505,19 +505,6 @@ func (a *ControllerApplication) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	// TODO(juju-10104) Skip /etc/profile.d writes when running as a snap
-	// service (detected via SNAP_NAME env var). This guard is temporary:
-	// once bootstrap runs the controller exclusively as a snap (Stage 4),
-	// the /etc/profile.d write code path will be removed entirely.
-	if os.Getenv("SNAP_NAME") == "" {
-		if err := introspection.WriteProfileFunctions(
-			introspection.ProfileDir,
-		); err != nil {
-			// This isn't fatal, just annoying.
-			logger.Errorf(context.Background(), "failed to write profile funcs: %v", err)
-		}
-	}
-
 	if err := a.registerPrometheusCollectors(); err != nil {
 		return errors.Trace(err)
 	}

@@ -26,8 +26,3 @@ const StrictMigration = "strict-migration"
 
 // RawK8sSpec indicates that it's allowed to set k8s spec using raw yaml format.
 const RawK8sSpec = "raw-k8s-spec"
-
-// ControllerSnap indicates bootstrap will use snap to install controller
-// agent. This flag will be used to keep existing flow untouched until
-// the controller snap bootstrap flow is ready for release.
-const ControllerSnap = "controller-snap"
