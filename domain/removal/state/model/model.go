@@ -138,6 +138,9 @@ func (st *State) EnsureModelNotAliveCascade(
 	// - All relations in the model.
 	// - All machines in the model.
 	// - All storage instances in the model.
+	// - All storage filesystems in the model.
+	// - All storage volumes in the model.
+	// - All storage attachments in the model.
 	selectUnits, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM unit WHERE life_id < 2`, eUUID)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select units query: %w", err)
@@ -157,6 +160,18 @@ func (st *State) EnsureModelNotAliveCascade(
 	selectStorageInstances, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM storage_instance WHERE life_id < 2`, eUUID)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select storage instances query: %w", err)
+	}
+	selectStorageFilesystems, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM storage_filesystem WHERE life_id < 2`, eUUID)
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing select storage filesystems query: %w", err)
+	}
+	selectStorageVolumes, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM storage_volume WHERE life_id < 2`, eUUID)
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing select storage volumes query: %w", err)
+	}
+	selectStorageAttachments, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM storage_attachment WHERE life_id < 2`, eUUID)
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing select storage attachments query: %w", err)
 	}
 
 	updateModelLife, err := st.Prepare(`UPDATE model_life SET life_id = 1 WHERE model_uuid = $entityUUID.uuid AND life_id = 0`, eUUID)
@@ -187,13 +202,29 @@ func (st *State) EnsureModelNotAliveCascade(
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing update storage instances query: %w", err)
 	}
+	updateStorageFilesystems, err := st.Prepare(`UPDATE storage_filesystem SET life_id = 1 WHERE uuid IN ($uuids[:]) AND life_id = 0`, uuids{})
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing update storage filesystems query: %w", err)
+	}
+	updateStorageVolumes, err := st.Prepare(`UPDATE storage_volume SET life_id = 1 WHERE uuid IN ($uuids[:]) AND life_id = 0`, uuids{})
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing update storage volumes query: %w", err)
+	}
+	updateStorageAttachments, err := st.Prepare(`UPDATE storage_attachment SET life_id = 1 WHERE uuid IN ($uuids[:]) AND life_id = 0`, uuids{})
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing update storage attachments query: %w", err)
+	}
 
 	var (
-		units, apps, relations, machines, storageInstances []entityUUID
-		artifacts                                          removal.ModelArtifacts
+		units, apps, relations, machines     []entityUUID
+		storageInstances, storageFilesystems []entityUUID
+		storageVolumes, storageAttachments   []entityUUID
+		artifacts                            removal.ModelArtifacts
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		units, apps, relations, machines, storageInstances = nil, nil, nil, nil, nil
+		units, apps, relations, machines = nil, nil, nil, nil
+		storageInstances, storageFilesystems = nil, nil
+		storageVolumes, storageAttachments = nil, nil
 
 		if destroyStorage == nil {
 			hasStorage, err := st.hasPersistentStorage(ctx, tx)
@@ -224,6 +255,15 @@ func (st *State) EnsureModelNotAliveCascade(
 		}
 		if err := tx.Query(ctx, selectStorageInstances).GetAll(&storageInstances); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("selecting storage instances: %w", err)
+		}
+		if err := tx.Query(ctx, selectStorageFilesystems).GetAll(&storageFilesystems); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("selecting storage filesystems: %w", err)
+		}
+		if err := tx.Query(ctx, selectStorageVolumes).GetAll(&storageVolumes); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("selecting storage volumes: %w", err)
+		}
+		if err := tx.Query(ctx, selectStorageAttachments).GetAll(&storageAttachments); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("selecting storage attachments: %w", err)
 		}
 
 		// Update the life of each entity to dying.
@@ -261,6 +301,24 @@ func (st *State) EnsureModelNotAliveCascade(
 				return errors.Errorf("updating storage instances: %w", err)
 			}
 		}
+		if len(storageFilesystems) > 0 {
+			u := transform.Slice(storageFilesystems, func(e entityUUID) string { return e.UUID })
+			if err := tx.Query(ctx, updateStorageFilesystems, uuids(u)).Run(); err != nil {
+				return errors.Errorf("updating storage filesystems: %w", err)
+			}
+		}
+		if len(storageVolumes) > 0 {
+			u := transform.Slice(storageVolumes, func(e entityUUID) string { return e.UUID })
+			if err := tx.Query(ctx, updateStorageVolumes, uuids(u)).Run(); err != nil {
+				return errors.Errorf("updating storage volumes: %w", err)
+			}
+		}
+		if len(storageAttachments) > 0 {
+			u := transform.Slice(storageAttachments, func(e entityUUID) string { return e.UUID })
+			if err := tx.Query(ctx, updateStorageAttachments, uuids(u)).Run(); err != nil {
+				return errors.Errorf("updating storage attachments: %w", err)
+			}
+		}
 
 		return nil
 	})
@@ -290,6 +348,18 @@ func (st *State) EnsureModelNotAliveCascade(
 	artifacts.StorageInstanceUUIDs = make([]string, len(storageInstances))
 	for i, s := range storageInstances {
 		artifacts.StorageInstanceUUIDs[i] = s.UUID
+	}
+	artifacts.StorageFilesystemUUIDs = make([]string, len(storageFilesystems))
+	for i, s := range storageFilesystems {
+		artifacts.StorageFilesystemUUIDs[i] = s.UUID
+	}
+	artifacts.StorageVolumeUUIDs = make([]string, len(storageVolumes))
+	for i, s := range storageVolumes {
+		artifacts.StorageVolumeUUIDs[i] = s.UUID
+	}
+	artifacts.StorageAttachmentUUIDs = make([]string, len(storageAttachments))
+	for i, s := range storageAttachments {
+		artifacts.StorageAttachmentUUIDs[i] = s.UUID
 	}
 
 	return artifacts, nil

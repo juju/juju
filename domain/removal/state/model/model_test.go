@@ -202,6 +202,41 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeDetachedStorage(c *tc.C) {
 	c.Check(storageInstanceLife, tc.Equals, 1)
 }
 
+func (s *modelSuite) TestEnsureModelNotAliveCascadeOrphanedFilesystemAndVolume(c *tc.C) {
+	s.addStorageInstance(c)
+	fsUUID := s.addModelProvisionedFilesystem(c)
+	volUUID := s.addModelProvisionedVolume(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	modelUUID := s.getModelUUID(c)
+	destroyStorage := true
+
+	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, &destroyStorage)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(artifacts.StorageFilesystemUUIDs, tc.DeepEquals, []string{fsUUID})
+	c.Check(artifacts.StorageVolumeUUIDs, tc.DeepEquals, []string{volUUID})
+
+	var fsLife, volLife int
+	res := s.DB().QueryRow("SELECT life_id FROM storage_filesystem WHERE uuid = ?", fsUUID)
+	c.Assert(res.Scan(&fsLife), tc.ErrorIsNil)
+	c.Check(fsLife, tc.Equals, 1)
+	res = s.DB().QueryRow("SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID)
+	c.Assert(res.Scan(&volLife), tc.ErrorIsNil)
+	c.Check(volLife, tc.Equals, 1)
+}
+
+func (s *modelSuite) TestEnsureModelNotAliveCascadeRefusesOrphanedStorageWhenNil(c *tc.C) {
+	s.addStorageInstance(c)
+	s.addModelProvisionedFilesystem(c)
+	s.addModelProvisionedVolume(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	modelUUID := s.getModelUUID(c)
+
+	_, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, nil)
+	c.Assert(err, tc.ErrorIs, removalerrors.PersistentStorage)
+}
+
 func (s *modelSuite) TestEnsureModelNotAliveCascadeRefusesPersistentStorageWhenNil(c *tc.C) {
 	siUUID := s.addStorageInstance(c)
 

@@ -488,6 +488,46 @@ func (s *modelSuite) TestRemoveModelWithDetachedStorageAndNoDestroyStorage(c *tc
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
+func (s *modelSuite) TestRemoveModelSchedulesOrphanedStorageRemoval(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID := tc.Must0(c, coremodel.NewUUID)
+	when := time.Now()
+	siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
+	fsUUID := tc.Must(c, storage.NewFilesystemUUID)
+	volUUID := tc.Must(c, storage.NewVolumeUUID)
+	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
+	destroyStorage := true
+
+	s.clock.EXPECT().Now().Return(when).Times(5)
+
+	cExp := s.controllerState.EXPECT()
+	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), false).Return(nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
+	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{
+		StorageInstanceUUIDs:   []string{siUUID.String()},
+		StorageFilesystemUUIDs: []string{fsUUID.String()},
+		StorageVolumeUUIDs:     []string{volUUID.String()},
+		StorageAttachmentUUIDs: []string{saUUID.String()},
+	}, nil)
+	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
+
+	mExp.EnsureStorageInstanceNotAliveCascade(gomock.Any(), siUUID.String(), true, false).Return(removalinternal.CascadedStorageInstanceLifeChildren{}, nil)
+	mExp.StorageInstanceScheduleRemoval(gomock.Any(), gomock.Any(), siUUID.String(), false, when.UTC()).Return(nil)
+
+	mExp.FilesystemScheduleRemoval(gomock.Any(), gomock.Any(), fsUUID.String(), false, when.UTC()).Return(nil)
+	mExp.VolumeScheduleRemoval(gomock.Any(), gomock.Any(), volUUID.String(), false, when.UTC()).Return(nil)
+	mExp.StorageAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), saUUID.String(), false, when.UTC()).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, &destroyStorage)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
 func (s *modelSuite) TestRemoveModelRefusesPersistentStorageWhenNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

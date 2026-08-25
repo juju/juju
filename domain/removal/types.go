@@ -142,6 +142,15 @@ type ModelArtifacts struct {
 	// StorageInstanceUUIDs is a list of storage instance UUIDs that are
 	// associated with the model.
 	StorageInstanceUUIDs []string
+	// StorageFilesystemUUIDs is a list of storage filesystem UUIDs that are
+	// associated with the model.
+	StorageFilesystemUUIDs []string
+	// StorageVolumeUUIDs is a list of storage volume UUIDs that are
+	// associated with the model.
+	StorageVolumeUUIDs []string
+	// StorageAttachmentUUIDs is a list of storage attachment UUIDs that are
+	// associated with the model.
+	StorageAttachmentUUIDs []string
 }
 
 // Empty returns true if there are no artifacts associated with the model.
@@ -150,5 +159,8 @@ func (a ModelArtifacts) Empty() bool {
 		len(a.ApplicationUUIDs) == 0 &&
 		len(a.UnitUUIDs) == 0 &&
 		len(a.RelationUUIDs) == 0 &&
-		len(a.StorageInstanceUUIDs) == 0
+		len(a.StorageInstanceUUIDs) == 0 &&
+		len(a.StorageFilesystemUUIDs) == 0 &&
+		len(a.StorageVolumeUUIDs) == 0 &&
+		len(a.StorageAttachmentUUIDs) == 0
 }

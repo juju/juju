@@ -264,6 +264,21 @@ func (s *Service) removeModel(
 		s.removeStorageInstances(ctx, artifacts.StorageInstanceUUIDs, force, wait, *destroyStorage)
 	}
 
+	if len(artifacts.StorageFilesystemUUIDs) > 0 {
+		s.logger.Infof(ctx, "model has storage filesystems %v, scheduling removal", artifacts.StorageFilesystemUUIDs)
+		s.removeStorageFilesystems(ctx, artifacts.StorageFilesystemUUIDs, force, wait)
+	}
+
+	if len(artifacts.StorageVolumeUUIDs) > 0 {
+		s.logger.Infof(ctx, "model has storage volumes %v, scheduling removal", artifacts.StorageVolumeUUIDs)
+		s.removeStorageVolumes(ctx, artifacts.StorageVolumeUUIDs, force, wait)
+	}
+
+	if len(artifacts.StorageAttachmentUUIDs) > 0 {
+		s.logger.Infof(ctx, "model has storage attachments %v, scheduling removal", artifacts.StorageAttachmentUUIDs)
+		s.removeStorageAttachments(ctx, artifacts.StorageAttachmentUUIDs, force, wait)
+	}
+
 	return modelJobUUID, nil
 }
 
@@ -561,5 +576,41 @@ func (s *Service) removeStorageInstances(
 		// out the error. The storage instances are already transitioned to
 		// dying and there is no way to transition them back to alive.
 		s.logger.Errorf(ctx, "scheduling removal of storage instance %q: %v", storageInstanceUUID, err)
+	}
+}
+
+func (s *Service) removeStorageFilesystems(
+	ctx context.Context, uuids []string, force bool, wait time.Duration,
+) {
+	for _, fsUUID := range uuids {
+		if _, err := s.filesystemScheduleRemoval(
+			ctx, storage.FilesystemUUID(fsUUID), force, wait,
+		); err != nil {
+			s.logger.Errorf(ctx, "scheduling removal of storage filesystem %q: %v", fsUUID, err)
+		}
+	}
+}
+
+func (s *Service) removeStorageVolumes(
+	ctx context.Context, uuids []string, force bool, wait time.Duration,
+) {
+	for _, volUUID := range uuids {
+		if _, err := s.volumeScheduleRemoval(
+			ctx, storage.VolumeUUID(volUUID), force, wait,
+		); err != nil {
+			s.logger.Errorf(ctx, "scheduling removal of storage volume %q: %v", volUUID, err)
+		}
+	}
+}
+
+func (s *Service) removeStorageAttachments(
+	ctx context.Context, uuids []string, force bool, wait time.Duration,
+) {
+	for _, saUUID := range uuids {
+		if _, err := s.storageAttachmentScheduleRemoval(
+			ctx, storage.StorageAttachmentUUID(saUUID), force, wait,
+		); err != nil {
+			s.logger.Errorf(ctx, "scheduling removal of storage attachment %q: %v", saUUID, err)
+		}
 	}
 }
