@@ -677,6 +677,13 @@ snap run %[6]s.bootstrap-state --timeout %[7]s`,
 	return nil
 }
 
+// configureLegacyBootstrap generates the cloud-init handoff for the
+// combined-agent bootstrap path, which runs jujuagentd bootstrap-state
+// directly. This path is CAAS-only: IAAS bootstrap must always go through
+// configureSnapBootstrap. The IAAS path is guaranteed to reach
+// configureSnapBootstrap because the IAAS bootstrap command always defaults
+// to store mode when no snap flags are given, ensuring ControllerSnapRevision
+// is non-zero (see cmd/juju/commands/bootstrap.go).
 func (w *userdataConfig) configureLegacyBootstrap() error {
 	bootstrapParamsFile := path.Join(w.icfg.DataDir, controllerruntimeconfig.FileNameBootstrapParams)
 	bootstrapParams, err := w.icfg.Bootstrap.StateInitializationParams.Marshal()
