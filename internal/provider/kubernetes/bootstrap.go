@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
+	"github.com/juju/proxy"
 	"github.com/juju/retry"
 	"gopkg.in/yaml.v3"
 	apps "k8s.io/api/apps/v1"
@@ -1237,15 +1238,39 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 			},
 		},
 	}
+	apiContainer.Env = append(apiContainer.Env, proxyEnvironment(c.pcfg.ProxySettings)...)
 	if features := featureflag.AsEnvironmentValue(); features != "" {
-		apiContainer.Env = []core.EnvVar{{
+		apiContainer.Env = append(apiContainer.Env, core.EnvVar{
 			Name:  osenv.JujuFeatureFlagEnvKey,
 			Value: features,
-		}}
+		})
 	}
 
 	containerSpec = append(containerSpec, apiContainer)
 	return containerSpec, nil
+}
+
+// proxyEnvironment returns the container environment variables that configure
+// the jujud process (and the bootstrap-state command it runs) to use the
+// model's proxy settings. The charmhub client used to download the controller
+// charm resolves proxies from the process environment, so these must be set
+// before bootstrap-state runs.
+func proxyEnvironment(settings proxy.Settings) []core.EnvVar {
+	var env []core.EnvVar
+	add := func(name, value string) {
+		if value == "" {
+			return
+		}
+		env = append(env,
+			core.EnvVar{Name: name, Value: value},
+			core.EnvVar{Name: strings.ToUpper(name), Value: value},
+		)
+	}
+	add("http_proxy", settings.Http)
+	add("https_proxy", settings.Https)
+	add("ftp_proxy", settings.Ftp)
+	add("no_proxy", settings.FullNoProxy())
+	return env
 }
 
 // jujudPebbleLayer returns the Pebble layer yaml for running the jujud

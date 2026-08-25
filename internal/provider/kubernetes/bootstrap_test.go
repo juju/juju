@@ -12,6 +12,7 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/proxy"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 	apps "k8s.io/api/apps/v1"
@@ -349,6 +350,11 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 	s.pcfg.Bootstrap.Timeout = 10 * time.Minute
 	s.pcfg.Bootstrap.ControllerExternalIPs = []string{"10.0.0.1"}
 	s.pcfg.Bootstrap.IgnoreProxy = true
+	s.pcfg.ProxySettings = proxy.Settings{
+		Http:    "http://proxy:3128",
+		Https:   "https://proxy:3128",
+		NoProxy: "localhost,10.0.0.0/8",
+	}
 
 	controllerStacker := s.controllerStackerGetter()
 
@@ -668,10 +674,17 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 			Name:            "api-server",
 			ImagePullPolicy: core.PullIfNotPresent,
 			Image:           "ghcr.io/juju/jujud-operator:" + expectedVersion.String(),
-			Env: []core.EnvVar{{
-				Name:  osenv.JujuFeatureFlagEnvKey,
-				Value: "developer-mode",
-			}},
+			Env: []core.EnvVar{
+				{Name: "JUJU_CONTAINER_NAME", Value: "api-server"},
+				{Name: "PEBBLE_SOCKET", Value: "/charm/container/pebble.socket"},
+				{Name: "http_proxy", Value: "http://proxy:3128"},
+				{Name: "HTTP_PROXY", Value: "http://proxy:3128"},
+				{Name: "https_proxy", Value: "https://proxy:3128"},
+				{Name: "HTTPS_PROXY", Value: "https://proxy:3128"},
+				{Name: "no_proxy", Value: "10.0.0.0/8,localhost"},
+				{Name: "NO_PROXY", Value: "10.0.0.0/8,localhost"},
+				{Name: osenv.JujuFeatureFlagEnvKey, Value: "developer-mode"},
+			},
 			Command: []string{
 				"/bin/sh",
 			},
