@@ -32,7 +32,7 @@ run_remove_machine_without_workloads() {
 }
 
 run_remove_machine_with_unit() {
-	local file token
+	local file status_json token
 
 	echo
 
@@ -50,6 +50,11 @@ run_remove_machine_with_unit() {
 	juju config dummy-source token="${token}"
 	wait_for "dummy-source" "$(active_idle_condition "dummy-source" 1 0)"
 	wait_for "dummy-sink" "$(active_idle_condition "dummy-sink" 0 0)"
+
+	juju remove-machine 0 --dry-run
+	status_json=$(juju status --format=json)
+	yq -r '.machines | has("0")' <<<"${status_json}" | check true
+	yq -r '.applications."dummy-source".units // {} | length' <<<"${status_json}" | check 1
 
 	juju remove-machine 0 --no-prompt
 	wait_for_machine_removed "0"
