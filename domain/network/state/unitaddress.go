@@ -145,7 +145,7 @@ WHERE  ias.name != $apiAddressFilter.scope_name
 
 	addrs, err := encodeControllerAPIAddresses(addresses)
 	if err != nil {
-		return nil, errors.Errorf("encoding API addresses: %q", err)
+		return nil, errors.Errorf("encoding API addresses: %w", err)
 	}
 	return addrs, nil
 }
