@@ -138,6 +138,10 @@ type ModelService interface {
 // ModelDefaultsService defines a interface for interacting with the model
 // defaults.
 type ModelDefaultsService interface {
+	// ModelDefaults returns the default attribute details for a specified
+	// model.
+	ModelDefaults(ctx context.Context, uuid coremodel.UUID) (modeldefaults.Defaults, error)
+
 	// CloudDefaults returns the default attribute details for a specified
 	// cloud.
 	CloudDefaults(ctx context.Context, cloudName string) (modeldefaults.ModelDefaultAttributes, error)
@@ -172,6 +176,12 @@ type ModelInfoService interface {
 	// model any information required in the model's provider will be
 	// initialised.
 	CreateModelWithAgentVersion(context.Context, semversion.Number) error
+
+	// CreateModelWithAgentStream is responsible for creating a new model within
+	// the model database using the specified agent stream. Upon creating the
+	// model any information required in the model's provider will be
+	// initialised.
+	CreateModelWithAgentStream(context.Context, agentbinary.AgentStream) error
 
 	// CreateModelWithAgentVersionStream is responsible for creating a new model
 	// within the model database using the specified agent version and agent

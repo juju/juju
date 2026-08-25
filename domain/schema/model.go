@@ -185,6 +185,7 @@ var modelPostPatchFilesByVersion = []struct {
 	version: semversion.MustParse("4.0.15"),
 	files: []string{
 		"0062-storage-filesystem-provider-id-unique.PATCH.sql",
+		"0063-agent-stream-cleanup.PATCH.sql",
 	},
 }}
 

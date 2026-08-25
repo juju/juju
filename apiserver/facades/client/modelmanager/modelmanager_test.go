@@ -363,6 +363,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *tc.C) {
 	}
 
 	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
+	s.modelDefaultService.EXPECT().ModelDefaults(gomock.Any(), gomock.Any()).Return(modeldefaults.Defaults{}, nil)
 	s.modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
 
 	_, err := s.api.CreateModel(c.Context(), args)
@@ -379,6 +380,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *tc.C) {
 	}
 
 	s.expectCreateModel(c, ctrl, args, credential.Key{Cloud: "dummy", Owner: coreuser.AdminUserName, Name: "some-credential"}, "dummy", "dummy-region")
+	s.modelDefaultService.EXPECT().ModelDefaults(gomock.Any(), gomock.Any()).Return(modeldefaults.Defaults{}, nil)
 	s.modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
 	s.modelService.EXPECT().DefaultCloudCredentialKeyForOwner(gomock.Any(), usertesting.GenNewName(c, "admin"), "dummy").Return(credential.Key{Name: "some-credential", Cloud: "dummy", Owner: usertesting.GenNewName(c, "admin")}, nil)
 
@@ -396,6 +398,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *tc.C) {
 	}
 
 	s.expectCreateModel(c, ctrl, args, credential.Key{Cloud: "dummy", Owner: coreuser.AdminUserName, Name: "some-credential"}, "dummy", "dummy-region")
+	s.modelDefaultService.EXPECT().ModelDefaults(gomock.Any(), gomock.Any()).Return(modeldefaults.Defaults{}, nil)
 	s.modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
 	s.modelService.EXPECT().DefaultCloudCredentialKeyForOwner(gomock.Any(), usertesting.GenNewName(c, "admin"), "dummy").Return(credential.Key{Name: "some-credential", Cloud: "dummy", Owner: usertesting.GenNewName(c, "admin")}, nil)
 
@@ -425,6 +428,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersion(c *tc.C) {
 	}
 
 	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
+	s.modelDefaultService.EXPECT().ModelDefaults(gomock.Any(), gomock.Any()).Return(modeldefaults.Defaults{}, nil)
 	s.modelInfoService.EXPECT().CreateModelWithAgentVersion(gomock.Any(), jujuversion.Current).Return(nil)
 
 	_, err := s.api.CreateModel(c.Context(), args)
@@ -441,6 +445,114 @@ func (s *modelManagerSuite) TestCreateModelWithTargetControllerSet(c *tc.C) {
 	}
 	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, `target-controller parameter is only supported on JAAS`)
+}
+
+func (s *modelManagerSuite) TestCreateModelArgsWithAgentStream(c *tc.C) {
+	ctrl := s.setUpAPI(c)
+	defer ctrl.Finish()
+
+	cloudCredental := credential.Key{
+		Cloud: "dummy",
+		Owner: coreuser.AdminUserName,
+		Name:  "some-credential",
+	}
+	args := params.ModelCreateArgs{
+		Name:      "foo",
+		Qualifier: "admin",
+		Config: map[string]any{
+			"bar":                 "baz",
+			config.AgentStreamKey: "released",
+		},
+		CloudTag:           "cloud-dummy",
+		CloudRegion:        "qux",
+		CloudCredentialTag: "cloudcred-dummy_admin_some-credential",
+	}
+
+	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
+	s.modelInfoService.EXPECT().CreateModelWithAgentStream(gomock.Any(), coreagentbinary.AgentStreamReleased).Return(nil)
+
+	_, err := s.api.CreateModel(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestCreateModelArgsWithAgentVersionAndCloudDefaultStream is testing
+// that when the user supplies only an agent version (no stream) but a
+// cloud default for agent-stream exists, the model is created with both
+// the supplied version and the cloud default stream via
+// CreateModelWithAgentVersionStream.
+func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersionAndCloudDefaultStream(c *tc.C) {
+	ctrl := s.setUpAPI(c)
+	defer ctrl.Finish()
+
+	cloudCredental := credential.Key{
+		Cloud: "dummy",
+		Owner: coreuser.AdminUserName,
+		Name:  "some-credential",
+	}
+	args := params.ModelCreateArgs{
+		Name:      "foo",
+		Qualifier: "admin",
+		Config: map[string]any{
+			"bar":                  "baz",
+			config.AgentVersionKey: jujuversion.Current.String(),
+		},
+		CloudTag:           "cloud-dummy",
+		CloudRegion:        "qux",
+		CloudCredentialTag: "cloudcred-dummy_admin_some-credential",
+	}
+
+	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
+	s.modelDefaultService.EXPECT().ModelDefaults(gomock.Any(), gomock.Any()).
+		Return(modeldefaults.Defaults{
+			config.AgentStreamKey: {
+				Controller: "testing",
+			},
+		}, nil)
+	s.modelInfoService.EXPECT().CreateModelWithAgentVersionStream(
+		gomock.Any(), jujuversion.Current, coreagentbinary.AgentStreamTesting,
+	).Return(nil)
+
+	_, err := s.api.CreateModel(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestCreateModelArgsWithAgentStreamFromCloudDefaults is testing that when
+// the user does not supply an agent stream, but a cloud default for
+// agent-stream exists, the model is created with the cloud default stream.
+func (s *modelManagerSuite) TestCreateModelArgsWithAgentStreamFromCloudDefaults(c *tc.C) {
+	ctrl := s.setUpAPI(c)
+	defer ctrl.Finish()
+
+	cloudCredental := credential.Key{
+		Cloud: "dummy",
+		Owner: coreuser.AdminUserName,
+		Name:  "some-credential",
+	}
+	args := params.ModelCreateArgs{
+		Name:      "foo",
+		Qualifier: "admin",
+		Config: map[string]any{
+			"bar": "baz",
+		},
+		CloudTag:           "cloud-dummy",
+		CloudRegion:        "qux",
+		CloudCredentialTag: "cloudcred-dummy_admin_some-credential",
+	}
+
+	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
+	s.modelDefaultService.EXPECT().ModelDefaults(gomock.Any(), gomock.Any()).
+		Return(modeldefaults.Defaults{
+			config.AgentStreamKey: {
+				Controller: "testing",
+			},
+		}, nil)
+
+	s.modelInfoService.EXPECT().CreateModelWithAgentStream(
+		gomock.Any(), coreagentbinary.AgentStreamTesting,
+	).Return(nil)
+
+	_, err := s.api.CreateModel(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersionAndStream(c *tc.C) {
