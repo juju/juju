@@ -304,7 +304,6 @@ WHERE controller_id IN ($controllerIDs[:])
 		return errors.Capture(err)
 	}
 
-	//type toRemoveAddresses []string
 	deleteAddressesStmt, err := st.Prepare(`
 DELETE FROM controller_api_address
 WHERE controller_id = $controllerAPIAddress.controller_id
@@ -364,8 +363,10 @@ AND address = $controllerAPIAddress.address
 			}
 		}
 		if len(toUpdate) > 0 {
-			if err := tx.Query(ctx, updateAddressesStmt, toUpdate).Run(); err != nil {
-				return errors.Errorf("updating api address for controller nodes %q: %w", nodes, err)
+			for _, update := range toUpdate {
+				if err := tx.Query(ctx, updateAddressesStmt, update).Run(); err != nil {
+					return errors.Errorf("updating api address for controller nodes %q: %w", nodes, err)
+				}
 			}
 		}
 
@@ -531,14 +532,25 @@ WHERE is_agent = true
 // The updated addresses are the list of addresses for which the IsAgent flag
 // has changed.
 func calculateAddressDeltas(existing, new []controllerAPIAddress) (toAdd []controllerAPIAddress, toUpdate []controllerAPIAddress, toRemove []controllerAPIAddress) {
-	existingMap := make(map[string]controllerAPIAddress)
-	newMap := make(map[string]controllerAPIAddress)
+	type controllerAPIAddressKey struct {
+		ControllerID string
+		Address      string
+	}
+
+	existingMap := make(map[controllerAPIAddressKey]controllerAPIAddress)
+	newMap := make(map[controllerAPIAddressKey]controllerAPIAddress)
 
 	for _, addr := range existing {
-		existingMap[addr.Address] = addr
+		existingMap[controllerAPIAddressKey{
+			ControllerID: addr.ControllerID,
+			Address:      addr.Address,
+		}] = addr
 	}
 	for _, addr := range new {
-		newMap[addr.Address] = addr
+		newMap[controllerAPIAddressKey{
+			ControllerID: addr.ControllerID,
+			Address:      addr.Address,
+		}] = addr
 	}
 
 	// Check each address in the new set to determine additions and updates.
