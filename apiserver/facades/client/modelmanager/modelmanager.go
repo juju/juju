@@ -847,7 +847,7 @@ func (m *ModelManagerAPI) DestroyModels(
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-if err := destroyModel(tag.Id(), arg.DestroyStorage, arg.Force, arg.MaxWait); err != nil {
+		if err := destroyModel(tag.Id(), arg.DestroyStorage, arg.Force, arg.MaxWait); err != nil {
 			if errors.Is(err, database.ErrDBDead) || errors.Is(err, database.ErrDBNotFound) {
 				err = errors.NewNotFound(err, "")
 			}

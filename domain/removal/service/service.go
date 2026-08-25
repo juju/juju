@@ -214,7 +214,7 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	}
 
 	if errors.Is(err, removalerrors.RemovalJobIncomplete) {
-		s.logger.Infof(ctx, "removal job for %s %q incomplete: %v", job.RemovalType, job.EntityUUID, err)
+		s.logger.Debugf(ctx, "removal job for %s %q incomplete: %v", job.RemovalType, job.EntityUUID, err)
 		return nil
 	}
 	if err != nil && !errors.IsOneOf(err, nonRetryableErrors...) {

@@ -260,12 +260,8 @@ func (s *Service) removeModel(
 	}
 
 	if len(artifacts.StorageInstanceUUIDs) > 0 {
-		if destroyStorage != nil {
-			s.logger.Infof(ctx, "model has storage instances %v, scheduling removal (obliterate=%v)", artifacts.StorageInstanceUUIDs, *destroyStorage)
-			s.removeStorageInstances(ctx, artifacts.StorageInstanceUUIDs, force, wait, *destroyStorage)
-		} else {
-			s.logger.Infof(ctx, "model has %d storage instance(s), not scheduling removal as destroy-storage was not specified", len(artifacts.StorageInstanceUUIDs))
-		}
+		s.logger.Infof(ctx, "model has storage instances %v, scheduling removal (obliterate=%v)", artifacts.StorageInstanceUUIDs, *destroyStorage)
+		s.removeStorageInstances(ctx, artifacts.StorageInstanceUUIDs, force, wait, *destroyStorage)
 	}
 
 	return modelJobUUID, nil
@@ -549,18 +545,21 @@ func (s *Service) removeStorageInstances(
 	ctx context.Context, uuids []string, force bool, wait time.Duration, obliterate bool,
 ) {
 	for _, storageInstanceUUID := range uuids {
-		if err := s.RemoveStorageInstance(
+		err := s.RemoveStorageInstance(
 			ctx, storage.StorageInstanceUUID(storageInstanceUUID), force, wait, obliterate,
-		); errors.Is(err, storageerrors.StorageInstanceNotFound) {
+		)
+		if err == nil {
+			continue
+		}
+		if errors.Is(err, storageerrors.StorageInstanceNotFound) {
 			// There could be a chance that the storage instance has already
 			// been removed by another process. We can safely ignore this error
 			// and continue with the next storage instance.
 			continue
-		} else if err != nil {
-			// If the storage instance fails to be scheduled for removal, we log
-			// out the error. The storage instances are already transitioned to
-			// dying and there is no way to transition them back to alive.
-			s.logger.Errorf(ctx, "scheduling removal of storage instance %q: %v", storageInstanceUUID, err)
 		}
+		// If the storage instance fails to be scheduled for removal, we log
+		// out the error. The storage instances are already transitioned to
+		// dying and there is no way to transition them back to alive.
+		s.logger.Errorf(ctx, "scheduling removal of storage instance %q: %v", storageInstanceUUID, err)
 	}
 }

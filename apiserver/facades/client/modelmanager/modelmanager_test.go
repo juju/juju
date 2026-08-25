@@ -43,7 +43,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/domain/removal"
-removalerrors "github.com/juju/juju/domain/removal/errors"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/provider/azure"
@@ -96,7 +96,7 @@ type stubRemovalService struct {
 }
 
 func (s stubRemovalService) RemoveModel(
-	context.Context, coremodel.UUID, bool, time.Duration,
+	_ context.Context, _ coremodel.UUID, _ bool, _ time.Duration, _ *bool,
 ) (removal.UUID, error) {
 	return "", s.err
 }
