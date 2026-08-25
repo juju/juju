@@ -233,6 +233,7 @@ func (c *sshCommand) Init(args []string) (err error) {
 	if c.jump {
 		c.provider = &c.sshJump
 		c.sshJump.container = c.sshContainer.container
+		c.sshJump.noHostKeyChecks = c.sshMachine.noHostKeyChecks
 	} else if c.modelType == model.CAAS {
 		c.provider = &c.sshContainer
 	} else {

@@ -14,6 +14,7 @@ juju scp [options] <source> <destination>
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `--container` |  | the container name of the target pod |
+| `--jump` | false | Proxy SSH through the Juju controller |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
 | `--proxy` | false | Proxy through the API server |
@@ -59,6 +60,10 @@ Copy a file (`chunks-inspect`) from `localhost` to the `/loki` directory
 in a specific container in a Juju unit running in Kubernetes:
 
     juju scp --container loki chunks-inspect loki-k8s/0:/loki
+
+Copy `foo.txt` through the controller SSH server to machine `0`:
+
+	juju scp --jump foo.txt 0:/tmp/foo.txt
 
 
 ## Details
@@ -115,6 +120,8 @@ add `-- -3` to the command-line arguments.
 
 To enable transfers to/from machines that do not have internet access, you can use
 the Juju controller as a proxy with the `--proxy` option.
+
+To proxy transfers through the controller's SSH server, use the `--jump` option.
 
 The SSH host keys of the target are verified by default. To disable this, add
  `--no-host-key-checks` option. Using this option is strongly discouraged.

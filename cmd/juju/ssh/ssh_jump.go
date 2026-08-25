@@ -52,6 +52,7 @@ type sshJump struct {
 	container            string
 	target               string
 	args                 []string
+	noHostKeyChecks      bool
 
 	// jumpUser is the Juju user used to authenticate against the jump server.
 	jumpUser string
@@ -163,6 +164,7 @@ func (p *sshJump) setArgs(args []string) {
 // resolveTarget resolves the target for the SSH jump provider into a virtual
 // hostname to be reached through the controller jump server.
 func (p *sshJump) resolveTarget(ctx context.Context, target string) (*resolvedTarget, error) {
+	user, target := splitUserTarget(target)
 	resolvedTargetName, err := p.maybeResolveLeaderUnit(ctx, target)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -200,14 +202,18 @@ func (p *sshJump) resolveTarget(ctx context.Context, target string) (*resolvedTa
 	if err := p.generateKnownHosts(address.Host(), virtualHostname, targetKeys.PublicKey); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &resolvedTarget{
+	resolved := &resolvedTarget{
 		user: finalDestinationUser,
 		host: virtualHostname,
 		via: &resolvedTarget{
 			user: p.jumpUser,
 			host: address.Host(),
 		},
-	}, nil
+	}
+	if user != "" {
+		resolved.user = user
+	}
+	return resolved, nil
 }
 
 // generateKnownHosts writes a temporary known_hosts file pinning the jump server
@@ -223,13 +229,21 @@ func (p *sshJump) generateKnownHosts(jumpHost, virtualHostname string, targetHos
 	if err != nil {
 		return errors.Trace(err)
 	}
-	f, err := os.CreateTemp("", "ssh_known_hosts")
-	if err != nil {
-		return errors.Annotate(err, "creating known hosts file")
+	var f *os.File
+	if p.knownHostsPath == "" {
+		f, err = os.CreateTemp("", "ssh_known_hosts")
+		if err != nil {
+			return errors.Annotate(err, "creating known hosts file")
+		}
+		// This needs to be set here because it's used to cleanup the file.
+		p.knownHostsPath = f.Name()
+	} else {
+		f, err = os.OpenFile(p.knownHostsPath, os.O_APPEND|os.O_WRONLY, 0600)
+		if err != nil {
+			return errors.Annotate(err, "opening known hosts file")
+		}
 	}
 	defer f.Close()
-	// This needs to be set here because it's used to cleanup the file.
-	p.knownHostsPath = f.Name()
 	if _, err := f.WriteString(jumpLine + targetLine); err != nil {
 		return errors.Trace(err)
 	}
@@ -262,25 +276,35 @@ func (p *sshJump) maybePopulateTargetViaField(_ context.Context, _ *resolvedTarg
 	return nil
 }
 
-// getSSHOptions returns SSH options that verify both jump and target host keys.
+// getSSHOptions returns SSH options for the jump server and target.
 func (p *sshJump) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*ssh.Options, error) {
 	if len(targets) == 0 {
 		return nil, errors.New("at least one SSH target is required")
 	}
+	strictHostKeyChecking := "yes"
+	knownHostsPath := p.knownHostsPath
+	if p.noHostKeyChecks {
+		strictHostKeyChecking = "no"
+		knownHostsPath = os.DevNull
+	}
+
 	var options ssh.Options
 	// -o ProxyCommand is a substitute for the -J option, due to a limitation
-	// in the github.com/juju/utils/v4/ssh package. The inner ssh pins the jump
-	// server host key using the same known_hosts file.
+	// in the github.com/juju/utils/v4/ssh package.
 	options.SetProxyCommand(
 		"ssh",
-		"-o", "StrictHostKeyChecking=yes",
-		"-o", "UserKnownHostsFile="+p.knownHostsPath,
+		"-o", "StrictHostKeyChecking="+strictHostKeyChecking,
+		"-o", "UserKnownHostsFile="+knownHostsPath,
 		"-W", "%h:%p",
 		"-p", strconv.Itoa(p.jumpHostPort),
 		targets[0].via.userHost(),
 	)
-	options.SetStrictHostKeyChecking(ssh.StrictHostChecksYes)
-	options.SetKnownHostsFile(p.knownHostsPath)
+	if p.noHostKeyChecks {
+		options.SetStrictHostKeyChecking(ssh.StrictHostChecksNo)
+	} else {
+		options.SetStrictHostKeyChecking(ssh.StrictHostChecksYes)
+	}
+	options.SetKnownHostsFile(knownHostsPath)
 	if enablePty {
 		options.EnablePTY()
 	}
@@ -306,9 +330,21 @@ func (p *sshJump) ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 	return cmd.Run()
 }
 
-// copy is not implemented for the SSH jump provider.
-func (p *sshJump) copy(_ Context) error {
-	return errors.NotImplemented
+// copy transfers files through the controller SSH jump server.
+func (p *sshJump) copy(ctx Context) error {
+	if p.modelType == model.CAAS {
+		return errors.New("--jump is not supported for scp to Kubernetes targets")
+	}
+
+	args, targets, err := expandSCPArgs(ctx, p.args, p.resolveTarget)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	options, err := p.getSSHOptions(false, targets...)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return ssh.Copy(args, options)
 }
 
 func (p *sshJump) setPublicKeyRetryStrategy(_ retry.CallArgs) {}
