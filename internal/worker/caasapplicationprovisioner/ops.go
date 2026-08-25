@@ -1076,7 +1076,7 @@ func ensureControllerNonces(
 	agentPasswordService AgentPasswordService,
 	logger logger.Logger,
 ) error {
-	for ordinal := 0; ordinal < targetCount; ordinal++ {
+	for ordinal := range targetCount {
 		controllerID := strconv.Itoa(ordinal)
 		nonce, err := password.RandomPassword()
 		if err != nil {
