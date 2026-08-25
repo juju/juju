@@ -758,7 +758,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
-	isCAASController = jujucloud.CloudIsCAAS(cloud)
 	if isCAASController && (c.ControllerSnapPath != "" ||
 		c.ControllerSnapAssertPath != "" ||
 		!c.ControllerSnapChannel.Empty() ||
