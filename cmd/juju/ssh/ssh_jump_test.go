@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	stdtesting "testing"
+	"text/template"
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/collections/set"
@@ -213,6 +214,43 @@ func (s *sshJumpSuite) TestSSHSkipsHostKeyChecking(c *tc.C) {
 	c.Check(strings.Contains(out, "-o ProxyCommand ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -W %h:%p -p 17022 fred@1.0.0.1"), tc.IsTrue)
 	c.Check(strings.Contains(out, "-o StrictHostKeyChecking no"), tc.IsTrue)
 	c.Check(strings.Contains(out, "-o UserKnownHostsFile /dev/null"), tc.IsTrue)
+}
+
+func (s *sshJumpSuite) TestSSHShowsJumpCommand(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	target := &resolvedTarget{
+		user: finalDestinationUser,
+		host: "resolved-target",
+		via:  &resolvedTarget{user: "fred", host: "1.0.0.1"},
+	}
+	outputTemplate, err := template.New("output").Parse(openSSHTemplate)
+	c.Assert(err, tc.ErrorIsNil)
+	jump := sshJump{
+		args:              []string{"echo", "hello world"},
+		jumpHostPort:      17022,
+		showCommand:       true,
+		sshOutputTemplate: outputTemplate,
+	}
+
+	buffer := bytes.NewBuffer(nil)
+	sshCtx := mocks.NewMockContext(ctrl)
+	sshCtx.EXPECT().GetStdout().Return(buffer)
+
+	c.Assert(jump.ssh(sshCtx, false, target), tc.ErrorIsNil)
+	c.Check(buffer.String(), tc.Equals, "ssh -o \"ProxyCommand=ssh -W %h:%p -p 17022 fred@1.0.0.1\" ubuntu@resolved-target echo \"hello world\"")
+}
+
+func (s *sshJumpSuite) TestCopyShowsJumpCommand(c *tc.C) {
+	outputTemplate, err := template.New("output").Parse(openSCPTemplate)
+	c.Assert(err, tc.ErrorIsNil)
+	jump := sshJump{jumpHostPort: 17022, scpOutputTemplate: outputTemplate}
+	target := &resolvedTarget{via: &resolvedTarget{user: "fred", host: "1.0.0.1"}}
+
+	buffer := bytes.NewBuffer(nil)
+	c.Assert(jump.showSCPCommand(buffer, target, []string{"local file", "ubuntu@machine-0:/remote path"}), tc.ErrorIsNil)
+	c.Check(buffer.String(), tc.Equals, "scp -o \"ProxyCommand=ssh -W %h:%p -p 17022 fred@1.0.0.1\" \"local file\" \"ubuntu@machine-0:/remote path\"")
 }
 
 func (s *sshJumpSuite) TestCopyUsesJumpProxyCommand(c *tc.C) {

@@ -9,12 +9,16 @@ package ssh
 
 import (
 	"context"
+	"io"
 	"net"
 	"os"
 	"strconv"
+	"text/template"
 
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/retry"
+	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
 	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
@@ -31,6 +35,10 @@ import (
 
 // finalDestinationUser is the user used on the terminating target.
 const finalDestinationUser = "ubuntu"
+
+const openSSHTemplate = `ssh -o "ProxyCommand=ssh -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.DestinationUser}}@{{.VirtualHostname}}{{if .Args}} {{.Args}}{{end}}`
+
+const openSCPTemplate = `scp -o "ProxyCommand=ssh -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.Args}}`
 
 // SSHAPIJump is the SSH API client used by the SSH jump provider.
 type SSHAPIJump interface {
@@ -53,6 +61,9 @@ type sshJump struct {
 	target               string
 	args                 []string
 	noHostKeyChecks      bool
+	showCommand          bool
+	sshOutputTemplate    *template.Template
+	scpOutputTemplate    *template.Template
 
 	// jumpUser is the Juju user used to authenticate against the jump server.
 	jumpUser string
@@ -69,6 +80,11 @@ type sshJump struct {
 	hostChecker      jujussh.ReachableChecker
 
 	jumpHostPort int
+}
+
+// SetFlags registers flags specific to the SSH jump provider.
+func (p *sshJump) SetFlags(f *gnuflag.FlagSet) {
+	f.BoolVar(&p.showCommand, "show-command", false, "Print the OpenSSH command instead of executing it")
 }
 
 // initRun initializes the SSH jump provider for a model command.
@@ -109,6 +125,14 @@ func (p *sshJump) initRun(ctx context.Context, mc ModelCommand) error {
 		return errors.Trace(err)
 	}
 	p.jumpUser = account.User
+	p.sshOutputTemplate, err = template.New("ssh-output").Parse(openSSHTemplate)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	p.scpOutputTemplate, err = template.New("scp-output").Parse(openSCPTemplate)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -323,6 +347,9 @@ func (p *sshJump) ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 	if len(args) == 0 && p.modelType == model.CAAS {
 		args = []string{"exec", "sh"}
 	}
+	if p.showCommand {
+		return p.showSSHCommand(ctx.GetStdout(), target, args)
+	}
 	cmd := ssh.Command(target.userHost(), args, options)
 	cmd.Stdin = ctx.GetStdin()
 	cmd.Stdout = ctx.GetStdout()
@@ -340,11 +367,34 @@ func (p *sshJump) copy(ctx Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if p.showCommand {
+		return p.showSCPCommand(ctx.GetStdout(), targets[0], args)
+	}
 	options, err := p.getSSHOptions(false, targets...)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return ssh.Copy(args, options)
+}
+
+func (p *sshJump) showSSHCommand(w io.Writer, target *resolvedTarget, args []string) error {
+	return p.sshOutputTemplate.Execute(w, map[string]string{
+		"JumpPort":        strconv.Itoa(p.jumpHostPort),
+		"JumpUser":        target.via.user,
+		"JumpHost":        target.via.host,
+		"DestinationUser": target.user,
+		"VirtualHostname": target.host,
+		"Args":            utils.CommandString(args...),
+	})
+}
+
+func (p *sshJump) showSCPCommand(w io.Writer, proxyTarget *resolvedTarget, args []string) error {
+	return p.scpOutputTemplate.Execute(w, map[string]string{
+		"JumpPort": strconv.Itoa(p.jumpHostPort),
+		"JumpUser": proxyTarget.via.user,
+		"JumpHost": proxyTarget.via.host,
+		"Args":     utils.CommandString(args...),
+	})
 }
 
 func (p *sshJump) setPublicKeyRetryStrategy(_ retry.CallArgs) {}

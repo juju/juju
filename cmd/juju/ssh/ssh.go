@@ -205,6 +205,7 @@ func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.sshContainer.SetFlags(f)
 	f.Var(&c.pty, "pty", "Enable pseudo-tty allocation")
 	f.BoolVar(&c.jump, "jump", false, "Proxy SSH through the Juju controller")
+	c.sshJump.SetFlags(f)
 }
 
 func (c *sshCommand) Info() *cmd.Info {
@@ -226,6 +227,9 @@ func (c *sshCommand) Init(args []string) (err error) {
 	}
 	if c.modelType, err = c.ModelType(context.TODO()); err != nil {
 		return err
+	}
+	if c.sshJump.showCommand && !c.jump {
+		return errors.New("--show-command requires --jump")
 	}
 	// The jump provider is transparent to the model type. The container flag is
 	// registered by the embedded sshContainer, so propagate its value to the
