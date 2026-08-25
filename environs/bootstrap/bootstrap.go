@@ -615,6 +615,10 @@ func bootstrapIAAS(
 	// If there are no prepackaged tools and a specific version has not been
 	// requested, look for or build a local binary.
 	var builtTools *sync.BuiltAgent
+	// args.AgentVersion is guaranteed nil for snap modes by CLI validation
+	// (--agent-version is rejected when a controller snap is supplied).
+	// When not nil, isCompatibleVersion compares against the current client
+	// version to decide whether to build a local binary.
 	if len(availableTools) == 0 && (args.AgentVersion == nil || isCompatibleVersion(*args.AgentVersion, jujuversion.Current)) {
 		// In published-snap modes (store mode), the local-copy fallback is
 		// not invoked; bootstrap fails before provisioning unless
