@@ -22,5 +22,10 @@ func (k *kubernetesClient) Application(name string, deploymentType caas.Deployme
 		k.newWatcher,
 		k.clock,
 		k.controllerUUID,
+		func() bool {
+			k.lock.Lock()
+			defer k.lock.Unlock()
+			return enableServiceLinksFromConfig(k.envCfgUnlocked)
+		},
 	)
 }

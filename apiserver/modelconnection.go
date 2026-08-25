@@ -7,9 +7,29 @@ import (
 	"context"
 
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 )
+
+// ModelService defines the subset of model.Service used to check model
+// connection information and redirection.
+type ModelService interface {
+	// GetModelConnectionInfo returns the model's type, activation state and
+	// target-side import-claim presence, regardless of whether the model has
+	// been activated.
+	GetModelConnectionInfo(ctx context.Context, modelUUID coremodel.UUID) (model.ModelConnectionInfo, error)
+	// ModelRedirection returns the model redirection information
+	// for the given model UUID.
+	ModelRedirection(ctx context.Context, modelUUID coremodel.UUID) (model.ModelRedirection, error)
+}
+
+// ModelMigrationService describes the migration state of the model a connection
+// is being served for.
+type ModelMigrationService interface {
+	// ModelMigrationMode returns the current migration mode for the model.
+	ModelMigrationMode(ctx context.Context) (modelmigration.MigrationMode, error)
+}
 
 // modelConnection describes whether the API server may serve connections for a
 // model, and what the resulting API root has to know about it.
