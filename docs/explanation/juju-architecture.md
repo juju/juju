@@ -7,22 +7,126 @@ myst:
 (juju-architecture)=
 # Juju architecture
 
-Juju is a system for deploying and operating applications on cloud infrastructure. Its central idea is reconciliation: you declare what you want, Juju stores that declaration, and a set of programs continuously drive the real world toward it. Everything in Juju's architecture -- the databases, the processes, the communication patterns -- follows from that single loop.
+The fundamental problem Juju solves: a model admin wants to deploy and operate applications -- each needing compute, storage, and networking -- on any cloud, without writing cloud-specific or application-specific glue code every time. In production, applications never run in isolation: a workload needs to integrate with observability, identity, secret management, databases, and more, and the whole system needs to keep working through upgrades, scaling events, and migrations.
 
-The key actors are:
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart TB
+    ADMIN(("user"))
+    APP1["<b>application 1</b><br/><small>cloud1/app1</small>"]
+    APP2["<b>application 2</b><br/><small>cloud1/app2</small>"]
+    APP3["<b>application 3</b><br/><small>cloud2/app1</small>"]
 
-- **The client**: Any program that talks to a Juju controller: the `juju` CLI, the Terraform provider, JAAS. Clients hold no state; they express intent.
-- **The controller**: The Juju control plane. A process running on a cloud machine or pod that holds the API server, the databases, and the workers that drive reconciliation.
-- **The cloud**: The infrastructure provider (AWS, GCP, MAAS, MicroK8s, ...) that the controller talks to in order to provision machines or pods.
-- **The model**: A named deployment environment -- a workspace containing a set of applications, the machines they run on, and everything connecting them. A controller manages one or more models.
-- **The charm**: The software package that tells Juju how to operate an application: install it, configure it, integrate it with others, upgrade it, remove it.
-- **The agent**: A process that runs alongside each machine or unit and drives the reconciliation loop for that entity by watching for state changes and running charm code.
+    ADMIN -->|"operates"| APP1
+    ADMIN -->|"operates"| APP2
+    ADMIN -->|"operates"| APP3
 
-This document goes deeper on each of these, in three parts:
+    style ADMIN fill:#F5F0E8,stroke:#999,color:#000
+    style APP1 fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style APP2 fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style APP3 fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+```
+*The problem: operate a system of applications across any cloud -- deploy, configure, integrate, scale, upgrade, remove.*
 
-1. {ref}`The data model <arch-datamodel>` -- what Juju stores and how it is organised.
-2. {ref}`The software <arch-software>` -- the programs that read and write that state.
-3. {ref}`The operations <arch-operations>` -- how state changes over time.
+Juju sits between the user and the clouds. The user declares what they want; Juju stores that declaration and drives the real world toward it. Juju runs as a **controller** -- a process the user talks to through a **client** (the `juju` CLI, the Terraform provider, or JAAS). The controller talks to clouds to request hosts, and to **Charmhub** to fetch **charms** -- software packages that encode how to deploy, configure, integrate, upgrade, and remove each application. Crucially, in Juju all integration between applications goes *through the controller* in a star topology -- there are no direct application-to-application connections.
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart TB
+    ADMIN(("user"))
+    CLIENT["<b>client</b>"]
+    CONTROLLER["<b>controller</b><br/><small>C1</small>"]
+    subgraph apps[" "]
+        direction TB
+        APP_1["<b>charmed application 1</b><br/><small>C1/c1/m1/a1</small>"]
+        APP_2["<b>charmed application 2</b><br/><small>C1/c1/m1/a2</small>"]
+        APP_3["<b>charmed application 3</b><br/><small>C1/c2/m1/a1</small>"]
+    end
+
+    ADMIN -->|"sends commands to"| CLIENT
+    CLIENT -->|"calls Juju API on"| CONTROLLER
+    CONTROLLER -->|"operates"| APP_1
+    CONTROLLER -->|"operates"| APP_2
+    CONTROLLER -->|"operates"| APP_3
+
+    style ADMIN fill:#F5F0E8,stroke:#999,color:#000
+    style CLIENT fill:#E95420,stroke:#C74210,color:#FFF
+    style CONTROLLER fill:#E95420,stroke:#C74210,color:#FFF
+    style APP_1 fill:#4A90D9,stroke:#E95420,stroke-width:2px,color:#FFF
+    style APP_2 fill:#4A90D9,stroke:#E95420,stroke-width:2px,color:#FFF
+    style APP_3 fill:#4A90D9,stroke:#E95420,stroke-width:2px,color:#FFF
+    style apps fill:none,stroke:none
+```
+*Juju enters. Controller C1 sits in the middle: it manages two models on different clouds, fetches charms from Charmhub, and operates all charmed applications -- shown with orange borders. Each app's annotation shows its address in the hierarchy: `C1/c1/m1/a1` means controller C1, cloud c1, model m1, application a1. A cloud is registered on a controller, not exclusively owned -- the same cloud can be registered on multiple controllers.*
+
+Inside the controller is a **Dqlite** database cluster: a **controller-db** holding shared state (clouds, credentials, users, model records), and one database per model -- **model1-db**, **model2-db**, and so on -- holding the deployment entities for that model. On each host the cloud provisions, Juju runs a **unit agent** alongside the workload; the unit agent runs the charm, which operates the application.
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart TB
+    ADMIN(("user"))
+    CLIENT["<b>client</b>"]
+    CONTROLLER["<b>controller</b><br/><small>C1</small>"]
+
+
+    subgraph apps[" "]
+        direction TB
+        subgraph unit1["C1/c1/m1/a1/0"]
+            direction TB
+            AGENT_1["<b>unit agent</b>"]
+            CHARM_1["<b>charm</b>"]
+            WORKLOAD_1["<b>workload</b>"]
+            AGENT_1 -->|"runs"| CHARM_1
+            CHARM_1 -->|"operates"| WORKLOAD_1
+        end
+        subgraph unit2["C1/c1/m1/a2/0"]
+            direction TB
+            AGENT_2["<b>unit agent</b>"]
+            CHARM_2["<b>charm</b>"]
+            WORKLOAD_2["<b>workload</b>"]
+            AGENT_2 -->|"runs"| CHARM_2
+            CHARM_2 -->|"operates"| WORKLOAD_2
+        end
+        subgraph unit3["C1/c2/m1/a1/0"]
+            direction TB
+            AGENT_3["<b>unit agent</b>"]
+            CHARM_3["<b>charm</b>"]
+            WORKLOAD_3["<b>workload</b>"]
+            AGENT_3 -->|"runs"| CHARM_3
+            CHARM_3 -->|"operates"| WORKLOAD_3
+        end
+    end
+
+    ADMIN -->|"sends commands to"| CLIENT
+    CLIENT -->|"calls Juju API on"| CONTROLLER
+    CONTROLLER -->|"drives"| AGENT_1
+    CONTROLLER -->|"drives"| AGENT_2
+    CONTROLLER -->|"drives"| AGENT_3
+
+    style ADMIN fill:#F5F0E8,stroke:#999,color:#000
+    style CLIENT fill:#E95420,stroke:#C74210,color:#FFF
+    style CONTROLLER fill:#E95420,stroke:#C74210,color:#FFF
+    style AGENT_1 fill:#E95420,stroke:#C74210,color:#FFF
+    style AGENT_2 fill:#E95420,stroke:#C74210,color:#FFF
+    style AGENT_3 fill:#E95420,stroke:#C74210,color:#FFF
+    style CHARM_1 fill:#FFF,stroke:#E95420,color:#000
+    style CHARM_2 fill:#FFF,stroke:#E95420,color:#000
+    style CHARM_3 fill:#FFF,stroke:#E95420,color:#000
+    style WORKLOAD_1 fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style WORKLOAD_2 fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style WORKLOAD_3 fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style unit1 fill:none,stroke:#AAA
+    style unit2 fill:none,stroke:#AAA
+    style unit3 fill:none,stroke:#AAA
+    style apps fill:none,stroke:none
+```
+*Juju unpacked. Three units, each a grey box containing unit agent → charm → workload. The subgraph label is the unit's full address in the hierarchy: `C1/c1/m1/a1/0` means controller C1, cloud c1, model m1, application a1, unit 0. Applications 1↔2 and 2↔3 are integrated -- all routed through the controller. Color key: orange fill = Juju software (this repo); white with orange border = Juju ecosystem (charm); blue fill = your workload.*
+
+The three sections below zoom in on different aspects of this picture:
+
+1. {ref}`The data model <arch-datamodel>` -- what lives in the controller DB and model DBs.
+2. {ref}`The software <arch-software>` -- the programs, their topology, and how they communicate.
+3. {ref}`The operations <arch-operations>` -- how state changes over time: bootstrap, deploy, integrate, remove.
 
 (arch-datamodel)=
 ## The data model
@@ -36,7 +140,7 @@ The controller database holds the entities that are shared across all models or 
 
 ```{mermaid}
 %%{init: {"flowchart": {"htmlLabels": false}} }%%
-flowchart LR
+flowchart TB
     subgraph subController["Controller database"]
         USER
         CLOUD
@@ -79,7 +183,7 @@ See more: {ref}`credential`
 
 #### Controller
 
-A controller is the Juju management node. There is exactly one controller record per controller database. In high-availability mode the controller runs across multiple machines -- each is a `controller_node` record -- but they all share one controller identity and one Dqlite cluster. The controller runs on a cloud and provisions resources from clouds on behalf of the models it manages.
+A controller is the Juju management node. There is exactly one controller record per controller database. In high-availability mode the controller runs across multiple machines -- each is a `controller_node` record -- but they all share one controller identity and one Dqlite cluster. The controller runs on a cloud host and requests machines or pods from clouds on behalf of the models it manages.
 
 ```{ibnote}
 See more: {ref}`controller`
@@ -132,7 +236,7 @@ Each model has its own Dqlite database. Model membership is implicit -- records 
 
 ```{mermaid}
 %%{init: {"flowchart": {"htmlLabels": false}} }%%
-flowchart LR
+flowchart TB
     subgraph subDeploy["Deployment cluster"]
         APPLICATION -->|"consists of"| UNIT
         APPLICATION -->|"deployed from"| CHARM
@@ -272,7 +376,7 @@ On a Kubernetes cloud, a live deployment looks like this:
 
 ```{mermaid}
 %%{init: {"flowchart": {"htmlLabels": false}} }%%
-flowchart LR
+flowchart TB
     subgraph controller_pod["Controller pod"]
         jujud_c["jujud<br/>(controller + model agent workers)"]
     end
@@ -310,7 +414,7 @@ On a machine cloud, a live deployment looks like this:
 
 ```{mermaid}
 %%{init: {"flowchart": {"htmlLabels": false}} }%%
-flowchart LR
+flowchart TB
     subgraph controller_machine["Controller machine"]
         subgraph jujud_ctrl["jujud process"]
             CA["Controller agent workers"]
@@ -507,6 +611,8 @@ See more: {ref}`command-juju-deploy`
 
 Integrating connects one application to another so they can exchange data. When you integrate two applications, the controller writes a relation record; the unit agents on both sides are notified via their watchers and each runs the relation hooks in sequence.
 
+A key architectural point: in Juju, applications never communicate directly with each other. All integration is mediated by the controller in a **star topology** -- every arrow in the sequence diagram below goes from a unit agent to the controller or back, never from one unit agent to the other. The controller holds the relation record and the data bags; each unit reads and writes its side through the controller. This means the controller is always the single source of truth for what two applications have agreed upon.
+
 ```{mermaid}
 sequenceDiagram
     actor User
@@ -533,7 +639,7 @@ sequenceDiagram
     Controller-->>UA1: watcher fires (data changed)
     UA1->>Controller: relation-changed hook
 ```
-*Integrating two applications. The controller writes the relation record, which fires watchers on both unit agents. Each runs `relation-created` then `relation-joined`, followed immediately by `relation-changed`. Thereafter, each time a unit writes its relation data bag, the other unit receives a further `relation-changed`.*
+*Integrating two applications. Every arrow passes through the controller -- UA1 and UA2 never communicate directly. The controller holds the relation record; each unit writes its data bag to the controller, which notifies the other via a watcher. This is the star topology in practice.*
 
 ```{ibnote}
 See more: {ref}`command-juju-integrate`, {ref}`relation`
@@ -637,7 +743,7 @@ The unit agent (specifically its uniter worker) runs loops continuously:
 Only one hook runs at a time per unit. Every hook is dispatched with a set of **environment variables** describing the context (`JUJU_UNIT_NAME`, channel, and so on).
 
 ```{mermaid}
-flowchart LR
+flowchart TB
     W["Wait\n(watcher)"]
     S["Snapshot\n(remote state)"]
     R["Resolve\n(next hook)"]
