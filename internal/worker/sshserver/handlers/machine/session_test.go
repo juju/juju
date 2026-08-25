@@ -117,17 +117,19 @@ func (s *machineSuite) TestSessionHandlerPropagatesCommandExitCode(c *tc.C) {
 func (s *machineSuite) TestSessionHandlerProxiesPTYAndWindowChanges(c *tc.C) {
 	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
 	c.Assert(err, tc.ErrorIsNil)
-	ready := make(chan struct{})
+	ptyCalled := make(chan struct{})
+	sessionStarted := make(chan struct{})
 
 	machine := startSSHTestServer(c, &ssh.Server{
 		PtyCallback: func(_ ssh.Context, pty ssh.Pty) bool {
 			c.Check(pty.Term, tc.Equals, "xterm")
 			c.Check(pty.Window.Height, tc.Equals, 24)
 			c.Check(pty.Window.Width, tc.Equals, 80)
+			close(ptyCalled)
 			return true
 		},
 		Handler: func(session ssh.Session) {
-			close(ready)
+			close(sessionStarted)
 			_, _ = io.WriteString(session, "shell done\n")
 		},
 	})
@@ -153,11 +155,17 @@ func (s *machineSuite) TestSessionHandlerProxiesPTYAndWindowChanges(c *tc.C) {
 	c.Assert(session.Shell(), tc.ErrorIsNil)
 
 	select {
-	case <-ready:
+	case <-ptyCalled:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for pty callback to be called")
+	}
+	c.Assert(session.WindowChange(30, 100), tc.ErrorIsNil)
+
+	select {
+	case <-sessionStarted:
 	case <-c.Context().Done():
 		c.Fatal("timed out waiting for shell to start")
 	}
-	c.Assert(session.WindowChange(30, 100), tc.ErrorIsNil)
 	c.Assert(session.Wait(), tc.ErrorIsNil)
 	c.Check(stdout.String(), tc.Equals, "shell done\r\n")
 }
