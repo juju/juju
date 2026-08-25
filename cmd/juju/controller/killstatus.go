@@ -25,6 +25,14 @@ type ctrData struct {
 	TotalVolumeCount     int
 	TotalFilesystemCount int
 
+	// UnremovedModelCount is the number of hosted models still present
+	// in the controller, regardless of their life: a model remains
+	// present until the undertaker has destroyed its cloud resources
+	// (for example the model's namespace on Kubernetes) and removed it
+	// from the controller database. Unlike HostedModelCount, this
+	// includes models that are already dead.
+	UnremovedModelCount int
+
 	// Model contains controller model data
 	Model modelData
 }
@@ -59,8 +67,9 @@ func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, controlle
 			<-clock.After(wait)
 		}
 
-		// If we hit an error, status.HostedModelCount will be 0, the polling
-		// loop will stop and we'll go directly to destroying the model.
+		// If we hit an error, the model and machine counts will be 0,
+		// the polling loop will stop and we'll go directly to
+		// destroying the model.
 		envStatus, err := newData(ctx.Context, api, controllerModelUUID)
 		if err != nil {
 			ctx.Infof("Unable to get the controller summary from the API: %s.", err)
@@ -108,7 +117,8 @@ func newData(ctx context.Context, api destroyControllerAPI, controllerModelUUID 
 	var volumeCount int
 	var filesystemCount int
 	var modelsData []modelData
-	var aliveModelCount int
+	var hostedModelCount int
+	var unremovedModelCount int
 	var ctrModelData modelData
 	var applications []base.Application
 	for _, model := range status {
@@ -153,12 +163,13 @@ func newData(ctx context.Context, api destroyControllerAPI, controllerModelUUID 
 		if model.UUID == controllerModelUUID {
 			ctrModelData = modelData
 		} else {
+			unremovedModelCount++
 			if model.Life == life.Dead {
 				// Filter out dead, non-controller models.
 				continue
 			}
+			hostedModelCount++
 			modelsData = append(modelsData, modelData)
-			aliveModelCount++
 			applications = append(applications, model.Applications...)
 		}
 		hostedMachinesCount += model.HostedMachineCount
@@ -169,7 +180,8 @@ func newData(ctx context.Context, api destroyControllerAPI, controllerModelUUID 
 
 	ctrFinalStatus := ctrData{
 		UUID:                 controllerModelUUID,
-		HostedModelCount:     aliveModelCount,
+		HostedModelCount:     hostedModelCount,
+		UnremovedModelCount:  unremovedModelCount,
 		HostedMachineCount:   hostedMachinesCount,
 		ApplicationCount:     applicationsCount,
 		TotalVolumeCount:     volumeCount,
@@ -186,6 +198,16 @@ func newData(ctx context.Context, api destroyControllerAPI, controllerModelUUID 
 
 func hasUnreclaimedResources(env environmentStatus) bool {
 	return hasUnDeadModels(env.Models) ||
+		env.Controller.HostedMachineCount > 0
+}
+
+// hasUnremovedModels reports whether any hosted models are still present in
+// the controller, regardless of their life, or whether any hosted machines
+// remain. A model remains present until the undertaker has destroyed its
+// cloud resources (for example the model's namespace on Kubernetes) and
+// removed it from the controller database.
+func hasUnremovedModels(env environmentStatus) bool {
+	return env.Controller.UnremovedModelCount > 0 ||
 		env.Controller.HostedMachineCount > 0
 }
 
@@ -214,9 +236,23 @@ func s(n int) string {
 	return ""
 }
 
+// fmtCtrStatus returns a status line describing what kill-controller is
+// still waiting for. The model count only includes hosted models that
+// are not yet dead; kill-controller stops waiting once they are dead.
 func fmtCtrStatus(data ctrData) string {
-	modelNo := data.HostedModelCount
-	out := fmt.Sprintf("Waiting for %d model%s", modelNo, s(modelNo))
+	return fmtCtrWaitingStatus(data.HostedModelCount, data)
+}
+
+// fmtCtrRemovalStatus returns a status line describing what
+// destroy-controller is still waiting for. Unlike fmtCtrStatus, the
+// model count includes dead models that are still present, as
+// destroy-controller waits for those to be removed from the controller.
+func fmtCtrRemovalStatus(data ctrData) string {
+	return fmtCtrWaitingStatus(data.UnremovedModelCount, data)
+}
+
+func fmtCtrWaitingStatus(modelCount int, data ctrData) string {
+	out := fmt.Sprintf("Waiting for %d model%s", modelCount, s(modelCount))
 
 	if machineNo := data.HostedMachineCount; machineNo > 0 {
 		out += fmt.Sprintf(", %d machine%s", machineNo, s(machineNo))

@@ -16,4 +16,7 @@ test_smoke_k8s() {
 	test_deploy "${file}"
 
 	destroy_controller "test-smoke-k8s"
+
+	# This test destroys the controller and must run last.
+	test_destroy_controller "${file}"
 }
