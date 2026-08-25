@@ -52,6 +52,18 @@ func setupShellOrCommand(userSession ssh.Session, machineSession *gossh.Session)
 		return err
 	}
 
+	// Start the command or shell before forwarding window size changes, to avoid a
+	// race condition where the remote shell is not ready to receive window size changes.
+	var err error
+	if command := userSession.RawCommand(); command != "" {
+		err = machineSession.Start(command)
+	} else {
+		err = machineSession.Shell()
+	}
+	if err != nil {
+		return err
+	}
+
 	go func() {
 		for {
 			select {
@@ -66,9 +78,5 @@ func setupShellOrCommand(userSession ssh.Session, machineSession *gossh.Session)
 			}
 		}
 	}()
-
-	if command := userSession.RawCommand(); command != "" {
-		return machineSession.Start(command)
-	}
-	return machineSession.Shell()
+	return nil
 }
