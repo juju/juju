@@ -183,7 +183,7 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *tc.C) {
 
 			hooksCmd := NewDebugHooksCommandForTest(app, ssh, status, charmAPI, test.hostChecker, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
-			ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(hooksCmd), test.args...)
+			ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(hooksCmd), append([]string{"--direct"}, test.args...)...)
 			if test.error != "" {
 				c.Assert(err, tc.ErrorMatches, test.error)
 			} else {
@@ -212,7 +212,7 @@ func (s *DebugHooksSuite) TestDebugHooksArgFormatting(c *tc.C) {
 
 	hooksCmd := NewDebugHooksCommandForTest(app, ssh, status, charmAPI, s.hostChecker, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
-	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(hooksCmd), "mysql/0", "install", "start")
+	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(hooksCmd), "--direct", "mysql/0", "install", "start")
 	c.Check(err, tc.ErrorIsNil)
 	base64Regex := regexp.MustCompile("echo ([A-Za-z0-9+/]+=*) \\| base64")
 	c.Check(err, tc.ErrorIsNil)

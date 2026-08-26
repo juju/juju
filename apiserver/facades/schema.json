@@ -12572,7 +12572,7 @@
     {
         "Name": "SSHClient",
         "Description": "",
-        "Version": 5,
+        "Version": 6,
         "Schema": {
             "type": "object",
             "properties": {

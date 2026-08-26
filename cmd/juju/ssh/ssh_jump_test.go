@@ -39,6 +39,16 @@ func TestSSHJumpSuite(t *stdtesting.T) {
 	tc.Run(t, &sshJumpSuite{})
 }
 
+func (s *sshJumpSuite) TestCheckSSHJumpFacadeVersion(c *tc.C) {
+	c.Check(checkSSHJumpFacadeVersion(minSSHJumpFacadeVersion), tc.ErrorIsNil)
+	c.Check(checkSSHJumpFacadeVersion(minSSHJumpFacadeVersion+1), tc.ErrorIsNil)
+	c.Check(
+		checkSSHJumpFacadeVersion(minSSHJumpFacadeVersion-1),
+		tc.ErrorMatches,
+		`controller does not support SSH proxying; use the --direct flag to connect directly`,
+	)
+}
+
 func (s *sshJumpSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.sshAPIJump = mocks.NewMockSSHAPIJump(ctrl)

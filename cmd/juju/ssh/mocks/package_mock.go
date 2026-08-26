@@ -16,6 +16,8 @@ import (
 	time "time"
 
 	gomock "github.com/canonical/gomock/gomock"
+	names "github.com/juju/names/v6"
+
 	api "github.com/juju/juju/api"
 	application "github.com/juju/juju/api/client/application"
 	client "github.com/juju/juju/api/client/client"
@@ -27,7 +29,6 @@ import (
 	charm0 "github.com/juju/juju/domain/deployment/charm"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
 	params "github.com/juju/juju/rpc/params"
-	names "github.com/juju/names/v6"
 )
 
 // MockContext is a mock of Context interface.
@@ -454,6 +455,7 @@ type MockSSHAPIJump struct {
 // MockSSHAPIJumpMockRecorder is the mock recorder for MockSSHAPIJump.
 type MockSSHAPIJumpMockRecorder struct {
 	mock                          *MockSSHAPIJump
+	bestAPIVersionExpects         []*gomock.Call0_1[int]
 	closeExpects                  []*gomock.Call0_1[error]
 	publicHostKeyForTargetExpects []*gomock.Call2_2[context.Context, string, params.PublicSSHHostKeyResult, error]
 	virtualHostnameExpects        []*gomock.Call3_2[context.Context, string, *string, string, error]
@@ -470,6 +472,24 @@ func NewMockSSHAPIJump(ctrl *gomock.Controller) *MockSSHAPIJump {
 func (m *MockSSHAPIJump) EXPECT() *MockSSHAPIJumpMockRecorder {
 	return m.recorder
 }
+
+// BestAPIVersion mocks base method.
+func (m *MockSSHAPIJump) BestAPIVersion() int {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.bestAPIVersionExpects, m.ctrl, m, "BestAPIVersion")
+}
+
+// BestAPIVersion indicates an expected call of BestAPIVersion.
+func (mr *MockSSHAPIJumpMockRecorder) BestAPIVersion() *MockSSHAPIJumpBestAPIVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[int](mr.mock.ctrl.T, mr.mock, "BestAPIVersion")
+	mr.bestAPIVersionExpects = append(mr.bestAPIVersionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockSSHAPIJumpBestAPIVersionCall is the typed call wrapper for BestAPIVersion.
+type MockSSHAPIJumpBestAPIVersionCall = gomock.Call0_1[int]
 
 // Close mocks base method.
 func (m *MockSSHAPIJump) Close() error {

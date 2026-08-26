@@ -201,7 +201,7 @@ func (s *SSHSuite) TestSSHCommand(c *tc.C) {
 		ssh, app, status := s.setupModel(ctrl, t.expected.withProxy, false, nil, nil, target)
 		sshCmd := NewSSHCommandForTest(app, ssh, status, t.hostChecker, isTerminal, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
-		ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), t.args...)
+		ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), append([]string{"--direct"}, t.args...)...)
 		if t.expectedErr != "" {
 			c.Check(err, tc.ErrorMatches, t.expectedErr)
 		} else {
@@ -221,7 +221,7 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *tc.C) {
 	ssh, app, status := s.setupModel(ctrl, true, false, nil, nil, "0")
 	sshCmd := NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
-	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), "0")
+	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), "--direct", "0")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 	expectedArgs := argsSpec{
@@ -240,7 +240,7 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSHAddressMatch(c *tc.C) {
 	ssh, app, status := s.setupModel(ctrl, true, false, nil, nil, "0")
 	sshCmd := NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
-	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), "0")
+	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), "--direct", "0")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 	expectedArgs := argsSpec{
@@ -298,7 +298,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *tc.C, proxy bool) {
 	}, nil, "0")
 	sshCmd := NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), args...)
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), append([]string{"--direct"}, args...)...)
 	c.Assert(err, tc.ErrorMatches, `no .+ address\(es\)`)
 
 	if proxy {
@@ -319,7 +319,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *tc.C, proxy bool) {
 	}, nil, "0")
 	sshCmd = NewSSHCommandForTest(app, ssh, status, s.hostChecker, nil, baseTestingRetryStrategy, baseTestingRetryStrategy)
 	sshCmd.retryStrategy = retryStrategy
-	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), args...)
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(sshCmd), append([]string{"--direct"}, args...)...)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -373,7 +373,7 @@ func (s *SSHSuite) TestKeyFetchRetries(c *tc.C) {
 	ssh, app, status := s.setupModel(ctrl, false, false, nil, keysFunc, "1")
 	cmd := NewSSHCommandForTest(app, ssh, status, validAddresses("1.public"), isTerminal, baseTestingRetryStrategy, publicKeyRetry)
 
-	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), "1")
+	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), "--direct", "1")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 

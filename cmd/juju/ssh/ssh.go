@@ -52,6 +52,16 @@ a pseudo-terminal (pty) for the ssh session; otherwise a pty is allocated. This
 behavior can be overridden by explicitly specifying the behavior with
 ` + "`--pty=true`" + ` or ` + "`--pty=false`" + `.
 
+By default, the SSH connection is proxied through the controller's SSH server for the
+ability to audit log in the future. This requires port 17022 (by default) on the 
+controller machine to be open. Use the ` + "`--direct`" + ` option for Juju 3 controllers 
+and connect directly to the target. Note that new behaviour does not support connecting
+to nested containers running on machines as the legacy behaviour did.
+
+If using the` + "`--direct`" + `flag you can also use the ` + "`--proxy`" + ` flag
+to proxy the connection through the controller machine's OpenSSH server running on
+port 22 (by default).
+
 The SSH host keys of the target are verified. The ` + "`--no-host-key-checks`" + ` option
 can be used to disable these checks. Use of this option is not recommended as
 it opens up the possibility of a man-in-the-middle attack.
@@ -195,6 +205,7 @@ type sshCommand struct {
 	isTerminal  func(any) bool
 	pty         autoBoolValue
 	jump        bool
+	direct      bool
 
 	retryStrategy          retry.CallArgs
 	publicKeyRetryStrategy retry.CallArgs
@@ -204,8 +215,8 @@ func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.sshMachine.SetFlags(f)
 	c.sshContainer.SetFlags(f)
 	f.Var(&c.pty, "pty", "Enable pseudo-tty allocation")
-	f.BoolVar(&c.jump, "jump", false, "Proxy SSH through the Juju controller")
 	c.sshJump.SetFlags(f)
+	f.BoolVar(&c.direct, "direct", false, "Connect directly to the target (for Juju 3 controllers)")
 }
 
 func (c *sshCommand) Info() *cmd.Info {
@@ -228,8 +239,12 @@ func (c *sshCommand) Init(args []string) (err error) {
 	if c.modelType, err = c.ModelType(context.TODO()); err != nil {
 		return err
 	}
+
+	// Use jump by default, unless --direct is specified.
+	c.jump = !c.direct
+
 	if c.sshJump.showCommand && !c.jump {
-		return errors.New("--show-command requires --jump")
+		return errors.New("--show-command cannot be used with --direct")
 	}
 	// The jump provider is transparent to the model type. The container flag is
 	// registered by the embedded sshContainer, so propagate its value to the

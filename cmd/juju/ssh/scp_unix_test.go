@@ -224,7 +224,7 @@ func (s *SCPSuiteLegacy) TestSCPCommand(c *tc.C) {
 			ssh, app, status := s.setupModel(ctrl, test.expected.withProxy, test.noClose, nil, nil, test.targets...)
 			scpCmd := NewSCPCommandForTest(app, ssh, status, test.hostChecker, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
-			ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(scpCmd), test.args...)
+			ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(scpCmd), append([]string{"--direct"}, test.args...)...)
 			if test.error != "" {
 				c.Assert(err, tc.ErrorMatches, test.error, tc.Commentf("test %d", i))
 			} else {

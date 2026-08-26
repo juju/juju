@@ -38,6 +38,14 @@ type Facade struct {
 	controllerTag        names.ControllerTag
 }
 
+// FacadeV6 provides the SSH Client API facade version 6
+// which bumps the facade to create a separation between
+// the unfinished work from Juju 3 and the working variant
+// in Juju 4.
+type FacadeV6 struct {
+	*Facade
+}
+
 // FacadeV5 provides the SSH Client API facade version 5
 // which adds VirtualHostname.
 type FacadeV5 struct {

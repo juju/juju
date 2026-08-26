@@ -107,11 +107,15 @@ func NewSSHContainer(
 }
 
 func clientStore() jujuclient.ClientStore {
+	return clientStoreWithModelType(model.IAAS)
+}
+
+func clientStoreWithModelType(modelType model.ModelType) jujuclient.ClientStore {
 	store := jujuclienttesting.MinimalStore()
 	models := store.Models["arthur"]
 	models.Models["admin/controller"] = jujuclient.ModelDetails{
 		ModelUUID: uuid.MustNewUUID().String(),
-		ModelType: model.IAAS,
+		ModelType: modelType,
 	}
 	store.Models["arthur"] = models
 	store.Models["arthur"].CurrentModel = "controller"
