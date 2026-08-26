@@ -43,7 +43,7 @@ type ManifoldConfig struct {
 	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
 	NewWorker            func(ManagerConfig) (worker.Worker, error)
-	NewStore             func(database.DBGetter, logger.Logger) lease.Store
+	NewStore             func(database.DBGetter) lease.Store
 	NewSecretaryFinder   func(string) lease.SecretaryFinder
 }
 
@@ -115,7 +115,7 @@ func (s *manifoldState) start(ctx context.Context, getter dependency.Getter) (wo
 		tracer = coretrace.NoopTracer{}
 	}
 
-	store := s.config.NewStore(dbGetter, s.config.Logger)
+	store := s.config.NewStore(dbGetter)
 
 	controllerUUID := currentConfig.Controller().Id()
 	w, err := s.config.NewWorker(ManagerConfig{
@@ -170,7 +170,7 @@ func NewWorker(config ManagerConfig) (worker.Worker, error) {
 }
 
 // NewStore returns a new lease store based on the input config.
-func NewStore(dbGetter database.DBGetter, logger logger.Logger) lease.Store {
+func NewStore(dbGetter database.DBGetter) lease.Store {
 	factory := database.NewTxnRunnerFactoryForNamespace(dbGetter.GetDB, database.ControllerNS)
-	return service.NewService(state.NewState(factory, logger))
+	return service.NewService(state.NewState(factory))
 }
