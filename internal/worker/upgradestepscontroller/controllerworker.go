@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/upgrade"
 	jujuversion "github.com/juju/juju/core/version"
@@ -61,16 +62,31 @@ func NewControllerWorker(
 	logger logger.Logger,
 	clock clock.Clock,
 ) (worker.Worker, error) {
+	var tag names.Tag
+	var fromVersion semversion.Number
+	if agent != nil {
+		tag = agent.CurrentConfig().Tag()
+		fromVersion = agent.CurrentConfig().UpgradedToVersion()
+	} else {
+		// When agent is nil, the controller is running in standalone mode
+		// (e.g. CAAS split controller) without a machine agent. We set
+		// fromVersion to the current version so that AlreadyUpgraded()
+		// returns true, intentionally skipping all upgrade steps. The nil
+		// Agent field on BaseWorker is safe because AlreadyUpgraded() never
+		// dereferences it, and runUpgrades() is unreachable in this path.
+		tag = names.NewControllerAgentTag("0")
+		fromVersion = jujuversion.Current
+	}
 	return newControllerWorker(
 		&upgradesteps.BaseWorker{
 			Agent:               agent,
 			APICaller:           apiCaller,
-			Tag:                 agent.CurrentConfig().Tag(),
+			Tag:                 tag,
 			UpgradeCompleteLock: upgradeCompleteLock,
 			PreUpgradeSteps:     preUpgradeSteps,
 			PerformUpgradeSteps: performUpgradeSteps,
 			StatusSetter:        entity,
-			FromVersion:         agent.CurrentConfig().UpgradedToVersion(),
+			FromVersion:         fromVersion,
 			ToVersion:           jujuversion.Current,
 			Logger:              logger,
 			Clock:               clock,
