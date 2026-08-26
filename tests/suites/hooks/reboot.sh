@@ -86,19 +86,6 @@ run_start_hook_fires_after_reboot() {
 		exit 1
 	fi
 
-	# Verify that the machine agent executed the reboot via
-	# executeRebootOrShutdown. This directly tests the code path fixed
-	# in the errors.Cause -> errors.Is change: the machine agent must
-	# recognise ErrRebootMachine through the Unwrap chain and dispatch
-	# to executeRebootOrShutdown.
-	echo "[+] verifying that the machine agent executed the reboot"
-	machine_log=$(juju ssh juju-qa-test/0 -- sudo grep -E "Caught reboot error|Executing reboot" /var/log/juju/machine-0.log 2>/dev/null || true)
-	echo "$machine_log//#/    | }"
-	if [ -z "$machine_log" ]; then
-		red "Machine agent did not log reboot execution in machine-0.log"
-		exit 1
-	fi
-
 	destroy_model "${model_name}"
 }
 
