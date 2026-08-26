@@ -311,6 +311,92 @@ func (s *workerSuite) TestMetricsUsersAddIdempotent(c *tc.C) {
 	})
 }
 
+// TestMetricsUsersAddAlreadyExistsPasswordNotDestroyed verifies that when
+// AddUser returns UserAlreadyExists, the password passed to GetUserByAuth is
+// a fresh, non-destroyed instance. The real AddUser implementation hashes and
+// destroys the password via auth.HashPassword, so reusing the same password
+// instance would result in ErrPasswordDestroyed.
+func (s *workerSuite) TestMetricsUsersAddAlreadyExistsPasswordNotDestroyed(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, userCreator)).Return(coreuser.User{
+		UUID: coreuser.UUID("deadbeef"),
+	}, nil)
+	s.accessService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
+		Name:        s.metricsUserName,
+		DisplayName: "juju-metrics-r0",
+		Password:    new(auth.NewPassword("bar")),
+		CreatorUUID: coreuser.UUID("deadbeef"),
+		Permission: permission.AccessSpec{
+			Target: s.controllerModelID,
+			Access: permission.ReadAccess,
+		},
+	}).DoAndReturn(func(ctx context.Context, arg service.AddUserArg) (coreuser.UUID, []byte, error) {
+		// Simulate the real AddUser which hashes and destroys the password.
+		if arg.Password != nil {
+			arg.Password.Destroy()
+		}
+		return coreuser.UUID("foobar"), nil, usererrors.UserAlreadyExists
+	})
+	// GetUserByAuth must receive a fresh, non-destroyed password.
+	s.accessService.EXPECT().GetUserByAuth(gomock.Any(), s.metricsUserName, auth.NewPassword("bar")).Return(coreuser.User{
+		CreatorName: usertesting.GenNewName(c, userCreator),
+	}, nil)
+	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), s.metricsUserName, s.controllerModelID).Return(
+		permission.ReadAccess, nil,
+	)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/metrics-users",
+		body:       `{"username":"juju-metrics-r0","password":"bar"}`,
+		statusCode: http.StatusOK, // succeed as a no-op
+		response:   `.*created user \\\"juju-metrics-r0\\\".*`,
+	})
+}
+
+// TestMetricsUsersAddAlreadyExistsGetByAuthError verifies that when AddUser
+// returns UserAlreadyExists and the subsequent GetUserByAuth call fails, the
+// handler responds with HTTP 500 and surfaces the error from GetUserByAuth.
+func (s *workerSuite) TestMetricsUsersAddAlreadyExistsGetByAuthError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, userCreator)).Return(coreuser.User{
+		UUID: coreuser.UUID("deadbeef"),
+	}, nil)
+	s.accessService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
+		Name:        s.metricsUserName,
+		DisplayName: "juju-metrics-r0",
+		Password:    new(auth.NewPassword("bar")),
+		CreatorUUID: coreuser.UUID("deadbeef"),
+		Permission: permission.AccessSpec{
+			Target: s.controllerModelID,
+			Access: permission.ReadAccess,
+		},
+	}).Return(coreuser.UUID("foobar"), nil, usererrors.UserAlreadyExists)
+	s.accessService.EXPECT().GetUserByAuth(gomock.Any(), s.metricsUserName, auth.NewPassword("bar")).Return(
+		coreuser.User{}, errors.New("boom"),
+	)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/metrics-users",
+		body:       `{"username":"juju-metrics-r0","password":"bar"}`,
+		statusCode: http.StatusInternalServerError,
+		response:   `.*retrieving existing user.*`,
+	})
+}
+
 func (s *workerSuite) TestMetricsUsersRemoveInvalidMethod(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
