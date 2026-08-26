@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package migration_test
+package migration
 
 import (
 	"context"
@@ -10,7 +10,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
+	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/semversion"
@@ -27,7 +29,7 @@ import (
 	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
 	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
 	migrationmodelstate "github.com/juju/juju/domain/modelmigration/state/model"
-	"github.com/juju/juju/internal/migration"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -37,14 +39,14 @@ import (
 // activation clears, returning the model UUID and its deps.
 func (s *controllerImportSuite) importForActivation(
 	c *tc.C, modelAgentVersion string,
-) (coremodel.UUID, migration.Deps) {
+) coremodel.UUID {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
-	deps, _, _ := s.deps(c, modelUUID)
+	deps, _, _ := s.importer(c, modelUUID)
 
 	info := s.baseControllerModelInfo(modelUUID)
 	view := export.ProjectionView{AgentTargetVersion: jujuversion.Current}
-	err := migration.ImportControllerModelInfo(
-		c.Context(), deps, uuid.MustNewUUID().String(), info, view)
+	err := deps.importControllerModelInfo(
+		c.Context(), deps.scope(""), uuid.MustNewUUID().String(), info, view)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The model-DB content import (agent version, import gate) is a separate
@@ -74,11 +76,14 @@ func (s *controllerImportSuite) importForActivation(
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	return modelUUID, deps
+	return modelUUID
 }
 
 type activationDomainServicesGetter struct {
-	deps migration.Deps
+	controllerFactory coredatabase.TxnRunnerFactory
+	modelFactory      coredatabase.TxnRunnerFactory
+	clock             clock.Clock
+	logger            logger.Logger
 
 	// adopted records the source controller versions handed to the provider,
 	// so tests can assert whether - and in what state - resource adoption ran.
@@ -103,8 +108,8 @@ func (g activationDomainServicesGetter) ServicesForModel(
 ) (services.DomainServices, error) {
 	return activationDomainServices{
 		modelMigration: modelmigrationservice.NewWatchableService(
-			migrationclaimstate.New(g.deps.ControllerDB, g.deps.Clock),
-			migrationmodelstate.New(g.deps.ModelDB, modelUUID),
+			migrationclaimstate.New(g.controllerFactory, g.clock),
+			migrationmodelstate.New(g.modelFactory, modelUUID),
 			modelUUID.String(),
 			nil,
 			nil,
@@ -117,23 +122,23 @@ func (g activationDomainServicesGetter) ServicesForModel(
 			// Credential validation is driven separately by CheckMachines, so
 			// the activation path never reaches the validator.
 			nil,
-			g.deps.Clock,
-			g.deps.Logger,
+			g.clock,
+			g.logger,
 		),
 		model: modelservice.NewWatchableService(
-			modelstatecontroller.NewState(g.deps.ControllerDB),
+			modelstatecontroller.NewState(g.controllerFactory),
 			nil,
 			nil,
-			g.deps.Clock,
-			g.deps.Logger,
+			g.clock,
+			g.logger,
 		),
 		cmr: crossmodelrelationservice.NewWatchableService(
 			nil,
-			cmrmodelstate.NewState(g.deps.ModelDB, modelUUID, g.deps.Clock, g.deps.Logger),
+			cmrmodelstate.NewState(g.modelFactory, modelUUID, g.clock, g.logger),
 			nil,
 			nil,
-			g.deps.Clock,
-			g.deps.Logger,
+			g.clock,
+			g.logger,
 		),
 	}, nil
 }
@@ -158,20 +163,32 @@ func (s activationDomainServices) CrossModelRelation() *crossmodelrelationservic
 	return s.cmr
 }
 
-func (*controllerImportSuite) activateModel(
-	c *tc.C, deps migration.Deps, args migration.ActivateModelArgs,
+func (s *controllerImportSuite) activationGetter(
+	c *tc.C, modelUUID coremodel.UUID, adopted *[]semversion.Number,
+) activationDomainServicesGetter {
+	return activationDomainServicesGetter{
+		controllerFactory: s.TxnRunnerFactory(),
+		modelFactory:      s.modelFactory(c, modelUUID.String()),
+		clock:             clock.WallClock,
+		logger:            loggertesting.WrapCheckLog(c),
+		adopted:           adopted,
+	}
+}
+
+func (s *controllerImportSuite) activateModel(
+	c *tc.C, modelUUID coremodel.UUID, args ActivateModelArgs,
 ) error {
-	importer := migration.NewModelImporter(
+	importer := NewModelImporter(
 		func(coremodel.UUID) coremodelmigration.Scope {
 			return coremodelmigration.NewScope(
-				deps.ControllerDB, deps.ModelDB, nil, nil, args.ModelUUID,
+				s.TxnRunnerFactory(), s.modelFactory(c, modelUUID.String()), nil, nil, modelUUID,
 			)
 		},
-		activationDomainServicesGetter{deps: deps},
+		s.activationGetter(c, modelUUID, nil),
 		nil,
 		"",
-		deps.Logger,
-		deps.Clock,
+		loggertesting.WrapCheckLog(c),
+		clock.WallClock,
 	)
 	return importer.ActivateModel(c.Context(), args)
 }
@@ -219,9 +236,10 @@ func (s *controllerImportSuite) importClaimUUID(c *tc.C, modelUUID coremodel.UUI
 }
 
 func (s *controllerImportSuite) addActivationOffererForModel(
-	c *tc.C, deps migration.Deps, modelUUID coremodel.UUID, appName, offererModelUUID string,
+	c *tc.C, modelUUID coremodel.UUID, appName, offererModelUUID string,
 ) {
-	st := cmrmodelstate.NewState(deps.ModelDB, modelUUID, deps.Clock, deps.Logger)
+	st := cmrmodelstate.NewState(
+		s.modelFactory(c, modelUUID.String()), modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
 	err := st.AddRemoteApplicationOfferer(c.Context(), appName, crossmodelrelation.AddRemoteApplicationOffererArgs{
 		ApplicationUUID:       uuid.MustNewUUID().String(),
 		CharmUUID:             uuid.MustNewUUID().String(),
@@ -266,9 +284,9 @@ func (s *controllerImportSuite) activationOffererControllerUUID(
 // would arrive at a target that had already handed the model over, and the model
 // would be live on both controllers.
 func (s *controllerImportSuite) TestActivateModelLeavesModelAbortable(c *tc.C) {
-	modelUUID, deps := s.importForActivation(c, "1.0.0")
+	modelUUID := s.importForActivation(c, "1.0.0")
 
-	err := s.activateModel(c, deps, migration.ActivateModelArgs{
+	err := s.activateModel(c, modelUUID, ActivateModelArgs{
 		ModelUUID: modelUUID,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -291,10 +309,10 @@ func (s *controllerImportSuite) TestActivateModelLeavesModelAbortable(c *tc.C) {
 // deliberately did not: clear the gate, activate the model row and give up the
 // claim. Claim deletion is what actually releases the model, so it must be gone.
 func (s *controllerImportSuite) TestCommitActivationReleasesModel(c *tc.C) {
-	modelUUID, deps := s.importForActivation(c, "1.0.0")
+	modelUUID := s.importForActivation(c, "1.0.0")
 
-	c.Assert(s.activateModel(c, deps, migration.ActivateModelArgs{ModelUUID: modelUUID}), tc.ErrorIsNil)
-	commitErr, adopted := s.commitActivation(c, deps, modelUUID)
+	c.Assert(s.activateModel(c, modelUUID, ActivateModelArgs{ModelUUID: modelUUID}), tc.ErrorIsNil)
+	commitErr, adopted := s.commitActivation(c, modelUUID)
 	c.Assert(commitErr, tc.ErrorIsNil)
 
 	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
@@ -314,18 +332,18 @@ func (s *controllerImportSuite) TestCommitActivationReleasesModel(c *tc.C) {
 // after the claim is gone succeeds. The source cannot tell a lost reply from a
 // failure, so it will send this call again.
 func (s *controllerImportSuite) TestCommitActivationIsIdempotentAfterRelease(c *tc.C) {
-	modelUUID, deps := s.importForActivation(c, "1.0.0")
+	modelUUID := s.importForActivation(c, "1.0.0")
 
-	c.Assert(s.activateModel(c, deps, migration.ActivateModelArgs{ModelUUID: modelUUID}), tc.ErrorIsNil)
+	c.Assert(s.activateModel(c, modelUUID, ActivateModelArgs{ModelUUID: modelUUID}), tc.ErrorIsNil)
 
-	commitErr, adopted := s.commitActivation(c, deps, modelUUID)
+	commitErr, adopted := s.commitActivation(c, modelUUID)
 	c.Assert(commitErr, tc.ErrorIsNil)
 	c.Check(*adopted, tc.DeepEquals, []semversion.Number{sourceVersion})
 
 	// The retry finds no claim, confirms the model was already released, and
 	// re-runs the adoption alone - which is the point of retrying, since the
 	// lost reply may have been for a call whose adoption never completed.
-	retryErr, retryAdopted := s.commitActivation(c, deps, modelUUID)
+	retryErr, retryAdopted := s.commitActivation(c, modelUUID)
 	c.Assert(retryErr, tc.ErrorIsNil)
 	c.Check(*retryAdopted, tc.DeepEquals, []semversion.Number{sourceVersion})
 
@@ -336,7 +354,7 @@ func (s *controllerImportSuite) TestCommitActivationIsIdempotentAfterRelease(c *
 // never imported here is refused, rather than a missing claim being read as
 // "already done".
 func (s *controllerImportSuite) TestCommitActivationWithoutImportFails(c *tc.C) {
-	modelUUID, deps := s.importForActivation(c, "1.0.0")
+	modelUUID := s.importForActivation(c, "1.0.0")
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx,
@@ -346,7 +364,7 @@ func (s *controllerImportSuite) TestCommitActivationWithoutImportFails(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The model is neither activated nor ungated, so the predicates fail.
-	err, _ = s.commitActivation(c, deps, modelUUID)
+	err, _ = s.commitActivation(c, modelUUID)
 	c.Check(err, tc.ErrorMatches, ".*is not importing or activating.*")
 }
 
@@ -355,10 +373,10 @@ func (s *controllerImportSuite) TestCommitActivationWithoutImportFails(c *tc.C) 
 // migration that reached SUCCESS never drove an abort - so it fails loudly
 // rather than resurrecting a model whose cleanup is under way.
 func (s *controllerImportSuite) TestCommitActivationRefusesAbortingClaim(c *tc.C) {
-	modelUUID, deps := s.importForActivation(c, "1.0.0")
+	modelUUID := s.importForActivation(c, "1.0.0")
 	s.setClaimPhase(c, modelUUID, "aborting")
 
-	err, adopted := s.commitActivation(c, deps, modelUUID)
+	err, adopted := s.commitActivation(c, modelUUID)
 	c.Check(err, tc.ErrorMatches, ".*cannot commit activation, import is aborting.*")
 	// A refused commit must not re-tag anything: adoption runs only once the
 	// model has become this controller's, and this one has not.
@@ -370,12 +388,12 @@ func (s *controllerImportSuite) TestCommitActivationRefusesAbortingClaim(c *tc.C
 // source restarting in VALIDATION will do, and that repeating it still commits
 // nothing.
 func (s *controllerImportSuite) TestActivateModelIdempotent(c *tc.C) {
-	modelUUID, deps := s.importForActivation(c, "1.0.0")
+	modelUUID := s.importForActivation(c, "1.0.0")
 
-	err := s.activateModel(c, deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
+	err := s.activateModel(c, modelUUID, ActivateModelArgs{ModelUUID: modelUUID})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.activateModel(c, deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
+	err = s.activateModel(c, modelUUID, ActivateModelArgs{ModelUUID: modelUUID})
 	c.Assert(err, tc.ErrorIsNil)
 
 	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
@@ -388,13 +406,13 @@ func (s *controllerImportSuite) TestActivateModelIdempotent(c *tc.C) {
 // its transition is finished by a retry. The source retries AdoptResources until
 // it succeeds, so this is the ordinary recovery path.
 func (s *controllerImportSuite) TestCommitActivationResumesFromActivating(c *tc.C) {
-	modelUUID, deps := s.importForActivation(c, "1.0.0")
+	modelUUID := s.importForActivation(c, "1.0.0")
 
 	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
 	err := claimSt.SetImportPhaseActivating(c.Context(), modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	err, _ = s.commitActivation(c, deps, modelUUID)
+	err, _ = s.commitActivation(c, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.modelActivated(c, modelUUID), tc.IsTrue)
@@ -406,10 +424,10 @@ func (s *controllerImportSuite) TestCommitActivationResumesFromActivating(c *tc.
 // after the commit is a no-op success rather than an error. Failing it would
 // push a stale source to ABORT, which the target must then refuse.
 func (s *controllerImportSuite) TestActivateModelAfterCommitSucceeds(c *tc.C) {
-	modelUUID, deps := s.importForActivation(c, "1.0.0")
+	modelUUID := s.importForActivation(c, "1.0.0")
 	s.setClaimPhase(c, modelUUID, "activating")
 
-	err := s.activateModel(c, deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
+	err := s.activateModel(c, modelUUID, ActivateModelArgs{ModelUUID: modelUUID})
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -417,7 +435,7 @@ func (s *controllerImportSuite) TestActivateModelAfterCommitSucceeds(c *tc.C) {
 // if a future phase reaches activation before the driver knows how to handle
 // it, activation stops instead of falling through.
 func (s *controllerImportSuite) TestActivateModelUnexpectedImportPhase(c *tc.C) {
-	modelUUID, deps := s.importForActivation(c, "1.0.0")
+	modelUUID := s.importForActivation(c, "1.0.0")
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx,
@@ -433,7 +451,7 @@ func (s *controllerImportSuite) TestActivateModelUnexpectedImportPhase(c *tc.C) 
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.activateModel(c, deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
+	err = s.activateModel(c, modelUUID, ActivateModelArgs{ModelUUID: modelUUID})
 	c.Assert(err, tc.ErrorMatches, `model ".+": unexpected import claim phase "paused"`)
 	c.Check(s.modelActivated(c, modelUUID), tc.IsFalse)
 	c.Check(s.modelGateExists(c, modelUUID), tc.IsTrue)
@@ -443,21 +461,19 @@ func (s *controllerImportSuite) TestActivateModelUnexpectedImportPhase(c *tc.C) 
 // reconciliation branch end to end for both source-hosted and third-party
 // offerer models.
 func (s *controllerImportSuite) TestActivateModelReconcilesOffererControllers(c *tc.C) {
-	modelUUID, deps := s.importForActivation(c, "1.0.0")
+	modelUUID := s.importForActivation(c, "1.0.0")
 
 	sourceControllerUUID := uuid.MustNewUUID().String()
 	sourceOffererModelUUID := uuid.MustNewUUID().String()
 	thirdPartyControllerUUID := uuid.MustNewUUID().String()
 	thirdPartyOffererModelUUID := uuid.MustNewUUID().String()
 
-	s.addActivationOffererForModel(
-		c, deps, modelUUID, "source-offerer", sourceOffererModelUUID)
-	s.addActivationOffererForModel(
-		c, deps, modelUUID, "third-party-offerer", thirdPartyOffererModelUUID)
+	s.addActivationOffererForModel(c, modelUUID, "source-offerer", sourceOffererModelUUID)
+	s.addActivationOffererForModel(c, modelUUID, "third-party-offerer", thirdPartyOffererModelUUID)
 
 	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
 	claimUUID := s.importClaimUUID(c, modelUUID)
-	err := modelmigrationservice.NewImportService(claimSt, deps.Clock, deps.Logger).ImportExternalControllers(
+	err := modelmigrationservice.NewImportService(claimSt, clock.WallClock, loggertesting.WrapCheckLog(c)).ImportExternalControllers(
 		c.Context(), modelUUID, claimUUID,
 		[]coremodelmigration.ExternalController{{
 			UUID:           thirdPartyControllerUUID,
@@ -469,7 +485,7 @@ func (s *controllerImportSuite) TestActivateModelReconcilesOffererControllers(c 
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.activateModel(c, deps, migration.ActivateModelArgs{
+	err = s.activateModel(c, modelUUID, ActivateModelArgs{
 		ModelUUID:             modelUUID,
 		SourceControllerUUID:  sourceControllerUUID,
 		SourceControllerAlias: "source",
@@ -491,7 +507,7 @@ func (s *controllerImportSuite) TestActivateModelReconcilesOffererControllers(c 
 // TestActivateModelAborting verifies activation refuses to proceed when the
 // claim has already moved to the aborting phase, leaving the model unactivated.
 func (s *controllerImportSuite) TestActivateModelAborting(c *tc.C) {
-	modelUUID, deps := s.importForActivation(c, "1.0.0")
+	modelUUID := s.importForActivation(c, "1.0.0")
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx,
@@ -500,7 +516,7 @@ func (s *controllerImportSuite) TestActivateModelAborting(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.activateModel(c, deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
+	err = s.activateModel(c, modelUUID, ActivateModelArgs{ModelUUID: modelUUID})
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrActivationAborting)
 
 	c.Check(s.modelActivated(c, modelUUID), tc.IsFalse)
@@ -515,7 +531,7 @@ func (s *controllerImportSuite) TestActivateModelAborting(c *tc.C) {
 // legacy/v8 discriminator, and treating it as one silently put 3.6 and 4.0
 // sources on the wrong path.
 func (s *controllerImportSuite) TestActivateAndCommitWithLegacyClaimShape(c *tc.C) {
-	modelUUID, deps := s.importForActivation(c, "1.0.0")
+	modelUUID := s.importForActivation(c, "1.0.0")
 
 	// The claim a legacy import leaves behind carries no source migration
 	// identity of its own - it reuses its own UUID - but is otherwise identical.
@@ -525,12 +541,12 @@ func (s *controllerImportSuite) TestActivateAndCommitWithLegacyClaimShape(c *tc.
 	c.Assert(claim.Phase, tc.Equals, migrationdomain.ImportPhaseImporting)
 
 	// Preparation leaves it abortable, as for any other import.
-	c.Assert(s.activateModel(c, deps, migration.ActivateModelArgs{ModelUUID: modelUUID}), tc.ErrorIsNil)
+	c.Assert(s.activateModel(c, modelUUID, ActivateModelArgs{ModelUUID: modelUUID}), tc.ErrorIsNil)
 	c.Check(s.modelGateExists(c, modelUUID), tc.IsTrue)
 	c.Check(s.modelActivated(c, modelUUID), tc.IsFalse)
 
 	// The commit releases it.
-	commitErr, _ := s.commitActivation(c, deps, modelUUID)
+	commitErr, _ := s.commitActivation(c, modelUUID)
 	c.Assert(commitErr, tc.ErrorIsNil)
 	c.Check(s.modelActivated(c, modelUUID), tc.IsTrue)
 	c.Check(s.modelGateExists(c, modelUUID), tc.IsFalse)
@@ -558,19 +574,20 @@ var sourceVersion = semversion.MustParse("4.0.12")
 // commitActivation drives the commit half of activation, as the target's
 // AdoptResources call does, returning the source versions the provider was
 // asked to adopt with.
-func (*controllerImportSuite) commitActivation(
-	c *tc.C, deps migration.Deps, modelUUID coremodel.UUID,
+func (s *controllerImportSuite) commitActivation(
+	c *tc.C, modelUUID coremodel.UUID,
 ) (error, *[]semversion.Number) {
 	adopted := &[]semversion.Number{}
-	importer := migration.NewModelImporter(
+	importer := NewModelImporter(
 		func(coremodel.UUID) coremodelmigration.Scope {
-			return coremodelmigration.NewScope(deps.ControllerDB, deps.ModelDB, nil, nil, modelUUID)
+			return coremodelmigration.NewScope(
+				s.TxnRunnerFactory(), s.modelFactory(c, modelUUID.String()), nil, nil, modelUUID)
 		},
-		activationDomainServicesGetter{deps: deps, adopted: adopted},
+		s.activationGetter(c, modelUUID, adopted),
 		nil,
 		"",
-		deps.Logger,
-		deps.Clock,
+		loggertesting.WrapCheckLog(c),
+		clock.WallClock,
 	)
 	return importer.CommitActivation(c.Context(), modelUUID, sourceVersion), adopted
 }

@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package migration_test
+package migration
 
 import (
 	"context"
@@ -39,11 +39,10 @@ import (
 	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/uuid"
 )
 
-// controllerImportSuite exercises [migration.ImportControllerModelInfo] end-to-end
+// controllerImportSuite exercises [ModelImporter.importControllerModelInfo] end-to-end
 // against real controller and model databases: the decode, the claim, the
 // target-local bootstrap, and the controller-data import steps. It does not
 // exercise model-DB content import (Tasks 7-9) or activation (Task 10).
@@ -113,22 +112,31 @@ func (s *controllerImportSuite) SetUpTest(c *tc.C) {
 	modeltesting.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 }
 
-// deps returns the [migration.Deps] together with the controller/model
-// txn-runner factories backing it, so tests can build companion services
-// against the same databases.
-func (s *controllerImportSuite) deps(c *tc.C, modelUUID coremodel.UUID) (migration.Deps, coredatabase.TxnRunnerFactory, coredatabase.TxnRunnerFactory) {
-	controllerFactory := s.TxnRunnerFactory()
-	modelRunner := s.ModelTxnRunner(c, modelUUID.String())
-	modelFactory := func(context.Context) (coredatabase.TxnRunner, error) {
-		return modelRunner, nil
+// modelFactory adapts the suite's model txn runner into the factory shape a
+// migration scope expects.
+func (s *controllerImportSuite) modelFactory(c *tc.C, modelUUID string) coredatabase.TxnRunnerFactory {
+	runner := s.ModelTxnRunner(c, modelUUID)
+	return func(context.Context) (coredatabase.TxnRunner, error) {
+		return runner, nil
 	}
+}
 
-	return migration.Deps{
-		ControllerDB: controllerFactory,
-		ModelDB:      modelFactory,
-		Clock:        clock.WallClock,
-		Logger:       loggertesting.WrapCheckLog(c),
-	}, controllerFactory, modelFactory
+// importer returns a [ModelImporter] bound to this suite's controller and
+// model transactions, together with the underlying txn-runner factories for
+// building companion services.
+func (s *controllerImportSuite) importer(c *tc.C, modelUUID coremodel.UUID) (*ModelImporter, coredatabase.TxnRunnerFactory, coredatabase.TxnRunnerFactory) {
+	controllerFactory := s.TxnRunnerFactory()
+	modelFactory := s.modelFactory(c, modelUUID.String())
+
+	importer := NewModelImporter(
+		func(coremodel.UUID) coremodelmigration.Scope {
+			return coremodelmigration.NewScope(controllerFactory, modelFactory, nil, nil, "")
+		},
+		nil, nil, "",
+		loggertesting.WrapCheckLog(c),
+		clock.WallClock,
+	)
+	return importer, controllerFactory, modelFactory
 }
 
 func (s *controllerImportSuite) rowCount(c *tc.C, query string, args ...any) int {
@@ -153,7 +161,7 @@ func (s *controllerImportSuite) baseControllerModelInfo(modelUUID coremodel.UUID
 
 func (s *controllerImportSuite) TestImportModelHappyPath(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
-	deps, controllerFactory, _ := s.deps(c, modelUUID)
+	deps, controllerFactory, _ := s.importer(c, modelUUID)
 
 	bobLastLogin := time.Now().UTC().Truncate(time.Second)
 	offerUUID := uuid.MustNewUUID().String()
@@ -191,7 +199,7 @@ func (s *controllerImportSuite) TestImportModelHappyPath(c *tc.C) {
 
 	view := export.ProjectionView{AgentTargetVersion: jujuversion.Current}
 
-	err := migration.ImportControllerModelInfo(c.Context(), deps, sourceMigrationUUID, info, view)
+	err := deps.importControllerModelInfo(c.Context(), deps.scope(""), sourceMigrationUUID, info, view)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The claim must still be in the "importing" phase: activation is a
@@ -280,16 +288,16 @@ func (s *controllerImportSuite) TestImportModelHappyPath(c *tc.C) {
 // silently re-running (or corrupting) the first import's writes.
 func (s *controllerImportSuite) TestImportModelDuplicateClaim(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
-	deps, _, _ := s.deps(c, modelUUID)
+	deps, _, _ := s.importer(c, modelUUID)
 
 	sourceMigrationUUID := uuid.MustNewUUID().String()
 	info := s.baseControllerModelInfo(modelUUID)
 	view := export.ProjectionView{AgentTargetVersion: jujuversion.Current}
 
-	err := migration.ImportControllerModelInfo(c.Context(), deps, sourceMigrationUUID, info, view)
+	err := deps.importControllerModelInfo(c.Context(), deps.scope(""), sourceMigrationUUID, info, view)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = migration.ImportControllerModelInfo(c.Context(), deps, sourceMigrationUUID, info, view)
+	err = deps.importControllerModelInfo(c.Context(), deps.scope(""), sourceMigrationUUID, info, view)
 	c.Check(err, tc.ErrorIs, coreerrors.AlreadyExists)
 }
 
@@ -301,7 +309,7 @@ func (s *controllerImportSuite) TestImportModelDuplicateClaim(c *tc.C) {
 // anchor.
 func (s *controllerImportSuite) TestRemoveOnAbortImportCleansSuccessfulImport(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
-	deps, controllerFactory, _ := s.deps(c, modelUUID)
+	deps, controllerFactory, _ := s.importer(c, modelUUID)
 
 	sourceMigrationUUID := uuid.MustNewUUID().String()
 	offerUUID := uuid.MustNewUUID().String()
@@ -343,8 +351,8 @@ func (s *controllerImportSuite) TestRemoveOnAbortImportCleansSuccessfulImport(c 
 		{Stream: "released", Region: s.cloudName, Version: "22.04", Arch: "amd64", Source: "custom", Priority: 10, ImageID: "ami-1234"},
 	}
 
-	err := migration.ImportControllerModelInfo(
-		c.Context(), deps, sourceMigrationUUID, info,
+	err := deps.importControllerModelInfo(
+		c.Context(), deps.scope(""), sourceMigrationUUID, info,
 		export.ProjectionView{AgentTargetVersion: jujuversion.Current},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -434,12 +442,12 @@ func (s *controllerImportSuite) TestRemoveOnAbortImportCleansSuccessfulImport(c 
 	)
 	bobName := tc.Must1(c, coreuser.NewName, "bob@external")
 
-	args := migration.ImportModelArgs{
+	args := ImportModelArgs{
 		SourceMigrationUUID: sourceMigrationUUID,
 		ControllerModelInfo: info,
 	}
 	for attempt := 1; attempt <= 2; attempt++ {
-		err = migration.RemoveOnAbortImport(c.Context(), deps, args)
+		err = deps.removeOnAbortImport(c.Context(), deps.scope(""), args)
 		c.Assert(err, tc.ErrorIsNil)
 
 		for _, row := range importedRows {
@@ -495,14 +503,14 @@ func (s *controllerImportSuite) TestRemoveOnAbortImportCleansSuccessfulImport(c 
 // claim anchor was already removed.
 func (s *controllerImportSuite) TestRemoveOnAbortImportWithoutClaim(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
-	deps, _, _ := s.deps(c, modelUUID)
+	deps, _, _ := s.importer(c, modelUUID)
 
-	args := migration.ImportModelArgs{
+	args := ImportModelArgs{
 		SourceMigrationUUID: uuid.MustNewUUID().String(),
 		ControllerModelInfo: s.baseControllerModelInfo(modelUUID),
 	}
 	for attempt := 1; attempt <= 2; attempt++ {
-		err := migration.RemoveOnAbortImport(c.Context(), deps, args)
+		err := deps.removeOnAbortImport(c.Context(), deps.scope(""), args)
 		c.Assert(err, tc.ErrorIsNil, tc.Commentf("abort attempt %d", attempt))
 
 		c.Check(s.rowCount(c,
@@ -522,7 +530,7 @@ func (s *controllerImportSuite) TestRemoveOnAbortImportWithoutClaim(c *tc.C) {
 // the model row and every later write group were never created.
 func (s *controllerImportSuite) TestRemoveOnAbortImportAfterEarlyFailure(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
-	deps, controllerFactory, _ := s.deps(c, modelUUID)
+	deps, controllerFactory, _ := s.importer(c, modelUUID)
 
 	sourceMigrationUUID := uuid.MustNewUUID().String()
 	info := s.baseControllerModelInfo(modelUUID)
@@ -532,8 +540,8 @@ func (s *controllerImportSuite) TestRemoveOnAbortImportAfterEarlyFailure(c *tc.C
 		{Name: "not-a-valid-user!"},
 	}
 
-	err := migration.ImportControllerModelInfo(
-		c.Context(), deps, sourceMigrationUUID, info,
+	err := deps.importControllerModelInfo(
+		c.Context(), deps.scope(""), sourceMigrationUUID, info,
 		export.ProjectionView{AgentTargetVersion: jujuversion.Current},
 	)
 	c.Assert(err, tc.ErrorMatches, `.*invalid username.*`)
@@ -551,12 +559,12 @@ func (s *controllerImportSuite) TestRemoveOnAbortImportAfterEarlyFailure(c *tc.C
 		modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	args := migration.ImportModelArgs{
+	args := ImportModelArgs{
 		SourceMigrationUUID: sourceMigrationUUID,
 		ControllerModelInfo: info,
 	}
 	for attempt := 1; attempt <= 2; attempt++ {
-		err = migration.RemoveOnAbortImport(c.Context(), deps, args)
+		err = deps.removeOnAbortImport(c.Context(), deps.scope(""), args)
 		c.Assert(err, tc.ErrorIsNil, tc.Commentf("abort attempt %d", attempt))
 
 		c.Check(s.rowCount(c,
@@ -582,7 +590,7 @@ func (s *controllerImportSuite) TestRemoveOnAbortImportAfterEarlyFailure(c *tc.C
 // users do not create cleanup intent.
 func (s *controllerImportSuite) TestImportModelRecordsOfferIntentBeforePermissionFailure(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
-	deps, controllerFactory, _ := s.deps(c, modelUUID)
+	deps, controllerFactory, _ := s.importer(c, modelUUID)
 
 	sourceMigrationUUID := uuid.MustNewUUID().String()
 	activeOfferUUID := uuid.MustNewUUID().String()
@@ -599,8 +607,8 @@ func (s *controllerImportSuite) TestImportModelRecordsOfferIntentBeforePermissio
 		{ObjectType: "invalid", GrantOn: modelUUID.String(), SubjectName: "bob@external", Access: "read"},
 	}
 
-	err := migration.ImportControllerModelInfo(
-		c.Context(), deps, sourceMigrationUUID, info,
+	err := deps.importControllerModelInfo(
+		c.Context(), deps.scope(""), sourceMigrationUUID, info,
 		export.ProjectionView{AgentTargetVersion: jujuversion.Current},
 	)
 	c.Assert(err, tc.ErrorMatches, `.*unknown permission object type "invalid".*`)
@@ -620,7 +628,7 @@ func (s *controllerImportSuite) TestImportModelRecordsOfferIntentBeforePermissio
 		modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = migration.RemoveOnAbortImport(c.Context(), deps, migration.ImportModelArgs{
+	err = deps.removeOnAbortImport(c.Context(), deps.scope(""), ImportModelArgs{
 		SourceMigrationUUID: sourceMigrationUUID,
 		ControllerModelInfo: info,
 	})

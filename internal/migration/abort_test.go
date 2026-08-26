@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package migration_test
+package migration
 
 import (
 	"context"
@@ -24,7 +24,6 @@ import (
 	migrationclaimservice "github.com/juju/juju/domain/modelmigration/service"
 	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -73,9 +72,9 @@ func (s *controllerImportSuite) waitClaim(c *tc.C) waitAbortClaim {
 // importWithContent runs a full v8 controller-data import for a fresh model,
 // including an offer permission, and returns the model UUID, the offer UUID it
 // granted, and the deps used, for the abort tests to tear down.
-func (s *controllerImportSuite) importWithContent(c *tc.C) (coremodel.UUID, string, migration.Deps) {
+func (s *controllerImportSuite) importWithContent(c *tc.C) (coremodel.UUID, string, *ModelImporter) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
-	deps, _, _ := s.deps(c, modelUUID)
+	deps, _, _ := s.importer(c, modelUUID)
 
 	offerUUID := uuid.MustNewUUID().String()
 	info := s.baseControllerModelInfo(modelUUID)
@@ -99,7 +98,7 @@ func (s *controllerImportSuite) importWithContent(c *tc.C) (coremodel.UUID, stri
 	}
 
 	view := export.ProjectionView{AgentTargetVersion: jujuversion.Current}
-	err := migration.ImportControllerModelInfo(c.Context(), deps, uuid.MustNewUUID().String(), info, view)
+	err := deps.importControllerModelInfo(c.Context(), deps.scope(""), uuid.MustNewUUID().String(), info, view)
 	c.Assert(err, tc.ErrorIsNil)
 	return modelUUID, offerUUID, deps
 }
@@ -108,9 +107,9 @@ func (s *controllerImportSuite) importWithContent(c *tc.C) (coremodel.UUID, stri
 // a no-op success.
 func (s *controllerImportSuite) TestAbortModelImportNoClaim(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
-	deps, _, _ := s.deps(c, modelUUID)
+	deps, _, _ := s.importer(c, modelUUID)
 
-	err := migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
+	err := deps.abortModelImport(c.Context(), deps.scope(""), s.claimService(c), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -128,7 +127,7 @@ func (s *controllerImportSuite) TestAbortModelImportRemovesPartialImport(c *tc.C
 	c.Assert(s.rowCount(c,
 		"SELECT COUNT(*) FROM model_migration_import_offer WHERE offer_uuid = ?", offerUUID), tc.Equals, 1)
 
-	err := migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
+	err := deps.abortModelImport(c.Context(), deps.scope(""), s.claimService(c), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The claim survives, now in the aborting phase.
@@ -158,8 +157,8 @@ func (s *controllerImportSuite) TestAbortModelImportRemovesPartialImport(c *tc.C
 func (s *controllerImportSuite) TestAbortModelImportIdempotent(c *tc.C) {
 	modelUUID, _, deps := s.importWithContent(c)
 
-	c.Assert(migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID), tc.ErrorIsNil)
-	c.Assert(migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID), tc.ErrorIsNil)
+	c.Assert(deps.abortModelImport(c.Context(), deps.scope(""), s.claimService(c), modelUUID), tc.ErrorIsNil)
+	c.Assert(deps.abortModelImport(c.Context(), deps.scope(""), s.claimService(c), modelUUID), tc.ErrorIsNil)
 
 	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
 	claim, err := claimSt.GetImportClaim(c.Context(), modelUUID.String())
@@ -176,7 +175,7 @@ func (s *controllerImportSuite) TestAbortModelImportActivatingRefused(c *tc.C) {
 	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
 	c.Assert(claimSt.SetImportPhaseActivating(c.Context(), modelUUID.String()), tc.ErrorIsNil)
 
-	err := migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
+	err := deps.abortModelImport(c.Context(), deps.scope(""), s.claimService(c), modelUUID)
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrAbortActivating)
 
 	// The claim stays activating and the model identity row is untouched.
@@ -206,7 +205,7 @@ func (s *controllerImportSuite) TestAbortModelImportStandsAsideForLegacyRemoval(
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	err = migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
+	err = deps.abortModelImport(c.Context(), deps.scope(""), s.claimService(c), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Nothing was touched: the model row, claim and namespace registration all
@@ -248,7 +247,7 @@ END`)
 		c.Check(err, tc.ErrorIsNil)
 	}()
 
-	err = migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
+	err = deps.abortModelImport(c.Context(), deps.scope(""), s.claimService(c), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Legacy removal owns teardown, so v8 compensation and staging did not run.
@@ -263,7 +262,7 @@ END`)
 // shortWait is a tiny finalize-wait budget for the synchronous-finalize tests,
 // polling on the real wall clock so no background clock-advancing goroutine is
 // needed against the live dqlite transactions.
-var shortWait = migration.AbortFinalizeWait{Delay: time.Millisecond, MaxDuration: 50 * time.Millisecond}
+var shortWait = abortFinalizeWait{Delay: time.Millisecond, MaxDuration: 50 * time.Millisecond}
 
 // TestWaitAbortFinalized verifies that once the model database has been dropped
 // (staged deletion cleared, standing in for the undertaker), the synchronous
@@ -271,7 +270,7 @@ var shortWait = migration.AbortFinalizeWait{Delay: time.Millisecond, MaxDuration
 func (s *controllerImportSuite) TestWaitAbortFinalized(c *tc.C) {
 	modelUUID, _, deps := s.importWithContent(c)
 
-	err := migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
+	err := deps.abortModelImport(c.Context(), deps.scope(""), s.claimService(c), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Stand in for the undertaker's model-database deleter: clear the staged
@@ -283,7 +282,7 @@ func (s *controllerImportSuite) TestWaitAbortFinalized(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = migration.WaitAbortFinalized(c.Context(), deps, s.waitClaim(c), modelUUID, shortWait)
+	err = deps.waitAbortFinalized(c.Context(), s.waitClaim(c), modelUUID, shortWait)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The claim is gone, so the model UUID can be claimed by a fresh import.
@@ -296,9 +295,9 @@ func (s *controllerImportSuite) TestWaitAbortFinalized(c *tc.C) {
 // prior abort already finalized) is a no-op success.
 func (s *controllerImportSuite) TestWaitAbortFinalizedNoClaim(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
-	deps, _, _ := s.deps(c, modelUUID)
+	deps, _, _ := s.importer(c, modelUUID)
 
-	err := migration.WaitAbortFinalized(c.Context(), deps, s.waitClaim(c), modelUUID, shortWait)
+	err := deps.waitAbortFinalized(c.Context(), s.waitClaim(c), modelUUID, shortWait)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -309,12 +308,12 @@ func (s *controllerImportSuite) TestWaitAbortFinalizedNoClaim(c *tc.C) {
 func (s *controllerImportSuite) TestWaitAbortFinalizedPendingDropReturnsError(c *tc.C) {
 	modelUUID, _, deps := s.importWithContent(c)
 
-	err := migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
+	err := deps.abortModelImport(c.Context(), deps.scope(""), s.claimService(c), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The staged deletion row is left in place: the undertaker has not dropped
 	// the database yet, so finalization cannot prove cleanup complete.
-	err = migration.WaitAbortFinalized(c.Context(), deps, s.waitClaim(c), modelUUID, shortWait)
+	err = deps.waitAbortFinalized(c.Context(), s.waitClaim(c), modelUUID, shortWait)
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrAbortNotFinalizable)
 
 	// The claim survives in the aborting phase for the reconciler to complete.
@@ -329,15 +328,15 @@ func (s *controllerImportSuite) TestWaitAbortFinalizedPendingDropReturnsError(c 
 func (s *controllerImportSuite) TestWaitAbortFinalizedContextCancelled(c *tc.C) {
 	modelUUID, _, deps := s.importWithContent(c)
 
-	err := migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
+	err := deps.abortModelImport(c.Context(), deps.scope(""), s.claimService(c), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 	claim := s.waitClaim(c)
 	claim.afterFinalize = cancel
-	deps.Clock = testclock.NewClock(time.Now())
-	err = migration.WaitAbortFinalized(ctx, deps, claim, modelUUID, shortWait)
+	deps.clock = testclock.NewClock(time.Now())
+	err = deps.waitAbortFinalized(ctx, claim, modelUUID, shortWait)
 	c.Assert(err, tc.ErrorIs, context.Canceled)
 
 	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
@@ -351,13 +350,13 @@ func (s *controllerImportSuite) TestWaitAbortFinalizedContextCancelled(c *tc.C) 
 func (s *controllerImportSuite) TestWaitAbortFinalizedWatcherClosed(c *tc.C) {
 	modelUUID, _, deps := s.importWithContent(c)
 
-	err := migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
+	err := deps.abortModelImport(c.Context(), deps.scope(""), s.claimService(c), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	claim := s.waitClaim(c)
 	close(claim.changes)
-	deps.Clock = testclock.NewClock(time.Now())
-	err = migration.WaitAbortFinalized(c.Context(), deps, claim, modelUUID, shortWait)
+	deps.clock = testclock.NewClock(time.Now())
+	err = deps.waitAbortFinalized(c.Context(), claim, modelUUID, shortWait)
 	c.Assert(err, tc.ErrorMatches, `model database deletion watcher for model ".*" closed`)
 
 	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)

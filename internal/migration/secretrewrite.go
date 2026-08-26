@@ -24,14 +24,14 @@ import (
 // is a pre-insert payload rewrite (not a post-insert row update) because the
 // target backends are already resolvable at import time — unlike source-
 // controller CMR references, whose target values are only known at activation.
-func reconcileSecretBackendUUIDs(
+func (i *ModelImporter) reconcileSecretBackendUUIDs(
 	ctx context.Context,
-	deps deps,
+	scope coremodelmigration.Scope,
 	info coremodelmigration.ControllerModelInfo,
 	payload *latest.ModelExport,
 ) error {
 	secretBackend := secretbackendservice.NewService(
-		secretbackendstate.NewState(deps.ControllerDB, deps.Logger), deps.Logger,
+		secretbackendstate.NewState(scope.ControllerDB(), i.logger), i.logger,
 	)
 	revisionToTargetBackend, err := secretBackend.GetSecretBackendReferenceMapping(ctx, info.SecretBackendRefs)
 	if err != nil {
