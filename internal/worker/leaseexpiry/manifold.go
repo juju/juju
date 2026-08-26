@@ -15,8 +15,6 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
-	"github.com/juju/juju/domain/lease/service"
-	"github.com/juju/juju/domain/lease/state"
 	"github.com/juju/juju/internal/worker/trace"
 )
 
@@ -30,7 +28,7 @@ type ManifoldConfig struct {
 	Logger logger.Logger
 
 	NewWorker func(Config) (worker.Worker, error)
-	NewStore  func(database.DBGetter, logger.Logger) lease.ExpiryStore
+	NewStore  func(context.Context, database.DBGetter, logger.Logger) (lease.ExpiryStore, error)
 }
 
 // Validate checks that the config has all the required values.
@@ -81,7 +79,10 @@ func (c ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (wo
 		tracer = coretrace.NoopTracer{}
 	}
 
-	store := c.NewStore(dbGetter, c.Logger)
+	store, err := c.NewStore(ctx, dbGetter, c.Logger)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	w, err := NewWorker(Config{
 		Clock:  clk,
@@ -108,8 +109,20 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 	}
 }
 
-// NewStore returns a new lease store based on the input config.
-func NewStore(dbGetter database.DBGetter, logger logger.Logger) lease.ExpiryStore {
-	factory := database.NewTxnRunnerFactoryForNamespace(dbGetter.GetDB, database.ControllerNS)
-	return service.NewService(state.NewState(factory, logger))
+// NewStore returns a lease store that facilitates lease expiry.
+// Expiry operations are best-effort.
+func NewStore(ctx context.Context, dbGetter database.DBGetter, logger logger.Logger) (lease.ExpiryStore, error) {
+	db, err := dbGetter.GetDB(ctx, database.ControllerNS)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	noRetryDB, ok := db.(noRetryRunner)
+	if !ok {
+		return nil, errors.Errorf("database transaction runner %T does not support StdTxnNoRetry", db)
+	}
+	return &expiryStore{
+		db:     noRetryDB,
+		logger: logger,
+	}, nil
 }
