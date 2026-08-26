@@ -25,20 +25,18 @@ verify_model_network_tag() {
 verify_instance_network_tag() {
 	local network_tag="$1" sourceRange="$2"
 
-	# Ensure two items, one is api port, another for ssh server port
+	# Ensure the api port is open to the given source range
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"ec2")
 		sg="$(aws ec2 describe-security-groups --filters Name=group-name,Values="$network_tag")"
 		yq -r ".SecurityGroups[] |.IpPermissions[] | select(.FromPort == 17070) | .IpRanges[0].CidrIp" <<<"${sg}" | check "${sourceRange}"
-		yq -r ".SecurityGroups[] |.IpPermissions[] | select(.FromPort == 17022) | .IpRanges[0].CidrIp" <<<"${sg}" | check "${sourceRange}"
 		;;
 	"gce")
 		default_rule=$(gcloud compute firewall-rules list \
 			--filter="targetTags.list():${network_tag}" \
 			--format=json)
-		echo "${default_rule}" | yq -r '.[0].allowed[0].ports | length' | check "2"
-		echo "${default_rule}" | yq -r '.[0].allowed[0].ports[0]' | check "17022"
-		echo "${default_rule}" | yq -r '.[0].allowed[0].ports[1]' | check "17070"
+		echo "${default_rule}" | yq -r '.[0].allowed[0].ports | length' | check "1"
+		echo "${default_rule}" | yq -r '.[0].allowed[0].ports[0]' | check "17070"
 		echo "${default_rule}" | yq -r '.[0].sourceRanges[0]' | check "${sourceRange}"
 		;;
 	*)
