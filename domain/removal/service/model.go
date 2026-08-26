@@ -45,7 +45,8 @@ type ModelState interface {
 	// by the input model UUID, that is still alive. Returns the artifacts
 	// that are not dead while setting the model to not alive.
 	// If destroyStorage is nil and the model has persistent storage,
-	// [removalerrors.PersistentStorage] is returned and the model is not transitioned.
+	// [removalerrors.PersistentStorage] is returned and the model
+	// is not transitioned.
 	EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, destroyStorage *bool) (removal.ModelArtifacts, error)
 
 	// ModelScheduleRemoval schedules a removal job for the model with the
@@ -161,8 +162,9 @@ func (s *Service) removeModel(
 	// 4. Ensure the model is not alive in the model database and return any
 	//    non-dead artifacts that should have removal jobs.
 	// 5. Schedule the model removal job in the model database.
-	// 6. If there are any relations, units, machines, applications or storage
-	//    instances that are not dead, schedule their removal as well.
+	// 6. If there are any relations, units, machines, applications,
+	//    storage instances, filesystems, volumes or attachments that
+	//    are not dead, schedule their removal as well.
 
 	controllerModelExists, err := s.controllerState.ModelExists(ctx, modelUUID.String())
 	if err != nil {
@@ -260,8 +262,8 @@ func (s *Service) removeModel(
 	}
 
 	if len(artifacts.StorageInstanceUUIDs) > 0 {
-		s.logger.Infof(ctx, "model has storage instances %v, scheduling removal (obliterate=%v)", artifacts.StorageInstanceUUIDs, *destroyStorage)
-		s.removeStorageInstances(ctx, artifacts.StorageInstanceUUIDs, force, wait, *destroyStorage)
+		s.logger.Infof(ctx, "model has storage instances %v, scheduling removal (obliterate=%v)", artifacts.StorageInstanceUUIDs, obliterateStorage)
+		s.removeStorageInstances(ctx, artifacts.StorageInstanceUUIDs, force, wait, obliterateStorage)
 	}
 
 	if len(artifacts.StorageFilesystemUUIDs) > 0 {

@@ -199,7 +199,7 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeDetachedStorage(c *tc.C) {
 	var storageInstanceLife int
 	res := s.DB().QueryRow("SELECT life_id FROM storage_instance WHERE uuid = ?", siUUID)
 	c.Assert(res.Scan(&storageInstanceLife), tc.ErrorIsNil)
-	c.Check(storageInstanceLife, tc.Equals, 1)
+	c.Check(storageInstanceLife, tc.Equals, int(life.Dying))
 }
 
 func (s *modelSuite) TestEnsureModelNotAliveCascadeOrphanedFilesystemAndVolume(c *tc.C) {
@@ -219,10 +219,10 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeOrphanedFilesystemAndVolume(c
 	var fsLife, volLife int
 	res := s.DB().QueryRow("SELECT life_id FROM storage_filesystem WHERE uuid = ?", fsUUID)
 	c.Assert(res.Scan(&fsLife), tc.ErrorIsNil)
-	c.Check(fsLife, tc.Equals, 1)
+	c.Check(fsLife, tc.Equals, int(life.Dying))
 	res = s.DB().QueryRow("SELECT life_id FROM storage_volume WHERE uuid = ?", volUUID)
 	c.Assert(res.Scan(&volLife), tc.ErrorIsNil)
-	c.Check(volLife, tc.Equals, 1)
+	c.Check(volLife, tc.Equals, int(life.Dying))
 }
 
 func (s *modelSuite) TestEnsureModelNotAliveCascadeRefusesOrphanedStorageWhenNil(c *tc.C) {
@@ -239,6 +239,7 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeRefusesOrphanedStorageWhenNil
 
 func (s *modelSuite) TestEnsureModelNotAliveCascadeRefusesPersistentStorageWhenNil(c *tc.C) {
 	siUUID := s.addStorageInstance(c)
+	s.addModelProvisionedFilesystem(c)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	modelUUID := s.getModelUUID(c)
@@ -251,7 +252,7 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeRefusesPersistentStorageWhenN
 	var storageInstanceLife int
 	res := s.DB().QueryRow("SELECT life_id FROM storage_instance WHERE uuid = ?", siUUID)
 	c.Assert(res.Scan(&storageInstanceLife), tc.ErrorIsNil)
-	c.Check(storageInstanceLife, tc.Equals, 0)
+	c.Check(storageInstanceLife, tc.Equals, int(life.Alive))
 }
 
 func (s *modelSuite) TestEnsureModelNotAliveCascadeProceedsWhenDestroyStorageFalse(c *tc.C) {
@@ -269,7 +270,90 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeProceedsWhenDestroyStorageFal
 	var storageInstanceLife int
 	res := s.DB().QueryRow("SELECT life_id FROM storage_instance WHERE uuid = ?", siUUID)
 	c.Assert(res.Scan(&storageInstanceLife), tc.ErrorIsNil)
-	c.Check(storageInstanceLife, tc.Equals, 1)
+	c.Check(storageInstanceLife, tc.Equals, int(life.Dying))
+}
+
+// TestEnsureModelNotAliveCascadeProceedsWhenOnlyEphemeralVolumeAndNil
+// verifies that a model with only a non-persistent volume and no
+// filesystem can be destroyed without specifying destroyStorage,
+// because ephemeral volumes don't require explicit destroy/release.
+func (s *modelSuite) TestEnsureModelNotAliveCascadeProceedsWhenOnlyEphemeralVolumeAndNil(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	// Add an ephemeral (non-persistent) volume — no persistent flag.
+	volUUID := s.addEphemeralVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	modelUUID := s.getModelUUID(c)
+
+	// With nil destroyStorage, the cascade should proceed because
+	// the only volume is ephemeral (persistent = false).
+	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(artifacts.StorageInstanceUUIDs, tc.DeepEquals, []string{siUUID})
+	c.Check(artifacts.StorageVolumeUUIDs, tc.DeepEquals, []string{volUUID})
+
+	s.checkModelLife(c, modelUUID, life.Dying)
+}
+
+// TestEnsureModelNotAliveCascadeRetryReturnsDyingStorage verifies that
+// a second cascade call returns storage entities that are already Dying
+// (because the SELECT uses life_id < 2). This is the core invariant
+// that prevents the original hang: on retry, Dying storage must still
+// be returned so removal jobs get rescheduled.
+func (s *modelSuite) TestEnsureModelNotAliveCascadeRetryReturnsDyingStorage(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	fsUUID := s.addModelProvisionedFilesystem(c)
+	volUUID := s.addModelProvisionedVolume(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	modelUUID := s.getModelUUID(c)
+	destroyStorage := true
+
+	firstArtifacts, err := st.EnsureModelNotAliveCascade(
+		c.Context(), modelUUID, &destroyStorage,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(firstArtifacts.StorageInstanceUUIDs, tc.DeepEquals, []string{siUUID})
+	c.Check(firstArtifacts.StorageFilesystemUUIDs, tc.DeepEquals, []string{fsUUID})
+	c.Check(firstArtifacts.StorageVolumeUUIDs, tc.DeepEquals, []string{volUUID})
+
+	// Second call should return the same Dying artifacts.
+	secondArtifacts, err := st.EnsureModelNotAliveCascade(
+		c.Context(), modelUUID, &destroyStorage,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(secondArtifacts.StorageInstanceUUIDs, tc.DeepEquals, []string{siUUID})
+	c.Check(secondArtifacts.StorageFilesystemUUIDs, tc.DeepEquals, []string{fsUUID})
+	c.Check(secondArtifacts.StorageVolumeUUIDs, tc.DeepEquals, []string{volUUID})
+}
+
+// TestEnsureModelNotAliveCascadeStorageAttachment verifies that storage
+// attachments are transitioned to Dying and their UUIDs are returned
+// in ModelArtifacts.
+func (s *modelSuite) TestEnsureModelNotAliveCascadeStorageAttachment(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	saUUID := s.addStorageAttachment(c, siUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	modelUUID := s.getModelUUID(c)
+	destroyStorage := true
+
+	artifacts, err := st.EnsureModelNotAliveCascade(
+		c.Context(), modelUUID, &destroyStorage,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(artifacts.StorageAttachmentUUIDs, tc.DeepEquals, []string{saUUID})
+
+	// Verify the attachment is now Dying.
+	var attachmentLife int
+	res := s.DB().QueryRow(
+		"SELECT life_id FROM storage_attachment WHERE uuid = ?", saUUID,
+	)
+	c.Assert(res.Scan(&attachmentLife), tc.ErrorIsNil)
+	c.Check(attachmentLife, tc.Equals, int(life.Dying))
 }
 
 func (s *modelSuite) TestModelRemovalNormalSuccess(c *tc.C) {

@@ -1260,8 +1260,8 @@ func (s *baseSuite) addModelProvisionedVolume(c *tc.C) string {
 
 	volUUID := "some-vol-uuid"
 	_, err := s.DB().ExecContext(ctx,
-		"INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
-		volUUID, "some-vol", 0, 0,
+		"INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id, persistent) VALUES (?, ?, ?, ?, ?)",
+		volUUID, "some-vol", 0, 0, true,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.DB().ExecContext(ctx,
@@ -1599,4 +1599,61 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 	c.Assert(err, tc.ErrorIsNil)
 
 	return storageInstance
+}
+
+// addEphemeralVolume inserts a non-persistent storage volume.
+func (s *baseSuite) addEphemeralVolume(c *tc.C) string {
+	ctx := c.Context()
+
+	volUUID := "some-ephemeral-vol-uuid"
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id, persistent) VALUES (?, ?, ?, ?, ?)",
+		volUUID, "some-ephemeral-vol", 0, 0, false,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume_status (volume_uuid, status_id) VALUES (?, ?)",
+		volUUID, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return volUUID
+}
+
+// addStorageInstanceVolume links a storage instance to a storage volume.
+func (s *baseSuite) addStorageInstanceVolume(
+	c *tc.C, siUUID, volUUID string,
+) {
+	_, err := s.DB().Exec(`
+INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid)
+VALUES (?, ?)`, siUUID, volUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// addStorageInstanceFilesystem links a storage instance to a storage
+// filesystem.
+func (s *baseSuite) addStorageInstanceFilesystem(
+	c *tc.C, siUUID, fsUUID string,
+) {
+	_, err := s.DB().Exec(`
+INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid)
+VALUES (?, ?)`, siUUID, fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// addStorageAttachment inserts a storage attachment linking a storage
+// instance to a unit. It creates the unit and its dependencies.
+func (s *baseSuite) addStorageAttachment(c *tc.C, siUUID string) string {
+	ctx := c.Context()
+	charmUUID := s.addCharm(c)
+	unitUUID := s.addUnit(c, charmUUID)
+
+	saUUID := uuid.MustNewUUID().String()
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id) VALUES (?, ?, ?, ?)",
+		saUUID, siUUID, unitUUID, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return saUUID
 }

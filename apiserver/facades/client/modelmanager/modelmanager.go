@@ -831,6 +831,8 @@ func (m *ModelManagerAPI) DestroyModels(
 			return errors.Trace(err)
 		}
 		_, err = modelDomainServices.Removal().RemoveModel(ctx, mUUID, argForce, argMaxWait, destroyStorage)
+		// PersistentStorage mapping is mirrored in
+		// controller.ControllerAPI.DestroyController.
 		if errors.Is(err, removalerrors.PersistentStorage) {
 			return apiservererrors.ParamsErrorf(params.CodeHasPersistentStorage, "model %q has persistent storage", modelUUID)
 		}

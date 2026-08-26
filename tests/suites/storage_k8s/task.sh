@@ -26,6 +26,7 @@ test_storage_k8s() {
 
 		test_import_filesystem
 		test_force_import_filesystem
+		test_destroy_model_with_detached_storage
 		test_deploy_attach_storage
 		test_add_unit_attach_storage
 		test_add_unit_duplicate_pvc_exists

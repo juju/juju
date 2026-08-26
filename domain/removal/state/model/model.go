@@ -118,7 +118,8 @@ func (st *State) EnsureModelNotAlive(ctx context.Context, modelUUID string, forc
 // input model UUID, that is still alive. Returns the artifacts that were
 // not dead while setting the model to not alive.
 // If destroyStorage is nil and the model has persistent storage,
-// [removalerrors.PersistentStorage] is returned and the model is not transitioned.
+// [removalerrors.PersistentStorage] is returned and the model is
+// not transitioned.
 func (st *State) EnsureModelNotAliveCascade(
 	ctx context.Context, modelUUID string, destroyStorage *bool,
 ) (removal.ModelArtifacts, error) {
@@ -215,6 +216,22 @@ func (st *State) EnsureModelNotAliveCascade(
 		return removal.ModelArtifacts{}, errors.Errorf("preparing update storage attachments query: %w", err)
 	}
 
+	// persistentStorageStmt counts non-dead persistent storage in the model.
+	// Only storage_filesystem (always persistent in K8s) and
+	// storage_volume with persistent = true are checked. Ephemeral volumes
+	// do not require --destroy-storage or --release-storage to remove.
+	persistentStorageStmt, err := st.Prepare(`
+WITH counts AS (
+	SELECT COUNT(*) AS n FROM storage_filesystem WHERE life_id < 2
+	UNION ALL
+	SELECT COUNT(*) AS n FROM storage_volume WHERE persistent = true AND life_id < 2
+)
+SELECT SUM(n) AS &count.count FROM counts
+`, count{})
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing persistent storage count query: %w", err)
+	}
+
 	var (
 		units, apps, relations, machines     []entityUUID
 		storageInstances, storageFilesystems []entityUUID
@@ -227,11 +244,11 @@ func (st *State) EnsureModelNotAliveCascade(
 		storageVolumes, storageAttachments = nil, nil
 
 		if destroyStorage == nil {
-			hasStorage, err := st.hasPersistentStorage(ctx, tx)
-			if err != nil {
+			var persistentCount count
+			if err := tx.Query(ctx, persistentStorageStmt).Get(&persistentCount); err != nil {
 				return errors.Errorf("checking persistent storage: %w", err)
 			}
-			if hasStorage {
+			if persistentCount.Count > 0 {
 				return removalerrors.PersistentStorage
 			}
 		}
@@ -363,31 +380,6 @@ func (st *State) EnsureModelNotAliveCascade(
 	}
 
 	return artifacts, nil
-}
-
-func (st *State) hasPersistentStorage(ctx context.Context, tx *sqlair.TX) (bool, error) {
-	stmt, err := st.Prepare(`
-WITH counts AS (
-	SELECT COUNT(*) AS n FROM storage_instance WHERE life_id < 2
-	UNION ALL
-	SELECT COUNT(*) AS n FROM storage_filesystem WHERE life_id < 2
-	UNION ALL
-	SELECT COUNT(*) AS n FROM storage_volume WHERE life_id < 2
-	UNION ALL
-	SELECT COUNT(*) AS n FROM storage_attachment WHERE life_id < 2
-)
-SELECT SUM(n) AS &count.count FROM counts
-`, count{})
-	if err != nil {
-		return false, errors.Errorf("preparing persistent storage count query: %w", err)
-	}
-
-	var cnt count
-	if err := tx.Query(ctx, stmt).Get(&cnt); err != nil {
-		return false, errors.Errorf("running persistent storage count query: %w", err)
-	}
-
-	return cnt.Count > 0, nil
 }
 
 // ModelScheduleRemoval schedules the removal job for a model.
