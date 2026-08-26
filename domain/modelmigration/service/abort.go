@@ -1,0 +1,124 @@
+// Copyright 2026 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package service
+
+import (
+	"context"
+	"time"
+
+	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/domain/modelmigration"
+	"github.com/juju/juju/internal/errors"
+)
+
+// These methods are the controller-scoped pass-throughs the v8 abort driver
+// (internal/migration.AbortModelImport) and the abort reconciler call to tear
+// down a partially imported model. They mirror the activation-driver methods in
+// activate.go: input validation and tracing live here, the SQL lives in state.
+
+// SetImportPhaseAborting transitions the model's import claim from the
+// importing phase to the aborting phase. It is idempotent when the claim is
+// already aborting, and returns
+// [modelmigrationerrors.ErrAbortActivating] when the claim has crossed the
+// activation point of no return.
+func (s *Service) SetImportPhaseAborting(ctx context.Context, modelUUID coremodel.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := modelUUID.Validate(); err != nil {
+		return errors.Errorf("validating model uuid: %w", err)
+	}
+
+	return s.controllerState.SetImportPhaseAborting(
+		ctx, modelUUID.String(),
+		modelmigration.ImportPhaseImporting, modelmigration.ImportPhaseAborting,
+		s.clock.Now().UTC().Format(time.RFC3339),
+	)
+}
+
+// FinalizeAbortedImport deletes the model's import claim, its FK-dependent
+// companion rows, and its namespace registration once abort cleanup is provably
+// complete. It returns [modelmigrationerrors.ErrAbortNotFinalizable] when
+// cleanup is not yet provable, and is idempotent when no claim exists.
+func (s *Service) FinalizeAbortedImport(ctx context.Context, modelUUID coremodel.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := modelUUID.Validate(); err != nil {
+		return errors.Errorf("validating model uuid: %w", err)
+	}
+
+	return s.controllerState.FinalizeAbortedImport(ctx, modelUUID.String())
+}
+
+// StageAbortedModelDatabaseDeletion hands the aborted model's dqlite database
+// off to the undertaker's model-database deleter (removing its namespace
+// registration and staging the deletion), so the database is dropped out of
+// band before the claim is finalized. It is idempotent.
+func (s *Service) StageAbortedModelDatabaseDeletion(ctx context.Context, modelUUID coremodel.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := modelUUID.Validate(); err != nil {
+		return errors.Errorf("validating model uuid: %w", err)
+	}
+
+	return s.controllerState.StageAbortedModelDatabaseDeletion(ctx, modelUUID.String())
+}
+
+// IsModelNotAlive reports whether the model has left the alive state. It returns
+// a model-not-found error when the model does not exist.
+func (s *Service) IsModelNotAlive(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := modelUUID.Validate(); err != nil {
+		return false, errors.Errorf("validating model uuid: %w", err)
+	}
+
+	return s.controllerState.IsModelNotAlive(ctx, modelUUID.String())
+}
+
+// GetAllImportClaims returns a snapshot of every outstanding import claim, for
+// the abort reconciler to scan.
+func (s *Service) GetAllImportClaims(ctx context.Context) ([]modelmigration.ImportClaimStatus, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	rows, err := s.controllerState.GetAllImportClaims(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	claims := make([]modelmigration.ImportClaimStatus, 0, len(rows))
+	for _, row := range rows {
+		updatedAt, err := time.Parse(time.RFC3339, row.UpdatedAt)
+		if err != nil {
+			return nil, errors.Errorf(
+				"parsing import updated_at for model %q: %w", row.ModelUUID, err)
+		}
+		claims = append(claims, modelmigration.ImportClaimStatus{
+			ModelUUID:           row.ModelUUID,
+			SourceMigrationUUID: row.SourceMigrationUUID,
+			Phase:               modelmigration.ImportPhase(row.PhaseType),
+			UpdatedAt:           updatedAt,
+		})
+	}
+	return claims, nil
+}
+
+// IsImportNamespaceRegistered reports whether the model's dqlite namespace is
+// still registered, i.e. whether the model database may still need dropping
+// before abort finalization.
+func (s *Service) IsImportNamespaceRegistered(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := modelUUID.Validate(); err != nil {
+		return false, errors.Errorf("validating model uuid: %w", err)
+	}
+
+	return s.controllerState.IsImportNamespaceRegistered(ctx, modelUUID.String())
+}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/modelmigration"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -138,22 +139,41 @@ func (st *State) IsMigratingModel(ctx context.Context, mUUID string) (bool, erro
 	return isMigrating, nil
 }
 
-// MarkMigratingModelAsDead marks the migrating model with the input UUID as
-// dead. This doesn't check the current life state, as migrating models can be
-// either alive or dying. This will just force death.
-func (st *State) MarkMigratingModelAsDead(ctx context.Context, mUUID string) error {
+// MarkMigratingModelAsDead marks a migrating model as dead. An importing claim
+// is moved to aborting in the same transaction, while a claim already in a
+// later phase is left untouched: the model is being removed regardless, so its
+// claim bookkeeping no longer gates that. The operation is idempotent once the
+// model is dead.
+func (st *State) MarkMigratingModelAsDead(ctx context.Context, mUUID, updatedAt string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	modelUUID := entityUUID{UUID: mUUID}
-	updateStmt, err := st.Prepare(`
+	abort := migrationImportAbort{ModelUUID: mUUID, UpdatedAt: updatedAt}
+	markDeadStmt, err := st.Prepare(`
 UPDATE model
 SET    life_id = 2
 WHERE  uuid = $entityUUID.uuid`, modelUUID)
 	if err != nil {
 		return errors.Errorf("preparing migrating model life update: %w", err)
+	}
+	// Phase-type ids are resolved by name rather than numeric values.
+	claimToAbortingStmt, err := st.Prepare(`
+WITH aborting_phase AS (
+    SELECT id FROM model_migration_import_phase_type WHERE type = 'aborting'
+),
+importing_phase AS (
+    SELECT id FROM model_migration_import_phase_type WHERE type = 'importing'
+)
+UPDATE model_migration_import
+SET    phase_type_id = (SELECT id FROM aborting_phase),
+       updated_at    = $migrationImportAbort.updated_at
+WHERE  model_uuid = $migrationImportAbort.model_uuid
+AND    phase_type_id = (SELECT id FROM importing_phase)`, abort)
+	if err != nil {
+		return errors.Errorf("preparing import claim abort transition: %w", err)
 	}
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if l, err := st.getModelLife(ctx, tx, mUUID); err != nil {
@@ -162,17 +182,23 @@ WHERE  uuid = $entityUUID.uuid`, modelUUID)
 			return nil
 		}
 
-		if migrating, err := st.isModelMigrating(ctx, tx, mUUID); err != nil {
+		isMigrating, phase, err := st.migratingImportPhase(ctx, tx, mUUID)
+		if err != nil {
 			return errors.Errorf("checking if model is migrating: %w", err)
-		} else if !migrating {
+		}
+		if !isMigrating {
 			return errors.Errorf("model is not migrating")
 		}
 
-		err := tx.Query(ctx, updateStmt, modelUUID).Run()
-		if err != nil {
-			return errors.Errorf("marking migrating model as dead: %w", err)
+		if phase == string(modelmigration.ImportPhaseImporting) {
+			if err := tx.Query(ctx, claimToAbortingStmt, abort).Run(); err != nil {
+				return errors.Errorf("transitioning import claim to aborting: %w", err)
+			}
 		}
 
+		if err := tx.Query(ctx, markDeadStmt, modelUUID).Run(); err != nil {
+			return errors.Errorf("marking migrating model as dead: %w", err)
+		}
 		return nil
 	}))
 }
@@ -368,6 +394,29 @@ WHERE  model_uuid = $entityUUID.uuid;`, modelUUID, count{})
 	return result.Count > 0, nil
 }
 
+// migratingImportPhase returns the v8 import claim phase for the model, and
+// whether a claim exists at all.
+func (st *State) migratingImportPhase(ctx context.Context, tx *sqlair.TX, mUUID string) (isMigrating bool, phase string, err error) {
+	modelUUID := entityUUID{UUID: mUUID}
+	stmt, err := st.Prepare(`
+SELECT mmipt.type AS &migrationImportPhase.phase
+FROM   model_migration_import AS mmi
+JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
+WHERE  mmi.model_uuid = $entityUUID.uuid;`, modelUUID, migrationImportPhase{})
+	if err != nil {
+		return false, "", errors.Errorf("preparing migrating import phase query: %w", err)
+	}
+
+	var row migrationImportPhase
+	err = tx.Query(ctx, stmt, modelUUID).Get(&row)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, "", nil
+	} else if err != nil {
+		return false, "", errors.Errorf("running migrating import phase query: %w", err)
+	}
+	return true, row.Phase, nil
+}
+
 func (st *State) removeBasicModelData(ctx context.Context, tx *sqlair.TX, mUUID string) error {
 	modelUUIDRec := entityUUID{UUID: mUUID}
 
@@ -377,18 +426,14 @@ func (st *State) removeBasicModelData(ctx context.Context, tx *sqlair.TX, mUUID 
 		"DELETE FROM secret_backend_reference WHERE model_uuid = $entityUUID.uuid",
 		"DELETE FROM model_authorized_keys WHERE model_uuid = $entityUUID.uuid",
 		"DELETE FROM model_last_login WHERE model_uuid = $entityUUID.uuid",
-		// The two import companion tables are keyed by the import claim UUID
-		// and FK onto model_migration_import. They must be deleted before the
-		// claim row itself, otherwise the parent delete fails an enforced
-		// foreign-key constraint when an aborted v8 import had recorded offer
-		// permissions or external controllers.
 		`DELETE FROM model_migration_import_offer
 		 WHERE migration_uuid IN (
 		     SELECT uuid FROM model_migration_import WHERE model_uuid = $entityUUID.uuid)`,
 		`DELETE FROM model_migration_import_external_controller_model
 		 WHERE migration_uuid IN (
 		     SELECT uuid FROM model_migration_import WHERE model_uuid = $entityUUID.uuid)`,
-		"DELETE FROM model_migration_import WHERE model_uuid = $entityUUID.uuid",
+		`DELETE FROM model_migration_import
+		 WHERE model_uuid = $entityUUID.uuid`,
 	}
 
 	for _, table := range tables {

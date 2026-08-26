@@ -53,6 +53,15 @@ type Migration struct {
 	Target           TargetInfo
 }
 
+// ImportClaimStatus is the state-layer representation of an outstanding
+// target-side import claim.
+type ImportClaimStatus struct {
+	ModelUUID           string
+	SourceMigrationUUID string
+	PhaseType           string
+	UpdatedAt           string
+}
+
 // TargetInfo carries target connection details as persisted by state.
 type TargetInfo struct {
 	ControllerUUID  string

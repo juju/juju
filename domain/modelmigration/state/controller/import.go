@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	"github.com/canonical/sqlair"
 
@@ -48,14 +49,17 @@ func (s *State) BeginImport(
 		return modelmigration.ImportClaim{}, errors.Capture(err)
 	}
 
+	updatedAt := s.clock.Now().UTC()
 	claim := importClaimArg{
 		UUID:                claimUUID,
 		ModelUUID:           modelUUID,
 		SourceMigrationUUID: sourceMigrationUUID,
+		UpdatedAt:           updatedAt.Format(time.RFC3339),
 	}
 	stmt, err := s.Prepare(`
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
-VALUES ($importClaimArg.uuid, $importClaimArg.model_uuid, $importClaimArg.source_migration_uuid)
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at)
+VALUES ($importClaimArg.uuid, $importClaimArg.model_uuid,
+        $importClaimArg.source_migration_uuid, $importClaimArg.updated_at)
 `, claim)
 	if err != nil {
 		return modelmigration.ImportClaim{}, errors.Capture(err)
@@ -80,6 +84,7 @@ VALUES ($importClaimArg.uuid, $importClaimArg.model_uuid, $importClaimArg.source
 		result = modelmigration.ImportClaim{
 			SourceMigrationUUID: sourceMigrationUUID,
 			Phase:               modelmigration.ImportPhaseImporting,
+			UpdatedAt:           updatedAt,
 		}
 		return nil
 	})
@@ -218,18 +223,25 @@ func (s *State) SetImportPhaseActivating(ctx context.Context, modelUUID string) 
 		return errors.Capture(err)
 	}
 
-	mUUID := modelUUIDArg{ModelUUID: modelUUID}
-	phases := importPhaseNames{
-		Target: string(modelmigration.ImportPhaseActivating),
-		Source: string(modelmigration.ImportPhaseImporting),
+	update := importPhaseUpdate{
+		ModelUUID: modelUUID,
+		Target:    string(modelmigration.ImportPhaseActivating),
+		Source:    string(modelmigration.ImportPhaseImporting),
+		UpdatedAt: s.clock.Now().UTC().Format(time.RFC3339),
 	}
 	updateStmt, err := s.Prepare(`
+WITH target_phase AS (
+    SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseUpdate.target
+),
+source_phase AS (
+    SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseUpdate.source
+)
 UPDATE model_migration_import
-SET    phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseNames.target),
-       updated_at    = DATETIME('now', 'utc')
-WHERE  model_uuid = $modelUUIDArg.model_uuid
-AND    phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseNames.source)
-`, mUUID, phases)
+SET    phase_type_id = (SELECT id FROM target_phase),
+       updated_at    = $importPhaseUpdate.updated_at
+WHERE  model_uuid = $importPhaseUpdate.model_uuid
+AND    phase_type_id = (SELECT id FROM source_phase)
+`, update)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -248,7 +260,7 @@ AND    phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE t
 
 		// Phase is importing; CAS to activating.
 		var outcome sqlair.Outcome
-		if err := tx.Query(ctx, updateStmt, mUUID, phases).Get(&outcome); err != nil {
+		if err := tx.Query(ctx, updateStmt, update).Get(&outcome); err != nil {
 			return errors.Errorf("transitioning import to activating: %w", err)
 		}
 		affected, err := outcome.Result().RowsAffected()
@@ -280,17 +292,21 @@ func (s *State) DeleteActivatedImport(ctx context.Context, modelUUID string) err
 
 	mUUID := modelUUIDArg{ModelUUID: modelUUID}
 	deleteOffersStmt, err := s.Prepare(`
+WITH claim AS (
+    SELECT uuid FROM model_migration_import WHERE model_uuid = $modelUUIDArg.model_uuid
+)
 DELETE FROM model_migration_import_offer
-WHERE  migration_uuid IN (
-       SELECT uuid FROM model_migration_import WHERE model_uuid = $modelUUIDArg.model_uuid)
+WHERE  migration_uuid IN (SELECT uuid FROM claim)
 	`, mUUID)
 	if err != nil {
 		return errors.Capture(err)
 	}
 	deleteECMStmt, err := s.Prepare(`
+WITH claim AS (
+    SELECT uuid FROM model_migration_import WHERE model_uuid = $modelUUIDArg.model_uuid
+)
 DELETE FROM model_migration_import_external_controller_model
-WHERE  migration_uuid IN (
-       SELECT uuid FROM model_migration_import WHERE model_uuid = $modelUUIDArg.model_uuid)
+WHERE  migration_uuid IN (SELECT uuid FROM claim)
 	`, mUUID)
 	if err != nil {
 		return errors.Capture(err)
@@ -508,7 +524,7 @@ INSERT INTO external_model (*) VALUES ($externalModelArg.*)
 // records each (offerer_model_uuid, controller_uuid) pair into
 // model_migration_import_external_controller_model -- the durable handoff
 // Activate reads to reconcile offerer-controller mappings even after a
-// controller restart (WS9/WS4.1).
+// controller restart.
 func (s *State) ImportExternalControllers(
 	ctx context.Context, modelUUID, claimUUID string, refs []modelmigrationinternal.ExternalController,
 ) error {

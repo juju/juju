@@ -40,7 +40,7 @@ type MockControllerDBStateMockRecorder struct {
 	getModelLifeExpects                       []*gomock.Call2_2[context.Context, string, life.Life, error]
 	getModelUUIDsExpects                      []*gomock.Call1_2[context.Context, []string, error]
 	isMigratingModelExpects                   []*gomock.Call2_2[context.Context, string, bool, error]
-	markMigratingModelAsDeadExpects           []*gomock.Call2_1[context.Context, string, error]
+	markMigratingModelAsDeadExpects           []*gomock.Call3_1[context.Context, string, string, error]
 	markModelAsDeadExpects                    []*gomock.Call2_1[context.Context, string, error]
 	modelExistsExpects                        []*gomock.Call2_2[context.Context, string, bool, error]
 	removeSecretBackendReferenceExpects       []*gomock.Call1V_1[context.Context, string, error]
@@ -185,22 +185,22 @@ func (mr *MockControllerDBStateMockRecorder) IsMigratingModel(ctx, modelUUID any
 type MockControllerDBStateIsMigratingModelCall = gomock.Call2_2[context.Context, string, bool, error]
 
 // MarkMigratingModelAsDead mocks base method.
-func (m *MockControllerDBState) MarkMigratingModelAsDead(ctx context.Context, modelUUID string) error {
+func (m *MockControllerDBState) MarkMigratingModelAsDead(ctx context.Context, modelUUID, updatedAt string) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.markMigratingModelAsDeadExpects, m.ctrl, m, "MarkMigratingModelAsDead", ctx, modelUUID)
+	return gomock.Dispatch3_1(&m.recorder.markMigratingModelAsDeadExpects, m.ctrl, m, "MarkMigratingModelAsDead", ctx, modelUUID, updatedAt)
 }
 
 // MarkMigratingModelAsDead indicates an expected call of MarkMigratingModelAsDead.
-func (mr *MockControllerDBStateMockRecorder) MarkMigratingModelAsDead(ctx, modelUUID any) *MockControllerDBStateMarkMigratingModelAsDeadCall {
+func (mr *MockControllerDBStateMockRecorder) MarkMigratingModelAsDead(ctx, modelUUID, updatedAt any) *MockControllerDBStateMarkMigratingModelAsDeadCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "MarkMigratingModelAsDead", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	call := gomock.NewCall3_1[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "MarkMigratingModelAsDead", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(updatedAt))
 	mr.markMigratingModelAsDeadExpects = append(mr.markMigratingModelAsDeadExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockControllerDBStateMarkMigratingModelAsDeadCall is the typed call wrapper for MarkMigratingModelAsDead.
-type MockControllerDBStateMarkMigratingModelAsDeadCall = gomock.Call2_1[context.Context, string, error]
+type MockControllerDBStateMarkMigratingModelAsDeadCall = gomock.Call3_1[context.Context, string, string, error]
 
 // MarkModelAsDead mocks base method.
 func (m *MockControllerDBState) MarkModelAsDead(ctx context.Context, modelUUID string) error {

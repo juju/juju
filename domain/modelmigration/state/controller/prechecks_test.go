@@ -118,7 +118,7 @@ func (s *stateSuite) TestCheckImportModelCollision(c *tc.C) {
 	c.Check(collision.ModelNameExists, tc.IsTrue)
 
 	_, err = db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at) VALUES (?, ?, ?, '2026-01-02T03:04:05Z')",
 		uuid.MustNewUUID().String(), s.modelUUID, uuid.MustNewUUID().String())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -143,7 +143,7 @@ func (s *stateSuite) TestGetImportClaim(c *tc.C) {
 	migratingUUID := uuid.MustNewUUID().String()
 	sourceMigrationUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at) VALUES (?, ?, ?, '2026-01-02T03:04:05Z')",
 		migratingUUID, s.modelUUID, sourceMigrationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 

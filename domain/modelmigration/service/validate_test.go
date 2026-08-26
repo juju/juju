@@ -5,6 +5,7 @@ package service
 
 import (
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/semversion"
@@ -28,6 +29,7 @@ func (s *serviceSuite) TestMissingAgentBinaryArchitecturesCAAS(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).MissingAgentBinaryArchitectures(c.Context(), "4.0.1")
 	c.Assert(err, tc.ErrorIsNil)
@@ -73,6 +75,7 @@ func (s *serviceSuite) TestValidateImportedModelRejectsUnitNotInRelation(c *tc.C
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).ValidateImportedModel(c.Context())
 	c.Assert(err, tc.ErrorMatches, `.*unit wordpress/1 hasn't joined relation "wordpress:db mysql:db" yet.*`)
@@ -116,6 +119,7 @@ func (s *serviceSuite) TestValidateImportedModelRelationValidationPasses(c *tc.C
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).ValidateImportedModel(c.Context())
 	c.Check(err, tc.ErrorIsNil)
@@ -148,6 +152,7 @@ func (s *serviceSuite) TestMissingAgentBinaryArchitecturesReportsMissing(c *tc.C
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).MissingAgentBinaryArchitectures(c.Context(), desiredVersion)
 	c.Assert(err, tc.ErrorIsNil)
@@ -175,6 +180,7 @@ func (s *serviceSuite) TestValidateImportedModelRejectsUnknownSecretBackend(c *t
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).ValidateImportedModel(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*secret backend.*source-backend-uuid.*do not exist.*")
@@ -202,6 +208,7 @@ func (s *serviceSuite) TestValidateImportedModelRejectsMissingBackendReference(c
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).ValidateImportedModel(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*missing secret backend references.*rev-1.*")
@@ -230,6 +237,7 @@ func (s *serviceSuite) TestValidateImportedModelRejectsMismatchedBackendReferenc
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).ValidateImportedModel(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*do not match the secret value refs.*rev-1.*")
@@ -293,6 +301,7 @@ func (s *serviceSuite) TestValidateImportedModelSubordinateOnOtherPrincipalPasse
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).ValidateImportedModel(c.Context())
 	c.Check(err, tc.ErrorIsNil)
@@ -336,6 +345,7 @@ func (s *serviceSuite) TestValidateImportedModelRejectsSubordinateNotInOwnRelati
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).ValidateImportedModel(c.Context())
 	c.Assert(err, tc.ErrorMatches, `.*unit nrpe/0 hasn't joined relation "nrpe:general-info ubuntu:juju-info" yet.*`)

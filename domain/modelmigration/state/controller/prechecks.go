@@ -304,7 +304,7 @@ func (s *State) getImportClaim(
 	stmt, err := s.Prepare(`
 SELECT mmi.source_migration_uuid AS &importClaimRow.source_migration_uuid,
        mmipt.type AS &importClaimRow.phase_type,
-       strftime('%Y-%m-%dT%H:%M:%fZ', mmi.updated_at) AS &importClaimRow.updated_at
+	       mmi.updated_at AS &importClaimRow.updated_at
 FROM   model_migration_import AS mmi
 JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
 WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid

@@ -26,7 +26,7 @@ import (
 // controller CMR references, whose target values are only known at activation.
 func reconcileSecretBackendUUIDs(
 	ctx context.Context,
-	deps Deps,
+	deps deps,
 	info coremodelmigration.ControllerModelInfo,
 	payload *latest.ModelExport,
 ) error {

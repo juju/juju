@@ -30,6 +30,12 @@ type importClaimKey struct {
 	ClaimUUID string `db:"claim_uuid"`
 }
 
+// modelLifeRow projects a model row's life id (see
+// [github.com/juju/juju/domain/life]).
+type modelLifeRow struct {
+	LifeID int `db:"life_id"`
+}
+
 // migrationUUIDArg is a query argument holding a migration uuid (the export
 // migration's primary key, referenced as migration_uuid by child tables).
 type migrationUUIDArg struct {
@@ -143,6 +149,17 @@ type addressValue struct {
 // countResult holds a COUNT(*) projection.
 type countResult struct {
 	Count int `db:"count"`
+}
+
+// abortFinalizeChecks projects the three existence predicates
+// FinalizeAbortedImport asserts in a single round trip before releasing an
+// aborted import claim: the controller model identity row, its
+// model_namespace mapping, and any still-staged model_database_deletion for
+// the model's namespace.
+type abortFinalizeChecks struct {
+	ModelExists     bool `db:"model_exists"`
+	NamespaceExists bool `db:"namespace_exists"`
+	DeletionStaged  bool `db:"deletion_staged"`
 }
 
 // cloudImageRow is a custom cloud_image_metadata row with its architecture
@@ -343,8 +360,6 @@ type credentialRevoked struct {
 }
 
 // importClaimRow maps a model_migration_import row joined to its phase type.
-// UpdatedAt is read as text because model_migration_import.updated_at is a
-// TEXT column; the query canonicalises it to RFC3339 via strftime.
 type importClaimRow struct {
 	SourceMigrationUUID string `db:"source_migration_uuid"`
 	PhaseType           string `db:"phase_type"`
@@ -358,6 +373,7 @@ type importClaimArg struct {
 	UUID                string `db:"uuid"`
 	ModelUUID           string `db:"model_uuid"`
 	SourceMigrationUUID string `db:"source_migration_uuid"`
+	UpdatedAt           string `db:"updated_at"`
 }
 
 // importPhaseRow projects only the phase type of a model_migration_import
@@ -367,12 +383,27 @@ type importPhaseRow struct {
 	PhaseType string `db:"phase_type"`
 }
 
-// importPhaseNames binds the source and target phase names of a claim phase
-// transition, so the phase-type IDs are resolved by name from
-// model_migration_import_phase_type rather than inlined as SQL literals.
-type importPhaseNames struct {
-	Target string `db:"target"`
-	Source string `db:"source"`
+// importClaimStatusRow maps a full model_migration_import row (including its
+// model UUID) joined to its phase type.
+type importClaimStatusRow struct {
+	ModelUUID           string `db:"model_uuid"`
+	SourceMigrationUUID string `db:"source_migration_uuid"`
+	PhaseType           string `db:"phase_type"`
+	UpdatedAt           string `db:"updated_at"`
+}
+
+// namespaceArg binds a dqlite namespace name (a model UUID) for existence
+// reads against namespace_list.
+type namespaceArg struct {
+	Namespace string `db:"namespace"`
+}
+
+// importPhaseUpdate contains the values for an import phase transition.
+type importPhaseUpdate struct {
+	ModelUUID string `db:"model_uuid"`
+	Target    string `db:"target"`
+	Source    string `db:"source"`
+	UpdatedAt string `db:"updated_at"`
 }
 
 // importOfferArg is the insert argument for a model_migration_import_offer

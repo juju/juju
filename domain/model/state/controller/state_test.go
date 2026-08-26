@@ -2190,8 +2190,8 @@ func (m *stateSuite) TestCheckModelExistsNotActivated(c *tc.C) {
 
 	err = m.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
-VALUES (?, ?, ?)`, uuid.MustNewUUID().String(), modelUUID.String(), uuid.MustNewUUID().String())
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at)
+VALUES (?, ?, ?, '2026-01-02T03:04:05Z')`, uuid.MustNewUUID().String(), modelUUID.String(), uuid.MustNewUUID().String())
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2221,8 +2221,8 @@ func (m *stateSuite) TestGetModelConnectionInfoActivatedImporting(c *tc.C) {
 
 	err := m.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
-VALUES (?, ?, ?)`, uuid.MustNewUUID().String(), m.uuid.String(), uuid.MustNewUUID().String())
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at)
+VALUES (?, ?, ?, '2026-01-02T03:04:05Z')`, uuid.MustNewUUID().String(), m.uuid.String(), uuid.MustNewUUID().String())
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

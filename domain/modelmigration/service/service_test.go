@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
@@ -70,6 +71,7 @@ func (s *serviceSuite) TestAdoptResources(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
@@ -98,6 +100,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *tc.C) {
 		s.instanceProviderGetter(c),
 		resourceGetter,
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
@@ -127,6 +130,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
@@ -161,6 +165,7 @@ func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -196,6 +201,7 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -245,6 +251,7 @@ func (s *serviceSuite) TestWatchForMigration(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 	w, err := svc.WatchForMigration(c.Context())
@@ -276,6 +283,7 @@ func (s *serviceSuite) TestWatchForMigrationError(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 	_, err := svc.WatchForMigration(c.Context())
@@ -357,6 +365,7 @@ func (s *serviceSuite) service(c *tc.C) *Service {
 		func(context.Context) (InstanceProvider, error) { return s.instanceProvider, nil },
 		func(context.Context) (ResourceProvider, error) { return s.resourceProvider, nil },
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 }
@@ -371,6 +380,7 @@ func (s *serviceSuite) watchableService(c *tc.C) *WatchableService {
 		func(context.Context) (InstanceProvider, error) { return s.instanceProvider, nil },
 		func(context.Context) (ResourceProvider, error) { return s.resourceProvider, nil },
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 }

@@ -17,3 +17,15 @@ type entityLife struct {
 type count struct {
 	Count int `db:"count"`
 }
+
+// migrationImportPhase projects the phase name of a model_migration_import
+// claim (importing, activating or aborting).
+type migrationImportPhase struct {
+	Phase string `db:"phase"`
+}
+
+// migrationImportAbort contains the values for aborting an import claim.
+type migrationImportAbort struct {
+	ModelUUID string `db:"model_uuid"`
+	UpdatedAt string `db:"updated_at"`
+}
