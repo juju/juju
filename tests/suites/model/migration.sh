@@ -105,7 +105,10 @@ run_model_migration_abort() {
 	add_wrench_die_in_export
 
 	juju model-config -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:controller" "logging-config=#migration=DEBUG"
-	juju migrate "model-migration-abort" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	if ! juju migrate "model-migration-abort" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"; then
+		red 'Failed: juju migrate command failed'
+		exit 1
+	fi
 
 	# Wait for the abort to run to completion on the source controller. The
 	# imported model never activates on the target (the wrench fires during
@@ -113,6 +116,10 @@ run_model_migration_abort() {
 	# are emitted into the source controller's controller-model stream.
 	attempt=0
 	until juju debug-log -m controller --no-tail 2>/dev/null | grep -q "setting migration phase to ABORTDONE"; do
+		if [[ ${attempt} -ge 30 ]]; then
+			red 'Failed: migration abort did not complete'
+			exit 1
+		fi
 		echo "[+] (attempt ${attempt}) polling for migration abort"
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
@@ -152,7 +159,7 @@ add_wrench_die_in_export() {
 	juju ssh -m controller controller/0 \
 		'sudo mkdir -p /var/lib/juju/wrench && echo "die-in-export" | sudo tee /var/lib/juju/wrench/migrationmaster >/dev/null'
 	juju ssh -m controller controller/0 \
-		'sudo test -f /var/lib/juju/wrench/migrationmaster && sudo grep -x "die-in-export" /var/lib/juju/wrench/migrationmaster >/dev/null'
+		'sudo test -f /var/lib/juju/wrench/migrationmaster && sudo grep -x "die-in-export" /var/lib/juju/wrench/migrationmaster >/dev/null' || exit 1
 }
 
 cleanup_wrench_die_in_export() {
