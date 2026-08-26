@@ -6,6 +6,7 @@ package k8s
 import (
 	"context"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	ssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
@@ -13,6 +14,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/environs/cloudspec"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 )
 
@@ -34,10 +36,17 @@ func (executorFunc) RawClient() kubernetes.Interface { return nil }
 
 func (executorFunc) NameSpace() string { return "" }
 
-type resolverFunc func(context.Context, virtualhostname.Info) (string, string, error)
+func newMockResolver(c *tc.C) *MockResolver {
+	ctrl := gomock.NewController(c)
+	c.Cleanup(ctrl.Finish)
+	return NewMockResolver(ctrl)
+}
 
-func (f resolverFunc) ResolveK8sExecInfo(ctx context.Context, destination virtualhostname.Info) (string, string, error) {
-	return f(ctx, destination)
+func newSessionResolver(c *tc.C, destination virtualhostname.Info, cloudSpec cloudspec.CloudSpec) *MockResolver {
+	resolver := newMockResolver(c)
+	resolver.EXPECT().ResolveK8sExecInfo(gomock.Any(), destination).Return("test-namespace", "test-pod", nil)
+	resolver.EXPECT().CloudSpecForSSH(gomock.Any(), destination).Return(cloudSpec, nil)
+	return resolver
 }
 
 type k8sTestServer struct {

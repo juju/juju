@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/environs/cloudspec"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/worker/sshserver/handlers/common"
 )
@@ -18,19 +19,22 @@ import (
 type Resolver interface {
 	// ResolveK8sExecInfo resolves the Kubernetes namespace and pod name for a given destination.
 	ResolveK8sExecInfo(context.Context, virtualhostname.Info) (namespace, podName string, err error)
+	// CloudSpecForSSH returns the Kubernetes cloud spec and executor credential
+	// for a given destination.
+	CloudSpecForSSH(context.Context, virtualhostname.Info) (cloudspec.CloudSpec, error)
 }
 
 // Handlers provides SSH channel handlers for a Kubernetes container target.
 type Handlers struct {
 	resolver    Resolver
 	logger      logger.Logger
-	getExecutor func(string) (k8sexec.Executor, error)
+	getExecutor func(string, cloudspec.CloudSpec) (k8sexec.Executor, error)
 	destination virtualhostname.Info
 	metrics     common.Metrics
 }
 
 // NewHandlers returns handlers for a Kubernetes container target.
-func NewHandlers(destination virtualhostname.Info, resolver Resolver, logger logger.Logger, getExecutor func(string) (k8sexec.Executor, error), metrics common.Metrics) (*Handlers, error) {
+func NewHandlers(destination virtualhostname.Info, resolver Resolver, logger logger.Logger, getExecutor func(string, cloudspec.CloudSpec) (k8sexec.Executor, error), metrics common.Metrics) (*Handlers, error) {
 	if resolver == nil {
 		return nil, errors.New("Kubernetes resolver is required")
 	}

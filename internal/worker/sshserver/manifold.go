@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/virtualhostname"
 	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
 	modelsshservice "github.com/juju/juju/domain/ssh/service/model"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/jwtparser"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/services"
@@ -219,7 +220,7 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 			controllerID:  config.ControllerID,
 			resolver:      sshService,
 		},
-		getExecutor: k8sexec.NewInCluster,
+		getExecutor: k8sexec.NewForJujuCloudSpec,
 		metrics:     metricsCollector,
 	}
 
@@ -325,6 +326,16 @@ func (s sshService) ResolveK8sExecInfo(ctx context.Context, destination virtualh
 		return "", "", err
 	}
 	return sshService.ResolveK8sExecInfo(ctx, destination)
+}
+
+// CloudSpecForSSH returns the Kubernetes cloud spec and executor credential
+// for a destination's model.
+func (s sshService) CloudSpecForSSH(ctx context.Context, destination virtualhostname.Info) (cloudspec.CloudSpec, error) {
+	domainServices, err := s.domainServicesGetter.ServicesForModel(ctx, destination.ModelUUID())
+	if err != nil {
+		return cloudspec.CloudSpec{}, errors.Trace(err)
+	}
+	return domainServices.ModelProvider().GetCloudSpecForSSH(ctx)
 }
 
 // MachineForDestination resolves an IAAS machine or machine-backed unit to the
