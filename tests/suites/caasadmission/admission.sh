@@ -93,6 +93,8 @@ test_new_model_admission() {
 	name=test-$(petname)
 	namespace=${model_name}
 
+	kubectl --kubeconfig "${KUBE_CONFIG}" wait --for=create "namespace/${namespace}" --timeout=60s
+
 	kubectl --kubeconfig "${KUBE_CONFIG}" apply -f - <<EOF
 apiVersion: v1
 kind: ServiceAccount
