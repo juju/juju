@@ -108,6 +108,9 @@ func (s *Service) GetControllerAPIAddresses(
 	unitName unit.Name,
 	managementSpace *network.SpaceInfo,
 ) (network.SpaceAddresses, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	unitUUID, err := s.st.GetControllerUnitUUIDByName(ctx, unitName.String())
 	if err != nil {
 		return nil, errors.Errorf("getting controller unit UUID for %q: %w", unitName, err)
