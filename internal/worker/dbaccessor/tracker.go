@@ -234,6 +234,19 @@ func (w *trackedDBWorker) StdTxn(ctx context.Context, fn func(context.Context, *
 	})
 }
 
+// StdTxnNoRetry executes the input function against the tracked database
+// within a standard library transaction. No retries are attempted.
+func (w *trackedDBWorker) StdTxnNoRetry(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
+	return w.runNoRetry(ctx, func(db *sqlair.DB) error {
+		// Tie the worker tomb to the context, so that if the worker dies, we
+		// can correctly kill the transaction via the context. The context will
+		// now have the correct reason for the death of the transaction. Either
+		// the tomb died or the context was cancelled.
+		ctx = corecontext.WithSourceableError(w.tomb.Context(ctx), w)
+		return errors.Trace(database.StdTxn(ctx, db.PlainDB(), fn))
+	})
+}
+
 // Dying returns a channel that is closed when the database connection
 // is no longer usable. This can be used to detect when the database is
 // shutting down or has been closed.
@@ -247,40 +260,52 @@ func (w *trackedDBWorker) Err() error {
 }
 
 func (w *trackedDBWorker) run(ctx context.Context, fn func(*sqlair.DB) error) error {
+	ctx = w.prepareRunContext(ctx)
+
+	// Retry so long as the tomb and the context are valid.
+	return database.Retry(ctx, func() error {
+		w.metrics.TxnRetries.WithLabelValues(w.namespace).Inc()
+		return w.runAttempt(ctx, fn)
+	})
+}
+
+func (w *trackedDBWorker) runNoRetry(ctx context.Context, fn func(*sqlair.DB) error) error {
+	ctx = w.prepareRunContext(ctx)
+	return w.runAttempt(ctx, fn)
+}
+
+func (w *trackedDBWorker) prepareRunContext(ctx context.Context) context.Context {
 	w.metrics.TxnRequests.WithLabelValues(w.namespace).Inc()
 
-	// Tie the tomb to the context for the retry semantics.
+	// Tie the tomb to the transaction context.
 	ctx = corecontext.WithSourceableError(w.tomb.Context(ctx), w)
 
 	// Inject the metrics into the context for the txn.
-	ctx = txn.WithMetrics(ctx, w.dbTxnMetrics)
+	return txn.WithMetrics(ctx, w.dbTxnMetrics)
+}
 
-	// Retry the so long as the tomb and the context are valid.
-	return database.Retry(ctx, func() (err error) {
-		begin := w.clock.Now()
-		w.metrics.TxnRetries.WithLabelValues(w.namespace).Inc()
-		w.metrics.DBRequests.WithLabelValues(w.namespace).Inc()
-		defer w.meterDBOpResult(begin, err)
+func (w *trackedDBWorker) runAttempt(ctx context.Context, fn func(*sqlair.DB) error) (err error) {
+	begin := w.clock.Now()
+	w.metrics.DBRequests.WithLabelValues(w.namespace).Inc()
+	defer w.meterDBOpResult(begin, err)
 
-		// The underlying db could be swapped out if the database becomes
-		// stale.
-		w.mutex.RLock()
-		db := w.db
-		w.mutex.RUnlock()
+	// The underlying db could be swapped out if the database becomes stale.
+	w.mutex.RLock()
+	db := w.db
+	w.mutex.RUnlock()
 
-		// If we ever get a nil database, then ensure we return an error,
-		// rather than potentially causing panics down the line.
-		if db == nil {
-			return errors.NotFoundf("database")
-		}
+	// If we ever get a nil database, then ensure we return an error, rather
+	// than potentially causing panics down the line.
+	if db == nil {
+		return errors.NotFoundf("database")
+	}
 
-		// Don't execute the function if we know the context is already done.
-		if err := ctx.Err(); err != nil {
-			return errors.Trace(err)
-		}
+	// Don't execute the function if we know the context is already done.
+	if err := ctx.Err(); err != nil {
+		return errors.Trace(err)
+	}
 
-		return fn(db)
-	})
+	return fn(db)
 }
 
 // meterDBOpResults decrements the active DB operation count,

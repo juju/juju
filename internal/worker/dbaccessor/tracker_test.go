@@ -19,6 +19,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
+	"github.com/mattn/go-sqlite3"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/internal/testhelpers"
@@ -97,6 +98,35 @@ func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *tc.C) {
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *trackedDBWorkerSuite) TestWorkerStdTxnNoRetry(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+	defer s.expectTimer(0)()
+
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
+
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	runner, ok := w.(interface {
+		StdTxnNoRetry(context.Context, func(context.Context, *sql.Tx) error) error
+	})
+	c.Assert(ok, tc.IsTrue)
+
+	attempts := 0
+	err = runner.StdTxnNoRetry(c.Context(), func(_ context.Context, tx *sql.Tx) error {
+		c.Check(tx, tc.NotNil)
+		attempts++
+		return sqlite3.ErrBusy
+	})
+	c.Check(err, tc.ErrorIs, sqlite3.ErrBusy)
+	c.Check(attempts, tc.Equals, 1)
 
 	workertest.CleanKill(c, w)
 }
