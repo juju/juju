@@ -347,11 +347,11 @@ func (p *sshJump) ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 	if err != nil {
 		return err
 	}
-	// Set the default command to "exec sh" if no arguments are provided and the
-	// model type is CAAS.
+	// Set the default command to a login Bash shell for CAAS models so that
+	// /etc/profile.d/juju-introspection.sh is sourced (for controller units).
 	args := p.args
 	if len(args) == 0 && p.modelType == model.CAAS {
-		args = []string{"exec", "sh"}
+		args = []string{"exec", "bash", "--login"}
 	}
 	if p.showCommand {
 		return p.showSSHCommand(ctx.GetStdout(), target, args)
