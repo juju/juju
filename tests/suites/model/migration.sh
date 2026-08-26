@@ -79,6 +79,94 @@ run_model_migration() {
 	destroy_model "model-migration"
 }
 
+# Migrating a model where the export fails mid-transfer (forced via wrench)
+# must abort cleanly: the target removes the partially-imported model and the
+# source model remains functional.
+run_model_migration_abort() {
+	# Echo out to ensure nice output to the test suite.
+	echo
+
+	# Ensure we have another controller available.
+	bootstrap_alt_controller "alt-model-migration-abort"
+	juju switch "alt-model-migration-abort"
+	add_model "model-migration-abort"
+	juju model-config -m controller "logging-config=#migration=DEBUG"
+	juju model-config -m model-migration-abort "logging-config=#migration=DEBUG"
+
+	juju deploy ubuntu-lite ubuntu
+
+	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+
+	# Arm the migration abort wrench on the source controller. The
+	# migrationmaster worker reads this file synchronously just after the
+	# model has been imported into the target, so arming it before starting
+	# the migration deterministically forces the abort path.
+	add_clean_func "cleanup_wrench_die_in_export"
+	add_wrench_die_in_export
+
+	juju model-config -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:controller" "logging-config=#migration=DEBUG"
+	if ! juju migrate "model-migration-abort" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"; then
+		red 'Failed: juju migrate command failed'
+		exit 1
+	fi
+
+	# Wait for the abort to run to completion on the source controller. The
+	# imported model never activates on the target (the wrench fires during
+	# IMPORT), so the abort is observed via the migrationmaster logs, which
+	# are emitted into the source controller's controller-model stream.
+	attempt=0
+	until juju debug-log -m controller --no-tail 2>/dev/null | grep -q "setting migration phase to ABORTDONE"; do
+		if [[ ${attempt} -ge 30 ]]; then
+			red 'Failed: migration abort did not complete'
+			exit 1
+		fi
+		echo "[+] (attempt ${attempt}) polling for migration abort"
+		sleep "${SHORT_TIMEOUT}"
+		attempt=$((attempt + 1))
+	done
+
+	# Assert the wrench-forced failure triggered the abort path and the
+	# target-side import was cleaned up.
+	abort_logs="$(juju debug-log -m controller --no-tail)"
+	check_contains "${abort_logs}" "model data transfer failed, wrench in the transferModel works"
+	check_contains "${abort_logs}" "aborted, removing model from target controller"
+
+	# The target controller must not have the model.
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	check_not_contains "$(juju models)" "model-migration-abort"
+
+	# The source model must still be fully functional.
+	juju switch "alt-model-migration-abort:model-migration-abort"
+	juju add-unit ubuntu
+	wait_for "ubuntu" "$(idle_condition "ubuntu" 1)"
+
+	# Clean up. The model lives on the alt controller (abort kept it on the
+	# source), so destroying the alt controller removes it as well.
+	destroy_controller "alt-model-migration-abort"
+
+	# Switch back to the primary controller: the suite teardown resolves the
+	# tracking model via the current controller, which must not be left
+	# pointing at the destroyed alt controller.
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+}
+
+# add_wrench_die_in_export arms the "migrationmaster/die-in-export" wrench,
+# which makes the migrationmaster worker fail the transfer right after the
+# model is imported into the target, forcing the migration to abort.
+# The wrench directory and file must be owned by the root user (the user the
+# agents run as), hence the sudo.
+add_wrench_die_in_export() {
+	juju ssh -m controller controller/0 \
+		'sudo mkdir -p /var/lib/juju/wrench && echo "die-in-export" | sudo tee /var/lib/juju/wrench/migrationmaster >/dev/null'
+	juju ssh -m controller controller/0 \
+		'sudo test -f /var/lib/juju/wrench/migrationmaster && sudo grep -x "die-in-export" /var/lib/juju/wrench/migrationmaster >/dev/null' || exit 1
+}
+
+cleanup_wrench_die_in_export() {
+	juju ssh -m controller controller/0 \
+		'sudo mkdir -p /var/lib/juju/wrench && : | sudo tee /var/lib/juju/wrench/migrationmaster >/dev/null' >/dev/null 2>&1 || true
+}
+
 # Migrating an active model from stable to devel controller (twice).
 # Method:
 #   - Bootstraps a devel controller
@@ -390,6 +478,21 @@ test_model_migration() {
 		cd .. || exit
 
 		run "run_model_migration"
+	)
+}
+
+test_model_migration_abort() {
+	if [ -n "$(skip 'test_model_migration_abort')" ]; then
+		echo "==> SKIP: Asked to skip model migration abort test"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		run "run_model_migration_abort"
 	)
 }
 
