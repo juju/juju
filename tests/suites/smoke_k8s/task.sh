@@ -15,6 +15,8 @@ test_smoke_k8s() {
 
 	test_deploy "${file}"
 
+	test_restart_resilience "${file}"
+
 	destroy_controller "test-smoke-k8s"
 
 	# This test destroys the controller and must run last.

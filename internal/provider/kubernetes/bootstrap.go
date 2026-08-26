@@ -908,7 +908,7 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 		ControllerUUID:              c.pcfg.ControllerTag.Id(),
 		ControllerModelUUID:         c.pcfg.APIInfo.ModelTag.Id(),
 		DataDir:                     c.pcfg.DataDir,
-		LoopbackPreferred:           true,
+		IsCAASController:            true,
 		LogDir:                      c.pcfg.LogDir,
 		APIPort:                     c.pcfg.Bootstrap.ControllerAgentInfo.APIPort,
 		AgentPassword:               c.pcfg.APIInfo.Password,
@@ -928,7 +928,7 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 		SystemIdentity:              c.pcfg.Bootstrap.ControllerAgentInfo.SystemIdentity,
 		LogSinkRateLimitBurst:       logSinkBurst,
 		LogSinkRateLimitRefill:      logSinkRefill,
-		APIAddresses:                c.pcfg.APIInfo.Addrs,
+		APIAddresses:                c.pcfg.APIHostAddrs(),
 		AgentLogfileMaxSizeMB:       c.pcfg.Controller.AgentLogfileMaxSizeMB(),
 		AgentLogfileMaxBackups:      c.pcfg.Controller.AgentLogfileMaxBackups(),
 		CharmRevisionUpdateInterval: c.pcfg.AgentEnvironment[agent.CharmRevisionUpdateInterval],
@@ -1312,11 +1312,11 @@ func (c *controllerStack) appSecretName() string {
 	return c.stackName + "-application-config"
 }
 
-func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerImage string, jujudEnv map[string]string) ([]core.Container, error) {
+func (c *controllerStack) controllerContainers(setupCmd, controllerCmd, machineCmd, controllerImage string, jujudEnv map[string]string) ([]core.Container, error) {
 	var containerSpec []core.Container
 
 	// add container API server.
-	pebbleLayer, err := jujudPebbleLayer(machineCmd, jujudEnv)
+	pebbleLayer, err := splitControllerPebbleLayer(controllerCmd, machineCmd, jujudEnv)
 	if err != nil {
 		return nil, errors.Annotate(err, "writing jujud pebble layer")
 	}
@@ -1408,20 +1408,6 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 				ReadOnly:  true,
 			},
 			{
-				// Mount the controller runtime config at the expected path
-				// so the controller process can read Dqlite startup values
-				// before the database is available.
-				Name: c.resourceNameVolAgentConf,
-				MountPath: path.Join(
-					c.pcfg.DataDir,
-					"agents",
-					"controller-"+c.pcfg.ControllerId,
-					controllerruntimeconfig.Filename,
-				),
-				SubPath:  controllerruntimeconfig.Filename,
-				ReadOnly: true,
-			},
-			{
 				Name:      constants.CharmVolumeName,
 				MountPath: "/charm/container",
 				SubPath:   fmt.Sprintf("charm/containers/%s", apiServerContainerName),
@@ -1487,21 +1473,28 @@ func proxyEnvironment(settings proxy.Settings) []core.EnvVar {
 	return env
 }
 
-// jujudPebbleLayer returns the Pebble layer yaml for running the jujud
+// splitControllerPebbleLayer returns the Pebble layer yaml for running the jujud
 // service. This will be written to a file in the Pebble layers directory.
-func jujudPebbleLayer(machineCmd string, env map[string]string) ([]byte, error) {
+func splitControllerPebbleLayer(controllerCmd, machineCmd string, env map[string]string) ([]byte, error) {
 	layer := plan.Layer{
-		Summary: "jujuagentd service",
+		Summary: "split controller services",
 		Services: map[string]*plan.Service{
+			"jujud": {
+				Override: plan.ReplaceOverride,
+				Summary:  "Juju controller",
+				Command:  controllerCmd,
+				Startup:  plan.StartupEnabled,
+			},
 			"jujuagentd": {
 				Override: plan.ReplaceOverride,
-				Summary:  "Juju controller agent",
+				Summary:  "Juju machine agent",
 				Command:  machineCmd,
 				Startup:  plan.StartupEnabled,
 			},
 		},
 	}
 	if env != nil {
+		layer.Services["jujud"].Environment = env
 		layer.Services["jujuagentd"].Environment = env
 	}
 
@@ -1561,22 +1554,28 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 		agentconstants.AgentConfigFilename,
 	)
 
+	controllerCmd := fmt.Sprintf(
+		"%s controller --data-dir $JUJU_DATA_DIR --controller-id %s --log-to-stderr %s",
+		path.Join("$JUJU_TOOLS_DIR", "jujud"),
+		c.pcfg.ControllerId,
+		loggingOption,
+	)
 	machineCmd := fmt.Sprintf(
-		`/bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec %s machine --data-dir "$JUJU_DATA_DIR" --controller-id "${controller_id}" --log-to-stderr %s'`,
+		`/bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec %s machine --data-dir "$JUJU_DATA_DIR" --controller-id "${controller_id}" --machine-agent-only --log-to-stderr %s'`,
 		path.Join("$JUJU_TOOLS_DIR", "jujuagentd"),
 		loggingOption,
 	)
 
-	return c.buildContainerSpecForCommands(setupCmd, machineCmd, jujudEnv)
+	return c.buildContainerSpecForCommands(setupCmd, controllerCmd, machineCmd, jujudEnv)
 }
 
-func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd string, jujudEnv map[string]string) (*core.PodSpec, error) {
+func (c *controllerStack) buildContainerSpecForCommands(setupCmd, controllerCmd, machineCmd string, jujudEnv map[string]string) (*core.PodSpec, error) {
 	controllerImage, err := c.pcfg.GetControllerImagePath()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	containers, err := c.controllerContainers(setupCmd, machineCmd, controllerImage, jujudEnv)
+	containers, err := c.controllerContainers(setupCmd, controllerCmd, machineCmd, controllerImage, jujudEnv)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1655,6 +1654,7 @@ if [ "${controller_id}" = "0" ]; then
     if [ ! -e "${controller_template}" ]; then
         mkdir -p "${controller_dir}"
         cp "%s/%s" "${controller_template}"
+        cp "%s/%s" "${controller_dir}/%s"
         chmod 600 "${controller_template}"
     fi
 fi
@@ -1674,6 +1674,9 @@ fi
 			constants.TemplateFileNameAgentConf,
 			controllerConfigSeedDir,
 			constants.ControllerAgentConfigFilename,
+			controllerConfigSeedDir,
+			controllerruntimeconfig.Filename,
+			controllerruntimeconfig.Filename,
 			controllerConfigSeedDir+"/"+constants.ControllerNonceFilename,
 			constants.ControllerNonceFilePath,
 		)},

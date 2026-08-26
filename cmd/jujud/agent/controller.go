@@ -666,7 +666,7 @@ func (a *ControllerApplication) makeEngineCreator(
 			NewEnvironFunc:                    newEnvirons,
 		}
 		manifolds := agentcontroller.IAASManifolds(manifoldsCfg)
-		if controllerRuntimeConfig.LoopbackPreferred {
+		if controllerRuntimeConfig.IsCAASController {
 			manifolds = agentcontroller.CAASManifolds(manifoldsCfg)
 		}
 		if err := dependency.Install(eng, manifolds); err != nil {
