@@ -80,13 +80,17 @@ test_force_import_filesystem() {
 	# already cleaned up the original one.
 	ORIG_PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
 
-	# Remove only the application. We deliberately do NOT run
-	# `juju remove-storage data/0`; the goal is to leave a Juju-managed
-	# PVC bound to the PV so that `import-filesystem --force` actually
-	# exercises the new forced cleanup path (delete the PVC, clear the
-	# claimRef).
+	# Remove the application, then clean up the storage record while
+	# keeping the PV. The UNIQUE constraint on
+	# storage_filesystem.provider_id (patch 0062) prevents re-importing
+	# a PV whose Juju record still exists, so the storage must be
+	# removed explicitly. The --force flag on import-filesystem handles
+	# provider-side cleanup (deleting the PVC, clearing claimRef) — it
+	# does not override Juju's DB-side tracking.
 	juju remove-application dummy-k8s-storage --force --no-prompt
 	wait_for "{}" ".applications"
+	juju remove-storage data/0 --no-destroy
+	wait_for "{}" ".storage"
 
 	# If Juju 4.0 detach already deleted the PVC, the k8s PV controller
 	# may also have asynchronously cleared the PV's claimRef. Re-create a
