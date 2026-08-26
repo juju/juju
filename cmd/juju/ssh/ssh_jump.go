@@ -484,7 +484,10 @@ func (p *sshJump) copyToCAAS(ctx Context, srcPath string, destTarget *resolvedTa
 	if err := <-tarErr; err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(cmdErr)
+	if cmdErr == nil {
+		return nil
+	}
+	return annotateRemoteCommandError(cmdErr, stderr.String())
 }
 
 func (p *sshJump) copyFromCAAS(srcPath string, srcTarget *resolvedTarget, destPath string) error {
@@ -522,10 +525,17 @@ func (p *sshJump) copyFromCAAS(srcPath string, srcTarget *resolvedTarget, destPa
 	_ = reader.Close()
 	err = <-cmdErr
 	if errors.Is(err, io.ErrClosedPipe) {
-		// Closing the reader after the complete archive has been consumed can
-		// make the SSH command's stdout copier report a closed pipe even though
-		// the remote tar command completed successfully.
+		// The archive has been completely consumed if unTarAll returned nil.
+		// Closing the reader then can make the SSH stdout copier report a
+		// closed pipe even though tar completed successfully.
 		return nil
+	}
+	return annotateRemoteCommandError(err, stderr.String())
+}
+
+func annotateRemoteCommandError(err error, stderr string) error {
+	if stderr = strings.TrimSpace(stderr); stderr != "" {
+		return errors.Annotatef(err, "remote tar command failed: %s", stderr)
 	}
 	return errors.Trace(err)
 }
