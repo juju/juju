@@ -43,7 +43,7 @@ CREATE TABLE model_migration_import (
     model_uuid TEXT NOT NULL,
     source_migration_uuid TEXT NOT NULL,
     phase_type_id INT NOT NULL DEFAULT 0,
-    updated_at TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at DATETIME NOT NULL,
     CONSTRAINT fk_model_migration_import_phase_type
     FOREIGN KEY (phase_type_id)
     REFERENCES model_migration_import_phase_type (id)

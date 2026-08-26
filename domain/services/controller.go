@@ -131,6 +131,7 @@ func (s *ControllerServices) ModelMigrationImport() *modelmigrationservice.Watch
 	return modelmigrationservice.NewWatchableImportService(
 		modelmigrationstatecontroller.New(changestream.NewTxnRunnerFactory(s.controllerDB), s.clock),
 		s.controllerWatcherFactory("modelmigration"),
+		s.clock,
 		s.logger.Child("modelmigration"),
 	)
 }

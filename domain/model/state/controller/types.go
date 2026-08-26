@@ -372,6 +372,8 @@ type dbTargetModelMigration struct {
 	// generated import UUID (matching the upgrade backfill in
 	// 0031-model-migration.PATCH.sql).
 	SourceMigrationUUID string `db:"source_migration_uuid"`
+	// UpdatedAt is when the claim was created, stored as an RFC3339 string.
+	UpdatedAt string `db:"updated_at"`
 }
 
 // dbRedirectModelUUID is a query argument holding a model uuid matched

@@ -6,6 +6,7 @@ package controller
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -294,11 +295,12 @@ func markModelAsImporting(
 		// This is the legacy import path with no source-side migration UUID;
 		// reuse the import UUID so the NOT NULL diagnostic column is non-empty.
 		SourceMigrationUUID: migrationUUID.String(),
+		UpdatedAt:           time.Now().UTC().Format(time.RFC3339),
 	}
 
 	stmt, err := preparer.Prepare(`
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
-VALUES ($dbTargetModelMigration.uuid, $dbTargetModelMigration.model_uuid, $dbTargetModelMigration.source_migration_uuid)
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at)
+VALUES ($dbTargetModelMigration.uuid, $dbTargetModelMigration.model_uuid, $dbTargetModelMigration.source_migration_uuid, $dbTargetModelMigration.updated_at)
 	`, migrationRecord)
 	if err != nil {
 		return errors.Capture(err)

@@ -33,6 +33,7 @@ import (
 func (s *controllerImportSuite) claimService(c *tc.C) *migrationclaimservice.Service {
 	return migrationclaimservice.NewImportService(
 		migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock),
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 }

@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
@@ -90,6 +91,7 @@ type Service struct {
 	watcherFactory      WatcherFactory
 	credentialValidator CredentialValidator
 	modelUUID           string
+	clock               clock.Clock
 	logger              logger.Logger
 }
 
@@ -339,10 +341,13 @@ type ControllerState interface {
 	CompleteModelRedirectAndPurge(ctx context.Context, migrationUUID, modelUUID string) error
 
 	// SetImportPhaseAborting transitions the model's import claim from the
-	// importing phase to the aborting phase. It is idempotent when the claim is
-	// already aborting and returns
+	// source phase to the target phase, stamping it with the supplied
+	// service-layer timestamp. It is idempotent when the claim is already in
+	// the target phase and returns
 	// [modelmigrationerrors.ErrAbortActivating] when the claim is activating.
-	SetImportPhaseAborting(ctx context.Context, modelUUID string) error
+	SetImportPhaseAborting(
+		ctx context.Context, modelUUID string, source, target modelmigration.ImportPhase, updatedAt string,
+	) error
 
 	// FinalizeAbortedImport deletes the model's import claim, its FK-dependent
 	// companion rows, and its namespace registration once abort cleanup is
@@ -352,9 +357,9 @@ type ControllerState interface {
 	// provable, and is idempotent when no claim exists.
 	FinalizeAbortedImport(ctx context.Context, modelUUID string) error
 
-	// IsModelDying reports whether the model has left the alive state. It returns
+	// IsModelNotAlive reports whether the model has left the alive state. It returns
 	// a model-not-found error when the model does not exist.
-	IsModelDying(ctx context.Context, modelUUID string) (bool, error)
+	IsModelNotAlive(ctx context.Context, modelUUID string) (bool, error)
 
 	// GetAllImportClaims returns a snapshot of every outstanding
 	// model_migration_import claim, used by the abort reconciler.
@@ -450,9 +455,10 @@ type ModelState interface {
 // only needs controller-scoped claim methods. The model-export-only
 // dependencies (modelState, watcherFactory, the provider getters, modelUUID)
 // are intentionally left unset rather than passed as nil by the caller.
-func NewImportService(controllerState ControllerState, logger logger.Logger) *Service {
+func NewImportService(controllerState ControllerState, clock clock.Clock, logger logger.Logger) *Service {
 	return &Service{
 		controllerState: controllerState,
+		clock:           clock,
 		logger:          logger,
 	}
 }
@@ -467,6 +473,7 @@ func NewService(
 	instanceProviderGetter providertracker.ProviderGetter[InstanceProvider],
 	resourceProviderGetter providertracker.ProviderGetter[ResourceProvider],
 	credentialValidator CredentialValidator,
+	clock clock.Clock,
 	logger logger.Logger,
 ) *Service {
 	return &Service{
@@ -477,6 +484,7 @@ func NewService(
 		resourceProviderGetter: resourceProviderGetter,
 		credentialValidator:    credentialValidator,
 		modelUUID:              modelUUID,
+		clock:                  clock,
 		logger:                 logger,
 	}
 }
@@ -498,6 +506,7 @@ func NewWatchableService(
 	instanceProviderGetter providertracker.ProviderGetter[InstanceProvider],
 	resourceProviderGetter providertracker.ProviderGetter[ResourceProvider],
 	credentialValidator CredentialValidator,
+	clock clock.Clock,
 	logger logger.Logger,
 ) *WatchableService {
 	return &WatchableService{
@@ -509,6 +518,7 @@ func NewWatchableService(
 			instanceProviderGetter,
 			resourceProviderGetter,
 			credentialValidator,
+			clock,
 			logger,
 		),
 	}
@@ -522,12 +532,14 @@ func NewWatchableService(
 func NewWatchableImportService(
 	controllerState ControllerState,
 	watcherFactory WatcherFactory,
+	clock clock.Clock,
 	logger logger.Logger,
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
 			controllerState: controllerState,
 			watcherFactory:  watcherFactory,
+			clock:           clock,
 			logger:          logger,
 		},
 	}

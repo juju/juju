@@ -29,10 +29,20 @@ func (s *stateSuite) setImportPhase(c *tc.C, modelUUID string, phaseID int) {
 func (s *stateSuite) insertClaim(c *tc.C, modelUUID string) string {
 	claimUUID := uuid.MustNewUUID().String()
 	_, err := s.DB().ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at) VALUES (?, ?, ?, '2026-01-02T03:04:05Z')",
 		claimUUID, modelUUID, uuid.MustNewUUID().String())
 	c.Assert(err, tc.ErrorIsNil)
 	return claimUUID
+}
+
+// setImportPhaseAborting drives the importing->aborting transition with a
+// fixed timestamp, for arranging test state.
+func (s *stateSuite) setImportPhaseAborting(c *tc.C, st *State, modelUUID string) {
+	c.Assert(st.SetImportPhaseAborting(
+		c.Context(), modelUUID,
+		modelmigration.ImportPhaseImporting, modelmigration.ImportPhaseAborting,
+		"2026-01-02T03:04:05Z",
+	), tc.ErrorIsNil)
 }
 
 func (s *stateSuite) importPhase(c *tc.C, modelUUID string) modelmigration.ImportPhase {
@@ -49,8 +59,7 @@ func (s *stateSuite) TestSetImportPhaseAborting(c *tc.C) {
 	_, err := st.BeginImport(c.Context(), s.modelUUID.String(), uuid.MustNewUUID().String(), uuid.MustNewUUID().String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.SetImportPhaseAborting(c.Context(), s.modelUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
+	s.setImportPhaseAborting(c, st, s.modelUUID.String())
 	c.Check(s.importPhase(c, s.modelUUID.String()), tc.Equals, modelmigration.ImportPhaseAborting)
 }
 
@@ -62,8 +71,8 @@ func (s *stateSuite) TestSetImportPhaseAbortingIdempotent(c *tc.C) {
 	_, err := st.BeginImport(c.Context(), s.modelUUID.String(), uuid.MustNewUUID().String(), uuid.MustNewUUID().String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(st.SetImportPhaseAborting(c.Context(), s.modelUUID.String()), tc.ErrorIsNil)
-	c.Assert(st.SetImportPhaseAborting(c.Context(), s.modelUUID.String()), tc.ErrorIsNil)
+	s.setImportPhaseAborting(c, st, s.modelUUID.String())
+	s.setImportPhaseAborting(c, st, s.modelUUID.String())
 	c.Check(s.importPhase(c, s.modelUUID.String()), tc.Equals, modelmigration.ImportPhaseAborting)
 }
 
@@ -76,7 +85,11 @@ func (s *stateSuite) TestSetImportPhaseAbortingFromActivating(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.setImportPhase(c, s.modelUUID.String(), 1) // activating
 
-	err = st.SetImportPhaseAborting(c.Context(), s.modelUUID.String())
+	err = st.SetImportPhaseAborting(
+		c.Context(), s.modelUUID.String(),
+		modelmigration.ImportPhaseImporting, modelmigration.ImportPhaseAborting,
+		"2026-01-02T03:04:05Z",
+	)
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrAbortActivating)
 	c.Check(s.importPhase(c, s.modelUUID.String()), tc.Equals, modelmigration.ImportPhaseActivating)
 }
@@ -85,7 +98,11 @@ func (s *stateSuite) TestSetImportPhaseAbortingFromActivating(c *tc.C) {
 func (s *stateSuite) TestSetImportPhaseAbortingNoClaim(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
-	err := st.SetImportPhaseAborting(c.Context(), s.modelUUID.String())
+	err := st.SetImportPhaseAborting(
+		c.Context(), s.modelUUID.String(),
+		modelmigration.ImportPhaseImporting, modelmigration.ImportPhaseAborting,
+		"2026-01-02T03:04:05Z",
+	)
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrImportNotFound)
 }
 
@@ -111,42 +128,41 @@ func (s *stateSuite) TestGetAllImportClaims(c *tc.C) {
 	_, err = time.Parse(time.RFC3339, claims[0].UpdatedAt)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.SetImportPhaseAborting(c.Context(), s.modelUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
+	s.setImportPhaseAborting(c, st, s.modelUUID.String())
 
 	claims, err = st.GetAllImportClaims(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(claims, tc.HasLen, 1)
 	c.Check(claims[0].PhaseType, tc.Equals, string(modelmigration.ImportPhaseAborting))
-	_, err = time.Parse(time.RFC3339, claims[0].UpdatedAt)
-	c.Assert(err, tc.ErrorIsNil)
+	// The abort transition stamps the service-supplied timestamp.
+	c.Check(claims[0].UpdatedAt, tc.Equals, "2026-01-02T03:04:05Z")
 }
 
-// TestIsModelDying verifies the predicate the v8 abort driver uses
+// TestIsModelNotAlive verifies the predicate the v8 abort driver uses
 // to stand aside from a model the generic removal undertaker already owns: it is
 // false for an alive model and true once the model is dying or dead.
-func (s *stateSuite) TestIsModelDying(c *tc.C) {
+func (s *stateSuite) TestIsModelNotAlive(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Alive (the model created in SetUpTest).
-	removing, err := st.IsModelDying(c.Context(), s.modelUUID.String())
+	removing, err := st.IsModelNotAlive(c.Context(), s.modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(removing, tc.IsFalse)
 
 	// Dying.
 	s.setModelLife(c, s.modelUUID.String(), 1)
-	removing, err = st.IsModelDying(c.Context(), s.modelUUID.String())
+	removing, err = st.IsModelNotAlive(c.Context(), s.modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(removing, tc.IsTrue)
 
 	// Dead.
 	s.setModelLife(c, s.modelUUID.String(), 2)
-	removing, err = st.IsModelDying(c.Context(), s.modelUUID.String())
+	removing, err = st.IsModelNotAlive(c.Context(), s.modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(removing, tc.IsTrue)
 
 	// No model row.
-	removing, err = st.IsModelDying(c.Context(), uuid.MustNewUUID().String())
+	removing, err = st.IsModelNotAlive(c.Context(), uuid.MustNewUUID().String())
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 	c.Check(removing, tc.IsFalse)
 }

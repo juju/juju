@@ -644,7 +644,7 @@ type importServices struct {
 func newImportServices(deps deps, modelUUID coremodel.UUID) importServices {
 	return importServices{
 		claim: migrationclaimservice.NewImportService(
-			migrationclaimstate.New(deps.ControllerDB, deps.Clock), deps.Logger,
+			migrationclaimstate.New(deps.ControllerDB, deps.Clock), deps.Clock, deps.Logger,
 		),
 		access: accessservice.NewService(
 			accessstate.NewState(deps.ControllerDB, deps.Clock, deps.Logger), deps.Clock,

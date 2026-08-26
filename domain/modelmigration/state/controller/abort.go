@@ -5,7 +5,6 @@ package controller
 
 import (
 	"context"
-	"time"
 
 	"github.com/canonical/sqlair"
 
@@ -28,14 +27,15 @@ import (
 // migration bookkeeping tables.
 
 // SetImportPhaseAborting transitions the model_migration_import claim for
-// modelUUID from importing to aborting, bumping updated_at. It is idempotent
-// when the claim is already aborting. It returns
-// [modelmigrationerrors.ErrAbortActivating] when the claim is activating (the
-// activation point of no return has been crossed and the model may not be torn
-// down), [modelmigrationerrors.ErrImportNotFound] when no claim exists, and
-// [modelmigrationerrors.ErrPhaseTransitionInvalid] when the phase changed
-// concurrently.
-func (s *State) SetImportPhaseAborting(ctx context.Context, modelUUID string) error {
+// modelUUID from source to target phase, bumping updated_at to the supplied
+// service-layer timestamp. It is idempotent when the claim is already in the
+// target phase. It returns [modelmigrationerrors.ErrAbortActivating] when the
+// claim is activating (the activation point of no return has been crossed and
+// the model may not be torn down) and [modelmigrationerrors.ErrImportNotFound]
+// when no claim exists.
+func (s *State) SetImportPhaseAborting(
+	ctx context.Context, modelUUID string, source, target modelmigration.ImportPhase, updatedAt string,
+) error {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -43,9 +43,9 @@ func (s *State) SetImportPhaseAborting(ctx context.Context, modelUUID string) er
 
 	update := importPhaseUpdate{
 		ModelUUID: modelUUID,
-		Target:    string(modelmigration.ImportPhaseAborting),
-		Source:    string(modelmigration.ImportPhaseImporting),
-		UpdatedAt: s.clock.Now().UTC().Format(time.RFC3339),
+		Target:    string(target),
+		Source:    string(source),
+		UpdatedAt: updatedAt,
 	}
 	updateStmt, err := s.Prepare(`
 WITH target_phase AS (
@@ -70,29 +70,18 @@ AND    phase_type_id = (SELECT id FROM source_phase)
 			return errors.Capture(err)
 		}
 		switch claim.Phase {
-		case modelmigration.ImportPhaseAborting:
-			return nil // idempotent: already aborting
+		case target:
+			return nil // idempotent: already in the target phase
 		case modelmigration.ImportPhaseActivating:
 			return errors.Capture(modelmigrationerrors.ErrAbortActivating)
 		}
 
-		// Phase is importing; CAS to aborting.
-		var outcome sqlair.Outcome
-		if err := tx.Query(ctx, updateStmt, update).Get(&outcome); err != nil {
+		// The in-transaction read above proved the claim is in the source
+		// phase, so the update must match.
+		if err := tx.Query(ctx, updateStmt, update).Run(); err != nil {
 			return errors.Errorf("transitioning import to aborting: %w", err)
 		}
-		affected, err := outcome.Result().RowsAffected()
-		if err != nil {
-			return errors.Capture(err)
-		}
-		if affected == 1 {
-			return nil
-		}
-		// Defensively report a phase change when the update does not match.
-		return errors.Errorf(
-			"import phase changed concurrently: %w",
-			modelmigrationerrors.ErrPhaseTransitionInvalid,
-		)
+		return nil
 	})
 }
 
@@ -131,9 +120,9 @@ WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid
 	return nil
 }
 
-// IsModelDying reports whether the model has left the alive state. It returns
+// IsModelNotAlive reports whether the model has left the alive state. It returns
 // [modelerrors.NotFound] when the model does not exist.
-func (s *State) IsModelDying(ctx context.Context, modelUUID string) (bool, error) {
+func (s *State) IsModelNotAlive(ctx context.Context, modelUUID string) (bool, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)

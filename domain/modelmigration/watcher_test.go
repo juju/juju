@@ -175,6 +175,7 @@ func (s *exportWatcherSuite) TestWatchImportClaims(c *tc.C) {
 	svc := service.NewWatchableImportService(
 		migrationstatecontroller.New(s.controllerDBFactory(), clock.WallClock),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 
@@ -214,6 +215,7 @@ func (s *exportWatcherSuite) TestWatchModelDatabaseDeletion(c *tc.C) {
 	svc := service.NewWatchableImportService(
 		migrationstatecontroller.New(s.controllerDBFactory(), clock.WallClock),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 
@@ -315,8 +317,8 @@ VALUES (?, ?, ?, DATETIME('now', 'utc'))`,
 func (s *exportWatcherSuite) insertImportClaim(c *tc.C, modelUUID string) {
 	err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
-VALUES (?, ?, 'source-migration-uuid')`, uuid.MustNewUUID().String(), modelUUID)
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at)
+VALUES (?, ?, 'source-migration-uuid', '2026-01-02T03:04:05Z')`, uuid.MustNewUUID().String(), modelUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -381,6 +383,7 @@ func (s *exportWatcherSuite) setupService(c *tc.C, factory domain.WatchableDBFac
 		providertracker.ProviderGetter[service.InstanceProvider](noopInstanceGetter),
 		providertracker.ProviderGetter[service.ResourceProvider](noopResourceGetter),
 		noopCredentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 }

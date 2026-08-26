@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -59,6 +60,7 @@ func (s *serviceSuite) TestCheckMachinesCredentialError(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*validating model credential: getting model cloud credential: boom")
@@ -86,6 +88,7 @@ func (s *serviceSuite) TestCheckMachinesRevokedCredential(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*credential.*revoked.*")
@@ -117,6 +120,7 @@ func (s *serviceSuite) TestCheckMachinesCredentialValidationError(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*invalid credential.*")
@@ -147,6 +151,7 @@ func (s *serviceSuite) TestCheckMachinesInvalidCredential(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
 	c.Assert(err, tc.ErrorMatches, `.*credential "default" on cloud "aws" for owner "fred" is not valid: cloud rejected the key.*`)
@@ -174,6 +179,7 @@ func (s *serviceSuite) TestCheckMachinesUnmanagedCloudIgnoresUntrackedInstances(
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 		s.credentialValidator,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

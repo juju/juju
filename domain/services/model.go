@@ -451,6 +451,7 @@ func (s *ModelServices) ModelMigration() *modelmigrationservice.WatchableService
 		modelmigrationservice.NewCredentialValidator(
 			controllerState, modelState, credentialservice.NewCredentialValidator(),
 		),
+		s.clock,
 		s.logger.Child("modelmigration"),
 	)
 }

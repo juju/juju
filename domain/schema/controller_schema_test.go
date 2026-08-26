@@ -461,7 +461,7 @@ func (s *controllerSchemaSuite) TestVModelStateMigratingForImportPhases(c *tc.C)
 	for _, phaseTypeID := range []int{0, 1, 2} {
 		importUUID := utils.MustNewUUID().String()
 		s.assertExecSQL(c,
-			"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id) VALUES (?, ?, 'source-migration-uuid', ?);",
+			"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id, updated_at) VALUES (?, ?, 'source-migration-uuid', ?, '2026-01-02T03:04:05Z');",
 			importUUID, modelUUID, phaseTypeID)
 		c.Check(migrating(), tc.Equals, 1, tc.Commentf("expected migrating for phase_type_id %d", phaseTypeID))
 
@@ -471,6 +471,6 @@ func (s *controllerSchemaSuite) TestVModelStateMigratingForImportPhases(c *tc.C)
 
 	// A phase_type_id with no lookup row is rejected by the FK.
 	s.assertExecSQLError(c,
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id) VALUES (?, ?, 'source-migration-uuid', 99);",
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id, updated_at) VALUES (?, ?, 'source-migration-uuid', 99, '2026-01-02T03:04:05Z');",
 		"(?s).*FOREIGN KEY constraint failed.*", utils.MustNewUUID().String(), modelUUID)
 }

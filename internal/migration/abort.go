@@ -43,10 +43,27 @@ type abortFinalizer interface {
 }
 
 type importAbortService interface {
+	// GetImportClaim returns the durable import claim for the model, or
+	// [modelmigrationerrors.ErrImportNotFound] when no claim exists.
 	GetImportClaim(context.Context, coremodel.UUID) (modelmigration.ImportClaim, error)
+
+	// SetImportPhaseAborting transitions the model's import claim from
+	// importing to aborting. It returns [modelmigrationerrors.ErrAbortActivating]
+	// when the claim has crossed the activation point of no return.
 	SetImportPhaseAborting(context.Context, coremodel.UUID) error
-	IsModelDying(context.Context, coremodel.UUID) (bool, error)
+
+	// IsModelNotAlive reports whether the model has left the alive state, i.e.
+	// the generic removal undertaker has taken over its teardown.
+	IsModelNotAlive(context.Context, coremodel.UUID) (bool, error)
+
+	// IsImportNamespaceRegistered reports whether the model's dqlite namespace
+	// is still registered, i.e. whether its model database may still need
+	// dropping.
 	IsImportNamespaceRegistered(context.Context, coremodel.UUID) (bool, error)
+
+	// StageAbortedModelDatabaseDeletion removes the model's namespace
+	// registration and stages the model database for deletion by the
+	// undertaker's model-database deleter.
 	StageAbortedModelDatabaseDeletion(context.Context, coremodel.UUID) error
 }
 
@@ -90,10 +107,10 @@ func abortModelImport(ctx context.Context, deps deps, claim importAbortService, 
 	// catches a legacy abort that won between the initial claim read and the
 	// phase transition. A legacy abort can still begin after this check, but
 	// both cleanup paths are idempotent and converge on the same deletion.
-	if dying, err := claim.IsModelDying(ctx, modelUUID); err != nil &&
+	if notAlive, err := claim.IsModelNotAlive(ctx, modelUUID); err != nil &&
 		!errors.Is(err, modelerrors.NotFound) {
 		return errors.Errorf("checking model life for %q: %w", modelUUID, err)
-	} else if dying {
+	} else if notAlive {
 		return nil
 	}
 

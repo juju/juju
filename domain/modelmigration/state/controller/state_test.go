@@ -171,7 +171,7 @@ func (s *stateSuite) TestDeleteModelImportingStatusSuccess(c *tc.C) {
 	migratingUUID := uuid.MustNewUUID().String()
 	sourceMigrationUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at) VALUES (?, ?, ?, '2026-01-02T03:04:05Z')",
 		migratingUUID, s.modelUUID, sourceMigrationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -207,7 +207,7 @@ func (s *stateSuite) TestDeleteModelImportingStatusWithCompanions(c *tc.C) {
 	migratingUUID := uuid.MustNewUUID().String()
 	sourceMigrationUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at) VALUES (?, ?, ?, '2026-01-02T03:04:05Z')",
 		migratingUUID, s.modelUUID, sourceMigrationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -332,7 +332,7 @@ func (s *stateSuite) TestDeleteModelImportingStatusVerifyCorrectEntry(c *tc.C) {
 	migratingUUID := uuid.MustNewUUID().String()
 	sourceMigrationUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at) VALUES (?, ?, ?, '2026-01-02T03:04:05Z')",
 		migratingUUID, s.modelUUID, sourceMigrationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -368,7 +368,7 @@ func (s *stateSuite) TestDeleteModelImportingStatusWrongModelUUID(c *tc.C) {
 	migratingUUID := uuid.MustNewUUID().String()
 	sourceMigrationUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at) VALUES (?, ?, ?, '2026-01-02T03:04:05Z')",
 		migratingUUID, s.modelUUID, sourceMigrationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -396,7 +396,7 @@ func (s *stateSuite) TestDeleteModelImportingStatusIdempotent(c *tc.C) {
 	migratingUUID := uuid.MustNewUUID().String()
 	sourceMigrationUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at) VALUES (?, ?, ?, '2026-01-02T03:04:05Z')",
 		migratingUUID, s.modelUUID, sourceMigrationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -905,7 +905,7 @@ func (s *stateSuite) TestGetMigrationMode(c *tc.C) {
 	err = st.MarkExportEnded(c.Context(), spec.MigrationUUID, migration.DONE)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.DB().ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'src')",
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at) VALUES (?, ?, 'src', '2026-01-02T03:04:05Z')",
 		uuid.MustNewUUID().String(), s.modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	mode, err = st.GetMigrationMode(c.Context(), s.modelUUID.String())
@@ -936,7 +936,7 @@ func (s *stateSuite) TestGetMigrationPhase(c *tc.C) {
 	// An import claim takes precedence over the active export: a model with
 	// both is inconsistent, and IMPORT keeps it frozen.
 	_, err = s.DB().ExecContext(c.Context(),
-		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'src')",
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at) VALUES (?, ?, 'src', '2026-01-02T03:04:05Z')",
 		uuid.MustNewUUID().String(), s.modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	phase, err = st.GetMigrationPhase(c.Context(), s.modelUUID.String())

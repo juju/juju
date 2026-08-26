@@ -140,9 +140,10 @@ func (st *State) IsMigratingModel(ctx context.Context, mUUID string) (bool, erro
 }
 
 // MarkMigratingModelAsDead marks a migrating model as dead. An importing claim
-// is moved to aborting in the same transaction to exclude activation, while an
-// activating claim is refused. The operation is idempotent once the model is
-// dead.
+// is moved to aborting in the same transaction, while a claim already in a
+// later phase is left untouched: the model is being removed regardless, so its
+// claim bookkeeping no longer gates that. The operation is idempotent once the
+// model is dead.
 func (st *State) MarkMigratingModelAsDead(ctx context.Context, mUUID, updatedAt string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -181,38 +182,18 @@ AND    phase_type_id = (SELECT id FROM importing_phase)`, abort)
 			return nil
 		}
 
-		hasClaim, phase, err := st.migratingImportPhase(ctx, tx, mUUID)
+		isMigrating, phase, err := st.migratingImportPhase(ctx, tx, mUUID)
 		if err != nil {
 			return errors.Errorf("checking if model is migrating: %w", err)
 		}
-		if !hasClaim {
+		if !isMigrating {
 			return errors.Errorf("model is not migrating")
 		}
 
-		switch phase {
-		case string(modelmigration.ImportPhaseImporting):
-			var outcome sqlair.Outcome
-			if err := tx.Query(ctx, claimToAbortingStmt, abort).Get(&outcome); err != nil {
+		if phase == string(modelmigration.ImportPhaseImporting) {
+			if err := tx.Query(ctx, claimToAbortingStmt, abort).Run(); err != nil {
 				return errors.Errorf("transitioning import claim to aborting: %w", err)
 			}
-			if affected, err := outcome.Result().RowsAffected(); err != nil {
-				return errors.Capture(err)
-			} else if affected == 0 {
-				// Refuse to kill a model whose phase changed concurrently.
-				return errors.Errorf(
-					"model %q migration import left the importing phase concurrently: %w",
-					mUUID, removalerrors.MigrationImportPastImporting)
-			}
-		case string(modelmigration.ImportPhaseAborting):
-			// A retried abort: the claim is already aborting (this call, or an
-			// earlier one, took the lock). Re-kill the model idempotently and
-			// leave the claim for the undertaker to reap.
-		default:
-			// activating (or any unexpected phase): the model has crossed the
-			// activation point of no return and must not be torn down here.
-			return errors.Errorf(
-				"model %q migration import is %q: %w",
-				mUUID, phase, removalerrors.MigrationImportPastImporting)
 		}
 
 		if err := tx.Query(ctx, markDeadStmt, modelUUID).Run(); err != nil {
@@ -415,7 +396,7 @@ WHERE  model_uuid = $entityUUID.uuid;`, modelUUID, count{})
 
 // migratingImportPhase returns the v8 import claim phase for the model, and
 // whether a claim exists at all.
-func (st *State) migratingImportPhase(ctx context.Context, tx *sqlair.TX, mUUID string) (hasClaim bool, phase string, err error) {
+func (st *State) migratingImportPhase(ctx context.Context, tx *sqlair.TX, mUUID string) (isMigrating bool, phase string, err error) {
 	modelUUID := entityUUID{UUID: mUUID}
 	stmt, err := st.Prepare(`
 SELECT mmipt.type AS &migrationImportPhase.phase
@@ -445,49 +426,14 @@ func (st *State) removeBasicModelData(ctx context.Context, tx *sqlair.TX, mUUID 
 		"DELETE FROM secret_backend_reference WHERE model_uuid = $entityUUID.uuid",
 		"DELETE FROM model_authorized_keys WHERE model_uuid = $entityUUID.uuid",
 		"DELETE FROM model_last_login WHERE model_uuid = $entityUUID.uuid",
-		`WITH deletable_claim AS (
-		     SELECT mmi.uuid
-		     FROM   model_migration_import AS mmi
-		     JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
-		     WHERE  mmi.model_uuid = $entityUUID.uuid
-		     AND    (mmipt.type = 'importing'
-		         OR (mmipt.type = 'aborting'
-		             AND NOT EXISTS (
-		                 SELECT 1
-		                 FROM   model_database_deletion AS mdd
-		                 WHERE  mdd.namespace = $entityUUID.uuid)))
-		 )
-		 DELETE FROM model_migration_import_offer
-		 WHERE migration_uuid IN (SELECT uuid FROM deletable_claim)`,
-		`WITH deletable_claim AS (
-		     SELECT mmi.uuid
-		     FROM   model_migration_import AS mmi
-		     JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
-		     WHERE  mmi.model_uuid = $entityUUID.uuid
-		     AND    (mmipt.type = 'importing'
-		         OR (mmipt.type = 'aborting'
-		             AND NOT EXISTS (
-		                 SELECT 1
-		                 FROM   model_database_deletion AS mdd
-		                 WHERE  mdd.namespace = $entityUUID.uuid)))
-		 )
-		 DELETE FROM model_migration_import_external_controller_model
-		 WHERE migration_uuid IN (SELECT uuid FROM deletable_claim)`,
-		`WITH deletable_claim AS (
-		     SELECT mmi.uuid
-		     FROM   model_migration_import AS mmi
-		     JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
-		     WHERE  mmi.model_uuid = $entityUUID.uuid
-		     AND    (mmipt.type = 'importing'
-		         OR (mmipt.type = 'aborting'
-		             AND NOT EXISTS (
-		                 SELECT 1
-		                 FROM   model_database_deletion AS mdd
-		                 WHERE  mdd.namespace = $entityUUID.uuid)))
-		 )
-		 DELETE FROM model_migration_import
-		 WHERE model_uuid = $entityUUID.uuid
-		 AND uuid IN (SELECT uuid FROM deletable_claim)`,
+		`DELETE FROM model_migration_import_offer
+		 WHERE migration_uuid IN (
+		     SELECT uuid FROM model_migration_import WHERE model_uuid = $entityUUID.uuid)`,
+		`DELETE FROM model_migration_import_external_controller_model
+		 WHERE migration_uuid IN (
+		     SELECT uuid FROM model_migration_import WHERE model_uuid = $entityUUID.uuid)`,
+		`DELETE FROM model_migration_import
+		 WHERE model_uuid = $entityUUID.uuid`,
 	}
 
 	for _, table := range tables {

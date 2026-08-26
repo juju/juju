@@ -157,14 +157,14 @@ type MockControllerStateMockRecorder struct {
 	insertExportExpects                           []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
 	insertMinionReportExpects                     []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
 	isImportNamespaceRegisteredExpects            []*gomock.Call2_2[context.Context, string, bool, error]
-	isModelDyingExpects                           []*gomock.Call2_2[context.Context, string, bool, error]
+	isModelNotAliveExpects                        []*gomock.Call2_2[context.Context, string, bool, error]
 	namespaceForWatchExportExpects                []*gomock.Call0_1[string]
 	namespaceForWatchImportClaimExpects           []*gomock.Call0_1[string]
 	namespaceForWatchMinionSyncExpects            []*gomock.Call0_1[string]
 	namespaceForWatchModelDatabaseDeletionExpects []*gomock.Call0_1[string]
 	namespaceForWatchPhaseExpects                 []*gomock.Call0_1[string]
 	secretBackendExistsExpects                    []*gomock.Call2_2[context.Context, string, bool, error]
-	setImportPhaseAbortingExpects                 []*gomock.Call2_1[context.Context, string, error]
+	setImportPhaseAbortingExpects                 []*gomock.Call5_1[context.Context, string, modelmigration0.ImportPhase, modelmigration0.ImportPhase, string, error]
 	setImportPhaseActivatingExpects               []*gomock.Call2_1[context.Context, string, error]
 	setPhaseExpects                               []*gomock.Call3_1[context.Context, string, migration.Phase, error]
 	setStatusMessageExpects                       []*gomock.Call3_1[context.Context, string, string, error]
@@ -850,23 +850,23 @@ func (mr *MockControllerStateMockRecorder) IsImportNamespaceRegistered(ctx, mode
 // MockControllerStateIsImportNamespaceRegisteredCall is the typed call wrapper for IsImportNamespaceRegistered.
 type MockControllerStateIsImportNamespaceRegisteredCall = gomock.Call2_2[context.Context, string, bool, error]
 
-// IsModelDying mocks base method.
-func (m *MockControllerState) IsModelDying(ctx context.Context, modelUUID string) (bool, error) {
+// IsModelNotAlive mocks base method.
+func (m *MockControllerState) IsModelNotAlive(ctx context.Context, modelUUID string) (bool, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.isModelDyingExpects, m.ctrl, m, "IsModelDying", ctx, modelUUID)
+	return gomock.Dispatch2_2(&m.recorder.isModelNotAliveExpects, m.ctrl, m, "IsModelNotAlive", ctx, modelUUID)
 }
 
-// IsModelDying indicates an expected call of IsModelDying.
-func (mr *MockControllerStateMockRecorder) IsModelDying(ctx, modelUUID any) *MockControllerStateIsModelDyingCall {
+// IsModelNotAlive indicates an expected call of IsModelNotAlive.
+func (mr *MockControllerStateMockRecorder) IsModelNotAlive(ctx, modelUUID any) *MockControllerStateIsModelNotAliveCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "IsModelDying", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
-	mr.isModelDyingExpects = append(mr.isModelDyingExpects, call)
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "IsModelNotAlive", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.isModelNotAliveExpects = append(mr.isModelNotAliveExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockControllerStateIsModelDyingCall is the typed call wrapper for IsModelDying.
-type MockControllerStateIsModelDyingCall = gomock.Call2_2[context.Context, string, bool, error]
+// MockControllerStateIsModelNotAliveCall is the typed call wrapper for IsModelNotAlive.
+type MockControllerStateIsModelNotAliveCall = gomock.Call2_2[context.Context, string, bool, error]
 
 // NamespaceForWatchExport mocks base method.
 func (m *MockControllerState) NamespaceForWatchExport() string {
@@ -977,22 +977,22 @@ func (mr *MockControllerStateMockRecorder) SecretBackendExists(ctx, name any) *M
 type MockControllerStateSecretBackendExistsCall = gomock.Call2_2[context.Context, string, bool, error]
 
 // SetImportPhaseAborting mocks base method.
-func (m *MockControllerState) SetImportPhaseAborting(ctx context.Context, modelUUID string) error {
+func (m *MockControllerState) SetImportPhaseAborting(ctx context.Context, modelUUID string, source, target modelmigration0.ImportPhase, updatedAt string) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.setImportPhaseAbortingExpects, m.ctrl, m, "SetImportPhaseAborting", ctx, modelUUID)
+	return gomock.Dispatch5_1(&m.recorder.setImportPhaseAbortingExpects, m.ctrl, m, "SetImportPhaseAborting", ctx, modelUUID, source, target, updatedAt)
 }
 
 // SetImportPhaseAborting indicates an expected call of SetImportPhaseAborting.
-func (mr *MockControllerStateMockRecorder) SetImportPhaseAborting(ctx, modelUUID any) *MockControllerStateSetImportPhaseAbortingCall {
+func (mr *MockControllerStateMockRecorder) SetImportPhaseAborting(ctx, modelUUID, source, target, updatedAt any) *MockControllerStateSetImportPhaseAbortingCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "SetImportPhaseAborting", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	call := gomock.NewCall5_1[context.Context, string, modelmigration0.ImportPhase, modelmigration0.ImportPhase, string, error](mr.mock.ctrl.T, mr.mock, "SetImportPhaseAborting", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(source), gomock.EnsureMatcher(target), gomock.EnsureMatcher(updatedAt))
 	mr.setImportPhaseAbortingExpects = append(mr.setImportPhaseAbortingExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockControllerStateSetImportPhaseAbortingCall is the typed call wrapper for SetImportPhaseAborting.
-type MockControllerStateSetImportPhaseAbortingCall = gomock.Call2_1[context.Context, string, error]
+type MockControllerStateSetImportPhaseAbortingCall = gomock.Call5_1[context.Context, string, modelmigration0.ImportPhase, modelmigration0.ImportPhase, string, error]
 
 // SetImportPhaseActivating mocks base method.
 func (m *MockControllerState) SetImportPhaseActivating(ctx context.Context, modelUUID string) error {

@@ -263,8 +263,8 @@ func (s *stateSuite) TestCompleteModelRedirectAndPurgeImportClaims(c *tc.C) {
 	claimUUID := uuid.MustNewUUID().String()
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id)
-VALUES (?, ?, ?, (SELECT id FROM model_migration_import_phase_type WHERE type = 'importing'))`,
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id, updated_at)
+VALUES (?, ?, ?, (SELECT id FROM model_migration_import_phase_type WHERE type = 'importing'), '2026-01-02T03:04:05Z')`,
 			claimUUID, s.modelUUID, uuid.MustNewUUID().String())
 		return err
 	})
@@ -299,8 +299,8 @@ func (s *stateSuite) TestCompleteModelRedirectAndPurgeKeepsAbortingClaim(c *tc.C
 	claimUUID := uuid.MustNewUUID().String()
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id)
-VALUES (?, ?, ?, (SELECT id FROM model_migration_import_phase_type WHERE type = 'aborting'))`,
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id, updated_at)
+VALUES (?, ?, ?, (SELECT id FROM model_migration_import_phase_type WHERE type = 'aborting'), '2026-01-02T03:04:05Z')`,
 			claimUUID, s.modelUUID, uuid.MustNewUUID().String())
 		return err
 	})

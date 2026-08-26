@@ -74,8 +74,8 @@ func (s *modelSuite) TestIsMigratingModel(c *tc.C) {
 	// Set the model as migrating.
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
-VALUES ('foo', ?, 'source-migration-uuid')`, modelUUID)
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at)
+VALUES ('foo', ?, 'source-migration-uuid', '2026-01-02T03:04:05Z')`, modelUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -110,8 +110,8 @@ func (s *modelSuite) TestEnsureModelNotAliveUnlessMigratingRefusesMigratingModel
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
-VALUES ('claim-uuid', ?, 'source-migration-uuid')`, modelUUID)
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at)
+VALUES ('claim-uuid', ?, 'source-migration-uuid', '2026-01-02T03:04:05Z')`, modelUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -148,8 +148,8 @@ func (s *modelSuite) TestMarkMigratingModelAsDeadStillAlive(c *tc.C) {
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
-VALUES ('foo', ?, 'source-migration-uuid')`, modelUUID); err != nil {
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at)
+VALUES ('foo', ?, 'source-migration-uuid', '2026-01-02T03:04:05Z')`, modelUUID); err != nil {
 			return err
 		}
 		return nil
@@ -170,8 +170,8 @@ func (s *modelSuite) TestMarkMigratingModelAsDeadDying(c *tc.C) {
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
-VALUES ('foo', ?, 'source-migration-uuid')`, modelUUID); err != nil {
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at)
+VALUES ('foo', ?, 'source-migration-uuid', '2026-01-02T03:04:05Z')`, modelUUID); err != nil {
 			return err
 		}
 		return nil
@@ -211,8 +211,8 @@ func (s *modelSuite) TestMarkMigratingModelAsDeadTakesAbortLock(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		// phase_type_id defaults to 0 (importing).
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
-VALUES ('claim', ?, 'source-migration-uuid')`, modelUUID)
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at)
+VALUES ('claim', ?, 'source-migration-uuid', '2026-01-02T03:04:05Z')`, modelUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -240,8 +240,8 @@ func (s *modelSuite) TestMarkMigratingModelAsDeadAbortingClaimIsIdempotent(c *tc
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id)
-VALUES ('claim', ?, 'source-migration-uuid', 2)`, modelUUID) // aborting
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id, updated_at)
+VALUES ('claim', ?, 'source-migration-uuid', 2, '2026-01-02T03:04:05Z')`, modelUUID) // aborting
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -254,28 +254,28 @@ VALUES ('claim', ?, 'source-migration-uuid', 2)`, modelUUID) // aborting
 	c.Check(phaseID, tc.Equals, 2) // still aborting
 }
 
-// TestMarkMigratingModelAsDeadRefusesActivatingClaim verifies that a model whose
-// import claim has reached the activating phase is not marked dead by the abort
-// path: activation has crossed the point of no return and owns the model's
-// teardown, so killing it here would strand an activated model.
-func (s *modelSuite) TestMarkMigratingModelAsDeadRefusesActivatingClaim(c *tc.C) {
+// TestMarkMigratingModelAsDeadKillsActivatingClaim verifies that a model whose
+// import claim has reached the activating phase is still marked dead when asked:
+// removal of the model is not gated on claim bookkeeping. The claim itself is
+// left untouched for the activation finalizer to reap.
+func (s *modelSuite) TestMarkMigratingModelAsDeadKillsActivatingClaim(c *tc.C) {
 	modelUUID := s.getModelUUID(c)
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id)
-VALUES ('claim', ?, 'source-migration-uuid', 1)`, modelUUID) // activating
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id, updated_at)
+VALUES ('claim', ?, 'source-migration-uuid', 1, '2026-01-02T03:04:05Z')`, modelUUID) // activating
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.MarkMigratingModelAsDead(c.Context(), modelUUID, importAbortUpdatedAt)
-	c.Assert(err, tc.ErrorIs, removalerrors.MigrationImportPastImporting)
+	c.Assert(err, tc.ErrorIsNil)
 
-	// The model is left alive and the claim untouched.
+	// The model is dead; the activating claim is left untouched.
 	lifeID, phaseID := s.modelLifeAndClaimPhase(c, modelUUID)
-	c.Check(lifeID, tc.Equals, int(life.Alive))
+	c.Check(lifeID, tc.Equals, int(life.Dead))
 	c.Check(phaseID, tc.Equals, 1) // still activating
 }
 
@@ -291,8 +291,8 @@ func (s *modelSuite) TestDeleteModelDeletesAbortingClaim(c *tc.C) {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id)
-VALUES ('claim', ?, 'source-migration-uuid', 2)`, modelUUID) // aborting
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id, updated_at)
+VALUES ('claim', ?, 'source-migration-uuid', 2, '2026-01-02T03:04:05Z')`, modelUUID) // aborting
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -304,11 +304,10 @@ VALUES ('claim', ?, 'source-migration-uuid', 2)`, modelUUID) // aborting
 	c.Check(s.claimCount(c, modelUUID), tc.Equals, 0)
 }
 
-// TestDeleteModelPreservesStagedAbortingClaim verifies that when a v8 abort
-// finalizer has staged the model-database drop, the generic removal path leaves
-// the aborting claim in place: the v8 finalizer owns releasing it once the drop
-// is proven complete.
-func (s *modelSuite) TestDeleteModelPreservesStagedAbortingClaim(c *tc.C) {
+// TestDeleteModelDeletesStagedAbortingClaim verifies that the generic removal
+// path reaps an aborting import claim even when a model-database drop is still
+// staged: removal of the model must not be blocked by migration bookkeeping.
+func (s *modelSuite) TestDeleteModelDeletesStagedAbortingClaim(c *tc.C) {
 	modelUUID := s.getModelUUID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -316,8 +315,8 @@ func (s *modelSuite) TestDeleteModelPreservesStagedAbortingClaim(c *tc.C) {
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id)
-VALUES ('claim', ?, 'source-migration-uuid', 2)`, modelUUID); err != nil { // aborting
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id, updated_at)
+VALUES ('claim', ?, 'source-migration-uuid', 2, '2026-01-02T03:04:05Z')`, modelUUID); err != nil { // aborting
 			return err
 		}
 		_, err := tx.ExecContext(ctx, `
@@ -331,12 +330,13 @@ VALUES (?, DATETIME('now'))`, modelUUID)
 	err = st.DeleteModel(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(s.claimCount(c, modelUUID), tc.Equals, 1)
+	c.Check(s.claimCount(c, modelUUID), tc.Equals, 0)
 }
 
-// TestDeleteModelPreservesActivatingClaim verifies the generic removal path
-// never reaps an activating claim - it is owned by the v8 activation finalizer.
-func (s *modelSuite) TestDeleteModelPreservesActivatingClaim(c *tc.C) {
+// TestDeleteModelDeletesActivatingClaim verifies the generic removal path reaps
+// an activating claim too: the model is being deleted, so its migration
+// bookkeeping must go with it rather than block removal.
+func (s *modelSuite) TestDeleteModelDeletesActivatingClaim(c *tc.C) {
 	modelUUID := s.getModelUUID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -344,8 +344,8 @@ func (s *modelSuite) TestDeleteModelPreservesActivatingClaim(c *tc.C) {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id)
-VALUES ('claim', ?, 'source-migration-uuid', 1)`, modelUUID) // activating
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id, updated_at)
+VALUES ('claim', ?, 'source-migration-uuid', 1, '2026-01-02T03:04:05Z')`, modelUUID) // activating
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -354,7 +354,7 @@ VALUES ('claim', ?, 'source-migration-uuid', 1)`, modelUUID) // activating
 	err = st.DeleteModel(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(s.claimCount(c, modelUUID), tc.Equals, 1)
+	c.Check(s.claimCount(c, modelUUID), tc.Equals, 0)
 }
 
 func (s *modelSuite) TestMarkModelAsDeadNotFound(c *tc.C) {
@@ -446,7 +446,7 @@ func (s *modelSuite) TestDeleteMigratingModel(c *tc.C) {
 			return err
 		}
 
-		_, err := tx.ExecContext(ctx, "INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES ('blah', ?, 'source-migration-uuid')", modelUUID)
+		_, err := tx.ExecContext(ctx, "INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at) VALUES ('blah', ?, 'source-migration-uuid', '2026-01-02T03:04:05Z')", modelUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -484,7 +484,7 @@ func (s *modelSuite) TestDeleteMigratingModelWithImportCompanions(c *tc.C) {
 			return err
 		}
 		if _, err := tx.ExecContext(ctx,
-			"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'source-migration-uuid')",
+			"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at) VALUES (?, ?, 'source-migration-uuid', '2026-01-02T03:04:05Z')",
 			claimUUID, modelUUID); err != nil {
 			return err
 		}

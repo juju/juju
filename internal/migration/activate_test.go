@@ -117,6 +117,7 @@ func (g activationDomainServicesGetter) ServicesForModel(
 			// Credential validation is driven separately by CheckMachines, so
 			// the activation path never reaches the validator.
 			nil,
+			g.deps.Clock,
 			g.deps.Logger,
 		),
 		model: modelservice.NewWatchableService(
@@ -456,7 +457,7 @@ func (s *controllerImportSuite) TestActivateModelReconcilesOffererControllers(c 
 
 	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
 	claimUUID := s.importClaimUUID(c, modelUUID)
-	err := modelmigrationservice.NewImportService(claimSt, deps.Logger).ImportExternalControllers(
+	err := modelmigrationservice.NewImportService(claimSt, deps.Clock, deps.Logger).ImportExternalControllers(
 		c.Context(), modelUUID, claimUUID,
 		[]coremodelmigration.ExternalController{{
 			UUID:           thirdPartyControllerUUID,

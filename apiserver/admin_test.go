@@ -556,8 +556,8 @@ VALUES (?, 0, 'instance-0')`, machineUUID)
 func (s *loginSuite) beginImport(c *tc.C, modelUUID coremodel.UUID) {
 	err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
-VALUES (?, ?, ?)`,
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, updated_at)
+VALUES (?, ?, ?, '2026-01-02T03:04:05Z')`,
 			uuid.MustNewUUID().String(), modelUUID.String(), uuid.MustNewUUID().String())
 		return err
 	})

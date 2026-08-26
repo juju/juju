@@ -31,7 +31,11 @@ func (s *Service) SetImportPhaseAborting(ctx context.Context, modelUUID coremode
 		return errors.Errorf("validating model uuid: %w", err)
 	}
 
-	return s.controllerState.SetImportPhaseAborting(ctx, modelUUID.String())
+	return s.controllerState.SetImportPhaseAborting(
+		ctx, modelUUID.String(),
+		modelmigration.ImportPhaseImporting, modelmigration.ImportPhaseAborting,
+		s.clock.Now().UTC().Format(time.RFC3339),
+	)
 }
 
 // FinalizeAbortedImport deletes the model's import claim, its FK-dependent
@@ -64,9 +68,9 @@ func (s *Service) StageAbortedModelDatabaseDeletion(ctx context.Context, modelUU
 	return s.controllerState.StageAbortedModelDatabaseDeletion(ctx, modelUUID.String())
 }
 
-// IsModelDying reports whether the model has left the alive state. It returns
+// IsModelNotAlive reports whether the model has left the alive state. It returns
 // a model-not-found error when the model does not exist.
-func (s *Service) IsModelDying(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
+func (s *Service) IsModelNotAlive(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -74,7 +78,7 @@ func (s *Service) IsModelDying(ctx context.Context, modelUUID coremodel.UUID) (b
 		return false, errors.Errorf("validating model uuid: %w", err)
 	}
 
-	return s.controllerState.IsModelDying(ctx, modelUUID.String())
+	return s.controllerState.IsModelNotAlive(ctx, modelUUID.String())
 }
 
 // GetAllImportClaims returns a snapshot of every outstanding import claim, for

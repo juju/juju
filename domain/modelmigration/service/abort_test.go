@@ -20,7 +20,10 @@ func (s *serviceSuite) TestSetImportPhaseAborting(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := tc.Must(c, coremodel.NewUUID)
-	s.controllerState.EXPECT().SetImportPhaseAborting(gomock.Any(), modelUUID.String()).Return(nil)
+	s.controllerState.EXPECT().SetImportPhaseAborting(
+		gomock.Any(), modelUUID.String(),
+		modelmigration.ImportPhaseImporting, modelmigration.ImportPhaseAborting, gomock.Any(),
+	).Return(nil)
 
 	err := s.service(c).SetImportPhaseAborting(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
