@@ -85,7 +85,7 @@ func (st *State) GetUnitEndpointNetworkInfo(
 	}
 
 	type names []string
-	type InSpaceAddress spaceAddress
+	type InSpaceAddress SpaceAddress
 	type endpointNetworkInfoRow struct {
 		EndpointName string `db:"endpoint_name"`
 		InSpaceAddress
@@ -223,7 +223,7 @@ ORDER BY endpoint_name,
 	for _, row := range rows {
 		info := infosByEndpoint[row.EndpointName]
 
-		encodedIP, err := encodeIPAddress(spaceAddress(row.InSpaceAddress))
+		encodedIP, err := encodeIPAddress(SpaceAddress(row.InSpaceAddress))
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -260,7 +260,7 @@ func (st *State) GetUnitNetworkInfo(
 		return networkinternal.UnitNetworkInfo{}, errors.Capture(err)
 	}
 
-	type InSpaceAddress spaceAddress
+	type InSpaceAddress SpaceAddress
 	type unitNetworkInfoRow struct {
 		InSpaceAddress
 		Device         string         `db:"name"`
@@ -354,7 +354,7 @@ ORDER BY CASE WHEN ingress_address_value IS NULL THEN 1 ELSE 0 END,
 
 	info := networkinternal.UnitNetworkInfo{}
 	for _, row := range rows {
-		encodedIP, err := encodeIPAddress(spaceAddress(row.InSpaceAddress))
+		encodedIP, err := encodeIPAddress(SpaceAddress(row.InSpaceAddress))
 		if err != nil {
 			return networkinternal.UnitNetworkInfo{}, errors.Capture(err)
 		}

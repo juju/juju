@@ -33,13 +33,13 @@ func (st *State) GetUnitAndK8sServiceAddresses(ctx context.Context, uuid coreuni
 		return nil, errors.Capture(err)
 	}
 
-	var address []spaceAddress
+	var address []SpaceAddress
 	ident := entityUUID{UUID: uuid.String()}
 	queryUnitPublicAddressesStmt, err := st.Prepare(`
-SELECT &spaceAddress.*
+SELECT &SpaceAddress.*
 FROM v_all_unit_address AS ua
 WHERE     ua.unit_uuid = $entityUUID.uuid
-`, spaceAddress{}, entityUUID{})
+`, SpaceAddress{}, entityUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -160,16 +160,16 @@ func (st *State) GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (core
 		return nil, errors.Capture(err)
 	}
 
-	var address []spaceAddress
+	var address []SpaceAddress
 	ident := entityUUID{UUID: uuid.String()}
 	queryUnitPublicAddressesStmt, err := st.Prepare(`
-SELECT    &spaceAddress.*
+SELECT    &SpaceAddress.*
 FROM      unit u
 JOIN      link_layer_device AS lld ON u.net_node_uuid = lld.net_node_uuid
 JOIN      v_ip_address_with_names AS ipa ON lld.uuid = ipa.device_uuid
 LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
 WHERE     u.uuid = $entityUUID.uuid
-`, spaceAddress{}, entityUUID{})
+`, SpaceAddress{}, entityUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -309,7 +309,7 @@ WHERE uuid = $entityUUID.uuid;
 	}
 }
 
-func encodeIPAddresses(addresses []spaceAddress) (corenetwork.SpaceAddresses, error) {
+func encodeIPAddresses(addresses []SpaceAddress) (corenetwork.SpaceAddresses, error) {
 	res := make(corenetwork.SpaceAddresses, len(addresses))
 	for i, addr := range addresses {
 		encodedIP, err := encodeIPAddress(addr)
@@ -324,7 +324,7 @@ func encodeIPAddresses(addresses []spaceAddress) (corenetwork.SpaceAddresses, er
 func encodeControllerAPIAddresses(addresses []controllerAPIAddress) (domainnetwork.ControllerAPIAddresses, error) {
 	res := make(domainnetwork.ControllerAPIAddresses, len(addresses))
 	for i, addr := range addresses {
-		encodedIP, err := encodeIPAddress(addr.toSpaceAddress())
+		encodedIP, err := encodeIPAddress(addr.SpaceAddress)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -336,7 +336,7 @@ func encodeControllerAPIAddresses(addresses []controllerAPIAddress) (domainnetwo
 	return res, nil
 }
 
-func encodeIPAddress(address spaceAddress) (corenetwork.SpaceAddress, error) {
+func encodeIPAddress(address SpaceAddress) (corenetwork.SpaceAddress, error) {
 	spaceUUID := corenetwork.AlphaSpaceId
 	if address.SpaceUUID.Valid {
 		spaceUUID = corenetwork.SpaceUUID(address.SpaceUUID.String)

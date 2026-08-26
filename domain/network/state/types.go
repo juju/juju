@@ -633,7 +633,9 @@ func (subs subnetGroups) subnetForIP(ip net.IP) (string, error) {
 	return matches[0], nil
 }
 
-type spaceAddress struct {
+// SpaceAddress represents an address joined with its space and subnet details.
+// It is exported so SQLair can reflect it when embedded in query result types.
+type SpaceAddress struct {
 	Value      string         `db:"address_value"`
 	ConfigType string         `db:"config_type_name"`
 	Type       string         `db:"type_name"`
@@ -645,28 +647,8 @@ type spaceAddress struct {
 }
 
 type controllerAPIAddress struct {
-	Value      string         `db:"address_value"`
-	ConfigType string         `db:"config_type_name"`
-	Type       string         `db:"type_name"`
-	Origin     string         `db:"origin_name"`
-	Scope      string         `db:"scope_name"`
-	DeviceUUID string         `db:"device_uuid"`
-	SpaceUUID  sql.NullString `db:"space_uuid"`
-	SubnetCIDR sql.NullString `db:"cidr"`
-	DeviceType int            `db:"device_type_id"`
-}
-
-func (a controllerAPIAddress) toSpaceAddress() spaceAddress {
-	return spaceAddress{
-		Value:      a.Value,
-		ConfigType: a.ConfigType,
-		Type:       a.Type,
-		Origin:     a.Origin,
-		Scope:      a.Scope,
-		DeviceUUID: a.DeviceUUID,
-		SpaceUUID:  a.SpaceUUID,
-		SubnetCIDR: a.SubnetCIDR,
-	}
+	SpaceAddress
+	DeviceType int `db:"device_type_id"`
 }
 
 // spaceConstraint represents a space name/UUID pair and its
