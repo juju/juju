@@ -18,6 +18,7 @@ juju scp [options] <source> <destination>
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
 | `--proxy` | false | Proxy through the API server |
+| `--show-command` | false | Print the OpenSSH command instead of executing it |
 
 ## Examples
 

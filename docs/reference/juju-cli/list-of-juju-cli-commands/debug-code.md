@@ -20,6 +20,7 @@ juju debug-code [options] <unit name> [hook or action names]
 | `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
 | `--proxy` | false | Proxy through the API server |
 | `--pty` | &lt;auto&gt; | Enable pseudo-tty allocation |
+| `--show-command` | false | Print the OpenSSH command instead of executing it |
 
 ## Examples
 

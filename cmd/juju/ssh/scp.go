@@ -158,6 +158,7 @@ func (c *scpCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.sshMachine.SetFlags(f)
 	c.sshContainer.SetFlags(f)
 	f.BoolVar(&c.jump, "jump", false, "Proxy SSH through the Juju controller")
+	c.sshJump.SetFlags(f)
 }
 
 func (c *scpCommand) Info() *cmd.Info {
@@ -179,6 +180,9 @@ func (c *scpCommand) Init(args []string) (err error) {
 	}
 	if c.modelType, err = c.ModelType(context.TODO()); err != nil {
 		return err
+	}
+	if c.sshJump.showCommand && !c.jump {
+		return errors.New("--show-command requires --jump")
 	}
 	if c.jump && c.modelType == model.CAAS {
 		return errors.New("--jump is not supported for scp to Kubernetes targets")
