@@ -200,6 +200,34 @@ func (s *k8sSuite) TestSessionHandlerReportsResolverFailure(c *tc.C) {
 	c.Check(stderr.String(), tc.Equals, "resolving Kubernetes exec information: resolver failed\n")
 }
 
+func (s *k8sSuite) TestSessionHandlerReportsCloudSpecFailure(c *tc.C) {
+	destination, err := virtualhostname.NewInfoContainerTarget("8419cd78-4993-4c3a-928e-c646226beeee", "app/0", "workload")
+	c.Assert(err, tc.ErrorIsNil)
+
+	resolver := newMockResolver(c)
+	resolver.EXPECT().ResolveK8sExecInfo(gomock.Any(), destination).Return("test-namespace", "test-pod", nil)
+	resolver.EXPECT().CloudSpecForSSH(gomock.Any(), destination).Return(cloudspec.CloudSpec{}, errors.New("cloud spec failed"))
+	handlers, err := NewHandlers(destination, resolver, loggertesting.WrapCheckLog(c), stubExecutor, common.NoopMetrics{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
+	client, err := server.client()
+	c.Assert(err, tc.ErrorIsNil)
+	defer client.Close()
+
+	session, err := client.NewSession()
+	c.Assert(err, tc.ErrorIsNil)
+	defer session.Close()
+
+	var stderr bytes.Buffer
+	session.Stderr = &stderr
+
+	err = session.Run("echo hello")
+
+	c.Check(err, tc.ErrorMatches, "Process exited with status 1")
+	c.Check(stderr.String(), tc.Equals, "getting Kubernetes cloud spec: cloud spec failed\n")
+}
+
 func (s *k8sSuite) TestSessionHandlerWithPTY(c *tc.C) {
 	destination, err := virtualhostname.NewInfoContainerTarget("8419cd78-4993-4c3a-928e-c646226beeee", "app/0", "workload")
 	c.Assert(err, tc.ErrorIsNil)
