@@ -56,10 +56,11 @@ type ControllerRuntimeConfig struct {
 	// DataDir is the Dqlite data directory root.
 	DataDir string `yaml:"data-dir"`
 
-	// LoopbackPreferred controls whether Dqlite should prefer the loopback
-	// address instead of the cloud-local TLS-terminated address. This is true
-	// for CAAS controllers.
-	LoopbackPreferred bool `yaml:"loopback-preferred,omitempty"`
+	// IsK8SController is true when the controller runs in a Kubernetes
+	// topology. It selects the K8s-specific controller manifold graph
+	// (CAASManifolds) and is set only by the Kubernetes controller bootstrap
+	// writer. The default false value selects IAAS manifolds.
+	IsK8SController bool `yaml:"is-k8s-controller,omitempty"`
 
 	// LogDir is the controller process log directory.
 	LogDir string `yaml:"log-dir"`

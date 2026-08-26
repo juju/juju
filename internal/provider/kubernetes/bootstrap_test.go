@@ -783,10 +783,10 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
 		},
 		Data: map[string]string{
-			"bootstrap-params":           string(bootstrapParamsContent),
-			"controller-agent.conf":      controllerStacker.GetControllerAgentConfigContent(c),
-			"controller-unit-agent.conf": controllerStacker.GetControllerUnitAgentConfigContent(c),
-			"controller-nonce-0":         controllerStacker.GetControllerNonce(),
+			"bootstrap-params":               string(bootstrapParamsContent),
+			"controller-agent.conf":          controllerStacker.GetControllerAgentConfigContent(c),
+			"controller-unit-agent.conf":     controllerStacker.GetControllerUnitAgentConfigContent(c),
+			"controller-nonce-0":             controllerStacker.GetControllerNonce(),
 			controllerruntimeconfig.Filename: controllerStacker.GetControllerRuntimeConfigContent(c),
 		},
 	}
@@ -994,19 +994,27 @@ export JUJU_DATA_DIR=/var/lib/juju
 export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 
 mkdir -p $JUJU_TOOLS_DIR
+cp /opt/jujud $JUJU_TOOLS_DIR/jujud
 cp /opt/jujuagentd $JUJU_TOOLS_DIR/jujuagentd
 
 controller_id="${HOSTNAME##*-}"; if [ "${controller_id}" = "0" ]; then if ! test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf; then mkdir -p $JUJU_DATA_DIR/charms; until test -e $JUJU_DATA_DIR/charms/controller.charm; do sleep 1; done; JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s; fi; else until test -e "$JUJU_DATA_DIR/agents/controller-${controller_id}/agent.conf"; do sleep 1; done; fi
 
 mkdir -p /var/lib/pebble/default/layers
-cat > /var/lib/pebble/default/layers/001-jujuagentd.yaml <<EOF
-summary: jujuagentd service
+cat > /var/lib/pebble/default/layers/001-controller.yaml <<EOF
+summary: split controller services
 services:
     jujuagentd:
-        summary: Juju controller agent
+        summary: Juju machine agent
         startup: enabled
         override: replace
-        command: /bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec $JUJU_TOOLS_DIR/jujuagentd machine --data-dir "$JUJU_DATA_DIR" --controller-id "${controller_id}" --log-to-stderr --debug'
+        command: /bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec $JUJU_TOOLS_DIR/jujuagentd machine --data-dir "$JUJU_DATA_DIR" --controller-id "${controller_id}" --machine-agent-only --log-to-stderr --debug'
+        environment:
+            JUJU_DEV_FEATURE_FLAGS: developer-mode
+    jujud:
+        summary: Juju controller
+        startup: enabled
+        override: replace
+        command: /bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec $JUJU_TOOLS_DIR/jujud controller --data-dir "$JUJU_DATA_DIR" --controller-id "${controller_id}" --log-to-stderr --debug'
         environment:
             JUJU_DEV_FEATURE_FLAGS: developer-mode
 
@@ -1048,13 +1056,6 @@ exec /opt/pebble run --http :38811 --verbose
 					ReadOnly:  true,
 					MountPath: "/var/lib/juju/bootstrap-params",
 					SubPath:   "bootstrap-params",
-				},
-				{
-					Name:     "juju-controller-test-agent-conf",
-					ReadOnly: true,
-					MountPath: "/var/lib/juju/agents/controller-0/" +
-						controllerruntimeconfig.Filename,
-					SubPath: controllerruntimeconfig.Filename,
 				},
 				{
 					Name:      "charm-data",
@@ -1148,6 +1149,7 @@ if [ "${controller_id}" = "0" ]; then
     if [ ! -e "${controller_template}" ]; then
         mkdir -p "${controller_dir}"
         cp "/var/lib/juju-controller-bootstrap/controller-agent.conf" "${controller_template}"
+        cp "/var/lib/juju-controller-bootstrap/runtime.conf" "${controller_dir}/runtime.conf"
         chmod 600 "${controller_template}"
     fi
 fi
@@ -1453,6 +1455,35 @@ fi
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for deploy return")
 	}
+}
+
+func (s *bootstrapSuite) TestSplitControllerPebbleLayer(c *tc.C) {
+	controllerCmd := "$JUJU_TOOLS_DIR/jujud controller --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr"
+	machineCmd := "$JUJU_TOOLS_DIR/jujuagentd machine --data-dir $JUJU_DATA_DIR --controller-id 0 --machine-agent-only --log-to-stderr"
+	env := map[string]string{"JUJU_DEV_FEATURE_FLAGS": "developer-mode"}
+
+	layer, err := kubernetes.SplitControllerPebbleLayer(controllerCmd, machineCmd, env)
+	c.Assert(err, tc.ErrorIsNil)
+
+	content := string(layer)
+	c.Check(strings.Contains(content, "summary: split controller services"), tc.IsTrue)
+	c.Check(strings.Contains(content, "jujud controller"), tc.IsTrue)
+	c.Check(strings.Contains(content, "jujuagentd machine"), tc.IsTrue)
+	c.Check(strings.Contains(content, "machine-agent-only"), tc.IsTrue)
+	c.Check(strings.Contains(content, "startup: enabled"), tc.IsTrue)
+	c.Check(strings.Contains(content, "override: replace"), tc.IsTrue)
+	c.Check(strings.Contains(content, "JUJU_DEV_FEATURE_FLAGS: developer-mode"), tc.IsTrue)
+}
+
+func (s *bootstrapSuite) TestSplitControllerPebbleLayerNoEnv(c *tc.C) {
+	controllerCmd := "$JUJU_TOOLS_DIR/jujud controller --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr"
+	machineCmd := "$JUJU_TOOLS_DIR/jujuagentd machine --data-dir $JUJU_DATA_DIR --controller-id 0 --machine-agent-only --log-to-stderr"
+
+	layer, err := kubernetes.SplitControllerPebbleLayer(controllerCmd, machineCmd, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	content := string(layer)
+	c.Check(strings.Contains(content, "environment:"), tc.IsFalse)
 }
 
 func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *tc.C) {

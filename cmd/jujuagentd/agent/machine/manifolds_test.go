@@ -1016,7 +1016,6 @@ func (s *ManifoldsSuite) TestControllerPathsDependOnIsControllerFlagWithGateEnab
 
 	for _, name := range []string{
 		"db-accessor",
-		"controller-agent-config",
 		"api-server",
 	} {
 		c.Logf("checking %s", name)
