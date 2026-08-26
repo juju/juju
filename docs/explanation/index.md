@@ -24,7 +24,6 @@ About charming history <charming-history>
 
 ## Juju at a glance
 
-Fundamental concepts about how Juju works, its architecture, security model, and performance characteristics.
 
 - {ref}`Architecture <juju-architecture>`
 - {ref}`Security <juju-security>`

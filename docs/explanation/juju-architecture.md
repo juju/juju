@@ -451,6 +451,19 @@ See more: {ref}`machines-and-system-containers`, {ref}`machine`
 
 ::::
 
+
+### How the controller is deployed
+
+The controller is itself a deployed unit -- the one difference is that its agent is the controller process. On Kubernetes, the controller runs as the `juju-controller` application with a single unit (`controller-0`) in a pod; on a machine cloud it is a unit on the controller machine. Its charm, `juju-controller`, is a real charm record -- you can see it and upgrade it like any charm -- but it does not operate the controller the way application charms operate workloads. What actually runs the controller is the `jujud` (or `containeragent`) process itself: its controller agent manifold tree serves the API, reconciles the models, and runs the in-process Dqlite store that holds both the controller database and every model database.
+
+So when you look at a controller unit:
+
+- its **charm** is `juju-controller`, recorded like any charm;
+- its **agent** is the controller process, which is the controller agent running the API, the model workers, and Dqlite;
+- its **workload** (in the broad sense) is the database and the reconciliation machinery -- everything other controller hosts defer to it for.
+
+This is why the topology diagrams above draw the controller pod or machine as `jujud` hosting the controller and model agent workers with Dqlite in-process -- the box is the controller unit's agent and workload together.
+
 (arch-communication)=
 ### Communication paths
 
