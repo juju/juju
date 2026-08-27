@@ -214,8 +214,6 @@ func allCollections() CollectionSchema {
 		cleanupsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid"},
-			}, {
-				Key: []string{"model-uuid", "prefix", "kind"},
 			}},
 		},
 

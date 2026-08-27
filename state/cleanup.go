@@ -990,13 +990,36 @@ func (st *State) cleanupForceDestroyedUnit(unitId string, cleanupArgs []bson.Raw
 		return errors.Trace(err)
 	}
 
-	// If we're here then the usual unit cleanup hasn't happened but
-	// since force was specified we still want the machine to go to
-	// dead.
+	if err := st.forceDestroyUnit(unit, maxWait); err != nil {
+		return err
+	}
 
-	// Destroy all subordinates.
-	var subordinates []*Unit
-	var dyingSubordinateNames []string
+	// Set up another cleanup to remove the unit after maxWait if it gets stuck.
+	st.scheduleForceCleanup(cleanupForceRemoveUnit, unitId, maxWait)
+	return nil
+}
+
+// forceDestroyUnit forces a unit to Dead by destroying its subordinates, leaving
+// relation scopes, detaching storage, and calling EnsureDead. It is used both
+// by the cleanupForceDestroyedUnit cleanup handler (the backstop scheduled by
+// cleanupDyingUnit when force is set) and by the machine evacuation loop when
+// the grace period has elapsed and Dying units need to be forced to Dead.
+//
+// Subordinates are handled with forceDying=false so they get their own grace
+// period: an Alive subordinate is destroyed to Dying, a Dying subordinate is
+// skipped (its own cleanupForceDestroyedUnit backstop will force it later).
+//
+// If the unit has subordinates or storage attachments that are not yet gone,
+// EnsureDead returns ErrUnitHasSubordinates or ErrUnitHasStorageAttachments;
+// the caller should retry later.
+func (st *State) forceDestroyUnit(unit *Unit, maxWait time.Duration) error {
+	unitId := unit.Name()
+
+	// Destroy all subordinates. Use forceDying=false so Dying subordinates
+	// are skipped (given grace) rather than forced inline. The subordinate's
+	// own cleanupForceDestroyedUnit backstop will force it to Dead after
+	// maxWait. forceDestroyUnit will fail (EnsureDead returns
+	// ErrUnitHasSubordinates) and the caller retries.
 	for _, subName := range unit.SubordinateNames() {
 		subUnit, err := st.Unit(subName)
 		if errors.IsNotFound(err) {
@@ -1004,17 +1027,7 @@ func (st *State) cleanupForceDestroyedUnit(unitId string, cleanupArgs []bson.Raw
 		} else if err != nil {
 			return errors.Annotatef(err, "getting subordinate %q to force destroy", subName)
 		}
-		subordinates = append(subordinates, subUnit)
-		if subUnit.Life() == Dying {
-			dyingSubordinateNames = append(dyingSubordinateNames, subName)
-		}
-	}
-	pending, err := st.pendingUnitForceCleanups(dyingSubordinateNames)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, subUnit := range subordinates {
-		operation, opErrs, err := st.cleanupHostedUnit(subUnit, true, maxWait, pending)
+		operation, opErrs, err := st.cleanupHostedUnit(subUnit, true, false, maxWait)
 		if operation == "" {
 			continue
 		}
@@ -1060,10 +1073,6 @@ func (st *State) cleanupForceDestroyedUnit(unitId string, cleanupArgs []bson.Raw
 	} else if err != nil {
 		return errors.Annotatef(err, "setting unit %q dead", unitId)
 	}
-
-	// Set up another cleanup to remove the unit in a minute if the
-	// deployer doesn't do it.
-	st.scheduleForceCleanup(cleanupForceRemoveUnit, unitId, maxWait)
 	return nil
 }
 
@@ -1322,12 +1331,12 @@ func (st *State) cleanupForceDestroyedMachine(machineId string, cleanupArgs []bs
 			}
 		}
 	}
-	return st.cleanupEvacuateMachineInternal(machineId, true, maxWait)
+	return st.cleanupEvacuateMachineInternal(machineId, true, true, maxWait)
 }
 
 // cleanupDestroyedMachineInternal finishes cleanup after directly hosted
 // units have been evacuated.
-func (st *State) cleanupDestroyedMachineInternal(machineID string, force bool, maxWait time.Duration) error {
+func (st *State) cleanupDestroyedMachineInternal(machineID string, force, forceDying bool, maxWait time.Duration) error {
 	machine, err := st.Machine(machineID)
 	if errors.IsNotFound(err) {
 		return nil
@@ -1352,7 +1361,7 @@ func (st *State) cleanupDestroyedMachineInternal(machineID string, force bool, m
 	// But machine destruction is unsophisticated, and doesn't allow for
 	// destruction while dependencies exist; so we just have to deal with that
 	// possibility below.
-	if err := st.cleanupContainers(machine, force, maxWait); err != nil {
+	if err := st.cleanupContainers(machine, force, forceDying, maxWait); err != nil {
 		return errors.Trace(err)
 	}
 	if err := cleanupDyingMachineResources(machine, force); err != nil {
@@ -1483,10 +1492,10 @@ func (st *State) cleanupEvacuateMachine(machineId string, cleanupArgs []bson.Raw
 	default:
 		return errors.Errorf("expected 0 or 2 arguments, got %d", n)
 	}
-	return st.cleanupEvacuateMachineInternal(machineId, force, maxWait)
+	return st.cleanupEvacuateMachineInternal(machineId, force, false, maxWait)
 }
 
-func (st *State) cleanupEvacuateMachineInternal(machineId string, force bool, maxWait time.Duration) error {
+func (st *State) cleanupEvacuateMachineInternal(machineId string, force, forceDying bool, maxWait time.Duration) error {
 	// Remove legacy upgrade-series locks before looking up the machine. A
 	// previous cleanup may already have removed the machine document.
 	if force {
@@ -1512,26 +1521,17 @@ func (st *State) cleanupEvacuateMachineInternal(machineId string, force bool, ma
 
 	if len(units) == 0 {
 		return st.cleanupDestroyedMachineInternal(
-			machineId, force, maxWait,
+			machineId, force, forceDying, maxWait,
 		)
 	}
 
-	var dyingUnitNames []string
-	if force {
-		for _, unit := range units {
-			if unit.Life() == Dying {
-				dyingUnitNames = append(dyingUnitNames, unit.Name())
-			}
-		}
-	}
-	pending, err := st.pendingUnitForceCleanups(dyingUnitNames)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
+	hasDyingUnits := false
 	for _, unit := range units {
-		operation, opErrs, err := st.cleanupHostedUnit(unit, force, maxWait, pending)
+		operation, opErrs, err := st.cleanupHostedUnit(unit, force, forceDying, maxWait)
 		if operation == "" {
+			if force && !forceDying && unit.Life() == Dying {
+				hasDyingUnits = true
+			}
 			continue
 		}
 		if len(opErrs) != 0 {
@@ -1544,30 +1544,43 @@ func (st *State) cleanupEvacuateMachineInternal(machineId string, force bool, ma
 			return errors.Trace(err)
 		}
 	}
+
+	// On the first pass (forceDying=false), if there are Dying units that
+	// were skipped, schedule a future cleanup to re-run with forceDying=true
+	// after maxWait has elapsed. This gives Dying units time to shut down
+	// gracefully before being forced to Dead.
+	if hasDyingUnits {
+		st.scheduleForceCleanup(cleanupForceDestroyedMachine, machineId, maxWait)
+		return nil
+	}
 	return errors.Errorf("waiting for units to be removed from %s", machineId)
 }
 
-type unitForceCleanupKey struct {
-	unitName string
-	maxWait  time.Duration
-}
-
-type pendingUnitForceCleanups map[unitForceCleanupKey]struct{}
-
-func (pending pendingUnitForceCleanups) contains(unitName string, maxWait time.Duration) bool {
-	_, ok := pending[unitForceCleanupKey{unitName: unitName, maxWait: maxWait}]
-	return ok
-}
-
+// cleanupHostedUnit advances destruction of a unit hosted on a machine being
+// evacuated. When force is true and the unit is Dying, the forceDying parameter
+// controls whether the unit is forced to Dead inline (the grace period has
+// elapsed) or skipped to give it time to shut down gracefully.
+// When force is true and the unit is Dead, it is removed. In all other cases
+// the unit is destroyed (force or non-force as appropriate).
 func (st *State) cleanupHostedUnit(
-	unit *Unit, force bool, maxWait time.Duration, pending pendingUnitForceCleanups,
+	unit *Unit, force, forceDying bool, maxWait time.Duration,
 ) (operation string, opErrs []error, err error) {
 	if force {
 		switch unit.Life() {
 		case Dying:
-			if pending.contains(unit.Name(), maxWait) {
+			if !forceDying {
+				// First pass: give the unit time to shut down gracefully.
+				// The evacuation loop will schedule a future cleanup that
+				// re-runs with forceDying=true after maxWait has elapsed.
 				return "", nil, nil
 			}
+			err := st.forceDestroyUnit(unit, maxWait)
+			if errors.Is(err, stateerrors.ErrUnitHasSubordinates) ||
+				errors.Is(err, stateerrors.ErrUnitHasStorageAttachments) {
+				// Subordinates or storage are not yet gone; retry next cycle.
+				return "", nil, nil
+			}
+			return "force-destroying", nil, err
 		case Dead:
 			opErrs, err := unit.RemoveWithForce(true, maxWait)
 			return "removing", opErrs, err
@@ -1577,70 +1590,10 @@ func (st *State) cleanupHostedUnit(
 	return "destroying", opErrs, err
 }
 
-func (st *State) pendingUnitForceCleanups(unitNames []string) (pendingUnitForceCleanups, error) {
-	pending := make(pendingUnitForceCleanups)
-	if len(unitNames) == 0 {
-		return pending, nil
-	}
-
-	cleanups, closer, err := st.db().GetCollection(cleanupsC)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer closer()
-
-	var docs []cleanupDoc
-	err = cleanups.Find(bson.D{
-		{"prefix", bson.D{{"$in", unitNames}}},
-		{"kind", bson.D{{"$in", []cleanupKind{
-			cleanupDyingUnit,
-			cleanupForceDestroyedUnit,
-		}}}},
-	}).All(&docs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	for _, doc := range docs {
-		var force bool
-		var cleanupMaxWait time.Duration
-		switch doc.Kind {
-		case cleanupDyingUnit:
-			var destroyStorage bool
-			if len(doc.Args) != 3 ||
-				!unmarshalStoredCleanupArg(doc.Args[0], &destroyStorage) ||
-				!unmarshalStoredCleanupArg(doc.Args[1], &force) ||
-				!unmarshalStoredCleanupArg(doc.Args[2], &cleanupMaxWait) {
-				continue
-			}
-		case cleanupForceDestroyedUnit:
-			force = true
-			if len(doc.Args) != 1 ||
-				!unmarshalStoredCleanupArg(doc.Args[0], &cleanupMaxWait) {
-				continue
-			}
-		default:
-			continue
-		}
-		if force {
-			pending[unitForceCleanupKey{unitName: doc.Prefix, maxWait: cleanupMaxWait}] = struct{}{}
-		}
-	}
-	return pending, nil
-}
-
-func unmarshalStoredCleanupArg(arg *cleanupArg, value interface{}) bool {
-	if arg == nil {
-		return false
-	}
-	raw, ok := arg.Value.(bson.Raw)
-	return ok && raw.Unmarshal(value) == nil
-}
-
 // cleanupContainers recursively cleans up and removes the supplied machine's containers.
 // If a container has Dying units or is itself Dying while waiting for the provisioner to mark it Dead,
 // the method returns a "waiting" error so the parent cleanup is retried without calling container.Remove().
-func (st *State) cleanupContainers(machine *Machine, force bool, maxWait time.Duration) error {
+func (st *State) cleanupContainers(machine *Machine, force, forceDying bool, maxWait time.Duration) error {
 	containerIds, err := machine.Containers()
 	if errors.IsNotFound(err) {
 		return nil
@@ -1649,7 +1602,7 @@ func (st *State) cleanupContainers(machine *Machine, force bool, maxWait time.Du
 	}
 	for _, containerId := range containerIds {
 		if err := st.cleanupEvacuateMachineInternal(
-			containerId, force, maxWait,
+			containerId, force, forceDying, maxWait,
 		); err != nil {
 			return err
 		}

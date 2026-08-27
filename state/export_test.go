@@ -1371,10 +1371,11 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 }
 
 var (
-	CleanupForceDestroyedUnit = cleanupForceDestroyedUnit
-	CleanupForceRemoveUnit    = cleanupForceRemoveUnit
-	CleanupForceApplication   = cleanupForceApplication
-	CleanupEvacuateMachine    = cleanupEvacuateMachine
+	CleanupForceDestroyedMachine = cleanupForceDestroyedMachine
+	CleanupForceDestroyedUnit    = cleanupForceDestroyedUnit
+	CleanupForceRemoveUnit       = cleanupForceRemoveUnit
+	CleanupForceApplication      = cleanupForceApplication
+	CleanupEvacuateMachine       = cleanupEvacuateMachine
 )
 
 func (st *State) ScheduleForceCleanup(kind cleanupKind, name string, maxWait time.Duration) {
