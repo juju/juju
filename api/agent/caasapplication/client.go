@@ -36,16 +36,19 @@ func NewClient(caller base.APICallCloser, options ...Option) *Client {
 }
 
 type UnitConfig struct {
-	UnitTag   names.UnitTag
-	AgentConf []byte
+	UnitTag             names.UnitTag
+	AgentConf           []byte
+	ControllerAgentTag  names.ControllerAgentTag
+	ControllerAgentConf []byte
 }
 
 // UnitIntroduction introduces the unit and returns an agent config.
-func (c *Client) UnitIntroduction(ctx context.Context, podName string, podUUID string) (*UnitConfig, error) {
+func (c *Client) UnitIntroduction(ctx context.Context, podName string, podUUID string, nonce string) (*UnitConfig, error) {
 	var result params.CAASUnitIntroductionResult
 	args := params.CAASUnitIntroductionArgs{
 		PodName: podName,
 		PodUUID: podUUID,
+		Nonce:   nonce,
 	}
 	err := c.facade.FacadeCall(ctx, "UnitIntroduction", args, &result)
 	if err != nil {
@@ -56,13 +59,24 @@ func (c *Client) UnitIntroduction(ctx context.Context, podName string, podUUID s
 			return nil, errors.AlreadyExists
 		} else if params.IsCodeNotAssigned(err) {
 			return nil, errors.NotAssigned
+		} else if params.IsCodeNotFound(err) {
+			return nil, errors.NotFound
 		}
 		return nil, err
 	}
-	return &UnitConfig{
+	unitConfig := &UnitConfig{
 		UnitTag:   names.NewUnitTag(result.Result.UnitName),
 		AgentConf: result.Result.AgentConf,
-	}, nil
+	}
+	if result.Result.ControllerAgentTag != "" {
+		controllerAgentTag, err := names.ParseControllerAgentTag(result.Result.ControllerAgentTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		unitConfig.ControllerAgentTag = controllerAgentTag
+		unitConfig.ControllerAgentConf = result.Result.ControllerAgentConf
+	}
+	return unitConfig, nil
 }
 
 // UnitTermination holds the result from calling UnitTerminating.

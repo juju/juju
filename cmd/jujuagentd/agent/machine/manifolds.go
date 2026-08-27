@@ -435,7 +435,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// Each machine agent has a flag manifold/worker which
 		// reports whether or not the agent is a controller.
-		isControllerFlagName: util.IsControllerFlagManifold(stateConfigWatcherName, true),
+		isControllerFlagName:    util.IsControllerFlagManifold(stateConfigWatcherName, true),
+		isNotControllerFlagName: util.IsControllerFlagManifold(stateConfigWatcherName, false),
 
 		// Controller agent config manifold watches the controller
 		// agent config and bounces if it changes.
@@ -602,6 +603,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LoggerContext:   internallogger.DefaultContext(),
 			Logger:          internallogger.GetLogger("juju.worker.logger"),
 			UpdateAgentFunc: config.UpdateLoggerConfig,
+		})),
+
+		// The api address updater is a leaf worker that rewrites agent config
+		// as the state server addresses change. We should only need one of
+		// these in a consolidated agent.
+		apiAddressUpdaterName: ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Logger:        internallogger.GetLogger("juju.worker.apiaddressupdater"),
 		})),
 
 		lokiEndpointUpdaterName: ifNotMigrating(lokiendpointupdater.Manifold(lokiendpointupdater.ManifoldConfig{
@@ -1183,11 +1193,12 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
 			Clock:                   config.Clock,
 
-			AgentBinaryUploader:          bootstrap.IAASAgentBinaryUploader,
-			ControllerCharmDeployer:      bootstrap.IAASControllerCharmUploader,
-			ControllerUnitPassword:       bootstrap.IAASControllerUnitPassword,
-			BootstrapAddressFinderGetter: bootstrap.IAASAddressFinder,
-			AgentFinalizer:               bootstrap.IAASAgentFinalizer,
+			AgentBinaryUploader:           bootstrap.IAASAgentBinaryUploader,
+			ControllerCharmDeployer:       bootstrap.IAASControllerCharmUploader,
+			ControllerApplicationPassword: bootstrap.IAASControllerApplicationPassword,
+			ControllerUnitPassword:        bootstrap.IAASControllerUnitPassword,
+			BootstrapAddressFinderGetter:  bootstrap.IAASAddressFinder,
+			AgentFinalizer:                bootstrap.IAASAgentFinalizer,
 		}))),
 
 		// The controller proxy config updater uses local domain services
@@ -1281,15 +1292,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		diskManagerName: ifNotMigrating(diskmanager.Manifold(diskmanager.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-		})),
-
-		// The api address updater is a leaf worker that rewrites agent config
-		// as the state server addresses change. We should only need one of
-		// these in a consolidated agent.
-		apiAddressUpdaterName: ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Logger:        internallogger.GetLogger("juju.worker.apiaddressupdater"),
 		})),
 
 		machineActionName: ifNotMigrating(machineactions.Manifold(machineactions.ManifoldConfig{
@@ -1400,8 +1402,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineLock:   config.MachineLock,
 			ContainerType: instance.LXD,
 		})),
-		// isNotControllerFlagName is only used for the machineconverter,
-		isNotControllerFlagName: util.IsControllerFlagManifold(stateConfigWatcherName, false),
 		machineConverterName: ifNotController(ifNotMigrating(machineconverter.Manifold(machineconverter.ManifoldConfig{
 			AgentName:        agentName,
 			APICallerName:    apiCallerName,
@@ -1444,11 +1444,12 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
 			Clock:                   config.Clock,
 
-			AgentBinaryUploader:          bootstrap.CAASAgentBinaryUploader,
-			ControllerCharmDeployer:      bootstrap.CAASControllerCharmUploader,
-			ControllerUnitPassword:       bootstrap.CAASControllerUnitPassword,
-			BootstrapAddressFinderGetter: bootstrap.CAASAddressFinder,
-			AgentFinalizer:               bootstrap.CAASAgentFinalizer,
+			AgentBinaryUploader:           bootstrap.CAASAgentBinaryUploader,
+			ControllerCharmDeployer:       bootstrap.CAASControllerCharmUploader,
+			ControllerApplicationPassword: bootstrap.CAASControllerApplicationPassword,
+			ControllerUnitPassword:        bootstrap.CAASControllerUnitPassword,
+			BootstrapAddressFinderGetter:  bootstrap.CAASAddressFinder,
+			AgentFinalizer:                bootstrap.CAASAgentFinalizer,
 		}))),
 
 		// The controller proxy config updater uses local domain services

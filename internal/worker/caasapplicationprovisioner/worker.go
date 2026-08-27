@@ -165,6 +165,9 @@ type StatusService interface {
 type AgentPasswordService interface {
 	// SetApplicationPassword sets the password for the given application.
 	SetApplicationPassword(ctx context.Context, appID coreapplication.UUID, password string) error
+	// EnsureControllerNodeNonce returns the persisted introduction nonce for a
+	// controller node, creating it from nonce only when it is not already set.
+	EnsureControllerNodeNonce(ctx context.Context, controllerID, nonce string) (string, error)
 }
 
 type StorageProvisioningService interface {

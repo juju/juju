@@ -324,7 +324,9 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *tc.C) {
 func (s *RemoteSuite) TestConnectBlocks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	connectStarted := make(chan struct{})
 	s.apiConnectHandler = func(ctx context.Context) error {
+		close(connectStarted)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -345,6 +347,14 @@ func (s *RemoteSuite) TestConnectBlocks(c *tc.C) {
 	s.ensureStartup(c)
 
 	w.UpdateAddresses([]string{addr.String()})
+	select {
+	case <-connectStarted:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for API connection attempt: %v", c.Context().Err())
+	}
+
+	report := w.Report(c.Context())
+	c.Check(report["error"], tc.Equals, context.DeadlineExceeded.Error())
 
 	workertest.CleanKill(c, w)
 }

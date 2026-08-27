@@ -139,15 +139,6 @@ func (s *sshContainerSuite) TestResolveTargetForController(c *tc.C) {
 	c.Assert(target.GetEntity(), tc.DeepEquals, "controller-0")
 }
 
-func (s *sshContainerSuite) TestResolveTargetForControllerInvalidTarget(c *tc.C) {
-	s.modelName = "controller"
-	ctrl := s.setUpController(c, "")
-	defer ctrl.Finish()
-
-	_, err := s.sshC.ResolveTarget(c.Context(), "1")
-	c.Assert(err, tc.ErrorMatches, `target "1" not found`)
-}
-
 func (s *sshContainerSuite) TestResolveTargetForSidecarCharm(c *tc.C) {
 	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()

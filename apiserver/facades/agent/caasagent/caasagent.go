@@ -63,6 +63,12 @@ type FacadeV2 struct {
 	modelCredentialWatcher func(stdCtx context.Context) (corewatcher.NotifyWatcher, error)
 }
 
+// FacadeV3 adds API address methods to the CAAS agent v2 facade.
+type FacadeV3 struct {
+	*FacadeV2
+	*common.APIAddresser
+}
+
 // CloudSpec returns the cloud spec used by the specified models.
 func (f *FacadeV2) CloudSpec(ctx context.Context, args params.Entities) (params.CloudSpecResults, error) {
 	results := params.CloudSpecResults{
@@ -83,13 +89,9 @@ func (f *FacadeV2) CloudSpec(ctx context.Context, args params.Entities) (params.
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		result := params.CloudSpecResult{
-			Error: apiservererrors.ServerError(err),
+		results.Results[i] = params.CloudSpecResult{
+			Result: common.CloudSpecToParams(spec),
 		}
-		if err == nil {
-			result.Result = common.CloudSpecToParams(spec)
-		}
-		results.Results[i] = result
 	}
 	return results, nil
 }
@@ -138,4 +140,14 @@ func (f *FacadeV2) WatchCloudSpecsChanges(ctx context.Context, args params.Entit
 		results.Results[i].NotifyWatcherId = id
 	}
 	return results, nil
+}
+
+// APIHostPorts returns the API server addresses.
+func (a *FacadeV3) APIHostPorts(ctx context.Context) (params.APIHostPortsResult, error) {
+	return a.APIAddresser.APIHostPorts(ctx)
+}
+
+// WatchAPIHostPorts watches the API server addresses.
+func (a *FacadeV3) WatchAPIHostPorts(ctx context.Context) (params.NotifyWatchResult, error) {
+	return a.APIAddresser.WatchAPIHostPorts(ctx)
 }

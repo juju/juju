@@ -17,6 +17,7 @@ import (
 	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/controller"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/instance"
@@ -219,6 +220,21 @@ func (s *workerSuite) TestSeedStoragePools(c *tc.C) {
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *workerSuite) TestSetControllerApplicationPassword(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := coreapplication.UUID("controller-application-uuid")
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "controller").Return(applicationUUID, nil)
+	s.agentPasswordService.EXPECT().SetApplicationPassword(gomock.Any(), applicationUUID, "application-password")
+
+	w := &bootstrapWorker{cfg: WorkerConfig{
+		ApplicationService:   s.applicationService,
+		AgentPasswordService: s.agentPasswordService,
+		ApplicationPassword:  "application-password",
+	}}
+	c.Assert(w.setControllerApplicationPassword(c.Context()), tc.ErrorIsNil)
 }
 
 func (s *workerSuite) newWorker(c *tc.C) worker.Worker {

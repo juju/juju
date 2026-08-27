@@ -824,14 +824,15 @@ func (k *kubernetesClient) AnnotateUnit(ctx context.Context, appName string, pod
 		if !k8serrors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
-		pods, err := pods.List(ctx, v1.ListOptions{
+		podList, err := pods.List(ctx, v1.ListOptions{
 			LabelSelector: k.applicationSelector(appName),
 		})
-		// TODO(caas): remove getting pod by Id (a bit expensive) once we started to store podName in cloudContainer doc.
 		if err != nil {
-			return errors.Trace(err)
+			// Wrap the error so it doesn't leak a raw Kubernetes error
+			// string to callers that expect a Juju NotFound.
+			return errors.NotFoundf("pod %q: %v", podName, err)
 		}
-		for _, v := range pods.Items {
+		for _, v := range podList.Items {
 			if string(v.GetUID()) == podName {
 				p := v
 				pod = &p

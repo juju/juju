@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/annotations"
@@ -2566,4 +2567,70 @@ func (a *app) pvcNameGetter(pvcNames map[string]string, storageUniqueID string) 
 		}
 		return fmt.Sprintf("%s-%s", volName, storageUniqueID)
 	}
+}
+
+// EnsureControllerNonce reconciles a nonce entry for the given controller
+// ordinal into the controller ConfigMap. This is called before scaling the
+// controller StatefulSet so new pods can validate their nonce against the
+// database. For non-controller applications this is a no-op.
+func (a *app) EnsureControllerNonce(ctx context.Context, ordinal int, nonce string) error {
+	configMapName := a.name + "-configmap"
+	key := constants.ControllerNonceConfigMapKey(ordinal)
+
+	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		cm, err := a.client.CoreV1().ConfigMaps(a.namespace).Get(ctx, configMapName, metav1.GetOptions{})
+		if err != nil {
+			return errors.Annotatef(err, "getting controller ConfigMap %q", configMapName)
+		}
+		if cm.Data == nil {
+			cm.Data = map[string]string{}
+		}
+		if cm.Data[key] == nonce {
+			return nil
+		}
+		cm.Data[key] = nonce
+		if _, err := a.client.CoreV1().ConfigMaps(a.namespace).Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return errors.Annotatef(err, "updating controller ConfigMap %q", configMapName)
+	}
+
+	return a.ensureControllerNonceVolume(ctx, configMapName)
+}
+
+// ensureControllerNonceVolume updates StatefulSets created before controller
+// nonce entries were added. Those StatefulSets projected an explicit list of
+// ConfigMap keys, which permanently hides new nonce keys from new replicas.
+// The StatefulSet update is wrapped with retry.RetryOnConflict to handle
+// concurrent modifications by the Kubernetes API server.
+func (a *app) ensureControllerNonceVolume(ctx context.Context, configMapName string) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		statefulSet, err := a.client.AppsV1().StatefulSets(a.namespace).Get(ctx, a.name, metav1.GetOptions{})
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		if err != nil {
+			return errors.Annotatef(err, "getting controller StatefulSet %q", a.name)
+		}
+
+		for i := range statefulSet.Spec.Template.Spec.Volumes {
+			volume := &statefulSet.Spec.Template.Spec.Volumes[i]
+			if volume.ConfigMap == nil || volume.ConfigMap.Name != configMapName {
+				continue
+			}
+			if volume.ConfigMap.Items == nil {
+				return nil
+			}
+
+			volume.ConfigMap.Items = nil
+			if _, err := a.client.AppsV1().StatefulSets(a.namespace).Update(ctx, statefulSet, metav1.UpdateOptions{}); err != nil {
+				return err
+			}
+			return nil
+		}
+
+		return errors.NotFoundf("ConfigMap volume %q in controller StatefulSet %q", configMapName, a.name)
+	})
 }

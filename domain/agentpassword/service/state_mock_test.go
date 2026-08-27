@@ -280,9 +280,13 @@ type MockControllerState struct {
 
 // MockControllerStateMockRecorder is the mock recorder for MockControllerState.
 type MockControllerStateMockRecorder struct {
-	mock                                     *MockControllerState
-	matchesControllerNodePasswordHashExpects []*gomock.Call3_2[context.Context, string, agentpassword.PasswordHash, bool, error]
-	setControllerNodePasswordHashExpects     []*gomock.Call3_1[context.Context, string, agentpassword.PasswordHash, error]
+	mock                                         *MockControllerState
+	ensureControllerNodeNonceExpects             []*gomock.Call3_2[context.Context, string, string, string, error]
+	hasControllerNodePasswordHashExpects         []*gomock.Call2_2[context.Context, string, bool, error]
+	matchesControllerNodePasswordHashExpects     []*gomock.Call3_2[context.Context, string, agentpassword.PasswordHash, bool, error]
+	setControllerNodePasswordHashExpects         []*gomock.Call3_1[context.Context, string, agentpassword.PasswordHash, error]
+	setControllerNodePasswordHashIfAbsentExpects []*gomock.Call3_2[context.Context, string, agentpassword.PasswordHash, bool, error]
+	validateControllerNodeNonceExpects           []*gomock.Call3_2[context.Context, string, string, bool, error]
 }
 
 // NewMockControllerState creates a new mock instance.
@@ -296,6 +300,42 @@ func NewMockControllerState(ctrl *gomock.Controller) *MockControllerState {
 func (m *MockControllerState) EXPECT() *MockControllerStateMockRecorder {
 	return m.recorder
 }
+
+// EnsureControllerNodeNonce mocks base method.
+func (m *MockControllerState) EnsureControllerNodeNonce(arg0 context.Context, arg1, arg2 string) (string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.ensureControllerNodeNonceExpects, m.ctrl, m, "EnsureControllerNodeNonce", arg0, arg1, arg2)
+}
+
+// EnsureControllerNodeNonce indicates an expected call of EnsureControllerNodeNonce.
+func (mr *MockControllerStateMockRecorder) EnsureControllerNodeNonce(arg0, arg1, arg2 any) *MockControllerStateEnsureControllerNodeNonceCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, string, string, error](mr.mock.ctrl.T, mr.mock, "EnsureControllerNodeNonce", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
+	mr.ensureControllerNodeNonceExpects = append(mr.ensureControllerNodeNonceExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateEnsureControllerNodeNonceCall is the typed call wrapper for EnsureControllerNodeNonce.
+type MockControllerStateEnsureControllerNodeNonceCall = gomock.Call3_2[context.Context, string, string, string, error]
+
+// HasControllerNodePasswordHash mocks base method.
+func (m *MockControllerState) HasControllerNodePasswordHash(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.hasControllerNodePasswordHashExpects, m.ctrl, m, "HasControllerNodePasswordHash", arg0, arg1)
+}
+
+// HasControllerNodePasswordHash indicates an expected call of HasControllerNodePasswordHash.
+func (mr *MockControllerStateMockRecorder) HasControllerNodePasswordHash(arg0, arg1 any) *MockControllerStateHasControllerNodePasswordHashCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "HasControllerNodePasswordHash", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.hasControllerNodePasswordHashExpects = append(mr.hasControllerNodePasswordHashExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateHasControllerNodePasswordHashCall is the typed call wrapper for HasControllerNodePasswordHash.
+type MockControllerStateHasControllerNodePasswordHashCall = gomock.Call2_2[context.Context, string, bool, error]
 
 // MatchesControllerNodePasswordHash mocks base method.
 func (m *MockControllerState) MatchesControllerNodePasswordHash(arg0 context.Context, arg1 string, arg2 agentpassword.PasswordHash) (bool, error) {
@@ -332,6 +372,42 @@ func (mr *MockControllerStateMockRecorder) SetControllerNodePasswordHash(arg0, a
 
 // MockControllerStateSetControllerNodePasswordHashCall is the typed call wrapper for SetControllerNodePasswordHash.
 type MockControllerStateSetControllerNodePasswordHashCall = gomock.Call3_1[context.Context, string, agentpassword.PasswordHash, error]
+
+// SetControllerNodePasswordHashIfAbsent mocks base method.
+func (m *MockControllerState) SetControllerNodePasswordHashIfAbsent(arg0 context.Context, arg1 string, arg2 agentpassword.PasswordHash) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.setControllerNodePasswordHashIfAbsentExpects, m.ctrl, m, "SetControllerNodePasswordHashIfAbsent", arg0, arg1, arg2)
+}
+
+// SetControllerNodePasswordHashIfAbsent indicates an expected call of SetControllerNodePasswordHashIfAbsent.
+func (mr *MockControllerStateMockRecorder) SetControllerNodePasswordHashIfAbsent(arg0, arg1, arg2 any) *MockControllerStateSetControllerNodePasswordHashIfAbsentCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, agentpassword.PasswordHash, bool, error](mr.mock.ctrl.T, mr.mock, "SetControllerNodePasswordHashIfAbsent", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
+	mr.setControllerNodePasswordHashIfAbsentExpects = append(mr.setControllerNodePasswordHashIfAbsentExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateSetControllerNodePasswordHashIfAbsentCall is the typed call wrapper for SetControllerNodePasswordHashIfAbsent.
+type MockControllerStateSetControllerNodePasswordHashIfAbsentCall = gomock.Call3_2[context.Context, string, agentpassword.PasswordHash, bool, error]
+
+// ValidateControllerNodeNonce mocks base method.
+func (m *MockControllerState) ValidateControllerNodeNonce(arg0 context.Context, arg1, arg2 string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.validateControllerNodeNonceExpects, m.ctrl, m, "ValidateControllerNodeNonce", arg0, arg1, arg2)
+}
+
+// ValidateControllerNodeNonce indicates an expected call of ValidateControllerNodeNonce.
+func (mr *MockControllerStateMockRecorder) ValidateControllerNodeNonce(arg0, arg1, arg2 any) *MockControllerStateValidateControllerNodeNonceCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, string, bool, error](mr.mock.ctrl.T, mr.mock, "ValidateControllerNodeNonce", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
+	mr.validateControllerNodeNonceExpects = append(mr.validateControllerNodeNonceExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateValidateControllerNodeNonceCall is the typed call wrapper for ValidateControllerNodeNonce.
+type MockControllerStateValidateControllerNodeNonceCall = gomock.Call3_2[context.Context, string, string, bool, error]
 
 // MockMigrationState is a mock of MigrationState interface.
 type MockMigrationState struct {

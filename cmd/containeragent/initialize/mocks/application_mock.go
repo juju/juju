@@ -27,7 +27,7 @@ type MockApplicationAPI struct {
 type MockApplicationAPIMockRecorder struct {
 	mock                    *MockApplicationAPI
 	closeExpects            []*gomock.Call0_1[error]
-	unitIntroductionExpects []*gomock.Call3_2[context.Context, string, string, *caasapplication.UnitConfig, error]
+	unitIntroductionExpects []*gomock.Call4_2[context.Context, string, string, string, *caasapplication.UnitConfig, error]
 }
 
 // NewMockApplicationAPI creates a new mock instance.
@@ -61,19 +61,19 @@ func (mr *MockApplicationAPIMockRecorder) Close() *MockApplicationAPICloseCall {
 type MockApplicationAPICloseCall = gomock.Call0_1[error]
 
 // UnitIntroduction mocks base method.
-func (m *MockApplicationAPI) UnitIntroduction(ctx context.Context, podName, podUUID string) (*caasapplication.UnitConfig, error) {
+func (m *MockApplicationAPI) UnitIntroduction(ctx context.Context, podName, podUUID, nonce string) (*caasapplication.UnitConfig, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.unitIntroductionExpects, m.ctrl, m, "UnitIntroduction", ctx, podName, podUUID)
+	return gomock.Dispatch4_2(&m.recorder.unitIntroductionExpects, m.ctrl, m, "UnitIntroduction", ctx, podName, podUUID, nonce)
 }
 
 // UnitIntroduction indicates an expected call of UnitIntroduction.
-func (mr *MockApplicationAPIMockRecorder) UnitIntroduction(ctx, podName, podUUID any) *MockApplicationAPIUnitIntroductionCall {
+func (mr *MockApplicationAPIMockRecorder) UnitIntroduction(ctx, podName, podUUID, nonce any) *MockApplicationAPIUnitIntroductionCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[context.Context, string, string, *caasapplication.UnitConfig, error](mr.mock.ctrl.T, mr.mock, "UnitIntroduction", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(podName), gomock.EnsureMatcher(podUUID))
+	call := gomock.NewCall4_2[context.Context, string, string, string, *caasapplication.UnitConfig, error](mr.mock.ctrl.T, mr.mock, "UnitIntroduction", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(podName), gomock.EnsureMatcher(podUUID), gomock.EnsureMatcher(nonce))
 	mr.unitIntroductionExpects = append(mr.unitIntroductionExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockApplicationAPIUnitIntroductionCall is the typed call wrapper for UnitIntroduction.
-type MockApplicationAPIUnitIntroductionCall = gomock.Call3_2[context.Context, string, string, *caasapplication.UnitConfig, error]
+type MockApplicationAPIUnitIntroductionCall = gomock.Call4_2[context.Context, string, string, string, *caasapplication.UnitConfig, error]

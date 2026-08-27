@@ -7,7 +7,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,6 +48,7 @@ import (
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/featureflag"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/provider/kubernetes/application"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
@@ -61,6 +64,7 @@ const (
 	proxyResourceName           = "proxy"
 	storageName                 = "storage"
 	apiServerScratchStorageName = "apiserver-scratch"
+	controllerConfigSeedDir     = "/var/lib/juju-controller-bootstrap"
 )
 
 const (
@@ -152,6 +156,12 @@ type controllerStack struct {
 	agentConfig agent.ConfigSetterWriter
 	// unitAgentConfig is the controller charm agent config.
 	unitAgentConfig agent.ConfigSetterWriter
+	// applicationPassword authenticates controller pods while they introduce
+	// their unit and controller-agent identities.
+	applicationPassword string
+	// nonce is the introduction nonce shared by controller pods to prove they
+	// are legitimate replicas of the statefulset.
+	nonce string
 
 	storageClass  string
 	storageSize   resource.Quantity
@@ -272,6 +282,14 @@ func newControllerStack(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	applicationPassword, err := password.RandomPassword()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	nonce, err := password.RandomPassword()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	selectorLabels := providerutils.SelectorLabelsForApp(stackName, constants.LastLabelVersion)
 	labels := providerutils.LabelsForApp(stackName, constants.LastLabelVersion)
@@ -286,9 +304,11 @@ func newControllerStack(
 		broker:           broker,
 		timeout:          pcfg.Bootstrap.Timeout,
 
-		pcfg:            pcfg,
-		agentConfig:     agentConfig,
-		unitAgentConfig: unitAgentConfig,
+		pcfg:                pcfg,
+		agentConfig:         agentConfig,
+		unitAgentConfig:     unitAgentConfig,
+		applicationPassword: applicationPassword,
+		nonce:               nonce,
 
 		storageSize:   storageSize,
 		storageClass:  storageClass,
@@ -880,6 +900,7 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 	}
 	cm.Data[constants.ControllerAgentConfigFilename] = string(agentConfigFileContent)
 	cm.Data[constants.ControllerUnitAgentConfigFilename] = string(unitAgentConfigFileContent)
+	cm.Data[constants.ControllerNonceConfigMapKey(0)] = c.nonce
 
 	logger.Tracef(context.TODO(), "ensuring agent.conf configmap: \n%+v", cm)
 	cleanUp, err := c.broker.ensureConfigMap(ctx, cm)
@@ -906,7 +927,8 @@ func (c *controllerStack) ensureControllerApplicationSecret(ctx context.Context)
 		},
 		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
-			constants.EnvJujuK8sUnitPassword: []byte(controllerUnitPassword),
+			constants.EnvJujuK8sUnitPassword:        []byte(controllerUnitPassword),
+			constants.EnvJujuK8sApplicationPassword: []byte(c.applicationPassword),
 		},
 	}
 	cleanUp, err := c.broker.ensureSecret(ctx, secret)
@@ -1217,15 +1239,6 @@ func (c *controllerStack) buildStorageSpecForController(ctx context.Context, sta
 				LocalObjectReference: core.LocalObjectReference{
 					Name: c.resourceNameConfigMap,
 				},
-				Items: []core.KeyToPath{
-					{
-						Key:  constants.ControllerAgentConfigFilename,
-						Path: constants.ControllerAgentConfigFilename,
-					}, {
-						Key:  constants.ControllerUnitAgentConfigFilename,
-						Path: constants.ControllerUnitAgentConfigFilename,
-					},
-				},
 			},
 		},
 	}, {
@@ -1311,7 +1324,7 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 			FailureThreshold:    apiServerLivenessProbeFailure,
 		},
 		ReadinessProbe: &core.Probe{
-			ProbeHandler:        pebble.ReadinessHandler(pebble.ApiServerHealthCheckPort),
+			ProbeHandler:        pebble.APIServerReadinessHandler(c.portAPIServer),
 			InitialDelaySeconds: apiServerLivenessProbeInitialDelay,
 			TimeoutSeconds:      apiServerLivenessProbeTimeout,
 			PeriodSeconds:       apiServerLivenessProbePeriod,
@@ -1342,28 +1355,6 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 			{
 				Name:      storageName,
 				MountPath: c.pcfg.DataDir,
-			},
-			{
-				Name: storageName,
-				MountPath: path.Join(
-					c.pcfg.DataDir,
-					"agents",
-					"controller-"+c.pcfg.ControllerId,
-				),
-				SubPath: path.Join("agents",
-					"controller-"+c.pcfg.ControllerId,
-				),
-			},
-			{
-				Name: c.resourceNameVolAgentConf,
-				MountPath: path.Join(
-					c.pcfg.DataDir,
-					"agents",
-					"controller-"+c.pcfg.ControllerId,
-					constants.TemplateFileNameAgentConf,
-				),
-				SubPath:  constants.ControllerAgentConfigFilename,
-				ReadOnly: true,
 			},
 			{
 				Name:      c.resourceNameVolBootstrapParams,
@@ -1454,37 +1445,42 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 		jujudEnv = map[string]string{osenv.JujuFeatureFlagEnvKey: featureFlags}
 	}
 
-	setupCmd := ""
-	if c.pcfg.ControllerId == agent.BootstrapControllerId {
-		// only do bootstrap-state on the bootstrap controller - controller-0.
-		bootstrapStateCmd := fmt.Sprintf(
-			"%s bootstrap-state --data-dir $JUJU_DATA_DIR %s --timeout %s",
-			path.Join("$JUJU_TOOLS_DIR", "jujuagentd"),
-			loggingOption,
-			c.timeout.String(),
-		)
-		if featureFlags != "" {
-			bootstrapStateCmd = fmt.Sprintf("%s=%s %s", osenv.JujuFeatureFlagEnvKey, featureFlags, bootstrapStateCmd)
-		}
-		agentConfigPath := path.Join("$JUJU_DATA_DIR", agentConfigRelativePath)
-		if isLocalControllerCharmPath(c.pcfg.Bootstrap.ControllerCharmPath) {
-			charmArchivePath := path.Join("$JUJU_DATA_DIR", "charms", environsbootstrap.ControllerCharmArchive)
-			setupCmd = fmt.Sprintf(
-				"if ! test -e %s; then mkdir -p %s; until test -e %s; do sleep 1; done; %s; fi",
-				agentConfigPath,
-				path.Dir(charmArchivePath),
-				charmArchivePath,
-				bootstrapStateCmd,
-			)
-		} else {
-			setupCmd = fmt.Sprintf("test -e %s || %s", agentConfigPath, bootstrapStateCmd)
-		}
+	// The StatefulSet pod template is shared by every replica. Derive the
+	// controller ID from the pod ordinal and reserve bootstrap-state for
+	// controller-0. Later replicas have their agent config seeded by the charm
+	// init container before this container starts.
+	bootstrapStateCmd := fmt.Sprintf(
+		"%s bootstrap-state --data-dir $JUJU_DATA_DIR %s --timeout %s",
+		path.Join("$JUJU_TOOLS_DIR", "jujuagentd"),
+		loggingOption,
+		c.timeout.String(),
+	)
+	if featureFlags != "" {
+		bootstrapStateCmd = fmt.Sprintf("%s=%s %s", osenv.JujuFeatureFlagEnvKey, featureFlags, bootstrapStateCmd)
 	}
+	agentConfigPath := path.Join("$JUJU_DATA_DIR", agentConfigRelativePath)
+	var bootstrapSetup string
+	if isLocalControllerCharmPath(c.pcfg.Bootstrap.ControllerCharmPath) {
+		charmArchivePath := path.Join("$JUJU_DATA_DIR", "charms", environsbootstrap.ControllerCharmArchive)
+		bootstrapSetup = fmt.Sprintf(
+			"if ! test -e %s; then mkdir -p %s; until test -e %s; do sleep 1; done; %s; fi",
+			agentConfigPath,
+			path.Dir(charmArchivePath),
+			charmArchivePath,
+			bootstrapStateCmd,
+		)
+	} else {
+		bootstrapSetup = fmt.Sprintf("test -e %s || %s", agentConfigPath, bootstrapStateCmd)
+	}
+	setupCmd := fmt.Sprintf(
+		`controller_id="${HOSTNAME##*-}"; if [ "${controller_id}" = "0" ]; then %s; else until test -e "$JUJU_DATA_DIR/agents/controller-${controller_id}/%s"; do sleep 1; done; fi`,
+		bootstrapSetup,
+		agentconstants.AgentConfigFilename,
+	)
 
 	machineCmd := fmt.Sprintf(
-		"%s machine --data-dir $JUJU_DATA_DIR --controller-id %s --log-to-stderr %s",
+		`/bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec %s machine --data-dir "$JUJU_DATA_DIR" --controller-id "${controller_id}" --log-to-stderr %s'`,
 		path.Join("$JUJU_TOOLS_DIR", "jujuagentd"),
-		c.pcfg.ControllerId,
 		loggingOption,
 	)
 
@@ -1555,24 +1551,110 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 	}
 	spec.Containers = append(spec.Containers, containers...)
 
-	agentConfigMount := core.VolumeMount{
-		Name: c.resourceNameVolAgentConf,
-		MountPath: path.Join(
-			c.pcfg.DataDir,
-			constants.TemplateFileNameAgentConf,
-		),
-		SubPath: constants.ControllerUnitAgentConfigFilename,
-	}
 	dataDirMount := core.VolumeMount{
 		Name:      storageName,
 		MountPath: c.pcfg.DataDir,
 	}
+	controllerConfigSeed := core.Container{
+		Name:            "controller-config-seed",
+		ImagePullPolicy: core.PullIfNotPresent,
+		Image:           controllerImage,
+		Command:         []string{"/bin/sh", "-c"},
+		Args: []string{fmt.Sprintf(`
+set -eu
+controller_id="${%s##*-}"
+if [ "${controller_id}" = "0" ]; then
+    if [ ! -e "%s/%s" ]; then
+        cp "%s/%s" "%s/%s"
+    fi
+    controller_dir="%s/agents/controller-0"
+    controller_template="${controller_dir}/%s"
+    if [ ! -e "${controller_template}" ]; then
+        mkdir -p "${controller_dir}"
+        cp "%s/%s" "${controller_template}"
+        chmod 600 "${controller_template}"
+    fi
+fi
+seed_nonce="%s-${controller_id}"
+if [ -e "${seed_nonce}" ]; then
+    cp "${seed_nonce}" "%s"
+fi
+`,
+			constants.EnvJujuK8sPodName,
+			c.pcfg.DataDir,
+			constants.TemplateFileNameAgentConf,
+			controllerConfigSeedDir,
+			constants.ControllerUnitAgentConfigFilename,
+			c.pcfg.DataDir,
+			constants.TemplateFileNameAgentConf,
+			c.pcfg.DataDir,
+			constants.TemplateFileNameAgentConf,
+			controllerConfigSeedDir,
+			constants.ControllerAgentConfigFilename,
+			controllerConfigSeedDir+"/"+constants.ControllerNonceFilename,
+			constants.ControllerNonceFilePath,
+		)},
+		Env: []core.EnvVar{
+			{
+				Name: constants.EnvJujuK8sPodName,
+				ValueFrom: &core.EnvVarSource{
+					FieldRef: &core.ObjectFieldSelector{FieldPath: "metadata.name"},
+				},
+			},
+		},
+		VolumeMounts: []core.VolumeMount{
+			dataDirMount,
+			{
+				Name:      c.resourceNameVolAgentConf,
+				MountPath: controllerConfigSeedDir,
+				ReadOnly:  true,
+			},
+		},
+		SecurityContext: &core.SecurityContext{
+			RunAsUser:  pointer.Int64(constants.JujuUserID),
+			RunAsGroup: pointer.Int64(constants.JujuGroupID),
+		},
+	}
+	spec.InitContainers = append([]core.Container{controllerConfigSeed}, spec.InitContainers...)
 
 	for i, ct := range spec.InitContainers {
 		if ct.Name != constants.ApplicationInitContainer {
 			continue
 		}
-		ct.VolumeMounts = append(ct.VolumeMounts, agentConfigMount)
+		for j, mount := range ct.VolumeMounts {
+			if mount.MountPath == c.pcfg.DataDir {
+				ct.VolumeMounts = append(ct.VolumeMounts[:j], ct.VolumeMounts[j+1:]...)
+				break
+			}
+		}
+		ct.VolumeMounts = append(ct.VolumeMounts, dataDirMount)
+		ct.Env = append(ct.Env,
+			core.EnvVar{
+				Name:  "JUJU_K8S_APPLICATION",
+				Value: environsbootstrap.ControllerApplicationName,
+			},
+			core.EnvVar{
+				Name:  "JUJU_K8S_MODEL",
+				Value: c.broker.ModelUUID(),
+			},
+			core.EnvVar{
+				Name: constants.EnvJujuK8sApplicationPassword,
+				ValueFrom: &core.EnvVarSource{
+					SecretKeyRef: &core.SecretKeySelector{
+						LocalObjectReference: core.LocalObjectReference{Name: c.appSecretName()},
+						Key:                  constants.EnvJujuK8sApplicationPassword,
+					},
+				},
+			},
+			core.EnvVar{
+				Name:  "JUJU_K8S_CONTROLLER_ADDRESSES",
+				Value: net.JoinHostPort(c.resourceNameService, strconv.Itoa(c.portAPIServer)),
+			},
+			core.EnvVar{
+				Name:  "JUJU_K8S_CONTROLLER_CA_CERT",
+				Value: c.pcfg.APIInfo.CACert,
+			},
+		)
 		ct.Args = append(ct.Args, "--controller")
 		spec.InitContainers[i] = ct
 	}
@@ -1589,7 +1671,7 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 				break
 			}
 		}
-		ct.VolumeMounts = append(ct.VolumeMounts, agentConfigMount, dataDirMount)
+		ct.VolumeMounts = append(ct.VolumeMounts, dataDirMount)
 
 		// Remove probes to prevent controller death.
 		ct.LivenessProbe = nil

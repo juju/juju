@@ -137,6 +137,7 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 		"controller_node",
 		"controller_node_agent_version",
 		"controller_node_password",
+		"controller_node_nonce",
 
 		// Controller API addresses
 		"controller_api_address",

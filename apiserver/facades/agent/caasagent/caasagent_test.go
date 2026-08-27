@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -18,6 +19,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/cloudspec"
@@ -104,6 +106,57 @@ func (s *caasagentSuite) TestPermission(c *tc.C) {
 		ModelUUID_: s.modelUUID,
 	})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
+}
+
+func (s *caasagentSuite) TestV3Permission(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	authorizer := &apiservertesting.FakeAuthorizer{
+		Tag: names.NewApplicationTag("someapp"),
+	}
+
+	_, err := caasagent.NewFacadeV3AuthCheck(facadetest.ModelContext{
+		Auth_:      authorizer,
+		ModelUUID_: s.modelUUID,
+	})
+	c.Assert(err, tc.ErrorMatches, "permission denied")
+}
+
+func (s *caasagentSuite) TestV3APIHostPorts(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	hostPorts := []network.HostPorts{
+		network.NewMachineHostPorts(17070, "10.0.0.1").HostPorts(),
+	}
+	facade := &caasagent.FacadeV3{
+		FacadeV2: s.facade,
+		APIAddresser: common.NewAPIAddresser(
+			apiAddressAccessor{hostPorts: hostPorts}, s.watcherRegistry,
+		),
+	}
+
+	result, err := facade.APIHostPorts(c.Context())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, params.APIHostPortsResult{
+		Servers: params.FromHostsPorts(hostPorts),
+	})
+}
+
+type apiAddressAccessor struct {
+	hostPorts []network.HostPorts
+}
+
+func (a apiAddressAccessor) GetAPIHostPortsForAgents(context.Context) ([]network.HostPorts, error) {
+	return a.hostPorts, nil
+}
+
+func (apiAddressAccessor) GetAllAPIAddressesForAgents(context.Context) ([]string, error) {
+	return nil, nil
+}
+
+func (apiAddressAccessor) WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error) {
+	return nil, nil
 }
 
 func (s *caasagentSuite) TestCloudSpec(c *tc.C) {

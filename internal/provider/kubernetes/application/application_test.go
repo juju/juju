@@ -23,6 +23,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -32,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
 
@@ -3518,6 +3520,109 @@ func (s *applicationSuite) TestServiceError(c *tc.C) {
 			Message: "0/1 nodes are available: 1 pod has unbound immediate PersistentVolumeClaims.",
 		},
 	})
+}
+
+func (s *applicationSuite) TestEnsureControllerNonceConfigMapConflictRetry(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	configMapName := s.appName + "-configmap"
+	key := "controller-nonce-1"
+	_, err := s.client.CoreV1().ConfigMaps(s.namespace).Create(c.Context(), &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: configMapName},
+		Data:       map[string]string{key: "old-nonce"},
+	}, metav1.CreateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	conflictCount := 0
+	s.client.PrependReactor("update", "configmaps", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		conflictCount++
+		if conflictCount == 1 {
+			return true, nil, k8serrors.NewConflict(
+				action.GetResource().GroupResource(),
+				"test-conflict",
+				fmt.Errorf("conflict"),
+			)
+		}
+		return false, nil, nil
+	})
+
+	err = app.EnsureControllerNonce(c.Context(), 1, "reconciled-nonce")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(conflictCount, tc.Equals, 2)
+
+	configMap, err := s.client.CoreV1().ConfigMaps(s.namespace).Get(c.Context(), configMapName, metav1.GetOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(configMap.Data[key], tc.Equals, "reconciled-nonce")
+}
+
+func (s *applicationSuite) TestEnsureControllerNonceStatefulSetConflictRetry(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	configMapName := s.appName + "-configmap"
+	_, err := s.client.CoreV1().ConfigMaps(s.namespace).Create(c.Context(), &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: configMapName},
+		Data:       map[string]string{"controller-nonce-1": "persisted-nonce"},
+	}, metav1.CreateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.client.AppsV1().StatefulSets(s.namespace).Create(c.Context(), &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{Name: s.appName},
+		Spec: appsv1.StatefulSetSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{Volumes: []corev1.Volume{{
+					Name: "agent-conf",
+					VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{Name: configMapName},
+						Items:                []corev1.KeyToPath{{Key: "controller-nonce-0", Path: "controller-nonce-0"}},
+					}},
+				}}},
+			},
+		},
+	}, metav1.CreateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	conflictCount := 0
+	s.client.PrependReactor("update", "statefulsets", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		conflictCount++
+		if conflictCount == 1 {
+			return true, nil, k8serrors.NewConflict(
+				action.GetResource().GroupResource(),
+				"test-conflict",
+				fmt.Errorf("conflict"),
+			)
+		}
+		return false, nil, nil
+	})
+
+	err = app.EnsureControllerNonce(c.Context(), 1, "persisted-nonce")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(conflictCount, tc.Equals, 2)
+
+	statefulSet, err := s.client.AppsV1().StatefulSets(s.namespace).Get(c.Context(), s.appName, metav1.GetOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statefulSet.Spec.Template.Spec.Volumes[0].ConfigMap.Items, tc.IsNil)
+}
+
+func (s *applicationSuite) TestEnsureControllerNonceConflictExhaustsRetries(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	configMapName := s.appName + "-configmap"
+	_, err := s.client.CoreV1().ConfigMaps(s.namespace).Create(c.Context(), &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: configMapName},
+		Data:       map[string]string{"controller-nonce-1": "old-nonce"},
+	}, metav1.CreateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	conflictCount := 0
+	s.client.PrependReactor("update", "configmaps", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		conflictCount++
+		return true, nil, k8serrors.NewConflict(
+			action.GetResource().GroupResource(),
+			"test-conflict",
+			fmt.Errorf("conflict"),
+		)
+	})
+
+	err = app.EnsureControllerNonce(c.Context(), 1, "reconciled-nonce")
+	c.Assert(k8serrors.IsConflict(err), tc.IsTrue)
+	c.Check(conflictCount, tc.Equals, 5)
 }
 
 func (s *applicationSuite) TestEnsureConstraints(c *tc.C) {

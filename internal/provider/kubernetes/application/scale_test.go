@@ -6,6 +6,8 @@ package application_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas"
@@ -46,6 +48,76 @@ func (s *applicationSuite) TestApplicationScaleStatefulLessThanZero(c *tc.C) {
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {}, nil)
 
 	c.Assert(app.Scale(-1), tc.ErrorIs, errors.NotValid)
+}
+
+func (s *applicationSuite) TestEnsureControllerNonce(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	key := "controller-nonce-1"
+	_, err := s.client.CoreV1().ConfigMaps(s.namespace).Create(c.Context(), &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: s.appName + "-configmap"},
+		Data:       map[string]string{key: "persisted-nonce"},
+	}, metav1.CreateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.client.ClearActions()
+	err = app.EnsureControllerNonce(c.Context(), 1, "persisted-nonce")
+	c.Assert(err, tc.ErrorIsNil)
+	actions := s.client.Actions()
+	c.Assert(actions, tc.HasLen, 2)
+	c.Check(actions[0].GetVerb(), tc.Equals, "get")
+	c.Check(actions[1].GetVerb(), tc.Equals, "get")
+
+	err = app.EnsureControllerNonce(c.Context(), 1, "reconciled-nonce")
+	c.Assert(err, tc.ErrorIsNil)
+	configMap, err := s.client.CoreV1().ConfigMaps(s.namespace).Get(c.Context(), s.appName+"-configmap", metav1.GetOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(configMap.Data[key], tc.Equals, "reconciled-nonce")
+}
+
+func (s *applicationSuite) TestEnsureControllerNonceReconcilesConfigMapVolume(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	configMapName := s.appName + "-configmap"
+	_, err := s.client.CoreV1().ConfigMaps(s.namespace).Create(c.Context(), &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: configMapName},
+		Data:       map[string]string{"controller-nonce-1": "persisted-nonce"},
+	}, metav1.CreateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.client.AppsV1().StatefulSets(s.namespace).Create(c.Context(), &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{Name: s.appName},
+		Spec: appsv1.StatefulSetSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{Volumes: []corev1.Volume{{
+					Name: "agent-conf",
+					VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{Name: configMapName},
+						Items:                []corev1.KeyToPath{{Key: "controller-nonce-0", Path: "controller-nonce-0"}},
+					}},
+				}}},
+			},
+		},
+	}, metav1.CreateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.client.ClearActions()
+	err = app.EnsureControllerNonce(c.Context(), 1, "persisted-nonce")
+	c.Assert(err, tc.ErrorIsNil)
+	actions := s.client.Actions()
+	c.Assert(actions, tc.HasLen, 3)
+	c.Check(actions[0].GetVerb(), tc.Equals, "get")
+	c.Check(actions[1].GetVerb(), tc.Equals, "get")
+	c.Check(actions[2].GetVerb(), tc.Equals, "update")
+
+	statefulSet, err := s.client.AppsV1().StatefulSets(s.namespace).Get(c.Context(), s.appName, metav1.GetOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statefulSet.Spec.Template.Spec.Volumes[0].ConfigMap.Items, tc.IsNil)
+
+	s.client.ClearActions()
+	err = app.EnsureControllerNonce(c.Context(), 1, "persisted-nonce")
+	c.Assert(err, tc.ErrorIsNil)
+	actions = s.client.Actions()
+	c.Assert(actions, tc.HasLen, 2)
+	c.Check(actions[0].GetVerb(), tc.Equals, "get")
+	c.Check(actions[1].GetVerb(), tc.Equals, "get")
 }
 
 func (s *applicationSuite) TestCurrentScale(c *tc.C) {

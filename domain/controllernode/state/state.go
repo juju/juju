@@ -33,9 +33,44 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
+// AddControllerNode ensures a controller node exists for the supplied ID.
+// It only inserts the controller_id; the dqlite_node_id and
+// dqlite_bind_address columns are left NULL. These are populated later by
+// AddDqliteNode when the Dqlite cluster admits the node.
+// This separation exists because a controller pod registers its identity
+// during UnitIntroduction (before joining the Dqlite cluster), and the
+// Dqlite node information is added in a separate step once the cluster
+// acknowledges the new peer.
+func (st *State) AddControllerNode(ctx context.Context, controllerID string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	controllerNode := dbControllerNode{ControllerID: controllerID}
+	stmt, err := st.Prepare(`
+INSERT INTO controller_node (controller_id)
+VALUES ($dbControllerNode.controller_id)
+ON CONFLICT (controller_id) DO NOTHING
+`, controllerNode)
+	if err != nil {
+		return errors.Errorf("preparing insert controller node statement: %w", err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Capture(tx.Query(ctx, stmt, controllerNode).Run())
+	}))
+}
+
 // AddDqliteNode adds the Dqlite node ID and bind address for the input
 // controller ID. If the controller ID already exists, it updates the
 // Dqlite node ID and bind address.
+//
+// This is called separately from AddControllerNode because the controller
+// node identity is registered during UnitIntroduction (before the Dqlite
+// cluster admits the peer). The Dqlite node information is only available
+// once the cluster acknowledges the new node, which happens in a distinct
+// lifecycle step.
 func (st *State) AddDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error {
 	db, err := st.DB(ctx)
 	if err != nil {

@@ -196,6 +196,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 			"agent-config-updater",
 			"agent",
 			"api-address-setter",
+			"api-address-updater",
 			"api-caller",
 			"api-config-watcher",
 			"api-remote-caller",
@@ -228,6 +229,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 			"is-bootstrap-flag",
 			"is-bootstrap-gate",
 			"is-controller-flag",
+			"is-not-controller-flag",
 			"is-primary-controller-flag",
 			"jwt-parser",
 			"lease-expiry",
@@ -2515,6 +2517,17 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 }
 
 var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
+	"api-address-updater": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 	"controller-proxy-config-updater": {
 		"agent",
 		"api-caller",
@@ -3194,6 +3207,10 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"state-config-watcher",
 	},
+	"is-not-controller-flag": {
+		"agent",
+		"state-config-watcher",
+	},
 	"is-primary-controller-flag": {
 		"agent",
 		"change-stream",
@@ -3404,6 +3421,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"log-router",
 		"migration-fortress",
 		"migration-inactive-flag",
+		"state-config-watcher",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
@@ -3539,6 +3557,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-not-controller-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
+		"state-config-watcher",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
@@ -3724,6 +3743,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-not-controller-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
+		"state-config-watcher",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
@@ -3784,6 +3804,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"api-caller",
 		"api-config-watcher",
 		"is-not-controller-flag",
+		"state-config-watcher",
 		"upgrade-steps-gate",
 	},
 	"upgrade-check-flag": {

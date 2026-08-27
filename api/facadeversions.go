@@ -35,7 +35,7 @@ var facadeVersions = facades.FacadeVersions{
 	// Version 8 here just reports the inability of Juju 4+ to export bundles.
 	// We should probably just remove the facade altogether.
 	"Bundle":                       {6, 8},
-	"CAASAgent":                    {2},
+	"CAASAgent":                    {2, 3},
 	"CAASAdmission":                {1},
 	"CAASApplication":              {1},
 	"CAASOperatorUpgrader":         {1},

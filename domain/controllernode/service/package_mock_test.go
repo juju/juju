@@ -29,6 +29,7 @@ type MockState struct {
 // MockStateMockRecorder is the mock recorder for MockState.
 type MockStateMockRecorder struct {
 	mock                                           *MockState
+	addControllerNodeExpects                       []*gomock.Call2_1[context.Context, string, error]
 	addDqliteNodeExpects                           []*gomock.Call4_1[context.Context, string, uint64, string, error]
 	deleteDqliteNodesExpects                       []*gomock.Call2_1[context.Context, []string, error]
 	getAPIAddressesForAgentsExpects                []*gomock.Call1_2[context.Context, map[string]controllernode.APIAddresses, error]
@@ -53,6 +54,24 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
+
+// AddControllerNode mocks base method.
+func (m *MockState) AddControllerNode(ctx context.Context, controllerID string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.addControllerNodeExpects, m.ctrl, m, "AddControllerNode", ctx, controllerID)
+}
+
+// AddControllerNode indicates an expected call of AddControllerNode.
+func (mr *MockStateMockRecorder) AddControllerNode(ctx, controllerID any) *MockStateAddControllerNodeCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "AddControllerNode", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(controllerID))
+	mr.addControllerNodeExpects = append(mr.addControllerNodeExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateAddControllerNodeCall is the typed call wrapper for AddControllerNode.
+type MockStateAddControllerNodeCall = gomock.Call2_1[context.Context, string, error]
 
 // AddDqliteNode mocks base method.
 func (m *MockState) AddDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error {
