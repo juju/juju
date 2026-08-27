@@ -19,7 +19,7 @@ run_prometheus() {
 	juju status -m controller --format json | yq -r "$(active_condition "controller")" | check "controller"
 	juju status --format json | yq -r "$(active_condition "prometheus-k8s")" | check "prometheus-k8s"
 
-	juju remove-application prometheus-k8s --destroy-storage \
+	juju remove-application prometheus-k8s --destroy-storage --no-prompt \
 		--force --no-wait # TODO: remove these flags once storage bug is fixed
 	destroy_controller "${MODEL_NAME}"
 }
@@ -75,10 +75,10 @@ run_prometheus_multiple_units() {
 	# Ensure p1 is still healty
 	wait_for "p1" "$(active_condition "p1" 0)"
 
-	juju remove-application p1 --destroy-storage \
-		--force --no-wait --no-prompt # TODO: remove these flags once storage bug is fixed
-	juju remove-application p2 --destroy-storage \
-		--force --no-wait --no-prompt # TODO: remove these flags once storage bug is fixed
+	juju remove-application p1 --destroy-storage --no-prompt \
+		--force --no-wait # TODO: remove these flags once storage bug is fixed
+	juju remove-application p2 --destroy-storage --no-prompt \
+		--force --no-wait # TODO: remove these flags once storage bug is fixed
 	destroy_controller "${MODEL_NAME}"
 }
 
@@ -111,8 +111,8 @@ run_prometheus_cross_controller() {
 	juju status -m controller --format json | yq -r "$(active_condition "controller")" | check "controller"
 	juju status --format json | yq -r "$(active_condition "prometheus-k8s")" | check "prometheus-k8s"
 
-	juju remove-application prometheus-k8s --destroy-storage \
-		--force --no-wait --no-prompt # TODO: remove these flags once storage bug is fixed
+	juju remove-application prometheus-k8s --destroy-storage --no-prompt \
+		--force --no-wait # TODO: remove these flags once storage bug is fixed
 	destroy_controller "${PROMETHEUS_MODEL_NAME}"
 }
 
