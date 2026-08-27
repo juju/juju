@@ -414,38 +414,27 @@ func (p *sshJump) copyCAAS(ctx Context) error {
 	if len(args) > 2 {
 		return errors.New("only one source and one destination are allowed for a k8s application")
 	}
+	for _, arg := range args {
+		if strings.HasPrefix(arg, ":") {
+			return errors.New("target must match format: [pod[/container]:]path")
+		}
+	}
 
-	srcPath, srcTarget, err := p.expandCaasScpArg(ctx, args[0])
+	_, targets, err := expandSCPArgs(ctx, args, p.resolveTarget)
 	if err != nil {
 		return err
 	}
-	destPath, destTarget, err := p.expandCaasScpArg(ctx, args[1])
-	if err != nil {
-		return err
-	}
-	if (srcTarget == nil) == (destTarget == nil) {
+	if len(targets) != 1 {
 		return errors.New("copy either from a pod to the client or from the client to a pod")
 	}
 
-	if srcTarget != nil {
-		return p.copyFromCAAS(srcPath, srcTarget, destPath)
+	target := targets[0]
+	_, srcPath, srcIsRemote := strings.Cut(args[0], ":")
+	if srcIsRemote && !strings.HasPrefix(args[0], "-") {
+		return p.copyFromCAAS(srcPath, target, args[1])
 	}
-	return p.copyToCAAS(ctx, srcPath, destTarget, destPath)
-}
-
-func (p *sshJump) expandCaasScpArg(ctx context.Context, arg string) (string, *resolvedTarget, error) {
-	i := strings.Index(arg, ":")
-	if i == -1 {
-		return arg, nil, nil
-	}
-	if i == 0 {
-		return "", nil, errors.New("target must match format: [pod[/container]:]path")
-	}
-	target, err := p.resolveTarget(ctx, arg[:i])
-	if err != nil {
-		return "", nil, err
-	}
-	return arg[i+1:], target, nil
+	_, destPath, _ := strings.Cut(args[1], ":")
+	return p.copyToCAAS(ctx, args[0], target, destPath)
 }
 
 func (p *sshJump) copyToCAAS(ctx Context, srcPath string, destTarget *resolvedTarget, destPath string) error {

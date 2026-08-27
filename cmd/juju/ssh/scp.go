@@ -184,12 +184,12 @@ func (c *scpCommand) Init(args []string) (err error) {
 	if c.sshJump.showCommand && !c.jump {
 		return errors.New("--show-command requires --jump")
 	}
-	if c.jump && c.modelType == model.CAAS {
-		c.sshJump.container = c.sshContainer.container
-	}
 	if c.jump {
 		c.provider = &c.sshJump
 		c.sshJump.noHostKeyChecks = c.sshMachine.noHostKeyChecks
+		if c.modelType == model.CAAS {
+			c.sshJump.container = c.sshContainer.container
+		}
 	} else if c.modelType == model.CAAS {
 		c.provider = &c.sshContainer
 	} else {
