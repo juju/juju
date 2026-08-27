@@ -363,6 +363,15 @@ func (s *sshJumpSuite) TestCopyCAASArgValidation(c *tc.C) {
 	c.Check(jump.copy(nil), tc.ErrorMatches, "target must match format: \\[pod\\[/container\\]:\\]path")
 }
 
+func (s *sshJumpSuite) TestCopyCAASShowCommandNotSupported(c *tc.C) {
+	jump := sshJump{
+		modelType:   model.CAAS,
+		showCommand: true,
+	}
+
+	c.Check(jump.copy(nil), tc.ErrorMatches, "--show-command is not supported for Kubernetes pod file transfers; use juju ssh with tar instead")
+}
+
 func (s *sshJumpSuite) TestCopyToCAAS(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

@@ -407,6 +407,9 @@ func (p *sshJump) showSCPCommand(w io.Writer, proxyTarget *resolvedTarget, args 
 }
 
 func (p *sshJump) copyCAAS(ctx Context) error {
+	if p.showCommand {
+		return errors.New("--show-command is not supported for Kubernetes pod file transfers; use juju ssh with tar instead")
+	}
 	args := p.args
 	if len(args) < 2 {
 		return errors.New("source and destination are required")
