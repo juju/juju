@@ -5,14 +5,17 @@ package service
 
 import (
 	"context"
+	"strconv"
 	"time"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
@@ -96,6 +99,12 @@ func (s *Service) RemoveUnit(
 		return "", errors.Errorf("checking if unit exists: %w", err)
 	} else if !exists {
 		return "", errors.Errorf("unit does not exist").Add(applicationerrors.UnitNotFound)
+	}
+
+	// Delete the controller node for this unit if it is a controller unit. This
+	// is best effort, so we log any errors but do not fail the removal.
+	if err := s.deleteControllerNodeForUnit(ctx, unitUUID); err != nil {
+		s.logger.Warningf(ctx, "deleting controller node for unit %q: %v", unitUUID, err)
 	}
 
 	// Ensure the unit is not alive. If it is the last one on the machine,
@@ -331,6 +340,13 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		return errors.Errorf("unit %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
+	// The unit is not alive, remove the controller node for this unit. This
+	// must be done, otherwise the controller node api addresses will still
+	// be present in the controller and the agent configs.
+	if err := s.deleteControllerNodeForUnit(ctx, unit.UUID(job.EntityUUID)); err != nil {
+		return errors.Errorf("deleting controller node for unit %q: %w", job.EntityUUID, err)
+	}
+
 	if l == life.Dying && !job.Force {
 		// Can the unit be marked as dead? If the unit has any associated
 		// entities that are still alive, we cannot mark it as dead.
@@ -415,4 +431,28 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 	}
 
 	return nil
+}
+
+func (s *Service) deleteControllerNodeForUnit(ctx context.Context, unitUUID unit.UUID) error {
+	applicationName, unitName, err := s.modelState.GetApplicationNameAndUnitNameByUnitUUID(ctx, unitUUID.String())
+	if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
+		return errors.Errorf("getting controller unit name: %w", err)
+	}
+	if applicationName != coreapplication.ControllerApplicationName {
+		return nil
+	}
+
+	isControllerModel, err := s.modelState.IsControllerModel(ctx, s.modelUUID.String())
+	if err != nil && !errors.Is(err, modelerrors.NotFound) {
+		return errors.Errorf("checking if this is the controller model: %w", err)
+	}
+	if !isControllerModel {
+		return nil
+	}
+
+	name, err := unit.NewName(unitName)
+	if err != nil {
+		return errors.Errorf("parsing controller unit name %q: %w", unitName, err)
+	}
+	return errors.Capture(s.controllerState.DeleteControllerNode(ctx, strconv.Itoa(name.Number())))
 }
