@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	coressh "github.com/juju/juju/core/ssh"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/pki/test"
@@ -59,6 +60,10 @@ func (s *sshTunnelerSuite) newTracker(c *tc.C) *Tracker {
 	}
 	tunnelTracker, err := NewTracker(args)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Cleanup(func() {
+		tunnelTracker.Kill()
+		_ = tunnelTracker.Wait()
+	})
 	return tunnelTracker
 }
 
@@ -155,11 +160,11 @@ func (s *sshTunnelerSuite) TestTunneler(c *tc.C) {
 
 type mockConn struct {
 	net.Conn
-	atomic.Bool
+	wasClosed atomic.Bool
 }
 
 func (m *mockConn) Close() error {
-	m.Bool.Store(true)
+	m.wasClosed.Store(true)
 	return nil
 }
 
@@ -236,7 +241,7 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *tc.C) {
 	wg.Wait()
 
 	c.Check(tunnelTracker.tracker, tc.HasLen, 0)
-	c.Check(mockConn.Bool.Load(), tc.Equals, true)
+	c.Check(mockConn.wasClosed.Load(), tc.Equals, true)
 }
 
 func (s *sshTunnelerSuite) TestMachineHostKeysWithWatcher(c *tc.C) {
@@ -271,6 +276,111 @@ func (s *sshTunnelerSuite) TestMachineHostKeysWithWatcher(c *tc.C) {
 	hostKeys, err := tunnelTracker.machineHostKeysWithWatcher(c.Context(), tunnelReqArgs)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hostKeys, tc.HasLen, 1)
+}
+
+func (s *sshTunnelerSuite) TestMachineHostKeysWithWatcherStopsWhenTrackerKilled(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tunnelTracker := s.newTracker(c)
+	now := time.Now()
+	requestCreated := make(chan struct{})
+	hostKeyChanges := make(chan []string)
+	hostKeyWatcher := watchertest.NewMockStringsWatcher(hostKeyChanges)
+	watcherStarted := make(chan struct{})
+	var sshConnArgs domainssh.SSHConnRequest
+
+	s.clock.EXPECT().Now().Return(now)
+	s.controller.EXPECT().LocalAddresses(gomock.Any(), "0").Return(nil, nil)
+	s.connRequests.EXPECT().InsertSSHConnRequest(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ model.UUID, req domainssh.SSHConnRequest) error {
+			sshConnArgs = req
+			close(requestCreated)
+			return nil
+		})
+	s.machines.EXPECT().WatchMachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(context.Context, string, string) (watcher.StringsWatcher, error) {
+			close(watcherStarted)
+			return hostKeyWatcher, nil
+		})
+
+	result := make(chan error, 1)
+	go func() {
+		_, err := tunnelTracker.RequestTunnel(c.Context(), RequestArgs{
+			MachineID:        "0",
+			ControllerNodeID: "0",
+			ModelUUID:        "8419cd78-4993-4c3a-928e-c646226beeee",
+		})
+		result <- err
+	}()
+
+	select {
+	case <-requestCreated:
+	case <-c.Context().Done():
+		c.Fatal("tunnel request was not created")
+	}
+
+	conn := &mockConn{}
+	err := tunnelTracker.PushTunnel(c.Context(), sshConnArgs.TunnelID, conn)
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case <-watcherStarted:
+	case <-c.Context().Done():
+		c.Fatal("machine host key watcher was not started")
+	}
+
+	tunnelTracker.Kill()
+	c.Assert(tunnelTracker.Wait(), tc.ErrorIsNil)
+
+	select {
+	case err := <-result:
+		c.Check(err, tc.ErrorMatches, `waiting for machine SSH host keys: context canceled`)
+	case <-c.Context().Done():
+		c.Fatal("machine host key lookup did not stop")
+	}
+	c.Check(conn.wasClosed.Load(), tc.Equals, true)
+	c.Assert(hostKeyWatcher.Wait(), tc.ErrorIsNil)
+}
+
+func (s *sshTunnelerSuite) TestRequestTunnelStopsWhenTrackerKilled(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tunnelTracker := s.newTracker(c)
+	now := time.Now()
+	requestCreated := make(chan struct{})
+	s.clock.EXPECT().Now().Return(now)
+	s.controller.EXPECT().LocalAddresses(gomock.Any(), "0").Return(nil, nil)
+	s.connRequests.EXPECT().InsertSSHConnRequest(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(context.Context, model.UUID, domainssh.SSHConnRequest) error {
+			close(requestCreated)
+			return nil
+		})
+
+	result := make(chan error, 1)
+	go func() {
+		_, err := tunnelTracker.RequestTunnel(c.Context(), RequestArgs{
+			MachineID:        "0",
+			ControllerNodeID: "0",
+			ModelUUID:        "8419cd78-4993-4c3a-928e-c646226beeee",
+		})
+		result <- err
+	}()
+
+	select {
+	case <-requestCreated:
+	case <-c.Context().Done():
+		c.Fatal("tunnel request was not created")
+	}
+
+	tunnelTracker.Kill()
+	c.Assert(tunnelTracker.Wait(), tc.ErrorIsNil)
+
+	select {
+	case err := <-result:
+		c.Check(err, tc.ErrorMatches, `waiting for tunnel: context canceled`)
+	case <-c.Context().Done():
+		c.Fatal("tunnel request did not stop")
+	}
 }
 
 func (s *sshTunnelerSuite) TestGenerateEphemeralSSHKey(c *tc.C) {
@@ -460,6 +570,11 @@ func (s *sshTunnelerSuite) TestNewTunnelTrackerValidation(c *tc.C) {
 	tunnelTracker, err := NewTracker(args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tunnelTracker, tc.Not(tc.IsNil))
+	createdTracker := tunnelTracker
+	c.Cleanup(func() {
+		createdTracker.Kill()
+		_ = createdTracker.Wait()
+	})
 
 	// Test case: Missing ConnRequestState
 	args.ConnRequestState = nil

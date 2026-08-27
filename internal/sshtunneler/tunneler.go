@@ -13,6 +13,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/model"
@@ -71,9 +73,12 @@ type SSHDial interface {
 }
 
 // Tracker provides methods to create SSH tunnels to machine units.
-// The objects keep track of consumers who have requested tunnels
-// and allows an SSH server to push tunnels to these consumers.
+// The tracker keeps track of consumers who have requested tunnels and allows
+// an SSH server to push tunnels to these consumers. It is also a worker and
+// must be stopped by callers that create it.
 type Tracker struct {
+	catacomb catacomb.Catacomb
+
 	authn        tunnelAuthentication
 	connReqState ConnRequestState
 	machines     MachineState
@@ -113,7 +118,7 @@ func (args *TrackerArgs) validate() error {
 	return nil
 }
 
-// NewTracker creates a new tunnel tracker.
+// NewTracker creates and starts a new tunnel tracker worker.
 func NewTracker(args TrackerArgs) (*Tracker, error) {
 	if err := args.validate(); err != nil {
 		return nil, err
@@ -124,7 +129,7 @@ func NewTracker(args TrackerArgs) (*Tracker, error) {
 		return nil, err
 	}
 
-	return &Tracker{
+	tt := &Tracker{
 		tracker:      make(map[string]chan (net.Conn)),
 		authn:        authn,
 		controller:   args.ControllerInfo,
@@ -132,8 +137,33 @@ func NewTracker(args TrackerArgs) (*Tracker, error) {
 		connReqState: args.ConnRequestState,
 		machines:     args.MachineState,
 		dialer:       args.Dialer,
-	}, nil
+	}
+	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "ssh-tunnel-tracker",
+		Site: &tt.catacomb,
+		Work: tt.loop,
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return tt, nil
 }
+
+func (tt *Tracker) loop() error {
+	<-tt.catacomb.Dying()
+	return tt.catacomb.ErrDying()
+}
+
+// Kill stops the tracker.
+func (tt *Tracker) Kill() {
+	tt.catacomb.Kill(nil)
+}
+
+// Wait blocks until the tracker has completed.
+func (tt *Tracker) Wait() error {
+	return tt.catacomb.Wait()
+}
+
+var _ worker.Worker = (*Tracker)(nil)
 
 // RequestArgs holds the arguments for requesting a tunnel.
 type RequestArgs struct {
@@ -183,6 +213,8 @@ func (tt *Tracker) machineHostKeys(ctx context.Context, req RequestArgs) ([]goss
 // Use context.WithTimeout to control the maximum time to wait for the tunnel
 // to be established.
 func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.Client, error) {
+	ctx = tt.catacomb.Context(ctx)
+
 	if req.MachineID == "" {
 		return nil, errors.NotValidf("empty MachineID")
 	}
@@ -295,6 +327,8 @@ func (tt *Tracker) AuthenticateTunnel(username, password string) (tunnelID strin
 // to RequestTunnel(). Use context.WithTimeout to control the
 // maximum time to wait.
 func (tt *Tracker) PushTunnel(ctx context.Context, tunnelID string, conn net.Conn) error {
+	ctx = tt.catacomb.Context(ctx)
+
 	recv, ok := tt.get(tunnelID)
 	if !ok {
 		return errors.New("tunnel not found")
@@ -336,6 +370,13 @@ func (tt *Tracker) machineHostKeysWithWatcher(ctx context.Context, req RequestAr
 	if err != nil {
 		return nil, errors.Annotate(err, "watching for machine SSH host keys")
 	}
+	if err := tt.catacomb.Add(hostKeyWatcher); err != nil {
+		return nil, errors.Annotate(err, "adding machine SSH host key watcher")
+	}
+	// Stop the watcher when we exit the scope of this function to avoid
+	// accumulating watchers indefinitely.
+	// We also add it to the catacomb to indicate that this worker
+	// has resources that are pending cleanup.
 	defer func() {
 		hostKeyWatcher.Kill()
 		_ = hostKeyWatcher.Wait()

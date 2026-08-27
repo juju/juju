@@ -10,8 +10,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 	gossh "golang.org/x/crypto/ssh"
-	"gopkg.in/tomb.v2"
 
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
@@ -77,7 +77,7 @@ type GetMachineServiceFunc = func(ctx context.Context, getter services.DomainSer
 
 // sshTunnelerWorker is a worker that wraps a tunnel tracker singleton.
 type sshTunnelerWorker struct {
-	tomb          tomb.Tomb
+	catacomb      catacomb.Catacomb
 	tunnelTracker *sshtunneler.Tracker
 }
 
@@ -213,19 +213,28 @@ func NewWorker(domainServicesGetter services.DomainServicesGetter, getSSHService
 	}
 
 	w := &sshTunnelerWorker{tunnelTracker: tracker}
-	w.tomb.Go(func() error {
-		<-w.tomb.Dying()
-		return tomb.ErrDying
-	})
+	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "ssh-tunneler",
+		Site: &w.catacomb,
+		Work: w.loop,
+		Init: []worker.Worker{tracker},
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return w, nil
+}
+
+func (w *sshTunnelerWorker) loop() error {
+	<-w.catacomb.Dying()
+	return w.catacomb.ErrDying()
 }
 
 // Kill is part of the worker.Worker interface.
 func (w *sshTunnelerWorker) Kill() {
-	w.tomb.Kill(nil)
+	w.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
 func (w *sshTunnelerWorker) Wait() error {
-	return w.tomb.Wait()
+	return w.catacomb.Wait()
 }
