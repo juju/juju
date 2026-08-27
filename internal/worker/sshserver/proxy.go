@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/virtualhostname"
-	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/worker/sshserver/handlers/common"
 	"github.com/juju/juju/internal/worker/sshserver/handlers/k8s"
 	"github.com/juju/juju/internal/worker/sshserver/handlers/machine"
@@ -39,7 +38,7 @@ type proxyFactory struct {
 	k8sResolver k8s.Resolver
 	logger      logger.Logger
 	connector   machine.SSHConnector
-	getExecutor func(string) (k8sexec.Executor, error)
+	getExecutor k8s.ExecutorGetter
 	metrics     *Collector
 }
 
@@ -67,7 +66,7 @@ func (f proxyFactory) New(destination virtualhostname.Info) (ProxyHandlers, erro
 
 	switch destination.Target() {
 	case virtualhostname.ContainerTarget:
-		return k8s.NewHandlers(destination, f.k8sResolver, f.logger, f.getExecutor, metrics)
+		return k8s.NewHandlers(destination, f.k8sResolver, f.getExecutor, f.logger, metrics)
 	case virtualhostname.MachineTarget, virtualhostname.UnitTarget:
 		return machine.NewHandlers(destination, f.connector, f.logger, metrics)
 	default:

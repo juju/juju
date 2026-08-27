@@ -10,11 +10,13 @@ import (
 	"io"
 	"syscall"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	ssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/environs/cloudspec"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/worker/sshserver/handlers/common"
@@ -25,16 +27,17 @@ func (s *k8sSuite) TestSessionHandler(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	var received k8sexec.ExecParams
-	handlers, err := NewHandlers(destination, resolverFunc(func(context.Context, virtualhostname.Info) (string, string, error) {
-		return "test-namespace", "test-pod", nil
-	}), loggertesting.WrapCheckLog(c), func(namespace string) (k8sexec.Executor, error) {
+	expectedCloudSpec := cloudspec.CloudSpec{Name: "test-cloud"}
+	resolver := newSessionResolver(c, destination, expectedCloudSpec)
+	handlers, err := NewHandlers(destination, resolver, func(namespace string, actualCloudSpec cloudspec.CloudSpec) (k8sexec.Executor, error) {
 		c.Check(namespace, tc.Equals, "test-namespace")
+		c.Check(actualCloudSpec, tc.DeepEquals, expectedCloudSpec)
 		return executorFunc(func(_ context.Context, params k8sexec.ExecParams, _ <-chan struct{}) error {
 			received = params
 			_, err := io.WriteString(params.Stdout, "test output\n")
 			return err
 		}), nil
-	}, common.NoopMetrics{})
+	}, loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
@@ -65,14 +68,12 @@ func (s *k8sSuite) TestSessionHandlerPreservesRawCommand(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	var received k8sexec.ExecParams
-	handlers, err := NewHandlers(destination, resolverFunc(func(context.Context, virtualhostname.Info) (string, string, error) {
-		return "test-namespace", "test-pod", nil
-	}), loggertesting.WrapCheckLog(c), func(string) (k8sexec.Executor, error) {
+	handlers, err := NewHandlers(destination, newSessionResolver(c, destination, cloudspec.CloudSpec{}), func(string, cloudspec.CloudSpec) (k8sexec.Executor, error) {
 		return executorFunc(func(_ context.Context, params k8sexec.ExecParams, _ <-chan struct{}) error {
 			received = params
 			return nil
 		}), nil
-	}, common.NoopMetrics{})
+	}, loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
@@ -93,14 +94,12 @@ func (s *k8sSuite) TestSessionHandlerStartsDefaultShell(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	var received k8sexec.ExecParams
-	handlers, err := NewHandlers(destination, resolverFunc(func(context.Context, virtualhostname.Info) (string, string, error) {
-		return "test-namespace", "test-pod", nil
-	}), loggertesting.WrapCheckLog(c), func(string) (k8sexec.Executor, error) {
+	handlers, err := NewHandlers(destination, newSessionResolver(c, destination, cloudspec.CloudSpec{}), func(string, cloudspec.CloudSpec) (k8sexec.Executor, error) {
 		return executorFunc(func(_ context.Context, params k8sexec.ExecParams, _ <-chan struct{}) error {
 			received = params
 			return nil
 		}), nil
-	}, common.NoopMetrics{})
+	}, loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
@@ -120,13 +119,11 @@ func (s *k8sSuite) TestSessionHandlerPropagatesExitStatus(c *tc.C) {
 	destination, err := virtualhostname.NewInfoContainerTarget("8419cd78-4993-4c3a-928e-c646226beeee", "app/0", "workload")
 	c.Assert(err, tc.ErrorIsNil)
 
-	handlers, err := NewHandlers(destination, resolverFunc(func(context.Context, virtualhostname.Info) (string, string, error) {
-		return "test-namespace", "test-pod", nil
-	}), loggertesting.WrapCheckLog(c), func(string) (k8sexec.Executor, error) {
+	handlers, err := NewHandlers(destination, newSessionResolver(c, destination, cloudspec.CloudSpec{}), func(string, cloudspec.CloudSpec) (k8sexec.Executor, error) {
 		return executorFunc(func(context.Context, k8sexec.ExecParams, <-chan struct{}) error {
 			return testExitError{status: 3}
 		}), nil
-	}, common.NoopMetrics{})
+	}, loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
@@ -148,9 +145,7 @@ func (s *k8sSuite) TestSessionHandlerForwardsSignal(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	received := make(chan syscall.Signal, 1)
-	handlers, err := NewHandlers(destination, resolverFunc(func(context.Context, virtualhostname.Info) (string, string, error) {
-		return "test-namespace", "test-pod", nil
-	}), loggertesting.WrapCheckLog(c), func(string) (k8sexec.Executor, error) {
+	handlers, err := NewHandlers(destination, newSessionResolver(c, destination, cloudspec.CloudSpec{}), func(string, cloudspec.CloudSpec) (k8sexec.Executor, error) {
 		return executorFunc(func(ctx context.Context, params k8sexec.ExecParams, _ <-chan struct{}) error {
 			select {
 			case signal := <-params.Signal:
@@ -160,7 +155,7 @@ func (s *k8sSuite) TestSessionHandlerForwardsSignal(c *tc.C) {
 				return ctx.Err()
 			}
 		}), nil
-	}, common.NoopMetrics{})
+	}, loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
@@ -181,9 +176,9 @@ func (s *k8sSuite) TestSessionHandlerReportsResolverFailure(c *tc.C) {
 	destination, err := virtualhostname.NewInfoContainerTarget("8419cd78-4993-4c3a-928e-c646226beeee", "app/0", "workload")
 	c.Assert(err, tc.ErrorIsNil)
 
-	handlers, err := NewHandlers(destination, resolverFunc(func(context.Context, virtualhostname.Info) (string, string, error) {
-		return "", "", errors.New("resolver failed")
-	}), loggertesting.WrapCheckLog(c), stubExecutor, common.NoopMetrics{})
+	resolver := newMockResolver(c)
+	resolver.EXPECT().ResolveK8sExecInfo(gomock.Any(), destination).Return("", "", errors.New("resolver failed"))
+	handlers, err := NewHandlers(destination, resolver, stubExecutor, loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
@@ -205,20 +200,46 @@ func (s *k8sSuite) TestSessionHandlerReportsResolverFailure(c *tc.C) {
 	c.Check(stderr.String(), tc.Equals, "resolving Kubernetes exec information: resolver failed\n")
 }
 
+func (s *k8sSuite) TestSessionHandlerReportsCloudSpecFailure(c *tc.C) {
+	destination, err := virtualhostname.NewInfoContainerTarget("8419cd78-4993-4c3a-928e-c646226beeee", "app/0", "workload")
+	c.Assert(err, tc.ErrorIsNil)
+
+	resolver := newMockResolver(c)
+	resolver.EXPECT().ResolveK8sExecInfo(gomock.Any(), destination).Return("test-namespace", "test-pod", nil)
+	resolver.EXPECT().CloudSpecForSSH(gomock.Any(), destination).Return(cloudspec.CloudSpec{}, errors.New("cloud spec failed"))
+	handlers, err := NewHandlers(destination, resolver, stubExecutor, loggertesting.WrapCheckLog(c), common.NoopMetrics{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
+	client, err := server.client()
+	c.Assert(err, tc.ErrorIsNil)
+	defer client.Close()
+
+	session, err := client.NewSession()
+	c.Assert(err, tc.ErrorIsNil)
+	defer session.Close()
+
+	var stderr bytes.Buffer
+	session.Stderr = &stderr
+
+	err = session.Run("echo hello")
+
+	c.Check(err, tc.ErrorMatches, "Process exited with status 1")
+	c.Check(stderr.String(), tc.Equals, "getting Kubernetes cloud spec: cloud spec failed\n")
+}
+
 func (s *k8sSuite) TestSessionHandlerWithPTY(c *tc.C) {
 	destination, err := virtualhostname.NewInfoContainerTarget("8419cd78-4993-4c3a-928e-c646226beeee", "app/0", "workload")
 	c.Assert(err, tc.ErrorIsNil)
 
 	executed := make(chan k8sexec.ExecParams, 1)
-	handlers, err := NewHandlers(destination, resolverFunc(func(context.Context, virtualhostname.Info) (string, string, error) {
-		return "test-namespace", "test-pod", nil
-	}), loggertesting.WrapCheckLog(c), func(string) (k8sexec.Executor, error) {
+	handlers, err := NewHandlers(destination, newSessionResolver(c, destination, cloudspec.CloudSpec{}), func(string, cloudspec.CloudSpec) (k8sexec.Executor, error) {
 		return executorFunc(func(_ context.Context, params k8sexec.ExecParams, _ <-chan struct{}) error {
 			executed <- params
 			_, err := io.WriteString(params.Stdout, "final output\n")
 			return err
 		}), nil
-	}, common.NoopMetrics{})
+	}, loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
@@ -285,15 +306,13 @@ func (s *k8sSuite) TestSessionHandlerWithPTYDrainsOutputBeforeErrorExit(c *tc.C)
 	destination, err := virtualhostname.NewInfoContainerTarget("8419cd78-4993-4c3a-928e-c646226beeee", "app/0", "workload")
 	c.Assert(err, tc.ErrorIsNil)
 
-	handlers, err := NewHandlers(destination, resolverFunc(func(context.Context, virtualhostname.Info) (string, string, error) {
-		return "test-namespace", "test-pod", nil
-	}), loggertesting.WrapCheckLog(c), func(string) (k8sexec.Executor, error) {
+	handlers, err := NewHandlers(destination, newSessionResolver(c, destination, cloudspec.CloudSpec{}), func(string, cloudspec.CloudSpec) (k8sexec.Executor, error) {
 		return executorFunc(func(_ context.Context, params k8sexec.ExecParams, _ <-chan struct{}) error {
 			_, err := io.WriteString(params.Stdout, "final output\n")
 			c.Assert(err, tc.ErrorIsNil)
 			return testExitError{status: 3}
 		}), nil
-	}, common.NoopMetrics{})
+	}, loggertesting.WrapCheckLog(c), common.NoopMetrics{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	server := startK8sTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})

@@ -36,7 +36,13 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 		return
 	}
 
-	executor, err := h.getExecutor(namespace)
+	cloudSpec, err := h.resolver.CloudSpecForSSH(session.Context(), h.destination)
+	if err != nil {
+		handleError(errors.Annotate(err, "getting Kubernetes cloud spec"))
+		return
+	}
+
+	executor, err := h.getExecutor(namespace, cloudSpec)
 	if err != nil {
 		handleError(errors.Annotate(err, "getting Kubernetes executor"))
 		return

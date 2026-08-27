@@ -9,6 +9,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/environs/cloudspec"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/worker/sshserver/handlers/k8s"
@@ -40,7 +41,7 @@ func (s *proxySuite) TestNewSelectsKubernetesHandlers(c *tc.C) {
 	handlers, err := (proxyFactory{
 		logger:      loggertesting.WrapCheckLog(c),
 		k8sResolver: proxyResolver{},
-		getExecutor: func(string) (k8sexec.Executor, error) { return nil, nil },
+		getExecutor: func(string, cloudspec.CloudSpec) (k8sexec.Executor, error) { return nil, nil },
 	}).New(destination)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(handlers, tc.FitsTypeOf, &k8s.Handlers{})
