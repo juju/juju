@@ -135,7 +135,7 @@ run_refresh_revision() {
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 	old_revision=$(application_charm_rev "juju-qa-test")
 
-	# do a generic refresh, should pick up revision from latest stable
+	# do a generic refresh, should pick up revision from 2.0/edge
 	juju refresh juju-qa-test
 	revision=$(application_charm_rev "juju-qa-test")
 
