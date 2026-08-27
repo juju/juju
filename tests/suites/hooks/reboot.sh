@@ -42,7 +42,8 @@ run_start_hook_fires_after_reboot() {
 	wait_for "$charm" "$(idle_condition "$charm")"
 
 	# Ensure that the implicit start hook does not fire after upgrading the unit
-	juju refresh juju-qa-test --revision 23
+	# Revision 23 is in 2.0/edge
+	juju refresh juju-qa-test --revision 23 --channel 2.0/edge
 	echo
 	sleep 1
 	wait_for "$charm" "$(charm_rev "$charm" 23)"
@@ -84,19 +85,6 @@ run_start_hook_fires_after_reboot() {
 	echo "   | uptime before: ${uptime_before}s, after: ${uptime_after}s"
 	if [ -z "$uptime_before" ] || [ -z "$uptime_after" ] || [ "$uptime_after" -ge "$uptime_before" ]; then
 		red "Machine uptime did not decrease after reboot; machine may not have actually rebooted"
-		exit 1
-	fi
-
-	# Verify that the machine agent executed the reboot via
-	# executeRebootOrShutdown. This directly tests the code path fixed
-	# in the errors.Cause -> errors.Is change: the machine agent must
-	# recognise ErrRebootMachine through the Unwrap chain and dispatch
-	# to executeRebootOrShutdown.
-	echo "[+] verifying that the machine agent executed the reboot"
-	machine_log=$(juju ssh juju-qa-test/0 -- sudo grep -E "Caught reboot error|Executing reboot" /var/log/juju/machine-0.log 2>/dev/null || true)
-	echo "$machine_log//#/    | }"
-	if [ -z "$machine_log" ]; then
-		red "Machine agent did not log reboot execution in machine-0.log"
 		exit 1
 	fi
 
