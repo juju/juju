@@ -139,6 +139,7 @@ func (w *dbReplWorker) loop() (err error) {
 		InterruptPrompt:     "^C",
 		HistorySearchFold:   true,
 		FuncFilterInputRune: filterInput,
+		AutoComplete:        newSQLCompleter(func() database.TxnRunner { return w.currentDB }, ctx),
 	})
 	if err != nil {
 		return errors.Trace(err)
