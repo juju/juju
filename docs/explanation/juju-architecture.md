@@ -454,15 +454,13 @@ See more: {ref}`machines-and-system-containers`, {ref}`machine`
 
 ### How the controller is deployed
 
-The controller is itself a deployed unit -- the one difference is that its agent is the controller process. On Kubernetes, the controller runs as the `juju-controller` application with a single unit (`controller-0`) in a pod; on a machine cloud it is a unit on the controller machine. Its charm, `juju-controller`, is a real charm record -- you can see it and upgrade it like any charm -- but it does not operate the controller the way application charms operate workloads. What actually runs the controller is the `jujud` (or `containeragent`) process itself: its controller agent manifold tree serves the API, reconciles the models, and runs the in-process Dqlite store that holds both the controller database and every model database.
+The controller is itself a deployed unit -- but only in structure, not in how it is reconciled. On Kubernetes, the controller runs as the `juju-controller` application with a single unit (`controller-0`) in a pod, with a `charm` container and an `api-server` workload container (with Pebble inside it supervising the `jujud` controller-agent service). On a machine cloud it is a unit on the controller machine. Its charm, `juju-controller`, is a real charm record -- you can see it and upgrade it like any charm.
 
-So when you look at a controller unit:
+But the controller is not operated the way application charms are. For an ordinary unit, reconciliation means the unit agent reconciles the model by dispatching the charm's hooks. For the controller, the charm is recorded but not dispatched to operate the controller: what runs the controller is the process itself, whose manifold tree serves the API, runs the model workers, and holds the in-process Dqlite store. The `application_controller` marker flags the controller application as special and non-ordinary -- it exists so the controller is not treated as a workload charm you can freely integrate and drive via hooks.
 
-- its **charm** is `juju-controller`, recorded like any charm;
-- its **agent** is the controller process, which is the controller agent running the API, the model workers, and Dqlite;
-- its **workload** (in the broad sense) is the database and the reconciliation machinery -- everything other controller hosts defer to it for.
+So the controller is a unit in form, but the loop that keeps its deployments true is jujud's own machinery, not the charm loop -- the one place in the system where the unit model is asymmetric.
 
-This is why the topology diagrams above draw the controller pod or machine as `jujud` hosting the controller and model agent workers with Dqlite in-process -- the box is the controller unit's agent and workload together.
+This is why the topology diagrams above draw the controller pod or machine as `jujud` hosting the controller and model agent workers with Dqlite in-process: the box is the controller unit's workload and its reconciling machinery together, and the charm marked on it does not drive that machinery.
 
 (arch-communication)=
 ### Communication paths
