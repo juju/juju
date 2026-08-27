@@ -1027,6 +1027,55 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroy(c *gc.C) {
 	c.Assert(host.Destroy(), gc.NotNil)
 }
 
+func (s *UnitSuite) TestForceRemoveUnitSchedulesEvacuateMachine(c *gc.C) {
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(host.SetProvisioned("inst-id", "", "fake_nonce", nil), jc.ErrorIsNil)
+
+	unit, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.AssignToMachine(host), gc.IsNil)
+	c.Assert(unit.SetAgentStatus(status.StatusInfo{Status: status.Idle}), jc.ErrorIsNil)
+
+	const maxWait = time.Minute
+	opErrs, err := unit.DestroyWithForce(true, maxWait)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.IsNil)
+
+	// First cleanup: cleanupDyingUnit schedules cleanupForceDestroyedUnit.
+	c.Assert(s.State.Cleanup(nil), jc.ErrorIsNil)
+
+	// Advance the clock so the backstop fires.
+	s.Clock.Advance(maxWait)
+
+	// Second cleanup: cleanupForceDestroyedUnit forces unit to Dead,
+	// schedules cleanupForceRemoveUnit.
+	c.Assert(s.State.Cleanup(nil), jc.ErrorIsNil)
+
+	// Verify the unit is now Dead.
+	c.Assert(unit.Refresh(), jc.ErrorIsNil)
+	c.Assert(unit.Life(), gc.Equals, state.Dead)
+
+	// cleanupForceDestroyedUnit scheduled cleanupForceRemoveUnit.
+	// Advance the clock again.
+	s.Clock.Advance(maxWait)
+
+	// Third cleanup: cleanupForceRemoveUnit removes the unit.
+	c.Assert(s.State.Cleanup(nil), jc.ErrorIsNil)
+
+	// Verify the unit is removed.
+	c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
+
+	// The machine should be Dying and an evacuation cleanup
+	// should have been scheduled with force=true and the original maxWait.
+	c.Assert(host.Refresh(), jc.ErrorIsNil)
+	c.Assert(host.Life(), gc.Equals, state.Dying)
+	state.AssertEvacuateMachineCleanupParams(c, s.State, host.Id(), true, maxWait)
+	// No cleanupForceDestroyedMachine should be scheduled directly; the
+	// evacuation loop will schedule one after maxWait if Dying units remain.
+	state.AssertNoCleanupsWithKind(c, s.State, state.CleanupForceDestroyedMachine)
+}
+
 func (s *UnitSuite) setControllerVote(c *gc.C, id string, hasVote bool) {
 	node, err := s.State.ControllerNode(id)
 	c.Assert(err, jc.ErrorIsNil)
