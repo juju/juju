@@ -209,3 +209,40 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForMachineSshHostKey generates the triggers for the
+// machine_ssh_host_key table.
+func ChangeLogTriggersForMachineSshHostKey(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for MachineSshHostKey
+INSERT INTO change_log_namespace VALUES (%[2]d, 'machine_ssh_host_key', 'MachineSshHostKey changes based on %[1]s');
+
+-- insert trigger for MachineSshHostKey
+CREATE TRIGGER trg_log_machine_ssh_host_key_insert
+AFTER INSERT ON machine_ssh_host_key FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for MachineSshHostKey
+CREATE TRIGGER trg_log_machine_ssh_host_key_update
+AFTER UPDATE ON machine_ssh_host_key FOR EACH ROW
+WHEN 
+	NEW.uuid != OLD.uuid OR
+	NEW.machine_uuid != OLD.machine_uuid OR
+	NEW.ssh_key != OLD.ssh_key
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for MachineSshHostKey
+CREATE TRIGGER trg_log_machine_ssh_host_key_delete
+AFTER DELETE ON machine_ssh_host_key FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
+

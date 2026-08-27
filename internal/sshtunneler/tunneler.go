@@ -13,20 +13,19 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/retry"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coressh "github.com/juju/juju/core/ssh"
+	"github.com/juju/juju/core/watcher"
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/pki/ssh"
 	"github.com/juju/juju/internal/uuid"
 )
 
 var (
-	maxTimeout           = 60 * time.Second
-	errNoMachineHostKeys = errors.New("no machine SSH host keys available")
+	maxTimeout = 60 * time.Second
 )
 
 const (
@@ -50,6 +49,9 @@ type MachineState interface {
 	// MachineHostKeys returns the SSH host keys registered for the given
 	// machine in the specified model.
 	MachineHostKeys(ctx context.Context, modelUUID, machineID string) ([]string, error)
+	// WatchMachineHostKeys returns a watcher for SSH host key changes for the
+	// given machine in the specified model. The watcher sends an initial event.
+	WatchMachineHostKeys(ctx context.Context, modelUUID, machineID string) (watcher.StringsWatcher, error)
 }
 
 // ControllerInfo defines an interface to fetch the local controller node's
@@ -305,13 +307,15 @@ func (tt *Tracker) PushTunnel(ctx context.Context, tunnelID string, conn net.Con
 	}
 }
 
-// wait blocks until a TCP tunnel to the target unit is established.
+// wait blocks until a TCP tunnel to the target unit is established and the
+// machine's SSH host keys are available. The context deadline bounds both
+// waits.
 func (tt *Tracker) wait(ctx context.Context, recv chan (net.Conn), privateKey gossh.Signer, req RequestArgs) (*gossh.Client, error) {
 	select {
 	case conn := <-recv:
 		// We now have ownership of the connection, so we should close it
 		// if the SSH dial fails.
-		hostKeys, err := tt.machineHostKeysWithRetry(ctx, req)
+		hostKeys, err := tt.machineHostKeysWithWatcher(ctx, req)
 		if err != nil {
 			conn.Close()
 			return nil, err
@@ -327,32 +331,34 @@ func (tt *Tracker) wait(ctx context.Context, recv chan (net.Conn), privateKey go
 	}
 }
 
-func (tt *Tracker) machineHostKeysWithRetry(ctx context.Context, req RequestArgs) ([]gossh.PublicKey, error) {
-	var hostKeys []gossh.PublicKey
-	strategy := retry.CallArgs{
-		Clock:    tt.clock,
-		Delay:    time.Second,
-		Attempts: -1,
-		Stop:     ctx.Done(),
-		Func: func() error {
-			var err error
-			hostKeys, err = tt.machineHostKeys(ctx, req)
+func (tt *Tracker) machineHostKeysWithWatcher(ctx context.Context, req RequestArgs) ([]gossh.PublicKey, error) {
+	hostKeyWatcher, err := tt.machines.WatchMachineHostKeys(ctx, req.ModelUUID, req.MachineID)
+	if err != nil {
+		return nil, errors.Annotate(err, "watching for machine SSH host keys")
+	}
+	defer func() {
+		hostKeyWatcher.Kill()
+		_ = hostKeyWatcher.Wait()
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, errors.Annotate(ctx.Err(), "waiting for machine SSH host keys")
+		case _, ok := <-hostKeyWatcher.Changes():
+			if !ok {
+				return nil, errors.New("machine SSH host key watcher closed")
+			}
+
+			hostKeys, err := tt.machineHostKeys(ctx, req)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			if len(hostKeys) == 0 {
-				return errNoMachineHostKeys
+			if len(hostKeys) != 0 {
+				return hostKeys, nil
 			}
-			return nil
-		},
-		IsFatalError: func(err error) bool {
-			return !errors.Is(err, errNoMachineHostKeys)
-		},
+		}
 	}
-	if err := retry.Call(strategy); err != nil {
-		return nil, errors.Annotate(err, "waiting for machine SSH host keys")
-	}
-	return hostKeys, nil
 }
 
 func useFixedHostKeys(keys []gossh.PublicKey) gossh.HostKeyCallback {

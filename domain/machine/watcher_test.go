@@ -403,6 +403,36 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
+func (s *watcherSuite) TestMachineSSHHostKeysWatchWithSet(c *tc.C) {
+	res, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			Channel: "24.04",
+			OSType:  deployment.Ubuntu,
+		},
+		Nonce: new("nonce-123"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := s.svc.GetMachineUUID(c.Context(), res.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.svc.SetSSHHostKeys(c.Context(), machineUUID, []string{"ssh-ed25519 AAAA"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.AssertChangeStreamIdle(c, "before watcher start")
+
+	hostKeyWatcher, err := s.svc.WatchMachineSSHHostKeys(c.Context(), machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, hostKeyWatcher))
+
+	harness.AddTest(c, func(c *tc.C) {
+		err := s.svc.SetSSHHostKeys(c.Context(), machineUUID, []string{"ssh-ed25519 BBBB"})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{machineUUID.String()}))
+	})
+
+	harness.Run(c, []string{machineUUID.String()})
+}
+
 // TestWatchMachineForReboot tests the functionality of watching machines for reboot.
 // It creates a machine hierarchy with a parent, a child (which will be watched), and a control child.
 // Then it creates a watcher for the child and performs the following assertions:

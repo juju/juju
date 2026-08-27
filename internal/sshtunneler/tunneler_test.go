@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	coressh "github.com/juju/juju/core/ssh"
+	"github.com/juju/juju/core/watcher/watchertest"
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/pki/test"
 	"github.com/juju/juju/internal/testhelpers"
@@ -92,6 +93,10 @@ func (s *sshTunnelerSuite) TestTunneler(c *tc.C) {
 	)
 	s.machines.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		[]string{string(gossh.MarshalAuthorizedKey(sshPublicHostKey))}, nil)
+	hostKeyChanges := make(chan []string, 1)
+	hostKeyChanges <- nil
+	s.machines.EXPECT().WatchMachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		watchertest.NewMockStringsWatcher(hostKeyChanges), nil)
 	s.dialer.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(c net.Conn, s1 string, s2 gossh.Signer, hkc gossh.HostKeyCallback) (*gossh.Client, error) {
 			hostKeyCallback = hkc
@@ -186,6 +191,10 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *tc.C) {
 	)
 	s.machines.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		[]string{string(gossh.MarshalAuthorizedKey(publicHostKey))}, nil)
+	hostKeyChanges := make(chan []string, 1)
+	hostKeyChanges <- nil
+	s.machines.EXPECT().WatchMachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		watchertest.NewMockStringsWatcher(hostKeyChanges), nil)
 	s.dialer.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("failed-to-connect"))
 	s.clock.EXPECT().Now().AnyTimes().Return(now)
 
@@ -230,19 +239,21 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *tc.C) {
 	c.Check(mockConn.Bool.Load(), tc.Equals, true)
 }
 
-func (s *sshTunnelerSuite) TestMachineHostKeysWithRetry(c *tc.C) {
+func (s *sshTunnelerSuite) TestMachineHostKeysWithWatcher(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tunnelTracker := s.newTracker(c)
-	now := time.Now()
 	machineHostKey, err := test.InsecureKeyProfile()
 	c.Assert(err, tc.ErrorIsNil)
 	publicHostKey, err := gossh.NewPublicKey(machineHostKey.Public())
 	c.Assert(err, tc.ErrorIsNil)
 
+	hostKeyChanges := make(chan []string, 2)
+	hostKeyChanges <- nil
+	hostKeyChanges <- nil
+	s.machines.EXPECT().WatchMachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		watchertest.NewMockStringsWatcher(hostKeyChanges), nil)
 	var hostKeyCalls int
-	s.clock.EXPECT().Now().AnyTimes().Return(now)
-	s.clock.EXPECT().After(gomock.Any()).Return(time.After(1 * time.Nanosecond))
 	s.machines.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(context.Context, string, string) ([]string, error) {
 			if hostKeyCalls == 0 {
@@ -257,7 +268,7 @@ func (s *sshTunnelerSuite) TestMachineHostKeysWithRetry(c *tc.C) {
 		ControllerNodeID: "0",
 		ModelUUID:        "8419cd78-4993-4c3a-928e-c646226beeee",
 	}
-	hostKeys, err := tunnelTracker.machineHostKeysWithRetry(c.Context(), tunnelReqArgs)
+	hostKeys, err := tunnelTracker.machineHostKeysWithWatcher(c.Context(), tunnelReqArgs)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hostKeys, tc.HasLen, 1)
 }

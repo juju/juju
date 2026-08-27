@@ -16,6 +16,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/sshtunneler"
@@ -51,6 +52,10 @@ type MachineService interface {
 	// GetSSHHostKeysByMachineName returns the SSH host keys stored for the
 	// machine identified by its name.
 	GetSSHHostKeysByMachineName(ctx context.Context, name coremachine.Name) ([]string, error)
+	// WatchSSHHostKeysByMachineName returns a watcher for SSH host key changes
+	// for the machine identified by its name. The watcher sends an initial
+	// event.
+	WatchSSHHostKeysByMachineName(ctx context.Context, name coremachine.Name) (watcher.StringsWatcher, error)
 }
 
 // ControllerNodeService provides controller-scoped address lookups used to
@@ -138,6 +143,25 @@ func (a *machineStateAdapter) MachineHostKeys(ctx context.Context, modelUUID, ma
 		return nil, errors.Annotatef(err, "getting SSH host keys for machine %q", machineID)
 	}
 	return keys, nil
+}
+
+// WatchMachineHostKeys implements sshtunneler.MachineState.
+func (a *machineStateAdapter) WatchMachineHostKeys(ctx context.Context, modelUUID, machineID string) (watcher.StringsWatcher, error) {
+	parsedUUID := coremodel.UUID(modelUUID)
+	if err := parsedUUID.Validate(); err != nil {
+		return nil, errors.Annotatef(err, "invalid model UUID %q", modelUUID)
+	}
+
+	machineSvc, err := a.getMachineService(ctx, a.domainServicesGetter, parsedUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	watcher, err := machineSvc.WatchSSHHostKeysByMachineName(ctx, coremachine.Name(machineID))
+	if err != nil {
+		return nil, errors.Annotatef(err, "watching SSH host keys for machine %q", machineID)
+	}
+	return watcher, nil
 }
 
 // controllerInfoAdapter adapts a ControllerNodeService to the

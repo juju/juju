@@ -15,6 +15,7 @@ import (
 	gomock "github.com/canonical/gomock/gomock"
 	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
+	watcher "github.com/juju/juju/core/watcher"
 	ssh "github.com/juju/juju/domain/ssh"
 )
 
@@ -70,8 +71,9 @@ type MockMachineService struct {
 
 // MockMachineServiceMockRecorder is the mock recorder for MockMachineService.
 type MockMachineServiceMockRecorder struct {
-	mock                               *MockMachineService
-	getSSHHostKeysByMachineNameExpects []*gomock.Call2_2[context.Context, machine.Name, []string, error]
+	mock                                 *MockMachineService
+	getSSHHostKeysByMachineNameExpects   []*gomock.Call2_2[context.Context, machine.Name, []string, error]
+	watchSSHHostKeysByMachineNameExpects []*gomock.Call2_2[context.Context, machine.Name, watcher.StringsWatcher, error]
 }
 
 // NewMockMachineService creates a new mock instance.
@@ -103,6 +105,24 @@ func (mr *MockMachineServiceMockRecorder) GetSSHHostKeysByMachineName(ctx, name 
 
 // MockMachineServiceGetSSHHostKeysByMachineNameCall is the typed call wrapper for GetSSHHostKeysByMachineName.
 type MockMachineServiceGetSSHHostKeysByMachineNameCall = gomock.Call2_2[context.Context, machine.Name, []string, error]
+
+// WatchSSHHostKeysByMachineName mocks base method.
+func (m *MockMachineService) WatchSSHHostKeysByMachineName(ctx context.Context, name machine.Name) (watcher.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.watchSSHHostKeysByMachineNameExpects, m.ctrl, m, "WatchSSHHostKeysByMachineName", ctx, name)
+}
+
+// WatchSSHHostKeysByMachineName indicates an expected call of WatchSSHHostKeysByMachineName.
+func (mr *MockMachineServiceMockRecorder) WatchSSHHostKeysByMachineName(ctx, name any) *MockMachineServiceWatchSSHHostKeysByMachineNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, machine.Name, watcher.StringsWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchSSHHostKeysByMachineName", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name))
+	mr.watchSSHHostKeysByMachineNameExpects = append(mr.watchSSHHostKeysByMachineNameExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockMachineServiceWatchSSHHostKeysByMachineNameCall is the typed call wrapper for WatchSSHHostKeysByMachineName.
+type MockMachineServiceWatchSSHHostKeysByMachineNameCall = gomock.Call2_2[context.Context, machine.Name, watcher.StringsWatcher, error]
 
 // MockControllerNodeService is a mock of ControllerNodeService interface.
 type MockControllerNodeService struct {

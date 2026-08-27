@@ -16,6 +16,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher/watchertest"
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
@@ -179,6 +180,14 @@ func (s *workerSuite) TestStateAdapterMachineHostKeysRoutedByModelUUID(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(keys, tc.DeepEquals, []string{"ssh-ed25519 AAAA... user@host"})
 	c.Check(calledWithUUID, tc.Equals, coremodel.UUID(modelUUID))
+
+	watcher := watchertest.NewMockStringsWatcher(make(chan []string))
+	s.machineService.EXPECT().WatchSSHHostKeysByMachineName(gomock.Any(), coremachine.Name("0")).Return(watcher, nil)
+	gotWatcher, err := adapter.WatchMachineHostKeys(c.Context(), modelUUID, "0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotWatcher, tc.Equals, watcher)
+	gotWatcher.Kill()
+	_ = gotWatcher.Wait()
 }
 
 // TestStateAdapterMachineHostKeysInvalidModelUUID verifies that an invalid
