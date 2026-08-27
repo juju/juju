@@ -938,7 +938,7 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		if !op.Force {
 			cleanupOps = []txn.Op{newCleanupOp(cleanupDyingMachine, m.doc.Id, op.Force)}
 		} else {
-			cleanupOps = []txn.Op{newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id, op.MaxWait)}
+			cleanupOps = []txn.Op{newCleanupOp(cleanupEvacuateMachine, m.doc.Id, op.Force, op.MaxWait)}
 		}
 	}
 
