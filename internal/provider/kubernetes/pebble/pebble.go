@@ -25,6 +25,10 @@ func StartupHandler(port string) corev1.ProbeHandler {
 	}
 }
 
+// LivenessHandler returns a probe handler for the Kubernetes liveness probe.
+// It uses the same Pebble health endpoint as StartupHandler, but they are
+// separate functions because they serve different Kubernetes lifecycle checks
+// and may diverge in the future.
 func LivenessHandler(port string) corev1.ProbeHandler {
 	return corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
