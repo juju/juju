@@ -89,7 +89,6 @@ var ubuntuLTS = []Base{
 	MustParseBaseFromString("ubuntu@22.04"),
 	MustParseBaseFromString("ubuntu@24.04"),
 	MustParseBaseFromString("ubuntu@26.04"),
-	MustParseBaseFromString("ubuntu@28.04"),
 	MustParseBaseFromString("ubuntu@24.04/stable"),
 	MustParseBaseFromString("ubuntu@24.04/edge"),
 }

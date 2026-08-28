@@ -133,7 +133,6 @@ var ubuntuLTSes = []Base{
 	MakeDefaultBase(UbuntuOS, "22.04"),
 	MakeDefaultBase(UbuntuOS, "24.04"),
 	MakeDefaultBase(UbuntuOS, "26.04"),
-	MakeDefaultBase(UbuntuOS, "28.04"),
 }
 
 // IsUbuntuLTS returns true if this base is a recognised
