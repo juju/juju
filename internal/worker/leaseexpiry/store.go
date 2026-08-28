@@ -39,7 +39,9 @@ func (s *expiryStore) ExpireLeases(ctx context.Context) error {
 		err := tx.QueryRowContext(ctx, `
 SELECT COUNT(*) AS count
 FROM lease AS l
-WHERE l.expiry < datetime('now')`).Scan(&count)
+LEFT JOIN lease_pin AS p ON l.uuid = p.lease_uuid
+WHERE p.uuid IS NULL
+AND l.expiry < datetime('now')`).Scan(&count)
 		if err != nil {
 			return errors.Trace(err)
 		}
