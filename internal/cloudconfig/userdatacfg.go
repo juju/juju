@@ -802,29 +802,11 @@ func (w *userdataConfig) addControllerSnapInstall() error {
 		w.conf.AddRunCmd(fmt.Sprintf("snap ack %s", assertFile))
 		w.conf.AddRunCmd(fmt.Sprintf("snap install %s", snapFile))
 		logger.Debugf(context.TODO(), "added snap install commands (with assertion) for %q", snapFile)
-
-		if expected := w.icfg.Bootstrap.ControllerSnapExpectedVersion; expected != "" {
-			w.conf.AddRunCmd(cloudinit.LogProgressCmd(
-				"Validating installed controller snap version matches %q", expected,
-			))
-			w.conf.AddRunCmd(fmt.Sprintf(
-				`installed_version=$(snap list %s | awk 'NR>1 {print $2; exit}'); test "$installed_version" = %s || (echo "controller snap version mismatch: expected %s, got $installed_version"; exit 1)`,
-				shquote(bootstrap.ControllerSnapPackageName), shquote(expected), shquote(expected),
-			))
-		}
+		w.addSnapVersionCheck(bootstrap.ControllerSnapPackageName, w.icfg.Bootstrap.ControllerSnapExpectedVersion)
 	} else {
 		w.conf.AddRunCmd(fmt.Sprintf("snap install --dangerous %s", snapFile))
 		logger.Debugf(context.TODO(), "added snap install --dangerous command for %q", snapFile)
-
-		if expected := w.icfg.Bootstrap.ControllerSnapExpectedVersion; expected != "" {
-			w.conf.AddRunCmd(cloudinit.LogProgressCmd(
-				"Validating installed controller snap version matches %q", expected,
-			))
-			w.conf.AddRunCmd(fmt.Sprintf(
-				`installed_version=$(snap list %s | awk 'NR>1 {print $2; exit}'); test "$installed_version" = %s || (echo "controller snap version mismatch: expected %s, got $installed_version"; exit 1)`,
-				shquote(bootstrap.ControllerSnapPackageName), shquote(expected), shquote(expected),
-			))
-		}
+		w.addSnapVersionCheck(bootstrap.ControllerSnapPackageName, w.icfg.Bootstrap.ControllerSnapExpectedVersion)
 	}
 
 	return nil
@@ -855,18 +837,22 @@ func (w *userdataConfig) addControllerSnapStoreInstall() error {
 	))
 	w.conf.AddRunCmd(fmt.Sprintf("snap ack %s", shquote(assertFile)))
 	w.conf.AddRunCmd(fmt.Sprintf("snap install %s", shquote(snapFile)))
-
-	if expected := w.icfg.Bootstrap.ControllerSnapExpectedVersion; expected != "" {
-		w.conf.AddRunCmd(cloudinit.LogProgressCmd(
-			"Validating installed controller snap version matches %q", expected,
-		))
-		w.conf.AddRunCmd(fmt.Sprintf(
-			`installed_version=$(snap list %s | awk 'NR>1 {print $2; exit}'); test "$installed_version" = %s || (echo "controller snap version mismatch: expected %s, got $installed_version"; exit 1)`,
-			shquote(packageName), shquote(expected), expected,
-		))
-	}
+	w.addSnapVersionCheck(packageName, w.icfg.Bootstrap.ControllerSnapExpectedVersion)
 
 	return nil
+}
+
+func (w *userdataConfig) addSnapVersionCheck(packageName, expected string) {
+	if expected == "" {
+		return
+	}
+	w.conf.AddRunCmd(cloudinit.LogProgressCmd(
+		"Validating installed controller snap version matches %q", expected,
+	))
+	w.conf.AddRunCmd(fmt.Sprintf(
+		`installed_version=$(snap list %s | awk 'NR>1 {print $2; exit}'); test "$installed_version" = %s || (echo "controller snap version mismatch: expected %s, got $installed_version"; exit 1)`,
+		shquote(packageName), shquote(expected), shquote(expected),
+	))
 }
 
 func (w *userdataConfig) addDownloadToolsCmds() error {

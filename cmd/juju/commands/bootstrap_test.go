@@ -2359,7 +2359,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultStoreMode(c *tc.C) {
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 	c.Check(gotArgs.ControllerSnapPath, tc.Equals, "")
 	c.Check(gotArgs.ControllerSnapStoreMode, tc.Equals, true)
-	c.Check(gotArgs.BuildAgent, tc.Equals, false)
+	c.Check(gotArgs.BuildAgent, tc.IsFalse)
 }
 
 // TestBootstrapExplicitBuildSnap verifies that an explicit --build-snap builds
@@ -2392,8 +2392,8 @@ func (s *BootstrapSuite) TestBootstrapExplicitBuildSnap(c *tc.C) {
 	)
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 	c.Check(gotArgs.ControllerSnapPath, tc.Equals, tempSnapPath)
-	c.Check(gotArgs.ControllerSnapStoreMode, tc.Equals, false)
-	c.Check(gotArgs.BuildAgent, tc.Equals, false)
+	c.Check(gotArgs.ControllerSnapStoreMode, tc.IsFalse)
+	c.Check(gotArgs.BuildAgent, tc.IsFalse)
 }
 
 // TestBootstrapExplicitSnapPathBypassesImplicitBuild verifies that when
@@ -2474,7 +2474,7 @@ func (s *BootstrapSuite) TestBootstrapIAASNoSnapSourceDefaultsToStore(c *tc.C) {
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 	c.Check(gotArgs.ControllerSnapPath, tc.Equals, "")
 	c.Check(gotArgs.ControllerSnapStoreMode, tc.Equals, true)
-	c.Check(gotArgs.BuildAgent, tc.Equals, false)
+	c.Check(gotArgs.BuildAgent, tc.IsFalse)
 }
 
 // TestBootstrapDefaultStoreModeRejectsAgentVersion verifies that the default
@@ -2540,6 +2540,48 @@ clouds:
 	c.Assert(err, tc.ErrorMatches, `--build-snap when bootstrapping a k8s controller not supported`)
 }
 
+// TestBootstrapControllerSnapCAASNotSupported verifies the broader CAAS
+// guard at bootstrap.go:761-767 rejects every controller-snap flag for
+// Kubernetes clouds, not just --build-snap. The guard fires after
+// credential detection, so a credential must be registered for the
+// test cloud.
+func (s *BootstrapSuite) TestBootstrapControllerSnapCAASNotSupported(c *tc.C) {
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &fakeBootstrapFuncs{}
+	})
+
+	cloudsPath := cloud.JujuPersonalCloudsPath()
+	err := os.WriteFile(cloudsPath, []byte(`
+clouds:
+    testk8s:
+        type: kubernetes
+`), 0o644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.store.Credentials = map[string]cloud.CloudCredential{
+		"testk8s": {
+			AuthCredentials: map[string]cloud.Credential{
+				"one": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+					"username": "test",
+					"password": "test",
+				}),
+			},
+		},
+	}
+
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"testk8s", "devcontroller",
+		"--controller-snap-path", "/nonexistent/path",
+	)
+	c.Assert(err, tc.ErrorMatches, `controller-snap flags when bootstrapping a Kubernetes controller not supported`)
+
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"testk8s", "devcontroller",
+		"--controller-snap-channel", "4.0/stable",
+	)
+	c.Assert(err, tc.ErrorMatches, `controller-snap flags when bootstrapping a Kubernetes controller not supported`)
+}
+
 // TestBootstrapIAASRequiresBuildAgent verifies that an IAAS bootstrap with
 // --controller-snap-path but without --build-agent is allowed and passes the
 // snap path correctly. The snap version is read from the file and used as the
@@ -2565,8 +2607,8 @@ func (s *BootstrapSuite) TestBootstrapIAASRequiresBuildAgent(c *tc.C) {
 	)
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 	c.Check(gotArgs.ControllerSnapPath, tc.Equals, s.controllerSnapPath)
-	c.Check(gotArgs.BuildAgent, tc.Equals, false)
-	c.Check(gotArgs.ControllerSnapStoreMode, tc.Equals, false)
+	c.Check(gotArgs.BuildAgent, tc.IsFalse)
+	c.Check(gotArgs.ControllerSnapStoreMode, tc.IsFalse)
 }
 
 // TestBootstrapSnapPathRejectsAgentVersion verifies that
