@@ -87,4 +87,9 @@ const (
 	// StorageInstanceStillAttached indicates that the storage instance cannot
 	// be removed without force as it still has attachments.
 	StorageInstanceStillAttached = errors.ConstError("storage instance still attached")
+
+	// PersistentStorage indicates that a model removal was attempted without
+	// specifying whether to destroy or release storage, but persistent storage
+	// still exists in the model.
+	PersistentStorage = errors.ConstError("model has persistent storage")
 )

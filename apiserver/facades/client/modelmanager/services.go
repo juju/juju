@@ -332,7 +332,7 @@ type RemovalService interface {
 	// model. This duration is ignored if the force argument is false.
 	// The UUID for the scheduled removal job is returned.
 	RemoveModel(
-		ctx context.Context, modelUUID coremodel.UUID, force bool, wait time.Duration,
+		ctx context.Context, modelUUID coremodel.UUID, force bool, wait time.Duration, destroyStorage *bool,
 	) (removal.UUID, error)
 }
 
