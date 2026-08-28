@@ -341,10 +341,11 @@ func (u *updaterWorker) setStartedMachineRunning(ctx context.Context, machineNam
 		return nil
 	}
 
+	now := u.config.Clock.Now()
 	if err := u.config.StatusService.SetInstanceStatus(ctx, machineName, status.StatusInfo{
 		Status:  status.Running,
 		Message: "Machine agent started",
-		Since:   machineStatus.Since,
+		Since:   &now,
 	}); errors.Is(err, machineerrors.MachineNotFound) {
 		return nil
 	} else if err != nil {
@@ -566,6 +567,12 @@ func (u *updaterWorker) processOneInstance(
 	nics network.InterfaceInfos, groupType pollGroupType,
 ) error {
 	if len(nics) > 0 {
+		life, err := u.config.MachineService.GetMachineLife(ctx, entry.machineName)
+		if life == corelife.Dead || errors.Is(err, machineerrors.MachineNotFound) {
+			return nil
+		} else if err != nil {
+			return errors.Trace(err)
+		}
 		if err := u.syncProviderAddresses(ctx, entry, nics); err != nil {
 			return errors.Trace(err)
 		}

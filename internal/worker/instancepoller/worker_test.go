@@ -281,6 +281,127 @@ func (s *workerSuite) TestQueueingStartedMachineClearsStaleProvisioningStatus(c 
 	c.Check(updWorker.pollGroup[shortPollGroup], tc.HasLen, 1)
 }
 
+func (s *workerSuite) TestSetStartedMachineRunningMachineNotFound(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineName := machine.Name("0")
+	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(
+		status.StatusInfo{}, machineerrors.MachineNotFound,
+	)
+
+	err := updWorker.setStartedMachineRunning(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *workerSuite) TestSetStartedMachineRunningNotStarted(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineName := machine.Name("0")
+	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{
+		Status: status.Pending,
+	}, nil)
+
+	err := updWorker.setStartedMachineRunning(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *workerSuite) TestSetStartedMachineRunningStartedWithNilSince(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineName := machine.Name("0")
+	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{
+		Status: status.Started,
+		Since:  nil,
+	}, nil)
+
+	err := updWorker.setStartedMachineRunning(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *workerSuite) TestSetStartedMachineRunningInstanceStatusNotProvisioning(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineName := machine.Name("0")
+	machineStartedAt := mocked.clock.Now()
+	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{
+		Status: status.Started,
+		Since:  &machineStartedAt,
+	}, nil)
+	mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName).Return(status.StatusInfo{
+		Status: status.Running,
+	}, nil)
+
+	err := updWorker.setStartedMachineRunning(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *workerSuite) TestSetStartedMachineRunningInstanceNotStale(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineName := machine.Name("0")
+	machineStartedAt := mocked.clock.Now()
+	instanceStatusAt := machineStartedAt.Add(time.Minute)
+	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{
+		Status: status.Started,
+		Since:  &machineStartedAt,
+	}, nil)
+	mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName).Return(status.StatusInfo{
+		Status:  status.Provisioning,
+		Message: "failed to start machine 0",
+		Since:   &instanceStatusAt,
+	}, nil)
+
+	err := updWorker.setStartedMachineRunning(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *workerSuite) TestSetStartedMachineRunningInstanceStatusMachineNotFound(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineName := machine.Name("0")
+	machineStartedAt := mocked.clock.Now()
+	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{
+		Status: status.Started,
+		Since:  &machineStartedAt,
+	}, nil)
+	mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName).Return(
+		status.StatusInfo{}, machineerrors.MachineNotFound,
+	)
+
+	err := updWorker.setStartedMachineRunning(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // TestMachineNotFoundDuringManualCheckRemovesEntry verifies that if a machine
 // disappears (MachineNotFound) when we re-check its status, it is cleanly
 // removed from the poll group.
@@ -367,6 +488,34 @@ func (s *workerSuite) TestUpdateOfStatusDetails(c *tc.C) {
 	providerStatus, err := updWorker.processProviderInfo(c.Context(), entry, instInfo)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(providerStatus, tc.Equals, status.Running)
+}
+
+func (s *workerSuite) TestProcessOneInstanceSyncsProviderAddresses(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineUUID := machinetesting.GenUUID(c)
+	machineName := machine.Name("0")
+	entry := &pollGroupEntry{
+		machineUUID: machineUUID,
+		machineName: machineName,
+		instanceID:  "b4dc0ffee",
+	}
+
+	mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName).Return(life.Alive, nil)
+	mocked.networkService.EXPECT().SetProviderNetConfig(gomock.Any(), machineUUID, testDevices).Return(nil)
+	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{
+		Status: status.Started,
+	}, nil)
+
+	err := updWorker.processOneInstance(c.Context(), entry, status.Running, testNetIfs, shortPollGroup)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(updWorker.pollGroup[longPollGroup], tc.HasLen, 1)
+	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 0)
 }
 
 func (s *workerSuite) TestStartedMachineWithNetAddressesMovesToLongPollGroup(c *tc.C) {
@@ -576,7 +725,7 @@ func (s *workerSuite) TestBatchPollingOfGroupMembers(c *tc.C) {
 			ExistingDeviceCount: 1},
 	}, nil)
 
-	mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName1).Return(life.Alive, nil)
+	mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName1).Return(life.Alive, nil).Times(2)
 	mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName1).Return(status.StatusInfo{Status: status.Running}, nil)
 	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName1).Return(status.StatusInfo{Status: status.Started}, nil)
 	mocked.networkService.EXPECT().SetProviderNetConfig(gomock.Any(), machineUUID1, testDevices).Return(nil)
@@ -681,7 +830,7 @@ func (s *workerSuite) TestBatchPollingOfGroupMembersWithVariousDevicesStatus(c *
 	}, nil)
 
 	mocked.machineService.EXPECT().GetMachineLife(gomock.Any(),
-		gomock.AnyOf(machineName0, machineName1)).Return(life.Alive, nil).Times(2)
+		gomock.AnyOf(machineName0, machineName1)).Return(life.Alive, nil).Times(3)
 	mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(),
 		gomock.AnyOf(machineName0, machineName1)).Return(status.StatusInfo{Status: status.Running}, nil).Times(2)
 	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(),
