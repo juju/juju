@@ -33,7 +33,7 @@ type MockControllerDBState struct {
 // MockControllerDBStateMockRecorder is the mock recorder for MockControllerDBState.
 type MockControllerDBStateMockRecorder struct {
 	mock                                      *MockControllerDBState
-	deleteControllerNodeExpects               []*gomock.Call2_1[context.Context, string, error]
+	deleteDqliteNodeExpects                   []*gomock.Call2_1[context.Context, string, error]
 	deleteModelExpects                        []*gomock.Call2_1[context.Context, string, error]
 	deleteOfferAccessExpects                  []*gomock.Call2_1[context.Context, string, error]
 	ensureModelNotAliveUnlessMigratingExpects []*gomock.Call3_1[context.Context, string, bool, error]
@@ -59,23 +59,23 @@ func (m *MockControllerDBState) EXPECT() *MockControllerDBStateMockRecorder {
 	return m.recorder
 }
 
-// DeleteControllerNode mocks base method.
-func (m *MockControllerDBState) DeleteControllerNode(ctx context.Context, controllerID string) error {
+// DeleteDqliteNode mocks base method.
+func (m *MockControllerDBState) DeleteDqliteNode(ctx context.Context, controllerID string) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.deleteControllerNodeExpects, m.ctrl, m, "DeleteControllerNode", ctx, controllerID)
+	return gomock.Dispatch2_1(&m.recorder.deleteDqliteNodeExpects, m.ctrl, m, "DeleteDqliteNode", ctx, controllerID)
 }
 
-// DeleteControllerNode indicates an expected call of DeleteControllerNode.
-func (mr *MockControllerDBStateMockRecorder) DeleteControllerNode(ctx, controllerID any) *MockControllerDBStateDeleteControllerNodeCall {
+// DeleteDqliteNode indicates an expected call of DeleteDqliteNode.
+func (mr *MockControllerDBStateMockRecorder) DeleteDqliteNode(ctx, controllerID any) *MockControllerDBStateDeleteDqliteNodeCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "DeleteControllerNode", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(controllerID))
-	mr.deleteControllerNodeExpects = append(mr.deleteControllerNodeExpects, call)
+	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "DeleteDqliteNode", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(controllerID))
+	mr.deleteDqliteNodeExpects = append(mr.deleteDqliteNodeExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockControllerDBStateDeleteControllerNodeCall is the typed call wrapper for DeleteControllerNode.
-type MockControllerDBStateDeleteControllerNodeCall = gomock.Call2_1[context.Context, string, error]
+// MockControllerDBStateDeleteDqliteNodeCall is the typed call wrapper for DeleteDqliteNode.
+type MockControllerDBStateDeleteDqliteNodeCall = gomock.Call2_1[context.Context, string, error]
 
 // DeleteModel mocks base method.
 func (m *MockControllerDBState) DeleteModel(ctx context.Context, modelUUID string) error {

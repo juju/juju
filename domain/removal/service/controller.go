@@ -21,9 +21,9 @@ import (
 // ControllerState describes retrieval and persistence methods for entity
 // removal in the controller database.
 type ControllerState interface {
-	// DeleteControllerNode removes the controller node identified by controllerID
+	// DeleteDqliteNode removes the controller node identified by controllerID
 	// and all of its dependent records.
-	DeleteControllerNode(ctx context.Context, controllerID string) error
+	DeleteDqliteNode(ctx context.Context, controllerID string) error
 
 	// ModelExists returns true if a model exists with the input model
 	// UUID.

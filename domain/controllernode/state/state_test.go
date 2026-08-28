@@ -44,8 +44,8 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.state = NewState(s.TxnRunnerFactory())
 }
 
-func (s *stateSuite) TestAddControllerNode(c *tc.C) {
-	err := s.state.AddControllerNode(c.Context(), "1")
+func (s *stateSuite) TestAddDqliteNodeID(c *tc.C) {
+	err := s.state.AddDqliteNodeID(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	var controllerID string
@@ -56,9 +56,9 @@ SELECT controller_id FROM controller_node WHERE controller_id = '1'
 	c.Check(controllerID, tc.Equals, "1")
 }
 
-func (s *stateSuite) TestAddControllerNodeIsIdempotent(c *tc.C) {
-	c.Assert(s.state.AddControllerNode(c.Context(), "1"), tc.ErrorIsNil)
-	c.Assert(s.state.AddControllerNode(c.Context(), "1"), tc.ErrorIsNil)
+func (s *stateSuite) TestAddDqliteNodeIDIsIdempotent(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestAddDqliteNode(c *tc.C) {
