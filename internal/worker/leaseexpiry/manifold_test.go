@@ -129,7 +129,7 @@ func (s *manifoldSuite) newManifoldConfig(c *tc.C) leaseexpiry.ManifoldConfig {
 		TraceName:      "trace-name",
 		Clock:          clock.WallClock,
 		Logger:         loggertesting.WrapCheckLog(c),
-NewWorker: func(config leaseexpiry.Config) (worker.Worker, error) {
+		NewWorker: func(config leaseexpiry.Config) (worker.Worker, error) {
 			return workertest.NewErrorWorker(nil), nil
 		},
 		NewStore: func(context.Context, coredatabase.DBGetter, logger.Logger) (lease.ExpiryStore, error) {

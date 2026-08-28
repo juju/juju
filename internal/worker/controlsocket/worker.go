@@ -408,28 +408,28 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, rawPasswor
 		// because AddUser hashes and destroys the password passed to it.
 		authPassword := auth.NewPassword(rawPassword)
 		user, err := w.accessService.GetUserByAuth(ctx, validatedName, authPassword)
-if err != nil {
-		return http.StatusInternalServerError,
-			internalerrors.Errorf("retrieving existing user %q: %w", username, err)
-	}
+		if err != nil {
+			return http.StatusInternalServerError,
+				internalerrors.Errorf("retrieving existing user %q: %w", username, err)
+		}
 
-	// We want this operation to be idempotent, but at the same time, this
-	// worker shouldn't mess with users that have not been created by it.
-	// So ensure the user is identical to what we would have created, and
-	// otherwise error.
-	if user.Disabled {
-		return http.StatusForbidden, internalerrors.Errorf("user %q is disabled", user.Name).
-			Add(coreerrors.Forbidden)
-	}
-	if user.CreatorName != w.userCreatorName {
-		return http.StatusConflict, internalerrors.Errorf("user %q (created by %q)", user.Name, user.CreatorName).
-			Add(coreerrors.AlreadyExists)
-	}
+		// We want this operation to be idempotent, but at the same time, this
+		// worker shouldn't mess with users that have not been created by it.
+		// So ensure the user is identical to what we would have created, and
+		// otherwise error.
+		if user.Disabled {
+			return http.StatusForbidden, internalerrors.Errorf("user %q is disabled", user.Name).
+				Add(coreerrors.Forbidden)
+		}
+		if user.CreatorName != w.userCreatorName {
+			return http.StatusConflict, internalerrors.Errorf("user %q (created by %q)", user.Name, user.CreatorName).
+				Add(coreerrors.AlreadyExists)
+		}
 
-	accessLevel, err := w.accessService.ReadUserAccessLevelForTarget(ctx, validatedName, controllerModelID)
-	if err != nil {
-		return http.StatusInternalServerError,
-			internalerrors.Errorf("retrieving existing user %q: %w", username, err)
+		accessLevel, err := w.accessService.ReadUserAccessLevelForTarget(ctx, validatedName, controllerModelID)
+		if err != nil {
+			return http.StatusInternalServerError,
+				internalerrors.Errorf("retrieving existing user %q: %w", username, err)
 		} else if accessLevel != permission.ReadAccess {
 			return http.StatusNotFound, fmt.Errorf(
 				"unexpected permission for user %q, expected %q, got %q",

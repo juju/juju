@@ -23,7 +23,7 @@ type State interface {
 	PinLease(context.Context, lease.Key, string) error
 	UnpinLease(context.Context, lease.Key, string) error
 	Pinned(context.Context) (map[lease.Key][]string, error)
-// DeleteLeadershipForModel deletes all application-leadership leases for
+	// DeleteLeadershipForModel deletes all application-leadership leases for
 	// the given model UUID. Idempotent: returns nil if no leases exist.
 	DeleteLeadershipForModel(ctx context.Context, modelUUID string) error
 }
