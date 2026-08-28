@@ -195,10 +195,11 @@ type MockStatusService struct {
 
 // MockStatusServiceMockRecorder is the mock recorder for MockStatusService.
 type MockStatusServiceMockRecorder struct {
-	mock                     *MockStatusService
-	getInstanceStatusExpects []*gomock.Call2_2[context.Context, machine.Name, status.StatusInfo, error]
-	getMachineStatusExpects  []*gomock.Call2_2[context.Context, machine.Name, status.StatusInfo, error]
-	setInstanceStatusExpects []*gomock.Call3_1[context.Context, machine.Name, status.StatusInfo, error]
+	mock                                              *MockStatusService
+	clearStaleProvisioningStatusOnMachineStartExpects []*gomock.Call2_1[context.Context, machine.Name, error]
+	getInstanceStatusExpects                          []*gomock.Call2_2[context.Context, machine.Name, status.StatusInfo, error]
+	getMachineStatusExpects                           []*gomock.Call2_2[context.Context, machine.Name, status.StatusInfo, error]
+	setInstanceStatusExpects                          []*gomock.Call3_1[context.Context, machine.Name, status.StatusInfo, error]
 }
 
 // NewMockStatusService creates a new mock instance.
@@ -212,6 +213,24 @@ func NewMockStatusService(ctrl *gomock.Controller) *MockStatusService {
 func (m *MockStatusService) EXPECT() *MockStatusServiceMockRecorder {
 	return m.recorder
 }
+
+// ClearStaleProvisioningStatusOnMachineStart mocks base method.
+func (m *MockStatusService) ClearStaleProvisioningStatusOnMachineStart(arg0 context.Context, arg1 machine.Name) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.clearStaleProvisioningStatusOnMachineStartExpects, m.ctrl, m, "ClearStaleProvisioningStatusOnMachineStart", arg0, arg1)
+}
+
+// ClearStaleProvisioningStatusOnMachineStart indicates an expected call of ClearStaleProvisioningStatusOnMachineStart.
+func (mr *MockStatusServiceMockRecorder) ClearStaleProvisioningStatusOnMachineStart(arg0, arg1 any) *MockStatusServiceClearStaleProvisioningStatusOnMachineStartCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, machine.Name, error](mr.mock.ctrl.T, mr.mock, "ClearStaleProvisioningStatusOnMachineStart", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.clearStaleProvisioningStatusOnMachineStartExpects = append(mr.clearStaleProvisioningStatusOnMachineStartExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStatusServiceClearStaleProvisioningStatusOnMachineStartCall is the typed call wrapper for ClearStaleProvisioningStatusOnMachineStart.
+type MockStatusServiceClearStaleProvisioningStatusOnMachineStartCall = gomock.Call2_1[context.Context, machine.Name, error]
 
 // GetInstanceStatus mocks base method.
 func (m *MockStatusService) GetInstanceStatus(arg0 context.Context, arg1 machine.Name) (status.StatusInfo, error) {

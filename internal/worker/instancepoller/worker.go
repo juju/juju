@@ -71,6 +71,10 @@ type MachineService interface {
 // StatusService defines the interface for interacting with the status
 // service.
 type StatusService interface {
+	// ClearStaleProvisioningStatusOnMachineStart sets an instance status to
+	// running when it predates a started machine status.
+	ClearStaleProvisioningStatusOnMachineStart(context.Context, machine.Name) error
+
 	// GetInstanceStatus returns the cloud specific instance status for this
 	// machine.
 	GetInstanceStatus(context.Context, machine.Name) (status.StatusInfo, error)
@@ -297,7 +301,11 @@ func (u *updaterWorker) queueMachineForPolling(ctx context.Context, machineName 
 		}
 		return u.setManualMachineRunning(ctx, machineName)
 	}
-	if err := u.setStartedMachineRunning(ctx, machineName); err != nil {
+
+	err = u.config.StatusService.ClearStaleProvisioningStatusOnMachineStart(ctx, machineName)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return nil
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -313,45 +321,6 @@ func (u *updaterWorker) queueMachineForPolling(ctx context.Context, machineName 
 
 	// 4. New machine: add to the short poll group for immediate polling.
 	u.appendToShortPollGroup(machineName)
-	return nil
-}
-
-// setStartedMachineRunning ensures a machine agent that starts after a
-// provisioning update clears any stale provisioning status. The provider
-// poller will replace this fallback with its provider-specific status.
-func (u *updaterWorker) setStartedMachineRunning(ctx context.Context, machineName machine.Name) error {
-	machineStatus, err := u.config.StatusService.GetMachineStatus(ctx, machineName)
-	if errors.Is(err, machineerrors.MachineNotFound) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	if machineStatus.Status != status.Started || machineStatus.Since == nil {
-		return nil
-	}
-
-	instanceStatus, err := u.config.StatusService.GetInstanceStatus(ctx, machineName)
-	if errors.Is(err, machineerrors.MachineNotFound) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	if instanceStatus.Status != status.Provisioning || instanceStatus.Since == nil ||
-		!instanceStatus.Since.Before(*machineStatus.Since) {
-		return nil
-	}
-
-	now := u.config.Clock.Now()
-	if err := u.config.StatusService.SetInstanceStatus(ctx, machineName, status.StatusInfo{
-		Status:  status.Running,
-		Message: "Machine agent started",
-		Since:   &now,
-	}); errors.Is(err, machineerrors.MachineNotFound) {
-		return nil
-	} else if err != nil {
-		u.config.Logger.Errorf(ctx, "cannot set instance status on %q: %v", machineName, err)
-		return errors.Trace(err)
-	}
 	return nil
 }
 
@@ -725,7 +694,8 @@ func newNetInterface(device network.InterfaceInfo) domainnetwork.NetInterface {
 		DNSAddresses:     device.DNSServers,
 		Addrs: append(
 			transform.Slice(device.Addresses, newNetAddress(device.InterfaceName, false)),
-			transform.Slice(device.ShadowAddresses, newNetAddress(device.InterfaceName, true))...),
+			transform.Slice(device.ShadowAddresses, newNetAddress(device.InterfaceName, true))...,
+		),
 	}
 }
 

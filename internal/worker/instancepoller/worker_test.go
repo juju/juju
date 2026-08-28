@@ -176,7 +176,7 @@ func (s *workerSuite) TestQueueingNewMachineAddsItToShortPollGroup(c *tc.C) {
 	// non-manual machine.
 	machineName := machine.Name("0")
 	mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName).Return(life.Alive, false, nil)
-	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{Status: status.Pending}, nil)
+	mocked.statusService.EXPECT().ClearStaleProvisioningStatusOnMachineStart(gomock.Any(), machineName).Return(nil)
 
 	// Queue machine.
 	err := updWorker.queueMachineForPolling(c.Context(), machineName)
@@ -196,7 +196,7 @@ func (s *workerSuite) TestQueueingExistingMachineAlwaysMovesItToShortPollGroup(c
 	machineName := machine.Name("0")
 	gomock.InOrder(
 		mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName).Return(life.Alive, false, nil),
-		mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{Status: status.Pending}, nil),
+		mocked.statusService.EXPECT().ClearStaleProvisioningStatusOnMachineStart(gomock.Any(), machineName).Return(nil),
 	)
 	updWorker.appendToShortPollGroup(machineName)
 
@@ -226,7 +226,7 @@ func (s *workerSuite) TestQueueingExistingMachineThatBecomesManualRemovesItFromP
 	now := mocked.clock.Now()
 	gomock.InOrder(
 		mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName).Return(life.Alive, false, nil),
-		mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{Status: status.Pending}, nil),
+		mocked.statusService.EXPECT().ClearStaleProvisioningStatusOnMachineStart(gomock.Any(), machineName).Return(nil),
 		mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName).Return(life.Alive, true, nil),
 		mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName).Return(status.StatusInfo{Status: status.Provisioning}, nil),
 		mocked.statusService.EXPECT().SetInstanceStatus(gomock.Any(), machineName, status.StatusInfo{
@@ -258,147 +258,25 @@ func (s *workerSuite) TestQueueingStartedMachineClearsStaleProvisioningStatus(c 
 	updWorker := w.(*updaterWorker)
 
 	machineName := machine.Name("0")
-	machineStartedAt := mocked.clock.Now()
-	instanceStatusAt := machineStartedAt.Add(-time.Minute)
 	mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName).Return(life.Alive, false, nil)
-	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{
-		Status: status.Started,
-		Since:  &machineStartedAt,
-	}, nil)
-	mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName).Return(status.StatusInfo{
-		Status:  status.Provisioning,
-		Message: "failed to start machine 0 in zone \"zone2\", retrying",
-		Since:   &instanceStatusAt,
-	}, nil)
-	mocked.statusService.EXPECT().SetInstanceStatus(gomock.Any(), machineName, status.StatusInfo{
-		Status:  status.Running,
-		Message: "Machine agent started",
-		Since:   &machineStartedAt,
-	}).Return(nil)
+	mocked.statusService.EXPECT().ClearStaleProvisioningStatusOnMachineStart(gomock.Any(), machineName).Return(nil)
 
 	err := updWorker.queueMachineForPolling(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(updWorker.pollGroup[shortPollGroup], tc.HasLen, 1)
 }
 
-func (s *workerSuite) TestSetStartedMachineRunningMachineNotFound(c *tc.C) {
+func (s *workerSuite) TestQueueingStartedMachineIgnoresMissingMachine(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	w, mocked := s.startWorker(c, ctrl)
 	defer workertest.CleanKill(c, w)
-	updWorker := w.(*updaterWorker)
-
 	machineName := machine.Name("0")
-	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(
-		status.StatusInfo{}, machineerrors.MachineNotFound,
-	)
+	mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName).Return(life.Alive, false, nil)
+	mocked.statusService.EXPECT().ClearStaleProvisioningStatusOnMachineStart(gomock.Any(), machineName).Return(machineerrors.MachineNotFound)
 
-	err := updWorker.setStartedMachineRunning(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *workerSuite) TestSetStartedMachineRunningNotStarted(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	w, mocked := s.startWorker(c, ctrl)
-	defer workertest.CleanKill(c, w)
-	updWorker := w.(*updaterWorker)
-
-	machineName := machine.Name("0")
-	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{
-		Status: status.Pending,
-	}, nil)
-
-	err := updWorker.setStartedMachineRunning(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *workerSuite) TestSetStartedMachineRunningStartedWithNilSince(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	w, mocked := s.startWorker(c, ctrl)
-	defer workertest.CleanKill(c, w)
-	updWorker := w.(*updaterWorker)
-
-	machineName := machine.Name("0")
-	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{
-		Status: status.Started,
-		Since:  nil,
-	}, nil)
-
-	err := updWorker.setStartedMachineRunning(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *workerSuite) TestSetStartedMachineRunningInstanceStatusNotProvisioning(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	w, mocked := s.startWorker(c, ctrl)
-	defer workertest.CleanKill(c, w)
-	updWorker := w.(*updaterWorker)
-
-	machineName := machine.Name("0")
-	machineStartedAt := mocked.clock.Now()
-	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{
-		Status: status.Started,
-		Since:  &machineStartedAt,
-	}, nil)
-	mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName).Return(status.StatusInfo{
-		Status: status.Running,
-	}, nil)
-
-	err := updWorker.setStartedMachineRunning(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *workerSuite) TestSetStartedMachineRunningInstanceNotStale(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	w, mocked := s.startWorker(c, ctrl)
-	defer workertest.CleanKill(c, w)
-	updWorker := w.(*updaterWorker)
-
-	machineName := machine.Name("0")
-	machineStartedAt := mocked.clock.Now()
-	instanceStatusAt := machineStartedAt.Add(time.Minute)
-	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{
-		Status: status.Started,
-		Since:  &machineStartedAt,
-	}, nil)
-	mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName).Return(status.StatusInfo{
-		Status:  status.Provisioning,
-		Message: "failed to start machine 0",
-		Since:   &instanceStatusAt,
-	}, nil)
-
-	err := updWorker.setStartedMachineRunning(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *workerSuite) TestSetStartedMachineRunningInstanceStatusMachineNotFound(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	w, mocked := s.startWorker(c, ctrl)
-	defer workertest.CleanKill(c, w)
-	updWorker := w.(*updaterWorker)
-
-	machineName := machine.Name("0")
-	machineStartedAt := mocked.clock.Now()
-	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{
-		Status: status.Started,
-		Since:  &machineStartedAt,
-	}, nil)
-	mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName).Return(
-		status.StatusInfo{}, machineerrors.MachineNotFound,
-	)
-
-	err := updWorker.setStartedMachineRunning(c.Context(), machineName)
+	err := w.(*updaterWorker).queueMachineForPolling(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -417,7 +295,7 @@ func (s *workerSuite) TestMachineNotFoundDuringManualCheckRemovesEntry(c *tc.C) 
 	gomock.InOrder(
 		// First call: machine is alive and not manual → added to short poll group.
 		mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName).Return(life.Alive, false, nil),
-		mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{Status: status.Pending}, nil),
+		mocked.statusService.EXPECT().ClearStaleProvisioningStatusOnMachineStart(gomock.Any(), machineName).Return(nil),
 		// Second call: machine has since disappeared.
 		mocked.machineService.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machineName).Return(life.Value(""), false, machineerrors.MachineNotFound),
 	)

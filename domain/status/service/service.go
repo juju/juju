@@ -760,6 +760,37 @@ func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Nam
 	return nil
 }
 
+// ClearStaleProvisioningStatusOnMachineStart clears a provisioning status
+// left by a failed provider operation when the machine agent has since started.
+func (s *Service) ClearStaleProvisioningStatusOnMachineStart(ctx context.Context, machineName machine.Name) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	machineStatus, err := s.GetMachineStatus(ctx, machineName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if machineStatus.Status != corestatus.Started || machineStatus.Since == nil {
+		return nil
+	}
+
+	instanceStatus, err := s.GetInstanceStatus(ctx, machineName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if instanceStatus.Status != corestatus.Provisioning || instanceStatus.Since == nil ||
+		!instanceStatus.Since.Before(*machineStatus.Since) {
+		return nil
+	}
+
+	now := s.clock.Now()
+	return s.SetInstanceStatus(ctx, machineName, corestatus.StatusInfo{
+		Status:  corestatus.Running,
+		Message: "Machine agent started",
+		Since:   &now,
+	})
+}
+
 // GetMachineStatus returns the status of the specified machine.
 // This method may return the following errors:
 // - [machineerrors.MachineNotFound] if the machine does not exist.
