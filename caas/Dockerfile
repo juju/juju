@@ -1,3 +1,19 @@
+# Build platform-specific wheels. All arches use this stage so the
+# final install is offline and consistent; on s390x this also compiles
+# cryptography from source (no PyPI wheel exists). The toolchain is
+# discarded with this stage.
+FROM public.ecr.aws/ubuntu/ubuntu:24.04 AS wheelhouse
+ARG TARGETARCH
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3-pip \
+    && if [ "$TARGETARCH" = "s390x" ]; then \
+        apt-get install -y --no-install-recommends \
+        build-essential libssl-dev libffi-dev python3-dev pkg-config; \
+    fi \
+    && rm -rf /var/lib/apt/lists/*
+COPY docker-staging/requirements.txt /tmp/requirements.txt
+RUN pip3 wheel --wheel-dir /wheels -r /tmp/requirements.txt
+
 FROM public.ecr.aws/ubuntu/ubuntu:24.04
 ARG TARGETOS
 ARG TARGETARCH
@@ -30,9 +46,10 @@ ENV WHEELHOUSE=/tmp/wheelhouse
 ENV PIP_WHEEL_DIR=/tmp/wheelhouse
 ENV PIP_FIND_LINKS=/tmp/wheelhouse
 
-RUN mkdir -p /tmp/wheelhouse
-COPY docker-staging/requirements.txt /tmp/wheelhouse/requirements.txt
-RUN pip3 install -r /tmp/wheelhouse/requirements.txt --break-system-packages
+COPY --from=wheelhouse /wheels /tmp/wheelhouse
+COPY docker-staging/requirements.txt /tmp/requirements.txt
+RUN pip3 install --no-index --find-links=/tmp/wheelhouse --break-system-packages \
+    -r /tmp/requirements.txt
 
 WORKDIR /var/lib/juju
 COPY ${TARGETOS}_${TARGETARCH}/bin/jujud /opt/
