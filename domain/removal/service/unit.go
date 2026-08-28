@@ -101,12 +101,6 @@ func (s *Service) RemoveUnit(
 		return "", errors.Errorf("unit does not exist").Add(applicationerrors.UnitNotFound)
 	}
 
-	// Delete the controller node for this unit if it is a controller unit. This
-	// is best effort, so we log any errors but do not fail the removal.
-	if err := s.deleteControllerNodeForUnit(ctx, unitUUID); err != nil {
-		s.logger.Warningf(ctx, "deleting controller node for unit %q: %v", unitUUID, err)
-	}
-
 	// Ensure the unit is not alive. If it is the last one on the machine,
 	// then we will return the machine UUID, which will be used to schedule
 	// the removal of the machine.
@@ -114,6 +108,12 @@ func (s *Service) RemoveUnit(
 	cascaded, err := s.modelState.EnsureUnitNotAliveCascade(ctx, unitUUID.String(), destroyStorage)
 	if err != nil {
 		return "", errors.Errorf("unit %q: %w", unitUUID, err)
+	}
+
+	// Delete the controller node for this unit if it is a controller unit. This
+	// is best effort, so we log any errors but do not fail the removal.
+	if err := s.deleteControllerNodeForUnit(ctx, unitUUID); err != nil {
+		s.logger.Warningf(ctx, "deleting controller node for unit %q: %v", unitUUID, err)
 	}
 
 	if force {
