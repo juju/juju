@@ -976,6 +976,15 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:    unitResourcesHandler,
 		authorizer: httpcontext.TODOAuthorizer,
 	}, {
+		pattern: modelRoutePrefix + "/backups",
+		methods: []string{"GET"},
+		handler: &backupsDownloadHandler{
+			domainServicesGetter: srv.shared.domainServicesGetter,
+			controllerModelUUID:  srv.shared.controllerModelUUID,
+			logger:               srv.shared.logger,
+		},
+		authorizer: controllerAdminAuthorizer,
+	}, {
 		pattern:    "/migrate/charms/:object",
 		handler:    migrateObjectsCharmsHTTPHandler,
 		authorizer: controllerAdminAuthorizer,
