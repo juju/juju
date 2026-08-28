@@ -618,10 +618,16 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 
 	a.upgradeDBLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
 	a.upgradeStepsLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
+	// The controller agent config ready lock is created locked and is only
+	// unlocked by the controlleragentconfig worker, once its
+	// configchange.socket listener is serving. The controlleragentconfig
+	// manifold runs on every machine, so the deployer (which waits on this
+	// lock) does not start until the socket exists, regardless of whether
+	// this machine is a controller. If the socket listener cannot be
+	// started the worker keeps erroring and the deployer stays blocked,
+	// which is deliberate: deploying the controller charm without the
+	// socket would fail its install hook anyway.
 	a.controllerAgentConfigReadyLock = gate.NewLock()
-	if _, isController := agentConfig.ControllerAgentInfo(); !isController {
-		a.controllerAgentConfigReadyLock.Unlock()
-	}
 
 	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion(), bufferedLogger, legacyLogSinkWriter, logSink)
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {

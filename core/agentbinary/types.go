@@ -75,6 +75,11 @@ func (v Version) Validate() error {
 	return nil
 }
 
+// IsZero specifies whether the agent stream is a zero value.
+func (a AgentStream) IsZero() bool {
+	return a == AgentStreamZero
+}
+
 // String returns the agent stream as a string. This  function implements the
 // stringer interface.
 func (a AgentStream) String() string {

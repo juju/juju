@@ -407,7 +407,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 	controllerWorkers := set.NewStrings(
 		"api-remote-caller",
 		"certificate-watcher",
-		"controller-agent-config",
 		"controller-proxy-config-updater",
 		"controller-proxy-ready-flag",
 		"controller-proxy-ready-gate",
@@ -418,7 +417,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		"file-notify-watcher",
 		"is-primary-controller-flag",
 		"jwt-parser",
-		"log-sink",
+"log-sink",
 		"query-logger",
 		"ssh-server",
 		"ssh-tunneler",
@@ -434,7 +433,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		"api-address-setter",
 		"change-stream-pruner",
 		"external-controller-updater",
-		"lease-expiry",
+"lease-expiry",
 		"object-store-drainer",
 		"secret-backend-rotate",
 	)
@@ -1379,11 +1378,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 	},
-	"controller-agent-config": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
+	"controller-agent-config": {},
 	"controller-agent-config-ready-flag": {
 		"controller-agent-config-ready-gate",
 	},
@@ -1850,7 +1845,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 	},
-	"machine-setup": {
+"machine-setup": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -2515,7 +2510,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"state-config-watcher",
 	},
 }
-
 var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"api-address-updater": {
 		"agent",
@@ -2947,11 +2941,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 	},
-	"controller-agent-config": {
-		"agent",
-		"is-controller-flag",
-		"state-config-watcher",
-	},
+	"controller-agent-config": {},
 	"controller-agent-config-ready-flag": {
 		"controller-agent-config-ready-gate",
 	},

@@ -23,8 +23,7 @@ type State interface {
 	PinLease(context.Context, lease.Key, string) error
 	UnpinLease(context.Context, lease.Key, string) error
 	Pinned(context.Context) (map[lease.Key][]string, error)
-	ExpireLeases(context.Context) error
-	// DeleteLeadershipForModel deletes all application-leadership leases for
+// DeleteLeadershipForModel deletes all application-leadership leases for
 	// the given model UUID. Idempotent: returns nil if no leases exist.
 	DeleteLeadershipForModel(ctx context.Context, modelUUID string) error
 }
@@ -136,13 +135,4 @@ func (s *Service) Pinned(ctx context.Context) (map[lease.Key][]string, error) {
 	defer span.End()
 
 	return s.st.Pinned(ctx)
-}
-
-// ExpireLeases ensures that all leases that have expired are deleted from
-// the store.
-func (s *Service) ExpireLeases(ctx context.Context) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	return s.st.ExpireLeases(ctx)
 }

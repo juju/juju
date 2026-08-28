@@ -50,7 +50,7 @@ func (i *importOperation) Name() string {
 // Setup is called before the operation is executed. It should return an
 // error if the operation cannot be performed.
 func (o *importOperation) Setup(scope modelmigration.Scope) error {
-	o.service = service.NewService(state.NewState(scope.ControllerDB(), o.logger))
+	o.service = service.NewService(state.NewState(scope.ControllerDB()))
 	return nil
 }
 

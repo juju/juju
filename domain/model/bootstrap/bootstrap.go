@@ -173,7 +173,7 @@ func CreateLocalModelRecordWithAgentStream(
 			return errors.Errorf("getting model for id %q: %w", id, err)
 		}
 
-		if agentStream == coreagentbinary.AgentStreamZero {
+		if agentStream.IsZero() {
 			agentStream = coreagentbinary.AgentStreamReleased
 		}
 

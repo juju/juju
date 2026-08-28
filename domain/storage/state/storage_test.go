@@ -429,3 +429,118 @@ func (s *storageSuite) TestCreateStorageInstanceWithExistingVolumeBackedFilesyst
 	_, err := st.CreateStorageInstanceWithExistingVolumeBackedFilesystem(c.Context(), args)
 	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
 }
+
+// TestGetStorageFilesystemUUIDByProviderIDNotFound asserts that an unknown
+// provider id returns FilesystemNotFound. Input validation (empty provider
+// id) is the caller's responsibility and is not enforced at this layer.
+func (s *storageSuite) TestGetStorageFilesystemUUIDByProviderIDNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetStorageFilesystemUUIDByProviderID(c.Context(), "missing-fs")
+	c.Check(err, tc.ErrorIs, domainstorageerrors.FilesystemNotFound)
+
+	_, err = st.GetStorageFilesystemUUIDByProviderID(c.Context(), "")
+	c.Check(err, tc.ErrorIs, domainstorageerrors.FilesystemNotFound)
+}
+
+// TestGetStorageFilesystemUUIDByProviderIDReturnsUUID asserts that an
+// adopted storage filesystem is retrievable by its provider id.
+func (s *storageSuite) TestGetStorageFilesystemUUIDByProviderIDReturnsUUID(c *tc.C) {
+	poolUUID := s.newStoragePool(c, "mypool", "myprovider", nil)
+
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	filesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
+	now := time.Now().UTC()
+
+	args := domainstorageinternal.CreateStorageInstanceWithExistingFilesystem{
+		UUID:                      storageInstanceUUID,
+		Name:                      domainstorage.Name("data"),
+		StoragePoolUUID:           poolUUID,
+		RequestedSizeMiB:          1024,
+		FilesystemUUID:            filesystemUUID,
+		FilesystemProvisionScope:  domainstorage.ProvisionScopeModel,
+		FilesystemSize:            2048,
+		FilesystemProviderID:      "fs-lookup-1",
+		FilesystemStatusID:        1,
+		FilesystemStatusMessage:   "fs-ready",
+		FilesystemStatusUpdatedAt: now,
+	}
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.CreateStorageInstanceWithExistingFilesystem(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := st.GetStorageFilesystemUUIDByProviderID(c.Context(), "fs-lookup-1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, filesystemUUID)
+}
+
+// TestCreateStorageInstanceWithExistingFilesystemDuplicateProviderID
+// asserts that adopting the same provider_id twice is rejected with
+// StorageFilesystemAlreadyExists. The pre-check is the first line of
+// defence; the UNIQUE index on storage_filesystem.provider_id is the
+// authoritative backstop.
+func (s *storageSuite) TestCreateStorageInstanceWithExistingFilesystemDuplicateProviderID(c *tc.C) {
+	poolUUID := s.newStoragePool(c, "mypool", "myprovider", nil)
+	now := time.Now().UTC()
+
+	first := domainstorageinternal.CreateStorageInstanceWithExistingFilesystem{
+		UUID:                      tc.Must(c, domainstorage.NewStorageInstanceUUID),
+		Name:                      domainstorage.Name("data"),
+		StoragePoolUUID:           poolUUID,
+		RequestedSizeMiB:          1024,
+		FilesystemUUID:            tc.Must(c, domainstorage.NewFilesystemUUID),
+		FilesystemProvisionScope:  domainstorage.ProvisionScopeModel,
+		FilesystemSize:            2048,
+		FilesystemProviderID:      "fs-dup-1",
+		FilesystemStatusID:        1,
+		FilesystemStatusMessage:   "fs-ready",
+		FilesystemStatusUpdatedAt: now,
+	}
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.CreateStorageInstanceWithExistingFilesystem(c.Context(), first)
+	c.Assert(err, tc.ErrorIsNil)
+
+	second := first
+	second.UUID = tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	second.FilesystemUUID = tc.Must(c, domainstorage.NewFilesystemUUID)
+	_, err = st.CreateStorageInstanceWithExistingFilesystem(c.Context(), second)
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StorageFilesystemAlreadyExists)
+}
+
+// TestCreateStorageInstanceWithExistingVolumeBackedFilesystemDuplicateProviderID
+// mirrors the filesystem-only test for the volume-backed variant.
+func (s *storageSuite) TestCreateStorageInstanceWithExistingVolumeBackedFilesystemDuplicateProviderID(c *tc.C) {
+	poolUUID := s.newStoragePool(c, "mypool", "myprovider", nil)
+	now := time.Now().UTC()
+
+	first := domainstorageinternal.CreateStorageInstanceWithExistingVolumeBackedFilesystem{
+		CreateStorageInstanceWithExistingFilesystem: domainstorageinternal.CreateStorageInstanceWithExistingFilesystem{
+			UUID:                      tc.Must(c, domainstorage.NewStorageInstanceUUID),
+			Name:                      domainstorage.Name("disk"),
+			StoragePoolUUID:           poolUUID,
+			RequestedSizeMiB:          2048,
+			FilesystemUUID:            tc.Must(c, domainstorage.NewFilesystemUUID),
+			FilesystemProvisionScope:  domainstorage.ProvisionScopeModel,
+			FilesystemSize:            4096,
+			FilesystemProviderID:      "fs-vol-dup-1",
+			FilesystemStatusID:        1,
+			FilesystemStatusMessage:   "fs-ready",
+			FilesystemStatusUpdatedAt: now,
+		},
+		VolumeUUID:           tc.Must(c, domainstorage.NewVolumeUUID),
+		VolumeProvisionScope: domainstorage.ProvisionScopeMachine,
+		VolumeSize:           4096,
+		VolumeProviderID:     "vol-dup-1",
+	}
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.CreateStorageInstanceWithExistingVolumeBackedFilesystem(c.Context(), first)
+	c.Assert(err, tc.ErrorIsNil)
+
+	second := first
+	second.UUID = tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	second.FilesystemUUID = tc.Must(c, domainstorage.NewFilesystemUUID)
+	second.VolumeUUID = tc.Must(c, domainstorage.NewVolumeUUID)
+	_, err = st.CreateStorageInstanceWithExistingVolumeBackedFilesystem(c.Context(), second)
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StorageFilesystemAlreadyExists)
+}

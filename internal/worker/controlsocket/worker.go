@@ -366,7 +366,7 @@ func (w *Worker) handleAddMetricsUser(resp http.ResponseWriter, req *http.Reques
 		return
 	}
 
-	code, err := w.addMetricsUser(ctx, parsedBody.Username, auth.NewPassword(parsedBody.Password))
+	code, err := w.addMetricsUser(ctx, parsedBody.Username, parsedBody.Password)
 	if err != nil {
 		w.writeErrorResponse(ctx, resp, code, err)
 		return
@@ -375,7 +375,7 @@ func (w *Worker) handleAddMetricsUser(resp http.ResponseWriter, req *http.Reques
 	w.writeResponse(ctx, resp, code, infof("created user %q", parsedBody.Username))
 }
 
-func (w *Worker) addMetricsUser(ctx context.Context, username string, password auth.Password) (int, error) {
+func (w *Worker) addMetricsUser(ctx context.Context, username string, rawPassword string) (int, error) {
 	validatedName, err := validateMetricsUsername(username)
 	if err != nil {
 		return http.StatusBadRequest, err
@@ -392,10 +392,11 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 		Key:        w.controllerModelUUID.String(),
 	}
 
+	addPassword := auth.NewPassword(rawPassword)
 	_, _, err = w.accessService.AddUser(ctx, service.AddUserArg{
 		Name:        validatedName,
 		DisplayName: validatedName.Name(),
-		Password:    &password,
+		Password:    &addPassword,
 		CreatorUUID: creatorUser.UUID,
 		Permission: permission.AccessSpec{
 			Target: controllerModelID,
@@ -403,30 +404,32 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 		},
 	})
 	if internalerrors.Is(err, usererrors.UserAlreadyExists) {
-		// Retrieve existing user
-		user, err := w.accessService.GetUserByAuth(ctx, validatedName, password)
-		if err != nil {
-			return http.StatusInternalServerError,
-				internalerrors.Errorf("retrieving existing user %q: %w", username, err)
-		}
+		// Retrieve existing user. A fresh auth.Password must be constructed
+		// because AddUser hashes and destroys the password passed to it.
+		authPassword := auth.NewPassword(rawPassword)
+		user, err := w.accessService.GetUserByAuth(ctx, validatedName, authPassword)
+if err != nil {
+		return http.StatusInternalServerError,
+			internalerrors.Errorf("retrieving existing user %q: %w", username, err)
+	}
 
-		// We want this operation to be idempotent, but at the same time, this
-		// worker shouldn't mess with users that have not been created by it.
-		// So ensure the user is identical to what we would have created, and
-		// otherwise error.
-		if user.Disabled {
-			return http.StatusForbidden, internalerrors.Errorf("user %q is disabled", user.Name).
-				Add(coreerrors.Forbidden)
-		}
-		if user.CreatorName != w.userCreatorName {
-			return http.StatusConflict, internalerrors.Errorf("user %q (created by %q)", user.Name, user.CreatorName).
-				Add(coreerrors.AlreadyExists)
-		}
+	// We want this operation to be idempotent, but at the same time, this
+	// worker shouldn't mess with users that have not been created by it.
+	// So ensure the user is identical to what we would have created, and
+	// otherwise error.
+	if user.Disabled {
+		return http.StatusForbidden, internalerrors.Errorf("user %q is disabled", user.Name).
+			Add(coreerrors.Forbidden)
+	}
+	if user.CreatorName != w.userCreatorName {
+		return http.StatusConflict, internalerrors.Errorf("user %q (created by %q)", user.Name, user.CreatorName).
+			Add(coreerrors.AlreadyExists)
+	}
 
-		accessLevel, err := w.accessService.ReadUserAccessLevelForTarget(ctx, validatedName, controllerModelID)
-		if err != nil {
-			return http.StatusInternalServerError,
-				internalerrors.Errorf("retrieving existing user %q: %w", username, err)
+	accessLevel, err := w.accessService.ReadUserAccessLevelForTarget(ctx, validatedName, controllerModelID)
+	if err != nil {
+		return http.StatusInternalServerError,
+			internalerrors.Errorf("retrieving existing user %q: %w", username, err)
 		} else if accessLevel != permission.ReadAccess {
 			return http.StatusNotFound, fmt.Errorf(
 				"unexpected permission for user %q, expected %q, got %q",

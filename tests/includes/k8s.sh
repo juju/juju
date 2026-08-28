@@ -26,6 +26,38 @@ kubectl() {
 	esac
 }
 
+# wait_for_namespace_gone polls until the given namespace no longer exists in
+# the cluster. It fails the test if the namespace is still present after the
+# timeout (an integer number of seconds).
+#
+# ```
+# wait_for_namespace_gone <namespace> [<timeout>]
+# ```
+wait_for_namespace_gone() {
+	local name timeout
+
+	name=${1}
+	timeout=${2:-600} # default timeout: 600s = 10m
+
+	attempt=0
+	start_time="$(date -u +%s)"
+	while kubectl get namespace "${name}" >/dev/null 2>&1; do
+		echo "[+] (attempt ${attempt}) polling for namespace ${name} to be removed"
+		sleep "${SHORT_TIMEOUT}"
+
+		elapsed=$(date -u +%s)-$start_time
+		if [[ ${elapsed} -ge ${timeout} ]]; then
+			echo "[-] $(red 'timed out waiting for namespace') $(red "${name}") $(red 'to be removed')"
+			kubectl get namespace "${name}" 2>&1 | sed 's/^/    | /g'
+			exit 1
+		fi
+
+		attempt=$((attempt + 1))
+	done
+
+	echo "[+] $(green 'Namespace removed:') $(green "${name}")"
+}
+
 default_k8s() {
 	if command -v minikube >/dev/null 2>&1 && [[ "Stopped" != "$(minikube status -o json | yq .APIServer)" ]]; then
 		printf "minikube"

@@ -659,7 +659,7 @@ func newImportServices(deps deps, modelUUID coremodel.UUID) importServices {
 			secretbackendstate.NewState(deps.ControllerDB, deps.Logger), deps.Logger,
 		),
 		lease: leaseservice.NewService(
-			leasestate.NewState(deps.ControllerDB, deps.Logger),
+			leasestate.NewState(deps.ControllerDB),
 		),
 		cloudImage: cloudimagemetadataservice.NewService(
 			cloudimagemetadatastate.NewState(deps.ControllerDB, deps.Clock, deps.Logger),

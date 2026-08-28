@@ -5,6 +5,7 @@ package kubernetes
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 
@@ -13,11 +14,14 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/provider/kubernetes/resources"
 	"github.com/juju/juju/internal/provider/kubernetes/storage"
+	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	jujustorage "github.com/juju/juju/internal/storage"
 )
 
@@ -543,7 +547,11 @@ func (v *filesystemSource) getPersistentVolume(
 }
 
 func quantityAsMibiBytes(q resource.Quantity) uint64 {
-	return uint64(q.MilliValue()) / 1000 / 1024 / 1024
+	milliValue := q.MilliValue()
+	if milliValue <= 0 {
+		return 0
+	}
+	return uint64(milliValue) / 1000 / 1024 / 1024
 }
 
 // DestroyFilesystems is specified on the jujustorage.FilesystemSource interface.
@@ -826,7 +834,320 @@ func (v *filesystemSource) ImportFilesystem(
 	resourceTags map[string]string,
 	force bool,
 ) (jujustorage.FilesystemInfo, error) {
-	return jujustorage.FilesystemInfo{}, errors.New("import filesystem not implemented")
+	// Kubernetes PersistentVolumes do not have provider-specific metadata for
+	// these tags; adoption persists them with the Juju storage record.
+	if len(resourceTags) > 0 {
+		logger.Debugf(
+			ctx,
+			"ignoring resource tags for Kubernetes PersistentVolume import",
+		)
+	}
+	pvAPI := v.client.client().CoreV1().PersistentVolumes()
+	pv, err := pvAPI.Get(ctx, filesystemId, v1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return jujustorage.FilesystemInfo{}, errors.New(
+			"kubernetes PersistentVolume not found",
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return jujustorage.FilesystemInfo{}, errors.Errorf(
+			"getting kubernetes PersistentVolume: %w", err,
+		)
+	}
+
+	var importErr error
+	if force {
+		importErr = v.preparePersistentVolumeForForcedImport(ctx, pv, storageName)
+	} else {
+		importErr = validateImportPV(pv)
+	}
+	if importErr != nil {
+		return jujustorage.FilesystemInfo{}, errors.Capture(importErr)
+	}
+
+	sizeMiB := uint64(0)
+	if pv.Spec.Capacity != nil {
+		storageCapacity := pv.Spec.Capacity.Storage()
+		if storageCapacity != nil {
+			sizeMiB = quantityAsMibiBytes(*storageCapacity)
+		}
+	}
+	return jujustorage.FilesystemInfo{
+		ProviderId: pv.Name,
+		Size:       sizeMiB,
+	}, nil
+}
+
+// validateImportPV verifies whether the given PersistentVolume is eligible
+// for import without force.
+func validateImportPV(pv *core.PersistentVolume) error {
+	if pv.Spec.PersistentVolumeReclaimPolicy != core.PersistentVolumeReclaimRetain {
+		return errors.Errorf(
+			"importing volume %q with reclaim policy %q not supported (must be %q)",
+			pv.Name,
+			pv.Spec.PersistentVolumeReclaimPolicy,
+			core.PersistentVolumeReclaimRetain,
+		).Add(coreerrors.NotSupported)
+	}
+	if pv.Spec.ClaimRef != nil {
+		return errors.Errorf(
+			"importing volume %q already bound to a claim not supported",
+			pv.Name,
+		).Add(coreerrors.NotSupported)
+	}
+	return nil
+}
+
+// preparePersistentVolumeForForcedImport mutates a PersistentVolume so that
+// it can be adopted by Juju during a forced filesystem import. Specifically
+// it:
+//
+//   - patches the PV's reclaim policy to Retain (otherwise Kubernetes would
+//     delete the PV when its PVC is removed);
+//   - deletes the Juju-managed PVC that currently binds the PV;
+//   - clears the PV's claimRef so the PV is no longer claimed.
+//
+// It does NOT register or adopt the PV into the Juju storage registry; that
+// is the responsibility of the caller (ImportFilesystem), which then returns
+// the resulting filesystem metadata.
+func (v *filesystemSource) preparePersistentVolumeForForcedImport(
+	ctx context.Context, pv *core.PersistentVolume, storageName string,
+) error {
+	logger.Debugf(ctx, "force importing PersistentVolume %q", pv.Name)
+
+	updatedPV, err := v.patchPersistentVolumeReclaimToRetain(ctx, pv)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := v.makePersistentVolumeAvailable(ctx, updatedPV, storageName); err != nil {
+		return errors.Capture(err)
+	}
+	return nil
+}
+
+// patchPersistentVolumeReclaimToRetain patches the persistent volume's reclaim
+// policy to Retain before its claim is deleted.
+func (v *filesystemSource) patchPersistentVolumeReclaimToRetain(
+	ctx context.Context, pv *core.PersistentVolume,
+) (*core.PersistentVolume, error) {
+	if pv.Spec.PersistentVolumeReclaimPolicy == core.PersistentVolumeReclaimRetain {
+		return pv, nil
+	}
+
+	patchData := map[string]any{
+		"spec": map[string]any{
+			"persistentVolumeReclaimPolicy": core.PersistentVolumeReclaimRetain,
+		},
+	}
+	data, err := json.Marshal(patchData)
+	if err != nil {
+		return nil, errors.Errorf(
+			"failed to marshal patch data for PersistentVolume %s: %w",
+			pv.Name, err,
+		)
+	}
+
+	pvAPI := v.client.client().CoreV1().PersistentVolumes()
+	_, err = pvAPI.Patch(ctx, pv.Name, types.StrategicMergePatchType, data, v1.PatchOptions{
+		FieldManager: resources.JujuFieldManager,
+	})
+	if err != nil {
+		return nil, errors.Errorf(
+			"failed to patch PersistentVolume %s: %w", pv.Name, err,
+		)
+	}
+
+	updatedPV, err := pvAPI.Get(ctx, pv.Name, v1.GetOptions{})
+	if err != nil {
+		return nil, errors.Errorf(
+			"failed to get PersistentVolume %s after patch: %w", pv.Name, err,
+		)
+	}
+	if updatedPV == nil {
+		return nil, errors.Errorf(
+			"failed to get PersistentVolume %s after patch: empty response",
+			pv.Name,
+		)
+	}
+	if updatedPV.Spec.PersistentVolumeReclaimPolicy != core.PersistentVolumeReclaimRetain {
+		return nil, errors.Errorf(
+			"persistent volume %s reclaim policy is not Retain after patch",
+			pv.Name,
+		)
+	}
+
+	logger.Infof(
+		ctx, "successfully patched PersistentVolume %q: set reclaim policy to Retain",
+		pv.Name,
+	)
+	return updatedPV, nil
+}
+
+// makePersistentVolumeAvailable deletes a Juju-managed PVC and clears its
+// claimRef so that the PV can be imported.
+func (v *filesystemSource) makePersistentVolumeAvailable(
+	ctx context.Context, pv *core.PersistentVolume, storageName string,
+) error {
+	claimRef := pv.Spec.ClaimRef
+	if claimRef == nil {
+		return nil
+	}
+
+	if err := v.deletePVCIfJujuManaged(ctx, pv.Name, claimRef, storageName); err != nil {
+		return errors.Capture(err)
+	}
+	return errors.Capture(v.clearPVClaimRef(ctx, pv))
+}
+
+func (v *filesystemSource) deletePVCIfJujuManaged(
+	ctx context.Context,
+	pvName string,
+	claimRef *core.ObjectReference,
+	storageName string,
+) error {
+	if claimRef.Namespace == "" {
+		return errors.Errorf(
+			"kubernetes PersistentVolume %q has claimRef with empty namespace",
+			pvName,
+		).Add(coreerrors.NotValid)
+	}
+
+	pvcAPI := v.client.client().CoreV1().PersistentVolumeClaims(claimRef.Namespace)
+	pvc, err := pvcAPI.Get(ctx, claimRef.Name, v1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Errorf(
+			"getting kubernetes PersistentVolumeClaim %s/%s: %w",
+			claimRef.Namespace, claimRef.Name, err,
+		)
+	}
+	if _, labelErr := utils.MatchStorageMetaLabelVersion(pvc.ObjectMeta, storageName); labelErr != nil {
+		return errors.Errorf(
+			"importing PersistentVolume %q whose PersistentVolumeClaim is not managed by juju: %w",
+			pvName, labelErr,
+		).Add(coreerrors.NotSupported)
+	}
+
+	// Confirm this is the same PVC the PV's claimRef points at. The Juju
+	// label match alone is not enough: an unrelated PVC in another model
+	// could carry the same labels and be bound to a different PV. Comparing
+	// the UID and VolumeName prevents deleting the wrong PVC.
+	if claimRef.UID != "" && pvc.UID != claimRef.UID {
+		return errors.Errorf(
+			"PersistentVolumeClaim %s/%s UID %q does not match PV claimRef UID %q",
+			pvc.Namespace, pvc.Name, pvc.UID, claimRef.UID,
+		).Add(coreerrors.NotValid)
+	}
+	if pvc.Spec.VolumeName != "" && pvc.Spec.VolumeName != pvName {
+		return errors.Errorf(
+			"PersistentVolumeClaim %s/%s is bound to %q, expected %q",
+			pvc.Namespace, pvc.Name, pvc.Spec.VolumeName, pvName,
+		).Add(coreerrors.NotValid)
+	}
+
+	err = pvcAPI.Delete(ctx, claimRef.Name, v1.DeleteOptions{
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
+	})
+	if err != nil {
+		return errors.Errorf(
+			"deleting PVC %s/%s: %w",
+			claimRef.Namespace, claimRef.Name, err,
+		)
+	}
+	logger.Infof(
+		ctx, "deleted PVC %s/%s",
+		claimRef.Namespace, claimRef.Name,
+	)
+	return nil
+}
+
+func (v *filesystemSource) clearPVClaimRef(
+	ctx context.Context, pv *core.PersistentVolume,
+) error {
+	pvName := pv.Name
+	expectedClaimRef := pv.Spec.ClaimRef
+	expectedUID := ""
+	expectedRV := pv.ResourceVersion
+	if expectedClaimRef != nil {
+		expectedUID = string(expectedClaimRef.UID)
+	}
+
+	// Use a JSON Patch with a `test` op to guard against a concurrent
+	// controller rebinding the PV between our read and this patch. If the
+	// claim UID (or the PV's resourceVersion) no longer matches what we
+	// observed, the API server rejects the patch with a 409 Conflict and we
+	// do not clobber a freshly rebound claim.
+	patchOps := []map[string]any{
+		{"op": "replace", "path": "/spec/claimRef", "value": nil},
+	}
+	if expectedUID != "" {
+		patchOps = append(
+			[]map[string]any{
+				{"op": "test", "path": "/spec/claimRef/uid", "value": expectedUID},
+			}, patchOps...,
+		)
+	}
+	if expectedRV != "" {
+		patchOps = append(
+			[]map[string]any{
+				{"op": "test", "path": "/metadata/resourceVersion", "value": expectedRV},
+			}, patchOps...,
+		)
+	}
+	data, err := json.Marshal(patchOps)
+	if err != nil {
+		return errors.Errorf(
+			"failed to marshal patch data for PersistentVolume %s: %w",
+			pv.Name, err,
+		)
+	}
+
+	pvAPI := v.client.client().CoreV1().PersistentVolumes()
+	_, err = pvAPI.Patch(ctx, pvName, types.JSONPatchType, data, v1.PatchOptions{
+		FieldManager: resources.JujuFieldManager,
+	})
+	if err != nil {
+		if k8serrors.IsConflict(err) {
+			return errors.Errorf(
+				"persistent volume %q claimRef changed before patch; a controller may have rebound it; manual cleanup may be required",
+				pvName,
+			)
+		}
+		return errors.Errorf(
+			"failed to patch PersistentVolume %s: %w", pvName, err,
+		)
+	}
+
+	// Verify the targeted patch. A controller may have changed the PV between
+	// PVC deletion and claimRef clearing.
+	pv, err = pvAPI.Get(ctx, pvName, v1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return errors.New(
+			"kubernetes PersistentVolume disappeared after claimRef patch",
+		).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return errors.Errorf(
+			"getting kubernetes PersistentVolume %q after claimRef patch: %w",
+			pvName, err,
+		)
+	}
+	if pv == nil {
+		return errors.Errorf(
+			"getting kubernetes PersistentVolume %q after claimRef patch: empty response",
+			pvName,
+		)
+	}
+	if pv.Spec.ClaimRef != nil {
+		return errors.Errorf(
+			"persistent volume %q still has claimRef after patch; a controller may have rebound it; manual cleanup may be required",
+			pvName,
+		)
+	}
+	logger.Infof(
+		ctx, "successfully patched PersistentVolume %q: set claimRef to nil", pvName,
+	)
+	return nil
 }
 
 // GetPersistentVolumeClaimIdentifiers returns a list of paired identifiers
