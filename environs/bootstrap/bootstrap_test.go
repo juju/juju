@@ -1335,7 +1335,7 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapPathPackagedToolsMatch(c *tc
 			SnapVersionReader:       s.snapVersionReader(c, snapVersion.String()),
 		})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(buildAgentCalled, tc.IsFalse,
+	c.Check(buildAgentCalled, tc.IsFalse,
 		tc.Commentf("developer mode with packaged tools must not call BuildAgentTarball"))
 }
 
@@ -1385,7 +1385,7 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapPathLocalCopyFallback(c *tc.
 			SnapVersionReader:       s.snapVersionReader(c, snapVersion.String()),
 		})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(capturedBuild, tc.IsFalse,
+	c.Check(capturedBuild, tc.IsFalse,
 		tc.Commentf("local-copy fallback must not build from source"))
 	c.Check(capturedForceVersion, tc.DeepEquals, snapVersion,
 		tc.Commentf("local copy must be forced to the snap version"))
@@ -2153,7 +2153,7 @@ func (s *bootstrapSuite) TestBootstrapStoreModeNoBuildAgentFindsExactTools(c *tc
 			},
 		})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(buildAgentCalled, tc.IsFalse,
+	c.Check(buildAgentCalled, tc.IsFalse,
 		tc.Commentf("store mode without --build-agent must not call BuildAgentTarball"))
 }
 
