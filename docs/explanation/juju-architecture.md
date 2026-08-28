@@ -133,6 +133,77 @@ The three sections below zoom in on different aspects of this picture:
 
 The controller stores its state in two databases using **Dqlite**, a distributed SQLite implementation embedded in the controller process. The **controller database** holds entities shared across all models: clouds, credentials, users, and the model registry itself. Each model has its own **model database** holding everything that makes up that deployment. This split is the key structural fact of the Juju data model; everything else follows from it.
 
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": false}} }%%
+flowchart TB
+    %% Controller DB spine
+    USER --> CONTROLLER
+    USER --> CLOUD
+    USER --> CREDENTIAL
+    CLOUD --> CONTROLLER
+    CREDENTIAL --> CONTROLLER
+    CLOUD --> CREDENTIAL
+    SECRET_BACKEND["SECRET BACKEND"] --> CONTROLLER
+    CONTROLLER --> MODEL
+
+    %% Model DB spine
+    MODEL --> APPLICATION
+    APPLICATION --> UNIT
+    UNIT --> MACHINE
+
+    %% References hanging off APPLICATION
+    APPLICATION --> CHARM
+    APPLICATION --> RELATION
+    APPLICATION --> OFFER
+
+    %% Runtime records hanging off UNIT
+    UNIT --> STORAGE
+    UNIT --> SECRET
+    UNIT --> RESOURCE
+    UNIT --> PORT_RANGE["PORT RANGE"]
+
+    %% Network
+    APPLICATION --> SPACE
+    SPACE --> SUBNET
+
+    %% Cross-cutting (dashed)
+    CONSTRAINT -. "constrains" .-> APPLICATION
+    CONSTRAINT -. "constrains" .-> MACHINE
+    STATUS -. "on" .-> APPLICATION
+    STATUS -. "on" .-> UNIT
+    STATUS -. "on" .-> MACHINE
+    STATUS -. "on" .-> MODEL
+    CONFIGURATION -. "on" .-> APPLICATION
+    CONFIGURATION -. "on" .-> MODEL
+    EXTERNAL_CONTROLLER["EXTERNAL CONTROLLER"] -. "referenced by" .-> MODEL
+
+    style USER fill:#E95420,stroke:#C74210,color:#FFF
+    style CONTROLLER fill:#E95420,stroke:#C74210,color:#FFF
+    style CLOUD fill:#E95420,stroke:#C74210,color:#FFF
+    style CREDENTIAL fill:#E95420,stroke:#C74210,color:#FFF
+    style SECRET_BACKEND fill:#E95420,stroke:#C74210,color:#FFF
+    style EXTERNAL_CONTROLLER fill:#E95420,stroke:#C74210,color:#FFF
+    style MODEL fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style APPLICATION fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style UNIT fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style MACHINE fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style CHARM fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style RELATION fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style OFFER fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style STORAGE fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style SECRET fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style RESOURCE fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style PORT_RANGE fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style SPACE fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style SUBNET fill:#4A90D9,stroke:#2C6FAC,color:#FFF
+    style STATUS fill:#888,stroke:#666,color:#FFF
+    style CONSTRAINT fill:#888,stroke:#666,color:#FFF
+    style CONFIGURATION fill:#888,stroke:#666,color:#FFF
+```
+*The Juju entity graph. Orange = controller database; blue = model database; grey =
+cross-cutting attributes. The spine runs USER → CONTROLLER → MODEL → APPLICATION →
+UNIT → MACHINE. Everything else hangs off that spine.*
+
 (arch-datamodel-controller)=
 ### The controller database
 
@@ -837,3 +908,393 @@ Timing for each kind of data within a hook:
 1. **Setup** -- the agent prepares the context (env vars, config cache).
 2. **Execute** -- `dispatch` runs; hook commands are served live.
 3. **Commit** -- on clean exit, the agent flushes buffered writes; otherwise it discards them.
+
+(arch-entity-diagrams)=
+## Entity relationship diagrams
+
+The sections below show the Juju data model one dimension at a time. Each diagram
+isolates a single concern so it stays readable. All diagrams show records in the
+Juju databases -- not running processes or files on disk. Together they give a
+complete picture of what the controller stores.
+
+### Scope and containment
+
+What contains what. This diagram answers: if you remove or inspect entity A,
+what else falls within its scope? A controller is the scope of its models; a
+model is the scope of its applications; an application is the scope of its
+units. The diagram also shows what a unit directly owns at runtime.
+
+Note that a cloud can be known at three levels independently: as a local record
+in the client's own configuration file (`~/.local/share/juju/clouds.yaml`),
+as a registered record in the controller database, and as a denormalised
+reference mirrored into each model database so model workers can drive
+provisioning without crossing databases. The diagram shows the controller
+database view: a credential is owned by a user and scoped to a cloud; a model
+references a cloud (and optionally a region and credential).
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart TB
+    USER -->|"owns"| CREDENTIAL["CREDENTIAL"]
+    CREDENTIAL -->|"is scoped to"| CLOUD
+    USER -->|"is granted access on"| CLOUD
+    CONTROLLER -->|"manages"| MODEL
+    MODEL -->|"references"| CLOUD
+    MODEL -->|"contains"| APPLICATION
+    APPLICATION -->|"consists of"| UNIT
+    UNIT -->|"runs on"| MACHINE
+    APPLICATION -->|"is deployed from"| CHARM
+    UNIT -->|"runs revision of"| CHARM
+    APPLICATION -->|"exposes"| OFFER
+    RELATION -->|"connects"| APPLICATION
+    UNIT -->|"participates in"| RELATION
+    UNIT -->|"owns"| STORAGE
+    UNIT -->|"owns or consumes"| SECRET
+    UNIT -->|"uses"| RESOURCE
+    UNIT -->|"declares"| PORT_RANGE["PORT RANGE"]
+    APPLICATION -->|"is bound to"| SPACE
+    SPACE -->|"contains"| SUBNET
+```
+*Both APPLICATION and UNIT reference CHARM directly and independently -- during
+a rolling upgrade they can point to different revisions.*
+
+### Lifecycle
+
+The alive / dying / dead states apply to MODEL, APPLICATION, UNIT, MACHINE, and
+RELATION. These states are what you see in `juju status` when a removal is in
+progress. A unit stuck in dying (because a hook failed) is why `juju resolved`
+and `juju remove-unit --force` exist.
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+stateDiagram-v2
+    direction LR
+    [*] --> alive
+    alive --> dying : remove requested<br/>(controller sets)
+    dying --> dead : teardown complete<br/>(agent sets)
+    dead --> [*]
+```
+*A unit or machine appears as "dying" in `juju status` while its teardown hooks
+are running. It moves to dead once the agent confirms completion, after which
+the controller deletes its records.*
+
+### Access control
+
+Permissions are a separate dimension from ownership. A user is granted an
+access level on a specific object. The valid combinations are:
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart LR
+    USER -->|"add-model, admin"| CLOUD
+    USER -->|"login, superuser"| CONTROLLER
+    USER -->|"read, write, admin"| MODEL
+    USER -->|"read, consume, admin"| OFFER
+```
+*A user can hold at most one access level per object instance. Access levels
+are cumulative: admin implies write implies read.*
+
+### Cloud as provisioning target
+
+A cloud in Juju is any infrastructure provider that exposes an API for compute,
+storage, and networking -- a public cloud (AWS, GCP, Azure), a private cloud
+(OpenStack, MAAS), or a local substrate (LXD, MicroK8s, Kubernetes). The model
+database holds a read-only mirror of the cloud name and type so model workers
+can drive provisioning locally without crossing to the controller database.
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart TB
+    CLOUD -->|"has"| CLOUD_REGION["CLOUD REGION"]
+    CLOUD -->|"supports"| AUTH_TYPE["AUTH TYPE"]
+    CREDENTIAL -->|"authenticates against"| CLOUD
+    MODEL -->|"provisions resources from"| CLOUD
+    MODEL -->|"optionally targets"| CLOUD_REGION
+    MODEL -->|"uses"| CREDENTIAL
+    MACHINE_CLOUD_INSTANCE["MACHINE CLOUD INSTANCE"] -->|"is the cloud record of"| MACHINE
+```
+*The cloud record stores the provider endpoint, supported auth types, regions,
+and CA certificates. MACHINE CLOUD INSTANCE is what the cloud provider reports
+back once a machine is provisioned -- instance ID, architecture, CPU, memory.*
+
+### Placement and infrastructure binding
+
+How logical records are associated with physical infrastructure. On machine
+clouds, a unit and its machine share the same network node -- that shared
+record is how Juju associates a logical unit with its physical host. IP
+addresses belong to the machine's network interfaces, not to the unit directly.
+On Kubernetes there are no machine records; the unit is associated with a pod.
+
+:::::{tab-set}
+
+::::{tab-item} Machine clouds
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart TB
+    UNIT -->|"shares network node with"| NET_NODE["NET NODE"]
+    MACHINE -->|"shares network node with"| NET_NODE
+    NET_NODE -->|"has"| LINK_LAYER_DEVICE["LINK LAYER DEVICE"]
+    LINK_LAYER_DEVICE -->|"has"| IP_ADDRESS["IP ADDRESS"]
+    IP_ADDRESS -->|"belongs to"| SUBNET
+    SUBNET -->|"belongs to"| SPACE
+    MACHINE_PARENT["MACHINE PARENT"] -->|"records container nesting of"| MACHINE
+```
+*The shared network node is the join between the logical unit record and the
+physical machine record. LXD containers are nested machines; the machine_parent
+record tracks which machine a container lives on.*
+
+::::
+
+::::{tab-item} Kubernetes
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart TB
+    UNIT -->|"shares network node with"| NET_NODE["NET NODE"]
+    K8S_POD["K8S POD"] -->|"belongs to"| UNIT
+    K8S_POD -->|"shares network node with"| NET_NODE
+    APPLICATION -->|"has"| K8S_SERVICE["K8S SERVICE"]
+    K8S_SERVICE -->|"shares network node with"| NET_NODE
+```
+*On Kubernetes there are no machine records. Each unit has a pod record. The
+k8s_service record tracks the stable cluster-IP endpoint for the application.*
+
+::::
+
+:::::
+
+### Charm record and its declarations
+
+A charm record in the database represents a specific revision of a charm -- its
+source, revision number, and archive hash -- plus the set of declarations the
+charm makes: what endpoints it exposes, what config keys it accepts, what
+storage it needs, what resources it bundles, and what actions it supports.
+Both APPLICATION and UNIT reference the charm record directly, and
+independently -- during a rolling upgrade they can point to different revisions.
+The application holds the live configuration values; the charm record holds
+only the schema.
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart TB
+    CHARM -->|"declares"| CHARM_RELATION["CHARM RELATION (endpoint)"]
+    CHARM -->|"declares"| CHARM_ACTION["CHARM ACTION"]
+    CHARM -->|"declares"| CHARM_CONFIG["CHARM CONFIG (schema)"]
+    CHARM -->|"declares"| CHARM_STORAGE["CHARM STORAGE (spec)"]
+    CHARM -->|"declares"| CHARM_RESOURCE["CHARM RESOURCE (declaration)"]
+
+    APPLICATION -->|"is deployed from"| CHARM
+    APPLICATION -->|"has live values in"| APPLICATION_CONFIG["APPLICATION CONFIG"]
+    APPLICATION -->|"has"| APPLICATION_ENDPOINT["APPLICATION ENDPOINT"]
+    APPLICATION_ENDPOINT -->|"binds"| CHARM_RELATION
+    APPLICATION_ENDPOINT -->|"is bound to"| SPACE
+
+    UNIT -->|"runs revision of"| CHARM
+    UNIT -->|"owns"| STORAGE
+    UNIT -->|"uses"| RESOURCE
+    UNIT -->|"declares"| PORT_RANGE["PORT RANGE"]
+```
+*The charm record is the template; APPLICATION and UNIT are instances of it.
+The charm config record is the schema; application_config holds the live values
+set by the user. An application endpoint binds a charm relation declaration to
+a network space.*
+
+### Status
+
+Status is a time-varying property recorded per entity. Different actors write
+different status records: the charm writes workload status via the `status-set`
+hook command; the agent writes its own agent status; the controller derives
+machine and model status from the states of the entities they contain.
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart LR
+    CHARM -->|"writes via status-set"| UNIT_WORKLOAD_STATUS["UNIT WORKLOAD STATUS"]
+    AGENT -->|"writes"| UNIT_AGENT_STATUS["UNIT AGENT STATUS"]
+    AGENT -->|"writes"| K8S_POD_STATUS["K8S POD STATUS"]
+    CHARM -->|"writes via status-set"| APPLICATION_STATUS["APPLICATION STATUS"]
+    CONTROLLER -->|"derives"| MACHINE_STATUS["MACHINE STATUS"]
+    CONTROLLER -->|"derives"| MODEL_STATUS["MODEL STATUS"]
+
+    UNIT_WORKLOAD_STATUS -->|"tracks status of"| UNIT
+    UNIT_AGENT_STATUS -->|"tracks status of"| UNIT
+    K8S_POD_STATUS -->|"tracks status of"| UNIT
+    APPLICATION_STATUS -->|"tracks status of"| APPLICATION
+    MACHINE_STATUS -->|"tracks status of"| MACHINE
+    MODEL_STATUS -->|"tracks status of"| MODEL
+```
+*Unit status has two independent records: agent status (is the agent running and
+healthy?) and workload status (is the application the charm manages healthy?).
+On Kubernetes there is a third: the pod status reported by the cluster.*
+
+### Relations and databags
+
+How integration between applications is structured in the data model. All
+relation data flows through the controller -- there are no direct
+application-to-application connections. An application endpoint is the binding
+of a charm relation declaration to a space; a relation endpoint is the record
+that links a live relation to one of those application endpoints. Databags exist
+at two levels: one per participating application (written by the application
+leader) and one per participating unit.
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart TB
+    APPLICATION -->|"has"| APPLICATION_ENDPOINT["APPLICATION ENDPOINT"]
+    APPLICATION_ENDPOINT -->|"binds"| CHARM_RELATION["CHARM RELATION"]
+    RELATION -->|"is joined by"| RELATION_ENDPOINT["RELATION ENDPOINT"]
+    RELATION_ENDPOINT -->|"references"| APPLICATION_ENDPOINT
+    RELATION_ENDPOINT -->|"has"| RELATION_APP_DATABAG["APPLICATION DATABAG"]
+    RELATION_ENDPOINT -->|"has"| RELATION_UNIT["RELATION UNIT"]
+    RELATION_UNIT -->|"references"| UNIT
+    RELATION_UNIT -->|"has"| RELATION_UNIT_DATABAG["UNIT DATABAG"]
+
+    APPLICATION -->|"publishes"| OFFER
+    OFFER -->|"exposes"| APPLICATION_ENDPOINT
+```
+*A relation connects two application endpoints (one per participating
+application, or one for a peer relation). Each application endpoint contributes
+one application-level databag (written by the leader) and one unit-level
+databag per participating unit. An offer publishes application endpoints for
+cross-model consumption.*
+
+
+### Secrets
+
+A secret is a versioned sensitive value -- a password, API key, certificate, or
+similar -- that a charm needs at runtime. Secrets have an owner (application,
+unit, or model), one or more revisions (each holding content either inline or
+in an external backend), and a permission record for each consumer that has
+been granted access. Rotation policy governs when a new revision should be
+created.
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart TB
+    SECRET -->|"has"| SECRET_METADATA["SECRET METADATA"]
+    SECRET_METADATA -->|"has"| SECRET_REVISION["SECRET REVISION"]
+    SECRET_REVISION -->|"stores content in"| SECRET_CONTENT["SECRET CONTENT (inline)"]
+    SECRET_REVISION -->|"stores content via"| SECRET_VALUE_REF["SECRET VALUE REF (external backend)"]
+    SECRET_METADATA -->|"has"| SECRET_ROTATION["SECRET ROTATION (schedule)"]
+
+    APPLICATION -->|"owns"| SECRET
+    UNIT -->|"owns"| SECRET
+    MODEL -->|"owns"| SECRET
+
+    UNIT -->|"consumes"| SECRET
+    SECRET -->|"is granted to"| SECRET_PERMISSION["SECRET PERMISSION"]
+    SECRET_PERMISSION -->|"grants access to"| APPLICATION
+    SECRET_PERMISSION -->|"grants access to"| UNIT
+```
+*A secret has one or more revisions. Each revision stores its content either
+inline in the model database or by reference in an external backend (Vault, a
+Kubernetes secrets store). Consumers track which revision they have last seen
+via the secret_unit_consumer record, which enables rotation notification.*
+
+### Storage
+
+Storage instances are the runtime records of storage attached to units. A charm
+declares its storage needs in the charm storage spec; at deploy time those
+declarations are resolved against a storage pool to produce storage instances.
+A storage instance can back either a volume (block device) or a filesystem,
+each with its own attachment record tracking the mount on the unit's machine.
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart TB
+    CHARM_STORAGE["CHARM STORAGE (spec)"] -->|"is declared by"| CHARM
+    APPLICATION -->|"has directive"| APPLICATION_STORAGE_DIRECTIVE["APPLICATION STORAGE DIRECTIVE"]
+    APPLICATION_STORAGE_DIRECTIVE -->|"references"| CHARM_STORAGE
+    UNIT -->|"has directive"| UNIT_STORAGE_DIRECTIVE["UNIT STORAGE DIRECTIVE"]
+
+    STORAGE_INSTANCE["STORAGE INSTANCE"] -->|"is provisioned from"| STORAGE_POOL["STORAGE POOL"]
+    STORAGE_INSTANCE -->|"is owned by"| UNIT
+    STORAGE_INSTANCE -->|"has lifecycle"| STORAGE_ATTACHMENT["STORAGE ATTACHMENT"]
+    STORAGE_ATTACHMENT -->|"attaches to"| UNIT
+
+    STORAGE_INSTANCE -->|"may be backed by"| STORAGE_VOLUME["STORAGE VOLUME"]
+    STORAGE_INSTANCE -->|"may be backed by"| STORAGE_FILESYSTEM["STORAGE FILESYSTEM"]
+    STORAGE_VOLUME -->|"is attached via"| STORAGE_VOLUME_ATTACHMENT["VOLUME ATTACHMENT"]
+    STORAGE_FILESYSTEM -->|"is attached via"| STORAGE_FILESYSTEM_ATTACHMENT["FILESYSTEM ATTACHMENT"]
+```
+*A storage pool is the provisioning configuration (provider type and
+parameters). A storage instance is what gets created from a pool when a unit
+is deployed. It is realised as either a volume (block device) or a filesystem,
+each with its own attachment record to the unit's machine.*
+
+### Operations and actions
+
+An operation is a user-initiated run of an action or an exec command against
+one or more units or machines. Each operation has one or more tasks -- one per
+targeted entity. An action operation references the charm action it invokes;
+an exec operation does not.
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart TB
+    OPERATION -->|"may invoke"| CHARM_ACTION["CHARM ACTION"]
+    OPERATION -->|"has"| OPERATION_TASK["OPERATION TASK"]
+    OPERATION_TASK -->|"targets"| UNIT
+    OPERATION_TASK -->|"targets"| MACHINE
+    OPERATION_TASK -->|"produces"| OPERATION_TASK_OUTPUT["TASK OUTPUT"]
+    OPERATION_TASK -->|"has"| OPERATION_TASK_STATUS["TASK STATUS"]
+    OPERATION_TASK -->|"has"| OPERATION_TASK_LOG["TASK LOG"]
+```
+*An operation is what `juju run` creates. When targeted at multiple units,
+one task record is created per unit. Tasks run in parallel by default;
+the execution_group field on operation controls serial grouping.*
+
+### Cross-model relations
+
+A cross-model relation connects an application in one model (the consumer) to
+an offer published by an application in another model (the offerer), possibly
+on a different controller. On the offering side a remote consumer record is
+created; on the consuming side a synthetic remote offerer application is
+created. The offer connection record links the two sides through the offer.
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart TB
+    APPLICATION -->|"publishes"| OFFER
+    OFFER -->|"is connected via"| OFFER_CONNECTION["OFFER CONNECTION"]
+    OFFER_CONNECTION -->|"is backed by"| RELATION
+
+    OFFER_CONNECTION -->|"has consumer side"| REMOTE_CONSUMER["APPLICATION REMOTE CONSUMER"]
+    REMOTE_CONSUMER -->|"references consuming application in"| APPLICATION
+
+    OFFER_CONNECTION -->|"has offerer side"| REMOTE_OFFERER["APPLICATION REMOTE OFFERER"]
+    REMOTE_OFFERER -->|"is a synthetic application in"| APPLICATION
+
+    EXTERNAL_CONTROLLER["EXTERNAL CONTROLLER"] -->|"is the controller of"| REMOTE_OFFERER
+```
+*The offer connection record is created when a consumer integrates with an
+offer. On the offerer side an application_remote_consumer record tracks the
+consuming application. On the consumer side a synthetic application_remote_offerer
+record represents the remote application -- it has its own application record
+so the rest of the model machinery treats it like any local application. The
+external controller record provides the API address of the remote controller.*
+
+### Leases and leadership
+
+Leadership in Juju is implemented as a lease: the unit that holds the
+application-leadership lease for an application is its leader. Leases are
+held in the controller database, not the model database, so they can be
+arbitrated across all models by a single authority. A lease has a holder,
+a start time, and an expiry; agents renew leases before they expire.
+
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart TB
+    LEASE -->|"is of type"| LEASE_TYPE["LEASE TYPE"]
+    LEASE -->|"is held by"| HOLDER["HOLDER (unit name)"]
+    LEASE -->|"is scoped to"| MODEL
+    LEASE_TYPE -->|"is either"| APP_LEADERSHIP["application-leadership"]
+    LEASE_TYPE -->|"or"| SINGULAR_CONTROLLER["singular-controller"]
+    LEASE -->|"may be pinned by"| LEASE_PIN["LEASE PIN"]
+```
+*An application-leadership lease names the unit that is currently leader for
+that application. A singular-controller lease ensures only one controller
+worker handles a given task in an HA deployment. A lease pin prevents the
+lease from expiring, used during upgrades and migrations to keep leadership
+stable.*
