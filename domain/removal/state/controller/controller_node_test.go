@@ -20,7 +20,7 @@ func TestControllerNodeSuite(t *testing.T) {
 	tc.Run(t, &controllerNodeSuite{})
 }
 
-func (s *controllerNodeSuite) TestDeleteControllerNode(c *tc.C) {
+func (s *controllerNodeSuite) TestDeleteDqliteNode(c *tc.C) {
 	db := s.DB()
 
 	_, err := db.Exec("INSERT INTO controller_node (controller_id) VALUES ('99')")
@@ -39,7 +39,7 @@ func (s *controllerNodeSuite) TestDeleteControllerNode(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = st.DeleteControllerNode(c.Context(), "99")
+	err = st.DeleteDqliteNode(c.Context(), "99")
 	c.Assert(err, tc.ErrorIsNil)
 
 	for _, q := range []struct {
@@ -60,7 +60,7 @@ func (s *controllerNodeSuite) TestDeleteControllerNode(c *tc.C) {
 	}
 }
 
-func (s *controllerNodeSuite) TestDeleteControllerNodeIdempotent(c *tc.C) {
+func (s *controllerNodeSuite) TestDeleteDqliteNodeIdempotent(c *tc.C) {
 	db := s.DB()
 
 	_, err := db.Exec("INSERT INTO controller_node (controller_id) VALUES ('98')")
@@ -69,9 +69,9 @@ func (s *controllerNodeSuite) TestDeleteControllerNodeIdempotent(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = st.DeleteControllerNode(c.Context(), "98")
+	err = st.DeleteDqliteNode(c.Context(), "98")
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.DeleteControllerNode(c.Context(), "98")
+	err = st.DeleteDqliteNode(c.Context(), "98")
 	c.Assert(err, tc.ErrorIsNil)
 
 	var count int
@@ -80,7 +80,7 @@ func (s *controllerNodeSuite) TestDeleteControllerNodeIdempotent(c *tc.C) {
 	c.Check(count, tc.Equals, 0)
 }
 
-func (s *controllerNodeSuite) TestDeleteControllerNodePreservesOtherNodes(c *tc.C) {
+func (s *controllerNodeSuite) TestDeleteDqliteNodePreservesOtherNodes(c *tc.C) {
 	db := s.DB()
 
 	for _, cID := range []string{"96", "97"} {
@@ -91,7 +91,7 @@ func (s *controllerNodeSuite) TestDeleteControllerNodePreservesOtherNodes(c *tc.
 	}
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := st.DeleteControllerNode(c.Context(), "96")
+	err := st.DeleteDqliteNode(c.Context(), "96")
 	c.Assert(err, tc.ErrorIsNil)
 
 	var count int

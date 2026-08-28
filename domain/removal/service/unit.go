@@ -454,5 +454,5 @@ func (s *Service) deleteControllerNodeForUnit(ctx context.Context, unitUUID unit
 	if err != nil {
 		return errors.Errorf("parsing controller unit name %q: %w", unitName, err)
 	}
-	return errors.Capture(s.controllerState.DeleteControllerNode(ctx, strconv.Itoa(name.Number())))
+	return errors.Capture(s.controllerState.DeleteDqliteNode(ctx, strconv.Itoa(name.Number())))
 }

@@ -11,9 +11,9 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// DeleteControllerNode removes the controller node identified by controllerID
+// DeleteDqliteNode removes the controller node identified by controllerID
 // and all records that depend on it.
-func (st *State) DeleteControllerNode(ctx context.Context, controllerID string) error {
+func (st *State) DeleteDqliteNode(ctx context.Context, controllerID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
