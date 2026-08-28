@@ -418,71 +418,31 @@ func (s *ModelService) GetModelType(ctx context.Context) (coremodel.ModelType, e
 }
 
 // CreateModel is responsible for creating a new model within the model
-// database, using the input agent version.
+// database, using the input agent version and agent stream. If either
+// argument is the zero value, a sensible default is supplied
+// ([jujuversion.Current] / [agentbinary.AgentStreamReleased]).
 //
 // The following error types can be expected to be returned:
 // - [modelerrors.AlreadyExists] when the model uuid is already in use.
+// - [coreerrors.NotValid] when the agent stream is not valid.
+// - [modelerrors.AgentVersionNotSupported] when the agent version is not
+// supported.
 func (s *ModelService) CreateModel(
 	ctx context.Context,
+	agentVersion semversion.Number,
+	agentStream agentbinary.AgentStream,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
 	defaultAgentVersion, defaultAgentStream := agentVersionSelector()
-	return s.CreateModelWithAgentVersionStream(
-		ctx, defaultAgentVersion, defaultAgentStream,
-	)
-}
 
-// CreateModelWithAgentVersion is responsible for creating a new model within
-// the model database using the specified agent version.
-//
-// The following error types can be expected to be returned:
-// - [modelerrors.AlreadyExists] when the model uuid is already in use.
-// - [modelerrors.AgentVersionNotSupported] when the agent version is not
-// supported.
-func (s *ModelService) CreateModelWithAgentVersion(
-	ctx context.Context,
-	agentVersion semversion.Number,
-) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	_, defaultAgentStream := agentVersionSelector()
-	return s.CreateModelWithAgentVersionStream(ctx, agentVersion, defaultAgentStream)
-}
-
-// CreateModelWithAgentStream is responsible for creating a new model within
-// the model database using the specified agent stream.
-//
-// The following error types can be expected to be returned:
-// - [modelerrors.AlreadyExists] when the model uuid is already in use.
-// - [coreerrors.NotValid] when the agent stream is not valid.
-func (s *ModelService) CreateModelWithAgentStream(
-	ctx context.Context,
-	agentStream agentbinary.AgentStream,
-) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	defaultAgentVersion, _ := agentVersionSelector()
-	return s.CreateModelWithAgentVersionStream(ctx, defaultAgentVersion, agentStream)
-}
-
-// CreateModelWithAgentVersionStream is responsible for creating a new model
-// within the model database, using the input agent version and agent stream.
-//
-// The following error types can be expected to be returned:
-// - [modelerrors.AlreadyExists] when the model uuid is already in use.
-// - [coreerrors.NotValid] when the agent stream is not valid.
-// - [modelerrors.AgentVersionNotSupported] when the agent version is not
-// supported.
-func (s *ModelService) CreateModelWithAgentVersionStream(
-	ctx context.Context,
-	agentVersion semversion.Number,
-	agentStream agentbinary.AgentStream,
-) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
+	if agentVersion == semversion.Zero {
+		agentVersion = defaultAgentVersion
+	}
+	if agentStream.IsZero() {
+		agentStream = defaultAgentStream
+	}
 
 	m, err := s.controllerSt.GetModelSeedInformation(ctx, s.modelUUID)
 	if err != nil {
@@ -968,71 +928,16 @@ func (s *ProviderModelService) ResolveConstraints(
 }
 
 // CreateModel is responsible for creating a new model within the model
-// database. Upon creating the model any information required in the model's
-// provider will be initialised.
-//
-// The following error types can be expected to be returned:
-// - [modelerrors.AlreadyExists] when the model uuid is already in use.
-func (s *ProviderModelService) CreateModel(
-	ctx context.Context,
-) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := s.ModelService.CreateModel(ctx); err != nil {
-		return errors.Capture(err)
-	}
-
-	err := s.SeedDefaultStoragePools(ctx)
-	if err != nil {
-		return errors.Errorf(
-			"seeding default storage pools into new model: %w", err,
-		)
-	}
-
-	return s.createModelProviderResources(ctx)
-}
-
-// CreateModelWithAgentVersion is responsible for creating a new model within
-// the model database using the specified agent version. Upon creating the model
+// database using the input agent version and agent stream. If either argument
+// is the zero value, a sensible default is supplied. Upon creating the model
 // any information required in the model's provider will be initialised.
 //
 // The following error types can be expected to be returned:
 // - [modelerrors.AlreadyExists] when the model uuid is already in use.
-// - [modelerrors.AgentVersionNotSupported] when the agent version is not
-// supported.
-func (s *ProviderModelService) CreateModelWithAgentVersion(
-	ctx context.Context,
-	agentVersion semversion.Number,
-) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := s.ModelService.CreateModelWithAgentVersion(ctx, agentVersion); err != nil {
-		return errors.Capture(err)
-	}
-
-	err := s.SeedDefaultStoragePools(ctx)
-	if err != nil {
-		return errors.Errorf(
-			"seeding default storage pools into new model: %w", err,
-		)
-	}
-
-	return s.createModelProviderResources(ctx)
-}
-
-// CreateModelWithAgentVersionStream is responsible for creating a new model
-// within the model database using the specified agent version and agent stream.
-// Upon creating the model any information required in the model's provider
-// will be initialised.
-//
-// The following error types can be expected to be returned:
-// - [modelerrors.AlreadyExists] when the model uuid is already in use.
-// - [modelerrors.AgentVersionNotSupported] when the agent version is not
-// supported.
 // - [coreerrors.NotValid] when the agent stream is not valid.
-func (s *ProviderModelService) CreateModelWithAgentVersionStream(
+// - [modelerrors.AgentVersionNotSupported] when the agent version is not
+// supported.
+func (s *ProviderModelService) CreateModel(
 	ctx context.Context,
 	agentVersion semversion.Number,
 	agentStream agentbinary.AgentStream,
@@ -1040,9 +945,7 @@ func (s *ProviderModelService) CreateModelWithAgentVersionStream(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := s.ModelService.CreateModelWithAgentVersionStream(
-		ctx, agentVersion, agentStream,
-	); err != nil {
+	if err := s.ModelService.CreateModel(ctx, agentVersion, agentStream); err != nil {
 		return errors.Capture(err)
 	}
 

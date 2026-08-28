@@ -327,8 +327,8 @@ func (s *modelServiceSuite) TestCreateModelAgentVersionUnsupportedGreater(c *tc.
 		DefaultAgentBinaryFinder(),
 	)
 
-	err = svc.CreateModelWithAgentVersion(
-		c.Context(), agentVersion,
+	err = svc.CreateModel(
+		c.Context(), agentVersion, agentbinary.AgentStreamReleased,
 	)
 	c.Assert(err, tc.ErrorIs, modelerrors.AgentVersionNotSupported)
 }
@@ -357,15 +357,15 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedLess(c *tc.C) {
 		s.environVersionProviderGetter(),
 		DefaultAgentBinaryFinder(),
 	)
-	err = svc.CreateModelWithAgentVersion(
-		c.Context(), agentVersion,
+	err = svc.CreateModel(
+		c.Context(), agentVersion, agentbinary.AgentStreamReleased,
 	)
 	// Add the correct error detail when restoring this test.
 	c.Assert(err, tc.NotNil)
 }
 
 // TestCreateModelForVersionInvalidStream is testing that when
-// [ModelService.CreateModelForVersionAndStream] is called with an agent stream
+// [ModelService.CreateModel] is called with an agent stream
 // that isn't understood or supported we get back an error that satisfies
 // [modelerrors.AgentStreamNotValid].
 func (s *modelServiceSuite) TestCreateModelForVersionInvalidStream(c *tc.C) {
@@ -381,7 +381,7 @@ func (s *modelServiceSuite) TestCreateModelForVersionInvalidStream(c *tc.C) {
 		s.environVersionProviderGetter(),
 		DefaultAgentBinaryFinder(),
 	)
-	err := svc.CreateModelWithAgentVersionStream(
+	err := svc.CreateModel(
 		c.Context(),
 		jujuversion.Current,
 		agentbinary.AgentStream("bad stream"),
@@ -390,7 +390,7 @@ func (s *modelServiceSuite) TestCreateModelForVersionInvalidStream(c *tc.C) {
 }
 
 // TestCreateModelWithAgentStream is testing that when
-// [ModelService.CreateModelWithAgentStream] is called with a valid agent
+// [ModelService.CreateModel] is called with a valid agent
 // stream, the model is created with the current Juju version and the
 // supplied stream.
 func (s *modelServiceSuite) TestCreateModelWithAgentStream(c *tc.C) {
@@ -430,15 +430,16 @@ func (s *modelServiceSuite) TestCreateModelWithAgentStream(c *tc.C) {
 		s.environVersionProviderGetter(),
 		DefaultAgentBinaryFinder(),
 	)
-	err := svc.CreateModelWithAgentStream(
+	err := svc.CreateModel(
 		c.Context(),
+		semversion.Zero,
 		agentbinary.AgentStreamTesting,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestCreateModelWithAgentStreamInvalidStream is testing that when
-// [ModelService.CreateModelWithAgentStream] is called with an agent stream
+// [ModelService.CreateModel] is called with an agent stream
 // that isn't understood or supported we get back an error that satisfies
 // [modelerrors.AgentStreamNotValid].
 func (s *modelServiceSuite) TestCreateModelWithAgentStreamInvalidStream(c *tc.C) {
@@ -454,8 +455,9 @@ func (s *modelServiceSuite) TestCreateModelWithAgentStreamInvalidStream(c *tc.C)
 		s.environVersionProviderGetter(),
 		DefaultAgentBinaryFinder(),
 	)
-	err := svc.CreateModelWithAgentStream(
+	err := svc.CreateModel(
 		c.Context(),
+		semversion.Zero,
 		agentbinary.AgentStream("bad stream"),
 	)
 	c.Check(err, tc.ErrorIs, modelerrors.AgentStreamNotValid)
@@ -1207,7 +1209,7 @@ func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
 	s.mockProvider.EXPECT().CreateModelResources(gomock.Any(), environs.CreateParams{ControllerUUID: controllerUUID.String()}).Return(nil)
 
 	svc := s.providerService(c, modelUUID)
-	err := svc.CreateModel(c.Context())
+	err := svc.CreateModel(c.Context(), semversion.Zero, agentbinary.AgentStream(""))
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1242,7 +1244,7 @@ func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *t
 	}).Return(modelerrors.AlreadyExists)
 
 	svc := s.providerService(c, modelUUID)
-	err := svc.CreateModel(c.Context())
+	err := svc.CreateModel(c.Context(), semversion.Zero, agentbinary.AgentStream(""))
 	c.Assert(err, tc.ErrorIs, modelerrors.AlreadyExists)
 }
 
