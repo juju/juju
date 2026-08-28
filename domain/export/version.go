@@ -57,6 +57,19 @@ var exportVersionStrings = []string{
 // canonical "4.0.12"-style string in both JSON and YAML.
 var ExportVersions = parseExportVersions(exportVersionStrings)
 
+// controllerExportVersionStrings lists, in ascending order, each semantic
+// version for which there is a new controller-export format. Editable source
+// of truth for the controller-export generator pass; the controller schema
+// evolves independently of the model schema.
+var controllerExportVersionStrings = []string{
+	"4.1.0",
+}
+
+// ControllerExportVersions lists each semantic version for which there is a
+// new controller-export format, in ascending order. It is derived from
+// [controllerExportVersionStrings].
+var ControllerExportVersions = parseExportVersions(controllerExportVersionStrings)
+
 func parseExportVersions(versions []string) []semversion.Number {
 	parsed := make([]semversion.Number, len(versions))
 	for i, v := range versions {
@@ -108,6 +121,13 @@ func LatestSupportedPayloadVersion() semversion.Number {
 // has to come up through the intervening releases first.
 func OldestSupportedPayloadVersion() semversion.Number {
 	return slices.MinFunc(ExportVersions, semversion.Number.Compare)
+}
+
+// LatestControllerExportVersion returns the highest supported
+// controller-export schema version. Separate from the model-export versions:
+// the controller schema evolves independently.
+func LatestControllerExportVersion() semversion.Number {
+	return slices.MaxFunc(ControllerExportVersions, semversion.Number.Compare)
 }
 
 // CheckPayloadVersionSupported reports whether this controller can import a

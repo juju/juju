@@ -22,3 +22,15 @@ type ModelExport struct {
 	// populated with a model's data.
 	Payload any `json:"payload" yaml:"payload"`
 }
+
+// ControllerExport contains a typed controller database export payload and
+// the export version. Same wire shape as ModelExport.
+type ControllerExport struct {
+	// Version is the controller-export schema version that generated this
+	// export. Typed for the same reasons as [ModelExport.Version].
+	Version semversion.Number `json:"version" yaml:"version"`
+
+	// Payload is the export struct specific to the version,
+	// populated with controller database data.
+	Payload any `json:"payload" yaml:"payload"`
+}

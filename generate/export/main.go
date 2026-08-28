@@ -74,6 +74,27 @@ func main() {
 		fmt.Fprintf(os.Stderr, "failed to generate schema: %v\n", err)
 		os.Exit(1)
 	}
+
+	// Controller pass: a separate in-memory DB with the controller schema.
+	ctrlDB, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open controller database: %v\n", err)
+		os.Exit(1)
+	}
+	defer ctrlDB.Close()
+
+	ctrlRunner := &txnRunner{db: ctrlDB}
+	cm := database.NewDBMigration(ctrlRunner, logger.Noop(), schema.ControllerDDLForVersion(version.Current))
+	if err := cm.Apply(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to apply controller migration: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("Applied controller schema.")
+
+	if err := generateController(ctx, ctrlRunner); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to generate controller export: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func generate(ctx context.Context, runner *txnRunner) error {
@@ -129,6 +150,61 @@ func generate(ctx context.Context, runner *txnRunner) error {
 	}
 
 	return generateTransforms(exportVersionStrings(export.ExportVersions))
+}
+
+// generateController mirrors generate() for the controller schema. Transforms
+// stay model-only: the controller payload has no version history and its only
+// consumer is the backup feature.
+func generateController(ctx context.Context, runner *txnRunner) error {
+	if len(export.ControllerExportVersions) == 0 {
+		return fmt.Errorf("no controller export versions defined")
+	}
+	semanticVersion := slices.MaxFunc(
+		export.ControllerExportVersions, semversion.Number.Compare).String()
+
+	// Transform dots to underscores for use in package and directory names.
+	versionToken := strings.ReplaceAll(semanticVersion, ".", "_")
+
+	tableNames, err := getTableNames(ctx, runner)
+	if err != nil {
+		return err
+	}
+
+	var structs, structNames, usedTableNames []string
+	imports := make(map[string]struct{})
+
+	for _, tableName := range tableNames {
+		if tableName == "sqlite_sequence" {
+			continue
+		}
+
+		columns, err := getTableSchema(ctx, runner, tableName)
+		if err != nil {
+			return err
+		}
+
+		structDef, requiredImports, err := generateStruct(tableName, columns)
+		if err != nil {
+			return err
+		}
+
+		structs = append(structs, structDef)
+		structNames = append(structNames, toCamelCase(tableName))
+		usedTableNames = append(usedTableNames, tableName)
+		for _, imp := range requiredImports {
+			imports[imp] = struct{}{}
+		}
+	}
+
+	if err := writeControllerTypesFile(versionToken, usedTableNames, structs, structNames, imports); err != nil {
+		return err
+	}
+
+	if err := writeControllerStateFile(versionToken, semanticVersion, usedTableNames, structNames); err != nil {
+		return err
+	}
+
+	return writeControllerServiceFile(versionToken, semanticVersion)
 }
 
 func exportVersionStrings(versions []semversion.Number) []string {
@@ -502,6 +578,200 @@ func writeServiceModelVersionFile(versionToken, semanticVersion string) error {
 	}
 
 	testFilePath := filepath.Join(dir, "export_test.go")
+	fmt.Printf("writing to %s\n", testFilePath)
+	return os.WriteFile(testFilePath, testFormatted, 0644)
+}
+
+// writeControllerTypesFile emits the aggregate controller-export payload type
+// under domain/export/types/controller/v<token>/controller.go.
+func writeControllerTypesFile(
+	version string,
+	tableNames []string,
+	structs []string,
+	structNames []string,
+	imports map[string]struct{},
+) error {
+	_, filename, _, _ := runtime.Caller(0)
+	currentDir := filepath.Dir(filename)
+	repoRoot := filepath.Dir(filepath.Dir(currentDir))
+	dir := filepath.Join(repoRoot, "domain", "export", "types", "controller", fmt.Sprintf("v%s", version))
+
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	sortedImports := make([]string, 0, len(imports))
+	for imp := range imports {
+		sortedImports = append(sortedImports, imp)
+	}
+	sort.Strings(sortedImports)
+
+	tmplBytes, err := os.ReadFile(filepath.Join(filepath.Dir(filename), "controller_types.tmpl"))
+	if err != nil {
+		return err
+	}
+
+	data := struct {
+		Version     string
+		Imports     []string
+		TableNames  []string
+		Structs     []string
+		StructNames []string
+	}{
+		Version:     version,
+		Imports:     sortedImports,
+		TableNames:  tableNames,
+		Structs:     structs,
+		StructNames: structNames,
+	}
+
+	t := template.Must(template.New("controller_types").Parse(string(tmplBytes)))
+	var out bytes.Buffer
+	if err := t.Execute(&out, data); err != nil {
+		return err
+	}
+
+	formatted, err := format.Source(out.Bytes())
+	if err != nil {
+		return err
+	}
+
+	filePath := filepath.Join(dir, "controller.go")
+	fmt.Printf("writing to %s\n", filePath)
+	return os.WriteFile(filePath, formatted, 0644)
+}
+
+// writeControllerStateFile emits the controller export state into
+// domain/export/state/controller/export.go plus its smoke test.
+func writeControllerStateFile(
+	versionToken string,
+	semanticVersion string,
+	tableNames []string,
+	structNames []string,
+) error {
+	_, filename, _, _ := runtime.Caller(0)
+	currentDir := filepath.Dir(filename)
+	repoRoot := filepath.Dir(filepath.Dir(currentDir))
+	dir := filepath.Join(repoRoot, "domain", "export", "state", "controller")
+
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	tmplBytes, err := os.ReadFile(filepath.Join(filepath.Dir(filename), "controller_state.tmpl"))
+	if err != nil {
+		return err
+	}
+
+	data := struct {
+		VersionToken    string
+		SemanticVersion string
+		TableNames      []string
+		StructNames     []string
+	}{
+		VersionToken:    versionToken,
+		SemanticVersion: semanticVersion,
+		TableNames:      tableNames,
+		StructNames:     structNames,
+	}
+
+	t := template.Must(template.New("controller_state").Parse(string(tmplBytes)))
+	var out bytes.Buffer
+	if err := t.Execute(&out, data); err != nil {
+		return err
+	}
+
+	formatted, err := format.Source(out.Bytes())
+	if err != nil {
+		log.Printf("error formatting generated controller state: %v", err)
+		formatted = out.Bytes()
+	}
+
+	filePath := filepath.Join(dir, "export.go")
+	fmt.Printf("writing to %s\n", filePath)
+	if err := os.WriteFile(filePath, formatted, 0644); err != nil {
+		return err
+	}
+
+	testTmplBytes, err := os.ReadFile(filepath.Join(filepath.Dir(filename), "controller_state_test.tmpl"))
+	if err != nil {
+		return err
+	}
+
+	testT := template.Must(template.New("controller_state_test").Parse(string(testTmplBytes)))
+	var testOut bytes.Buffer
+	if err := testT.Execute(&testOut, data); err != nil {
+		return err
+	}
+	testFormatted, err := format.Source(testOut.Bytes())
+	if err != nil {
+		return err
+	}
+
+	testFilePath := filepath.Join(dir, "export_test.go")
+	fmt.Printf("writing to %s\n", testFilePath)
+	return os.WriteFile(testFilePath, testFormatted, 0644)
+}
+
+// writeControllerServiceFile emits the controller export service into
+// domain/export/service/controller_export.go plus its test.
+func writeControllerServiceFile(versionToken, semanticVersion string) error {
+	_, filename, _, _ := runtime.Caller(0)
+	currentDir := filepath.Dir(filename)
+	repoRoot := filepath.Dir(filepath.Dir(currentDir))
+	dir := filepath.Join(repoRoot, "domain", "export", "service")
+
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	tmplBytes, err := os.ReadFile(filepath.Join(filepath.Dir(filename), "controller_service.tmpl"))
+	if err != nil {
+		return err
+	}
+
+	data := struct {
+		VersionToken    string
+		SemanticVersion string
+	}{
+		VersionToken:    versionToken,
+		SemanticVersion: semanticVersion,
+	}
+
+	t := template.Must(template.New("controller_service").Parse(string(tmplBytes)))
+	var out bytes.Buffer
+	if err := t.Execute(&out, data); err != nil {
+		return err
+	}
+
+	formatted, err := format.Source(out.Bytes())
+	if err != nil {
+		return err
+	}
+
+	filePath := filepath.Join(dir, "controller_export.go")
+	fmt.Printf("writing to %s\n", filePath)
+	if err := os.WriteFile(filePath, formatted, 0644); err != nil {
+		return err
+	}
+
+	testTmplBytes, err := os.ReadFile(filepath.Join(filepath.Dir(filename), "controller_service_test.tmpl"))
+	if err != nil {
+		return err
+	}
+
+	testT := template.Must(template.New("controller_service_test").Parse(string(testTmplBytes)))
+	var testOut bytes.Buffer
+	if err := testT.Execute(&testOut, data); err != nil {
+		return err
+	}
+
+	testFormatted, err := format.Source(testOut.Bytes())
+	if err != nil {
+		return err
+	}
+
+	testFilePath := filepath.Join(dir, "controller_export_test.go")
 	fmt.Printf("writing to %s\n", testFilePath)
 	return os.WriteFile(testFilePath, testFormatted, 0644)
 }

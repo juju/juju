@@ -11,6 +11,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
+	ctrlv4_1_0 "github.com/juju/juju/domain/export/types/controller/v4_1_0"
 	v4_0_12 "github.com/juju/juju/domain/export/types/v4_0_12"
 	v4_1_0 "github.com/juju/juju/domain/export/types/v4_1_0"
 )
@@ -102,6 +103,45 @@ func (s *payloadSuite) TestDecoderRegistryCompleteness(c *tc.C) {
 
 		_, err := decode([]byte("{}"))
 		c.Assert(err, tc.ErrorIsNil, tc.Commentf("decoding empty payload for version %q", version))
+	}
+}
+
+// TestDecodeControllerPayloadRoundTrip verifies that a marshalled
+// v4_1_0 controller payload decodes back into the concrete generated type.
+func (s *payloadSuite) TestDecodeControllerPayloadRoundTrip(c *tc.C) {
+	in := ctrlv4_1_0.ControllerExport{
+		Controller: []ctrlv4_1_0.Controller{{
+			UUID:          "controller-uuid",
+			ModelUUID:     "model-uuid",
+			TargetVersion: "4.1.0",
+		}},
+	}
+	data, err := yaml.Marshal(in)
+	c.Assert(err, tc.ErrorIsNil)
+
+	decoded, err := DecodeControllerPayload(semversion.MustParse("4.1.0"), data)
+	c.Assert(err, tc.ErrorIsNil)
+	out, ok := decoded.(ctrlv4_1_0.ControllerExport)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(out, tc.DeepEquals, in)
+}
+
+// TestDecodeControllerPayloadUnknownVersion verifies that an unknown
+// controller export version is reported with NotSupported.
+func (s *payloadSuite) TestDecodeControllerPayloadUnknownVersion(c *tc.C) {
+	_, err := DecodeControllerPayload(semversion.MustParse("3.0.0"), []byte("{}"))
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
+}
+
+// TestControllerDecoderRegistryCompleteness asserts that every supported
+// controller export version has a decoder.
+func (s *payloadSuite) TestControllerDecoderRegistryCompleteness(c *tc.C) {
+	for _, version := range ControllerExportVersions {
+		decode, ok := controllerPayloadDecoders[version]
+		c.Assert(ok, tc.IsTrue, tc.Commentf("no controller payload decoder for export version %q", version))
+
+		_, err := decode([]byte("{}"))
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("decoding empty controller payload for version %q", version))
 	}
 }
 
