@@ -8,11 +8,14 @@
 package ssh
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"net"
 	"os"
+	"path"
 	"strconv"
+	"strings"
 	"text/template"
 
 	"github.com/juju/errors"
@@ -29,6 +32,7 @@ import (
 	controllerapi "github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/filecopy"
 	jujussh "github.com/juju/juju/internal/network/ssh"
 	"github.com/juju/juju/rpc/params"
 )
@@ -362,7 +366,7 @@ func (p *sshJump) ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 // copy transfers files through the controller SSH jump server.
 func (p *sshJump) copy(ctx Context) error {
 	if p.modelType == model.CAAS {
-		return errors.New("--jump is not supported for scp to Kubernetes targets")
+		return p.copyCAAS(ctx)
 	}
 
 	args, targets, err := expandSCPArgs(ctx, p.args, p.resolveTarget)
@@ -400,6 +404,138 @@ func (p *sshJump) showSCPCommand(w io.Writer, proxyTarget *resolvedTarget, args 
 		"JumpHost": proxyTarget.via.host,
 		"Args":     utils.CommandString(args...),
 	})
+}
+
+func (p *sshJump) copyCAAS(ctx Context) error {
+	if p.showCommand {
+		return errors.New("--show-command is not supported for Kubernetes pod file transfers; use juju ssh with tar instead")
+	}
+	args := p.args
+	if len(args) < 2 {
+		return errors.New("source and destination are required")
+	}
+	if len(args) > 2 {
+		return errors.New("only one source and one destination are allowed for a k8s application")
+	}
+	for _, arg := range args {
+		if strings.HasPrefix(arg, ":") {
+			return errors.New("target must match format: [pod[/container]:]path")
+		}
+	}
+
+	_, targets, err := expandSCPArgs(ctx, args, p.resolveTarget)
+	if err != nil {
+		return err
+	}
+	if len(targets) != 1 {
+		return errors.New("copy either from a pod to the client or from the client to a pod")
+	}
+
+	target := targets[0]
+	_, srcPath, srcIsRemote := strings.Cut(args[0], ":")
+	if srcIsRemote && !strings.HasPrefix(args[0], "-") {
+		return p.copyFromCAAS(srcPath, target, args[1])
+	}
+	_, destPath, _ := strings.Cut(args[1], ":")
+	return p.copyToCAAS(ctx, args[0], target, destPath)
+}
+
+func (p *sshJump) copyToCAAS(ctx Context, srcPath string, destTarget *resolvedTarget, destPath string) error {
+	if _, err := os.Stat(srcPath); err != nil {
+		return errors.Errorf("%q does not exist on local", srcPath)
+	}
+	if destPath != "/" && strings.HasSuffix(destPath, "/") {
+		destPath = strings.TrimSuffix(destPath, "/")
+	}
+
+	if err := p.checkRemotePathIsDir(destTarget, destPath); err == nil {
+		destPath = path.Join(destPath, path.Base(srcPath))
+	}
+
+	options, err := p.getSSHOptions(false, destTarget)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	reader, writer := io.Pipe()
+	defer reader.Close()
+	cmd := ssh.Command(destTarget.userHost(), []string{"tar", "-xmf", "-", "-C", path.Dir(destPath)}, options)
+	cmd.Stdin = reader
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	tarErr := make(chan error, 1)
+	go func() {
+		err := filecopy.MakeTar(srcPath, destPath, writer)
+		_ = writer.CloseWithError(err)
+		tarErr <- err
+	}()
+	cmdErr := cmd.Run()
+	_ = reader.Close()
+	if err := <-tarErr; err != nil {
+		return errors.Trace(err)
+	}
+	if cmdErr == nil {
+		return nil
+	}
+	return annotateRemoteCommandError(cmdErr, stderr.String())
+}
+
+func (p *sshJump) copyFromCAAS(srcPath string, srcTarget *resolvedTarget, destPath string) error {
+	options, err := p.getSSHOptions(false, srcTarget)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	reader, writer := io.Pipe()
+	defer reader.Close()
+	cmd := ssh.Command(srcTarget.userHost(), []string{"tar", "cf", "-", srcPath}, options)
+	cmd.Stdout = writer
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	cmdErr := make(chan error, 1)
+	go func() {
+		err := cmd.Run()
+		_ = writer.CloseWithError(err)
+		cmdErr <- err
+	}()
+
+	untarErr := filecopy.UntarAll(srcPath, reader, destPath)
+	if untarErr != nil {
+		_ = reader.Close()
+		<-cmdErr
+		return errors.Trace(untarErr)
+	}
+	// Close the reader after untarring is complete to end the SSH session.
+	_ = reader.Close()
+	err = <-cmdErr
+	if errors.Is(err, io.ErrClosedPipe) {
+		// The archive has been completely consumed if UntarAll returned nil.
+		// Closing the reader then can make the SSH stdout copier report a
+		// closed pipe even though tar completed successfully.
+		return nil
+	}
+	return annotateRemoteCommandError(err, stderr.String())
+}
+
+func annotateRemoteCommandError(err error, stderr string) error {
+	if stderr = strings.TrimSpace(stderr); stderr != "" {
+		return errors.Annotatef(err, "remote tar command failed: %s", stderr)
+	}
+	return errors.Trace(err)
+}
+
+func (p *sshJump) checkRemotePathIsDir(target *resolvedTarget, path string) error {
+	options, err := p.getSSHOptions(false, target)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	cmd := ssh.Command(target.userHost(), []string{"test", "-d", path}, options)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	return cmd.Run()
 }
 
 func (p *sshJump) setPublicKeyRetryStrategy(_ retry.CallArgs) {}
