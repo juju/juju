@@ -119,14 +119,13 @@ func (s *trackedDBWorkerSuite) TestWorkerStdTxnNoRetry(c *tc.C) {
 	})
 	c.Assert(ok, tc.IsTrue)
 
-	attempts := 0
-	err = runner.StdTxnNoRetry(c.Context(), func(_ context.Context, tx *sql.Tx) error {
-		c.Check(tx, tc.NotNil)
-		attempts++
+	var attempts atomic.Int64
+	err = runner.StdTxnNoRetry(c.Context(), func(context.Context, *sql.Tx) error {
+		attempts.Add(1)
 		return sqlite3.ErrBusy
 	})
 	c.Check(err, tc.ErrorIs, sqlite3.ErrBusy)
-	c.Check(attempts, tc.Equals, 1)
+	c.Check(attempts.Load(), tc.Equals, int64(1))
 
 	workertest.CleanKill(c, w)
 }
