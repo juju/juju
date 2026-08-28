@@ -1,5 +1,14 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+//
+// Portions of this file are derived from Kubernetes:
+// Copyright 2016 The Kubernetes Authors.
+// Licensed under the Apache License, Version 2.0.
+// You may obtain a copy of the License at:
+// https://www.apache.org/licenses/LICENSE-2.0
+//
+// Original source:
+// https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/kubectl/pkg/cmd/cp/cp.go
 
 package filecopy
 
