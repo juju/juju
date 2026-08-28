@@ -105,8 +105,8 @@ func NewDestroyCommandForTest(
 	store jujuclient.ClientStore,
 	apierr error,
 	controllerModelConfigAPI modelConfigAPI,
+	clock clock.Clock,
 	environsDestroy func(string, environs.ControllerDestroyer, context.Context, jujuclient.ControllerStore) error,
-
 ) cmd.Command {
 	cmd := &destroyCommand{
 		destroyCommandBase: destroyCommandBase{
@@ -115,6 +115,7 @@ func NewDestroyCommandForTest(
 			controllerModelConfigAPI: controllerModelConfigAPI,
 			environsDestroy:          environsDestroy,
 		},
+		clock: clock,
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.WrapController(
@@ -175,6 +176,10 @@ type ModelData modelData
 
 func FmtCtrStatus(data CtrData) string {
 	return fmtCtrStatus(ctrData(data))
+}
+
+func FmtCtrRemovalStatus(data CtrData) string {
+	return fmtCtrRemovalStatus(ctrData(data))
 }
 
 func FmtModelStatus(data ModelData) string {

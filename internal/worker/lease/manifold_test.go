@@ -13,7 +13,6 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/logger"
 )
 
 type manifoldSuite struct {
@@ -87,7 +86,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewWorker: func(mc ManagerConfig) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewStore: func(coredatabase.DBGetter, logger.Logger) lease.Store {
+		NewStore: func(coredatabase.DBGetter) lease.Store {
 			return nil
 		},
 		NewSecretaryFinder: func(s string) lease.SecretaryFinder {

@@ -162,7 +162,7 @@ func leaseManager(c *tc.C, controllerUUID string, db database.DBGetter, clock cl
 	logger := loggertesting.WrapCheckLog(c)
 	return lease.NewManager(lease.ManagerConfig{
 		SecretaryFinder:      internallease.NewSecretaryFinder(controllerUUID),
-		Store:                lease.NewStore(db, logger),
+		Store:                lease.NewStore(db),
 		Logger:               logger,
 		Clock:                clock,
 		MaxSleep:             time.Minute,

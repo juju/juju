@@ -29,10 +29,13 @@ test_deploy_attach_storage() {
 	juju remove-storage data/0 --no-destroy
 	wait_for "{}" ".storage"
 
-	# Clean up: make sure PersistentVolume is in available status
-	kubectl patch pv "${PV}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
+	# Clean up: ensure the PersistentVolume is available for reuse. Detach
+	# already set reclaim policy to Retain; claimRef clearing by the k8s PV
+	# controller is asynchronous, so clear it explicitly.
 	PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
-	kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found
+	if [ -n "${PVC}" ]; then
+		kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found
+	fi
 	kubectl patch pv "${PV}" --type merge -p '{"spec":{"claimRef": null}}'
 
 	# Import filesystem as data/0 in second model.

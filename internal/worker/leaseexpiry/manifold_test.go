@@ -83,6 +83,29 @@ func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 	workertest.CleanKill(c, work)
 }
 
+func (s *manifoldSuite) TestStartStoreError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expected := errors.New("boom")
+	cfg := s.newManifoldConfig(c)
+	cfg.NewStore = func(context.Context, coredatabase.DBGetter, logger.Logger) (lease.ExpiryStore, error) {
+		return nil, expected
+	}
+
+	work, err := leaseexpiry.Manifold(cfg).Start(c.Context(), s.newGetter())
+	c.Check(work, tc.IsNil)
+	c.Check(err, tc.ErrorIs, expected)
+}
+
+func (s *manifoldSuite) TestNewStoreRequiresStdTxnNoRetry(c *tc.C) {
+	_, err := leaseexpiry.NewStore(
+		c.Context(),
+		stubDBGetter{runner: noopTxnRunner{}},
+		loggertesting.WrapCheckLog(c),
+	)
+	c.Check(err, tc.ErrorMatches, "database transaction runner .* does not support StdTxnNoRetry")
+}
+
 func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -109,8 +132,8 @@ func (s *manifoldSuite) newManifoldConfig(c *tc.C) leaseexpiry.ManifoldConfig {
 		NewWorker: func(config leaseexpiry.Config) (worker.Worker, error) {
 			return workertest.NewErrorWorker(nil), nil
 		},
-		NewStore: func(db coredatabase.DBGetter, logger logger.Logger) lease.ExpiryStore {
-			return s.store
+		NewStore: func(context.Context, coredatabase.DBGetter, logger.Logger) (lease.ExpiryStore, error) {
+			return s.store, nil
 		},
 	}
 }

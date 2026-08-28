@@ -258,7 +258,7 @@ func (s *controllerImportSuite) TestImportModelHappyPath(c *tc.C) {
 	c.Check(lastLogin.Equal(bobLastLogin), tc.IsTrue, tc.Commentf("got %s, want %s", lastLogin, bobLastLogin))
 
 	// The leadership lease was claimed fresh.
-	leaseSvc := leaseservice.NewService(leasestate.NewState(controllerFactory, loggertesting.WrapCheckLog(c)))
+	leaseSvc := leaseservice.NewService(leasestate.NewState(controllerFactory))
 	leaseKey := corelease.Key{ModelUUID: modelUUID.String(), Namespace: corelease.ApplicationLeadershipNamespace, Lease: "myapp"}
 	leases, err := leaseSvc.Leases(c.Context(), leaseKey)
 	c.Assert(err, tc.ErrorIsNil)

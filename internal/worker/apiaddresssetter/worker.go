@@ -64,14 +64,19 @@ type ApplicationService interface {
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
 type NetworkService interface {
-	// GetControllerAPIAddresses returns all addresses which can be used for
-	// API addresses for the specified unit. local-machine scoped addresses
-	// will not be returned.
+	// GetControllerAPIAddresses returns the preferred addresses which can be
+	// used as API addresses for the specified unit, honouring the management
+	// space when one is configured. Local-machine scoped addresses will not be
+	// returned.
 	//
 	// The following errors may be returned:
 	// - [uniterrors.UnitNotFound] if the unit does not exist
 	// - [network.NoAddressError] if the unit has no api address associated
-	GetControllerAPIAddresses(ctx context.Context, unitName unit.Name) (network.SpaceAddresses, error)
+	GetControllerAPIAddresses(
+		ctx context.Context,
+		unitName unit.Name,
+		managementSpace *network.SpaceInfo,
+	) (network.SpaceAddresses, error)
 	// SpaceByName returns a space from state that matches the input name. If the
 	// space is not found, an error is returned matching
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
@@ -349,7 +354,7 @@ func (w *apiAddressSetterWorker) updateAPIAddresses(ctx context.Context) error {
 		if err != nil {
 			return errors.Capture(err)
 		}
-		addrs, err := w.config.NetworkService.GetControllerAPIAddresses(ctx, unitName)
+		addrs, err := w.config.NetworkService.GetControllerAPIAddresses(ctx, unitName, mgmtSpace)
 		if err != nil {
 			return errors.Capture(err)
 		}

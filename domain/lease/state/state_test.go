@@ -13,7 +13,6 @@ import (
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/domain/lease/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -30,7 +29,7 @@ func TestStateSuite(t *testing.T) {
 func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
-	s.store = state.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	s.store = state.NewState(s.TxnRunnerFactory())
 }
 
 func (s *stateSuite) TestClaimLeaseSuccessAndLeaseQueries(c *tc.C) {
@@ -254,35 +253,4 @@ func (s *stateSuite) TestLeaseOperationCancellation(c *tc.C) {
 
 	err := s.store.ClaimLease(ctx, uuid.MustNewUUID(), key, req)
 	c.Assert(err, tc.ErrorMatches, "context canceled")
-}
-
-func (s *stateSuite) TestWorkerDeletesExpiredLeases(c *tc.C) {
-	// Insert 2 leases, one with an expiry time in the past,
-	// another in the future.
-	q := `
-INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
-VALUES (?, 1, 'some-model-uuid', ?, ?, datetime('now'), datetime('now', ?))`[1:]
-
-	stmt, err := s.DB().Prepare(q)
-	c.Assert(err, tc.ErrorIsNil)
-
-	defer stmt.Close()
-
-	_, err = stmt.Exec(uuid.MustNewUUID().String(), "postgresql", "postgresql/0", "+2 minutes")
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = stmt.Exec(uuid.MustNewUUID().String(), "redis", "redis/0", "-2 minutes")
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.store.ExpireLeases(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Only the postgresql lease (expiring in the future) should remain.
-	row := s.DB().QueryRow("SELECT name FROM LEASE")
-	var name string
-	err = row.Scan(&name)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(row.Err(), tc.ErrorIsNil)
-
-	c.Check(name, tc.Equals, "postgresql")
 }

@@ -60,6 +60,17 @@ type NetInterface struct {
 	// here and handled by network config updates if they become pertinent.
 }
 
+// ControllerAPIAddress is an address that can be advertised for a controller,
+// together with the type of device that supplies it.
+type ControllerAPIAddress struct {
+	network.SpaceAddress
+	DeviceType DeviceType
+}
+
+// ControllerAPIAddresses is a collection of controller API address
+// candidates.
+type ControllerAPIAddresses []ControllerAPIAddress
+
 // DeviceToBridge indicates a device on a known machine that should be bridged
 // in order to provision a container or virtual machine on it with appropriate
 // network connectivity.

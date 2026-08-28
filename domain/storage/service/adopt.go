@@ -32,6 +32,14 @@ type AdoptState interface {
 		resourceTagModelConfigKey string,
 	) (domainstorageprovisioning.ModelResourceTagInfo, error)
 
+	// GetStorageFilesystemUUIDByProviderID returns the UUID of the
+	// storage_filesystem row with the given provider ID, or
+	// [domainstorageerrors.FilesystemNotFound] if none exists.
+	GetStorageFilesystemUUIDByProviderID(
+		ctx context.Context,
+		providerID string,
+	) (domainstorage.FilesystemUUID, error)
+
 	// CreateStorageInstanceWithExistingFilesystem creates a new storage
 	// instance, with a filesystem using existing provisioned filesystem
 	// details. It returns the new storage ID for the created storage instance.
@@ -42,8 +50,7 @@ type AdoptState interface {
 
 	// CreateStorageInstanceWithExistingVolumeBackedFilesystem creates a new
 	// storage instance, with a filesystem and volume using existing provisioned
-	// volume details. It returns the new storage ID for the created storage
-	// instance.
+	// volume details. It returns the new storage ID for the created storage instance.
 	CreateStorageInstanceWithExistingVolumeBackedFilesystem(
 		ctx context.Context,
 		args domainstorageinternal.CreateStorageInstanceWithExistingVolumeBackedFilesystem,
@@ -314,8 +321,8 @@ func (s *StorageService) adoptFilesystem(
 		ctx, providerID, storageName.String(), tags, force)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return "", errors.Errorf(
-			"storage provider does not support adopting filesystem %q",
-			providerID,
+			"storage provider does not support adopting filesystem %q: %w",
+			providerID, err,
 		).Add(domainstorageerrors.AdoptionNotSupported)
 	} else if errors.Is(err, coreerrors.NotFound) {
 		return "", errors.Errorf(
@@ -352,6 +359,12 @@ func (s *StorageService) adoptFilesystem(
 	storageInstanceID, err := s.st.CreateStorageInstanceWithExistingFilesystem(
 		ctx, args,
 	)
+	if errors.Is(err, domainstorageerrors.StorageFilesystemAlreadyExists) {
+		return "", errors.Errorf(
+			"storage filesystem with provider id %q is already adopted",
+			fsInfo.ProviderId,
+		).Add(domainstorageerrors.StorageFilesystemAlreadyExists)
+	}
 	if err != nil {
 		return "", errors.Errorf(
 			"creating adopted storage instance with filesystem: %w", err,

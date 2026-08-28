@@ -20,7 +20,7 @@ test_import_filesystem() {
 	wait_for_storage "attached" '.storage["data/0"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV=$(juju storage --format json | yq -r '.volumes["0"]."provider-id"')
+	PV=$(juju storage --format json | yq -r '.filesystems["0"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
 	juju remove-application dummy-k8s-storage --no-prompt
@@ -28,33 +28,30 @@ test_import_filesystem() {
 	juju remove-storage data/0 --no-destroy
 	wait_for "{}" ".storage"
 
-	# Attempt to import the PersistentVolume: expect failure due to reclaim policy.
-	set +e
-	OUT=$(juju import-filesystem kubernetes "${PV}" data 2>&1)
-	set -e
-	echo "${OUT}" | check \
-		"importing volume \"${PV}\" with reclaim policy \"Delete\" not supported \(must be \"Retain\"\)"
-
-	# Fix: update the PersistentVolume's reclaim policy to 'Retain'.
-	kubectl patch pv "${PV}" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
-
-	# Attempt to import the PersistentVolume: expect failure due to existing claimRef.
-	set +e
-	OUT=$(juju import-filesystem kubernetes "${PV}" data 2>&1)
-	set -e
-	echo "${OUT}" | check \
-		"importing volume \"${PV}\" already bound to a claim not supported"
-
-	# Fix: delete the PVC and remove the claimRef from the PersistentVolume.
+	# Juju 4.0 storage detach already sets the PV reclaim policy to Retain
+	# and deletes the PVC. The k8s PV controller clears claimRef asynchronously;
+	# clear it explicitly to keep the test deterministic. Error-path assertions
+	# for reclaim policy and claimRef are covered by unit tests in
+	# internal/provider/kubernetes/storage_test.go.
 	PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
-	kubectl delete pvc "${PVC}" -n "${model_name}"
+	if [ -n "${PVC}" ]; then
+		kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found=true
+	fi
 	kubectl patch pv "${PV}" --type merge -p '{"spec":{"claimRef": null}}'
 
 	# Final attempt: import the PersistentVolume successfully.
-	OUT=$(juju import-filesystem kubernetes "${PV}" data 2>&1)
+	juju import-filesystem kubernetes "${PV}" data
 
 	wait_for_storage "detached" '.storage["data/1"]["status"].current'
-	wait_for_storage "${PV}" '.volumes["1"]."provider-id"'
+	wait_for_storage "${PV}" '.filesystems["1"]."provider-id"'
+
+	# WORKAROUND(juju/juju#23069): Juju 4.0 model destroy does not cascade
+	# removal of detached storage instances, causing the model-removal job to
+	# retry forever on checkNoModelDependents. Remove the imported storage
+	# explicitly before destroying the model. Delete this workaround when
+	# the issue is resolved.
+	juju remove-storage data/1 --no-destroy
+	wait_for "{}" ".storage"
 
 	# Destroy the test model.
 	destroy_model "${model_name}"
@@ -82,45 +79,92 @@ test_force_import_filesystem() {
 	wait_for_storage "attached" '.storage["data/0"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV=$(juju storage --format json | yq -r '.volumes["0"]."provider-id"')
+	PV=$(juju storage --format json | yq -r '.filesystems["0"]."provider-id"')
+	# Capture the original PVC identity so we can re-create a synthetic
+	# Juju-managed PVC bound to the retained PV if Juju 4.0 detach has
+	# already cleaned up the original one.
+	ORIG_PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
 
-	# Clean up: remove the application and associated storage (retain PV).
-	juju remove-application dummy-k8s-storage --no-prompt
+	# Remove only the application. We deliberately do NOT run
+	# `juju remove-storage data/0`; the goal is to leave a Juju-managed
+	# PVC bound to the PV so that `import-filesystem --force` actually
+	# exercises the new forced cleanup path (delete the PVC, clear the
+	# claimRef).
+	juju remove-application dummy-k8s-storage --force --no-prompt
 	wait_for "{}" ".applications"
-	juju remove-storage data/0 --no-destroy
-	wait_for "{}" ".storage"
 
-	# Attempt to import the PersistentVolume: expect failure due to reclaim policy.
-	set +e
-	OUT=$(juju import-filesystem kubernetes "${PV}" data 2>&1)
-	set -e
-	echo "${OUT}" | check \
-		"importing volume \"${PV}\" with reclaim policy \"Delete\" not supported \(must be \"Retain\"\)"
-
-	# Test import PV which PVC not managed by juju.
+	# If Juju 4.0 detach already deleted the PVC, the k8s PV controller
+	# may also have asynchronously cleared the PV's claimRef. Re-create a
+	# synthetic Juju-managed PVC bound to the retained PV, then patch the
+	# PV's claimRef to point at it. This makes the import --force path
+	# actually do real work rather than seeing an already-cleared PV.
 	PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
-	ORIGINAL_LABEL=$(kubectl get pvc "${PVC}" -n "${model_name}" -o json | yq -r '.metadata.labels["app.kubernetes.io/managed-by"]')
-	kubectl label pvc -n "${model_name}" "${PVC}" app.kubernetes.io/managed-by=not-juju --overwrite
+	if [ -z "${PVC}" ]; then
+		# Capture storage class + size from the original PV.
+		STORAGE_CLASS=$(kubectl get pv "${PV}" -o jsonpath='{.spec.storageClassName}')
+		# PVC UID is generated by k8s on create; capture it so we can
+		# patch it into the PV's claimRef.UID for the new identity check.
+		NEW_PVC_NAME="${ORIG_PVC:-imported-data-0}"
+		kubectl create -f - <<EOF
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ${NEW_PVC_NAME}
+  namespace: ${model_name}
+  labels:
+    app.kubernetes.io/managed-by: juju
+    storage.juju.is/name: data
+spec:
+  storageClassName: ${STORAGE_CLASS}
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+  volumeName: ${PV}
+EOF
 
-	set +e
-	OUT=$(juju import-filesystem kubernetes "${PV}" data --force 2>&1)
-	set -e
+		# Wait for the PVC to materialise so we can capture its UID.
+		attempt=0
+		until kubectl get pvc "${NEW_PVC_NAME}" -n "${model_name}" >/dev/null 2>&1; do
+			sleep "${SHORT_TIMEOUT}"
+			attempt=$((attempt + 1))
+			if [[ ${attempt} -gt 10 ]]; then
+				echo "ERROR: synthetic PVC ${NEW_PVC_NAME} not created"
+				exit 1
+			fi
+		done
+		NEW_PVC_UID=$(kubectl get pvc "${NEW_PVC_NAME}" -n "${model_name}" -o jsonpath='{.metadata.uid}')
+		kubectl patch pv "${PV}" --type merge -p "$(cat <<EOF
+{"spec":{"claimRef":{"namespace":"${model_name}","name":"${NEW_PVC_NAME}","uid":"${NEW_PVC_UID}"}}}
+EOF
+)"
+		PVC="${NEW_PVC_NAME}"
+	fi
 
-	echo "${OUT}" | check \
-		"importing volume: importing PersistentVolume \"${PV}\" whose PersistentVolumeClaim is not managed by juju: unexpected storage labels"
-
-	kubectl label pvc -n "${model_name}" "${PVC}" app.kubernetes.io/managed-by="${ORIGINAL_LABEL}" --overwrite
-
-	# Final attempt: import the PersistentVolume successfully.
-	OUT=$(juju import-filesystem kubernetes "${PV}" data --force 2>&1)
+	# Run import-filesystem --force. The command itself must delete the
+	# PVC and clear the PV's claimRef. Assert post-import state to confirm
+	# the forced cleanup actually happened.
+	juju import-filesystem kubernetes "${PV}" data --force
 
 	wait_for_storage "detached" '.storage["data/1"]["status"].current'
 
-	# Ensure pv imported & status is available.
-	PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
-	echo "${PVC}" | check ""
+	# Force-import must have removed the PVC and cleared the claimRef.
+	if kubectl get pvc "${PVC}" -n "${model_name}" >/dev/null 2>&1; then
+		echo "ERROR: import --force did not delete PVC ${PVC}"
+		exit 1
+	fi
+	CLAIMREF=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
+	echo "${CLAIMREF}" | check ""
 	RECLAIM_POLICY=$(kubectl get pv "${PV}" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}')
 	echo "${RECLAIM_POLICY}" | check "Retain"
+
+	# WORKAROUND(juju/juju#23069): Juju 4.0 model destroy does not cascade
+	# removal of detached storage instances, causing the model-removal job to
+	# retry forever on checkNoModelDependents. Remove the imported storage
+	# explicitly before destroying the model. Delete this workaround when
+	# the issue is resolved.
+	juju remove-storage data/1 --no-destroy
+	wait_for "{}" ".storage"
 
 	# Destroy the test model.
 	destroy_model "${model_name}"
