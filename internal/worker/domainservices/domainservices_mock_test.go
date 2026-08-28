@@ -86,6 +86,7 @@ type MockControllerDomainServicesMockRecorder struct {
 	controllerAgentBinaryStoreExpects []*gomock.Call0_1[*service0.AgentBinaryStore]
 	controllerChangeStreamExpects     []*gomock.Call0_1[*service8.Service]
 	controllerConfigExpects           []*gomock.Call0_1[*service12.WatchableService]
+	controllerExportExpects           []*gomock.Call0_1[*service17.ControllerService]
 	controllerNodeExpects             []*gomock.Call0_1[*service13.WatchableService]
 	credentialExpects                 []*gomock.Call0_1[*service15.WatchableService]
 	externalControllerExpects         []*gomock.Call0_1[*service18.WatchableService]
@@ -238,6 +239,24 @@ func (mr *MockControllerDomainServicesMockRecorder) ControllerConfig() *MockCont
 
 // MockControllerDomainServicesControllerConfigCall is the typed call wrapper for ControllerConfig.
 type MockControllerDomainServicesControllerConfigCall = gomock.Call0_1[*service12.WatchableService]
+
+// ControllerExport mocks base method.
+func (m *MockControllerDomainServices) ControllerExport() *service17.ControllerService {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.controllerExportExpects, m.ctrl, m, "ControllerExport")
+}
+
+// ControllerExport indicates an expected call of ControllerExport.
+func (mr *MockControllerDomainServicesMockRecorder) ControllerExport() *MockControllerDomainServicesControllerExportCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*service17.ControllerService](mr.mock.ctrl.T, mr.mock, "ControllerExport")
+	mr.controllerExportExpects = append(mr.controllerExportExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerDomainServicesControllerExportCall is the typed call wrapper for ControllerExport.
+type MockControllerDomainServicesControllerExportCall = gomock.Call0_1[*service17.ControllerService]
 
 // ControllerNode mocks base method.
 func (m *MockControllerDomainServices) ControllerNode() *service13.WatchableService {
@@ -1267,6 +1286,7 @@ type MockDomainServicesMockRecorder struct {
 	controllerAgentBinaryStoreExpects []*gomock.Call0_1[*service0.AgentBinaryStore]
 	controllerChangeStreamExpects     []*gomock.Call0_1[*service8.Service]
 	controllerConfigExpects           []*gomock.Call0_1[*service12.WatchableService]
+	controllerExportExpects           []*gomock.Call0_1[*service17.ControllerService]
 	controllerNodeExpects             []*gomock.Call0_1[*service13.WatchableService]
 	controllerUpgraderExpects         []*gomock.Call0_1[*service14.Service]
 	credentialExpects                 []*gomock.Call0_1[*service15.WatchableService]
@@ -1662,6 +1682,24 @@ func (mr *MockDomainServicesMockRecorder) ControllerConfig() *MockDomainServices
 
 // MockDomainServicesControllerConfigCall is the typed call wrapper for ControllerConfig.
 type MockDomainServicesControllerConfigCall = gomock.Call0_1[*service12.WatchableService]
+
+// ControllerExport mocks base method.
+func (m *MockDomainServices) ControllerExport() *service17.ControllerService {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.controllerExportExpects, m.ctrl, m, "ControllerExport")
+}
+
+// ControllerExport indicates an expected call of ControllerExport.
+func (mr *MockDomainServicesMockRecorder) ControllerExport() *MockDomainServicesControllerExportCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*service17.ControllerService](mr.mock.ctrl.T, mr.mock, "ControllerExport")
+	mr.controllerExportExpects = append(mr.controllerExportExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockDomainServicesControllerExportCall is the typed call wrapper for ControllerExport.
+type MockDomainServicesControllerExportCall = gomock.Call0_1[*service17.ControllerService]
 
 // ControllerNode mocks base method.
 func (m *MockDomainServices) ControllerNode() *service13.WatchableService {

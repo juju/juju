@@ -111,6 +111,10 @@ type ControllerDomainServices interface {
 	Logging() *loggingservice.WatchableService
 	// SSHServerHostKey returns the service for controller SSH server host keys.
 	SSHServerHostKey() *sshcontrollerservice.Service
+	// ControllerExport returns the controller export service. It is named
+	// ControllerExport because [ModelDomainServices.Export] already occupies
+	// Export in the embedded [DomainServices] union.
+	ControllerExport() *exportservice.ControllerService
 }
 
 // ModelDomainServices provides access to the services required by the
