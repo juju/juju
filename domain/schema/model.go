@@ -123,64 +123,7 @@ const (
 var modelPostPatchFilesByVersion = []struct {
 	version semversion.Number
 	files   []string
-}{{
-	version: semversion.MustParse("4.0.1"),
-	files: []string{
-		"0035-cleanup.PATCH.sql",
-		"0036-machine-status.PATCH.sql",
-		"0037-model-migrating.PATCH.sql",
-		"0038-relation.PATCH.sql",
-		"0039-secret-metadata.PATCH.sql",
-		"0040-operator-status.PATCH.sql",
-		"0041-offer.PATCH.sql",
-		"0042-model-config.PATCH.sql",
-	},
-}, {
-	version: semversion.MustParse("4.0.2"),
-	files: []string{
-		"0043-k8s-provider-id.PATCH.sql",
-		"0044-secret.PATCH.sql",
-		"0045-veth-nic-type.PATCH.sql",
-		"0046-relation.PATCH.sql",
-		"0047-secret.PATCH.sql",
-		"0048-offer.PATCH.sql",
-	},
-}, {
-	version: semversion.MustParse("4.0.4"),
-	files: []string{
-		"0049-object-store-node-id.PATCH.sql",
-		"0050-secret.PATCH.sql",
-		"0051-secret-removal.PATCH.sql",
-		"0052-resource.PATCH.sql",
-	},
-}, {
-	version: semversion.MustParse("4.0.6"),
-	files: []string{
-		"0053-network.PATCH.sql",
-		"0054-application-k8s-resources.PATCH.sql",
-		"0055-constraint-view.PATCH.sql",
-		"0056-blockdevice-partial.PATCH.sql",
-	},
-}, {
-	version: semversion.MustParse("4.0.7"),
-	files: []string{
-		"0057-model-migrating-triggers.PATCH.sql",
-	},
-}, {
-	version: semversion.MustParse("4.0.12"),
-	files: []string{
-		"0058-charm-secret-removal.PATCH.sql",
-		"0059-machine-status.PATCH.sql",
-		"0060-view-indexes.PATCH.sql",
-		"0061-secret-reservation.PATCH.sql",
-	},
-}, {
-	version: semversion.MustParse("4.0.15"),
-	files: []string{
-		"0062-storage-filesystem-provider-id-unique.PATCH.sql",
-		"0063-agent-stream-cleanup.PATCH.sql",
-	},
-}}
+}{}
 
 // ModelDDL is used to create model databases.
 func ModelDDL() *schema.Schema {

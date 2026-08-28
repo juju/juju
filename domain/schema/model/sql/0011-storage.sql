@@ -399,7 +399,7 @@ ON storage_filesystem (filesystem_id);
 
 -- index is required on provider_id because this is how we associate what we
 -- find in the environ and re-attach it to a unit.
-CREATE INDEX idx_storage_filesystem_provider_id
+CREATE UNIQUE INDEX idx_storage_filesystem_provider_id
 ON storage_filesystem (provider_id);
 
 -- An instance can have at most one filesystem.
