@@ -250,7 +250,7 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesIncludesK8sServicePlaceh
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-c.Check(addr, tc.SameContents, domainnetwork.ControllerAPIAddresses{{
+	c.Check(addr, tc.SameContents, domainnetwork.ControllerAPIAddresses{{
 		SpaceAddress: corenetwork.SpaceAddress{
 			SpaceID: corenetwork.SpaceUUID(spaceUUID),
 			Origin:  corenetwork.OriginProvider,

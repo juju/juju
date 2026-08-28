@@ -407,20 +407,21 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 	controllerWorkers := set.NewStrings(
 		"api-remote-caller",
 		"certificate-watcher",
+		"controller-log-router",
+		"controller-log-sink",
 		"controller-proxy-config-updater",
 		"controller-proxy-ready-flag",
 		"controller-proxy-ready-gate",
-		"controller-log-router",
-		"controller-log-sink",
-		"trace-services",
 		"db-accessor",
 		"file-notify-watcher",
 		"is-primary-controller-flag",
 		"jwt-parser",
-"log-sink",
+		"lease-expiry",
+		"log-sink",
 		"query-logger",
 		"ssh-server",
 		"ssh-tunneler",
+		"trace-services",
 		"undertaker",
 		"upgrade-controller-steps-runner",
 		"upgrade-database-flag",
@@ -433,7 +434,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		"api-address-setter",
 		"change-stream-pruner",
 		"external-controller-updater",
-"lease-expiry",
 		"object-store-drainer",
 		"secret-backend-rotate",
 	)
@@ -797,7 +797,7 @@ func (*ManifoldsSuite) TestLeaseExpiryDirectInputs(c *tc.C) {
 		c.Check(manifold.Inputs, tc.SameContents, []string{
 			"db-accessor",
 			"controller-trace",
-			"is-primary-controller-flag",
+			"is-controller-flag",
 		})
 		checkNotContains(c, manifold.Inputs, "clock")
 	}
@@ -1733,8 +1733,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"db-accessor",
 		"file-notify-watcher",
 		"is-controller-flag",
-		"is-primary-controller-flag",
-		"lease-manager",
 		"query-logger",
 		"state-config-watcher",
 		"trace-services",
@@ -1845,7 +1843,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 	},
-"machine-setup": {
+	"machine-setup": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -3262,8 +3260,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"db-accessor",
 		"file-notify-watcher",
 		"is-controller-flag",
-		"is-primary-controller-flag",
-		"lease-manager",
 		"query-logger",
 		"state-config-watcher",
 		"trace-services",

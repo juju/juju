@@ -12,7 +12,7 @@ pack_charm() {
 	CHARM_NAME=$(basename "$CHARM_DIR")
 
 	charmcraft pack -p "$CHARM_DIR"
-local charm_file
+	local charm_file
 	charm_file=$(ls -1 ./"${CHARM_NAME}"_*.charm 2>/dev/null | head -n1)
 	echo "${charm_file:-./${CHARM_NAME}_*.charm}"
 }
