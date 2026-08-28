@@ -83,30 +83,36 @@ func (st *State) GetControllerAPIAddresses(
 
 	ident := entityUUID{UUID: unitUUID}
 
-type apiAddressFilter struct {
-		ScopeName string `db:"scope_name"`
+	type apiAddressFilter struct {
+		VirtualEthernetDeviceType string `db:"virtual_ethernet_device_type"`
+		LoopbackDeviceType        string `db:"loopback_device_type"`
+		ScopeName                 string `db:"scope_name"`
 	}
 	filter := apiAddressFilter{
-		ScopeName: corenetwork.ScopeMachineLocal.String(),
+		VirtualEthernetDeviceType: corenetwork.VirtualEthernetDevice.String(),
+		LoopbackDeviceType:        corenetwork.LoopbackDevice.String(),
+		ScopeName:                 corenetwork.ScopeMachineLocal.String(),
 	}
 
 	queryUnitAPIAddressesStmt, err := st.Prepare(`
 WITH unit_net_node AS (
-	SELECT ks.net_node_uuid AS net_node_uuid
-	FROM   unit AS u
-	JOIN   application AS app ON u.application_uuid = app.uuid
-	JOIN   k8s_service AS ks ON app.uuid = ks.application_uuid
-	WHERE  u.uuid = $entityUUID.uuid
-	UNION
-	SELECT u.net_node_uuid AS net_node_uuid
-	FROM   unit AS u
-	WHERE  u.uuid = $entityUUID.uuid
+    SELECT u.net_node_uuid,
+           EXISTS (
+               SELECT 1
+               FROM   k8s_service AS ks
+               WHERE  ks.application_uuid = u.application_uuid
+           ) AS is_caas
+    FROM   unit AS u
+    WHERE  u.uuid = $entityUUID.uuid
 )
 SELECT ipa.address_value AS &controllerAPIAddress.address_value,
        iact.name AS &controllerAPIAddress.config_type_name,
        iat.name AS &controllerAPIAddress.type_name,
        iao.name AS &controllerAPIAddress.origin_name,
-       ias.name AS &controllerAPIAddress.scope_name,
+       CASE WHEN unn.is_caas = 1
+            THEN 'local-cloud'
+            ELSE ias.name
+       END AS &controllerAPIAddress.scope_name,
        ipa.device_uuid AS &controllerAPIAddress.device_uuid,
        sn.space_uuid AS &controllerAPIAddress.space_uuid,
        sn.cidr AS &controllerAPIAddress.cidr,
@@ -116,12 +122,16 @@ JOIN   ip_address AS ipa ON unn.net_node_uuid = ipa.net_node_uuid
 JOIN   link_layer_device AS lld
        ON ipa.device_uuid = lld.uuid
        AND unn.net_node_uuid = lld.net_node_uuid
+JOIN   link_layer_device_type AS lldt ON lld.device_type_id = lldt.id
 JOIN   ip_address_config_type AS iact ON ipa.config_type_id = iact.id
 JOIN   ip_address_type AS iat ON ipa.type_id = iat.id
 JOIN   ip_address_origin AS iao ON ipa.origin_id = iao.id
 JOIN   ip_address_scope AS ias ON ipa.scope_id = ias.id
 LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
-WHERE  ias.name != $apiAddressFilter.scope_name
+WHERE  lldt.name != $apiAddressFilter.virtual_ethernet_device_type
+AND    lldt.name != $apiAddressFilter.loopback_device_type
+AND    (unn.is_caas = 1
+        OR ias.name != $apiAddressFilter.scope_name)
 `, controllerAPIAddress{}, entityUUID{}, apiAddressFilter{})
 	if err != nil {
 		return nil, errors.Capture(err)
