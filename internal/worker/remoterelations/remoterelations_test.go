@@ -827,8 +827,62 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *gc.C) {
 	c.Assert(unitsWatcher.killed(), jc.IsTrue)
 	expected = []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
+		{"PublishRelationChange", []interface{}{
+			params.RemoteRelationChangeEvent{
+				ApplicationToken: "token-django",
+				RelationToken:    "token-db2:db django:db",
+				Life:             life.Dying,
+				Macaroons:        macaroon.Slice{mac},
+				BakeryVersion:    bakery.LatestVersion,
+				ForceCleanup:     new(true),
+			},
+		}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
+}
+
+func (s *remoteRelationsSuite) TestPublishRelationRemovedRemoteNotFound(c *gc.C) {
+	w := s.assertRemoteRelationsWorkers(c)
+	defer workertest.CleanKill(c, w)
+	s.stub.ResetCalls()
+
+	s.relationsFacade.removeRelation("db2:db django:db")
+	s.stub.SetErrors(nil, params.Error{Code: params.CodeNotFound})
+
+	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher.changes <- []string{"db2:db django:db"}
+
+	mac, err := apitesting.NewMacaroon("apimac")
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []jujutesting.StubCall{
+		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
+		{"PublishRelationChange", []interface{}{
+			params.RemoteRelationChangeEvent{
+				ApplicationToken: "token-django",
+				RelationToken:    "token-db2:db django:db",
+				Life:             life.Dying,
+				Macaroons:        macaroon.Slice{mac},
+				BakeryVersion:    bakery.LatestVersion,
+				ForceCleanup:     new(true),
+			},
+		}},
+	}
+	s.waitForWorkerStubCalls(c, expected)
+}
+
+func (s *remoteRelationsSuite) TestPublishRelationRemovedError(c *gc.C) {
+	// When PublishRelationChange returns a non-NotFound error, the
+	// worker should die so the error is surfaced.
+	w := s.assertRemoteRelationsWorkers(c)
+	s.stub.ResetCalls()
+
+	s.relationsFacade.removeRelation("db2:db django:db")
+	s.stub.SetErrors(nil, errors.New("boom"))
+
+	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher.changes <- []string{"db2:db django:db"}
+
+	workertest.DirtyKill(c, w)
 }
 
 func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *gc.C) {
