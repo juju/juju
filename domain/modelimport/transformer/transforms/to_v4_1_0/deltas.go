@@ -157,11 +157,3 @@ func (d deltas) SshConnectionRequest(_ context.Context, _ *v4_0_12.ModelExport) 
 	// to transform from 4.0.12.
 	return nil, nil
 }
-
-// SshConnectionRequestAddress returns no rows for 4.0.12 payloads. The source
-// schema has no SSH connection request address table.
-func (d deltas) SshConnectionRequestAddress(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.SshConnectionRequestAddress, error) {
-	// The ssh_connection_request_address table was added in 4.1.0, so there
-	// are no rows to transform from 4.0.12.
-	return nil, nil
-}

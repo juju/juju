@@ -16,8 +16,6 @@ import (
 	time "time"
 
 	gomock "github.com/canonical/gomock/gomock"
-	names "github.com/juju/names/v6"
-
 	api "github.com/juju/juju/api"
 	application "github.com/juju/juju/api/client/application"
 	client "github.com/juju/juju/api/client/client"
@@ -29,6 +27,7 @@ import (
 	charm0 "github.com/juju/juju/domain/deployment/charm"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
 	params "github.com/juju/juju/rpc/params"
+	names "github.com/juju/names/v6"
 )
 
 // MockContext is a mock of Context interface.
