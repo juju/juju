@@ -22,6 +22,7 @@ const (
 	nicTypeBridged = "bridged"
 	nicTypeMACVLAN = "macvlan"
 	netTypeBridge  = "bridge"
+	netTypeOVN     = "ovn"
 )
 
 // device is a type alias for profile devices.
@@ -222,12 +223,13 @@ func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
 		return nil
 	}
 
-	// No nics with a nictype of nicTypeBridged, nicTypeMACVLAN was found.
+	// No NIC backed by a supported network was found.
 	return errors.Errorf(
-		"no network device found with nictype %q or %q"+
+		"no network device found with nictype %q or %q, or network type %q, %q, or %q"+
 			"\n\tthe following devices were checked: %s"+
-			"\nReconfigure lxd to use a network of type %q or %q.",
-		nicTypeBridged, nicTypeMACVLAN, strings.Join(checked, ", "), nicTypeBridged, nicTypeMACVLAN)
+			"\nReconfigure lxd to use a network of type %q, %q, or %q.",
+		nicTypeBridged, nicTypeMACVLAN, netTypeBridge, nicTypeMACVLAN, netTypeOVN,
+		strings.Join(checked, ", "), netTypeBridge, nicTypeMACVLAN, netTypeOVN)
 }
 
 // generateNICDeviceName attempts to generate a new NIC device name that is not
@@ -269,7 +271,7 @@ func isValidNICType(nic device) bool {
 }
 
 func isValidNetworkType(net *api.Network) bool {
-	return net.Type == netTypeBridge || net.Type == nicTypeMACVLAN
+	return net.Type == netTypeBridge || net.Type == nicTypeMACVLAN || net.Type == netTypeOVN
 }
 
 // NetworkName returns the network name from the

@@ -146,6 +146,28 @@ func (s *networkSuite) TestVerifyNetworkDevicePresentValid(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *networkSuite) TestVerifyNetworkDevicePresentOVN(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
+
+	const networkName = "ovn-net"
+	profile := defaultProfileWithNIC()
+	profile.Devices["eth0"]["network"] = networkName
+	cSvr.EXPECT().GetNetwork(networkName).Return(&lxdapi.Network{
+		Name:    networkName,
+		Managed: true,
+		Type:    "ovn",
+	}, "", nil)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = jujuSvr.VerifyNetworkDevice(profile, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(jujuSvr.LocalBridgeName(), tc.Equals, networkName)
+}
+
 func (s *networkSuite) TestVerifyNetworkDevicePresentValidLegacy(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -210,9 +232,9 @@ func (s *networkSuite) TestVerifyNetworkDevicePresentBadNicType(c *tc.C) {
 
 	err = jujuSvr.VerifyNetworkDevice(profile, "")
 	c.Assert(err, tc.ErrorMatches,
-		`profile "default": no network device found with nictype "bridged" or "macvlan"\n`+
+		`profile "default": no network device found with nictype "bridged" or "macvlan", or network type "bridge", "macvlan", or "ovn"\n`+
 			`\tthe following devices were checked: eth0\n`+
-			`Reconfigure lxd to use a network of type "bridged" or "macvlan".`)
+			`Reconfigure lxd to use a network of type "bridge", "macvlan", or "ovn".`)
 }
 
 // Juju used to fail when IPv6 was enabled on the lxd network. This test now
