@@ -371,6 +371,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		"file-notify-watcher",
 		"is-primary-controller-flag",
 		"jwt-parser",
+		"lease-expiry",
 		"query-logger",
 		"ssh-server",
 		"undertaker",
@@ -386,7 +387,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		"api-address-setter",
 		"change-stream-pruner",
 		"external-controller-updater",
-		"lease-expiry",
 		"secret-backend-rotate",
 	)
 
@@ -1156,8 +1156,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"controller-agent-config",
 		"db-accessor",
 		"is-controller-flag",
-		"is-primary-controller-flag",
-		"lease-manager",
 		"query-logger",
 		"state-config-watcher",
 		"trace",
@@ -2289,8 +2287,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"controller-agent-config",
 		"db-accessor",
 		"is-controller-flag",
-		"is-primary-controller-flag",
-		"lease-manager",
 		"query-logger",
 		"state-config-watcher",
 		"trace",

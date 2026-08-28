@@ -48,11 +48,6 @@ type LeasePin struct {
 	EntityID string `db:"entity_id"`
 }
 
-// Count is used count leases.
-type Count struct {
-	Num int `db:"num"`
-}
-
 // leadership represents a single row from the leadership table for
 // applications.
 type leadership struct {

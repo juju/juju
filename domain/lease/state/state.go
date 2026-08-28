@@ -12,7 +12,6 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
@@ -22,14 +21,12 @@ import (
 // State describes retrieval and persistence methods for storage.
 type State struct {
 	*domain.StateBase
-	logger logger.Logger
 }
 
 // NewState returns a new state reference.
-func NewState(factory coredatabase.TxnRunnerFactory, logger logger.Logger) *State {
+func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
-		logger:    logger,
 	}
 }
 
@@ -430,76 +427,4 @@ ORDER BY l.uuid;`, Lease{}, LeasePin{})
 		return nil
 	})
 	return result, errors.Capture(err)
-}
-
-// ExpireLeases (lease.Store) deletes all leases that have expired, from the
-// store. This method is intended to be called periodically by a worker.
-func (s *State) ExpireLeases(ctx context.Context) error {
-	db, err := s.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// This is split into two queries to avoid a write transaction preventing
-	// other writers from writing to the db, even if there is no writes
-	// occurring.
-	count := Count{}
-	countStmt, err := s.Prepare(`
-SELECT COUNT(*) AS &Count.num FROM lease WHERE expiry < datetime('now');
-`, count)
-	if err != nil {
-		return errors.Errorf("preparing select expired count statement: %w", err)
-	}
-
-	deleteStmt, err := s.Prepare(`
-DELETE FROM lease WHERE uuid in (
-	SELECT l.uuid 
-	FROM   lease l LEFT JOIN lease_pin p ON l.uuid = p.lease_uuid
-	WHERE  p.uuid IS NULL
-	AND    l.expiry < datetime('now')
-);`)
-	if err != nil {
-		return errors.Errorf("preparing delete lease statement: %w", err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, countStmt).Get(&count)
-		if database.IsErrRetryable(err) {
-			return nil
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-
-		// Nothing to do here, so return early.
-		if count.Num == 0 {
-			return nil
-		}
-
-		var outcome sqlair.Outcome
-		err = tx.Query(ctx, deleteStmt).Get(&outcome)
-		if err != nil {
-			// TODO (manadart 2022-12-15): This incarnation of the worker runs on
-			// all controller nodes. Retryable errors are those that occur due to
-			// locking or other contention. We know we will retry very soon,
-			// so just log and indicate success for these cases.
-			// Rethink this if the worker cardinality changes to be singular.
-			if database.IsErrRetryable(err) {
-				s.logger.Debugf(ctx, "ignoring error during lease expiry: %s", err.Error())
-				return nil
-			}
-			return errors.Capture(err)
-		}
-
-		expired, err := outcome.Result().RowsAffected()
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		if expired > 0 {
-			s.logger.Infof(ctx, "expired %d leases", expired)
-		}
-
-		return nil
-	})
-	return errors.Capture(err)
 }

@@ -697,7 +697,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The lease expiry worker constantly deletes
 		// leases with an expiry time in the past.
-		leaseExpiryName: ifPrimaryController(leaseexpiry.Manifold(leaseexpiry.ManifoldConfig{
+		leaseExpiryName: ifController(leaseexpiry.Manifold(leaseexpiry.ManifoldConfig{
 			ClockName:      clockName,
 			DBAccessorName: dbAccessorName,
 			TraceName:      traceName,
