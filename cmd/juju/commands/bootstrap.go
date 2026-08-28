@@ -437,8 +437,8 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		// --controller-snap-assert-path requires --controller-snap-path. When only
 		// --build-snap is set without an explicit path, this combination is
 		// rejected because there is no snap path to associate the assertion with.
-		// When both --build-snap and --controller-snap-path are set, --build-snap
-		// is ignored in Run() and the explicit path + assert path are used.
+		// When both --build-snap and --controller-snap-path are set, the
+		// combination is rejected in Run().
 		if c.BuildSnap && c.ControllerSnapPath == "" {
 			return errors.New("--controller-snap-assert-path requires --controller-snap-path; " +
 				"it cannot be used with --build-snap")
@@ -486,9 +486,8 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 
 	// Controller-snap source-mode contract: a store mode (channel or revision)
 	// is mutually exclusive with a local snap path, and channel and revision
-	// are mutually exclusive. Store modes force --build-agent and reject an
-	// explicit --agent-version/--auto-upgrade bypass that would detach the
-	// locally built agent from the snap's resolved version.
+	// are mutually exclusive. Store modes no longer force --build-agent;
+	// the snap version is the authoritative anchor for tool selection.
 	isStoreMode := !c.ControllerSnapChannel.Empty() || c.ControllerSnapRevision != ""
 	if isStoreMode {
 		if c.ControllerSnapPath != "" {
@@ -507,7 +506,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		}
 		if c.AgentVersionParam != "" || c.AutoUpgrade {
 			return errors.New("--agent-version and --auto-upgrade cannot be used with a store-based controller snap;" +
-				" use --build-agent to build the agent anchored to the snap version")
+				" the snap version is the authoritative bootstrap version")
 		}
 	}
 
