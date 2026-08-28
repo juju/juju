@@ -440,7 +440,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		isNotControllerFlagName: util.IsControllerFlagManifold(stateConfigWatcherName, false),
 
 		// Controller agent config manifold watches the controller
-// agent config and bounces if it changes. It deliberately runs
+		// agent config and bounces if it changes. It deliberately runs
 		// on every machine (not just controllers) so that it creates
 		// configchange.socket and unlocks controllerAgentConfigReadyLock
 		// before the deployer starts. A machine may be promoted to a
@@ -885,7 +885,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The lease expiry worker constantly deletes
 		// leases with an expiry time in the past.
-leaseExpiryName: ifPrimaryController(leaseexpiry.Manifold(leaseexpiry.ManifoldConfig{
+		leaseExpiryName: ifPrimaryController(leaseexpiry.Manifold(leaseexpiry.ManifoldConfig{
 			DBAccessorName: dbAccessorName,
 			TraceName:      controllerTraceName,
 			Clock:          config.Clock,
@@ -1358,7 +1358,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The deployer worker is primarily for deploying and recalling unit
 		// agents, according to changes in a set of state units; and for the
 		// final removal of its agents' units from state when they are no
-// longer needed. On controller machines it must also wait until the
+		// longer needed. On controller machines it must also wait until the
 		// controlleragentconfig socket is ready (controllerAgentConfigReadyFlag)
 		// so the controller charm's install hook can reach the socket. On
 		// non-controller machines that flag is pre-unlocked.
