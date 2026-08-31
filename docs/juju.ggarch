@@ -25,9 +25,8 @@ model "Juju" {
     controller [type: juju-software, label: "Controller"]
 
     // -----------------------------------------------------------------------
-    // Controller pod (K8s deployment — detailed)
-    // -----------------------------------------------------------------------
-    controller_pod [type: container, label: "Controller pod"] {
+    controller_pod [type: container, label: "Controller pod",
+                    abstracts: "controller"] {
       jujud [type: juju-software, label: "Controller agent\n(jujud, Dqlite)"]
     }
 
