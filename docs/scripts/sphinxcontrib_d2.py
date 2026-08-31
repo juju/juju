@@ -21,6 +21,7 @@ from __future__ import annotations
 import hashlib
 import os
 import posixpath
+import re
 import shlex
 from subprocess import PIPE, Popen
 from tempfile import TemporaryDirectory
@@ -110,6 +111,19 @@ def render_d2(self: object, code: str, options: dict, prefix: str = "d2") -> tup
             raise D2Error(f"d2 exited with error:\n{stderr}\n{stdout}")
         if not os.path.isfile(outfn):
             raise D2Error(f"d2 produced no output file:\n{stderr}\n{stdout}")
+
+    # Remove fixed pixel width/height from the SVG so it scales to its
+    # container. The viewBox is preserved so aspect ratio is maintained.
+    with open(outfn, encoding="utf-8") as f:
+        svg = f.read()
+    svg = re.sub(
+        r'(<svg[^>]*)\s+width="[^"]*"\s+height="[^"]*"',
+        r'\1 width="100%" height="auto"',
+        svg,
+        count=1,
+    )
+    with open(outfn, "w", encoding="utf-8") as f:
+        f.write(svg)
 
     return relfn, outfn
 
