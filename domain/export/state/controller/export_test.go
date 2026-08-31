@@ -21,8 +21,25 @@ func TestExportControllerStateSuiteV4_1_0(t *testing.T) {
 	tc.Run(t, &exportControllerStateSuiteV4_1_0{})
 }
 
+// TestExportRuns asserts that every generated query runs against a real
+// controller schema and that seeded rows reach the payload. The row assertions
+// are what make this more than a compile check: a stray WHERE clause, a struct
+// mapped to the wrong table, or a nil-ed slice all still return no error.
 func (s *exportControllerStateSuiteV4_1_0) TestExportRuns(c *tc.C) {
+	controllerUUID := s.SeedControllerUUID(c)
+
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.Export(c.Context())
+	payload, err := st.Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
+
+	// The controller row just seeded, and the controller_node row inserted by
+	// ControllerSuite.SetUpTest, both have to come back.
+	c.Assert(payload.Controller, tc.HasLen, 1)
+	c.Check(payload.Controller[0].UUID, tc.Equals, controllerUUID)
+	c.Assert(payload.ControllerNode, tc.HasLen, 1)
+	c.Check(payload.ControllerNode[0].ControllerID, tc.Equals, "0")
+
+	// Lookup tables are populated by the schema itself, so they are exported
+	// even for an otherwise empty controller.
+	c.Check(payload.Life, tc.HasLen, 3)
 }

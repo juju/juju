@@ -33,8 +33,8 @@ func (s *exportServiceSuiteV{{ .VersionToken }}) TestExport(c *tc.C) {
 
 	modelExport, err := svc.Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(modelExport.Version, tc.Equals, semversion.MustParse("{{ .SemanticVersion }}"))
-	c.Assert(modelExport.Payload, tc.Equals, expectedPayload)
+	c.Check(modelExport.Version, tc.Equals, semversion.MustParse("{{ .SemanticVersion }}"))
+	c.Check(modelExport.Payload, tc.Equals, expectedPayload)
 }
 
 func (s *exportServiceSuiteV{{ .VersionToken }}) TestExportError(c *tc.C) {
@@ -45,7 +45,7 @@ func (s *exportServiceSuiteV{{ .VersionToken }}) TestExportError(c *tc.C) {
 	}, ControllerInfoState{})
 
 	_, err := svc.Export(c.Context())
-	c.Assert(err, tc.ErrorMatches, "exporting model data for version {{ .SemanticVersion }}: boom")
+	c.Check(err, tc.ErrorMatches, "exporting model data for version {{ .SemanticVersion }}: boom")
 }
 
 type stubStateV{{ .VersionToken }} struct {

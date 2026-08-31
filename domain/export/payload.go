@@ -18,7 +18,10 @@ import (
 )
 
 // PayloadDecodeFunc decodes YAML bytes into the concrete generated
-// vX_Y_Z.ModelExport payload type for one export version.
+// model- or controller-export payload type (vX_Y_Z.ModelExport or
+// vX_Y_Z.ControllerExport) for one export version. Both registries below are
+// keyed on it; which payload kind comes back is fixed by the registry the
+// decoder was looked up in.
 type PayloadDecodeFunc func(data []byte) (any, error)
 
 // payloadDecoders maps each supported export version to the decoder producing
@@ -87,20 +90,6 @@ var controllerPayloadDecoders = map[semversion.Number]PayloadDecodeFunc{
 	semversion.MustParse("4.1.0"): decodePayload[ctrlv4_1_0.ControllerExport],
 }
 
-// checkControllerPayloadVersionSupported reports whether this controller
-// holds the given controller-export schema version, returning an error
-// satisfying [coreerrors.NotSupported] when it does not. The message names
-// the controller to upgrade, mirroring [CheckPayloadVersionSupported] but
-// evaluated against [ControllerExportVersions].
-func checkControllerPayloadVersionSupported(version semversion.Number) error {
-	if slices.Contains(ControllerExportVersions, version) {
-		return nil
-	}
-	return errors.Errorf(
-		"controller export payload version %q is not one of the controller export formats this controller supports (%v); upgrade this controller first: %w",
-		version, ControllerExportVersions, coreerrors.NotSupported)
-}
-
 // DecodeControllerPayload decodes YAML into the concrete controller payload
 // type for the given version. Errors mirror DecodePayload semantics:
 // [coreerrors.NotSupported] for an unknown version and [coreerrors.NotValid]
@@ -122,6 +111,26 @@ func DecodeControllerPayload(version semversion.Number, data []byte) (any, error
 		).Add(coreerrors.NotValid)
 	}
 	return payload, nil
+}
+
+// checkControllerPayloadVersionSupported reports whether this controller
+// holds the given controller-export schema version, returning an error
+// satisfying [coreerrors.NotSupported] when it does not. The message names
+// the controller to upgrade, mirroring [CheckPayloadVersionSupported] but
+// evaluated against [ControllerExportVersions].
+//
+// Unlike [CheckPayloadVersionSupported], which the migrationtarget facade calls
+// to precheck a version before the payload is fetched, this stays unexported:
+// the controller payload is only ever decoded, by [DecodeControllerPayload]
+// right below, so there is nothing to precheck separately. Export it when the
+// backups import path needs to validate a version on its own.
+func checkControllerPayloadVersionSupported(version semversion.Number) error {
+	if slices.Contains(ControllerExportVersions, version) {
+		return nil
+	}
+	return errors.Errorf(
+		"controller export payload version %q is not one of the controller export formats this controller supports (%v); upgrade this controller first: %w",
+		version, ControllerExportVersions, coreerrors.NotSupported)
 }
 
 // agentStreamConfigKey is the model_config row key holding the model's

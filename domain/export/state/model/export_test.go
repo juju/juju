@@ -21,8 +21,17 @@ func TestExportStateSuiteV4_1_0(t *testing.T) {
 	tc.Run(t, &exportStateSuiteV4_1_0{})
 }
 
+// TestExportRuns asserts that every generated query runs against a real model
+// schema and that seeded rows reach the payload. The row assertions are what
+// make this more than a compile check: a stray WHERE clause, a struct mapped to
+// the wrong table, or a nil-ed slice all still return no error.
 func (s *exportStateSuiteV4_1_0) TestExportRuns(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.Export(c.Context())
+	payload, err := st.Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
+
+	// ModelSuite seeds no model data, so the lookup tables populated by the
+	// schema itself are what has to come back.
+	c.Check(payload.Life, tc.HasLen, 3)
+	c.Check(payload.CharmRunAsKind, tc.HasLen, 4)
 }

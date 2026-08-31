@@ -343,11 +343,11 @@ type ModelMigrationExportTargetAuth struct {
 }
 
 type ModelMigrationImport struct {
-	UUID                string `db:"uuid" json:"uuid" yaml:"uuid"`
-	ModelUUID           string `db:"model_uuid" json:"model_uuid" yaml:"model_uuid"`
-	SourceMigrationUUID string `db:"source_migration_uuid" json:"source_migration_uuid" yaml:"source_migration_uuid"`
-	PhaseTypeID         int64  `db:"phase_type_id" json:"phase_type_id" yaml:"phase_type_id"`
-	UpdatedAt           string `db:"updated_at" json:"updated_at" yaml:"updated_at"`
+	UUID                string    `db:"uuid" json:"uuid" yaml:"uuid"`
+	ModelUUID           string    `db:"model_uuid" json:"model_uuid" yaml:"model_uuid"`
+	SourceMigrationUUID string    `db:"source_migration_uuid" json:"source_migration_uuid" yaml:"source_migration_uuid"`
+	PhaseTypeID         int64     `db:"phase_type_id" json:"phase_type_id" yaml:"phase_type_id"`
+	UpdatedAt           time.Time `db:"updated_at" json:"updated_at" yaml:"updated_at"`
 }
 
 type ModelMigrationImportExternalControllerModel struct {
