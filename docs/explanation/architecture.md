@@ -57,17 +57,9 @@ you draw.
 
 A live Juju deployment has a **controller** -- the management process that holds
 all goal state -- and one or more **applications**, each broken into one or more
-**units**. A unit is the atomic instance of an application: one running copy, on
-one machine or pod.
-
-:::::{tab-set}
-
-::::{tab-item} Kubernetes
-
-On Kubernetes, the controller runs in a pod of its own. Each unit runs in a
-unit pod with two containers: a charm container (running the `containeragent`
-unit agent) and a workload container (running the application itself, with
-Pebble injected as the init process to manage workload services).
+**units**. A unit is the atomic instance of an application: one running copy on
+one machine or pod. Every unit runs the same chain: a unit agent drives a charm,
+which operates the workload.
 
 ```{d2}
 direction: right
@@ -81,199 +73,61 @@ client: "Client" {
   style.font-color: white
 }
 
-controller_pod: "Controller pod" {
-  direction: right
-  charm_container: "Charm\ncontainer" {
-    charm: "charm" {
-      style.fill: white
-      style.stroke: "#E95420"
-    }
-  }
-  apiserver: "API-server\ncontainer" {
-    direction: right
-    pebble_ctrl: "Pebble\n(init)" {
-      style.fill: "#E95420"
-      style.font-color: white
-    }
-    jujud: "jujud\n(controller +\nmodel agent\nworkers)" {
-      style.fill: "#E95420"
-      style.font-color: white
-    }
-  }
-  apiserver.pebble_ctrl -> apiserver.jujud: "supervises"
-  apiserver.jujud -> charm_container.charm: "recorded,\nnot dispatched" {
-    style.stroke-dash: 4
-    style.font-color: "#888"
-  }
-}
-
-app1: "App 1 / Unit 0 pod" {
-  direction: right
-  charm_c: "Charm\ncontainer" {
-    direction: right
-    unit_agent: "unit agent\n(containeragent)" {
-      style.fill: "#E95420"
-      style.font-color: white
-    }
-    charm: "charm" {
-      style.fill: white
-      style.stroke: "#E95420"
-    }
-  }
-  workload_c: "Workload\ncontainer" {
-    direction: right
-    pebble: "Pebble\n(init)" {
-      style.fill: "#E95420"
-      style.font-color: white
-    }
-    workload: "Workload\nservice(s)" {
-      style.fill: "#4A90D9"
-      style.font-color: white
-    }
-  }
-  charm_c.unit_agent -> charm_c.charm: "exec\ndispatch"
-  charm_c.charm -> workload_c.pebble: "Pebble API\n(HTTP)"
-  workload_c.pebble -> workload_c.workload: "supervises"
-}
-
-app2: "App 2 / Unit 0 pod" {
-  direction: right
-  charm_c: "Charm\ncontainer" {
-    direction: right
-    unit_agent: "unit agent\n(containeragent)" {
-      style.fill: "#E95420"
-      style.font-color: white
-    }
-    charm: "charm" {
-      style.fill: white
-      style.stroke: "#E95420"
-    }
-  }
-  workload_c: "Workload\ncontainer" {
-    direction: right
-    pebble: "Pebble\n(init)" {
-      style.fill: "#E95420"
-      style.font-color: white
-    }
-    workload: "Workload\nservice(s)" {
-      style.fill: "#4A90D9"
-      style.font-color: white
-    }
-  }
-  charm_c.unit_agent -> charm_c.charm: "exec\ndispatch"
-  charm_c.charm -> workload_c.pebble: "Pebble API\n(HTTP)"
-  workload_c.pebble -> workload_c.workload: "supervises"
-}
-
-storage1: "Storage\n(PVC)" {style.stroke: "#AAA"; style.fill: "#F5F5F5"}
-network1: "Network\nspace" {style.stroke: "#AAA"; style.fill: "#F5F5F5"}
-storage2: "Storage\n(PVC)" {style.stroke: "#AAA"; style.fill: "#F5F5F5"}
-network2: "Network\nspace" {style.stroke: "#AAA"; style.fill: "#F5F5F5"}
-
-user -> client: "intent"
-client -> controller_pod.apiserver.jujud: "Juju API"
-controller_pod.apiserver.jujud -> app1.charm_c.unit_agent: "Juju API\n(websocket)"
-controller_pod.apiserver.jujud -> app2.charm_c.unit_agent: "Juju API\n(websocket)"
-app1 -> storage1
-app1 -> network1
-app2 -> storage2
-app2 -> network2
-```
-*A Kubernetes deployment. The controller pod has two regular containers (`charm` and
-`api-server`) and two init containers (`controller-config-seed` and `charm-init`) that
-run once at startup. Pebble supervises `jujud` inside the api-server container. Each
-application unit runs in its own pod with a charm container (unit agent + charm code)
-and a workload container (Pebble + workload services). The unit agent dispatches the
-charm, which drives the workload via the Pebble API. Each unit pod draws storage and
-networking from the cluster.*
-
-::::
-
-::::{tab-item} Machine clouds
-
-On a machine cloud, the controller runs on a dedicated machine. Each unit runs on
-its own provisioned machine (VM or bare metal), hosting a single `jujud` process
-that runs both the machine agent and the unit agent.
-
-```{d2}
-direction: right
-*.style.font-size: 13
-
-user.shape: person
-user.label: "User"
-
-client: "Client" {
+controller: "Controller" {
   style.fill: "#E95420"
   style.font-color: white
 }
 
-controller_machine: "Controller machine" {
-  jujud_ctrl: "jujud process" {
+app1: "Application 1\nunit" {
+  unit_agent: "Unit agent" {
     style.fill: "#E95420"
     style.font-color: white
-    ca: "Controller\nagent workers"
-    ma: "Model\nagent workers"
-    db: "Dqlite" {shape: cylinder}
   }
-}
-
-app1_machine: "App 1 / Unit 0\nmachine" {
-  jujud_unit: "jujud process" {
-    style.fill: "#E95420"
-    style.font-color: white
-    mach_a: "Machine\nagent workers"
-    unit_a: "Unit\nagent workers"
-  }
-  charm: "Charm code" {
+  charm: "Charm" {
     style.fill: white
     style.stroke: "#E95420"
   }
+  workload: "Workload" {
+    style.fill: "#4A90D9"
+    style.font-color: white
+  }
+  unit_agent -> charm: "dispatch"
+  charm -> workload: "operates"
 }
 
-app2_machine: "App 2 / Unit 0\nmachine" {
-  jujud_unit: "jujud process" {
+app2: "Application 2\nunit" {
+  unit_agent: "Unit agent" {
     style.fill: "#E95420"
     style.font-color: white
-    mach_a: "Machine\nagent workers"
-    unit_a: "Unit\nagent workers"
   }
-  charm: "Charm code" {
+  charm: "Charm" {
     style.fill: white
     style.stroke: "#E95420"
   }
+  workload: "Workload" {
+    style.fill: "#4A90D9"
+    style.font-color: white
+  }
+  unit_agent -> charm: "dispatch"
+  charm -> workload: "operates"
 }
-
-storage1: "Storage\nvolume" {style.stroke: "#AAA"; style.fill: "#F5F5F5"}
-network1: "Network\nspace" {style.stroke: "#AAA"; style.fill: "#F5F5F5"}
-storage2: "Storage\nvolume" {style.stroke: "#AAA"; style.fill: "#F5F5F5"}
-network2: "Network\nspace" {style.stroke: "#AAA"; style.fill: "#F5F5F5"}
 
 user -> client: "intent"
-client -> controller_machine.jujud_ctrl.ca: "Juju API"
-controller_machine.jujud_ctrl.ca -> app1_machine.jujud_unit.unit_a: "Juju API\n(websocket)"
-controller_machine.jujud_ctrl.ca -> app2_machine.jujud_unit.unit_a: "Juju API\n(websocket)"
-app1_machine.jujud_unit.unit_a -> app1_machine.charm: "exec\ndispatch"
-app1_machine.charm -> app1_machine.jujud_unit.unit_a: "hook\ncommands"
-app2_machine.jujud_unit.unit_a -> app2_machine.charm: "exec\ndispatch"
-app2_machine.charm -> app2_machine.jujud_unit.unit_a: "hook\ncommands"
-app1_machine -> storage1
-app1_machine -> network1
-app2_machine -> storage2
-app2_machine -> network2
+client -> controller: "Juju API"
+controller -> app1.unit_agent: "Juju API\n(websocket)"
+controller -> app2.unit_agent: "Juju API\n(websocket)"
 ```
-*A machine cloud deployment. The controller machine runs `jujud` with controller
-and model agent workers and an in-process Dqlite database. Each application unit
-runs on its own machine with a `jujud` process hosting machine and unit agent
-workers, which dispatch the charm via exec; the charm calls back using hook
-commands. Each machine draws storage and networking from the cloud.*
+*The Juju deployment model. The controller is the single management process; all
+integration and reconciliation flows through it. On Kubernetes the controller runs
+as `jujud` in a pod, the unit agent is `containeragent`, and the charm drives the
+workload via Pebble. On machine clouds the controller and unit agents are both
+`jujud` processes and the charm drives the workload directly. The deployment detail
+-- containers, pods, Pebble, Dqlite -- is covered in {ref}`controller` and
+{ref}`unit`.*
 
 ```{ibnote}
-See more: {ref}`machines-and-system-containers`, {ref}`machine`
+See more: {ref}`controller`, {ref}`unit`, {ref}`machines-and-system-containers`
 ```
-
-::::
-
-:::::
 
 ### Control flow
 
