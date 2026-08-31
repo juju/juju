@@ -155,33 +155,51 @@ On Kubernetes, the charm does not drive the workload directly. Instead it talks 
 behalf. On machine clouds the charm drives the workload directly, since charm and
 workload share the same machine.
 
-```{mermaid}
-sequenceDiagram
-    participant Controller
-    participant UA as Unit agent
-    participant Dispatch as dispatch script
-    participant Jujuc as hook commands
-
-    Controller->>UA: watcher fires
-    UA->>UA: snapshot
-    UA->>Dispatch: exec dispatch
-    loop during hook
-        Dispatch->>Jujuc: calls hook command
-        Jujuc->>Controller: serves via API
-        Controller-->>Jujuc: response
-        Jujuc-->>Dispatch: return
-    end
-    alt exit 0
-        Dispatch-->>UA: success
-        UA->>Controller: flush writes
-    else
-        Dispatch-->>UA: failure
-        UA->>Controller: discard writes, unit error
-    end
+```{ggarch}
+:sequence: Hook execution
+:alt: API-server fires watcher to Unit agent. Unit agent snapshots state, resolves next hook, execs dispatch. During the hook loop: charm calls hook command, unit agent serves via API, controller responds, result returns to charm. On exit 0: charm returns success, unit agent flushes writes. On failure: charm returns failure, unit agent discards writes and sets unit error.
+model "HookExec" {
+  nodes {
+    apiserver  [type: juju-software, label: "API-server"]
+    unit_agent [type: juju-software, label: "Unit agent"]
+    charm      [type: charm,         label: "Charm (dispatch)"]
+  }
+  edges {
+    apiserver  -> unit_agent [type: stream,  label: "watcher"]
+    unit_agent -> charm      [type: control, label: "exec dispatch"]
+    charm      -> unit_agent [type: ipc,     label: "hook commands"]
+    unit_agent -> apiserver  [type: api,     label: "serve / flush"]
+  }
+  behaviours {
+    behaviour "Hook execution" {
+      apiserver -> unit_agent: async "watcher fires"
+      unit_agent -> unit_agent: self "snapshot remote state"
+      unit_agent -> unit_agent: self "resolve next hook"
+      unit_agent -> charm: call "exec dispatch"
+      loop "during hook" {
+        charm -> unit_agent: call "hook command"
+        unit_agent -> apiserver: call "serve via API"
+        apiserver -> unit_agent: return
+        unit_agent -> charm: return
+      }
+      alt "exit 0" {
+        charm -> unit_agent: return "success"
+        unit_agent -> apiserver: call "flush writes"
+      } else "failure" {
+        charm -> unit_agent: return "failure"
+        unit_agent -> apiserver: call "discard writes, unit error"
+      }
+    }
+  }
+}
+sequence "Hook execution" from "HookExec" {
+  select { behaviour: "Hook execution" }
+}
 ```
 *The unit agent execs the charm's `dispatch` script. During the hook the charm calls
 hook commands; the unit agent serves each one against the controller. On clean exit
 it flushes buffered writes; on failure it discards them and marks the unit `error`.*
+
 
 ```{note}
 The `update-status` hook fires on a timer (default: five minutes), not in response
