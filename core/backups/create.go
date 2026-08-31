@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/juju/clock"
 	"github.com/juju/utils/v4/hash"
 	"github.com/juju/utils/v4/tar"
 
@@ -47,6 +48,10 @@ type CreateArgs struct {
 	// DumpEntries are the database dumps written under the archive's
 	// dump directory.
 	DumpEntries []DumpEntry
+
+	// Clock provides the time stamping the metadata when the archive
+	// creation finishes. It must not be nil.
+	Clock clock.Clock
 }
 
 // Create builds a new backup archive file in args.DestinationDir,
@@ -106,7 +111,7 @@ func Create(meta *Metadata, args CreateArgs) (string, error) {
 		return "", errors.Capture(err)
 	}
 
-	if err := meta.MarkComplete(size, checksum); err != nil {
+	if err := meta.MarkComplete(size, checksum, args.Clock.Now()); err != nil {
 		return "", errors.Errorf("while updating metadata: %w", err)
 	}
 
@@ -133,11 +138,12 @@ func checkDestinationDir(destinationDir string) error {
 	return nil
 }
 
-// checkDumpEntryName ensures the entry name stays within the archive's
-// dump directory.
+// checkDumpEntryName ensures the entry name is relative and stays
+// within the archive's dump directory.
 func checkDumpEntryName(name string) error {
 	cleaned := path.Clean(name)
-	if slices.Contains(strings.Split(cleaned, "/"), "..") {
+	if path.IsAbs(cleaned) ||
+		slices.Contains(strings.Split(cleaned, "/"), "..") {
 		return errors.Errorf(
 			"dump entry name %q escapes the dump directory: %w",
 			name, coreerrors.NotValid)
@@ -206,11 +212,18 @@ func buildDump(dumpDir string, entries []DumpEntry) error {
 // buildArchiveAndChecksum tars and gzips the content directory into
 // the named archive file, computing the archive's SHA-1 checksum and
 // size along the way.
-func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (int64, string, error) {
+func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, _ string, err error) {
 	archiveFile, err := os.Create(filename)
 	if err != nil {
 		return 0, "", errors.Errorf("while creating archive file: %w", err)
 	}
+	// The archive is only complete once its final flush lands, so a
+	// close failure fails the backup unless the build already failed.
+	defer func() {
+		if cerr := archiveFile.Close(); err == nil && cerr != nil {
+			err = errors.Errorf("while closing archive file: %w", cerr)
+		}
+	}()
 
 	// Build the tarball, writing out to both the archive file and a
 	// SHA-1 hash. The hash corresponds to the gzipped file rather than
@@ -218,11 +231,7 @@ func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (int64, st
 	// users can compare the published checksum against the checksum of
 	// the file without having to decompress it first.
 	hasher := hash.NewHashingWriter(archiveFile, sha1.New())
-	err = buildArchive(hasher, stagingDir, contentDir)
-	if cerr := archiveFile.Close(); err == nil {
-		err = errors.Capture(cerr)
-	}
-	if err != nil {
+	if err := buildArchive(hasher, stagingDir, contentDir); err != nil {
 		return 0, "", errors.Capture(err)
 	}
 

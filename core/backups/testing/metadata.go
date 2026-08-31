@@ -28,8 +28,7 @@ func NewMetadata() *backups.Metadata {
 
 // NewMetadataStarted returns a Metadata to use for testing.
 func NewMetadataStarted() *backups.Metadata {
-	meta := backups.NewMetadata()
-	meta.Started = meta.Started.Truncate(time.Second)
+	meta := backups.NewMetadata(time.Now().Truncate(time.Second))
 	meta.Origin.Model = envID
 	meta.Origin.Machine = "0"
 	meta.Origin.Hostname = "main-host"
@@ -40,9 +39,7 @@ func NewMetadataStarted() *backups.Metadata {
 func FinishMetadata(meta *backups.Metadata) {
 	var size int64 = 10
 	checksum := "787b8915389d921fa23fb40e16ae81ea979758bf"
-	_ = meta.MarkComplete(size, checksum)
-	finished := meta.Started.Add(time.Minute)
-	meta.Finished = &finished
+	_ = meta.MarkComplete(size, checksum, meta.Started.Add(time.Minute))
 }
 
 // UpdateNotes derives a new Metadata with new notes.

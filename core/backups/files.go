@@ -24,6 +24,11 @@ const (
 	initDir        = "init"
 	objectstoreDir = "objectstore"
 
+	// objectstoreTmpDir matches the directory the object store stages
+	// uploads in before they are persisted
+	// (internal/objectstore's defaultTempDirectoryName).
+	objectstoreTmpDir = "tmp"
+
 	sshIdentFile = "system-identity"
 	serverPEM    = "server.pem"
 	dbSecret     = "shared-secret"
@@ -82,6 +87,11 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 		backupFiles = append(backupFiles, file)
 	}
 
+	// The object store stages uploads that have not been persisted in
+	// <objectstore>/<namespace>/tmp directories; those files never
+	// made it into the object store, so they are not backed up.
+	objectstoreRoot := filepath.Join(rootDir, paths.DataDir, objectstoreDir)
+
 	var finalBackupFiles []string
 	for _, file := range backupFiles {
 		err := filepath.Walk(file,
@@ -90,6 +100,10 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 					return err
 				}
 				if info.IsDir() {
+					if info.Name() == objectstoreTmpDir &&
+						filepath.Dir(filepath.Dir(path)) == objectstoreRoot {
+						return filepath.SkipDir
+					}
 					return nil
 				}
 				if info.Mode().IsRegular() ||
@@ -124,6 +138,8 @@ func IsValidBackupFilepath(root string, filePath string) (bool, error) {
 		}
 		if !d.IsDir() && path == filePath {
 			result = true
+			// The file is found; stop walking the rest of the tree.
+			return filepath.SkipAll
 		}
 		return nil
 	})

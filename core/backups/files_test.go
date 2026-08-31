@@ -4,7 +4,6 @@
 package backups_test
 
 import (
-	"math"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
@@ -103,15 +102,32 @@ func (s *filesSuite) TestGetFilesToBackUpWithRootDir(c *tc.C) {
 	))
 }
 
-func (s *filesSuite) TestCheckSpaceForNotEnough(c *tc.C) {
-	err := backups.CheckSpaceFor(c.MkDir(), math.MaxInt64/2)
-	c.Assert(err, tc.ErrorMatches,
-		`not enough free space in ".*"; want \d+MiB, have \d+MiB`)
-}
+func (s *filesSuite) TestGetFilesToBackUpSkipsObjectstoreTmp(c *tc.C) {
+	dataDir := c.MkDir()
+	// In-flight object store uploads are staged under
+	// <objectstore>/<namespace>/tmp; they never made it into the
+	// object store.
+	s.writeFile(c,
+		filepath.Join(dataDir, "objectstore", "ns1", "tmp", "tmp1234"),
+		"partial upload")
+	s.writeFile(c, filepath.Join(dataDir, "objectstore", "ns1", "blob"),
+		"blob")
+	// A "tmp" directory deeper in a namespace holds object data, not
+	// staging files, and is still backed up.
+	s.writeFile(c, filepath.Join(dataDir, "objectstore", "ns1",
+		"applications", "tmp", "resource"), "resource")
+	s.writeFile(c, filepath.Join(dataDir, "tools", "jujud"), "binary")
 
-func (s *filesSuite) TestCheckSpaceForEnough(c *tc.C) {
-	err := backups.CheckSpaceFor(c.MkDir(), 1024)
+	files, err := backups.GetFilesToBackUp("", &backups.Paths{
+		DataDir: dataDir,
+	})
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(set.NewStrings(files...), tc.DeepEquals, set.NewStrings(
+		filepath.Join(dataDir, "objectstore", "ns1", "blob"),
+		filepath.Join(dataDir, "objectstore", "ns1", "applications",
+			"tmp", "resource"),
+		filepath.Join(dataDir, "tools", "jujud"),
+	))
 }
 
 func (s *filesSuite) TestBackupDirToUse(c *tc.C) {

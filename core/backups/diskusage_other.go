@@ -5,16 +5,20 @@
 
 package backups
 
-import "math"
+// Controllers only run on linux. These stubs exist because this package
+// is imported by the juju CLI (cmd/juju/backups) and by rpc/params,
+// which do build for other platforms. Disk usage cannot be determined
+// there, so 0 is reported: CheckSpaceFor then fails rather than
+// assume there is enough space.
 
-// diskFree returns a value indicating unlimited free space on
-// platforms where it cannot be determined.
+// diskFree returns 0 on platforms where the free space cannot be
+// determined.
 func diskFree(string) (uint64, error) {
-	return math.MaxUint64, nil
+	return 0, nil
 }
 
-// diskTotal returns a value indicating an unlimited disk size on
-// platforms where it cannot be determined.
+// diskTotal returns 0 on platforms where the disk size cannot be
+// determined.
 func diskTotal(string) (uint64, error) {
-	return math.MaxUint64, nil
+	return 0, nil
 }

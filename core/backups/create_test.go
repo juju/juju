@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 	stdtesting "testing"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 
@@ -18,6 +20,10 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/testing"
 )
+
+// testStarted keeps the metadata timestamps, and so the archive
+// filename, deterministic.
+var testStarted = time.Date(2024, time.September, 9, 11, 59, 34, 0, time.UTC)
 
 type createSuite struct {
 	testing.BaseSuite
@@ -40,9 +46,10 @@ func (s *createSuite) TestCreate(c *tc.C) {
 	file2 := s.writeFile(c, "system-identity", "ssh key")
 
 	modelUUID := "deadbeef-0bad-400d-8000-4b1d0d06f00d"
-	meta := backups.NewMetadata()
+	meta := backups.NewMetadata(testStarted)
 	filename, err := backups.Create(meta, backups.CreateArgs{
 		DestinationDir: destDir,
+		Clock:          clock.WallClock,
 		FilesToBackUp:  []string{file1, file2},
 		DumpEntries: []backups.DumpEntry{{
 			Name:   "controller.yaml",
@@ -143,8 +150,10 @@ func (s *createSuite) TestCreateDumpEntryNameEscapesDump(c *tc.C) {
 		"../evil.yaml",
 		"models/../../evil.yaml",
 		"..",
+		"/etc/passwd",
+		"/var/lib/juju/models/evil.yaml",
 	} {
-		_, err := backups.Create(backups.NewMetadata(), backups.CreateArgs{
+		_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{
 			DestinationDir: c.MkDir(),
 			FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
 			DumpEntries: []backups.DumpEntry{{
@@ -159,7 +168,7 @@ func (s *createSuite) TestCreateDumpEntryNameEscapesDump(c *tc.C) {
 
 func (s *createSuite) TestCreateMissingDestinationDir(c *tc.C) {
 	destDir := filepath.Join(c.MkDir(), "missing")
-	_, err := backups.Create(backups.NewMetadata(), backups.CreateArgs{
+	_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{
 		DestinationDir: destDir,
 		FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
 	})
@@ -168,7 +177,7 @@ func (s *createSuite) TestCreateMissingDestinationDir(c *tc.C) {
 }
 
 func (s *createSuite) TestCreateRelativeDestinationDir(c *tc.C) {
-	_, err := backups.Create(backups.NewMetadata(), backups.CreateArgs{
+	_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{
 		DestinationDir: "relative",
 		FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
 	})
@@ -177,7 +186,7 @@ func (s *createSuite) TestCreateRelativeDestinationDir(c *tc.C) {
 }
 
 func (s *createSuite) TestCreateMissingFilesToBackUp(c *tc.C) {
-	_, err := backups.Create(backups.NewMetadata(), backups.CreateArgs{
+	_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{
 		DestinationDir: c.MkDir(),
 	})
 	c.Assert(err, tc.ErrorMatches, "missing list of files to back up")
