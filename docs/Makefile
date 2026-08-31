@@ -119,6 +119,7 @@ run: install convert-excalidraw-to-svg autogenerate-docs
 	. $(DOCS_VENV); $(DOCS_VENVDIR)/bin/sphinx-autobuild -b dirhtml --host $(SPHINX_HOST) --port $(SPHINX_PORT) \
 	 --pre-build "bash scripts/convert-excalidraw-to-svg-recursively.sh" \
 	 --pre-build "python3 scripts/autogenerate-docs.py" \
+	 --watch "$(DOCS_SOURCEDIR)/juju.ggarch" \
 	 "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS)
 
 run-go: install convert-excalidraw-to-svg regenerate-docs
