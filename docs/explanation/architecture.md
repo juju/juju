@@ -172,8 +172,8 @@ network2: "Network\nspace" {style.stroke: "#AAA"; style.fill: "#F5F5F5"}
 
 user -> client: "intent"
 client -> controller_pod.apiserver.jujud: "Juju API"
-controller_pod -> app1.charm_c.unit_agent: "Juju API\n(websocket)"
-controller_pod -> app2.charm_c.unit_agent: "Juju API\n(websocket)"
+controller_pod.apiserver.jujud -> app1.charm_c.unit_agent: "Juju API\n(websocket)"
+controller_pod.apiserver.jujud -> app2.charm_c.unit_agent: "Juju API\n(websocket)"
 app1 -> storage1
 app1 -> network1
 app2 -> storage2
