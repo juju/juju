@@ -148,6 +148,11 @@ clean-doc:
 	git clean -fx "$(DOCS_BUILDDIR)"
 	rm -rf $(SPHINX_DIR)/.doctrees
 
+clean-ggarch:
+	rm -f $(DOCS_BUILDDIR)/_images/ggarch-*.svg
+	rm -rf $(SPHINX_DIR)/.doctrees
+	@echo "ggarch SVG cache cleared — next build will regenerate all diagrams"
+
 linkcheck: install
 	. $(DOCS_VENV) ; $(SPHINX_BUILD) -b linkcheck -q "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS) || { grep --color -F "[broken]" "$(DOCS_BUILDDIR)/output.txt"; exit 1; }
 	exit 0
