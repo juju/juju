@@ -4,6 +4,9 @@ cloud_instance_removal_supported() {
 		[[ ${BOOTSTRAP_CLOUD:-localhost} == "localhost" ]]
 		return
 		;;
+	"ec2" | "gce" | "azure")
+		return 0
+		;;
 	*)
 		return 1
 		;;
@@ -11,7 +14,7 @@ cloud_instance_removal_supported() {
 }
 
 delete_cloud_instance() {
-	local model machine_id instance_id project
+	local model machine_id instance_id availability_zone project region resource_group
 
 	model=${1}
 	machine_id=${2}
@@ -31,6 +34,39 @@ delete_cloud_instance() {
 		fi
 		lxc info "local:${instance_id}" --project "${project}" >/dev/null
 		lxc delete --force "local:${instance_id}" --project "${project}"
+		;;
+	"ec2")
+		region=$(juju show-model "${model}" --format=json | yq -r '.[].region')
+		if [[ -z ${region} || ${region} == "null" ]]; then
+			echo "could not determine region for EC2 instance ${instance_id}"
+			return 1
+		fi
+		AWS_DEFAULT_REGION="${region}" aws ec2 terminate-instances \
+			--instance-ids "${instance_id}" >/dev/null
+		AWS_DEFAULT_REGION="${region}" aws ec2 wait instance-terminated \
+			--instance-ids "${instance_id}"
+		;;
+	"gce")
+		availability_zone=$(juju show-machine -m "${model}" "${machine_id}" --format=json |
+			machine_id="${machine_id}" yq -r '.machines[env(machine_id)].hardware' |
+			grep -oP 'availability-zone=\K\S+')
+		if [[ -z ${availability_zone} ]]; then
+			echo "could not determine availability zone for GCE instance ${instance_id}"
+			return 1
+		fi
+		gcloud compute instances delete "${instance_id}" \
+			--zone="${availability_zone}" --quiet
+		;;
+	"azure")
+		resource_group=$(az vm list --output=yaml |
+			instance_id="${instance_id}" yq -r \
+				'.[] | select(.name == env(instance_id)) | .resourceGroup')
+		if [[ -z ${resource_group} || ${resource_group} == "null" ]]; then
+			echo "could not determine resource group for Azure instance ${instance_id}"
+			return 1
+		fi
+		az vm delete --resource-group "${resource_group}" \
+			--name "${instance_id}" --yes
 		;;
 	*)
 		echo "cloud instance removal is not supported for ${BOOTSTRAP_PROVIDER:-unknown}"

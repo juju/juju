@@ -17,6 +17,8 @@ add_container_host_machine() {
 }
 
 run_remove_machine_without_workloads() {
+	local file
+
 	echo
 
 	file="${TEST_DIR}/remove_machine_without_workloads.log"
@@ -85,6 +87,8 @@ run_force_remove_machine_with_unit_without_instance() {
 }
 
 run_remove_machine_with_parent_and_container_units() {
+	local file
+
 	echo
 
 	file="${TEST_DIR}/remove_machine_with_parent_and_container_units.log"
@@ -106,6 +110,8 @@ run_remove_machine_with_parent_and_container_units() {
 }
 
 run_force_remove_machine_with_container() {
+	local file
+
 	echo
 
 	file="${TEST_DIR}/force_remove_machine_with_container.log"

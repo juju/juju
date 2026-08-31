@@ -8,9 +8,24 @@ test_remove_machine() {
 
 	echo "==> Checking for dependencies"
 	check_dependencies juju
-	if cloud_instance_removal_supported; then
-		check_dependencies lxc
-	fi
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"aws" | "ec2")
+		setup_awscli_credential
+		check_dependencies aws
+		;;
+	"google" | "gce")
+		setup_gcloudcli_credential
+		check_dependencies gcloud
+		;;
+	"azure")
+		check_dependencies az
+		;;
+	"lxd")
+		if cloud_instance_removal_supported; then
+			check_dependencies lxc
+		fi
+		;;
+	esac
 
 	file="${TEST_DIR}/test-remove-machine.log"
 	bootstrap "test-remove-machine" "${file}"
