@@ -65,47 +65,73 @@ one machine or pod.
 ::::{tab-item} Kubernetes
 
 On Kubernetes, the controller runs in a pod of its own. Each unit runs in a
-**unit pod** with two containers: a charm container (running the `containeragent`
-unit agent) and a workload container (running the application itself, with **Pebble**
-injected as the init process to manage workload services).
+unit pod with two containers: a charm container (running the `containeragent`
+unit agent) and a workload container (running the application itself, with
+Pebble injected as the init process to manage workload services).
 
-```{mermaid}
-%%{init: {"flowchart": {"htmlLabels": false}} }%%
-flowchart TB
-    subgraph controller_pod["Controller pod"]
-        subgraph charm_container_ctrl["Charm container"]
-            charm_ctrl["charm"]
-        end
-        subgraph apiserver_container["API-server container"]
-            pebble_ctrl["Pebble (init)"]
-            jujud_c["jujud\n(controller + model agent workers)"]
-        end
-    end
+```{d2}
+direction: right
 
-    subgraph unit_pod["Unit pod (one per unit)"]
-        subgraph charm_container["Charm container"]
-            ca["containeragent"]
-        end
-        subgraph workload_container["Workload container"]
-            pebble["Pebble (init)"]
-            svc["Workload service(s)"]
-        end
-    end
+user.shape: person
+user.label: "User"
 
-    Storage[("Storage (PVC)")]
-    Net[("Network space / subnet")]
+client: "Client" {
+  style.fill: "#E95420"
+  style.font-color: white
+}
 
-    jujud_c -. "Juju API (websocket)" .-> ca
-    ca -. "Pebble API (HTTP)" .-> pebble
-    unit_pod --- Storage
-    unit_pod --- Net
+controller_pod: "Controller pod" {
+  charm_container: "Charm container" {
+    charm: "charm" {
+      style.fill: white
+      style.stroke: "#E95420"
+    }
+  }
+  apiserver: "API-server container" {
+    pebble_ctrl: "Pebble (init)" {
+      style.fill: "#E95420"
+      style.font-color: white
+    }
+    jujud: "jujud\n(controller + model agent workers)" {
+      style.fill: "#E95420"
+      style.font-color: white
+    }
+  }
+}
 
-    style charm_ctrl fill:#FFF,stroke:#E95420,color:#000
-    style pebble_ctrl fill:#E95420,stroke:#C74210,color:#FFF
+unit_pod: "Unit pod (one per unit)" {
+  charm_container: "Charm container" {
+    containeragent: "containeragent" {
+      style.fill: "#E95420"
+      style.font-color: white
+    }
+  }
+  workload_container: "Workload container" {
+    pebble: "Pebble (init)" {
+      style.fill: "#E95420"
+      style.font-color: white
+    }
+    workload: "Workload service(s)" {
+      style.fill: "#4A90D9"
+      style.font-color: white
+    }
+  }
+}
+
+storage: "Storage (PVC)" {shape: cylinder}
+network: "Network space / subnet" {shape: cylinder}
+
+user -> client: "intent"
+client -> controller_pod.apiserver.jujud: "Juju API"
+controller_pod.apiserver.jujud -> unit_pod.charm_container.containeragent: "Juju API (websocket)"
+unit_pod.charm_container.containeragent -> unit_pod.workload_container.pebble: "Pebble API (HTTP)"
+unit_pod -> storage
+unit_pod -> network
 ```
-*A Kubernetes deployment. The controller pod talks to unit pods over the Juju API.
-Inside each unit pod, the charm container's `containeragent` manages the workload
-container via the Pebble API.*
+*A Kubernetes deployment. The user expresses intent via a client; the client calls
+the Juju API on the controller pod. The controller's `jujud` drives the unit pod's
+`containeragent` over the Juju API; the `containeragent` manages workload services
+via the Pebble API.*
 
 ::::
 
@@ -115,40 +141,55 @@ On a machine cloud, the controller runs on a dedicated machine. Each unit runs o
 its own provisioned machine (VM or bare metal), hosting a single `jujud` process
 that runs both the machine agent and the unit agent.
 
-```{mermaid}
-%%{init: {"flowchart": {"htmlLabels": false}} }%%
-flowchart TB
-    subgraph controller_machine["Controller machine"]
-        subgraph jujud_ctrl["jujud process"]
-            CA["Controller agent workers"]
-            MA["Model agent workers"]
-            DB[("Dqlite")]
-        end
-    end
+```{d2}
+direction: right
 
-    subgraph model_machine["Workload machine"]
-        subgraph jujud_model["jujud process"]
-            MachA["Machine agent workers"]
-            subgraph unit_workers["(per unit)"]
-                UA["Unit agent workers"]
-            end
-        end
-        Charm[("Charm code")]
-    end
+user.shape: person
+user.label: "User"
 
-    Storage[("Storage volume")]
-    Net[("Network space / subnet")]
+client: "Client" {
+  style.fill: "#E95420"
+  style.font-color: white
+}
 
-    CA -.->|"Juju API (websocket)"| UA
-    UA -.->|"dispatch (exec)"| Charm
-    Charm -.->|"hook commands (unix socket)"| UA
-    model_machine --- Storage
-    model_machine --- Net
+controller_machine: "Controller machine" {
+  jujud_ctrl: "jujud process" {
+    style.fill: "#E95420"
+    style.font-color: white
+    ca: "Controller agent workers"
+    ma: "Model agent workers"
+    db: "Dqlite" {shape: cylinder}
+  }
+}
+
+workload_machine: "Workload machine" {
+  jujud_unit: "jujud process" {
+    style.fill: "#E95420"
+    style.font-color: white
+    mach_a: "Machine agent workers"
+    unit_a: "Unit agent workers"
+  }
+  charm: "Charm code" {
+    style.fill: white
+    style.stroke: "#E95420"
+  }
+}
+
+storage: "Storage volume" {shape: cylinder}
+network: "Network space / subnet" {shape: cylinder}
+
+user -> client: "intent"
+client -> controller_machine.jujud_ctrl.ca: "Juju API"
+controller_machine.jujud_ctrl.ca -> workload_machine.jujud_unit.unit_a: "Juju API (websocket)"
+workload_machine.jujud_unit.unit_a -> workload_machine.charm: "exec dispatch"
+workload_machine.charm -> workload_machine.jujud_unit.unit_a: "hook commands"
+workload_machine -> storage
+workload_machine -> network
 ```
-*A machine cloud deployment. The controller machine runs `jujud` with the controller
-and model agent workers and an in-process Dqlite database. Each workload machine runs
-its own `jujud` process hosting machine and unit agent workers, which dispatch the
-charm via exec; the charm calls back over a Unix socket using hook commands.*
+*A machine cloud deployment. The controller machine runs `jujud` with controller
+and model agent workers and an in-process Dqlite database. Each workload machine
+runs its own `jujud` process with machine and unit agent workers, which dispatch
+the charm via exec; the charm calls back over a Unix socket using hook commands.*
 
 ```{ibnote}
 See more: {ref}`machines-and-system-containers`, {ref}`machine`
@@ -156,15 +197,7 @@ See more: {ref}`machines-and-system-containers`, {ref}`machine`
 
 ::::
 
-::::::
-
-```{note}
-**Diagram (to be added):** A schematic showing user → client → controller →
-three charmed application boxes on different clouds. The controller's caption
-folds in "requests hosts from cloud; fetches charms from Charmhub." Arrows:
-user → "sends commands to" → client → "calls Juju API on" → controller →
-"operates" → each app.
-```
+:::::
 
 ### Control flow
 
