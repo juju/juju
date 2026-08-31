@@ -184,6 +184,14 @@ type RemovalService interface {
 // for a machine. This replaces the multiple per-machine service calls with
 // a single domain-level aggregation.
 type ProvisioningService interface {
+	// RecordProvisionedMachine records the complete successful provider result
+	// for a machine.
+	RecordProvisionedMachine(
+		ctx context.Context,
+		machineUUID coremachine.UUID,
+		info domainprovisioner.ProvisionedMachineInfo,
+	) error
+
 	// GetPreludeProvisioningInfo retrieves model-wide provisioning data that
 	// is the same for all machines. This should be called once per batch
 	// request and the result passed to each per-machine GetProvisioningInfo.

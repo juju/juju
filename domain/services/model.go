@@ -541,6 +541,12 @@ func (s *ModelServices) Provisioning() *provisionerservice.Service {
 		),
 		s.modelUUID,
 		log,
+		provisionerservice.NewCompletionService(
+			s.Machine(),
+			s.Network(),
+			s.StorageProvisioning(),
+			s.BlockDevice(),
+		),
 	)
 }
 

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
@@ -461,6 +460,27 @@ func (u *updaterWorker) pollGroupMembers(ctx context.Context, groupType pollGrou
 		}
 	}
 
+	// Provider status is independent of provider networking. Update it before
+	// looking up interfaces so a network failure cannot retain an old retry
+	// message after the provider has reported a newer status.
+	providerStatuses := make([]status.Status, len(infoList))
+	for idx, info := range infoList {
+		entry := entryByInstanceID[allInstances[idx]]
+		if info == nil {
+			u.config.Logger.Warningf(ctx, "unable to retrieve instance information for instance: %q", entry.instanceID)
+			if groupType == shortPollGroup {
+				entry.bumpShortPollInterval(u.config.Clock)
+			}
+			continue
+		}
+
+		providerStatus, err := u.processProviderInfo(ctx, entry, info)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		providerStatuses[idx] = providerStatus
+	}
+
 	var netList []network.InterfaceInfos
 	if len(instanceWithDevices) > 0 {
 		var err error
@@ -481,12 +501,15 @@ func (u *updaterWorker) pollGroupMembers(ctx context.Context, groupType pollGrou
 	}
 
 	for idx, info := range infoList {
+		if info == nil {
+			continue
+		}
 		var nics network.InterfaceInfos
 		if netList != nil && idx < len(instanceWithDevices) {
 			nics = netList[idx]
 		}
 
-		if err := u.processOneInstance(ctx, entryByInstanceID[allInstances[idx]], info, nics, groupType); err != nil {
+		if err := u.processOneInstance(ctx, entryByInstanceID[allInstances[idx]], providerStatuses[idx], nics, groupType); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -496,26 +519,13 @@ func (u *updaterWorker) pollGroupMembers(ctx context.Context, groupType pollGrou
 
 func (u *updaterWorker) processOneInstance(
 	ctx context.Context,
-	entry *pollGroupEntry, info instances.Instance,
+	entry *pollGroupEntry, providerStatus status.Status,
 	nics network.InterfaceInfos, groupType pollGroupType,
 ) error {
-
-	// If we received ErrPartialInstances, and this ID is one of those not found,
-	// and we're in the short poll group, back off the poll interval.
-	// This will ensure that instances that have gone away do not cause excessive
-	// provider call volumes.
-	if info == nil {
-		u.config.Logger.Warningf(ctx, "unable to retrieve instance information for instance: %q", entry.instanceID)
-
-		if groupType == shortPollGroup {
-			entry.bumpShortPollInterval(u.config.Clock)
+	if len(nics) > 0 {
+		if err := u.syncProviderAddresses(ctx, entry, nics); err != nil {
+			return errors.Trace(err)
 		}
-		return nil
-	}
-
-	providerStatus, err := u.processProviderInfo(ctx, entry, info, nics)
-	if err != nil {
-		return errors.Trace(err)
 	}
 
 	machineStatus, err := u.config.StatusService.GetMachineStatus(ctx, entry.machineName)
@@ -527,14 +537,10 @@ func (u *updaterWorker) processOneInstance(
 	return nil
 }
 
-// processProviderInfo updates an entry's machine status and set of provider
-// addresses based on the information collected from the provider. It returns
-// the *instance* status and the number of provider addresses currently
-// known for the machine.
+// processProviderInfo updates an entry's provider-reported instance status.
 func (u *updaterWorker) processProviderInfo(
 	ctx context.Context,
 	entry *pollGroupEntry, info instances.Instance,
-	providerInterfaces network.InterfaceInfos,
 ) (status.Status, error) {
 	curStatus, err := u.config.StatusService.GetInstanceStatus(ctx, entry.machineName)
 	if err != nil {
@@ -583,15 +589,6 @@ func (u *updaterWorker) processProviderInfo(
 		return status.Unknown, err
 	}
 
-	if len(providerInterfaces) > 0 {
-		// Check whether the provider addresses for this machine need to be
-		// updated.
-		err = u.syncProviderAddresses(ctx, entry, providerInterfaces)
-		if err != nil {
-			return status.Unknown, err
-		}
-	}
-
 	return providerStatus.Status, nil
 }
 
@@ -603,7 +600,7 @@ func (u *updaterWorker) syncProviderAddresses(
 	ctx context.Context,
 	entry *pollGroupEntry, providerIfaceList network.InterfaceInfos,
 ) error {
-	devices := transform.Slice(providerIfaceList, newNetInterface)
+	devices := domainnetwork.ProviderNetInterfaces(providerIfaceList)
 	err := u.config.NetworkService.SetProviderNetConfig(ctx, entry.machineUUID, devices)
 	if err != nil {
 		return errors.Trace(err)
@@ -658,51 +655,4 @@ func (u *updaterWorker) scopedContext() (context.Context, context.CancelFunc) {
 func isPartialOrNoInstancesError(err error) bool {
 	cause := errors.Cause(err)
 	return cause == environs.ErrPartialInstances || cause == environs.ErrNoInstances
-}
-
-func newNetInterface(device network.InterfaceInfo) domainnetwork.NetInterface {
-	return domainnetwork.NetInterface{
-		Name:             device.InterfaceName,
-		MTU:              nilZeroPtr(int64(device.MTU)),
-		MACAddress:       nilZeroPtr(device.MACAddress),
-		ProviderID:       nilZeroPtr(device.ProviderId),
-		Type:             network.LinkLayerDeviceType(device.ConfigType),
-		VirtualPortType:  device.VirtualPortType,
-		IsAutoStart:      !device.NoAutoStart,
-		IsEnabled:        !device.Disabled,
-		ParentDeviceName: device.ParentInterfaceName,
-		GatewayAddress:   nilZeroPtr(device.GatewayAddress.Value),
-		IsDefaultGateway: device.IsDefaultGateway,
-		VLANTag:          uint64(device.VLANTag),
-		DNSSearchDomains: device.DNSSearchDomains,
-		DNSAddresses:     device.DNSServers,
-		Addrs: append(
-			transform.Slice(device.Addresses, newNetAddress(device.InterfaceName, false)),
-			transform.Slice(device.ShadowAddresses, newNetAddress(device.InterfaceName, true))...),
-	}
-}
-
-func newNetAddress(interfaceName string, isShadow bool) func(network.ProviderAddress) domainnetwork.NetAddr {
-	return func(providerAddr network.ProviderAddress) domainnetwork.NetAddr {
-		return domainnetwork.NetAddr{
-			InterfaceName:    interfaceName,
-			AddressValue:     providerAddr.Value,
-			AddressType:      providerAddr.Type,
-			ConfigType:       providerAddr.ConfigType,
-			Origin:           network.OriginProvider,
-			Scope:            providerAddr.Scope,
-			IsSecondary:      providerAddr.IsSecondary,
-			IsShadow:         isShadow,
-			ProviderID:       nilZeroPtr(providerAddr.ProviderID),
-			ProviderSubnetID: nilZeroPtr(providerAddr.ProviderSubnetID),
-		}
-	}
-}
-
-func nilZeroPtr[T comparable](v T) *T {
-	var zero T
-	if v == zero {
-		return nil
-	}
-	return new(v)
 }

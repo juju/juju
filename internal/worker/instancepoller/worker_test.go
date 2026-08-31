@@ -323,17 +323,14 @@ func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *tc.C) {
 	instInfo := mocks.NewMockInstance(ctrl)
 	instInfo.EXPECT().Status(gomock.Any()).Return(instance.Status{Status: status.Running, Message: "Running wild"})
 
-	// When we process the instance info we expect the machine instance
-	// status and list of network addresses to be updated so they match
-	// the values reported by the provider.
+	// When we process the instance info we expect its status to match the
+	// value reported by the provider.
 	mocked.statusService.EXPECT().SetInstanceStatus(gomock.Any(), machineName, status.StatusInfo{
 		Status:  status.Running,
 		Message: "Running wild",
 	}).Return(nil)
 
-	mocked.networkService.EXPECT().SetProviderNetConfig(gomock.Any(), machineUUID, testDevices).Return(nil)
-
-	providerStatus, err := updWorker.processProviderInfo(c.Context(), entry, instInfo, testNetIfs)
+	providerStatus, err := updWorker.processProviderInfo(c.Context(), entry, instInfo)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(providerStatus, tc.Equals, status.Running)
 }
@@ -566,6 +563,94 @@ func (s *workerSuite) TestBatchPollingOfGroupMembers(c *tc.C) {
 	s.assertWorkerCompletesLoop(c, updWorker, func() {
 		mocked.clock.Advance(ShortPoll)
 	})
+}
+
+func (s *workerSuite) TestPollingNewlyProvisionedMachineReconcilesStatusAndNetwork(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineName := machine.Name("0")
+	machineUUID := machinetesting.GenUUID(c)
+	instanceID := instance.Id("instance-0")
+	updWorker.appendToShortPollGroup(machineName)
+	entry, _ := updWorker.lookupPolledMachine(machineName)
+	entry.shortPollAt = mocked.clock.Now()
+
+	mocked.machineService.EXPECT().GetPollingInfos(gomock.Any(), []machine.Name{machineName}).Return(domainmachine.PollingInfos{{
+		MachineUUID:         machineUUID,
+		MachineName:         machineName,
+		InstanceID:          instanceID,
+		ExistingDeviceCount: 1,
+	}}, nil)
+
+	instanceInfo := mocks.NewMockInstance(ctrl)
+	instanceInfo.EXPECT().Status(gomock.Any()).Return(instance.Status{
+		Status:  status.Running,
+		Message: "Deployed",
+	})
+	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return([]instances.Instance{instanceInfo}, nil)
+	mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName).Return(status.StatusInfo{
+		Status:  status.Provisioning,
+		Message: "failed to start machine 0 in zone \"zone2\", retrying in 10s with new availability zone",
+	}, nil)
+	mocked.statusService.EXPECT().SetInstanceStatus(gomock.Any(), machineName, status.StatusInfo{
+		Status:  status.Running,
+		Message: "Deployed",
+	}).Return(nil)
+	mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName).Return(life.Alive, nil)
+	mocked.environ.EXPECT().NetworkInterfaces(gomock.Any(), []instance.Id{instanceID}).Return([]network.InterfaceInfos{testNetIfs}, nil)
+	mocked.networkService.EXPECT().SetProviderNetConfig(gomock.Any(), machineUUID, testDevices).Return(nil)
+	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{Status: status.Started}, nil)
+
+	err := updWorker.pollGroupMembers(c.Context(), shortPollGroup)
+	c.Check(err, tc.ErrorIsNil)
+}
+
+func (s *workerSuite) TestPollingUpdatesStatusWhenNetworkInterfacesFails(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineName := machine.Name("0")
+	machineUUID := machinetesting.GenUUID(c)
+	instanceID := instance.Id("instance-0")
+	updWorker.appendToShortPollGroup(machineName)
+	entry, _ := updWorker.lookupPolledMachine(machineName)
+	entry.shortPollAt = mocked.clock.Now()
+
+	mocked.machineService.EXPECT().GetPollingInfos(gomock.Any(), []machine.Name{machineName}).Return(domainmachine.PollingInfos{{
+		MachineUUID:         machineUUID,
+		MachineName:         machineName,
+		InstanceID:          instanceID,
+		ExistingDeviceCount: 1,
+	}}, nil)
+
+	instanceInfo := mocks.NewMockInstance(ctrl)
+	instanceInfo.EXPECT().Status(gomock.Any()).Return(instance.Status{
+		Status:  status.Running,
+		Message: "Deployed",
+	})
+	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return([]instances.Instance{instanceInfo}, nil)
+	mocked.statusService.EXPECT().GetInstanceStatus(gomock.Any(), machineName).Return(status.StatusInfo{
+		Status:  status.Provisioning,
+		Message: "failed to start machine 0 in zone \"zone2\", retrying in 10s with new availability zone",
+	}, nil)
+	mocked.statusService.EXPECT().SetInstanceStatus(gomock.Any(), machineName, status.StatusInfo{
+		Status:  status.Running,
+		Message: "Deployed",
+	}).Return(nil)
+	mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName).Return(life.Alive, nil)
+	mocked.environ.EXPECT().NetworkInterfaces(gomock.Any(), []instance.Id{instanceID}).Return(nil, fmt.Errorf("network unavailable"))
+
+	err := updWorker.pollGroupMembers(c.Context(), shortPollGroup)
+	c.Check(err, tc.ErrorMatches, "enumerating network interface list for instances: network unavailable")
 }
 
 func (s *workerSuite) TestBatchPollingOfGroupMembersWithVariousDevicesStatus(c *tc.C) {

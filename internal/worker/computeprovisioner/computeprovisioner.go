@@ -89,6 +89,7 @@ type environProvisioner struct {
 	configObserver          configObserver
 	controllerAPI           ControllerAPI
 	machineService          MachineService
+	provisioningService     ProvisioningService
 	machinesAPI             MachinesAPI
 	agentConfig             agent.Config
 	logger                  logger.Logger
@@ -212,15 +213,20 @@ func (p *environProvisioner) machineInstanceInfoSetter(machineProvisioner apipro
 		if err != nil {
 			return errors.Annotatef(err, "retrieving machineUUID for machine %q", machineName)
 		}
-		if err := p.machineService.SetMachineCloudInstance(
-			ctx,
-			machineUUID,
-			id,
-			displayName,
-			nonce,
-			hc,
-		); err != nil {
-			return errors.Annotatef(err, "setting machine cloud instance for machine uuid %q", machineUUID)
+		info, err := (params.InstanceInfo{
+			InstanceId:        id,
+			DisplayName:       displayName,
+			Nonce:             nonce,
+			Characteristics:   hc,
+			NetworkConfig:     networkConfig,
+			Volumes:           volumes,
+			VolumeAttachments: volumeAttachments,
+		}).ProvisionedMachineInfo()
+		if err != nil {
+			return errors.Annotatef(err, "converting provisioning result for machine uuid %q", machineUUID)
+		}
+		if err := p.provisioningService.RecordProvisionedMachine(ctx, machineUUID, info); err != nil {
+			return errors.Annotatef(err, "setting provisioning data for machine uuid %q", machineUUID)
 		}
 		return nil
 	}
@@ -232,6 +238,7 @@ func (p *environProvisioner) machineInstanceInfoSetter(machineProvisioner apipro
 func NewEnvironProvisioner(
 	controllerAPI ControllerAPI,
 	machineService MachineService,
+	provisioningService ProvisioningService,
 	machinesAPI MachinesAPI,
 	toolsFinder ToolsFinder,
 	distributionGroupFinder DistributionGroupFinder,
@@ -247,6 +254,7 @@ func NewEnvironProvisioner(
 		logger:                  logger,
 		controllerAPI:           controllerAPI,
 		machineService:          machineService,
+		provisioningService:     provisioningService,
 		machinesAPI:             machinesAPI,
 		toolsFinder:             toolsFinder,
 		distributionGroupFinder: distributionGroupFinder,

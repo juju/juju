@@ -31,7 +31,7 @@ func TestManifoldSuite(t *testing.T) {
 }
 
 func (s *ManifoldSuite) makeManifold(c *tc.C) dependency.Manifold {
-	fakeNewProvFunc := func(computeprovisioner.ControllerAPI, computeprovisioner.MachineService, computeprovisioner.MachinesAPI, computeprovisioner.ToolsFinder,
+	fakeNewProvFunc := func(computeprovisioner.ControllerAPI, computeprovisioner.MachineService, computeprovisioner.ProvisioningService, computeprovisioner.MachinesAPI, computeprovisioner.ToolsFinder,
 		computeprovisioner.DistributionGroupFinder, agent.Config, logger.Logger, computeprovisioner.Environ,
 	) (computeprovisioner.Provisioner, error) {
 		s.stub.AddCall("NewProvisionerFunc")
@@ -43,14 +43,21 @@ func (s *ManifoldSuite) makeManifold(c *tc.C) dependency.Manifold {
 			computeprovisioner.MachineService
 		}{}, nil
 	}
+	fakeGetProvisioningServiceFunc := func(getter dependency.Getter, name string) (computeprovisioner.ProvisioningService, error) {
+		s.stub.AddCall("GetProvisioningService")
+		return struct {
+			computeprovisioner.ProvisioningService
+		}{}, nil
+	}
 	return computeprovisioner.Manifold(computeprovisioner.ManifoldConfig{
-		AgentName:          "agent",
-		APICallerName:      "api-caller",
-		Logger:             loggertesting.WrapCheckLog(c),
-		EnvironName:        "environ",
-		DomainServicesName: "fake-domain-services",
-		GetMachineService:  fakeGetMachineServiceFunc,
-		NewProvisionerFunc: fakeNewProvFunc,
+		AgentName:              "agent",
+		APICallerName:          "api-caller",
+		Logger:                 loggertesting.WrapCheckLog(c),
+		EnvironName:            "environ",
+		DomainServicesName:     "fake-domain-services",
+		GetMachineService:      fakeGetMachineServiceFunc,
+		GetProvisioningService: fakeGetProvisioningServiceFunc,
+		NewProvisionerFunc:     fakeNewProvFunc,
 	})
 }
 
@@ -107,7 +114,7 @@ func (s *ManifoldSuite) TestStarts(c *tc.C) {
 	}))
 	c.Check(w, tc.NotNil)
 	c.Check(err, tc.ErrorIsNil)
-	s.stub.CheckCallNames(c, "GetMachineService", "NewProvisionerFunc")
+	s.stub.CheckCallNames(c, "GetMachineService", "GetProvisioningService", "NewProvisionerFunc")
 }
 
 type fakeAgent struct {

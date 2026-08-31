@@ -7,8 +7,77 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/collections/transform"
+
 	"github.com/juju/juju/core/network"
 )
+
+// ProviderNetInterfaces converts provider-sourced interface data into the
+// domain representation used for persistence and reconciliation.
+func ProviderNetInterfaces(devices network.InterfaceInfos) []NetInterface {
+	return transform.Slice(devices, providerNetInterface)
+}
+
+func providerNetInterface(device network.InterfaceInfo) NetInterface {
+	return NetInterface{
+		Name:             device.InterfaceName,
+		MTU:              nilZeroPtr(int64(device.MTU)),
+		MACAddress:       nilZeroPtr(device.MACAddress),
+		ProviderID:       nilZeroPtr(device.ProviderId),
+		Type:             device.InterfaceType,
+		VirtualPortType:  device.VirtualPortType,
+		IsAutoStart:      !device.NoAutoStart,
+		IsEnabled:        !device.Disabled,
+		ParentDeviceName: device.ParentInterfaceName,
+		GatewayAddress:   nilZeroPtr(device.GatewayAddress.Value),
+		IsDefaultGateway: device.IsDefaultGateway,
+		VLANTag:          uint64(device.VLANTag),
+		DNSSearchDomains: device.DNSSearchDomains,
+		DNSAddresses:     device.DNSServers,
+		Addrs: append(
+			providerNetAddresses(device.Addresses, device.InterfaceName, false),
+			providerNetAddresses(device.ShadowAddresses, device.InterfaceName, true)...),
+	}
+}
+
+func providerNetAddresses(addresses network.ProviderAddresses, interfaceName string, isShadow bool) []NetAddr {
+	result := make([]NetAddr, 0, len(addresses))
+	for _, address := range addresses {
+		// Providers can report a link with a subnet but no assigned IP address.
+		// Network state stores only IPv4 and IPv6 values, so retain the device
+		// but omit the unassigned placeholder or a hostname.
+		if address.Value == "" || (address.Type != network.IPv4Address && address.Type != network.IPv6Address) {
+			continue
+		}
+		result = append(result, providerNetAddress(interfaceName, isShadow)(address))
+	}
+	return result
+}
+
+func providerNetAddress(interfaceName string, isShadow bool) func(network.ProviderAddress) NetAddr {
+	return func(providerAddr network.ProviderAddress) NetAddr {
+		return NetAddr{
+			InterfaceName:    interfaceName,
+			AddressValue:     providerAddr.Value,
+			AddressType:      providerAddr.Type,
+			ConfigType:       providerAddr.ConfigType,
+			Origin:           network.OriginProvider,
+			Scope:            providerAddr.Scope,
+			IsSecondary:      providerAddr.IsSecondary,
+			IsShadow:         isShadow,
+			ProviderID:       nilZeroPtr(providerAddr.ProviderID),
+			ProviderSubnetID: nilZeroPtr(providerAddr.ProviderSubnetID),
+		}
+	}
+}
+
+func nilZeroPtr[T comparable](v T) *T {
+	var zero T
+	if v == zero {
+		return nil
+	}
+	return new(v)
+}
 
 // NetAddr represents an IP address and its
 // association with a network interface.

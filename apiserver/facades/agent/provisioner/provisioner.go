@@ -329,7 +329,7 @@ func (api *ProvisionerAPI) WatchAllContainers(ctx context.Context, args params.W
 // machines passed in args.
 //
 // Deprecated: This method doesn't do anything and can be removed in the future.
-func (api *ProvisionerAPI) SetSupportedContainers(ctx context.Context, args params.MachineContainersParams) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) SetSupportedContainers(_ context.Context, args params.MachineContainersParams) (params.ErrorResults, error) {
 	return params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Params)),
 	}, nil
@@ -782,17 +782,15 @@ func (api *ProvisionerAPI) SetInstanceInfo(ctx context.Context, args params.Inst
 			)
 		}
 
-		err = api.machineService.SetMachineCloudInstance(
-			ctx,
-			machineUUID,
-			arg.InstanceId,
-			arg.DisplayName,
-			arg.Nonce,
-			arg.Characteristics,
-		)
+		info, err := arg.ProvisionedMachineInfo()
+		if err != nil {
+			return errors.Errorf("converting machine %q provisioning result: %w", tag.Id(), err)
+		}
+
+		err = api.provisioningService.RecordProvisionedMachine(ctx, machineUUID, info)
 		if err != nil {
 			return errors.Errorf(
-				"setting machine %q cloud instance data: %w", tag.Id(), err,
+				"setting machine %q provisioning data: %w", tag.Id(), err,
 			)
 		}
 
@@ -821,7 +819,7 @@ func (api *ProvisionerAPI) WatchMachineErrorRetry(ctx context.Context) (params.N
 // ReleaseContainerAddresses finds addresses allocated to a container and marks
 // them as Dead, to be released and removed. It accepts container tags as
 // arguments.
-func (api *ProvisionerAPI) ReleaseContainerAddresses(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) ReleaseContainerAddresses(_ context.Context, args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}

@@ -250,17 +250,46 @@ func (s *WatchableService) WatchModelMachines(ctx context.Context) (watcher.Stri
 }
 
 // WatchModelMachineLifeAndStartTimes returns a string watcher that emits
-// machine names for changes to machine life or agent start times.
+// machine names for changes to machine life, agent start times, or cloud
+// instance registration.
 func (s *WatchableService) WatchModelMachineLifeAndStartTimes(ctx context.Context) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	table, stmt := s.st.InitialWatchModelMachineLifeAndStartTimesStatement()
-	return s.watcherFactory.NewNamespaceWatcher(
+	return s.watcherFactory.NewNamespaceMapperWatcher(
 		ctx,
 		eventsource.InitialNamespaceChanges(stmt),
 		"model machine life and start times watcher",
+		func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
+			machineNames := make([]string, 0, len(changes))
+			cloudInstanceNamespace := s.st.NamespaceForWatchMachineCloudInstance()
+			for _, change := range changes {
+				if change.Namespace() != cloudInstanceNamespace {
+					machineNames = append(machineNames, change.Changed())
+					continue
+				}
+
+				// A machine_cloud_instance row is created with the machine. Only
+				// emit when the provider instance ID is later registered.
+				if _, err := s.st.GetInstanceID(ctx, change.Changed()); err != nil {
+					if errors.Is(err, machineerrors.NotProvisioned) {
+						continue
+					}
+					return nil, errors.Capture(err)
+				}
+				name, err := s.st.GetNamesForUUIDs(ctx, []string{change.Changed()})
+				if err != nil {
+					return nil, errors.Capture(err)
+				}
+				if machineName, ok := name[machine.UUID(change.Changed())]; ok {
+					machineNames = append(machineNames, machineName.String())
+				}
+			}
+			return machineNames, nil
+		},
 		eventsource.NamespaceFilter(table, changestream.All),
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchMachineCloudInstance(), changestream.Changed),
 	)
 }
 

@@ -29,17 +29,20 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	domainprovisioner "github.com/juju/juju/domain/provisioner"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
 	environmocks "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
@@ -50,10 +53,11 @@ import (
 type CommonProvisionerSuite struct {
 	testhelpers.IsolationSuite
 
-	controllerAPI  *MockControllerAPI
-	machineService *MockMachineService
-	machinesAPI    *MockMachinesAPI
-	broker         *environmocks.MockEnviron
+	controllerAPI       *MockControllerAPI
+	machineService      *MockMachineService
+	provisioningService *MockProvisioningService
+	machinesAPI         *MockMachinesAPI
+	broker              *environmocks.MockEnviron
 
 	modelConfigCh chan struct{}
 	machinesCh    chan []string
@@ -66,6 +70,7 @@ func (s *CommonProvisionerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	s.controllerAPI = NewMockControllerAPI(ctrl)
 	s.machinesAPI = NewMockMachinesAPI(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
+	s.provisioningService = NewMockProvisioningService(ctrl)
 	s.broker = environmocks.NewMockEnviron(ctrl)
 	s.expectAuth()
 	s.expectStartup(c)
@@ -202,7 +207,7 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *tc.C) computeprovision
 	c.Assert(err, tc.ErrorIsNil)
 
 	w, err := computeprovisioner.NewEnvironProvisioner(
-		s.controllerAPI, s.machineService, s.machinesAPI,
+		s.controllerAPI, s.machineService, s.provisioningService, s.machinesAPI,
 		mockToolsFinder{},
 		&mockDistributionGroupFinder{},
 		agentConfig,
@@ -308,22 +313,59 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *tc.C) {
 		}},
 	}, nil)
 	startArg := machineStartInstanceArg(mTag.Id())
+	providerNetwork := corenetwork.InterfaceInfos{{
+		InterfaceName: "eth0",
+		ProviderId:    "provider-device-1",
+		Addresses: corenetwork.ProviderAddresses{{
+			MachineAddress: corenetwork.MachineAddress{
+				Value: "10.0.0.2",
+				CIDR:  "10.0.0.0/24",
+				Type:  corenetwork.IPv4Address,
+				Scope: corenetwork.ScopeCloudLocal,
+			},
+			ProviderID:       "provider-address-1",
+			ProviderSubnetID: "provider-subnet-1",
+		}},
+	}}
+	providerVolumes := []internalstorage.Volume{{
+		Tag: names.NewVolumeTag("0"),
+		VolumeInfo: internalstorage.VolumeInfo{
+			VolumeId: "provider-volume-1",
+			Size:     1024,
+		},
+	}}
+	providerAttachments := []internalstorage.VolumeAttachment{{
+		Volume: names.NewVolumeTag("0"),
+		VolumeAttachmentInfo: internalstorage.VolumeAttachmentInfo{
+			DeviceName: "sdb",
+			ReadOnly:   true,
+		},
+	}}
 	s.broker.EXPECT().StartInstance(gomock.Any(), newDefaultStartInstanceParamsMatcher(c, startArg)).Return(&environs.StartInstanceResult{
-		Instance: &testInstance{id: "inst-666"},
+		Instance:          &testInstance{id: "inst-666"},
+		NetworkInfo:       providerNetwork,
+		Volumes:           providerVolumes,
+		VolumeAttachments: providerAttachments,
 	}, nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return("machine-666-uuid", nil)
 
 	var nonce string
 	instanceStart := make(chan string)
-	s.machineService.EXPECT().SetMachineCloudInstance(
+	s.provisioningService.EXPECT().RecordProvisionedMachine(
 		gomock.Any(),
 		machine.UUID("machine-666-uuid"),
-		instance.Id("inst-666"),
-		"",
 		gomock.Any(),
-		nil,
-	).DoAndReturn(func(ctx context.Context, u machine.UUID, i instance.Id, s1, s2 string, hc *instance.HardwareCharacteristics) error {
-		nonce = s2
+	).DoAndReturn(func(ctx context.Context, u machine.UUID, info domainprovisioner.ProvisionedMachineInfo) error {
+		nonce = info.Nonce
+		c.Check(info.NetworkConfig, tc.DeepEquals, providerNetwork)
+		c.Check(info.Volumes, tc.DeepEquals, []domainprovisioner.ProvisionedVolume{{
+			VolumeID:   "0",
+			ProviderID: "provider-volume-1",
+			SizeMiB:    1024,
+		}})
+		c.Check(info.VolumeAttachments, tc.DeepEquals, map[string]domainprovisioner.ProvisionedVolumeAttachment{
+			"0": {DeviceName: "sdb", ReadOnly: true},
+		})
 		instanceStart <- "inst-666"
 		return nil
 	})
