@@ -202,12 +202,37 @@ def html_visit_d2(self: object, node: d2) -> None:
     raise nodes.SkipNode
 
 
+def markdown_visit_d2(self: object, node: d2) -> None:
+    """Emit D2 source as a fenced code block in the markdown/llms output."""
+    code = node["code"]
+    alt = node.get("alt", "")
+    if alt:
+        self.add(f"<!-- D2 diagram: {alt} -->", prefix_eol=1, suffix_eol=1)
+    self.add("```d2", prefix_eol=1, suffix_eol=1)
+    self.add(code, prefix_eol=0, suffix_eol=1)
+    self.add("```", prefix_eol=1, suffix_eol=2)
+    raise nodes.SkipNode
+
+
+def text_visit_d2(self: object, node: d2) -> None:
+    """Emit a placeholder in plain-text output (man pages etc.)."""
+    alt = node.get("alt", "")
+    self.add_text(f"[D2 diagram{': ' + alt if alt else ''}]")
+    raise nodes.SkipNode
+
+
 def setup(app: object) -> dict:
-    app.add_node(d2, html=(html_visit_d2, None))
+    app.add_node(
+        d2,
+        html=(html_visit_d2, None),
+        markdown=(markdown_visit_d2, None),
+        text=(text_visit_d2, None),
+        man=(text_visit_d2, None),
+    )
     app.add_directive("d2", D2Directive)
     app.add_config_value("d2_cmd", "d2", "html")
     app.add_config_value("d2_layout", "elk", "html")
     app.add_config_value("d2_light_theme", 0, "html")
     app.add_config_value("d2_dark_theme", D2_DARK_THEME, "html")
     app.add_config_value("d2_pad", 20, "html")
-    return {"version": "0.3.0", "parallel_read_safe": True, "parallel_write_safe": True}
+    return {"version": "0.4.0", "parallel_read_safe": True, "parallel_write_safe": True}

@@ -62,6 +62,7 @@ one machine or pod. Every unit runs the same chain: a unit agent drives a charm,
 which operates the workload.
 
 ```{d2}
+:alt: User sends intent to Client. Client calls Juju API on Controller. Controller drives Application 1 unit and Application 2 unit via Juju API websocket. Inside each unit: Unit agent dispatches Charm; Charm operates Workload.
 direction: right
 *.style.font-size: 13
 
