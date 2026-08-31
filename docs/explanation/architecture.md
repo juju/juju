@@ -49,74 +49,18 @@ you want; Juju stores that declaration as goal state and drives the real world
 toward it continuously -- through restarts, failures, and drift.
 
 ```{ggarch}
+:file: ../juju.ggarch
+:view: Intent vs execution
 :alt: User declares to Client. Client persists to Controller (goal state). Controller reconciles via Agents. Agents converge the Real world.
-model "Intent" {
-  nodes {
-    user   [type: person,        label: "User"]
-    client [type: juju-software, label: "Client"]
-    ctrl   [type: juju-software, label: "Controller\n(goal state)"]
-    agents [type: juju-software, label: "Agents"]
-    world  [type: workload,      label: "Real world"]
-  }
-  edges {
-    user   -> client [type: control, label: "declare"]
-    client -> ctrl   [type: api,     label: "persist"]
-    ctrl   -> agents [type: stream,  label: "reconcile"]
-    agents -> world  [type: control, label: "converge"]
-  }
-}
-diagram "Intent vs execution" from "Intent" {
-  select { nodes: user client ctrl agents world }
-  positions {
-    user   left-of client gap: 30
-    client left-of ctrl   gap: 40
-    ctrl   left-of agents gap: 40
-    agents left-of world  gap: 40
-    user   align-middle client
-    client align-middle ctrl
-    ctrl   align-middle agents
-    agents align-middle world
-  }
-}
 ```
 *Intent separated from execution. The controller holds goal state durably; agents
 close the gap between what is declared and what exists. When reality drifts --
 a machine dies, a unit fails -- the same loop brings it back.*
 
 ```{ggarch}
+:file: ../juju.ggarch
+:view: Juju overview
 :alt: User, Client, Controller, and Charmed applications on the same horizontal plane left to right. Clouds above the Controller. Charmhub below the Controller.
-model "JujuOverview" {
-  nodes {
-    user       [type: person,        label: "User"]
-    client     [type: juju-software, label: "Client"]
-    controller [type: juju-software, label: "Controller"]
-    apps       [type: unit,          label: "Charmed applications"]
-    clouds     [type: external,      label: "Clouds\n(AWS, GCP, K8s…)"]
-    charmhub   [type: external,      label: "Charmhub"]
-  }
-  edges {
-    user       -> client     [type: control]
-    client     -> controller [type: api]
-    controller -> apps       [type: stream]
-    controller -> clouds     [type: control]
-    controller -> charmhub   [type: api]
-  }
-}
-diagram "Juju overview" from "JujuOverview" {
-  select { nodes: user client controller apps clouds charmhub }
-  positions {
-    user       left-of client      gap: 30
-    user       align-middle client
-    client     left-of controller  gap: 40
-    client     align-middle controller
-    controller left-of apps        gap: 40
-    controller align-middle apps
-    clouds     above controller    gap: 50
-    clouds     align-centre controller
-    charmhub   below controller    gap: 50
-    charmhub   align-centre controller
-  }
-}
 ```
 *The controller as hub. User, client, controller, and charmed applications
 form a horizontal chain of intent and execution. Clouds (infrastructure
@@ -141,53 +85,9 @@ See more: {ref}`controller`, {ref}`unit`, {ref}`machines-and-system-containers`
 ```
 
 ```{ggarch}
+:file: ../juju.ggarch
 :view: K8s deployment topology
 :alt: Kubernetes cluster schedules the Controller pod (running the controller agent, jujud) and Unit pods (one per unit). Each unit pod has a Charm container (unit agent and charm code) and a Workload container (Pebble init process and workload services). The controller agent talks to the unit agent over the Juju API websocket. The charm talks to Pebble over the Pebble API HTTP.
-model "JujuK8s" {
-  nodes {
-    k8s [type: infrastructure, label: "Kubernetes cluster"]
-
-    controller_pod [type: container, label: "Controller pod"] {
-      jujud [type: juju-software,
-             label: "Controller agent\n(jujud, Dqlite)"]
-    }
-
-    unit_pod [type: container, label: "Unit pod (one per unit)"] {
-      charm_container [type: container, label: "Charm container"] {
-        unit_agent [type: juju-software, label: "Unit agent"]
-        charm      [type: charm,         label: "Charm"]
-      }
-      workload_container [type: container, label: "Workload container"] {
-        pebble   [type: pebble,   label: "Pebble (init)"]
-        workload [type: workload, label: "Workload service(s)"]
-      }
-    }
-  }
-
-  edges {
-    k8s        -> controller_pod [type: control]
-    k8s        -> unit_pod       [type: control]
-    jujud      -> unit_agent     [type: stream]
-    charm      -> pebble         [type: api]
-  }
-}
-
-diagram "K8s deployment topology" from "JujuK8s" {
-  select {
-    nodes: k8s controller_pod unit_pod
-  }
-  positions {
-    k8s            above controller_pod  gap: 40
-    k8s            align-centre controller_pod
-    controller_pod left-of unit_pod      gap: 60
-    controller_pod align-middle unit_pod
-    unit_pod       direction: right
-    charm_container    same-width workload_container
-    unit_agent         same-width charm
-    pebble             same-width workload
-    jujud              min-width: 160
-  }
-}
 ```
 *A live Kubernetes deployment. The controller pod runs the controller agent (`jujud`
 with Dqlite in-process). Each unit runs in its own pod: the charm container holds
@@ -252,45 +152,9 @@ behalf. On machine clouds the charm drives the workload directly, since charm an
 workload share the same machine.
 
 ```{ggarch}
+:file: ../juju.ggarch
 :sequence: Hook execution
 :alt: API-server fires watcher to Unit agent. Unit agent snapshots state, resolves next hook, execs dispatch. During the hook loop: charm calls hook command, unit agent serves via API, controller responds, result returns to charm. On exit 0: charm returns success, unit agent flushes writes. On failure: charm returns failure, unit agent discards writes and sets unit error.
-model "HookExec" {
-  nodes {
-    apiserver  [type: juju-software, label: "API-server"]
-    unit_agent [type: juju-software, label: "Unit agent"]
-    charm      [type: charm,         label: "Charm (dispatch)"]
-  }
-  edges {
-    apiserver  -> unit_agent [type: stream,  label: "watcher"]
-    unit_agent -> charm      [type: control, label: "exec dispatch"]
-    charm      -> unit_agent [type: ipc,     label: "hook commands"]
-    unit_agent -> apiserver  [type: api,     label: "serve / flush"]
-  }
-  behaviours {
-    behaviour "Hook execution" {
-      apiserver -> unit_agent: async "watcher fires"
-      unit_agent -> unit_agent: self "snapshot remote state"
-      unit_agent -> unit_agent: self "resolve next hook"
-      unit_agent -> charm: call "exec dispatch"
-      loop "during hook" {
-        charm -> unit_agent: call "hook command"
-        unit_agent -> apiserver: call "serve via API"
-        apiserver -> unit_agent: return
-        unit_agent -> charm: return
-      }
-      alt "exit 0" {
-        charm -> unit_agent: return "success"
-        unit_agent -> apiserver: call "flush writes"
-      } else "failure" {
-        charm -> unit_agent: return "failure"
-        unit_agent -> apiserver: call "discard writes, unit error"
-      }
-    }
-  }
-}
-sequence "Hook execution" from "HookExec" {
-  select { behaviour: "Hook execution" }
-}
 ```
 *The unit agent execs the charm's `dispatch` script. During the hook the charm calls
 hook commands; the unit agent serves each one against the controller. On clean exit
@@ -361,41 +225,9 @@ workload applications.
 ::::{tab-item} Kubernetes
 
 ```{ggarch}
+:file: ../juju.ggarch
 :sequence: Bootstrap K8s
 :alt: User invokes juju bootstrap. CLI authenticates with K8s cluster. CLI creates namespace and deploys controller pod. jujud starts, initialises API server and database. jujud signals API ready to CLI. CLI reports bootstrap complete to User.
-model "BootstrapK8s" {
-  nodes {
-    user       [type: person,        label: "User"]
-    cli        [type: juju-software, label: "juju CLI"]
-    k8s        [type: external, label: "Kubernetes cluster"]
-    controller [type: container,     label: "Controller pod"]
-  }
-  edges {
-    user -> cli        [type: control]
-    cli  -> k8s        [type: api]
-    k8s  -> cli        [type: api]
-    cli  -> controller [type: control]
-    controller -> cli  [type: api]
-    cli  -> user       [type: control]
-  }
-  behaviours {
-    behaviour "Bootstrap K8s" {
-      user -> cli: call "juju bootstrap"
-      cli  -> k8s: call "Authenticate"
-      k8s  -> cli: return "OK"
-      cli  -> k8s: call "Create namespace + deploy controller pod"
-      k8s  -> cli: return "Pod scheduled"
-      controller -> controller: self "Start jujud"
-      controller -> controller: self "Start API server"
-      controller -> controller: self "Initialise database"
-      controller -> cli: return "API ready"
-      cli  -> user: return "Bootstrap complete"
-    }
-  }
-}
-sequence "Bootstrap K8s" from "BootstrapK8s" {
-  select { behaviour: "Bootstrap K8s" }
-}
 ```
 
 ```{mermaid}

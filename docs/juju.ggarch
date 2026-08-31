@@ -1,0 +1,227 @@
+// Juju architecture — canonical ggarch model for the documentation.
+//
+// All diagrams in explanation/architecture.md reference this file via
+// :file: juju.ggarch  (path relative to the source document).
+//
+// Views are declared here too; diagrams in the .md files reference them
+// by name via :view: or :sequence:.
+
+model "Juju" {
+
+  nodes {
+    // -----------------------------------------------------------------------
+    // Actors
+    // -----------------------------------------------------------------------
+    user [type: person, label: "User"]
+
+    // -----------------------------------------------------------------------
+    // Client-side
+    // -----------------------------------------------------------------------
+    client [type: juju-software, label: "Client"]
+
+    // -----------------------------------------------------------------------
+    // Controller — abstract (used in high-level diagrams)
+    // -----------------------------------------------------------------------
+    controller [type: juju-software, label: "Controller"]
+
+    // -----------------------------------------------------------------------
+    // Controller pod (K8s deployment — detailed)
+    // -----------------------------------------------------------------------
+    controller_pod [type: container, label: "Controller pod"] {
+      jujud [type: juju-software, label: "Controller agent\n(jujud, Dqlite)"]
+    }
+
+    // -----------------------------------------------------------------------
+    // Unit pod (K8s deployment — detailed)
+    // -----------------------------------------------------------------------
+    unit_pod [type: container, label: "Unit pod (one per unit)"] {
+      charm_container [type: container, label: "Charm container"] {
+        unit_agent [type: juju-software, label: "Unit agent"]
+        charm      [type: charm,         label: "Charm"]
+      }
+      workload_container [type: container, label: "Workload container"] {
+        pebble   [type: pebble,   label: "Pebble (init)"]
+        workload [type: workload, label: "Workload service(s)"]
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Agents — abstract (used in high-level diagrams)
+    // -----------------------------------------------------------------------
+    agents [type: juju-software, label: "Agents"]
+
+    // -----------------------------------------------------------------------
+    // External
+    // -----------------------------------------------------------------------
+    k8s      [type: external, label: "Kubernetes cluster"]
+    charmhub [type: external, label: "Charmhub"]
+    clouds   [type: external, label: "Clouds\n(AWS, GCP, K8s…)"]
+
+    // -----------------------------------------------------------------------
+    // Workload — abstract (used in high-level diagrams)
+    // -----------------------------------------------------------------------
+    world [type: workload, label: "Real world"]
+
+    // -----------------------------------------------------------------------
+    // Charmed applications — abstract
+    // -----------------------------------------------------------------------
+    apps [type: unit, label: "Charmed applications"]
+
+    // -----------------------------------------------------------------------
+    // Hook execution participants (API-server is jujud's API surface)
+    // -----------------------------------------------------------------------
+    apiserver  [type: juju-software, label: "API-server"]
+  }
+
+  edges {
+    // Intent chain
+    user   -> client     [type: control]
+    client -> controller [type: api,    label: "Juju API"]
+    controller -> agents [type: stream, label: "reconcile"]
+    agents -> world      [type: control, label: "converge"]
+
+    // Controller to clouds and charmhub
+    controller -> clouds   [type: control]
+    controller -> charmhub [type: api]
+    controller -> apps     [type: stream]
+
+    // K8s topology
+    k8s            -> controller_pod [type: control]
+    k8s            -> unit_pod       [type: control]
+    jujud          -> unit_agent     [type: stream]
+    jujud          -> charmhub       [type: api,     label: "fetches charm"]
+    charm          -> pebble         [type: api]
+
+    // Hook execution
+    apiserver  -> unit_agent [type: stream,  label: "watcher"]
+    unit_agent -> charm      [type: control, label: "exec dispatch"]
+    charm      -> unit_agent [type: ipc,     label: "hook commands"]
+    unit_agent -> apiserver  [type: api,     label: "serve / flush"]
+
+    // Bootstrap K8s
+    client -> k8s   [type: api]
+    k8s    -> client [type: api]
+    jujud  -> client [type: api, label: "API ready"]
+  }
+
+  behaviours {
+
+    behaviour "Hook execution" {
+      apiserver -> unit_agent: async "watcher fires"
+      unit_agent -> unit_agent: self "snapshot remote state"
+      unit_agent -> unit_agent: self "resolve next hook"
+      unit_agent -> charm: call "exec dispatch"
+      loop "during hook" {
+        charm -> unit_agent: call "hook command"
+        unit_agent -> apiserver: call "serve via API"
+        apiserver -> unit_agent: return
+        unit_agent -> charm: return
+      }
+      alt "exit 0" {
+        charm -> unit_agent: return "success"
+        unit_agent -> apiserver: call "flush writes"
+      } else "failure" {
+        charm -> unit_agent: return "failure"
+        unit_agent -> apiserver: call "discard writes, unit error"
+      }
+    }
+
+    behaviour "Bootstrap K8s" {
+      user   -> client: call "juju bootstrap"
+      client -> k8s:    call "Authenticate"
+      k8s    -> client: return "OK"
+      client -> k8s:    call "Create namespace + deploy controller pod"
+      k8s    -> client: return "Pod scheduled"
+      jujud  -> jujud:  self "Start jujud"
+      jujud  -> jujud:  self "Start API server"
+      jujud  -> jujud:  self "Initialise database"
+      jujud  -> client: return "API ready"
+      client -> user:   return "Bootstrap complete"
+    }
+
+  }
+
+  style {
+    extends: juju
+  }
+
+}
+
+// ==========================================================================
+// Views
+// ==========================================================================
+
+// --------------------------------------------------------------------------
+// Insight: intent vs execution
+// --------------------------------------------------------------------------
+
+diagram "Intent vs execution" from "Juju" {
+  select { nodes: user client controller agents world }
+  positions {
+    user       left-of client     gap: 30
+    user       align-middle client
+    client     left-of controller gap: 40
+    client     align-middle controller
+    controller left-of agents     gap: 40
+    controller align-middle agents
+    agents     left-of world      gap: 40
+    agents     align-middle world
+  }
+}
+
+// --------------------------------------------------------------------------
+// Insight: controller as hub
+// --------------------------------------------------------------------------
+
+diagram "Juju overview" from "Juju" {
+  select { nodes: user client controller apps clouds charmhub }
+  positions {
+    user       left-of client      gap: 30
+    user       align-middle client
+    client     left-of controller  gap: 40
+    client     align-middle controller
+    controller left-of apps        gap: 40
+    controller align-middle apps
+    clouds     above controller    gap: 50
+    clouds     align-centre controller
+    charmhub   below controller    gap: 50
+    charmhub   align-centre controller
+  }
+}
+
+// --------------------------------------------------------------------------
+// Topology: K8s deployment
+// --------------------------------------------------------------------------
+
+diagram "K8s deployment topology" from "Juju" {
+  select {
+    nodes: k8s controller_pod unit_pod
+  }
+  positions {
+    k8s            above controller_pod  gap: 40
+    k8s            align-centre controller_pod
+    controller_pod left-of unit_pod      gap: 60
+    controller_pod align-middle unit_pod
+    unit_pod       direction: right
+    charm_container    same-width workload_container
+    unit_agent         same-width charm
+    pebble             same-width workload
+    jujud              min-width: 160
+  }
+}
+
+// --------------------------------------------------------------------------
+// Hook execution sequence
+// --------------------------------------------------------------------------
+
+sequence "Hook execution" from "Juju" {
+  select { behaviour: "Hook execution" }
+}
+
+// --------------------------------------------------------------------------
+// Bootstrap K8s sequence
+// --------------------------------------------------------------------------
+
+sequence "Bootstrap K8s" from "Juju" {
+  select { behaviour: "Bootstrap K8s" }
+}
