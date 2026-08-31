@@ -51,6 +51,80 @@ all from a single declaration. The same declaration works on AWS, OpenStack, or 
 Kubernetes cluster, because the cloud-specific execution is handled below the line
 you draw.
 
+```{d2}
+:alt: User sends intent to Client. Client calls Juju API on Controller. Controller provisions infrastructure from Cloud (cloud knowledge). Controller drives Application 1 unit and Application 2 unit via Juju API websocket (execution). Inside each unit: Unit agent dispatches Charm (app knowledge); Charm operates Workload.
+direction: right
+*.style.font-size: 13
+
+user.shape: person
+user.label: "User"
+
+intent_side: "intent & persistence" {
+  style.stroke-dash: 4
+  style.font-color: "#666"
+  style.fill: transparent
+  client: "Client" {
+    style.fill: "#E95420"
+    style.font-color: white
+  }
+  controller: "Controller" {
+    style.fill: "#E95420"
+    style.font-color: white
+  }
+  client -> controller: "Juju API"
+}
+
+cloud: "Cloud" {
+  style.fill: "#F5F5F5"
+  style.stroke: "#AAA"
+}
+
+app1: "Application 1 unit" {
+  unit_agent: "Unit agent" {
+    style.fill: "#E95420"
+    style.font-color: white
+  }
+  charm: "Charm\n(app knowledge)" {
+    style.fill: white
+    style.stroke: "#E95420"
+  }
+  workload: "Workload" {
+    style.fill: "#4A90D9"
+    style.font-color: white
+  }
+  unit_agent -> charm: "dispatch"
+  charm -> workload: "operates"
+}
+
+app2: "Application 2 unit" {
+  unit_agent: "Unit agent" {
+    style.fill: "#E95420"
+    style.font-color: white
+  }
+  charm: "Charm\n(app knowledge)" {
+    style.fill: white
+    style.stroke: "#E95420"
+  }
+  workload: "Workload" {
+    style.fill: "#4A90D9"
+    style.font-color: white
+  }
+  unit_agent -> charm: "dispatch"
+  charm -> workload: "operates"
+}
+
+user -> intent_side.client: "intent"
+intent_side.controller -> cloud: "cloud knowledge\n(provisions infra)"
+intent_side.controller -> app1.unit_agent: "Juju API\n(websocket)"
+intent_side.controller -> app2.unit_agent: "Juju API\n(websocket)"
+```
+*The two separations in action. The dashed box is the intent and persistence side:
+the client expresses what you want; the controller records it as goal state and
+handles all cloud knowledge by provisioning infrastructure directly. The application
+units are the execution side: the unit agent drives the charm, which encodes all
+application knowledge and operates the workload. Cloud knowledge never reaches the
+charm; application knowledge never reaches the cloud provisioner.*
+
 ## Mechanism
 
 ### Topology
@@ -59,72 +133,9 @@ A live Juju deployment has a **controller** -- the management process that holds
 all goal state -- and one or more **applications**, each broken into one or more
 **units**. A unit is the atomic instance of an application: one running copy on
 one machine or pod. Every unit runs the same chain: a unit agent drives a charm,
-which operates the workload.
-
-```{d2}
-:alt: User sends intent to Client. Client calls Juju API on Controller. Controller drives Application 1 unit and Application 2 unit via Juju API websocket. Inside each unit: Unit agent dispatches Charm; Charm operates Workload.
-direction: right
-*.style.font-size: 13
-
-user.shape: person
-user.label: "User"
-
-client: "Client" {
-  style.fill: "#E95420"
-  style.font-color: white
-}
-
-controller: "Controller" {
-  style.fill: "#E95420"
-  style.font-color: white
-}
-
-app1: "Application 1\nunit" {
-  unit_agent: "Unit agent" {
-    style.fill: "#E95420"
-    style.font-color: white
-  }
-  charm: "Charm" {
-    style.fill: white
-    style.stroke: "#E95420"
-  }
-  workload: "Workload" {
-    style.fill: "#4A90D9"
-    style.font-color: white
-  }
-  unit_agent -> charm: "dispatch"
-  charm -> workload: "operates"
-}
-
-app2: "Application 2\nunit" {
-  unit_agent: "Unit agent" {
-    style.fill: "#E95420"
-    style.font-color: white
-  }
-  charm: "Charm" {
-    style.fill: white
-    style.stroke: "#E95420"
-  }
-  workload: "Workload" {
-    style.fill: "#4A90D9"
-    style.font-color: white
-  }
-  unit_agent -> charm: "dispatch"
-  charm -> workload: "operates"
-}
-
-user -> client: "intent"
-client -> controller: "Juju API"
-controller -> app1.unit_agent: "Juju API\n(websocket)"
-controller -> app2.unit_agent: "Juju API\n(websocket)"
-```
-*The Juju deployment model. The controller is the single management process; all
-integration and reconciliation flows through it. On Kubernetes the controller runs
-as `jujud` in a pod, the unit agent is `containeragent`, and the charm drives the
-workload via Pebble. On machine clouds the controller and unit agents are both
-`jujud` processes and the charm drives the workload directly. The deployment detail
--- containers, pods, Pebble, Dqlite -- is covered in {ref}`controller` and
-{ref}`unit`.*
+which operates the workload. The controller is the single point through which all
+integration between applications flows -- there are no direct application-to-application
+connections.
 
 ```{ibnote}
 See more: {ref}`controller`, {ref}`unit`, {ref}`machines-and-system-containers`
