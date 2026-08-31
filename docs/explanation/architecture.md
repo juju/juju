@@ -83,6 +83,46 @@ diagram "Intent vs execution" from "Intent" {
 close the gap between what is declared and what exists. When reality drifts --
 a machine dies, a unit fails -- the same loop brings it back.*
 
+```{ggarch}
+:alt: User talks to Client. Client talks to Controller. Controller flanked by Clouds on the left and Charmhub on the right. Charmed applications below the Controller.
+model "JujuOverview" {
+  nodes {
+    user       [type: person,        label: "User"]
+    client     [type: juju-software, label: "Client"]
+    clouds     [type: external,      label: "Clouds\n(AWS, GCP, K8s…)"]
+    controller [type: juju-software, label: "Controller"]
+    charmhub   [type: external,      label: "Charmhub"]
+    apps       [type: unit,          label: "Charmed applications"]
+  }
+  edges {
+    user       -> client     [type: control]
+    client     -> controller [type: api]
+    controller -> clouds     [type: control]
+    controller -> charmhub   [type: api]
+    controller -> apps       [type: stream]
+  }
+}
+diagram "Juju overview" from "JujuOverview" {
+  select { nodes: user client clouds controller charmhub apps }
+  positions {
+    user       left-of client      gap: 30
+    user       align-middle client
+    client     left-of clouds      gap: 60
+    client     align-middle controller
+    clouds     left-of controller  gap: 50
+    clouds     align-middle controller
+    charmhub   right-of controller gap: 50
+    charmhub   align-middle controller
+    apps       below controller    gap: 60
+    apps       align-centre controller
+  }
+}
+```
+*The controller as hub. Clouds and Charmhub flank the controller horizontally --
+the controller alone holds cloud knowledge (provisioning) and application knowledge
+(charms). The user's client feeds intent in from the left; charmed applications
+receive it below.*
+
 
 ## Mechanism
 
