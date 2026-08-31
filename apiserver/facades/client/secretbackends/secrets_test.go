@@ -91,7 +91,7 @@ func (s *SecretsSuite) TestAddSecretBackends(c *tc.C) {
 		{},
 		{Error: &params.Error{
 			Code:    "secret backend already exists",
-			Message: `secret backend already exists`}},
+			Message: `secret backend "myvault2" already exists`}},
 	})
 }
 
@@ -248,7 +248,7 @@ func (s *SecretsSuite) TestUpdateSecretBackends(c *tc.C) {
 		{},
 		{Error: &params.Error{
 			Code:    "secret backend not found",
-			Message: `secret backend not found`}},
+			Message: `secret backend "not-existing-name" not found`}},
 	})
 }
 

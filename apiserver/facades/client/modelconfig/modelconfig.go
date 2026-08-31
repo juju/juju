@@ -419,13 +419,17 @@ func (s *ModelConfigAPI) SetModelSecretBackend(ctx context.Context, arg params.S
 		return params.ErrorResult{}, errors.Trace(err)
 	}
 	err := s.modelSecretBackendService.SetModelSecretBackend(ctx, arg.SecretBackendName)
-	// Translate secret backend domain errors into their wire codes at the
-	// call site, preserving the error message.
 	switch {
 	case internalerrors.Is(err, secretbackenderrors.NotFound):
-		err = apiservererrors.ParamsErrorf(params.CodeSecretBackendNotFound, "%s", err.Error())
+		err = apiservererrors.ParamsErrorf(
+			params.CodeSecretBackendNotFound,
+			"secret backend %q not found", arg.SecretBackendName,
+		)
 	case internalerrors.Is(err, secretbackenderrors.NotValid):
-		err = apiservererrors.ParamsErrorf(params.CodeSecretBackendNotValid, "%s", err.Error())
+		err = apiservererrors.ParamsErrorf(
+			params.CodeSecretBackendNotValid,
+			"secret backend %q not valid", arg.SecretBackendName,
+		)
 	}
 	return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 }

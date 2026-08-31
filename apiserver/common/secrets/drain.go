@@ -169,22 +169,22 @@ func (s *SecretsDrainAPI) ChangeSecretBackend(ctx context.Context, args params.C
 	}
 	for i, arg := range args.Args {
 		err := s.changeSecretBackendForOne(ctx, arg)
-		result.Results[i].Error = apiservererrors.ServerError(codedSecretError(err))
+		switch {
+		case errors.Is(err, secreterrors.SecretNotFound):
+			result.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeSecretNotFound,
+				"secret %q not found", arg.URI,
+			)
+		case errors.Is(err, secreterrors.PermissionDenied):
+			result.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeUnauthorized,
+				"cannot change backend for secret %q: %s", arg.URI, err.Error(),
+			)
+		default:
+			result.Results[i].Error = apiservererrors.ServerError(err)
+		}
 	}
 	return result, nil
-}
-
-// codedSecretError translates well-known secret domain errors into coded
-// params errors at the facade boundary, preserving the message. Other
-// errors are returned unchanged.
-func codedSecretError(err error) error {
-	switch {
-	case errors.Is(err, secreterrors.SecretNotFound):
-		return apiservererrors.ParamsErrorf(params.CodeSecretNotFound, "%s", err.Error())
-	case errors.Is(err, secreterrors.PermissionDenied):
-		return apiservererrors.ParamsErrorf(params.CodeUnauthorized, "%s", err.Error())
-	}
-	return err
 }
 
 func (s *SecretsDrainAPI) changeSecretBackendForOne(ctx context.Context, arg params.ChangeSecretBackendArg) (err error) {

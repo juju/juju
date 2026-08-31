@@ -817,10 +817,11 @@ func (api *CrossModelRelationsAPIv3) getSecretChanges(ctx context.Context, uriSt
 	}
 	latest, err := api.secretService.GetLatestRevisions(ctx, uris)
 	if err != nil {
-		// Translate the secret domain error into its wire code at the
-		// call site, preserving the message.
 		if internalerrors.Is(err, secreterrors.SecretNotFound) {
-			return nil, apiservererrors.ParamsErrorf(params.CodeSecretNotFound, "%s", err.Error())
+			return nil, apiservererrors.ParamsErrorf(
+				params.CodeSecretNotFound,
+				"getting latest revisions for secrets %q: %s", uriStr, err.Error(),
+			)
 		}
 		return nil, errors.Trace(err)
 	}

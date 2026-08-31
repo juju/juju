@@ -18,6 +18,7 @@ import (
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/rpc/params"
@@ -57,21 +58,6 @@ func (s *SecretsAPI) checkCanAdmin(ctx context.Context) error {
 		return nil
 	}
 	return apiservererrors.ErrPerm
-}
-
-// codedSecretError translates well-known secret domain errors into coded
-// params errors at the facade boundary, preserving the message. Other
-// errors are returned unchanged.
-func codedSecretError(err error) error {
-	switch {
-	case errors.Is(err, secreterrors.SecretNotFound):
-		return apiservererrors.ParamsErrorf(params.CodeSecretNotFound, "%s", err.Error())
-	case errors.Is(err, secreterrors.SecretRevisionNotFound):
-		return apiservererrors.ParamsErrorf(params.CodeSecretRevisionNotFound, "%s", err.Error())
-	case errors.Is(err, secreterrors.PermissionDenied):
-		return apiservererrors.ParamsErrorf(params.CodeUnauthorized, "%s", err.Error())
-	}
-	return err
 }
 
 // ListSecrets lists available secrets.
@@ -158,7 +144,13 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 		}
 		grants, err := s.secretService.GetSecretGrants(ctx, m.URI, coresecrets.RoleView)
 		if err != nil {
-			return result, codedSecretError(err)
+			if errors.Is(err, secreterrors.SecretNotFound) {
+				return result, apiservererrors.ParamsErrorf(
+					params.CodeSecretNotFound,
+					"secret %q not found", m.URI,
+				)
+			}
+			return result, errors.Trace(err)
 		}
 		for _, g := range grants {
 			accessorTag, err := tagFromSubject(g.Subject)
@@ -201,7 +193,13 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 			}
 			val, err := s.secretService.GetSecretContentFromBackend(ctx, m.URI, rev)
 			valueResult := &params.SecretValueResult{
-				Error: apiservererrors.ServerError(codedSecretError(err)),
+				Error: apiservererrors.ServerError(err),
+			}
+			if errors.Is(err, secretbackenderrors.NotFound) {
+				valueResult.Error = apiservererrors.ParamsErrorf(
+					params.CodeSecretBackendNotFound,
+					"getting content for secret %q: %s", m.URI, err.Error(),
+				)
 			}
 			if err == nil {
 				valueResult.Data = val.EncodedValues()
@@ -340,7 +338,19 @@ func (s *SecretsAPI) updateSecret(ctx context.Context, arg params.UpdateUserSecr
 		arg.Content.Checksum = checksum
 	}
 	err = s.secretService.UpdateUserSecret(ctx, uri, fromUpsertParams(s.modelUUID, arg.AutoPrune, arg.UpsertSecretArg))
-	return codedSecretError(err)
+	switch {
+	case errors.Is(err, secreterrors.SecretNotFound):
+		return apiservererrors.ParamsErrorf(
+			params.CodeSecretNotFound,
+			"secret %q not found", uri,
+		)
+	case errors.Is(err, secreterrors.PermissionDenied):
+		return apiservererrors.ParamsErrorf(
+			params.CodeUnauthorized,
+			"cannot update secret %q: %s", uri, err.Error(),
+		)
+	}
+	return err
 }
 
 func (s *SecretsAPI) secretURI(ctx context.Context, uriStr, label string) (*coresecrets.URI, error) {
@@ -352,7 +362,13 @@ func (s *SecretsAPI) secretURI(ctx context.Context, uriStr, label string) (*core
 	}
 	uri, err := s.secretService.GetUserSecretURIByLabel(ctx, label)
 	if err != nil {
-		return nil, codedSecretError(errors.Annotatef(err, "getting user secret for label %q", label))
+		if errors.Is(err, secreterrors.SecretNotFound) {
+			return nil, apiservererrors.ParamsErrorf(
+				params.CodeSecretNotFound,
+				"getting user secret for label %q: %s", label, err.Error(),
+			)
+		}
+		return nil, errors.Annotatef(err, "getting user secret for label %q", label)
 	}
 	return uri, nil
 }
@@ -384,9 +400,19 @@ func (s *SecretsAPI) RemoveSecrets(ctx context.Context, args params.DeleteSecret
 			Accessor:  domainsecret.SecretAccessor{Kind: domainsecret.ModelAccessor, ID: s.modelUUID},
 			Revisions: arg.Revisions,
 		})
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(codedSecretError(err))
-			continue
+		switch {
+		case errors.Is(err, secreterrors.SecretNotFound):
+			result.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeSecretNotFound,
+				"secret %q not found", uri,
+			)
+		case errors.Is(err, secreterrors.PermissionDenied):
+			result.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeUnauthorized,
+				"cannot remove secret %q: %s", uri, err.Error(),
+			)
+		case err != nil:
+			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil
@@ -429,18 +455,30 @@ func (s *SecretsAPI) secretsGrantRevoke(ctx context.Context, arg params.GrantRev
 	}
 
 	one := func(appName string) error {
-		if err := op(ctx, uri, domainsecret.SecretAccessParams{
+		err := op(ctx, uri, domainsecret.SecretAccessParams{
 			Accessor: domainsecret.SecretAccessor{Kind: domainsecret.ModelAccessor, ID: s.modelUUID},
 			Scope:    domainsecret.SecretAccessScope{Kind: domainsecret.ModelAccessScope, ID: s.modelUUID},
 			Subject:  domainsecret.SecretAccessor{Kind: domainsecret.ApplicationAccessor, ID: appName},
 			Role:     coresecrets.RoleView,
-		}); err != nil {
+		})
+		switch {
+		case errors.Is(err, secreterrors.SecretNotFound):
+			return apiservererrors.ParamsErrorf(
+				params.CodeSecretNotFound,
+				"secret %q not found", uri,
+			)
+		case errors.Is(err, secreterrors.PermissionDenied):
+			return apiservererrors.ParamsErrorf(
+				params.CodeUnauthorized,
+				"cannot change access to %q for %q: %s", uri, appName, err.Error(),
+			)
+		case err != nil:
 			return errors.Annotatef(err, "cannot change access to %q for %q", uri, appName)
 		}
 		return nil
 	}
 	for i, appName := range arg.Applications {
-		results.Results[i].Error = apiservererrors.ServerError(codedSecretError(one(appName)))
+		results.Results[i].Error = apiservererrors.ServerError(one(appName))
 	}
 	return results, nil
 }
