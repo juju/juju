@@ -348,6 +348,7 @@ func (conn *Conn) Close() error {
 		// API methods to return, otherwise they are just waiting.
 		conn.root.Kill()
 	}
+	cancelContext := conn.cancelContext
 	conn.mutex.Unlock()
 
 	// Wait for any outstanding server requests to complete
@@ -355,8 +356,8 @@ func (conn *Conn) Close() error {
 	// cancel the context so that any requests that would
 	// block will be notified that the server is shutting
 	// down.
-	if conn.cancelContext != nil {
-		conn.cancelContext()
+	if cancelContext != nil {
+		cancelContext()
 	}
 	done := make(chan struct{})
 	go func() {
@@ -379,14 +380,15 @@ func (conn *Conn) Close() error {
 		// So to release these resources, double tap the root.
 		conn.root.Kill()
 	}
+	dead := conn.dead
 	conn.mutex.Unlock()
 
 	// Closing the codec should cause the input loop to terminate.
 	if err := conn.codec.Close(); err != nil {
 		logger.Debugf(conn.context, "error closing codec: %v", err)
 	}
-	if conn.dead != nil {
-		<-conn.dead
+	if dead != nil {
+		<-dead
 	}
 
 	return conn.inputLoopError

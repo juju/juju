@@ -1177,7 +1177,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		recorderFactory := observer.NewRecorderFactory(apiObserver, nil, observer.NoCaptureArgs)
 		rpcConn := rpc.NewConn(codec, recorderFactory)
 
-		if root, err := srv.serveConn(
+		root, startWatch, serveErr := srv.serveConn(
 			srv.catacomb.Context(ctx),
 			rpcConn,
 			resolvedModelUUID,
@@ -1186,19 +1186,24 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 			apiObserver,
 			req.Host,
 			crossModelAuthContext,
-		); errors.Is(err, modelerrors.NotFound) {
+		)
+		switch {
+		case errors.Is(serveErr, modelerrors.NotFound):
 			// If the model is not found then we need to close the connection
 			// with the appropriate error so that the client can handle it.
 			err := fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
 			rpcConn.ServeRoot(&errRoot{err: errors.Trace(err)}, recorderFactory, serverError)
-		} else if err != nil {
-			err := fmt.Errorf("serving model %q: %w", modelUUID, err)
+		case serveErr != nil:
+			err := fmt.Errorf("serving model %q: %w", modelUUID, serveErr)
 			rpcConn.ServeRoot(&errRoot{err: errors.Trace(err)}, recorderFactory, serverError)
-		} else {
+		default:
 			rpcConn.ServeRoot(root, recorderFactory, serverError)
 		}
 
 		rpcConn.Start(ctx)
+		if startWatch != nil {
+			startWatch()
+		}
 		select {
 		case <-rpcConn.Dead():
 			cancel(ErrRPCConnectionClosed)
@@ -1219,25 +1224,26 @@ func (srv *Server) serveConn(
 	apiObserver observer.Observer,
 	host string,
 	crossModelAuthContext facade.CrossModelAuthContext,
-) (rpc.Root, error) {
+) (rpc.Root, func(), error) {
 	domainServices, err := srv.shared.domainServicesGetter.ServicesForModel(ctx, modelUUID)
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting domain services for model %q", modelUUID)
+		return nil, nil, errors.Annotatef(err, "getting domain services for model %q", modelUUID)
 	}
 
 	modelConn, err := srv.isModelAvailable(ctx, domainServices.Model(), modelUUID)
 	if err != nil {
-		return nil, errors.Annotatef(err, "checking model %q availability", modelUUID)
+		return nil, nil, errors.Annotatef(err, "checking model %q availability", modelUUID)
 	}
 
-	// Close the connection when the model it serves is removed from this
-	// controller, whether destroyed or deleted by a migration's REAP phase
-	// after migrating away, so that its agents and clients reconnect to the
-	// model's new location. A connection to a model that is already gone
-	// exists only to answer a redirect, so it is not watched.
+	// Defer the watch start so it runs after rpcConn.Start(), ensuring
+	// Close() is never called on an unstarted Conn.
+	var startWatch func()
 	if modelConn.connectable {
-		srv.watchServedModelRemoval(ctx, conn, domainServices.Model(),
-			srv.shared.controllerDomainServices.Model(), modelUUID)
+		modelService := domainServices.Model()
+		watchService := srv.shared.controllerDomainServices.Model()
+		startWatch = func() {
+			srv.watchServedModelRemoval(ctx, conn, modelService, watchService, modelUUID)
+		}
 	}
 
 	tracer, err := srv.shared.tracerGetter.GetTracer(
@@ -1252,19 +1258,19 @@ func (srv *Server) serveConn(
 	// Grab the object store for the model.
 	objectStore, err := srv.shared.objectStoreGetter.GetObjectStore(ctx, modelUUID.String())
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting object store for model %q", modelUUID)
+		return nil, nil, errors.Annotatef(err, "getting object store for model %q", modelUUID)
 	}
 
 	// Grab the object store for the controller, this is primarily used for
 	// the agent tools.
 	controllerObjectStore, err := srv.shared.objectStoreGetter.GetObjectStore(ctx, database.ControllerNS)
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting controller object store")
+		return nil, nil, errors.Annotatef(err, "getting controller object store")
 	}
 
 	watcherRegistry, err := srv.shared.watcherRegistryGetter.GetWatcherRegistry(ctx, connectionID)
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting watcher registry for connection %d", connectionID)
+		return nil, nil, errors.Annotatef(err, "getting watcher registry for connection %d", connectionID)
 	}
 
 	handler, err := newAPIHandler(
@@ -1289,7 +1295,7 @@ func (srv *Server) serveConn(
 		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
 	// Set up the admin apis used to accept logins and direct
@@ -1301,7 +1307,7 @@ func (srv *Server) serveConn(
 		adminAPIs[apiVersion] = factory(srv, handler, apiObserver)
 	}
 
-	return newAdminRoot(handler, adminAPIs), nil
+	return newAdminRoot(handler, adminAPIs), startWatch, nil
 }
 
 func (srv *Server) isModelAvailable(

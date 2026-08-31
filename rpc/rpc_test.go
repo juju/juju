@@ -1484,6 +1484,16 @@ func newRPCClientServer(
 	return client, server, srvDone, serverNotifier
 }
 
+func (s *rpcSuite) TestConnCloseBeforeStart(c *tc.C) {
+	client, srv := net.Pipe()
+	defer client.Close()
+	defer srv.Close()
+
+	conn := rpc.NewConn(NewJSONCodec(srv, roleServer), nil)
+	err := conn.Close()
+	tc.Assert(c, err, tc.ErrorIsNil)
+}
+
 func closeClient(c tc.LikeTB, client *rpc.Conn, srvDone <-chan error) {
 	err := client.Close()
 	tc.Assert(c, err, tc.ErrorIsNil)
