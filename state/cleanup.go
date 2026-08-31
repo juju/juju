@@ -1492,10 +1492,21 @@ func (st *State) cleanupEvacuateMachine(machineId string, cleanupArgs []bson.Raw
 	default:
 		return errors.Errorf("expected 0 or 2 arguments, got %d", n)
 	}
-	return st.cleanupEvacuateMachineInternal(machineId, force, false, maxWait)
+	err := st.cleanupEvacuateMachineInternal(machineId, force, false, maxWait)
+	if errors.Is(err, errForceCleanupRequired) {
+		st.scheduleForceCleanup(cleanupForceDestroyedMachine, machineId, maxWait)
+		return nil
+	}
+	return err
 }
 
-func (st *State) cleanupEvacuateMachineInternal(machineId string, force, forceDying bool, maxWait time.Duration) error {
+// errForceCleanupRequired indicates that evacuation should continue after the
+// grace period with forceDying enabled.
+var errForceCleanupRequired = errors.New("force cleanup required")
+
+func (st *State) cleanupEvacuateMachineInternal(
+	machineId string, force, forceDying bool, maxWait time.Duration,
+) error {
 	// Remove legacy upgrade-series locks before looking up the machine. A
 	// previous cleanup may already have removed the machine document.
 	if force {
@@ -1546,12 +1557,11 @@ func (st *State) cleanupEvacuateMachineInternal(machineId string, force, forceDy
 	}
 
 	// On the first pass (forceDying=false), if there are Dying units that
-	// were skipped, schedule a future cleanup to re-run with forceDying=true
-	// after maxWait has elapsed. This gives Dying units time to shut down
-	// gracefully before being forced to Dead.
+	// were skipped, signal the root evacuation to schedule a future cleanup
+	// with forceDying=true after maxWait has elapsed. This gives Dying units
+	// time to shut down gracefully before being forced to Dead.
 	if hasDyingUnits {
-		st.scheduleForceCleanup(cleanupForceDestroyedMachine, machineId, maxWait)
-		return nil
+		return errForceCleanupRequired
 	}
 	return errors.Errorf("waiting for units to be removed from %s", machineId)
 }
@@ -1590,9 +1600,9 @@ func (st *State) cleanupHostedUnit(
 	return "destroying", opErrs, err
 }
 
-// cleanupContainers recursively cleans up and removes the supplied machine's containers.
-// If a container has Dying units or is itself Dying while waiting for the provisioner to mark it Dead,
-// the method returns a "waiting" error so the parent cleanup is retried without calling container.Remove().
+// cleanupContainers recursively cleans up and removes the supplied machine's
+// containers. A force-cleanup handoff from a container is propagated to the
+// root evacuation.
 func (st *State) cleanupContainers(machine *Machine, force, forceDying bool, maxWait time.Duration) error {
 	containerIds, err := machine.Containers()
 	if errors.IsNotFound(err) {
