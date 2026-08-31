@@ -301,8 +301,8 @@ func (s *cleanupInternalSuite) TestCleanupForceDestroyedMachineHandlesUnitLifecy
 	AssertCleanupCountWithKind(c, st, cleanupDyingUnit, 0)
 	AssertCleanupCountWithKind(c, st, cleanupForceDestroyedUnit, 1)
 
-	// Advance the clock so the future cleanupForceDestroyedMachine fires
-	// (forceDying=true). This forces the Dying unit to Dead.
+	// Advance the clock so the future cleanupForceDestroyedMachine is due,
+	// then simulate the unit reaching Dead during its grace period.
 	s.clock.Advance(maxWait)
 	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
@@ -370,16 +370,43 @@ func (s *cleanupInternalSuite) TestCleanupEvacuateMachineEscalatesDyingUnitOnce(
 	AssertCleanupCountWithKind(c, st, cleanupDyingUnit, 0)
 
 	const maxWait = time.Minute
-	err = st.cleanupEvacuateMachineInternal(machine.Id(), true, false, maxWait)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st.db().RunTransaction([]txn.Op{
+		newCleanupOp(cleanupEvacuateMachine, machine.Id(), true, maxWait),
+	}), jc.ErrorIsNil)
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
 	AssertCleanupCountWithKind(c, st, cleanupDyingUnit, 0)
 	assertForceDestroyedUnitCount(c, st, unit.Name(), 0)
 	AssertCleanupCountWithKind(c, st, cleanupForceDestroyedMachine, 1)
 
-	err = st.cleanupEvacuateMachineInternal(machine.Id(), true, false, maxWait)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
 	AssertCleanupCountWithKind(c, st, cleanupDyingUnit, 0)
 	assertForceDestroyedUnitCount(c, st, unit.Name(), 0)
+	AssertCleanupCountWithKind(c, st, cleanupForceDestroyedMachine, 1)
+}
+
+func (s *cleanupInternalSuite) TestCleanupEvacuateMachineContainerSchedulesSingleContinuation(c *gc.C) {
+	st := s.newState(c)
+	parent, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	container, err := st.AddMachineInsideMachine(MachineTemplate{
+		Base: UbuntuBase("12.10"),
+		Jobs: []MachineJob{JobHostUnits},
+	}, parent.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+	application := AddTestingApplication(c, st, "dummy", AddTestingCharm(c, st, "dummy"))
+	unit := addUnitToMachine(c, application, container)
+	setUnitLife(c, st, unit, Dying)
+
+	const maxWait = time.Minute
+	c.Assert(parent.ForceDestroy(maxWait), jc.ErrorIsNil)
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+
+	AssertCleanupCountWithKind(c, st, cleanupEvacuateMachine, 0)
+	AssertCleanupCountWithKind(c, st, cleanupForceDestroyedMachine, 1)
+	AssertCleanupMaxWait(c, st, cleanupForceDestroyedMachine, parent.Id(), maxWait)
+	c.Assert(unit.Refresh(), jc.ErrorIsNil)
+	c.Check(unit.Life(), gc.Equals, Dying)
 }
 
 func (s *cleanupInternalSuite) TestCleanupEvacuateMachineMissingAgentStatusConverges(c *gc.C) {
@@ -397,15 +424,17 @@ func (s *cleanupInternalSuite) TestCleanupEvacuateMachineMissingAgentStatusConve
 		}
 
 		const maxWait = time.Duration(0)
-		err = st.cleanupEvacuateMachineInternal(machine.Id(), true, false, maxWait)
+		c.Assert(st.db().RunTransaction([]txn.Op{
+			newCleanupOp(cleanupEvacuateMachine, machine.Id(), true, maxWait),
+		}), jc.ErrorIsNil)
+
+		c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
 		if startingLife == Alive {
-			// Alive unit is destroyed to Dying; the loop returns "waiting"
-			// because the unit is not yet removed.
-			c.Assert(err, gc.ErrorMatches, "waiting for units to be removed from "+machine.Id())
+			// Alive unit is destroyed to Dying; the cleanup op remains pending.
+			AssertCleanupCountWithKind(c, st, cleanupEvacuateMachine, 1)
 		} else {
-			// Dying unit is skipped; the loop schedules a future cleanup
-			// and returns nil.
-			c.Assert(err, jc.ErrorIsNil)
+			// Dying unit is skipped; the handler schedules a future cleanup and completes.
+			AssertCleanupCountWithKind(c, st, cleanupEvacuateMachine, 0)
 		}
 		c.Assert(unit.Refresh(), jc.ErrorIsNil)
 		c.Check(unit.Life(), gc.Equals, Dying)
@@ -413,17 +442,17 @@ func (s *cleanupInternalSuite) TestCleanupEvacuateMachineMissingAgentStatusConve
 		// For the Alive case, the second pass sees the now-Dying unit,
 		// skips it, and schedules a future cleanupForceDestroyedMachine.
 		// For the Dying case, the first pass already scheduled it.
-		err = st.cleanupEvacuateMachineInternal(machine.Id(), true, false, maxWait)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+		AssertCleanupCountWithKind(c, st, cleanupEvacuateMachine, 0)
 		assertForceDestroyedUnitCount(c, st, unit.Name(), 0)
 
 		// Run cleanups to converge: the future-dated
 		// cleanupForceDestroyedMachine fires (forceDying=true), forces the
 		// Dying unit to Dead, and removes it and the machine.
-		st.Cleanup(nil)
-		st.Cleanup(nil)
-		st.Cleanup(nil)
-		st.Cleanup(nil)
+		c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+		c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+		c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+		c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
 		needsCleanup, err := st.NeedsCleanup()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(needsCleanup, jc.IsFalse)
@@ -448,7 +477,7 @@ func (s *cleanupInternalSuite) TestCleanupEvacuateMachineIgnoresMalformedPending
 
 	for i := 0; i < 3; i++ {
 		err := st.cleanupEvacuateMachineInternal(machine.Id(), true, false, maxWait)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, jc.ErrorIs, errForceCleanupRequired)
 		AssertCleanupCountWithKind(c, st, cleanupDyingUnit, 1)
 		assertForceDestroyedUnitCount(c, st, unit.Name(), 0)
 	}
@@ -498,7 +527,7 @@ func (s *cleanupInternalSuite) TestCleanupEvacuateMachineContinuesAfterUnitOpera
 	c.Check(dying, gc.Equals, 2)
 
 	err = st.cleanupEvacuateMachineInternal(machine.Id(), true, false, maxWait)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIs, errForceCleanupRequired)
 	for _, unit := range units {
 		c.Assert(unit.Refresh(), jc.ErrorIsNil)
 		c.Check(unit.Life(), gc.Equals, Dying)
@@ -565,7 +594,7 @@ func (s *cleanupInternalSuite) TestCleanupEvacuateMachineEscalatesPendingNonForc
 
 	for i := 0; i < 3; i++ {
 		err := st.cleanupEvacuateMachineInternal(machine.Id(), true, false, 0)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, jc.ErrorIs, errForceCleanupRequired)
 		assertPendingForceCleanupCount(c, st, unit.Name(), 1)
 		assertForceDestroyedUnitCount(c, st, unit.Name(), 0)
 	}
@@ -589,7 +618,7 @@ func (s *cleanupInternalSuite) TestCleanupEvacuateMachineIgnoresForceRemoveForDy
 	}), jc.ErrorIsNil)
 
 	err = st.cleanupEvacuateMachineInternal(machine.Id(), true, false, maxWait)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIs, errForceCleanupRequired)
 	AssertCleanupCountWithKind(c, st, cleanupForceRemoveUnit, 1)
 	AssertCleanupCountWithKind(c, st, cleanupDyingUnit, 0)
 	assertForceDestroyedUnitCount(c, st, unit.Name(), 0)
