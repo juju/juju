@@ -40,90 +40,87 @@ each cloud, and for each application? That is what Juju does.
 The key insight is the separation of two concerns that are usually tangled. Cloud
 knowledge -- how to get a machine, attach storage, configure networking -- stays
 on the cloud side. Application knowledge -- how to install, configure, integrate,
-scale, and upgrade a specific piece of software -- stays on the application side.
-Neither bleeds into the other.
-
-The second separation is between **intent** and **execution**. You declare what
-you want; Juju works out what needs to happen and drives it to completion. When you
-run `juju deploy postgresql`, Juju provisions the infrastructure, places the
-application on it, runs the installation sequence, and keeps the result healthy --
-all from a single declaration. The same declaration works on AWS, OpenStack, or a
-Kubernetes cluster, because the cloud-specific execution is handled below the line
-you draw.
+scale, and upgrade a specific piece of software -- stays in **charms**, reusable
+operators published on Charmhub. Juju sits between the user and both sides,
+handling each without either leaking into the other.
 
 ```{d2}
-:alt: User sends intent to Client. Client calls Juju API on Controller. Controller provisions infrastructure from Cloud (cloud knowledge). Controller drives Application 1 unit and Application 2 unit via Juju API websocket (execution). Inside each unit: Unit agent dispatches Charm (app knowledge); Charm operates Workload.
+:alt: User declares intent to Juju. Juju provisions infrastructure from Clouds (AWS, GCP, OpenStack, K8s). Juju fetches charms from Charmhub. Juju operates Charmed applications.
+direction: down
+*.style.font-size: 13
+
+user.shape: person
+user.label: "User"
+
+juju: "Juju" {
+  style.fill: "#E95420"
+  style.font-color: white
+}
+
+clouds: "Clouds\n(AWS, GCP, OpenStack, K8s…)" {
+  style.fill: "#F5F5F5"
+  style.stroke: "#AAA"
+}
+
+charmhub: "Charmhub" {
+  style.fill: "#F5F5F5"
+  style.stroke: "#AAA"
+}
+
+apps: "Charmed applications" {
+  style.fill: "#4A90D9"
+  style.font-color: white
+}
+
+user -> juju: "declares intent"
+juju -> clouds: "provisions\ninfrastructure"
+juju -> charmhub: "fetches\ncharms"
+juju -> apps: "operates"
+```
+*Juju as middleman. The user only declares intent; Juju handles cloud provisioning
+and charm fetching independently. Cloud knowledge never reaches the charm; application
+knowledge never reaches the cloud.*
+
+The second separation is between **intent** and **execution**. You declare what
+you want; Juju stores that declaration as goal state and drives the real world
+toward it continuously -- through restarts, failures, and drift.
+
+```{d2}
+:alt: User declares to Client. Client persists to Controller (goal state). Controller reconciles via Agents. Agents converge the Real world.
 direction: right
 *.style.font-size: 13
 
 user.shape: person
 user.label: "User"
 
-intent_side: "intent & persistence" {
-  style.stroke-dash: 4
-  style.font-color: "#666"
-  style.fill: transparent
-  client: "Client" {
-    style.fill: "#E95420"
-    style.font-color: white
-  }
-  controller: "Controller" {
-    style.fill: "#E95420"
-    style.font-color: white
-  }
-  client -> controller: "Juju API"
+client: "Client" {
+  style.fill: "#E95420"
+  style.font-color: white
 }
 
-cloud: "Cloud" {
-  style.fill: "#F5F5F5"
-  style.stroke: "#AAA"
+controller: "Controller\n(goal state)" {
+  style.fill: "#E95420"
+  style.font-color: white
 }
 
-app1: "Application 1 unit" {
-  unit_agent: "Unit agent" {
-    style.fill: "#E95420"
-    style.font-color: white
-  }
-  charm: "Charm\n(app knowledge)" {
-    style.fill: white
-    style.stroke: "#E95420"
-  }
-  workload: "Workload" {
-    style.fill: "#4A90D9"
-    style.font-color: white
-  }
-  unit_agent -> charm: "dispatch"
-  charm -> workload: "operates"
+agents: "Agents" {
+  style.fill: "#E95420"
+  style.font-color: white
 }
 
-app2: "Application 2 unit" {
-  unit_agent: "Unit agent" {
-    style.fill: "#E95420"
-    style.font-color: white
-  }
-  charm: "Charm\n(app knowledge)" {
-    style.fill: white
-    style.stroke: "#E95420"
-  }
-  workload: "Workload" {
-    style.fill: "#4A90D9"
-    style.font-color: white
-  }
-  unit_agent -> charm: "dispatch"
-  charm -> workload: "operates"
+reality: "Real world" {
+  style.fill: "#4A90D9"
+  style.font-color: white
 }
 
-user -> intent_side.client: "intent"
-intent_side.controller -> cloud: "cloud knowledge\n(provisions infra)"
-intent_side.controller -> app1.unit_agent: "Juju API\n(websocket)"
-intent_side.controller -> app2.unit_agent: "Juju API\n(websocket)"
+user -> client: "declare"
+client -> controller: "persist"
+controller -> agents: "reconcile"
+agents -> reality: "converge"
 ```
-*The two separations in action. The dashed box is the intent and persistence side:
-the client expresses what you want; the controller records it as goal state and
-handles all cloud knowledge by provisioning infrastructure directly. The application
-units are the execution side: the unit agent drives the charm, which encodes all
-application knowledge and operates the workload. Cloud knowledge never reaches the
-charm; application knowledge never reaches the cloud provisioner.*
+*Intent separated from execution. The controller holds goal state durably; agents
+close the gap between what is declared and what exists. When reality drifts -- a
+machine dies, a unit fails -- the same loop brings it back.*
 
 ## Mechanism
 
