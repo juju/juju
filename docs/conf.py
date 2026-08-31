@@ -309,7 +309,14 @@ extensions = [
     'sphinxcontrib.lightbox2',
     'ibnote',
     'sphinxcontrib.mermaid',
+    'sphinxcontrib_d2',
 ]
+
+# D2 diagram configuration
+# Install d2: curl -fsSL https://d2lang.com/install.sh | sh
+d2_cmd = os.path.expanduser("~/.local/bin/d2")
+d2_layout = "elk"
+d2_theme = 0
 
 # Customize sphinx_llm.txt
 ## Add project summary:
