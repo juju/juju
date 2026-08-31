@@ -73,16 +73,16 @@ model "Juju" {
   }
 
   edges {
-    // Intent chain
+    // Intent chain — no labels (caption tells the story)
     user   -> client     [type: control]
-    client -> controller [type: api,    label: "Juju API"]
-    controller -> agents [type: stream, label: "reconcile"]
-    agents -> world      [type: control, label: "converge"]
+    client -> controller [type: api]
+    controller -> agents [type: control]
+    agents -> world      [type: control]
 
     // Controller to clouds and charmhub
     controller -> clouds   [type: control]
     controller -> charmhub [type: api]
-    controller -> apps     [type: stream]
+    controller -> apps     [type: control]
 
     // K8s topology
     k8s            -> controller_pod [type: control]
@@ -101,7 +101,6 @@ model "Juju" {
     client          -> k8s            [type: api]
     k8s             -> client         [type: api]
     controller_pod  -> client         [type: api, label: "API ready"]
-    client          -> user           [type: control]
   }
 
   behaviours {
