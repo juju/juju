@@ -360,6 +360,44 @@ workload applications.
 
 ::::{tab-item} Kubernetes
 
+```{ggarch}
+:sequence: Bootstrap K8s
+:alt: User invokes juju bootstrap. CLI authenticates with K8s cluster. CLI creates namespace and deploys controller pod. jujud starts, initialises API server and database. jujud signals API ready to CLI. CLI reports bootstrap complete to User.
+model "BootstrapK8s" {
+  nodes {
+    user       [type: person,        label: "User"]
+    cli        [type: juju-software, label: "juju CLI"]
+    k8s        [type: infrastructure, label: "Kubernetes cluster"]
+    controller [type: juju-software, label: "Controller pod"]
+  }
+  edges {
+    user -> cli        [type: control]
+    cli  -> k8s        [type: api]
+    k8s  -> cli        [type: api]
+    cli  -> controller [type: control]
+    controller -> cli  [type: api]
+    cli  -> user       [type: control]
+  }
+  behaviours {
+    behaviour "Bootstrap K8s" {
+      user -> cli: call "juju bootstrap"
+      cli  -> k8s: call "authenticate"
+      k8s  -> cli: return "OK"
+      cli  -> k8s: call "deploy controller pod"
+      k8s  -> cli: return "pod scheduled"
+      controller -> controller: self "start jujud"
+      controller -> controller: self "start API server"
+      controller -> controller: self "initialise database"
+      controller -> cli: return "API ready"
+      cli  -> user: return "bootstrap complete"
+    }
+  }
+}
+sequence "Bootstrap K8s" from "BootstrapK8s" {
+  select { behaviour: "Bootstrap K8s" }
+}
+```
+
 ```{mermaid}
 sequenceDiagram
     actor User
