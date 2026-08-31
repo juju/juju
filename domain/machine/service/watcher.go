@@ -262,27 +262,43 @@ func (s *WatchableService) WatchModelMachineLifeAndStartTimes(ctx context.Contex
 		eventsource.InitialNamespaceChanges(stmt),
 		"model machine life and start times watcher",
 		func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
-			machineNames := make([]string, 0, len(changes))
 			cloudInstanceNamespace := s.st.NamespaceForWatchMachineCloudInstance()
+			var cloudInstanceUUIDs []string
+			machineNames := make([]string, 0, len(changes))
 			for _, change := range changes {
 				if change.Namespace() != cloudInstanceNamespace {
 					machineNames = append(machineNames, change.Changed())
 					continue
 				}
+				cloudInstanceUUIDs = append(cloudInstanceUUIDs, change.Changed())
+			}
 
-				// A machine_cloud_instance row is created with the machine. Only
-				// emit when the provider instance ID is later registered.
-				if _, err := s.st.GetInstanceID(ctx, change.Changed()); err != nil {
-					if errors.Is(err, machineerrors.NotProvisioned) {
-						continue
-					}
-					return nil, errors.Capture(err)
+			if len(cloudInstanceUUIDs) == 0 {
+				return machineNames, nil
+			}
+
+			instanceIDs, err := s.st.GetInstanceIDsForUUIDs(ctx, cloudInstanceUUIDs)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+
+			var provisionedUUIDs []string
+			for _, uuid := range cloudInstanceUUIDs {
+				if instanceID, ok := instanceIDs[uuid]; ok && instanceID != "" {
+					provisionedUUIDs = append(provisionedUUIDs, uuid)
 				}
-				name, err := s.st.GetNamesForUUIDs(ctx, []string{change.Changed()})
-				if err != nil {
-					return nil, errors.Capture(err)
-				}
-				if machineName, ok := name[machine.UUID(change.Changed())]; ok {
+			}
+
+			if len(provisionedUUIDs) == 0 {
+				return machineNames, nil
+			}
+
+			name, err := s.st.GetNamesForUUIDs(ctx, provisionedUUIDs)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			for _, uuid := range provisionedUUIDs {
+				if machineName, ok := name[machine.UUID(uuid)]; ok {
 					machineNames = append(machineNames, machineName.String())
 				}
 			}

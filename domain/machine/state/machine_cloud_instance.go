@@ -371,6 +371,48 @@ WHERE  machine_uuid = $entityUUID.uuid;`
 	return result.ID, nil
 }
 
+// GetInstanceIDsForUUIDs returns the cloud-specific instance IDs for
+// the given machine UUIDs. UUIDs that are not provisioned are omitted
+// from the result map.
+func (st *State) GetInstanceIDsForUUIDs(ctx context.Context, machineUUIDs []string) (map[string]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type mUUIDs []string
+	uuids := mUUIDs(machineUUIDs)
+
+	stmt, err := st.Prepare(`
+SELECT &instanceIDWithUUID.*
+FROM   machine_cloud_instance AS m
+WHERE  m.machine_uuid IN ($mUUIDs[:])
+AND    m.instance_id IS NOT NULL
+AND    m.instance_id != ''`, instanceIDWithUUID{}, uuids)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var results []instanceIDWithUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		results = nil
+		err := tx.Query(ctx, stmt, uuids).GetAll(&results)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	instanceIDs := make(map[string]string, len(results))
+	for _, result := range results {
+		instanceIDs[result.UUID] = result.ID
+	}
+	return instanceIDs, nil
+}
+
 // GetInstanceIDAndName returns the cloud specific instance ID and display name for
 // this machine.
 // If the machine is not provisioned, it returns a

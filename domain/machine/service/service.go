@@ -58,6 +58,11 @@ type State interface {
 	// GetInstanceID returns the cloud specific instance id for this machine.
 	GetInstanceID(context.Context, string) (string, error)
 
+	// GetInstanceIDsForUUIDs returns the cloud-specific instance IDs for
+	// the given machine UUIDs. UUIDs that are not provisioned are omitted
+	// from the result.
+	GetInstanceIDsForUUIDs(context.Context, []string) (map[string]string, error)
+
 	// GetInstanceIDAndName returns the cloud specific instance ID and display name
 	// for this machine.
 	GetInstanceIDAndName(ctx context.Context, mUUID string) (string, string, error)
