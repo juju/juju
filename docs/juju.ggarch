@@ -99,9 +99,10 @@ model "Juju" {
     unit_agent -> apiserver  [type: api,     label: "serve / flush"]
 
     // Bootstrap K8s
-    client -> k8s   [type: api]
-    k8s    -> client [type: api]
-    jujud  -> client [type: api, label: "API ready"]
+    client          -> k8s            [type: api]
+    k8s             -> client         [type: api]
+    controller_pod  -> client         [type: api, label: "API ready"]
+    client          -> user           [type: control]
   }
 
   behaviours {
@@ -127,17 +128,18 @@ model "Juju" {
     }
 
     behaviour "Bootstrap K8s" {
-      user   -> client: call "juju bootstrap"
-      client -> k8s:    call "Authenticate"
-      k8s    -> client: return "OK"
-      client -> k8s:    call "Create namespace + deploy controller pod"
-      k8s    -> client: return "Pod scheduled"
-      jujud  -> jujud:  self "Start jujud"
-      jujud  -> jujud:  self "Start API server"
-      jujud  -> jujud:  self "Initialise database"
-      jujud  -> client: return "API ready"
-      client -> user:   return "Bootstrap complete"
+      user           -> client:          call "juju bootstrap"
+      client         -> k8s:             call "Authenticate"
+      k8s            -> client:          return "OK"
+      client         -> k8s:             call "Create namespace + deploy controller pod"
+      k8s            -> client:          return "Pod scheduled"
+      controller_pod -> controller_pod:  self "Start jujud"
+      controller_pod -> controller_pod:  self "Start API server"
+      controller_pod -> controller_pod:  self "Initialise database"
+      controller_pod -> client:          return "API ready"
+      client         -> user:            return "Bootstrap complete"
     }
+
 
   }
 
