@@ -84,44 +84,44 @@ close the gap between what is declared and what exists. When reality drifts --
 a machine dies, a unit fails -- the same loop brings it back.*
 
 ```{ggarch}
-:alt: User talks to Client. Client talks to Controller. Controller flanked by Clouds on the left and Charmhub on the right. Charmed applications below the Controller.
+:alt: User, Client, Controller, and Charmed applications on the same horizontal plane left to right. Clouds above the Controller. Charmhub below the Controller.
 model "JujuOverview" {
   nodes {
     user       [type: person,        label: "User"]
     client     [type: juju-software, label: "Client"]
-    clouds     [type: external,      label: "Clouds\n(AWS, GCP, K8s…)"]
     controller [type: juju-software, label: "Controller"]
-    charmhub   [type: external,      label: "Charmhub"]
     apps       [type: unit,          label: "Charmed applications"]
+    clouds     [type: external,      label: "Clouds\n(AWS, GCP, K8s…)"]
+    charmhub   [type: external,      label: "Charmhub"]
   }
   edges {
     user       -> client     [type: control]
     client     -> controller [type: api]
+    controller -> apps       [type: stream]
     controller -> clouds     [type: control]
     controller -> charmhub   [type: api]
-    controller -> apps       [type: stream]
   }
 }
 diagram "Juju overview" from "JujuOverview" {
-  select { nodes: user client clouds controller charmhub apps }
+  select { nodes: user client controller apps clouds charmhub }
   positions {
     user       left-of client      gap: 30
     user       align-middle client
-    client     left-of clouds      gap: 60
+    client     left-of controller  gap: 40
     client     align-middle controller
-    clouds     left-of controller  gap: 50
-    clouds     align-middle controller
-    charmhub   right-of controller gap: 50
-    charmhub   align-middle controller
-    apps       below controller    gap: 60
-    apps       align-centre controller
+    controller left-of apps        gap: 40
+    controller align-middle apps
+    clouds     above controller    gap: 50
+    clouds     align-centre controller
+    charmhub   below controller    gap: 50
+    charmhub   align-centre controller
   }
 }
 ```
-*The controller as hub. Clouds and Charmhub flank the controller horizontally --
-the controller alone holds cloud knowledge (provisioning) and application knowledge
-(charms). The user's client feeds intent in from the left; charmed applications
-receive it below.*
+*The controller as hub. User, client, controller, and charmed applications
+form a horizontal chain of intent and execution. Clouds (infrastructure
+knowledge) and Charmhub (application knowledge) connect vertically to the
+controller — the only component that needs to know about both.*
 
 
 ## Mechanism
