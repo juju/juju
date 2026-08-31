@@ -44,33 +44,6 @@ scale, and upgrade a specific piece of software -- stays in **charms**, reusable
 operators published on Charmhub. Juju sits between the user and both sides,
 handling each without either leaking into the other.
 
-```{mermaid}
-%%{init: {"flowchart": {"htmlLabels": true}} }%%
-flowchart TB
-    USER(["User"])
-
-    subgraph wings[" "]
-        direction LR
-        CLOUDS["Clouds<br/>(AWS, GCP, OpenStack, K8s&hellip;)"]
-        JUJU["Juju"]
-        CHARMHUB["Charmhub"]
-    end
-
-    APPS["Charmed applications"]
-
-    USER -->|"declares intent"| JUJU
-    JUJU -->|"provisions infrastructure"| CLOUDS
-    JUJU -->|"fetches charms"| CHARMHUB
-    JUJU -->|"operates"| APPS
-
-    style JUJU fill:#E95420,color:#fff,stroke:#C74210
-    style APPS fill:#4A90D9,color:#fff,stroke:#2C6FAC
-    style wings fill:none,stroke:none
-```
-*Juju as middleman. The user only declares intent; Juju handles cloud provisioning
-and charm fetching independently. Cloud knowledge never reaches the charm; application
-knowledge never reaches the cloud.*
-
 The second separation is between **intent** and **execution**. You declare what
 you want; Juju stores that declaration as goal state and drives the real world
 toward it continuously -- through restarts, failures, and drift.
