@@ -25,6 +25,8 @@ model "Juju" {
     controller [type: juju-software, label: "Controller"]
 
     // -----------------------------------------------------------------------
+    // Controller pod (K8s deployment — detailed)
+    // -----------------------------------------------------------------------
     controller_pod [type: container, label: "Controller pod",
                     abstracts: "controller"] {
       jujud [type: juju-software, label: "Controller agent\n(jujud, Dqlite)"]
@@ -55,6 +57,7 @@ model "Juju" {
     k8s      [type: external, label: "Kubernetes cluster"]
     charmhub [type: external, label: "Charmhub"]
     clouds   [type: external, label: "Clouds\n(AWS, GCP, K8s…)"]
+    cloud    [type: external, label: "Cloud"]   // generic cloud for machine sequences
 
     // -----------------------------------------------------------------------
     // Workload — abstract (used in high-level diagrams)
@@ -67,13 +70,29 @@ model "Juju" {
     apps [type: unit, label: "Charmed applications"]
 
     // -----------------------------------------------------------------------
-    // Hook execution participants (API-server is jujud's API surface)
+    // Hook execution participants
     // -----------------------------------------------------------------------
     apiserver  [type: juju-software, label: "API-server"]
+
+    // -----------------------------------------------------------------------
+    // Deploy K8s — containeragent as the concrete unit agent on K8s
+    // -----------------------------------------------------------------------
+    containeragent [type: juju-software, label: "containeragent (unit)"]
+
+    // -----------------------------------------------------------------------
+    // Integrate — two distinct unit agents
+    // -----------------------------------------------------------------------
+    ua1 [type: juju-software, label: "Unit agent (app A)"]
+    ua2 [type: juju-software, label: "Unit agent (app B)"]
+
+    // -----------------------------------------------------------------------
+    // Remove — undertaker worker
+    // -----------------------------------------------------------------------
+    undertaker [type: juju-software, label: "Undertaker worker"]
   }
 
   edges {
-    // Intent chain — no labels (caption tells the story)
+    // Intent chain
     user   -> client     [type: control]
     client -> controller [type: api]
     controller -> agents [type: control]
@@ -88,7 +107,7 @@ model "Juju" {
     k8s            -> controller_pod [type: control]
     k8s            -> unit_pod       [type: control]
     jujud          -> unit_agent     [type: stream]
-    jujud          -> charmhub       [type: api,     label: "fetches charm"]
+    jujud          -> charmhub       [type: api, label: "fetches charm"]
     charm          -> pebble         [type: api]
 
     // Hook execution
@@ -98,9 +117,32 @@ model "Juju" {
     unit_agent -> apiserver  [type: api,     label: "serve / flush"]
 
     // Bootstrap K8s
-    client          -> k8s            [type: api]
-    k8s             -> client         [type: api]
-    controller_pod  -> client         [type: api, label: "API ready"]
+    client         -> k8s            [type: api]
+    k8s            -> client         [type: api]
+    controller_pod -> client         [type: api, label: "API ready"]
+
+    // Deploy K8s
+    controller     -> k8s              [type: control]
+    controller     -> containeragent   [type: control]
+    containeragent -> controller       [type: api]
+
+    // Deploy machine / unit removal
+    controller -> cloud  [type: control]
+    cloud      -> controller [type: control]
+
+    // Integrate
+    controller -> ua1    [type: stream]
+    controller -> ua2    [type: stream]
+    ua1        -> controller [type: api]
+    ua2        -> controller [type: api]
+
+    // Remove / destroy — user sends directly to controller
+    user           -> controller  [type: control]
+    controller     -> unit_agent  [type: stream]
+    unit_agent     -> controller  [type: api]
+    // Model removal
+    controller -> undertaker [type: stream]
+    undertaker -> controller [type: api]
   }
 
   behaviours {
@@ -138,6 +180,63 @@ model "Juju" {
       client         -> user:            return "Bootstrap complete"
     }
 
+    behaviour "Deploy K8s" {
+      user           -> client:          call "juju deploy"
+      client         -> controller:      call "Deploy RPC call"
+      controller     -> controller:      self "Write application + unit records"
+      controller     -> k8s:             call "Schedule unit pod"
+      k8s            -> controller:      return "Pod running"
+      controller     -> containeragent:  call "Start containeragent"
+      containeragent -> controller:      call "install hook"
+      containeragent -> controller:      call "config-changed hook"
+      containeragent -> controller:      call "start hook"
+      containeragent -> controller:      return "unit active"
+      controller     -> client:          return "deploy complete"
+      client         -> user:            return "Application deployed"
+    }
+
+    behaviour "Integrate" {
+      user       -> client:      call "juju integrate A B"
+      client     -> controller:  call "Integrate RPC call"
+      controller -> controller:  self "Write relation record"
+      controller -> ua1:         async "watcher fires"
+      controller -> ua2:         async "watcher fires"
+      ua1        -> controller:  call "relation-created hook"
+      ua2        -> controller:  call "relation-created hook"
+      ua1        -> controller:  call "relation-joined hook"
+      ua2        -> controller:  call "relation-joined hook"
+      ua1        -> controller:  call "relation-changed hook"
+      ua2        -> controller:  call "relation-changed hook"
+      ua1        -> controller:  call "Write relation data (app A)"
+      controller -> ua2:         async "watcher fires (data changed)"
+      ua2        -> controller:  call "relation-changed hook"
+      ua2        -> controller:  call "Write relation data (app B)"
+      controller -> ua1:         async "watcher fires (data changed)"
+      ua1        -> controller:  call "relation-changed hook"
+    }
+
+    behaviour "Unit removal" {
+      user       -> controller:  call "juju remove-unit"
+      controller -> controller:  self "Mark unit Dying"
+      controller -> unit_agent:  async "watcher fires"
+      unit_agent -> controller:  call "stop hook"
+      unit_agent -> controller:  call "teardown hooks"
+      unit_agent -> controller:  call "remove hook"
+      unit_agent -> controller:  call "Mark unit Dead"
+      controller -> cloud:       call "Release machine"
+      controller -> controller:  self "Delete unit records"
+    }
+
+    behaviour "Model removal" {
+      user       -> controller:  call "juju destroy-model"
+      controller -> controller:  self "Mark model Dying"
+      controller -> undertaker:  async "watcher fires"
+      undertaker -> controller:  call "Destroy all applications"
+      controller -> cloud:       call "Release all machines"
+      controller -> controller:  self "Mark model Dead"
+      undertaker -> controller:  call "Delete model records"
+      undertaker -> controller:  call "Delete model Dqlite database"
+    }
 
   }
 
@@ -211,17 +310,29 @@ diagram "K8s deployment topology" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
-// Hook execution sequence
+// Sequence views
 // --------------------------------------------------------------------------
 
 sequence "Hook execution" from "Juju" {
   select { behaviour: "Hook execution" }
 }
 
-// --------------------------------------------------------------------------
-// Bootstrap K8s sequence
-// --------------------------------------------------------------------------
-
 sequence "Bootstrap K8s" from "Juju" {
   select { behaviour: "Bootstrap K8s" }
+}
+
+sequence "Deploy K8s" from "Juju" {
+  select { behaviour: "Deploy K8s" }
+}
+
+sequence "Integrate" from "Juju" {
+  select { behaviour: "Integrate" }
+}
+
+sequence "Unit removal" from "Juju" {
+  select { behaviour: "Unit removal" }
+}
+
+sequence "Model removal" from "Juju" {
+  select { behaviour: "Model removal" }
 }

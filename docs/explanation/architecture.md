@@ -314,6 +314,12 @@ sequence: `install`, `config-changed`, `start`.
 
 ::::{tab-item} Kubernetes
 
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Deploy K8s
+:alt: User invokes juju deploy. CLI sends Deploy RPC call to Controller. Controller writes application and unit records, schedules unit pod on Kubernetes cluster. K8s returns pod running. Controller starts containeragent. containeragent runs install, config-changed, start hooks. Controller reports deploy complete to CLI, CLI reports to User.
+```
+
 ```{mermaid}
 sequenceDiagram
     actor User
@@ -382,6 +388,12 @@ directly: all relation data flows through the controller. Each unit writes its d
 bag to the controller; the controller notifies the other unit via its watcher. The
 controller is always the single source of truth for what two applications have
 agreed upon.
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Integrate
+:alt: User invokes juju integrate. CLI sends Integrate RPC call to Controller. Controller writes relation record. Controller fires watchers to both Unit agent (app A) and Unit agent (app B). Both agents run relation hooks in sequence. Each agent writes its relation data bag to the Controller. The Controller notifies the other agent via its watcher.
+```
 
 ```{mermaid}
 sequenceDiagram
@@ -456,6 +468,12 @@ The unit is then marked Dead and the controller releases the machine if no longe
 needed. A hook failure at any stage leaves the unit in `error` state and blocks
 further progress.
 
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Unit removal
+:alt: User invokes juju remove-unit. Controller marks unit Dying and fires watcher to Unit agent. Unit agent runs stop, teardown, and remove hooks, then marks unit Dead. Controller releases the machine and deletes unit records.
+```
+
 ```{mermaid}
 sequenceDiagram
     actor User
@@ -488,6 +506,12 @@ unreleased storage on the cloud side.
 Model removal is orchestrated by the undertaker worker, which watches for models set
 Dying and drives them through to deletion of both the model records and the model's
 Dqlite database.
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Model removal
+:alt: User invokes juju destroy-model. Controller marks model Dying and fires watcher to Undertaker worker. Undertaker destroys all applications. Controller releases all machines and marks model Dead. Undertaker deletes model records and Dqlite database.
+```
 
 ```{mermaid}
 sequenceDiagram
