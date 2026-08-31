@@ -355,7 +355,9 @@ func (conn *Conn) Close() error {
 	// cancel the context so that any requests that would
 	// block will be notified that the server is shutting
 	// down.
-	conn.cancelContext()
+	if conn.cancelContext != nil {
+		conn.cancelContext()
+	}
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -383,7 +385,9 @@ func (conn *Conn) Close() error {
 	if err := conn.codec.Close(); err != nil {
 		logger.Debugf(conn.context, "error closing codec: %v", err)
 	}
-	<-conn.dead
+	if conn.dead != nil {
+		<-conn.dead
+	}
 
 	return conn.inputLoopError
 }
