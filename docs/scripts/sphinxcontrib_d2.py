@@ -24,6 +24,7 @@ import os
 import posixpath
 import re
 import shlex
+import urllib.parse
 from subprocess import PIPE, Popen
 from tempfile import TemporaryDirectory
 
@@ -155,17 +156,28 @@ def render_d2_pair(
     return tuple(results)  # type: ignore[return-value]
 
 
-def _emit_image(self: object, relfn: str, outfn: str, alt: str, css_class: str) -> None:
-    """Emit a lightbox-wrapped <img> with the given CSS class."""
-    imgnode = nodes.image()
-    imgnode["uri"] = outfn
-    imgnode["alt"] = alt
-    imgnode["candidates"] = {"*": outfn}
-    imgnode["width"] = "100%"
-    imgnode["classes"] = [css_class]
+def _emit_image(
+    self: object,
+    relfn: str,
+    outfn: str,
+    alt: str,
+    css_class: str,
+    lightbox_group: str,
+) -> None:
+    """Emit a lightbox-wrapped <img> inside an only-light/only-dark div."""
     self.builder.images[outfn] = os.path.basename(outfn)
-    self.visit_image(imgnode)
-    self.depart_image(imgnode)
+    # Rewrite URI the same way lightbox2 does
+    uri = posixpath.join(
+        self.builder.imgpath,
+        urllib.parse.quote(self.builder.images[outfn]),
+    )
+    self.body.append(
+        f'<div class="{css_class}">'
+        f'<a href="{uri}" data-lightbox="{lightbox_group}">'
+        f'<img src="{uri}" alt="{alt}" style="width:100%;" />'
+        f'</a>'
+        f'</div>\n'
+    )
 
 
 def html_visit_d2(self: object, node: d2) -> None:
@@ -176,14 +188,16 @@ def html_visit_d2(self: object, node: d2) -> None:
     light, dark = render_d2_pair(self, code, layout)
 
     if light is None and dark is None:
-        # Both failed -- show raw source as fallback
         self.body.append(f'<pre class="d2-source">{self.encode(code)}</pre>\n')
         raise nodes.SkipNode
 
+    # Unique group per diagram so lightbox > doesn't cross diagrams or modes
+    group = "d2-" + hashlib.sha1(code.encode()).hexdigest()[:8]  # noqa: S324
+
     if light is not None:
-        _emit_image(self, light[0], light[1], alt, "only-light")
+        _emit_image(self, light[0], light[1], alt, "only-light", group + "-light")
     if dark is not None:
-        _emit_image(self, dark[0], dark[1], alt, "only-dark")
+        _emit_image(self, dark[0], dark[1], alt, "only-dark", group + "-dark")
 
     raise nodes.SkipNode
 

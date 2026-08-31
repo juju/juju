@@ -72,6 +72,8 @@ Pebble injected as the init process to manage workload services).
 ```{d2}
 direction: right
 
+*.style.font-size: 13
+
 user.shape: person
 user.label: "User"
 
@@ -161,6 +163,8 @@ that runs both the machine agent and the unit agent.
 
 ```{d2}
 direction: right
+
+*.style.font-size: 13
 
 user.shape: person
 user.label: "User"
