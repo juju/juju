@@ -188,6 +188,13 @@ func buildFilesBundle(bundleFileName string, filesToBackUp []string) error {
 		return errors.New("missing list of files to back up")
 	}
 
+	// Create the parent directory here rather than relying on an
+	// earlier write having created it, matching writeAll.
+	if err := os.MkdirAll(filepath.Dir(bundleFileName), 0700); err != nil {
+		return errors.Errorf("while creating directory for %q: %w",
+			bundleFileName, err)
+	}
+
 	bundleFile, err := os.Create(bundleFileName)
 	if err != nil {
 		return errors.Errorf("while creating bundle file: %w", err)
