@@ -383,7 +383,7 @@ model "BootstrapK8s" {
       user -> cli: call "juju bootstrap"
       cli  -> k8s: call "Authenticate"
       k8s  -> cli: return "OK"
-      cli  -> k8s: call "Deploy controller pod"
+      cli  -> k8s: call "Create namespace + deploy controller pod"
       k8s  -> cli: return "Pod scheduled"
       controller -> controller: self "Start jujud"
       controller -> controller: self "Start API server"
