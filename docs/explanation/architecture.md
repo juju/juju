@@ -368,7 +368,7 @@ model "BootstrapK8s" {
     user       [type: person,        label: "User"]
     cli        [type: juju-software, label: "juju CLI"]
     k8s        [type: external, label: "Kubernetes cluster"]
-    controller [type: juju-software, label: "Controller pod"]
+    controller [type: container,     label: "Controller pod"]
   }
   edges {
     user -> cli        [type: control]
@@ -381,15 +381,15 @@ model "BootstrapK8s" {
   behaviours {
     behaviour "Bootstrap K8s" {
       user -> cli: call "juju bootstrap"
-      cli  -> k8s: call "authenticate"
+      cli  -> k8s: call "Authenticate"
       k8s  -> cli: return "OK"
-      cli  -> k8s: call "deploy controller pod"
-      k8s  -> cli: return "pod scheduled"
-      controller -> controller: self "start jujud"
-      controller -> controller: self "start API server"
-      controller -> controller: self "initialise database"
+      cli  -> k8s: call "Deploy controller pod"
+      k8s  -> cli: return "Pod scheduled"
+      controller -> controller: self "Start jujud"
+      controller -> controller: self "Start API server"
+      controller -> controller: self "Initialise database"
       controller -> cli: return "API ready"
-      cli  -> user: return "bootstrap complete"
+      cli  -> user: return "Bootstrap complete"
     }
   }
 }
