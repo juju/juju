@@ -120,7 +120,7 @@ def html_visit_d2(self: object, node: d2) -> None:
     alt = node.get("alt", "") or "D2 diagram"
 
     try:
-        fname, _ = render_d2(self, code, options)
+        fname, outfn = render_d2(self, code, options)
     except D2Error as exc:
         logger.warning(f"d2 diagram error: {exc}")
         raise nodes.SkipNode from exc
@@ -128,11 +128,23 @@ def html_visit_d2(self: object, node: d2) -> None:
     if fname is None:
         # d2 not found -- render source as a code block so docs still build
         self.body.append(f'<pre class="d2-source">{self.encode(code)}</pre>\n')
-    else:
-        self.body.append(
-            f'<object data="{fname}" type="image/svg+xml" class="d2-diagram">'
-            f'<p class="warning">{alt}</p></object>\n'
-        )
+        raise nodes.SkipNode
+
+    # Register the image with the builder so Sphinx copies it to _images/
+    # and lightbox2 can rewrite the URI correctly.
+    imgnode = nodes.image()
+    imgnode["uri"] = outfn
+    imgnode["alt"] = alt
+    imgnode["candidates"] = {"*": outfn}
+    # width: 100% makes it fill the content column; lightbox opens full-size SVG
+    imgnode["width"] = "100%"
+
+    # Register with builder image tracking
+    self.builder.images[outfn] = os.path.basename(outfn)
+
+    # Delegate to lightbox2-wrapped image visitor
+    self.visit_image(imgnode)
+    self.depart_image(imgnode)
 
     raise nodes.SkipNode
 

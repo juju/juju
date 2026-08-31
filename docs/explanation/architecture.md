@@ -87,23 +87,28 @@ controller_pod: "Controller pod" {
       style.stroke: "#E95420"
     }
   }
-  apiserver: "API-server container" {
+  apiserver: "API-server container (workload)" {
     pebble_ctrl: "Pebble (init)" {
       style.fill: "#E95420"
       style.font-color: white
     }
-    jujud: "jujud\n(controller + model agent workers)" {
+    jujud: "jujud (controller + model agent workers)" {
       style.fill: "#E95420"
       style.font-color: white
     }
   }
+  apiserver.pebble_ctrl -> apiserver.jujud: "supervises"
 }
 
 unit_pod: "Unit pod (one per unit)" {
   charm_container: "Charm container" {
-    containeragent: "containeragent" {
+    unit_agent: "unit agent (containeragent)" {
       style.fill: "#E95420"
       style.font-color: white
+    }
+    charm: "charm" {
+      style.fill: white
+      style.stroke: "#E95420"
     }
   }
   workload_container: "Workload container" {
@@ -116,6 +121,7 @@ unit_pod: "Unit pod (one per unit)" {
       style.font-color: white
     }
   }
+  workload_container.pebble -> workload_container.workload: "supervises"
 }
 
 storage: "Storage (PVC)" {shape: cylinder}
@@ -123,15 +129,16 @@ network: "Network space / subnet" {shape: cylinder}
 
 user -> client: "intent"
 client -> controller_pod.apiserver.jujud: "Juju API"
-controller_pod.apiserver.jujud -> unit_pod.charm_container.containeragent: "Juju API (websocket)"
-unit_pod.charm_container.containeragent -> unit_pod.workload_container.pebble: "Pebble API (HTTP)"
+controller_pod.apiserver.jujud -> unit_pod.charm_container.unit_agent: "Juju API (websocket)"
+unit_pod.charm_container.unit_agent -> unit_pod.workload_container.pebble: "Pebble API (HTTP)"
 unit_pod -> storage
 unit_pod -> network
 ```
-*A Kubernetes deployment. The user expresses intent via a client; the client calls
-the Juju API on the controller pod. The controller's `jujud` drives the unit pod's
-`containeragent` over the Juju API; the `containeragent` manages workload services
-via the Pebble API.*
+*A Kubernetes deployment. The controller pod has two containers: a charm container
+and an API-server workload container where Pebble supervises `jujud`. Each unit pod
+has a charm container (holding the unit agent and charm code) and a workload
+container (where Pebble supervises the workload services). The unit agent manages
+the workload via the Pebble API.*
 
 ::::
 
