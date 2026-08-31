@@ -129,6 +129,14 @@ type instanceID struct {
 	ID string `db:"instance_id"`
 }
 
+// instanceIDWithUUID represents the struct to be used for batch queries of
+// machine_uuid and instance_id columns within the sqlair statements in the
+// machine domain.
+type instanceIDWithUUID struct {
+	UUID string `db:"machine_uuid"`
+	ID   string `db:"instance_id"`
+}
+
 // instanceIDAndDisplayName represents the struct to be used for the display_name and ID
 // column within the sqlair statements in the machine domain.
 type instanceIDAndDisplayName struct {

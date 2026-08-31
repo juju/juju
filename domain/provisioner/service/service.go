@@ -105,9 +105,6 @@ func (s *Service) RecordProvisionedMachine(
 	machineUUID coremachine.UUID,
 	info provisioner.ProvisionedMachineInfo,
 ) error {
-	if s.completionService == nil {
-		return errors.New("provisioning completion service is not configured")
-	}
 	return s.completionService.RecordProvisionedMachine(ctx, machineUUID, info)
 }
 

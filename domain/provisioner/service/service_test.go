@@ -98,7 +98,7 @@ func (s *serviceSuite) newService(c *tc.C) *Service {
 		s.metadataFetcher,
 		model.UUID("model-uuid-1234"),
 		loggertesting.WrapCheckLog(c),
-		nil,
+		&CompletionService{},
 	)
 }
 

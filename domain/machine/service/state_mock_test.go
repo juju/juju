@@ -45,6 +45,7 @@ type MockStateMockRecorder struct {
 	getHardwareCharacteristicsExpects                         []*gomock.Call2_2[context.Context, string, instance.HardwareCharacteristics, error]
 	getInstanceIDExpects                                      []*gomock.Call2_2[context.Context, string, string, error]
 	getInstanceIDAndNameExpects                               []*gomock.Call2_3[context.Context, string, string, string, error]
+	getInstanceIDsForUUIDsExpects                             []*gomock.Call2_2[context.Context, []string, map[string]string, error]
 	getLXDProfilesForMachineExpects                           []*gomock.Call2_2[context.Context, string, []internal.CreateLXDProfileDetails, error]
 	getMachineBaseExpects                                     []*gomock.Call2_2[context.Context, string, base.Base, error]
 	getMachineContainersExpects                               []*gomock.Call2_2[context.Context, string, []string, error]
@@ -271,6 +272,24 @@ func (mr *MockStateMockRecorder) GetInstanceIDAndName(ctx, mUUID any) *MockState
 
 // MockStateGetInstanceIDAndNameCall is the typed call wrapper for GetInstanceIDAndName.
 type MockStateGetInstanceIDAndNameCall = gomock.Call2_3[context.Context, string, string, string, error]
+
+// GetInstanceIDsForUUIDs mocks base method.
+func (m *MockState) GetInstanceIDsForUUIDs(arg0 context.Context, arg1 []string) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getInstanceIDsForUUIDsExpects, m.ctrl, m, "GetInstanceIDsForUUIDs", arg0, arg1)
+}
+
+// GetInstanceIDsForUUIDs indicates an expected call of GetInstanceIDsForUUIDs.
+func (mr *MockStateMockRecorder) GetInstanceIDsForUUIDs(arg0, arg1 any) *MockStateGetInstanceIDsForUUIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, []string, map[string]string, error](mr.mock.ctrl.T, mr.mock, "GetInstanceIDsForUUIDs", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getInstanceIDsForUUIDsExpects = append(mr.getInstanceIDsForUUIDsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetInstanceIDsForUUIDsCall is the typed call wrapper for GetInstanceIDsForUUIDs.
+type MockStateGetInstanceIDsForUUIDsCall = gomock.Call2_2[context.Context, []string, map[string]string, error]
 
 // GetLXDProfilesForMachine mocks base method.
 func (m *MockState) GetLXDProfilesForMachine(ctx context.Context, mName string) ([]internal.CreateLXDProfileDetails, error) {
