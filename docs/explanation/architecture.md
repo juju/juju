@@ -102,20 +102,20 @@ See more: {ref}`controller`, {ref}`unit`, {ref}`machines-and-system-containers`
 
 ```{ggarch}
 :view: K8s deployment topology
-:alt: Kubernetes cluster schedules the Controller pod (jujud running the controller and model agents with Dqlite in-process) and Unit pods (one per unit). Each unit pod has a Charm container running containeragent, and a Workload container running Pebble (init process) and the workload services. jujud talks to containeragent over the Juju API websocket. containeragent talks to Pebble over the Pebble API HTTP. jujud fetches charms from Charmhub.
+:alt: Kubernetes cluster schedules the Controller pod (running the controller agent, jujud) and Unit pods (one per unit). Each unit pod has a Charm container (unit agent and charm code) and a Workload container (Pebble init process and workload services). The controller agent talks to the unit agent over the Juju API websocket. The charm talks to Pebble over the Pebble API HTTP.
 model "JujuK8s" {
   nodes {
-    k8s      [type: infrastructure, label: "Kubernetes cluster"]
-    charmhub [type: external,       label: "Charmhub"]
+    k8s [type: infrastructure, label: "Kubernetes cluster"]
 
     controller_pod [type: container, label: "Controller pod"] {
       jujud [type: juju-software,
-             label: "jujud\n(controller + model agents, Dqlite)"]
+             label: "Controller agent\n(jujud, Dqlite)"]
     }
 
     unit_pod [type: container, label: "Unit pod (one per unit)"] {
       charm_container [type: container, label: "Charm container"] {
-        containeragent [type: juju-software, label: "containeragent"]
+        unit_agent [type: juju-software, label: "Unit agent"]
+        charm      [type: charm,         label: "Charm"]
       }
       workload_container [type: container, label: "Workload container"] {
         pebble   [type: pebble,   label: "Pebble (init)"]
@@ -125,37 +125,36 @@ model "JujuK8s" {
   }
 
   edges {
-    k8s            -> controller_pod [type: control]
-    k8s            -> unit_pod       [type: control]
-    jujud          -> containeragent [type: stream]
-    jujud          -> charmhub       [type: api]
-    containeragent -> pebble         [type: api]
+    k8s        -> controller_pod [type: control]
+    k8s        -> unit_pod       [type: control]
+    jujud      -> unit_agent     [type: stream]
+    charm      -> pebble         [type: api]
   }
 }
 
 diagram "K8s deployment topology" from "JujuK8s" {
   select {
-    nodes: k8s controller_pod unit_pod charmhub
+    nodes: k8s controller_pod unit_pod
   }
   positions {
     k8s            above controller_pod  gap: 40
     k8s            align-centre controller_pod
     controller_pod left-of unit_pod      gap: 60
     controller_pod align-middle unit_pod
-    charmhub       right-of unit_pod     gap: 60
-    charmhub       align-middle unit_pod
     unit_pod       direction: right
-    charm_container same-width workload_container
-    jujud           min-width: 180
+    charm_container    same-width workload_container
+    unit_agent         same-width charm
+    pebble             same-width workload
+    jujud              min-width: 160
   }
 }
 ```
-*A live Kubernetes deployment. The controller pod runs `jujud`, which hosts the
-controller and model agent workers with Dqlite in-process. Each unit runs in its
-own pod: the charm container holds `containeragent`, and the workload container
-holds Pebble (injected as the init process) and the workload services. `jujud`
-drives `containeragent` over the Juju API websocket; `containeragent` drives
-Pebble over the Pebble API HTTP. `jujud` fetches charm archives from Charmhub.*
+*A live Kubernetes deployment. The controller pod runs the controller agent (`jujud`
+with Dqlite in-process). Each unit runs in its own pod: the charm container holds
+the unit agent and the charm code; the workload container holds Pebble (injected
+as the init process) and the workload services. The controller agent drives the
+unit agent over the Juju API websocket; the charm drives Pebble over the Pebble
+API HTTP.*
 
 ### Control flow
 
