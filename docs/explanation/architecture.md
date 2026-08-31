@@ -48,42 +48,41 @@ The second separation is between **intent** and **execution**. You declare what
 you want; Juju stores that declaration as goal state and drives the real world
 toward it continuously -- through restarts, failures, and drift.
 
-```{d2}
+```{ggarch}
 :alt: User declares to Client. Client persists to Controller (goal state). Controller reconciles via Agents. Agents converge the Real world.
-direction: right
-*.style.font-size: 13
-
-user.shape: person
-user.label: "User"
-
-client: "Client" {
-  style.fill: "#E95420"
-  style.font-color: white
+model "Intent" {
+  nodes {
+    user   [type: person,        label: "User"]
+    client [type: juju-software, label: "Client"]
+    ctrl   [type: juju-software, label: "Controller\n(goal state)"]
+    agents [type: juju-software, label: "Agents"]
+    world  [type: workload,      label: "Real world"]
+  }
+  edges {
+    user   -> client [type: control, label: "declare"]
+    client -> ctrl   [type: api,     label: "persist"]
+    ctrl   -> agents [type: stream,  label: "reconcile"]
+    agents -> world  [type: control, label: "converge"]
+  }
 }
-
-controller: "Controller\n(goal state)" {
-  style.fill: "#E95420"
-  style.font-color: white
+diagram "Intent vs execution" from "Intent" {
+  select { nodes: user client ctrl agents world }
+  positions {
+    user   left-of client gap: 30
+    client left-of ctrl   gap: 40
+    ctrl   left-of agents gap: 40
+    agents left-of world  gap: 40
+    user   align-middle client
+    client align-middle ctrl
+    ctrl   align-middle agents
+    agents align-middle world
+  }
 }
-
-agents: "Agents" {
-  style.fill: "#E95420"
-  style.font-color: white
-}
-
-reality: "Real world" {
-  style.fill: "#4A90D9"
-  style.font-color: white
-}
-
-user -> client: "declare"
-client -> controller: "persist"
-controller -> agents: "reconcile"
-agents -> reality: "converge"
 ```
 *Intent separated from execution. The controller holds goal state durably; agents
-close the gap between what is declared and what exists. When reality drifts -- a
-machine dies, a unit fails -- the same loop brings it back.*
+close the gap between what is declared and what exists. When reality drifts --
+a machine dies, a unit fails -- the same loop brings it back.*
+
 
 ## Mechanism
 
