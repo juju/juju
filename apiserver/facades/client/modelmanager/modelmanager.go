@@ -375,7 +375,7 @@ func (m *ModelManagerAPI) createModelInfo(
 		delete(configArgs, config.AgentVersionKey)
 	}
 
-	suppliedAgentStream := coreagentbinary.AgentStream("")
+	suppliedAgentStream := coreagentbinary.AgentStreamZero
 	if agentStreamVal, exists := configArgs[config.AgentStreamKey]; exists {
 		agentStreamStr, isStr := agentStreamVal.(string)
 		if !isStr {

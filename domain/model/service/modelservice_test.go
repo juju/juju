@@ -1209,7 +1209,7 @@ func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
 	s.mockProvider.EXPECT().CreateModelResources(gomock.Any(), environs.CreateParams{ControllerUUID: controllerUUID.String()}).Return(nil)
 
 	svc := s.providerService(c, modelUUID)
-	err := svc.CreateModel(c.Context(), semversion.Zero, agentbinary.AgentStream(""))
+	err := svc.CreateModel(c.Context(), semversion.Zero, agentbinary.AgentStreamZero)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1244,7 +1244,7 @@ func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *t
 	}).Return(modelerrors.AlreadyExists)
 
 	svc := s.providerService(c, modelUUID)
-	err := svc.CreateModel(c.Context(), semversion.Zero, agentbinary.AgentStream(""))
+	err := svc.CreateModel(c.Context(), semversion.Zero, agentbinary.AgentStreamZero)
 	c.Assert(err, tc.ErrorIs, modelerrors.AlreadyExists)
 }
 

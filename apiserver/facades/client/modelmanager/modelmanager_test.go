@@ -365,7 +365,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *tc.C) {
 
 	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
 	s.modelDefaultService.EXPECT().ModelDefaults(gomock.Any(), gomock.Any()).Return(modeldefaults.Defaults{}, nil)
-	s.modelInfoService.EXPECT().CreateModel(gomock.Any(), semversion.Zero, coreagentbinary.AgentStream("")).Return(nil)
+	s.modelInfoService.EXPECT().CreateModel(gomock.Any(), semversion.Zero, coreagentbinary.AgentStreamZero).Return(nil)
 
 	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -382,7 +382,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *tc.C) {
 
 	s.expectCreateModel(c, ctrl, args, credential.Key{Cloud: "dummy", Owner: coreuser.AdminUserName, Name: "some-credential"}, "dummy", "dummy-region")
 	s.modelDefaultService.EXPECT().ModelDefaults(gomock.Any(), gomock.Any()).Return(modeldefaults.Defaults{}, nil)
-	s.modelInfoService.EXPECT().CreateModel(gomock.Any(), semversion.Zero, coreagentbinary.AgentStream("")).Return(nil)
+	s.modelInfoService.EXPECT().CreateModel(gomock.Any(), semversion.Zero, coreagentbinary.AgentStreamZero).Return(nil)
 	s.modelService.EXPECT().DefaultCloudCredentialKeyForOwner(gomock.Any(), usertesting.GenNewName(c, "admin"), "dummy").Return(credential.Key{Name: "some-credential", Cloud: "dummy", Owner: usertesting.GenNewName(c, "admin")}, nil)
 
 	_, err := s.api.CreateModel(c.Context(), args)
@@ -400,7 +400,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *tc.C) {
 
 	s.expectCreateModel(c, ctrl, args, credential.Key{Cloud: "dummy", Owner: coreuser.AdminUserName, Name: "some-credential"}, "dummy", "dummy-region")
 	s.modelDefaultService.EXPECT().ModelDefaults(gomock.Any(), gomock.Any()).Return(modeldefaults.Defaults{}, nil)
-	s.modelInfoService.EXPECT().CreateModel(gomock.Any(), semversion.Zero, coreagentbinary.AgentStream("")).Return(nil)
+	s.modelInfoService.EXPECT().CreateModel(gomock.Any(), semversion.Zero, coreagentbinary.AgentStreamZero).Return(nil)
 	s.modelService.EXPECT().DefaultCloudCredentialKeyForOwner(gomock.Any(), usertesting.GenNewName(c, "admin"), "dummy").Return(credential.Key{Name: "some-credential", Cloud: "dummy", Owner: usertesting.GenNewName(c, "admin")}, nil)
 
 	_, err := s.api.CreateModel(c.Context(), args)
@@ -430,7 +430,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersion(c *tc.C) {
 
 	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
 	s.modelDefaultService.EXPECT().ModelDefaults(gomock.Any(), gomock.Any()).Return(modeldefaults.Defaults{}, nil)
-	s.modelInfoService.EXPECT().CreateModel(gomock.Any(), jujuversion.Current, coreagentbinary.AgentStream("")).Return(nil)
+	s.modelInfoService.EXPECT().CreateModel(gomock.Any(), jujuversion.Current, coreagentbinary.AgentStreamZero).Return(nil)
 
 	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
