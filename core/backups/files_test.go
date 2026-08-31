@@ -19,6 +19,13 @@ type filesSuite struct {
 	testing.BaseSuite
 }
 
+// relDataDir is the data dir relative to the root dir handed to
+// GetFilesToBackUp. Tests always pass a root dir so that the optional
+// /home/ubuntu/.ssh/authorized_keys lookup stays inside the test's own
+// tree: on the host it may exist but be unreadable, which is fatal to
+// GetFilesToBackUp and would make results depend on the test runner.
+var relDataDir = filepath.Join("var", "lib", "juju")
+
 func TestFilesSuite(t *stdtesting.T) {
 	tc.Run(t, &filesSuite{})
 }
@@ -31,26 +38,31 @@ func (s *filesSuite) writeFile(c *tc.C, path, content string) {
 }
 
 func (s *filesSuite) TestGetFilesToBackUpMissingObjectstore(c *tc.C) {
-	dataDir := c.MkDir()
+	rootDir := c.MkDir()
+	dataDir := filepath.Join(rootDir, relDataDir)
 	s.writeFile(c, filepath.Join(dataDir, "tools", "jujud"), "binary")
 
-	_, err := backups.GetFilesToBackUp("", &backups.Paths{DataDir: dataDir})
+	_, err := backups.GetFilesToBackUp(rootDir,
+		&backups.Paths{DataDir: relDataDir})
 	c.Assert(err, tc.ErrorMatches,
 		`cannot walk ".*objectstore.*`)
 }
 
 func (s *filesSuite) TestGetFilesToBackUpMissingTools(c *tc.C) {
-	dataDir := c.MkDir()
+	rootDir := c.MkDir()
+	dataDir := filepath.Join(rootDir, relDataDir)
 	err := os.MkdirAll(filepath.Join(dataDir, "objectstore"), 0755)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = backups.GetFilesToBackUp("", &backups.Paths{DataDir: dataDir})
+	_, err = backups.GetFilesToBackUp(rootDir,
+		&backups.Paths{DataDir: relDataDir})
 	c.Assert(err, tc.ErrorMatches,
 		`cannot walk ".*tools.*`)
 }
 
 func (s *filesSuite) TestGetFilesToBackUp(c *tc.C) {
-	dataDir := c.MkDir()
+	rootDir := c.MkDir()
+	dataDir := filepath.Join(rootDir, relDataDir)
 	s.writeFile(c, filepath.Join(dataDir, "objectstore", "ns1", "blob"),
 		"blob")
 	s.writeFile(c, filepath.Join(dataDir, "tools", "jujud"), "binary")
@@ -59,6 +71,9 @@ func (s *filesSuite) TestGetFilesToBackUp(c *tc.C) {
 	s.writeFile(c, filepath.Join(dataDir, "init", "jujud-machine-0.conf"),
 		"init conf")
 	s.writeFile(c, filepath.Join(dataDir, "system-identity"), "ssh key")
+	authKeys := filepath.Join(rootDir, "home", "ubuntu", ".ssh",
+		"authorized_keys")
+	s.writeFile(c, authKeys, "ssh-rsa key")
 
 	// A symlink is collected, but the directory it sits in is not.
 	err := os.Symlink("jujud",
@@ -66,34 +81,30 @@ func (s *filesSuite) TestGetFilesToBackUp(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// server.pem, shared-secret and nonce.txt are absent and must be
-	// tolerated. The ubuntu authorized_keys is optional: include it in the
-	// expectation only when it exists on the host (test runners differ).
-	expected := []string{
+	// tolerated.
+	files, err := backups.GetFilesToBackUp(rootDir, &backups.Paths{
+		DataDir: relDataDir,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(set.NewStrings(files...), tc.DeepEquals, set.NewStrings(
 		filepath.Join(dataDir, "objectstore", "ns1", "blob"),
 		filepath.Join(dataDir, "tools", "jujud"),
 		filepath.Join(dataDir, "tools", "jujud-link"),
 		filepath.Join(dataDir, "agents", "machine-0", "agent.conf"),
 		filepath.Join(dataDir, "init", "jujud-machine-0.conf"),
 		filepath.Join(dataDir, "system-identity"),
-	}
-	if _, err := os.Stat("/home/ubuntu/.ssh/authorized_keys"); err == nil {
-		expected = append(expected, "/home/ubuntu/.ssh/authorized_keys")
-	}
-	files, err := backups.GetFilesToBackUp("", &backups.Paths{
-		DataDir: dataDir,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(set.NewStrings(files...), tc.DeepEquals, set.NewStrings(expected...))
+		authKeys,
+	))
 }
 
 func (s *filesSuite) TestGetFilesToBackUpWithRootDir(c *tc.C) {
 	rootDir := c.MkDir()
-	dataDir := filepath.Join(rootDir, "var", "lib", "juju")
+	dataDir := filepath.Join(rootDir, relDataDir)
 	s.writeFile(c, filepath.Join(dataDir, "objectstore", "blob"), "blob")
 	s.writeFile(c, filepath.Join(dataDir, "tools", "jujud"), "binary")
 
 	files, err := backups.GetFilesToBackUp(rootDir, &backups.Paths{
-		DataDir: filepath.Join("var", "lib", "juju"),
+		DataDir: relDataDir,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(set.NewStrings(files...), tc.DeepEquals, set.NewStrings(
@@ -103,7 +114,8 @@ func (s *filesSuite) TestGetFilesToBackUpWithRootDir(c *tc.C) {
 }
 
 func (s *filesSuite) TestGetFilesToBackUpSkipsObjectstoreTmp(c *tc.C) {
-	dataDir := c.MkDir()
+	rootDir := c.MkDir()
+	dataDir := filepath.Join(rootDir, relDataDir)
 	// In-flight object store uploads are staged under
 	// <objectstore>/<namespace>/tmp; they never made it into the
 	// object store.
@@ -118,8 +130,8 @@ func (s *filesSuite) TestGetFilesToBackUpSkipsObjectstoreTmp(c *tc.C) {
 		"applications", "tmp", "resource"), "resource")
 	s.writeFile(c, filepath.Join(dataDir, "tools", "jujud"), "binary")
 
-	files, err := backups.GetFilesToBackUp("", &backups.Paths{
-		DataDir: dataDir,
+	files, err := backups.GetFilesToBackUp(rootDir, &backups.Paths{
+		DataDir: relDataDir,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(set.NewStrings(files...), tc.DeepEquals, set.NewStrings(
