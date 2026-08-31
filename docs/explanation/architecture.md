@@ -71,7 +71,6 @@ Pebble injected as the init process to manage workload services).
 
 ```{d2}
 direction: right
-
 *.style.font-size: 13
 
 user.shape: person
@@ -83,10 +82,7 @@ client: "Client" {
 }
 
 controller_pod: "Controller pod" {
-  init_containers: "Init containers\n(run once at startup)" {
-    config_seed: "controller-\nconfig-seed"
-    charm_init: "charm-init"
-  }
+  direction: right
   charm_container: "Charm\ncontainer" {
     charm: "charm" {
       style.fill: white
@@ -94,6 +90,7 @@ controller_pod: "Controller pod" {
     }
   }
   apiserver: "API-server\ncontainer" {
+    direction: right
     pebble_ctrl: "Pebble\n(init)" {
       style.fill: "#E95420"
       style.font-color: white
@@ -110,8 +107,10 @@ controller_pod: "Controller pod" {
   }
 }
 
-unit_pod: "Unit pod\n(one per unit)" {
-  charm_container: "Charm\ncontainer" {
+app1: "App 1 / Unit 0 pod" {
+  direction: right
+  charm_c: "Charm\ncontainer" {
+    direction: right
     unit_agent: "unit agent\n(containeragent)" {
       style.fill: "#E95420"
       style.font-color: white
@@ -121,7 +120,8 @@ unit_pod: "Unit pod\n(one per unit)" {
       style.stroke: "#E95420"
     }
   }
-  workload_container: "Workload\ncontainer" {
+  workload_c: "Workload\ncontainer" {
+    direction: right
     pebble: "Pebble\n(init)" {
       style.fill: "#E95420"
       style.font-color: white
@@ -131,27 +131,61 @@ unit_pod: "Unit pod\n(one per unit)" {
       style.font-color: white
     }
   }
-  workload_container.pebble -> workload_container.workload: "supervises"
+  charm_c.unit_agent -> charm_c.charm: "exec\ndispatch"
+  charm_c.charm -> workload_c.pebble: "Pebble API\n(HTTP)"
+  workload_c.pebble -> workload_c.workload: "supervises"
 }
 
-storage: "Storage\n(PVC)" {shape: cylinder}
-network: "Network space\n/ subnet" {shape: cylinder}
+app2: "App 2 / Unit 0 pod" {
+  direction: right
+  charm_c: "Charm\ncontainer" {
+    direction: right
+    unit_agent: "unit agent\n(containeragent)" {
+      style.fill: "#E95420"
+      style.font-color: white
+    }
+    charm: "charm" {
+      style.fill: white
+      style.stroke: "#E95420"
+    }
+  }
+  workload_c: "Workload\ncontainer" {
+    direction: right
+    pebble: "Pebble\n(init)" {
+      style.fill: "#E95420"
+      style.font-color: white
+    }
+    workload: "Workload\nservice(s)" {
+      style.fill: "#4A90D9"
+      style.font-color: white
+    }
+  }
+  charm_c.unit_agent -> charm_c.charm: "exec\ndispatch"
+  charm_c.charm -> workload_c.pebble: "Pebble API\n(HTTP)"
+  workload_c.pebble -> workload_c.workload: "supervises"
+}
+
+storage1: "Storage\n(PVC)" {style.stroke: "#AAA"; style.fill: "#F5F5F5"}
+network1: "Network\nspace" {style.stroke: "#AAA"; style.fill: "#F5F5F5"}
+storage2: "Storage\n(PVC)" {style.stroke: "#AAA"; style.fill: "#F5F5F5"}
+network2: "Network\nspace" {style.stroke: "#AAA"; style.fill: "#F5F5F5"}
 
 user -> client: "intent"
 client -> controller_pod.apiserver.jujud: "Juju API"
-controller_pod.apiserver.jujud -> unit_pod.charm_container.unit_agent: "Juju API\n(websocket)"
-unit_pod.charm_container.unit_agent -> unit_pod.charm_container.charm: "exec\ndispatch"
-unit_pod.charm_container.charm -> unit_pod.workload_container.pebble: "Pebble API\n(HTTP)"
-unit_pod -> storage
-unit_pod -> network
+controller_pod.apiserver.jujud -> app1.charm_c.unit_agent: "Juju API\n(websocket)"
+controller_pod.apiserver.jujud -> app2.charm_c.unit_agent: "Juju API\n(websocket)"
+app1 -> storage1
+app1 -> network1
+app2 -> storage2
+app2 -> network2
 ```
-*A Kubernetes deployment. The controller pod has four containers: two init containers
-(`controller-config-seed` and `charm-init`, shown dashed) that run once at startup,
-and two regular containers (`charm` and `api-server`) that run continuously. Pebble
-supervises `jujud` inside the api-server container. Each unit pod has a charm
-container (holding the unit agent and charm code) and a workload container (where
-Pebble supervises the workload services). The unit agent dispatches the charm, which
-drives the workload via the Pebble API.*
+*A Kubernetes deployment. The controller pod has two regular containers (`charm` and
+`api-server`) and two init containers (`controller-config-seed` and `charm-init`) that
+run once at startup. Pebble supervises `jujud` inside the api-server container. Each
+application unit runs in its own pod with a charm container (unit agent + charm code)
+and a workload container (Pebble + workload services). The unit agent dispatches the
+charm, which drives the workload via the Pebble API. Each unit pod draws storage and
+networking from the cluster.*
 
 ::::
 
@@ -163,7 +197,6 @@ that runs both the machine agent and the unit agent.
 
 ```{d2}
 direction: right
-
 *.style.font-size: 13
 
 user.shape: person
@@ -184,7 +217,7 @@ controller_machine: "Controller machine" {
   }
 }
 
-workload_machine: "Workload machine" {
+app1_machine: "App 1 / Unit 0\nmachine" {
   jujud_unit: "jujud process" {
     style.fill: "#E95420"
     style.font-color: white
@@ -197,21 +230,42 @@ workload_machine: "Workload machine" {
   }
 }
 
-storage: "Storage\nvolume" {shape: cylinder}
-network: "Network space\n/ subnet" {shape: cylinder}
+app2_machine: "App 2 / Unit 0\nmachine" {
+  jujud_unit: "jujud process" {
+    style.fill: "#E95420"
+    style.font-color: white
+    mach_a: "Machine\nagent workers"
+    unit_a: "Unit\nagent workers"
+  }
+  charm: "Charm code" {
+    style.fill: white
+    style.stroke: "#E95420"
+  }
+}
+
+storage1: "Storage\nvolume" {style.stroke: "#AAA"; style.fill: "#F5F5F5"}
+network1: "Network\nspace" {style.stroke: "#AAA"; style.fill: "#F5F5F5"}
+storage2: "Storage\nvolume" {style.stroke: "#AAA"; style.fill: "#F5F5F5"}
+network2: "Network\nspace" {style.stroke: "#AAA"; style.fill: "#F5F5F5"}
 
 user -> client: "intent"
 client -> controller_machine.jujud_ctrl.ca: "Juju API"
-controller_machine.jujud_ctrl.ca -> workload_machine.jujud_unit.unit_a: "Juju API\n(websocket)"
-workload_machine.jujud_unit.unit_a -> workload_machine.charm: "exec\ndispatch"
-workload_machine.charm -> workload_machine.jujud_unit.unit_a: "hook\ncommands"
-workload_machine -> storage
-workload_machine -> network
+controller_machine.jujud_ctrl.ca -> app1_machine.jujud_unit.unit_a: "Juju API\n(websocket)"
+controller_machine.jujud_ctrl.ca -> app2_machine.jujud_unit.unit_a: "Juju API\n(websocket)"
+app1_machine.jujud_unit.unit_a -> app1_machine.charm: "exec\ndispatch"
+app1_machine.charm -> app1_machine.jujud_unit.unit_a: "hook\ncommands"
+app2_machine.jujud_unit.unit_a -> app2_machine.charm: "exec\ndispatch"
+app2_machine.charm -> app2_machine.jujud_unit.unit_a: "hook\ncommands"
+app1_machine -> storage1
+app1_machine -> network1
+app2_machine -> storage2
+app2_machine -> network2
 ```
 *A machine cloud deployment. The controller machine runs `jujud` with controller
-and model agent workers and an in-process Dqlite database. Each workload machine
-runs its own `jujud` process with machine and unit agent workers, which dispatch
-the charm via exec; the charm calls back over a Unix socket using hook commands.*
+and model agent workers and an in-process Dqlite database. Each application unit
+runs on its own machine with a `jujud` process hosting machine and unit agent
+workers, which dispatch the charm via exec; the charm calls back using hook
+commands. Each machine draws storage and networking from the cloud.*
 
 ```{ibnote}
 See more: {ref}`machines-and-system-containers`, {ref}`machine`
