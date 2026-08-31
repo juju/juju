@@ -310,6 +310,7 @@ extensions = [
     'ibnote',
     'sphinxcontrib.mermaid',
     'sphinxcontrib_d2',
+    'ggarch.sphinxcontrib_ggarch',
 ]
 
 # D2 diagram configuration
