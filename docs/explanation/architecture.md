@@ -44,38 +44,28 @@ scale, and upgrade a specific piece of software -- stays in **charms**, reusable
 operators published on Charmhub. Juju sits between the user and both sides,
 handling each without either leaking into the other.
 
-```{d2}
-:alt: User declares intent to Juju. Juju provisions infrastructure from Clouds (AWS, GCP, OpenStack, K8s). Juju fetches charms from Charmhub. Juju operates Charmed applications.
-direction: down
-*.style.font-size: 13
+```{mermaid}
+%%{init: {"flowchart": {"htmlLabels": true}} }%%
+flowchart TB
+    USER(["User"])
 
-user.shape: person
-user.label: "User"
+    subgraph wings[" "]
+        direction LR
+        CLOUDS["Clouds<br/>(AWS, GCP, OpenStack, K8s&hellip;)"]
+        JUJU["Juju"]
+        CHARMHUB["Charmhub"]
+    end
 
-juju: "Juju" {
-  style.fill: "#E95420"
-  style.font-color: white
-}
+    APPS["Charmed applications"]
 
-clouds: "Clouds\n(AWS, GCP, OpenStack, K8s…)" {
-  style.fill: "#F5F5F5"
-  style.stroke: "#AAA"
-}
+    USER -->|"declares intent"| JUJU
+    JUJU -->|"provisions infrastructure"| CLOUDS
+    JUJU -->|"fetches charms"| CHARMHUB
+    JUJU -->|"operates"| APPS
 
-charmhub: "Charmhub" {
-  style.fill: "#F5F5F5"
-  style.stroke: "#AAA"
-}
-
-apps: "Charmed applications" {
-  style.fill: "#4A90D9"
-  style.font-color: white
-}
-
-user -> juju: "declares intent"
-juju -> clouds: "provisions\ninfrastructure"
-juju -> charmhub: "fetches\ncharms"
-juju -> apps: "operates"
+    style JUJU fill:#E95420,color:#fff,stroke:#C74210
+    style APPS fill:#4A90D9,color:#fff,stroke:#2C6FAC
+    style wings fill:none,stroke:none
 ```
 *Juju as middleman. The user only declares intent; Juju handles cloud provisioning
 and charm fetching independently. Cloud knowledge never reaches the charm; application
