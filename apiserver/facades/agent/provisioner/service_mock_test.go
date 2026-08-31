@@ -764,6 +764,7 @@ type MockProvisioningServiceMockRecorder struct {
 	mock                              *MockProvisioningService
 	getPreludeProvisioningInfoExpects []*gomock.Call1_2[context.Context, provisioner.SharedProvisioningInfo, error]
 	getProvisioningInfoExpects        []*gomock.Call4_2[context.Context, machine.Name, bool, provisioner.SharedProvisioningInfo, provisioner.ProvisioningInfo, error]
+	recordProvisionedMachineExpects   []*gomock.Call3_1[context.Context, machine.UUID, provisioner.ProvisionedMachineInfo, error]
 }
 
 // NewMockProvisioningService creates a new mock instance.
@@ -813,3 +814,21 @@ func (mr *MockProvisioningServiceMockRecorder) GetProvisioningInfo(ctx, machineN
 
 // MockProvisioningServiceGetProvisioningInfoCall is the typed call wrapper for GetProvisioningInfo.
 type MockProvisioningServiceGetProvisioningInfoCall = gomock.Call4_2[context.Context, machine.Name, bool, provisioner.SharedProvisioningInfo, provisioner.ProvisioningInfo, error]
+
+// RecordProvisionedMachine mocks base method.
+func (m *MockProvisioningService) RecordProvisionedMachine(ctx context.Context, machineUUID machine.UUID, info provisioner.ProvisionedMachineInfo) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.recordProvisionedMachineExpects, m.ctrl, m, "RecordProvisionedMachine", ctx, machineUUID, info)
+}
+
+// RecordProvisionedMachine indicates an expected call of RecordProvisionedMachine.
+func (mr *MockProvisioningServiceMockRecorder) RecordProvisionedMachine(ctx, machineUUID, info any) *MockProvisioningServiceRecordProvisionedMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, machine.UUID, provisioner.ProvisionedMachineInfo, error](mr.mock.ctrl.T, mr.mock, "RecordProvisionedMachine", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(machineUUID), gomock.EnsureMatcher(info))
+	mr.recordProvisionedMachineExpects = append(mr.recordProvisionedMachineExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockProvisioningServiceRecordProvisionedMachineCall is the typed call wrapper for RecordProvisionedMachine.
+type MockProvisioningServiceRecordProvisionedMachineCall = gomock.Call3_1[context.Context, machine.UUID, provisioner.ProvisionedMachineInfo, error]

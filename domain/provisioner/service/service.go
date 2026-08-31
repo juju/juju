@@ -73,6 +73,7 @@ type Service struct {
 	modelSt              ModelState
 	controllerSt         ControllerState
 	imageMetadataFetcher ImageMetadataFetcher
+	completionService    *CompletionService
 	modelUUID            model.UUID
 	logger               logger.Logger
 }
@@ -84,14 +85,30 @@ func NewService(
 	imageMetadataFetcher ImageMetadataFetcher,
 	modelUUID model.UUID,
 	logger logger.Logger,
+	completionService *CompletionService,
 ) *Service {
 	return &Service{
 		modelSt:              modelSt,
 		controllerSt:         controllerSt,
 		imageMetadataFetcher: imageMetadataFetcher,
+		completionService:    completionService,
 		modelUUID:            modelUUID,
 		logger:               logger,
 	}
+}
+
+// RecordProvisionedMachine persists the complete successful provider result
+// for a machine. It is separate from provisioning-info retrieval because this
+// is the completion side of the provisioning workflow.
+func (s *Service) RecordProvisionedMachine(
+	ctx context.Context,
+	machineUUID coremachine.UUID,
+	info provisioner.ProvisionedMachineInfo,
+) error {
+	if s.completionService == nil {
+		return errors.New("provisioning completion service is not configured")
+	}
+	return s.completionService.RecordProvisionedMachine(ctx, machineUUID, info)
 }
 
 // GetPreludeProvisioningInfo retrieves model-wide provisioning data that is

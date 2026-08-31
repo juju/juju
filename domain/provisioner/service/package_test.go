@@ -3,5 +3,5 @@
 
 package service
 
-//go:generate go run github.com/canonical/gomock/mockgen -package service -destination service_mock_test.go github.com/juju/juju/domain/provisioner/service ModelState,ControllerState,ImageMetadataFetcher
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination service_mock_test.go github.com/juju/juju/domain/provisioner/service ModelState,ControllerState,ImageMetadataFetcher,MachineInstanceService,MachineNetworkService,StorageProvisioningService,BlockDeviceService
 //go:generate go run github.com/canonical/gomock/mockgen -package service -destination imagemetadata_mock_test.go github.com/juju/juju/domain/provisioner/service ProviderForImageMetadata,CloudImageMetadataSaver,imageMetadataSource
