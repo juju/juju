@@ -115,7 +115,6 @@ diagram "Juju overview" from "JujuOverview" {
     clouds     align-centre controller
     charmhub   below controller    gap: 50
     charmhub   align-centre controller
-  }
 }
 ```
 *The controller as hub. User, client, controller, and charmed applications
