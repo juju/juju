@@ -367,7 +367,7 @@ model "BootstrapK8s" {
   nodes {
     user       [type: person,        label: "User"]
     cli        [type: juju-software, label: "juju CLI"]
-    k8s        [type: infrastructure, label: "Kubernetes cluster"]
+    k8s        [type: external, label: "Kubernetes cluster"]
     controller [type: juju-software, label: "Controller pod"]
   }
   edges {
