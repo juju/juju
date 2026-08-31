@@ -74,6 +74,7 @@ def _render_one(
     layout: str,
     theme: int,
     outfn: str,
+    pad: int = 20,
 ) -> None:
     """Compile D2 source to a single SVG file."""
     if isinstance(d2_cmd, str):
@@ -81,7 +82,7 @@ def _render_one(
     else:
         cmd_args = list(d2_cmd)
 
-    cmd_args += ["--layout", layout, "--theme", str(theme)]
+    cmd_args += ["--layout", layout, "--theme", str(theme), "--pad", str(pad)]
 
     with TemporaryDirectory() as tmpdir:
         basename = os.path.splitext(os.path.basename(outfn))[0]
@@ -128,13 +129,14 @@ def render_d2_pair(
     d2_cmd = self.builder.config.d2_cmd
     light_theme = self.builder.config.d2_light_theme
     dark_theme = self.builder.config.d2_dark_theme
+    pad = self.builder.config.d2_pad
 
     outdir = os.path.join(self.builder.outdir, self.builder.imagedir)
     ensuredir(outdir)
 
     results = []
     for suffix, theme in (("light", light_theme), ("dark", dark_theme)):
-        hashkey = (code + layout + str(theme)).encode("utf-8")
+        hashkey = (code + layout + str(theme) + str(pad)).encode("utf-8")
         basename = f"{prefix}-{hashlib.sha1(hashkey).hexdigest()}"  # noqa: S324
         fname = f"{basename}.svg"
         relfn = posixpath.join(self.builder.imgpath, fname)
@@ -142,7 +144,7 @@ def render_d2_pair(
 
         if not os.path.isfile(outfn):
             try:
-                _render_one(d2_cmd, code, layout, theme, outfn)
+                _render_one(d2_cmd, code, layout, theme, outfn, pad=pad)
             except D2Error as exc:
                 logger.warning(f"d2 diagram error ({suffix}): {exc}")
                 results.append(None)
@@ -193,4 +195,5 @@ def setup(app: object) -> dict:
     app.add_config_value("d2_layout", "elk", "html")
     app.add_config_value("d2_light_theme", 0, "html")
     app.add_config_value("d2_dark_theme", D2_DARK_THEME, "html")
-    return {"version": "0.2.0", "parallel_read_safe": True, "parallel_write_safe": True}
+    app.add_config_value("d2_pad", 20, "html")
+    return {"version": "0.3.0", "parallel_read_safe": True, "parallel_write_safe": True}

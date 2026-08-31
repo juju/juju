@@ -81,36 +81,36 @@ client: "Client" {
 }
 
 controller_pod: "Controller pod" {
-  init_containers: "Init containers (run once at startup)" {
-    config_seed: "controller-config-seed"
+  init_containers: "Init containers\n(run once at startup)" {
+    config_seed: "controller-\nconfig-seed"
     charm_init: "charm-init"
   }
-  charm_container: "Charm container" {
+  charm_container: "Charm\ncontainer" {
     charm: "charm" {
       style.fill: white
       style.stroke: "#E95420"
     }
   }
-  apiserver: "API-server container" {
-    pebble_ctrl: "Pebble (init)" {
+  apiserver: "API-server\ncontainer" {
+    pebble_ctrl: "Pebble\n(init)" {
       style.fill: "#E95420"
       style.font-color: white
     }
-    jujud: "jujud (controller + model agent workers)" {
+    jujud: "jujud\n(controller +\nmodel agent\nworkers)" {
       style.fill: "#E95420"
       style.font-color: white
     }
   }
   apiserver.pebble_ctrl -> apiserver.jujud: "supervises"
-  apiserver.jujud -> charm_container.charm: "recorded, not dispatched" {
+  apiserver.jujud -> charm_container.charm: "recorded,\nnot dispatched" {
     style.stroke-dash: 4
     style.font-color: "#888"
   }
 }
 
-unit_pod: "Unit pod (one per unit)" {
-  charm_container: "Charm container" {
-    unit_agent: "unit agent (containeragent)" {
+unit_pod: "Unit pod\n(one per unit)" {
+  charm_container: "Charm\ncontainer" {
+    unit_agent: "unit agent\n(containeragent)" {
       style.fill: "#E95420"
       style.font-color: white
     }
@@ -119,12 +119,12 @@ unit_pod: "Unit pod (one per unit)" {
       style.stroke: "#E95420"
     }
   }
-  workload_container: "Workload container" {
-    pebble: "Pebble (init)" {
+  workload_container: "Workload\ncontainer" {
+    pebble: "Pebble\n(init)" {
       style.fill: "#E95420"
       style.font-color: white
     }
-    workload: "Workload service(s)" {
+    workload: "Workload\nservice(s)" {
       style.fill: "#4A90D9"
       style.font-color: white
     }
@@ -132,14 +132,14 @@ unit_pod: "Unit pod (one per unit)" {
   workload_container.pebble -> workload_container.workload: "supervises"
 }
 
-storage: "Storage (PVC)" {shape: cylinder}
-network: "Network space / subnet" {shape: cylinder}
+storage: "Storage\n(PVC)" {shape: cylinder}
+network: "Network space\n/ subnet" {shape: cylinder}
 
 user -> client: "intent"
 client -> controller_pod.apiserver.jujud: "Juju API"
-controller_pod.apiserver.jujud -> unit_pod.charm_container.unit_agent: "Juju API (websocket)"
-unit_pod.charm_container.unit_agent -> unit_pod.charm_container.charm: "exec dispatch"
-unit_pod.charm_container.charm -> unit_pod.workload_container.pebble: "Pebble API (HTTP)"
+controller_pod.apiserver.jujud -> unit_pod.charm_container.unit_agent: "Juju API\n(websocket)"
+unit_pod.charm_container.unit_agent -> unit_pod.charm_container.charm: "exec\ndispatch"
+unit_pod.charm_container.charm -> unit_pod.workload_container.pebble: "Pebble API\n(HTTP)"
 unit_pod -> storage
 unit_pod -> network
 ```
@@ -174,8 +174,8 @@ controller_machine: "Controller machine" {
   jujud_ctrl: "jujud process" {
     style.fill: "#E95420"
     style.font-color: white
-    ca: "Controller agent workers"
-    ma: "Model agent workers"
+    ca: "Controller\nagent workers"
+    ma: "Model\nagent workers"
     db: "Dqlite" {shape: cylinder}
   }
 }
@@ -184,8 +184,8 @@ workload_machine: "Workload machine" {
   jujud_unit: "jujud process" {
     style.fill: "#E95420"
     style.font-color: white
-    mach_a: "Machine agent workers"
-    unit_a: "Unit agent workers"
+    mach_a: "Machine\nagent workers"
+    unit_a: "Unit\nagent workers"
   }
   charm: "Charm code" {
     style.fill: white
@@ -193,14 +193,14 @@ workload_machine: "Workload machine" {
   }
 }
 
-storage: "Storage volume" {shape: cylinder}
-network: "Network space / subnet" {shape: cylinder}
+storage: "Storage\nvolume" {shape: cylinder}
+network: "Network space\n/ subnet" {shape: cylinder}
 
 user -> client: "intent"
 client -> controller_machine.jujud_ctrl.ca: "Juju API"
-controller_machine.jujud_ctrl.ca -> workload_machine.jujud_unit.unit_a: "Juju API (websocket)"
-workload_machine.jujud_unit.unit_a -> workload_machine.charm: "exec dispatch"
-workload_machine.charm -> workload_machine.jujud_unit.unit_a: "hook commands"
+controller_machine.jujud_ctrl.ca -> workload_machine.jujud_unit.unit_a: "Juju API\n(websocket)"
+workload_machine.jujud_unit.unit_a -> workload_machine.charm: "exec\ndispatch"
+workload_machine.charm -> workload_machine.jujud_unit.unit_a: "hook\ncommands"
 workload_machine -> storage
 workload_machine -> network
 ```
