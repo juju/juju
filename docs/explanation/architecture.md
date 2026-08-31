@@ -102,48 +102,34 @@ See more: {ref}`controller`, {ref}`unit`, {ref}`machines-and-system-containers`
 
 ```{ggarch}
 :view: K8s deployment topology
-:alt: Kubernetes cluster schedules the Controller pod (containing controller-config-seed and charm-init init containers, plus jujud, API-server, and Dqlite as persistent processes) and Unit pods (containing Unit agent, Charm, Pebble, and Workload container). API-server sends watcher stream to Unit agent. Unit agent execs Charm. Charm calls Pebble API. Pebble manages Workload. API-server fetches from Charmhub.
+:alt: Kubernetes cluster schedules the Controller pod (jujud running the controller and model agents with Dqlite in-process) and Unit pods (one per unit). Each unit pod has a Charm container running containeragent, and a Workload container running Pebble (init process) and the workload services. jujud talks to containeragent over the Juju API websocket. containeragent talks to Pebble over the Pebble API HTTP. jujud fetches charms from Charmhub.
 model "JujuK8s" {
   nodes {
     k8s      [type: infrastructure, label: "Kubernetes cluster"]
     charmhub [type: external,       label: "Charmhub"]
 
-    controller_pod [type: container, label: "Controller pod",
-                    cardinality: one-per-model] {
-      config_seed [type: juju-software, label: "controller-config-seed",
-                   lifecycle: init, cardinality: one-per-model]
-      charm_init  [type: juju-software, label: "charm-init",
-                   lifecycle: init, cardinality: one-per-model]
-      jujud       [type: juju-software, label: "jujud",
-                   cardinality: one-per-model]
-      apiserver   [type: juju-software, label: "API-server",
-                   cardinality: one-per-model]
-      dqlite      [type: database,      label: "Dqlite",
-                   cardinality: one-per-model]
+    controller_pod [type: container, label: "Controller pod"] {
+      jujud [type: juju-software,
+             label: "jujud\n(controller + model agents, Dqlite)"]
     }
 
-    unit_pod [type: container, label: "Unit pod",
-              cardinality: one-per-unit] {
-      unit_agent [type: juju-software, label: "Unit agent",
-                  cardinality: one-per-unit]
-      charm      [type: charm,         label: "Charm",
-                  cardinality: one-per-unit]
-      workload   [type: workload,      label: "Workload",
-                  cardinality: one-per-unit]
-      pebble     [type: pebble,        label: "Pebble",
-                  cardinality: one-per-unit]
+    unit_pod [type: container, label: "Unit pod (one per unit)"] {
+      charm_container [type: container, label: "Charm container"] {
+        containeragent [type: juju-software, label: "containeragent"]
+      }
+      workload_container [type: container, label: "Workload container"] {
+        pebble   [type: pebble,   label: "Pebble (init)"]
+        workload [type: workload, label: "Workload service(s)"]
+      }
     }
   }
 
   edges {
-    k8s        -> controller_pod [type: control, label: "schedules"]
-    k8s        -> unit_pod       [type: control, label: "schedules"]
-    apiserver  -> unit_agent     [type: stream,  label: "watcher"]
-    apiserver  -> charmhub       [type: api,     label: "fetch charm"]
-    unit_agent -> charm          [type: control, label: "exec dispatch"]
-    charm      -> unit_agent     [type: ipc,     label: "hook commands"]
-    charm      -> pebble         [type: api,     label: "Pebble API"]
-    pebble     -> workload       [type: control, label: "manages"]
+    k8s            -> controller_pod [type: control]
+    k8s            -> unit_pod       [type: control]
+    jujud          -> containeragent [type: stream]
+    jujud          -> charmhub       [type: api]
+    containeragent -> pebble         [type: api]
   }
 }
 
@@ -154,31 +140,22 @@ diagram "K8s deployment topology" from "JujuK8s" {
   positions {
     k8s            above controller_pod  gap: 40
     k8s            align-centre controller_pod
-    controller_pod left-of unit_pod      gap: 80
+    controller_pod left-of unit_pod      gap: 60
     controller_pod align-middle unit_pod
     charmhub       right-of unit_pod     gap: 60
     charmhub       align-middle unit_pod
-    controller_pod direction: down
-    unit_pod       direction: down
-  }
-  annotations {
-    box [nodes: "config_seed charm_init",
-         label: "init — run once",
-         style: dashed, color: "#888888"]
-    box [nodes: "jujud apiserver dqlite",
-         label: "persistent",
-         style: solid, color: "#E95420"]
-    box [nodes: "charm pebble workload",
-         label: "charm + workload",
-         style: dashed, color: "#4A90D9"]
+    unit_pod       direction: right
+    charm_container same-width workload_container
+    jujud           min-width: 180
   }
 }
 ```
-*A live Kubernetes deployment. The controller pod runs init containers (dashed, ×1/model)
-that execute once at startup, and persistent processes (jujud, API-server, Dqlite) that
-run continuously. Every application unit runs in its own pod (×n). The API-server
-drives unit agents over a long-lived watcher connection; each charm talks to Pebble
-to manage its workload.*
+*A live Kubernetes deployment. The controller pod runs `jujud`, which hosts the
+controller and model agent workers with Dqlite in-process. Each unit runs in its
+own pod: the charm container holds `containeragent`, and the workload container
+holds Pebble (injected as the init process) and the workload services. `jujud`
+drives `containeragent` over the Juju API websocket; `containeragent` drives
+Pebble over the Pebble API HTTP. `jujud` fetches charm archives from Charmhub.*
 
 ### Control flow
 
