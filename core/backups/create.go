@@ -58,6 +58,9 @@ type CreateArgs struct {
 // named after meta.Started using FilenameTemplate. It updates the
 // metadata with the file info and returns the archive filename.
 func Create(meta *Metadata, args CreateArgs) (string, error) {
+	if args.Clock == nil {
+		return "", errors.New("missing clock")
+	}
 	if err := checkDestinationDir(args.DestinationDir); err != nil {
 		return "", errors.Capture(err)
 	}
@@ -138,10 +141,16 @@ func checkDestinationDir(destinationDir string) error {
 	return nil
 }
 
-// checkDumpEntryName ensures the entry name is relative and stays
-// within the archive's dump directory.
+// checkDumpEntryName ensures the entry name is not empty, is relative
+// and stays within the archive's dump directory.
 func checkDumpEntryName(name string) error {
 	cleaned := path.Clean(name)
+	// path.Clean maps both "" and "." (and "./", ...) to ".", which
+	// would resolve to the dump directory itself.
+	if cleaned == "." {
+		return errors.Errorf("empty dump entry name %q: %w",
+			name, coreerrors.NotValid)
+	}
 	if path.IsAbs(cleaned) ||
 		slices.Contains(strings.Split(cleaned, "/"), "..") {
 		return errors.Errorf(

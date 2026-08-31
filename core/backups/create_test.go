@@ -155,6 +155,7 @@ func (s *createSuite) TestCreateDumpEntryNameEscapesDump(c *tc.C) {
 	} {
 		_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{
 			DestinationDir: c.MkDir(),
+			Clock:          clock.WallClock,
 			FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
 			DumpEntries: []backups.DumpEntry{{
 				Name:   name,
@@ -166,10 +167,29 @@ func (s *createSuite) TestCreateDumpEntryNameEscapesDump(c *tc.C) {
 	}
 }
 
+func (s *createSuite) TestCreateEmptyDumpEntryName(c *tc.C) {
+	for _, name := range []string{"", ".", "./", "dump/.."} {
+		_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{
+			DestinationDir: c.MkDir(),
+			Clock:          clock.WallClock,
+			FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
+			DumpEntries: []backups.DumpEntry{{
+				Name:   name,
+				Reader: strings.NewReader("data"),
+			}},
+		})
+		c.Check(err, tc.ErrorIs, coreerrors.NotValid,
+			tc.Commentf("name %q", name))
+		c.Check(err, tc.ErrorMatches, `empty dump entry name ".*": not valid`,
+			tc.Commentf("name %q", name))
+	}
+}
+
 func (s *createSuite) TestCreateMissingDestinationDir(c *tc.C) {
 	destDir := filepath.Join(c.MkDir(), "missing")
 	_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{
 		DestinationDir: destDir,
+		Clock:          clock.WallClock,
 		FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
 	})
 	c.Assert(err, tc.ErrorMatches,
@@ -179,6 +199,7 @@ func (s *createSuite) TestCreateMissingDestinationDir(c *tc.C) {
 func (s *createSuite) TestCreateRelativeDestinationDir(c *tc.C) {
 	_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{
 		DestinationDir: "relative",
+		Clock:          clock.WallClock,
 		FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
 	})
 	c.Assert(err, tc.ErrorMatches,
@@ -188,6 +209,15 @@ func (s *createSuite) TestCreateRelativeDestinationDir(c *tc.C) {
 func (s *createSuite) TestCreateMissingFilesToBackUp(c *tc.C) {
 	_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{
 		DestinationDir: c.MkDir(),
+		Clock:          clock.WallClock,
 	})
 	c.Assert(err, tc.ErrorMatches, "missing list of files to back up")
+}
+
+func (s *createSuite) TestCreateMissingClock(c *tc.C) {
+	_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{
+		DestinationDir: c.MkDir(),
+		FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
+	})
+	c.Assert(err, tc.ErrorMatches, "missing clock")
 }
