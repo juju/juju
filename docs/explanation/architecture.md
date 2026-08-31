@@ -81,13 +81,25 @@ client: "Client" {
 }
 
 controller_pod: "Controller pod" {
+  init_containers: "Init containers (run once at startup)" {
+    style.stroke-dash: 4
+    style.font-color: "#666"
+    config_seed: "controller-config-seed" {
+      style.fill: "#EEE"
+      style.stroke: "#AAA"
+    }
+    charm_init: "charm-init" {
+      style.fill: "#EEE"
+      style.stroke: "#AAA"
+    }
+  }
   charm_container: "Charm container" {
     charm: "charm" {
       style.fill: white
       style.stroke: "#E95420"
     }
   }
-  apiserver: "API-server container (workload)" {
+  apiserver: "API-server container" {
     pebble_ctrl: "Pebble (init)" {
       style.fill: "#E95420"
       style.font-color: white
@@ -139,11 +151,13 @@ unit_pod.charm_container.charm -> unit_pod.workload_container.pebble: "Pebble AP
 unit_pod -> storage
 unit_pod -> network
 ```
-*A Kubernetes deployment. The controller pod has two containers: a charm container
-and an API-server workload container where Pebble supervises `jujud`. Each unit pod
-has a charm container (holding the unit agent and charm code) and a workload
-container (where Pebble supervises the workload services). The unit agent manages
-the workload via the Pebble API.*
+*A Kubernetes deployment. The controller pod has four containers: two init containers
+(`controller-config-seed` and `charm-init`, shown dashed) that run once at startup,
+and two regular containers (`charm` and `api-server`) that run continuously. Pebble
+supervises `jujud` inside the api-server container. Each unit pod has a charm
+container (holding the unit agent and charm code) and a workload container (where
+Pebble supervises the workload services). The unit agent dispatches the charm, which
+drives the workload via the Pebble API.*
 
 ::::
 
