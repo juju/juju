@@ -4,218 +4,105 @@
 package apiserver
 
 import (
-	"context"
-	"errors"
-	"sync"
 	"testing"
 
-	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/domain/model"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type modelRemovalSuite struct {
-	modelService *MockModelService
-	modelUUID    coremodel.UUID
+	removals  *modelRemovals
+	modelUUID coremodel.UUID
 }
 
 func TestModelRemovalSuite(t *testing.T) {
 	tc.Run(t, &modelRemovalSuite{})
 }
 
-func (s *modelRemovalSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.modelService = NewMockModelService(ctrl)
+func (s *modelRemovalSuite) SetUpTest(c *tc.C) {
+	s.removals = newModelRemovals()
 	s.modelUUID = coremodel.UUID(uuid.MustNewUUID().String())
-	return ctrl
 }
 
-// fakeServedConnection implements servedConnection, recording closure and
-// letting tests drive the dead channel.
-type fakeServedConnection struct {
-	dead      chan struct{}
-	closed    chan struct{}
-	closeOnce sync.Once
-}
-
-func newFakeServedConnection() *fakeServedConnection {
-	return &fakeServedConnection{
-		dead:   make(chan struct{}),
-		closed: make(chan struct{}),
-	}
-}
-
-func (f *fakeServedConnection) Dead() <-chan struct{} {
-	return f.dead
-}
-
-func (f *fakeServedConnection) Close() error {
-	f.closeOnce.Do(func() { close(f.closed) })
-	return nil
-}
-
-func (f *fakeServedConnection) isClosed() bool {
+// isSignalled reports, without blocking, whether the model has been reported as
+// removed.
+func isSignalled(removed <-chan struct{}) bool {
 	select {
-	case <-f.closed:
+	case <-removed:
 		return true
 	default:
 		return false
 	}
 }
 
-// stubModelRemovalWatchService returns a fixed watcher or error from
-// WatchModel.
-type stubModelRemovalWatchService struct {
-	watch watcher.NotifyWatcher
-	err   error
+// TestRemovalReportedToEveryConnection is the point of holding one channel per
+// model rather than one watcher per connection: a single removal wakes every
+// connection serving that model.
+func (s *modelRemovalSuite) TestRemovalReportedToEveryConnection(c *tc.C) {
+	first, _ := s.removals.track(s.modelUUID)
+	second, _ := s.removals.track(s.modelUUID)
+
+	c.Assert(isSignalled(first), tc.IsFalse)
+	c.Assert(isSignalled(second), tc.IsFalse)
+
+	s.removals.notify(s.modelUUID)
+
+	c.Check(isSignalled(first), tc.IsTrue)
+	c.Check(isSignalled(second), tc.IsTrue)
 }
 
-func (s stubModelRemovalWatchService) WatchModel(context.Context, coremodel.UUID) (watcher.NotifyWatcher, error) {
-	return s.watch, s.err
+// TestOtherModelRemovalNotReported verifies that connections are only told
+// about their own model's removal.
+func (s *modelRemovalSuite) TestOtherModelRemovalNotReported(c *tc.C) {
+	removed, _ := s.removals.track(s.modelUUID)
+
+	s.removals.notify(coremodel.UUID(uuid.MustNewUUID().String()))
+
+	c.Check(isSignalled(removed), tc.IsFalse)
 }
 
-// runWatch drives runModelRemovalWatch in a goroutine and returns a channel
-// that is closed when it returns.
-func runWatch(srv *Server, ctx context.Context, conn servedConnection, modelService ModelService, watch watcher.NotifyWatcher, modelUUID coremodel.UUID) <-chan struct{} {
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		srv.runModelRemovalWatch(ctx, conn, modelService, watch, modelUUID)
-	}()
-	return done
+// TestRemovalOfUnservedModelIgnored verifies that removals of models this API
+// server holds no connections for - most of them, on most API servers - are
+// simply dropped.
+func (s *modelRemovalSuite) TestRemovalOfUnservedModelIgnored(c *tc.C) {
+	s.removals.notify(s.modelUUID)
+
+	c.Check(s.removals.served, tc.HasLen, 0)
 }
 
-// TestWatchNotStartedWhenWatcherCreationFails pins the best-effort contract:
-// if the removal watcher cannot be created, the connection is served without
-// it, exactly as connections always have been.
-func (s *modelRemovalSuite) TestWatchNotStartedWhenWatcherCreationFails(c *tc.C) {
-	defer s.setupMocks(c).Finish()
+// TestModelForgottenWithLastConnection verifies that a model is tracked only
+// while it is being served, so that the API server does not accumulate an entry
+// for every model it has ever been asked about.
+func (s *modelRemovalSuite) TestModelForgottenWithLastConnection(c *tc.C) {
+	_, firstDone := s.removals.track(s.modelUUID)
+	_, secondDone := s.removals.track(s.modelUUID)
 
-	conn := newFakeServedConnection()
-	srv := &Server{}
+	firstDone()
+	c.Assert(s.removals.served, tc.HasLen, 1)
 
-	// The model service must not be consulted when there is no watcher.
-	srv.watchServedModelRemoval(c.Context(), conn, s.modelService,
-		stubModelRemovalWatchService{err: errors.New("boom")}, s.modelUUID)
-
-	c.Assert(conn.isClosed(), tc.IsFalse)
+	secondDone()
+	c.Check(s.removals.served, tc.HasLen, 0)
 }
 
-// TestNoRemovalEventLeavesConnectionOpen verifies that a quiet watcher never
-// closes the connection, and that cancelling the connection's context stops
-// the watch goroutine.
-func (s *modelRemovalSuite) TestNoRemovalEventLeavesConnectionOpen(c *tc.C) {
-	defer s.setupMocks(c).Finish()
+// TestModelForgottenWhenRemoved verifies that a removed model is forgotten as
+// it is reported, so that a connection arriving afterwards to be redirected is
+// served rather than closed straight away.
+func (s *modelRemovalSuite) TestModelForgottenWhenRemoved(c *tc.C) {
+	_, done := s.removals.track(s.modelUUID)
 
-	ctx, cancel := context.WithCancel(c.Context())
-	conn := newFakeServedConnection()
-	srv := &Server{}
+	s.removals.notify(s.modelUUID)
+	c.Assert(s.removals.served, tc.HasLen, 0)
 
-	watch := watchertest.NewMockNotifyWatcher(make(chan struct{}))
-	done := runWatch(srv, ctx, conn, s.modelService, watch, s.modelUUID)
+	redirected, redirectedDone := s.removals.track(s.modelUUID)
+	c.Check(isSignalled(redirected), tc.IsFalse)
 
-	cancel()
-	<-done
+	// The connection that was open when the model was removed must not take the
+	// later connection's model with it as it goes.
+	done()
+	c.Check(s.removals.served, tc.HasLen, 1)
 
-	c.Assert(conn.isClosed(), tc.IsFalse)
-}
-
-// TestDeadConnectionStopsWatch verifies that the watch ends with the
-// connection without closing it: nothing may outlive the connection.
-func (s *modelRemovalSuite) TestDeadConnectionStopsWatch(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	conn := newFakeServedConnection()
-	srv := &Server{}
-
-	watch := watchertest.NewMockNotifyWatcher(make(chan struct{}))
-	done := runWatch(srv, c.Context(), conn, s.modelService, watch, s.modelUUID)
-
-	close(conn.dead)
-	<-done
-
-	c.Assert(conn.isClosed(), tc.IsFalse)
-}
-
-// TestModelRemovalClosesConnection is the migration REAP case: the model row
-// disappears from the controller, the watcher fires, the model lookup reports
-// not found, and the connection is closed so agents reconnect to the target
-// controller.
-func (s *modelRemovalSuite) TestModelRemovalClosesConnection(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.modelService.EXPECT().GetModelConnectionInfo(gomock.Any(), s.modelUUID).
-		Return(model.ModelConnectionInfo{}, modelerrors.NotFound)
-
-	conn := newFakeServedConnection()
-	srv := &Server{}
-
-	changes := make(chan struct{}, 1)
-	changes <- struct{}{}
-	watch := watchertest.NewMockNotifyWatcher(changes)
-
-	srv.watchServedModelRemoval(c.Context(), conn, s.modelService,
-		stubModelRemovalWatchService{watch: watch}, s.modelUUID)
-
-	<-conn.closed
-}
-
-// TestUnrelatedModelChangeKeepsWatching verifies that a model change which is
-// not a removal - the model is still connectable - does not close the
-// connection, and that a later removal still does.
-func (s *modelRemovalSuite) TestUnrelatedModelChangeKeepsWatching(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	firstCheck := make(chan struct{})
-	gomock.InOrder(
-		s.modelService.EXPECT().GetModelConnectionInfo(gomock.Any(), s.modelUUID).
-			DoAndReturn(func(context.Context, coremodel.UUID) (model.ModelConnectionInfo, error) {
-				close(firstCheck)
-				return model.ModelConnectionInfo{Activated: true}, nil
-			}),
-		s.modelService.EXPECT().GetModelConnectionInfo(gomock.Any(), s.modelUUID).
-			Return(model.ModelConnectionInfo{}, modelerrors.NotFound),
-	)
-
-	conn := newFakeServedConnection()
-	srv := &Server{}
-
-	changes := make(chan struct{})
-	watch := watchertest.NewMockNotifyWatcher(changes)
-	done := runWatch(srv, c.Context(), conn, s.modelService, watch, s.modelUUID)
-
-	changes <- struct{}{}
-	<-firstCheck
-	c.Assert(conn.isClosed(), tc.IsFalse)
-
-	changes <- struct{}{}
-	<-conn.closed
-	<-done
-}
-
-// TestUnactivatedModelClosesConnection covers destroy-model: the
-// model row may still exist but is no longer connectable. The
-// connection must still be closed so agents do not linger.
-func (s *modelRemovalSuite) TestUnactivatedModelClosesConnection(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.modelService.EXPECT().GetModelConnectionInfo(gomock.Any(), s.modelUUID).
-		Return(model.ModelConnectionInfo{Activated: false}, nil)
-
-	conn := newFakeServedConnection()
-	srv := &Server{}
-
-	changes := make(chan struct{}, 1)
-	changes <- struct{}{}
-	watch := watchertest.NewMockNotifyWatcher(changes)
-	done := runWatch(srv, c.Context(), conn, s.modelService, watch, s.modelUUID)
-
-	<-conn.closed
-	<-done
+	redirectedDone()
+	c.Check(s.removals.served, tc.HasLen, 0)
 }

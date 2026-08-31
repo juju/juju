@@ -269,6 +269,64 @@ func (s *watcherSuite) TestWatchModel(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
+func (s *watcherSuite) TestWatchModelRemovals(c *tc.C) {
+	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model")
+	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, loggertesting.WrapCheckLog(c))
+
+	st := statecontroller.NewState(func(ctx context.Context) (database.TxnRunner, error) { return watchableDBFactory(ctx) })
+
+	modelService := service.NewWatchableService(
+		st,
+		watcherFactory,
+		newStatusHistoryGetter(c),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	modelUUID, activateModel, err := modelService.CreateModel(c.Context(), domainmodel.GlobalModelCreationArgs{
+		Cloud:       "my-cloud",
+		CloudRegion: "my-region",
+		Credential: corecredential.Key{
+			Cloud: "my-cloud",
+			Owner: s.userName,
+			Name:  "my-cloud-credential",
+		},
+		Name:          "test-model",
+		Qualifier:     "prod",
+		AdminUsers:    []user.UUID{s.userUUID},
+		SecretBackend: juju.BackendName,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	watcher, err := modelService.WatchModelRemovals(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Verifies that a model coming into existence is not reported as a removal.
+	harness.AddTest(c, func(c *tc.C) {
+		err := activateModel(c.Context())
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	// Verifies that removing the model reports its UUID, which is all the API
+	// server needs to close the connections serving it.
+	harness.AddTest(c, func(c *tc.C) {
+		err := st.Delete(c.Context(), modelUUID)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert(
+				modelUUID.String(),
+			),
+		)
+	})
+
+	harness.Run(c, []string(nil))
+}
+
 func (s *watcherSuite) TestWatchModelCloudCredential(c *tc.C) {
 	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model")
 	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, loggertesting.WrapCheckLog(c))

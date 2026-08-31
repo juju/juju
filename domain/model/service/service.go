@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecloud "github.com/juju/juju/core/cloud"
 	"github.com/juju/juju/core/credential"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -779,6 +780,17 @@ type NotifyMapperWatcherFactory interface {
 type WatcherFactory interface {
 	NotifyMapperWatcherFactory
 
+	// NewNamespaceWatcher returns a new namespace watcher for events based on
+	// the input change mask. The initialStateQuery ensures the watcher starts
+	// with the current state of the system, preventing data loss from prior
+	// events.
+	NewNamespaceWatcher(
+		ctx context.Context,
+		initialStateQuery eventsource.NamespaceQuery,
+		summary string,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
+
 	// NewNamespaceMapperWatcher returns a new namespace watcher for events
 	// based on the input change mask. The initialStateQuery ensures the watcher
 	// starts with the current state of the system, preventing data loss from
@@ -904,6 +916,28 @@ func (s *WatchableService) WatchModels(ctx context.Context) (watcher.NotifyWatch
 		ctx,
 		"models watcher",
 		eventsource.NamespaceFilter("model", changestream.All),
+	)
+}
+
+// WatchModelRemovals returns a watcher that emits the UUIDs of models that
+// have been removed from the controller.
+func (s *WatchableService) WatchModelRemovals(ctx context.Context) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// A model removed before the watcher was created cannot be reported: its
+	// row, and with it its UUID, is already gone. The watcher reports the
+	// removals it sees from its creation onwards, so its initial state is
+	// always empty.
+	initialQuery := func(context.Context, coredatabase.TxnRunner) ([]string, error) {
+		return nil, nil
+	}
+
+	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
+		initialQuery,
+		"model removals watcher",
+		eventsource.NamespaceFilter("model", changestream.Deleted),
 	)
 }
 

@@ -203,8 +203,7 @@ func (s *modelConnectionSuite) TestMigrationModeErrorPropagates(c *tc.C) {
 // it adds on top of modelIsConnectable - the redirect fall-through.
 
 func (s *modelConnectionSuite) available(c *tc.C) error {
-	_, err := (&Server{}).isModelAvailable(c.Context(), s.modelService, s.modelUUID)
-	return err
+	return (&Server{}).isModelAvailable(c.Context(), s.modelService, s.modelUUID)
 }
 
 // TestAvailableWhileImporting verifies that the connection is served for a

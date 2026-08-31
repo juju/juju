@@ -102,6 +102,10 @@ type Server struct {
 
 	shared *sharedServerContext
 
+	// modelRemovals reports the removal of a model from this controller to the
+	// connections serving it.
+	modelRemovals *modelRemovals
+
 	// tag of the machine where the API server is running.
 	tag     names.Tag
 	dataDir string
@@ -405,6 +409,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		pingClock:                     cfg.pingClock(),
 		newObserver:                   cfg.NewObserver,
 		shared:                        shared,
+		modelRemovals:                 newModelRemovals(),
 		tag:                           cfg.Tag,
 		dataDir:                       cfg.DataDir,
 		logDir:                        cfg.LogDir,
@@ -641,6 +646,20 @@ func (srv *Server) loop(ready chan struct{}) error {
 		return errors.Trace(err)
 	}
 
+	// Watch the removal of models from this controller so that the connections
+	// serving a removed model can be closed. One watcher serves every
+	// connection this API server has, and it is created before the server is
+	// ready to serve any of them, so that no removal can be missed.
+	modelService := srv.shared.controllerDomainServices.Model()
+	modelRemovalWatcher, err := modelService.WatchModelRemovals(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := srv.catacomb.Add(modelRemovalWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
 	close(ready)
 
 	srv.mu.Lock()
@@ -682,6 +701,15 @@ func (srv *Server) loop(ready chan struct{}) error {
 			if err := srv.updateResourceDownloadLimiters(controllerConfig); err != nil {
 				logger.Errorf(ctx, "failed to update resource download limiters: %v", err)
 				continue
+			}
+
+		case modelUUIDs, ok := <-modelRemovalWatcher.Changes():
+			if !ok {
+				return errors.New("model removals watcher stopped")
+			}
+			for _, modelUUID := range modelUUIDs {
+				logger.Infof(ctx, "model %q has been removed, closing its connections", modelUUID)
+				srv.modelRemovals.notify(coremodel.UUID(modelUUID))
 			}
 		}
 	}
@@ -1173,6 +1201,12 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 
 		logger.Tracef(ctx, "got a request for model %q fd:%v", modelUUID, fd)
 
+		// Take an interest in the removal of the model this connection serves,
+		// before checking that the model exists at all, so that a removal
+		// cannot fall between the two.
+		modelRemoved, untrackModel := srv.modelRemovals.track(resolvedModelUUID)
+		defer untrackModel()
+
 		codec := jsoncodec.NewWebsocket(conn.Conn)
 		recorderFactory := observer.NewRecorderFactory(apiObserver, nil, observer.NoCaptureArgs)
 		rpcConn := rpc.NewConn(codec, recorderFactory)
@@ -1203,6 +1237,13 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		case <-rpcConn.Dead():
 			cancel(ErrRPCConnectionClosed)
 		case <-srv.catacomb.Dying():
+		case <-modelRemoved:
+			// The model this connection serves has been removed from this
+			// controller, so fall through and close the connection: its agents
+			// and clients must reconnect to the model's new location. The close
+			// happens here, in the goroutine that started the connection just
+			// above, because an rpc.Conn may not be closed before it has been
+			// started.
 		}
 		if err := rpcConn.Close(); err != nil {
 			logger.Errorf(ctx, "error closing RPC connection: %v", err)
@@ -1225,19 +1266,8 @@ func (srv *Server) serveConn(
 		return nil, errors.Annotatef(err, "getting domain services for model %q", modelUUID)
 	}
 
-	modelConn, err := srv.isModelAvailable(ctx, domainServices.Model(), modelUUID)
-	if err != nil {
+	if err := srv.isModelAvailable(ctx, domainServices.Model(), modelUUID); err != nil {
 		return nil, errors.Annotatef(err, "checking model %q availability", modelUUID)
-	}
-
-	// Close the connection when the model it serves is removed from this
-	// controller, whether destroyed or deleted by a migration's REAP phase
-	// after migrating away, so that its agents and clients reconnect to the
-	// model's new location. A connection to a model that is already gone
-	// exists only to answer a redirect, so it is not watched.
-	if modelConn.connectable {
-		srv.watchServedModelRemoval(ctx, conn, domainServices.Model(),
-			srv.shared.controllerDomainServices.Model(), modelUUID)
 	}
 
 	tracer, err := srv.shared.tracerGetter.GetTracer(
@@ -1308,7 +1338,7 @@ func (srv *Server) isModelAvailable(
 	ctx context.Context,
 	modelService ModelService,
 	modelUUID coremodel.UUID,
-) (modelConnection, error) {
+) error {
 	// Check that the model can be served before proceeding any further. There
 	// is no need in setting up any additional operations if the model is not
 	// present. A model that is still being imported by a migration is served
@@ -1316,9 +1346,9 @@ func (srv *Server) isModelAvailable(
 	// modelIsConnectable.
 	conn, err := modelIsConnectable(ctx, modelService, modelUUID)
 	if err != nil && !errors.Is(err, modelerrors.NotFound) {
-		return modelConnection{}, errors.Trace(err)
+		return errors.Trace(err)
 	} else if conn.connectable {
-		return conn, nil
+		return nil
 	}
 
 	// If this model used to be hosted on this controller but got
@@ -1331,10 +1361,10 @@ func (srv *Server) isModelAvailable(
 		// is an error with the database? The caller will assume that it
 		// is no longer on this controller. If we return a different error
 		// then it can at least retry the request.
-		return modelConnection{}, modelerrors.NotFound
+		return modelerrors.NotFound
 	}
 
-	return conn, nil
+	return nil
 }
 
 // publicDNSName returns the current public hostname.

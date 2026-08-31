@@ -1298,6 +1298,7 @@ type MockWatcherFactory struct {
 type MockWatcherFactoryMockRecorder struct {
 	mock                             *MockWatcherFactory
 	newNamespaceMapperWatcherExpects []*gomock.Call5V_2[context.Context, eventsource.NamespaceQuery, string, eventsource.Mapper, eventsource.FilterOption, eventsource.FilterOption, watcher.StringsWatcher, error]
+	newNamespaceWatcherExpects       []*gomock.Call4V_2[context.Context, eventsource.NamespaceQuery, string, eventsource.FilterOption, eventsource.FilterOption, watcher.StringsWatcher, error]
 	newNotifyMapperWatcherExpects    []*gomock.Call4V_2[context.Context, string, eventsource.Mapper, eventsource.FilterOption, eventsource.FilterOption, watcher.NotifyWatcher, error]
 	newNotifyWatcherExpects          []*gomock.Call3V_2[context.Context, string, eventsource.FilterOption, eventsource.FilterOption, watcher.NotifyWatcher, error]
 }
@@ -1332,6 +1333,25 @@ func (mr *MockWatcherFactoryMockRecorder) NewNamespaceMapperWatcher(ctx, initial
 
 // MockWatcherFactoryNewNamespaceMapperWatcherCall is the typed call wrapper for NewNamespaceMapperWatcher.
 type MockWatcherFactoryNewNamespaceMapperWatcherCall = gomock.Call5V_2[context.Context, eventsource.NamespaceQuery, string, eventsource.Mapper, eventsource.FilterOption, eventsource.FilterOption, watcher.StringsWatcher, error]
+
+// NewNamespaceWatcher mocks base method.
+func (m *MockWatcherFactory) NewNamespaceWatcher(ctx context.Context, initialStateQuery eventsource.NamespaceQuery, summary string, filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption) (watcher.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4V_2(&m.recorder.newNamespaceWatcherExpects, m.ctrl, m, "NewNamespaceWatcher", ctx, initialStateQuery, summary, filterOption, filterOptions...)
+}
+
+// NewNamespaceWatcher indicates an expected call of NewNamespaceWatcher.
+func (mr *MockWatcherFactoryMockRecorder) NewNamespaceWatcher(ctx, initialStateQuery, summary, filterOption any, filterOptions ...any) *MockWatcherFactoryNewNamespaceWatcherCall {
+	mr.mock.ctrl.T.Helper()
+	varArgs := gomock.EnsureVariadicMatcher(filterOptions)
+	call := gomock.NewCall4V_2[context.Context, eventsource.NamespaceQuery, string, eventsource.FilterOption, eventsource.FilterOption, watcher.StringsWatcher, error](mr.mock.ctrl.T, mr.mock, "NewNamespaceWatcher", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(initialStateQuery), gomock.EnsureMatcher(summary), gomock.EnsureMatcher(filterOption), varArgs)
+	mr.newNamespaceWatcherExpects = append(mr.newNamespaceWatcherExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockWatcherFactoryNewNamespaceWatcherCall is the typed call wrapper for NewNamespaceWatcher.
+type MockWatcherFactoryNewNamespaceWatcherCall = gomock.Call4V_2[context.Context, eventsource.NamespaceQuery, string, eventsource.FilterOption, eventsource.FilterOption, watcher.StringsWatcher, error]
 
 // NewNotifyMapperWatcher mocks base method.
 func (m *MockWatcherFactory) NewNotifyMapperWatcher(ctx context.Context, summary string, mapper eventsource.Mapper, filter eventsource.FilterOption, filterOpts ...eventsource.FilterOption) (watcher.NotifyWatcher, error) {
