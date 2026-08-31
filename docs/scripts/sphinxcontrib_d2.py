@@ -12,9 +12,10 @@
 #   ```
 #
 # Configuration in conf.py:
-#   d2_cmd        -- path to the d2 binary (default: "d2")
-#   d2_layout     -- layout engine: "dagre" or "elk" (default: "elk")
-#   d2_theme      -- D2 theme ID (default: 0)
+#   d2_cmd          -- path to the d2 binary (default: "d2")
+#   d2_layout       -- layout engine: "dagre" or "elk" (default: "elk")
+#   d2_light_theme  -- D2 theme ID for light mode (default: 0)
+#   d2_dark_theme   -- D2 theme ID for dark mode (default: 200)
 
 from __future__ import annotations
 
@@ -34,6 +35,9 @@ from sphinx.util.osutil import ensuredir
 
 logger = logging.getLogger(__name__)
 
+# D2 dark theme ID
+D2_DARK_THEME = 200
+
 
 class D2Error(Exception):
     pass
@@ -51,7 +55,6 @@ class D2Directive(SphinxDirective):
     optional_arguments = 0
     option_spec = {
         "layout": directives.unchanged,
-        "theme": directives.unchanged,
         "alt": directives.unchanged,
     }
 
@@ -60,38 +63,28 @@ class D2Directive(SphinxDirective):
         node = d2()
         node["code"] = code
         node["layout"] = self.options.get("layout", "")
-        node["theme"] = self.options.get("theme", "")
         node["alt"] = self.options.get("alt", "")
         self.set_source_info(node)
         return [node]
 
 
-def render_d2(self: object, code: str, options: dict, prefix: str = "d2") -> tuple[str | None, str | None]:
-    """Compile D2 source to SVG and return (relative URL, absolute path)."""
-    d2_cmd = self.builder.config.d2_cmd
-    layout = options.get("layout") or self.builder.config.d2_layout
-    theme = options.get("theme") or str(self.builder.config.d2_theme)
-
-    hashkey = (code + layout + theme).encode("utf-8")
-    basename = f"{prefix}-{hashlib.sha1(hashkey).hexdigest()}"  # noqa: S324
-    fname = f"{basename}.svg"
-    relfn = posixpath.join(self.builder.imgpath, fname)
-    outdir = os.path.join(self.builder.outdir, self.builder.imagedir)
-    outfn = os.path.join(outdir, fname)
-
-    if os.path.isfile(outfn):
-        return relfn, outfn
-
-    ensuredir(outdir)
-
+def _render_one(
+    d2_cmd: str | list,
+    code: str,
+    layout: str,
+    theme: int,
+    outfn: str,
+) -> None:
+    """Compile D2 source to a single SVG file."""
     if isinstance(d2_cmd, str):
         cmd_args = shlex.split(d2_cmd)
     else:
         cmd_args = list(d2_cmd)
 
-    cmd_args += ["--layout", layout, "--theme", theme]
+    cmd_args += ["--layout", layout, "--theme", str(theme)]
 
     with TemporaryDirectory() as tmpdir:
+        basename = os.path.splitext(os.path.basename(outfn))[0]
         infn = os.path.join(tmpdir, f"{basename}.d2")
         with open(infn, "w", encoding="utf-8") as f:
             f.write(code)
@@ -100,11 +93,10 @@ def render_d2(self: object, code: str, options: dict, prefix: str = "d2") -> tup
         try:
             p = Popen(cmd_args, stdout=PIPE, stdin=PIPE, stderr=PIPE, text=True)
         except FileNotFoundError:
-            logger.warning(
-                f"d2 command {d2_cmd!r} not found -- install d2 from https://d2lang.com "
-                "or set d2_cmd in conf.py"
-            )
-            return None, None
+            raise D2Error(
+                f"d2 command {d2_cmd!r} not found -- "
+                "install d2 from https://d2lang.com or set d2_cmd in conf.py"
+            ) from None
 
         stdout, stderr = p.communicate()
         if p.returncode != 0:
@@ -112,8 +104,8 @@ def render_d2(self: object, code: str, options: dict, prefix: str = "d2") -> tup
         if not os.path.isfile(outfn):
             raise D2Error(f"d2 produced no output file:\n{stderr}\n{stdout}")
 
-    # Remove fixed pixel width/height from the SVG so it scales to its
-    # container. The viewBox is preserved so aspect ratio is maintained.
+    # Remove fixed pixel dimensions so the SVG scales to its container.
+    # The viewBox is preserved so aspect ratio is maintained.
     with open(outfn, encoding="utf-8") as f:
         svg = f.read()
     svg = re.sub(
@@ -125,40 +117,71 @@ def render_d2(self: object, code: str, options: dict, prefix: str = "d2") -> tup
     with open(outfn, "w", encoding="utf-8") as f:
         f.write(svg)
 
-    return relfn, outfn
+
+def render_d2_pair(
+    self: object,
+    code: str,
+    layout: str,
+    prefix: str = "d2",
+) -> tuple[tuple[str, str] | None, tuple[str, str] | None]:
+    """Compile D2 to light and dark SVGs. Returns ((relfn, outfn), (relfn, outfn))."""
+    d2_cmd = self.builder.config.d2_cmd
+    light_theme = self.builder.config.d2_light_theme
+    dark_theme = self.builder.config.d2_dark_theme
+
+    outdir = os.path.join(self.builder.outdir, self.builder.imagedir)
+    ensuredir(outdir)
+
+    results = []
+    for suffix, theme in (("light", light_theme), ("dark", dark_theme)):
+        hashkey = (code + layout + str(theme)).encode("utf-8")
+        basename = f"{prefix}-{hashlib.sha1(hashkey).hexdigest()}"  # noqa: S324
+        fname = f"{basename}.svg"
+        relfn = posixpath.join(self.builder.imgpath, fname)
+        outfn = os.path.join(outdir, fname)
+
+        if not os.path.isfile(outfn):
+            try:
+                _render_one(d2_cmd, code, layout, theme, outfn)
+            except D2Error as exc:
+                logger.warning(f"d2 diagram error ({suffix}): {exc}")
+                results.append(None)
+                continue
+
+        results.append((relfn, outfn))
+
+    return tuple(results)  # type: ignore[return-value]
 
 
-def html_visit_d2(self: object, node: d2) -> None:
-    code = node["code"]
-    options = {"layout": node.get("layout", ""), "theme": node.get("theme", "")}
-    alt = node.get("alt", "") or "D2 diagram"
-
-    try:
-        fname, outfn = render_d2(self, code, options)
-    except D2Error as exc:
-        logger.warning(f"d2 diagram error: {exc}")
-        raise nodes.SkipNode from exc
-
-    if fname is None:
-        # d2 not found -- render source as a code block so docs still build
-        self.body.append(f'<pre class="d2-source">{self.encode(code)}</pre>\n')
-        raise nodes.SkipNode
-
-    # Register the image with the builder so Sphinx copies it to _images/
-    # and lightbox2 can rewrite the URI correctly.
+def _emit_image(self: object, relfn: str, outfn: str, alt: str, css_class: str) -> None:
+    """Emit a lightbox-wrapped <img> with the given CSS class."""
     imgnode = nodes.image()
     imgnode["uri"] = outfn
     imgnode["alt"] = alt
     imgnode["candidates"] = {"*": outfn}
-    # width: 100% makes it fill the content column; lightbox opens full-size SVG
     imgnode["width"] = "100%"
-
-    # Register with builder image tracking
+    imgnode["classes"] = [css_class]
     self.builder.images[outfn] = os.path.basename(outfn)
-
-    # Delegate to lightbox2-wrapped image visitor
     self.visit_image(imgnode)
     self.depart_image(imgnode)
+
+
+def html_visit_d2(self: object, node: d2) -> None:
+    code = node["code"]
+    layout = node.get("layout", "") or self.builder.config.d2_layout
+    alt = node.get("alt", "") or "D2 diagram"
+
+    light, dark = render_d2_pair(self, code, layout)
+
+    if light is None and dark is None:
+        # Both failed -- show raw source as fallback
+        self.body.append(f'<pre class="d2-source">{self.encode(code)}</pre>\n')
+        raise nodes.SkipNode
+
+    if light is not None:
+        _emit_image(self, light[0], light[1], alt, "only-light")
+    if dark is not None:
+        _emit_image(self, dark[0], dark[1], alt, "only-dark")
 
     raise nodes.SkipNode
 
@@ -168,5 +191,6 @@ def setup(app: object) -> dict:
     app.add_directive("d2", D2Directive)
     app.add_config_value("d2_cmd", "d2", "html")
     app.add_config_value("d2_layout", "elk", "html")
-    app.add_config_value("d2_theme", 0, "html")
-    return {"version": "0.1.0", "parallel_read_safe": True, "parallel_write_safe": True}
+    app.add_config_value("d2_light_theme", 0, "html")
+    app.add_config_value("d2_dark_theme", D2_DARK_THEME, "html")
+    return {"version": "0.2.0", "parallel_read_safe": True, "parallel_write_safe": True}

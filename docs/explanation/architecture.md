@@ -82,16 +82,8 @@ client: "Client" {
 
 controller_pod: "Controller pod" {
   init_containers: "Init containers (run once at startup)" {
-    style.stroke-dash: 4
-    style.font-color: "#666"
-    config_seed: "controller-config-seed" {
-      style.fill: "#EEE"
-      style.stroke: "#AAA"
-    }
-    charm_init: "charm-init" {
-      style.fill: "#EEE"
-      style.stroke: "#AAA"
-    }
+    config_seed: "controller-config-seed"
+    charm_init: "charm-init"
   }
   charm_container: "Charm container" {
     charm: "charm" {
