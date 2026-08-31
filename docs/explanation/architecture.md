@@ -98,6 +98,10 @@ controller_pod: "Controller pod" {
     }
   }
   apiserver.pebble_ctrl -> apiserver.jujud: "supervises"
+  apiserver.jujud -> charm_container.charm: "recorded, not dispatched" {
+    style.stroke-dash: 4
+    style.font-color: "#888"
+  }
 }
 
 unit_pod: "Unit pod (one per unit)" {
@@ -130,7 +134,8 @@ network: "Network space / subnet" {shape: cylinder}
 user -> client: "intent"
 client -> controller_pod.apiserver.jujud: "Juju API"
 controller_pod.apiserver.jujud -> unit_pod.charm_container.unit_agent: "Juju API (websocket)"
-unit_pod.charm_container.unit_agent -> unit_pod.workload_container.pebble: "Pebble API (HTTP)"
+unit_pod.charm_container.unit_agent -> unit_pod.charm_container.charm: "exec dispatch"
+unit_pod.charm_container.charm -> unit_pod.workload_container.pebble: "Pebble API (HTTP)"
 unit_pod -> storage
 unit_pod -> network
 ```
