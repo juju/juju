@@ -33,8 +33,8 @@ func (s *exportServiceSuiteV4_1_0) TestExport(c *tc.C) {
 
 	modelExport, err := svc.Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(modelExport.Version, tc.Equals, semversion.MustParse("4.1.0"))
-	c.Assert(modelExport.Payload, tc.Equals, expectedPayload)
+	c.Check(modelExport.Version, tc.Equals, semversion.MustParse("4.1.0"))
+	c.Check(modelExport.Payload, tc.Equals, expectedPayload)
 }
 
 func (s *exportServiceSuiteV4_1_0) TestExportError(c *tc.C) {
@@ -45,7 +45,7 @@ func (s *exportServiceSuiteV4_1_0) TestExportError(c *tc.C) {
 	}, ControllerInfoState{})
 
 	_, err := svc.Export(c.Context())
-	c.Assert(err, tc.ErrorMatches, "exporting model data for version 4.1.0: boom")
+	c.Check(err, tc.ErrorMatches, "exporting model data for version 4.1.0: boom")
 }
 
 type stubStateV4_1_0 struct {

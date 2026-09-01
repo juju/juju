@@ -11,10 +11,8 @@ import (
 	"database/sql"
 	"fmt"
 	"go/format"
-	"log"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -23,6 +21,7 @@ import (
 	"github.com/canonical/sqlair"
 	_ "github.com/mattn/go-sqlite3"
 
+	coreschema "github.com/juju/juju/core/database/schema"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/export"
@@ -53,48 +52,164 @@ func (r *txnRunner) Dying() <-chan struct{} {
 func main() {
 	fmt.Printf("Juju version: %s\n", version.Current)
 
+	ctx := context.Background()
+	for _, pass := range []generatorPass{modelPass(), controllerPass()} {
+		if err := runPass(ctx, pass); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to generate %s export: %v\n", pass.kind, err)
+			os.Exit(1)
+		}
+	}
+}
+
+// generatedFile pairs a template with the file it renders into. Template paths
+// are relative to this generator's directory, output directories to the
+// repository root.
+type generatedFile struct {
+	template string
+	dir      string
+	name     string
+}
+
+// generatorPass describes one pass of the generator over a database schema:
+// the schema to introspect, the export versions it is generated for, the tables
+// it never exports, and the files it emits.
+type generatorPass struct {
+	// kind names the schema in progress and error messages.
+	kind string
+
+	// ddl is the schema applied to the scratch database the pass introspects.
+	ddl *coreschema.Schema
+
+	// versions are the export schema versions of this pass. The highest one is
+	// the version generated.
+	versions []semversion.Number
+
+	// excludedTables are the tables the pass must never export. Beyond
+	// SQLite's own bookkeeping this is how node-local and unbounded tables are
+	// kept out of the payload.
+	excludedTables []string
+
+	// types is the payload types package. It is versioned, so the version
+	// directory (v<token>) is appended to its dir.
+	types generatedFile
+
+	// state and stateTest are the state layer running the export queries.
+	state, stateTest generatedFile
+
+	// service and serviceTest are the service layer wrapping the state.
+	service, serviceTest generatedFile
+
+	// postGenerate runs once the files above are written. Only the model pass
+	// uses it, to emit the version-to-version transforms.
+	postGenerate func(versions []semversion.Number) error
+}
+
+// modelPass generates the model-schema export: payload types per supported
+// export version, plus the transforms walking a payload from an older version
+// up to the latest.
+func modelPass() generatorPass {
+	return generatorPass{
+		kind:     "model",
+		ddl:      schema.ModelDDLForVersion(version.Current),
+		versions: export.ExportVersions,
+		// sqlite_sequence is SQLite's own AUTOINCREMENT bookkeeping, not model
+		// data.
+		excludedTables: []string{"sqlite_sequence"},
+		types:          generatedFile{template: "types.tmpl", dir: "domain/export/types", name: "model.go"},
+		state:          generatedFile{template: "state.tmpl", dir: "domain/export/state/model", name: "export.go"},
+		stateTest:      generatedFile{template: "state_test.tmpl", dir: "domain/export/state/model", name: "export_test.go"},
+		service:        generatedFile{template: "service.tmpl", dir: "domain/export/service", name: "export.go"},
+		serviceTest:    generatedFile{template: "service_test.tmpl", dir: "domain/export/service", name: "export_test.go"},
+		postGenerate: func(versions []semversion.Number) error {
+			return generateTransforms(exportVersionStrings(versions))
+		},
+	}
+}
+
+// controllerPass generates the controller-schema export. Transforms stay
+// model-only: the controller payload has no version history and its only
+// consumer is the backup feature.
+func controllerPass() generatorPass {
+	return generatorPass{
+		kind:     "controller",
+		ddl:      schema.ControllerDDLForVersion(version.Current),
+		versions: export.ControllerExportVersions,
+		// A controller backup is a faithful snapshot: every table the schema
+		// defines is exported, and deciding what a restore replays is the
+		// restore path's business, not the export's. Only SQLite's own
+		// AUTOINCREMENT bookkeeping is skipped.
+		excludedTables: []string{"sqlite_sequence"},
+		types:          generatedFile{template: "controller_types.tmpl", dir: "domain/export/types/controller", name: "controller.go"},
+		state:          generatedFile{template: "controller_state.tmpl", dir: "domain/export/state/controller", name: "export.go"},
+		stateTest:      generatedFile{template: "controller_state_test.tmpl", dir: "domain/export/state/controller", name: "export_test.go"},
+		service:        generatedFile{template: "controller_service.tmpl", dir: "domain/export/service", name: "controller_export.go"},
+		serviceTest:    generatedFile{template: "controller_service_test.tmpl", dir: "domain/export/service", name: "controller_export_test.go"},
+	}
+}
+
+// runPass applies the pass's schema to a scratch in-memory database and
+// generates the pass's files from it.
+func runPass(ctx context.Context, pass generatorPass) error {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("opening database: %w", err)
 	}
 	defer db.Close()
 
 	runner := &txnRunner{db: db}
-	m := database.NewDBMigration(runner, logger.Noop(), schema.ModelDDLForVersion(version.Current))
-
-	ctx := context.Background()
-	if err := m.Apply(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to apply migration: %v\n", err)
-		os.Exit(1)
+	if err := database.NewDBMigration(runner, logger.Noop(), pass.ddl).Apply(ctx); err != nil {
+		return fmt.Errorf("applying schema: %w", err)
 	}
-	fmt.Println("Applied model schema.")
+	fmt.Printf("Applied %s schema.\n", pass.kind)
 
-	if err := generate(ctx, runner); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to generate schema: %v\n", err)
-		os.Exit(1)
-	}
+	return generate(ctx, runner, pass)
 }
 
-func generate(ctx context.Context, runner *txnRunner) error {
-	if len(export.ExportVersions) == 0 {
-		return fmt.Errorf("no export versions defined")
-	}
-	semanticVersion := slices.MaxFunc(export.ExportVersions, semversion.Number.Compare).String()
+// templateData carries every value the generator templates consume; each
+// template uses the subset it needs.
+type templateData struct {
+	// VersionToken is the export version with dots replaced by underscores, for
+	// use in package names, directory names and Go identifiers.
+	VersionToken string
 
-	// Transform dots to underscores for use in package and directory names.
-	versionToken := strings.ReplaceAll(semanticVersion, ".", "_")
+	// SemanticVersion is the export version in its dotted form.
+	SemanticVersion string
+
+	// Imports are the packages the generated row structs need, sorted.
+	Imports []string
+
+	// TableNames are the exported tables, sorted and parallel to StructNames.
+	TableNames []string
+
+	// Structs are the generated row struct definitions.
+	Structs []string
+
+	// StructNames are the row struct names, parallel to TableNames.
+	StructNames []string
+}
+
+// generate introspects the pass's schema, builds a row struct per exported
+// table, and renders the pass's types, state and service files.
+func generate(ctx context.Context, runner *txnRunner, pass generatorPass) error {
+	if len(pass.versions) == 0 {
+		return fmt.Errorf("no %s export versions defined", pass.kind)
+	}
+	semanticVersion := slices.MaxFunc(pass.versions, semversion.Number.Compare).String()
 
 	tableNames, err := getTableNames(ctx, runner)
 	if err != nil {
 		return err
 	}
 
-	var structs, structNames, usedTableNames []string
-	imports := make(map[string]struct{})
+	data := templateData{
+		// Transform dots to underscores for use in package and directory names.
+		VersionToken:    strings.ReplaceAll(semanticVersion, ".", "_"),
+		SemanticVersion: semanticVersion,
+	}
 
+	imports := make(map[string]struct{})
 	for _, tableName := range tableNames {
-		if tableName == "sqlite_sequence" {
+		if slices.Contains(pass.excludedTables, tableName) {
 			continue
 		}
 
@@ -108,27 +223,78 @@ func generate(ctx context.Context, runner *txnRunner) error {
 			return err
 		}
 
-		structs = append(structs, structDef)
-		structNames = append(structNames, toCamelCase(tableName))
-		usedTableNames = append(usedTableNames, tableName)
+		data.Structs = append(data.Structs, structDef)
+		data.StructNames = append(data.StructNames, toCamelCase(tableName))
+		data.TableNames = append(data.TableNames, tableName)
 		for _, imp := range requiredImports {
 			imports[imp] = struct{}{}
 		}
 	}
+	data.Imports = sortedImports(imports)
 
-	if err := writeTypesFile(versionToken, usedTableNames, structs, structNames, imports); err != nil {
+	// The payload types are versioned: every supported export version keeps its
+	// own package alongside the others.
+	typesFile := pass.types
+	typesFile.dir = filepath.Join(typesFile.dir, fmt.Sprintf("v%s", data.VersionToken))
+
+	for _, file := range []generatedFile{
+		typesFile, pass.state, pass.stateTest, pass.service, pass.serviceTest,
+	} {
+		if err := renderFile(file, data); err != nil {
+			return err
+		}
+	}
+
+	if pass.postGenerate == nil {
+		return nil
+	}
+	return pass.postGenerate(pass.versions)
+}
+
+// renderFile executes one template against data and writes the gofmt-ed
+// result. A formatting failure is reported rather than worked around: it means
+// the template emitted code that does not parse, and writing the unformatted
+// bytes anyway would bake that into a checked-in generated file.
+func renderFile(file generatedFile, data templateData) error {
+	tmplBytes, err := os.ReadFile(filepath.Join(generatorDir(), file.template))
+	if err != nil {
 		return err
 	}
 
-	if err := writeStateModelVersionFile(versionToken, semanticVersion, usedTableNames, structNames); err != nil {
+	t, err := template.New(file.template).Parse(string(tmplBytes))
+	if err != nil {
+		return fmt.Errorf("parsing %s: %w", file.template, err)
+	}
+
+	var out bytes.Buffer
+	if err := t.Execute(&out, data); err != nil {
+		return fmt.Errorf("executing %s: %w", file.template, err)
+	}
+
+	formatted, err := format.Source(out.Bytes())
+	if err != nil {
+		return fmt.Errorf("formatting output of %s: %w", file.template, err)
+	}
+
+	dir := filepath.Join(repoRoot(), file.dir)
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
 
-	if err := writeServiceModelVersionFile(versionToken, semanticVersion); err != nil {
-		return err
-	}
+	filePath := filepath.Join(dir, file.name)
+	fmt.Printf("writing to %s\n", filePath)
+	return os.WriteFile(filePath, formatted, 0644)
+}
 
-	return generateTransforms(exportVersionStrings(export.ExportVersions))
+// sortedImports flattens the collected import set into a sorted slice, so that
+// regenerating an unchanged schema produces an unchanged file.
+func sortedImports(imports map[string]struct{}) []string {
+	sorted := make([]string, 0, len(imports))
+	for imp := range imports {
+		sorted = append(sorted, imp)
+	}
+	sort.Strings(sorted)
+	return sorted
 }
 
 func exportVersionStrings(versions []semversion.Number) []string {
@@ -291,217 +457,4 @@ func sqliteTypeToGoType(sqliteType string, notNull bool) (string, string) {
 		goType = "*" + goType
 	}
 	return goType, imp
-}
-
-func writeTypesFile(
-	version string,
-	tableNames []string,
-	structs []string,
-	structNames []string,
-	imports map[string]struct{},
-) error {
-	// We should be in domain/export/generate.
-	_, filename, _, _ := runtime.Caller(0)
-	currentDir := filepath.Dir(filename)
-
-	// Target directory is always under the repository's domain/export path.
-	repoRoot := filepath.Dir(filepath.Dir(currentDir)) // generate/export -> generate -> repo root
-	dir := filepath.Join(repoRoot, "domain", "export", "types", fmt.Sprintf("v%s", version))
-
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-
-	// Prepare import slice sorted for stable output.
-	sortedImports := make([]string, 0, len(imports))
-	for imp := range imports {
-		sortedImports = append(sortedImports, imp)
-	}
-	sort.Strings(sortedImports)
-
-	tmplPath := filepath.Join(filepath.Dir(filename), "types.tmpl")
-	tmplBytes, err := os.ReadFile(tmplPath)
-	if err != nil {
-		return err
-	}
-
-	data := struct {
-		Version     string
-		Imports     []string
-		TableNames  []string
-		Structs     []string
-		StructNames []string
-	}{
-		Version:     version,
-		Imports:     sortedImports,
-		TableNames:  tableNames,
-		Structs:     structs,
-		StructNames: structNames,
-	}
-
-	t := template.Must(template.New("types").Parse(string(tmplBytes)))
-	var out bytes.Buffer
-	if err := t.Execute(&out, data); err != nil {
-		return err
-	}
-
-	formatted, err := format.Source(out.Bytes())
-	if err != nil {
-		return err
-	}
-
-	filePath := filepath.Join(dir, "model.go")
-	fmt.Printf("writing to %s\n", filePath)
-	return os.WriteFile(filePath, formatted, 0644)
-}
-
-func writeStateModelVersionFile(
-	versionToken string,
-	semanticVersion string,
-	tableNames []string,
-	structNames []string,
-) error {
-	_, filename, _, _ := runtime.Caller(0)
-	currentDir := filepath.Dir(filename)
-
-	repoRoot := filepath.Dir(filepath.Dir(currentDir))
-	dir := filepath.Join(repoRoot, "domain", "export", "state", "model")
-
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-
-	tmplPath := filepath.Join(filepath.Dir(filename), "state.tmpl")
-	tmplBytes, err := os.ReadFile(tmplPath)
-	if err != nil {
-		return err
-	}
-
-	data := struct {
-		VersionToken    string
-		SemanticVersion string
-		TableNames      []string
-		StructNames     []string
-	}{
-		VersionToken:    versionToken,
-		SemanticVersion: semanticVersion,
-		TableNames:      tableNames,
-		StructNames:     structNames,
-	}
-
-	t := template.Must(template.New("state").Parse(string(tmplBytes)))
-	var out bytes.Buffer
-	if err := t.Execute(&out, data); err != nil {
-		return err
-	}
-
-	formatted, err := format.Source(out.Bytes())
-	if err != nil {
-		log.Printf("error formatting generated code for v%s.go: %v", versionToken, err)
-		formatted = out.Bytes()
-	}
-
-	// Write to stable filenames export.go and export_test.go so the state package
-	// always contains the latest export logic.
-	filePath := filepath.Join(dir, "export.go")
-	fmt.Printf("writing to %s\n", filePath)
-	if err := os.WriteFile(filePath, formatted, 0644); err != nil {
-		return err
-	}
-
-	// Also generate a basic test that runs the ExportV<version> method against
-	// the real model DB, written to export_test.go.
-	testTmplPath := filepath.Join(filepath.Dir(filename), "state_test.tmpl")
-	testTmplBytes, err := os.ReadFile(testTmplPath)
-	if err != nil {
-		return err
-	}
-
-	testData := struct {
-		VersionToken string
-	}{
-		VersionToken: versionToken,
-	}
-
-	testT := template.Must(template.New("state_test").Parse(string(testTmplBytes)))
-	var testOut bytes.Buffer
-	if err := testT.Execute(&testOut, testData); err != nil {
-		return err
-	}
-	testFormatted, err := format.Source(testOut.Bytes())
-	if err != nil {
-		return err
-	}
-
-	testFilePath := filepath.Join(dir, "export_test.go")
-	fmt.Printf("writing to %s\n", testFilePath)
-	if err := os.WriteFile(testFilePath, testFormatted, 0644); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func writeServiceModelVersionFile(versionToken, semanticVersion string) error {
-	_, filename, _, _ := runtime.Caller(0)
-	currentDir := filepath.Dir(filename)
-
-	repoRoot := filepath.Dir(filepath.Dir(currentDir))
-	dir := filepath.Join(repoRoot, "domain", "export", "service")
-
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-
-	tmplPath := filepath.Join(filepath.Dir(filename), "service.tmpl")
-	tmplBytes, err := os.ReadFile(tmplPath)
-	if err != nil {
-		return err
-	}
-
-	data := struct {
-		VersionToken    string
-		SemanticVersion string
-	}{
-		VersionToken:    versionToken,
-		SemanticVersion: semanticVersion,
-	}
-
-	t := template.Must(template.New("service").Parse(string(tmplBytes)))
-	var out bytes.Buffer
-	if err := t.Execute(&out, data); err != nil {
-		return err
-	}
-
-	formatted, err := format.Source(out.Bytes())
-	if err != nil {
-		return err
-	}
-
-	filePath := filepath.Join(dir, "export.go")
-	fmt.Printf("writing to %s\n", filePath)
-	if err := os.WriteFile(filePath, formatted, 0644); err != nil {
-		return err
-	}
-
-	testTmplPath := filepath.Join(filepath.Dir(filename), "service_test.tmpl")
-	testTmplBytes, err := os.ReadFile(testTmplPath)
-	if err != nil {
-		return err
-	}
-
-	testT := template.Must(template.New("service_test").Parse(string(testTmplBytes)))
-	var testOut bytes.Buffer
-	if err := testT.Execute(&testOut, data); err != nil {
-		return err
-	}
-
-	testFormatted, err := format.Source(testOut.Bytes())
-	if err != nil {
-		return err
-	}
-
-	testFilePath := filepath.Join(dir, "export_test.go")
-	fmt.Printf("writing to %s\n", testFilePath)
-	return os.WriteFile(testFilePath, testFormatted, 0644)
 }

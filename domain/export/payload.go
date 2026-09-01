@@ -4,10 +4,13 @@
 package export
 
 import (
+	"slices"
+
 	"gopkg.in/yaml.v3"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
+	ctrlv4_1_0 "github.com/juju/juju/domain/export/types/controller/v4_1_0"
 	"github.com/juju/juju/domain/export/types/latest"
 	v4_0_12 "github.com/juju/juju/domain/export/types/v4_0_12"
 	v4_1_0 "github.com/juju/juju/domain/export/types/v4_1_0"
@@ -15,7 +18,10 @@ import (
 )
 
 // PayloadDecodeFunc decodes YAML bytes into the concrete generated
-// vX_Y_Z.ModelExport payload type for one export version.
+// model- or controller-export payload type (vX_Y_Z.ModelExport or
+// vX_Y_Z.ControllerExport) for one export version. Both registries below are
+// keyed on it; which payload kind comes back is fixed by the registry the
+// decoder was looked up in.
 type PayloadDecodeFunc func(data []byte) (any, error)
 
 // payloadDecoders maps each supported export version to the decoder producing
@@ -74,6 +80,57 @@ func DecodePayload(version semversion.Number, data []byte) (any, error) {
 		).Add(coreerrors.NotValid)
 	}
 	return payload, nil
+}
+
+// controllerPayloadDecoders maps each supported controller export version to
+// the decoder producing its concrete generated payload type. Every entry of
+// [ControllerExportVersions] must have a decoder here; completeness is
+// asserted by tests.
+var controllerPayloadDecoders = map[semversion.Number]PayloadDecodeFunc{
+	semversion.MustParse("4.1.0"): decodePayload[ctrlv4_1_0.ControllerExport],
+}
+
+// DecodeControllerPayload decodes YAML into the concrete controller payload
+// type for the given version. Errors mirror DecodePayload semantics:
+// [coreerrors.NotSupported] for an unknown version and [coreerrors.NotValid]
+// for undecodable bytes.
+func DecodeControllerPayload(version semversion.Number, data []byte) (any, error) {
+	decode, ok := controllerPayloadDecoders[version]
+	if !ok {
+		if err := checkControllerPayloadVersionSupported(version); err != nil {
+			return nil, errors.Capture(err)
+		}
+		// No decoder found for the version.
+		return nil, errors.Errorf(
+			"controller export payload version %q has no decoder: %w", version, coreerrors.NotSupported)
+	}
+	payload, err := decode(data)
+	if err != nil {
+		return nil, errors.Errorf(
+			"decoding controller export payload at version %q: %w", version, err,
+		).Add(coreerrors.NotValid)
+	}
+	return payload, nil
+}
+
+// checkControllerPayloadVersionSupported reports whether this controller
+// holds the given controller-export schema version, returning an error
+// satisfying [coreerrors.NotSupported] when it does not. The message names
+// the controller to upgrade, mirroring [CheckPayloadVersionSupported] but
+// evaluated against [ControllerExportVersions].
+//
+// Unlike [CheckPayloadVersionSupported], which the migrationtarget facade calls
+// to precheck a version before the payload is fetched, this stays unexported:
+// the controller payload is only ever decoded, by [DecodeControllerPayload]
+// right below, so there is nothing to precheck separately. Export it when the
+// backups import path needs to validate a version on its own.
+func checkControllerPayloadVersionSupported(version semversion.Number) error {
+	if slices.Contains(ControllerExportVersions, version) {
+		return nil
+	}
+	return errors.Errorf(
+		"controller export payload version %q is not one of the controller export formats this controller supports (%v); upgrade this controller first: %w",
+		version, ControllerExportVersions, coreerrors.NotSupported)
 }
 
 // agentStreamConfigKey is the model_config row key holding the model's

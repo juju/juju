@@ -17,8 +17,8 @@ import (
 {{ . }}
 
 {{- end }}
-// ModelExport aggregates all exported model row types.
-type ModelExport struct {
+// ControllerExport aggregates all exported controller database row types.
+type ControllerExport struct {
 {{- range $i, $name := .StructNames }}
 	{{ $name }} []{{ $name }} `json:"{{ index $.TableNames $i }}" yaml:"{{ index $.TableNames $i }}"`
 {{- end }}
