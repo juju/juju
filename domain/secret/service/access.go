@@ -179,7 +179,14 @@ func (s *SecretService) getRelationUUIDByKey(ctx context.Context, relationKey co
 	var err error
 	switch len(eids) {
 	case 1:
-		return "", errors.Errorf("granting access to a secret over a peer relation is not supported").Add(coreerrors.NotSupported)
+		uuid, err = s.secretState.GetPeerRelationUUIDByEndpointIdentifiers(
+			ctx,
+			eids[0],
+		)
+		if err != nil {
+			return "", errors.Errorf("getting peer relation by key: %w", err)
+		}
+		return uuid, nil
 	case 2:
 		uuid, err = s.secretState.GetRegularRelationUUIDByEndpointIdentifiers(
 			ctx,

@@ -2687,6 +2687,63 @@ AND    e2.endpoint_name    = $endpointIdentifier2.endpoint_name
 	return uuids[0].UUID, nil
 }
 
+// GetPeerRelationUUIDByEndpointIdentifiers gets the UUID of a peer
+// relation specified by a single endpoint identifier.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if endpoint cannot be
+//     found.
+func (st State) GetPeerRelationUUIDByEndpointIdentifiers(
+	ctx context.Context,
+	endpoint corerelation.EndpointIdentifier,
+) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	e := endpointIdentifier{
+		ApplicationName: endpoint.ApplicationName,
+		EndpointName:    endpoint.EndpointName,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &relationUUIDAndRole.*
+FROM   relation r
+JOIN   v_relation_endpoint e ON r.uuid = e.relation_uuid
+WHERE  e.application_name = $endpointIdentifier.application_name 
+AND    e.endpoint_name    = $endpointIdentifier.endpoint_name
+`, relationUUIDAndRole{}, e)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var uuidAndRole []relationUUIDAndRole
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, e).GetAll(&uuidAndRole)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return relationerrors.RelationNotFound
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if len(uuidAndRole) > 1 {
+		return "", errors.Errorf("found multiple relations for peer application endpoint combination")
+	}
+
+	// Verify that the role is peer. Endpoint names are unique per charm, so if
+	// the role is not peer the application does not have a peer relation with
+	// the specified endpoint name, so return RelationNotFound.
+	if uuidAndRole[0].Role != string(charm.RolePeer) {
+		return "", relationerrors.RelationNotFound
+	}
+
+	return uuidAndRole[0].UUID, nil
+}
+
 // GetRelationEndpoints returns relation endpoints for the given relation UUID.
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationNotFound] is returned if the relation UUID is not found.
