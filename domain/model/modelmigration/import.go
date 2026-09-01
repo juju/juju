@@ -81,7 +81,7 @@ type ModelDetailService interface {
 	// - [modelerrors.AlreadyExists] when the model uuid is already in use.
 	// - [modelerrors.AgentVersionNotSupported] when the agent version is not
 	// supported.
-	// - [coreerrors.NotValid] when the agent stream is not valid.
+	// - [modelerrors.AgentStreamNotValid] when the agent stream is not valid.
 	CreateModel(context.Context, semversion.Number, agentbinary.AgentStream) error
 
 	// CreateImportingModelWithAgentVersionStream is responsible for creating a new
