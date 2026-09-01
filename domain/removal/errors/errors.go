@@ -93,4 +93,9 @@ const (
 	// and is torn down by aborting the import, which owns the protocol that
 	// proves the model database is gone before the model UUID is released.
 	MigrationImportActive = errors.ConstError("model has an active migration import claim")
+
+	// PersistentStorage indicates that a model removal was attempted without
+	// specifying whether to destroy or release storage, but persistent storage
+	// still exists in the model.
+	PersistentStorage = errors.ConstError("model has persistent storage")
 )

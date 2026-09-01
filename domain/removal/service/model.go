@@ -21,6 +21,8 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -42,7 +44,10 @@ type ModelState interface {
 	// EnsureModelNotAliveCascade ensures that there is no model identified
 	// by the input model UUID, that is still alive. Returns the artifacts
 	// that are not dead while setting the model to not alive.
-	EnsureModelNotAliveCascade(ctx context.Context, modelUUID string) (removal.ModelArtifacts, error)
+	// If destroyStorage is nil and the model has persistent storage,
+	// [removalerrors.PersistentStorage] is returned and the model
+	// is not transitioned.
+	EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, destroyStorage *bool) (removal.ModelArtifacts, error)
 
 	// ModelScheduleRemoval schedules a removal job for the model with the
 	// input UUID, qualified with the input force boolean.
@@ -80,12 +85,16 @@ type ModelState interface {
 // The input wait duration is the time that we will give for the normal
 // life-cycle advancement and removal to finish before forcefully removing the
 // model. This duration is ignored if the force argument is false.
+// The destroyStorage ternary controls whether storage instances in the model
+// are scheduled for removal. If nil and persistent storage exists in the model,
+// [removalerrors.PersistentStorage] is returned.
 // The UUID for the scheduled removal job is returned.
 func (s *Service) RemoveModel(
 	ctx context.Context,
 	modelUUID model.UUID,
 	force bool,
 	wait time.Duration,
+	destroyStorage *bool,
 ) (removal.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -98,7 +107,7 @@ func (s *Service) RemoveModel(
 		)
 	}
 
-	return s.removeModel(ctx, modelUUID, force, wait)
+	return s.removeModel(ctx, modelUUID, force, wait, destroyStorage)
 }
 
 // RemoveMigratingModel removes a model that is currently importing/migrating.
@@ -141,6 +150,7 @@ func (s *Service) removeModel(
 	modelUUID model.UUID,
 	force bool,
 	wait time.Duration,
+	destroyStorage *bool,
 ) (removal.UUID, error) {
 	// We have to perform the following steps in the following order, to ensure
 	// that we can be reentrant during the removal process:
@@ -155,7 +165,8 @@ func (s *Service) removeModel(
 	// 4. Ensure the model is not alive in the model database and return any
 	//    non-dead artifacts that should have removal jobs.
 	// 5. Schedule the model removal job in the model database.
-	// 6. If there are any relations, units, machines or applications that
+	// 6. If there are any relations, units, machines, applications,
+	//    storage instances, filesystems, volumes or attachments that
 	//    are not dead, schedule their removal as well.
 
 	controllerModelExists, err := s.controllerState.ModelExists(ctx, modelUUID.String())
@@ -183,9 +194,9 @@ func (s *Service) removeModel(
 
 	// Either the model in the controller database or the model database exists,
 	// so we can proceed with the removal.
-	artifacts, err := s.modelState.EnsureModelNotAliveCascade(ctx, modelUUID.String())
+	artifacts, err := s.modelState.EnsureModelNotAliveCascade(ctx, modelUUID.String(), destroyStorage)
 	if err != nil {
-		return "", errors.Errorf("model %q: %w", modelUUID, err)
+		return "", errors.Capture(err)
 	}
 
 	// From here on, we can assume that the model and any associated model
@@ -224,15 +235,17 @@ func (s *Service) removeModel(
 		s.removeRelations(ctx, artifacts.RelationUUIDs, force, wait)
 	}
 
-	// We always destroy storage instances with the model.
-	const destroyStorage = true
+	var obliterateStorage bool
+	if destroyStorage != nil {
+		obliterateStorage = *destroyStorage
+	}
 
 	if len(artifacts.UnitUUIDs) > 0 {
 		// If there are any units that are not dead, we need to schedule their
 		// removal as well.
 		s.logger.Infof(ctx, "model has units %v, scheduling removal", artifacts.UnitUUIDs)
 
-		s.removeUnits(ctx, artifacts.UnitUUIDs, destroyStorage, force, wait)
+		s.removeUnits(ctx, artifacts.UnitUUIDs, obliterateStorage, force, wait)
 	}
 
 	if len(artifacts.MachineUUIDs) > 0 {
@@ -248,7 +261,27 @@ func (s *Service) removeModel(
 		// their removal as well.
 		s.logger.Infof(ctx, "model has applications %v, scheduling removal", artifacts.ApplicationUUIDs)
 
-		s.removeApplications(ctx, artifacts.ApplicationUUIDs, destroyStorage, force, wait)
+		s.removeApplications(ctx, artifacts.ApplicationUUIDs, obliterateStorage, force, wait)
+	}
+
+	if len(artifacts.StorageInstanceUUIDs) > 0 {
+		s.logger.Infof(ctx, "model has storage instances %v, scheduling removal (obliterate=%v)", artifacts.StorageInstanceUUIDs, obliterateStorage)
+		s.removeStorageInstances(ctx, artifacts.StorageInstanceUUIDs, force, wait, obliterateStorage)
+	}
+
+	if len(artifacts.StorageFilesystemUUIDs) > 0 {
+		s.logger.Infof(ctx, "model has storage filesystems %v, scheduling removal", artifacts.StorageFilesystemUUIDs)
+		s.removeStorageFilesystems(ctx, artifacts.StorageFilesystemUUIDs, force, wait)
+	}
+
+	if len(artifacts.StorageVolumeUUIDs) > 0 {
+		s.logger.Infof(ctx, "model has storage volumes %v, scheduling removal", artifacts.StorageVolumeUUIDs)
+		s.removeStorageVolumes(ctx, artifacts.StorageVolumeUUIDs, force, wait)
+	}
+
+	if len(artifacts.StorageAttachmentUUIDs) > 0 {
+		s.logger.Infof(ctx, "model has storage attachments %v, scheduling removal", artifacts.StorageAttachmentUUIDs)
+		s.removeStorageAttachments(ctx, artifacts.StorageAttachmentUUIDs, force, wait)
 	}
 
 	return modelJobUUID, nil
@@ -524,6 +557,65 @@ func (s *Service) removeApplications(
 			continue
 		} else if err == nil {
 			continue
+		}
+	}
+}
+
+func (s *Service) removeStorageInstances(
+	ctx context.Context, uuids []string, force bool, wait time.Duration, obliterate bool,
+) {
+	for _, storageInstanceUUID := range uuids {
+		err := s.RemoveStorageInstance(
+			ctx, storage.StorageInstanceUUID(storageInstanceUUID), force, wait, obliterate,
+		)
+		if err == nil {
+			continue
+		}
+		if errors.Is(err, storageerrors.StorageInstanceNotFound) {
+			// There could be a chance that the storage instance has already
+			// been removed by another process. We can safely ignore this error
+			// and continue with the next storage instance.
+			continue
+		}
+		// If the storage instance fails to be scheduled for removal, we log
+		// out the error. The storage instances are already transitioned to
+		// dying and there is no way to transition them back to alive.
+		s.logger.Errorf(ctx, "scheduling removal of storage instance %q: %v", storageInstanceUUID, err)
+	}
+}
+
+func (s *Service) removeStorageFilesystems(
+	ctx context.Context, uuids []string, force bool, wait time.Duration,
+) {
+	for _, fsUUID := range uuids {
+		if _, err := s.filesystemScheduleRemoval(
+			ctx, storage.FilesystemUUID(fsUUID), force, wait,
+		); err != nil {
+			s.logger.Errorf(ctx, "scheduling removal of storage filesystem %q: %v", fsUUID, err)
+		}
+	}
+}
+
+func (s *Service) removeStorageVolumes(
+	ctx context.Context, uuids []string, force bool, wait time.Duration,
+) {
+	for _, volUUID := range uuids {
+		if _, err := s.volumeScheduleRemoval(
+			ctx, storage.VolumeUUID(volUUID), force, wait,
+		); err != nil {
+			s.logger.Errorf(ctx, "scheduling removal of storage volume %q: %v", volUUID, err)
+		}
+	}
+}
+
+func (s *Service) removeStorageAttachments(
+	ctx context.Context, uuids []string, force bool, wait time.Duration,
+) {
+	for _, saUUID := range uuids {
+		if _, err := s.storageAttachmentScheduleRemoval(
+			ctx, storage.StorageAttachmentUUID(saUUID), force, wait,
+		); err != nil {
+			s.logger.Errorf(ctx, "scheduling removal of storage attachment %q: %v", saUUID, err)
 		}
 	}
 }

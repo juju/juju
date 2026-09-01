@@ -32,6 +32,7 @@ import (
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -837,7 +838,7 @@ func (m *ModelManagerAPI) DestroyModels(
 		Results: make([]params.ErrorResult, len(args.Models)),
 	}
 
-	destroyModel := func(modelUUID string, force *bool, maxWait *time.Duration) error {
+	destroyModel := func(modelUUID string, destroyStorage, force *bool, maxWait *time.Duration) error {
 		modelTag := names.NewModelTag(modelUUID)
 		if !m.isAdmin {
 			if err := m.authorizer.HasPermission(ctx, permission.AdminAccess, modelTag); err != nil {
@@ -868,7 +869,12 @@ func (m *ModelManagerAPI) DestroyModels(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		_, err = modelDomainServices.Removal().RemoveModel(ctx, mUUID, argForce, argMaxWait)
+		_, err = modelDomainServices.Removal().RemoveModel(ctx, mUUID, argForce, argMaxWait, destroyStorage)
+		// PersistentStorage mapping is mirrored in
+		// controller.ControllerAPI.DestroyController.
+		if errors.Is(err, removalerrors.PersistentStorage) {
+			return apiservererrors.ParamsErrorf(params.CodeHasPersistentStorage, "model %q has persistent storage", modelUUID)
+		}
 		if err != nil && !errors.Is(err, modelerrors.NotFound) {
 			return errors.Annotatef(err, "removing model %q", modelUUID)
 		}
@@ -882,7 +888,7 @@ func (m *ModelManagerAPI) DestroyModels(
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := destroyModel(tag.Id(), arg.Force, arg.MaxWait); err != nil {
+		if err := destroyModel(tag.Id(), arg.DestroyStorage, arg.Force, arg.MaxWait); err != nil {
 			if errors.Is(err, database.ErrDBDead) || errors.Is(err, database.ErrDBNotFound) {
 				err = errors.NewNotFound(err, "")
 			}

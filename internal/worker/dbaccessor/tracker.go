@@ -208,12 +208,7 @@ func (w *trackedDBWorker) ensureModelDBInitialised(ctx context.Context) error {
 // This is the function that almost all downstream database consumers
 // should use.
 func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
-	return w.run(ctx, func(db *sqlair.DB) error {
-		// Tie the worker tomb to the context, so that if the worker dies, we
-		// can correctly kill the transaction via the context. The context will
-		// now have the correct reason for the death of the transaction. Either
-		// the tomb died or the context was cancelled.
-		ctx = corecontext.WithSourceableError(w.tomb.Context(ctx), w)
+	return w.run(ctx, func(ctx context.Context, db *sqlair.DB) error {
 		return errors.Trace(database.Txn(ctx, db, fn))
 	})
 }
@@ -224,12 +219,7 @@ func (w *trackedDBWorker) Txn(ctx context.Context, fn func(context.Context, *sql
 // This is the function that almost all downstream database consumers
 // should use.
 func (w *trackedDBWorker) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return w.run(ctx, func(db *sqlair.DB) error {
-		// Tie the worker tomb to the context, so that if the worker dies, we
-		// can correctly kill the transaction via the context. The context will
-		// now have the correct reason for the death of the transaction. Either
-		// the tomb died or the context was cancelled.
-		ctx = corecontext.WithSourceableError(w.tomb.Context(ctx), w)
+	return w.run(ctx, func(ctx context.Context, db *sqlair.DB) error {
 		return errors.Trace(database.StdTxn(ctx, db.PlainDB(), fn))
 	})
 }
@@ -237,12 +227,7 @@ func (w *trackedDBWorker) StdTxn(ctx context.Context, fn func(context.Context, *
 // StdTxnNoRetry executes the input function against the tracked database
 // within a standard library transaction. No retries are attempted.
 func (w *trackedDBWorker) StdTxnNoRetry(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return w.runNoRetry(ctx, func(db *sqlair.DB) error {
-		// Tie the worker tomb to the context, so that if the worker dies, we
-		// can correctly kill the transaction via the context. The context will
-		// now have the correct reason for the death of the transaction. Either
-		// the tomb died or the context was cancelled.
-		ctx = corecontext.WithSourceableError(w.tomb.Context(ctx), w)
+	return w.runNoRetry(ctx, func(ctx context.Context, db *sqlair.DB) error {
 		return errors.Trace(database.StdTxn(ctx, db.PlainDB(), fn))
 	})
 }
@@ -259,7 +244,7 @@ func (w *trackedDBWorker) Err() error {
 	return w.tomb.Err()
 }
 
-func (w *trackedDBWorker) run(ctx context.Context, fn func(*sqlair.DB) error) error {
+func (w *trackedDBWorker) run(ctx context.Context, fn func(context.Context, *sqlair.DB) error) error {
 	ctx = w.prepareRunContext(ctx)
 
 	// Retry so long as the tomb and the context are valid.
@@ -269,7 +254,7 @@ func (w *trackedDBWorker) run(ctx context.Context, fn func(*sqlair.DB) error) er
 	})
 }
 
-func (w *trackedDBWorker) runNoRetry(ctx context.Context, fn func(*sqlair.DB) error) error {
+func (w *trackedDBWorker) runNoRetry(ctx context.Context, fn func(context.Context, *sqlair.DB) error) error {
 	ctx = w.prepareRunContext(ctx)
 	return w.runAttempt(ctx, fn)
 }
@@ -277,14 +262,19 @@ func (w *trackedDBWorker) runNoRetry(ctx context.Context, fn func(*sqlair.DB) er
 func (w *trackedDBWorker) prepareRunContext(ctx context.Context) context.Context {
 	w.metrics.TxnRequests.WithLabelValues(w.namespace).Inc()
 
-	// Tie the tomb to the transaction context.
+	// Tie the worker tomb to the context, so that if the worker dies, we can
+	// correctly kill the transaction via the context. The context will have the
+	// correct reason for the death of the transaction: either the tomb died or
+	// the caller's context was cancelled.
 	ctx = corecontext.WithSourceableError(w.tomb.Context(ctx), w)
 
 	// Inject the metrics into the context for the txn.
 	return txn.WithMetrics(ctx, w.dbTxnMetrics)
 }
 
-func (w *trackedDBWorker) runAttempt(ctx context.Context, fn func(*sqlair.DB) error) (err error) {
+func (w *trackedDBWorker) runAttempt(
+	ctx context.Context, fn func(context.Context, *sqlair.DB) error,
+) (err error) {
 	begin := w.clock.Now()
 	w.metrics.DBRequests.WithLabelValues(w.namespace).Inc()
 	defer w.meterDBOpResult(begin, err)
@@ -305,7 +295,7 @@ func (w *trackedDBWorker) runAttempt(ctx context.Context, fn func(*sqlair.DB) er
 		return errors.Trace(err)
 	}
 
-	return fn(db)
+	return fn(ctx, db)
 }
 
 // meterDBOpResults decrements the active DB operation count,

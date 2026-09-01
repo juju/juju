@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -107,7 +108,12 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 			return apiservererrors.ServerError(err)
 		}
 
-		if _, err := removalService.RemoveModel(ctx, modelUUID, force, maxWait); err != nil && !errors.Is(err, modelerrors.NotFound) {
+		if _, err := removalService.RemoveModel(ctx, modelUUID, force, maxWait, args.DestroyStorage); err != nil && !errors.Is(err, modelerrors.NotFound) {
+			// PersistentStorage mapping is mirrored in
+			// modelmanager.ModelManagerAPI.DestroyModels.
+			if errors.Is(err, removalerrors.PersistentStorage) {
+				return apiservererrors.ParamsErrorf(params.CodeHasPersistentStorage, "hosted model %q has persistent storage", modelUUID)
+			}
 			c.logger.Warningf(ctx, "failed removing model %q: %v", modelUUID, err)
 			return apiservererrors.ServerError(err)
 		}

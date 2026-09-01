@@ -499,7 +499,8 @@ WHERE  uuid = $entityUUID.uuid`, input)
 	attachmentCountStmt, err := st.Prepare(`
 SELECT COUNT(*) AS &count.count
 FROM   storage_attachment
-WHERE  storage_instance_uuid = $entityUUID.uuid`, input, count{})
+WHERE  storage_instance_uuid = $entityUUID.uuid
+AND    life_id < 2`, input, count{})
 	if err != nil {
 		return cascaded, errors.Errorf(
 			"preparing storage attachment count query: %w", err,

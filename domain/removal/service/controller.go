@@ -218,7 +218,13 @@ func (s *Service) processControllerModelJob(ctx context.Context, job removal.Job
 	// another removal job, otherwise we could end up in a non-deterministic
 	// loop.
 
-	removalUUID, err := s.removeModel(ctx, model.UUID(job.EntityUUID), job.Force, job.ScheduledFor.Sub(s.clock.Now().UTC()))
+	// Always destroy storage for the controller model. This is safe because
+	// all hosted models have already been removed by the time this code runs
+	// (see the remnants check above). The controller model itself is not
+	// exposed to the user's --destroy-storage / --release-storage choice,
+	// so there is no user intent to override.
+	destroyStorage := true
+	removalUUID, err := s.removeModel(ctx, model.UUID(job.EntityUUID), job.Force, job.ScheduledFor.Sub(s.clock.Now().UTC()), &destroyStorage)
 	if errors.Is(err, modelerrors.NotFound) {
 		return errors.Errorf("controller model %q does not exist, removal job %q complete", job.EntityUUID, job.UUID).
 			Add(removalerrors.RemovalModelRemoved)

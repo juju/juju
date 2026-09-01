@@ -43,6 +43,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/domain/removal"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/provider/azure"
@@ -95,7 +96,7 @@ type stubRemovalService struct {
 }
 
 func (s stubRemovalService) RemoveModel(
-	context.Context, coremodel.UUID, bool, time.Duration,
+	_ context.Context, _ coremodel.UUID, _ bool, _ time.Duration, _ *bool,
 ) (removal.UUID, error) {
 	return "", s.err
 }
@@ -1491,6 +1492,86 @@ func (s *modelManagerStateSuite) TestModifyModelAccessFailedPermissionDenied(c *
 	result, err := s.modelmanager.ModifyModelAccess(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.OneError(), tc.ErrorMatches, `permission denied`)
+}
+
+func (s *modelManagerSuite) TestDestroyModelsWithDestroyStorage(c *tc.C) {
+	ctrl := s.setUpAPI(c)
+	defer ctrl.Finish()
+
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	modelTag := names.NewModelTag(modelUUID.String())
+	destroyStorage := true
+
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), modelUUID).Return(s.domainServices, nil)
+	removalService := NewMockRemovalService(ctrl)
+	s.domainServices.EXPECT().Removal().Return(removalService)
+	removalUUID := tc.Must(c, removal.NewUUID)
+	removalService.EXPECT().RemoveModel(gomock.Any(), modelUUID, false, time.Duration(0), &destroyStorage).Return(removalUUID, nil)
+
+	args := params.DestroyModelsParams{
+		Models: []params.DestroyModelParams{{
+			ModelTag:       modelTag.String(),
+			DestroyStorage: &destroyStorage,
+		}},
+	}
+	results, err := s.api.DestroyModels(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
+}
+
+func (s *modelManagerSuite) TestDestroyModelsWithReleaseStorage(c *tc.C) {
+	ctrl := s.setUpAPI(c)
+	defer ctrl.Finish()
+
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	modelTag := names.NewModelTag(modelUUID.String())
+	destroyStorage := false
+
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), modelUUID).Return(s.domainServices, nil)
+	removalService := NewMockRemovalService(ctrl)
+	s.domainServices.EXPECT().Removal().Return(removalService)
+	removalUUID := tc.Must(c, removal.NewUUID)
+	removalService.EXPECT().RemoveModel(gomock.Any(), modelUUID, false, time.Duration(0), &destroyStorage).Return(removalUUID, nil)
+
+	args := params.DestroyModelsParams{
+		Models: []params.DestroyModelParams{{
+			ModelTag:       modelTag.String(),
+			DestroyStorage: &destroyStorage,
+		}},
+	}
+	results, err := s.api.DestroyModels(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
+}
+
+func (s *modelManagerSuite) TestDestroyModelsWithoutDestroyStorageRejectsWhenPersistentStorage(c *tc.C) {
+	ctrl := s.setUpAPI(c)
+	defer ctrl.Finish()
+
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	modelTag := names.NewModelTag(modelUUID.String())
+
+	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), modelUUID).Return(s.domainServices, nil)
+	removalService := NewMockRemovalService(ctrl)
+	s.domainServices.EXPECT().Removal().Return(removalService)
+	removalService.EXPECT().RemoveModel(gomock.Any(), modelUUID, false, time.Duration(0), nil).Return(
+		removal.UUID(""), removalerrors.PersistentStorage,
+	)
+
+	args := params.DestroyModelsParams{
+		Models: []params.DestroyModelParams{{
+			ModelTag: modelTag.String(),
+		}},
+	}
+	results, err := s.api.DestroyModels(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(params.IsCodeHasPersistentStorage(results.Results[0].Error), tc.IsTrue)
 }
 
 type fakeProvider struct {

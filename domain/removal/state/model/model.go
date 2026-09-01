@@ -117,7 +117,12 @@ func (st *State) EnsureModelNotAlive(ctx context.Context, modelUUID string, forc
 // EnsureModelNotAliveCascade ensures that there is no model identified by the
 // input model UUID, that is still alive. Returns the artifacts that were
 // not dead while setting the model to not alive.
-func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID string) (removal.ModelArtifacts, error) {
+// If destroyStorage is nil and the model has persistent storage,
+// [removalerrors.PersistentStorage] is returned and the model is
+// not transitioned.
+func (st *State) EnsureModelNotAliveCascade(
+	ctx context.Context, modelUUID string, destroyStorage *bool,
+) (removal.ModelArtifacts, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Capture(err)
@@ -133,6 +138,10 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 	// - All applications in the model.
 	// - All relations in the model.
 	// - All machines in the model.
+	// - All storage instances in the model.
+	// - All storage filesystems in the model.
+	// - All storage volumes in the model.
+	// - All storage attachments in the model.
 	selectUnits, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM unit WHERE life_id < 2`, eUUID)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select units query: %w", err)
@@ -148,6 +157,22 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 	selectMachines, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM machine WHERE life_id < 2`, eUUID)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select machines query: %w", err)
+	}
+	selectStorageInstances, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM storage_instance WHERE life_id < 2`, eUUID)
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing select storage instances query: %w", err)
+	}
+	selectStorageFilesystems, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM storage_filesystem WHERE life_id < 2`, eUUID)
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing select storage filesystems query: %w", err)
+	}
+	selectStorageVolumes, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM storage_volume WHERE life_id < 2`, eUUID)
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing select storage volumes query: %w", err)
+	}
+	selectStorageAttachments, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM storage_attachment WHERE life_id < 2`, eUUID)
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing select storage attachments query: %w", err)
 	}
 
 	updateModelLife, err := st.Prepare(`UPDATE model_life SET life_id = 1 WHERE model_uuid = $entityUUID.uuid AND life_id = 0`, eUUID)
@@ -174,12 +199,60 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing update machine instances query: %w", err)
 	}
+	updateStorageInstances, err := st.Prepare(`UPDATE storage_instance SET life_id = 1 WHERE uuid IN ($uuids[:]) AND life_id = 0`, uuids{})
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing update storage instances query: %w", err)
+	}
+	updateStorageFilesystems, err := st.Prepare(`UPDATE storage_filesystem SET life_id = 1 WHERE uuid IN ($uuids[:]) AND life_id = 0`, uuids{})
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing update storage filesystems query: %w", err)
+	}
+	updateStorageVolumes, err := st.Prepare(`UPDATE storage_volume SET life_id = 1 WHERE uuid IN ($uuids[:]) AND life_id = 0`, uuids{})
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing update storage volumes query: %w", err)
+	}
+	updateStorageAttachments, err := st.Prepare(`UPDATE storage_attachment SET life_id = 1 WHERE uuid IN ($uuids[:]) AND life_id = 0`, uuids{})
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing update storage attachments query: %w", err)
+	}
+
+	// persistentStorageStmt counts non-dead persistent storage in the model.
+	// Only storage_filesystem (always persistent in K8s) and
+	// storage_volume with persistent = true are checked. Ephemeral volumes
+	// do not require --destroy-storage or --release-storage to remove.
+	persistentStorageStmt, err := st.Prepare(`
+WITH counts AS (
+	SELECT COUNT(*) AS n FROM storage_filesystem WHERE life_id < 2
+	UNION ALL
+	SELECT COUNT(*) AS n FROM storage_volume WHERE persistent = true AND life_id < 2
+)
+SELECT SUM(n) AS &count.count FROM counts
+`, count{})
+	if err != nil {
+		return removal.ModelArtifacts{}, errors.Errorf("preparing persistent storage count query: %w", err)
+	}
 
 	var (
-		units, apps, relations, machines []entityUUID
-		artifacts                        removal.ModelArtifacts
+		units, apps, relations, machines     []entityUUID
+		storageInstances, storageFilesystems []entityUUID
+		storageVolumes, storageAttachments   []entityUUID
+		artifacts                            removal.ModelArtifacts
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		units, apps, relations, machines = nil, nil, nil, nil
+		storageInstances, storageFilesystems = nil, nil
+		storageVolumes, storageAttachments = nil, nil
+
+		if destroyStorage == nil {
+			var persistentCount count
+			if err := tx.Query(ctx, persistentStorageStmt).Get(&persistentCount); err != nil {
+				return errors.Errorf("checking persistent storage: %w", err)
+			}
+			if persistentCount.Count > 0 {
+				return removalerrors.PersistentStorage
+			}
+		}
+
 		// Update the model life to dying.
 		if err := tx.Query(ctx, updateModelLife, eUUID).Run(); err != nil {
 			return errors.Errorf("setting model life to dying: %w", err)
@@ -196,6 +269,18 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 		}
 		if err := tx.Query(ctx, selectMachines).GetAll(&machines); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("selecting machines: %w", err)
+		}
+		if err := tx.Query(ctx, selectStorageInstances).GetAll(&storageInstances); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("selecting storage instances: %w", err)
+		}
+		if err := tx.Query(ctx, selectStorageFilesystems).GetAll(&storageFilesystems); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("selecting storage filesystems: %w", err)
+		}
+		if err := tx.Query(ctx, selectStorageVolumes).GetAll(&storageVolumes); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("selecting storage volumes: %w", err)
+		}
+		if err := tx.Query(ctx, selectStorageAttachments).GetAll(&storageAttachments); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("selecting storage attachments: %w", err)
 		}
 
 		// Update the life of each entity to dying.
@@ -227,9 +312,36 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 				return errors.Errorf("updating machine instances: %w", err)
 			}
 		}
+		if len(storageInstances) > 0 {
+			u := transform.Slice(storageInstances, func(e entityUUID) string { return e.UUID })
+			if err := tx.Query(ctx, updateStorageInstances, uuids(u)).Run(); err != nil {
+				return errors.Errorf("updating storage instances: %w", err)
+			}
+		}
+		if len(storageFilesystems) > 0 {
+			u := transform.Slice(storageFilesystems, func(e entityUUID) string { return e.UUID })
+			if err := tx.Query(ctx, updateStorageFilesystems, uuids(u)).Run(); err != nil {
+				return errors.Errorf("updating storage filesystems: %w", err)
+			}
+		}
+		if len(storageVolumes) > 0 {
+			u := transform.Slice(storageVolumes, func(e entityUUID) string { return e.UUID })
+			if err := tx.Query(ctx, updateStorageVolumes, uuids(u)).Run(); err != nil {
+				return errors.Errorf("updating storage volumes: %w", err)
+			}
+		}
+		if len(storageAttachments) > 0 {
+			u := transform.Slice(storageAttachments, func(e entityUUID) string { return e.UUID })
+			if err := tx.Query(ctx, updateStorageAttachments, uuids(u)).Run(); err != nil {
+				return errors.Errorf("updating storage attachments: %w", err)
+			}
+		}
 
 		return nil
 	})
+	if errors.Is(err, removalerrors.PersistentStorage) {
+		return removal.ModelArtifacts{}, err
+	}
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("ensuring model %q is not alive: %w", modelUUID, err)
 	}
@@ -249,6 +361,22 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 	artifacts.MachineUUIDs = make([]string, len(machines))
 	for i, m := range machines {
 		artifacts.MachineUUIDs[i] = m.UUID
+	}
+	artifacts.StorageInstanceUUIDs = make([]string, len(storageInstances))
+	for i, s := range storageInstances {
+		artifacts.StorageInstanceUUIDs[i] = s.UUID
+	}
+	artifacts.StorageFilesystemUUIDs = make([]string, len(storageFilesystems))
+	for i, s := range storageFilesystems {
+		artifacts.StorageFilesystemUUIDs[i] = s.UUID
+	}
+	artifacts.StorageVolumeUUIDs = make([]string, len(storageVolumes))
+	for i, s := range storageVolumes {
+		artifacts.StorageVolumeUUIDs[i] = s.UUID
+	}
+	artifacts.StorageAttachmentUUIDs = make([]string, len(storageAttachments))
+	for i, s := range storageAttachments {
+		artifacts.StorageAttachmentUUIDs[i] = s.UUID
 	}
 
 	return artifacts, nil
