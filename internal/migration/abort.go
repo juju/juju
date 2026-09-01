@@ -69,7 +69,9 @@ type importAbortService interface {
 
 // abortModelImport cleans up a partially imported v8 model. It leaves the
 // durable claim in the aborting phase until the model database is dropped.
-func abortModelImport(ctx context.Context, deps deps, claim importAbortService, modelUUID coremodel.UUID) error {
+func (i *ModelImporter) abortModelImport(
+	ctx context.Context, scope coremodelmigration.Scope, claim importAbortService, modelUUID coremodel.UUID,
+) error {
 	c, err := claim.GetImportClaim(ctx, modelUUID)
 	switch {
 	case errors.Is(err, modelmigrationerrors.ErrImportNotFound):
@@ -97,7 +99,7 @@ func abortModelImport(ctx context.Context, deps deps, claim importAbortService, 
 				"transitioning import claim to aborting for model %q: %w", modelUUID, err)
 		}
 	case modelmigration.ImportPhaseAborting:
-		deps.Logger.Debugf(ctx,
+		i.logger.Debugf(ctx,
 			"model %q import claim is already aborting; re-driving abort compensation", modelUUID)
 	default:
 		return errors.Errorf("model %q: unexpected import claim phase %q", modelUUID, c.Phase)
@@ -122,7 +124,7 @@ func abortModelImport(ctx context.Context, deps deps, claim importAbortService, 
 			ModelInfo: coremodelmigration.ModelIdentityInfo{UUID: modelUUID.String()},
 		},
 	}
-	if err := removeOnAbortImport(ctx, deps, args); err != nil {
+	if err := i.removeOnAbortImport(ctx, scope, args); err != nil {
 		return errors.Errorf("removing partial import for model %q: %w", modelUUID, err)
 	}
 
@@ -145,14 +147,16 @@ func abortModelImport(ctx context.Context, deps deps, claim importAbortService, 
 
 // waitAbortFinalized waits for the model database drop and releases the aborted
 // import claim, bounded by the supplied duration.
-func waitAbortFinalized(ctx context.Context, deps deps, claim abortFinalizer, modelUUID coremodel.UUID, wait abortFinalizeWait) error {
+func (i *ModelImporter) waitAbortFinalized(
+	ctx context.Context, claim abortFinalizer, modelUUID coremodel.UUID, wait abortFinalizeWait,
+) error {
 	w, err := claim.WatchModelDatabaseDeletion(ctx, modelUUID)
 	if err != nil {
 		return errors.Errorf("watching model database deletion for model %q: %w", modelUUID, err)
 	}
 	defer func() { _ = worker.Stop(w) }()
 
-	timeout := deps.Clock.After(wait.MaxDuration)
+	timeout := i.clock.After(wait.MaxDuration)
 	for {
 		err := claim.FinalizeAbortedImport(ctx, modelUUID)
 		if err == nil {
@@ -174,7 +178,7 @@ func waitAbortFinalized(ctx context.Context, deps deps, claim abortFinalizer, mo
 			if !ok {
 				return errors.Errorf("model database deletion watcher for model %q closed", modelUUID)
 			}
-		case <-deps.Clock.After(wait.Delay):
+		case <-i.clock.After(wait.Delay):
 		}
 	}
 }

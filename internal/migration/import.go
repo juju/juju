@@ -6,7 +6,6 @@ package migration
 import (
 	"context"
 
-	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/core/agentbinary"
@@ -40,15 +39,6 @@ import (
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 	"github.com/juju/juju/internal/errors"
 )
-
-// deps bundles the database and ambient dependencies the v8 import
-// orchestrator needs, supplied by the caller's migration scope.
-type deps struct {
-	ControllerDB database.TxnRunnerFactory
-	ModelDB      database.TxnRunnerFactory
-	Clock        clock.Clock
-	Logger       logger.Logger
-}
 
 // ImportModelArgs contains the data needed to perform a v8 model import: the
 // target-portable controller-scoped information and the transformed model-DB
@@ -92,25 +82,25 @@ type ImportModelArgs struct {
 // import claim. If a claim already exists for info.ModelInfo.UUID, the returned
 // error wraps [coreerrors.AlreadyExists] (phase-specific wording is supplied by
 // the modelmigration domain).
-func importControllerModelInfo(
+func (i *ModelImporter) importControllerModelInfo(
 	ctx context.Context,
-	deps deps,
+	scope coremodelmigration.Scope,
 	sourceMigrationUUID string,
 	info coremodelmigration.ControllerModelInfo,
 	view export.ProjectionView,
 ) error {
-	return newImportCoordinator(deps, sourceMigrationUUID, info, view).Import(ctx)
+	return i.newImportCoordinator(scope, sourceMigrationUUID, info, view).Import(ctx)
 }
 
 // removeOnAbortImport undoes the controller-DB writes performed by
 // importControllerModelInfo in reverse order. Each step is idempotent.
-func removeOnAbortImport(
+func (i *ModelImporter) removeOnAbortImport(
 	ctx context.Context,
-	deps deps,
+	scope coremodelmigration.Scope,
 	args ImportModelArgs,
 ) error {
-	return newImportCoordinator(
-		deps, args.SourceMigrationUUID, args.ControllerModelInfo, export.ProjectionView{},
+	return i.newImportCoordinator(
+		scope, args.SourceMigrationUUID, args.ControllerModelInfo, export.ProjectionView{},
 	).RemoveOnAbort(ctx)
 }
 
@@ -180,8 +170,8 @@ func (c *importCoordinator) RemoveOnAbort(ctx context.Context) error {
 	return errors.Join(errs...)
 }
 
-func newImportCoordinator(
-	deps deps,
+func (i *ModelImporter) newImportCoordinator(
+	scope coremodelmigration.Scope,
 	sourceMigrationUUID string,
 	info coremodelmigration.ControllerModelInfo,
 	view export.ProjectionView,
@@ -189,7 +179,7 @@ func newImportCoordinator(
 	modelUUIDStr := info.ModelInfo.UUID
 	modelUUID := coremodel.UUID(modelUUIDStr)
 
-	rawServices := newImportServices(deps, modelUUID)
+	rawServices := i.newImportServices(scope.ControllerDB(), modelUUID)
 	begin := &opBeginImport{
 		claim:         rawServices.claim,
 		modelUUID:     modelUUID,
@@ -199,14 +189,14 @@ func newImportCoordinator(
 	// Abort-path services are a separate bundle from the forward path
 	// and must remain stateless: they must not rely on in-memory state
 	// accumulated during Execute.
-	abortOps := newControllerImportOps(deps, rawServices, info, view)
+	abortOps := i.newControllerImportOps(scope.ControllerDB(), scope.ModelDB(), rawServices, info, view)
 	newGuarded := func(claimUUID string) []controllerImportOp {
-		guardedDeps := deps
-		guardedDeps.ControllerDB = migrationclaimstate.NewImportTxnRunnerFactory(
-			deps.ControllerDB, modelUUIDStr, claimUUID,
+		guardedControllerDB := migrationclaimstate.NewImportTxnRunnerFactory(
+			scope.ControllerDB(), modelUUIDStr, claimUUID,
 		)
-		return newControllerImportOps(
-			guardedDeps, newImportServices(guardedDeps, modelUUID), info, view,
+		return i.newControllerImportOps(
+			guardedControllerDB, scope.ModelDB(),
+			i.newImportServices(guardedControllerDB, modelUUID), info, view,
 		)
 	}
 
@@ -218,10 +208,11 @@ func newImportCoordinator(
 }
 
 // newControllerImportOps builds the operations after the durable claim step.
-// deps and svc use either the guarded controller database for forward import,
-// or the ordinary controller database for abort cleanup.
-func newControllerImportOps(
-	deps deps,
+// The controllerDB factory and svc are either the guarded controller database
+// for forward import, or the ordinary controller database for abort cleanup.
+func (i *ModelImporter) newControllerImportOps(
+	controllerDB database.TxnRunnerFactory,
+	modelDB database.TxnRunnerFactory,
 	svc importServices,
 	info coremodelmigration.ControllerModelInfo,
 	view export.ProjectionView,
@@ -247,7 +238,9 @@ func newControllerImportOps(
 			modelCredential: info.ModelCredential,
 		},
 		&opBootstrapModel{
-			deps:               deps,
+			controllerDB:       controllerDB,
+			modelDB:            modelDB,
+			logger:             i.logger,
 			modelUUID:          modelUUID,
 			modelUUIDStr:       modelUUIDStr,
 			identity:           info.ModelInfo,
@@ -294,7 +287,7 @@ func newControllerImportOps(
 		},
 		&opImportCloudImageMetadata{
 			cloudImage:   svc.cloudImage,
-			logger:       deps.Logger,
+			logger:       i.logger,
 			modelUUIDStr: modelUUIDStr,
 			metadata:     info.CloudImageMetadata,
 		},
@@ -377,7 +370,9 @@ func (op *opImportCredential) RemoveOnAbort(_ context.Context) error { return ni
 // ----
 
 type opBootstrapModel struct {
-	deps               deps
+	controllerDB       database.TxnRunnerFactory
+	modelDB            database.TxnRunnerFactory
+	logger             logger.Logger
 	modelUUID          coremodel.UUID
 	modelUUIDStr       string
 	identity           coremodelmigration.ModelIdentityInfo
@@ -390,8 +385,8 @@ func (op *opBootstrapModel) Name() string { return "bootstrap-model" }
 
 func (op *opBootstrapModel) Execute(ctx context.Context, st *importState) error {
 	if err := bootstrapImportedModel(
-		ctx, op.deps, op.modelUUID, op.identity, st.credKey, op.secretBackendName,
-		op.agentStream, op.agentTargetVersion,
+		ctx, op.controllerDB, op.modelDB, op.logger, op.modelUUID, op.identity,
+		st.credKey, op.secretBackendName, op.agentStream, op.agentTargetVersion,
 	); err != nil {
 		return errors.Errorf("bootstrapping model %q: %w", op.modelUUIDStr, err)
 	}
@@ -403,7 +398,7 @@ func (op *opBootstrapModel) Execute(ctx context.Context, st *importState) error 
 // deleted, it returns nil.
 func (op *opBootstrapModel) RemoveOnAbort(ctx context.Context) error {
 	migrationSvc := modelmigrationservice.NewMigrationService(
-		modelstatecontroller.NewState(op.deps.ControllerDB), op.deps.Logger,
+		modelstatecontroller.NewState(op.controllerDB), op.logger,
 	)
 	return migrationSvc.DeleteImportedModel(ctx, op.modelUUID)
 }
@@ -641,28 +636,28 @@ type importServices struct {
 // newImportServices constructs the controller-scoped domain services the v8
 // import driver needs. Each service owns its state and is independent of the
 // others; the import driver is responsible for calling them in FK-safe order.
-func newImportServices(deps deps, modelUUID coremodel.UUID) importServices {
+func (i *ModelImporter) newImportServices(controllerDB database.TxnRunnerFactory, modelUUID coremodel.UUID) importServices {
 	return importServices{
 		claim: migrationclaimservice.NewImportService(
-			migrationclaimstate.New(deps.ControllerDB, deps.Clock), deps.Clock, deps.Logger,
+			migrationclaimstate.New(controllerDB, i.clock), i.clock, i.logger,
 		),
 		access: accessservice.NewService(
-			accessstate.NewState(deps.ControllerDB, deps.Clock, deps.Logger), deps.Clock,
+			accessstate.NewState(controllerDB, i.clock, i.logger), i.clock,
 		),
 		credential: credentialservice.NewService(
-			credentialstate.NewState(deps.ControllerDB), deps.Logger,
+			credentialstate.NewState(controllerDB), i.logger,
 		),
 		keymanager: keymanagerservice.NewService(
-			modelUUID, keymanagerstate.NewState(deps.ControllerDB),
+			modelUUID, keymanagerstate.NewState(controllerDB),
 		),
 		secretBackend: secretbackendservice.NewService(
-			secretbackendstate.NewState(deps.ControllerDB, deps.Logger), deps.Logger,
+			secretbackendstate.NewState(controllerDB, i.logger), i.logger,
 		),
 		lease: leaseservice.NewService(
-			leasestate.NewState(deps.ControllerDB),
+			leasestate.NewState(controllerDB),
 		),
 		cloudImage: cloudimagemetadataservice.NewService(
-			cloudimagemetadatastate.NewState(deps.ControllerDB, deps.Clock, deps.Logger),
+			cloudimagemetadatastate.NewState(controllerDB, i.clock, i.logger),
 		),
 	}
 }
@@ -676,7 +671,9 @@ func newImportServices(deps deps, modelUUID coremodel.UUID) importServices {
 // pure orchestration of two existing model-domain service methods.
 func bootstrapImportedModel(
 	ctx context.Context,
-	deps deps,
+	controllerDB database.TxnRunnerFactory,
+	modelDB database.TxnRunnerFactory,
+	logger logger.Logger,
 	modelUUID coremodel.UUID,
 	identity coremodelmigration.ModelIdentityInfo,
 	credKey corecredential.Key,
@@ -685,12 +682,12 @@ func bootstrapImportedModel(
 	agentTargetVersion semversion.Number,
 ) error {
 	migrationSvc := modelmigrationservice.NewMigrationService(
-		modelstatecontroller.NewState(deps.ControllerDB), deps.Logger,
+		modelstatecontroller.NewState(controllerDB), logger,
 	)
 	modelSvc := modelservice.NewModelService(
 		modelUUID,
-		modelstatecontroller.NewState(deps.ControllerDB),
-		modelstatemodel.NewState(deps.ModelDB, deps.Logger),
+		modelstatecontroller.NewState(controllerDB),
+		modelstatemodel.NewState(modelDB, logger),
 		modelservice.EnvironVersionProviderGetter(),
 		modelservice.DefaultAgentBinaryFinder(),
 	)

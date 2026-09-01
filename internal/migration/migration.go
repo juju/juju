@@ -153,15 +153,10 @@ func (i *ModelImporter) AbortModel(ctx context.Context, modelUUID coremodel.UUID
 	}
 
 	scope := i.scope(modelUUID)
-	deps := deps{
-		ControllerDB: scope.ControllerDB(),
-		Clock:        i.clock,
-		Logger:       i.logger,
-	}
-	if err := abortModelImport(ctx, deps, &claim.Service, modelUUID); err != nil {
+	if err := i.abortModelImport(ctx, scope, &claim.Service, modelUUID); err != nil {
 		return err
 	}
-	return waitAbortFinalized(ctx, deps, claim, modelUUID, defaultAbortFinalizeWait)
+	return i.waitAbortFinalized(ctx, claim, modelUUID, defaultAbortFinalizeWait)
 }
 
 // ImportModel applies a v8 import's controller-scoped semantic data to the
@@ -181,18 +176,12 @@ func (i *ModelImporter) ImportModel(
 
 	modelUUID := coremodel.UUID(args.ControllerModelInfo.ModelInfo.UUID)
 	scope := i.scope(modelUUID)
-	deps := deps{
-		ControllerDB: scope.ControllerDB(),
-		ModelDB:      scope.ModelDB(),
-		Clock:        i.clock,
-		Logger:       i.logger,
-	}
 
 	// Apply the controller-scoped data (claim, bootstrap, users, credential,
 	// permissions, secret backend references, ...). Writes only; no return
 	// value beyond the error.
-	if err := importControllerModelInfo(
-		ctx, deps, args.SourceMigrationUUID, args.ControllerModelInfo, view,
+	if err := i.importControllerModelInfo(
+		ctx, scope, args.SourceMigrationUUID, args.ControllerModelInfo, view,
 	); err != nil {
 		return internalerrors.Capture(err)
 	}
@@ -202,7 +191,7 @@ func (i *ModelImporter) ImportModel(
 		// live secret value ref backend UUIDs from the source controller's to the
 		// target's (matched by name) before the insert. An unmapped live revision
 		// is a hard error; no model-DB rows are written.
-		if err := reconcileSecretBackendUUIDs(ctx, deps, args.ControllerModelInfo, args.ModelDBPayload); err != nil {
+		if err := i.reconcileSecretBackendUUIDs(ctx, scope, args.ControllerModelInfo, args.ModelDBPayload); err != nil {
 			return internalerrors.Errorf(
 				"rewriting secret backend UUIDs for model %q: %w", modelUUID, err)
 		}
