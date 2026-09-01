@@ -1222,11 +1222,11 @@ func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
 // bypassed the seeding via embedded promotion.
 func (s *providerModelServiceSuite) TestCreateModelSeedingInvariants(c *tc.C) {
 	cases := []struct {
-		name           string
-		version        semversion.Number
-		stream         agentbinary.AgentStream
-		expectStream   domainagentbinary.Stream
-		expectVersion  semversion.Number
+		name          string
+		version       semversion.Number
+		stream        agentbinary.AgentStream
+		expectStream  domainagentbinary.Stream
+		expectVersion semversion.Number
 	}{
 		{
 			name:          "bothZero",
@@ -1261,7 +1261,7 @@ func (s *providerModelServiceSuite) TestCreateModelSeedingInvariants(c *tc.C) {
 	for _, testCase := range cases {
 		ctrl := s.setupMocks(c)
 		controllerUUID := uuid.MustNewUUID()
-		modelUUID := coremodel.UUID(tc.Must(c, coremodel.NewUUID))
+		modelUUID := tc.Must(c, coremodel.NewUUID)
 
 		defaultPool := s.newDefaultStoragePool(c, ctrl)
 		s.mockStorageProviderRegistry.EXPECT().RecommendedPoolForKind(

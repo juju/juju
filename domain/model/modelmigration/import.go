@@ -73,17 +73,6 @@ type ModelImportService interface {
 // ModelDetailService defines a service for interacting with the
 // model information found in a model database.
 type ModelDetailService interface {
-	// CreateModel is responsible for creating a new model
-	// within the model database using the input agent version and agent
-	// stream.
-	//
-	// The following error types can be expected to be returned:
-	// - [modelerrors.AlreadyExists] when the model uuid is already in use.
-	// - [modelerrors.AgentVersionNotSupported] when the agent version is not
-	// supported.
-	// - [modelerrors.AgentStreamNotValid] when the agent stream is not valid.
-	CreateModel(context.Context, semversion.Number, agentbinary.AgentStream) error
-
 	// CreateImportingModelWithAgentVersionStream is responsible for creating a new
 	// model within the model database during model import, using the input agent
 	// version and agent stream. This method creates the model and marks it as
