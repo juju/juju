@@ -11,6 +11,87 @@ myst:
 ```{note}
 Juju 3.6 series is LTS
 ```
+### 🔸 **Juju 3.6.28**
+🗓️ 2 September 2026
+
+🚀 **New features**
+
+### Google cloud supports additional disk storage types
+
+Additional disk storage types can be specified when creating a storage pool
+to provision Google cloud storage, eg
+
+`juju create-storage-pool hyperdisk-gce gce disk-type=hyperdisk-balanced`
+
+The additional storage types include:
+- `pd-balanced`
+- `pd-extreme`
+- `hyperdisk-balanced`
+- `hyperdisk-balanced-high-availability`
+- `hyperdisk-ml`
+- `hyperdisk-extreme`
+- `hyperdisk-throughput`
+
+* feat(gce): add support for new disk storage types eg hyperdisk by @wallyworld https://github.com/juju/juju/pull/22993
+
+### Google cloud supports image-id constraint
+
+When deploying a charm or adding a machine to Google cloud, it is now possible
+to specify an `image-id` constraint to select a specific image to use to
+provision the VM instance, eg
+
+`juju deploy postgresql --constraints "image-id=projects/ubuntu-os-cloud/global/images/ubuntu-2204-jammy-v20230920"`
+
+The `image-id` can be an absolute path as in the above example, or a path relative
+to the base image path configured for the model using the `base-image-path`
+model config option.
+
+* feat: add support for image-id constraint on google cloud by @wallyworld https://github.com/juju/juju/pull/23012
+
+🛠️ **Bug fixes**
+
+### Ubuntu 26.04 support in Azure cloud
+
+Charms with a base of Ubuntu 26.04 were not able to be deployed to Azure cloud.
+
+* fix: add 26.04 image support to Azure by @wallyworld https://github.com/juju/juju/pull/23063
+
+### Model migration fixes
+
+Issues migrating models with cross model relations were fixed. In one case, after
+migrating a model containing offers, new consumers of those offers could not be
+created. In the other case, migrating a model from a 2.9 controller failed if the
+model contained application offers created on earlier versions of 2.9.
+
+* fix: migrate application-named offer entities by @jameinel https://github.com/juju/juju/pull/22999
+* fix(migration): ensure external controller records are updated correctly by @wallyworld https://github.com/juju/juju/pull/23079
+
+### Openstack controller and model upgrades failing behind a proxy
+
+When upgrading a controller or model on Openstack behind a proxy, the upgrade
+would fail due to the proxy settings not being preserved.
+
+* fix(openstack): preserve proxy transport settings by @xtrusia https://github.com/juju/juju/pull/23080
+
+### Other fixes
+
+* fix(uniter): contain manifest removeDiff to the charm directory by @SABITHSAHEB https://github.com/juju/juju/pull/22912
+* fix: remove stale Dqlite nodes when topology changes by @maizi-liao https://github.com/juju/juju/pull/22669
+* fix: implement generate-password for K8s applications by @jameinel https://github.com/juju/juju/pull/22915
+* fix: GetRemoteSecretContentInfo by @SimoneDutto https://github.com/juju/juju/pull/22973
+* fix: use the correct tag when removing offer artefacts from state by @wallyworld https://github.com/juju/juju/pull/23034
+* fix(azure): destroy-controller fails to delete resources in shared resource groups by @iyiguncevik https://github.com/juju/juju/pull/23038
+* fix: allow vault drain token to create secrets when draining from internal backend by @iyiguncevik https://github.com/juju/juju/pull/23084
+
+🗒️ **Docs**
+
+This release contains some documentation improvements.
+
+* docs: 3.6 docs improve contributor time to value by @tmihoc https://github.com/juju/juju/pull/23010
+* docs(upgrade): document show-unit application-data orientation by @anvial https://github.com/juju/juju/pull/22842
+* docs: minimal vsphere permissions by @SimonRichardson https://github.com/juju/juju/pull/23108
+* docs: 3.6 tutorial switch to cloud init and fix watch and dollar sign issue 22069 by @tmihoc https://github.com/juju/juju/pull/22834
+
 ### 🔸 **Juju 3.6.27**
 🗓️ 27 July 2026
 
