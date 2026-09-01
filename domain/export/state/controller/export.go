@@ -125,6 +125,10 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing ControllerNodeAgentVersion statement: %w", err)
 	}
+	stmtControllerNodeNonce, err := sqlair.Prepare(`SELECT &ControllerNodeNonce.* FROM "controller_node_nonce"`, v4_1_0.ControllerNodeNonce{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing ControllerNodeNonce statement: %w", err)
+	}
 	stmtControllerNodePassword, err := sqlair.Prepare(`SELECT &ControllerNodePassword.* FROM "controller_node_password"`, v4_1_0.ControllerNodePassword{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ControllerNodePassword statement: %w", err)
@@ -465,6 +469,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 		}
 		if err := tx.Query(ctx, stmtControllerNodeAgentVersion).GetAll(&controllerExport.ControllerNodeAgentVersion); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ControllerNodeAgentVersion (table controller_node_agent_version): %w", err)
+		}
+		if err := tx.Query(ctx, stmtControllerNodeNonce).GetAll(&controllerExport.ControllerNodeNonce); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying ControllerNodeNonce (table controller_node_nonce): %w", err)
 		}
 		if err := tx.Query(ctx, stmtControllerNodePassword).GetAll(&controllerExport.ControllerNodePassword); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ControllerNodePassword (table controller_node_password): %w", err)
