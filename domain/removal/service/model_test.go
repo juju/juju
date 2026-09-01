@@ -98,7 +98,6 @@ func (s *modelSuite) TestRemoveModelRetrySchedulesRemovalJobs(c *tc.C) {
 	mExp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "some-relation-id", false, when.UTC()).Return(nil).Times(2)
 
 	mExp.UnitExists(gomock.Any(), "some-unit-id").Return(true, nil).Times(2)
-	mExp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), "some-unit-id").Return("foo", "foo/0", nil).Times(2)
 	mExp.EnsureUnitNotAliveCascade(gomock.Any(), "some-unit-id", true).Return(removalinternal.CascadedUnitLives{}, nil).Times(2)
 	mExp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "some-unit-id", false, when.UTC()).Return(nil).Times(2)
 
@@ -155,7 +154,6 @@ func (s *modelSuite) TestRemoveModelRetryWithForceSchedulesRemovalJobs(c *tc.C) 
 	mExp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "some-relation-id", true, when.UTC()).Return(nil)
 
 	mExp.UnitExists(gomock.Any(), "some-unit-id").Return(true, nil).Times(2)
-	mExp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), "some-unit-id").Return("foo", "foo/0", nil).Times(2)
 	mExp.EnsureUnitNotAliveCascade(gomock.Any(), "some-unit-id", true).Return(removalinternal.CascadedUnitLives{}, nil).Times(2)
 	mExp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "some-unit-id", false, when.UTC()).Return(nil)
 	mExp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "some-unit-id", true, when.UTC()).Return(nil)

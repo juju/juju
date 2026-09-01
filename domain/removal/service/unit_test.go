@@ -45,7 +45,6 @@ func (s *unitSuite) TestRemoveUnitNoForceMachineAndStorageSuccess(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
-	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), uUUID.String()).Return("foo", "foo/0", nil)
 	exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String(), false).Return(internal.CascadedUnitLives{
 		MachineUUID: &mUUID,
 		CascadedStorageLives: internal.CascadedStorageLives{
@@ -73,7 +72,6 @@ func (s *unitSuite) TestRemoveUnitForceNoWaitSuccess(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
-	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), uUUID.String()).Return("foo", "foo/0", nil)
 	exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String(), false).Return(internal.CascadedUnitLives{}, nil)
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), true, when.UTC()).Return(nil)
 
@@ -92,7 +90,6 @@ func (s *unitSuite) TestRemoveUnitForceWaitSuccess(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
-	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), uUUID.String()).Return("foo", "foo/0", nil)
 	exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String(), false).Return(internal.CascadedUnitLives{}, nil)
 
 	// The first normal removal scheduled immediately.
@@ -133,7 +130,6 @@ func (s *unitSuite) TestRemoveUnitRetrySchedulesRemovalJobs(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil).Times(2)
-	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), uUUID.String()).Return("foo", "foo/0", nil).Times(2)
 	exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String(), false).Return(cascaded, nil).Times(2)
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), false, when.UTC()).Return(nil).Times(2)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "machine-1", false, when.UTC()).Return(nil).Times(2)
@@ -181,7 +177,6 @@ func (s *unitSuite) TestRemoveUnitRetryWithForceSchedulesRemovalJobs(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil).Times(2)
-	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), uUUID.String()).Return("foo", "foo/0", nil).Times(2)
 	exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String(), false).Return(cascaded, nil).Times(2)
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), false, when.UTC()).Return(nil)
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), true, when.UTC()).Return(nil)
@@ -255,7 +250,6 @@ func (s *unitSuite) TestRemoveUnitCascadeStorage(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
-	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), uUUID.String()).Return("foo", "foo/0", nil)
 	exp.EnsureUnitNotAliveCascade(
 		gomock.Any(), uUUID.String(), false,
 	).Return(cascaded, nil)
@@ -564,14 +558,13 @@ func (s *unitSuite) TestDeleteCharmForUnitFails(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *unitSuite) TestExecuteJobForUnitNotDeadError(c *tc.C) {
+func (s *unitSuite) TestExecuteJobForDyingUnitWithLiveEntitiesKeepsControllerNode(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	j := newUnitJob(c)
 
 	exp := s.modelState.EXPECT()
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
-	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	exp.MarkUnitAsDeadWithNoEntities(gomock.Any(), j.EntityUUID).Return(removalerrors.EntityStillAlive)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
