@@ -1358,6 +1358,49 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *OpsSuite) TestAppAliveController(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := caasmocks.NewMockApplication(ctrl)
+	statusService := mocks.NewMockStatusService(ctrl)
+	appUUID := tc.Must(c, application.NewUUID)
+	lastApplied := caas.ApplicationConfig{}
+	pi := caasapplicationprovisioner.ProvisioningInfo{
+		ImageDetails: coreresource.DockerImageDetails{
+			RegistryPath: "test-repo/jujud-operator:2.9.99",
+			ImageRepoDetails: coreresource.ImageRepoDetails{
+				Repository: "test-repo",
+			},
+		},
+		Base: corebase.Base{
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "22.04",
+				Risk:  corebase.Stable,
+			},
+		},
+		Version: semversion.MustParse("2.9.99"),
+		CharmMeta: &charm.Meta{
+			CharmUser: charm.RunAsRoot,
+		},
+	}
+
+	gomock.InOrder(
+		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
+		app.EXPECT().Ensure(gomock.Any()).DoAndReturn(func(config caas.ApplicationConfig) error {
+			c.Check(config.Controller, tc.IsTrue)
+			c.Check(config.CharmUser, tc.Equals, caas.RunAsNonRoot)
+			return nil
+		}),
+	)
+
+	err := caasapplicationprovisioner.AppOps.AppAlive(c.Context(), application.ControllerApplicationName,
+		appUUID, app, "password", &lastApplied, &pi, statusService,
+		testclock.NewDilatedWallClock(coretesting.ShortWait), s.logger)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *OpsSuite) TestAppDying(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

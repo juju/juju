@@ -289,6 +289,7 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 	}
 
 	config := caas.ApplicationConfig{
+		Controller:           appName == coreapplication.ControllerApplicationName,
 		IsPrivateImageRepo:   pi.ImageDetails.IsPrivate(),
 		IntroductionSecret:   password,
 		AgentVersion:         pi.Version,
@@ -320,6 +321,9 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		config.CharmUser = caas.RunAsNonRoot
 	default:
 		return errors.NotValidf("unknown RunAs for CharmUser: %q", pi.CharmMeta.CharmUser)
+	}
+	if config.Controller {
+		config.CharmUser = caas.RunAsNonRoot
 	}
 	reason := "unchanged"
 	// TODO(sidecar): implement Equals method for caas.ApplicationConfig
