@@ -231,7 +231,6 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	if err != nil {
 		return errors.Annotate(err, "generating application podspec")
 	}
-
 	var handleVolume handleVolumeFunc = func(
 		v corev1.Volume,
 		attachParams jujustorage.KubernetesFilesystemAttachmentParams,
@@ -327,6 +326,9 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			// With nil Replicas, Kubernetes defaults to 1 replica
 			// on creation. The provisioner's EnsureScale will
 			// correct the replica count if needed.
+		}
+		if exists {
+			ensureExistingPodTemplate(&existingSts.Spec.Template.Spec, podSpec)
 		}
 
 		var numPods *int32
@@ -473,6 +475,95 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	}
 
 	return applier.Run(context.TODO(), false)
+}
+
+// ensureExistingPodTemplate retains pod components that are added outside
+// ApplicationPodSpec. Controller bootstrap adds its seed init container and
+// API server this way; generic reconciliation must not remove them.
+func ensureExistingPodTemplate(existing, desired *corev1.PodSpec) {
+	ensureContainers := func(existingContainers []corev1.Container, desiredContainers *[]corev1.Container) {
+		for _, existingContainer := range existingContainers {
+			if slices.IndexFunc(*desiredContainers, func(container corev1.Container) bool {
+				return container.Name == existingContainer.Name
+			}) == -1 {
+				*desiredContainers = append(*desiredContainers, existingContainer)
+			}
+		}
+	}
+	ensureContainers(existing.Containers, &desired.Containers)
+	ensureInitContainers(existing.InitContainers, &desired.InitContainers)
+
+	for i := range desired.Containers {
+		existingIndex := slices.IndexFunc(existing.Containers, func(container corev1.Container) bool {
+			return container.Name == desired.Containers[i].Name
+		})
+		if existingIndex == -1 {
+			continue
+		}
+		ensureDataDirMount(&existing.Containers[existingIndex], &desired.Containers[i])
+	}
+
+	for i := range desired.InitContainers {
+		existingIndex := slices.IndexFunc(existing.InitContainers, func(container corev1.Container) bool {
+			return container.Name == desired.InitContainers[i].Name
+		})
+		if existingIndex == -1 {
+			continue
+		}
+		ensureDataDirMount(&existing.InitContainers[existingIndex], &desired.InitContainers[i])
+		ensureContainerNamesEnv(&existing.InitContainers[existingIndex], &desired.InitContainers[i])
+	}
+
+	for _, existingVolume := range existing.Volumes {
+		if slices.IndexFunc(desired.Volumes, func(volume corev1.Volume) bool {
+			return volume.Name == existingVolume.Name
+		}) == -1 {
+			desired.Volumes = append(desired.Volumes, existingVolume)
+		}
+	}
+}
+
+func ensureInitContainers(existingContainers []corev1.Container, desiredContainers *[]corev1.Container) {
+	var ensured []corev1.Container
+	for _, existingContainer := range existingContainers {
+		if slices.IndexFunc(*desiredContainers, func(container corev1.Container) bool {
+			return container.Name == existingContainer.Name
+		}) == -1 {
+			ensured = append(ensured, existingContainer)
+		}
+	}
+	*desiredContainers = append(ensured, *desiredContainers...)
+}
+
+func ensureDataDirMount(existing, desired *corev1.Container) {
+	dataDir := paths.DataDir(paths.OSUnixLike)
+	existingIndex := slices.IndexFunc(existing.VolumeMounts, func(mount corev1.VolumeMount) bool {
+		return mount.MountPath == dataDir && mount.Name != constants.CharmVolumeName
+	})
+	if existingIndex == -1 {
+		return
+	}
+	desired.VolumeMounts = slices.DeleteFunc(desired.VolumeMounts, func(mount corev1.VolumeMount) bool {
+		return mount.MountPath == dataDir
+	})
+	desired.VolumeMounts = append(desired.VolumeMounts, existing.VolumeMounts[existingIndex])
+}
+
+func ensureContainerNamesEnv(existing, desired *corev1.Container) {
+	existingIndex := slices.IndexFunc(existing.Env, func(env corev1.EnvVar) bool {
+		return env.Name == constants.EnvJujuContainerNames
+	})
+	if existingIndex == -1 {
+		return
+	}
+	desiredIndex := slices.IndexFunc(desired.Env, func(env corev1.EnvVar) bool {
+		return env.Name == constants.EnvJujuContainerNames
+	})
+	if desiredIndex == -1 {
+		desired.Env = append(desired.Env, existing.Env[existingIndex])
+		return
+	}
+	desired.Env[desiredIndex] = existing.Env[existingIndex]
 }
 
 func (a *app) applyServiceAccountAndSecrets(applier resources.Applier, config caas.ApplicationConfig) error {
@@ -1649,6 +1740,10 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 
 	containerNames := config.ExistingContainers
+	controllerMode := config.Controller || a.name == coreapplication.ControllerApplicationName
+	if controllerMode && !slices.Contains(containerNames, "api-server") {
+		containerNames = append(containerNames, "api-server")
+	}
 	containers := []caas.ContainerConfig(nil)
 	for _, v := range config.Containers {
 		containerNames = append(containerNames, v.Name)
@@ -1855,6 +1950,14 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 		}, charmContainerExtraVolumeMounts...),
 	}
+	if controllerMode {
+		charmContainer.LivenessProbe = nil
+		charmContainer.ReadinessProbe = nil
+		charmContainer.StartupProbe = nil
+		charmContainer.Env = slices.DeleteFunc(charmContainer.Env, func(env corev1.EnvVar) bool {
+			return env.Name == constants.EnvAgentHTTPProbePort
+		})
+	}
 	pebbleIdentitiesEnabled := false
 	if requireSecurityContext {
 		switch config.CharmUser {
@@ -2042,6 +2145,9 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			uid = int(constants.JujuUserID)
 		}
 		containerAgentArgs = append(containerAgentArgs, "--pebble-charm-identity", strconv.Itoa(uid))
+	}
+	if controllerMode {
+		containerAgentArgs = append(containerAgentArgs, "--controller")
 	}
 
 	appSecret := a.secretName()

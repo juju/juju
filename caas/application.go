@@ -101,6 +101,9 @@ type ApplicationState struct {
 
 // ApplicationConfig is the config passed to the application units.
 type ApplicationConfig struct {
+	// Controller indicates this application hosts the Juju controller.
+	Controller bool
+
 	// AgentVersion is the Juju version of the agent image.
 	AgentVersion semversion.Number
 

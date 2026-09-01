@@ -813,10 +813,15 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 						"app.kubernetes.io/name":        "juju-controller-test",
 						"model.juju.is/disable-webhook": "true",
 					},
-					Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
+					Annotations: map[string]string{
+						"controller.juju.is/id": coretesting.ControllerTag.Id(),
+						"juju.is/version":       s.pcfg.JujuVersion.String(),
+						"model.juju.is/id":      s.cfg.UUID(),
+					},
 				},
 				Spec: core.PodSpec{
 					ServiceAccountName:            "controller",
+					NodeSelector:                  map[string]string{"kubernetes.io/arch": "amd64"},
 					AutomountServiceAccountToken:  pointer.Bool(true),
 					TerminationGracePeriodSeconds: new(int64(30)),
 					EnableServiceLinks:            pointer.Bool(enableServiceLinks),
