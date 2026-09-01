@@ -49,8 +49,9 @@ type RemoteServerConfig struct {
 
 	ControllerID string
 
-	// APIInfo is initially populated with the addresses of the target machine.
-	APIInfo *api.Info
+	// APIInfo provides current credentials for connections to the target machine.
+	// Controller agent passwords can change after this remote worker starts.
+	APIInfo APIInfoProvider
 
 	// APIOpener is a function that will open a connection to the target API
 	// server.
@@ -63,7 +64,8 @@ type remoteServer struct {
 	tomb           tomb.Tomb
 
 	controllerID string
-	info         *api.Info
+	apiInfo      APIInfoProvider
+	addresses    []string
 
 	apiOpener api.OpenFunc
 
@@ -85,7 +87,7 @@ func NewRemoteServer(config RemoteServerConfig) RemoteServer {
 func newRemoteServer(config RemoteServerConfig, internalStates chan string) RemoteServer {
 	w := &remoteServer{
 		controllerID:   config.ControllerID,
-		info:           config.APIInfo,
+		apiInfo:        config.APIInfo,
 		logger:         config.Logger,
 		clock:          config.Clock,
 		apiOpener:      config.APIOpener,
@@ -353,7 +355,7 @@ func (w *remoteServer) loop() error {
 
 			// We've successfully connected to the remote server, so update the
 			// addresses.
-			w.info.Addrs = append([]string(nil), addresses...)
+			w.addresses = append([]string(nil), addresses...)
 			w.connected.Store(true)
 
 			w.reportInternalState(stateChanged)
@@ -386,7 +388,7 @@ func (w *remoteServer) loop() error {
 			case <-w.tomb.Dying():
 				return tomb.ErrDying
 			case ch <- report{
-				addresses: append([]string(nil), w.info.Addrs...),
+				addresses: append([]string(nil), w.addresses...),
 				connected: w.connected.Load(),
 			}:
 			}
@@ -395,12 +397,12 @@ func (w *remoteServer) loop() error {
 }
 
 func (w *remoteServer) addressesAlreadyExist(addresses []string) bool {
-	if len(addresses) != len(w.info.Addrs) {
+	if len(addresses) != len(w.addresses) {
 		return false
 	}
 
 	for i, addr := range addresses {
-		if addr != w.info.Addrs[i] {
+		if addr != w.addresses[i] {
 			return false
 		}
 	}
@@ -414,14 +416,21 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) (api.Con
 	// Use temporary info until we're sure we can connect. If the addresses
 	// are invalid, but the existing connection is still valid, we don't want
 	// to close it.
-	info := *w.info
-	info.Addrs = addresses
-
 	// Start connecting to the remote API server.
 	var connection api.Connection
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
-			conn, err := w.apiOpener(ctx, &info, dialOpts)
+			info, err := w.apiInfo.APIInfo()
+			if err != nil {
+				return errors.Annotate(err, "getting current API info")
+			}
+			if info == nil {
+				return errors.NotValidf("APIInfo provider returned nil")
+			}
+			infoCopy := *info
+			infoCopy.Addrs = addresses
+
+			conn, err := w.apiOpener(ctx, &infoCopy, dialOpts)
 			if err != nil {
 				return err
 			}
@@ -430,7 +439,7 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) (api.Con
 			return nil
 		},
 		NotifyFunc: func(err error, attempt int) {
-			w.logger.Warningf(ctx, "failed to connect to %s attempt %d, with addresses %v: %v", w.controllerID, attempt, info.Addrs, err)
+			w.logger.Warningf(ctx, "failed to connect to %s attempt %d, with addresses %v: %v", w.controllerID, attempt, addresses, err)
 		},
 		IsFatalError: func(err error) bool {
 			// This is the only legitimist error that can be returned from the
@@ -480,7 +489,7 @@ func (w *remoteServer) forceReconnect(ctx context.Context) {
 	// If there are any pending changes, we want to drain them before forcing a
 	// reconnect. This should ensure that we're using at least the latest
 	// addresses. This will be eventually consistent if they're stale.
-	addresses := w.info.Addrs
+	addresses := w.addresses
 DRAIN:
 	for {
 		select {

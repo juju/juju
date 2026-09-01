@@ -340,7 +340,9 @@ AND address = $controllerAPIAddress.address
 		if err := tx.Query(ctx, checkControllerExistsStmt, controllers).Get(&countResult); err != nil {
 			return errors.Errorf("checking if controller nodes %q exists: %w", nodes, err)
 		}
-		if countResult.Count == 0 {
+		// A non-zero count only proves that some requested nodes still exist.
+		// Every address to insert must have a parent controller node.
+		if countResult.Count != len(controllers) {
 			return errors.Errorf("controller nodes %q do not exist", nodes).Add(controllernodeerrors.NotFound)
 		}
 

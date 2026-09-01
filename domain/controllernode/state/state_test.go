@@ -710,6 +710,33 @@ func (s *stateSuite) TestSetAPIAddressControllerNodeNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "controller nodes .* do not exist")
 }
 
+func (s *stateSuite) TestSetAPIAddressesOneControllerNodeNotFound(c *tc.C) {
+	const controllerID = "0"
+	c.Assert(s.state.AddDqliteNode(c.Context(), controllerID, 1, "10.0.0.1"), tc.ErrorIsNil)
+
+	err := s.state.SetAPIAddresses(
+		c.Context(),
+		map[string]controllernode.APIAddresses{
+			controllerID: {{
+				Address: "10.0.0.1:17070",
+				IsAgent: true,
+				Scope:   network.ScopeCloudLocal,
+			}},
+			"removed-controller": {{
+				Address: "10.0.0.2:17070",
+				IsAgent: true,
+				Scope:   network.ScopeCloudLocal,
+			}},
+		},
+	)
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
+
+	var count int
+	err = s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM controller_api_address").Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
 func (s *stateSuite) TestGetControllerIDs(c *tc.C) {
 	for i := range 3 {
 		controllerID := strconv.Itoa(i)
