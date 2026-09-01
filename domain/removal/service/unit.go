@@ -110,12 +110,6 @@ func (s *Service) RemoveUnit(
 		return "", errors.Errorf("unit %q: %w", unitUUID, err)
 	}
 
-	// Delete the controller node for this unit if it is a controller unit. This
-	// is best effort, so we log any errors but do not fail the removal.
-	if err := s.deleteControllerNodeForUnit(ctx, unitUUID); err != nil {
-		s.logger.Warningf(ctx, "deleting controller node for unit %q: %v", unitUUID, err)
-	}
-
 	if force {
 		if wait > 0 {
 			// If we have been supplied with the force flag *and* a wait time,
@@ -340,13 +334,6 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		return errors.Errorf("unit %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
-	// The unit is not alive, remove the controller node for this unit. This
-	// must be done, otherwise the controller node api addresses will still
-	// be present in the controller and the agent configs.
-	if err := s.deleteControllerNodeForUnit(ctx, unit.UUID(job.EntityUUID)); err != nil {
-		return errors.Errorf("deleting controller node for unit %q: %w", job.EntityUUID, err)
-	}
-
 	if l == life.Dying && !job.Force {
 		// Can the unit be marked as dead? If the unit has any associated
 		// entities that are still alive, we cannot mark it as dead.
@@ -374,6 +361,13 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		return nil
 	} else if err != nil {
 		return errors.Capture(err)
+	}
+
+	// A controller unit must remain authenticated until it has departed its
+	// peer relation scopes. Deleting it before then prevents the departure hook
+	// from publishing the updated db-bind-addresses to the remaining units.
+	if err := s.deleteControllerNodeForUnit(ctx, unit.UUID(job.EntityUUID)); err != nil {
+		return errors.Errorf("deleting controller node for unit %q: %w", job.EntityUUID, err)
 	}
 
 	// The unit agent itself attempts to delete the unit's secrets,
