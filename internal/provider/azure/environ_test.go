@@ -209,7 +209,7 @@ func (s *environSuite) SetUpTest(c *tc.C) {
 		Locations:    to.SliceOfPtrs("westus"),
 		ResourceType: new("virtualMachines"),
 		Restrictions: []*armcompute.ResourceSKURestrictions{{
-			ReasonCode: to.Ptr(armcompute.ResourceSKURestrictionsReasonCodeNotAvailableForSubscription),
+			ReasonCode: new(armcompute.ResourceSKURestrictionsReasonCodeNotAvailableForSubscription),
 		}},
 		Capabilities: []*armcompute.ResourceSKUCapabilities{{
 			Name:  new("MemoryGB"),
@@ -255,7 +255,7 @@ func (s *environSuite) SetUpTest(c *tc.C) {
 
 	s.commonDeployment = &armresources.DeploymentExtended{
 		Properties: &armresources.DeploymentPropertiesExtended{
-			ProvisioningState: to.Ptr(armresources.ProvisioningStateSucceeded),
+			ProvisioningState: new(armresources.ProvisioningStateSucceeded),
 		},
 		Tags: map[string]*string{
 			"juju-model-uuid": new(testing.ModelTag.Id()),
@@ -266,7 +266,7 @@ func (s *environSuite) SetUpTest(c *tc.C) {
 
 	s.sshPublicKeys = []*armcompute.SSHPublicKey{{
 		Path:    new("/home/ubuntu/.ssh/authorized_keys"),
-		KeyData: to.Ptr(testing.FakeAuthKeys),
+		KeyData: new(testing.FakeAuthKeys),
 	}}
 	s.linuxOsProfile = armcompute.OSProfile{
 		ComputerName:  new("juju-06f00d-0"),
@@ -838,7 +838,7 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *tc.C) {
 
 	s.linuxOsProfile.LinuxConfiguration.SSH.PublicKeys = []*armcompute.SSHPublicKey{{
 		Path:    new("/home/ubuntu/.ssh/authorized_keys"),
-		KeyData: to.Ptr(testing.FakeAuthKeys),
+		KeyData: new(testing.FakeAuthKeys),
 	}}
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
 		imageReference: &jammyImageReferenceGen2,
@@ -891,7 +891,7 @@ func (s *environSuite) TestStartInstanceCommonDeployment(c *tc.C) {
 	// successfully before creating the VM deployment. If the deployment
 	// is seen to be in a terminal state, the process will stop
 	// immediately.
-	s.commonDeployment.Properties.ProvisioningState = to.Ptr(armresources.ProvisioningStateFailed)
+	s.commonDeployment.Properties.ProvisioningState = new(armresources.ProvisioningStateFailed)
 
 	env := s.openEnviron(c)
 	senders := s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
@@ -908,7 +908,7 @@ func (s *environSuite) TestStartInstanceCommonDeployment(c *tc.C) {
 func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *tc.C) {
 	// StartInstance waits for the "common" deployment to complete
 	// successfully before creating the VM deployment.
-	s.commonDeployment.Properties.ProvisioningState = to.Ptr(armresources.ProvisioningStateCreating)
+	s.commonDeployment.Properties.ProvisioningState = new(armresources.ProvisioningStateCreating)
 
 	env := s.openEnviron(c)
 	senders := s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
@@ -1127,14 +1127,14 @@ func (s *environSuite) assertStartInstanceRequests(
 		Name: new("SSHInbound"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Description:              new("Allow SSH access to all machines"),
-			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			Protocol:                 new(armnetwork.SecurityRuleProtocolTCP),
 			SourceAddressPrefix:      new("*"),
 			SourcePortRange:          new("*"),
 			DestinationAddressPrefix: new("*"),
 			DestinationPortRange:     new("22"),
-			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Access:                   new(armnetwork.SecurityRuleAccessAllow),
 			Priority:                 new(int32(100)),
-			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+			Direction:                new(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}}
 	if args.autocert {
@@ -1145,27 +1145,27 @@ func (s *environSuite) assertStartInstanceRequests(
 			Name: new("JujuAPIInbound443"),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Description:              new("Allow API connections to controller machines"),
-				Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+				Protocol:                 new(armnetwork.SecurityRuleProtocolTCP),
 				SourceAddressPrefix:      new("*"),
 				SourcePortRange:          new("*"),
 				DestinationAddressPrefix: new("192.168.16.0/20"),
 				DestinationPortRange:     new("443"),
-				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+				Access:                   new(armnetwork.SecurityRuleAccessAllow),
 				Priority:                 new(int32(101)),
-				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+				Direction:                new(armnetwork.SecurityRuleDirectionInbound),
 			},
 		}, &armnetwork.SecurityRule{
 			Name: new("JujuAPIInbound80"),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Description:              new("Allow API connections to controller machines"),
-				Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+				Protocol:                 new(armnetwork.SecurityRuleProtocolTCP),
 				SourceAddressPrefix:      new("*"),
 				SourcePortRange:          new("*"),
 				DestinationAddressPrefix: new("192.168.16.0/20"),
 				DestinationPortRange:     new("80"),
-				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+				Access:                   new(armnetwork.SecurityRuleAccessAllow),
 				Priority:                 new(int32(102)),
-				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+				Direction:                new(armnetwork.SecurityRuleDirectionInbound),
 			},
 		})
 	} else {
@@ -1174,14 +1174,14 @@ func (s *environSuite) assertStartInstanceRequests(
 			Name: new("JujuAPIInbound" + port),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Description:              new("Allow API connections to controller machines"),
-				Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+				Protocol:                 new(armnetwork.SecurityRuleProtocolTCP),
 				SourceAddressPrefix:      new("*"),
 				SourcePortRange:          new("*"),
 				DestinationAddressPrefix: new("192.168.16.0/20"),
 				DestinationPortRange:     new(port),
-				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+				Access:                   new(armnetwork.SecurityRuleAccessAllow),
 				Priority:                 new(int32(101)),
-				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+				Direction:                new(armnetwork.SecurityRuleDirectionInbound),
 			},
 		})
 	}
@@ -1327,7 +1327,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			Name: new(name),
 			Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
 				Primary:                   new(primary),
-				PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
+				PrivateIPAllocationMethod: new(armnetwork.IPAllocationMethodDynamic),
 				Subnet:                    &armnetwork.Subnet{ID: new(subnetId)},
 			},
 		}}
@@ -1357,15 +1357,15 @@ func (s *environSuite) assertStartInstanceRequests(
 		})
 	}
 
-	storageAccountType := to.Ptr(armcompute.StorageAccountTypesStandardSSDLRS)
+	storageAccountType := new(armcompute.StorageAccountTypesStandardSSDLRS)
 	if args.storageAccountType != nil {
 		storageAccountType = (*armcompute.StorageAccountTypes)(args.storageAccountType)
 	}
 
 	osDisk := &armcompute.OSDisk{
 		Name:         new("juju-06f00d-0"),
-		CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
-		Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
+		CreateOption: new(armcompute.DiskCreateOptionTypesFromImage),
+		Caching:      new(armcompute.CachingTypesReadWrite),
 		DiskSizeGB:   new(int32(args.diskSizeGB)),
 		ManagedDisk: &armcompute.ManagedDiskParameters{
 			StorageAccountType: storageAccountType,
@@ -1386,8 +1386,8 @@ func (s *environSuite) assertStartInstanceRequests(
 			Location:   "westus",
 			Tags:       s.vmTags,
 			Properties: &armnetwork.PublicIPAddressPropertiesFormat{
-				PublicIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodStatic),
-				PublicIPAddressVersion:   to.Ptr(armnetwork.IPVersionIPv4),
+				PublicIPAllocationMethod: new(armnetwork.IPAllocationMethodStatic),
+				PublicIPAddressVersion:   new(armnetwork.IPVersionIPv4),
 			},
 			Sku: &armtemplates.Sku{Name: "Standard"},
 		})
@@ -1417,7 +1417,7 @@ func (s *environSuite) assertStartInstanceRequests(
 	}
 	if args.managedIdentity != "" {
 		vmTemplate.Identity = &armcompute.VirtualMachineIdentity{
-			Type: to.Ptr(armcompute.ResourceIdentityTypeUserAssigned),
+			Type: new(armcompute.ResourceIdentityTypeUserAssigned),
 			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
 				fmt.Sprintf(
 					"/subscriptions/%s/resourcegroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s",
@@ -1445,7 +1445,7 @@ func (s *environSuite) assertStartInstanceRequests(
 	deployment := &armresources.Deployment{
 		Properties: &armresources.DeploymentProperties{
 			Template: &templateMap,
-			Mode:     to.Ptr(armresources.DeploymentModeIncremental),
+			Mode:     new(armresources.DeploymentModeIncremental),
 		},
 	}
 
@@ -1957,7 +1957,7 @@ func (s *environSuite) TestAllRunningInstancesIgnoresCommonDeployment(c *tc.C) {
 		// common deployment should be ignored
 		Name: new("common"),
 		Properties: &armresources.DeploymentPropertiesExtended{
-			ProvisioningState: to.Ptr(armresources.ProvisioningStateSucceeded),
+			ProvisioningState: new(armresources.ProvisioningStateSucceeded),
 			Dependencies:      dependencies,
 		},
 	}}
