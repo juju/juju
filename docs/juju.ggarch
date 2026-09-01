@@ -37,8 +37,10 @@ model "Juju" {
     // -----------------------------------------------------------------------
     unit_pod [type: container, label: "Unit pod (one per unit)"] {
       charm_container [type: container, label: "Charm container"] {
-        unit_agent [type: juju-software, label: "Unit agent"]
-        charm      [type: charm,         label: "Charm"]
+        unit_agent [type: juju-software, label: "Unit agent",
+                    abstracts: "unit_rec"]
+        charm      [type: charm,         label: "Charm",
+                    abstracts: "charm_rec"]
       }
       workload_container [type: container, label: "Workload container"] {
         pebble   [type: pebble,   label: "Pebble (init)"]
@@ -54,7 +56,7 @@ model "Juju" {
     // -----------------------------------------------------------------------
     // External
     // -----------------------------------------------------------------------
-    k8s      [type: external, label: "Kubernetes cluster"]
+    k8s      [type: external, label: "Kubernetes cloud"]
     charmhub [type: external, label: "Charmhub"]
     clouds   [type: external, label: "Clouds\n(AWS, GCP, K8s…)"]
     cloud    [type: external, label: "Cloud"]   // generic cloud for machine sequences
@@ -67,7 +69,8 @@ model "Juju" {
     // -----------------------------------------------------------------------
     // Charmed applications — abstract
     // -----------------------------------------------------------------------
-    apps [type: unit, label: "Charmed applications"]
+    apps [type: unit, label: "Charmed applications",
+          abstracts: "application_rec"]
 
     // -----------------------------------------------------------------------
     // Hook execution participants
@@ -95,6 +98,15 @@ model "Juju" {
     controller_machine [type: container, label: "Controller machine",
                         abstracts: "controller"]
     machine_agent      [type: juju-software, label: "jujud (unit agent)"]
+
+    // -----------------------------------------------------------------------
+    // Data model — Dqlite record nodes (model database)
+    // -----------------------------------------------------------------------
+    application_rec [type: record, label: "application\n(name, charm ref, config)"]
+    unit_rec        [type: record, label: "unit\n(application, charm rev, lifecycle)"]
+    machine_rec     [type: record, label: "machine / pod\n(constraints, provider ID)"]
+    charm_rec       [type: record, label: "charm\n(source, revision, archive)"]
+    relation_rec    [type: record, label: "relation\n(endpoints, data bags)"]
   }
 
   edges {
@@ -103,23 +115,23 @@ model "Juju" {
     client -> controller [type: api]
     controller -> agents [type: control]
     agents -> world      [type: control]
+    agents -> apps       [type: control]
 
     // Controller to clouds and charmhub
     controller -> clouds   [type: control]
     controller -> charmhub [type: api]
-    controller -> apps     [type: control]
 
     // K8s topology
-    k8s            -> controller_pod [type: control]
-    k8s            -> unit_pod       [type: control]
-    jujud          -> unit_agent     [type: stream]
+    jujud          -> k8s            [type: control]
+    jujud          -> unit_agent     [type: api]
     jujud          -> charmhub       [type: api, label: "fetches charm"]
     charm          -> pebble         [type: api]
+    pebble         -> workload       [type: control]
 
     // Hook execution
     apiserver  -> unit_agent [type: stream,  label: "watcher"]
-    unit_agent -> charm      [type: control, label: "exec dispatch"]
-    charm      -> unit_agent [type: ipc,     label: "hook commands"]
+    unit_agent -> charm      [type: control]
+    charm      -> unit_agent [type: ipc]
     unit_agent -> apiserver  [type: api,     label: "serve / flush"]
 
     // Bootstrap K8s
@@ -152,12 +164,18 @@ model "Juju" {
     ua2        -> controller [type: api]
 
     // Remove / destroy — user sends directly to controller
-    user           -> controller  [type: control]
+    user           -> controller  [type: event]
     controller     -> unit_agent  [type: stream]
     unit_agent     -> controller  [type: api]
     // Model removal
     controller -> undertaker [type: stream]
     undertaker -> controller [type: api]
+
+    // Data model schema relationships
+    application_rec -> charm_rec    [type: data, label: "uses"]
+    application_rec -> unit_rec     [type: data, label: "has units"]
+    unit_rec        -> machine_rec  [type: data, label: "runs on"]
+    relation_rec    -> application_rec [type: data, label: "connects"]
   }
 
   behaviours {
@@ -295,36 +313,21 @@ model "Juju" {
 // ==========================================================================
 
 // --------------------------------------------------------------------------
-// Insight: intent vs execution
-// --------------------------------------------------------------------------
-
-diagram "Intent vs execution" from "Juju" {
-  select { nodes: user client controller agents world }
-  positions {
-    user       left-of client     gap: 30
-    user       align-middle client
-    client     left-of controller gap: 40
-    client     align-middle controller
-    controller left-of agents     gap: 40
-    controller align-middle agents
-    agents     left-of world      gap: 40
-    agents     align-middle world
-  }
-}
-
-// --------------------------------------------------------------------------
-// Insight: controller as hub
+// Insight: overview with intent/execution chain
 // --------------------------------------------------------------------------
 
 diagram "Juju overview" from "Juju" {
-  select { nodes: user client controller apps clouds charmhub }
+  select { nodes: user client controller agents apps clouds charmhub
+           edges: type control type api }
   positions {
     user       left-of client      gap: 30
     user       align-middle client
     client     left-of controller  gap: 40
     client     align-middle controller
-    controller left-of apps        gap: 40
-    controller align-middle apps
+    controller left-of agents      gap: 40
+    controller align-middle agents
+    agents     left-of apps        gap: 40
+    agents     align-middle apps
     clouds     above controller    gap: 50
     clouds     align-centre controller
     charmhub   below controller    gap: 50
@@ -338,13 +341,17 @@ diagram "Juju overview" from "Juju" {
 
 diagram "K8s deployment topology" from "Juju" {
   select {
-    nodes: k8s controller_pod unit_pod
+    nodes: k8s controller_pod unit_pod charmhub
+    edges: type api type control
   }
   positions {
-    k8s            above controller_pod  gap: 40
-    k8s            align-centre controller_pod
     controller_pod left-of unit_pod      gap: 60
     controller_pod align-middle unit_pod
+    k8s            above controller_pod  gap: 40
+    k8s            align-centre controller_pod
+    charmhub       below controller_pod  gap: 40
+    charmhub       align-centre controller_pod
+    jujud          align-middle unit_agent
     unit_pod       direction: right
     charm_container    same-width workload_container
     unit_agent         same-width charm
@@ -352,6 +359,28 @@ diagram "K8s deployment topology" from "Juju" {
     jujud              min-width: 160
   }
 }
+
+// --------------------------------------------------------------------------
+// Data model: Dqlite records
+// --------------------------------------------------------------------------
+
+diagram "Data model" from "Juju" {
+  select {
+    nodes: application_rec unit_rec machine_rec charm_rec relation_rec
+  }
+  positions {
+    application_rec left-of unit_rec        gap: 60
+    application_rec align-middle unit_rec
+    unit_rec        right-of application_rec gap: 60
+    unit_rec        left-of machine_rec      gap: 60
+    unit_rec        align-middle machine_rec
+    charm_rec       above application_rec    gap: 50
+    charm_rec       align-centre application_rec
+    relation_rec    below application_rec    gap: 50
+    relation_rec    align-centre application_rec
+  }
+}
+
 
 // --------------------------------------------------------------------------
 // Sequence views

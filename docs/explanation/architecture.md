@@ -50,22 +50,14 @@ toward it continuously -- through restarts, failures, and drift.
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Intent vs execution
-:alt: User declares to Client. Client persists to Controller (goal state). Controller reconciles via Agents. Agents converge the Real world.
-```
-*Intent separated from execution. The controller holds goal state durably; agents
-close the gap between what is declared and what exists. When reality drifts --
-a machine dies, a unit fails -- the same loop brings it back.*
-
-```{ggarch}
-:file: ../juju.ggarch
 :view: Juju overview
-:alt: User, Client, Controller, and Charmed applications on the same horizontal plane left to right. Clouds above the Controller. Charmhub below the Controller.
+:alt: User, Client, Controller, Agents, and Charmed applications on the same horizontal plane left to right. Clouds above the Controller. Charmhub below the Controller.
 ```
-*The controller as hub. User, client, controller, and charmed applications
-form a horizontal chain of intent and execution. Clouds (infrastructure
-knowledge) and Charmhub (application knowledge) connect vertically to the
-controller — the only component that needs to know about both.*
+*The controller as hub. User, client, controller, agents, and charmed applications
+form a horizontal chain of intent and execution. Agents close the gap between what
+the controller holds as goal state and what runs on the infrastructure. Clouds
+(infrastructure knowledge) and Charmhub (application knowledge) connect vertically
+to the controller — the only component that needs to know about both.*
 
 
 ## Mechanism
@@ -87,14 +79,15 @@ See more: {ref}`controller`, {ref}`unit`, {ref}`machines-and-system-containers`
 ```{ggarch}
 :file: ../juju.ggarch
 :view: K8s deployment topology
-:alt: Kubernetes cluster schedules the Controller pod (running the controller agent, jujud) and Unit pods (one per unit). Each unit pod has a Charm container (unit agent and charm code) and a Workload container (Pebble init process and workload services). The controller agent talks to the unit agent over the Juju API websocket. The charm talks to Pebble over the Pebble API HTTP.
+:alt: Vertical stack on the left: Kubernetes cloud above, controller pod (running the controller agent jujud with Dqlite) in the middle, Charmhub below. Unit pod on the right. All horizontal arrows at the same height: controller agent to unit agent, unit agent to charm, charm to Pebble, Pebble to workload services. jujud also connects down to Charmhub.
 ```
-*A live Kubernetes deployment. The controller pod runs the controller agent (`jujud`
-with Dqlite in-process). Each unit runs in its own pod: the charm container holds
-the unit agent and the charm code; the workload container holds Pebble (injected
-as the init process) and the workload services. The controller agent drives the
-unit agent over the Juju API websocket; the charm drives Pebble over the Pebble
-API HTTP.*
+*A live Kubernetes deployment. On the left: the Kubernetes cloud schedules the
+controller pod, which runs the controller agent (`jujud` with Dqlite in-process)
+and connects down to Charmhub to fetch charms. On the right: each unit runs in its
+own pod — the charm container holds the unit agent and charm code, the workload
+container holds Pebble and the workload services. All runtime connections run
+horizontally at the same level: controller agent → unit agent (Juju API), unit
+agent → charm (dispatch), charm → Pebble (Pebble API), Pebble → workload.*
 
 ### Control flow
 
@@ -200,6 +193,16 @@ is set by the controller when removal is requested; the relevant agent drives th
 entity to Dead by running the teardown sequence. Dead entities are cleaned up by the
 controller. This is what makes removal safe and observable: nothing is deleted
 until the agent has confirmed it is done.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Data model
+:alt: Five record nodes: charm at top, application in the centre-left, unit to the right of application, machine/pod to the right of unit, relation below application. Arrows: application uses charm, application has units (unit), unit runs on machine/pod, relation connects application.
+```
+*Core records in the model database. `application` references a `charm`; each
+unit carries the charm revision it is running. `relation` records link two
+application endpoints and hold the data bags each side writes. The lifecycle
+state column (Alive → Dying → Dead) is on every record that can be removed.*
 
 ```{ibnote}
 See more: {ref}`controller`, {ref}`model`, {ref}`application`, {ref}`unit`,
