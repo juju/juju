@@ -26,6 +26,11 @@ type relationUUID struct {
 	UUID string `db:"uuid"`
 }
 
+type relationUUIDAndRole struct {
+	UUID string `db:"relation_uuid"`
+	Role string `db:"role"`
+}
+
 type endpointIdentifier struct {
 	ApplicationName string `db:"application_name"`
 	EndpointName    string `db:"endpoint_name"`

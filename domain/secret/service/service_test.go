@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/deployment/charm"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/errors"
@@ -1313,6 +1314,80 @@ func (s *serviceSuite) TestGrantSecretRelationScope(c *tc.C) {
 		Role: "view",
 	})
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestGrantSecretPeerRelationScope(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUID(c.Context(), "k8s").Return(appUUID, nil)
+	relUUID := relationtesting.GenRelationUUID(c)
+	s.state.EXPECT().GetPeerRelationUUIDByEndpointIdentifiers(gomock.Any(), relation.EndpointIdentifier{
+		ApplicationName: "k8s",
+		EndpointName:    "cluster",
+		Role:            charm.RolePeer,
+	}).Return(relUUID.String(), nil)
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "k8s/0",
+	}).Return("manage", nil)
+	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeRelation,
+		ScopeUUID:     relUUID.String(),
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectUUID:   appUUID.String(),
+		RoleID:        domainsecret.RoleView,
+	}).Return(nil)
+
+	err := s.service.GrantSecretAccess(c.Context(), uri, domainsecret.SecretAccessParams{
+		Accessor: domainsecret.SecretAccessor{
+			Kind: domainsecret.UnitAccessor,
+			ID:   "k8s/0",
+		},
+		Scope: domainsecret.SecretAccessScope{
+			Kind: domainsecret.RelationAccessScope,
+			ID:   "k8s:cluster",
+		},
+		Subject: domainsecret.SecretAccessor{
+			Kind: domainsecret.ApplicationAccessor,
+			ID:   "k8s",
+		},
+		Role: "view",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestGrantSecretPeerRelationScopeError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	s.state.EXPECT().GetPeerRelationUUIDByEndpointIdentifiers(gomock.Any(), relation.EndpointIdentifier{
+		ApplicationName: "k8s",
+		EndpointName:    "cluster",
+		Role:            charm.RolePeer,
+	}).Return("", relationerrors.RelationNotFound)
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "k8s/0",
+	}).Return("manage", nil)
+
+	err := s.service.GrantSecretAccess(c.Context(), uri, domainsecret.SecretAccessParams{
+		Accessor: domainsecret.SecretAccessor{
+			Kind: domainsecret.UnitAccessor,
+			ID:   "k8s/0",
+		},
+		Scope: domainsecret.SecretAccessScope{
+			Kind: domainsecret.RelationAccessScope,
+			ID:   "k8s:cluster",
+		},
+		Subject: domainsecret.SecretAccessor{
+			Kind: domainsecret.ApplicationAccessor,
+			ID:   "k8s",
+		},
+		Role: "view",
+	})
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
 func (s *serviceSuite) TestRevokeSecretUnitAccess(c *tc.C) {

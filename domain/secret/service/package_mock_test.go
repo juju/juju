@@ -52,6 +52,7 @@ type MockStateMockRecorder struct {
 	getModelUUIDExpects                                         []*gomock.Call1_2[context.Context, model.UUID, error]
 	getObsoleteUserSecretRevisionsReadyToPruneExpects           []*gomock.Call1_2[context.Context, []string, error]
 	getOwnedSecretIDsExpects                                    []*gomock.Call3_2[context.Context, []string, []string, []string, error]
+	getPeerRelationUUIDByEndpointIdentifiersExpects             []*gomock.Call2_2[context.Context, relation.EndpointIdentifier, string, error]
 	getRegularRelationUUIDByEndpointIdentifiersExpects          []*gomock.Call3_2[context.Context, relation.EndpointIdentifier, relation.EndpointIdentifier, string, error]
 	getRelationEndpointsExpects                                 []*gomock.Call2_2[context.Context, string, []relation.EndpointIdentifier, error]
 	getRevisionIDsForObsoleteExpects                            []*gomock.Call4_2[context.Context, secret.ApplicationOwners, secret.UnitOwners, []string, []string, error]
@@ -379,6 +380,24 @@ func (mr *MockStateMockRecorder) GetOwnedSecretIDs(ctx, appOwnerUUIDs, unitOwner
 
 // MockStateGetOwnedSecretIDsCall is the typed call wrapper for GetOwnedSecretIDs.
 type MockStateGetOwnedSecretIDsCall = gomock.Call3_2[context.Context, []string, []string, []string, error]
+
+// GetPeerRelationUUIDByEndpointIdentifiers mocks base method.
+func (m *MockState) GetPeerRelationUUIDByEndpointIdentifiers(ctx context.Context, endpoint relation.EndpointIdentifier) (string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getPeerRelationUUIDByEndpointIdentifiersExpects, m.ctrl, m, "GetPeerRelationUUIDByEndpointIdentifiers", ctx, endpoint)
+}
+
+// GetPeerRelationUUIDByEndpointIdentifiers indicates an expected call of GetPeerRelationUUIDByEndpointIdentifiers.
+func (mr *MockStateMockRecorder) GetPeerRelationUUIDByEndpointIdentifiers(ctx, endpoint any) *MockStateGetPeerRelationUUIDByEndpointIdentifiersCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, relation.EndpointIdentifier, string, error](mr.mock.ctrl.T, mr.mock, "GetPeerRelationUUIDByEndpointIdentifiers", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(endpoint))
+	mr.getPeerRelationUUIDByEndpointIdentifiersExpects = append(mr.getPeerRelationUUIDByEndpointIdentifiersExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetPeerRelationUUIDByEndpointIdentifiersCall is the typed call wrapper for GetPeerRelationUUIDByEndpointIdentifiers.
+type MockStateGetPeerRelationUUIDByEndpointIdentifiersCall = gomock.Call2_2[context.Context, relation.EndpointIdentifier, string, error]
 
 // GetRegularRelationUUIDByEndpointIdentifiers mocks base method.
 func (m *MockState) GetRegularRelationUUIDByEndpointIdentifiers(ctx context.Context, endpoint1, endpoint2 relation.EndpointIdentifier) (string, error) {
