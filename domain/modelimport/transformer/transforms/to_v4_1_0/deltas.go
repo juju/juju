@@ -157,3 +157,19 @@ func (d deltas) SshConnectionRequest(_ context.Context, _ *v4_0_12.ModelExport) 
 	// to transform from 4.0.12.
 	return nil, nil
 }
+
+// ApplicationScale: struct shape changed in 4.1.0. We always default to 0,
+// as this is a change in behavior.
+func (d deltas) ApplicationScale(ctx context.Context, src []v4_0_12.ApplicationScale) ([]v4_1_0.ApplicationScale, error) {
+	var scales []v4_1_0.ApplicationScale
+	for _, s := range src {
+		scales = append(scales, v4_1_0.ApplicationScale{
+			ApplicationUUID: s.ApplicationUUID,
+			Scale:           s.Scale,
+			ScaleTarget:     s.ScaleTarget,
+			Scaling:         s.Scaling,
+			StartOrdinal:    0,
+		})
+	}
+	return scales, nil
+}

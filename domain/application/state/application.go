@@ -566,9 +566,10 @@ WHERE  application_uuid = $applicationScale.application_uuid
 		return application.ScaleState{}, errors.Errorf("querying application %q scale: %w", appUUID, err)
 	}
 	return application.ScaleState{
-		Scaling:     appScale.Scaling,
-		Scale:       appScale.Scale,
-		ScaleTarget: appScale.ScaleTarget,
+		StartOrdinal: appScale.StartOrdinal,
+		Scaling:      appScale.Scaling,
+		Scale:        appScale.Scale,
+		ScaleTarget:  appScale.ScaleTarget,
 	}, nil
 }
 
@@ -949,6 +950,20 @@ WHERE  application_uuid = $applicationScale.application_uuid
 // SetApplicationScalingState sets the scaling details for the given caas
 // application Scale is optional and is only set if not nil.
 func (st *State) SetApplicationScalingState(ctx context.Context, appName string, targetScale int, scaling bool) error {
+	appUUID, err := st.GetApplicationUUIDByName(ctx, appName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	scaleState, err := st.GetApplicationScaleState(ctx, appUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return st.SetApplicationScalingStateWithStart(ctx, appName, targetScale, scaleState.StartOrdinal, scaling)
+}
+
+// SetApplicationScalingStateWithStart updates the scale state and desired
+// StatefulSet start ordinal of a CAAS application.
+func (st *State) SetApplicationScalingStateWithStart(ctx context.Context, appName string, targetScale, startOrdinal int, scaling bool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -958,7 +973,8 @@ func (st *State) SetApplicationScalingState(ctx context.Context, appName string,
 UPDATE application_scale
 SET    scale = $applicationScale.scale,
        scaling = $applicationScale.scaling,
-       scale_target = $applicationScale.scale_target
+       scale_target = $applicationScale.scale_target,
+       start_ordinal = $applicationScale.start_ordinal
 WHERE  application_uuid = $applicationScale.application_uuid
 `
 
@@ -1000,6 +1016,7 @@ WHERE  application_uuid = $applicationScale.application_uuid
 
 		scaleDetailsToUpdate := applicationScale{
 			ApplicationID: appDetails.UUID,
+			StartOrdinal:  startOrdinal,
 			Scaling:       scaling,
 			Scale:         scale,
 			ScaleTarget:   targetScale,
