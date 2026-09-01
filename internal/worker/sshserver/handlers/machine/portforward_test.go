@@ -129,5 +129,5 @@ func (s *machineSuite) TestDirectTCPIPHandlerReportsConnectionFailure(c *tc.C) {
 
 	_, err = client.Dial("tcp", "localhost:8080")
 
-	c.Check(err, tc.ErrorMatches, `ssh: rejected: connect failed \(failed to connect to machine: connection failed\)`)
+	c.Check(err, tc.ErrorMatches, `ssh: rejected: connect failed \("failed to connect to machine: connection failed"\)`)
 }
