@@ -671,6 +671,14 @@ func (srv *Server) loop(ready chan struct{}) error {
 	})
 	srv.mu.Unlock()
 
+	// Disable each watcher case once its channel closes: stopping the
+	// watchers is part of the server shutting down, since the catacomb
+	// kills the workers added to it, and handling their channels closing
+	// would race with the dying case below. If a watcher stops while
+	// the server keeps running, its error kills the catacomb it was
+	// added to.
+	controllerChanges := controllerConfigWatcher.Changes()
+	removalChanges := modelRemovalWatcher.Changes()
 	for {
 		select {
 		case <-srv.catacomb.Dying():
@@ -686,7 +694,11 @@ func (srv *Server) loop(ready chan struct{}) error {
 			srv.wg.Wait() // wait for any outstanding requests to complete.
 			return ErrAPIServerDying
 
-		case <-controllerConfigWatcher.Changes():
+		case _, ok := <-controllerChanges:
+			if !ok {
+				controllerChanges = nil
+				continue
+			}
 			controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 			if err != nil {
 				logger.Errorf(ctx, "failed to get controller config: %v", err)
@@ -703,9 +715,10 @@ func (srv *Server) loop(ready chan struct{}) error {
 				continue
 			}
 
-		case modelUUIDs, ok := <-modelRemovalWatcher.Changes():
+		case modelUUIDs, ok := <-removalChanges:
 			if !ok {
-				return errors.New("model removals watcher stopped")
+				removalChanges = nil
+				continue
 			}
 			for _, modelUUID := range modelUUIDs {
 				logger.Infof(ctx, "model %q has been removed, closing its connections", modelUUID)
