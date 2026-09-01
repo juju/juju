@@ -31,7 +31,6 @@ jobs:
       check-export-version: ${{ steps.filter-files.outputs.check-export-version }}
       check-smoke: ${{ steps.filter-files.outputs.check-smoke }}
       ref: ${{ steps.refs.outputs.head_ref }}
-      base: ${{ steps.refs.outputs.base_ref }}
     steps:
       - name: Checkout
         if: github.event_name != 'pull_request'
@@ -76,6 +75,8 @@ jobs:
               - '**.go'
               - 'go.mod'
               - '.github/workflows/build.yml'
+              - '.github/workflows/unit-tests.yml'
+              - '.github/workflows/context-tests.yml'
               - 'scripts/dqlite/**'
               - 'Makefile'
               - 'make_functions.sh'
@@ -153,8 +154,6 @@ jobs:
     name: Unit Tests
     if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-unit-tests == 'true'
     uses: ./.github/workflows/unit-tests.yml
-    with:
-      base: ${{ needs.changed-files.outputs.base }}
 
   snap:
     needs: [changed-files]
