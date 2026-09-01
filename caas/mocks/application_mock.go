@@ -13,10 +13,11 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
+	v1 "k8s.io/api/core/v1"
+
 	caas "github.com/juju/juju/caas"
 	watcher "github.com/juju/juju/core/watcher"
 	storage "github.com/juju/juju/internal/storage"
-	v1 "k8s.io/api/core/v1"
 )
 
 // MockApplication is a mock of Application interface.
@@ -35,7 +36,8 @@ type MockApplicationMockRecorder struct {
 	ensureControllerNonceExpects []*gomock.Call3_1[context.Context, int, string, error]
 	ensurePVCsExpects            []*gomock.Call3_1[[]storage.KubernetesFilesystemParams, map[string][]storage.KubernetesFilesystemUnitAttachmentParams, string, error]
 	existsExpects                []*gomock.Call0_2[caas.DeploymentState, error]
-	scaleExpects                 []*gomock.Call1_1[int, error]
+	scaleExpects                 []*gomock.Call2_1[context.Context, int, error]
+	scaleRangeExpects            []*gomock.Call3_1[context.Context, int, int, error]
 	serviceExpects               []*gomock.Call0_2[*caas.Service, error]
 	stateExpects                 []*gomock.Call0_2[caas.ApplicationState, error]
 	trustExpects                 []*gomock.Call1_1[bool, error]
@@ -168,22 +170,40 @@ func (mr *MockApplicationMockRecorder) Exists() *MockApplicationExistsCall {
 type MockApplicationExistsCall = gomock.Call0_2[caas.DeploymentState, error]
 
 // Scale mocks base method.
-func (m *MockApplication) Scale(arg0 int) error {
+func (m *MockApplication) Scale(arg0 context.Context, arg1 int) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_1(&m.recorder.scaleExpects, m.ctrl, m, "Scale", arg0)
+	return gomock.Dispatch2_1(&m.recorder.scaleExpects, m.ctrl, m, "Scale", arg0, arg1)
 }
 
 // Scale indicates an expected call of Scale.
-func (mr *MockApplicationMockRecorder) Scale(arg0 any) *MockApplicationScaleCall {
+func (mr *MockApplicationMockRecorder) Scale(arg0, arg1 any) *MockApplicationScaleCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_1[int, error](mr.mock.ctrl.T, mr.mock, "Scale", gomock.EnsureMatcher(arg0))
+	call := gomock.NewCall2_1[context.Context, int, error](mr.mock.ctrl.T, mr.mock, "Scale", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
 	mr.scaleExpects = append(mr.scaleExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockApplicationScaleCall is the typed call wrapper for Scale.
-type MockApplicationScaleCall = gomock.Call1_1[int, error]
+type MockApplicationScaleCall = gomock.Call2_1[context.Context, int, error]
+
+// ScaleRange mocks base method.
+func (m *MockApplication) ScaleRange(arg0 context.Context, arg1, arg2 int) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.scaleRangeExpects, m.ctrl, m, "ScaleRange", arg0, arg1, arg2)
+}
+
+// ScaleRange indicates an expected call of ScaleRange.
+func (mr *MockApplicationMockRecorder) ScaleRange(arg0, arg1, arg2 any) *MockApplicationScaleRangeCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, int, int, error](mr.mock.ctrl.T, mr.mock, "ScaleRange", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
+	mr.scaleRangeExpects = append(mr.scaleRangeExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockApplicationScaleRangeCall is the typed call wrapper for ScaleRange.
+type MockApplicationScaleRangeCall = gomock.Call3_1[context.Context, int, int, error]
 
 // Service mocks base method.
 func (m *MockApplication) Service() (*caas.Service, error) {

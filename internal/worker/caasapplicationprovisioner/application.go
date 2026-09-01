@@ -81,8 +81,12 @@ const (
 	unitsChurning errors.ConstError = "units churning"
 )
 
+// NewAppWorkerFunc is a function type that creates a new application
+// provisioner worker for the given configuration.
 type NewAppWorkerFunc func(AppWorkerConfig) func(ctx context.Context) (worker.Worker, error)
 
+// NewAppWorker returns a function that creates a new application provisioner
+// worker for the given configuration.
 func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Worker, error) {
 	ops := config.Ops
 	if ops == nil {

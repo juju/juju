@@ -27,10 +27,14 @@ type Application interface {
 	// ApplicationPodSpec returns the pod spec needed to run the application workload.
 	ApplicationPodSpec(config ApplicationConfig) (*core.PodSpec, error)
 
-	// Scale scales the Application's unit to the value specified. Scale must
-	// be >= 0. Application units will be removed or added to meet the scale
-	// defined.
-	Scale(int) error
+	// Scale reconciles the application's replica count. Scale must be >= 0.
+	// The operation stops if ctx is cancelled.
+	Scale(context.Context, int) error
+
+	// ScaleRange reconciles a contiguous StatefulSet ordinal range. The range
+	// is [startOrdinal, startOrdinal+scale). Both values must be non-negative.
+	// The operation stops if ctx is cancelled.
+	ScaleRange(context.Context, int, int) error
 
 	// Trust sets up the role on the application's service account to
 	// give full access to the cluster.

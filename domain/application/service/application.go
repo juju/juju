@@ -146,6 +146,7 @@ type ApplicationState interface {
 	// SetApplicationScalingState sets the scaling details for the given caas
 	// application Scale is optional and is only set if not nil.
 	SetApplicationScalingState(ctx context.Context, appName string, targetScale int, scaling bool) error
+	SetApplicationScalingStateWithStart(ctx context.Context, appName string, targetScale, startOrdinal int, scaling bool) error
 
 	// SetDesiredApplicationScale updates the desired scale of the specified
 	// application.
@@ -1070,6 +1071,18 @@ func (s *Service) SetApplicationScalingState(ctx context.Context, appName string
 	return nil
 }
 
+// SetApplicationScalingStateWithStart updates the scale state and desired
+// StatefulSet start ordinal of a CAAS application.
+func (s *Service) SetApplicationScalingStateWithStart(ctx context.Context, appName string, scaleTarget, startOrdinal int, scaling bool) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.st.SetApplicationScalingStateWithStart(ctx, appName, scaleTarget, startOrdinal, scaling); err != nil {
+		return errors.Errorf("updating scaling state for %q: %w", appName, err)
+	}
+	return nil
+}
+
 // GetApplicationScalingState returns the scale state of an application,
 // returning an error satisfying [applicationerrors.ApplicationNotFound] if
 // the application doesn't exist. This is used on CAAS models.
@@ -1086,8 +1099,9 @@ func (s *Service) GetApplicationScalingState(ctx context.Context, appName string
 		return ScalingState{}, errors.Errorf("getting scaling state for %q: %w", appName, err)
 	}
 	return ScalingState{
-		ScaleTarget: scaleState.ScaleTarget,
-		Scaling:     scaleState.Scaling,
+		StartOrdinal: scaleState.StartOrdinal,
+		ScaleTarget:  scaleState.ScaleTarget,
+		Scaling:      scaleState.Scaling,
 	}, nil
 }
 
