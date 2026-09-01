@@ -254,6 +254,12 @@ sequenceDiagram
 
 ::::{tab-item} Machine
 
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Bootstrap machine
+:alt: User invokes juju bootstrap. CLI authenticates with Cloud and provisions a VM. CLI installs jujud on the Controller machine. Controller machine starts the controller agent, API server, and database. Controller machine reports API ready. CLI reports Bootstrap complete to User.
+```
+
 ```{mermaid}
 sequenceDiagram
     actor User
@@ -346,6 +352,12 @@ sequenceDiagram
 ::::
 
 ::::{tab-item} Machine
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Deploy machine
+:alt: User invokes juju deploy. CLI sends Deploy RPC call to Controller. Controller writes application and unit records and provisions a machine via Cloud. Cloud returns Machine ready. Controller starts jujud unit agent. jujud runs install, config-changed, start hooks and reports unit active. Controller reports deploy complete to CLI, CLI reports to User.
+```
 
 ```{mermaid}
 sequenceDiagram

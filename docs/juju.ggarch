@@ -85,10 +85,16 @@ model "Juju" {
     ua1 [type: juju-software, label: "Unit agent (app A)"]
     ua2 [type: juju-software, label: "Unit agent (app B)"]
 
-    // -----------------------------------------------------------------------
     // Remove — undertaker worker
     // -----------------------------------------------------------------------
     undertaker [type: juju-software, label: "Undertaker worker"]
+
+    // -----------------------------------------------------------------------
+    // Machine cloud — controller machine and unit agent (both jujud)
+    // -----------------------------------------------------------------------
+    controller_machine [type: container, label: "Controller machine",
+                        abstracts: "controller"]
+    machine_agent      [type: juju-software, label: "jujud (unit agent)"]
   }
 
   edges {
@@ -120,15 +126,24 @@ model "Juju" {
     client         -> k8s            [type: api]
     k8s            -> client         [type: api]
     controller_pod -> client         [type: api, label: "API ready"]
-
     // Deploy K8s
     controller     -> k8s              [type: control]
     controller     -> containeragent   [type: control]
     containeragent -> controller       [type: api]
 
-    // Deploy machine / unit removal
+    // Bootstrap machine
+    client             -> controller_machine  [type: control]
+    controller_machine -> client              [type: api]
+
+    // Deploy machine
+    controller    -> machine_agent  [type: control]
+    machine_agent -> controller     [type: api]
+
+    // Machine/unit removal and bootstrap machine — generic cloud
+    client     -> cloud  [type: api]
     controller -> cloud  [type: control]
     cloud      -> controller [type: control]
+    cloud      -> client     [type: api]
 
     // Integrate
     controller -> ua1    [type: stream]
@@ -238,6 +253,35 @@ model "Juju" {
       undertaker -> controller:  call "Delete model Dqlite database"
     }
 
+    behaviour "Bootstrap machine" {
+      user               -> client:             call "juju bootstrap"
+      client             -> cloud:              call "Authenticate"
+      cloud              -> client:             return "OK"
+      client             -> cloud:              call "Provision VM"
+      cloud              -> client:             return "VM ready"
+      client             -> controller_machine: call "Install jujud + seed config"
+      controller_machine -> controller_machine: self "Start controller agent"
+      controller_machine -> controller_machine: self "Start API server + database"
+      controller_machine -> client:             return "API ready"
+      client             -> user:               return "Bootstrap complete"
+    }
+
+    behaviour "Deploy machine" {
+      user          -> client:        call "juju deploy"
+      client        -> controller:    call "Deploy RPC call"
+      controller    -> controller:    self "Write application + unit records"
+      controller    -> cloud:         call "Provision machine"
+      cloud         -> controller:    return "Machine ready"
+      controller    -> machine_agent: call "Start jujud"
+      machine_agent -> controller:    call "install hook"
+      machine_agent -> controller:    call "config-changed hook"
+      machine_agent -> controller:    call "start hook"
+      machine_agent -> controller:    return "unit active"
+      controller    -> client:        return "deploy complete"
+      client        -> user:          return "Application deployed"
+    }
+
+
   }
 
   style {
@@ -327,6 +371,14 @@ sequence "Deploy K8s" from "Juju" {
 
 sequence "Integrate" from "Juju" {
   select { behaviour: "Integrate" }
+}
+
+sequence "Bootstrap machine" from "Juju" {
+  select { behaviour: "Bootstrap machine" }
+}
+
+sequence "Deploy machine" from "Juju" {
+  select { behaviour: "Deploy machine" }
 }
 
 sequence "Unit removal" from "Juju" {
