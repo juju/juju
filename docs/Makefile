@@ -63,6 +63,9 @@ $(DOCS_VENVDIR):
 	. $(DOCS_VENV); pip install $(PIPOPTS) --require-virtualenv \
 	    --upgrade -r requirements.txt \
             --log $(DOCS_VENVDIR)/pip_install.log
+	. $(DOCS_VENV); pip install --require-virtualenv -e $(HOME)/git/ggarch \
+            >> $(DOCS_VENVDIR)/pip_install.log 2>&1 || \
+            { echo "WARNING: ggarch not installed (~/git/ggarch not found) -- ggarch diagrams will not render"; }
 	@test ! -f $(DOCS_VENVDIR)/pip_list.txt || \
             mv $(DOCS_VENVDIR)/pip_list.txt $(DOCS_VENVDIR)/pip_list.txt.bak
 	@. $(DOCS_VENV); pip list --local --format=freeze > $(DOCS_VENVDIR)/pip_list.txt
