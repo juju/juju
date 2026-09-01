@@ -439,7 +439,7 @@ func (s *modelSuite) TestRemoveModelWithDetachedStorageAndDestroyStorage(c *tc.C
 
 	cExp := s.controllerState.EXPECT()
 	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), false).Return(nil)
+	cExp.EnsureModelNotAliveUnlessMigrating(gomock.Any(), mUUID.String(), false).Return(nil)
 
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
@@ -469,7 +469,7 @@ func (s *modelSuite) TestRemoveModelWithDetachedStorageAndNoDestroyStorage(c *tc
 
 	cExp := s.controllerState.EXPECT()
 	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), false).Return(nil)
+	cExp.EnsureModelNotAliveUnlessMigrating(gomock.Any(), mUUID.String(), false).Return(nil)
 
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
@@ -503,7 +503,7 @@ func (s *modelSuite) TestRemoveModelSchedulesOrphanedStorageRemoval(c *tc.C) {
 
 	cExp := s.controllerState.EXPECT()
 	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), false).Return(nil)
+	cExp.EnsureModelNotAliveUnlessMigrating(gomock.Any(), mUUID.String(), false).Return(nil)
 
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
@@ -535,7 +535,7 @@ func (s *modelSuite) TestRemoveModelRefusesPersistentStorageWhenNil(c *tc.C) {
 
 	cExp := s.controllerState.EXPECT()
 	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), false).Return(nil)
+	cExp.EnsureModelNotAliveUnlessMigrating(gomock.Any(), mUUID.String(), false).Return(nil)
 
 	mExp := s.modelState.EXPECT()
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
