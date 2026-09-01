@@ -276,5 +276,5 @@ type RemovalService interface {
 	RemoveController(ctx context.Context, force bool, wait time.Duration) ([]coremodel.UUID, error)
 
 	// RemoveModel removes the specified model.
-	RemoveModel(ctx context.Context, modelUUID coremodel.UUID, force bool, wait time.Duration) (removal.UUID, error)
+	RemoveModel(ctx context.Context, modelUUID coremodel.UUID, force bool, wait time.Duration, destroyStorage *bool) (removal.UUID, error)
 }

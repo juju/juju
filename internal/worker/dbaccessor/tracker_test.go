@@ -194,6 +194,38 @@ func (s *trackedDBWorkerSuite) TestWorkerStdTxnIsNotNil(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *trackedDBWorkerSuite) TestWorkerRunReusesPreparedContextForRetries(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+	defer s.expectTimer(0)()
+
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
+
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	worker := w.(*trackedDBWorker)
+	contexts := make(chan context.Context, 2)
+	var attempts atomic.Int64
+	err = worker.run(c.Context(), func(ctx context.Context, _ *sqlair.DB) error {
+		contexts <- ctx
+		if attempts.Add(1) == 1 {
+			return sqlite3.ErrBusy
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	first := <-contexts
+	second := <-contexts
+	c.Check(first == second, tc.IsTrue)
+	c.Check(attempts.Load(), tc.Equals, int64(2))
+
+	workertest.CleanKill(c, w)
+}
+
 func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

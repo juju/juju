@@ -45,15 +45,10 @@ test_import_filesystem() {
 	wait_for_storage "detached" '.storage["data/1"]["status"].current'
 	wait_for_storage "${PV}" '.filesystems["1"]."provider-id"'
 
-	# WORKAROUND(juju/juju#23069): Juju 4.0 model destroy does not cascade
-	# removal of detached storage instances, causing the model-removal job to
-	# retry forever on checkNoModelDependents. Remove the imported storage
-	# explicitly before destroying the model. Delete this workaround when
-	# the issue is resolved.
-	juju remove-storage data/1 --no-destroy
-	wait_for "{}" ".storage"
-
-	# Destroy the test model.
+	# Destroy the test model. With the fix for juju/juju#23069,
+	# destroy-model now cascades removal of detached storage
+	# instances, so the workaround of explicitly removing storage
+	# before destroy is no longer needed.
 	destroy_model "${model_name}"
 }
 
@@ -85,13 +80,17 @@ test_force_import_filesystem() {
 	# already cleaned up the original one.
 	ORIG_PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
 
-	# Remove only the application. We deliberately do NOT run
-	# `juju remove-storage data/0`; the goal is to leave a Juju-managed
-	# PVC bound to the PV so that `import-filesystem --force` actually
-	# exercises the new forced cleanup path (delete the PVC, clear the
-	# claimRef).
+	# Remove the application, then clean up the storage record while
+	# keeping the PV. The UNIQUE constraint on
+	# storage_filesystem.provider_id (patch 0062) prevents re-importing
+	# a PV whose Juju record still exists, so the storage must be
+	# removed explicitly. The --force flag on import-filesystem handles
+	# provider-side cleanup (deleting the PVC, clearing claimRef) — it
+	# does not override Juju's DB-side tracking.
 	juju remove-application dummy-k8s-storage --force --no-prompt
 	wait_for "{}" ".applications"
+	juju remove-storage data/0 --no-destroy
+	wait_for "{}" ".storage"
 
 	# If Juju 4.0 detach already deleted the PVC, the k8s PV controller
 	# may also have asynchronously cleared the PV's claimRef. Re-create a
@@ -158,14 +157,75 @@ EOF
 	RECLAIM_POLICY=$(kubectl get pv "${PV}" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}')
 	echo "${RECLAIM_POLICY}" | check "Retain"
 
-	# WORKAROUND(juju/juju#23069): Juju 4.0 model destroy does not cascade
-	# removal of detached storage instances, causing the model-removal job to
-	# retry forever on checkNoModelDependents. Remove the imported storage
-	# explicitly before destroying the model. Delete this workaround when
-	# the issue is resolved.
-	juju remove-storage data/1 --no-destroy
+	# Destroy the test model. With the fix for juju/juju#23069,
+	# destroy-model now cascades removal of detached storage
+	# instances, so the workaround of explicitly removing storage
+	# before destroy is no longer needed.
+	destroy_model "${model_name}"
+}
+
+# test_destroy_model_with_detached_storage verifies that
+# juju destroy-model handles detached storage correctly:
+# 1. Without --destroy-storage/--release-storage: fails fast with
+#    CodeHasPersistentStorage.
+# 2. With --destroy-storage: model is destroyed and the PV is removed.
+test_destroy_model_with_detached_storage() {
+	if [ "$(skip 'test_destroy_model_with_detached_storage')" ]; then
+		echo "==> TEST SKIPPED: test_destroy_model_with_detached_storage"
+		return
+	fi
+
+	echo
+
+	# Ensure a bootstrap Juju model exists.
+	model_name="destroy-detached-storage"
+	file="${TEST_DIR}/test-${model_name}.log"
+	ensure "${model_name}" "${file}"
+
+	# Create a PersistentVolume by deploying and removing an application.
+	juju deploy "$(pack_charm ../testcharms/charms/dummy-storage-k8s)" \
+		--resource ubuntu-image=public.ecr.aws/ubuntu/ubuntu:22.04 dummy-k8s-storage
+	wait_for_storage "attached" '.storage["data/0"]["status"].current'
+
+	PV=$(juju storage --format json | yq -r '.filesystems["0"]."provider-id"')
+
+	juju remove-application dummy-k8s-storage --no-prompt
+	wait_for "{}" ".applications"
+	juju remove-storage data/0 --no-destroy
 	wait_for "{}" ".storage"
 
-	# Destroy the test model.
-	destroy_model "${model_name}"
+	# Make the PV importable.
+	PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
+	if [ -n "${PVC}" ]; then
+		kubectl delete pvc "${PVC}" -n "${model_name}" --ignore-not-found=true
+	fi
+	kubectl patch pv "${PV}" --type merge -p '{"spec":{"claimRef": null}}'
+
+	juju import-filesystem kubernetes "${PV}" data
+	wait_for_storage "detached" '.storage["data/1"]["status"].current'
+
+	# 1. destroy-model without flags should fail with persistent
+	#    storage error.
+	juju destroy-model "${model_name}" --no-prompt 2>&1 | check "has persistent storage"
+
+	# 2. destroy-model with --destroy-storage should succeed and
+	#    remove the PV.
+	juju destroy-model "${model_name}" --no-prompt --destroy-storage
+
+	# Verify the model is gone from the controller.
+	attempt=0
+	until ! juju show-model "${model_name}" >/dev/null 2>&1; do
+		sleep "${SHORT_TIMEOUT}"
+		attempt=$((attempt + 1))
+		if [[ ${attempt} -gt 30 ]]; then
+			echo "ERROR: model ${model_name} still exists after destroy-model"
+			exit 1
+		fi
+	done
+
+	# Verify the PV is gone.
+	if kubectl get pv "${PV}" >/dev/null 2>&1; then
+		echo "ERROR: PV ${PV} still exists after destroy-model --destroy-storage"
+		exit 1
+	fi
 }

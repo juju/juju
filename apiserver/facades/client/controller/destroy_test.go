@@ -6,6 +6,7 @@ package controller_test
 import (
 	"context"
 	stdtesting "testing"
+	"time"
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
@@ -19,6 +20,8 @@ import (
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/blockcommand"
+	"github.com/juju/juju/domain/removal"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -41,6 +44,7 @@ type destroyControllerSuite struct {
 	context              facadetest.MultiModelContext
 	mockModelService     *mocks.MockModelService
 	mockModelInfoService *mocks.MockModelInfoService
+	mockRemovalService   *mocks.MockRemovalService
 }
 
 func TestDestroyControllerSuite(t *stdtesting.T) {
@@ -51,6 +55,7 @@ func (s *destroyControllerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockModelService = mocks.NewMockModelService(ctrl)
 	s.mockModelInfoService = mocks.NewMockModelInfoService(ctrl)
+	s.mockRemovalService = mocks.NewMockRemovalService(ctrl)
 	s.controller = s.controllerAPI(c)
 
 	return ctrl
@@ -164,6 +169,9 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 		return svc.ModelMigration(), nil
 	}
 	removalServiceGetter := func(c context.Context, modelUUID coremodel.UUID) (controller.RemovalService, error) {
+		if s.mockRemovalService != nil {
+			return s.mockRemovalService, nil
+		}
 		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -197,7 +205,7 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 		removalServiceGetter,
 		domainServices.Proxy(),
 		ctx.ObjectStore(),
-		ctx.ControllerModelUUID(),
+		coremodel.UUID(s.ControllerModelUUID()),
 		ctx.ControllerUUID(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -332,6 +340,85 @@ func (s *destroyControllerSuite) TestDestroyControllerHostedModelsErr(c *tc.C) {
 
 	err := s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{})
 	c.Assert(params.IsCodeHasHostedModels(err), tc.IsTrue)
+}
+
+func (s *destroyControllerSuite) TestDestroyControllerWithoutDestroyStorageRejectsWhenHostedModelHasPersistentStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.mockModelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+	s.mockModelInfoService.EXPECT().HasValidCredential(gomock.Any()).Return(true, nil)
+	s.mockModelService.EXPECT().GetHostedModelUUIDs(gomock.Any()).Return(
+		[]coremodel.UUID{
+			coremodel.UUID(s.otherModelUUID),
+		}, nil,
+	)
+
+	s.mockRemovalService.EXPECT().RemoveController(gomock.Any(), false, time.Duration(0)).Return(
+		[]coremodel.UUID{coremodel.UUID(s.otherModelUUID)}, nil,
+	)
+	s.mockRemovalService.EXPECT().RemoveModel(gomock.Any(), coremodel.UUID(s.otherModelUUID), false, time.Duration(0), nil).Return(
+		removal.UUID(""), removalerrors.PersistentStorage,
+	)
+
+	err := s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{
+		DestroyModels: true,
+	})
+	c.Assert(err, tc.NotNil)
+	c.Check(params.IsCodeHasPersistentStorage(err), tc.IsTrue)
+}
+
+func (s *destroyControllerSuite) TestDestroyControllerWithDestroyStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.mockModelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+	s.mockModelInfoService.EXPECT().HasValidCredential(gomock.Any()).Return(true, nil)
+	s.mockModelService.EXPECT().GetHostedModelUUIDs(gomock.Any()).Return(
+		[]coremodel.UUID{
+			coremodel.UUID(s.otherModelUUID),
+		}, nil,
+	)
+
+	destroyStorage := true
+	s.mockRemovalService.EXPECT().RemoveController(gomock.Any(), false, time.Duration(0)).Return(
+		[]coremodel.UUID{coremodel.UUID(s.otherModelUUID)}, nil,
+	)
+	removalUUID := tc.Must(c, removal.NewUUID)
+	s.mockRemovalService.EXPECT().RemoveModel(gomock.Any(), coremodel.UUID(s.otherModelUUID), false, time.Duration(0), &destroyStorage).Return(
+		removalUUID, nil,
+	)
+
+	err := s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{
+		DestroyModels:  true,
+		DestroyStorage: &destroyStorage,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *destroyControllerSuite) TestDestroyControllerWithReleaseStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.mockModelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+	s.mockModelInfoService.EXPECT().HasValidCredential(gomock.Any()).Return(true, nil)
+	s.mockModelService.EXPECT().GetHostedModelUUIDs(gomock.Any()).Return(
+		[]coremodel.UUID{
+			coremodel.UUID(s.otherModelUUID),
+		}, nil,
+	)
+
+	destroyStorage := false
+	s.mockRemovalService.EXPECT().RemoveController(gomock.Any(), false, time.Duration(0)).Return(
+		[]coremodel.UUID{coremodel.UUID(s.otherModelUUID)}, nil,
+	)
+	removalUUID := tc.Must(c, removal.NewUUID)
+	s.mockRemovalService.EXPECT().RemoveModel(gomock.Any(), coremodel.UUID(s.otherModelUUID), false, time.Duration(0), &destroyStorage).Return(
+		removalUUID, nil,
+	)
+
+	err := s.controller.DestroyController(c.Context(), params.DestroyControllerArgs{
+		DestroyModels:  true,
+		DestroyStorage: &destroyStorage,
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // BlockAllChanges blocks all operations that could change the model.
