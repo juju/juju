@@ -717,6 +717,8 @@ func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *tc.C) {
 func (s *K8sBrokerSuite) TestCreateModelResources(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
+	namespaceWatcher, namespaceFirer := k8swatchertest.NewKubernetesTestWatcher()
+	s.k8sWatcherFn = k8swatchertest.NewKubernetesTestWatcherFunc(namespaceWatcher)
 
 	ns := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
 		ObjectMeta: v1.ObjectMeta{
@@ -726,12 +728,44 @@ func (s *K8sBrokerSuite) TestCreateModelResources(c *tc.C) {
 	})
 	s.mockNamespaces.EXPECT().Create(gomock.Any(), ns, v1.CreateOptions{}).
 		Return(ns, nil)
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).
+		DoAndReturn(func(context.Context, string, v1.GetOptions) (*core.Namespace, error) {
+			namespaceFirer()
+			return nil, s.k8sNotFoundError()
+		})
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).
+		Return(ns, nil)
 
 	err := s.broker.CreateModelResources(
 		c.Context(),
 		environs.CreateParams{},
 	)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestCreateModelResourcesContextCancelled(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+	namespaceWatcher, _ := k8swatchertest.NewKubernetesTestWatcher()
+	s.k8sWatcherFn = k8swatchertest.NewKubernetesTestWatcherFunc(namespaceWatcher)
+
+	ns := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
+		ObjectMeta: v1.ObjectMeta{
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d", "model.juju.is/name": "test"},
+			Name:   "test",
+		},
+	})
+	ctx, cancel := context.WithCancel(c.Context())
+	s.mockNamespaces.EXPECT().Create(gomock.Any(), ns, v1.CreateOptions{}).
+		Return(ns, nil)
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).
+		DoAndReturn(func(context.Context, string, v1.GetOptions) (*core.Namespace, error) {
+			cancel()
+			return nil, s.k8sNotFoundError()
+		})
+
+	err := s.broker.CreateModelResources(ctx, environs.CreateParams{})
+	c.Assert(err, tc.ErrorIs, context.Canceled)
 }
 
 func (s *K8sBrokerSuite) TestValidateProviderForNewModel(c *tc.C) {

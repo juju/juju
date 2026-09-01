@@ -309,11 +309,12 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 	s.cfg = cfg
 	s.pcfg.Bootstrap.ControllerModelConfig = cfg
 
+	namespaceWatcher, _ := k8swatchertest.NewKubernetesTestWatcher()
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestWatcher()
 	eventWatcher, _ := k8swatchertest.NewKubernetesTestWatcher()
 	<-podWatcher.Changes()
 	<-eventWatcher.Changes()
-	watchers := []k8swatcher.KubernetesNotifyWatcher{podWatcher, eventWatcher}
+	watchers := []k8swatcher.KubernetesNotifyWatcher{namespaceWatcher, podWatcher, eventWatcher}
 	watchCallCount := 0
 
 	s.k8sWatcherFn = func(_ cache.SharedIndexInformer, n string, _ jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
@@ -1077,9 +1078,10 @@ exec /opt/pebble run --http :38811 --verbose
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(crb, tc.DeepEquals, controllerServiceCRB)
 
-		c.Assert(bootstrapWatchers, tc.HasLen, 2)
+		c.Assert(bootstrapWatchers, tc.HasLen, 3)
 		c.Assert(workertest.CheckKilled(c, bootstrapWatchers[0]), tc.ErrorIsNil)
 		c.Assert(workertest.CheckKilled(c, bootstrapWatchers[1]), tc.ErrorIsNil)
+		c.Assert(workertest.CheckKilled(c, bootstrapWatchers[2]), tc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for deploy return")
 	}
@@ -1095,6 +1097,8 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *tc.C) {
 	_, err := s.mockNamespaces.Get(c.Context(), s.namespace, v1.GetOptions{})
 	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 
+	namespaceWatcher, _ := k8swatchertest.NewKubernetesTestWatcher()
+	s.k8sWatcherFn = k8swatchertest.NewKubernetesTestWatcherFunc(namespaceWatcher)
 	var watchers []k8swatcher.KubernetesNotifyWatcher
 	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, &watchers)
 
@@ -1127,9 +1131,11 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *tc.C) {
 	ns.Name = s.namespace
 	s.ensureJujuNamespaceAnnotations(true, ns)
 
+	namespaceDoneChan := make(chan struct{})
 	ctxDoneChan := make(chan struct{}, 1)
 
 	gomock.InOrder(
+		mockStdCtx.EXPECT().Done().Return(namespaceDoneChan),
 		mockStdCtx.EXPECT().Err().Return(nil),
 		mockStdCtx.EXPECT().Done().DoAndReturn(func() <-chan struct{} {
 			ctxDoneChan <- struct{}{}
@@ -1146,7 +1152,7 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *tc.C) {
 	select {
 	case err := <-errChan:
 		c.Assert(err, tc.ErrorMatches, `creating service for controller: waiting for controller service address fully provisioned timeout`)
-		c.Assert(watchers, tc.HasLen, 0)
+		c.Assert(watchers, tc.HasLen, 1)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for deploy return")
 	}

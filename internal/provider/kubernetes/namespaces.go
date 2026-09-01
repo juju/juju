@@ -110,7 +110,8 @@ func (k *kubernetesClient) ensureNamespaceAnnotations(ns *core.Namespace) error 
 	return nil
 }
 
-// createNamespace creates a namespace with the input name.
+// createNamespace creates a namespace with the input name and waits until it
+// is available via GetNamespace before returning.
 func (k *kubernetesClient) createNamespace(ctx context.Context, name string) error {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
 	ns.SetLabels(utils.LabelsMerge(
@@ -122,11 +123,42 @@ func (k *kubernetesClient) createNamespace(ctx context.Context, name string) err
 		return errors.Trace(err)
 	}
 
-	_, err := k.client().CoreV1().Namespaces().Create(ctx, ns, v1.CreateOptions{})
+	// Start watching before creating the namespace so that no change is
+	// missed. Notifications only indicate that state may have changed, so
+	// re-read the namespace after each one until it is available.
+	w, err := k.WatchNamespace()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer w.Kill()
+
+	_, err = k.client().CoreV1().Namespaces().Create(ctx, ns, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return errors.AlreadyExistsf("namespace %q", name)
 	}
-	return errors.Trace(err)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Wait until the namespace is available via GetNamespace. A freshly created
+	// namespace may transiently report NotFound.
+	for {
+		select {
+		case <-ctx.Done():
+			return errors.Annotatef(ctx.Err(), "waiting for namespace %q to be available", name)
+		case _, ok := <-w.Changes():
+			if !ok {
+				return errors.Errorf("namespace watcher for %q closed before namespace was available", name)
+			}
+			if _, err := k.GetNamespace(ctx, name); err != nil {
+				if errors.Is(err, errors.NotFound) {
+					continue
+				}
+				return errors.Trace(err)
+			}
+			return nil
+		}
+	}
 }
 
 func (k *kubernetesClient) deleteNamespace(ctx context.Context) error {
