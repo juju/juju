@@ -1022,6 +1022,34 @@ func (s *ProviderModelService) CreateModelWithAgentVersion(
 	return s.createModelProviderResources(ctx)
 }
 
+// CreateModelWithAgentStream is responsible for creating a new model within
+// the model database using the specified agent stream. Upon creating the model
+// any information required in the model's provider will be initialised.
+//
+// The following error types can be expected to be returned:
+// - [modelerrors.AlreadyExists] when the model uuid is already in use.
+// - [coreerrors.NotValid] when the agent stream is not valid.
+func (s *ProviderModelService) CreateModelWithAgentStream(
+	ctx context.Context,
+	agentStream agentbinary.AgentStream,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.ModelService.CreateModelWithAgentStream(ctx, agentStream); err != nil {
+		return errors.Capture(err)
+	}
+
+	err := s.SeedDefaultStoragePools(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"seeding default storage pools into new model: %w", err,
+		)
+	}
+
+	return s.createModelProviderResources(ctx)
+}
+
 // CreateModelWithAgentVersionStream is responsible for creating a new model
 // within the model database using the specified agent version and agent stream.
 // Upon creating the model any information required in the model's provider

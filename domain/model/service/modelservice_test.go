@@ -1211,6 +1211,56 @@ func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *providerModelServiceSuite) TestProviderCreateModelWithAgentStream(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	controllerUUID := uuid.MustNewUUID()
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	defaultPool := s.newDefaultStoragePool(c, ctrl)
+	s.mockStorageProviderRegistry.EXPECT().RecommendedPoolForKind(
+		internalstorage.StorageKindFilesystem,
+	).Return(defaultPool.AsConfig())
+	s.mockStorageProviderRegistry.EXPECT().RecommendedPoolForKind(
+		internalstorage.StorageKindBlock,
+	).Return(nil).AnyTimes()
+	s.mockControllerState.EXPECT().GetModelSeedInformation(gomock.Any(), gomock.Any()).Return(coremodel.ModelInfo{
+		UUID:           modelUUID,
+		ControllerUUID: controllerUUID,
+		Name:           "my-awesome-model",
+		Qualifier:      "prod",
+		Cloud:          "aws",
+		CloudType:      "ec2",
+		CloudRegion:    "myregion",
+		Type:           coremodel.IAAS,
+	}, nil)
+	s.mockModelState.EXPECT().Create(gomock.Any(), model.ModelDetailArgs{
+		UUID:               modelUUID,
+		ControllerUUID:     controllerUUID,
+		Name:               "my-awesome-model",
+		Qualifier:          "prod",
+		Type:               coremodel.IAAS,
+		Cloud:              "aws",
+		CloudType:          "ec2",
+		CloudRegion:        "myregion",
+		AgentStream:        domainagentbinary.AgentStreamTesting,
+		AgentVersion:       jujuversion.Current,
+		LatestAgentVersion: jujuversion.Current,
+	}).Return(nil)
+	s.mockModelState.EXPECT().EnsureDefaultStoragePools(gomock.Any(), defaultPool).Return(nil)
+	s.mockModelState.EXPECT().SetModelStoragePools(gomock.Any(), gomock.Any()).Return(nil)
+	s.mockModelState.EXPECT().GetControllerUUID(gomock.Any()).Return(controllerUUID, nil)
+	s.mockProvider.EXPECT().ValidateProviderForNewModel(gomock.Any()).Return(nil)
+	s.mockProvider.EXPECT().CreateModelResources(gomock.Any(), environs.CreateParams{ControllerUUID: controllerUUID.String()}).Return(nil)
+
+	svc := s.providerService(c, modelUUID)
+	err := svc.CreateModelWithAgentStream(
+		c.Context(),
+		agentbinary.AgentStreamTesting,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
