@@ -6,10 +6,13 @@ package remoterelations
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"github.com/juju/retry"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 	"gopkg.in/macaroon.v2"
@@ -35,6 +38,7 @@ type remoteApplicationWorker struct {
 
 	// These attributes are relevant to dealing with a specific
 	// remote application proxy.
+	clock                     clock.Clock
 	offerUUID                 string
 	applicationName           string // name of the remote application proxy in the local model
 	localModelUUID            string // uuid of the model hosting the local application
@@ -217,8 +221,11 @@ func (w *remoteApplicationWorker) loop() (err error) {
 						w.logger.Debugf("relation %q changed but has been removed", key)
 						// Notify the offering model that the relation is gone
 						// so it can clean up its relation and offer connection.
-						if err := w.publishRelationRemoved(key); err != nil {
-							return errors.Annotatef(err, "notifying offering model of removed relation %q", key)
+						// This is best effort - the local relation has already
+						// gone so there's no way to resume the operation if the
+						// worker restarts.
+						if err := w.publishRelationRemovedWithRetry(key); err != nil {
+							w.logger.Warningf("notifying offering model of removed relation %q: %v", key, err)
 						}
 						err2 := w.localRelationChanged(key, nil)
 						if err2 != nil {
@@ -364,6 +371,35 @@ func (w *remoteApplicationWorker) publishRelationDying(key string, r *relation, 
 			return nil
 		}
 		return errors.Annotatef(err, "publishing relation dying %#v to remote model %v", &change, w.remoteModelUUID)
+	}
+	return nil
+}
+
+// publishRelationRemovedWithRetry notifies the offering model that a local
+// relation has been removed, retrying on transient errors.
+func (w *remoteApplicationWorker) publishRelationRemovedWithRetry(key string) error {
+	var lastErr error
+	err := retry.Call(retry.CallArgs{
+		Clock:       w.clock,
+		Stop:        w.catacomb.Dying(),
+		Delay:       2 * time.Second,
+		Attempts:    3,
+		BackoffFunc: retry.DoubleDelay,
+		Func: func() error {
+			lastErr = w.publishRelationRemoved(key)
+			return lastErr
+		},
+		// Permission to consume the offer has been revoked, so retrying
+		// will never succeed.
+		IsFatalError: func(err error) bool {
+			return params.ErrCode(err) == params.CodeDischargeRequired
+		},
+	})
+	if err != nil {
+		if lastErr == nil {
+			return errors.Trace(err)
+		}
+		return errors.Trace(lastErr)
 	}
 	return nil
 }

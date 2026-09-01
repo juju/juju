@@ -311,6 +311,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 				localModelFacade:                  w.config.RelationsFacade,
 				newRemoteModelRelationsFacadeFunc: w.config.NewRemoteModelFacadeFunc,
 				logger:                            logger,
+				clock:                             w.config.Clock,
 			}
 			if err := catacomb.Invoke(catacomb.Plan{
 				Site: &appWorker.catacomb,

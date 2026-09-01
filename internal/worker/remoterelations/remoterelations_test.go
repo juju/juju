@@ -872,17 +872,44 @@ func (s *remoteRelationsSuite) TestPublishRelationRemovedRemoteNotFound(c *gc.C)
 
 func (s *remoteRelationsSuite) TestPublishRelationRemovedError(c *gc.C) {
 	// When PublishRelationChange returns a non-NotFound error, the
-	// worker should die so the error is surfaced.
+	// notification is retried and the worker keeps running.
 	w := s.assertRemoteRelationsWorkers(c)
+	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
 
 	s.relationsFacade.removeRelation("db2:db django:db")
-	s.stub.SetErrors(nil, errors.New("boom"))
+	s.stub.SetErrors(nil, errors.New("boom"),
+		errors.New("boom"), errors.New("boom"))
 
 	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 
-	workertest.DirtyKill(c, w)
+	mac, err := apitesting.NewMacaroon("apimac")
+	c.Assert(err, jc.ErrorIsNil)
+	change := params.RemoteRelationChangeEvent{
+		ApplicationToken: "token-django",
+		RelationToken:    "token-db2:db django:db",
+		Life:             life.Dying,
+		Macaroons:        macaroon.Slice{mac},
+		BakeryVersion:    bakery.LatestVersion,
+		ForceCleanup:     new(true),
+	}
+	expected := []jujutesting.StubCall{
+		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
+		{"PublishRelationChange", []interface{}{change}},
+	}
+	s.waitForWorkerStubCalls(c, expected)
+
+	for _, delay := range []time.Duration{2 * time.Second, 4 * time.Second} {
+		s.config.Clock.(*testclock.Clock).WaitAdvance(delay, coretesting.LongWait, 1)
+		expected = append(expected, jujutesting.StubCall{
+			FuncName: "PublishRelationChange", Args: []interface{}{change},
+		})
+		s.waitForWorkerStubCalls(c, expected)
+	}
+
+	// Attempts are exhausted but the worker keeps running.
+	workertest.CheckAlive(c, w)
 }
 
 func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *gc.C) {
