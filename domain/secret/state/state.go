@@ -2693,6 +2693,13 @@ AND    e2.endpoint_name    = $endpointIdentifier2.endpoint_name
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationNotFound] is returned if endpoint cannot be
 //     found.
+//
+// Note: this method is a near-verbatim copy of
+// (*domain/relation/state.State).GetPeerRelationUUIDByEndpointIdentifiers.
+// The query is duplicated here intentionally so that domain/secret remains
+// self-contained at the state layer (each domain owns its own SQL).
+// Keep this method in sync with the relation-state implementation if the
+// underlying schema changes.
 func (st State) GetPeerRelationUUIDByEndpointIdentifiers(
 	ctx context.Context,
 	endpoint corerelation.EndpointIdentifier,
@@ -2711,7 +2718,7 @@ func (st State) GetPeerRelationUUIDByEndpointIdentifiers(
 SELECT &relationUUIDAndRole.*
 FROM   relation r
 JOIN   v_relation_endpoint e ON r.uuid = e.relation_uuid
-WHERE  e.application_name = $endpointIdentifier.application_name 
+WHERE  e.application_name = $endpointIdentifier.application_name
 AND    e.endpoint_name    = $endpointIdentifier.endpoint_name
 `, relationUUIDAndRole{}, e)
 	if err != nil {
@@ -2731,7 +2738,10 @@ AND    e.endpoint_name    = $endpointIdentifier.endpoint_name
 	}
 
 	if len(uuidAndRole) > 1 {
-		return "", errors.Errorf("found multiple relations for peer application endpoint combination")
+		return "", errors.Errorf(
+			"found multiple relations for peer application %q endpoint %q",
+			e.ApplicationName, e.EndpointName,
+		)
 	}
 
 	// Verify that the role is peer. Endpoint names are unique per charm, so if
