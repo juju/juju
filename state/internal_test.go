@@ -310,7 +310,7 @@ func (s *cleanupInternalSuite) TestCleanupForceDestroyedMachineHandlesUnitLifecy
 	AssertCleanupsWithKind(c, st, cleanupForceDestroyedMachine)
 }
 
-func (s *cleanupInternalSuite) TestCleanupEvacuateMachineRemovesDeadUnitAndHistory(c *gc.C) {
+func (s *cleanupInternalSuite) TestCleanupEvacuateMachineRemovesDeadUnitAndHistoryWithoutForce(c *gc.C) {
 	st := s.newState(c)
 	machine, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -346,7 +346,7 @@ func (s *cleanupInternalSuite) TestCleanupEvacuateMachineRemovesDeadUnitAndHisto
 	}
 
 	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)
-	err = st.cleanupEvacuateMachineInternal(machine.Id(), true, false, time.Minute)
+	err = st.cleanupEvacuateMachineInternal(machine.Id(), false, false, time.Minute)
 	c.Assert(err, gc.ErrorMatches, "waiting for units to be removed from "+machine.Id())
 	c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
 	for _, history := range histories {
