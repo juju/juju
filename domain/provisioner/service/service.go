@@ -42,6 +42,21 @@ type ModelState interface {
 	// GetMachineProvisioningInfo retrieves per-machine provisioning data
 	// in a single transaction from the model database.
 	GetMachineProvisioningInfo(ctx context.Context, machineName string, isControllerModel bool) (provisioner.ProvisioningInfoState, error)
+
+	// RecordProvisionedMachine persists the complete result of a
+	// successful provider StartInstance call in a single transaction,
+	// covering network configuration, volumes, volume attachments, and
+	// cloud instance identity.
+	//
+	// The cloud-instance write is deliberately last: it emits the
+	// change-stream notification that wakes the instance-poller, so the
+	// poller never observes a newly registered instance before its
+	// provisioning state is available.
+	RecordProvisionedMachine(
+		ctx context.Context,
+		machineUUID string,
+		info provisioner.ProvisionedMachineInfo,
+	) error
 }
 
 // ControllerState provides direct database access to the controller
@@ -73,7 +88,6 @@ type Service struct {
 	modelSt              ModelState
 	controllerSt         ControllerState
 	imageMetadataFetcher ImageMetadataFetcher
-	completionService    *CompletionService
 	modelUUID            model.UUID
 	logger               logger.Logger
 }
@@ -85,13 +99,11 @@ func NewService(
 	imageMetadataFetcher ImageMetadataFetcher,
 	modelUUID model.UUID,
 	logger logger.Logger,
-	completionService *CompletionService,
 ) *Service {
 	return &Service{
 		modelSt:              modelSt,
 		controllerSt:         controllerSt,
 		imageMetadataFetcher: imageMetadataFetcher,
-		completionService:    completionService,
 		modelUUID:            modelUUID,
 		logger:               logger,
 	}
@@ -105,7 +117,10 @@ func (s *Service) RecordProvisionedMachine(
 	machineUUID coremachine.UUID,
 	info provisioner.ProvisionedMachineInfo,
 ) error {
-	return s.completionService.RecordProvisionedMachine(ctx, machineUUID, info)
+	if err := s.modelSt.RecordProvisionedMachine(ctx, machineUUID.String(), info); err != nil {
+		return errors.Errorf("recording provisioned machine %q: %w", machineUUID, err)
+	}
+	return nil
 }
 
 // GetPreludeProvisioningInfo retrieves model-wide provisioning data that is
@@ -610,17 +625,17 @@ func parseResourceTags(raw string) (map[string]string, bool) {
 	if raw == "" {
 		return nil, false
 	}
-	tags := make(map[string]string)
+	t := make(map[string]string)
 	for part := range strings.FieldsSeq(raw) {
 		k, v, ok := strings.Cut(part, "=")
 		if ok {
-			tags[k] = v
+			t[k] = v
 		}
 	}
-	if len(tags) == 0 {
+	if len(t) == 0 {
 		return nil, false
 	}
-	return tags, true
+	return t, true
 }
 
 // imageStream returns the image stream value, defaulting to "released"

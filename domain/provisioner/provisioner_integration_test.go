@@ -41,7 +41,6 @@ func (s *provisionerIntegrationSuite) newService(c *tc.C) *service.Service {
 		stubImageMetadataFetcher{},
 		coremodel.UUID(s.ModelUUID()),
 		loggertesting.WrapCheckLog(c),
-		service.NewCompletionService(modelState),
 	)
 }
 

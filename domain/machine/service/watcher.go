@@ -257,56 +257,61 @@ func (s *WatchableService) WatchModelMachineLifeAndStartTimes(ctx context.Contex
 	defer span.End()
 
 	table, stmt := s.st.InitialWatchModelMachineLifeAndStartTimesStatement()
+
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		ctx,
 		eventsource.InitialNamespaceChanges(stmt),
 		"model machine life and start times watcher",
-		func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
-			cloudInstanceNamespace := s.st.NamespaceForWatchMachineCloudInstance()
-			var cloudInstanceUUIDs []string
-			machineNames := make([]string, 0, len(changes))
-			for _, change := range changes {
-				if change.Namespace() != cloudInstanceNamespace {
-					machineNames = append(machineNames, change.Changed())
-					continue
-				}
-				cloudInstanceUUIDs = append(cloudInstanceUUIDs, change.Changed())
-			}
-
-			if len(cloudInstanceUUIDs) == 0 {
-				return machineNames, nil
-			}
-
-			instanceIDs, err := s.st.GetInstanceIDsForUUIDs(ctx, cloudInstanceUUIDs)
-			if err != nil {
-				return nil, errors.Capture(err)
-			}
-
-			var provisionedUUIDs []string
-			for _, uuid := range cloudInstanceUUIDs {
-				if instanceID, ok := instanceIDs[uuid]; ok && instanceID != "" {
-					provisionedUUIDs = append(provisionedUUIDs, uuid)
-				}
-			}
-
-			if len(provisionedUUIDs) == 0 {
-				return machineNames, nil
-			}
-
-			name, err := s.st.GetNamesForUUIDs(ctx, provisionedUUIDs)
-			if err != nil {
-				return nil, errors.Capture(err)
-			}
-			for _, uuid := range provisionedUUIDs {
-				if machineName, ok := name[machine.UUID(uuid)]; ok {
-					machineNames = append(machineNames, machineName.String())
-				}
-			}
-			return machineNames, nil
-		},
+		s.mapperFn(),
 		eventsource.NamespaceFilter(table, changestream.All),
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchMachineCloudInstance(), changestream.Changed),
 	)
+}
+
+func (s *WatchableService) mapperFn() func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
+	cloudInstanceNamespace := s.st.NamespaceForWatchMachineCloudInstance()
+	return func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
+		var cloudInstanceUUIDs []string
+		machineNames := make([]string, 0, len(changes))
+		for _, change := range changes {
+			if change.Namespace() != cloudInstanceNamespace {
+				machineNames = append(machineNames, change.Changed())
+				continue
+			}
+			cloudInstanceUUIDs = append(cloudInstanceUUIDs, change.Changed())
+		}
+
+		if len(cloudInstanceUUIDs) == 0 {
+			return machineNames, nil
+		}
+
+		instanceIDs, err := s.st.GetInstanceIDsForUUIDs(ctx, cloudInstanceUUIDs)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+
+		var provisionedUUIDs []string
+		for _, uuid := range cloudInstanceUUIDs {
+			if instanceID, ok := instanceIDs[uuid]; ok && instanceID != "" {
+				provisionedUUIDs = append(provisionedUUIDs, uuid)
+			}
+		}
+
+		if len(provisionedUUIDs) == 0 {
+			return machineNames, nil
+		}
+
+		name, err := s.st.GetNamesForUUIDs(ctx, provisionedUUIDs)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		for _, uuid := range provisionedUUIDs {
+			if machineName, ok := name[machine.UUID(uuid)]; ok {
+				machineNames = append(machineNames, machineName.String())
+			}
+		}
+		return machineNames, nil
+	}
 }
 
 // WatchMachineCloudInstances returns a NotifyWatcher that is subscribed to

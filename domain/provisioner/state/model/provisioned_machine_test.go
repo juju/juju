@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/provisioner"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -339,21 +338,21 @@ func (s *modelStateSuite) queryVolumeAttachmentProvisionedInfo(c *tc.C, attachme
 
 // queryPlanProvisionedInfo reads device_type_id for an attachment plan.
 func (s *modelStateSuite) queryPlanProvisionedInfo(c *tc.C, planUUID string) struct {
-	DeviceTypeID int
-	Attrs        map[string]string
+	InterfaceTypeID int
+	Attrs           map[string]string
 } {
 	var row struct {
-		DeviceTypeID int
-		Attrs        map[string]string
+		InterfaceTypeID int
+		Attrs           map[string]string
 	}
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		var localRow struct {
-			DeviceTypeID int
-			Attrs        map[string]string
+			InterfaceTypeID int
+			Attrs           map[string]string
 		}
 		if err := tx.QueryRowContext(ctx,
 			`SELECT COALESCE(device_type_id,0) FROM storage_volume_attachment_plan WHERE uuid = ?`,
-			planUUID).Scan(&localRow.DeviceTypeID); err != nil {
+			planUUID).Scan(&localRow.InterfaceTypeID); err != nil {
 			return err
 		}
 		rows, err := tx.QueryContext(ctx,
@@ -390,18 +389,21 @@ func (s *modelStateSuite) getNetNodeForMachine(c *tc.C, machineUUID string) stri
 }
 
 // ---------------------------------------------------------------------------
-// SetMachineCloudInstance tests
+// RecordProvisionedMachine tests
 // ---------------------------------------------------------------------------
 
-// TestSetMachineCloudInstanceMinimal verifies a basic provisioning write with
-// no hardware characteristics.
-func (s *modelStateSuite) TestSetMachineCloudInstanceMinimal(c *tc.C) {
+// --- Cloud instance ---
+
+func (s *modelStateSuite) TestRecordProvisionedMachineMinimal(c *tc.C) {
 	machineUUID := s.addMachineWithPlatform(c, "0", "ubuntu", "22.04/stable")
 	s.addMachineCloudInstanceRow(c, machineUUID)
 
-	err := s.state.SetMachineCloudInstance(
-		c.Context(), machineUUID, "inst-1", "display-1", "nonce-1", nil,
-	)
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "display-1",
+		Nonce:       "nonce-1",
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
 	row := s.queryCloudInstance(c, machineUUID)
@@ -410,9 +412,7 @@ func (s *modelStateSuite) TestSetMachineCloudInstanceMinimal(c *tc.C) {
 	c.Check(row.Arch.Valid, tc.IsFalse)
 }
 
-// TestSetMachineCloudInstanceWithHardwareCharacteristics verifies hardware
-// characteristics are persisted correctly.
-func (s *modelStateSuite) TestSetMachineCloudInstanceWithHardwareCharacteristics(c *tc.C) {
+func (s *modelStateSuite) TestRecordProvisionedMachineWithHardwareCharacteristics(c *tc.C) {
 	machineUUID := s.addMachineWithPlatform(c, "1", "ubuntu", "22.04/stable")
 	s.addMachineCloudInstanceRow(c, machineUUID)
 
@@ -424,8 +424,13 @@ func (s *modelStateSuite) TestSetMachineCloudInstanceWithHardwareCharacteristics
 		CpuPower: new(uint64(2000)),
 		VirtType: new("hvm"),
 	}
-
-	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID, "inst-hw", "hw-machine", "nonce-hw", hw)
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:              "inst-hw",
+		DisplayName:             "hw-machine",
+		Nonce:                   "nonce-hw",
+		HardwareCharacteristics: hw,
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
 	row := s.queryCloudInstance(c, machineUUID)
@@ -440,15 +445,19 @@ func (s *modelStateSuite) TestSetMachineCloudInstanceWithHardwareCharacteristics
 	c.Check(row.VirtType.String, tc.Equals, "hvm")
 }
 
-// TestSetMachineCloudInstanceWithAvailabilityZone verifies that the AZ name is
-// resolved to its UUID and stored on the machine cloud instance row.
-func (s *modelStateSuite) TestSetMachineCloudInstanceWithAvailabilityZone(c *tc.C) {
+func (s *modelStateSuite) TestRecordProvisionedMachineWithAvailabilityZone(c *tc.C) {
 	machineUUID := s.addMachineWithPlatform(c, "2", "ubuntu", "22.04/stable")
 	s.addMachineCloudInstanceRow(c, machineUUID)
 	azUUID := s.addAvailabilityZoneNamed(c, "us-east-1a")
 	hw := &instance.HardwareCharacteristics{AvailabilityZone: new("us-east-1a")}
 
-	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID, "inst-az", "az-machine", "nonce", hw)
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:              "inst-az",
+		DisplayName:             "az-machine",
+		Nonce:                   "nonce",
+		HardwareCharacteristics: hw,
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
 	row := s.queryCloudInstance(c, machineUUID)
@@ -456,16 +465,20 @@ func (s *modelStateSuite) TestSetMachineCloudInstanceWithAvailabilityZone(c *tc.
 	c.Check(row.AvailabilityZoneUUID.String, tc.Equals, azUUID)
 }
 
-// TestSetMachineCloudInstanceWithInstanceTags verifies that hardware tags are
-// inserted into instance_tag.
-func (s *modelStateSuite) TestSetMachineCloudInstanceWithInstanceTags(c *tc.C) {
+func (s *modelStateSuite) TestRecordProvisionedMachineWithInstanceTags(c *tc.C) {
 	machineUUID := s.addMachineWithPlatform(c, "3", "ubuntu", "22.04/stable")
 	s.addMachineCloudInstanceRow(c, machineUUID)
 
 	tags := []string{"env=production", "team=platform"}
 	hw := &instance.HardwareCharacteristics{Tags: &tags}
 
-	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID, "inst-tags", "tagged-machine", "nonce", hw)
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:              "inst-tags",
+		DisplayName:             "tagged-machine",
+		Nonce:                   "nonce",
+		HardwareCharacteristics: hw,
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
 	got := s.queryInstanceTags(c, machineUUID)
@@ -474,32 +487,40 @@ func (s *modelStateSuite) TestSetMachineCloudInstanceWithInstanceTags(c *tc.C) {
 	c.Check(got[1], tc.Equals, "team=platform")
 }
 
-// TestSetMachineCloudInstanceAlreadyProvisioned verifies that calling the
-// method a second time returns MachineCloudInstanceAlreadyExists without
-// overwriting the existing data.
-func (s *modelStateSuite) TestSetMachineCloudInstanceAlreadyProvisioned(c *tc.C) {
+func (s *modelStateSuite) TestRecordProvisionedMachineAlreadyProvisioned(c *tc.C) {
 	machineUUID := s.addMachineWithPlatform(c, "4", "ubuntu", "22.04/stable")
 	s.addMachineCloudInstanceRow(c, machineUUID)
 
-	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID, "inst-first", "first", "nonce", nil)
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-first",
+		DisplayName: "first",
+		Nonce:       "nonce",
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Second call should be rejected.
-	err = s.state.SetMachineCloudInstance(c.Context(), machineUUID, "inst-second", "second", "nonce2", nil)
+	info2 := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-second",
+		DisplayName: "second",
+		Nonce:       "nonce2",
+	}
+	err = s.state.RecordProvisionedMachine(c.Context(), machineUUID, info2)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineCloudInstanceAlreadyExists)
 
-	// Data must be from the first call.
 	row := s.queryCloudInstance(c, machineUUID)
 	c.Check(row.InstanceID, tc.Equals, "inst-first")
 }
 
-// TestSetMachineCloudInstanceManualPrefix verifies that an instance ID with
-// the manual prefix causes a machine_manual row to be inserted.
-func (s *modelStateSuite) TestSetMachineCloudInstanceManualPrefix(c *tc.C) {
+func (s *modelStateSuite) TestRecordProvisionedMachineManualPrefix(c *tc.C) {
 	machineUUID := s.addMachineWithPlatform(c, "5", "ubuntu", "22.04/stable")
 	s.addMachineCloudInstanceRow(c, machineUUID)
 
-	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID, "manual:my-host", "manual-machine", "nonce", nil)
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "manual:my-host",
+		DisplayName: "manual-machine",
+		Nonce:       "nonce",
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var count int
@@ -512,18 +533,19 @@ func (s *modelStateSuite) TestSetMachineCloudInstanceManualPrefix(c *tc.C) {
 	c.Check(count, tc.Equals, 1)
 }
 
-// TestSetMachineCloudInstanceNonceSetOnlyWhenEmpty verifies that the nonce is
-// only written when the machine row currently has no nonce.
-func (s *modelStateSuite) TestSetMachineCloudInstanceNonceSetOnlyWhenEmpty(c *tc.C) {
+func (s *modelStateSuite) TestRecordProvisionedMachineNonceSetOnlyWhenEmpty(c *tc.C) {
 	machineUUID := s.addMachineWithPlatform(c, "6", "ubuntu", "22.04/stable")
 	s.addMachineCloudInstanceRow(c, machineUUID)
-	// Pre-set a nonce on the machine.
 	s.runQuery(c, `UPDATE machine SET nonce = 'existing-nonce' WHERE uuid = ?`, machineUUID)
 
-	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID, "inst-nonce", "nonce-machine", "new-nonce", nil)
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-nonce",
+		DisplayName: "nonce-machine",
+		Nonce:       "new-nonce",
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// The nonce should remain the pre-set value, not overwritten.
 	var nonce sql.NullString
 	errQ := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, `SELECT nonce FROM machine WHERE uuid = ?`, machineUUID).Scan(&nonce)
@@ -532,110 +554,115 @@ func (s *modelStateSuite) TestSetMachineCloudInstanceNonceSetOnlyWhenEmpty(c *tc
 	c.Check(nonce.String, tc.Equals, "existing-nonce")
 }
 
-// ---------------------------------------------------------------------------
-// RecordProvisionedMachineNetConfig tests
-// ---------------------------------------------------------------------------
+// --- Network config ---
 
-// TestRecordProvisionedMachineNetConfigNoNICs verifies that passing an empty
-// NIC slice is a no-op.
 func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigNoNICs(c *tc.C) {
 	machineUUID := s.addMachineWithPlatform(c, "10", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
 	netNodeUUID := s.getNetNodeForMachine(c, machineUUID)
 
-	err := s.state.RecordProvisionedMachineNetConfig(c.Context(), machineUUID, nil)
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
 	devs := s.queryLLDs(c, netNodeUUID)
 	c.Check(devs, tc.HasLen, 0)
 }
 
-// TestRecordProvisionedMachineNetConfigMachineNotFound verifies that a
-// non-existent machine UUID returns MachineNotFound.
 func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigMachineNotFound(c *tc.C) {
-	nics := []domainnetwork.NetInterface{{Name: "eth0"}}
-	err := s.state.RecordProvisionedMachineNetConfig(c.Context(), "no-such-uuid", nics)
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:    "inst-1",
+		DisplayName:   "machine-1",
+		Nonce:         "nonce",
+		NetworkConfig: corenetwork.InterfaceInfos{{InterfaceName: "eth0"}},
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), "no-such-uuid", info)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-// TestRecordProvisionedMachineNetConfigSingleNIC verifies devices and
-// addresses are inserted correctly on a first write.
 func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigSingleNIC(c *tc.C) {
 	machineUUID := s.addMachineWithPlatform(c, "11", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
 	netNodeUUID := s.getNetNodeForMachine(c, machineUUID)
 
-	nics := []domainnetwork.NetInterface{{
-		Name:       "eth0",
-		ProviderID: new(corenetwork.Id("provider-eth0")),
-		Type:       corenetwork.EthernetDevice,
-		IsEnabled:  true,
-		Addrs: []domainnetwork.NetAddr{{
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+		NetworkConfig: corenetwork.InterfaceInfos{{
 			InterfaceName: "eth0",
-			AddressValue:  "10.0.0.5/24",
-			AddressType:   corenetwork.IPv4Address,
-			ConfigType:    corenetwork.ConfigDHCP,
-			Origin:        corenetwork.OriginProvider,
-			Scope:         corenetwork.ScopeCloudLocal,
-			ProviderID:    new(corenetwork.Id("provider-addr-1")),
+			ProviderId:    "provider-eth0",
+			InterfaceType: corenetwork.EthernetDevice,
+			Disabled:      false,
+			Addresses: corenetwork.ProviderAddresses{{
+				MachineAddress: corenetwork.MachineAddress{
+					Value:      "10.0.0.5",
+					CIDR:       "10.0.0.0/24",
+					Type:       corenetwork.IPv4Address,
+					Scope:      corenetwork.ScopeCloudLocal,
+					ConfigType: corenetwork.ConfigDHCP,
+				},
+				ProviderID: "provider-addr-1",
+			}},
 		}},
-	}}
-
-	err := s.state.RecordProvisionedMachineNetConfig(c.Context(), machineUUID, nics)
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Verify device was inserted.
 	devs := s.queryLLDs(c, netNodeUUID)
 	c.Assert(devs, tc.HasLen, 1)
 	c.Check(devs[0].Name, tc.Equals, "eth0")
 
-	// Verify provider device ID.
 	provDevIDs := s.queryProviderDeviceIDs(c, netNodeUUID)
 	c.Assert(provDevIDs, tc.HasLen, 1)
 	c.Check(provDevIDs[devs[0].UUID], tc.Equals, "provider-eth0")
 
-	// Verify address was inserted.
 	addrs := s.queryIPAddresses(c, netNodeUUID)
 	c.Assert(addrs, tc.HasLen, 1)
 	c.Check(addrs[0].Value, tc.Equals, "10.0.0.5/24")
-	c.Check(addrs[0].OriginID, tc.Equals, 1) // provider
+	c.Check(addrs[0].OriginID, tc.Equals, 1)
 
-	// Verify provider address ID.
 	provAddrIDs := s.queryProviderAddressIDs(c, netNodeUUID)
 	c.Check(provAddrIDs["10.0.0.5/24"], tc.Equals, "provider-addr-1")
 }
 
-// TestRecordProvisionedMachineNetConfigShadowAddress verifies that shadow
-// addresses (is_shadow=true) from the provider result are stored correctly.
 func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigShadowAddress(c *tc.C) {
 	machineUUID := s.addMachineWithPlatform(c, "12", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
 	netNodeUUID := s.getNetNodeForMachine(c, machineUUID)
 
-	nics := []domainnetwork.NetInterface{{
-		Name:      "eth0",
-		Type:      corenetwork.EthernetDevice,
-		IsEnabled: true,
-		Addrs: []domainnetwork.NetAddr{
-			{
-				InterfaceName: "eth0",
-				AddressValue:  "10.0.0.5/24",
-				AddressType:   corenetwork.IPv4Address,
-				ConfigType:    corenetwork.ConfigDHCP,
-				Origin:        corenetwork.OriginProvider,
-				Scope:         corenetwork.ScopeCloudLocal,
-				IsShadow:      false,
-			},
-			{
-				InterfaceName: "eth0",
-				AddressValue:  "54.1.2.3/32",
-				AddressType:   corenetwork.IPv4Address,
-				ConfigType:    corenetwork.ConfigDHCP,
-				Origin:        corenetwork.OriginProvider,
-				Scope:         corenetwork.ScopePublic,
-				IsShadow:      true,
-			},
-		},
-	}}
-
-	err := s.state.RecordProvisionedMachineNetConfig(c.Context(), machineUUID, nics)
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+		NetworkConfig: corenetwork.InterfaceInfos{{
+			InterfaceName: "eth0",
+			InterfaceType: corenetwork.EthernetDevice,
+			Addresses: corenetwork.ProviderAddresses{{
+				MachineAddress: corenetwork.MachineAddress{
+					Value:      "10.0.0.5",
+					CIDR:       "10.0.0.0/24",
+					Type:       corenetwork.IPv4Address,
+					Scope:      corenetwork.ScopeCloudLocal,
+					ConfigType: corenetwork.ConfigDHCP,
+				},
+			}},
+			ShadowAddresses: corenetwork.ProviderAddresses{{
+				MachineAddress: corenetwork.MachineAddress{
+					Value:      "54.1.2.3",
+					CIDR:       "54.1.2.3/32",
+					Type:       corenetwork.IPv4Address,
+					Scope:      corenetwork.ScopePublic,
+					ConfigType: corenetwork.ConfigDHCP,
+				},
+			}},
+		}},
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
 	addrs := s.queryIPAddresses(c, netNodeUUID)
@@ -651,34 +678,36 @@ func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigShadowAddress(c *
 	c.Check(shadowCount, tc.Equals, 1)
 }
 
-// TestRecordProvisionedMachineNetConfigSubnetResolution verifies that
-// when a provider subnet ID matches a known subnet, the address is linked
-// to that subnet.
 func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigSubnetResolution(c *tc.C) {
 	machineUUID := s.addMachineWithPlatform(c, "13", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
 	netNodeUUID := s.getNetNodeForMachine(c, machineUUID)
 
-	// Add a subnet and register a provider subnet ID for it.
 	spaceUUID := s.addSpace(c, "default")
 	subnetUUID := s.addSubnet(c, spaceUUID, "10.0.0.0/24")
 	s.addProviderSubnet(c, subnetUUID, "psubnet-1")
 
-	nics := []domainnetwork.NetInterface{{
-		Name:      "eth0",
-		Type:      corenetwork.EthernetDevice,
-		IsEnabled: true,
-		Addrs: []domainnetwork.NetAddr{{
-			InterfaceName:    "eth0",
-			AddressValue:     "10.0.0.7/24",
-			AddressType:      corenetwork.IPv4Address,
-			ConfigType:       corenetwork.ConfigDHCP,
-			Origin:           corenetwork.OriginProvider,
-			Scope:            corenetwork.ScopeCloudLocal,
-			ProviderSubnetID: new(corenetwork.Id("psubnet-1")),
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+		NetworkConfig: corenetwork.InterfaceInfos{{
+			InterfaceName: "eth0",
+			InterfaceType: corenetwork.EthernetDevice,
+			Disabled:      false,
+			Addresses: corenetwork.ProviderAddresses{{
+				MachineAddress: corenetwork.MachineAddress{
+					Value:      "10.0.0.7",
+					CIDR:       "10.0.0.0/24",
+					Type:       corenetwork.IPv4Address,
+					Scope:      corenetwork.ScopeCloudLocal,
+					ConfigType: corenetwork.ConfigDHCP,
+				},
+				ProviderSubnetID: "psubnet-1",
+			}},
 		}},
-	}}
-
-	err := s.state.RecordProvisionedMachineNetConfig(c.Context(), machineUUID, nics)
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
 	addrs := s.queryIPAddresses(c, netNodeUUID)
@@ -687,78 +716,87 @@ func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigSubnetResolution(
 	c.Check(addrs[0].SubnetUUID.String, tc.Equals, subnetUUID)
 }
 
-// TestRecordProvisionedMachineNetConfigIsIdempotent verifies that calling the
-// method twice with the same data produces the same result (upsert semantics
-// for retry safety).
 func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigIsIdempotent(c *tc.C) {
 	machineUUID := s.addMachineWithPlatform(c, "14", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
 	netNodeUUID := s.getNetNodeForMachine(c, machineUUID)
 
-	nics := []domainnetwork.NetInterface{{
-		Name:       "eth0",
-		ProviderID: new(corenetwork.Id("provider-eth0")),
-		Type:       corenetwork.EthernetDevice,
-		IsEnabled:  true,
-		Addrs: []domainnetwork.NetAddr{{
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+		NetworkConfig: corenetwork.InterfaceInfos{{
 			InterfaceName: "eth0",
-			AddressValue:  "10.0.0.9/24",
-			AddressType:   corenetwork.IPv4Address,
-			ConfigType:    corenetwork.ConfigDHCP,
-			Origin:        corenetwork.OriginProvider,
-			Scope:         corenetwork.ScopeCloudLocal,
+			ProviderId:    "provider-eth0",
+			InterfaceType: corenetwork.EthernetDevice,
+			Disabled:      false,
+			Addresses: corenetwork.ProviderAddresses{{
+				MachineAddress: corenetwork.MachineAddress{
+					Value:      "10.0.0.9",
+					CIDR:       "10.0.0.0/24",
+					Type:       corenetwork.IPv4Address,
+					Scope:      corenetwork.ScopeCloudLocal,
+					ConfigType: corenetwork.ConfigDHCP,
+				},
+			}},
 		}},
-	}}
-
-	err := s.state.RecordProvisionedMachineNetConfig(c.Context(), machineUUID, nics)
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Second call with same data — must not fail (ON CONFLICT DO UPDATE).
-	err = s.state.RecordProvisionedMachineNetConfig(c.Context(), machineUUID, nics)
-	c.Assert(err, tc.ErrorIsNil)
+	// Second call: must fail because instance is already set.
+	info2 := info
+	info2.InstanceID = "inst-2"
+	err = s.state.RecordProvisionedMachine(c.Context(), machineUUID, info2)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineCloudInstanceAlreadyExists)
 
-	// Should still have exactly one device and one address.
 	devs := s.queryLLDs(c, netNodeUUID)
 	c.Check(devs, tc.HasLen, 1)
 	addrs := s.queryIPAddresses(c, netNodeUUID)
 	c.Check(addrs, tc.HasLen, 1)
 }
 
-// TestRecordProvisionedMachineNetConfigMultipleNICs verifies multiple NICs
-// are all inserted in one call.
 func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigMultipleNICs(c *tc.C) {
 	machineUUID := s.addMachineWithPlatform(c, "15", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
 	netNodeUUID := s.getNetNodeForMachine(c, machineUUID)
 
-	nics := []domainnetwork.NetInterface{
-		{
-			Name:      "eth0",
-			Type:      corenetwork.EthernetDevice,
-			IsEnabled: true,
-			Addrs: []domainnetwork.NetAddr{{
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+		NetworkConfig: corenetwork.InterfaceInfos{
+			{
 				InterfaceName: "eth0",
-				AddressValue:  "10.0.0.1/24",
-				AddressType:   corenetwork.IPv4Address,
-				ConfigType:    corenetwork.ConfigDHCP,
-				Origin:        corenetwork.OriginProvider,
-				Scope:         corenetwork.ScopeCloudLocal,
-			}},
-		},
-		{
-			Name:      "eth1",
-			Type:      corenetwork.EthernetDevice,
-			IsEnabled: true,
-			Addrs: []domainnetwork.NetAddr{{
+				InterfaceType: corenetwork.EthernetDevice,
+				Disabled:      false,
+				Addresses: corenetwork.ProviderAddresses{{
+					MachineAddress: corenetwork.MachineAddress{
+						Value:      "10.0.0.1",
+						CIDR:       "10.0.0.0/24",
+						Type:       corenetwork.IPv4Address,
+						Scope:      corenetwork.ScopeCloudLocal,
+						ConfigType: corenetwork.ConfigDHCP,
+					},
+				}},
+			},
+			{
 				InterfaceName: "eth1",
-				AddressValue:  "192.168.0.1/16",
-				AddressType:   corenetwork.IPv4Address,
-				ConfigType:    corenetwork.ConfigDHCP,
-				Origin:        corenetwork.OriginProvider,
-				Scope:         corenetwork.ScopeCloudLocal,
-			}},
+				InterfaceType: corenetwork.EthernetDevice,
+				Disabled:      false,
+				Addresses: corenetwork.ProviderAddresses{{
+					MachineAddress: corenetwork.MachineAddress{
+						Value:      "192.168.0.1",
+						CIDR:       "192.168.0.0/16",
+						Type:       corenetwork.IPv4Address,
+						Scope:      corenetwork.ScopeCloudLocal,
+						ConfigType: corenetwork.ConfigDHCP,
+					},
+				}},
+			},
 		},
 	}
-
-	err := s.state.RecordProvisionedMachineNetConfig(c.Context(), machineUUID, nics)
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
 	devs := s.queryLLDs(c, netNodeUUID)
@@ -768,49 +806,66 @@ func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigMultipleNICs(c *t
 	c.Assert(addrs, tc.HasLen, 2)
 }
 
-// ---------------------------------------------------------------------------
-// RecordProvisionedVolumes tests
-// ---------------------------------------------------------------------------
+// --- Volumes ---
 
-// TestRecordProvisionedVolumesEmpty verifies that an empty slice is a no-op.
-func (s *modelStateSuite) TestRecordProvisionedVolumesEmpty(c *tc.C) {
-	err := s.state.RecordProvisionedVolumes(c.Context(), nil)
+func (s *modelStateSuite) TestRecordProvisionedMachineVolumesEmpty(c *tc.C) {
+	machineUUID := s.addMachineWithPlatform(c, "20", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
+
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestRecordProvisionedVolumesSingle verifies that a single volume's provider
-// info is written correctly.
-func (s *modelStateSuite) TestRecordProvisionedVolumesSingle(c *tc.C) {
+func (s *modelStateSuite) TestRecordProvisionedMachineVolumesSingle(c *tc.C) {
+	machineUUID := s.addMachineWithPlatform(c, "21", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
 	volUUID := s.addStorageVolume(c, "vol/0")
 
-	err := s.state.RecordProvisionedVolumes(c.Context(), []provisioner.ProvisionedVolume{{
-		VolumeID:   "vol/0",
-		ProviderID: "provider-vol-1",
-		SizeMiB:    10240,
-		HardwareID: "hw-123",
-		WWN:        "wwn-abc",
-		Persistent: true,
-	}})
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+		Volumes: []provisioner.ProvisionedVolume{{
+			VolumeID:   "vol/0",
+			ProviderID: "provider-vol-1",
+			SizeMiB:    10240,
+			HardwareID: "hw-123",
+			WWN:        "wwn-abc",
+			Persistent: true,
+		}},
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
-	info := s.queryVolumeProvisionedInfo(c, volUUID)
-	c.Check(info.ProviderID, tc.Equals, "provider-vol-1")
-	c.Check(info.SizeMiB, tc.Equals, int64(10240))
-	c.Check(info.HardwareID, tc.Equals, "hw-123")
-	c.Check(info.WWN, tc.Equals, "wwn-abc")
-	c.Check(info.Persistent, tc.IsTrue)
+	volInfo := s.queryVolumeProvisionedInfo(c, volUUID)
+	c.Check(volInfo.ProviderID, tc.Equals, "provider-vol-1")
+	c.Check(volInfo.SizeMiB, tc.Equals, int64(10240))
+	c.Check(volInfo.HardwareID, tc.Equals, "hw-123")
+	c.Check(volInfo.WWN, tc.Equals, "wwn-abc")
+	c.Check(volInfo.Persistent, tc.IsTrue)
 }
 
-// TestRecordProvisionedVolumesMultiple verifies multiple volumes are all
-// written in the same call.
-func (s *modelStateSuite) TestRecordProvisionedVolumesMultiple(c *tc.C) {
+func (s *modelStateSuite) TestRecordProvisionedMachineVolumesMultiple(c *tc.C) {
+	machineUUID := s.addMachineWithPlatform(c, "22", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
 	vol1UUID := s.addStorageVolume(c, "vol/1")
 	vol2UUID := s.addStorageVolume(c, "vol/2")
 
-	err := s.state.RecordProvisionedVolumes(c.Context(), []provisioner.ProvisionedVolume{
-		{VolumeID: "vol/1", ProviderID: "pv-1", SizeMiB: 1024},
-		{VolumeID: "vol/2", ProviderID: "pv-2", SizeMiB: 2048},
-	})
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+		Volumes: []provisioner.ProvisionedVolume{
+			{VolumeID: "vol/1", ProviderID: "pv-1", SizeMiB: 1024},
+			{VolumeID: "vol/2", ProviderID: "pv-2", SizeMiB: 2048},
+		},
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
 	info1 := s.queryVolumeProvisionedInfo(c, vol1UUID)
@@ -822,125 +877,113 @@ func (s *modelStateSuite) TestRecordProvisionedVolumesMultiple(c *tc.C) {
 	c.Check(info2.SizeMiB, tc.Equals, int64(2048))
 }
 
-// TestRecordProvisionedVolumesVolumeNotFound verifies that a missing volume ID
-// returns an error.
-func (s *modelStateSuite) TestRecordProvisionedVolumesVolumeNotFound(c *tc.C) {
-	err := s.state.RecordProvisionedVolumes(c.Context(), []provisioner.ProvisionedVolume{{
-		VolumeID: "vol/nonexistent",
-	}})
+func (s *modelStateSuite) TestRecordProvisionedMachineVolumesNotFound(c *tc.C) {
+	machineUUID := s.addMachineWithPlatform(c, "23", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
+
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+		Volumes: []provisioner.ProvisionedVolume{{
+			VolumeID: "vol/nonexistent",
+		}},
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 	c.Check(err, tc.ErrorMatches, `.*vol/nonexistent.*`)
 }
 
-// TestRecordProvisionedVolumesIsIdempotent verifies that a second call
-// overwrites the first (last-write-wins UPDATE semantics).
-func (s *modelStateSuite) TestRecordProvisionedVolumesIsIdempotent(c *tc.C) {
-	volUUID := s.addStorageVolume(c, "vol/idem")
+// --- Volume attachments ---
 
-	err := s.state.RecordProvisionedVolumes(c.Context(), []provisioner.ProvisionedVolume{{
-		VolumeID: "vol/idem", ProviderID: "pv-first", SizeMiB: 100,
-	}})
-	c.Assert(err, tc.ErrorIsNil)
+func (s *modelStateSuite) TestRecordProvisionedMachineAttachmentsEmpty(c *tc.C) {
+	machineUUID := s.addMachineWithPlatform(c, "30", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
 
-	err = s.state.RecordProvisionedVolumes(c.Context(), []provisioner.ProvisionedVolume{{
-		VolumeID: "vol/idem", ProviderID: "pv-second", SizeMiB: 200,
-	}})
-	c.Assert(err, tc.ErrorIsNil)
-
-	info := s.queryVolumeProvisionedInfo(c, volUUID)
-	c.Check(info.ProviderID, tc.Equals, "pv-second")
-	c.Check(info.SizeMiB, tc.Equals, int64(200))
-}
-
-// ---------------------------------------------------------------------------
-// RecordProvisionedVolumeAttachments tests
-// ---------------------------------------------------------------------------
-
-// TestRecordProvisionedVolumeAttachmentsEmpty verifies an empty map is a
-// no-op.
-func (s *modelStateSuite) TestRecordProvisionedVolumeAttachmentsEmpty(c *tc.C) {
-	machineUUID := s.addMachineWithPlatform(c, "20", "ubuntu", "22.04/stable")
-	err := s.state.RecordProvisionedVolumeAttachments(
-		c.Context(), machineUUID, nil,
-	)
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestRecordProvisionedVolumeAttachmentsMachineNotFound verifies that a
-// missing machine UUID returns MachineNotFound.
-func (s *modelStateSuite) TestRecordProvisionedVolumeAttachmentsMachineNotFound(c *tc.C) {
-	err := s.state.RecordProvisionedVolumeAttachments(
-		c.Context(), "no-such-machine",
-		map[string]provisioner.ProvisionedVolumeAttachment{
+func (s *modelStateSuite) TestRecordProvisionedMachineAttachmentsMachineNotFound(c *tc.C) {
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+		VolumeAttachments: map[string]provisioner.ProvisionedVolumeAttachment{
 			"vol/0": {ReadOnly: true},
 		},
-	)
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), "no-such-machine", info)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-// TestRecordProvisionedVolumeAttachmentsReadOnly verifies that read_only is
-// written and no block device is created when there is no device info.
-func (s *modelStateSuite) TestRecordProvisionedVolumeAttachmentsReadOnly(c *tc.C) {
-	machineUUID := s.addMachineWithPlatform(c, "21", "ubuntu", "22.04/stable")
+func (s *modelStateSuite) TestRecordProvisionedMachineAttachmentsReadOnly(c *tc.C) {
+	machineUUID := s.addMachineWithPlatform(c, "31", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
 	netNodeUUID := s.getNetNodeForMachine(c, machineUUID)
 
 	volUUID := s.addStorageVolume(c, "vol/ro")
 	attUUID := s.addStorageVolumeAttachment(c, volUUID, netNodeUUID)
 
-	err := s.state.RecordProvisionedVolumeAttachments(
-		c.Context(), machineUUID,
-		map[string]provisioner.ProvisionedVolumeAttachment{
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+		VolumeAttachments: map[string]provisioner.ProvisionedVolumeAttachment{
 			"vol/ro": {ReadOnly: true},
 		},
-	)
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
-	info := s.queryVolumeAttachmentProvisionedInfo(c, attUUID)
-	c.Check(info.ReadOnly, tc.IsTrue)
-	c.Check(info.BlockDeviceUUID.Valid, tc.IsFalse)
+	attInfo := s.queryVolumeAttachmentProvisionedInfo(c, attUUID)
+	c.Check(attInfo.ReadOnly, tc.IsTrue)
+	c.Check(attInfo.BlockDeviceUUID.Valid, tc.IsFalse)
 }
 
-// TestRecordProvisionedVolumeAttachmentsCreatesBlockDevice verifies that a new
-// block device is created when device info is present and no matching device
-// exists.
-func (s *modelStateSuite) TestRecordProvisionedVolumeAttachmentsCreatesBlockDevice(c *tc.C) {
-	machineUUID := s.addMachineWithPlatform(c, "22", "ubuntu", "22.04/stable")
+func (s *modelStateSuite) TestRecordProvisionedMachineAttachmentsCreatesBlockDevice(c *tc.C) {
+	machineUUID := s.addMachineWithPlatform(c, "32", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
 	netNodeUUID := s.getNetNodeForMachine(c, machineUUID)
 
 	volUUID := s.addStorageVolume(c, "vol/bd")
 	attUUID := s.addStorageVolumeAttachment(c, volUUID, netNodeUUID)
 
-	err := s.state.RecordProvisionedVolumeAttachments(
-		c.Context(), machineUUID,
-		map[string]provisioner.ProvisionedVolumeAttachment{
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+		VolumeAttachments: map[string]provisioner.ProvisionedVolumeAttachment{
 			"vol/bd": {DeviceName: "sdb", BusAddress: "0:0:1:0"},
 		},
-	)
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
-	info := s.queryVolumeAttachmentProvisionedInfo(c, attUUID)
-	c.Assert(info.BlockDeviceUUID.Valid, tc.IsTrue)
-	c.Check(info.BlockDeviceUUID.String, tc.Not(tc.Equals), "")
+	attInfo := s.queryVolumeAttachmentProvisionedInfo(c, attUUID)
+	c.Assert(attInfo.BlockDeviceUUID.Valid, tc.IsTrue)
+	c.Check(attInfo.BlockDeviceUUID.String, tc.Not(tc.Equals), "")
 
-	// The block_device row should exist.
 	var bdName string
 	errQ := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx,
 			`SELECT COALESCE(name,'') FROM block_device WHERE uuid = ?`,
-			info.BlockDeviceUUID.String).Scan(&bdName)
+			attInfo.BlockDeviceUUID.String).Scan(&bdName)
 	})
 	c.Assert(errQ, tc.ErrorIsNil)
 	c.Check(bdName, tc.Equals, "sdb")
 }
 
-// TestRecordProvisionedVolumeAttachmentsMatchesExistingBlockDevice verifies
-// that when a block device with the same name already exists on the machine,
-// it is reused rather than creating a duplicate.
-func (s *modelStateSuite) TestRecordProvisionedVolumeAttachmentsMatchesExistingBlockDevice(c *tc.C) {
-	machineUUID := s.addMachineWithPlatform(c, "23", "ubuntu", "22.04/stable")
+func (s *modelStateSuite) TestRecordProvisionedMachineAttachmentsMatchesExistingBlockDevice(c *tc.C) {
+	machineUUID := s.addMachineWithPlatform(c, "33", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
 	netNodeUUID := s.getNetNodeForMachine(c, machineUUID)
 
-	// Pre-insert a block device with name "sdc".
 	existingBDUUID := uuid.MustNewUUID().String()
 	s.runQuery(c,
 		`INSERT INTO block_device (uuid, machine_uuid, name) VALUES (?,?,?)`,
@@ -949,33 +992,36 @@ func (s *modelStateSuite) TestRecordProvisionedVolumeAttachmentsMatchesExistingB
 	volUUID := s.addStorageVolume(c, "vol/match")
 	attUUID := s.addStorageVolumeAttachment(c, volUUID, netNodeUUID)
 
-	err := s.state.RecordProvisionedVolumeAttachments(
-		c.Context(), machineUUID,
-		map[string]provisioner.ProvisionedVolumeAttachment{
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+		VolumeAttachments: map[string]provisioner.ProvisionedVolumeAttachment{
 			"vol/match": {DeviceName: "sdc"},
 		},
-	)
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
-	info := s.queryVolumeAttachmentProvisionedInfo(c, attUUID)
-	c.Assert(info.BlockDeviceUUID.Valid, tc.IsTrue)
-	// Must reuse the existing block device, not create a new one.
-	c.Check(info.BlockDeviceUUID.String, tc.Equals, existingBDUUID)
+	attInfo := s.queryVolumeAttachmentProvisionedInfo(c, attUUID)
+	c.Assert(attInfo.BlockDeviceUUID.Valid, tc.IsTrue)
+	c.Check(attInfo.BlockDeviceUUID.String, tc.Equals, existingBDUUID)
 }
 
-// TestRecordProvisionedVolumeAttachmentsWithPlan verifies that an attachment
-// plan's device type and attributes are written correctly.
-func (s *modelStateSuite) TestRecordProvisionedVolumeAttachmentsWithPlan(c *tc.C) {
-	machineUUID := s.addMachineWithPlatform(c, "24", "ubuntu", "22.04/stable")
+func (s *modelStateSuite) TestRecordProvisionedMachineAttachmentsWithPlan(c *tc.C) {
+	machineUUID := s.addMachineWithPlatform(c, "34", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
 	netNodeUUID := s.getNetNodeForMachine(c, machineUUID)
 
 	volUUID := s.addStorageVolume(c, "vol/plan")
 	attUUID := s.addStorageVolumeAttachment(c, volUUID, netNodeUUID)
 	planUUID := s.addStorageVolumeAttachmentPlan(c, volUUID, netNodeUUID)
 
-	err := s.state.RecordProvisionedVolumeAttachments(
-		c.Context(), machineUUID,
-		map[string]provisioner.ProvisionedVolumeAttachment{
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+		VolumeAttachments: map[string]provisioner.ProvisionedVolumeAttachment{
 			"vol/plan": {
 				ReadOnly: false,
 				Plan: &provisioner.ProvisionedVolumeAttachmentPlan{
@@ -987,66 +1033,99 @@ func (s *modelStateSuite) TestRecordProvisionedVolumeAttachmentsWithPlan(c *tc.C
 				},
 			},
 		},
-	)
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Attachment updated (no block device).
 	attInfo := s.queryVolumeAttachmentProvisionedInfo(c, attUUID)
 	c.Check(attInfo.BlockDeviceUUID.Valid, tc.IsFalse)
 
-	// Plan updated.
 	planInfo := s.queryPlanProvisionedInfo(c, planUUID)
-	c.Check(planInfo.DeviceTypeID, tc.Equals, 1) // iscsi = 1
+	c.Check(planInfo.InterfaceTypeID, tc.Equals, 1)
 	c.Assert(planInfo.Attrs, tc.HasLen, 2)
 	c.Check(planInfo.Attrs["target"], tc.Equals, "iqn.2001-04.example:storage1")
 	c.Check(planInfo.Attrs["lun"], tc.Equals, "0")
 }
 
-// TestRecordProvisionedVolumeAttachmentsIsIdempotent verifies the method can
-// be called twice safely (retry scenario).
-func (s *modelStateSuite) TestRecordProvisionedVolumeAttachmentsIsIdempotent(c *tc.C) {
-	machineUUID := s.addMachineWithPlatform(c, "25", "ubuntu", "22.04/stable")
+// --- Combined (all four sub-operations) ---
+
+func (s *modelStateSuite) TestRecordProvisionedMachineCombined(c *tc.C) {
+	machineUUID := s.addMachineWithPlatform(c, "40", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
 	netNodeUUID := s.getNetNodeForMachine(c, machineUUID)
 
-	volUUID := s.addStorageVolume(c, "vol/idem2")
+	volUUID := s.addStorageVolume(c, "vol/0")
 	attUUID := s.addStorageVolumeAttachment(c, volUUID, netNodeUUID)
 	planUUID := s.addStorageVolumeAttachmentPlan(c, volUUID, netNodeUUID)
 
-	attachments := map[string]provisioner.ProvisionedVolumeAttachment{
-		"vol/idem2": {
-			ReadOnly:   true,
-			DeviceName: "sdd",
-			Plan: &provisioner.ProvisionedVolumeAttachmentPlan{
-				DeviceType:       "iscsi",
-				DeviceAttributes: map[string]string{"key": "val"},
+	hw := &instance.HardwareCharacteristics{
+		Arch:     new("amd64"),
+		Mem:      new(uint64(8192)),
+		RootDisk: new(uint64(40960)),
+	}
+
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:              "inst-combined",
+		DisplayName:             "combined",
+		Nonce:                   "nonce",
+		HardwareCharacteristics: hw,
+		NetworkConfig: corenetwork.InterfaceInfos{{
+			InterfaceName: "eth0",
+			ProviderId:    "provider-eth0",
+			InterfaceType: corenetwork.EthernetDevice,
+			Disabled:      false,
+			Addresses: corenetwork.ProviderAddresses{{
+				MachineAddress: corenetwork.MachineAddress{
+					Value:      "10.0.0.42",
+					CIDR:       "10.0.0.0/24",
+					Type:       corenetwork.IPv4Address,
+					Scope:      corenetwork.ScopeCloudLocal,
+					ConfigType: corenetwork.ConfigDHCP,
+				},
+				ProviderID: "provider-addr-1",
+			}},
+		}},
+		Volumes: []provisioner.ProvisionedVolume{{
+			VolumeID:   "vol/0",
+			ProviderID: "provider-vol-1",
+			SizeMiB:    10240,
+			Persistent: true,
+		}},
+		VolumeAttachments: map[string]provisioner.ProvisionedVolumeAttachment{
+			"vol/0": {
+				ReadOnly:   true,
+				DeviceName: "sdb",
+				Plan: &provisioner.ProvisionedVolumeAttachmentPlan{
+					DeviceType:       "iscsi",
+					DeviceAttributes: map[string]string{"key": "val"},
+				},
 			},
 		},
 	}
-
-	err := s.state.RecordProvisionedVolumeAttachments(c.Context(), machineUUID, attachments)
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Second call — should succeed without errors.
-	err = s.state.RecordProvisionedVolumeAttachments(c.Context(), machineUUID, attachments)
-	c.Assert(err, tc.ErrorIsNil)
+	// Cloud instance.
+	ci := s.queryCloudInstance(c, machineUUID)
+	c.Check(ci.InstanceID, tc.Equals, "inst-combined")
 
-	// Verify state is consistent after two calls.
+	// Network.
+	devs := s.queryLLDs(c, netNodeUUID)
+	c.Assert(devs, tc.HasLen, 1)
+	c.Check(devs[0].Name, tc.Equals, "eth0")
+	addrs := s.queryIPAddresses(c, netNodeUUID)
+	c.Assert(addrs, tc.HasLen, 1)
+
+	// Volumes.
+	volInfo := s.queryVolumeProvisionedInfo(c, volUUID)
+	c.Check(volInfo.ProviderID, tc.Equals, "provider-vol-1")
+
+	// Attachments.
 	attInfo := s.queryVolumeAttachmentProvisionedInfo(c, attUUID)
 	c.Check(attInfo.ReadOnly, tc.IsTrue)
 	c.Assert(attInfo.BlockDeviceUUID.Valid, tc.IsTrue)
 
 	planInfo := s.queryPlanProvisionedInfo(c, planUUID)
-	c.Check(planInfo.DeviceTypeID, tc.Equals, 1)
-	c.Assert(planInfo.Attrs, tc.HasLen, 1)
+	c.Check(planInfo.InterfaceTypeID, tc.Equals, 1)
 	c.Check(planInfo.Attrs["key"], tc.Equals, "val")
-
-	// Exactly one block device should exist (not two).
-	var bdCount int
-	errQ := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx,
-			`SELECT COUNT(*) FROM block_device WHERE machine_uuid = ?`, machineUUID,
-		).Scan(&bdCount)
-	})
-	c.Assert(errQ, tc.ErrorIsNil)
-	c.Check(bdCount, tc.Equals, 1)
 }
