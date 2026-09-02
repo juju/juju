@@ -590,7 +590,7 @@ func (s *applicationSuite) TestApplicationPodSpecController(c *tc.C) {
 		return env.Name == constants.EnvAgentHTTPProbePort
 	}), tc.IsFalse)
 	c.Assert(charmContainer.SecurityContext, tc.NotNil)
-	c.Check(*charmContainer.SecurityContext.RunAsUser, tc.Equals, int64(constants.JujuUserID))
+	c.Check(*charmContainer.SecurityContext.RunAsUser, tc.Equals, constants.JujuUserID)
 
 	initIndex := slices.IndexFunc(spec.InitContainers, func(container corev1.Container) bool {
 		return container.Name == constants.ApplicationInitContainer
