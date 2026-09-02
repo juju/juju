@@ -29,8 +29,17 @@ type MachineService interface {
 	GetMachineUUID(ctx context.Context, name coremachine.Name) (coremachine.UUID, error)
 }
 
-// ProvisioningService records a complete successful provider result.
+// ProvisioningService persists the outcome of a successful cloud provisioning
+// attempt. It is called once per machine after StartInstance returns, to record
+// the instance identity, network configuration, and any storage volumes and
+// attachments that were created alongside the machine.
 type ProvisioningService interface {
+	// RecordProvisionedMachine persists all data returned by a successful
+	// provider StartInstance call: the cloud instance identity, network
+	// interfaces with their provider IDs, and any provisioned volumes and
+	// volume attachments. All writes are ordered so that the instance
+	// identity is committed last, ensuring dependent watchers never observe
+	// a partially recorded machine.
 	RecordProvisionedMachine(context.Context, coremachine.UUID, domainprovisioner.ProvisionedMachineInfo) error
 }
 

@@ -56,9 +56,19 @@ func providerNetAddresses(addresses network.ProviderAddresses, interfaceName str
 
 func providerNetAddress(interfaceName string, isShadow bool) func(network.ProviderAddress) NetAddr {
 	return func(providerAddr network.ProviderAddress) NetAddr {
+		// Use IP/mask format (e.g. "10.0.0.5/24") when the CIDR is
+		// available, since that is the format expected by ip_address.address_value
+		// and required by subnet-matching in the network state. Fall back to
+		// the bare IP only when CIDR is absent (e.g. shadow/floating IPs
+		// that the provider does not associate with a subnet).
+		addrValue := providerAddr.Value
+		if valueWithMask, err := providerAddr.ValueWithMask(); err == nil {
+			addrValue = valueWithMask
+		}
+
 		return NetAddr{
 			InterfaceName:    interfaceName,
-			AddressValue:     providerAddr.Value,
+			AddressValue:     addrValue,
 			AddressType:      providerAddr.Type,
 			ConfigType:       providerAddr.ConfigType,
 			Origin:           network.OriginProvider,

@@ -10,19 +10,15 @@ import (
 	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
-	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/constraints"
 	coreinstance "github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
-	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/provisioner"
-	domainstorage "github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -106,10 +102,7 @@ func (s *serviceSuite) TestRecordProvisionedMachine(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	machineService := NewMockMachineInstanceService(ctrl)
-	networkService := NewMockMachineNetworkService(ctrl)
-	storageService := NewMockStorageProvisioningService(ctrl)
-	blockDeviceService := NewMockBlockDeviceService(ctrl)
+	completionState := NewMockCompletionState(ctrl)
 
 	machineUUID := coremachine.UUID("machine-uuid-1")
 	providerNetwork := network.InterfaceInfos{{
@@ -128,9 +121,6 @@ func (s *serviceSuite) TestRecordProvisionedMachine(c *tc.C) {
 		}},
 	}}
 	providerNics := domainnetwork.ProviderNetInterfaces(providerNetwork)
-	attachmentUUID := domainstorage.VolumeAttachmentUUID("attachment-uuid-1")
-	planUUID := domainstorage.VolumeAttachmentPlanUUID("plan-uuid-1")
-	blockDeviceUUID := domainblockdevice.BlockDeviceUUID("block-device-uuid-1")
 	info := provisioner.ProvisionedMachineInfo{
 		InstanceID:    "instance-1",
 		DisplayName:   "machine-1",
@@ -159,34 +149,13 @@ func (s *serviceSuite) TestRecordProvisionedMachine(c *tc.C) {
 	}
 
 	gomock.InOrder(
-		storageService.EXPECT().SetVolumeProvisionedInfo(gomock.Any(), "0", storageprovisioning.VolumeProvisionedInfo{
-			ProviderID: "provider-volume-1",
-			SizeMiB:    1024,
-			HardwareID: "hardware-1",
-			WWN:        "wwn-1",
-			Persistent: true,
-		}).Return(nil),
-		storageService.EXPECT().GetVolumeAttachmentUUIDForVolumeIDMachine(gomock.Any(), "0", machineUUID).Return(attachmentUUID, nil),
-		blockDeviceService.EXPECT().MatchOrCreateBlockDevice(gomock.Any(), machineUUID, coreblockdevice.BlockDevice{
-			DeviceName:  "sdb",
-			DeviceLinks: []string{"/dev/disk/by-id/volume-1"},
-			BusAddress:  "0:0:1:0",
-		}).Return(blockDeviceUUID, nil),
-		storageService.EXPECT().SetVolumeAttachmentProvisionedInfo(gomock.Any(), attachmentUUID, storageprovisioning.VolumeAttachmentProvisionedInfo{
-			ReadOnly:        true,
-			BlockDeviceUUID: &blockDeviceUUID,
-		}).Return(nil),
-		storageService.EXPECT().GetVolumeAttachmentPlanUUIDForVolumeIDMachine(gomock.Any(), "0", machineUUID).Return(planUUID, nil),
-		storageService.EXPECT().SetVolumeAttachmentPlanProvisionedInfo(gomock.Any(), planUUID, storageprovisioning.VolumeAttachmentPlanProvisionedInfo{
-			DeviceType:       domainstorage.VolumeDeviceTypeISCSI,
-			DeviceAttributes: map[string]string{"target": "iqn.1"},
-		}).Return(nil),
-		networkService.EXPECT().SetMachineNetConfig(gomock.Any(), machineUUID, providerNics).Return(nil),
-		networkService.EXPECT().SetProviderNetConfig(gomock.Any(), machineUUID, providerNics).Return(nil),
-		machineService.EXPECT().SetMachineCloudInstance(gomock.Any(), machineUUID, coreinstance.Id("instance-1"), "machine-1", "nonce-1", nil).Return(nil),
+		completionState.EXPECT().RecordProvisionedVolumes(gomock.Any(), info.Volumes).Return(nil),
+		completionState.EXPECT().RecordProvisionedVolumeAttachments(gomock.Any(), machineUUID.String(), info.VolumeAttachments).Return(nil),
+		completionState.EXPECT().RecordProvisionedMachineNetConfig(gomock.Any(), machineUUID.String(), providerNics).Return(nil),
+		completionState.EXPECT().SetMachineCloudInstance(gomock.Any(), machineUUID.String(), coreinstance.Id("instance-1"), "machine-1", "nonce-1", nil).Return(nil),
 	)
 
-	completion := NewCompletionService(machineService, networkService, storageService, blockDeviceService)
+	completion := NewCompletionService(completionState)
 	svc := NewService(s.modelState, s.controllerState, s.metadataFetcher, model.UUID("model-uuid-1234"), loggertesting.WrapCheckLog(c), completion)
 	err := svc.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Check(err, tc.ErrorIsNil)
