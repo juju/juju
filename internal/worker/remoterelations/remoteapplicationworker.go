@@ -6,10 +6,13 @@ package remoterelations
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"github.com/juju/retry"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 	"gopkg.in/macaroon.v2"
@@ -35,6 +38,7 @@ type remoteApplicationWorker struct {
 
 	// These attributes are relevant to dealing with a specific
 	// remote application proxy.
+	clock                     clock.Clock
 	offerUUID                 string
 	applicationName           string // name of the remote application proxy in the local model
 	localModelUUID            string // uuid of the model hosting the local application
@@ -215,6 +219,14 @@ func (w *remoteApplicationWorker) loop() (err error) {
 					if isNotFound(err) {
 						// Relation has been deleted, so ensure relevant workers are stopped.
 						w.logger.Debugf("relation %q changed but has been removed", key)
+						// Notify the offering model that the relation is gone
+						// so it can clean up its relation and offer connection.
+						// This is best effort - the local relation has already
+						// gone so there's no way to resume the operation if the
+						// worker restarts.
+						if err := w.publishRelationRemovedWithRetry(key); err != nil {
+							w.logger.Warningf("notifying offering model of removed relation %q: %v", key, err)
+						}
 						err2 := w.localRelationChanged(key, nil)
 						if err2 != nil {
 							return errors.Annotatef(err2, "cleaning up removed local relation %q", key)
@@ -330,29 +342,84 @@ func (w *remoteApplicationWorker) processRelationDying(key string, r *relation, 
 	// On the consuming side, inform the remote side the relation is dying
 	// (but only if we are killing the relation due to it dying, not because
 	// it is suspended).
-	if !w.isConsumerProxy {
-		change := params.RemoteRelationChangeEvent{
-			RelationToken:    r.relationToken,
-			Life:             life.Dying,
-			ApplicationToken: r.applicationToken,
-			Macaroons:        macaroon.Slice{r.macaroon},
-			BakeryVersion:    bakery.LatestVersion,
+	return w.publishRelationDying(key, r, forceCleanup)
+}
+
+// publishRelationDying notifies the offering model that a relation is dying
+// so it can clean up its relation and offer connection. When forceCleanup is
+// true, the offering model is told that no more unit departed events will
+// arrive and it should force-remove its side immediately. This is a no-op
+// for consumer-proxy (offering-side) workers.
+func (w *remoteApplicationWorker) publishRelationDying(key string, r *relation, forceCleanup bool) error {
+	if w.isConsumerProxy {
+		return nil
+	}
+	change := params.RemoteRelationChangeEvent{
+		RelationToken:    r.relationToken,
+		Life:             life.Dying,
+		ApplicationToken: r.applicationToken,
+		Macaroons:        macaroon.Slice{r.macaroon},
+		BakeryVersion:    bakery.LatestVersion,
+	}
+	if forceCleanup {
+		change.ForceCleanup = &forceCleanup
+	}
+	if err := w.remoteModelFacade.PublishRelationChange(change); err != nil {
+		w.checkOfferPermissionDenied(err, r.applicationToken, r.relationToken)
+		if isNotFound(err) {
+			w.logger.Debugf("relation %v dying but remote side already removed", key)
+			return nil
 		}
-		// forceCleanup will be true if the worker has restarted and because the relation had
-		// already been removed, we won't get any more unit departed events.
-		if forceCleanup {
-			change.ForceCleanup = &forceCleanup
-		}
-		if err := w.remoteModelFacade.PublishRelationChange(change); err != nil {
-			w.checkOfferPermissionDenied(err, r.applicationToken, r.relationToken)
-			if isNotFound(err) {
-				w.logger.Debugf("relation %v dying but remote side already removed", key)
-				return nil
-			}
-			return errors.Annotatef(err, "publishing relation dying %#v to remote model %v", &change, w.remoteModelUUID)
-		}
+		return errors.Annotatef(err, "publishing relation dying %#v to remote model %v", &change, w.remoteModelUUID)
 	}
 	return nil
+}
+
+// publishRelationRemovedWithRetry notifies the offering model that a local
+// relation has been removed, retrying on transient errors.
+func (w *remoteApplicationWorker) publishRelationRemovedWithRetry(key string) error {
+	var lastErr error
+	err := retry.Call(retry.CallArgs{
+		Clock:       w.clock,
+		Stop:        w.catacomb.Dying(),
+		Delay:       2 * time.Second,
+		Attempts:    3,
+		BackoffFunc: retry.DoubleDelay,
+		Func: func() error {
+			lastErr = w.publishRelationRemoved(key)
+			return lastErr
+		},
+		// Permission to consume the offer has been revoked, so retrying
+		// will never succeed.
+		IsFatalError: func(err error) bool {
+			return params.ErrCode(err) == params.CodeDischargeRequired
+		},
+	})
+	if err != nil {
+		if lastErr == nil {
+			return errors.Trace(err)
+		}
+		return errors.Trace(lastErr)
+	}
+	return nil
+}
+
+// publishRelationRemoved notifies the offering model that a local relation
+// has been removed so the offering model can clean up its relation and offer
+// connection. This is needed when the relation is removed entirely (not just
+// marked Dying) before the worker has a chance to observe and publish the
+// Dying state.
+func (w *remoteApplicationWorker) publishRelationRemoved(key string) error {
+	w.mu.Lock()
+	r, ok := w.relations[key]
+	w.mu.Unlock()
+	if !ok {
+		w.logger.Debugf("local relation %v already gone", key)
+		return nil
+	}
+	// r's token and macaroon fields are immutable after creation
+	// so they are safe to read after releasing the lock.
+	return w.publishRelationDying(key, r, true)
 }
 
 func (w *remoteApplicationWorker) processRelationSuspended(key string, relLife life.Value, relations map[string]*relation) error {
