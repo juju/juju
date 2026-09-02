@@ -782,8 +782,9 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
 		},
 		Spec: apps.StatefulSetSpec{
-			ServiceName: "juju-controller-test-service-endpoints",
-			Replicas:    &numberOfPods,
+			ServiceName:         "juju-controller-test-service-endpoints",
+			Replicas:            &numberOfPods,
+			PodManagementPolicy: apps.ParallelPodManagement,
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": "juju-controller-test"},
 			},
