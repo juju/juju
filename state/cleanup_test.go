@@ -588,8 +588,8 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 	err = machine.ForceDestroy(time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
-	// The machine should no longer want the vote, should be forced to not have the vote, and forced to not be a
-	// controller member anymore
+	// ForceDestroy drops WantsVote while retaining the vote and controller
+	// membership until the peer grouper completes the handoff.
 	c.Assert(machine.Refresh(), jc.ErrorIsNil)
 	node, err = s.State.ControllerNode(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -599,13 +599,21 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	controllerIds, err := s.State.ControllerIds()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(controllerIds, gc.DeepEquals, append([]string{machine.Id()}, changes.Added...))
-	// Forced cleanup clears the stale vote and removes the controller
-	// reference in the same cleanup pass.
+	// Cleanup marks the machine Dying, then waits for the peer grouper to
+	// remove the vote.
 	s.assertCleanupRuns(c)
-	assertLife(c, machine, state.Dead)
+	s.assertNeedsCleanup(c)
+	assertLife(c, machine, state.Dying)
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	c.Check(node.WantsVote(), jc.IsFalse)
-	c.Check(node.HasVote(), jc.IsFalse)
+	c.Check(node.HasVote(), jc.IsTrue)
+	controllerIds, err = s.State.ControllerIds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerIds, jc.DeepEquals, append([]string{machine.Id()}, changes.Added...))
+
+	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
+	s.assertCleanupRuns(c)
+	assertLife(c, machine, state.Dead)
 	controllerIds, err = s.State.ControllerIds()
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(controllerIds)
