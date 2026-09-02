@@ -1740,7 +1740,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 
 	containerNames := config.ExistingContainers
-	controllerMode := config.Controller || a.name == coreapplication.ControllerApplicationName
+	controllerMode := config.Controller
 	if controllerMode && !slices.Contains(containerNames, "api-server") {
 		containerNames = append(containerNames, "api-server")
 	}

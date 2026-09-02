@@ -749,6 +749,15 @@ func ensureScale(
 	if err != nil {
 		return err
 	}
+	// Determine whether we need to select which units to remove for scale-down.
+	// This triggers when:
+	//   - The app is alive and we're scaling down (desiredScale < len(units))
+	//   - AND either we just started scaling (startedScaling) OR the
+	//     startOrdinal hasn't been advanced yet (ps.StartOrdinal == 0)
+	//
+	// On first detection, we compute the new startOrdinal to shift the
+	// StatefulSet range past the units being removed, preventing stale
+	// ordinals from being reused on subsequent scale-ups.
 	if appLife == life.Alive && desiredScale < len(units) && (startedScaling || ps.StartOrdinal == 0) {
 		startOrdinal := unitRemovalThreshold(units, desiredScale)
 		if err := applicationService.SetApplicationScalingStateWithStart(ctx, appName, desiredScale, startOrdinal, true); err != nil {
