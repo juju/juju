@@ -21,9 +21,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/gorilla/websocket"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/tc"
 
