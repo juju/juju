@@ -823,6 +823,8 @@ to create a new model to deploy %sworkloads.
 		return errors.New("no Juju SSH keys available for bootstrap")
 	}
 	sort.Strings(bootstrapSSHKeyFiles)
+	// Keep both slices in the same deterministic order so each private key is
+	// paired with the corresponding public key during bootstrap.
 	bootstrapSSHAuthorizedKeys, err := ssh.PublicKeysForPrivateKeyFiles(bootstrapSSHKeyFiles)
 	if err != nil {
 		return errors.Annotate(err, "reading Juju bootstrap SSH key")

@@ -160,6 +160,11 @@ func (*authorizedKeysSuite) TestPublicKeysForPrivateKeyFiles(c *tc.C) {
 	c.Check(keys, tc.DeepEquals, []string{"key-0", "key-1"})
 }
 
+func (*authorizedKeysSuite) TestPublicKeysForPrivateKeyFilesMissingPublicKey(c *tc.C) {
+	_, err := PublicKeysForPrivateKeyFiles([]string{filepath.Join(c.MkDir(), "missing")})
+	c.Assert(err, tc.ErrorMatches, `reading public key for .*: open .*: no such file or directory`)
+}
+
 // TestSplitAuthorizedKeysFile is testing authorized keys splitting based on the
 // the raw contents from a file.
 func (*authorizedKeysSuite) TestSplitAuthorizedKeysFile(c *tc.C) {

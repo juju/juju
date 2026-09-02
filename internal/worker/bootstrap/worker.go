@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/v4/ssh"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/logger"
@@ -45,7 +46,14 @@ const (
 	stateCompleted = "completed"
 )
 
+var bootstrapSSHUser = "ubuntu"
+
 var deleteBootstrapSSHKeys = func(keys []string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	// IAAS bootstrap machines use the standard Ubuntu account and file. CAAS
+	// bootstrap does not call this helper because it has no Ubuntu host.
 	fingerprints := make([]string, 0, len(keys))
 	for _, key := range keys {
 		fingerprint, _, err := ssh.KeyFingerprint(key)
@@ -54,7 +62,7 @@ var deleteBootstrapSSHKeys = func(keys []string) error {
 		}
 		fingerprints = append(fingerprints, fingerprint)
 	}
-	return ssh.DeleteKeysFromFile("ubuntu", "authorized_keys", fingerprints)
+	return ssh.DeleteKeysFromFile(bootstrapSSHUser, "authorized_keys", fingerprints)
 }
 
 // WorkerConfig encapsulates the configuration options for the
@@ -306,8 +314,10 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	if err := deleteBootstrapSSHKeys(bootstrapParams.BootstrapSSHAuthorizedKeys); err != nil {
-		return errors.Annotate(err, "removing bootstrap SSH keys")
+	if !cloud.CloudIsCAAS(bootstrapParams.ControllerCloud) {
+		if err := deleteBootstrapSSHKeys(bootstrapParams.BootstrapSSHAuthorizedKeys); err != nil {
+			return errors.Annotate(err, "removing bootstrap SSH keys")
+		}
 	}
 
 	// Set the bootstrap flag, to indicate that the bootstrap has completed.
