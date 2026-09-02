@@ -1199,6 +1199,7 @@ AND    e.endpoint_name    = $endpointIdentifier.endpoint_name
 
 	var uuidAndRole []relationUUIDAndRole
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		uuidAndRole = nil
 		err = tx.Query(ctx, stmt, e).GetAll(&uuidAndRole)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return relationerrors.RelationNotFound
