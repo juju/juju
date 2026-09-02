@@ -74,6 +74,10 @@ func (s *workerSuite) TestKilled(c *tc.C) {
 	s.expectControllerConfig()
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
+	s.PatchValue(&deleteBootstrapSSHKeys, func(keys []string) error {
+		c.Check(keys, tc.DeepEquals, []string{"bootstrap-ssh-key"})
+		return nil
+	})
 	s.expectReloadSpaces()
 	s.expectSeedDefaultStoragePools()
 	s.expectInitialiseBakeryConfig(nil)
@@ -402,6 +406,7 @@ func (s *workerSuite) ensureBootstrapParams(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	args := instancecfg.StateInitializationParams{
+		BootstrapSSHAuthorizedKeys:  []string{"bootstrap-ssh-key"},
 		ControllerModelConfig:       cfg,
 		BootstrapMachineConstraints: constraints.MustParse("mem=1G"),
 		BootstrapMachineInstanceId:  instance.Id("i-deadbeef"),

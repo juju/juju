@@ -22,6 +22,7 @@ import (
 	"github.com/juju/loggo/v3"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
+	jujusshtools "github.com/juju/utils/v4/ssh"
 	k8scmd "k8s.io/client-go/tools/clientcmd"
 
 	"github.com/juju/juju/api/jujuclient"
@@ -122,6 +123,7 @@ func (s *BootstrapSuite) SetUpSuite(c *tc.C) {
 func (s *BootstrapSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+	c.Assert(jujusshtools.LoadClientKeys(osenv.JujuXDGDataHomePath("ssh")), tc.ErrorIsNil)
 
 	// Set jujuversion.Current to a known value, for which we
 	// will make tools available. Individual tests may

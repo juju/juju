@@ -323,6 +323,10 @@ type StateInitializationParams struct {
 	// the controller model and the admin user during bootstrap.
 	ControllerModelAuthorizedKeys []string
 
+	// BootstrapSSHAuthorizedKeys are removed from the bootstrap machine after the
+	// controller has completed initialization.
+	BootstrapSSHAuthorizedKeys []string
+
 	// ControllerModelEnvironVersion holds the initial controller model
 	// environ version.
 	ControllerModelEnvironVersion int
@@ -402,6 +406,7 @@ type stateInitializationParamsInternal struct {
 	ControllerConfig                        map[string]any                    `yaml:"controller-config"`
 	ControllerModelConfig                   map[string]any                    `yaml:"controller-model-config"`
 	ControllerModelAuthorizedKeys           []string                          `yaml:"controller-model-authorized-keys"`
+	BootstrapSSHAuthorizedKeys              []string                          `yaml:"bootstrap-ssh-authorized-keys"`
 	ControllerModelEnvironVersion           int                               `yaml:"controller-model-version"`
 	ControllerInheritedConfig               map[string]any                    `yaml:"controller-config-defaults,omitempty"`
 	RegionInheritedConfig                   cloud.RegionConfig                `yaml:"region-inherited-config,omitempty"`
@@ -436,6 +441,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		ControllerConfig:                        p.ControllerConfig,
 		ControllerModelConfig:                   p.ControllerModelConfig.AllAttrs(),
 		ControllerModelAuthorizedKeys:           p.ControllerModelAuthorizedKeys,
+		BootstrapSSHAuthorizedKeys:              p.BootstrapSSHAuthorizedKeys,
 		ControllerModelEnvironVersion:           p.ControllerModelEnvironVersion,
 		ControllerInheritedConfig:               p.ControllerInheritedConfig,
 		RegionInheritedConfig:                   p.RegionInheritedConfig,
@@ -485,6 +491,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		ControllerConfig:                        internal.ControllerConfig,
 		ControllerModelConfig:                   cfg,
 		ControllerModelAuthorizedKeys:           internal.ControllerModelAuthorizedKeys,
+		BootstrapSSHAuthorizedKeys:              internal.BootstrapSSHAuthorizedKeys,
 		ControllerModelEnvironVersion:           internal.ControllerModelEnvironVersion,
 		ControllerInheritedConfig:               internal.ControllerInheritedConfig,
 		RegionInheritedConfig:                   internal.RegionInheritedConfig,

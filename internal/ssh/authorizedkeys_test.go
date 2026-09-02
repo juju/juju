@@ -4,7 +4,10 @@
 package ssh
 
 import (
+	"fmt"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -140,6 +143,21 @@ func (*authorizedKeysSuite) TestGetFileSystemPublicKeys(c *tc.C) {
 		slices.Sort(keys)
 		c.Assert(keys, tc.DeepEquals, test.Expected)
 	}
+}
+
+func (*authorizedKeysSuite) TestPublicKeysForPrivateKeyFiles(c *tc.C) {
+	keyDirectory := c.MkDir()
+	privateKeys := []string{
+		filepath.Join(keyDirectory, "one"),
+		filepath.Join(keyDirectory, "two"),
+	}
+	for i, privateKey := range privateKeys {
+		c.Assert(os.WriteFile(privateKey+publicKeyFileSuffix, []byte(fmt.Sprintf("key-%d\n", i)), 0600), tc.ErrorIsNil)
+	}
+
+	keys, err := PublicKeysForPrivateKeyFiles(privateKeys)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(keys, tc.DeepEquals, []string{"key-0", "key-1"})
 }
 
 // TestSplitAuthorizedKeysFile is testing authorized keys splitting based on the

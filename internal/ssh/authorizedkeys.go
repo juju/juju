@@ -95,6 +95,20 @@ func GetFileSystemPublicKeys(
 	return keys, nil
 }
 
+// PublicKeysForPrivateKeyFiles returns the public keys paired with the given
+// private key files.
+func PublicKeysForPrivateKeyFiles(privateKeyFiles []string) ([]string, error) {
+	keys := make([]string, 0, len(privateKeyFiles))
+	for _, privateKeyFile := range privateKeyFiles {
+		key, err := os.ReadFile(privateKeyFile + publicKeyFileSuffix)
+		if err != nil {
+			return nil, fmt.Errorf("reading public key for %q: %w", privateKeyFile, err)
+		}
+		keys = append(keys, strings.TrimSpace(string(key)))
+	}
+	return keys, nil
+}
+
 // readKeyFile is responsible for reading the file pointed at by file name from
 // the file system and processing the data as an ssh public key.
 //

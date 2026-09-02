@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/utils/v4/ssh"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/controller"
@@ -43,6 +44,18 @@ const (
 	stateStarted   = "started"
 	stateCompleted = "completed"
 )
+
+var deleteBootstrapSSHKeys = func(keys []string) error {
+	fingerprints := make([]string, 0, len(keys))
+	for _, key := range keys {
+		fingerprint, _, err := ssh.KeyFingerprint(key)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		fingerprints = append(fingerprints, fingerprint)
+	}
+	return ssh.DeleteKeysFromFile("ubuntu", "authorized_keys", fingerprints)
+}
 
 // WorkerConfig encapsulates the configuration options for the
 // bootstrap worker.
@@ -291,6 +304,10 @@ func (w *bootstrapWorker) loop() error {
 	if err := w.initAPIHostPorts(ctx, controllerConfig, bootstrapAddresses, w.cfg.APIPort); err != nil {
 		w.logger.Errorf(ctx, "unable to set API host ports %v:%w", bootstrapAddresses, err)
 		return errors.Trace(err)
+	}
+
+	if err := deleteBootstrapSSHKeys(bootstrapParams.BootstrapSSHAuthorizedKeys); err != nil {
+		return errors.Annotate(err, "removing bootstrap SSH keys")
 	}
 
 	// Set the bootstrap flag, to indicate that the bootstrap has completed.
