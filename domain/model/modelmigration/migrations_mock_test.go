@@ -94,7 +94,6 @@ type MockModelDetailService struct {
 type MockModelDetailServiceMockRecorder struct {
 	mock                                              *MockModelDetailService
 	createImportingModelWithAgentVersionStreamExpects []*gomock.Call3_1[context.Context, semversion.Number, agentbinary.AgentStream, error]
-	createModelWithAgentVersionStreamExpects          []*gomock.Call3_1[context.Context, semversion.Number, agentbinary.AgentStream, error]
 	setModelConstraintsExpects                        []*gomock.Call2_1[context.Context, constraints.Value, error]
 }
 
@@ -127,24 +126,6 @@ func (mr *MockModelDetailServiceMockRecorder) CreateImportingModelWithAgentVersi
 
 // MockModelDetailServiceCreateImportingModelWithAgentVersionStreamCall is the typed call wrapper for CreateImportingModelWithAgentVersionStream.
 type MockModelDetailServiceCreateImportingModelWithAgentVersionStreamCall = gomock.Call3_1[context.Context, semversion.Number, agentbinary.AgentStream, error]
-
-// CreateModelWithAgentVersionStream mocks base method.
-func (m *MockModelDetailService) CreateModelWithAgentVersionStream(arg0 context.Context, arg1 semversion.Number, arg2 agentbinary.AgentStream) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.createModelWithAgentVersionStreamExpects, m.ctrl, m, "CreateModelWithAgentVersionStream", arg0, arg1, arg2)
-}
-
-// CreateModelWithAgentVersionStream indicates an expected call of CreateModelWithAgentVersionStream.
-func (mr *MockModelDetailServiceMockRecorder) CreateModelWithAgentVersionStream(arg0, arg1, arg2 any) *MockModelDetailServiceCreateModelWithAgentVersionStreamCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, semversion.Number, agentbinary.AgentStream, error](mr.mock.ctrl.T, mr.mock, "CreateModelWithAgentVersionStream", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
-	mr.createModelWithAgentVersionStreamExpects = append(mr.createModelWithAgentVersionStreamExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockModelDetailServiceCreateModelWithAgentVersionStreamCall is the typed call wrapper for CreateModelWithAgentVersionStream.
-type MockModelDetailServiceCreateModelWithAgentVersionStreamCall = gomock.Call3_1[context.Context, semversion.Number, agentbinary.AgentStream, error]
 
 // SetModelConstraints mocks base method.
 func (m *MockModelDetailService) SetModelConstraints(arg0 context.Context, arg1 constraints.Value) error {

@@ -34,11 +34,16 @@ run_controller_limit_access_in_ha() {
 
 		echo "Limit access to all controllers in HA"
 		juju expose -m controller controller --to-cidrs 10.0.0.0/24
-		wait_for_or_fail "! timeout 5 juju status"
+		# In HA the firewaller restricts port 17070 on each controller
+		# machine sequentially via separate provider firewall calls, so
+		# juju status keeps succeeding until all machines are restricted.
+		# Use more iterations than the single-controller default (10) to
+		# allow for this propagation.
+		wait_for_or_fail "! timeout 5 juju status" 30
 
 		echo "Temporarily grant this machine access to the 1st controller in the HA"
 		allow_access_to_api_port "${instance_id}" "${region_or_az}" "${network_tag_or_group}"
-		wait_for_or_fail "timeout 5 juju status"
+		wait_for_or_fail "timeout 5 juju status" 30
 
 		echo "Allow access to all controller in HA from anywhere"
 		juju expose -m controller controller --to-cidrs 0.0.0.0/0
@@ -46,7 +51,7 @@ run_controller_limit_access_in_ha() {
 		# Juju should be able to dump status after removing the temporary network tag
 		# to avoid affecting subsequent tests.
 		remove_access_to_api_port "${instance_id}" "${region_or_az}" "${network_tag_or_group}"
-		wait_for_or_fail "timeout 5 juju status"
+		wait_for_or_fail "timeout 5 juju status" 30
 		;;
 	*)
 		echo "==> TEST SKIPPED: run_controller_limit_access_in_ha test runs on aws/gce only"
