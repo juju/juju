@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package backups
@@ -120,28 +120,26 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 }
 
 // IsValidBackupFilepath reports whether filePath names an existing regular
-// file directly under root whose base name starts with [FilenamePrefix]. It
+// file directly under root whose base name starts with [FilenamePrefix].
+// Symlinks are followed, so a link to a regular backup file is accepted. It
 // is used by the download handler to reject arbitrary paths while allowing
 // absolute client-provided ids.
 func IsValidBackupFilepath(root string, filePath string) (bool, error) {
 	if !filepath.IsAbs(filePath) {
 		return false, nil
 	}
+	if filepath.Dir(filePath) != filepath.Clean(root) {
+		return false, nil
+	}
 	if !strings.HasPrefix(filepath.Base(filePath), FilenamePrefix) {
 		return false, nil
 	}
-	result := false
-	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			// Best-effort validation: unreadable entries are skipped.
-			return nil
+	info, err := os.Stat(filePath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
 		}
-		if !d.IsDir() && path == filePath {
-			result = true
-			// The file is found; stop walking the rest of the tree.
-			return filepath.SkipAll
-		}
-		return nil
-	})
-	return result, walkErr
+		return false, errors.Capture(err)
+	}
+	return info.Mode().IsRegular(), nil
 }

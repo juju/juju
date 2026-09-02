@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package backups_test
@@ -220,4 +220,19 @@ func (s *createSuite) TestCreateMissingClock(c *tc.C) {
 		FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
 	})
 	c.Assert(err, tc.ErrorMatches, "missing clock")
+}
+
+func (s *createSuite) TestBuildArchiveAndChecksumFailureRemovesArchive(c *tc.C) {
+	dir := c.MkDir()
+	filename := filepath.Join(dir, "archive.tar.gz")
+
+	// A missing content directory fails the tar build after the
+	// archive file has been created; the partial archive must not be
+	// left behind.
+	_, _, err := backups.BuildArchiveAndChecksum(filename, dir,
+		filepath.Join(dir, "missing"))
+	c.Assert(err, tc.NotNil)
+
+	_, err = os.Stat(filename)
+	c.Assert(err, tc.ErrorIs, os.ErrNotExist)
 }

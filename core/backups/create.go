@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package backups
@@ -22,7 +22,7 @@ import (
 )
 
 // tempPrefix is the prefix used for the backup staging directories.
-const tempPrefix = "jujuBackup-"
+const tempPrefix = "juju-backup-"
 
 // DumpEntry is a single database dump file to include in the backup
 // archive, under the archive's dump directory.
@@ -235,9 +235,13 @@ func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, 
 	}
 	// The archive is only complete once its final flush lands, so a
 	// close failure fails the backup unless the build already failed.
+	// A failed build leaves no partial archive behind.
 	defer func() {
 		if cerr := archiveFile.Close(); err == nil && cerr != nil {
 			err = errors.Errorf("while closing archive file: %w", cerr)
+		}
+		if err != nil {
+			_ = os.Remove(filename)
 		}
 	}()
 
@@ -264,9 +268,10 @@ func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, 
 func buildArchive(outFile io.Writer, stagingDir, contentDir string) error {
 	tarball := gzip.NewWriter(outFile)
 
-	// We add a trailing slash (or whatever) to root so that everything
-	// in the path up to and including that slash is stripped off when
-	// each file is added to the tar file.
+	// A trailing path separator is appended to the staging directory
+	// so that everything in the path up to and including that
+	// separator is stripped off when each file is added to the tar
+	// file.
 	stripPrefix := stagingDir + string(os.PathSeparator)
 	filenames := []string{contentDir}
 	if _, err := tar.TarFiles(filenames, tarball, stripPrefix); err != nil {
@@ -288,7 +293,11 @@ func buildArchive(outFile io.Writer, stagingDir, contentDir string) error {
 // expected size.
 func CheckSpaceFor(dir string, expectedSize int64) error {
 	const (
-		miByte          = uint64(1) << 20
+		// miByte is one mebibyte (2^20 bytes); free-space
+		// shortfalls are reported in MiB.
+		miByte = uint64(1) << 20
+		// minFreeAbsolute caps the disk-size margin at 5 GiB
+		// (5 * 2^30 bytes).
 		minFreeAbsolute = float64(uint64(5) << 30)
 	)
 

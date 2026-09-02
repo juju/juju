@@ -3,4 +3,7 @@
 
 package backups
 
-var FileTimestamp = fileTimestamp
+var (
+	FileTimestamp           = fileTimestamp
+	BuildArchiveAndChecksum = buildArchiveAndChecksum
+)

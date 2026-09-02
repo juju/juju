@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package backups_test
@@ -156,6 +156,11 @@ func (s *filesSuite) TestIsValidBackupFilepath(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(ok, tc.IsTrue)
 
+	// A backup file in a subdirectory of root is rejected: only files
+	// directly under root are served.
+	nested := filepath.Join(dir, "sub", backups.FilenamePrefix+"nested.tar.gz")
+	s.writeFile(c, nested, "archive data")
+
 	for _, invalid := range []struct {
 		name  string
 		path_ string
@@ -163,6 +168,7 @@ func (s *filesSuite) TestIsValidBackupFilepath(c *tc.C) {
 		{"relative", "juju-backup-foo.tar.gz"},
 		{"absolute missing file", filepath.Join(dir, "juju-backup-missing.tar.gz")},
 		{"prefix-refusing", filepath.Join(dir, "other.tar.gz")},
+		{"nested", nested},
 	} {
 		ok, err = backups.IsValidBackupFilepath(dir, invalid.path_)
 		c.Assert(err, tc.ErrorIsNil)
