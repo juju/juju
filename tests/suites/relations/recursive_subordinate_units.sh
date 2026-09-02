@@ -24,6 +24,34 @@ subordinate_unit_count() {
 	juju status --format=json | yq "[.applications[\"${parent}\"].units[] | (.subordinates // {}) | to_entries[] | select(.key | test(\"^${app}/\"))] | length"
 }
 
+# subordinate_count_stable returns once the number of units of the given
+# subordinate application keyed to the principal has been observed to be
+# exactly one on two consecutive samples, one SHORT_TIMEOUT apart. Requiring
+# a stable window instead of a fixed sleep means neither a busy CI runner
+# (more headroom up to SUBORDINATE_SETTLE_TIMEOUT) nor a fast one (exits as
+# soon as two matches) is penalised, and a spurious relation-joined hook
+# cycle has a bounded window in which to surface an extra unit.
+subordinate_count_stable() {
+	local subordinate deadline current last
+	subordinate=${1}
+	deadline=$(( $(date +%s) + ${SUBORDINATE_SETTLE_TIMEOUT:-60} ))
+	last=""
+
+	while :; do
+		current=$(subordinate_unit_count principal "${subordinate}")
+		if [[ ${current} == "1" && ${current} == "${last}" ]]; then
+			return 0
+		fi
+		last=${current}
+
+		if (( $(date +%s) >= deadline )); then
+			echo "subordinate count for ${subordinate} did not stabilise at 1 (last=${current})" >&2
+			return 1
+		fi
+		sleep "${SHORT_TIMEOUT}"
+	done
+}
+
 run_recursive_subordinate_units() {
 	echo
 
@@ -47,10 +75,12 @@ run_recursive_subordinate_units() {
 
 	# Subordinate units live under the principal unit's subordinates. Both
 	# must be keyed to the principal unit itself: keying one of them to the
-	# other subordinate is what causes the recursive deployment. Allow a
-	# further relation-joined/hook cycle to run, then verify that no
-	# additional subordinate unit has been spawned.
-	sleep 30
+	# other subordinate is what causes the recursive deployment. Once the
+	# count has stabilised, assert that no extra subordinate unit was spawned
+	# during the observation window.
+	subordinate_count_stable subordinate-one
+	subordinate_count_stable subordinate-two
+
 	check "1" <<<"$(subordinate_unit_count principal subordinate-one)"
 	check "1" <<<"$(subordinate_unit_count principal subordinate-two)"
 

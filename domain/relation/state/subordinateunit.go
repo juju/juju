@@ -202,20 +202,22 @@ WHERE  u.uuid = $entityUUID.uuid
 func (st *State) getUnitPrincipalUUID(
 	ctx context.Context, tx *sqlair.TX, unitUUID string,
 ) (string, bool, error) {
+	// unitPrincipalRow describes the projected principal_uuid column. The
+	// input unit UUID is bound from a separate entityUUID so this struct only
+	// carries the data a query populates.
 	type unitPrincipalRow struct {
-		UnitUUID      string `db:"unit_uuid"`
 		PrincipalUUID string `db:"principal_uuid"`
 	}
 	stmt, err := st.Prepare(`
-SELECT principal_uuid AS &unitPrincipalRow.*
+SELECT principal_uuid AS &unitPrincipalRow.principal_uuid
 FROM   unit_principal
-WHERE  unit_uuid = $unitPrincipalRow.unit_uuid
-`, unitPrincipalRow{})
+WHERE  unit_uuid = $entityUUID.uuid
+`, unitPrincipalRow{}, entityUUID{})
 	if err != nil {
 		return "", false, errors.Capture(err)
 	}
 
-	arg := unitPrincipalRow{UnitUUID: unitUUID}
+	arg := entityUUID{UUID: unitUUID}
 	var row unitPrincipalRow
 	err = tx.Query(ctx, stmt, arg).Get(&row)
 	if errors.Is(err, sqlair.ErrNoRows) {
