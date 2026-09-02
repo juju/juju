@@ -72,7 +72,7 @@ func Create(meta *Metadata, args CreateArgs) (string, error) {
 
 	stagingDir, err := os.MkdirTemp(args.DestinationDir, tempPrefix)
 	if err != nil {
-		return "", errors.Errorf("while making backups staging directory: %w", err)
+		return "", errors.Errorf("making backups staging directory: %w", err)
 	}
 	// The staging directory is removed on success and on failure.
 	defer func() { _ = os.RemoveAll(stagingDir) }()
@@ -82,7 +82,7 @@ func Create(meta *Metadata, args CreateArgs) (string, error) {
 	// We go with user-only permissions on principle; the directories
 	// are short-lived so in practice it shouldn't matter much.
 	if err := os.MkdirAll(archivePaths.DBDumpDir, 0700); err != nil {
-		return "", errors.Errorf("while creating temp directories: %w", err)
+		return "", errors.Errorf("creating temp directories: %w", err)
 	}
 
 	// The metadata file does not contain the ID or the "finished"
@@ -92,7 +92,7 @@ func Create(meta *Metadata, args CreateArgs) (string, error) {
 	// and filling them in afterward. Neither is particularly trivial.
 	metadataReader, err := meta.AsJSONBuffer()
 	if err != nil {
-		return "", errors.Errorf("while preparing the metadata: %w", err)
+		return "", errors.Errorf("preparing the metadata: %w", err)
 	}
 	if err := writeAll(archivePaths.MetadataFile, metadataReader); err != nil {
 		return "", errors.Capture(err)
@@ -115,7 +115,7 @@ func Create(meta *Metadata, args CreateArgs) (string, error) {
 	}
 
 	if err := meta.MarkComplete(size, checksum, args.Clock.Now()); err != nil {
-		return "", errors.Errorf("while updating metadata: %w", err)
+		return "", errors.Errorf("updating metadata: %w", err)
 	}
 
 	return filename, nil
@@ -154,7 +154,7 @@ func checkDumpEntryName(name string) error {
 	if path.IsAbs(cleaned) ||
 		slices.Contains(strings.Split(cleaned, "/"), "..") {
 		return errors.Errorf(
-			"dump entry name %q escapes the dump directory: %w",
+			"entry name %q escapes the root directory: %w",
 			name, coreerrors.NotValid)
 	}
 	return nil
@@ -164,19 +164,19 @@ func checkDumpEntryName(name string) error {
 // any missing parent directories.
 func writeAll(targetname string, source io.Reader) error {
 	if err := os.MkdirAll(filepath.Dir(targetname), 0700); err != nil {
-		return errors.Errorf("while creating directory for %q: %w",
+		return errors.Errorf("creating directory for %q: %w",
 			targetname, err)
 	}
 	target, err := os.Create(targetname)
 	if err != nil {
-		return errors.Errorf("while creating file %q: %w", targetname, err)
+		return errors.Errorf("creating file %q: %w", targetname, err)
 	}
 	if _, err := io.Copy(target, source); err != nil {
 		_ = target.Close()
-		return errors.Errorf("while copying into file %q: %w", targetname, err)
+		return errors.Errorf("copying into file %q: %w", targetname, err)
 	}
 	if err := target.Close(); err != nil {
-		return errors.Errorf("while closing file %q: %w", targetname, err)
+		return errors.Errorf("closing file %q: %w", targetname, err)
 	}
 	return nil
 }
@@ -191,13 +191,13 @@ func buildFilesBundle(bundleFileName string, filesToBackUp []string) error {
 	// Create the parent directory here rather than relying on an
 	// earlier write having created it, matching writeAll.
 	if err := os.MkdirAll(filepath.Dir(bundleFileName), 0700); err != nil {
-		return errors.Errorf("while creating directory for %q: %w",
+		return errors.Errorf("creating directory for %q: %w",
 			bundleFileName, err)
 	}
 
 	bundleFile, err := os.Create(bundleFileName)
 	if err != nil {
-		return errors.Errorf("while creating bundle file: %w", err)
+		return errors.Errorf("creating bundle file: %w", err)
 	}
 
 	// The leading path separator is stripped off each file name when
@@ -208,7 +208,7 @@ func buildFilesBundle(bundleFileName string, filesToBackUp []string) error {
 		terr = errors.Capture(cerr)
 	}
 	if terr != nil {
-		return errors.Errorf("while bundling state-critical files: %w", terr)
+		return errors.Errorf("bundling state-critical files: %w", terr)
 	}
 	return nil
 }
@@ -231,14 +231,14 @@ func buildDump(dumpDir string, entries []DumpEntry) error {
 func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, _ string, err error) {
 	archiveFile, err := os.Create(filename)
 	if err != nil {
-		return 0, "", errors.Errorf("while creating archive file: %w", err)
+		return 0, "", errors.Errorf("creating archive file: %w", err)
 	}
 	// The archive is only complete once its final flush lands, so a
 	// close failure fails the backup unless the build already failed.
 	// A failed build leaves no partial archive behind.
 	defer func() {
 		if cerr := archiveFile.Close(); err == nil && cerr != nil {
-			err = errors.Errorf("while closing archive file: %w", cerr)
+			err = errors.Errorf("closing archive file: %w", cerr)
 		}
 		if err != nil {
 			_ = os.Remove(filename)
@@ -257,7 +257,7 @@ func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, 
 
 	stat, err := os.Stat(filename)
 	if err != nil {
-		return 0, "", errors.Errorf("while reading archive file info: %w", err)
+		return 0, "", errors.Errorf("reading archive file info: %w", err)
 	}
 
 	return stat.Size(), hasher.Base64Sum(), nil
@@ -276,31 +276,31 @@ func buildArchive(outFile io.Writer, stagingDir, contentDir string) error {
 	filenames := []string{contentDir}
 	if _, err := tar.TarFiles(filenames, tarball, stripPrefix); err != nil {
 		_ = tarball.Close()
-		return errors.Errorf("while bundling final archive: %w", err)
+		return errors.Errorf("bundling final archive: %w", err)
 	}
 
 	// Gzip writers may buffer what they're writing so the writer must
 	// be closed before the caller reads the checksum from the hasher.
 	if err := tarball.Close(); err != nil {
-		return errors.Errorf("while closing final archive: %w", err)
+		return errors.Errorf("closing final archive: %w", err)
 	}
 	return nil
 }
+
+const (
+	// miByte is one mebibyte (2^20 bytes); free-space shortfalls are
+	// reported in MiB.
+	miByte = uint64(1) << 20
+	// minFreeAbsolute caps the disk-size margin at 5 GiB
+	// (5 * 2^30 bytes).
+	minFreeAbsolute = float64(uint64(5) << 30)
+)
 
 // CheckSpaceFor errors when the free space in dir is less than the
 // expected archive size plus a safety margin. The margin is the larger
 // of the smaller of 5GiB or 10% of the total disk size, and 20% of the
 // expected size.
 func CheckSpaceFor(dir string, expectedSize int64) error {
-	const (
-		// miByte is one mebibyte (2^20 bytes); free-space
-		// shortfalls are reported in MiB.
-		miByte = uint64(1) << 20
-		// minFreeAbsolute caps the disk-size margin at 5 GiB
-		// (5 * 2^30 bytes).
-		minFreeAbsolute = float64(uint64(5) << 30)
-	)
-
 	total, err := diskTotal(dir)
 	if err != nil {
 		return errors.Capture(err)
