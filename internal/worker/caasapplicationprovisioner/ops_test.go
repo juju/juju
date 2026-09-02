@@ -677,6 +677,7 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 1, true).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
+		applicationService.EXPECT().SetApplicationScalingStateWithStart(gomock.Any(), "test", 1, 3, true).Return(nil),
 		facade.EXPECT().DestroyUnits(gomock.Any(), gomock.InAnyOrder([]string{"test/0", "test/1"})).Return(nil),
 	)
 
@@ -915,6 +916,7 @@ func (s *OpsSuite) TestEnsureScaleAliveScaleDown5To2(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 2, true).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
+		applicationService.EXPECT().SetApplicationScalingStateWithStart(gomock.Any(), "test", 2, 3, true).Return(nil),
 		facade.EXPECT().DestroyUnits(gomock.Any(), gomock.InAnyOrder([]string{"test/0", "test/1", "test/2"})).Return(nil),
 	)
 
@@ -943,6 +945,7 @@ func (s *OpsSuite) TestEnsureScaleAliveScaleDown3To1(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 1, true).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
+		applicationService.EXPECT().SetApplicationScalingStateWithStart(gomock.Any(), "test", 1, 2, true).Return(nil),
 		facade.EXPECT().DestroyUnits(gomock.Any(), gomock.InAnyOrder([]string{"test/0", "test/1"})).Return(nil),
 	)
 
@@ -974,6 +977,7 @@ func (s *OpsSuite) TestEnsureScaleAliveScaleDownMixedLives(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 2, true).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
+		applicationService.EXPECT().SetApplicationScalingStateWithStart(gomock.Any(), "test", 2, 3, true).Return(nil),
 		facade.EXPECT().DestroyUnits(gomock.Any(), gomock.InAnyOrder([]string{"test/0", "test/2"})).Return(nil),
 	)
 
@@ -1006,6 +1010,7 @@ func (s *OpsSuite) TestEnsureScaleAliveScaleDownNothingToDestroy(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScale(gomock.Any(), "test").Return(1, nil),
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(ps, nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
+		applicationService.EXPECT().SetApplicationScalingStateWithStart(gomock.Any(), "test", 1, 2, true).Return(nil),
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app,
@@ -1034,6 +1039,7 @@ func (s *OpsSuite) TestEnsureScaleAliveScaleDownSparseOrdinals(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 2, true).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
+		applicationService.EXPECT().SetApplicationScalingStateWithStart(gomock.Any(), "test", 2, 2, true).Return(nil),
 		facade.EXPECT().DestroyUnits(gomock.Any(), gomock.InAnyOrder([]string{"test/0"})).Return(nil),
 	)
 
@@ -1064,6 +1070,7 @@ func (s *OpsSuite) TestEnsureScaleAliveScaleDownSparseOrdinals2(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 2, true).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
+		applicationService.EXPECT().SetApplicationScalingStateWithStart(gomock.Any(), "test", 2, 2, true).Return(nil),
 		facade.EXPECT().DestroyUnits(gomock.Any(), gomock.InAnyOrder([]string{"test/0", "test/1"})).Return(nil),
 	)
 
