@@ -11,7 +11,6 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -22,35 +21,257 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// SetMachineCloudInstance records the cloud identity for a machine that has
-// been successfully provisioned. It is idempotent with respect to the sentinel
-// field (instance_id): if the instance_id is already set, it returns
-// [machineerrors.MachineCloudInstanceAlreadyExists].
+// RecordProvisionedMachine persists the complete result of a successful
+// provider StartInstance call in a single transaction, covering network
+// configuration, volumes, volume attachments, and cloud instance identity.
 //
-// This method is a deliberate duplicate of
-// domain/machine/state.SetMachineCloudInstance. The provisioner state owns
-// this write because it must be the last write in RecordProvisionedMachine —
-// it fires the change-stream notification that wakes the instance-poller, so
-// all other provisioning data (network, storage) must already be committed.
-//
-// The following errors may be returned:
-//   - [machineerrors.MachineCloudInstanceAlreadyExists] if the instance is
-//     already registered for this machine.
-//   - [networkerrors.AvailabilityZoneNotFound] if the AZ name from the
-//     hardware characteristics does not exist in the model.
-func (st *State) SetMachineCloudInstance(
+// The cloud-instance write is deliberately last: it emits the change-stream
+// notification that wakes the instance-poller, so the poller never observes a
+// newly registered instance before its provisioning state is available.
+func (st *State) RecordProvisionedMachine(
 	ctx context.Context,
-	mUUID string,
-	instanceID instance.Id,
-	displayName, nonce string,
-	hardwareCharacteristics *instance.HardwareCharacteristics,
+	machineUUID string,
+	info provisioner.ProvisionedMachineInfo,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	setInstanceData := `
+	// ---- Statement preparation ----
+
+	nics := domainnetwork.ProviderNetInterfaces(info.NetworkConfig)
+
+	// Volume statements
+	var (
+		getVolumeUUIDStmt         *sqlair.Statement
+		updateVolumeStmt          *sqlair.Statement
+		getNetNodeStmt            *sqlair.Statement
+		getAttachmentUUIDStmt     *sqlair.Statement
+		getPlanUUIDStmt           *sqlair.Statement
+		getBlockDevicesStmt       *sqlair.Statement
+		getBlockDeviceLinksStmt   *sqlair.Statement
+		insertBlockDeviceStmt     *sqlair.Statement
+		insertBlockDeviceLinkStmt *sqlair.Statement
+		updateAttachmentStmt      *sqlair.Statement
+		updatePlanStmt            *sqlair.Statement
+		deletePlanAttrsStmt       *sqlair.Statement
+		insertPlanAttrStmt        *sqlair.Statement
+	)
+	if len(info.VolumeAttachments) > 0 || len(nics) > 0 {
+		getNetNodeStmt, err = st.Prepare(`
+SELECT &provNetNodeUUID.*
+FROM   machine
+WHERE  uuid = $provMachineUUIDParam.uuid
+`, provNetNodeUUID{}, provMachineUUIDParam{})
+		if err != nil {
+			return errors.Errorf("preparing net node lookup: %w", err)
+		}
+	}
+	if len(info.Volumes) > 0 || len(info.VolumeAttachments) > 0 {
+		getVolumeUUIDStmt, err = st.Prepare(`
+SELECT &provVolumeUUID.*
+FROM   storage_volume
+WHERE  volume_id = $provVolumeID.volume_id
+`, provVolumeUUID{}, provVolumeID{})
+		if err != nil {
+			return errors.Errorf("preparing volume UUID lookup: %w", err)
+		}
+	}
+	if len(info.Volumes) > 0 {
+		updateVolumeStmt, err = st.Prepare(`
+UPDATE storage_volume
+SET    provider_id  = $provVolumeProvisionedInfo.provider_id,
+       size_mib     = $provVolumeProvisionedInfo.size_mib,
+       hardware_id  = $provVolumeProvisionedInfo.hardware_id,
+       wwn          = $provVolumeProvisionedInfo.wwn,
+       persistent   = $provVolumeProvisionedInfo.persistent
+WHERE  uuid = $provVolumeProvisionedInfo.uuid
+`, provVolumeProvisionedInfo{})
+		if err != nil {
+			return errors.Errorf("preparing volume update: %w", err)
+		}
+	}
+	if len(info.VolumeAttachments) > 0 {
+		getAttachmentUUIDStmt, err = st.Prepare(`
+SELECT &provEntityUUID.*
+FROM   storage_volume_attachment
+WHERE  storage_volume_uuid = $provVolumeUUID.uuid
+AND    net_node_uuid        = $provNetNodeUUID.net_node_uuid
+`, provEntityUUID{}, provVolumeUUID{}, provNetNodeUUID{})
+		if err != nil {
+			return errors.Errorf("preparing attachment UUID lookup: %w", err)
+		}
+		getPlanUUIDStmt, err = st.Prepare(`
+SELECT &provEntityUUID.*
+FROM   storage_volume_attachment_plan
+WHERE  storage_volume_uuid = $provVolumeUUID.uuid
+AND    net_node_uuid        = $provNetNodeUUID.net_node_uuid
+`, provEntityUUID{}, provVolumeUUID{}, provNetNodeUUID{})
+		if err != nil {
+			return errors.Errorf("preparing plan UUID lookup: %w", err)
+		}
+		getBlockDevicesStmt, err = st.Prepare(`
+SELECT &provBlockDeviceRow.*
+FROM   block_device
+WHERE  machine_uuid = $provMachineUUIDParam.uuid
+`, provBlockDeviceRow{}, provMachineUUIDParam{})
+		if err != nil {
+			return errors.Errorf("preparing block device lookup: %w", err)
+		}
+		getBlockDeviceLinksStmt, err = st.Prepare(`
+SELECT &provBlockDeviceLinkRow.*
+FROM   block_device_link_device
+WHERE  machine_uuid = $provMachineUUIDParam.uuid
+`, provBlockDeviceLinkRow{}, provMachineUUIDParam{})
+		if err != nil {
+			return errors.Errorf("preparing block device links lookup: %w", err)
+		}
+		insertBlockDeviceStmt, err = st.Prepare(`
+INSERT INTO block_device (uuid, machine_uuid, name, bus_address)
+VALUES      ($provNewBlockDeviceRow.*)
+ON CONFLICT (uuid) DO NOTHING
+`, provNewBlockDeviceRow{})
+		if err != nil {
+			return errors.Errorf("preparing block device insert: %w", err)
+		}
+		insertBlockDeviceLinkStmt, err = st.Prepare(`
+INSERT INTO block_device_link_device (block_device_uuid, machine_uuid, name)
+VALUES      ($provBlockDeviceLinkRow.*)
+ON CONFLICT DO NOTHING
+`, provBlockDeviceLinkRow{})
+		if err != nil {
+			return errors.Errorf("preparing block device link insert: %w", err)
+		}
+		updateAttachmentStmt, err = st.Prepare(`
+UPDATE storage_volume_attachment
+SET    read_only         = $provAttachmentProvisionedInfo.read_only,
+       block_device_uuid = $provAttachmentProvisionedInfo.block_device_uuid
+WHERE  uuid = $provAttachmentProvisionedInfo.uuid
+`, provAttachmentProvisionedInfo{})
+		if err != nil {
+			return errors.Errorf("preparing attachment update: %w", err)
+		}
+		updatePlanStmt, err = st.Prepare(`
+UPDATE storage_volume_attachment_plan
+SET    device_type_id = $provPlanProvisionedInfo.device_type_id
+WHERE  uuid = $provPlanProvisionedInfo.uuid
+`, provPlanProvisionedInfo{})
+		if err != nil {
+			return errors.Errorf("preparing plan update: %w", err)
+		}
+		deletePlanAttrsStmt, err = st.Prepare(`
+DELETE FROM storage_volume_attachment_plan_attr
+WHERE       attachment_plan_uuid = $provPlanUUIDParam.uuid
+`, provPlanUUIDParam{})
+		if err != nil {
+			return errors.Errorf("preparing plan attr delete: %w", err)
+		}
+		insertPlanAttrStmt, err = st.Prepare(`
+INSERT INTO storage_volume_attachment_plan_attr (attachment_plan_uuid, key, value)
+VALUES      ($provPlanAttrRow.*)
+ON CONFLICT (attachment_plan_uuid, key) DO UPDATE SET value = EXCLUDED.value
+`, provPlanAttrRow{})
+		if err != nil {
+			return errors.Errorf("preparing plan attr insert: %w", err)
+		}
+	}
+
+	var (
+		upsertDeviceStmt          *sqlair.Statement
+		upsertAddrStmt            *sqlair.Statement
+		upsertProviderDeviceStmt  *sqlair.Statement
+		upsertProviderAddrStmt    *sqlair.Statement
+		upsertDNSDomainStmt       *sqlair.Statement
+		upsertDNSAddrStmt         *sqlair.Statement
+		upsertDeviceParentStmt    *sqlair.Statement
+		getSubnetByProviderIDStmt *sqlair.Statement
+	)
+	if len(nics) > 0 {
+		upsertDeviceStmt, err = st.Prepare(`
+INSERT INTO link_layer_device (*) VALUES ($provLLDRow.*)
+ON CONFLICT (uuid) DO UPDATE SET
+    device_type_id       = EXCLUDED.device_type_id,
+    mac_address          = EXCLUDED.mac_address,
+    mtu                  = EXCLUDED.mtu,
+    gateway_address      = EXCLUDED.gateway_address,
+    is_default_gateway   = EXCLUDED.is_default_gateway,
+    is_auto_start        = EXCLUDED.is_auto_start,
+    is_enabled           = EXCLUDED.is_enabled,
+    virtual_port_type_id = EXCLUDED.virtual_port_type_id,
+    vlan_tag             = EXCLUDED.vlan_tag
+`, provLLDRow{})
+		if err != nil {
+			return errors.Errorf("preparing device upsert: %w", err)
+		}
+		upsertAddrStmt, err = st.Prepare(`
+INSERT INTO ip_address (*) VALUES ($provIPAddrRow.*)
+ON CONFLICT (uuid) DO UPDATE SET
+    device_uuid    = EXCLUDED.device_uuid,
+    address_value  = EXCLUDED.address_value,
+    config_type_id = EXCLUDED.config_type_id,
+    type_id        = EXCLUDED.type_id,
+    subnet_uuid    = EXCLUDED.subnet_uuid,
+    scope_id       = EXCLUDED.scope_id,
+    origin_id      = EXCLUDED.origin_id,
+    is_secondary   = EXCLUDED.is_secondary,
+    is_shadow      = EXCLUDED.is_shadow
+`, provIPAddrRow{})
+		if err != nil {
+			return errors.Errorf("preparing address upsert: %w", err)
+		}
+		upsertProviderDeviceStmt, err = st.Prepare(`
+INSERT INTO provider_link_layer_device (provider_id, device_uuid)
+VALUES      ($provProviderLLDRow.*)
+ON CONFLICT (provider_id) DO UPDATE SET device_uuid = EXCLUDED.device_uuid
+`, provProviderLLDRow{})
+		if err != nil {
+			return errors.Errorf("preparing provider device upsert: %w", err)
+		}
+		upsertProviderAddrStmt, err = st.Prepare(`
+INSERT INTO provider_ip_address (provider_id, address_uuid)
+VALUES      ($provProviderIPRow.*)
+ON CONFLICT (provider_id) DO UPDATE SET address_uuid = EXCLUDED.address_uuid
+`, provProviderIPRow{})
+		if err != nil {
+			return errors.Errorf("preparing provider address upsert: %w", err)
+		}
+		upsertDNSDomainStmt, err = st.Prepare(`
+INSERT INTO link_layer_device_dns_domain (device_uuid, search_domain)
+VALUES      ($provDNSDomainRow.*)
+ON CONFLICT (device_uuid, search_domain) DO NOTHING
+`, provDNSDomainRow{})
+		if err != nil {
+			return errors.Errorf("preparing DNS domain upsert: %w", err)
+		}
+		upsertDNSAddrStmt, err = st.Prepare(`
+INSERT INTO link_layer_device_dns_address (device_uuid, dns_address)
+VALUES      ($provDNSAddrRow.*)
+ON CONFLICT (device_uuid, dns_address) DO NOTHING
+`, provDNSAddrRow{})
+		if err != nil {
+			return errors.Errorf("preparing DNS address upsert: %w", err)
+		}
+		upsertDeviceParentStmt, err = st.Prepare(`
+INSERT INTO link_layer_device_parent (device_uuid, parent_uuid)
+VALUES      ($provLLDParentRow.*)
+ON CONFLICT (device_uuid) DO UPDATE SET parent_uuid = EXCLUDED.parent_uuid
+`, provLLDParentRow{})
+		if err != nil {
+			return errors.Errorf("preparing device parent upsert: %w", err)
+		}
+		getSubnetByProviderIDStmt, err = st.Prepare(`
+SELECT subnet_uuid AS &provSubnetUUID.uuid
+FROM   provider_subnet
+WHERE  provider_id = $provProviderID.provider_id
+`, provSubnetUUID{}, provProviderID{})
+		if err != nil {
+			return errors.Errorf("preparing subnet by provider ID lookup: %w", err)
+		}
+	}
+
+	// Cloud instance statements.
+	setInstanceDataStmt, err := st.Prepare(`
 UPDATE machine_cloud_instance
 SET
 	  instance_id=$provInstanceData.instance_id,
@@ -64,15 +285,13 @@ SET
 	  virt_type=$provInstanceData.virt_type,
 	  availability_zone_uuid=$provInstanceData.availability_zone_uuid
 WHERE machine_uuid=$provInstanceData.machine_uuid
-`
-	setInstanceDataStmt, err := st.Prepare(setInstanceData, provInstanceData{})
+`, provInstanceData{})
 	if err != nil {
 		return errors.Capture(err)
 	}
-
 	mNonce := provMachineNonce{
-		MachineUUID: mUUID,
-		Nonce:       nonce,
+		MachineUUID: machineUUID,
+		Nonce:       info.Nonce,
 	}
 	setNonceStmt, err := st.Prepare(`
 UPDATE machine
@@ -83,7 +302,6 @@ AND    nonce IS NULL OR nonce = ''
 	if err != nil {
 		return errors.Capture(err)
 	}
-
 	setInstanceTagStmt, err := st.Prepare(`
 INSERT INTO instance_tag (*)
 VALUES ($provInstanceTag.*)
@@ -91,10 +309,9 @@ VALUES ($provInstanceTag.*)
 	if err != nil {
 		return errors.Capture(err)
 	}
-
 	azName := provAZName{}
-	if hardwareCharacteristics != nil && hardwareCharacteristics.AvailabilityZone != nil {
-		azName = provAZName{Name: *hardwareCharacteristics.AvailabilityZone}
+	if info.HardwareCharacteristics != nil && info.HardwareCharacteristics.AvailabilityZone != nil {
+		azName = provAZName{Name: *info.HardwareCharacteristics.AvailabilityZone}
 	}
 	retrieveAZUUIDStmt, err := st.Prepare(`
 SELECT &provAZName.uuid
@@ -104,7 +321,6 @@ WHERE  availability_zone.name = $provAZName.name
 	if err != nil {
 		return errors.Capture(err)
 	}
-
 	checkInstanceIDStmt, err := st.Prepare(`
 SELECT &provInstanceID.instance_id
 FROM   machine_cloud_instance
@@ -113,7 +329,6 @@ WHERE  machine_uuid = $provMachineUUIDParam.uuid;
 	if err != nil {
 		return errors.Capture(err)
 	}
-
 	setManualStmt, err := st.Prepare(`
 INSERT INTO machine_manual (machine_uuid)
 VALUES ($provMachineUUIDParam.uuid)
@@ -123,482 +338,23 @@ ON CONFLICT (machine_uuid) DO NOTHING
 		return errors.Capture(err)
 	}
 
+	// Pre-compute instanceID/displayName nullables.
+	instanceID := info.InstanceID
+	displayName := info.DisplayName
+
 	var instID sql.Null[string]
 	if v := instanceID.String(); v != "" {
 		instID = sql.Null[string]{V: v, Valid: true}
 	}
-
 	var disName sql.Null[string]
 	if v := displayName; v != "" {
 		disName = sql.Null[string]{V: v, Valid: true}
 	}
 
+	// ---- Single transaction ----
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Guard: reject if instance_id is already set.
-		mUUIDParam := provMachineUUIDParam{UUID: mUUID}
-		var existing provInstanceID
-		if err := tx.Query(ctx, checkInstanceIDStmt, mUUIDParam).Get(&existing); err != nil &&
-			!errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("querying instance id for machine %q: %w", mUUID, err)
-		} else if existing.InstanceID != "" {
-			return errors.Errorf("%w for machine %q", machineerrors.MachineCloudInstanceAlreadyExists, mUUID)
-		}
-
-		if err := tx.Query(ctx, setNonceStmt, mNonce).Run(); err != nil {
-			return errors.Errorf("setting nonce for machine %q: %w", mUUID, err)
-		}
-
-		if strings.HasPrefix(instanceID.String(), domainmachine.ManualInstancePrefix) {
-			if err := tx.Query(ctx, setManualStmt, mUUIDParam).Run(); err != nil {
-				return errors.Errorf("inserting manual machine entry for machine %q: %w", mUUID, err)
-			}
-		}
-
-		instanceData := provInstanceData{
-			MachineUUID: mUUID,
-			InstanceID:  instID,
-			DisplayName: disName,
-		}
-		if hardwareCharacteristics != nil {
-			instanceData.Arch = hardwareCharacteristics.Arch
-			instanceData.Mem = hardwareCharacteristics.Mem
-			instanceData.RootDisk = hardwareCharacteristics.RootDisk
-			instanceData.RootDiskSource = hardwareCharacteristics.RootDiskSource
-			instanceData.CPUCores = hardwareCharacteristics.CpuCores
-			instanceData.CPUPower = hardwareCharacteristics.CpuPower
-			instanceData.VirtType = hardwareCharacteristics.VirtType
-		}
-
-		if hardwareCharacteristics != nil &&
-			hardwareCharacteristics.AvailabilityZone != nil &&
-			*hardwareCharacteristics.AvailabilityZone != "" {
-			var azUUID provAZName
-			if err := tx.Query(ctx, retrieveAZUUIDStmt, azName).Get(&azUUID); err != nil {
-				if errors.Is(err, sqlair.ErrNoRows) {
-					return errors.Errorf(
-						"%w %q for machine %q",
-						networkerrors.AvailabilityZoneNotFound,
-						*hardwareCharacteristics.AvailabilityZone,
-						mUUID,
-					)
-				}
-				return errors.Errorf(
-					"retrieving availability zone %q for machine %q: %w",
-					*hardwareCharacteristics.AvailabilityZone, mUUID, err,
-				)
-			}
-			instanceData.AvailabilityZoneUUID = &azUUID.UUID
-		}
-
-		if err := tx.Query(ctx, setInstanceDataStmt, instanceData).Run(); err != nil {
-			return errors.Errorf("updating machine cloud instance for machine %q: %w", mUUID, err)
-		}
-
-		if tags := provInstanceTagsFrom(mUUID, hardwareCharacteristics); len(tags) > 0 {
-			if err := tx.Query(ctx, setInstanceTagStmt, tags).Run(); err != nil {
-				return errors.Errorf("inserting instance tags for machine %q: %w", mUUID, err)
-			}
-		}
-
-		return nil
-	})
-}
-
-// RecordProvisionedMachineNetConfig writes the initial network configuration
-// for a machine that has just been provisioned. The data comes from the cloud
-// provider's StartInstance result, which is the first and only write to the
-// network tables for this machine at provisioning time.
-//
-// Because this is always a first write (the machine agent has not started yet),
-// the implementation uses upsert semantics so that a retry after a partial
-// failure overwrites the previous attempt's data rather than failing on a
-// duplicate key.
-//
-// Two types of rows are written:
-//  1. link_layer_device + ip_address — the device and address inventory,
-//     stamped with origin_id=1 ("provider").
-//  2. provider_link_layer_device + provider_ip_address — the opaque provider
-//     IDs for devices and addresses that have them.
-//
-// The following errors may be returned:
-//   - [machineerrors.MachineNotFound] if the machine UUID does not exist.
-func (st *State) RecordProvisionedMachineNetConfig(
-	ctx context.Context,
-	machineUUID string,
-	nics []domainnetwork.NetInterface,
-) error {
-	if len(nics) == 0 {
-		return nil
-	}
-
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	getNetNodeStmt, err := st.Prepare(`
-SELECT &provNetNodeUUID.*
-FROM   machine
-WHERE  uuid = $provMachineUUIDParam.uuid
-`, provNetNodeUUID{}, provMachineUUIDParam{})
-	if err != nil {
-		return errors.Errorf("preparing net node lookup: %w", err)
-	}
-
-	upsertDeviceStmt, err := st.Prepare(`
-INSERT INTO link_layer_device (*) VALUES ($provLLDRow.*)
-ON CONFLICT (uuid) DO UPDATE SET
-    device_type_id       = EXCLUDED.device_type_id,
-    mac_address          = EXCLUDED.mac_address,
-    mtu                  = EXCLUDED.mtu,
-    gateway_address      = EXCLUDED.gateway_address,
-    is_default_gateway   = EXCLUDED.is_default_gateway,
-    is_auto_start        = EXCLUDED.is_auto_start,
-    is_enabled           = EXCLUDED.is_enabled,
-    virtual_port_type_id = EXCLUDED.virtual_port_type_id,
-    vlan_tag             = EXCLUDED.vlan_tag
-`, provLLDRow{})
-	if err != nil {
-		return errors.Errorf("preparing device upsert: %w", err)
-	}
-
-	upsertAddrStmt, err := st.Prepare(`
-INSERT INTO ip_address (*) VALUES ($provIPAddrRow.*)
-ON CONFLICT (uuid) DO UPDATE SET
-    device_uuid    = EXCLUDED.device_uuid,
-    address_value  = EXCLUDED.address_value,
-    config_type_id = EXCLUDED.config_type_id,
-    type_id        = EXCLUDED.type_id,
-    subnet_uuid    = EXCLUDED.subnet_uuid,
-    scope_id       = EXCLUDED.scope_id,
-    origin_id      = EXCLUDED.origin_id,
-    is_secondary   = EXCLUDED.is_secondary,
-    is_shadow      = EXCLUDED.is_shadow
-`, provIPAddrRow{})
-	if err != nil {
-		return errors.Errorf("preparing address upsert: %w", err)
-	}
-
-	upsertProviderDeviceStmt, err := st.Prepare(`
-INSERT INTO provider_link_layer_device (provider_id, device_uuid)
-VALUES      ($provProviderLLDRow.*)
-ON CONFLICT (provider_id) DO UPDATE SET device_uuid = EXCLUDED.device_uuid
-`, provProviderLLDRow{})
-	if err != nil {
-		return errors.Errorf("preparing provider device upsert: %w", err)
-	}
-
-	upsertProviderAddrStmt, err := st.Prepare(`
-INSERT INTO provider_ip_address (provider_id, address_uuid)
-VALUES      ($provProviderIPRow.*)
-ON CONFLICT (provider_id) DO UPDATE SET address_uuid = EXCLUDED.address_uuid
-`, provProviderIPRow{})
-	if err != nil {
-		return errors.Errorf("preparing provider address upsert: %w", err)
-	}
-
-	upsertDNSDomainStmt, err := st.Prepare(`
-INSERT INTO link_layer_device_dns_domain (device_uuid, search_domain)
-VALUES      ($provDNSDomainRow.*)
-ON CONFLICT (device_uuid, search_domain) DO NOTHING
-`, provDNSDomainRow{})
-	if err != nil {
-		return errors.Errorf("preparing DNS domain upsert: %w", err)
-	}
-
-	upsertDNSAddrStmt, err := st.Prepare(`
-INSERT INTO link_layer_device_dns_address (device_uuid, dns_address)
-VALUES      ($provDNSAddrRow.*)
-ON CONFLICT (device_uuid, dns_address) DO NOTHING
-`, provDNSAddrRow{})
-	if err != nil {
-		return errors.Errorf("preparing DNS address upsert: %w", err)
-	}
-
-	upsertDeviceParentStmt, err := st.Prepare(`
-INSERT INTO link_layer_device_parent (device_uuid, parent_uuid)
-VALUES      ($provLLDParentRow.*)
-ON CONFLICT (device_uuid) DO UPDATE SET parent_uuid = EXCLUDED.parent_uuid
-`, provLLDParentRow{})
-	if err != nil {
-		return errors.Errorf("preparing device parent upsert: %w", err)
-	}
-
-	getSubnetByProviderIDStmt, err := st.Prepare(`
-SELECT subnet_uuid AS &provSubnetUUID.uuid
-FROM   provider_subnet
-WHERE  provider_id = $provProviderID.provider_id
-`, provSubnetUUID{}, provProviderID{})
-	if err != nil {
-		return errors.Errorf("preparing subnet by provider ID lookup: %w", err)
-	}
-
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Resolve enum lookup tables.
-		lookups, err := st.getProvNetConfigLookups(ctx, tx)
-		if err != nil {
-			return errors.Errorf("getting network config lookups: %w", err)
-		}
-
-		// Resolve machine → net_node_uuid.
-		mUUIDParam := provMachineUUIDParam{UUID: machineUUID}
-		var netNode provNetNodeUUID
-		if err := tx.Query(ctx, getNetNodeStmt, mUUIDParam).Get(&netNode); err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Errorf("machine %q does not exist: %w", machineUUID, machineerrors.MachineNotFound)
-			}
-			return errors.Errorf("getting net node for machine %q: %w", machineUUID, err)
-		}
-		nodeUUID := netNode.NetNodeUUID
-
-		// Read any existing device UUIDs for this node so retries reuse
-		// the same UUIDs rather than generating new ones (which would
-		// conflict on the (net_node_uuid, name) unique index).
-		existingDevUUIDs, err := st.getExistingDeviceUUIDs(ctx, tx, nodeUUID)
-		if err != nil {
-			return errors.Errorf("reading existing devices for machine %q: %w", machineUUID, err)
-		}
-
-		// Build a name→UUID map: prefer existing UUID, generate new if absent.
-		nameToUUID := make(map[string]string, len(nics))
-		for _, nic := range nics {
-			if existingUUID, ok := existingDevUUIDs[nic.Name]; ok {
-				nameToUUID[nic.Name] = existingUUID
-				continue
-			}
-			newUUID, err := uuid.NewUUID()
-			if err != nil {
-				return errors.Errorf("generating device UUID: %w", err)
-			}
-			nameToUUID[nic.Name] = newUUID.String()
-		}
-
-		// Similarly, read existing address UUIDs so retries reuse them.
-		existingAddrUUIDs, err := st.getExistingAddressUUIDs(ctx, tx, nodeUUID)
-		if err != nil {
-			return errors.Errorf("reading existing addresses for machine %q: %w", machineUUID, err)
-		}
-
-		var (
-			deviceRows    []provLLDRow
-			addrRows      []provIPAddrRow
-			provDevRows   []provProviderLLDRow
-			provAddrRows  []provProviderIPRow
-			dnsDomainRows []provDNSDomainRow
-			dnsAddrRows   []provDNSAddrRow
-			parentRows    []provLLDParentRow
-		)
-
-		for _, nic := range nics {
-			devUUID := nameToUUID[nic.Name]
-
-			devTypeID, ok := lookups.deviceType[nic.Type]
-			if !ok {
-				return errors.Errorf("unsupported device type %q for NIC %q", nic.Type, nic.Name)
-			}
-			portTypeID, ok := lookups.virtualPortType[nic.VirtualPortType]
-			if !ok {
-				return errors.Errorf("unsupported virtual port type %q for NIC %q", nic.VirtualPortType, nic.Name)
-			}
-
-			deviceRows = append(deviceRows, provLLDRow{
-				UUID:              devUUID,
-				NetNodeUUID:       nodeUUID,
-				Name:              nic.Name,
-				MTU:               nic.MTU,
-				MACAddress:        nic.MACAddress,
-				DeviceTypeID:      devTypeID,
-				VirtualPortTypeID: portTypeID,
-				IsAutoStart:       nic.IsAutoStart,
-				IsEnabled:         nic.IsEnabled,
-				IsDefaultGateway:  nic.IsDefaultGateway,
-				GatewayAddress:    nic.GatewayAddress,
-				VlanTag:           nic.VLANTag,
-			})
-
-			if nic.ProviderID != nil && *nic.ProviderID != "" {
-				provDevRows = append(provDevRows, provProviderLLDRow{
-					ProviderID: string(*nic.ProviderID),
-					DeviceUUID: devUUID,
-				})
-			}
-
-			for _, sd := range nic.DNSSearchDomains {
-				dnsDomainRows = append(dnsDomainRows, provDNSDomainRow{
-					DeviceUUID:   devUUID,
-					SearchDomain: sd,
-				})
-			}
-			for _, da := range nic.DNSAddresses {
-				dnsAddrRows = append(dnsAddrRows, provDNSAddrRow{
-					DeviceUUID: devUUID,
-					Address:    da,
-				})
-			}
-
-			if nic.ParentDeviceName != "" {
-				if parentUUID, ok := nameToUUID[nic.ParentDeviceName]; ok {
-					parentRows = append(parentRows, provLLDParentRow{
-						DeviceUUID: devUUID,
-						ParentUUID: parentUUID,
-					})
-				} else {
-					st.logger.Warningf(ctx,
-						"parent device %q for NIC %q not found in incoming data",
-						nic.ParentDeviceName, nic.Name,
-					)
-				}
-			}
-
-			for _, addr := range nic.Addrs {
-				var addrUUIDStr string
-				if existingUUID, ok := existingAddrUUIDs[addr.AddressValue]; ok {
-					addrUUIDStr = existingUUID
-				} else {
-					newUUID, err := uuid.NewUUID()
-					if err != nil {
-						return errors.Errorf("generating address UUID: %w", err)
-					}
-					addrUUIDStr = newUUID.String()
-				}
-
-				typeID, ok := lookups.addrType[addr.AddressType]
-				if !ok {
-					return errors.Errorf("unsupported address type %q", addr.AddressType)
-				}
-				configTypeID, ok := lookups.addrConfigType[addr.ConfigType]
-				if !ok {
-					return errors.Errorf("unsupported address config type %q", addr.ConfigType)
-				}
-				originID, ok := lookups.origin[addr.Origin]
-				if !ok {
-					return errors.Errorf("unsupported address origin %q", addr.Origin)
-				}
-				scopeID, ok := lookups.scope[addr.Scope]
-				if !ok {
-					return errors.Errorf("unsupported address scope %q", addr.Scope)
-				}
-
-				addrRow := provIPAddrRow{
-					UUID:         addrUUIDStr,
-					NodeUUID:     nodeUUID,
-					DeviceUUID:   devUUID,
-					AddressValue: addr.AddressValue,
-					TypeID:       typeID,
-					ConfigTypeID: configTypeID,
-					OriginID:     originID,
-					ScopeID:      scopeID,
-					IsSecondary:  addr.IsSecondary,
-					IsShadow:     addr.IsShadow,
-				}
-
-				// Resolve subnet UUID from provider subnet ID when available.
-				if addr.ProviderSubnetID != nil && *addr.ProviderSubnetID != "" {
-					pID := provProviderID{ProviderID: string(*addr.ProviderSubnetID)}
-					var sUUID provSubnetUUID
-					if err := tx.Query(ctx, getSubnetByProviderIDStmt, pID).Get(&sUUID); err != nil &&
-						!errors.Is(err, sqlair.ErrNoRows) {
-						return errors.Errorf("looking up subnet for provider ID %q: %w", *addr.ProviderSubnetID, err)
-					}
-					if sUUID.UUID != "" {
-						addrRow.SubnetUUID = &sUUID.UUID
-					}
-				}
-
-				addrRows = append(addrRows, addrRow)
-
-				if addr.ProviderID != nil && *addr.ProviderID != "" {
-					provAddrRows = append(provAddrRows, provProviderIPRow{
-						ProviderID:  string(*addr.ProviderID),
-						AddressUUID: addrUUIDStr,
-					})
-				}
-			}
-		}
-
-		if len(deviceRows) > 0 {
-			if err := tx.Query(ctx, upsertDeviceStmt, deviceRows).Run(); err != nil {
-				return errors.Errorf("upserting link layer devices: %w", err)
-			}
-		}
-		if len(addrRows) > 0 {
-			if err := tx.Query(ctx, upsertAddrStmt, addrRows).Run(); err != nil {
-				return errors.Errorf("upserting IP addresses: %w", err)
-			}
-		}
-		if len(provDevRows) > 0 {
-			if err := tx.Query(ctx, upsertProviderDeviceStmt, provDevRows).Run(); err != nil {
-				return errors.Errorf("upserting provider device IDs: %w", err)
-			}
-		}
-		if len(provAddrRows) > 0 {
-			if err := tx.Query(ctx, upsertProviderAddrStmt, provAddrRows).Run(); err != nil {
-				return errors.Errorf("upserting provider address IDs: %w", err)
-			}
-		}
-		if len(dnsDomainRows) > 0 {
-			if err := tx.Query(ctx, upsertDNSDomainStmt, dnsDomainRows).Run(); err != nil {
-				return errors.Errorf("upserting DNS search domains: %w", err)
-			}
-		}
-		if len(dnsAddrRows) > 0 {
-			if err := tx.Query(ctx, upsertDNSAddrStmt, dnsAddrRows).Run(); err != nil {
-				return errors.Errorf("upserting DNS addresses: %w", err)
-			}
-		}
-		if len(parentRows) > 0 {
-			if err := tx.Query(ctx, upsertDeviceParentStmt, parentRows).Run(); err != nil {
-				return errors.Errorf("upserting device parents: %w", err)
-			}
-		}
-
-		return nil
-	})
-}
-
-// RecordProvisionedVolumes persists the provider-assigned identity for
-// each volume that was created during machine provisioning. All volumes are
-// written in a single transaction.
-//
-// The following errors may be returned:
-//   - [storageprovisioningerrors.VolumeNotFound] if a volume ID does not exist.
-func (st *State) RecordProvisionedVolumes(
-	ctx context.Context,
-	volumes []provisioner.ProvisionedVolume,
-) error {
-	if len(volumes) == 0 {
-		return nil
-	}
-
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	getVolumeUUIDStmt, err := st.Prepare(`
-SELECT &provVolumeUUID.*
-FROM   storage_volume
-WHERE  volume_id = $provVolumeID.volume_id
-`, provVolumeUUID{}, provVolumeID{})
-	if err != nil {
-		return errors.Errorf("preparing volume UUID lookup statement: %w", err)
-	}
-
-	updateVolumeStmt, err := st.Prepare(`
-UPDATE storage_volume
-SET    provider_id  = $provVolumeProvisionedInfo.provider_id,
-       size_mib     = $provVolumeProvisionedInfo.size_mib,
-       hardware_id  = $provVolumeProvisionedInfo.hardware_id,
-       wwn          = $provVolumeProvisionedInfo.wwn,
-       persistent   = $provVolumeProvisionedInfo.persistent
-WHERE  uuid = $provVolumeProvisionedInfo.uuid
-`, provVolumeProvisionedInfo{})
-	if err != nil {
-		return errors.Errorf("preparing volume update statement: %w", err)
-	}
-
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		for _, v := range volumes {
+		// 1. Volumes
+		for _, v := range info.Volumes {
 			vID := provVolumeID{VolumeID: v.VolumeID}
 			var vUUID provVolumeUUID
 			if err := tx.Query(ctx, getVolumeUUIDStmt, vID).Get(&vUUID); err != nil {
@@ -607,8 +363,7 @@ WHERE  uuid = $provVolumeProvisionedInfo.uuid
 				}
 				return errors.Errorf("getting UUID for volume %q: %w", v.VolumeID, err)
 			}
-
-			info := provVolumeProvisionedInfo{
+			volInfo := provVolumeProvisionedInfo{
 				UUID:       vUUID.UUID,
 				ProviderID: v.ProviderID,
 				SizeMiB:    v.SizeMiB,
@@ -616,270 +371,366 @@ WHERE  uuid = $provVolumeProvisionedInfo.uuid
 				WWN:        v.WWN,
 				Persistent: v.Persistent,
 			}
-			if err := tx.Query(ctx, updateVolumeStmt, info).Run(); err != nil {
+			if err := tx.Query(ctx, updateVolumeStmt, volInfo).Run(); err != nil {
 				return errors.Errorf("updating provisioned info for volume %q: %w", v.VolumeID, err)
 			}
 		}
-		return nil
-	})
-}
 
-// RecordProvisionedVolumeAttachments persists all provisioned volume
-// attachment data for a machine in a single transaction. This includes:
-//   - block device creation or matching
-//   - storage_volume_attachment update (read-only flag, block device UUID)
-//   - storage_volume_attachment_plan update (device type and attributes)
-//
-// All UUID lookups (volume ID → UUID, net node UUID) are resolved inside the
-// same transaction so the entire write is atomic.
-//
-// The following errors may be returned:
-//   - [machineerrors.MachineNotFound] if the machine UUID does not exist.
-func (st *State) RecordProvisionedVolumeAttachments(
-	ctx context.Context,
-	machineUUID string,
-	attachments map[string]provisioner.ProvisionedVolumeAttachment,
-) error {
-	if len(attachments) == 0 {
-		return nil
-	}
-
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	getNetNodeStmt, err := st.Prepare(`
-SELECT &provNetNodeUUID.*
-FROM   machine
-WHERE  uuid = $provMachineUUIDParam.uuid
-`, provNetNodeUUID{}, provMachineUUIDParam{})
-	if err != nil {
-		return errors.Errorf("preparing net node lookup statement: %w", err)
-	}
-
-	getVolumeUUIDStmt, err := st.Prepare(`
-SELECT &provVolumeUUID.*
-FROM   storage_volume
-WHERE  volume_id = $provVolumeID.volume_id
-`, provVolumeUUID{}, provVolumeID{})
-	if err != nil {
-		return errors.Errorf("preparing volume UUID lookup statement: %w", err)
-	}
-
-	getAttachmentUUIDStmt, err := st.Prepare(`
-SELECT &provEntityUUID.*
-FROM   storage_volume_attachment
-WHERE  storage_volume_uuid = $provVolumeUUID.uuid
-AND    net_node_uuid        = $provNetNodeUUID.net_node_uuid
-`, provEntityUUID{}, provVolumeUUID{}, provNetNodeUUID{})
-	if err != nil {
-		return errors.Errorf("preparing attachment UUID lookup statement: %w", err)
-	}
-
-	getPlanUUIDStmt, err := st.Prepare(`
-SELECT &provEntityUUID.*
-FROM   storage_volume_attachment_plan
-WHERE  storage_volume_uuid = $provVolumeUUID.uuid
-AND    net_node_uuid        = $provNetNodeUUID.net_node_uuid
-`, provEntityUUID{}, provVolumeUUID{}, provNetNodeUUID{})
-	if err != nil {
-		return errors.Errorf("preparing plan UUID lookup statement: %w", err)
-	}
-
-	getBlockDevicesStmt, err := st.Prepare(`
-SELECT &provBlockDeviceRow.*
-FROM   block_device
-WHERE  machine_uuid = $provMachineUUIDParam.uuid
-`, provBlockDeviceRow{}, provMachineUUIDParam{})
-	if err != nil {
-		return errors.Errorf("preparing block device lookup statement: %w", err)
-	}
-
-	getBlockDeviceLinksStmt, err := st.Prepare(`
-SELECT &provBlockDeviceLinkRow.*
-FROM   block_device_link_device
-WHERE  machine_uuid = $provMachineUUIDParam.uuid
-`, provBlockDeviceLinkRow{}, provMachineUUIDParam{})
-	if err != nil {
-		return errors.Errorf("preparing block device link lookup statement: %w", err)
-	}
-
-	insertBlockDeviceStmt, err := st.Prepare(`
-INSERT INTO block_device (uuid, machine_uuid, name, bus_address)
-VALUES      ($provNewBlockDeviceRow.*)
-ON CONFLICT (uuid) DO NOTHING
-`, provNewBlockDeviceRow{})
-	if err != nil {
-		return errors.Errorf("preparing block device insert statement: %w", err)
-	}
-
-	insertBlockDeviceLinkStmt, err := st.Prepare(`
-INSERT INTO block_device_link_device (block_device_uuid, machine_uuid, name)
-VALUES      ($provBlockDeviceLinkRow.*)
-ON CONFLICT DO NOTHING
-`, provBlockDeviceLinkRow{})
-	if err != nil {
-		return errors.Errorf("preparing block device link insert statement: %w", err)
-	}
-
-	updateAttachmentStmt, err := st.Prepare(`
-UPDATE storage_volume_attachment
-SET    read_only         = $provAttachmentProvisionedInfo.read_only,
-       block_device_uuid = $provAttachmentProvisionedInfo.block_device_uuid
-WHERE  uuid = $provAttachmentProvisionedInfo.uuid
-`, provAttachmentProvisionedInfo{})
-	if err != nil {
-		return errors.Errorf("preparing attachment update statement: %w", err)
-	}
-
-	updatePlanStmt, err := st.Prepare(`
-UPDATE storage_volume_attachment_plan
-SET    device_type_id = $provPlanProvisionedInfo.device_type_id
-WHERE  uuid = $provPlanProvisionedInfo.uuid
-`, provPlanProvisionedInfo{})
-	if err != nil {
-		return errors.Errorf("preparing plan update statement: %w", err)
-	}
-
-	deletePlanAttrsStmt, err := st.Prepare(`
-DELETE FROM storage_volume_attachment_plan_attr
-WHERE       attachment_plan_uuid = $provPlanUUIDParam.uuid
-`, provPlanUUIDParam{})
-	if err != nil {
-		return errors.Errorf("preparing plan attrs delete statement: %w", err)
-	}
-
-	insertPlanAttrStmt, err := st.Prepare(`
-INSERT INTO storage_volume_attachment_plan_attr (attachment_plan_uuid, key, value)
-VALUES      ($provPlanAttrRow.*)
-ON CONFLICT (attachment_plan_uuid, key) DO UPDATE SET value = EXCLUDED.value
-`, provPlanAttrRow{})
-	if err != nil {
-		return errors.Errorf("preparing plan attr insert statement: %w", err)
-	}
-
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Resolve machine → net_node_uuid once for all attachments.
-		mUUIDParam := provMachineUUIDParam{UUID: machineUUID}
-		var netNode provNetNodeUUID
-		if err := tx.Query(ctx, getNetNodeStmt, mUUIDParam).Get(&netNode); err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Errorf("machine %q does not exist: %w", machineUUID, machineerrors.MachineNotFound)
-			}
-			return errors.Errorf("getting net node for machine %q: %w", machineUUID, err)
-		}
-
-		// Load existing block devices once for MatchOrCreate matching.
-		var existingDevices []provBlockDeviceRow
-		if err := tx.Query(ctx, getBlockDevicesStmt, mUUIDParam).GetAll(&existingDevices); err != nil &&
-			!errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("loading block devices for machine %q: %w", machineUUID, err)
-		}
-
-		var existingLinks []provBlockDeviceLinkRow
-		if err := tx.Query(ctx, getBlockDeviceLinksStmt, mUUIDParam).GetAll(&existingLinks); err != nil &&
-			!errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("loading block device links for machine %q: %w", machineUUID, err)
-		}
-
-		// Index links by device UUID for efficient lookup.
-		linksByDevice := make(map[string][]string, len(existingLinks))
-		for _, l := range existingLinks {
-			linksByDevice[l.BlockDeviceUUID] = append(linksByDevice[l.BlockDeviceUUID], l.LinkName)
-		}
-
-		for volumeID, attachment := range attachments {
-			// Resolve volume_id → volume UUID.
-			vID := provVolumeID{VolumeID: volumeID}
-			var vUUID provVolumeUUID
-			if err := tx.Query(ctx, getVolumeUUIDStmt, vID).Get(&vUUID); err != nil {
+		// 2. Volume attachments
+		if len(info.VolumeAttachments) > 0 {
+			mUUIDParam := provMachineUUIDParam{UUID: machineUUID}
+			var netNode provNetNodeUUID
+			if err := tx.Query(ctx, getNetNodeStmt, mUUIDParam).Get(&netNode); err != nil {
 				if errors.Is(err, sqlair.ErrNoRows) {
-					return errors.Errorf("volume %q does not exist", volumeID)
+					return errors.Errorf("machine %q does not exist: %w", machineUUID, machineerrors.MachineNotFound)
 				}
-				return errors.Errorf("getting UUID for volume %q: %w", volumeID, err)
+				return errors.Errorf("getting net node for machine %q: %w", machineUUID, err)
 			}
-
-			// Resolve attachment UUID.
-			var attachmentUUID provEntityUUID
-			if err := tx.Query(ctx, getAttachmentUUIDStmt, vUUID, netNode).Get(&attachmentUUID); err != nil {
-				if errors.Is(err, sqlair.ErrNoRows) {
-					return errors.Errorf("attachment for volume %q on machine %q does not exist", volumeID, machineUUID)
+			var existingDevices []provBlockDeviceRow
+			if err := tx.Query(ctx, getBlockDevicesStmt, mUUIDParam).GetAll(&existingDevices); err != nil &&
+				!errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf("loading block devices for machine %q: %w", machineUUID, err)
+			}
+			var existingLinks []provBlockDeviceLinkRow
+			if err := tx.Query(ctx, getBlockDeviceLinksStmt, mUUIDParam).GetAll(&existingLinks); err != nil &&
+				!errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf("loading block device links for machine %q: %w", machineUUID, err)
+			}
+			linksByDevice := make(map[string][]string, len(existingLinks))
+			for _, l := range existingLinks {
+				linksByDevice[l.BlockDeviceUUID] = append(linksByDevice[l.BlockDeviceUUID], l.LinkName)
+			}
+			for volumeID, attachment := range info.VolumeAttachments {
+				vID := provVolumeID{VolumeID: volumeID}
+				var vUUID provVolumeUUID
+				if err := tx.Query(ctx, getVolumeUUIDStmt, vID).Get(&vUUID); err != nil {
+					if errors.Is(err, sqlair.ErrNoRows) {
+						return errors.Errorf("volume %q does not exist", volumeID)
+					}
+					return errors.Errorf("getting UUID for volume %q: %w", volumeID, err)
 				}
-				return errors.Errorf("getting attachment UUID for volume %q: %w", volumeID, err)
-			}
-
-			attachInfo := provAttachmentProvisionedInfo{
-				UUID:     attachmentUUID.UUID,
-				ReadOnly: attachment.ReadOnly,
-			}
-
-			// Match or create block device if the attachment identifies one.
-			if attachment.DeviceName != "" || attachment.DeviceLink != "" || attachment.BusAddress != "" {
-				bdUUID, err := st.matchOrCreateBlockDevice(
-					ctx, tx,
-					machineUUID,
-					attachment.DeviceName,
-					attachment.BusAddress,
-					attachment.DeviceLink,
-					existingDevices, linksByDevice,
-					insertBlockDeviceStmt, insertBlockDeviceLinkStmt,
-				)
+				var attachmentUUID provEntityUUID
+				if err := tx.Query(ctx, getAttachmentUUIDStmt, vUUID, netNode).Get(&attachmentUUID); err != nil {
+					if errors.Is(err, sqlair.ErrNoRows) {
+						return errors.Errorf("attachment for volume %q on machine %q does not exist", volumeID, machineUUID)
+					}
+					return errors.Errorf("getting attachment UUID for volume %q: %w", volumeID, err)
+				}
+				attachInfo := provAttachmentProvisionedInfo{
+					UUID:     attachmentUUID.UUID,
+					ReadOnly: attachment.ReadOnly,
+				}
+				if attachment.DeviceName != "" || attachment.DeviceLink != "" || attachment.BusAddress != "" {
+					bdUUID, err := st.matchOrCreateBlockDevice(
+						ctx, tx,
+						machineUUID,
+						attachment.DeviceName,
+						attachment.BusAddress,
+						attachment.DeviceLink,
+						existingDevices, linksByDevice,
+						insertBlockDeviceStmt, insertBlockDeviceLinkStmt,
+					)
+					if err != nil {
+						return errors.Errorf("matching/creating block device for volume %q: %w", volumeID, err)
+					}
+					attachInfo.BlockDeviceUUID = sql.Null[string]{V: bdUUID, Valid: true}
+				}
+				if err := tx.Query(ctx, updateAttachmentStmt, attachInfo).Run(); err != nil {
+					return errors.Errorf("updating attachment for volume %q: %w", volumeID, err)
+				}
+				if attachment.Plan == nil {
+					continue
+				}
+				var planUUID provEntityUUID
+				if err := tx.Query(ctx, getPlanUUIDStmt, vUUID, netNode).Get(&planUUID); err != nil {
+					if errors.Is(err, sqlair.ErrNoRows) {
+						return errors.Errorf("attachment plan for volume %q on machine %q does not exist", volumeID, machineUUID)
+					}
+					return errors.Errorf("getting plan UUID for volume %q: %w", volumeID, err)
+				}
+				deviceTypeID, err := volumeDeviceTypeToID(attachment.Plan.DeviceType)
 				if err != nil {
-					return errors.Errorf("matching/creating block device for volume %q: %w", volumeID, err)
+					return errors.Errorf("parsing device type for volume %q plan: %w", volumeID, err)
 				}
-				attachInfo.BlockDeviceUUID = sql.Null[string]{V: bdUUID, Valid: true}
-			}
-
-			if err := tx.Query(ctx, updateAttachmentStmt, attachInfo).Run(); err != nil {
-				return errors.Errorf("updating attachment for volume %q: %w", volumeID, err)
-			}
-
-			// Handle attachment plan if present.
-			if attachment.Plan == nil {
-				continue
-			}
-
-			var planUUID provEntityUUID
-			if err := tx.Query(ctx, getPlanUUIDStmt, vUUID, netNode).Get(&planUUID); err != nil {
-				if errors.Is(err, sqlair.ErrNoRows) {
-					return errors.Errorf("attachment plan for volume %q on machine %q does not exist", volumeID, machineUUID)
+				planInfo := provPlanProvisionedInfo{
+					UUID:         planUUID.UUID,
+					DeviceTypeID: deviceTypeID,
 				}
-				return errors.Errorf("getting plan UUID for volume %q: %w", volumeID, err)
+				if err := tx.Query(ctx, updatePlanStmt, planInfo).Run(); err != nil {
+					return errors.Errorf("updating plan for volume %q: %w", volumeID, err)
+				}
+				if err := tx.Query(ctx, deletePlanAttrsStmt, provPlanUUIDParam{UUID: planUUID.UUID}).Run(); err != nil {
+					return errors.Errorf("deleting plan attrs for volume %q: %w", volumeID, err)
+				}
+				if len(attachment.Plan.DeviceAttributes) > 0 {
+					attrs := make([]provPlanAttrRow, 0, len(attachment.Plan.DeviceAttributes))
+					for k, v := range attachment.Plan.DeviceAttributes {
+						attrs = append(attrs, provPlanAttrRow{
+							PlanUUID: planUUID.UUID,
+							Key:      k,
+							Value:    v,
+						})
+					}
+					if err := tx.Query(ctx, insertPlanAttrStmt, attrs).Run(); err != nil {
+						return errors.Errorf("inserting plan attrs for volume %q: %w", volumeID, err)
+					}
+				}
 			}
+		}
 
-			deviceTypeID, err := volumeDeviceTypeToID(attachment.Plan.DeviceType)
+		// 3. Network config
+		if len(nics) > 0 {
+			lookups, err := st.getProvNetConfigLookups(ctx, tx)
 			if err != nil {
-				return errors.Errorf("parsing device type for volume %q plan: %w", volumeID, err)
+				return errors.Errorf("getting network config lookups: %w", err)
 			}
-
-			planInfo := provPlanProvisionedInfo{
-				UUID:         planUUID.UUID,
-				DeviceTypeID: deviceTypeID,
+			mUUIDParam := provMachineUUIDParam{UUID: machineUUID}
+			var netNode provNetNodeUUID
+			if err := tx.Query(ctx, getNetNodeStmt, mUUIDParam).Get(&netNode); err != nil {
+				if errors.Is(err, sqlair.ErrNoRows) {
+					return errors.Errorf("machine %q does not exist: %w", machineUUID, machineerrors.MachineNotFound)
+				}
+				return errors.Errorf("getting net node for machine %q: %w", machineUUID, err)
 			}
-			if err := tx.Query(ctx, updatePlanStmt, planInfo).Run(); err != nil {
-				return errors.Errorf("updating plan for volume %q: %w", volumeID, err)
+			nodeUUID := netNode.NetNodeUUID
+			existingDevUUIDs, err := st.getExistingDeviceUUIDs(ctx, tx, nodeUUID)
+			if err != nil {
+				return errors.Errorf("reading existing devices for machine %q: %w", machineUUID, err)
 			}
-
-			if err := tx.Query(ctx, deletePlanAttrsStmt, provPlanUUIDParam{UUID: planUUID.UUID}).Run(); err != nil {
-				return errors.Errorf("deleting plan attrs for volume %q: %w", volumeID, err)
+			nameToUUID := make(map[string]string, len(nics))
+			for _, nic := range nics {
+				if existingUUID, ok := existingDevUUIDs[nic.Name]; ok {
+					nameToUUID[nic.Name] = existingUUID
+					continue
+				}
+				newUUID, err := uuid.NewUUID()
+				if err != nil {
+					return errors.Errorf("generating device UUID: %w", err)
+				}
+				nameToUUID[nic.Name] = newUUID.String()
 			}
-
-			if len(attachment.Plan.DeviceAttributes) > 0 {
-				attrs := make([]provPlanAttrRow, 0, len(attachment.Plan.DeviceAttributes))
-				for k, v := range attachment.Plan.DeviceAttributes {
-					attrs = append(attrs, provPlanAttrRow{
-						PlanUUID: planUUID.UUID,
-						Key:      k,
-						Value:    v,
+			existingAddrUUIDs, err := st.getExistingAddressUUIDs(ctx, tx, nodeUUID)
+			if err != nil {
+				return errors.Errorf("reading existing addresses for machine %q: %w", machineUUID, err)
+			}
+			var (
+				deviceRows    []provLLDRow
+				addrRows      []provIPAddrRow
+				provDevRows   []provProviderLLDRow
+				provAddrRows  []provProviderIPRow
+				dnsDomainRows []provDNSDomainRow
+				dnsAddrRows   []provDNSAddrRow
+				parentRows    []provLLDParentRow
+			)
+			for _, nic := range nics {
+				devUUID := nameToUUID[nic.Name]
+				devTypeID, ok := lookups.deviceType[nic.Type]
+				if !ok {
+					return errors.Errorf("unsupported device type %q for NIC %q", nic.Type, nic.Name)
+				}
+				portTypeID, ok := lookups.virtualPortType[nic.VirtualPortType]
+				if !ok {
+					return errors.Errorf("unsupported virtual port type %q for NIC %q", nic.VirtualPortType, nic.Name)
+				}
+				deviceRows = append(deviceRows, provLLDRow{
+					UUID:              devUUID,
+					NetNodeUUID:       nodeUUID,
+					Name:              nic.Name,
+					MTU:               nic.MTU,
+					MACAddress:        nic.MACAddress,
+					DeviceTypeID:      devTypeID,
+					VirtualPortTypeID: portTypeID,
+					IsAutoStart:       nic.IsAutoStart,
+					IsEnabled:         nic.IsEnabled,
+					IsDefaultGateway:  nic.IsDefaultGateway,
+					GatewayAddress:    nic.GatewayAddress,
+					VlanTag:           nic.VLANTag,
+				})
+				if nic.ProviderID != nil && *nic.ProviderID != "" {
+					provDevRows = append(provDevRows, provProviderLLDRow{
+						ProviderID: string(*nic.ProviderID),
+						DeviceUUID: devUUID,
 					})
 				}
-				if err := tx.Query(ctx, insertPlanAttrStmt, attrs).Run(); err != nil {
-					return errors.Errorf("inserting plan attrs for volume %q: %w", volumeID, err)
+				for _, sd := range nic.DNSSearchDomains {
+					dnsDomainRows = append(dnsDomainRows, provDNSDomainRow{
+						DeviceUUID:   devUUID,
+						SearchDomain: sd,
+					})
+				}
+				for _, da := range nic.DNSAddresses {
+					dnsAddrRows = append(dnsAddrRows, provDNSAddrRow{
+						DeviceUUID: devUUID,
+						Address:    da,
+					})
+				}
+				if nic.ParentDeviceName != "" {
+					if parentUUID, ok := nameToUUID[nic.ParentDeviceName]; ok {
+						parentRows = append(parentRows, provLLDParentRow{
+							DeviceUUID: devUUID,
+							ParentUUID: parentUUID,
+						})
+					} else {
+						st.logger.Warningf(ctx,
+							"parent device %q for NIC %q not found in incoming data",
+							nic.ParentDeviceName, nic.Name,
+						)
+					}
+				}
+				for _, addr := range nic.Addrs {
+					var addrUUIDStr string
+					if existingUUID, ok := existingAddrUUIDs[addr.AddressValue]; ok {
+						addrUUIDStr = existingUUID
+					} else {
+						newUUID, err := uuid.NewUUID()
+						if err != nil {
+							return errors.Errorf("generating address UUID: %w", err)
+						}
+						addrUUIDStr = newUUID.String()
+					}
+					typeID, ok := lookups.addrType[addr.AddressType]
+					if !ok {
+						return errors.Errorf("unsupported address type %q", addr.AddressType)
+					}
+					configTypeID, ok := lookups.addrConfigType[addr.ConfigType]
+					if !ok {
+						return errors.Errorf("unsupported address config type %q", addr.ConfigType)
+					}
+					originID, ok := lookups.origin[addr.Origin]
+					if !ok {
+						return errors.Errorf("unsupported address origin %q", addr.Origin)
+					}
+					scopeID, ok := lookups.scope[addr.Scope]
+					if !ok {
+						return errors.Errorf("unsupported address scope %q", addr.Scope)
+					}
+					addrRow := provIPAddrRow{
+						UUID:         addrUUIDStr,
+						NodeUUID:     nodeUUID,
+						DeviceUUID:   devUUID,
+						AddressValue: addr.AddressValue,
+						TypeID:       typeID,
+						ConfigTypeID: configTypeID,
+						OriginID:     originID,
+						ScopeID:      scopeID,
+						IsSecondary:  addr.IsSecondary,
+						IsShadow:     addr.IsShadow,
+					}
+					if addr.ProviderSubnetID != nil && *addr.ProviderSubnetID != "" {
+						pID := provProviderID{ProviderID: string(*addr.ProviderSubnetID)}
+						var sUUID provSubnetUUID
+						if err := tx.Query(ctx, getSubnetByProviderIDStmt, pID).Get(&sUUID); err != nil &&
+							!errors.Is(err, sqlair.ErrNoRows) {
+							return errors.Errorf("looking up subnet for provider ID %q: %w", *addr.ProviderSubnetID, err)
+						}
+						if sUUID.UUID != "" {
+							addrRow.SubnetUUID = &sUUID.UUID
+						}
+					}
+					addrRows = append(addrRows, addrRow)
+					if addr.ProviderID != nil && *addr.ProviderID != "" {
+						provAddrRows = append(provAddrRows, provProviderIPRow{
+							ProviderID:  string(*addr.ProviderID),
+							AddressUUID: addrUUIDStr,
+						})
+					}
+				}
+			}
+			if len(deviceRows) > 0 {
+				if err := tx.Query(ctx, upsertDeviceStmt, deviceRows).Run(); err != nil {
+					return errors.Errorf("upserting link layer devices: %w", err)
+				}
+			}
+			if len(addrRows) > 0 {
+				if err := tx.Query(ctx, upsertAddrStmt, addrRows).Run(); err != nil {
+					return errors.Errorf("upserting IP addresses: %w", err)
+				}
+			}
+			if len(provDevRows) > 0 {
+				if err := tx.Query(ctx, upsertProviderDeviceStmt, provDevRows).Run(); err != nil {
+					return errors.Errorf("upserting provider device IDs: %w", err)
+				}
+			}
+			if len(provAddrRows) > 0 {
+				if err := tx.Query(ctx, upsertProviderAddrStmt, provAddrRows).Run(); err != nil {
+					return errors.Errorf("upserting provider address IDs: %w", err)
+				}
+			}
+			if len(dnsDomainRows) > 0 {
+				if err := tx.Query(ctx, upsertDNSDomainStmt, dnsDomainRows).Run(); err != nil {
+					return errors.Errorf("upserting DNS search domains: %w", err)
+				}
+			}
+			if len(dnsAddrRows) > 0 {
+				if err := tx.Query(ctx, upsertDNSAddrStmt, dnsAddrRows).Run(); err != nil {
+					return errors.Errorf("upserting DNS addresses: %w", err)
+				}
+			}
+			if len(parentRows) > 0 {
+				if err := tx.Query(ctx, upsertDeviceParentStmt, parentRows).Run(); err != nil {
+					return errors.Errorf("upserting device parents: %w", err)
 				}
 			}
 		}
 
+		// 4. Cloud instance (last, for change-stream notification).
+		mUUIDParam := provMachineUUIDParam{UUID: machineUUID}
+		var existing provInstanceID
+		if err := tx.Query(ctx, checkInstanceIDStmt, mUUIDParam).Get(&existing); err != nil &&
+			!errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying instance id for machine %q: %w", machineUUID, err)
+		} else if existing.InstanceID != "" {
+			return errors.Errorf("%w for machine %q", machineerrors.MachineCloudInstanceAlreadyExists, machineUUID)
+		}
+		if err := tx.Query(ctx, setNonceStmt, mNonce).Run(); err != nil {
+			return errors.Errorf("setting nonce for machine %q: %w", machineUUID, err)
+		}
+		if strings.HasPrefix(instanceID.String(), domainmachine.ManualInstancePrefix) {
+			if err := tx.Query(ctx, setManualStmt, mUUIDParam).Run(); err != nil {
+				return errors.Errorf("inserting manual machine entry for machine %q: %w", machineUUID, err)
+			}
+		}
+		instanceData := provInstanceData{
+			MachineUUID: machineUUID,
+			InstanceID:  instID,
+			DisplayName: disName,
+		}
+		hc := info.HardwareCharacteristics
+		if hc != nil {
+			instanceData.Arch = hc.Arch
+			instanceData.Mem = hc.Mem
+			instanceData.RootDisk = hc.RootDisk
+			instanceData.RootDiskSource = hc.RootDiskSource
+			instanceData.CPUCores = hc.CpuCores
+			instanceData.CPUPower = hc.CpuPower
+			instanceData.VirtType = hc.VirtType
+		}
+		if hc != nil && hc.AvailabilityZone != nil && *hc.AvailabilityZone != "" {
+			var azUUID provAZName
+			if err := tx.Query(ctx, retrieveAZUUIDStmt, azName).Get(&azUUID); err != nil {
+				if errors.Is(err, sqlair.ErrNoRows) {
+					return errors.Errorf(
+						"%w %q for machine %q",
+						networkerrors.AvailabilityZoneNotFound,
+						*hc.AvailabilityZone,
+						machineUUID,
+					)
+				}
+				return errors.Errorf(
+					"retrieving availability zone %q for machine %q: %w",
+					*hc.AvailabilityZone, machineUUID, err,
+				)
+			}
+			instanceData.AvailabilityZoneUUID = &azUUID.UUID
+		}
+		if err := tx.Query(ctx, setInstanceDataStmt, instanceData).Run(); err != nil {
+			return errors.Errorf("updating machine cloud instance for machine %q: %w", machineUUID, err)
+		}
+		if tags := provInstanceTagsFrom(machineUUID, hc); len(tags) > 0 {
+			if err := tx.Query(ctx, setInstanceTagStmt, tags).Run(); err != nil {
+				return errors.Errorf("inserting instance tags for machine %q: %w", machineUUID, err)
+			}
+		}
 		return nil
 	})
 }

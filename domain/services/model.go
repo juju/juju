@@ -542,7 +542,6 @@ func (s *ModelServices) Provisioning() *provisionerservice.Service {
 		),
 		s.modelUUID,
 		log,
-		provisionerservice.NewCompletionService(modelState),
 	)
 }
 

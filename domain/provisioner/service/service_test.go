@@ -11,13 +11,11 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
-	coreinstance "github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/provisioner"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/errors"
@@ -92,17 +90,14 @@ func (s *serviceSuite) newService(c *tc.C) *Service {
 		s.modelState,
 		s.controllerState,
 		s.metadataFetcher,
-		model.UUID("model-uuid-1234"),
+		"model-uuid-1234",
 		loggertesting.WrapCheckLog(c),
-		&CompletionService{},
 	)
 }
 
 func (s *serviceSuite) TestRecordProvisionedMachine(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
-
-	completionState := NewMockCompletionState(ctrl)
 
 	machineUUID := coremachine.UUID("machine-uuid-1")
 	providerNetwork := network.InterfaceInfos{{
@@ -120,7 +115,6 @@ func (s *serviceSuite) TestRecordProvisionedMachine(c *tc.C) {
 			ProviderSubnetID: "provider-subnet-1",
 		}},
 	}}
-	providerNics := domainnetwork.ProviderNetInterfaces(providerNetwork)
 	info := provisioner.ProvisionedMachineInfo{
 		InstanceID:    "instance-1",
 		DisplayName:   "machine-1",
@@ -148,15 +142,9 @@ func (s *serviceSuite) TestRecordProvisionedMachine(c *tc.C) {
 		},
 	}
 
-	gomock.InOrder(
-		completionState.EXPECT().RecordProvisionedVolumes(gomock.Any(), info.Volumes).Return(nil),
-		completionState.EXPECT().RecordProvisionedVolumeAttachments(gomock.Any(), machineUUID.String(), info.VolumeAttachments).Return(nil),
-		completionState.EXPECT().RecordProvisionedMachineNetConfig(gomock.Any(), machineUUID.String(), providerNics).Return(nil),
-		completionState.EXPECT().SetMachineCloudInstance(gomock.Any(), machineUUID.String(), coreinstance.Id("instance-1"), "machine-1", "nonce-1", nil).Return(nil),
-	)
+	s.modelState.EXPECT().RecordProvisionedMachine(gomock.Any(), machineUUID.String(), info).Return(nil)
 
-	completion := NewCompletionService(completionState)
-	svc := NewService(s.modelState, s.controllerState, s.metadataFetcher, model.UUID("model-uuid-1234"), loggertesting.WrapCheckLog(c), completion)
+	svc := NewService(s.modelState, s.controllerState, s.metadataFetcher, "model-uuid-1234", loggertesting.WrapCheckLog(c))
 	err := svc.RecordProvisionedMachine(c.Context(), machineUUID, info)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -167,7 +155,7 @@ func (s *serviceSuite) TestGetProvisioningInfoInvalidMachineName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := s.newService(c)
-	_, err := svc.GetProvisioningInfo(c.Context(), coremachine.Name("invalid/name"), false, testSharedInfo())
+	_, err := svc.GetProvisioningInfo(c.Context(), "invalid/name", false, testSharedInfo())
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 	c.Check(err, tc.ErrorMatches, `validating machine name "invalid/name":.*`)
 }
@@ -273,11 +261,10 @@ func (s *serviceSuite) TestGetProvisioningInfoNonControllerMachineInControllerMo
 func (s *serviceSuite) TestGetProvisioningInfoWithPlacement(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	placement := "zone=us-east-1a"
 	stateInfo := provisioner.ProvisioningInfoState{
 		MachineUUID:        "machine-uuid-1",
 		Base:               corebase.MustParseBaseFromString("ubuntu@22.04"),
-		PlacementDirective: &placement,
+		PlacementDirective: new("zone=us-east-1a"),
 	}
 	s.modelState.EXPECT().GetMachineProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
 
@@ -297,11 +284,10 @@ func (s *serviceSuite) TestGetProvisioningInfoWithPlacement(c *tc.C) {
 func (s *serviceSuite) TestGetProvisioningInfoWithConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	arch := "arm64"
 	stateInfo := provisioner.ProvisioningInfoState{
 		MachineUUID: "machine-uuid-1",
 		Base:        corebase.MustParseBaseFromString("ubuntu@24.04"),
-		Constraints: constraints.Value{Arch: &arch},
+		Constraints: constraints.Value{Arch: new("arm64")},
 	}
 	s.modelState.EXPECT().GetMachineProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
 
@@ -356,11 +342,10 @@ func (s *serviceSuite) TestGetProvisioningInfoWithCachedImageMetadata(c *tc.C) {
 func (s *serviceSuite) TestGetProvisioningInfoImageIDConstraintPassedToCache(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	imageID := "ami-specific-123"
 	stateInfo := provisioner.ProvisioningInfoState{
 		MachineUUID: "machine-uuid-1",
 		Base:        corebase.MustParseBaseFromString("ubuntu@22.04"),
-		Constraints: constraints.Value{ImageID: &imageID},
+		Constraints: constraints.Value{ImageID: new("ami-specific-123")},
 	}
 	s.modelState.EXPECT().GetMachineProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
 
@@ -762,13 +747,12 @@ func (s *serviceSuite) TestGetProvisioningInfoTags(c *tc.C) {
 func (s *serviceSuite) TestGetProvisioningInfoTagsWithSubordinates(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	principalName := coreunit.Name("wordpress/0")
 	stateInfo := provisioner.ProvisioningInfoState{
 		MachineUUID: "machine-uuid-1",
 		Base:        corebase.MustParseBaseFromString("ubuntu@22.04"),
 		UnitNames: []coreunit.NameWithPrincipal{
 			{Name: coreunit.Name("wordpress/0")},
-			{Name: coreunit.Name("nrpe/0"), Principal: &principalName},
+			{Name: coreunit.Name("nrpe/0"), Principal: new(coreunit.Name("wordpress/0"))},
 		},
 	}
 	s.modelState.EXPECT().GetMachineProvisioningInfo(gomock.Any(), "0", false).Return(stateInfo, nil)
