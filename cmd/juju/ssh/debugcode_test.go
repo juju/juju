@@ -45,7 +45,7 @@ func (s *DebugCodeSuite) TestArgFormatting(c *tc.C) {
 
 	debugCmd := NewDebugCodeCommandForTest(app, ssh, status, charmAPI, s.hostChecker, baseTestingRetryStrategy, baseTestingRetryStrategy)
 
-	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(debugCmd), "--at=foo,bar", "mysql/0", "install", "start")
+	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(debugCmd), "--direct", "--at=foo,bar", "mysql/0", "install", "start")
 	c.Assert(err, tc.ErrorIsNil)
 	base64Regex := regexp.MustCompile("echo ([A-Za-z0-9+/]+=*) \\| base64")
 	c.Check(err, tc.ErrorIsNil)

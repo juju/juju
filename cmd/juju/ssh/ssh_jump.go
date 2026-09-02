@@ -46,8 +46,13 @@ const openSSHTemplate = `ssh -o "ProxyCommand=ssh -W %h:%p -p {{.JumpPort}} {{.J
 const openSCPTemplate = `scp -o "ProxyCommand=ssh -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.Args}}
 `
 
+const minSSHJumpFacadeVersion = 6
+
 // SSHAPIJump is the SSH API client used by the SSH jump provider.
 type SSHAPIJump interface {
+	// BestAPIVersion returns the highest SSHClient facade version supported by
+	// both the client and the controller.
+	BestAPIVersion() int
 	// VirtualHostname returns the virtual hostname for an SSH target.
 	VirtualHostname(ctx context.Context, target string, container *string) (string, error)
 	// PublicHostKeyForTarget returns the public host key for a virtual hostname.
@@ -98,6 +103,9 @@ func (p *sshJump) initRun(ctx context.Context, mc ModelCommand) error {
 	if err := p.ensureAPIClient(ctx, mc); err != nil {
 		return errors.Trace(err)
 	}
+	if err := checkSSHJumpFacadeVersion(p.sshClient.BestAPIVersion()); err != nil {
+		return err
+	}
 	controllerConfig, err := p.controllerClient.ControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -138,6 +146,15 @@ func (p *sshJump) initRun(ctx context.Context, mc ModelCommand) error {
 	p.scpOutputTemplate, err = template.New("scp-output").Parse(openSCPTemplate)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	return nil
+}
+
+func checkSSHJumpFacadeVersion(version int) error {
+	if version < minSSHJumpFacadeVersion {
+		return errors.Errorf(
+			"controller does not support SSH proxying; use the --direct flag to connect directly",
+		)
 	}
 	return nil
 }
@@ -347,11 +364,11 @@ func (p *sshJump) ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 	if err != nil {
 		return err
 	}
-	// Set the default command to "exec sh" if no arguments are provided and the
-	// model type is CAAS.
+	// Set the default command to a login Bash shell for CAAS models so that
+	// /etc/profile.d/juju-introspection.sh is sourced (for controller units).
 	args := p.args
 	if len(args) == 0 && p.modelType == model.CAAS {
-		args = []string{"exec", "sh"}
+		args = []string{"exec", "bash", "--login"}
 	}
 	if p.showCommand {
 		return p.showSSHCommand(ctx.GetStdout(), target, args)

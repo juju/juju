@@ -794,10 +794,6 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 	if err != nil {
 		return errors.Errorf("preparing SshConnectionRequest insert statement: %w", err)
 	}
-	stmtSshConnectionRequestAddress, err := sqlair.Prepare(`INSERT INTO "ssh_connection_request_address" (*) VALUES ($SshConnectionRequestAddress.*)`, v4_1_0.SshConnectionRequestAddress{})
-	if err != nil {
-		return errors.Errorf("preparing SshConnectionRequestAddress insert statement: %w", err)
-	}
 	stmtSshKeyAlgorithmType, err := sqlair.Prepare(`INSERT INTO "ssh_key_algorithm_type" (*) VALUES ($SshKeyAlgorithmType.*) ON CONFLICT DO NOTHING`, v4_1_0.SshKeyAlgorithmType{})
 	if err != nil {
 		return errors.Errorf("preparing SshKeyAlgorithmType insert statement: %w", err)
@@ -1929,11 +1925,6 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 		if len(p.SshConnectionRequest) > 0 {
 			if err := tx.Query(ctx, stmtSshConnectionRequest, p.SshConnectionRequest).Run(); err != nil {
 				return errors.Errorf("inserting SshConnectionRequest (table ssh_connection_request): %w", err)
-			}
-		}
-		if len(p.SshConnectionRequestAddress) > 0 {
-			if err := tx.Query(ctx, stmtSshConnectionRequestAddress, p.SshConnectionRequestAddress).Run(); err != nil {
-				return errors.Errorf("inserting SshConnectionRequestAddress (table ssh_connection_request_address): %w", err)
 			}
 		}
 		if len(p.SshKeyAlgorithmType) > 0 {

@@ -73,6 +73,7 @@ TEST_NAMES="actions \
             resources \
             secrets_iaas \
             secrets_k8s \
+            ssh \
             sidecar \
             smoke \
             spaces_ec2 \

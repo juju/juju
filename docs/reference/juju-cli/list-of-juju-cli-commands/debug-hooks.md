@@ -16,7 +16,7 @@ juju debug-hooks [options] <unit name> [hook or action names]
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `--container` |  | the container name of the target pod |
-| `--jump` | false | Proxy SSH through the Juju controller |
+| `--direct` | false | Connect directly to the target (for Juju 3 controllers) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
 | `--proxy` | false | Proxy through the API server |

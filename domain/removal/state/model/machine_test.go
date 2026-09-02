@@ -1463,6 +1463,15 @@ func (s *machineSuite) TestDeleteMachine(c *tc.C) {
 INSERT INTO machine_reprovision (machine_name, requested_at)
 VALUES (?, ?)`, machineRes.MachineName.String(), time.Now())
 	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO ssh_connection_request (
+	 tunnel_id, machine_uuid, expires_at, username, password,
+	 controller_addresses, unit_port, ephemeral_public_key
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"tunnel-machine-delete", machineUUID.String(), time.Now().Add(time.Minute),
+		"juju-reverse-tunnel", "secret", "[]", 0, []byte("pub"))
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Grab the net node UUID before deletion so we can verify it's removed.
 	var netNodeUUID string
@@ -1486,7 +1495,12 @@ VALUES (?, ?)`, machineRes.MachineName.String(), time.Now())
 	err = s.DB().QueryRow("SELECT count(*) FROM machine_reprovision").Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
-
+	err = s.DB().QueryRow(
+		"SELECT count(*) FROM ssh_connection_request WHERE tunnel_id = ?",
+		"tunnel-machine-delete",
+	).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
 	// And its net node should also be deleted.
 	err = s.DB().QueryRow("SELECT count(*) FROM net_node WHERE uuid = ?", netNodeUUID).Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)

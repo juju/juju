@@ -732,6 +732,7 @@ WHERE machine_name IN (
 		"DELETE FROM machine_container_type WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_ssh_host_key WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_virtual_ssh_host_key WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM ssh_connection_request WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_placement WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_parent WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM block_device_link_device WHERE machine_uuid = $entityUUID.uuid",

@@ -26,7 +26,7 @@ run_model_metrics() {
 	juju model-config -m "$testname" logging-config="<root>=INFO;#charmhub=TRACE"
 
 	# Restarting the controller service causes the charmrevisioner worker to run.
-	juju ssh -m controller 0 -- sudo systemctl restart jujuagentd-machine-0.service
+	juju ssh -m controller 0 -- sudo systemctl restart jujuagentd-machine-0.service || true
 
 	echo "Sleep 45, give charmrevisioner time to kick off after controller jujuagentd restart."
 	sleep 45
@@ -68,7 +68,7 @@ run_empty_model_metrics() {
 	juju model-config -m "$testname" logging-config="<root>=INFO;#charmhub=TRACE"
 
 	# Restarting the controller service causes the charmrevisioner worker to run.
-	juju ssh -m controller 0 -- sudo systemctl restart jujuagentd-machine-0.service
+	juju ssh -m controller 0 -- sudo systemctl restart jujuagentd-machine-0.service || true
 
 	echo "Sleep 45, give charmrevisioner time to kick off after controller jujuagentd restart."
 	sleep 45
@@ -110,7 +110,7 @@ run_model_metrics_disabled() {
 	juju model-config -m "$testname" logging-config="<root>=INFO;#charmhub=TRACE"
 
 	# Restarting the controller service causes the charmrevisioner worker to run.
-	juju ssh -m controller 0 -- sudo systemctl restart jujuagentd-machine-0.service
+	juju ssh -m controller 0 -- sudo systemctl restart jujuagentd-machine-0.service || true
 
 	echo "Sleep 120, give charmrevisioner time to kick off after controller jujuagentd restart."
 	sleep 120

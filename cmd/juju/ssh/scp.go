@@ -71,13 +71,19 @@ add ` + "`-- -3`" + ` to the command-line arguments.
 
 ## Security considerations
 
-To enable transfers to/from machines that do not have internet access, you can use
-the Juju controller as a proxy with the ` + "`--proxy`" + ` option.
+By default, transfers are proxied through the controller's SSH server for the ability
+to audit log SSH connections in the future. This requires port 17022 (by default) to
+be open. Use the ` + "`--direct`" + ` option for Juju 3 controllers and connect directly
+to the target. Note that new behaviour does not support connecting to nested
+containers running on machines as the legacy behaviour did.
 
-To proxy transfers through the controller's SSH server, use the ` + "`--jump`" + ` option.
+If using the ` + "`--direct`" + ` flag you can also use the ` + "`--proxy`" + ` flag
+to proxy the connection through the controller machine's OpenSSH server running on
+port 22 (by default). If transferring files to/from containers on machines
+the proxy flag will proxy connections through the controller machine and the host machine.
 
-The SSH host keys of the target are verified by default. To disable this, add
- ` + "`--no-host-key-checks`" + ` option. Using this option is strongly discouraged.
+The SSH host keys of the target are verified by default. To disable this, add the
+` + "`--no-host-key-checks`" + ` option. Using this option is strongly discouraged.
 
 `
 
@@ -121,10 +127,6 @@ Copy a file (` + "`chunks-inspect`" + `) from ` + "`localhost`" + ` to the ` + "
 in a specific container in a Juju unit running in Kubernetes:
 
     juju scp --container loki chunks-inspect loki-k8s/0:/loki
-
-Copy ` + "`foo.txt`" + ` through the controller SSH server to machine ` + "`0`" + `:
-
-	juju scp --jump foo.txt 0:/tmp/foo.txt
 `
 
 func NewSCPCommand(hostChecker jujussh.ReachableChecker, retryStrategy retry.CallArgs, publicKeyRetryStrategy retry.CallArgs) cmd.Command {
@@ -149,6 +151,7 @@ type scpCommand struct {
 
 	hostChecker jujussh.ReachableChecker
 	jump        bool
+	direct      bool
 
 	retryStrategy          retry.CallArgs
 	publicKeyRetryStrategy retry.CallArgs
@@ -157,8 +160,8 @@ type scpCommand struct {
 func (c *scpCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.sshMachine.SetFlags(f)
 	c.sshContainer.SetFlags(f)
-	f.BoolVar(&c.jump, "jump", false, "Proxy SSH through the Juju controller")
 	c.sshJump.SetFlags(f)
+	f.BoolVar(&c.direct, "direct", false, "Connect directly to the target (for Juju 3 controllers)")
 }
 
 func (c *scpCommand) Info() *cmd.Info {
@@ -181,8 +184,12 @@ func (c *scpCommand) Init(args []string) (err error) {
 	if c.modelType, err = c.ModelType(context.TODO()); err != nil {
 		return err
 	}
+
+	// Use jump by default, unless --direct is specified.
+	c.jump = !c.direct
+
 	if c.sshJump.showCommand && !c.jump {
-		return errors.New("--show-command requires --jump")
+		return errors.New("--show-command cannot be used with --direct")
 	}
 	if c.jump {
 		c.provider = &c.sshJump

@@ -34,6 +34,7 @@ WHEN
 	NEW.expires_at != OLD.expires_at OR
 	NEW.username != OLD.username OR
 	NEW.password != OLD.password OR
+	NEW.controller_addresses != OLD.controller_addresses OR
 	NEW.unit_port != OLD.unit_port OR
 	NEW.ephemeral_public_key != OLD.ephemeral_public_key
 BEGIN

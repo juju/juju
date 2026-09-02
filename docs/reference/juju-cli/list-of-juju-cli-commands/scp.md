@@ -14,7 +14,7 @@ juju scp [options] <source> <destination>
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `--container` |  | the container name of the target pod |
-| `--jump` | false | Proxy SSH through the Juju controller |
+| `--direct` | false | Connect directly to the target (for Juju 3 controllers) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
 | `--proxy` | false | Proxy through the API server |
@@ -61,10 +61,6 @@ Copy a file (`chunks-inspect`) from `localhost` to the `/loki` directory
 in a specific container in a Juju unit running in Kubernetes:
 
     juju scp --container loki chunks-inspect loki-k8s/0:/loki
-
-Copy `foo.txt` through the controller SSH server to machine `0`:
-
-	juju scp --jump foo.txt 0:/tmp/foo.txt
 
 
 ## Details
@@ -119,10 +115,16 @@ add `-- -3` to the command-line arguments.
 
 ## Security considerations
 
-To enable transfers to/from machines that do not have internet access, you can use
-the Juju controller as a proxy with the `--proxy` option.
+By default, transfers are proxied through the controller's SSH server for the ability
+to audit log SSH connections in the future. This requires port 17022 (by default) to
+be open. Use the `--direct` option for Juju 3 controllers and connect directly
+to the target. Note that new behaviour does not support connecting to nested
+containers running on machines as the legacy behaviour did.
 
-To proxy transfers through the controller's SSH server, use the `--jump` option.
+If using the `--direct` flag you can also use the `--proxy` flag
+to proxy the connection through the controller machine's OpenSSH server running on
+port 22 (by default). If transferring files to/from containers on machines
+the proxy flag will proxy connections through the controller machine and the host machine.
 
-The SSH host keys of the target are verified by default. To disable this, add
- `--no-host-key-checks` option. Using this option is strongly discouraged.
+The SSH host keys of the target are verified by default. To disable this, add the
+`--no-host-key-checks` option. Using this option is strongly discouraged.

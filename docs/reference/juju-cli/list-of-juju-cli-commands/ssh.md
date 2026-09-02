@@ -14,7 +14,7 @@ juju ssh [options] <[user@]target> [openssh options] [command]
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `--container` |  | the container name of the target pod |
-| `--jump` | false | Proxy SSH through the Juju controller |
+| `--direct` | false | Connect directly to the target (for Juju 3 controllers) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
 | `--proxy` | false | Proxy through the API server |
@@ -114,6 +114,16 @@ output of another command into it, then the default behavior is to not allocate
 a pseudo-terminal (pty) for the ssh session; otherwise a pty is allocated. This
 behavior can be overridden by explicitly specifying the behavior with
 `--pty=true` or `--pty=false`.
+
+By default, the SSH connection is proxied through the controller's SSH server for the
+ability to audit log in the future. This requires port 17022 (by default) on the 
+controller machine to be open. Use the `--direct` option for Juju 3 controllers 
+and connect directly to the target. Note that new behaviour does not support connecting
+to nested containers running on machines as the legacy behaviour did.
+
+If using the`--direct`flag you can also use the `--proxy` flag
+to proxy the connection through the controller machine's OpenSSH server running on
+port 22 (by default).
 
 The SSH host keys of the target are verified. The `--no-host-key-checks` option
 can be used to disable these checks. Use of this option is not recommended as

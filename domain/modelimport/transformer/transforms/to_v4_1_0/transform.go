@@ -33,8 +33,6 @@ type Deltas interface {
 	MachineVirtualSshHostKey(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.MachineVirtualSshHostKey, error)
 	// SshConnectionRequest: new table in 4.1.0; derive from *v4_0_12.ModelExport.
 	SshConnectionRequest(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.SshConnectionRequest, error)
-	// SshConnectionRequestAddress: new table in 4.1.0; derive from *v4_0_12.ModelExport.
-	SshConnectionRequestAddress(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.SshConnectionRequestAddress, error)
 	// SshKeyAlgorithmType: new table in 4.1.0; derive from *v4_0_12.ModelExport.
 	SshKeyAlgorithmType(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.SshKeyAlgorithmType, error)
 	// UnitVirtualSshHostKey: new table in 4.1.0; derive from *v4_0_12.ModelExport.
@@ -1276,10 +1274,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 
 		if dst.SshConnectionRequest, err = d.SshConnectionRequest(ctx, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("SshConnectionRequest delta: %w", err)
-		}
-
-		if dst.SshConnectionRequestAddress, err = d.SshConnectionRequestAddress(ctx, &src); err != nil {
-			return v4_1_0.ModelExport{}, errors.Errorf("SshConnectionRequestAddress delta: %w", err)
 		}
 
 		if dst.SshKeyAlgorithmType, err = d.SshKeyAlgorithmType(ctx, &src); err != nil {
