@@ -146,6 +146,13 @@ type ApplicationState interface {
 	// SetApplicationScalingState sets the scaling details for the given caas
 	// application Scale is optional and is only set if not nil.
 	SetApplicationScalingState(ctx context.Context, appName string, targetScale int, scaling bool) error
+
+	// SetApplicationScalingStateWithStart sets the scaling details for the
+	// given CAAS application including the start ordinal for the StatefulSet.
+	// The startOrdinal defines the lowest ordinal index that the StatefulSet
+	// should use. This shifts upward when a lower-indexed unit is removed to
+	// prevent stale ordinals from being reused (e.g. after removing unit 0
+	// from {0,1,2}, the start ordinal becomes 1 so the range is {1,2,3}).
 	SetApplicationScalingStateWithStart(ctx context.Context, appName string, targetScale, startOrdinal int, scaling bool) error
 
 	// SetDesiredApplicationScale updates the desired scale of the specified
