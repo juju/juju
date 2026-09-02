@@ -110,6 +110,16 @@ func (s *Service) RemoveUnit(
 		return "", errors.Errorf("unit %q: %w", unitUUID, err)
 	}
 
+	applicationName, unitName, err := s.modelState.GetApplicationNameAndUnitNameByUnitUUID(ctx, unitUUID.String())
+	if err != nil {
+		return "", errors.Errorf("getting application and unit name for unit %q: %w", unitUUID, err)
+	}
+	// Revoke after the life transition so this unit cannot renew its leadership
+	// lease while it completes its departure hooks.
+	if err := s.leadershipRevoker.RevokeLeadership(applicationName, unit.Name(unitName)); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
+		return "", errors.Errorf("revoking leadership: %w", err)
+	}
+
 	if force {
 		if wait > 0 {
 			// If we have been supplied with the force flag *and* a wait time,
@@ -392,15 +402,6 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		return errors.Errorf("getting charm for unit: %w", err)
 	}
 
-	applicationName, unitName, err := s.modelState.GetApplicationNameAndUnitNameByUnitUUID(ctx, job.EntityUUID)
-	if errors.Is(err, applicationerrors.UnitNotFound) {
-		// The unit has already been removed.
-		// Indicate success so that this job will be deleted.
-		return nil
-	} else if err != nil {
-		return errors.Errorf("getting application name and unit name: %w", err)
-	}
-
 	if err := s.modelState.DeleteUnit(ctx, job.EntityUUID, job.Force); errors.Is(err, applicationerrors.UnitNotFound) {
 		// The unit has already been removed.
 		// Indicate success so that this job will be deleted.
@@ -413,15 +414,6 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 	if err := s.modelState.DeleteCharmIfUnused(ctx, charmUUID); err != nil {
 		// Log the error but do not fail the removal job.
 		s.logger.Warningf(ctx, "deleting charm for unit %q: %v", job.EntityUUID, err)
-	}
-
-	// If the unit was the leader of an application, we revoke leadership.
-	// We do this last to expedite new leadership acquisition if the unit died
-	// sooner that the expiry of its last lease.
-	// For all other scenarios preventing lease renewal, the lease will be
-	// relinquished naturally by expiry.
-	if err := s.leadershipRevoker.RevokeLeadership(applicationName, unit.Name(unitName)); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
-		return errors.Errorf("revoking leadership: %w", err)
 	}
 
 	return nil

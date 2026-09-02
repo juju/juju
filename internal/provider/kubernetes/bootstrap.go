@@ -1013,8 +1013,9 @@ func (c *controllerStack) createControllerStatefulset(ctx context.Context) error
 			Annotations: c.stackAnnotations,
 		},
 		Spec: apps.StatefulSetSpec{
-			ServiceName: c.resourceNameHeadlessService,
-			Replicas:    &numberOfPods,
+			ServiceName:         c.resourceNameHeadlessService,
+			Replicas:            &numberOfPods,
+			PodManagementPolicy: apps.ParallelPodManagement,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: c.selectorLabels,
 			},
