@@ -68,6 +68,7 @@ TEST_NAMES="agents \
             ovs_maas \
             refresh \
             relations \
+            remove_machine \
             resources \
             secrets_iaas \
             secrets_k8s \

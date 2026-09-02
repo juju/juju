@@ -174,6 +174,49 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 	c.Assert(m1.markForRemoval, jc.IsTrue)
 }
 
+func (s *ProvisionerTaskSuite) TestDeadMachinesMarkedForRemovalWhenCloudInstanceNotFound(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	foundInstance := &testInstance{id: "found"}
+	missingInstance := &testInstance{id: "missing"}
+	s.instances = []instances.Instance{foundInstance}
+
+	foundMachine := &testMachine{
+		id:       "0",
+		life:     life.Dead,
+		instance: foundInstance,
+	}
+	missingMachine := &testMachine{
+		id:       "1",
+		life:     life.Dead,
+		instance: missingInstance,
+	}
+	s.expectMachines(foundMachine, missingMachine)
+
+	task := s.newProvisionerTask(c,
+		config.HarvestAll,
+		&mockDistributionGroupFinder{},
+		mockToolsFinder{},
+		numProvisionWorkersForTesting,
+	)
+	defer workertest.CleanKill(c, task)
+
+	c.Assert(foundMachine.markForRemoval, jc.IsFalse)
+	c.Assert(missingMachine.markForRemoval, jc.IsFalse)
+
+	s.sendModelMachinesChange(c, foundMachine.Id(), missingMachine.Id())
+	s.waitForTask(c, []string{"AllRunningInstances", "StopInstances"})
+
+	workertest.CleanKill(c, task)
+	close(s.instanceBroker.callsChan)
+	s.instanceBroker.CheckCalls(c, []testing.StubCall{
+		{"AllRunningInstances", []interface{}{s.callCtx}},
+		{"StopInstances", []interface{}{s.callCtx, []instance.Id{"found"}}},
+	})
+	c.Check(foundMachine.markForRemoval, jc.IsTrue)
+	c.Check(missingMachine.markForRemoval, jc.IsTrue)
+}
+
 func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
