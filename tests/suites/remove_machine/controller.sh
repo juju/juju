@@ -141,10 +141,10 @@ deploy_related_controller_units() {
 	juju integrate dummy-source dummy-sink
 	token=$(rnd_str)
 	juju config dummy-source token="${token}"
-	wait_for "idle" "$(agent_status "dummy-source" 0).current"
-	wait_for "active" "$(workload_status "dummy-source" 0).current"
-	wait_for "idle" "$(agent_status "dummy-sink" 0).current"
-	wait_for "active" "$(workload_status "dummy-sink" 0).current"
+	wait_for "idle" '(.applications."dummy-source".units // {})[] | ."juju-status".current'
+	wait_for "active" '(.applications."dummy-source".units // {})[] | ."workload-status".current'
+	wait_for "idle" '(.applications."dummy-sink".units // {})[] | ."juju-status".current'
+	wait_for "active" '(.applications."dummy-sink".units // {})[] | ."workload-status".current'
 }
 
 remove_related_controller_applications() {
@@ -178,9 +178,9 @@ run_remove_controller_machine_with_units() {
 	wait_for_controller_machine_count 2
 	wait_for_machine_removed "${controller_machine_id}"
 	wait_for "0" '.applications."dummy-source".units // {} | length'
-	wait_for "source relation departed" "$(workload_status "dummy-sink" 0).message"
+	wait_for "source relation departed" \
+		'(.applications."dummy-sink".units // {})[] | ."workload-status".message'
 	remove_related_controller_applications
-	juju remove-machine -m controller "${workload_machine_id}" --no-prompt
 	wait_for_machine_removed "${workload_machine_id}"
 
 	destroy_model "remove-controller-machine-with-units"
@@ -208,7 +208,6 @@ run_force_remove_controller_machine_with_units() {
 	wait_for "0" '.applications."dummy-source".units // {} | length'
 	assert_controller_instance_ids
 	remove_related_controller_applications
-	juju remove-machine -m controller "${workload_machine_id}" --no-prompt
 	wait_for_machine_removed "${workload_machine_id}"
 
 	destroy_model "force-remove-controller-machine-with-units"
