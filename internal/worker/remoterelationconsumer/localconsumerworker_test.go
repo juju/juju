@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -395,13 +396,23 @@ func (s *localConsumerWorkerSuite) TestWatchApplicationStatusChangedNotFound(c *
 	// Expect the notification to the offering model when the relation is found
 	// to be removed and the offerer unit worker has a macaroon.
 	mac := newMacaroon(c, "relation-mac")
+	publishAttempts := make(chan struct{})
 	s.remoteModelRelationClient.EXPECT().
 		PublishRelationChange(gomock.Any(), gomock.Any()).
-		Return(nil).
-		AnyTimes()
+		DoAndReturn(func(context.Context, params.RemoteRelationChangeEvent) error {
+			select {
+			case publishAttempts <- struct{}{}:
+			case <-c.Context().Done():
+				c.Fatalf("timed out recording PublishRelationChange attempt")
+			}
+			return internalerrors.New("boom")
+		}).
+		Times(3)
 
 	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
+	retryClock := testclock.NewClock(time.Time{})
+	w.clock = retryClock
 
 	// Force the creation of the workers, we will then check that they
 	// are removed when we process the relation removal.
@@ -427,6 +438,26 @@ func (s *localConsumerWorkerSuite) TestWatchApplicationStatusChangedNotFound(c *
 	case <-done:
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for WatchOfferStatus to be called")
+	}
+
+	select {
+	case <-publishAttempts:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for first PublishRelationChange attempt")
+	}
+	c.Assert(retryClock.WaitAdvance(2*time.Second, time.Second, 1), tc.ErrorIsNil)
+
+	select {
+	case <-publishAttempts:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for second PublishRelationChange attempt")
+	}
+	c.Assert(retryClock.WaitAdvance(4*time.Second, time.Second, 1), tc.ErrorIsNil)
+
+	select {
+	case <-publishAttempts:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for third PublishRelationChange attempt")
 	}
 
 	// Wait until the workers are gone... we should have created them, and now

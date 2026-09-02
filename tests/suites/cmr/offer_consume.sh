@@ -56,9 +56,9 @@ run_offer_consume() {
 
 	echo "Remove offer"
 	juju remove-relation dummy-sink dummy-offer
+	juju remove-saas dummy-offer
 	# wait for the relation to be removed.
 	wait_for null '.applications["dummy-sink"] | .relations'
-	juju remove-saas dummy-offer
 	# wait for saas to be removed.
 	wait_for null '.["application-endpoints"]'
 	# The offer must be removed before model/controller destruction will work.
@@ -120,15 +120,15 @@ run_offer_consume_cross_controller() {
 
 	echo "Remove offer"
 	juju remove-relation dummy-sink dummy-source
+	juju remove-saas dummy-source
 	# wait for the relation to be removed.
 	wait_for null '.applications["dummy-sink"] | .relations'
-	juju remove-saas dummy-source
 	# wait for saas to be removed.
 	wait_for null '.["application-endpoints"]'
 	# The offer must be removed before model/controller destruction will work.
 	# See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
 	juju switch "${offer_controller}:model-offer"
-	wait_for null '.offers."dummy-offer"."total-connected-count"'
+	wait_for null '.offers."dummy-source"."total-connected-count"'
 	juju remove-offer "${offer_controller}:admin/model-offer.dummy-source" -y
 	wait_for null '.offers'
 

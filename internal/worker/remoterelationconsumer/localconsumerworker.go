@@ -15,6 +15,7 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/retry"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 	"gopkg.in/macaroon.v2"
@@ -525,9 +526,15 @@ func (w *localConsumerWorker) handleRelationNotFound(ctx context.Context, relati
 	// relation before we can send the dying notification via the normal
 	// handleRelationConsumption path.
 	if err := w.publishRelationDyingForRemovedRelation(ctx, relationUUID); err != nil {
-		return errors.Annotatef(err, "notifying offering model of removed relation %q", relationUUID)
+		w.logger.Warningf(
+			ctx,
+			"notifying offering model of removed relation %q: %v",
+			relationUUID,
+			err,
+		)
 	}
-
+	// Clean up local workers even if the notification to the offering
+	// model failed, otherwise the workers are orphaned.
 	return w.handleRelationRemoved(ctx, relationUUID, 0)
 }
 
@@ -570,8 +577,25 @@ func (w *localConsumerWorker) publishRelationDyingChange(
 	debugMsg string,
 	errorMsgContext string,
 ) {
+	if err := w.publishRelationDying(applicationUUID, relationUUID, mac, debugMsg); err != nil {
+		w.logger.Warningf(
+			context.Background(),
+			"notifying offering model of relation %q %s: %v",
+			relationUUID,
+			errorMsgContext,
+			err,
+		)
+	}
+}
+
+func (w *localConsumerWorker) publishRelationDying(
+	applicationUUID application.UUID,
+	relationUUID corerelation.UUID,
+	mac *macaroon.Macaroon,
+	debugMsg string,
+) error {
 	if w.remoteModelClient == nil {
-		return
+		return nil
 	}
 
 	publishCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -587,11 +611,14 @@ func (w *localConsumerWorker) publishRelationDyingChange(
 		BakeryVersion:           defaultBakeryVersion,
 		ForceCleanup:            new(true),
 	}
-	if err := w.remoteModelClient.PublishRelationChange(publishCtx, change); err != nil {
-		if !isNotFound(err) {
-			w.logger.Warningf(publishCtx, "notifying offering model of relation %q %s: %v", relationUUID, errorMsgContext, err)
-		}
+	if err := w.remoteModelClient.PublishRelationChange(publishCtx, change); isNotFound(err) {
+		w.logger.Debugf(publishCtx, "relation %q dying, but offerer side already removed", relationUUID)
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
 	}
+
+	return nil
 }
 
 func (w *localConsumerWorker) publishRelationDyingForRemovedRelation(ctx context.Context, relationUUID corerelation.UUID) error {
@@ -612,13 +639,32 @@ func (w *localConsumerWorker) publishRelationDyingForRemovedRelation(ctx context
 
 	rw := offererUnitWorker.(offererWorkerDetails)
 
-	w.publishRelationDyingChange(
-		rw.ConsumerApplicationUUID(),
-		relationUUID,
-		rw.Macaroon(),
-		"relation %q removed locally, notifying offering model",
-		"removal",
-	)
+	var lastErr error
+	err = retry.Call(retry.CallArgs{
+		Clock:       w.clock,
+		Stop:        w.catacomb.Dying(),
+		Delay:       2 * time.Second,
+		Attempts:    3,
+		BackoffFunc: retry.DoubleDelay,
+		Func: func() error {
+			lastErr = w.publishRelationDying(
+				rw.ConsumerApplicationUUID(),
+				relationUUID,
+				rw.Macaroon(),
+				"relation %q removed locally, notifying offering model",
+			)
+			return lastErr
+		},
+		IsFatalError: func(err error) bool {
+			return params.ErrCode(err) == params.CodeDischargeRequired
+		},
+	})
+	if err != nil && lastErr != nil {
+		if lastErr == nil {
+			return errors.Trace(err)
+		}
+		return errors.Trace(lastErr)
+	}
 
 	return nil
 }
