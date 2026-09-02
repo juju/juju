@@ -13,7 +13,6 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
-
 	application "github.com/juju/juju/core/application"
 	life "github.com/juju/juju/core/life"
 	network "github.com/juju/juju/core/network"
@@ -307,9 +306,6 @@ type MockApplicationServiceSetApplicationScalingStateCall = gomock.Call4_1[conte
 // SetApplicationScalingStateWithStart mocks base method.
 func (m *MockApplicationService) SetApplicationScalingStateWithStart(ctx context.Context, name string, scaleTarget, startOrdinal int, scaling bool) error {
 	m.ctrl.T.Helper()
-	if len(m.recorder.setApplicationScalingStateWithStartExpects) == 0 {
-		return nil
-	}
 	return gomock.Dispatch5_1(&m.recorder.setApplicationScalingStateWithStartExpects, m.ctrl, m, "SetApplicationScalingStateWithStart", ctx, name, scaleTarget, startOrdinal, scaling)
 }
 

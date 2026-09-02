@@ -13,11 +13,10 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
-	v1 "k8s.io/api/core/v1"
-
 	caas "github.com/juju/juju/caas"
 	watcher "github.com/juju/juju/core/watcher"
 	storage "github.com/juju/juju/internal/storage"
+	v1 "k8s.io/api/core/v1"
 )
 
 // MockApplication is a mock of Application interface.
@@ -187,11 +186,13 @@ func (mr *MockApplicationMockRecorder) Scale(arg0, arg1 any) *MockApplicationSca
 // MockApplicationScaleCall is the typed call wrapper for Scale.
 type MockApplicationScaleCall = gomock.Call2_1[context.Context, int, error]
 
+// ScaleRange mocks base method.
 func (m *MockApplication) ScaleRange(arg0 context.Context, arg1, arg2 int) error {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch3_1(&m.recorder.scaleRangeExpects, m.ctrl, m, "ScaleRange", arg0, arg1, arg2)
 }
 
+// ScaleRange indicates an expected call of ScaleRange.
 func (mr *MockApplicationMockRecorder) ScaleRange(arg0, arg1, arg2 any) *MockApplicationScaleRangeCall {
 	mr.mock.ctrl.T.Helper()
 	call := gomock.NewCall3_1[context.Context, int, int, error](mr.mock.ctrl.T, mr.mock, "ScaleRange", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
@@ -200,6 +201,7 @@ func (mr *MockApplicationMockRecorder) ScaleRange(arg0, arg1, arg2 any) *MockApp
 	return call
 }
 
+// MockApplicationScaleRangeCall is the typed call wrapper for ScaleRange.
 type MockApplicationScaleRangeCall = gomock.Call3_1[context.Context, int, int, error]
 
 // Service mocks base method.

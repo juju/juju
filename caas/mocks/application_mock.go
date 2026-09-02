@@ -13,11 +13,10 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
-	v1 "k8s.io/api/core/v1"
-
 	caas "github.com/juju/juju/caas"
 	watcher "github.com/juju/juju/core/watcher"
 	storage "github.com/juju/juju/internal/storage"
+	v1 "k8s.io/api/core/v1"
 )
 
 // MockApplication is a mock of Application interface.
