@@ -51,7 +51,8 @@ func (s *metadataSuite) TestAsJSONBuffer(c *tc.C) {
 }
 
 func (s *metadataSuite) createTestMetadata(c *tc.C) *backups.Metadata {
-	meta := backups.NewMetadata()
+	meta := backups.NewMetadata(time.Date(
+		2014, time.Month(9), 9, 11, 59, 34, 0, time.UTC))
 	meta.Origin = backups.Origin{
 		Model:    "asdf-zxcv-qwe",
 		Machine:  "0",
@@ -59,7 +60,6 @@ func (s *metadataSuite) createTestMetadata(c *tc.C) *backups.Metadata {
 		Version:  semversion.MustParse("1.21-alpha3"),
 		Base:     "ubuntu@22.04",
 	}
-	meta.Started = time.Date(2014, time.Month(9), 9, 11, 59, 34, 0, time.UTC)
 
 	meta.SetID("20140909-115934.asdf-zxcv-qwe")
 
@@ -67,10 +67,8 @@ func (s *metadataSuite) createTestMetadata(c *tc.C) *backups.Metadata {
 }
 
 func (s *metadataSuite) assertMetadata(c *tc.C, meta *backups.Metadata, expected string) {
-	err := meta.MarkComplete(10, "123af2cef")
+	err := meta.MarkComplete(10, "123af2cef", meta.Started.Add(time.Minute))
 	c.Assert(err, tc.ErrorIsNil)
-	finished := meta.Started.Add(time.Minute)
-	meta.Finished = &finished
 
 	buf, err := meta.AsJSONBuffer()
 	c.Assert(err, tc.ErrorIsNil)

@@ -122,21 +122,20 @@ type ControllerMetadata struct {
 // currentFormatVersion is the most recent metadata version.
 const currentFormatVersion = 2
 
-// NewMetadata returns a new Metadata for a backup archive,
-// in the most current format.
-func NewMetadata() *Metadata {
+// NewMetadata returns a new Metadata for a backup archive, in the
+// most current format, started at the given time.
+func NewMetadata(now time.Time) *Metadata {
 	return &Metadata{
-		FileMetadata: filestorage.NewMetadata(),
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		Started:       time.Now().UTC(),
+		FileMetadata:  filestorage.NewMetadata(),
+		Started:       now.UTC(),
 		FormatVersion: currentFormatVersion,
 		Controller:    ControllerMetadata{},
 	}
 }
 
-// MarkComplete populates the remaining metadata values.  The default
-// checksum format is used.
-func (m *Metadata) MarkComplete(size int64, checksum string) error {
+// MarkComplete populates the remaining metadata values, finishing at
+// the given time.  The default checksum format is used.
+func (m *Metadata) MarkComplete(size int64, checksum string, finished time.Time) error {
 	if size == 0 {
 		return errors.New("missing size")
 	}
@@ -144,8 +143,7 @@ func (m *Metadata) MarkComplete(size int64, checksum string) error {
 		return errors.New("missing checksum")
 	}
 	format := checksumFormat
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	finished := time.Now().UTC()
+	finished = finished.UTC()
 
 	if err := m.SetFileInfo(size, checksum, format); err != nil {
 		return errors.Errorf("unexpected failure: %w", err)
@@ -211,7 +209,7 @@ func (m *Metadata) flat() flatMetadata {
 }
 
 func (flat *flatMetadata) inflate() (*Metadata, error) {
-	meta := NewMetadata()
+	meta := NewMetadata(flat.Started)
 	meta.SetID(flat.ID)
 	meta.FormatVersion = flat.FormatVersion
 
@@ -219,7 +217,6 @@ func (flat *flatMetadata) inflate() (*Metadata, error) {
 		meta.SetStored(&flat.Stored)
 	}
 
-	meta.Started = flat.Started
 	if !flat.Finished.IsZero() {
 		meta.Finished = &flat.Finished
 	}
@@ -309,15 +306,12 @@ func BuildMetadata(file *os.File) (*Metadata, error) {
 	checksum := base64.StdEncoding.EncodeToString(rawsum)
 
 	// Build the metadata.
-	meta := NewMetadata()
-	meta.Started = time.Time{}
+	meta := NewMetadata(time.Time{})
 	meta.Origin = UnknownOrigin()
 	meta.FormatVersion = UnknownInt64
 	meta.Controller = UnknownController()
-	err = meta.MarkComplete(size, checksum)
-	if err != nil {
+	if err := meta.MarkComplete(size, checksum, timestamp); err != nil {
 		return nil, errors.Capture(err)
 	}
-	meta.Finished = &timestamp
 	return meta, nil
 }
