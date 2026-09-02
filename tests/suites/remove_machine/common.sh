@@ -1,10 +1,9 @@
 cloud_instance_removal_supported() {
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"lxd")
-		[[ ${BOOTSTRAP_CLOUD:-localhost} == "localhost" ]]
-		return
+		return 0
 		;;
-	"ec2" | "gce" | "azure")
+	"aws" | "ec2" | "google" | "gce" | "azure")
 		return 0
 		;;
 	*)
@@ -16,6 +15,11 @@ cloud_instance_removal_supported() {
 delete_cloud_instance() {
 	local model machine_id instance_id availability_zone project region resource_group
 
+	if ! cloud_instance_removal_supported; then
+		echo "cloud instance removal is not supported for ${BOOTSTRAP_PROVIDER:-unknown}"
+		return 1
+	fi
+
 	model=${1}
 	machine_id=${2}
 	instance_id=$(juju show-machine -m "${model}" "${machine_id}" --format=json |
@@ -24,6 +28,8 @@ delete_cloud_instance() {
 		echo "could not determine instance-id for machine ${machine_id} in model ${model}"
 		return 1
 	fi
+
+	echo "deleting instance ${instance_id} from cloud ${BOOTSTRAP_PROVIDER}"
 
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"lxd")
@@ -35,7 +41,7 @@ delete_cloud_instance() {
 		lxc info "local:${instance_id}" --project "${project}" >/dev/null
 		lxc delete --force "local:${instance_id}" --project "${project}"
 		;;
-	"ec2")
+	"aws" | "ec2")
 		region=$(juju show-model "${model}" --format=json | yq -r '.[].region')
 		if [[ -z ${region} || ${region} == "null" ]]; then
 			echo "could not determine region for EC2 instance ${instance_id}"
@@ -46,7 +52,7 @@ delete_cloud_instance() {
 		AWS_DEFAULT_REGION="${region}" aws ec2 wait instance-terminated \
 			--instance-ids "${instance_id}"
 		;;
-	"gce")
+	"google" | "gce")
 		availability_zone=$(juju show-machine -m "${model}" "${machine_id}" --format=json |
 			machine_id="${machine_id}" yq -r '.machines[env(machine_id)].hardware' |
 			grep -oP 'availability-zone=\K\S+')
@@ -69,7 +75,6 @@ delete_cloud_instance() {
 			--name "${instance_id}" --yes
 		;;
 	*)
-		echo "cloud instance removal is not supported for ${BOOTSTRAP_PROVIDER:-unknown}"
 		return 1
 		;;
 	esac
