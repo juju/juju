@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package authenticationworker
+package sshkeyupdater
 
 import (
 	"context"

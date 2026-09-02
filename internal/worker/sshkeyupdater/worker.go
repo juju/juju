@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package authenticationworker
+package sshkeyupdater
 
 import (
 	"github.com/juju/errors"
@@ -113,14 +113,14 @@ func (a *AuthWorker) enqueue(req ephemeralRequest) error {
 	select {
 	case a.requests <- req:
 	case <-a.catacomb.Dying():
-		return errors.Trace(coremachineauthentication.ErrAuthenticationWorkerDying)
+		return errors.Trace(coremachineauthentication.ErrSShKeyUpdaterWorkerDying)
 	}
 
 	select {
 	case err := <-req.done:
 		return errors.Trace(err)
 	case <-a.catacomb.Dying():
-		return errors.Trace(coremachineauthentication.ErrAuthenticationWorkerDying)
+		return errors.Trace(coremachineauthentication.ErrSShKeyUpdaterWorkerDying)
 	}
 }
 

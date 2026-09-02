@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	// ErrAuthenticationWorkerDying is used to indicate to callers that the
-	// authentication worker is dying, instead of catacomb.ErrDying, which is
+	// ErrSShKeyUpdaterWorkerDying is used to indicate to callers that the
+	// sshkeyupdater worker is dying, instead of catacomb.ErrDying, which is
 	// unsuitable for propagating inter-worker.
 	// This error indicates to consuming workers that their dependency has
 	// become unmet and a restart by the dependency engine is imminent.
-	ErrAuthenticationWorkerDying = errors.ConstError("authentication worker is dying")
+	ErrSShKeyUpdaterWorkerDying = errors.ConstError("sshkeyupdater worker is dying")
 )

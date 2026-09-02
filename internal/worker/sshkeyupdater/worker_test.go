@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package authenticationworker_test
+package sshkeyupdater_test
 
 import (
 	"testing"
@@ -15,7 +15,7 @@ import (
 	coremachineauthentication "github.com/juju/juju/core/machineauthentication"
 	coressh "github.com/juju/juju/core/ssh"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/worker/authenticationworker"
+	"github.com/juju/juju/internal/worker/sshkeyupdater"
 )
 
 type workerSuite struct {
@@ -28,11 +28,11 @@ func TestWorkerSuite(t *testing.T) {
 
 func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.PatchValue(&authenticationworker.SSHUser, "")
+	s.PatchValue(&sshkeyupdater.SSHUser, "")
 }
 
 func (*workerSuite) TestAddAndRemoveEphemeralKey(c *tc.C) {
-	w, err := authenticationworker.NewWorker()
+	w, err := sshkeyupdater.NewWorker()
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -42,12 +42,12 @@ func (*workerSuite) TestAddAndRemoveEphemeralKey(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(updater.AddEphemeralKey(key, "tunnel-0"), tc.ErrorIsNil)
-	keys, err := ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
+	keys, err := ssh.ListKeys(sshkeyupdater.SSHUser, ssh.FullKeys)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(keys, tc.DeepEquals, []string{sshtesting.ValidKeyOne.Key + " Juju:Ephemeral:tunnel-0"})
 
 	c.Assert(updater.RemoveEphemeralKey(key), tc.ErrorIsNil)
-	keys, err = ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
+	keys, err = ssh.ListKeys(sshkeyupdater.SSHUser, ssh.FullKeys)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(keys, tc.HasLen, 0)
 }
@@ -55,7 +55,7 @@ func (*workerSuite) TestAddAndRemoveEphemeralKey(c *tc.C) {
 // TestRemoveLastEphemeralKey ensures that removing the only authorized key
 // succeeds and leaves the authorized_keys file empty.
 func (*workerSuite) TestRemoveLastEphemeralKey(c *tc.C) {
-	w, err := authenticationworker.NewWorker()
+	w, err := sshkeyupdater.NewWorker()
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -66,19 +66,19 @@ func (*workerSuite) TestRemoveLastEphemeralKey(c *tc.C) {
 	c.Assert(updater.AddEphemeralKey(key, "tunnel-0"), tc.ErrorIsNil)
 	c.Assert(updater.RemoveEphemeralKey(key), tc.ErrorIsNil)
 
-	keys, err := ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
+	keys, err := ssh.ListKeys(sshkeyupdater.SSHUser, ssh.FullKeys)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(keys, tc.HasLen, 0)
 }
 
 func (*workerSuite) TestEphemeralKeyOpsReturnWorkerDying(c *tc.C) {
-	w, err := authenticationworker.NewWorker()
+	w, err := sshkeyupdater.NewWorker()
 	c.Assert(err, tc.ErrorIsNil)
 	updater := w.(coressh.EphemeralKeysUpdater)
 	workertest.CleanKill(c, w)
 
 	key, _, _, _, err := gossh.ParseAuthorizedKey([]byte(sshtesting.ValidKeyOne.Key))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(updater.AddEphemeralKey(key, "tunnel-0"), tc.ErrorIs, coremachineauthentication.ErrAuthenticationWorkerDying)
-	c.Check(updater.RemoveEphemeralKey(key), tc.ErrorIs, coremachineauthentication.ErrAuthenticationWorkerDying)
+	c.Check(updater.AddEphemeralKey(key, "tunnel-0"), tc.ErrorIs, coremachineauthentication.ErrSShKeyUpdaterWorkerDying)
+	c.Check(updater.RemoveEphemeralKey(key), tc.ErrorIs, coremachineauthentication.ErrSShKeyUpdaterWorkerDying)
 }
