@@ -81,12 +81,12 @@ func ReadSnapVersion(ctx context.Context, snapPath string) (string, semversion.N
 			"reading controller snap %q: no version found in snap metadata", snapPath)
 	}
 
-	vers, err := snapstore.ParseSnapVersion(raw)
+	v, err := snapstore.ParseSnapVersion(raw)
 	if err != nil {
 		return "", semversion.Zero, errors.Annotatef(err,
 			"reading controller snap %q: cannot parse version %q", snapPath, raw)
 	}
-	return raw, vers, nil
+	return raw, v, nil
 }
 
 func resolveSnapChannel(channel charm.Channel) string {
@@ -94,5 +94,9 @@ func resolveSnapChannel(channel charm.Channel) string {
 		return channel.String()
 	}
 
+	// This should be 4.2/stable but until we have a published version, we
+	// need to use something that exists temporarily. When we published to
+	// 4.2/edge, we can switch this back to 4.2/edge, and then to 4.2/stable.
+	// Until then, we will use latest/edge.
 	return "latest/edge"
 }
