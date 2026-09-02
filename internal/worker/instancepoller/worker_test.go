@@ -649,8 +649,21 @@ func (s *workerSuite) TestPollingUpdatesStatusWhenNetworkInterfacesFails(c *tc.C
 	mocked.machineService.EXPECT().GetMachineLife(gomock.Any(), machineName).Return(life.Alive, nil)
 	mocked.environ.EXPECT().NetworkInterfaces(gomock.Any(), []instance.Id{instanceID}).Return(nil, fmt.Errorf("network unavailable"))
 
+	// When NetworkInterfaces fails, processing continues rather than
+	// aborting the entire poll group. Provider statuses were already
+	// persisted above, and processOneInstance is now called so that
+	// poll group reassignment happens for the remaining instances.
+	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{
+		Status: status.Started,
+	}, nil)
+
 	err := updWorker.pollGroupMembers(c.Context(), shortPollGroup)
-	c.Check(err, tc.ErrorMatches, "enumerating network interface list for instances: network unavailable")
+	c.Assert(err, tc.ErrorIsNil)
+	// With no NICs returned, the machine stays in the short poll group
+	// and its poll interval is bumped.
+	_, groupType := updWorker.lookupPolledMachine(machineName)
+	c.Check(groupType, tc.Equals, shortPollGroup)
+	c.Check(entry.shortPollInterval > ShortPoll, tc.IsTrue)
 }
 
 func (s *workerSuite) TestBatchPollingOfGroupMembersWithVariousDevicesStatus(c *tc.C) {

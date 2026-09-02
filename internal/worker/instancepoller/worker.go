@@ -496,7 +496,11 @@ func (u *updaterWorker) pollGroupMembers(ctx context.Context, groupType pollGrou
 				return errors.Errorf("BUG: substrate does not implement required NetworkInterfaces method")
 			}
 
-			return errors.Annotate(err, "enumerating network interface list for instances")
+			// Provider statuses have already been persisted for all instances
+			// in the group. A single machine's network failure should not
+			// prevent status reconciliation for all other machines. Log the
+			// error and continue processing the remaining instances.
+			u.config.Logger.Errorf(ctx, "failed to enumerate network interfaces, continuing with address sync: %v", err)
 		}
 	}
 
