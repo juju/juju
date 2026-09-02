@@ -1380,7 +1380,7 @@ func (st *State) cleanupDestroyedMachineInternal(machineID string, force, forceD
 				return errors.Trace(err)
 			}
 		}
-		if err := st.RemoveControllerReference(node); err != nil {
+		if err := st.RemoveControllerReference(machineID); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1569,15 +1569,14 @@ func (st *State) cleanupEvacuateMachineInternal(
 // cleanupHostedUnit advances destruction of a unit hosted on a machine being
 // evacuated. When force is true and the unit is Dying, the forceDying parameter
 // controls whether the unit is forced to Dead inline (the grace period has
-// elapsed) or skipped to give it time to shut down gracefully.
-// When force is true and the unit is Dead, it is removed. In all other cases
-// the unit is destroyed (force or non-force as appropriate).
+// elapsed) or skipped to give it time to shut down gracefully. When the unit is
+// Dead, it is removed. In all other cases it is destroyed.
 func (st *State) cleanupHostedUnit(
 	unit *Unit, force, forceDying bool, maxWait time.Duration,
 ) (operation string, opErrs []error, err error) {
-	if force {
-		switch unit.Life() {
-		case Dying:
+	switch unit.Life() {
+	case Dying:
+		if force {
 			if !forceDying {
 				// First pass: give the unit time to shut down gracefully.
 				// The evacuation loop will schedule a future cleanup that
@@ -1591,10 +1590,10 @@ func (st *State) cleanupHostedUnit(
 				return "", nil, nil
 			}
 			return "force-destroying", nil, err
-		case Dead:
-			opErrs, err := unit.RemoveWithForce(true, maxWait)
-			return "removing", opErrs, err
 		}
+	case Dead:
+		opErrs, err := unit.RemoveWithForce(force, maxWait)
+		return "removing", opErrs, err
 	}
 	opErrs, err = unit.DestroyWithForce(force, maxWait)
 	return "destroying", opErrs, err

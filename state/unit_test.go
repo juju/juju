@@ -1087,7 +1087,7 @@ func (s *UnitSuite) demoteController(c *gc.C, m *state.Machine) {
 	c.Assert(state.SetWantsVote(s.State, m.Id(), false), jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(m.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveControllerReference(node)
+	err = s.State.RemoveControllerReference(node.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
