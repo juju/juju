@@ -59,6 +59,7 @@ import (
 	"github.com/juju/juju/core/securitylog"
 	coretrace "github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher/eventsource"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -660,6 +661,11 @@ func (srv *Server) loop(ready chan struct{}) error {
 		return errors.Trace(err)
 	}
 
+	// Consume the initial event to synchronize with the watcher's subscription.
+	if _, err := eventsource.ConsumeInitialEvent(ctx, modelRemovalWatcher); err != nil {
+		return errors.Annotate(err, "waiting for model removals watcher")
+	}
+
 	close(ready)
 
 	srv.mu.Lock()
@@ -1224,7 +1230,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		recorderFactory := observer.NewRecorderFactory(apiObserver, nil, observer.NoCaptureArgs)
 		rpcConn := rpc.NewConn(codec, recorderFactory)
 
-		if root, err := srv.serveConn(
+		root, closeOnModelRemoval, err := srv.serveConn(
 			srv.catacomb.Context(ctx),
 			rpcConn,
 			resolvedModelUUID,
@@ -1233,7 +1239,8 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 			apiObserver,
 			req.Host,
 			crossModelAuthContext,
-		); errors.Is(err, modelerrors.NotFound) {
+		)
+		if errors.Is(err, modelerrors.NotFound) {
 			// If the model is not found then we need to close the connection
 			// with the appropriate error so that the client can handle it.
 			err := fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
@@ -1245,13 +1252,20 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 			rpcConn.ServeRoot(root, recorderFactory, serverError)
 		}
 
+		// A connection admitted only to answer a migration redirect must stay
+		// open long enough to receive a Login request and return that redirect.
+		// A nil channel disables this select case.
+		if !closeOnModelRemoval {
+			modelRemoved = nil
+		}
+
 		rpcConn.Start(ctx)
 		select {
 		case <-rpcConn.Dead():
 			cancel(ErrRPCConnectionClosed)
 		case <-srv.catacomb.Dying():
 		case <-modelRemoved:
-			// The model this connection serves has been removed from this
+			// The local model this connection serves has been removed from this
 			// controller, so fall through and close the connection: its agents
 			// and clients must reconnect to the model's new location. The close
 			// happens here, in the goroutine that started the connection just
@@ -1273,14 +1287,15 @@ func (srv *Server) serveConn(
 	apiObserver observer.Observer,
 	host string,
 	crossModelAuthContext facade.CrossModelAuthContext,
-) (rpc.Root, error) {
+) (rpc.Root, bool, error) {
 	domainServices, err := srv.shared.domainServicesGetter.ServicesForModel(ctx, modelUUID)
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting domain services for model %q", modelUUID)
+		return nil, false, errors.Annotatef(err, "getting domain services for model %q", modelUUID)
 	}
 
-	if err := srv.isModelAvailable(ctx, domainServices.Model(), modelUUID); err != nil {
-		return nil, errors.Annotatef(err, "checking model %q availability", modelUUID)
+	modelConn, err := srv.isModelAvailable(ctx, domainServices.Model(), modelUUID)
+	if err != nil {
+		return nil, false, errors.Annotatef(err, "checking model %q availability", modelUUID)
 	}
 
 	tracer, err := srv.shared.tracerGetter.GetTracer(
@@ -1295,19 +1310,19 @@ func (srv *Server) serveConn(
 	// Grab the object store for the model.
 	objectStore, err := srv.shared.objectStoreGetter.GetObjectStore(ctx, modelUUID.String())
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting object store for model %q", modelUUID)
+		return nil, false, errors.Annotatef(err, "getting object store for model %q", modelUUID)
 	}
 
 	// Grab the object store for the controller, this is primarily used for
 	// the agent tools.
 	controllerObjectStore, err := srv.shared.objectStoreGetter.GetObjectStore(ctx, database.ControllerNS)
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting controller object store")
+		return nil, false, errors.Annotatef(err, "getting controller object store")
 	}
 
 	watcherRegistry, err := srv.shared.watcherRegistryGetter.GetWatcherRegistry(ctx, connectionID)
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting watcher registry for connection %d", connectionID)
+		return nil, false, errors.Annotatef(err, "getting watcher registry for connection %d", connectionID)
 	}
 
 	handler, err := newAPIHandler(
@@ -1332,7 +1347,7 @@ func (srv *Server) serveConn(
 		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, false, errors.Trace(err)
 	}
 
 	// Set up the admin apis used to accept logins and direct
@@ -1344,14 +1359,14 @@ func (srv *Server) serveConn(
 		adminAPIs[apiVersion] = factory(srv, handler, apiObserver)
 	}
 
-	return newAdminRoot(handler, adminAPIs), nil
+	return newAdminRoot(handler, adminAPIs), modelConn.connectable, nil
 }
 
 func (srv *Server) isModelAvailable(
 	ctx context.Context,
 	modelService ModelService,
 	modelUUID coremodel.UUID,
-) error {
+) (modelConnection, error) {
 	// Check that the model can be served before proceeding any further. There
 	// is no need in setting up any additional operations if the model is not
 	// present. A model that is still being imported by a migration is served
@@ -1359,9 +1374,9 @@ func (srv *Server) isModelAvailable(
 	// modelIsConnectable.
 	conn, err := modelIsConnectable(ctx, modelService, modelUUID)
 	if err != nil && !errors.Is(err, modelerrors.NotFound) {
-		return errors.Trace(err)
+		return modelConnection{}, errors.Trace(err)
 	} else if conn.connectable {
-		return nil
+		return conn, nil
 	}
 
 	// If this model used to be hosted on this controller but got
@@ -1374,10 +1389,10 @@ func (srv *Server) isModelAvailable(
 		// is an error with the database? The caller will assume that it
 		// is no longer on this controller. If we return a different error
 		// then it can at least retry the request.
-		return modelerrors.NotFound
+		return modelConnection{}, modelerrors.NotFound
 	}
 
-	return nil
+	return conn, nil
 }
 
 // publicDNSName returns the current public hostname.

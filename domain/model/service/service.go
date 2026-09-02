@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecloud "github.com/juju/juju/core/cloud"
 	"github.com/juju/juju/core/credential"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -925,17 +924,12 @@ func (s *WatchableService) WatchModelRemovals(ctx context.Context) (watcher.Stri
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// A model removed before the watcher was created cannot be reported: its
-	// row, and with it its UUID, is already gone. The watcher reports the
-	// removals it sees from its creation onwards, so its initial state is
-	// always empty.
-	initialQuery := func(context.Context, coredatabase.TxnRunner) ([]string, error) {
-		return nil, nil
-	}
-
+	// A deletion stream has no current state to report, but its empty initial
+	// event is still the synchronization point that tells the consumer the
+	// subscription is established.
 	return s.watcherFactory.NewNamespaceWatcher(
 		ctx,
-		initialQuery,
+		eventsource.EmptyInitialNamespaceChanges(),
 		"model removals watcher",
 		eventsource.NamespaceFilter("model", changestream.Deleted),
 	)
