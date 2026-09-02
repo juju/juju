@@ -82,7 +82,7 @@ func (a *app) ScaleRange(ctx context.Context, scaleTo, startOrdinal int) error {
 			return errors.NotSupportedf("scaling deployment %q from ordinal %d", a.name, startOrdinal)
 		}
 		return scale.PatchReplicasToScale(
-			context.Background(),
+			ctx,
 			a.name,
 			int32(scaleTo),
 			scale.DeploymentScalePatcher(a.client.AppsV1().Deployments(a.namespace)),

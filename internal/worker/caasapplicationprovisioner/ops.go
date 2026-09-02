@@ -880,12 +880,7 @@ func updateProvisioningState(
 	appName string, scaling bool, scaleTarget, startOrdinal int,
 	applicationService ApplicationService,
 ) error {
-	var err error
-	if startOrdinal == 0 {
-		err = applicationService.SetApplicationScalingState(ctx, appName, scaleTarget, scaling)
-	} else {
-		err = applicationService.SetApplicationScalingStateWithStart(ctx, appName, scaleTarget, startOrdinal, scaling)
-	}
+	err := applicationService.SetApplicationScalingStateWithStart(ctx, appName, scaleTarget, startOrdinal, scaling)
 	if errors.Is(err, applicationerrors.ScalingStateInconsistent) {
 		return tryAgain
 	} else if err != nil {
