@@ -25,12 +25,12 @@ func TestManifoldSuite(t *testing.T) {
 
 func (s *manifoldSuite) newConfig(c *tc.C, modifier func(*ManifoldConfig)) ManifoldConfig {
 	cfg := ManifoldConfig{
-		AgentName:                "agent",
-		APICallerName:            "api-caller",
-		AuthenticationWorkerName: "ssh-authkeys-updater",
-		Logger:                   loggertesting.WrapCheckLog(c),
-		NewWorker:                func(WorkerConfig) (worker.Worker, error) { return nil, nil },
-		NewFacadeClient:          func(base.APICaller) FacadeClient { return nil },
+		AgentName:               "agent",
+		APICallerName:           "api-caller",
+		SshKeyUpdaterWorkerName: "ssh-authkeys-updater",
+		Logger:                  loggertesting.WrapCheckLog(c),
+		NewWorker:               func(WorkerConfig) (worker.Worker, error) { return nil, nil },
+		NewFacadeClient:         func(base.APICaller) FacadeClient { return nil },
 	}
 	modifier(&cfg)
 	return cfg
@@ -41,7 +41,7 @@ func (s *manifoldSuite) TestValidate(c *tc.C) {
 
 	c.Check(s.newConfig(c, func(cfg *ManifoldConfig) { cfg.AgentName = "" }).Validate(), tc.ErrorIs, coreerrors.NotValid)
 	c.Check(s.newConfig(c, func(cfg *ManifoldConfig) { cfg.APICallerName = "" }).Validate(), tc.ErrorIs, coreerrors.NotValid)
-	c.Check(s.newConfig(c, func(cfg *ManifoldConfig) { cfg.AuthenticationWorkerName = "" }).Validate(), tc.ErrorIs, coreerrors.NotValid)
+	c.Check(s.newConfig(c, func(cfg *ManifoldConfig) { cfg.SshKeyUpdaterWorkerName = "" }).Validate(), tc.ErrorIs, coreerrors.NotValid)
 	c.Check(s.newConfig(c, func(cfg *ManifoldConfig) { cfg.Logger = nil }).Validate(), tc.ErrorIs, coreerrors.NotValid)
 	c.Check(s.newConfig(c, func(cfg *ManifoldConfig) { cfg.NewWorker = nil }).Validate(), tc.ErrorIs, coreerrors.NotValid)
 	c.Check(s.newConfig(c, func(cfg *ManifoldConfig) { cfg.NewFacadeClient = nil }).Validate(), tc.ErrorIs, coreerrors.NotValid)

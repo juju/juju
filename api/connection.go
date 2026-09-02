@@ -17,7 +17,6 @@ import (
 	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api/agent/keyupdater"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -235,11 +234,6 @@ func addAddress(servers []network.MachineHostPorts, addr string) ([]network.Mach
 	result = append(result, network.NewMachineHostPorts(port, host))
 	result = append(result, servers...)
 	return result, nil
-}
-
-// KeyUpdater returns access to the KeyUpdater API
-func (c *conn) KeyUpdater() *keyupdater.Client {
-	return keyupdater.NewClient(c)
 }
 
 // ServerVersion holds the version of the API server that we are connected to.

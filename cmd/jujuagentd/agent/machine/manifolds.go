@@ -59,7 +59,6 @@ import (
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/internal/worker/apiservercertwatcher"
 	"github.com/juju/juju/internal/worker/auditconfigupdater"
-	"github.com/juju/juju/internal/worker/authenticationworker"
 	"github.com/juju/juju/internal/worker/bootstrap"
 	"github.com/juju/juju/internal/worker/caasupgrader"
 	"github.com/juju/juju/internal/worker/certupdater"
@@ -112,6 +111,7 @@ import (
 	"github.com/juju/juju/internal/worker/reboot"
 	"github.com/juju/juju/internal/worker/secretbackendrotate"
 	"github.com/juju/juju/internal/worker/singular"
+	"github.com/juju/juju/internal/worker/sshkeyupdater"
 	"github.com/juju/juju/internal/worker/sshserver"
 	"github.com/juju/juju/internal/worker/sshsession"
 	"github.com/juju/juju/internal/worker/sshtunneler"
@@ -1254,18 +1254,15 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:             internallogger.GetLogger("juju.worker.toolsversionchecker"),
 		})),
 
-		authenticationWorkerName: ifNotMigrating(authenticationworker.Manifold(authenticationworker.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-		}, authenticationworker.Output)),
+		sshKeyUpdaterWorkerName: ifNotMigrating(sshkeyupdater.Manifold(sshkeyupdater.Output)),
 
 		sshSessionName: ifNotMigrating(sshsession.Manifold(sshsession.ManifoldConfig{
-			AgentName:                agentName,
-			APICallerName:            apiCallerName,
-			AuthenticationWorkerName: authenticationWorkerName,
-			Logger:                   internallogger.GetLogger("juju.worker.sshsession"),
-			NewWorker:                sshsession.NewWorker,
-			NewFacadeClient:          sshsession.NewFacadeClient,
+			AgentName:               agentName,
+			APICallerName:           apiCallerName,
+			SshKeyUpdaterWorkerName: sshKeyUpdaterWorkerName,
+			Logger:                  internallogger.GetLogger("juju.worker.sshsession"),
+			NewWorker:               sshsession.NewWorker,
+			NewFacadeClient:         sshsession.NewFacadeClient,
 		})),
 
 		hostKeyReporterName: ifNotMigrating(hostkeyreporter.Manifold(hostkeyreporter.ManifoldConfig{
@@ -1687,7 +1684,7 @@ const (
 	apiRemoteCallerName                = "api-remote-caller"
 	apiRemoteRelationCallerName        = "api-remote-relation-caller"
 	auditConfigUpdaterName             = "audit-config-updater"
-	authenticationWorkerName           = "ssh-authkeys-updater"
+	sshKeyUpdaterWorkerName            = "ssh-authkeys-updater"
 	brokerTrackerName                  = "broker-tracker"
 	certificateUpdaterName             = "certificate-updater"
 	certificateWatcherName             = "certificate-watcher"

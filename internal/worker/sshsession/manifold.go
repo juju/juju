@@ -26,9 +26,9 @@ type ManifoldConfig struct {
 	AgentName string
 	// APICallerName is the api caller dependency name.
 	APICallerName string
-	// AuthenticationWorkerName is the dependency name of the worker that
+	// SshKeyUpdaterWorkerName is the dependency name of the worker that
 	// manages the machine's authorized_keys file, including ephemeral keys.
-	AuthenticationWorkerName string
+	SshKeyUpdaterWorkerName string
 	// Logger is the logger to use for the worker.
 	Logger logger.Logger
 	// NewWorker creates a new sshsession worker.
@@ -45,8 +45,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.APICallerName == "" {
 		return errors.Errorf("empty APICallerName").Add(coreerrors.NotValid)
 	}
-	if config.AuthenticationWorkerName == "" {
-		return errors.Errorf("empty AuthenticationWorkerName").Add(coreerrors.NotValid)
+	if config.SshKeyUpdaterWorkerName == "" {
+		return errors.Errorf("empty SshKeyUpdaterWorkerName").Add(coreerrors.NotValid)
 	}
 	if config.Logger == nil {
 		return errors.Errorf("nil Logger").Add(coreerrors.NotValid)
@@ -67,7 +67,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.APICallerName,
-			config.AuthenticationWorkerName,
+			config.SshKeyUpdaterWorkerName,
 		},
 		Start: config.start,
 	}
@@ -94,7 +94,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	}
 
 	var ephemeralKeysUpdater coressh.EphemeralKeysUpdater
-	if err := getter.Get(config.AuthenticationWorkerName, &ephemeralKeysUpdater); err != nil {
+	if err := getter.Get(config.SshKeyUpdaterWorkerName, &ephemeralKeysUpdater); err != nil {
 		return nil, errors.Capture(err)
 	}
 
