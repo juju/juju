@@ -618,10 +618,10 @@ func waitForTerminated(appName string, app caas.Application,
 }
 
 // reconcileDeadUnitScale is setup to respond to CAAS sidecar units that become
-// dead. It takes stock of what the current desired scale is for the application
-// and the number of dead units in the application. Once the number of dead units
-// has reached the point where the desired scale has been achieved this func
-// can go ahead and remove the units from CAAS provider.
+// dead. It takes stock of the desired scale and dead units outside the retained
+// ordinal range. It removes their Juju unit records before scaling the CAAS
+// provider so peer-relation departure hooks can finish while the pods remain
+// available.
 func reconcileDeadUnitScale(
 	ctx context.Context,
 	appName string, appUUID coreapplication.UUID, app caas.Application,
@@ -657,9 +657,26 @@ func reconcileDeadUnitScale(
 		}
 	}
 
-	// We haven't met the threshold to initiate scale down in the CAAS provider
-	// yet.
-	if unitsToRemove != len(deadUnits) || len(deadUnits) == 0 {
+	// Wait for every unit outside the retained range to be dead. A dead unit
+	// still needs its removal job to depart peer relations before its pod can
+	// be stopped; otherwise the remaining units cannot consume that departure.
+	if unitsToRemove != len(deadUnits) {
+		return nil
+	}
+	if len(deadUnits) > 0 {
+		sort.Slice(deadUnits, func(i, j int) bool {
+			return deadUnits[i].Number() < deadUnits[j].Number()
+		})
+		for _, deadUnit := range deadUnits {
+			logger.Infof(ctx, "removing dead unit %s", deadUnit)
+			if err := facade.RemoveUnit(ctx, string(deadUnit)); err != nil && !errors.Is(err, errors.NotFound) {
+				return fmt.Errorf("removing dead unit %q: %w", deadUnit, err)
+			}
+		}
+		return tryAgain
+	}
+
+	if ps.StartOrdinal == 0 || len(unitNamesAndLives) > desiredScale {
 		return nil
 	}
 
@@ -683,16 +700,6 @@ func reconcileDeadUnitScale(
 	// TODO: stop k8s things from mutating the statefulset.
 	if len(appState.Replicas) > desiredScale {
 		return tryAgain
-	}
-
-	sort.Slice(deadUnits, func(i, j int) bool {
-		return deadUnits[i].Number() < deadUnits[j].Number()
-	})
-	for _, deadUnit := range deadUnits {
-		logger.Infof(ctx, "removing dead unit %s", deadUnit)
-		if err := facade.RemoveUnit(ctx, string(deadUnit)); err != nil && !errors.Is(err, errors.NotFound) {
-			return fmt.Errorf("removing dead unit %q: %w", deadUnit, err)
-		}
 	}
 
 	return updateProvisioningState(ctx, appName, false, 0, ps.StartOrdinal, applicationService)
