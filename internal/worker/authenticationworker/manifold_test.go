@@ -22,12 +22,9 @@ func TestManifoldSuite(t *testing.T) {
 }
 
 func (s *manifoldSuite) TestManifoldHasOutput(c *tc.C) {
-	manifold := Manifold(ManifoldConfig{
-		AgentName:     "agent",
-		APICallerName: "api-caller",
-	}, Output)
+	manifold := Manifold(Output)
 	c.Check(manifold.Output, tc.NotNil)
-	c.Check(manifold.Inputs, tc.SameContents, []string{"agent", "api-caller"})
+	c.Check(manifold.Inputs, tc.HasLen, 0)
 }
 
 func (s *manifoldSuite) TestOutputExtractsEphemeralKeysUpdater(c *tc.C) {

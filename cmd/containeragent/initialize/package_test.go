@@ -28,7 +28,6 @@ func (*importSuite) TestImports(c *tc.C) {
 		"api",
 		"api/agent/agent",
 		"api/agent/caasapplication",
-		"api/agent/keyupdater",
 		"api/base",
 		"api/macaroon",
 		"api/common",

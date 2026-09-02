@@ -21,11 +21,9 @@ func (*ImportSuite) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/api")
 
 	c.Assert(found, tc.SameContents, []string{
-		"api/agent/keyupdater",
 		"api/base",
 		"api/macaroon",
 		"api/proxy/config",
-		"api/watcher",
 		"core/arch",
 		"core/backups",
 		"core/base",
@@ -38,7 +36,6 @@ func (*ImportSuite) TestImports(c *tc.C) {
 		"core/instance",
 		"core/life",
 		"core/logger",
-		"core/migration",
 		"core/model",
 		"core/network",
 		"core/network/ipfamily",
@@ -55,7 +52,6 @@ func (*ImportSuite) TestImports(c *tc.C) {
 		"core/unit",
 		"core/user",
 		"core/version",
-		"core/watcher",
 		"domain/deployment/charm",
 		"domain/deployment/charm/assumes",
 		"domain/deployment/charm/hooks",

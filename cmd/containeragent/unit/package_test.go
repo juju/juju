@@ -30,7 +30,6 @@ func (*importSuite) TestImports(c *tc.C) {
 		"api",
 		"api/agent/agent",
 		"api/agent/caasoperator",
-		"api/agent/keyupdater",
 		"api/agent/leadership",
 		"api/agent/logger",
 		"api/agent/machiner",

@@ -20,7 +20,8 @@ import (
 )
 
 // KeyUpdaterAPI implements the KeyUpdater interface and is the concrete
-// implementation of the api end point.
+// implementation of the API endpoint. It remains registered for compatibility
+// with older agents during upgrades; current agents no longer consume it.
 type KeyUpdaterAPI struct {
 	getCanRead        common.GetAuthFunc
 	keyUpdaterService KeyUpdaterService

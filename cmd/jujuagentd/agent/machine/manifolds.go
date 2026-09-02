@@ -1254,10 +1254,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:             internallogger.GetLogger("juju.worker.toolsversionchecker"),
 		})),
 
-		authenticationWorkerName: ifNotMigrating(authenticationworker.Manifold(authenticationworker.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-		}, authenticationworker.Output)),
+		authenticationWorkerName: ifNotMigrating(authenticationworker.Manifold(authenticationworker.Output)),
 
 		sshSessionName: ifNotMigrating(sshsession.Manifold(sshsession.ManifoldConfig{
 			AgentName:                agentName,

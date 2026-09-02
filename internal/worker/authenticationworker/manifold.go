@@ -10,32 +10,22 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/engine"
-	"github.com/juju/juju/api/agent/keyupdater"
-	"github.com/juju/juju/api/base"
 	coressh "github.com/juju/juju/core/ssh"
 )
 
-// ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
-type ManifoldConfig engine.AgentAPIManifoldConfig
-
-// Manifold returns a dependency manifold that runs a authenticationworker worker,
-// using the resource names defined in the supplied config.
-func Manifold(config ManifoldConfig, output dependency.OutputFunc) dependency.Manifold {
-	typedConfig := engine.AgentAPIManifoldConfig(config)
-
-	manifold := engine.AgentAPIManifold(typedConfig, newWorker)
+// Manifold returns a dependency manifold that runs the ephemeral SSH key worker.
+func Manifold(output dependency.OutputFunc) dependency.Manifold {
+	manifold := dependency.Manifold{Start: newWorker}
 	// Expose the worker's EphemeralKeysUpdater so that the sshsession worker can
 	// inject and remove ephemeral keys for the lifetime of a reverse tunnel.
 	manifold.Output = output
 	return manifold
 }
 
-func newWorker(_ context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
-	w, err := NewWorker(keyupdater.NewClient(apiCaller), a.CurrentConfig())
+func newWorker(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+	w, err := NewWorker()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot start ssh auth-keys updater worker")
+		return nil, errors.Annotate(err, "cannot start ephemeral SSH key worker")
 	}
 	return w, nil
 }
