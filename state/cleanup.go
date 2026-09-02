@@ -1368,15 +1368,10 @@ func (st *State) cleanupDestroyedMachineInternal(machineID string, force, forceD
 		return errors.Trace(err)
 	}
 	if machine.IsManager() {
-		node, err := st.ControllerNode(machineID)
-		if err != nil {
-			return errors.Annotatef(err, "cannot get controller node for machine %v", machineID)
-		}
-		if force && node.HasVote() {
-			// we remove the vote from the controller so that it can be torn
-			// down cleanly. Note that this isn't reflected in the actual
-			// replicaset, so users using --force should be careful.
-			if err := node.SetHasVote(false); err != nil {
+		// Dying is the signal for the peer grouper to remove this controller
+		// from the replica set. The provisioner will not reap it until Dead.
+		if machine.Life() == Alive {
+			if err := machine.advanceLifecycle(Dying, force, false, maxWait); err != nil {
 				return errors.Trace(err)
 			}
 		}
