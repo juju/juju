@@ -128,16 +128,12 @@ run_remove_controller_machine() {
 }
 
 deploy_related_controller_units() {
-	local controller_machine_id controller_machine_base sink_machine_id sink_base token
+	local controller_machine_id sink_machine_id token
 
 	controller_machine_id=${1}
 	sink_machine_id=${2}
-	sink_base=${3}
-	controller_machine_base=$(juju machines -m controller --format=json |
-		controller_machine_id="${controller_machine_id}" yq -r \
-			'.machines[env(controller_machine_id)].base | "\(.name)@\(.channel)"')
-	juju deploy ./testcharms/charms/dummy-source --base "${controller_machine_base}" --to "${controller_machine_id}"
-	juju deploy ./testcharms/charms/dummy-sink --base "${sink_base}" --to "${sink_machine_id}"
+	juju deploy ./testcharms/charms/dummy-source --to "${controller_machine_id}"
+	juju deploy ./testcharms/charms/dummy-sink --to "${sink_machine_id}"
 	juju integrate dummy-source dummy-sink
 	token=$(rnd_str)
 	juju config dummy-source token="${token}"
@@ -170,9 +166,9 @@ run_remove_controller_machine_with_units() {
 	# records the removal of the unit hosted by the controller.
 	juju switch controller
 	controller_machine_id=$(controller_machine_ids | tail -n 1)
-	workload_machine_id=$(add_machine_id --base ubuntu@22.04)
+	workload_machine_id=$(add_machine_id)
 	wait_for_machine_agent_status "${workload_machine_id}" "started"
-	deploy_related_controller_units "${controller_machine_id}" "${workload_machine_id}" ubuntu@22.04
+	deploy_related_controller_units "${controller_machine_id}" "${workload_machine_id}"
 
 	juju remove-machine -m controller "${controller_machine_id}" --no-prompt
 	wait_for_controller_machine_count 2
@@ -198,9 +194,9 @@ run_force_remove_controller_machine_with_units() {
 
 	juju switch controller
 	controller_machine_id=$(controller_machine_ids | tail -n 1)
-	workload_machine_id=$(add_machine_id --base ubuntu@22.04)
+	workload_machine_id=$(add_machine_id)
 	wait_for_machine_agent_status "${workload_machine_id}" "started"
-	deploy_related_controller_units "${controller_machine_id}" "${workload_machine_id}" ubuntu@22.04
+	deploy_related_controller_units "${controller_machine_id}" "${workload_machine_id}"
 
 	juju remove-machine -m controller "${controller_machine_id}" --force --no-wait --no-prompt
 	wait_for_controller_machine_count 2
@@ -233,9 +229,9 @@ remove_controller_machine_with_containers() {
 
 	juju switch controller
 	controller_machine_id=$(controller_machine_ids | tail -n 1)
-	container_id=$(add_machine_id "lxd:${controller_machine_id}" --base ubuntu@20.04)
+	container_id=$(add_machine_id "lxd:${controller_machine_id}")
 	wait_for_container_agent_status "${container_id}" "started"
-	deploy_related_controller_units "${controller_machine_id}" "${container_id}" ubuntu@20.04
+	deploy_related_controller_units "${controller_machine_id}" "${container_id}"
 
 	if [[ ${force} == "true" ]]; then
 		juju remove-machine -m controller "${controller_machine_id}" --force --no-wait --no-prompt

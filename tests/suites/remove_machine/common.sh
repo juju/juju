@@ -64,9 +64,8 @@ delete_cloud_instance() {
 			--zone="${availability_zone}" --quiet
 		;;
 	"azure")
-		resource_group=$(az vm list --output=yaml |
-			instance_id="${instance_id}" yq -r \
-				'.[] | select(.name == env(instance_id)) | .resourceGroup')
+		resource_group=$(az vm list --query "[?name=='${instance_id}'] | [0]" --output yaml |
+			yq -r '.resourceGroup')
 		if [[ -z ${resource_group} || ${resource_group} == "null" ]]; then
 			echo "could not determine resource group for Azure instance ${instance_id}"
 			return 1
