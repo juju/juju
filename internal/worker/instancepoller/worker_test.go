@@ -66,14 +66,14 @@ var (
 			Addrs: []domainnetwork.NetAddr{
 				{
 					InterfaceName: "eth0",
-					AddressValue:  "10.0.0.1/24",
+					AddressValue:  "10.0.0.1",
 					AddressType:   network.IPv4Address,
 					Origin:        network.OriginProvider,
 					Scope:         network.ScopeCloudLocal,
 				},
 				{
 					InterfaceName: "eth0",
-					AddressValue:  "1.1.1.42/24",
+					AddressValue:  "1.1.1.42",
 					AddressType:   network.IPv4Address,
 					Origin:        network.OriginProvider,
 					Scope:         network.ScopePublic,
@@ -873,21 +873,16 @@ func (s *workerSuite) assertWorkerCompletesLoop(c *tc.C, w *updaterWorker, trigg
 }
 
 func (s *workerSuite) assertWorkerCompletesLoops(c *tc.C, w *updaterWorker, numLoops int, triggerFn func()) {
-	ch := make(chan struct{}, numLoops)
+	ch := make(chan struct{})
 	defer func() { w.loopCompletedHook = nil }()
 
-	w.loopCompletedHook = func() {
-		select {
-		case ch <- struct{}{}:
-		default:
-		}
-	}
+	w.loopCompletedHook = func() { ch <- struct{}{} }
 	triggerFn()
 
 	for range numLoops {
 		select {
 		case <-ch: // loop completed
-		case <-c.Context().Done():
+		case <-time.After(coretesting.ShortWait):
 			c.Fatal("timed out waiting for instance poller to complete a full loop")
 		}
 	}
