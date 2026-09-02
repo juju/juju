@@ -334,7 +334,7 @@ func (s *EnableHASuite) progressControllerToDead(c *gc.C, id string) {
 	// Pretend to be the peergrouper, notice the machine doesn't want to vote, so get rid of its vote, and remove it
 	// as a controller machine.
 	c.Check(node.SetHasVote(false), jc.ErrorIsNil)
-	c.Assert(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
+	c.Assert(s.State.RemoveControllerReference(node.Id()), jc.ErrorIsNil)
 	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
 	c.Assert(m.EnsureDead(), jc.ErrorIsNil)
 }
@@ -552,7 +552,7 @@ func (s *EnableHASuite) TestDestroyRaceLastController(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Check(node.SetHasVote(false), jc.ErrorIsNil)
 			c.Check(node.Refresh(), jc.ErrorIsNil)
-			c.Check(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
+			c.Check(s.State.RemoveControllerReference(node.Id()), jc.ErrorIsNil)
 			c.Logf("removed machine %s", id)
 			c.Assert(m0.Refresh(), jc.ErrorIsNil)
 			c.Assert(node.Refresh(), jc.ErrorIsNil)
@@ -577,14 +577,14 @@ func (s *EnableHASuite) TestRemoveControllerMachineOneMachine(c *gc.C) {
 	node, err := s.State.ControllerNode(m0.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(node.SetHasVote(true), jc.ErrorIsNil)
-	err = s.State.RemoveControllerReference(node)
+	err = s.State.RemoveControllerReference(node.Id())
 	c.Assert(err, gc.ErrorMatches, "controller 0 cannot be removed as it still wants to vote")
 	c.Assert(state.SetWantsVote(s.State, m0.Id(), false), jc.ErrorIsNil)
-	err = s.State.RemoveControllerReference(node)
+	err = s.State.RemoveControllerReference(node.Id())
 	c.Assert(err, gc.ErrorMatches, "controller 0 cannot be removed as it still has a vote")
 	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
 	// it seems odd that we would end up the last controller but not have a vote, but we care about the DB integrity
-	err = s.State.RemoveControllerReference(node)
+	err = s.State.RemoveControllerReference(node.Id())
 	c.Assert(err, gc.ErrorMatches, "controller 0 cannot be removed as it is the last controller")
 }
 
@@ -600,7 +600,7 @@ func (s *EnableHASuite) TestRemoveControllerMachine(c *gc.C) {
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
 	c.Assert(m0.Destroy(), jc.ErrorIsNil)
 	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
-	err = s.State.RemoveControllerReference(node)
+	err = s.State.RemoveControllerReference(node.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertControllerInfo(c, []string{"1", "2"}, []string{"1", "2"}, nil)
 	c.Assert(m0.Refresh(), jc.ErrorIsNil)
@@ -626,7 +626,7 @@ func (s *EnableHASuite) TestRemoveControllerMachineVoteRace(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(state.SetWantsVote(s.State, m0.Id(), true), jc.ErrorIsNil)
 	}).Check()
-	err = s.State.RemoveControllerReference(node)
+	err = s.State.RemoveControllerReference(node.Id())
 	c.Check(err, gc.ErrorMatches, "controller 0 cannot be removed as it still wants to vote")
 	c.Assert(m0.Refresh(), jc.ErrorIsNil)
 	c.Check(m0.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageModel})
@@ -650,7 +650,7 @@ func (s *EnableHASuite) TestRemoveControllerMachineRace(c *gc.C) {
 		c.Check(state.SetWantsVote(s.State, id, false), jc.ErrorIsNil)
 		node, err := s.State.ControllerNode(id)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
+		c.Check(s.State.RemoveControllerReference(node.Id()), jc.ErrorIsNil)
 	}
 	defer state.SetBeforeHooks(c, s.State, func() {
 		// we sneakily remove machine 1 just before 0 can be removed, this causes the removal of m0 to be retried
@@ -659,7 +659,7 @@ func (s *EnableHASuite) TestRemoveControllerMachineRace(c *gc.C) {
 		// then we remove machine 2, leaving 0 as the last machine, and that aborts the removal
 		removeOne("2")
 	}).Check()
-	err = s.State.RemoveControllerReference(node)
+	err = s.State.RemoveControllerReference(node.Id())
 	c.Assert(err, gc.ErrorMatches, "controller 0 cannot be removed as it is the last controller")
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	c.Check(node.WantsVote(), jc.IsFalse)
