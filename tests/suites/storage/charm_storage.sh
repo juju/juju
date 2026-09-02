@@ -133,10 +133,10 @@ assess_rootfs() {
 	assert_storage "dummy-storage-fs/0" "$(unit_attachment "data" 0 0)"
 	# assert the attached unit state
 	assert_storage "alive" "$(unit_state "data" 0 "dummy-storage-fs" 0)"
-	wait_for_storage "attached" "$(filesystem_status 0 0).current"
+	wait_for_storage "attached" "$(filesystem_status "data/0").current"
 	# assert the filesystem size
 	requested_storage=1024
-	acquired_storage=$(juju storage --format json | yq '.filesystems | .["0/0"] | select(.pool=="rootfs") | .size ')
+	acquired_storage=$(juju storage --format json | yq '.filesystems | to_entries | map(select(.value.storage == "data/0" and .value.pool == "rootfs")) | .[0].value.size')
 	if [ "$requested_storage" -gt "$acquired_storage" ]; then
 		echo "acquired storage size $acquired_storage should be greater than the requested storage $requested_storage"
 		exit 1
