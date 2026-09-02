@@ -789,14 +789,9 @@ func setControllerWantsVoteOp(st *State, id string, wantsVote bool) txn.Op {
 	}
 }
 
-type controllerReference interface {
-	Id() string
-}
-
 // RemoveControllerReference will unregister Controller from being part of the set of Controllers.
 // It must not have or want to vote, and it must not be the last controller.
-func (st *State) RemoveControllerReference(c controllerReference) error {
-	controllerID := c.Id()
+func (st *State) RemoveControllerReference(controllerID string) error {
 	logger.Infof("removing controller machine %q", controllerID)
 	buildTxn := func(_ int) ([]txn.Op, error) {
 		node, err := st.ControllerNode(controllerID)
