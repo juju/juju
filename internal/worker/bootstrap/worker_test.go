@@ -7,15 +7,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"slices"
 	stdtesting "testing"
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/utils/v4/ssh"
-	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
 
@@ -50,7 +47,8 @@ type workerSuite struct {
 	adminUserID     user.UUID
 	controllerModel coremodel.Model
 
-	states chan string
+	states                 chan string
+	removeBootstrapSSHKeys func([]string) error
 }
 
 func TestWorkerSuite(t *stdtesting.T) {
@@ -60,30 +58,11 @@ func TestWorkerSuite(t *stdtesting.T) {
 }
 
 func (s *workerSuite) SetUpTest(c *tc.C) {
+	s.removeBootstrapSSHKeys = func([]string) error { return nil }
 	s.adminUserID = usertesting.GenUserUUID(c)
 	s.controllerModel = coremodel.Model{
 		UUID: tc.Must0(c, coremodel.NewUUID),
 	}
-}
-
-func (s *workerSuite) TestDeleteBootstrapSSHKeys(c *tc.C) {
-	s.PatchValue(&bootstrapSSHUser, "")
-	existingKeys, err := ssh.ListKeys("", ssh.FullKeys)
-	c.Assert(err, tc.ErrorIsNil)
-	for _, key := range existingKeys {
-		fingerprint, _, err := ssh.KeyFingerprint(key)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(ssh.DeleteKeysFromFile("", "authorized_keys", []string{fingerprint}), tc.ErrorIsNil)
-	}
-	keyOne := sshtesting.ValidKeyThree.Key + " bootstrap-delete-one"
-	keyTwo := sshtesting.ValidKeyFour.Key + " bootstrap-delete-two"
-	c.Assert(ssh.AddKeys("", keyOne, keyTwo), tc.ErrorIsNil)
-	c.Assert(deleteBootstrapSSHKeys([]string{keyOne}), tc.ErrorIsNil)
-
-	keys, err := ssh.ListKeys("", ssh.FullKeys)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(slices.Contains(keys, keyOne), tc.IsFalse)
-	c.Check(slices.Contains(keys, keyTwo), tc.IsTrue)
 }
 
 func (s *workerSuite) TestDeleteBootstrapSSHKeysEmpty(c *tc.C) {
@@ -101,10 +80,10 @@ func (s *workerSuite) TestKilled(c *tc.C) {
 	s.expectControllerConfig()
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
-	s.PatchValue(&deleteBootstrapSSHKeys, func(keys []string) error {
+	s.removeBootstrapSSHKeys = func(keys []string) error {
 		c.Check(keys, tc.DeepEquals, []string{"bootstrap-ssh-key"})
 		return nil
-	})
+	}
 	s.expectReloadSpaces()
 	s.expectSeedDefaultStoragePools()
 	s.expectInitialiseBakeryConfig(nil)
@@ -132,9 +111,9 @@ func (s *workerSuite) TestDeleteBootstrapSSHKeysError(c *tc.C) {
 	s.expectSeedDefaultStoragePools()
 	s.expectInitialiseBakeryConfig(nil)
 	s.expectSetAPIHostPorts()
-	s.PatchValue(&deleteBootstrapSSHKeys, func([]string) error {
+	s.removeBootstrapSSHKeys = func([]string) error {
 		return errors.New("cannot remove bootstrap keys")
-	})
+	}
 
 	w := s.newWorker(c)
 	err := workertest.CheckKilled(c, w)
@@ -299,6 +278,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 
 func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc ControllerCharmDeployerFunc) worker.Worker {
 	w, err := newWorker(WorkerConfig{
+		RemoveBootstrapSSHKeys:     s.removeBootstrapSSHKeys,
 		ObjectStoreGetter:          s.objectStoreGetter,
 		BootstrapUnlocker:          s.bootstrapUnlocker,
 		DataDir:                    s.dataDir,

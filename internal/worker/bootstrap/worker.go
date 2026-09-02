@@ -48,7 +48,7 @@ const (
 
 var bootstrapSSHUser = "ubuntu"
 
-var deleteBootstrapSSHKeys = func(keys []string) error {
+func deleteBootstrapSSHKeys(keys []string) error {
 	if len(keys) == 0 {
 		return nil
 	}
@@ -68,6 +68,10 @@ var deleteBootstrapSSHKeys = func(keys []string) error {
 // WorkerConfig encapsulates the configuration options for the
 // bootstrap worker.
 type WorkerConfig struct {
+	// RemoveBootstrapSSHKeys removes the bootstrap-only SSH keys from the
+	// machine. If nil, the default Ubuntu implementation is used.
+	RemoveBootstrapSSHKeys func([]string) error
+
 	ObjectStoreGetter          ObjectStoreGetter
 	ControllerAgentBinaryStore AgentBinaryStore
 	ControllerConfigService    ControllerConfigService
@@ -208,6 +212,9 @@ func NewWorker(cfg WorkerConfig) (*bootstrapWorker, error) {
 }
 
 func newWorker(cfg WorkerConfig, internalStates chan string) (*bootstrapWorker, error) {
+	if cfg.RemoveBootstrapSSHKeys == nil {
+		cfg.RemoveBootstrapSSHKeys = deleteBootstrapSSHKeys
+	}
 	var err error
 	if err = cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -315,7 +322,7 @@ func (w *bootstrapWorker) loop() error {
 	}
 
 	if !cloud.CloudIsCAAS(bootstrapParams.ControllerCloud) {
-		if err := deleteBootstrapSSHKeys(bootstrapParams.BootstrapSSHAuthorizedKeys); err != nil {
+		if err := w.cfg.RemoveBootstrapSSHKeys(bootstrapParams.BootstrapSSHAuthorizedKeys); err != nil {
 			return errors.Annotate(err, "removing bootstrap SSH keys")
 		}
 	}
