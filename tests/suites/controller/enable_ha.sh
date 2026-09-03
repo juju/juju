@@ -37,6 +37,8 @@ wait_for_controller_leadership() {
 	# The timeout bounds each attempt so a broken backstop fails the
 	# test instead of hanging it.
 	# shellcheck disable=SC2143
+	# Not using juju_exec_output: uptime is a plain system command that
+	# produces no stderr, so the stdout/stderr mixing bug does not apply.
 	until timeout 60 juju exec -m controller --unit controller/leader uptime 2>/dev/null | grep load; do
 		echo "[+] (attempt ${attempt}) waiting for controller leadership"
 		attempt=$((attempt + 1))
