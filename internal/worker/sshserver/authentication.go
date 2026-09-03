@@ -16,7 +16,11 @@ import (
 	coressh "github.com/juju/juju/core/ssh"
 )
 
-type authenticatedViaPublicKey struct{}
+// authenticatedPublicKey holds the public key that was used to authenticate
+// the user. It is absent if the user did not authenticate with a public key.
+// It is used later, once the target model is known, to verify that the key is
+// associated with the model being accessed.
+type authenticatedPublicKey struct{}
 
 type userJWT struct{}
 type tunnelIDKey struct{}
@@ -60,7 +64,7 @@ func (a authenticator) PublicKeyAuthentication(ctx ssh.Context, key ssh.PublicKe
 
 	for _, authorizedKey := range keys {
 		if bytes.Equal(key.Marshal(), authorizedKey.Marshal()) {
-			ctx.SetValue(authenticatedViaPublicKey{}, true)
+			ctx.SetValue(authenticatedPublicKey{}, key)
 			return true, nil
 		}
 	}
@@ -73,8 +77,6 @@ func (a authenticator) PublicKeyAuthentication(ctx ssh.Context, key ssh.PublicKe
 // 1. Decoding a JWT as the password for external-auth.
 // 2. Reverse-tunnel authentication for machine agents.
 func (a authenticator) PasswordAuthentication(ctx ssh.Context, password string) (bool, error) {
-	ctx.SetValue(authenticatedViaPublicKey{}, false)
-
 	switch ctx.User() {
 	case externalAuthUser:
 		token, err := a.jwtParser.Parse(ctx, password)

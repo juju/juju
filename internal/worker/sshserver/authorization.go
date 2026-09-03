@@ -9,16 +9,22 @@ import (
 	"github.com/juju/errors"
 	"github.com/lestrrat-go/jwx/v3/jwt"
 	ssh "github.com/tailscale/gliderssh"
+	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/virtualhostname"
 )
 
-// AccessService checks local user access to an SSH target.
+// AccessService checks local user access to an SSH target and verifies that
+// the public key used for auth is associated with that target's model.
 type AccessService interface {
 	// HasSSHAccessToModel checks if the given username has SSH access to the specified destination.
 	HasSSHAccessToModel(context.Context, string, virtualhostname.Info) (bool, error)
+
+	// PublicKeyInModel reports whether the given public key is registered for
+	// the user on the model identified by the destination.
+	PublicKeyInModel(context.Context, string, gossh.PublicKey, virtualhostname.Info) (bool, error)
 }
 
 type authorizer struct {
@@ -30,16 +36,31 @@ type authorizer struct {
 // By this point, we expect the authenticator to have set the authentication method and
 // any relevant claims in the context.
 func (a authorizer) Authorize(ctx ssh.Context, destination virtualhostname.Info) (bool, error) {
-	publicKey, ok := ctx.Value(authenticatedViaPublicKey{}).(bool)
-	if !ok {
-		return false, errors.New("SSH authentication method is missing from connection context")
-	}
-	if publicKey {
-		ok, err := a.access.HasSSHAccessToModel(ctx, ctx.User(), destination)
+	// If the context does not contain the user's key then they did
+	// not authenticate with a public key (e.g. JWT or reverse tunnel).
+	publicKey, ok := ctx.Value(authenticatedPublicKey{}).(ssh.PublicKey)
+	if ok {
+		hasAccess, err := a.access.HasSSHAccessToModel(ctx, ctx.User(), destination)
 		if err != nil {
 			return false, errors.Annotate(err, "checking SSH access")
 		}
-		return ok, nil
+		if !hasAccess {
+			return false, nil
+		}
+
+		// The key used during authentication is controller scoped, but keys are
+		// added per model and kept this way for compatibility with Juju 3. Now
+		// that the model is known, verify the key the user is associated with it.
+		inModel, err := a.access.PublicKeyInModel(ctx, ctx.User(), publicKey, destination)
+		if err != nil {
+			return false, errors.Annotate(err, "checking SSH key for model")
+		}
+		if !inModel {
+			return false, errors.Errorf(
+				"public key used to authenticate is not associated with model %q, add the key to the model to access it",
+				destination.ModelUUID())
+		}
+		return true, nil
 	}
 
 	token, _ := ctx.Value(userJWT{}).(jwt.Token)
