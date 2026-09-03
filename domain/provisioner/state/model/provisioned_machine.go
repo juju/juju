@@ -178,16 +178,23 @@ ON CONFLICT (attachment_plan_uuid, key) DO UPDATE SET value = EXCLUDED.value
 	}
 
 	var (
-		upsertDeviceStmt           *sqlair.Statement
-		upsertAddrStmt             *sqlair.Statement
-		upsertProviderDeviceStmt   *sqlair.Statement
-		upsertProviderAddrStmt     *sqlair.Statement
-		upsertDNSDomainStmt        *sqlair.Statement
-		upsertDNSAddrStmt          *sqlair.Statement
-		upsertDeviceParentStmt     *sqlair.Statement
-		getSubnetByProviderIDStmt  *sqlair.Statement
-		validateProviderDeviceStmt *sqlair.Statement
-		validateProviderAddrStmt   *sqlair.Statement
+		upsertDeviceStmt            *sqlair.Statement
+		upsertAddrStmt              *sqlair.Statement
+		upsertProviderDeviceStmt    *sqlair.Statement
+		upsertProviderAddrStmt      *sqlair.Statement
+		upsertDNSDomainStmt         *sqlair.Statement
+		upsertDNSAddrStmt           *sqlair.Statement
+		upsertDeviceParentStmt      *sqlair.Statement
+		getSubnetByProviderIDStmt   *sqlair.Statement
+		validateProviderDeviceStmt  *sqlair.Statement
+		validateProviderAddrStmt    *sqlair.Statement
+		deleteStaleProviderDevStmt  *sqlair.Statement
+		deleteStaleProviderAddrStmt *sqlair.Statement
+		deleteStaleDNSDomainStmt    *sqlair.Statement
+		deleteStaleDNSAddrStmt      *sqlair.Statement
+		deleteStaleParentStmt       *sqlair.Statement
+		deleteStaleAddrStmt         *sqlair.Statement
+		deleteStaleDeviceStmt       *sqlair.Statement
 	)
 	if len(nics) > 0 {
 		upsertDeviceStmt, err = st.Prepare(`
@@ -285,6 +292,55 @@ WHERE  provider_id IN ($provProviderIDs[:])
 `, provProviderIPRow{}, provProviderIDs{})
 		if err != nil {
 			return errors.Errorf("preparing provider address validation: %w", err)
+		}
+		deleteStaleProviderDevStmt, err = st.Prepare(`
+DELETE FROM provider_link_layer_device
+WHERE       device_uuid IN ($provLLDUUIDs[:])
+`, provLLDUUIDs{})
+		if err != nil {
+			return errors.Errorf("preparing stale provider device delete: %w", err)
+		}
+		deleteStaleProviderAddrStmt, err = st.Prepare(`
+DELETE FROM provider_ip_address
+WHERE       address_uuid IN ($provLLDUUIDs[:])
+`, provLLDUUIDs{})
+		if err != nil {
+			return errors.Errorf("preparing stale provider address delete: %w", err)
+		}
+		deleteStaleDNSDomainStmt, err = st.Prepare(`
+DELETE FROM link_layer_device_dns_domain
+WHERE       device_uuid IN ($provLLDUUIDs[:])
+`, provLLDUUIDs{})
+		if err != nil {
+			return errors.Errorf("preparing stale DNS domain delete: %w", err)
+		}
+		deleteStaleDNSAddrStmt, err = st.Prepare(`
+DELETE FROM link_layer_device_dns_address
+WHERE       device_uuid IN ($provLLDUUIDs[:])
+`, provLLDUUIDs{})
+		if err != nil {
+			return errors.Errorf("preparing stale DNS address delete: %w", err)
+		}
+		deleteStaleParentStmt, err = st.Prepare(`
+DELETE FROM link_layer_device_parent
+WHERE       device_uuid IN ($provLLDUUIDs[:])
+`, provLLDUUIDs{})
+		if err != nil {
+			return errors.Errorf("preparing stale parent delete: %w", err)
+		}
+		deleteStaleAddrStmt, err = st.Prepare(`
+DELETE FROM ip_address
+WHERE       uuid IN ($provLLDUUIDs[:])
+`, provLLDUUIDs{})
+		if err != nil {
+			return errors.Errorf("preparing stale address delete: %w", err)
+		}
+		deleteStaleDeviceStmt, err = st.Prepare(`
+DELETE FROM link_layer_device
+WHERE       uuid IN ($provLLDUUIDs[:])
+`, provLLDUUIDs{})
+		if err != nil {
+			return errors.Errorf("preparing stale device delete: %w", err)
 		}
 	}
 
@@ -654,6 +710,39 @@ ON CONFLICT (machine_uuid) DO NOTHING
 					}
 				}
 			}
+
+			// Clean up stale rows for devices/addresses no longer
+			// in the incoming network config, e.g. after a retry.
+			staleDevUUIDs := computeStaleDeviceUUIDs(existingDevUUIDs, nameToUUID)
+			staleAddrUUIDs := computeStaleAddressUUIDs(existingAddrUUIDs, addrRows)
+			if len(staleAddrUUIDs) > 0 {
+				sa := provLLDUUIDs(staleAddrUUIDs)
+				if err := tx.Query(ctx, deleteStaleProviderAddrStmt, sa).Run(); err != nil {
+					return errors.Errorf("deleting stale provider address IDs: %w", err)
+				}
+				if err := tx.Query(ctx, deleteStaleAddrStmt, sa).Run(); err != nil {
+					return errors.Errorf("deleting stale addresses: %w", err)
+				}
+			}
+			if len(staleDevUUIDs) > 0 {
+				sd := provLLDUUIDs(staleDevUUIDs)
+				if err := tx.Query(ctx, deleteStaleProviderDevStmt, sd).Run(); err != nil {
+					return errors.Errorf("deleting stale provider device IDs: %w", err)
+				}
+				if err := tx.Query(ctx, deleteStaleDNSDomainStmt, sd).Run(); err != nil {
+					return errors.Errorf("deleting stale DNS domains: %w", err)
+				}
+				if err := tx.Query(ctx, deleteStaleDNSAddrStmt, sd).Run(); err != nil {
+					return errors.Errorf("deleting stale DNS addresses: %w", err)
+				}
+				if err := tx.Query(ctx, deleteStaleParentStmt, sd).Run(); err != nil {
+					return errors.Errorf("deleting stale parent links: %w", err)
+				}
+				if err := tx.Query(ctx, deleteStaleDeviceStmt, sd).Run(); err != nil {
+					return errors.Errorf("deleting stale devices: %w", err)
+				}
+			}
+
 			if len(deviceRows) > 0 {
 				if err := tx.Query(ctx, upsertDeviceStmt, deviceRows).Run(); err != nil {
 					return errors.Errorf("upserting link layer devices: %w", err)
@@ -1012,4 +1101,36 @@ func validateProviderAddressIDs(ctx context.Context, tx *sqlair.TX, stmt *sqlair
 		}
 	}
 	return nil
+}
+
+// computeStaleDeviceUUIDs returns UUIDs of devices that exist in the DB but
+// are not present in the incoming network config.
+func computeStaleDeviceUUIDs(existing map[string]string, incoming map[string]string) []string {
+	incomingSet := make(map[string]bool, len(incoming))
+	for _, uuid := range incoming {
+		incomingSet[uuid] = true
+	}
+	var stale []string
+	for _, uuid := range existing {
+		if !incomingSet[uuid] {
+			stale = append(stale, uuid)
+		}
+	}
+	return stale
+}
+
+// computeStaleAddressUUIDs returns UUIDs of addresses that exist in the DB
+// but are not present in the incoming network config.
+func computeStaleAddressUUIDs(existing map[string]string, incoming []provIPAddrRow) []string {
+	incomingSet := make(map[string]bool, len(incoming))
+	for _, r := range incoming {
+		incomingSet[r.UUID] = true
+	}
+	var stale []string
+	for _, uuid := range existing {
+		if !incomingSet[uuid] {
+			stale = append(stale, uuid)
+		}
+	}
+	return stale
 }

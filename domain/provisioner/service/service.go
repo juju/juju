@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/juju/core/trace"
 	"gopkg.in/yaml.v3"
 
 	corebase "github.com/juju/juju/core/base"
@@ -21,6 +20,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/provisioner"
 	"github.com/juju/juju/environs/tags"
