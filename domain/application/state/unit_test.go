@@ -259,6 +259,35 @@ func (s *unitStateSuite) TestRegisterCAASUnit(c *tc.C) {
 	s.assertCAASUnit(c, "bar/0", "passwordhash", "10.6.6.6/8", []string{"0"})
 }
 
+func (s *unitStateSuite) TestRegisterCAASUnitOrdinalRange(c *tc.C) {
+	s.createCAASScalingApplication(c, "bar", life.Alive, 2)
+
+	err := s.state.SetApplicationScalingStateWithStart(c.Context(), "bar", 2, 1, true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	newArg := func(name coreunit.Name, ordinal int) application.RegisterCAASUnitArg {
+		return application.RegisterCAASUnitArg{
+			UnitUUID:     tc.Must(c, coreunit.NewUUID),
+			UnitName:     name,
+			PasswordHash: "passwordhash",
+			ProviderID:   "some-id",
+			Address:      new("10.6.6.6/8"),
+			Ports:        new([]string{"0"}),
+			OrderedScale: true,
+			OrderedId:    ordinal,
+		}
+	}
+
+	err = s.state.RegisterCAASUnit(c.Context(), "bar", newArg("bar/1", 1))
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.RegisterCAASUnit(c.Context(), "bar", newArg("bar/0", 0))
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotAssigned)
+
+	err = s.state.RegisterCAASUnit(c.Context(), "bar", newArg("bar/3", 3))
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotAssigned)
+}
+
 func (s *unitStateSuite) TestRegisterCAASUnitWithFQDN(c *tc.C) {
 	s.createCAASScalingApplication(c, "bar", life.Alive, 1)
 

@@ -51,3 +51,25 @@ func (s *deltasSuite) TestRelationUnitSettingDropsEmptyValues(c *tc.C) {
 		{RelationUnitUUID: "ru-uuid", Key: "set", Value: "v"},
 	})
 }
+
+func (s *deltasSuite) TestApplicationScale(c *tc.C) {
+	scale := int64(2)
+	target := int64(3)
+	scaling := true
+	src := []v4_0_12.ApplicationScale{{
+		ApplicationUUID: "app-uuid",
+		Scale:           &scale,
+		ScaleTarget:     &target,
+		Scaling:         &scaling,
+	}}
+
+	got, err := deltas{}.ApplicationScale(c.Context(), src)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, []v4_1_0.ApplicationScale{{
+		ApplicationUUID: "app-uuid",
+		Scale:           &scale,
+		ScaleTarget:     &target,
+		Scaling:         &scaling,
+		StartOrdinal:    0,
+	}})
+}

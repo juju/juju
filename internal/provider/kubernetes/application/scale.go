@@ -5,11 +5,13 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/juju/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/internal/provider/kubernetes/resources"
@@ -17,21 +19,70 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
-// Scale scales the Application's unit to the value specificied. Scale must
-// be >= 0. Application units will be removed or added to meet the scale
-// defined.
-func (a *app) Scale(scaleTo int) error {
+// Scale reconciles the application's replica count and stops when ctx is
+// cancelled.
+func (a *app) Scale(ctx context.Context, scaleTo int) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
 		return scale.PatchReplicasToScale(
-			context.Background(),
+			ctx,
 			a.name,
 			int32(scaleTo),
 			scale.StatefulSetScalePatcher(a.client.AppsV1().StatefulSets(a.namespace)),
 		)
 	case caas.DeploymentStateless:
 		return scale.PatchReplicasToScale(
-			context.Background(),
+			ctx,
+			a.name,
+			int32(scaleTo),
+			scale.DeploymentScalePatcher(a.client.AppsV1().Deployments(a.namespace)),
+		)
+	default:
+		return errors.NotSupportedf(
+			"application %q deployment type %q cannot be scaled",
+			a.name, a.deploymentType)
+	}
+}
+
+// ScaleRange reconciles the application's ordinal range and stops when ctx is
+// cancelled. Scale and startOrdinal must both be non-negative.
+func (a *app) ScaleRange(ctx context.Context, scaleTo, startOrdinal int) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if scaleTo < 0 || startOrdinal < 0 {
+		return errors.NotValidf("scale %d or start ordinal %d", scaleTo, startOrdinal)
+	}
+	switch a.deploymentType {
+	case caas.DeploymentStateful:
+		patch, err := json.Marshal(map[string]any{
+			"spec": map[string]any{
+				"replicas": scaleTo,
+				"ordinals": map[string]any{
+					"start": startOrdinal,
+				},
+			},
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, err = a.client.AppsV1().StatefulSets(a.namespace).Patch(
+			ctx, a.name, types.MergePatchType, patch, meta.PatchOptions{})
+		if k8serrors.IsNotFound(err) {
+			return errors.NotFoundf("statefulset %q", a.name)
+		} else if err != nil {
+			return errors.Annotatef(err, "scaling statefulset %q", a.name)
+		}
+		return nil
+	case caas.DeploymentStateless:
+		if startOrdinal != 0 {
+			return errors.NotSupportedf("scaling deployment %q from ordinal %d", a.name, startOrdinal)
+		}
+		return scale.PatchReplicasToScale(
+			ctx,
 			a.name,
 			int32(scaleTo),
 			scale.DeploymentScalePatcher(a.client.AppsV1().Deployments(a.namespace)),

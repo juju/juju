@@ -109,6 +109,15 @@ func (p *Proxier) ProxyError() error {
 	return p.tunnel.ForwardError()
 }
 
+// Broken returns a channel that is closed when the port-forward tunnel is
+// broken, signalling that the API client should reconnect.
+func (p *Proxier) Broken() <-chan struct{} {
+	if p.tunnel == nil {
+		return nil
+	}
+	return p.tunnel.Broken()
+}
+
 func (p *Proxier) Start(ctx context.Context) (err error) {
 	tunnel, err := kubernetes.NewTunnelForConfig(
 		&p.restConfig,

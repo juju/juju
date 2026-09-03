@@ -1622,6 +1622,30 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *
 	})
 }
 
+func (s *applicationStateSuite) TestSetApplicationScalingStateWithStart(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Dead)
+
+	err := s.state.SetApplicationScalingStateWithStart(c.Context(), "foo", 2, 1, true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	state, err := s.state.GetApplicationScaleState(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(state, tc.DeepEquals, application.ScaleState{
+		StartOrdinal: 1,
+		Scale:        2,
+		ScaleTarget:  2,
+		Scaling:      true,
+	})
+
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 2, false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	state, err = s.state.GetApplicationScaleState(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(state.StartOrdinal, tc.Equals, 1)
+	c.Check(state.Scaling, tc.IsFalse)
+}
+
 func (s *applicationStateSuite) TestSetApplicationScalingStateInconsistent(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 
