@@ -446,6 +446,12 @@ type StorageService interface {
 		ctx context.Context,
 		storageIDs []string,
 	) (map[string]domainstorage.StorageInstanceUUID, error)
+
+	// GetStorageInstancesForUnit returns the storage instances attached to the
+	// unit with the input UUID.
+	GetStorageInstancesForUnit(
+		ctx context.Context, unitUUID unit.UUID,
+	) ([]domainstorage.StorageInstanceInfo, error)
 }
 
 // StatusService provides access to the status service.
