@@ -365,7 +365,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *tc.C) {
 
 	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
 	s.modelDefaultService.EXPECT().ModelDefaults(gomock.Any(), gomock.Any()).Return(modeldefaults.Defaults{}, nil)
-	s.modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
+	s.modelInfoService.EXPECT().CreateModel(gomock.Any(), semversion.Zero, coreagentbinary.AgentStreamZero).Return(nil)
 
 	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -382,7 +382,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *tc.C) {
 
 	s.expectCreateModel(c, ctrl, args, credential.Key{Cloud: "dummy", Owner: coreuser.AdminUserName, Name: "some-credential"}, "dummy", "dummy-region")
 	s.modelDefaultService.EXPECT().ModelDefaults(gomock.Any(), gomock.Any()).Return(modeldefaults.Defaults{}, nil)
-	s.modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
+	s.modelInfoService.EXPECT().CreateModel(gomock.Any(), semversion.Zero, coreagentbinary.AgentStreamZero).Return(nil)
 	s.modelService.EXPECT().DefaultCloudCredentialKeyForOwner(gomock.Any(), usertesting.GenNewName(c, "admin"), "dummy").Return(credential.Key{Name: "some-credential", Cloud: "dummy", Owner: usertesting.GenNewName(c, "admin")}, nil)
 
 	_, err := s.api.CreateModel(c.Context(), args)
@@ -400,7 +400,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *tc.C) {
 
 	s.expectCreateModel(c, ctrl, args, credential.Key{Cloud: "dummy", Owner: coreuser.AdminUserName, Name: "some-credential"}, "dummy", "dummy-region")
 	s.modelDefaultService.EXPECT().ModelDefaults(gomock.Any(), gomock.Any()).Return(modeldefaults.Defaults{}, nil)
-	s.modelInfoService.EXPECT().CreateModel(gomock.Any()).Return(nil)
+	s.modelInfoService.EXPECT().CreateModel(gomock.Any(), semversion.Zero, coreagentbinary.AgentStreamZero).Return(nil)
 	s.modelService.EXPECT().DefaultCloudCredentialKeyForOwner(gomock.Any(), usertesting.GenNewName(c, "admin"), "dummy").Return(credential.Key{Name: "some-credential", Cloud: "dummy", Owner: usertesting.GenNewName(c, "admin")}, nil)
 
 	_, err := s.api.CreateModel(c.Context(), args)
@@ -430,7 +430,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersion(c *tc.C) {
 
 	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
 	s.modelDefaultService.EXPECT().ModelDefaults(gomock.Any(), gomock.Any()).Return(modeldefaults.Defaults{}, nil)
-	s.modelInfoService.EXPECT().CreateModelWithAgentVersion(gomock.Any(), jujuversion.Current).Return(nil)
+	s.modelInfoService.EXPECT().CreateModel(gomock.Any(), jujuversion.Current, coreagentbinary.AgentStreamZero).Return(nil)
 
 	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -470,7 +470,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentStream(c *tc.C) {
 	}
 
 	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
-	s.modelInfoService.EXPECT().CreateModelWithAgentStream(gomock.Any(), coreagentbinary.AgentStreamReleased).Return(nil)
+	s.modelInfoService.EXPECT().CreateModel(gomock.Any(), semversion.Zero, coreagentbinary.AgentStreamReleased).Return(nil)
 
 	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -480,7 +480,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentStream(c *tc.C) {
 // that when the user supplies only an agent version (no stream) but a
 // cloud default for agent-stream exists, the model is created with both
 // the supplied version and the cloud default stream via
-// CreateModelWithAgentVersionStream.
+// CreateModel.
 func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersionAndCloudDefaultStream(c *tc.C) {
 	ctrl := s.setUpAPI(c)
 	defer ctrl.Finish()
@@ -509,7 +509,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersionAndCloudDefaultSt
 				Controller: "testing",
 			},
 		}, nil)
-	s.modelInfoService.EXPECT().CreateModelWithAgentVersionStream(
+	s.modelInfoService.EXPECT().CreateModel(
 		gomock.Any(), jujuversion.Current, coreagentbinary.AgentStreamTesting,
 	).Return(nil)
 
@@ -548,8 +548,8 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentStreamFromCloudDefaults(
 			},
 		}, nil)
 
-	s.modelInfoService.EXPECT().CreateModelWithAgentStream(
-		gomock.Any(), coreagentbinary.AgentStreamTesting,
+	s.modelInfoService.EXPECT().CreateModel(
+		gomock.Any(), semversion.Zero, coreagentbinary.AgentStreamTesting,
 	).Return(nil)
 
 	_, err := s.api.CreateModel(c.Context(), args)
@@ -579,7 +579,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithAgentVersionAndStream(c *tc.C
 	}
 
 	s.expectCreateModel(c, ctrl, args, cloudCredental, "dummy", "qux")
-	s.modelInfoService.EXPECT().CreateModelWithAgentVersionStream(gomock.Any(), jujuversion.Current, coreagentbinary.AgentStreamReleased).Return(nil)
+	s.modelInfoService.EXPECT().CreateModel(gomock.Any(), jujuversion.Current, coreagentbinary.AgentStreamReleased).Return(nil)
 
 	_, err := s.api.CreateModel(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)

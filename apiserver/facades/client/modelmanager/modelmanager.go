@@ -375,7 +375,7 @@ func (m *ModelManagerAPI) createModelInfo(
 		delete(configArgs, config.AgentVersionKey)
 	}
 
-	suppliedAgentStream := coreagentbinary.AgentStream("")
+	suppliedAgentStream := coreagentbinary.AgentStreamZero
 	if agentStreamVal, exists := configArgs[config.AgentStreamKey]; exists {
 		agentStreamStr, isStr := agentStreamVal.(string)
 		if !isStr {
@@ -397,32 +397,10 @@ func (m *ModelManagerAPI) createModelInfo(
 		suppliedAgentStream = modelDefaultStream
 	}
 
-	// If the user has supplied both a target agent version and agent stream
-	if suppliedAgentVersion != semversion.Zero &&
-		!suppliedAgentStream.IsZero() {
-		return modelInfoService.CreateModelWithAgentVersionStream(
-			ctx, suppliedAgentVersion, suppliedAgentStream,
-		)
-	}
-
-	// If the user has supplied a target agent version but no agent stream
-	if suppliedAgentVersion != semversion.Zero &&
-		suppliedAgentStream.IsZero() {
-		return modelInfoService.CreateModelWithAgentVersion(
-			ctx, suppliedAgentVersion,
-		)
-	}
-
-	// If the user has supplied an agent stream and not target agent version.
-	if suppliedAgentVersion == semversion.Zero &&
-		!suppliedAgentStream.IsZero() {
-		return modelInfoService.CreateModelWithAgentStream(
-			ctx, suppliedAgentStream,
-		)
-	}
-
-	// If the user has supplied nothing and no cloud default exists.
-	return modelInfoService.CreateModel(ctx)
+	// Defaults for the zero case are resolved in the domain service
+	// implementation, which also seeds provider resources and default
+	// storage pools.
+	return modelInfoService.CreateModel(ctx, suppliedAgentVersion, suppliedAgentStream)
 }
 
 // agentStreamFromModelDefaults reads the model defaults for the given model
@@ -441,14 +419,14 @@ func (m *ModelManagerAPI) agentStreamFromModelDefaults(
 
 	attr, ok := defaults[config.AgentStreamKey]
 	if !ok {
-		return "", nil
+		return coreagentbinary.AgentStreamZero, nil
 	}
 
 	if streamStr, ok := attr.Value().(string); ok && streamStr != "" {
 		return coreagentbinary.AgentStream(streamStr), nil
 	}
 
-	return "", nil
+	return coreagentbinary.AgentStreamZero, nil
 }
 
 func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity) ([]byte, error) {
