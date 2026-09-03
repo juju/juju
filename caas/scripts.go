@@ -32,18 +32,19 @@ fi
 `[1:]
 
 	// APIServerStartUpSh is the start script for the "api-server" container
-	// in the controller pod (Pebble running jujud).
+	// in the controller pod (Pebble running jujud and jujuagentd).
 	APIServerStartUpSh = `
 export JUJU_DATA_DIR=%[1]s
 export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 
 mkdir -p $JUJU_TOOLS_DIR
+cp /opt/jujud $JUJU_TOOLS_DIR/jujud
 cp /opt/jujuagentd $JUJU_TOOLS_DIR/jujuagentd
 
 %[2]s
 
 mkdir -p /var/lib/pebble/default/layers
-cat > /var/lib/pebble/default/layers/001-jujuagentd.yaml <<EOF
+cat > /var/lib/pebble/default/layers/001-controller.yaml <<EOF
 %[3]s
 EOF
 

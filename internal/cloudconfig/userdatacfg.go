@@ -535,17 +535,11 @@ func (w *userdataConfig) configureSnapBootstrap() error {
 	// Build the runtime config with token placeholders for the snap-private
 	// path fields. The init command resolves these inside the snap context.
 	runtimeCfg := controllerruntimeconfig.ControllerRuntimeConfig{
-		ControllerID:        agent.BootstrapControllerId,
-		ControllerUUID:      w.icfg.ControllerTag.Id(),
-		ControllerModelUUID: w.icfg.APIInfo.ModelTag.Id(),
-		DataDir:             w.icfg.DataDir, // will be replaced by token
-		// LoopbackPreferred false selects IAAS controller manifolds (see
-		// controller.go). Snap bootstrap-state still binds dqlite to loopback
-		// via agentbootstrap when SNAP is set; the node then continues as
-		// loopback-bound until HA rebind. Do not set true here — that path
-		// incorrectly installs CAAS bootstrap/address-finder workers.
-		LoopbackPreferred:           false,
-		LogDir:                      w.icfg.LogDir, // will be replaced by token
+		ControllerID:                agent.BootstrapControllerId,
+		ControllerUUID:              w.icfg.ControllerTag.Id(),
+		ControllerModelUUID:         w.icfg.APIInfo.ModelTag.Id(),
+		DataDir:                     w.icfg.DataDir, // will be replaced by token
+		LogDir:                      w.icfg.LogDir,  // will be replaced by token
 		APIPort:                     w.icfg.Bootstrap.ControllerAgentInfo.APIPort,
 		AgentPassword:               w.icfg.APIInfo.Password,
 		LoggingConfig:               w.icfg.Bootstrap.ControllerModelConfig.LoggingConfig(),
@@ -564,7 +558,7 @@ func (w *userdataConfig) configureSnapBootstrap() error {
 		SystemIdentity:              w.icfg.Bootstrap.ControllerAgentInfo.SystemIdentity,
 		LogSinkRateLimitBurst:       logSinkBurst,
 		LogSinkRateLimitRefill:      logSinkRefill,
-		APIAddresses:                w.icfg.APIInfo.Addrs,
+		APIAddresses:                w.icfg.APIHostAddrs(),
 		AgentLogfileMaxSizeMB:       w.icfg.ControllerConfig.AgentLogfileMaxSizeMB(),
 		AgentLogfileMaxBackups:      w.icfg.ControllerConfig.AgentLogfileMaxBackups(),
 		CharmRevisionUpdateInterval: w.icfg.AgentEnvironment[agent.CharmRevisionUpdateInterval],
@@ -677,6 +671,13 @@ snap run %[6]s.bootstrap-state --timeout %[7]s`,
 	return nil
 }
 
+// configureLegacyBootstrap generates the cloud-init handoff for the
+// combined-agent bootstrap path, which runs jujuagentd bootstrap-state
+// directly. This path is CAAS-only: IAAS bootstrap must always go through
+// configureSnapBootstrap. The IAAS path is guaranteed to reach
+// configureSnapBootstrap because the IAAS bootstrap command always defaults
+// to store mode when no snap flags are given, ensuring ControllerSnapRevision
+// is non-zero (see cmd/juju/commands/bootstrap.go).
 func (w *userdataConfig) configureLegacyBootstrap() error {
 	bootstrapParamsFile := path.Join(w.icfg.DataDir, controllerruntimeconfig.FileNameBootstrapParams)
 	bootstrapParams, err := w.icfg.Bootstrap.StateInitializationParams.Marshal()

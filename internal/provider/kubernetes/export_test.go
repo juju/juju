@@ -41,6 +41,8 @@ var (
 	UpdateStrategyForStatefulSet = updateStrategyForStatefulSet
 	DecideKubeConfigDir          = decideKubeConfigDir
 	IsLocalControllerCharmPath   = isLocalControllerCharmPath
+
+	SplitControllerPebbleLayer = splitControllerPebbleLayer
 )
 
 type (
@@ -84,7 +86,7 @@ func (cs *controllerStack) GetControllerRuntimeConfigContent(c *tc.C) string {
 		ControllerUUID:         cs.pcfg.ControllerTag.Id(),
 		ControllerModelUUID:    cs.pcfg.APIInfo.ModelTag.Id(),
 		DataDir:                cs.pcfg.DataDir,
-		LoopbackPreferred:      true,
+		IsCAASController:       true,
 		LogDir:                 cs.pcfg.LogDir,
 		APIPort:                cs.pcfg.Bootstrap.ControllerAgentInfo.APIPort,
 		AgentPassword:          cs.pcfg.APIInfo.Password,
@@ -101,6 +103,7 @@ func (cs *controllerStack) GetControllerRuntimeConfigContent(c *tc.C) string {
 		CAPrivateKey:           cs.pcfg.Bootstrap.ControllerAgentInfo.CAPrivateKey,
 		ControllerCert:         cs.pcfg.Bootstrap.ControllerAgentInfo.Cert,
 		ControllerPrivateKey:   cs.pcfg.Bootstrap.ControllerAgentInfo.PrivateKey,
+		APIAddresses:           cs.pcfg.APIHostAddrs(),
 		AgentLogfileMaxSizeMB:  cs.pcfg.Controller.AgentLogfileMaxSizeMB(),
 		AgentLogfileMaxBackups: cs.pcfg.Controller.AgentLogfileMaxBackups(),
 	}

@@ -82,7 +82,7 @@ var BuildControllerSnap = func(ctx context.Context, stdout, stderr io.Writer) (s
 		jujuversion.Current.String(),
 		snapArch(runtime.GOARCH),
 	)
-	snapPath := filepath.Join(sourceRoot, expectedFile)
+	snapPath := filepath.Join(sourceRoot, "_build", "snap", expectedFile)
 
 	if _, err := os.Stat(snapPath); err != nil {
 		return "", errors.Errorf(

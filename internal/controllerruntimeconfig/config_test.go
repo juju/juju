@@ -33,7 +33,7 @@ func validConfig() controllerruntimeconfig.ControllerRuntimeConfig {
 		ControllerUUID:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		ControllerModelUUID:    "feedface-dead-beef-cafe-c0ffee000000",
 		DataDir:                "/var/lib/juju",
-		LoopbackPreferred:      false,
+		IsCAASController:       false,
 		LogDir:                 "/var/log/juju",
 		APIPort:                17070,
 		AgentPassword:          "agent-password",
@@ -292,20 +292,20 @@ func (s *configSuite) TestWriteAndReadRoundTrip_SystemIdentity(c *tc.C) {
 	c.Check(got.SystemIdentity, tc.Equals, cfg.SystemIdentity)
 }
 
-// TestWriteAndReadRoundTrip_LoopbackPreferred ensures the loopback preference
+// TestWriteAndReadRoundTrip_IsCAASController ensures the CAAS controller flag
 // is preserved in the write/read round trip.
-func (s *configSuite) TestWriteAndReadRoundTrip_LoopbackPreferred(c *tc.C) {
+func (s *configSuite) TestWriteAndReadRoundTrip_IsCAASController(c *tc.C) {
 	dir := c.MkDir()
 	path := filepath.Join(dir, controllerruntimeconfig.Filename)
 	cfg := validConfig()
-	cfg.LoopbackPreferred = true
+	cfg.IsCAASController = true
 
 	err := controllerruntimeconfig.WriteControllerRuntimeConfig(path, cfg)
 	c.Assert(err, tc.ErrorIsNil)
 
 	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(path)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(got.LoopbackPreferred, tc.IsTrue)
+	c.Check(got.IsCAASController, tc.IsTrue)
 }
 
 // TestWriteAndReadRoundTrip_EmptySystemIdentityOmitted ensures that an empty
@@ -335,7 +335,7 @@ func (s *configSuite) TestWriteAndReadRoundTrip_AllNodeManagerFields(c *tc.C) {
 		ControllerUUID:        "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		ControllerModelUUID:   "feedface-dead-beef-cafe-c0ffee000000",
 		DataDir:               "/var/lib/juju",
-		LoopbackPreferred:     true,
+		IsCAASController:      true,
 		LogDir:                "/var/log/juju",
 		APIPort:               17070,
 		AgentPassword:         "agent-password",
@@ -358,7 +358,7 @@ func (s *configSuite) TestWriteAndReadRoundTrip_AllNodeManagerFields(c *tc.C) {
 	c.Check(got.ControllerUUID, tc.Equals, cfg.ControllerUUID)
 	c.Check(got.ControllerModelUUID, tc.Equals, cfg.ControllerModelUUID)
 	c.Check(got.DataDir, tc.Equals, cfg.DataDir)
-	c.Check(got.LoopbackPreferred, tc.Equals, cfg.LoopbackPreferred)
+	c.Check(got.IsCAASController, tc.Equals, cfg.IsCAASController)
 	c.Check(got.LogDir, tc.Equals, cfg.LogDir)
 	c.Check(got.APIPort, tc.Equals, cfg.APIPort)
 	c.Check(got.AgentPassword, tc.Equals, cfg.AgentPassword)

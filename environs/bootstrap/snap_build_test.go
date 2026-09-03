@@ -131,8 +131,11 @@ func (s *snapBuildSuite) TestBuildControllerSnapSuccess(c *tc.C) {
 	tmpDir := c.MkDir()
 
 	snapName := fmt.Sprintf("jujud_%s_%s.snap", version.Current.String(), bootstrap.SnapArch(runtime.GOARCH))
-	snapPath := filepath.Join(tmpDir, snapName)
-	err := os.WriteFile(snapPath, []byte("fake snap"), 0644)
+	snapDir := filepath.Join(tmpDir, "_build", "snap")
+	err := os.MkdirAll(snapDir, 0755)
+	c.Assert(err, tc.ErrorIsNil)
+	snapPath := filepath.Join(snapDir, snapName)
+	err = os.WriteFile(snapPath, []byte("fake snap"), 0644)
 	c.Assert(err, tc.ErrorIsNil)
 
 	origBuild := bootstrap.BuildCommandFunc
