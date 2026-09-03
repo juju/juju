@@ -1053,17 +1053,6 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 				unitName, appName)
 		}
 
-		locator, err := api.getCharmLocatorByApplicationName(ctx, appName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		charmName, err := api.getCharmName(ctx, locator)
-		if err != nil {
-			return nil, errors.Trace(err)
-		} else if charmName == bootstrap.ControllerCharmName {
-			return nil, errors.NotSupportedf("removing units from the controller application")
-		}
-
 		var info params.DestroyUnitInfo
 
 		// TODO(storage): return detached / destroyed storage volumes/filesystems

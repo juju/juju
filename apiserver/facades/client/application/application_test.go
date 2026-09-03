@@ -480,34 +480,6 @@ func (s *applicationSuite) TestDestroyUnitIsSubordinate(c *tc.C) {
 	c.Check(res.Results[0].Error, tc.ErrorMatches, `.*unit "foo/0" is a subordinate.*`)
 }
 
-func (s *applicationSuite) TestDestroyUnitControllerUnit(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Arrange:
-	s.setupAPI(c)
-
-	charmLocator := applicationcharm.CharmLocator{
-		Name:     "ctrl",
-		Revision: 42,
-		Source:   applicationcharm.CharmHubSource,
-	}
-	s.applicationService.EXPECT().IsSubordinateApplicationByName(gomock.Any(), "ctrl").Return(false, nil)
-	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), "ctrl").Return(charmLocator, nil)
-	s.applicationService.EXPECT().GetCharmMetadataName(gomock.Any(), charmLocator).Return(bootstrap.ControllerCharmName, nil)
-
-	// Act:
-	res, err := s.api.DestroyUnit(c.Context(), params.DestroyUnitsParams{
-		Units: []params.DestroyUnitParams{{
-			UnitTag: names.NewUnitTag("ctrl/0").String(),
-		}},
-	})
-
-	// Assert:
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(res.Results, tc.HasLen, 1)
-	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeNotSupported)
-}
-
 func (s *applicationSuite) TestDestroyApplicationController(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
