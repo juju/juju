@@ -783,10 +783,10 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
 		},
 		Data: map[string]string{
-			"bootstrap-params":           string(bootstrapParamsContent),
-			"controller-agent.conf":      controllerStacker.GetControllerAgentConfigContent(c),
-			"controller-unit-agent.conf": controllerStacker.GetControllerUnitAgentConfigContent(c),
-			"controller-nonce-0":         controllerStacker.GetControllerNonce(),
+			"bootstrap-params":               string(bootstrapParamsContent),
+			"controller-agent.conf":          controllerStacker.GetControllerAgentConfigContent(c),
+			"controller-unit-agent.conf":     controllerStacker.GetControllerUnitAgentConfigContent(c),
+			"controller-nonce-0":             controllerStacker.GetControllerNonce(),
 			controllerruntimeconfig.Filename: controllerStacker.GetControllerRuntimeConfigContent(c),
 		},
 	}
@@ -1014,7 +1014,7 @@ services:
         summary: Juju controller
         startup: enabled
         override: replace
-        command: $JUJU_TOOLS_DIR/jujud controller --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
+        command: /bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec $JUJU_TOOLS_DIR/jujud controller --data-dir "$JUJU_DATA_DIR" --controller-id "${controller_id}" --log-to-stderr --debug'
         environment:
             JUJU_DEV_FEATURE_FLAGS: developer-mode
 

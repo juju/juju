@@ -68,6 +68,12 @@ func NewControllerWorker(
 		tag = agent.CurrentConfig().Tag()
 		fromVersion = agent.CurrentConfig().UpgradedToVersion()
 	} else {
+		// When agent is nil, the controller is running in standalone mode
+		// (e.g. CAAS split controller) without a machine agent. We set
+		// fromVersion to the current version so that AlreadyUpgraded()
+		// returns true, intentionally skipping all upgrade steps. The nil
+		// Agent field on BaseWorker is safe because AlreadyUpgraded() never
+		// dereferences it, and runUpgrades() is unreachable in this path.
 		tag = names.NewControllerAgentTag("0")
 		fromVersion = jujuversion.Current
 	}

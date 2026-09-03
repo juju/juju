@@ -1555,9 +1555,8 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 	)
 
 	controllerCmd := fmt.Sprintf(
-		"%s controller --data-dir $JUJU_DATA_DIR --controller-id %s --log-to-stderr %s",
+		`/bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec %s controller --data-dir "$JUJU_DATA_DIR" --controller-id "${controller_id}" --log-to-stderr %s'`,
 		path.Join("$JUJU_TOOLS_DIR", "jujud"),
-		c.pcfg.ControllerId,
 		loggingOption,
 	)
 	machineCmd := fmt.Sprintf(
