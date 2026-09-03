@@ -1297,6 +1297,106 @@ func (s *applicationServiceSuite) TestIsControllerApplication(c *tc.C) {
 	c.Check(isController, tc.IsTrue)
 }
 
+func (s *applicationServiceSuite) TestSetApplicationScaleNonController(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), appUUID).Return(application.ScaleState{Scale: 2}, nil)
+	s.state.EXPECT().SetDesiredApplicationScale(gomock.Any(), appUUID, 3).Return(nil)
+
+	err := s.service.SetApplicationScale(c.Context(), "foo", 3)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationScaleControllerToZero(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().IsControllerApplication(gomock.Any(), appUUID).Return(true, nil)
+
+	err := s.service.SetApplicationScale(c.Context(), "foo", 0)
+	c.Assert(err, tc.ErrorMatches, "cannot scale controller application to 0 units")
+}
+
+func (s *applicationServiceSuite) TestSetApplicationScaleNonControllerToZero(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().IsControllerApplication(gomock.Any(), appUUID).Return(false, nil)
+	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), appUUID).Return(application.ScaleState{Scale: 1}, nil)
+	s.state.EXPECT().SetDesiredApplicationScale(gomock.Any(), appUUID, 0).Return(nil)
+
+	err := s.service.SetApplicationScale(c.Context(), "foo", 0)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationScaleNegative(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.SetApplicationScale(c.Context(), "foo", -1)
+	c.Assert(err, tc.ErrorMatches, "application scale -1 not valid")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ScaleChangeInvalid)
+}
+
+func (s *applicationServiceSuite) TestChangeApplicationScaleUp(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().UpdateApplicationScale(gomock.Any(), appUUID, 2).Return(5, nil)
+
+	newScale, err := s.service.ChangeApplicationScale(c.Context(), "foo", 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(newScale, tc.Equals, 5)
+}
+
+func (s *applicationServiceSuite) TestChangeApplicationScaleDownNonController(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), appUUID).Return(application.ScaleState{Scale: 3}, nil)
+	s.state.EXPECT().UpdateApplicationScale(gomock.Any(), appUUID, -1).Return(2, nil)
+
+	newScale, err := s.service.ChangeApplicationScale(c.Context(), "foo", -1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(newScale, tc.Equals, 2)
+}
+
+func (s *applicationServiceSuite) TestChangeApplicationScaleDownControllerToZero(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), appUUID).Return(application.ScaleState{Scale: 1}, nil)
+	s.state.EXPECT().IsControllerApplication(gomock.Any(), appUUID).Return(true, nil)
+
+	_, err := s.service.ChangeApplicationScale(c.Context(), "foo", -1)
+	c.Assert(err, tc.ErrorMatches, "cannot scale controller application to 0 units")
+}
+
+func (s *applicationServiceSuite) TestChangeApplicationScaleDownControllerBelowZero(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), appUUID).Return(application.ScaleState{Scale: 1}, nil)
+	s.state.EXPECT().IsControllerApplication(gomock.Any(), appUUID).Return(true, nil)
+
+	_, err := s.service.ChangeApplicationScale(c.Context(), "foo", -2)
+	c.Assert(err, tc.ErrorMatches, "cannot scale controller application to 0 units")
+}
+
 func (s *applicationWatcherServiceSuite) TestGetMachinesForApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
