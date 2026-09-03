@@ -59,6 +59,7 @@ type MachineManagerAPI struct {
 	modelConfigService      ModelConfigService
 	networkService          NetworkService
 	removalService          RemovalService
+	storageService          StorageService
 
 	logger corelogger.Logger
 }
@@ -94,6 +95,7 @@ func NewMachineManagerAPI(
 		modelConfigService:      services.ModelConfigService,
 		networkService:          services.NetworkService,
 		removalService:          services.RemovalService,
+		storageService:          services.StorageService,
 	}
 	return api
 }
@@ -476,21 +478,23 @@ func (mm *MachineManagerAPI) destroyResultForMachine(ctx context.Context, machin
 		info.DestroyedUnits = append(info.DestroyedUnits, params.Entity{Tag: unitTag.String()})
 	}
 
-	info.DestroyedStorage, info.DetachedStorage, err = mm.classifyDetachedStorage(unitNames)
+	unitUUIDs := make([]coreunit.UUID, 0, len(unitNames))
+	for _, unitName := range unitNames {
+		unitUUID, err := mm.applicationService.GetUnitUUID(ctx, unitName)
+		if err != nil {
+			return info, internalerrors.Errorf("getting UUID for unit %q: %w", unitName, err)
+		}
+		unitUUIDs = append(unitUUIDs, unitUUID)
+	}
+
+	info.DestroyedStorage, info.DetachedStorage, err = common.ClassifyStorageRemoval(
+		ctx, mm.storageService, unitUUIDs, false,
+	)
 	if err != nil {
 		return info, internalerrors.Errorf("classifying storage for machine %q: %w", machineName, err)
 	}
 
 	return info, nil
-}
-
-func (mm *MachineManagerAPI) classifyDetachedStorage(unitNames []coreunit.Name) (destroyed, detached []params.Entity, _ error) {
-	var storageErrors []params.ErrorResult
-
-	// TODO(storage): classify detached storage
-
-	err := params.ErrorResults{Results: storageErrors}.Combine()
-	return destroyed, detached, err
 }
 
 // ModelAuthorizer defines if a given operation can be performed based on a

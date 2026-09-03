@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineservice "github.com/juju/juju/domain/machine/service"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -231,6 +232,9 @@ type DestroyMachineManagerSuite struct {
 	applicationService  *MockApplicationService
 	blockCommandService *MockBlockCommandService
 	removalService      *MockRemovalService
+	storageService      *MockStorageService
+
+	unitUUIDs map[coreunit.Name]coreunit.UUID
 }
 
 func TestDestroyMachineManagerSuite(t *testing.T) {
@@ -259,6 +263,8 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.machineService = NewMockMachineService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
+	s.storageService = NewMockStorageService(ctrl)
+	s.unitUUIDs = map[coreunit.Name]coreunit.UUID{}
 
 	s.blockCommandService = NewMockBlockCommandService(ctrl)
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
@@ -277,19 +283,35 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 			BlockCommandService: s.blockCommandService,
 			MachineService:      s.machineService,
 			RemovalService:      s.removalService,
+			StorageService:      s.storageService,
 		},
 	)
 
 	c.Cleanup(func() {
 		s.blockCommandService = nil
 		s.machineService = nil
-		s.api = nil
+		s.storageService = nil
+		s.unitUUIDs = nil
 		s.api = nil
 	})
 
 	return ctrl
 }
 
+// unitUUID returns the memoized UUID for the input unit, creating one on first
+// use so that expectations keyed on the UUID remain consistent.
+func (s *DestroyMachineManagerSuite) unitUUID(c *tc.C, unitName coreunit.Name) coreunit.UUID {
+	if uuid, ok := s.unitUUIDs[unitName]; ok {
+		return uuid
+	}
+	uuid := tc.Must(c, coreunit.NewUUID)
+	s.unitUUIDs[unitName] = uuid
+	return uuid
+}
+
+// expectCalculateDestroyResult registers the expectations required to compute
+// the destroy result of the input machine and its containers, resolving each
+// unit and reporting it as having no storage attached.
 func (s *DestroyMachineManagerSuite) expectCalculateDestroyResult(
 	c *tc.C, ctrl *gomock.Controller, machineName coremachine.Name, unitNames []coreunit.Name,
 	containers []coremachine.Name,
@@ -301,6 +323,12 @@ func (s *DestroyMachineManagerSuite) expectCalculateDestroyResult(
 		s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), container).Return(unitNames, nil)
 	}
 	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return(unitNames, nil).Times(1)
+
+	for _, unitName := range unitNames {
+		unitUUID := s.unitUUID(c, unitName)
+		s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil).AnyTimes()
+		s.storageService.EXPECT().GetStorageInstancesForUnit(gomock.Any(), unitUUID).Return(nil, nil).AnyTimes()
+	}
 }
 
 func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *tc.C) {
@@ -479,6 +507,114 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *tc.C) {
 							{Tag: "unit-foo-1"},
 							{Tag: "unit-foo-2"},
 						},
+					},
+				}},
+			},
+		}},
+	})
+}
+
+func (s *DestroyMachineManagerSuite) newStorageInstance(c *tc.C, id string, persistent bool) domainstorage.StorageInstanceInfo {
+	return domainstorage.StorageInstanceInfo{
+		ID:         id,
+		Persistent: persistent,
+		UUID:       tc.Must(c, domainstorage.NewStorageInstanceUUID),
+	}
+}
+
+// TestDestroyMachineClassifiesStorage asserts that the destroy result of a
+// machine reports the storage attached to its units, deduplicating storage
+// shared between units: non persistent storage as destroyed and persistent
+// storage as detached.
+func (s *DestroyMachineManagerSuite) TestDestroyMachineClassifiesStorage(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(machineUUID, nil).MaxTimes(1)
+
+	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID).Return(nil, nil)
+	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), coremachine.Name("0")).Return(
+		[]coreunit.Name{"foo/0", "foo/1"}, nil,
+	).Times(1)
+
+	unitUUID0 := s.unitUUID(c, "foo/0")
+	unitUUID1 := s.unitUUID(c, "foo/1")
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID0, nil).AnyTimes()
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/1")).Return(unitUUID1, nil).AnyTimes()
+
+	nonPersistent := s.newStorageInstance(c, "single-fs/0", false)
+	shared := s.newStorageInstance(c, "db-dir/0", true)
+	s.storageService.EXPECT().GetStorageInstancesForUnit(gomock.Any(), unitUUID0).Return(
+		[]domainstorage.StorageInstanceInfo{nonPersistent, shared}, nil,
+	).AnyTimes()
+	s.storageService.EXPECT().GetStorageInstancesForUnit(gomock.Any(), unitUUID1).Return(
+		[]domainstorage.StorageInstanceInfo{shared}, nil,
+	).AnyTimes()
+
+	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
+		MachineTags: []string{"machine-0"},
+		DryRun:      true,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
+		Results: []params.DestroyMachineResult{{
+			Info: &params.DestroyMachineInfo{
+				MachineId: "0",
+				DestroyedUnits: []params.Entity{
+					{Tag: "unit-foo-0"},
+					{Tag: "unit-foo-1"},
+				},
+				DestroyedStorage: []params.Entity{{Tag: "storage-single-fs-0"}},
+				DetachedStorage:  []params.Entity{{Tag: "storage-db-dir-0"}},
+			},
+		}},
+	})
+}
+
+// TestDestroyMachineClassifiesStorageContainers asserts that the destroy
+// result of a machine reports the storage of its containers too.
+func (s *DestroyMachineManagerSuite) TestDestroyMachineClassifiesStorageContainers(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(machineUUID, nil).MaxTimes(1)
+
+	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID).Return(
+		[]coremachine.Name{"0/lxd/0"}, nil,
+	)
+
+	// The machine itself has no units, but its container has one.
+	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), coremachine.Name("0")).Return(nil, nil).Times(1)
+	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), coremachine.Name("0/lxd/0")).Return(
+		[]coreunit.Name{"foo/0"}, nil,
+	).Times(1)
+
+	unitUUID := s.unitUUID(c, "foo/0")
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID, nil).AnyTimes()
+
+	persistent := s.newStorageInstance(c, "db-dir/0", true)
+	s.storageService.EXPECT().GetStorageInstancesForUnit(gomock.Any(), unitUUID).Return(
+		[]domainstorage.StorageInstanceInfo{persistent}, nil,
+	).AnyTimes()
+
+	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
+		MachineTags: []string{"machine-0"},
+		DryRun:      true,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
+		Results: []params.DestroyMachineResult{{
+			Info: &params.DestroyMachineInfo{
+				MachineId: "0",
+				DestroyedContainers: []params.DestroyMachineResult{{
+					Info: &params.DestroyMachineInfo{
+						MachineId:       "0/lxd/0",
+						DestroyedUnits:  []params.Entity{{Tag: "unit-foo-0"}},
+						DetachedStorage: []params.Entity{{Tag: "storage-db-dir-0"}},
 					},
 				}},
 			},
