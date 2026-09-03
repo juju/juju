@@ -56,10 +56,7 @@ run_charm_storage() {
 
 	# Assessing adding a storage block to loop disk
 	juju add-storage -m "${model_name}" dummy-storage-lp/0 disks=1
-	# Assert the storage kind name
-	if [ "$(unit_exist "disks/2")" == "true" ]; then
-		assess_loop_disk2
-	fi
+	assess_loop_disk2
 	# Remove the application
 	juju remove-application --no-prompt dummy-storage-lp
 	wait_for "{}" ".applications"
@@ -174,6 +171,14 @@ assess_loop_disk2() {
 	assert_storage "dummy-storage-lp/0" "$(unit_attachment "disks" 2 0)"
 	# assert the attached unit state
 	assert_storage "alive" "$(unit_state "disks" 2 "dummy-storage-lp" 0)"
+	# assert the volume retained the requested size (a zero-size add-storage
+	# override would provision a zero-sized volume instead).
+	requested_storage=1024
+	acquired_storage=$(juju storage --format json | yq '.volumes | to_entries | map(select(.value.storage == "disks/2")) | .[0].value.size')
+	if [ "$requested_storage" -gt "$acquired_storage" ]; then
+		echo "acquired storage size $acquired_storage should be greater than the requested storage $requested_storage"
+		exit 1
+	fi
 	echo "Block loop disk 2 PASSED"
 }
 
