@@ -114,6 +114,9 @@ type provProviderIPRow struct {
 	AddressUUID string `db:"address_uuid"`
 }
 
+// provProviderIDs is a slice of provider IDs used for IN clause queries.
+type provProviderIDs []string
+
 // provDNSDomainRow is the write type for link_layer_device_dns_domain.
 type provDNSDomainRow struct {
 	DeviceUUID   string `db:"device_uuid"`

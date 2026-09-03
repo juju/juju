@@ -806,6 +806,159 @@ func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigMultipleNICs(c *t
 	c.Assert(addrs, tc.HasLen, 2)
 }
 
+func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigDuplicateProviderDeviceID(c *tc.C) {
+	machineUUID := s.addMachineWithPlatform(c, "16", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
+
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+		NetworkConfig: corenetwork.InterfaceInfos{
+			{
+				InterfaceName: "eth0",
+				ProviderId:    "provider-dup",
+				InterfaceType: corenetwork.EthernetDevice,
+				Disabled:      false,
+			},
+			{
+				InterfaceName: "eth1",
+				ProviderId:    "provider-dup",
+				InterfaceType: corenetwork.EthernetDevice,
+				Disabled:      false,
+			},
+		},
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
+	c.Assert(err, tc.ErrorMatches, `duplicate provider device ID "provider-dup" assigned to multiple devices in incoming data`)
+}
+
+func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigDuplicateProviderAddressID(c *tc.C) {
+	machineUUID := s.addMachineWithPlatform(c, "17", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
+
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+		NetworkConfig: corenetwork.InterfaceInfos{{
+			InterfaceName: "eth0",
+			InterfaceType: corenetwork.EthernetDevice,
+			Disabled:      false,
+			Addresses: corenetwork.ProviderAddresses{
+				{
+					MachineAddress: corenetwork.MachineAddress{
+						Value:      "10.0.0.1",
+						CIDR:       "10.0.0.0/24",
+						Type:       corenetwork.IPv4Address,
+						Scope:      corenetwork.ScopeCloudLocal,
+						ConfigType: corenetwork.ConfigDHCP,
+					},
+					ProviderID: "provider-addr-dup",
+				},
+				{
+					MachineAddress: corenetwork.MachineAddress{
+						Value:      "10.0.0.2",
+						CIDR:       "10.0.0.0/24",
+						Type:       corenetwork.IPv4Address,
+						Scope:      corenetwork.ScopeCloudLocal,
+						ConfigType: corenetwork.ConfigDHCP,
+					},
+					ProviderID: "provider-addr-dup",
+				},
+			},
+		}},
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
+	c.Assert(err, tc.ErrorMatches, `duplicate provider address ID "provider-addr-dup" assigned to multiple addresses in incoming data`)
+}
+
+func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigProviderDeviceIDConflict(c *tc.C) {
+	machineA := s.addMachineWithPlatform(c, "18", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineA)
+	infoA := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-a",
+		DisplayName: "machine-a",
+		Nonce:       "nonce-a",
+		NetworkConfig: corenetwork.InterfaceInfos{{
+			InterfaceName: "eth0",
+			ProviderId:    "provider-eth0",
+			InterfaceType: corenetwork.EthernetDevice,
+			Disabled:      false,
+		}},
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineA, infoA)
+	c.Assert(err, tc.ErrorIsNil)
+
+	machineB := s.addMachineWithPlatform(c, "19", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineB)
+	infoB := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-b",
+		DisplayName: "machine-b",
+		Nonce:       "nonce-b",
+		NetworkConfig: corenetwork.InterfaceInfos{{
+			InterfaceName: "eth0",
+			ProviderId:    "provider-eth0",
+			InterfaceType: corenetwork.EthernetDevice,
+			Disabled:      false,
+		}},
+	}
+	err = s.state.RecordProvisionedMachine(c.Context(), machineB, infoB)
+	c.Assert(err, tc.ErrorMatches, `provider device ID "provider-eth0" already mapped to device .*`)
+}
+
+func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigProviderAddressIDConflict(c *tc.C) {
+	machineA := s.addMachineWithPlatform(c, "20", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineA)
+	infoA := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-a",
+		DisplayName: "machine-a",
+		Nonce:       "nonce-a",
+		NetworkConfig: corenetwork.InterfaceInfos{{
+			InterfaceName: "eth0",
+			InterfaceType: corenetwork.EthernetDevice,
+			Disabled:      false,
+			Addresses: corenetwork.ProviderAddresses{{
+				MachineAddress: corenetwork.MachineAddress{
+					Value:      "10.0.0.1",
+					CIDR:       "10.0.0.0/24",
+					Type:       corenetwork.IPv4Address,
+					Scope:      corenetwork.ScopeCloudLocal,
+					ConfigType: corenetwork.ConfigDHCP,
+				},
+				ProviderID: "provider-addr-1",
+			}},
+		}},
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineA, infoA)
+	c.Assert(err, tc.ErrorIsNil)
+
+	machineB := s.addMachineWithPlatform(c, "21", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineB)
+	infoB := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-b",
+		DisplayName: "machine-b",
+		Nonce:       "nonce-b",
+		NetworkConfig: corenetwork.InterfaceInfos{{
+			InterfaceName: "eth0",
+			InterfaceType: corenetwork.EthernetDevice,
+			Disabled:      false,
+			Addresses: corenetwork.ProviderAddresses{{
+				MachineAddress: corenetwork.MachineAddress{
+					Value:      "10.0.0.2",
+					CIDR:       "10.0.0.0/24",
+					Type:       corenetwork.IPv4Address,
+					Scope:      corenetwork.ScopeCloudLocal,
+					ConfigType: corenetwork.ConfigDHCP,
+				},
+				ProviderID: "provider-addr-1",
+			}},
+		}},
+	}
+	err = s.state.RecordProvisionedMachine(c.Context(), machineB, infoB)
+	c.Assert(err, tc.ErrorMatches, `provider address ID "provider-addr-1" already mapped to address .*`)
+}
+
 // --- Volumes ---
 
 func (s *modelStateSuite) TestRecordProvisionedMachineVolumesEmpty(c *tc.C) {
