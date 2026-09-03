@@ -63,6 +63,11 @@ type State interface {
 	// from the result.
 	GetInstanceIDsForUUIDs(context.Context, []string) (map[string]string, error)
 
+	// GetNamesForProvisionedUUIDs returns the machine names for the given
+	// machine UUIDs that are provisioned (have a non-empty instance_id).
+	// UUIDs without an instance are omitted from the result.
+	GetNamesForProvisionedUUIDs(context.Context, []string) (map[machine.UUID]machine.Name, error)
+
 	// GetInstanceIDAndName returns the cloud specific instance ID and display name
 	// for this machine.
 	GetInstanceIDAndName(ctx context.Context, mUUID string) (string, string, error)

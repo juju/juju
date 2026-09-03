@@ -13,6 +13,7 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
+
 	agentbinary "github.com/juju/juju/core/agentbinary"
 	base "github.com/juju/juju/core/base"
 	instance "github.com/juju/juju/core/instance"
@@ -56,6 +57,7 @@ type MockStateMockRecorder struct {
 	getMachineProvisioningInfoExpects                         []*gomock.Call2_4[context.Context, string, base.Base, *string, constraints.Constraints, error]
 	getMachineUUIDExpects                                     []*gomock.Call2_2[context.Context, machine.Name, machine.UUID, error]
 	getModelConstraintsExpects                                []*gomock.Call1_2[context.Context, constraints.Constraints, error]
+	getNamesForProvisionedUUIDsExpects                        []*gomock.Call2_2[context.Context, []string, map[machine.UUID]machine.Name, error]
 	getNamesForUUIDsExpects                                   []*gomock.Call2_2[context.Context, []string, map[machine.UUID]machine.Name, error]
 	getPollingInfosExpects                                    []*gomock.Call2_2[context.Context, []string, machine0.PollingInfos, error]
 	getSSHHostKeysExpects                                     []*gomock.Call2_2[context.Context, string, []string, error]
@@ -470,6 +472,24 @@ func (mr *MockStateMockRecorder) GetModelConstraints(ctx any) *MockStateGetModel
 
 // MockStateGetModelConstraintsCall is the typed call wrapper for GetModelConstraints.
 type MockStateGetModelConstraintsCall = gomock.Call1_2[context.Context, constraints.Constraints, error]
+
+// GetNamesForProvisionedUUIDs mocks base method.
+func (m *MockState) GetNamesForProvisionedUUIDs(arg0 context.Context, arg1 []string) (map[machine.UUID]machine.Name, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getNamesForProvisionedUUIDsExpects, m.ctrl, m, "GetNamesForProvisionedUUIDs", arg0, arg1)
+}
+
+// GetNamesForProvisionedUUIDs indicates an expected call of GetNamesForProvisionedUUIDs.
+func (mr *MockStateMockRecorder) GetNamesForProvisionedUUIDs(arg0, arg1 any) *MockStateGetNamesForProvisionedUUIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, []string, map[machine.UUID]machine.Name, error](mr.mock.ctrl.T, mr.mock, "GetNamesForProvisionedUUIDs", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getNamesForProvisionedUUIDsExpects = append(mr.getNamesForProvisionedUUIDsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetNamesForProvisionedUUIDsCall is the typed call wrapper for GetNamesForProvisionedUUIDs.
+type MockStateGetNamesForProvisionedUUIDsCall = gomock.Call2_2[context.Context, []string, map[machine.UUID]machine.Name, error]
 
 // GetNamesForUUIDs mocks base method.
 func (m *MockState) GetNamesForUUIDs(ctx context.Context, machineUUIDs []string) (map[machine.UUID]machine.Name, error) {

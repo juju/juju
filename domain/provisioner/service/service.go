@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/juju/core/trace"
 	"gopkg.in/yaml.v3"
 
 	corebase "github.com/juju/juju/core/base"
@@ -117,6 +118,9 @@ func (s *Service) RecordProvisionedMachine(
 	machineUUID coremachine.UUID,
 	info provisioner.ProvisionedMachineInfo,
 ) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := s.modelSt.RecordProvisionedMachine(ctx, machineUUID.String(), info); err != nil {
 		return errors.Errorf("recording provisioned machine %q: %w", machineUUID, err)
 	}
@@ -127,6 +131,9 @@ func (s *Service) RecordProvisionedMachine(
 // the same for all machines. This should be called once per batch request,
 // then passed into each per-machine GetProvisioningInfo call.
 func (s *Service) GetPreludeProvisioningInfo(ctx context.Context) (provisioner.SharedProvisioningInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	// Step 1: Fetch shared model-DB data.
 	sharedState, err := s.modelSt.GetPreludeProvisioningInfo(ctx)
 	if err != nil {
@@ -170,6 +177,9 @@ func (s *Service) GetProvisioningInfo(
 	isControllerModel bool,
 	shared provisioner.SharedProvisioningInfo,
 ) (provisioner.ProvisioningInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := machineName.Validate(); err != nil {
 		return provisioner.ProvisioningInfo{}, errors.Errorf(
 			"validating machine name %q: %w", machineName, err,
