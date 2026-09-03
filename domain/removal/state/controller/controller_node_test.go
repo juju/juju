@@ -4,6 +4,7 @@
 package controller
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/juju/tc"
@@ -51,13 +52,24 @@ func (s *controllerNodeSuite) TestDeleteDqliteNode(c *tc.C) {
 		{"SELECT COUNT(*) FROM controller_node_password WHERE controller_id = ?", []any{"99"}},
 		{"SELECT COUNT(*) FROM controller_node_nonce WHERE controller_id = ?", []any{"99"}},
 		{"SELECT COUNT(*) FROM upgrade_info_controller_node WHERE controller_node_id = ?", []any{"99"}},
-		{"SELECT COUNT(*) FROM controller_node WHERE controller_id = ?", []any{"99"}},
 	} {
 		var count int
 		err := db.QueryRow(q.query, q.args...).Scan(&count)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(count, tc.Equals, 0)
 	}
+	var lifeID int
+	err = db.QueryRow("SELECT life_id FROM controller_node WHERE controller_id = ?", "99").Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+	var nodeID, bindAddress sql.NullString
+	err = db.QueryRow(`
+SELECT dqlite_node_id, dqlite_bind_address
+FROM controller_node
+WHERE controller_id = ?`, "99").Scan(&nodeID, &bindAddress)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nodeID.Valid, tc.IsFalse)
+	c.Check(bindAddress.Valid, tc.IsFalse)
 }
 
 func (s *controllerNodeSuite) TestDeleteDqliteNodeIdempotent(c *tc.C) {
@@ -77,7 +89,12 @@ func (s *controllerNodeSuite) TestDeleteDqliteNodeIdempotent(c *tc.C) {
 	var count int
 	err = db.QueryRow("SELECT COUNT(*) FROM controller_node WHERE controller_id = '98'").Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 0)
+	c.Check(count, tc.Equals, 1)
+
+	var lifeID int
+	err = db.QueryRow("SELECT life_id FROM controller_node WHERE controller_id = '98'").Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
 }
 
 func (s *controllerNodeSuite) TestDeleteDqliteNodePreservesOtherNodes(c *tc.C) {
@@ -97,7 +114,7 @@ func (s *controllerNodeSuite) TestDeleteDqliteNodePreservesOtherNodes(c *tc.C) {
 	var count int
 	err = db.QueryRow("SELECT COUNT(*) FROM controller_node WHERE controller_id = '96'").Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 0)
+	c.Check(count, tc.Equals, 1)
 
 	err = db.QueryRow("SELECT COUNT(*) FROM controller_node WHERE controller_id = '97'").Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)

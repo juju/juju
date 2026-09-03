@@ -44,7 +44,8 @@ func (s *ControllerState) SetControllerNodePasswordHash(ctx context.Context, id 
 	query := `
 SELECT COUNT(*) AS &count.count
 FROM controller_node
-WHERE controller_id = $entityPasswordHash.uuid;
+WHERE controller_id = $entityPasswordHash.uuid
+AND life_id < 2;
 `
 	stmt, err := s.Prepare(query, args, count{})
 	if err != nil {
@@ -95,7 +96,8 @@ func (s *ControllerState) SetControllerNodePasswordHashIfAbsent(
 	checkNodeStmt, err := s.Prepare(`
 SELECT COUNT(*) AS &count.count
 FROM controller_node
-WHERE controller_id = $entityPasswordHash.uuid;
+WHERE controller_id = $entityPasswordHash.uuid
+AND life_id < 2;
 `, args, count{})
 	if err != nil {
 		return false, errors.Errorf("preparing statement to check controller node exists: %w", err)

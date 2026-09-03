@@ -11,8 +11,9 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// DeleteDqliteNode removes the controller node identified by controllerID
-// and all records that depend on it.
+// DeleteDqliteNode marks the controller node identified by controllerID dead
+// and removes all records that depend on it. The controller node is retained
+// as a tombstone so delayed controller workers cannot recreate it.
 func (st *State) DeleteDqliteNode(ctx context.Context, controllerID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -27,6 +28,14 @@ FROM controller_node
 WHERE controller_id = $controllerNode.controller_id`, node, count{})
 	if err != nil {
 		return errors.Errorf("preparing controller node existence check: %w", err)
+	}
+	markNodeDyingStmt, err := st.Prepare(`
+UPDATE controller_node
+SET life_id = 1
+WHERE controller_id = $controllerNode.controller_id
+AND life_id = 0`, node)
+	if err != nil {
+		return errors.Errorf("preparing controller node dying transition: %w", err)
 	}
 
 	deleteAPIAddressesStmt, err := st.Prepare(`
@@ -59,9 +68,13 @@ WHERE controller_node_id = $controllerNode.controller_id`, node)
 	if err != nil {
 		return errors.Errorf("preparing controller upgrade info deletion: %w", err)
 	}
-	deleteNodeStmt, err := st.Prepare(`
-DELETE FROM controller_node
-WHERE controller_id = $controllerNode.controller_id`, node)
+	markNodeDeadStmt, err := st.Prepare(`
+UPDATE controller_node
+SET life_id = 2,
+    dqlite_node_id = NULL,
+    dqlite_bind_address = NULL
+WHERE controller_id = $controllerNode.controller_id
+AND life_id < 2`, node)
 	if err != nil {
 		return errors.Errorf("preparing controller node deletion: %w", err)
 	}
@@ -73,6 +86,9 @@ WHERE controller_id = $controllerNode.controller_id`, node)
 		}
 		if result.Count == 0 {
 			return nil
+		}
+		if err := tx.Query(ctx, markNodeDyingStmt, node).Run(); err != nil {
+			return errors.Errorf("marking controller node %q dying: %w", controllerID, err)
 		}
 
 		if err := tx.Query(ctx, deleteAPIAddressesStmt, node).Run(); err != nil {
@@ -90,8 +106,8 @@ WHERE controller_id = $controllerNode.controller_id`, node)
 		if err := tx.Query(ctx, deleteUpgradeInfoStmt, node).Run(); err != nil {
 			return errors.Errorf("deleting controller upgrade info for %q: %w", controllerID, err)
 		}
-		if err := tx.Query(ctx, deleteNodeStmt, node).Run(); err != nil {
-			return errors.Errorf("deleting controller node %q: %w", controllerID, err)
+		if err := tx.Query(ctx, markNodeDeadStmt, node).Run(); err != nil {
+			return errors.Errorf("marking controller node %q dead: %w", controllerID, err)
 		}
 		return nil
 	}))

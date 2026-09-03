@@ -189,6 +189,7 @@ FROM   controller_node AS node
        ON node.controller_id = upgrade_node.controller_node_id
        AND  upgrade_node.upgrade_info_uuid = $ControllerNodeInfo.upgrade_info_uuid
 WHERE  node.dqlite_node_id IS NOT NULL
+AND    node.life_id < 2
 AND    upgrade_node.controller_node_id IS NULL;
 `, count, controllerNodeInfo)
 	if err != nil {

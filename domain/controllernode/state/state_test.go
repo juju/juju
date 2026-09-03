@@ -61,6 +61,27 @@ func (s *stateSuite) TestAddDqliteNodeIDIsIdempotent(c *tc.C) {
 	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
 }
 
+func (s *stateSuite) TestAddDqliteNodeIDDoesNotReviveDeadNode(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE controller_node SET life_id = 2 WHERE controller_id = '1'`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.AddDqliteNodeID(c.Context(), "1")
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
+}
+
+func (s *stateSuite) TestIsControllerNodeWhenDying(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE controller_node SET life_id = 1 WHERE controller_id = '1'`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	isController, err := s.state.IsControllerNode(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isController, tc.IsTrue)
+}
+
 func (s *stateSuite) TestAddDqliteNode(c *tc.C) {
 	db := s.DB()
 
@@ -71,11 +92,13 @@ func (s *stateSuite) TestAddDqliteNode(c *tc.C) {
 
 	nodeID1 := uint64(15237855465837235027)
 	controllerID1 := "1"
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), controllerID1), tc.ErrorIsNil)
 	err = s.state.AddDqliteNode(c.Context(), controllerID1, nodeID1, "10.0.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	nodeID2 := uint64(15237855465837235026)
 	controllerID2 := "2"
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), controllerID2), tc.ErrorIsNil)
 	err = s.state.AddDqliteNode(c.Context(), controllerID2, nodeID2, "10.0.0.2")
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -102,6 +125,7 @@ func (s *stateSuite) TestUpdateDqliteNode(c *tc.C) {
 	// tried to pass it directly as a uint64 query parameter.
 	nodeID := uint64(15237855465837235027)
 	controllerID := "0"
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), controllerID), tc.ErrorIsNil)
 	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -118,6 +142,44 @@ func (s *stateSuite) TestUpdateDqliteNode(c *tc.C) {
 
 	c.Check(id, tc.Equals, nodeID)
 	c.Check(addr, tc.Equals, "192.168.5.60")
+}
+
+func (s *stateSuite) TestAddDqliteNodeDoesNotReviveDeadNode(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE controller_node SET life_id = 2 WHERE controller_id = '1'`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.AddDqliteNode(c.Context(), "1", 123, "10.0.0.1")
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
+
+	var (
+		lifeID int
+		nodeID sql.NullString
+	)
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT life_id, dqlite_node_id
+FROM controller_node
+WHERE controller_id = '1'`).Scan(&lifeID, &nodeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+	c.Check(nodeID.Valid, tc.IsFalse)
+}
+
+func (s *stateSuite) TestAddDqliteNodeDoesNotReviveDyingNode(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE controller_node SET life_id = 1 WHERE controller_id = '1'`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.AddDqliteNode(c.Context(), "1", 123, "10.0.0.1")
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
+
+	var lifeID int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT life_id FROM controller_node WHERE controller_id = '1'`).Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
 }
 
 // TestSelectDatabaseNamespace is testing success for existing namespaces and
