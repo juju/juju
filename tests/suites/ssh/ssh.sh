@@ -7,9 +7,14 @@ test_ssh_machine() {
 	local model_name local_file remote_file copied_file output
 	model_name="test-ssh-machine"
 	add_model "${model_name}"
-
 	juju deploy juju-qa-test ssh-test --base ubuntu@22.04
 	wait_for "ssh-test" "$(idle_condition "ssh-test")"
+
+	# Before the client key is added to the model, SSH must be refused.
+	output=$(juju ssh ssh-test/0 -- printf should-not-run 2>&1)
+	check_contains "${output}" "public key used to authenticate is not associated with model"
+
+	add_client_ssh_key_to_juju_model "${model_name}"
 
 	# Verify command execution on the machine hosting the unit.
 	# shellcheck disable=SC2016
@@ -46,9 +51,14 @@ test_ssh_k8s() {
 	local model_name local_file remote_file copied_file output
 	model_name="test-ssh-k8s"
 	add_model "${model_name}"
-
 	juju deploy snappass-test ssh-test
 	wait_for "ssh-test" "$(idle_condition "ssh-test")"
+
+	# Before the client key is added to the model, SSH must be refused.
+	output=$(juju ssh ssh-test/0 -- printf should-not-run 2>&1)
+	check_contains "${output}" "public key used to authenticate is not associated with model"
+
+	add_client_ssh_key_to_juju_model "${model_name}"
 
 	# The default target is the charm container. The explicit container target
 	# exercises the same route used by sidecar workloads.
