@@ -889,9 +889,9 @@ func (s *serviceSuite) TestMapperFnCloudInstanceUnprovisioned(c *tc.C) {
 	ciChange.EXPECT().Namespace().Return("cloud_instance_ns")
 	ciChange.EXPECT().Changed().Return("uuid-1")
 
-	// Instance ID is empty → not provisioned.
-	s.state.EXPECT().GetInstanceIDsForUUIDs(gomock.Any(), []string{"uuid-1"}).Return(
-		map[string]string{"uuid-1": ""}, nil,
+	// Not provisioned → no names returned.
+	s.state.EXPECT().GetNamesForProvisionedUUIDs(gomock.Any(), []string{"uuid-1"}).Return(
+		map[machine.UUID]machine.Name{}, nil,
 	)
 
 	names, err := mapper(c.Context(), []changestream.ChangeEvent{ciChange})
@@ -922,10 +922,7 @@ func (s *serviceSuite) TestMapperFnCloudInstanceProvisioned(c *tc.C) {
 	ciChange.EXPECT().Namespace().Return("cloud_instance_ns")
 	ciChange.EXPECT().Changed().Return("uuid-1")
 
-	s.state.EXPECT().GetInstanceIDsForUUIDs(gomock.Any(), []string{"uuid-1"}).Return(
-		map[string]string{"uuid-1": "i-abcdef"}, nil,
-	)
-	s.state.EXPECT().GetNamesForUUIDs(gomock.Any(), []string{"uuid-1"}).Return(
+	s.state.EXPECT().GetNamesForProvisionedUUIDs(gomock.Any(), []string{"uuid-1"}).Return(
 		map[machine.UUID]machine.Name{machine.UUID("uuid-1"): machine.Name("1")}, nil,
 	)
 
@@ -961,10 +958,7 @@ func (s *serviceSuite) TestMapperFnMixedChanges(c *tc.C) {
 	ciChange.EXPECT().Namespace().Return("cloud_instance_ns")
 	ciChange.EXPECT().Changed().Return("uuid-1")
 
-	s.state.EXPECT().GetInstanceIDsForUUIDs(gomock.Any(), []string{"uuid-1"}).Return(
-		map[string]string{"uuid-1": "i-abcdef"}, nil,
-	)
-	s.state.EXPECT().GetNamesForUUIDs(gomock.Any(), []string{"uuid-1"}).Return(
+	s.state.EXPECT().GetNamesForProvisionedUUIDs(gomock.Any(), []string{"uuid-1"}).Return(
 		map[machine.UUID]machine.Name{machine.UUID("uuid-1"): machine.Name("1")}, nil,
 	)
 
@@ -973,7 +967,7 @@ func (s *serviceSuite) TestMapperFnMixedChanges(c *tc.C) {
 	c.Check(names, tc.DeepEquals, []string{"0", "1"})
 }
 
-func (s *serviceSuite) TestMapperFnGetInstanceIDsForUUIDsError(c *tc.C) {
+func (s *serviceSuite) TestMapperFnGetNamesForProvisionedUUIDsError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -996,41 +990,7 @@ func (s *serviceSuite) TestMapperFnGetInstanceIDsForUUIDsError(c *tc.C) {
 	ciChange.EXPECT().Namespace().Return("cloud_instance_ns")
 	ciChange.EXPECT().Changed().Return("uuid-1")
 
-	s.state.EXPECT().GetInstanceIDsForUUIDs(gomock.Any(), []string{"uuid-1"}).Return(
-		nil, errors.New("boom"),
-	)
-
-	_, err := mapper(c.Context(), []changestream.ChangeEvent{ciChange})
-	c.Assert(err, tc.ErrorMatches, "boom")
-}
-
-func (s *serviceSuite) TestMapperFnGetNamesForUUIDsError(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	s.state.EXPECT().NamespaceForWatchMachineCloudInstance().Return("cloud_instance_ns")
-
-	svc := &WatchableService{
-		ProviderService: ProviderService{
-			Service: Service{
-				st:            s.state,
-				statusHistory: s.statusHistory,
-				clock:         clock.WallClock,
-				logger:        loggertesting.WrapCheckLog(c),
-			},
-		},
-	}
-
-	mapper := svc.mapperFn()
-
-	ciChange := changestreammocks.NewMockChangeEvent(ctrl)
-	ciChange.EXPECT().Namespace().Return("cloud_instance_ns")
-	ciChange.EXPECT().Changed().Return("uuid-1")
-
-	s.state.EXPECT().GetInstanceIDsForUUIDs(gomock.Any(), []string{"uuid-1"}).Return(
-		map[string]string{"uuid-1": "i-abcdef"}, nil,
-	)
-	s.state.EXPECT().GetNamesForUUIDs(gomock.Any(), []string{"uuid-1"}).Return(
+	s.state.EXPECT().GetNamesForProvisionedUUIDs(gomock.Any(), []string{"uuid-1"}).Return(
 		nil, errors.New("boom"),
 	)
 

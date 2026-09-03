@@ -285,30 +285,12 @@ func (s *WatchableService) mapperFn() func(ctx context.Context, changes []change
 			return machineNames, nil
 		}
 
-		instanceIDs, err := s.st.GetInstanceIDsForUUIDs(ctx, cloudInstanceUUIDs)
+		names, err := s.st.GetNamesForProvisionedUUIDs(ctx, cloudInstanceUUIDs)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-
-		var provisionedUUIDs []string
-		for _, uuid := range cloudInstanceUUIDs {
-			if instanceID, ok := instanceIDs[uuid]; ok && instanceID != "" {
-				provisionedUUIDs = append(provisionedUUIDs, uuid)
-			}
-		}
-
-		if len(provisionedUUIDs) == 0 {
-			return machineNames, nil
-		}
-
-		name, err := s.st.GetNamesForUUIDs(ctx, provisionedUUIDs)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		for _, uuid := range provisionedUUIDs {
-			if machineName, ok := name[machine.UUID(uuid)]; ok {
-				machineNames = append(machineNames, machineName.String())
-			}
+		for _, machineName := range names {
+			machineNames = append(machineNames, machineName.String())
 		}
 		return machineNames, nil
 	}

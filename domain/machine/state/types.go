@@ -168,6 +168,11 @@ type machineName struct {
 	Name string `db:"name"`
 }
 
+type provisionedMachineName struct {
+	UUID string `db:"machine_uuid"`
+	Name string `db:"name"`
+}
+
 type machineUUID struct {
 	UUID string `db:"machine_uuid"`
 }

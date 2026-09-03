@@ -9,8 +9,10 @@ import (
 	"strings"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -411,6 +413,47 @@ AND    m.instance_id != ''`, instanceIDWithUUID{}, uuids)
 		instanceIDs[result.UUID] = result.ID
 	}
 	return instanceIDs, nil
+}
+
+// GetNamesForProvisionedUUIDs returns the machine names for the given machine
+// UUIDs that are provisioned (have a non-empty instance_id). UUIDs without
+// an instance are omitted from the result.
+func (st *State) GetNamesForProvisionedUUIDs(ctx context.Context, machineUUIDs []string) (map[machine.UUID]machine.Name, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type mUUIDs []string
+	uuids := mUUIDs(machineUUIDs)
+
+	stmt, err := st.Prepare(`
+SELECT &provisionedMachineName.*
+FROM   machine_cloud_instance AS mci
+JOIN   machine AS m ON m.uuid = mci.machine_uuid
+WHERE  mci.machine_uuid IN ($mUUIDs[:])
+AND    mci.instance_id IS NOT NULL
+AND    mci.instance_id != ''`, provisionedMachineName{}, uuids)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var results []provisionedMachineName
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		results = nil
+		err := tx.Query(ctx, stmt, uuids).GetAll(&results)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.SliceToMap(results, func(n provisionedMachineName) (machine.UUID, machine.Name) {
+		return machine.UUID(n.UUID), machine.Name(n.Name)
+	}), nil
 }
 
 // GetInstanceIDAndName returns the cloud specific instance ID and display name for
