@@ -93,6 +93,10 @@ type CaasBootstrapFinalizer func(BootstrapContext, *podcfg.ControllerPodConfig, 
 // bootstrap procedure, where the CLI connects to the bootstrap machine
 // to complete the process.
 type BootstrapDialOpts struct {
+	// IdentityFiles are paths to private keys used for the synchronous
+	// bootstrap SSH connection.
+	IdentityFiles []string
+
 	// Timeout is the amount of time to wait contacting a state
 	// server.
 	Timeout time.Duration

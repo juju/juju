@@ -448,7 +448,7 @@ var FinishBootstrap = func(
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
 
-	hostSSHOptions := bootstrapSSHOptionsFunc(instanceConfig)
+	hostSSHOptions := bootstrapSSHOptionsFunc(instanceConfig, opts.IdentityFiles)
 	addr, err := WaitSSH(
 		ctx,
 		ctx.GetStderr(),
@@ -602,11 +602,18 @@ func DefaultHostSSHOptions(string) (*ssh.Options, func(), error) {
 	return nil, func() {}, nil
 }
 
-// bootstrapSSHOptionsFunc that takes a bootstrap machine's InstanceConfig
-// and returns a HostSSHOptionsFunc.
-func bootstrapSSHOptionsFunc(instanceConfig *instancecfg.InstanceConfig) HostSSHOptionsFunc {
+// bootstrapSSHOptionsFunc takes a bootstrap machine's InstanceConfig and an
+// optional bootstrap identity file, then returns a HostSSHOptionsFunc.
+func bootstrapSSHOptionsFunc(instanceConfig *instancecfg.InstanceConfig, identityFiles []string) HostSSHOptionsFunc {
 	return func(host string) (*ssh.Options, func(), error) {
-		return hostBootstrapSSHOptions(host, instanceConfig)
+		options, cleanup, err := hostBootstrapSSHOptions(host, instanceConfig)
+		if err != nil {
+			return nil, cleanup, err
+		}
+		if len(identityFiles) > 0 {
+			options.SetIdentities(identityFiles...)
+		}
+		return options, cleanup, nil
 	}
 }
 

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/schema"
 	"github.com/juju/utils/v4/keyvalues"
+	jujusshtools "github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
@@ -817,6 +818,17 @@ to create a new model to deploy %sworkloads.
 
 	supportedBootstrapBases := corebase.ControllerBases()
 	logger.Tracef(context.TODO(), "supported bootstrap bases %v", supportedBootstrapBases)
+	bootstrapSSHKeyFiles := jujusshtools.PrivateKeyFiles()
+	if len(bootstrapSSHKeyFiles) == 0 {
+		return errors.New("no Juju SSH keys available for bootstrap")
+	}
+	sort.Strings(bootstrapSSHKeyFiles)
+	// Keep both slices in the same deterministic order so each private key is
+	// paired with the corresponding public key during bootstrap.
+	bootstrapSSHAuthorizedKeys, err := ssh.PublicKeysForPrivateKeyFiles(bootstrapSSHKeyFiles)
+	if err != nil {
+		return errors.Annotate(err, "reading Juju bootstrap SSH key")
+	}
 
 	bootstrapParams := bootstrap.BootstrapParams{
 		ControllerName:                c.controllerName,
@@ -832,6 +844,7 @@ to create a new model to deploy %sworkloads.
 		ControllerConfig:              bootstrapCfg.controller,
 		ControllerInheritedConfig:     bootstrapCfg.inheritedControllerAttrs,
 		ControllerModelAuthorizedKeys: bootstrapCfg.bootstrap.AuthorizedKeys,
+		BootstrapSSHAuthorizedKeys:    bootstrapSSHAuthorizedKeys,
 		RegionInheritedConfig:         cloud.RegionConfig,
 		AdminSecret:                   bootstrapCfg.bootstrap.AdminSecret,
 		CAPrivateKey:                  bootstrapCfg.bootstrap.CAPrivateKey,
@@ -843,6 +856,7 @@ to create a new model to deploy %sworkloads.
 		ControllerCharmPath:           c.ControllerCharmPath,
 		ControllerCharmChannel:        c.ControllerCharmChannel,
 		DialOpts: environs.BootstrapDialOpts{
+			IdentityFiles:  bootstrapSSHKeyFiles,
 			Timeout:        bootstrapCfg.bootstrap.BootstrapTimeout,
 			RetryDelay:     bootstrapCfg.bootstrap.BootstrapRetryDelay,
 			AddressesDelay: bootstrapCfg.bootstrap.BootstrapAddressesDelay,

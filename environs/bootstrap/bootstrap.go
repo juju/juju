@@ -104,6 +104,10 @@ type BootstrapParams struct {
 	// for the initial controller model.
 	ControllerModelAuthorizedKeys []string
 
+	// BootstrapSSHAuthorizedKeys are installed on the controller machine only
+	// while synchronous bootstrap configuration is in progress.
+	BootstrapSSHAuthorizedKeys []string
+
 	// RegionInheritedConfig holds region specific configuration attributes to
 	// be shared across all models in the same controller on a particular
 	// cloud.
@@ -688,9 +692,7 @@ func Bootstrap(
 	}
 
 	bootstrapParams := environs.BootstrapParams{
-		// We set the authorized keys that are allowed to ssh to the controller
-		// instance during bootstrap.
-		AuthorizedKeys:             args.ControllerModelAuthorizedKeys,
+		AuthorizedKeys:             args.BootstrapSSHAuthorizedKeys,
 		CloudName:                  args.Cloud.Name,
 		CloudRegion:                args.CloudRegion,
 		ControllerConfig:           args.ControllerConfig,
@@ -773,6 +775,7 @@ func finalizeInstanceBootstrapConfig(
 	}
 	icfg.Bootstrap.StateInitializationParams.AgentVersion = agentVersion
 	icfg.Bootstrap.StateInitializationParams.ControllerModelAuthorizedKeys = args.ControllerModelAuthorizedKeys
+	icfg.Bootstrap.StateInitializationParams.BootstrapSSHAuthorizedKeys = args.BootstrapSSHAuthorizedKeys
 	icfg.Bootstrap.ControllerModelConfig = cfg
 	icfg.Bootstrap.ControllerModelEnvironVersion = environVersion
 	icfg.Bootstrap.CustomImageMetadata = customImageMetadata

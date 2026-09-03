@@ -218,6 +218,7 @@ func (s *bootstrapSuite) TestBootstrapControllerModelAuthorizedKeys(c *tc.C) {
 			ControllerConfig:              coretesting.FakeControllerConfig(),
 			CAPrivateKey:                  coretesting.CAKey,
 			ControllerModelAuthorizedKeys: []string{"key1"},
+			BootstrapSSHAuthorizedKeys:    []string{"key1"},
 			SupportedBootstrapBases:       supportedJujuBases,
 		})
 	c.Assert(err, tc.ErrorIsNil)

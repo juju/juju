@@ -8,6 +8,7 @@ import (
 	"crypto"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -637,12 +638,25 @@ func (s *BootstrapSuite) TestSuccess(c *tc.C) {
 	// Check that we make the SSH connection with desired options.
 	var knownHosts string
 	var hostKeyAlgos string
+	identityFiles := []string{
+		filepath.Join(c.MkDir(), "identity-one"),
+		filepath.Join(c.MkDir(), "identity-two"),
+	}
+	for _, identityFile := range identityFiles {
+		c.Assert(os.WriteFile(identityFile, []byte("key"), 0600), tc.ErrorIsNil)
+	}
 	re := regexp.MustCompile(
 		"ssh '-o' 'StrictHostKeyChecking yes' " +
 			"'-o' 'PasswordAuthentication no' " +
 			"'-o' 'ServerAliveInterval 30' " +
 			"'-o' 'UserKnownHostsFile (.*)' " +
-			"'-o' 'HostKeyAlgorithms (.*)' " +
+			"'-o' 'HostKeyAlgorithms ([^']*)' " +
+			"'-i' '" + regexp.QuoteMeta(identityFiles[0]) + "' " +
+			"'-i' '" + regexp.QuoteMeta(identityFiles[1]) + "' " +
+			// When an identity file is added, the utils/ssh library adds the
+			// default home as well. To avoid messing with the XDG_DATA_HOME,
+			// we just match an additional -i option.
+			"'-i' '[^']+' " +
 			"'ubuntu@testing.invalid' '/bin/bash'")
 	testhelpers.PatchExecutableAsEchoArgs(c, s, "ssh")
 	testhelpers.PatchExecutableAsEchoArgs(c, s, "scp")
@@ -671,7 +685,8 @@ func (s *BootstrapSuite) TestSuccess(c *tc.C) {
 		return nil
 	})
 	err = result.CloudBootstrapFinalizer(ctx, innerInstanceConfig, environs.BootstrapDialOpts{
-		Timeout: coretesting.LongWait,
+		IdentityFiles: identityFiles,
+		Timeout:       coretesting.LongWait,
 	})
 	c.Assert(err, tc.ErrorMatches, "invalid machine configuration: .*") // icfg hasn't been finalized
 	c.Assert(innerInstanceConfig.Bootstrap.InitialSSHHostKeys, tc.HasLen, 3)

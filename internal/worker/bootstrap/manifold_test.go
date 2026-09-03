@@ -141,6 +141,9 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		AgentFinalizer: func(ctx context.Context, aps AgentPasswordService, ms MachineService, sip instancecfg.StateInitializationParams, password string) error {
 			return nil
 		},
+		RemoveBootstrapSSHKeys: func([]string) error {
+			return nil
+		},
 		StatusHistory: s.statusHistory,
 	}
 }

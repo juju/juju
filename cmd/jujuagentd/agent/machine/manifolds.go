@@ -1205,6 +1205,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ControllerUnitPassword:        bootstrap.IAASControllerUnitPassword,
 			BootstrapAddressFinderGetter:  bootstrap.IAASAddressFinder,
 			AgentFinalizer:                bootstrap.IAASAgentFinalizer,
+			RemoveBootstrapSSHKeys:        bootstrap.DeleteBootstrapSSHKeys,
 		}))),
 
 		// The controller proxy config updater uses local domain services
@@ -1453,6 +1454,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ControllerUnitPassword:        bootstrap.CAASControllerUnitPassword,
 			BootstrapAddressFinderGetter:  bootstrap.CAASAddressFinder,
 			AgentFinalizer:                bootstrap.CAASAgentFinalizer,
+			RemoveBootstrapSSHKeys:        func([]string) error { return nil },
 		}))),
 
 		// The controller proxy config updater uses local domain services

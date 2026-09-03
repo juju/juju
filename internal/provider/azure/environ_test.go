@@ -1867,6 +1867,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *tc.C) {
 	err := bootstrap.Bootstrap(
 		ctx, env, bootstrap.BootstrapParams{
 			ControllerModelAuthorizedKeys: authorizedKeys,
+			BootstrapSSHAuthorizedKeys:    authorizedKeys,
 			ControllerConfig:              testing.FakeControllerConfig(),
 			AdminSecret:                   jujutesting.AdminSecret,
 			CAPrivateKey:                  testing.CAKey,
@@ -1933,6 +1934,7 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *tc.C) {
 	err := bootstrap.Bootstrap(
 		ctx, env, bootstrap.BootstrapParams{
 			ControllerModelAuthorizedKeys: authorizedKeys,
+			BootstrapSSHAuthorizedKeys:    authorizedKeys,
 			ControllerConfig:              testing.FakeControllerConfig(),
 			AdminSecret:                   jujutesting.AdminSecret,
 			CAPrivateKey:                  testing.CAKey,

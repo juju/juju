@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/utils/v4/ssh"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/controller"
@@ -44,9 +45,34 @@ const (
 	stateCompleted = "completed"
 )
 
+var bootstrapSSHUser = "ubuntu"
+
+// DeleteBootstrapSSHKeys removes bootstrap-only keys from an IAAS bootstrap
+// machine's standard Ubuntu authorized_keys file.
+func DeleteBootstrapSSHKeys(keys []string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	// IAAS bootstrap machines use the standard Ubuntu account and file. CAAS
+	// bootstrap does not call this helper because it has no Ubuntu host.
+	fingerprints := make([]string, 0, len(keys))
+	for _, key := range keys {
+		fingerprint, _, err := ssh.KeyFingerprint(key)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		fingerprints = append(fingerprints, fingerprint)
+	}
+	return ssh.DeleteKeysFromFile(bootstrapSSHUser, "authorized_keys", fingerprints)
+}
+
 // WorkerConfig encapsulates the configuration options for the
 // bootstrap worker.
 type WorkerConfig struct {
+	// RemoveBootstrapSSHKeys removes the bootstrap-only SSH keys from the
+	// machine.
+	RemoveBootstrapSSHKeys func([]string) error
+
 	ObjectStoreGetter          ObjectStoreGetter
 	ControllerAgentBinaryStore AgentBinaryStore
 	ControllerConfigService    ControllerConfigService
@@ -291,6 +317,10 @@ func (w *bootstrapWorker) loop() error {
 	if err := w.initAPIHostPorts(ctx, controllerConfig, bootstrapAddresses, w.cfg.APIPort); err != nil {
 		w.logger.Errorf(ctx, "unable to set API host ports %v:%w", bootstrapAddresses, err)
 		return errors.Trace(err)
+	}
+
+	if err := w.cfg.RemoveBootstrapSSHKeys(bootstrapParams.BootstrapSSHAuthorizedKeys); err != nil {
+		return errors.Annotate(err, "removing bootstrap SSH keys")
 	}
 
 	// Set the bootstrap flag, to indicate that the bootstrap has completed.

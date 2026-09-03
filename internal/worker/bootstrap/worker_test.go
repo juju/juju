@@ -47,7 +47,8 @@ type workerSuite struct {
 	adminUserID     user.UUID
 	controllerModel coremodel.Model
 
-	states chan string
+	states                 chan string
+	removeBootstrapSSHKeys func([]string) error
 }
 
 func TestWorkerSuite(t *stdtesting.T) {
@@ -57,10 +58,15 @@ func TestWorkerSuite(t *stdtesting.T) {
 }
 
 func (s *workerSuite) SetUpTest(c *tc.C) {
+	s.removeBootstrapSSHKeys = func([]string) error { return nil }
 	s.adminUserID = usertesting.GenUserUUID(c)
 	s.controllerModel = coremodel.Model{
 		UUID: tc.Must0(c, coremodel.NewUUID),
 	}
+}
+
+func (s *workerSuite) TestDeleteBootstrapSSHKeysEmpty(c *tc.C) {
+	c.Assert(DeleteBootstrapSSHKeys(nil), tc.ErrorIsNil)
 }
 
 func (s *workerSuite) TestKilled(c *tc.C) {
@@ -74,6 +80,10 @@ func (s *workerSuite) TestKilled(c *tc.C) {
 	s.expectControllerConfig()
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
+	s.removeBootstrapSSHKeys = func(keys []string) error {
+		c.Check(keys, tc.DeepEquals, []string{"bootstrap-ssh-key"})
+		return nil
+	}
 	s.expectReloadSpaces()
 	s.expectSeedDefaultStoragePools()
 	s.expectInitialiseBakeryConfig(nil)
@@ -86,6 +96,28 @@ func (s *workerSuite) TestKilled(c *tc.C) {
 	s.ensureFinished(c)
 
 	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestDeleteBootstrapSSHKeysError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.ensureBootstrapParams(c)
+	s.domainServices.EXPECT().Flag().AnyTimes()
+	s.expectUser(c)
+	s.expectAuthorizedKeys()
+	s.expectControllerConfig()
+	s.expectObjectStoreGetter(2)
+	s.expectReloadSpaces()
+	s.expectSeedDefaultStoragePools()
+	s.expectInitialiseBakeryConfig(nil)
+	s.expectSetAPIHostPorts()
+	s.removeBootstrapSSHKeys = func([]string) error {
+		return errors.New("cannot remove bootstrap keys")
+	}
+
+	w := s.newWorker(c)
+	err := workertest.CheckKilled(c, w)
+	c.Check(err, tc.ErrorMatches, `removing bootstrap SSH keys: cannot remove bootstrap keys`)
 }
 
 func (s *workerSuite) TestReloadSpacesBeforeControllerCharm(c *tc.C) {
@@ -246,6 +278,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 
 func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc ControllerCharmDeployerFunc) worker.Worker {
 	w, err := newWorker(WorkerConfig{
+		RemoveBootstrapSSHKeys:     s.removeBootstrapSSHKeys,
 		ObjectStoreGetter:          s.objectStoreGetter,
 		BootstrapUnlocker:          s.bootstrapUnlocker,
 		DataDir:                    s.dataDir,
@@ -402,6 +435,7 @@ func (s *workerSuite) ensureBootstrapParams(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	args := instancecfg.StateInitializationParams{
+		BootstrapSSHAuthorizedKeys:  []string{"bootstrap-ssh-key"},
 		ControllerModelConfig:       cfg,
 		BootstrapMachineConstraints: constraints.MustParse("mem=1G"),
 		BootstrapMachineInstanceId:  instance.Id("i-deadbeef"),
