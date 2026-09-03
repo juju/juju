@@ -45,7 +45,11 @@ func (s *environNetSuite) TestSubnetsForClustered(c *tc.C) {
 		},
 	}, nil)
 
-	srv.EXPECT().GetNetworkNames().Return([]string{"ovs-system", "lxdbr0", "phys-nic-0"}, nil)
+	srv.EXPECT().GetNetworks().Return([]lxdapi.Network{
+		{Name: "ovs-system", Type: "bridge"},
+		{Name: "lxdbr0", Type: "bridge"},
+		{Name: "phys-nic-0", Type: "physical"},
+	}, nil)
 	srv.EXPECT().GetNetworkState("ovs-system").Return(&lxdapi.NetworkState{
 		Type:   "broadcast",
 		State:  "down", // should be filtered out because it's down
@@ -107,12 +111,65 @@ func (s *environNetSuite) TestSubnetsForClustered(c *tc.C) {
 	c.Assert(subnets, tc.DeepEquals, expSubnets)
 }
 
+func (s *environNetSuite) TestSubnetsForOVN(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	srv := lxd.NewMockServer(ctrl)
+	srv.EXPECT().IsClustered().Return(false)
+	srv.EXPECT().Name().Return("locutus")
+	srv.EXPECT().GetNetworks().Return([]lxdapi.Network{
+		{Name: "ovn-net", Type: "ovn"},
+		{Name: "physical-net", Type: "physical"},
+	}, nil)
+	srv.EXPECT().GetNetworkState("ovn-net").Return(&lxdapi.NetworkState{
+		Type:  "broadcast",
+		State: "up",
+		Addresses: []lxdapi.NetworkStateAddress{
+			{
+				Family:  "inet",
+				Address: "10.248.0.1",
+				Netmask: "24",
+				Scope:   "global",
+			},
+		},
+	}, nil)
+	// This network has an address but is not backed by a bridge or OVN. It
+	// must not be reported as a provider subnet.
+	srv.EXPECT().GetNetworkState("physical-net").Return(&lxdapi.NetworkState{
+		Type:  "broadcast",
+		State: "up",
+		Addresses: []lxdapi.NetworkStateAddress{
+			{
+				Family:  "inet",
+				Address: "10.246.27.1",
+				Netmask: "24",
+				Scope:   "global",
+			},
+		},
+	}, nil)
+
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
+
+	subnets, err := env.Subnets(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(subnets, tc.DeepEquals, []network.SubnetInfo{
+		{
+			CIDR:              "10.248.0.0/24",
+			ProviderId:        "10.248.0.0/24",
+			ProviderNetworkId: "ovn-net",
+			AvailabilityZones: []string{"locutus"},
+		},
+	})
+}
+
 func (s *environNetSuite) TestSubnetsForSubnetFiltering(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	srv := lxd.NewMockServer(ctrl)
-	srv.EXPECT().GetNetworkNames().Return([]string{"lxdbr0"}, nil)
+	srv.EXPECT().GetNetworks().Return([]lxdapi.Network{{Name: "lxdbr0", Type: "bridge"}}, nil)
 	srv.EXPECT().GetNetworkState("lxdbr0").Return(&lxdapi.NetworkState{
 		Type:   "broadcast",
 		State:  "up",
