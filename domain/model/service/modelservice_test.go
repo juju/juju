@@ -327,8 +327,8 @@ func (s *modelServiceSuite) TestCreateModelAgentVersionUnsupportedGreater(c *tc.
 		DefaultAgentBinaryFinder(),
 	)
 
-	err = svc.CreateModelWithAgentVersion(
-		c.Context(), agentVersion,
+	err = svc.CreateModel(
+		c.Context(), agentVersion, agentbinary.AgentStreamReleased,
 	)
 	c.Assert(err, tc.ErrorIs, modelerrors.AgentVersionNotSupported)
 }
@@ -357,15 +357,15 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedLess(c *tc.C) {
 		s.environVersionProviderGetter(),
 		DefaultAgentBinaryFinder(),
 	)
-	err = svc.CreateModelWithAgentVersion(
-		c.Context(), agentVersion,
+	err = svc.CreateModel(
+		c.Context(), agentVersion, agentbinary.AgentStreamReleased,
 	)
 	// Add the correct error detail when restoring this test.
 	c.Assert(err, tc.NotNil)
 }
 
 // TestCreateModelForVersionInvalidStream is testing that when
-// [ModelService.CreateModelForVersionAndStream] is called with an agent stream
+// [ModelService.CreateModel] is called with an agent stream
 // that isn't understood or supported we get back an error that satisfies
 // [modelerrors.AgentStreamNotValid].
 func (s *modelServiceSuite) TestCreateModelForVersionInvalidStream(c *tc.C) {
@@ -381,7 +381,7 @@ func (s *modelServiceSuite) TestCreateModelForVersionInvalidStream(c *tc.C) {
 		s.environVersionProviderGetter(),
 		DefaultAgentBinaryFinder(),
 	)
-	err := svc.CreateModelWithAgentVersionStream(
+	err := svc.CreateModel(
 		c.Context(),
 		jujuversion.Current,
 		agentbinary.AgentStream("bad stream"),
@@ -390,7 +390,7 @@ func (s *modelServiceSuite) TestCreateModelForVersionInvalidStream(c *tc.C) {
 }
 
 // TestCreateModelWithAgentStream is testing that when
-// [ModelService.CreateModelWithAgentStream] is called with a valid agent
+// [ModelService.CreateModel] is called with a valid agent
 // stream, the model is created with the current Juju version and the
 // supplied stream.
 func (s *modelServiceSuite) TestCreateModelWithAgentStream(c *tc.C) {
@@ -430,15 +430,16 @@ func (s *modelServiceSuite) TestCreateModelWithAgentStream(c *tc.C) {
 		s.environVersionProviderGetter(),
 		DefaultAgentBinaryFinder(),
 	)
-	err := svc.CreateModelWithAgentStream(
+	err := svc.CreateModel(
 		c.Context(),
+		semversion.Zero,
 		agentbinary.AgentStreamTesting,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestCreateModelWithAgentStreamInvalidStream is testing that when
-// [ModelService.CreateModelWithAgentStream] is called with an agent stream
+// [ModelService.CreateModel] is called with an agent stream
 // that isn't understood or supported we get back an error that satisfies
 // [modelerrors.AgentStreamNotValid].
 func (s *modelServiceSuite) TestCreateModelWithAgentStreamInvalidStream(c *tc.C) {
@@ -454,8 +455,9 @@ func (s *modelServiceSuite) TestCreateModelWithAgentStreamInvalidStream(c *tc.C)
 		s.environVersionProviderGetter(),
 		DefaultAgentBinaryFinder(),
 	)
-	err := svc.CreateModelWithAgentStream(
+	err := svc.CreateModel(
 		c.Context(),
+		semversion.Zero,
 		agentbinary.AgentStream("bad stream"),
 	)
 	c.Check(err, tc.ErrorIs, modelerrors.AgentStreamNotValid)
@@ -1207,8 +1209,103 @@ func (s *providerModelServiceSuite) TestCreateModel(c *tc.C) {
 	s.mockProvider.EXPECT().CreateModelResources(gomock.Any(), environs.CreateParams{ControllerUUID: controllerUUID.String()}).Return(nil)
 
 	svc := s.providerService(c, modelUUID)
-	err := svc.CreateModel(c.Context())
+	err := svc.CreateModel(c.Context(), semversion.Zero, agentbinary.AgentStreamZero)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestCreateModelSeedingInvariants is a regression test asserting that
+// whatever combination of zero/non-zero agent version and stream inputs is
+// passed to [ProviderModelService.CreateModel], it always runs the
+// full provider setup chain: creating model info, seeding default storage
+// pools, and validating/creating provider resources. This locks in the
+// consolidation that replaced the variant-specific methods, one of which
+// bypassed the seeding via embedded promotion.
+func (s *providerModelServiceSuite) TestCreateModelSeedingInvariants(c *tc.C) {
+	cases := []struct {
+		name          string
+		version       semversion.Number
+		stream        agentbinary.AgentStream
+		expectStream  domainagentbinary.Stream
+		expectVersion semversion.Number
+	}{
+		{
+			name:          "bothZero",
+			version:       semversion.Zero,
+			stream:        agentbinary.AgentStreamZero,
+			expectStream:  domainagentbinary.AgentStreamReleased,
+			expectVersion: jujuversion.Current,
+		},
+		{
+			name:          "streamOnly",
+			version:       semversion.Zero,
+			stream:        agentbinary.AgentStreamTesting,
+			expectStream:  domainagentbinary.AgentStreamTesting,
+			expectVersion: jujuversion.Current,
+		},
+		{
+			name:          "versionOnly",
+			version:       jujuversion.Current,
+			stream:        agentbinary.AgentStreamZero,
+			expectStream:  domainagentbinary.AgentStreamReleased,
+			expectVersion: jujuversion.Current,
+		},
+		{
+			name:          "bothSet",
+			version:       jujuversion.Current,
+			stream:        agentbinary.AgentStreamTesting,
+			expectStream:  domainagentbinary.AgentStreamTesting,
+			expectVersion: jujuversion.Current,
+		},
+	}
+
+	for _, testCase := range cases {
+		ctrl := s.setupMocks(c)
+		controllerUUID := uuid.MustNewUUID()
+		modelUUID := tc.Must(c, coremodel.NewUUID)
+
+		defaultPool := s.newDefaultStoragePool(c, ctrl)
+		s.mockStorageProviderRegistry.EXPECT().RecommendedPoolForKind(
+			internalstorage.StorageKindFilesystem,
+		).Return(defaultPool.AsConfig())
+		s.mockStorageProviderRegistry.EXPECT().RecommendedPoolForKind(
+			internalstorage.StorageKindBlock,
+		).Return(nil).AnyTimes()
+
+		s.mockControllerState.EXPECT().GetModelSeedInformation(gomock.Any(), modelUUID).Return(coremodel.ModelInfo{
+			UUID:           modelUUID,
+			ControllerUUID: controllerUUID,
+			Name:           "my-awesome-model",
+			Qualifier:      "prod",
+			Cloud:          "aws",
+			CloudType:      "ec2",
+			CloudRegion:    "myregion",
+			Type:           coremodel.IAAS,
+		}, nil)
+		s.mockModelState.EXPECT().Create(gomock.Any(), model.ModelDetailArgs{
+			UUID:               modelUUID,
+			ControllerUUID:     controllerUUID,
+			Name:               "my-awesome-model",
+			Qualifier:          "prod",
+			Type:               coremodel.IAAS,
+			Cloud:              "aws",
+			CloudType:          "ec2",
+			CloudRegion:        "myregion",
+			AgentStream:        testCase.expectStream,
+			AgentVersion:       testCase.expectVersion,
+			LatestAgentVersion: testCase.expectVersion,
+		}).Return(nil)
+
+		s.mockModelState.EXPECT().EnsureDefaultStoragePools(gomock.Any(), defaultPool).Return(nil)
+		s.mockModelState.EXPECT().SetModelStoragePools(gomock.Any(), gomock.Any()).Return(nil)
+		s.mockModelState.EXPECT().GetControllerUUID(gomock.Any()).Return(controllerUUID, nil)
+		s.mockProvider.EXPECT().ValidateProviderForNewModel(gomock.Any()).Return(nil)
+		s.mockProvider.EXPECT().CreateModelResources(gomock.Any(), environs.CreateParams{ControllerUUID: controllerUUID.String()}).Return(nil)
+
+		svc := s.providerService(c, modelUUID)
+		err := svc.CreateModel(c.Context(), testCase.version, testCase.stream)
+		c.Check(err, tc.ErrorIsNil, tc.Commentf("subtest %q", testCase.name))
+		ctrl.Finish()
+	}
 }
 
 func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *tc.C) {
@@ -1242,7 +1339,7 @@ func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *t
 	}).Return(modelerrors.AlreadyExists)
 
 	svc := s.providerService(c, modelUUID)
-	err := svc.CreateModel(c.Context())
+	err := svc.CreateModel(c.Context(), semversion.Zero, agentbinary.AgentStreamZero)
 	c.Assert(err, tc.ErrorIs, modelerrors.AlreadyExists)
 }
 

@@ -211,6 +211,179 @@ func (s *subordinateUnitSuite) TestAddSubordinateUnitAlreadyRelated(c *tc.C) {
 	c.Check(obtainedData.SubordinateCreated(), tc.Equals, false)
 }
 
+// TestAddSubordinateUnitEnteringUnitIsSubordinate ensures that when a
+// subordinate unit enters scope in a container scoped relation with another
+// subordinate application, the created unit is keyed to the principal of the
+// entering unit, and not to the entering subordinate unit itself. Otherwise
+// the relation-joined hook of the newly created unit spawns a new unit of
+// the other application, and so on without ever terminating.
+// See https://github.com/juju/juju/issues/23049.
+func (s *subordinateUnitSuite) TestAddSubordinateUnitEnteringUnitIsSubordinate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: add principal application with 1 unit on a machine.
+	principalCharmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, principalCharmUUID, false)
+	principalApplicationUUID := s.addApplication(c, principalCharmUUID, "pri")
+	principalUnitName := coreunittesting.GenNewName(c, "pri/0")
+	principalUnitUUID := s.addUnit(c, principalUnitName, principalApplicationUUID, principalCharmUUID)
+	principalMachineName, principalMachineUUID := s.addMachineToUnit(c, principalUnitUUID.String())
+	principalUnitNetNode := s.getUnitNetNode(c, principalUnitUUID.String())
+
+	// Arrange: add a first subordinate application, with a unit already
+	// attached to the principal unit, as if it was created by its own
+	// container scoped relation with the principal application.
+	subordinate1CharmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, subordinate1CharmUUID, true)
+	subordinate1ApplicationUUID := s.addApplication(c, subordinate1CharmUUID, "sub1")
+	subordinate1UnitName := coreunittesting.GenNewName(c, "sub1/0")
+	subordinate1UnitUUID := s.addUnit(c, subordinate1UnitName, subordinate1ApplicationUUID, subordinate1CharmUUID)
+	// The subordinate unit lives on the machine of the principal unit, so it
+	// shares its net node.
+	s.setUnitNetNode(c, subordinate1UnitUUID.String(), principalUnitNetNode)
+	s.query(c, `
+INSERT INTO unit_principal (unit_uuid, principal_uuid)
+VALUES (?, ?)
+`, subordinate1UnitUUID, principalUnitUUID)
+
+	// Arrange: add a second subordinate application, with no unit yet.
+	subordinate2CharmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, subordinate2CharmUUID, true)
+	subordinate2ApplicationUUID := s.addApplication(c, subordinate2CharmUUID, "sub2")
+	subordinate2UnitName := coreunittesting.GenNewName(c, "sub2/0")
+
+	// Arrange: relate the two subordinate applications in a container
+	// scoped relation, and make the first subordinate unit enter scope.
+	relationUUID, subordinate1RelationEndpointUUID, _ := s.addContainerScopedRelation(
+		c, subordinate1ApplicationUUID, subordinate1CharmUUID,
+		subordinate2ApplicationUUID, subordinate2CharmUUID)
+	relationUnitUUID := s.addRelationUnit(c, subordinate1UnitUUID, subordinate1RelationEndpointUUID)
+
+	// Arrange: expect the call to InsertIAASUnit, placed on the machine of
+	// the entering unit's principal unit.
+	args := domainapplication.AddIAASUnitArg{
+		MachineNetNodeUUID: principalUnitNetNode,
+		MachineUUID:        principalMachineUUID,
+		AddUnitArg: domainapplication.AddUnitArg{
+			UnitStatusArg: domainapplication.UnitStatusArg{
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusAllocating,
+				},
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusWaiting,
+					Message: corestatus.MessageWaitForMachine,
+				},
+			},
+			Placement: deployment.Placement{
+				Type:      deployment.PlacementTypeMachine,
+				Directive: principalMachineName.String(),
+			},
+			NetNodeUUID: principalUnitNetNode,
+		},
+	}
+	s.insertIAASUnitState.EXPECT().InsertIAASUnit(
+		gomock.Any(), gomock.Any(), subordinate2ApplicationUUID.String(), subordinate2CharmUUID.String(), addIAASUnitArgMatcher{
+			c:        c,
+			expected: args,
+		}).DoAndReturn(
+		func(ctx context.Context, tx *sqlair.TX, appUUID, charmUUID string, arg domainapplication.AddIAASUnitArg) (coreunit.Name, []coremachine.Name, error) {
+			// Mirror the real state behavior: the unit row is inserted with
+			// the uuid and net node passed in by the caller, so that the
+			// principal-subordinate relationship can be recorded.
+			if err := s.insertUnitInTx(ctx, tx, arg.UnitUUID.String(), subordinate2UnitName.String(), appUUID, charmUUID, arg.NetNodeUUID); err != nil {
+				return "", nil, err
+			}
+			return subordinate2UnitName, []coremachine.Name{principalMachineName}, nil
+		})
+
+	// Act
+	var (
+		err          error
+		obtainedData internal.SubordinateUnitStatusHistoryData
+	)
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		obtainedData, err = s.state.addSubordinateUnit(ctx, tx, relationUUID.String(), relationUnitUUID.String(), subordinate1UnitUUID.String())
+		return err
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedData.SubordinateCreated(), tc.IsTrue)
+	// The new unit must be keyed to the principal of the entering unit, on
+	// top of the existing first subordinate unit.
+	s.checkUnitPrincipalCount(c, principalUnitUUID.String(), 2)
+	// ... and not to the entering subordinate unit.
+	s.checkUnitPrincipalCount(c, subordinate1UnitUUID.String(), 0)
+}
+
+// TestAddSubordinateUnitAlreadyExistsUnderEnteringUnitPrincipal ensures that
+// no subordinate unit is created when a unit of the related subordinate
+// application already exists under the principal of the unit entering scope,
+// even when the entering unit is itself a subordinate.
+// See https://github.com/juju/juju/issues/23049.
+func (s *subordinateUnitSuite) TestAddSubordinateUnitAlreadyExistsUnderEnteringUnitPrincipal(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: add principal application with 1 unit on a machine.
+	principalCharmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, principalCharmUUID, false)
+	principalApplicationUUID := s.addApplication(c, principalCharmUUID, "pri")
+	principalUnitName := coreunittesting.GenNewName(c, "pri/0")
+	principalUnitUUID := s.addUnit(c, principalUnitName, principalApplicationUUID, principalCharmUUID)
+	principalUnitNetNode := s.getUnitNetNode(c, principalUnitUUID.String())
+	s.addMachineToUnit(c, principalUnitUUID.String())
+
+	// Arrange: add a first subordinate application, with a unit already
+	// attached to the principal unit.
+	subordinate1CharmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, subordinate1CharmUUID, true)
+	subordinate1ApplicationUUID := s.addApplication(c, subordinate1CharmUUID, "sub1")
+	subordinate1UnitName := coreunittesting.GenNewName(c, "sub1/0")
+	subordinate1UnitUUID := s.addUnit(c, subordinate1UnitName, subordinate1ApplicationUUID, subordinate1CharmUUID)
+	// The subordinate unit lives on the machine of the principal unit, so it
+	// shares its net node.
+	s.setUnitNetNode(c, subordinate1UnitUUID.String(), principalUnitNetNode)
+	s.query(c, `
+INSERT INTO unit_principal (unit_uuid, principal_uuid)
+VALUES (?, ?)
+`, subordinate1UnitUUID, principalUnitUUID)
+
+	// Arrange: add a second subordinate application, with a unit already
+	// attached to the principal unit as well.
+	subordinate2CharmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, subordinate2CharmUUID, true)
+	subordinate2ApplicationUUID := s.addApplication(c, subordinate2CharmUUID, "sub2")
+	subordinate2UnitName := coreunittesting.GenNewName(c, "sub2/0")
+	subordinate2UnitUUID := s.addUnit(c, subordinate2UnitName, subordinate2ApplicationUUID, subordinate2CharmUUID)
+	s.query(c, `
+INSERT INTO unit_principal (unit_uuid, principal_uuid)
+VALUES (?, ?)
+`, subordinate2UnitUUID, principalUnitUUID)
+
+	// Arrange: relate the two subordinate applications in a container
+	// scoped relation, and make the first subordinate unit enter scope.
+	relationUUID, subordinate1RelationEndpointUUID, _ := s.addContainerScopedRelation(
+		c, subordinate1ApplicationUUID, subordinate1CharmUUID,
+		subordinate2ApplicationUUID, subordinate2CharmUUID)
+	relationUnitUUID := s.addRelationUnit(c, subordinate1UnitUUID, subordinate1RelationEndpointUUID)
+
+	// No call to InsertIAASUnit is expected.
+
+	// Act
+	var (
+		err          error
+		obtainedData internal.SubordinateUnitStatusHistoryData
+	)
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		obtainedData, err = s.state.addSubordinateUnit(ctx, tx, relationUUID.String(), relationUnitUUID.String(), subordinate1UnitUUID.String())
+		return err
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtainedData.SubordinateCreated(), tc.IsFalse)
+}
+
 func (s *subordinateUnitSuite) TestAddSubordinateUnitSubordinateNotAlive(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -412,6 +585,55 @@ func (s *subordinateUnitSuite) checkUnitPrincipal(c *tc.C, principal, subordinat
 	err := row.Scan(&count)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 1, tc.Commentf("q: %s", qry))
+}
+
+// checkUnitPrincipalCount checks the number of units keyed to the given
+// principal unit in the unit_principal table.
+func (s *subordinateUnitSuite) checkUnitPrincipalCount(c *tc.C, principal string, expected int) {
+	qry := `SELECT count(*) FROM unit_principal WHERE principal_uuid = ?`
+	row := s.DB().QueryRow(qry, principal)
+	var count int
+	err := row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, expected, tc.Commentf("q: %s", qry))
+}
+
+// setUnitNetNode updates the net node of a unit.
+func (s *subordinateUnitSuite) setUnitNetNode(c *tc.C, unitUUID string, netNodeUUID network.NetNodeUUID) {
+	s.query(c, `
+UPDATE unit SET net_node_uuid = ? WHERE uuid = ?
+`, netNodeUUID, unitUUID)
+}
+
+// insertUnitInTx inserts a unit row within the given transaction, mirroring
+// what the real InsertIAASUnit state does. The net node must already exist.
+func (s *subordinateUnitSuite) insertUnitInTx(
+	ctx context.Context, tx *sqlair.TX,
+	unitUUID, unitName, appUUID, charmUUID string,
+	netNodeUUID network.NetNodeUUID,
+) error {
+	type unitRow struct {
+		UnitUUID        string `db:"unit_uuid"`
+		Name            string `db:"name"`
+		ApplicationUUID string `db:"application_uuid"`
+		CharmUUID       string `db:"charm_uuid"`
+		NetNodeUUID     string `db:"net_node_uuid"`
+	}
+	arg := unitRow{
+		UnitUUID:        unitUUID,
+		Name:            unitName,
+		ApplicationUUID: appUUID,
+		CharmUUID:       charmUUID,
+		NetNodeUUID:     netNodeUUID.String(),
+	}
+	stmt, err := s.state.Prepare(`
+INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid)
+VALUES ($unitRow.unit_uuid, $unitRow.name, 0, $unitRow.application_uuid, $unitRow.charm_uuid, $unitRow.net_node_uuid)
+`, arg)
+	if err != nil {
+		return err
+	}
+	return tx.Query(ctx, stmt, arg).Run()
 }
 
 type addIAASUnitArgMatcher struct {

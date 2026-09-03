@@ -167,27 +167,10 @@ type ModelDefaultsService interface {
 // state.
 type ModelInfoService interface {
 	// CreateModel is responsible for creating a new model within the model
-	// database. Upon creating the model any information required in the model's
-	// provider will be initialised.
-	CreateModel(context.Context) error
-
-	// CreateModelWithAgentVersion is responsible for creating a new model within
-	// the model database using the specified agent version. Upon creating the
-	// model any information required in the model's provider will be
-	// initialised.
-	CreateModelWithAgentVersion(context.Context, semversion.Number) error
-
-	// CreateModelWithAgentStream is responsible for creating a new model within
-	// the model database using the specified agent stream. Upon creating the
-	// model any information required in the model's provider will be
-	// initialised.
-	CreateModelWithAgentStream(context.Context, agentbinary.AgentStream) error
-
-	// CreateModelWithAgentVersionStream is responsible for creating a new model
-	// within the model database using the specified agent version and agent
-	// stream. Upon creating the model any information required in the model's
-	// provider will be initialised.
-	CreateModelWithAgentVersionStream(
+	// database using the input agent version and agent stream. If either is
+	// the zero value a sensible default is used. Upon creating the model any
+	// information required in the model's provider will be initialised.
+	CreateModel(
 		context.Context, semversion.Number, agentbinary.AgentStream,
 	) error
 

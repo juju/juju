@@ -2136,28 +2136,14 @@ func (st *State) getPrincipalApplicationOfUnit(
 	tx *sqlair.TX,
 	unitUUID string,
 ) (string, error) {
-	principal := getPrincipal{
-		UnitUUID: unitUUID,
-	}
-
-	stmt, err := st.Prepare(`
-SELECT &getPrincipal.application_uuid
-FROM   unit u
-JOIN   unit_principal up ON up.principal_uuid = u.uuid
-WHERE  up.unit_uuid = $getPrincipal.unit_uuid
-`, principal)
+	principalUnitUUID, found, err := st.getUnitPrincipalUUID(ctx, tx, unitUUID)
 	if err != nil {
 		return "", errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, stmt, principal).Get(&principal)
-	if errors.Is(sql.ErrNoRows, err) {
+	} else if !found {
 		return "", relationerrors.UnitPrincipalNotFound
-	} else if err != nil {
-		return "", errors.Capture(err)
 	}
 
-	return principal.ApplicationUUID, nil
+	return st.getApplicationUUIDByUnitUUID(ctx, tx, principalUnitUUID)
 }
 
 // insertRelationUnit inserts a relation unit record if it doesn't exist.
