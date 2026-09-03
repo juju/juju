@@ -308,7 +308,17 @@ extensions = [
     'sphinx_new_tab_link',
     'sphinxcontrib.lightbox2',
     'ibnote',
+    'sphinxcontrib.mermaid',
+    'sphinxcontrib_d2',
+    'ggarch.sphinxcontrib_ggarch',
 ]
+
+# D2 diagram configuration
+# Install d2: curl -fsSL https://d2lang.com/install.sh | sh
+d2_cmd = os.path.expanduser("~/.local/bin/d2")
+d2_layout = "elk"
+d2_light_theme = 0    # D2 default light theme
+d2_dark_theme = 200   # D2 default dark theme
 
 # Customize sphinx_llm.txt
 ## Add project summary:

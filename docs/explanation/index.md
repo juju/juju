@@ -15,6 +15,7 @@ Discussion and clarification of key topics, providing background information and
 :glob:
 
 Architecture <juju-architecture>
+Architecture (new draft) <architecture>
 Security <juju-security>
 Performance <juju-performance>
 Application modelling <application-modelling>
@@ -24,9 +25,9 @@ About charming history <charming-history>
 
 ## Juju at a glance
 
-Fundamental concepts about how Juju works, its architecture, security model, and performance characteristics.
 
 - {ref}`Architecture <juju-architecture>`
+- {ref}`Architecture (new draft) <architecture>`
 - {ref}`Security <juju-security>`
 - {ref}`Performance <performance-with-juju>`
 
