@@ -289,6 +289,7 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 	}
 
 	config := caas.ApplicationConfig{
+		Controller:           appName == coreapplication.ControllerApplicationName,
 		IsPrivateImageRepo:   pi.ImageDetails.IsPrivate(),
 		IntroductionSecret:   password,
 		AgentVersion:         pi.Version,
@@ -320,6 +321,9 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		config.CharmUser = caas.RunAsNonRoot
 	default:
 		return errors.NotValidf("unknown RunAs for CharmUser: %q", pi.CharmMeta.CharmUser)
+	}
+	if config.Controller {
+		config.CharmUser = caas.RunAsNonRoot
 	}
 	reason := "unchanged"
 	// TODO(sidecar): implement Equals method for caas.ApplicationConfig
@@ -614,10 +618,10 @@ func waitForTerminated(appName string, app caas.Application,
 }
 
 // reconcileDeadUnitScale is setup to respond to CAAS sidecar units that become
-// dead. It takes stock of what the current desired scale is for the application
-// and the number of dead units in the application. Once the number of dead units
-// has reached the point where the desired scale has been achieved this func
-// can go ahead and remove the units from CAAS provider.
+// dead. It takes stock of the desired scale and dead units outside the retained
+// ordinal range. It removes their Juju unit records before scaling the CAAS
+// provider so peer-relation departure hooks can finish while the pods remain
+// available.
 func reconcileDeadUnitScale(
 	ctx context.Context,
 	appName string, appUUID coreapplication.UUID, app caas.Application,
@@ -653,15 +657,32 @@ func reconcileDeadUnitScale(
 		}
 	}
 
-	// We haven't met the threshold to initiate scale down in the CAAS provider
-	// yet.
-	if unitsToRemove != len(deadUnits) || len(deadUnits) == 0 {
+	// Wait for every unit outside the retained range to be dead. A dead unit
+	// still needs its removal job to depart peer relations before its pod can
+	// be stopped; otherwise the remaining units cannot consume that departure.
+	if unitsToRemove != len(deadUnits) {
+		return nil
+	}
+	if len(deadUnits) > 0 {
+		sort.Slice(deadUnits, func(i, j int) bool {
+			return deadUnits[i].Number() < deadUnits[j].Number()
+		})
+		for _, deadUnit := range deadUnits {
+			logger.Infof(ctx, "removing dead unit %s", deadUnit)
+			if err := facade.RemoveUnit(ctx, string(deadUnit)); err != nil && !errors.Is(err, errors.NotFound) {
+				return fmt.Errorf("removing dead unit %q: %w", deadUnit, err)
+			}
+		}
+		return tryAgain
+	}
+
+	if ps.StartOrdinal == 0 || len(unitNamesAndLives) > desiredScale {
 		return nil
 	}
 
 	storageUniqueID := getStorageUniqueID(appUUID)
 	err = ensureScaleWithFsAttachments(
-		ctx, appName, appUUID, app, desiredScale,
+		ctx, appName, app, desiredScale, ps.StartOrdinal,
 		facade, logger, storageUniqueID)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return fmt.Errorf(
@@ -681,17 +702,7 @@ func reconcileDeadUnitScale(
 		return tryAgain
 	}
 
-	sort.Slice(deadUnits, func(i, j int) bool {
-		return deadUnits[i].Number() < deadUnits[j].Number()
-	})
-	for _, deadUnit := range deadUnits {
-		logger.Infof(ctx, "removing dead unit %s", deadUnit)
-		if err := facade.RemoveUnit(ctx, string(deadUnit)); err != nil && !errors.Is(err, errors.NotFound) {
-			return fmt.Errorf("removing dead unit %q: %w", deadUnit, err)
-		}
-	}
-
-	return updateProvisioningState(ctx, appName, false, 0, applicationService)
+	return updateProvisioningState(ctx, appName, false, 0, ps.StartOrdinal, applicationService)
 }
 
 // ensureScale determines how and when to scale up or down based on
@@ -724,8 +735,9 @@ func ensureScale(
 	}
 
 	logger.Debugf(ctx, "updating application %q scale to %d", appName, desiredScale)
-	if !ps.Scaling || appLife != life.Alive {
-		err := updateProvisioningState(ctx, appName, true, desiredScale, applicationService)
+	startedScaling := !ps.Scaling || appLife != life.Alive
+	if startedScaling {
+		err := updateProvisioningState(ctx, appName, true, desiredScale, ps.StartOrdinal, applicationService)
 		if err != nil {
 			return err
 		}
@@ -736,6 +748,22 @@ func ensureScale(
 	units, err := applicationService.GetAllUnitLifeForApplication(ctx, appUUID)
 	if err != nil {
 		return err
+	}
+	// Determine whether we need to select which units to remove for scale-down.
+	// This triggers when:
+	//   - The app is alive and we're scaling down (desiredScale < len(units))
+	//   - AND either we just started scaling (startedScaling) OR the
+	//     startOrdinal hasn't been advanced yet (ps.StartOrdinal == 0)
+	//
+	// On first detection, we compute the new startOrdinal to shift the
+	// StatefulSet range past the units being removed, preventing stale
+	// ordinals from being reused on subsequent scale-ups.
+	if appLife == life.Alive && desiredScale < len(units) && (startedScaling || ps.StartOrdinal == 0) {
+		startOrdinal := unitRemovalThreshold(units, desiredScale)
+		if err := applicationService.SetApplicationScalingStateWithStart(ctx, appName, desiredScale, startOrdinal, true); err != nil {
+			return errors.Trace(err)
+		}
+		ps.StartOrdinal = startOrdinal
 	}
 
 	if ps.ScaleTarget >= len(units) {
@@ -748,7 +776,7 @@ func ensureScale(
 			if isController, err := applicationService.IsControllerApplication(ctx, appUUID); err != nil {
 				return errors.Annotate(err, "checking if controller application")
 			} else if isController {
-				if err := ensureControllerNonces(ctx, ps.ScaleTarget, app, agentPasswordService, logger); err != nil {
+				if err := ensureControllerNonces(ctx, ps.StartOrdinal, ps.ScaleTarget, app, agentPasswordService, logger); err != nil {
 					return errors.Annotate(err, "ensuring controller nonces")
 				}
 			}
@@ -758,9 +786,9 @@ func ensureScale(
 		err := ensureScaleWithFsAttachments(
 			ctx,
 			appName,
-			appUUID,
 			app,
 			ps.ScaleTarget,
+			ps.StartOrdinal,
 			facade,
 			logger,
 			storageUniqueID,
@@ -768,7 +796,7 @@ func ensureScale(
 
 		if appLife != life.Alive && errors.Is(err, errors.NotFound) {
 			logger.Infof(ctx, "dying application %q is already removed from k8s", appName)
-			return updateProvisioningState(ctx, appName, false, 0, applicationService)
+			return updateProvisioningState(ctx, appName, false, 0, ps.StartOrdinal, applicationService)
 		} else if err != nil {
 			return err
 		}
@@ -776,7 +804,7 @@ func ensureScale(
 			// Scaling up must see units created.
 			return tryAgain
 		}
-		err = updateProvisioningState(ctx, appName, false, 0, applicationService)
+		err = updateProvisioningState(ctx, appName, false, 0, ps.StartOrdinal, applicationService)
 		if err != nil {
 			return err
 		}
@@ -858,10 +886,10 @@ func setOperatorStatus(
 
 func updateProvisioningState(
 	ctx context.Context,
-	appName string, scaling bool, scaleTarget int,
+	appName string, scaling bool, scaleTarget, startOrdinal int,
 	applicationService ApplicationService,
 ) error {
-	err := applicationService.SetApplicationScalingState(ctx, appName, scaleTarget, scaling)
+	err := applicationService.SetApplicationScalingStateWithStart(ctx, appName, scaleTarget, startOrdinal, scaling)
 	if errors.Is(err, applicationerrors.ScalingStateInconsistent) {
 		return tryAgain
 	} else if err != nil {
@@ -872,8 +900,8 @@ func updateProvisioningState(
 
 // ensureScaleWithFsAttachments scales an application while ensuring required PVCs are created.
 func ensureScaleWithFsAttachments(
-	ctx context.Context, appName string, appUUID coreapplication.UUID,
-	app caas.Application, scaleTarget int,
+	ctx context.Context, appName string, app caas.Application,
+	scaleTarget, startOrdinal int,
 	facade CAASProvisionerFacade, logger logger.Logger, storageUniqueID string,
 ) error {
 	logger.Infof(ctx, "scaling application %q to desired scale %d", appName, scaleTarget)
@@ -893,7 +921,10 @@ func ensureScaleWithFsAttachments(
 	if err != nil {
 		return err
 	}
-	return app.Scale(scaleTarget)
+	if startOrdinal == 0 {
+		return app.Scale(ctx, scaleTarget)
+	}
+	return app.ScaleRange(ctx, scaleTarget, startOrdinal)
 }
 
 func provisioningInfo(
@@ -1071,12 +1102,12 @@ func readDockerImageResource(reader io.Reader) (coreresource.DockerImageDetails,
 // legitimate replicas of the StatefulSet.
 func ensureControllerNonces(
 	ctx context.Context,
-	targetCount int,
+	startOrdinal, targetCount int,
 	app caas.Application,
 	agentPasswordService AgentPasswordService,
 	logger logger.Logger,
 ) error {
-	for ordinal := range targetCount {
+	for ordinal := startOrdinal; ordinal < startOrdinal+targetCount; ordinal++ {
 		controllerID := strconv.Itoa(ordinal)
 		nonce, err := password.RandomPassword()
 		if err != nil {

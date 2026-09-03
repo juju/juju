@@ -63,6 +63,23 @@ func (s *MonitorSuite) TestDead(c *tc.C) {
 	assertEvent(c, s.broken)
 }
 
+func (s *MonitorSuite) TestProxierBroken(c *tc.C) {
+	proxierBroken := make(chan struct{})
+	s.monitor.proxierBroken = proxierBroken
+
+	go s.monitor.run()
+	s.waitForClock(c)
+	close(proxierBroken)
+	assertEvent(c, s.broken)
+}
+
+func (s *MonitorSuite) TestProxierBrokenReporter(c *tc.C) {
+	broken := make(chan struct{})
+
+	c.Check(proxierBroken(&conn{}), tc.IsNil)
+	c.Check(proxierBroken(&conn{proxier: testBrokenProxier{broken: broken}}), tc.Equals, (<-chan struct{})(broken))
+}
+
 func (s *MonitorSuite) TestFirstPingFails(c *tc.C) {
 	s.monitor.ping = func(context.Context) error { return errors.New("boom") }
 	go s.monitor.run()
@@ -120,3 +137,21 @@ func assertEvent(c *tc.C, ch <-chan struct{}) {
 		c.Fatal("timed out waiting for channel event")
 	}
 }
+
+type testBrokenProxier struct {
+	broken <-chan struct{}
+}
+
+func (p testBrokenProxier) Start(context.Context) error { return nil }
+
+func (testBrokenProxier) Stop() {}
+
+func (testBrokenProxier) RawConfig() (map[string]any, error) { return nil, nil }
+
+func (testBrokenProxier) Type() string { return "test" }
+
+func (testBrokenProxier) MarshalYAML() (any, error) { return nil, nil }
+
+func (testBrokenProxier) Insecure() {}
+
+func (p testBrokenProxier) Broken() <-chan struct{} { return p.broken }

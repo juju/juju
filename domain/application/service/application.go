@@ -147,6 +147,14 @@ type ApplicationState interface {
 	// application Scale is optional and is only set if not nil.
 	SetApplicationScalingState(ctx context.Context, appName string, targetScale int, scaling bool) error
 
+	// SetApplicationScalingStateWithStart sets the scaling details for the
+	// given CAAS application including the start ordinal for the StatefulSet.
+	// The startOrdinal defines the lowest ordinal index that the StatefulSet
+	// should use. This shifts upward when a lower-indexed unit is removed to
+	// prevent stale ordinals from being reused (e.g. after removing unit 0
+	// from {0,1,2}, the start ordinal becomes 1 so the range is {1,2,3}).
+	SetApplicationScalingStateWithStart(ctx context.Context, appName string, targetScale, startOrdinal int, scaling bool) error
+
 	// SetDesiredApplicationScale updates the desired scale of the specified
 	// application.
 	SetDesiredApplicationScale(context.Context, coreapplication.UUID, int) error
@@ -990,6 +998,15 @@ func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale
 	if err != nil {
 		return errors.Capture(err)
 	}
+	if scale == 0 {
+		isController, err := s.st.IsControllerApplication(ctx, appUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if isController {
+			return errors.Errorf("cannot scale controller application to 0 units")
+		}
+	}
 	appScale, err := s.st.GetApplicationScaleState(ctx, appUUID)
 	if err != nil {
 		return errors.Errorf("getting application scale state for app %q: %w", appUUID, err)
@@ -1050,6 +1067,23 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 		return -1, errors.Capture(err)
 	}
 
+	if scaleChange < 0 {
+		scaleState, err := s.st.GetApplicationScaleState(ctx, appUUID)
+		if err != nil {
+			return -1, errors.Capture(err)
+		}
+		newScale := scaleState.Scale + scaleChange
+		if newScale <= 0 {
+			isController, err := s.st.IsControllerApplication(ctx, appUUID)
+			if err != nil {
+				return -1, errors.Capture(err)
+			}
+			if isController {
+				return -1, errors.Errorf("cannot scale controller application to 0 units")
+			}
+		}
+	}
+
 	newScale, err := s.st.UpdateApplicationScale(ctx, appUUID, scaleChange)
 	if err != nil {
 		return -1, errors.Errorf("changing scaling state for %q: %w", appName, err)
@@ -1065,6 +1099,18 @@ func (s *Service) SetApplicationScalingState(ctx context.Context, appName string
 	defer span.End()
 
 	if err := s.st.SetApplicationScalingState(ctx, appName, scaleTarget, scaling); err != nil {
+		return errors.Errorf("updating scaling state for %q: %w", appName, err)
+	}
+	return nil
+}
+
+// SetApplicationScalingStateWithStart updates the scale state and desired
+// StatefulSet start ordinal of a CAAS application.
+func (s *Service) SetApplicationScalingStateWithStart(ctx context.Context, appName string, scaleTarget, startOrdinal int, scaling bool) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.st.SetApplicationScalingStateWithStart(ctx, appName, scaleTarget, startOrdinal, scaling); err != nil {
 		return errors.Errorf("updating scaling state for %q: %w", appName, err)
 	}
 	return nil
@@ -1086,8 +1132,9 @@ func (s *Service) GetApplicationScalingState(ctx context.Context, appName string
 		return ScalingState{}, errors.Errorf("getting scaling state for %q: %w", appName, err)
 	}
 	return ScalingState{
-		ScaleTarget: scaleState.ScaleTarget,
-		Scaling:     scaleState.Scaling,
+		StartOrdinal: scaleState.StartOrdinal,
+		ScaleTarget:  scaleState.ScaleTarget,
+		Scaling:      scaleState.Scaling,
 	}, nil
 }
 

@@ -246,15 +246,23 @@ func Open(ctx context.Context, info *Info, opts DialOpts) (Connection, error) {
 	}
 
 	go (&monitor{
-		clock:       opts.Clock,
-		ping:        c.ping,
-		pingPeriod:  monitorPingPeriod,
-		pingTimeout: monitorPingTimeout,
-		closed:      c.closed,
-		dead:        client.Dead(),
-		broken:      c.broken,
+		clock:         opts.Clock,
+		ping:          c.ping,
+		pingPeriod:    monitorPingPeriod,
+		pingTimeout:   monitorPingTimeout,
+		closed:        c.closed,
+		dead:          client.Dead(),
+		proxierBroken: proxierBroken(c),
+		broken:        c.broken,
 	}).run()
 	return c, nil
+}
+
+func proxierBroken(c *conn) <-chan struct{} {
+	if reporter, ok := c.proxier.(ProxierBrokenReporter); ok {
+		return reporter.Broken()
+	}
+	return nil
 }
 
 func newPrimaryHTTPTransport(tlsConfig *tls.Config) *http.Transport {

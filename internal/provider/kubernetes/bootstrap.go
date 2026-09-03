@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"net"
 	"path"
 	"strconv"
@@ -38,6 +39,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
@@ -997,6 +999,9 @@ func ensureControllerServiceAccount(
 
 func (c *controllerStack) createControllerStatefulset(ctx context.Context) error {
 	numberOfPods := int32(1) // TODO(caas): HA mode!
+	templateAnnotations := maps.Clone(c.stackAnnotations)
+	templateAnnotations[providerutils.AnnotationVersionKey(constants.LastLabelVersion)] = c.pcfg.JujuVersion.String()
+	templateAnnotations[providerutils.AnnotationModelUUIDKey(constants.LastLabelVersion)] = c.broker.ModelUUID()
 	controllerStatefulSet := &apps.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: c.stackName,
@@ -1008,8 +1013,9 @@ func (c *controllerStack) createControllerStatefulset(ctx context.Context) error
 			Annotations: c.stackAnnotations,
 		},
 		Spec: apps.StatefulSetSpec{
-			ServiceName: c.resourceNameHeadlessService,
-			Replicas:    &numberOfPods,
+			ServiceName:         c.resourceNameHeadlessService,
+			Replicas:            &numberOfPods,
+			PodManagementPolicy: apps.ParallelPodManagement,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: c.selectorLabels,
 			},
@@ -1021,7 +1027,7 @@ func (c *controllerStack) createControllerStatefulset(ctx context.Context) error
 					),
 					Name:        c.pcfg.GetPodName(), // This really should not be set.
 					Namespace:   c.broker.Namespace(),
-					Annotations: c.stackAnnotations,
+					Annotations: templateAnnotations,
 				},
 			},
 		},
@@ -1557,14 +1563,23 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		return nil, errors.Annotate(err, "getting image for base")
 	}
 
+	controllerConstraints := c.pcfg.Bootstrap.BootstrapMachineConstraints
+	if !controllerConstraints.HasArch() {
+		// Match application-domain architecture normalization: an application
+		// without an explicit architecture uses its selected charm architecture.
+		arch := corearch.DefaultArchitecture
+		controllerConstraints.Arch = &arch
+	}
+
 	cfg := caas.ApplicationConfig{
+		Controller:           true,
 		AgentVersion:         c.pcfg.JujuVersion,
 		AgentImagePath:       controllerImage,
 		CharmBaseImagePath:   charmBaseImage,
 		IsPrivateImageRepo:   repo.IsPrivate(),
 		CharmModifiedVersion: 0,
 		InitialScale:         1,
-		Constraints:          c.pcfg.Bootstrap.BootstrapMachineConstraints,
+		Constraints:          controllerConstraints,
 		ExistingContainers:   []string{apiServerContainerName},
 		// TODO(wallyworld) - use storage so the volumes don't need to be manually set up
 		// Filesystems: nil,
@@ -1680,7 +1695,6 @@ fi
 				Value: c.pcfg.APIInfo.CACert,
 			},
 		)
-		ct.Args = append(ct.Args, "--controller")
 		spec.InitContainers[i] = ct
 	}
 	for i, ct := range spec.Containers {
@@ -1698,16 +1712,6 @@ fi
 		}
 		ct.VolumeMounts = append(ct.VolumeMounts, dataDirMount)
 
-		// Remove probes to prevent controller death.
-		ct.LivenessProbe = nil
-		ct.ReadinessProbe = nil
-		ct.StartupProbe = nil
-		for j, env := range ct.Env {
-			if env.Name == constants.EnvAgentHTTPProbePort {
-				ct.Env = append(ct.Env[:j], ct.Env[j+1:]...)
-				break
-			}
-		}
 		spec.Containers[i] = ct
 	}
 	return spec, nil

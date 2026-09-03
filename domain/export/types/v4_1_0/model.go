@@ -195,6 +195,7 @@ type ApplicationScale struct {
 	Scale           *int64 `db:"scale" json:"scale" yaml:"scale"`
 	ScaleTarget     *int64 `db:"scale_target" json:"scale_target" yaml:"scale_target"`
 	Scaling         *bool  `db:"scaling" json:"scaling" yaml:"scaling"`
+	StartOrdinal    int64  `db:"start_ordinal" json:"start_ordinal" yaml:"start_ordinal"`
 }
 
 type ApplicationSetting struct {
