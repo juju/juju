@@ -1051,6 +1051,7 @@ func NewIAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldCo
 		Clock:                        config.Clock,
 		AgentBinaryUploader:          bootstrap.IAASAgentBinaryUploader,
 		ControllerCharmDeployer:      bootstrap.IAASControllerCharmUploader,
+		ControllerApplicationPassword: bootstrap.IAASControllerApplicationPassword,
 		ControllerUnitPassword:       bootstrap.IAASControllerUnitPassword,
 		BootstrapAddressFinderGetter: bootstrap.IAASAddressFinder,
 		AgentFinalizer:               bootstrap.IAASAgentFinalizer,
