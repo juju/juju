@@ -119,3 +119,9 @@ func (p *proxySuite) TestInsecure(c *tc.C) {
 		},
 	})
 }
+
+func (p *proxySuite) TestBrokenBeforeStart(c *tc.C) {
+	proxier := proxy.NewProxier(proxy.ProxierConfig{})
+
+	c.Check(proxier.Broken(), tc.IsNil)
+}

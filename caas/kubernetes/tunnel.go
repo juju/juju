@@ -17,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/informers"
@@ -40,7 +41,16 @@ type portForwarder interface {
 	GetPorts() ([]portforward.ForwardedPort, error)
 }
 
-var newPortForwarder = func(
+type portForwarderFactory func(
+	dialer httpstream.Dialer,
+	addresses []string,
+	ports []string,
+	stopChan <-chan struct{},
+	readyChan chan struct{},
+	out, errOut io.Writer,
+) (portForwarder, error)
+
+func defaultPortForwarder(
 	dialer httpstream.Dialer,
 	addresses []string,
 	ports []string,
@@ -53,18 +63,20 @@ var newPortForwarder = func(
 
 // Tunnel represents an ssh like tunnel to a Kubernetes Pod or Service
 type Tunnel struct {
-	client     rest.Interface
-	config     *rest.Config
-	Kind       TunnelKind
-	errChan    chan error
-	LocalPort  string
-	Namespace  string
-	Out        io.Writer
-	closeOnce  sync.Once
-	readyChan  chan struct{}
-	RemotePort string
-	stopChan   chan struct{}
-	Target     string
+	client           rest.Interface
+	config           *rest.Config
+	Kind             TunnelKind
+	errChan          chan error
+	newPortForwarder portForwarderFactory
+	LocalPort        string
+	Namespace        string
+	Out              io.Writer
+	broken           chan struct{}
+	closeOnce        sync.Once
+	readyChan        chan struct{}
+	RemotePort       string
+	stopChan         chan struct{}
+	Target           string
 }
 
 type TunnelKind string
@@ -93,6 +105,12 @@ func (t *Tunnel) ForwardError() error {
 	default:
 		return nil
 	}
+}
+
+// Broken returns a channel that is closed when the port-forward tunnel is
+// broken (the underlying forward goroutine exits).
+func (t *Tunnel) Broken() <-chan struct{} {
+	return t.broken
 }
 
 // findSuitablePodForService when tunneling to a kubernetes service we need to
@@ -164,12 +182,12 @@ func (t *Tunnel) ForwardPort(ctx context.Context) error {
 	}
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, http.MethodPost, u)
 
-	return t.forwardPort(ctx, dialer)
+	return t.forwardPort(ctx, dialer, podName)
 }
 
-func (t *Tunnel) forwardPort(ctx context.Context, dialer httpstream.Dialer) error {
+func (t *Tunnel) forwardPort(ctx context.Context, dialer httpstream.Dialer, podName string) error {
 	ports := []string{fmt.Sprintf("0:%s", t.RemotePort)}
-	pf, err := newPortForwarder(
+	pf, err := t.newPortForwarder(
 		dialer,
 		[]string{"127.0.0.1"},
 		ports,
@@ -185,7 +203,14 @@ func (t *Tunnel) forwardPort(ctx context.Context, dialer httpstream.Dialer) erro
 	t.errChan = make(chan error, 1)
 	go func() {
 		t.errChan <- pf.ForwardPorts()
+		close(t.broken)
 	}()
+
+	// Start a pod health check that closes the tunnel if the pod is
+	// deleted. The port-forward SPDY connection to the API server may
+	// stay alive even after the pod is gone, so ForwardPorts() may
+	// never return on its own.
+	t.startPodHealthCheck(ctx, podName)
 
 	select {
 	case <-ctx.Done():
@@ -207,6 +232,106 @@ func (t *Tunnel) forwardPort(ctx context.Context, dialer httpstream.Dialer) erro
 		t.LocalPort = strconv.Itoa(int(forwardedPorts[0].Local))
 		return nil
 	}
+}
+
+// startPodHealthCheck watches the pod via the Kubernetes API and closes the
+// tunnel if the pod is deleted or no longer running. The SPDY connection to
+// the API server may persist after the pod is gone, so this provides an
+// independent signal that the tunnel is broken.
+func (t *Tunnel) startPodHealthCheck(ctx context.Context, podName string) {
+	if t.client == nil {
+		return
+	}
+	t.defaultPodHealthCheck(ctx, podName)
+}
+
+func (t *Tunnel) defaultPodHealthCheck(ctx context.Context, podName string) {
+	clientSet := kubernetes.New(t.client)
+	factory := informers.NewSharedInformerFactoryWithOptions(
+		clientSet,
+		10*time.Second,
+		informers.WithNamespace(t.Namespace),
+		informers.WithTweakListOptions(func(options *meta.ListOptions) {
+			options.FieldSelector = fields.OneTermEqualSelector("metadata.name", podName).String()
+		}),
+	)
+	informer := factory.Core().V1().Pods().Informer()
+
+	// ForwardPort's context is cancelled once the local port is ready, while
+	// the health check must run for the tunnel's entire lifetime.
+	healthCtx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-t.stopChan
+		cancel()
+	}()
+
+	reg, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj any) {
+			p, ok := obj.(*corev1.Pod)
+			if !ok {
+				return
+			}
+			if p.Name == podName && !pod.IsPodRunning(p) {
+				logger.Debugf(ctx, "tunnel pod %s not running, closing tunnel", podName)
+				t.Close()
+			}
+		},
+		DeleteFunc: func(obj any) {
+			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+			if err != nil {
+				logger.Errorf(ctx, "getting deleted tunnel pod key: %v", err)
+				return
+			}
+			if key == t.Namespace+"/"+podName {
+				logger.Debugf(ctx, "tunnel pod %s deleted, closing tunnel", podName)
+				t.Close()
+			}
+		},
+		UpdateFunc: func(_, newObj any) {
+			p, ok := newObj.(*corev1.Pod)
+			if !ok {
+				return
+			}
+			if p.Name == podName && !pod.IsPodRunning(p) {
+				logger.Debugf(ctx, "tunnel pod %s not running, closing tunnel", podName)
+				t.Close()
+			}
+		},
+	})
+	if err != nil {
+		logger.Errorf(ctx, "failed to add pod health check handler: %v", err)
+		return
+	}
+
+	err = informer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+		if !errors.Is(err, context.Canceled) {
+			logger.Errorf(ctx, "pod health check watch error: %v", err)
+		}
+	})
+	if err != nil {
+		logger.Errorf(ctx, "failed to set pod health check error handler: %v", err)
+		return
+	}
+
+	go func() {
+		informer.RunWithContext(healthCtx)
+		_ = informer.RemoveEventHandler(reg)
+	}()
+
+	go func() {
+		if !cache.WaitForCacheSync(healthCtx.Done(), informer.HasSynced) {
+			return
+		}
+		_, exists, err := informer.GetStore().GetByKey(t.Namespace + "/" + podName)
+		if err != nil {
+			logger.Errorf(ctx, "checking tunnel pod %s health: %v", podName, err)
+			return
+		}
+		if !exists {
+			logger.Debugf(ctx, "tunnel pod %s deleted, closing tunnel", podName)
+			t.Close()
+		}
+	}()
 }
 
 // IsValidTunnelKind tests that the tunnel kind supplied to this tunnel is valid
@@ -252,15 +377,17 @@ func NewTunnel(
 	remotePort string) *Tunnel {
 
 	return &Tunnel{
-		client:     client,
-		config:     c,
-		Kind:       kind,
-		Namespace:  namespace,
-		Out:        io.Discard,
-		readyChan:  make(chan struct{}, 1),
-		RemotePort: remotePort,
-		stopChan:   make(chan struct{}, 1),
-		Target:     target,
+		client:           client,
+		config:           c,
+		Kind:             kind,
+		newPortForwarder: defaultPortForwarder,
+		Namespace:        namespace,
+		Out:              io.Discard,
+		broken:           make(chan struct{}),
+		readyChan:        make(chan struct{}, 1),
+		RemotePort:       remotePort,
+		stopChan:         make(chan struct{}, 1),
+		Target:           target,
 	}
 }
 
