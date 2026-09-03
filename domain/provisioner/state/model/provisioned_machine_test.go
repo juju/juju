@@ -959,6 +959,116 @@ func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigProviderAddressID
 	c.Assert(err, tc.ErrorMatches, `provider address ID "provider-addr-1" already mapped to address .*`)
 }
 
+func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigCleansUpStaleDevices(c *tc.C) {
+	machineUUID := s.addMachineWithPlatform(c, "22", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
+	netNodeUUID := s.getNetNodeForMachine(c, machineUUID)
+
+	staleDevUUID := uuid.MustNewUUID().String()
+	staleAddrUUID := uuid.MustNewUUID().String()
+	s.runQuery(c, `INSERT INTO link_layer_device (uuid, net_node_uuid, name, device_type_id, virtual_port_type_id)
+		VALUES (?,?,?,0,0)`, staleDevUUID, netNodeUUID, "stale-eth0")
+	s.runQuery(c, `INSERT INTO provider_link_layer_device (provider_id, device_uuid)
+		VALUES (?,?)`, "prov-stale", staleDevUUID)
+	s.runQuery(c, `INSERT INTO ip_address (uuid, net_node_uuid, device_uuid, address_value, type_id, config_type_id, origin_id, scope_id)
+		VALUES (?,?,?,?,0,0,0,0)`, staleAddrUUID, netNodeUUID, staleDevUUID, "99.99.99.99/32")
+	s.runQuery(c, `INSERT INTO provider_ip_address (provider_id, address_uuid)
+		VALUES (?,?)`, "prov-addr-stale", staleAddrUUID)
+	s.runQuery(c, `INSERT INTO link_layer_device_dns_domain (device_uuid, search_domain)
+		VALUES (?,?)`, staleDevUUID, "stale.example.com")
+	s.runQuery(c, `INSERT INTO link_layer_device_dns_address (device_uuid, dns_address)
+		VALUES (?,?)`, staleDevUUID, "8.8.8.8")
+	s.runQuery(c, `INSERT INTO link_layer_device_parent (device_uuid, parent_uuid)
+		VALUES (?,?)`, staleDevUUID, staleDevUUID)
+
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce",
+		NetworkConfig: corenetwork.InterfaceInfos{{
+			InterfaceName: "eth0",
+			InterfaceType: corenetwork.EthernetDevice,
+			Disabled:      false,
+		}},
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
+	c.Assert(err, tc.ErrorIsNil)
+
+	devs := s.queryLLDs(c, netNodeUUID)
+	c.Assert(devs, tc.HasLen, 1)
+	c.Check(devs[0].Name, tc.Equals, "eth0")
+
+	provDevIDs := s.queryProviderDeviceIDs(c, netNodeUUID)
+	c.Check(provDevIDs, tc.HasLen, 0)
+
+	addrs := s.queryIPAddresses(c, netNodeUUID)
+	c.Check(addrs, tc.HasLen, 0)
+
+	var orphanCount int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		var c1, c2, c3 int
+		if e := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM link_layer_device_dns_domain WHERE device_uuid = ?`, staleDevUUID).Scan(&c1); e != nil {
+			return e
+		}
+		if e := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM link_layer_device_dns_address WHERE device_uuid = ?`, staleDevUUID).Scan(&c2); e != nil {
+			return e
+		}
+		if e := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM link_layer_device_parent WHERE device_uuid = ?`, staleDevUUID).Scan(&c3); e != nil {
+			return e
+		}
+		orphanCount = c1 + c2 + c3
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(orphanCount, tc.Equals, 0)
+}
+
+func (s *modelStateSuite) TestRecordProvisionedMachineNetConfigCleansUpStaleAddresses(c *tc.C) {
+	machineUUID := s.addMachineWithPlatform(c, "23", "ubuntu", "22.04/stable")
+	s.addMachineCloudInstanceRow(c, machineUUID)
+	netNodeUUID := s.getNetNodeForMachine(c, machineUUID)
+
+	devUUID := uuid.MustNewUUID().String()
+	staleAddrUUID := uuid.MustNewUUID().String()
+	s.runQuery(c, `INSERT INTO link_layer_device (uuid, net_node_uuid, name, device_type_id, virtual_port_type_id)
+		VALUES (?,?,?,0,0)`, devUUID, netNodeUUID, "eth0")
+	s.runQuery(c, `INSERT INTO ip_address (uuid, net_node_uuid, device_uuid, address_value, type_id, config_type_id, origin_id, scope_id)
+		VALUES (?,?,?,?,0,0,0,0)`, staleAddrUUID, netNodeUUID, devUUID, "99.99.99.99/32")
+	s.runQuery(c, `INSERT INTO provider_ip_address (provider_id, address_uuid)
+		VALUES (?,?)`, "prov-addr-stale", staleAddrUUID)
+
+	info := provisioner.ProvisionedMachineInfo{
+		InstanceID:  "inst-2",
+		DisplayName: "machine-2",
+		Nonce:       "nonce",
+		NetworkConfig: corenetwork.InterfaceInfos{{
+			InterfaceName: "eth0",
+			InterfaceType: corenetwork.EthernetDevice,
+			Disabled:      false,
+			Addresses: corenetwork.ProviderAddresses{{
+				MachineAddress: corenetwork.MachineAddress{
+					Value:      "10.0.0.1",
+					CIDR:       "10.0.0.0/24",
+					Type:       corenetwork.IPv4Address,
+					Scope:      corenetwork.ScopeCloudLocal,
+					ConfigType: corenetwork.ConfigDHCP,
+				},
+				ProviderID: "prov-addr-new",
+			}},
+		}},
+	}
+	err := s.state.RecordProvisionedMachine(c.Context(), machineUUID, info)
+	c.Assert(err, tc.ErrorIsNil)
+
+	addrs := s.queryIPAddresses(c, netNodeUUID)
+	c.Assert(addrs, tc.HasLen, 1)
+	c.Check(addrs[0].Value, tc.Equals, "10.0.0.1/24")
+
+	provAddrIDs := s.queryProviderAddressIDs(c, netNodeUUID)
+	c.Assert(provAddrIDs, tc.HasLen, 1)
+	c.Check(provAddrIDs["10.0.0.1/24"], tc.Equals, "prov-addr-new")
+}
+
 // --- Volumes ---
 
 func (s *modelStateSuite) TestRecordProvisionedMachineVolumesEmpty(c *tc.C) {
