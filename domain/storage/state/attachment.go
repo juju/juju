@@ -175,3 +175,61 @@ WHERE storage_instance_uuid = $storageInstanceUUID.uuid
 	}
 	return rval, nil
 }
+
+// GetStorageInstanceUUIDsForUnit returns the storage instance UUIDs attached
+// to the unit with the input UUID. If the unit has no storage attachments an
+// empty slice is returned.
+//
+// The following errors may be returned:
+// - [domainapplicationerrors.UnitNotFound] if the unit does not exist.
+func (s *State) GetStorageInstanceUUIDsForUnit(
+	ctx context.Context, unitUUIDStr string,
+) ([]domainstorage.StorageInstanceUUID, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	unitUUIDInput := entityUUID{UUID: unitUUIDStr}
+
+	stmt, err := s.Prepare(`
+SELECT si.uuid AS &entityUUID.uuid
+FROM   storage_attachment sa
+JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
+WHERE  sa.unit_uuid = $entityUUID.uuid`, entityUUID{})
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing storage instance UUIDs for unit query: %w", err,
+		)
+	}
+
+	var dbVals []entityUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := s.checkUnitExists(ctx, tx, coreunit.UUID(unitUUIDStr))
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if !exists {
+			return errors.Errorf(
+				"unit %q does not exist", unitUUIDStr,
+			).Add(domainapplicationerrors.UnitNotFound)
+		}
+
+		err = tx.Query(ctx, stmt, unitUUIDInput).GetAll(&dbVals)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"getting storage instance UUIDs for unit %q: %w", unitUUIDStr, err,
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	rval := make([]domainstorage.StorageInstanceUUID, 0, len(dbVals))
+	for _, dbVal := range dbVals {
+		rval = append(rval, domainstorage.StorageInstanceUUID(dbVal.UUID))
+	}
+	return rval, nil
+}

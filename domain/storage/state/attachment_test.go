@@ -118,6 +118,51 @@ func (s *attachmentSuite) TestGetStorageInstanceAttachmentsEmptyResult(c *tc.C) 
 	c.Check(attachments, tc.HasLen, 0)
 }
 
+// TestGetStorageInstanceUUIDsForUnit asserts that the storage instance UUIDs
+// attached to the supplied unit are returned.
+func (s *attachmentSuite) TestGetStorageInstanceUUIDsForUnit(c *tc.C) {
+	appUUID, charmUUID := s.newApplication(c, "myapplication")
+	unitUUID1, _, _ := s.newUnitForApplication(c, appUUID)
+	unitUUID2, _, _ := s.newUnitForApplication(c, appUUID)
+	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
+	storageInstanceUUID1, _ := s.newBlockStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "token-store",
+	)
+	storageInstanceUUID2, _ := s.newBlockStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "token-store",
+	)
+	storageInstanceUUID3, _ := s.newBlockStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "token-store",
+	)
+	s.newStorageAttachment(c, storageInstanceUUID1, unitUUID1)
+	s.newStorageAttachment(c, storageInstanceUUID2, unitUUID1)
+	s.newStorageAttachment(c, storageInstanceUUID3, unitUUID2)
+
+	st := NewState(s.TxnRunnerFactory())
+	gotUUIDs, err := st.GetStorageInstanceUUIDsForUnit(
+		c.Context(), unitUUID1.String(),
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(
+		gotUUIDs, tc.SameContents,
+		[]domainstorage.StorageInstanceUUID{
+			storageInstanceUUID1,
+			storageInstanceUUID2,
+		},
+	)
+}
+
+// TestGetStorageInstanceUUIDsForUnitNotFound asserts that when a unit does not
+// exist [State.GetStorageInstanceUUIDsForUnit] returns an error satisfying
+// [domainapplicationerrors.UnitNotFound].
+func (s *attachmentSuite) TestGetStorageInstanceUUIDsForUnitNotFound(c *tc.C) {
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetStorageInstanceUUIDsForUnit(c.Context(), unitUUID.String())
+	c.Check(err, tc.ErrorIs, domainapplicationerrors.UnitNotFound)
+}
+
 func (s *attachmentSuite) TestGetStorageInstanceAttachments(c *tc.C) {
 	appUUID, charmUUID := s.newApplication(c, "myapplication")
 	unitUUID1, _, _ := s.newUnitForApplication(c, appUUID)
