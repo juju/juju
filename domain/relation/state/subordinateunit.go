@@ -38,7 +38,7 @@ type InsertIAASUnitState interface {
 func (st *State) addSubordinateUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
-	relationUUID, relationUnitUUID, principalUnitUUID string,
+	relationUUID, relationUnitUUID, enteringUnitUUID string,
 ) (internal.SubordinateUnitStatusHistoryData, error) {
 	var empty internal.SubordinateUnitStatusHistoryData
 	// Check that we are in a container scoped relation.
@@ -56,6 +56,21 @@ func (st *State) addSubordinateUnit(
 		return empty, errors.Errorf("getting related subordinate application: %w", err)
 	} else if !relatedSubExists {
 		return empty, nil
+	}
+
+	// The entering unit is the principal unit of the new subordinate unit,
+	// unless the entering unit is itself a subordinate unit. This happens
+	// when two subordinate applications are related to each other in a
+	// container scoped relation. In that case, the new subordinate unit must
+	// be keyed to the principal of the entering unit. Keying it to the
+	// entering unit instead would make the relation-joined hook of the newly
+	// created unit spawn another unit of the other application, and so on
+	// without ever terminating.
+	principalUnitUUID := enteringUnitUUID
+	if principalUUID, found, err := st.getUnitPrincipalUUID(ctx, tx, enteringUnitUUID); err != nil {
+		return empty, errors.Errorf("getting principal unit of entering unit: %w", err)
+	} else if found {
+		principalUnitUUID = principalUUID
 	}
 
 	// Check if there is already a subordinate unit.
@@ -179,6 +194,39 @@ WHERE  u.uuid = $entityUUID.uuid
 	}
 
 	return dbVal, nil
+}
+
+// getUnitPrincipalUUID returns the UUID of the principal unit recorded for
+// the given unit, and true, if the unit is a subordinate unit. If the unit
+// has no principal unit, false is returned.
+func (st *State) getUnitPrincipalUUID(
+	ctx context.Context, tx *sqlair.TX, unitUUID string,
+) (string, bool, error) {
+	// unitPrincipalRow describes the projected principal_uuid column. The
+	// input unit UUID is bound from a separate entityUUID so this struct only
+	// carries the data a query populates.
+	type unitPrincipalRow struct {
+		PrincipalUUID string `db:"principal_uuid"`
+	}
+	stmt, err := st.Prepare(`
+SELECT principal_uuid AS &unitPrincipalRow.principal_uuid
+FROM   unit_principal
+WHERE  unit_uuid = $entityUUID.uuid
+`, unitPrincipalRow{}, entityUUID{})
+	if err != nil {
+		return "", false, errors.Capture(err)
+	}
+
+	arg := entityUUID{UUID: unitUUID}
+	var row unitPrincipalRow
+	err = tx.Query(ctx, stmt, arg).Get(&row)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", false, nil
+	} else if err != nil {
+		return "", false, errors.Capture(err)
+	}
+
+	return row.PrincipalUUID, true, nil
 }
 
 func (s *State) getCharmIDByApplicationUUID(ctx context.Context, tx *sqlair.TX, appID string) (string, error) {
