@@ -998,6 +998,15 @@ func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale
 	if err != nil {
 		return errors.Capture(err)
 	}
+	if scale == 0 {
+		isController, err := s.st.IsControllerApplication(ctx, appUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if isController {
+			return errors.Errorf("cannot scale controller application to 0 units")
+		}
+	}
 	appScale, err := s.st.GetApplicationScaleState(ctx, appUUID)
 	if err != nil {
 		return errors.Errorf("getting application scale state for app %q: %w", appUUID, err)
@@ -1056,6 +1065,23 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return -1, errors.Capture(err)
+	}
+
+	if scaleChange < 0 {
+		scaleState, err := s.st.GetApplicationScaleState(ctx, appUUID)
+		if err != nil {
+			return -1, errors.Capture(err)
+		}
+		newScale := scaleState.Scale + scaleChange
+		if newScale <= 0 {
+			isController, err := s.st.IsControllerApplication(ctx, appUUID)
+			if err != nil {
+				return -1, errors.Capture(err)
+			}
+			if isController {
+				return -1, errors.Errorf("cannot scale controller application to 0 units")
+			}
+		}
 	}
 
 	newScale, err := s.st.UpdateApplicationScale(ctx, appUUID, scaleChange)
