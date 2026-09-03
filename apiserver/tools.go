@@ -450,14 +450,16 @@ func (h *toolsUploadHandler) handleUpload(
 		err = internalerrors.Errorf(
 			"unsupported architecture %q", agentBinaryVersion.Arch,
 		).Add(coreerrors.BadRequest)
-	// Happens when the agent binary version being uploaded for already exists.
-	// We never want to allow someone to overwrite an established agent binary
-	// for a version by overwriting it with new data.
+	// Happens when the agent binary being uploaded already exists with
+	// the same SHA. This is not an error — the binary is already stored
+	// and the upload is effectively a no-op.
 	case errors.Is(err, agentbinaryerrors.AlreadyExists):
-		err = internalerrors.Errorf(
-			"agent binary already exists for version %q and arch %q",
+		logger.Debugf(
+			ctx,
+			"agent binary for version %q and arch %q already exists, skipping upload",
 			agentBinaryVersion.Number, agentBinaryVersion.Arch,
-		).Add(coreerrors.BadRequest)
+		)
+		err = nil
 	// Unknown error. This case is considered an internal server error unrelated
 	// to any bad or missing infomration in the upload request.
 	case err != nil:
