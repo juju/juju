@@ -747,6 +747,38 @@ func (s *charmHubRepositorySuite) TestResolveResourcesFromStoreNoRevision_CharmR
 	}})
 }
 
+// TestResolveResourcesPinnedRevisionNotOldest ensures a resource pinned to
+// a revision other than the oldest is resolved from the matching revision
+// in the ListResourceRevisions response, without a compensating Refresh
+// round-trip. The channel-tip Refresh returns revision 1, so a regression
+// to using the first element of the revisions response would leave the
+// store map with revision 1 and trigger an extra Refresh via resourceInfo.
+func (s *charmHubRepositorySuite) TestResolveResourcesPinnedRevisionNotOldest(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	// The single Refresh call (repositoryResources) returns the channel
+	// tip, revision 1. Times(1) guards against the compensating
+	// resourceInfo Refresh that the refreshResp[0] defect caused.
+	s.expectRefresh(c, true)
+	s.expectListResourceRevisionsMulti(1, 2, 3)
+
+	result, err := s.newClient(c).ResolveResources(c.Context(), []charmresource.Resource{{
+		Meta:   charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
+		Origin: charmresource.OriginStore,
+		// Pin to the newest revision, not the first element of the
+		// revisions response.
+		Revision: 3,
+		Size:     0,
+	}}, charmID())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []charmresource.Resource{{
+		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
+		Origin:      charmresource.OriginStore,
+		Revision:    3,
+		Fingerprint: fp(c),
+		Size:        0,
+	}})
+}
+
 func (s *charmHubRepositorySuite) TestResolveResourcesNoMatchingRevision(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectRefresh(c, true)
@@ -1117,6 +1149,17 @@ func (s *charmHubRepositorySuite) expectRefreshWithRevisionAndChannel(c *tc.C, r
 func (s *charmHubRepositorySuite) expectListResourceRevisions(rev int) {
 	resp := []transport.ResourceRevision{
 		resourceRevision(rev),
+	}
+	s.client.EXPECT().ListResourceRevisions(gomock.Any(), gomock.Any(), gomock.Any()).Return(resp, nil)
+}
+
+// expectListResourceRevisionsMulti mocks ListResourceRevisions with multiple
+// revisions, oldest first, matching the ordering of the real Charmhub
+// endpoint.
+func (s *charmHubRepositorySuite) expectListResourceRevisionsMulti(revs ...int) {
+	resp := make([]transport.ResourceRevision, len(revs))
+	for i, rev := range revs {
+		resp[i] = resourceRevision(rev)
 	}
 	s.client.EXPECT().ListResourceRevisions(gomock.Any(), gomock.Any(), gomock.Any()).Return(resp, nil)
 }
