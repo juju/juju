@@ -3279,6 +3279,10 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, nil)
 }
 
+// TestAddStorageForIAASUnitZeroSizeOverride verifies that adding storage
+// without an explicit size (the add-storage command sends a zero size in that
+// case) keeps the size recorded on the unit storage directive, rather than
+// provisioning a zero-sized volume.
 func (s *providerServiceSuite) TestAddStorageForIAASUnitZeroSizeOverride(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
