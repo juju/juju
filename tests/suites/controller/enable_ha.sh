@@ -123,6 +123,12 @@ run_enable_ha() {
 	juju remove-machine -m controller "${controller_2}" --force --no-prompt
 
 	wait_for_ha_teardown
+
+	# The machine view above converges as soon as remove-machine records
+	# the deletions, well before the controller unit and its charm hooks have
+	# settled. Wait for the surviving unit to be idle before probing dqlite
+	# leadership, otherwise the probe races the dqlite backstop recovery.
+	wait_for "controller" "$(idle_condition "controller" 0)" 900
 	wait_for_controller_leadership
 
 	destroy_model "enable-ha"
