@@ -35,7 +35,7 @@ run_charm_storage() {
 	# Assess charm storage with the filesystem storage provider
 	echo "Assessing filesystem rootfs"
 	# shellcheck disable=SC2046
-	juju deploy $(pack_charm ./testcharms/charms/dummy-storage-fs) --base ubuntu@22.04 --storage data=rootfs,1G
+	juju deploy $(pack_charm ./testcharms/charms/dummy-storage-fs) --storage data=rootfs,1G
 	wait_for "dummy-storage-fs" ".applications"
 	if [ "$(unit_exist "data/0")" == "true" ]; then
 		assess_rootfs
@@ -47,7 +47,7 @@ run_charm_storage() {
 	# Assess charm storage with the filesystem storage provider
 	echo "Assessing block loop disk 1"
 	# shellcheck disable=SC2046
-	juju deploy $(pack_charm ./testcharms/charms/dummy-storage-lp) --base ubuntu@22.04 --storage disks=loop,1G
+	juju deploy $(pack_charm ./testcharms/charms/dummy-storage-lp) --storage disks=loop,1G
 	wait_for "dummy-storage-lp" ".applications"
 	# Assert the storage kind name
 	if [ "$(unit_exist "disks/1")" == "true" ]; then
@@ -56,10 +56,7 @@ run_charm_storage() {
 
 	# Assessing adding a storage block to loop disk
 	juju add-storage -m "${model_name}" dummy-storage-lp/0 disks=1
-	# Assert the storage kind name
-	if [ "$(unit_exist "disks/2")" == "true" ]; then
-		assess_loop_disk2
-	fi
+	assess_loop_disk2
 	# Remove the application
 	juju remove-application --no-prompt dummy-storage-lp
 	wait_for "{}" ".applications"
@@ -67,7 +64,7 @@ run_charm_storage() {
 	# Assess tmpfs pool for the filesystem provider
 	echo "Assessing filesystem tmpfs"
 	# shellcheck disable=SC2046
-	juju deploy -m "${model_name}" $(pack_charm ./testcharms/charms/dummy-storage-tp) --base ubuntu@22.04 --storage data=tmpfs,1G
+	juju deploy -m "${model_name}" $(pack_charm ./testcharms/charms/dummy-storage-tp) --storage data=tmpfs,1G
 	wait_for "dummy-storage-tp" ".applications"
 	if [ "$(unit_exist "data/3")" == "true" ]; then
 		assess_tmpfs
@@ -78,7 +75,7 @@ run_charm_storage() {
 
 	# Assessing for persistent filesystem
 	# shellcheck disable=SC2046
-	juju deploy -m "${model_name}" $(pack_charm ./testcharms/charms/dummy-storage-np) --base ubuntu@22.04 --storage data=1G
+	juju deploy -m "${model_name}" $(pack_charm ./testcharms/charms/dummy-storage-np) --storage data=1G
 	wait_for "dummy-storage-np" ".applications"
 	if [ "$(unit_exist "data/4")" == "true" ]; then
 		assess_fs
@@ -91,7 +88,7 @@ run_charm_storage() {
 
 	# Assessing multiple filesystem, block, rootfs, loop
 	# shellcheck disable=SC2046
-	juju deploy -m "${model_name}" $(pack_charm ./testcharms/charms/dummy-storage-mp) --base ubuntu@22.04 --storage data=1G
+	juju deploy -m "${model_name}" $(pack_charm ./testcharms/charms/dummy-storage-mp) --storage data=1G
 	wait_for "dummy-storage-mp" ".applications"
 	if [ "$(unit_exist "data/5")" == "true" ]; then
 		assess_multiple_fs
@@ -133,10 +130,10 @@ assess_rootfs() {
 	assert_storage "dummy-storage-fs/0" "$(unit_attachment "data" 0 0)"
 	# assert the attached unit state
 	assert_storage "alive" "$(unit_state "data" 0 "dummy-storage-fs" 0)"
-	wait_for_storage "attached" "$(filesystem_status 0 0).current"
+	wait_for_storage "attached" "$(filesystem_status "data/0").current"
 	# assert the filesystem size
 	requested_storage=1024
-	acquired_storage=$(juju storage --format json | yq '.filesystems | .["0/0"] | select(.pool=="rootfs") | .size ')
+	acquired_storage=$(juju storage --format json | yq '.filesystems | to_entries | map(select(.value.storage == "data/0" and .value.pool == "rootfs")) | .[0].value.size')
 	if [ "$requested_storage" -gt "$acquired_storage" ]; then
 		echo "acquired storage size $acquired_storage should be greater than the requested storage $requested_storage"
 		exit 1
@@ -174,6 +171,14 @@ assess_loop_disk2() {
 	assert_storage "dummy-storage-lp/0" "$(unit_attachment "disks" 2 0)"
 	# assert the attached unit state
 	assert_storage "alive" "$(unit_state "disks" 2 "dummy-storage-lp" 0)"
+	# assert the volume retained the requested size (a zero-size add-storage
+	# override would provision a zero-sized volume instead).
+	requested_storage=1024
+	acquired_storage=$(juju storage --format json | yq '.volumes | to_entries | map(select(.value.storage == "disks/2")) | .[0].value.size')
+	if [ "$requested_storage" -gt "$acquired_storage" ]; then
+		echo "acquired storage size $acquired_storage should be greater than the requested storage $requested_storage"
+		exit 1
+	fi
 	echo "Block loop disk 2 PASSED"
 }
 

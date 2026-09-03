@@ -3279,6 +3279,154 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, nil)
 }
 
+// TestAddStorageForIAASUnitZeroSizeOverride verifies that adding storage
+// without an explicit size (the add-storage command sends a zero size in that
+// case) keeps the size recorded on the unit storage directive, rather than
+// provisioning a zero-sized volume.
+func (s *providerServiceSuite) TestAddStorageForIAASUnitZeroSizeOverride(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+
+	charmStorageDef := internal.CharmStorageDefinitionForValidation{
+		Name:        "pgdata",
+		Type:        applicationcharm.StorageFilesystem,
+		MinimumSize: 10,
+		CountMin:    1,
+		CountMax:    666,
+	}
+
+	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), unitUUID, corestorage.Name("pgdata")).
+		Return(internal.StorageDirective{
+			Name:             "pgdata",
+			CharmStorageType: applicationcharm.StorageFilesystem,
+			Count:            1,
+			MaxCount:         666,
+			PoolUUID:         poolUUID,
+			Size:             1024,
+		}, nil)
+	s.state.EXPECT().GetStorageAddInfoByUnitUUID(gomock.Any(), unitUUID, corestorage.Name("pgdata")).
+		Return(internal.StorageInfoForAdd{
+			CharmStorageDefinitionForValidation: charmStorageDef,
+			AlreadyAttachedCount:                66,
+		}, nil)
+	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internal.CharmStorageDefinitionForValidation{
+		"pgdata": charmStorageDef,
+	}, map[string]storageservice.StorageDirectiveOverride{
+		"pgdata": {
+			Count:    new(uint32(76)),
+			PoolUUID: new(poolUUID),
+			Size:     new(uint64(1024)),
+		},
+	})
+	unitStorageArgs := domainstorage.UnitAddStorageArg{
+		StorageInstances: []domainstorage.CreateUnitStorageInstanceArg{{
+			Name: "pgdata",
+		}},
+		CountLessThanEqual: 656,
+	}
+	fsToOwn := []domainstorage.FilesystemUUID{tc.Must(c, domainstorage.NewFilesystemUUID)}
+	volToOwn := []domainstorage.VolumeUUID{tc.Must(c, domainstorage.NewVolumeUUID)}
+
+	s.storageService.EXPECT().MakeUnitAddStorageArgs(gomock.Any(), unitUUID, uint32(10), internal.StorageDirective{
+		Name:             "pgdata",
+		CharmStorageType: applicationcharm.StorageFilesystem,
+		Count:            1,
+		MaxCount:         666,
+		PoolUUID:         poolUUID,
+		Size:             1024,
+	}).
+		Return(unitStorageArgs, nil)
+	s.storageService.EXPECT().MakeIAASUnitStorageArgs(gomock.Any(), unitStorageArgs.StorageInstances).
+		Return(domainstorage.CreateIAASUnitStorageArg{
+			FilesystemsToOwn: fsToOwn,
+			VolumesToOwn:     volToOwn,
+		}, nil)
+
+	s.state.EXPECT().AddStorageForIAASUnit(gomock.Any(), unitUUID, corestorage.Name("pgdata"), domainstorage.IAASUnitAddStorageArg{
+		UnitAddStorageArg: unitStorageArgs,
+		FilesystemsToOwn:  fsToOwn,
+		VolumesToOwn:      volToOwn,
+	})
+
+	_, err := s.service.AddStorageForIAASUnit(c.Context(), "pgdata", unitUUID, uint32(10), application.AddUnitStorageOverride{
+		SizeMiB: new(uint64(0)),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestAddStorageForCAASUnitZeroSizeOverride verifies that adding storage
+// without an explicit size (the add-storage command sends a zero size in that
+// case) keeps the size recorded on the unit storage directive for CAAS units,
+// rather than provisioning a zero-sized volume.
+func (s *providerServiceSuite) TestAddStorageForCAASUnitZeroSizeOverride(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+
+	charmStorageDef := internal.CharmStorageDefinitionForValidation{
+		Name:        "pgdata",
+		Type:        applicationcharm.StorageFilesystem,
+		MinimumSize: 10,
+		CountMin:    1,
+		CountMax:    666,
+	}
+
+	s.storageService.EXPECT().GetUnitStorageDirectiveByName(gomock.Any(), unitUUID, corestorage.Name("pgdata")).
+		Return(internal.StorageDirective{
+			Name:             "pgdata",
+			CharmStorageType: applicationcharm.StorageFilesystem,
+			Count:            1,
+			MaxCount:         666,
+			PoolUUID:         poolUUID,
+			Size:             1024,
+		}, nil)
+	s.state.EXPECT().GetStorageAddInfoByUnitUUID(gomock.Any(), unitUUID, corestorage.Name("pgdata")).
+		Return(internal.StorageInfoForAdd{
+			CharmStorageDefinitionForValidation: charmStorageDef,
+			AlreadyAttachedCount:                66,
+		}, nil)
+	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(
+		gomock.Any(),
+		map[string]internal.CharmStorageDefinitionForValidation{
+			"pgdata": charmStorageDef,
+		},
+		map[string]storageservice.StorageDirectiveOverride{
+			"pgdata": {
+				Count:    new(uint32(76)),
+				PoolUUID: new(poolUUID),
+				Size:     new(uint64(1024)),
+			},
+		},
+	)
+	unitStorageArgs := domainstorage.UnitAddStorageArg{
+		StorageInstances: []domainstorage.CreateUnitStorageInstanceArg{{
+			Name: "pgdata",
+		}},
+		CountLessThanEqual: 656,
+	}
+
+	s.storageService.EXPECT().MakeUnitAddStorageArgs(gomock.Any(), unitUUID, uint32(10), internal.StorageDirective{
+		Name:             "pgdata",
+		CharmStorageType: applicationcharm.StorageFilesystem,
+		Count:            1,
+		MaxCount:         666,
+		PoolUUID:         poolUUID,
+		Size:             1024,
+	}).Return(unitStorageArgs, nil)
+
+	s.state.EXPECT().AddStorageForCAASUnit(gomock.Any(), unitUUID, corestorage.Name("pgdata"), unitStorageArgs)
+
+	_, err := s.service.AddStorageForCAASUnit(c.Context(), "pgdata", unitUUID, uint32(10), application.AddUnitStorageOverride{
+		SizeMiB: new(uint64(0)),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *providerServiceSuite) TestAddStorageForCAASUnitNotFound(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
