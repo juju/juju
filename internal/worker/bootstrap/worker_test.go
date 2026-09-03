@@ -66,7 +66,7 @@ func (s *workerSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *workerSuite) TestDeleteBootstrapSSHKeysEmpty(c *tc.C) {
-	c.Assert(deleteBootstrapSSHKeys(nil), tc.ErrorIsNil)
+	c.Assert(DeleteBootstrapSSHKeys(nil), tc.ErrorIsNil)
 }
 
 func (s *workerSuite) TestKilled(c *tc.C) {

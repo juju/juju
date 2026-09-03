@@ -13,7 +13,6 @@ import (
 	"github.com/juju/utils/v4/ssh"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/logger"
@@ -48,7 +47,9 @@ const (
 
 var bootstrapSSHUser = "ubuntu"
 
-func deleteBootstrapSSHKeys(keys []string) error {
+// DeleteBootstrapSSHKeys removes bootstrap-only keys from an IAAS bootstrap
+// machine's standard Ubuntu authorized_keys file.
+func DeleteBootstrapSSHKeys(keys []string) error {
 	if len(keys) == 0 {
 		return nil
 	}
@@ -69,7 +70,7 @@ func deleteBootstrapSSHKeys(keys []string) error {
 // bootstrap worker.
 type WorkerConfig struct {
 	// RemoveBootstrapSSHKeys removes the bootstrap-only SSH keys from the
-	// machine. If nil, the default Ubuntu implementation is used.
+	// machine.
 	RemoveBootstrapSSHKeys func([]string) error
 
 	ObjectStoreGetter          ObjectStoreGetter
@@ -212,9 +213,6 @@ func NewWorker(cfg WorkerConfig) (*bootstrapWorker, error) {
 }
 
 func newWorker(cfg WorkerConfig, internalStates chan string) (*bootstrapWorker, error) {
-	if cfg.RemoveBootstrapSSHKeys == nil {
-		cfg.RemoveBootstrapSSHKeys = deleteBootstrapSSHKeys
-	}
 	var err error
 	if err = cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -321,10 +319,8 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	if !cloud.CloudIsCAAS(bootstrapParams.ControllerCloud) {
-		if err := w.cfg.RemoveBootstrapSSHKeys(bootstrapParams.BootstrapSSHAuthorizedKeys); err != nil {
-			return errors.Annotate(err, "removing bootstrap SSH keys")
-		}
+	if err := w.cfg.RemoveBootstrapSSHKeys(bootstrapParams.BootstrapSSHAuthorizedKeys); err != nil {
+		return errors.Annotate(err, "removing bootstrap SSH keys")
 	}
 
 	// Set the bootstrap flag, to indicate that the bootstrap has completed.

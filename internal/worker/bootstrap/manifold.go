@@ -59,6 +59,10 @@ type BootstrapAddressFinderGetter func(providerFactory providertracker.ProviderF
 // during bootstrap.
 type AgentFinalizerFunc func(context.Context, AgentPasswordService, MachineService, instancecfg.StateInitializationParams, string) error
 
+// RemoveBootstrapSSHKeysFunc removes the bootstrap-only SSH keys from the
+// machine.
+type RemoveBootstrapSSHKeysFunc func([]string) error
+
 // ControllerUnitPasswordFunc is the function that is used to get the
 // controller unit password.
 type ControllerUnitPasswordFunc func(context.Context) (string, error)
@@ -110,6 +114,7 @@ type ManifoldConfig struct {
 	PopulateControllerCharm       PopulateControllerCharmFunc
 	BootstrapAddressFinderGetter  BootstrapAddressFinderGetter
 	AgentFinalizer                AgentFinalizerFunc
+	RemoveBootstrapSSHKeys        RemoveBootstrapSSHKeysFunc
 	StatusHistory                 StatusHistory
 
 	Logger logger.Logger
@@ -166,6 +171,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.AgentFinalizer == nil {
 		return errors.NotValidf("nil AgentFinalizer")
+	}
+	if cfg.RemoveBootstrapSSHKeys == nil {
+		return errors.NotValidf("nil RemoveBootstrapSSHKeys")
 	}
 	if cfg.StatusHistory == nil {
 		return errors.NotValidf("nil StatusHistory")
@@ -293,6 +301,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ControllerCharmDeployer:    config.ControllerCharmDeployer,
 				PopulateControllerCharm:    config.PopulateControllerCharm,
 				AgentFinalizer:             config.AgentFinalizer,
+				RemoveBootstrapSSHKeys:     config.RemoveBootstrapSSHKeys,
 				AgentPassword:              config.AgentPassword,
 				ApplicationPassword:        applicationPassword,
 				CharmhubHTTPClient:         charmhubHTTPClient,

@@ -650,9 +650,13 @@ func (s *BootstrapSuite) TestSuccess(c *tc.C) {
 			"'-o' 'PasswordAuthentication no' " +
 			"'-o' 'ServerAliveInterval 30' " +
 			"'-o' 'UserKnownHostsFile (.*)' " +
-			"'-o' 'HostKeyAlgorithms (.*)' " +
+			"'-o' 'HostKeyAlgorithms ([^']*)' " +
 			"'-i' '" + regexp.QuoteMeta(identityFiles[0]) + "' " +
 			"'-i' '" + regexp.QuoteMeta(identityFiles[1]) + "' " +
+			// When an identity file is added, the utils/ssh library adds the
+			// default home as well. To avoid messing with the XDG_DATA_HOME,
+			// we just match an additional -i option.
+			"'-i' '[^']+' " +
 			"'ubuntu@testing.invalid' '/bin/bash'")
 	testhelpers.PatchExecutableAsEchoArgs(c, s, "ssh")
 	testhelpers.PatchExecutableAsEchoArgs(c, s, "scp")

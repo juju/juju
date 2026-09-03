@@ -152,7 +152,8 @@ func (*authorizedKeysSuite) TestPublicKeysForPrivateKeyFiles(c *tc.C) {
 		filepath.Join(keyDirectory, "two"),
 	}
 	for i, privateKey := range privateKeys {
-		c.Assert(os.WriteFile(privateKey+publicKeyFileSuffix, []byte(fmt.Sprintf("key-%d\n", i)), 0600), tc.ErrorIsNil)
+		key := fmt.Appendf(nil, "key-%d\n", i)
+		c.Assert(os.WriteFile(privateKey+publicKeyFileSuffix, key, 0600), tc.ErrorIsNil)
 	}
 
 	keys, err := PublicKeysForPrivateKeyFiles(privateKeys)
