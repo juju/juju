@@ -178,14 +178,16 @@ ON CONFLICT (attachment_plan_uuid, key) DO UPDATE SET value = EXCLUDED.value
 	}
 
 	var (
-		upsertDeviceStmt          *sqlair.Statement
-		upsertAddrStmt            *sqlair.Statement
-		upsertProviderDeviceStmt  *sqlair.Statement
-		upsertProviderAddrStmt    *sqlair.Statement
-		upsertDNSDomainStmt       *sqlair.Statement
-		upsertDNSAddrStmt         *sqlair.Statement
-		upsertDeviceParentStmt    *sqlair.Statement
-		getSubnetByProviderIDStmt *sqlair.Statement
+		upsertDeviceStmt           *sqlair.Statement
+		upsertAddrStmt             *sqlair.Statement
+		upsertProviderDeviceStmt   *sqlair.Statement
+		upsertProviderAddrStmt     *sqlair.Statement
+		upsertDNSDomainStmt        *sqlair.Statement
+		upsertDNSAddrStmt          *sqlair.Statement
+		upsertDeviceParentStmt     *sqlair.Statement
+		getSubnetByProviderIDStmt  *sqlair.Statement
+		validateProviderDeviceStmt *sqlair.Statement
+		validateProviderAddrStmt   *sqlair.Statement
 	)
 	if len(nics) > 0 {
 		upsertDeviceStmt, err = st.Prepare(`
@@ -267,6 +269,22 @@ WHERE  provider_id = $provProviderID.provider_id
 `, provSubnetUUID{}, provProviderID{})
 		if err != nil {
 			return errors.Errorf("preparing subnet by provider ID lookup: %w", err)
+		}
+		validateProviderDeviceStmt, err = st.Prepare(`
+SELECT &provProviderLLDRow.*
+FROM   provider_link_layer_device
+WHERE  provider_id IN ($provProviderIDs[:])
+`, provProviderLLDRow{}, provProviderIDs{})
+		if err != nil {
+			return errors.Errorf("preparing provider device validation: %w", err)
+		}
+		validateProviderAddrStmt, err = st.Prepare(`
+SELECT &provProviderIPRow.*
+FROM   provider_ip_address
+WHERE  provider_id IN ($provProviderIDs[:])
+`, provProviderIPRow{}, provProviderIDs{})
+		if err != nil {
+			return errors.Errorf("preparing provider address validation: %w", err)
 		}
 	}
 
@@ -647,11 +665,17 @@ ON CONFLICT (machine_uuid) DO NOTHING
 				}
 			}
 			if len(provDevRows) > 0 {
+				if err := validateProviderDeviceIDs(ctx, tx, validateProviderDeviceStmt, provDevRows); err != nil {
+					return errors.Capture(err)
+				}
 				if err := tx.Query(ctx, upsertProviderDeviceStmt, provDevRows).Run(); err != nil {
 					return errors.Errorf("upserting provider device IDs: %w", err)
 				}
 			}
 			if len(provAddrRows) > 0 {
+				if err := validateProviderAddressIDs(ctx, tx, validateProviderAddrStmt, provAddrRows); err != nil {
+					return errors.Capture(err)
+				}
 				if err := tx.Query(ctx, upsertProviderAddrStmt, provAddrRows).Run(); err != nil {
 					return errors.Errorf("upserting provider address IDs: %w", err)
 				}
@@ -926,4 +950,66 @@ func volumeDeviceTypeToID(deviceType string) (int, error) {
 	default:
 		return 0, errors.Errorf("unsupported volume device type %q", deviceType)
 	}
+}
+
+// validateProviderDeviceIDs checks for duplicate provider device IDs in the
+// incoming data and for conflicts with existing provider_link_layer_device
+// rows that map a different device_uuid.
+func validateProviderDeviceIDs(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement, rows []provProviderLLDRow) error {
+	// Check for duplicates within the incoming data.
+	seen := make(map[string]string, len(rows))
+	for _, r := range rows {
+		if existingUUID, ok := seen[r.ProviderID]; ok && existingUUID != r.DeviceUUID {
+			return errors.Errorf("duplicate provider device ID %q assigned to multiple devices in incoming data", r.ProviderID)
+		}
+		seen[r.ProviderID] = r.DeviceUUID
+	}
+
+	// Check for conflicts with existing provider mappings.
+	ids := make([]string, 0, len(seen))
+	for id := range seen {
+		ids = append(ids, id)
+	}
+	pIDs := provProviderIDs(ids)
+	var existing []provProviderLLDRow
+	if err := tx.Query(ctx, stmt, pIDs).GetAll(&existing); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("checking existing provider device mappings: %w", err)
+	}
+	for _, e := range existing {
+		if incomingUUID, ok := seen[e.ProviderID]; ok && incomingUUID != e.DeviceUUID {
+			return errors.Errorf("provider device ID %q already mapped to device %q", e.ProviderID, e.DeviceUUID)
+		}
+	}
+	return nil
+}
+
+// validateProviderAddressIDs checks for duplicate provider address IDs in the
+// incoming data and for conflicts with existing provider_ip_address
+// rows that map a different address_uuid.
+func validateProviderAddressIDs(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement, rows []provProviderIPRow) error {
+	// Check for duplicates within the incoming data.
+	seen := make(map[string]string, len(rows))
+	for _, r := range rows {
+		if existingUUID, ok := seen[r.ProviderID]; ok && existingUUID != r.AddressUUID {
+			return errors.Errorf("duplicate provider address ID %q assigned to multiple addresses in incoming data", r.ProviderID)
+		}
+		seen[r.ProviderID] = r.AddressUUID
+	}
+
+	// Check for conflicts with existing provider mappings.
+	ids := make([]string, 0, len(seen))
+	for id := range seen {
+		ids = append(ids, id)
+	}
+	pIDs := provProviderIDs(ids)
+	var existing []provProviderIPRow
+	if err := tx.Query(ctx, stmt, pIDs).GetAll(&existing); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("checking existing provider address mappings: %w", err)
+	}
+	for _, e := range existing {
+		if incomingUUID, ok := seen[e.ProviderID]; ok && incomingUUID != e.AddressUUID {
+			return errors.Errorf("provider address ID %q already mapped to address %q", e.ProviderID, e.AddressUUID)
+		}
+	}
+	return nil
 }
