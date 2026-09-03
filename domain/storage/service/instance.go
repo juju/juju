@@ -8,6 +8,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/trace"
+	coreunit "github.com/juju/juju/core/unit"
 	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
@@ -102,6 +103,45 @@ func (s *Service) GetStorageInstanceInfo(
 	}
 
 	return retVal, nil
+}
+
+// GetStorageInstancesForUnit returns the information about all of the storage
+// instances attached to the unit with the input UUID. If the unit has no
+// storage attachments an empty slice is returned.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the supplied Unit UUID is not valid.
+// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when the
+// unit does not exist.
+func (s *Service) GetStorageInstancesForUnit(
+	ctx context.Context, unitUUID coreunit.UUID,
+) ([]domainstorage.StorageInstanceInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := unitUUID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"unit uuid is not valid",
+		).Add(coreerrors.NotValid)
+	}
+
+	instanceUUIDs, err := s.st.GetStorageInstanceUUIDsForUnit(ctx, unitUUID.String())
+	if err != nil {
+		return nil, err
+	}
+
+	instances := make([]domainstorage.StorageInstanceInfo, 0, len(instanceUUIDs))
+	for _, instanceUUID := range instanceUUIDs {
+		instance, err := s.GetStorageInstanceInfo(ctx, instanceUUID)
+		if err != nil {
+			return nil, errors.Errorf(
+				"getting storage instance %q for unit %q: %w",
+				instanceUUID, unitUUID, err,
+			)
+		}
+		instances = append(instances, instance)
+	}
+	return instances, nil
 }
 
 // GetStorageInstanceUUIDForID returns the StorageInstanceUUID for the given

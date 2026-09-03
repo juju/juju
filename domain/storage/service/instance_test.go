@@ -15,6 +15,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	domainstatus "github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -587,5 +588,97 @@ func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsPartial(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, map[string]domainstorage.StorageInstanceUUID{
 		"id1": uuid1,
+	})
+}
+
+// TestGetStorageInstancesForUnitUUIDNotValid tests that
+// [Service.GetStorageInstancesForUnit] returns an error satisfying
+// [coreerrors.NotValid] when called with an invalid unit UUID. The test
+// verifies that UUID validation occurs before any state operations.
+func (s *instanceSuite) TestGetStorageInstancesForUnitUUIDNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	invalidUUID := coreunit.UUID("invalid")
+
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
+	)
+	_, err := svc.GetStorageInstancesForUnit(c.Context(), invalidUUID)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestGetStorageInstancesForUnitNotFound asserts that when the unit does not
+// exist [Service.GetStorageInstancesForUnit] propagates the
+// [domainapplicationerrors.UnitNotFound] error returned by state.
+func (s *instanceSuite) TestGetStorageInstancesForUnitNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+
+	stateExp := s.state.EXPECT()
+	stateExp.GetStorageInstanceUUIDsForUnit(gomock.Any(), unitUUID.String()).Return(
+		nil, domainapplicationerrors.UnitNotFound,
+	)
+
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
+	)
+	_, err := svc.GetStorageInstancesForUnit(c.Context(), unitUUID)
+	c.Check(err, tc.ErrorIs, domainapplicationerrors.UnitNotFound)
+}
+
+// TestGetStorageInstancesForUnit tests the happy path for
+// [Service.GetStorageInstancesForUnit], asserting that the storage instances
+// attached to the unit are returned with their mapped information in the order
+// supplied by state.
+func (s *instanceSuite) TestGetStorageInstancesForUnit(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	blockInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	filesystemInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+
+	stateExp := s.state.EXPECT()
+	stateExp.GetStorageInstanceUUIDsForUnit(gomock.Any(), unitUUID.String()).Return(
+		[]domainstorage.StorageInstanceUUID{
+			blockInstanceUUID,
+			filesystemInstanceUUID,
+		}, nil,
+	)
+	stateExp.GetStorageInstanceInfo(c.Context(), blockInstanceUUID).Return(
+		internal.StorageInstanceInfo{
+			StorageID: "single-blk/0",
+			Kind:      domainstorage.StorageKindBlock,
+			Life:      domainlife.Alive,
+			UUID:      blockInstanceUUID,
+			Volume:    &internal.StorageInstanceInfoVolume{Persistent: true},
+		}, nil,
+	)
+	stateExp.GetStorageInstanceInfo(c.Context(), filesystemInstanceUUID).Return(
+		internal.StorageInstanceInfo{
+			StorageID: "single-fs/0",
+			Kind:      domainstorage.StorageKindFilesystem,
+			Life:      domainlife.Alive,
+			UUID:      filesystemInstanceUUID,
+		}, nil,
+	)
+
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
+	)
+	res, err := svc.GetStorageInstancesForUnit(c.Context(), unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, []domainstorage.StorageInstanceInfo{
+		{
+			ID:         "single-blk/0",
+			Kind:       domainstorage.StorageKindBlock,
+			Life:       domainlife.Alive,
+			Persistent: true,
+			UUID:       blockInstanceUUID,
+		},
+		{
+			ID:         "single-fs/0",
+			Kind:       domainstorage.StorageKindFilesystem,
+			Life:       domainlife.Alive,
+			Persistent: false,
+			UUID:       filesystemInstanceUUID,
+		},
 	})
 }
