@@ -245,11 +245,17 @@ func (t *Tunnel) startPodHealthCheck(ctx context.Context, podName string) {
 	t.defaultPodHealthCheck(ctx, podName)
 }
 
+// defaultPodHealthCheck sets up a pod health check that closes the tunnel if
+// the pod is deleted or no longer running. The SPDY connection to the API
+// server may persist after the pod is gone, so this provides an independent
+// signal that the tunnel is broken.
+const podHealthCheckResyncPeriod = 10 * time.Second
+
 func (t *Tunnel) defaultPodHealthCheck(ctx context.Context, podName string) {
 	clientSet := kubernetes.New(t.client)
 	factory := informers.NewSharedInformerFactoryWithOptions(
 		clientSet,
-		10*time.Second,
+		podHealthCheckResyncPeriod,
 		informers.WithNamespace(t.Namespace),
 		informers.WithTweakListOptions(func(options *meta.ListOptions) {
 			options.FieldSelector = fields.OneTermEqualSelector("metadata.name", podName).String()
