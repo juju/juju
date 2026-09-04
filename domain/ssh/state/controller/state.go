@@ -110,7 +110,8 @@ func (st *State) GetPublicKeysForUser(ctx context.Context, username user.Name) (
 
 	arg := userName{Name: username.Name()}
 	stmt, err := st.Prepare(`
-SELECT &userPublicSSHKey.public_key
+SELECT &userPublicSSHKey.comment,
+       &userPublicSSHKey.public_key
 FROM user_public_ssh_key AS userPublicSSHKey
 JOIN v_user_auth AS userAuth ON userPublicSSHKey.user_uuid = userAuth.uuid
 WHERE userAuth.name = $userName.name
@@ -134,7 +135,10 @@ WHERE userAuth.name = $userName.name
 
 	keys := make([]coressh.PublicKey, 0, len(rows))
 	for _, row := range rows {
-		keys = append(keys, coressh.PublicKey{Key: row.PublicKey})
+		keys = append(keys, coressh.PublicKey{
+			Comment: row.Comment,
+			Key:     row.PublicKey,
+		})
 	}
 	return keys, nil
 }
@@ -155,5 +159,6 @@ type userName struct {
 }
 
 type userPublicSSHKey struct {
+	Comment   string `db:"comment"`
 	PublicKey string `db:"public_key"`
 }

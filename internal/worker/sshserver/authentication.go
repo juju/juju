@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/lestrrat-go/jwx/v3/jwt"
 	ssh "github.com/tailscale/gliderssh"
-	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/logger"
 	coressh "github.com/juju/juju/core/ssh"
@@ -40,7 +39,7 @@ type TunnelAuthenticator interface {
 
 // UserPublicKeyService retrieves the public keys registered for a user.
 type UserPublicKeyService interface {
-	PublicKeys(context.Context, string) ([]gossh.PublicKey, error)
+	PublicKeys(context.Context, string) ([]publicKeyWithComment, error)
 }
 
 // authenticator implements the Authenticator interface for the SSH server.
@@ -64,7 +63,7 @@ func (a authenticator) PublicKeyAuthentication(ctx ssh.Context, key ssh.PublicKe
 
 	for _, authorizedKey := range keys {
 		if bytes.Equal(key.Marshal(), authorizedKey.Marshal()) {
-			ctx.SetValue(authenticatedPublicKey{}, key)
+			ctx.SetValue(authenticatedPublicKey{}, authorizedKey)
 			return true, nil
 		}
 	}

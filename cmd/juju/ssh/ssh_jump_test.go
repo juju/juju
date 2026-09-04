@@ -15,6 +15,7 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
+	"github.com/juju/utils/v4/ssh"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
@@ -252,6 +253,67 @@ func (s *sshJumpSuite) TestSSHShowsJumpCommand(c *tc.C) {
 
 	c.Assert(jump.ssh(sshCtx, false, target), tc.ErrorIsNil)
 	c.Check(buffer.String(), tc.Equals, "ssh -o \"ProxyCommand=ssh -W %h:%p -p 17022 fred@1.0.0.1\" ubuntu@resolved-target echo \"hello world\"\n")
+}
+
+func (s *sshJumpSuite) TestSSHShowsJumpKey(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	target := &resolvedTarget{
+		user: finalDestinationUser,
+		host: "resolved-target",
+		via:  &resolvedTarget{user: "fred", host: "1.0.0.1"},
+	}
+	outputTemplate, err := template.New("output").Parse(openSSHTemplate)
+	c.Assert(err, tc.ErrorIsNil)
+	jump := sshJump{
+		jumpKey:           "/tmp/custom-key",
+		jumpHostPort:      17022,
+		showCommand:       true,
+		sshOutputTemplate: outputTemplate,
+	}
+
+	buffer := bytes.NewBuffer(nil)
+	sshCtx := mocks.NewMockContext(ctrl)
+	sshCtx.EXPECT().GetStdout().Return(buffer)
+
+	c.Assert(jump.ssh(sshCtx, false, target), tc.ErrorIsNil)
+	c.Check(buffer.String(), tc.Contains, "-o IdentitiesOnly=yes -i /tmp/custom-key -W")
+}
+
+// TestSSHUsesIdentitiesOnlyWithJumpKey ensures the proxy command only offers
+// the configured key when one is specified, so the SSH server's delayed
+// verification of the key against the model never fails due to another
+// identity being offered first.
+func (s *sshJumpSuite) TestSSHUsesIdentitiesOnlyWithJumpKey(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	target := &resolvedTarget{
+		user: finalDestinationUser,
+		host: "resolved-target",
+		via: &resolvedTarget{
+			user: "fred",
+			host: "1.0.0.1",
+		},
+	}
+	jump := sshJump{
+		jumpKey:        "/tmp/custom-key",
+		jumpHostPort:   17022,
+		knownHostsPath: "/tmp/known_hosts",
+	}
+
+	buffer := bytes.NewBuffer(nil)
+	sshCtx := mocks.NewMockContext(ctrl)
+	sshCtx.EXPECT().GetStdin().Return(bytes.NewBuffer(nil)).AnyTimes()
+	sshCtx.EXPECT().GetStdout().Return(buffer).AnyTimes()
+	sshCtx.EXPECT().GetStderr().Return(buffer).AnyTimes()
+
+	err := jump.ssh(sshCtx, false, target)
+	c.Assert(err, tc.ErrorIsNil)
+
+	out := buffer.String()
+	c.Check(strings.Contains(out, "-o IdentitiesOnly=yes -i /tmp/custom-key"), tc.IsTrue)
 }
 
 func (s *sshJumpSuite) TestCopyShowsJumpCommand(c *tc.C) {
@@ -533,4 +595,50 @@ func (s *sshJumpSuite) TestGetSSHOptionsRequiresTarget(c *tc.C) {
 
 	_, err := jump.getSSHOptions(false)
 	c.Check(err, tc.ErrorMatches, "at least one SSH target is required")
+}
+
+// TestSSHJumpOffersJujuClientKeys ensures the jump hop offers the Juju client
+// keys from the Juju data SSH directory as identities so the key registered
+// with add-ssh-key is the one used to authenticate with the jump server.
+func (s *sshJumpSuite) TestSSHJumpOffersJujuClientKeys(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	keyDir := c.MkDir()
+	keyPath := filepath.Join(keyDir, "juju_id_ed25519")
+	err := os.WriteFile(keyPath, []byte(coretesting.SSHServerHostKey), 0600)
+	c.Assert(err, tc.ErrorIsNil)
+	signer, err := gossh.ParsePrivateKey([]byte(coretesting.SSHServerHostKey))
+	c.Assert(err, tc.ErrorIsNil)
+	err = os.WriteFile(
+		keyPath+".pub",
+		gossh.MarshalAuthorizedKey(signer.PublicKey()),
+		0600,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	err = ssh.LoadClientKeys(keyDir)
+	c.Assert(err, tc.ErrorIsNil)
+	defer ssh.ClearClientKeys()
+
+	target := &resolvedTarget{
+		user: finalDestinationUser,
+		host: "resolved-target",
+		via: &resolvedTarget{
+			user: "fred",
+			host: "1.0.0.1",
+		},
+	}
+	jump := sshJump{jumpHostPort: 17022, knownHostsPath: "/tmp/known_hosts"}
+
+	buffer := bytes.NewBuffer(nil)
+	sshCtx := mocks.NewMockContext(ctrl)
+	sshCtx.EXPECT().GetStdin().Return(bytes.NewBuffer(nil)).AnyTimes()
+	sshCtx.EXPECT().GetStdout().Return(buffer).AnyTimes()
+	sshCtx.EXPECT().GetStderr().Return(buffer).AnyTimes()
+
+	err = jump.ssh(sshCtx, false, target)
+	c.Assert(err, tc.ErrorIsNil)
+
+	proxyCommand := "ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/tmp/known_hosts -i " + keyPath + " "
+	c.Check(buffer.String(), tc.Contains, proxyCommand)
 }

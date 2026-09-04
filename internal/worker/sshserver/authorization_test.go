@@ -57,14 +57,15 @@ func (s *authorizationSuite) TestPublicKeyAccessAllowed(c *tc.C) {
 
 	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
 	c.Assert(err, tc.ErrorIsNil)
-	authKey := newSigner(c).PublicKey()
+	signer := newSigner(c)
 	ctx := &stubAuthenticationContext{user: "alice", values: map[any]any{
-		authenticatedPublicKey{}: newSigner(c).PublicKey(),
-		authenticatedPublicKey{}: authKey,
+		authenticatedPublicKey{}: publicKeyWithComment{
+			PublicKey: signer.PublicKey(),
+		},
 	}}
 	access := NewMockAccessService(s.ctrl)
 	access.EXPECT().HasSSHAccessToModel(gomock.Any(), "alice", destination).Return(true, nil)
-	access.EXPECT().PublicKeyInModel(gomock.Any(), "alice", authKey, destination).Return(true, nil)
+	access.EXPECT().PublicKeyInModel(gomock.Any(), "alice", signer.PublicKey(), destination).Return(true, nil)
 
 	authorizer := authorizer{access: access, logger: loggertesting.WrapCheckLog(c)}
 	authorized, err := authorizer.Authorize(ctx, destination)
@@ -78,8 +79,10 @@ func (s *authorizationSuite) TestPublicKeyAccessDenied(c *tc.C) {
 	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
 	c.Assert(err, tc.ErrorIsNil)
 	ctx := &stubAuthenticationContext{user: "alice", values: map[any]any{
-		authenticatedPublicKey{}: newSigner(c).PublicKey(),
-		authenticatedPublicKey{}: newSigner(c).PublicKey(),
+		authenticatedPublicKey{}: publicKeyWithComment{
+			PublicKey: newSigner(c).PublicKey(),
+			Comment:   "my laptop",
+		},
 	}}
 	access := NewMockAccessService(s.ctrl)
 	access.EXPECT().HasSSHAccessToModel(gomock.Any(), "alice", destination).Return(false, nil)
@@ -96,8 +99,10 @@ func (s *authorizationSuite) TestPublicKeyNotInModelRejected(c *tc.C) {
 	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
 	c.Assert(err, tc.ErrorIsNil)
 	ctx := &stubAuthenticationContext{user: "alice", values: map[any]any{
-		authenticatedPublicKey{}: newSigner(c).PublicKey(),
-		authenticatedPublicKey{}: newSigner(c).PublicKey(),
+		authenticatedPublicKey{}: publicKeyWithComment{
+			PublicKey: newSigner(c).PublicKey(),
+			Comment:   "my laptop",
+		},
 	}}
 	access := NewMockAccessService(s.ctrl)
 	access.EXPECT().HasSSHAccessToModel(gomock.Any(), "alice", destination).Return(true, nil)
@@ -105,7 +110,7 @@ func (s *authorizationSuite) TestPublicKeyNotInModelRejected(c *tc.C) {
 
 	authorizer := authorizer{access: access, logger: loggertesting.WrapCheckLog(c)}
 	authorized, err := authorizer.Authorize(ctx, destination)
-	c.Check(err, tc.ErrorMatches, `public key used to authenticate is not associated with model "8419cd78-4993-4c3a-928e-c646226beeee", add the key to the model to access it`)
+	c.Check(err, tc.ErrorMatches, `public key "my laptop" used to authenticate is not associated with model "8419cd78-4993-4c3a-928e-c646226beeee", add the key to the model or specify a different key`)
 	c.Check(authorized, tc.IsFalse)
 }
 
@@ -115,8 +120,9 @@ func (s *authorizationSuite) TestPublicKeyModelKeyCheckError(c *tc.C) {
 	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
 	c.Assert(err, tc.ErrorIsNil)
 	ctx := &stubAuthenticationContext{user: "alice", values: map[any]any{
-		authenticatedPublicKey{}: newSigner(c).PublicKey(),
-		authenticatedPublicKey{}: newSigner(c).PublicKey(),
+		authenticatedPublicKey{}: publicKeyWithComment{
+			PublicKey: newSigner(c).PublicKey(),
+		},
 	}}
 	access := NewMockAccessService(s.ctrl)
 	access.EXPECT().HasSSHAccessToModel(gomock.Any(), "alice", destination).Return(true, nil)
@@ -193,7 +199,11 @@ func (s *authorizationSuite) TestPublicKeyAccessReturnsError(c *tc.C) {
 
 	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
 	c.Assert(err, tc.ErrorIsNil)
-	ctx := &stubAuthenticationContext{user: "alice", values: map[any]any{authenticatedPublicKey{}: newSigner(c).PublicKey()}}
+	ctx := &stubAuthenticationContext{user: "alice", values: map[any]any{
+		authenticatedPublicKey{}: publicKeyWithComment{
+			PublicKey: newSigner(c).PublicKey(),
+		},
+	}}
 	access := NewMockAccessService(s.ctrl)
 	access.EXPECT().HasSSHAccessToModel(gomock.Any(), "alice", destination).Return(false, errors.New("boom"))
 
