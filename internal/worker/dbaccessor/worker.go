@@ -44,6 +44,10 @@ const (
 
 	// dbOpenTimeout is the timeout for opening a database.
 	dbOpenTimeout = 15 * time.Second
+
+	// dbLeaderReportTimeout is the timeout for querying Dqlite leadership
+	// during an engine report.
+	dbLeaderReportTimeout = 10 * time.Second
 )
 
 // NodeManager creates Dqlite `App` initialisation arguments and options.
@@ -385,39 +389,41 @@ func (w *dbWorker) Wait() error {
 
 // Report provides information for the engine report.
 func (w *dbWorker) Report(ctx context.Context) map[string]any {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-
 	ctx = w.catacomb.Context(ctx)
 
-	// We need to guard against attempting to report when setting up or dying,
-	// so we don't end up panicking with missing information.
 	result := w.dbRunner.Report(ctx)
+	if result == nil {
+		result = make(map[string]any)
+	}
 
-	if w.dbApp == nil {
-		result["leader"] = ""
-		result["leader-id"] = uint64(0)
-		result["leader-role"] = ""
+	w.mu.RLock()
+	dbApp := w.dbApp
+	w.mu.RUnlock()
+
+	if dbApp == nil {
+		result["leader-error"] = "dqlite node unavailable"
 		return result
 	}
 
-	var (
-		leader     string
-		leaderRole string
-		leaderID   uint64
-	)
-	if client, err := w.dbApp.Client(ctx); err == nil {
-		defer func() { _ = client.Close() }()
-		if nodeInfo, err := client.Leader(ctx); err == nil {
-			leaderID = nodeInfo.ID
-			leader = nodeInfo.Address
-			leaderRole = nodeInfo.Role.String()
-		}
+	leaderCtx, cancel := context.WithTimeout(ctx, dbLeaderReportTimeout)
+	defer cancel()
+
+	client, err := dbApp.Client(leaderCtx)
+	if err != nil {
+		result["leader-error"] = err.Error()
+		return result
+	}
+	defer func() { _ = client.Close() }()
+
+	nodeInfo, err := client.Leader(leaderCtx)
+	if err != nil {
+		result["leader-error"] = err.Error()
+		return result
 	}
 
-	result["leader-id"] = leaderID
-	result["leader"] = leader
-	result["leader-role"] = leaderRole
+	result["leader-id"] = nodeInfo.ID
+	result["leader"] = nodeInfo.Address
+	result["leader-role"] = nodeInfo.Role.String()
 
 	return result
 }

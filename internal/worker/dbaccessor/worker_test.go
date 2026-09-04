@@ -577,6 +577,134 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 	}
 }
 
+func (s *workerSuite) startRunningWorker(c *tc.C) (*dbWorker, func()) {
+	dbDone := make(chan struct{})
+	s.expectClock()
+	s.expectTrackedDBUpdateNodeAndKill(dbDone)
+
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
+	mgrExp.IsExistingNode().Return(true, nil).MinTimes(1)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil).MinTimes(1)
+	mgrExp.IsLoopbackPreferred().Return(false).MinTimes(1)
+	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTLSOption().Return(nil, nil)
+	mgrExp.WithTracingOption().Return(nil)
+	mgrExp.WithBusyTimeoutOption().Return(nil)
+
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
+	s.clusterConfig.EXPECT().DBBindAddresses().Return(map[string]string{
+		"0": "10.6.6.6",
+		"1": "10.6.6.7",
+	}, nil)
+
+	appExp := s.dbApp.EXPECT()
+	appExp.Ready(gomock.Any()).Return(nil)
+	appExp.Client(gomock.Any()).Return(s.client, nil).Times(1)
+	appExp.ID().Return(uint64(666)).MinTimes(1)
+	appExp.Address().Return("192.168.6.6:17666")
+	appExp.Close().Return(nil)
+	s.expectWorkerRetry()
+
+	s.expectNoConfigChanges()
+	s.dbApp.EXPECT().Handover(gomock.Any()).Return(nil)
+
+	w := s.newWorker(c)
+	dbw := w.(*dbWorker)
+	ensureStartup(c, dbw)
+
+	cleanup := func() {
+		close(dbDone)
+		workertest.CleanKill(c, w)
+	}
+	return dbw, cleanup
+}
+
+func (s *workerSuite) TestWorkerReportLeaderSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	dbw, cleanup := s.startRunningWorker(c)
+	defer cleanup()
+
+	s.dbApp.EXPECT().Client(gomock.Any()).Return(s.client, nil).Times(1)
+	nodeInfo := &dqlite.NodeInfo{
+		ID:      42,
+		Address: "10.6.6.6:17666",
+		Role:    dqlite.Voter,
+	}
+	s.client.EXPECT().Leader(gomock.Any()).Return(nodeInfo, nil)
+
+	report := dbw.Report(c.Context())
+	c.Check(report["leader"], tc.Equals, "10.6.6.6:17666")
+	c.Check(report["leader-id"], tc.Equals, uint64(42))
+	c.Check(report["leader-role"], tc.Equals, nodeInfo.Role.String())
+	_, hasError := report["leader-error"]
+	c.Check(hasError, tc.IsFalse)
+}
+
+func (s *workerSuite) TestWorkerReportLeaderError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	dbw, cleanup := s.startRunningWorker(c)
+	defer cleanup()
+
+	s.dbApp.EXPECT().Client(gomock.Any()).Return(s.client, nil).Times(1)
+	s.client.EXPECT().Leader(gomock.Any()).Return(nil, errors.New("cannot determine leader"))
+
+	report := dbw.Report(c.Context())
+	c.Check(report["leader-error"], tc.Equals, "cannot determine leader")
+	_, hasLeader := report["leader"]
+	c.Check(hasLeader, tc.IsFalse)
+	_, hasLeaderID := report["leader-id"]
+	c.Check(hasLeaderID, tc.IsFalse)
+	_, hasLeaderRole := report["leader-role"]
+	c.Check(hasLeaderRole, tc.IsFalse)
+}
+
+func (s *workerSuite) TestWorkerReportLeaderTimeout(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	dbw, cleanup := s.startRunningWorker(c)
+	defer cleanup()
+
+	s.dbApp.EXPECT().Client(gomock.Any()).Return(s.client, nil).Times(1)
+	s.client.EXPECT().Leader(gomock.Any()).DoAndReturn(func(ctx context.Context) (*dqlite.NodeInfo, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	})
+
+	testCtx, cancel := context.WithTimeout(c.Context(), 50*time.Millisecond)
+	defer cancel()
+
+	report := dbw.Report(testCtx)
+	c.Check(report["leader-error"], tc.Equals, context.DeadlineExceeded.Error())
+	_, hasLeader := report["leader"]
+	c.Check(hasLeader, tc.IsFalse)
+	_, hasLeaderID := report["leader-id"]
+	c.Check(hasLeaderID, tc.IsFalse)
+	_, hasLeaderRole := report["leader-role"]
+	c.Check(hasLeaderRole, tc.IsFalse)
+}
+
+func (s *workerSuite) TestWorkerReportClientError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	dbw, cleanup := s.startRunningWorker(c)
+	defer cleanup()
+
+	s.dbApp.EXPECT().Client(gomock.Any()).Return(nil, errors.New("client creation failed"))
+
+	report := dbw.Report(c.Context())
+	c.Check(report["leader-error"], tc.Equals, "client creation failed")
+	_, hasLeader := report["leader"]
+	c.Check(hasLeader, tc.IsFalse)
+	_, hasLeaderID := report["leader-id"]
+	c.Check(hasLeaderID, tc.IsFalse)
+	_, hasLeaderRole := report["leader-role"]
+	c.Check(hasLeaderRole, tc.IsFalse)
+}
+
 func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
