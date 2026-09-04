@@ -779,6 +779,17 @@ type NotifyMapperWatcherFactory interface {
 type WatcherFactory interface {
 	NotifyMapperWatcherFactory
 
+	// NewNamespaceWatcher returns a new namespace watcher for events based on
+	// the input change mask. The initialStateQuery ensures the watcher starts
+	// with the current state of the system, preventing data loss from prior
+	// events.
+	NewNamespaceWatcher(
+		ctx context.Context,
+		initialStateQuery eventsource.NamespaceQuery,
+		summary string,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
+
 	// NewNamespaceMapperWatcher returns a new namespace watcher for events
 	// based on the input change mask. The initialStateQuery ensures the watcher
 	// starts with the current state of the system, preventing data loss from
@@ -904,6 +915,23 @@ func (s *WatchableService) WatchModels(ctx context.Context) (watcher.NotifyWatch
 		ctx,
 		"models watcher",
 		eventsource.NamespaceFilter("model", changestream.All),
+	)
+}
+
+// WatchModelRemovals returns a watcher that emits the UUIDs of models that
+// have been removed from the controller.
+func (s *WatchableService) WatchModelRemovals(ctx context.Context) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// A deletion stream has no current state to report, but its empty initial
+	// event is still the synchronization point that tells the consumer the
+	// subscription is established.
+	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
+		eventsource.EmptyInitialNamespaceChanges(),
+		"model removals watcher",
+		eventsource.NamespaceFilter("model", changestream.Deleted),
 	)
 }
 
