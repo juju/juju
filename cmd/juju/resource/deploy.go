@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	apiresources "github.com/juju/juju/api/client/resources"
+	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 )
@@ -117,6 +118,9 @@ func (d deployUploader) upload(ctx context.Context, resourceValues map[string]st
 	for name, resValue := range resourceValues {
 		r, err := OpenResource(resValue, d.resources[name].Type, d.filesystem.Open)
 		if err != nil {
+			if d.resources[name].Type == charmresource.TypeFile {
+				err = utils.AnnotateWithSnapHint(err, resValue)
+			}
 			return nil, errors.Annotatef(err, "resource %q", name)
 		}
 		id, err := d.uploadPendingResource(ctx, name, resValue, r)

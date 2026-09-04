@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/client/resources"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
+	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	coreresources "github.com/juju/juju/core/resource"
@@ -179,6 +180,9 @@ func (c *UploadCommand) Run(ctx *cmd.Context) error {
 func (c *UploadCommand) upload(ctx context.Context, rf resourceValue, client UploadClient) error {
 	f, err := OpenResource(rf.value, rf.resourceType, c.Filesystem().Open)
 	if err != nil {
+		if rf.resourceType == charmresource.TypeFile {
+			err = utils.AnnotateWithSnapHint(err, rf.value)
+		}
 		return errors.Trace(err)
 	}
 	defer f.Close()
