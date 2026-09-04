@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	stdtesting "testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -68,6 +69,7 @@ func (s *backupsSuite) api(c *tc.C, backupDir string) *API {
 		stubModelConfig{cfg: cfg},
 		controllerServices.Controller(),
 		controllerServices.ControllerNode(),
+		clock.WallClock,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	return api

@@ -106,7 +106,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 		return params.BackupsMetadataResult{}, err
 	}
 
-	meta := corebackups.NewMetadata()
+	meta := corebackups.NewMetadata(a.clock.Now())
 	meta.Notes = args.Notes
 	meta.Origin = corebackups.Origin{
 		Model:    a.controllerModelUID.String(),
@@ -128,6 +128,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 		DestinationDir: backupDir,
 		FilesToBackUp:  files,
 		DumpEntries:    entries,
+		Clock:          a.clock,
 	})
 	if err != nil {
 		return params.BackupsMetadataResult{}, err
