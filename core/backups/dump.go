@@ -55,11 +55,21 @@ func (s *DumpStaging) Size() int64 {
 }
 
 // Close closes the staged dump readers and removes the staging directory.
-func (s *DumpStaging) Close() {
+// Close and remove failures are returned rather than swallowed, but the
+// caller is expected to invoke Close from a deferred cleanup path and only
+// log the error: it must not mask the result of the operation Close is
+// cleaning up after.
+func (s *DumpStaging) Close() error {
+	var errs []error
 	for _, file := range s.files {
-		_ = file.Close()
+		if err := file.Close(); err != nil {
+			errs = append(errs, errors.Errorf("closing staged dump %q: %w", file.Name(), err))
+		}
 	}
-	_ = os.RemoveAll(s.dir)
+	if err := os.RemoveAll(s.dir); err != nil {
+		errs = append(errs, errors.Errorf("removing staging directory %q: %w", s.dir, err))
+	}
+	return errors.Capture(errors.Join(errs...))
 }
 
 // StageDumps marshals each dump into a temporary directory inside dir and
@@ -77,7 +87,9 @@ func StageDumps(ctx context.Context, dir string, dumps []NamedDump) (*DumpStagin
 	// directory removed; on success ownership passes to the caller.
 	defer func() {
 		if staging != nil {
-			staging.Close()
+			// The staging directory is internal to StageDumps here, so a
+			// cleanup failure on this path has no caller to report to.
+			_ = staging.Close()
 		}
 	}()
 

@@ -11,6 +11,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	domainexport "github.com/juju/juju/domain/export"
 	exportservice "github.com/juju/juju/domain/export/service"
@@ -57,12 +58,12 @@ type ControllerNodeLister interface {
 
 // API provides backup-specific API methods.
 type API struct {
-	authorizer         facade.Authorizer
-	machineID          string
-	controllerUUID     string
-	controllerModelUID coremodel.UUID
-	dataDir            string
-	logDir             string
+	authorizer          facade.Authorizer
+	machineID           string
+	controllerUUID      string
+	controllerModelUUID coremodel.UUID
+	dataDir             string
+	logDir              string
 
 	controllerExport ControllerExportService
 	modelServicesFor ModelServicesForFunc
@@ -70,6 +71,7 @@ type API struct {
 	controller       ControllerModelLister
 	controllerNodes  ControllerNodeLister
 	clock            clock.Clock
+	logger           corelogger.Logger
 }
 
 // NewAPI creates a new instance of the Backups API facade.
@@ -85,23 +87,25 @@ func NewAPI(
 	controller ControllerModelLister,
 	controllerNodes ControllerNodeLister,
 	clock clock.Clock,
+	logger corelogger.Logger,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	return &API{
-		authorizer:         authorizer,
-		machineID:          machineTag.Id(),
-		controllerUUID:     controllerUUID,
-		controllerModelUID: controllerModelUUID,
-		dataDir:            dataDir,
-		logDir:             logDir,
-		controllerExport:   controllerExport,
-		modelServicesFor:   modelServicesFor,
-		modelConfig:        modelConfig,
-		controller:         controller,
-		controllerNodes:    controllerNodes,
-		clock:              clock,
+		authorizer:          authorizer,
+		machineID:           machineTag.Id(),
+		controllerUUID:      controllerUUID,
+		controllerModelUUID: controllerModelUUID,
+		dataDir:             dataDir,
+		logDir:              logDir,
+		controllerExport:    controllerExport,
+		modelServicesFor:    modelServicesFor,
+		modelConfig:         modelConfig,
+		controller:          controller,
+		controllerNodes:     controllerNodes,
+		clock:               clock,
+		logger:              logger,
 	}, nil
 }

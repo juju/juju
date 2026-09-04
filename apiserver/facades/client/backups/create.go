@@ -20,6 +20,17 @@ import (
 // Create is the API method that requests juju to create a new backup
 // of its state. The archive contains the controller database export and one
 // export per model, alongside the controller's data directory files.
+//
+// Only args.Notes is honored. args.NoDownload is accepted for client
+// compatibility but has no effect here: the archive is always written to the
+// controller's backup directory, and the download endpoint is not wired yet.
+//
+// The controller database and each model database are exported at different
+// points in time with no cross-database snapshot, so the archive is not a
+// single point-in-time view of the whole controller. State that changes
+// between the controller export and a given model export is not captured
+// consistently. This is inherent to backing up multiple independent dqlite
+// databases and is documented so restore logic does not assume otherwise.
 func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params.BackupsMetadataResult, error) {
 	// Creating a backup requires superuser access to the controller. This is
 	// the same gate Juju 3.6 applies to the Create method.
@@ -37,6 +48,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 		return params.BackupsMetadataResult{}, err
 	}
 	backupDir := corebackups.BackupDirToUse(modelConfig.BackupDir())
+	a.logger.Debugf(ctx, "creating backup in %q", backupDir)
 
 	// Controller dump first, then one dump per registered model namespace.
 	// Every registered model, including the controller model, owns a dqlite
@@ -74,6 +86,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 			Name:   path.Join("models", modelUUID+".yaml"),
 			Export: corebackups.YAMLDump(modelExport),
 		})
+		a.logger.Tracef(ctx, "staged export for model %s", modelUUID)
 	}
 
 	// The dumps are staged as files inside the backup destination, so the
@@ -84,7 +97,13 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	if err != nil {
 		return params.BackupsMetadataResult{}, err
 	}
-	defer staging.Close()
+	// Close cleans up the staged dumps on return. Its error is only logged:
+	// it must not mask the Create result.
+	defer func() {
+		if err := staging.Close(); err != nil {
+			a.logger.Debugf(ctx, "cleaning up staged backup dumps: %v", err)
+		}
+	}()
 	expected := staging.Size()
 
 	paths := corebackups.Paths{
@@ -119,7 +138,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	meta := corebackups.NewMetadata(a.clock.Now())
 	meta.Notes = args.Notes
 	meta.Origin = corebackups.Origin{
-		Model:    a.controllerModelUID.String(),
+		Model:    a.controllerModelUUID.String(),
 		Machine:  a.machineID,
 		Hostname: hostname,
 		Version:  coreversion.Current,
@@ -146,6 +165,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	if err != nil {
 		return params.BackupsMetadataResult{}, err
 	}
+	a.logger.Infof(ctx, "created backup %q", filename)
 
 	return params.CreateResult(meta, filename), nil
 }
