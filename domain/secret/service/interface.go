@@ -134,9 +134,12 @@ type State interface {
 	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]domainsecret.GrantDetails, error)
 
 	// ListGrantedSecretsForBackend returns all secrets granted to the
-	// specified accessors at the given roles for the given backend.
+	// specified accessors at the given roles for the given backend. When
+	// forDrain is true, secrets are returned no matter which backend
+	// holds them.
 	ListGrantedSecretsForBackend(
 		ctx context.Context, backendID string, accessors []domainsecret.AccessParams, roles []domainsecret.Role,
+		forDrain bool,
 	) ([]*secrets.SecretRevisionRef, error)
 
 	// ListCharmSecretsToDrain returns charm secrets that are ready to

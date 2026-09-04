@@ -249,7 +249,7 @@ func (s *Service) backendConfigInfo(
 				Kind: secret.ApplicationAccessor,
 				ID:   appName,
 			}
-			revInfo, err := grantedSecretsGetter(ctx, backendID, coresecrets.RoleView, readOnlyOwner)
+			revInfo, err := grantedSecretsGetter(ctx, backendID, coresecrets.RoleView, forDrain, readOnlyOwner)
 			if err != nil {
 				return nil, errors.Capture(err)
 			}
@@ -257,7 +257,7 @@ func (s *Service) backendConfigInfo(
 				readRevisions.Add(r.URI, r.RevisionID)
 			}
 		}
-		revInfo, err := grantedSecretsGetter(ctx, backendID, coresecrets.RoleManage, owners...)
+		revInfo, err := grantedSecretsGetter(ctx, backendID, coresecrets.RoleManage, forDrain, owners...)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -275,7 +275,7 @@ func (s *Service) backendConfigInfo(
 			Kind: secret.ApplicationAccessor,
 			ID:   appName,
 		}}
-		revInfo, err = grantedSecretsGetter(ctx, backendID, coresecrets.RoleView, consumers...)
+		revInfo, err = grantedSecretsGetter(ctx, backendID, coresecrets.RoleView, forDrain, consumers...)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -296,7 +296,7 @@ func (s *Service) backendConfigInfo(
 			Kind: coresecrets.ModelAccessor,
 			ID:   accessor.ID,
 		}
-		revInfo, err := grantedSecretsGetter(ctx, backendID, coresecrets.RoleManage, accessor)
+		revInfo, err := grantedSecretsGetter(ctx, backendID, coresecrets.RoleManage, forDrain, accessor)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -306,6 +306,26 @@ func (s *Service) backendConfigInfo(
 		}
 	default:
 		return nil, errors.Errorf("secret accessor kind %q %w", accessor.Kind, coreerrors.NotSupported)
+	}
+
+	// Revisions held in the internal backend have no external revision ID,
+	// so they name no object on the backend being configured. Drop them; the
+	// owned set still records the secret IDs.
+	for id, revisions := range ownedRevisions {
+		revisions.Remove("")
+		if revisions.IsEmpty() {
+			delete(ownedRevisions, id)
+		}
+	}
+	// Also drop any read revision for a secret the accessor owns: it is
+	// already covered by the owned rules. Keeping it breaks vault, where an
+	// exact path rule takes precedence over the owner glob rule and so
+	// shadows the write capability needed to update or drain the secret.
+	for id, revisions := range readRevisions {
+		revisions.Remove("")
+		if owned.Contains(id) || revisions.IsEmpty() {
+			delete(readRevisions, id)
+		}
 	}
 
 	issuedTokenUUID := ""

@@ -44,9 +44,11 @@ type ChangeSecretBackendParams struct {
 }
 
 // GrantedSecretsGetter returns the revisions on the given backend for which
-// consumers have access with the given role.
+// consumers have access with the given role. When forDrain is true, secrets
+// are returned no matter which backend holds them, since secrets being
+// drained have not yet reached the given backend.
 type GrantedSecretsGetter func(
-	ctx context.Context, backendID string, role secrets.SecretRole, consumers ...secret.SecretAccessor,
+	ctx context.Context, backendID string, role secrets.SecretRole, forDrain bool, consumers ...secret.SecretAccessor,
 ) ([]*secrets.SecretRevisionRef, error)
 
 // SecretAccess is used to define access to a secret.

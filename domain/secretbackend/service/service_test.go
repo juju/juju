@@ -735,7 +735,7 @@ func (s *serviceSuite) assertBackendConfigInfoLeaderUnit(c *tc.C, wanted []strin
 	).Return(&adminCfg.BackendConfig, nil)
 
 	listGranted := func(
-		ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...secret.SecretAccessor,
+		ctx context.Context, backendID string, role coresecrets.SecretRole, forDrain bool, consumers ...secret.SecretAccessor,
 	) ([]*coresecrets.SecretRevisionRef, error) {
 		c.Assert(backendID, tc.Equals, "backend-id")
 		if role == coresecrets.RoleManage {
@@ -877,7 +877,7 @@ func (s *serviceSuite) assertBackendConfigInfoWithNewSecretIDs(c *tc.C, newSecre
 	).Return(&adminCfg.BackendConfig, nil)
 
 	listGranted := func(
-		ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...secret.SecretAccessor,
+		ctx context.Context, backendID string, role coresecrets.SecretRole, forDrain bool, consumers ...secret.SecretAccessor,
 	) ([]*coresecrets.SecretRevisionRef, error) {
 		c.Assert(backendID, tc.Equals, "backend-id")
 		if role == coresecrets.RoleManage {
@@ -1008,7 +1008,7 @@ func (s *serviceSuite) TestBackendConfigInfoNonLeaderUnit(c *tc.C) {
 	).Return(&adminCfg.BackendConfig, nil)
 
 	listGranted := func(
-		ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...secret.SecretAccessor,
+		ctx context.Context, backendID string, role coresecrets.SecretRole, forDrain bool, consumers ...secret.SecretAccessor,
 	) ([]*coresecrets.SecretRevisionRef, error) {
 		c.Assert(backendID, tc.Equals, "backend-id")
 		if role == coresecrets.RoleManage {
@@ -1140,7 +1140,7 @@ func (s *serviceSuite) TestDrainBackendConfigInfo(c *tc.C) {
 	).Return(&adminCfg.BackendConfig, nil)
 
 	listGranted := func(
-		ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...secret.SecretAccessor,
+		ctx context.Context, backendID string, role coresecrets.SecretRole, forDrain bool, consumers ...secret.SecretAccessor,
 	) ([]*coresecrets.SecretRevisionRef, error) {
 		c.Assert(backendID, tc.Equals, "backend-id")
 		if role == coresecrets.RoleManage {
@@ -1186,6 +1186,132 @@ func (s *serviceSuite) TestDrainBackendConfigInfo(c *tc.C) {
 			},
 		},
 	})
+}
+
+// TestBackendConfigInfoOwnedSecretsNotInReadRevisions is a regression test
+// for the vault drain failure. When the granted secrets are listed across all
+// backends (as the drain worker does), secrets owned by the accessor are also
+// returned by the RoleView queries, so they must be filtered out of the read
+// revisions passed to the provider. Otherwise the vault provider generates an
+// exact path read-only rule for an owned revision, which shadows the glob
+// write rules (an exact path takes precedence over a glob in vault ACLs) and
+// prevents the agent from updating or draining its own secrets.
+func (s *serviceSuite) TestBackendConfigInfoOwnedSecretsNotInReadRevisions(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	svc := newService(
+		s.mockState, s.logger, s.clock,
+		func(backendType string) (provider.SecretBackendProvider, error) {
+			if backendType != vault.BackendType {
+				return s.mockRegistry, nil
+			}
+			return providerWithConfig{
+				SecretBackendProvider: s.mockRegistry,
+			}, nil
+		},
+	)
+
+	accessor := coresecrets.Accessor{
+		Kind: coresecrets.UnitAccessor,
+		ID:   "gitlab/0",
+	}
+	token := NewMockToken(ctrl)
+
+	unitOwned := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "owned-1"}, RevisionID: "owned-rev-1"},
+		// An internal backend secret has no backend revision ID.
+		{URI: &coresecrets.URI{ID: "owned-2"}, RevisionID: ""},
+	}
+	// The RoleView query for the unit and its application returns both the
+	// consumed secret and the unit owned secret, as the drain worker lists
+	// granted secrets across all backends.
+	consumedAndOwned := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "read-1"}, RevisionID: "read-rev-1"},
+		{URI: &coresecrets.URI{ID: "owned-1"}, RevisionID: "owned-rev-1"},
+		{URI: &coresecrets.URI{ID: "owned-2"}, RevisionID: ""},
+	}
+	ownedIDs := []string{
+		"owned-1",
+		"owned-2",
+	}
+	ownedRevs := map[string]set.Strings{
+		"owned-1": set.NewStrings("owned-rev-1"),
+	}
+	// The owned secret must not appear in the read revisions, and empty
+	// revision IDs (internal backend secrets) must be dropped from the
+	// revision lists passed to the provider.
+	readRevs := map[string]set.Strings{
+		"read-1": set.NewStrings("read-rev-1"),
+	}
+	adminCfg := provider.ModelBackendConfig{
+		ControllerUUID: jujutesting.ControllerTag.Id(),
+		ModelUUID:      jujutesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "some-backend",
+		},
+	}
+	backend := secretbackend.BackendIdentifier{
+		ID:   "backend-id",
+		Name: "backend1",
+	}
+	s.expectGetSecretBackendConfigForAdminDefault("iaas", backend, &secretbackend.SecretBackend{
+		ID:          "backend-id",
+		Name:        "backend1",
+		BackendType: "some-backend",
+	})
+	s.mockRegistry.EXPECT().Initialise(gomock.Any()).Return(nil)
+	token.EXPECT().Check().Return(leadership.NewNotLeaderError("", ""))
+
+	issuedTokenUUID := ""
+	s.mockRegistry.EXPECT().IssuesTokens().Return(false)
+
+	s.mockRegistry.EXPECT().RestrictedConfig(
+		gomock.Any(),
+		&adminCfg,
+		true, true,
+		issuedTokenUUID,
+		accessor,
+		ownedIDs,
+		ownedRevs,
+		readRevs,
+	).Return(&adminCfg.BackendConfig, nil)
+
+	listGranted := func(
+		ctx context.Context, backendID string, role coresecrets.SecretRole, forDrain bool, consumers ...secret.SecretAccessor,
+	) ([]*coresecrets.SecretRevisionRef, error) {
+		c.Assert(backendID, tc.Equals, "backend-id")
+		if role == coresecrets.RoleManage {
+			c.Assert(consumers, tc.DeepEquals, []secret.SecretAccessor{{
+				Kind: secret.UnitAccessor,
+				ID:   "gitlab/0",
+			}})
+			return unitOwned, nil
+		}
+		if len(consumers) == 1 && consumers[0].Kind == secret.ApplicationAccessor && consumers[0].ID == "gitlab" {
+			return nil, nil
+		}
+		c.Assert(consumers, tc.DeepEquals, []secret.SecretAccessor{{
+			Kind: secret.UnitAccessor,
+			ID:   "gitlab/0",
+		}, {
+			Kind: secret.ApplicationAccessor,
+			ID:   "gitlab",
+		}})
+		return consumedAndOwned, nil
+	}
+	_, err := svc.DrainBackendConfigInfo(c.Context(), DrainBackendConfigParams{
+		GrantedSecretsGetter: listGranted,
+		LeaderToken:          token,
+		Accessor: secret.SecretAccessor{
+			Kind: secret.UnitAccessor,
+			ID:   accessor.ID,
+		},
+		ModelUUID: coremodel.UUID(jujutesting.ModelTag.Id()),
+		BackendID: "backend-id",
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestBackendConfigInfoFailedInvalidAccessor(c *tc.C) {

@@ -219,7 +219,7 @@ func (s *serviceSuite) assertCreateUserSecret(c *tc.C, isInternal, finalStepFail
 			SubjectID:     s.modelID.String(),
 			SubjectTypeID: domainsecret.SubjectModel,
 		},
-	}, []domainsecret.Role{domainsecret.RoleManage}).Return(
+	}, []domainsecret.Role{domainsecret.RoleManage}, false).Return(
 		[]*coresecrets.SecretRevisionRef{
 			{
 				URI:        existingOwnedURI,
@@ -373,7 +373,7 @@ func (s *serviceSuite) TestCreateUserSecretNoExistingSecrets(c *tc.C) {
 			SubjectID:     s.modelID.String(),
 			SubjectTypeID: domainsecret.SubjectModel,
 		},
-	}, []domainsecret.Role{domainsecret.RoleManage}).Return(
+	}, []domainsecret.Role{domainsecret.RoleManage}, false).Return(
 		[]*coresecrets.SecretRevisionRef{}, nil,
 	)
 	s.secretsBackendProvider.EXPECT().IssuesTokens().Return(false)
@@ -483,7 +483,7 @@ func (s *serviceSuite) assertUpdateUserSecret(c *tc.C, isInternal, finalStepFail
 			SubjectID:     s.modelID.String(),
 			SubjectTypeID: domainsecret.SubjectModel,
 		},
-	}, []domainsecret.Role{domainsecret.RoleManage}).Return(
+	}, []domainsecret.Role{domainsecret.RoleManage}, false).Return(
 		[]*coresecrets.SecretRevisionRef{
 			{
 				URI:        existingOwnedURI,
@@ -2527,12 +2527,14 @@ func (s *serviceSuite) TestListGrantedSecretsForBackendWithRoleView(c *tc.C) {
 			SubjectID:     "mysql",
 		}},
 		[]domainsecret.Role{domainsecret.RoleView, domainsecret.RoleManage},
+		false,
 	).Return(expected, nil)
 
 	result, err := s.service.ListGrantedSecretsForBackend(
 		c.Context(),
 		"backend-id",
 		coresecrets.RoleView,
+		false,
 		domainsecret.SecretAccessor{
 			Kind: domainsecret.ApplicationAccessor,
 			ID:   "mysql",
@@ -2561,12 +2563,14 @@ func (s *serviceSuite) TestListGrantedSecretsForBackendWithRoleManage(c *tc.C) {
 			SubjectID:     "mysql/0",
 		}},
 		[]domainsecret.Role{domainsecret.RoleManage},
+		false,
 	).Return(expected, nil)
 
 	result, err := s.service.ListGrantedSecretsForBackend(
 		c.Context(),
 		"backend-id",
 		coresecrets.RoleManage,
+		false,
 		domainsecret.SecretAccessor{
 			Kind: domainsecret.UnitAccessor,
 			ID:   "mysql/0",
@@ -2593,12 +2597,14 @@ func (s *serviceSuite) TestListGrantedSecretsForBackendWithModelAccessor(c *tc.C
 			SubjectID:     "model-uuid",
 		}},
 		[]domainsecret.Role{domainsecret.RoleManage},
+		false,
 	).Return(expected, nil)
 
 	result, err := s.service.ListGrantedSecretsForBackend(
 		c.Context(),
 		"backend-id",
 		coresecrets.RoleManage,
+		false,
 		domainsecret.SecretAccessor{
 			Kind: domainsecret.ModelAccessor,
 			ID:   "model-uuid",
@@ -2626,12 +2632,14 @@ func (s *serviceSuite) TestListGrantedSecretsForBackendWithMultipleAccessors(c *
 			{SubjectTypeID: domainsecret.SubjectApplication, SubjectID: "mysql"},
 		},
 		[]domainsecret.Role{domainsecret.RoleView, domainsecret.RoleManage},
+		false,
 	).Return(expected, nil)
 
 	result, err := s.service.ListGrantedSecretsForBackend(
 		c.Context(),
 		"backend-id",
 		coresecrets.RoleView,
+		false,
 		domainsecret.SecretAccessor{Kind: domainsecret.UnitAccessor, ID: "mysql/0"},
 		domainsecret.SecretAccessor{Kind: domainsecret.ApplicationAccessor, ID: "mysql"},
 	)
@@ -2646,6 +2654,7 @@ func (s *serviceSuite) TestListGrantedSecretsForBackendInvalidAccessorKind(c *tc
 		c.Context(),
 		"backend-id",
 		coresecrets.RoleView,
+		false,
 		domainsecret.SecretAccessor{
 			Kind: "invalid-kind",
 			ID:   "some-id",

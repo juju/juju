@@ -104,9 +104,11 @@ type SecretService interface {
 	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]secretservice.SecretAccess, error)
 
 	// ListGrantedSecretsForBackend returns all secrets granted to the
-	// given consumers at the specified role for the given backend.
+	// given consumers at the specified role for the given backend. When
+	// forDrain is true, secrets are returned no matter which backend
+	// holds them.
 	ListGrantedSecretsForBackend(
-		ctx context.Context, backendID string, role secrets.SecretRole, consumers ...secret.SecretAccessor,
+		ctx context.Context, backendID string, role secrets.SecretRole, forDrain bool, consumers ...secret.SecretAccessor,
 	) ([]*secrets.SecretRevisionRef, error)
 }
 

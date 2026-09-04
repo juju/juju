@@ -121,9 +121,11 @@ func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.UR
 
 // ListGrantedSecretsForBackend returns the secret revision info for any
 // secrets from the specified backend for which the specified consumers
-// have been granted the specified access.
+// have been granted the specified access. When forDrain is true, secrets are
+// returned no matter which backend holds them, since secrets being drained
+// have not yet reached the specified backend.
 func (s *SecretService) ListGrantedSecretsForBackend(
-	ctx context.Context, backendID string, role secrets.SecretRole, consumers ...domainsecret.SecretAccessor,
+	ctx context.Context, backendID string, role secrets.SecretRole, forDrain bool, consumers ...domainsecret.SecretAccessor,
 ) ([]*secrets.SecretRevisionRef, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -149,7 +151,7 @@ func (s *SecretService) ListGrantedSecretsForBackend(
 	// Expand the requested role to include all roles that satisfy it.
 	roles := expandRolesToMatch(role)
 
-	return s.secretState.ListGrantedSecretsForBackend(ctx, backendID, accessors, roles)
+	return s.secretState.ListGrantedSecretsForBackend(ctx, backendID, accessors, roles, forDrain)
 }
 
 // expandRolesToMatch returns a slice of roles that satisfy the requested role.

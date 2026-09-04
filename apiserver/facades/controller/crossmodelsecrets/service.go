@@ -21,7 +21,7 @@ import (
 type SecretService interface {
 	GetSecretAccessRelationScope(ctx context.Context, uri *secrets.URI, accessor secret.SecretAccessor) (corerelation.UUID, error)
 	ListGrantedSecretsForBackend(
-		ctx context.Context, backendID string, role secrets.SecretRole, consumers ...secret.SecretAccessor,
+		ctx context.Context, backendID string, role secrets.SecretRole, forDrain bool, consumers ...secret.SecretAccessor,
 	) ([]*secrets.SecretRevisionRef, error)
 }
 

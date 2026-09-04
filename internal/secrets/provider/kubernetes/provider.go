@@ -336,7 +336,7 @@ func (p k8sProvider) RestrictedConfig(
 
 	writeRevs := slices.Concat(ownedRevs.RevisionIDs(), preCreateRevisions)
 	token, err := broker.createSecretAccessToken(
-		ctx, issuedTokenUUID, accessor, writeRevs, readRevs.RevisionIDs(),
+		ctx, issuedTokenUUID, accessor, forDrain, writeRevs, readRevs.RevisionIDs(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -662,7 +662,7 @@ func (k *kubernetesClient) deleteRoleBinding(
 // policyRulesForSecretAccess returns the full policy rules required for
 // secrets.
 func policyRulesForSecretAccess(
-	namespace string, owned, read []string,
+	namespace string, forDrain bool, owned, read []string,
 ) []rbacv1.PolicyRule {
 	rules := []rbacv1.PolicyRule{{
 		APIGroups:     []string{rbacv1.APIGroupAll},
@@ -670,6 +670,19 @@ func policyRulesForSecretAccess(
 		Verbs:         []string{"get", "list"},
 		ResourceNames: []string{namespace},
 	}}
+	if forDrain {
+		// When draining secrets back to this backend, the drain worker
+		// rewrites a secret at the same revision path it was read from, so
+		// the object may not yet exist in this backend and must be created.
+		// Kubernetes RBAC cannot scope "create" by resource name, so we grant
+		// it for the namespace. The token is short lived and model scoped and
+		// only issued to the drain worker.
+		rules = append(rules, rbacv1.PolicyRule{
+			APIGroups: []string{rbacv1.APIGroupAll},
+			Resources: []string{"secrets"},
+			Verbs:     []string{"create"},
+		})
+	}
 	if len(owned) > 0 {
 		// owned cannot be empty, otherwise this policy rule grants access to
 		// all secrets.
@@ -1004,6 +1017,7 @@ func (k *kubernetesClient) createSecretAccessToken(
 	ctx context.Context,
 	issuedTokenUUID string,
 	accessor coresecrets.Accessor,
+	forDrain bool,
 	ownedRevs []string,
 	readRevs []string,
 ) (_ string, err error) {
@@ -1061,7 +1075,7 @@ func (k *kubernetesClient) createSecretAccessToken(
 		_ = k.deleteServiceAccount(ctx, sa.Name, sa.UID)
 	})
 
-	rules := policyRulesForSecretAccess(k.namespace, ownedRevs, readRevs)
+	rules := policyRulesForSecretAccess(k.namespace, forDrain, ownedRevs, readRevs)
 	rCleanups, err := k.createRoleAndBinding(ctx, sa, rules)
 	cleanups = append(cleanups, rCleanups...)
 	if err != nil {
