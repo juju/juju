@@ -122,6 +122,7 @@ run_enable_ha() {
 	juju remove-machine -m controller "${controller_1}" --force --no-prompt
 	wait_for_ha 2
 	juju remove-machine -m controller "${controller_2}" --force --no-prompt
+	wait_for_ha 1
 
 	wait_for_ha_teardown
 
