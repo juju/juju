@@ -44,5 +44,6 @@ func newFacade(stdCtx context.Context, ctx facade.MultiModelContext) (*API, erro
 		controllerServices.Config(),
 		controllerServices.Controller(),
 		controllerServices.ControllerNode(),
+		ctx.Clock(),
 	)
 }

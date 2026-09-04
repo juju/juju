@@ -6,6 +6,7 @@ package backups
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -68,6 +69,7 @@ type API struct {
 	modelConfig      ModelConfigService
 	controller       ControllerModelLister
 	controllerNodes  ControllerNodeLister
+	clock            clock.Clock
 }
 
 // NewAPI creates a new instance of the Backups API facade.
@@ -82,6 +84,7 @@ func NewAPI(
 	modelConfig ModelConfigService,
 	controller ControllerModelLister,
 	controllerNodes ControllerNodeLister,
+	clock clock.Clock,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -99,5 +102,6 @@ func NewAPI(
 		modelConfig:        modelConfig,
 		controller:         controller,
 		controllerNodes:    controllerNodes,
+		clock:              clock,
 	}, nil
 }
