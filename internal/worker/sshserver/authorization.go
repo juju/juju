@@ -38,7 +38,7 @@ type authorizer struct {
 func (a authorizer) Authorize(ctx ssh.Context, destination virtualhostname.Info) (bool, error) {
 	// If the context does not contain the user's key then they did
 	// not authenticate with a public key (e.g. JWT or reverse tunnel).
-	publicKey, ok := ctx.Value(authenticatedPublicKey{}).(ssh.PublicKey)
+	userKey, ok := ctx.Value(authenticatedPublicKey{}).(publicKeyWithComment)
 	if ok {
 		hasAccess, err := a.access.HasSSHAccessToModel(ctx, ctx.User(), destination)
 		if err != nil {
@@ -49,16 +49,18 @@ func (a authorizer) Authorize(ctx ssh.Context, destination virtualhostname.Info)
 		}
 
 		// The key used during authentication is controller scoped, but keys are
-		// added per model and kept this way for compatibility with Juju 3. Now
-		// that the model is known, verify the key the user is associated with it.
-		inModel, err := a.access.PublicKeyInModel(ctx, ctx.User(), publicKey, destination)
+		// added per model and kept this way for compatibility with JIMM/Juju 3.
+		// Now that the model is known, verify the key is associated with the model.
+		// Note that when a user has multiple keys there is poor UX. If they present
+		// one not associated with the model, they will get an error here.
+		inModel, err := a.access.PublicKeyInModel(ctx, ctx.User(), userKey.PublicKey, destination)
 		if err != nil {
 			return false, errors.Annotate(err, "checking SSH key for model")
 		}
 		if !inModel {
 			return false, errors.Errorf(
-				"public key used to authenticate is not associated with model %q, add the key to the model to access it",
-				destination.ModelUUID())
+				"public key %q used to authenticate is not associated with model %q, add the key to the model or specify a different key",
+				userKey.Comment, destination.ModelUUID())
 		}
 		return true, nil
 	}

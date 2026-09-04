@@ -269,8 +269,8 @@ type sshService struct {
 
 // PublicKeys returns all public SSH keys registered for a user.
 // It calls the domain service to get the user's keys and converts
-// them to the gossh.PublicKey type.
-func (s sshService) PublicKeys(ctx context.Context, username string) ([]gossh.PublicKey, error) {
+// them to the appropriate type.
+func (s sshService) PublicKeys(ctx context.Context, username string) ([]publicKeyWithComment, error) {
 	name, err := user.NewName(username)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -280,13 +280,16 @@ func (s sshService) PublicKeys(ctx context.Context, username string) ([]gossh.Pu
 		return nil, errors.Trace(err)
 	}
 
-	publicKeys := make([]gossh.PublicKey, 0, len(keys))
+	publicKeys := make([]publicKeyWithComment, 0, len(keys))
 	for _, key := range keys {
 		publicKey, _, _, _, err := gossh.ParseAuthorizedKey([]byte(key.Key))
 		if err != nil {
 			return nil, errors.Annotatef(err, "parsing public key for user %q", username)
 		}
-		publicKeys = append(publicKeys, publicKey)
+		publicKeys = append(publicKeys, publicKeyWithComment{
+			PublicKey: publicKey,
+			Comment:   key.Comment,
+		})
 	}
 	return publicKeys, nil
 }
@@ -321,9 +324,9 @@ func (s sshService) HasSSHAccessToModel(ctx context.Context, username string, de
 }
 
 // PublicKeyInModel reports whether the given public key is registered for the
-// user on the model identified by the destination. Model keys are managed per
-// model, so a key that was accepted at authentication time (controller scoped)
-// may not be associated with the model the user is trying to reach.
+// user on the model identified by the destination. Keys are managed per model,
+// so a key that was accepted at authentication time may not be associated with
+// the model the user is trying to reach.
 func (s sshService) PublicKeyInModel(ctx context.Context, username string, key gossh.PublicKey, destination virtualhostname.Info) (bool, error) {
 	name, err := user.NewName(username)
 	if err != nil {

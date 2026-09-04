@@ -96,7 +96,10 @@ func (s *authenticationSuite) TestPasswordAuthenticationRejectsInvalidReverseTun
 func (s *authenticationSuite) TestPublicKeyAuthenticationAcceptsUsersKey(c *tc.C) {
 	signer := newSigner(c)
 	ctx := &stubAuthenticationContext{user: "alice", values: map[any]any{}}
-	publicKeys := &stubUserPublicKeyService{keys: []gossh.PublicKey{signer.PublicKey()}}
+	publicKeys := &stubUserPublicKeyService{keys: []publicKeyWithComment{{
+		PublicKey: signer.PublicKey(),
+		Comment:   "my laptop",
+	}}}
 
 	auth := authenticator{
 		publicKeys: publicKeys,
@@ -104,7 +107,10 @@ func (s *authenticationSuite) TestPublicKeyAuthenticationAcceptsUsersKey(c *tc.C
 	authenticated, err := auth.PublicKeyAuthentication(ctx, signer.PublicKey())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(authenticated, tc.IsTrue)
-	c.Check(ctx.values[authenticatedPublicKey{}], tc.Equals, signer.PublicKey())
+	c.Check(ctx.values[authenticatedPublicKey{}], tc.DeepEquals, publicKeyWithComment{
+		PublicKey: signer.PublicKey(),
+		Comment:   "my laptop",
+	})
 	c.Check(publicKeys.user, tc.Equals, "alice")
 }
 
@@ -113,7 +119,9 @@ func (s *authenticationSuite) TestPublicKeyAuthenticationRejectsUnauthorizedKey(
 	unauthorizedKey := parseAuthorizedKey(c, sshtesting.ValidKeyOne.Key)
 
 	auth := authenticator{
-		publicKeys: &stubUserPublicKeyService{keys: []gossh.PublicKey{unauthorizedKey}},
+		publicKeys: &stubUserPublicKeyService{keys: []publicKeyWithComment{{
+			PublicKey: unauthorizedKey,
+		}}},
 	}
 	authenticated, err := auth.PublicKeyAuthentication(ctx, newSigner(c).PublicKey())
 	c.Check(err, tc.ErrorIsNil)
@@ -172,12 +180,12 @@ func (s *stubTunnelAuthenticator) AuthenticateTunnel(username, password string) 
 }
 
 type stubUserPublicKeyService struct {
-	keys []gossh.PublicKey
+	keys []publicKeyWithComment
 	err  error
 	user string
 }
 
-func (s *stubUserPublicKeyService) PublicKeys(_ context.Context, username string) ([]gossh.PublicKey, error) {
+func (s *stubUserPublicKeyService) PublicKeys(_ context.Context, username string) ([]publicKeyWithComment, error) {
 	s.user = username
 	return s.keys, s.err
 }
