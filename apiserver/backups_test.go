@@ -4,18 +4,23 @@
 package apiserver
 
 import (
+	"crypto/sha1"
+	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path"
 	"strings"
 	stdtesting "testing"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	corebackups "github.com/juju/juju/core/backups"
 	domainservicetesting "github.com/juju/juju/domain/services/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/rpc/params"
 )
 
 type backupsDownloadSuite struct {
@@ -48,9 +53,10 @@ func (s *backupsDownloadSuite) createArchive(c *tc.C) (dir, filename string) {
 	payload := path.Join(dir, "blob")
 	c.Assert(os.WriteFile(payload, []byte("blob content"), 0644), tc.ErrorIsNil)
 
-	filename, err = corebackups.Create(corebackups.NewMetadata(), corebackups.CreateArgs{
+	filename, err = corebackups.Create(corebackups.NewMetadata(time.Now()), corebackups.CreateArgs{
 		DestinationDir: dir,
 		FilesToBackUp:  []string{payload},
+		Clock:          clock.WallClock,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return dir, filename
@@ -73,6 +79,13 @@ func (s *backupsDownloadSuite) TestDownload(c *tc.C) {
 
 	recorder := s.get(c, filename)
 	c.Assert(recorder.Code, tc.Equals, http.StatusOK)
+
+	// The raw content type and digest headers match the 3.6 download
+	// response.
+	c.Check(recorder.Header().Get("Content-Type"), tc.Equals, params.ContentTypeRaw)
+	sum := sha1.Sum(expected)
+	c.Check(recorder.Header().Get("Digest"), tc.Equals,
+		params.EncodeChecksum(base64.StdEncoding.EncodeToString(sum[:])))
 
 	// The archive bytes match the file contents read before the download.
 	c.Check(recorder.Body.Len(), tc.Equals, len(expected))

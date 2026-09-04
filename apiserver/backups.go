@@ -4,13 +4,21 @@
 package apiserver
 
 import (
+	"context"
+	"crypto/sha1"
+	"encoding/base64"
 	"encoding/json"
+	"io"
 	"net/http"
 	"os"
 
+	jujuerrors "github.com/juju/errors"
+
+	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	corebackups "github.com/juju/juju/core/backups"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/rpc/params"
 )
@@ -31,7 +39,7 @@ func (h *backupsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 
 	var args params.BackupsDownloadArgs
 	if err := json.NewDecoder(r.Body).Decode(&args); err != nil {
-		http.Error(w, "decoding download args: "+err.Error(), http.StatusBadRequest)
+		h.sendError(w, jujuerrors.BadRequestf("decoding download args"))
 		return
 	}
 
@@ -40,12 +48,12 @@ func (h *backupsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	// resolved it through the filestorage layer on every Get call.
 	domainServices, err := h.domainServicesGetter.ServicesForModel(ctx, h.controllerModelUUID)
 	if err != nil {
-		http.Error(w, "resolving domain services: "+err.Error(), http.StatusInternalServerError)
+		h.sendError(w, errors.Errorf("resolving domain services: %w", err))
 		return
 	}
 	cfg, err := domainServices.Config().ModelConfig(ctx)
 	if err != nil {
-		http.Error(w, "resolving model config: "+err.Error(), http.StatusInternalServerError)
+		h.sendError(w, errors.Errorf("resolving model config: %w", err))
 		return
 	}
 	backupDir := corebackups.BackupDirToUse(cfg.BackupDir())
@@ -53,26 +61,40 @@ func (h *backupsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	// Reject ids that are not a clearly named archive under the backup dir.
 	valid, err := corebackups.IsValidBackupFilepath(backupDir, args.ID)
 	if err != nil {
-		http.Error(w, "validating archive path: "+err.Error(), http.StatusInternalServerError)
+		h.sendError(w, errors.Errorf("validating archive path: %w", err))
 		return
 	}
 	if !valid {
-		http.Error(w, "invalid backup archive id", http.StatusBadRequest)
+		h.sendError(w, jujuerrors.BadRequestf("invalid backup archive id"))
 		return
 	}
 
 	file, err := os.Open(args.ID)
 	if err != nil {
-		http.Error(w, "opening archive: "+err.Error(), http.StatusInternalServerError)
+		h.sendError(w, errors.Errorf("opening archive: %w", err))
 		return
 	}
 	defer file.Close()
 
 	fi, err := file.Stat()
 	if err != nil {
-		http.Error(w, "stating archive: "+err.Error(), http.StatusInternalServerError)
+		h.sendError(w, errors.Errorf("stating archive: %w", err))
 		return
 	}
+
+	// Compute the archive checksum for the Digest header, as the 3.6
+	// handler did. The checksum is over the gzipped archive bytes.
+	checksum, err := archiveChecksum(file)
+	if err != nil {
+		h.sendError(w, errors.Errorf("checksumming archive: %w", err))
+		return
+	}
+
+	// ServeContent sets Content-Type from the file extension; the raw
+	// archive type and digest headers are set explicitly to match the
+	// 3.6 download response.
+	w.Header().Set("Content-Type", params.ContentTypeRaw)
+	w.Header().Set("Digest", params.EncodeChecksum(checksum))
 
 	// Stream the archive. ServeContent handles range and head requests.
 	http.ServeContent(w, r, fi.Name(), fi.ModTime(), file)
@@ -81,4 +103,28 @@ func (h *backupsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	if err := os.Remove(args.ID); err != nil && !os.IsNotExist(err) {
 		h.logger.Warningf(ctx, "error removing backup archive: %v", err)
 	}
+}
+
+// sendError logs the internal error detail and replies with a structured
+// JSON error, so internal state (paths, model UUIDs, DB errors) is not
+// leaked to the client beyond the classified error.
+func (h *backupsDownloadHandler) sendError(w http.ResponseWriter, err error) {
+	h.logger.Debugf(context.TODO(), "backup download error: %v", err)
+	if err := internalhttp.SendError(w, err, h.logger); err != nil {
+		h.logger.Errorf(context.TODO(), "sending backup download error: %v", err)
+	}
+}
+
+// archiveChecksum returns the base64-encoded SHA-1 checksum of the
+// archive, matching the format recorded in the backup metadata. The
+// file offset is reset so the caller can stream the file afterwards.
+func archiveChecksum(file *os.File) (string, error) {
+	hasher := sha1.New()
+	if _, err := io.Copy(hasher, file); err != nil {
+		return "", errors.Capture(err)
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return "", errors.Capture(err)
+	}
+	return base64.StdEncoding.EncodeToString(hasher.Sum(nil)), nil
 }
