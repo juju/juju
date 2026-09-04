@@ -1132,6 +1132,33 @@ func (s *State) IsControllerModel(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
+// GetModelType returns the model's deployment type (for example "iaas" or
+// "caas").
+func (st *State) GetModelType(ctx context.Context) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`SELECT &modelType.type FROM model`, modelType{})
+	if err != nil {
+		return "", errors.Errorf("preparing get model type statement: %w", err)
+	}
+
+	var result modelType
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New("model information is missing from database")
+		}
+		return err
+	})
+	if err != nil {
+		return "", errors.Errorf("getting model type: %w", err)
+	}
+	return result.Type, nil
+}
+
 // NamespaceForWatchAgentVersion returns the namespace identifier
 // to watch for the agent version.
 func (*State) NamespaceForWatchAgentVersion() string {

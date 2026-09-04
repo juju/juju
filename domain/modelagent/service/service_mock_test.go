@@ -84,6 +84,7 @@ type MockModelStateMockRecorder struct {
 	getMachinesAgentBinaryMetadataExpects          []*gomock.Call1_2[context.Context, map[machine.Name]agentbinary.Metadata, error]
 	getMachinesNotAtTargetAgentVersionExpects      []*gomock.Call1_2[context.Context, []machine.Name, error]
 	getModelTargetAgentVersionExpects              []*gomock.Call1_2[context.Context, semversion.Number, error]
+	getModelTypeExpects                            []*gomock.Call1_2[context.Context, string, error]
 	getUnitRunningAgentBinaryVersionExpects        []*gomock.Call2_2[context.Context, unit.UUID, agentbinary.Version, error]
 	getUnitTargetAgentVersionExpects               []*gomock.Call2_2[context.Context, unit.UUID, agentbinary.Version, error]
 	getUnitUUIDByNameExpects                       []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
@@ -290,6 +291,24 @@ func (mr *MockModelStateMockRecorder) GetModelTargetAgentVersion(arg0 any) *Mock
 
 // MockModelStateGetModelTargetAgentVersionCall is the typed call wrapper for GetModelTargetAgentVersion.
 type MockModelStateGetModelTargetAgentVersionCall = gomock.Call1_2[context.Context, semversion.Number, error]
+
+// GetModelType mocks base method.
+func (m *MockModelState) GetModelType(arg0 context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getModelTypeExpects, m.ctrl, m, "GetModelType", arg0)
+}
+
+// GetModelType indicates an expected call of GetModelType.
+func (mr *MockModelStateMockRecorder) GetModelType(arg0 any) *MockModelStateGetModelTypeCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "GetModelType", gomock.EnsureMatcher(arg0))
+	mr.getModelTypeExpects = append(mr.getModelTypeExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateGetModelTypeCall is the typed call wrapper for GetModelType.
+type MockModelStateGetModelTypeCall = gomock.Call1_2[context.Context, string, error]
 
 // GetUnitRunningAgentBinaryVersion mocks base method.
 func (m *MockModelState) GetUnitRunningAgentBinaryVersion(arg0 context.Context, arg1 unit.UUID) (agentbinary.Version, error) {

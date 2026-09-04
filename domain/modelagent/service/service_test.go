@@ -108,6 +108,37 @@ func (s *serviceSuite) TestGetModelAgentVersionModelNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
+// TestGetModelAgentBinaryMetadataCAAS asserts the CAAS short-circuit: CAAS
+// agents run from OCI images, not the agent binary store, so neither the
+// machine nor the unit binary metadata queries are made and empty metadata is
+// returned. This is the path that lets a CAAS model migration assemble its
+// envelope even though no agent binaries were ever uploaded to the store.
+func (s *serviceSuite) TestGetModelAgentBinaryMetadataCAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
+
+	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
+	machines, units, err := svc.GetModelAgentBinaryMetadata(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(machines, tc.HasLen, 0)
+	c.Check(units, tc.HasLen, 0)
+}
+
+// TestGetModelAgentBinaryMetadataIAAS asserts the IAAS path still consults the
+// agent binary store for both machines and units.
+func (s *serviceSuite) TestGetModelAgentBinaryMetadataIAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
+	s.modelState.EXPECT().GetMachinesAgentBinaryMetadata(gomock.Any()).Return(nil, nil)
+	s.modelState.EXPECT().GetUnitsAgentBinaryMetadata(gomock.Any()).Return(nil, nil)
+
+	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
+	_, _, err := svc.GetModelAgentBinaryMetadata(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // TestGetMachineTargetAgentVersion is asserting the happy path for getting
 // a machine's target agent version.
 func (s *serviceSuite) TestGetMachineTargetAgentVersion(c *tc.C) {

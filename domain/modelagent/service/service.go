@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
@@ -78,6 +79,10 @@ type ModelState interface {
 	// GetModelTargetAgentVersion returns the target agent version for this
 	// model.
 	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
+
+	// GetModelType returns the model's deployment type (for example "iaas" or
+	// "caas").
+	GetModelType(context.Context) (string, error)
 
 	// GetUnitsAgentBinaryMetadata reports the agent binary metadata that each
 	// non-synthetic unit in the model is currently running. This is a bulk call
@@ -348,11 +353,24 @@ func (s *Service) GetMachinesAgentBinaryMetadata(
 
 // GetModelAgentBinaryMetadata returns the agent binary metadata currently
 // running for each machine and unit in the model.
+//
+// A CAAS model short-circuits to empty machine and unit metadata without the
+// agent binary store being consulted: its agents run from OCI images rather
+// than the agent binary store, so no agent binaries exist to report and none
+// are required for a model migration to proceed.
 func (s *Service) GetModelAgentBinaryMetadata(
 	ctx context.Context,
 ) (map[machine.Name]agentbinary.Metadata, map[coreunit.Name]agentbinary.Metadata, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	modelType, err := s.modelSt.GetModelType(ctx)
+	if err != nil {
+		return nil, nil, errors.Errorf("getting model type: %w", err)
+	}
+	if coremodel.ModelType(modelType) == coremodel.CAAS {
+		return map[machine.Name]agentbinary.Metadata{}, map[coreunit.Name]agentbinary.Metadata{}, nil
+	}
 
 	machineMetadata, err := s.modelSt.GetMachinesAgentBinaryMetadata(ctx)
 	if err != nil {

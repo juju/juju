@@ -48,6 +48,12 @@ type name struct {
 	Name string `db:"name"`
 }
 
+// modelType represents the model's deployment type (for example "iaas" or
+// "caas").
+type modelType struct {
+	Type string `db:"type"`
+}
+
 // machineAgentVersion represents a record from the reported machine agent
 // table.
 type machineAgentVersion struct {
