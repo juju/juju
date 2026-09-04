@@ -43,6 +43,31 @@ Respect Juju layering. Never create new cross-layer dependencies.
 - Blocking operations in hot paths.
 - Client, cross-controller, or third-party connections without deterministic closure.
 
+### Watcher Initialisation and Readiness
+
+- Watcher-backed workflows must establish their subscription before performing
+  the initial state query, so no relevant change can be missed.
+- A watcher constructor returning does not imply that its subscription is
+  active unless this is explicitly documented.
+- For a `NamespaceWatcher`, the first event contains the result of the initial
+  query, which runs after subscription; receiving it is the readiness barrier.
+- For a `NotifyWatcher`, the first event confirms only that the subscription is
+  active. It does not prove that a mapper predicate is true. The consumer must
+  query current state after receiving it.
+- An empty initial event is still a valid readiness signal and must be observed.
+- Do not discard the initial event and rely on state read before watcher
+  construction. Re-read after the readiness barrier or use the watcher's
+  initial result.
+- State used to initialise mapper caches or derive dynamic filters is part of
+  the initial state and requires the same race-free ordering. If a filter
+  depends on state read before subscribing, subscribe to changes that can
+  invalidate that state and re-read it after subscription.
+- Do not expose handlers, signal worker readiness, or act on initial state until
+  the watcher readiness barrier is crossed and the required initial read is
+  complete.
+- Tests must exercise changes racing watcher construction, subscription, and
+  the initial query.
+
 ## API Facade Rules
 
 - Keep facades to thin orchestration.
