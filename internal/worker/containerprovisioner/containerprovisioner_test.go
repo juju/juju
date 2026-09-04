@@ -78,7 +78,7 @@ func (s *lxdProvisionerSuite) expectStartup(c *tc.C) {
 	s.controllerAPI.EXPECT().WatchForModelConfigChanges(gomock.Any()).Return(watchCfg, nil)
 
 	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{})
-	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).MaxTimes(2)
+	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 
 	s.provisionerStarted = make(chan bool)
 	controllerCfg := coretesting.FakeControllerConfig()
