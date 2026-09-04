@@ -104,6 +104,7 @@ CREATE TRIGGER trg_log_controller_node_update
 AFTER UPDATE ON controller_node FOR EACH ROW
 WHEN 
 	NEW.controller_id != OLD.controller_id OR
+	NEW.life_id != OLD.life_id OR
 	(NEW.dqlite_node_id != OLD.dqlite_node_id OR (NEW.dqlite_node_id IS NOT NULL AND OLD.dqlite_node_id IS NULL) OR (NEW.dqlite_node_id IS NULL AND OLD.dqlite_node_id IS NOT NULL)) OR
 	(NEW.dqlite_bind_address != OLD.dqlite_bind_address OR (NEW.dqlite_bind_address IS NOT NULL AND OLD.dqlite_bind_address IS NULL) OR (NEW.dqlite_bind_address IS NULL AND OLD.dqlite_bind_address IS NOT NULL))
 BEGIN

@@ -5,14 +5,17 @@ package service
 
 import (
 	"context"
+	"strconv"
 	"time"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
@@ -105,6 +108,16 @@ func (s *Service) RemoveUnit(
 	cascaded, err := s.modelState.EnsureUnitNotAliveCascade(ctx, unitUUID.String(), destroyStorage)
 	if err != nil {
 		return "", errors.Errorf("unit %q: %w", unitUUID, err)
+	}
+
+	applicationName, unitName, err := s.modelState.GetApplicationNameAndUnitNameByUnitUUID(ctx, unitUUID.String())
+	if err != nil {
+		return "", errors.Errorf("getting application and unit name for unit %q: %w", unitUUID, err)
+	}
+	// Revoke after the life transition so this unit cannot renew its leadership
+	// lease while it completes its departure hooks.
+	if err := s.leadershipRevoker.RevokeLeadership(applicationName, unit.Name(unitName)); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
+		return "", errors.Errorf("revoking leadership: %w", err)
 	}
 
 	if force {
@@ -360,6 +373,13 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		return errors.Capture(err)
 	}
 
+	// A controller unit must remain authenticated until it has departed its
+	// peer relation scopes. Deleting it before then prevents the departure hook
+	// from publishing the updated db-bind-addresses to the remaining units.
+	if err := s.deleteControllerNodeForUnit(ctx, unit.UUID(job.EntityUUID)); err != nil {
+		return errors.Errorf("deleting controller node for unit %q: %w", job.EntityUUID, err)
+	}
+
 	// The unit agent itself attempts to delete the unit's secrets,
 	// but we must make sure here in the event that the agent is down.
 	// A case has been made for the unit to create and update its own
@@ -382,15 +402,6 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		return errors.Errorf("getting charm for unit: %w", err)
 	}
 
-	applicationName, unitName, err := s.modelState.GetApplicationNameAndUnitNameByUnitUUID(ctx, job.EntityUUID)
-	if errors.Is(err, applicationerrors.UnitNotFound) {
-		// The unit has already been removed.
-		// Indicate success so that this job will be deleted.
-		return nil
-	} else if err != nil {
-		return errors.Errorf("getting application name and unit name: %w", err)
-	}
-
 	if err := s.modelState.DeleteUnit(ctx, job.EntityUUID, job.Force); errors.Is(err, applicationerrors.UnitNotFound) {
 		// The unit has already been removed.
 		// Indicate success so that this job will be deleted.
@@ -405,14 +416,29 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		s.logger.Warningf(ctx, "deleting charm for unit %q: %v", job.EntityUUID, err)
 	}
 
-	// If the unit was the leader of an application, we revoke leadership.
-	// We do this last to expedite new leadership acquisition if the unit died
-	// sooner that the expiry of its last lease.
-	// For all other scenarios preventing lease renewal, the lease will be
-	// relinquished naturally by expiry.
-	if err := s.leadershipRevoker.RevokeLeadership(applicationName, unit.Name(unitName)); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
-		return errors.Errorf("revoking leadership: %w", err)
+	return nil
+}
+
+func (s *Service) deleteControllerNodeForUnit(ctx context.Context, unitUUID unit.UUID) error {
+	applicationName, unitName, err := s.modelState.GetApplicationNameAndUnitNameByUnitUUID(ctx, unitUUID.String())
+	if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
+		return errors.Errorf("getting controller unit name: %w", err)
+	}
+	if applicationName != coreapplication.ControllerApplicationName {
+		return nil
 	}
 
-	return nil
+	isControllerModel, err := s.modelState.IsControllerModel(ctx, s.modelUUID.String())
+	if err != nil && !errors.Is(err, modelerrors.NotFound) {
+		return errors.Errorf("checking if this is the controller model: %w", err)
+	}
+	if !isControllerModel {
+		return nil
+	}
+
+	name, err := unit.NewName(unitName)
+	if err != nil {
+		return errors.Errorf("parsing controller unit name %q: %w", unitName, err)
+	}
+	return errors.Capture(s.controllerState.DeleteDqliteNode(ctx, strconv.Itoa(name.Number())))
 }

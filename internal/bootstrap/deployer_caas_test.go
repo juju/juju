@@ -132,6 +132,23 @@ func (s *deployerCAASSuite) TestAddCAASControllerApplication(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *deployerCAASSuite) TestNormalizeControllerConstraints(c *tc.C) {
+	got, err := normalizeControllerConstraints(constraints.Value{}, "amd64")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got.Arch, tc.NotNil)
+	c.Check(*got.Arch, tc.Equals, "amd64")
+
+	got, err = normalizeControllerConstraints(constraints.Value{Arch: new("arm64")}, "arm64")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got.Arch, tc.NotNil)
+	c.Check(*got.Arch, tc.Equals, "arm64")
+}
+
+func (s *deployerCAASSuite) TestNormalizeControllerConstraintsRejectsMismatchedArchitecture(c *tc.C) {
+	_, err := normalizeControllerConstraints(constraints.Value{Arch: new("arm64")}, "amd64")
+	c.Assert(err, tc.ErrorMatches, "arch in platform and constraints for controller do not match")
+}
+
 func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -58,6 +58,12 @@ type watcherSuite struct {
 	st  *state.State
 }
 
+type noopLeadershipRevoker struct{}
+
+func (noopLeadershipRevoker) RevokeLeadership(string, unit.Name) error {
+	return nil
+}
+
 func TestWatcherSuite(t *testing.T) {
 	tc.Run(t, &watcherSuite{})
 }
@@ -867,7 +873,7 @@ func (s *watcherSuite) setupRemovalService(c *tc.C, factory domain.WatchableDBFa
 		removalstatecontroller.NewState(func(ctx context.Context) (database.TxnRunner, error) { return s.NoopTxnRunner(), nil }, log),
 		modelState,
 		domain.NewWatcherFactory(factory, log),
-		nil,
+		noopLeadershipRevoker{},
 		nil,
 		model.UUID(s.ModelUUID()),
 		clock.WallClock,

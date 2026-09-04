@@ -566,9 +566,10 @@ WHERE  application_uuid = $applicationScale.application_uuid
 		return application.ScaleState{}, errors.Errorf("querying application %q scale: %w", appUUID, err)
 	}
 	return application.ScaleState{
-		Scaling:     appScale.Scaling,
-		Scale:       appScale.Scale,
-		ScaleTarget: appScale.ScaleTarget,
+		StartOrdinal: appScale.StartOrdinal,
+		Scaling:      appScale.Scaling,
+		Scale:        appScale.Scale,
+		ScaleTarget:  appScale.ScaleTarget,
 	}, nil
 }
 
@@ -953,16 +954,7 @@ func (st *State) SetApplicationScalingState(ctx context.Context, appName string,
 	if err != nil {
 		return errors.Capture(err)
 	}
-
-	upsertApplicationScale := `
-UPDATE application_scale
-SET    scale = $applicationScale.scale,
-       scaling = $applicationScale.scaling,
-       scale_target = $applicationScale.scale_target
-WHERE  application_uuid = $applicationScale.application_uuid
-`
-
-	upsertStmt, err := st.Prepare(upsertApplicationScale, applicationScale{})
+	upsertStmt, err := st.Prepare(updateApplicationScaleState, applicationScale{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -970,43 +962,89 @@ WHERE  application_uuid = $applicationScale.application_uuid
 		appDetails, err := st.getApplicationDetails(ctx, tx, appName)
 		if err != nil {
 			return errors.Capture(err)
-		} else if appDetails.IsApplicationSynthetic {
-			return errors.Errorf("cannot set scaling state for synthetic application %q", appName)
 		}
-
-		currentScaleState, err := st.getApplicationScaleState(ctx, tx, appDetails.UUID)
+		scaleState, err := st.getApplicationScaleState(ctx, tx, appDetails.UUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
-
-		var scale int
-		if scaling {
-			switch appDetails.LifeID {
-			case life.Alive:
-				// if starting a scale, ensure we are scaling to the same target.
-				if !currentScaleState.Scaling && currentScaleState.Scale != targetScale {
-					return applicationerrors.ScalingStateInconsistent
-				}
-				// Make sure to leave the scale value unchanged.
-				scale = currentScaleState.Scale
-			case life.Dying, life.Dead:
-				// force scale to the scale target when dying/dead.
-				scale = targetScale
-			}
-		} else {
-			// Make sure to leave the scale value unchanged.
-			scale = currentScaleState.Scale
-		}
-
-		scaleDetailsToUpdate := applicationScale{
-			ApplicationID: appDetails.UUID,
-			Scaling:       scaling,
-			Scale:         scale,
-			ScaleTarget:   targetScale,
-		}
-		return tx.Query(ctx, upsertStmt, scaleDetailsToUpdate).Run()
+		return st.setApplicationScalingState(
+			ctx, tx, upsertStmt, appName, targetScale,
+			scaleState.StartOrdinal, scaling)
 	})
 	return errors.Capture(err)
+}
+
+// SetApplicationScalingStateWithStart updates the scale state and desired
+// StatefulSet start ordinal of a CAAS application.
+func (st *State) SetApplicationScalingStateWithStart(ctx context.Context, appName string, targetScale, startOrdinal int, scaling bool) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	upsertStmt, err := st.Prepare(updateApplicationScaleState, applicationScale{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.setApplicationScalingState(
+			ctx, tx, upsertStmt, appName, targetScale, startOrdinal, scaling)
+	})
+	return errors.Capture(err)
+}
+
+const updateApplicationScaleState = `
+UPDATE application_scale
+SET    scale = $applicationScale.scale,
+       scaling = $applicationScale.scaling,
+       scale_target = $applicationScale.scale_target,
+       start_ordinal = $applicationScale.start_ordinal
+WHERE  application_uuid = $applicationScale.application_uuid
+`
+
+func (st *State) setApplicationScalingState(
+	ctx context.Context, tx *sqlair.TX, upsertStmt *sqlair.Statement,
+	appName string, targetScale, startOrdinal int, scaling bool,
+) error {
+	appDetails, err := st.getApplicationDetails(ctx, tx, appName)
+	if err != nil {
+		return errors.Capture(err)
+	} else if appDetails.IsApplicationSynthetic {
+		return errors.Errorf("cannot set scaling state for synthetic application %q", appName)
+	}
+
+	currentScaleState, err := st.getApplicationScaleState(ctx, tx, appDetails.UUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var scale int
+	if scaling {
+		switch appDetails.LifeID {
+		case life.Alive:
+			// if starting a scale, ensure we are scaling to the same target.
+			if !currentScaleState.Scaling && currentScaleState.Scale != targetScale {
+				return applicationerrors.ScalingStateInconsistent
+			}
+			// Make sure to leave the scale value unchanged.
+			scale = currentScaleState.Scale
+		case life.Dying, life.Dead:
+			// force scale to the scale target when dying/dead.
+			scale = targetScale
+		}
+	} else {
+		// Make sure to leave the scale value unchanged.
+		scale = currentScaleState.Scale
+	}
+
+	scaleDetailsToUpdate := applicationScale{
+		ApplicationID: appDetails.UUID,
+		StartOrdinal:  startOrdinal,
+		Scaling:       scaling,
+		Scale:         scale,
+		ScaleTarget:   targetScale,
+	}
+	return tx.Query(ctx, upsertStmt, scaleDetailsToUpdate).Run()
 }
 
 // UpsertK8sService updates the cloud service for the specified application.

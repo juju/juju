@@ -643,7 +643,7 @@ func (s *WorkerSuite) newWorker(c *tc.C) *remoteWorker {
 func (s *WorkerSuite) newConfig(c *tc.C) WorkerConfig {
 	return WorkerConfig{
 		Origin:  names.NewMachineTag("0"),
-		APIInfo: &api.Info{},
+		APIInfo: apiInfoProviderFunc(func() (*api.Info, error) { return &api.Info{}, nil }),
 		APIOpener: func(ctx context.Context, i *api.Info, do api.DialOpts) (api.Connection, error) {
 			return s.connection, nil
 		},

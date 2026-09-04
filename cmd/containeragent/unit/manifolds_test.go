@@ -81,53 +81,6 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 	c.Assert(keys, tc.SameContents, expectedKeys)
 }
 
-func (s *ManifoldsSuite) TestManifoldNamesColocatedController(c *tc.C) {
-	config := unit.ManifoldsConfig{
-		ColocatedWithController: true,
-	}
-	manifolds := unit.Manifolds(config)
-	expectedKeys := []string{
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"caas-prober",
-		"caas-unit-prober-binder",
-		"caas-unit-termination-worker",
-		"caas-zombie-prober-binder",
-		"charm-dir",
-		"dead-flag",
-		"hook-retry-strategy",
-		"http-client",
-		"leadership-tracker",
-		"log-router",
-		"logging-config-updater",
-		"loki-endpoint-updater",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"migration-minion",
-		"not-dead-flag",
-		"pebble-loki-config",
-		"probe-http-server",
-		"proxy-config-updater",
-		"s3-caller",
-		"secret-drain-worker",
-		"signal-handler",
-
-		"trace",
-		"trace-config-updater",
-		"uniter",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-		"upgrade-agent-steps-runner",
-		"upgrader",
-	}
-	keys := make([]string, 0, len(manifolds))
-	for k := range manifolds {
-		keys = append(keys, k)
-	}
-	c.Assert(keys, tc.SameContents, expectedKeys)
-}
-
 func (*ManifoldsSuite) TestMigrationGuards(c *tc.C) {
 	exempt := set.NewStrings(
 		"agent",

@@ -179,16 +179,20 @@ func (s *toolsSuite) TestUploadAgentBinaryServiceInvalidArch(c *tc.C) {
 }
 
 // TestUploadAgentBinaryServiceAlreadyExists tests that if the agent binary
-// store already has an agent binary version for the uploaded version we get
-// back a bad request status.
+// store already has an agent binary version for the uploaded version, the
+// upload still succeeds as a no-op.
 func (s *toolsSuite) TestUploadAgentBinaryServiceAlreadyExists(c *tc.C) {
 	defer s.SetUpMocks(c).Finish()
 
 	body := strings.NewReader("123456789")
 	handler := newToolsUploadHandler(s.blockCheckGetter, s.agentBinaryStoreGetter)
 	res := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/tools?binaryVersion=4.0.0-ubuntu-amd64", body)
+	req := httptest.NewRequest(http.MethodPost, "https://[2001:0DB8::1]/tools?binaryVersion=4.0.0-ubuntu-amd64", body)
 	req.Header.Add("Content-Type", "application/x-tar-gz")
+
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	ctx := httpcontext.SetContextModelUUID(req.Context(), modelUUID)
+	req = req.WithContext(ctx)
 
 	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 	s.agentBinaryStore.EXPECT().AddAgentBinaryWithSHA256(
@@ -203,12 +207,14 @@ func (s *toolsSuite) TestUploadAgentBinaryServiceAlreadyExists(c *tc.C) {
 	).Return(agentbinaryerrors.AlreadyExists)
 
 	handler.ServeHTTP(res, req)
-	s.assertJSONErrorResponse(
-		c,
-		res.Result(),
-		http.StatusBadRequest,
-		`agent binary already exists for version "4.0.0" and arch "amd64"`,
-	)
+	c.Check(res.Result().StatusCode, tc.Equals, http.StatusOK)
+
+	s.assertUploadResponse(c, res.Result(), &tools.Tools{
+		Version: semversion.MustParseBinary("4.0.0-ubuntu-amd64"),
+		URL:     fmt.Sprintf("https://[2001:0DB8::1]/model/%s/tools/4.0.0-ubuntu-amd64", modelUUID),
+		SHA256:  "15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225",
+		Size:    9,
+	})
 }
 
 // TestUploadAgentBinary tests the happy path of uploading agent binaries to the
