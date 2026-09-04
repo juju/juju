@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/secrets"
@@ -77,6 +78,12 @@ func (s *SecretsManagerAPI) GetSecretBackendConfigs(ctx context.Context, arg par
 	}
 	result, activeID, err := s.getSecretBackendConfig(ctx, arg.BackendIDs)
 	if err != nil {
+		if errors.Is(err, secretbackenderrors.NotFound) {
+			return results, apiservererrors.ParamsErrorf(
+				params.CodeSecretBackendNotFound,
+				"getting config for secret backends %q: %s", arg.BackendIDs, err.Error(),
+			)
+		}
 		return results, errors.Trace(err)
 	}
 	results.ActiveID = activeID
@@ -109,6 +116,12 @@ func (s *SecretsManagerAPI) getBackendConfigForDrain(ctx context.Context, arg pa
 		BackendID: backendID,
 	})
 	if err != nil {
+		if errors.Is(err, secretbackenderrors.NotFound) {
+			return results, apiservererrors.ParamsErrorf(
+				params.CodeSecretBackendNotFound,
+				"getting drain config for secret backend %q: %s", backendID, err.Error(),
+			)
+		}
 		return results, errors.Trace(err)
 	}
 	if len(cfgInfo.Configs) == 0 {
@@ -243,7 +256,20 @@ func (s *SecretsManagerAPI) GetConsumerSecretsRevisionInfo(ctx context.Context, 
 	}
 	for i, uri := range args.URIs {
 		data, latestRevision, err := s.getSecretConsumerInfo(ctx, unitConsumer, uri)
-		if err != nil {
+		switch {
+		case errors.Is(err, secreterrors.SecretNotFound):
+			result.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeSecretNotFound,
+				"secret %q not found", uri,
+			)
+			continue
+		case errors.Is(err, secreterrors.SecretConsumerNotFound):
+			result.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeSecretConsumerNotFound,
+				"consumer %q not found for secret %q", unitConsumer.Id(), uri,
+			)
+			continue
+		case err != nil:
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -380,7 +406,36 @@ func (s *SecretsManagerAPI) GetSecretContentInfo(ctx context.Context, args param
 	for i, arg := range args.Args {
 		content, backend, draining, err := s.getSecretContent(ctx, arg)
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+			// The secret is identified by URI or, when looking one up for
+			// the owner, by label.
+			ref := arg.URI
+			if ref == "" {
+				ref = arg.Label
+			}
+			switch {
+			case errors.Is(err, secreterrors.SecretNotFound):
+				result.Results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeSecretNotFound,
+					"getting content for secret %q: %s", ref, err.Error(),
+				)
+			case errors.Is(err, secreterrors.SecretRevisionNotFound):
+				result.Results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeSecretRevisionNotFound,
+					"getting content for secret %q: %s", ref, err.Error(),
+				)
+			case errors.Is(err, secreterrors.PermissionDenied):
+				result.Results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeUnauthorized,
+					"cannot read secret %q: %s", ref, err.Error(),
+				)
+			case errors.Is(err, secretbackenderrors.NotFound):
+				result.Results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeSecretBackendNotFound,
+					"getting content for secret %q: %s", ref, err.Error(),
+				)
+			default:
+				result.Results[i].Error = apiservererrors.ServerError(err)
+			}
 			continue
 		}
 		contentParams := params.SecretContentParams{}
@@ -524,7 +579,27 @@ func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(ctx context.Context, ar
 		// TODO(wallworld) - if pendingDelete is true, mark the revision for deletion
 		val, valueRef, err := s.secretService.GetSecretValue(ctx, uri, rev, accessor)
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+			// GetSecretValue checks read access before reading the
+			// revision, so it can fail with any of these three.
+			switch {
+			case errors.Is(err, secreterrors.SecretNotFound):
+				result.Results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeSecretNotFound,
+					"secret %q not found", arg.URI,
+				)
+			case errors.Is(err, secreterrors.SecretRevisionNotFound):
+				result.Results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeSecretRevisionNotFound,
+					"getting revision %d of secret %q: %s", rev, arg.URI, err.Error(),
+				)
+			case errors.Is(err, secreterrors.PermissionDenied):
+				result.Results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeUnauthorized,
+					"cannot read secret %q: %s", arg.URI, err.Error(),
+				)
+			default:
+				result.Results[i].Error = apiservererrors.ServerError(err)
+			}
 			continue
 		}
 		contentParams := params.SecretContentParams{}
@@ -535,7 +610,15 @@ func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(ctx context.Context, ar
 			}
 			backend, draining, err := s.getBackend(ctx, valueRef.BackendID, accessor, token)
 			if err != nil {
-				result.Results[i].Error = apiservererrors.ServerError(err)
+				if errors.Is(err, secretbackenderrors.NotFound) {
+					result.Results[i].Error = apiservererrors.ParamsErrorf(
+						params.CodeSecretBackendNotFound,
+						"getting backend %q for secret %q: %s",
+						valueRef.BackendID, arg.URI, err.Error(),
+					)
+				} else {
+					result.Results[i].Error = apiservererrors.ServerError(err)
+				}
 				continue
 			}
 			result.Results[i].BackendConfig = &params.SecretBackendConfigResult{
@@ -811,9 +894,21 @@ func (s *SecretsManagerAPI) SecretsRotated(ctx context.Context, args params.Secr
 		})
 	}
 	for i, arg := range args.Args {
-		var result params.ErrorResult
-		result.Error = apiservererrors.ServerError(one(arg))
-		results.Results[i] = result
+		err := one(arg)
+		switch {
+		case errors.Is(err, secreterrors.SecretNotFound):
+			results.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeSecretNotFound,
+				"secret %q not found", arg.URI,
+			)
+		case errors.Is(err, secreterrors.PermissionDenied):
+			results.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeUnauthorized,
+				"cannot rotate secret %q: %s", arg.URI, err.Error(),
+			)
+		default:
+			results.Results[i].Error = apiservererrors.ServerError(err)
+		}
 	}
 	return results, nil
 }

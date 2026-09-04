@@ -38,6 +38,7 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -2021,4 +2022,53 @@ func (s *facadeSuite) expectWatchConsumedSecretsChanges(ctrl *gomock.Controller,
 	mockWatcher.EXPECT().Changes().Return(changes)
 	s.crossModelRelationService.EXPECT().WatchRemoteConsumedSecretsChanges(gomock.Any(), appUUID).Return(mockWatcher, nil)
 	return changes
+}
+
+func (s *facadeSuite) TestWatchConsumedSecretsChangesSecretNotFound(c *tc.C) {
+	// Arrange: the watcher reports a URI whose secret has since been removed.
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	testMac, err := macaroon.New([]byte("root"), []byte("id"), "loc", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	relUUID := tc.Must(c, corerelation.NewUUID)
+	appUUID := tc.Must(c, application.NewUUID)
+	uri := coresecrets.NewURI()
+
+	s.crossModelAuthContext.EXPECT().Authenticator().Return(s.authenticator)
+	s.crossModelRelationService.EXPECT().GetOfferUUIDByRelationUUID(gomock.Any(), relUUID).Return(offerUUID, nil)
+	s.authenticator.EXPECT().CheckOfferMacaroons(gomock.Any(), s.modelUUID.String(), offerUUID.String(), gomock.Any(), bakery.LatestVersion).
+		Return(nil, nil)
+
+	mockWatcher := NewMockStringsWatcher(ctrl)
+	changes := make(chan []string, 1)
+	changes <- []string{uri.ID}
+	mockWatcher.EXPECT().Changes().Return(changes)
+	mockWatcher.EXPECT().Kill().AnyTimes()
+	mockWatcher.EXPECT().Wait().Return(nil).AnyTimes()
+	s.crossModelRelationService.EXPECT().WatchRemoteConsumedSecretsChanges(gomock.Any(), appUUID).Return(mockWatcher, nil)
+
+	s.secretService.EXPECT().GetLatestRevisions(gomock.Any(), []*coresecrets.URI{uri}).
+		Return(nil, errors.Errorf("boom: %w", secreterrors.SecretNotFound))
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("1", nil)
+
+	// Act:
+	results, err := s.api(c).WatchConsumedSecretsChanges(c.Context(), params.WatchRemoteSecretChangesArgs{
+		Args: []params.WatchRemoteSecretChangesArg{{
+			ApplicationToken: appUUID.String(),
+			RelationToken:    relUUID.String(),
+			Macaroons:        macaroon.Slice{testMac},
+			BakeryVersion:    bakery.LatestVersion,
+		}},
+	})
+
+	// Assert: the sentinel is reported with the secret-not-found wire code,
+	// and survives the ServerError call the facade wraps it in.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.DeepEquals, &params.Error{
+		Code:    params.CodeSecretNotFound,
+		Message: `getting latest revisions for secrets ["` + uri.ID + `"]: boom: secret not found`,
+	})
 }
