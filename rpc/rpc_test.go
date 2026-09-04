@@ -11,6 +11,7 @@ import (
 	"net"
 	"reflect"
 	"regexp"
+	"runtime"
 	"sync"
 	stdtesting "testing"
 	"time"
@@ -825,6 +826,50 @@ func (*rpcSuite) TestErrorResponseWriteDoesNotBlockRequestHandling(c *tc.C) {
 	chanRead(c, methods.called, "second request handled")
 }
 
+func (*rpcSuite) TestResponseQueueBackpressureDoesNotLoseResponses(c *tc.C) {
+	const responseCount = 130
+	headers := make([]rpc.Header, responseCount)
+	for i := range headers {
+		headers[i] = rpc.Header{
+			RequestId: uint64(i + 1),
+			Request: rpc.Request{
+				Type: "BlockingWriteMethods", Action: "Ping",
+			},
+		}
+	}
+	codec := newBlockingServerCodec(headers...)
+	methods := &blockingWriteMethods{called: make(chan struct{})}
+	root := &blockingWriteRoot{methods: methods}
+
+	conn := rpc.NewConn(codec, nil)
+	conn.Serve(root, nil, nil)
+	conn.Start(c.Context())
+	defer func() {
+		err := conn.Close()
+		c.Assert(err, tc.ErrorIsNil)
+	}()
+
+	chanRead(c, codec.firstWriteStarted, "first response write started")
+	for conn.PendingResponseCount() != responseCount {
+		select {
+		case <-c.Context().Done():
+			c.Fatal("responses did not fill the queue")
+		default:
+			runtime.Gosched()
+		}
+	}
+	codec.unblockFirstWrite()
+	chanRead(c, codec.allWritesDone, "all queued responses written")
+	for conn.PendingResponseCount() != 0 {
+		select {
+		case <-c.Context().Done():
+			c.Fatal("pending response count did not return to zero")
+		default:
+			runtime.Gosched()
+		}
+	}
+}
+
 func (*rpcSuite) TestClientRequestIDConcurrentRead(c *tc.C) {
 	root := SimpleRoot(c)
 	client, _, srvDone, _ := newRPCClientServer(c, root, nil, false)
@@ -915,7 +960,7 @@ func (*rpcSuite) TestCloseWithStuckWriteCompletes(c *tc.C) {
 // writer has been torn down does not panic. Previously Close closed the
 // responses channel, so a late sendResponse could panic with
 // "send on closed channel"; responses is now never closed and the late
-// response is dropped via the <-dead path.
+// response is dropped after the writer is stopped.
 func (*rpcSuite) TestCloseWithLateResponseDoesNotPanic(c *tc.C) {
 	codec := newPauseableCodec(rpc.Header{
 		RequestId: 1,
@@ -933,15 +978,9 @@ func (*rpcSuite) TestCloseWithLateResponseDoesNotPanic(c *tc.C) {
 	}
 	root := &lateResponseRoot{methods: methods}
 
-	// The response hook fires when sendResponse completes (either branch).
-	// A panic in sendResponse would prevent it from firing, so receiving
-	// on the hook proves sendResponse returned without panicking.
-	responseHook := make(chan struct{}, 1)
-
 	conn := rpc.NewConn(codec, nil)
 	conn.SetCloseTimeout(100 * time.Millisecond)
 	conn.SetWriteFlushTimeout(100 * time.Millisecond)
-	conn.SetResponseHook(responseHook)
 	conn.Serve(root, nil, nil)
 	conn.Start(c.Context())
 
@@ -966,7 +1005,215 @@ func (*rpcSuite) TestCloseWithLateResponseDoesNotPanic(c *tc.C) {
 	// gone and dead is closed. It must not panic (responses not closed)
 	// and must not block (dead is closed); the response is dropped.
 	close(methods.release)
-	chanRead(c, responseHook, "late sendResponse completed without panicking")
+	conn.WaitForPendingServerRequests()
+	c.Check(conn.PendingResponseCount(), tc.Equals, int64(0))
+}
+
+// TestCloseWithWriteNotUnblockedByCodecClose verifies that Close remains
+// bounded even when a codec satisfies its read-unblocking contract but leaves
+// an in-progress WriteMessage blocked.
+func (*rpcSuite) TestCloseWithWriteNotUnblockedByCodecClose(c *tc.C) {
+	codec := newPauseableCodec(rpc.Header{
+		RequestId: 1,
+		Request: rpc.Request{
+			Type:    "BlockingWriteMethods",
+			Version: 0,
+			Id:      "",
+			Action:  "Ping",
+		},
+		Version: 1,
+	})
+	codec.closeUnblocksWrite = false
+	methods := &blockingWriteMethods{called: make(chan struct{})}
+	root := &blockingWriteRoot{methods: methods}
+
+	conn := rpc.NewConn(codec, nil)
+	conn.SetCloseTimeout(100 * time.Millisecond)
+	conn.SetWriteFlushTimeout(100 * time.Millisecond)
+	conn.Serve(root, nil, nil)
+	conn.Start(c.Context())
+
+	chanRead(c, codec.writeStarted, "writer started writing")
+	err := conn.Close()
+	c.Assert(err, tc.ErrorIsNil)
+	codec.unblock()
+}
+
+// TestResponseWritePanicDoesNotStopWriter verifies that a panic while a codec
+// marshals one response cannot crash the process or prevent later responses
+// from being written.
+func (*rpcSuite) TestResponseWritePanicDoesNotStopWriter(c *tc.C) {
+	panicStarted := make(chan struct{})
+	codec := newMarshalServerCodec(
+		rpc.Header{
+			RequestId: 1,
+			Request: rpc.Request{
+				Type: "MarshalMethods", Action: "Panic",
+			},
+		},
+		rpc.Header{
+			RequestId: 2,
+			Request: rpc.Request{
+				Type: "MarshalMethods", Action: "Good",
+			},
+		},
+	)
+	root := &marshalRoot{methods: &marshalMethods{panicStarted: panicStarted}}
+
+	conn := rpc.NewConn(codec, nil)
+	conn.Serve(root, nil, nil)
+	conn.Start(c.Context())
+	defer func() {
+		err := conn.Close()
+		c.Assert(err, tc.ErrorIsNil)
+	}()
+
+	hdr := <-codec.errorWritten
+	c.Check(hdr.RequestId, tc.Equals, uint64(1))
+	c.Check(hdr.Error, tc.Equals, "panic writing response: cannot marshal response")
+	chanRead(c, codec.goodWritten, "response after panicking response")
+}
+
+func (*rpcSuite) TestErrorResponseWritePanicDoesNotStopWriter(c *tc.C) {
+	panicStarted := make(chan struct{})
+	codec := newMarshalServerCodec(
+		rpc.Header{
+			RequestId: 1,
+			Request: rpc.Request{
+				Type: "MarshalMethods", Action: "Panic",
+			},
+		},
+		rpc.Header{
+			RequestId: 2,
+			Request: rpc.Request{
+				Type: "MarshalMethods", Action: "Good",
+			},
+		},
+	)
+	codec.panicErrorResponse = true
+	root := &marshalRoot{methods: &marshalMethods{panicStarted: panicStarted}}
+
+	conn := rpc.NewConn(codec, nil)
+	conn.Serve(root, nil, nil)
+	conn.Start(c.Context())
+	defer func() {
+		err := conn.Close()
+		c.Assert(err, tc.ErrorIsNil)
+	}()
+
+	chanRead(c, codec.goodWritten, "response after panicking error response")
+}
+
+func (*rpcSuite) TestResponseWritePanicRecordedOnRequestSpan(c *tc.C) {
+	panicStarted := make(chan struct{})
+	codec := newMarshalServerCodec(rpc.Header{
+		RequestId: 1,
+		Request: rpc.Request{
+			Type: "MarshalMethods", Action: "Panic",
+		},
+	})
+	methods := &marshalMethods{panicStarted: panicStarted}
+	span := newRecordingSpan()
+	root := newTracingRoot(&marshalRoot{methods: methods}, span)
+
+	conn := rpc.NewConn(codec, nil)
+	conn.ServeRoot(root, nil, nil)
+	conn.Start(c.Context())
+	defer func() {
+		err := conn.Close()
+		c.Assert(err, tc.ErrorIsNil)
+	}()
+
+	err := chanReadError(c, span.errors, "response write span error")
+	c.Check(err, tc.ErrorMatches, "panic writing response: cannot marshal response")
+	chanRead(c, span.ended, "request span ended after response write")
+}
+
+func (*rpcSuite) TestRequestSpanRemainsOpenUntilResponseWriteCompletes(c *tc.C) {
+	codec := newPauseableCodec(rpc.Header{
+		RequestId: 1,
+		Request: rpc.Request{
+			Type: "BlockingWriteMethods", Action: "Ping",
+		},
+	})
+	methods := &blockingWriteMethods{called: make(chan struct{})}
+	span := newRecordingSpan()
+	root := newTracingRoot(&blockingWriteRoot{methods: methods}, span)
+
+	conn := rpc.NewConn(codec, nil)
+	conn.ServeRoot(root, nil, nil)
+	conn.Start(c.Context())
+	defer func() {
+		err := conn.Close()
+		c.Assert(err, tc.ErrorIsNil)
+	}()
+
+	chanRead(c, codec.writeStarted, "response write started")
+	select {
+	case <-span.ended:
+		c.Fatal("request span ended before its response write completed")
+	default:
+	}
+	codec.unblock()
+	chanRead(c, span.ended, "request span ended after response write")
+}
+
+func (*rpcSuite) TestResponseWriteErrorRecordedBeforeRequestSpanEnds(c *tc.C) {
+	writeErr := errors.New("response write failed")
+	codec := newPauseableCodec(rpc.Header{
+		RequestId: 1,
+		Request: rpc.Request{
+			Type: "BlockingWriteMethods", Action: "Ping",
+		},
+	})
+	codec.writeErr = writeErr
+	methods := &blockingWriteMethods{called: make(chan struct{})}
+	span := newRecordingSpan()
+	root := newTracingRoot(&blockingWriteRoot{methods: methods}, span)
+
+	conn := rpc.NewConn(codec, nil)
+	conn.ServeRoot(root, nil, nil)
+	conn.Start(c.Context())
+	defer func() {
+		err := conn.Close()
+		c.Assert(err, tc.ErrorIsNil)
+	}()
+
+	chanRead(c, codec.writeStarted, "response write started")
+	codec.unblock()
+	err := <-span.errors
+	c.Check(err, tc.ErrorIs, writeErr)
+	chanRead(c, span.ended, "request span ended after recording write error")
+}
+
+func (*rpcSuite) TestRequestSpanPanicDoesNotStopResponseWriter(c *tc.C) {
+	span := newPanicEndSpan()
+	codec := newMarshalServerCodec(
+		rpc.Header{
+			RequestId: 1,
+			Request: rpc.Request{
+				Type: "SpanEndMethods", Action: "First",
+			},
+		},
+		rpc.Header{
+			RequestId: 2,
+			Request: rpc.Request{
+				Type: "SpanEndMethods", Action: "Good",
+			},
+		},
+	)
+	methods := &spanEndMethods{firstSpanEnded: span.panicked}
+	root := newTracingRoot(&spanEndRoot{methods: methods}, span)
+
+	conn := rpc.NewConn(codec, nil)
+	conn.ServeRoot(root, nil, nil)
+	conn.Start(c.Context())
+	defer func() {
+		err := conn.Close()
+		c.Assert(err, tc.ErrorIsNil)
+	}()
+
+	chanRead(c, codec.goodWritten, "response after request span panic")
 }
 
 type codedError struct {
@@ -1731,6 +1978,8 @@ type blockingServerCodec struct {
 	unblockWrite      chan struct{}
 	unblockWriteOnce  sync.Once
 	writeCount        int
+	allWritesDone     chan struct{}
+	allWritesOnce     sync.Once
 }
 
 func newBlockingServerCodec(headers ...rpc.Header) *blockingServerCodec {
@@ -1741,6 +1990,7 @@ func newBlockingServerCodec(headers ...rpc.Header) *blockingServerCodec {
 		closeCh:           make(chan struct{}),
 		firstWriteStarted: make(chan struct{}),
 		unblockWrite:      make(chan struct{}),
+		allWritesDone:     make(chan struct{}),
 	}
 }
 
@@ -1767,6 +2017,7 @@ func (c *blockingServerCodec) WriteMessage(_ *rpc.Header, _ any) error {
 	c.mu.Lock()
 	c.writeCount++
 	writeCount := c.writeCount
+	writeTotal := len(c.headers)
 	c.mu.Unlock()
 
 	if writeCount == 1 {
@@ -1774,6 +2025,11 @@ func (c *blockingServerCodec) WriteMessage(_ *rpc.Header, _ any) error {
 			close(c.firstWriteStarted)
 		})
 		<-c.unblockWrite
+	}
+	if writeCount == writeTotal {
+		c.allWritesOnce.Do(func() {
+			close(c.allWritesDone)
+		})
 	}
 	return nil
 }
@@ -1798,22 +2054,28 @@ func (c *blockingServerCodec) unblockFirstWrite() {
 // stalled write that is only unblocked by codec.Close, like the write
 // deadline set by wsJSONConn.Close).
 type pauseableCodec struct {
-	mu               sync.Mutex
-	headers          []rpc.Header
-	readIndex        int
-	closeCh          chan struct{}
-	closeOnce        sync.Once
-	writeStarted     chan struct{}
-	writeStartedOnce sync.Once
+	mu                 sync.Mutex
+	headers            []rpc.Header
+	readIndex          int
+	closeCh            chan struct{}
+	closeOnce          sync.Once
+	closeUnblocksWrite bool
+	unblockWrite       chan struct{}
+	unblockOnce        sync.Once
+	writeErr           error
+	writeStarted       chan struct{}
+	writeStartedOnce   sync.Once
 }
 
 func newPauseableCodec(headers ...rpc.Header) *pauseableCodec {
 	copied := make([]rpc.Header, len(headers))
 	copy(copied, headers)
 	return &pauseableCodec{
-		headers:      copied,
-		closeCh:      make(chan struct{}),
-		writeStarted: make(chan struct{}),
+		headers:            copied,
+		closeCh:            make(chan struct{}),
+		closeUnblocksWrite: true,
+		unblockWrite:       make(chan struct{}),
+		writeStarted:       make(chan struct{}),
 	}
 }
 
@@ -1838,10 +2100,16 @@ func (c *pauseableCodec) WriteMessage(_ *rpc.Header, _ any) error {
 	c.writeStartedOnce.Do(func() {
 		close(c.writeStarted)
 	})
+	closeCh := c.closeCh
+	if !c.closeUnblocksWrite {
+		closeCh = nil
+	}
 	select {
-	case <-c.closeCh:
+	case <-closeCh:
 		// Codec closed while writing; emulate a peer-closed write error.
 		return io.ErrClosedPipe
+	case <-c.unblockWrite:
+		return c.writeErr
 	}
 }
 
@@ -1850,6 +2118,200 @@ func (c *pauseableCodec) Close() error {
 		close(c.closeCh)
 	})
 	return nil
+}
+
+func (c *pauseableCodec) unblock() {
+	c.unblockOnce.Do(func() {
+		close(c.unblockWrite)
+	})
+}
+
+type marshalServerCodec struct {
+	mu                 sync.Mutex
+	headers            []rpc.Header
+	readIndex          int
+	closeCh            chan struct{}
+	closeOnce          sync.Once
+	goodWritten        chan struct{}
+	goodOnce           sync.Once
+	errorWritten       chan rpc.Header
+	panicErrorResponse bool
+}
+
+func newMarshalServerCodec(headers ...rpc.Header) *marshalServerCodec {
+	return &marshalServerCodec{
+		headers:      headers,
+		closeCh:      make(chan struct{}),
+		goodWritten:  make(chan struct{}),
+		errorWritten: make(chan rpc.Header, 1),
+	}
+}
+
+func (c *marshalServerCodec) ReadHeader(hdr *rpc.Header) error {
+	c.mu.Lock()
+	if c.readIndex < len(c.headers) {
+		*hdr = c.headers[c.readIndex]
+		c.readIndex++
+		c.mu.Unlock()
+		return nil
+	}
+	c.mu.Unlock()
+	<-c.closeCh
+	return io.EOF
+}
+
+func (*marshalServerCodec) ReadBody(any, bool) error {
+	return nil
+}
+
+func (c *marshalServerCodec) WriteMessage(hdr *rpc.Header, body any) error {
+	if _, err := json.Marshal(body); err != nil {
+		return err
+	}
+	if hdr.Error != "" {
+		if c.panicErrorResponse {
+			panic("cannot write error response")
+		}
+		c.errorWritten <- *hdr
+	}
+	if hdr.RequestId == 2 {
+		c.goodOnce.Do(func() {
+			close(c.goodWritten)
+		})
+	}
+	return nil
+}
+
+func (c *marshalServerCodec) Close() error {
+	c.closeOnce.Do(func() {
+		close(c.closeCh)
+	})
+	return nil
+}
+
+type marshalRoot struct {
+	methods *marshalMethods
+}
+
+func (r *marshalRoot) MarshalMethods(string) (*marshalMethods, error) {
+	return r.methods, nil
+}
+
+type marshalMethods struct {
+	panicStarted chan struct{}
+}
+
+func (m *marshalMethods) Panic() panicMarshalResult {
+	return panicMarshalResult{started: m.panicStarted}
+}
+
+func (m *marshalMethods) Good() stringVal {
+	<-m.panicStarted
+	return stringVal{Val: "good"}
+}
+
+type panicMarshalResult struct {
+	started chan struct{}
+}
+
+func (r panicMarshalResult) MarshalJSON() ([]byte, error) {
+	close(r.started)
+	panic("cannot marshal response")
+}
+
+type tracingRoot struct {
+	rpcreflect.Value
+	span trace.Span
+}
+
+func newTracingRoot(root any, span trace.Span) *tracingRoot {
+	return &tracingRoot{
+		Value: rpcreflect.ValueOf(reflect.ValueOf(root)),
+		span:  span,
+	}
+}
+
+func (*tracingRoot) Kill() {}
+
+func (r *tracingRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
+	return trace.WithSpan(ctx, r.span), r.span
+}
+
+func (*tracingRoot) FlightRecorder() flightrecorder.FlightRecorder {
+	return flightrecorder.NoopRecorder{}
+}
+
+type recordingSpan struct {
+	errors chan error
+	ended  chan struct{}
+	once   sync.Once
+}
+
+func newRecordingSpan() *recordingSpan {
+	return &recordingSpan{
+		errors: make(chan error, 1),
+		ended:  make(chan struct{}),
+	}
+}
+
+func (*recordingSpan) Scope() trace.Scope {
+	return trace.NoopScope{}
+}
+
+func (*recordingSpan) AddEvent(string, ...trace.Attribute) {}
+
+func (s *recordingSpan) RecordError(err error, _ ...trace.Attribute) {
+	if err != nil {
+		s.errors <- err
+	}
+}
+
+func (s *recordingSpan) End(...trace.Attribute) {
+	s.once.Do(func() {
+		close(s.ended)
+	})
+}
+
+type panicEndSpan struct {
+	panicked chan struct{}
+	once     sync.Once
+}
+
+func newPanicEndSpan() *panicEndSpan {
+	return &panicEndSpan{panicked: make(chan struct{})}
+}
+
+func (*panicEndSpan) Scope() trace.Scope {
+	return trace.NoopScope{}
+}
+
+func (*panicEndSpan) AddEvent(string, ...trace.Attribute) {}
+
+func (*panicEndSpan) RecordError(error, ...trace.Attribute) {}
+
+func (s *panicEndSpan) End(...trace.Attribute) {
+	s.once.Do(func() {
+		close(s.panicked)
+	})
+	panic("cannot end request span")
+}
+
+type spanEndRoot struct {
+	methods *spanEndMethods
+}
+
+func (r *spanEndRoot) SpanEndMethods(string) (*spanEndMethods, error) {
+	return r.methods, nil
+}
+
+type spanEndMethods struct {
+	firstSpanEnded chan struct{}
+}
+
+func (*spanEndMethods) First() {}
+
+func (m *spanEndMethods) Good() {
+	<-m.firstSpanEnded
 }
 
 // lateResponseRoot serves lateResponseMethods.

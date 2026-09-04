@@ -149,8 +149,12 @@ func (noopTracingRoot) FlightRecorder() flightrecorder.FlightRecorder {
 
 // responseMsg represents a response message queued for writing.
 type responseMsg struct {
-	hdr  *Header
-	body any
+	ctx      context.Context
+	request  Request
+	recorder Recorder
+	hdr      *Header
+	body     any
+	done     func(error)
 }
 
 // serverConfig holds the server-side configuration that is set once
@@ -163,10 +167,11 @@ type serverConfig struct {
 	recorderFactory RecorderFactory
 }
 
-// writeCounter tracks the number of responses that have been queued by
-// handler goroutines but not yet written by the writer goroutine. Close
-// waits on it (with a timeout) to flush responses before closing the
-// codec.
+// writeCounter tracks responses from the point at which a handler starts
+// trying to queue them until the writer goroutine has written or dropped
+// them. Close waits on it (with a timeout) to flush responses before closing
+// the codec. Counting blocked queue operations is intentional: otherwise
+// Close could observe zero while a response is about to be queued.
 //
 // The count is an atomic, so the hot path (add on every response, done
 // after every write) is lock-free. Wakeup is push-based: the done() that
@@ -289,8 +294,12 @@ type Conn struct {
 	// running (and therefore still sending) when Close tears the writer
 	// down, so closing it would risk a send-on-closed-channel panic.
 	// Instead the writer is signaled to stop via writerStop, and late
-	// senders drop their response via the <-dead path in sendResponse.
+	// senders drop their response after observing writerStopped.
 	responses chan responseMsg
+
+	// writerStopped prevents new responses from entering the queue once the
+	// writer begins shutting down.
+	writerStopped atomic.Bool
 
 	// writerStop is closed by Close to ask the writer goroutine to
 	// exit. The writer selects on it alongside responses, so it can
@@ -312,12 +321,6 @@ type Conn struct {
 	// writeFlushTimeout bounds the wait for queued responses to be
 	// written during Close. It is overridable for tests.
 	writeFlushTimeout time.Duration
-
-	// responseHook, when non-nil, is signalled (non-blocking) once a
-	// response has been queued or dropped in sendResponse. It is nil in
-	// production and used only by tests to observe sendResponse
-	// completion. It must be set before Start.
-	responseHook chan struct{}
 }
 
 // NewConn creates a new connection that uses the given codec for
@@ -356,6 +359,7 @@ func (conn *Conn) Start(ctx context.Context) {
 		conn.responses = make(chan responseMsg, 128)
 		conn.writerStop = make(chan struct{})
 		conn.writerDone = make(chan struct{})
+		// writerDone is the join point for this connection-scoped goroutine.
 		go conn.writer()
 		go conn.input()
 	}
@@ -520,10 +524,17 @@ func (conn *Conn) Close() error {
 	// to stop. responses is intentionally not closed: handler
 	// goroutines that survived the srvPending timeout may still call
 	// sendResponse, and closing responses would risk a
-	// send-on-closed-channel panic. Late senders drop their response
-	// via the <-dead path in sendResponse instead.
+	// send-on-closed-channel panic. writerStopped prevents late senders
+	// from adding work after the writer begins draining.
+	conn.writerStopped.Store(true)
 	close(conn.writerStop)
-	<-conn.writerDone
+	select {
+	case <-conn.writerDone:
+	case <-time.After(conn.writeFlushTimeout):
+		// Codec.Close is only required to unblock reads. Do not strand Close
+		// forever if a codec leaves an in-progress WriteMessage blocked.
+		logger.Warningf(conn.context, "timed out waiting for response writer to stop")
+	}
 
 	return conn.inputLoopError
 }
@@ -639,7 +650,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		}
 		// We don't transform the error here. bindRequest will have
 		// already transformed it and returned a zero req.
-		conn.sendErrorResponse(hdr, err, recorder)
+		conn.sendErrorResponse(conn.context, hdr, err, recorder, nil)
 		return nil
 	}
 	var argp any
@@ -667,7 +678,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		// the error is actually a framing or syntax
 		// problem, then the next ReadHeader should pick
 		// up the problem and abort.
-		conn.sendErrorResponse(hdr, req.transformErrors(err), recorder)
+		conn.sendErrorResponse(conn.context, hdr, req.transformErrors(err), recorder, nil)
 		return nil
 	}
 	var body any = struct{}{}
@@ -676,13 +687,13 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	}
 	if err := recorder.HandleRequest(hdr, body); err != nil {
 		logger.Errorf(context.TODO(), "error recording request %+v with arg %+v: %T %+v", req, arg, err, err)
-		conn.sendErrorResponse(hdr, req.transformErrors(err), recorder)
+		conn.sendErrorResponse(conn.context, hdr, req.transformErrors(err), recorder, nil)
 		return nil
 	}
 
 	if conn.closing.Load() {
 		// We're closing down - no new requests may be initiated.
-		conn.sendErrorResponse(hdr, req.transformErrors(ErrShutdown), recorder)
+		conn.sendErrorResponse(conn.context, hdr, req.transformErrors(ErrShutdown), recorder, nil)
 		return nil
 	}
 
@@ -695,7 +706,20 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 // sendErrorResponse constructs an error response and queues it for writing.
 // It calls recorder.HandleReply before queuing, ensuring observer work is not
 // performed while holding any write lock.
-func (conn *Conn) sendErrorResponse(reqHdr *Header, err error, recorder Recorder) {
+func (conn *Conn) sendErrorResponse(
+	ctx context.Context,
+	reqHdr *Header,
+	err error,
+	recorder Recorder,
+	done func(error),
+) {
+	hdr, body := conn.makeErrorResponse(reqHdr, err, recorder)
+	conn.sendResponse(ctx, reqHdr.Request, recorder, hdr, body, done)
+}
+
+func (conn *Conn) makeErrorResponse(
+	reqHdr *Header, err error, recorder Recorder,
+) (*Header, any) {
 	hdr := &Header{
 		RequestId:  reqHdr.RequestId,
 		Version:    reqHdr.Version,
@@ -715,24 +739,46 @@ func (conn *Conn) sendErrorResponse(reqHdr *Header, err error, recorder Recorder
 	if err := recorder.HandleReply(reqHdr.Request, hdr, struct{}{}); err != nil {
 		logger.Errorf(context.TODO(), "error recording reply %+v: %T %+v", hdr, err, err)
 	}
-	conn.sendResponse(hdr, struct{}{})
+	return hdr, struct{}{}
 }
 
 // sendResponse queues a response message for the writer goroutine.
 // It blocks if the response buffer is full, providing natural backpressure.
 // If the connection is dead, the response is dropped.
-func (conn *Conn) sendResponse(hdr *Header, body any) {
+func (conn *Conn) sendResponse(
+	ctx context.Context,
+	request Request,
+	recorder Recorder,
+	hdr *Header,
+	body any,
+	done func(error),
+) {
+	msg := responseMsg{
+		ctx:      context.WithoutCancel(ctx),
+		request:  request,
+		recorder: recorder,
+		hdr:      hdr,
+		body:     body,
+		done:     done,
+	}
+	if conn.writerStopped.Load() {
+		conn.finishResponse(msg, nil)
+		return
+	}
 	conn.pendingWrites.add()
+	// Pair the second check with writer's pendingWrites drain. If shutdown
+	// began between the first check and add, undo the accounting without
+	// attempting to queue to a writer that may already have exited.
+	if conn.writerStopped.Load() {
+		conn.pendingWrites.done()
+		conn.finishResponse(msg, nil)
+		return
+	}
 	select {
-	case conn.responses <- responseMsg{hdr: hdr, body: body}:
+	case conn.responses <- msg:
 	case <-conn.dead:
 		conn.pendingWrites.done()
-	}
-	if h := conn.responseHook; h != nil {
-		select {
-		case h <- struct{}{}:
-		default:
-		}
+		conn.finishResponse(msg, nil)
 	}
 }
 
@@ -745,7 +791,7 @@ func (conn *Conn) sendResponse(hdr *Header, body any) {
 // any messages already buffered when the stop signal arrives are still
 // drained (each iteration may pick a buffered message before the stop
 // case). responses is never closed, so late senders cannot panic; they
-// drop their response via the <-dead path in sendResponse.
+// drop their response after observing writerStopped in sendResponse.
 func (conn *Conn) writer() {
 	defer close(conn.writerDone)
 	for {
@@ -753,17 +799,17 @@ func (conn *Conn) writer() {
 		case msg := <-conn.responses:
 			conn.writeResponse(msg)
 		case <-conn.writerStop:
-			// Best-effort drain of anything still buffered before
-			// exiting. Late writes that arrive after this point are
-			// dropped by sendResponse's <-dead branch.
-			for {
+			// Drain queued responses and wait for any sender that passed the
+			// first writerStopped check. The sender's second check either
+			// drops the response or leaves it accounted for here to consume.
+			for conn.pendingWrites.n.Load() != 0 {
 				select {
 				case msg := <-conn.responses:
 					conn.writeResponse(msg)
-				default:
-					return
+				case <-conn.pendingWrites.notify:
 				}
 			}
+			return
 		}
 	}
 }
@@ -772,14 +818,72 @@ func (conn *Conn) writer() {
 // the pending write as done. Errors that indicate the peer has gone
 // away are expected during shutdown and are not logged.
 func (conn *Conn) writeResponse(msg responseMsg) {
-	err := conn.codec.WriteMessage(msg.hdr, msg.body)
-	conn.pendingWrites.done()
-	if err != nil {
-		msg := err.Error()
-		if !strings.Contains(msg, "websocket: close sent") &&
-			!strings.Contains(msg, "write: broken pipe") {
-			logger.Errorf(conn.context, "error writing response: %T %+v", err, err)
+	var responseErr error
+	defer conn.pendingWrites.done()
+	defer func() {
+		if panicResult := recover(); panicResult != nil {
+			responseErr = errors.Errorf("panic completing response write: %v", panicResult)
+			logger.Criticalf(msg.ctx, "%v\n%v", responseErr, string(debug.Stack()))
 		}
+		conn.finishResponse(msg, responseErr)
+	}()
+
+	err, panicResult, panicStack := conn.writeMessage(msg.hdr, msg.body)
+	responseErr = err
+	if panicResult != nil {
+		responseErr = errors.Errorf("panic writing response: %v", panicResult)
+		logger.Criticalf(msg.ctx, "%v\n%v", responseErr, string(panicStack))
+
+		// A response value may panic while being marshalled. Preserve the old
+		// request-goroutine behaviour by returning that panic as an RPC error.
+		reqHdr := *msg.hdr
+		reqHdr.Request = msg.request
+		errHdr, errBody := conn.makeErrorResponse(&reqHdr, responseErr, msg.recorder)
+		fallbackErr, fallbackPanic, fallbackStack := conn.writeMessage(errHdr, errBody)
+		if fallbackPanic != nil {
+			logger.Criticalf(msg.ctx,
+				"panic writing error response: %v\n%v", fallbackPanic, string(fallbackStack))
+		} else {
+			conn.logResponseWriteError(msg.ctx, fallbackErr)
+		}
+	} else {
+		conn.logResponseWriteError(msg.ctx, err)
+	}
+}
+
+func (conn *Conn) finishResponse(msg responseMsg, err error) {
+	if msg.done == nil {
+		return
+	}
+	defer func() {
+		if panicResult := recover(); panicResult != nil {
+			logger.Criticalf(msg.ctx,
+				"panic finishing response trace: %v\n%v", panicResult, string(debug.Stack()))
+		}
+	}()
+	msg.done(err)
+}
+
+func (conn *Conn) writeMessage(hdr *Header, body any) (
+	err error, panicResult any, panicStack []byte,
+) {
+	defer func() {
+		panicResult = recover()
+		if panicResult != nil {
+			panicStack = debug.Stack()
+		}
+	}()
+	return conn.codec.WriteMessage(hdr, body), nil, nil
+}
+
+func (conn *Conn) logResponseWriteError(ctx context.Context, err error) {
+	if err == nil {
+		return
+	}
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "websocket: close sent") &&
+		!strings.Contains(errMsg, "write: broken pipe") {
+		logger.Errorf(ctx, "error writing response: %T %+v", err, err)
 	}
 }
 
@@ -837,7 +941,9 @@ func (conn *Conn) runRequest(
 		if panicResult := recover(); panicResult != nil {
 			logger.Criticalf(conn.context,
 				"panic running request %+v with arg %+v: %v\n%v", req, arg, panicResult, string(debug.Stack()))
-			conn.sendErrorResponse(&req.hdr, errors.Errorf("%v", panicResult), recorder)
+			conn.sendErrorResponse(
+				conn.context, &req.hdr, errors.Errorf("%v", panicResult), recorder, nil,
+			)
 		}
 	}()
 
@@ -851,30 +957,48 @@ func (conn *Conn) runRequest(
 	// don't care, a new one will be curated for us.
 	ctx = trace.WithTraceScope(ctx, req.hdr.TraceID, req.hdr.SpanID, req.hdr.TraceFlags)
 
-	conn.withTrace(ctx, req.hdr.Request, func(ctx context.Context) {
-		conn.callRequest(ctx, req, arg, version, recorder)
+	conn.withTrace(ctx, req.hdr.Request, func(ctx context.Context, done func(error)) bool {
+		return conn.callRequest(ctx, req, arg, version, recorder, done)
 	})
 }
 
-func (conn *Conn) withTrace(ctx context.Context, request Request, fn func(ctx context.Context)) {
+func (conn *Conn) withTrace(
+	ctx context.Context,
+	request Request,
+	fn func(context.Context, func(error)) bool,
+) {
 	cfg := conn.config.Load()
 	if cfg.root == nil {
-		fn(ctx)
+		fn(ctx, nil)
 		return
 	}
 
 	ctx, span := cfg.root.StartTrace(ctx)
-	defer span.End(
-		trace.StringAttr("request.type", request.Type),
-		trace.IntAttr("request.version", request.Version),
-		trace.StringAttr("request.action", request.Action),
-	)
+	var finishOnce sync.Once
+	finish := func(err error) {
+		finishOnce.Do(func() {
+			if err != nil {
+				span.RecordError(err)
+			}
+			span.End(
+				trace.StringAttr("request.type", request.Type),
+				trace.IntAttr("request.version", request.Version),
+				trace.StringAttr("request.action", request.Action),
+			)
+		})
+	}
+	transferred := false
+	defer func() {
+		if !transferred {
+			finish(nil)
+		}
+	}()
 
 	// Set the otel.traceid for the goroutine, so profiling tools can then link
 	// the trace to the profile.
 	traceID, _ := trace.TraceIDFromContext(ctx)
 	pprof.Do(ctx, pprof.Labels(trace.OTELTraceID, traceID), func(ctx context.Context) {
-		fn(ctx)
+		transferred = fn(ctx, finish)
 	})
 }
 
@@ -884,7 +1008,8 @@ func (conn *Conn) callRequest(
 	arg reflect.Value,
 	version int,
 	recorder Recorder,
-) {
+	done func(error),
+) bool {
 	rv, err := req.Call(ctx, req.hdr.Request.Id, arg)
 	if err != nil {
 		if err := conn.getFlightRecorder().Capture(flightrecorder.KindError); err != nil {
@@ -894,7 +1019,7 @@ func (conn *Conn) callRequest(
 		// Record the first error, this is the one that will be returned to
 		// the client.
 		trace.SpanFromContext(ctx).RecordError(err)
-		conn.sendErrorResponse(&req.hdr, req.transformErrors(err), recorder)
+		conn.sendErrorResponse(ctx, &req.hdr, req.transformErrors(err), recorder, done)
 	} else {
 		hdr := &Header{
 			RequestId:  req.hdr.RequestId,
@@ -917,8 +1042,9 @@ func (conn *Conn) callRequest(
 			logger.Tracef(ctx, "error capturing flight recorder: %v", err)
 		}
 
-		conn.sendResponse(hdr, rvi)
+		conn.sendResponse(ctx, req.hdr.Request, recorder, hdr, rvi, done)
 	}
+	return true
 }
 
 var noop = flightrecorder.NoopRecorder{}
