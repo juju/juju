@@ -1481,6 +1481,12 @@ func (*State) NamespaceForWatchMachineCloudInstance() string {
 	return "machine_cloud_instance"
 }
 
+// NamespaceForWatchMachineSSHHostKeys returns the namespace for watching
+// machine SSH host key changes.
+func (*State) NamespaceForWatchMachineSSHHostKeys() string {
+	return "machine_ssh_host_key"
+}
+
 // NamespaceForWatchMachineReprovision returns the namespace used to wake the
 // provisioner after a machine is detached for reprovisioning.
 func (*State) NamespaceForWatchMachineReprovision() string {
@@ -1515,6 +1521,12 @@ func (*State) InitialWatchModelMachinesStatement() (string, string) {
 // statement for watching life and agent start time changes machines.
 func (*State) InitialWatchModelMachineLifeAndStartTimesStatement() (string, string) {
 	return "custom_machine_lifecycle_start_time", "SELECT name FROM machine"
+}
+
+// InitialWatchMachineSSHHostKeysStatement returns the namespace and initial
+// query for watching SSH host key changes for one machine.
+func (*State) InitialWatchMachineSSHHostKeysStatement() (string, string) {
+	return "machine_ssh_host_key", "SELECT DISTINCT machine_uuid FROM machine_ssh_host_key WHERE machine_uuid = ?"
 }
 
 // InitialMachineContainerLifeStatement returns the table and the initial watch

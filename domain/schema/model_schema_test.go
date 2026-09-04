@@ -539,6 +539,9 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_machine_requires_reboot_delete",
 		"trg_log_machine_requires_reboot_insert",
 		"trg_log_machine_requires_reboot_update",
+		"trg_log_machine_ssh_host_key_delete",
+		"trg_log_machine_ssh_host_key_insert",
+		"trg_log_machine_ssh_host_key_update",
 
 		"trg_log_machine_reprovision_delete",
 		"trg_log_machine_reprovision_insert",

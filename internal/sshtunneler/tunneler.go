@@ -13,11 +13,14 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coressh "github.com/juju/juju/core/ssh"
+	"github.com/juju/juju/core/watcher"
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/pki/ssh"
 	"github.com/juju/juju/internal/uuid"
@@ -48,6 +51,9 @@ type MachineState interface {
 	// MachineHostKeys returns the SSH host keys registered for the given
 	// machine in the specified model.
 	MachineHostKeys(ctx context.Context, modelUUID, machineID string) ([]string, error)
+	// WatchMachineHostKeys returns a watcher for SSH host key changes for the
+	// given machine in the specified model. The watcher sends an initial event.
+	WatchMachineHostKeys(ctx context.Context, modelUUID, machineID string) (watcher.StringsWatcher, error)
 }
 
 // ControllerInfo defines an interface to fetch the local controller node's
@@ -67,9 +73,12 @@ type SSHDial interface {
 }
 
 // Tracker provides methods to create SSH tunnels to machine units.
-// The objects keep track of consumers who have requested tunnels
-// and allows an SSH server to push tunnels to these consumers.
+// The tracker keeps track of consumers who have requested tunnels and allows
+// an SSH server to push tunnels to these consumers. It is also a worker and
+// must be stopped by callers that create it.
 type Tracker struct {
+	catacomb catacomb.Catacomb
+
 	authn        tunnelAuthentication
 	connReqState ConnRequestState
 	machines     MachineState
@@ -109,7 +118,7 @@ func (args *TrackerArgs) validate() error {
 	return nil
 }
 
-// NewTracker creates a new tunnel tracker.
+// NewTracker creates and starts a new tunnel tracker worker.
 func NewTracker(args TrackerArgs) (*Tracker, error) {
 	if err := args.validate(); err != nil {
 		return nil, err
@@ -120,7 +129,7 @@ func NewTracker(args TrackerArgs) (*Tracker, error) {
 		return nil, err
 	}
 
-	return &Tracker{
+	tt := &Tracker{
 		tracker:      make(map[string]chan (net.Conn)),
 		authn:        authn,
 		controller:   args.ControllerInfo,
@@ -128,8 +137,33 @@ func NewTracker(args TrackerArgs) (*Tracker, error) {
 		connReqState: args.ConnRequestState,
 		machines:     args.MachineState,
 		dialer:       args.Dialer,
-	}, nil
+	}
+	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "ssh-tunnel-tracker",
+		Site: &tt.catacomb,
+		Work: tt.loop,
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return tt, nil
 }
+
+func (tt *Tracker) loop() error {
+	<-tt.catacomb.Dying()
+	return tt.catacomb.ErrDying()
+}
+
+// Kill stops the tracker.
+func (tt *Tracker) Kill() {
+	tt.catacomb.Kill(nil)
+}
+
+// Wait blocks until the tracker has completed.
+func (tt *Tracker) Wait() error {
+	return tt.catacomb.Wait()
+}
+
+var _ worker.Worker = (*Tracker)(nil)
 
 // RequestArgs holds the arguments for requesting a tunnel.
 type RequestArgs struct {
@@ -176,9 +210,11 @@ func (tt *Tracker) machineHostKeys(ctx context.Context, req RequestArgs) ([]goss
 
 // RequestTunnel requests a tunnel to a model specific unit.
 //
-// The returned tunnelRequest should be used to wait for the tunnel to be established.
-// See Wait() for more information.
+// Use context.WithTimeout to control the maximum time to wait for the tunnel
+// to be established.
 func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.Client, error) {
+	ctx = tt.catacomb.Context(ctx)
+
 	if req.MachineID == "" {
 		return nil, errors.NotValidf("empty MachineID")
 	}
@@ -218,11 +254,6 @@ func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.C
 		return nil, err
 	}
 
-	machineHostKeys, err := tt.machineHostKeys(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
 	// Make sure to use an unbuffered channel to ensure someone always
 	// has responsibility of the connection passed around.
 	connRecv := make(chan (net.Conn))
@@ -246,7 +277,7 @@ func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.C
 		return nil, err
 	}
 
-	return tt.wait(ctx, connRecv, privateKey, machineHostKeys)
+	return tt.wait(ctx, connRecv, privateKey, req)
 }
 
 func (tt *Tracker) add(tunnelID string, recv chan net.Conn) {
@@ -296,6 +327,8 @@ func (tt *Tracker) AuthenticateTunnel(username, password string) (tunnelID strin
 // to RequestTunnel(). Use context.WithTimeout to control the
 // maximum time to wait.
 func (tt *Tracker) PushTunnel(ctx context.Context, tunnelID string, conn net.Conn) error {
+	ctx = tt.catacomb.Context(ctx)
+
 	recv, ok := tt.get(tunnelID)
 	if !ok {
 		return errors.New("tunnel not found")
@@ -308,20 +341,19 @@ func (tt *Tracker) PushTunnel(ctx context.Context, tunnelID string, conn net.Con
 	}
 }
 
-// wait blocks until a TCP tunnel to the target unit is established.
-//
-// It is a mistake not to call Wait() after a successful call to RequestTunnel()
-// as this will leak resources in the tunnel tracker.
-// If the tunnel is no longer required, the caller should call Close() on the
-// returned client.
-//
-// Use context.WithTimeout to control the maximum time to wait for the tunnel
-// to be established.
-func (tt *Tracker) wait(ctx context.Context, recv chan (net.Conn), privateKey gossh.Signer, hostKeys []gossh.PublicKey) (*gossh.Client, error) {
+// wait blocks until a TCP tunnel to the target unit is established and the
+// machine's SSH host keys are available. The context deadline bounds both
+// waits.
+func (tt *Tracker) wait(ctx context.Context, recv chan (net.Conn), privateKey gossh.Signer, req RequestArgs) (*gossh.Client, error) {
 	select {
 	case conn := <-recv:
 		// We now have ownership of the connection, so we should close it
 		// if the SSH dial fails.
+		hostKeys, err := tt.machineHostKeysWithWatcher(ctx, req)
+		if err != nil {
+			conn.Close()
+			return nil, err
+		}
 		sshClient, err := tt.dialer.Dial(conn, defaultUser, privateKey, useFixedHostKeys(hostKeys))
 		if err != nil {
 			conn.Close()
@@ -330,6 +362,43 @@ func (tt *Tracker) wait(ctx context.Context, recv chan (net.Conn), privateKey go
 		return sshClient, nil
 	case <-ctx.Done():
 		return nil, errors.Annotate(ctx.Err(), "waiting for tunnel")
+	}
+}
+
+func (tt *Tracker) machineHostKeysWithWatcher(ctx context.Context, req RequestArgs) ([]gossh.PublicKey, error) {
+	hostKeyWatcher, err := tt.machines.WatchMachineHostKeys(ctx, req.ModelUUID, req.MachineID)
+	if err != nil {
+		return nil, errors.Annotate(err, "watching for machine SSH host keys")
+	}
+	if err := tt.catacomb.Add(hostKeyWatcher); err != nil {
+		return nil, errors.Annotate(err, "adding machine SSH host key watcher")
+	}
+	// Stop the watcher when we exit the scope of this function to avoid
+	// accumulating watchers indefinitely.
+	// We also add it to the catacomb to indicate that this worker
+	// has resources that are pending cleanup.
+	defer func() {
+		hostKeyWatcher.Kill()
+		_ = hostKeyWatcher.Wait()
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, errors.Annotate(ctx.Err(), "waiting for machine SSH host keys")
+		case _, ok := <-hostKeyWatcher.Changes():
+			if !ok {
+				return nil, errors.New("machine SSH host key watcher closed")
+			}
+
+			hostKeys, err := tt.machineHostKeys(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+			if len(hostKeys) != 0 {
+				return hostKeys, nil
+			}
+		}
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 	gomock "github.com/canonical/gomock/gomock"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
+	watcher "github.com/juju/juju/core/watcher"
 	ssh "github.com/juju/juju/domain/ssh"
 	ssh0 "golang.org/x/crypto/ssh"
 )
@@ -72,8 +73,9 @@ type MockMachineState struct {
 
 // MockMachineStateMockRecorder is the mock recorder for MockMachineState.
 type MockMachineStateMockRecorder struct {
-	mock                   *MockMachineState
-	machineHostKeysExpects []*gomock.Call3_2[context.Context, string, string, []string, error]
+	mock                        *MockMachineState
+	machineHostKeysExpects      []*gomock.Call3_2[context.Context, string, string, []string, error]
+	watchMachineHostKeysExpects []*gomock.Call3_2[context.Context, string, string, watcher.StringsWatcher, error]
 }
 
 // NewMockMachineState creates a new mock instance.
@@ -105,6 +107,24 @@ func (mr *MockMachineStateMockRecorder) MachineHostKeys(ctx, modelUUID, machineI
 
 // MockMachineStateMachineHostKeysCall is the typed call wrapper for MachineHostKeys.
 type MockMachineStateMachineHostKeysCall = gomock.Call3_2[context.Context, string, string, []string, error]
+
+// WatchMachineHostKeys mocks base method.
+func (m *MockMachineState) WatchMachineHostKeys(ctx context.Context, modelUUID, machineID string) (watcher.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.watchMachineHostKeysExpects, m.ctrl, m, "WatchMachineHostKeys", ctx, modelUUID, machineID)
+}
+
+// WatchMachineHostKeys indicates an expected call of WatchMachineHostKeys.
+func (mr *MockMachineStateMockRecorder) WatchMachineHostKeys(ctx, modelUUID, machineID any) *MockMachineStateWatchMachineHostKeysCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, string, watcher.StringsWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchMachineHostKeys", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(machineID))
+	mr.watchMachineHostKeysExpects = append(mr.watchMachineHostKeysExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockMachineStateWatchMachineHostKeysCall is the typed call wrapper for WatchMachineHostKeys.
+type MockMachineStateWatchMachineHostKeysCall = gomock.Call3_2[context.Context, string, string, watcher.StringsWatcher, error]
 
 // MockControllerInfo is a mock of ControllerInfo interface.
 type MockControllerInfo struct {

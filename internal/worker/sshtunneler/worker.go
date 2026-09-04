@@ -10,12 +10,13 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/catacomb"
 	gossh "golang.org/x/crypto/ssh"
-	"gopkg.in/tomb.v2"
 
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/sshtunneler"
@@ -51,6 +52,10 @@ type MachineService interface {
 	// GetSSHHostKeysByMachineName returns the SSH host keys stored for the
 	// machine identified by its name.
 	GetSSHHostKeysByMachineName(ctx context.Context, name coremachine.Name) ([]string, error)
+	// WatchSSHHostKeysByMachineName returns a watcher for SSH host key changes
+	// for the machine identified by its name. The watcher sends an initial
+	// event.
+	WatchSSHHostKeysByMachineName(ctx context.Context, name coremachine.Name) (watcher.StringsWatcher, error)
 }
 
 // ControllerNodeService provides controller-scoped address lookups used to
@@ -72,7 +77,7 @@ type GetMachineServiceFunc = func(ctx context.Context, getter services.DomainSer
 
 // sshTunnelerWorker is a worker that wraps a tunnel tracker singleton.
 type sshTunnelerWorker struct {
-	tomb          tomb.Tomb
+	catacomb      catacomb.Catacomb
 	tunnelTracker *sshtunneler.Tracker
 }
 
@@ -140,6 +145,25 @@ func (a *machineStateAdapter) MachineHostKeys(ctx context.Context, modelUUID, ma
 	return keys, nil
 }
 
+// WatchMachineHostKeys implements sshtunneler.MachineState.
+func (a *machineStateAdapter) WatchMachineHostKeys(ctx context.Context, modelUUID, machineID string) (watcher.StringsWatcher, error) {
+	parsedUUID := coremodel.UUID(modelUUID)
+	if err := parsedUUID.Validate(); err != nil {
+		return nil, errors.Annotatef(err, "invalid model UUID %q", modelUUID)
+	}
+
+	machineSvc, err := a.getMachineService(ctx, a.domainServicesGetter, parsedUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	watcher, err := machineSvc.WatchSSHHostKeysByMachineName(ctx, coremachine.Name(machineID))
+	if err != nil {
+		return nil, errors.Annotatef(err, "watching SSH host keys for machine %q", machineID)
+	}
+	return watcher, nil
+}
+
 // controllerInfoAdapter adapts a ControllerNodeService to the
 // sshtunneler.ControllerInfo interface, building host-only SpaceAddresses
 // from the API host ports returned by the controller node service.
@@ -189,19 +213,28 @@ func NewWorker(domainServicesGetter services.DomainServicesGetter, getSSHService
 	}
 
 	w := &sshTunnelerWorker{tunnelTracker: tracker}
-	w.tomb.Go(func() error {
-		<-w.tomb.Dying()
-		return tomb.ErrDying
-	})
+	if err := catacomb.Invoke(catacomb.Plan{
+		Name: "ssh-tunneler",
+		Site: &w.catacomb,
+		Work: w.loop,
+		Init: []worker.Worker{tracker},
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return w, nil
+}
+
+func (w *sshTunnelerWorker) loop() error {
+	<-w.catacomb.Dying()
+	return w.catacomb.ErrDying()
 }
 
 // Kill is part of the worker.Worker interface.
 func (w *sshTunnelerWorker) Kill() {
-	w.tomb.Kill(nil)
+	w.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
 func (w *sshTunnelerWorker) Wait() error {
-	return w.tomb.Wait()
+	return w.catacomb.Wait()
 }

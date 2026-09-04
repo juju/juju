@@ -293,6 +293,43 @@ func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machi
 	)
 }
 
+// WatchMachineSSHHostKeys returns a watcher that emits changes to the SSH
+// host keys for the given machine. The initial event allows callers to query
+// keys that were reported before the watcher was created.
+func (s *WatchableService) WatchMachineSSHHostKeys(ctx context.Context, machineUUID machine.UUID) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	table, stmt := s.st.InitialWatchMachineSSHHostKeysStatement()
+	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
+		eventsource.InitialNamespaceChanges(stmt, machineUUID.String()),
+		fmt.Sprintf("machine SSH host keys watcher for %q", machineUUID),
+		eventsource.PredicateFilter(
+			table,
+			changestream.All,
+			eventsource.EqualsPredicate(machineUUID.String()),
+		),
+	)
+}
+
+// WatchSSHHostKeysByMachineName returns a watcher that emits changes to the
+// SSH host keys for the machine identified by its name.
+func (s *WatchableService) WatchSSHHostKeysByMachineName(ctx context.Context, name machine.Name) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := name.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	machineUUID, err := s.st.GetMachineUUID(ctx, name)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return s.WatchMachineSSHHostKeys(ctx, machineUUID)
+}
+
 // WatchMachineReboot returns a NotifyWatcher that is subscribed to
 // the changes in the machine_requires_reboot table in the model.
 // It raises an event whenever the machine uuid or its parent is

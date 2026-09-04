@@ -48,9 +48,17 @@ type State interface {
 	// the provisioner after a machine is detached for reprovisioning.
 	NamespaceForWatchMachineReprovision() string
 
+	// NamespaceForWatchMachineSSHHostKeys returns the namespace for watching
+	// machine SSH host key changes.
+	NamespaceForWatchMachineSSHHostKeys() string
+
 	// InitialWatchModelMachineLifeAndStartTimesStatement returns the namespace
 	// and initial statement for watching machine life and agent start times.
 	InitialWatchModelMachineLifeAndStartTimesStatement() (string, string)
+
+	// InitialWatchMachineSSHHostKeysStatement returns the namespace and initial
+	// statement for watching SSH host key changes.
+	InitialWatchMachineSSHHostKeysStatement() (string, string)
 
 	// GetMachineLife returns the life status of the specified machine.
 	// It returns a MachineNotFound if the given machine doesn't exist.

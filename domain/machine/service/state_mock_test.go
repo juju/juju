@@ -64,6 +64,7 @@ type MockStateMockRecorder struct {
 	getSSHHostKeysExpects                                     []*gomock.Call2_2[context.Context, string, []string, error]
 	getSupportedContainersTypesExpects                        []*gomock.Call2_2[context.Context, string, []string, error]
 	initialMachineContainerLifeStatementExpects               []*gomock.Call0_3[string, string, func(string) string]
+	initialWatchMachineSSHHostKeysStatementExpects            []*gomock.Call0_2[string, string]
 	initialWatchModelMachineLifeAndStartTimesStatementExpects []*gomock.Call0_2[string, string]
 	initialWatchModelMachinesStatementExpects                 []*gomock.Call0_2[string, string]
 	initialWatchStatementExpects                              []*gomock.Call0_2[string, string]
@@ -76,6 +77,7 @@ type MockStateMockRecorder struct {
 	namespaceForWatchMachineCloudInstanceExpects              []*gomock.Call0_1[string]
 	namespaceForWatchMachineRebootExpects                     []*gomock.Call0_1[string]
 	namespaceForWatchMachineReprovisionExpects                []*gomock.Call0_1[string]
+	namespaceForWatchMachineSSHHostKeysExpects                []*gomock.Call0_1[string]
 	requireMachineRebootExpects                               []*gomock.Call2_1[context.Context, machine.UUID, error]
 	setKeepInstanceExpects                                    []*gomock.Call3_1[context.Context, machine.Name, bool, error]
 	setMachineCloudInstanceExpects                            []*gomock.Call6_1[context.Context, string, instance.Id, string, string, *instance.HardwareCharacteristics, error]
@@ -602,6 +604,24 @@ func (mr *MockStateMockRecorder) InitialMachineContainerLifeStatement() *MockSta
 // MockStateInitialMachineContainerLifeStatementCall is the typed call wrapper for InitialMachineContainerLifeStatement.
 type MockStateInitialMachineContainerLifeStatementCall = gomock.Call0_3[string, string, func(string) string]
 
+// InitialWatchMachineSSHHostKeysStatement mocks base method.
+func (m *MockState) InitialWatchMachineSSHHostKeysStatement() (string, string) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_2(&m.recorder.initialWatchMachineSSHHostKeysStatementExpects, m.ctrl, m, "InitialWatchMachineSSHHostKeysStatement")
+}
+
+// InitialWatchMachineSSHHostKeysStatement indicates an expected call of InitialWatchMachineSSHHostKeysStatement.
+func (mr *MockStateMockRecorder) InitialWatchMachineSSHHostKeysStatement() *MockStateInitialWatchMachineSSHHostKeysStatementCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_2[string, string](mr.mock.ctrl.T, mr.mock, "InitialWatchMachineSSHHostKeysStatement")
+	mr.initialWatchMachineSSHHostKeysStatementExpects = append(mr.initialWatchMachineSSHHostKeysStatementExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateInitialWatchMachineSSHHostKeysStatementCall is the typed call wrapper for InitialWatchMachineSSHHostKeysStatement.
+type MockStateInitialWatchMachineSSHHostKeysStatementCall = gomock.Call0_2[string, string]
+
 // InitialWatchModelMachineLifeAndStartTimesStatement mocks base method.
 func (m *MockState) InitialWatchModelMachineLifeAndStartTimesStatement() (string, string) {
 	m.ctrl.T.Helper()
@@ -817,6 +837,24 @@ func (mr *MockStateMockRecorder) NamespaceForWatchMachineReprovision() *MockStat
 
 // MockStateNamespaceForWatchMachineReprovisionCall is the typed call wrapper for NamespaceForWatchMachineReprovision.
 type MockStateNamespaceForWatchMachineReprovisionCall = gomock.Call0_1[string]
+
+// NamespaceForWatchMachineSSHHostKeys mocks base method.
+func (m *MockState) NamespaceForWatchMachineSSHHostKeys() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.namespaceForWatchMachineSSHHostKeysExpects, m.ctrl, m, "NamespaceForWatchMachineSSHHostKeys")
+}
+
+// NamespaceForWatchMachineSSHHostKeys indicates an expected call of NamespaceForWatchMachineSSHHostKeys.
+func (mr *MockStateMockRecorder) NamespaceForWatchMachineSSHHostKeys() *MockStateNamespaceForWatchMachineSSHHostKeysCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "NamespaceForWatchMachineSSHHostKeys")
+	mr.namespaceForWatchMachineSSHHostKeysExpects = append(mr.namespaceForWatchMachineSSHHostKeysExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateNamespaceForWatchMachineSSHHostKeysCall is the typed call wrapper for NamespaceForWatchMachineSSHHostKeys.
+type MockStateNamespaceForWatchMachineSSHHostKeysCall = gomock.Call0_1[string]
 
 // RequireMachineReboot mocks base method.
 func (m *MockState) RequireMachineReboot(ctx context.Context, uuid machine.UUID) error {
