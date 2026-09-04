@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/environs"
 )
 
+const networkTypeOVN = "ovn"
+
 var _ environs.Networking = (*environ)(nil)
 
 // Subnets returns basic information about subnets known by the provider for
@@ -51,7 +53,7 @@ func (e *environ) Subnets(ctx context.Context, subnetIDs []network.Id) ([]networ
 	)
 	for _, networkDetails := range networkStates {
 		state := networkDetails.state
-		if state.Bridge == nil {
+		if state.Bridge == nil && networkDetails.networkType != networkTypeOVN {
 			continue
 		}
 
@@ -87,12 +89,13 @@ func (e *environ) Subnets(ctx context.Context, subnetIDs []network.Id) ([]networ
 }
 
 type providerNetworkState struct {
-	name  string
-	state *lxdapi.NetworkState
+	name        string
+	networkType string
+	state       *lxdapi.NetworkState
 }
 
 func providerNetworkStates(srv Server) ([]providerNetworkState, error) {
-	networkNames, err := srv.GetNetworkNames()
+	networks, err := srv.GetNetworks()
 	if err != nil {
 		if isErrMissingAPIExtension(err, "network") {
 			return nil, errors.NewNotSupported(nil, `subnet discovery requires the "network" extension to be enabled on the lxd server`)
@@ -100,19 +103,23 @@ func providerNetworkStates(srv Server) ([]providerNetworkState, error) {
 		return nil, errors.Trace(err)
 	}
 
-	networkStates := make([]providerNetworkState, 0, len(networkNames))
-	for _, networkName := range networkNames {
-		state, err := srv.GetNetworkState(networkName)
+	networkStates := make([]providerNetworkState, 0, len(networks))
+	for _, providerNetwork := range networks {
+		state, err := srv.GetNetworkState(providerNetwork.Name)
 		if err != nil {
 			if isErrMissingAPIExtension(err, "network_state") {
 				return nil, errors.Errorf("network_state extension unsupported; upgrade to a newer version of LXD")
 			}
-			return nil, errors.Annotatef(err, "querying lxd server for state of network %q", networkName)
+			return nil, errors.Annotatef(err, "querying lxd server for state of network %q", providerNetwork.Name)
 		}
 		if state == nil {
-			return nil, errors.Errorf("network state %q not found", networkName)
+			return nil, errors.Errorf("network state %q not found", providerNetwork.Name)
 		}
-		networkStates = append(networkStates, providerNetworkState{name: networkName, state: state})
+		networkStates = append(networkStates, providerNetworkState{
+			name:        providerNetwork.Name,
+			networkType: providerNetwork.Type,
+			state:       state,
+		})
 	}
 	return networkStates, nil
 }
