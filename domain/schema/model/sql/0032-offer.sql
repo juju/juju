@@ -1,6 +1,7 @@
 CREATE TABLE offer (
     uuid TEXT NOT NULL PRIMARY KEY,
-    name TEXT NOT NULL
+    name TEXT NOT NULL,
+    description TEXT
 );
 
 CREATE INDEX idx_offer_name
@@ -49,7 +50,7 @@ SELECT
     o.uuid AS offer_uuid,
     o.name AS offer_name,
     a.name AS application_name,
-    cm.description AS application_description,
+    COALESCE(o.description, cm.description) AS application_description,
     c.reference_name AS charm_name,
     c.revision AS charm_revision,
     cs.name AS charm_source,

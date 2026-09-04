@@ -31,6 +31,11 @@ type ApplicationOfferArgs struct {
 	// OfferName is the name of the offer.
 	OfferName string
 
+	// ApplicationDescription is a description of the application's
+	// functionality. When empty, the description from the charm
+	// metadata is used instead.
+	ApplicationDescription string
+
 	// OwnerName is the name of the owner of the offer.
 	OwnerName user.Name
 }
@@ -394,6 +399,10 @@ type CreateOfferArgs struct {
 
 	// OfferName is the name of the offer.
 	OfferName string
+
+	// ApplicationDescription is a description of the application's
+	// functionality, stored with the offer.
+	ApplicationDescription string
 }
 
 // OfferFilter is used to query applications offered
