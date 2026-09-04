@@ -2345,6 +2345,62 @@ func (s *serviceSuite) TestSetInstanceStatusInvalid(c *tc.C) {
 	c.Check(err, tc.ErrorIs, statuserrors.InvalidStatus)
 }
 
+func (s *serviceSuite) TestClearStaleProvisioningStatusOnMachineStart(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineStartedAt := s.clock.Now()
+	instanceStatusAt := machineStartedAt.Add(-time.Minute)
+	s.modelState.EXPECT().GetMachineStatus(gomock.Any(), "666").Return(status.MachineStatusInfo[status.MachineStatusType]{
+		StatusInfo: status.StatusInfo[status.MachineStatusType]{
+			Status: status.MachineStatusStarted,
+			Since:  &machineStartedAt,
+		},
+		Present: true,
+	}, nil)
+	s.modelState.EXPECT().GetInstanceStatus(gomock.Any(), "666").Return(status.StatusInfo[status.InstanceStatusType]{
+		Status: status.InstanceStatusAllocating,
+		Since:  &instanceStatusAt,
+	}, nil)
+	s.modelState.EXPECT().SetInstanceStatus(gomock.Any(), "666", status.StatusInfo[status.InstanceStatusType]{
+		Status:  status.InstanceStatusRunning,
+		Message: "Machine agent started",
+		Since:   &machineStartedAt,
+	}).Return(nil)
+
+	err := s.modelService.ClearStaleProvisioningStatusOnMachineStart(c.Context(), "666")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.statusHistory.records, tc.DeepEquals, []statusHistoryRecord{{
+		ns: status.MachineInstanceNamespace.WithID("666"),
+		s: corestatus.StatusInfo{
+			Status:  corestatus.Running,
+			Message: "Machine agent started",
+			Since:   &machineStartedAt,
+		},
+	}})
+}
+
+func (s *serviceSuite) TestClearStaleProvisioningStatusOnMachineStartDoesNothingWhenNotStale(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineStartedAt := s.clock.Now()
+	instanceStatusAt := machineStartedAt.Add(time.Minute)
+	s.modelState.EXPECT().GetMachineStatus(gomock.Any(), "666").Return(status.MachineStatusInfo[status.MachineStatusType]{
+		StatusInfo: status.StatusInfo[status.MachineStatusType]{
+			Status: status.MachineStatusStarted,
+			Since:  &machineStartedAt,
+		},
+		Present: true,
+	}, nil)
+	s.modelState.EXPECT().GetInstanceStatus(gomock.Any(), "666").Return(status.StatusInfo[status.InstanceStatusType]{
+		Status: status.InstanceStatusAllocating,
+		Since:  &instanceStatusAt,
+	}, nil)
+
+	err := s.modelService.ClearStaleProvisioningStatusOnMachineStart(c.Context(), "666")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(s.statusHistory.records, tc.HasLen, 0)
+}
+
 func (s *serviceSuite) TestCheckMachineStatusesReadyForMigrationEmptyModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
