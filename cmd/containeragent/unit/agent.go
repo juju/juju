@@ -77,10 +77,9 @@ type containerUnitAgent struct {
 	fileReaderWriter utils.FileReaderWriter
 	environment      utils.Environment
 
-	charmModifiedVersion    int
-	envVars                 []string
-	containerNames          []string
-	colocatedWithController bool
+	charmModifiedVersion int
+	envVars              []string
+	containerNames       []string
 }
 
 // New creates containeragent unit command.
@@ -115,7 +114,6 @@ func (c *containerUnitAgent) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
 	f.IntVar(&c.charmModifiedVersion, "charm-modified-version", -1, "charm modified version to validate downloaded charm is for the provided infrastructure")
 	f.Var(cmd.NewAppendStringsValue(&c.envVars), "append-env", "can be specified multiple times and with the form ENV_VAR=VALUE where VALUE can be empty or contain unexpanded variables using $OTHER_ENV")
-	f.BoolVar(&c.colocatedWithController, "controller", false, "should be specified if this unit agent is running on the same machine as a controller")
 }
 
 func (c *containerUnitAgent) CharmModifiedVersion() int {
@@ -263,25 +261,24 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 	}
 	agentConfig := c.AgentConf.CurrentConfig()
 	cfg := manifoldsConfig{
-		Agent:                   agent.APIHostPortsSetter{Agent: c},
-		LogSource:               c.bufferedLogger.Logs(),
-		LeadershipGuarantee:     30 * time.Second,
-		UpgradeStepsLock:        upgrade.NewLock(agentConfig, jujuversion.Current),
-		PreUpgradeSteps:         upgrades.PreUpgradeSteps,
-		UpgradeSteps:            upgrades.PerformUpgradeSteps,
-		AgentConfigChanged:      c.configChangedVal,
-		ValidateMigration:       c.validateMigration,
-		PrometheusRegisterer:    c.prometheusRegistry,
-		UpdateLoggerConfig:      updateAgentConfLogging,
-		PreviousAgentVersion:    agentConfig.UpgradedToVersion(),
-		ProbeAddress:            "localhost",
-		ProbePort:               probePort,
-		MachineLock:             c.machineLock,
-		Clock:                   c.clk,
-		CharmModifiedVersion:    c.CharmModifiedVersion(),
-		ContainerNames:          c.containerNames,
-		ColocatedWithController: c.colocatedWithController,
-		SignalCh:                sigTermCh,
+		Agent:                agent.APIHostPortsSetter{Agent: c},
+		LogSource:            c.bufferedLogger.Logs(),
+		LeadershipGuarantee:  30 * time.Second,
+		UpgradeStepsLock:     upgrade.NewLock(agentConfig, jujuversion.Current),
+		PreUpgradeSteps:      upgrades.PreUpgradeSteps,
+		UpgradeSteps:         upgrades.PerformUpgradeSteps,
+		AgentConfigChanged:   c.configChangedVal,
+		ValidateMigration:    c.validateMigration,
+		PrometheusRegisterer: c.prometheusRegistry,
+		UpdateLoggerConfig:   updateAgentConfLogging,
+		PreviousAgentVersion: agentConfig.UpgradedToVersion(),
+		ProbeAddress:         "localhost",
+		ProbePort:            probePort,
+		MachineLock:          c.machineLock,
+		Clock:                c.clk,
+		CharmModifiedVersion: c.CharmModifiedVersion(),
+		ContainerNames:       c.containerNames,
+		SignalCh:             sigTermCh,
 	}
 	manifolds := Manifolds(cfg)
 

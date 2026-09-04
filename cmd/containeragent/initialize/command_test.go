@@ -191,7 +191,7 @@ services:
         summary: Juju container agent
         startup: enabled
         override: replace
-        command: /charm/bin/containeragent unit --data-dir /var/lib/juju --append-env "PATH=$PATH:/charm/bin" --show-log --controller
+        command: '/charm/bin/containeragent unit --data-dir /var/lib/juju --append-env "PATH=$PATH:/charm/bin" --show-log '
         environment:
             HTTP_PROBE_PORT: "65301"
         kill-delay: 30m0s
