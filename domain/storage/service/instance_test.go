@@ -589,3 +589,83 @@ func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsPartial(c *tc.C) {
 		"id1": uuid1,
 	})
 }
+
+// TestGetStorageClassificationForUnitsUUIDNotValid tests that
+// [Service.GetStorageClassificationForUnits] returns an error satisfying
+// [coreerrors.NotValid] when called with an invalid unit UUID. The test
+// verifies that UUID validation occurs before any state operations.
+func (s *instanceSuite) TestGetStorageClassificationForUnitsUUIDNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	invalidUUID := coreunit.UUID("invalid")
+
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
+	)
+	_, err := svc.GetStorageClassificationForUnits(c.Context(), []coreunit.UUID{invalidUUID})
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestGetStorageClassificationForUnitsEmptyInput asserts that an empty slice
+// of unit UUIDs returns an empty map without querying state.
+func (s *instanceSuite) TestGetStorageClassificationForUnitsEmptyInput(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
+	)
+	res, err := svc.GetStorageClassificationForUnits(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, map[coreunit.UUID][]domainstorage.StorageInstanceClassification{})
+}
+
+// TestGetStorageClassificationForUnits tests the happy path for
+// [Service.GetStorageClassificationForUnits], asserting that the minimal
+// storage information for each unit is mapped and returned.
+func (s *instanceSuite) TestGetStorageClassificationForUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	unitUUID1 := tc.Must(c, coreunit.NewUUID)
+	unitUUID2 := tc.Must(c, coreunit.NewUUID)
+	blockInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	filesystemInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+
+	s.state.EXPECT().GetStorageClassificationForUnits(
+		gomock.Any(), []string{unitUUID1.String(), unitUUID2.String()},
+	).Return(
+		map[string][]internal.StorageInstanceClassification{
+			unitUUID1.String(): {
+				{
+					Persistent:  true,
+					StorageID:   "single-blk/0",
+					StorageUUID: blockInstanceUUID.String(),
+					UnitUUID:    unitUUID1.String(),
+				},
+				{
+					Persistent:  false,
+					StorageID:   "single-fs/0",
+					StorageUUID: filesystemInstanceUUID.String(),
+					UnitUUID:    unitUUID1.String(),
+				},
+			},
+		}, nil,
+	)
+
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
+	)
+	res, err := svc.GetStorageClassificationForUnits(c.Context(), []coreunit.UUID{unitUUID1, unitUUID2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
+		unitUUID1: {
+			{
+				ID:         "single-blk/0",
+				Persistent: true,
+				UUID:       blockInstanceUUID,
+			},
+			{
+				ID:         "single-fs/0",
+				Persistent: false,
+				UUID:       filesystemInstanceUUID,
+			},
+		},
+	})
+}

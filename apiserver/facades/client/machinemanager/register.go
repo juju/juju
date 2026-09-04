@@ -51,6 +51,7 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 		ModelConfigService:      domainServices.Config(),
 		NetworkService:          domainServices.Network(),
 		RemovalService:          domainServices.Removal(),
+		StorageService:          domainServices.Storage(),
 	}
 
 	return NewMachineManagerAPI(
