@@ -130,11 +130,13 @@ func NewAPIConnection(ctx context.Context, args NewAPIConnectionParams) (_ api.C
 	// This only applies if the user was explicitly set.
 	// Logging in via an external auth provider is allowed with specifying a
 	// user in the args - that comes from the provider.
+	authTag := st.AuthTag()
 	if args.AccountDetails != nil &&
-		st.AuthTag() != nil &&
+		authTag != nil &&
 		args.AccountDetails.User != "" &&
-		args.AccountDetails.User != st.AuthTag().Id() {
-		return nil, errors.Unauthorizedf("attempted login as %q for user %q", st.AuthTag().Id(), args.AccountDetails.User)
+		args.AccountDetails.User != authTag.Id() {
+		logger.Debugf(ctx, "rejecting API connection because authenticated user %q differs from expected user %q", authTag.Id(), args.AccountDetails.User)
+		return nil, errors.Unauthorizedf("attempted login as %q for user %q", authTag.Id(), args.AccountDetails.User)
 	}
 
 	// Update API addresses if they've changed. Error is non-fatal.

@@ -238,6 +238,10 @@ func (c *statusCommand) getStatus(ctx context.Context, includeStorage bool) (*pa
 	})
 }
 
+func (c *statusCommand) logStatusAttemptFailure(ctx context.Context, attempt, attempts int, err error) {
+	logger.Debugf(ctx, "status request attempt %d/%d failed (status API client cached: %t): %v", attempt, attempts, c.statusAPI != nil, err)
+}
+
 func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 	showIntegrations := c.integrations || c.relations
 	showStorage := c.storage
@@ -260,15 +264,19 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 	// Always attempt to get the status at least once, and retry if it fails.
 	status, err := c.getStatus(ctx, showStorage)
 	if err != nil && !modelcmd.IsModelMigratedError(err) {
+		attempts := c.retryCount + 1
+		c.logStatusAttemptFailure(ctx, 1, attempts, err)
 		for i := 0; i < c.retryCount; i++ {
 			// fun bit - make sure a new api connection is used for each new call
 			c.SetModelAPI(nil)
+			logger.Debugf(ctx, "retrying status request, attempt %d/%d, after %s", i+2, attempts, c.retryDelay)
 			// Wait for a bit before retries.
 			<-c.clock.After(c.retryDelay)
 			status, err = c.getStatus(ctx, showStorage)
 			if err == nil || modelcmd.IsModelMigratedError(err) {
 				break
 			}
+			c.logStatusAttemptFailure(ctx, i+2, attempts, err)
 		}
 	}
 
