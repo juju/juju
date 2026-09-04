@@ -5,7 +5,6 @@ wait_for_ha_teardown() {
 	# the controller model can only be served once quorum is restored, so
 	# reaching this state also implies that the dqlite backstop has
 	# reconfigured the cluster around the surviving node.
-	# shellcheck disable=SC2143
 	until status=$(timeout 10 juju status -m controller --format=json 2>/dev/null) &&
 		count=$(yq -r '.machines | to_entries | length' <<<"${status}") &&
 		voters=$(yq -r '.machines | to_entries[] | select(.value["controller-cluster-role"] == "voter") | .key' <<<"${status}" | wc -l) &&
@@ -36,7 +35,6 @@ wait_for_controller_leadership() {
 	# reconfigured the cluster around the surviving controller.
 	# The timeout bounds each attempt so a broken backstop fails the
 	# test instead of hanging it.
-	# shellcheck disable=SC2143
 	# Not using juju_exec_output: uptime is a plain system command that
 	# produces no stderr, so the stdout/stderr mixing bug does not apply.
 	until timeout 60 juju exec -m controller --unit controller/leader uptime 2>/dev/null | grep load; do

@@ -229,7 +229,7 @@ func (s *introspectionSuite) TestEngineReporterContextDeadline(c *tc.C) {
 	deadline, ok := reportedCtx.Deadline()
 	c.Assert(ok, tc.IsTrue)
 	c.Check(time.Until(deadline) > 0, tc.IsTrue)
-	c.Check(time.Until(deadline) <= 60*time.Second, tc.IsTrue)
+	c.Check(time.Until(deadline) <= introspection.ReportTimeout, tc.IsTrue)
 }
 
 func (s *introspectionSuite) TestPrometheusMetrics(c *tc.C) {
