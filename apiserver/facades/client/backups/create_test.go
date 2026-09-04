@@ -6,6 +6,7 @@ package backups
 import (
 	"archive/tar"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -24,6 +25,7 @@ import (
 	domainexport "github.com/juju/juju/domain/export"
 	domainservicetesting "github.com/juju/juju/domain/services/testing"
 	environsconfig "github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -42,7 +44,10 @@ func (s *backupsSuite) SetUpTest(c *tc.C) {
 	s.auditAuthorizer = stubAuthorizer{authClient: true}
 }
 
-func (s *backupsSuite) api(c *tc.C, backupDir string) *API {
+// api builds a backups API wired to the suite's real domain services. Any
+// non-nil field in overrides replaces the corresponding dependency, which
+// lets error-path tests inject failures without rebuilding the suite.
+func (s *backupsSuite) api(c *tc.C, backupDir string, overrides ...func(*apiDeps)) *API {
 	controllerServices := s.ControllerDomainServices(c)
 
 	cfg, err := environsconfig.New(environsconfig.UseDefaults, map[string]any{
@@ -53,10 +58,18 @@ func (s *backupsSuite) api(c *tc.C, backupDir string) *API {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	modelServicesFor := ModelServicesForFunc(
-		func(_ context.Context, uuid coremodel.UUID) (ModelExportDomainServices, error) {
+	deps := apiDeps{
+		controllerExport: controllerServices.ControllerExport(),
+		modelServicesFor: func(_ context.Context, uuid coremodel.UUID) (ModelExportDomainServices, error) {
 			return s.ModelDomainServices(c, uuid), nil
-		})
+		},
+		modelConfig:     stubModelConfig{cfg: cfg},
+		controller:      controllerServices.Controller(),
+		controllerNodes: controllerServices.ControllerNode(),
+	}
+	for _, override := range overrides {
+		override(&deps)
+	}
 
 	api, err := NewAPI(
 		&s.auditAuthorizer,
@@ -64,15 +77,25 @@ func (s *backupsSuite) api(c *tc.C, backupDir string) *API {
 		s.ControllerConfig.ControllerUUID(),
 		s.ControllerModelUUID,
 		s.dataDir(c), c.MkDir(),
-		controllerServices.ControllerExport(),
-		modelServicesFor,
-		stubModelConfig{cfg: cfg},
-		controllerServices.Controller(),
-		controllerServices.ControllerNode(),
+		deps.controllerExport,
+		deps.modelServicesFor,
+		deps.modelConfig,
+		deps.controller,
+		deps.controllerNodes,
 		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	return api
+}
+
+// apiDeps holds the overridable dependencies of the backups API under test.
+type apiDeps struct {
+	controllerExport ControllerExportService
+	modelServicesFor ModelServicesForFunc
+	modelConfig      ModelConfigService
+	controller       ControllerModelLister
+	controllerNodes  ControllerNodeLister
 }
 
 // dataDir creates a data directory containing the objectstore and tools
@@ -136,6 +159,60 @@ func (s *backupsSuite) TestCreateNotSuperuser(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.Forbidden)
 }
 
+// TestCreateModelServicesFailure verifies that a failure resolving a model's
+// export services aborts Create and leaves no archive behind.
+func (s *backupsSuite) TestCreateModelServicesFailure(c *tc.C) {
+	backupDir := c.MkDir()
+	boom := errors.New("model services unavailable")
+	api := s.api(c, backupDir, func(d *apiDeps) {
+		d.modelServicesFor = func(context.Context, coremodel.UUID) (ModelExportDomainServices, error) {
+			return nil, boom
+		}
+	})
+
+	_, err := api.Create(c.Context(), params.BackupsCreateArgs{})
+	c.Assert(err, tc.ErrorIs, boom)
+
+	entries, err := os.ReadDir(backupDir)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entries, tc.HasLen, 0)
+}
+
+// TestCreateModelNamespacesFailure verifies that a failure listing the
+// registered model namespaces aborts Create and leaves no archive behind.
+func (s *backupsSuite) TestCreateModelNamespacesFailure(c *tc.C) {
+	backupDir := c.MkDir()
+	boom := errors.New("cannot list models")
+	api := s.api(c, backupDir, func(d *apiDeps) {
+		d.controller = stubModelLister{err: boom}
+	})
+
+	_, err := api.Create(c.Context(), params.BackupsCreateArgs{})
+	c.Assert(err, tc.ErrorIs, boom)
+
+	entries, err := os.ReadDir(backupDir)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entries, tc.HasLen, 0)
+}
+
+// TestCreateNoModels verifies that a controller with no model namespaces
+// still produces a valid archive containing only the controller dump.
+func (s *backupsSuite) TestCreateNoModels(c *tc.C) {
+	backupDir := c.MkDir()
+	api := s.api(c, backupDir, func(d *apiDeps) {
+		d.controller = stubModelLister{uuids: []string{}}
+	})
+
+	result, err := api.Create(c.Context(), params.BackupsCreateArgs{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	file, err := os.Open(result.Filename)
+	c.Assert(err, tc.ErrorIsNil)
+	defer file.Close()
+	entries, _ := archiveContents(c, file)
+	c.Check(entries.Contains("juju-backup/dump/controller.yaml"), tc.IsTrue)
+}
+
 func archiveContents(c *tc.C, r io.Reader) (set.Strings, map[string]string) {
 	names := set.NewStrings()
 	contents := make(map[string]string)
@@ -191,4 +268,15 @@ type stubModelConfig struct {
 
 func (s stubModelConfig) ModelConfig(context.Context) (*environsconfig.Config, error) {
 	return s.cfg, nil
+}
+
+// stubModelLister is a ControllerModelLister returning fixed UUIDs or an
+// error.
+type stubModelLister struct {
+	uuids []string
+	err   error
+}
+
+func (s stubModelLister) GetModelNamespaces(context.Context) ([]string, error) {
+	return s.uuids, s.err
 }

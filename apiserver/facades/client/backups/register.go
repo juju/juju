@@ -45,5 +45,6 @@ func newFacade(stdCtx context.Context, ctx facade.MultiModelContext) (*API, erro
 		controllerServices.Controller(),
 		controllerServices.ControllerNode(),
 		ctx.Clock(),
+		ctx.Logger().Child("backups"),
 	)
 }
