@@ -27,9 +27,14 @@ func (c *Conn) SetWriteFlushTimeout(d time.Duration) {
 	c.writeFlushTimeout = d
 }
 
-// SetResponseHook installs a channel that is signalled (non-blocking)
-// each time sendResponse completes (whether the response was queued or
-// dropped). It must be called before Start. Intended for tests only.
-func (c *Conn) SetResponseHook(ch chan struct{}) {
-	c.responseHook = ch
+// WaitForPendingServerRequests waits for all server request goroutines to
+// return. Intended for tests only.
+func (c *Conn) WaitForPendingServerRequests() {
+	c.srvPending.Wait()
+}
+
+// PendingResponseCount returns the number of responses being queued or
+// written. Intended for tests only.
+func (c *Conn) PendingResponseCount() int64 {
+	return c.pendingWrites.n.Load()
 }
