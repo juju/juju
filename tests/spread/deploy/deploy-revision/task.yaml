@@ -1,0 +1,27 @@
+summary: Deploy a charm with a specific revision and channel
+
+execute: |
+    . "$TESTSLIB/spread-env.sh"
+
+    model_name="test-deploy-revision"
+    ensure "${model_name}" "${TEST_DIR}/${model_name}.log"
+
+    # revision 29 is in channel 2.0/edge
+    juju deploy juju-qa-test --revision 29 --channel 2.0/edge
+    wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 29)"
+
+    # check resource revision per channel specified.
+    got=$(juju resources juju-qa-test --format json | yq '.resources[0] | .["revision"] == "3"')
+    check_contains "${got}" "true"
+
+    wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+
+    juju config juju-qa-test foo-file=true
+    wait_for "resource line one: testing one plus one." "$(workload_status juju-qa-test 0).message"
+
+    # check resource revision again per channel specified.
+    juju resources juju-qa-test --format json | yq '.resources[0] | .[ "revision"] == "3"'
+
+restore: |
+    . "$TESTSLIB/spread-env.sh"
+    destroy_model "test-deploy-revision" || true

@@ -1,0 +1,7 @@
+applications:
+  juju-qa-test:
+    charm: juju-qa-test
+    num_units: 1
+  juju-qa-test-dup:
+    charm: juju-qa-test
+    num_units: 1

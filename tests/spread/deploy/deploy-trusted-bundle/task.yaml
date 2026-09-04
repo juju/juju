@@ -1,0 +1,23 @@
+summary: Deploy a bundle with the --trust flag
+
+execute: |
+    . "$TESTSLIB/spread-env.sh"
+    . "$TESTSLIB/charmcraft.sh"
+
+    ensure "test-trusted-bundles-deploy" "${TEST_DIR}/test-trusted-bundles-deploy.log"
+
+    trust_checker=$(pack_charm "$SPREAD_PATH/tests/spread/deploy/charms/trust-checker")
+    mv ${trust_checker} "$SPREAD_PATH/tests/spread/deploy/charms/trust-checker.charm"
+
+    bundle="$SPREAD_PATH/tests/spread/deploy/bundles/trusted_bundle.yaml"
+    OUT=$(juju deploy ${bundle} 2>&1 || true)
+    echo "${OUT}" | check "repeat the deploy command with the --trust argument"
+
+    juju deploy --trust ${bundle}
+
+    wait_for "trust-checker" "$(idle_condition "trust-checker")"
+
+restore: |
+    . "$TESTSLIB/spread-env.sh"
+    rm -f "$SPREAD_PATH/tests/spread/deploy/charms/trust-checker.charm"
+    destroy_model "test-trusted-bundles-deploy" || true

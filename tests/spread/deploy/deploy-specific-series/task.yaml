@@ -1,0 +1,26 @@
+summary: Deploy a charm with an explicit base different from the default
+
+execute: |
+    . "$TESTSLIB/spread-env.sh"
+
+    ensure "test-deploy-specific-series" "${TEST_DIR}/test-deploy-specific-series.log"
+
+    charm_name="juju-qa-refresher"
+    # Have to check against default base, to avoid false positives.
+    # These two bases should be different.
+    default_base="ubuntu@20.04"
+    expected_base="ubuntu@22.04"
+
+    juju deploy "$charm_name" app1
+    juju deploy "$charm_name" app2 --base "$expected_base"
+    base_name1=$(juju status --format=json | yq -r ".applications.app1.base.name")
+    base_chan1=$(juju status --format=json | yq -r ".applications.app1.base.channel")
+    base_name2=$(juju status --format=json | yq -r ".applications.app2.base.name")
+    base_chan2=$(juju status --format=json | yq -r ".applications.app2.base.channel")
+
+    echo "$base_name1@$base_chan1" | check "$default_base"
+    echo "$base_name2@$base_chan2" | check "$expected_base"
+
+restore: |
+    . "$TESTSLIB/spread-env.sh"
+    destroy_model "test-deploy-specific-series" || true
