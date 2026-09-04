@@ -108,6 +108,13 @@ type SecretService interface {
 	ListGrantedSecretsForBackend(
 		ctx context.Context, backendID string, role secrets.SecretRole, consumers ...secret.SecretAccessor,
 	) ([]*secrets.SecretRevisionRef, error)
+
+	// ListGrantedSecretsForDrain returns all secrets granted to the
+	// given consumers at the specified role, regardless of which backend
+	// holds them.
+	ListGrantedSecretsForDrain(
+		ctx context.Context, role secrets.SecretRole, consumers ...secret.SecretAccessor,
+	) ([]*secrets.SecretRevisionRef, error)
 }
 
 // SecretBackendService provides access to the secret backend service.

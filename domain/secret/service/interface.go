@@ -139,6 +139,13 @@ type State interface {
 		ctx context.Context, backendID string, accessors []domainsecret.AccessParams, roles []domainsecret.Role,
 	) ([]*secrets.SecretRevisionRef, error)
 
+	// ListGrantedSecretsForDrain returns all secrets granted to the
+	// specified accessors at the given roles, regardless of which backend
+	// holds them.
+	ListGrantedSecretsForDrain(
+		ctx context.Context, accessors []domainsecret.AccessParams, roles []domainsecret.Role,
+	) ([]*secrets.SecretRevisionRef, error)
+
 	// ListCharmSecretsToDrain returns charm secrets that are ready to
 	// be drained from the old backend.
 	ListCharmSecretsToDrain(
