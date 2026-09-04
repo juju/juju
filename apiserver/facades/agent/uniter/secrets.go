@@ -234,10 +234,14 @@ func (u *UniterAPI) prepareSecretRevokes(
 				u.logger.Infof(ctx, "secret %q no longer exists, skipping revoke", rev.URI)
 				continue
 			}
-			// The accumulated errors are joined and returned to the
-			// wire by CommitHookChanges, so attach the code here.
+			// CommitHookChanges joins the accumulated errors and passes
+			// the result to ServerError, which finds the code anywhere in
+			// the chain, so attach it here. Add keeps the domain sentinel
+			// matchable alongside the wire code.
 			if errors.Is(err, secreterrors.PermissionDenied) {
-				err = apiServerErrors.ParamsErrorf(params.CodeUnauthorized, "%s", err.Error())
+				err = internalerrors.Errorf("%w", err).Add(
+					apiServerErrors.ParamsErrorf(params.CodeUnauthorized, "%s", err.Error()),
+				)
 			}
 			revokeErrs = append(revokeErrs, err)
 			continue
@@ -554,10 +558,14 @@ func (u *UniterAPI) prepareSecretDeletes(
 				u.logger.Infof(ctx, "secret %q no longer exists, skipping delete", del.URI)
 				continue
 			}
-			// The accumulated errors are joined and returned to the
-			// wire by CommitHookChanges, so attach the code here.
+			// CommitHookChanges joins the accumulated errors and passes
+			// the result to ServerError, which finds the code anywhere in
+			// the chain, so attach it here. Add keeps the domain sentinel
+			// matchable alongside the wire code.
 			if errors.Is(err, secreterrors.PermissionDenied) {
-				err = apiServerErrors.ParamsErrorf(params.CodeUnauthorized, "%s", err.Error())
+				err = internalerrors.Errorf("%w", err).Add(
+					apiServerErrors.ParamsErrorf(params.CodeUnauthorized, "%s", err.Error()),
+				)
 			}
 			deleteErrs = append(deleteErrs, err)
 			continue
@@ -635,10 +643,14 @@ func (u *UniterAPI) prepareSecretUpdates(
 				u.logger.Infof(ctx, "secret %q no longer exists, skipping update", upd.URI)
 				continue
 			}
-			// The accumulated errors are joined and returned to the
-			// wire by CommitHookChanges, so attach the code here.
+			// CommitHookChanges joins the accumulated errors and passes
+			// the result to ServerError, which finds the code anywhere in
+			// the chain, so attach it here. Add keeps the domain sentinel
+			// matchable alongside the wire code.
 			if errors.Is(err, secreterrors.PermissionDenied) {
-				err = apiServerErrors.ParamsErrorf(params.CodeUnauthorized, "%s", err.Error())
+				err = internalerrors.Errorf("%w", err).Add(
+					apiServerErrors.ParamsErrorf(params.CodeUnauthorized, "%s", err.Error()),
+				)
 			}
 			updateErrs = append(updateErrs, err)
 			continue

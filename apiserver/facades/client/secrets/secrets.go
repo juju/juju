@@ -192,17 +192,25 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 				rev = *arg.Filter.Revision
 			}
 			val, err := s.secretService.GetSecretContentFromBackend(ctx, m.URI, rev)
-			valueResult := &params.SecretValueResult{
-				Error: apiservererrors.ServerError(err),
-			}
-			if errors.Is(err, secretbackenderrors.NotFound) {
+			valueResult := &params.SecretValueResult{}
+			// GetSecretContentFromBackend collapses a missing secret and a
+			// missing revision into SecretRevisionNotFound, and reports an
+			// unknown external backend as secretbackenderrors.NotFound.
+			switch {
+			case err == nil:
+				valueResult.Data = val.EncodedValues()
+			case errors.Is(err, secreterrors.SecretRevisionNotFound):
+				valueResult.Error = apiservererrors.ParamsErrorf(
+					params.CodeSecretRevisionNotFound,
+					"getting content for secret %q: %s", m.URI, err.Error(),
+				)
+			case errors.Is(err, secretbackenderrors.NotFound):
 				valueResult.Error = apiservererrors.ParamsErrorf(
 					params.CodeSecretBackendNotFound,
 					"getting content for secret %q: %s", m.URI, err.Error(),
 				)
-			}
-			if err == nil {
-				valueResult.Data = val.EncodedValues()
+			default:
+				valueResult.Error = apiservererrors.ServerError(err)
 			}
 			secretResult.Value = valueResult
 		}
@@ -350,7 +358,7 @@ func (s *SecretsAPI) updateSecret(ctx context.Context, arg params.UpdateUserSecr
 			"cannot update secret %q: %s", uri, err.Error(),
 		)
 	}
-	return err
+	return errors.Trace(err)
 }
 
 func (s *SecretsAPI) secretURI(ctx context.Context, uriStr, label string) (*coresecrets.URI, error) {

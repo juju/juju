@@ -579,12 +579,25 @@ func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(ctx context.Context, ar
 		// TODO(wallworld) - if pendingDelete is true, mark the revision for deletion
 		val, valueRef, err := s.secretService.GetSecretValue(ctx, uri, rev, accessor)
 		if err != nil {
-			if errors.Is(err, secreterrors.SecretRevisionNotFound) {
+			// GetSecretValue checks read access before reading the
+			// revision, so it can fail with any of these three.
+			switch {
+			case errors.Is(err, secreterrors.SecretNotFound):
+				result.Results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeSecretNotFound,
+					"secret %q not found", arg.URI,
+				)
+			case errors.Is(err, secreterrors.SecretRevisionNotFound):
 				result.Results[i].Error = apiservererrors.ParamsErrorf(
 					params.CodeSecretRevisionNotFound,
 					"getting revision %d of secret %q: %s", rev, arg.URI, err.Error(),
 				)
-			} else {
+			case errors.Is(err, secreterrors.PermissionDenied):
+				result.Results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeUnauthorized,
+					"cannot read secret %q: %s", arg.URI, err.Error(),
+				)
+			default:
 				result.Results[i].Error = apiservererrors.ServerError(err)
 			}
 			continue
