@@ -198,10 +198,11 @@ func (api *OffersAPI) parseApplicationOfferArgs(
 		}
 	}
 	result := crossmodelrelation.ApplicationOfferArgs{
-		OfferName:       addOfferParams.OfferName,
-		ApplicationName: addOfferParams.ApplicationName,
-		Endpoints:       addOfferParams.Endpoints,
-		OwnerName:       coreuser.NameFromTag(owner),
+		OfferName:              addOfferParams.OfferName,
+		ApplicationName:        addOfferParams.ApplicationName,
+		ApplicationDescription: addOfferParams.ApplicationDescription,
+		Endpoints:              addOfferParams.Endpoints,
+		OwnerName:              coreuser.NameFromTag(owner),
 	}
 	return result, owner, nil
 }
