@@ -1,0 +1,20 @@
+name: subordinate-link
+summary: Minimal subordinate test charm with container scoped link endpoints
+maintainer: Juju QA <juju-qa@canonical.com>
+description: |
+  Minimal subordinate charm used to test subordinate-to-subordinate
+  container scoped relations. Deployed twice, both applications attach
+  to a principal via juju-info and relate to each other through the
+  container scoped subordinate-link endpoints.
+subordinate: true
+requires:
+  juju-info:
+    interface: juju-info
+    scope: container
+  link-a:
+    interface: subordinate-link
+    scope: container
+provides:
+  link-b:
+    interface: subordinate-link
+    scope: container
