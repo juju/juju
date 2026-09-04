@@ -1,26 +1,50 @@
-wait_for_controller_no_leader() {
-	# We need to wait for the Dqlite cluster to be broken (loss of quorum),
-	# before we start waiting for the backstop behaviour to be pending
-	# (see wait_for_controller_leader below).
-	# shellcheck disable=SC2143
-	until ! [[ "$(juju exec -m controller --unit controller/leader uptime | grep load)" ]]; do
-		echo "[+] waiting for no controller leadership"
+wait_for_ha_teardown() {
+	attempt=0
+	# After tearing down HA, wait for the surviving controller machine to
+	# be the only one left and to keep its dqlite voter role. Status for
+	# the controller model can only be served once quorum is restored, so
+	# reaching this state also implies that the dqlite backstop has
+	# reconfigured the cluster around the surviving node.
+	until status=$(timeout 10 juju status -m controller --format=json 2>/dev/null) &&
+		count=$(yq -r '.machines | to_entries | length' <<<"${status}") &&
+		voters=$(yq -r '.machines | to_entries[] | select(.value["controller-cluster-role"] == "voter") | .key' <<<"${status}" | wc -l) &&
+		[[ ${count} -eq 1 && ${voters} -eq 1 ]]; do
+		echo "[+] (attempt ${attempt}) polling ha teardown"
+		juju status -m controller --format=yaml 2>&1 | yq '.machines | with_entries(.value |= pick(["instance-id", "controller-cluster-role"]))' 2>&1 | sed 's/^/    | /g' || true
+		sleep "${SHORT_TIMEOUT}"
+		attempt=$((attempt + 1))
+
+		if [[ ${attempt} -gt 100 ]]; then
+			echo "high availability teardown failed waiting for a single controller"
+			exit 1
+		fi
 	done
+
+	if [[ ${attempt} -gt 0 ]]; then
+		echo "[+] $(green 'Completed polling ha teardown')"
+		juju status -m controller --format=yaml 2>&1 | yq '.machines | with_entries(.value |= pick(["instance-id", "controller-cluster-role"]))' 2>&1 | sed 's/^/    | /g'
+
+		sleep "${SHORT_TIMEOUT}"
+	fi
 }
 
-wait_for_controller_leader() {
-	# Since the institution of Dqlite for leases, we need to wait until the
-	# backstop workflow has run before we are functional with a single
-	# controller.
-	# A proxy for this is leadership determination. The command below will
-	# sometimes block for extended periods, other times we will be told that
-	# leadership can not be determined, so there is no fixed number of attempts
-	# that we can rely on.
-	# shellcheck disable=SC2143
+wait_for_controller_leadership() {
+	attempt=0
+	# Leadership determination requires quorum and a functional lease
+	# manager, so it only succeeds once the dqlite backstop has
+	# reconfigured the cluster around the surviving controller.
+	# The timeout bounds each attempt so a broken backstop fails the
+	# test instead of hanging it.
 	# Not using juju_exec_output: uptime is a plain system command that
 	# produces no stderr, so the stdout/stderr mixing bug does not apply.
-	until [[ "$(juju exec -m controller --unit controller/leader uptime | grep load)" ]]; do
-		echo "[+] waiting for controller leadership"
+	until timeout 60 juju exec -m controller --unit controller/leader uptime 2>/dev/null | grep load; do
+		echo "[+] (attempt ${attempt}) waiting for controller leadership"
+		attempt=$((attempt + 1))
+
+		if [[ ${attempt} -gt 12 ]]; then
+			echo "controller leadership not restored after HA teardown"
+			exit 1
+		fi
 	done
 }
 
@@ -92,15 +116,21 @@ run_enable_ha() {
 
 	juju switch enable-ha
 	controller_1=$(juju status -m controller --format json | yq -r '.applications.controller.units["controller/1"].machine')
-	juju remove-machine -m controller "${controller_1}" --force
 	controller_2=$(juju status -m controller --format json | yq -r '.applications.controller.units["controller/2"].machine')
-	juju remove-machine -m controller "${controller_2}" --force
+	juju remove-machine -m controller "${controller_1}" --force --no-prompt
+	wait_for_ha 2
+	juju remove-machine -m controller "${controller_2}" --force --no-prompt
+	wait_for_ha 1
 
-	wait_for_controller_no_leader
-	wait_for_controller_leader
+	wait_for_ha_teardown
 
-	# Ensure that we have no ha enabled machines.
-	juju show-controller --format=json | yq -r '.[] | .["controller-machines"] | (.[] | select(.["instance-id"] == null)) as $i ireduce (0; . + 1)' | grep 0
+	# The machine view above converges as soon as remove-machine records
+	# the deletions, well before the controller unit and its charm hooks have
+	# settled. Wait for the surviving unit to be idle before probing dqlite
+	# leadership, otherwise the probe races the dqlite backstop recovery.
+	juju switch controller
+	wait_for "controller" "$(idle_condition "controller" 0)" 900
+	wait_for_controller_leadership
 
 	destroy_model "enable-ha"
 }

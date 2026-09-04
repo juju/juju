@@ -205,6 +205,33 @@ Dependency Engine Report
 working: true`[1:])
 }
 
+func (s *introspectionSuite) TestEngineReporterContextDeadline(c *tc.C) {
+	workertest.CleanKill(c, s.worker)
+	ctxCh := make(chan context.Context, 1)
+	s.depEngine = &depEngine{
+		values: map[string]any{
+			"working": true,
+		},
+		reportCtxCh: ctxCh,
+	}
+	s.startWorker(c)
+	response := s.call(c, "/depengine")
+	defer response.Body.Close()
+	c.Assert(response.StatusCode, tc.Equals, http.StatusOK)
+
+	var reportedCtx context.Context
+	select {
+	case reportedCtx = <-ctxCh:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for Report to receive context")
+	}
+
+	deadline, ok := reportedCtx.Deadline()
+	c.Assert(ok, tc.IsTrue)
+	c.Check(time.Until(deadline) > 0, tc.IsTrue)
+	c.Check(time.Until(deadline) <= introspection.ReportTimeout, tc.IsTrue)
+}
+
 func (s *introspectionSuite) TestPrometheusMetrics(c *tc.C) {
 	response := s.call(c, "/metrics")
 	defer response.Body.Close()
@@ -216,10 +243,14 @@ func (s *introspectionSuite) TestPrometheusMetrics(c *tc.C) {
 }
 
 type depEngine struct {
-	values map[string]any
+	values      map[string]any
+	reportCtxCh chan context.Context
 }
 
 func (r *depEngine) Report(ctx context.Context) map[string]any {
+	if r.reportCtxCh != nil {
+		r.reportCtxCh <- ctx
+	}
 	return r.values
 }
 

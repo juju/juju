@@ -30,13 +30,14 @@ wait_for_ha() {
 
 	attempt=0
 	# shellcheck disable=SC2143
-	# Poll controller machines until each reports a non-null,
-	# non-"unknown" controller-cluster-role. This is the 4.x
-	# replacement for the per-machine `ha-status == "ha-enabled"`
-	# check used in 3.x: a controller machine only reports a real
-	# dqlite role (voter/standby/spare) once it has joined the HA
-	# cluster, so "present and not unknown" is the readiness proxy.
-	until [[ "$(juju status -m controller --format=json 2>/dev/null | yq -r '.machines | to_entries[] | select(.value["controller-cluster-role"] != null and .value["controller-cluster-role"] != "unknown") | .key' | wc -l | grep "${amount}")" ]]; do
+	# Poll controller machines until enough of them report a
+	# "voter" controller-cluster-role. This is the 4.x replacement
+	# for the per-machine `ha-status == "ha-enabled"` check used in
+	# 3.x: only voter nodes replicate data and participate in the
+	# dqlite quorum. Standbys replicate but do not vote, and spares
+	# do neither, so counting them would report HA before a quorum
+	# of controllers is established.
+	until [[ "$(juju status -m controller --format=json 2>/dev/null | yq -r '.machines | to_entries[] | select(.value["controller-cluster-role"] == "voter") | .key' | wc -l | grep "${amount}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling ha"
 		juju status -m controller --format=yaml 2>&1 | yq '.machines | with_entries(.value |= pick(["instance-id", "controller-cluster-role"]))' 2>&1 | sed 's/^/    | /g' || true
 		sleep "${SHORT_TIMEOUT}"
