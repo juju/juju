@@ -121,6 +121,7 @@ type GetMachineInstanceInfoSetter func(machineProvisioner apiprovisioner.Machine
 // TaskConfig holds the initialisation data for a ProvisionerTask instance.
 type TaskConfig struct {
 	ControllerUUID               string
+	ModelUUID                    string
 	Logger                       logger.Logger
 	ControllerAPI                ControllerAPI
 	MachinesAPI                  MachinesAPI
@@ -148,6 +149,7 @@ func NewProvisionerTask(cfg TaskConfig) (ProvisionerTask, error) {
 	}
 	task := &provisionerTask{
 		controllerUUID:               cfg.ControllerUUID,
+		modelUUID:                    cfg.ModelUUID,
 		logger:                       cfg.Logger,
 		controllerAPI:                cfg.ControllerAPI,
 		machinesAPI:                  cfg.MachinesAPI,
@@ -194,6 +196,7 @@ type provisionerTask struct {
 	catacomb catacomb.Catacomb
 
 	controllerUUID               string
+	modelUUID                    string
 	logger                       logger.Logger
 	controllerAPI                ControllerAPI
 	machinesAPI                  MachinesAPI
@@ -833,16 +836,13 @@ func (task *provisionerTask) constructInstanceConfig(
 	ctx context.Context,
 	machine apiprovisioner.MachineProvisioner,
 	pInfo *params.ProvisioningInfo,
+	modelConfig *config.Config,
 ) (*instancecfg.InstanceConfig, error) {
 	apiAddresses, err := task.controllerAPI.APIAddresses(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	caCert, err := task.controllerAPI.CACert(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelUUID, err := task.controllerAPI.ModelUUID(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -856,7 +856,7 @@ func (task *provisionerTask) constructInstanceConfig(
 	apiInfo := &api.Info{
 		Addrs:    apiAddresses,
 		CACert:   caCert,
-		ModelTag: names.NewModelTag(modelUUID),
+		ModelTag: names.NewModelTag(task.modelUUID),
 		Tag:      machine.Tag(),
 		Password: password,
 	}
@@ -902,6 +902,8 @@ func (task *provisionerTask) constructInstanceConfig(
 	}
 
 	instanceConfig.CloudInitUserData = pInfo.CloudInitUserData
+	instanceConfig.EnableOSRefreshUpdate = modelConfig.EnableOSRefreshUpdate()
+	instanceConfig.EnableOSUpgrade = modelConfig.EnableOSUpgrade()
 
 	// Inject the controller-wide Loki config so the machine agent starts in
 	// the correct forwarding mode on first boot. When Loki is not active
@@ -1335,6 +1337,14 @@ func (task *provisionerTask) queueStartMachines(ctx context.Context, machines []
 	if err != nil {
 		return errors.Trace(err)
 	}
+	modelConfig, err := task.controllerAPI.ModelConfig(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelAgentVersion, ok := modelConfig.AgentVersion()
+	if !ok {
+		return errors.New("failed to get model's agent version.")
+	}
 	task.logger.Debugf(ctx, "obtained provisioning info: %#v", pInfoResults)
 	pInfoMap := make(map[string]params.ProvisioningInfoResult, len(pInfoResults.Results))
 	for i, tag := range machineTags {
@@ -1373,7 +1383,9 @@ func (task *provisionerTask) queueStartMachines(ctx context.Context, machines []
 			Process: func() error {
 				machID := machine.Id()
 
-				if provisionErr := task.doStartMachine(ctx, machine, distGroup, pInfoMap[machID]); provisionErr != nil {
+				if provisionErr := task.doStartMachine(
+					ctx, machine, distGroup, pInfoMap[machID], modelConfig, &modelAgentVersion,
+				); provisionErr != nil {
 					return provisionErr
 				}
 
@@ -1425,6 +1437,8 @@ func (task *provisionerTask) doStartMachine(
 	machine apiprovisioner.MachineProvisioner,
 	distributionGroupMachineIds []string,
 	pInfoResult params.ProvisioningInfoResult,
+	modelConfig *config.Config,
+	modelAgentVersion *semversion.Number,
 ) (startErr error) {
 	defer func() {
 		if startErr == nil {
@@ -1447,12 +1461,9 @@ func (task *provisionerTask) doStartMachine(
 		task.logger.Errorf(ctx, "%v", err)
 	}
 
-	v, err := machine.ModelAgentVersion(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	startInstanceParams, err := task.setupToStartMachine(ctx, machine, v, pInfoResult)
+	startInstanceParams, err := task.setupToStartMachine(
+		ctx, machine, modelAgentVersion, pInfoResult, modelConfig,
+	)
 	if err != nil {
 		return errors.Trace(task.setErrorStatus(ctx, "%v %v", machine, err))
 	}
@@ -1598,7 +1609,10 @@ func (task *provisionerTask) doStartMachine(
 // and StartInstanceParams to be used by startMachine.
 func (task *provisionerTask) setupToStartMachine(
 	ctx context.Context,
-	machine apiprovisioner.MachineProvisioner, version *semversion.Number, pInfoResult params.ProvisioningInfoResult,
+	machine apiprovisioner.MachineProvisioner,
+	version *semversion.Number,
+	pInfoResult params.ProvisioningInfoResult,
+	modelConfig *config.Config,
 ) (environs.StartInstanceParams, error) {
 	// Check that we have a result.
 	// We should never have an empty result without an error,
@@ -1611,7 +1625,7 @@ func (task *provisionerTask) setupToStartMachine(
 		return environs.StartInstanceParams{}, errors.Errorf("no provisioning info for machine %q", machine.Id())
 	}
 
-	instanceCfg, err := task.constructInstanceConfig(ctx, machine, pInfo)
+	instanceCfg, err := task.constructInstanceConfig(ctx, machine, pInfo, modelConfig)
 	if err != nil {
 		return environs.StartInstanceParams{}, errors.Annotatef(err, "creating instance config for machine %q", machine)
 	}

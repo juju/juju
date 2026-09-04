@@ -6,8 +6,11 @@ package charm
 import (
 	"context"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/juju/clock"
@@ -138,6 +141,12 @@ func (d *manifestDeployer) Deploy() (err error) {
 		return err
 	}
 
+	// Clean up empty directories not provided by the staged charm; see
+	// removeEmptyDirs for why this is not merely cosmetic.
+	if err := d.removeEmptyDirs(d.staged.manifest); err != nil {
+		return err
+	}
+
 	// Move the deploying file over the charm URL file, and we're done.
 	return d.finishDeploy()
 }
@@ -161,6 +170,97 @@ func (d *manifestDeployer) removeDiff(oldManifest, newManifest set.Strings) erro
 		}
 	}
 	return nil
+}
+
+// removeEmptyDirs removes every directory under the charm directory that
+// is empty and is not itself a member of the supplied manifest.
+//
+// Charm archives are not required to store directory entries, and those
+// packed by charmcraft do not: their manifests contain file paths only.
+// removeDiff can therefore delete the files unique to the old charm but
+// not the directories that held them, and an upgrade leaves empty
+// directories behind.
+//
+// This is not merely untidy. Python's importlib.metadata treats every
+// "*.dist-info" directory it finds on the path as a distribution: an
+// empty "<name>-<old version>.dist-info" directory left in a charm's venv
+// can shadow the distribution actually shipped by the new charm and
+// break entry point discovery, failing hooks with errors like the
+// StopIteration reported in juju/juju#23127. Removing the empty
+// directories restores the charm directory to its freshly-installed
+// state.
+func (d *manifestDeployer) removeEmptyDirs(manifest set.Strings) error {
+	var dirs []string
+	err := filepath.WalkDir(d.charmPath, func(
+		path string, entry fs.DirEntry, err error,
+	) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			dirs = append(dirs, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	// WalkDir visits parents before their children, so iterating the
+	// slice backwards removes children first and lets a parent emptied
+	// by removing its children be removed as well.
+	for i := len(dirs) - 1; i >= 0; i-- {
+		dir := dirs[i]
+		rel, err := filepath.Rel(d.charmPath, dir)
+		if err != nil {
+			return err
+		}
+		if rel == "." {
+			// Never remove the charm directory itself.
+			continue
+		}
+		if manifest.Contains(filepath.ToSlash(rel)) {
+			// The deployed charm provides this directory itself.
+			continue
+		}
+		empty, err := isEmptyDir(dir)
+		if os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+		if !empty {
+			continue
+		}
+		d.logger.Debugf(context.Background(),
+			"removing empty directory %q left behind by the previous charm", rel)
+		err = os.Remove(dir)
+		switch {
+		case err == nil, os.IsNotExist(err):
+			// Nothing to do.
+		case errors.Is(err, syscall.ENOTEMPTY):
+			// The directory has acquired contents since the check
+			// above; leaving it alone is the correct outcome.
+		default:
+			return err
+		}
+	}
+	return nil
+}
+
+// isEmptyDir reports whether the directory at path holds no entries.
+func isEmptyDir(path string) (bool, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	// One entry is enough to answer the question; os.ReadDir would read
+	// and sort every name in the directory.
+	_, err = f.Readdirnames(1)
+	if err == io.EOF {
+		return true, nil
+	}
+	return false, err
 }
 
 // finishDeploy persists the fact that we've finished deploying the staged bundle.
