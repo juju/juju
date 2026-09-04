@@ -2819,6 +2819,7 @@ func (s *uniterRelationSuite) TestSetRelationStatus(c *tc.C) {
 	relID := 42
 	relationUUID := tc.Must(c, corerelation.NewUUID)
 	s.expectGetRelationUUIDByID(relID, relationUUID, nil)
+	s.expectGetRelationDetails(c, relationUUID, relID, names.NewRelationTag("mysql:mysql wordpress:database"))
 	relStatus := status.StatusInfo{
 		Status: status.Joined,
 		Since:  new(s.uniter.clock.Now()),
@@ -2871,6 +2872,135 @@ func (s *uniterRelationSuite) TestSetRelationStatusRelationNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
+}
+
+// TestSetRelationStatusErrUnauthorized checks that a unit cannot set the
+// relation status on behalf of another unit. The relation is never looked up
+// for the refused unit, so the leadership check that the status service makes
+// against the supplied name is not reached.
+func (s *uniterRelationSuite) TestSetRelationStatusErrUnauthorized(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+
+	// act
+	args := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
+		UnitTag:    names.NewUnitTag("mysql/0").String(),
+		RelationId: 42,
+		Status:     params.Joined,
+	}}}
+	result, err := s.uniter.SetRelationStatus(c.Context(), args)
+
+	// assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
+}
+
+// TestSetRelationStatusRelationNotOfCaller checks that a unit cannot set the
+// status of a relation its application is not an endpoint of, since the
+// relation ID is only unique within the model.
+func (s *uniterRelationSuite) TestSetRelationStatusRelationNotOfCaller(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relID := 101
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	s.expectGetRelationUUIDByID(relID, relationUUID, nil)
+	s.expectGetRelationDetailsUnexpectedAppName(c, relationUUID)
+
+	// act
+	args := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
+		UnitTag:    s.wordpressUnitTag.String(),
+		RelationId: relID,
+		Status:     params.Joined,
+	}}}
+	result, err := s.uniter.SetRelationStatus(c.Context(), args)
+
+	// assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
+}
+
+// TestSetRelationStatusRelationDetailsNotFound checks that a relation deleted
+// between the UUID lookup and the details lookup is reported as unauthorized,
+// without reaching the status service.
+func (s *uniterRelationSuite) TestSetRelationStatusRelationDetailsNotFound(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relID := 42
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	s.expectGetRelationUUIDByID(relID, relationUUID, nil)
+	s.expectGetRelationDetailsNotFound(relationUUID)
+
+	// act
+	args := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
+		UnitTag:    s.wordpressUnitTag.String(),
+		RelationId: relID,
+		Status:     params.Joined,
+	}}}
+	result, err := s.uniter.SetRelationStatus(c.Context(), args)
+
+	// assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
+}
+
+// TestSetRelationStatusRelationDetailsError checks that an unexpected error
+// from the relation details lookup is surfaced in the per-argument result and
+// the status service is not reached.
+func (s *uniterRelationSuite) TestSetRelationStatusRelationDetailsError(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relID := 42
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	boom := internalerrors.New("boom")
+	s.expectGetRelationUUIDByID(relID, relationUUID, nil)
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relationUUID).Return(relation.RelationDetails{}, boom)
+
+	// act
+	args := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
+		UnitTag:    s.wordpressUnitTag.String(),
+		RelationId: relID,
+		Status:     params.Joined,
+	}}}
+	result, err := s.uniter.SetRelationStatus(c.Context(), args)
+
+	// assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.DeepEquals, apiservererrors.ServerError(boom))
+}
+
+// TestSetRelationStatusMixedBatch checks that a refused argument is isolated:
+// the authorized argument succeeds while the one naming another unit gets
+// ErrPerm without any relation or status service call being made for it.
+func (s *uniterRelationSuite) TestSetRelationStatusMixedBatch(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relID := 42
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	s.expectGetRelationUUIDByID(relID, relationUUID, nil)
+	s.expectGetRelationDetails(c, relationUUID, relID, names.NewRelationTag("mysql:mysql wordpress:database"))
+	relStatus := status.StatusInfo{
+		Status: status.Joined,
+		Since:  new(s.uniter.clock.Now()),
+	}
+	s.expectSetRelationStatus(s.wordpressUnitTag.Id(), relationUUID, relStatus)
+
+	// act: the mocks only expect the calls for the wordpress unit, so any
+	// lookup made for the refused mysql unit fails the test.
+	args := params.RelationStatusArgs{Args: []params.RelationStatusArg{
+		{UnitTag: s.wordpressUnitTag.String(), RelationId: relID, Status: params.Joined},
+		{UnitTag: names.NewUnitTag("mysql/0").String(), RelationId: relID, Status: params.Joined},
+	}}
+	result, err := s.uniter.SetRelationStatus(c.Context(), args)
+
+	// assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 2)
+	c.Check(result.Results[0].Error, tc.IsNil)
+	c.Check(result.Results[1].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
 func (s *uniterRelationSuite) TestEnterScopeErrUnauthorized(c *tc.C) {
