@@ -4,13 +4,11 @@
 package backups
 
 import (
-	"bytes"
 	"context"
 	"os"
 	"path"
 
 	"github.com/juju/names/v6"
-	"gopkg.in/yaml.v3"
 
 	corebackups "github.com/juju/juju/core/backups"
 	coremodel "github.com/juju/juju/core/model"
@@ -31,23 +29,32 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 		return params.BackupsMetadataResult{}, err
 	}
 
+	// The backup destination is resolved first because the database dumps
+	// are staged as temporary files under it; staging keeps the archive from
+	// holding every model's dump in memory at once.
+	modelConfig, err := a.modelConfig.ModelConfig(ctx)
+	if err != nil {
+		return params.BackupsMetadataResult{}, err
+	}
+	backupDir := corebackups.BackupDirToUse(modelConfig.BackupDir())
+
 	// Controller dump first, then one dump per registered model namespace.
-	// Any error aborts Create: there are no partial archives.
-	entries := []corebackups.DumpEntry{}
-	var expected int64
+	// Every registered model, including the controller model, owns a dqlite
+	// database (namespace = its UUID) that is separate from the controller
+	// database dumped above as controller.yaml. The controller model's
+	// model-scoped data, its machines, units, applications, ... lives only
+	// in that database, so its namespace is not skipped: this is not a
+	// duplicate of the controller dump. Any error aborts Create: there are
+	// no partial archives.
+	dumps := []corebackups.NamedDump{}
 
 	controllerExport, err := a.controllerExport.Export(ctx)
 	if err != nil {
 		return params.BackupsMetadataResult{}, err
 	}
-	controllerYAML, err := yaml.Marshal(controllerExport)
-	if err != nil {
-		return params.BackupsMetadataResult{}, err
-	}
-	expected += int64(len(controllerYAML))
-	entries = append(entries, corebackups.DumpEntry{
+	dumps = append(dumps, corebackups.NamedDump{
 		Name:   "controller.yaml",
-		Reader: bytes.NewReader(controllerYAML),
+		Export: corebackups.YAMLDump(controllerExport),
 	})
 
 	modelUUIDs, err := a.controller.GetModelNamespaces(ctx)
@@ -63,22 +70,22 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 		if err != nil {
 			return params.BackupsMetadataResult{}, err
 		}
-		modelYAML, err := yaml.Marshal(modelExport)
-		if err != nil {
-			return params.BackupsMetadataResult{}, err
-		}
-		expected += int64(len(modelYAML))
-		entries = append(entries, corebackups.DumpEntry{
+		dumps = append(dumps, corebackups.NamedDump{
 			Name:   path.Join("models", modelUUID+".yaml"),
-			Reader: bytes.NewReader(modelYAML),
+			Export: corebackups.YAMLDump(modelExport),
 		})
 	}
 
-	modelConfig, err := a.modelConfig.ModelConfig(ctx)
+	// The dumps are staged as files inside the backup destination, so the
+	// archive does not hold every model's dump in memory at once. The
+	// staging is closed on return, so a failure leaves no partial dumps
+	// behind.
+	staging, err := corebackups.StageDumps(ctx, backupDir, dumps)
 	if err != nil {
 		return params.BackupsMetadataResult{}, err
 	}
-	backupDir := corebackups.BackupDirToUse(modelConfig.BackupDir())
+	defer staging.Close()
+	expected := staging.Size()
 
 	paths := corebackups.Paths{
 		BackupDir: backupDir,
@@ -99,6 +106,9 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 		return params.BackupsMetadataResult{}, err
 	}
 
+	// The hostname is recorded for provenance only. If it cannot be resolved
+	// the field is left empty; that does not make the backup unusable, so
+	// the error is intentionally not fatal.
 	hostname, _ := os.Hostname()
 
 	controllerIDs, err := a.controllerNodes.GetControllerIDs(ctx)
@@ -118,8 +128,11 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 		Base: "",
 	}
 	meta.Controller = corebackups.ControllerMetadata{
-		UUID:              a.controllerUUID,
-		MachineID:         a.machineID,
+		UUID:      a.controllerUUID,
+		MachineID: a.machineID,
+		// TODO(backups): resolve the controller machine's cloud instance id
+		// via the machine service (GetInstanceIDByMachineName) and record it
+		// here instead of the unknown placeholder.
 		MachineInstanceID: corebackups.UnknownString,
 		HANodes:           int64(len(controllerIDs)),
 	}
@@ -127,7 +140,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	filename, err := corebackups.Create(meta, corebackups.CreateArgs{
 		DestinationDir: backupDir,
 		FilesToBackUp:  files,
-		DumpEntries:    entries,
+		DumpEntries:    staging.Entries(),
 		Clock:          a.clock,
 	})
 	if err != nil {
