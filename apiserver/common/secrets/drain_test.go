@@ -4,6 +4,7 @@
 package secrets_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -17,6 +18,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	backendservice "github.com/juju/juju/domain/secretbackend/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -328,4 +330,39 @@ func (s *secretsDrainSuite) TestWatchSecretBackendChanged(c *tc.C) {
 	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{
 		NotifyWatcherId: "11",
 	})
+}
+
+func (s *secretsDrainSuite) TestChangeSecretBackendErrorCodes(c *tc.C) {
+	// ChangeSecretBackend fails the management access check with
+	// SecretNotFound or PermissionDenied, and the revision lookup with
+	// SecretRevisionNotFound.
+	for _, t := range []struct {
+		sentinel error
+		code     string
+	}{
+		{secreterrors.SecretNotFound, params.CodeSecretNotFound},
+		{secreterrors.SecretRevisionNotFound, params.CodeSecretRevisionNotFound},
+		{secreterrors.PermissionDenied, params.CodeUnauthorized},
+	} {
+		c.Logf("sentinel %v", t.sentinel)
+		func() {
+			defer s.setup(c).Finish()
+
+			// Arrange:
+			uri := coresecrets.NewURI()
+			s.secretService.EXPECT().ChangeSecretBackend(gomock.Any(), uri, 666, gomock.Any()).
+				Return(fmt.Errorf("boom: %w", t.sentinel))
+
+			// Act:
+			result, err := s.facade.ChangeSecretBackend(c.Context(), params.ChangeSecretBackendArgs{
+				Args: []params.ChangeSecretBackendArg{{URI: uri.String(), Revision: 666}},
+			})
+
+			// Assert:
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(result.Results, tc.HasLen, 1)
+			c.Assert(result.Results[0].Error, tc.NotNil)
+			c.Check(result.Results[0].Error.Code, tc.Equals, t.code)
+		}()
+	}
 }

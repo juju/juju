@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/rpc/params"
 )
@@ -168,7 +169,28 @@ func (s *SecretsDrainAPI) ChangeSecretBackend(ctx context.Context, args params.C
 	}
 	for i, arg := range args.Args {
 		err := s.changeSecretBackendForOne(ctx, arg)
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		// SecretService.ChangeSecretBackend can return SecretNotFound or
+		// PermissionDenied from the management access check, and
+		// SecretRevisionNotFound when looking up the revision UUID.
+		switch {
+		case errors.Is(err, secreterrors.SecretNotFound):
+			result.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeSecretNotFound,
+				"secret %q not found", arg.URI,
+			)
+		case errors.Is(err, secreterrors.SecretRevisionNotFound):
+			result.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeSecretRevisionNotFound,
+				"secret %q revision %d not found", arg.URI, arg.Revision,
+			)
+		case errors.Is(err, secreterrors.PermissionDenied):
+			result.Results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeUnauthorized,
+				"cannot change backend for secret %q: %s", arg.URI, err.Error(),
+			)
+		default:
+			result.Results[i].Error = apiservererrors.ServerError(err)
+		}
 	}
 	return result, nil
 }
