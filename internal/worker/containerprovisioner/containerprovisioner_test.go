@@ -78,7 +78,7 @@ func (s *lxdProvisionerSuite) expectStartup(c *tc.C) {
 	s.controllerAPI.EXPECT().WatchForModelConfigChanges(gomock.Any()).Return(watchCfg, nil)
 
 	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{})
-	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).MaxTimes(2)
+	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).Times(2)
 
 	s.provisionerStarted = make(chan bool)
 	controllerCfg := coretesting.FakeControllerConfig()
@@ -172,6 +172,7 @@ func (s *lxdProvisionerSuite) TestContainerStartedAndStopped(c *tc.C) {
 	s.machinesAPI.EXPECT().Machines(gomock.Any(), cTag).Return([]apiprovisioner.MachineResult{{
 		Machine: c666,
 	}}, nil).Times(2)
+	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(coretesting.CustomModelConfig(c, coretesting.Attrs{}), nil)
 	s.machinesAPI.EXPECT().ProvisioningInfo(gomock.Any(), []names.MachineTag{cTag}).Return(params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{
@@ -284,7 +285,7 @@ func (s *lxdProvisionerSuite) sendModelConfigChange(c *tc.C) {
 var (
 	startInstanceArgTemplate = environs.StartInstanceParams{
 		ControllerUUID: coretesting.ControllerTag.Id(),
-		Tools:          tools.List{{Version: semversion.MustParseBinary("2.99.0-ubuntu-amd64")}},
+		Tools:          tools.List{{Version: semversion.MustParseBinary("2.0.0-ubuntu-amd64")}},
 	}
 	instanceConfigTemplate = instancecfg.InstanceConfig{
 		ControllerTag:    coretesting.ControllerTag,
@@ -295,13 +296,15 @@ var (
 			Addrs:    []string{"10.0.0.1"},
 			CACert:   coretesting.CACert,
 		},
-		Base:               corebase.MustParseBaseFromString("ubuntu@22.04"),
-		TransientDataDir:   "/var/run/juju",
-		DataDir:            "/var/lib/juju",
-		LogDir:             "/var/log/juju",
-		MetricsSpoolDir:    "/var/lib/juju/metricspool",
-		CloudInitOutputLog: "/var/log/cloud-init-output.log",
-		ImageStream:        "released",
+		Base:                  corebase.MustParseBaseFromString("ubuntu@22.04"),
+		TransientDataDir:      "/var/run/juju",
+		DataDir:               "/var/lib/juju",
+		LogDir:                "/var/log/juju",
+		MetricsSpoolDir:       "/var/lib/juju/metricspool",
+		CloudInitOutputLog:    "/var/log/cloud-init-output.log",
+		ImageStream:           "released",
+		EnableOSRefreshUpdate: true,
+		EnableOSUpgrade:       true,
 	}
 )
 
