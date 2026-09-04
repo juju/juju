@@ -33,7 +33,7 @@ type MockSecretService struct {
 type MockSecretServiceMockRecorder struct {
 	mock                                *MockSecretService
 	getSecretAccessRelationScopeExpects []*gomock.Call3_2[context.Context, *secrets.URI, secret.SecretAccessor, relation.UUID, error]
-	listGrantedSecretsForBackendExpects []*gomock.Call3V_2[context.Context, string, secrets.SecretRole, secret.SecretAccessor, []*secrets.SecretRevisionRef, error]
+	listGrantedSecretsForBackendExpects []*gomock.Call4V_2[context.Context, string, secrets.SecretRole, bool, secret.SecretAccessor, []*secrets.SecretRevisionRef, error]
 }
 
 // NewMockSecretService creates a new mock instance.
@@ -67,23 +67,23 @@ func (mr *MockSecretServiceMockRecorder) GetSecretAccessRelationScope(ctx, uri, 
 type MockSecretServiceGetSecretAccessRelationScopeCall = gomock.Call3_2[context.Context, *secrets.URI, secret.SecretAccessor, relation.UUID, error]
 
 // ListGrantedSecretsForBackend mocks base method.
-func (m *MockSecretService) ListGrantedSecretsForBackend(ctx context.Context, backendID string, role secrets.SecretRole, consumers ...secret.SecretAccessor) ([]*secrets.SecretRevisionRef, error) {
+func (m *MockSecretService) ListGrantedSecretsForBackend(ctx context.Context, backendID string, role secrets.SecretRole, forDrain bool, consumers ...secret.SecretAccessor) ([]*secrets.SecretRevisionRef, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3V_2(&m.recorder.listGrantedSecretsForBackendExpects, m.ctrl, m, "ListGrantedSecretsForBackend", ctx, backendID, role, consumers...)
+	return gomock.Dispatch4V_2(&m.recorder.listGrantedSecretsForBackendExpects, m.ctrl, m, "ListGrantedSecretsForBackend", ctx, backendID, role, forDrain, consumers...)
 }
 
 // ListGrantedSecretsForBackend indicates an expected call of ListGrantedSecretsForBackend.
-func (mr *MockSecretServiceMockRecorder) ListGrantedSecretsForBackend(ctx, backendID, role any, consumers ...any) *MockSecretServiceListGrantedSecretsForBackendCall {
+func (mr *MockSecretServiceMockRecorder) ListGrantedSecretsForBackend(ctx, backendID, role, forDrain any, consumers ...any) *MockSecretServiceListGrantedSecretsForBackendCall {
 	mr.mock.ctrl.T.Helper()
 	varArgs := gomock.EnsureVariadicMatcher(consumers)
-	call := gomock.NewCall3V_2[context.Context, string, secrets.SecretRole, secret.SecretAccessor, []*secrets.SecretRevisionRef, error](mr.mock.ctrl.T, mr.mock, "ListGrantedSecretsForBackend", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(backendID), gomock.EnsureMatcher(role), varArgs)
+	call := gomock.NewCall4V_2[context.Context, string, secrets.SecretRole, bool, secret.SecretAccessor, []*secrets.SecretRevisionRef, error](mr.mock.ctrl.T, mr.mock, "ListGrantedSecretsForBackend", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(backendID), gomock.EnsureMatcher(role), gomock.EnsureMatcher(forDrain), varArgs)
 	mr.listGrantedSecretsForBackendExpects = append(mr.listGrantedSecretsForBackendExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockSecretServiceListGrantedSecretsForBackendCall is the typed call wrapper for ListGrantedSecretsForBackend.
-type MockSecretServiceListGrantedSecretsForBackendCall = gomock.Call3V_2[context.Context, string, secrets.SecretRole, secret.SecretAccessor, []*secrets.SecretRevisionRef, error]
+type MockSecretServiceListGrantedSecretsForBackendCall = gomock.Call4V_2[context.Context, string, secrets.SecretRole, bool, secret.SecretAccessor, []*secrets.SecretRevisionRef, error]
 
 // MockSecretBackendService is a mock of SecretBackendService interface.
 type MockSecretBackendService struct {

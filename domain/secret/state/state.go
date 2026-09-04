@@ -3180,32 +3180,44 @@ type (
 // ListGrantedSecretsForBackend returns the secret revision info for any
 // secrets from the specified backend for which the specified consumers
 // have been granted any of the specified roles.
+//
+// When forDrain is false, only revisions stored on the specified backend are
+// returned. When forDrain is true, revisions are returned regardless of which
+// backend holds them: when draining to a new backend, the secrets being moved
+// still live in the old backend (internal or another external one), so the
+// accessor must be granted access to them on the target backend before they
+// are moved.
 func (st State) ListGrantedSecretsForBackend(
 	ctx context.Context, backendID string, accessors []domainsecret.AccessParams, roleIDs []domainsecret.Role,
+	forDrain bool,
 ) ([]*coresecrets.SecretRevisionRef, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
+	// The value ref join must be a LEFT JOIN: revisions held in the internal
+	// backend have no secret_value_ref row, but are still needed when
+	// draining, where the backend filter is dropped.
+	backendFilter := "AND    svr.backend_uuid = $secretBackendID.id"
+	if forDrain {
+		backendFilter = ""
+	}
 	query := `
 SELECT (sm.secret_id) AS (&secretInfo.*),
        (svr.*) AS (&secretValueRef.*)
 FROM   secret_metadata sm
 JOIN   secret_revision rev ON rev.secret_id = sm.secret_id
-JOIN   secret_value_ref svr ON svr.revision_uuid = rev.uuid
+LEFT JOIN secret_value_ref svr ON svr.revision_uuid = rev.uuid
 JOIN   secret_permission sp ON sp.secret_id = sm.secret_id
 LEFT JOIN unit suu ON sp.subject_uuid = suu.uuid AND sp.subject_type_id = $secretAccessorType.unit_type_id
 LEFT JOIN application sua ON sp.subject_uuid = sua.uuid AND sp.subject_type_id = $secretAccessorType.app_type_id
 WHERE  sp.role_id IN ($roles[:])
-AND    svr.backend_uuid = $secretBackendID.id
+` + backendFilter + `
 AND    (sp.subject_type_id = $secretAccessorType.unit_type_id AND suu.name IN ($units[:])
         OR sp.subject_type_id = $secretAccessorType.app_type_id AND sua.name IN ($applications[:])
         OR sp.subject_type_id = $secretAccessorType.model_type_id AND sp.subject_uuid IN ($models[:])
        )`
-	secretBackendID := secretBackendID{
-		ID: backendID,
-	}
 
 	secretRoles := make(roles, len(roleIDs))
 	for i, r := range roleIDs {
@@ -3237,7 +3249,9 @@ AND    (sp.subject_type_id = $secretAccessorType.unit_type_id AND suu.name IN ($
 		modelAccessors,
 		secretAccessorTypeParam,
 		secretRoles,
-		secretBackendID,
+	}
+	if !forDrain {
+		queryParams = append(queryParams, secretBackendID{ID: backendID})
 	}
 
 	queryStmt, err := st.Prepare(query, append(queryParams, secretInfo{}, secretValueRef{})...)

@@ -159,7 +159,7 @@ func (s *SecretService) getBackendForUserSecrets(
 		return nil, "", errors.Errorf("initialising secrets provider: %w", err)
 	}
 
-	revInfo, err := s.ListGrantedSecretsForBackend(ctx, activeBackendID, secrets.RoleManage, accessor)
+	revInfo, err := s.ListGrantedSecretsForBackend(ctx, activeBackendID, secrets.RoleManage, false, accessor)
 	if err != nil {
 		return nil, "", errors.Errorf("listing granted secrets: %w", err)
 	}
