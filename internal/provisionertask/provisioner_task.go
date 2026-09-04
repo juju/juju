@@ -849,6 +849,10 @@ func (task *provisionerTask) constructInstanceConfig(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	modelConfig, err := task.controllerAPI.ModelConfig(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	password, err := password.RandomPassword()
 	if err != nil {
 		return nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)
@@ -906,6 +910,8 @@ func (task *provisionerTask) constructInstanceConfig(
 	}
 
 	instanceConfig.CloudInitUserData = pInfo.CloudInitUserData
+	instanceConfig.EnableOSRefreshUpdate = modelConfig.EnableOSRefreshUpdate()
+	instanceConfig.EnableOSUpgrade = modelConfig.EnableOSUpgrade()
 
 	return instanceConfig, nil
 }

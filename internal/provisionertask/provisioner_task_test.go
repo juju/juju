@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	environmocks "github.com/juju/juju/environs/testing"
@@ -83,8 +84,10 @@ type ProvisionerTaskSuite struct {
 	machineErrorRetryChanges chan struct{}
 	machineErrorRetryWatcher watcher.NotifyWatcher
 
-	controllerAPI *MockControllerAPI
-	machinesAPI   *MockMachinesAPI
+	controllerAPI    *MockControllerAPI
+	machinesAPI      *MockMachinesAPI
+	modelConfig      *config.Config
+	modelConfigCalls int
 
 	instances      []instances.Instance
 	instanceBroker *testInstanceBroker
@@ -103,6 +106,7 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *tc.C) {
 
 	s.machineErrorRetryChanges = make(chan struct{})
 	s.machineErrorRetryWatcher = watchertest.NewMockNotifyWatcher(s.machineErrorRetryChanges)
+	s.modelConfigCalls = 0
 
 	s.instances = []instances.Instance{}
 	s.instanceBroker = &testInstanceBroker{
@@ -273,6 +277,7 @@ var (
 
 func (s *ProvisionerTaskSuite) TestSetUpToStartMachine(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
+	s.modelConfig = s.newModelConfig(c, true, true)
 
 	task := s.newProvisionerTask(c,
 		&mockDistributionGroupFinder{},
@@ -320,9 +325,41 @@ func (s *ProvisionerTaskSuite) TestSetUpToStartMachine(c *tc.C) {
 	want.Placement = "foo=bar"
 	want.InstanceConfig.Tags = map[string]string{"hello": "world"}
 	want.InstanceConfig.CloudInitUserData = validCloudInitUserData
+	want.InstanceConfig.EnableOSRefreshUpdate = true
+	want.InstanceConfig.EnableOSUpgrade = true
 	want.ImageMetadata = possibleImageMetadata
 	want.EndpointBindings = map[string]network.Id{"endpoint": "space"}
 	c.Assert(startInstanceParams, tc.DeepEquals, *want)
+	c.Check(s.modelConfigCalls, tc.Equals, 1)
+}
+
+// TestSetUpToStartMachineDisablesOSUpdates verifies that a new machine has
+// the model's disabled OS update settings before it reaches the provider.
+func (s *ProvisionerTaskSuite) TestSetUpToStartMachineDisablesOSUpdates(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.modelConfig = s.newModelConfig(c, false, false)
+
+	task := s.newProvisionerTask(c,
+		&mockDistributionGroupFinder{},
+		mockToolsFinder{},
+		numProvisionWorkersForTesting,
+	)
+	defer workertest.CleanKill(c, task)
+
+	result := params.ProvisioningInfoResult{
+		Result: &params.ProvisioningInfo{
+			Base:             params.Base{Name: "ubuntu", Channel: "22.04"},
+			ControllerConfig: internaltesting.FakeControllerConfig(),
+		},
+	}
+	version := semversion.MustParse("2.99.0")
+	startInstanceParams, err := provisionertask.SetupToStartMachine(
+		c, task, &testMachine{c: c, id: "0"}, &version, result,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(startInstanceParams.InstanceConfig.EnableOSRefreshUpdate, tc.IsFalse)
+	c.Check(startInstanceParams.InstanceConfig.EnableOSUpgrade, tc.IsFalse)
+	c.Check(s.modelConfigCalls, tc.Equals, 1)
 }
 
 func (s *ProvisionerTaskSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable(c *tc.C) {
@@ -1688,14 +1725,32 @@ func (s *ProvisionerTaskSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerAPI = NewMockControllerAPI(ctrl)
 	s.machinesAPI = NewMockMachinesAPI(ctrl)
+	s.modelConfig = s.newModelConfig(c, false, false)
 	s.expectAuth()
 	return ctrl
+}
+
+func (s *ProvisionerTaskSuite) newModelConfig(
+	c *tc.C, enableOSRefreshUpdate, enableOSUpgrade bool,
+) *config.Config {
+	modelConfig, err := config.New(config.NoDefaults, internaltesting.FakeConfig().Merge(internaltesting.Attrs{
+		config.EnableOSRefreshUpdateKey: enableOSRefreshUpdate,
+		config.EnableOSUpgradeKey:       enableOSUpgrade,
+	}))
+	c.Assert(err, tc.ErrorIsNil)
+	return modelConfig
 }
 
 func (s *ProvisionerTaskSuite) expectAuth() {
 	s.controllerAPI.EXPECT().APIAddresses(gomock.Any()).Return([]string{"10.0.0.1"}, nil).AnyTimes()
 	s.controllerAPI.EXPECT().ModelUUID(gomock.Any()).Return(internaltesting.ModelTag.Id(), nil).AnyTimes()
 	s.controllerAPI.EXPECT().CACert(gomock.Any()).Return(internaltesting.CACert, nil).AnyTimes()
+	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
+		func(context.Context) (*config.Config, error) {
+			s.modelConfigCalls++
+			return s.modelConfig, nil
+		},
+	).AnyTimes()
 }
 
 func (s *ProvisionerTaskSuite) expectMachines(machines ...*testMachine) {
