@@ -12,6 +12,7 @@ import (
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
+	"github.com/juju/juju/domain/storage/internal"
 )
 
 // attachmentSuite is a test suite for asserting the behaviour of storage
@@ -118,49 +119,72 @@ func (s *attachmentSuite) TestGetStorageInstanceAttachmentsEmptyResult(c *tc.C) 
 	c.Check(attachments, tc.HasLen, 0)
 }
 
-// TestGetStorageInstanceUUIDsForUnit asserts that the storage instance UUIDs
-// attached to the supplied unit are returned.
-func (s *attachmentSuite) TestGetStorageInstanceUUIDsForUnit(c *tc.C) {
+// TestGetStorageClassificationForUnits asserts that the minimal storage
+// information for units is returned, mapping each unit to its attached
+// storage instances with correct persistence.
+func (s *attachmentSuite) TestGetStorageClassificationForUnits(c *tc.C) {
 	appUUID, charmUUID := s.newApplication(c, "myapplication")
 	unitUUID1, _, _ := s.newUnitForApplication(c, appUUID)
 	unitUUID2, _, _ := s.newUnitForApplication(c, appUUID)
+	unitUUID3, _, _ := s.newUnitForApplication(c, appUUID)
 	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
-	storageInstanceUUID1, _ := s.newBlockStorageInstanceForCharmWithPool(
+
+	storageInstanceUUID1, storageID1 := s.newBlockStorageInstanceForCharmWithPool(
 		c, charmUUID, poolUUID, "token-store",
 	)
-	storageInstanceUUID2, _ := s.newBlockStorageInstanceForCharmWithPool(
-		c, charmUUID, poolUUID, "token-store",
+	s.newPersistentModelVolume(c, storageInstanceUUID1)
+
+	storageInstanceUUID2, storageID2 := s.newBlockStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "cache-store",
 	)
-	storageInstanceUUID3, _ := s.newBlockStorageInstanceForCharmWithPool(
-		c, charmUUID, poolUUID, "token-store",
+	s.newModelVolume(c, storageInstanceUUID2)
+
+	storageInstanceUUID3, storageID3 := s.newBlockStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "data-store",
 	)
+	s.newPersistentModelVolume(c, storageInstanceUUID3)
+
 	s.newStorageAttachment(c, storageInstanceUUID1, unitUUID1)
 	s.newStorageAttachment(c, storageInstanceUUID2, unitUUID1)
 	s.newStorageAttachment(c, storageInstanceUUID3, unitUUID2)
 
 	st := NewState(s.TxnRunnerFactory())
-	gotUUIDs, err := st.GetStorageInstanceUUIDsForUnit(
-		c.Context(), unitUUID1.String(),
+	classifications, err := st.GetStorageClassificationForUnits(
+		c.Context(), []string{unitUUID1.String(), unitUUID2.String(), unitUUID3.String()},
 	)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(
-		gotUUIDs, tc.SameContents,
-		[]domainstorage.StorageInstanceUUID{
-			storageInstanceUUID1,
-			storageInstanceUUID2,
+	c.Check(classifications, tc.HasLen, 2)
+	c.Check(classifications[unitUUID1.String()], tc.SameContents, []internal.StorageInstanceClassification{
+		{
+			Persistent:  true,
+			StorageID:   storageID1,
+			StorageUUID: storageInstanceUUID1.String(),
+			UnitUUID:    unitUUID1.String(),
 		},
-	)
+		{
+			Persistent:  false,
+			StorageID:   storageID2,
+			StorageUUID: storageInstanceUUID2.String(),
+			UnitUUID:    unitUUID1.String(),
+		},
+	})
+	c.Check(classifications[unitUUID2.String()], tc.SameContents, []internal.StorageInstanceClassification{
+		{
+			Persistent:  true,
+			StorageID:   storageID3,
+			StorageUUID: storageInstanceUUID3.String(),
+			UnitUUID:    unitUUID2.String(),
+		},
+	})
 }
 
-// TestGetStorageInstanceUUIDsForUnitNotFound asserts that when a unit does not
-// exist [State.GetStorageInstanceUUIDsForUnit] returns an error satisfying
-// [domainapplicationerrors.UnitNotFound].
-func (s *attachmentSuite) TestGetStorageInstanceUUIDsForUnitNotFound(c *tc.C) {
-	unitUUID := tc.Must(c, coreunit.NewUUID)
-
+// TestGetStorageClassificationForUnitsEmptyInput asserts that an empty slice
+// of unit UUIDs returns an empty map without querying the database.
+func (s *attachmentSuite) TestGetStorageClassificationForUnitsEmptyInput(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetStorageInstanceUUIDsForUnit(c.Context(), unitUUID.String())
-	c.Check(err, tc.ErrorIs, domainapplicationerrors.UnitNotFound)
+	classifications, err := st.GetStorageClassificationForUnits(c.Context(), nil)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(classifications, tc.DeepEquals, map[string][]internal.StorageInstanceClassification{})
 }
 
 func (s *attachmentSuite) TestGetStorageInstanceAttachments(c *tc.C) {

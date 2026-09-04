@@ -15,7 +15,6 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
-	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	domainstatus "github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -591,94 +590,82 @@ func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsPartial(c *tc.C) {
 	})
 }
 
-// TestGetStorageInstancesForUnitUUIDNotValid tests that
-// [Service.GetStorageInstancesForUnit] returns an error satisfying
+// TestGetStorageClassificationForUnitsUUIDNotValid tests that
+// [Service.GetStorageClassificationForUnits] returns an error satisfying
 // [coreerrors.NotValid] when called with an invalid unit UUID. The test
 // verifies that UUID validation occurs before any state operations.
-func (s *instanceSuite) TestGetStorageInstancesForUnitUUIDNotValid(c *tc.C) {
+func (s *instanceSuite) TestGetStorageClassificationForUnitsUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	invalidUUID := coreunit.UUID("invalid")
 
 	svc := NewService(
 		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
-	_, err := svc.GetStorageInstancesForUnit(c.Context(), invalidUUID)
+	_, err := svc.GetStorageClassificationForUnits(c.Context(), []coreunit.UUID{invalidUUID})
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-// TestGetStorageInstancesForUnitNotFound asserts that when the unit does not
-// exist [Service.GetStorageInstancesForUnit] propagates the
-// [domainapplicationerrors.UnitNotFound] error returned by state.
-func (s *instanceSuite) TestGetStorageInstancesForUnitNotFound(c *tc.C) {
+// TestGetStorageClassificationForUnitsEmptyInput asserts that an empty slice
+// of unit UUIDs returns an empty map without querying state.
+func (s *instanceSuite) TestGetStorageClassificationForUnitsEmptyInput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	unitUUID := tc.Must(c, coreunit.NewUUID)
-
-	stateExp := s.state.EXPECT()
-	stateExp.GetStorageInstanceUUIDsForUnit(gomock.Any(), unitUUID.String()).Return(
-		nil, domainapplicationerrors.UnitNotFound,
-	)
 
 	svc := NewService(
 		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
-	_, err := svc.GetStorageInstancesForUnit(c.Context(), unitUUID)
-	c.Check(err, tc.ErrorIs, domainapplicationerrors.UnitNotFound)
+	res, err := svc.GetStorageClassificationForUnits(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, map[coreunit.UUID][]domainstorage.StorageInstanceClassification{})
 }
 
-// TestGetStorageInstancesForUnit tests the happy path for
-// [Service.GetStorageInstancesForUnit], asserting that the storage instances
-// attached to the unit are returned with their mapped information in the order
-// supplied by state.
-func (s *instanceSuite) TestGetStorageInstancesForUnit(c *tc.C) {
+// TestGetStorageClassificationForUnits tests the happy path for
+// [Service.GetStorageClassificationForUnits], asserting that the minimal
+// storage information for each unit is mapped and returned.
+func (s *instanceSuite) TestGetStorageClassificationForUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitUUID1 := tc.Must(c, coreunit.NewUUID)
+	unitUUID2 := tc.Must(c, coreunit.NewUUID)
 	blockInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	filesystemInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 
-	stateExp := s.state.EXPECT()
-	stateExp.GetStorageInstanceUUIDsForUnit(gomock.Any(), unitUUID.String()).Return(
-		[]domainstorage.StorageInstanceUUID{
-			blockInstanceUUID,
-			filesystemInstanceUUID,
-		}, nil,
-	)
-	stateExp.GetStorageInstanceInfo(c.Context(), blockInstanceUUID).Return(
-		internal.StorageInstanceInfo{
-			StorageID: "single-blk/0",
-			Kind:      domainstorage.StorageKindBlock,
-			Life:      domainlife.Alive,
-			UUID:      blockInstanceUUID,
-			Volume:    &internal.StorageInstanceInfoVolume{Persistent: true},
-		}, nil,
-	)
-	stateExp.GetStorageInstanceInfo(c.Context(), filesystemInstanceUUID).Return(
-		internal.StorageInstanceInfo{
-			StorageID: "single-fs/0",
-			Kind:      domainstorage.StorageKindFilesystem,
-			Life:      domainlife.Alive,
-			UUID:      filesystemInstanceUUID,
+	s.state.EXPECT().GetStorageClassificationForUnits(
+		gomock.Any(), []string{unitUUID1.String(), unitUUID2.String()},
+	).Return(
+		map[string][]internal.StorageInstanceClassification{
+			unitUUID1.String(): {
+				{
+					Persistent:  true,
+					StorageID:   "single-blk/0",
+					StorageUUID: blockInstanceUUID.String(),
+					UnitUUID:    unitUUID1.String(),
+				},
+				{
+					Persistent:  false,
+					StorageID:   "single-fs/0",
+					StorageUUID: filesystemInstanceUUID.String(),
+					UnitUUID:    unitUUID1.String(),
+				},
+			},
 		}, nil,
 	)
 
 	svc := NewService(
 		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
-	res, err := svc.GetStorageInstancesForUnit(c.Context(), unitUUID)
+	res, err := svc.GetStorageClassificationForUnits(c.Context(), []coreunit.UUID{unitUUID1, unitUUID2})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(res, tc.DeepEquals, []domainstorage.StorageInstanceInfo{
-		{
-			ID:         "single-blk/0",
-			Kind:       domainstorage.StorageKindBlock,
-			Life:       domainlife.Alive,
-			Persistent: true,
-			UUID:       blockInstanceUUID,
-		},
-		{
-			ID:         "single-fs/0",
-			Kind:       domainstorage.StorageKindFilesystem,
-			Life:       domainlife.Alive,
-			Persistent: false,
-			UUID:       filesystemInstanceUUID,
+	c.Check(res, tc.DeepEquals, map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
+		unitUUID1: {
+			{
+				ID:         "single-blk/0",
+				Persistent: true,
+				UUID:       blockInstanceUUID,
+			},
+			{
+				ID:         "single-fs/0",
+				Persistent: false,
+				UUID:       filesystemInstanceUUID,
+			},
 		},
 	})
 }

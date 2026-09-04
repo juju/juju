@@ -105,43 +105,51 @@ func (s *Service) GetStorageInstanceInfo(
 	return retVal, nil
 }
 
-// GetStorageInstancesForUnit returns the information about all of the storage
-// instances attached to the unit with the input UUID. If the unit has no
-// storage attachments an empty slice is returned.
+// GetStorageClassificationForUnits returns the storage instances attached to
+//the input units,keyed by unit UUID,along with the minimal information
+// needed to classify each instance as destroyed or detached when its unit
+// is removed. Units with no attached storage are absent from the returned
+//map。 Units are expected to have been resolved by the caller,so units that no
+// longer exist simply do not appear in the result。
 //
 // The following errors may be returned:
-// - [coreerrors.NotValid] when the supplied Unit UUID is not valid.
-// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when the
-// unit does not exist.
-func (s *Service) GetStorageInstancesForUnit(
-	ctx context.Context, unitUUID coreunit.UUID,
-) ([]domainstorage.StorageInstanceInfo, error) {
+// - [coreerrors.NotValid] when one of the supplied Unit UUIDs is not valid.
+
+func (s *Service) GetStorageClassificationForUnits(
+	ctx context.Context, unitUUIDs []coreunit.UUID,
+) (map[coreunit.UUID][]domainstorage.StorageInstanceClassification, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := unitUUID.Validate(); err != nil {
-		return nil, errors.Errorf(
-			"unit uuid is not valid",
-		).Add(coreerrors.NotValid)
+	if len(unitUUIDs) == 0 {
+		return map[coreunit.UUID][]domainstorage.StorageInstanceClassification{}, nil
 	}
 
-	instanceUUIDs, err := s.st.GetStorageInstanceUUIDsForUnit(ctx, unitUUID.String())
+	unitUUIDStrs := make([]string, len(unitUUIDs))
+	for i, unitUUID := range unitUUIDs {
+		if err := unitUUID.Validate(); err != nil {
+			return nil, errors.New("unit uuid is not valid").Add(coreerrors.NotValid)
+		}
+		unitUUIDStrs[i] = unitUUID.String()
+	}
+
+	classifications, err := s.st.GetStorageClassificationForUnits(ctx, unitUUIDStrs)
 	if err != nil {
 		return nil, err
 	}
 
-	instances := make([]domainstorage.StorageInstanceInfo, 0, len(instanceUUIDs))
-	for _, instanceUUID := range instanceUUIDs {
-		instance, err := s.GetStorageInstanceInfo(ctx, instanceUUID)
-		if err != nil {
-			return nil, errors.Errorf(
-				"getting storage instance %q for unit %q: %w",
-				instanceUUID, unitUUID, err,
-			)
+	ret := make(map[coreunit.UUID][]domainstorage.StorageInstanceClassification, len(classifications))
+	for unitUUIDStr, instances := range classifications {
+		unitUUID := coreunit.UUID(unitUUIDStr)
+		for _, instance := range instances {
+			ret[unitUUID] = append(ret[unitUUID], domainstorage.StorageInstanceClassification{
+				ID:         instance.StorageID,
+				Persistent: instance.Persistent,
+				UUID:       domainstorage.StorageInstanceUUID(instance.StorageUUID),
+			})
 		}
-		instances = append(instances, instance)
 	}
-	return instances, nil
+	return ret, nil
 }
 
 // GetStorageInstanceUUIDForID returns the StorageInstanceUUID for the given

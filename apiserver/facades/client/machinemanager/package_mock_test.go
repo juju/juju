@@ -467,8 +467,8 @@ type MockStorageService struct {
 
 // MockStorageServiceMockRecorder is the mock recorder for MockStorageService.
 type MockStorageServiceMockRecorder struct {
-	mock                              *MockStorageService
-	getStorageInstancesForUnitExpects []*gomock.Call2_2[context.Context, unit.UUID, []storage.StorageInstanceInfo, error]
+	mock                                    *MockStorageService
+	getStorageClassificationForUnitsExpects []*gomock.Call2_2[context.Context, []unit.UUID, map[unit.UUID][]storage.StorageInstanceClassification, error]
 }
 
 // NewMockStorageService creates a new mock instance.
@@ -483,23 +483,23 @@ func (m *MockStorageService) EXPECT() *MockStorageServiceMockRecorder {
 	return m.recorder
 }
 
-// GetStorageInstancesForUnit mocks base method.
-func (m *MockStorageService) GetStorageInstancesForUnit(ctx context.Context, unitUUID unit.UUID) ([]storage.StorageInstanceInfo, error) {
+// GetStorageClassificationForUnits mocks base method.
+func (m *MockStorageService) GetStorageClassificationForUnits(ctx context.Context, unitUUIDs []unit.UUID) (map[unit.UUID][]storage.StorageInstanceClassification, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getStorageInstancesForUnitExpects, m.ctrl, m, "GetStorageInstancesForUnit", ctx, unitUUID)
+	return gomock.Dispatch2_2(&m.recorder.getStorageClassificationForUnitsExpects, m.ctrl, m, "GetStorageClassificationForUnits", ctx, unitUUIDs)
 }
 
-// GetStorageInstancesForUnit indicates an expected call of GetStorageInstancesForUnit.
-func (mr *MockStorageServiceMockRecorder) GetStorageInstancesForUnit(ctx, unitUUID any) *MockStorageServiceGetStorageInstancesForUnitCall {
+// GetStorageClassificationForUnits indicates an expected call of GetStorageClassificationForUnits.
+func (mr *MockStorageServiceMockRecorder) GetStorageClassificationForUnits(ctx, unitUUIDs any) *MockStorageServiceGetStorageClassificationForUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, unit.UUID, []storage.StorageInstanceInfo, error](mr.mock.ctrl.T, mr.mock, "GetStorageInstancesForUnit", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitUUID))
-	mr.getStorageInstancesForUnitExpects = append(mr.getStorageInstancesForUnitExpects, call)
+	call := gomock.NewCall2_2[context.Context, []unit.UUID, map[unit.UUID][]storage.StorageInstanceClassification, error](mr.mock.ctrl.T, mr.mock, "GetStorageClassificationForUnits", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitUUIDs))
+	mr.getStorageClassificationForUnitsExpects = append(mr.getStorageClassificationForUnitsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockStorageServiceGetStorageInstancesForUnitCall is the typed call wrapper for GetStorageInstancesForUnit.
-type MockStorageServiceGetStorageInstancesForUnitCall = gomock.Call2_2[context.Context, unit.UUID, []storage.StorageInstanceInfo, error]
+// MockStorageServiceGetStorageClassificationForUnitsCall is the typed call wrapper for GetStorageClassificationForUnits.
+type MockStorageServiceGetStorageClassificationForUnitsCall = gomock.Call2_2[context.Context, []unit.UUID, map[unit.UUID][]storage.StorageInstanceClassification, error]
 
 // MockNetworkService is a mock of NetworkService interface.
 type MockNetworkService struct {

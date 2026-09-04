@@ -63,16 +63,18 @@ type State interface {
 		context.Context, domainstorage.StorageInstanceUUID,
 	) (internal.StorageInstanceInfo, error)
 
-	// GetStorageInstanceUUIDsForUnit returns the storage instance UUIDs
-	// attached to the unit with the input UUID. If the unit has no storage
-	// attachments an empty slice is returned.
+	// GetStorageClassificationForUnits returns the storage instances attached to
+	// the input units,keyed by unit UUID,along with the minimal information
+	// needed to classify each instance as destroyed or detached when its unit
+	// is removed. Units with no attached storage are absent from the returned
+	//map.
 	//
-	// The following errors may be returned:
-	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] if the
-	// unit does not exist.
-	GetStorageInstanceUUIDsForUnit(
-		ctx context.Context, unitUUID string,
-	) ([]domainstorage.StorageInstanceUUID, error)
+	// This method deliberately does not verify that the input units exist;the
+	// caller is expected to have resolved the units first.
+
+	GetStorageClassificationForUnits(
+		context.Context, []string,
+	) (map[string][]internal.StorageInstanceClassification, error)
 
 	// GetStorageInstanceUUIDByID retrieves the UUID of a storage instance by
 	// its ID.

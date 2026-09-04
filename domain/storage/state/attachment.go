@@ -12,6 +12,7 @@ import (
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
+	"github.com/juju/juju/domain/storage/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -176,50 +177,51 @@ WHERE storage_instance_uuid = $storageInstanceUUID.uuid
 	return rval, nil
 }
 
-// GetStorageInstanceUUIDsForUnit returns the storage instance UUIDs attached
-// to the unit with the input UUID. If the unit has no storage attachments an
-// empty slice is returned.
+// GetStorageClassificationForUnits returns the storage instances attached to
+// the input units,keyed by unit UUID,along with the minimal information
+// needed to classify each instance as destroyed or detached when its unit
+// is removed. Units with no attached storage are absent from the returned map.
 //
-// The following errors may be returned:
-// - [domainapplicationerrors.UnitNotFound] if the unit does not exist.
-func (s *State) GetStorageInstanceUUIDsForUnit(
-	ctx context.Context, unitUUIDStr string,
-) ([]domainstorage.StorageInstanceUUID, error) {
+// This method deliberately does not verify that the input units exist. The
+// caller is expected to have resolved the units first,so units that vanish
+// mid-flight simply contribute no entries.
+
+func (s *State) GetStorageClassificationForUnits(
+	ctx context.Context, unitUUIDs []string,
+) (map[string][]internal.StorageInstanceClassification, error) {
+	if len(unitUUIDs) == 0 {
+		return map[string][]internal.StorageInstanceClassification{}, nil
+	}
+
 	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	unitUUIDInput := entityUUID{UUID: unitUUIDStr}
-
 	stmt, err := s.Prepare(`
-SELECT si.uuid AS &entityUUID.uuid
-FROM   storage_attachment sa
-JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
-WHERE  sa.unit_uuid = $entityUUID.uuid`, entityUUID{})
+SELECT sa.unit_uuid              AS &storageClassification.unit_uuid,
+        si.uuid                  AS &storageClassification.storage_uuid,
+        si.storage_id            AS &storageClassification.storage_id,
+        sv.persistent            AS &storageClassification.persistent
+FROM    storage_attachment AS sa
+JOIN    storage_instance AS si ON si.uuid = sa.storage_instance_uuid
+LEFT JOIN storage_instance_volume AS siv ON siv.storage_instance_uuid = si.uuid
+LEFT JOIN storage_volume AS sv ON sv.uuid = siv.storage_volume_uuid
+WHERE   sa.unit_uuid IN ($uuids[:])
+ORDER BY sa.unit_uuid, sa.storage_instance_uuid
+`, uuids{}, storageClassification{})
 	if err != nil {
 		return nil, errors.Errorf(
-			"preparing storage instance UUIDs for unit query: %w", err,
+			"preparing storage classification query: %w", err,
 		)
 	}
 
-	var dbVals []entityUUID
+	var dbVals []storageClassification
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		exists, err := s.checkUnitExists(ctx, tx, coreunit.UUID(unitUUIDStr))
-		if err != nil {
-			return errors.Capture(err)
-		}
-		if !exists {
-			return errors.Errorf(
-				"unit %q does not exist", unitUUIDStr,
-			).Add(domainapplicationerrors.UnitNotFound)
-		}
-
-		err = tx.Query(ctx, stmt, unitUUIDInput).GetAll(&dbVals)
+		dbVals = nil // reset the accumulator at the top of the closure.
+		err = tx.Query(ctx, stmt, uuids(unitUUIDs)).GetAll(&dbVals)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf(
-				"getting storage instance UUIDs for unit %q: %w", unitUUIDStr, err,
-			)
+			return errors.Errorf("getting storage classification: %w", err)
 		}
 		return nil
 	})
@@ -227,9 +229,15 @@ WHERE  sa.unit_uuid = $entityUUID.uuid`, entityUUID{})
 		return nil, errors.Capture(err)
 	}
 
-	rval := make([]domainstorage.StorageInstanceUUID, 0, len(dbVals))
-	for _, dbVal := range dbVals {
-		rval = append(rval, domainstorage.StorageInstanceUUID(dbVal.UUID))
+	ret := make(map[string][]internal.StorageInstanceClassification, len(dbVals))
+	for _, v := range dbVals {
+		instance := internal.StorageInstanceClassification{
+			Persistent:  v.Persistent.V,
+			StorageID:   v.StorageID,
+			StorageUUID: v.StorageUUID,
+			UnitUUID:    v.UnitUUID,
+		}
+		ret[v.UnitUUID] = append(ret[v.UnitUUID], instance)
 	}
-	return rval, nil
+	return ret, nil
 }

@@ -37,12 +37,12 @@ type MockStateMockRecorder struct {
 	deleteStoragePoolExpects                                       []*gomock.Call2_1[context.Context, string, error]
 	getFilesystemUUIDsByMachinesExpects                            []*gomock.Call2_2[context.Context, []machine.UUID, []storage.FilesystemUUID, error]
 	getStorageAttachmentUUIDForStorageInstanceAndUnitExpects       []*gomock.Call3_2[context.Context, storage.StorageInstanceUUID, unit.UUID, storage.StorageAttachmentUUID, error]
+	getStorageClassificationForUnitsExpects                        []*gomock.Call2_2[context.Context, []string, map[string][]internal.StorageInstanceClassification, error]
 	getStorageFilesystemUUIDByProviderIDExpects                    []*gomock.Call2_2[context.Context, string, storage.FilesystemUUID, error]
 	getStorageInstanceAttachmentsExpects                           []*gomock.Call2_2[context.Context, storage.StorageInstanceUUID, []storage.StorageAttachmentUUID, error]
 	getStorageInstanceInfoExpects                                  []*gomock.Call2_2[context.Context, storage.StorageInstanceUUID, internal.StorageInstanceInfo, error]
 	getStorageInstanceUUIDByIDExpects                              []*gomock.Call2_2[context.Context, string, storage.StorageInstanceUUID, error]
 	getStorageInstanceUUIDsByIDsExpects                            []*gomock.Call2_2[context.Context, []string, map[string]storage.StorageInstanceUUID, error]
-	getStorageInstanceUUIDsForUnitExpects                          []*gomock.Call2_2[context.Context, string, []storage.StorageInstanceUUID, error]
 	getStoragePoolExpects                                          []*gomock.Call2_2[context.Context, storage.StoragePoolUUID, storage.StoragePool, error]
 	getStoragePoolUUIDExpects                                      []*gomock.Call2_2[context.Context, string, storage.StoragePoolUUID, error]
 	getStoragePoolUUIDsByNameExpects                               []*gomock.Call2_2[context.Context, []string, []storage.StoragePoolNameUUID, error]
@@ -175,6 +175,24 @@ func (mr *MockStateMockRecorder) GetStorageAttachmentUUIDForStorageInstanceAndUn
 // MockStateGetStorageAttachmentUUIDForStorageInstanceAndUnitCall is the typed call wrapper for GetStorageAttachmentUUIDForStorageInstanceAndUnit.
 type MockStateGetStorageAttachmentUUIDForStorageInstanceAndUnitCall = gomock.Call3_2[context.Context, storage.StorageInstanceUUID, unit.UUID, storage.StorageAttachmentUUID, error]
 
+// GetStorageClassificationForUnits mocks base method.
+func (m *MockState) GetStorageClassificationForUnits(arg0 context.Context, arg1 []string) (map[string][]internal.StorageInstanceClassification, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getStorageClassificationForUnitsExpects, m.ctrl, m, "GetStorageClassificationForUnits", arg0, arg1)
+}
+
+// GetStorageClassificationForUnits indicates an expected call of GetStorageClassificationForUnits.
+func (mr *MockStateMockRecorder) GetStorageClassificationForUnits(arg0, arg1 any) *MockStateGetStorageClassificationForUnitsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, []string, map[string][]internal.StorageInstanceClassification, error](mr.mock.ctrl.T, mr.mock, "GetStorageClassificationForUnits", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getStorageClassificationForUnitsExpects = append(mr.getStorageClassificationForUnitsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetStorageClassificationForUnitsCall is the typed call wrapper for GetStorageClassificationForUnits.
+type MockStateGetStorageClassificationForUnitsCall = gomock.Call2_2[context.Context, []string, map[string][]internal.StorageInstanceClassification, error]
+
 // GetStorageFilesystemUUIDByProviderID mocks base method.
 func (m *MockState) GetStorageFilesystemUUIDByProviderID(ctx context.Context, providerID string) (storage.FilesystemUUID, error) {
 	m.ctrl.T.Helper()
@@ -264,24 +282,6 @@ func (mr *MockStateMockRecorder) GetStorageInstanceUUIDsByIDs(ctx, storageIDs an
 
 // MockStateGetStorageInstanceUUIDsByIDsCall is the typed call wrapper for GetStorageInstanceUUIDsByIDs.
 type MockStateGetStorageInstanceUUIDsByIDsCall = gomock.Call2_2[context.Context, []string, map[string]storage.StorageInstanceUUID, error]
-
-// GetStorageInstanceUUIDsForUnit mocks base method.
-func (m *MockState) GetStorageInstanceUUIDsForUnit(ctx context.Context, unitUUID string) ([]storage.StorageInstanceUUID, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getStorageInstanceUUIDsForUnitExpects, m.ctrl, m, "GetStorageInstanceUUIDsForUnit", ctx, unitUUID)
-}
-
-// GetStorageInstanceUUIDsForUnit indicates an expected call of GetStorageInstanceUUIDsForUnit.
-func (mr *MockStateMockRecorder) GetStorageInstanceUUIDsForUnit(ctx, unitUUID any) *MockStateGetStorageInstanceUUIDsForUnitCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, []storage.StorageInstanceUUID, error](mr.mock.ctrl.T, mr.mock, "GetStorageInstanceUUIDsForUnit", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitUUID))
-	mr.getStorageInstanceUUIDsForUnitExpects = append(mr.getStorageInstanceUUIDsForUnitExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateGetStorageInstanceUUIDsForUnitCall is the typed call wrapper for GetStorageInstanceUUIDsForUnit.
-type MockStateGetStorageInstanceUUIDsForUnitCall = gomock.Call2_2[context.Context, string, []storage.StorageInstanceUUID, error]
 
 // GetStoragePool mocks base method.
 func (m *MockState) GetStoragePool(ctx context.Context, poolUUID storage.StoragePoolUUID) (storage.StoragePool, error) {

@@ -15,44 +15,53 @@ import (
 )
 
 // StorageRemovalClassifier defines the subset of the storage service that is
-// required to list the storage instances attached to the units being removed.
+// required to classify the storage attached to a set of units being removed.
 type StorageRemovalClassifier interface {
-	// GetStorageInstancesForUnit returns the storage instances attached to the
-	// unit with the input UUID.
-	GetStorageInstancesForUnit(
-		ctx context.Context, unitUUID coreunit.UUID,
-	) ([]domainstorage.StorageInstanceInfo, error)
+	// GetStorageClassificationForUnits returns,keyed by unit UUID,the
+	// storage instances attached to the input units,along with the minimal
+	// information needed to classify each as destroyed or detached when its
+	// unit is removed.
+	GetStorageClassificationForUnits(
+		ctx context.Context, unitUUIDs []coreunit.UUID,
+	) (map[coreunit.UUID][]domainstorage.StorageInstanceClassification, error)
 }
 
 // ClassifyStorageRemoval classifies the storage instances attached to the
 // input units into those that will be destroyed and those that will be
-// detached when the units are removed.
+// detached when the units are removed. If destroyStorage is true, every
+// attached storage instance is classified as destroyed. Otherwise a
+// storage instance is classified as detached when it is persistent,as
+// its life cycle outlives the units it is attached to,and destroyed when it
+// is not.
 //
-// If destroyStorage is true, every attached storage instance is classified as
-// destroyed. Otherwise a storage instance is classified as detached when it is
-// persistent, as its life cycle outlives the units it is attached to, and
-// destroyed when it is not.
-//
-// Storage instances attached to more than one of the removed units are only
-// reported once. The returned entities preserve the order in which the storage
-// instances are encountered.
+// Storage instances attached to more than one removed unit are only
+// reported once. Units are processed in the input order,and the storage
+// instances of each unit are reported in the deterministic order returned by
+// the storage service. Returns empty results when no units are supplied..
+
 func ClassifyStorageRemoval(
 	ctx context.Context,
 	storageService StorageRemovalClassifier,
 	unitUUIDs []coreunit.UUID,
 	destroyStorage bool,
 ) (destroyed, detached []params.Entity, _ error) {
+	if len(unitUUIDs) == 0 {
+		return nil, nil, nil
+	}
+
+	instancesByUnit, err := storageService.GetStorageClassificationForUnits(ctx, unitUUIDs)
+	if err != nil {
+		return nil, nil, errors.Errorf(
+			"getting storage classification: %w", err,
+		)
+	}
+
 	seen := make(map[string]bool)
 	for _, unitUUID := range unitUUIDs {
-		instances, err := storageService.GetStorageInstancesForUnit(ctx, unitUUID)
-		if err != nil {
-			return nil, nil, errors.Errorf(
-				"getting storage instances for unit %q: %w", unitUUID, err,
-			)
-		}
-		for _, instance := range instances {
-			// Storage can be shared by multiple units, so we must only
+		for _, instance := range instancesByUnit[unitUUID] {
+			// Storage can be shared by multiple units,so we must only
 			// report each storage instance once.
+
 			if seen[instance.UUID.String()] {
 				continue
 			}

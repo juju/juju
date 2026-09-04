@@ -37,8 +37,8 @@ func (s *storageRemovalSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *storageRemovalSuite) newInstance(c *tc.C, id string, persistent bool) domainstorage.StorageInstanceInfo {
-	return domainstorage.StorageInstanceInfo{
+func (s *storageRemovalSuite) newInstance(c *tc.C, id string, persistent bool) domainstorage.StorageInstanceClassification {
+	return domainstorage.StorageInstanceClassification{
 		ID:         id,
 		Persistent: persistent,
 		UUID:       tc.Must(c, domainstorage.NewStorageInstanceUUID),
@@ -46,7 +46,8 @@ func (s *storageRemovalSuite) newInstance(c *tc.C, id string, persistent bool) d
 }
 
 // TestClassifyStorageRemovalNoUnits asserts that an empty unit list results in
-// empty destroyed and detached storage lists.
+// empty destroyed and detached storage lists,and no storage service calls.
+
 func (s *storageRemovalSuite) TestClassifyStorageRemovalNoUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -67,8 +68,10 @@ func (s *storageRemovalSuite) TestClassifyStorageRemovalDetachesPersistent(c *tc
 	persistent := s.newInstance(c, "single-blk/0", true)
 	nonPersistent := s.newInstance(c, "single-fs/0", false)
 
-	s.storageService.EXPECT().GetStorageInstancesForUnit(c.Context(), unitUUID).Return(
-		[]domainstorage.StorageInstanceInfo{nonPersistent, persistent}, nil,
+	s.storageService.EXPECT().GetStorageClassificationForUnits(c.Context(), []coreunit.UUID{unitUUID}).Return(
+		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
+			unitUUID: {nonPersistent, persistent},
+		}, nil,
 	)
 
 	destroyed, detached, err := common.ClassifyStorageRemoval(
@@ -88,8 +91,10 @@ func (s *storageRemovalSuite) TestClassifyStorageRemovalDestroyStorage(c *tc.C) 
 	persistent := s.newInstance(c, "single-blk/0", true)
 	nonPersistent := s.newInstance(c, "single-fs/0", false)
 
-	s.storageService.EXPECT().GetStorageInstancesForUnit(c.Context(), unitUUID).Return(
-		[]domainstorage.StorageInstanceInfo{persistent, nonPersistent}, nil,
+	s.storageService.EXPECT().GetStorageClassificationForUnits(c.Context(), []coreunit.UUID{unitUUID}).Return(
+		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
+			unitUUID: {persistent, nonPersistent},
+		}, nil,
 	)
 
 	destroyed, detached, err := common.ClassifyStorageRemoval(
@@ -112,11 +117,11 @@ func (s *storageRemovalSuite) TestClassifyStorageRemovalDeduplicatesShared(c *tc
 	shared := s.newInstance(c, "db-dir/0", true)
 	nonPersistent := s.newInstance(c, "cache/0", false)
 
-	s.storageService.EXPECT().GetStorageInstancesForUnit(c.Context(), unitUUID1).Return(
-		[]domainstorage.StorageInstanceInfo{shared, nonPersistent}, nil,
-	)
-	s.storageService.EXPECT().GetStorageInstancesForUnit(c.Context(), unitUUID2).Return(
-		[]domainstorage.StorageInstanceInfo{shared}, nil,
+	s.storageService.EXPECT().GetStorageClassificationForUnits(c.Context(), []coreunit.UUID{unitUUID1, unitUUID2}).Return(
+		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
+			unitUUID1: {shared, nonPersistent},
+			unitUUID2: {shared},
+		}, nil,
 	)
 
 	destroyed, detached, err := common.ClassifyStorageRemoval(
@@ -134,7 +139,7 @@ func (s *storageRemovalSuite) TestClassifyStorageRemovalError(c *tc.C) {
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	boom := stderrors.New("boom")
 
-	s.storageService.EXPECT().GetStorageInstancesForUnit(c.Context(), unitUUID).Return(
+	s.storageService.EXPECT().GetStorageClassificationForUnits(c.Context(), []coreunit.UUID{unitUUID}).Return(
 		nil, boom,
 	)
 

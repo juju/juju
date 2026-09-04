@@ -1018,21 +1018,6 @@ func (api *APIBase) Unexpose(ctx context.Context, args params.ApplicationUnexpos
 	return nil
 }
 
-// classifyStorageRemoval reports which storage instances attached to the
-// input units will be destroyed or detached when those units are removed.
-//
-// Storage instances are only reported for IAAS models. Container models back
-// their storage with persistent volumes whose life cycle is not tied to that
-// of the removed units, so their classification would be misleading.
-func (api *APIBase) classifyStorageRemoval(
-	ctx context.Context, unitUUIDs []coreunit.UUID, destroyStorage bool,
-) (destroyed, detached []params.Entity, _ error) {
-	if api.modelType == model.CAAS {
-		return nil, nil, nil
-	}
-	return common.ClassifyStorageRemoval(ctx, api.storageService, unitUUIDs, destroyStorage)
-}
-
 // DestroyUnit removes a given set of application units.
 func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
 	if api.modelType == model.CAAS {
@@ -1215,6 +1200,21 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 	return params.DestroyApplicationResults{
 		Results: results,
 	}, nil
+}
+
+// classifyStorageRemoval reports which storage instances attached to the
+// input units will be destroyed or detached when those units are removed.
+//
+// Storage instances are only reported for IAAS models. Container models back
+// their storage with persistent volumes whose life cycle is not tied to that
+// of the removed units, so their classification would be misleading.
+func (api *APIBase) classifyStorageRemoval(
+	ctx context.Context, unitUUIDs []coreunit.UUID, destroyStorage bool,
+) (destroyed, detached []params.Entity, _ error) {
+	if api.modelType == model.CAAS {
+		return nil, nil, nil
+	}
+	return common.ClassifyStorageRemoval(ctx, api.storageService, unitUUIDs, destroyStorage)
 }
 
 // DestroyConsumedApplications removes a given set of consumed (remote) applications.
