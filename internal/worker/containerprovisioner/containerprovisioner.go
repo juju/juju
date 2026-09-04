@@ -259,9 +259,14 @@ func (p *containerProvisioner) getStartTask(ctx context.Context, workerCount int
 	if err != nil {
 		return nil, errors.Annotate(err, "could not retrieve the controller config.")
 	}
+	modelUUID, err := p.controllerAPI.ModelUUID(ctx)
+	if err != nil {
+		return nil, errors.Annotate(err, "could not retrieve the model UUID.")
+	}
 
 	task, err := provisionertask.NewProvisionerTask(provisionertask.TaskConfig{
 		ControllerUUID:               controllerCfg.ControllerUUID(),
+		ModelUUID:                    modelUUID,
 		HostTag:                      hostTag,
 		Logger:                       p.logger,
 		ControllerAPI:                p.controllerAPI,

@@ -46,5 +46,10 @@ func SetupToStartMachine(
 	version *semversion.Number,
 	pInfoResult params.ProvisioningInfoResult,
 ) (environs.StartInstanceParams, error) {
-	return p.(*provisionerTask).setupToStartMachine(c.Context(), machine, version, pInfoResult)
+	task := p.(*provisionerTask)
+	modelConfig, err := task.controllerAPI.ModelConfig(c.Context())
+	if err != nil {
+		return environs.StartInstanceParams{}, err
+	}
+	return task.setupToStartMachine(c.Context(), machine, version, pInfoResult, modelConfig)
 }

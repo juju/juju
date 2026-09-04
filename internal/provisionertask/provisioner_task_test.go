@@ -364,6 +364,7 @@ func (s *ProvisionerTaskSuite) TestSetUpToStartMachineDisablesOSUpdates(c *tc.C)
 
 func (s *ProvisionerTaskSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
+	s.modelConfig = s.newModelConfigWithAgentVersion(c, false, false, semversion.MustParse("6.6.6"))
 
 	task := s.newProvisionerTask(c,
 		&mockDistributionGroupFinder{},
@@ -373,9 +374,8 @@ func (s *ProvisionerTaskSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvail
 	defer workertest.CleanKill(c, task)
 
 	m0 := &testMachine{
-		c:            c,
-		id:           "0",
-		agentVersion: semversion.MustParse("6.6.6"),
+		c:  c,
+		id: "0",
 	}
 
 	s.expectMachines(m0)
@@ -445,6 +445,7 @@ func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *tc.C) {
 	}
 	err := retry.Call(retryCallArgs)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.modelConfigCalls, tc.Equals, 1)
 
 	zoneCounts := make(map[string]int)
 	for _, z := range usedZones {
@@ -1663,6 +1664,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 ) provisionertask.ProvisionerTask {
 	w, err := provisionertask.NewProvisionerTask(provisionertask.TaskConfig{
 		ControllerUUID:               internaltesting.ControllerTag.Id(),
+		ModelUUID:                    internaltesting.ModelTag.Id(),
 		HostTag:                      names.NewMachineTag("0"),
 		Logger:                       loggertesting.WrapCheckLog(c),
 		ControllerAPI:                s.controllerAPI,
@@ -1699,6 +1701,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(
 ) provisionertask.ProvisionerTask {
 	task, err := provisionertask.NewProvisionerTask(provisionertask.TaskConfig{
 		ControllerUUID:          internaltesting.ControllerTag.Id(),
+		ModelUUID:               internaltesting.ModelTag.Id(),
 		HostTag:                 names.NewMachineTag("0"),
 		Logger:                  loggertesting.WrapCheckLog(c),
 		ControllerAPI:           s.controllerAPI,
@@ -1733,7 +1736,18 @@ func (s *ProvisionerTaskSuite) setUpMocks(c *tc.C) *gomock.Controller {
 func (s *ProvisionerTaskSuite) newModelConfig(
 	c *tc.C, enableOSRefreshUpdate, enableOSUpgrade bool,
 ) *config.Config {
+	return s.newModelConfigWithAgentVersion(
+		c, enableOSRefreshUpdate, enableOSUpgrade, internaltesting.FakeVersionNumber,
+	)
+}
+
+func (s *ProvisionerTaskSuite) newModelConfigWithAgentVersion(
+	c *tc.C,
+	enableOSRefreshUpdate, enableOSUpgrade bool,
+	agentVersion semversion.Number,
+) *config.Config {
 	modelConfig, err := config.New(config.NoDefaults, internaltesting.FakeConfig().Merge(internaltesting.Attrs{
+		config.AgentVersionKey:          agentVersion.String(),
 		config.EnableOSRefreshUpdateKey: enableOSRefreshUpdate,
 		config.EnableOSUpgradeKey:       enableOSUpgrade,
 	}))
@@ -1897,7 +1911,6 @@ type testMachine struct {
 
 	id             string
 	life           life.Value
-	agentVersion   semversion.Number
 	instance       *testInstance
 	keepInstance   bool
 	markForRemoval bool
@@ -2021,10 +2034,7 @@ func (m *testMachine) Status(context.Context) (status.Status, string, error) {
 }
 
 func (m *testMachine) ModelAgentVersion(context.Context) (*semversion.Number, error) {
-	if m.agentVersion == semversion.Zero {
-		return &internaltesting.FakeVersionNumber, nil
-	}
-	return &m.agentVersion, nil
+	return nil, errors.New("unexpected ModelAgentVersion call")
 }
 
 func (m *testMachine) SetUnprovisioned() {
