@@ -28,10 +28,10 @@ import (
 
 var logger = internallogger.GetLogger("juju.worker.introspection")
 
-// introspectionReportTimeout bounds how long we wait for the dependency
+// ReportTimeout bounds how long we wait for the dependency
 // engine report. A blocking worker report (e.g. a dqlite RPC during HA
 // teardown) must never wedge the introspection handler or the engine loop.
-const introspectionReportTimeout = 60 * time.Second
+const ReportTimeout = 60 * time.Second
 
 // DependencyEngine provides insight into the running dependency engine of the
 // agent.
@@ -209,7 +209,7 @@ func (h depengineHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing dependency engine reporter", http.StatusNotFound)
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), introspectionReportTimeout)
+	ctx, cancel := context.WithTimeout(r.Context(), ReportTimeout)
 	defer cancel()
 
 	bytes, err := yaml.Marshal(h.reporter.Report(ctx))

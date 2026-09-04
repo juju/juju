@@ -670,6 +670,10 @@ func (s *workerSuite) TestWorkerReportLeaderTimeout(c *tc.C) {
 
 	s.dbApp.EXPECT().Client(gomock.Any()).Return(s.client, nil).Times(1)
 	s.client.EXPECT().Leader(gomock.Any()).DoAndReturn(func(ctx context.Context) (*dqlite.NodeInfo, error) {
+		deadline, ok := ctx.Deadline()
+		c.Assert(ok, tc.IsTrue)
+		c.Check(time.Until(deadline) > 0, tc.IsTrue)
+		c.Check(time.Until(deadline) <= dbLeaderReportTimeout, tc.IsTrue)
 		<-ctx.Done()
 		return nil, ctx.Err()
 	})
@@ -685,6 +689,27 @@ func (s *workerSuite) TestWorkerReportLeaderTimeout(c *tc.C) {
 	c.Check(hasLeaderID, tc.IsFalse)
 	_, hasLeaderRole := report["leader-role"]
 	c.Check(hasLeaderRole, tc.IsFalse)
+}
+
+func (s *workerSuite) TestWorkerReportLeaderContextDeadline(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	dbw, cleanup := s.startRunningWorker(c)
+	defer cleanup()
+
+	var receivedDeadline time.Time
+	s.dbApp.EXPECT().Client(gomock.Any()).Return(s.client, nil).Times(1)
+	s.client.EXPECT().Leader(gomock.Any()).DoAndReturn(func(ctx context.Context) (*dqlite.NodeInfo, error) {
+		var ok bool
+		receivedDeadline, ok = ctx.Deadline()
+		c.Assert(ok, tc.IsTrue)
+		return nil, errors.New("cannot determine leader")
+	})
+
+	report := dbw.Report(c.Context())
+	c.Check(report["leader-error"], tc.Equals, "cannot determine leader")
+	c.Check(time.Until(receivedDeadline) > 0, tc.IsTrue)
+	c.Check(time.Until(receivedDeadline) <= dbLeaderReportTimeout, tc.IsTrue)
 }
 
 func (s *workerSuite) TestWorkerReportClientError(c *tc.C) {
