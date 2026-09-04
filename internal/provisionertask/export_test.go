@@ -53,3 +53,11 @@ func SetupToStartMachine(
 	}
 	return task.setupToStartMachine(c.Context(), machine, version, pInfoResult, modelConfig)
 }
+
+func QueueStartMachines(
+	c *tc.C,
+	p ProvisionerTask,
+	machines ...apiprovisioner.MachineProvisioner,
+) error {
+	return p.(*provisionerTask).queueStartMachines(c.Context(), machines)
+}

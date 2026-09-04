@@ -87,6 +87,7 @@ type ProvisionerTaskSuite struct {
 	controllerAPI    *MockControllerAPI
 	machinesAPI      *MockMachinesAPI
 	modelConfig      *config.Config
+	modelConfigErr   error
 	modelConfigCalls int
 
 	instances      []instances.Instance
@@ -106,6 +107,7 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *tc.C) {
 
 	s.machineErrorRetryChanges = make(chan struct{})
 	s.machineErrorRetryWatcher = watchertest.NewMockNotifyWatcher(s.machineErrorRetryChanges)
+	s.modelConfigErr = nil
 	s.modelConfigCalls = 0
 
 	s.instances = []instances.Instance{}
@@ -385,6 +387,51 @@ func (s *ProvisionerTaskSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvail
 	// Ensure machine error status was set, and the error matches
 	msg := s.waitForInstanceStatus(c, m0, status.ProvisioningError)
 	c.Check(msg, tc.Equals, "no matching agent binaries available")
+}
+
+func (s *ProvisionerTaskSuite) TestQueueStartMachinesFailsWithoutModelAgentVersion(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	modelConfig, err := config.New(config.NoDefaults, internaltesting.FakeConfig())
+	c.Assert(err, tc.ErrorIsNil)
+	s.modelConfig = modelConfig
+
+	task := s.newProvisionerTask(
+		c,
+		&mockDistributionGroupFinder{},
+		mockToolsFinder{},
+		numProvisionWorkersForTesting,
+	)
+	defer workertest.CleanKill(c, task)
+
+	machine := &testMachine{c: c, id: "0"}
+	s.expectProvisioningInfo(machine)
+
+	err = provisionertask.QueueStartMachines(c, task, machine)
+	c.Check(err, tc.ErrorMatches, "failed to get model's agent version\\.")
+	c.Check(machine.password, tc.Equals, "")
+	s.instanceBroker.CheckNoCalls(c)
+}
+
+func (s *ProvisionerTaskSuite) TestQueueStartMachinesPropagatesModelConfigError(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	s.modelConfigErr = errors.New("cannot load model config")
+	task := s.newProvisionerTask(
+		c,
+		&mockDistributionGroupFinder{},
+		mockToolsFinder{},
+		numProvisionWorkersForTesting,
+	)
+	defer workertest.CleanKill(c, task)
+
+	machine := &testMachine{c: c, id: "0"}
+	s.expectProvisioningInfo(machine)
+
+	err := provisionertask.QueueStartMachines(c, task, machine)
+	c.Check(err, tc.ErrorIs, s.modelConfigErr)
+	c.Check(machine.password, tc.Equals, "")
+	s.instanceBroker.CheckNoCalls(c)
 }
 
 func (s *ProvisionerTaskSuite) TestEvenZonePlacement(c *tc.C) {
@@ -1761,6 +1808,9 @@ func (s *ProvisionerTaskSuite) expectAuth() {
 	s.controllerAPI.EXPECT().CACert(gomock.Any()).Return(internaltesting.CACert, nil).AnyTimes()
 	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
 		func(context.Context) (*config.Config, error) {
+			if s.modelConfigErr != nil {
+				return nil, s.modelConfigErr
+			}
 			s.modelConfigCalls++
 			return s.modelConfig, nil
 		},
