@@ -118,8 +118,9 @@ run_enable_ha() {
 
 	juju switch enable-ha
 	controller_1=$(juju status -m controller --format json | yq -r '.applications.controller.units["controller/1"].machine')
-	juju remove-machine -m controller "${controller_1}" --force --no-prompt
 	controller_2=$(juju status -m controller --format json | yq -r '.applications.controller.units["controller/2"].machine')
+	juju remove-machine -m controller "${controller_1}" --force --no-prompt
+	wait_for_ha 2
 	juju remove-machine -m controller "${controller_2}" --force --no-prompt
 
 	wait_for_ha_teardown
@@ -128,6 +129,7 @@ run_enable_ha() {
 	# the deletions, well before the controller unit and its charm hooks have
 	# settled. Wait for the surviving unit to be idle before probing dqlite
 	# leadership, otherwise the probe races the dqlite backstop recovery.
+	juju switch controller
 	wait_for "controller" "$(idle_condition "controller" 0)" 900
 	wait_for_controller_leadership
 
