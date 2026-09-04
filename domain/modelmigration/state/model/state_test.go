@@ -404,7 +404,10 @@ func (s *caasMigrationSuite) TestGetMigrationAgentsCAAS(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(agents.Machines, tc.HasLen, 0)
 	c.Check(agents.Units, tc.SameContents, []string{"sidecar/0"})
-	c.Check(agents.Applications, tc.SameContents, []string{"legacy"})
+	// The model operator is model-scoped infrastructure, not a migration
+	// minion, so CAAS models report no application agents (matching 3.6
+	// sidecar behaviour where only workload unit agents report).
+	c.Check(agents.Applications, tc.HasLen, 0)
 }
 
 // TestDeleteModelImportingStatusSuccess tests that clearing an existing
