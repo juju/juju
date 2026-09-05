@@ -286,6 +286,20 @@ func (s *stateSuite) TestInstanceIdError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 }
 
+func (s *stateSuite) TestGetInstanceIDsForUUIDs(c *tc.C) {
+	unprovisionedUUID, _ := s.addMachine(c)
+	provisionedUUID, _ := s.ensureInstance(c)
+
+	instanceIDs, err := s.state.GetInstanceIDsForUUIDs(c.Context(), []string{
+		unprovisionedUUID.String(),
+		provisionedUUID.String(),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(instanceIDs, tc.DeepEquals, map[string]string{
+		provisionedUUID.String(): "123",
+	})
+}
+
 func (s *stateSuite) TestInstanceNameSuccess(c *tc.C) {
 	machineUUID, _ := s.ensureInstance(c)
 

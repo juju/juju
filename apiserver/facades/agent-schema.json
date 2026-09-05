@@ -39,6 +39,12 @@
                         "is-secondary": {
                             "type": "boolean"
                         },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-subnet-id": {
+                            "type": "string"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -129,6 +135,12 @@
                         },
                         "port": {
                             "type": "integer"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-subnet-id": {
+                            "type": "string"
                         },
                         "scope": {
                             "type": "string"
@@ -1632,6 +1644,12 @@
                         "is-secondary": {
                             "type": "boolean"
                         },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-subnet-id": {
+                            "type": "string"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -1824,6 +1842,12 @@
                         },
                         "port": {
                             "type": "integer"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-subnet-id": {
+                            "type": "string"
                         },
                         "scope": {
                             "type": "string"
@@ -3721,6 +3745,12 @@
                         "is-secondary": {
                             "type": "boolean"
                         },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-subnet-id": {
+                            "type": "string"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -3867,6 +3897,12 @@
                         },
                         "port": {
                             "type": "integer"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-subnet-id": {
+                            "type": "string"
                         },
                         "scope": {
                             "type": "string"
@@ -4051,6 +4087,12 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/NetworkRoute"
+                            }
+                        },
+                        "shadow-addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
                             }
                         },
                         "virtual-port-type": {
@@ -4993,6 +5035,12 @@
                         "is-secondary": {
                             "type": "boolean"
                         },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-subnet-id": {
+                            "type": "string"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -5669,6 +5717,12 @@
                         "port": {
                             "type": "integer"
                         },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-subnet-id": {
+                            "type": "string"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -5998,6 +6052,12 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/NetworkRoute"
+                            }
+                        },
+                        "shadow-addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
                             }
                         },
                         "virtual-port-type": {
@@ -10994,6 +11054,12 @@
                         "is-secondary": {
                             "type": "boolean"
                         },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-subnet-id": {
+                            "type": "string"
+                        },
                         "scope": {
                             "type": "string"
                         },
@@ -11788,6 +11854,12 @@
                         },
                         "port": {
                             "type": "integer"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-subnet-id": {
+                            "type": "string"
                         },
                         "scope": {
                             "type": "string"

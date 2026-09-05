@@ -250,18 +250,50 @@ func (s *WatchableService) WatchModelMachines(ctx context.Context) (watcher.Stri
 }
 
 // WatchModelMachineLifeAndStartTimes returns a string watcher that emits
-// machine names for changes to machine life or agent start times.
+// machine names for changes to machine life, agent start times, or cloud
+// instance registration.
 func (s *WatchableService) WatchModelMachineLifeAndStartTimes(ctx context.Context) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	table, stmt := s.st.InitialWatchModelMachineLifeAndStartTimesStatement()
-	return s.watcherFactory.NewNamespaceWatcher(
+
+	return s.watcherFactory.NewNamespaceMapperWatcher(
 		ctx,
 		eventsource.InitialNamespaceChanges(stmt),
 		"model machine life and start times watcher",
+		s.mapperFn(),
 		eventsource.NamespaceFilter(table, changestream.All),
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchMachineCloudInstance(), changestream.Changed),
 	)
+}
+
+func (s *WatchableService) mapperFn() func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
+	cloudInstanceNamespace := s.st.NamespaceForWatchMachineCloudInstance()
+	return func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
+		var cloudInstanceUUIDs []string
+		machineNames := make([]string, 0, len(changes))
+		for _, change := range changes {
+			if change.Namespace() != cloudInstanceNamespace {
+				machineNames = append(machineNames, change.Changed())
+				continue
+			}
+			cloudInstanceUUIDs = append(cloudInstanceUUIDs, change.Changed())
+		}
+
+		if len(cloudInstanceUUIDs) == 0 {
+			return machineNames, nil
+		}
+
+		names, err := s.st.GetNamesForProvisionedUUIDs(ctx, cloudInstanceUUIDs)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		for _, machineName := range names {
+			machineNames = append(machineNames, machineName.String())
+		}
+		return machineNames, nil
+	}
 }
 
 // WatchMachineCloudInstances returns a NotifyWatcher that is subscribed to

@@ -435,12 +435,13 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// All the rest depend on ifNotMigrating.
 		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
-			AgentName:          agentName,
-			APICallerName:      apiCallerName,
-			EnvironName:        providerTrackerName,
-			DomainServicesName: domainServicesName,
-			GetMachineService:  provisioner.GetMachineService,
-			Logger:             config.LoggingContext.GetLogger("juju.worker.provisioner"),
+			AgentName:              agentName,
+			APICallerName:          apiCallerName,
+			EnvironName:            providerTrackerName,
+			DomainServicesName:     domainServicesName,
+			GetMachineService:      provisioner.GetMachineService,
+			GetProvisioningService: provisioner.GetProvisioningService,
+			Logger:                 config.LoggingContext.GetLogger("juju.worker.provisioner"),
 
 			NewProvisionerFunc: provisioner.NewEnvironProvisioner,
 		})),

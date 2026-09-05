@@ -11,6 +11,8 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/changestream"
+	changestreammocks "github.com/juju/juju/core/changestream/mocks"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
@@ -830,4 +832,168 @@ func (s *serviceSuite) TestSetSSHHostKeys(c *tc.C) {
 	err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
 		SetSSHHostKeys(c.Context(), machineUUID, keys)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestMapperFnMachineChangesPassThrough(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().NamespaceForWatchMachineCloudInstance().Return("cloud_instance_ns")
+
+	svc := &WatchableService{
+		ProviderService: ProviderService{
+			Service: Service{
+				st:            s.state,
+				statusHistory: s.statusHistory,
+				clock:         clock.WallClock,
+				logger:        loggertesting.WrapCheckLog(c),
+			},
+		},
+	}
+
+	mapper := svc.mapperFn()
+
+	change1 := changestreammocks.NewMockChangeEvent(ctrl)
+	change1.EXPECT().Namespace().Return("machine_ns")
+	change1.EXPECT().Changed().Return("0")
+
+	change2 := changestreammocks.NewMockChangeEvent(ctrl)
+	change2.EXPECT().Namespace().Return("machine_ns")
+	change2.EXPECT().Changed().Return("1")
+
+	names, err := mapper(c.Context(), []changestream.ChangeEvent{change1, change2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(names, tc.DeepEquals, []string{"0", "1"})
+}
+
+func (s *serviceSuite) TestMapperFnCloudInstanceUnprovisioned(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().NamespaceForWatchMachineCloudInstance().Return("cloud_instance_ns")
+
+	svc := &WatchableService{
+		ProviderService: ProviderService{
+			Service: Service{
+				st:            s.state,
+				statusHistory: s.statusHistory,
+				clock:         clock.WallClock,
+				logger:        loggertesting.WrapCheckLog(c),
+			},
+		},
+	}
+
+	mapper := svc.mapperFn()
+
+	ciChange := changestreammocks.NewMockChangeEvent(ctrl)
+	ciChange.EXPECT().Namespace().Return("cloud_instance_ns")
+	ciChange.EXPECT().Changed().Return("uuid-1")
+
+	// Not provisioned → no names returned.
+	s.state.EXPECT().GetNamesForProvisionedUUIDs(gomock.Any(), []string{"uuid-1"}).Return(
+		map[machine.UUID]machine.Name{}, nil,
+	)
+
+	names, err := mapper(c.Context(), []changestream.ChangeEvent{ciChange})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(names, tc.HasLen, 0)
+}
+
+func (s *serviceSuite) TestMapperFnCloudInstanceProvisioned(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().NamespaceForWatchMachineCloudInstance().Return("cloud_instance_ns")
+
+	svc := &WatchableService{
+		ProviderService: ProviderService{
+			Service: Service{
+				st:            s.state,
+				statusHistory: s.statusHistory,
+				clock:         clock.WallClock,
+				logger:        loggertesting.WrapCheckLog(c),
+			},
+		},
+	}
+
+	mapper := svc.mapperFn()
+
+	ciChange := changestreammocks.NewMockChangeEvent(ctrl)
+	ciChange.EXPECT().Namespace().Return("cloud_instance_ns")
+	ciChange.EXPECT().Changed().Return("uuid-1")
+
+	s.state.EXPECT().GetNamesForProvisionedUUIDs(gomock.Any(), []string{"uuid-1"}).Return(
+		map[machine.UUID]machine.Name{machine.UUID("uuid-1"): machine.Name("1")}, nil,
+	)
+
+	names, err := mapper(c.Context(), []changestream.ChangeEvent{ciChange})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(names, tc.DeepEquals, []string{"1"})
+}
+
+func (s *serviceSuite) TestMapperFnMixedChanges(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().NamespaceForWatchMachineCloudInstance().Return("cloud_instance_ns")
+
+	svc := &WatchableService{
+		ProviderService: ProviderService{
+			Service: Service{
+				st:            s.state,
+				statusHistory: s.statusHistory,
+				clock:         clock.WallClock,
+				logger:        loggertesting.WrapCheckLog(c),
+			},
+		},
+	}
+
+	mapper := svc.mapperFn()
+
+	machineChange := changestreammocks.NewMockChangeEvent(ctrl)
+	machineChange.EXPECT().Namespace().Return("machine_ns")
+	machineChange.EXPECT().Changed().Return("0")
+
+	ciChange := changestreammocks.NewMockChangeEvent(ctrl)
+	ciChange.EXPECT().Namespace().Return("cloud_instance_ns")
+	ciChange.EXPECT().Changed().Return("uuid-1")
+
+	s.state.EXPECT().GetNamesForProvisionedUUIDs(gomock.Any(), []string{"uuid-1"}).Return(
+		map[machine.UUID]machine.Name{machine.UUID("uuid-1"): machine.Name("1")}, nil,
+	)
+
+	names, err := mapper(c.Context(), []changestream.ChangeEvent{machineChange, ciChange})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(names, tc.DeepEquals, []string{"0", "1"})
+}
+
+func (s *serviceSuite) TestMapperFnGetNamesForProvisionedUUIDsError(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.state.EXPECT().NamespaceForWatchMachineCloudInstance().Return("cloud_instance_ns")
+
+	svc := &WatchableService{
+		ProviderService: ProviderService{
+			Service: Service{
+				st:            s.state,
+				statusHistory: s.statusHistory,
+				clock:         clock.WallClock,
+				logger:        loggertesting.WrapCheckLog(c),
+			},
+		},
+	}
+
+	mapper := svc.mapperFn()
+
+	ciChange := changestreammocks.NewMockChangeEvent(ctrl)
+	ciChange.EXPECT().Namespace().Return("cloud_instance_ns")
+	ciChange.EXPECT().Changed().Return("uuid-1")
+
+	s.state.EXPECT().GetNamesForProvisionedUUIDs(gomock.Any(), []string{"uuid-1"}).Return(
+		nil, errors.New("boom"),
+	)
+
+	_, err := mapper(c.Context(), []changestream.ChangeEvent{ciChange})
+	c.Assert(err, tc.ErrorMatches, "boom")
 }

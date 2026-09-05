@@ -28,6 +28,7 @@ type MockModelStateMockRecorder struct {
 	mock                              *MockModelState
 	getMachineProvisioningInfoExpects []*gomock.Call3_2[context.Context, string, bool, provisioner.ProvisioningInfoState, error]
 	getPreludeProvisioningInfoExpects []*gomock.Call1_2[context.Context, provisioner.SharedProvisioningInfoState, error]
+	recordProvisionedMachineExpects   []*gomock.Call3_1[context.Context, string, provisioner.ProvisionedMachineInfo, error]
 }
 
 // NewMockModelState creates a new mock instance.
@@ -77,6 +78,24 @@ func (mr *MockModelStateMockRecorder) GetPreludeProvisioningInfo(ctx any) *MockM
 
 // MockModelStateGetPreludeProvisioningInfoCall is the typed call wrapper for GetPreludeProvisioningInfo.
 type MockModelStateGetPreludeProvisioningInfoCall = gomock.Call1_2[context.Context, provisioner.SharedProvisioningInfoState, error]
+
+// RecordProvisionedMachine mocks base method.
+func (m *MockModelState) RecordProvisionedMachine(ctx context.Context, machineUUID string, info provisioner.ProvisionedMachineInfo) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.recordProvisionedMachineExpects, m.ctrl, m, "RecordProvisionedMachine", ctx, machineUUID, info)
+}
+
+// RecordProvisionedMachine indicates an expected call of RecordProvisionedMachine.
+func (mr *MockModelStateMockRecorder) RecordProvisionedMachine(ctx, machineUUID, info any) *MockModelStateRecordProvisionedMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, string, provisioner.ProvisionedMachineInfo, error](mr.mock.ctrl.T, mr.mock, "RecordProvisionedMachine", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(machineUUID), gomock.EnsureMatcher(info))
+	mr.recordProvisionedMachineExpects = append(mr.recordProvisionedMachineExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateRecordProvisionedMachineCall is the typed call wrapper for RecordProvisionedMachine.
+type MockModelStateRecordProvisionedMachineCall = gomock.Call3_1[context.Context, string, provisioner.ProvisionedMachineInfo, error]
 
 // MockControllerState is a mock of ControllerState interface.
 type MockControllerState struct {

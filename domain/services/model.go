@@ -531,8 +531,9 @@ func (s *ModelServices) Port() *portservice.WatchableService {
 // Provisioning returns the service for aggregating provisioning info.
 func (s *ModelServices) Provisioning() *provisionerservice.Service {
 	log := s.logger.Child("provisioning")
+	modelState := provisionermodelstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log)
 	return provisionerservice.NewService(
-		provisionermodelstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
+		modelState,
 		provisionerctrlstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), log),
 		provisionerservice.NewImageMetadataFetcher(
 			providertracker.ProviderRunner[provisionerservice.ProviderForImageMetadata](s.providerFactory, s.modelUUID.String()),

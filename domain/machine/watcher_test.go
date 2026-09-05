@@ -271,6 +271,15 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimes(c *tc.C) {
 		w.Check(watchertest.SliceAssert([]string{"0"}))
 	})
 
+	harness.AddTest(c, func(c *tc.C) {
+		machineUUID, err := s.svc.GetMachineUUID(c.Context(), res.MachineName)
+		c.Assert(err, tc.ErrorIsNil)
+		err = s.svc.SetMachineCloudInstance(c.Context(), machineUUID, "instance-0", "", "nonce", nil)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{"0"}))
+	})
+
 	harness.Run(c, nil)
 }
 

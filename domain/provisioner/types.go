@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
+	coreinstance "github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -37,6 +38,46 @@ type CloudImageMetadata = internal.CloudImageMetadata
 
 // ImageConstraint holds the parameters for an image metadata search.
 type ImageConstraint = internal.ImageConstraint
+
+// ProvisionedMachineInfo contains the provider result that must be retained
+// after an instance has been successfully created.
+type ProvisionedMachineInfo struct {
+	InstanceID              coreinstance.Id
+	DisplayName             string
+	Nonce                   string
+	HardwareCharacteristics *coreinstance.HardwareCharacteristics
+	NetworkConfig           network.InterfaceInfos
+	Volumes                 []ProvisionedVolume
+	VolumeAttachments       map[string]ProvisionedVolumeAttachment
+}
+
+// ProvisionedVolume contains the provider data for a volume created while
+// provisioning a machine. VolumeID is Juju's volume identifier, not a tag.
+type ProvisionedVolume struct {
+	VolumeID   string
+	ProviderID string
+	HardwareID string
+	WWN        string
+	SizeMiB    uint64
+	Persistent bool
+}
+
+// ProvisionedVolumeAttachment contains the provider result for an attached
+// volume. The map key in ProvisionedMachineInfo is the Juju volume ID.
+type ProvisionedVolumeAttachment struct {
+	DeviceName string
+	DeviceLink string
+	BusAddress string
+	ReadOnly   bool
+	Plan       *ProvisionedVolumeAttachmentPlan
+}
+
+// ProvisionedVolumeAttachmentPlan contains provider data for attachment plans
+// which require machine-side initialisation.
+type ProvisionedVolumeAttachmentPlan struct {
+	DeviceType       string
+	DeviceAttributes map[string]string
+}
 
 // SharedProvisioningInfo holds model-wide and controller-wide data that
 // is the same for all machines. This is fetched once per batch request by

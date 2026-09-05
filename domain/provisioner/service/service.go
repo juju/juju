@@ -20,6 +20,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/provisioner"
 	"github.com/juju/juju/environs/tags"
@@ -42,6 +43,21 @@ type ModelState interface {
 	// GetMachineProvisioningInfo retrieves per-machine provisioning data
 	// in a single transaction from the model database.
 	GetMachineProvisioningInfo(ctx context.Context, machineName string, isControllerModel bool) (provisioner.ProvisioningInfoState, error)
+
+	// RecordProvisionedMachine persists the complete result of a
+	// successful provider StartInstance call in a single transaction,
+	// covering network configuration, volumes, volume attachments, and
+	// cloud instance identity.
+	//
+	// The cloud-instance write is deliberately last: it emits the
+	// change-stream notification that wakes the instance-poller, so the
+	// poller never observes a newly registered instance before its
+	// provisioning state is available.
+	RecordProvisionedMachine(
+		ctx context.Context,
+		machineUUID string,
+		info provisioner.ProvisionedMachineInfo,
+	) error
 }
 
 // ControllerState provides direct database access to the controller
@@ -94,10 +110,30 @@ func NewService(
 	}
 }
 
+// RecordProvisionedMachine persists the complete successful provider result
+// for a machine. It is separate from provisioning-info retrieval because this
+// is the completion side of the provisioning workflow.
+func (s *Service) RecordProvisionedMachine(
+	ctx context.Context,
+	machineUUID coremachine.UUID,
+	info provisioner.ProvisionedMachineInfo,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.modelSt.RecordProvisionedMachine(ctx, machineUUID.String(), info); err != nil {
+		return errors.Errorf("recording provisioned machine %q: %w", machineUUID, err)
+	}
+	return nil
+}
+
 // GetPreludeProvisioningInfo retrieves model-wide provisioning data that is
 // the same for all machines. This should be called once per batch request,
 // then passed into each per-machine GetProvisioningInfo call.
 func (s *Service) GetPreludeProvisioningInfo(ctx context.Context) (provisioner.SharedProvisioningInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	// Step 1: Fetch shared model-DB data.
 	sharedState, err := s.modelSt.GetPreludeProvisioningInfo(ctx)
 	if err != nil {
@@ -141,6 +177,9 @@ func (s *Service) GetProvisioningInfo(
 	isControllerModel bool,
 	shared provisioner.SharedProvisioningInfo,
 ) (provisioner.ProvisioningInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	if err := machineName.Validate(); err != nil {
 		return provisioner.ProvisioningInfo{}, errors.Errorf(
 			"validating machine name %q: %w", machineName, err,
@@ -596,17 +635,17 @@ func parseResourceTags(raw string) (map[string]string, bool) {
 	if raw == "" {
 		return nil, false
 	}
-	tags := make(map[string]string)
+	t := make(map[string]string)
 	for part := range strings.FieldsSeq(raw) {
 		k, v, ok := strings.Cut(part, "=")
 		if ok {
-			tags[k] = v
+			t[k] = v
 		}
 	}
-	if len(tags) == 0 {
+	if len(t) == 0 {
 		return nil, false
 	}
-	return tags, true
+	return t, true
 }
 
 // imageStream returns the image stream value, defaulting to "released"

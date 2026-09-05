@@ -150,6 +150,10 @@ type NetworkConfig struct {
 	// assumed to be the primary IP address for the interface.
 	Addresses []Address `json:"addresses,omitempty"`
 
+	// ShadowAddresses contains provider addresses which shadow matching
+	// machine-reported addresses.
+	ShadowAddresses []Address `json:"shadow-addresses,omitempty"`
+
 	// DNSServers contains an optional list of IP addresses and/or
 	// hostnames to configure as DNS servers for this network
 	// interface.
@@ -232,6 +236,7 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 			Disabled:            v.Disabled,
 			NoAutoStart:         v.NoAutoStart,
 			Addresses:           FromProviderAddresses(v.Addresses...),
+			ShadowAddresses:     FromProviderAddresses(v.ShadowAddresses...),
 			DNSServers:          v.DNSServers,
 			DNSSearchDomains:    v.DNSSearchDomains,
 			GatewayAddress:      v.GatewayAddress.Value,
@@ -262,6 +267,10 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 		}
 
 		configType := network.AddressConfigType(v.ConfigType)
+		var gatewayAddress network.ProviderAddress
+		if v.GatewayAddress != "" {
+			gatewayAddress = network.NewMachineAddress(v.GatewayAddress).AsProviderAddress()
+		}
 
 		result[i] = network.InterfaceInfo{
 			DeviceIndex:         v.DeviceIndex,
@@ -278,9 +287,10 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			NoAutoStart:         v.NoAutoStart,
 			ConfigType:          configType,
 			Addresses:           ToProviderAddresses(v.Addresses...),
+			ShadowAddresses:     ToProviderAddresses(v.ShadowAddresses...),
 			DNSServers:          v.DNSServers,
 			DNSSearchDomains:    v.DNSSearchDomains,
-			GatewayAddress:      network.NewMachineAddress(v.GatewayAddress).AsProviderAddress(),
+			GatewayAddress:      gatewayAddress,
 			Routes:              routes,
 			IsDefaultGateway:    v.IsDefaultGateway,
 			VirtualPortType:     network.VirtualPortType(v.VirtualPortType),
@@ -411,14 +421,16 @@ type EntityPortRange struct {
 // plus on-machine detection.
 // There are cases when we convert it *back* to the ip/mask form anyway.
 type Address struct {
-	Value           string `json:"value"`
-	CIDR            string `json:"cidr,omitempty"`
-	Type            string `json:"type"`
-	Scope           string `json:"scope"`
-	SpaceName       string `json:"space-name,omitempty"`
-	ProviderSpaceID string `json:"space-id,omitempty"`
-	ConfigType      string `json:"config-type,omitempty"`
-	IsSecondary     bool   `json:"is-secondary,omitempty"`
+	Value            string `json:"value"`
+	CIDR             string `json:"cidr,omitempty"`
+	Type             string `json:"type"`
+	Scope            string `json:"scope"`
+	SpaceName        string `json:"space-name,omitempty"`
+	ProviderSpaceID  string `json:"space-id,omitempty"`
+	ConfigType       string `json:"config-type,omitempty"`
+	IsSecondary      bool   `json:"is-secondary,omitempty"`
+	ProviderID       string `json:"provider-id,omitempty"`
+	ProviderSubnetID string `json:"provider-subnet-id,omitempty"`
 }
 
 // MachineAddress transforms the Address to a MachineAddress,
@@ -437,9 +449,11 @@ func (addr Address) MachineAddress() network.MachineAddress {
 // ProviderAddress transforms the Address to a ProviderAddress.
 func (addr Address) ProviderAddress() network.ProviderAddress {
 	return network.ProviderAddress{
-		MachineAddress:  addr.MachineAddress(),
-		SpaceName:       network.SpaceName(addr.SpaceName),
-		ProviderSpaceID: network.Id(addr.ProviderSpaceID),
+		MachineAddress:   addr.MachineAddress(),
+		SpaceName:        network.SpaceName(addr.SpaceName),
+		ProviderSpaceID:  network.Id(addr.ProviderSpaceID),
+		ProviderID:       network.Id(addr.ProviderID),
+		ProviderSubnetID: network.Id(addr.ProviderSubnetID),
 	}
 }
 
@@ -474,14 +488,16 @@ func FromProviderAddresses(pAddrs ...network.ProviderAddress) []Address {
 // FromProviderAddress returns an Address for the input ProviderAddress.
 func FromProviderAddress(addr network.ProviderAddress) Address {
 	return Address{
-		Value:           addr.Value,
-		CIDR:            addr.CIDR,
-		Type:            string(addr.Type),
-		Scope:           string(addr.Scope),
-		SpaceName:       addr.SpaceName.String(),
-		ProviderSpaceID: string(addr.ProviderSpaceID),
-		ConfigType:      string(addr.ConfigType),
-		IsSecondary:     addr.IsSecondary,
+		Value:            addr.Value,
+		CIDR:             addr.CIDR,
+		Type:             string(addr.Type),
+		Scope:            string(addr.Scope),
+		SpaceName:        addr.SpaceName.String(),
+		ProviderSpaceID:  string(addr.ProviderSpaceID),
+		ConfigType:       string(addr.ConfigType),
+		IsSecondary:      addr.IsSecondary,
+		ProviderID:       addr.ProviderID.String(),
+		ProviderSubnetID: addr.ProviderSubnetID.String(),
 	}
 }
 
