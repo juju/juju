@@ -79,6 +79,45 @@ run_model_migration() {
 	destroy_model "model-migration"
 }
 
+# Migrating a CAAS (k8s) model from one controller to another on the same k8s
+# cloud. This exercises the CAAS carve-outs in the migration path: the agent
+# binary metadata lookup must not require binaries that k8s never uploads to
+# the object store, and the migration minions must be the unit agents (the
+# only CAAS workload agents), not a per-application operator that does not
+# exist on k8s.
+run_model_migration_caas() {
+	# Echo out to ensure nice output to the test suite.
+	echo
+
+	# Ensure we have another controller available.
+	bootstrap_alt_controller "alt-model-migration-caas"
+	juju switch "alt-model-migration-caas"
+	add_model "model-migration-caas"
+
+	juju deploy snappass-test --revision 8 --channel stable
+
+	wait_for "snappass-test" "$(active_idle_condition "snappass-test")"
+
+	# Migrate the model to the other controller.
+	juju migrate "model-migration-caas" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+
+	# Wait for the model to appear on the target, then switch to it.
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	wait_for_model "model-migration-caas"
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}:model-migration-caas"
+
+	# The application must be healthy on the target and the target must own
+	# the unit agent.
+	wait_for "snappass-test" "$(active_idle_condition "snappass-test")"
+	juju exec --unit snappass-test/0 -- hostname | grep -c snappass-test | check true
+
+	# Clean up: destroy the now-empty source controller, then the migrated
+	# model on the target (the framework teardown destroys the target
+	# controller itself).
+	destroy_controller "alt-model-migration-caas"
+	destroy_model "model-migration-caas"
+}
+
 # Migrating a model where the export fails mid-transfer (forced via wrench)
 # must abort cleanly: the target removes the partially-imported model and the
 # source model remains functional.
@@ -538,5 +577,27 @@ test_model_migration_saas_external() {
 		cd .. || exit
 
 		run "run_model_migration_saas_external"
+	)
+}
+
+test_model_migration_caas() {
+	if [ -n "$(skip 'test_model_migration_caas')" ]; then
+		echo "==> SKIP: Asked to skip model migration CAAS tests"
+		return
+	fi
+
+	# This test migrates a k8s model between two controllers on the same k8s
+	# cloud; it only makes sense on a k8s provider.
+	if [ "${BOOTSTRAP_PROVIDER}" != "k8s" ] && [ "${BOOTSTRAP_PROVIDER}" != "microk8s" ]; then
+		echo "==> SKIP: model migration CAAS test needs a k8s provider"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		run "run_model_migration_caas"
 	)
 }

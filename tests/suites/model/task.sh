@@ -21,6 +21,7 @@ test_model() {
 	test_model_migration_version
 	test_model_migration_saas_common
 	test_model_migration_saas_external
+	test_model_migration_caas
 	test_model_multi
 	test_model_metrics
 	test_model_destroy
