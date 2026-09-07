@@ -4,8 +4,13 @@
 package backups
 
 import (
+	archivetar "archive/tar"
 	"compress/gzip"
+	"context"
 	"crypto/sha1"
+	"crypto/sha256"
+	"crypto/sha512"
+	"encoding/hex"
 	"io"
 	"os"
 	"path"
@@ -15,7 +20,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/utils/v4/hash"
-	"github.com/juju/utils/v4/tar"
+	utilstar "github.com/juju/utils/v4/tar"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
@@ -35,15 +40,50 @@ type DumpEntry struct {
 	Reader io.Reader
 }
 
+// ObjectSource opens the content of one object store object for
+// reading. The returned reader must be closed by the caller.
+type ObjectSource func(ctx context.Context) (io.ReadCloser, error)
+
+// ObjectEntry is a single object store object to include in the
+// backup archive's files bundle.
+type ObjectEntry struct {
+	// Namespace is the object store namespace the object belongs to:
+	// "controller" for the controller database, or a model UUID.
+	Namespace string
+
+	// SHA256 is the hex-encoded SHA-256 of the object, as exported by
+	// the database. It identifies the object for reading.
+	SHA256 string
+
+	// SHA384 is the hex-encoded SHA-384 of the object, as exported by
+	// the database. It names the object inside the archive.
+	SHA384 string
+
+	// Size is the expected object size in bytes.
+	Size int64
+
+	// Source opens the object for reading.
+	Source ObjectSource
+}
+
 // CreateArgs holds the arguments for building a backup archive.
 type CreateArgs struct {
 	// DestinationDir is the absolute path to the directory in which
 	// the archive is stored. The staging area is created there too.
 	DestinationDir string
 
+	// DataDir is the absolute path to the source controller's data
+	// directory; object entries are stored relative to it. Required
+	// when ObjectEntries is not empty.
+	DataDir string
+
 	// FilesToBackUp is the list of absolute paths to the files to
 	// bundle into the archive's root.tar.
 	FilesToBackUp []string
+
+	// ObjectEntries are the object store objects bundled into the
+	// archive's root.tar, streamed and validated one at a time.
+	ObjectEntries []ObjectEntry
 
 	// DumpEntries are the database dumps written under the archive's
 	// dump directory.
@@ -59,7 +99,7 @@ type CreateArgs struct {
 // metadata with the file info and returns the archive filename.
 // It is a variable so tests can replace the archive creation with a
 // stub, mirroring [GetFilesToBackUp].
-var Create = func(meta *Metadata, args CreateArgs) (string, error) {
+var Create = func(ctx context.Context, meta *Metadata, args CreateArgs) (string, error) {
 	if args.Clock == nil {
 		return "", errors.New("missing clock")
 	}
@@ -70,6 +110,9 @@ var Create = func(meta *Metadata, args CreateArgs) (string, error) {
 		if err := checkDumpEntryName(entry.Name); err != nil {
 			return "", errors.Capture(err)
 		}
+	}
+	if err := checkObjectEntries(args.ObjectEntries, args.DataDir); err != nil {
+		return "", errors.Capture(err)
 	}
 
 	stagingDir, err := os.MkdirTemp(args.DestinationDir, tempPrefix)
@@ -100,7 +143,7 @@ var Create = func(meta *Metadata, args CreateArgs) (string, error) {
 		return "", errors.Capture(err)
 	}
 
-	if err := buildFilesBundle(archivePaths.FilesBundle, args.FilesToBackUp); err != nil {
+	if err := buildFilesBundle(ctx, archivePaths.FilesBundle, args.FilesToBackUp, args.DataDir, args.ObjectEntries); err != nil {
 		return "", errors.Capture(err)
 	}
 
@@ -200,8 +243,9 @@ func writeAll(targetname string, source io.Reader) error {
 }
 
 // buildFilesBundle creates the tar file bundling all the juju
-// state-related files gathered in by the backup machinery.
-func buildFilesBundle(bundleFileName string, filesToBackUp []string) error {
+// state-related files gathered in by the backup machinery, followed by
+// the object store objects referenced by the database dumps.
+func buildFilesBundle(ctx context.Context, bundleFileName string, filesToBackUp []string, dataDir string, objectEntries []ObjectEntry) error {
 	if len(filesToBackUp) == 0 {
 		return errors.New("missing list of files to back up")
 	}
@@ -218,15 +262,168 @@ func buildFilesBundle(bundleFileName string, filesToBackUp []string) error {
 		return errors.Errorf("creating bundle file: %w", err)
 	}
 
+	// Both the filesystem files and the object entries go into a
+	// single tar stream, so the bundle is written by one tar.Writer.
+	tarw := archivetar.NewWriter(bundleFile)
+	fail := func(err error) error {
+		if terr := tarw.Close(); err == nil {
+			err = errors.Capture(terr)
+		}
+		if cerr := bundleFile.Close(); err == nil {
+			err = errors.Capture(cerr)
+		}
+		return err
+	}
 	// The leading path separator is stripped off each file name when
 	// it is added to the tar file.
 	stripPrefix := string(os.PathSeparator)
-	_, terr := tar.TarFiles(filesToBackUp, bundleFile, stripPrefix)
-	if cerr := bundleFile.Close(); terr == nil {
-		terr = errors.Capture(cerr)
+	for _, file := range filesToBackUp {
+		if err := writeBundleFile(tarw, file, stripPrefix); err != nil {
+			return fail(errors.Errorf("bundling state-critical file %q: %w", file, err))
+		}
 	}
-	if terr != nil {
-		return errors.Errorf("bundling state-critical files: %w", terr)
+	for _, entry := range objectEntries {
+		if err := writeObjectEntry(ctx, tarw, dataDir, entry); err != nil {
+			return fail(errors.Capture(err))
+		}
+	}
+
+	if err := tarw.Close(); err != nil {
+		return fail(errors.Capture(err))
+	}
+	if err := bundleFile.Close(); err != nil {
+		return errors.Errorf("closing files bundle: %w", err)
+	}
+	return nil
+}
+
+// writeBundleFile adds a single file or directory to the bundle, with the
+// strip prefix removed from its stored name, mirroring the semantics of the
+// tar.TarFiles helper: symlinks are preserved as links (never followed),
+// directories are stored as headers and regular files are copied in full.
+func writeBundleFile(tarw *archivetar.Writer, fileName, stripPrefix string) error {
+	f, err := os.Open(fileName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	defer func() { _ = f.Close() }()
+
+	fInfo, err := f.Stat()
+	if err != nil {
+		return errors.Capture(err)
+	}
+	link := ""
+	if fInfo.Mode()&os.ModeSymlink != 0 {
+		link, err = os.Readlink(fileName)
+		if err != nil {
+			return errors.Capture(err)
+		}
+	}
+	hdr, err := archivetar.FileInfoHeader(fInfo, link)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	hdr.Name = filepath.ToSlash(strings.TrimPrefix(fileName, stripPrefix))
+	if err := tarw.WriteHeader(hdr); err != nil {
+		return errors.Capture(err)
+	}
+	if fInfo.Mode().IsRegular() {
+		if _, err := io.CopyN(tarw, f, fInfo.Size()); err != nil {
+			return errors.Capture(err)
+		}
+	}
+	return nil
+}
+
+// writeObjectEntry streams one object store object into the bundle,
+// validating the byte count and both hashes while copying. The caller
+// context is checked before every object so a cancelled backup does not
+// keep streaming.
+func writeObjectEntry(ctx context.Context, tarw *archivetar.Writer, dataDir string, entry ObjectEntry) error {
+	if err := ctx.Err(); err != nil {
+		return errors.Capture(err)
+	}
+	reader, err := entry.Source(ctx)
+	if err != nil {
+		return errors.Errorf("opening object %q in namespace %q: %w",
+			entry.SHA384, entry.Namespace, err)
+	}
+	defer func() { _ = reader.Close() }()
+
+	hdr := &archivetar.Header{
+		Name:     objectEntryArchivePath(dataDir, entry),
+		Mode:     0640,
+		Size:     entry.Size,
+		Typeflag: archivetar.TypeReg,
+	}
+	if err := tarw.WriteHeader(hdr); err != nil {
+		return errors.Errorf("writing object header for %q: %w", hdr.Name, err)
+	}
+
+	hash256 := sha256.New()
+	hash384 := sha512.New384()
+	tee := io.TeeReader(reader, io.MultiWriter(hash256, hash384))
+	// CopyN reports a short stream as io.EOF and a long one leaves the
+	// trailing bytes unread, so both surface as size mismatches.
+	n, err := io.CopyN(tarw, tee, entry.Size)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return errors.Errorf("writing object %q in namespace %q: %w",
+			entry.SHA384, entry.Namespace, err)
+	}
+	if n != entry.Size {
+		return errors.Errorf("object %q in namespace %q: streamed %d bytes, expected %d",
+			entry.SHA384, entry.Namespace, n, entry.Size)
+	}
+	if sum := hex.EncodeToString(hash256.Sum(nil)); sum != entry.SHA256 {
+		return errors.Errorf("object %q in namespace %q: SHA-256 mismatch: got %q, expected %q",
+			entry.SHA384, entry.Namespace, sum, entry.SHA256)
+	}
+	if sum := hex.EncodeToString(hash384.Sum(nil)); sum != entry.SHA384 {
+		return errors.Errorf("object %q in namespace %q: SHA-384 mismatch: got %q, expected %q",
+			entry.SHA384, entry.Namespace, sum, entry.SHA384)
+	}
+	return nil
+}
+
+// objectEntryArchivePath returns the path of the entry's object within the
+// files bundle, mirroring the object store's on-disk layout relative to the
+// data directory so restore can place it without translation.
+func objectEntryArchivePath(dataDir string, entry ObjectEntry) string {
+	return path.Join(
+		strings.TrimPrefix(filepath.ToSlash(dataDir), "/"),
+		objectstoreDir, entry.Namespace, entry.SHA384,
+	)
+}
+
+// checkObjectEntries validates the object entries before the archive is
+// built. A duplicated (namespace, SHA-384) pair would produce a duplicate
+// path in the archive, which is a verification failure point on restore.
+func checkObjectEntries(entries []ObjectEntry, dataDir string) error {
+	if len(entries) == 0 {
+		return nil
+	}
+	if dataDir == "" {
+		return errors.New("missing data directory for object entries")
+	}
+	type key struct {
+		namespace string
+		sha384    string
+	}
+	seen := make(map[key]struct{}, len(entries))
+	for _, entry := range entries {
+		if entry.Namespace == "" || entry.SHA384 == "" || entry.Source == nil {
+			return errors.Errorf("incomplete object entry: %w", coreerrors.NotValid)
+		}
+		if entry.Size < 0 {
+			return errors.Errorf("object %q in namespace %q: negative size %d: %w",
+				entry.SHA384, entry.Namespace, entry.Size, coreerrors.NotValid)
+		}
+		k := key{namespace: entry.Namespace, sha384: entry.SHA384}
+		if _, dup := seen[k]; dup {
+			return errors.Errorf("duplicate object entry %q in namespace %q: %w",
+				entry.SHA384, entry.Namespace, coreerrors.NotValid)
+		}
+		seen[k] = struct{}{}
 	}
 	return nil
 }
@@ -292,7 +489,7 @@ func buildArchive(outFile io.Writer, stagingDir, contentDir string) error {
 	// file.
 	stripPrefix := stagingDir + string(os.PathSeparator)
 	filenames := []string{contentDir}
-	if _, err := tar.TarFiles(filenames, tarball, stripPrefix); err != nil {
+	if _, err := utilstar.TarFiles(filenames, tarball, stripPrefix); err != nil {
 		_ = tarball.Close()
 		return errors.Errorf("bundling final archive: %w", err)
 	}

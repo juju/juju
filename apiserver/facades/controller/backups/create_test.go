@@ -4,7 +4,11 @@
 package backups
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"crypto/sha512"
+	"encoding/hex"
 	"errors"
 	"io"
 	"os"
@@ -22,11 +26,15 @@ import (
 	corebackups "github.com/juju/juju/core/backups"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	domainexport "github.com/juju/juju/domain/export"
+	ctrlv4_1_0 "github.com/juju/juju/domain/export/types/controller/v4_1_0"
+	modelv4_1_0 "github.com/juju/juju/domain/export/types/v4_1_0"
 	environsconfig "github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -48,6 +56,12 @@ type backupsSuite struct {
 	controllerNodes  *MockControllerNodeLister
 	modelServices    *MockModelExportDomainServices
 	modelExport      *MockModelExportService
+
+	// Object stores the creator streams referenced objects from. The
+	// default empty stores satisfy models whose exports reference no
+	// objects; tests override them per case.
+	controllerStore *stubObjectStore
+	modelStore      *stubObjectStore
 
 	// Captured by the patched core archive creation.
 	archiveData  []byte
@@ -71,6 +85,9 @@ func (s *backupsSuite) SetUpTest(c *tc.C) {
 	// make any accidental real walk fail loudly.
 	s.dataDirPath = c.MkDir()
 	s.logDirPath = c.MkDir()
+
+	s.controllerStore = &stubObjectStore{objects: map[string][]byte{}}
+	s.modelStore = &stubObjectStore{objects: map[string][]byte{}}
 }
 
 // setupMocks creates gomock mocks for every dependency of the backups
@@ -124,6 +141,10 @@ func (s *backupsSuite) newCreator(c *tc.C, modelServicesFor ModelServicesForFunc
 		s.modelConfig,
 		s.controller,
 		s.controllerNodes,
+		s.controllerStore,
+		ObjectStoreForModelFunc(func(context.Context, string) (ReadObjectStore, error) {
+			return s.modelStore, nil
+		}),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -168,6 +189,7 @@ func (s *backupsSuite) expectControllerExport() {
 	s.controllerNodes.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"0", "1"}, nil)
 	s.controllerExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ControllerExport{
 		Version: domainexport.LatestControllerExportVersion(),
+		Payload: &ctrlv4_1_0.ControllerExport{},
 	}, nil)
 }
 
@@ -197,7 +219,7 @@ func (s *backupsSuite) expectFilesToBackUp(c *tc.C, backupDir string) []string {
 // workspace semantics are exercised for real.
 func (s *backupsSuite) expectArchiveCreation(c *tc.C, backupDir string) {
 	s.archiveData = []byte("test archive data")
-	s.PatchValue(&corebackups.Create, func(meta *corebackups.Metadata, args corebackups.CreateArgs) (string, error) {
+	s.PatchValue(&corebackups.Create, func(_ context.Context, meta *corebackups.Metadata, args corebackups.CreateArgs) (string, error) {
 		s.createdMeta = meta
 		s.createdArgs = args
 		s.createdDumps = nil
@@ -278,6 +300,7 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 	s.modelServices.EXPECT().Export().Return(s.modelExport)
 	s.modelExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ModelExport{
 		Version: domainexport.LatestSupportedPayloadVersion(),
+		Payload: &modelv4_1_0.ModelExport{},
 	}, nil)
 
 	meta, archivePath, cleanup, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "test")
@@ -325,6 +348,101 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 	// Cleanup removes the temporary workspace with the archive in it.
 	cleanup()
 	s.assertNoArchive(c, backupDir)
+}
+
+// TestCreateWithObjects verifies that every object referenced by the
+// exports is streamed into the archive through its namespace's object
+// store: the controller namespace for controller objects, the model
+// UUID for model objects. This is what makes archives from S3-backed
+// controllers self-contained: the blobs never touch the local
+// filesystem of the controller machine.
+func (s *backupsSuite) TestCreateWithObjects(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	controllerBlob := []byte("controller blob content")
+	modelBlob := []byte("model blob content")
+	controllerSHA256 := sha256.Sum256(controllerBlob)
+	controllerSHA384 := sha512.Sum384(controllerBlob)
+	modelSHA256 := sha256.Sum256(modelBlob)
+	modelSHA384 := sha512.Sum384(modelBlob)
+	controllerSHA256Hex := hex.EncodeToString(controllerSHA256[:])
+	controllerSHA384Hex := hex.EncodeToString(controllerSHA384[:])
+	modelSHA256Hex := hex.EncodeToString(modelSHA256[:])
+	modelSHA384Hex := hex.EncodeToString(modelSHA384[:])
+
+	s.controllerStore.objects[controllerSHA256Hex] = controllerBlob
+	s.modelStore.objects[modelSHA256Hex] = modelBlob
+
+	backupDir := c.MkDir()
+	s.expectFilesToBackUp(c, backupDir)
+	s.expectArchiveCreation(c, backupDir)
+	s.expectModelConfig(c, backupDir)
+	s.controllerNodes.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"0"}, nil)
+	s.controllerExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ControllerExport{
+		Version: domainexport.LatestControllerExportVersion(),
+		Payload: &ctrlv4_1_0.ControllerExport{
+			ObjectStoreMetadata: []ctrlv4_1_0.ObjectStoreMetadata{{
+				UUID:   uuid.MustNewUUID().String(),
+				Sha256: controllerSHA256Hex,
+				Sha384: controllerSHA384Hex,
+				Size:   int64(len(controllerBlob)),
+			}},
+		},
+	}, nil)
+	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
+	s.modelServices.EXPECT().Export().Return(s.modelExport)
+	s.modelExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ModelExport{
+		Version: domainexport.LatestSupportedPayloadVersion(),
+		Payload: &modelv4_1_0.ModelExport{
+			ObjectStoreMetadata: []modelv4_1_0.ObjectStoreMetadata{{
+				UUID:   uuid.MustNewUUID().String(),
+				Sha256: modelSHA256Hex,
+				Sha384: modelSHA384Hex,
+				Size:   int64(len(modelBlob)),
+			}},
+		},
+	}, nil)
+
+	_, _, cleanup, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
+	c.Assert(err, tc.ErrorIsNil)
+	defer cleanup()
+
+	// One object entry per inventoried object, in the data directory
+	// layout restore expects.
+	c.Assert(s.createdArgs.ObjectEntries, tc.HasLen, 2)
+	c.Check(s.createdArgs.DataDir, tc.Equals, s.dataDirPath)
+
+	byNamespace := map[string]corebackups.ObjectEntry{}
+	for _, entry := range s.createdArgs.ObjectEntries {
+		byNamespace[entry.Namespace] = entry
+	}
+
+	controllerEntry, ok := byNamespace[domainexport.ControllerObjectStoreNamespace]
+	c.Assert(ok, tc.IsTrue)
+	c.Check(controllerEntry.SHA256, tc.Equals, controllerSHA256Hex)
+	c.Check(controllerEntry.SHA384, tc.Equals, controllerSHA384Hex)
+	c.Check(controllerEntry.Size, tc.Equals, int64(len(controllerBlob)))
+
+	modelEntry, ok := byNamespace[s.modelUUID]
+	c.Assert(ok, tc.IsTrue)
+	c.Check(modelEntry.SHA256, tc.Equals, modelSHA256Hex)
+	c.Check(modelEntry.SHA384, tc.Equals, modelSHA384Hex)
+
+	// Each source streams its object from the namespace's object
+	// store, identified by the exported full SHA-256.
+	rc, err := controllerEntry.Source(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	content, err := io.ReadAll(rc)
+	c.Assert(err, tc.ErrorIsNil)
+	_ = rc.Close()
+	c.Check(string(content), tc.Equals, string(controllerBlob))
+
+	rc, err = modelEntry.Source(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	content, err = io.ReadAll(rc)
+	c.Assert(err, tc.ErrorIsNil)
+	_ = rc.Close()
+	c.Check(string(content), tc.Equals, string(modelBlob))
 }
 
 // TestCreateGetFilesFailure verifies that a failure collecting the files
@@ -444,8 +562,10 @@ func (s *backupsSuite) TestCreateStageDumpsFailure(c *tc.C) {
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
 	s.modelServices.EXPECT().Export().Return(s.modelExport)
-	s.modelExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ModelExport{}, nil)
-	s.PatchValue(&corebackups.Create, func(*corebackups.Metadata, corebackups.CreateArgs) (string, error) {
+	s.modelExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ModelExport{
+		Payload: &modelv4_1_0.ModelExport{},
+	}, nil)
+	s.PatchValue(&corebackups.Create, func(context.Context, *corebackups.Metadata, corebackups.CreateArgs) (string, error) {
 		return "", errors.New("archive must not be created")
 	})
 
@@ -590,12 +710,33 @@ func (s *backupsSuite) TestCreateArchiveFailure(c *tc.C) {
 	s.modelServices.EXPECT().Export().Return(s.modelExport)
 	s.modelExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ModelExport{
 		Version: domainexport.LatestSupportedPayloadVersion(),
+		Payload: &modelv4_1_0.ModelExport{},
 	}, nil)
-	s.PatchValue(&corebackups.Create, func(*corebackups.Metadata, corebackups.CreateArgs) (string, error) {
+	s.PatchValue(&corebackups.Create, func(context.Context, *corebackups.Metadata, corebackups.CreateArgs) (string, error) {
 		return "", boom
 	})
 	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
+}
+
+// stubObjectStore serves objects from memory, keyed by full SHA-256,
+// standing in for an S3-backed object store: nothing reads them from
+// the local filesystem.
+type stubObjectStore struct {
+	objects map[string][]byte
+}
+
+func (s *stubObjectStore) GetBySHA256(_ context.Context, sha256 string) (io.ReadCloser, objectstore.Digest, error) {
+	content, ok := s.objects[sha256]
+	if !ok {
+		return nil, objectstore.Digest{}, objectstoreerrors.ObjectNotFound
+	}
+	sha384sum := sha512.Sum384(content)
+	return io.NopCloser(bytes.NewReader(content)), objectstore.Digest{
+		SHA256: sha256,
+		SHA384: hex.EncodeToString(sha384sum[:]),
+		Size:   int64(len(content)),
+	}, nil
 }
