@@ -479,10 +479,11 @@ func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application,
 	checkMainResource()
 }
 
-func (s *applicationSuite) TestEnsurePreservesExistingPodExtensions(c *tc.C) {
+func (s *applicationSuite) TestEnsurePreservesControllerBootstrapPodExtensions(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	var config caas.ApplicationConfig
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func(got *caas.ApplicationConfig) {
+		got.Controller = true
 		config = *got
 	}, func() {}, nil)
 
@@ -512,9 +513,9 @@ func (s *applicationSuite) TestEnsurePreservesExistingPodExtensions(c *tc.C) {
 			continue
 		}
 		container.VolumeMounts = []corev1.VolumeMount{{Name: "storage", MountPath: "/var/lib/juju"}}
-		container.Env = append(container.Env, corev1.EnvVar{
+		container.Env = []corev1.EnvVar{{
 			Name: constants.EnvJujuContainerNames, Value: "api-server",
-		})
+		}}
 	}
 	for i := range statefulSet.Spec.Template.Spec.Containers {
 		container := &statefulSet.Spec.Template.Spec.Containers[i]
@@ -565,6 +566,41 @@ func (s *applicationSuite) TestEnsurePreservesExistingPodExtensions(c *tc.C) {
 			return mount.Name == "storage" && mount.MountPath == "/var/lib/juju"
 		}), tc.IsTrue)
 	}
+}
+
+func (s *applicationSuite) TestEnsureRemovesContainerRemovedByCharmRefresh(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	var config caas.ApplicationConfig
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func(got *caas.ApplicationConfig) {
+		config = *got
+	}, func() {}, nil)
+
+	delete(config.Containers, "nginx")
+	c.Assert(app.Ensure(config), tc.ErrorIsNil)
+
+	statefulSet, err := s.client.AppsV1().StatefulSets(s.namespace).Get(c.Context(), s.appName, metav1.GetOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(slices.ContainsFunc(statefulSet.Spec.Template.Spec.Containers, func(container corev1.Container) bool {
+		return container.Name == "nginx"
+	}), tc.IsFalse)
+}
+
+func (s *applicationSuite) TestEnsureControllerRemovesContainerRemovedByCharmRefresh(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	var config caas.ApplicationConfig
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func(got *caas.ApplicationConfig) {
+		got.Controller = true
+		config = *got
+	}, func() {}, nil)
+
+	delete(config.Containers, "nginx")
+	c.Assert(app.Ensure(config), tc.ErrorIsNil)
+
+	statefulSet, err := s.client.AppsV1().StatefulSets(s.namespace).Get(c.Context(), s.appName, metav1.GetOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(slices.ContainsFunc(statefulSet.Spec.Template.Spec.Containers, func(container corev1.Container) bool {
+		return container.Name == "nginx"
+	}), tc.IsFalse)
 }
 
 func (s *applicationSuite) TestApplicationPodSpecController(c *tc.C) {

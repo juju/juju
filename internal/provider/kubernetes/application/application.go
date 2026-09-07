@@ -327,8 +327,8 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			// on creation. The provisioner's EnsureScale will
 			// correct the replica count if needed.
 		}
-		if exists {
-			ensureExistingPodTemplate(&existingSts.Spec.Template.Spec, podSpec)
+		if exists && config.Controller {
+			ensureControllerBootstrapPodTemplate(&existingSts.Spec.Template.Spec, podSpec)
 		}
 
 		var numPods *int32
@@ -477,23 +477,31 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	return applier.Run(context.TODO(), false)
 }
 
-// ensureExistingPodTemplate retains pod components that are added outside
-// ApplicationPodSpec. Controller bootstrap adds its seed init container and
-// API server this way; generic reconciliation must not remove them.
-func ensureExistingPodTemplate(existing, desired *corev1.PodSpec) {
-	ensureContainers := func(existingContainers []corev1.Container, desiredContainers *[]corev1.Container) {
-		for _, existingContainer := range existingContainers {
-			if slices.IndexFunc(*desiredContainers, func(container corev1.Container) bool {
-				return container.Name == existingContainer.Name
-			}) == -1 {
-				*desiredContainers = append(*desiredContainers, existingContainer)
-			}
+// ensureControllerBootstrapPodTemplate retains pod components added during
+// controller bootstrap that ApplicationPodSpec does not produce.
+func ensureControllerBootstrapPodTemplate(existing, desired *corev1.PodSpec) {
+	ensureContainer := func(existingContainers []corev1.Container, name string, desiredContainers *[]corev1.Container, prepend bool) {
+		existingIndex := slices.IndexFunc(existingContainers, func(container corev1.Container) bool {
+			return container.Name == name
+		})
+		if existingIndex == -1 || slices.ContainsFunc(*desiredContainers, func(container corev1.Container) bool {
+			return container.Name == name
+		}) {
+			return
 		}
+		if prepend {
+			*desiredContainers = append([]corev1.Container{existingContainers[existingIndex]}, *desiredContainers...)
+			return
+		}
+		*desiredContainers = append(*desiredContainers, existingContainers[existingIndex])
 	}
-	ensureContainers(existing.Containers, &desired.Containers)
-	ensureInitContainers(existing.InitContainers, &desired.InitContainers)
+	ensureContainer(existing.Containers, "api-server", &desired.Containers, false)
+	ensureContainer(existing.InitContainers, "controller-config-seed", &desired.InitContainers, true)
 
 	for i := range desired.Containers {
+		if desired.Containers[i].Name != constants.ApplicationCharmContainer {
+			continue
+		}
 		existingIndex := slices.IndexFunc(existing.Containers, func(container corev1.Container) bool {
 			return container.Name == desired.Containers[i].Name
 		})
@@ -504,6 +512,9 @@ func ensureExistingPodTemplate(existing, desired *corev1.PodSpec) {
 	}
 
 	for i := range desired.InitContainers {
+		if desired.InitContainers[i].Name != constants.ApplicationInitContainer {
+			continue
+		}
 		existingIndex := slices.IndexFunc(existing.InitContainers, func(container corev1.Container) bool {
 			return container.Name == desired.InitContainers[i].Name
 		})
@@ -514,25 +525,33 @@ func ensureExistingPodTemplate(existing, desired *corev1.PodSpec) {
 		ensureContainerNamesEnv(&existing.InitContainers[existingIndex], &desired.InitContainers[i])
 	}
 
+	bootstrapVolumeNames := make(map[string]struct{})
+	for _, container := range append(existing.Containers, existing.InitContainers...) {
+		if container.Name != "api-server" && container.Name != "controller-config-seed" {
+			continue
+		}
+		for _, mount := range container.VolumeMounts {
+			bootstrapVolumeNames[mount.Name] = struct{}{}
+		}
+	}
+	for _, container := range append(desired.Containers, desired.InitContainers...) {
+		if container.Name != constants.ApplicationCharmContainer && container.Name != constants.ApplicationInitContainer {
+			continue
+		}
+		for _, mount := range container.VolumeMounts {
+			bootstrapVolumeNames[mount.Name] = struct{}{}
+		}
+	}
 	for _, existingVolume := range existing.Volumes {
+		if _, ok := bootstrapVolumeNames[existingVolume.Name]; !ok {
+			continue
+		}
 		if slices.IndexFunc(desired.Volumes, func(volume corev1.Volume) bool {
 			return volume.Name == existingVolume.Name
 		}) == -1 {
 			desired.Volumes = append(desired.Volumes, existingVolume)
 		}
 	}
-}
-
-func ensureInitContainers(existingContainers []corev1.Container, desiredContainers *[]corev1.Container) {
-	var ensured []corev1.Container
-	for _, existingContainer := range existingContainers {
-		if slices.IndexFunc(*desiredContainers, func(container corev1.Container) bool {
-			return container.Name == existingContainer.Name
-		}) == -1 {
-			ensured = append(ensured, existingContainer)
-		}
-	}
-	*desiredContainers = append(ensured, *desiredContainers...)
 }
 
 func ensureDataDirMount(existing, desired *corev1.Container) {
