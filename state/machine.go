@@ -715,7 +715,10 @@ func (m *Machine) evacuateMachineOps(force bool, maxWait time.Duration) ([]txn.O
 		C:      machinesC,
 		Id:     m.doc.DocID,
 		Assert: asserts,
-		Update: bson.D{{"$pull", bson.D{{"jobs", JobHostUnits}}}},
+		Update: bson.D{
+			{"$pull", bson.D{{"jobs", JobHostUnits}}},
+			{"$set", bson.D{{"life", Dying}}},
+		},
 	}}
 	if m.IsManager() {
 		controllerOp, err := m.controllerIDsOp()

@@ -1378,8 +1378,8 @@ var (
 	CleanupEvacuateMachine       = cleanupEvacuateMachine
 )
 
-func (st *State) ScheduleForceCleanup(kind cleanupKind, name string, maxWait time.Duration) {
-	st.scheduleForceCleanup(kind, name, maxWait)
+func (st *State) ScheduleForceCleanup(kind cleanupKind, name string, maxWait time.Duration) error {
+	return st.scheduleForceCleanup(kind, name, maxWait)
 }
 
 func (st *State) ScheduleLegacyEvacuateMachineCleanup(machineID string) error {

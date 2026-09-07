@@ -374,9 +374,8 @@ func (s *MachineSuite) TestLifeJobManageModelWithControllerCharm(c *gc.C) {
 
 	err = m2.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	// Force remove of controller machines will first clean up units and
-	// after that it will pass the machine life to Dying.
-	c.Assert(m2.Life(), gc.Equals, state.Alive)
+	// Hosted removal marks the machine Dying before cleaning up its units.
+	c.Assert(m2.Life(), gc.Equals, state.Dying)
 
 	cn2, err := s.State.ControllerNode(m2.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -583,15 +582,20 @@ func (s *MachineSuite) TestForceDestroySchedulesCleanupWhenNotAlive(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestDestroyWithParamsSchedulesCleanupForEachRequest(c *gc.C) {
+func (s *MachineSuite) TestDestroyWithParamsRepeatedRequestIsNoOp(c *gc.C) {
 	err := s.machine.DestroyWithParams(false, true, time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.DestroyWithParams(false, true, time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.machine.Refresh(), jc.ErrorIsNil)
+	c.Check(s.machine.Life(), gc.Equals, state.Dying)
+
+	err = s.machine.DestroyWithParams(false, true, time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
 
 	state.AssertCleanupCountWithKind(
-		c, s.State, state.CleanupEvacuateMachine, 2,
+		c, s.State, state.CleanupEvacuateMachine, 1,
 	)
 }
 
