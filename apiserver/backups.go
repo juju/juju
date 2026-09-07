@@ -22,6 +22,12 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// maxDownloadArgsBytes caps the request body read by the download
+// handler. The body only ever carries a JSON-encoded archive id, so this
+// is far more than a well behaved client needs, and an unbounded body is
+// not streamed into the controller.
+const maxDownloadArgsBytes = 1 << 20 // 1MiB
+
 // backupsDownloadHandler streams a backup archive out of the controller
 // model's backup directory over HTTP. The archive is removed from disk on
 // successful copy, matching Juju 3.6 one-shot download semantics.
@@ -37,6 +43,7 @@ func (h *backupsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	ctx := r.Context()
 
 	var args params.BackupsDownloadArgs
+	r.Body = http.MaxBytesReader(w, r.Body, maxDownloadArgsBytes)
 	if err := json.NewDecoder(r.Body).Decode(&args); err != nil {
 		h.sendError(ctx, w, jujuerrors.BadRequestf("decoding download args"))
 		return
@@ -58,6 +65,10 @@ func (h *backupsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	backupDir := corebackups.BackupDirToUse(cfg.BackupDir())
 
 	// Reject ids that are not a clearly named archive under the backup dir.
+	// Validation resolves symlinks, so a link under the backup dir naming a
+	// file elsewhere is accepted: the endpoint is controller-admin only and
+	// the backup dir is only writable by the controller itself, so trusting
+	// its contents is an accepted trade-off rather than an oversight.
 	valid, err := corebackups.IsValidBackupFilepath(backupDir, args.ID)
 	if err != nil {
 		h.sendError(ctx, w, errors.Errorf("validating archive path: %w", err))
@@ -68,8 +79,18 @@ func (h *backupsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// An archive that passed validation can still be gone by the time it is
+	// opened, because the one-shot removal below races a concurrent or
+	// retried download of the same id. That is a bad id, not a controller
+	// fault, so it is reported exactly as a validation failure is. Note this
+	// must not be NotFound: the client reads NotFound off this endpoint as
+	// "this controller does not support backup downloads" and reports
+	// success (see cmd/juju/backups/download.go).
 	file, err := os.Open(args.ID)
-	if err != nil {
+	if errors.Is(err, os.ErrNotExist) {
+		h.sendError(ctx, w, jujuerrors.BadRequestf("invalid backup archive id"))
+		return
+	} else if err != nil {
 		h.sendError(ctx, w, errors.Errorf("opening archive: %w", err))
 		return
 	}
@@ -81,21 +102,28 @@ func (h *backupsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Compute the archive checksum for the Digest header. The checksum
-	// is over the gzipped archive bytes, so a client can verify the
-	// download without decompressing it. Note this is a SHA-256 digest,
-	// independent of the SHA-1 checksum recorded in the backup metadata.
-	checksum, err := archiveChecksum(file)
-	if err != nil {
-		h.sendError(ctx, w, errors.Errorf("checksumming archive: %w", err))
-		return
-	}
-
 	// ServeContent sets Content-Type from the file extension; the raw
 	// archive type and digest headers are set explicitly to match the
 	// 3.6 download response.
 	w.Header().Set("Content-Type", params.ContentTypeRaw)
-	w.Header().Set("Digest", params.EncodeChecksum(checksum))
+
+	// Compute the archive checksum for the Digest header. The checksum is
+	// over the gzipped archive bytes, so a client can verify the download
+	// without decompressing it. Note this is a SHA-256 digest, independent
+	// of the SHA-1 checksum recorded in the backup metadata.
+	//
+	// Hashing reads the whole archive, which is only worth doing for a
+	// request that will carry the whole archive: a HEAD sends no bytes and
+	// a range request sends a slice the digest does not describe, so both
+	// are served without it rather than reading the archive twice.
+	if r.Method == http.MethodGet && r.Header.Get("Range") == "" {
+		checksum, err := archiveChecksum(file)
+		if err != nil {
+			h.sendError(ctx, w, errors.Errorf("checksumming archive: %w", err))
+			return
+		}
+		w.Header().Set("Digest", params.EncodeChecksum(checksum))
+	}
 
 	// Stream the archive. ServeContent handles range and head requests.
 	sw := &serveStatusWriter{ResponseWriter: w}

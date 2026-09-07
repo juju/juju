@@ -6,6 +6,7 @@ package apiserver
 import (
 	"crypto/sha256"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -97,6 +98,20 @@ func (s *backupsDownloadSuite) TestDownload(c *tc.C) {
 	c.Assert(os.IsNotExist(err), tc.IsTrue)
 }
 
+// TestDownloadAlreadyConsumed verifies that re-downloading an id whose
+// archive was already consumed by a previous one-shot download is
+// rejected as a bad id, rather than reported as a controller fault or as
+// NotFound, which the client reads as "downloads are unsupported here".
+func (s *backupsDownloadSuite) TestDownloadAlreadyConsumed(c *tc.C) {
+	_, filename := s.createArchive(c)
+
+	c.Assert(s.get(c, filename).Code, tc.Equals, http.StatusOK)
+
+	recorder := s.get(c, filename)
+	c.Check(recorder.Code, tc.Equals, http.StatusBadRequest)
+	c.Check(recorder.Body.String(), tc.Contains, "invalid backup archive id")
+}
+
 // TestDownloadRangeRequestKeepsArchive verifies that a partial (range)
 // response does not trigger the one-shot removal: the archive must stay
 // on disk so the download can be retried or resumed.
@@ -114,6 +129,10 @@ func (s *backupsDownloadSuite) TestDownloadRangeRequestKeepsArchive(c *tc.C) {
 
 	c.Assert(recorder.Code, tc.Equals, http.StatusPartialContent)
 	c.Check(recorder.Body.String(), tc.Equals, string(expected[:10]))
+
+	// The digest describes the whole archive, so it is not computed for a
+	// response that only carries a slice of it.
+	c.Check(recorder.Header().Get("Digest"), tc.Equals, "")
 
 	// The partial response leaves the archive on disk.
 	_, err = os.Stat(filename)
@@ -138,6 +157,9 @@ func (s *backupsDownloadSuite) TestDownloadHeadKeepsArchive(c *tc.C) {
 	c.Check(recorder.Body.Len(), tc.Equals, 0)
 	c.Check(recorder.Header().Get("Content-Length"), tc.Equals,
 		strconv.Itoa(len(expected)))
+
+	// No bytes are served, so the archive is not read to digest it.
+	c.Check(recorder.Header().Get("Digest"), tc.Equals, "")
 
 	// No bytes were transferred, so the archive stays on disk.
 	_, err = os.Stat(filename)
@@ -169,6 +191,16 @@ type failingWriter struct {
 
 func (w *failingWriter) Write([]byte) (int, error) {
 	return 0, errors.New("connection reset by peer")
+}
+
+// TestServeStatusWriterIsNotReaderFrom guards the property the one-shot
+// removal depends on: serveStatusWriter must not satisfy [io.ReaderFrom],
+// so the copy inside [http.ServeContent] runs through Write and the served
+// byte count and write errors stay observable.
+func (s *backupsDownloadSuite) TestServeStatusWriterIsNotReaderFrom(c *tc.C) {
+	var w any = &serveStatusWriter{ResponseWriter: httptest.NewRecorder()}
+	_, ok := w.(io.ReaderFrom)
+	c.Check(ok, tc.IsFalse)
 }
 
 // TestDownloadInvalidID rejects ids that do not resolve to a backup
