@@ -4,12 +4,13 @@
 package apiserver
 
 import (
-	"crypto/sha1"
-	"encoding/base64"
+	"crypto/sha256"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	stdtesting "testing"
 	"time"
@@ -80,12 +81,12 @@ func (s *backupsDownloadSuite) TestDownload(c *tc.C) {
 	recorder := s.get(c, filename)
 	c.Assert(recorder.Code, tc.Equals, http.StatusOK)
 
-	// The raw content type and digest headers match the 3.6 download
-	// response.
+	// The raw content type and a correctly labeled, correctly encoded
+	// SHA-256 digest header are returned.
 	c.Check(recorder.Header().Get("Content-Type"), tc.Equals, params.ContentTypeRaw)
-	sum := sha1.Sum(expected)
+	sum := sha256.Sum256(expected)
 	c.Check(recorder.Header().Get("Digest"), tc.Equals,
-		params.EncodeChecksum(base64.StdEncoding.EncodeToString(sum[:])))
+		params.EncodeChecksum(sum[:]))
 
 	// The archive bytes match the file contents read before the download.
 	c.Check(recorder.Body.Len(), tc.Equals, len(expected))
@@ -94,6 +95,80 @@ func (s *backupsDownloadSuite) TestDownload(c *tc.C) {
 	// One-shot semantics: the archive is gone after serving.
 	_, err = os.Stat(filename)
 	c.Assert(os.IsNotExist(err), tc.IsTrue)
+}
+
+// TestDownloadRangeRequestKeepsArchive verifies that a partial (range)
+// response does not trigger the one-shot removal: the archive must stay
+// on disk so the download can be retried or resumed.
+func (s *backupsDownloadSuite) TestDownloadRangeRequestKeepsArchive(c *tc.C) {
+	_, filename := s.createArchive(c)
+
+	expected, err := os.ReadFile(filename)
+	c.Assert(err, tc.ErrorIsNil)
+
+	req := httptest.NewRequest(
+		http.MethodGet, "/model/x/backups", strings.NewReader(`{"id":"`+filename+`"}`))
+	req.Header.Set("Range", "bytes=0-9")
+	recorder := httptest.NewRecorder()
+	s.handler(c).ServeHTTP(recorder, req)
+
+	c.Assert(recorder.Code, tc.Equals, http.StatusPartialContent)
+	c.Check(recorder.Body.String(), tc.Equals, string(expected[:10]))
+
+	// The partial response leaves the archive on disk.
+	_, err = os.Stat(filename)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestDownloadHeadKeepsArchive verifies that a HEAD request, which
+// transfers no archive bytes at all, does not consume the archive. HEAD
+// is routed to this handler automatically alongside GET.
+func (s *backupsDownloadSuite) TestDownloadHeadKeepsArchive(c *tc.C) {
+	_, filename := s.createArchive(c)
+
+	expected, err := os.ReadFile(filename)
+	c.Assert(err, tc.ErrorIsNil)
+
+	req := httptest.NewRequest(
+		http.MethodHead, "/model/x/backups", strings.NewReader(`{"id":"`+filename+`"}`))
+	recorder := httptest.NewRecorder()
+	s.handler(c).ServeHTTP(recorder, req)
+
+	c.Assert(recorder.Code, tc.Equals, http.StatusOK)
+	c.Check(recorder.Body.Len(), tc.Equals, 0)
+	c.Check(recorder.Header().Get("Content-Length"), tc.Equals,
+		strconv.Itoa(len(expected)))
+
+	// No bytes were transferred, so the archive stays on disk.
+	_, err = os.Stat(filename)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestDownloadWriteErrorKeepsArchive verifies that a client that goes
+// away mid-stream does not consume the archive.
+func (s *backupsDownloadSuite) TestDownloadWriteErrorKeepsArchive(c *tc.C) {
+	_, filename := s.createArchive(c)
+
+	req := httptest.NewRequest(
+		http.MethodGet, "/model/x/backups", strings.NewReader(`{"id":"`+filename+`"}`))
+	recorder := &failingWriter{ResponseRecorder: httptest.NewRecorder()}
+	s.handler(c).ServeHTTP(recorder, req)
+
+	c.Assert(recorder.Code, tc.Equals, http.StatusOK)
+
+	// The failed write leaves the archive on disk.
+	_, err := os.Stat(filename)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// failingWriter fails every body write, standing in for a client that
+// disconnected mid-download.
+type failingWriter struct {
+	*httptest.ResponseRecorder
+}
+
+func (w *failingWriter) Write([]byte) (int, error) {
+	return 0, errors.New("connection reset by peer")
 }
 
 // TestDownloadInvalidID rejects ids that do not resolve to a backup

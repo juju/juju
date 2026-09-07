@@ -5,8 +5,7 @@ package apiserver
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/base64"
+	"crypto/sha256"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -39,7 +38,7 @@ func (h *backupsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 
 	var args params.BackupsDownloadArgs
 	if err := json.NewDecoder(r.Body).Decode(&args); err != nil {
-		h.sendError(w, jujuerrors.BadRequestf("decoding download args"))
+		h.sendError(ctx, w, jujuerrors.BadRequestf("decoding download args"))
 		return
 	}
 
@@ -48,12 +47,12 @@ func (h *backupsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	// resolved it through the filestorage layer on every Get call.
 	domainServices, err := h.domainServicesGetter.ServicesForModel(ctx, h.controllerModelUUID)
 	if err != nil {
-		h.sendError(w, errors.Errorf("resolving domain services: %w", err))
+		h.sendError(ctx, w, errors.Errorf("resolving domain services: %w", err))
 		return
 	}
 	cfg, err := domainServices.Config().ModelConfig(ctx)
 	if err != nil {
-		h.sendError(w, errors.Errorf("resolving model config: %w", err))
+		h.sendError(ctx, w, errors.Errorf("resolving model config: %w", err))
 		return
 	}
 	backupDir := corebackups.BackupDirToUse(cfg.BackupDir())
@@ -61,32 +60,34 @@ func (h *backupsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	// Reject ids that are not a clearly named archive under the backup dir.
 	valid, err := corebackups.IsValidBackupFilepath(backupDir, args.ID)
 	if err != nil {
-		h.sendError(w, errors.Errorf("validating archive path: %w", err))
+		h.sendError(ctx, w, errors.Errorf("validating archive path: %w", err))
 		return
 	}
 	if !valid {
-		h.sendError(w, jujuerrors.BadRequestf("invalid backup archive id"))
+		h.sendError(ctx, w, jujuerrors.BadRequestf("invalid backup archive id"))
 		return
 	}
 
 	file, err := os.Open(args.ID)
 	if err != nil {
-		h.sendError(w, errors.Errorf("opening archive: %w", err))
+		h.sendError(ctx, w, errors.Errorf("opening archive: %w", err))
 		return
 	}
 	defer file.Close()
 
 	fi, err := file.Stat()
 	if err != nil {
-		h.sendError(w, errors.Errorf("stating archive: %w", err))
+		h.sendError(ctx, w, errors.Errorf("stating archive: %w", err))
 		return
 	}
 
-	// Compute the archive checksum for the Digest header, as the 3.6
-	// handler did. The checksum is over the gzipped archive bytes.
+	// Compute the archive checksum for the Digest header. The checksum
+	// is over the gzipped archive bytes, so a client can verify the
+	// download without decompressing it. Note this is a SHA-256 digest,
+	// independent of the SHA-1 checksum recorded in the backup metadata.
 	checksum, err := archiveChecksum(file)
 	if err != nil {
-		h.sendError(w, errors.Errorf("checksumming archive: %w", err))
+		h.sendError(ctx, w, errors.Errorf("checksumming archive: %w", err))
 		return
 	}
 
@@ -97,34 +98,89 @@ func (h *backupsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Digest", params.EncodeChecksum(checksum))
 
 	// Stream the archive. ServeContent handles range and head requests.
-	http.ServeContent(w, r, fi.Name(), fi.ModTime(), file)
+	sw := &serveStatusWriter{ResponseWriter: w}
+	http.ServeContent(sw, r, fi.Name(), fi.ModTime(), file)
 
-	// One-shot semantics: remove the archive after serving it, as 3.6 did.
+	// One-shot semantics: remove the archive only once it has been
+	// served completely. Anything short of a whole-archive 200 response
+	// leaves the archive on disk so the download can be retried:
+	//   - a HEAD request transfers no bytes at all,
+	//   - a range request only sends part of the archive (206),
+	//   - a conditional request may send nothing (304),
+	//   - a write error means the client went away mid-stream,
+	//   - a short body means the copy stopped early.
+	if r.Method != http.MethodGet {
+		return
+	}
+	if sw.err != nil {
+		h.logger.Warningf(ctx, "error serving backup archive: %v", sw.err)
+		return
+	}
+	if sw.status != http.StatusOK {
+		return
+	}
+	if sw.written != fi.Size() {
+		h.logger.Warningf(ctx,
+			"backup archive %q served incompletely (%d of %d bytes), keeping it on disk",
+			fi.Name(), sw.written, fi.Size())
+		return
+	}
 	if err := os.Remove(args.ID); err != nil && !os.IsNotExist(err) {
 		h.logger.Warningf(ctx, "error removing backup archive: %v", err)
 	}
 }
 
+// serveStatusWriter records the response status, the number of body
+// bytes written and the first write error, so the handler can tell a
+// completely served archive from a partial or failed response.
+//
+// It deliberately does not forward [io.ReaderFrom], so the copy runs
+// through Write and write errors are observable.
+type serveStatusWriter struct {
+	http.ResponseWriter
+	status  int
+	written int64
+	err     error
+}
+
+func (w *serveStatusWriter) WriteHeader(status int) {
+	if w.status == 0 {
+		w.status = status
+	}
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *serveStatusWriter) Write(p []byte) (int, error) {
+	if w.status == 0 {
+		w.status = http.StatusOK
+	}
+	n, err := w.ResponseWriter.Write(p)
+	w.written += int64(n)
+	if err != nil && w.err == nil {
+		w.err = err
+	}
+	return n, err
+}
+
 // sendError logs the internal error detail and replies with a structured
 // JSON error, so internal state (paths, model UUIDs, DB errors) is not
 // leaked to the client beyond the classified error.
-func (h *backupsDownloadHandler) sendError(w http.ResponseWriter, err error) {
-	h.logger.Debugf(context.TODO(), "backup download error: %v", err)
+func (h *backupsDownloadHandler) sendError(ctx context.Context, w http.ResponseWriter, err error) {
+	h.logger.Debugf(ctx, "backup download error: %v", err)
 	if err := internalhttp.SendError(w, err, h.logger); err != nil {
-		h.logger.Errorf(context.TODO(), "sending backup download error: %v", err)
+		h.logger.Errorf(ctx, "sending backup download error: %v", err)
 	}
 }
 
-// archiveChecksum returns the base64-encoded SHA-1 checksum of the
-// archive, matching the format recorded in the backup metadata. The
+// archiveChecksum returns the raw SHA-256 checksum of the archive. The
 // file offset is reset so the caller can stream the file afterwards.
-func archiveChecksum(file *os.File) (string, error) {
-	hasher := sha1.New()
+func archiveChecksum(file *os.File) ([]byte, error) {
+	hasher := sha256.New()
 	if _, err := io.Copy(hasher, file); err != nil {
-		return "", errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return "", errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
-	return base64.StdEncoding.EncodeToString(hasher.Sum(nil)), nil
+	return hasher.Sum(nil), nil
 }
