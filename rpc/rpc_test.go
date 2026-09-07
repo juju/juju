@@ -976,12 +976,13 @@ func (*rpcSuite) TestCloseWithLateResponseDoesNotPanic(c *tc.C) {
 		started: make(chan struct{}),
 		release: make(chan struct{}),
 	}
-	root := &lateResponseRoot{methods: methods}
+	span := newRecordingSpan()
+	root := newTracingRoot(&lateResponseRoot{methods: methods}, span)
 
 	conn := rpc.NewConn(codec, nil)
 	conn.SetCloseTimeout(100 * time.Millisecond)
 	conn.SetWriteFlushTimeout(100 * time.Millisecond)
-	conn.Serve(root, nil, nil)
+	conn.ServeRoot(root, nil, nil)
 	conn.Start(c.Context())
 
 	closeDone := make(chan error, 1)
@@ -1007,6 +1008,13 @@ func (*rpcSuite) TestCloseWithLateResponseDoesNotPanic(c *tc.C) {
 	close(methods.release)
 	conn.WaitForPendingServerRequests()
 	c.Check(conn.PendingResponseCount(), tc.Equals, int64(0))
+	chanRead(c, span.ended, "late response span ended")
+	select {
+	case err := <-span.errors:
+		c.Check(err, tc.ErrorIs, rpc.ErrShutdown)
+	case <-c.Context().Done():
+		c.Fatal("late response span did not record shutdown")
+	}
 }
 
 // TestCloseWithWriteNotUnblockedByCodecClose verifies that Close remains
