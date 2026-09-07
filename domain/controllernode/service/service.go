@@ -47,27 +47,26 @@ type State interface {
 	// controller nodes.
 	NamespaceForWatchControllerNodes() string
 
-	// NamespaceForWatchControllerAPIAddresses returns the namespace for watching
-	// controller api addresses.
-	NamespaceForWatchControllerAPIAddresses() string
+	// NamespaceForWatchAPIAddressesForAgents returns the namespace for watching
+	// general agent API addresses.
+	NamespaceForWatchAPIAddressesForAgents() string
 
-	// NamespaceForWatchSharedControllerAPIAddresses returns the namespace for
-	// watching shared controller API addresses.
-	NamespaceForWatchSharedControllerAPIAddresses() string
+	// NamespaceForWatchAPIAddressesForClients returns the namespace for watching
+	// general client API addresses.
+	NamespaceForWatchAPIAddressesForClients() string
+
+	// NamespaceForWatchControllerNodeAPIAddresses returns the namespace for
+	// watching controller-node API addresses.
+	NamespaceForWatchControllerNodeAPIAddresses() string
 
 	// SetAPIAddresses sets the addresses for the provided controller node. It
 	// replaces any existing addresses and stores them in the
-	// api_controller_address table, with the format "host:port" as a string, as
-	// well as the is_agent flag indicating whether the address is available for
-	// agents.
+	// controller_node_api_address table, with the format "host:port" as a
+	// string and the is_agent_only flag.
 	//
 	// The following errors can be expected: - [controllernodeerrors.NotFound]
 	// if the controller node does not exist.
-	SetAPIAddresses(ctx context.Context, addresses map[string]controllernode.APIAddresses) error
-
-	// SetSharedAPIAddresses replaces endpoints that can route to any healthy
-	// controller API server.
-	SetSharedAPIAddresses(ctx context.Context, addresses controllernode.APIAddresses) error
+	SetAPIAddresses(ctx context.Context, addresses map[string]controllernode.APIAddresses, general ...*controllernode.APIAddresses) error
 
 	// GetControllerIDs returns the list of controller IDs from the controller
 	// node records.
@@ -194,13 +193,10 @@ func (s *Service) SetAPIAddresses(ctx context.Context, args controllernode.SetAP
 	for controllerID, addrs := range args.APIAddresses {
 		addresses[controllerID] = s.encodeAPIAddresses(ctx, args.MgmtSpace, addrs)
 	}
-	return s.st.SetAPIAddresses(ctx, addresses)
-}
-
-// SetSharedAPIAddresses replaces endpoints that can route to any healthy
-// controller API server.
-func (s *Service) SetSharedAPIAddresses(ctx context.Context, addresses controllernode.APIAddresses) error {
-	return s.st.SetSharedAPIAddresses(ctx, addresses)
+	if args.AgentAddresses == nil && args.ClientAddresses == nil {
+		return s.st.SetAPIAddresses(ctx, addresses)
+	}
+	return s.st.SetAPIAddresses(ctx, addresses, args.AgentAddresses, args.ClientAddresses)
 }
 
 func (s *Service) encodeAPIAddresses(ctx context.Context, mgmtSpace *network.SpaceInfo, addrs network.SpaceHostPorts) controllernode.APIAddresses {
@@ -517,8 +513,9 @@ func (s *WatchableService) WatchControllerAPIAddresses(ctx context.Context) (wat
 	return s.watcherFactory.NewNotifyWatcher(
 		ctx,
 		"controller api addresses watcher",
-		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerAPIAddresses(), changestream.All),
-		eventsource.NamespaceFilter(s.st.NamespaceForWatchSharedControllerAPIAddresses(), changestream.All),
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchAPIAddressesForAgents(), changestream.All),
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchAPIAddressesForClients(), changestream.All),
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerNodeAPIAddresses(), changestream.All),
 	)
 }
 

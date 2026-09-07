@@ -38,30 +38,35 @@ type controllerNodeAgentVersion struct {
 	ArchitectureID int    `db:"architecture_id"`
 }
 
-// controllerAPIAddress is the database representation of a controller api
-// address with the controller id and whether it is for agents or clients.
-type controllerAPIAddress struct {
+// controllerNodeAPIAddress is the database representation of an address for a
+// specific controller node.
+type controllerNodeAPIAddress struct {
 	// ControllerID is the controller node id.
 	ControllerID string `db:"controller_id"`
 	// Address is the address of the controller node.
 	Address string `db:"address"`
-	// IsAgent is whether the address is for agents as well as for clients.
-	IsAgent bool `db:"is_agent"`
+	// IsAgentOnly is whether the address is only available for agents.
+	IsAgentOnly bool `db:"is_agent_only"`
 	// Scope is the address scope.
 	Scope string `db:"scope"`
 }
 
-// sharedAPIAddress is the database representation of an address that can
-// reach any healthy controller API server.
-type sharedAPIAddress struct {
-	Address  string `db:"address"`
-	IsAgent  bool   `db:"is_agent"`
-	IsClient bool   `db:"is_client"`
-	Scope    string `db:"scope"`
+// controllerAPIAddress is retained for address-delta unit tests.
+type controllerAPIAddress struct {
+	ControllerID string
+	Address      string
+	IsAgent      bool
 }
 
-type sharedAPIAddressAudience struct {
-	AgentsOnly bool `db:"agents_only"`
+type agentAPIAddress struct {
+	Address     string `db:"address"`
+	IsAgentOnly bool   `db:"is_agent_only"`
+	Scope       string `db:"scope"`
+}
+
+type clientAPIAddress struct {
+	Address string `db:"address"`
+	Scope   string `db:"scope"`
 }
 
 // countResult is the database representation of a count result.
@@ -72,13 +77,6 @@ type countResult struct {
 // controllerID is the database representation of a controller node id.
 type controllerID struct {
 	ID string `db:"controller_id"`
-}
-
-// controllerAPIAddressStr is the database representation of a controller api
-// address alone.
-type controllerAPIAddressStr struct {
-	// Address is the address of the controller node.
-	Address string `db:"address"`
 }
 
 type controllerIDs []string

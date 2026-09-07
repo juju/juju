@@ -25,6 +25,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing AgentBinaryStore statement: %w", err)
 	}
+	stmtApiAddressAgent, err := sqlair.Prepare(`SELECT &ApiAddressAgent.* FROM "api_address_agent"`, v4_1_0.ApiAddressAgent{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing ApiAddressAgent statement: %w", err)
+	}
+	stmtApiAddressClient, err := sqlair.Prepare(`SELECT &ApiAddressClient.* FROM "api_address_client"`, v4_1_0.ApiAddressClient{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing ApiAddressClient statement: %w", err)
+	}
 	stmtArchitecture, err := sqlair.Prepare(`SELECT &Architecture.* FROM "architecture"`, v4_1_0.Architecture{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Architecture statement: %w", err)
@@ -109,14 +117,6 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing Controller statement: %w", err)
 	}
-	stmtControllerApiAddress, err := sqlair.Prepare(`SELECT &ControllerApiAddress.* FROM "controller_api_address"`, v4_1_0.ControllerApiAddress{})
-	if err != nil {
-		return nil, fmt.Errorf("preparing ControllerApiAddress statement: %w", err)
-	}
-	stmtControllerApiSharedAddress, err := sqlair.Prepare(`SELECT &ControllerApiSharedAddress.* FROM "controller_api_shared_address"`, v4_1_0.ControllerApiSharedAddress{})
-	if err != nil {
-		return nil, fmt.Errorf("preparing ControllerApiSharedAddress statement: %w", err)
-	}
 	stmtControllerConfig, err := sqlair.Prepare(`SELECT &ControllerConfig.* FROM "controller_config"`, v4_1_0.ControllerConfig{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ControllerConfig statement: %w", err)
@@ -128,6 +128,10 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	stmtControllerNodeAgentVersion, err := sqlair.Prepare(`SELECT &ControllerNodeAgentVersion.* FROM "controller_node_agent_version"`, v4_1_0.ControllerNodeAgentVersion{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ControllerNodeAgentVersion statement: %w", err)
+	}
+	stmtControllerNodeApiAddress, err := sqlair.Prepare(`SELECT &ControllerNodeApiAddress.* FROM "controller_node_api_address"`, v4_1_0.ControllerNodeApiAddress{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing ControllerNodeApiAddress statement: %w", err)
 	}
 	stmtControllerNodeNonce, err := sqlair.Prepare(`SELECT &ControllerNodeNonce.* FROM "controller_node_nonce"`, v4_1_0.ControllerNodeNonce{})
 	if err != nil {
@@ -399,6 +403,12 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 		if err := tx.Query(ctx, stmtAgentBinaryStore).GetAll(&controllerExport.AgentBinaryStore); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying AgentBinaryStore (table agent_binary_store): %w", err)
 		}
+		if err := tx.Query(ctx, stmtApiAddressAgent).GetAll(&controllerExport.ApiAddressAgent); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying ApiAddressAgent (table api_address_agent): %w", err)
+		}
+		if err := tx.Query(ctx, stmtApiAddressClient).GetAll(&controllerExport.ApiAddressClient); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying ApiAddressClient (table api_address_client): %w", err)
+		}
 		if err := tx.Query(ctx, stmtArchitecture).GetAll(&controllerExport.Architecture); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Architecture (table architecture): %w", err)
 		}
@@ -462,12 +472,6 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 		if err := tx.Query(ctx, stmtController).GetAll(&controllerExport.Controller); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Controller (table controller): %w", err)
 		}
-		if err := tx.Query(ctx, stmtControllerApiAddress).GetAll(&controllerExport.ControllerApiAddress); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("querying ControllerApiAddress (table controller_api_address): %w", err)
-		}
-		if err := tx.Query(ctx, stmtControllerApiSharedAddress).GetAll(&controllerExport.ControllerApiSharedAddress); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("querying ControllerApiSharedAddress (table controller_api_shared_address): %w", err)
-		}
 		if err := tx.Query(ctx, stmtControllerConfig).GetAll(&controllerExport.ControllerConfig); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ControllerConfig (table controller_config): %w", err)
 		}
@@ -476,6 +480,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 		}
 		if err := tx.Query(ctx, stmtControllerNodeAgentVersion).GetAll(&controllerExport.ControllerNodeAgentVersion); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ControllerNodeAgentVersion (table controller_node_agent_version): %w", err)
+		}
+		if err := tx.Query(ctx, stmtControllerNodeApiAddress).GetAll(&controllerExport.ControllerNodeApiAddress); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying ControllerNodeApiAddress (table controller_node_api_address): %w", err)
 		}
 		if err := tx.Query(ctx, stmtControllerNodeNonce).GetAll(&controllerExport.ControllerNodeNonce); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ControllerNodeNonce (table controller_node_nonce): %w", err)

@@ -54,10 +54,6 @@ type ControllerNodeService interface {
 	// The following errors can be expected:
 	// - [controllernodeerrors.NotFound] if the controller node does not exist.
 	SetAPIAddresses(ctx context.Context, args controllernode.SetAPIAddressArgs) error
-
-	// SetSharedAPIAddresses replaces endpoints that can reach any healthy
-	// controller API server.
-	SetSharedAPIAddresses(ctx context.Context, addresses controllernode.APIAddresses) error
 }
 
 // ApplicationService is an interface for the application domain service.
@@ -406,10 +402,6 @@ func (w *apiAddressSetterWorker) updateAPIAddresses(ctx context.Context) error {
 		}
 		args.APIAddresses[controllerID] = hostPorts
 	}
-	if err := w.config.ControllerNodeService.SetAPIAddresses(ctx, args); err != nil {
-		return errors.Capture(err)
-	}
-
 	if w.config.ControllerName != "" {
 		serviceAddress := fmt.Sprintf(
 			constants.ControllerServiceFQDNTemplate,
@@ -435,9 +427,17 @@ func (w *apiAddressSetterWorker) updateAPIAddresses(ctx context.Context) error {
 				Scope:    address.Scope,
 			})
 		}
-		if err := w.config.ControllerNodeService.SetSharedAPIAddresses(ctx, sharedAddresses); err != nil {
-			return errors.Capture(err)
+		clientAddresses := make(controllernode.APIAddresses, 0, len(sharedAddresses))
+		for _, address := range sharedAddresses {
+			if address.IsClient {
+				clientAddresses = append(clientAddresses, address)
+			}
 		}
+		args.AgentAddresses = &sharedAddresses
+		args.ClientAddresses = &clientAddresses
+	}
+	if err := w.config.ControllerNodeService.SetAPIAddresses(ctx, args); err != nil {
+		return errors.Capture(err)
 	}
 	return nil
 }

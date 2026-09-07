@@ -23,6 +23,10 @@ type SetAPIAddressArgs struct {
 	MgmtSpace *network.SpaceInfo
 	// APIAddresses maps a controller ID to its SpaceHostPorts.
 	APIAddresses map[string]network.SpaceHostPorts
+	// AgentAddresses replaces general agent endpoints when non-nil.
+	AgentAddresses *APIAddresses
+	// ClientAddresses replaces general client endpoints when non-nil.
+	ClientAddresses *APIAddresses
 }
 
 // APIAddress represents one of the API addresses, accessible for clients

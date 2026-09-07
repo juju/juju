@@ -26,7 +26,7 @@ func (s *controllerNodeSuite) TestDeleteDqliteNode(c *tc.C) {
 
 	_, err := db.Exec("INSERT INTO controller_node (controller_id) VALUES ('99')")
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = db.Exec("INSERT INTO controller_api_address (controller_id, address, scope) VALUES ('99', '10.0.0.1:17070', 'local-cloud')")
+	_, err = db.Exec("INSERT INTO controller_node_api_address (controller_id, address, is_agent_only, scope) VALUES ('99', '10.0.0.1:17070', false, 'local-cloud')")
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec("INSERT INTO controller_node_agent_version (controller_id, version, architecture_id) VALUES ('99', '4.1.0', 0)")
 	c.Assert(err, tc.ErrorIsNil)
@@ -47,7 +47,7 @@ func (s *controllerNodeSuite) TestDeleteDqliteNode(c *tc.C) {
 		query string
 		args  []any
 	}{
-		{"SELECT COUNT(*) FROM controller_api_address WHERE controller_id = ?", []any{"99"}},
+		{"SELECT COUNT(*) FROM controller_node_api_address WHERE controller_id = ?", []any{"99"}},
 		{"SELECT COUNT(*) FROM controller_node_agent_version WHERE controller_id = ?", []any{"99"}},
 		{"SELECT COUNT(*) FROM controller_node_password WHERE controller_id = ?", []any{"99"}},
 		{"SELECT COUNT(*) FROM controller_node_nonce WHERE controller_id = ?", []any{"99"}},
@@ -76,7 +76,7 @@ func (s *controllerNodeSuite) TestDeleteDqliteNodeIdempotent(c *tc.C) {
 
 	_, err := db.Exec("INSERT INTO controller_node (controller_id) VALUES ('98')")
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = db.Exec("INSERT INTO controller_api_address (controller_id, address, scope) VALUES ('98', '10.0.0.1:17070', 'local-cloud')")
+	_, err = db.Exec("INSERT INTO controller_node_api_address (controller_id, address, is_agent_only, scope) VALUES ('98', '10.0.0.1:17070', false, 'local-cloud')")
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -102,7 +102,7 @@ func (s *controllerNodeSuite) TestDeleteDqliteNodePreservesOtherNodes(c *tc.C) {
 	for _, cID := range []string{"96", "97"} {
 		_, err := db.Exec("INSERT INTO controller_node (controller_id) VALUES (?)", cID)
 		c.Assert(err, tc.ErrorIsNil)
-		_, err = db.Exec("INSERT INTO controller_api_address (controller_id, address, scope) VALUES (?, '10.0.0.' || ? || ':17070', 'local-cloud')", cID, cID)
+		_, err = db.Exec("INSERT INTO controller_node_api_address (controller_id, address, is_agent_only, scope) VALUES (?, '10.0.0.' || ? || ':17070', false, 'local-cloud')", cID, cID)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -119,11 +119,11 @@ func (s *controllerNodeSuite) TestDeleteDqliteNodePreservesOtherNodes(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 1)
 
-	err = db.QueryRow("SELECT COUNT(*) FROM controller_api_address WHERE controller_id = '96'").Scan(&count)
+	err = db.QueryRow("SELECT COUNT(*) FROM controller_node_api_address WHERE controller_id = '96'").Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
 
-	err = db.QueryRow("SELECT COUNT(*) FROM controller_api_address WHERE controller_id = '97'").Scan(&count)
+	err = db.QueryRow("SELECT COUNT(*) FROM controller_node_api_address WHERE controller_id = '97'").Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 1)
 }
