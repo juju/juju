@@ -13,6 +13,7 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
+
 	agentbinary "github.com/juju/juju/core/agentbinary"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
@@ -28,18 +29,22 @@ type MockState struct {
 
 // MockStateMockRecorder is the mock recorder for MockState.
 type MockStateMockRecorder struct {
-	mock                                           *MockState
-	addDqliteNodeExpects                           []*gomock.Call4_1[context.Context, string, uint64, string, error]
-	addDqliteNodeIDExpects                         []*gomock.Call2_1[context.Context, string, error]
-	getAPIAddressesForAgentsExpects                []*gomock.Call1_2[context.Context, map[string]controllernode.APIAddresses, error]
-	getAPIAddressesForClientsExpects               []*gomock.Call1_2[context.Context, map[string]controllernode.APIAddresses, error]
-	getAllCloudLocalAPIAddressesExpects            []*gomock.Call1_2[context.Context, []string, error]
-	getControllerIDsExpects                        []*gomock.Call1_2[context.Context, []string, error]
-	namespaceForWatchControllerAPIAddressesExpects []*gomock.Call0_1[string]
-	namespaceForWatchControllerNodesExpects        []*gomock.Call0_1[string]
-	selectDatabaseNamespaceExpects                 []*gomock.Call2_2[context.Context, string, string, error]
-	setAPIAddressesExpects                         []*gomock.Call2_1[context.Context, map[string]controllernode.APIAddresses, error]
-	setRunningAgentBinaryVersionExpects            []*gomock.Call3_1[context.Context, string, agentbinary.Version, error]
+	mock                                                 *MockState
+	addDqliteNodeExpects                                 []*gomock.Call4_1[context.Context, string, uint64, string, error]
+	addDqliteNodeIDExpects                               []*gomock.Call2_1[context.Context, string, error]
+	getAPIAddressesForAgentsExpects                      []*gomock.Call1_2[context.Context, map[string]controllernode.APIAddresses, error]
+	getAPIAddressesForClientsExpects                     []*gomock.Call1_2[context.Context, map[string]controllernode.APIAddresses, error]
+	getAllCloudLocalAPIAddressesExpects                  []*gomock.Call1_2[context.Context, []string, error]
+	getControllerAPIAddressesForAgentsExpects            []*gomock.Call1_2[context.Context, map[string]controllernode.APIAddresses, error]
+	getControllerAPIAddressesForClientsExpects           []*gomock.Call1_2[context.Context, map[string]controllernode.APIAddresses, error]
+	getControllerIDsExpects                              []*gomock.Call1_2[context.Context, []string, error]
+	namespaceForWatchControllerAPIAddressesExpects       []*gomock.Call0_1[string]
+	namespaceForWatchControllerNodesExpects              []*gomock.Call0_1[string]
+	namespaceForWatchSharedControllerAPIAddressesExpects []*gomock.Call0_1[string]
+	selectDatabaseNamespaceExpects                       []*gomock.Call2_2[context.Context, string, string, error]
+	setAPIAddressesExpects                               []*gomock.Call2_1[context.Context, map[string]controllernode.APIAddresses, error]
+	setRunningAgentBinaryVersionExpects                  []*gomock.Call3_1[context.Context, string, agentbinary.Version, error]
+	setSharedAPIAddressesExpects                         []*gomock.Call2_1[context.Context, controllernode.APIAddresses, error]
 }
 
 // NewMockState creates a new mock instance.
@@ -144,6 +149,42 @@ func (mr *MockStateMockRecorder) GetAllCloudLocalAPIAddresses(ctx any) *MockStat
 // MockStateGetAllCloudLocalAPIAddressesCall is the typed call wrapper for GetAllCloudLocalAPIAddresses.
 type MockStateGetAllCloudLocalAPIAddressesCall = gomock.Call1_2[context.Context, []string, error]
 
+// GetControllerAPIAddressesForAgents mocks base method.
+func (m *MockState) GetControllerAPIAddressesForAgents(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getControllerAPIAddressesForAgentsExpects, m.ctrl, m, "GetControllerAPIAddressesForAgents", ctx)
+}
+
+// GetControllerAPIAddressesForAgents indicates an expected call of GetControllerAPIAddressesForAgents.
+func (mr *MockStateMockRecorder) GetControllerAPIAddressesForAgents(ctx any) *MockStateGetControllerAPIAddressesForAgentsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, map[string]controllernode.APIAddresses, error](mr.mock.ctrl.T, mr.mock, "GetControllerAPIAddressesForAgents", gomock.EnsureMatcher(ctx))
+	mr.getControllerAPIAddressesForAgentsExpects = append(mr.getControllerAPIAddressesForAgentsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetControllerAPIAddressesForAgentsCall is the typed call wrapper for GetControllerAPIAddressesForAgents.
+type MockStateGetControllerAPIAddressesForAgentsCall = gomock.Call1_2[context.Context, map[string]controllernode.APIAddresses, error]
+
+// GetControllerAPIAddressesForClients mocks base method.
+func (m *MockState) GetControllerAPIAddressesForClients(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getControllerAPIAddressesForClientsExpects, m.ctrl, m, "GetControllerAPIAddressesForClients", ctx)
+}
+
+// GetControllerAPIAddressesForClients indicates an expected call of GetControllerAPIAddressesForClients.
+func (mr *MockStateMockRecorder) GetControllerAPIAddressesForClients(ctx any) *MockStateGetControllerAPIAddressesForClientsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, map[string]controllernode.APIAddresses, error](mr.mock.ctrl.T, mr.mock, "GetControllerAPIAddressesForClients", gomock.EnsureMatcher(ctx))
+	mr.getControllerAPIAddressesForClientsExpects = append(mr.getControllerAPIAddressesForClientsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetControllerAPIAddressesForClientsCall is the typed call wrapper for GetControllerAPIAddressesForClients.
+type MockStateGetControllerAPIAddressesForClientsCall = gomock.Call1_2[context.Context, map[string]controllernode.APIAddresses, error]
+
 // GetControllerIDs mocks base method.
 func (m *MockState) GetControllerIDs(ctx context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -198,6 +239,24 @@ func (mr *MockStateMockRecorder) NamespaceForWatchControllerNodes() *MockStateNa
 // MockStateNamespaceForWatchControllerNodesCall is the typed call wrapper for NamespaceForWatchControllerNodes.
 type MockStateNamespaceForWatchControllerNodesCall = gomock.Call0_1[string]
 
+// NamespaceForWatchSharedControllerAPIAddresses mocks base method.
+func (m *MockState) NamespaceForWatchSharedControllerAPIAddresses() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.namespaceForWatchSharedControllerAPIAddressesExpects, m.ctrl, m, "NamespaceForWatchSharedControllerAPIAddresses")
+}
+
+// NamespaceForWatchSharedControllerAPIAddresses indicates an expected call of NamespaceForWatchSharedControllerAPIAddresses.
+func (mr *MockStateMockRecorder) NamespaceForWatchSharedControllerAPIAddresses() *MockStateNamespaceForWatchSharedControllerAPIAddressesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "NamespaceForWatchSharedControllerAPIAddresses")
+	mr.namespaceForWatchSharedControllerAPIAddressesExpects = append(mr.namespaceForWatchSharedControllerAPIAddressesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateNamespaceForWatchSharedControllerAPIAddressesCall is the typed call wrapper for NamespaceForWatchSharedControllerAPIAddresses.
+type MockStateNamespaceForWatchSharedControllerAPIAddressesCall = gomock.Call0_1[string]
+
 // SelectDatabaseNamespace mocks base method.
 func (m *MockState) SelectDatabaseNamespace(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
@@ -251,6 +310,24 @@ func (mr *MockStateMockRecorder) SetRunningAgentBinaryVersion(arg0, arg1, arg2 a
 
 // MockStateSetRunningAgentBinaryVersionCall is the typed call wrapper for SetRunningAgentBinaryVersion.
 type MockStateSetRunningAgentBinaryVersionCall = gomock.Call3_1[context.Context, string, agentbinary.Version, error]
+
+// SetSharedAPIAddresses mocks base method.
+func (m *MockState) SetSharedAPIAddresses(ctx context.Context, addresses controllernode.APIAddresses) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.setSharedAPIAddressesExpects, m.ctrl, m, "SetSharedAPIAddresses", ctx, addresses)
+}
+
+// SetSharedAPIAddresses indicates an expected call of SetSharedAPIAddresses.
+func (mr *MockStateMockRecorder) SetSharedAPIAddresses(ctx, addresses any) *MockStateSetSharedAPIAddressesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, controllernode.APIAddresses, error](mr.mock.ctrl.T, mr.mock, "SetSharedAPIAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(addresses))
+	mr.setSharedAPIAddressesExpects = append(mr.setSharedAPIAddressesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateSetSharedAPIAddressesCall is the typed call wrapper for SetSharedAPIAddresses.
+type MockStateSetSharedAPIAddressesCall = gomock.Call2_1[context.Context, controllernode.APIAddresses, error]
 
 // MockWatcherFactory is a mock of WatcherFactory interface.
 type MockWatcherFactory struct {

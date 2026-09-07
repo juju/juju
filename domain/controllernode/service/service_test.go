@@ -58,6 +58,51 @@ func (s *serviceSuite) TestAddDqliteNode(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *serviceSuite) TestGetAllAPIAddressesForClientsUsesBestSharedScope(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	addresses := controllernode.APIAddresses{
+		{
+			Address: "controller-service.controller-test.svc.cluster.local:17070",
+			IsAgent: true,
+			Scope:   network.ScopeCloudLocal,
+		},
+		{
+			Address: "api.example.com:17070",
+			Scope:   network.ScopePublic,
+		},
+	}
+	s.state.EXPECT().GetAPIAddressesForClients(gomock.Any()).Return(map[string]controllernode.APIAddresses{"": addresses}, nil)
+
+	result, err := NewService(s.state, loggertesting.WrapCheckLog(c)).GetAllAPIAddressesForClients(c.Context())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []string{"api.example.com:17070"})
+}
+
+func (s *serviceSuite) TestGetAllAPIAddressesForAgentsPrioritizesSharedInternalFQDN(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	addresses := controllernode.APIAddresses{
+		{
+			Address: "api.example.com:17070",
+			Scope:   network.ScopePublic,
+		},
+		{
+			Address: "controller-service.controller-test.svc.cluster.local:17070",
+			IsAgent: true,
+			Scope:   network.ScopeCloudLocal,
+		},
+	}
+	s.state.EXPECT().GetAPIAddressesForAgents(gomock.Any()).Return(map[string]controllernode.APIAddresses{"": addresses}, nil)
+
+	result, err := NewService(s.state, loggertesting.WrapCheckLog(c)).GetAllAPIAddressesForAgents(c.Context())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []string{
+		"controller-service.controller-test.svc.cluster.local:17070",
+		"api.example.com:17070",
+	})
+}
+
 func (s *serviceSuite) TestAddDqliteNodeID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -505,7 +550,7 @@ func (s *serviceSuite) TestGetAPIAddressesByControllerIDForAgents(c *tc.C) {
 			},
 		},
 	}
-	s.state.EXPECT().GetAPIAddressesForAgents(gomock.Any()).Return(args, nil)
+	s.state.EXPECT().GetControllerAPIAddressesForAgents(gomock.Any()).Return(args, nil)
 
 	apiAddrs, err := svc.GetAPIAddressesByControllerIDForAgents(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -524,7 +569,7 @@ func (s *serviceSuite) TestGetAPIAddressesByControllerIDForAgentsError(c *tc.C) 
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
-	s.state.EXPECT().GetAPIAddressesForAgents(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
+	s.state.EXPECT().GetControllerAPIAddressesForAgents(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
 
 	_, err := svc.GetAPIAddressesByControllerIDForAgents(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
@@ -557,7 +602,7 @@ func (s *serviceSuite) TestGetAPIHostPortsForControllerIDForAgents(c *tc.C) {
 			},
 		},
 	}
-	s.state.EXPECT().GetAPIAddressesForAgents(gomock.Any()).Return(args, nil)
+	s.state.EXPECT().GetControllerAPIAddressesForAgents(gomock.Any()).Return(args, nil)
 
 	apiAddrs, err := svc.GetAPIHostPortsForControllerIDForAgents(c.Context(), "2")
 	c.Assert(err, tc.ErrorIsNil)
@@ -579,7 +624,7 @@ func (s *serviceSuite) TestGetAPIHostPortsForControllerIDForAgentsNotFound(c *tc
 			},
 		},
 	}
-	s.state.EXPECT().GetAPIAddressesForAgents(gomock.Any()).Return(args, nil)
+	s.state.EXPECT().GetControllerAPIAddressesForAgents(gomock.Any()).Return(args, nil)
 
 	_, err := svc.GetAPIHostPortsForControllerIDForAgents(c.Context(), "99")
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyAPIAddresses)
@@ -591,7 +636,7 @@ func (s *serviceSuite) TestGetAPIHostPortsForControllerIDForAgentsError(c *tc.C)
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
-	s.state.EXPECT().GetAPIAddressesForAgents(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
+	s.state.EXPECT().GetControllerAPIAddressesForAgents(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
 
 	_, err := svc.GetAPIHostPortsForControllerIDForAgents(c.Context(), "1")
 	c.Assert(err, tc.ErrorMatches, "boom")
@@ -724,7 +769,7 @@ func (s *serviceSuite) TestGetAllAPIAddressesForClients(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(apiAddrs, tc.DeepEquals, []string{"10.0.0.2:17070", "10.0.0.1:17070", "10.0.0.34:17070"})
+	c.Assert(apiAddrs, tc.DeepEquals, []string{"10.0.0.2:17070", "10.0.0.34:17070"})
 }
 
 func (s *serviceSuite) TestGetAllAPIAddressesForClientsError(c *tc.C) {
@@ -766,7 +811,7 @@ func (s *serviceSuite) TestGetAPIAddressesByControllerIDForClients(c *tc.C) {
 			},
 		},
 	}
-	s.state.EXPECT().GetAPIAddressesForClients(gomock.Any()).Return(args, nil)
+	s.state.EXPECT().GetControllerAPIAddressesForClients(gomock.Any()).Return(args, nil)
 
 	// Act
 	apiAddrs, err := svc.GetAPIAddressesByControllerIDForClients(c.Context())
@@ -783,7 +828,7 @@ func (s *serviceSuite) TestGetAPIAddressesByControllerIDForClientsError(c *tc.C)
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
-	s.state.EXPECT().GetAPIAddressesForClients(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
+	s.state.EXPECT().GetControllerAPIAddressesForClients(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
 
 	_, err := svc.GetAPIAddressesByControllerIDForClients(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
@@ -893,9 +938,6 @@ func (s *serviceSuite) TestGetAPIAddressesForClients(c *tc.C) {
 	expected := []network.MachineHostPorts{
 		{
 			{
-				MachineAddress: network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
-				NetPort:        17070,
-			}, {
 				MachineAddress: network.NewMachineAddress("10.0.0.2", network.WithScope(network.ScopePublic)),
 				NetPort:        17070,
 			},
