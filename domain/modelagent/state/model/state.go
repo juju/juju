@@ -718,6 +718,10 @@ func (st *State) GetUnitsAgentBinaryMetadata(
 		return nil, errors.Capture(err)
 	}
 
+	// CAAS unit agents are delivered in the operator OCI image and therefore
+	// have no binary in the model object store. Restrict both the metadata and
+	// count queries to IAAS so CAAS returns empty metadata while IAAS continues
+	// to detect missing agent binaries.
 	stmt, err := st.Prepare(`
 SELECT    u.name AS &unitAgentBinaryMetadata.name,
           uav.version AS &unitAgentBinaryMetadata.version,
@@ -729,6 +733,7 @@ FROM      unit_agent_version AS uav
 JOIN      unit AS u ON uav.unit_uuid = u.uuid
 JOIN      charm AS c ON c.uuid = u.charm_uuid
 JOIN      architecture AS a ON uav.architecture_id = a.id
+JOIN      model AS m ON m.type = 'iaas'
 LEFT JOIN v_agent_binary_store AS abs ON (
           uav.version = abs.version
 AND       uav.architecture_id = abs.architecture_id)
@@ -746,6 +751,7 @@ WHERE     c.source_id < 2
 SELECT (count(*)) AS (&rowCount.count)
 FROM   unit AS u
 JOIN   charm AS c ON c.uuid = u.charm_uuid
+JOIN   model AS m ON m.type = 'iaas'
 WHERE  c.source_id < 2
 `, unitCount)
 	if err != nil {
@@ -1130,33 +1136,6 @@ func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (cor
 // that owns this model. True is returned when this is the case.
 func (s *State) IsControllerModel(ctx context.Context) (bool, error) {
 	return false, nil
-}
-
-// GetModelType returns the model's deployment type (for example "iaas" or
-// "caas").
-func (st *State) GetModelType(ctx context.Context) (string, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	stmt, err := st.Prepare(`SELECT &modelType.type FROM model`, modelType{})
-	if err != nil {
-		return "", errors.Errorf("preparing get model type statement: %w", err)
-	}
-
-	var result modelType
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).Get(&result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.New("model information is missing from database")
-		}
-		return err
-	})
-	if err != nil {
-		return "", errors.Errorf("getting model type: %w", err)
-	}
-	return result.Type, nil
 }
 
 // NamespaceForWatchAgentVersion returns the namespace identifier
