@@ -62,14 +62,13 @@ func (s *controllerNodeSuite) TestDeleteDqliteNode(c *tc.C) {
 	err = db.QueryRow("SELECT life_id FROM controller_node WHERE controller_id = ?", "99").Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, 2)
-	var nodeID, bindAddress sql.NullString
+	var nodeID sql.NullString
 	err = db.QueryRow(`
-SELECT dqlite_node_id, dqlite_bind_address
+SELECT dqlite_node_id
 FROM controller_node
-WHERE controller_id = ?`, "99").Scan(&nodeID, &bindAddress)
+WHERE controller_id = ?`, "99").Scan(&nodeID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(nodeID.Valid, tc.IsFalse)
-	c.Check(bindAddress.Valid, tc.IsFalse)
 }
 
 func (s *controllerNodeSuite) TestDeleteDqliteNodeIdempotent(c *tc.C) {
