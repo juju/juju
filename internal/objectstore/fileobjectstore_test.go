@@ -425,6 +425,139 @@ func (s *fileObjectStoreSuite) TestGetMetadataNotFoundRemoteFallbackClosesReader
 	workertest.CleanKill(c, store)
 }
 
+func (s *fileObjectStoreSuite) TestGetQueuedReadAbandonedOnCancel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	path := c.MkDir()
+	ch := s.expectWatch()
+
+	hash384 := "66b3707eaed3f7f4c6f084e4ba7aaa95f0412c3d9fd91475fc454b93ed8b7cd9d33cc1821e517b52d338f8d8d6908cb9"
+	hash256 := "290f493c44f5d63d06b374d0a5abd292fae38b92cab2fae5efefe1b0e9347f56"
+
+	// Block the queued remote read until the caller's context is
+	// cancelled. If the loop ran the read with the caller's context, the
+	// DoAndReturn function observes the cancellation directly.
+	queued := make(chan struct{})
+	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
+	}, domainobjectstoreerrors.ErrNotFound)
+	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").DoAndReturn(func(context.Context, string) (objectstore.Metadata, error) {
+		close(queued)
+		return objectstore.Metadata{
+			SHA384: hash384,
+			SHA256: hash256,
+			Path:   "foo",
+			Size:   12,
+		}, nil
+	})
+	s.service.EXPECT().GetControllerIDHints(gomock.Any(), hash384).Return([]string{}, nil)
+	s.remote.EXPECT().Retrieve(gomock.Any(), hash256, []string{}).
+		DoAndReturn(func(ctx context.Context, _ string, _ []string) (io.ReadCloser, int64, error) {
+			<-ctx.Done()
+			return nil, -1, ctx.Err()
+		})
+	// The read is abandoned, so the claim and controller-ID hint never
+	// happen.
+
+	store := s.newFileObjectStore(c, path)
+	defer workertest.DirtyKill(c, store)
+
+	s.expectStartup(c, ch)
+
+	ctx, cancel := context.WithCancel(c.Context())
+	errChan := make(chan error, 1)
+	go func() {
+		_, _, err := store.Get(ctx, "foo")
+		errChan <- err
+	}()
+
+	// Cancel only once the loop has picked up the request, so the
+	// abandonment is exercised inside the queued read.
+	select {
+	case <-queued:
+	case <-c.Context().Done():
+		c.Fatalf("queued get was not picked up")
+	}
+	cancel()
+
+	select {
+	case err := <-errChan:
+		c.Assert(err, tc.ErrorIs, context.Canceled)
+	case <-c.Context().Done():
+		c.Fatalf("queued get was not abandoned after caller cancellation")
+	}
+
+	workertest.CleanKill(c, store)
+}
+
+func (s *fileObjectStoreSuite) TestGetQueuedReadClosesReaderOnLateDelivery(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	path := c.MkDir()
+	ch := s.expectWatch()
+
+	reader := newCloseTrackingReader("some content")
+	size := int64(len("some content"))
+
+	hash384 := "66b3707eaed3f7f4c6f084e4ba7aaa95f0412c3d9fd91475fc454b93ed8b7cd9d33cc1821e517b52d338f8d8d6908cb9"
+	hash256 := "290f493c44f5d63d06b374d0a5abd292fae38b92cab2fae5efefe1b0e9347f56"
+
+	started := make(chan struct{})
+	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
+	}, nil).Times(2)
+	s.service.EXPECT().GetControllerIDHints(gomock.Any(), hash384).Return([]string{}, nil)
+	s.remote.EXPECT().Retrieve(gomock.Any(), hash256, []string{}).
+		DoAndReturn(func(ctx context.Context, _ string, _ []string) (io.ReadCloser, int64, error) {
+			close(started)
+			// Outlast the caller, then deliver a real reader. The loop
+			// must close it because the caller has gone away.
+			<-ctx.Done()
+			return reader, size, nil
+		})
+	// The persist, claim and controller-ID hint are all skipped: withLock
+	// short-circuits on the cancelled context, and the loop closes the
+	// fetched reader because the caller has gone away.
+
+	store := s.newFileObjectStore(c, path)
+	defer workertest.DirtyKill(c, store)
+
+	s.expectStartup(c, ch)
+
+	ctx, cancel := context.WithCancel(c.Context())
+	errChan := make(chan error, 1)
+	go func() {
+		_, _, err := store.Get(ctx, "foo")
+		errChan <- err
+	}()
+
+	// Cancel only once the queued read has started, so the reader is
+	// produced after the caller has left.
+	select {
+	case <-started:
+	case <-c.Context().Done():
+		c.Fatalf("queued read did not start")
+	}
+	cancel()
+
+	select {
+	case err := <-errChan:
+		c.Assert(err, tc.ErrorIs, context.Canceled)
+	case <-c.Context().Done():
+		c.Fatalf("queued get was not abandoned after caller cancellation")
+	}
+
+	s.expectRemoteReaderClosed(c, reader)
+
+	workertest.CleanKill(c, store)
+}
+
 func (s *fileObjectStoreSuite) TestGetMetadataBySHA256AndFileFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

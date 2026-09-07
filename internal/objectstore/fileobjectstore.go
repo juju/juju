@@ -199,6 +199,7 @@ func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, 
 	case t.requests <- request{
 		op:       opGet,
 		path:     path,
+		ctx:      ctx,
 		response: response,
 	}:
 	}
@@ -238,6 +239,7 @@ func (t *fileObjectStore) GetBySHA256(ctx context.Context, sha256 string) (io.Re
 	case t.requests <- request{
 		op:       opGetBySHA256,
 		sha256:   sha256,
+		ctx:      ctx,
 		response: response,
 	}:
 	}
@@ -279,6 +281,7 @@ func (t *fileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix st
 	case t.requests <- request{
 		op:       opGetBySHA256Prefix,
 		sha256:   sha256Prefix,
+		ctx:      ctx,
 		response: response,
 	}:
 	}
@@ -310,6 +313,7 @@ func (t *fileObjectStore) Put(ctx context.Context, path string, r io.Reader, siz
 		reader:        r,
 		size:          size,
 		hashValidator: ignoreHash,
+		ctx:           ctx,
 		response:      response,
 	}:
 	}
@@ -342,6 +346,7 @@ func (t *fileObjectStore) PutAndCheckHash(ctx context.Context, path string, r io
 		reader:        r,
 		size:          size,
 		hashValidator: checkHash(hash),
+		ctx:           ctx,
 		response:      response,
 	}:
 	}
@@ -370,6 +375,7 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 	case t.requests <- request{
 		op:       opRemove,
 		path:     path,
+		ctx:      ctx,
 		response: response,
 	}:
 	}
@@ -464,72 +470,63 @@ func (t *fileObjectStore) loop() error {
 			return t.catacomb.ErrDying()
 
 		case req := <-t.requests:
+			// Scope the request to the caller's context, so that a
+			// cancelled caller abandons its own in-flight operation
+			// instead of blocking every queued request behind it. The
+			// worker lifetime still bounds the request through the
+			// catacomb context.
+			reqCtx := t.catacomb.Context(req.ctx)
+
 			switch req.op {
 			case opGet:
-				reader, digest, err := t.get(ctx, req.path, RemoteFallback)
+				reader, digest, err := t.get(reqCtx, req.path, RemoteFallback)
 
-				select {
-				case <-t.catacomb.Dying():
-					return t.catacomb.ErrDying()
-
-				case req.response <- response{
+				if !deliverResponse(t.catacomb.Dying(), req, response{
 					reader: reader,
 					digest: digest,
 					err:    err,
-				}:
+				}) {
+					return t.catacomb.ErrDying()
 				}
 
 			case opGetBySHA256:
-				reader, digest, err := t.getBySHA256(ctx, req.sha256)
+				reader, digest, err := t.getBySHA256(reqCtx, req.sha256)
 
-				select {
-				case <-t.catacomb.Dying():
-					return t.catacomb.ErrDying()
-
-				case req.response <- response{
+				if !deliverResponse(t.catacomb.Dying(), req, response{
 					reader: reader,
 					digest: digest,
 					err:    err,
-				}:
+				}) {
+					return t.catacomb.ErrDying()
 				}
 
 			case opGetBySHA256Prefix:
-				reader, digest, err := t.getBySHA256Prefix(ctx, req.sha256, RemoteFallback)
+				reader, digest, err := t.getBySHA256Prefix(reqCtx, req.sha256, RemoteFallback)
 
-				select {
-				case <-t.catacomb.Dying():
-					return t.catacomb.ErrDying()
-
-				case req.response <- response{
+				if !deliverResponse(t.catacomb.Dying(), req, response{
 					reader: reader,
 					digest: digest,
 					err:    err,
-				}:
+				}) {
+					return t.catacomb.ErrDying()
 				}
 
 			case opPut:
-				uuid, err := t.put(ctx, req.path, req.reader, req.size, req.hashValidator)
+				uuid, err := t.put(reqCtx, req.path, req.reader, req.size, req.hashValidator)
 
-				select {
-				case <-t.catacomb.Dying():
-					return t.catacomb.ErrDying()
-
-				case req.response <- response{
+				if !deliverResponse(t.catacomb.Dying(), req, response{
 					uuid: uuid,
 					err:  err,
-				}:
+				}) {
+					return t.catacomb.ErrDying()
 				}
 
 			case opRemove:
-				select {
-				case <-t.catacomb.Dying():
+				if !deliverResponse(t.catacomb.Dying(), req, response{
+					err: t.remove(reqCtx, req.path),
+				}) {
 					return t.catacomb.ErrDying()
-
-				case req.response <- response{
-					err: t.remove(ctx, req.path),
-				}:
 				}
-
 			default:
 				return errors.Errorf("unknown request type %d", req.op)
 			}
