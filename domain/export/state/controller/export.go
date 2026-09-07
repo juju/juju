@@ -113,6 +113,10 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing ControllerApiAddress statement: %w", err)
 	}
+	stmtControllerApiSharedAddress, err := sqlair.Prepare(`SELECT &ControllerApiSharedAddress.* FROM "controller_api_shared_address"`, v4_1_0.ControllerApiSharedAddress{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing ControllerApiSharedAddress statement: %w", err)
+	}
 	stmtControllerConfig, err := sqlair.Prepare(`SELECT &ControllerConfig.* FROM "controller_config"`, v4_1_0.ControllerConfig{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ControllerConfig statement: %w", err)
@@ -460,6 +464,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 		}
 		if err := tx.Query(ctx, stmtControllerApiAddress).GetAll(&controllerExport.ControllerApiAddress); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ControllerApiAddress (table controller_api_address): %w", err)
+		}
+		if err := tx.Query(ctx, stmtControllerApiSharedAddress).GetAll(&controllerExport.ControllerApiSharedAddress); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying ControllerApiSharedAddress (table controller_api_shared_address): %w", err)
 		}
 		if err := tx.Query(ctx, stmtControllerConfig).GetAll(&controllerExport.ControllerConfig); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ControllerConfig (table controller_config): %w", err)
