@@ -270,7 +270,11 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *tc.C) {
 	// back to the LXD network (host bridge) hosting them via Subnets().
 	exp.IsClustered().Return(false)
 	exp.Name().Return("locutus")
-	exp.GetNetworkNames().Return([]string{"ovs-br0", "virbr0", "lxdbr0"}, nil)
+	exp.GetNetworks().Return([]api.Network{
+		{Name: "ovs-br0", Type: "bridge"},
+		{Name: "virbr0", Type: "bridge"},
+		{Name: "lxdbr0", Type: "bridge"},
+	}, nil)
 	exp.GetNetworkState("ovs-br0").Return(&api.NetworkState{
 		Type:      "broadcast",
 		State:     "up",
@@ -337,7 +341,7 @@ func (s *environBrokerSuite) TestStartInstanceUnsatisfiedSubnetReturnsError(c *t
 
 	exp.IsClustered().Return(false)
 	exp.Name().Return("locutus")
-	exp.GetNetworkNames().Return([]string{"lxdbr0"}, nil)
+	exp.GetNetworks().Return([]api.Network{{Name: "lxdbr0", Type: "bridge"}}, nil)
 	exp.GetNetworkState("lxdbr0").Return(&api.NetworkState{
 		Type:      "broadcast",
 		State:     "up",
@@ -407,7 +411,7 @@ func (s *environBrokerSuite) TestStartInstanceWithModelProfileSubnetNIC(c *tc.C)
 
 	exp.IsClustered().Return(false)
 	exp.Name().Return("locutus")
-	exp.GetNetworkNames().Return([]string{"virbr0"}, nil)
+	exp.GetNetworks().Return([]api.Network{{Name: "virbr0", Type: "bridge"}}, nil)
 	exp.GetNetworkState("virbr0").Return(&api.NetworkState{
 		Type:      "broadcast",
 		State:     "up",
@@ -486,7 +490,7 @@ func (s *environBrokerSuite) TestStartInstanceModelProfileNICOverridesDefaultPro
 
 	exp.IsClustered().Return(false)
 	exp.Name().Return("locutus")
-	exp.GetNetworkNames().Return([]string{"lxdbr0"}, nil)
+	exp.GetNetworks().Return([]api.Network{{Name: "lxdbr0", Type: "bridge"}}, nil)
 	exp.GetNetworkState("lxdbr0").Return(&api.NetworkState{
 		Type:      "broadcast",
 		State:     "up",
