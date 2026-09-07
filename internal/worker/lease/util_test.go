@@ -98,15 +98,21 @@ func (store *Store) Wait(c *gc.C) {
 	}
 }
 
-func (store *Store) expireLeases() {
-	store.mu.Lock()
-	defer store.mu.Unlock()
+// expireLeases removes any leases that have expired.
+// It must be called with the lock held.
+func (store *Store) expireLeases() error {
+	if store.clock == nil {
+		return errors.New("store.clock is nil")
+	}
+	now := store.clock.Now()
 	for k, v := range store.leases {
-		if store.clock.Now().Before(v.Expiry) {
+		// Leases without an expiry never expire.
+		if v.Expiry.IsZero() || now.Before(v.Expiry) {
 			continue
 		}
 		delete(store.leases, k)
 	}
+	return nil
 }
 
 // Leases is part of the lease.Store interface.
@@ -121,6 +127,10 @@ func (store *Store) Leases(_ context.Context, keys ...lease.Key) (map[lease.Key]
 
 	store.mu.Lock()
 	defer store.mu.Unlock()
+	// Expired leases are no longer visible.
+	if err := store.expireLeases(); err != nil {
+		return nil, err
+	}
 	result := make(map[lease.Key]lease.Info)
 	for k, v := range store.leases {
 		if filtering && !filter[k] {
