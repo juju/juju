@@ -762,7 +762,7 @@ func (conn *Conn) sendResponse(
 		done:     done,
 	}
 	if conn.writerStopped.Load() {
-		conn.finishResponse(msg, nil)
+		conn.finishResponse(msg, ErrShutdown)
 		return
 	}
 	conn.pendingWrites.add()
@@ -771,14 +771,14 @@ func (conn *Conn) sendResponse(
 	// attempting to queue to a writer that may already have exited.
 	if conn.writerStopped.Load() {
 		conn.pendingWrites.done()
-		conn.finishResponse(msg, nil)
+		conn.finishResponse(msg, ErrShutdown)
 		return
 	}
 	select {
 	case conn.responses <- msg:
 	case <-conn.dead:
 		conn.pendingWrites.done()
-		conn.finishResponse(msg, nil)
+		conn.finishResponse(msg, ErrShutdown)
 	}
 }
 
