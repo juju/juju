@@ -199,6 +199,12 @@ func (s *State) GetStorageClassificationForUnits(
 	}
 
 	stmt, err := s.Prepare(`
+-- Filesystem-backed storage instances are intentionally excluded:
+-- storage_filesystem has no persistent column today, so filesystem
+-- storage is always reported as non-persistent (destroyed) by this
+-- query. If filesystem persistence is ever introduced, this query
+-- must be updated to LEFT JOIN storage_instance_filesystem /
+-- storage_filesystem and COALESCE the two persistence flags.
 SELECT sa.unit_uuid              AS &storageClassification.unit_uuid,
         si.uuid                  AS &storageClassification.storage_uuid,
         si.storage_id            AS &storageClassification.storage_id,
@@ -235,7 +241,6 @@ ORDER BY sa.unit_uuid, sa.storage_instance_uuid
 			Persistent:  v.Persistent.V,
 			StorageID:   v.StorageID,
 			StorageUUID: v.StorageUUID,
-			UnitUUID:    v.UnitUUID,
 		}
 		ret[v.UnitUUID] = append(ret[v.UnitUUID], instance)
 	}

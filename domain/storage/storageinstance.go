@@ -78,17 +78,18 @@ type StorageInstanceInfo struct {
 // StorageInstance needed to classify it as destroyed or detached when the
 // units it is attached to are removed. It is intentionally free of the
 // heavier [StorageInstanceInfo] fields, as the classifier only consumes the
-// identifier, persistence,and UUID.
+// identifier, persistence, and UUID.
 type StorageInstanceClassification struct {
 	// ID is the storage identifier given to the StorageInstance.
-
 	ID string
-	// Persistent indicates if the StorageInstance life cycle outlives the
-	// unit and machines that it is attached to. Some storage is provisioned
-	// directly within a machine. In this case the StorageInstance lifecycle is
-	// directly tied to that of the Machine.
+
+	// Persistent is true when the backing volume's life cycle is
+	// independent of the unit/machine it is attached to, so the
+	// storage should be detached rather than destroyed on unit
+	// removal.
 	Persistent bool
-	// UUID is the unique identifier given to the StorageInstance..
+
+	// UUID is the unique identifier given to the StorageInstance.
 	UUID StorageInstanceUUID
 }
 

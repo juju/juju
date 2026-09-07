@@ -462,16 +462,24 @@ func (mm *MachineManagerAPI) calculateDestroyResult(ctx context.Context, machine
 	return info, nil
 }
 
-func (mm *MachineManagerAPI) destroyResultForMachine(ctx context.Context, machineName coremachine.Name) (params.DestroyMachineInfo, error) {
-	info := params.DestroyMachineInfo{
-		MachineId: machineName.String(),
-	}
+// destroyStorageForMachine indicates that machine destruction has no
+// CLI/API --destroy-storage option today (see
+// [rpc/params.DestroyMachinesParams]). Storage attached to units being
+// destroyed by machine destroy is therefore always classified as detached,
+// never as destroyed. If a destroy-storage option is ever exposed for
+// `juju remove-machine`, this constant should be replaced with a parameter
+// threaded through [MachineManagerAPI.destroyResultForMachine].
+const destroyStorageForMachine = false
 
+func (mm *MachineManagerAPI) destroyResultForMachine(ctx context.Context, machineName coremachine.Name) (params.DestroyMachineInfo, error) {
 	unitNames, err := mm.applicationService.GetUnitNamesOnMachine(ctx, machineName)
 	if errors.Is(err, applicationerrors.MachineNotFound) {
-		return info, errors.NotFoundf("machine %s", machineName)
+		return params.DestroyMachineInfo{}, errors.NotFoundf("machine %s", machineName)
 	} else if err != nil {
-		return info, errors.Trace(err)
+		return params.DestroyMachineInfo{}, errors.Trace(err)
+	}
+	info := params.DestroyMachineInfo{
+		MachineId: machineName.String(),
 	}
 	unitUUIDs := make([]coreunit.UUID, 0, len(unitNames))
 	for _, unitName := range unitNames {
@@ -480,18 +488,18 @@ func (mm *MachineManagerAPI) destroyResultForMachine(ctx context.Context, machin
 
 		unitUUID, err := mm.applicationService.GetUnitUUID(ctx, unitName)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
-			return info, errors.NotFoundf("unit %q", unitName)
+			return params.DestroyMachineInfo{}, errors.NotFoundf("unit %q", unitName)
 		} else if err != nil {
-			return info, internalerrors.Errorf("getting UUID for unit %q: %w", unitName, err)
+			return params.DestroyMachineInfo{}, internalerrors.Errorf("getting UUID for unit %q: %w", unitName, err)
 		}
 		unitUUIDs = append(unitUUIDs, unitUUID)
 	}
 
 	info.DestroyedStorage, info.DetachedStorage, err = common.ClassifyStorageRemoval(
-		ctx, mm.storageService, unitUUIDs, false,
+		ctx, mm.storageService, unitUUIDs, destroyStorageForMachine,
 	)
 	if err != nil {
-		return info, internalerrors.Errorf("classifying storage for machine %q: %w", machineName, err)
+		return params.DestroyMachineInfo{}, internalerrors.Errorf("classifying storage for machine %q: %w", machineName, err)
 	}
 
 	return info, nil

@@ -637,13 +637,11 @@ func (s *instanceSuite) TestGetStorageClassificationForUnits(c *tc.C) {
 					Persistent:  true,
 					StorageID:   "single-blk/0",
 					StorageUUID: blockInstanceUUID.String(),
-					UnitUUID:    unitUUID1.String(),
 				},
 				{
 					Persistent:  false,
 					StorageID:   "single-fs/0",
 					StorageUUID: filesystemInstanceUUID.String(),
-					UnitUUID:    unitUUID1.String(),
 				},
 			},
 		}, nil,

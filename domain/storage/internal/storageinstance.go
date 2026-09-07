@@ -50,25 +50,21 @@ type StorageInstanceInfo struct {
 }
 
 // StorageInstanceClassification contains the minimal information about a
-// storage instance that the storage removal classifier consumes: the unit it
-// is attached to,the storage identifier,its persistence,its UUID. This
-// intentionally avoids the heavier per-instance queries behind
-// [StorageInstanceInfo]。
+// storage instance that the storage removal classifier consumes: the storage
+// identifier, its persistence, and its UUID. This intentionally avoids the
+// heavier per-instance queries behind [StorageInstanceInfo].
 type StorageInstanceClassification struct {
-	// Persistent is true if the volume backing the storage instance is
-	// persistent;filesystems have no persistence and are therefore always
-	// false。
+	// Persistent is sourced from storage_volume.persistent;
+	// filesystem-backed storage has no persistence column today
+	// and is therefore always false.
 	Persistent bool
 
 	// StorageID is the unique human readable identifier for the Storage
-	// Instance。
+	// Instance.
 	StorageID string
 
-	// StorageUUID is the UUID of the Storage Instance..
+	// StorageUUID is the UUID of the Storage Instance.
 	StorageUUID string
-
-	// UnitUUID is the UUID of the unit the storage instance is attached to。
-	UnitUUID string
 }
 
 // StorageInstanceInfoAttachment represents an attachment of a storage instance

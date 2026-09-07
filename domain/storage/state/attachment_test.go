@@ -159,13 +159,11 @@ func (s *attachmentSuite) TestGetStorageClassificationForUnits(c *tc.C) {
 			Persistent:  true,
 			StorageID:   storageID1,
 			StorageUUID: storageInstanceUUID1.String(),
-			UnitUUID:    unitUUID1.String(),
 		},
 		{
 			Persistent:  false,
 			StorageID:   storageID2,
 			StorageUUID: storageInstanceUUID2.String(),
-			UnitUUID:    unitUUID1.String(),
 		},
 	})
 	c.Check(classifications[unitUUID2.String()], tc.SameContents, []internal.StorageInstanceClassification{
@@ -173,7 +171,6 @@ func (s *attachmentSuite) TestGetStorageClassificationForUnits(c *tc.C) {
 			Persistent:  true,
 			StorageID:   storageID3,
 			StorageUUID: storageInstanceUUID3.String(),
-			UnitUUID:    unitUUID2.String(),
 		},
 	})
 }

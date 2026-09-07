@@ -59,9 +59,13 @@ func ClassifyStorageRemoval(
 	seen := make(map[string]bool)
 	for _, unitUUID := range unitUUIDs {
 		for _, instance := range instancesByUnit[unitUUID] {
-			// Storage can be shared by multiple units,so we must only
+			// Storage can be shared by multiple units, so we must only
 			// report each storage instance once.
-
+			//
+			// Persistent is a property of the storage instance itself, not
+			// of the unit-attachment, so the first unit that reports a
+			// shared instance always agrees with any later one. There is
+			// no need to merge or vote across units; first-writer-wins.
 			if seen[instance.UUID.String()] {
 				continue
 			}
