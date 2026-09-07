@@ -15,6 +15,7 @@ import (
 
 	gomock "github.com/canonical/gomock/gomock"
 	set "github.com/juju/collections/set"
+
 	caas "github.com/juju/juju/caas"
 	application "github.com/juju/juju/core/application"
 	assumes "github.com/juju/juju/core/assumes"
@@ -486,6 +487,7 @@ type MockStateMockRecorder struct {
 	namespaceForWatchApplicationSettingExpects                []*gomock.Call0_1[string]
 	namespaceForWatchCharmExpects                             []*gomock.Call0_1[string]
 	namespaceForWatchNetNodeAddressExpects                    []*gomock.Call0_1[string]
+	namespaceForWatchNetNodeFQDNAddressExpects                []*gomock.Call0_1[string]
 	namespaceForWatchUnitForLegacyUniterExpects               []*gomock.Call0_3[string, string, string]
 	registerCAASUnitExpects                                   []*gomock.Call3_1[context.Context, string, application0.RegisterCAASUnitArg, error]
 	resolveCharmDownloadExpects                               []*gomock.Call3_1[context.Context, charm.ID, application0.ResolvedCharmDownload, error]
@@ -2704,6 +2706,24 @@ func (mr *MockStateMockRecorder) NamespaceForWatchNetNodeAddress() *MockStateNam
 
 // MockStateNamespaceForWatchNetNodeAddressCall is the typed call wrapper for NamespaceForWatchNetNodeAddress.
 type MockStateNamespaceForWatchNetNodeAddressCall = gomock.Call0_1[string]
+
+// NamespaceForWatchNetNodeFQDNAddress mocks base method.
+func (m *MockState) NamespaceForWatchNetNodeFQDNAddress() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.namespaceForWatchNetNodeFQDNAddressExpects, m.ctrl, m, "NamespaceForWatchNetNodeFQDNAddress")
+}
+
+// NamespaceForWatchNetNodeFQDNAddress indicates an expected call of NamespaceForWatchNetNodeFQDNAddress.
+func (mr *MockStateMockRecorder) NamespaceForWatchNetNodeFQDNAddress() *MockStateNamespaceForWatchNetNodeFQDNAddressCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "NamespaceForWatchNetNodeFQDNAddress")
+	mr.namespaceForWatchNetNodeFQDNAddressExpects = append(mr.namespaceForWatchNetNodeFQDNAddressExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateNamespaceForWatchNetNodeFQDNAddressCall is the typed call wrapper for NamespaceForWatchNetNodeFQDNAddress.
+type MockStateNamespaceForWatchNetNodeFQDNAddressCall = gomock.Call0_1[string]
 
 // NamespaceForWatchUnitForLegacyUniter mocks base method.
 func (m *MockState) NamespaceForWatchUnitForLegacyUniter() (string, string, string) {

@@ -792,6 +792,11 @@ func (s *WatchableService) WatchUnitAddresses(ctx context.Context, unitName core
 			changestream.All,
 			eventsource.ContainsPredicate(netNodeUUIDs),
 		),
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchNetNodeFQDNAddress(),
+			changestream.All,
+			eventsource.ContainsPredicate(netNodeUUIDs),
+		),
 	)
 }
 
