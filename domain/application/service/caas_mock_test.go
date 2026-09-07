@@ -187,15 +187,15 @@ func (mr *MockApplicationMockRecorder) Scale(arg0, arg1 any) *MockApplicationSca
 type MockApplicationScaleCall = gomock.Call2_1[context.Context, int, error]
 
 // ScaleRange mocks base method.
-func (m *MockApplication) ScaleRange(arg0 context.Context, arg1, arg2 int) error {
+func (m *MockApplication) ScaleRange(ctx context.Context, replicaCount, startOrdinal int) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.scaleRangeExpects, m.ctrl, m, "ScaleRange", arg0, arg1, arg2)
+	return gomock.Dispatch3_1(&m.recorder.scaleRangeExpects, m.ctrl, m, "ScaleRange", ctx, replicaCount, startOrdinal)
 }
 
 // ScaleRange indicates an expected call of ScaleRange.
-func (mr *MockApplicationMockRecorder) ScaleRange(arg0, arg1, arg2 any) *MockApplicationScaleRangeCall {
+func (mr *MockApplicationMockRecorder) ScaleRange(ctx, replicaCount, startOrdinal any) *MockApplicationScaleRangeCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, int, int, error](mr.mock.ctrl.T, mr.mock, "ScaleRange", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
+	call := gomock.NewCall3_1[context.Context, int, int, error](mr.mock.ctrl.T, mr.mock, "ScaleRange", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(replicaCount), gomock.EnsureMatcher(startOrdinal))
 	mr.scaleRangeExpects = append(mr.scaleRangeExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
