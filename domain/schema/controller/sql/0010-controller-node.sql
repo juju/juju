@@ -27,29 +27,30 @@ CREATE TABLE controller_node_agent_version (
 CREATE INDEX idx_controller_node_agent_version_architecture
 ON controller_node_agent_version (architecture_id);
 
-CREATE TABLE controller_api_address (
+CREATE TABLE api_address_agent (
+    address TEXT NOT NULL PRIMARY KEY,
+    is_agent_only BOOLEAN NOT NULL,
+    scope TEXT NOT NULL
+);
+
+CREATE TABLE api_address_client (
+    address TEXT NOT NULL PRIMARY KEY,
+    scope TEXT NOT NULL
+);
+
+CREATE TABLE controller_node_api_address (
     controller_id TEXT NOT NULL,
     -- The value of the configured IP address with the port appended.
     -- e.g. 192.168.1.2:17070 or [2001:db8:0000:0000:0000:0000:0000:00001]:17070.
     address TEXT NOT NULL,
-    -- Represents whether the API address is available for agents usage.
-    is_agent BOOLEAN DEFAULT FALSE,
+    -- Represents whether the API address is only available for agent usage.
+    is_agent_only BOOLEAN NOT NULL,
     -- Represents the context an address may apply to. E.g. public, private.
     scope TXT NOT NULL,
-    CONSTRAINT fk_controller_api_address_controller
+    CONSTRAINT fk_controller_node_api_address_controller
     FOREIGN KEY (controller_id)
     REFERENCES controller_node (controller_id),
     PRIMARY KEY (controller_id, address)
-);
-
--- controller_api_shared_address holds endpoints that can reach any healthy
--- controller API server. These endpoints must not be used for controller-node
--- routing because they are intentionally load-balanced.
-CREATE TABLE controller_api_shared_address (
-    address TEXT NOT NULL PRIMARY KEY,
-    is_agent BOOLEAN DEFAULT FALSE,
-    is_client BOOLEAN DEFAULT FALSE,
-    scope TEXT NOT NULL
 );
 
 CREATE TABLE controller_node_password (

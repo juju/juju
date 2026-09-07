@@ -150,25 +150,34 @@ func (s *workerSuite) TestNewControllerNode(c *tc.C) {
 		APIAddresses: map[string]network.SpaceHostPorts{
 			"1": hostPorts,
 		},
+		AgentAddresses: &controllernode.APIAddresses{{
+			Address: "controller-service.controller-test.svc.cluster.local:17070",
+			IsAgent: true,
+			Scope:   network.ScopeCloudLocal,
+		}, {
+			Address:  "10.152.183.193:17070",
+			IsAgent:  true,
+			IsClient: true,
+			Scope:    network.ScopeCloudLocal,
+		}, {
+			Address:  "api.example.com:17070",
+			IsAgent:  true,
+			IsClient: true,
+			Scope:    network.ScopePublic,
+		}},
+		ClientAddresses: &controllernode.APIAddresses{{
+			Address:  "10.152.183.193:17070",
+			IsAgent:  true,
+			IsClient: true,
+			Scope:    network.ScopeCloudLocal,
+		}, {
+			Address:  "api.example.com:17070",
+			IsAgent:  true,
+			IsClient: true,
+			Scope:    network.ScopePublic,
+		}},
 	}
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
-		return nil
-	})
-	s.controllerNodeService.EXPECT().SetSharedAPIAddresses(gomock.Any(), controllernode.APIAddresses{{
-		Address: "controller-service.controller-test.svc.cluster.local:17070",
-		IsAgent: true,
-		Scope:   network.ScopeCloudLocal,
-	}, {
-		Address:  "10.152.183.193:17070",
-		IsAgent:  true,
-		IsClient: true,
-		Scope:    network.ScopeCloudLocal,
-	}, {
-		Address:  "api.example.com:17070",
-		IsAgent:  true,
-		IsClient: true,
-		Scope:    network.ScopePublic,
-	}}).DoAndReturn(func(context.Context, controllernode.APIAddresses) error {
 		close(sync)
 		return nil
 	})

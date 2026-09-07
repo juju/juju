@@ -306,69 +306,39 @@ func (st *State) NamespaceForWatchControllerNodes() string {
 	return "controller_node"
 }
 
-// NamespaceForWatchControllerAPIAddresses returns the namespace for watching
-// controller api addresses.
-func (st *State) NamespaceForWatchControllerAPIAddresses() string {
-	return "controller_api_address"
+// NamespaceForWatchAPIAddressesForAgents returns the namespace for watching
+// general agent API addresses.
+func (st *State) NamespaceForWatchAPIAddressesForAgents() string {
+	return "api_address_agent"
 }
 
-// NamespaceForWatchSharedControllerAPIAddresses returns the namespace for
-// watching shared controller API addresses.
-func (st *State) NamespaceForWatchSharedControllerAPIAddresses() string {
-	return "controller_api_shared_address"
+// NamespaceForWatchAPIAddressesForClients returns the namespace for watching
+// general client API addresses.
+func (st *State) NamespaceForWatchAPIAddressesForClients() string {
+	return "api_address_client"
 }
 
-// SetSharedAPIAddresses replaces endpoints that can route to any healthy
-// controller API server.
-func (st *State) SetSharedAPIAddresses(ctx context.Context, addresses controllernode.APIAddresses) error {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	shared := make([]sharedAPIAddress, len(addresses))
-	for i, address := range addresses {
-		shared[i] = sharedAPIAddress{
-			Address:  address.Address,
-			IsAgent:  address.IsAgent,
-			IsClient: address.IsClient,
-			Scope:    string(address.Scope),
-		}
-	}
-
-	deleteStmt, err := st.Prepare(`DELETE FROM controller_api_shared_address`)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	insertStmt, err := st.Prepare(`
-INSERT INTO controller_api_shared_address (*) VALUES ($sharedAPIAddress.*)
-`, sharedAPIAddress{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, deleteStmt).Run(); err != nil {
-			return errors.Errorf("removing shared controller API addresses: %w", err)
-		}
-		if len(shared) == 0 {
-			return nil
-		}
-		if err := tx.Query(ctx, insertStmt, shared).Run(); err != nil {
-			return errors.Errorf("inserting shared controller API addresses: %w", err)
-		}
-		return nil
-	}))
+// NamespaceForWatchControllerNodeAPIAddresses returns the namespace for
+// watching controller-node API addresses.
+func (st *State) NamespaceForWatchControllerNodeAPIAddresses() string {
+	return "controller_node_api_address"
 }
 
 // SetAPIAddresses sets the addresses for the provided controller node. It
-// replaces any existing addresses and stores them in the api_controller_address
-// table, with the format "host:port" as a string, as well as the is_agent flag
-// indicating whether the address is available for agents.
+// replaces any existing addresses and stores them in the
+// controller_node_api_address table.
 //
 // The following errors can be expected:
 // - [controllernodeerrors.NotFound] if the controller node does not exist.
-func (st *State) SetAPIAddresses(ctx context.Context, addresses map[string]controllernode.APIAddresses) error {
+
+func (st *State) SetAPIAddresses(ctx context.Context, addresses map[string]controllernode.APIAddresses, general ...*controllernode.APIAddresses) error {
+	var agentAddresses, clientAddresses *controllernode.APIAddresses
+	if len(general) > 0 {
+		agentAddresses = general[0]
+	}
+	if len(general) > 1 {
+		clientAddresses = general[1]
+	}
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -385,36 +355,52 @@ AND life_id = 0
 	}
 
 	getExistingAddressesStmt, err := st.Prepare(`
-SELECT &controllerAPIAddress.* 
-FROM controller_api_address
+SELECT &controllerNodeAPIAddress.* 
+FROM controller_node_api_address
 WHERE controller_id IN ($controllerIDs[:])
-`, controllerAPIAddress{}, controllerIDs{})
+`, controllerNodeAPIAddress{}, controllerIDs{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	deleteAddressesStmt, err := st.Prepare(`
-DELETE FROM controller_api_address
-WHERE controller_id = $controllerAPIAddress.controller_id
-AND address = $controllerAPIAddress.address
-`, controllerAPIAddress{})
+DELETE FROM controller_node_api_address
+WHERE controller_id = $controllerNodeAPIAddress.controller_id
+AND address = $controllerNodeAPIAddress.address
+`, controllerNodeAPIAddress{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	insertAddressesStmt, err := st.Prepare(`
-INSERT INTO controller_api_address (*) VALUES ($controllerAPIAddress.*)
-`, controllerAPIAddress{})
+INSERT INTO controller_node_api_address (*) VALUES ($controllerNodeAPIAddress.*)
+`, controllerNodeAPIAddress{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	updateAddressesStmt, err := st.Prepare(`
-UPDATE controller_api_address
-SET is_agent = $controllerAPIAddress.is_agent
-WHERE controller_id = $controllerAPIAddress.controller_id
-AND address = $controllerAPIAddress.address
-`, controllerAPIAddress{})
+UPDATE controller_node_api_address
+SET is_agent_only = $controllerNodeAPIAddress.is_agent_only
+WHERE controller_id = $controllerNodeAPIAddress.controller_id
+AND address = $controllerNodeAPIAddress.address
+`, controllerNodeAPIAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deleteAgentsStmt, err := st.Prepare(`DELETE FROM api_address_agent`)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deleteClientsStmt, err := st.Prepare(`DELETE FROM api_address_client`)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	insertAgentsStmt, err := st.Prepare(`INSERT INTO api_address_agent (*) VALUES ($agentAPIAddress.*)`, agentAPIAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	insertClientsStmt, err := st.Prepare(`INSERT INTO api_address_client (*) VALUES ($clientAPIAddress.*)`, clientAPIAddress{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -433,13 +419,13 @@ AND address = $controllerAPIAddress.address
 			return errors.Errorf("controller nodes %q do not exist", nodes).Add(controllernodeerrors.NotFound)
 		}
 
-		var existingAddresses []controllerAPIAddress
+		var existingAddresses []controllerNodeAPIAddress
 		if err := tx.Query(ctx, getExistingAddressesStmt, controllers).GetAll(&existingAddresses); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("retrieving existing api addresses for controller nodes %q: %w", nodes, err)
 		}
 
 		// Determine addresses to add, update or remove.
-		toAdd, toUpdate, toRemove := calculateAddressDeltas(existingAddresses, controllerAPIAddresses)
+		toAdd, toUpdate, toRemove := calculateNodeAddressDeltas(existingAddresses, controllerAPIAddresses)
 
 		if len(toAdd) > 0 {
 			if err := tx.Query(ctx, insertAddressesStmt, toAdd).Run(); err != nil {
@@ -460,20 +446,48 @@ AND address = $controllerAPIAddress.address
 				}
 			}
 		}
+		if agentAddresses != nil {
+			if err := tx.Query(ctx, deleteAgentsStmt).Run(); err != nil {
+				return errors.Capture(err)
+			}
+			rows := make([]agentAPIAddress, 0, len(*agentAddresses))
+			for _, address := range *agentAddresses {
+				rows = append(rows, agentAPIAddress{Address: address.Address, IsAgentOnly: !address.IsClient, Scope: string(address.Scope)})
+			}
+			if len(rows) > 0 {
+				if err := tx.Query(ctx, insertAgentsStmt, rows).Run(); err != nil {
+					return errors.Capture(err)
+				}
+			}
+		}
+		if clientAddresses != nil {
+			if err := tx.Query(ctx, deleteClientsStmt).Run(); err != nil {
+				return errors.Capture(err)
+			}
+			rows := make([]clientAPIAddress, 0, len(*clientAddresses))
+			for _, address := range *clientAddresses {
+				rows = append(rows, clientAPIAddress{Address: address.Address, Scope: string(address.Scope)})
+			}
+			if len(rows) > 0 {
+				if err := tx.Query(ctx, insertClientsStmt, rows).Run(); err != nil {
+					return errors.Capture(err)
+				}
+			}
+		}
 
 		return nil
 	}))
 }
 
 // GetAPIAddressesForAgents returns general API endpoints available to agents.
-// Shared any-controller endpoints are preferred when available.
+// General agent endpoints are preferred when configured.
 func (st *State) GetAPIAddressesForAgents(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
-	shared, hasShared, err := st.getAPIAddresses(ctx, true)
+	agentAddresses, hasAgents, err := st.getGeneralAgentAPIAddresses(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	if hasShared {
-		return map[string]controllernode.APIAddresses{"": shared}, nil
+	if hasAgents {
+		return map[string]controllernode.APIAddresses{"": agentAddresses}, nil
 	}
 	return st.GetControllerAPIAddressesForAgents(ctx)
 }
@@ -486,7 +500,7 @@ func (st *State) GetControllerAPIAddressesForAgents(ctx context.Context) (map[st
 		return nil, errors.Capture(err)
 	}
 
-	var controllerAddresses []controllerAPIAddress
+	var controllerAddresses []controllerNodeAPIAddress
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		controllerAddresses, err = st.getAllAPIAddressesForAgents(ctx, tx)
@@ -499,27 +513,34 @@ func (st *State) GetControllerAPIAddressesForAgents(ctx context.Context) (map[st
 }
 
 // GetAPIAddressesForClients returns general API endpoints available to clients.
-// Shared any-controller endpoints are preferred when available.
+// Client endpoints fall back to general agent endpoints that are not agent-only.
 func (st *State) GetAPIAddressesForClients(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
-	shared, hasShared, err := st.getAPIAddresses(ctx, false)
+	clientAddresses, hasClients, err := st.getGeneralClientAPIAddresses(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	if hasShared {
-		return map[string]controllernode.APIAddresses{"": shared}, nil
+	if hasClients {
+		return map[string]controllernode.APIAddresses{"": clientAddresses}, nil
 	}
-	return st.GetControllerAPIAddressesForClients(ctx)
+	agentAddresses, hasAgents, err := st.getGeneralAgentAPIAddresses(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if hasAgents {
+		return map[string]controllernode.APIAddresses{"": filterClientAPIAddresses(agentAddresses)}, nil
+	}
+	return map[string]controllernode.APIAddresses{}, nil
 }
 
 // GetControllerAPIAddressesForClients returns controller-node-specific API
-// endpoints available to clients. These are independent of is_agent value.
+// endpoints available to clients.
 func (st *State) GetControllerAPIAddressesForClients(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var controllerAddresses []controllerAPIAddress
+	var controllerAddresses []controllerNodeAPIAddress
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		controllerAddresses, err = st.getAllAPIAddressesForClients(ctx, tx)
@@ -531,42 +552,27 @@ func (st *State) GetControllerAPIAddressesForClients(ctx context.Context) (map[s
 	return decodeAPIAddresses(controllerAddresses), nil
 }
 
-func (st *State) getAPIAddresses(ctx context.Context, agentsOnly bool) (controllernode.APIAddresses, bool, error) {
+func (st *State) getGeneralAgentAPIAddresses(ctx context.Context) (controllernode.APIAddresses, bool, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, false, errors.Capture(err)
 	}
 
-	stmt, err := st.Prepare(`
-SELECT &sharedAPIAddress.*
-FROM   controller_api_shared_address
-WHERE  ($sharedAPIAddressAudience.agents_only = true AND is_agent = true)
-OR     ($sharedAPIAddressAudience.agents_only = false AND is_client = true)
-`, sharedAPIAddress{}, sharedAPIAddressAudience{})
+	stmt, err := st.Prepare(`SELECT &agentAPIAddress.* FROM api_address_agent`, agentAPIAddress{})
 	if err != nil {
 		return nil, false, errors.Capture(err)
 	}
-	hasSharedStmt, err := st.Prepare(`SELECT COUNT(*) AS &countResult.count FROM controller_api_shared_address`, countResult{})
-	if err != nil {
-		return nil, false, errors.Capture(err)
-	}
-
-	var addresses []sharedAPIAddress
-	var count countResult
-	audience := sharedAPIAddressAudience{AgentsOnly: agentsOnly}
+	var addresses []agentAPIAddress
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, hasSharedStmt).Get(&count); err != nil {
-			return errors.Capture(err)
-		}
-		if count.Count == 0 {
-			return nil
-		}
-		err := tx.Query(ctx, stmt, audience).GetAll(&addresses)
+		err := tx.Query(ctx, stmt).GetAll(&addresses)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
+			return controllernodeerrors.EmptyAPIAddresses
 		}
 		return errors.Capture(err)
 	}); err != nil {
+		if errors.Is(err, controllernodeerrors.EmptyAPIAddresses) {
+			return nil, false, nil
+		}
 		return nil, false, errors.Capture(err)
 	}
 
@@ -574,12 +580,43 @@ OR     ($sharedAPIAddressAudience.agents_only = false AND is_client = true)
 	for i, address := range addresses {
 		result[i] = controllernode.APIAddress{
 			Address:  address.Address,
-			IsAgent:  address.IsAgent,
-			IsClient: address.IsClient,
+			IsAgent:  true,
+			IsClient: !address.IsAgentOnly,
 			Scope:    network.Scope(address.Scope),
 		}
 	}
-	return result, count.Count > 0, nil
+	return result, true, nil
+}
+
+func (st *State) getGeneralClientAPIAddresses(ctx context.Context) (controllernode.APIAddresses, bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, false, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`SELECT &clientAPIAddress.* FROM api_address_client`, clientAPIAddress{})
+	if err != nil {
+		return nil, false, errors.Capture(err)
+	}
+	var addresses []clientAPIAddress
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&addresses)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return controllernodeerrors.EmptyAPIAddresses
+		}
+		return errors.Capture(err)
+	}); err != nil {
+		if errors.Is(err, controllernodeerrors.EmptyAPIAddresses) {
+			return nil, false, nil
+		}
+		return nil, false, errors.Capture(err)
+	}
+
+	result := make(controllernode.APIAddresses, len(addresses))
+	for i, address := range addresses {
+		result[i] = controllernode.APIAddress{Address: address.Address, IsClient: true, Scope: network.Scope(address.Scope)}
+	}
+	return result, true, nil
 }
 
 // GetAllCloudLocalAPIAddresses returns a string slice of api
@@ -587,36 +624,21 @@ OR     ($sharedAPIAddressAudience.agents_only = false AND is_client = true)
 // local addresses. The returned strings are IP address only without
 // port numbers.
 func (st *State) GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error) {
-	db, err := st.DB(ctx)
+	clientAddresses, err := st.GetAPIAddressesForClients(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	stmt, err := st.Prepare(`
-SELECT &controllerAPIAddressStr.*
-FROM   controller_api_address
-WHERE  scope = "local-cloud"
-`, controllerAPIAddressStr{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var result []controllerAPIAddressStr
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt).GetAll(&result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return controllernodeerrors.EmptyAPIAddresses
-		} else if err != nil {
-			return errors.Errorf("getting all cloud local api addresses for controller nodes: %w", err)
+	var returnStrings []string
+	for _, addresses := range clientAddresses {
+		for _, address := range addresses {
+			if address.Scope == network.ScopeCloudLocal {
+				returnStrings = append(returnStrings, address.Address)
+			}
 		}
-		return err
-	}); err != nil {
-		return nil, errors.Capture(err)
 	}
-
-	returnStrings := make([]string, 0, len(result))
-	for i := range result {
-		returnStrings = append(returnStrings, result[i].Address)
+	if len(returnStrings) == 0 {
+		return nil, controllernodeerrors.EmptyAPIAddresses
 	}
 	return returnStrings, nil
 }
@@ -658,16 +680,18 @@ WHERE life_id < 2
 	return res, nil
 }
 
-func (st *State) getAllAPIAddressesForClients(ctx context.Context, tx *sqlair.TX) ([]controllerAPIAddress, error) {
+func (st *State) getAllAPIAddressesForClients(ctx context.Context, tx *sqlair.TX) ([]controllerNodeAPIAddress, error) {
 	stmt, err := st.Prepare(`
-SELECT &controllerAPIAddress.* 
-FROM controller_api_address
-`, controllerAPIAddress{})
+SELECT &controllerNodeAPIAddress.* 
+FROM controller_node_api_address
+WHERE is_agent_only = false
+ORDER BY controller_id, address
+`, controllerNodeAPIAddress{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var result []controllerAPIAddress
+	var result []controllerNodeAPIAddress
 	err = tx.Query(ctx, stmt).GetAll(&result)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return nil, controllernodeerrors.EmptyAPIAddresses
@@ -677,17 +701,17 @@ FROM controller_api_address
 	return result, nil
 }
 
-func (st *State) getAllAPIAddressesForAgents(ctx context.Context, tx *sqlair.TX) ([]controllerAPIAddress, error) {
+func (st *State) getAllAPIAddressesForAgents(ctx context.Context, tx *sqlair.TX) ([]controllerNodeAPIAddress, error) {
 	stmt, err := st.Prepare(`
-SELECT &controllerAPIAddress.* 
-FROM controller_api_address
-WHERE is_agent = true
-`, controllerAPIAddress{})
+SELECT &controllerNodeAPIAddress.* 
+FROM controller_node_api_address
+ORDER BY controller_id, address
+`, controllerNodeAPIAddress{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var result []controllerAPIAddress
+	var result []controllerNodeAPIAddress
 	err = tx.Query(ctx, stmt).GetAll(&result)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return nil, controllernodeerrors.EmptyAPIAddresses
@@ -701,14 +725,14 @@ WHERE is_agent = true
 // update from the controller node table given the existing and new addresses.
 // The updated addresses are the list of addresses for which the IsAgent flag
 // has changed.
-func calculateAddressDeltas(existing, new []controllerAPIAddress) (toAdd []controllerAPIAddress, toUpdate []controllerAPIAddress, toRemove []controllerAPIAddress) {
+func calculateNodeAddressDeltas(existing, new []controllerNodeAPIAddress) (toAdd []controllerNodeAPIAddress, toUpdate []controllerNodeAPIAddress, toRemove []controllerNodeAPIAddress) {
 	type controllerAPIAddressKey struct {
 		ControllerID string
 		Address      string
 	}
 
-	existingMap := make(map[controllerAPIAddressKey]controllerAPIAddress)
-	newMap := make(map[controllerAPIAddressKey]controllerAPIAddress)
+	existingMap := make(map[controllerAPIAddressKey]controllerNodeAPIAddress)
+	newMap := make(map[controllerAPIAddressKey]controllerNodeAPIAddress)
 
 	for _, addr := range existing {
 		existingMap[controllerAPIAddressKey{
@@ -728,7 +752,7 @@ func calculateAddressDeltas(existing, new []controllerAPIAddress) (toAdd []contr
 		if existingAddr, found := existingMap[key]; !found {
 			// Address doesn't exist in current state, so it needs to be added.
 			toAdd = append(toAdd, addr)
-		} else if existingAddr.IsAgent != addr.IsAgent {
+		} else if existingAddr.IsAgentOnly != addr.IsAgentOnly {
 			// Address exists but the IsAgent flag has changed, so it needs
 			// updating.
 			toUpdate = append(toUpdate, addr)
@@ -748,7 +772,32 @@ func calculateAddressDeltas(existing, new []controllerAPIAddress) (toAdd []contr
 	return toAdd, toUpdate, toRemove
 }
 
-func decodeAPIAddresses(addrs []controllerAPIAddress) map[string]controllernode.APIAddresses {
+// calculateAddressDeltas retains the unit-test helper's external shape while
+// the persisted representation uses is_agent_only.
+func calculateAddressDeltas(existing, new []controllerAPIAddress) (toAdd []controllerAPIAddress, toUpdate []controllerAPIAddress, toRemove []controllerAPIAddress) {
+	existingNodes := make([]controllerNodeAPIAddress, len(existing))
+	newNodes := make([]controllerNodeAPIAddress, len(new))
+	for i, address := range existing {
+		existingNodes[i] = controllerNodeAPIAddress{ControllerID: address.ControllerID, Address: address.Address, IsAgentOnly: address.IsAgent}
+	}
+	for i, address := range new {
+		newNodes[i] = controllerNodeAPIAddress{ControllerID: address.ControllerID, Address: address.Address, IsAgentOnly: address.IsAgent}
+	}
+	add, update, remove := calculateNodeAddressDeltas(existingNodes, newNodes)
+	decode := func(addresses []controllerNodeAPIAddress) []controllerAPIAddress {
+		if len(addresses) == 0 {
+			return nil
+		}
+		result := make([]controllerAPIAddress, len(addresses))
+		for i, address := range addresses {
+			result[i] = controllerAPIAddress{ControllerID: address.ControllerID, Address: address.Address, IsAgent: address.IsAgentOnly}
+		}
+		return result
+	}
+	return decode(add), decode(update), decode(remove)
+}
+
+func decodeAPIAddresses(addrs []controllerNodeAPIAddress) map[string]controllernode.APIAddresses {
 	result := make(map[string]controllernode.APIAddresses, 0)
 	for _, addr := range addrs {
 		if addr.Address == "" {
@@ -762,7 +811,7 @@ func decodeAPIAddresses(addrs []controllerAPIAddress) map[string]controllernode.
 
 		controllerNodeAddr := controllernode.APIAddress{
 			Address: addr.Address,
-			IsAgent: addr.IsAgent,
+			IsAgent: addr.IsAgentOnly,
 			Scope:   network.Scope(addr.Scope),
 		}
 		result[controllerID] = append(result[controllerID], controllerNodeAddr)
@@ -771,19 +820,29 @@ func decodeAPIAddresses(addrs []controllerAPIAddress) map[string]controllernode.
 	return result
 }
 
-func encodeAPIAddresses(controllerAddrs map[string]controllernode.APIAddresses) ([]controllerAPIAddress, controllerIDs) {
-	addresses := make([]controllerAPIAddress, 0)
+func encodeAPIAddresses(controllerAddrs map[string]controllernode.APIAddresses) ([]controllerNodeAPIAddress, controllerIDs) {
+	addresses := make([]controllerNodeAPIAddress, 0)
 	controllers := make(controllerIDs, 0)
 	for controllerID, addrs := range controllerAddrs {
 		controllers = append(controllers, controllerID)
 		for _, addr := range addrs {
-			addresses = append(addresses, controllerAPIAddress{
+			addresses = append(addresses, controllerNodeAPIAddress{
 				ControllerID: controllerID,
 				Address:      addr.Address,
-				IsAgent:      addr.IsAgent,
+				IsAgentOnly:  addr.IsAgent,
 				Scope:        string(addr.Scope),
 			})
 		}
 	}
 	return addresses, controllers
+}
+
+func filterClientAPIAddresses(addresses controllernode.APIAddresses) controllernode.APIAddresses {
+	result := make(controllernode.APIAddresses, 0, len(addresses))
+	for _, address := range addresses {
+		if address.IsClient {
+			result = append(result, address)
+		}
+	}
+	return result
 }

@@ -1806,7 +1806,7 @@ WHERE  key = 'controller-name'
 	}
 	stmtAddrs, err := s.Prepare(`
 SELECT &sourceAPIAddress.*
-FROM   controller_api_address
+FROM   controller_node_api_address
 `, sourceAPIAddress{})
 	if err != nil {
 		return modelmigrationinternal.SourceControllerInfo{}, errors.Capture(err)
