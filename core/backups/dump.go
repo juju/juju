@@ -44,14 +44,16 @@ func (s *DumpStaging) Entries() []DumpEntry {
 }
 
 // Size returns the total size in bytes of the staged dumps.
-func (s *DumpStaging) Size() int64 {
+func (s *DumpStaging) Size() (int64, error) {
 	var size int64
 	for _, file := range s.files {
-		if info, err := file.Stat(); err == nil {
-			size += info.Size()
+		info, err := file.Stat()
+		if err != nil {
+			return 0, errors.Capture(err)
 		}
+		size += info.Size()
 	}
-	return size
+	return size, nil
 }
 
 // Close closes the staged dump readers and removes the staging directory.
@@ -117,7 +119,7 @@ func stageDump(ctx context.Context, dir, name string, export DumpExportFunc) (*o
 	if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
 		return nil, errors.Capture(err)
 	}
-	file, err := os.Create(target)
+	file, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -150,6 +152,12 @@ func YAMLDump(v any) DumpExportFunc {
 // WalkDumps reads every staged dump back from dir, passing each file's
 // archive-relative name and contents to fn. It is the read side of
 // [StageDumps], used when restoring a backup.
+//
+// The fn callback receives each file as a reader that will be closed when fn
+// returns. The callback must fully consume the reader before returning; any
+// data left unread is lost because the underlying file is closed immediately
+// after fn returns. Storing the reader for later use (e.g. in a goroutine)
+// is not safe.
 func WalkDumps(ctx context.Context, dir string, fn func(name string, reader io.Reader) error) error {
 	return errors.Capture(filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {

@@ -14,6 +14,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -37,7 +38,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	if err := a.authorizer.HasPermission(
 		ctx, permission.SuperuserAccess, names.NewControllerTag(a.controllerUUID),
 	); err != nil {
-		return params.BackupsMetadataResult{}, err
+		return params.BackupsMetadataResult{}, errors.Capture(err)
 	}
 
 	// The backup destination is resolved first because the database dumps
@@ -45,7 +46,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	// holding every model's dump in memory at once.
 	modelConfig, err := a.modelConfig.ModelConfig(ctx)
 	if err != nil {
-		return params.BackupsMetadataResult{}, err
+		return params.BackupsMetadataResult{}, errors.Capture(err)
 	}
 	backupDir := corebackups.BackupDirToUse(modelConfig.BackupDir())
 	a.logger.Debugf(ctx, "creating backup in %q", backupDir)
@@ -62,7 +63,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 
 	controllerExport, err := a.controllerExport.Export(ctx)
 	if err != nil {
-		return params.BackupsMetadataResult{}, err
+		return params.BackupsMetadataResult{}, errors.Capture(err)
 	}
 	dumps = append(dumps, corebackups.NamedDump{
 		Name:   "controller.yaml",
@@ -71,16 +72,19 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 
 	modelUUIDs, err := a.controller.GetModelNamespaces(ctx)
 	if err != nil {
-		return params.BackupsMetadataResult{}, err
+		return params.BackupsMetadataResult{}, errors.Capture(err)
 	}
 	for _, modelUUID := range modelUUIDs {
+		if err := ctx.Err(); err != nil {
+			return params.BackupsMetadataResult{}, err
+		}
 		modelServices, err := a.modelServicesFor(ctx, coremodel.UUID(modelUUID))
 		if err != nil {
-			return params.BackupsMetadataResult{}, err
+			return params.BackupsMetadataResult{}, errors.Capture(err)
 		}
 		modelExport, err := modelServices.Export().Export(ctx)
 		if err != nil {
-			return params.BackupsMetadataResult{}, err
+			return params.BackupsMetadataResult{}, errors.Capture(err)
 		}
 		dumps = append(dumps, corebackups.NamedDump{
 			Name:   path.Join("models", modelUUID+".yaml"),
@@ -95,7 +99,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	// behind.
 	staging, err := corebackups.StageDumps(ctx, backupDir, dumps)
 	if err != nil {
-		return params.BackupsMetadataResult{}, err
+		return params.BackupsMetadataResult{}, errors.Capture(err)
 	}
 	// Close cleans up the staged dumps on return. Its error is only logged:
 	// it must not mask the Create result.
@@ -104,7 +108,10 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 			a.logger.Debugf(ctx, "cleaning up staged backup dumps: %v", err)
 		}
 	}()
-	expected := staging.Size()
+	expected, err := staging.Size()
+	if err != nil {
+		return params.BackupsMetadataResult{}, errors.Capture(err)
+	}
 
 	paths := corebackups.Paths{
 		BackupDir: backupDir,
@@ -113,7 +120,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	}
 	files, err := corebackups.GetFilesToBackUp("", &paths)
 	if err != nil {
-		return params.BackupsMetadataResult{}, err
+		return params.BackupsMetadataResult{}, errors.Capture(err)
 	}
 	for _, file := range files {
 		if fi, err := os.Lstat(file); err == nil {
@@ -122,7 +129,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	}
 
 	if err := corebackups.CheckSpaceFor(backupDir, expected); err != nil {
-		return params.BackupsMetadataResult{}, err
+		return params.BackupsMetadataResult{}, errors.Capture(err)
 	}
 
 	// The hostname is recorded for provenance only. If it cannot be resolved
@@ -132,7 +139,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 
 	controllerIDs, err := a.controllerNodes.GetControllerIDs(ctx)
 	if err != nil {
-		return params.BackupsMetadataResult{}, err
+		return params.BackupsMetadataResult{}, errors.Capture(err)
 	}
 
 	meta := corebackups.NewMetadata(a.clock.Now())
@@ -163,7 +170,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 		Clock:          a.clock,
 	})
 	if err != nil {
-		return params.BackupsMetadataResult{}, err
+		return params.BackupsMetadataResult{}, errors.Capture(err)
 	}
 	a.logger.Infof(ctx, "created backup %q", filename)
 

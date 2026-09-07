@@ -49,7 +49,9 @@ func (s *dumpSuite) TestStageDumps(c *tc.C) {
 	contents, err := io.ReadAll(staging.Entries()[0].Reader)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(contents), tc.Equals, "controller: data\n")
-	c.Check(staging.Size() > 0, tc.IsTrue, tc.Commentf("size must be positive"))
+	sz, err := staging.Size()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(sz > 0, tc.IsTrue, tc.Commentf("size must be positive"))
 
 	c.Assert(staging.Close(), tc.ErrorIsNil)
 	entries, err := os.ReadDir(dir)

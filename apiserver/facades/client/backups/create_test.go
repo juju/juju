@@ -6,6 +6,7 @@ package backups
 import (
 	"archive/tar"
 	"context"
+	"database/sql"
 	"errors"
 	"io"
 	"os"
@@ -22,6 +23,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	domainexport "github.com/juju/juju/domain/export"
 	domainservicetesting "github.com/juju/juju/domain/services/testing"
 	environsconfig "github.com/juju/juju/environs/config"
@@ -211,6 +213,84 @@ func (s *backupsSuite) TestCreateNoModels(c *tc.C) {
 	defer file.Close()
 	entries, _ := archiveContents(c, file)
 	c.Check(entries.Contains("juju-backup/dump/controller.yaml"), tc.IsTrue)
+}
+
+// TestCreateControllerExportFailure verifies that a failure of the real
+// controller export aborts Create and leaves no archive behind. The export
+// reads agent_binary_store (among other tables), so dropping that table
+// makes the real service fail.
+func (s *backupsSuite) TestCreateControllerExportFailure(c *tc.C) {
+	backupDir := c.MkDir()
+	api := s.api(c, backupDir)
+
+	_, err := s.DB().ExecContext(c.Context(), "DROP TABLE agent_binary_store")
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = api.Create(c.Context(), params.BackupsCreateArgs{})
+	c.Assert(err, tc.ErrorMatches, ".*agent_binary_store.*")
+
+	entries, err := os.ReadDir(backupDir)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entries, tc.HasLen, 0)
+}
+
+// TestCreateModelConfigFailure verifies that a failure of the real model
+// config service aborts Create and leaves no archive behind. The config is
+// read from model_config, so dropping that table makes the real service
+// fail. The table is dropped before the API is built because model
+// database services capture their database handle at construction time.
+func (s *backupsSuite) TestCreateModelConfigFailure(c *tc.C) {
+	err := s.ModelTxnRunner(c, s.ControllerModelUUID.String()).StdTxn(
+		c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, "DROP TABLE model_config")
+			return err
+		})
+	c.Assert(err, tc.ErrorIsNil)
+
+	backupDir := c.MkDir()
+	api := s.api(c, backupDir, func(d *apiDeps) {
+		d.modelConfig = s.ControllerDomainServices(c).Config()
+	})
+
+	_, err = api.Create(c.Context(), params.BackupsCreateArgs{})
+	c.Assert(err, tc.ErrorMatches, ".*model_config.*")
+
+	entries, err := os.ReadDir(backupDir)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entries, tc.HasLen, 0)
+}
+
+// TestCreateControllerNodesFailure verifies that a failure listing
+// controller machine IDs aborts Create. The failure fires after the dumps
+// have been staged, so this also verifies that the staged dumps are
+// cleaned up and no archive is left behind. The export tolerates an empty
+// controller_node table, but GetControllerIDs rejects it.
+func (s *backupsSuite) TestCreateControllerNodesFailure(c *tc.C) {
+	backupDir := c.MkDir()
+	api := s.api(c, backupDir)
+
+	// Remove the controller node records, children first to respect the
+	// foreign keys.
+	for _, table := range []string{
+		"controller_node_agent_version",
+		"controller_api_address",
+		"controller_node_password",
+		"upgrade_info_controller_node",
+		"controller_node",
+	} {
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, "DELETE FROM "+table)
+			return err
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	_, err := api.Create(c.Context(), params.BackupsCreateArgs{})
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyControllerIDs)
+
+	entries, err := os.ReadDir(backupDir)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entries, tc.HasLen, 0)
 }
 
 func archiveContents(c *tc.C, r io.Reader) (set.Strings, map[string]string) {
