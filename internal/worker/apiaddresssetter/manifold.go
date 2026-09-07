@@ -130,6 +130,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ControllerNodeService:   controllerNodeService,
 				NetworkService:          networkService,
 				APIPort:                 controllerConfig.APIPort(),
+				ControllerName:          controllerConfig.ControllerName(),
 				Logger:                  config.Logger,
 			})
 			if err != nil {
