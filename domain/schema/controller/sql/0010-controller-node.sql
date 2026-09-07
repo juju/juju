@@ -1,8 +1,7 @@
 CREATE TABLE controller_node (
     controller_id TEXT NOT NULL PRIMARY KEY,
     life_id INT NOT NULL DEFAULT 0,
-    dqlite_node_id TEXT,              -- This is the uint64 from Dqlite NodeInfo, stored as text.
-    dqlite_bind_address TEXT,         -- Hostname or IP address (no port) that Dqlite is bound to.
+    dqlite_node_id TEXT, -- This is the uint64 from Dqlite NodeInfo, stored as text.
     CONSTRAINT fk_controller_node_life
     FOREIGN KEY (life_id)
     REFERENCES life (id)
@@ -10,9 +9,6 @@ CREATE TABLE controller_node (
 
 CREATE UNIQUE INDEX idx_controller_node_dqlite_node
 ON controller_node (dqlite_node_id);
-
-CREATE UNIQUE INDEX idx_controller_node_dqlite_bind_address
-ON controller_node (dqlite_bind_address);
 
 -- controller_node_agent_version tracks the reported agent version running for
 -- each controller in the cluster.
@@ -44,6 +40,16 @@ CREATE TABLE controller_api_address (
     FOREIGN KEY (controller_id)
     REFERENCES controller_node (controller_id),
     PRIMARY KEY (controller_id, address)
+);
+
+-- controller_api_shared_address holds endpoints that can reach any healthy
+-- controller API server. These endpoints must not be used for controller-node
+-- routing because they are intentionally load-balanced.
+CREATE TABLE controller_api_shared_address (
+    address TEXT NOT NULL PRIMARY KEY,
+    is_agent BOOLEAN DEFAULT FALSE,
+    is_client BOOLEAN DEFAULT FALSE,
+    scope TEXT NOT NULL
 );
 
 CREATE TABLE controller_node_password (
