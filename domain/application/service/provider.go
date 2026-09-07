@@ -1121,7 +1121,11 @@ func (s *ProviderService) populateAddStorageArgs(
 	if arg.StoragePoolUUID != nil {
 		storageDirective.PoolUUID = *arg.StoragePoolUUID
 	}
-	if arg.SizeMiB != nil {
+	// A zero size means the caller did not specify a size. The add-storage
+	// command always sends a size (a pointer to the parsed directive value,
+	// which is zero when no size was given), so keep the size recorded on
+	// the unit storage directive in that case.
+	if arg.SizeMiB != nil && *arg.SizeMiB != 0 {
 		storageDirective.Size = *arg.SizeMiB
 	}
 

@@ -62,16 +62,14 @@ unit_exist() {
 	juju storage --format json | yq "[.. | select(kind == \"map\") | has(\"${name}\")] | any"
 }
 
-# filesystem_status used to check for the current status of the given volume for a filesystem matched by the volume number and volume index combination e.g 0/0, 2/1, 3/1
+# filesystem_status emits a yq query for the status of the filesystem backing
+# the given storage instance id (e.g. data/0). The filesystem is matched via
+# its storage linkage rather than its id, as filesystem ids differ between
+# juju versions (machine-scoped "0/0" before 4.0, global sequence numbers
+# from 4.0 onwards).
 filesystem_status() {
-	local name volume_num volume_index
-	volume_num=${1}
-	volume_index=${2}
+	local storage_id
+	storage_id=${1}
 
-	if [ -z "$volume_index" ]; then
-		name="$volume_num"
-	else
-		name="$volume_num/$volume_index"
-	fi
-	echo ".filesystems | .[\"$name\"] | .status"
+	echo ".filesystems | to_entries | map(select(.value.storage == \"${storage_id}\")) | .[0].value.status"
 }
