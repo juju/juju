@@ -111,17 +111,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			apiInfo, err := config.APIInfo.APIInfo()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if apiInfo == nil {
-				return nil, errors.NotValidf("APIInfo provider returned nil")
-			}
-
 			cfg := WorkerConfig{
 				ControllerNodeService: services.ControllerNode(),
-				APIInfo:               apiInfo,
+				APIInfo:               config.APIInfo,
 				APIOpener:             api.Open,
 				Origin:                config.Origin,
 				NewRemote:             NewRemoteServer,

@@ -58,29 +58,20 @@ func (s *serviceSuite) TestAddDqliteNode(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestAddControllerNode(c *tc.C) {
+func (s *serviceSuite) TestAddDqliteNodeID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().AddControllerNode(gomock.Any(), "1")
+	s.state.EXPECT().AddDqliteNodeID(gomock.Any(), "1")
 
-	err := NewService(s.state, loggertesting.WrapCheckLog(c)).AddControllerNode(c.Context(), "1")
+	err := NewService(s.state, loggertesting.WrapCheckLog(c)).AddDqliteNodeID(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestAddControllerNodeRejectsEmptyID(c *tc.C) {
+func (s *serviceSuite) TestAddDqliteNodeIDRejectsEmptyID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewService(s.state, loggertesting.WrapCheckLog(c)).AddControllerNode(c.Context(), "")
+	err := NewService(s.state, loggertesting.WrapCheckLog(c)).AddDqliteNodeID(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
-}
-
-func (s *serviceSuite) TestDeleteDqliteNode(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().DeleteDqliteNodes(gomock.Any(), []string{"0"})
-
-	err := NewService(s.state, loggertesting.WrapCheckLog(c)).DeleteDqliteNodes(c.Context(), []string{"0"})
-	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestIsModelKnownToController(c *tc.C) {

@@ -33,7 +33,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
-// AddControllerNode ensures a controller node exists for the supplied ID.
+// AddDqliteNodeID ensures a controller node exists for the supplied ID.
 // It only inserts the controller_id; the dqlite_node_id and
 // dqlite_bind_address columns are left NULL. These are populated later by
 // AddDqliteNode when the Dqlite cluster admits the node.
@@ -41,7 +41,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 // during UnitIntroduction (before joining the Dqlite cluster), and the
 // Dqlite node information is added in a separate step once the cluster
 // acknowledges the new peer.
-func (st *State) AddControllerNode(ctx context.Context, controllerID string) error {
+func (st *State) AddDqliteNodeID(ctx context.Context, controllerID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -66,7 +66,7 @@ ON CONFLICT (controller_id) DO NOTHING
 // controller ID. If the controller ID already exists, it updates the
 // Dqlite node ID and bind address.
 //
-// This is called separately from AddControllerNode because the controller
+// This is called separately from AddDqliteNodeID because the controller
 // node identity is registered during UnitIntroduction (before the Dqlite
 // cluster admits the peer). The Dqlite node information is only available
 // once the cluster acknowledges the new node, which happens in a distinct
@@ -104,39 +104,6 @@ UPDATE SET  dqlite_node_id = excluded.dqlite_node_id,
 		err := tx.Query(ctx, stmt, controllerNode).Run()
 		return errors.Capture(err)
 	}))
-}
-
-// DeleteDqliteNodes removes controller nodes from the controller_node table.
-func (st *State) DeleteDqliteNodes(ctx context.Context, delete []string) error {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Single dbControllerNode object created here and reused.
-	controllerNode := dbControllerNode{}
-
-	deleteStmt, err := st.Prepare(`
-DELETE FROM controller_node 
-WHERE       controller_id = $dbControllerNode.controller_id`, controllerNode)
-	if err != nil {
-		return errors.Errorf("preparing delete controller node statement: %w", err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		for _, cID := range delete {
-			controllerNodeToDelete := dbControllerNode{ControllerID: cID}
-			if err := tx.Query(ctx, deleteStmt, controllerNodeToDelete).Run(); err != nil {
-				return errors.Errorf("deleting controller node %q: %w", cID, err)
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return errors.Errorf("curating controller nodes: %w", err)
-	}
-	return nil
 }
 
 // SelectDatabaseNamespace is responsible for selecting and returning the
@@ -373,7 +340,9 @@ AND address = $controllerAPIAddress.address
 		if err := tx.Query(ctx, checkControllerExistsStmt, controllers).Get(&countResult); err != nil {
 			return errors.Errorf("checking if controller nodes %q exists: %w", nodes, err)
 		}
-		if countResult.Count == 0 {
+		// A non-zero count only proves that some requested nodes still exist.
+		// Every address to insert must have a parent controller node.
+		if countResult.Count != len(controllers) {
 			return errors.Errorf("controller nodes %q do not exist", nodes).Add(controllernodeerrors.NotFound)
 		}
 

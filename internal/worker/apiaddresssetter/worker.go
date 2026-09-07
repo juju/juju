@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/controllernode"
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
@@ -217,9 +218,34 @@ func (w *apiAddressSetterWorker) loop() error {
 			}
 		}
 
-		if err := w.updateAPIAddresses(ctx); err != nil {
-			w.config.Logger.Errorf(ctx, "cannot update api addresses: %v", err)
+		w.updateAPIAddressesAfterControllerRefresh(ctx)
+	}
+}
+
+// updateAPIAddressesAfterControllerRefresh updates the tracked controllers'
+// addresses. A controller can be removed between a watcher event and this
+// update, so refresh the tracker set and retry once when the state rejects the
+// stale controller ID.
+func (w *apiAddressSetterWorker) updateAPIAddressesAfterControllerRefresh(ctx context.Context) {
+	err := w.updateAPIAddresses(ctx)
+	if err == nil {
+		return
+	} else if !errors.Is(err, controllernodeerrors.NotFound) {
+		w.config.Logger.Errorf(ctx, "cannot update api addresses: %v", err)
+		return
+	}
+
+	w.config.Logger.Debugf(ctx, "controller node removed while updating api addresses")
+	if _, err := w.updateControllerNodes(ctx); err != nil {
+		w.config.Logger.Errorf(ctx, "cannot refresh controller nodes: %v", err)
+		return
+	}
+	if err := w.updateAPIAddresses(ctx); err != nil {
+		if errors.Is(err, controllernodeerrors.NotFound) {
+			w.config.Logger.Debugf(ctx, "controller node removed while retrying api address update")
+			return
 		}
+		w.config.Logger.Errorf(ctx, "cannot update api addresses after controller refresh: %v", err)
 	}
 }
 
@@ -328,6 +354,10 @@ func (w *apiAddressSetterWorker) stopAndRemoveTracker(ctx context.Context, contr
 
 // updateAPIAddresses updates the API addresses for each tracked controller.
 func (w *apiAddressSetterWorker) updateAPIAddresses(ctx context.Context) error {
+	if len(w.runner.WorkerNames()) == 0 {
+		return nil
+	}
+
 	cfg, err := w.config.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return errors.Capture(err)

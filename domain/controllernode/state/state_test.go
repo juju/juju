@@ -44,8 +44,8 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.state = NewState(s.TxnRunnerFactory())
 }
 
-func (s *stateSuite) TestAddControllerNode(c *tc.C) {
-	err := s.state.AddControllerNode(c.Context(), "1")
+func (s *stateSuite) TestAddDqliteNodeID(c *tc.C) {
+	err := s.state.AddDqliteNodeID(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	var controllerID string
@@ -56,9 +56,9 @@ SELECT controller_id FROM controller_node WHERE controller_id = '1'
 	c.Check(controllerID, tc.Equals, "1")
 }
 
-func (s *stateSuite) TestAddControllerNodeIsIdempotent(c *tc.C) {
-	c.Assert(s.state.AddControllerNode(c.Context(), "1"), tc.ErrorIsNil)
-	c.Assert(s.state.AddControllerNode(c.Context(), "1"), tc.ErrorIsNil)
+func (s *stateSuite) TestAddDqliteNodeIDIsIdempotent(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestAddDqliteNode(c *tc.C) {
@@ -708,6 +708,33 @@ func (s *stateSuite) TestSetAPIAddressControllerNodeNotFound(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorMatches, "controller nodes .* do not exist")
+}
+
+func (s *stateSuite) TestSetAPIAddressesOneControllerNodeNotFound(c *tc.C) {
+	const controllerID = "0"
+	c.Assert(s.state.AddDqliteNode(c.Context(), controllerID, 1, "10.0.0.1"), tc.ErrorIsNil)
+
+	err := s.state.SetAPIAddresses(
+		c.Context(),
+		map[string]controllernode.APIAddresses{
+			controllerID: {{
+				Address: "10.0.0.1:17070",
+				IsAgent: true,
+				Scope:   network.ScopeCloudLocal,
+			}},
+			"removed-controller": {{
+				Address: "10.0.0.2:17070",
+				IsAgent: true,
+				Scope:   network.ScopeCloudLocal,
+			}},
+		},
+	)
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
+
+	var count int
+	err = s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM controller_api_address").Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
 }
 
 func (s *stateSuite) TestGetControllerIDs(c *tc.C) {

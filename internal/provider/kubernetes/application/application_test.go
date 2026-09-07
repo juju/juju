@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 	stdtesting "testing"
 	"time"
 
@@ -476,6 +477,129 @@ func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application,
 	c.Assert(crb, tc.DeepEquals, &appClusterRoleBinding)
 
 	checkMainResource()
+}
+
+func (s *applicationSuite) TestEnsurePreservesExistingPodExtensions(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	var config caas.ApplicationConfig
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func(got *caas.ApplicationConfig) {
+		config = *got
+	}, func() {}, nil)
+
+	statefulSet, err := s.client.AppsV1().StatefulSets(s.namespace).Get(c.Context(), s.appName, metav1.GetOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	statefulSet.Spec.Template.Spec.Volumes = append(statefulSet.Spec.Template.Spec.Volumes,
+		corev1.Volume{Name: "controller-config", VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{},
+		}},
+		corev1.Volume{Name: "storage", VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		}},
+	)
+	statefulSet.Spec.Template.Spec.InitContainers = append(statefulSet.Spec.Template.Spec.InitContainers,
+		corev1.Container{Name: "controller-config-seed", VolumeMounts: []corev1.VolumeMount{{
+			Name: "controller-config", MountPath: "/var/lib/juju-controller-bootstrap",
+		}}},
+	)
+	statefulSet.Spec.Template.Spec.Containers = append(statefulSet.Spec.Template.Spec.Containers,
+		corev1.Container{Name: "api-server", VolumeMounts: []corev1.VolumeMount{{
+			Name: "storage", MountPath: "/var/lib/juju",
+		}}},
+	)
+	for i := range statefulSet.Spec.Template.Spec.InitContainers {
+		container := &statefulSet.Spec.Template.Spec.InitContainers[i]
+		if container.Name != constants.ApplicationInitContainer {
+			continue
+		}
+		container.VolumeMounts = []corev1.VolumeMount{{Name: "storage", MountPath: "/var/lib/juju"}}
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name: constants.EnvJujuContainerNames, Value: "api-server",
+		})
+	}
+	for i := range statefulSet.Spec.Template.Spec.Containers {
+		container := &statefulSet.Spec.Template.Spec.Containers[i]
+		if container.Name != constants.ApplicationCharmContainer {
+			continue
+		}
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name: "storage", MountPath: "/var/lib/juju",
+		})
+	}
+	_, err = s.client.AppsV1().StatefulSets(s.namespace).Update(c.Context(), statefulSet, metav1.UpdateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = app.Ensure(config)
+	c.Assert(err, tc.ErrorIsNil)
+
+	statefulSet, err = s.client.AppsV1().StatefulSets(s.namespace).Get(c.Context(), s.appName, metav1.GetOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(slices.ContainsFunc(statefulSet.Spec.Template.Spec.InitContainers, func(container corev1.Container) bool {
+		return container.Name == "controller-config-seed"
+	}), tc.IsTrue)
+	seedIndex := slices.IndexFunc(statefulSet.Spec.Template.Spec.InitContainers, func(container corev1.Container) bool {
+		return container.Name == "controller-config-seed"
+	})
+	charmInitIndex := slices.IndexFunc(statefulSet.Spec.Template.Spec.InitContainers, func(container corev1.Container) bool {
+		return container.Name == constants.ApplicationInitContainer
+	})
+	c.Check(seedIndex < charmInitIndex, tc.IsTrue)
+	c.Check(slices.ContainsFunc(statefulSet.Spec.Template.Spec.Containers, func(container corev1.Container) bool {
+		return container.Name == "api-server"
+	}), tc.IsTrue)
+	for _, container := range statefulSet.Spec.Template.Spec.InitContainers {
+		if container.Name != constants.ApplicationInitContainer {
+			continue
+		}
+		c.Check(slices.ContainsFunc(container.VolumeMounts, func(mount corev1.VolumeMount) bool {
+			return mount.Name == "storage" && mount.MountPath == "/var/lib/juju"
+		}), tc.IsTrue)
+		c.Check(slices.ContainsFunc(container.Env, func(env corev1.EnvVar) bool {
+			return env.Name == constants.EnvJujuContainerNames && env.Value == "api-server"
+		}), tc.IsTrue)
+	}
+	for _, container := range statefulSet.Spec.Template.Spec.Containers {
+		if container.Name != constants.ApplicationCharmContainer {
+			continue
+		}
+		c.Check(slices.ContainsFunc(container.VolumeMounts, func(mount corev1.VolumeMount) bool {
+			return mount.Name == "storage" && mount.MountPath == "/var/lib/juju"
+		}), tc.IsTrue)
+	}
+}
+
+func (s *applicationSuite) TestApplicationPodSpecController(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	spec, err := app.ApplicationPodSpec(caas.ApplicationConfig{
+		Controller:         true,
+		AgentVersion:       semversion.MustParse(defaultAgentVersion),
+		AgentImagePath:     "operator/image-path:1.1.1",
+		CharmBaseImagePath: "ubuntu@22.04",
+		CharmUser:          caas.RunAsNonRoot,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	charmIndex := slices.IndexFunc(spec.Containers, func(container corev1.Container) bool {
+		return container.Name == constants.ApplicationCharmContainer
+	})
+	c.Assert(charmIndex >= 0, tc.IsTrue)
+	charmContainer := spec.Containers[charmIndex]
+	c.Check(charmContainer.LivenessProbe, tc.IsNil)
+	c.Check(charmContainer.ReadinessProbe, tc.IsNil)
+	c.Check(charmContainer.StartupProbe, tc.IsNil)
+	c.Check(slices.ContainsFunc(charmContainer.Env, func(env corev1.EnvVar) bool {
+		return env.Name == constants.EnvAgentHTTPProbePort
+	}), tc.IsFalse)
+	c.Assert(charmContainer.SecurityContext, tc.NotNil)
+	c.Check(*charmContainer.SecurityContext.RunAsUser, tc.Equals, constants.JujuUserID)
+
+	initIndex := slices.IndexFunc(spec.InitContainers, func(container corev1.Container) bool {
+		return container.Name == constants.ApplicationInitContainer
+	})
+	c.Assert(initIndex >= 0, tc.IsTrue)
+	c.Check(slices.Contains(spec.InitContainers[initIndex].Args, "--controller"), tc.IsTrue)
+	c.Check(slices.ContainsFunc(spec.InitContainers[initIndex].Env, func(env corev1.EnvVar) bool {
+		return env.Name == constants.EnvJujuContainerNames && env.Value == "api-server"
+	}), tc.IsTrue)
 }
 
 func (s *applicationSuite) assertDelete(c *tc.C, app caas.Application) {
