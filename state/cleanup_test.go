@@ -989,9 +989,9 @@ func (s *CleanupSuite) TestRemoveApplicationRemovesAllCleanUps(c *gc.C) {
 	c.Assert(appfoo.UnitCount(), gc.Equals, 1)
 	s.assertDoesNotNeedCleanup(c)
 
-	s.State.ScheduleForceCleanup(state.CleanupForceDestroyedUnit, unit.Name(), 1*time.Minute)
-	s.State.ScheduleForceCleanup(state.CleanupForceRemoveUnit, unit.Name(), 1*time.Minute)
-	s.State.ScheduleForceCleanup(state.CleanupForceApplication, app.Name(), 1*time.Minute)
+	c.Assert(s.State.ScheduleForceCleanup(state.CleanupForceDestroyedUnit, unit.Name(), time.Minute), jc.ErrorIsNil)
+	c.Assert(s.State.ScheduleForceCleanup(state.CleanupForceRemoveUnit, unit.Name(), time.Minute), jc.ErrorIsNil)
+	c.Assert(s.State.ScheduleForceCleanup(state.CleanupForceApplication, app.Name(), time.Minute), jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 
 	op := app.DestroyOperation()
