@@ -10,9 +10,9 @@ add_container_host_machine() {
 	# Container-in-container is unreliable on the LXD provider, so use a VM
 	# for the container host.
 	if [[ ${BOOTSTRAP_PROVIDER:-} == "lxd" ]]; then
-		juju add-machine "$@" --constraints="virt-type=virtual-machine"
+		juju add-machine --constraints="virt-type=virtual-machine"
 	else
-		juju add-machine "$@"
+		juju add-machine
 	fi
 }
 
@@ -97,11 +97,11 @@ run_remove_machine_with_parent_and_container_units() {
 	file="${TEST_DIR}/remove_machine_with_parent_and_container_units.log"
 	ensure "remove-machine-container-unit" "${file}"
 
-	add_container_host_machine --base ubuntu@20.04
+	add_container_host_machine
 	wait_for_machine_agent_status "0" "started"
-	juju add-machine lxd:0 --base ubuntu@20.04
+	juju add-machine lxd:0
 	wait_for_container_agent_status "0/lxd/0" "started"
-	juju deploy ubuntu-lite -n 2 --base ubuntu@20.04 --to 0,0/lxd/0
+	juju deploy ubuntu-lite -n 2 --to 0,0/lxd/0
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite" 0 0)"
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite" 0 1)"
 
