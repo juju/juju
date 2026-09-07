@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
+
 // ChangeLogTriggersForControllerApiAddress generates the triggers for the
 // controller_api_address table.
 func ChangeLogTriggersForControllerApiAddress(columnName string, namespaceID int) func() schema.Patch {
@@ -27,7 +28,7 @@ END;
 -- update trigger for ControllerApiAddress
 CREATE TRIGGER trg_log_controller_api_address_update
 AFTER UPDATE ON controller_api_address FOR EACH ROW
-WHEN
+WHEN 
 	NEW.controller_id != OLD.controller_id OR
 	NEW.address != OLD.address OR
 	(NEW.is_agent != OLD.is_agent OR (NEW.is_agent IS NOT NULL AND OLD.is_agent IS NULL) OR (NEW.is_agent IS NULL AND OLD.is_agent IS NOT NULL)) OR
@@ -193,3 +194,4 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
+
