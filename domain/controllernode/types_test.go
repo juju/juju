@@ -37,6 +37,13 @@ var prioritizeInternalHostPortsTests = []selectInternalHostPortsTest{{
 	},
 	[]string{"8.8.8.8:9999"},
 }, {
+	"a cloud local FQDN is selected before public fallback",
+	APIAddresses{
+		{Address: "api.example.com:17070", Scope: network.ScopePublic},
+		{Address: "controller-0.controller-service-endpoints.controller-test.svc.cluster.local:17070", Scope: network.ScopeCloudLocal},
+	},
+	[]string{"controller-0.controller-service-endpoints.controller-test.svc.cluster.local:17070", "api.example.com:17070"},
+}, {
 	"cloud local IPv4 addresses are selected",
 	APIAddresses{
 		{Address: "10.1.0.1:8888", Scope: network.ScopeCloudLocal},

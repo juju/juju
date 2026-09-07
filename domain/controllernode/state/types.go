@@ -14,10 +14,6 @@ type dbControllerNode struct {
 	// DqliteNodeID is the uint64 from Dqlite NodeInfo, stored as text (due to
 	// db issues when the high bit is set).
 	DqliteNodeID string `db:"dqlite_node_id"`
-
-	// DqliteBindAddress is the hostname or IP address (no port) that Dqlite is
-	// bound to.
-	DqliteBindAddress string `db:"dqlite_bind_address"`
 }
 
 type dbControllerNodeCount struct {
@@ -53,6 +49,19 @@ type controllerAPIAddress struct {
 	IsAgent bool `db:"is_agent"`
 	// Scope is the address scope.
 	Scope string `db:"scope"`
+}
+
+// sharedAPIAddress is the database representation of an address that can
+// reach any healthy controller API server.
+type sharedAPIAddress struct {
+	Address  string `db:"address"`
+	IsAgent  bool   `db:"is_agent"`
+	IsClient bool   `db:"is_client"`
+	Scope    string `db:"scope"`
+}
+
+type sharedAPIAddressAudience struct {
+	AgentsOnly bool `db:"agents_only"`
 }
 
 // countResult is the database representation of a count result.
