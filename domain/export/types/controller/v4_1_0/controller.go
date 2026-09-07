@@ -176,16 +176,22 @@ type ControllerApiAddress struct {
 	Scope        any    `db:"scope" json:"scope" yaml:"scope"`
 }
 
+type ControllerApiSharedAddress struct {
+	Address  string `db:"address" json:"address" yaml:"address"`
+	IsAgent  *bool  `db:"is_agent" json:"is_agent" yaml:"is_agent"`
+	IsClient *bool  `db:"is_client" json:"is_client" yaml:"is_client"`
+	Scope    string `db:"scope" json:"scope" yaml:"scope"`
+}
+
 type ControllerConfig struct {
 	Key   string  `db:"key" json:"key" yaml:"key"`
 	Value *string `db:"value" json:"value" yaml:"value"`
 }
 
 type ControllerNode struct {
-	ControllerID      string  `db:"controller_id" json:"controller_id" yaml:"controller_id"`
-	LifeID            int64   `db:"life_id" json:"life_id" yaml:"life_id"`
-	DqliteNodeID      *string `db:"dqlite_node_id" json:"dqlite_node_id" yaml:"dqlite_node_id"`
-	DqliteBindAddress *string `db:"dqlite_bind_address" json:"dqlite_bind_address" yaml:"dqlite_bind_address"`
+	ControllerID string  `db:"controller_id" json:"controller_id" yaml:"controller_id"`
+	LifeID       int64   `db:"life_id" json:"life_id" yaml:"life_id"`
+	DqliteNodeID *string `db:"dqlite_node_id" json:"dqlite_node_id" yaml:"dqlite_node_id"`
 }
 
 type ControllerNodeAgentVersion struct {
@@ -631,6 +637,7 @@ type ControllerExport struct {
 	CloudType                                   []CloudType                                   `json:"cloud_type" yaml:"cloud_type"`
 	Controller                                  []Controller                                  `json:"controller" yaml:"controller"`
 	ControllerApiAddress                        []ControllerApiAddress                        `json:"controller_api_address" yaml:"controller_api_address"`
+	ControllerApiSharedAddress                  []ControllerApiSharedAddress                  `json:"controller_api_shared_address" yaml:"controller_api_shared_address"`
 	ControllerConfig                            []ControllerConfig                            `json:"controller_config" yaml:"controller_config"`
 	ControllerNode                              []ControllerNode                              `json:"controller_node" yaml:"controller_node"`
 	ControllerNodeAgentVersion                  []ControllerNodeAgentVersion                  `json:"controller_node_agent_version" yaml:"controller_node_agent_version"`
