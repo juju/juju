@@ -171,11 +171,11 @@ run_remove_controller_machine_with_units() {
 	deploy_related_controller_units "${controller_machine_id}" "${workload_machine_id}"
 
 	juju remove-machine -m controller "${controller_machine_id}" --no-prompt
-	wait_for_controller_machine_count 2
-	wait_for_machine_removed "${controller_machine_id}"
 	wait_for "0" '.applications."dummy-source".units // {} | length'
 	wait_for "source relation departed" \
 		'(.applications."dummy-sink".units // {})[] | ."workload-status".message'
+	wait_for_controller_machine_count 2
+	wait_for_machine_removed "${controller_machine_id}"
 	remove_related_controller_applications
 	wait_for_machine_removed "${workload_machine_id}"
 
@@ -199,9 +199,9 @@ run_force_remove_controller_machine_with_units() {
 	deploy_related_controller_units "${controller_machine_id}" "${workload_machine_id}"
 
 	juju remove-machine -m controller "${controller_machine_id}" --force --no-wait --no-prompt
+	wait_for "0" '.applications."dummy-source".units // {} | length'
 	wait_for_controller_machine_count 2
 	wait_for_machine_removed "${controller_machine_id}"
-	wait_for "0" '.applications."dummy-source".units // {} | length'
 	assert_controller_instance_ids
 	remove_related_controller_applications
 	wait_for_machine_removed "${workload_machine_id}"
@@ -238,10 +238,10 @@ remove_controller_machine_with_containers() {
 	else
 		juju remove-machine -m controller "${controller_machine_id}" --no-prompt
 	fi
-	wait_for_controller_machine_count 2
-	wait_for_machine_removed "${controller_machine_id}"
 	wait_for "0" '.applications."dummy-source".units // {} | length'
 	wait_for "0" '.applications."dummy-sink".units // {} | length'
+	wait_for_controller_machine_count 2
+	wait_for_machine_removed "${controller_machine_id}"
 	assert_controller_instance_ids
 	remove_related_controller_applications
 
