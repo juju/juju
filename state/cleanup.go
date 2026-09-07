@@ -532,7 +532,7 @@ func (st *State) cleanupStorageForDyingModel(modelUUID string, cleanupArgs []bso
 		}
 	}
 	if force {
-		st.scheduleForceCleanup(cleanupForceStorage, modelUUID, args.MaxWait)
+		return st.scheduleForceCleanup(cleanupForceStorage, modelUUID, args.MaxWait)
 	}
 	return nil
 }
@@ -948,7 +948,9 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 	// the unit in the case that the unit and machine agents don't for
 	// some reason.
 	if force {
-		st.scheduleForceCleanup(cleanupForceDestroyedUnit, name, maxWait)
+		if err := st.scheduleForceCleanup(cleanupForceDestroyedUnit, name, maxWait); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	if destroyStorage {
@@ -962,15 +964,13 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 	}
 }
 
-func (st *State) scheduleForceCleanup(kind cleanupKind, name string, maxWait time.Duration) {
+func (st *State) scheduleForceCleanup(kind cleanupKind, name string, maxWait time.Duration) error {
 	deadline := st.stateClock.Now().Add(maxWait)
 	op := newCleanupAtOp(deadline, kind, name, maxWait)
 	err := st.db().Run(func(int) ([]txn.Op, error) {
 		return []txn.Op{op}, nil
 	})
-	if err != nil {
-		logger.Warningf("couldn't schedule %s cleanup: %v", kind, err)
-	}
+	return errors.Annotatef(err, "scheduling %s cleanup", kind)
 }
 
 func (st *State) cleanupForceDestroyedUnit(unitId string, cleanupArgs []bson.Raw) error {
@@ -995,8 +995,7 @@ func (st *State) cleanupForceDestroyedUnit(unitId string, cleanupArgs []bson.Raw
 	}
 
 	// Set up another cleanup to remove the unit after maxWait if it gets stuck.
-	st.scheduleForceCleanup(cleanupForceRemoveUnit, unitId, maxWait)
-	return nil
+	return st.scheduleForceCleanup(cleanupForceRemoveUnit, unitId, maxWait)
 }
 
 // forceDestroyUnit forces a unit to Dead by destroying its subordinates, leaving
@@ -1311,7 +1310,7 @@ func (st *State) cleanupDyingMachine(machineID string, cleanupArgs []bson.Raw) e
 	// is if the cloud credential is invalid so the provisioner is
 	// stopped.
 	if force && !machine.ForceDestroyed() {
-		st.scheduleForceCleanup(cleanupForceRemoveMachine, machineID, maxWait)
+		return st.scheduleForceCleanup(cleanupForceRemoveMachine, machineID, maxWait)
 	}
 	return nil
 }
@@ -1331,7 +1330,7 @@ func (st *State) cleanupForceDestroyedMachine(machineId string, cleanupArgs []bs
 			}
 		}
 	}
-	return st.cleanupEvacuateMachineInternal(machineId, true, true, maxWait)
+	return st.cleanupEvacuateMachineInternal(machineId, Dying, true, true, maxWait)
 }
 
 // cleanupDestroyedMachineInternal finishes cleanup after directly hosted
@@ -1346,7 +1345,9 @@ func (st *State) cleanupDestroyedMachineInternal(machineID string, force, forceD
 
 	// Schedule a forced cleanup if not already done.
 	if force && !machine.ForceDestroyed() {
-		st.scheduleForceCleanup(cleanupForceRemoveMachine, machineID, maxWait)
+		if err := st.scheduleForceCleanup(cleanupForceRemoveMachine, machineID, maxWait); err != nil {
+			return errors.Trace(err)
+		}
 		if err := st.db().RunTransaction(machine.forceDestroyedOps()); err != nil {
 			return errors.Trace(err)
 		}
@@ -1487,10 +1488,9 @@ func (st *State) cleanupEvacuateMachine(machineId string, cleanupArgs []bson.Raw
 	default:
 		return errors.Errorf("expected 0 or 2 arguments, got %d", n)
 	}
-	err := st.cleanupEvacuateMachineInternal(machineId, force, false, maxWait)
+	err := st.cleanupEvacuateMachineInternal(machineId, Dying, force, false, maxWait)
 	if errors.Is(err, errForceCleanupRequired) {
-		st.scheduleForceCleanup(cleanupForceDestroyedMachine, machineId, maxWait)
-		return nil
+		return st.scheduleForceCleanup(cleanupForceDestroyedMachine, machineId, maxWait)
 	}
 	return err
 }
@@ -1499,8 +1499,10 @@ func (st *State) cleanupEvacuateMachine(machineId string, cleanupArgs []bson.Raw
 // grace period with forceDying enabled.
 var errForceCleanupRequired = errors.New("force cleanup required")
 
+// cleanupEvacuateMachineInternal only evacuates non-forced machines up to
+// maxLife: Dying for a queued root, Alive for a recursively visited container.
 func (st *State) cleanupEvacuateMachineInternal(
-	machineId string, force, forceDying bool, maxWait time.Duration,
+	machineId string, maxLife Life, force, forceDying bool, maxWait time.Duration,
 ) error {
 	// Remove legacy upgrade-series locks before looking up the machine. A
 	// previous cleanup may already have removed the machine document.
@@ -1516,7 +1518,7 @@ func (st *State) cleanupEvacuateMachineInternal(
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	if !force && machine.Life() != Alive {
+	if !force && machine.Life() > maxLife {
 		return nil
 	}
 
@@ -1606,7 +1608,7 @@ func (st *State) cleanupContainers(machine *Machine, force, forceDying bool, max
 	}
 	for _, containerId := range containerIds {
 		if err := st.cleanupEvacuateMachineInternal(
-			containerId, force, forceDying, maxWait,
+			containerId, Alive, force, forceDying, maxWait,
 		); err != nil {
 			return err
 		}
