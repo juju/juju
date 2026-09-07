@@ -71,8 +71,7 @@ WHERE controller_node_id = $controllerNode.controller_id`, node)
 	markNodeDeadStmt, err := st.Prepare(`
 UPDATE controller_node
 SET life_id = 2,
-    dqlite_node_id = NULL,
-    dqlite_bind_address = NULL
+    dqlite_node_id = NULL
 WHERE controller_id = $controllerNode.controller_id
 AND life_id < 2`, node)
 	if err != nil {
