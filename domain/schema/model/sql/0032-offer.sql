@@ -50,7 +50,6 @@ SELECT
     o.uuid AS offer_uuid,
     o.name AS offer_name,
     a.name AS application_name,
-    COALESCE(o.description, cm.description) AS application_description,
     c.reference_name AS charm_name,
     c.revision AS charm_revision,
     cs.name AS charm_source,
@@ -60,7 +59,8 @@ SELECT
     cr.interface AS endpoint_interface,
     cr.capacity AS endpoint_limit,
     COALESCE(tc.total_connections, 0) AS total_connections,
-    COALESCE(ac.total_active_connections, 0) AS total_active_connections
+    COALESCE(ac.total_active_connections, 0) AS total_active_connections,
+    COALESCE(o.description, cm.description) AS application_description
 FROM offer AS o
 JOIN offer_endpoint AS oe ON o.uuid = oe.offer_uuid
 JOIN application_endpoint AS ae ON oe.endpoint_uuid = ae.uuid
