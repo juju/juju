@@ -137,6 +137,10 @@ func (s *workerSuite) TestNewControllerNode(c *tc.C) {
 		ID: "space0",
 	}
 	s.networkService.EXPECT().GetControllerAPIAddresses(gomock.Any(), unit.Name("controller/1"), sp).Return(addrs, nil)
+	s.networkService.EXPECT().GetControllerK8sServiceAddresses(gomock.Any(), unit.Name("controller/0")).Return(network.SpaceAddresses{
+		network.NewSpaceAddress("10.152.183.193", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("api.example.com", network.WithScope(network.ScopePublic)),
+	}, nil)
 	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("space0")).Return(sp, nil)
 	// Synchronization point to ensure the worker processes the event.
 	sync := make(chan struct{})
@@ -148,6 +152,23 @@ func (s *workerSuite) TestNewControllerNode(c *tc.C) {
 		},
 	}
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
+		return nil
+	})
+	s.controllerNodeService.EXPECT().SetSharedAPIAddresses(gomock.Any(), controllernode.APIAddresses{{
+		Address: "controller-service.controller-test.svc.cluster.local:17070",
+		IsAgent: true,
+		Scope:   network.ScopeCloudLocal,
+	}, {
+		Address:  "10.152.183.193:17070",
+		IsAgent:  true,
+		IsClient: true,
+		Scope:    network.ScopeCloudLocal,
+	}, {
+		Address:  "api.example.com:17070",
+		IsAgent:  true,
+		IsClient: true,
+		Scope:    network.ScopePublic,
+	}}).DoAndReturn(func(context.Context, controllernode.APIAddresses) error {
 		close(sync)
 		return nil
 	})
@@ -158,6 +179,7 @@ func (s *workerSuite) TestNewControllerNode(c *tc.C) {
 		ControllerNodeService:   s.controllerNodeService,
 		NetworkService:          s.networkService,
 		APIPort:                 17070,
+		ControllerName:          "test",
 		Logger:                  loggertesting.WrapCheckLog(c),
 	}
 	w, err := New(cfg)
