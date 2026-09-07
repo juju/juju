@@ -104,6 +104,9 @@ GIT_COMMIT ?= $(shell git -C $(PROJECT_DIR) rev-parse HEAD 2>/dev/null)
 # CI should set this to vendor
 JUJU_GOMOD_MODE ?= readonly
 
+# Extra linker flags passed to CGO builds.
+CGO_LDFLAGS ?=
+
 # If .git directory is missing, we are building out of an archive, otherwise report
 # if the tree that is checked out is dirty (modified) or clean.
 GIT_TREE_STATE = $(if $(shell git -C $(PROJECT_DIR) rev-parse --is-inside-work-tree 2>/dev/null | grep -e 'true'),$(if $(shell git -C $(PROJECT_DIR) status --porcelain),dirty,clean),archive)
