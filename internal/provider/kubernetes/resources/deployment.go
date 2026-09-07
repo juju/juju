@@ -53,7 +53,9 @@ func (d *Deployment) Apply(ctx context.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := d.client.Patch(ctx, d.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
+	// JSON merge patches replace array fields, allowing pod template containers
+	// removed by a charm refresh to be removed from the Deployment.
+	res, err := d.client.Patch(ctx, d.Name, types.MergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsNotFound(err) {
