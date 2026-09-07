@@ -66,7 +66,7 @@ END;
 -- update trigger for ControllerApiSharedAddress
 CREATE TRIGGER trg_log_controller_api_shared_address_update
 AFTER UPDATE ON controller_api_shared_address FOR EACH ROW
-WHEN 
+WHEN
 	NEW.address != OLD.address OR
 	(NEW.is_agent != OLD.is_agent OR (NEW.is_agent IS NOT NULL AND OLD.is_agent IS NULL) OR (NEW.is_agent IS NULL AND OLD.is_agent IS NOT NULL)) OR
 	(NEW.is_client != OLD.is_client OR (NEW.is_client IS NOT NULL AND OLD.is_client IS NULL) OR (NEW.is_client IS NULL AND OLD.is_client IS NOT NULL)) OR

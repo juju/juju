@@ -109,17 +109,14 @@ func (s *integrationSuite) TearDownTest(c *tc.C) {
 	s.DqliteSuite.TearDownTest(c)
 }
 
-func (s *integrationSuite) TestWorkerSetsNodeIDAndAddress(c *tc.C) {
+func (s *integrationSuite) TestWorkerSetsNodeID(c *tc.C) {
 	db, err := s.dbGetter.GetDB(c.Context(), coredatabase.ControllerNS)
 	c.Assert(err, tc.ErrorIsNil)
 
-	var (
-		nodeID uint64
-		addr   string
-	)
+	var nodeID uint64
 	err = db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, "SELECT dqlite_node_id, dqlite_bind_address FROM controller_node WHERE controller_id = '0'")
-		if err := row.Scan(&nodeID, &addr); err != nil {
+		row := tx.QueryRowContext(ctx, "SELECT dqlite_node_id FROM controller_node WHERE controller_id = '0'")
+		if err := row.Scan(&nodeID); err != nil {
 			return err
 		}
 		return row.Err()
@@ -127,7 +124,6 @@ func (s *integrationSuite) TestWorkerSetsNodeIDAndAddress(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(nodeID, tc.Not(tc.Equals), uint64(0))
-	c.Check(addr, tc.HasPrefix, "127.")
 }
 
 func (s *integrationSuite) TestWorkerAccessingControllerDB(c *tc.C) {

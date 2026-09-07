@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/tc"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -94,6 +95,38 @@ func (s *k8sServiceImportSuite) TestCreateK8sServices(c *tc.C) {
 			ApplicationUUID: appUUID2,
 			ProviderID:      "provider-id-2",
 		}})
+}
+
+func (s *k8sServiceImportSuite) TestCreateK8sServicesPersistsFQDN(c *tc.C) {
+	charmUUID := s.addCharm(c)
+	spaceUUID := s.addSpace(c)
+	s.addApplicationWithName(c, charmUUID, spaceUUID, "super-app")
+
+	err := s.state.CreateK8sServices(c.Context(), []internal.ImportK8sService{{
+		UUID:            "service-uuid",
+		NetNodeUUID:     "net-node-uuid",
+		ApplicationName: "super-app",
+		ProviderID:      "provider-id",
+		Addresses: []internal.ImportK8sServiceAddress{{
+			UUID:  "fqdn-uuid",
+			Value: "api.example.com",
+			Type:  string(corenetwork.HostName),
+			Scope: string(corenetwork.ScopePublic),
+		}},
+	}})
+
+	c.Assert(err, tc.ErrorIsNil)
+	var address, netNodeUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT fqa.address, nnfa.net_node_uuid
+FROM   fqdn_address AS fqa
+JOIN   net_node_fqdn_address AS nnfa ON nnfa.address_uuid = fqa.uuid
+`).Scan(&address, &netNodeUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(address, tc.Equals, "api.example.com")
+	c.Check(netNodeUUID, tc.Equals, "net-node-uuid")
 }
 
 func (s *k8sServiceImportSuite) fetchNetNodeUUIDs(c *tc.C) []string {
