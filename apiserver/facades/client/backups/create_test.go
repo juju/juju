@@ -43,6 +43,12 @@ func TestBackupsSuite(t *stdtesting.T) {
 
 func (s *backupsSuite) SetUpTest(c *tc.C) {
 	s.DomainServicesSuite.SetUpTest(c)
+	// GetFilesToBackUp stats /home/ubuntu/.ssh/authorized_keys, and a
+	// stat failure other than ErrNotExist is fatal. Redirect the lookup
+	// into an empty test dir: on hosts where the real path exists but
+	// is not readable by the test user the suite would fail with
+	// "permission denied" instead of exercising Create.
+	s.PatchValue(&corebackups.SSHDir, c.MkDir())
 	s.auditAuthorizer = stubAuthorizer{authClient: true}
 }
 

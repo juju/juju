@@ -16,8 +16,6 @@ import (
 // Pull these from authoritative sources (see
 // github.com/juju/juju/juju/paths, etc.):
 const (
-	sshDir = "/home/ubuntu/.ssh"
-
 	agentsDir      = "agents"
 	agentsConfs    = "machine-*"
 	toolsDir       = "tools"
@@ -35,6 +33,13 @@ const (
 	nonceFile    = "nonce.txt"
 	authKeysFile = "authorized_keys"
 )
+
+// SSHDir is the host directory holding the ubuntu user's SSH files. It
+// is a variable so tests can redirect the lookup into their own tree:
+// on hosts where the directory exists but is not readable by the test
+// user, the fatal stat failure would make results depend on the test
+// runner.
+var SSHDir = "/home/ubuntu/.ssh"
 
 // BackupDirToUse returns the desired backup staging dir.
 func BackupDirToUse(configuredDir string) string {
@@ -75,7 +80,7 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 		filepath.Join(rootDir, paths.DataDir, serverPEM),
 		filepath.Join(rootDir, paths.DataDir, dbSecret),
 		filepath.Join(rootDir, paths.DataDir, nonceFile),
-		filepath.Join(rootDir, sshDir, authKeysFile),
+		filepath.Join(rootDir, SSHDir, authKeysFile),
 	}
 	for _, file := range optional {
 		if _, err := os.Stat(file); err != nil {
