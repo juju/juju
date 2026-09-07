@@ -31,10 +31,12 @@ type Application interface {
 	// The operation stops if ctx is cancelled.
 	Scale(context.Context, int) error
 
-	// ScaleRange reconciles a contiguous StatefulSet ordinal range. The range
-	// is [startOrdinal, startOrdinal+scale). Both values must be non-negative.
+	// ScaleRange reconciles a StatefulSet to a contiguous ordinal range. The
+	// replicaCount and startOrdinal define the half-open range
+	// [startOrdinal, startOrdinal+replicaCount). Sparse ordinal ranges are not
+	// supported. Both values must be non-negative.
 	// The operation stops if ctx is cancelled.
-	ScaleRange(context.Context, int, int) error
+	ScaleRange(ctx context.Context, replicaCount, startOrdinal int) error
 
 	// Trust sets up the role on the application's service account to
 	// give full access to the cluster.

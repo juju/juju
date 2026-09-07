@@ -47,20 +47,21 @@ func (a *app) Scale(ctx context.Context, scaleTo int) error {
 	}
 }
 
-// ScaleRange reconciles the application's ordinal range and stops when ctx is
-// cancelled. Scale and startOrdinal must both be non-negative.
-func (a *app) ScaleRange(ctx context.Context, scaleTo, startOrdinal int) error {
+// ScaleRange reconciles the application to the ordinal range
+// [startOrdinal, startOrdinal+replicaCount) and stops when ctx is cancelled.
+// Sparse ordinal ranges are not supported. Both values must be non-negative.
+func (a *app) ScaleRange(ctx context.Context, replicaCount, startOrdinal int) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if scaleTo < 0 || startOrdinal < 0 {
-		return errors.NotValidf("scale %d or start ordinal %d", scaleTo, startOrdinal)
+	if replicaCount < 0 || startOrdinal < 0 {
+		return errors.NotValidf("replica count %d or start ordinal %d", replicaCount, startOrdinal)
 	}
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
 		patch, err := json.Marshal(map[string]any{
 			"spec": map[string]any{
-				"replicas": scaleTo,
+				"replicas": replicaCount,
 				"ordinals": map[string]any{
 					"start": startOrdinal,
 				},
@@ -84,7 +85,7 @@ func (a *app) ScaleRange(ctx context.Context, scaleTo, startOrdinal int) error {
 		return scale.PatchReplicasToScale(
 			ctx,
 			a.name,
-			int32(scaleTo),
+			int32(replicaCount),
 			scale.DeploymentScalePatcher(a.client.AppsV1().Deployments(a.namespace)),
 		)
 	default:

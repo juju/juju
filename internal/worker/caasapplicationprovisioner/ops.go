@@ -770,8 +770,9 @@ func ensureScale(
 		// Reconcile every desired controller ordinal rather than only the
 		// apparent scale-up range. Unit rows can be temporarily missing or
 		// sparse after a failed introduction, while StatefulSet ordinals are
-		// always the contiguous range [0, scaleTarget). The persisted nonce is
-		// immutable, so this is safe to repeat during recovery.
+		// always the contiguous range [startOrdinal, startOrdinal+scaleTarget).
+		// The persisted nonce is immutable, so this is safe to repeat during
+		// recovery.
 		if ps.ScaleTarget > 0 && appLife == life.Alive {
 			if isController, err := applicationService.IsControllerApplication(ctx, appUUID); err != nil {
 				return errors.Annotate(err, "checking if controller application")
