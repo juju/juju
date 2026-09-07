@@ -54,6 +54,42 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForNetNodeFqdnAddress generates the triggers for the
+// net_node_fqdn_address table.
+func ChangeLogTriggersForNetNodeFqdnAddress(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for NetNodeFqdnAddress
+INSERT INTO change_log_namespace VALUES (%[2]d, 'net_node_fqdn_address', 'NetNodeFqdnAddress changes based on %[1]s');
+
+-- insert trigger for NetNodeFqdnAddress
+CREATE TRIGGER trg_log_net_node_fqdn_address_insert
+AFTER INSERT ON net_node_fqdn_address FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for NetNodeFqdnAddress
+CREATE TRIGGER trg_log_net_node_fqdn_address_update
+AFTER UPDATE ON net_node_fqdn_address FOR EACH ROW
+WHEN 
+	NEW.net_node_uuid != OLD.net_node_uuid OR
+	NEW.address_uuid != OLD.address_uuid
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for NetNodeFqdnAddress
+CREATE TRIGGER trg_log_net_node_fqdn_address_delete
+AFTER DELETE ON net_node_fqdn_address FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
+
 // ChangeLogTriggersForSubnet generates the triggers for the
 // subnet table.
 func ChangeLogTriggersForSubnet(columnName string, namespaceID int) func() schema.Patch {
