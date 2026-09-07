@@ -81,9 +81,6 @@ func (e *RequestError) UnmarshalInfo(to any) error {
 }
 
 func (conn *Conn) send(call *Call) uint64 {
-	conn.sending.Lock()
-	defer conn.sending.Unlock()
-
 	// Register this call.
 	conn.mutex.Lock()
 	if conn.dead == nil {
@@ -92,7 +89,7 @@ func (conn *Conn) send(call *Call) uint64 {
 		call.done(conn.context)
 		return 0
 	}
-	if conn.closing || conn.shutdown {
+	if conn.closing.Load() || conn.shutdown {
 		call.Error = errors.Errorf(
 			"connection is shutdown before send",
 		).Add(ErrShutdown)
@@ -100,8 +97,7 @@ func (conn *Conn) send(call *Call) uint64 {
 		call.done(conn.context)
 		return 0
 	}
-	conn.reqId++
-	reqId := conn.reqId
+	reqId := conn.reqId.Add(1)
 	conn.clientPending[reqId] = call
 	conn.mutex.Unlock()
 
