@@ -116,6 +116,18 @@ func (s *Service) GetControllerAPIAddresses(
 		return nil, errors.Errorf("getting controller unit UUID for %q: %w", unitName, err)
 	}
 
+	// Kubernetes controller units persist their headless-Service FQDN as their
+	// stable, controller-specific identity. Prefer it to the ephemeral pod IP.
+	fqdns, err := s.st.GetUnitFQDNs(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Errorf("getting controller unit FQDNs for %q: %w", unitName, err)
+	}
+	if len(fqdns) > 0 {
+		return network.SpaceAddresses{
+			network.NewSpaceAddress(fqdns[0], network.WithScope(network.ScopeCloudLocal)),
+		}, nil
+	}
+
 	candidates, err := s.st.GetControllerAPIAddresses(ctx, unitUUID)
 	if err != nil {
 		return nil, errors.Errorf("getting API addresses for %q: %w", unitName, err)
@@ -127,6 +139,19 @@ func (s *Service) GetControllerAPIAddresses(
 	}
 
 	return addrs, nil
+}
+
+// GetControllerK8sServiceAddresses returns FQDNs for the controller's normal
+// Kubernetes Service, including public load balancer hostnames when present.
+func (s *Service) GetControllerK8sServiceAddresses(
+	ctx context.Context,
+	unitName unit.Name,
+) (network.SpaceAddresses, error) {
+	unitUUID, err := s.st.GetControllerUnitUUIDByName(ctx, unitName.String())
+	if err != nil {
+		return nil, errors.Errorf("getting controller unit UUID for %q: %w", unitName, err)
+	}
+	return s.st.GetControllerK8sServiceAddresses(ctx, unitUUID)
 }
 
 // selectControllerAPIAddresses selects the preferred client addresses from all
