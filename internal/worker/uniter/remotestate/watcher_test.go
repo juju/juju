@@ -1046,6 +1046,10 @@ func (s *WatcherSuite) TestWorkloadSignal(c *tc.C) {
 		c.Fatalf("timed out waiting to signal workload event channel")
 	}
 
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	snap = s.watcher.Snapshot()
+	c.Assert(snap.WorkloadEvents, tc.DeepEquals, []string{"0"})
+
 	// Adding same event twice shouldn't re-add it.
 	select {
 	case s.workloadEventChannel <- "0":
