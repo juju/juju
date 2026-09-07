@@ -109,7 +109,7 @@ run_model_migration_caas() {
 	# The application must be healthy on the target and the target must own
 	# the unit agent.
 	wait_for "snappass-test" "$(active_idle_condition "snappass-test")"
-	juju exec --unit snappass-test/0 -- hostname | grep -c snappass-test | check true
+	juju exec --unit snappass-test/0 -- hostname | grep -c snappass-test | check 1
 
 	# Clean up: destroy the now-empty source controller, then the migrated
 	# model on the target (the framework teardown destroys the target
