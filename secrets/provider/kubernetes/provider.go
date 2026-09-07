@@ -27,6 +27,8 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -281,14 +283,11 @@ func (p k8sProvider) CleanupIssuedTokens(
 
 	ctx := context.TODO()
 
-	for i, uuid := range issuedTokenUUIDs {
-		err = broker.revokeSecretAccessToken(ctx, uuid)
-		if err != nil {
-			// Return the tokens deleted so far.
-			return issuedTokenUUIDs[:i], errors.New(
-				"removing k8s secret backend issued tokens",
-			)
-		}
+	err = broker.revokeSecretAccessTokens(ctx, issuedTokenUUIDs)
+	if err != nil {
+		return nil, errors.New(
+			"removing k8s secret backend issued tokens",
+		)
 	}
 
 	return issuedTokenUUIDs, nil
@@ -1122,6 +1121,7 @@ func (k *kubernetesClient) createSecretAccessToken(
 	labels = utils.LabelsMerge(labels,
 		map[string]string{
 			constants.LabelKubernetesAppName: appName,
+			labelJujuIssuedTokenID:           issuedTokenUUID,
 		})
 
 	// Service Account name and all the ACLs for this SA are derived from the
@@ -1194,45 +1194,56 @@ func (k *kubernetesClient) createSecretAccessToken(
 	return tr.Status.Token, nil
 }
 
-// revokeSecretAccessTokens removes all the roles, role bindings and service
-// accounts related to the named issued token UUID.
-func (k *kubernetesClient) revokeSecretAccessToken(
-	ctx context.Context, issuedTokenUUID string,
+// revokeSecretAccessTokens removes all the roles, role bindings and
+// service accounts related to the given issued token UUIDs. It uses
+// DeleteCollection with an In selector to remove all resources for
+// the entire list in a single API call per resource type.
+func (k *kubernetesClient) revokeSecretAccessTokens(
+	ctx context.Context, issuedTokenUUIDs []string,
 ) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}
+	if len(issuedTokenUUIDs) == 0 {
+		return nil
+	}
 
-	serviceAccountName := fmt.Sprintf(
-		"juju-secret-consumer-%s", issuedTokenUUID,
+	req, err := k8slabels.NewRequirement(
+		labelJujuIssuedTokenID, selection.In, issuedTokenUUIDs,
 	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	selector := k8slabels.NewSelector().Add(*req)
+	listOpts := v1.ListOptions{LabelSelector: selector.String()}
+	deleteOpts := *v1.NewDeleteOptions(0)
 
-	err := k.client.RbacV1().ClusterRoleBindings().Delete(
-		ctx, serviceAccountName, *v1.NewDeleteOptions(0))
+	err = k.client.RbacV1().ClusterRoleBindings().DeleteCollection(
+		ctx, deleteOpts, listOpts)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 
-	err = k.client.RbacV1().ClusterRoles().Delete(
-		ctx, serviceAccountName, v1.DeleteOptions{})
+	err = k.client.RbacV1().ClusterRoles().DeleteCollection(
+		ctx, deleteOpts, listOpts)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 
-	err = k.client.RbacV1().RoleBindings(k.namespace).Delete(
-		ctx, serviceAccountName, *v1.NewDeleteOptions(0))
+	err = k.client.RbacV1().RoleBindings(k.namespace).DeleteCollection(
+		ctx, deleteOpts, listOpts)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 
-	err = k.client.RbacV1().Roles(k.namespace).Delete(
-		ctx, serviceAccountName, v1.DeleteOptions{})
+	err = k.client.RbacV1().Roles(k.namespace).DeleteCollection(
+		ctx, deleteOpts, listOpts)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 
-	err = k.client.CoreV1().ServiceAccounts(k.namespace).Delete(
-		ctx, serviceAccountName, v1.DeleteOptions{})
+	err = k.client.CoreV1().ServiceAccounts(k.namespace).DeleteCollection(
+		ctx, deleteOpts, listOpts)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
