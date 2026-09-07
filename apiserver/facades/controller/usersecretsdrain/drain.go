@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/secrets"
@@ -53,6 +55,12 @@ func (s *SecretsDrainAPI) GetSecretBackendConfigs(ctx context.Context, arg param
 		BackendID: backendID,
 	})
 	if err != nil {
+		if errors.Is(err, secretbackenderrors.NotFound) {
+			return results, apiservererrors.ParamsErrorf(
+				params.CodeSecretBackendNotFound,
+				"getting drain config for secret backend %q: %s", backendID, err.Error(),
+			)
+		}
 		return results, errors.Trace(err)
 	}
 	if len(cfgInfo.Configs) == 0 {
@@ -82,7 +90,34 @@ func (s *SecretsDrainAPI) GetSecretContentInfo(ctx context.Context, args params.
 	for i, arg := range args.Args {
 		content, backend, draining, err := s.getSecretContent(ctx, arg)
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+			// getSecretContent looks up the secret metadata, reads the
+			// revision value and, for external secrets, resolves the
+			// backend config, so every sentinel those three can return
+			// needs translating here.
+			switch {
+			case errors.Is(err, secreterrors.SecretNotFound):
+				result.Results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeSecretNotFound,
+					"getting content for secret %q: %s", arg.URI, err.Error(),
+				)
+			case errors.Is(err, secreterrors.SecretRevisionNotFound):
+				result.Results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeSecretRevisionNotFound,
+					"getting content for secret %q: %s", arg.URI, err.Error(),
+				)
+			case errors.Is(err, secreterrors.PermissionDenied):
+				result.Results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeUnauthorized,
+					"cannot read secret %q: %s", arg.URI, err.Error(),
+				)
+			case errors.Is(err, secretbackenderrors.NotFound):
+				result.Results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeSecretBackendNotFound,
+					"getting content for secret %q: %s", arg.URI, err.Error(),
+				)
+			default:
+				result.Results[i].Error = apiservererrors.ServerError(err)
+			}
 			continue
 		}
 		contentParams := params.SecretContentParams{}
@@ -192,7 +227,27 @@ func (s *SecretsDrainAPI) GetSecretRevisionContentInfo(ctx context.Context, arg 
 			ID:   s.modelUUID.String(),
 		})
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+			// GetSecretValue checks read access before reading the
+			// revision, so it can fail with any of these three.
+			switch {
+			case errors.Is(err, secreterrors.SecretNotFound):
+				result.Results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeSecretNotFound,
+					"secret %q not found", arg.URI,
+				)
+			case errors.Is(err, secreterrors.SecretRevisionNotFound):
+				result.Results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeSecretRevisionNotFound,
+					"getting revision %d of secret %q: %s", rev, arg.URI, err.Error(),
+				)
+			case errors.Is(err, secreterrors.PermissionDenied):
+				result.Results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeUnauthorized,
+					"cannot read secret %q: %s", arg.URI, err.Error(),
+				)
+			default:
+				result.Results[i].Error = apiservererrors.ServerError(err)
+			}
 			continue
 		}
 		contentParams := params.SecretContentParams{}
@@ -203,7 +258,15 @@ func (s *SecretsDrainAPI) GetSecretRevisionContentInfo(ctx context.Context, arg 
 			}
 			backend, draining, err := s.getBackend(ctx, valueRef.BackendID)
 			if err != nil {
-				result.Results[i].Error = apiservererrors.ServerError(err)
+				if errors.Is(err, secretbackenderrors.NotFound) {
+					result.Results[i].Error = apiservererrors.ParamsErrorf(
+						params.CodeSecretBackendNotFound,
+						"getting backend %q for secret %q: %s",
+						valueRef.BackendID, arg.URI, err.Error(),
+					)
+				} else {
+					result.Results[i].Error = apiservererrors.ServerError(err)
+				}
 				continue
 			}
 			result.Results[i].BackendConfig = &params.SecretBackendConfigResult{

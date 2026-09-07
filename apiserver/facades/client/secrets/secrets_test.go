@@ -5,6 +5,7 @@ package secrets_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -722,4 +724,259 @@ func (s *SecretsSuite) TestRevokeSecretPermissionDenied(c *tc.C) {
 
 	_, err = facade.RevokeSecret(c.Context(), params.GrantRevokeUserSecretArg{Label: "my-secret"})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
+}
+
+func (s *SecretsSuite) TestListSecretsGrantsNotFound(c *tc.C) {
+	// Arrange: GetSecretGrants reports the secret has gone away.
+	defer s.setup(c).Finish()
+
+	s.expectAuthClient()
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, coretesting.ModelTag).Return(nil)
+
+	uri := coresecrets.NewURI()
+	s.secretService.EXPECT().ListSecrets(gomock.Any(), nil, secret.NilRevision, secret.NilLabels).Return(
+		[]*coresecrets.SecretMetadata{{
+			URI:   uri,
+			Owner: coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: coretesting.ModelTag.Id()},
+		}},
+		[][]*coresecrets.SecretRevisionMetadata{{}},
+		nil,
+	)
+	s.secretService.EXPECT().GetSecretGrants(gomock.Any(), uri, coresecrets.RoleView).
+		Return(nil, fmt.Errorf("boom: %w", secreterrors.SecretNotFound))
+
+	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService, s.modelName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act:
+	_, err = facade.ListSecrets(c.Context(), params.ListSecretsArgs{})
+
+	// Assert:
+	c.Assert(err, tc.DeepEquals, &params.Error{
+		Code:    params.CodeSecretNotFound,
+		Message: fmt.Sprintf("secret %q not found", uri),
+	})
+}
+
+func (s *SecretsSuite) TestListSecretsRevealErrorCodes(c *tc.C) {
+	for _, t := range []struct {
+		sentinel error
+		code     string
+		message  string
+	}{{
+		sentinel: secreterrors.SecretRevisionNotFound,
+		code:     params.CodeSecretRevisionNotFound,
+		message:  "boom: secret revision not found",
+	}, {
+		sentinel: secretbackenderrors.NotFound,
+		code:     params.CodeSecretBackendNotFound,
+		message:  "boom: secret backend not found",
+	}} {
+		func() {
+			// Arrange: reading the revision content from the backend fails.
+			defer s.setup(c).Finish()
+
+			s.expectAuthClient()
+			s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
+
+			uri := coresecrets.NewURI()
+			s.secretService.EXPECT().ListSecrets(gomock.Any(), nil, secret.NilRevision, secret.NilLabels).Return(
+				[]*coresecrets.SecretMetadata{{
+					URI:            uri,
+					Owner:          coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: coretesting.ModelTag.Id()},
+					LatestRevision: 2,
+				}},
+				[][]*coresecrets.SecretRevisionMetadata{{}},
+				nil,
+			)
+			s.secretService.EXPECT().GetSecretGrants(gomock.Any(), uri, coresecrets.RoleView).Return(nil, nil)
+			s.secretService.EXPECT().GetSecretContentFromBackend(gomock.Any(), uri, 2).
+				Return(nil, fmt.Errorf("boom: %w", t.sentinel))
+
+			facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService, s.modelName)
+			c.Assert(err, tc.ErrorIsNil)
+
+			// Act:
+			results, err := facade.ListSecrets(c.Context(), params.ListSecretsArgs{ShowSecrets: true})
+
+			// Assert:
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(results.Results, tc.HasLen, 1)
+			c.Check(results.Results[0].Value, tc.DeepEquals, &params.SecretValueResult{
+				Error: &params.Error{
+					Code:    t.code,
+					Message: fmt.Sprintf("getting content for secret %q: %s", uri, t.message),
+				},
+			})
+		}()
+	}
+}
+
+func (s *SecretsSuite) TestUpdateSecretsErrorCodes(c *tc.C) {
+	for _, t := range []struct {
+		sentinel error
+		code     string
+		message  string
+	}{{
+		sentinel: secreterrors.SecretNotFound,
+		code:     params.CodeSecretNotFound,
+		message:  "secret %q not found",
+	}, {
+		sentinel: secreterrors.PermissionDenied,
+		code:     params.CodeUnauthorized,
+		message:  "cannot update secret %q: boom: permission denied",
+	}} {
+		func() {
+			// Arrange:
+			defer s.setup(c).Finish()
+
+			s.expectAuthClient()
+			s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, coretesting.ModelTag).Return(nil)
+
+			uri := coresecrets.NewURI()
+			s.secretService.EXPECT().UpdateUserSecret(gomock.Any(), gomock.Any(), gomock.Any()).
+				Return(fmt.Errorf("boom: %w", t.sentinel))
+
+			facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService, s.modelName)
+			c.Assert(err, tc.ErrorIsNil)
+
+			// Act:
+			results, err := facade.UpdateSecrets(c.Context(), params.UpdateUserSecretArgs{
+				Args: []params.UpdateUserSecretArg{{
+					URI: uri.String(),
+					UpsertSecretArg: params.UpsertSecretArg{
+						Description: new("this is a user secret."),
+					},
+				}},
+			})
+
+			// Assert:
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(results.Results, tc.HasLen, 1)
+			c.Check(results.Results[0].Error, tc.DeepEquals, &params.Error{
+				Code:    t.code,
+				Message: fmt.Sprintf(t.message, uri),
+			})
+		}()
+	}
+}
+
+func (s *SecretsSuite) TestUpdateSecretsLabelNotFound(c *tc.C) {
+	// Arrange: resolving the existing label fails, exercising secretURI.
+	defer s.setup(c).Finish()
+
+	s.expectAuthClient()
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, coretesting.ModelTag).Return(nil)
+	s.secretService.EXPECT().GetUserSecretURIByLabel(gomock.Any(), "my-secret").
+		Return(nil, fmt.Errorf("boom: %w", secreterrors.SecretNotFound))
+
+	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService, s.modelName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act:
+	results, err := facade.UpdateSecrets(c.Context(), params.UpdateUserSecretArgs{
+		Args: []params.UpdateUserSecretArg{{
+			ExistingLabel: "my-secret",
+			UpsertSecretArg: params.UpsertSecretArg{
+				Description: new("this is a user secret."),
+			},
+		}},
+	})
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.DeepEquals, &params.Error{
+		Code:    params.CodeSecretNotFound,
+		Message: `getting user secret for label "my-secret": boom: secret not found`,
+	})
+}
+
+func (s *SecretsSuite) TestRemoveSecretsErrorCodes(c *tc.C) {
+	for _, t := range []struct {
+		sentinel error
+		code     string
+		message  string
+	}{{
+		sentinel: secreterrors.SecretNotFound,
+		code:     params.CodeSecretNotFound,
+		message:  "secret %q not found",
+	}, {
+		sentinel: secreterrors.PermissionDenied,
+		code:     params.CodeUnauthorized,
+		message:  "cannot remove secret %q: boom: permission denied",
+	}} {
+		func() {
+			// Arrange:
+			defer s.setup(c).Finish()
+
+			s.expectAuthClient()
+			s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, coretesting.ModelTag).Return(nil)
+
+			uri := coresecrets.NewURI()
+			s.secretService.EXPECT().DeleteSecret(gomock.Any(), gomock.Any(), gomock.Any()).
+				Return(fmt.Errorf("boom: %w", t.sentinel))
+
+			facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService, s.modelName)
+			c.Assert(err, tc.ErrorIsNil)
+
+			// Act:
+			results, err := facade.RemoveSecrets(c.Context(), params.DeleteSecretArgs{
+				Args: []params.DeleteSecretArg{{URI: uri.String()}},
+			})
+
+			// Assert:
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(results.Results, tc.HasLen, 1)
+			c.Check(results.Results[0].Error, tc.DeepEquals, &params.Error{
+				Code:    t.code,
+				Message: fmt.Sprintf(t.message, uri),
+			})
+		}()
+	}
+}
+
+func (s *SecretsSuite) TestGrantSecretErrorCodes(c *tc.C) {
+	for _, t := range []struct {
+		sentinel error
+		code     string
+		message  string
+	}{{
+		sentinel: secreterrors.SecretNotFound,
+		code:     params.CodeSecretNotFound,
+		message:  "secret %q not found",
+	}, {
+		sentinel: secreterrors.PermissionDenied,
+		code:     params.CodeUnauthorized,
+		message:  `cannot change access to %q for "gitlab": boom: permission denied`,
+	}} {
+		func() {
+			// Arrange:
+			defer s.setup(c).Finish()
+
+			s.expectAuthClient()
+			s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, coretesting.ModelTag).Return(nil)
+
+			uri := coresecrets.NewURI()
+			s.secretService.EXPECT().GrantSecretAccess(gomock.Any(), gomock.Any(), gomock.Any()).
+				Return(fmt.Errorf("boom: %w", t.sentinel))
+
+			facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService, s.modelName)
+			c.Assert(err, tc.ErrorIsNil)
+
+			// Act:
+			results, err := facade.GrantSecret(c.Context(), params.GrantRevokeUserSecretArg{
+				URI:          uri.String(),
+				Applications: []string{"gitlab"},
+			})
+
+			// Assert:
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(results.Results, tc.HasLen, 1)
+			c.Check(results.Results[0].Error, tc.DeepEquals, &params.Error{
+				Code:    t.code,
+				Message: fmt.Sprintf(t.message, uri),
+			})
+		}()
+	}
 }

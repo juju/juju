@@ -4,6 +4,7 @@
 package secretbackends
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -91,7 +92,7 @@ func (s *SecretsSuite) TestAddSecretBackends(c *tc.C) {
 		{},
 		{Error: &params.Error{
 			Code:    "secret backend already exists",
-			Message: `secret backend already exists`}},
+			Message: `secret backend "myvault2" already exists`}},
 	})
 }
 
@@ -248,7 +249,7 @@ func (s *SecretsSuite) TestUpdateSecretBackends(c *tc.C) {
 		{},
 		{Error: &params.Error{
 			Code:    "secret backend not found",
-			Message: `secret backend not found`}},
+			Message: `secret backend "not-existing-name" not found`}},
 	})
 }
 
@@ -334,4 +335,145 @@ func (s *SecretsSuite) TestRemoveSecretBackendsInUse(c *tc.C) {
 			Code:    "not supported",
 			Message: `deleting in use secret backend not supported`}},
 	})
+}
+
+func (s *SecretsSuite) TestAddSecretBackendsErrorCodes(c *tc.C) {
+	for _, t := range []struct {
+		sentinel error
+		code     string
+		message  string
+	}{{
+		sentinel: secretbackenderrors.AlreadyExists,
+		code:     params.CodeSecretBackendAlreadyExists,
+		message:  `secret backend "myvault" already exists`,
+	}, {
+		sentinel: secretbackenderrors.NotValid,
+		code:     params.CodeSecretBackendNotValid,
+		message:  `cannot add secret backend "myvault": boom: secret backend not valid`,
+	}, {
+		sentinel: secretbackenderrors.NotSupported,
+		code:     params.CodeSecretBackendNotSupported,
+		message:  `cannot add secret backend "myvault": boom: secret backend not supported`,
+	}} {
+		func() {
+			// Arrange: the service reports the sentinel wrapped in a chain,
+			// as it would be after travelling back up through the domain.
+			facade, ctrl := s.setup(c)
+			defer ctrl.Finish()
+
+			s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
+			s.mockBackendService.EXPECT().CreateSecretBackend(gomock.Any(), gomock.Any()).
+				Return(fmt.Errorf("boom: %w", t.sentinel))
+
+			// Act:
+			results, err := facade.AddSecretBackends(c.Context(), params.AddSecretBackendArgs{
+				Args: []params.AddSecretBackendArg{{
+					ID:            "backend-id",
+					SecretBackend: params.SecretBackend{Name: "myvault", BackendType: "vault"},
+				}},
+			})
+
+			// Assert:
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(results.Results, tc.HasLen, 1)
+			c.Check(results.Results[0].Error, tc.DeepEquals, &params.Error{
+				Code:    t.code,
+				Message: t.message,
+			})
+		}()
+	}
+}
+
+func (s *SecretsSuite) TestUpdateSecretBackendsErrorCodes(c *tc.C) {
+	for _, t := range []struct {
+		sentinel error
+		code     string
+		message  string
+	}{{
+		sentinel: secretbackenderrors.NotFound,
+		code:     params.CodeSecretBackendNotFound,
+		message:  `secret backend "myvault" not found`,
+	}, {
+		sentinel: secretbackenderrors.AlreadyExists,
+		code:     params.CodeSecretBackendAlreadyExists,
+		message:  `cannot rename secret backend "myvault": boom: secret backend already exists`,
+	}, {
+		sentinel: secretbackenderrors.Forbidden,
+		code:     params.CodeSecretBackendForbidden,
+		message:  `cannot update secret backend "myvault": boom: secret backend operation forbidden`,
+	}, {
+		sentinel: secretbackenderrors.NotValid,
+		code:     params.CodeSecretBackendNotValid,
+		message:  `cannot update secret backend "myvault": boom: secret backend not valid`,
+	}, {
+		sentinel: secretbackenderrors.NotSupported,
+		code:     params.CodeSecretBackendNotSupported,
+		message:  `cannot update secret backend "myvault": boom: secret backend not supported`,
+	}} {
+		func() {
+			// Arrange:
+			facade, ctrl := s.setup(c)
+			defer ctrl.Finish()
+
+			s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
+			s.mockBackendService.EXPECT().UpdateSecretBackend(gomock.Any(), gomock.Any()).
+				Return(fmt.Errorf("boom: %w", t.sentinel))
+
+			// Act:
+			results, err := facade.UpdateSecretBackends(c.Context(), params.UpdateSecretBackendArgs{
+				Args: []params.UpdateSecretBackendArg{{Name: "myvault"}},
+			})
+
+			// Assert:
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(results.Results, tc.HasLen, 1)
+			c.Check(results.Results[0].Error, tc.DeepEquals, &params.Error{
+				Code:    t.code,
+				Message: t.message,
+			})
+		}()
+	}
+}
+
+func (s *SecretsSuite) TestRemoveSecretBackendsErrorCodes(c *tc.C) {
+	for _, t := range []struct {
+		sentinel error
+		code     string
+		message  string
+	}{{
+		sentinel: secretbackenderrors.Forbidden,
+		code:     params.CodeNotSupported,
+		message:  `deleting in use secret backend not supported`,
+	}, {
+		sentinel: secretbackenderrors.NotFound,
+		code:     params.CodeSecretBackendNotFound,
+		message:  `secret backend "myvault" not found`,
+	}, {
+		sentinel: secretbackenderrors.NotValid,
+		code:     params.CodeSecretBackendNotValid,
+		message:  `cannot remove secret backend "myvault": boom: secret backend not valid`,
+	}} {
+		func() {
+			// Arrange:
+			facade, ctrl := s.setup(c)
+			defer ctrl.Finish()
+
+			s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
+			s.mockBackendService.EXPECT().DeleteSecretBackend(gomock.Any(), gomock.Any()).
+				Return(fmt.Errorf("boom: %w", t.sentinel))
+
+			// Act:
+			results, err := facade.RemoveSecretBackends(c.Context(), params.RemoveSecretBackendArgs{
+				Args: []params.RemoveSecretBackendArg{{Name: "myvault"}},
+			})
+
+			// Assert:
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(results.Results, tc.HasLen, 1)
+			c.Check(results.Results[0].Error, tc.DeepEquals, &params.Error{
+				Code:    t.code,
+				Message: t.message,
+			})
+		}()
+	}
 }

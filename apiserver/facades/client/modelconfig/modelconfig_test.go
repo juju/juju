@@ -659,7 +659,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFailedSecretBackendNotFound(
 		SecretBackendName: "myvault",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Error, tc.ErrorMatches, "secret backend not found")
+	c.Assert(result.Error, tc.ErrorMatches, `secret backend "myvault" not found`)
 	c.Assert(result.Error.Code, tc.Equals, params.CodeSecretBackendNotFound)
 }
 
@@ -674,7 +674,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendFailedSecretBackendNotValid(
 		SecretBackendName: "myvault",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Error, tc.ErrorMatches, "secret backend not valid")
+	c.Assert(result.Error, tc.ErrorMatches, `secret backend "myvault" not valid`)
 	c.Assert(result.Error.Code, tc.Equals, params.CodeSecretBackendNotValid)
 }
 
