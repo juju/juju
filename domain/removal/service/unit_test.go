@@ -315,20 +315,24 @@ func (s *unitSuite) TestRemoveUnitIgnoresLeadershipNotHeld(c *tc.C) {
 	c.Check(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
-func (s *unitSuite) TestRemoveUnitStopsWhenLeadershipRevocationFails(c *tc.C) {
+func (s *unitSuite) TestRemoveUnitSchedulesRemovalWhenLeadershipRevocationFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uUUID := unittesting.GenUnitUUID(c)
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when)
 	exp := s.modelState.EXPECT()
 	gomock.InOrder(
 		exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil),
 		exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String(), false).Return(internal.CascadedUnitLives{}, nil),
 		exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), uUUID.String()).Return("foo", "foo/0", nil),
 		s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(errors.New("lease unavailable")),
+		exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), false, when.UTC()).Return(nil),
 	)
 
-	_, err := s.newService(c).RemoveUnit(c.Context(), uUUID, false, false, 0)
-	c.Assert(err, tc.ErrorMatches, `revoking leadership: lease unavailable`)
+	jobUUID, err := s.newService(c).RemoveUnit(c.Context(), uUUID, false, false, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
 func (s *unitSuite) TestProcessRemovalJobInvalidJobType(c *tc.C) {

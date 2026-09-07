@@ -117,7 +117,9 @@ func (s *Service) RemoveUnit(
 	// Revoke after the life transition so this unit cannot renew its leadership
 	// lease while it completes its departure hooks.
 	if err := s.leadershipRevoker.RevokeLeadership(applicationName, unit.Name(unitName)); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
-		return "", errors.Errorf("revoking leadership: %w", err)
+		// The unit is already dying, so continue scheduling its removal even
+		// when the best-effort leadership revocation fails.
+		s.logger.Errorf(ctx, "revoking leadership for unit %q: %v", unitUUID, err)
 	}
 
 	if force {
