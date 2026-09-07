@@ -51,6 +51,10 @@ type State interface {
 	// controller api addresses.
 	NamespaceForWatchControllerAPIAddresses() string
 
+	// NamespaceForWatchSharedControllerAPIAddresses returns the namespace for
+	// watching shared controller API addresses.
+	NamespaceForWatchSharedControllerAPIAddresses() string
+
 	// SetAPIAddresses sets the addresses for the provided controller node. It
 	// replaces any existing addresses and stores them in the
 	// api_controller_address table, with the format "host:port" as a string, as
@@ -61,6 +65,10 @@ type State interface {
 	// if the controller node does not exist.
 	SetAPIAddresses(ctx context.Context, addresses map[string]controllernode.APIAddresses) error
 
+	// SetSharedAPIAddresses replaces endpoints that can route to any healthy
+	// controller API server.
+	SetSharedAPIAddresses(ctx context.Context, addresses controllernode.APIAddresses) error
+
 	// GetControllerIDs returns the list of controller IDs from the controller
 	// node records.
 	GetControllerIDs(ctx context.Context) ([]string, error)
@@ -70,8 +78,16 @@ type State interface {
 	GetAPIAddressesForAgents(ctx context.Context) (map[string]controllernode.APIAddresses, error)
 
 	// GetAPIAddressesForClients returns all APIAddresses available
-	// for clients, divided by controller node.
+	// for clients, grouped by endpoint routing target.
 	GetAPIAddressesForClients(ctx context.Context) (map[string]controllernode.APIAddresses, error)
+
+	// GetControllerAPIAddressesForAgents returns controller-node-specific
+	// endpoints available to agents, divided by controller node.
+	GetControllerAPIAddressesForAgents(ctx context.Context) (map[string]controllernode.APIAddresses, error)
+
+	// GetControllerAPIAddressesForClients returns controller-node-specific
+	// endpoints available to clients, divided by controller node.
+	GetControllerAPIAddressesForClients(ctx context.Context) (map[string]controllernode.APIAddresses, error)
 
 	// GetAllCloudLocalAPIAddresses returns a string slice of api
 	// addresses available for clients. The list only contains cloud
@@ -181,6 +197,12 @@ func (s *Service) SetAPIAddresses(ctx context.Context, args controllernode.SetAP
 	return s.st.SetAPIAddresses(ctx, addresses)
 }
 
+// SetSharedAPIAddresses replaces endpoints that can route to any healthy
+// controller API server.
+func (s *Service) SetSharedAPIAddresses(ctx context.Context, addresses controllernode.APIAddresses) error {
+	return s.st.SetSharedAPIAddresses(ctx, addresses)
+}
+
 func (s *Service) encodeAPIAddresses(ctx context.Context, mgmtSpace *network.SpaceInfo, addrs network.SpaceHostPorts) controllernode.APIAddresses {
 	// We map the SpaceHostPorts addresses to controller api addresses by
 	// checking if the address is available for agents (this is the case if the
@@ -243,7 +265,7 @@ func (s *Service) GetAPIHostPortsForClients(ctx context.Context) ([]network.Host
 		return nil, errors.Capture(err)
 	}
 
-	return transformToOrderedHostPorts(clientAddrs)
+	return transformToBestClientHostPorts(clientAddrs)
 }
 
 func transformToOrderedHostPorts(input map[string]controllernode.APIAddresses) ([]network.HostPorts, error) {
@@ -265,12 +287,30 @@ func transformToOrderedHostPorts(input map[string]controllernode.APIAddresses) (
 	return result, nil
 }
 
+func transformToBestClientHostPorts(input map[string]controllernode.APIAddresses) ([]network.HostPorts, error) {
+	ids := mapKeyOrder(input)
+
+	var result []network.HostPorts
+	for _, id := range ids {
+		addresses := input[id].BestMatchingForScope(controllernode.ScopeMatchPublic)
+		if len(addresses) == 0 {
+			continue
+		}
+		hostPorts, err := addresses.ToHostPortsNoMachineLocal()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		result = append(result, hostPorts)
+	}
+	return result, nil
+}
+
 // GetAPIAddressesByControllerIDForAgents returns a map of controller IDs to
 // their API addresses that are available for agents. The map is keyed by
 // controller ID, and the values are slices of strings representing the API
 // addresses for each controller node.
 func (s *Service) GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error) {
-	addresses, err := s.st.GetAPIAddressesForAgents(ctx)
+	addresses, err := s.st.GetControllerAPIAddressesForAgents(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -291,7 +331,7 @@ func (s *Service) GetAPIAddressesByControllerIDForAgents(ctx context.Context) (m
 // - [controllernodeerrors.EmptyAPIAddresses] when no API addresses are found
 // for the given controller node ID.
 func (s *Service) GetAPIHostPortsForControllerIDForAgents(ctx context.Context, controllerID string) (network.HostPorts, error) {
-	addresses, err := s.st.GetAPIAddressesForAgents(ctx)
+	addresses, err := s.st.GetControllerAPIAddressesForAgents(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -375,7 +415,8 @@ func (s *Service) GetAllAPIAddressesForClients(ctx context.Context) ([]string, e
 		if len(addrs) == 0 {
 			continue
 		}
-		orderedAddrs = append(orderedAddrs, addrs.PrioritizedForScope(controllernode.ScopeMatchPublic)...)
+		best := addrs.BestMatchingForScope(controllernode.ScopeMatchPublic)
+		orderedAddrs = append(orderedAddrs, best.PrioritizedForScope(controllernode.ScopeMatchPublic)...)
 	}
 	return orderedAddrs, nil
 }
@@ -385,7 +426,7 @@ func (s *Service) GetAllAPIAddressesForClients(ctx context.Context) ([]string, e
 // controller ID, and the values are slices of strings representing the API
 // addresses for each controller node.
 func (s *Service) GetAPIAddressesByControllerIDForClients(ctx context.Context) (map[string][]string, error) {
-	addresses, err := s.st.GetAPIAddressesForClients(ctx)
+	addresses, err := s.st.GetControllerAPIAddressesForClients(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -477,6 +518,7 @@ func (s *WatchableService) WatchControllerAPIAddresses(ctx context.Context) (wat
 		ctx,
 		"controller api addresses watcher",
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerAPIAddresses(), changestream.All),
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchSharedControllerAPIAddresses(), changestream.All),
 	)
 }
 
