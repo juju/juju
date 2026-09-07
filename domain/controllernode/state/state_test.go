@@ -132,16 +132,12 @@ func (s *stateSuite) TestUpdateDqliteNode(c *tc.C) {
 	err = s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "192.168.5.60")
 	c.Assert(err, tc.ErrorIsNil)
 
-	var (
-		id   uint64
-		addr string
-	)
-	row := s.DB().QueryRowContext(c.Context(), "SELECT dqlite_node_id, dqlite_bind_address FROM controller_node WHERE controller_id = '0'")
-	err = row.Scan(&id, &addr)
+	var id uint64
+	row := s.DB().QueryRowContext(c.Context(), "SELECT dqlite_node_id FROM controller_node WHERE controller_id = '0'")
+	err = row.Scan(&id)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(id, tc.Equals, nodeID)
-	c.Check(addr, tc.Equals, "192.168.5.60")
 }
 
 func (s *stateSuite) TestAddDqliteNodeDoesNotReviveDeadNode(c *tc.C) {
@@ -413,6 +409,56 @@ func (s *stateSuite) TestSetAPIAddressesNoDelta(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	s.checkControllerAPIAddress(c, controllerID, addrs)
+}
+
+func (s *stateSuite) TestSetSharedAPIAddresses(c *tc.C) {
+	addresses := controllernode.APIAddresses{
+		{
+			Address: "controller-service.controller-test.svc.cluster.local:17070",
+			IsAgent: true,
+			Scope:   network.ScopeCloudLocal,
+		},
+		{
+			Address:  "api.example.com:17070",
+			IsAgent:  true,
+			IsClient: true,
+			Scope:    network.ScopePublic,
+		},
+	}
+
+	err := s.state.SetSharedAPIAddresses(c.Context(), addresses)
+	c.Assert(err, tc.ErrorIsNil)
+
+	agentGroups, err := s.state.GetAPIAddressesForAgents(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(agentGroups, tc.DeepEquals, map[string]controllernode.APIAddresses{"": addresses})
+
+	clientGroups, err := s.state.GetAPIAddressesForClients(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(clientGroups[""], tc.DeepEquals, addresses[1:])
+
+}
+
+func (s *stateSuite) TestGetAPIAddressesForClientsDoesNotFallBackToNodeAddresses(c *tc.C) {
+	err := s.state.AddDqliteNode(c.Context(), "1", 15237855465837235027, "10.0.0.1")
+	c.Assert(err, tc.ErrorIsNil)
+	s.addControllerAPIAddresses(c, "1", controllernode.APIAddresses{{
+		Address:  "controller-0.controller-service-endpoints.controller-test.svc.cluster.local:17070",
+		IsAgent:  true,
+		IsClient: true,
+		Scope:    network.ScopeCloudLocal,
+	}})
+	err = s.state.SetSharedAPIAddresses(c.Context(), controllernode.APIAddresses{{
+		Address: "controller-service.controller-test.svc.cluster.local:17070",
+		IsAgent: true,
+		Scope:   network.ScopeCloudLocal,
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+
+	clientGroups, err := s.state.GetAPIAddressesForClients(c.Context())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(clientGroups, tc.DeepEquals, map[string]controllernode.APIAddresses{"": nil})
 }
 
 func (s *stateSuite) TestSetAPIAddressesUpdateIsAgentTrueToFalse(c *tc.C) {

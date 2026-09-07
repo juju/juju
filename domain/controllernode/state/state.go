@@ -34,8 +34,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 }
 
 // AddDqliteNodeID ensures a controller node exists for the supplied ID.
-// It only inserts the controller_id; the dqlite_node_id and
-// dqlite_bind_address columns are left NULL. These are populated later by
+// It only inserts the controller_id; dqlite_node_id is populated later by
 // AddDqliteNode when the Dqlite cluster admits the node.
 // This separation exists because a controller pod registers its identity
 // during UnitIntroduction (before joining the Dqlite cluster), and the
@@ -81,9 +80,8 @@ WHERE controller_id = $dbControllerNode.controller_id
 	}))
 }
 
-// AddDqliteNode adds the Dqlite node ID and bind address for the input
-// controller ID. If the controller ID already exists, it updates the
-// Dqlite node ID and bind address.
+// AddDqliteNode adds the Dqlite node ID for the input controller ID. If the
+// controller ID already exists, it updates the Dqlite node ID.
 //
 // This is called separately from AddDqliteNodeID because the controller
 // node identity is registered during UnitIntroduction (before the Dqlite
@@ -102,20 +100,17 @@ func (st *State) AddDqliteNode(ctx context.Context, controllerID string, nodeID 
 	// uint64 when querying the table.
 	nodeStr := strconv.FormatUint(nodeID, 10)
 	controllerNode := dbControllerNode{
-		ControllerID:      controllerID,
-		DqliteNodeID:      nodeStr,
-		DqliteBindAddress: addr,
+		ControllerID: controllerID,
+		DqliteNodeID: nodeStr,
 	}
 
 	q := `
 INSERT INTO controller_node (
     controller_id,
-    dqlite_node_id,
-    dqlite_bind_address
+    dqlite_node_id
 ) VALUES ($dbControllerNode.*)
 ON CONFLICT (controller_id) DO UPDATE SET
-    dqlite_node_id = excluded.dqlite_node_id,
-    dqlite_bind_address = excluded.dqlite_bind_address
+    dqlite_node_id = excluded.dqlite_node_id
 WHERE controller_node.life_id = 0
 `
 	stmt, err := st.Prepare(q, controllerNode)
@@ -317,6 +312,55 @@ func (st *State) NamespaceForWatchControllerAPIAddresses() string {
 	return "controller_api_address"
 }
 
+// NamespaceForWatchSharedControllerAPIAddresses returns the namespace for
+// watching shared controller API addresses.
+func (st *State) NamespaceForWatchSharedControllerAPIAddresses() string {
+	return "controller_api_shared_address"
+}
+
+// SetSharedAPIAddresses replaces endpoints that can route to any healthy
+// controller API server.
+func (st *State) SetSharedAPIAddresses(ctx context.Context, addresses controllernode.APIAddresses) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	shared := make([]sharedAPIAddress, len(addresses))
+	for i, address := range addresses {
+		shared[i] = sharedAPIAddress{
+			Address:  address.Address,
+			IsAgent:  address.IsAgent,
+			IsClient: address.IsClient,
+			Scope:    string(address.Scope),
+		}
+	}
+
+	deleteStmt, err := st.Prepare(`DELETE FROM controller_api_shared_address`)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	insertStmt, err := st.Prepare(`
+INSERT INTO controller_api_shared_address (*) VALUES ($sharedAPIAddress.*)
+`, sharedAPIAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, deleteStmt).Run(); err != nil {
+			return errors.Errorf("removing shared controller API addresses: %w", err)
+		}
+		if len(shared) == 0 {
+			return nil
+		}
+		if err := tx.Query(ctx, insertStmt, shared).Run(); err != nil {
+			return errors.Errorf("inserting shared controller API addresses: %w", err)
+		}
+		return nil
+	}))
+}
+
 // SetAPIAddresses sets the addresses for the provided controller node. It
 // replaces any existing addresses and stores them in the api_controller_address
 // table, with the format "host:port" as a string, as well as the is_agent flag
@@ -421,8 +465,22 @@ AND address = $controllerAPIAddress.address
 	}))
 }
 
-// GetAPIAddressesForAgents returns APIAddresses available for agents.
+// GetAPIAddressesForAgents returns general API endpoints available to agents.
+// Shared any-controller endpoints are preferred when available.
 func (st *State) GetAPIAddressesForAgents(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
+	shared, hasShared, err := st.getAPIAddresses(ctx, true)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if hasShared {
+		return map[string]controllernode.APIAddresses{"": shared}, nil
+	}
+	return st.GetControllerAPIAddressesForAgents(ctx)
+}
+
+// GetControllerAPIAddressesForAgents returns controller-node-specific API
+// endpoints available to agents.
+func (st *State) GetControllerAPIAddressesForAgents(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -440,9 +498,22 @@ func (st *State) GetAPIAddressesForAgents(ctx context.Context) (map[string]contr
 	return decodeAPIAddresses(controllerAddresses), nil
 }
 
-// GetAPIAddressesForClients returns APIAddresses available for clients. These are
-// APIAddresses independent of is_agent value.
+// GetAPIAddressesForClients returns general API endpoints available to clients.
+// Shared any-controller endpoints are preferred when available.
 func (st *State) GetAPIAddressesForClients(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
+	shared, hasShared, err := st.getAPIAddresses(ctx, false)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if hasShared {
+		return map[string]controllernode.APIAddresses{"": shared}, nil
+	}
+	return st.GetControllerAPIAddressesForClients(ctx)
+}
+
+// GetControllerAPIAddressesForClients returns controller-node-specific API
+// endpoints available to clients. These are independent of is_agent value.
+func (st *State) GetControllerAPIAddressesForClients(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -458,6 +529,57 @@ func (st *State) GetAPIAddressesForClients(ctx context.Context) (map[string]cont
 	}
 
 	return decodeAPIAddresses(controllerAddresses), nil
+}
+
+func (st *State) getAPIAddresses(ctx context.Context, agentsOnly bool) (controllernode.APIAddresses, bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, false, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &sharedAPIAddress.*
+FROM   controller_api_shared_address
+WHERE  ($sharedAPIAddressAudience.agents_only = true AND is_agent = true)
+OR     ($sharedAPIAddressAudience.agents_only = false AND is_client = true)
+`, sharedAPIAddress{}, sharedAPIAddressAudience{})
+	if err != nil {
+		return nil, false, errors.Capture(err)
+	}
+	hasSharedStmt, err := st.Prepare(`SELECT COUNT(*) AS &countResult.count FROM controller_api_shared_address`, countResult{})
+	if err != nil {
+		return nil, false, errors.Capture(err)
+	}
+
+	var addresses []sharedAPIAddress
+	var count countResult
+	audience := sharedAPIAddressAudience{AgentsOnly: agentsOnly}
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, hasSharedStmt).Get(&count); err != nil {
+			return errors.Capture(err)
+		}
+		if count.Count == 0 {
+			return nil
+		}
+		err := tx.Query(ctx, stmt, audience).GetAll(&addresses)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Capture(err)
+	}); err != nil {
+		return nil, false, errors.Capture(err)
+	}
+
+	result := make(controllernode.APIAddresses, len(addresses))
+	for i, address := range addresses {
+		result[i] = controllernode.APIAddress{
+			Address:  address.Address,
+			IsAgent:  address.IsAgent,
+			IsClient: address.IsClient,
+			Scope:    network.Scope(address.Scope),
+		}
+	}
+	return result, count.Count > 0, nil
 }
 
 // GetAllCloudLocalAPIAddresses returns a string slice of api
