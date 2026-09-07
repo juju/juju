@@ -60,10 +60,10 @@ run_remove_machine_with_unit() {
 	yq -r '.applications."dummy-source".units // {} | length' <<<"${status_json}" | check 1
 
 	juju remove-machine "${source_machine_id}" --no-prompt
-	wait_for_machine_removed "${source_machine_id}"
 	wait_for "0" '.applications."dummy-source".units // {} | length'
 	wait_for "source relation departed" \
 		'(.applications."dummy-sink".units // {})[] | ."workload-status".message'
+	wait_for_machine_removed "${source_machine_id}"
 
 	destroy_model "remove-machine-unit"
 }
@@ -83,8 +83,8 @@ run_force_remove_machine_with_unit_without_instance() {
 		yq -r '(.applications."ubuntu-lite".units // {})[].machine')
 	delete_cloud_instance "force-remove-machine" "${target_machine_id}"
 	juju remove-machine "${target_machine_id}" --force --no-prompt
-	wait_for_machine_removed "${target_machine_id}"
 	wait_for "0" '.applications."ubuntu-lite".units // {} | length'
+	wait_for_machine_removed "${target_machine_id}"
 
 	destroy_model "force-remove-machine"
 }
@@ -106,8 +106,8 @@ run_remove_machine_with_parent_and_container_units() {
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite" 0 1)"
 
 	juju remove-machine 0 --no-prompt
-	wait_for_machine_removed "0"
 	wait_for "0" '.applications."ubuntu-lite".units // {} | length'
+	wait_for_machine_removed "0"
 
 	destroy_model "remove-machine-container-unit"
 }

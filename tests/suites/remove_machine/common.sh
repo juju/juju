@@ -1,9 +1,6 @@
 cloud_instance_removal_supported() {
 	case "${BOOTSTRAP_PROVIDER:-}" in
-	"lxd")
-		return 0
-		;;
-	"aws" | "ec2" | "google" | "gce" | "azure")
+	"lxd" | "aws" | "ec2" | "google" | "gce" | "azure")
 		return 0
 		;;
 	*)
