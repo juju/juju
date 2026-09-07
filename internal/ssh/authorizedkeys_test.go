@@ -182,6 +182,37 @@ func (*authorizedKeysSuite) TestSplitAuthorizedKeysConfig(c *tc.C) {
 	})
 }
 
+// TestParsePublicKeySingleKey is asserting that the surrounding whitespace,
+// blank lines and comment lines that can accompany a single key in an
+// authorized_keys file are all accepted.
+func (*authorizedKeysSuite) TestParsePublicKeySingleKey(c *tc.C) {
+	key := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC jimbo@juju.is"
+
+	for _, test := range []string{
+		key,
+		key + "\n",
+		key + "\n\n",
+		key + "\n# a comment line\n",
+	} {
+		parsed, err := ParsePublicKey(test)
+		c.Check(err, tc.ErrorIsNil, tc.Commentf("input %q", test))
+		c.Check(parsed.Comment, tc.Equals, "jimbo@juju.is")
+	}
+}
+
+// TestParsePublicKeyMultipleKeys is asserting that data describing more than
+// one key is rejected. ssh.ParseAuthorizedKey only reads the first key it
+// understands, and callers persist the string they handed us, so accepting
+// this would authorise the trailing keys without ever validating them or
+// recording their fingerprint.
+func (*authorizedKeysSuite) TestParsePublicKeyMultipleKeys(c *tc.C) {
+	_, err := ParsePublicKey(
+		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC jimbo@juju.is\n" +
+			"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe barry@juju.is",
+	)
+	c.Check(err, tc.NotNil)
+}
+
 // TestMakeAuthorizedKeysString is asserting that for a given set of keys they
 // are written out in a standard compliant way to be an authorized_keys file.
 func (*authorizedKeysSuite) TestMakeAuthorizedKeysString(c *tc.C) {

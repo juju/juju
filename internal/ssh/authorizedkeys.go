@@ -5,6 +5,7 @@ package ssh
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -169,10 +170,23 @@ func (a *PublicKey) Fingerprint() string {
 // returning a [PublicKey] representation of the data.
 // [ssh.ParseAuthorizedKey] is used to perform the underlying validating and
 // parsing.
+// Data describing more than one key is rejected.
 func ParsePublicKey(key string) (PublicKey, error) {
-	parsedKey, comment, _, _, err := ssh.ParseAuthorizedKey([]byte(key))
+	parsedKey, comment, _, rest, err := ssh.ParseAuthorizedKey([]byte(key))
 	if err != nil {
 		return PublicKey{}, fmt.Errorf("parsing public key %q: %w", key, err)
+	}
+
+	// ParseAuthorizedKey stops at the first key it understands and hands back
+	// everything after it. Callers keep the string they gave us and write it
+	// out to authorized_keys verbatim, so trailing keys would be authorised
+	// while the comment and fingerprint recorded here only describe the first.
+	trailing, err := SplitAuthorizedKeysReader(bytes.NewReader(rest))
+	if err != nil {
+		return PublicKey{}, fmt.Errorf("parsing public key %q: %w", key, err)
+	}
+	if len(trailing) != 0 {
+		return PublicKey{}, fmt.Errorf("public key %q describes more than one key", key)
 	}
 
 	return PublicKey{
