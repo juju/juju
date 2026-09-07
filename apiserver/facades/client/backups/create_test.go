@@ -261,10 +261,9 @@ func (s *backupsSuite) TestCreateModelConfigFailure(c *tc.C) {
 }
 
 // TestCreateControllerNodesFailure verifies that a failure listing
-// controller machine IDs aborts Create. The failure fires after the dumps
-// have been staged, so this also verifies that the staged dumps are
-// cleaned up and no archive is left behind. The export tolerates an empty
-// controller_node table, but GetControllerIDs rejects it.
+// controller machine IDs aborts Create before any archive is created. The
+// controller export tolerates an empty controller_node table, but
+// GetControllerIDs rejects it.
 func (s *backupsSuite) TestCreateControllerNodesFailure(c *tc.C) {
 	backupDir := c.MkDir()
 	api := s.api(c, backupDir)

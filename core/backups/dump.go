@@ -125,14 +125,17 @@ func stageDump(ctx context.Context, dir, name string, export DumpExportFunc) (*o
 	}
 	if err := export(ctx, file); err != nil {
 		_ = file.Close()
+		_ = os.Remove(target)
 		return nil, errors.Capture(err)
 	}
 	if err := file.Close(); err != nil {
+		_ = os.Remove(target)
 		return nil, errors.Capture(err)
 	}
 
 	file, err = os.Open(target)
 	if err != nil {
+		_ = os.Remove(target)
 		return nil, errors.Capture(err)
 	}
 	return file, nil

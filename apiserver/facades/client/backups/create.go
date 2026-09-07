@@ -51,6 +51,20 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	backupDir := corebackups.BackupDirToUse(modelConfig.BackupDir())
 	a.logger.Debugf(ctx, "creating backup in %q", backupDir)
 
+	paths := corebackups.Paths{
+		BackupDir: backupDir,
+		DataDir:   a.dataDir,
+		LogsDir:   a.logDir,
+	}
+	files, err := corebackups.GetFilesToBackUp("", &paths)
+	if err != nil {
+		return params.BackupsMetadataResult{}, errors.Capture(err)
+	}
+	controllerIDs, err := a.controllerNodes.GetControllerIDs(ctx)
+	if err != nil {
+		return params.BackupsMetadataResult{}, errors.Capture(err)
+	}
+
 	// Controller dump first, then one dump per registered model namespace.
 	// Every registered model, including the controller model, owns a dqlite
 	// database (namespace = its UUID) that is separate from the controller
@@ -59,7 +73,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	// in that database, so its namespace is not skipped: this is not a
 	// duplicate of the controller dump. Any error aborts Create: there are
 	// no partial archives.
-	dumps := []corebackups.NamedDump{}
+	var dumps []corebackups.NamedDump
 
 	controllerExport, err := a.controllerExport.Export(ctx)
 	if err != nil {
@@ -113,16 +127,8 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 		return params.BackupsMetadataResult{}, errors.Capture(err)
 	}
 
-	paths := corebackups.Paths{
-		BackupDir: backupDir,
-		DataDir:   a.dataDir,
-		LogsDir:   a.logDir,
-	}
-	files, err := corebackups.GetFilesToBackUp("", &paths)
-	if err != nil {
-		return params.BackupsMetadataResult{}, errors.Capture(err)
-	}
 	for _, file := range files {
+		// Lstat intentionally sizes the link itself instead of following it.
 		fi, err := os.Lstat(file)
 		if err != nil {
 			// A file that cannot be stat'ed contributes nothing to the
@@ -148,11 +154,6 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	// the error is intentionally not fatal.
 	hostname, _ := os.Hostname()
 
-	controllerIDs, err := a.controllerNodes.GetControllerIDs(ctx)
-	if err != nil {
-		return params.BackupsMetadataResult{}, errors.Capture(err)
-	}
-
 	meta := corebackups.NewMetadata(a.clock.Now())
 	meta.Notes = args.Notes
 	meta.Origin = corebackups.Origin{
@@ -160,16 +161,13 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 		Machine:  a.machineID,
 		Hostname: hostname,
 		Version:  coreversion.Current,
-		// Base is not resolved: there is no verified cheap machine-base
-		// lookup path in this facade and the field is informational only.
+		// TODO(backups): resolve the controller machine's base when a cheap,
+		// verified lookup path is available to this facade.
 		Base: "",
 	}
 	meta.Controller = corebackups.ControllerMetadata{
-		UUID:      a.controllerUUID,
-		MachineID: a.machineID,
-		// TODO(backups): resolve the controller machine's cloud instance id
-		// via the machine service (GetInstanceIDByMachineName) and record it
-		// here instead of the unknown placeholder.
+		UUID:              a.controllerUUID,
+		MachineID:         a.machineID,
 		MachineInstanceID: corebackups.UnknownString,
 		HANodes:           int64(len(controllerIDs)),
 	}
