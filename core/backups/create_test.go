@@ -236,3 +236,38 @@ func (s *createSuite) TestBuildArchiveAndChecksumFailureRemovesArchive(c *tc.C) 
 	_, err = os.Stat(filename)
 	c.Assert(err, tc.ErrorIs, os.ErrNotExist)
 }
+
+// TestCreateMetadataFailureRemovesArchive verifies that a failure after
+// the archive has been written removes it: Create reporting an error
+// must not leave a stray archive in the destination directory for
+// listing and download to find.
+func (s *createSuite) TestCreateMetadataFailureRemovesArchive(c *tc.C) {
+	destDir := c.MkDir()
+	file := s.writeFile(c, "jujud", "agent binary")
+
+	// Metadata that already carries file info fails MarkComplete, which
+	// runs only once the archive file is complete.
+	meta := backups.NewMetadata(testStarted)
+	c.Assert(meta.SetFileInfo(99, "not-the-real-checksum",
+		"SHA-1, base64 encoded"), tc.ErrorIsNil)
+
+	_, err := backups.Create(meta, backups.CreateArgs{
+		DestinationDir: destDir,
+		Clock:          clock.WallClock,
+		FilesToBackUp:  []string{file},
+		DumpEntries: []backups.DumpEntry{{
+			Name:   "controller.yaml",
+			Reader: strings.NewReader("controller: data"),
+		}},
+	})
+	c.Assert(err, tc.ErrorMatches, "updating metadata: .*")
+
+	// Neither the archive nor a staging directory is left behind.
+	entries, rerr := os.ReadDir(destDir)
+	c.Assert(rerr, tc.ErrorIsNil)
+	var left []string
+	for _, entry := range entries {
+		left = append(left, entry.Name())
+	}
+	c.Check(left, tc.HasLen, 0, tc.Commentf("left behind: %v", left))
+}

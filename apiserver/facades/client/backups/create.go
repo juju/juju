@@ -123,9 +123,20 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 		return params.BackupsMetadataResult{}, errors.Capture(err)
 	}
 	for _, file := range files {
-		if fi, err := os.Lstat(file); err == nil {
-			expected += fi.Size()
+		fi, err := os.Lstat(file)
+		if err != nil {
+			// A file that cannot be stat'ed contributes nothing to the
+			// estimate, which then understates what the archive needs.
+			// That is not fatal here: bundling opens every one of these
+			// files, so one that is really gone fails Create with a
+			// clear error. Log it so an understated space check, and the
+			// disk-full failure it can turn into, is diagnosable.
+			a.logger.Warningf(ctx,
+				"sizing backup file %q, excluded from the space estimate: %v",
+				file, err)
+			continue
 		}
+		expected += fi.Size()
 	}
 
 	if err := corebackups.CheckSpaceFor(backupDir, expected); err != nil {
