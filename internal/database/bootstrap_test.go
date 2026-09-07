@@ -63,10 +63,9 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *tc.C) {
 			}
 
 			// Ensure we have a nodeID in the controller node.
-			row := tx.QueryRowContext(ctx, "SELECT controller_id, dqlite_node_id, dqlite_bind_address FROM controller_node")
+			row := tx.QueryRowContext(ctx, "SELECT controller_id, dqlite_node_id FROM controller_node")
 			var controllerID, nodeID uint64
-			var bindAddress string
-			err = row.Scan(&controllerID, &nodeID, &bindAddress)
+			err = row.Scan(&controllerID, &nodeID)
 			if err != nil {
 				return err
 			}
@@ -77,12 +76,6 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *tc.C) {
 			if nodeID == 0 {
 				return fmt.Errorf("expected dqlite_node_id to be non-zero")
 			}
-			if bindAddress != bootstrapAddress {
-				return fmt.Errorf(
-					"expected dqlite_bind_address to be %q", bootstrapAddress,
-				)
-			}
-
 			return nil
 		})
 	}
@@ -115,8 +108,7 @@ func (s *bootstrapSuite) TestInsertControllerNodeIDPersistsHostname(c *tc.C) {
 
 	_, err = db.Exec(`CREATE TABLE controller_node (
 		controller_id TEXT PRIMARY KEY,
-		dqlite_node_id INT NOT NULL,
-		dqlite_bind_address TEXT NOT NULL
+		dqlite_node_id INT NOT NULL
 	)`)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -127,15 +119,12 @@ func (s *bootstrapSuite) TestInsertControllerNodeIDPersistsHostname(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	var address string
+	var nodeID int
 	err = db.QueryRow(
-		"SELECT dqlite_bind_address FROM controller_node WHERE controller_id = '0'",
-	).Scan(&address)
+		"SELECT dqlite_node_id FROM controller_node WHERE controller_id = '0'",
+	).Scan(&nodeID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(
-		address, tc.Equals,
-		"controller-0.controller-service-endpoints.test.svc.cluster.local",
-	)
+	c.Check(nodeID, tc.Equals, 42)
 }
 
 type testNodeManager struct {
