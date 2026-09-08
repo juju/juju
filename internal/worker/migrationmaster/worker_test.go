@@ -217,9 +217,13 @@ func (s *Suite) SetUpTest(c *tc.C) {
 
 	s.facade = newStubMasterFacade(s.stub)
 	s.modelMigrationService = newStubModelMigrationService(s.stub)
+	s.modelMigrationService.controllerModelInfo = fakeControllerModelInfo
 	s.exportService = &stubExportService{stub: s.stub}
 	s.controllerConfigService = &stubControllerConfigService{stub: s.stub}
-	s.modelAgentService = &stubModelAgentService{stub: s.stub}
+	s.modelAgentService = &stubModelAgentService{
+		stub:         s.stub,
+		machineTools: fakeMachineTools,
+	}
 	s.resourceService = &stubResourceService{stub: s.stub}
 	s.charmService = &stubCharmService{stub: s.stub}
 
@@ -251,7 +255,10 @@ func (s *Suite) expectedEnvelope(c *tc.C) params.SerializedModelV2 {
 	envelope.PayloadVersion = fakeExportVersion
 	envelope.Payload = payload
 	envelope.Charms = fakeCharmURLs
-	_, envelope.Tools = migrationmaster.ToolsForEnvelope(fakeMachineTools, nil)
+	_, envelope.Tools = migrationmaster.ToolsForEnvelope(
+		s.modelAgentService.machineTools,
+		s.modelAgentService.unitTools,
+	)
 	envelope.Resources = migrationmaster.ResourcesForEnvelope(s.resourceService.resources)
 	return envelope
 }
@@ -383,6 +390,34 @@ func (s *Suite) TestSuccessfulMigration(c *tc.C) {
 			{FuncName: "modelMigrationService.MarkModelAsGone", Args: nil},
 		}),
 	)
+}
+
+func (s *Suite) TestSuccessfulCAASMigrationWithoutAgentBinaries(c *tc.C) {
+	s.modelMigrationService.controllerModelInfo.ModelInfo.Type = "caas"
+	s.modelAgentService.machineTools = nil
+	s.modelAgentService.unitTools = nil
+
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.QUIESCE))
+	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.QUIESCE))
+	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
+	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.SUCCESS))
+	s.config.UploadBinaries = makeStubUploadBinaries(s.stub)
+
+	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
+
+	var checkedEnvelopes int
+	for _, call := range s.stub.Calls() {
+		if call.FuncName != "MigrationTarget.Prechecks" &&
+			call.FuncName != "MigrationTarget.Import" {
+			continue
+		}
+		envelope, ok := call.Args[0].(params.SerializedModelV2)
+		c.Assert(ok, tc.IsTrue)
+		c.Check(envelope.ModelInfo.Type, tc.Equals, "caas")
+		c.Check(envelope.Tools, tc.IsNil)
+		checkedEnvelopes++
+	}
+	c.Check(checkedEnvelopes, tc.Equals, 3)
 }
 
 func (s *Suite) TestIncompatibleTarget(c *tc.C) {
@@ -1474,6 +1509,7 @@ type stubModelMigrationService struct {
 	statusErr      error
 
 	controllerModelInfoErr error
+	controllerModelInfo    modelmigration.ControllerModelInfo
 
 	minionReportsChanges  chan struct{}
 	minionReportsWatchErr error
@@ -1527,7 +1563,7 @@ func (s *stubModelMigrationService) GetControllerModelInfo(ctx context.Context) 
 	if s.controllerModelInfoErr != nil {
 		return modelmigration.ControllerModelInfo{}, s.controllerModelInfoErr
 	}
-	return fakeControllerModelInfo, nil
+	return s.controllerModelInfo, nil
 }
 
 func (s *stubModelMigrationService) SetMigrationPhase(ctx context.Context, phase coremigration.Phase) error {
@@ -1622,14 +1658,16 @@ func (s *stubControllerConfigService) ControllerConfig(ctx context.Context) (con
 }
 
 type stubModelAgentService struct {
-	stub *testhelpers.Stub
+	stub         *testhelpers.Stub
+	machineTools map[machine.Name]coreagentbinary.Metadata
+	unitTools    map[unit.Name]coreagentbinary.Metadata
 }
 
 func (s *stubModelAgentService) GetModelAgentBinaryMetadata(
 	ctx context.Context,
 ) (map[machine.Name]coreagentbinary.Metadata, map[unit.Name]coreagentbinary.Metadata, error) {
 	s.stub.AddCall("modelAgentService.GetModelAgentBinaryMetadata")
-	return fakeMachineTools, nil, nil
+	return s.machineTools, s.unitTools, nil
 }
 
 type stubResourceService struct {
