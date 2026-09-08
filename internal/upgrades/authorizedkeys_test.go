@@ -55,41 +55,41 @@ func (s *stubAgentConfig) Value(name string) string {
 	return s.values[name]
 }
 
-func (*authorizedKeysSuite) TestRemovePersistentJujuAuthorizedKeys(c *tc.C) {
+func (*authorizedKeysSuite) TestRemoveJujuAuthorizedKeys(c *tc.C) {
 	persistentKey := sshtesting.ValidKeyOne.Key + " Juju:user@host"
 	ephemeralKey := sshtesting.ValidKeyTwo.Key + " Juju:Ephemeral:tunnel-0"
 	manualKey := sshtesting.ValidKeyThree.Key + " manual@example.com"
 	c.Assert(ssh.AddKeys(sshUser, persistentKey, ephemeralKey, manualKey), tc.ErrorIsNil)
 
-	c.Assert(removePersistentJujuAuthorizedKeys(iaasContext()), tc.ErrorIsNil)
+	c.Assert(removeJujuAuthorizedKeys(iaasContext()), tc.ErrorIsNil)
 
 	keys, err := ssh.ListKeys(sshUser, ssh.FullKeys)
 	c.Assert(err, tc.ErrorIsNil)
-	expected := []string{ephemeralKey, manualKey}
+	expected := []string{manualKey}
 	slices.Sort(keys)
 	slices.Sort(expected)
 	c.Check(keys, tc.DeepEquals, expected)
 
-	// The step is idempotent: the persistent key is already gone.
-	c.Assert(removePersistentJujuAuthorizedKeys(iaasContext()), tc.ErrorIsNil)
+	// The step is idempotent: the Juju keys are already gone.
+	c.Assert(removeJujuAuthorizedKeys(iaasContext()), tc.ErrorIsNil)
 }
 
-func (*authorizedKeysSuite) TestRemovePersistentJujuAuthorizedKeysEmpty(c *tc.C) {
-	c.Assert(removePersistentJujuAuthorizedKeys(iaasContext()), tc.ErrorIsNil)
+func (*authorizedKeysSuite) TestRemoveJujuAuthorizedKeysEmpty(c *tc.C) {
+	c.Assert(removeJujuAuthorizedKeys(iaasContext()), tc.ErrorIsNil)
 }
 
-func (*authorizedKeysSuite) TestRemovePersistentJujuAuthorizedKeysAllEphemeral(c *tc.C) {
+func (*authorizedKeysSuite) TestRemoveJujuAuthorizedKeysAllEphemeral(c *tc.C) {
 	ephemeralKey := sshtesting.ValidKeyOne.Key + " Juju:Ephemeral:tunnel-0"
 	c.Assert(ssh.AddKeys(sshUser, ephemeralKey), tc.ErrorIsNil)
 
-	c.Assert(removePersistentJujuAuthorizedKeys(iaasContext()), tc.ErrorIsNil)
+	c.Assert(removeJujuAuthorizedKeys(iaasContext()), tc.ErrorIsNil)
 
 	keys, err := ssh.ListKeys(sshUser, ssh.FullKeys)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(keys, tc.DeepEquals, []string{ephemeralKey})
+	c.Check(keys, tc.HasLen, 0)
 }
 
-func (*authorizedKeysSuite) TestRemovePersistentJujuAuthorizedKeysMalformed(c *tc.C) {
+func (*authorizedKeysSuite) TestRemoveJujuAuthorizedKeysMalformed(c *tc.C) {
 	key := sshtesting.ValidKeyOne.Key + " Juju:user@host"
 	c.Assert(ssh.AddKeys(sshUser, key), tc.ErrorIsNil)
 
@@ -100,19 +100,19 @@ func (*authorizedKeysSuite) TestRemovePersistentJujuAuthorizedKeysMalformed(c *t
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(f.Close(), tc.ErrorIsNil)
 
-	c.Assert(removePersistentJujuAuthorizedKeys(iaasContext()), tc.ErrorIsNil)
+	c.Assert(removeJujuAuthorizedKeys(iaasContext()), tc.ErrorIsNil)
 	keys, err := ssh.ListKeys(sshUser, ssh.FullKeys)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(keys, tc.HasLen, 0)
 }
 
-// TestRemovePersistentJujuAuthorizedKeysCAAS ensures the step is skipped
-// entirely on CAAS machines, which have no cloud-init injected keys.
-func (*authorizedKeysSuite) TestRemovePersistentJujuAuthorizedKeysCAAS(c *tc.C) {
+// TestRemoveJujuAuthorizedKeysCAAS ensures the step is skipped entirely on
+// CAAS machines, which have no cloud-init injected keys.
+func (*authorizedKeysSuite) TestRemoveJujuAuthorizedKeysCAAS(c *tc.C) {
 	persistentKey := sshtesting.ValidKeyOne.Key + " Juju:user@host"
 	c.Assert(ssh.AddKeys(sshUser, persistentKey), tc.ErrorIsNil)
 
-	c.Assert(removePersistentJujuAuthorizedKeys(caasContext()), tc.ErrorIsNil)
+	c.Assert(removeJujuAuthorizedKeys(caasContext()), tc.ErrorIsNil)
 
 	keys, err := ssh.ListKeys(sshUser, ssh.FullKeys)
 	c.Assert(err, tc.ErrorIsNil)
