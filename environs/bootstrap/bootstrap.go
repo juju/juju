@@ -108,6 +108,11 @@ type BootstrapParams struct {
 	// while synchronous bootstrap configuration is in progress.
 	BootstrapSSHAuthorizedKeys []string
 
+	// KeepBootstrapSSHKeys, if true, keeps the bootstrap SSH keys
+	// installed on the controller machine after bootstrap has
+	// completed, instead of removing them.
+	KeepBootstrapSSHKeys bool
+
 	// RegionInheritedConfig holds region specific configuration attributes to
 	// be shared across all models in the same controller on a particular
 	// cloud.
@@ -776,6 +781,7 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.StateInitializationParams.AgentVersion = agentVersion
 	icfg.Bootstrap.StateInitializationParams.ControllerModelAuthorizedKeys = args.ControllerModelAuthorizedKeys
 	icfg.Bootstrap.StateInitializationParams.BootstrapSSHAuthorizedKeys = args.BootstrapSSHAuthorizedKeys
+	icfg.Bootstrap.StateInitializationParams.KeepBootstrapSSHKeys = args.KeepBootstrapSSHKeys
 	icfg.Bootstrap.ControllerModelConfig = cfg
 	icfg.Bootstrap.ControllerModelEnvironVersion = environVersion
 	icfg.Bootstrap.CustomImageMetadata = customImageMetadata

@@ -845,6 +845,7 @@ to create a new model to deploy %sworkloads.
 		ControllerInheritedConfig:     bootstrapCfg.inheritedControllerAttrs,
 		ControllerModelAuthorizedKeys: bootstrapCfg.bootstrap.AuthorizedKeys,
 		BootstrapSSHAuthorizedKeys:    bootstrapSSHAuthorizedKeys,
+		KeepBootstrapSSHKeys:          bootstrapCfg.bootstrap.KeepBootstrapSSHKeys,
 		RegionInheritedConfig:         cloud.RegionConfig,
 		AdminSecret:                   bootstrapCfg.bootstrap.AdminSecret,
 		CAPrivateKey:                  bootstrapCfg.bootstrap.CAPrivateKey,

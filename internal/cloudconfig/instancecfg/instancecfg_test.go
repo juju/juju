@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/config"
@@ -34,6 +35,21 @@ func (*instancecfgSuite) TestIsController(c *tc.C) {
 	c.Assert(cfg.IsController(), tc.IsFalse)
 	cfg.Jobs = []model.MachineJob{model.JobManageModel}
 	c.Assert(cfg.IsController(), tc.IsTrue)
+}
+
+func (*instancecfgSuite) TestStateInitializationParamsKeepBootstrapSSHKeys(c *tc.C) {
+	cfg := testing.CustomModelConfig(c, testing.Attrs{})
+	params := instancecfg.StateInitializationParams{
+		ControllerModelConfig:       cfg,
+		BootstrapMachineConstraints: constraints.MustParse("mem=1G"),
+		KeepBootstrapSSHKeys:        true,
+	}
+	data, err := params.Marshal()
+	c.Assert(err, tc.ErrorIsNil)
+
+	var unmarshalled instancecfg.StateInitializationParams
+	c.Assert(unmarshalled.Unmarshal(data), tc.ErrorIsNil)
+	c.Check(unmarshalled.KeepBootstrapSSHKeys, tc.IsTrue)
 }
 
 func (*instancecfgSuite) TestInstanceTagsController(c *tc.C) {

@@ -319,8 +319,10 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	if err := w.cfg.RemoveBootstrapSSHKeys(bootstrapParams.BootstrapSSHAuthorizedKeys); err != nil {
-		return errors.Annotate(err, "removing bootstrap SSH keys")
+	if !bootstrapParams.KeepBootstrapSSHKeys {
+		if err := w.cfg.RemoveBootstrapSSHKeys(bootstrapParams.BootstrapSSHAuthorizedKeys); err != nil {
+			return errors.Annotate(err, "removing bootstrap SSH keys")
+		}
 	}
 
 	// Set the bootstrap flag, to indicate that the bootstrap has completed.

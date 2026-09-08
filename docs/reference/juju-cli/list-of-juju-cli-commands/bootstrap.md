@@ -214,6 +214,13 @@ Bootstrap configuration keys:
         Controls the kubernetes service type for Juju controllers, see
         https://kubernetes.io/docs/reference/kubernetes-api/service-resources/service-v1/#ServiceSpec
         valid values are one of cluster, loadbalancer, external
+    keep-bootstrap-ssh-keys:
+      type: bool
+      description: Keeps the bootstrap SSH keys installed on the controller machine after
+        bootstrap has completed, instead of removing them. This allows direct SSH access
+        to the controller machine, bypassing the Juju API and any jump host restrictions.
+        This is a dangerous option intended for debugging and recovering broken bootstrap
+        machines only; avoid on production controllers
     ssh-server-host-key:
       type: string
       description: Sets the bootstrapped controller's SSH server host key

@@ -327,6 +327,11 @@ type StateInitializationParams struct {
 	// controller has completed initialization.
 	BootstrapSSHAuthorizedKeys []string
 
+	// KeepBootstrapSSHKeys, if true, keeps the bootstrap SSH keys
+	// installed on the bootstrap machine after the controller has
+	// completed initialization, instead of removing them.
+	KeepBootstrapSSHKeys bool
+
 	// ControllerModelEnvironVersion holds the initial controller model
 	// environ version.
 	ControllerModelEnvironVersion int
@@ -407,6 +412,7 @@ type stateInitializationParamsInternal struct {
 	ControllerModelConfig                   map[string]any                    `yaml:"controller-model-config"`
 	ControllerModelAuthorizedKeys           []string                          `yaml:"controller-model-authorized-keys"`
 	BootstrapSSHAuthorizedKeys              []string                          `yaml:"bootstrap-ssh-authorized-keys"`
+	KeepBootstrapSSHKeys                    bool                              `yaml:"keep-bootstrap-ssh-keys,omitempty"`
 	ControllerModelEnvironVersion           int                               `yaml:"controller-model-version"`
 	ControllerInheritedConfig               map[string]any                    `yaml:"controller-config-defaults,omitempty"`
 	RegionInheritedConfig                   cloud.RegionConfig                `yaml:"region-inherited-config,omitempty"`
@@ -442,6 +448,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		ControllerModelConfig:                   p.ControllerModelConfig.AllAttrs(),
 		ControllerModelAuthorizedKeys:           p.ControllerModelAuthorizedKeys,
 		BootstrapSSHAuthorizedKeys:              p.BootstrapSSHAuthorizedKeys,
+		KeepBootstrapSSHKeys:                    p.KeepBootstrapSSHKeys,
 		ControllerModelEnvironVersion:           p.ControllerModelEnvironVersion,
 		ControllerInheritedConfig:               p.ControllerInheritedConfig,
 		RegionInheritedConfig:                   p.RegionInheritedConfig,
@@ -492,6 +499,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		ControllerModelConfig:                   cfg,
 		ControllerModelAuthorizedKeys:           internal.ControllerModelAuthorizedKeys,
 		BootstrapSSHAuthorizedKeys:              internal.BootstrapSSHAuthorizedKeys,
+		KeepBootstrapSSHKeys:                    internal.KeepBootstrapSSHKeys,
 		ControllerModelEnvironVersion:           internal.ControllerModelEnvironVersion,
 		ControllerInheritedConfig:               internal.ControllerInheritedConfig,
 		RegionInheritedConfig:                   internal.RegionInheritedConfig,
