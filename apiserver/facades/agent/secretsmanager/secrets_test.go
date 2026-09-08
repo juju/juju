@@ -4,6 +4,7 @@
 package secretsmanager_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -1387,4 +1389,249 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerMigr
 			},
 		}},
 	})
+}
+
+func (s *SecretsManagerSuite) TestGetSecretBackendConfigsNotFound(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	// Arrange:
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.secretService.EXPECT().GetReservedSecretIDs(gomock.Any(), gomock.Any()).Return(nil, nil)
+	s.secretBackendService.EXPECT().BackendConfigInfo(gomock.Any(), gomock.Any()).
+		Return(nil, fmt.Errorf("boom: %w", secretbackenderrors.NotFound))
+
+	// Act:
+	_, err := s.facade.GetSecretBackendConfigs(c.Context(), params.SecretBackendArgs{
+		BackendIDs: []string{"backend-id"},
+	})
+
+	// Assert:
+	pErr, ok := err.(*params.Error)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(pErr.Code, tc.Equals, params.CodeSecretBackendNotFound)
+}
+
+func (s *SecretsManagerSuite) TestGetSecretBackendConfigsForDrainNotFound(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	// Arrange:
+	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.secretBackendService.EXPECT().DrainBackendConfigInfo(gomock.Any(), gomock.Any()).
+		Return(nil, fmt.Errorf("boom: %w", secretbackenderrors.NotFound))
+
+	// Act:
+	_, err := s.facade.GetSecretBackendConfigs(c.Context(), params.SecretBackendArgs{
+		ForDrain:   true,
+		BackendIDs: []string{"backend-id"},
+	})
+
+	// Assert:
+	pErr, ok := err.(*params.Error)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(pErr.Code, tc.Equals, params.CodeSecretBackendNotFound)
+}
+
+// TestGetConsumerSecretsRevisionInfoErrorCodes covers the two sentinels
+// GetSecretConsumerAndLatest documents.
+func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoErrorCodes(c *tc.C) {
+	for _, t := range []struct {
+		sentinel error
+		code     string
+	}{
+		{secreterrors.SecretNotFound, params.CodeSecretNotFound},
+		{secreterrors.SecretConsumerNotFound, params.CodeSecretConsumerNotFound},
+	} {
+		c.Logf("sentinel %v", t.sentinel)
+		func() {
+			defer s.setup(c).Finish()
+
+			// Arrange:
+			uri := coresecrets.NewURI()
+			s.secretsConsumer.EXPECT().GetSecretConsumerAndLatest(
+				gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"),
+			).Return(nil, 0, fmt.Errorf("boom: %w", t.sentinel))
+
+			// Act:
+			results, err := s.facade.GetConsumerSecretsRevisionInfo(c.Context(), params.GetSecretConsumerInfoArgs{
+				ConsumerTag: "unit-mariadb/0",
+				URIs:        []string{uri.String()},
+			})
+
+			// Assert:
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(results.Results, tc.HasLen, 1)
+			c.Assert(results.Results[0].Error, tc.NotNil)
+			c.Check(results.Results[0].Error.Code, tc.Equals, t.code)
+		}()
+	}
+}
+
+// TestGetSecretContentInfoErrorCodes covers every sentinel reachable through
+// getSecretContent: the consumer label/revision lookups and the revision read
+// can fail with SecretNotFound, SecretRevisionNotFound or PermissionDenied,
+// and the backend lookup with secretbackenderrors.NotFound.
+func (s *SecretsManagerSuite) TestGetSecretContentInfoErrorCodes(c *tc.C) {
+	unitName := unittesting.GenNewName(c, "mariadb/0")
+	accessor := secret.SecretAccessor{Kind: secret.UnitAccessor, ID: "mariadb/0"}
+	for _, t := range []struct {
+		about  string
+		expect func(*tc.C, *coresecrets.URI, error)
+		err    error
+		code   string
+	}{{
+		about: "secret not found",
+		expect: func(c *tc.C, uri *coresecrets.URI, err error) {
+			s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), unitName, uri, "").Return(nil, nil, err)
+		},
+		err:  secreterrors.SecretNotFound,
+		code: params.CodeSecretNotFound,
+	}, {
+		about: "revision not found",
+		expect: func(c *tc.C, uri *coresecrets.URI, err error) {
+			s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), unitName, uri, "").Return(uri, nil, nil)
+			s.secretsConsumer.EXPECT().GetConsumedRevision(gomock.Any(), uri, unitName, false, false, nil).Return(668, nil)
+			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 668, accessor).Return(nil, nil, err)
+		},
+		err:  secreterrors.SecretRevisionNotFound,
+		code: params.CodeSecretRevisionNotFound,
+	}, {
+		about: "read access denied",
+		expect: func(c *tc.C, uri *coresecrets.URI, err error) {
+			s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), unitName, uri, "").Return(uri, nil, nil)
+			s.secretsConsumer.EXPECT().GetConsumedRevision(gomock.Any(), uri, unitName, false, false, nil).Return(668, nil)
+			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 668, accessor).Return(nil, nil, err)
+		},
+		err:  secreterrors.PermissionDenied,
+		code: params.CodeUnauthorized,
+	}, {
+		about: "backend not found",
+		expect: func(c *tc.C, uri *coresecrets.URI, err error) {
+			s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), unitName, uri, "").Return(uri, nil, nil)
+			s.secretsConsumer.EXPECT().GetConsumedRevision(gomock.Any(), uri, unitName, false, false, nil).Return(668, nil)
+			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 668, accessor).
+				Return(nil, &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-id"}, nil)
+			s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+			s.secretBackendService.EXPECT().BackendConfigInfo(gomock.Any(), gomock.Any()).Return(nil, err)
+		},
+		err:  secretbackenderrors.NotFound,
+		code: params.CodeSecretBackendNotFound,
+	}} {
+		c.Logf("%s", t.about)
+		func() {
+			defer s.setup(c).Finish()
+
+			// Arrange:
+			uri := coresecrets.NewURI()
+			t.expect(c, uri, fmt.Errorf("boom: %w", t.err))
+
+			// Act:
+			results, err := s.facade.GetSecretContentInfo(c.Context(), params.GetSecretContentArgs{
+				Args: []params.GetSecretContentArg{{URI: uri.String()}},
+			})
+
+			// Assert:
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(results.Results, tc.HasLen, 1)
+			c.Assert(results.Results[0].Error, tc.NotNil)
+			c.Check(results.Results[0].Error.Code, tc.Equals, t.code)
+		}()
+	}
+}
+
+// TestGetSecretRevisionContentInfoErrorCodes covers the sentinels GetSecretValue
+// can return plus the backend lookup for external revisions.
+func (s *SecretsManagerSuite) TestGetSecretRevisionContentInfoErrorCodes(c *tc.C) {
+	accessor := secret.SecretAccessor{Kind: secret.UnitAccessor, ID: "mariadb/0"}
+	for _, t := range []struct {
+		about  string
+		expect func(*tc.C, *coresecrets.URI, error)
+		err    error
+		code   string
+	}{{
+		about: "secret not found",
+		expect: func(c *tc.C, uri *coresecrets.URI, err error) {
+			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 666, accessor).Return(nil, nil, err)
+		},
+		err:  secreterrors.SecretNotFound,
+		code: params.CodeSecretNotFound,
+	}, {
+		about: "revision not found",
+		expect: func(c *tc.C, uri *coresecrets.URI, err error) {
+			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 666, accessor).Return(nil, nil, err)
+		},
+		err:  secreterrors.SecretRevisionNotFound,
+		code: params.CodeSecretRevisionNotFound,
+	}, {
+		about: "read access denied",
+		expect: func(c *tc.C, uri *coresecrets.URI, err error) {
+			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 666, accessor).Return(nil, nil, err)
+		},
+		err:  secreterrors.PermissionDenied,
+		code: params.CodeUnauthorized,
+	}, {
+		about: "backend not found",
+		expect: func(c *tc.C, uri *coresecrets.URI, err error) {
+			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 666, accessor).
+				Return(nil, &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-id"}, nil)
+			s.secretBackendService.EXPECT().BackendConfigInfo(gomock.Any(), gomock.Any()).Return(nil, err)
+		},
+		err:  secretbackenderrors.NotFound,
+		code: params.CodeSecretBackendNotFound,
+	}} {
+		c.Logf("%s", t.about)
+		func() {
+			defer s.setup(c).Finish()
+
+			// Arrange: the leadership token is taken up front, before the
+			// revisions are read.
+			s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token).AnyTimes()
+			uri := coresecrets.NewURI()
+			t.expect(c, uri, fmt.Errorf("boom: %w", t.err))
+
+			// Act:
+			results, err := s.facade.GetSecretRevisionContentInfo(c.Context(), params.SecretRevisionArg{
+				URI:       uri.String(),
+				Revisions: []int{666},
+			})
+
+			// Assert:
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(results.Results, tc.HasLen, 1)
+			c.Assert(results.Results[0].Error, tc.NotNil)
+			c.Check(results.Results[0].Error.Code, tc.Equals, t.code)
+		}()
+	}
+}
+
+// TestSecretsRotatedErrorCodes covers the two sentinels the management access
+// check in SecretRotated can return.
+func (s *SecretsManagerSuite) TestSecretsRotatedErrorCodes(c *tc.C) {
+	for _, t := range []struct {
+		sentinel error
+		code     string
+	}{
+		{secreterrors.SecretNotFound, params.CodeSecretNotFound},
+		{secreterrors.PermissionDenied, params.CodeUnauthorized},
+	} {
+		c.Logf("sentinel %v", t.sentinel)
+		func() {
+			defer s.setup(c).Finish()
+
+			// Arrange:
+			uri := coresecrets.NewURI()
+			s.secretTriggers.EXPECT().SecretRotated(gomock.Any(), uri, gomock.Any()).
+				Return(fmt.Errorf("boom: %w", t.sentinel))
+
+			// Act:
+			result, err := s.facade.SecretsRotated(c.Context(), params.SecretRotatedArgs{
+				Args: []params.SecretRotatedArg{{URI: uri.ID, OriginalRevision: 666}},
+			})
+
+			// Assert:
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(result.Results, tc.HasLen, 1)
+			c.Assert(result.Results[0].Error, tc.NotNil)
+			c.Check(result.Results[0].Error.Code, tc.Equals, t.code)
+		}()
+	}
 }

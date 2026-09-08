@@ -113,12 +113,28 @@ func Create(meta *Metadata, args CreateArgs) (string, error) {
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-
+	// The archive now exists under its final name. Every failure from
+	// here on must discard it: buildArchiveAndChecksum cleans up after
+	// its own failures, but a stray archive left behind here is one the
+	// caller was told was never created, and it still shows up to list
+	// and download. Any step added below has to do the same.
 	if err := meta.MarkComplete(size, checksum, args.Clock.Now()); err != nil {
-		return "", errors.Errorf("updating metadata: %w", err)
+		return "", discardArchive(filename,
+			errors.Errorf("updating metadata: %w", err))
 	}
 
 	return filename, nil
+}
+
+// discardArchive removes a written archive that its caller is about to
+// report as failed, and returns the failure to report. A removal error
+// is folded into it rather than swallowed, since it leaves exactly the
+// stray archive the removal was there to prevent.
+func discardArchive(filename string, err error) error {
+	if rerr := os.Remove(filename); rerr != nil && !os.IsNotExist(rerr) {
+		return errors.Errorf("%w (also removing %q: %v)", err, filename, rerr)
+	}
+	return err
 }
 
 // checkDestinationDir ensures the backup destination directory is

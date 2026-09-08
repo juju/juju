@@ -245,11 +245,6 @@ func (p *containerProvisioner) getStartTask(ctx context.Context, workerCount int
 	if err != nil {
 		return nil, err
 	}
-	hostTag := p.agentConfig.Tag()
-	if kind := hostTag.Kind(); kind != names.ControllerAgentTagKind && kind != names.MachineTagKind {
-		return nil, errors.Errorf("agent's tag is not a machine or controller agent tag, got %T", hostTag)
-	}
-
 	modelCfg, err := p.controllerAPI.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not retrieve the model config.")
@@ -259,9 +254,14 @@ func (p *containerProvisioner) getStartTask(ctx context.Context, workerCount int
 	if err != nil {
 		return nil, errors.Annotate(err, "could not retrieve the controller config.")
 	}
+	modelUUID, err := p.controllerAPI.ModelUUID(ctx)
+	if err != nil {
+		return nil, errors.Annotate(err, "could not retrieve the model UUID.")
+	}
 
 	task, err := provisionertask.NewProvisionerTask(provisionertask.TaskConfig{
 		ControllerUUID:               controllerCfg.ControllerUUID(),
+		ModelUUID:                    modelUUID,
 		Logger:                       p.logger,
 		ControllerAPI:                p.controllerAPI,
 		MachinesAPI:                  p.machinesAPI,

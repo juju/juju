@@ -24,6 +24,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -418,5 +419,17 @@ func (s *ModelConfigAPI) SetModelSecretBackend(ctx context.Context, arg params.S
 		return params.ErrorResult{}, errors.Trace(err)
 	}
 	err := s.modelSecretBackendService.SetModelSecretBackend(ctx, arg.SecretBackendName)
+	switch {
+	case internalerrors.Is(err, secretbackenderrors.NotFound):
+		err = apiservererrors.ParamsErrorf(
+			params.CodeSecretBackendNotFound,
+			"secret backend %q not found", arg.SecretBackendName,
+		)
+	case internalerrors.Is(err, secretbackenderrors.NotValid):
+		err = apiservererrors.ParamsErrorf(
+			params.CodeSecretBackendNotValid,
+			"secret backend %q not valid", arg.SecretBackendName,
+		)
+	}
 	return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 }

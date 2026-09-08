@@ -4,6 +4,7 @@
 package usersecretsdrain_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -15,6 +16,8 @@ import (
 	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/testhelpers"
@@ -313,4 +316,161 @@ func (s *drainSuite) TestGetSecretRevisionContentInfoExternal(c *tc.C) {
 			},
 		}},
 	})
+}
+
+func (s *drainSuite) TestGetSecretBackendConfigsNotFound(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	// Arrange:
+	s.secretBackendService.EXPECT().DrainBackendConfigInfo(gomock.Any(), gomock.Any()).
+		Return(nil, fmt.Errorf("boom: %w", secretbackenderrors.NotFound))
+
+	// Act:
+	_, err := s.facade.GetSecretBackendConfigs(c.Context(), params.SecretBackendArgs{
+		BackendIDs: []string{"backend-id"},
+	})
+
+	// Assert:
+	pErr, ok := err.(*params.Error)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(pErr.Code, tc.Equals, params.CodeSecretBackendNotFound)
+}
+
+// TestGetSecretContentInfoErrorCodes checks every sentinel reachable through
+// getSecretContent: the metadata lookup can fail with SecretNotFound, the
+// revision read with SecretNotFound, SecretRevisionNotFound or
+// PermissionDenied, and the backend lookup with secretbackenderrors.NotFound.
+func (s *drainSuite) TestGetSecretContentInfoErrorCodes(c *tc.C) {
+	accessor := secret.SecretAccessor{
+		Kind: secret.ModelAccessor,
+		ID:   coretesting.ModelTag.Id(),
+	}
+	for _, t := range []struct {
+		about  string
+		expect func(*tc.C, *coresecrets.URI, error)
+		err    error
+		code   string
+	}{{
+		about: "secret metadata not found",
+		expect: func(c *tc.C, uri *coresecrets.URI, err error) {
+			s.secretService.EXPECT().GetSecret(gomock.Any(), uri).Return(nil, err)
+		},
+		err:  secreterrors.SecretNotFound,
+		code: params.CodeSecretNotFound,
+	}, {
+		about: "revision not found",
+		expect: func(c *tc.C, uri *coresecrets.URI, err error) {
+			s.secretService.EXPECT().GetSecret(gomock.Any(), uri).
+				Return(&coresecrets.SecretMetadata{URI: uri, LatestRevision: 668}, nil)
+			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 668, accessor).Return(nil, nil, err)
+		},
+		err:  secreterrors.SecretRevisionNotFound,
+		code: params.CodeSecretRevisionNotFound,
+	}, {
+		about: "read access denied",
+		expect: func(c *tc.C, uri *coresecrets.URI, err error) {
+			s.secretService.EXPECT().GetSecret(gomock.Any(), uri).
+				Return(&coresecrets.SecretMetadata{URI: uri, LatestRevision: 668}, nil)
+			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 668, accessor).Return(nil, nil, err)
+		},
+		err:  secreterrors.PermissionDenied,
+		code: params.CodeUnauthorized,
+	}, {
+		about: "backend not found",
+		expect: func(c *tc.C, uri *coresecrets.URI, err error) {
+			s.secretService.EXPECT().GetSecret(gomock.Any(), uri).
+				Return(&coresecrets.SecretMetadata{URI: uri, LatestRevision: 668}, nil)
+			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 668, accessor).
+				Return(nil, &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-id"}, nil)
+			s.secretBackendService.EXPECT().BackendConfigInfo(gomock.Any(), gomock.Any()).Return(nil, err)
+		},
+		err:  secretbackenderrors.NotFound,
+		code: params.CodeSecretBackendNotFound,
+	}} {
+		c.Logf("%s", t.about)
+		func() {
+			defer s.setup(c).Finish()
+
+			// Arrange:
+			uri := coresecrets.NewURI()
+			t.expect(c, uri, fmt.Errorf("boom: %w", t.err))
+
+			// Act:
+			results, err := s.facade.GetSecretContentInfo(c.Context(), params.GetSecretContentArgs{
+				Args: []params.GetSecretContentArg{{URI: uri.String()}},
+			})
+
+			// Assert:
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(results.Results, tc.HasLen, 1)
+			c.Assert(results.Results[0].Error, tc.NotNil)
+			c.Check(results.Results[0].Error.Code, tc.Equals, t.code)
+		}()
+	}
+}
+
+// TestGetSecretRevisionContentInfoErrorCodes checks every sentinel reachable
+// through GetSecretValue plus the backend lookup for external revisions.
+func (s *drainSuite) TestGetSecretRevisionContentInfoErrorCodes(c *tc.C) {
+	accessor := secret.SecretAccessor{
+		Kind: secret.ModelAccessor,
+		ID:   coretesting.ModelTag.Id(),
+	}
+	for _, t := range []struct {
+		about  string
+		expect func(*tc.C, *coresecrets.URI, error)
+		err    error
+		code   string
+	}{{
+		about: "secret not found",
+		expect: func(c *tc.C, uri *coresecrets.URI, err error) {
+			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 666, accessor).Return(nil, nil, err)
+		},
+		err:  secreterrors.SecretNotFound,
+		code: params.CodeSecretNotFound,
+	}, {
+		about: "revision not found",
+		expect: func(c *tc.C, uri *coresecrets.URI, err error) {
+			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 666, accessor).Return(nil, nil, err)
+		},
+		err:  secreterrors.SecretRevisionNotFound,
+		code: params.CodeSecretRevisionNotFound,
+	}, {
+		about: "read access denied",
+		expect: func(c *tc.C, uri *coresecrets.URI, err error) {
+			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 666, accessor).Return(nil, nil, err)
+		},
+		err:  secreterrors.PermissionDenied,
+		code: params.CodeUnauthorized,
+	}, {
+		about: "backend not found",
+		expect: func(c *tc.C, uri *coresecrets.URI, err error) {
+			s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 666, accessor).
+				Return(nil, &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-id"}, nil)
+			s.secretBackendService.EXPECT().BackendConfigInfo(gomock.Any(), gomock.Any()).Return(nil, err)
+		},
+		err:  secretbackenderrors.NotFound,
+		code: params.CodeSecretBackendNotFound,
+	}} {
+		c.Logf("%s", t.about)
+		func() {
+			defer s.setup(c).Finish()
+
+			// Arrange:
+			uri := coresecrets.NewURI()
+			t.expect(c, uri, fmt.Errorf("boom: %w", t.err))
+
+			// Act:
+			results, err := s.facade.GetSecretRevisionContentInfo(c.Context(), params.SecretRevisionArg{
+				URI:       uri.String(),
+				Revisions: []int{666},
+			})
+
+			// Assert:
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(results.Results, tc.HasLen, 1)
+			c.Assert(results.Results[0].Error, tc.NotNil)
+			c.Check(results.Results[0].Error.Code, tc.Equals, t.code)
+		}()
+	}
 }

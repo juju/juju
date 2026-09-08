@@ -82,6 +82,10 @@ func minimalModelConfig() map[string]any {
 
 func (s *DeploySuiteBase) SetUpTest(c *tc.C) {
 	s.FakeHomeSuite.SetUpTest(c)
+	// The snap confinement hint keys off $SNAP, which snapd sets for every
+	// process started by a snap-installed Go toolchain. Clear it so that the
+	// error messages asserted here do not depend on how the tests were run.
+	c.Setenv("SNAP", "")
 	s.fakeAPI = vanillaFakeModelAPI(minimalModelConfig())
 	s.fakeAPI.deployerFactoryFunc = deployer.NewDeployerFactory
 }

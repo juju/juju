@@ -6,6 +6,7 @@ package charm_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	stdtesting "testing"
 	"time"
@@ -170,6 +171,95 @@ func (s *ManifestDeployerSuite) TestUpgradePreserveUserFiles(c *tc.C) {
 	preserveUserContent.Check(c, s.targetPath)
 	removeUserContent.AsRemoveds().Check(c, s.targetPath)
 	originalCharmContent.AsRemoveds().Check(c, s.targetPath)
+}
+
+// deployFileOnlyCharm deploys a charm whose manifest lists file paths
+// only, as charmcraft-produced charms do: charmcraft zips contain no
+// directory entries, so directories that only held files unique to an
+// old charm cannot be removed via the manifest diff alone.
+func (s *ManifestDeployerSuite) deployFileOnlyCharm(c *tc.C, revision int, content filetesting.Entries) {
+	bundle := mockBundle{
+		paths: set.NewStrings(content.Paths()...),
+		expand: func(dir string) error {
+			// The real zip extractor creates the parent directory
+			// of each entry it writes.
+			for _, entry := range content {
+				parent := filepath.Dir(filepath.Join(dir, entry.GetPath()))
+				if err := os.MkdirAll(parent, 0755); err != nil {
+					return err
+				}
+			}
+			content.Create(c, dir)
+			return nil
+		},
+	}
+	info := s.addMockCharm(revision, bundle)
+	err := s.deployer.Stage(c.Context(), info)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.deployer.Deploy()
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *ManifestDeployerSuite) TestUpgradeRemovesEmptyDirectories(c *tc.C) {
+	// Regression test for juju/juju#23127: an upgrade from a charm whose
+	// venv holds opentelemetry-api 1.26.0 to one holding 1.27.0 removes
+	// every file under the old distribution's dist-info directory, but
+	// (the manifest containing files only) leaves the empty directory
+	// itself behind. Python's importlib.metadata still discovers that
+	// empty dist-info directory, and it can shadow the real one and
+	// break entry point discovery, failing hooks with StopIteration.
+	const sitePackages = "venv/lib/python3.12/site-packages"
+	oldDistInfo := sitePackages + "/opentelemetry_api-1.26.0.dist-info"
+	newDistInfo := sitePackages + "/opentelemetry_api-1.27.0.dist-info"
+
+	s.deployFileOnlyCharm(c, 1, filetesting.Entries{
+		filetesting.File{Path: "dispatch", Data: "#!/bin/sh", Perm: 0755},
+		filetesting.File{Path: oldDistInfo + "/METADATA", Data: "old", Perm: 0644},
+		filetesting.File{Path: oldDistInfo + "/entry_points.txt", Data: "old", Perm: 0644},
+		filetesting.File{Path: sitePackages + "/opentelemetry/__init__.py", Data: "", Perm: 0644},
+	})
+
+	// Files written by the running charm must survive the upgrade.
+	userFile := filetesting.File{Path: "user-file", Data: "user", Perm: 0644}.Create(c, s.targetPath)
+
+	s.deployFileOnlyCharm(c, 2, filetesting.Entries{
+		filetesting.File{Path: "dispatch", Data: "#!/bin/sh", Perm: 0755},
+		filetesting.File{Path: newDistInfo + "/METADATA", Data: "new", Perm: 0644},
+		filetesting.File{Path: newDistInfo + "/entry_points.txt", Data: "new", Perm: 0644},
+		filetesting.File{Path: sitePackages + "/opentelemetry/__init__.py", Data: "", Perm: 0644},
+	})
+
+	// The upgrade removed the leftover empty dist-info directory...
+	filetesting.Removed{Path: oldDistInfo}.Check(c, s.targetPath)
+	// ...kept the new charm's dist-info directory and its contents...
+	filetesting.Dir{Path: newDistInfo, Perm: 0755}.Check(c, s.targetPath)
+	filetesting.File{Path: newDistInfo + "/entry_points.txt", Data: "new", Perm: 0644}.Check(c, s.targetPath)
+	// ...and left directories that are still in use, and user files,
+	// untouched.
+	filetesting.Dir{Path: sitePackages, Perm: 0755}.Check(c, s.targetPath)
+	userFile.Check(c, s.targetPath)
+}
+
+func (s *ManifestDeployerSuite) TestUpgradeEmptyDirsShippedByNewCharmKept(c *tc.C) {
+	s.deployCharm(c, 1,
+		filetesting.File{Path: "file", Data: "old", Perm: 0644},
+	)
+	// An empty directory created by the charm at runtime is not
+	// distinguishable from one left behind by the upgrade, and is
+	// removed: only user files are preserved across upgrades, never
+	// directories (charms whose archives carry directory entries lose
+	// whole directory subtrees today).
+	filetesting.Dir{Path: "runtime-empty", Perm: 0755}.Create(c, s.targetPath)
+
+	// Upgrade to a charm that ships an empty directory in its archive;
+	// unlike runtime leftovers, that one must survive.
+	s.deployCharm(c, 2,
+		filetesting.File{Path: "file", Data: "new", Perm: 0644},
+		filetesting.Dir{Path: "shipped-empty", Perm: 0755},
+	)
+
+	filetesting.Dir{Path: "shipped-empty", Perm: 0755}.Check(c, s.targetPath)
+	filetesting.Removed{Path: "runtime-empty"}.Check(c, s.targetPath)
 }
 
 func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *tc.C) {

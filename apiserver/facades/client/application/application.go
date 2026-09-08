@@ -1394,6 +1394,24 @@ func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_
 		ctx, args.Endpoints[0], args.Endpoints[1], args.ViaCIDRs...,
 	)
 	if err != nil {
+		// User errors get a coded, compact message rather than the full
+		// domain error chain.
+		if internalerrors.Is(err, relationerrors.EndpointQuotaLimitExceeded) {
+			return params.AddRelationResults{}, apiservererrors.ParamsErrorf(
+				params.CodeQuotaLimitExceeded,
+				"adding relation between endpoints %q and %q: %s",
+				args.Endpoints[0], args.Endpoints[1],
+				relationerrors.EndpointQuotaLimitExceeded,
+			)
+		}
+		if internalerrors.Is(err, relationerrors.RelationAlreadyExists) {
+			return params.AddRelationResults{}, apiservererrors.ParamsErrorf(
+				params.CodeAlreadyExists,
+				"adding relation between endpoints %q and %q: %s",
+				args.Endpoints[0], args.Endpoints[1],
+				relationerrors.RelationAlreadyExists,
+			)
+		}
 		return params.AddRelationResults{}, internalerrors.Errorf(
 			"adding relation between endpoints %q and %q: %w",
 			args.Endpoints[0], args.Endpoints[1], err,

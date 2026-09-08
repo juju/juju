@@ -691,6 +691,62 @@ func (s *applicationSuite) TestAddRelationError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, boom)
 }
 
+// TestAddRelationEndpointQuotaExceeded ensures that when the relation service
+// reports an endpoint quota violation, the facade returns a compact, coded
+// params error instead of the full domain error chain.
+func (s *applicationSuite) TestAddRelationEndpointQuotaExceeded(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	s.setupAPI(c)
+	epStr1 := "mattermost"
+	epStr2 := "postgresql:db"
+	boom := fmt.Errorf("boom: %w", relationerrors.EndpointQuotaLimitExceeded)
+	s.relationService.EXPECT().AddRelation(gomock.Any(), epStr1, epStr2).Return(
+		relation.Endpoint{}, relation.Endpoint{}, boom,
+	)
+
+	// Act:
+	_, err := s.api.AddRelation(c.Context(), params.AddRelation{
+		Endpoints: []string{"mattermost", "postgresql:db"},
+	})
+
+	// Assert: the error carries the quota code and no noisy domain chain.
+	pErr, ok := err.(*params.Error)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(pErr.Code, tc.Equals, params.CodeQuotaLimitExceeded)
+	c.Check(pErr.Message, tc.Equals,
+		`adding relation between endpoints "mattermost" and "postgresql:db": quota limit exceeded`)
+}
+
+// TestAddRelationAlreadyExists ensures that when the relation service reports
+// an already-existing relation, the facade returns a compact, coded params
+// error instead of the full domain error chain.
+func (s *applicationSuite) TestAddRelationAlreadyExists(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	s.setupAPI(c)
+	epStr1 := "mattermost"
+	epStr2 := "postgresql:db"
+	boom := fmt.Errorf("boom: %w", relationerrors.RelationAlreadyExists)
+	s.relationService.EXPECT().AddRelation(gomock.Any(), epStr1, epStr2).Return(
+		relation.Endpoint{}, relation.Endpoint{}, boom,
+	)
+
+	// Act:
+	_, err := s.api.AddRelation(c.Context(), params.AddRelation{
+		Endpoints: []string{"mattermost", "postgresql:db"},
+	})
+
+	// Assert: the error carries the already-exists code and no noisy chain.
+	pErr, ok := err.(*params.Error)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(pErr.Code, tc.Equals, params.CodeAlreadyExists)
+	c.Check(pErr.Message, tc.Equals,
+		`adding relation between endpoints "mattermost" and "postgresql:db": already exists`)
+}
+
 func (s *applicationSuite) TestAddRelationNoEndpointsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

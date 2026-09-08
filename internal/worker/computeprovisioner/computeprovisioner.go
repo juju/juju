@@ -141,7 +141,6 @@ func (p *environProvisioner) getStartTask(ctx context.Context, workerCount int) 
 	if err != nil && !errors.Is(err, errors.NotImplemented) {
 		return nil, err
 	}
-
 	modelCfg, err := p.controllerAPI.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not retrieve the model config.")
@@ -151,9 +150,14 @@ func (p *environProvisioner) getStartTask(ctx context.Context, workerCount int) 
 	if err != nil {
 		return nil, errors.Annotate(err, "could not retrieve the controller config.")
 	}
+	modelUUID, err := p.controllerAPI.ModelUUID(ctx)
+	if err != nil {
+		return nil, errors.Annotate(err, "could not retrieve the model UUID.")
+	}
 
 	task, err := provisionertask.NewProvisionerTask(provisionertask.TaskConfig{
 		ControllerUUID:               controllerCfg.ControllerUUID(),
+		ModelUUID:                    modelUUID,
 		Logger:                       p.logger,
 		ControllerAPI:                p.controllerAPI,
 		MachinesAPI:                  p.machinesAPI,

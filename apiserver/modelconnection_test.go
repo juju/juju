@@ -202,9 +202,8 @@ func (s *modelConnectionSuite) TestMigrationModeErrorPropagates(c *tc.C) {
 // served at all, before Login is ever reached. These cases pin the behaviour
 // it adds on top of modelIsConnectable - the redirect fall-through.
 
-func (s *modelConnectionSuite) available(c *tc.C) error {
-	_, err := (&Server{}).isModelAvailable(c.Context(), s.modelService, s.modelUUID)
-	return err
+func (s *modelConnectionSuite) available(c *tc.C) (modelConnection, error) {
+	return (&Server{}).isModelAvailable(c.Context(), s.modelService, s.modelUUID)
 }
 
 // TestAvailableWhileImporting verifies that the connection is served for a
@@ -219,7 +218,9 @@ func (s *modelConnectionSuite) TestAvailableWhileImporting(c *tc.C) {
 		HasImportClaim: true,
 	})
 
-	c.Assert(s.available(c), tc.ErrorIsNil)
+	conn, err := s.available(c)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(conn.connectable, tc.IsTrue)
 }
 
 // TestAvailableWhenActivated covers the ordinary case.
@@ -228,7 +229,9 @@ func (s *modelConnectionSuite) TestAvailableWhenActivated(c *tc.C) {
 
 	s.expectConnectionInfo(model.ModelConnectionInfo{ModelType: coremodel.IAAS, Activated: true})
 
-	c.Assert(s.available(c), tc.ErrorIsNil)
+	conn, err := s.available(c)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(conn.connectable, tc.IsTrue)
 }
 
 // TestNotAvailableWhenAbsent verifies an unknown model is still reported as
@@ -241,7 +244,8 @@ func (s *modelConnectionSuite) TestNotAvailableWhenAbsent(c *tc.C) {
 	s.modelService.EXPECT().ModelRedirection(gomock.Any(), s.modelUUID).
 		Return(model.ModelRedirection{}, modelerrors.ModelNotRedirected)
 
-	c.Assert(s.available(c), tc.ErrorIs, modelerrors.NotFound)
+	_, err := s.available(c)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 // TestNotAvailableWhenHalfBuilt pins the narrow window at the connection gate:
@@ -254,7 +258,8 @@ func (s *modelConnectionSuite) TestNotAvailableWhenHalfBuilt(c *tc.C) {
 	s.modelService.EXPECT().ModelRedirection(gomock.Any(), s.modelUUID).
 		Return(model.ModelRedirection{}, modelerrors.ModelNotRedirected)
 
-	c.Assert(s.available(c), tc.ErrorIs, modelerrors.NotFound)
+	_, err := s.available(c)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 // TestAvailableWhenMigratedAway verifies the redirect fall-through still
@@ -268,5 +273,7 @@ func (s *modelConnectionSuite) TestAvailableWhenMigratedAway(c *tc.C) {
 	s.modelService.EXPECT().ModelRedirection(gomock.Any(), s.modelUUID).
 		Return(model.ModelRedirection{ControllerUUID: "other"}, nil)
 
-	c.Assert(s.available(c), tc.ErrorIsNil)
+	conn, err := s.available(c)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(conn.connectable, tc.IsFalse)
 }

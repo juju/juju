@@ -52,6 +52,10 @@ type State interface {
 	// and initial statement for watching machine life and agent start times.
 	InitialWatchModelMachineLifeAndStartTimesStatement() (string, string)
 
+	// InitialWatchMachineSSHHostKeysStatement returns the namespace and initial
+	// statement for watching SSH host key changes.
+	InitialWatchMachineSSHHostKeysStatement() (string, string)
+
 	// GetMachineLife returns the life status of the specified machine.
 	// It returns a MachineNotFound if the given machine doesn't exist.
 	GetMachineLife(context.Context, machine.Name) (life.Life, error)

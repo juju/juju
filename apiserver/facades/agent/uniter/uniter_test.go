@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	domainsecret "github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/domain/unitstate"
@@ -4233,4 +4234,96 @@ func (s *apiAddresserSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.watcherRegistry = nil
 	})
 	return ctrl
+}
+
+// TestCommitHookChangesSecretsPermissionDenied checks that a
+// secreterrors.PermissionDenied from the manage-access check is reported with
+// the CodeUnauthorized wire code. The prepare* helpers accumulate errors and
+// join them, so the code is attached to the individual error and has to
+// survive both the join and the ServerError call CommitHookChanges makes.
+func (s *commitHookChangesSuite) TestCommitHookChangesSecretsPermissionDenied(c *tc.C) {
+	uri := coresecrets.NewURI()
+
+	for _, t := range []struct {
+		description string
+		arg         params.CommitHookChangesArg
+		message     string
+	}{{
+		description: "revokes",
+		arg: params.CommitHookChangesArg{
+			SecretRevokes: []params.GrantRevokeSecretArg{{
+				URI:         uri.String(),
+				ScopeTag:    names.NewRelationTag("one:db two:use").String(),
+				SubjectTags: []string{names.NewApplicationTag("two").String()},
+			}},
+		},
+		message: "revoking secrets access: boom: permission denied",
+	}, {
+		description: "deletes",
+		arg: params.CommitHookChangesArg{
+			SecretDeletes: []params.DeleteSecretArg{{URI: uri.String()}},
+		},
+		message: "removing secrets: boom: permission denied",
+	}, {
+		description: "updates",
+		arg: params.CommitHookChangesArg{
+			SecretUpdates: []params.UpdateSecretArg{{
+				URI: uri.String(),
+				UpsertSecretArg: params.UpsertSecretArg{
+					Label: new("label"),
+				},
+			}},
+		},
+		message: "updating secrets: boom: permission denied",
+	}} {
+		c.Logf("test: %s", t.description)
+		func() {
+			// Arrange: the manage access check denies the unit.
+			defer s.setupMocks(c).Finish()
+
+			unitTag := names.NewUnitTag("wordpress/0")
+			s.uniter.accessUnit = func(context.Context) (common.AuthFunc, error) {
+				return func(tag names.Tag) bool { return tag.String() == unitTag.String() }, nil
+			}
+			s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, coreunit.Name("wordpress/0")).
+				Return(internalerrors.Errorf("boom: %w", secreterrors.PermissionDenied))
+
+			arg := t.arg
+			arg.Tag = unitTag.String()
+
+			// Act:
+			results, err := s.uniter.CommitHookChanges(c.Context(), params.CommitHookChangesArgs{
+				Args: []params.CommitHookChangesArg{arg},
+			})
+
+			// Assert: the wire code survives the join and ServerError.
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(results.Results, tc.HasLen, 1)
+			c.Check(results.Results[0].Error, tc.NotNil)
+			c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeUnauthorized)
+			c.Check(results.Results[0].Error.Message, tc.Equals, t.message)
+		}()
+	}
+}
+
+// TestPrepareSecretPermissionDeniedKeepsSentinel checks that attaching the
+// wire code does not hide the domain sentinel from errors.Is, so callers
+// further up can still match on it.
+func (s *commitHookChangesSuite) TestPrepareSecretPermissionDeniedKeepsSentinel(c *tc.C) {
+	// Arrange:
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("wordpress/0")
+	uri := coresecrets.NewURI()
+	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).
+		Return(internalerrors.Errorf("boom: %w", secreterrors.PermissionDenied))
+
+	// Act:
+	_, err := s.uniter.prepareSecretDeletes(c.Context(), unitName,
+		[]params.DeleteSecretArg{{URI: uri.String()}})
+
+	// Assert:
+	c.Assert(err, tc.NotNil)
+	c.Check(err, tc.ErrorIs, secreterrors.PermissionDenied)
+	c.Check(params.ErrCode(err), tc.Equals, params.CodeUnauthorized)
 }
