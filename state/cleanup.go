@@ -1330,7 +1330,7 @@ func (st *State) cleanupForceDestroyedMachine(machineId string, cleanupArgs []bs
 			}
 		}
 	}
-	return st.cleanupEvacuateMachineInternal(machineId, Dying, true, true, maxWait)
+	return st.cleanupEvacuateMachineInternal(machineId, true, true, maxWait)
 }
 
 // cleanupDestroyedMachineInternal finishes cleanup after directly hosted
@@ -1488,7 +1488,7 @@ func (st *State) cleanupEvacuateMachine(machineId string, cleanupArgs []bson.Raw
 	default:
 		return errors.Errorf("expected 0 or 2 arguments, got %d", n)
 	}
-	err := st.cleanupEvacuateMachineInternal(machineId, Dying, force, false, maxWait)
+	err := st.cleanupEvacuateMachineInternal(machineId, force, false, maxWait)
 	if errors.Is(err, errForceCleanupRequired) {
 		return st.scheduleForceCleanup(cleanupForceDestroyedMachine, machineId, maxWait)
 	}
@@ -1499,10 +1499,8 @@ func (st *State) cleanupEvacuateMachine(machineId string, cleanupArgs []bson.Raw
 // grace period with forceDying enabled.
 var errForceCleanupRequired = errors.New("force cleanup required")
 
-// cleanupEvacuateMachineInternal only evacuates non-forced machines up to
-// maxLife: Dying for a queued root, Alive for a recursively visited container.
 func (st *State) cleanupEvacuateMachineInternal(
-	machineId string, maxLife Life, force, forceDying bool, maxWait time.Duration,
+	machineId string, force, forceDying bool, maxWait time.Duration,
 ) error {
 	// Remove legacy upgrade-series locks before looking up the machine. A
 	// previous cleanup may already have removed the machine document.
@@ -1518,7 +1516,7 @@ func (st *State) cleanupEvacuateMachineInternal(
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	if !force && machine.Life() > maxLife {
+	if !force && machine.Life() == Dead {
 		return nil
 	}
 
@@ -1607,16 +1605,29 @@ func (st *State) cleanupContainers(machine *Machine, force, forceDying bool, max
 		return err
 	}
 	for _, containerId := range containerIds {
-		if err := st.cleanupEvacuateMachineInternal(
-			containerId, Alive, force, forceDying, maxWait,
-		); err != nil {
-			return err
-		}
 		container, err := st.Machine(containerId)
 		if errors.IsNotFound(err) {
+			if force {
+				if err := st.cleanupUpgradeSeriesLock(containerId); err != nil {
+					return errors.Trace(err)
+				}
+			}
 			continue
 		} else if err != nil {
 			return err
+		}
+		// A Dying container is already being removed by its own teardown.
+		if force || container.Life() == Alive {
+			if err := st.cleanupEvacuateMachineInternal(
+				containerId, force, forceDying, maxWait,
+			); err != nil {
+				return err
+			}
+			if err := container.Refresh(); errors.IsNotFound(err) {
+				continue
+			} else if err != nil {
+				return err
+			}
 		}
 		if container.Life() != Dead {
 			return errors.Errorf(
