@@ -466,7 +466,11 @@ func (s *Service) GetMissingAgentTargetVersions(ctx context.Context) (semversion
 // This is a bulk call to support operations such as model export where it will
 // never provide enough granularity into what unit fails as part of the checks.
 //
-// The following error types can be expected:
+// CAAS models always return empty metadata with no error: their unit agents
+// are delivered in the operator OCI image and have no binary in the model
+// object store.
+//
+// The following error types can be expected for IAAS models only:
 // - [modelagenterrors.AgentVersionNotSet] when one or more units in the
 // model, excluding synthetic CMR units, do not have their agent binary version
 // set.

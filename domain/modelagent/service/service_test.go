@@ -108,6 +108,25 @@ func (s *serviceSuite) TestGetModelAgentVersionModelNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
+func (s *serviceSuite) TestGetModelAgentBinaryMetadata(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machines := map[coremachine.Name]coreagentbinary.Metadata{
+		"0": {},
+	}
+	units := map[coreunit.Name]coreagentbinary.Metadata{
+		"app/0": {},
+	}
+	s.modelState.EXPECT().GetMachinesAgentBinaryMetadata(gomock.Any()).Return(machines, nil)
+	s.modelState.EXPECT().GetUnitsAgentBinaryMetadata(gomock.Any()).Return(units, nil)
+
+	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
+	gotMachines, gotUnits, err := svc.GetModelAgentBinaryMetadata(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotMachines, tc.DeepEquals, machines)
+	c.Check(gotUnits, tc.DeepEquals, units)
+}
+
 // TestGetMachineTargetAgentVersion is asserting the happy path for getting
 // a machine's target agent version.
 func (s *serviceSuite) TestGetMachineTargetAgentVersion(c *tc.C) {
