@@ -1055,6 +1055,7 @@ func NewIAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldCo
 		ControllerUnitPassword:        bootstrap.IAASControllerUnitPassword,
 		BootstrapAddressFinderGetter:  bootstrap.IAASAddressFinder,
 		AgentFinalizer:                bootstrap.IAASAgentFinalizer,
+		RemoveBootstrapSSHKeys:        bootstrap.DeleteBootstrapSSHKeys,
 	}
 }
 
@@ -1080,6 +1081,7 @@ func NewCAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldCo
 		ControllerUnitPassword:        bootstrap.CAASControllerUnitPassword,
 		BootstrapAddressFinderGetter:  bootstrap.CAASAddressFinder,
 		AgentFinalizer:                bootstrap.CAASAgentFinalizer,
+		RemoveBootstrapSSHKeys:        func([]string) error { return nil },
 	}
 }
 

@@ -1,3 +1,2 @@
 #!/bin/sh
-cd "$SNAP_DATA"
-exec "$SNAP/bin/juju-introspect" --data-dir "$SNAP_DATA" depengine
+exec "$SNAP/bin/juju-introspect" --controller-dir "$SNAP_DATA" depengine

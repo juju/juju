@@ -85,9 +85,9 @@ func (a *safeModeApplicationCommand) Init(args []string) error {
 
 	a.agentTag = names.NewControllerAgentTag(a.controllerId)
 
-	runtimeConfigPath := controllerruntimeconfig.ConfigPath(filepath.Join(
-		a.agentInitializer.DataDir(), "agents", "controller-"+a.agentTag.Id(),
-	))
+	runtimeConfigPath := filepath.Join(
+		a.agentInitializer.DataDir(), controllerruntimeconfig.Filename,
+	)
 	runtimeConfig, err := controllerruntimeconfig.ReadControllerRuntimeConfig(runtimeConfigPath)
 	if err != nil {
 		return errors.Errorf("cannot read controller runtime config: %v", err)
@@ -223,11 +223,8 @@ type safeModeControllerStartupValueProvider struct {
 }
 
 func (p safeModeControllerStartupValueProvider) ControllerStartupValues() (dbaccessor.ControllerStartupValues, error) {
-	runtimeCfg, err := controllerruntimeconfig.ReadControllerRuntimeConfig(
-		controllerruntimeconfig.ConfigPath(
-			filepath.Join(p.agent.runtimeConfig.DataDir, "agents", "controller-"+p.agent.Tag().Id()),
-		),
-	)
+	runtimeConfigPath := filepath.Join(p.agent.runtimeConfig.DataDir, controllerruntimeconfig.Filename)
+	runtimeCfg, err := controllerruntimeconfig.ReadControllerRuntimeConfig(runtimeConfigPath)
 	if err != nil {
 		return dbaccessor.ControllerStartupValues{}, errors.Trace(err)
 	}
@@ -241,6 +238,7 @@ func (p safeModeControllerStartupValueProvider) ControllerStartupValues() (dbacc
 		CACert:                runtimeCfg.CACert,
 		ControllerCert:        runtimeCfg.ControllerCert,
 		ControllerPrivateKey:  runtimeCfg.ControllerPrivateKey,
+		SharedAgentDir:        runtimeCfg.SharedAgentDir,
 	}, nil
 }
 

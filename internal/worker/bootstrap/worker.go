@@ -25,6 +25,7 @@ import (
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	userservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/controllernode"
+	keyerrors "github.com/juju/juju/domain/keymanager/errors"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/status"
@@ -49,8 +50,15 @@ var bootstrapSSHUser = "ubuntu"
 
 // DeleteBootstrapSSHKeys removes bootstrap-only keys from an IAAS bootstrap
 // machine's standard Ubuntu authorized_keys file.
+//
+// In snap-based controllers the confined process runs in a user namespace
+// where uid 0 maps to a non-root host uid, so accessing /home/ubuntu/.ssh
+// fails even with system-files AppArmor rules. Snap controllers skip removal.
 func DeleteBootstrapSSHKeys(keys []string) error {
 	if len(keys) == 0 {
+		return nil
+	}
+	if os.Getenv("SNAP") != "" {
 		return nil
 	}
 	// IAAS bootstrap machines use the standard Ubuntu account and file. CAAS
@@ -448,7 +456,7 @@ func (w *bootstrapWorker) seedInitialAuthorizedKeys(
 	}
 
 	err = w.cfg.KeyManagerService.AddPublicKeysForUser(ctx, adminUser.UUID, keys...)
-	if err != nil {
+	if err != nil && !errors.Is(err, keyerrors.PublicKeyAlreadyExists) {
 		return fmt.Errorf("cannot seed %d authorized keys into the controller model: %w",
 			len(keys),
 			err,

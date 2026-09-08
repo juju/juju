@@ -183,7 +183,7 @@ func (s *InitCommandSuite) TestSuccessfulInit(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify runtime.conf was written to $SNAP_DATA with resolved snap paths.
-	runtimeDst := filepath.Join(snapData, controllerAgentDir, controllerruntimeconfig.Filename)
+	runtimeDst := filepath.Join(snapData, controllerruntimeconfig.Filename)
 	data, err := os.ReadFile(runtimeDst)
 	c.Assert(err, tc.ErrorIsNil)
 	runtimeStr := string(data)
@@ -198,11 +198,6 @@ func (s *InitCommandSuite) TestSuccessfulInit(c *tc.C) {
 	info, err := os.Stat(runtimeDst)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.Mode().Perm(), tc.Equals, os.FileMode(0o600))
-
-	// Verify runtime.conf parent directory permissions.
-	parentInfo, err := os.Stat(filepath.Dir(runtimeDst))
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(parentInfo.Mode().Perm(), tc.Equals, os.FileMode(0o700))
 
 	// Verify bootstrap-params was written to $SNAP_COMMON byte-for-byte.
 	bootstrapDst := filepath.Join(snapCommon, controllerruntimeconfig.FileNameBootstrapParams)
@@ -248,7 +243,7 @@ func (s *InitCommandSuite) TestTokenResolutionFourPaths(c *tc.C) {
 	err = ic.Run(ctx)
 	c.Assert(err, tc.ErrorIsNil)
 
-	runtimeDst := filepath.Join(snapData, controllerAgentDir, controllerruntimeconfig.Filename)
+	runtimeDst := filepath.Join(snapData, controllerruntimeconfig.Filename)
 	resolved, err := controllerruntimeconfig.ReadControllerRuntimeConfig(runtimeDst)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -256,7 +251,7 @@ func (s *InitCommandSuite) TestTokenResolutionFourPaths(c *tc.C) {
 	c.Check(resolved.DataDir, tc.Equals, snapData)
 	c.Check(resolved.LogDir, tc.Equals, snapCommon+"/logs")
 	c.Check(resolved.SocketDir, tc.Equals, snapCommon+"/sockets")
-	c.Check(resolved.SharedAgentDir, tc.Equals, snapCommon+"/agents/controller-0")
+	c.Check(resolved.SharedAgentDir, tc.Equals, snapCommon)
 
 	// Verify credential fields are byte-for-byte unchanged.
 	c.Check(resolved.CACert, tc.Equals, "ca-cert-pem")
@@ -281,7 +276,7 @@ controller-model-uuid: feedface-dead-beef-cafe-c0ffee000000
 data-dir: "@SNAP_DATA@"
 log-dir: "@SNAP_COMMON@/logs"
 socket-dir: "@SNAP_COMMON@/sockets"
-shared-agent-dir: "@SNAP_COMMON@/agents/controller-0"
+shared-agent-dir: "@SNAP_COMMON@"
 api-port: 17070
 agent-password: agent-password
 ca-cert: "ca-cert-pem with @SNAP_DATA@ embedded"
@@ -330,7 +325,7 @@ func (s *InitCommandSuite) TestCredentialLikeStringPreserved(c *tc.C) {
 		DataDir:              controllerruntimeconfig.TokenSnapData,
 		LogDir:               controllerruntimeconfig.TokenSnapCommon + "/logs",
 		SocketDir:            controllerruntimeconfig.TokenSnapCommon + "/sockets",
-		SharedAgentDir:       controllerruntimeconfig.TokenSnapCommon + "/agents/controller-0",
+		SharedAgentDir:       controllerruntimeconfig.TokenSnapCommon,
 		APIPort:              17070,
 		AgentPassword:        "passWd!NotAToken",
 		CACert:               "ca-cert-pem",
