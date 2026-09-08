@@ -355,22 +355,12 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 
 	var requiredEvents int
 
-	var seenUnitChange bool
+	var seenUnitStateChange bool
 	unitw, err := w.unit.Watch(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if err := w.catacomb.Add(unitw); err != nil {
-		return errors.Trace(err)
-	}
-	requiredEvents++
-
-	var seenResolveModeChange bool
-	resolveModew, err := w.unit.WatchResolveMode(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := w.catacomb.Add(resolveModew); err != nil {
 		return errors.Trace(err)
 	}
 	requiredEvents++
@@ -382,16 +372,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	}
 
 	if err := w.catacomb.Add(charmConfigw); err != nil {
-		return errors.Trace(err)
-	}
-	requiredEvents++
-
-	var seenTrustConfigChange bool
-	trustConfigw, err := w.unit.WatchTrustConfigSettingsHash(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := w.catacomb.Add(trustConfigw); err != nil {
 		return errors.Trace(err)
 	}
 	requiredEvents++
@@ -530,20 +510,10 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok {
 				return errors.New("unit watcher closed")
 			}
-			if err := w.unitChanged(ctx); err != nil {
+			if err := w.unitStateChanged(ctx); err != nil {
 				return errors.Trace(err)
 			}
-			observedEvent(&seenUnitChange)
-
-		case _, ok := <-resolveModew.Changes():
-			w.logger.Debugf(ctx, "got resolve mode change for %s", w.unit.Tag().Id())
-			if !ok {
-				return errors.New("resolve mode watcher closed")
-			}
-			if err := w.resolveModeChanged(ctx); err != nil {
-				return errors.Trace(err)
-			}
-			observedEvent(&seenResolveModeChange)
+			observedEvent(&seenUnitStateChange)
 
 		case _, ok := <-applicationw.Changes():
 			w.logger.Debugf(ctx, "got application change for %s", w.unit.Tag().Id())
@@ -575,17 +545,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			w.configHashChanged(hashes[0])
 			observedEvent(&seenConfigChange)
-
-		case hashes, ok := <-trustConfigw.Changes():
-			w.logger.Debugf(ctx, "got trust config change for %s: ok=%t, hashes=%v", w.unit.Tag().Id(), ok, hashes)
-			if !ok {
-				return errors.New("trust config watcher closed")
-			}
-			if len(hashes) != 1 {
-				return errors.New("expected one hash in trust config change")
-			}
-			w.trustHashChanged(hashes[0])
-			observedEvent(&seenTrustConfigChange)
 
 		case hashes, ok := <-addressesChanges:
 			w.logger.Debugf(ctx, "got address change for %s: ok=%t, hashes=%v", w.unit.Tag().Id(), ok, hashes)
@@ -777,9 +736,13 @@ func (w *RemoteStateWatcher) retryHookTimerTriggered() {
 	w.mu.Unlock()
 }
 
-// unitChanged responds to changes in the unit.
-func (w *RemoteStateWatcher) unitChanged(ctx context.Context) error {
+// unitStateChanged responds to changes in the unit or its resolve mode.
+func (w *RemoteStateWatcher) unitStateChanged(ctx context.Context) error {
 	if err := w.unit.Refresh(ctx); err != nil {
+		return errors.Trace(err)
+	}
+	resolveMode, err := w.unit.Resolved(ctx)
+	if err != nil {
 		return errors.Trace(err)
 	}
 	w.mu.Lock()
@@ -788,16 +751,6 @@ func (w *RemoteStateWatcher) unitChanged(ctx context.Context) error {
 	// It's ok to sync provider ID by watching unit rather than
 	// cloud container because it will not change once pod created.
 	w.current.ProviderID = w.unit.ProviderID()
-	return nil
-}
-
-func (w *RemoteStateWatcher) resolveModeChanged(ctx context.Context) error {
-	resolveMode, err := w.unit.Resolved(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	w.mu.Lock()
-	defer w.mu.Unlock()
 	w.current.ResolvedMode = resolveMode
 	return nil
 }
@@ -919,11 +872,6 @@ func (w *RemoteStateWatcher) secretDeletedRevisions(ctx context.Context, deleted
 func (w *RemoteStateWatcher) configHashChanged(value string) {
 	w.mu.Lock()
 	w.current.ConfigHash = value
-	w.mu.Unlock()
-}
-
-func (w *RemoteStateWatcher) trustHashChanged(value string) {
-	w.mu.Lock()
 	w.current.TrustHash = value
 	w.mu.Unlock()
 }

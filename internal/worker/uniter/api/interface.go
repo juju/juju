@@ -67,9 +67,7 @@ type Unit interface {
 	// Used by remotestate watcher.
 
 	WatchConfigSettingsHash(context.Context) (watcher.StringsWatcher, error)
-	WatchTrustConfigSettingsHash(context.Context) (watcher.StringsWatcher, error)
 	WatchRelations(context.Context) (watcher.StringsWatcher, error)
-	WatchResolveMode(context.Context) (watcher.NotifyWatcher, error)
 	WatchAddressesHash(context.Context) (watcher.StringsWatcher, error)
 	WatchActionNotifications(context.Context) (watcher.StringsWatcher, error)
 	WatchStorage(context.Context) (watcher.StringsWatcher, error)
