@@ -1,6 +1,6 @@
 module github.com/juju/juju
 
-go 1.25.12
+go 1.26.0
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.12.0
@@ -109,7 +109,7 @@ require (
 	golang.org/x/crypto v0.55.0
 	golang.org/x/net v0.58.0
 	golang.org/x/oauth2 v0.36.0
-	golang.org/x/sync v0.22.0
+	golang.org/x/sync v0.23.0
 	golang.org/x/sys v0.47.0
 	golang.org/x/tools v0.49.0
 	google.golang.org/api v0.256.0
