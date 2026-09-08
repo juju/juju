@@ -694,7 +694,11 @@ WHERE machine_uuid = $machineUUIDRef.machine_uuid
 // of a model stays relatively static over the operation. This function will
 // never provide enough granularity into what unit fails as part of the checks.
 //
-// The following errors can be expected:
+// CAAS models always return empty metadata with no error: their unit agents
+// are delivered in the operator OCI image and have no binary in the model
+// object store.
+//
+// The following errors can be expected for IAAS models only:
 // - [modelagenterrors.AgentVersionNotSet] when one or more units in
 // the model, excluding synthetic CMR units, do not have their agent version
 // set.
@@ -758,8 +762,11 @@ WHERE  c.source_id < 2
 		return nil, errors.Capture(err)
 	}
 
-	unitBinaryMetadata := []unitAgentBinaryMetadata{}
+	var unitBinaryMetadata []unitAgentBinaryMetadata
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		unitBinaryMetadata = nil
+		unitCount = rowCount{}
+
 		err := tx.Query(ctx, stmt).GetAll(&unitBinaryMetadata)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(

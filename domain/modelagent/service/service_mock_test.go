@@ -13,7 +13,6 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
-
 	agentbinary "github.com/juju/juju/core/agentbinary"
 	base "github.com/juju/juju/core/base"
 	machine "github.com/juju/juju/core/machine"
