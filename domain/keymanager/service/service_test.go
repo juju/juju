@@ -189,6 +189,37 @@ func (s *serviceSuite) TestAddReservedPublicKeys(c *tc.C) {
 	c.Check(err, tc.ErrorIs, keyserrors.ReservedCommentViolation)
 }
 
+// TestAddPublicKeysSmugglingReservedKey is asserting that a reserved comment
+// cannot be slipped past the check by hiding it behind a second key. The whole
+// string is what ends up in authorized_keys, but only the first key in it is
+// checked, so this has to be rejected as an invalid key.
+func (s *serviceSuite) TestAddPublicKeysSmugglingReservedKey(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(s.modelUUID, s.state)
+
+	err := svc.AddPublicKeysForUser(
+		c.Context(),
+		s.userID,
+		testingPublicKeys[0]+"\n"+reservedPublicKeys[0],
+	)
+	c.Check(err, tc.ErrorIs, keyserrors.InvalidPublicKey)
+}
+
+// TestImportPublicKeysSmugglingReservedKey is asserting the same as
+// [serviceSuite.TestAddPublicKeysSmugglingReservedKey] for keys arriving from
+// an external import source, which we do not control.
+func (s *serviceSuite) TestImportPublicKeysSmugglingReservedKey(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.keyImporter.EXPECT().FetchPublicKeysForSubject(gomock.Any(), s.subjectURI).
+		Return([]string{testingPublicKeys[0] + "\n" + reservedPublicKeys[0]}, nil)
+
+	err := NewImporterService(s.modelUUID, s.keyImporter, s.state).
+		ImportPublicKeysForUser(c.Context(), s.userID, s.subjectURI)
+	c.Check(err, tc.ErrorIs, keyserrors.InvalidPublicKey)
+}
+
 // TestAddExistingKeysForUser is asserting that when we try and add a key for a
 // user that already exists we get back a
 // [keyserrors.PublicKeyAlreadyExists] error.
