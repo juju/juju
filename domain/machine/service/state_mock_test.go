@@ -64,6 +64,7 @@ type MockStateMockRecorder struct {
 	getSSHHostKeysExpects                                     []*gomock.Call2_2[context.Context, string, []string, error]
 	getSupportedContainersTypesExpects                        []*gomock.Call2_2[context.Context, string, []string, error]
 	initialMachineContainerLifeStatementExpects               []*gomock.Call0_3[string, string, func(string) string]
+	initialWatchMachineSSHHostKeysStatementExpects            []*gomock.Call0_2[string, string]
 	initialWatchModelMachineLifeAndStartTimesStatementExpects []*gomock.Call0_2[string, string]
 	initialWatchModelMachinesStatementExpects                 []*gomock.Call0_2[string, string]
 	initialWatchStatementExpects                              []*gomock.Call0_2[string, string]
@@ -601,6 +602,24 @@ func (mr *MockStateMockRecorder) InitialMachineContainerLifeStatement() *MockSta
 
 // MockStateInitialMachineContainerLifeStatementCall is the typed call wrapper for InitialMachineContainerLifeStatement.
 type MockStateInitialMachineContainerLifeStatementCall = gomock.Call0_3[string, string, func(string) string]
+
+// InitialWatchMachineSSHHostKeysStatement mocks base method.
+func (m *MockState) InitialWatchMachineSSHHostKeysStatement() (string, string) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_2(&m.recorder.initialWatchMachineSSHHostKeysStatementExpects, m.ctrl, m, "InitialWatchMachineSSHHostKeysStatement")
+}
+
+// InitialWatchMachineSSHHostKeysStatement indicates an expected call of InitialWatchMachineSSHHostKeysStatement.
+func (mr *MockStateMockRecorder) InitialWatchMachineSSHHostKeysStatement() *MockStateInitialWatchMachineSSHHostKeysStatementCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_2[string, string](mr.mock.ctrl.T, mr.mock, "InitialWatchMachineSSHHostKeysStatement")
+	mr.initialWatchMachineSSHHostKeysStatementExpects = append(mr.initialWatchMachineSSHHostKeysStatementExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateInitialWatchMachineSSHHostKeysStatementCall is the typed call wrapper for InitialWatchMachineSSHHostKeysStatement.
+type MockStateInitialWatchMachineSSHHostKeysStatementCall = gomock.Call0_2[string, string]
 
 // InitialWatchModelMachineLifeAndStartTimesStatement mocks base method.
 func (m *MockState) InitialWatchModelMachineLifeAndStartTimesStatement() (string, string) {

@@ -1517,6 +1517,12 @@ func (*State) InitialWatchModelMachineLifeAndStartTimesStatement() (string, stri
 	return "custom_machine_lifecycle_start_time", "SELECT name FROM machine"
 }
 
+// InitialWatchMachineSSHHostKeysStatement returns the namespace and initial
+// query for watching SSH host key changes for one machine.
+func (*State) InitialWatchMachineSSHHostKeysStatement() (string, string) {
+	return "machine_ssh_host_key", "SELECT DISTINCT machine_uuid FROM machine_ssh_host_key WHERE machine_uuid = ?"
+}
+
 // InitialMachineContainerLifeStatement returns the table and the initial watch
 // statement for watching life changes of container machines.
 func (*State) InitialMachineContainerLifeStatement() (string, string, func(string) string) {
