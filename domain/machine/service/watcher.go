@@ -293,9 +293,10 @@ func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machi
 	)
 }
 
-// WatchMachineSSHHostKeys returns a watcher that emits changes to the SSH
-// host keys for the given machine. The initial event allows callers to query
-// keys that were reported before the watcher was created.
+// WatchMachineSSHHostKeys returns a watcher that emits the machine UUID when
+// the SSH host keys for the given machine change. The initial event allows
+// callers to query keys that were reported before the watcher was created;
+// callers must query the current keys after each notification.
 func (s *WatchableService) WatchMachineSSHHostKeys(ctx context.Context, machineUUID machine.UUID) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

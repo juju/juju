@@ -1481,12 +1481,6 @@ func (*State) NamespaceForWatchMachineCloudInstance() string {
 	return "machine_cloud_instance"
 }
 
-// NamespaceForWatchMachineSSHHostKeys returns the namespace for watching
-// machine SSH host key changes.
-func (*State) NamespaceForWatchMachineSSHHostKeys() string {
-	return "machine_ssh_host_key"
-}
-
 // NamespaceForWatchMachineReprovision returns the namespace used to wake the
 // provisioner after a machine is detached for reprovisioning.
 func (*State) NamespaceForWatchMachineReprovision() string {

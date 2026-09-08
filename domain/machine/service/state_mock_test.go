@@ -77,7 +77,6 @@ type MockStateMockRecorder struct {
 	namespaceForWatchMachineCloudInstanceExpects              []*gomock.Call0_1[string]
 	namespaceForWatchMachineRebootExpects                     []*gomock.Call0_1[string]
 	namespaceForWatchMachineReprovisionExpects                []*gomock.Call0_1[string]
-	namespaceForWatchMachineSSHHostKeysExpects                []*gomock.Call0_1[string]
 	requireMachineRebootExpects                               []*gomock.Call2_1[context.Context, machine.UUID, error]
 	setKeepInstanceExpects                                    []*gomock.Call3_1[context.Context, machine.Name, bool, error]
 	setMachineCloudInstanceExpects                            []*gomock.Call6_1[context.Context, string, instance.Id, string, string, *instance.HardwareCharacteristics, error]
@@ -837,24 +836,6 @@ func (mr *MockStateMockRecorder) NamespaceForWatchMachineReprovision() *MockStat
 
 // MockStateNamespaceForWatchMachineReprovisionCall is the typed call wrapper for NamespaceForWatchMachineReprovision.
 type MockStateNamespaceForWatchMachineReprovisionCall = gomock.Call0_1[string]
-
-// NamespaceForWatchMachineSSHHostKeys mocks base method.
-func (m *MockState) NamespaceForWatchMachineSSHHostKeys() string {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.namespaceForWatchMachineSSHHostKeysExpects, m.ctrl, m, "NamespaceForWatchMachineSSHHostKeys")
-}
-
-// NamespaceForWatchMachineSSHHostKeys indicates an expected call of NamespaceForWatchMachineSSHHostKeys.
-func (mr *MockStateMockRecorder) NamespaceForWatchMachineSSHHostKeys() *MockStateNamespaceForWatchMachineSSHHostKeysCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "NamespaceForWatchMachineSSHHostKeys")
-	mr.namespaceForWatchMachineSSHHostKeysExpects = append(mr.namespaceForWatchMachineSSHHostKeysExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateNamespaceForWatchMachineSSHHostKeysCall is the typed call wrapper for NamespaceForWatchMachineSSHHostKeys.
-type MockStateNamespaceForWatchMachineSSHHostKeysCall = gomock.Call0_1[string]
 
 // RequireMachineReboot mocks base method.
 func (m *MockState) RequireMachineReboot(ctx context.Context, uuid machine.UUID) error {
