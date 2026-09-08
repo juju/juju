@@ -244,7 +244,10 @@ func (d *factory) localCharmDeployer(ctx context.Context, getter ModelConfigGett
 	} else if errors.Cause(err) == zip.ErrFormat {
 		return nil, errors.Errorf("invalid charm or bundle provided at %q", d.charmOrBundle)
 	} else if errors.Is(err, errors.NotFound) {
-		return nil, errors.Wrap(err, errors.NotFoundf("charm or bundle at %q", d.charmOrBundle))
+		return nil, utils.AnnotateWithSnapHint(
+			errors.Wrap(err, errors.NotFoundf("charm or bundle at %q", d.charmOrBundle)),
+			d.charmOrBundle,
+		)
 	} else if errors.Is(err, os.ErrNotExist) {
 		logger.Debugf(context.TODO(), "cannot interpret as local charm: %v", err)
 		return nil, nil
@@ -348,7 +351,10 @@ func (d *factory) checkPath() error {
 	}
 	// Check in case we do have a valid path, but it doesn't exist
 	if fileStatErr != nil && charm.IsValidLocalCharmOrBundlePath(d.charmOrBundle) && os.IsNotExist(errors.Cause(fileStatErr)) {
-		return errors.Errorf("no charm was found at %q", d.charmOrBundle)
+		return utils.AnnotateWithSnapHint(
+			errors.Wrap(fileStatErr, errors.Errorf("no charm was found at %q", d.charmOrBundle)),
+			d.charmOrBundle,
+		)
 	}
 	return nil
 }
