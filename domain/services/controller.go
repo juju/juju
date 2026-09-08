@@ -31,6 +31,8 @@ import (
 	controllernodestate "github.com/juju/juju/domain/controllernode/state"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	credentialstate "github.com/juju/juju/domain/credential/state"
+	exportservice "github.com/juju/juju/domain/export/service"
+	controllerexportstate "github.com/juju/juju/domain/export/state/controller"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	externalcontrollerstate "github.com/juju/juju/domain/externalcontroller/state"
 	flagservice "github.com/juju/juju/domain/flag/service"
@@ -89,6 +91,13 @@ func NewControllerServices(
 func (s *ControllerServices) Controller() *controllerservice.Service {
 	return controllerservice.NewService(
 		controllerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+	)
+}
+
+// ControllerExport returns the controller export service.
+func (s *ControllerServices) ControllerExport() *exportservice.ControllerService {
+	return exportservice.NewControllerService(
+		controllerexportstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }
 
