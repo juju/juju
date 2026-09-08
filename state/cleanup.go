@@ -1319,16 +1319,15 @@ func (st *State) cleanupDyingMachine(machineID string, cleanupArgs []bson.Raw) e
 // hosted-unit evacuation workflow.
 func (st *State) cleanupForceDestroyedMachine(machineId string, cleanupArgs []bson.Raw) error {
 	var maxWait time.Duration
-	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
-	if n := len(cleanupArgs); n > 0 {
-		if n != 1 {
-			return errors.Errorf("expected 0-1 arguments, got %d", n)
+	switch n := len(cleanupArgs); n {
+	case 0:
+		// Old cleanups have no arguments.
+	case 1:
+		if err := cleanupArgs[0].Unmarshal(&maxWait); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
 		}
-		if n >= 1 {
-			if err := cleanupArgs[0].Unmarshal(&maxWait); err != nil {
-				return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
-			}
-		}
+	default:
+		return errors.Errorf("expected 0-1 arguments, got %d", n)
 	}
 	return st.cleanupEvacuateMachineInternal(machineId, true, true, maxWait)
 }
