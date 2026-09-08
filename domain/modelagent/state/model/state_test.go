@@ -953,6 +953,8 @@ func (s *modelStateSuite) TestGetMachineAgentBinaryMetadataMachineNotSet(c *tc.C
 // [State.GetUnitsAgentBinaryMetadata]. We assert that with multiple units on
 // different agent binaries the each unit is correctly associated.
 func (s *modelStateSuite) TestGetUnitAgentBinaryMetadata(c *tc.C) {
+	s.insertModel(c, model.IAAS)
+
 	versionAMD64 := coreagentbinary.Version{
 		Number: semversion.MustParse("4.1.0"),
 		Arch:   corearch.AMD64,
@@ -994,10 +996,28 @@ func (s *modelStateSuite) TestGetUnitAgentBinaryMetadata(c *tc.C) {
 	c.Check(data, tc.DeepEquals, expected)
 }
 
+// TestGetUnitsAgentBinaryMetadataCAAS verifies that CAAS unit agents do not
+// require a corresponding binary in the model object store. Their binaries
+// are delivered in the operator OCI image.
+func (s *modelStateSuite) TestGetUnitsAgentBinaryMetadataCAAS(c *tc.C) {
+	s.insertModel(c, model.CAAS)
+
+	s.createTestingApplicationWithName(c, "foo")
+	unitUUID := s.createTestingUnitForApplication(c, "foo")
+	s.setUnitAgentVersion(c, unitUUID, "4.1.0")
+
+	st := NewState(s.TxnRunnerFactory())
+	data, err := st.GetUnitsAgentBinaryMetadata(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(data, tc.HasLen, 0)
+}
+
 // TestGetUnitsAgentBinaryMetadataIgnoresSyntheticCMRUnits verifies that stale
 // agent version records on synthetic CMR units do not cause metadata export to
 // fail or appear in the result.
 func (s *modelStateSuite) TestGetUnitsAgentBinaryMetadataIgnoresSyntheticCMRUnits(c *tc.C) {
+	s.insertModel(c, model.IAAS)
+
 	version := coreagentbinary.Version{
 		Number: semversion.MustParse("4.1.0"),
 		Arch:   corearch.AMD64,
@@ -1041,6 +1061,8 @@ WHERE uuid = (SELECT charm_uuid FROM application WHERE uuid = ?)`,
 // provisioned by Juju but the agent running on the unit has not yet
 // come to life and reported their agent version back up to the controller.
 func (s *modelStateSuite) TestGetUnitsAgentBinaryMetadataUnitNotSet(c *tc.C) {
+	s.insertModel(c, model.IAAS)
+
 	versionAMD64 := coreagentbinary.Version{
 		Number: semversion.MustParse("4.1.0"),
 		Arch:   corearch.AMD64,
@@ -1070,6 +1092,8 @@ func (s *modelStateSuite) TestGetUnitsAgentBinaryMetadataUnitNotSet(c *tc.C) {
 // the unit we get back an error that satisfies
 // [modelagenterrors.MissingAgentBinaries]
 func (s *modelStateSuite) TestGetUnitAgentBinaryMetadataMissingAgentBinary(c *tc.C) {
+	s.insertModel(c, model.IAAS)
+
 	versionAMD64 := coreagentbinary.Version{
 		Number: semversion.MustParse("4.1.0"),
 		Arch:   corearch.AMD64,
@@ -1759,6 +1783,17 @@ VALUES ($dbMetadataPath.*)`, pathRecord)
 // target agent version for the model.
 func (s *modelStateSuite) setModelTargetAgentVersion(c *tc.C, vers string) {
 	s.setModelTargetAgentVersionInfo(c, vers, vers, domainagentbinary.AgentStreamReleased)
+}
+
+func (s *modelStateSuite) insertModel(c *tc.C, modelType model.ModelType) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+VALUES (?, 'controller-uuid', 'model-name', 'admin', ?, 'cloud', 'cloud-type')`,
+			s.ModelUUID(), modelType.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // setModelTargetAgentVersion is a testing utility for establishing an initial

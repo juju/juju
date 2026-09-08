@@ -72,6 +72,9 @@ func ValidateResourceDetails(res map[string]string, resMeta map[string]charmreso
 		switch resMeta[name].Type {
 		case charmresource.TypeFile:
 			err = utils.CheckFile(name, value, fs)
+			if err != nil {
+				return utils.AnnotateWithSnapHint(err, value)
+			}
 		case charmresource.TypeContainerImage:
 			_, err := getDockerDetailsData(value, fs.Open)
 			if err != nil {

@@ -696,7 +696,11 @@ WHERE machine_uuid = $machineUUIDRef.machine_uuid
 // of a model stays relatively static over the operation. This function will
 // never provide enough granularity into what unit fails as part of the checks.
 //
-// The following errors can be expected:
+// CAAS models always return empty metadata with no error: their unit agents
+// are delivered in the operator OCI image and have no binary in the model
+// object store.
+//
+// The following errors can be expected for IAAS models only:
 // - [modelagenterrors.AgentVersionNotSet] when one or more units in
 // the model, excluding synthetic CMR units, do not have their agent version
 // set.
@@ -720,6 +724,10 @@ func (st *State) GetUnitsAgentBinaryMetadata(
 		return nil, errors.Capture(err)
 	}
 
+	// CAAS unit agents are delivered in the operator OCI image and therefore
+	// have no binary in the model object store. Restrict both the metadata and
+	// count queries to IAAS so CAAS returns empty metadata while IAAS continues
+	// to detect missing agent binaries.
 	stmt, err := st.Prepare(`
 SELECT    u.name AS &unitAgentBinaryMetadata.name,
           uav.version AS &unitAgentBinaryMetadata.version,
@@ -731,6 +739,7 @@ FROM      unit_agent_version AS uav
 JOIN      unit AS u ON uav.unit_uuid = u.uuid
 JOIN      charm AS c ON c.uuid = u.charm_uuid
 JOIN      architecture AS a ON uav.architecture_id = a.id
+JOIN      model AS m ON m.type = 'iaas'
 LEFT JOIN agent_binary_store AS abs ON (
           uav.version = abs.version
 AND       uav.architecture_id = abs.architecture_id)
@@ -748,14 +757,18 @@ WHERE     c.source_id < 2
 SELECT (count(*)) AS (&rowCount.count)
 FROM   unit AS u
 JOIN   charm AS c ON c.uuid = u.charm_uuid
+JOIN   model AS m ON m.type = 'iaas'
 WHERE  c.source_id < 2
 `, unitCount)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	unitBinaryMetadata := []unitAgentBinaryMetadata{}
+	var unitBinaryMetadata []unitAgentBinaryMetadata
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		unitBinaryMetadata = nil
+		unitCount = rowCount{}
+
 		err := tx.Query(ctx, stmt).GetAll(&unitBinaryMetadata)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
