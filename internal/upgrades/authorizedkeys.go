@@ -15,20 +15,18 @@ import (
 )
 
 const (
-	authorizedKeysFile         = "authorized_keys"
-	jujuEphemeralCommentPrefix = ssh.JujuCommentPrefix + "Ephemeral:"
+	authorizedKeysFile = "authorized_keys"
 )
 
 var sshUser = "ubuntu"
 
-// removePersistentJujuAuthorizedKeys removes legacy persistent Juju-managed
-// keys from the ubuntu user's authorized_keys file. Only keys whose comment
-// starts with the Juju prefix (e.g. "Juju:user@host") are selected for
+// removeJujuAuthorizedKeys removes legacy Juju-managed keys from the ubuntu
+// user's authorized_keys file. Only keys whose comment starts with the Juju
+// prefix (e.g. "Juju:user@host" or "Juju:Ephemeral:...") are selected for
 // deletion; they are removed by comment via ssh.DeleteKeysFromFile.
 //
-// Keys with an ephemeral comment prefix ("Juju:Ephemeral:") are retained, as
-// they belong to active reverse tunnels. Manually added keys without a Juju
-// comment are never selected for deletion.
+// Manually added keys without a Juju comment are never selected for
+// deletion.
 //
 // The step only applies to IAAS machines: the agent config records the
 // provider type, and CAAS agents are skipped explicitly. The ubuntu user
@@ -39,7 +37,7 @@ var sshUser = "ubuntu"
 // utility's rewrite may drop both lines, since it indexes keys by
 // fingerprint. Duplicate fingerprints across Juju and manual keys are not
 // expected in practice.
-func removePersistentJujuAuthorizedKeys(ctx Context) error {
+func removeJujuAuthorizedKeys(ctx Context) error {
 	if ctx.AgentConfig().Value(agent.ProviderType) == constants.CAASProviderType {
 		// CAAS pods have no ubuntu user and no cloud-init injected
 		// authorized_keys; nothing to clean up.
@@ -63,8 +61,7 @@ func removePersistentJujuAuthorizedKeys(ctx Context) error {
 			logger.Warningf(stdcontext.Background(), "ignoring invalid ssh key %q: %v", key, err)
 			continue
 		}
-		if strings.HasPrefix(parsed.Comment, ssh.JujuCommentPrefix) &&
-			!strings.HasPrefix(parsed.Comment, jujuEphemeralCommentPrefix) {
+		if strings.HasPrefix(parsed.Comment, ssh.JujuCommentPrefix) {
 			comments = append(comments, parsed.Comment)
 		}
 	}

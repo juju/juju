@@ -15,9 +15,9 @@ var upgradeOperations = func() []Operation {
 	steps := []Operation{
 		upgradeToVersion{semversion.MustParse("4.1.0"), []Step{
 			&upgradeStep{
-				description: "remove persistent Juju SSH keys",
+				description: "remove Juju SSH keys",
 				targets:     []Target{HostMachine},
-				run:         removePersistentJujuAuthorizedKeys,
+				run:         removeJujuAuthorizedKeys,
 			},
 		}},
 	}
