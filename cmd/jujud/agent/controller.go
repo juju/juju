@@ -279,9 +279,9 @@ func (a *controllerApplicationCommand) Init(args []string) error {
 	_, _ = loggo.RemoveWriter("logfile")
 
 	a.agentTag = names.NewControllerAgentTag(a.controllerId)
-	a.controllerRuntimePath = controllerruntimeconfig.ConfigPath(filepath.Join(
-		a.agentInitializer.DataDir(), "agents", "controller-"+a.agentTag.Id(),
-	))
+	a.controllerRuntimePath = filepath.Join(
+		a.agentInitializer.DataDir(), controllerruntimeconfig.Filename,
+	)
 
 	runtimeConfig, err := controllerruntimeconfig.ReadControllerRuntimeConfig(a.controllerRuntimePath)
 	if err != nil {
@@ -680,7 +680,7 @@ func (a *ControllerApplication) makeEngineCreator(
 		}
 
 		if err := addons.StartIntrospection(addons.IntrospectionConfig{
-			AgentDir:           agent.Dir(controllerRuntimeConfig.DataDir, a.agentTag),
+			AgentDir:           controllerRuntimeConfig.DataDir,
 			Engine:             eng,
 			MachineLock:        nil,
 			PrometheusGatherer: a.prometheusRegistry,

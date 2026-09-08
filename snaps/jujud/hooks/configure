@@ -16,7 +16,7 @@
 
 set -e
 
-RUNTIME_CONF="$SNAP_DATA/agents/controller-0/runtime.conf"
+RUNTIME_CONF="$SNAP_DATA/runtime.conf"
 
 log() {
   echo "$@" >&2

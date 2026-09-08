@@ -105,6 +105,25 @@ func (s *IntrospectCommandSuite) TestQuery(c *tc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "hello")
 }
 
+func (s *IntrospectCommandSuite) TestQueryControllerDir(c *tc.C) {
+	controllerDir := c.MkDir()
+	socketPath := filepath.Join(controllerDir, "introspection.socket")
+	listener, err := sockets.Listen(sockets.Socket{
+		Network: "unix",
+		Address: socketPath,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer listener.Close()
+
+	srv := newServer(listener)
+	go srv.Serve(listener)
+	defer srv.Shutdown(c.Context())
+
+	ctx, err := s.run(c, "query", "--controller-dir="+controllerDir)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "hello")
+}
+
 func (s *IntrospectCommandSuite) TestQueryFails(c *tc.C) {
 	agentDir := filepath.Join(config.DataDir, "agents", "machine-0")
 	err := os.MkdirAll(agentDir, 0755)

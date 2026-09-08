@@ -2,12 +2,18 @@
 
 set -e
 
-cd "$SNAP_DATA"
-controller_dir=$(find "$SNAP_DATA/agents" -maxdepth 1 -type d -name 'controller-*' 2>/dev/null | head -1)
-if [ -z "$controller_dir" ]; then
-  echo "cannot find controller instance in $SNAP_DATA/agents" >&2
+runtime_conf="$SNAP_DATA/runtime.conf"
+if [ ! -f "$runtime_conf" ]; then
+  echo "controller not yet initialized (runtime.conf not found); run jujud init first" >&2
   exit 1
 fi
 
-controller_id=$(basename "$controller_dir" | cut -d- -f2)
+controller_id=$(pkg-config --variable=controller-id 2>/dev/null || python3 -c "
+import yaml
+with open('$runtime_conf') as f:
+    print(yaml.safe_load(f)['controller-id'])
+" 2>/dev/null || true)
+if [ -z "$controller_id" ]; then
+  controller_id=0
+fi
 exec "$SNAP/bin/jujud" safe-mode --data-dir "$SNAP_DATA" --controller-id "$controller_id" "$@"
