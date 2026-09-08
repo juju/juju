@@ -148,14 +148,14 @@ prepare: |
       make juju
   fi
 
-  if [[ -f "$GOBIN/jujud" ]]; then
+  if [[ -f "$GOBIN/jujuagentd" ]]; then
       chown $(id -u):$(id -g) "$GOBIN/jujud"
-      chmod a+x "$GOBIN/jujud"
+      chmod a+x "$GOBIN/jujuagentd"
   else
       apt-get update
       apt-get install -y build-essential
       snap install go --classic
-      make jujud-controller
+      make jujuagentd
   fi
 
   export PATH="$GOBIN:$PATH"

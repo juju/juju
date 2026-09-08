@@ -7,13 +7,13 @@ execute: |
   model_name="test-deploy-local-predeployed-charm"
   ensure "${model_name}" "${TEST_DIR}/${model_name}.log"
 
-  juju download ubuntu-plus
-  juju deploy ./ubuntu-plus.charm --base ubuntu@24.04
-  wait_for "ubuntu-plus" "$(idle_condition "ubuntu-plus")"
+  juju download ubuntu-lite --revision=4
+  juju deploy ./ubuntu-lite_r4.charm
+  wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
-  juju deploy local:ubuntu-plus-0 another-ubuntu-plus-app
-  wait_for "another-ubuntu-plus-app" "$(idle_condition "another-ubuntu-plus-app")"
-  wait_for "active" '.applications["another-ubuntu-plus-app"] | ."application-status".current'
+  juju deploy local:ubuntu-lite-0 another-ubuntu-lite-app
+  wait_for "another-ubuntu-lite-app" "$(idle_condition "another-ubuntu-lite-app")"
+  wait_for "active" '.applications["another-ubuntu-lite-app"] | ."application-status".current'
 
 restore: |
   . "$TESTSLIB/spread-env.sh"
