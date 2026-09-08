@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/providertracker"
 	corestatus "github.com/juju/juju/core/status"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
@@ -334,7 +335,7 @@ func IAASAgentFinalizer(
 		bootstrapParams.BootstrapMachineDisplayName,
 		agent.BootstrapNonce,
 		bootstrapParams.BootstrapMachineHardwareCharacteristics,
-	); err != nil {
+	); err != nil && !errors.Is(err, machineerrors.MachineCloudInstanceAlreadyExists) {
 		return errors.Trace(err)
 	}
 

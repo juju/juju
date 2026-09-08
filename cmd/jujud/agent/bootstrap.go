@@ -289,8 +289,7 @@ func (c *BootstrapCommand) runSnapIAAS(
 	if snapData := os.Getenv("SNAP_DATA"); snapData != "" {
 		runtimeCfgDir = snapData
 	}
-	controllerAgentDir := filepath.Join(runtimeCfgDir, "agents", "controller-"+agent.BootstrapControllerId)
-	runtimeCfgPath := controllerruntimeconfig.ConfigPath(controllerAgentDir)
+	runtimeCfgPath := filepath.Join(runtimeCfgDir, controllerruntimeconfig.Filename)
 
 	runtimeCfg, err := controllerruntimeconfig.ReadControllerRuntimeConfig(runtimeCfgPath)
 	if err != nil {

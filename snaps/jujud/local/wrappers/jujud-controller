@@ -2,7 +2,7 @@
 
 set -e
 
-runtime_conf="$SNAP_DATA/agents/controller-0/runtime.conf"
+runtime_conf="$SNAP_DATA/runtime.conf"
 if [ ! -f "$runtime_conf" ]; then
   echo "controller not yet initialized (runtime.conf not found); run jujud init first" >&2
   exit 0
