@@ -50,6 +50,7 @@ func (s *storageServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.service = NewService(
 		s.modelState,
 		s.controllerState,
+		NewMockLeaderEnsurer(ctrl),
 		s.clusterDescriber,
 		s.statusHistory,
 		func() (StatusHistoryReader, error) {
