@@ -182,28 +182,16 @@ WHERE  c.source_id < 2
 	if err != nil {
 		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
 	}
-	applicationAgentStmt, err := s.Prepare(`
-SELECT &agentName.name
-FROM   application AS a
-JOIN   application_agent AS aa ON aa.application_uuid = a.uuid
-JOIN   charm AS c ON c.uuid = a.charm_uuid
-WHERE  c.source_id < 2
-`, agentName{})
-	if err != nil {
-		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
-	}
 
 	var (
 		modelTypeValue modelType
 		machines       []agentName
 		units          []agentName
-		applications   []agentName
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		modelTypeValue = modelType{}
 		machines = nil
 		units = nil
-		applications = nil
 
 		if err := tx.Query(ctx, modelTypeStmt).Get(&modelTypeValue); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
@@ -212,14 +200,16 @@ WHERE  c.source_id < 2
 			return errors.Errorf("querying model type: %w", err)
 		}
 
-		if model.ModelType(modelTypeValue.Type) == model.CAAS {
-			if err := tx.Query(ctx, applicationAgentStmt).GetAll(&applications); err != nil &&
+		// CAAS models have no machines; their workload runs as unit agents in
+		// workload pods. The model operator is model-scoped infrastructure and
+		// is not a migration minion (matching 3.6 sidecar behaviour, where only
+		// unit/application workload agents report), so only IAAS models report
+		// machine agents.
+		if model.ModelType(modelTypeValue.Type) != model.CAAS {
+			if err := tx.Query(ctx, machineStmt).GetAll(&machines); err != nil &&
 				!errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Errorf("querying application agents: %w", err)
+				return errors.Errorf("querying machine agents: %w", err)
 			}
-		} else if err := tx.Query(ctx, machineStmt).GetAll(&machines); err != nil &&
-			!errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("querying machine agents: %w", err)
 		}
 
 		if err := tx.Query(ctx, unitStmt).GetAll(&units); err != nil &&
@@ -232,18 +222,14 @@ WHERE  c.source_id < 2
 	}
 
 	agents := modelmigrationinternal.MigrationAgents{
-		Machines:     make([]string, 0, len(machines)),
-		Units:        make([]string, 0, len(units)),
-		Applications: make([]string, 0, len(applications)),
+		Machines: make([]string, 0, len(machines)),
+		Units:    make([]string, 0, len(units)),
 	}
 	for _, m := range machines {
 		agents.Machines = append(agents.Machines, m.Name)
 	}
 	for _, u := range units {
 		agents.Units = append(agents.Units, u.Name)
-	}
-	for _, a := range applications {
-		agents.Applications = append(agents.Applications, a.Name)
 	}
 	return agents, nil
 }
