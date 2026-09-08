@@ -6,7 +6,7 @@ applications:
     revision: 24
     num_units: 1
     to:
-    - "0"
+      - "0"
     constraints: arch=amd64
   telegraf:
     charm: telegraf
@@ -20,13 +20,13 @@ applications:
       foo-file: 2
     num_units: 1
     to:
-    - "1"
+      - "1"
     constraints: arch=amd64
 machines:
   "0": {}
   "1": {}
 relations:
-- - telegraf:juju-info
-  - juju-qa-test:juju-info
-- - telegraf:influxdb-api
-  - influxdb:query
+  - - telegraf:juju-info
+    - juju-qa-test:juju-info
+  - - telegraf:influxdb-api
+    - influxdb:query

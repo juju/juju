@@ -12,8 +12,8 @@ export PATH="${SPREAD_PATH}/../go/bin:${PATH}"
 # In spread, each task gets its own working directory; we use a temp dir
 # under /tmp scoped to the current task.
 if [ -z "${TEST_DIR:-}" ]; then
-    TEST_DIR=$(mktemp -d "/tmp/spread-juju-XXXXXX")
-    export TEST_DIR
+  TEST_DIR=$(mktemp -d "/tmp/spread-juju-XXXXXX")
+  export TEST_DIR
 fi
 
 # TEST_DIR may be a fixed shared path (e.g. set by the suite environment), so

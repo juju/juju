@@ -45,8 +45,8 @@ default-base: ubuntu@20.04
 applications:
   glance:
     annotations:
-      gui-x: '250'
-      gui-y: '0'
+      gui-x: "250"
+      gui-y: "0"
     charm: glance
     num_units: 1
     options:
@@ -54,8 +54,8 @@ applications:
       worker-multiplier: 0.25
   keystone:
     annotations:
-      gui-x: '500'
-      gui-y: '0'
+      gui-x: "500"
+      gui-y: "0"
     charm: keystone
     num_units: 1
     options:
@@ -64,8 +64,8 @@ applications:
       worker-multiplier: 0.25
   mysql:
     annotations:
-      gui-x: '0'
-      gui-y: '250'
+      gui-x: "0"
+      gui-y: "250"
     charm: percona-cluster
     num_units: 1
     options:
@@ -73,8 +73,8 @@ applications:
       innodb-buffer-pool-size: 50%
   neutron-api:
     annotations:
-      gui-x: '500'
-      gui-y: '500'
+      gui-x: "500"
+      gui-y: "500"
     charm: neutron-api
     num_units: 1
     options:
@@ -84,8 +84,8 @@ applications:
       flat-network-providers: physnet1
   neutron-gateway:
     annotations:
-      gui-x: '0'
-      gui-y: '0'
+      gui-x: "0"
+      gui-y: "0"
     charm: neutron-gateway
     num_units: 1
     options:
@@ -94,14 +94,14 @@ applications:
       dns-servers: 10.101.0.1
   neutron-openvswitch:
     annotations:
-      gui-x: '250'
-      gui-y: '500'
+      gui-x: "250"
+      gui-y: "500"
     charm: neutron-openvswitch
     num_units: 0
   nova-cloud-controller:
     annotations:
-      gui-x: '0'
-      gui-y: '500'
+      gui-x: "0"
+      gui-y: "500"
     charm: nova-cloud-controller
     num_units: 1
     options:
@@ -110,8 +110,8 @@ applications:
       worker-multiplier: 0.25
   nova-compute:
     annotations:
-      gui-x: '250'
-      gui-y: '250'
+      gui-x: "250"
+      gui-y: "250"
     charm: nova-compute
     num_units: 1
     options:
@@ -120,7 +120,7 @@ applications:
       openstack-origin: cloud:focal-yoga
   rabbitmq-server:
     annotations:
-      gui-x: '500'
-      gui-y: '250'
+      gui-x: "500"
+      gui-y: "250"
     charm: rabbitmq-server
     num_units: 1

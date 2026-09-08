@@ -10,21 +10,21 @@
 #   - delay (optional): the amount of time to sleep after an attempt. Defaults
 #     to 5 seconds.
 retry() {
-	local command=${1}
-	local max_retries=${2:-5} # default: 5 retries
-	local delay=${3:-5}       # default delay: 5s
+  local command=${1}
+  local max_retries=${2:-5} # default: 5 retries
+  local delay=${3:-5}       # default delay: 5s
 
-	local attempt=1
-	while true; do
-		echo "$command: attempt $attempt"
-		$command && break # if the command succeeds, break the loop
+  local attempt=1
+  while true; do
+    echo "$command: attempt $attempt"
+    $command && break # if the command succeeds, break the loop
 
-		if [[ $attempt -ge $max_retries ]]; then
-			echo "$command failed after $max_retries retries"
-			return 1
-		fi
+    if [[ $attempt -ge $max_retries ]]; then
+      echo "$command failed after $max_retries retries"
+      return 1
+    fi
 
-		attempt=$((attempt + 1))
-		sleep $delay
-	done
+    attempt=$((attempt + 1))
+    sleep $delay
+  done
 }

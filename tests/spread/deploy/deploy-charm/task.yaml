@@ -1,13 +1,13 @@
 summary: Deploy a charm from the store
 
 execute: |
-    . "$TESTSLIB/spread-env.sh"
+  . "$TESTSLIB/spread-env.sh"
 
-    ensure "test-deploy-charm" "${TEST_DIR}/test-deploy-charm.log"
+  ensure "test-deploy-charm" "${TEST_DIR}/test-deploy-charm.log"
 
-    juju deploy ubuntu-lite
-    wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+  juju deploy ubuntu-lite
+  wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
 restore: |
-    . "$TESTSLIB/spread-env.sh"
-    destroy_model "test-deploy-charm" || true
+  . "$TESTSLIB/spread-env.sh"
+  destroy_model "test-deploy-charm" || true

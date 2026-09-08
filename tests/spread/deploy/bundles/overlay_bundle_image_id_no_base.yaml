@@ -1,11 +1,9 @@
 applications:
-    ubuntu:
-        charm: ubuntu
-        scale: 1
-
+  ubuntu:
+    charm: ubuntu
+    scale: 1
 ---
-
 applications:
-    ubuntu:
-        scale: 2
-        constraints: image-id={{IMAGE_ID}}
+  ubuntu:
+    scale: 2
+    constraints: image-id={{IMAGE_ID}}
