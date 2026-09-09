@@ -37,6 +37,7 @@ func (*ConfigSuite) TestDefaultConfig(c *tc.C) {
 	c.Assert(cfg.BootstrapTimeout, tc.Equals, time.Second*1200)
 	c.Assert(cfg.BootstrapRetryDelay, tc.Equals, time.Second*5)
 	c.Assert(cfg.BootstrapAddressesDelay, tc.Equals, time.Second*10)
+	c.Assert(cfg.KeepBootstrapSSHKeys, tc.IsFalse)
 }
 
 func (*ConfigSuite) TestConfigValuesSpecified(c *tc.C) {
@@ -72,6 +73,17 @@ func (*ConfigSuite) TestConfigValuesSpecified(c *tc.C) {
 			ControllerExternalIPs:   externalIps,
 		})
 	}
+}
+
+func (*ConfigSuite) TestConfigKeepBootstrapSSHKeys(c *tc.C) {
+	cfg, err := bootstrap.NewConfig(map[string]any{
+		"admin-secret":            "sekrit",
+		"ca-cert":                 testing.CACert,
+		"ca-private-key":          testing.CAKey,
+		"keep-bootstrap-ssh-keys": true,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.KeepBootstrapSSHKeys, tc.IsTrue)
 }
 
 func (s *ConfigSuite) addFiles(c *tc.C, files ...testhelpers.TestFile) {

@@ -75,6 +75,11 @@ const (
 	// ControllerExternalIPs is used to specify a comma separated
 	// list of external IPs for a k8s controller of type external.
 	ControllerExternalIPs = "controller-external-ips"
+
+	// KeepBootstrapSSHKeysKey is the attribute key used to keep the
+	// bootstrap SSH keys on the controller machine after bootstrap
+	// has completed, instead of removing them.
+	KeepBootstrapSSHKeysKey = "keep-bootstrap-ssh-keys"
 )
 
 const (
@@ -110,6 +115,7 @@ var BootstrapConfigAttributes = []string{
 	ControllerServiceType,
 	ControllerExternalName,
 	ControllerExternalIPs,
+	KeepBootstrapSSHKeysKey,
 }
 
 // BootstrapConfigSchema returns the schema used for config items during
@@ -192,6 +198,17 @@ func BootstrapConfigSchema() configschema.Fields {
 				"k8s controller of type external",
 			Type: configschema.Tlist,
 		},
+		KeepBootstrapSSHKeysKey: {
+			Description: "Keeps the bootstrap SSH keys installed on the " +
+				"controller machine after bootstrap has completed, " +
+				"instead of removing them. This allows direct SSH " +
+				"access to the controller machine, bypassing the " +
+				"Juju API and any jump host restrictions. This is a " +
+				"dangerous option intended for debugging and " +
+				"recovering broken bootstrap machines only; avoid " +
+				"on production controllers",
+			Type: configschema.Tbool,
+		},
 	}
 }
 
@@ -216,6 +233,10 @@ type Config struct {
 	BootstrapTimeout        time.Duration
 	BootstrapRetryDelay     time.Duration
 	BootstrapAddressesDelay time.Duration
+	// KeepBootstrapSSHKeys, if true, keeps the bootstrap SSH keys
+	// installed on the controller machine after bootstrap has
+	// completed, instead of removing them.
+	KeepBootstrapSSHKeys bool
 }
 
 // Validate validates the controller configuration.
@@ -274,6 +295,7 @@ func NewConfig(attrs map[string]any) (Config, error) {
 		BootstrapRetryDelay:     time.Duration(attrs[BootstrapRetryDelayKey].(int)) * time.Second,
 		BootstrapAddressesDelay: time.Duration(attrs[BootstrapAddressesDelayKey].(int)) * time.Second,
 	}
+	config.KeepBootstrapSSHKeys, _ = attrs[KeepBootstrapSSHKeysKey].(bool)
 	if controllerServiceType, ok := attrs[ControllerServiceType].(string); ok {
 		config.ControllerServiceType = controllerServiceType
 	}
@@ -484,6 +506,10 @@ var configSchema = configschema.Fields{
 		Type:  configschema.Tint,
 		Group: configschema.JujuGroup,
 	},
+	KeepBootstrapSSHKeysKey: {
+		Type:  configschema.Tbool,
+		Group: configschema.JujuGroup,
+	},
 }
 
 var configDefaults = schema.Defaults{
@@ -502,4 +528,5 @@ var configDefaults = schema.Defaults{
 	BootstrapTimeoutKey:           DefaultBootstrapSSHTimeout,
 	BootstrapRetryDelayKey:        DefaultBootstrapSSHRetryDelay,
 	BootstrapAddressesDelayKey:    DefaultBootstrapSSHAddressesDelay,
+	KeepBootstrapSSHKeysKey:       schema.Omit,
 }
