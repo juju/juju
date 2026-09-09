@@ -119,7 +119,6 @@ func (s *UniterSuite) newContext(c tc.LikeC) (*testContext, *gomock.Controller) 
 
 	// Initialise the channels used for the watchers.
 	// Some need a buffer to allow the test steps to run.
-	ctx.unitResolveCh = make(chan struct{}, 1)
 	ctx.configCh = make(chan []string, 5)
 	ctx.relCh = make(chan []string, 5)
 	ctx.storageCh = make(chan []string, 5)
