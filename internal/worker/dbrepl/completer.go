@@ -13,6 +13,7 @@ import (
 	"github.com/chzyer/readline"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 )
 
 // compile-time check that sqlCompleter satisfies readline.AutoCompleter.
@@ -28,13 +29,15 @@ type sqlCompleter struct {
 	// rather than cached.
 	db func() database.TxnRunner
 
-	ctx context.Context
+	ctx    context.Context
+	logger logger.Logger
 }
 
-func newSQLCompleter(db func() database.TxnRunner, ctx context.Context) *sqlCompleter {
+func newSQLCompleter(db func() database.TxnRunner, ctx context.Context, logger logger.Logger) *sqlCompleter {
 	return &sqlCompleter{
-		db:  db,
-		ctx: ctx,
+		db:     db,
+		ctx:    ctx,
+		logger: logger,
 	}
 }
 
@@ -42,31 +45,49 @@ func newSQLCompleter(db func() database.TxnRunner, ctx context.Context) *sqlComp
 // (as suffixes appended after the current word) and the offset into the line
 // where those candidates start.
 func (c *sqlCompleter) Do(line []rune, pos int) ([][]rune, int) {
+	// readline normally guarantees pos is within line; retain this as a
+	// defensive check for other AutoCompleter callers.
 	if pos > len(line) {
 		pos = len(line)
 	}
 	text := string(line[:pos])
 	tok := currentToken(text)
+	request := completerRequest{completer: c}
 
 	if strings.Contains(tok, ".") {
-		return c.dotDo(tok)
+		return request.dotDo(tok)
 	}
 
-	return filterSuffix(c.candidates(text, tok), tok)
+	return filterSuffix(request.candidates(text, tok), tok)
+}
+
+// completerRequest caches schema information for a single completion request.
+type completerRequest struct {
+	completer    *sqlCompleter
+	tablesCached bool
+	tableNames   []string
+}
+
+func (r *completerRequest) tables() []string {
+	if !r.tablesCached {
+		r.tableNames = r.completer.tables()
+		r.tablesCached = true
+	}
+	return r.tableNames
 }
 
 // dotDo completes "table.col" style tokens, returning column names of the
 // referenced table as suffixes after the current word.
-func (c *sqlCompleter) dotDo(tok string) ([][]rune, int) {
+func (r *completerRequest) dotDo(tok string) ([][]rune, int) {
 	table, col := splitDotToken(tok)
-	t := c.resolveTable(table)
+	t := resolveTable(table, r.tables())
 	if t == "" {
 		return nil, 0
 	}
 
 	out := make([][]rune, 0, 4)
 	rc := []rune(col)
-	for _, name := range c.columns(t) {
+	for _, name := range r.completer.columns(t) {
 		if !hasPrefixCI(name, col) {
 			continue
 		}
@@ -79,7 +100,7 @@ func (c *sqlCompleter) dotDo(tok string) ([][]rune, int) {
 }
 
 // candidates determines what to complete based on the SQL text typed so far.
-func (c *sqlCompleter) candidates(text, tok string) []string {
+func (r *completerRequest) candidates(text, tok string) []string {
 	upper := strings.ToUpper(text)
 	words := strings.Fields(upper)
 	curWordIdx := len(words) - 1
@@ -92,12 +113,15 @@ func (c *sqlCompleter) candidates(text, tok string) []string {
 	// Table list region: cursor at or after FROM/JOIN and before any clause
 	// keyword terminates the table list.
 	if tabIdx != -1 && curWordIdx >= tabIdx && firstIndexFrom(words, tabIdx+1, curWordIdx+1, clauseKeywords) == -1 {
-		return c.tables()
+		if tok == "" && tabIdx+1 < len(words) && resolveTable(words[tabIdx+1], r.tables()) != "" {
+			return clauseKeywordCandidates
+		}
+		return r.tables()
 	}
 
 	// Column region: after SELECT, before the table list.
 	if selectIdx != -1 && curWordIdx > selectIdx {
-		return c.columnsPlusKeywords(words)
+		return r.columnsPlusKeywords(words)
 	}
 
 	// Default: statement start, complete keywords.
@@ -106,13 +130,13 @@ func (c *sqlCompleter) candidates(text, tok string) []string {
 
 // columnsPlusKeywords completes the columns of the table referenced in the
 // FROM/JOIN clauses (if any) plus SQL keywords.
-func (c *sqlCompleter) columnsPlusKeywords(words []string) []string {
+func (r *completerRequest) columnsPlusKeywords(words []string) []string {
 	fromIdx := lastIndexOf(words, "FROM")
 	joinIdx := lastIndexOf(words, "JOIN")
 	tabIdx := max(fromIdx, joinIdx)
 	if tabIdx != -1 && tabIdx+1 < len(words) {
-		if t := c.resolveTable(words[tabIdx+1]); t != "" {
-			return append(c.columns(t), keywords...)
+		if t := resolveTable(words[tabIdx+1], r.tables()); t != "" {
+			return append(r.completer.columns(t), keywords...)
 		}
 	}
 	return keywords
@@ -125,7 +149,7 @@ func (c *sqlCompleter) tables() []string {
 		return nil
 	}
 	var out []string
-	_ = db.StdTxn(c.ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err := db.StdTxn(c.ctx, func(ctx context.Context, tx *sql.Tx) error {
 		out = nil
 		rows, err := tx.QueryContext(ctx, `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`)
 		if err != nil {
@@ -142,6 +166,9 @@ func (c *sqlCompleter) tables() []string {
 		}
 		return rows.Err()
 	})
+	if err != nil {
+		c.logger.Debugf(c.ctx, "failed to list tables for SQL completion: %v", err)
+	}
 	return out
 }
 
@@ -152,7 +179,7 @@ func (c *sqlCompleter) columns(table string) []string {
 		return nil
 	}
 	var out []string
-	_ = db.StdTxn(c.ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err := db.StdTxn(c.ctx, func(ctx context.Context, tx *sql.Tx) error {
 		out = nil
 		rows, err := tx.QueryContext(ctx, "SELECT name FROM pragma_table_info(?) ORDER BY cid", table)
 		if err != nil {
@@ -169,16 +196,19 @@ func (c *sqlCompleter) columns(table string) []string {
 		}
 		return rows.Err()
 	})
+	if err != nil {
+		c.logger.Debugf(c.ctx, "failed to list columns for SQL completion: %v", err)
+	}
 	return out
 }
 
 // resolveTable matches the given (possibly partial) table name case-insensitively
 // against the actual schema, returning the canonical name, or "" if none match.
-func (c *sqlCompleter) resolveTable(name string) string {
+func resolveTable(name string, tables []string) string {
 	if name == "" {
 		return ""
 	}
-	for _, t := range c.tables() {
+	for _, t := range tables {
 		if strings.EqualFold(t, name) {
 			return t
 		}
@@ -280,11 +310,16 @@ func firstIndexFrom(words []string, start, end int, set map[string]bool) int {
 
 // keywords are the SQL keywords offered for completion.
 var keywords = []string{
-	"SELECT", "FROM", "WHERE", "JOIN", "INNER JOIN", "LEFT JOIN", "RIGHT JOIN",
-	"GROUP BY", "ORDER BY", "LIMIT", "HAVING", "AS", "AND", "OR", "NOT", "IN",
+	"SELECT", "FROM", "WHERE", "JOIN", "INNER", "LEFT", "RIGHT", "GROUP",
+	"ORDER", "LIMIT", "HAVING", "AS", "AND", "OR", "NOT", "IN",
 	"IS", "NULL", "BETWEEN", "DISTINCT", "ON", "USING", "BY", "DESC", "ASC",
 	"OFFSET", "UNION", "WITH", "COUNT", "SUM", "AVG", "MIN", "MAX", "EXISTS",
 	"DELETE", "UPDATE", "INSERT", "CREATE", "DROP",
+}
+
+var clauseKeywordCandidates = []string{
+	"WHERE", "GROUP", "ORDER", "LIMIT", "HAVING", "UNION", "ON", "AND", "OR",
+	"BY", "USING", "AS", "DESC", "ASC", "OFFSET",
 }
 
 // clauseKeywords are keywords that terminate the FROM/JOIN table list and are
