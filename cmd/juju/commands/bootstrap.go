@@ -164,12 +164,6 @@ other controllers for cross-model (cross-controller, actually) relations to work
 If a storage pool is specified using ` + "`--storage-pool`" + `, this will be created
 in the controller model.
 
-By default the bootstrap command will add the user's ssh public keys as
-authorized keys for ssh onto the controller machine and controller model.
-Bootstrap will read common public keys from the users .ssh directory and also
-create a default ssh key pair in the juju home directory. These keys will be
-added as authorized keys during bootstrap.
-
 Authorized keys can be set by using --config authorized-keys and or
 --config authorized-keys-path.
 `
@@ -1515,23 +1509,6 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	if err != nil {
 		return bootstrapConfigs{}, errors.Annotate(err, "constructing bootstrap config")
 	}
-
-	// If the user has not specified any additional authorized keys at bootstrap
-	// time we will try and add their default keys.
-	if len(bootstrapConfig.AuthorizedKeys) == 0 {
-		userDefaultKeys, err := ssh.GetCommonUserPublicKeys(ctx, ssh.LocalUserSSHFileSystem())
-		if err != nil {
-			return bootstrapConfigs{}, errors.Annotate(err, "reading user ssh keys")
-		}
-		bootstrapConfig.AuthorizedKeys = append(bootstrapConfig.AuthorizedKeys, userDefaultKeys...)
-	}
-
-	// We need to slurp up all of the Juju SSH Keys in the Juju directory.
-	jujuSSHKeys, err := ssh.GetFileSystemPublicKeys(ctx, osenv.JujuXDGDataSSHFS())
-	if err != nil {
-		return bootstrapConfigs{}, errors.Annotate(err, "reading juju home ssh keys")
-	}
-	bootstrapConfig.AuthorizedKeys = append(bootstrapConfig.AuthorizedKeys, jujuSSHKeys...)
 
 	// Pre-process controller attributes.
 	if _, ok := controllerConfigAttrs[controller.CAASOperatorImagePath]; ok {
