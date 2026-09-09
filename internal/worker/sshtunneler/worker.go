@@ -29,12 +29,10 @@ type TunnelTracker interface {
 	// RequestTunnel requests a reverse SSH tunnel to a model-specific machine
 	// and blocks until the tunnel is established or the context is cancelled.
 	RequestTunnel(ctx context.Context, req sshtunneler.RequestArgs) (*gossh.Client, error)
-	// AuthenticateTunnel authenticates an incoming reverse-tunnel SSH request
-	// and returns the tunnel ID to pass to PushTunnel.
-	AuthenticateTunnel(username, password string) (tunnelID string, err error)
 	// PushTunnel publishes an established network connection for the tunnel
-	// identified by tunnelID.
-	PushTunnel(ctx context.Context, tunnelID string, conn net.Conn) error
+	// identified by tunnelID. The returned channel is closed when the
+	// pushed connection is closed.
+	PushTunnel(ctx context.Context, tunnelID string, conn net.Conn) (<-chan struct{}, error)
 }
 
 // SSHModelService provides model-scoped SSH connection-request operations
@@ -165,17 +163,18 @@ func (a *machineStateAdapter) WatchMachineHostKeys(ctx context.Context, modelUUI
 }
 
 // controllerInfoAdapter adapts a ControllerNodeService to the
-// sshtunneler.ControllerInfo interface, building host-only SpaceAddresses
-// from the API host ports returned by the controller node service.
+// sshtunneler.ControllerInfo interface, building SpaceAddresses that keep
+// the API host:port from the controller node service. The HTTP upgrade
+// endpoint reuses the existing API server listener, so the machine agent
+// dials the same port as the API.
 type controllerInfoAdapter struct {
 	controllerNodeService ControllerNodeService
 }
 
 // LocalAddresses implements sshtunneler.ControllerInfo.
-// It returns the hosts from the API host ports for the given controller node as
-// SpaceAddresses. The API ports are discarded because the reverse tunnel uses
-// the controller SSH port. Only the local node's addresses are returned so that
-// the machine's reverse tunnel connects back to the node holding the waiting
+// It returns the API host:port addresses for the given controller node as
+// SpaceAddresses. Only the local node's addresses are returned so that the
+// machine's reverse tunnel connects back to the node holding the waiting
 // client SSH session.
 func (a *controllerInfoAdapter) LocalAddresses(ctx context.Context, controllerNodeID string) (network.SpaceAddresses, error) {
 	hostPorts, err := a.controllerNodeService.GetAPIHostPortsForControllerIDForAgents(ctx, controllerNodeID)
@@ -183,11 +182,11 @@ func (a *controllerInfoAdapter) LocalAddresses(ctx context.Context, controllerNo
 		return nil, errors.Annotate(err, "failed to get controller node addresses")
 	}
 
-	hosts := make(network.SpaceAddresses, len(hostPorts))
+	addrs := make(network.SpaceAddresses, len(hostPorts))
 	for i, hostPort := range hostPorts {
-		hosts[i] = network.NewSpaceAddress(hostPort.Host())
+		addrs[i] = network.NewSpaceAddress(network.DialAddress(hostPort))
 	}
-	return hosts, nil
+	return addrs, nil
 }
 
 // NewWorker returns a worker that provides an SSH tunnel tracker.

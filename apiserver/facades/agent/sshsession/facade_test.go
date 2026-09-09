@@ -9,7 +9,6 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	gossh "golang.org/x/crypto/ssh"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -20,7 +19,6 @@ import (
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
-	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -28,8 +26,6 @@ type facadeSuite struct {
 	testhelpers.IsolationSuite
 
 	service         *MockSSHConnRequestService
-	controllerCfg   *MockControllerConfigService
-	hostKeyService  *MockControllerSSHHostKeyService
 	watcherRegistry *MockWatcherRegistry
 }
 
@@ -40,8 +36,6 @@ func TestFacadeSuite(t *testing.T) {
 func (s *facadeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.service = NewMockSSHConnRequestService(ctrl)
-	s.controllerCfg = NewMockControllerConfigService(ctrl)
-	s.hostKeyService = NewMockControllerSSHHostKeyService(ctrl)
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 	return ctrl
 }
@@ -50,7 +44,7 @@ func (s *facadeSuite) newFacade() *Facade {
 	// The facade always derives the machine from the authenticated tag, so the
 	// tests authenticate as machine "0".
 	authorizer := apiservertesting.FakeAuthorizer{Tag: names.NewMachineTag("0")}
-	return newFacade(authorizer, s.service, s.controllerCfg, s.hostKeyService, s.watcherRegistry)
+	return newFacade(authorizer, s.service, s.watcherRegistry)
 }
 
 func (s *facadeSuite) TestWatchSSHConnRequest(c *tc.C) {
@@ -78,8 +72,6 @@ func (s *facadeSuite) TestGetSSHConnRequest(c *tc.C) {
 	req := domainssh.SSHConnRequest{
 		TunnelID:            "tunnel-0",
 		MachineName:         "0",
-		SSHUsername:         "juju-reverse-tunnel",
-		SSHPassword:         "jwt",
 		ControllerAddresses: network.NewSpaceAddresses("10.0.0.1", "10.0.0.2"),
 		UnitPort:            22,
 		EphemeralPublicKey:  []byte("eph-pub"),
@@ -92,8 +84,6 @@ func (s *facadeSuite) TestGetSSHConnRequest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.MachineName, tc.Equals, "0")
 	c.Check(result.ControllerAddresses, tc.DeepEquals, []string{"10.0.0.1", "10.0.0.2"})
-	c.Check(result.Username, tc.Equals, "juju-reverse-tunnel")
-	c.Check(result.Password, tc.Equals, "jwt")
 	c.Check(result.UnitPort, tc.Equals, 22)
 	c.Check(result.EphemeralPublicKey, tc.DeepEquals, []byte("eph-pub"))
 }
@@ -123,39 +113,8 @@ func (s *facadeSuite) TestWatchSSHConnRequestNonMachineDenied(c *tc.C) {
 	defer ctrl.Finish()
 
 	authorizer := apiservertesting.FakeAuthorizer{Tag: names.NewUnitTag("app/0")}
-	facade := newFacade(authorizer, s.service, s.controllerCfg, s.hostKeyService, s.watcherRegistry)
+	facade := newFacade(authorizer, s.service, s.watcherRegistry)
 
 	_, err := facade.WatchSSHConnRequest(c.Context())
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
-}
-
-func (s *facadeSuite) TestControllerSSHPort(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	s.controllerCfg.EXPECT().GetSSHServerPort(gomock.Any()).Return(2223, nil)
-
-	result, err := s.newFacade().ControllerSSHPort(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result.Port, tc.Equals, 2223)
-}
-
-func (s *facadeSuite) TestControllerPublicKey(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	// The public key is stored in state at bootstrap; the facade simply returns
-	// what it is given. Derive the expected bytes from the known private key.
-	signer, err := gossh.ParsePrivateKey([]byte(jujutesting.SSHServerHostKey))
-	c.Assert(err, tc.ErrorIsNil)
-	publicKey := signer.PublicKey().Marshal()
-
-	s.hostKeyService.EXPECT().SSHServerHostPublicKey(gomock.Any()).Return(publicKey, nil)
-
-	result, err := s.newFacade().ControllerPublicKey(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result.PublicKey, tc.DeepEquals, publicKey)
-
-	_, err = gossh.ParsePublicKey(result.PublicKey)
-	c.Assert(err, tc.ErrorIsNil)
 }

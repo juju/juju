@@ -64,6 +64,10 @@ type Config struct {
 	ObjectStoreGetter       objectstore.ObjectStoreGetter
 	ControllerConfigService ControllerConfigService
 	ModelService            ModelService
+
+	// SSHTunnel holds the dependencies for the SSH tunnel and relay
+	// upgrade endpoints.
+	SSHTunnel *apiserver.SSHTunnelConfig
 }
 
 type HTTPClient interface {
@@ -148,6 +152,9 @@ func (config Config) Validate() error {
 	if config.EphemeralProviderFactory == nil {
 		return errors.NotValidf("nil EphemeralProviderFactory")
 	}
+	if config.SSHTunnel == nil {
+		return errors.NotValidf("nil SSHTunnel")
+	}
 	return nil
 }
 
@@ -175,6 +182,12 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create RPC observer factory")
 	}
+
+	// Resolve the SSH tunnel endpoint connection limit from controller
+	// config; the rest of the tunnel dependencies are composed by the
+	// manifold from the sshtunneler output and the domain services.
+	sshTunnelConfig := config.SSHTunnel
+	sshTunnelConfig.MaxConcurrentConnections = controllerConfig.SSHMaxConcurrentConnections()
 
 	serverConfig := apiserver.ServerConfig{
 		Clock:                         config.Clock,
@@ -206,6 +219,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		ObjectStoreGetter:             config.ObjectStoreGetter,
 		WatcherRegistryGetter:         config.WatcherRegistryGetter,
 		EphemeralProviderFactory:      config.EphemeralProviderFactory,
+		SSHTunnelConfig:               sshTunnelConfig,
 	}
 	return config.NewServer(ctx, serverConfig)
 }

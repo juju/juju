@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
 	modelsshservice "github.com/juju/juju/domain/ssh/service/model"
-	"github.com/juju/juju/internal/jwtparser"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/services"
 	internalTunneler "github.com/juju/juju/internal/sshtunneler"
@@ -141,7 +140,6 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 	manifold := Manifold(ManifoldConfig{
 		DomainServicesName:     "domain-services",
 		SSHTunnelerName:        "ssh-tunneler",
-		JWTParserName:          "jwt-parser",
 		ControllerID:           "0",
 		ControllerUUID:         "8419cd78-4993-4c3a-928e-c646226beeee",
 		NewServerWrapperWorker: NewServerWrapperWorker,
@@ -166,14 +164,13 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 	})
 
 	// Check the inputs are as expected
-	c.Assert(manifold.Inputs, tc.DeepEquals, []string{"domain-services", "ssh-tunneler", "jwt-parser"})
+	c.Assert(manifold.Inputs, tc.DeepEquals, []string{"domain-services", "ssh-tunneler"})
 
 	// Start the worker
 	result, err := manifold.Start(
 		c.Context(),
 		dt.StubGetter(map[string]any{
 			"ssh-tunneler": stubTunnelTracker{},
-			"jwt-parser":   &jwtparser.Parser{},
 		}),
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -232,7 +229,6 @@ func (s *manifoldSuite) newManifoldConfig(c *tc.C, modifier func(cfg *ManifoldCo
 	cfg := &ManifoldConfig{
 		DomainServicesName: "domain-services",
 		SSHTunnelerName:    "ssh-tunneler",
-		JWTParserName:      "jwt-parser",
 		ControllerID:       "0",
 		ControllerUUID:     "8419cd78-4993-4c3a-928e-c646226beeee",
 		NewServerWrapperWorker: func(ServerWrapperWorkerConfig) (worker.Worker, error) {
@@ -269,7 +265,6 @@ func (s *manifoldSuite) TestManifoldMissingDependency(c *tc.C) {
 	manifold := Manifold(ManifoldConfig{
 		DomainServicesName:     "domain-services",
 		SSHTunnelerName:        "ssh-tunneler",
-		JWTParserName:          "jwt-parser",
 		ControllerID:           "0",
 		ControllerUUID:         "8419cd78-4993-4c3a-928e-c646226beeee",
 		NewServerWrapperWorker: NewServerWrapperWorker,
@@ -293,7 +288,7 @@ func (s *manifoldSuite) TestManifoldMissingDependency(c *tc.C) {
 	})
 
 	// Check the inputs are as expected
-	c.Assert(manifold.Inputs, tc.DeepEquals, []string{"domain-services", "ssh-tunneler", "jwt-parser"})
+	c.Assert(manifold.Inputs, tc.DeepEquals, []string{"domain-services", "ssh-tunneler"})
 
 	// Start the worker
 	_, err := manifold.Start(
@@ -337,10 +332,6 @@ func (stubTunnelTracker) RequestTunnel(context.Context, internalTunneler.Request
 	return nil, errors.NotImplementedf("unexpected RequestTunnel call")
 }
 
-func (stubTunnelTracker) AuthenticateTunnel(string, string) (string, error) {
-	return "", errors.NotImplementedf("unexpected AuthenticateTunnel call")
-}
-
-func (stubTunnelTracker) PushTunnel(context.Context, string, net.Conn) error {
-	return errors.NotImplementedf("unexpected PushTunnel call")
+func (stubTunnelTracker) PushTunnel(context.Context, string, net.Conn) (<-chan struct{}, error) {
+	return nil, errors.NotImplementedf("unexpected PushTunnel call")
 }

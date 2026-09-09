@@ -145,5 +145,8 @@ func (s *WorkerStateSuite) TestStart(c *tc.C) {
 		JWTAuthenticator:           jwtAuthenticator,
 		WatcherRegistryGetter:      s.watcherRegistryGetter,
 		EphemeralProviderFactory:   s.ephemeralProviderFactory,
+		SSHTunnelConfig: &coreapiserver.SSHTunnelConfig{
+			MaxConcurrentConnections: 100,
+		},
 	})
 }

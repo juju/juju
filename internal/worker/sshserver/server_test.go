@@ -5,10 +5,7 @@ package sshserver
 
 import (
 	"bytes"
-	"context"
 	"fmt"
-	"io"
-	"net"
 	"testing"
 	"time"
 
@@ -21,7 +18,6 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/juju/juju/core/logger"
-	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki/test"
@@ -40,7 +36,6 @@ type sshServerSuite struct {
 	authorizer    *MockAuthorizer
 	proxyFactory  *MockProxyFactory
 	proxyHandlers *MockProxyHandlers
-	tunnelTracker *MockTunnelTracker
 }
 
 func TestSshServerSuite(t *testing.T) {
@@ -68,7 +63,6 @@ func (s *sshServerSuite) SetUpMocks(c *tc.C) *gomock.Controller {
 	s.authorizer = NewMockAuthorizer(ctrl)
 	s.proxyFactory = NewMockProxyFactory(ctrl)
 	s.proxyHandlers = NewMockProxyHandlers(ctrl)
-	s.tunnelTracker = NewMockTunnelTracker(ctrl)
 	return ctrl
 }
 
@@ -84,7 +78,6 @@ func (s *sshServerSuite) newServer(c *tc.C) (*ServerWorker, *bufconn.Listener, f
 		Authenticator:            s.authenticator,
 		Authorizer:               s.authorizer,
 		ProxyFactory:             s.proxyFactory,
-		TunnelTracker:            s.tunnelTracker,
 		Metrics:                  NewMetricsCollector(),
 	}
 
@@ -207,7 +200,6 @@ func (s *sshServerSuite) TestValidate(c *tc.C) {
 		cfg.Authenticator = s.authenticator
 		cfg.Authorizer = s.authorizer
 		cfg.ProxyFactory = s.proxyFactory
-		cfg.TunnelTracker = s.tunnelTracker
 		cfg.Metrics = nil
 	})
 	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*missing Metrics.*")
@@ -247,22 +239,13 @@ func (s *sshServerSuite) TestValidate(c *tc.C) {
 		cfg.ProxyFactory = nil
 	})
 	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
-	// Test no TunnelTracker.
-	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *ServerWorkerConfig) {
-		cfg.TunnelTracker = nil
-	})
-	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *sshServerSuite) TestSSHServerSession(c *tc.C) {
 	s.SetUpMocks(c)
 
-	// Test password authentication.
-	s.authenticator.EXPECT().PasswordAuthentication(gomock.Any(), "test-password").Return(true, nil)
-	s.testSSHServerSession(c, gossh.Password("test-password"), "test-user")
-
-	// Test public key authentication.
+	// Password authentication is no longer supported; only public key
+	// authentication grants access to the jump server.
 	s.authenticator.EXPECT().PublicKeyAuthentication(gomock.Any(), s.userSigner.PublicKey()).Return(true, nil)
 	s.testSSHServerSession(c, gossh.PublicKeys(s.userSigner), "test-user")
 }
@@ -271,12 +254,13 @@ func (s *sshServerSuite) TestJumpServerAuthenticationForbidden(c *tc.C) {
 	s.SetUpMocks(c)
 
 	s.authenticator.EXPECT().PublicKeyAuthentication(gomock.Any(), s.userSigner.PublicKey()).Return(false, nil)
-	s.authenticator.EXPECT().PasswordAuthentication(gomock.Any(), "password").Return(false, nil)
 
 	_, listener, cleanup := s.newServer(c)
 	defer cleanup()
 	err := dialSSHServerWithError(c, listener, "alice", gossh.PublicKeys(s.userSigner))
 	c.Check(err, tc.ErrorMatches, ".*unable to authenticate.*")
+	// Password authentication is rejected outright, without consulting the
+	// authenticator.
 	err = dialSSHServerWithError(c, listener, "alice", gossh.Password("password"))
 	c.Check(err, tc.ErrorMatches, ".*unable to authenticate.*")
 }
@@ -285,7 +269,6 @@ func (s *sshServerSuite) TestJumpServerAuthenticationRejectErrors(c *tc.C) {
 	s.SetUpMocks(c)
 
 	s.authenticator.EXPECT().PublicKeyAuthentication(gomock.Any(), s.userSigner.PublicKey()).Return(false, errors.New("invalid key"))
-	s.authenticator.EXPECT().PasswordAuthentication(gomock.Any(), "password").Return(false, errors.New("invalid password"))
 
 	_, listener, cleanup := s.newServer(c)
 	defer cleanup()
@@ -326,46 +309,6 @@ func (s *sshServerSuite) TestServerRejectsUnauthorizedDestination(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, ".*unauthorized.*")
 }
 
-func (s *sshServerSuite) TestServerAcceptsReverseTunnel(c *tc.C) {
-	s.SetUpMocks(c)
-
-	tunnelPushed := make(chan struct{})
-	const tunnelPayload = "reverse tunnel payload"
-	s.authenticator.EXPECT().PasswordAuthentication(gomock.Any(), "tunnel-password").DoAndReturn(
-		func(ctx ssh.Context, password string) (bool, error) {
-			ctx.SetValue(tunnelIDKey{}, "tunnel-id")
-			return true, nil
-		})
-	s.tunnelTracker.EXPECT().PushTunnel(gomock.Any(), "tunnel-id", gomock.Any()).Do(
-		func(_ context.Context, _ string, tunnelConn net.Conn) {
-			// Checking the payload proves the handler transfers a usable tunnel
-			// connection to the tracker.
-			payload := make([]byte, len(tunnelPayload))
-			_, err := io.ReadFull(tunnelConn, payload)
-			c.Check(err, tc.ErrorIsNil)
-			c.Check(string(payload), tc.Equals, tunnelPayload)
-			close(tunnelPushed)
-		})
-
-	_, listener, cleanup := s.newServer(c)
-	defer cleanup()
-
-	client := dialSSHServer(c, listener, coressh.ReverseTunnelUser, gossh.Password("tunnel-password"))
-	channel, requests, err := client.OpenChannel(coressh.JujuTunnelChannel, nil)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Cleanup(func() { _ = channel.Close() })
-	go gossh.DiscardRequests(requests)
-
-	_, err = channel.Write([]byte(tunnelPayload))
-	c.Assert(err, tc.ErrorIsNil)
-
-	select {
-	case <-tunnelPushed:
-	case <-c.Context().Done():
-		c.Error("timed out waiting for reverse tunnel to be pushed")
-	}
-}
-
 func (s *sshServerSuite) TestSSHServerMaxConnections(c *tc.C) {
 	s.SetUpMocks(c)
 	s.authenticator.EXPECT().PublicKeyAuthentication(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -387,7 +330,6 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *tc.C) {
 		Authenticator:            s.authenticator,
 		Authorizer:               s.authorizer,
 		ProxyFactory:             s.proxyFactory,
-		TunnelTracker:            s.tunnelTracker,
 		Metrics:                  NewMetricsCollector(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -480,7 +422,6 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *tc.C) {
 		Authenticator:            s.authenticator,
 		Authorizer:               s.authorizer,
 		ProxyFactory:             s.proxyFactory,
-		TunnelTracker:            s.tunnelTracker,
 		Metrics:                  NewMetricsCollector(),
 	})
 	c.Assert(err, tc.ErrorIsNil)

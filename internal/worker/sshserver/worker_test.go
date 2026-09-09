@@ -54,7 +54,6 @@ func setMockServerDependencies(ctrl *gomock.Controller, cfg *ServerWrapperWorker
 	cfg.Authenticator = NewMockAuthenticator(ctrl)
 	cfg.Authorizer = NewMockAuthorizer(ctrl)
 	cfg.ProxyFactory = NewMockProxyFactory(ctrl)
-	cfg.TunnelTracker = NewMockTunnelTracker(ctrl)
 }
 
 func (s *workerSuite) TestValidate(c *tc.C) {
