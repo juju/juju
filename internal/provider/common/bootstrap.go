@@ -369,7 +369,8 @@ func startInstanceZones(env environs.Environ, ctx context.Context, args environs
 	return zones, nil
 }
 
-// openControllerModelPorts opens port 22 and apiports on the controller to the configured allow list.
+// openControllerModelPorts opens port 22, the API port and the SSH server port
+// on the controller to the configured allow list.
 // This is all that is required for the bootstrap to continue. Further configured
 // rules will be opened by the firewaller, Once it has started
 func openControllerModelPorts(bootstrapContext context.Context,
@@ -381,6 +382,15 @@ func openControllerModelPorts(bootstrapContext context.Context,
 			Protocol: "tcp",
 			FromPort: controllerConfig.APIPort(),
 			ToPort:   controllerConfig.APIPort(),
+		}, defaultCIDRs...),
+		// Open the SSH server (jump host) port so users can reach the
+		// controller's embedded SSH server. This must also be opened by the
+		// firewaller at runtime (see ModelFirewallRules), otherwise the
+		// firewaller would reconcile it closed.
+		firewall.NewIngressRule(network.PortRange{
+			Protocol: "tcp",
+			FromPort: controllerConfig.SSHServerPort(),
+			ToPort:   controllerConfig.SSHServerPort(),
 		}, defaultCIDRs...),
 	}
 
