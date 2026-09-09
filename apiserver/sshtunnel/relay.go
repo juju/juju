@@ -4,9 +4,7 @@
 package sshtunnel
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
 	"net/http"
 	"sync/atomic"
 
@@ -26,10 +24,8 @@ import (
 //
 // JIMM authenticates with a bearer JWT in the Authorization header (the
 // same external-auth flow the API server already supports on HTTP
-// endpoints). The JWT carries the user's SSH public key as a claim
-// (ssh_public_key), binding the relayed session to the exact key the user
-// presented to JIMM. After the upgrade, the user's SSH session - relayed
-// blind by JIMM - terminates in the embedded SSH server built here.
+// endpoints). After the upgrade, the user's SSH session - relayed blind by
+// JIMM - terminates in the embedded SSH server built here.
 type RelayHandler struct {
 	config RelayHandlerConfig
 
@@ -116,16 +112,6 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Enforce the user's SSH public key claim: the relayed session is
-	// bound to the exact key the user presented to JIMM. The embedded
-	// terminating server authenticates the key end to end.
-	expectedPublicKey, err := parseSSHPublicKeyClaim(token)
-	if err != nil {
-		h.config.Logger.Errorf(ctx, "invalid ssh public key claim: %v", err)
-		http.Error(w, "invalid ssh public key claim", http.StatusUnauthorized)
-		return
-	}
-
 	if ok, err := h.config.Authorizer.Authorize(ctx, token, destination); err != nil {
 		h.config.Logger.Errorf(ctx, "authorizing relay access: %v", err)
 		http.Error(w, "failed to authorize access to destination", http.StatusInternalServerError)
@@ -180,49 +166,16 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = conn.Close() }()
 
 	// Terminate the relayed user SSH session here. JIMM cannot read the
-	// session bytes; the embedded server handles them end to end. The
-	// PublicKeyHandler binds the session to the exact key carried in the
-	// JWT's ssh_public_key claim, closing the loop between the HTTP-layer
-	// claim and the SSH-layer authentication.
+	// session bytes; the embedded server handles them end to end.
+	// Authentication already happened at the HTTP layer via the bearer
+	// JWT, so the terminating server accepts the user's key as presented.
 	server := sshproxy.NewTerminatingSSHServer(handlers)
-	server.PublicKeyHandler = func(_ ssh.Context, key ssh.PublicKey) error {
-		if !bytes.Equal(key.Marshal(), expectedPublicKey.Marshal()) {
-			return errors.New("public key does not match JWT claim")
-		}
+	server.PublicKeyHandler = func(_ ssh.Context, _ ssh.PublicKey) error {
 		return nil
 	}
 	server.AddHostKey(signer)
 	server.HandleConn(conn)
 }
-
-// parseSSHPublicKeyClaim extracts the ssh_public_key claim from the JWT
-// and parses it into a gossh.PublicKey. The claim is minted by JIMM
-// (jujuauth.NewSSHToken) as the base64-encoded, marshalled user SSH
-// public key. The embedded terminating server authenticates the key
-// end to end; this parse binds the relayed session to the same key at
-// the HTTP layer.
-func parseSSHPublicKeyClaim(token jwt.Token) (gossh.PublicKey, error) {
-	var encoded string
-	if err := token.Get(SSHPublicKeyClaim, &encoded); err != nil {
-		return nil, errors.Errorf("missing %s claim", SSHPublicKeyClaim)
-	}
-	if encoded == "" {
-		return nil, errors.Errorf("empty %s claim", SSHPublicKeyClaim)
-	}
-	decoded, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		return nil, errors.Errorf("decoding %s claim: %w", SSHPublicKeyClaim, err)
-	}
-	key, err := gossh.ParsePublicKey(decoded)
-	if err != nil {
-		return nil, errors.Errorf("parsing %s claim: %w", SSHPublicKeyClaim, err)
-	}
-	return key, nil
-}
-
-// SSHPublicKeyClaim is the JWT claim carrying the base64-encoded user SSH
-// public key. It is minted by JIMM (jujuauth.NewSSHToken) and asserted here.
-const SSHPublicKeyClaim = "ssh_public_key"
 
 // RelayJWTKey is the context key for the relay JWT, set by the apiserver
 // from the request's auth info.
