@@ -831,7 +831,7 @@ func (s *stateSuite) TestSetAPIAddressesOneControllerNodeNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
 
 	var count int
-	err = s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM controller_node_api_address").Scan(&count)
+	err = s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM api_address_by_controller").Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
 }
@@ -999,7 +999,7 @@ func (s *stateSuite) checkControllerAPIAddress(c *tc.C, controllerID string, add
 		resultScopes = nil
 		isAgent = nil
 
-		rows, err := tx.QueryContext(ctx, "SELECT address, is_agent_only, scope FROM controller_node_api_address WHERE controller_id = ?", controllerID)
+		rows, err := tx.QueryContext(ctx, "SELECT address, is_agent_only, scope FROM api_address_by_controller WHERE controller_id = ?", controllerID)
 		if err != nil {
 			return err
 		}
@@ -1031,7 +1031,7 @@ func (s *stateSuite) checkControllerAPIAddress(c *tc.C, controllerID string, add
 
 func (s *stateSuite) addControllerAPIAddresses(c *tc.C, controllerID string, addrs []controllernode.APIAddress) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		stmt := "INSERT INTO controller_node_api_address (controller_id, address, is_agent_only, scope) VALUES (?, ?, ?, ?)"
+		stmt := "INSERT INTO api_address_by_controller (controller_id, address, is_agent_only, scope) VALUES (?, ?, ?, ?)"
 		for _, addr := range addrs {
 			_, err := tx.ExecContext(ctx, stmt, controllerID, addr.Address, addr.IsAgent, addr.Scope)
 			if err != nil {

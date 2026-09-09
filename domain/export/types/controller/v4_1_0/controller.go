@@ -197,7 +197,7 @@ type ControllerNodeAgentVersion struct {
 	ArchitectureID int64  `db:"architecture_id" json:"architecture_id" yaml:"architecture_id"`
 }
 
-type ControllerNodeApiAddress struct {
+type ApiAddressByController struct {
 	ControllerID string `db:"controller_id" json:"controller_id" yaml:"controller_id"`
 	Address      string `db:"address" json:"address" yaml:"address"`
 	IsAgentOnly  bool   `db:"is_agent_only" json:"is_agent_only" yaml:"is_agent_only"`
@@ -645,7 +645,7 @@ type ControllerExport struct {
 	ControllerConfig                            []ControllerConfig                            `json:"controller_config" yaml:"controller_config"`
 	ControllerNode                              []ControllerNode                              `json:"controller_node" yaml:"controller_node"`
 	ControllerNodeAgentVersion                  []ControllerNodeAgentVersion                  `json:"controller_node_agent_version" yaml:"controller_node_agent_version"`
-	ControllerNodeApiAddress                    []ControllerNodeApiAddress                    `json:"controller_node_api_address" yaml:"controller_node_api_address"`
+	ApiAddressByController                      []ApiAddressByController                      `json:"api_address_by_controller" yaml:"api_address_by_controller"`
 	ControllerNodeNonce                         []ControllerNodeNonce                         `json:"controller_node_nonce" yaml:"controller_node_nonce"`
 	ControllerNodePassword                      []ControllerNodePassword                      `json:"controller_node_password" yaml:"controller_node_password"`
 	ControllerSshHostKey                        []ControllerSshHostKey                        `json:"controller_ssh_host_key" yaml:"controller_ssh_host_key"`

@@ -39,7 +39,7 @@ AND life_id = 0`, node)
 	}
 
 	deleteAPIAddressesStmt, err := st.Prepare(`
-DELETE FROM controller_node_api_address
+DELETE FROM api_address_by_controller
 WHERE controller_id = $controllerNode.controller_id`, node)
 	if err != nil {
 		return errors.Errorf("preparing controller api address deletion: %w", err)
