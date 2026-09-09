@@ -319,7 +319,7 @@ type controllerNameRow struct {
 	Name string `db:"name"`
 }
 
-// sourceAPIAddress projects one row from the controller_node_api_address table.
+// sourceAPIAddress projects one row from the api_address_by_controller table.
 type sourceAPIAddress struct {
 	ControllerID string `db:"controller_id"`
 	Address      string `db:"address"`

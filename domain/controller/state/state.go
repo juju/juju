@@ -224,7 +224,7 @@ func (st *State) getAllAPIAddressesForAgents(ctx context.Context, tx *sqlair.TX)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	nodeAgentsStmt, err := st.Prepare(`SELECT &apiAddress.* FROM controller_node_api_address`, apiAddress{})
+	nodeAgentsStmt, err := st.Prepare(`SELECT &apiAddress.* FROM api_address_by_controller`, apiAddress{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

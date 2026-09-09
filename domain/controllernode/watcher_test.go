@@ -71,7 +71,7 @@ func (s *watcherSuite) TestControllerNodes(c *tc.C) {
 }
 
 func (s *watcherSuite) TestControllerAPIAddresses(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "controller_node_api_address")
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "api_address_by_controller")
 
 	ctx := c.Context()
 	svc := s.setupService(c, factory)

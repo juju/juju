@@ -13,7 +13,7 @@ import (
 )
 
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/cloud-triggers.gen.go -package=triggers -tables=cloud,cloud_ca_cert,cloud_credential,cloud_credential_attribute
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/controller-triggers.gen.go -package=triggers -tables=controller_config,controller_node,external_controller,api_address_agent,api_address_client,controller_node_api_address
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/controller-triggers.gen.go -package=triggers -tables=controller_config,controller_node,external_controller,api_address_agent,api_address_client,api_address_by_controller
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/migration-triggers.gen.go -package=triggers -tables=model_migration_export,model_migration_export_phase,model_migration_export_minion_sync,model_migration_import
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/upgrade-triggers.gen.go -package=triggers -tables=upgrade_info,upgrade_info_controller_node
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path,object_store_drain_info,object_store_backend
@@ -34,7 +34,7 @@ const (
 	tableControllerConfig
 	tableAPIAddressAgent
 	tableAPIAddressClient
-	tableControllerNodeAPIAddress
+	tableAPIAddressByController
 	tableModelMigrationExport
 	tableModelMigrationExportPhase
 	tableUpgradeInfo
@@ -99,7 +99,7 @@ func ControllerDDLForVersion(version semversion.Number) *schema.Schema {
 		triggers.ChangeLogTriggersForControllerNode("controller_id", tableControllerNode),
 		triggers.ChangeLogTriggersForApiAddressAgent("address", tableAPIAddressAgent),
 		triggers.ChangeLogTriggersForApiAddressClient("address", tableAPIAddressClient),
-		triggers.ChangeLogTriggersForControllerNodeApiAddress("controller_id", tableControllerNodeAPIAddress),
+		triggers.ChangeLogTriggersForApiAddressByController("controller_id", tableAPIAddressByController),
 		triggers.ChangeLogTriggersForModelMigrationExport("model_uuid", tableModelMigrationExport),
 		triggers.ChangeLogTriggersForModelMigrationExportPhase("model_uuid", tableModelMigrationExportPhase),
 		triggers.ChangeLogTriggersForModelMigrationExportMinionSync("migration_uuid", tableModelMigrationExportMinionSync),

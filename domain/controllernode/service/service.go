@@ -61,7 +61,7 @@ type State interface {
 
 	// SetAPIAddresses sets the addresses for the provided controller node. It
 	// replaces any existing addresses and stores them in the
-	// controller_node_api_address table, with the format "host:port" as a
+	// api_address_by_controller table, with the format "host:port" as a
 	// string and the is_agent_only flag.
 	//
 	// The following errors can be expected: - [controllernodeerrors.NotFound]

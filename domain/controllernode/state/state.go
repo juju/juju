@@ -321,12 +321,12 @@ func (st *State) NamespaceForWatchAPIAddressesForClients() string {
 // NamespaceForWatchControllerNodeAPIAddresses returns the namespace for
 // watching controller-node API addresses.
 func (st *State) NamespaceForWatchControllerNodeAPIAddresses() string {
-	return "controller_node_api_address"
+	return "api_address_by_controller"
 }
 
 // SetAPIAddresses sets the addresses for the provided controller node. It
 // replaces any existing addresses and stores them in the
-// controller_node_api_address table.
+// api_address_by_controller table.
 //
 // The following errors can be expected:
 // - [controllernodeerrors.NotFound] if the controller node does not exist.
@@ -356,7 +356,7 @@ AND life_id = 0
 
 	getExistingAddressesStmt, err := st.Prepare(`
 SELECT &controllerNodeAPIAddress.* 
-FROM controller_node_api_address
+FROM api_address_by_controller
 WHERE controller_id IN ($controllerIDs[:])
 `, controllerNodeAPIAddress{}, controllerIDs{})
 	if err != nil {
@@ -364,7 +364,7 @@ WHERE controller_id IN ($controllerIDs[:])
 	}
 
 	deleteAddressesStmt, err := st.Prepare(`
-DELETE FROM controller_node_api_address
+DELETE FROM api_address_by_controller
 WHERE controller_id = $controllerNodeAPIAddress.controller_id
 AND address = $controllerNodeAPIAddress.address
 `, controllerNodeAPIAddress{})
@@ -373,14 +373,14 @@ AND address = $controllerNodeAPIAddress.address
 	}
 
 	insertAddressesStmt, err := st.Prepare(`
-INSERT INTO controller_node_api_address (*) VALUES ($controllerNodeAPIAddress.*)
+INSERT INTO api_address_by_controller (*) VALUES ($controllerNodeAPIAddress.*)
 `, controllerNodeAPIAddress{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	updateAddressesStmt, err := st.Prepare(`
-UPDATE controller_node_api_address
+UPDATE api_address_by_controller
 SET is_agent_only = $controllerNodeAPIAddress.is_agent_only
 WHERE controller_id = $controllerNodeAPIAddress.controller_id
 AND address = $controllerNodeAPIAddress.address
@@ -683,7 +683,7 @@ WHERE life_id < 2
 func (st *State) getAllAPIAddressesForClients(ctx context.Context, tx *sqlair.TX) ([]controllerNodeAPIAddress, error) {
 	stmt, err := st.Prepare(`
 SELECT &controllerNodeAPIAddress.* 
-FROM controller_node_api_address
+FROM api_address_by_controller
 WHERE is_agent_only = false
 ORDER BY controller_id, address
 `, controllerNodeAPIAddress{})
@@ -704,7 +704,7 @@ ORDER BY controller_id, address
 func (st *State) getAllAPIAddressesForAgents(ctx context.Context, tx *sqlair.TX) ([]controllerNodeAPIAddress, error) {
 	stmt, err := st.Prepare(`
 SELECT &controllerNodeAPIAddress.* 
-FROM controller_node_api_address
+FROM api_address_by_controller
 ORDER BY controller_id, address
 `, controllerNodeAPIAddress{})
 	if err != nil {

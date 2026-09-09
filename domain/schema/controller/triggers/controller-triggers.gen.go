@@ -155,25 +155,25 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForControllerNodeApiAddress generates the triggers for the
-// controller_node_api_address table.
-func ChangeLogTriggersForControllerNodeApiAddress(columnName string, namespaceID int) func() schema.Patch {
+// ChangeLogTriggersForApiAddressByController generates the triggers for the
+// api_address_by_controller table.
+func ChangeLogTriggersForApiAddressByController(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- insert namespace for ControllerNodeApiAddress
-INSERT INTO change_log_namespace VALUES (%[2]d, 'controller_node_api_address', 'ControllerNodeApiAddress changes based on %[1]s');
+-- insert namespace for ApiAddressByController
+INSERT INTO change_log_namespace VALUES (%[2]d, 'api_address_by_controller', 'ApiAddressByController changes based on %[1]s');
 
--- insert trigger for ControllerNodeApiAddress
-CREATE TRIGGER trg_log_controller_node_api_address_insert
-AFTER INSERT ON controller_node_api_address FOR EACH ROW
+-- insert trigger for ApiAddressByController
+CREATE TRIGGER trg_log_api_address_by_controller_insert
+AFTER INSERT ON api_address_by_controller FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
 END;
 
--- update trigger for ControllerNodeApiAddress
-CREATE TRIGGER trg_log_controller_node_api_address_update
-AFTER UPDATE ON controller_node_api_address FOR EACH ROW
+-- update trigger for ApiAddressByController
+CREATE TRIGGER trg_log_api_address_by_controller_update
+AFTER UPDATE ON api_address_by_controller FOR EACH ROW
 WHEN 
 	NEW.controller_id != OLD.controller_id OR
 	NEW.address != OLD.address OR
@@ -183,9 +183,9 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
--- delete trigger for ControllerNodeApiAddress
-CREATE TRIGGER trg_log_controller_node_api_address_delete
-AFTER DELETE ON controller_node_api_address FOR EACH ROW
+-- delete trigger for ApiAddressByController
+CREATE TRIGGER trg_log_api_address_by_controller_delete
+AFTER DELETE ON api_address_by_controller FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -229,4 +229,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-
