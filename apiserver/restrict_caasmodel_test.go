@@ -37,6 +37,12 @@ func (s *RestrictCAASModelSuite) TestSubnetsAllowed(c *tc.C) {
 	s.assertMethod(c, "Subnets", 5, "ListSubnets")
 }
 
+func (s *RestrictCAASModelSuite) TestKeyManagerAllowed(c *tc.C) {
+	for _, method := range []string{"ListKeys", "AddKeys", "ImportKeys", "DeleteKeys"} {
+		s.assertMethod(c, "KeyManager", 1, method)
+	}
+}
+
 func (s *RestrictCAASModelSuite) TestSpacesReloadAllowed(c *tc.C) {
 	s.assertMethod(c, "Spaces", 6, "ReloadSpaces")
 }
