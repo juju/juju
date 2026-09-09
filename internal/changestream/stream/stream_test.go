@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	stdtesting "testing"
 	"time"
@@ -480,6 +481,116 @@ func (s *streamSuite) TestMultipleTermsAllEmpty(c *tc.C) {
 
 		expectChanges(c, []change{chg}, results)
 	}
+
+	workertest.CleanKill(c, stream)
+}
+
+// TestBackoffResetsAfterNonEmptyTerm ensures the attempt counter is reset
+// when a term with changes is processed: the recorded backoff durations
+// ramp up while terms are empty, then drop back to the base duration after
+// a non-empty term.
+func (s *streamSuite) TestBackoffResetsAfterNonEmptyTerm(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectFileNotifyWatcher()
+	s.expectTimer()
+	s.expectClock()
+	s.expectMetrics()
+
+	done := make(chan struct{})
+	defer close(done)
+
+	var (
+		durationsMutex sync.Mutex
+		durations      []time.Duration
+	)
+	s.clock.EXPECT().After(defaultWaitTermTimeout).Return(make(chan time.Time)).AnyTimes()
+	s.clock.EXPECT().After(gomock.Any()).DoAndReturn(func(d time.Duration) <-chan time.Time {
+		durationsMutex.Lock()
+		durations = append(durations, d)
+		durationsMutex.Unlock()
+
+		ch := make(chan time.Time)
+		go func() {
+			select {
+			case ch <- time.Now().UTC():
+			case <-done:
+			}
+		}()
+		return ch
+	}).AnyTimes()
+
+	s.insertNamespace(c, 1000, "foo")
+
+	stream := New(uuid.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, loggertesting.WrapCheckLog(c))
+	defer workertest.DirtyKill(c, stream)
+
+	// witnessTerm inserts a change and completes the resulting term,
+	// marking it empty or not.
+	witnessTerm := func(c *tc.C, empty bool) {
+		chg := change{
+			id:   1000,
+			uuid: uuid.MustNewUUID().String(),
+		}
+		s.insertChange(c, chg)
+
+		select {
+		case term := <-stream.Terms():
+			term.Done(empty, make(chan struct{}))
+		case <-c.Context().Done():
+			c.Fatal("timed out waiting for change")
+		}
+	}
+
+	// A few empty terms to ramp up the backoff.
+	for range 3 {
+		witnessTerm(c, true)
+	}
+
+	// A non-empty term should reset the attempt counter.
+	witnessTerm(c, false)
+
+	// One more empty term to observe the reset backoff.
+	witnessTerm(c, true)
+
+	// The worker records the post-reset duration after receiving the term
+	// completion, so wait for the drop to appear. The mock fires timers
+	// immediately, so this is a synchronization point, not a timeout.
+	waitForDrop := func() []time.Duration {
+		for {
+			durationsMutex.Lock()
+			recorded := slices.Clone(durations)
+			durationsMutex.Unlock()
+
+			for i := 1; i < len(recorded); i++ {
+				if recorded[i] < recorded[i-1] {
+					return recorded
+				}
+			}
+
+			select {
+			case <-time.After(time.Millisecond):
+			case <-c.Context().Done():
+				c.Fatal("timed out waiting for backoff reset")
+				return nil
+			}
+		}
+	}
+	recorded := waitForDrop()
+	c.Assert(recorded, tc.Not(tc.HasLen), 0)
+
+	// The durations must rise while the terms are empty, then drop after
+	// the non-empty term resets the attempt counter. The ramp is strictly
+	// increasing below the cap, so the only possible drop is the reset.
+	resetIdx := -1
+	for i := 1; i < len(recorded); i++ {
+		if recorded[i] < recorded[i-1] {
+			c.Check(resetIdx, tc.Equals, -1, tc.Commentf("unexpected drop at call %d", i+1))
+			resetIdx = i
+		}
+	}
+	c.Check(recorded[resetIdx], tc.Equals, backOffStrategy(0, 1),
+		tc.Commentf("duration after reset should be the base duration"))
 
 	workertest.CleanKill(c, stream)
 }
@@ -965,12 +1076,11 @@ func (s *streamSuite) TestReport(c *tc.C) {
 				return data
 			}
 
-			// Exponential backoff with a maximum of 10 seconds, we don't want
-			// to wait too long, but we also want to ensure that we give the
-			// worker enough time to process the change and update the
-			// watermark.
+			// Poll with a growing delay, capped at 1s, to give the worker
+			// time to process the change and update the watermark without
+			// waiting too long on failure.
 			backoff := time.Duration(1<<i) * time.Millisecond
-			<-time.After(min(backoff, time.Second*10))
+			<-time.After(min(backoff, time.Second))
 		}
 		c.Fatalf("timed out waiting for sync point")
 		return nil
