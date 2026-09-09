@@ -10,7 +10,7 @@ wait_for_ha_teardown() {
 		voters=$(yq -r '.machines | to_entries[] | select(.value["controller-cluster-role"] == "voter") | .key' <<<"${status}" | wc -l) &&
 		[[ ${count} -eq 1 && ${voters} -eq 1 ]]; do
 		echo "[+] (attempt ${attempt}) polling ha teardown"
-		juju status -m controller --format=yaml 2>&1 | yq '.machines | with_entries(.value |= pick(["instance-id", "controller-cluster-role"]))' 2>&1 | sed 's/^/    | /g' || true
+		timeout 10 juju status -m controller --format=yaml 2>&1 | yq '.machines | with_entries(.value |= pick(["instance-id", "controller-cluster-role"]))' 2>&1 | sed 's/^/    | /g' || true
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 
@@ -39,6 +39,7 @@ wait_for_controller_leadership() {
 	# produces no stderr, so the stdout/stderr mixing bug does not apply.
 	until timeout 60 juju exec -m controller --unit controller/leader uptime 2>/dev/null | grep load; do
 		echo "[+] (attempt ${attempt}) waiting for controller leadership"
+		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 
 		if [[ ${attempt} -gt 12 ]]; then
