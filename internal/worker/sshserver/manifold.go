@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 	"github.com/prometheus/client_golang/prometheus"
 	gossh "golang.org/x/crypto/ssh"
 
@@ -18,12 +19,12 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/virtualhostname"
 	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
 	modelsshservice "github.com/juju/juju/domain/ssh/service/model"
 	"github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/internal/jwtparser"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/services"
 	internalTunneler "github.com/juju/juju/internal/sshtunneler"
@@ -90,8 +91,6 @@ type ManifoldConfig struct {
 	DomainServicesName string
 	// SSHTunnelerName is the name of the SSH tunneler worker.
 	SSHTunnelerName string
-	// JWTParserName is the name of the JWT parser worker.
-	JWTParserName string
 	// ControllerID is the ID of the controller node.
 	ControllerID string
 	// ControllerUUID is the UUID of the controller entity.
@@ -124,9 +123,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.SSHTunnelerName == "" {
 		return errors.NotValidf("empty SSHTunnelerName")
-	}
-	if config.JWTParserName == "" {
-		return errors.NotValidf("empty JWTParserName")
 	}
 	if config.ControllerID == "" {
 		return errors.NotValidf("empty ControllerID")
@@ -165,7 +161,7 @@ func (config ManifoldConfig) Validate() error {
 // worker. The manifold has no outputs.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.DomainServicesName, config.SSHTunnelerName, config.JWTParserName},
+		Inputs: []string{config.DomainServicesName, config.SSHTunnelerName},
 		Start:  config.startWrapperWorker,
 	}
 }
@@ -194,10 +190,6 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 	}
 	var tunnelTracker workerTunneler.TunnelTracker
 	if err := getter.Get(config.SSHTunnelerName, &tunnelTracker); err != nil {
-		return nil, errors.Trace(err)
-	}
-	var jwtParser *jwtparser.Parser
-	if err := getter.Get(config.JWTParserName, &jwtParser); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -229,19 +221,17 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 		SSHService:              sshService,
 		NewServerWorker:         config.NewServerWorker,
 		Logger:                  config.Logger,
+
 		Authenticator: authenticator{
-			logger:        config.Logger,
-			jwtParser:     jwtParser,
-			tunnelTracker: tunnelTracker,
-			publicKeys:    sshService,
+			logger:     config.Logger,
+			publicKeys: sshService,
 		},
 		Authorizer: authorizer{
 			access: sshService,
 			logger: config.Logger,
 		},
-		ProxyFactory:  proxyFactory,
-		TunnelTracker: tunnelTracker,
-		Metrics:       metricsCollector,
+		ProxyFactory: proxyFactory,
+		Metrics:      metricsCollector,
 	})
 	if err != nil {
 		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
@@ -250,6 +240,67 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 	return common.NewCleanupWorker(w, func() {
 		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
 	}), nil
+}
+
+// RelayDependencies composes the dependencies the apiserver's SSH relay
+// upgrade endpoint needs from the same building blocks the SSH server
+// worker uses: the model-resolving SSH service, the proxy factory (whose
+// machine connector requests reverse tunnels through the tracker), and a
+// JWT-claims authorizer for relayed sessions.
+//
+// The returned values implement apiserver/sshtunnel's ProxyFactory,
+// RelaySSHService, and RelayAuthorizer interfaces respectively.
+func RelayDependencies(
+	controllerSSHService *controllersshservice.Service,
+	domainServicesGetter services.DomainServicesGetter,
+	getSSHService GetSSHServiceFunc,
+	controllerUUID corecontroller.UUID,
+	controllerID string,
+	tunnelTracker workerTunneler.TunnelTracker,
+	logger logger.Logger,
+	metrics *Collector,
+) (proxyFactory, sshService, relayAuthorizer) {
+	svc := sshService{
+		controllerSSHService: controllerSSHService,
+		domainServicesGetter: domainServicesGetter,
+		getSSHService:        getSSHService,
+		controllerUUID:       controllerUUID,
+	}
+	factory := proxyFactory{
+		k8sResolver: svc,
+		logger:      logger,
+		connector: tunnelConnector{
+			tunnelTracker: tunnelTracker,
+			controllerID:  controllerID,
+			resolver:      svc,
+		},
+		getExecutor: k8sexec.NewForJujuCloudSpec,
+		metrics:     metrics,
+	}
+	return factory, svc, relayAuthorizer{access: svc, logger: logger}
+}
+
+// relayAuthorizer checks whether the user identified by a JWT may access a
+// relay destination. It mirrors the sshserver authorizer's JWT path: the
+// token's access claim must grant admin access on the destination model.
+type relayAuthorizer struct {
+	access AccessService
+	logger logger.Logger
+}
+
+// Authorize checks whether the user identified by token may access the
+// target destination.
+func (a relayAuthorizer) Authorize(ctx context.Context, token jwt.Token, destination virtualhostname.Info) (bool, error) {
+	var rawClaims any
+	if err := token.Get("access", &rawClaims); err != nil {
+		return false, errors.New("invalid SSH JWT token, missing access claim")
+	}
+	claims, ok := rawClaims.(map[string]any)
+	if !ok {
+		return false, errors.New("invalid SSH JWT token, invalid access claim")
+	}
+	access, _ := claims["model-"+destination.ModelUUID().String()].(string)
+	return permission.Access(access).EqualOrGreaterModelAccessThan(permission.AdminAccess), nil
 }
 
 // sshService wraps our ssh domain services to enable two things:

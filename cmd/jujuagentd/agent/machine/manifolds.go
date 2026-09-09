@@ -771,9 +771,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			TraceName:              controllerTraceName,
 			ObjectStoreName:        objectStoreFacadeName,
 			JWTParserName:          jwtParserName,
+			SSHTunnelerName:        sshTunnelerName,
 			WatcherRegistryName:    watcherRegistryName,
 			FlightRecorderName:     flightRecorderName,
 			ProviderTrackerName:    providerTrackerName,
+			ControllerID:           config.ControllerID,
+			ControllerUUID:         config.ControllerUUID,
 
 			// Note that although there is a transient dependency on dbaccessor
 			// via changestream, the direct dependency supplies the capability
@@ -947,7 +950,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The ssh server worker runs on the controller machine.
 		sshServerName: ifController(sshserver.Manifold(sshserver.ManifoldConfig{
 			SSHTunnelerName:            sshTunnelerName,
-			JWTParserName:              jwtParserName,
 			DomainServicesName:         domainServicesName,
 			ControllerID:               config.ControllerID,
 			ControllerUUID:             config.ControllerUUID,

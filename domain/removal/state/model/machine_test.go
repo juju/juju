@@ -1465,12 +1465,12 @@ VALUES (?, ?)`, machineRes.MachineName.String(), time.Now())
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.DB().ExecContext(c.Context(), `
 INSERT INTO ssh_connection_request (
-	 tunnel_id, machine_uuid, expires_at, username, password,
+	 tunnel_id, machine_uuid, expires_at,
 	 controller_addresses, unit_port, ephemeral_public_key
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+VALUES (?, ?, ?, ?, ?, ?)`,
 		"tunnel-machine-delete", machineUUID.String(), time.Now().Add(time.Minute),
-		"juju-reverse-tunnel", "secret", "[]", 0, []byte("pub"))
+		"[]", 0, []byte("pub"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Grab the net node UUID before deletion so we can verify it's removed.

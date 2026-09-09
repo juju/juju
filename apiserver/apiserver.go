@@ -42,6 +42,7 @@ import (
 	resourcesdownload "github.com/juju/juju/apiserver/internal/handlers/resources/download"
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/sshtunnel"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/controller"
@@ -51,6 +52,7 @@ import (
 	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -66,6 +68,7 @@ import (
 	"github.com/juju/juju/internal/resource"
 	resourcecharmhub "github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/sshproxy"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc"
@@ -137,6 +140,10 @@ type Server struct {
 
 	// healthStatus is returned from the health endpoint.
 	healthStatus string
+
+	// sshTunnelConfig holds the SSH tunnel endpoint dependencies, or nil
+	// when the endpoints are not registered.
+	sshTunnelConfig *SSHTunnelConfig
 
 	// publicDNSName_ holds the value that will be returned in
 	// LoginResult.PublicDNSName. Currently this is set once and does
@@ -267,6 +274,35 @@ type ServerConfig struct {
 	// EphemeralProviderFactory is used to create providers for operations that
 	// require them, but where the provider does not need to be tracked.
 	EphemeralProviderFactory providertracker.EphemeralProviderFactory
+
+	// SSHTunnelConfig configures the SSH reverse tunnel and relay upgrade
+	// endpoints. If it is nil the endpoints are not registered (for example
+	// in tests that do not exercise the SSH tunnel paths).
+	SSHTunnelConfig *SSHTunnelConfig
+}
+
+// SSHTunnelConfig holds the dependencies for the SSH tunnel and relay
+// upgrade endpoints.
+type SSHTunnelConfig struct {
+	// TunnelTracker accepts reverse tunnel connections pushed by machine
+	// agents. It is the sshtunneler worker's output, local to this
+	// controller node.
+	TunnelTracker sshtunnel.TunnelTracker
+	// ProxyFactory creates target-specific handlers for the relay
+	// endpoint's embedded terminating SSH server.
+	ProxyFactory sshproxy.ProxyFactory
+	// SSHService resolves terminating SSH host keys for the relay
+	// endpoint.
+	SSHService sshproxy.SSHService
+	// Authorizer checks whether the JWT-identified user may access a relay
+	// destination.
+	Authorizer sshtunnel.RelayAuthorizer
+	// MaxConcurrentConnections bounds concurrent upgraded connections on
+	// both endpoints, matching the controller's ssh-max-concurrent-connections
+	// config.
+	MaxConcurrentConnections int
+	// Metrics collects connection metrics, reusing the sshserver collector.
+	Metrics sshtunnel.MetricsCollector
 }
 
 // Validate validates the API server configuration.
@@ -431,7 +467,8 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		logSink:          cfg.LogSink,
 		metricsCollector: cfg.MetricsCollector,
 
-		healthStatus: "starting",
+		healthStatus:    "starting",
+		sshTunnelConfig: cfg.SSHTunnelConfig,
 	}
 	srv.updateAgentRateLimiter(controllerConfig)
 	if err := srv.updateResourceDownloadLimiters(controllerConfig); err != nil {
@@ -978,6 +1015,37 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		ctxt: httpCtxt,
 	}, "register")
 
+	// SSH tunnel and relay upgrade endpoints. Both are tracked so the
+	// hijacked connections are drained on apiserver shutdown, and both
+	// watch the apiserver dying signal inside the handler.
+	var sshTunnelHandler, sshRelayHandler http.Handler
+	if srv.sshTunnelConfig != nil {
+		tunnelHandler, err := sshtunnel.NewTunnelHandler(sshtunnel.TunnelHandlerConfig{
+			Logger:                   logger.Child("sshtunnel"),
+			Tracker:                  srv.sshTunnelConfig.TunnelTracker,
+			SSHConnRequestService:    sshTunnelRequestServiceGetter{ctxt: httpCtxt},
+			MaxConcurrentConnections: srv.sshTunnelConfig.MaxConcurrentConnections,
+			Metrics:                  srv.sshTunnelConfig.Metrics,
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		sshTunnelHandler = srv.sshTunnelRequestWrapper(tunnelHandler)
+
+		relayHandler, err := sshtunnel.NewRelayHandler(sshtunnel.RelayHandlerConfig{
+			Logger:                   logger.Child("sshtunnel"),
+			Authorizer:               srv.sshTunnelConfig.Authorizer,
+			ProxyFactory:             srv.sshTunnelConfig.ProxyFactory,
+			SSHService:               srv.sshTunnelConfig.SSHService,
+			MaxConcurrentConnections: srv.sshTunnelConfig.MaxConcurrentConnections,
+			Metrics:                  srv.sshTunnelConfig.Metrics,
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		sshRelayHandler = srv.sshRelayRequestWrapper(relayHandler)
+	}
+
 	// HTTP handler for application offer macaroon authentication.
 	if err := handlerscrossmodel.AddOfferAuthHandlers(srv.shared, srv.shared.offersThirdPartyKeyPair, srv.mux, srv.shared.logger); err != nil {
 		return nil, errors.Trace(err)
@@ -1095,6 +1163,29 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:    modelObjectsHTTPHandler,
 		authorizer: httpcontext.ControllerAuthorizer,
 	}}
+
+	if srv.sshTunnelConfig != nil {
+		handlers = append(handlers,
+			handler{
+				// Model-scoped so HTTP auth resolves the agent-password
+				// service from the request's model, exactly like /logsink.
+				pattern:    modelRoutePrefix + "/ssh-tunnel/:tunnelID",
+				methods:    []string{"GET"},
+				handler:    sshTunnelHandler,
+				tracked:    true,
+				authorizer: machineAgentAuthorizer{},
+			},
+			handler{
+				// Unscoped: the relay endpoint is bearer-JWT
+				// authenticated and independent of the request model.
+				pattern:    "/ssh-relay/:virtualHostname",
+				methods:    []string{"GET"},
+				handler:    sshRelayHandler,
+				tracked:    true,
+				authorizer: relayJWTAuthorizer{},
+			},
+		)
+	}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {
 			handlers = append(handlers, handler{
@@ -1112,6 +1203,73 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}
 
 	return endpoints, nil
+}
+
+// sshTunnelRequestWrapper injects the authenticated machine name and the
+// apiserver dying signal into the request context for the SSH tunnel
+// upgrade endpoint. The machine identity is resolved from the HTTP
+// authentication layer, never from the request.
+func (srv *Server) sshTunnelRequestWrapper(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tag, err := (&httpContext{srv: srv}).authenticatedTagFromRequest(r, names.MachineTagKind)
+		if err != nil {
+			http.Error(w, "authenticated machine not found", http.StatusUnauthorized)
+			return
+		}
+		machineTag, ok := tag.(names.MachineTag)
+		if !ok {
+			http.Error(w, "authenticated entity is not a machine", http.StatusUnauthorized)
+			return
+		}
+		machineName := machineTag.Id()
+		ctx := context.WithValue(r.Context(), sshtunnel.AuthenticatedMachineNameKey{}, machineName)
+		ctx = context.WithValue(ctx, sshtunnel.DyingKey{}, srv.catacomb.Dying())
+		h.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// sshRelayRequestWrapper injects the relay JWT and the apiserver dying
+// signal into the request context for the SSH relay upgrade endpoint.
+// The JWT comes from the external-auth flow's permission delegator.
+func (srv *Server) sshRelayRequestWrapper(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authInfo, ok := httpcontext.RequestAuthInfo(r.Context())
+		if !ok {
+			http.Error(w, "authentication info missing", http.StatusUnauthorized)
+			return
+		}
+		delegator, ok := authInfo.Delegator.(*jwt.PermissionDelegator)
+		if !ok || delegator == nil {
+			http.Error(w, "relay requires a JWT delegator", http.StatusUnauthorized)
+			return
+		}
+		// delegator.Token was signature-verified by the JWT
+		// authenticator, so the relay handler trusts it as-is.
+		ctx := context.WithValue(r.Context(), sshtunnel.RelayJWTKey{}, delegator.Token)
+		ctx = context.WithValue(ctx, sshtunnel.DyingKey{}, srv.catacomb.Dying())
+		h.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// sshTunnelRequestServiceGetter resolves the model-scoped SSH connection
+// request service for a request, adapting it to the tunnel handler's
+// interface.
+type sshTunnelRequestServiceGetter struct {
+	ctxt httpContext
+}
+
+// GetSSHConnRequest returns the SSH connection request for the supplied
+// tunnel ID, scoped to the named machine.
+func (g sshTunnelRequestServiceGetter) GetSSHConnRequest(ctx context.Context, machineName string, tunnelID string) (sshtunnel.SSHConnRequest, error) {
+	domainServices, err := g.ctxt.domainServicesForRequestContext(ctx)
+	if err != nil {
+		return sshtunnel.SSHConnRequest{}, errors.Trace(err)
+	}
+	req, err := domainServices.SSH().GetSSHConnRequest(ctx, coremachine.Name(machineName), tunnelID)
+	if err != nil {
+		return sshtunnel.SSHConnRequest{}, errors.Trace(err)
+	}
+	return sshtunnel.SSHConnRequest{MachineName: req.MachineName}, nil
 }
 
 // trackRequests wraps a http.Handler, incrementing and decrementing

@@ -8,31 +8,13 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/lestrrat-go/jwx/v3/jwt"
 	ssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/logger"
-	coressh "github.com/juju/juju/core/ssh"
 )
 
 type authenticatedViaPublicKey struct{}
-
-type userJWT struct{}
-type tunnelIDKey struct{}
-
-const externalAuthUser = "external-auth"
-
-// JWTParser parses a JWT in the password authentication payload.
-type JWTParser interface {
-	// Parse parses the provided JWT string and returns a jwt.Token if valid.
-	Parse(context.Context, string) (jwt.Token, error)
-}
-
-// TunnelAuthenticator authenticates machine reverse-tunnel connections.
-type TunnelAuthenticator interface {
-	AuthenticateTunnel(username, password string) (string, error)
-}
 
 // UserPublicKeyService retrieves the public keys registered for a user.
 type UserPublicKeyService interface {
@@ -40,15 +22,14 @@ type UserPublicKeyService interface {
 }
 
 // authenticator implements the Authenticator interface for the SSH server.
-// It handles:
-// 1. Public key authentication by users.
-// 2. JWT password authentication for external-auth.
-// 3. Reverse-tunnel authentication for machine agents.
+// It handles public key authentication by users. Password authentication
+// is removed: machine reverse tunnels and JIMM relay sessions now
+// authenticate at the HTTP layer on the API server's upgrade endpoints,
+// so the jump server rejects all passwords and key-less users get a clean
+// public key rejection instead of an "enter password:" prompt.
 type authenticator struct {
-	logger        logger.Logger
-	jwtParser     JWTParser
-	tunnelTracker TunnelAuthenticator
-	publicKeys    UserPublicKeyService
+	logger     logger.Logger
+	publicKeys UserPublicKeyService
 }
 
 // PublicKeyAuthentication implements a public key authentication handler.
@@ -68,28 +49,9 @@ func (a authenticator) PublicKeyAuthentication(ctx ssh.Context, key ssh.PublicKe
 	return false, nil
 }
 
-// PasswordAuthentication implements a password authentication handler.
-// It supports two types of password authentication:
-// 1. Decoding a JWT as the password for external-auth.
-// 2. Reverse-tunnel authentication for machine agents.
-func (a authenticator) PasswordAuthentication(ctx ssh.Context, password string) (bool, error) {
-	ctx.SetValue(authenticatedViaPublicKey{}, false)
-
-	switch ctx.User() {
-	case externalAuthUser:
-		token, err := a.jwtParser.Parse(ctx, password)
-		if err != nil {
-			return false, errors.Annotate(err, "parsing SSH JWT")
-		}
-		ctx.SetValue(userJWT{}, token)
-		return true, nil
-	case coressh.ReverseTunnelUser:
-		tunnelID, err := a.tunnelTracker.AuthenticateTunnel(ctx.User(), password)
-		if err != nil {
-			return false, errors.Annotate(err, "authenticating reverse SSH tunnel")
-		}
-		ctx.SetValue(tunnelIDKey{}, tunnelID)
-		return true, nil
-	}
+// PasswordAuthentication rejects all password authentication attempts.
+// The reverse-tunnel and external-auth password paths moved to the HTTP
+// upgrade endpoints; no password is valid on the jump server any more.
+func (a authenticator) PasswordAuthentication(_ ssh.Context, _ string) (bool, error) {
 	return false, nil
 }

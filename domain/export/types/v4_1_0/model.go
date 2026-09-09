@@ -1353,8 +1353,6 @@ type SshConnectionRequest struct {
 	TunnelID            string    `db:"tunnel_id" json:"tunnel_id" yaml:"tunnel_id"`
 	MachineUUID         string    `db:"machine_uuid" json:"machine_uuid" yaml:"machine_uuid"`
 	ExpiresAt           time.Time `db:"expires_at" json:"expires_at" yaml:"expires_at"`
-	Username            string    `db:"username" json:"username" yaml:"username"`
-	Password            string    `db:"password" json:"password" yaml:"password"`
 	ControllerAddresses string    `db:"controller_addresses" json:"controller_addresses" yaml:"controller_addresses"`
 	UnitPort            int64     `db:"unit_port" json:"unit_port" yaml:"unit_port"`
 	EphemeralPublicKey  []byte    `db:"ephemeral_public_key" json:"ephemeral_public_key" yaml:"ephemeral_public_key"`

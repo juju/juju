@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
+	corecontroller "github.com/juju/juju/core/controller"
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/flightrecorder"
 	corehttp "github.com/juju/juju/core/http"
@@ -26,10 +27,14 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
+	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
 	"github.com/juju/juju/internal/jwtparser"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/sshserver"
+	workerTunneler "github.com/juju/juju/internal/worker/sshtunneler"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 )
@@ -56,6 +61,16 @@ func GetModelService(getter dependency.Getter, name string) (ModelService, error
 	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerDomainServices) ModelService {
 		return factory.Model()
 	})
+}
+
+// GetControllerSSHServiceFunc is a helper function that gets the controller SSH
+// host key service from the manifold.
+type GetControllerSSHServiceFunc func(getter dependency.Getter, name string) (*controllersshservice.Service, error)
+
+// GetControllerSSHService is a helper function that gets the controller SSH
+// host key service from the manifold.
+func GetControllerSSHService(getter dependency.Getter, name string) (*controllersshservice.Service, error) {
+	return sshserver.GetControllerSSHService(getter, name)
 }
 
 // LocalValues are the controller-local values needed to start the API server.
@@ -90,6 +105,13 @@ type ManifoldConfig struct {
 	TraceName          string
 	ObjectStoreName    string
 	JWTParserName      string
+	SSHTunnelerName    string
+
+	// ControllerID is the ID of the local controller node, used by the
+	// relay endpoint's machine connector for reverse tunnel requests.
+	ControllerID string
+	// ControllerUUID is the UUID of the controller entity.
+	ControllerUUID string
 
 	// Clock is the clock used for timekeeping within the manifold.
 	Clock clock.Clock
@@ -102,6 +124,7 @@ type ManifoldConfig struct {
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	GetControllerConfigService        GetControllerConfigServiceFunc
 	GetModelService                   GetModelServiceFunc
+	GetControllerSSHService           GetControllerSSHServiceFunc
 
 	NewWorker           func(context.Context, Config) (worker.Worker, error)
 	NewMetricsCollector func() *apiserver.Collector
@@ -166,6 +189,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.JWTParserName == "" {
 		return errors.NotValidf("empty JWTParserName")
 	}
+	if config.SSHTunnelerName == "" {
+		return errors.NotValidf("empty SSHTunnelerName")
+	}
 	if config.ProviderTrackerName == "" {
 		return errors.NotValidf("empty ProviderTrackerName")
 	}
@@ -180,6 +206,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.GetModelService == nil {
 		return errors.NotValidf("nil GetModelService")
+	}
+	if config.GetControllerSSHService == nil {
+		return errors.NotValidf("nil GetControllerSSHService")
 	}
 
 	return nil
@@ -204,6 +233,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ObjectStoreName,
 			config.LogSinkName,
 			config.JWTParserName,
+			config.SSHTunnelerName,
 			config.WatcherRegistryName,
 			config.ProviderTrackerName,
 		},
@@ -322,9 +352,43 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	var tunnelTracker workerTunneler.TunnelTracker
+	if err := getter.Get(config.SSHTunnelerName, &tunnelTracker); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Compose the relay endpoint's dependencies from the same building
+	// blocks the sshserver worker uses: the proxy factory (whose machine
+	// connector requests reverse tunnels through the tracker), the
+	// model-resolving SSH service, and a JWT-claims authorizer.
+	controllerSSHService, err := config.GetControllerSSHService(getter, config.DomainServicesName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	controllerUUID, err := corecontroller.ParseUUID(config.ControllerUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// The sshserver worker registers its own metrics collector with the
+	// Prometheus registerer; the apiserver creates a local unregistered
+	// instance for the relay/tunnel endpoints so the upgrade paths are
+	// accounted the same way without a duplicate registration.
+	sshTunnelMetrics := sshserver.NewMetricsCollector()
+	relayProxyFactory, relaySSHService, relayAuthorizer := sshserver.RelayDependencies(
+		controllerSSHService,
+		domainServicesGetter,
+		sshserver.GetSSHService,
+		controllerUUID,
+		config.ControllerID,
+		tunnelTracker,
+		internallogger.GetLogger("juju.worker.sshserver"),
+		sshTunnelMetrics,
+	)
+
 	// Register the metrics collector against the prometheus register.
 	metricsCollector := config.NewMetricsCollector()
 	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
+		_ = config.PrometheusRegisterer.Unregister(sshTunnelMetrics)
 		return nil, errors.Trace(err)
 	}
 
@@ -355,6 +419,13 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		ModelService:                      modelService,
 		WatcherRegistryGetter:             watcherRegistryGetter,
 		EphemeralProviderFactory:          providerFactory,
+		SSHTunnel: &apiserver.SSHTunnelConfig{
+			TunnelTracker: tunnelTracker,
+			ProxyFactory:  relayProxyFactory,
+			SSHService:    relaySSHService,
+			Authorizer:    relayAuthorizer,
+			Metrics:       sshTunnelMetrics,
+		},
 	})
 	if err != nil {
 		// Ensure we clean up the resources we've registered with. This includes

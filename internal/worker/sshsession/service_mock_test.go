@@ -15,7 +15,6 @@ import (
 	gomock "github.com/canonical/gomock/gomock"
 	watcher "github.com/juju/juju/core/watcher"
 	params "github.com/juju/juju/rpc/params"
-	ssh "golang.org/x/crypto/ssh"
 )
 
 // MockFacadeClient is a mock of FacadeClient interface.
@@ -28,8 +27,6 @@ type MockFacadeClient struct {
 // MockFacadeClientMockRecorder is the mock recorder for MockFacadeClient.
 type MockFacadeClientMockRecorder struct {
 	mock                       *MockFacadeClient
-	controllerPublicKeyExpects []*gomock.Call1_2[context.Context, []byte, error]
-	controllerSSHPortExpects   []*gomock.Call1_2[context.Context, int, error]
 	getSSHConnRequestExpects   []*gomock.Call2_2[context.Context, string, params.SSHConnRequestResult, error]
 	watchSSHConnRequestExpects []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
 }
@@ -45,42 +42,6 @@ func NewMockFacadeClient(ctrl *gomock.Controller) *MockFacadeClient {
 func (m *MockFacadeClient) EXPECT() *MockFacadeClientMockRecorder {
 	return m.recorder
 }
-
-// ControllerPublicKey mocks base method.
-func (m *MockFacadeClient) ControllerPublicKey(ctx context.Context) ([]byte, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.controllerPublicKeyExpects, m.ctrl, m, "ControllerPublicKey", ctx)
-}
-
-// ControllerPublicKey indicates an expected call of ControllerPublicKey.
-func (mr *MockFacadeClientMockRecorder) ControllerPublicKey(ctx any) *MockFacadeClientControllerPublicKeyCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, []byte, error](mr.mock.ctrl.T, mr.mock, "ControllerPublicKey", gomock.EnsureMatcher(ctx))
-	mr.controllerPublicKeyExpects = append(mr.controllerPublicKeyExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockFacadeClientControllerPublicKeyCall is the typed call wrapper for ControllerPublicKey.
-type MockFacadeClientControllerPublicKeyCall = gomock.Call1_2[context.Context, []byte, error]
-
-// ControllerSSHPort mocks base method.
-func (m *MockFacadeClient) ControllerSSHPort(ctx context.Context) (int, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.controllerSSHPortExpects, m.ctrl, m, "ControllerSSHPort", ctx)
-}
-
-// ControllerSSHPort indicates an expected call of ControllerSSHPort.
-func (mr *MockFacadeClientMockRecorder) ControllerSSHPort(ctx any) *MockFacadeClientControllerSSHPortCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, int, error](mr.mock.ctrl.T, mr.mock, "ControllerSSHPort", gomock.EnsureMatcher(ctx))
-	mr.controllerSSHPortExpects = append(mr.controllerSSHPortExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockFacadeClientControllerSSHPortCall is the typed call wrapper for ControllerSSHPort.
-type MockFacadeClientControllerSSHPortCall = gomock.Call1_2[context.Context, int, error]
 
 // GetSSHConnRequest mocks base method.
 func (m *MockFacadeClient) GetSSHConnRequest(ctx context.Context, tunnelID string) (params.SSHConnRequestResult, error) {
@@ -128,7 +89,7 @@ type MockConnectionDialer struct {
 // MockConnectionDialerMockRecorder is the mock recorder for MockConnectionDialer.
 type MockConnectionDialerMockRecorder struct {
 	mock                  *MockConnectionDialer
-	dialControllerExpects []*gomock.Call6_2[context.Context, string, int, string, string, ssh.PublicKey, HalfCloseConn, error]
+	dialControllerExpects []*gomock.Call4_2[context.Context, string, string, string, HalfCloseConn, error]
 	dialLocalSSHDExpects  []*gomock.Call1_2[context.Context, HalfCloseConn, error]
 }
 
@@ -145,22 +106,22 @@ func (m *MockConnectionDialer) EXPECT() *MockConnectionDialerMockRecorder {
 }
 
 // DialController mocks base method.
-func (m *MockConnectionDialer) DialController(ctx context.Context, address string, port int, username, password string, hostPublicKey ssh.PublicKey) (HalfCloseConn, error) {
+func (m *MockConnectionDialer) DialController(ctx context.Context, address, modelUUID, tunnelID string) (HalfCloseConn, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch6_2(&m.recorder.dialControllerExpects, m.ctrl, m, "DialController", ctx, address, port, username, password, hostPublicKey)
+	return gomock.Dispatch4_2(&m.recorder.dialControllerExpects, m.ctrl, m, "DialController", ctx, address, modelUUID, tunnelID)
 }
 
 // DialController indicates an expected call of DialController.
-func (mr *MockConnectionDialerMockRecorder) DialController(ctx, address, port, username, password, hostPublicKey any) *MockConnectionDialerDialControllerCall {
+func (mr *MockConnectionDialerMockRecorder) DialController(ctx, address, modelUUID, tunnelID any) *MockConnectionDialerDialControllerCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall6_2[context.Context, string, int, string, string, ssh.PublicKey, HalfCloseConn, error](mr.mock.ctrl.T, mr.mock, "DialController", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(address), gomock.EnsureMatcher(port), gomock.EnsureMatcher(username), gomock.EnsureMatcher(password), gomock.EnsureMatcher(hostPublicKey))
+	call := gomock.NewCall4_2[context.Context, string, string, string, HalfCloseConn, error](mr.mock.ctrl.T, mr.mock, "DialController", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(address), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(tunnelID))
 	mr.dialControllerExpects = append(mr.dialControllerExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockConnectionDialerDialControllerCall is the typed call wrapper for DialController.
-type MockConnectionDialerDialControllerCall = gomock.Call6_2[context.Context, string, int, string, string, ssh.PublicKey, HalfCloseConn, error]
+type MockConnectionDialerDialControllerCall = gomock.Call4_2[context.Context, string, string, string, HalfCloseConn, error]
 
 // DialLocalSSHD mocks base method.
 func (m *MockConnectionDialer) DialLocalSSHD(ctx context.Context) (HalfCloseConn, error) {
