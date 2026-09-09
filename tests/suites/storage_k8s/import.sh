@@ -148,10 +148,16 @@ EOF
 	wait_for_storage "detached" '.storage["data/1"]["status"].current'
 
 	# Force-import must have removed the PVC and cleared the claimRef.
-	if kubectl get pvc "${PVC}" -n "${model_name}" >/dev/null 2>&1; then
-		echo "ERROR: import --force did not delete PVC ${PVC}"
-		exit 1
-	fi
+	# PVC deletion is asynchronous in Kubernetes; poll for it to disappear.
+	attempt=0
+	while kubectl get pvc "${PVC}" -n "${model_name}" >/dev/null 2>&1; do
+		sleep "${SHORT_TIMEOUT}"
+		attempt=$((attempt + 1))
+		if [[ ${attempt} -gt 30 ]]; then
+			echo "ERROR: import --force did not delete PVC ${PVC}"
+			exit 1
+		fi
+	done
 	CLAIMREF=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
 	echo "${CLAIMREF}" | check ""
 	RECLAIM_POLICY=$(kubectl get pv "${PV}" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}')
@@ -206,7 +212,7 @@ test_destroy_model_with_detached_storage() {
 
 	# 1. destroy-model without flags should fail with persistent
 	#    storage error.
-	juju destroy-model "${model_name}" --no-prompt 2>&1 | check "has persistent storage"
+	check "has persistent storage" <<<"$(juju destroy-model "${model_name}" --no-prompt 2>&1 || true)"
 
 	# 2. destroy-model with --destroy-storage should succeed and
 	#    remove the PV.
