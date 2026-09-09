@@ -58,7 +58,6 @@ type MockUnitMockRecorder struct {
 	refreshExpects                  []*gomock.Call1_1[context.Context, error]
 	relationsStatusExpects          []*gomock.Call1_2[context.Context, []uniter.RelationStatus, error]
 	requestRebootExpects            []*gomock.Call1_1[context.Context, error]
-	resolvedExpects                 []*gomock.Call1_2[context.Context, params.ResolvedMode, error]
 	resolvedModeExpects             []*gomock.Call0_1[params.ResolvedMode]
 	setAgentStatusExpects           []*gomock.Call4_1[context.Context, status.Status, string, map[string]any, error]
 	setCharmExpects                 []*gomock.Call2_1[context.Context, string, error]
@@ -518,24 +517,6 @@ func (mr *MockUnitMockRecorder) RequestReboot(arg0 any) *MockUnitRequestRebootCa
 
 // MockUnitRequestRebootCall is the typed call wrapper for RequestReboot.
 type MockUnitRequestRebootCall = gomock.Call1_1[context.Context, error]
-
-// Resolved mocks base method.
-func (m *MockUnit) Resolved(arg0 context.Context) (params.ResolvedMode, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.resolvedExpects, m.ctrl, m, "Resolved", arg0)
-}
-
-// Resolved indicates an expected call of Resolved.
-func (mr *MockUnitMockRecorder) Resolved(arg0 any) *MockUnitResolvedCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, params.ResolvedMode, error](mr.mock.ctrl.T, mr.mock, "Resolved", gomock.EnsureMatcher(arg0))
-	mr.resolvedExpects = append(mr.resolvedExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockUnitResolvedCall is the typed call wrapper for Resolved.
-type MockUnitResolvedCall = gomock.Call1_2[context.Context, params.ResolvedMode, error]
 
 // ResolvedMode mocks base method.
 func (m *MockUnit) ResolvedMode() params.ResolvedMode {

@@ -61,34 +61,6 @@ func (u *Unit) ResolvedMode() params.ResolvedMode {
 	return u.resolved
 }
 
-// Resolved returns the unit's resolved mode value.
-func (u *Unit) Resolved(ctx context.Context) (params.ResolvedMode, error) {
-	var results params.ResolvedModeResults
-	args := params.Entities{
-		Entities: []params.Entity{
-			{Tag: u.tag.String()},
-		},
-	}
-	err := u.client.facade.FacadeCall(ctx, "Resolved", args, &results)
-	if err != nil {
-		return "", errors.Trace(apiservererrors.RestoreError(err))
-	}
-	if len(results.Results) != 1 {
-		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		// We should be able to use apiserver.common.RestoreError here,
-		// but because of poor design, it causes import errors.
-		if params.IsCodeNotFound(result.Error) {
-			return "", errors.NewNotFound(result.Error, "")
-		}
-		return "", errors.Trace(result.Error)
-	}
-
-	return result.Mode, nil
-}
-
 // Refresh updates the cached local copy of the unit's data.
 //
 // Deprecated: Please use a purpose-built getter instead.

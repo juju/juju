@@ -63,7 +63,6 @@ type Unit interface {
 	AssignedMachine(context.Context) (names.MachineTag, error)
 	AvailabilityZone(context.Context) (string, error)
 	PrivateAddress(context.Context) (string, error)
-	Resolved(context.Context) (params.ResolvedMode, error)
 
 	// Used by remotestate watcher.
 
