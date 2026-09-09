@@ -24,7 +24,6 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -563,7 +562,6 @@ func (c *controllerStack) Deploy(ctx context.Context) (err error) {
 	saName, saCleanUps, err := ensureControllerServiceAccount(
 		ctx,
 		c.broker.client(),
-		c.broker.extendedClient(),
 		c.broker.Namespace(),
 		c.broker.ControllerUUID(),
 		c.stackLabels,
@@ -956,7 +954,6 @@ func (c *controllerStack) ensureControllerApplicationSecret(ctx context.Context)
 func ensureControllerServiceAccount(
 	ctx context.Context,
 	client kubernetes.Interface,
-	extendedClient clientset.Interface,
 	namespace string,
 	controllerUUID string,
 	labels map[string]string,
