@@ -1350,7 +1350,8 @@ func (s *applicationServiceSuite) TestChangeApplicationScaleUp(c *tc.C) {
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
-	s.state.EXPECT().UpdateApplicationScale(gomock.Any(), appUUID, 2).Return(5, nil)
+	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), appUUID).Return(application.ScaleState{Scale: 3}, nil)
+	s.state.EXPECT().UpdateApplicationScale(gomock.Any(), appUUID, 3, 2).Return(5, nil)
 
 	newScale, err := s.service.ChangeApplicationScale(c.Context(), "foo", 2)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1364,7 +1365,7 @@ func (s *applicationServiceSuite) TestChangeApplicationScaleDownNonController(c 
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
 	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), appUUID).Return(application.ScaleState{Scale: 3}, nil)
-	s.state.EXPECT().UpdateApplicationScale(gomock.Any(), appUUID, -1).Return(2, nil)
+	s.state.EXPECT().UpdateApplicationScale(gomock.Any(), appUUID, 3, -1).Return(2, nil)
 
 	newScale, err := s.service.ChangeApplicationScale(c.Context(), "foo", -1)
 	c.Assert(err, tc.ErrorIsNil)

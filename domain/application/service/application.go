@@ -163,7 +163,7 @@ type ApplicationState interface {
 	// delta.
 	// If the resulting scale is less than zero, an error satisfying
 	// [applicationerrors.ScaleChangeInvalid] is returned.
-	UpdateApplicationScale(ctx context.Context, appUUID coreapplication.UUID, delta int) (int, error)
+	UpdateApplicationScale(ctx context.Context, appUUID coreapplication.UUID, currentScale, delta int) (int, error)
 
 	// GetCharmByApplicationUUID returns the charm, charm origin and charm
 	// platform for the specified application UUID.
@@ -987,6 +987,7 @@ func (s *Service) IsSubordinateApplicationByName(ctx context.Context, appName st
 // SetApplicationScale sets the application's desired scale value,
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+// - an error if attempting to scale a controller application to 0 units
 func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale int) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -1055,8 +1056,9 @@ func (s *Service) ShouldAllowCharmUpgradeOnError(ctx context.Context, appName st
 }
 
 // ChangeApplicationScale alters the existing scale by the provided change amount, returning the new amount.
-// It returns an error satisfying [applicationerrors.ApplicationNotFound] if the application
-// doesn't exist.
+// It returns an error satisfying [applicationerrors.ApplicationNotFound] if the
+// application doesn't exist, or an error if attempting to scale a controller
+// application to 0 units.
 // This is used on CAAS models.
 func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, scaleChange int) (int, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -1067,11 +1069,11 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 		return -1, errors.Capture(err)
 	}
 
+	scaleState, err := s.st.GetApplicationScaleState(ctx, appUUID)
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
 	if scaleChange < 0 {
-		scaleState, err := s.st.GetApplicationScaleState(ctx, appUUID)
-		if err != nil {
-			return -1, errors.Capture(err)
-		}
 		newScale := scaleState.Scale + scaleChange
 		if newScale <= 0 {
 			isController, err := s.st.IsControllerApplication(ctx, appUUID)
@@ -1084,7 +1086,7 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 		}
 	}
 
-	newScale, err := s.st.UpdateApplicationScale(ctx, appUUID, scaleChange)
+	newScale, err := s.st.UpdateApplicationScale(ctx, appUUID, scaleState.Scale, scaleChange)
 	if err != nil {
 		return -1, errors.Errorf("changing scaling state for %q: %w", appName, err)
 	}
