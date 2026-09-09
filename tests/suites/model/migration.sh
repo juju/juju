@@ -111,6 +111,22 @@ run_model_migration_caas() {
 	wait_for "snappass-test" "$(active_idle_condition "snappass-test")"
 	juju exec --unit snappass-test/0 -- hostname | grep -c snappass-test | check 1
 
+	# The source controller must reap the model: migration moves the model,
+	# it does not copy it. The reap runs after the target has activated, so
+	# poll the source until the model disappears.
+	juju switch "alt-model-migration-caas:controller"
+	attempt=0
+	until [[ -z $(juju models --format=json | yq -r '.models | .[] | select(.["short-name"] == "model-migration-caas") | .["short-name"]') ]]; do
+		if [[ ${attempt} -ge 30 ]]; then
+			red 'Failed: source controller did not reap model-migration-caas'
+			exit 1
+		fi
+		echo "[+] (attempt ${attempt}) polling for source reap of model-migration-caas"
+		sleep "${SHORT_TIMEOUT}"
+		attempt=$((attempt + 1))
+	done
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}:model-migration-caas"
+
 	# Clean up: destroy the now-empty source controller, then the migrated
 	# model on the target (the framework teardown destroys the target
 	# controller itself).
