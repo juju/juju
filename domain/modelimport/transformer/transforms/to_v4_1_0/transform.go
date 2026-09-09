@@ -19,6 +19,8 @@ import (
 // Engineers implement this interface in deltas.go; the package will not
 // compile until every method has a receiver.
 type Deltas interface {
+	// ApplicationScale: struct shape changed in 4.1.0.
+	ApplicationScale(ctx context.Context, src []v4_0_12.ApplicationScale) ([]v4_1_0.ApplicationScale, error)
 	// Constraint: struct shape changed in 4.1.0.
 	Constraint(ctx context.Context, src []v4_0_12.Constraint) ([]v4_1_0.Constraint, error)
 	// Operation: struct shape changed in 4.1.0.
@@ -191,11 +193,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.ApplicationResource = make([]v4_1_0.ApplicationResource, len(src.ApplicationResource))
 		for i := range src.ApplicationResource {
 			dst.ApplicationResource[i] = v4_1_0.ApplicationResource(src.ApplicationResource[i])
-		}
-
-		dst.ApplicationScale = make([]v4_1_0.ApplicationScale, len(src.ApplicationScale))
-		for i := range src.ApplicationScale {
-			dst.ApplicationScale[i] = v4_1_0.ApplicationScale(src.ApplicationScale[i])
 		}
 
 		dst.ApplicationSetting = make([]v4_1_0.ApplicationSetting, len(src.ApplicationSetting))
@@ -1246,6 +1243,10 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.WorkloadStatusValue = make([]v4_1_0.WorkloadStatusValue, len(src.WorkloadStatusValue))
 		for i := range src.WorkloadStatusValue {
 			dst.WorkloadStatusValue[i] = v4_1_0.WorkloadStatusValue(src.WorkloadStatusValue[i])
+		}
+
+		if dst.ApplicationScale, err = d.ApplicationScale(ctx, src.ApplicationScale); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationScale delta: %w", err)
 		}
 
 		if dst.Constraint, err = d.Constraint(ctx, src.Constraint); err != nil {

@@ -9,6 +9,10 @@ type entityUUID struct {
 	UUID string `db:"uuid"`
 }
 
+type controllerNode struct {
+	ControllerID string `db:"controller_id"`
+}
+
 // entityLife holds an entity's life in integer
 type entityLife struct {
 	Life int `db:"life_id"`

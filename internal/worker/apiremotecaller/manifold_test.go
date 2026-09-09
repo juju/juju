@@ -89,7 +89,9 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *tc.C) {
 	c.Check(config.Origin, tc.Equals, names.NewControllerAgentTag("0"))
 	c.Check(config.Clock, tc.Equals, clock)
 	c.Check(config.ControllerNodeService, tc.DeepEquals, &controllernodeservice.WatchableService{})
-	c.Check(config.APIInfo.CACert, tc.Equals, "cert")
+	apiInfo, err := config.APIInfo.APIInfo()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiInfo.CACert, tc.Equals, "cert")
 	c.Check(config.NewRemote, tc.NotNil)
 }
 

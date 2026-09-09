@@ -382,7 +382,8 @@ func (s *controllerWorkerSuite) TestUpgradeFailsWhenKilled(c *tc.C) {
 	defer workertest.DirtyKill(c, failedWatcher)
 
 	done := make(chan struct{})
-	kill := make(chan *controllerWorker)
+	stepsStarted := make(chan struct{})
+	releaseSteps := make(chan struct{})
 
 	srv := s.upgradeService.EXPECT()
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.StepsCompleted).Return(completedWatcher, nil)
@@ -395,12 +396,11 @@ func (s *controllerWorkerSuite) TestUpgradeFailsWhenKilled(c *tc.C) {
 
 	w := s.newWorker(c, func(base *upgradesteps.BaseWorker) {
 		base.PreUpgradeSteps = func(_ agent.Config) error {
+			close(stepsStarted)
 			select {
-			case w := <-kill:
-				w.Kill()
+			case <-releaseSteps:
 			case <-c.Context().Done():
-				c.Error("timed out waiting for kill")
-				return errors.New("timed out waiting for kill")
+				return c.Context().Err()
 			}
 			return nil
 		}
@@ -412,10 +412,12 @@ func (s *controllerWorkerSuite) TestUpgradeFailsWhenKilled(c *tc.C) {
 	s.dispatchChange(c, chFailed)
 
 	select {
-	case kill <- w:
+	case <-stepsStarted:
 	case <-c.Context().Done():
-		c.Fatalf("timed out waiting for kill")
+		c.Fatalf("timed out waiting for upgrade steps to start")
 	}
+	w.Kill()
+	close(releaseSteps)
 
 	select {
 	case <-done:

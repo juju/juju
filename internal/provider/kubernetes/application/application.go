@@ -231,7 +231,6 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	if err != nil {
 		return errors.Annotate(err, "generating application podspec")
 	}
-
 	var handleVolume handleVolumeFunc = func(
 		v corev1.Volume,
 		attachParams jujustorage.KubernetesFilesystemAttachmentParams,
@@ -327,6 +326,9 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			// With nil Replicas, Kubernetes defaults to 1 replica
 			// on creation. The provisioner's EnsureScale will
 			// correct the replica count if needed.
+		}
+		if exists && config.Controller {
+			ensureControllerBootstrapPodTemplate(&existingSts.Spec.Template.Spec, podSpec)
 		}
 
 		var numPods *int32
@@ -473,6 +475,114 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	}
 
 	return applier.Run(context.TODO(), false)
+}
+
+// ensureControllerBootstrapPodTemplate retains pod components added during
+// controller bootstrap that ApplicationPodSpec does not produce.
+func ensureControllerBootstrapPodTemplate(existing, desired *corev1.PodSpec) {
+	ensureContainer := func(existingContainers []corev1.Container, name string, desiredContainers *[]corev1.Container, prepend bool) {
+		existingIndex := slices.IndexFunc(existingContainers, func(container corev1.Container) bool {
+			return container.Name == name
+		})
+		if existingIndex == -1 || slices.ContainsFunc(*desiredContainers, func(container corev1.Container) bool {
+			return container.Name == name
+		}) {
+			return
+		}
+		if prepend {
+			*desiredContainers = append([]corev1.Container{existingContainers[existingIndex]}, *desiredContainers...)
+			return
+		}
+		*desiredContainers = append(*desiredContainers, existingContainers[existingIndex])
+	}
+	ensureContainer(existing.Containers, "api-server", &desired.Containers, false)
+	ensureContainer(existing.InitContainers, "controller-config-seed", &desired.InitContainers, true)
+
+	for i := range desired.Containers {
+		if desired.Containers[i].Name != constants.ApplicationCharmContainer {
+			continue
+		}
+		existingIndex := slices.IndexFunc(existing.Containers, func(container corev1.Container) bool {
+			return container.Name == desired.Containers[i].Name
+		})
+		if existingIndex == -1 {
+			continue
+		}
+		ensureDataDirMount(&existing.Containers[existingIndex], &desired.Containers[i])
+	}
+
+	for i := range desired.InitContainers {
+		if desired.InitContainers[i].Name != constants.ApplicationInitContainer {
+			continue
+		}
+		existingIndex := slices.IndexFunc(existing.InitContainers, func(container corev1.Container) bool {
+			return container.Name == desired.InitContainers[i].Name
+		})
+		if existingIndex == -1 {
+			continue
+		}
+		ensureDataDirMount(&existing.InitContainers[existingIndex], &desired.InitContainers[i])
+		ensureContainerNamesEnv(&existing.InitContainers[existingIndex], &desired.InitContainers[i])
+	}
+
+	bootstrapVolumeNames := make(map[string]struct{})
+	for _, container := range append(existing.Containers, existing.InitContainers...) {
+		if container.Name != "api-server" && container.Name != "controller-config-seed" {
+			continue
+		}
+		for _, mount := range container.VolumeMounts {
+			bootstrapVolumeNames[mount.Name] = struct{}{}
+		}
+	}
+	for _, container := range append(desired.Containers, desired.InitContainers...) {
+		if container.Name != constants.ApplicationCharmContainer && container.Name != constants.ApplicationInitContainer {
+			continue
+		}
+		for _, mount := range container.VolumeMounts {
+			bootstrapVolumeNames[mount.Name] = struct{}{}
+		}
+	}
+	for _, existingVolume := range existing.Volumes {
+		if _, ok := bootstrapVolumeNames[existingVolume.Name]; !ok {
+			continue
+		}
+		if slices.IndexFunc(desired.Volumes, func(volume corev1.Volume) bool {
+			return volume.Name == existingVolume.Name
+		}) == -1 {
+			desired.Volumes = append(desired.Volumes, existingVolume)
+		}
+	}
+}
+
+func ensureDataDirMount(existing, desired *corev1.Container) {
+	dataDir := paths.DataDir(paths.OSUnixLike)
+	existingIndex := slices.IndexFunc(existing.VolumeMounts, func(mount corev1.VolumeMount) bool {
+		return mount.MountPath == dataDir && mount.Name != constants.CharmVolumeName
+	})
+	if existingIndex == -1 {
+		return
+	}
+	desired.VolumeMounts = slices.DeleteFunc(desired.VolumeMounts, func(mount corev1.VolumeMount) bool {
+		return mount.MountPath == dataDir
+	})
+	desired.VolumeMounts = append(desired.VolumeMounts, existing.VolumeMounts[existingIndex])
+}
+
+func ensureContainerNamesEnv(existing, desired *corev1.Container) {
+	existingIndex := slices.IndexFunc(existing.Env, func(env corev1.EnvVar) bool {
+		return env.Name == constants.EnvJujuContainerNames
+	})
+	if existingIndex == -1 {
+		return
+	}
+	desiredIndex := slices.IndexFunc(desired.Env, func(env corev1.EnvVar) bool {
+		return env.Name == constants.EnvJujuContainerNames
+	})
+	if desiredIndex == -1 {
+		desired.Env = append(desired.Env, existing.Env[existingIndex])
+		return
+	}
+	desired.Env[desiredIndex] = existing.Env[existingIndex]
 }
 
 func (a *app) applyServiceAccountAndSecrets(applier resources.Applier, config caas.ApplicationConfig) error {
@@ -1649,6 +1759,10 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 
 	containerNames := config.ExistingContainers
+	controllerMode := config.Controller
+	if controllerMode && !slices.Contains(containerNames, "api-server") {
+		containerNames = append(containerNames, "api-server")
+	}
 	containers := []caas.ContainerConfig(nil)
 	for _, v := range config.Containers {
 		containerNames = append(containerNames, v.Name)
@@ -1855,6 +1969,14 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 		}, charmContainerExtraVolumeMounts...),
 	}
+	if controllerMode {
+		charmContainer.LivenessProbe = nil
+		charmContainer.ReadinessProbe = nil
+		charmContainer.StartupProbe = nil
+		charmContainer.Env = slices.DeleteFunc(charmContainer.Env, func(env corev1.EnvVar) bool {
+			return env.Name == constants.EnvAgentHTTPProbePort
+		})
+	}
 	pebbleIdentitiesEnabled := false
 	if requireSecurityContext {
 		switch config.CharmUser {
@@ -2042,6 +2164,9 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			uid = int(constants.JujuUserID)
 		}
 		containerAgentArgs = append(containerAgentArgs, "--pebble-charm-identity", strconv.Itoa(uid))
+	}
+	if controllerMode {
+		containerAgentArgs = append(containerAgentArgs, "--controller")
 	}
 
 	appSecret := a.secretName()
