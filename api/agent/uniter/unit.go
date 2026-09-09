@@ -28,6 +28,7 @@ type Unit struct {
 	tag        names.UnitTag
 	life       life.Value
 	providerID string
+	resolved   params.ResolvedMode
 }
 
 // Tag returns the unit's tag.
@@ -53,6 +54,11 @@ func (u *Unit) String() string {
 // Life returns the unit's lifecycle value.
 func (u *Unit) Life() life.Value {
 	return u.life
+}
+
+// ResolvedMode returns the resolved mode reported by the most recent Refresh.
+func (u *Unit) ResolvedMode() params.ResolvedMode {
+	return u.resolved
 }
 
 // Resolved returns the unit's resolved mode value.
@@ -112,6 +118,7 @@ func (u *Unit) Refresh(ctx context.Context) error {
 
 	u.life = result.Life
 	u.providerID = result.ProviderID
+	u.resolved = result.Resolved
 	return nil
 }
 

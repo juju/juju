@@ -715,6 +715,12 @@ func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 		}, nil
 	}).AnyTimes().After(s.stepped)
 
+	ctx.unit.EXPECT().ResolvedMode().DoAndReturn(func() params.ResolvedMode {
+		ctx.unit.mu.Lock()
+		defer ctx.unit.mu.Unlock()
+		return ctx.unit.resolved
+	}).AnyTimes().After(s.stepped)
+
 	ctx.app.EXPECT().Watch(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		// Close the old channel and open a new one so the RSW always
 		// starts with a clean, empty channel. All senders obtain the

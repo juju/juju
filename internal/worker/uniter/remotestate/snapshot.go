@@ -53,8 +53,9 @@ type Snapshot struct {
 	// unit's config settings.
 	ConfigHash string
 
-	// TrustHash is a hash of the last published version of the unit's
-	// trust settings.
+	// TrustHash is a hash of the last published version of the unit's trust
+	// settings. It is retained for compatibility with state written by earlier
+	// uniters and must not be treated as an independent signal from ConfigHash.
 	TrustHash string
 
 	// AddressesHash is a hash of the last published addresses for the
