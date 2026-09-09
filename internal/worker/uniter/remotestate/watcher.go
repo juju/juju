@@ -871,6 +871,9 @@ func (w *RemoteStateWatcher) secretDeletedRevisions(ctx context.Context, deleted
 
 func (w *RemoteStateWatcher) configHashChanged(value string) {
 	w.mu.Lock()
+	// Config and trust settings are delivered by the same watcher. Keep their
+	// snapshot values in lockstep while retaining both fields for state written
+	// by earlier uniters, where the hashes could differ.
 	w.current.ConfigHash = value
 	w.current.TrustHash = value
 	w.mu.Unlock()
