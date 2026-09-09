@@ -921,6 +921,17 @@ func (c *controllerStack) ensureControllerApplicationSecret(ctx context.Context)
 		controllerUnitPassword = apiInfo.Password
 	}
 
+	secretData := application.ApplicationConfigSecretData(
+		environsbootstrap.ControllerApplicationName,
+		c.broker.ModelUUID(),
+		caas.ApplicationConfig{
+			IntroductionSecret:   c.applicationPassword,
+			ControllerAddresses:  net.JoinHostPort(c.resourceNameService, strconv.Itoa(c.portAPIServer)),
+			ControllerCertBundle: c.pcfg.APIInfo.CACert,
+		},
+	)
+	secretData[constants.EnvJujuK8sUnitPassword] = []byte(controllerUnitPassword)
+
 	secret := &core.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        c.appSecretName(),
@@ -929,10 +940,7 @@ func (c *controllerStack) ensureControllerApplicationSecret(ctx context.Context)
 			Annotations: c.stackAnnotations,
 		},
 		Type: core.SecretTypeOpaque,
-		Data: map[string][]byte{
-			constants.EnvJujuK8sUnitPassword:        []byte(controllerUnitPassword),
-			constants.EnvJujuK8sApplicationPassword: []byte(c.applicationPassword),
-		},
+		Data: secretData,
 	}
 	cleanUp, err := c.broker.ensureSecret(ctx, secret)
 	c.addCleanUp(func() {
@@ -1668,33 +1676,6 @@ fi
 			}
 		}
 		ct.VolumeMounts = append(ct.VolumeMounts, dataDirMount)
-		ct.Env = append(ct.Env,
-			core.EnvVar{
-				Name:  "JUJU_K8S_APPLICATION",
-				Value: environsbootstrap.ControllerApplicationName,
-			},
-			core.EnvVar{
-				Name:  "JUJU_K8S_MODEL",
-				Value: c.broker.ModelUUID(),
-			},
-			core.EnvVar{
-				Name: constants.EnvJujuK8sApplicationPassword,
-				ValueFrom: &core.EnvVarSource{
-					SecretKeyRef: &core.SecretKeySelector{
-						LocalObjectReference: core.LocalObjectReference{Name: c.appSecretName()},
-						Key:                  constants.EnvJujuK8sApplicationPassword,
-					},
-				},
-			},
-			core.EnvVar{
-				Name:  "JUJU_K8S_CONTROLLER_ADDRESSES",
-				Value: net.JoinHostPort(c.resourceNameService, strconv.Itoa(c.portAPIServer)),
-			},
-			core.EnvVar{
-				Name:  "JUJU_K8S_CONTROLLER_CA_CERT",
-				Value: c.pcfg.APIInfo.CACert,
-			},
-		)
 		spec.InitContainers[i] = ct
 	}
 	for i, ct := range spec.Containers {

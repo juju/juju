@@ -729,7 +729,11 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
 			"JUJU_K8S_UNIT_PASSWORD":        []byte(controllerStacker.GetControllerUnitAgentPassword()),
+			"JUJU_K8S_APPLICATION":          []byte("controller"),
+			"JUJU_K8S_MODEL":                []byte(coretesting.ModelTag.Id()),
 			"JUJU_K8S_APPLICATION_PASSWORD": []byte(controllerStacker.GetControllerApplicationPassword()),
+			"JUJU_K8S_CONTROLLER_ADDRESSES": []byte("juju-controller-test-service:17777"),
+			"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(coretesting.CACert),
 		},
 	}
 
@@ -1193,33 +1197,6 @@ fi
 						FieldPath: "metadata.uid",
 					},
 				},
-			},
-			{
-				Name:  "JUJU_K8S_APPLICATION",
-				Value: "controller",
-			},
-			{
-				Name:  "JUJU_K8S_MODEL",
-				Value: coretesting.ModelTag.Id(),
-			},
-			{
-				Name: "JUJU_K8S_APPLICATION_PASSWORD",
-				ValueFrom: &core.EnvVarSource{
-					SecretKeyRef: &core.SecretKeySelector{
-						LocalObjectReference: core.LocalObjectReference{
-							Name: "juju-controller-test-application-config",
-						},
-						Key: "JUJU_K8S_APPLICATION_PASSWORD",
-					},
-				},
-			},
-			{
-				Name:  "JUJU_K8S_CONTROLLER_ADDRESSES",
-				Value: "juju-controller-test-service:17777",
-			},
-			{
-				Name:  "JUJU_K8S_CONTROLLER_CA_CERT",
-				Value: coretesting.CACert,
 			},
 		},
 		EnvFrom: []core.EnvFromSource{
