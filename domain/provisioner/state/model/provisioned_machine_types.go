@@ -7,7 +7,6 @@ import (
 	"database/sql"
 
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
 )
 
 // provMachineUUIDParam is a query parameter for a machine UUID.
@@ -69,100 +68,6 @@ func provInstanceTagsFrom(machineUUID string, hc *instance.HardwareCharacteristi
 		res[i] = provInstanceTag{MachineUUID: machineUUID, Tag: t}
 	}
 	return res
-}
-
-// provLLDRow is the write type for link_layer_device.
-type provLLDRow struct {
-	UUID              string  `db:"uuid"`
-	NetNodeUUID       string  `db:"net_node_uuid"`
-	Name              string  `db:"name"`
-	MTU               *int64  `db:"mtu"`
-	MACAddress        *string `db:"mac_address"`
-	DeviceTypeID      int     `db:"device_type_id"`
-	VirtualPortTypeID int     `db:"virtual_port_type_id"`
-	IsAutoStart       bool    `db:"is_auto_start"`
-	IsEnabled         bool    `db:"is_enabled"`
-	IsDefaultGateway  bool    `db:"is_default_gateway"`
-	GatewayAddress    *string `db:"gateway_address"`
-	VlanTag           uint64  `db:"vlan_tag"`
-}
-
-// provIPAddrRow is the write type for ip_address.
-type provIPAddrRow struct {
-	UUID         string  `db:"uuid"`
-	NodeUUID     string  `db:"net_node_uuid"`
-	DeviceUUID   string  `db:"device_uuid"`
-	AddressValue string  `db:"address_value"`
-	SubnetUUID   *string `db:"subnet_uuid"`
-	TypeID       int     `db:"type_id"`
-	ConfigTypeID int     `db:"config_type_id"`
-	OriginID     int     `db:"origin_id"`
-	ScopeID      int     `db:"scope_id"`
-	IsSecondary  bool    `db:"is_secondary"`
-	IsShadow     bool    `db:"is_shadow"`
-}
-
-// provProviderLLDRow is the write type for provider_link_layer_device.
-type provProviderLLDRow struct {
-	ProviderID string `db:"provider_id"`
-	DeviceUUID string `db:"device_uuid"`
-}
-
-// provProviderIPRow is the write type for provider_ip_address.
-type provProviderIPRow struct {
-	ProviderID  string `db:"provider_id"`
-	AddressUUID string `db:"address_uuid"`
-}
-
-// provProviderIDs is a slice of provider IDs used for IN clause queries.
-type provProviderIDs []string
-
-// provLLDUUIDs is a slice of device/address UUIDs used for IN clause
-// queries in stale-row cleanup.
-type provLLDUUIDs []string
-
-// provDNSDomainRow is the write type for link_layer_device_dns_domain.
-type provDNSDomainRow struct {
-	DeviceUUID   string `db:"device_uuid"`
-	SearchDomain string `db:"search_domain"`
-}
-
-// provDNSAddrRow is the write type for link_layer_device_dns_address.
-type provDNSAddrRow struct {
-	DeviceUUID string `db:"device_uuid"`
-	Address    string `db:"dns_address"`
-}
-
-// provLLDParentRow is the write type for link_layer_device_parent.
-type provLLDParentRow struct {
-	DeviceUUID string `db:"device_uuid"`
-	ParentUUID string `db:"parent_uuid"`
-}
-
-// provSubnetUUID holds a resolved subnet UUID.
-type provSubnetUUID struct {
-	UUID string `db:"uuid"`
-}
-
-// provProviderID is a query parameter for provider IDs.
-type provProviderID struct {
-	ProviderID string `db:"provider_id"`
-}
-
-// provLookupRow represents a single row from a network lookup table.
-type provLookupRow struct {
-	ID   int    `db:"id"`
-	Name string `db:"name"`
-}
-
-// provNetConfigLookups holds enum ID maps for network config lookup tables.
-type provNetConfigLookups struct {
-	deviceType      map[corenetwork.LinkLayerDeviceType]int
-	virtualPortType map[corenetwork.VirtualPortType]int
-	addrType        map[corenetwork.AddressType]int
-	addrConfigType  map[corenetwork.AddressConfigType]int
-	origin          map[corenetwork.Origin]int
-	scope           map[corenetwork.Scope]int
 }
 
 // provVolumeID is a query parameter for volume_id lookups.
@@ -236,17 +141,4 @@ type provPlanAttrRow struct {
 	PlanUUID string `db:"attachment_plan_uuid"`
 	Key      string `db:"key"`
 	Value    string `db:"value"`
-}
-
-// provLLDNameUUID is used to read back name→UUID for existing devices.
-type provLLDNameUUID struct {
-	UUID string `db:"uuid"`
-	Name string `db:"name"`
-}
-
-// provIPAddrNameUUID is used to read back address_value→UUID for existing
-// addresses.
-type provIPAddrNameUUID struct {
-	UUID  string `db:"uuid"`
-	Value string `db:"address_value"`
 }

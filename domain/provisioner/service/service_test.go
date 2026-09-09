@@ -100,26 +100,10 @@ func (s *serviceSuite) TestRecordProvisionedMachine(c *tc.C) {
 	defer ctrl.Finish()
 
 	machineUUID := coremachine.UUID("machine-uuid-1")
-	providerNetwork := network.InterfaceInfos{{
-		InterfaceName: "eth0",
-		ProviderId:    "provider-device-1",
-		Addresses: network.ProviderAddresses{{
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.2",
-				CIDR:       "10.0.0.0/24",
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeCloudLocal,
-				ConfigType: network.ConfigDHCP,
-			},
-			ProviderID:       "provider-address-1",
-			ProviderSubnetID: "provider-subnet-1",
-		}},
-	}}
 	info := provisioner.ProvisionedMachineInfo{
-		InstanceID:    "instance-1",
-		DisplayName:   "machine-1",
-		Nonce:         "nonce-1",
-		NetworkConfig: providerNetwork,
+		InstanceID:  "instance-1",
+		DisplayName: "machine-1",
+		Nonce:       "nonce-1",
 		Volumes: []provisioner.ProvisionedVolume{{
 			VolumeID:   "0",
 			ProviderID: "provider-volume-1",

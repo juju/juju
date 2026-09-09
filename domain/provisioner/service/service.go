@@ -46,8 +46,7 @@ type ModelState interface {
 
 	// RecordProvisionedMachine persists the complete result of a
 	// successful provider StartInstance call in a single transaction,
-	// covering network configuration, volumes, volume attachments, and
-	// cloud instance identity.
+	// covering volumes, volume attachments, and cloud instance identity.
 	//
 	// The cloud-instance write is deliberately last: it emits the
 	// change-stream notification that wakes the instance-poller, so the

@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
@@ -314,20 +313,6 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *tc.C) {
 		}},
 	}, nil)
 	startArg := machineStartInstanceArg(mTag.Id())
-	providerNetwork := corenetwork.InterfaceInfos{{
-		InterfaceName: "eth0",
-		ProviderId:    "provider-device-1",
-		Addresses: corenetwork.ProviderAddresses{{
-			MachineAddress: corenetwork.MachineAddress{
-				Value: "10.0.0.2",
-				CIDR:  "10.0.0.0/24",
-				Type:  corenetwork.IPv4Address,
-				Scope: corenetwork.ScopeCloudLocal,
-			},
-			ProviderID:       "provider-address-1",
-			ProviderSubnetID: "provider-subnet-1",
-		}},
-	}}
 	providerVolumes := []internalstorage.Volume{{
 		Tag: names.NewVolumeTag("0"),
 		VolumeInfo: internalstorage.VolumeInfo{
@@ -344,7 +329,6 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *tc.C) {
 	}}
 	s.broker.EXPECT().StartInstance(gomock.Any(), newDefaultStartInstanceParamsMatcher(c, startArg)).Return(&environs.StartInstanceResult{
 		Instance:          &testInstance{id: "inst-666"},
-		NetworkInfo:       providerNetwork,
 		Volumes:           providerVolumes,
 		VolumeAttachments: providerAttachments,
 	}, nil)
@@ -358,7 +342,6 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *tc.C) {
 		gomock.Any(),
 	).DoAndReturn(func(ctx context.Context, u machine.UUID, info domainprovisioner.ProvisionedMachineInfo) error {
 		nonce = info.Nonce
-		c.Check(info.NetworkConfig, tc.DeepEquals, providerNetwork)
 		c.Check(info.Volumes, tc.DeepEquals, []domainprovisioner.ProvisionedVolume{{
 			VolumeID:   "0",
 			ProviderID: "provider-volume-1",

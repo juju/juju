@@ -46,7 +46,6 @@ type ProvisionedMachineInfo struct {
 	DisplayName             string
 	Nonce                   string
 	HardwareCharacteristics *coreinstance.HardwareCharacteristics
-	NetworkConfig           network.InterfaceInfos
 	Volumes                 []ProvisionedVolume
 	VolumeAttachments       map[string]ProvisionedVolumeAttachment
 }

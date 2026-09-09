@@ -59,29 +59,15 @@ func ParamsNetworkConfigToDomain(
 		for _, addr := range arg.Addresses {
 			addrs = append(addrs, domainnetwork.NetAddr{
 				InterfaceName:    arg.InterfaceName,
-				ProviderID:       nilIfEmpty(network.Id(addr.ProviderID)),
+				ProviderID:       nil,
 				AddressValue:     ipWithCIDRMask(ctx, addr, arg.InterfaceName),
-				ProviderSubnetID: nilIfEmpty(network.Id(addr.ProviderSubnetID)),
+				ProviderSubnetID: nil,
 				AddressType:      network.AddressType(addr.Type),
 				ConfigType:       network.AddressConfigType(addr.ConfigType),
 				Origin:           origin,
 				Scope:            network.Scope(addr.Scope),
 				IsSecondary:      addr.IsSecondary,
 				IsShadow:         false,
-			})
-		}
-		for _, addr := range arg.ShadowAddresses {
-			addrs = append(addrs, domainnetwork.NetAddr{
-				InterfaceName:    arg.InterfaceName,
-				ProviderID:       nilIfEmpty(network.Id(addr.ProviderID)),
-				AddressValue:     ipWithCIDRMask(ctx, addr, arg.InterfaceName),
-				ProviderSubnetID: nilIfEmpty(network.Id(addr.ProviderSubnetID)),
-				AddressType:      network.AddressType(addr.Type),
-				ConfigType:       network.AddressConfigType(addr.ConfigType),
-				Origin:           origin,
-				Scope:            network.Scope(addr.Scope),
-				IsSecondary:      addr.IsSecondary,
-				IsShadow:         true,
 			})
 		}
 

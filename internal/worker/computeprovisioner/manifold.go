@@ -30,9 +30,9 @@ type MachineService interface {
 }
 
 // ProvisioningService persists the outcome of a successful cloud provisioning
-// attempt. It is called once per machine after StartInstance returns, to record
-// the instance identity, network configuration, and any storage volumes and
-// attachments that were created alongside the machine.
+// attempt. It is called once per machine after StartInstance returns, to
+// record the instance identity, any storage volumes and attachments that were
+// created alongside the machine.
 type ProvisioningService interface {
 	// RecordProvisionedMachine persists all data returned by a successful
 	// provider StartInstance call: the cloud instance identity, network
@@ -43,7 +43,7 @@ type ProvisioningService interface {
 	RecordProvisionedMachine(context.Context, coremachine.UUID, domainprovisioner.ProvisionedMachineInfo) error
 }
 
-// GetMachineFunc is a helper function that gets a service from the manifold.
+// GetMachineServiceFunc is a helper function that gets a service from the manifold.
 type GetMachineServiceFunc func(getter dependency.Getter, name string) (MachineService, error)
 
 // GetMachineService is a helper function that gets a service from the

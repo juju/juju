@@ -223,7 +223,6 @@ func (p *environProvisioner) machineInstanceInfoSetter(machineProvisioner apipro
 			DisplayName:       displayName,
 			Nonce:             nonce,
 			Characteristics:   hc,
-			NetworkConfig:     networkConfig,
 			Volumes:           volumes,
 			VolumeAttachments: volumeAttachments,
 		}).ProvisionedMachineInfo()

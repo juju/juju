@@ -18,7 +18,6 @@ func (arg InstanceInfo) ProvisionedMachineInfo() (provisioner.ProvisionedMachine
 		DisplayName:             arg.DisplayName,
 		Nonce:                   arg.Nonce,
 		HardwareCharacteristics: arg.Characteristics,
-		NetworkConfig:           InterfaceInfoFromNetworkConfig(arg.NetworkConfig),
 		Volumes:                 make([]provisioner.ProvisionedVolume, 0, len(arg.Volumes)),
 		VolumeAttachments:       make(map[string]provisioner.ProvisionedVolumeAttachment, len(arg.VolumeAttachments)),
 	}

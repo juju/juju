@@ -617,21 +617,6 @@ func (s *provisionerMockSuite) TestSetInstanceInfoRecordsSuccessfulProviderResul
 		InstanceId:  "instance-0",
 		DisplayName: "machine-0",
 		Nonce:       "nonce-0",
-		NetworkConfig: []params.NetworkConfig{{
-			InterfaceName: "eth0",
-			ProviderId:    "provider-device-0",
-			Addresses: []params.Address{{
-				Value:            "10.0.0.2",
-				CIDR:             "10.0.0.0/24",
-				Type:             string(network.IPv4Address),
-				Scope:            network.ScopeCloudLocal.String(),
-				ProviderID:       "provider-address-0",
-				ProviderSubnetID: "provider-subnet-0",
-			}},
-			ShadowAddresses: []params.Address{{
-				Value: "203.0.113.2", CIDR: "203.0.113.0/24", Type: string(network.IPv4Address), Scope: network.ScopePublic.String(),
-			}},
-		}},
 		Volumes: []params.Volume{{
 			VolumeTag: "volume-0",
 			Info: params.VolumeInfo{
@@ -649,7 +634,6 @@ func (s *provisionerMockSuite) TestSetInstanceInfoRecordsSuccessfulProviderResul
 		InstanceID:        "instance-0",
 		DisplayName:       "machine-0",
 		Nonce:             "nonce-0",
-		NetworkConfig:     params.InterfaceInfoFromNetworkConfig(arg.NetworkConfig),
 		Volumes:           []domainprovisioner.ProvisionedVolume{{VolumeID: "0", ProviderID: "provider-volume-0", SizeMiB: 1024}},
 		VolumeAttachments: map[string]domainprovisioner.ProvisionedVolumeAttachment{"0": {DeviceName: "sdb", ReadOnly: true}},
 	}).Return(nil)
