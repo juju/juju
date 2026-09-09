@@ -244,10 +244,6 @@ func (u *mockUnit) ResolvedMode() params.ResolvedMode {
 	return u.resolved
 }
 
-func (u *mockUnit) Resolved(context.Context) (params.ResolvedMode, error) {
-	return u.resolved, nil
-}
-
 func (u *mockUnit) Application(context.Context) (api.Application, error) {
 	return &u.application, nil
 }

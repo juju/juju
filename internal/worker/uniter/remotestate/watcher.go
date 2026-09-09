@@ -506,7 +506,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			return w.catacomb.ErrDying()
 
 		case _, ok := <-unitw.Changes():
-			w.logger.Debugf(ctx, "got unit change for %s", w.unit.Tag().Id())
+			w.logger.Debugf(ctx, "got unit state change for %s", w.unit.Tag().Id())
 			if !ok {
 				return errors.New("unit watcher closed")
 			}
