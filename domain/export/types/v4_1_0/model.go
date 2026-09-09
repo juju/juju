@@ -908,8 +908,9 @@ type ObjectStorePlacement struct {
 }
 
 type Offer struct {
-	UUID string `db:"uuid" json:"uuid" yaml:"uuid"`
-	Name string `db:"name" json:"name" yaml:"name"`
+	UUID        string  `db:"uuid" json:"uuid" yaml:"uuid"`
+	Name        string  `db:"name" json:"name" yaml:"name"`
+	Description *string `db:"description" json:"description" yaml:"description"`
 }
 
 type OfferConnection struct {
