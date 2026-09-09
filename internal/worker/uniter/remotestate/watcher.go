@@ -741,17 +741,13 @@ func (w *RemoteStateWatcher) unitStateChanged(ctx context.Context) error {
 	if err := w.unit.Refresh(ctx); err != nil {
 		return errors.Trace(err)
 	}
-	resolveMode, err := w.unit.Resolved(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.current.Life = w.unit.Life()
 	// It's ok to sync provider ID by watching unit rather than
 	// cloud container because it will not change once pod created.
 	w.current.ProviderID = w.unit.ProviderID()
-	w.current.ResolvedMode = resolveMode
+	w.current.ResolvedMode = w.unit.ResolvedMode()
 	return nil
 }
 

@@ -33,6 +33,7 @@ type ProviderIDGetter interface {
 type Unit interface {
 	ProviderIDGetter
 	Life() life.Value
+	ResolvedMode() params.ResolvedMode
 	Refresh(context.Context) error
 	ApplicationTag() names.ApplicationTag
 	EnsureDead(context.Context) error
