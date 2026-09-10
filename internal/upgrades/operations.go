@@ -13,8 +13,13 @@ import (
 // state-based operations above, ordering is important.
 var upgradeOperations = func() []Operation {
 	steps := []Operation{
-		// Fill in when we have upgrade steps.
-		upgradeToVersion{semversion.MustParse("6.6.6"), []Step(nil)},
+		upgradeToVersion{semversion.MustParse("4.1.0"), []Step{
+			&upgradeStep{
+				description: "remove Juju SSH keys",
+				targets:     []Target{HostMachine},
+				run:         removeJujuAuthorizedKeys,
+			},
+		}},
 	}
 	return steps
 }
