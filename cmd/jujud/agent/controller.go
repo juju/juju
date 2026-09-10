@@ -432,6 +432,11 @@ type ControllerApplication struct {
 	upgradeDBLock         gate.Waiter
 	upgradeStepsLock      gate.Lock
 
+	// controllerAgentConfigReadyLock is unlocked after the config-change
+	// socket is created and bound, signalling that dbaccessor and other
+	// dependents of the controlleragentconfig manifold can start.
+	controllerAgentConfigReadyLock gate.Lock
+
 	// engineCreatorFunc creates the dependency engine worker. Tests inject
 	// their own lightweight implementation.
 	engineCreatorFunc func(string, semversion.Number, corelogger.LogSink) func(context.Context) (worker.Worker, error)
@@ -551,6 +556,7 @@ func (a *ControllerApplication) Run(ctx *cmd.Context) (err error) {
 
 func (a *ControllerApplication) initStandaloneControllerLocks() {
 	a.bootstrapLock = gate.NewLock()
+	a.controllerAgentConfigReadyLock = gate.NewLock()
 	// Controller upgrade and migration flows are still out of scope for the
 	// standalone controller, so the corresponding workers are disabled
 	// (disabledManifold). The outer upgrade gate is nevertheless left open: with
@@ -643,6 +649,7 @@ func (a *ControllerApplication) makeEngineCreator(
 			RootDir:                           a.rootDir,
 			BootstrapLock:                     a.bootstrapLock,
 			ControllerUpgradeLock:             a.controllerUpgradeLock,
+			ControllerAgentConfigReadyLock:    a.controllerAgentConfigReadyLock,
 			UpgradeDBLock:                     a.upgradeDBLock,
 			UpgradeStepsLock:                  a.upgradeStepsLock,
 			UpgradeCheckLock:                  a.upgradeCheckLock,

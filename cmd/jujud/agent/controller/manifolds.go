@@ -204,6 +204,12 @@ type ManifoldsConfig struct {
 	// controller upgrade and migration flows are fully implemented.
 	ControllerUpgradeLock gate.Lock
 
+	// ControllerAgentConfigReadyLock is passed as the ReadyUnlocker to
+	// the controlleragentconfig manifold. It is unlocked after the
+	// config-change socket is created and bound, signalling that
+	// dependents such as dbaccessor can safely start.
+	ControllerAgentConfigReadyLock gate.Lock
+
 	// NewDBWorkerFunc returns a tracked db worker.
 	NewDBWorkerFunc dbaccessor.NewDBWorkerFunc
 
@@ -321,7 +327,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewSocketListener: controlleragentconfig.NewSocketListener,
 			SocketName:        config.ConfigChangeSocketPath,
 			SocketFileMode:    0o660,
-			ReadyUnlocker:     gate.AlreadyUnlocked{},
+			ReadyUnlocker:     config.ControllerAgentConfigReadyLock,
 		}),
 
 		// The certificate-watcher manifold monitors the API server
