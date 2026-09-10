@@ -239,7 +239,7 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 			access: sshService,
 			logger: config.Logger,
 		},
-		ProxyFactory:  proxyFactory,
+		Resolver:      NewResolver(proxyFactory, sshService),
 		TunnelTracker: tunnelTracker,
 		Metrics:       metricsCollector,
 	})

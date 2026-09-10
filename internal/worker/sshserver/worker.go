@@ -64,7 +64,7 @@ type ServerWrapperWorkerConfig struct {
 	Logger                  logger.Logger
 	Authenticator           Authenticator
 	Authorizer              Authorizer
-	ProxyFactory            ProxyFactory
+	Resolver                Resolver
 	TunnelTracker           TunnelTracker
 	Metrics                 *Collector
 }
@@ -92,8 +92,8 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	if c.Authorizer == nil {
 		return errors.NotValidf("Authorizer is required")
 	}
-	if c.ProxyFactory == nil {
-		return errors.NotValidf("ProxyFactory is required")
+	if c.Resolver == nil {
+		return errors.NotValidf("Resolver is required")
 	}
 	if c.TunnelTracker == nil {
 		return errors.NotValidf("TunnelTracker is required")
@@ -201,7 +201,7 @@ func (ssw *serverWrapperWorker) loop() error {
 		SSHService:               ssw.config.SSHService,
 		Authenticator:            ssw.config.Authenticator,
 		Authorizer:               ssw.config.Authorizer,
-		ProxyFactory:             ssw.config.ProxyFactory,
+		Resolver:                 ssw.config.Resolver,
 		TunnelTracker:            ssw.config.TunnelTracker,
 		Metrics:                  ssw.config.Metrics,
 	})

@@ -38,7 +38,7 @@ type sshServerSuite struct {
 	userSigner    ssh.Signer
 	authenticator *MockAuthenticator
 	authorizer    *MockAuthorizer
-	proxyFactory  *MockProxyFactory
+	resolver      *MockResolver
 	proxyHandlers *MockProxyHandlers
 	tunnelTracker *MockTunnelTracker
 }
@@ -66,7 +66,7 @@ func (s *sshServerSuite) SetUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.authenticator = NewMockAuthenticator(ctrl)
 	s.authorizer = NewMockAuthorizer(ctrl)
-	s.proxyFactory = NewMockProxyFactory(ctrl)
+	s.resolver = NewMockResolver(ctrl)
 	s.proxyHandlers = NewMockProxyHandlers(ctrl)
 	s.tunnelTracker = NewMockTunnelTracker(ctrl)
 	return ctrl
@@ -83,7 +83,7 @@ func (s *sshServerSuite) newServer(c *tc.C) (*ServerWorker, *bufconn.Listener, f
 		MaxConcurrentConnections: maxConcurrentConnections,
 		Authenticator:            s.authenticator,
 		Authorizer:               s.authorizer,
-		ProxyFactory:             s.proxyFactory,
+		Resolver:                 s.resolver,
 		TunnelTracker:            s.tunnelTracker,
 		Metrics:                  NewMetricsCollector(),
 	}
@@ -156,9 +156,9 @@ func (s *sshServerSuite) testSSHServerSession(c *tc.C, auth gossh.AuthMethod, us
 	destination, err := virtualhostname.Parse(testVirtualHostname)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Authorize the user and setup the proxy factory and handlers.
+	// Authorize the user and setup the resolver and handlers.
 	s.authorizer.EXPECT().Authorize(gomock.Any(), destination).Return(true, nil)
-	s.proxyFactory.EXPECT().New(destination).Return(s.proxyHandlers, nil)
+	s.resolver.EXPECT().Resolve(gomock.Any(), destination).Return(Termination{Handlers: s.proxyHandlers, Signer: s.userSigner}, nil)
 	s.proxyHandlers.EXPECT().DirectTCPIPHandler().Return(rejectDirectTCPIP)
 	s.proxyHandlers.EXPECT().SFTPHandler().Return(rejectSFTP)
 
@@ -206,7 +206,7 @@ func (s *sshServerSuite) TestValidate(c *tc.C) {
 	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *ServerWorkerConfig) {
 		cfg.Authenticator = s.authenticator
 		cfg.Authorizer = s.authorizer
-		cfg.ProxyFactory = s.proxyFactory
+		cfg.Resolver = s.resolver
 		cfg.TunnelTracker = s.tunnelTracker
 		cfg.Metrics = nil
 	})
@@ -244,7 +244,7 @@ func (s *sshServerSuite) TestValidate(c *tc.C) {
 
 	// Test no ProxyFactory.
 	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *ServerWorkerConfig) {
-		cfg.ProxyFactory = nil
+		cfg.Resolver = nil
 	})
 	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -302,13 +302,13 @@ func (s *sshServerSuite) TestTerminatingSSHServerReportsFactoryError(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.authenticator.EXPECT().PublicKeyAuthentication(gomock.Any(), s.userSigner.PublicKey()).Return(true, nil)
 	s.authorizer.EXPECT().Authorize(gomock.Any(), destination).Return(true, nil)
-	s.proxyFactory.EXPECT().New(destination).Return(nil, errors.New("factory failed"))
+	s.resolver.EXPECT().Resolve(gomock.Any(), destination).Return(Termination{}, errors.New("factory failed"))
 
 	_, listener, cleanup := s.newServer(c)
 	defer cleanup()
 	client := dialSSHServer(c, listener, "alice", gossh.PublicKeys(s.userSigner))
 	_, err = client.Dial("tcp", fmt.Sprintf("%s:0", testVirtualHostname))
-	c.Check(err, tc.ErrorMatches, ".*failed to create embedded server: factory failed.*")
+	c.Check(err, tc.ErrorMatches, ".*failed to resolve destination: factory failed.*")
 }
 
 func (s *sshServerSuite) TestServerRejectsUnauthorizedDestination(c *tc.C) {
@@ -386,7 +386,7 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *tc.C) {
 		SSHService:               stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Authenticator:            s.authenticator,
 		Authorizer:               s.authorizer,
-		ProxyFactory:             s.proxyFactory,
+		Resolver:                 s.resolver,
 		TunnelTracker:            s.tunnelTracker,
 		Metrics:                  NewMetricsCollector(),
 	})
@@ -479,7 +479,7 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *tc.C) {
 		SSHService:               stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Authenticator:            s.authenticator,
 		Authorizer:               s.authorizer,
-		ProxyFactory:             s.proxyFactory,
+		Resolver:                 s.resolver,
 		TunnelTracker:            s.tunnelTracker,
 		Metrics:                  NewMetricsCollector(),
 	})
