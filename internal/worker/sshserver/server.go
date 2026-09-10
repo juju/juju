@@ -198,13 +198,6 @@ func (s *ServerWorker) NewJumpServer() *ssh.Server {
 			}
 			return nil
 		},
-		PasswordHandler: func(ctx ssh.Context, password string) bool {
-			// Reject all passwords. Keep the handler so clients get a
-			// clean rejection rather than a protocol error, and count
-			// the failures.
-			s.config.Metrics.authenticationFailures.WithLabelValues("password").Inc()
-			return false
-		},
 		ChannelHandlers: map[string]ssh.ChannelHandler{
 			// Handle direct-tcpip channels for jump server connections from users.
 			"direct-tcpip": s.directTCPIPHandler,
