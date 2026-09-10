@@ -45,8 +45,6 @@ type controllerNodeAPIAddress struct {
 	ControllerID string `db:"controller_id"`
 	// Address is the address of the controller node.
 	Address string `db:"address"`
-	// IsAgentOnly is whether the address is only available for agents.
-	IsAgentOnly bool `db:"is_agent_only"`
 	// Scope is the address scope.
 	Scope string `db:"scope"`
 }

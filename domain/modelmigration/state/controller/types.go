@@ -319,12 +319,18 @@ type controllerNameRow struct {
 	Name string `db:"name"`
 }
 
-// sourceAPIAddress projects one row from the api_address_by_controller table.
+// sourceAPIAddress projects one controller-node API address.
 type sourceAPIAddress struct {
 	ControllerID string `db:"controller_id"`
 	Address      string `db:"address"`
 	Scope        string `db:"scope"`
-	IsAgent      bool   `db:"is_agent_only"`
+	IsAgent      bool   `db:"is_agent"`
+}
+
+type sourceAPIAddressRow struct {
+	ControllerID string `db:"controller_id"`
+	Address      string `db:"address"`
+	Scope        string `db:"scope"`
 }
 
 // nameArg holds a single name lookup value for an existence check.

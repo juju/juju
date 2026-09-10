@@ -1804,23 +1804,32 @@ WHERE  key = 'controller-name'
 	if err != nil {
 		return modelmigrationinternal.SourceControllerInfo{}, errors.Capture(err)
 	}
-	stmtAddrs, err := s.Prepare(`
-SELECT &sourceAPIAddress.*
-FROM   api_address_by_controller
-`, sourceAPIAddress{})
+	stmtAgentAddrs, err := s.Prepare(`
+SELECT &sourceAPIAddressRow.*
+FROM   api_address_agent_by_controller
+`, sourceAPIAddressRow{})
+	if err != nil {
+		return modelmigrationinternal.SourceControllerInfo{}, errors.Capture(err)
+	}
+	stmtClientAddrs, err := s.Prepare(`
+SELECT &sourceAPIAddressRow.*
+FROM   api_address_client_by_controller
+`, sourceAPIAddressRow{})
 	if err != nil {
 		return modelmigrationinternal.SourceControllerInfo{}, errors.Capture(err)
 	}
 
 	var (
-		identityRow controllerIdentityRow
-		nameRow     controllerNameRow
-		addrRows    []sourceAPIAddress
+		identityRow    controllerIdentityRow
+		nameRow        controllerNameRow
+		agentAddrRows  []sourceAPIAddressRow
+		clientAddrRows []sourceAPIAddressRow
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		identityRow = controllerIdentityRow{}
 		nameRow = controllerNameRow{}
-		addrRows = nil
+		agentAddrRows = nil
+		clientAddrRows = nil
 
 		if err := tx.Query(ctx, stmtIdentity).Get(&identityRow); errors.Is(err, sqlair.ErrNoRows) {
 			return errors.New("internal error: controller identity not found")
@@ -1831,8 +1840,11 @@ FROM   api_address_by_controller
 		if err := tx.Query(ctx, stmtName).Get(&nameRow); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("getting controller name: %w", err)
 		}
-		if err := tx.Query(ctx, stmtAddrs).GetAll(&addrRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("getting api addresses: %w", err)
+		if err := tx.Query(ctx, stmtAgentAddrs).GetAll(&agentAddrRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting agent api addresses: %w", err)
+		}
+		if err := tx.Query(ctx, stmtClientAddrs).GetAll(&clientAddrRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting client api addresses: %w", err)
 		}
 		return nil
 	})
@@ -1840,13 +1852,21 @@ FROM   api_address_by_controller
 		return modelmigrationinternal.SourceControllerInfo{}, errors.Capture(err)
 	}
 
-	addrs := make([]modelmigrationinternal.SourceControllerAddress, 0, len(addrRows))
-	for _, addr := range addrRows {
+	addrs := make([]modelmigrationinternal.SourceControllerAddress, 0, len(agentAddrRows)+len(clientAddrRows))
+	for _, addr := range agentAddrRows {
 		addrs = append(addrs, modelmigrationinternal.SourceControllerAddress{
 			ControllerID: addr.ControllerID,
 			Address:      addr.Address,
 			Scope:        addr.Scope,
-			IsAgent:      addr.IsAgent,
+			IsAgent:      true,
+		})
+	}
+	for _, addr := range clientAddrRows {
+		addrs = append(addrs, modelmigrationinternal.SourceControllerAddress{
+			ControllerID: addr.ControllerID,
+			Address:      addr.Address,
+			Scope:        addr.Scope,
+			IsAgent:      false,
 		})
 	}
 

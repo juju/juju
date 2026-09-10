@@ -41,18 +41,31 @@ CREATE TABLE api_address_client (
     scope TEXT NOT NULL
 );
 
--- api_address_by_controller contains API endpoints for individual controller
--- nodes. is_agent_only indicates whether an endpoint is unavailable to clients.
-CREATE TABLE api_address_by_controller (
+-- api_address_agent_by_controller contains API endpoints for individual
+-- controller nodes that are reachable by controller agents.
+CREATE TABLE api_address_agent_by_controller (
     controller_id TEXT NOT NULL,
     -- The value of the configured IP address with the port appended.
     -- e.g. 192.168.1.2:17070 or [2001:db8:0000:0000:0000:0000:0000:00001]:17070.
     address TEXT NOT NULL,
-    -- Represents whether the API address is only available for agent usage.
-    is_agent_only BOOLEAN NOT NULL,
     -- Represents the context an address may apply to. E.g. public, private.
     scope TXT NOT NULL,
-    CONSTRAINT fk_api_address_by_controller_controller
+    CONSTRAINT fk_api_address_agent_by_controller_controller
+    FOREIGN KEY (controller_id)
+    REFERENCES controller_node (controller_id),
+    PRIMARY KEY (controller_id, address)
+);
+
+-- api_address_client_by_controller contains API endpoints for individual
+-- controller nodes that are reachable by clients.
+CREATE TABLE api_address_client_by_controller (
+    controller_id TEXT NOT NULL,
+    -- The value of the configured IP address with the port appended.
+    -- e.g. 192.168.1.2:17070 or [2001:db8:0000:0000:0000:0000:0000:00001]:17070.
+    address TEXT NOT NULL,
+    -- Represents the context an address may apply to. E.g. public, private.
+    scope TXT NOT NULL,
+    CONSTRAINT fk_api_address_client_by_controller_controller
     FOREIGN KEY (controller_id)
     REFERENCES controller_node (controller_id),
     PRIMARY KEY (controller_id, address)

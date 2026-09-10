@@ -142,7 +142,8 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 		// Controller API addresses
 		"api_address_agent",
 		"api_address_client",
-		"api_address_by_controller",
+		"api_address_agent_by_controller",
+		"api_address_client_by_controller",
 
 		// Model migration
 		"model_migration_phase",
@@ -315,9 +316,12 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 		"trg_log_api_address_client_insert",
 		"trg_log_api_address_client_update",
 		"trg_log_api_address_client_delete",
-		"trg_log_api_address_by_controller_insert",
-		"trg_log_api_address_by_controller_update",
-		"trg_log_api_address_by_controller_delete",
+		"trg_log_api_address_agent_by_controller_insert",
+		"trg_log_api_address_agent_by_controller_update",
+		"trg_log_api_address_agent_by_controller_delete",
+		"trg_log_api_address_client_by_controller_insert",
+		"trg_log_api_address_client_by_controller_update",
+		"trg_log_api_address_client_by_controller_delete",
 
 		"trg_log_controller_node_insert",
 		"trg_log_controller_node_update",

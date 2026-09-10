@@ -127,5 +127,5 @@ func (s *stateSuite) TestGetControllerInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.UUID, tc.Equals, "deadbeef-1bad-500d-9000-4b1d0d06f00d")
 	c.Check(info.CACert, tc.Equals, "test-ca-cert")
-	c.Check(info.APIAddresses, tc.SameContents, []string{"10.0.0.2:17070", "10.0.0.42:18080", "192.168.0.1:17070"})
+	c.Check(info.APIAddresses, tc.SameContents, []string{"10.0.0.2:17070", "10.0.0.42:18080"})
 }
