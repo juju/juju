@@ -849,7 +849,7 @@ func (st *State) validateSubnetUpdate(ctx context.Context, tx *sqlair.TX, addres
 			candidateSubnet.CIDR,
 			address.ProviderSubnetID)
 	}
-	return candidateSubnet.ID.String(), nil
+	return candidateSubnet.UUID.String(), nil
 }
 
 // subnetCIDRUUIDByProviderID returns a map of subnet provider IDs to a

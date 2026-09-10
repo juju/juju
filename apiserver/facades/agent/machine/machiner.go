@@ -63,8 +63,6 @@ type NetworkService interface {
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 	// GetAllSubnets returns all the subnets for the model.
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
-	// AddSubnet creates and returns a new subnet.
-	AddSubnet(ctx context.Context, args network.SubnetInfo) (network.Id, error)
 	// SetMachineNetConfig updates the detected network configuration for
 	// the machine with the input UUID.
 	SetMachineNetConfig(ctx context.Context, mUUID machine.UUID, nics []domainnetwork.NetInterface) error

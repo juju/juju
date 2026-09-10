@@ -97,8 +97,8 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithProvider(c *tc.C) {
 
 	providerSubnetID := "provider-subnet-1"
 	subnetUUID := uuid.MustNewUUID().String()
-	subnets := corenetwork.SubnetInfos{{
-		ID:         corenetwork.Id(subnetUUID),
+	subnets := network.SubnetInfos{{
+		UUID:       network.SubnetUUID(subnetUUID),
 		ProviderId: corenetwork.Id(providerSubnetID),
 	}}
 
@@ -142,8 +142,8 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithProviderError(c *tc
 	providerSubnetID := "provider-subnet-1"
 	unknownProviderSubnetID := "unknown-provider-subnet"
 	subnetUUID := uuid.MustNewUUID().String()
-	subnets := corenetwork.SubnetInfos{{
-		ID:         corenetwork.Id(subnetUUID),
+	subnets := network.SubnetInfos{{
+		UUID:       network.SubnetUUID(subnetUUID),
 		ProviderId: corenetwork.Id(providerSubnetID),
 	}}
 
@@ -177,8 +177,8 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProvider(c *tc.C
 		"88": netNodeUUID,
 	}
 	subnetUUID := uuid.MustNewUUID().String()
-	subnets := corenetwork.SubnetInfos{{
-		ID:   corenetwork.Id(subnetUUID),
+	subnets := network.SubnetInfos{{
+		UUID: network.SubnetUUID(subnetUUID),
 		CIDR: "192.0.2.0/24",
 	}}
 
@@ -222,14 +222,14 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderNoSubnet
 	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(nil, nil)
 
 	// Expect a /32 subnet to be created.
-	subnetInfo := corenetwork.SubnetInfo{
+	subnetInfo := network.ImportSubnetArgs{
 		CIDR: "192.0.2.0/32",
 	}
 	matcher := &spaceInfoAsArgMatcher{
 		c:        c,
 		expected: subnetInfo,
 	}
-	s.st.EXPECT().AddSubnet(gomock.Any(), matcher).Return(nil)
+	s.st.EXPECT().ImportSubnets(gomock.Any(), matcher).Return(nil)
 
 	args := []internal.ImportLinkLayerDevice{
 		{
@@ -278,14 +278,14 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderNoSubnet
 	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(nil, nil)
 
 	// Expect a /24 subnet to be auto-created.
-	subnetInfo := corenetwork.SubnetInfo{
+	subnetInfo := network.ImportSubnetArgs{
 		CIDR: "10.136.55.0/24",
 	}
 	matcher := &spaceInfoAsArgMatcher{
 		c:        c,
 		expected: subnetInfo,
 	}
-	s.st.EXPECT().AddSubnet(gomock.Any(), matcher).Return(nil)
+	s.st.EXPECT().ImportSubnets(gomock.Any(), matcher).Return(nil)
 
 	args := []internal.ImportLinkLayerDevice{
 		{
@@ -332,14 +332,14 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderNoSubnet
 	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(nil, nil)
 
 	// Expect a single /24 subnet to be auto-created (not two).
-	subnetInfo := corenetwork.SubnetInfo{
+	subnetInfo := network.ImportSubnetArgs{
 		CIDR: "10.136.55.0/24",
 	}
 	matcher := &spaceInfoAsArgMatcher{
 		c:        c,
 		expected: subnetInfo,
 	}
-	s.st.EXPECT().AddSubnet(gomock.Any(), matcher).Return(nil)
+	s.st.EXPECT().ImportSubnets(gomock.Any(), matcher).Return(nil)
 
 	args := []internal.ImportLinkLayerDevice{
 		{
@@ -385,15 +385,15 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderTooMuchS
 	// Create multiple subnets with the same CIDR
 	subnetUUID1 := uuid.MustNewUUID().String()
 	subnetUUID2 := uuid.MustNewUUID().String()
-	subnetInfo1 := corenetwork.SubnetInfo{
-		ID:   corenetwork.Id(subnetUUID1),
+	subnetInfo1 := network.SubnetInfo{
+		UUID: network.SubnetUUID(subnetUUID1),
 		CIDR: "192.0.2.0/24",
 	}
-	subnetInfo2 := corenetwork.SubnetInfo{
-		ID:   corenetwork.Id(subnetUUID2),
+	subnetInfo2 := network.SubnetInfo{
+		UUID: network.SubnetUUID(subnetUUID2),
 		CIDR: "192.0.2.0/24", // Same CIDR as subnetInfo1
 	}
-	subnets := corenetwork.SubnetInfos{subnetInfo1, subnetInfo2}
+	subnets := network.SubnetInfos{subnetInfo1, subnetInfo2}
 
 	args := []internal.ImportLinkLayerDevice{
 		{
@@ -445,8 +445,8 @@ func (s *migrationSuite) TestImportLinkLayerDevicesLoopbackAddressesNoSubnet(c *
 	}
 
 	subnetUUID := uuid.MustNewUUID().String()
-	subnets := corenetwork.SubnetInfos{{
-		ID:   corenetwork.Id(subnetUUID),
+	subnets := network.SubnetInfos{{
+		UUID: network.SubnetUUID(subnetUUID),
 		CIDR: "192.0.2.0/24",
 	}}
 
@@ -689,8 +689,8 @@ func (s *migrationSuite) TestImportK8sServicesIPv4AndIPv6Success(c *tc.C) {
 		c:    c,
 		from: services,
 		subnetUUIDs: map[string]string{
-			"addr-uuid1": subnets[0].ID.String(),
-			"addr-uuid2": subnets[1].ID.String(),
+			"addr-uuid1": subnets[0].UUID.String(),
+			"addr-uuid2": subnets[1].UUID.String(),
 		},
 	}).Return(nil)
 
@@ -744,7 +744,7 @@ func (s *migrationSuite) TestImportK8sServicesIPv4Success(c *tc.C) {
 		c:    c,
 		from: services,
 		subnetUUIDs: map[string]string{
-			"addr-uuid": subnets[0].ID.String(),
+			"addr-uuid": subnets[0].UUID.String(),
 		},
 	}).Return(nil)
 
@@ -798,7 +798,7 @@ func (s *migrationSuite) TestImportK8sServicesIPv6Success(c *tc.C) {
 		c:    c,
 		from: services,
 		subnetUUIDs: map[string]string{
-			"addr-uuid": subnets[1].ID.String(),
+			"addr-uuid": subnets[1].UUID.String(),
 		},
 	}).Return(nil)
 
@@ -833,11 +833,11 @@ func (s *migrationSuite) TestImportCloudServicesIPv4SuccessWithDiscoveredSubnet(
 		},
 	}
 
-	subnet := corenetwork.SubnetInfo{
-		ID:   corenetwork.Id(uuid.MustNewUUID().String()),
+	subnet := network.SubnetInfo{
+		UUID: network.SubnetUUID(uuid.MustNewUUID().String()),
 		CIDR: "10.0.0.0/24",
 	}
-	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(corenetwork.SubnetInfos{subnet}, nil)
+	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(network.SubnetInfos{subnet}, nil)
 	s.st.EXPECT().CreateK8sServices(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, svcs []internal.ImportK8sService) error {
 			c.Assert(svcs, tc.DeepEquals, services)
@@ -847,7 +847,7 @@ func (s *migrationSuite) TestImportCloudServicesIPv4SuccessWithDiscoveredSubnet(
 		c:    c,
 		from: services,
 		subnetUUIDs: map[string]string{
-			"addr-uuid": subnet.ID.String(),
+			"addr-uuid": subnet.UUID.String(),
 		},
 	}).Return(nil)
 
@@ -858,14 +858,14 @@ func (s *migrationSuite) TestImportCloudServicesIPv4SuccessWithDiscoveredSubnet(
 	c.Assert(err, tc.IsNil)
 }
 
-func (s *migrationSuite) fallbackSubnetInfo() corenetwork.SubnetInfos {
-	return corenetwork.SubnetInfos{
+func (s *migrationSuite) fallbackSubnetInfo() network.SubnetInfos {
+	return network.SubnetInfos{
 		{
-			ID:   corenetwork.Id(uuid.MustNewUUID().String()),
+			UUID: network.SubnetUUID(uuid.MustNewUUID().String()),
 			CIDR: corenetwork.FallbackSubnetInfo[0].CIDR,
 		},
 		{
-			ID:   corenetwork.Id(uuid.MustNewUUID().String()),
+			UUID: network.SubnetUUID(uuid.MustNewUUID().String()),
 			CIDR: corenetwork.FallbackSubnetInfo[1].CIDR,
 		},
 	}
@@ -955,22 +955,34 @@ func (s *migrationSuite) TestSetMachineNetConfigBadUUIDError(c *tc.C) {
 
 type spaceInfoAsArgMatcher struct {
 	c        *tc.C
-	expected corenetwork.SubnetInfo
+	expected network.ImportSubnetArgs
 }
 
 func (m spaceInfoAsArgMatcher) Matches(x any) bool {
-	obtained, ok := x.(corenetwork.SubnetInfo)
+	obtained, ok := x.([]network.ImportSubnetArgs)
 	m.c.Assert(ok, tc.IsTrue)
 	if !ok {
 		return false
 	}
-	mc := tc.NewMultiChecker()
-	mc.AddExpr("_.ID", tc.IsNonZeroUUID)
-	return m.c.Check(obtained, mc, m.expected)
+	m.c.Assert(obtained, tc.HasLen, 1)
+	if len(obtained) != 1 {
+		return false
+	}
+	// Compare all fields except UUID, which is generated by the
+	// service layer in maybeAddSubnet.
+	got := obtained[0]
+	m.c.Check(got.CIDR, tc.Equals, m.expected.CIDR)
+	m.c.Check(got.ProviderId, tc.Equals, m.expected.ProviderId)
+	m.c.Check(got.ProviderSpaceId, tc.Equals, m.expected.ProviderSpaceId)
+	m.c.Check(got.ProviderNetworkId, tc.Equals, m.expected.ProviderNetworkId)
+	m.c.Check(got.VLANTag, tc.Equals, m.expected.VLANTag)
+	m.c.Check(got.AvailabilityZones, tc.SameContents, m.expected.AvailabilityZones)
+	m.c.Check(got.SpaceID, tc.Equals, m.expected.SpaceID)
+	return true
 }
 
 func (m spaceInfoAsArgMatcher) String() string {
-	return "match the corenetwork.SubnetInfo modulo subnet uuid"
+	return "match a single-element ImportSubnetArgs slice"
 }
 
 type importLinkLayerDeviceArgMatcher struct {

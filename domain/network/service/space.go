@@ -191,21 +191,28 @@ func (s *ProviderService) saveProviderSubnets(
 	return nil
 }
 
-// upsertProviderSubnets shims the state method for upserting subnets, and also
-// makes sure a uuid is inserted by checking if one was provided otherwise
-// create a new UUID v7.
+// upsertProviderSubnets shims the state method for upserting subnets. It
+// generates a UUID v7 for each subnet (providers never supply one) and
+// translates the provider-facing core type to the domain type used by state.
 func (s *ProviderService) upsertProviderSubnets(ctx context.Context, subnetsToUpsert network.SubnetInfos) error {
+	domainSubnets := make([]domainnetwork.SubnetInfo, len(subnetsToUpsert))
 	for i, sn := range subnetsToUpsert {
-		if sn.ID.String() == "" {
-			uuid, err := uuid.NewV7()
-			if err != nil {
-				return errors.Capture(err)
-			}
-			subnetsToUpsert[i].ID = network.Id(uuid.String())
+		uuid, err := uuid.NewV7()
+		if err != nil {
+			return errors.Capture(err)
 		}
-
+		domainSubnets[i] = domainnetwork.SubnetInfo{
+			UUID:              domainnetwork.SubnetUUID(uuid.String()),
+			CIDR:              sn.CIDR,
+			ProviderId:        sn.ProviderId,
+			ProviderSpaceId:   sn.ProviderSpaceId,
+			ProviderNetworkId: sn.ProviderNetworkId,
+			VLANTag:           sn.VLANTag,
+			AvailabilityZones: sn.AvailabilityZones,
+			SpaceID:           sn.SpaceID,
+		}
 	}
-	if err := s.st.UpsertSubnets(ctx, subnetsToUpsert); err != nil && !errors.Is(err, coreerrors.AlreadyExists) {
+	if err := s.st.UpsertSubnets(ctx, domainSubnets); err != nil && !errors.Is(err, coreerrors.AlreadyExists) {
 		return errors.Capture(err)
 	}
 	return nil

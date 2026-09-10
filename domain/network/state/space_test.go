@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
+	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -33,17 +34,17 @@ func (s *stateSuite) TestAddSpace(c *tc.C) {
 	// Add a subnet of type base.
 	subnetUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSubnet(
+	err = st.ImportSubnets(
 		c.Context(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID.String()),
+		[]domainnetwork.ImportSubnetArgs{{
+			UUID:              domainnetwork.SubnetUUID(subnetUUID.String()),
 			CIDR:              "192.168.0.0/12",
 			ProviderId:        "provider-id-0",
 			ProviderNetworkId: "provider-network-id-0",
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           "",
-		},
+		}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -82,15 +83,15 @@ func (s *stateSuite) TestAddSpaceSubnetNotFound(c *tc.C) {
 
 	subnetUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSubnet(
+	err = st.ImportSubnets(
 		c.Context(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID.String()),
+		[]domainnetwork.ImportSubnetArgs{{
+			UUID:              domainnetwork.SubnetUUID(subnetUUID.String()),
 			CIDR:              "192.168.0.0/24",
 			ProviderId:        "provider-id-0",
 			ProviderNetworkId: "provider-network-id-0",
 			AvailabilityZones: []string{"az0"},
-		},
+		}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -125,23 +126,23 @@ func (s *stateSuite) TestAddSpaceMultipleCIDRs(c *tc.C) {
 
 	subnetUUID0, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(st.AddSubnet(c.Context(), network.SubnetInfo{
-		ID:                network.Id(subnetUUID0.String()),
+	c.Assert(st.ImportSubnets(c.Context(), []domainnetwork.ImportSubnetArgs{{
+		UUID:              domainnetwork.SubnetUUID(subnetUUID0.String()),
 		CIDR:              "10.0.0.0/24",
 		ProviderId:        "provider-id-0",
 		ProviderNetworkId: "provider-network-id-0",
 		AvailabilityZones: []string{"az0"},
-	}), tc.ErrorIsNil)
+	}}), tc.ErrorIsNil)
 
 	subnetUUID1, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(st.AddSubnet(c.Context(), network.SubnetInfo{
-		ID:                network.Id(subnetUUID1.String()),
+	c.Assert(st.ImportSubnets(c.Context(), []domainnetwork.ImportSubnetArgs{{
+		UUID:              domainnetwork.SubnetUUID(subnetUUID1.String()),
 		CIDR:              "192.168.0.0/24",
 		ProviderId:        "provider-id-1",
 		ProviderNetworkId: "provider-network-id-1",
 		AvailabilityZones: []string{"az0"},
-	}), tc.ErrorIsNil)
+	}}), tc.ErrorIsNil)
 
 	spaceUUID := networktesting.GenSpaceUUID(c)
 	err = st.AddSpace(
@@ -176,23 +177,23 @@ func (s *stateSuite) TestAddSpaceCIDRMatchesMultipleSubnets(c *tc.C) {
 	// Two subnets share the same CIDR (distinct provider networks).
 	subnetUUID0, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(st.AddSubnet(c.Context(), network.SubnetInfo{
-		ID:                network.Id(subnetUUID0.String()),
+	c.Assert(st.ImportSubnets(c.Context(), []domainnetwork.ImportSubnetArgs{{
+		UUID:              domainnetwork.SubnetUUID(subnetUUID0.String()),
 		CIDR:              "10.0.0.0/24",
 		ProviderId:        "provider-id-0",
 		ProviderNetworkId: "provider-network-id-0",
 		AvailabilityZones: []string{"az0"},
-	}), tc.ErrorIsNil)
+	}}), tc.ErrorIsNil)
 
 	subnetUUID1, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(st.AddSubnet(c.Context(), network.SubnetInfo{
-		ID:                network.Id(subnetUUID1.String()),
+	c.Assert(st.ImportSubnets(c.Context(), []domainnetwork.ImportSubnetArgs{{
+		UUID:              domainnetwork.SubnetUUID(subnetUUID1.String()),
 		CIDR:              "10.0.0.0/24",
 		ProviderId:        "provider-id-1",
 		ProviderNetworkId: "provider-network-id-1",
 		AvailabilityZones: []string{"az0"},
-	}), tc.ErrorIsNil)
+	}}), tc.ErrorIsNil)
 
 	spaceUUID := networktesting.GenSpaceUUID(c)
 	err = st.AddSpace(c.Context(), spaceUUID, "space0", "foo", []string{"10.0.0.0/24"})
@@ -223,17 +224,17 @@ func (s *stateSuite) TestAddSpaceFailDuplicateName(c *tc.C) {
 	// Add a subnet of type base.
 	subnetUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSubnet(
+	err = st.ImportSubnets(
 		c.Context(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID.String()),
+		[]domainnetwork.ImportSubnetArgs{{
+			UUID:              domainnetwork.SubnetUUID(subnetUUID.String()),
 			CIDR:              "192.168.0.0/12",
 			ProviderId:        "provider-id-0",
 			ProviderNetworkId: "provider-network-id-0",
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           "",
-		},
+		}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -261,17 +262,17 @@ func (s *stateSuite) TestAddSpaceEmptyProviderID(c *tc.C) {
 	// Add a subnet of type base.
 	subnetUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSubnet(
+	err = st.ImportSubnets(
 		c.Context(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID.String()),
+		[]domainnetwork.ImportSubnetArgs{{
+			UUID:              domainnetwork.SubnetUUID(subnetUUID.String()),
 			CIDR:              "192.168.0.0/12",
 			ProviderId:        "",
 			ProviderNetworkId: "provider-network-id-0",
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           "",
-		},
+		}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -296,33 +297,33 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *tc.C) {
 	// Add a subnet of type base.
 	subnetUUID0, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSubnet(
+	err = st.ImportSubnets(
 		c.Context(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID0.String()),
+		[]domainnetwork.ImportSubnetArgs{{
+			UUID:              domainnetwork.SubnetUUID(subnetUUID0.String()),
 			CIDR:              "192.168.0.0/12",
 			ProviderId:        "provider-id-0",
 			ProviderNetworkId: "provider-network-id-0",
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0"},
 			SpaceID:           "",
-		},
+		}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	// Add a subnet of type base.
 	subnetUUID1, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSubnet(
+	err = st.ImportSubnets(
 		c.Context(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID1.String()),
+		[]domainnetwork.ImportSubnetArgs{{
+			UUID:              domainnetwork.SubnetUUID(subnetUUID1.String()),
 			CIDR:              "192.176.0.0/12",
 			ProviderId:        "provider-id-2",
 			ProviderNetworkId: "provider-network-id-2",
 			VLANTag:           0,
 			AvailabilityZones: []string{"az1"},
 			SpaceID:           "",
-		},
+		}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -424,47 +425,47 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *tc.C) {
 	// Add 3 subnets of type base.
 	subnetUUID0, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSubnet(
+	err = st.ImportSubnets(
 		c.Context(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID0.String()),
+		[]domainnetwork.ImportSubnetArgs{{
+			UUID:              domainnetwork.SubnetUUID(subnetUUID0.String()),
 			CIDR:              "192.168.0.0/24",
 			ProviderId:        "provider-id-0",
 			ProviderNetworkId: "provider-network-id-0",
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           "",
-		},
+		}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	subnetUUID1, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSubnet(
+	err = st.ImportSubnets(
 		c.Context(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID1.String()),
+		[]domainnetwork.ImportSubnetArgs{{
+			UUID:              domainnetwork.SubnetUUID(subnetUUID1.String()),
 			CIDR:              "192.168.1.0/24",
 			ProviderId:        "provider-id-1",
 			ProviderNetworkId: "provider-network-id-1",
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           "",
-		},
+		}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	subnetUUID2, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	err = st.AddSubnet(
+	err = st.ImportSubnets(
 		c.Context(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID2.String()),
+		[]domainnetwork.ImportSubnetArgs{{
+			UUID:              domainnetwork.SubnetUUID(subnetUUID2.String()),
 			CIDR:              "192.168.2.0/24",
 			ProviderId:        "provider-id-2",
 			ProviderNetworkId: "provider-network-id-2",
 			VLANTag:           0,
 			AvailabilityZones: []string{"az2", "az3"},
 			SpaceID:           "",
-		},
+		}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
