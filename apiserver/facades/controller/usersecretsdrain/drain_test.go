@@ -69,8 +69,8 @@ func (m backendConfigParamsMatcher) Matches(x any) bool {
 	if !ok {
 		return false
 	}
-	m.c.Assert(obtained.GrantedSecretsGetter, tc.NotNil)
-	obtained.GrantedSecretsGetter = nil
+	m.c.Assert(obtained.GrantedSecretsForDrainGetter, tc.NotNil)
+	obtained.GrantedSecretsForDrainGetter = nil
 	m.c.Assert(obtained, tc.DeepEquals, m.expected)
 	return true
 }

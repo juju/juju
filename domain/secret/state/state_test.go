@@ -3643,6 +3643,119 @@ func (s *stateSuite) TestListGrantedSecrets(c *tc.C) {
 	}})
 }
 
+// TestListGrantedSecretsForDrain verifies that granted secrets are returned
+// regardless of which backend holds them. The drain worker relies on this:
+// the secrets being moved still live in the old backend (internal or another
+// external one), so the accessor must be granted access to them on the
+// target backend before they are moved. Internal secrets have no backend
+// value reference and no revision ID.
+func (s *stateSuite) TestListGrantedSecretsForDrain(c *tc.C) {
+	s.setupUnits(c, "mysql")
+
+	ctx := c.Context()
+
+	// A secret held on the target backend.
+	target := coresecrets.NewURI()
+	err := s.createCharmApplicationSecret(c, 1, target, "mysql", domainsecret.UpsertSecretParams{
+		RevisionUUID: new(uuid.MustNewUUID().String()),
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "revision-id",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A secret held on a different external backend.
+	other := coresecrets.NewURI()
+	err = s.createCharmApplicationSecret(c, 1, other, "mysql", domainsecret.UpsertSecretParams{
+		RevisionUUID: new(uuid.MustNewUUID().String()),
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "other-backend-id",
+			RevisionID: "other-revision-id",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// An internal secret has its content in the Juju database and so has no
+	// backend value reference.
+	internal := coresecrets.NewURI()
+	err = s.createCharmApplicationSecret(c, 1, internal, "mysql", domainsecret.UpsertSecretParams{
+		RevisionUUID: new(uuid.MustNewUUID().String()),
+		Data:         coresecrets.SecretData{"foo": "bar"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	accessors := []domainsecret.AccessParams{{
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mysql",
+	}}
+	roles := []domainsecret.Role{domainsecret.RoleManage}
+
+	// ListGrantedSecretsForBackend only returns secrets held on the specified
+	// backend.
+	result, err := s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors, roles)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []*coresecrets.SecretRevisionRef{{
+		URI:        target,
+		RevisionID: "revision-id",
+	}})
+
+	// ListGrantedSecretsForDrain returns secrets from all backends: the
+	// target backend, the internal backend (no revision ID) and any other
+	// external backend that could be the drain source.
+	result, err = s.state.ListGrantedSecretsForDrain(ctx, accessors, roles)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.SameContents, []*coresecrets.SecretRevisionRef{{
+		URI:        target,
+		RevisionID: "revision-id",
+	}, {
+		URI:        other,
+		RevisionID: "other-revision-id",
+	}, {
+		URI:        internal,
+		RevisionID: "",
+	}})
+}
+
+// TestListGrantedSecretsForDrainUnitOwned verifies that the drain listing
+// returns a unit-owned secret held in the internal backend. This is the exact
+// scenario of a unit drain worker draining a charm secret from the internal
+// backend to an external one: the secret has no backend value reference, so
+// it must be matched via the unit ownership grant.
+func (s *stateSuite) TestListGrantedSecretsForDrainUnitOwned(c *tc.C) {
+	s.setupUnits(c, "mysql")
+
+	ctx := c.Context()
+
+	// A unit-owned secret held in the internal backend (no value ref).
+	internal := coresecrets.NewURI()
+	err := s.createCharmUnitSecret(c, 1, internal, "mysql/0", domainsecret.UpsertSecretParams{
+		RevisionUUID: new(uuid.MustNewUUID().String()),
+		Data:         coresecrets.SecretData{"foo": "bar"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	accessors := []domainsecret.AccessParams{{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+	}}
+	roles := []domainsecret.Role{domainsecret.RoleManage}
+
+	// For backend-id, nothing is returned: the secret is not on the
+	// external backend yet.
+	result, err := s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors, roles)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.HasLen, 0)
+
+	// ListGrantedSecretsForDrain returns the internal secret (with no revision ID).
+	result, err = s.state.ListGrantedSecretsForDrain(ctx, accessors, roles)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.SameContents, []*coresecrets.SecretRevisionRef{{
+		URI:        internal,
+		RevisionID: "",
+	}})
+}
+
 // TestListGrantedSecretsForBackendWithMultipleRoles verifies that when
 // multiple roles are passed, secrets with any of those roles are returned.
 // The "manage implies view" business logic is in the service layer which

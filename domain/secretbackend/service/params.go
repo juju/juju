@@ -12,11 +12,11 @@ import (
 
 // DrainBackendConfigParams are used to get config for draining a secret backend.
 type DrainBackendConfigParams struct {
-	GrantedSecretsGetter secretservice.GrantedSecretsGetter
-	LeaderToken          leadership.Token
-	Accessor             secret.SecretAccessor
-	ModelUUID            coremodel.UUID
-	BackendID            string
+	GrantedSecretsForDrainGetter secretservice.GrantedSecretsForDrainGetter
+	LeaderToken                  leadership.Token
+	Accessor                     secret.SecretAccessor
+	ModelUUID                    coremodel.UUID
+	BackendID                    string
 }
 
 // BackendConfigParams are used to get config for reading secrets from a secret backend.

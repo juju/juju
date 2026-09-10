@@ -128,6 +128,39 @@ func (s *SecretService) ListGrantedSecretsForBackend(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	accessors, err := convertConsumersToAccessParams(consumers...)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Expand the requested role to include all roles that satisfy it.
+	roles := expandRolesToMatch(role)
+
+	return s.secretState.ListGrantedSecretsForBackend(ctx, backendID, accessors, roles)
+}
+
+// ListGrantedSecretsForDrain returns the secret revision info for any
+// secrets for which the specified consumers have been granted the specified
+// access, regardless of which backend holds them. This is used when draining
+// secrets to a new backend.
+func (s *SecretService) ListGrantedSecretsForDrain(
+	ctx context.Context, role secrets.SecretRole, consumers ...domainsecret.SecretAccessor,
+) ([]*secrets.SecretRevisionRef, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	accessors, err := convertConsumersToAccessParams(consumers...)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Expand the requested role to include all roles that satisfy it.
+	roles := expandRolesToMatch(role)
+
+	return s.secretState.ListGrantedSecretsForDrain(ctx, accessors, roles)
+}
+
+func convertConsumersToAccessParams(consumers ...domainsecret.SecretAccessor) ([]domainsecret.AccessParams, error) {
 	accessors := make([]domainsecret.AccessParams, len(consumers))
 	for i, consumer := range consumers {
 		accessor := domainsecret.AccessParams{
@@ -145,11 +178,7 @@ func (s *SecretService) ListGrantedSecretsForBackend(
 		}
 		accessors[i] = accessor
 	}
-
-	// Expand the requested role to include all roles that satisfy it.
-	roles := expandRolesToMatch(role)
-
-	return s.secretState.ListGrantedSecretsForBackend(ctx, backendID, accessors, roles)
+	return accessors, nil
 }
 
 // expandRolesToMatch returns a slice of roles that satisfy the requested role.
