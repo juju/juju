@@ -369,7 +369,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	if err := getter.Get(config.SSHServerName, &relayResolver); err != nil {
 		return nil, errors.Trace(err)
 	}
-	var relayAuthorizer sshserver.RelayAuthorizer
+	var relayAuthorizer sshproxy.RelayAuthorizer
 	if err := getter.Get(config.SSHServerName, &relayAuthorizer); err != nil {
 		return nil, errors.Trace(err)
 	}

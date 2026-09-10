@@ -4,7 +4,6 @@
 package sshtunnel
 
 import (
-	"context"
 	"net/http"
 	"sync/atomic"
 
@@ -39,7 +38,7 @@ type RelayHandlerConfig struct {
 	Logger logger.Logger
 	// Authorizer checks whether the user identified by the JWT may access
 	// the destination.
-	Authorizer RelayAuthorizer
+	Authorizer sshproxy.RelayAuthorizer
 	// Resolver resolves per-destination proxy handlers and terminating host
 	// keys in one call.
 	Resolver sshproxy.Resolver
@@ -68,14 +67,6 @@ func (cfg RelayHandlerConfig) Validate() error {
 		return errors.New("nil Metrics")
 	}
 	return nil
-}
-
-// RelayAuthorizer checks whether the user identified by a JWT may access a
-// destination.
-type RelayAuthorizer interface {
-	// Authorize checks whether the user identified by token may access the
-	// target destination.
-	Authorize(ctx context.Context, token jwt.Token, destination virtualhostname.Info) (bool, error)
 }
 
 // NewRelayHandler returns a new JIMM relay endpoint handler.

@@ -259,20 +259,12 @@ func outputFunc(in worker.Worker, out any) error {
 	switch outPointer := out.(type) {
 	case *sshproxy.Resolver:
 		*outPointer = inWorker.config.Resolver
-	case *RelayAuthorizer:
+	case *sshproxy.RelayAuthorizer:
 		*outPointer = inWorker.relayAuthorizer
 	default:
-		return errors.Errorf("out should be *sshproxy.Resolver or *sshserver.RelayAuthorizer; got %T", out)
+		return errors.Errorf("out should be *sshproxy.Resolver or *sshproxy.RelayAuthorizer; got %T", out)
 	}
 	return nil
-}
-
-// RelayAuthorizer checks whether the user identified by a JWT may access a
-// relay destination.
-type RelayAuthorizer interface {
-	// Authorize checks whether the user identified by token may access the
-	// target destination.
-	Authorize(ctx context.Context, token jwt.Token, destination virtualhostname.Info) (bool, error)
 }
 
 // relayAuthorizer checks whether the user identified by a JWT may access a

@@ -293,7 +293,7 @@ type SSHTunnelConfig struct {
 	Resolver sshproxy.Resolver
 	// Authorizer checks whether the JWT-identified user may access a relay
 	// destination.
-	Authorizer sshtunnel.RelayAuthorizer
+	Authorizer sshproxy.RelayAuthorizer
 	// MaxConcurrentConnections bounds concurrent upgraded connections on
 	// both endpoints, matching the controller's ssh-max-concurrent-connections
 	// config.

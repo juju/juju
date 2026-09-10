@@ -36,7 +36,7 @@ type ServerWrapperWorkerConfig struct {
 	Authenticator           Authenticator
 	Authorizer              Authorizer
 	Resolver                sshproxy.Resolver
-	RelayAuthorizer         RelayAuthorizer
+	RelayAuthorizer         sshproxy.RelayAuthorizer
 
 	Metrics *Collector
 }
@@ -83,7 +83,7 @@ type serverWrapperWorker struct {
 	// relay destination. It is exposed via the manifold Output so the
 	// apiserver relay endpoint can consume it without re-composing the
 	// underlying sshService.
-	relayAuthorizer RelayAuthorizer
+	relayAuthorizer sshproxy.RelayAuthorizer
 
 	// workerReporters holds the maps of worker reporters.
 	workerReporters map[string]worker.Reporter

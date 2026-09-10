@@ -266,7 +266,7 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 		return
 	}
 
-	server := newTerminatingSSHServer(termination.Handlers)
+	server := sshproxy.NewTerminatingSSHServer(termination.Handlers)
 	server.AddHostKey(termination.Signer)
 
 	ch, reqs, err := newChan.Accept()
@@ -319,25 +319,6 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 		}(now)
 		return conn
 	}
-}
-
-// newTerminatingSSHServer creates an embedded SSH server that terminates the
-// user's SSH connection and proxies it to the routed target.
-func newTerminatingSSHServer(handlers sshproxy.ProxyHandlers) *ssh.Server {
-	server := &ssh.Server{
-		ChannelHandlers: map[string]ssh.ChannelHandler{
-			"session":      ssh.DefaultSessionHandler,
-			"direct-tcpip": handlers.DirectTCPIPHandler(),
-		},
-		Handler: func(session ssh.Session) {
-			handlers.SessionHandler(session)
-		},
-		SubsystemHandlers: map[string]ssh.SubsystemHandler{
-			"sftp": handlers.SFTPHandler(),
-		},
-	}
-
-	return server
 }
 
 // Report returns a map of metrics from the server worker.
