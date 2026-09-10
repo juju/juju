@@ -49,6 +49,12 @@ type GrantedSecretsGetter func(
 	ctx context.Context, backendID string, role secrets.SecretRole, consumers ...secret.SecretAccessor,
 ) ([]*secrets.SecretRevisionRef, error)
 
+// GrantedSecretsForDrainGetter returns the revisions for which consumers have
+// access with the given role, regardless of which backend holds them.
+type GrantedSecretsForDrainGetter func(
+	ctx context.Context, role secrets.SecretRole, consumers ...secret.SecretAccessor,
+) ([]*secrets.SecretRevisionRef, error)
+
 // SecretAccess is used to define access to a secret.
 type SecretAccess struct {
 	Scope   secret.SecretAccessScope

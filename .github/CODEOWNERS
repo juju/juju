@@ -3,9 +3,9 @@
 *                                             @manadart @SimonRichardson
 
 # Application (and charm) domain packages
-/core/charm/**                                @SimonRichardson @nvinuesa @jack-w-shaw
-/internal/charm/**                            @SimonRichardson @nvinuesa @jack-w-shaw
-/domain/application/**                        @SimonRichardson @nvinuesa @jack-w-shaw
+/core/charm/**                                @SimonRichardson @nvinuesa
+/internal/charm/**                            @SimonRichardson @nvinuesa
+/domain/application/**                        @SimonRichardson @nvinuesa
 /internal/worker/asynccharmdownloader/**      @SimonRichardson
 
 # Network domain packages

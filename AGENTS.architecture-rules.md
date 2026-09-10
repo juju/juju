@@ -43,6 +43,18 @@ Respect Juju layering. Never create new cross-layer dependencies.
 - Blocking operations in hot paths.
 - Client, cross-controller, or third-party connections without deterministic closure.
 
+### Watcher Initialisation and Readiness
+
+- Watcher-backed workflows must establish their subscription before performing the initial state query, 
+  so no relevant change can be missed.
+- A watcher constructor returning does not imply that its subscription is active unless this is explicitly documented.
+- For watchers with an initial event, receiving that event is the readiness barrier: 
+  the subscription and initial query have completed.
+- An empty initial event is still a valid readiness signal and must not be discarded without observing it.
+- Do not expose handlers, signal worker readiness, or make decisions from separate 
+  state queries until the required watcher readiness barrier has been crossed.
+- Tests must exercise changes racing watcher construction, subscription, and the initial query.
+
 ## API Facade Rules
 
 - Keep facades to thin orchestration.

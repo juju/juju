@@ -3272,20 +3272,83 @@ AND    (sp.subject_type_id = $secretAccessorType.unit_type_id AND suu.name IN ($
         OR sp.subject_type_id = $secretAccessorType.app_type_id AND sua.name IN ($applications[:])
         OR sp.subject_type_id = $secretAccessorType.model_type_id AND sp.subject_uuid IN ($models[:])
        )`
-	secretBackendID := secretBackendID{
-		ID: backendID,
+
+	appAccessors, unitAccessors, modelAccessors := splitAccessorsBySubjectType(accessors)
+
+	queryParams := []any{
+		appAccessors,
+		unitAccessors,
+		modelAccessors,
+		secretAccessorTypeParam,
+		secretRolesFromDomain(roleIDs),
+		secretBackendID{ID: backendID},
 	}
 
-	secretRoles := make(roles, len(roleIDs))
-	for i, r := range roleIDs {
-		secretRoles[i] = int(r)
+	queryStmt, err := st.Prepare(query, append(queryParams, secretInfo{}, secretValueRef{})...)
+	if err != nil {
+		return nil, errors.Capture(err)
 	}
 
+	return runGrantedSecretsQuery(ctx, db, queryStmt, queryParams)
+}
+
+// ListGrantedSecretsForDrain returns the secret revision info for any
+// secrets for which the specified consumers have been granted any of the
+// specified roles, regardless of which backend holds them. This is used
+// when preparing access for a drain worker: the secrets being moved still
+// live in the old backend (internal or another external one), so the
+// accessor must be granted access to them on the target backend before they
+// are moved.
+func (st State) ListGrantedSecretsForDrain(
+	ctx context.Context, accessors []domainsecret.AccessParams, roleIDs []domainsecret.Role,
+) ([]*coresecrets.SecretRevisionRef, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	query := `
+SELECT (sm.secret_id) AS (&secretInfo.*),
+       (svr.*) AS (&secretValueRef.*)
+FROM   secret_metadata sm
+JOIN   secret_revision rev ON rev.secret_id = sm.secret_id
+LEFT JOIN secret_value_ref svr ON svr.revision_uuid = rev.uuid
+JOIN   secret_permission sp ON sp.secret_id = sm.secret_id
+LEFT JOIN unit suu ON sp.subject_uuid = suu.uuid AND sp.subject_type_id = $secretAccessorType.unit_type_id
+LEFT JOIN application sua ON sp.subject_uuid = sua.uuid AND sp.subject_type_id = $secretAccessorType.app_type_id
+WHERE  sp.role_id IN ($roles[:])
+AND    (sp.subject_type_id = $secretAccessorType.unit_type_id AND suu.name IN ($units[:])
+        OR sp.subject_type_id = $secretAccessorType.app_type_id AND sua.name IN ($applications[:])
+        OR sp.subject_type_id = $secretAccessorType.model_type_id AND sp.subject_uuid IN ($models[:])
+       )`
+
+	appAccessors, unitAccessors, modelAccessors := splitAccessorsBySubjectType(accessors)
+
+	queryParams := []any{
+		appAccessors,
+		unitAccessors,
+		modelAccessors,
+		secretAccessorTypeParam,
+		secretRolesFromDomain(roleIDs),
+	}
+
+	queryStmt, err := st.Prepare(query, append(queryParams, secretInfo{}, secretValueRef{})...)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return runGrantedSecretsQuery(ctx, db, queryStmt, queryParams)
+}
+
+// splitAccessorsBySubjectType splits the given access params into the
+// per-subject-type slices used to build the accessor predicate shared by
+// ListGrantedSecretsForBackend and ListGrantedSecretsForDrain.
+func splitAccessorsBySubjectType(accessors []domainsecret.AccessParams) (applications, units, models) {
 	// Ideally we'd use IN tuple but sqlair doesn't support that.
 	var (
-		modelAccessors models
 		appAccessors   applications
 		unitAccessors  units
+		modelAccessors models
 	)
 	for _, a := range accessors {
 		switch a.SubjectTypeID {
@@ -3299,21 +3362,26 @@ AND    (sp.subject_type_id = $secretAccessorType.unit_type_id AND suu.name IN ($
 			continue
 		}
 	}
+	return appAccessors, unitAccessors, modelAccessors
+}
 
-	queryParams := []any{
-		appAccessors,
-		unitAccessors,
-		modelAccessors,
-		secretAccessorTypeParam,
-		secretRoles,
-		secretBackendID,
+// secretRolesFromDomain converts domain role IDs into the roles type used by
+// ListGrantedSecretsForBackend and ListGrantedSecretsForDrain.
+func secretRolesFromDomain(roleIDs []domainsecret.Role) roles {
+	secretRoles := make(roles, len(roleIDs))
+	for i, r := range roleIDs {
+		secretRoles[i] = int(r)
 	}
+	return secretRoles
+}
 
-	queryStmt, err := st.Prepare(query, append(queryParams, secretInfo{}, secretValueRef{})...)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
+// runGrantedSecretsQuery executes the given prepared statement and returns
+// the matching secret revision references. Shared by
+// ListGrantedSecretsForBackend and ListGrantedSecretsForDrain, which differ
+// only in the query text and parameters used to build queryStmt.
+func runGrantedSecretsQuery(
+	ctx context.Context, db domain.TxnRunner, queryStmt *sqlair.Statement, queryParams []any,
+) ([]*coresecrets.SecretRevisionRef, error) {
 	var revisionResult []*coresecrets.SecretRevisionRef
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error

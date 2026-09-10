@@ -57,6 +57,16 @@ func (s *AgentPresenceSuite) TestLoginForMachine(c *tc.C) {
 	observer.Login(c.Context(), names.NewMachineTag("0"), names.NewModelTag("bar"), uuid, false, "user data")
 }
 
+func (s *AgentPresenceSuite) TestLoginFromController(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must0(c, coremodel.NewUUID)
+
+	observer := s.newObserver(c)
+	observer.Login(c.Context(), names.NewMachineTag("0"), names.NewModelTag("bar"), uuid, true, "user data")
+	observer.Leave(c.Context())
+}
+
 func (s *AgentPresenceSuite) TestLoginForUser(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -93,6 +103,18 @@ func (s *AgentPresenceSuite) TestLeaveForMachine(c *tc.C) {
 
 	observer := s.newObserver(c)
 	observer.Login(c.Context(), names.NewMachineTag("0"), names.NewModelTag("bar"), uuid, false, "user data")
+	observer.Leave(c.Context())
+}
+
+func (s *AgentPresenceSuite) TestLeaveFromController(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must0(c, coremodel.NewUUID)
+
+	observer := s.newObserver(c)
+	// Exercise the departure guard independently of the presence login guard.
+	observer.BaseObserver.Login(c.Context(), names.NewMachineTag("0"), names.NewModelTag("bar"), uuid, true, "user data")
+	observer.modelService = s.modelService
 	observer.Leave(c.Context())
 }
 

@@ -31,7 +31,7 @@ type leaderServiceSuite struct {
 	modelState      *MockModelState
 	controllerState *MockControllerState
 
-	leadership       *MockEnsurer
+	leadership       *MockLeaderEnsurer
 	clusterDescriber *MockClusterDescriber
 	statusHistory    *statusHistoryRecorder
 
@@ -397,7 +397,7 @@ func (s *leaderServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.modelState = NewMockModelState(ctrl)
 	s.controllerState = NewMockControllerState(ctrl)
-	s.leadership = NewMockEnsurer(ctrl)
+	s.leadership = NewMockLeaderEnsurer(ctrl)
 	s.clusterDescriber = NewMockClusterDescriber(ctrl)
 	s.statusHistory = &statusHistoryRecorder{}
 

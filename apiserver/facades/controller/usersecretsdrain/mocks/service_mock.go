@@ -32,6 +32,7 @@ type MockSecretServiceMockRecorder struct {
 	getSecretExpects                    []*gomock.Call2_2[context.Context, *secrets.URI, *secrets.SecretMetadata, error]
 	getSecretValueExpects               []*gomock.Call4_3[context.Context, *secrets.URI, int, secret.SecretAccessor, secrets.SecretValue, *secrets.ValueRef, error]
 	listGrantedSecretsForBackendExpects []*gomock.Call3V_2[context.Context, string, secrets.SecretRole, secret.SecretAccessor, []*secrets.SecretRevisionRef, error]
+	listGrantedSecretsForDrainExpects   []*gomock.Call2V_2[context.Context, secrets.SecretRole, secret.SecretAccessor, []*secrets.SecretRevisionRef, error]
 }
 
 // NewMockSecretService creates a new mock instance.
@@ -100,6 +101,25 @@ func (mr *MockSecretServiceMockRecorder) ListGrantedSecretsForBackend(ctx, backe
 
 // MockSecretServiceListGrantedSecretsForBackendCall is the typed call wrapper for ListGrantedSecretsForBackend.
 type MockSecretServiceListGrantedSecretsForBackendCall = gomock.Call3V_2[context.Context, string, secrets.SecretRole, secret.SecretAccessor, []*secrets.SecretRevisionRef, error]
+
+// ListGrantedSecretsForDrain mocks base method.
+func (m *MockSecretService) ListGrantedSecretsForDrain(ctx context.Context, role secrets.SecretRole, consumers ...secret.SecretAccessor) ([]*secrets.SecretRevisionRef, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2V_2(&m.recorder.listGrantedSecretsForDrainExpects, m.ctrl, m, "ListGrantedSecretsForDrain", ctx, role, consumers...)
+}
+
+// ListGrantedSecretsForDrain indicates an expected call of ListGrantedSecretsForDrain.
+func (mr *MockSecretServiceMockRecorder) ListGrantedSecretsForDrain(ctx, role any, consumers ...any) *MockSecretServiceListGrantedSecretsForDrainCall {
+	mr.mock.ctrl.T.Helper()
+	varArgs := gomock.EnsureVariadicMatcher(consumers)
+	call := gomock.NewCall2V_2[context.Context, secrets.SecretRole, secret.SecretAccessor, []*secrets.SecretRevisionRef, error](mr.mock.ctrl.T, mr.mock, "ListGrantedSecretsForDrain", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(role), varArgs)
+	mr.listGrantedSecretsForDrainExpects = append(mr.listGrantedSecretsForDrainExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockSecretServiceListGrantedSecretsForDrainCall is the typed call wrapper for ListGrantedSecretsForDrain.
+type MockSecretServiceListGrantedSecretsForDrainCall = gomock.Call2V_2[context.Context, secrets.SecretRole, secret.SecretAccessor, []*secrets.SecretRevisionRef, error]
 
 // MockSecretBackendService is a mock of SecretBackendService interface.
 type MockSecretBackendService struct {

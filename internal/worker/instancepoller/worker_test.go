@@ -399,10 +399,14 @@ func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *tc.C) {
 	}).Return(nil)
 
 	mocked.networkService.EXPECT().SetProviderNetConfig(gomock.Any(), machineUUID, testDevices).Return(nil)
+	mocked.statusService.EXPECT().GetMachineStatus(gomock.Any(), machineName).Return(status.StatusInfo{Status: status.Started}, nil)
 
-	providerStatus, err := updWorker.processProviderInfo(c.Context(), entry, instInfo, testNetIfs)
+	providerStatus, canSyncNetwork, err := updWorker.processProviderInfo(c.Context(), entry, instInfo)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(providerStatus, tc.Equals, status.Running)
+	c.Check(providerStatus, tc.Equals, status.Running)
+	c.Check(canSyncNetwork, tc.IsTrue)
+	err = updWorker.processOneInstance(c.Context(), entry, providerStatus, canSyncNetwork, testNetIfs, shortPollGroup)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *workerSuite) TestStartedMachineWithNetAddressesMovesToLongPollGroup(c *tc.C) {
@@ -696,6 +700,69 @@ func (s *workerSuite) TestBatchPollingOfGroupMembersWithVariousDevicesStatus(c *
 	s.assertWorkerCompletesLoop(c, updWorker, func() {
 		mocked.clock.Advance(ShortPoll)
 	})
+}
+
+// TestPollGroupMembersUpdatesStatusesBeforeNetworkLookup checks that a failed
+// network lookup cannot leave stale provisioning statuses on any found instance,
+// including instances without devices and those in a partial provider response.
+func (s *workerSuite) TestPollGroupMembersUpdatesStatusesBeforeNetworkLookup(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	machineService := mocks.NewMockMachineService(ctrl)
+	statusService := mocks.NewMockStatusService(ctrl)
+	environ := mocks.NewMockEnviron(ctrl)
+	updWorker := &updaterWorker{
+		config: Config{
+			Clock:          testclock.NewClock(time.Now()),
+			MachineService: machineService,
+			StatusService:  statusService,
+			NetworkService: mocks.NewMockNetworkService(ctrl),
+			Environ:        environ,
+			Logger:         loggertesting.WrapCheckLog(c),
+		},
+		pollGroup: [2]map[machine.Name]*pollGroupEntry{
+			make(map[machine.Name]*pollGroupEntry),
+			make(map[machine.Name]*pollGroupEntry),
+		},
+	}
+
+	infos := domainmachine.PollingInfos{
+		{MachineName: "0", MachineUUID: machinetesting.GenUUID(c), InstanceID: "with-devices", ExistingDeviceCount: 1},
+		{MachineName: "1", MachineUUID: machinetesting.GenUUID(c), InstanceID: "missing"},
+		{MachineName: "2", MachineUUID: machinetesting.GenUUID(c), InstanceID: "no-devices"},
+	}
+	for _, info := range infos {
+		updWorker.appendToShortPollGroup(info.MachineName)
+		updWorker.pollGroup[shortPollGroup][info.MachineName].shortPollAt = updWorker.config.Clock.Now()
+	}
+	machineService.EXPECT().GetPollingInfos(gomock.Any(), []machine.Name{"0", "1", "2"}).Return(infos, nil)
+
+	instanceInfo := mocks.NewMockInstance(ctrl)
+	instanceInfo.EXPECT().Status(gomock.Any()).Return(instance.Status{Status: status.Running, Message: "Deployed"}).Times(2)
+	environ.EXPECT().Instances(gomock.Any(), []instance.Id{"with-devices", "missing", "no-devices"}).Return(
+		[]instances.Instance{instanceInfo, nil, instanceInfo}, environs.ErrPartialInstances,
+	)
+
+	networkErr := fmt.Errorf("network lookup failed")
+	networkLookup := environ.EXPECT().NetworkInterfaces(gomock.Any(), []instance.Id{"with-devices"}).Return(nil, networkErr)
+	for _, name := range []machine.Name{"0", "2"} {
+		statusService.EXPECT().GetInstanceStatus(gomock.Any(), name).Return(status.StatusInfo{
+			Status:  status.Provisioning,
+			Message: "failed to start machine in zone, retrying with new availability zone",
+		}, nil)
+		updated := statusService.EXPECT().SetInstanceStatus(gomock.Any(), name, status.StatusInfo{
+			Status:  status.Running,
+			Message: "Deployed",
+		}).Return(nil)
+		networkLookup.After(updated)
+		machineService.EXPECT().GetMachineLife(gomock.Any(), name).Return(life.Alive, nil)
+	}
+
+	err := updWorker.pollGroupMembers(c.Context(), shortPollGroup)
+	c.Assert(err, tc.ErrorIs, networkErr)
+	c.Check(updWorker.pollGroup[shortPollGroup]["1"].shortPollInterval, tc.Equals,
+		time.Duration(float64(ShortPoll)*ShortPollBackoff))
 }
 
 func (s *workerSuite) TestPollGroupMembersSkipsNetworkInterfacesForNoDeviceInstances(c *tc.C) {

@@ -492,7 +492,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsNoContainers(c *tc.C)
 		},
 	}
 
-	info, err := applicationDisplayStatusFromUnits(fullStatuses)
+	info, err := applicationDisplayStatusFromUnits(fullStatuses, "")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Active,
@@ -500,7 +500,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsNoContainers(c *tc.C)
 }
 
 func (s *statusSuite) TestApplicationDisplayStatusFromUnitsEmpty(c *tc.C) {
-	info, err := applicationDisplayStatusFromUnits(nil)
+	info, err := applicationDisplayStatusFromUnits(nil, "")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Unknown,
@@ -508,6 +508,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsEmpty(c *tc.C) {
 
 	info, err = applicationDisplayStatusFromUnits(
 		status.FullUnitStatuses{},
+		"",
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
@@ -543,7 +544,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPreceden
 		},
 	}
 
-	info, err := applicationDisplayStatusFromUnits(fullStatuses)
+	info, err := applicationDisplayStatusFromUnits(fullStatuses, "")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Blocked,
@@ -578,7 +579,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPreceden
 		},
 	}
 
-	info, err := applicationDisplayStatusFromUnits(fullStatuses)
+	info, err := applicationDisplayStatusFromUnits(fullStatuses, "")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Maintenance,
@@ -613,7 +614,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPrioritisesUnitWithGr
 		},
 	}
 
-	info, err := applicationDisplayStatusFromUnits(fullStatuses)
+	info, err := applicationDisplayStatusFromUnits(fullStatuses, "")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Blocked,
@@ -638,7 +639,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsWithError(c *tc.C) {
 		},
 	}
 
-	info, err := applicationDisplayStatusFromUnits(fullStatuses)
+	info, err := applicationDisplayStatusFromUnits(fullStatuses, "")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Error,
@@ -648,6 +649,217 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsWithError(c *tc.C) {
 		Message: "hook failed: hook-name",
 		Since:   &s.now,
 	})
+}
+
+func (s *statusSuite) TestApplicationDisplayStatusFromUnitsDeterministic(c *tc.C) {
+	u0, err := coreunit.NewName("app/0")
+	c.Assert(err, tc.ErrorIsNil)
+	u1, err := coreunit.NewName("app/1")
+	c.Assert(err, tc.ErrorIsNil)
+	u2, err := coreunit.NewName("app/2")
+	c.Assert(err, tc.ErrorIsNil)
+
+	fullStatuses := status.FullUnitStatuses{
+		u0: {
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "message from unit 0",
+			},
+			Present: true,
+		},
+		u1: {
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "message from unit 1",
+			},
+			Present: true,
+		},
+		u2: {
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "message from unit 2",
+			},
+			Present: true,
+		},
+	}
+
+	for range 5 {
+		info, err := applicationDisplayStatusFromUnits(fullStatuses, "")
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(info.Status, tc.Equals, corestatus.Active)
+		c.Check(info.Message, tc.Equals, "message from unit 0")
+	}
+}
+
+func (s *statusSuite) TestApplicationDisplayStatusFromUnitsHigherSeverityWinsOverOrdinal(c *tc.C) {
+	u0, err := coreunit.NewName("app/0")
+	c.Assert(err, tc.ErrorIsNil)
+	u1, err := coreunit.NewName("app/1")
+	c.Assert(err, tc.ErrorIsNil)
+	u2, err := coreunit.NewName("app/2")
+	c.Assert(err, tc.ErrorIsNil)
+
+	fullStatuses := status.FullUnitStatuses{
+		u0: {
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "message from unit 0",
+			},
+			Present: true,
+		},
+		u1: {
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusBlocked,
+				Message: "message from unit 1",
+			},
+			Present: true,
+		},
+		u2: {
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusBlocked,
+				Message: "message from unit 2",
+			},
+			Present: true,
+		},
+	}
+
+	for range 5 {
+		info, err := applicationDisplayStatusFromUnits(fullStatuses, "")
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(info.Status, tc.Equals, corestatus.Blocked)
+		c.Check(info.Message, tc.Equals, "message from unit 1")
+	}
+}
+
+func (s *statusSuite) TestApplicationDisplayStatusFromUnitsLeaderPreferred(c *tc.C) {
+	u0, err := coreunit.NewName("app/0")
+	c.Assert(err, tc.ErrorIsNil)
+	u1, err := coreunit.NewName("app/1")
+	c.Assert(err, tc.ErrorIsNil)
+	u2, err := coreunit.NewName("app/2")
+	c.Assert(err, tc.ErrorIsNil)
+
+	fullStatuses := status.FullUnitStatuses{
+		u0: {
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "message from unit 0",
+			},
+			Present: true,
+		},
+		u1: {
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "message from unit 1 (leader)",
+			},
+			Present: true,
+		},
+		u2: {
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "message from unit 2",
+			},
+			Present: true,
+		},
+	}
+
+	// When app/1 is leader and all are Active, leader is preferred.
+	for range 5 {
+		info, err := applicationDisplayStatusFromUnits(fullStatuses, u1)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(info.Status, tc.Equals, corestatus.Active)
+		c.Check(info.Message, tc.Equals, "message from unit 1 (leader)")
+	}
+
+	// When app/2 is leader and all are Active, leader is preferred.
+	for range 5 {
+		info, err := applicationDisplayStatusFromUnits(fullStatuses, u2)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(info.Status, tc.Equals, corestatus.Active)
+		c.Check(info.Message, tc.Equals, "message from unit 2")
+	}
+}
+
+func (s *statusSuite) TestApplicationDisplayStatusFromHigherSeverityWinsOverLeader(c *tc.C) {
+	u0, err := coreunit.NewName("app/0")
+	c.Assert(err, tc.ErrorIsNil)
+	u1, err := coreunit.NewName("app/1")
+	c.Assert(err, tc.ErrorIsNil)
+	u2, err := coreunit.NewName("app/2")
+	c.Assert(err, tc.ErrorIsNil)
+
+	fullStatuses := status.FullUnitStatuses{
+		u0: {
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "message from unit 0",
+			},
+			Present: true,
+		},
+		u1: {
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "message from unit 1 (leader)",
+			},
+			Present: true,
+		},
+		u2: {
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusBlocked,
+				Message: "message from unit 2 (non-leader blocked)",
+			},
+			Present: true,
+		},
+	}
+
+	// Even though app/1 is leader and Active, app/2 is Blocked (higher severity).
+	for range 5 {
+		info, err := applicationDisplayStatusFromUnits(fullStatuses, u1)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(info.Status, tc.Equals, corestatus.Blocked)
+		c.Check(info.Message, tc.Equals, "message from unit 2 (non-leader blocked)")
+	}
+}
+
+func (s *statusSuite) TestApplicationDisplayStatusFromUnitsLeaderTieWithHigherSeverity(c *tc.C) {
+	u0, err := coreunit.NewName("app/0")
+	c.Assert(err, tc.ErrorIsNil)
+	u1, err := coreunit.NewName("app/1")
+	c.Assert(err, tc.ErrorIsNil)
+	u2, err := coreunit.NewName("app/2")
+	c.Assert(err, tc.ErrorIsNil)
+
+	fullStatuses := status.FullUnitStatuses{
+		u0: {
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "message from unit 0",
+			},
+			Present: true,
+		},
+		u1: {
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusBlocked,
+				Message: "message from unit 1 (non-leader blocked)",
+			},
+			Present: true,
+		},
+		u2: {
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusBlocked,
+				Message: "message from unit 2 (leader blocked)",
+			},
+			Present: true,
+		},
+	}
+
+	// Both app/1 and app/2 are Blocked; app/2 is leader, so leader wins the tie break.
+	for range 5 {
+		info, err := applicationDisplayStatusFromUnits(fullStatuses, u2)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(info.Status, tc.Equals, corestatus.Blocked)
+		c.Check(info.Message, tc.Equals, "message from unit 2 (leader blocked)")
+	}
 }
 
 func (s *statusSuite) TestEncodeMachineStatus(c *tc.C) {

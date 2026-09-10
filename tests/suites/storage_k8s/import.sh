@@ -123,15 +123,7 @@ spec:
 EOF
 
 		# Wait for the PVC to materialise so we can capture its UID.
-		attempt=0
-		until kubectl get pvc "${NEW_PVC_NAME}" -n "${model_name}" >/dev/null 2>&1; do
-			sleep "${SHORT_TIMEOUT}"
-			attempt=$((attempt + 1))
-			if [[ ${attempt} -gt 10 ]]; then
-				echo "ERROR: synthetic PVC ${NEW_PVC_NAME} not created"
-				exit 1
-			fi
-		done
+		wait_for_pvc_present "${NEW_PVC_NAME}" "${model_name}"
 		NEW_PVC_UID=$(kubectl get pvc "${NEW_PVC_NAME}" -n "${model_name}" -o jsonpath='{.metadata.uid}')
 		kubectl patch pv "${PV}" --type merge -p "$(cat <<EOF
 {"spec":{"claimRef":{"namespace":"${model_name}","name":"${NEW_PVC_NAME}","uid":"${NEW_PVC_UID}"}}}
@@ -148,10 +140,9 @@ EOF
 	wait_for_storage "detached" '.storage["data/1"]["status"].current'
 
 	# Force-import must have removed the PVC and cleared the claimRef.
-	if kubectl get pvc "${PVC}" -n "${model_name}" >/dev/null 2>&1; then
-		echo "ERROR: import --force did not delete PVC ${PVC}"
-		exit 1
-	fi
+	# PVC deletion is asynchronous in Kubernetes; wait_for_pvc_absent polls
+	# for it to disappear (default 180 s timeout).
+	wait_for_pvc_absent "${PVC}" "${model_name}" 180
 	CLAIMREF=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
 	echo "${CLAIMREF}" | check ""
 	RECLAIM_POLICY=$(kubectl get pv "${PV}" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}')
@@ -206,7 +197,7 @@ test_destroy_model_with_detached_storage() {
 
 	# 1. destroy-model without flags should fail with persistent
 	#    storage error.
-	juju destroy-model "${model_name}" --no-prompt 2>&1 | check "has persistent storage"
+	check "has persistent storage" <<<"$(juju destroy-model "${model_name}" --no-prompt 2>&1 || true)"
 
 	# 2. destroy-model with --destroy-storage should succeed and
 	#    remove the PV.

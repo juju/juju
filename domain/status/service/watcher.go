@@ -48,6 +48,7 @@ type WatchableService struct {
 func NewWatchableService(
 	modelState ModelState,
 	controllerState ControllerState,
+	leaderGetter LeaderGetter,
 	watcherFactory WatcherFactory,
 	clusterDescriber database.ClusterDescriber,
 	statusHistory StatusHistory,
@@ -59,6 +60,7 @@ func NewWatchableService(
 		Service: NewService(
 			modelState,
 			controllerState,
+			leaderGetter,
 			clusterDescriber,
 			statusHistory,
 			statusHistoryReaderFn,

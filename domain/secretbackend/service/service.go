@@ -135,8 +135,11 @@ func (s *Service) DrainBackendConfigInfo(
 	if !ok {
 		return nil, errors.Errorf("missing secret backend %q", p.BackendID)
 	}
+	if p.GrantedSecretsForDrainGetter == nil {
+		return nil, errors.Errorf("unexpected nil value for GrantedSecretsForDrainGetter")
+	}
 	backendCfg, err := s.backendConfigInfo(ctx,
-		p.GrantedSecretsGetter, p.BackendID, &cfg, p.Accessor, p.LeaderToken, true, true, nil)
+		p.GrantedSecretsForDrainGetter, &cfg, p.Accessor, p.LeaderToken, true, true, nil)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -173,13 +176,19 @@ func (s *Service) BackendConfigInfo(
 	if len(p.BackendIDs) == 0 {
 		p.BackendIDs = []string{adminModelCfg.ActiveID}
 	}
+	if p.GrantedSecretsGetter == nil {
+		return nil, errors.Errorf("unexpected nil value for GrantedSecretsGetter")
+	}
 	for _, backendID := range p.BackendIDs {
 		cfg, ok := adminModelCfg.Configs[backendID]
 		if !ok {
 			return nil, errors.Errorf("missing secret backend %q", backendID)
 		}
+		getter := func(ctx context.Context, role coresecrets.SecretRole, consumers ...secret.SecretAccessor) ([]*coresecrets.SecretRevisionRef, error) {
+			return p.GrantedSecretsGetter(ctx, backendID, role, consumers...)
+		}
 		backendCfg, err := s.backendConfigInfo(ctx,
-			p.GrantedSecretsGetter, backendID, &cfg, p.Accessor, p.LeaderToken, p.SameController, false, p.ReservedSecretIDs)
+			getter, &cfg, p.Accessor, p.LeaderToken, p.SameController, false, p.ReservedSecretIDs)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -190,15 +199,11 @@ func (s *Service) BackendConfigInfo(
 
 func (s *Service) backendConfigInfo(
 	ctx context.Context,
-	grantedSecretsGetter secretservice.GrantedSecretsGetter,
-	backendID string, cfg *provider.ModelBackendConfig,
+	grantedSecretsGetter secretservice.GrantedSecretsForDrainGetter,
+	cfg *provider.ModelBackendConfig,
 	accessor secret.SecretAccessor, token leadership.Token, sameController, forDrain bool,
 	reservedSecretIDs []string,
 ) (*provider.ModelBackendConfig, error) {
-	if grantedSecretsGetter == nil {
-		return nil, errors.Errorf("unexpected nil value for GrantedSecretsGetter")
-	}
-
 	p, err := s.registry(cfg.BackendType)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -249,7 +254,7 @@ func (s *Service) backendConfigInfo(
 				Kind: secret.ApplicationAccessor,
 				ID:   appName,
 			}
-			revInfo, err := grantedSecretsGetter(ctx, backendID, coresecrets.RoleView, readOnlyOwner)
+			revInfo, err := grantedSecretsGetter(ctx, coresecrets.RoleView, readOnlyOwner)
 			if err != nil {
 				return nil, errors.Capture(err)
 			}
@@ -257,7 +262,7 @@ func (s *Service) backendConfigInfo(
 				readRevisions.Add(r.URI, r.RevisionID)
 			}
 		}
-		revInfo, err := grantedSecretsGetter(ctx, backendID, coresecrets.RoleManage, owners...)
+		revInfo, err := grantedSecretsGetter(ctx, coresecrets.RoleManage, owners...)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -275,7 +280,7 @@ func (s *Service) backendConfigInfo(
 			Kind: secret.ApplicationAccessor,
 			ID:   appName,
 		}}
-		revInfo, err = grantedSecretsGetter(ctx, backendID, coresecrets.RoleView, consumers...)
+		revInfo, err = grantedSecretsGetter(ctx, coresecrets.RoleView, consumers...)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -296,7 +301,7 @@ func (s *Service) backendConfigInfo(
 			Kind: coresecrets.ModelAccessor,
 			ID:   accessor.ID,
 		}
-		revInfo, err := grantedSecretsGetter(ctx, backendID, coresecrets.RoleManage, accessor)
+		revInfo, err := grantedSecretsGetter(ctx, coresecrets.RoleManage, accessor)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -306,6 +311,30 @@ func (s *Service) backendConfigInfo(
 		}
 	default:
 		return nil, errors.Errorf("secret accessor kind %q %w", accessor.Kind, coreerrors.NotSupported)
+	}
+
+	// Revisions held in the internal backend have no external revision ID,
+	// so they name no object on the backend being configured. Drop them; the
+	// owned set still records the secret IDs.
+	// On non-drain paths, the backend filter ensures revision IDs are never
+	// empty, so this stripping only takes effect during drain.
+	for id, revisions := range ownedRevisions {
+		revisions.Remove("")
+		if revisions.IsEmpty() {
+			delete(ownedRevisions, id)
+		}
+	}
+	// Also drop any read revision for a secret the accessor owns: it is
+	// already covered by the owned rules. Keeping it breaks vault, where an
+	// exact path rule takes precedence over the owner glob rule and so
+	// shadows the write capability needed to update or drain the secret.
+	// This applies to both drain and non-drain paths: RoleView queries expand
+	// to include RoleManage, so owned secrets also surface in read queries.
+	for id, revisions := range readRevisions {
+		revisions.Remove("")
+		if owned.Contains(id) || revisions.IsEmpty() {
+			delete(readRevisions, id)
+		}
 	}
 
 	issuedTokenUUID := ""
