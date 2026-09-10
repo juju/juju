@@ -137,13 +137,9 @@ func (h *TunnelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Bind the tunnel ID to the authenticated machine: the connection
 	// request must exist and must target this machine. A request for
 	// another machine's tunnel is reported as not found.
-	req, err := h.config.SSHConnRequestService.GetSSHConnRequest(ctx, machineName, tunnelID)
+	_, err := h.config.SSHConnRequestService.GetSSHConnRequest(ctx, machineName, tunnelID)
 	if err != nil {
 		http.Error(w, "tunnel not found", http.StatusNotFound)
-		return
-	}
-	if req.MachineName != machineName {
-		http.Error(w, "tunnel targets another machine", http.StatusForbidden)
 		return
 	}
 
