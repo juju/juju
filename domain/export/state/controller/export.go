@@ -29,9 +29,17 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApiAddressAgent statement: %w", err)
 	}
+	stmtApiAddressAgentByController, err := sqlair.Prepare(`SELECT &ApiAddressAgentByController.* FROM "api_address_agent_by_controller"`, v4_1_0.ApiAddressAgentByController{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing ApiAddressAgentByController statement: %w", err)
+	}
 	stmtApiAddressClient, err := sqlair.Prepare(`SELECT &ApiAddressClient.* FROM "api_address_client"`, v4_1_0.ApiAddressClient{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApiAddressClient statement: %w", err)
+	}
+	stmtApiAddressClientByController, err := sqlair.Prepare(`SELECT &ApiAddressClientByController.* FROM "api_address_client_by_controller"`, v4_1_0.ApiAddressClientByController{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing ApiAddressClientByController statement: %w", err)
 	}
 	stmtArchitecture, err := sqlair.Prepare(`SELECT &Architecture.* FROM "architecture"`, v4_1_0.Architecture{})
 	if err != nil {
@@ -128,10 +136,6 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	stmtControllerNodeAgentVersion, err := sqlair.Prepare(`SELECT &ControllerNodeAgentVersion.* FROM "controller_node_agent_version"`, v4_1_0.ControllerNodeAgentVersion{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ControllerNodeAgentVersion statement: %w", err)
-	}
-	stmtApiAddressByController, err := sqlair.Prepare(`SELECT &ApiAddressByController.* FROM "api_address_by_controller"`, v4_1_0.ApiAddressByController{})
-	if err != nil {
-		return nil, fmt.Errorf("preparing ApiAddressByController statement: %w", err)
 	}
 	stmtControllerNodeNonce, err := sqlair.Prepare(`SELECT &ControllerNodeNonce.* FROM "controller_node_nonce"`, v4_1_0.ControllerNodeNonce{})
 	if err != nil {
@@ -406,8 +410,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 		if err := tx.Query(ctx, stmtApiAddressAgent).GetAll(&controllerExport.ApiAddressAgent); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApiAddressAgent (table api_address_agent): %w", err)
 		}
+		if err := tx.Query(ctx, stmtApiAddressAgentByController).GetAll(&controllerExport.ApiAddressAgentByController); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying ApiAddressAgentByController (table api_address_agent_by_controller): %w", err)
+		}
 		if err := tx.Query(ctx, stmtApiAddressClient).GetAll(&controllerExport.ApiAddressClient); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApiAddressClient (table api_address_client): %w", err)
+		}
+		if err := tx.Query(ctx, stmtApiAddressClientByController).GetAll(&controllerExport.ApiAddressClientByController); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying ApiAddressClientByController (table api_address_client_by_controller): %w", err)
 		}
 		if err := tx.Query(ctx, stmtArchitecture).GetAll(&controllerExport.Architecture); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Architecture (table architecture): %w", err)
@@ -480,9 +490,6 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 		}
 		if err := tx.Query(ctx, stmtControllerNodeAgentVersion).GetAll(&controllerExport.ControllerNodeAgentVersion); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ControllerNodeAgentVersion (table controller_node_agent_version): %w", err)
-		}
-		if err := tx.Query(ctx, stmtApiAddressByController).GetAll(&controllerExport.ApiAddressByController); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("querying ApiAddressByController (table api_address_by_controller): %w", err)
 		}
 		if err := tx.Query(ctx, stmtControllerNodeNonce).GetAll(&controllerExport.ControllerNodeNonce); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ControllerNodeNonce (table controller_node_nonce): %w", err)

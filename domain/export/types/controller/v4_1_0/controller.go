@@ -21,9 +21,21 @@ type ApiAddressAgent struct {
 	Scope       string `db:"scope" json:"scope" yaml:"scope"`
 }
 
+type ApiAddressAgentByController struct {
+	ControllerID string `db:"controller_id" json:"controller_id" yaml:"controller_id"`
+	Address      string `db:"address" json:"address" yaml:"address"`
+	Scope        any    `db:"scope" json:"scope" yaml:"scope"`
+}
+
 type ApiAddressClient struct {
 	Address string `db:"address" json:"address" yaml:"address"`
 	Scope   string `db:"scope" json:"scope" yaml:"scope"`
+}
+
+type ApiAddressClientByController struct {
+	ControllerID string `db:"controller_id" json:"controller_id" yaml:"controller_id"`
+	Address      string `db:"address" json:"address" yaml:"address"`
+	Scope        any    `db:"scope" json:"scope" yaml:"scope"`
 }
 
 type Architecture struct {
@@ -195,13 +207,6 @@ type ControllerNodeAgentVersion struct {
 	ControllerID   string `db:"controller_id" json:"controller_id" yaml:"controller_id"`
 	Version        string `db:"version" json:"version" yaml:"version"`
 	ArchitectureID int64  `db:"architecture_id" json:"architecture_id" yaml:"architecture_id"`
-}
-
-type ApiAddressByController struct {
-	ControllerID string `db:"controller_id" json:"controller_id" yaml:"controller_id"`
-	Address      string `db:"address" json:"address" yaml:"address"`
-	IsAgentOnly  bool   `db:"is_agent_only" json:"is_agent_only" yaml:"is_agent_only"`
-	Scope        any    `db:"scope" json:"scope" yaml:"scope"`
 }
 
 type ControllerNodeNonce struct {
@@ -620,7 +625,9 @@ type WorkloadTracingConfig struct {
 type ControllerExport struct {
 	AgentBinaryStore                            []AgentBinaryStore                            `json:"agent_binary_store" yaml:"agent_binary_store"`
 	ApiAddressAgent                             []ApiAddressAgent                             `json:"api_address_agent" yaml:"api_address_agent"`
+	ApiAddressAgentByController                 []ApiAddressAgentByController                 `json:"api_address_agent_by_controller" yaml:"api_address_agent_by_controller"`
 	ApiAddressClient                            []ApiAddressClient                            `json:"api_address_client" yaml:"api_address_client"`
+	ApiAddressClientByController                []ApiAddressClientByController                `json:"api_address_client_by_controller" yaml:"api_address_client_by_controller"`
 	Architecture                                []Architecture                                `json:"architecture" yaml:"architecture"`
 	AuthType                                    []AuthType                                    `json:"auth_type" yaml:"auth_type"`
 	AutocertCache                               []AutocertCache                               `json:"autocert_cache" yaml:"autocert_cache"`
@@ -645,7 +652,6 @@ type ControllerExport struct {
 	ControllerConfig                            []ControllerConfig                            `json:"controller_config" yaml:"controller_config"`
 	ControllerNode                              []ControllerNode                              `json:"controller_node" yaml:"controller_node"`
 	ControllerNodeAgentVersion                  []ControllerNodeAgentVersion                  `json:"controller_node_agent_version" yaml:"controller_node_agent_version"`
-	ApiAddressByController                      []ApiAddressByController                      `json:"api_address_by_controller" yaml:"api_address_by_controller"`
 	ControllerNodeNonce                         []ControllerNodeNonce                         `json:"controller_node_nonce" yaml:"controller_node_nonce"`
 	ControllerNodePassword                      []ControllerNodePassword                      `json:"controller_node_password" yaml:"controller_node_password"`
 	ControllerSshHostKey                        []ControllerSshHostKey                        `json:"controller_ssh_host_key" yaml:"controller_ssh_host_key"`

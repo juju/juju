@@ -28,7 +28,7 @@ END;
 -- update trigger for ApiAddressAgent
 CREATE TRIGGER trg_log_api_address_agent_update
 AFTER UPDATE ON api_address_agent FOR EACH ROW
-WHEN 
+WHEN
 	NEW.address != OLD.address OR
 	NEW.is_agent_only != OLD.is_agent_only OR
 	NEW.scope != OLD.scope
@@ -46,6 +46,42 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForApiAddressAgentByController generates the triggers for the
+// api_address_agent_by_controller table.
+func ChangeLogTriggersForApiAddressAgentByController(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ApiAddressAgentByController
+INSERT INTO change_log_namespace VALUES (%[2]d, 'api_address_agent_by_controller', 'ApiAddressAgentByController changes based on %[1]s');
+
+-- insert trigger for ApiAddressAgentByController
+CREATE TRIGGER trg_log_api_address_agent_by_controller_insert
+AFTER INSERT ON api_address_agent_by_controller FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for ApiAddressAgentByController
+CREATE TRIGGER trg_log_api_address_agent_by_controller_update
+AFTER UPDATE ON api_address_agent_by_controller FOR EACH ROW
+WHEN
+	NEW.controller_id != OLD.controller_id OR
+	NEW.address != OLD.address OR
+	NEW.scope != OLD.scope
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for ApiAddressAgentByController
+CREATE TRIGGER trg_log_api_address_agent_by_controller_delete
+AFTER DELETE ON api_address_agent_by_controller FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
 // ChangeLogTriggersForApiAddressClient generates the triggers for the
 // api_address_client table.
 func ChangeLogTriggersForApiAddressClient(columnName string, namespaceID int) func() schema.Patch {
@@ -65,7 +101,7 @@ END;
 -- update trigger for ApiAddressClient
 CREATE TRIGGER trg_log_api_address_client_update
 AFTER UPDATE ON api_address_client FOR EACH ROW
-WHEN 
+WHEN
 	NEW.address != OLD.address OR
 	NEW.scope != OLD.scope
 BEGIN
@@ -75,6 +111,43 @@ END;
 -- delete trigger for ApiAddressClient
 CREATE TRIGGER trg_log_api_address_client_delete
 AFTER DELETE ON api_address_client FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
+
+// ChangeLogTriggersForApiAddressClientByController generates the triggers for the
+// api_address_client_by_controller table.
+func ChangeLogTriggersForApiAddressClientByController(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ApiAddressClientByController
+INSERT INTO change_log_namespace VALUES (%[2]d, 'api_address_client_by_controller', 'ApiAddressClientByController changes based on %[1]s');
+
+-- insert trigger for ApiAddressClientByController
+CREATE TRIGGER trg_log_api_address_client_by_controller_insert
+AFTER INSERT ON api_address_client_by_controller FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for ApiAddressClientByController
+CREATE TRIGGER trg_log_api_address_client_by_controller_update
+AFTER UPDATE ON api_address_client_by_controller FOR EACH ROW
+WHEN
+	NEW.controller_id != OLD.controller_id OR
+	NEW.address != OLD.address OR
+	NEW.scope != OLD.scope
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for ApiAddressClientByController
+CREATE TRIGGER trg_log_api_address_client_by_controller_delete
+AFTER DELETE ON api_address_client_by_controller FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -148,44 +221,6 @@ END;
 -- delete trigger for ControllerNode
 CREATE TRIGGER trg_log_controller_node_delete
 AFTER DELETE ON controller_node FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
-END;`, columnName, namespaceID))
-	}
-}
-
-// ChangeLogTriggersForApiAddressByController generates the triggers for the
-// api_address_by_controller table.
-func ChangeLogTriggersForApiAddressByController(columnName string, namespaceID int) func() schema.Patch {
-	return func() schema.Patch {
-		return schema.MakePatch(fmt.Sprintf(`
--- insert namespace for ApiAddressByController
-INSERT INTO change_log_namespace VALUES (%[2]d, 'api_address_by_controller', 'ApiAddressByController changes based on %[1]s');
-
--- insert trigger for ApiAddressByController
-CREATE TRIGGER trg_log_api_address_by_controller_insert
-AFTER INSERT ON api_address_by_controller FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
-END;
-
--- update trigger for ApiAddressByController
-CREATE TRIGGER trg_log_api_address_by_controller_update
-AFTER UPDATE ON api_address_by_controller FOR EACH ROW
-WHEN 
-	NEW.controller_id != OLD.controller_id OR
-	NEW.address != OLD.address OR
-	NEW.is_agent_only != OLD.is_agent_only OR
-	NEW.scope != OLD.scope
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
-END;
--- delete trigger for ApiAddressByController
-CREATE TRIGGER trg_log_api_address_by_controller_delete
-AFTER DELETE ON api_address_by_controller FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
