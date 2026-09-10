@@ -645,17 +645,17 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *tc.C) {
 	})
 }
 
-func (s *DestroyMachineManagerSuite) newStorageInstance(c *tc.C, id string, persistent bool) domainstorage.StorageInstanceClassification {
+func (s *DestroyMachineManagerSuite) newStorageInstance(c *tc.C, id string, detachable bool) domainstorage.StorageInstanceClassification {
 	return domainstorage.StorageInstanceClassification{
+		Detachable: detachable,
 		ID:         id,
-		Persistent: persistent,
 		UUID:       tc.Must(c, domainstorage.NewStorageInstanceUUID),
 	}
 }
 
 // TestDestroyMachineClassifiesStorage asserts that the destroy result of a
 // machine reports the storage attached to its units, deduplicating storage
-// shared between units: non persistent storage as destroyed and persistent
+// shared between units: non-detachable storage as destroyed and detachable
 // storage as detached.
 func (s *DestroyMachineManagerSuite) TestDestroyMachineClassifiesStorage(c *tc.C) {
 	ctrl := s.setupMocks(c)
@@ -674,13 +674,13 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineClassifiesStorage(c *tc.C
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID0, nil).AnyTimes()
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/1")).Return(unitUUID1, nil).AnyTimes()
 
-	nonPersistent := s.newStorageInstance(c, "single-fs/0", false)
+	nonDetachable := s.newStorageInstance(c, "single-fs/0", false)
 	shared := s.newStorageInstance(c, "db-dir/0", true)
 	s.storageService.EXPECT().GetStorageClassificationForUnits(
 		gomock.Any(), []coreunit.UUID{unitUUID0, unitUUID1},
 	).Return(
 		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-			unitUUID0: {nonPersistent, shared},
+			unitUUID0: {nonDetachable, shared},
 			unitUUID1: {shared},
 		}, nil,
 	).AnyTimes()
@@ -728,12 +728,12 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineClassifiesStorageContaine
 	unitUUID := s.unitUUID(c, "foo/0")
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID, nil).AnyTimes()
 
-	persistent := s.newStorageInstance(c, "db-dir/0", true)
+	detachable := s.newStorageInstance(c, "db-dir/0", true)
 	s.storageService.EXPECT().GetStorageClassificationForUnits(
 		gomock.Any(), []coreunit.UUID{unitUUID},
 	).Return(
 		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-			unitUUID: {persistent},
+			unitUUID: {detachable},
 		}, nil,
 	).AnyTimes()
 

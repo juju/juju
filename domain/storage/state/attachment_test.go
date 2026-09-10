@@ -121,7 +121,7 @@ func (s *attachmentSuite) TestGetStorageInstanceAttachmentsEmptyResult(c *tc.C) 
 
 // TestGetStorageClassificationForUnits asserts that the minimal storage
 // information for units is returned, mapping each unit to its attached
-// storage instances with correct persistence.
+// storage instances with correct volume and filesystem provision scopes.
 func (s *attachmentSuite) TestGetStorageClassificationForUnits(c *tc.C) {
 	appUUID, charmUUID := s.newApplication(c, "myapplication")
 	unitUUID1, _, _ := s.newUnitForApplication(c, appUUID)
@@ -129,24 +129,53 @@ func (s *attachmentSuite) TestGetStorageClassificationForUnits(c *tc.C) {
 	unitUUID3, _, _ := s.newUnitForApplication(c, appUUID)
 	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
 
-	storageInstanceUUID1, storageID1 := s.newBlockStorageInstanceForCharmWithPool(
-		c, charmUUID, poolUUID, "token-store",
-	)
-	s.newPersistentModelVolume(c, storageInstanceUUID1)
+	modelScope := domainstorage.ProvisionScopeModel
+	machineScope := domainstorage.ProvisionScopeMachine
 
-	storageInstanceUUID2, storageID2 := s.newBlockStorageInstanceForCharmWithPool(
-		c, charmUUID, poolUUID, "cache-store",
+	// 1. Model-scoped volume-less filesystem (e.g. LXD filesystem pool).
+	modelFsUUID, modelFsID := s.newFilesystemStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "lxd-fs",
 	)
-	s.newModelVolume(c, storageInstanceUUID2)
+	s.newModelFilesystem(c, modelFsUUID)
 
-	storageInstanceUUID3, storageID3 := s.newBlockStorageInstanceForCharmWithPool(
-		c, charmUUID, poolUUID, "data-store",
+	// 2. Machine-scoped volume-less filesystem (e.g. rootfs pool).
+	machineFsUUID, machineFsID := s.newFilesystemStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "rootfs-fs",
 	)
-	s.newPersistentModelVolume(c, storageInstanceUUID3)
+	s.newMachineFilesystem(c, machineFsUUID)
 
-	s.newStorageAttachment(c, storageInstanceUUID1, unitUUID1)
-	s.newStorageAttachment(c, storageInstanceUUID2, unitUUID1)
-	s.newStorageAttachment(c, storageInstanceUUID3, unitUUID2)
+	// 3. Model-scoped volume (e.g. EBS block storage).
+	modelVolUUID, modelVolID := s.newBlockStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "ebs-vol",
+	)
+	s.newModelVolume(c, modelVolUUID)
+
+	// 4. Machine-scoped volume (e.g. loop block storage).
+	machineVolUUID, machineVolID := s.newBlockStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "loop-vol",
+	)
+	s.newMachineVolume(c, machineVolUUID)
+
+	// 5. Volume-backed filesystem: machine-scoped filesystem backed by a
+	// model-scoped volume (e.g. single-fs=ebs).
+	volFsUUID, volFsID := s.newFilesystemStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "ebs-backed-fs",
+	)
+	s.newMachineFilesystem(c, volFsUUID)
+	s.newModelVolume(c, volFsUUID)
+
+	// 6. Orphan storage instance: attached to a unit, but neither a volume
+	// nor a filesystem backing record exists.
+	orphanUUID, orphanID := s.newBlockStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "orphan-store",
+	)
+
+	s.newStorageAttachment(c, modelFsUUID, unitUUID1)
+	s.newStorageAttachment(c, machineFsUUID, unitUUID1)
+	s.newStorageAttachment(c, modelVolUUID, unitUUID1)
+	s.newStorageAttachment(c, machineVolUUID, unitUUID2)
+	s.newStorageAttachment(c, volFsUUID, unitUUID2)
+	s.newStorageAttachment(c, orphanUUID, unitUUID2)
 
 	st := NewState(s.TxnRunnerFactory())
 	classifications, err := st.GetStorageClassificationForUnits(
@@ -156,21 +185,42 @@ func (s *attachmentSuite) TestGetStorageClassificationForUnits(c *tc.C) {
 	c.Check(classifications, tc.HasLen, 2)
 	c.Check(classifications[unitUUID1.String()], tc.SameContents, []internal.StorageInstanceClassification{
 		{
-			Persistent:  true,
-			StorageID:   storageID1,
-			StorageUUID: storageInstanceUUID1.String(),
+			FilesystemProvisionScope: &modelScope,
+			StorageID:                modelFsID,
+			StorageUUID:              modelFsUUID.String(),
+			VolumeProvisionScope:     nil,
 		},
 		{
-			Persistent:  false,
-			StorageID:   storageID2,
-			StorageUUID: storageInstanceUUID2.String(),
+			FilesystemProvisionScope: &machineScope,
+			StorageID:                machineFsID,
+			StorageUUID:              machineFsUUID.String(),
+			VolumeProvisionScope:     nil,
+		},
+		{
+			FilesystemProvisionScope: nil,
+			StorageID:                modelVolID,
+			StorageUUID:              modelVolUUID.String(),
+			VolumeProvisionScope:     &modelScope,
 		},
 	})
 	c.Check(classifications[unitUUID2.String()], tc.SameContents, []internal.StorageInstanceClassification{
 		{
-			Persistent:  true,
-			StorageID:   storageID3,
-			StorageUUID: storageInstanceUUID3.String(),
+			FilesystemProvisionScope: nil,
+			StorageID:                machineVolID,
+			StorageUUID:              machineVolUUID.String(),
+			VolumeProvisionScope:     &machineScope,
+		},
+		{
+			FilesystemProvisionScope: &machineScope,
+			StorageID:                volFsID,
+			StorageUUID:              volFsUUID.String(),
+			VolumeProvisionScope:     &modelScope,
+		},
+		{
+			FilesystemProvisionScope: nil,
+			StorageID:                orphanID,
+			StorageUUID:              orphanUUID.String(),
+			VolumeProvisionScope:     nil,
 		},
 	})
 }

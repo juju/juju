@@ -67,12 +67,13 @@ type storageInstanceUUIDAndID struct {
 
 // storageClassification represents the information needed to classify a
 // storage instance as destroyed or detached when the unit it is attached
-// to is removed。
+// to is removed.
 type storageClassification struct {
-	Persistent  sql.Null[bool] `db:"persistent"`
-	StorageID   string         `db:"storage_id"`
-	StorageUUID string         `db:"storage_uuid"`
-	UnitUUID    string         `db:"unit_uuid"`
+	FilesystemProvisionScopeID sql.Null[int] `db:"filesystem_provision_scope_id"`
+	StorageID                  string        `db:"storage_id"`
+	StorageUUID                string        `db:"storage_uuid"`
+	UnitUUID                   string        `db:"unit_uuid"`
+	VolumeProvisionScopeID     sql.Null[int] `db:"volume_provision_scope_id"`
 }
 
 type storageInstanceIDs []string

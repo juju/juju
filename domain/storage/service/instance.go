@@ -11,6 +11,8 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	domainstorage "github.com/juju/juju/domain/storage"
+	domainstorageinternal "github.com/juju/juju/domain/storage/internal"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -106,15 +108,14 @@ func (s *Service) GetStorageInstanceInfo(
 }
 
 // GetStorageClassificationForUnits returns the storage instances attached to
-//the input units,keyed by unit UUID,along with the minimal information
+// the input units, keyed by unit UUID, along with the minimal information
 // needed to classify each instance as destroyed or detached when its unit
 // is removed. Units with no attached storage are absent from the returned
-//map。 Units are expected to have been resolved by the caller,so units that no
-// longer exist simply do not appear in the result。
+// map. Units are expected to have been resolved by the caller, so units that no
+// longer exist simply do not appear in the result.
 //
 // The following errors may be returned:
 // - [coreerrors.NotValid] when one of the supplied Unit UUIDs is not valid.
-
 func (s *Service) GetStorageClassificationForUnits(
 	ctx context.Context, unitUUIDs []coreunit.UUID,
 ) (map[coreunit.UUID][]domainstorage.StorageInstanceClassification, error) {
@@ -143,13 +144,51 @@ func (s *Service) GetStorageClassificationForUnits(
 		unitUUID := coreunit.UUID(unitUUIDStr)
 		for _, instance := range instances {
 			ret[unitUUID] = append(ret[unitUUID], domainstorage.StorageInstanceClassification{
+				Detachable: s.isStorageInstanceDetachable(ctx, instance),
 				ID:         instance.StorageID,
-				Persistent: instance.Persistent,
 				UUID:       domainstorage.StorageInstanceUUID(instance.StorageUUID),
 			})
 		}
 	}
 	return ret, nil
+}
+
+// isStorageInstanceDetachable returns true if the storage instance is
+// model-scoped and therefore outlives the unit it is attached to. It builds
+// a [domainstorageprovisioning.StorageInstanceComposition] from the instance's
+// provision scopes and delegates to
+// [domainstorageprovisioning.CalculateStorageInstanceOwnershipScope], ensuring
+// volume-first precedence is respected.
+func (s *Service) isStorageInstanceDetachable(
+	ctx context.Context,
+	instance domainstorageinternal.StorageInstanceClassification,
+) bool {
+	comp := domainstorageprovisioning.StorageInstanceComposition{}
+	if instance.VolumeProvisionScope != nil {
+		comp.VolumeRequired = true
+		comp.VolumeProvisionScope = *instance.VolumeProvisionScope
+	}
+	if instance.FilesystemProvisionScope != nil {
+		comp.FilesystemRequired = true
+		comp.FilesystemProvisionScope = *instance.FilesystemProvisionScope
+	}
+	scope, err := domainstorageprovisioning.CalculateStorageInstanceOwnershipScope(comp)
+	if err != nil {
+		// CalculateStorageInstanceOwnershipScope can fail if neither a
+		// volume nor a filesystem backing record is present (orphan
+		// instance), or if a provision scope value is unrecognized.
+		// In either case, treat the instance as non-detachable rather
+		// than failing or omitting it from the removal report.
+		if s.logger != nil {
+			s.logger.Debugf(
+				ctx,
+				"calculating ownership scope for storage instance %q failed: %v; treating as non-detachable",
+				instance.StorageID, err,
+			)
+		}
+		return false
+	}
+	return scope == domainstorageprovisioning.OwnershipScopeModel
 }
 
 // GetStorageInstanceUUIDForID returns the StorageInstanceUUID for the given

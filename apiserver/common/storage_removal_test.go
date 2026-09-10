@@ -37,17 +37,16 @@ func (s *storageRemovalSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *storageRemovalSuite) newInstance(c *tc.C, id string, persistent bool) domainstorage.StorageInstanceClassification {
+func (s *storageRemovalSuite) newInstance(c *tc.C, id string, detachable bool) domainstorage.StorageInstanceClassification {
 	return domainstorage.StorageInstanceClassification{
+		Detachable: detachable,
 		ID:         id,
-		Persistent: persistent,
 		UUID:       tc.Must(c, domainstorage.NewStorageInstanceUUID),
 	}
 }
 
 // TestClassifyStorageRemovalNoUnits asserts that an empty unit list results in
-// empty destroyed and detached storage lists,and no storage service calls.
-
+// empty destroyed and detached storage lists, and no storage service calls.
 func (s *storageRemovalSuite) TestClassifyStorageRemovalNoUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -59,18 +58,18 @@ func (s *storageRemovalSuite) TestClassifyStorageRemovalNoUnits(c *tc.C) {
 	c.Check(detached, tc.HasLen, 0)
 }
 
-// TestClassifyStorageRemovalDetachesPersistent asserts that without destroy
-// storage, persistent storage is classified as detached and non persistent
-// storage as destroyed.
-func (s *storageRemovalSuite) TestClassifyStorageRemovalDetachesPersistent(c *tc.C) {
+// TestClassifyStorageRemovalDetachesDetachable asserts that without destroy
+// storage, detachable (model-scoped) storage is classified as detached and
+// non-detachable (machine-scoped) storage as destroyed.
+func (s *storageRemovalSuite) TestClassifyStorageRemovalDetachesDetachable(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	persistent := s.newInstance(c, "single-blk/0", true)
-	nonPersistent := s.newInstance(c, "single-fs/0", false)
+	detachable := s.newInstance(c, "single-blk/0", true)
+	nonDetachable := s.newInstance(c, "single-fs/0", false)
 
 	s.storageService.EXPECT().GetStorageClassificationForUnits(c.Context(), []coreunit.UUID{unitUUID}).Return(
 		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-			unitUUID: {nonPersistent, persistent},
+			unitUUID: {nonDetachable, detachable},
 		}, nil,
 	)
 
@@ -84,16 +83,16 @@ func (s *storageRemovalSuite) TestClassifyStorageRemovalDetachesPersistent(c *tc
 
 // TestClassifyStorageRemovalDestroyStorage asserts that when destroy storage is
 // requested, every attached storage instance is classified as destroyed
-// regardless of its persistence.
+// regardless of its detachability.
 func (s *storageRemovalSuite) TestClassifyStorageRemovalDestroyStorage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	persistent := s.newInstance(c, "single-blk/0", true)
-	nonPersistent := s.newInstance(c, "single-fs/0", false)
+	detachable := s.newInstance(c, "single-blk/0", true)
+	nonDetachable := s.newInstance(c, "single-fs/0", false)
 
 	s.storageService.EXPECT().GetStorageClassificationForUnits(c.Context(), []coreunit.UUID{unitUUID}).Return(
 		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-			unitUUID: {persistent, nonPersistent},
+			unitUUID: {detachable, nonDetachable},
 		}, nil,
 	)
 
@@ -115,11 +114,11 @@ func (s *storageRemovalSuite) TestClassifyStorageRemovalDeduplicatesShared(c *tc
 	unitUUID1 := tc.Must(c, coreunit.NewUUID)
 	unitUUID2 := tc.Must(c, coreunit.NewUUID)
 	shared := s.newInstance(c, "db-dir/0", true)
-	nonPersistent := s.newInstance(c, "cache/0", false)
+	nonDetachable := s.newInstance(c, "cache/0", false)
 
 	s.storageService.EXPECT().GetStorageClassificationForUnits(c.Context(), []coreunit.UUID{unitUUID1, unitUUID2}).Return(
 		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-			unitUUID1: {shared, nonPersistent},
+			unitUUID1: {shared, nonDetachable},
 			unitUUID2: {shared},
 		}, nil,
 	)
