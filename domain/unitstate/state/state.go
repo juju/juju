@@ -262,8 +262,10 @@ func (st *State) setUnitStateCharm(ctx context.Context, tx *sqlair.TX, id entity
 	return nil
 }
 
-// SetUnitStateRelation sets the input key/value pairs
-// as the relation state for the input unit UUID.
+// setUnitStateRelation sets the input key/value pairs as the relation state
+// for the input unit UUID, excluding relations that no longer exist.
+// This is a replacement operation, first deleting everything for the unit,
+// then setting based on relation existence.
 func (st *State) setUnitStateRelation(ctx context.Context, tx *sqlair.TX, id entityUUID, state map[int]string) error {
 	q := "DELETE from unit_state_relation WHERE unit_uuid = $entityUUID.uuid"
 	dStmt, err := st.Prepare(q, id)
@@ -271,22 +273,54 @@ func (st *State) setUnitStateRelation(ctx context.Context, tx *sqlair.TX, id ent
 		return errors.Errorf("preparing relation state delete query: %w", err)
 	}
 
-	keyVals := makeUnitRelationStateKeyVals(id, state)
-
 	if err := tx.Query(ctx, dStmt, id).Run(); err != nil {
 		return errors.Errorf("deleting unit relation state: %w", err)
 	}
 
-	if len(keyVals) != 0 {
-		q = "INSERT INTO unit_state_relation(*) VALUES ($unitRelationStateKeyVal.*)"
-		iStmt, err := st.Prepare(q, keyVals[0])
-		if err != nil {
-			return errors.Errorf("preparing relation state insert query: %w", err)
-		}
+	if len(state) == 0 {
+		return nil
+	}
 
-		if err := tx.Query(ctx, iStmt, keyVals).Run(); err != nil {
-			return errors.Errorf("setting unit relation state: %w", err)
-		}
+	ids := make(relationIDs, 0, len(state))
+	for k := range state {
+		ids = append(ids, k)
+	}
+
+	// Only set the unit relation state for relations that still exist.
+	// If relations have been removed by force, we don't want a racing hook
+	// commit action to indicate that the unit is still in such relations.
+	q = `
+SELECT r.relation_id AS &unitRelationStateKeyVal.key
+FROM   relation AS r
+WHERE  r.relation_id IN ($relationIDs[:])`
+	rStmt, err := st.Prepare(q, ids, unitRelationStateKeyVal{})
+	if err != nil {
+		return errors.Errorf("preparing relation existence query: %w", err)
+	}
+
+	var keyVals []unitRelationStateKeyVal
+	err = tx.Query(ctx, rStmt, ids).GetAll(&keyVals)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		// If none of the relations indicated by the incoming
+		// state actually exist, then we set nothing.
+		return nil
+	} else if err != nil {
+		return errors.Errorf("getting existing relations: %w", err)
+	}
+
+	for i := range keyVals {
+		keyVals[i].UUID = id.UUID
+		keyVals[i].Value = state[keyVals[i].Key]
+	}
+
+	q = "INSERT INTO unit_state_relation(*) VALUES ($unitRelationStateKeyVal.*)"
+	iStmt, err := st.Prepare(q, unitRelationStateKeyVal{})
+	if err != nil {
+		return errors.Errorf("preparing relation state insert query: %w", err)
+	}
+
+	if err := tx.Query(ctx, iStmt, keyVals).Run(); err != nil {
+		return errors.Errorf("setting unit relation state: %w", err)
 	}
 	return nil
 }
