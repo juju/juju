@@ -85,11 +85,15 @@ func (s *controllerConfigSuite) TestControllerConfigFetchError(c *tc.C) {
 }
 
 func (s *controllerConfigSuite) expectControllerInfo() {
+	s.expectStateControllerInfoWithConfig(map[string]interface{}{
+		controller.CACertKey: testing.CACert,
+	})
+}
+
+func (s *controllerConfigSuite) expectStateControllerInfoWithConfig(config map[string]interface{}) {
 	addrs := []string{"192.168.1.1:17070"}
 	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs, nil)
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(map[string]any{
-		controller.CACertKey: testing.CACert,
-	}, nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(config, nil)
 }
 
 func (s *controllerConfigSuite) TestControllerInfo(c *tc.C) {
@@ -103,6 +107,24 @@ func (s *controllerConfigSuite) TestControllerInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Addresses, tc.DeepEquals, []string{"192.168.1.1:17070"})
+	c.Assert(results.Results[0].CACert, tc.Equals, testing.CACert)
+}
+
+func (s *controllerConfigSuite) TestControllerInfoWithPublicDNSAddress(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	s.modelService.EXPECT().CheckModelExists(gomock.Any(), coremodel.UUID(testing.ModelTag.Id())).Return(true, nil)
+	s.expectStateControllerInfoWithConfig(map[string]interface{}{
+		controller.CACertKey:        testing.CACert,
+		controller.PublicDNSAddress: "my-ingress.example.com:17070",
+	})
+
+	results, err := s.ctrlConfigAPI.ControllerAPIInfoForModels(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: testing.ModelTag.String()}}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Addresses, tc.DeepEquals, []string{
+		"my-ingress.example.com:17070", "192.168.1.1:17070"})
 	c.Assert(results.Results[0].CACert, tc.Equals, testing.CACert)
 }
 

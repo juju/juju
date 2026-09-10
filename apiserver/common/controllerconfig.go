@@ -167,6 +167,8 @@ func (s *ControllerConfigAPI) getModelControllerInfo(ctx context.Context, model 
 }
 
 // ControllerAPIInfo returns the local controller details for the given State.
+// If the controller has a public DNS address configured, it is prepended to
+// the returned addresses so that consumers learn a reachable address.
 func ControllerAPIInfo(
 	ctx context.Context,
 	controllerConfigService ControllerConfigService,
@@ -180,6 +182,9 @@ func ControllerAPIInfo(
 	addrs, err := apiHostPortsGetter.GetAllAPIAddressesForAgents(ctx)
 	if err != nil {
 		return nil, "", errors.Trace(err)
+	}
+	if publicAddr := controllerConfig.PublicDNSAddress(); publicAddr != "" {
+		addrs = append([]string{publicAddr}, addrs...)
 	}
 	var caCert string
 	caCert, _ = controllerConfig.CACert()
