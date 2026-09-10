@@ -288,12 +288,9 @@ type SSHTunnelConfig struct {
 	// agents. It is the sshtunneler worker's output, local to this
 	// controller node.
 	TunnelTracker sshtunnel.TunnelTracker
-	// ProxyFactory creates target-specific handlers for the relay
-	// endpoint's embedded terminating SSH server.
-	ProxyFactory sshproxy.ProxyFactory
-	// SSHService resolves terminating SSH host keys for the relay
-	// endpoint.
-	SSHService sshproxy.SSHService
+	// Resolver resolves per-destination proxy handlers and terminating host
+	// keys for the relay endpoint's embedded terminating SSH server.
+	Resolver sshproxy.Resolver
 	// Authorizer checks whether the JWT-identified user may access a relay
 	// destination.
 	Authorizer sshtunnel.RelayAuthorizer
@@ -1035,8 +1032,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		relayHandler, err := sshtunnel.NewRelayHandler(sshtunnel.RelayHandlerConfig{
 			Logger:                   logger.Child("sshtunnel"),
 			Authorizer:               srv.sshTunnelConfig.Authorizer,
-			ProxyFactory:             srv.sshTunnelConfig.ProxyFactory,
-			SSHService:               srv.sshTunnelConfig.SSHService,
+			Resolver:                 srv.sshTunnelConfig.Resolver,
 			MaxConcurrentConnections: srv.sshTunnelConfig.MaxConcurrentConnections,
 			Metrics:                  srv.sshTunnelConfig.Metrics,
 		})

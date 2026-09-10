@@ -10,7 +10,6 @@ import (
 
 	"github.com/lestrrat-go/jwx/v3/jwt"
 	ssh "github.com/tailscale/gliderssh"
-	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/virtualhostname"
@@ -41,12 +40,9 @@ type RelayHandlerConfig struct {
 	// Authorizer checks whether the user identified by the JWT may access
 	// the destination.
 	Authorizer RelayAuthorizer
-	// ProxyFactory creates target-specific session, forwarding, and SFTP
-	// handlers for the terminating SSH server.
-	ProxyFactory sshproxy.ProxyFactory
-	// SSHService resolves terminating SSH host keys for virtual
-	// destinations.
-	SSHService sshproxy.SSHService
+	// Resolver resolves per-destination proxy handlers and terminating host
+	// keys in one call.
+	Resolver sshproxy.Resolver
 	// MaxConcurrentConnections is the maximum number of concurrent relayed
 	// sessions.
 	MaxConcurrentConnections int
@@ -62,11 +58,8 @@ func (cfg RelayHandlerConfig) Validate() error {
 	if cfg.Authorizer == nil {
 		return errors.New("nil Authorizer")
 	}
-	if cfg.ProxyFactory == nil {
-		return errors.New("nil ProxyFactory")
-	}
-	if cfg.SSHService == nil {
-		return errors.New("nil SSHService")
+	if cfg.Resolver == nil {
+		return errors.New("nil Resolver")
 	}
 	if cfg.MaxConcurrentConnections <= 0 {
 		return errors.New("non-positive MaxConcurrentConnections")
@@ -135,24 +128,12 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.config.Metrics.DecConnectionCount()
 	}()
 
-	// Build the embedded terminating server and resolve the target host
-	// key before upgrading, so failures reach JIMM as HTTP errors.
-	handlers, err := h.config.ProxyFactory.New(destination)
+	// Resolve the destination's proxy handlers and terminating host key
+	// before upgrading, so failures reach JIMM as HTTP errors.
+	termination, err := h.config.Resolver.Resolve(ctx, destination)
 	if err != nil {
-		h.config.Logger.Errorf(ctx, "creating proxy handlers: %v", err)
-		http.Error(w, "failed to create embedded server", http.StatusInternalServerError)
-		return
-	}
-	terminatingHostKey, err := h.config.SSHService.VirtualHostKey(ctx, destination)
-	if err != nil {
-		h.config.Logger.Errorf(ctx, "resolving host key: %v", err)
-		http.Error(w, "failed to resolve host key", http.StatusInternalServerError)
-		return
-	}
-	signer, err := gossh.ParsePrivateKey([]byte(terminatingHostKey))
-	if err != nil {
-		h.config.Logger.Errorf(ctx, "parsing host key: %v", err)
-		http.Error(w, "failed to parse host key", http.StatusInternalServerError)
+		h.config.Logger.Errorf(ctx, "resolving destination: %v", err)
+		http.Error(w, "failed to resolve destination", http.StatusInternalServerError)
 		return
 	}
 
@@ -169,11 +150,11 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// session bytes; the embedded server handles them end to end.
 	// Authentication already happened at the HTTP layer via the bearer
 	// JWT, so the terminating server accepts the user's key as presented.
-	server := sshproxy.NewTerminatingSSHServer(handlers)
+	server := sshproxy.NewTerminatingSSHServer(termination.Handlers)
 	server.PublicKeyHandler = func(_ ssh.Context, _ ssh.PublicKey) error {
 		return nil
 	}
-	server.AddHostKey(signer)
+	server.AddHostKey(termination.Signer)
 	server.HandleConn(conn)
 }
 

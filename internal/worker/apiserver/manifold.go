@@ -374,7 +374,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	// instance for the relay/tunnel endpoints so the upgrade paths are
 	// accounted the same way without a duplicate registration.
 	sshTunnelMetrics := sshserver.NewMetricsCollector()
-	relayProxyFactory, relaySSHService, relayAuthorizer := sshserver.RelayDependencies(
+	relayResolver, relayAuthorizer := sshserver.RelayDependencies(
 		controllerSSHService,
 		domainServicesGetter,
 		sshserver.GetSSHService,
@@ -421,8 +421,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		EphemeralProviderFactory:          providerFactory,
 		SSHTunnel: &apiserver.SSHTunnelConfig{
 			TunnelTracker: tunnelTracker,
-			ProxyFactory:  relayProxyFactory,
-			SSHService:    relaySSHService,
+			Resolver:      relayResolver,
 			Authorizer:    relayAuthorizer,
 			Metrics:       sshTunnelMetrics,
 		},

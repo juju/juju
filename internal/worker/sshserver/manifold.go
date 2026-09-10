@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/environs/cloudspec"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/sshproxy"
 	internalTunneler "github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/juju/internal/worker/common"
 	workerTunneler "github.com/juju/juju/internal/worker/sshtunneler"
@@ -230,8 +231,8 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 			access: sshService,
 			logger: config.Logger,
 		},
-		ProxyFactory: proxyFactory,
-		Metrics:      metricsCollector,
+		Resolver: sshproxy.NewResolver(proxyFactory, sshService),
+		Metrics:  metricsCollector,
 	})
 	if err != nil {
 		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
@@ -248,8 +249,8 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 // machine connector requests reverse tunnels through the tracker), and a
 // JWT-claims authorizer for relayed sessions.
 //
-// The returned values implement apiserver/sshtunnel's ProxyFactory,
-// RelaySSHService, and RelayAuthorizer interfaces respectively.
+// The returned values implement apiserver/sshtunnel's Resolver and
+// RelayAuthorizer interfaces respectively.
 func RelayDependencies(
 	controllerSSHService *controllersshservice.Service,
 	domainServicesGetter services.DomainServicesGetter,
@@ -259,7 +260,7 @@ func RelayDependencies(
 	tunnelTracker workerTunneler.TunnelTracker,
 	logger logger.Logger,
 	metrics *Collector,
-) (proxyFactory, sshService, relayAuthorizer) {
+) (sshproxy.Resolver, relayAuthorizer) {
 	svc := sshService{
 		controllerSSHService: controllerSSHService,
 		domainServicesGetter: domainServicesGetter,
@@ -277,7 +278,7 @@ func RelayDependencies(
 		getExecutor: k8sexec.NewForJujuCloudSpec,
 		metrics:     metrics,
 	}
-	return factory, svc, relayAuthorizer{access: svc, logger: logger}
+	return sshproxy.NewResolver(factory, svc), relayAuthorizer{access: svc, logger: logger}
 }
 
 // relayAuthorizer checks whether the user identified by a JWT may access a

@@ -74,8 +74,9 @@ type ServerWorkerConfig struct {
 	Authenticator Authenticator
 	// Authorizer checks whether an authenticated user may access a destination.
 	Authorizer Authorizer
-	// ProxyFactory creates target-specific session, forwarding, and SFTP handlers.
-	ProxyFactory sshproxy.ProxyFactory
+	// Resolver resolves per-destination proxy handlers and terminating host
+	// keys in one call.
+	Resolver sshproxy.Resolver
 	// Metrics collects connection and authentication metrics.
 	Metrics *Collector
 }
@@ -100,8 +101,8 @@ func (c ServerWorkerConfig) Validate() error {
 	if c.Authorizer == nil {
 		return errors.NotValidf("missing Authorizer")
 	}
-	if c.ProxyFactory == nil {
-		return errors.NotValidf("missing ProxyFactory")
+	if c.Resolver == nil {
+		return errors.NotValidf("missing Resolver")
 	}
 	return nil
 }
@@ -258,25 +259,15 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 		return
 	}
 
-	server, err := s.newTerminatingSSHServer(ctx, destination)
+	termination, err := s.config.Resolver.Resolve(ctx, destination)
 	if err != nil {
-		s.config.Logger.Errorf(ctx, "failed to create embedded server: %v", err)
-		s.rejectChannel(ctx, newChan, fmt.Sprintf("failed to create embedded server: %v", err))
+		s.config.Logger.Errorf(ctx, "failed to resolve destination: %v", err)
+		s.rejectChannel(ctx, newChan, fmt.Sprintf("failed to resolve destination: %v", err))
 		return
 	}
 
-	terminatingHostKey, err := s.config.SSHService.VirtualHostKey(ctx, destination)
-	if err != nil {
-		s.config.Logger.Errorf(ctx, "failed to resolve host key: %v", err)
-		s.rejectChannel(ctx, newChan, fmt.Sprintf("failed to resolve host key: %v", err))
-		return
-	}
-	signer, err := gossh.ParsePrivateKey([]byte(terminatingHostKey))
-	if err != nil {
-		s.config.Logger.Errorf(ctx, "failed to parse host key: %v", err)
-		s.rejectChannel(ctx, newChan, fmt.Sprintf("failed to parse host key: %v", err))
-		return
-	}
+	server := newTerminatingSSHServer(termination.Handlers)
+	server.AddHostKey(termination.Signer)
 
 	ch, reqs, err := newChan.Accept()
 	if err != nil {
@@ -289,7 +280,6 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 	// the raw data channel, so it can discard these requests.
 	go gossh.DiscardRequests(reqs)
 
-	server.AddHostKey(signer)
 	server.HandleConn(newChannelConn(ch))
 }
 
@@ -333,12 +323,21 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 
 // newTerminatingSSHServer creates an embedded SSH server that terminates the
 // user's SSH connection and proxies it to the routed target.
-func (s *ServerWorker) newTerminatingSSHServer(ctx ssh.Context, destination virtualhostname.Info) (*ssh.Server, error) {
-	handlers, err := s.config.ProxyFactory.New(destination)
-	if err != nil {
-		return nil, errors.Trace(err)
+func newTerminatingSSHServer(handlers sshproxy.ProxyHandlers) *ssh.Server {
+	server := &ssh.Server{
+		ChannelHandlers: map[string]ssh.ChannelHandler{
+			"session":      ssh.DefaultSessionHandler,
+			"direct-tcpip": handlers.DirectTCPIPHandler(),
+		},
+		Handler: func(session ssh.Session) {
+			handlers.SessionHandler(session)
+		},
+		SubsystemHandlers: map[string]ssh.SubsystemHandler{
+			"sftp": handlers.SFTPHandler(),
+		},
 	}
-	return sshproxy.NewTerminatingSSHServer(handlers), nil
+
+	return server
 }
 
 // Report returns a map of metrics from the server worker.
