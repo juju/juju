@@ -240,12 +240,32 @@ func (s *K8sBrokerSuite) TestBootstrapControllerAddresses(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
+	s.mockServices.EXPECT().Get(
+		gomock.Any(), "controller-service", v1.GetOptions{},
+	).Return(&core.Service{
+		Spec: core.ServiceSpec{
+			Type:      core.ServiceTypeLoadBalancer,
+			ClusterIP: "10.152.183.53",
+		},
+		Status: core.ServiceStatus{
+			LoadBalancer: core.LoadBalancerStatus{
+				Ingress: []core.LoadBalancerIngress{{Hostname: "api.example.com"}},
+			},
+		},
+	}, nil)
+
 	addresses, err := s.broker.BootstrapControllerAddresses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(addresses, tc.DeepEquals, network.ProviderAddresses{{
 		MachineAddress: network.MachineAddress{
-			Value: "controller-0.controller-service-endpoints.test.svc.cluster.local",
+			Value: "api.example.com",
 			Type:  network.HostName,
+			Scope: network.ScopePublic,
+		},
+	}, {
+		MachineAddress: network.MachineAddress{
+			Value: "10.152.183.53",
+			Type:  network.IPv4Address,
 			Scope: network.ScopeCloudLocal,
 		},
 	}})
