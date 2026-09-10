@@ -45,6 +45,9 @@ var ContextAllowedEnvVars = []string{
 	"KUBERNETES_SERVICE_HOST",
 	"KUBERNETES_SERVICE_PORT",
 	"KUBERNETES_SERVICE_PORT_HTTPS",
+	// Pebble socket path so CAAS sidecar charms (and the controller charm in
+	// particular) can detect they are running under Pebble.
+	"PEBBLE_SOCKET",
 }
 
 // NewHostEnvironmenter constructs an EnvironmentWrapper target at the current

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -38,8 +37,8 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
-	"github.com/juju/juju/internal/controllerruntimeconfig"
 	"github.com/juju/juju/internal/database"
 	internallogger "github.com/juju/juju/internal/logger"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
@@ -96,6 +95,9 @@ func (c *BootstrapCommand) Init(args []string) error {
 }
 
 func copyFile(dest, source string) error {
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return errors.Trace(err)
+	}
 	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600)
 	if err != nil {
 		return errors.Trace(err)
@@ -152,7 +154,7 @@ var (
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
-	bootstrapParamsData, err := os.ReadFile(path.Join(c.DataDir(), controllerruntimeconfig.FileNameBootstrapParams))
+	bootstrapParamsData, err := os.ReadFile(bootstrap.BootstrapParamsPath(c.DataDir()))
 	if err != nil {
 		return errors.Annotate(err, "reading bootstrap params file")
 	}

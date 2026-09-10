@@ -272,6 +272,14 @@ func newControllerStack(
 		return nil, errors.Trace(err)
 	}
 
+	// For CAAS the controller agent root lives under <dataDir>/controller so
+	// Dqlite state and controller files are isolated from the pod-level
+	// (machine) agent data.
+	controllerDataDir := pcfg.DataDir + "/controller"
+	if s, ok := agentConfig.(interface{ SetDataDir(string) }); ok {
+		s.SetDataDir(controllerDataDir)
+	}
+
 	si, ok := agentConfig.ControllerAgentInfo()
 	if !ok {
 		return nil, errors.NewNotValid(nil, "agent config has no state serving info")
@@ -361,7 +369,10 @@ func isLocalControllerCharmPath(charmPath string) bool {
 }
 
 func (c *controllerStack) localControllerCharmArchivePath() string {
-	return path.Join(c.pcfg.DataDir, "charms", environsbootstrap.ControllerCharmArchive)
+	// The local controller charm is consumed by the bootstrap worker which
+	// runs with DataDir set to the controller subdirectory, so the archive
+	// must live under that directory.
+	return path.Join(c.pcfg.DataDir, "controller", "charms", environsbootstrap.ControllerCharmArchive)
 }
 
 func (c *controllerStack) uploadLocalControllerCharm(ctx context.Context, podName string) error {
@@ -907,8 +918,10 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 		ControllerID:                c.pcfg.ControllerId,
 		ControllerUUID:              c.pcfg.ControllerTag.Id(),
 		ControllerModelUUID:         c.pcfg.APIInfo.ModelTag.Id(),
-		DataDir:                     c.pcfg.DataDir,
+		DataDir:                     c.pcfg.DataDir + "/controller",
 		IsK8SController:             true,
+		SocketDir:                   c.pcfg.DataDir + "/controller/sockets",
+		SharedAgentDir:              c.pcfg.DataDir + "/controller",
 		LogDir:                      c.pcfg.LogDir,
 		APIPort:                     c.pcfg.Bootstrap.ControllerAgentInfo.APIPort,
 		AgentPassword:               c.pcfg.APIInfo.Password,
@@ -1509,12 +1522,6 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 		loggingOption = "--debug"
 	}
 
-	agentConfigRelativePath := path.Join(
-		"agents",
-		fmt.Sprintf("controller-%s", c.pcfg.ControllerId),
-		agentconstants.AgentConfigFilename,
-	)
-
 	var jujudEnv map[string]string = nil
 	featureFlags := featureflag.AsEnvironmentValue()
 	if featureFlags != "" {
@@ -1526,7 +1533,7 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 	// controller-0. Later replicas have their agent config seeded by the charm
 	// init container before this container starts.
 	bootstrapStateCmd := fmt.Sprintf(
-		"%s bootstrap-state --data-dir $JUJU_DATA_DIR %s --timeout %s",
+		"%s bootstrap-state --data-dir $JUJU_CONTROLLER_DIR %s --timeout %s",
 		path.Join("$JUJU_TOOLS_DIR", "jujuagentd"),
 		loggingOption,
 		c.timeout.String(),
@@ -1534,33 +1541,33 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 	if featureFlags != "" {
 		bootstrapStateCmd = fmt.Sprintf("%s=%s %s", osenv.JujuFeatureFlagEnvKey, featureFlags, bootstrapStateCmd)
 	}
-	agentConfigPath := path.Join("$JUJU_DATA_DIR", agentConfigRelativePath)
+	agentConfPath := path.Join("$JUJU_CONTROLLER_DIR", "agents", "controller-0", agentconstants.AgentConfigFilename)
 	var bootstrapSetup string
 	if isLocalControllerCharmPath(c.pcfg.Bootstrap.ControllerCharmPath) {
-		charmArchivePath := path.Join("$JUJU_DATA_DIR", "charms", environsbootstrap.ControllerCharmArchive)
+		charmArchivePath := path.Join("$JUJU_CONTROLLER_DIR", "charms", environsbootstrap.ControllerCharmArchive)
 		bootstrapSetup = fmt.Sprintf(
 			"if ! test -e %s; then mkdir -p %s; until test -e %s; do sleep 1; done; %s; fi",
-			agentConfigPath,
+			agentConfPath,
 			path.Dir(charmArchivePath),
 			charmArchivePath,
 			bootstrapStateCmd,
 		)
 	} else {
-		bootstrapSetup = fmt.Sprintf("test -e %s || %s", agentConfigPath, bootstrapStateCmd)
+		bootstrapSetup = fmt.Sprintf("test -e %s || %s", agentConfPath, bootstrapStateCmd)
 	}
 	setupCmd := fmt.Sprintf(
-		`controller_id="${HOSTNAME##*-}"; if [ "${controller_id}" = "0" ]; then %s; else until test -e "$JUJU_DATA_DIR/agents/controller-${controller_id}/%s"; do sleep 1; done; fi`,
+		`export JUJU_BOOTSTRAP_PARAMS_PATH="$JUJU_DATA_DIR/bootstrap-params"; controller_id="${HOSTNAME##*-}"; if [ "${controller_id}" = "0" ]; then %s; else until test -e "$JUJU_CONTROLLER_DIR/agents/controller-${controller_id}/%s"; do sleep 1; done; fi`,
 		bootstrapSetup,
 		agentconstants.AgentConfigFilename,
 	)
 
 	controllerCmd := fmt.Sprintf(
-		`/bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec %s controller --data-dir "$JUJU_DATA_DIR" --controller-id "${controller_id}" --log-to-stderr %s'`,
+		`/bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec %s controller --data-dir "$JUJU_CONTROLLER_DIR" --controller-id "${controller_id}" --log-to-stderr %s'`,
 		path.Join("$JUJU_TOOLS_DIR", "jujud"),
 		loggingOption,
 	)
 	machineCmd := fmt.Sprintf(
-		`/bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec %s machine --data-dir "$JUJU_DATA_DIR" --controller-id "${controller_id}" --machine-agent-only --log-to-stderr %s'`,
+		`/bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec %s machine --data-dir "$JUJU_DATA_DIR" --controller-id "${controller_id}" --machine-id "${controller_id}" --machine-agent-only --log-to-stderr %s'`,
 		path.Join("$JUJU_TOOLS_DIR", "jujuagentd"),
 		loggingOption,
 	)
@@ -1648,13 +1655,26 @@ if [ "${controller_id}" = "0" ]; then
     if [ ! -e "%s/%s" ]; then
         cp "%s/%s" "%s/%s"
     fi
-    controller_dir="%s/agents/controller-0"
-    controller_template="${controller_dir}/%s"
-    if [ ! -e "${controller_template}" ]; then
-        mkdir -p "${controller_dir}"
-        cp "%s/%s" "${controller_template}"
-        cp "%s/%s" "${controller_dir}/%s"
-        chmod 600 "${controller_template}"
+    controller_agent_dir="%s/controller/agents/controller-0"
+    machine_conf_dir="%s/agents/machine-0"
+    controller_conf_dir="%s/controller"
+    mkdir -p "${controller_agent_dir}"
+    mkdir -p "%s/agents/controller-0"
+    mkdir -p "${machine_conf_dir}"
+    mkdir -p "${controller_conf_dir}"
+    if [ ! -e "${controller_agent_dir}/%s" ]; then
+        cp "%s/%s" "${controller_agent_dir}/%s"
+        chmod 600 "${controller_agent_dir}/%s"
+    fi
+    if [ ! -e "${machine_conf_dir}/%s" ]; then
+        cp "%s/%s" "${machine_conf_dir}/%s"
+        chmod 600 "${machine_conf_dir}/%s"
+    fi
+    if [ ! -e "${controller_conf_dir}/%s" ]; then
+        cp "%s/%s" "${controller_conf_dir}/%s"
+    fi
+    if [ -e "%s/bootstrap-params" ]; then
+        cp "%s/bootstrap-params" "${controller_conf_dir}/bootstrap-params"
     fi
 fi
 seed_nonce="%s-${controller_id}"
@@ -1670,12 +1690,25 @@ fi
 			c.pcfg.DataDir,
 			constants.TemplateFileNameAgentConf,
 			c.pcfg.DataDir,
+			c.pcfg.DataDir,
+			c.pcfg.DataDir,
+			c.pcfg.DataDir,
 			constants.TemplateFileNameAgentConf,
 			controllerConfigSeedDir,
 			constants.ControllerAgentConfigFilename,
+			constants.TemplateFileNameAgentConf,
+			constants.TemplateFileNameAgentConf,
+			agentconstants.AgentConfigFilename,
+			controllerConfigSeedDir,
+			constants.ControllerAgentConfigFilename,
+			agentconstants.AgentConfigFilename,
+			agentconstants.AgentConfigFilename,
+			controllerruntimeconfig.Filename,
 			controllerConfigSeedDir,
 			controllerruntimeconfig.Filename,
 			controllerruntimeconfig.Filename,
+			c.pcfg.DataDir,
+			c.pcfg.DataDir,
 			controllerConfigSeedDir+"/"+constants.ControllerNonceFilename,
 			constants.ControllerNonceFilePath,
 		)},

@@ -343,10 +343,10 @@ func (s *bootstrapSuite) TestControllerSpecWaitsForLocalControllerCharm(c *tc.C)
 	c.Assert(apiServer.Args, tc.HasLen, 2)
 
 	startup := apiServer.Args[1]
-	c.Check(startup, tc.Contains, "mkdir -p $JUJU_DATA_DIR/charms")
-	c.Check(startup, tc.Contains, "until test -e $JUJU_DATA_DIR/charms/controller.charm; do sleep 1; done")
-	c.Check(startup, tc.Contains, "$JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s")
-	c.Check(startup, tc.Not(tc.Contains), "test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf ||")
+	c.Check(startup, tc.Contains, "mkdir -p $JUJU_CONTROLLER_DIR/charms")
+	c.Check(startup, tc.Contains, "until test -e $JUJU_CONTROLLER_DIR/charms/controller.charm; do sleep 1; done")
+	c.Check(startup, tc.Contains, "$JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_CONTROLLER_DIR --debug --timeout 10m0s")
+	c.Check(startup, tc.Not(tc.Contains), "test -e $JUJU_CONTROLLER_DIR/agents/controller-0/agent.conf ||")
 }
 
 func (s *bootstrapSuite) TestIsLocalControllerCharmPath(c *tc.C) {
@@ -394,13 +394,13 @@ func (s *bootstrapSuite) TestUploadLocalControllerCharm(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(execClient.execCommands, tc.DeepEquals, [][]string{
-		{"mkdir", "-p", "/var/lib/juju/charms"},
-		{"chmod", "0644", "/var/lib/juju/charms/controller.charm.uploading"},
-		{"mv", "-f", "/var/lib/juju/charms/controller.charm.uploading", "/var/lib/juju/charms/controller.charm"},
+		{"mkdir", "-p", "/var/lib/juju/controller/charms"},
+		{"chmod", "0644", "/var/lib/juju/controller/charms/controller.charm.uploading"},
+		{"mv", "-f", "/var/lib/juju/controller/charms/controller.charm.uploading", "/var/lib/juju/controller/charms/controller.charm"},
 	})
 	c.Assert(execClient.copyParams, tc.HasLen, 1)
 	c.Check(execClient.copyParams[0].Src.Path, tc.Equals, "/tmp/controller.charm")
-	c.Check(execClient.copyParams[0].Dest.Path, tc.Equals, "/var/lib/juju/charms/controller.charm.uploading")
+	c.Check(execClient.copyParams[0].Dest.Path, tc.Equals, "/var/lib/juju/controller/charms/controller.charm.uploading")
 	c.Check(execClient.copyParams[0].Dest.PodName, tc.Equals, s.pcfg.GetPodName())
 	c.Check(execClient.copyParams[0].Dest.ContainerName, tc.Equals, "api-server")
 }
@@ -992,12 +992,14 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 				`
 export JUJU_DATA_DIR=/var/lib/juju
 export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
+export JUJU_CONTROLLER_DIR=/var/lib/juju/controller
+export JUJU_BOOTSTRAP_PARAMS_PATH=/var/lib/juju/bootstrap-params
 
 mkdir -p $JUJU_TOOLS_DIR
 cp /opt/jujud $JUJU_TOOLS_DIR/jujud
 cp /opt/jujuagentd $JUJU_TOOLS_DIR/jujuagentd
 
-controller_id="${HOSTNAME##*-}"; if [ "${controller_id}" = "0" ]; then if ! test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf; then mkdir -p $JUJU_DATA_DIR/charms; until test -e $JUJU_DATA_DIR/charms/controller.charm; do sleep 1; done; JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s; fi; else until test -e "$JUJU_DATA_DIR/agents/controller-${controller_id}/agent.conf"; do sleep 1; done; fi
+export JUJU_BOOTSTRAP_PARAMS_PATH="$JUJU_DATA_DIR/bootstrap-params"; controller_id="${HOSTNAME##*-}"; if [ "${controller_id}" = "0" ]; then if ! test -e $JUJU_CONTROLLER_DIR/agents/controller-0/agent.conf; then mkdir -p $JUJU_CONTROLLER_DIR/charms; until test -e $JUJU_CONTROLLER_DIR/charms/controller.charm; do sleep 1; done; JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_CONTROLLER_DIR --debug --timeout 10m0s; fi; else until test -e "$JUJU_CONTROLLER_DIR/agents/controller-${controller_id}/agent.conf"; do sleep 1; done; fi
 
 mkdir -p /var/lib/pebble/default/layers
 cat > /var/lib/pebble/default/layers/001-controller.yaml <<EOF
@@ -1007,14 +1009,14 @@ services:
         summary: Juju machine agent
         startup: enabled
         override: replace
-        command: /bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec $JUJU_TOOLS_DIR/jujuagentd machine --data-dir "$JUJU_DATA_DIR" --controller-id "${controller_id}" --machine-agent-only --log-to-stderr --debug'
+        command: /bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec $JUJU_TOOLS_DIR/jujuagentd machine --data-dir "$JUJU_DATA_DIR" --controller-id "${controller_id}" --machine-id "${controller_id}" --machine-agent-only --log-to-stderr --debug'
         environment:
             JUJU_DEV_FEATURE_FLAGS: developer-mode
     jujud:
         summary: Juju controller
         startup: enabled
         override: replace
-        command: /bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec $JUJU_TOOLS_DIR/jujud controller --data-dir "$JUJU_DATA_DIR" --controller-id "${controller_id}" --log-to-stderr --debug'
+        command: /bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec $JUJU_TOOLS_DIR/jujud controller --data-dir "$JUJU_CONTROLLER_DIR" --controller-id "${controller_id}" --log-to-stderr --debug'
         environment:
             JUJU_DEV_FEATURE_FLAGS: developer-mode
 
@@ -1144,18 +1146,31 @@ if [ "${controller_id}" = "0" ]; then
     if [ ! -e "/var/lib/juju/template-agent.conf" ]; then
         cp "/var/lib/juju-controller-bootstrap/controller-unit-agent.conf" "/var/lib/juju/template-agent.conf"
     fi
-    controller_dir="/var/lib/juju/agents/controller-0"
-    controller_template="${controller_dir}/template-agent.conf"
-    if [ ! -e "${controller_template}" ]; then
-        mkdir -p "${controller_dir}"
-        cp "/var/lib/juju-controller-bootstrap/controller-agent.conf" "${controller_template}"
-        cp "/var/lib/juju-controller-bootstrap/runtime.conf" "${controller_dir}/runtime.conf"
-        chmod 600 "${controller_template}"
+    controller_agent_dir="/var/lib/juju/controller/agents/controller-0"
+    machine_conf_dir="/var/lib/juju/agents/machine-0"
+    controller_conf_dir="/var/lib/juju/controller"
+    mkdir -p "${controller_agent_dir}"
+    mkdir -p "/var/lib/juju/agents/controller-0"
+    mkdir -p "${machine_conf_dir}"
+    mkdir -p "${controller_conf_dir}"
+    if [ ! -e "${controller_agent_dir}/template-agent.conf" ]; then
+        cp "/var/lib/juju-controller-bootstrap/controller-agent.conf" "${controller_agent_dir}/template-agent.conf"
+        chmod 600 "${controller_agent_dir}/template-agent.conf"
+    fi
+    if [ ! -e "${machine_conf_dir}/agent.conf" ]; then
+        cp "/var/lib/juju-controller-bootstrap/controller-agent.conf" "${machine_conf_dir}/agent.conf"
+        chmod 600 "${machine_conf_dir}/agent.conf"
+    fi
+    if [ ! -e "${controller_conf_dir}/runtime.conf" ]; then
+        cp "/var/lib/juju-controller-bootstrap/runtime.conf" "${controller_conf_dir}/runtime.conf"
+    fi
+    if [ -e "/var/lib/juju/bootstrap-params" ]; then
+        cp "/var/lib/juju/bootstrap-params" "${controller_conf_dir}/bootstrap-params"
     fi
 fi
 seed_nonce="/var/lib/juju-controller-bootstrap/controller-nonce-${controller_id}"
 if [ -e "${seed_nonce}" ]; then
-    cp "${seed_nonce}" "/var/lib/juju/nonce.txt"
+    cp "${seed_nonce}" "/var/lib/juju/controller/nonce.txt"
 fi
 `},
 		Env: []core.EnvVar{

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -594,7 +595,7 @@ func (w *bootstrapWorker) seedControllerCharm(
 		DataDir:                     dataDir,
 		BootstrapMachineConstraints: bootstrapArgs.BootstrapMachineConstraints,
 		BootstrapAddresses:          bootstrapAddresses,
-		ControllerCharmName:         bootstrapArgs.ControllerCharmPath,
+		ControllerCharmName:         controllerCharmName(bootstrapArgs.ControllerCharmPath),
 		ControllerCharmChannel:      bootstrapArgs.ControllerCharmChannel,
 		CharmhubHTTPClient:          w.cfg.CharmhubHTTPClient,
 		UnitPassword:                w.cfg.UnitPassword,
@@ -619,6 +620,19 @@ func (w *bootstrapWorker) bootstrapParams(ctx context.Context, dataDir string) (
 		return instancecfg.StateInitializationParams{}, errors.Trace(err)
 	}
 	return args, nil
+}
+
+func controllerCharmName(controllerCharmPath string) string {
+	// Local controller charm paths are uploaded to the controller and resolved
+	// by DeployLocalCharm. Only non-local values should be used as a charmhub
+	// charm name, otherwise MustParseURL will panic on a filesystem path.
+	if controllerCharmPath == "" ||
+		strings.HasPrefix(controllerCharmPath, "/") ||
+		strings.HasPrefix(controllerCharmPath, "./") ||
+		strings.HasPrefix(controllerCharmPath, "../") {
+		return ""
+	}
+	return controllerCharmPath
 }
 
 // initialStoragePools extracts any storage pools included with the bootstrap
