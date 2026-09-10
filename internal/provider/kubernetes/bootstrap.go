@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
@@ -276,9 +277,7 @@ func newControllerStack(
 	// Dqlite state and controller files are isolated from the pod-level
 	// (machine) agent data.
 	controllerDataDir := pcfg.DataDir + "/controller"
-	if s, ok := agentConfig.(interface{ SetDataDir(string) }); ok {
-		s.SetDataDir(controllerDataDir)
-	}
+	agentConfig.SetDataDir(controllerDataDir)
 
 	si, ok := agentConfig.ControllerAgentInfo()
 	if !ok {
@@ -363,9 +362,7 @@ func newControllerStack(
 }
 
 func isLocalControllerCharmPath(charmPath string) bool {
-	// Mirrors refresher.IsLocalURL (cmd/juju/application/refresher/refresher.go).
-	return strings.HasPrefix(charmPath, "/") || strings.HasPrefix(charmPath, "./") ||
-		strings.HasPrefix(charmPath, "../")
+	return corecharm.IsLocalCharmPath(charmPath)
 }
 
 func (c *controllerStack) localControllerCharmArchivePath() string {

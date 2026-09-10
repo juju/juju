@@ -182,6 +182,14 @@ func (s *InitCommandSuite) TestSuccessfulInit(c *tc.C) {
 	err = ic.Run(ctx)
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Verify $SNAP_DATA exists with expected permissions. The snap install
+	// hook creates this directory; a regression in that hook that drops the
+	// directory would cause init to fail at runtime.
+	snapDataInfo, err := os.Stat(snapData)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(snapDataInfo.IsDir(), tc.IsTrue)
+	c.Check(snapDataInfo.Mode().Perm()&0o755, tc.Equals, os.FileMode(0o755))
+
 	// Verify runtime.conf was written to $SNAP_DATA with resolved snap paths.
 	runtimeDst := filepath.Join(snapData, controllerruntimeconfig.Filename)
 	data, err := os.ReadFile(runtimeDst)

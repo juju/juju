@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -15,6 +14,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/controller"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -49,12 +49,22 @@ const (
 
 var bootstrapSSHUser = "ubuntu"
 
+// NoopRemoveBootstrapSSHKeys is a no-op implementation of bootstrap SSH key
+// removal for use when there is no Ubuntu host .ssh directory to clean (e.g.
+// CAAS controllers).
+var NoopRemoveBootstrapSSHKeys = func(keys []string) error {
+	return nil
+}
+
 // DeleteBootstrapSSHKeys removes bootstrap-only keys from an IAAS bootstrap
 // machine's standard Ubuntu authorized_keys file.
 //
 // In snap-based controllers the confined process runs in a user namespace
 // where uid 0 maps to a non-root host uid, so accessing /home/ubuntu/.ssh
-// fails even with system-files AppArmor rules. Snap controllers skip removal.
+// fails even with system-files AppArmor rules. Bootstrap SSH keys are
+// intentionally left in place on snap controllers; the keys remain in
+// authorized_keys indefinitely. This is a known residual exposure tracked
+// as out of scope for the controller-snap effort.
 func DeleteBootstrapSSHKeys(keys []string) error {
 	if len(keys) == 0 {
 		return nil
@@ -626,10 +636,7 @@ func controllerCharmName(controllerCharmPath string) string {
 	// Local controller charm paths are uploaded to the controller and resolved
 	// by DeployLocalCharm. Only non-local values should be used as a charmhub
 	// charm name, otherwise MustParseURL will panic on a filesystem path.
-	if controllerCharmPath == "" ||
-		strings.HasPrefix(controllerCharmPath, "/") ||
-		strings.HasPrefix(controllerCharmPath, "./") ||
-		strings.HasPrefix(controllerCharmPath, "../") {
+	if corecharm.IsLocalCharmPath(controllerCharmPath) {
 		return ""
 	}
 	return controllerCharmPath

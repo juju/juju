@@ -439,6 +439,11 @@ type configSetterOnly interface {
 	// SetOpenTelemetryTailSamplingThreshold sets the threshold for tail-based
 	// sampling. The lower the threshold, the more spans will be sampled.
 	SetOpenTelemetryTailSamplingThreshold(time.Duration)
+
+	// SetDataDir overrides the data directory. It is used in CAAS to relocate
+	// the controller agent's home to a controller-specific subdirectory while
+	// keeping the controller identity and state-serving info intact.
+	SetDataDir(string)
 }
 
 // LogFileName returns the filename for the Agent's log file.

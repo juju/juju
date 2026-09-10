@@ -1087,7 +1087,7 @@ func NewCAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldCo
 		ControllerUnitPassword:        bootstrap.CAASControllerUnitPassword,
 		BootstrapAddressFinderGetter:  bootstrap.CAASAddressFinder,
 		AgentFinalizer:                bootstrap.CAASAgentFinalizer,
-		RemoveBootstrapSSHKeys:        func([]string) error { return nil },
+		RemoveBootstrapSSHKeys:        bootstrap.NoopRemoveBootstrapSSHKeys,
 	}
 }
 

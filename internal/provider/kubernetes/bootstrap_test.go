@@ -355,7 +355,7 @@ func (s *bootstrapSuite) TestIsLocalControllerCharmPath(c *tc.C) {
 	c.Check(kubernetes.IsLocalControllerCharmPath("/tmp/controller.charm"), tc.IsTrue)
 	c.Check(kubernetes.IsLocalControllerCharmPath("./controller.charm"), tc.IsTrue)
 	c.Check(kubernetes.IsLocalControllerCharmPath("../controller.charm"), tc.IsTrue)
-	c.Check(kubernetes.IsLocalControllerCharmPath(""), tc.IsFalse)
+	c.Check(kubernetes.IsLocalControllerCharmPath(""), tc.IsTrue)
 	c.Check(kubernetes.IsLocalControllerCharmPath("ch:juju-controller"), tc.IsFalse)
 }
 
