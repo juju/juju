@@ -311,7 +311,7 @@ AND    scope_uuid = $entityUUID.uuid`, relationUUID)
 
 	// Unit relation state uses the numeric relation ID encoded as text.
 	// Delete the relation from all states.
-	// The means that forced removal will never have a subsequent hook
+	// This means that forced removal will never have a subsequent hook
 	// execution indicating that the unit is still part of the relation.
 	unitStateStmt, err := st.Prepare(`
 DELETE FROM unit_state_relation

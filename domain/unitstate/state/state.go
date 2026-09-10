@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain"
@@ -263,6 +264,8 @@ func (st *State) setUnitStateCharm(ctx context.Context, tx *sqlair.TX, id entity
 
 // setUnitStateRelation sets the input key/value pairs as the relation state
 // for the input unit UUID, excluding relations that no longer exist.
+// This is a replacement operation, first deleting everything for the unit,
+// then setting based on relation existence.
 func (st *State) setUnitStateRelation(ctx context.Context, tx *sqlair.TX, id entityUUID, state map[int]string) error {
 	q := "DELETE from unit_state_relation WHERE unit_uuid = $entityUUID.uuid"
 	dStmt, err := st.Prepare(q, id)
@@ -298,6 +301,8 @@ WHERE  r.relation_id IN ($relationIDs[:])`
 	var keyVals []unitRelationStateKeyVal
 	err = tx.Query(ctx, rStmt, ids).GetAll(&keyVals)
 	if errors.Is(err, sqlair.ErrNoRows) {
+		// If none of the relations indicated by the incoming
+		// state actually exist, then we set nothing.
 		return nil
 	} else if err != nil {
 		return errors.Errorf("getting existing relations: %w", err)
