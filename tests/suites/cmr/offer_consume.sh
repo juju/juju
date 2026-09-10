@@ -188,6 +188,13 @@ run_offer_consume_cross_controller() {
 
 	offer_controller="$(juju controllers --format=yaml | yq -r '."current-controller"')"
 
+	# Configure a public DNS address on the offering controller. The address
+	# is not reachable in the test environment, so consumers fall back to
+	# the regular API addresses. This exercises that advertising a
+	# public-dns-address does not break cross-controller relations.
+	echo "Configure public-dns-address on the offering controller"
+	juju controller-config public-dns-address=public-dns-test.example.com:17070
+
 	# Ensure we have another controller available.
 	echo "Bootstrap consume offer controller"
 	bootstrap_alt_controller "controller-consume"
@@ -234,6 +241,9 @@ run_offer_consume_cross_controller() {
 	wait_for null '.offers."dummy-source"."total-connected-count"'
 	juju remove-offer "${offer_controller}:admin/model-offer.dummy-source" -y
 	wait_for null '.offers'
+
+	echo "Reset public-dns-address on the offering controller"
+	juju controller-config public-dns-address=""
 
 	echo "Clean up"
 	destroy_controller "controller-consume"
