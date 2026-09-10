@@ -1530,8 +1530,8 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 
 	// The StatefulSet pod template is shared by every replica. Derive the
 	// controller ID from the pod ordinal and reserve bootstrap-state for
-	// controller-0. Later replicas have their agent config seeded by the charm
-	// init container before this container starts.
+	// controller-0. Later replicas have their runtime.conf seeded by the
+	// charm before this container starts.
 	bootstrapStateCmd := fmt.Sprintf(
 		"%s bootstrap-state --data-dir $JUJU_CONTROLLER_DIR %s --timeout %s",
 		path.Join("$JUJU_TOOLS_DIR", "jujuagentd"),
@@ -1541,24 +1541,27 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 	if featureFlags != "" {
 		bootstrapStateCmd = fmt.Sprintf("%s=%s %s", osenv.JujuFeatureFlagEnvKey, featureFlags, bootstrapStateCmd)
 	}
-	agentConfPath := path.Join("$JUJU_CONTROLLER_DIR", "agents", "controller-0", agentconstants.AgentConfigFilename)
+	// Use the system-identity file as the "bootstrap done" marker. It is
+	// written by runFromRuntimeConf after bootstrap-state completes, and
+	// is not pre-staged by the seed container (unlike runtime.conf).
+	systemIdentityPath := path.Join("$JUJU_CONTROLLER_DIR", agent.SystemIdentity)
 	var bootstrapSetup string
 	if isLocalControllerCharmPath(c.pcfg.Bootstrap.ControllerCharmPath) {
 		charmArchivePath := path.Join("$JUJU_CONTROLLER_DIR", "charms", environsbootstrap.ControllerCharmArchive)
 		bootstrapSetup = fmt.Sprintf(
 			"if ! test -e %s; then mkdir -p %s; until test -e %s; do sleep 1; done; %s; fi",
-			agentConfPath,
+			systemIdentityPath,
 			path.Dir(charmArchivePath),
 			charmArchivePath,
 			bootstrapStateCmd,
 		)
 	} else {
-		bootstrapSetup = fmt.Sprintf("test -e %s || %s", agentConfPath, bootstrapStateCmd)
+		bootstrapSetup = fmt.Sprintf("test -e %s || %s", systemIdentityPath, bootstrapStateCmd)
 	}
 	setupCmd := fmt.Sprintf(
-		`export JUJU_BOOTSTRAP_PARAMS_PATH="$JUJU_DATA_DIR/bootstrap-params"; controller_id="${HOSTNAME##*-}"; if [ "${controller_id}" = "0" ]; then %s; else until test -e "$JUJU_CONTROLLER_DIR/agents/controller-${controller_id}/%s"; do sleep 1; done; fi`,
+		`export JUJU_BOOTSTRAP_PARAMS_PATH="$JUJU_DATA_DIR/bootstrap-params"; controller_id="${HOSTNAME##*-}"; if [ "${controller_id}" = "0" ]; then %s; else until test -e "$JUJU_CONTROLLER_DIR/%s"; do sleep 1; done; fi`,
 		bootstrapSetup,
-		agentconstants.AgentConfigFilename,
+		controllerruntimeconfig.Filename,
 	)
 
 	controllerCmd := fmt.Sprintf(
@@ -1655,17 +1658,10 @@ if [ "${controller_id}" = "0" ]; then
     if [ ! -e "%s/%s" ]; then
         cp "%s/%s" "%s/%s"
     fi
-    controller_agent_dir="%s/controller/agents/controller-0"
     machine_conf_dir="%s/agents/machine-0"
     controller_conf_dir="%s/controller"
-    mkdir -p "${controller_agent_dir}"
-    mkdir -p "%s/agents/controller-0"
     mkdir -p "${machine_conf_dir}"
     mkdir -p "${controller_conf_dir}"
-    if [ ! -e "${controller_agent_dir}/%s" ]; then
-        cp "%s/%s" "${controller_agent_dir}/%s"
-        chmod 600 "${controller_agent_dir}/%s"
-    fi
     if [ ! -e "${machine_conf_dir}/%s" ]; then
         cp "%s/%s" "${machine_conf_dir}/%s"
         chmod 600 "${machine_conf_dir}/%s"
@@ -1691,13 +1687,6 @@ fi
 			constants.TemplateFileNameAgentConf,
 			c.pcfg.DataDir,
 			c.pcfg.DataDir,
-			c.pcfg.DataDir,
-			c.pcfg.DataDir,
-			constants.TemplateFileNameAgentConf,
-			controllerConfigSeedDir,
-			constants.ControllerAgentConfigFilename,
-			constants.TemplateFileNameAgentConf,
-			constants.TemplateFileNameAgentConf,
 			agentconstants.AgentConfigFilename,
 			controllerConfigSeedDir,
 			constants.ControllerAgentConfigFilename,

@@ -5,8 +5,6 @@ package agent
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -44,7 +42,6 @@ import (
 	"github.com/juju/juju/internal/database"
 	internallogger "github.com/juju/juju/internal/logger"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/tools"
 )
 
@@ -96,56 +93,6 @@ func (c *BootstrapCommand) Init(args []string) error {
 	return c.AgentConf.CheckArgs(args)
 }
 
-func copyFile(dest, source string) error {
-	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0o600)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer df.Close()
-
-	f, err := os.Open(source)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer f.Close()
-
-	_, err = io.Copy(df, f)
-	return errors.Trace(err)
-}
-
-func copyFileFromTemplate(to, from string) (err error) {
-	if _, err := os.Stat(to); os.IsNotExist(err) {
-		logger.Debugf(context.TODO(), "copying file from %q to %s", from, to)
-		if err := copyFile(to, from); err != nil {
-			return errors.Trace(err)
-		}
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-func (c *BootstrapCommand) ensureConfigFilesForCaas() error {
-	tag := names.NewControllerAgentTag(agent.BootstrapControllerId)
-	for _, v := range []struct {
-		to, from string
-	}{
-		{
-			// ensure agent.conf
-			to: agent.ConfigPath(c.AgentConf.DataDir(), tag),
-			from: filepath.Join(
-				agent.Dir(c.AgentConf.DataDir(), tag),
-				k8sconstants.TemplateFileNameAgentConf,
-			),
-		},
-	} {
-		if err := copyFileFromTemplate(v.to, v.from); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
 var (
 	environsNewIAAS = environs.New
 	environsNewCAAS = caas.New
@@ -178,12 +125,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	}
 
 	isCAAS := args.ControllerCloud.Type == cloud.CloudTypeKubernetes
-
-	if isCAAS {
-		if err := c.ensureConfigFilesForCaas(); err != nil {
-			return errors.Trace(err)
-		}
-	}
 
 	// Get the bootstrap machine's addresses from the provider.
 	cloudSpec, err := environscloudspec.MakeCloudSpec(
@@ -260,31 +201,25 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	// For IAAS snap controllers, read controller startup values from
-	// runtime.conf instead of agent.conf. The CAAS path continues to use the
-	// agent.conf / ensureConfigFilesForCaas approach.
-	if !isCAAS {
-		return c.runSnapIAAS(ctx, args, env, controllerModelConfigAttrs)
-	}
-
-	// CAAS path: read agent.conf written by ensureConfigFilesForCaas.
-	return c.runLegacyAgentConf(ctx, args, env, controllerModelConfigAttrs)
+	// Both IAAS snap and CAAS controllers read controller startup values
+	// from runtime.conf instead of agent.conf.
+	return c.runFromRuntimeConf(ctx, args, env, controllerModelConfigAttrs, isCAAS)
 }
 
-// runSnapIAAS runs bootstrap state initialization for IAAS snap controllers.
-// It reads the controller startup configuration from snap-private runtime.conf
-// and persists mutations back to that file. It never reads, writes, or creates
-// a controller agent.conf.
-func (c *BootstrapCommand) runSnapIAAS(
+// runFromRuntimeConf runs bootstrap state initialization from runtime.conf.
+// It reads the controller startup configuration from the data directory's
+// runtime.conf and persists mutations back to that file. It never reads,
+// writes, or creates a controller agent.conf under agents/controller-<id>.
+func (c *BootstrapCommand) runFromRuntimeConf(
 	ctx *cmd.Context,
 	args instancecfg.StateInitializationParams,
 	env environs.BootstrapEnviron,
 	controllerModelConfigAttrs map[string]any,
+	isCAAS bool,
 ) error {
-	// Resolve the runtime.conf path from the SNAP_DATA environment. When running
-	// as "snap run jujud.bootstrap-state", snapd sets SNAP_DATA to the
-	// revision-specific snap data directory. Fall back to the --data-dir flag
-	// for non-snap test execution.
+	// Resolve the runtime.conf path. For IAAS snap controllers, SNAP_DATA
+	// overrides the --data-dir flag. For CAAS, --data-dir is the controller
+	// root (/var/lib/juju/controller).
 	runtimeCfgDir := c.DataDir()
 	if snapData := os.Getenv("SNAP_DATA"); snapData != "" {
 		runtimeCfgDir = snapData
@@ -307,13 +242,13 @@ func (c *BootstrapCommand) runSnapIAAS(
 		SystemIdentity: runtimeCfg.SystemIdentity,
 	}
 
-	if err := ensureKeys(false /* isCAAS */, &args, &info); err != nil {
+	if err := ensureKeys(isCAAS, &args, &info); err != nil {
 		return errors.Trace(err)
 	}
 	if err := ensureSSHServerHostKey(&args); err != nil {
 		return errors.Trace(err)
 	}
-	addrs, err := getInstanceAddresses(false /* isCAAS */, env, ctx, args)
+	addrs, err := getInstanceAddresses(isCAAS, env, ctx, args)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -400,92 +335,6 @@ func (c *BootstrapCommand) runSnapIAAS(
 		return errors.Trace(err)
 	}
 
-	return nil
-}
-
-// runLegacyAgentConf handles the CAAS bootstrap path which uses agent.conf.
-// The IAAS snap bootstrap path uses runSnapIAAS instead.
-func (c *BootstrapCommand) runLegacyAgentConf(
-	ctx *cmd.Context,
-	args instancecfg.StateInitializationParams,
-	env environs.BootstrapEnviron,
-	controllerModelConfigAttrs map[string]any,
-) error {
-	agentConfigReader := c.AgentConf
-	if err := agentConfigReader.ReadConfig(names.NewControllerAgentTag(agent.BootstrapControllerId).String()); err != nil {
-		// Fall back to machine tag for backwards compatibility.
-		if err2 := agentConfigReader.ReadConfig(names.NewMachineTag(agent.BootstrapControllerId).String()); err2 != nil {
-			return errors.Annotatef(err, "cannot read config")
-		}
-	}
-	agentConfig := c.CurrentConfig()
-	info, ok := agentConfig.ControllerAgentInfo()
-	if !ok {
-		return fmt.Errorf("bootstrap machine config has no state serving info")
-	}
-	if err := ensureKeys(true /* isCAAS */, &args, &info); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ensureSSHServerHostKey(&args); err != nil {
-		return errors.Trace(err)
-	}
-	addrs, err := getInstanceAddresses(true /* isCAAS */, env, ctx, args)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
-		agentConfig.SetControllerAgentInfo(info)
-
-		agentConfig.SetQueryTracingEnabled(args.ControllerConfig.QueryTracingEnabled())
-		agentConfig.SetQueryTracingThreshold(args.ControllerConfig.QueryTracingThreshold())
-		agentConfig.SetDqliteBusyTimeout(args.ControllerConfig.DqliteBusyTimeout())
-		agentConfig.SetOpenTelemetryEnabled(agent.DefaultOpenTelemetryEnabled)
-		agentConfig.SetOpenTelemetryHTTPEndpoint("")
-		agentConfig.SetOpenTelemetryGRPCEndpoint("")
-		agentConfig.SetOpenTelemetryInsecure(agent.DefaultOpenTelemetryInsecure)
-		agentConfig.SetOpenTelemetryStackTraces(agent.DefaultOpenTelemetryStackTraces)
-		agentConfig.SetOpenTelemetrySampleRatio(agent.DefaultOpenTelemetrySampleRatio)
-		agentConfig.SetOpenTelemetryTailSamplingThreshold(agent.DefaultOpenTelemetryTailSamplingThreshold)
-
-		return nil
-	}); err != nil {
-		return fmt.Errorf("cannot write agent config: %v", err)
-	}
-
-	agentConfig = c.CurrentConfig()
-
-	// Create system-identity file
-	if err := agent.WriteSystemIdentityFile(agentConfig); err != nil {
-		return errors.Trace(err)
-	}
-
-	controllerModelCfg, err := env.Config().Apply(controllerModelConfigAttrs)
-	if err != nil {
-		return errors.Annotate(err, "failed to update model config")
-	}
-	args.ControllerModelConfig = controllerModelCfg
-
-	// Initialise state, and store any agent config (e.g. password) changes.
-	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
-		adminTag := names.NewLocalUserTag(coreuser.AdminUserName.Name())
-		bootstrap, err := c.BootstrapAgent(agentbootstrap.AgentBootstrapArgs{
-			AgentConfig:               agentConfig,
-			BootstrapEnviron:          env,
-			AdminUser:                 adminTag,
-			StateInitializationParams: args,
-			BootstrapMachineAddresses: addrs,
-			BootstrapDqlite:           c.DqliteInitializer,
-			Logger:                    internallogger.GetLogger("juju.agent.bootstrap"),
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return bootstrap.Initialize(ctx)
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }
 

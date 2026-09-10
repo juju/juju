@@ -347,6 +347,8 @@ func (s *bootstrapSuite) TestControllerSpecWaitsForLocalControllerCharm(c *tc.C)
 	c.Check(startup, tc.Contains, "until test -e $JUJU_CONTROLLER_DIR/charms/controller.charm; do sleep 1; done")
 	c.Check(startup, tc.Contains, "$JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_CONTROLLER_DIR --debug --timeout 10m0s")
 	c.Check(startup, tc.Not(tc.Contains), "test -e $JUJU_CONTROLLER_DIR/agents/controller-0/agent.conf ||")
+	c.Check(startup, tc.Contains, "test -e $JUJU_CONTROLLER_DIR/system-identity")
+	c.Check(startup, tc.Not(tc.Contains), "agents/controller-")
 }
 
 func (s *bootstrapSuite) TestIsLocalControllerCharmPath(c *tc.C) {
@@ -999,7 +1001,7 @@ mkdir -p $JUJU_TOOLS_DIR
 cp /opt/jujud $JUJU_TOOLS_DIR/jujud
 cp /opt/jujuagentd $JUJU_TOOLS_DIR/jujuagentd
 
-export JUJU_BOOTSTRAP_PARAMS_PATH="$JUJU_DATA_DIR/bootstrap-params"; controller_id="${HOSTNAME##*-}"; if [ "${controller_id}" = "0" ]; then if ! test -e $JUJU_CONTROLLER_DIR/agents/controller-0/agent.conf; then mkdir -p $JUJU_CONTROLLER_DIR/charms; until test -e $JUJU_CONTROLLER_DIR/charms/controller.charm; do sleep 1; done; JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_CONTROLLER_DIR --debug --timeout 10m0s; fi; else until test -e "$JUJU_CONTROLLER_DIR/agents/controller-${controller_id}/agent.conf"; do sleep 1; done; fi
+export JUJU_BOOTSTRAP_PARAMS_PATH="$JUJU_DATA_DIR/bootstrap-params"; controller_id="${HOSTNAME##*-}"; if [ "${controller_id}" = "0" ]; then if ! test -e $JUJU_CONTROLLER_DIR/system-identity; then mkdir -p $JUJU_CONTROLLER_DIR/charms; until test -e $JUJU_CONTROLLER_DIR/charms/controller.charm; do sleep 1; done; JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_CONTROLLER_DIR --debug --timeout 10m0s; fi; else until test -e "$JUJU_CONTROLLER_DIR/runtime.conf"; do sleep 1; done; fi
 
 mkdir -p /var/lib/pebble/default/layers
 cat > /var/lib/pebble/default/layers/001-controller.yaml <<EOF
@@ -1146,17 +1148,10 @@ if [ "${controller_id}" = "0" ]; then
     if [ ! -e "/var/lib/juju/template-agent.conf" ]; then
         cp "/var/lib/juju-controller-bootstrap/controller-unit-agent.conf" "/var/lib/juju/template-agent.conf"
     fi
-    controller_agent_dir="/var/lib/juju/controller/agents/controller-0"
     machine_conf_dir="/var/lib/juju/agents/machine-0"
     controller_conf_dir="/var/lib/juju/controller"
-    mkdir -p "${controller_agent_dir}"
-    mkdir -p "/var/lib/juju/agents/controller-0"
     mkdir -p "${machine_conf_dir}"
     mkdir -p "${controller_conf_dir}"
-    if [ ! -e "${controller_agent_dir}/template-agent.conf" ]; then
-        cp "/var/lib/juju-controller-bootstrap/controller-agent.conf" "${controller_agent_dir}/template-agent.conf"
-        chmod 600 "${controller_agent_dir}/template-agent.conf"
-    fi
     if [ ! -e "${machine_conf_dir}/agent.conf" ]; then
         cp "/var/lib/juju-controller-bootstrap/controller-agent.conf" "${machine_conf_dir}/agent.conf"
         chmod 600 "${machine_conf_dir}/agent.conf"
