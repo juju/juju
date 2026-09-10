@@ -76,53 +76,6 @@ func (s *offerServiceSuite) TestOfferCreate(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestOfferCreateWithDescription tests that the application description
-// given in the offer args is passed to state when creating the offer.
-func (s *offerServiceSuite) TestOfferCreateWithDescription(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Arrange
-	applicationName := "test-application"
-	offerName := "test-offer"
-	applicationUUID := uuid.MustNewUUID().String()
-	ownerName := usertesting.GenNewName(c, "admin")
-	ownerUUID := uuid.MustNewUUID()
-
-	s.modelState.EXPECT().GetConsumeDetails(gomock.Any(), offerName).Return(crossmodelrelation.ConsumeDetails{}, crossmodelrelationerrors.OfferNotFound)
-	s.modelState.EXPECT().ValidateApplicationAndEndpointsForOffer(gomock.Any(), applicationName, []string{"db"}).
-		Return(applicationUUID, nil)
-	s.controllerState.EXPECT().GetUserUUIDByName(gomock.Any(), ownerName).Return(ownerUUID, nil)
-
-	m := createOfferArgsMatcher{c: c, expected: crossmodelrelation.CreateOfferArgs{
-		ApplicationUUID:        applicationUUID,
-		OfferName:              offerName,
-		Endpoints:              []string{"db"},
-		ApplicationDescription: "offer description",
-	}}
-	s.modelState.EXPECT().CreateOffer(gomock.Any(), m).Return(nil)
-
-	s.controllerState.EXPECT().CreateOfferAccess(
-		gomock.Any(),
-		gomock.AssignableToTypeOf(uuid.UUID{}),
-		gomock.AssignableToTypeOf(offer.UUID("")),
-		ownerUUID,
-	).Return(nil)
-
-	args := crossmodelrelation.ApplicationOfferArgs{
-		ApplicationName:        applicationName,
-		OfferName:              offerName,
-		ApplicationDescription: "offer description",
-		Endpoints:              map[string]string{"db": "db"},
-		OwnerName:              ownerName,
-	}
-
-	// Act
-	err := s.service(c).CreateOffer(c.Context(), args)
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 // TestOfferCreateAccessErr tests that Offer, when creating access for the
 // offer fails, the offer is deleted.
 func (s *offerServiceSuite) TestOfferCreateAccessErr(c *tc.C) {

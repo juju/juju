@@ -95,46 +95,6 @@ func (s *offerSuite) TestOffer(c *tc.C) {
 	c.Assert(results, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
 }
 
-// TestOfferWithDescription tests that the application description given in
-// the offer params is passed to the create offer args.
-func (s *offerSuite) TestOfferWithDescription(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Arrange
-	offerAPI := s.offerAPI(c)
-	modelTag := names.NewModelTag(offerAPI.modelUUID.String())
-	apiUserTag := names.NewUserTag("fred")
-	s.authorizer.EXPECT().GetAuthTag().Return(apiUserTag)
-	s.setupCheckAPIUserAdmin(offerAPI.controllerUUID, modelTag)
-
-	applicationName := "test-application"
-	offerName := "test-offer"
-	createOfferArgs := crossmodelrelation.ApplicationOfferArgs{
-		ApplicationName:        applicationName,
-		OfferName:              offerName,
-		ApplicationDescription: "offer description",
-		Endpoints:              map[string]string{"db": "db"},
-		OwnerName:              user.NameFromTag(apiUserTag),
-	}
-	s.crossModelRelationService.EXPECT().CreateOffer(gomock.Any(), createOfferArgs).Return(nil)
-
-	one := params.AddApplicationOffer{
-		ModelTag:               modelTag.String(),
-		OfferName:              offerName,
-		ApplicationName:        applicationName,
-		ApplicationDescription: "offer description",
-		Endpoints:              map[string]string{"db": "db"},
-	}
-	all := params.AddApplicationOffers{Offers: []params.AddApplicationOffer{one}}
-
-	// Act
-	results, err := offerAPI.Offer(c.Context(), all)
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
-}
-
 // TestOfferPermission verifies an error is returned if the caller
 // does not have permissions on the calling model.
 func (s *offerSuite) TestOfferPermission(c *tc.C) {

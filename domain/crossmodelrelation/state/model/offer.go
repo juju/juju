@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 
@@ -43,18 +42,11 @@ WHERE  uuid = $uuid.uuid
 	}
 
 	createOfferStmt, err := st.Prepare(`
-INSERT INTO offer (*) VALUES ($insertOffer.*)`, insertOffer{})
+INSERT INTO offer (*) VALUES ($nameAndUUID.*)`, nameAndUUID{})
 	if err != nil {
 		return errors.Errorf("preparing insert offer query: %w", err)
 	}
-	offer := insertOffer{
-		Name: args.OfferName,
-		UUID: args.UUID.String(),
-		Description: sql.Null[string]{
-			V:     args.ApplicationDescription,
-			Valid: args.ApplicationDescription != "",
-		},
-	}
+	offer := nameAndUUID{Name: args.OfferName, UUID: args.UUID.String()}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var life lifeID

@@ -51,18 +51,3 @@ func (s *deltasSuite) TestRelationUnitSettingDropsEmptyValues(c *tc.C) {
 		{RelationUnitUUID: "ru-uuid", Key: "set", Value: "v"},
 	})
 }
-
-// TestOfferLeavesDescriptionNil verifies that offers exported from a 4.0.12
-// model, which has no offer description column, are carried through with a
-// nil description.
-func (s *deltasSuite) TestOfferLeavesDescriptionNil(c *tc.C) {
-	src := []v4_0_12.Offer{
-		{UUID: "offer-uuid", Name: "test-offer"},
-	}
-
-	got, err := deltas{}.Offer(c.Context(), src)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(got, tc.DeepEquals, []v4_1_0.Offer{
-		{UUID: "offer-uuid", Name: "test-offer", Description: nil},
-	})
-}

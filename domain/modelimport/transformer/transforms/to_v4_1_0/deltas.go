@@ -23,20 +23,6 @@ var _ Deltas = deltas{}
 // 4.0.12 -> 4.1.0 transform.
 func NewDeltas() Deltas { return deltas{} }
 
-// Offer copies all v4_0_12 fields and leaves Description nil. Offers exported
-// from a 4.0.12 model carry no offer description; on import the offer falls
-// back to the charm metadata description.
-func (d deltas) Offer(_ context.Context, src []v4_0_12.Offer) ([]v4_1_0.Offer, error) {
-	result := make([]v4_1_0.Offer, len(src))
-	for i := range src {
-		result[i] = v4_1_0.Offer{
-			UUID: src[i].UUID,
-			Name: src[i].Name,
-		}
-	}
-	return result, nil
-}
-
 // Operation converts v4_0_12 Operation rows to v4_1_0. The operation_id
 // column changed from TEXT to INTEGER in 4.1.0; the string value is parsed
 // to int64. A non-numeric operation_id indicates data corruption (the
