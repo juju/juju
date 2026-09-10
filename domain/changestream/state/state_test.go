@@ -288,8 +288,8 @@ func (s *stateSuite) TestLowestWatermark(c *tc.C) {
 
 func (s *stateSuite) insertControllerNodes(c *tc.C, amount int) {
 	query, err := sqlair.Prepare(`
-INSERT INTO controller_node (controller_id, dqlite_node_id, dqlite_bind_address)
-VALUES ($M.ctrl_id, $M.node_id, $M.addr)
+INSERT INTO controller_node (controller_id, dqlite_node_id)
+VALUES ($M.ctrl_id, $M.node_id)
 			`, sqlair.M{})
 	c.Assert(err, tc.ErrorIsNil)
 

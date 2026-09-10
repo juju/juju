@@ -6,7 +6,9 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
+	"strconv"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -517,11 +519,22 @@ func (w *bootstrapWorker) initAPIHostPorts(ctx context.Context, controllerConfig
 	}
 
 	// During bootstrap, the controller node will always be "0".
+	generalAddresses := make(controllernode.APIAddresses, 0, len(hostPorts))
+	for _, hostPort := range hostPorts {
+		generalAddresses = append(generalAddresses, controllernode.APIAddress{
+			Address:  net.JoinHostPort(hostPort.Host(), strconv.Itoa(hostPort.Port())),
+			IsAgent:  true,
+			IsClient: true,
+			Scope:    hostPort.Scope,
+		})
+	}
 	args := controllernode.SetAPIAddressArgs{
 		MgmtSpace: mgmtSpace,
 		APIAddresses: map[string]network.SpaceHostPorts{
 			"0": hostPorts,
 		},
+		AgentAddresses:  &generalAddresses,
+		ClientAddresses: &generalAddresses,
 	}
 	return w.cfg.ControllerNodeService.SetAPIAddresses(ctx, args)
 }

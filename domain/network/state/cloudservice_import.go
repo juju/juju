@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -28,9 +29,33 @@ func (st *State) CreateK8sServices(ctx context.Context, k8sServices []internal.I
 		NetNodeUUID     string `db:"net_node_uuid"`
 		ProviderID      string `db:"provider_id"`
 	}
+	type serviceFQDNAddress struct {
+		UUID        string `db:"uuid"`
+		Address     string `db:"address"`
+		Scope       string `db:"scope"`
+		NetNodeUUID string `db:"net_node_uuid"`
+	}
 
 	insertNetNodesStmt, err := st.Prepare(`
 INSERT INTO net_node (uuid) VALUES ($service.net_node_uuid)`, service{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	insertFQDNStmt, err := st.Prepare(`
+INSERT INTO fqdn_address (uuid, address, scope_id)
+SELECT $serviceFQDNAddress.uuid,
+       $serviceFQDNAddress.address,
+       nas.id AS scope_id
+FROM   network_address_scope AS nas
+WHERE  nas.name = $serviceFQDNAddress.scope
+`, serviceFQDNAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	linkFQDNStmt, err := st.Prepare(`
+INSERT INTO net_node_fqdn_address (net_node_uuid, address_uuid)
+VALUES ($serviceFQDNAddress.net_node_uuid, $serviceFQDNAddress.uuid)
+`, serviceFQDNAddress{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -74,6 +99,24 @@ WHERE a.name = $service.application_name
 				return errors.Errorf("getting rows affected: %w", err)
 			} else if affected != 1 {
 				return errors.Errorf("inserting cloud services: expected 1 row affected, got %d", affected)
+			}
+
+			for _, address := range svc.Addresses {
+				if corenetwork.AddressType(address.Type) != corenetwork.HostName {
+					continue
+				}
+				fqdn := serviceFQDNAddress{
+					UUID:        address.UUID,
+					Address:     address.Value,
+					Scope:       address.Scope,
+					NetNodeUUID: svc.NetNodeUUID,
+				}
+				if err := tx.Query(ctx, insertFQDNStmt, fqdn).Run(); err != nil {
+					return errors.Errorf("inserting service FQDN %q: %w", address.Value, err)
+				}
+				if err := tx.Query(ctx, linkFQDNStmt, fqdn).Run(); err != nil {
+					return errors.Errorf("linking service FQDN %q: %w", address.Value, err)
+				}
 			}
 		}
 		return nil

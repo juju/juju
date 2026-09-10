@@ -1003,7 +1003,8 @@ func (k *kubernetesClient) ControllerUnitFQDN(ordinal int) string {
 }
 
 // BootstrapControllerAddresses returns the stable provider addresses for the
-// initial controller.
+// initial controller node. The headless Service FQDN resolves directly to the
+// controller pod, allowing Dqlite to bind to the pod network address.
 func (k *kubernetesClient) BootstrapControllerAddresses(
 	_ context.Context,
 ) (network.ProviderAddresses, error) {

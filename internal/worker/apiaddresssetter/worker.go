@@ -5,6 +5,8 @@ package apiaddresssetter
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"strconv"
 	"time"
 
@@ -22,6 +24,7 @@ import (
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
@@ -78,6 +81,9 @@ type NetworkService interface {
 		unitName unit.Name,
 		managementSpace *network.SpaceInfo,
 	) (network.SpaceAddresses, error)
+	// GetControllerK8sServiceAddresses returns FQDN endpoints for the normal
+	// controller Kubernetes Service.
+	GetControllerK8sServiceAddresses(ctx context.Context, unitName unit.Name) (network.SpaceAddresses, error)
 	// SpaceByName returns a space from state that matches the input name. If the
 	// space is not found, an error is returned matching
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
@@ -106,6 +112,7 @@ type Config struct {
 	ControllerNodeService   ControllerNodeService
 	NetworkService          NetworkService
 	APIPort                 int
+	ControllerName          string
 	Logger                  logger.Logger
 }
 
@@ -394,6 +401,40 @@ func (w *apiAddressSetterWorker) updateAPIAddresses(ctx context.Context) error {
 			continue
 		}
 		args.APIAddresses[controllerID] = hostPorts
+	}
+	if w.config.ControllerName != "" {
+		serviceAddress := fmt.Sprintf(
+			constants.ControllerServiceFQDNTemplate,
+			w.config.ControllerName,
+		)
+		sharedAddresses := controllernode.APIAddresses{{
+			Address:  net.JoinHostPort(serviceAddress, strconv.Itoa(w.config.APIPort)),
+			IsAgent:  true,
+			IsClient: false,
+			Scope:    network.ScopeCloudLocal,
+		}}
+		serviceFQDNs, err := w.config.NetworkService.GetControllerK8sServiceAddresses(ctx, unit.Name("controller/0"))
+		if err != nil {
+			return errors.Capture(err)
+		}
+		for _, address := range serviceFQDNs {
+			sharedAddresses = append(sharedAddresses, controllernode.APIAddress{
+				Address: net.JoinHostPort(address.Host(), strconv.Itoa(w.config.APIPort)),
+				IsAgent: true,
+				// The ClusterIP is retained as a bootstrap fallback. DNS-only
+				// Service names are internal agent endpoints.
+				IsClient: address.Scope == network.ScopePublic || address.AddressType() != network.HostName,
+				Scope:    address.Scope,
+			})
+		}
+		clientAddresses := make(controllernode.APIAddresses, 0, len(sharedAddresses))
+		for _, address := range sharedAddresses {
+			if address.IsClient {
+				clientAddresses = append(clientAddresses, address)
+			}
+		}
+		args.AgentAddresses = &sharedAddresses
+		args.ClientAddresses = &clientAddresses
 	}
 	if err := w.config.ControllerNodeService.SetAPIAddresses(ctx, args); err != nil {
 		return errors.Capture(err)

@@ -42,6 +42,7 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(
 	appUUID := s.addApplication(c, charmUUID, spaceUUID)
 	unitUUID := s.addUnit(c, appUUID, charmUUID, podNodeUUID)
 	s.addK8sService(c, svcNodeUUID, appUUID)
+	s.query(c, `UPDATE k8s_service SET provider_id = (SELECT name FROM unit WHERE uuid = ?) WHERE application_uuid = ?`, unitUUID.String(), appUUID)
 
 	// Act
 	addr, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), unitUUID)
@@ -71,6 +72,35 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(
 				ConfigType: corenetwork.ConfigDHCP,
 			},
 		},
+	})
+}
+
+func (s *unitAddressSuite) TestGetControllerK8sServiceAddressesIncludesServiceIP(c *tc.C) {
+	podNodeUUID := s.addNetNode(c)
+	podDeviceUUID := s.addLinkLayerDevice(c, podNodeUUID)
+	svcNodeUUID := s.addNetNode(c)
+	svcDeviceUUID := s.addLinkLayerDevice(c, svcNodeUUID)
+
+	spaceUUID := s.addSpace(c)
+	subnetUUID, _ := s.addsubnet(c, spaceUUID)
+	s.addKubernetesIPAddress(c, podNodeUUID, podDeviceUUID, subnetUUID, 3, 0)
+	svcAddr := s.addKubernetesIPAddress(c, svcNodeUUID, svcDeviceUUID, subnetUUID, 1, 1)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, podNodeUUID)
+	s.addK8sService(c, svcNodeUUID, appUUID)
+	s.query(c, `UPDATE k8s_service SET provider_id = (SELECT name FROM unit WHERE uuid = ?) WHERE application_uuid = ?`, unitUUID.String(), appUUID)
+	otherServiceNodeUUID := s.addNetNode(c)
+	otherServiceDeviceUUID := s.addLinkLayerDevice(c, otherServiceNodeUUID)
+	s.addKubernetesIPAddress(c, otherServiceNodeUUID, otherServiceDeviceUUID, subnetUUID, 2, 1)
+	s.addK8sService(c, otherServiceNodeUUID, appUUID)
+
+	addresses, err := s.state.GetControllerK8sServiceAddresses(c.Context(), unitUUID.String())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addresses, tc.DeepEquals, corenetwork.SpaceAddresses{
+		corenetwork.NewSpaceAddress(svcAddr, corenetwork.WithScope(corenetwork.ScopePublic)),
 	})
 }
 

@@ -1618,9 +1618,13 @@ func (s *stateSuite) seedControllerAPIAddresses(c *tc.C, addrs []sourceAPIAddres
 				}
 				seenNodes[addr.ControllerID] = true
 			}
+			table := "api_address_client_by_controller"
+			if addr.IsAgent {
+				table = "api_address_agent_by_controller"
+			}
 			if _, err := tx.ExecContext(ctx,
-				`INSERT INTO controller_api_address (controller_id, address, is_agent, scope) VALUES (?, ?, ?, ?)`,
-				addr.ControllerID, addr.Address, addr.IsAgent, addr.Scope); err != nil {
+				`INSERT INTO `+table+` (controller_id, address, scope) VALUES (?, ?, ?)`,
+				addr.ControllerID, addr.Address, addr.Scope); err != nil {
 				return err
 			}
 		}

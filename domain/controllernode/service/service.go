@@ -47,19 +47,26 @@ type State interface {
 	// controller nodes.
 	NamespaceForWatchControllerNodes() string
 
-	// NamespaceForWatchControllerAPIAddresses returns the namespace for watching
-	// controller api addresses.
-	NamespaceForWatchControllerAPIAddresses() string
+	// NamespaceForWatchAPIAddressesForAgents returns the namespace for watching
+	// general agent API addresses.
+	NamespaceForWatchAPIAddressesForAgents() string
+
+	// NamespaceForWatchAPIAddressesForClients returns the namespace for watching
+	// general client API addresses.
+	NamespaceForWatchAPIAddressesForClients() string
+
+	// NamespaceForWatchControllerNodeAPIAddresses returns the namespace for
+	// watching controller-node API addresses.
+	NamespaceForWatchControllerNodeAPIAddresses() string
 
 	// SetAPIAddresses sets the addresses for the provided controller node. It
 	// replaces any existing addresses and stores them in the
-	// api_controller_address table, with the format "host:port" as a string, as
-	// well as the is_agent flag indicating whether the address is available for
-	// agents.
+	// api_address_agent_by_controller and api_address_client_by_controller
+	// tables, with the format "host:port" as a string.
 	//
 	// The following errors can be expected: - [controllernodeerrors.NotFound]
 	// if the controller node does not exist.
-	SetAPIAddresses(ctx context.Context, addresses map[string]controllernode.APIAddresses) error
+	SetAPIAddresses(ctx context.Context, addresses map[string]controllernode.APIAddresses, general ...*controllernode.APIAddresses) error
 
 	// GetControllerIDs returns the list of controller IDs from the controller
 	// node records.
@@ -70,8 +77,16 @@ type State interface {
 	GetAPIAddressesForAgents(ctx context.Context) (map[string]controllernode.APIAddresses, error)
 
 	// GetAPIAddressesForClients returns all APIAddresses available
-	// for clients, divided by controller node.
+	// for clients, grouped by endpoint routing target.
 	GetAPIAddressesForClients(ctx context.Context) (map[string]controllernode.APIAddresses, error)
+
+	// GetControllerAPIAddressesForAgents returns controller-node-specific
+	// endpoints available to agents, divided by controller node.
+	GetControllerAPIAddressesForAgents(ctx context.Context) (map[string]controllernode.APIAddresses, error)
+
+	// GetControllerAPIAddressesForClients returns controller-node-specific
+	// endpoints available to clients, divided by controller node.
+	GetControllerAPIAddressesForClients(ctx context.Context) (map[string]controllernode.APIAddresses, error)
 
 	// GetAllCloudLocalAPIAddresses returns a string slice of api
 	// addresses available for clients. The list only contains cloud
@@ -178,7 +193,10 @@ func (s *Service) SetAPIAddresses(ctx context.Context, args controllernode.SetAP
 	for controllerID, addrs := range args.APIAddresses {
 		addresses[controllerID] = s.encodeAPIAddresses(ctx, args.MgmtSpace, addrs)
 	}
-	return s.st.SetAPIAddresses(ctx, addresses)
+	if args.AgentAddresses == nil && args.ClientAddresses == nil {
+		return s.st.SetAPIAddresses(ctx, addresses)
+	}
+	return s.st.SetAPIAddresses(ctx, addresses, args.AgentAddresses, args.ClientAddresses)
 }
 
 func (s *Service) encodeAPIAddresses(ctx context.Context, mgmtSpace *network.SpaceInfo, addrs network.SpaceHostPorts) controllernode.APIAddresses {
@@ -243,7 +261,7 @@ func (s *Service) GetAPIHostPortsForClients(ctx context.Context) ([]network.Host
 		return nil, errors.Capture(err)
 	}
 
-	return transformToOrderedHostPorts(clientAddrs)
+	return transformToBestClientHostPorts(clientAddrs)
 }
 
 func transformToOrderedHostPorts(input map[string]controllernode.APIAddresses) ([]network.HostPorts, error) {
@@ -265,12 +283,30 @@ func transformToOrderedHostPorts(input map[string]controllernode.APIAddresses) (
 	return result, nil
 }
 
+func transformToBestClientHostPorts(input map[string]controllernode.APIAddresses) ([]network.HostPorts, error) {
+	ids := mapKeyOrder(input)
+
+	var result []network.HostPorts
+	for _, id := range ids {
+		addresses := input[id].BestMatchingForScope(controllernode.ScopeMatchPublic)
+		if len(addresses) == 0 {
+			continue
+		}
+		hostPorts, err := addresses.ToHostPortsNoMachineLocal()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		result = append(result, hostPorts)
+	}
+	return result, nil
+}
+
 // GetAPIAddressesByControllerIDForAgents returns a map of controller IDs to
 // their API addresses that are available for agents. The map is keyed by
 // controller ID, and the values are slices of strings representing the API
 // addresses for each controller node.
 func (s *Service) GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error) {
-	addresses, err := s.st.GetAPIAddressesForAgents(ctx)
+	addresses, err := s.st.GetControllerAPIAddressesForAgents(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -291,7 +327,7 @@ func (s *Service) GetAPIAddressesByControllerIDForAgents(ctx context.Context) (m
 // - [controllernodeerrors.EmptyAPIAddresses] when no API addresses are found
 // for the given controller node ID.
 func (s *Service) GetAPIHostPortsForControllerIDForAgents(ctx context.Context, controllerID string) (network.HostPorts, error) {
-	addresses, err := s.st.GetAPIAddressesForAgents(ctx)
+	addresses, err := s.st.GetControllerAPIAddressesForAgents(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -375,7 +411,8 @@ func (s *Service) GetAllAPIAddressesForClients(ctx context.Context) ([]string, e
 		if len(addrs) == 0 {
 			continue
 		}
-		orderedAddrs = append(orderedAddrs, addrs.PrioritizedForScope(controllernode.ScopeMatchPublic)...)
+		best := addrs.BestMatchingForScope(controllernode.ScopeMatchPublic)
+		orderedAddrs = append(orderedAddrs, best.PrioritizedForScope(controllernode.ScopeMatchPublic)...)
 	}
 	return orderedAddrs, nil
 }
@@ -385,7 +422,7 @@ func (s *Service) GetAllAPIAddressesForClients(ctx context.Context) ([]string, e
 // controller ID, and the values are slices of strings representing the API
 // addresses for each controller node.
 func (s *Service) GetAPIAddressesByControllerIDForClients(ctx context.Context) (map[string][]string, error) {
-	addresses, err := s.st.GetAPIAddressesForClients(ctx)
+	addresses, err := s.st.GetControllerAPIAddressesForClients(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -476,7 +513,9 @@ func (s *WatchableService) WatchControllerAPIAddresses(ctx context.Context) (wat
 	return s.watcherFactory.NewNotifyWatcher(
 		ctx,
 		"controller api addresses watcher",
-		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerAPIAddresses(), changestream.All),
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchAPIAddressesForAgents(), changestream.All),
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchAPIAddressesForClients(), changestream.All),
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerNodeAPIAddresses(), changestream.All),
 	)
 }
 

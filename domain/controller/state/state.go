@@ -154,7 +154,7 @@ func (st *State) GetControllerInfo(ctx context.Context) (domaincontroller.Contro
 	var (
 		uuid                string
 		cert                string
-		controllerAddresses []controllerAPIAddress
+		controllerAddresses []apiAddress
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
@@ -215,17 +215,29 @@ func (st *State) getCACert(ctx context.Context, tx *sqlair.TX) (string, error) {
 	return cert.CACert, nil
 }
 
-func (st *State) getAllAPIAddressesForAgents(ctx context.Context, tx *sqlair.TX) ([]controllerAPIAddress, error) {
-	stmt, err := st.Prepare(`
-SELECT &controllerAPIAddress.* 
-FROM controller_api_address
-WHERE is_agent = true
-`, controllerAPIAddress{})
+func (st *State) getAllAPIAddressesForAgents(ctx context.Context, tx *sqlair.TX) ([]apiAddress, error) {
+	hasAgentAddressesStmt, err := st.Prepare(`SELECT COUNT(*) AS &countResult.count FROM api_address_agent`, countResult{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	generalAgentsStmt, err := st.Prepare(`SELECT &apiAddress.* FROM api_address_agent`, apiAddress{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	nodeAgentsStmt, err := st.Prepare(`SELECT &apiAddress.* FROM api_address_agent_by_controller`, apiAddress{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var result []controllerAPIAddress
+	var count countResult
+	if err := tx.Query(ctx, hasAgentAddressesStmt).Get(&count); err != nil {
+		return nil, errors.Capture(err)
+	}
+	stmt := nodeAgentsStmt
+	if count.Count > 0 {
+		stmt = generalAgentsStmt
+	}
+	var result []apiAddress
 	err = tx.Query(ctx, stmt).GetAll(&result)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Errorf("getting all api addresses for controller nodes: %w", err)
@@ -233,7 +245,7 @@ WHERE is_agent = true
 	return result, nil
 }
 
-func decodeAPIAddresses(addrs []controllerAPIAddress) []string {
+func decodeAPIAddresses(addrs []apiAddress) []string {
 	var result []string
 	for _, addr := range addrs {
 		if addr.Address == "" {
@@ -246,9 +258,12 @@ func decodeAPIAddresses(addrs []controllerAPIAddress) []string {
 	return result
 }
 
-// controllerAPIAddress is the database representation of a controller api
-// address with the controller id and whether it is for agents or clients.
-type controllerAPIAddress struct {
+// apiAddress is the database representation of a controller API address.
+type apiAddress struct {
 	// Address is the address of the controller node.
 	Address string `db:"address"`
+}
+
+type countResult struct {
+	Count int `db:"count"`
 }

@@ -173,13 +173,23 @@ func (d *CAASDeployer) CompleteCAASProcess(ctx context.Context) error {
 		return errors.Errorf("setting controller unit password: %w", err)
 	}
 
-	// Insert the k8s service with its addresses.
+	// The bootstrap address identifies the controller node for Dqlite. Persist
+	// the normal Kubernetes Service addresses separately so clients use the
+	// load-balanced Service rather than the controller pod endpoint.
+	svc, err := d.serviceManager.GetService(ctx, bootstrap.ControllerApplicationName, true)
+	if err != nil {
+		return errors.Errorf("getting k8s controller service: %w", err)
+	}
+	if svc == nil || len(svc.Addresses) == 0 {
+		return jujuerrors.NotProvisionedf("k8s controller service address")
+	}
+
 	d.logger.Debugf(ctx, "creating cloud service for k8s controller %q", providerID)
-	err = d.applicationService.UpdateK8sService(ctx, bootstrap.ControllerApplicationName, providerID, d.bootstrapAddresses)
+	err = d.applicationService.UpdateK8sService(ctx, bootstrap.ControllerApplicationName, providerID, svc.Addresses)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	d.logger.Debugf(ctx, "created cloud service with addresses %v for controller", d.bootstrapAddresses)
+	d.logger.Debugf(ctx, "created cloud service with addresses %v for controller", svc.Addresses)
 
 	return nil
 }
