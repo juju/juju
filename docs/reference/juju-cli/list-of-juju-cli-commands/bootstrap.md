@@ -24,12 +24,13 @@ juju bootstrap [options] [<cloud name>[/region] [<controller name>]]
 | `--clouds` | false | Print the available clouds which can be used to bootstrap a Juju environment |
 | `--config` |  | Specify a controller configuration file, or one or more configuration options. Model config keys only affect the controller model.     (`--config config.yaml [--config key=value ...])` |
 | `--constraints` | [] | Set model constraints |
-| `--controller-charm-channel` | 4.1/stable | The Charmhub channel to download the controller charm from (if not using a local charm) |
+| `--controller-charm-channel` | 4.2/stable | The Charmhub channel to download the controller charm from (if not using a local charm) |
 | `--controller-charm-path` |  | Path to a locally built controller charm |
 | `--controller-snap-assert-path` |  | Path to a snap assertion file for the controller snap |
-| `--controller-snap-channel` | 4.1/stable | The channel to install the controller snap from (store installs; not used in local-snap mode) |
+| `--controller-snap-channel` |  | The channel to install the controller snap from (store installs; not used in local-snap mode; defaults to &lt;major&gt;.&lt;minor&gt;/edge) |
 | `--controller-snap-path` |  | Path to a locally built controller snap |
 | `--controller-snap-revision` |  | Controller snap revision (store installs; not used in local-snap mode) |
+| `--controller-snap-store-url` |  | URL of the snap store the client uses to resolve the controller snap channel/revision (overrides the default) |
 | `--credential` |  | Credentials to use when bootstrapping |
 | `--force` | false | Allow the bypassing of checks such as supported base |
 | `--keep-broken` | false | Do not destroy the provisioned controller instance if bootstrap fails |

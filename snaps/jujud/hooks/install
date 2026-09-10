@@ -10,16 +10,13 @@ log "install: preparing controller-snap runtime directories"
 mkdir -p "$SNAP_COMMON/sockets"
 chmod 755 "$SNAP_COMMON/sockets"
 
-mkdir -p "$SNAP_COMMON/agents/controller-0"
-chmod 755 "$SNAP_COMMON/agents"
-
 mkdir -p "$SNAP_COMMON/logs"
 chmod 755 "$SNAP_COMMON/logs"
 
 mkdir -p "$SNAP_COMMON/.snap-init"
 chmod 755 "$SNAP_COMMON/.snap-init"
 
-mkdir -p "$SNAP_DATA/agents/controller-0"
-chmod 755 "$SNAP_DATA/agents"
+mkdir -p "$SNAP_DATA"
+chmod 755 "$SNAP_DATA"
 
 log "install: done"
