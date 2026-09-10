@@ -322,9 +322,6 @@ type connectionDialer struct {
 	// apiInfo holds the agent's API credentials, used to authenticate the
 	// upgrade request at the HTTP layer.
 	apiInfo *api.Info
-	// doRequest performs the HTTP upgrade request. When nil, a default
-	// client using the agent's API credentials is used.
-	doRequest func(ctx context.Context, address string, modelUUID string, tunnelID string) (net.Conn, error)
 }
 
 // newConnectionDialer returns a new connectionDialer.
@@ -348,13 +345,6 @@ func (d *connectionDialer) DialController(
 	modelUUID string,
 	tunnelID string,
 ) (HalfCloseConn, error) {
-	if d.doRequest != nil {
-		conn, err := d.doRequest(ctx, address, modelUUID, tunnelID)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		return asHalfCloseConn(conn)
-	}
 	return d.upgrade(ctx, address, modelUUID, tunnelID)
 }
 
