@@ -40,6 +40,7 @@ type serviceSuite struct {
 	clock            *testclock.Clock
 	controllerState  *MockControllerState
 	modelState       *MockModelState
+	leaderGetter     *MockLeaderEnsurer
 	statusHistory    *statusHistoryRecorder
 	clusterDescriber *MockClusterDescriber
 
@@ -357,6 +358,59 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoContainer
 	c.Check(obtained, tc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
+		Data:    map[string]any{"foo": "bar"},
+		Since:   &now,
+	})
+}
+
+func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsWithLeader(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.leaderGetter.EXPECT().ApplicationLeader("foo").Return("foo/1", nil)
+
+	now := time.Now()
+
+	applicationUUID := tc.Must(c, application.NewUUID)
+	s.modelState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+	s.modelState.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
+		status.StatusInfo[status.WorkloadStatusType]{
+			Status: status.WorkloadStatusUnset,
+		}, nil)
+
+	s.modelState.EXPECT().GetAllFullUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(
+		status.FullUnitStatuses{
+			"foo/0": {
+				WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusActive,
+					Message: "worker message",
+					Data:    []byte(`{"foo":"bar"}`),
+					Since:   &now,
+				},
+				AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusIdle,
+				},
+				Present: true,
+			},
+			"foo/1": {
+				WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusActive,
+					Message: "leader message",
+					Data:    []byte(`{"foo":"bar"}`),
+					Since:   &now,
+				},
+				AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusIdle,
+				},
+				Present: true,
+			},
+		},
+		nil)
+
+	obtained, err := s.modelService.GetApplicationDisplayStatus(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.DeepEquals, corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "leader message",
 		Data:    map[string]any{"foo": "bar"},
 		Since:   &now,
 	})
@@ -1591,6 +1645,8 @@ func (s *serviceSuite) TestGetApplicationAndUnitModelStatusesDeriveApplicationSt
 
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
+	s.leaderGetter.EXPECT().ApplicationLeader(gomock.Any()).Return("", nil)
+
 	s.modelState.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(
 		map[string]status.Application{
 			"foo": {
@@ -1774,6 +1830,48 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesInvalidLXDProfile(c *tc.
 
 	_, err := s.modelService.GetApplicationAndUnitStatuses(c.Context())
 	c.Assert(err, tc.ErrorMatches, `.*decoding LXD profile.*`)
+}
+
+func (s *serviceSuite) TestGetApplicationAndUnitStatusesDeriveApplicationStatusWithLeader(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.leaderGetter.EXPECT().ApplicationLeader("foo").Return("foo/1", nil)
+
+	s.modelState.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(
+		map[string]status.Application{
+			"foo": {
+				ID:   "deadbeef",
+				Life: life.Alive,
+				Status: status.StatusInfo[status.WorkloadStatusType]{
+					Status: status.WorkloadStatusUnset,
+				},
+				LXDProfile: []byte(`{}`),
+				Units: map[coreunit.Name]status.Unit{
+					"foo/0": {
+						Life: life.Alive,
+						WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+							Status:  status.WorkloadStatusActive,
+							Message: "worker message",
+						},
+						Present: true,
+					},
+					"foo/1": {
+						Life: life.Alive,
+						WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+							Status:  status.WorkloadStatusActive,
+							Message: "leader message",
+						},
+						Present: true,
+					},
+				},
+			},
+		}, nil,
+	)
+
+	statuses, err := s.modelService.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statuses["foo"].Status.Status, tc.Equals, corestatus.Active)
+	c.Check(statuses["foo"].Status.Message, tc.Equals, "leader message")
 }
 
 // TestGetMachineStatusSuccess asserts the happy path of the GetMachineStatus.
@@ -2667,12 +2765,14 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.controllerState = NewMockControllerState(ctrl)
 	s.modelState = NewMockModelState(ctrl)
+	s.leaderGetter = NewMockLeaderEnsurer(ctrl)
 	s.clusterDescriber = NewMockClusterDescriber(ctrl)
 	s.statusHistory = &statusHistoryRecorder{}
 
 	s.modelService = NewService(
 		s.modelState,
 		s.controllerState,
+		s.leaderGetter,
 		s.clusterDescriber,
 		s.statusHistory,
 		func() (StatusHistoryReader, error) {
@@ -2685,6 +2785,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	c.Cleanup(func() {
 		s.controllerState = nil
 		s.modelState = nil
+		s.leaderGetter = nil
 		s.clusterDescriber = nil
 		s.statusHistory = nil
 

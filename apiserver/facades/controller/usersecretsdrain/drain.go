@@ -46,7 +46,7 @@ func (s *SecretsDrainAPI) GetSecretBackendConfigs(ctx context.Context, arg param
 		Results: make(map[string]params.SecretBackendConfigResult, 1),
 	}
 	cfgInfo, err := s.secretBackendService.DrainBackendConfigInfo(ctx, secretbackendservice.DrainBackendConfigParams{
-		GrantedSecretsGetter: s.secretService.ListGrantedSecretsForBackend,
+		GrantedSecretsForDrainGetter: s.secretService.ListGrantedSecretsForDrain,
 		Accessor: secret.SecretAccessor{
 			Kind: secret.ModelAccessor,
 			ID:   s.modelUUID.String(),
