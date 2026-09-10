@@ -80,12 +80,16 @@ func (s *controllerConfigSuite) TestControllerConfigFetchError(c *gc.C) {
 }
 
 func (s *controllerConfigSuite) expectStateControllerInfo(c *gc.C) {
+	s.expectStateControllerInfoWithConfig(c, map[string]interface{}{
+		controller.CACertKey: testing.CACert,
+	})
+}
+
+func (s *controllerConfigSuite) expectStateControllerInfoWithConfig(c *gc.C, config map[string]interface{}) {
 	s.st.EXPECT().APIHostPortsForAgents().Return([]network.SpaceHostPorts{
 		network.NewSpaceHostPorts(17070, "192.168.1.1"),
 	}, nil)
-	s.st.EXPECT().ControllerConfig().Return(map[string]interface{}{
-		controller.CACertKey: testing.CACert,
-	}, nil)
+	s.st.EXPECT().ControllerConfig().Return(config, nil)
 }
 
 func (s *controllerConfigSuite) TestControllerInfo(c *gc.C) {
@@ -99,6 +103,24 @@ func (s *controllerConfigSuite) TestControllerInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Addresses, gc.DeepEquals, []string{"192.168.1.1:17070"})
+	c.Assert(results.Results[0].CACert, gc.Equals, testing.CACert)
+}
+
+func (s *controllerConfigSuite) TestControllerInfoWithPublicDNSAddress(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.st.EXPECT().ModelExists(testing.ModelTag.Id()).Return(true, nil)
+	s.expectStateControllerInfoWithConfig(c, map[string]interface{}{
+		controller.CACertKey:        testing.CACert,
+		controller.PublicDNSAddress: "my-ingress.example.com:17070",
+	})
+
+	results, err := s.cc.ControllerAPIInfoForModels(params.Entities{
+		Entities: []params.Entity{{Tag: testing.ModelTag.String()}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Addresses, gc.DeepEquals, []string{
+		"my-ingress.example.com:17070", "192.168.1.1:17070"})
 	c.Assert(results.Results[0].CACert, gc.Equals, testing.CACert)
 }
 
