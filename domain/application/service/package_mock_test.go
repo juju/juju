@@ -504,7 +504,7 @@ type MockStateMockRecorder struct {
 	unsetApplicationConfigKeysExpects                         []*gomock.Call3_1[context.Context, application.UUID, []string, error]
 	unsetExposeSettingsExpects                                []*gomock.Call3_1[context.Context, application.UUID, set.Strings, error]
 	updateApplicationConfigAndSettingsExpects                 []*gomock.Call4_1[context.Context, application.UUID, map[string]application0.AddApplicationConfig, application0.UpdateApplicationSettingsArg, error]
-	updateApplicationScaleExpects                             []*gomock.Call3_2[context.Context, application.UUID, int, int, error]
+	updateApplicationScaleExpects                             []*gomock.Call4_2[context.Context, application.UUID, int, int, int, error]
 	updateCAASUnitExpects                                     []*gomock.Call3_1[context.Context, unit.Name, application0.UpdateCAASUnitParams, error]
 	updateUnitCharmExpects                                    []*gomock.Call2_1[context.Context, internal.UpdateUnitCharmArg, error]
 	upsertK8sServiceExpects                                   []*gomock.Call4_1[context.Context, string, string, network.ProviderAddresses, error]
@@ -3030,22 +3030,22 @@ func (mr *MockStateMockRecorder) UpdateApplicationConfigAndSettings(ctx, appUUID
 type MockStateUpdateApplicationConfigAndSettingsCall = gomock.Call4_1[context.Context, application.UUID, map[string]application0.AddApplicationConfig, application0.UpdateApplicationSettingsArg, error]
 
 // UpdateApplicationScale mocks base method.
-func (m *MockState) UpdateApplicationScale(ctx context.Context, appUUID application.UUID, delta int) (int, error) {
+func (m *MockState) UpdateApplicationScale(ctx context.Context, appUUID application.UUID, currentScale, delta int) (int, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.updateApplicationScaleExpects, m.ctrl, m, "UpdateApplicationScale", ctx, appUUID, delta)
+	return gomock.Dispatch4_2(&m.recorder.updateApplicationScaleExpects, m.ctrl, m, "UpdateApplicationScale", ctx, appUUID, currentScale, delta)
 }
 
 // UpdateApplicationScale indicates an expected call of UpdateApplicationScale.
-func (mr *MockStateMockRecorder) UpdateApplicationScale(ctx, appUUID, delta any) *MockStateUpdateApplicationScaleCall {
+func (mr *MockStateMockRecorder) UpdateApplicationScale(ctx, appUUID, currentScale, delta any) *MockStateUpdateApplicationScaleCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[context.Context, application.UUID, int, int, error](mr.mock.ctrl.T, mr.mock, "UpdateApplicationScale", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appUUID), gomock.EnsureMatcher(delta))
+	call := gomock.NewCall4_2[context.Context, application.UUID, int, int, int, error](mr.mock.ctrl.T, mr.mock, "UpdateApplicationScale", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appUUID), gomock.EnsureMatcher(currentScale), gomock.EnsureMatcher(delta))
 	mr.updateApplicationScaleExpects = append(mr.updateApplicationScaleExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateUpdateApplicationScaleCall is the typed call wrapper for UpdateApplicationScale.
-type MockStateUpdateApplicationScaleCall = gomock.Call3_2[context.Context, application.UUID, int, int, error]
+type MockStateUpdateApplicationScaleCall = gomock.Call4_2[context.Context, application.UUID, int, int, int, error]
 
 // UpdateCAASUnit mocks base method.
 func (m *MockState) UpdateCAASUnit(arg0 context.Context, arg1 unit.Name, arg2 application0.UpdateCAASUnitParams) error {

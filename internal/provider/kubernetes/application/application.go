@@ -231,6 +231,13 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	if err != nil {
 		return errors.Annotate(err, "generating application podspec")
 	}
+	podTemplateAnnotations := a.annotations(config)
+	// The controller StatefulSet is created during bootstrap before the
+	// application UUID is available. Do not add it during reconciliation: doing
+	// so changes the pod template and rolls the only controller pod.
+	if config.Controller {
+		podTemplateAnnotations.Remove(utils.AnnotationKeyApplicationUUID(a.labelVersion))
+	}
 	var handleVolume handleVolumeFunc = func(
 		v corev1.Volume,
 		attachParams jujustorage.KubernetesFilesystemAttachmentParams,
@@ -378,7 +385,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Template: corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels:      a.selectorLabels(),
-						Annotations: a.annotations(config),
+						Annotations: podTemplateAnnotations,
 					},
 					Spec: *podSpec,
 				},
@@ -428,7 +435,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Template: corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels:      a.selectorLabels(),
-						Annotations: a.annotations(config),
+						Annotations: podTemplateAnnotations,
 					},
 					Spec: *podSpec,
 				},
@@ -462,7 +469,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Template: corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels:      a.selectorLabels(),
-						Annotations: a.annotations(config),
+						Annotations: podTemplateAnnotations,
 					},
 					Spec: *podSpec,
 				},
@@ -593,13 +600,7 @@ func (a *app) applyServiceAccountAndSecrets(applier resources.Applier, config ca
 			Labels:      a.labels(),
 			Annotations: a.annotations(config),
 		},
-		Data: map[string][]byte{
-			"JUJU_K8S_APPLICATION":          []byte(a.name),
-			"JUJU_K8S_MODEL":                []byte(a.modelUUID),
-			"JUJU_K8S_APPLICATION_PASSWORD": []byte(config.IntroductionSecret),
-			"JUJU_K8S_CONTROLLER_ADDRESSES": []byte(config.ControllerAddresses),
-			"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(config.ControllerCertBundle),
-		},
+		Data: ApplicationConfigSecretData(a.name, a.modelUUID, config),
 	}
 	secret := resources.NewSecret(a.client.CoreV1().Secrets(a.namespace), a.namespace, a.secretName(), sec)
 	applier.Apply(secret)
@@ -683,6 +684,22 @@ func (a *app) applyServiceAccountAndSecrets(applier resources.Applier, config ca
 	applier.Apply(clusterRoleBinding)
 
 	return a.applyImagePullSecrets(applier, config)
+}
+
+// ApplicationConfigSecretData returns the data common to every application
+// configuration Secret. Bootstrap uses this for the controller application so
+// its Secret has the same contract as subsequent reconciliation.
+func ApplicationConfigSecretData(
+	applicationName, modelUUID string,
+	config caas.ApplicationConfig,
+) map[string][]byte {
+	return map[string][]byte{
+		"JUJU_K8S_APPLICATION":          []byte(applicationName),
+		"JUJU_K8S_MODEL":                []byte(modelUUID),
+		"JUJU_K8S_APPLICATION_PASSWORD": []byte(config.IntroductionSecret),
+		"JUJU_K8S_CONTROLLER_ADDRESSES": []byte(config.ControllerAddresses),
+		"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(config.ControllerCertBundle),
+	}
 }
 
 // Upgrade upgrades the app to the specified version.

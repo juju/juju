@@ -909,8 +909,10 @@ WHERE  application_uuid = $applicationScale.application_uuid
 // UpdateApplicationScale updates the desired scale of an application by a
 // delta.
 // If the resulting scale is less than zero, an error satisfying
-// [applicationerrors.ScaleChangeInvalid] is returned.
-func (st *State) UpdateApplicationScale(ctx context.Context, appUUID coreapplication.UUID, delta int) (int, error) {
+// [applicationerrors.ScaleChangeInvalid] is returned. If the current scale
+// differs from expectedScale, [applicationerrors.ScalingStateInconsistent] is
+// returned.
+func (st *State) UpdateApplicationScale(ctx context.Context, appUUID coreapplication.UUID, expectedScale, delta int) (int, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return -1, errors.Capture(err)
@@ -930,6 +932,9 @@ WHERE  application_uuid = $applicationScale.application_uuid
 		currentScaleState, err := st.getApplicationScaleState(ctx, tx, appUUID.String())
 		if err != nil {
 			return errors.Capture(err)
+		}
+		if currentScaleState.Scale != expectedScale {
+			return applicationerrors.ScalingStateInconsistent
 		}
 
 		newScale = currentScaleState.Scale + delta
