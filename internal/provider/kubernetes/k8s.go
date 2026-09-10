@@ -1002,26 +1002,16 @@ func (k *kubernetesClient) ControllerUnitFQDN(ordinal int) string {
 	return utils.ControllerPodFQDN(podName, k.namespace)
 }
 
-// BootstrapControllerAddresses returns the normal controller Service addresses
-// for the initial controller. The headless Service FQDN identifies an
-// individual controller pod and must not be persisted as a general controller
-// endpoint.
+// BootstrapControllerAddresses returns the stable provider addresses for the
+// initial controller node. The headless Service FQDN resolves directly to the
+// controller pod, allowing Dqlite to bind to the pod network address.
 func (k *kubernetesClient) BootstrapControllerAddresses(
-	ctx context.Context,
+	_ context.Context,
 ) (network.ProviderAddresses, error) {
-	if k.namespace == "" {
-		return nil, errNoNamespace
-	}
-
-	svc, err := k.client().CoreV1().Services(k.namespace).Get(
-		ctx,
-		getBootstrapResourceName(constants.JujuControllerStackName, "service"),
-		v1.GetOptions{},
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return utils.GetSvcAddresses(svc, true), nil
+	return network.NewMachineAddresses(
+		[]string{k.ControllerUnitFQDN(0)},
+		network.WithScope(network.ScopeCloudLocal),
+	).AsProviderAddresses(), nil
 }
 
 // ListPods filters a list of pods for the provided namespace and labels.
