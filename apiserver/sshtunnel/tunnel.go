@@ -205,8 +205,7 @@ func dyingFromContext(ctx context.Context) <-chan struct{} {
 	if ch, ok := ctx.Value(DyingKey{}).(<-chan struct{}); ok {
 		return ch
 	}
-	// Should not happen: the apiserver always provides the dying signal.
-	done := make(chan struct{})
-	close(done)
-	return done
+	// No dying signal in context: return nil so select blocks
+	// forever, letting the tunnel run until done closes.
+	return nil
 }

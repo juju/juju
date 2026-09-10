@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,7 +38,7 @@ const (
 // The returned connection is the caller's responsibility; the HTTP server
 // no longer tracks it.
 func hijack(w http.ResponseWriter, r *http.Request, token string) (net.Conn, error) {
-	if r.Header.Get("Connection") != "Upgrade" || r.Header.Get("Upgrade") != token {
+	if !strings.EqualFold(r.Header.Get("Connection"), "Upgrade") || r.Header.Get("Upgrade") != token {
 		http.Error(w, "invalid upgrade request", http.StatusBadRequest)
 		return nil, errors.Errorf("expected Upgrade: %s", token)
 	}
