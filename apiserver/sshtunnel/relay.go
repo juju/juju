@@ -5,7 +5,6 @@ package sshtunnel
 
 import (
 	"net/http"
-	"sync/atomic"
 
 	"github.com/lestrrat-go/jwx/v3/jwt"
 	ssh "github.com/tailscale/gliderssh"
@@ -26,10 +25,6 @@ import (
 // JIMM - terminates in the embedded SSH server built here.
 type RelayHandler struct {
 	config RelayHandlerConfig
-
-	// concurrentConnections holds the number of concurrent relayed
-	// sessions.
-	concurrentConnections atomic.Int32
 }
 
 // RelayHandlerConfig holds the configuration for the JIMM relay endpoint.
@@ -42,9 +37,6 @@ type RelayHandlerConfig struct {
 	// Resolver resolves per-destination proxy handlers and terminating host
 	// keys in one call.
 	Resolver sshproxy.Resolver
-	// MaxConcurrentConnections is the maximum number of concurrent relayed
-	// sessions.
-	MaxConcurrentConnections int
 	// Metrics collects connection metrics.
 	Metrics MetricsCollector
 }
@@ -59,9 +51,6 @@ func (cfg RelayHandlerConfig) Validate() error {
 	}
 	if cfg.Resolver == nil {
 		return errors.New("nil Resolver")
-	}
-	if cfg.MaxConcurrentConnections <= 0 {
-		return errors.New("non-positive MaxConcurrentConnections")
 	}
 	if cfg.Metrics == nil {
 		return errors.New("nil Metrics")
@@ -105,19 +94,8 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Enforce the connection limit before upgrading. Rejected requests
-	// are not counted as connections.
-	current := h.concurrentConnections.Add(1)
-	if int(current) > h.config.MaxConcurrentConnections {
-		h.concurrentConnections.Add(-1)
-		http.Error(w, "too many connections", http.StatusServiceUnavailable)
-		return
-	}
 	h.config.Metrics.IncConnectionCount()
-	defer func() {
-		h.concurrentConnections.Add(-1)
-		h.config.Metrics.DecConnectionCount()
-	}()
+	defer h.config.Metrics.DecConnectionCount()
 
 	// Resolve the destination's proxy handlers and terminating host key
 	// before upgrading, so failures reach JIMM as HTTP errors.
