@@ -206,11 +206,10 @@ func (s *Service) CreateOffer(
 
 	// The offer does not exist, create it.
 	err = s.modelState.CreateOffer(ctx, crossmodelrelation.CreateOfferArgs{
-		UUID:                   offerUUID,
-		ApplicationUUID:        applicationUUID,
-		Endpoints:              endpoints,
-		OfferName:              args.OfferName,
-		ApplicationDescription: args.ApplicationDescription,
+		UUID:            offerUUID,
+		ApplicationUUID: applicationUUID,
+		Endpoints:       endpoints,
+		OfferName:       args.OfferName,
 	})
 	if err != nil {
 		return errors.Errorf("creating offer: %w", err)
