@@ -259,7 +259,7 @@ func ensureModelOperator(
 	volumeMounts := []core.VolumeMount{
 		{
 			Name:      configMap.Name,
-			MountPath: filepath.Join(agent.Dir(agentPath, modelTag), constants.TemplateFileNameAgentConf),
+			MountPath: filepath.Join(agent.Dir(paths.DataDir(paths.OSUnixLike), modelTag), constants.TemplateFileNameAgentConf),
 			SubPath:   constants.TemplateFileNameAgentConf,
 		},
 	}

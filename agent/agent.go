@@ -880,6 +880,15 @@ func (c *configInternal) DataDir() string {
 	return c.paths.DataDir
 }
 
+// SetDataDir overrides the data directory. It is used in CAAS to relocate the
+// controller agent's home to a controller-specific subdirectory while keeping
+// the controller identity and state-serving info intact.
+func (c *configInternal) SetDataDir(dir string) {
+	c.paths.DataDir = dir
+	c.paths.ConfDir = filepath.Join(dir, "agents")
+	c.configFilePath = ConfigPath(dir, c.tag)
+}
+
 func (c *configInternal) TransientDataDir() string {
 	return c.paths.TransientDataDir
 }
