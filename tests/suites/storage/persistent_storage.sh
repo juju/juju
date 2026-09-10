@@ -125,6 +125,79 @@ run_persistent_storage() {
 	destroy_model "persistent_storage"
 }
 
+# This function tests charm deployment with a single model-scoped volume-less
+# filesystem storage unit (e.g. lxd pool) and asserts that on application removal,
+# the storage is classified as detachable rather than removed (issue #23214).
+#  Steps taken in the test:
+#       - Deploy dummy-storage charm with a single filesystem storage unit (lxd pool).
+#       - Check charm status once the deployment is done.
+#           > Application status should be active.
+#       - Check charm storage unit once the deployment is done.
+#           > Total number of storage units should be 1.
+#           > Name of storage unit should be single-fs/0.
+#           > Properties of storage unit should be as defined (filesystem, lxd pool).
+#       - Check dry-run removal message:
+#           > Dry-run remove-unit should report "will detach storage".
+#       - Remove application:
+#           > Output should contain "will detach storage".
+#       - Verify filesystem storage remains detached after application removal.
+#       - Remove the detached storage and clean up.
+run_lxd_filesystem_storage() {
+	echo
+
+	model_name="lxd-filesystem-storage"
+	file="${TEST_DIR}/test-${model_name}.log"
+	ensure "${model_name}" "${file}"
+
+	echo "dummy-storage is going to be deployed with 1 lxd filesystem storage unit"
+	juju deploy -m "${model_name}" juju-qa-dummy-storage dummy-storage \
+		--storage single-fs=lxd
+	echo "Checking current status of app dummy-storage."
+	wait_for "dummy-storage" "$(active_condition "dummy-storage" 0)"
+	wait_for "active" "$(workload_status "dummy-storage" 0).current"
+
+	echo "Checking total number of storage unit(s)."
+	assert_storage 1 "select(.storage) | .storage | keys | length"
+	echo "Checking names of storage unit(s)."
+	assert_storage 1 ".storage | keys | map(select(test(\"^single-fs/\"))) | length"
+	FS_ID=$(juju storage --format json | yq -r '.storage | keys | map(select(test("^single-fs/"))) | .[]')
+	assert_storage "${FS_ID}" '.storage | keys | .[] | select(test("^single-fs/"))'
+	echo "Check name and total number of storage unit: PASSED."
+
+	#
+	# check type and pool of single filesystem storage unit
+	#
+	assert_storage "filesystem" ".storage[\"${FS_ID}\"][\"kind\"]"
+	assert_storage "lxd" ".storage[\"${FS_ID}\"][\"pool\"]"
+	assert_storage "attached" '.filesystems."0".status.current'
+	echo "Check properties of single filesystem storage unit: PASSED."
+
+	# check dry-run remove-unit message reports detachment
+	echo "Checking remove-unit dry-run reports detachment of model-scoped filesystem storage"
+	dry_run_msg=$(juju remove-unit --dry-run dummy-storage/0 2>&1)
+	echo "${dry_run_msg}" | grep -cE "will detach storage ${FS_ID}" | check 1
+
+	# assert charm removal message for model-scoped filesystem storage:
+	# it should detach rather than remove because it is model-scoped
+	echo "Remove application, check that model-scoped filesystem storage is detached"
+	removal_msg=$(juju remove-application --no-prompt dummy-storage 2>&1)
+	echo "${removal_msg}" | grep -cE "will detach storage ${FS_ID}" | check 1
+
+	# wait until application is removed
+	wait_for "{}" ".applications"
+
+	# The detached model-scoped filesystem should still exist after remove-application
+	assert_storage true ".storage | has(\"${FS_ID}\")"
+	assert_storage "detached" '.filesystems."0".status.current'
+	echo "Check status of detached filesystem storage ${FS_ID} after remove-application: PASSED"
+
+	# Clean up the detached storage
+	juju remove-storage "${FS_ID}"
+	wait_for "{}" ".storage"
+
+	destroy_model "${model_name}"
+}
+
 test_persistent_storage() {
 	if [ "$(skip 'test_persistent_storage')" ]; then
 		echo "==> TEST SKIPPED: persistent storage tests"
@@ -137,5 +210,9 @@ test_persistent_storage() {
 		cd .. || exit
 
 		run "run_persistent_storage"
+
+		if [ "${BOOTSTRAP_PROVIDER:-}" == "lxd" ]; then
+			run "run_lxd_filesystem_storage"
+		fi
 	)
 }

@@ -12,6 +12,7 @@ import (
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
+	"github.com/juju/juju/domain/storage/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -174,4 +175,90 @@ WHERE storage_instance_uuid = $storageInstanceUUID.uuid
 		rval = append(rval, domainstorage.StorageAttachmentUUID(dbVal.UUID))
 	}
 	return rval, nil
+}
+
+// GetStorageClassificationForUnits returns the storage instances attached to
+// the input units,keyed by unit UUID,along with the minimal information
+// needed to classify each instance as destroyed or detached when its unit
+// is removed. Units with no attached storage are absent from the returned map.
+//
+// This method deliberately does not verify that the input units exist. The
+// caller is expected to have resolved the units first,so units that vanish
+// mid-flight simply contribute no entries.
+
+func (s *State) GetStorageClassificationForUnits(
+	ctx context.Context, unitUUIDs []string,
+) (map[string][]internal.StorageInstanceClassification, error) {
+	if len(unitUUIDs) == 0 {
+		return map[string][]internal.StorageInstanceClassification{}, nil
+	}
+
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+-- Storage instance detachability on unit removal is governed by ownership
+-- scope (model vs machine), derived from the backing volume's and/or
+-- filesystem's provision scope. We read both provision scopes rather than
+-- storage_volume.persistent because persistent is only populated later at
+-- provisioning time (and never for storage_filesystem).
+WITH unit_storage AS (
+    SELECT    sa.unit_uuid          AS unit_uuid,
+              si.uuid               AS storage_uuid,
+              si.storage_id         AS storage_id,
+              sf.provision_scope_id AS filesystem_provision_scope_id,
+              sv.provision_scope_id AS volume_provision_scope_id
+    FROM      storage_attachment AS sa
+    JOIN      storage_instance AS si ON si.uuid = sa.storage_instance_uuid
+    LEFT JOIN storage_instance_filesystem AS sif ON sif.storage_instance_uuid = si.uuid
+    LEFT JOIN storage_filesystem AS sf ON sf.uuid = sif.storage_filesystem_uuid
+    LEFT JOIN storage_instance_volume AS siv ON siv.storage_instance_uuid = si.uuid
+    LEFT JOIN storage_volume AS sv ON sv.uuid = siv.storage_volume_uuid
+    WHERE     sa.unit_uuid IN ($uuids[:])
+)
+SELECT   &storageClassification.*
+FROM     unit_storage
+ORDER BY unit_uuid, storage_uuid
+`, uuids{}, storageClassification{})
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing storage classification query: %w", err,
+		)
+	}
+
+	var dbVals []storageClassification
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		dbVals = nil // reset the accumulator at the top of the closure.
+		err = tx.Query(ctx, stmt, uuids(unitUUIDs)).GetAll(&dbVals)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting storage classification: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ret := make(map[string][]internal.StorageInstanceClassification, len(dbVals))
+	for _, v := range dbVals {
+		var fsScope, volScope *domainstorage.ProvisionScope
+		if v.FilesystemProvisionScopeID.Valid {
+			scope := domainstorage.ProvisionScope(v.FilesystemProvisionScopeID.V)
+			fsScope = &scope
+		}
+		if v.VolumeProvisionScopeID.Valid {
+			scope := domainstorage.ProvisionScope(v.VolumeProvisionScopeID.V)
+			volScope = &scope
+		}
+		instance := internal.StorageInstanceClassification{
+			FilesystemProvisionScope: fsScope,
+			StorageID:                v.StorageID,
+			StorageUUID:              v.StorageUUID,
+			VolumeProvisionScope:     volScope,
+		}
+		ret[v.UnitUUID] = append(ret[v.UnitUUID], instance)
+	}
+	return ret, nil
 }

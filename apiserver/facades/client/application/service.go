@@ -436,6 +436,14 @@ type StorageService interface {
 	// the supplied names. Unknown names are omitted.
 	GetStoragePoolUUIDsByName(ctx context.Context, names []string) (map[string]domainstorage.StoragePoolUUID, error)
 
+	// GetStorageClassificationForUnits returns,keyed by unit UUID,the
+	// storage instances attached to the input units,along with the minimal
+	// information needed to classify each as destroyed or detached when its
+	// unit is removed.
+	GetStorageClassificationForUnits(
+		ctx context.Context, unitUUIDs []unit.UUID,
+	) (map[unit.UUID][]domainstorage.StorageInstanceClassification, error)
+
 	// GetStorageInstanceUUIDForID returns the StorageInstanceUUID for the given
 	// storage ID.
 	GetStorageInstanceUUIDForID(context.Context, string) (domainstorage.StorageInstanceUUID, error)

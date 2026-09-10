@@ -74,6 +74,25 @@ type StorageInstanceInfo struct {
 	VolumeStatus *StorageInstanceVolumeStatus
 }
 
+// StorageInstanceClassification describes the minimal information about a
+// StorageInstance needed to classify it as destroyed or detached when the
+// units it is attached to are removed. It is intentionally free of the
+// heavier [StorageInstanceInfo] fields, as the classifier only consumes the
+// identifier, detachability, and UUID.
+type StorageInstanceClassification struct {
+	// Detachable is true when the storage instance is model-scoped (its
+	// backing volume or volume-less filesystem has model provision scope),
+	// meaning its life cycle outlives the unit it is attached to and it
+	// will be detached rather than destroyed when the unit is removed.
+	Detachable bool
+
+	// ID is the storage identifier given to the StorageInstance.
+	ID string
+
+	// UUID is the unique identifier given to the StorageInstance.
+	UUID StorageInstanceUUID
+}
+
 // StorageInstanceMachineAttachment describes an attachment of a StorageInstance
 // onto a Machine in the model. StorageInstances are not directly attached to
 // machines. It is via their realised composition of Volumes and Filesystems
