@@ -69,7 +69,7 @@ parts:
   juju:
     # TODO(hpidcock): move to upstream go plugin when it has the features we need.
     plugin: juju-go
-    go-channel: 1.25/stable
+    go-channel: 1.26/stable
     # The source can be your local tree or github
     # source: https://github.com/juju/juju.git
     # If you pull a remote, set source-depth to 1 to make the fetch shorter
@@ -77,7 +77,7 @@ parts:
     # source: file:///full/file/path
     # By default, reuse existing tree
     source: .
-    # TODO(wallyworld) - uncomment source-type once LP:1860526 is fixed. 
+    # TODO(wallyworld) - uncomment source-type once LP:1860526 is fixed.
     #source-type: git
     # You can grab a specific tag, commit, or branch
     # source-tag: juju-2.0.2

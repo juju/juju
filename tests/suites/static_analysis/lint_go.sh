@@ -1,12 +1,11 @@
 run_go() {
 	VER=$(golangci-lint --version | tr -s ' ' | cut -d ' ' -f 4 | cut -d '.' -f 1,2)
-	if [[ ${VER} != "2.6" ]] && [[ ${VER} != "v2.6" ]]; then
-		(echo >&2 -e "\nError: golangci-lint version ${VER} does not match 2.6. Please upgrade/downgrade to the right version.")
+	if [[ ${VER} != "2.11" ]]; then
+		(echo >&2 -e "\nError: golangci-lint version ${VER} does not match 2.11+. Please upgrade/downgrade to the right version.")
 		exit 1
 	fi
-	OUT=$(golangci-lint run -c .github/golangci-lint.config.yaml 2>&1)
-	chk=$(echo "${OUT}" | grep -E "^0 issues" || true)
-	if [[ -z ${chk} ]]; then
+	OUT=$(golangci-lint run -c .golangci.yml 2>&1 | sed '/0 issues./d')
+	if [[ -n ${OUT} ]]; then
 		(echo >&2 "\\nError: linter has issues:\\n\\n${OUT}")
 		exit 1
 	fi
@@ -50,14 +49,16 @@ run_govulncheck() {
 		"GO-2025-3798"
 		# LXD daemon vulnerability not client
 		# https://pkg.go.dev/vuln/GO-2026-4595
+		# https://pkg.go.dev/vuln/GO-2026-5306
 		"GO-2026-4595"
+		"GO-2026-5306"
 	)
 	ignoreMatcher=$(join "|" "${ignore[@]}")
 
 	echo "Ignoring vulnerabilities: ${ignoreMatcher}"
 
 	allVulns=$(govulncheck -format openvex "github.com/juju/juju/...")
-	filteredVulns=$(echo ${allVulns} | jq -r '.statements[] | select(.status == "affected") | .vulnerability.name' | grep -vE "${ignoreMatcher}")
+	filteredVulns=$(echo ${allVulns} | yq -r '.statements[] | select(.status == "affected") | .vulnerability.name' | grep -vE "${ignoreMatcher}")
 
 	if [[ -n ${filteredVulns} ]]; then
 		(echo >&2 -e "\\nError: govulncheck has issues:\\n\\n${filteredVulns}")
