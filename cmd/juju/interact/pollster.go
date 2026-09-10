@@ -152,9 +152,21 @@ func (p *Pollster) Enter(valueName string) (string, error) {
 // EnterPassword works like Enter except that if the pollster's input wraps a
 // terminal, the user's input will be read without local echo.
 func (p *Pollster) EnterPassword(valueName string) (string, error) {
+	return p.EnterPasswordWithSuffix(valueName, "")
+}
+
+// EnterPasswordWithSuffix works like Enter except that if the pollster's input wraps a
+// terminal, the user's input will be read without local echo.
+func (p *Pollster) EnterPasswordWithSuffix(valueName string, suffix string) (string, error) {
+	var display string
+	if suffix != "" {
+		display = "Enter " + valueName + " " + suffix + ": "
+	} else {
+		display = "Enter " + valueName + ": "
+	}
 	if f, ok := p.in.(*os.File); ok && terminal.IsTerminal(int(f.Fd())) {
 		defer fmt.Fprint(p.out, "\n\n")
-		if _, err := fmt.Fprintf(p.out, "Enter %s: ", valueName); err != nil {
+		if _, err := fmt.Fprint(p.out, display); err != nil {
 			return "", errors.Trace(err)
 		}
 		value, err := terminal.ReadPassword(int(f.Fd()))
@@ -190,8 +202,14 @@ func (p *Pollster) EnterVerify(valueName string, verify VerifyFunc) (string, err
 
 // EnterOptional requests that the user enter a value.  It accepts any value,
 // even an empty string.
+func (p *Pollster) EnterWithSuffix(valueName string, suffix string) (string, error) {
+	return QueryVerify("Enter "+valueName+" "+suffix+": ", p.scanner, p.out, p.errOut, nil)
+}
+
+// EnterOptional requests that the user enter a value.  It accepts any value,
+// even an empty string.
 func (p *Pollster) EnterOptional(valueName string) (string, error) {
-	return QueryVerify("Enter "+valueName+" (optional): ", p.scanner, p.out, p.errOut, nil)
+	return p.EnterWithSuffix(valueName, "(optional)")
 }
 
 // EnterVerifyDefault requests that the user enter a value.  Values failing to
@@ -260,7 +278,7 @@ func VerifyOptions(singular string, options []string, hasDefault bool) VerifyFun
 			return hasDefault, "", nil
 		}
 		for _, opt := range options {
-			if strings.ToLower(opt) == strings.ToLower(s) {
+			if strings.EqualFold(opt, s) {
 				return true, "", nil
 			}
 		}
@@ -390,7 +408,7 @@ func (p *Pollster) queryProp(prop *jsonschema.Schema) (interface{}, error) {
 
 func (p *Pollster) queryAdditionalProps(vals map[string]interface{}, schema *jsonschema.Schema) error {
 	if schema.AdditionalProperties.Type[0] != jsonschema.ObjectType {
-		return errors.Errorf("don't know how to query for additional properties of type %q", schema.AdditionalProperties.Type[0])
+		return errors.Errorf("don't know how to query for additional properties of type %d", schema.AdditionalProperties.Type[0])
 	}
 
 	verifyName := func(s string) (ok bool, errmsg string, err error) {
@@ -671,7 +689,7 @@ func convert(s string, t jsonschema.Type) (interface{}, error) {
 			return nil, errors.Errorf("unknown value for boolean type: %q", s)
 		}
 	default:
-		return nil, errors.Errorf("don't know how to convert value %q of type %q", s, t)
+		return nil, errors.Errorf("don't know how to convert value %q of type %d", s, t)
 	}
 }
 
