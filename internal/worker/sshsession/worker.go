@@ -366,7 +366,30 @@ func (d *connectionDialer) DialController(
 	}
 	go gossh.DiscardRequests(reqs)
 
-	return sshconn.NewChannelConn(ch), nil
+	// The returned connection only exposes the tunnel channel, but the
+	// underlying SSH client (and its TCP connection to the controller) must
+	// be closed together with the channel. Otherwise the controller-side
+	// connection is left open forever once the tunnel is torn down.
+	return &tunnelConn{
+		ChanConn: *sshconn.NewChannelConn(ch),
+		client:   client,
+	}, nil
+}
+
+// tunnelConn couples the tunnel channel to the SSH client that carries it.
+// Closing the connection closes the whole SSH client, which tears down the
+// channel, the SSH transport and the underlying TCP connection to the
+// controller.
+type tunnelConn struct {
+	sshconn.ChanConn
+
+	client *gossh.Client
+}
+
+// Close closes the SSH client owning the tunnel channel, tearing down the
+// channel, the SSH transport and the TCP connection to the controller.
+func (c *tunnelConn) Close() error {
+	return c.client.Close()
 }
 
 // DialLocalSSHD performs a standard TCP dial to the sshd running on the
