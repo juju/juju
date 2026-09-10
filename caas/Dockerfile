@@ -20,5 +20,6 @@ COPY ${TARGETOS}_${TARGETARCH}/bin/jujud \
      ${TARGETOS}_${TARGETARCH}/bin/jujuc \
      ${TARGETOS}_${TARGETARCH}/bin/containeragent \
      ${TARGETOS}_${TARGETARCH}/bin/pebble /opt/
+COPY controller-wrappers/ /usr/bin/
 
 ENTRYPOINT ["sh", "-c"]

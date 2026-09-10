@@ -92,14 +92,6 @@ juju_machine_agent_name () {
   echo $machine
 }
 
-juju_controller_agent_name () {
-  local controller=$(juju_machine_agent_name)
-  if [ -z "$controller" ]; then
-    controller=$(find /var/lib/juju/agents -maxdepth 1 -type d -name 'controller-*' -printf %f)
-  fi
-  echo $controller
-}
-
 juju_application_agent_name () {
   local application=$(find /var/lib/juju/agents -maxdepth 1 -type d -name 'application-*' -printf %f)
   echo $application
@@ -112,9 +104,6 @@ juju_unit_agent_name () {
 
 juju_agent () {
   local agent=$(juju_machine_agent_name)
-  if [ -z "$agent" ]; then
-    agent=$(juju_controller_agent_name)
-  fi
   if [ -z "$agent" ]; then
     agent=$(juju_application_agent_name)
   fi
@@ -158,24 +147,6 @@ juju_machine_lock () {
 
 juju_unit_status () {
   juju_agent units?action=status
-}
-
-juju_db_repl () {
-  local agent=$(juju_controller_agent_name)
-  if [ -z "${agent}" ]; then
-    echo "cannot identify agent"
-    return 1
-  fi
-
-  local type=$(printf ${agent} | cut -d- -f1)
-  local id=$(printf ${agent} | cut -d- -f2)
-  local flag="--${type}-id=${id}"
-
-  if [ -x "$(which sudo)" ]; then
-    sudo /var/lib/juju/tools/$agent/jujuagentd db-repl ${flag}
-  else
-    /var/lib/juju/tools/$agent/jujuagentd db-repl ${flag}
-  fi
 }
 
 juju_object_store_contents () {
@@ -242,7 +213,6 @@ shell=$(ps -p "$$" -o comm --no-headers)
 if [ "$shell" = "bash" ]; then
   export -f juju_agent_call
   export -f juju_machine_agent_name
-  export -f juju_controller_agent_name
   export -f juju_application_agent_name
   export -f juju_agent
   export -f juju_goroutines
@@ -252,7 +222,6 @@ if [ "$shell" = "bash" ]; then
   export -f juju_metrics
   export -f juju_machine_lock
   export -f juju_unit_status
-  export -f juju_db_repl
   export -f juju_api_connection_sources
   export -f juju_flightrecorder_start
   export -f juju_flightrecorder_stop
