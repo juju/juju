@@ -772,6 +772,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ObjectStoreName:        objectStoreFacadeName,
 			JWTParserName:          jwtParserName,
 			SSHTunnelerName:        sshTunnelerName,
+			SSHServerName:          sshServerName,
 			WatcherRegistryName:    watcherRegistryName,
 			FlightRecorderName:     flightRecorderName,
 			ProviderTrackerName:    providerTrackerName,

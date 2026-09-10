@@ -159,10 +159,12 @@ func (config ManifoldConfig) Validate() error {
 }
 
 // Manifold returns a dependency.Manifold that will run an embedded SSH server
-// worker. The manifold has no outputs.
+// worker. The manifold outputs the sshproxy.Resolver and the
+// sshtunnel.RelayAuthorizer needed by the apiserver's relay endpoint.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.DomainServicesName, config.SSHTunnelerName},
+		Output: outputFunc,
 		Start:  config.startWrapperWorker,
 	}
 }
@@ -231,8 +233,9 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 			access: sshService,
 			logger: config.Logger,
 		},
-		Resolver: sshproxy.NewResolver(proxyFactory, sshService),
-		Metrics:  metricsCollector,
+		Resolver:        sshproxy.NewResolver(proxyFactory, sshService),
+		RelayAuthorizer: relayAuthorizer{access: sshService, logger: config.Logger},
+		Metrics:         metricsCollector,
 	})
 	if err != nil {
 		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
@@ -243,42 +246,33 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 	}), nil
 }
 
-// RelayDependencies composes the dependencies the apiserver's SSH relay
-// upgrade endpoint needs from the same building blocks the SSH server
-// worker uses: the model-resolving SSH service, the proxy factory (whose
-// machine connector requests reverse tunnels through the tracker), and a
-// JWT-claims authorizer for relayed sessions.
-//
-// The returned values implement apiserver/sshtunnel's Resolver and
-// RelayAuthorizer interfaces respectively.
-func RelayDependencies(
-	controllerSSHService *controllersshservice.Service,
-	domainServicesGetter services.DomainServicesGetter,
-	getSSHService GetSSHServiceFunc,
-	controllerUUID corecontroller.UUID,
-	controllerID string,
-	tunnelTracker workerTunneler.TunnelTracker,
-	logger logger.Logger,
-	metrics *Collector,
-) (sshproxy.Resolver, relayAuthorizer) {
-	svc := sshService{
-		controllerSSHService: controllerSSHService,
-		domainServicesGetter: domainServicesGetter,
-		getSSHService:        getSSHService,
-		controllerUUID:       controllerUUID,
+// outputFunc extracts the relay dependencies from a serverWrapperWorker.
+// The apiserver manifold fetches these via getter.Get so it doesn't need to
+// re-compose the sshService and proxyFactory that the sshserver worker
+// already constructed.
+func outputFunc(in worker.Worker, out any) error {
+	inWorker, _ := in.(*serverWrapperWorker)
+	if inWorker == nil {
+		return errors.Errorf("in should be a %T; got %T", inWorker, in)
 	}
-	factory := proxyFactory{
-		k8sResolver: svc,
-		logger:      logger,
-		connector: tunnelConnector{
-			tunnelTracker: tunnelTracker,
-			controllerID:  controllerID,
-			resolver:      svc,
-		},
-		getExecutor: k8sexec.NewForJujuCloudSpec,
-		metrics:     metrics,
+
+	switch outPointer := out.(type) {
+	case *sshproxy.Resolver:
+		*outPointer = inWorker.config.Resolver
+	case *RelayAuthorizer:
+		*outPointer = inWorker.relayAuthorizer
+	default:
+		return errors.Errorf("out should be *sshproxy.Resolver or *sshserver.RelayAuthorizer; got %T", out)
 	}
-	return sshproxy.NewResolver(factory, svc), relayAuthorizer{access: svc, logger: logger}
+	return nil
+}
+
+// RelayAuthorizer checks whether the user identified by a JWT may access a
+// relay destination.
+type RelayAuthorizer interface {
+	// Authorize checks whether the user identified by token may access the
+	// target destination.
+	Authorize(ctx context.Context, token jwt.Token, destination virtualhostname.Info) (bool, error)
 }
 
 // relayAuthorizer checks whether the user identified by a JWT may access a

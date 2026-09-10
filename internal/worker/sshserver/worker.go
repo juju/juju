@@ -36,6 +36,7 @@ type ServerWrapperWorkerConfig struct {
 	Authenticator           Authenticator
 	Authorizer              Authorizer
 	Resolver                sshproxy.Resolver
+	RelayAuthorizer         RelayAuthorizer
 
 	Metrics *Collector
 }
@@ -78,6 +79,12 @@ type serverWrapperWorker struct {
 	// config holds the configuration required by the server wrapper worker.
 	config ServerWrapperWorkerConfig
 
+	// relayAuthorizer checks whether a JWT-identified user may access a
+	// relay destination. It is exposed via the manifold Output so the
+	// apiserver relay endpoint can consume it without re-composing the
+	// underlying sshService.
+	relayAuthorizer RelayAuthorizer
+
 	// workerReporters holds the maps of worker reporters.
 	workerReporters map[string]worker.Reporter
 
@@ -95,6 +102,7 @@ func NewServerWrapperWorker(config ServerWrapperWorkerConfig) (worker.Worker, er
 
 	w := &serverWrapperWorker{
 		config:          config,
+		relayAuthorizer: config.RelayAuthorizer,
 		workerReporters: map[string]worker.Reporter{},
 	}
 

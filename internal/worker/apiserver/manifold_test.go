@@ -20,6 +20,7 @@ import (
 	"github.com/juju/worker/v5/dependency"
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 	"github.com/prometheus/client_golang/prometheus"
 	gossh "golang.org/x/crypto/ssh"
 
@@ -35,10 +36,12 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/core/virtualhostname"
 	accessservice "github.com/juju/juju/domain/access/service"
 	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
 	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/sshproxy"
 	internalTunneler "github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -142,6 +145,7 @@ func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 		ChangeStreamName:                  "change-stream",
 		JWTParserName:                     "jwt-parser",
 		SSHTunnelerName:                   "ssh-tunneler",
+		SSHServerName:                     "ssh-server",
 		WatcherRegistryName:               "watcher-registry",
 		FlightRecorderName:                "flight-recorder",
 		ProviderTrackerName:               "provider-tracker",
@@ -195,6 +199,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 		"object-store":        s.objectStoreGetter,
 		"jwt-parser":          s.jwtParser,
 		"ssh-tunneler":        stubTunnelTracker{},
+		"ssh-server":          []any{stubResolver{}, stubRelayAuthorizer{}},
 		"watcher-registry":    s.watcherRegistryGetter,
 		"flight-recorder":     s.flightRecorder,
 		"provider-tracker":    s.providerFactory,
@@ -213,6 +218,18 @@ func (stubTunnelTracker) RequestTunnel(context.Context, internalTunneler.Request
 
 func (stubTunnelTracker) PushTunnel(context.Context, string, net.Conn) (<-chan struct{}, error) {
 	return nil, nil
+}
+
+type stubResolver struct{}
+
+func (stubResolver) Resolve(context.Context, virtualhostname.Info) (sshproxy.Termination, error) {
+	return sshproxy.Termination{}, nil
+}
+
+type stubRelayAuthorizer struct{}
+
+func (stubRelayAuthorizer) Authorize(context.Context, jwt.Token, virtualhostname.Info) (bool, error) {
+	return true, nil
 }
 
 type mockModelLogger struct {
@@ -243,7 +260,7 @@ var expectedInputs = []string{
 	"http-client", "change-stream",
 	"domain-services", "trace", "object-store", "log-sink",
 	"jwt-parser", "watcher-registry",
-	"flight-recorder", "provider-tracker", "ssh-tunneler",
+	"flight-recorder", "provider-tracker", "ssh-tunneler", "ssh-server",
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {

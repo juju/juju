@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
-	corecontroller "github.com/juju/juju/core/controller"
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/flightrecorder"
 	corehttp "github.com/juju/juju/core/http"
@@ -29,8 +28,8 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
 	"github.com/juju/juju/internal/jwtparser"
-	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/sshproxy"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/sshserver"
@@ -106,6 +105,7 @@ type ManifoldConfig struct {
 	ObjectStoreName    string
 	JWTParserName      string
 	SSHTunnelerName    string
+	SSHServerName      string
 
 	// ControllerID is the ID of the local controller node, used by the
 	// relay endpoint's machine connector for reverse tunnel requests.
@@ -192,6 +192,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.SSHTunnelerName == "" {
 		return errors.NotValidf("empty SSHTunnelerName")
 	}
+	if config.SSHServerName == "" {
+		return errors.NotValidf("empty SSHServerName")
+	}
 	if config.ProviderTrackerName == "" {
 		return errors.NotValidf("empty ProviderTrackerName")
 	}
@@ -234,6 +237,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.LogSinkName,
 			config.JWTParserName,
 			config.SSHTunnelerName,
+			config.SSHServerName,
 			config.WatcherRegistryName,
 			config.ProviderTrackerName,
 		},
@@ -357,33 +361,24 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	// Compose the relay endpoint's dependencies from the same building
-	// blocks the sshserver worker uses: the proxy factory (whose machine
-	// connector requests reverse tunnels through the tracker), the
-	// model-resolving SSH service, and a JWT-claims authorizer.
-	controllerSSHService, err := config.GetControllerSSHService(getter, config.DomainServicesName)
-	if err != nil {
+	// Fetch the relay dependencies from the sshserver worker's manifold
+	// output. The sshserver worker already composes the proxy factory,
+	// SSH service, and JWT-claims authorizer; the apiserver consumes
+	// them as-is rather than re-composing the same building blocks.
+	var relayResolver sshproxy.Resolver
+	if err := getter.Get(config.SSHServerName, &relayResolver); err != nil {
 		return nil, errors.Trace(err)
 	}
-	controllerUUID, err := corecontroller.ParseUUID(config.ControllerUUID)
-	if err != nil {
+	var relayAuthorizer sshserver.RelayAuthorizer
+	if err := getter.Get(config.SSHServerName, &relayAuthorizer); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	// The sshserver worker registers its own metrics collector with the
 	// Prometheus registerer; the apiserver creates a local unregistered
 	// instance for the relay/tunnel endpoints so the upgrade paths are
 	// accounted the same way without a duplicate registration.
 	sshTunnelMetrics := sshserver.NewMetricsCollector()
-	relayResolver, relayAuthorizer := sshserver.RelayDependencies(
-		controllerSSHService,
-		domainServicesGetter,
-		sshserver.GetSSHService,
-		controllerUUID,
-		config.ControllerID,
-		tunnelTracker,
-		internallogger.GetLogger("juju.worker.sshserver"),
-		sshTunnelMetrics,
-	)
 
 	// Register the metrics collector against the prometheus register.
 	metricsCollector := config.NewMetricsCollector()
