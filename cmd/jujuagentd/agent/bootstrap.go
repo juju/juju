@@ -97,10 +97,10 @@ func (c *BootstrapCommand) Init(args []string) error {
 }
 
 func copyFile(dest, source string) error {
-	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return errors.Trace(err)
 	}
-	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600)
+	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0o600)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -114,18 +114,6 @@ func copyFile(dest, source string) error {
 
 	_, err = io.Copy(df, f)
 	return errors.Trace(err)
-}
-
-func copyFileFromTemplate(to, from string) (err error) {
-	if _, err := os.Stat(to); os.IsNotExist(err) {
-		logger.Debugf(context.TODO(), "copying file from %q to %s", from, to)
-		if err := copyFile(to, from); err != nil {
-			return errors.Trace(err)
-		}
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }
 
 var (
