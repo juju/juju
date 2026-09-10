@@ -1243,6 +1243,8 @@ func (srv *Server) sshRelayRequestWrapper(h http.Handler) http.Handler {
 			http.Error(w, "relay requires a JWT delegator", http.StatusUnauthorized)
 			return
 		}
+		// delegator.Token was signature-verified by the JWT
+		// authenticator, so the relay handler trusts it as-is.
 		ctx := context.WithValue(r.Context(), sshtunnel.RelayJWTKey{}, delegator.Token)
 		ctx = context.WithValue(ctx, sshtunnel.DyingKey{}, srv.catacomb.Dying())
 		h.ServeHTTP(w, r.WithContext(ctx))
