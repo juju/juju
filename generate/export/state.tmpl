@@ -15,16 +15,26 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+{{- range .ExportTables }}
+{{- if .NullableColumns }}
+type {{ .NullTypeName }} struct {
+{{- range .NullableColumns }}
+	{{ .FieldName }}IsNull bool `db:"{{ .Name }}_is_null"`
+{{- end }}
+}
+{{- end }}
+{{- end }}
+
 // Export exports all model data for version {{ .SemanticVersion }}.
 func (st *State) Export(ctx context.Context) (*v{{ .VersionToken }}.ModelExport, error) {
 	var modelExport v{{ .VersionToken }}.ModelExport
 	var err error
 
 	// Prepare statements first using the typed samples from the generated types package.
-{{- range $i, $sn := .StructNames }}
-	stmt{{ $sn }}, err := sqlair.Prepare(`SELECT &{{ $sn }}.* FROM "{{ index $.TableNames $i }}"`, v{{ $.VersionToken }}.{{ $sn }}{})
+{{- range .ExportTables }}
+	stmt{{ .StructName }}, err := sqlair.Prepare(`{{ .Query }}`, v{{ $.VersionToken }}.{{ .StructName }}{}{{ if .NullableColumns }}, {{ .NullTypeName }}{}{{ end }})
 	if err != nil {
-		return nil, fmt.Errorf("preparing {{ $sn }} statement: %w", err)
+		return nil, fmt.Errorf("preparing {{ .StructName }} statement: %w", err)
 	}
 {{- end }}
 
@@ -34,10 +44,25 @@ func (st *State) Export(ctx context.Context) (*v{{ .VersionToken }}.ModelExport,
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-{{- range $i, $sn := .StructNames }}
-		if err := tx.Query(ctx, stmt{{ $sn }}).GetAll(&modelExport.{{ $sn }}); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("querying {{ $sn }} (table {{ index $.TableNames $i }}): %w", err)
+		// The transaction can be retried, so discard rows from prior attempts.
+		modelExport = v{{ .VersionToken }}.ModelExport{}
+{{- range .ExportTables }}
+{{- $table := . }}
+{{- if .NullableColumns }}
+		var {{ .NullTypeName }}Rows []{{ .NullTypeName }}
+{{- end }}
+		if err := tx.Query(ctx, stmt{{ .StructName }}).GetAll(&modelExport.{{ .StructName }}{{ if .NullableColumns }}, &{{ .NullTypeName }}Rows{{ end }}); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying {{ .StructName }} (table {{ .Name }}): %w", err)
 		}
+{{- if .NullableColumns }}
+		for i, nulls := range {{ .NullTypeName }}Rows {
+{{- range .NullableColumns }}
+			if nulls.{{ .FieldName }}IsNull {
+				modelExport.{{ $table.StructName }}[i].{{ .FieldName }} = nil
+			}
+{{- end }}
+		}
+{{- end }}
 {{- end }}
 		return nil
 	}); err != nil {
