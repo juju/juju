@@ -116,9 +116,9 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = conn.Close() }()
 
 	// Terminate the relayed user SSH session here. JIMM cannot read the
-	// session bytes; the embedded server handles them end to end.
-	// Authentication already happened at the HTTP layer via the bearer
-	// JWT, so the terminating server accepts the user's key as presented.
+	// session bytes, the embedded server handles them end to end.
+	// HTTP authentication already happened via the bearer JWT, so the
+	// terminating server accepts the user's key as presented.
 	server := sshproxy.NewTerminatingSSHServer(termination.Handlers)
 	server.PublicKeyHandler = func(_ ssh.Context, _ ssh.PublicKey) error {
 		return nil
