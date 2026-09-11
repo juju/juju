@@ -4,6 +4,7 @@
 package lxd_test
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -267,7 +268,7 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *tc.C) {
 	)
 
 	// assignContainerNICs maps the requested subnet provider IDs (CIDRs)
-	// back to the LXD network (host bridge) hosting them via Subnets().
+	// back to the LXD network hosting them via subnet discovery.
 	exp.IsClustered().Return(false)
 	exp.Name().Return("locutus")
 	exp.GetNetworks().Return([]api.Network{
@@ -359,11 +360,170 @@ func (s *environBrokerSuite) TestStartInstanceUnsatisfiedSubnetReturnsError(c *t
 		},
 	}
 	res, err := env.StartInstance(c.Context(), startArgs)
-	c.Check(err, tc.ErrorMatches, `.*cannot satisfy space requirements: no host bridge found for subnet\(s\).*10.250.0.0/24.*`)
+	c.Check(err, tc.ErrorMatches, `.*cannot satisfy space requirements: no LXD network found for subnet\(s\).*10.250.0.0/24.*`)
 	c.Assert(res, tc.IsNil)
 }
 
+func (s *environBrokerSuite) TestStartInstanceWithOVNSubnets(c *tc.C) {
+	s.testStartInstanceWithOVNSubnets(c, instance.InstanceTypeContainer)
+}
+
+func (s *environBrokerSuite) TestStartInstanceVMWithOVNSubnets(c *tc.C) {
+	s.testStartInstanceWithOVNSubnets(c, instance.InstanceTypeVM)
+}
+
+func (s *environBrokerSuite) testStartInstanceWithOVNSubnets(c *tc.C, virtType instance.VirtType) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	svr := lxd.NewMockServer(ctrl)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+	profileNICs := map[string]map[string]string{
+		"eth0": {
+			"name":    "eth0",
+			"type":    "nic",
+			"hwaddr":  "00:16:3e:00:00:01",
+			"nictype": "bridged",
+			"parent":  "lxdbr0",
+		},
+	}
+	check := func(spec containerlxd.ContainerSpec) bool {
+		// Both OVN subnets must share one generated NIC, alongside a
+		// generated bridge NIC and the original profile NIC.
+		c.Check(spec.Devices, tc.HasLen, 3)
+		c.Check(spec.Devices["eth0"], tc.DeepEquals, profileNICs["eth0"])
+		byNetwork := make(map[string]map[string]string)
+		for _, name := range []string{"eth1", "eth2"} {
+			nic, ok := spec.Devices[name]
+			c.Assert(ok, tc.IsTrue)
+			c.Check(nic["name"], tc.Equals, name)
+			c.Check(nic["hwaddr"], tc.HasPrefix, "00:16:3e:")
+			byNetwork[containerlxd.NetworkName(nic)] = nic
+		}
+		ovnNIC := byNetwork["ovn-net"]
+		c.Assert(ovnNIC, tc.NotNil)
+		c.Check(ovnNIC, tc.DeepEquals, map[string]string{
+			"name":    ovnNIC["name"],
+			"type":    "nic",
+			"hwaddr":  ovnNIC["hwaddr"],
+			"network": "ovn-net",
+		})
+		bridgeNIC := byNetwork["lxdbr1"]
+		c.Assert(bridgeNIC, tc.NotNil)
+		c.Check(bridgeNIC, tc.DeepEquals, map[string]string{
+			"name":    bridgeNIC["name"],
+			"type":    "nic",
+			"hwaddr":  bridgeNIC["hwaddr"],
+			"nictype": "bridged",
+			"parent":  "lxdbr1",
+		})
+		c.Check(spec.Config[containerlxd.UserDataKey], tc.Contains, "dhcp4: true")
+		if virtType == instance.InstanceTypeVM {
+			c.Check(spec.Config[containerlxd.UserDataKey], tc.Contains, ovnNIC["hwaddr"])
+		}
+		return spec.Config[containerlxd.NetworkConfigKey] == cloudinit.CloudInitNetworkConfigDisabled
+	}
+
+	exp := svr.EXPECT()
+	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
+		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, virtType, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.ServerVersion().Return("5.21.0"),
+		exp.GetNICsFromProfile("default").Return(profileNICs, nil),
+		exp.GetNICsFromProfile(modelProfileName).Return(nil, nil),
+		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
+			Instance: api.Instance{Location: "node01"},
+		}, nil),
+		exp.HostArch().Return(arch.AMD64),
+	)
+	exp.IsClustered().Return(false)
+	exp.Name().Return("locutus")
+	exp.GetNetworks().Return([]api.Network{
+		{Name: "ovn-net", Type: "ovn", Managed: true},
+		{Name: "lxdbr1", Type: "bridge", Managed: true},
+	}, nil)
+	exp.GetNetworkState("ovn-net").Return(&api.NetworkState{
+		Type:  "broadcast",
+		State: "up",
+		Addresses: []api.NetworkStateAddress{
+			{Family: "inet", Address: "10.248.0.1", Netmask: "24", Scope: "global"},
+			{Family: "inet6", Address: "fd42:248::1", Netmask: "64", Scope: "global"},
+		},
+	}, nil)
+	exp.GetNetworkState("lxdbr1").Return(&api.NetworkState{
+		Type:      "broadcast",
+		State:     "up",
+		Bridge:    &api.NetworkStateBridge{},
+		Addresses: []api.NetworkStateAddress{{Family: "inet", Address: "10.99.0.1", Netmask: "24", Scope: "global"}},
+	}, nil)
+
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
+	args := s.GetStartInstanceArgs(c)
+	args.Constraints = constraints.MustParse("virt-type=" + string(virtType))
+	args.SubnetsToZones = []map[network.Id][]string{{
+		"10.248.0.0/24": {"locutus"},
+		"fd42:248::/64": {"locutus"},
+		"10.99.0.0/24":  {"locutus"},
+	}}
+	res, err := env.StartInstance(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.NotNil)
+}
+
+func (s *environBrokerSuite) TestStartInstanceOVNNetworkDown(c *tc.C) {
+	s.testStartInstanceOVNNetworkFailure(c, &api.NetworkState{
+		State:     "down",
+		Addresses: []api.NetworkStateAddress{{Family: "inet", Address: "10.248.0.1", Netmask: "24", Scope: "global"}},
+	}, nil)
+}
+
+func (s *environBrokerSuite) TestStartInstanceOVNNetworkStateError(c *tc.C) {
+	s.testStartInstanceOVNNetworkFailure(c, nil, errors.New("OVN network state unavailable"))
+}
+
+func (s *environBrokerSuite) testStartInstanceOVNNetworkFailure(c *tc.C, state *api.NetworkState, stateErr error) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	svr := lxd.NewMockServer(ctrl)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+	exp := svr.EXPECT()
+	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
+		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, instance.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.ServerVersion().Return("5.21.0"),
+		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
+		exp.GetNICsFromProfile(modelProfileName).Return(nil, nil),
+	)
+	exp.IsClustered().Return(false)
+	exp.Name().Return("locutus")
+	exp.GetNetworks().Return([]api.Network{{Name: "ovn-net", Type: "ovn", Managed: true}}, nil)
+	exp.GetNetworkState("ovn-net").Return(state, stateErr)
+
+	// Neither discovery failure nor an unavailable subnet should create
+	// an instance without its required connectivity.
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
+	args := s.GetStartInstanceArgs(c)
+	args.SubnetsToZones = []map[network.Id][]string{{"10.248.0.0/24": {"locutus"}}}
+	res, err := env.StartInstance(c.Context(), args)
+	if stateErr != nil {
+		c.Check(err, tc.ErrorIs, stateErr)
+		c.Check(err, tc.ErrorMatches, `.*querying lxd server for state of network "ovn-net": OVN network state unavailable`)
+	} else {
+		c.Check(err, tc.ErrorMatches, `.*cannot satisfy space requirements: no LXD network found for subnet\(s\).*10.248.0.0/24.*`)
+	}
+	c.Check(res, tc.IsNil)
+}
+
 func (s *environBrokerSuite) TestStartInstanceWithModelProfileSubnetNIC(c *tc.C) {
+	s.testStartInstanceWithModelProfileSubnetNIC(c, "bridge")
+}
+
+func (s *environBrokerSuite) TestStartInstanceWithModelProfileOVNSubnetNIC(c *tc.C) {
+	s.testStartInstanceWithModelProfileSubnetNIC(c, "ovn")
+}
+
+func (s *environBrokerSuite) testStartInstanceWithModelProfileSubnetNIC(c *tc.C, networkType string) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -388,6 +548,20 @@ func (s *environBrokerSuite) TestStartInstanceWithModelProfileSubnetNIC(c *tc.C)
 			"parent":  "virbr0",
 		},
 	}
+	networkName := "virbr0"
+	networkState := &api.NetworkState{
+		Type:      "broadcast",
+		State:     "up",
+		Bridge:    &api.NetworkStateBridge{},
+		Addresses: []api.NetworkStateAddress{{Family: "inet", Address: "10.42.0.1", Netmask: "24", Scope: "global"}},
+	}
+	if networkType == "ovn" {
+		networkName = "ovn-net"
+		networkState.Bridge = nil
+		delete(modelNICs["eno9"], "nictype")
+		delete(modelNICs["eno9"], "parent")
+		modelNICs["eno9"]["network"] = networkName
+	}
 
 	check := func(spec containerlxd.ContainerSpec) bool {
 		c.Check(spec.Devices, tc.HasLen, 2)
@@ -411,19 +585,14 @@ func (s *environBrokerSuite) TestStartInstanceWithModelProfileSubnetNIC(c *tc.C)
 
 	exp.IsClustered().Return(false)
 	exp.Name().Return("locutus")
-	exp.GetNetworks().Return([]api.Network{{Name: "virbr0", Type: "bridge"}}, nil)
-	exp.GetNetworkState("virbr0").Return(&api.NetworkState{
-		Type:      "broadcast",
-		State:     "up",
-		Bridge:    &api.NetworkStateBridge{},
-		Addresses: []api.NetworkStateAddress{{Family: "inet", Address: "10.42.0.1", Netmask: "24", Scope: "global"}},
-	}, nil)
+	exp.GetNetworks().Return([]api.Network{{Name: networkName, Type: networkType, Managed: true}}, nil)
+	exp.GetNetworkState(networkName).Return(networkState, nil)
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
 	startArgs := s.GetStartInstanceArgs(c)
 	startArgs.SubnetsToZones = []map[network.Id][]string{
 		{
-			"10.42.0.0/24": {"locutus"}, // virbr0
+			"10.42.0.0/24": {"locutus"},
 		},
 	}
 	res, err := env.StartInstance(c.Context(), startArgs)
