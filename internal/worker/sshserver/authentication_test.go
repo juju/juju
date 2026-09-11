@@ -33,7 +33,6 @@ func (s *authenticationSuite) TestPasswordAuthenticationRejectsUnexpectedUser(c 
 	authenticated, err := auth.PasswordAuthentication(ctx, "not-a-token")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(authenticated, tc.IsFalse)
-	c.Check(ctx.values[authenticatedViaPublicKey{}], tc.Equals, false)
 }
 
 func (s *authenticationSuite) TestPasswordAuthenticationAcceptsJIMMJWT(c *tc.C) {
@@ -46,7 +45,6 @@ func (s *authenticationSuite) TestPasswordAuthenticationAcceptsJIMMJWT(c *tc.C) 
 	authenticated, err := auth.PasswordAuthentication(ctx, "encoded-jwt")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(authenticated, tc.IsTrue)
-	c.Check(ctx.values[authenticatedViaPublicKey{}], tc.Equals, false)
 	c.Check(ctx.values[userJWT{}], tc.Equals, token)
 	c.Check(parser.password, tc.Equals, "encoded-jwt")
 }
@@ -62,7 +60,6 @@ func (s *authenticationSuite) TestPasswordAuthenticationRejectsInvalidJIMMJWT(c 
 	authenticated, err := auth.PasswordAuthentication(ctx, "invalid-jwt")
 	c.Check(err, tc.ErrorMatches, "parsing SSH JWT: invalid token")
 	c.Check(authenticated, tc.IsFalse)
-	c.Check(ctx.values[authenticatedViaPublicKey{}], tc.Equals, false)
 	c.Check(ctx.values[userJWT{}], tc.IsNil)
 	c.Check(parser.password, tc.Equals, "invalid-jwt")
 }
@@ -75,7 +72,6 @@ func (s *authenticationSuite) TestPasswordAuthenticationAcceptsReverseTunnel(c *
 	authenticated, err := auth.PasswordAuthentication(ctx, "tunnel-password")
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(authenticated, tc.IsTrue)
-	c.Check(ctx.values[authenticatedViaPublicKey{}], tc.Equals, false)
 	c.Check(ctx.values[tunnelIDKey{}], tc.Equals, "tunnel-uuid")
 	c.Check(tunnelTracker.username, tc.Equals, coressh.ReverseTunnelUser)
 	c.Check(tunnelTracker.password, tc.Equals, "tunnel-password")
@@ -92,7 +88,6 @@ func (s *authenticationSuite) TestPasswordAuthenticationRejectsInvalidReverseTun
 	authenticated, err := auth.PasswordAuthentication(ctx, "invalid-password")
 	c.Check(err, tc.ErrorMatches, "authenticating reverse SSH tunnel: invalid credentials")
 	c.Check(authenticated, tc.IsFalse)
-	c.Check(ctx.values[authenticatedViaPublicKey{}], tc.Equals, false)
 	c.Check(ctx.values[tunnelIDKey{}], tc.IsNil)
 	c.Check(tunnelTracker.username, tc.Equals, coressh.ReverseTunnelUser)
 	c.Check(tunnelTracker.password, tc.Equals, "invalid-password")
@@ -101,7 +96,10 @@ func (s *authenticationSuite) TestPasswordAuthenticationRejectsInvalidReverseTun
 func (s *authenticationSuite) TestPublicKeyAuthenticationAcceptsUsersKey(c *tc.C) {
 	signer := newSigner(c)
 	ctx := &stubAuthenticationContext{user: "alice", values: map[any]any{}}
-	publicKeys := &stubUserPublicKeyService{keys: []gossh.PublicKey{signer.PublicKey()}}
+	publicKeys := &stubUserPublicKeyService{keys: []publicKeyWithComment{{
+		PublicKey: signer.PublicKey(),
+		Comment:   "my laptop",
+	}}}
 
 	auth := authenticator{
 		publicKeys: publicKeys,
@@ -109,7 +107,10 @@ func (s *authenticationSuite) TestPublicKeyAuthenticationAcceptsUsersKey(c *tc.C
 	authenticated, err := auth.PublicKeyAuthentication(ctx, signer.PublicKey())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(authenticated, tc.IsTrue)
-	c.Check(ctx.values[authenticatedViaPublicKey{}], tc.Equals, true)
+	c.Check(ctx.values[authenticatedPublicKey{}], tc.DeepEquals, publicKeyWithComment{
+		PublicKey: signer.PublicKey(),
+		Comment:   "my laptop",
+	})
 	c.Check(publicKeys.user, tc.Equals, "alice")
 }
 
@@ -118,12 +119,13 @@ func (s *authenticationSuite) TestPublicKeyAuthenticationRejectsUnauthorizedKey(
 	unauthorizedKey := parseAuthorizedKey(c, sshtesting.ValidKeyOne.Key)
 
 	auth := authenticator{
-		publicKeys: &stubUserPublicKeyService{keys: []gossh.PublicKey{unauthorizedKey}},
+		publicKeys: &stubUserPublicKeyService{keys: []publicKeyWithComment{{
+			PublicKey: unauthorizedKey,
+		}}},
 	}
 	authenticated, err := auth.PublicKeyAuthentication(ctx, newSigner(c).PublicKey())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(authenticated, tc.IsFalse)
-	c.Check(ctx.values[authenticatedViaPublicKey{}], tc.IsNil)
 }
 
 func (s *authenticationSuite) TestPublicKeyAuthenticationRejectsKeyLookupError(c *tc.C) {
@@ -136,7 +138,6 @@ func (s *authenticationSuite) TestPublicKeyAuthenticationRejectsKeyLookupError(c
 	authenticated, err := auth.PublicKeyAuthentication(ctx, newSigner(c).PublicKey())
 	c.Check(err, tc.ErrorMatches, "getting SSH public keys for user \\\"alice\\\": boom")
 	c.Check(authenticated, tc.IsFalse)
-	c.Check(ctx.values[authenticatedViaPublicKey{}], tc.IsNil)
 }
 
 func newSigner(c *tc.C) gossh.Signer {
@@ -179,12 +180,12 @@ func (s *stubTunnelAuthenticator) AuthenticateTunnel(username, password string) 
 }
 
 type stubUserPublicKeyService struct {
-	keys []gossh.PublicKey
+	keys []publicKeyWithComment
 	err  error
 	user string
 }
 
-func (s *stubUserPublicKeyService) PublicKeys(_ context.Context, username string) ([]gossh.PublicKey, error) {
+func (s *stubUserPublicKeyService) PublicKeys(_ context.Context, username string) ([]publicKeyWithComment, error) {
 	s.user = username
 	return s.keys, s.err
 }
