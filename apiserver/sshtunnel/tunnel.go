@@ -7,7 +7,6 @@ import (
 	"context"
 	"net"
 	"net/http"
-	"sync/atomic"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/errors"
@@ -104,9 +103,8 @@ type MetricsCollector interface {
 type TunnelHandler struct {
 	config TunnelHandlerConfig
 
-	// concurrentConnections holds the number of concurrent upgraded
-	// connections.
-	concurrentConnections atomic.Int32
+	// limiter bounds the number of concurrent upgraded connections.
+	limiter connLimiter
 }
 
 // NewTunnelHandler returns a new agent tunnel endpoint handler.
@@ -114,7 +112,10 @@ func NewTunnelHandler(config TunnelHandlerConfig) (*TunnelHandler, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Errorf("validating tunnel handler config: %w", err)
 	}
-	return &TunnelHandler{config: config}, nil
+	return &TunnelHandler{
+		config:  config,
+		limiter: connLimiter{max: config.MaxConcurrentConnections},
+	}, nil
 }
 
 // ServeHTTP implements http.Handler.
@@ -145,15 +146,13 @@ func (h *TunnelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Enforce the connection limit before upgrading. Rejected requests
 	// are not counted as connections.
-	current := h.concurrentConnections.Add(1)
-	if int(current) > h.config.MaxConcurrentConnections {
-		h.concurrentConnections.Add(-1)
+	if !h.limiter.acquire() {
 		http.Error(w, "too many connections", http.StatusServiceUnavailable)
 		return
 	}
 	h.config.Metrics.IncConnectionCount()
 	defer func() {
-		h.concurrentConnections.Add(-1)
+		h.limiter.release()
 		h.config.Metrics.DecConnectionCount()
 	}()
 
