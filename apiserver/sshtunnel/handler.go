@@ -35,7 +35,7 @@ const (
 // and clears any deadlines so the protocol taking over the connection
 // owns its lifecycle.
 //
-// The returned connection is the caller's responsibility; the HTTP server
+// The returned connection is the caller's responsibility. The HTTP server
 // no longer tracks it.
 func hijack(w http.ResponseWriter, r *http.Request, token string) (net.Conn, error) {
 	if !strings.EqualFold(r.Header.Get("Connection"), "Upgrade") || r.Header.Get("Upgrade") != token {
@@ -69,7 +69,7 @@ func hijack(w http.ResponseWriter, r *http.Request, token string) (net.Conn, err
 		}
 	}
 
-	// Clear any read/write deadlines the HTTP server set; the protocol
+	// Clear any read/write deadlines the HTTP server set. The protocol
 	// taking over the connection manages its own lifecycle.
 	_ = conn.SetDeadline(time.Time{})
 
@@ -78,7 +78,7 @@ func hijack(w http.ResponseWriter, r *http.Request, token string) (net.Conn, err
 
 // watchDying closes the hijacked connection when the apiserver is shutting
 // down. Hijacked connections are invisible to http.Server.Shutdown, so the
-// handler must select on the dying signal itself; this helper arranges for
+// handler must select on the dying signal itself. This helper arranges for
 // the connection to be closed when that happens. It returns a stop function
 // that should be called when the connection closes for any other reason.
 func watchDying(conn net.Conn, dying <-chan struct{}, logger logger.Logger) (stop func()) {

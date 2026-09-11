@@ -245,7 +245,7 @@ func (s *sshServerSuite) TestValidate(c *tc.C) {
 func (s *sshServerSuite) TestSSHServerSession(c *tc.C) {
 	s.SetUpMocks(c)
 
-	// Password authentication is no longer supported; only public key
+	// Password authentication is no longer supported. Only public key
 	// authentication grants access to the jump server.
 	s.authenticator.EXPECT().PublicKeyAuthentication(gomock.Any(), s.userSigner.PublicKey()).Return(true, nil)
 	s.testSSHServerSession(c, gossh.PublicKeys(s.userSigner), "test-user")

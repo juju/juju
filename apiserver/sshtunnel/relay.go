@@ -78,7 +78,7 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// The user identity comes from the JWT claims (PermissionDelegator
-	// flow); the token was validated by the HTTP authentication layer.
+	// flow). The token was validated by the HTTP authentication layer.
 	token, ok := ctx.Value(RelayJWTKey{}).(jwt.Token)
 	if !ok || token == nil {
 		http.Error(w, "missing relay JWT", http.StatusUnauthorized)

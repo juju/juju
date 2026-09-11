@@ -97,7 +97,7 @@ func (a machineAgentAuthorizer) Authorize(_ context.Context, authInfo authentica
 
 // relayJWTAuthorizer checks that the authenticated entity is an externally
 // authenticated user (JIMM bearer JWT). It is the authorizer for the SSH
-// relay upgrade endpoint; the destination-specific access check happens
+// relay upgrade endpoint. The destination-specific access check happens
 // inside the relay handler using the JWT claims.
 //
 // relayJWTAuthorizer implements the [authentication.Authorizer] interface.

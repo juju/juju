@@ -92,8 +92,8 @@ type MetricsCollector interface {
 // mechanism as /logsink), and the handler binds the tunnel ID to the
 // authenticated machine: the request must target that machine and the
 // tunnel ID must be known to this node's tracker. After the upgrade the
-// connection carries raw bytes; the tracker SSH-dials the machine over it
-// with the ephemeral key.
+// connection carries raw bytes and the tracker SSH-dials the machine over
+// it with the ephemeral key.
 type TunnelHandler struct {
 	config TunnelHandlerConfig
 }
@@ -111,7 +111,7 @@ func (h *TunnelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// The authenticated machine tag comes from the HTTP authentication
-	// layer; the tunnel ID alone is not sufficient to establish identity.
+	// layer. The tunnel ID alone is not sufficient to establish identity.
 	machineName, ok := ctx.Value(AuthenticatedMachineNameKey{}).(string)
 	if !ok || machineName == "" {
 		http.Error(w, "authenticated machine not found", http.StatusUnauthorized)
@@ -149,7 +149,7 @@ func (h *TunnelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// returned done channel is closed when the pushed connection is closed
 	// (either by the tunnel consumer or by the dying-signal watch), so the
 	// handler blocks until the tunnel ends rather than until the apiserver
-	// dies — preventing a goroutine leak per tunnel.
+	// dies. This avoids a goroutine leak per tunnel.
 	pushCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), pushTunnelTimeout)
 	defer cancel()
 	done, err := h.config.Tracker.PushTunnel(pushCtx, tunnelID, conn)

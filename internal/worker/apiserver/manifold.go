@@ -348,8 +348,8 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 	// Fetch the relay dependencies from the sshserver worker's manifold
 	// output. The sshserver worker already composes the proxy factory,
-	// SSH service, and JWT-claims authorizer; the apiserver consumes
-	// them as-is rather than re-composing the same building blocks.
+	// SSH service, and JWT-claims authorizer. The apiserver consumes them
+	// as-is rather than re-composing the same building blocks.
 	var relayResolver sshproxy.Resolver
 	if err := getter.Get(config.SSHServerName, &relayResolver); err != nil {
 		return nil, errors.Trace(err)
@@ -360,8 +360,8 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	}
 
 	// The sshserver worker registers its own metrics collector with the
-	// Prometheus registerer; the apiserver creates a local unregistered
-	// instance for the relay/tunnel endpoints so the upgrade paths are
+	// Prometheus registerer. The apiserver creates a local unregistered
+	// instance for the relay/tunnel endpoints, so the upgrade paths are
 	// accounted the same way without a duplicate registration.
 	sshTunnelMetrics := sshserver.NewMetricsCollector()
 

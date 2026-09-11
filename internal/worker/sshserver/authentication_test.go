@@ -25,7 +25,7 @@ func TestAuthenticationSuite(t *testing.T) {
 
 func (s *authenticationSuite) TestPasswordAuthenticationRejectsAllPasswords(c *tc.C) {
 	// The reverse-tunnel and external-auth password paths moved to the
-	// HTTP upgrade endpoints on the API server; no password is valid on
+	// HTTP upgrade endpoints on the API server. No password is valid on
 	// the jump server any more.
 	ctx := &stubAuthenticationContext{user: "alice", values: map[any]any{}}
 	auth := authenticator{

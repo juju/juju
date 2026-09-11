@@ -51,7 +51,7 @@ func (a authenticator) PublicKeyAuthentication(ctx ssh.Context, key ssh.PublicKe
 
 // PasswordAuthentication rejects all password authentication attempts.
 // The reverse-tunnel and external-auth password paths moved to the HTTP
-// upgrade endpoints; no password is valid on the jump server any more.
+// upgrade endpoints. No password is valid on the jump server any more.
 func (a authenticator) PasswordAuthentication(_ ssh.Context, _ string) (bool, error) {
 	return false, nil
 }
