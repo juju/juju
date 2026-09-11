@@ -248,7 +248,7 @@ func (c *BootstrapCommand) runFromRuntimeConf(
 	if err := ensureSSHServerHostKey(&args); err != nil {
 		return errors.Trace(err)
 	}
-	addrs, err := getInstanceAddresses(isCAAS, env, ctx, args)
+	addrs, err := bootstrapControllerAddresses(ctx, env, args.BootstrapMachineInstanceId)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -338,30 +338,15 @@ func (c *BootstrapCommand) runFromRuntimeConf(
 	return nil
 }
 
-func getInstanceAddresses(
-	isCAAS bool,
-	env environs.BootstrapEnviron,
-	ctx context.Context,
-	args instancecfg.StateInitializationParams,
+func bootstrapControllerAddresses(
+	ctx context.Context, env environs.BootstrapEnviron, providerID instance.Id,
 ) (network.ProviderAddresses, error) {
-	if isCAAS {
-		return network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses(), nil
-	}
-
-	instanceLister, ok := env.(environs.InstanceLister)
-	if !ok {
-		// this should never happened.
-		return nil, errors.NotValidf("InstanceLister missing for IAAS controller provider")
-	}
-	instances, err := instanceLister.Instances(ctx, []instance.Id{args.BootstrapMachineInstanceId})
+	addressFinder, err := environs.NewBootstrapAddressFinder(env, providerID)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting bootstrap instance")
+		return nil, errors.Annotate(err, "selecting bootstrap address provider")
 	}
-	addrs, err := instances[0].Addresses(ctx)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting bootstrap instance addresses")
-	}
-	return addrs, nil
+	addresses, err := addressFinder.BootstrapControllerAddresses(ctx)
+	return addresses, errors.Trace(err)
 }
 
 // ensureSSHServerHostKey ensures that either a) a user has provided a host key
