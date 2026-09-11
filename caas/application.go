@@ -27,10 +27,16 @@ type Application interface {
 	// ApplicationPodSpec returns the pod spec needed to run the application workload.
 	ApplicationPodSpec(config ApplicationConfig) (*core.PodSpec, error)
 
-	// Scale scales the Application's unit to the value specified. Scale must
-	// be >= 0. Application units will be removed or added to meet the scale
-	// defined.
-	Scale(int) error
+	// Scale reconciles the application's replica count. Scale must be >= 0.
+	// The operation stops if ctx is cancelled.
+	Scale(context.Context, int) error
+
+	// ScaleRange reconciles a StatefulSet to a contiguous ordinal range. The
+	// replicaCount and startOrdinal define the half-open range
+	// [startOrdinal, startOrdinal+replicaCount). Sparse ordinal ranges are not
+	// supported. Both values must be non-negative.
+	// The operation stops if ctx is cancelled.
+	ScaleRange(ctx context.Context, replicaCount, startOrdinal int) error
 
 	// Trust sets up the role on the application's service account to
 	// give full access to the cluster.
@@ -97,6 +103,9 @@ type ApplicationState struct {
 
 // ApplicationConfig is the config passed to the application units.
 type ApplicationConfig struct {
+	// Controller indicates this application hosts the Juju controller.
+	Controller bool
+
 	// AgentVersion is the Juju version of the agent image.
 	AgentVersion semversion.Number
 

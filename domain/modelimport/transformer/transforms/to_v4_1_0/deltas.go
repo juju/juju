@@ -23,6 +23,20 @@ var _ Deltas = deltas{}
 // 4.0.12 -> 4.1.0 transform.
 func NewDeltas() Deltas { return deltas{} }
 
+// Offer copies all v4_0_12 fields and leaves Description nil. Offers exported
+// from a 4.0.12 model carry no offer description; on import the offer falls
+// back to the charm metadata description.
+func (d deltas) Offer(_ context.Context, src []v4_0_12.Offer) ([]v4_1_0.Offer, error) {
+	result := make([]v4_1_0.Offer, len(src))
+	for i := range src {
+		result[i] = v4_1_0.Offer{
+			UUID: src[i].UUID,
+			Name: src[i].Name,
+		}
+	}
+	return result, nil
+}
+
 // Operation converts v4_0_12 Operation rows to v4_1_0. The operation_id
 // column changed from TEXT to INTEGER in 4.1.0; the string value is parsed
 // to int64. A non-numeric operation_id indicates data corruption (the
@@ -156,4 +170,20 @@ func (d deltas) SshConnectionRequest(_ context.Context, _ *v4_0_12.ModelExport) 
 	// The ssh_connection_request table was added in 4.1.0, so there are no rows
 	// to transform from 4.0.12.
 	return nil, nil
+}
+
+// ApplicationScale: struct shape changed in 4.1.0. We always default to 0,
+// as this is a change in behavior.
+func (d deltas) ApplicationScale(ctx context.Context, src []v4_0_12.ApplicationScale) ([]v4_1_0.ApplicationScale, error) {
+	var scales []v4_1_0.ApplicationScale
+	for _, s := range src {
+		scales = append(scales, v4_1_0.ApplicationScale{
+			ApplicationUUID: s.ApplicationUUID,
+			Scale:           s.Scale,
+			ScaleTarget:     s.ScaleTarget,
+			Scaling:         s.Scaling,
+			StartOrdinal:    0,
+		})
+	}
+	return scales, nil
 }

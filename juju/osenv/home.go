@@ -23,12 +23,6 @@ var (
 	jujuXDGDataHome   string
 )
 
-const (
-	// DirectorySubPathSSH is the sub directory under Juju home that holds ssh
-	// related information for the Juju client.
-	DirectorySubPathSSH = "ssh"
-)
-
 // SetJujuXDGDataHome sets the value of juju home and
 // returns the current one.
 func SetJujuXDGDataHome(newJujuXDGDataHomeHome string) string {
@@ -51,12 +45,6 @@ func JujuXDGDataHome() string {
 // Juju data directory.
 func JujuXDGDataHomeFS() fs.FS {
 	return os.DirFS(JujuXDGDataHomeDir())
-}
-
-// JujuXDGDataSSHFS return a file system rooted at the ssh directory in the Juju
-// data directory.
-func JujuXDGDataSSHFS() fs.FS {
-	return os.DirFS(filepath.Join(JujuXDGDataHomeDir(), DirectorySubPathSSH))
 }
 
 // JujuXDGDataHomePath returns the path to a file in the

@@ -4,6 +4,8 @@
 package application_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	appsv1 "k8s.io/api/apps/v1"
@@ -19,7 +21,7 @@ func (s *applicationSuite) TestApplicationScaleStateful(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {}, nil)
 
-	c.Assert(app.Scale(20), tc.ErrorIsNil)
+	c.Assert(app.Scale(c.Context(), 20), tc.ErrorIsNil)
 	ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
 		c.Context(),
 		s.appName,
@@ -29,11 +31,51 @@ func (s *applicationSuite) TestApplicationScaleStateful(c *tc.C) {
 	c.Assert(*ss.Spec.Replicas, tc.Equals, int32(20))
 }
 
+func (s *applicationSuite) TestApplicationScaleStatefulRange(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {}, nil)
+
+	c.Assert(app.ScaleRange(c.Context(), 2, 1), tc.ErrorIsNil)
+	ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
+		c.Context(),
+		s.appName,
+		metav1.GetOptions{},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(*ss.Spec.Replicas, tc.Equals, int32(2))
+	c.Assert(ss.Spec.Ordinals, tc.NotNil)
+	c.Check(ss.Spec.Ordinals.Start, tc.Equals, int32(1))
+}
+
+func (s *applicationSuite) TestApplicationScaleRangeInvalid(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+
+	c.Check(app.ScaleRange(c.Context(), -1, 0), tc.ErrorIs, errors.NotValid)
+	c.Check(app.ScaleRange(c.Context(), 1, -1), tc.ErrorIs, errors.NotValid)
+}
+
+func (s *applicationSuite) TestApplicationScaleRangeCancelled(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {}, nil)
+
+	ctx, cancel := context.WithCancel(c.Context())
+	cancel()
+	err := app.ScaleRange(ctx, 2, 1)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
+}
+
+func (s *applicationSuite) TestApplicationScaleRangeStatelessNonZeroStart(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateless, false)
+
+	err := app.ScaleRange(c.Context(), 2, 1)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
+}
+
 func (s *applicationSuite) TestApplicationScaleStateless(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateless, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {}, nil)
 
-	c.Assert(app.Scale(20), tc.ErrorIsNil)
+	c.Assert(app.Scale(c.Context(), 20), tc.ErrorIsNil)
 	dep, err := s.client.AppsV1().Deployments(s.namespace).Get(
 		c.Context(),
 		s.appName,
@@ -47,7 +89,16 @@ func (s *applicationSuite) TestApplicationScaleStatefulLessThanZero(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {}, nil)
 
-	c.Assert(app.Scale(-1), tc.ErrorIs, errors.NotValid)
+	c.Assert(app.Scale(c.Context(), -1), tc.ErrorIs, errors.NotValid)
+}
+
+func (s *applicationSuite) TestApplicationScaleCancelled(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+
+	ctx, cancel := context.WithCancel(c.Context())
+	cancel()
+	err := app.Scale(ctx, 2)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
 }
 
 func (s *applicationSuite) TestEnsureControllerNonce(c *tc.C) {
@@ -124,7 +175,7 @@ func (s *applicationSuite) TestCurrentScale(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {}, nil)
 
-	c.Assert(app.Scale(3), tc.ErrorIsNil)
+	c.Assert(app.Scale(c.Context(), 3), tc.ErrorIsNil)
 
 	units, err := app.UnitsToRemove(c.Context(), 1)
 	c.Assert(err, tc.ErrorIsNil)

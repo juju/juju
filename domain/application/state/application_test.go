@@ -1562,7 +1562,7 @@ func (s *applicationStateSuite) TestUpdateApplicationScale(c *tc.C) {
 	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
 	c.Assert(err, tc.ErrorIsNil)
 
-	newScale, err := s.state.UpdateApplicationScale(c.Context(), appUUID, 2)
+	newScale, err := s.state.UpdateApplicationScale(c.Context(), appUUID, 666, 2)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var gotScale int
@@ -1582,8 +1582,22 @@ func (s *applicationStateSuite) TestUpdateApplicationScaleInvalidScale(c *tc.C) 
 	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.state.UpdateApplicationScale(c.Context(), appUUID, -667)
+	_, err = s.state.UpdateApplicationScale(c.Context(), appUUID, 666, -667)
 	c.Assert(err, tc.ErrorMatches, `scale change invalid: cannot remove more units than currently exist`)
+}
+
+func (s *applicationStateSuite) TestUpdateApplicationScaleChangedScale(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+
+	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.state.UpdateApplicationScale(c.Context(), appUUID, 1, 2)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
+
+	scale, err := s.state.GetApplicationScaleState(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(scale.Scale, tc.Equals, 666)
 }
 
 func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *tc.C) {
@@ -1620,6 +1634,30 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *
 		ScaleTarget: 42,
 		Scaling:     true,
 	})
+}
+
+func (s *applicationStateSuite) TestSetApplicationScalingStateWithStart(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Dead)
+
+	err := s.state.SetApplicationScalingStateWithStart(c.Context(), "foo", 2, 1, true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	state, err := s.state.GetApplicationScaleState(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(state, tc.DeepEquals, application.ScaleState{
+		StartOrdinal: 1,
+		Scale:        2,
+		ScaleTarget:  2,
+		Scaling:      true,
+	})
+
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 2, false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	state, err = s.state.GetApplicationScaleState(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(state.StartOrdinal, tc.Equals, 1)
+	c.Check(state.Scaling, tc.IsFalse)
 }
 
 func (s *applicationStateSuite) TestSetApplicationScalingStateInconsistent(c *tc.C) {

@@ -4,10 +4,9 @@ test_ssh_machine() {
 		return
 	fi
 
-	local model_name local_file remote_file copied_file output
+	local model_name local_file remote_file copied_file output key_file
 	model_name="test-ssh-machine"
 	add_model "${model_name}"
-
 	juju deploy juju-qa-test ssh-test --base ubuntu@22.04
 	wait_for "ssh-test" "$(idle_condition "ssh-test")"
 
@@ -34,6 +33,18 @@ test_ssh_machine() {
 	juju scp "0:${remote_file}" "${copied_file}"
 	check_contains "$(cat "${copied_file}")" "machine-scp-test"
 
+	# A key registered on a different model must be refused here, with the
+	# key comment included in the error to help identify the offending key.
+	key_file="${TEST_DIR}/other-model-key"
+	ssh-keygen -q -t ed25519 -N "" -C "other-model-key" -f "${key_file}"
+	add_model "${model_name}-other"
+	juju add-ssh-key -m "${model_name}-other" "$(cat "${key_file}.pub")"
+
+	juju switch "${model_name}"
+	output=$(juju ssh --ssh-key "${key_file}" ssh-test/0 -- printf should-not-run 2>&1 || true)
+	check_contains "${output}" "public key \"other-model-key\" used to authenticate is not associated with model"
+	destroy_model "${model_name}-other"
+
 	destroy_model "${model_name}"
 }
 
@@ -43,10 +54,9 @@ test_ssh_k8s() {
 		return
 	fi
 
-	local model_name local_file remote_file copied_file output
+	local model_name local_file remote_file copied_file output key_file
 	model_name="test-ssh-k8s"
 	add_model "${model_name}"
-
 	juju deploy snappass-test ssh-test
 	wait_for "ssh-test" "$(idle_condition "ssh-test")"
 
@@ -70,6 +80,18 @@ test_ssh_k8s() {
 
 	juju scp --container redis "ssh-test/0:${remote_file}" "${copied_file}"
 	check_contains "$(cat "${copied_file}")" "k8s-scp-test"
+
+	# A key registered on a different model must be refused here, with the
+	# key comment included in the error to help identify the offending key.
+	key_file="${TEST_DIR}/other-model-key"
+	ssh-keygen -q -t ed25519 -N "" -C "other-model-key" -f "${key_file}"
+	add_model "${model_name}-other"
+	juju add-ssh-key -m "${model_name}-other" "$(cat "${key_file}.pub")"
+
+	juju switch "${model_name}"
+	output=$(juju ssh --ssh-key "${key_file}" ssh-test/0 -- printf should-not-run 2>&1 || true)
+	check_contains "${output}" "public key \"other-model-key\" used to authenticate is not associated with model"
+	destroy_model "${model_name}-other"
 
 	destroy_model "${model_name}"
 }

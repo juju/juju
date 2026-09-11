@@ -33,7 +33,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
-// AddControllerNode ensures a controller node exists for the supplied ID.
+// AddDqliteNodeID ensures a controller node exists for the supplied ID.
 // It only inserts the controller_id; the dqlite_node_id and
 // dqlite_bind_address columns are left NULL. These are populated later by
 // AddDqliteNode when the Dqlite cluster admits the node.
@@ -41,14 +41,14 @@ func NewState(factory database.TxnRunnerFactory) *State {
 // during UnitIntroduction (before joining the Dqlite cluster), and the
 // Dqlite node information is added in a separate step once the cluster
 // acknowledges the new peer.
-func (st *State) AddControllerNode(ctx context.Context, controllerID string) error {
+func (st *State) AddDqliteNodeID(ctx context.Context, controllerID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	controllerNode := dbControllerNode{ControllerID: controllerID}
-	stmt, err := st.Prepare(`
+	insertStmt, err := st.Prepare(`
 INSERT INTO controller_node (controller_id)
 VALUES ($dbControllerNode.controller_id)
 ON CONFLICT (controller_id) DO NOTHING
@@ -57,8 +57,27 @@ ON CONFLICT (controller_id) DO NOTHING
 		return errors.Errorf("preparing insert controller node statement: %w", err)
 	}
 
+	checkAliveStmt, err := st.Prepare(`
+SELECT life_id AS &dbControllerNode.life_id
+FROM controller_node
+WHERE controller_id = $dbControllerNode.controller_id
+`, controllerNode)
+	if err != nil {
+		return errors.Errorf("preparing controller node life query: %w", err)
+	}
+
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Capture(tx.Query(ctx, stmt, controllerNode).Run())
+		if err := tx.Query(ctx, insertStmt, controllerNode).Run(); err != nil {
+			return errors.Capture(err)
+		}
+		var result dbControllerNode
+		if err := tx.Query(ctx, checkAliveStmt, controllerNode).Get(&result); err != nil {
+			return errors.Capture(err)
+		}
+		if result.LifeID != 0 {
+			return errors.Errorf("controller node is not alive").Add(controllernodeerrors.NotFound)
+		}
+		return nil
 	}))
 }
 
@@ -66,7 +85,7 @@ ON CONFLICT (controller_id) DO NOTHING
 // controller ID. If the controller ID already exists, it updates the
 // Dqlite node ID and bind address.
 //
-// This is called separately from AddControllerNode because the controller
+// This is called separately from AddDqliteNodeID because the controller
 // node identity is registered during UnitIntroduction (before the Dqlite
 // cluster admits the peer). The Dqlite node information is only available
 // once the cluster acknowledges the new node, which happens in a distinct
@@ -89,54 +108,42 @@ func (st *State) AddDqliteNode(ctx context.Context, controllerID string, nodeID 
 	}
 
 	q := `
-INSERT INTO controller_node (controller_id, dqlite_node_id, dqlite_bind_address)
-VALUES      ($dbControllerNode.*)
-ON CONFLICT (controller_id) DO
-UPDATE SET  dqlite_node_id = excluded.dqlite_node_id,
-            dqlite_bind_address = excluded.dqlite_bind_address;
+INSERT INTO controller_node (
+    controller_id,
+    dqlite_node_id,
+    dqlite_bind_address
+) VALUES ($dbControllerNode.*)
+ON CONFLICT (controller_id) DO UPDATE SET
+    dqlite_node_id = excluded.dqlite_node_id,
+    dqlite_bind_address = excluded.dqlite_bind_address
+WHERE controller_node.life_id = 0
 `
 	stmt, err := st.Prepare(q, controllerNode)
 	if err != nil {
 		return errors.Errorf("preparing update controller node statement: %w", err)
 	}
+	checkAliveStmt, err := st.Prepare(`
+SELECT controller_id AS &dbControllerNode.controller_id
+FROM controller_node
+WHERE controller_id = $dbControllerNode.controller_id
+AND life_id = 0
+`, controllerNode)
+	if err != nil {
+		return errors.Errorf("preparing controller node life query: %w", err)
+	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, controllerNode).Run()
-		return errors.Capture(err)
-	}))
-}
-
-// DeleteDqliteNodes removes controller nodes from the controller_node table.
-func (st *State) DeleteDqliteNodes(ctx context.Context, delete []string) error {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Single dbControllerNode object created here and reused.
-	controllerNode := dbControllerNode{}
-
-	deleteStmt, err := st.Prepare(`
-DELETE FROM controller_node 
-WHERE       controller_id = $dbControllerNode.controller_id`, controllerNode)
-	if err != nil {
-		return errors.Errorf("preparing delete controller node statement: %w", err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		for _, cID := range delete {
-			controllerNodeToDelete := dbControllerNode{ControllerID: cID}
-			if err := tx.Query(ctx, deleteStmt, controllerNodeToDelete).Run(); err != nil {
-				return errors.Errorf("deleting controller node %q: %w", cID, err)
-			}
+		if err := tx.Query(ctx, stmt, controllerNode).Run(); err != nil {
+			return errors.Capture(err)
 		}
-
+		var result dbControllerNode
+		if err := tx.Query(ctx, checkAliveStmt, controllerNode).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("controller node is not alive").Add(controllernodeerrors.NotFound)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
 		return nil
-	})
-	if err != nil {
-		return errors.Errorf("curating controller nodes: %w", err)
-	}
-	return nil
+	}))
 }
 
 // SelectDatabaseNamespace is responsible for selecting and returning the
@@ -201,6 +208,7 @@ SELECT id AS &architecture.id FROM architecture WHERE name = $architecture.name
 SELECT controller_id AS &controllerNodeAgentVersion.*
 FROM controller_node
 WHERE controller_id = $controllerNodeAgentVersion.controller_id
+AND life_id = 0
 	`, controllerNodeAgentVersion{})
 	if err != nil {
 		return errors.Capture(err)
@@ -272,7 +280,8 @@ func (st *State) IsControllerNode(ctx context.Context, nodeID string) (bool, err
 	stmt, err := st.Prepare(`
 SELECT COUNT(*) AS &dbControllerNodeCount.count
 FROM controller_node
-WHERE controller_id = $dbControllerNode.controller_id`, controllerNode, dbControllerNodeCount{})
+WHERE controller_id = $dbControllerNode.controller_id
+AND life_id < 2`, controllerNode, dbControllerNodeCount{})
 	if err != nil {
 		return false, errors.Errorf("preparing select controller node statement: %w", err)
 	}
@@ -325,6 +334,7 @@ func (st *State) SetAPIAddresses(ctx context.Context, addresses map[string]contr
 SELECT COUNT(*) AS &countResult.count 
 FROM controller_node 
 WHERE controller_id IN ($controllerIDs[:])
+AND life_id = 0
 `, countResult{}, controllerIDs{})
 	if err != nil {
 		return errors.Capture(err)
@@ -373,7 +383,9 @@ AND address = $controllerAPIAddress.address
 		if err := tx.Query(ctx, checkControllerExistsStmt, controllers).Get(&countResult); err != nil {
 			return errors.Errorf("checking if controller nodes %q exists: %w", nodes, err)
 		}
-		if countResult.Count == 0 {
+		// A non-zero count only proves that some requested nodes still exist.
+		// Every address to insert must have a parent controller node.
+		if countResult.Count != len(controllers) {
 			return errors.Errorf("controller nodes %q do not exist", nodes).Add(controllernodeerrors.NotFound)
 		}
 
@@ -498,6 +510,7 @@ func (st *State) GetControllerIDs(ctx context.Context) ([]string, error) {
 	stmt, err := st.Prepare(`
 SELECT &controllerID.* 
 FROM controller_node
+WHERE life_id < 2
 `, controllerID{})
 	if err != nil {
 		return nil, errors.Capture(err)

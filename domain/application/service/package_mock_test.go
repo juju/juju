@@ -494,6 +494,7 @@ type MockStateMockRecorder struct {
 	setApplicationConstraintsExpects                          []*gomock.Call3_1[context.Context, application.UUID, constraints0.Constraints, error]
 	setApplicationHasK8sResourcesExpects                      []*gomock.Call2_1[context.Context, application.UUID, error]
 	setApplicationScalingStateExpects                         []*gomock.Call4_1[context.Context, string, int, bool, error]
+	setApplicationScalingStateWithStartExpects                []*gomock.Call5_1[context.Context, string, int, int, bool, error]
 	setCharmAvailableExpects                                  []*gomock.Call2_1[context.Context, charm.ID, error]
 	setDesiredApplicationScaleExpects                         []*gomock.Call3_1[context.Context, application.UUID, int, error]
 	setUnitWorkloadVersionExpects                             []*gomock.Call3_1[context.Context, unit.Name, string, error]
@@ -503,7 +504,7 @@ type MockStateMockRecorder struct {
 	unsetApplicationConfigKeysExpects                         []*gomock.Call3_1[context.Context, application.UUID, []string, error]
 	unsetExposeSettingsExpects                                []*gomock.Call3_1[context.Context, application.UUID, set.Strings, error]
 	updateApplicationConfigAndSettingsExpects                 []*gomock.Call4_1[context.Context, application.UUID, map[string]application0.AddApplicationConfig, application0.UpdateApplicationSettingsArg, error]
-	updateApplicationScaleExpects                             []*gomock.Call3_2[context.Context, application.UUID, int, int, error]
+	updateApplicationScaleExpects                             []*gomock.Call4_2[context.Context, application.UUID, int, int, int, error]
 	updateCAASUnitExpects                                     []*gomock.Call3_1[context.Context, unit.Name, application0.UpdateCAASUnitParams, error]
 	updateUnitCharmExpects                                    []*gomock.Call2_1[context.Context, internal.UpdateUnitCharmArg, error]
 	upsertK8sServiceExpects                                   []*gomock.Call4_1[context.Context, string, string, network.ProviderAddresses, error]
@@ -2848,6 +2849,24 @@ func (mr *MockStateMockRecorder) SetApplicationScalingState(ctx, appName, target
 // MockStateSetApplicationScalingStateCall is the typed call wrapper for SetApplicationScalingState.
 type MockStateSetApplicationScalingStateCall = gomock.Call4_1[context.Context, string, int, bool, error]
 
+// SetApplicationScalingStateWithStart mocks base method.
+func (m *MockState) SetApplicationScalingStateWithStart(ctx context.Context, appName string, targetScale, startOrdinal int, scaling bool) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch5_1(&m.recorder.setApplicationScalingStateWithStartExpects, m.ctrl, m, "SetApplicationScalingStateWithStart", ctx, appName, targetScale, startOrdinal, scaling)
+}
+
+// SetApplicationScalingStateWithStart indicates an expected call of SetApplicationScalingStateWithStart.
+func (mr *MockStateMockRecorder) SetApplicationScalingStateWithStart(ctx, appName, targetScale, startOrdinal, scaling any) *MockStateSetApplicationScalingStateWithStartCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall5_1[context.Context, string, int, int, bool, error](mr.mock.ctrl.T, mr.mock, "SetApplicationScalingStateWithStart", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appName), gomock.EnsureMatcher(targetScale), gomock.EnsureMatcher(startOrdinal), gomock.EnsureMatcher(scaling))
+	mr.setApplicationScalingStateWithStartExpects = append(mr.setApplicationScalingStateWithStartExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateSetApplicationScalingStateWithStartCall is the typed call wrapper for SetApplicationScalingStateWithStart.
+type MockStateSetApplicationScalingStateWithStartCall = gomock.Call5_1[context.Context, string, int, int, bool, error]
+
 // SetCharmAvailable mocks base method.
 func (m *MockState) SetCharmAvailable(ctx context.Context, charmID charm.ID) error {
 	m.ctrl.T.Helper()
@@ -3011,22 +3030,22 @@ func (mr *MockStateMockRecorder) UpdateApplicationConfigAndSettings(ctx, appUUID
 type MockStateUpdateApplicationConfigAndSettingsCall = gomock.Call4_1[context.Context, application.UUID, map[string]application0.AddApplicationConfig, application0.UpdateApplicationSettingsArg, error]
 
 // UpdateApplicationScale mocks base method.
-func (m *MockState) UpdateApplicationScale(ctx context.Context, appUUID application.UUID, delta int) (int, error) {
+func (m *MockState) UpdateApplicationScale(ctx context.Context, appUUID application.UUID, currentScale, delta int) (int, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.updateApplicationScaleExpects, m.ctrl, m, "UpdateApplicationScale", ctx, appUUID, delta)
+	return gomock.Dispatch4_2(&m.recorder.updateApplicationScaleExpects, m.ctrl, m, "UpdateApplicationScale", ctx, appUUID, currentScale, delta)
 }
 
 // UpdateApplicationScale indicates an expected call of UpdateApplicationScale.
-func (mr *MockStateMockRecorder) UpdateApplicationScale(ctx, appUUID, delta any) *MockStateUpdateApplicationScaleCall {
+func (mr *MockStateMockRecorder) UpdateApplicationScale(ctx, appUUID, currentScale, delta any) *MockStateUpdateApplicationScaleCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[context.Context, application.UUID, int, int, error](mr.mock.ctrl.T, mr.mock, "UpdateApplicationScale", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appUUID), gomock.EnsureMatcher(delta))
+	call := gomock.NewCall4_2[context.Context, application.UUID, int, int, int, error](mr.mock.ctrl.T, mr.mock, "UpdateApplicationScale", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appUUID), gomock.EnsureMatcher(currentScale), gomock.EnsureMatcher(delta))
 	mr.updateApplicationScaleExpects = append(mr.updateApplicationScaleExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateUpdateApplicationScaleCall is the typed call wrapper for UpdateApplicationScale.
-type MockStateUpdateApplicationScaleCall = gomock.Call3_2[context.Context, application.UUID, int, int, error]
+type MockStateUpdateApplicationScaleCall = gomock.Call4_2[context.Context, application.UUID, int, int, int, error]
 
 // UpdateCAASUnit mocks base method.
 func (m *MockState) UpdateCAASUnit(arg0 context.Context, arg1 unit.Name, arg2 application0.UpdateCAASUnitParams) error {

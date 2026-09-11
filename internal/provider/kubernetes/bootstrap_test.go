@@ -729,7 +729,11 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
 			"JUJU_K8S_UNIT_PASSWORD":        []byte(controllerStacker.GetControllerUnitAgentPassword()),
+			"JUJU_K8S_APPLICATION":          []byte("controller"),
+			"JUJU_K8S_MODEL":                []byte(coretesting.ModelTag.Id()),
 			"JUJU_K8S_APPLICATION_PASSWORD": []byte(controllerStacker.GetControllerApplicationPassword()),
+			"JUJU_K8S_CONTROLLER_ADDRESSES": []byte("juju-controller-test-service:17777"),
+			"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(coretesting.CACert),
 		},
 	}
 
@@ -782,8 +786,9 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
 		},
 		Spec: apps.StatefulSetSpec{
-			ServiceName: "juju-controller-test-service-endpoints",
-			Replicas:    &numberOfPods,
+			ServiceName:         "juju-controller-test-service-endpoints",
+			Replicas:            &numberOfPods,
+			PodManagementPolicy: apps.ParallelPodManagement,
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": "juju-controller-test"},
 			},
@@ -813,10 +818,15 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 						"app.kubernetes.io/name":        "juju-controller-test",
 						"model.juju.is/disable-webhook": "true",
 					},
-					Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
+					Annotations: map[string]string{
+						"controller.juju.is/id": coretesting.ControllerTag.Id(),
+						"juju.is/version":       s.pcfg.JujuVersion.String(),
+						"model.juju.is/id":      s.cfg.UUID(),
+					},
 				},
 				Spec: core.PodSpec{
 					ServiceAccountName:            "controller",
+					NodeSelector:                  map[string]string{"kubernetes.io/arch": "amd64"},
 					AutomountServiceAccountToken:  pointer.Bool(true),
 					TerminationGracePeriodSeconds: new(int64(30)),
 					EnableServiceLinks:            pointer.Bool(enableServiceLinks),
@@ -1187,33 +1197,6 @@ fi
 						FieldPath: "metadata.uid",
 					},
 				},
-			},
-			{
-				Name:  "JUJU_K8S_APPLICATION",
-				Value: "controller",
-			},
-			{
-				Name:  "JUJU_K8S_MODEL",
-				Value: coretesting.ModelTag.Id(),
-			},
-			{
-				Name: "JUJU_K8S_APPLICATION_PASSWORD",
-				ValueFrom: &core.EnvVarSource{
-					SecretKeyRef: &core.SecretKeySelector{
-						LocalObjectReference: core.LocalObjectReference{
-							Name: "juju-controller-test-application-config",
-						},
-						Key: "JUJU_K8S_APPLICATION_PASSWORD",
-					},
-				},
-			},
-			{
-				Name:  "JUJU_K8S_CONTROLLER_ADDRESSES",
-				Value: "juju-controller-test-service:17777",
-			},
-			{
-				Name:  "JUJU_K8S_CONTROLLER_CA_CERT",
-				Value: coretesting.CACert,
 			},
 		},
 		EnvFrom: []core.EnvFromSource{

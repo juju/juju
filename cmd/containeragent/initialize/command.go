@@ -253,10 +253,6 @@ func (c *initCommand) writeContainerAgentPebbleConfig() error {
 		extraArgs = append(extraArgs, "--charm-modified-version", c.charmModifiedVersion)
 	}
 
-	if c.isController {
-		extraArgs = append(extraArgs, "--controller")
-	}
-
 	onCheckFailureAction := pebbleplan.ActionShutdown
 	if c.isController {
 		onCheckFailureAction = pebbleplan.ActionRestart

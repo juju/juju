@@ -18,6 +18,10 @@ const (
 
 // PublicKey represents a single public ssh key for a user within a model.
 type PublicKey struct {
+	// Comment is the comment string of the public key. May be empty if
+	// the public key does not contain a comment.
+	Comment string
+
 	// Fingerprint is the calculated fingerprint of the ssh key.
 	Fingerprint string
 

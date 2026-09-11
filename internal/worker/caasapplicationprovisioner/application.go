@@ -81,8 +81,12 @@ const (
 	unitsChurning errors.ConstError = "units churning"
 )
 
+// NewAppWorkerFunc is a function type that creates a new application
+// provisioner worker for the given configuration.
 type NewAppWorkerFunc func(AppWorkerConfig) func(ctx context.Context) (worker.Worker, error)
 
+// NewAppWorker returns a function that creates a new application provisioner
+// worker for the given configuration.
 func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Worker, error) {
 	ops := config.Ops
 	if ops == nil {
@@ -145,16 +149,6 @@ func (a *appWorker) loop() error {
 		return errors.Annotatef(err, "fetching info for application %q", a.appUUID)
 	}
 
-	// If the application is the Juju controller, only provide updates on the
-	// status of the application.
-	statusOnly, err := a.applicationService.IsControllerApplication(ctx, a.appUUID)
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		a.logger.Debugf(ctx, "application %q no longer exists", a.appUUID)
-		return nil
-	} else if err != nil {
-		return errors.Annotatef(err, "fetching info for application %q", a.appUUID)
-	}
-
 	// TODO(sidecar): support more than statefulset
 	app := a.broker.Application(name, caas.DeploymentStateful)
 
@@ -169,22 +163,20 @@ func (a *appWorker) loop() error {
 	}
 	a.life = appLife
 	if appLife == life.Dead {
-		if !statusOnly {
-			err = a.ops.AppDying(ctx, name, a.appUUID, app, a.life, a.facade,
-				a.applicationService, a.statusService, a.logger)
-			if err != nil {
-				return errors.Annotatef(err, "deleting application %q", name)
-			}
-			err = a.ops.AppDead(ctx, name, a.appUUID, app,
-				a.applicationService, a.clock, a.logger)
-			if err != nil {
-				return errors.Annotatef(err, "deleting application %q", name)
-			}
+		err = a.ops.AppDying(ctx, name, a.appUUID, app, a.life, a.facade,
+			a.applicationService, a.statusService, a.logger)
+		if err != nil {
+			return errors.Annotatef(err, "deleting application %q", name)
+		}
+		err = a.ops.AppDead(ctx, name, a.appUUID, app,
+			a.applicationService, a.clock, a.logger)
+		if err != nil {
+			return errors.Annotatef(err, "deleting application %q", name)
 		}
 		return nil
 	}
 
-	if appLife == life.Alive && !statusOnly {
+	if appLife == life.Alive {
 		// Update the password once per worker start to avoid it changing too frequently.
 		a.password, err = password.RandomPassword()
 		if err != nil {
@@ -258,9 +250,7 @@ func (a *appWorker) loop() error {
 			}
 			if ps.Scaling {
 				scaleChan = a.clock.After(0)
-				if !statusOnly {
-					reconcileDeadChan = a.clock.After(0)
-				}
+				reconcileDeadChan = a.clock.After(0)
 			}
 		}
 		switch appLife {
@@ -275,30 +265,28 @@ func (a *appWorker) loop() error {
 				}
 				appProvisionChanges = appProvisionWatcher.Changes()
 			}
-			if !statusOnly {
-				a.provisioningInfo, err = a.ops.ProvisioningInfo(ctx, name,
-					a.appUUID, a.facade, a.applicationService,
-					a.storageProvisioningService, a.resourceOpenerGetter,
-					a.provisioningInfo, a.logger)
-				if errors.Is(err, errors.NotProvisioned) {
-					a.logger.Debugf(ctx, "application %q is not provisioned", name)
-					// State not ready for this application to be provisioned yet.
-					// Usually because the charm has not yet been downloaded.
-					return tryAgain
-				} else if err != nil {
-					return errors.Annotatef(err, "failed to get provisioning info for %q", name)
-				}
-				// Signal that we are managing k8s resources for this app,
-				// blocking removal until we explicitly clear the flag.
-				if err := a.applicationService.SetApplicationHasK8sResources(ctx, a.appUUID); err != nil {
-					return errors.Annotatef(err, "setting k8s resources managed for %q", name)
-				}
-				err = a.ops.AppAlive(ctx, name, a.appUUID, app, a.password,
-					&a.lastApplied, a.provisioningInfo, a.statusService,
-					a.clock, a.logger)
-				if err != nil {
-					return errors.Trace(err)
-				}
+			a.provisioningInfo, err = a.ops.ProvisioningInfo(ctx, name,
+				a.appUUID, a.facade, a.applicationService,
+				a.storageProvisioningService, a.resourceOpenerGetter,
+				a.provisioningInfo, a.logger)
+			if errors.Is(err, errors.NotProvisioned) {
+				a.logger.Debugf(ctx, "application %q is not provisioned", name)
+				// State not ready for this application to be provisioned yet.
+				// Usually because the charm has not yet been downloaded.
+				return tryAgain
+			} else if err != nil {
+				return errors.Annotatef(err, "failed to get provisioning info for %q", name)
+			}
+			// Signal that we are managing k8s resources for this app,
+			// blocking removal until we explicitly clear the flag.
+			if err := a.applicationService.SetApplicationHasK8sResources(ctx, a.appUUID); err != nil {
+				return errors.Annotatef(err, "setting k8s resources managed for %q", name)
+			}
+			err = a.ops.AppAlive(ctx, name, a.appUUID, app, a.password,
+				&a.lastApplied, a.provisioningInfo, a.statusService,
+				a.clock, a.logger)
+			if err != nil {
+				return errors.Trace(err)
 			}
 			if appChanges == nil {
 				appWatcher, err := app.Watch(ctx)
@@ -323,26 +311,22 @@ func (a *appWorker) loop() error {
 			a.logger.Debugf(ctx, "application %q is ready", name)
 			ready = true
 		case life.Dying:
-			if !statusOnly {
-				err = a.ops.AppDying(ctx, name, a.appUUID, app, a.life,
-					a.facade, a.applicationService, a.statusService, a.logger)
-				if err != nil {
-					return errors.Trace(err)
-				}
+			err = a.ops.AppDying(ctx, name, a.appUUID, app, a.life,
+				a.facade, a.applicationService, a.statusService, a.logger)
+			if err != nil {
+				return errors.Trace(err)
 			}
 			ready = false
 		case life.Dead:
-			if !statusOnly {
-				err = a.ops.AppDying(ctx, name, a.appUUID, app, a.life,
-					a.facade, a.applicationService, a.statusService, a.logger)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				err = a.ops.AppDead(ctx, name, a.appUUID, app,
-					a.applicationService, a.clock, a.logger)
-				if err != nil {
-					return errors.Trace(err)
-				}
+			err = a.ops.AppDying(ctx, name, a.appUUID, app, a.life,
+				a.facade, a.applicationService, a.statusService, a.logger)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			err = a.ops.AppDead(ctx, name, a.appUUID, app,
+				a.applicationService, a.clock, a.logger)
+			if err != nil {
+				return errors.Trace(err)
 			}
 			done = true
 			ready = false
@@ -401,10 +385,6 @@ func (a *appWorker) loop() error {
 			}
 			shouldRefresh = false
 		case <-trustChan:
-			if statusOnly {
-				trustChan = nil
-				break
-			}
 			if !ready {
 				trustChan = a.clock.After(retryDelay)
 				shouldRefresh = false
@@ -432,10 +412,6 @@ func (a *appWorker) loop() error {
 			}
 			shouldRefresh = false
 		case <-reconcileDeadChan:
-			if statusOnly {
-				reconcileDeadChan = nil
-				break
-			}
 			err := a.ops.ReconcileDeadUnitScale(ctx, name, a.appUUID, app,
 				a.facade, a.applicationService, a.logger)
 			if errors.Is(err, errors.NotFound) {
@@ -502,7 +478,6 @@ func (a *appWorker) loop() error {
 			report := map[string]any{
 				"application-uuid": a.appUUID,
 				"application-name": name,
-				"status-only":      statusOnly,
 				"application-life": a.life,
 				"scale-target":     ps.ScaleTarget,
 				"scaling":          ps.Scaling,
