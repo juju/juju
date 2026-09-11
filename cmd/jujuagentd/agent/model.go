@@ -5,6 +5,7 @@ package agent
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -107,6 +108,26 @@ func (m *ModelCommand) maybeCopyAgentConfig() error {
 		return errors.Trace(err)
 	}
 	return m.ReadConfig(m.Tag().String())
+}
+
+func copyFile(dest, source string) error {
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		return errors.Trace(err)
+	}
+	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0o600)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer df.Close()
+
+	f, err := os.Open(source)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer f.Close()
+
+	_, err = io.Copy(df, f)
+	return errors.Trace(err)
 }
 
 // NewModelCommand creates a new ModelCommand instance properly initialized
