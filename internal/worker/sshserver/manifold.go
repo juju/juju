@@ -260,7 +260,7 @@ func outputFunc(in worker.Worker, out any) error {
 	case *sshproxy.Resolver:
 		*outPointer = inWorker.config.Resolver
 	case *sshproxy.RelayAuthorizer:
-		*outPointer = inWorker.config.RelayAuthorizer
+		*outPointer = inWorker.relayAuthorizer
 	default:
 		return errors.Errorf("out should be *sshproxy.Resolver or *sshproxy.RelayAuthorizer; got %T", out)
 	}

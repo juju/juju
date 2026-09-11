@@ -1030,10 +1030,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		sshTunnelHandler = srv.sshTunnelRequestWrapper(tunnelHandler)
 
 		relayHandler, err := sshtunnel.NewRelayHandler(sshtunnel.RelayHandlerConfig{
-			Logger:     logger.Child("sshtunnel"),
-			Authorizer: srv.sshTunnelConfig.Authorizer,
-			Resolver:   srv.sshTunnelConfig.Resolver,
-			Metrics:    srv.sshTunnelConfig.Metrics,
+			Logger:                   logger.Child("sshtunnel"),
+			Authorizer:               srv.sshTunnelConfig.Authorizer,
+			Resolver:                 srv.sshTunnelConfig.Resolver,
+			MaxConcurrentConnections: srv.sshTunnelConfig.MaxConcurrentConnections,
+			Metrics:                  srv.sshTunnelConfig.Metrics,
 		})
 		if err != nil {
 			return nil, errors.Trace(err)
