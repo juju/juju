@@ -182,66 +182,32 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 	workertest.CleanKill(c, result)
 }
 
-func (s *manifoldSuite) TestOutputFuncResolver(c *tc.C) {
+func (s *manifoldSuite) TestOutputFunc(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	result := s.startManifold(c)
 	defer workertest.DirtyKill(c, result)
 
 	var resolver sshproxy.Resolver
-	err := outputFunc(result, &resolver)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(outputFunc(result, &resolver), tc.ErrorIsNil)
 	c.Check(resolver, tc.NotNil)
-}
-
-func (s *manifoldSuite) TestOutputFuncCollector(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	result := s.startManifold(c)
-	defer workertest.DirtyKill(c, result)
 
 	var collector *Collector
-	err := outputFunc(result, &collector)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(outputFunc(result, &collector), tc.ErrorIsNil)
 	c.Check(collector, tc.NotNil)
-}
-
-func (s *manifoldSuite) TestOutputFuncWrongType(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	result := s.startManifold(c)
-	defer workertest.DirtyKill(c, result)
 
 	var wrong string
-	err := outputFunc(result, &wrong)
-	c.Assert(err, tc.ErrorMatches, `out should be \*sshproxy\.Resolver or \*\*sshserver\.Collector; got \*string`)
+	c.Assert(outputFunc(result, &wrong), tc.ErrorMatches,
+		`out should be \*sshproxy\.Resolver or \*\*sshserver\.Collector; got \*string`)
 }
 
 func (s *manifoldSuite) startManifold(c *tc.C) worker.Worker {
-	manifold := Manifold(ManifoldConfig{
-		DomainServicesName:     "domain-services",
-		SSHTunnelerName:        "ssh-tunneler",
-		ControllerID:           "0",
-		ControllerUUID:         "8419cd78-4993-4c3a-928e-c646226beeee",
-		NewServerWrapperWorker: NewServerWrapperWorker,
-		NewServerWorker: func(ServerWorkerConfig) (worker.Worker, error) {
+	manifold := Manifold(*s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
+		cfg.NewServerWrapperWorker = NewServerWrapperWorker
+		cfg.NewServerWorker = func(ServerWorkerConfig) (worker.Worker, error) {
 			return workertest.NewErrorWorker(nil), nil
-		},
-		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
-			return s.controllerConfigService, nil
-		},
-		GetControllerSSHService: func(getter dependency.Getter, name string) (*controllersshservice.Service, error) {
-			return s.controllerSSHService, nil
-		},
-		GetDomainServicesGetter: func(dependency.Getter, string) (services.DomainServicesGetter, error) {
-			return stubDomainServicesGetter{}, nil
-		},
-		GetSSHService: func(context.Context, services.DomainServicesGetter, model.UUID) (*modelsshservice.WatchableService, error) {
-			return s.sshService, nil
-		},
-		Logger:               loggertesting.WrapCheckLog(c),
-		PrometheusRegisterer: prometheus.NewRegistry(),
-	})
+		}
+	}))
 
 	result, err := manifold.Start(
 		c.Context(),
