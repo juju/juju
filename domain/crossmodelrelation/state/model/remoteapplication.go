@@ -1623,8 +1623,15 @@ func decodeMacaroon(data []byte) (*macaroon.Macaroon, error) {
 	return &m, nil
 }
 
-// IsRelationWithEndpointIdentifiersSuspended returns the suspended status
-// of a relation with the specified endpoints.
+// IsRelationWithEndpointIdentifiersSuspended returns whether the relation
+// with the specified endpoints is suspended.
+//
+// The relation's suspended flag is read rather than its status: the status
+// transitions suspending -> suspended asynchronously (the offer-side uniter
+// sets suspended only after relation-broken runs), while the flag is set
+// synchronously by suspend-relation. Access checks must deny access as soon
+// as the relation is suspended.
+//
 // The following error types can be expected:
 //   - [relationerrors.RelationNotFound]: when no relation exists for the given
 //     endpoints.
@@ -1649,11 +1656,10 @@ func (st *State) IsRelationWithEndpointIdentifiersSuspended(
 	}
 
 	stmt, err := st.Prepare(`
-SELECT rs.relation_status_type_id = 4 AS &relationSuspended.suspended
+SELECT r.suspended AS &relationSuspended.suspended
 FROM   relation r
 JOIN   v_relation_endpoint_identifier e1 ON r.uuid = e1.relation_uuid
 JOIN   v_relation_endpoint_identifier e2 ON r.uuid = e2.relation_uuid
-JOIN   relation_status rs ON rs.relation_uuid = r.uuid
 WHERE  e1.application_name = $endpointIdentifier1.application_name 
 AND    e1.endpoint_name    = $endpointIdentifier1.endpoint_name
 AND    e2.application_name = $endpointIdentifier2.application_name 
