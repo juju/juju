@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/lease"
+	"github.com/juju/juju/internal/worker/sshserver"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -192,7 +193,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 		"object-store":        s.objectStoreGetter,
 		"jwt-parser":          s.jwtParser,
 		"ssh-tunneler":        stubTunnelTracker{},
-		"ssh-server":          stubResolver{},
+		"ssh-server":          []any{stubResolver{}, sshserver.NewMetricsCollector()},
 		"watcher-registry":    s.watcherRegistryGetter,
 		"flight-recorder":     s.flightRecorder,
 		"provider-tracker":    s.providerFactory,

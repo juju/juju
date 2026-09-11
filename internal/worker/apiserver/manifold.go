@@ -346,26 +346,23 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	// Fetch the relay resolver from the sshserver worker's manifold
-	// output. The sshserver worker already composes the proxy factory
-	// and SSH service. The apiserver consumes the resolver as-is rather
-	// than re-composing the same building blocks. Relay authorization
-	// happens in the relay handler itself using the verified JWT.
+	// Fetch the relay resolver and the shared metrics collector from the
+	// sshserver worker's manifold output. The sshserver worker already
+	// composes the proxy factory and SSH service, and registers the
+	// collector with the Prometheus registerer. The apiserver consumes
+	// both as-is rather than re-composing or re-registering.
 	var relayResolver sshproxy.Resolver
 	if err := getter.Get(config.SSHServerName, &relayResolver); err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	// The sshserver worker registers its own metrics collector with the
-	// Prometheus registerer. The apiserver creates a local unregistered
-	// instance for the relay/tunnel endpoints, so the upgrade paths are
-	// accounted the same way without a duplicate registration.
-	sshTunnelMetrics := sshserver.NewMetricsCollector()
+	var sshTunnelMetrics *sshserver.Collector
+	if err := getter.Get(config.SSHServerName, &sshTunnelMetrics); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// Register the metrics collector against the prometheus register.
 	metricsCollector := config.NewMetricsCollector()
 	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
-		_ = config.PrometheusRegisterer.Unregister(sshTunnelMetrics)
 		return nil, errors.Trace(err)
 	}
 
