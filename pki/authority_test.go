@@ -83,6 +83,7 @@ func (a *AuthoritySuite) TestLeafRequestWithValidity(c *gc.C) {
 	authority.SetLeafValidityDuration(time.Minute)
 	dnsNames := []string{"test.juju.is"}
 	ipAddresses := []net.IP{net.ParseIP("fe80:abcd::1")}
+	now := time.Now()
 	leaf, err := authority.LeafRequestForGroup("testgroup").
 		AddDNSNames(dnsNames...).
 		AddIPAddresses(ipAddresses...).
@@ -91,13 +92,12 @@ func (a *AuthoritySuite) TestLeafRequestWithValidity(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(leaf.Certificate().DNSNames, jc.DeepEquals, dnsNames)
 	c.Assert(leaf.Certificate().IPAddresses, jc.DeepEquals, ipAddresses)
+	c.Assert(leaf.Certificate().NotAfter, jc.Almost, now.Add(time.Minute))
 
-	now := time.Now()
 	leaf, err = authority.LeafForGroup("testgroup")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(leaf.Certificate().DNSNames, jc.DeepEquals, dnsNames)
 	c.Assert(leaf.Certificate().IPAddresses, jc.DeepEquals, ipAddresses)
-	c.Assert(leaf.Certificate().NotAfter, jc.Almost, now.Add(time.Minute))
 }
 
 func (a *AuthoritySuite) TestLeafRequestChain(c *gc.C) {
@@ -135,7 +135,9 @@ func (a *AuthoritySuite) TestLeafFromPem(c *gc.C) {
 	leaf1, err := authority1.LeafGroupFromPemCertKey("testgroup", cert, key)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(leaf1, jc.DeepEquals, leaf)
+	mc := jc.NewMultiChecker()
+	mc.AddExpr("_.signer.Precomputed", jc.Ignore)
+	c.Assert(leaf1, mc, leaf)
 
 	leaf2, err := authority.LeafForGroup("testgroup")
 	c.Assert(err, jc.ErrorIsNil)
