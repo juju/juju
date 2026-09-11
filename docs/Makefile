@@ -63,6 +63,9 @@ $(DOCS_VENVDIR):
 	. $(DOCS_VENV); pip install $(PIPOPTS) --require-virtualenv \
 	    --upgrade -r requirements.txt \
             --log $(DOCS_VENVDIR)/pip_install.log
+	. $(DOCS_VENV); pip install --require-virtualenv -e $(HOME)/git/ggarch \
+            >> $(DOCS_VENVDIR)/pip_install.log 2>&1 || \
+            { echo "WARNING: ggarch not installed (~/git/ggarch not found) -- ggarch diagrams will not render"; }
 	@test ! -f $(DOCS_VENVDIR)/pip_list.txt || \
             mv $(DOCS_VENVDIR)/pip_list.txt $(DOCS_VENVDIR)/pip_list.txt.bak
 	@. $(DOCS_VENV); pip list --local --format=freeze > $(DOCS_VENVDIR)/pip_list.txt
@@ -119,6 +122,7 @@ run: install convert-excalidraw-to-svg autogenerate-docs
 	. $(DOCS_VENV); $(DOCS_VENVDIR)/bin/sphinx-autobuild -b dirhtml --host $(SPHINX_HOST) --port $(SPHINX_PORT) \
 	 --pre-build "bash scripts/convert-excalidraw-to-svg-recursively.sh" \
 	 --pre-build "python3 scripts/autogenerate-docs.py" \
+	 --watch "$(DOCS_SOURCEDIR)/juju.ggarch" \
 	 "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS)
 
 run-go: install convert-excalidraw-to-svg regenerate-docs
@@ -147,6 +151,11 @@ clean: clean-doc
 clean-doc:
 	git clean -fx "$(DOCS_BUILDDIR)"
 	rm -rf $(SPHINX_DIR)/.doctrees
+
+clean-ggarch:
+	rm -f $(DOCS_BUILDDIR)/_images/ggarch-*.svg
+	rm -rf $(SPHINX_DIR)/.doctrees
+	@echo "ggarch SVG cache cleared — next build will regenerate all diagrams"
 
 linkcheck: install
 	. $(DOCS_VENV) ; $(SPHINX_BUILD) -b linkcheck -q "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS) || { grep --color -F "[broken]" "$(DOCS_BUILDDIR)/output.txt"; exit 1; }
