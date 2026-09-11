@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
-	"github.com/lestrrat-go/jwx/v3/jwt"
 	"github.com/prometheus/client_golang/prometheus"
 	gossh "golang.org/x/crypto/ssh"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/virtualhostname"
 	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
@@ -159,8 +157,8 @@ func (config ManifoldConfig) Validate() error {
 }
 
 // Manifold returns a dependency.Manifold that will run an embedded SSH server
-// worker. The manifold outputs the sshproxy.Resolver and the
-// sshtunnel.RelayAuthorizer needed by the apiserver's relay endpoint.
+// worker. The manifold outputs the sshproxy.Resolver needed by the apiserver's
+// relay endpoint.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.DomainServicesName, config.SSHTunnelerName},
@@ -233,9 +231,8 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 			access: sshService,
 			logger: config.Logger,
 		},
-		Resolver:        sshproxy.NewResolver(proxyFactory, sshService),
-		RelayAuthorizer: relayAuthorizer{access: sshService, logger: config.Logger},
-		Metrics:         metricsCollector,
+		Resolver: sshproxy.NewResolver(proxyFactory, sshService),
+		Metrics:  metricsCollector,
 	})
 	if err != nil {
 		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
@@ -262,35 +259,10 @@ func outputFunc(in worker.Worker, out any) error {
 	switch outPointer := out.(type) {
 	case *sshproxy.Resolver:
 		*outPointer = inWorker.config.Resolver
-	case *sshproxy.RelayAuthorizer:
-		*outPointer = inWorker.relayAuthorizer
 	default:
-		return errors.Errorf("out should be *sshproxy.Resolver or *sshproxy.RelayAuthorizer; got %T", out)
+		return errors.Errorf("out should be *sshproxy.Resolver; got %T", out)
 	}
 	return nil
-}
-
-// relayAuthorizer checks whether the user identified by a JWT may access a
-// relay destination. It mirrors the sshserver authorizer's JWT path: the
-// token's access claim must grant admin access on the destination model.
-type relayAuthorizer struct {
-	access AccessService
-	logger logger.Logger
-}
-
-// Authorize checks whether the user identified by token may access the
-// target destination.
-func (a relayAuthorizer) Authorize(ctx context.Context, token jwt.Token, destination virtualhostname.Info) (bool, error) {
-	var rawClaims any
-	if err := token.Get("access", &rawClaims); err != nil {
-		return false, errors.New("invalid SSH JWT token, missing access claim")
-	}
-	claims, ok := rawClaims.(map[string]any)
-	if !ok {
-		return false, errors.New("invalid SSH JWT token, invalid access claim")
-	}
-	access, _ := claims["model-"+destination.ModelUUID().String()].(string)
-	return permission.Access(access).EqualOrGreaterModelAccessThan(permission.AdminAccess), nil
 }
 
 // sshService wraps our ssh domain services to enable two things:

@@ -291,9 +291,6 @@ type SSHTunnelConfig struct {
 	// Resolver resolves per-destination proxy handlers and terminating host
 	// keys for the relay endpoint's embedded terminating SSH server.
 	Resolver sshproxy.Resolver
-	// Authorizer checks whether the JWT-identified user may access a relay
-	// destination.
-	Authorizer sshproxy.RelayAuthorizer
 	// Metrics collects connection metrics, reusing the sshserver collector.
 	Metrics sshtunnel.MetricsCollector
 }
@@ -1025,10 +1022,9 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		sshTunnelHandler = srv.sshTunnelRequestWrapper(tunnelHandler)
 
 		relayHandler, err := sshtunnel.NewRelayHandler(sshtunnel.RelayHandlerConfig{
-			Logger:     logger.Child("sshtunnel"),
-			Authorizer: srv.sshTunnelConfig.Authorizer,
-			Resolver:   srv.sshTunnelConfig.Resolver,
-			Metrics:    srv.sshTunnelConfig.Metrics,
+			Logger:   logger.Child("sshtunnel"),
+			Resolver: srv.sshTunnelConfig.Resolver,
+			Metrics:  srv.sshTunnelConfig.Metrics,
 		})
 		if err != nil {
 			return nil, errors.Trace(err)

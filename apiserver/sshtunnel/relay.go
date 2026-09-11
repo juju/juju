@@ -9,7 +9,9 @@ import (
 	"github.com/lestrrat-go/jwx/v3/jwt"
 	ssh "github.com/tailscale/gliderssh"
 
+	authjwt "github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/sshproxy"
@@ -31,9 +33,6 @@ type RelayHandler struct {
 type RelayHandlerConfig struct {
 	// Logger is used for logging.
 	Logger logger.Logger
-	// Authorizer checks whether the user identified by the JWT may access
-	// the destination.
-	Authorizer sshproxy.RelayAuthorizer
 	// Resolver resolves per-destination proxy handlers and terminating host
 	// keys in one call.
 	Resolver sshproxy.Resolver
@@ -45,9 +44,6 @@ type RelayHandlerConfig struct {
 func (cfg RelayHandlerConfig) Validate() error {
 	if cfg.Logger == nil {
 		return errors.New("nil Logger")
-	}
-	if cfg.Authorizer == nil {
-		return errors.New("nil Authorizer")
 	}
 	if cfg.Resolver == nil {
 		return errors.New("nil Resolver")
@@ -85,11 +81,18 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ok, err := h.config.Authorizer.Authorize(ctx, token, destination); err != nil {
+	// Authorize the destination model using the verified JWT's access
+	// claims. Only admin access on the target model permits relay.
+	access, err := authjwt.PermissionFromToken(token, permission.ID{
+		ObjectType: permission.Model,
+		Key:        destination.ModelUUID().String(),
+	})
+	if err != nil {
 		h.config.Logger.Errorf(ctx, "authorizing relay access: %v", err)
 		http.Error(w, "failed to authorize access to destination", http.StatusInternalServerError)
 		return
-	} else if !ok {
+	}
+	if !access.EqualOrGreaterModelAccessThan(permission.AdminAccess) {
 		http.Error(w, "unauthorized", http.StatusForbidden)
 		return
 	}

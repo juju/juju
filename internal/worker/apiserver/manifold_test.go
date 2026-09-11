@@ -20,7 +20,6 @@ import (
 	"github.com/juju/worker/v5/dependency"
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
-	"github.com/lestrrat-go/jwx/v3/jwt"
 	"github.com/prometheus/client_golang/prometheus"
 	gossh "golang.org/x/crypto/ssh"
 
@@ -193,7 +192,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 		"object-store":        s.objectStoreGetter,
 		"jwt-parser":          s.jwtParser,
 		"ssh-tunneler":        stubTunnelTracker{},
-		"ssh-server":          []any{stubResolver{}, stubRelayAuthorizer{}},
+		"ssh-server":          stubResolver{},
 		"watcher-registry":    s.watcherRegistryGetter,
 		"flight-recorder":     s.flightRecorder,
 		"provider-tracker":    s.providerFactory,
@@ -218,12 +217,6 @@ type stubResolver struct{}
 
 func (stubResolver) Resolve(context.Context, virtualhostname.Info) (sshproxy.Termination, error) {
 	return sshproxy.Termination{}, nil
-}
-
-type stubRelayAuthorizer struct{}
-
-func (stubRelayAuthorizer) Authorize(context.Context, jwt.Token, virtualhostname.Info) (bool, error) {
-	return true, nil
 }
 
 type mockModelLogger struct {

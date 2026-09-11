@@ -6,19 +6,9 @@ package sshproxy
 import (
 	"context"
 
-	"github.com/lestrrat-go/jwx/v3/jwt"
-
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/virtualhostname"
 )
-
-// RelayAuthorizer checks whether the user identified by a JWT may access a
-// relay destination.
-type RelayAuthorizer interface {
-	// Authorize checks whether the user identified by token may access the
-	// target destination.
-	Authorize(ctx context.Context, token jwt.Token, destination virtualhostname.Info) (bool, error)
-}
 
 // SSHService resolves controller host keys, user public keys, and terminating
 // host keys for routed destinations.

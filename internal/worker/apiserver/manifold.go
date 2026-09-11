@@ -346,16 +346,13 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	// Fetch the relay dependencies from the sshserver worker's manifold
-	// output. The sshserver worker already composes the proxy factory,
-	// SSH service, and JWT-claims authorizer. The apiserver consumes them
-	// as-is rather than re-composing the same building blocks.
+	// Fetch the relay resolver from the sshserver worker's manifold
+	// output. The sshserver worker already composes the proxy factory
+	// and SSH service. The apiserver consumes the resolver as-is rather
+	// than re-composing the same building blocks. Relay authorization
+	// happens in the relay handler itself using the verified JWT.
 	var relayResolver sshproxy.Resolver
 	if err := getter.Get(config.SSHServerName, &relayResolver); err != nil {
-		return nil, errors.Trace(err)
-	}
-	var relayAuthorizer sshproxy.RelayAuthorizer
-	if err := getter.Get(config.SSHServerName, &relayAuthorizer); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -402,7 +399,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		SSHTunnel: &apiserver.SSHTunnelConfig{
 			TunnelTracker: tunnelTracker,
 			Resolver:      relayResolver,
-			Authorizer:    relayAuthorizer,
 			Metrics:       sshTunnelMetrics,
 		},
 	})
