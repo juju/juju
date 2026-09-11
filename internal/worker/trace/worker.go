@@ -198,16 +198,20 @@ func (w *tracerWorker) loop() (err error) {
 
 	ctx := w.catacomb.Context(context.Background())
 
-	if err := w.reloadRuntimeConfig(ctx); err != nil {
-		return errors.Trace(err)
-	}
-
+	// Install the watcher before reading the initial runtime config so that
+	// any config changes published while we are setting up are captured and
+	// applied. Duplicate events are harmless because applyConfig only acts
+	// when the config actually changes.
 	runtimeConfigWatcher, err := w.cfg.RuntimeConfigProvider.WatchRuntimeConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	if err := w.catacomb.Add(runtimeConfigWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := w.reloadRuntimeConfig(ctx); err != nil {
 		return errors.Trace(err)
 	}
 

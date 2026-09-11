@@ -275,6 +275,90 @@ func (s *workerSuite) TestGetTracerDisabled(c *tc.C) {
 	c.Check(ok, tc.IsTrue)
 }
 
+func (s *workerSuite) TestControllerTracingConfigChangeDuringStartup(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+
+	// Pre-populate the watcher with an event so that it fires as soon as the
+	// worker starts processing changes. This simulates a config change that
+	// happens between watcher creation and the initial config read.
+	controllerWatcherChanges := make(chan struct{}, 1)
+	controllerWatcherChanges <- struct{}{}
+
+	getConfigCalled := make(chan struct{}, 2)
+	configReads := 0
+	cfgMutex := sync.Mutex{}
+
+	runtimeConfigProvider := testRuntimeConfigProvider{
+		getConfig: func(context.Context) (RuntimeConfig, error) {
+			cfgMutex.Lock()
+			defer cfgMutex.Unlock()
+			configReads++
+			select {
+			case getConfigCalled <- struct{}{}:
+			default:
+			}
+			// Return disabled on the initial read and enabled on the second
+			// read triggered by the watcher event.
+			if configReads == 1 {
+				return RuntimeConfig{}, nil
+			}
+			return RuntimeConfig{
+				Enabled:               true,
+				HTTPEndpoint:          "https://meshuggah.com",
+				SampleRatio:           defaultOpenTelemetrySampleRatio,
+				TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
+			}, nil
+		},
+		watchConfig: func(context.Context) (watcher.NotifyWatcher, error) {
+			return watchertest.NewMockNotifyWatcher(controllerWatcherChanges), nil
+		},
+	}
+
+	w, err := newWorker(WorkerConfig{
+		Clock:  s.clock,
+		Logger: s.logger,
+		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, string, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
+			atomic.AddInt64(&s.called, 1)
+			return s.trackedTracer, nil
+		},
+		Tag:                   names.NewMachineTag("0"),
+		Kind:                  coretrace.KindController,
+		SampleRatio:           defaultOpenTelemetrySampleRatio,
+		TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
+		RuntimeConfigProvider: runtimeConfigProvider,
+	}, s.states)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.trackedTracer.EXPECT().Kill().AnyTimes()
+	done := make(chan struct{})
+	s.trackedTracer.EXPECT().Wait().DoAndReturn(func() error {
+		<-done
+		return nil
+	}).AnyTimes()
+
+	s.ensureStartup(c)
+
+	// Wait for both the initial read and the follow-up read triggered by the
+	// watcher event.
+	for i := 0; i < 2; i++ {
+		select {
+		case <-getConfigCalled:
+		case <-c.Context().Done():
+			c.Fatalf("timed out waiting for config read %d", i+1)
+		}
+	}
+
+	worker := w
+	_, err = worker.GetTracer(c.Context(), coretrace.Namespace("agent", "anything"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(1))
+
+	close(done)
+}
+
 func (s *workerSuite) TestControllerTracingConfigReload(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
