@@ -1531,7 +1531,7 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 	// charm before this container starts.
 	bootstrapStateCmd := fmt.Sprintf(
 		"%s bootstrap-state --data-dir $JUJU_CONTROLLER_DIR %s --timeout %s",
-		path.Join("$JUJU_TOOLS_DIR", "jujuagentd"),
+		path.Join("$JUJU_TOOLS_DIR", "jujud"),
 		loggingOption,
 		c.timeout.String(),
 	)
