@@ -1080,6 +1080,13 @@ func (s *StateSuite) assertMachineContainers(c *gc.C, m *state.Machine, containe
 	c.Assert(mc, gc.DeepEquals, containers)
 }
 
+func (s *StateSuite) addLXDContainer(parentId string) (*state.Machine, error) {
+	return s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	}, parentId, instance.LXD)
+}
+
 func (s *StateSuite) TestAddContainerToNewMachine(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 
@@ -1151,6 +1158,87 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	c.Assert(m.ContainerType(), gc.Equals, instance.LXD)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
 	s.assertMachineContainers(c, m1, []string{"1/lxd/0", "1/lxd/1"})
+}
+
+func (s *StateSuite) TestAddContainerToDyingMachine(c *gc.C) {
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(host.Destroy(), jc.ErrorIsNil)
+
+	_, err = s.addLXDContainer(host.Id())
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine is not found or not alive")
+	s.assertMachineContainers(c, host, nil)
+}
+
+func (s *StateSuite) TestAddContainerToMachineWithoutHostUnits(c *gc.C) {
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err := s.addLXDContainer(host.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.Id(), gc.Equals, "0/lxd/0")
+	s.assertMachineContainers(c, host, []string{"0/lxd/0"})
+}
+
+func (s *StateSuite) TestAddContainerToMachineRemovalRace(c *gc.C) {
+	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(host.Destroy(), jc.ErrorIsNil)
+	}).Check()
+
+	_, err = s.addLXDContainer(host.Id())
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine is not found or not alive")
+	s.assertMachineContainers(c, host, nil)
+}
+
+func (s *StateSuite) TestAddContainerToEvacuatingMachine(c *gc.C) {
+	s.assertAddContainerToEvacuatingMachine(c, false, false)
+}
+
+func (s *StateSuite) TestAddContainerToEvacuatingMachineRace(c *gc.C) {
+	s.assertAddContainerToEvacuatingMachine(c, true, false)
+}
+
+func (s *StateSuite) TestAddContainerToEvacuatingController(c *gc.C) {
+	s.assertAddContainerToEvacuatingMachine(c, false, true)
+}
+
+func (s *StateSuite) TestAddContainerToEvacuatingControllerRace(c *gc.C) {
+	s.assertAddContainerToEvacuatingMachine(c, true, true)
+}
+
+func (s *StateSuite) assertAddContainerToEvacuatingMachine(c *gc.C, concurrent, controller bool) {
+	var controllerIDs []string
+	if controller {
+		changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
+		c.Assert(err, jc.ErrorIsNil)
+		controllerIDs = changes.Added
+	}
+	for i, force := range []bool{false, true} {
+		var host *state.Machine
+		var err error
+		if controller {
+			host, err = s.State.Machine(controllerIDs[i])
+		} else {
+			host, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+		}
+		c.Assert(err, jc.ErrorIsNil)
+		remove := func() {
+			c.Assert(host.DestroyWithParams(force, true, time.Minute), jc.ErrorIsNil)
+			c.Assert(host.Refresh(), jc.ErrorIsNil)
+			c.Assert(host.Life(), gc.Equals, state.Dying)
+		}
+		if concurrent {
+			defer state.SetBeforeHooks(c, s.State, remove).Check()
+		} else {
+			remove()
+		}
+		_, err = s.addLXDContainer(host.Id())
+		c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine is not found or not alive")
+		s.assertMachineContainers(c, host, nil)
+	}
 }
 
 func (s *StateSuite) TestAddContainerToMachineWithKnownSupportedContainers(c *gc.C) {

@@ -16,5 +16,8 @@ func Register(registry facade.FacadeRegistry) {
 	}, reflect.TypeOf((*MachineManagerV9)(nil)))
 	registry.MustRegister("MachineManager", 10, func(ctx facade.Context) (facade.Facade, error) {
 		return NewFacadeV10(ctx) // DestroyMachineWithParams gains dry-run
+	}, reflect.TypeOf((*MachineManagerV10)(nil)))
+	registry.MustRegister("MachineManager", 11, func(ctx facade.Context) (facade.Facade, error) {
+		return NewFacadeV11(ctx) // Adds hosted removal without requiring force.
 	}, reflect.TypeOf((*MachineManagerAPI)(nil)))
 }
