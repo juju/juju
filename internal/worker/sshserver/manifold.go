@@ -251,6 +251,9 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 // re-compose the sshService and proxyFactory that the sshserver worker
 // already constructed.
 func outputFunc(in worker.Worker, out any) error {
+	if cw, ok := in.(*common.CleanupWorker); ok {
+		in = cw.Unwrap()
+	}
 	inWorker, _ := in.(*serverWrapperWorker)
 	if inWorker == nil {
 		return errors.Errorf("in should be a %T; got %T", inWorker, in)
