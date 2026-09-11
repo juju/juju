@@ -34,11 +34,8 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	coressh "github.com/juju/juju/core/ssh"
-	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/virtualhostname"
 	accessservice "github.com/juju/juju/domain/access/service"
-	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
 	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/sshproxy"
@@ -156,9 +153,6 @@ func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 		},
 		GetModelService: func(getter dependency.Getter, name string) (apiserver.ModelService, error) {
 			return s.modelService, nil
-		},
-		GetControllerSSHService: func(getter dependency.Getter, name string) (*controllersshservice.Service, error) {
-			return controllersshservice.NewService(stubControllerSSHState{}), nil
 		},
 		NewWorker:           s.newWorker,
 		NewMetricsCollector: s.newMetricsCollector,
@@ -423,20 +417,6 @@ type stubDomainServicesGetter struct {
 
 func (s *stubDomainServicesGetter) ServicesForModel(context.Context, model.UUID) (services.DomainServices, error) {
 	return &stubDomainServices{}, nil
-}
-
-type stubControllerSSHState struct{}
-
-func (stubControllerSSHState) GetSSHServerHostKey(context.Context) (string, error) {
-	return "", nil
-}
-
-func (stubControllerSSHState) GetSSHServerHostPublicKey(context.Context) ([]byte, error) {
-	return nil, nil
-}
-
-func (stubControllerSSHState) GetPublicKeysForUser(context.Context, user.Name) ([]coressh.PublicKey, error) {
-	return nil, nil
 }
 
 type stubDomainServices struct {

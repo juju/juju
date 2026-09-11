@@ -26,7 +26,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
-	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
 	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/sshproxy"
@@ -60,16 +59,6 @@ func GetModelService(getter dependency.Getter, name string) (ModelService, error
 	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerDomainServices) ModelService {
 		return factory.Model()
 	})
-}
-
-// GetControllerSSHServiceFunc is a helper function that gets the controller SSH
-// host key service from the manifold.
-type GetControllerSSHServiceFunc func(getter dependency.Getter, name string) (*controllersshservice.Service, error)
-
-// GetControllerSSHService is a helper function that gets the controller SSH
-// host key service from the manifold.
-func GetControllerSSHService(getter dependency.Getter, name string) (*controllersshservice.Service, error) {
-	return sshserver.GetControllerSSHService(getter, name)
 }
 
 // LocalValues are the controller-local values needed to start the API server.
@@ -124,7 +113,6 @@ type ManifoldConfig struct {
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	GetControllerConfigService        GetControllerConfigServiceFunc
 	GetModelService                   GetModelServiceFunc
-	GetControllerSSHService           GetControllerSSHServiceFunc
 
 	NewWorker           func(context.Context, Config) (worker.Worker, error)
 	NewMetricsCollector func() *apiserver.Collector
@@ -209,9 +197,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.GetModelService == nil {
 		return errors.NotValidf("nil GetModelService")
-	}
-	if config.GetControllerSSHService == nil {
-		return errors.NotValidf("nil GetControllerSSHService")
 	}
 
 	return nil
