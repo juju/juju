@@ -24,13 +24,13 @@ run_user_ssh_keys() {
 	juju remove-ssh-key isgreat@juju.is
 	check_not_contains "$(juju ssh-keys)" "${fingerprint}"
 
-	# Import the ssh keys for tlm from Github.
-	juju import-ssh-key gh:tlm
-	check_contains "$(juju ssh-keys --full)" "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHxsBSstfw6+55P/YPS8PyH6m58hxt3q2RK2OP1P6J/2"
+	# Import the ssh keys for jujubot from Github.
+	juju import-ssh-key gh:jujubot
+	check_contains "$(juju ssh-keys --full)" "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICZWEX5Y5o8UWJIutFgGlO4Y4LKmHcvRlgqYLxkBdlqn"
 
-	# Import the ssh keys for wallyworld from Launchpad
-	juju import-ssh-key lp:wallyworld
-	check_contains "$(juju ssh-keys --full)" "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII+PcDps5vuJDL/7QD3UdBJ2EoxxdEqFxNILcShl2rWM"
+	# Import the ssh keys for juju-qa-bot from Launchpad
+	juju import-ssh-key lp:juju-qa-bot
+	check_contains "$(juju ssh-keys --full)" "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCwxvks5knYCgy3FVzmrVG6MdBZOR5xlnewsWUtumJ3+E/nioms6jiRogzJJsfxXj/2mH0zr+zgjw0QEaVsditk7ambOIKt65HwhW1YGFX0NDw8XKBZBfD2EXOGbot5Bv2yWae3wydmY2f6SvtuTgdxcVbdMldnsGO50LSRMNDIyVdTZFrjDUyDXL7o66Nd1T5ioyZ5HwgqqLXWdzy4ZkI5UzeSowrZ9zMJlKcrPfDOmb7Xxgmod1xjATKj/BXQv5T5xhPiIRoHYGmuk2FlvWywVFjMyzJGr/AW4XyZ8/4c3541eQafJ1wcl9R8NdUfrpKDYbkgb6v2wINrKms0jz8GiVwqc9++KnCI6QvvBRmGgF3J9aeWUYItSg6h+9WUzD4/baxZl+KYENR8wOzZQ8NGukrTaqQYub4yaTcEX8EJ6hhvg/BotCvShozCBDijvbXPAeplCYt3yxUmy4m/TC7bKrAOZLbIV9roTST3XwT3OoQlbj+qyfqN0uZSaLLCrHgNv7fkRkWNMdJd5d2jOcEB+y9KKOmfQO0QH1kzrsRnTNOCmoaKeqLz5uBABVkCsAuoiqcS2qPwvzQu57pHxblmD8tVRGnrqJUztOdXZu7cGxG5ZWU8vk/dqv6SlV8xK2RH0LIVgtjZDzY4GmTo27UU55qo1jKBA2fuWIlyhZEwxw=="
 }
 
 test_user_ssh_keys() {
