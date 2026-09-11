@@ -16,7 +16,6 @@ import (
 	"text/template"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4"
@@ -29,10 +28,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/controllerruntimeconfig"
-	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
-	jujunames "github.com/juju/juju/juju/names"
-	"github.com/juju/juju/juju/osenv"
 )
 
 var logger = internallogger.GetLogger("juju.cloudconfig")
@@ -403,7 +399,7 @@ func (w *userdataConfig) ConfigureJuju() error {
 		if err = w.addControllerSnapInstall(); err != nil {
 			return errors.Trace(err)
 		}
-		if err := w.configureBootstrap(); err != nil {
+		if err := w.configureSnapBootstrap(); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -486,16 +482,6 @@ func (w *userdataConfig) ConfigureCustomOverrides() error {
 		}
 	}
 	return nil
-}
-
-func (w *userdataConfig) configureBootstrap() error {
-	// When a controller snap is provided (either uploaded from a local path or
-	// downloaded from the store by revision), use the snap-private cloud-init
-	// handoff instead of the legacy jujuagentd path.
-	if w.icfg.Bootstrap.ControllerSnapPath != "" || w.icfg.Bootstrap.ControllerSnapRevision != 0 {
-		return w.configureSnapBootstrap()
-	}
-	return w.configureLegacyBootstrap()
 }
 
 // snapInitStagingDir is the host-visible staging directory used by cloud-init
@@ -670,45 +656,6 @@ snap run %[6]s.bootstrap-state --timeout %[7]s`,
 
 	return nil
 }
-
-// configureLegacyBootstrap generates the cloud-init handoff for the
-// combined-agent bootstrap path, which runs jujuagentd bootstrap-state
-// directly. This path is CAAS-only: IAAS bootstrap must always go through
-// configureSnapBootstrap. The IAAS path is guaranteed to reach
-// configureSnapBootstrap because the IAAS bootstrap command always defaults
-// to store mode when no snap flags are given, ensuring ControllerSnapRevision
-// is non-zero (see cmd/juju/commands/bootstrap.go).
-func (w *userdataConfig) configureLegacyBootstrap() error {
-	bootstrapParamsFile := path.Join(w.icfg.DataDir, controllerruntimeconfig.FileNameBootstrapParams)
-	bootstrapParams, err := w.icfg.Bootstrap.StateInitializationParams.Marshal()
-	if err != nil {
-		return errors.Annotate(err, "marshalling bootstrap params")
-	}
-	w.conf.AddRunTextFile(bootstrapParamsFile, string(bootstrapParams), 0o600)
-
-	loggingOption := "--show-log"
-	if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
-		// If the bootstrap command was requested with --debug, then the root
-		// logger will be set to DEBUG. If it is, then we use --debug here too.
-		loggingOption = "--debug"
-	}
-	featureFlags := featureflag.AsEnvironmentValue()
-	if featureFlags != "" {
-		featureFlags = fmt.Sprintf("%s=%s ", osenv.JujuFeatureFlagEnvKey, featureFlags)
-	}
-	bootstrapAgentArgs := []string{
-		featureFlags + w.icfg.JujuTools() + "/" + jujunames.JujuAgentd,
-		"bootstrap-state",
-		"--timeout", w.icfg.Bootstrap.Timeout.String(),
-		"--data-dir", shquote(w.icfg.DataDir),
-		loggingOption,
-	}
-	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Installing Juju machine agent"))
-	w.conf.AddScripts(strings.Join(bootstrapAgentArgs, " "))
-
-	return nil
-}
-
 func (w *userdataConfig) addLocalControllerCharmsUpload() error {
 	if w.icfg.Bootstrap == nil {
 		return nil
