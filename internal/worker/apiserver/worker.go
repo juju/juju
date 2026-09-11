@@ -183,12 +183,6 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "cannot create RPC observer factory")
 	}
 
-	// Resolve the SSH tunnel endpoint connection limit from controller
-	// config; the rest of the tunnel dependencies are composed by the
-	// manifold from the sshtunneler output and the domain services.
-	sshTunnelConfig := config.SSHTunnel
-	sshTunnelConfig.MaxConcurrentConnections = controllerConfig.SSHMaxConcurrentConnections()
-
 	serverConfig := apiserver.ServerConfig{
 		Clock:                         config.Clock,
 		Tag:                           config.ControllerTag,
@@ -219,7 +213,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		ObjectStoreGetter:             config.ObjectStoreGetter,
 		WatcherRegistryGetter:         config.WatcherRegistryGetter,
 		EphemeralProviderFactory:      config.EphemeralProviderFactory,
-		SSHTunnelConfig:               sshTunnelConfig,
+		SSHTunnelConfig:               config.SSHTunnel,
 	}
 	return config.NewServer(ctx, serverConfig)
 }

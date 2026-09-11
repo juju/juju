@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/juju/juju/core/logger"
@@ -29,31 +28,6 @@ const (
 	// take ownership of a pushed tunnel connection.
 	pushTunnelTimeout = 10 * time.Second
 )
-
-// connLimiter bounds the number of concurrent connections accepted by an
-// HTTP upgrade handler. Both the relay and tunnel endpoints enforce their
-// MaxConcurrentConnections this way, rejecting new requests before they
-// are counted.
-type connLimiter struct {
-	// max is the maximum number of concurrent connections permitted.
-	max int
-	// current holds the number of concurrent connections.
-	current atomic.Int32
-}
-
-// acquire reserves a connection slot. It returns false on limit.
-func (l *connLimiter) acquire() bool {
-	if int(l.current.Add(1)) > l.max {
-		l.current.Add(-1)
-		return false
-	}
-	return true
-}
-
-// release frees a connection slot.
-func (l *connLimiter) release() {
-	l.current.Add(-1)
-}
 
 // hijack upgrades the HTTP request to a raw connection. It validates the
 // upgrade headers, writes the 101 Switching Protocols response, hijacks

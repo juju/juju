@@ -294,10 +294,6 @@ type SSHTunnelConfig struct {
 	// Authorizer checks whether the JWT-identified user may access a relay
 	// destination.
 	Authorizer sshproxy.RelayAuthorizer
-	// MaxConcurrentConnections bounds concurrent upgraded connections on
-	// both endpoints, matching the controller's ssh-max-concurrent-connections
-	// config.
-	MaxConcurrentConnections int
 	// Metrics collects connection metrics, reusing the sshserver collector.
 	Metrics sshtunnel.MetricsCollector
 }
@@ -1018,11 +1014,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	var sshTunnelHandler, sshRelayHandler http.Handler
 	if srv.sshTunnelConfig != nil {
 		tunnelHandler, err := sshtunnel.NewTunnelHandler(sshtunnel.TunnelHandlerConfig{
-			Logger:                   logger.Child("sshtunnel"),
-			Tracker:                  srv.sshTunnelConfig.TunnelTracker,
-			SSHConnRequestService:    sshTunnelRequestServiceGetter{ctxt: httpCtxt},
-			MaxConcurrentConnections: srv.sshTunnelConfig.MaxConcurrentConnections,
-			Metrics:                  srv.sshTunnelConfig.Metrics,
+			Logger:                logger.Child("sshtunnel"),
+			Tracker:               srv.sshTunnelConfig.TunnelTracker,
+			SSHConnRequestService: sshTunnelRequestServiceGetter{ctxt: httpCtxt},
+			Metrics:               srv.sshTunnelConfig.Metrics,
 		})
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1030,11 +1025,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		sshTunnelHandler = srv.sshTunnelRequestWrapper(tunnelHandler)
 
 		relayHandler, err := sshtunnel.NewRelayHandler(sshtunnel.RelayHandlerConfig{
-			Logger:                   logger.Child("sshtunnel"),
-			Authorizer:               srv.sshTunnelConfig.Authorizer,
-			Resolver:                 srv.sshTunnelConfig.Resolver,
-			MaxConcurrentConnections: srv.sshTunnelConfig.MaxConcurrentConnections,
-			Metrics:                  srv.sshTunnelConfig.Metrics,
+			Logger:     logger.Child("sshtunnel"),
+			Authorizer: srv.sshTunnelConfig.Authorizer,
+			Resolver:   srv.sshTunnelConfig.Resolver,
+			Metrics:    srv.sshTunnelConfig.Metrics,
 		})
 		if err != nil {
 			return nil, errors.Trace(err)

@@ -50,9 +50,6 @@ type TunnelHandlerConfig struct {
 	// SSHConnRequestService reads the connection request to bind the
 	// tunnel ID to the authenticated machine.
 	SSHConnRequestService SSHConnRequestService
-	// MaxConcurrentConnections is the maximum number of concurrent upgraded
-	// tunnel connections.
-	MaxConcurrentConnections int
 	// Metrics collects connection metrics, reusing the sshserver collector
 	// so the upgrade path is accounted the same as the SSH server was.
 	Metrics MetricsCollector
@@ -68,9 +65,6 @@ func (cfg TunnelHandlerConfig) Validate() error {
 	}
 	if cfg.SSHConnRequestService == nil {
 		return errors.New("nil SSHConnRequestService")
-	}
-	if cfg.MaxConcurrentConnections <= 0 {
-		return errors.New("non-positive MaxConcurrentConnections")
 	}
 	if cfg.Metrics == nil {
 		return errors.New("nil Metrics")
@@ -102,9 +96,6 @@ type MetricsCollector interface {
 // with the ephemeral key.
 type TunnelHandler struct {
 	config TunnelHandlerConfig
-
-	// limiter bounds the number of concurrent upgraded connections.
-	limiter connLimiter
 }
 
 // NewTunnelHandler returns a new agent tunnel endpoint handler.
@@ -112,10 +103,7 @@ func NewTunnelHandler(config TunnelHandlerConfig) (*TunnelHandler, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Errorf("validating tunnel handler config: %w", err)
 	}
-	return &TunnelHandler{
-		config:  config,
-		limiter: connLimiter{max: config.MaxConcurrentConnections},
-	}, nil
+	return &TunnelHandler{config: config}, nil
 }
 
 // ServeHTTP implements http.Handler.
@@ -144,17 +132,8 @@ func (h *TunnelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Enforce the connection limit before upgrading. Rejected requests
-	// are not counted as connections.
-	if !h.limiter.acquire() {
-		http.Error(w, "too many connections", http.StatusServiceUnavailable)
-		return
-	}
 	h.config.Metrics.IncConnectionCount()
-	defer func() {
-		h.limiter.release()
-		h.config.Metrics.DecConnectionCount()
-	}()
+	defer h.config.Metrics.DecConnectionCount()
 
 	conn, err := hijack(w, r, TunnelUpgradeToken)
 	if err != nil {
