@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
-	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainssh "github.com/juju/juju/domain/ssh"
@@ -72,8 +71,6 @@ func (s *sshTunnelerSuite) TestTunneler(c *tc.C) {
 
 	tunnelTracker := s.newTracker(c)
 
-	var sshConnArgs domainssh.SSHConnRequest
-
 	// use a channel to wait for the tunnel request to be processed
 	tunnelRequested := make(chan struct{})
 
@@ -90,8 +87,7 @@ func (s *sshTunnelerSuite) TestTunneler(c *tc.C) {
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
 	}, nil)
 	s.connRequests.EXPECT().InsertSSHConnRequest(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ model.UUID, sra domainssh.SSHConnRequest) error {
-			sshConnArgs = sra
+		func(_ context.Context, _ model.UUID, _ domainssh.SSHConnRequest) error {
 			close(tunnelRequested)
 			return nil
 		},
@@ -139,15 +135,13 @@ func (s *sshTunnelerSuite) TestTunneler(c *tc.C) {
 	}
 	c.Check(tunnels, tc.HasLen, 1)
 
-	tunnelID, err := tunnelTracker.AuthenticateTunnel(coressh.ReverseTunnelUser, sshConnArgs.SSHPassword)
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(tunnelID, tc.Equals, tunnels[0])
+	tunnelID := tunnels[0]
 
 	ctx := c.Context()
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
-	err = tunnelTracker.PushTunnel(ctx, tunnelID, nil)
+	_, err = tunnelTracker.PushTunnel(ctx, tunnelID, nil)
 	c.Check(err, tc.ErrorIsNil)
 
 	wg.Wait()
@@ -173,8 +167,6 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *tc.C) {
 
 	tunnelTracker := s.newTracker(c)
 
-	var sshConnArgs domainssh.SSHConnRequest
-
 	// use a channel to wait for the tunnel request to be processed
 	tunnelRequested := make(chan struct{})
 
@@ -188,8 +180,7 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *tc.C) {
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
 	}, nil)
 	s.connRequests.EXPECT().InsertSSHConnRequest(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ model.UUID, sra domainssh.SSHConnRequest) error {
-			sshConnArgs = sra
+		func(_ context.Context, _ model.UUID, _ domainssh.SSHConnRequest) error {
 			close(tunnelRequested)
 			return nil
 		},
@@ -227,15 +218,19 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *tc.C) {
 		c.Error("timeout waiting for tunnel request to be processed")
 	}
 
-	tunnelID, err := tunnelTracker.AuthenticateTunnel(coressh.ReverseTunnelUser, sshConnArgs.SSHPassword)
-	c.Check(err, tc.ErrorIsNil)
+	var tunnels []string
+	for uuid := range tunnelTracker.tracker {
+		tunnels = append(tunnels, uuid)
+	}
+	c.Check(tunnels, tc.HasLen, 1)
+	tunnelID := tunnels[0]
 
 	ctx := c.Context()
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
 	mockConn := &mockConn{}
-	err = tunnelTracker.PushTunnel(ctx, tunnelID, mockConn)
+	_, err = tunnelTracker.PushTunnel(ctx, tunnelID, mockConn)
 	c.Check(err, tc.ErrorIsNil)
 
 	wg.Wait()
@@ -320,7 +315,7 @@ func (s *sshTunnelerSuite) TestMachineHostKeysWithWatcherStopsWhenTrackerKilled(
 	}
 
 	conn := &mockConn{}
-	err := tunnelTracker.PushTunnel(c.Context(), sshConnArgs.TunnelID, conn)
+	_, err := tunnelTracker.PushTunnel(c.Context(), sshConnArgs.TunnelID, conn)
 	c.Assert(err, tc.ErrorIsNil)
 
 	select {
@@ -394,24 +389,6 @@ func (s *sshTunnelerSuite) TestGenerateEphemeralSSHKey(c *tc.C) {
 	c.Assert(publicKey, tc.Not(tc.IsNil))
 }
 
-func (s *sshTunnelerSuite) TestAuthenticateTunnel(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	tunnelTracker := s.newTracker(c)
-
-	now := time.Now()
-	deadline := now.Add(1 * time.Second)
-
-	tunnelID := "test-tunnel-id"
-	token, err := tunnelTracker.authn.generatePassword(tunnelID, now, deadline)
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.clock.EXPECT().Now().AnyTimes().Return(now)
-	authTunnelID, err := tunnelTracker.AuthenticateTunnel(coressh.ReverseTunnelUser, token)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(authTunnelID, tc.Equals, tunnelID)
-}
-
 func (s *sshTunnelerSuite) TestPushTunnel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -426,7 +403,11 @@ func (s *sshTunnelerSuite) TestPushTunnel(c *tc.C) {
 	go func() {
 		select {
 		case receivedConn := <-recv:
-			c.Check(receivedConn, tc.Equals, conn)
+			// PushTunnel wraps the connection in a closeNotifyConn
+			// so the caller can detect teardown.
+			wrapped, ok := receivedConn.(*closeNotifyConn)
+			c.Check(ok, tc.IsTrue)
+			c.Check(wrapped.Conn, tc.Equals, conn)
 		case <-time.After(1 * time.Second):
 			c.Error("timeout waiting for tunnel")
 		}
@@ -436,7 +417,7 @@ func (s *sshTunnelerSuite) TestPushTunnel(c *tc.C) {
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
-	err := tunnelTracker.PushTunnel(ctx, tunnelID, conn)
+	_, err := tunnelTracker.PushTunnel(ctx, tunnelID, conn)
 	c.Check(err, tc.ErrorIsNil)
 
 }
@@ -454,21 +435,12 @@ func (s *sshTunnelerSuite) TestDeleteTunnel(c *tc.C) {
 	c.Assert(ok, tc.Equals, false)
 }
 
-func (s *sshTunnelerSuite) TestAuthenticateTunnelInvalidUsername(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	tunnelTracker := s.newTracker(c)
-
-	_, err := tunnelTracker.AuthenticateTunnel("invalid-username", "some-password")
-	c.Assert(err, tc.ErrorMatches, "invalid username")
-}
-
 func (s *sshTunnelerSuite) TestPushTunnelInvalidTunnelID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tunnelTracker := s.newTracker(c)
 
-	err := tunnelTracker.PushTunnel(c.Context(), "invalid-tunnel-id", nil)
+	_, err := tunnelTracker.PushTunnel(c.Context(), "invalid-tunnel-id", nil)
 	c.Assert(err, tc.ErrorMatches, "tunnel not found")
 }
 
@@ -538,7 +510,7 @@ func (s *sshTunnelerSuite) TestPushTunnelTimeout(c *tc.C) {
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Millisecond)
 	defer cancel()
 
-	err := tunnelTracker.PushTunnel(ctx, tunnelID, conn)
+	_, err := tunnelTracker.PushTunnel(ctx, tunnelID, conn)
 	c.Check(err, tc.ErrorMatches, `no one waiting for tunnel: context deadline exceeded`)
 }
 

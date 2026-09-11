@@ -8,31 +8,14 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	ssh "github.com/tailscale/gliderssh"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/internal/sshproxy"
 	"github.com/juju/juju/internal/worker/sshserver/handlers/common"
 	"github.com/juju/juju/internal/worker/sshserver/handlers/k8s"
 	"github.com/juju/juju/internal/worker/sshserver/handlers/machine"
 )
-
-// ProxyHandlers provide session, local forwarding, and SFTP handling for a target.
-type ProxyHandlers interface {
-	// SessionHandler returns a handler for proxying SSH commands/terminal sessions.
-	SessionHandler(ssh.Session)
-	// DirectTCPIPHandler returns a handler for proxying SSH local forwarding requests.
-	DirectTCPIPHandler() ssh.ChannelHandler
-	// SFTPHandler returns a handler for proxying SFTP requests.
-	SFTPHandler() ssh.SubsystemHandler
-}
-
-// ProxyFactory creates handlers for an SSH target.
-type ProxyFactory interface {
-	// New validates the destination matches a supported target type
-	// and returns a set of handlers for the target.
-	New(virtualhostname.Info) (ProxyHandlers, error)
-}
 
 type proxyFactory struct {
 	k8sResolver k8s.Resolver
@@ -57,7 +40,7 @@ func (m sessionMetrics) ObserveTimeToSession(ctx context.Context) {
 
 // New returns a set of handlers for the given target based
 // on whether the target is a container, unit or machine.
-func (f proxyFactory) New(destination virtualhostname.Info) (ProxyHandlers, error) {
+func (f proxyFactory) New(destination virtualhostname.Info) (sshproxy.ProxyHandlers, error) {
 	modelType := "machine"
 	if destination.Target() == virtualhostname.ContainerTarget {
 		modelType = "k8s"

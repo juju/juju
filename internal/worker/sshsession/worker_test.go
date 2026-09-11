@@ -52,11 +52,14 @@ func (s *workerSuite) newConfig(c *tc.C, machineName string) WorkerConfig {
 	return WorkerConfig{
 		Logger:               loggertesting.WrapCheckLog(c),
 		MachineName:          machineName,
+		ModelUUID:            testModelUUID,
 		FacadeClient:         s.facadeClient,
 		EphemeralKeysUpdater: s.keysUpdater,
 		ConnectionDialer:     s.dialer,
 	}
 }
+
+const testModelUUID = "8419cd78-4993-4c3a-928e-c646226beeee"
 
 func (s *workerSuite) TestValidate(c *tc.C) {
 	ctrl := s.setupMocks(c)
@@ -116,10 +119,6 @@ func newPublicKey(c *tc.C) []byte {
 func (s *workerSuite) startWorker(c *tc.C, machineName string, changes chan []string) (*sshSessionWorker, *watchertest.MockStringsWatcher) {
 	w := watchertest.NewMockStringsWatcher(changes)
 	s.facadeClient.EXPECT().WatchSSHConnRequest(gomock.Any()).Return(w, nil)
-	// The worker fetches the controller SSH port and host public key once at
-	// startup.
-	s.facadeClient.EXPECT().ControllerSSHPort(gomock.Any()).Return(2223, nil)
-	s.facadeClient.EXPECT().ControllerPublicKey(gomock.Any()).Return(newPublicKey(c), nil)
 
 	worker, err := NewWorker(s.newConfig(c, machineName))
 	c.Assert(err, tc.ErrorIsNil)
@@ -135,8 +134,6 @@ func (s *workerSuite) TestHandlesRequestForOwnMachine(c *tc.C) {
 	req := params.SSHConnRequestResult{
 		MachineName:         "0",
 		ControllerAddresses: []string{"10.0.0.1"},
-		Username:            "juju-reverse-tunnel",
-		Password:            "jwt",
 		EphemeralPublicKey:  ephemeralKey,
 	}
 
@@ -146,7 +143,7 @@ func (s *workerSuite) TestHandlesRequestForOwnMachine(c *tc.C) {
 
 	controllerConn, controllerRemote := net.Pipe()
 	sshdConn, sshdRemote := net.Pipe()
-	s.dialer.EXPECT().DialController(gomock.Any(), "10.0.0.1", 2223, "juju-reverse-tunnel", "jwt", gomock.Any()).Return(newPipeHalfCloseConn(controllerConn), nil)
+	s.dialer.EXPECT().DialController(gomock.Any(), "10.0.0.1", testModelUUID, "tunnel-0").Return(newPipeHalfCloseConn(controllerConn), nil)
 	s.dialer.EXPECT().DialLocalSSHD(gomock.Any()).Return(newPipeHalfCloseConn(sshdConn), nil)
 	s.keysUpdater.EXPECT().RemoveEphemeralKey(gomock.Any()).DoAndReturn(func(gossh.PublicKey) error {
 		close(handled)
@@ -184,8 +181,6 @@ func (s *workerSuite) TestFallsBackToNextControllerAddress(c *tc.C) {
 	req := params.SSHConnRequestResult{
 		MachineName:         "0",
 		ControllerAddresses: []string{"10.0.0.1", "10.0.0.2"},
-		Username:            "juju-reverse-tunnel",
-		Password:            "jwt",
 		EphemeralPublicKey:  newPublicKey(c),
 	}
 
@@ -197,8 +192,8 @@ func (s *workerSuite) TestFallsBackToNextControllerAddress(c *tc.C) {
 	sshdConn, sshdRemote := net.Pipe()
 	// The first (preferred) address fails; the worker must fall back to the
 	// second address of the same controller.
-	s.dialer.EXPECT().DialController(gomock.Any(), "10.0.0.1", 2223, "juju-reverse-tunnel", "jwt", gomock.Any()).Return(nil, errors.Errorf("unreachable"))
-	s.dialer.EXPECT().DialController(gomock.Any(), "10.0.0.2", 2223, "juju-reverse-tunnel", "jwt", gomock.Any()).Return(newPipeHalfCloseConn(controllerConn), nil)
+	s.dialer.EXPECT().DialController(gomock.Any(), "10.0.0.1", testModelUUID, "tunnel-0").Return(nil, errors.Errorf("unreachable"))
+	s.dialer.EXPECT().DialController(gomock.Any(), "10.0.0.2", testModelUUID, "tunnel-0").Return(newPipeHalfCloseConn(controllerConn), nil)
 	s.dialer.EXPECT().DialLocalSSHD(gomock.Any()).Return(newPipeHalfCloseConn(sshdConn), nil)
 	s.keysUpdater.EXPECT().RemoveEphemeralKey(gomock.Any()).DoAndReturn(func(gossh.PublicKey) error {
 		close(handled)
@@ -234,8 +229,6 @@ func (s *workerSuite) TestHalfClosesOppositeConnOnEOF(c *tc.C) {
 	req := params.SSHConnRequestResult{
 		MachineName:         "0",
 		ControllerAddresses: []string{"10.0.0.1"},
-		Username:            "juju-reverse-tunnel",
-		Password:            "jwt",
 		EphemeralPublicKey:  newPublicKey(c),
 	}
 
@@ -247,7 +240,7 @@ func (s *workerSuite) TestHalfClosesOppositeConnOnEOF(c *tc.C) {
 	sshdConn, _ := net.Pipe()
 	controllerHC := newPipeHalfCloseConn(controllerConn)
 	sshdHC := newPipeHalfCloseConn(sshdConn)
-	s.dialer.EXPECT().DialController(gomock.Any(), "10.0.0.1", 2223, "juju-reverse-tunnel", "jwt", gomock.Any()).Return(controllerHC, nil)
+	s.dialer.EXPECT().DialController(gomock.Any(), "10.0.0.1", testModelUUID, "tunnel-0").Return(controllerHC, nil)
 	s.dialer.EXPECT().DialLocalSSHD(gomock.Any()).Return(sshdHC, nil)
 
 	changes := make(chan []string)
@@ -281,8 +274,6 @@ func (s *workerSuite) TestCancellationClosesConnections(c *tc.C) {
 	req := params.SSHConnRequestResult{
 		MachineName:         "0",
 		ControllerAddresses: []string{"10.0.0.1"},
-		Username:            "juju-reverse-tunnel",
-		Password:            "jwt",
 		EphemeralPublicKey:  newPublicKey(c),
 	}
 
@@ -298,7 +289,7 @@ func (s *workerSuite) TestCancellationClosesConnections(c *tc.C) {
 	// dialed is closed once the tunnel is fully established (both conns
 	// dialled), so the test cancels only after the copies are in flight.
 	dialed := make(chan struct{})
-	s.dialer.EXPECT().DialController(gomock.Any(), "10.0.0.1", 2223, "juju-reverse-tunnel", "jwt", gomock.Any()).Return(newPipeHalfCloseConn(controllerConn), nil)
+	s.dialer.EXPECT().DialController(gomock.Any(), "10.0.0.1", testModelUUID, "tunnel-0").Return(newPipeHalfCloseConn(controllerConn), nil)
 	s.dialer.EXPECT().DialLocalSSHD(gomock.Any()).DoAndReturn(func(context.Context) (HalfCloseConn, error) {
 		close(dialed)
 		return newPipeHalfCloseConn(sshdConn), nil

@@ -58,3 +58,14 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.timeToSession.Collect(ch)
 	c.authenticationFailures.Collect(ch)
 }
+
+// IncConnectionCount increments the active connection count.
+func (c *Collector) IncConnectionCount() {
+	c.connectionCount.Inc()
+}
+
+// DecConnectionCount decrements the active connection count and records
+// the connection duration.
+func (c *Collector) DecConnectionCount() {
+	c.connectionCount.Dec()
+}

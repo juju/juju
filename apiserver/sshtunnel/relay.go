@@ -1,0 +1,137 @@
+// Copyright 2026 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package sshtunnel
+
+import (
+	"net/http"
+
+	"github.com/lestrrat-go/jwx/v3/jwt"
+	ssh "github.com/tailscale/gliderssh"
+
+	authjwt "github.com/juju/juju/apiserver/authentication/jwt"
+	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/sshproxy"
+)
+
+// RelayHandler implements the JIMM relay upgrade endpoint:
+//
+//	GET /ssh-relay/:virtualHostname
+//
+// JIMM authenticates with a bearer JWT in the Authorization header (the
+// same external-auth flow the API server already supports on HTTP
+// endpoints). After the upgrade, the user's SSH session - relayed blind by
+// JIMM - terminates in the embedded SSH server built here.
+type RelayHandler struct {
+	config RelayHandlerConfig
+}
+
+// RelayHandlerConfig holds the configuration for the JIMM relay endpoint.
+type RelayHandlerConfig struct {
+	// Logger is used for logging.
+	Logger logger.Logger
+	// Resolver resolves per-destination proxy handlers and terminating host
+	// keys in one call.
+	Resolver sshproxy.Resolver
+	// Metrics collects connection metrics.
+	Metrics MetricsCollector
+}
+
+// Validate checks whether the configuration is valid.
+func (cfg RelayHandlerConfig) Validate() error {
+	if cfg.Logger == nil {
+		return errors.New("nil Logger")
+	}
+	if cfg.Resolver == nil {
+		return errors.New("nil Resolver")
+	}
+	if cfg.Metrics == nil {
+		return errors.New("nil Metrics")
+	}
+	return nil
+}
+
+// NewRelayHandler returns a new JIMM relay endpoint handler.
+func NewRelayHandler(config RelayHandlerConfig) (*RelayHandler, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Errorf("validating relay handler config: %w", err)
+	}
+	return &RelayHandler{config: config}, nil
+}
+
+// ServeHTTP implements http.Handler.
+func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	virtualHostname := r.URL.Query().Get(":virtualHostname")
+	destination, err := virtualhostname.Parse(virtualHostname)
+	if err != nil {
+		http.Error(w, "failed to parse destination hostname", http.StatusBadRequest)
+		return
+	}
+
+	// The user identity comes from the JWT claims (PermissionDelegator
+	// flow). The token was validated by the HTTP authentication layer.
+	token, ok := ctx.Value(RelayJWTKey{}).(jwt.Token)
+	if !ok || token == nil {
+		http.Error(w, "missing relay JWT", http.StatusUnauthorized)
+		return
+	}
+
+	// Authorize the destination model using the verified JWT's access
+	// claims. Only admin access on the target model permits relay.
+	access, err := authjwt.PermissionFromToken(token, permission.ID{
+		ObjectType: permission.Model,
+		Key:        destination.ModelUUID().String(),
+	})
+	if err != nil {
+		h.config.Logger.Errorf(ctx, "authorizing relay access: %v", err)
+		http.Error(w, "failed to authorize access to destination", http.StatusInternalServerError)
+		return
+	}
+	if !access.EqualOrGreaterModelAccessThan(permission.AdminAccess) {
+		http.Error(w, "unauthorized", http.StatusForbidden)
+		return
+	}
+
+	// Resolve the destination's proxy handlers and terminating host key
+	// before upgrading, so failures reach JIMM as HTTP errors.
+	termination, err := h.config.Resolver.Resolve(ctx, destination)
+	if err != nil {
+		h.config.Logger.Errorf(ctx, "resolving destination: %v", err)
+		http.Error(w, "failed to resolve destination", http.StatusInternalServerError)
+		return
+	}
+
+	conn, err := hijack(w, r, RelayUpgradeToken)
+	if err != nil {
+		h.config.Logger.Errorf(ctx, "upgrading relay connection: %v", err)
+		return
+	}
+	h.config.Metrics.IncConnectionCount("relay")
+	defer h.config.Metrics.DecConnectionCount("relay")
+	stop := watchDying(conn, dyingFromContext(ctx), h.config.Logger)
+	defer stop()
+	defer func() { _ = conn.Close() }()
+
+	// Terminate the relayed user SSH session here. JIMM cannot read the
+	// session bytes, the embedded server handles them end to end.
+	// HTTP authentication already happened via the bearer JWT, so the
+	// terminating server accepts the user's key as presented.
+	server := sshproxy.NewTerminatingSSHServer(termination.Handlers)
+	server.PublicKeyHandler = func(_ ssh.Context, _ ssh.PublicKey) error {
+		return nil
+	}
+	server.AddHostKey(termination.Signer)
+	server.HandleConn(conn)
+}
+
+// RelayJWTKey is the context key for the relay JWT, set by the apiserver
+// from the request's auth info.
+type RelayJWTKey struct{}
+
+// DyingKey is the context key for the apiserver dying signal.
+type DyingKey struct{}

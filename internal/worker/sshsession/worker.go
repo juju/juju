@@ -5,9 +5,13 @@ package sshsession
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"io"
 	"net"
-	"strconv"
+	"net/http"
+	"net/url"
+	"path"
 	"sync"
 	"time"
 
@@ -15,12 +19,13 @@ import (
 	"github.com/juju/worker/v5/catacomb"
 	gossh "golang.org/x/crypto/ssh"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/sshtunnel"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/sshconn"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -42,14 +47,6 @@ type FacadeClient interface {
 	// GetSSHConnRequest returns the SSH connection request for the supplied
 	// tunnel ID.
 	GetSSHConnRequest(ctx context.Context, tunnelID string) (params.SSHConnRequestResult, error)
-
-	// ControllerSSHPort returns the port the controller SSH jump server listens
-	// on.
-	ControllerSSHPort(ctx context.Context) (int, error)
-
-	// ControllerPublicKey returns the marshalled public host key of the
-	// controller SSH jump server, used to pin the host key when reverse-dialling.
-	ControllerPublicKey(ctx context.Context) ([]byte, error)
 }
 
 // HalfCloseConn is a net.Conn that additionally supports half-close: signalling
@@ -65,9 +62,11 @@ type HalfCloseConn interface {
 // ConnectionDialer establishes the controller and local sshd connections that
 // the worker pipes together to form a reverse tunnel.
 type ConnectionDialer interface {
-	// DialController reverse-dials the controller SSH server and opens the
-	// tunnel channel.
-	DialController(ctx context.Context, address string, port int, username, password string, hostPublicKey gossh.PublicKey) (HalfCloseConn, error)
+	// DialController opens an HTTPS connection to the controller's SSH
+	// tunnel upgrade endpoint and returns the upgraded raw connection.
+	// The model UUID identifies the model-scoped endpoint path; the agent
+	// credentials authenticate at the HTTP layer.
+	DialController(ctx context.Context, address string, modelUUID string, tunnelID string) (HalfCloseConn, error)
 	// DialLocalSSHD dials the local sshd.
 	DialLocalSSHD(ctx context.Context) (HalfCloseConn, error)
 }
@@ -79,6 +78,9 @@ type WorkerConfig struct {
 	// MachineName is the name of the machine this agent runs on. The worker
 	// only handles requests targeting this machine.
 	MachineName string
+	// ModelUUID is the UUID of the model this agent belongs to. It scopes the
+	// controller's SSH tunnel upgrade endpoint path.
+	ModelUUID string
 	// FacadeClient is used to watch and read SSH connection requests.
 	FacadeClient FacadeClient
 	// EphemeralKeysUpdater injects/removes ephemeral keys.
@@ -94,6 +96,9 @@ func (cfg WorkerConfig) Validate() error {
 	}
 	if cfg.MachineName == "" {
 		return errors.Errorf("empty MachineName").Add(coreerrors.NotValid)
+	}
+	if cfg.ModelUUID == "" {
+		return errors.Errorf("empty ModelUUID").Add(coreerrors.NotValid)
 	}
 	if cfg.FacadeClient == nil {
 		return errors.Errorf("nil FacadeClient").Add(coreerrors.NotValid)
@@ -150,21 +155,6 @@ func (w *sshSessionWorker) Wait() error {
 // machine.
 func (w *sshSessionWorker) loop() error {
 	ctx := w.catacomb.Context(context.Background())
-	// Fetch the controller SSH port and host public key once. These are stable
-	// per controller HA identity, and are used to reverse-dial and pin the host
-	// key for every connection request this worker handles.
-	controllerSSHPort, err := w.config.FacadeClient.ControllerSSHPort(ctx)
-	if err != nil {
-		return errors.Errorf("getting controller SSH port: %w", err)
-	}
-	marshalledHostKey, err := w.config.FacadeClient.ControllerPublicKey(ctx)
-	if err != nil {
-		return errors.Errorf("getting controller public key: %w", err)
-	}
-	controllerHostPublicKey, err := gossh.ParsePublicKey(marshalledHostKey)
-	if err != nil {
-		return errors.Errorf("parsing controller public key: %w", err)
-	}
 
 	connRequestWatcher, err := w.config.FacadeClient.WatchSSHConnRequest(ctx)
 	if err != nil {
@@ -186,7 +176,7 @@ func (w *sshSessionWorker) loop() error {
 				return errors.Errorf("SSH connection request watcher closed")
 			}
 			for _, tunnelID := range changes {
-				w.handleConnection(ctx, tunnelID, controllerSSHPort, controllerHostPublicKey)
+				w.handleConnection(ctx, tunnelID)
 			}
 		}
 	}
@@ -196,9 +186,9 @@ func (w *sshSessionWorker) loop() error {
 // goroutine. The handler uses the worker-scoped context, so it is cancelled
 // when the worker is dying, and is tracked by the worker's WaitGroup so it
 // drains on shutdown. A single failed request must not bring down the worker.
-func (w *sshSessionWorker) handleConnection(ctx context.Context, tunnelID string, controllerSSHPort int, controllerHostPublicKey gossh.PublicKey) {
+func (w *sshSessionWorker) handleConnection(ctx context.Context, tunnelID string) {
 	w.wg.Go(func() {
-		if err := w.handleConnectionInternal(ctx, tunnelID, controllerSSHPort, controllerHostPublicKey); err != nil {
+		if err := w.handleConnectionInternal(ctx, tunnelID); err != nil {
 			w.config.Logger.Errorf(ctx, "failed to handle SSH connection request %q: %v", tunnelID, err)
 		}
 	})
@@ -206,7 +196,7 @@ func (w *sshSessionWorker) handleConnection(ctx context.Context, tunnelID string
 
 // handleConnectionInternal reads the request and, if it targets this machine,
 // establishes the reverse tunnel.
-func (w *sshSessionWorker) handleConnectionInternal(ctx context.Context, tunnelID string, controllerSSHPort int, controllerHostPublicKey gossh.PublicKey) error {
+func (w *sshSessionWorker) handleConnectionInternal(ctx context.Context, tunnelID string) error {
 	req, err := w.config.FacadeClient.GetSSHConnRequest(ctx, tunnelID)
 	if err != nil {
 		return errors.Errorf("getting SSH connection request %q: %w", tunnelID, err)
@@ -235,36 +225,37 @@ func (w *sshSessionWorker) handleConnectionInternal(ctx context.Context, tunnelI
 		}
 	}()
 
-	// Reverse-dial the originating controller for origin-controller affinity.
+	// Dial the originating controller for origin-controller affinity.
 	// ControllerAddresses are all addresses of the single originating
-	// controller, prioritized best-first, so trying alternates on failure
-	// preserves affinity while adding route resilience.
-	controllerConn, err := w.dialController(ctx, req.ControllerAddresses, controllerSSHPort, req.Username, req.Password, controllerHostPublicKey)
+	// controller node, prioritized best-first, so trying alternates on
+	// failure preserves affinity while adding route resilience. A request
+	// landing on the wrong node is rejected by that node's tracker and the
+	// machine retries the next address.
+	controllerConn, err := w.dialController(ctx, req.ControllerAddresses, w.config.ModelUUID, tunnelID)
 	if err != nil {
 		return errors.Errorf("dialling controller for request %q: %w", tunnelID, err)
 	}
 	return w.pipeConnectionToSSHD(ctx, controllerConn)
 }
 
-// dialController reverse-dials the originating controller, trying each address
-// in the supplied (prioritized) order and returning the first successful
-// connection. It stops early if the context is cancelled.
+// dialController dials the originating controller's tunnel upgrade
+// endpoint, trying each address in the supplied (prioritized) order and
+// returning the first successful connection. It stops early if the
+// context is cancelled.
 func (w *sshSessionWorker) dialController(
 	ctx context.Context,
 	addresses []string,
-	port int,
-	username string,
-	password string,
-	hostPublicKey gossh.PublicKey,
+	modelUUID string,
+	tunnelID string,
 ) (HalfCloseConn, error) {
 	var err error
 	for _, address := range addresses {
 		var conn HalfCloseConn
-		conn, err = w.config.ConnectionDialer.DialController(ctx, address, port, username, password, hostPublicKey)
+		conn, err = w.config.ConnectionDialer.DialController(ctx, address, modelUUID, tunnelID)
 		if err == nil {
 			return conn, nil
 		}
-		w.config.Logger.Debugf(ctx, "dialling controller %s:%d failed, trying next address: %v", address, port, err)
+		w.config.Logger.Debugf(ctx, "dialling controller %s failed, trying next address: %v", address, err)
 		// Stop trying alternates if the worker is shutting down.
 		if ctx.Err() != nil {
 			break
@@ -322,51 +313,108 @@ func bidirectionalCopy(a HalfCloseConn, b HalfCloseConn) {
 	wg.Wait()
 }
 
-// connectionDialer is the default ConnectionDialer. It reverse-dials the
-// controller SSH server and dials the local sshd.
+// connectionDialer is the default ConnectionDialer. It opens an HTTPS
+// upgrade request to the controller's SSH tunnel endpoint and dials the
+// local sshd.
 type connectionDialer struct {
 	logger          logger.Logger
 	sshdConfigPaths []string
+	// apiInfo holds the agent's API credentials, used to authenticate the
+	// upgrade request at the HTTP layer.
+	apiInfo *api.Info
 }
 
 // newConnectionDialer returns a new connectionDialer.
-func newConnectionDialer(l logger.Logger) *connectionDialer {
+func newConnectionDialer(l logger.Logger, apiInfo *api.Info) *connectionDialer {
 	return &connectionDialer{
 		logger:          l,
 		sshdConfigPaths: coressh.DefaultSSHDConfigPaths,
+		apiInfo:         apiInfo,
 	}
 }
 
-// DialController reverse-dials the controller SSH server and opens the tunnel
-// channel.
+// DialController opens an HTTPS connection to the controller's SSH tunnel
+// upgrade endpoint and returns the upgraded raw connection. Authentication
+// uses the agent's API credentials (basic auth headers, the same mechanism
+// as /logsink); TLS validates the controller. The request must be
+// HTTP/1.1: HTTP/2 disallows the upgrade mechanism, so the TLS config pins
+// ALPN to http/1.1.
 func (d *connectionDialer) DialController(
 	ctx context.Context,
 	address string,
-	port int,
-	username string,
-	password string,
-	hostPublicKey gossh.PublicKey,
+	modelUUID string,
+	tunnelID string,
 ) (HalfCloseConn, error) {
-	sshConfig := &gossh.ClientConfig{
-		User:            username,
-		Auth:            []gossh.AuthMethod{gossh.Password(password)},
-		HostKeyCallback: gossh.FixedHostKey(hostPublicKey),
-		Timeout:         controllerDialTimeout,
+	return d.upgrade(ctx, address, modelUUID, tunnelID)
+}
+
+// upgrade performs the HTTP upgrade handshake to the tunnel endpoint and
+// returns the raw connection.
+func (d *connectionDialer) upgrade(
+	ctx context.Context,
+	address string,
+	modelUUID string,
+	tunnelID string,
+) (HalfCloseConn, error) {
+	// TLS validates the controller using the API info's CA certificate.
+	// ALPN is pinned to http/1.1: HTTP/2 disallows the upgrade mechanism
+	// and Hijack returns ErrNotSupported on an h2 connection.
+	certPool := x509.NewCertPool()
+	if d.apiInfo.CACert != "" {
+		if !certPool.AppendCertsFromPEM([]byte(d.apiInfo.CACert)) {
+			return nil, errors.Errorf("adding CA certificate to pool")
+		}
+	}
+	tlsConfig := api.NewTLSConfig(certPool)
+	tlsConfig.NextProtos = []string{"http/1.1"}
+
+	dialer := &tls.Dialer{
+		Config: tlsConfig,
+		NetDialer: &net.Dialer{
+			Timeout: controllerDialTimeout,
+		},
+	}
+	rawConn, err := dialer.DialContext(ctx, "tcp", address)
+	if err != nil {
+		return nil, errors.Errorf("dialing controller %s: %w", address, err)
 	}
 
-	client, err := gossh.Dial("tcp", net.JoinHostPort(address, strconv.Itoa(port)), sshConfig)
+	// Build the upgrade request with the agent's credentials, the same
+	// basic-auth mechanism the /logsink endpoint uses.
+	target := &url.URL{
+		Scheme: "https",
+		Host:   address,
+		Path:   path.Join("/model", modelUUID, "ssh-tunnel", tunnelID),
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
 	if err != nil {
+		_ = rawConn.Close()
+		return nil, errors.Errorf("building upgrade request: %w", err)
+	}
+	req.Header.Set("Connection", "Upgrade")
+	req.Header.Set("Upgrade", sshtunnel.TunnelUpgradeToken)
+	if err := api.AuthHTTPRequest(req, d.apiInfo); err != nil {
+		_ = rawConn.Close()
+		return nil, errors.Errorf("authenticating upgrade request: %w", err)
+	}
+
+	conn, err := sshtunnel.PerformUpgrade(req, rawConn)
+	if err != nil {
+		_ = rawConn.Close()
 		return nil, errors.Capture(err)
 	}
+	return asHalfCloseConn(conn)
+}
 
-	ch, reqs, err := client.OpenChannel(coressh.JujuTunnelChannel, nil)
-	if err != nil {
-		_ = client.Close()
-		return nil, errors.Capture(err)
+// asHalfCloseConn guards that the upgraded connection supports half-close,
+// which the tunnel pipe relies on for graceful per-direction teardown.
+func asHalfCloseConn(conn net.Conn) (HalfCloseConn, error) {
+	hc, ok := conn.(HalfCloseConn)
+	if !ok {
+		_ = conn.Close()
+		return nil, errors.Errorf("upgraded connection %T does not support half-close", conn)
 	}
-	go gossh.DiscardRequests(reqs)
-
-	return sshconn.NewChannelConn(ch), nil
+	return hc, nil
 }
 
 // DialLocalSSHD performs a standard TCP dial to the sshd running on the

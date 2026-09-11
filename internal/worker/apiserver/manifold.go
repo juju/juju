@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
+	"github.com/juju/juju/apiserver/sshtunnel"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
 	coredependency "github.com/juju/juju/core/dependency"
@@ -28,8 +29,10 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/sshproxy"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
+	workerTunneler "github.com/juju/juju/internal/worker/sshtunneler"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 )
@@ -90,6 +93,14 @@ type ManifoldConfig struct {
 	TraceName          string
 	ObjectStoreName    string
 	JWTParserName      string
+	SSHTunnelerName    string
+	SSHServerName      string
+
+	// ControllerID is the ID of the local controller node, used by the
+	// relay endpoint's machine connector for reverse tunnel requests.
+	ControllerID string
+	// ControllerUUID is the UUID of the controller entity.
+	ControllerUUID string
 
 	// Clock is the clock used for timekeeping within the manifold.
 	Clock clock.Clock
@@ -166,6 +177,12 @@ func (config ManifoldConfig) Validate() error {
 	if config.JWTParserName == "" {
 		return errors.NotValidf("empty JWTParserName")
 	}
+	if config.SSHTunnelerName == "" {
+		return errors.NotValidf("empty SSHTunnelerName")
+	}
+	if config.SSHServerName == "" {
+		return errors.NotValidf("empty SSHServerName")
+	}
 	if config.ProviderTrackerName == "" {
 		return errors.NotValidf("empty ProviderTrackerName")
 	}
@@ -204,6 +221,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ObjectStoreName,
 			config.LogSinkName,
 			config.JWTParserName,
+			config.SSHTunnelerName,
+			config.SSHServerName,
 			config.WatcherRegistryName,
 			config.ProviderTrackerName,
 		},
@@ -322,9 +341,29 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	// Register the metrics collector against the prometheus register.
+	var tunnelTracker workerTunneler.TunnelTracker
+	if err := getter.Get(config.SSHTunnelerName, &tunnelTracker); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Fetch the relay resolver from the sshserver worker's manifold
+	// output. Relay authorization happens in the relay handler using
+	// the verified JWT.
+	var relayResolver sshproxy.Resolver
+	if err := getter.Get(config.SSHServerName, &relayResolver); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// SSH tunnel and relay endpoints have their own metrics collector,
+	// distinct from the sshserver listener metrics.
+	sshTunnelMetrics := sshtunnel.NewMetricsCollector()
+	if err := config.PrometheusRegisterer.Register(sshTunnelMetrics); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	metricsCollector := config.NewMetricsCollector()
 	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
+		_ = config.PrometheusRegisterer.Unregister(sshTunnelMetrics)
 		return nil, errors.Trace(err)
 	}
 
@@ -355,20 +394,21 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		ModelService:                      modelService,
 		WatcherRegistryGetter:             watcherRegistryGetter,
 		EphemeralProviderFactory:          providerFactory,
+		SSHTunnel: &apiserver.SSHTunnelConfig{
+			TunnelTracker: tunnelTracker,
+			Resolver:      relayResolver,
+			Metrics:       sshTunnelMetrics,
+		},
 	})
 	if err != nil {
-		// Ensure we clean up the resources we've registered with. This includes
-		// the state pool and the metrics collector.
 		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
-
+		_ = config.PrometheusRegisterer.Unregister(sshTunnelMetrics)
 		return nil, errors.Trace(err)
 	}
 	mux.AddClient()
 	return common.NewCleanupWorker(w, func() {
 		mux.ClientDone()
-
-		// Ensure we clean up the resources we've registered with. This includes
-		// the state pool and the metrics collector.
 		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
+		_ = config.PrometheusRegisterer.Unregister(sshTunnelMetrics)
 	}), nil
 }

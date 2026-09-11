@@ -24,21 +24,3 @@ type SSHConnRequestService interface {
 	// own requests.
 	GetSSHConnRequest(ctx context.Context, machineName coremachine.Name, tunnelID string) (domainssh.SSHConnRequest, error)
 }
-
-// ControllerConfigService is the interface for reading controller
-// configuration, used to determine the controller SSH jump server port.
-type ControllerConfigService interface {
-	// GetSSHServerPort returns the port the controller SSH jump server listens
-	// on. It reads only the single config value rather than the whole
-	// controller config.
-	GetSSHServerPort(ctx context.Context) (int, error)
-}
-
-// ControllerSSHHostKeyService is the interface for reading the controller SSH
-// jump server host key.
-type ControllerSSHHostKeyService interface {
-	// SSHServerHostPublicKey returns the marshalled public host key of the
-	// controller SSH jump server. The public key is derived once at bootstrap
-	// and stored in state, so the facade never handles private key material.
-	SSHServerHostPublicKey(ctx context.Context) ([]byte, error)
-}
