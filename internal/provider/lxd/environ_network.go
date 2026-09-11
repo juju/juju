@@ -27,6 +27,25 @@ var _ environs.Networking = (*environ)(nil)
 // Subnets returns basic information about subnets known by the provider for
 // the environment.
 func (e *environ) Subnets(ctx context.Context, subnetIDs []network.Id) ([]network.SubnetInfo, error) {
+	providerSubnets, err := e.subnets(ctx, subnetIDs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var subnets []network.SubnetInfo
+	for _, subnet := range providerSubnets {
+		subnets = append(subnets, subnet.SubnetInfo)
+	}
+	return subnets, nil
+}
+
+// providerSubnet retains the LXD network type for NIC construction without
+// exposing provider-specific attachment details through environs.Networking.
+type providerSubnet struct {
+	network.SubnetInfo
+	networkType string
+}
+
+func (e *environ) subnets(ctx context.Context, subnetIDs []network.Id) ([]providerSubnet, error) {
 	srv := e.server()
 
 	availabilityZones, err := e.AvailabilityZones(ctx)
@@ -48,7 +67,7 @@ func (e *environ) Subnets(ctx context.Context, subnetIDs []network.Id) ([]networ
 	}
 
 	var (
-		subnets       []network.SubnetInfo
+		subnets       []providerSubnet
 		uniqueSubnets = set.NewStrings()
 	)
 	for _, networkDetails := range networkStates {
@@ -81,7 +100,10 @@ func (e *environ) Subnets(ctx context.Context, subnetIDs []network.Id) ([]networ
 			}
 
 			uniqueSubnets.Add(cidr)
-			subnets = append(subnets, makeSubnetInfo(cidr, networkDetails.name, availabilityZones))
+			subnets = append(subnets, providerSubnet{
+				SubnetInfo:  makeSubnetInfo(cidr, networkDetails.name, availabilityZones),
+				networkType: networkDetails.networkType,
+			})
 		}
 	}
 
