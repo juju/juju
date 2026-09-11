@@ -179,7 +179,7 @@ func (s *importSuite) TestImportExistingKubernetesCredentialWithTargetRBACID(c *
 		k8scloud.RBACLabelKeyName: "target-controller-id",
 	})
 	key := credential.Key{Cloud: "kubernetes", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
-	s.service.EXPECT().CloudCredential(gomock.All(), key).Times(1).Return(cred, nil)
+	s.service.EXPECT().CloudCredential(gomock.Any(), key).Times(1).Return(cred, nil)
 
 	op := s.newImportOperation()
 	err := op.Execute(c.Context(), model)
@@ -207,7 +207,7 @@ func (s *importSuite) TestImportExistingKubernetesCredentialWithDifferentAuthent
 		k8scloud.RBACLabelKeyName: "target-controller-id",
 	})
 	key := credential.Key{Cloud: "kubernetes", Owner: usertesting.GenNewName(c, "fred"), Name: "foo"}
-	s.service.EXPECT().CloudCredential(gomock.All(), key).Times(1).Return(cred, nil)
+	s.service.EXPECT().CloudCredential(gomock.Any(), key).Times(1).Return(cred, nil)
 
 	op := s.newImportOperation()
 	err := op.Execute(c.Context(), model)
@@ -234,6 +234,10 @@ func (s *importSuite) TestImportCredentialMetadata(c *tc.C) {
 			name: "source-only RBAC ID", modelType: description.CAAS,
 			existing: map[string]string{"Token": "token"},
 			imported: map[string]string{"Token": "token", "rbac-id": "source"},
+		}, {
+			name: "nil import vs rbac-only target", modelType: description.CAAS,
+			existing: map[string]string{"rbac-id": "target"},
+			imported: nil,
 		}, {
 			name: "IAAS attributes stay strict", modelType: description.IAAS,
 			existing:  map[string]string{"Token": "token", "rbac-id": "target"},
@@ -277,7 +281,7 @@ func (s *importSuite) TestImportCredentialMetadata(c *tc.C) {
 		s.service.EXPECT().CloudCredential(gomock.Any(), key).Return(cred, nil)
 		err := s.newImportOperation().Execute(c.Context(), model)
 		if test.wantError == "" {
-			c.Assert(err, tc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
 			c.Check(err, tc.ErrorMatches, regexp.QuoteMeta(test.wantError))
 		}

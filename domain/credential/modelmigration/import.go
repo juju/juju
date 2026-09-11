@@ -6,7 +6,6 @@ package modelmigration
 import (
 	"context"
 	"maps"
-	"reflect"
 
 	"github.com/juju/description/v12"
 
@@ -102,12 +101,14 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	existingAttrs, importedAttrs := existing.Attributes(), maps.Clone(cred.Attributes())
 	if model.Type() == description.CAAS {
 		// Kubernetes uses rbac-id to label managed RBAC resources, not to
-		// authenticate. It may be absent or differ between controllers.
-		// Compare copies so the destination credential and export stay intact.
+		// authenticate. It may be absent or differ between controllers, so
+		// discard it before comparing attributes. existing.Attributes()
+		// already returns a copy, but cred.Attributes() exposes the
+		// migration export's internal map, hence the maps.Clone above.
 		delete(existingAttrs, k8scloud.RBACLabelKeyName)
 		delete(importedAttrs, k8scloud.RBACLabelKeyName)
 	}
-	if !reflect.DeepEqual(existingAttrs, importedAttrs) {
+	if !maps.Equal(existingAttrs, importedAttrs) {
 		return errors.Errorf("credential attribute mismatch for %q", key)
 	}
 	if existing.Revoked {
