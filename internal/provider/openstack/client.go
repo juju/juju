@@ -135,10 +135,24 @@ func (c *ClientFactory) AuthClient() client.AuthenticatingClient {
 	return c.authClient
 }
 
-// Nova creates a new Nova client from the auth mode (v3 or falls back to v2)
-// and the updated credentials.
+// Nova creates a new Nova client using the shared, already-authenticated
+// auth client.
 func (c *ClientFactory) Nova() (*nova.Client, error) {
 	return nova.New(c.authClient), nil
+}
+
+// NovaWithMicroVersion creates a Nova client that sends the
+// OpenStack-API-Version header for the given compute microversion.
+// This is needed for block_device_mapping_v2 features such as
+// volume_type (introduced in microversion 2.67). Use this only for
+// specific calls that require the microversion; use Nova() for all
+// other Nova API calls.
+func (c *ClientFactory) NovaWithMicroVersion() (*nova.Client, error) {
+	client, err := c.getClientState(WithHTTPHeadersFunc(novaMicroversionHeaders))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return nova.New(client), nil
 }
 
 // Neutron creates a new Neutron client from the auth mode (v3 or falls back to v2)
@@ -151,6 +165,20 @@ func (c *ClientFactory) Neutron() (*neutron.Client, error) {
 		return nil, errors.Trace(err)
 	}
 	return neutron.New(client), nil
+}
+
+// novaMicroversion is the compute API microversion required for
+// block_device_mapping_v2 features such as volume_type, which
+// was introduced in microversion 2.67 (OpenStack Train).
+const novaMicroversion = "compute 2.67"
+
+// novaMicroversionHeaders wraps goosehttp.DefaultHeaders, adding the
+// OpenStack compute microversion header required for
+// block_device_mapping_v2 features such as volume_type.
+func novaMicroversionHeaders(method string, extraHeaders http.Header, contentType, authToken string, payloadExists bool) http.Header {
+	headers := goosehttp.DefaultHeaders(method, extraHeaders, contentType, authToken, payloadExists)
+	headers.Set("OpenStack-API-Version", novaMicroversion)
+	return headers
 }
 
 func (c *ClientFactory) getClientState(options ...ClientOption) (client.AuthenticatingClient, error) {

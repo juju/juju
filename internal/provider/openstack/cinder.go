@@ -30,6 +30,8 @@ const (
 	CinderProviderType = storage.ProviderType("cinder")
 
 	cinderVolumeType = "volume-type"
+	cinderDiskBus    = "disk-bus"
+	cinderTag        = "tag"
 
 	// autoAssignedMountPoint specifies the value to pass in when
 	// you'd like Cinder to automatically assign a mount point.
@@ -43,19 +45,41 @@ const (
 	volumeStatusInUse     = "in-use"
 )
 
+const (
+	deviceTypeDisk = "disk"
+
+	diskBusFDC    = "fdc"
+	diskBusIDE    = "ide"
+	diskBusSATA   = "sata"
+	diskBusSCSI   = "scsi"
+	diskBusUSB    = "usb"
+	diskBusVirtio = "virtio"
+	diskBusXen    = "xen"
+	diskBusLXC    = "lxc"
+	diskBusUML    = "uml"
+)
+
 var cinderConfigFields = schema.Fields{
 	cinderVolumeType: schema.String(),
+	cinderDiskBus: schema.OneOf(schema.Const(diskBusFDC), schema.Const(diskBusIDE),
+		schema.Const(diskBusSATA), schema.Const(diskBusSCSI), schema.Const(diskBusUSB), schema.Const(diskBusVirtio),
+		schema.Const(diskBusXen), schema.Const(diskBusLXC), schema.Const(diskBusUML)),
+	cinderTag: schema.String(),
 }
 
 var cinderConfigChecker = schema.FieldMap(
 	cinderConfigFields,
 	schema.Defaults{
 		cinderVolumeType: schema.Omit,
+		cinderDiskBus:    schema.Omit,
+		cinderTag:        schema.Omit,
 	},
 )
 
 type cinderConfig struct {
 	volumeType string
+	diskBus    string
+	tag        string
 }
 
 func newCinderConfig(attrs map[string]interface{}) (*cinderConfig, error) {
@@ -65,10 +89,13 @@ func newCinderConfig(attrs map[string]interface{}) (*cinderConfig, error) {
 	}
 	coerced := out.(map[string]interface{})
 	volumeType, _ := coerced[cinderVolumeType].(string)
-	cinderConfig := &cinderConfig{
+	diskBus, _ := coerced[cinderDiskBus].(string)
+	tag, _ := coerced[cinderTag].(string)
+	return &cinderConfig{
 		volumeType: volumeType,
-	}
-	return cinderConfig, nil
+		diskBus:    diskBus,
+		tag:        tag,
+	}, nil
 }
 
 // StorageProviderTypes implements storage.ProviderRegistry.
