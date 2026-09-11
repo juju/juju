@@ -96,10 +96,9 @@ type testContext struct {
 	// Remote watcher artefacts.
 	startError           bool
 	sendEvents           bool
-	channelMu            sync.Mutex // protects unitResolveCh and applicationCh
+	channelMu            sync.Mutex // protects applicationCh
 	unitWatchCounter     atomic.Int32
 	unitCh               sync.Map
-	unitResolveCh        chan struct{}
 	configCh             chan []string
 	relCh                chan []string
 	consumedSecretsCh    chan []string
@@ -716,6 +715,12 @@ func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 		}, nil
 	}).AnyTimes().After(s.stepped)
 
+	ctx.unit.EXPECT().ResolvedMode().DoAndReturn(func() params.ResolvedMode {
+		ctx.unit.mu.Lock()
+		defer ctx.unit.mu.Unlock()
+		return ctx.unit.resolved
+	}).AnyTimes().After(s.stepped)
+
 	ctx.app.EXPECT().Watch(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		// Close the old channel and open a new one so the RSW always
 		// starts with a clean, empty channel. All senders obtain the
@@ -724,20 +729,6 @@ func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 		ctx.channelMu.Lock()
 		ctx.applicationCh = make(chan struct{}, 1)
 		ch := ctx.applicationCh
-		ctx.channelMu.Unlock()
-		// Fresh channel: this blocking send always succeeds immediately.
-		ch <- struct{}{}
-		return watchertest.NewMockNotifyWatcher(ch), nil
-	}).AnyTimes().After(s.stepped)
-
-	ctx.unit.EXPECT().WatchResolveMode(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
-		// Close the old channel and open a new one so the RSW always
-		// starts with a clean, empty channel. All senders obtain the
-		// lock before reading ctx.unitResolveCh so they will pick up
-		// the new channel on their next call.
-		ctx.channelMu.Lock()
-		ctx.unitResolveCh = make(chan struct{}, 1)
-		ch := ctx.unitResolveCh
 		ctx.channelMu.Unlock()
 		// Fresh channel: this blocking send always succeeds immediately.
 		ch <- struct{}{}
@@ -754,13 +745,6 @@ func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 	ctx.unit.EXPECT().WatchConfigSettingsHash(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 		ctx.sendStrings(c, ctx.configCh, "initial config event", ctx.app.configHash(nil))
 		w := watchertest.NewMockStringsWatcher(ctx.configCh)
-		return w, nil
-	}).AnyTimes().After(s.stepped)
-
-	ctx.unit.EXPECT().WatchTrustConfigSettingsHash(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
-		ch := make(chan []string, 1)
-		ch <- []string{"trust-hash"}
-		w := watchertest.NewMockStringsWatcher(ch)
 		return w, nil
 	}).AnyTimes().After(s.stepped)
 
@@ -1050,9 +1034,9 @@ func (s *startUniter) step(c tc.LikeC, ctx *testContext) {
 	}
 
 	// Drain stale events from shared channels before starting the uniter.
-	// The Watch and WatchResolveMode callbacks replace these channels on
-	// every RSW start, but during a stopUniter/startUniter sequence there
-	// may be a leftover event on the current channel.
+	// The Watch callback replaces its channels on every RSW start, but during
+	// a stopUniter/startUniter sequence there may be a leftover event on the
+	// current channel.
 	drainNotify := func(ch chan struct{}) {
 		for {
 			select {
@@ -1063,10 +1047,8 @@ func (s *startUniter) step(c tc.LikeC, ctx *testContext) {
 		}
 	}
 	ctx.channelMu.Lock()
-	unitResolveCh := ctx.unitResolveCh
 	applicationCh := ctx.applicationCh
 	ctx.channelMu.Unlock()
-	drainNotify(unitResolveCh)
 	drainNotify(applicationCh)
 	ctx.sendEvents = true
 
@@ -1453,10 +1435,7 @@ func (s *resolveError) step(c tc.LikeC, ctx *testContext) {
 	ctx.unit.mu.Lock()
 	ctx.unit.resolved = s.resolved
 	ctx.unit.mu.Unlock()
-	ctx.channelMu.Lock()
-	ch := ctx.unitResolveCh
-	ctx.channelMu.Unlock()
-	ctx.sendNotify(c, ch, "resolved event")
+	ctx.sendUnitNotify(c, "resolved event")
 }
 
 type statusfunc func() (status.StatusInfo, error)

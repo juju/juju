@@ -33,47 +33,45 @@ type MockUnit struct {
 
 // MockUnitMockRecorder is the mock recorder for MockUnit.
 type MockUnitMockRecorder struct {
-	mock                                *MockUnit
-	applicationExpects                  []*gomock.Call1_2[context.Context, api.Application, error]
-	applicationNameExpects              []*gomock.Call0_1[string]
-	applicationTagExpects               []*gomock.Call0_1[names.ApplicationTag]
-	assignedMachineExpects              []*gomock.Call1_2[context.Context, names.MachineTag, error]
-	availabilityZoneExpects             []*gomock.Call1_2[context.Context, string, error]
-	charmURLExpects                     []*gomock.Call1_2[context.Context, string, error]
-	clearResolvedExpects                []*gomock.Call1_1[context.Context, error]
-	commitHookChangesExpects            []*gomock.Call2_1[context.Context, params.CommitHookChangesArgs, error]
-	configSettingsExpects               []*gomock.Call1_2[context.Context, charm.Config, error]
-	destroyExpects                      []*gomock.Call1_1[context.Context, error]
-	destroyAllSubordinatesExpects       []*gomock.Call1_1[context.Context, error]
-	ensureDeadExpects                   []*gomock.Call1_1[context.Context, error]
-	hasSubordinatesExpects              []*gomock.Call1_2[context.Context, bool, error]
-	lifeExpects                         []*gomock.Call0_1[life.Value]
-	logActionMessageExpects             []*gomock.Call3_1[context.Context, names.ActionTag, string, error]
-	nameExpects                         []*gomock.Call0_1[string]
-	networkInfoExpects                  []*gomock.Call3_2[context.Context, []string, *int, map[string]params.NetworkInfoResult, error]
-	principalNameExpects                []*gomock.Call1_3[context.Context, string, bool, error]
-	privateAddressExpects               []*gomock.Call1_2[context.Context, string, error]
-	providerIDExpects                   []*gomock.Call0_1[string]
-	publicAddressExpects                []*gomock.Call1_2[context.Context, string, error]
-	refreshExpects                      []*gomock.Call1_1[context.Context, error]
-	relationsStatusExpects              []*gomock.Call1_2[context.Context, []uniter.RelationStatus, error]
-	requestRebootExpects                []*gomock.Call1_1[context.Context, error]
-	resolvedExpects                     []*gomock.Call1_2[context.Context, params.ResolvedMode, error]
-	setAgentStatusExpects               []*gomock.Call4_1[context.Context, status.Status, string, map[string]any, error]
-	setCharmExpects                     []*gomock.Call2_1[context.Context, string, error]
-	setStateExpects                     []*gomock.Call2_1[context.Context, params.SetUnitStateArg, error]
-	setUnitStatusExpects                []*gomock.Call4_1[context.Context, status.Status, string, map[string]any, error]
-	stateExpects                        []*gomock.Call1_2[context.Context, params.UnitStateResult, error]
-	tagExpects                          []*gomock.Call0_1[names.UnitTag]
-	unitStatusExpects                   []*gomock.Call1_2[context.Context, params.StatusResult, error]
-	watchExpects                        []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
-	watchActionNotificationsExpects     []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
-	watchAddressesHashExpects           []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
-	watchConfigSettingsHashExpects      []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
-	watchRelationsExpects               []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
-	watchResolveModeExpects             []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
-	watchStorageExpects                 []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
-	watchTrustConfigSettingsHashExpects []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
+	mock                            *MockUnit
+	applicationExpects              []*gomock.Call1_2[context.Context, api.Application, error]
+	applicationNameExpects          []*gomock.Call0_1[string]
+	applicationTagExpects           []*gomock.Call0_1[names.ApplicationTag]
+	assignedMachineExpects          []*gomock.Call1_2[context.Context, names.MachineTag, error]
+	availabilityZoneExpects         []*gomock.Call1_2[context.Context, string, error]
+	charmURLExpects                 []*gomock.Call1_2[context.Context, string, error]
+	clearResolvedExpects            []*gomock.Call1_1[context.Context, error]
+	commitHookChangesExpects        []*gomock.Call2_1[context.Context, params.CommitHookChangesArgs, error]
+	configSettingsExpects           []*gomock.Call1_2[context.Context, charm.Config, error]
+	destroyExpects                  []*gomock.Call1_1[context.Context, error]
+	destroyAllSubordinatesExpects   []*gomock.Call1_1[context.Context, error]
+	ensureDeadExpects               []*gomock.Call1_1[context.Context, error]
+	hasSubordinatesExpects          []*gomock.Call1_2[context.Context, bool, error]
+	lifeExpects                     []*gomock.Call0_1[life.Value]
+	logActionMessageExpects         []*gomock.Call3_1[context.Context, names.ActionTag, string, error]
+	nameExpects                     []*gomock.Call0_1[string]
+	networkInfoExpects              []*gomock.Call3_2[context.Context, []string, *int, map[string]params.NetworkInfoResult, error]
+	principalNameExpects            []*gomock.Call1_3[context.Context, string, bool, error]
+	privateAddressExpects           []*gomock.Call1_2[context.Context, string, error]
+	providerIDExpects               []*gomock.Call0_1[string]
+	publicAddressExpects            []*gomock.Call1_2[context.Context, string, error]
+	refreshExpects                  []*gomock.Call1_1[context.Context, error]
+	relationsStatusExpects          []*gomock.Call1_2[context.Context, []uniter.RelationStatus, error]
+	requestRebootExpects            []*gomock.Call1_1[context.Context, error]
+	resolvedModeExpects             []*gomock.Call0_1[params.ResolvedMode]
+	setAgentStatusExpects           []*gomock.Call4_1[context.Context, status.Status, string, map[string]any, error]
+	setCharmExpects                 []*gomock.Call2_1[context.Context, string, error]
+	setStateExpects                 []*gomock.Call2_1[context.Context, params.SetUnitStateArg, error]
+	setUnitStatusExpects            []*gomock.Call4_1[context.Context, status.Status, string, map[string]any, error]
+	stateExpects                    []*gomock.Call1_2[context.Context, params.UnitStateResult, error]
+	tagExpects                      []*gomock.Call0_1[names.UnitTag]
+	unitStatusExpects               []*gomock.Call1_2[context.Context, params.StatusResult, error]
+	watchExpects                    []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
+	watchActionNotificationsExpects []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
+	watchAddressesHashExpects       []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
+	watchConfigSettingsHashExpects  []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
+	watchRelationsExpects           []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
+	watchStorageExpects             []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
 }
 
 // NewMockUnit creates a new mock instance.
@@ -520,23 +518,23 @@ func (mr *MockUnitMockRecorder) RequestReboot(arg0 any) *MockUnitRequestRebootCa
 // MockUnitRequestRebootCall is the typed call wrapper for RequestReboot.
 type MockUnitRequestRebootCall = gomock.Call1_1[context.Context, error]
 
-// Resolved mocks base method.
-func (m *MockUnit) Resolved(arg0 context.Context) (params.ResolvedMode, error) {
+// ResolvedMode mocks base method.
+func (m *MockUnit) ResolvedMode() params.ResolvedMode {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.resolvedExpects, m.ctrl, m, "Resolved", arg0)
+	return gomock.Dispatch0_1(&m.recorder.resolvedModeExpects, m.ctrl, m, "ResolvedMode")
 }
 
-// Resolved indicates an expected call of Resolved.
-func (mr *MockUnitMockRecorder) Resolved(arg0 any) *MockUnitResolvedCall {
+// ResolvedMode indicates an expected call of ResolvedMode.
+func (mr *MockUnitMockRecorder) ResolvedMode() *MockUnitResolvedModeCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, params.ResolvedMode, error](mr.mock.ctrl.T, mr.mock, "Resolved", gomock.EnsureMatcher(arg0))
-	mr.resolvedExpects = append(mr.resolvedExpects, call)
+	call := gomock.NewCall0_1[params.ResolvedMode](mr.mock.ctrl.T, mr.mock, "ResolvedMode")
+	mr.resolvedModeExpects = append(mr.resolvedModeExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockUnitResolvedCall is the typed call wrapper for Resolved.
-type MockUnitResolvedCall = gomock.Call1_2[context.Context, params.ResolvedMode, error]
+// MockUnitResolvedModeCall is the typed call wrapper for ResolvedMode.
+type MockUnitResolvedModeCall = gomock.Call0_1[params.ResolvedMode]
 
 // SetAgentStatus mocks base method.
 func (m *MockUnit) SetAgentStatus(ctx context.Context, agentStatus status.Status, info string, data map[string]any) error {
@@ -754,24 +752,6 @@ func (mr *MockUnitMockRecorder) WatchRelations(arg0 any) *MockUnitWatchRelations
 // MockUnitWatchRelationsCall is the typed call wrapper for WatchRelations.
 type MockUnitWatchRelationsCall = gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
 
-// WatchResolveMode mocks base method.
-func (m *MockUnit) WatchResolveMode(arg0 context.Context) (watcher.NotifyWatcher, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.watchResolveModeExpects, m.ctrl, m, "WatchResolveMode", arg0)
-}
-
-// WatchResolveMode indicates an expected call of WatchResolveMode.
-func (mr *MockUnitMockRecorder) WatchResolveMode(arg0 any) *MockUnitWatchResolveModeCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, watcher.NotifyWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchResolveMode", gomock.EnsureMatcher(arg0))
-	mr.watchResolveModeExpects = append(mr.watchResolveModeExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockUnitWatchResolveModeCall is the typed call wrapper for WatchResolveMode.
-type MockUnitWatchResolveModeCall = gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
-
 // WatchStorage mocks base method.
 func (m *MockUnit) WatchStorage(arg0 context.Context) (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()
@@ -789,24 +769,6 @@ func (mr *MockUnitMockRecorder) WatchStorage(arg0 any) *MockUnitWatchStorageCall
 
 // MockUnitWatchStorageCall is the typed call wrapper for WatchStorage.
 type MockUnitWatchStorageCall = gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
-
-// WatchTrustConfigSettingsHash mocks base method.
-func (m *MockUnit) WatchTrustConfigSettingsHash(arg0 context.Context) (watcher.StringsWatcher, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.watchTrustConfigSettingsHashExpects, m.ctrl, m, "WatchTrustConfigSettingsHash", arg0)
-}
-
-// WatchTrustConfigSettingsHash indicates an expected call of WatchTrustConfigSettingsHash.
-func (mr *MockUnitMockRecorder) WatchTrustConfigSettingsHash(arg0 any) *MockUnitWatchTrustConfigSettingsHashCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, watcher.StringsWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchTrustConfigSettingsHash", gomock.EnsureMatcher(arg0))
-	mr.watchTrustConfigSettingsHashExpects = append(mr.watchTrustConfigSettingsHashExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockUnitWatchTrustConfigSettingsHashCall is the typed call wrapper for WatchTrustConfigSettingsHash.
-type MockUnitWatchTrustConfigSettingsHashCall = gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
 
 // MockRelation is a mock of Relation interface.
 type MockRelation struct {
