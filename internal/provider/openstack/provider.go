@@ -725,6 +725,17 @@ func (e *Environ) PrecheckInstance(ctx context.ProviderCallContext, args environ
 			constraints.RootDisk, constraints.InstanceType,
 			constraints.RootDiskSource, rootDiskSourceVolume)
 	}
+	if args.Constraints.HasRootDiskSource() {
+		rootDiskSource := *args.Constraints.RootDiskSource
+		if rootDiskSource != rootDiskSourceLocal &&
+			rootDiskSource != rootDiskSourceVolume &&
+			!storage.IsValidPoolName(rootDiskSource) {
+			return errors.Errorf(
+				"invalid %s %q (must be %q, %q, or a storage pool name)",
+				constraints.RootDiskSource, rootDiskSource,
+				rootDiskSourceLocal, rootDiskSourceVolume)
+		}
+	}
 	if args.Constraints.HasInstanceType() {
 		// Constraint has an instance-type constraint so let's see if it is valid.
 		novaClient := e.nova()

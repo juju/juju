@@ -1731,6 +1731,20 @@ func (s *localServerSuite) TestPrecheckInstanceInvalidRootDiskConstraint(c *gc.C
 	c.Assert(err, gc.ErrorMatches, `constraint root-disk cannot be specified with instance-type unless root-disk-source is "volume" \(or a storage pool name\)`)
 }
 
+func (s *localServerSuite) TestPrecheckInstanceInvalidRootDiskSource(c *gc.C) {
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
+	cons := constraints.MustParse("root-disk-source=7pool")
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Constraints: cons})
+	c.Assert(err, gc.ErrorMatches, `invalid root-disk-source "7pool" \(must be "local", "volume", or a storage pool name\)`)
+}
+
+func (s *localServerSuite) TestPrecheckInstanceValidRootDiskSourcePoolName(c *gc.C) {
+	env := s.Open(c, stdcontext.TODO(), s.env.Config())
+	cons := constraints.MustParse("root-disk-source=my-pool")
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Constraints: cons})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	placement := "zone=test-available"
 	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Placement: placement})
