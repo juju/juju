@@ -291,7 +291,8 @@ type SSHTunnelConfig struct {
 	// Resolver resolves per-destination proxy handlers and terminating host
 	// keys for the relay endpoint's embedded terminating SSH server.
 	Resolver sshproxy.Resolver
-	// Metrics collects connection metrics, reusing the sshserver collector.
+	// Metrics collects connection metrics for the SSH tunnel and relay
+	// upgrade endpoints.
 	Metrics sshtunnel.MetricsCollector
 }
 

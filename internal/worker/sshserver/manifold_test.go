@@ -192,13 +192,9 @@ func (s *manifoldSuite) TestOutputFunc(c *tc.C) {
 	c.Assert(outputFunc(result, &resolver), tc.ErrorIsNil)
 	c.Check(resolver, tc.NotNil)
 
-	var collector *Collector
-	c.Assert(outputFunc(result, &collector), tc.ErrorIsNil)
-	c.Check(collector, tc.NotNil)
-
 	var wrong string
 	c.Assert(outputFunc(result, &wrong), tc.ErrorMatches,
-		`out should be \*sshproxy\.Resolver or \*\*sshserver\.Collector; got \*string`)
+		`out should be \*sshproxy\.Resolver; got \*string`)
 }
 
 func (s *manifoldSuite) startManifold(c *tc.C) worker.Worker {

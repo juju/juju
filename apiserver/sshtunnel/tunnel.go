@@ -72,14 +72,10 @@ func (cfg TunnelHandlerConfig) Validate() error {
 	return nil
 }
 
-// MetricsCollector is the subset of the sshserver metrics collector used by
-// the tunnel endpoint.
+// MetricsCollector counts active SSH tunnel and relay connections.
 type MetricsCollector interface {
-	// IncConnectionCount increments the active connection count.
-	IncConnectionCount()
-	// DecConnectionCount decrements the active connection count and records
-	// the connection duration.
-	DecConnectionCount()
+	IncConnectionCount(endpoint string)
+	DecConnectionCount(endpoint string)
 }
 
 // TunnelHandler implements the model-scoped agent tunnel upgrade endpoint:
@@ -132,8 +128,8 @@ func (h *TunnelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.config.Metrics.IncConnectionCount()
-	defer h.config.Metrics.DecConnectionCount()
+	h.config.Metrics.IncConnectionCount("tunnel")
+	defer h.config.Metrics.DecConnectionCount("tunnel")
 
 	conn, err := hijack(w, r, TunnelUpgradeToken)
 	if err != nil {

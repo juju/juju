@@ -97,8 +97,8 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.config.Metrics.IncConnectionCount()
-	defer h.config.Metrics.DecConnectionCount()
+	h.config.Metrics.IncConnectionCount("relay")
+	defer h.config.Metrics.DecConnectionCount("relay")
 
 	// Resolve the destination's proxy handlers and terminating host key
 	// before upgrading, so failures reach JIMM as HTTP errors.

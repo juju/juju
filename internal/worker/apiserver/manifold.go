@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
+	"github.com/juju/juju/apiserver/sshtunnel"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
 	coredependency "github.com/juju/juju/core/dependency"
@@ -31,7 +32,6 @@ import (
 	"github.com/juju/juju/internal/sshproxy"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
-	"github.com/juju/juju/internal/worker/sshserver"
 	workerTunneler "github.com/juju/juju/internal/worker/sshtunneler"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/watcherregistry"
@@ -346,23 +346,24 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	// Fetch the relay resolver and the shared metrics collector from the
-	// sshserver worker's manifold output. The sshserver worker already
-	// composes the proxy factory and SSH service, and registers the
-	// collector with the Prometheus registerer. The apiserver consumes
-	// both as-is rather than re-composing or re-registering.
+	// Fetch the relay resolver from the sshserver worker's manifold
+	// output. Relay authorization happens in the relay handler using
+	// the verified JWT.
 	var relayResolver sshproxy.Resolver
 	if err := getter.Get(config.SSHServerName, &relayResolver); err != nil {
 		return nil, errors.Trace(err)
 	}
-	var sshTunnelMetrics *sshserver.Collector
-	if err := getter.Get(config.SSHServerName, &sshTunnelMetrics); err != nil {
+
+	// SSH tunnel and relay endpoints have their own metrics collector,
+	// distinct from the sshserver listener metrics.
+	sshTunnelMetrics := sshtunnel.NewMetricsCollector()
+	if err := config.PrometheusRegisterer.Register(sshTunnelMetrics); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// Register the metrics collector against the prometheus register.
 	metricsCollector := config.NewMetricsCollector()
 	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
+		_ = config.PrometheusRegisterer.Unregister(sshTunnelMetrics)
 		return nil, errors.Trace(err)
 	}
 
@@ -400,18 +401,14 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		},
 	})
 	if err != nil {
-		// Ensure we clean up the resources we've registered with. This includes
-		// the state pool and the metrics collector.
 		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
-
+		_ = config.PrometheusRegisterer.Unregister(sshTunnelMetrics)
 		return nil, errors.Trace(err)
 	}
 	mux.AddClient()
 	return common.NewCleanupWorker(w, func() {
 		mux.ClientDone()
-
-		// Ensure we clean up the resources we've registered with. This includes
-		// the state pool and the metrics collector.
 		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
+		_ = config.PrometheusRegisterer.Unregister(sshTunnelMetrics)
 	}), nil
 }

@@ -142,5 +142,5 @@ type stubMetrics struct {
 	count int
 }
 
-func (m *stubMetrics) IncConnectionCount() { m.count++ }
-func (m *stubMetrics) DecConnectionCount() { m.count-- }
+func (m *stubMetrics) IncConnectionCount(string) { m.count++ }
+func (m *stubMetrics) DecConnectionCount(string) { m.count-- }
