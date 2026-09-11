@@ -50,8 +50,7 @@ type TunnelHandlerConfig struct {
 	// SSHConnRequestService reads the connection request to bind the
 	// tunnel ID to the authenticated machine.
 	SSHConnRequestService SSHConnRequestService
-	// Metrics collects connection metrics, reusing the sshserver collector
-	// so the upgrade path is accounted the same as the SSH server was.
+	// Metrics collects tunnel connection metrics.
 	Metrics MetricsCollector
 }
 
@@ -128,14 +127,13 @@ func (h *TunnelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.config.Metrics.IncConnectionCount("tunnel")
-	defer h.config.Metrics.DecConnectionCount("tunnel")
-
 	conn, err := hijack(w, r, TunnelUpgradeToken)
 	if err != nil {
 		h.config.Logger.Errorf(ctx, "upgrading tunnel connection: %v", err)
 		return
 	}
+	h.config.Metrics.IncConnectionCount("tunnel")
+	defer h.config.Metrics.DecConnectionCount("tunnel")
 	stop := watchDying(conn, dyingFromContext(ctx), h.config.Logger)
 	defer stop()
 

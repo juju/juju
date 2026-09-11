@@ -97,9 +97,6 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.config.Metrics.IncConnectionCount("relay")
-	defer h.config.Metrics.DecConnectionCount("relay")
-
 	// Resolve the destination's proxy handlers and terminating host key
 	// before upgrading, so failures reach JIMM as HTTP errors.
 	termination, err := h.config.Resolver.Resolve(ctx, destination)
@@ -114,6 +111,8 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.config.Logger.Errorf(ctx, "upgrading relay connection: %v", err)
 		return
 	}
+	h.config.Metrics.IncConnectionCount("relay")
+	defer h.config.Metrics.DecConnectionCount("relay")
 	stop := watchDying(conn, dyingFromContext(ctx), h.config.Logger)
 	defer stop()
 	defer func() { _ = conn.Close() }()
