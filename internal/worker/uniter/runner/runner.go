@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cmd/cmd"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/operation"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/internal/worker/uniter/runner/debug"
@@ -321,6 +322,17 @@ func (runner *runner) RunHook(ctx stdcontext.Context, hookName string) (HookHand
 }
 
 func (runner *runner) runCharmHookWithLocation(ctx stdcontext.Context, hookName, charmLocation string) (hookHandlerType HookHandlerType, err error) {
+	// Start the charm trace span before starting the jujuc server, so that
+	// hook tool commands (e.g. relation-get, status-set) execute as child
+	// spans of the charm span rather than as siblings.
+	ctx, span := trace.Start(ctx, trace.Name("charm."+hookName))
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+		}
+		span.End()
+	}()
+
 	srv, err := runner.startJujucServer(ctx)
 	if err != nil {
 		return InvalidHookHandler, errors.Trace(err)
@@ -335,6 +347,9 @@ func (runner *runner) runCharmHookWithLocation(ctx stdcontext.Context, hookName,
 	env = append(env, "JUJU_DISPATCH_PATH="+charmLocation+"/"+hookName)
 
 	defer func() {
+		if err != nil {
+			span.RecordError(err)
+		}
 		err = runner.context.Flush(ctx, hookName, err)
 	}()
 
@@ -361,7 +376,10 @@ func (runner *runner) runCharmHookWithLocation(ctx stdcontext.Context, hookName,
 	if err != nil {
 		return InvalidHookHandler, err
 	}
-	return hookHandlerType, runner.runCharmProcessOnLocal(hookScript, hookName, charmDir, env)
+
+	err = runner.runCharmProcessOnLocal(hookScript, hookName, charmDir, env)
+
+	return hookHandlerType, err
 }
 
 // loggerAdaptor implements MessageReceiver and
@@ -535,7 +553,9 @@ func (runner *runner) discoverHookHandler(hookName, charmDir, charmLocation stri
 }
 
 func (runner *runner) startJujucServer(ctx stdcontext.Context) (*jujuc.Server, error) {
-	// Prepare server.
+	// Prepare server. The ctx is forwarded to NewServer so that hook tool
+	// commands (e.g. relation-get) inherit the trace context from the
+	// parent hook or action, allowing their spans to appear in the same trace.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
 		if ctxId != runner.context.Id() {
 			return nil, errors.Errorf("wrong context ID; got %q", ctxId)
@@ -545,7 +565,7 @@ func (runner *runner) startJujucServer(ctx stdcontext.Context) (*jujuc.Server, e
 
 	socket := runner.paths.GetJujucServerSocket()
 	runner.logger().Debugf(ctx, "starting jujuc server %v", socket)
-	srv, err := jujuc.NewServer(getCmd, socket)
+	srv, err := jujuc.NewServer(ctx, getCmd, socket)
 	if err != nil {
 		return nil, errors.Annotate(err, "starting jujuc server")
 	}

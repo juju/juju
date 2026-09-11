@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	stdtesting "testing"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/deployment/charm/hooks"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testhelpers"
@@ -612,4 +614,96 @@ func (s *RunMockContextSuite) TestRunCommandsFlushFailure(c *tc.C) {
 	c.Assert(ctx.flushBadge, tc.Equals, "run commands")
 	c.Assert(ctx.flushFailure, tc.IsNil) // exit code in _ result, as tested elsewhere
 	s.assertRecordedPid(c, ctx.expectPid)
+}
+
+// recordingTracer records span names and errors for testing.
+type recordingTracer struct {
+	mu    sync.Mutex
+	names []string
+	errs  []error
+}
+
+func (t *recordingTracer) Start(ctx stdcontext.Context, name string, _ ...coretrace.Option) (stdcontext.Context, coretrace.Span) {
+	t.mu.Lock()
+	t.names = append(t.names, name)
+	t.mu.Unlock()
+	return ctx, &recordingSpan{tracer: t}
+}
+
+func (t *recordingTracer) Enabled() bool { return true }
+
+func (t *recordingTracer) startedNames() []string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	out := make([]string, len(t.names))
+	copy(out, t.names)
+	return out
+}
+
+func (t *recordingTracer) recordedErrors() []error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	out := make([]error, len(t.errs))
+	copy(out, t.errs)
+	return out
+}
+
+type recordingSpan struct {
+	tracer *recordingTracer
+}
+
+func (s *recordingSpan) End(_ ...coretrace.Attribute) {}
+
+func (s *recordingSpan) RecordError(err error, _ ...coretrace.Attribute) {
+	s.tracer.mu.Lock()
+	s.tracer.errs = append(s.tracer.errs, err)
+	s.tracer.mu.Unlock()
+}
+
+func (s *recordingSpan) AddEvent(_ string, _ ...coretrace.Attribute) {}
+
+func (s *recordingSpan) Scope() coretrace.Scope { return noopScope{} }
+
+type noopScope struct{}
+
+func (noopScope) TraceID() string { return "" }
+func (noopScope) SpanID() string  { return "" }
+func (noopScope) TraceFlags() int { return 0 }
+func (noopScope) IsSampled() bool { return false }
+
+func (s *RunMockContextSuite) TestRunHookStartsTraceSpan(c *tc.C) {
+	tracer := &recordingTracer{}
+	tracerCtx := coretrace.WithTracer(c.Context(), tracer)
+
+	makeCharmMetadata(c, s.paths.GetCharmDir())
+
+	ctx := &MockContext{id: "test"}
+	rnr := runner.NewRunner(ctx, s.paths)
+
+	rnr.RunHook(tracerCtx, "install")
+	c.Assert(charmrunner.IsMissingHookError(ctx.flushFailure), tc.IsTrue)
+
+	c.Assert(tracer.startedNames(), tc.DeepEquals, []string{"charm.install"})
+	c.Assert(tracer.recordedErrors(), tc.HasLen, 1)
+}
+
+func (s *RunMockContextSuite) TestRunHookRecordsSpanError(c *tc.C) {
+	tracer := &recordingTracer{}
+	tracerCtx := coretrace.WithTracer(c.Context(), tracer)
+
+	makeCharm(c, hookSpec{
+		dir:  "hooks",
+		name: "failing-hook",
+		perm: 0700,
+		code: 42,
+	}, s.paths.GetCharmDir())
+
+	ctx := &MockContext{id: "test"}
+	rnr := runner.NewRunner(ctx, s.paths)
+
+	_, _ = rnr.RunHook(tracerCtx, "failing-hook")
+	c.Assert(ctx.flushFailure, tc.ErrorMatches, "exit status 42")
+
+	c.Assert(tracer.startedNames(), tc.DeepEquals, []string{"charm.failing-hook"})
+	c.Assert(tracer.recordedErrors(), tc.HasLen, 1)
 }

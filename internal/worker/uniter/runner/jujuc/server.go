@@ -221,9 +221,13 @@ type Request struct {
 type CmdGetter func(contextId, cmdName string) (cmd.Command, error)
 
 // Jujuc implements the jujuc command in the form required by net/rpc.
+// The ctx field carries the runner's context (including trace context)
+// so that hook tool commands can participate in the same trace as the
+// hook or action that spawned them.
 type Jujuc struct {
 	mu     sync.Mutex
 	getCmd CmdGetter
+	ctx    context.Context
 }
 
 // badReqErrorf returns an error indicating a bad Request.
@@ -253,10 +257,12 @@ func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 		stdin = noStdinReader{}
 	}
 	var stdout, stderr bytes.Buffer
-	// TODO(wallyworld) - We should not allow direct construction of cmd.Context
-	// since this can result in the embedded context.Context being nil.
+	// Use the runner's context (stored in j.ctx by NewServer) so that
+	// hook tool commands inherit the trace context from the parent hook
+	// or action. Without this, commands like relation-get create
+	// disconnected root spans that do not appear in the parent trace.
 	ctx := &cmd.Context{
-		Context: context.Background(),
+		Context: j.ctx,
 		Dir:     req.Dir,
 		Stdin:   stdin,
 		Stdout:  &stdout,
@@ -292,10 +298,11 @@ type Server struct {
 
 // NewServer creates an RPC server bound to socketPath, which can execute
 // remote command invocations against an appropriate Context. It will not
-// actually do so until Run is called.
-func NewServer(getCmd CmdGetter, socket sockets.Socket) (*Server, error) {
+// actually do so until Run is called. The provided ctx is used to propagate
+// trace context to hook tool commands.
+func NewServer(ctx context.Context, getCmd CmdGetter, socket sockets.Socket) (*Server, error) {
 	server := rpc.NewServer()
-	if err := server.Register(&Jujuc{getCmd: getCmd}); err != nil {
+	if err := server.Register(&Jujuc{getCmd: getCmd, ctx: ctx}); err != nil {
 		return nil, err
 	}
 	listener, err := sockets.Listen(socket)

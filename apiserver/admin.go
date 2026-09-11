@@ -669,7 +669,7 @@ func (r *errRoot) FindMethod(rootName string, version int, methodName string) (r
 // StartTrace returns a noop span, we probably still want to enable tracing
 // even in this state. For now, we'll just return a noop span.
 // TODO(stickupkid): Revisit this when we understand this path better.
-func (r *errRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
+func (r *errRoot) StartTrace(ctx context.Context, _ rpc.Request) (context.Context, trace.Span) {
 	return ctx, trace.NoopSpan{}
 }
 
