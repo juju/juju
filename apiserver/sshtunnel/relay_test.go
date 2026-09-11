@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/juju/tc"
 	"github.com/lestrrat-go/jwx/v3/jwt"
 
@@ -61,7 +60,7 @@ func (s *relaySuite) TestRelayAuthorization(c *tc.C) {
 
 func (s *relaySuite) TestMissingJWTUnauthorized(c *tc.C) {
 	resolver := &stubResolver{}
-	w := s.serveRelay(c, resolver, testModelUUID, "", withoutToken())
+	w := s.serveRelay(c, resolver, testModelUUID, "")
 	c.Check(w.Code, tc.Equals, http.StatusUnauthorized)
 	c.Check(resolver.called, tc.IsFalse)
 }
@@ -77,15 +76,11 @@ func (s *relaySuite) newHandler(c *tc.C, resolver *stubResolver) *RelayHandler {
 }
 
 // serveRelay dispatches a relay request and returns the response recorder.
-// A non-empty access builds a token granting that permission on modelUUID;
-// withoutToken() suppresses the JWT entirely.
-func (s *relaySuite) serveRelay(c *tc.C, resolver *stubResolver, modelUUID, access string, opts ...serveOpt) *httptest.ResponseRecorder {
+// An empty access produces no JWT, testing the missing-token path.
+func (s *relaySuite) serveRelay(c *tc.C, resolver *stubResolver, modelUUID, access string) *httptest.ResponseRecorder {
 	var token jwt.Token
 	if access != "" {
 		token = newRelayToken(c, modelUUID, access)
-	}
-	for _, opt := range opts {
-		opt(&token)
 	}
 	destination := newMachineDestination(c, testModelUUID)
 	r := httptest.NewRequest(http.MethodGet, "/ssh-relay/"+destination.String(), nil)
@@ -99,20 +94,8 @@ func (s *relaySuite) serveRelay(c *tc.C, resolver *stubResolver, modelUUID, acce
 	return w
 }
 
-type serveOpt func(*jwt.Token)
-
-func withoutToken() serveOpt {
-	return func(t *jwt.Token) { *t = nil }
-}
-
-// newRelayToken builds a JWT with an access claim granting the given
-// permission on the given model tag.
 func newRelayToken(c *tc.C, modelUUID, access string) jwt.Token {
 	token, err := jwt.NewBuilder().
-		Audience([]string{"test-controller"}).
-		Subject("user-admin@external").
-		Issuer("test").
-		JwtID(uuid.NewString()).
 		Claim("access", map[string]any{
 			"model-" + modelUUID: access,
 		}).
