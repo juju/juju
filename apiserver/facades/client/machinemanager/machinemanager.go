@@ -59,6 +59,7 @@ type MachineManagerAPI struct {
 	modelConfigService      ModelConfigService
 	networkService          NetworkService
 	removalService          RemovalService
+	storageService          StorageService
 
 	logger corelogger.Logger
 }
@@ -94,6 +95,7 @@ func NewMachineManagerAPI(
 		modelConfigService:      services.ModelConfigService,
 		networkService:          services.NetworkService,
 		removalService:          services.RemovalService,
+		storageService:          services.StorageService,
 	}
 	return api
 }
@@ -460,37 +462,47 @@ func (mm *MachineManagerAPI) calculateDestroyResult(ctx context.Context, machine
 	return info, nil
 }
 
+// destroyStorageForMachine indicates that machine destruction has no
+// CLI/API --destroy-storage option today (see
+// [rpc/params.DestroyMachinesParams]). Storage attached to units being
+// destroyed by machine destroy is therefore always classified as detached,
+// never as destroyed. If a destroy-storage option is ever exposed for
+// `juju remove-machine`, this constant should be replaced with a parameter
+// threaded through [MachineManagerAPI.destroyResultForMachine].
+const destroyStorageForMachine = false
+
 func (mm *MachineManagerAPI) destroyResultForMachine(ctx context.Context, machineName coremachine.Name) (params.DestroyMachineInfo, error) {
+	unitNames, err := mm.applicationService.GetUnitNamesOnMachine(ctx, machineName)
+	if errors.Is(err, applicationerrors.MachineNotFound) {
+		return params.DestroyMachineInfo{}, errors.NotFoundf("machine %s", machineName)
+	} else if err != nil {
+		return params.DestroyMachineInfo{}, errors.Trace(err)
+	}
 	info := params.DestroyMachineInfo{
 		MachineId: machineName.String(),
 	}
-
-	unitNames, err := mm.applicationService.GetUnitNamesOnMachine(ctx, machineName)
-	if errors.Is(err, applicationerrors.MachineNotFound) {
-		return info, errors.NotFoundf("machine %s", machineName)
-	} else if err != nil {
-		return info, errors.Trace(err)
-	}
+	unitUUIDs := make([]coreunit.UUID, 0, len(unitNames))
 	for _, unitName := range unitNames {
 		unitTag := names.NewUnitTag(unitName.String())
 		info.DestroyedUnits = append(info.DestroyedUnits, params.Entity{Tag: unitTag.String()})
+
+		unitUUID, err := mm.applicationService.GetUnitUUID(ctx, unitName)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return params.DestroyMachineInfo{}, errors.NotFoundf("unit %q", unitName)
+		} else if err != nil {
+			return params.DestroyMachineInfo{}, internalerrors.Errorf("getting UUID for unit %q: %w", unitName, err)
+		}
+		unitUUIDs = append(unitUUIDs, unitUUID)
 	}
 
-	info.DestroyedStorage, info.DetachedStorage, err = mm.classifyDetachedStorage(unitNames)
+	info.DestroyedStorage, info.DetachedStorage, err = common.ClassifyStorageRemoval(
+		ctx, mm.storageService, unitUUIDs, destroyStorageForMachine,
+	)
 	if err != nil {
-		return info, internalerrors.Errorf("classifying storage for machine %q: %w", machineName, err)
+		return params.DestroyMachineInfo{}, internalerrors.Errorf("classifying storage for machine %q: %w", machineName, err)
 	}
 
 	return info, nil
-}
-
-func (mm *MachineManagerAPI) classifyDetachedStorage(unitNames []coreunit.Name) (destroyed, detached []params.Entity, _ error) {
-	var storageErrors []params.ErrorResult
-
-	// TODO(storage): classify detached storage
-
-	err := params.ErrorResults{Results: storageErrors}.Combine()
-	return destroyed, detached, err
 }
 
 // ModelAuthorizer defines if a given operation can be performed based on a
