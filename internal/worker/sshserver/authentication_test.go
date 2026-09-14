@@ -23,19 +23,6 @@ func TestAuthenticationSuite(t *testing.T) {
 	tc.Run(t, &authenticationSuite{})
 }
 
-func (s *authenticationSuite) TestPasswordAuthenticationRejectsAllPasswords(c *tc.C) {
-	// The reverse-tunnel and external-auth password paths moved to the
-	// HTTP upgrade endpoints on the API server. No password is valid on
-	// the jump server any more.
-	ctx := &stubAuthenticationContext{user: "alice", values: map[any]any{}}
-	auth := authenticator{
-		logger: loggertesting.WrapCheckLog(c),
-	}
-	authenticated, err := auth.PasswordAuthentication(ctx, "anything")
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(authenticated, tc.IsFalse)
-}
-
 func (s *authenticationSuite) TestPublicKeyAuthenticationAcceptsUsersKey(c *tc.C) {
 	signer := newSigner(c)
 	ctx := &stubAuthenticationContext{user: "alice", values: map[any]any{}}

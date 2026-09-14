@@ -34,9 +34,6 @@ type Authenticator interface {
 	// Returns true if the public key is valid for the user.
 	// Handles auth for user public keys.
 	PublicKeyAuthentication(ssh.Context, ssh.PublicKey) (bool, error)
-	// PasswordAuthentication authenticates a jump SSH connection using a
-	// password. The jump server rejects all passwords.
-	PasswordAuthentication(ssh.Context, string) (bool, error)
 }
 
 // Authorizer checks whether an authenticated user may access a destination.

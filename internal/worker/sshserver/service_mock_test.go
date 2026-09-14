@@ -91,7 +91,6 @@ type MockAuthenticator struct {
 // MockAuthenticatorMockRecorder is the mock recorder for MockAuthenticator.
 type MockAuthenticatorMockRecorder struct {
 	mock                           *MockAuthenticator
-	passwordAuthenticationExpects  []*gomock.Call2_2[ssh.Context, string, bool, error]
 	publicKeyAuthenticationExpects []*gomock.Call2_2[ssh.Context, ssh.PublicKey, bool, error]
 }
 
@@ -106,24 +105,6 @@ func NewMockAuthenticator(ctrl *gomock.Controller) *MockAuthenticator {
 func (m *MockAuthenticator) EXPECT() *MockAuthenticatorMockRecorder {
 	return m.recorder
 }
-
-// PasswordAuthentication mocks base method.
-func (m *MockAuthenticator) PasswordAuthentication(arg0 ssh.Context, arg1 string) (bool, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.passwordAuthenticationExpects, m.ctrl, m, "PasswordAuthentication", arg0, arg1)
-}
-
-// PasswordAuthentication indicates an expected call of PasswordAuthentication.
-func (mr *MockAuthenticatorMockRecorder) PasswordAuthentication(arg0, arg1 any) *MockAuthenticatorPasswordAuthenticationCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[ssh.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "PasswordAuthentication", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
-	mr.passwordAuthenticationExpects = append(mr.passwordAuthenticationExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockAuthenticatorPasswordAuthenticationCall is the typed call wrapper for PasswordAuthentication.
-type MockAuthenticatorPasswordAuthenticationCall = gomock.Call2_2[ssh.Context, string, bool, error]
 
 // PublicKeyAuthentication mocks base method.
 func (m *MockAuthenticator) PublicKeyAuthentication(arg0 ssh.Context, arg1 ssh.PublicKey) (bool, error) {
