@@ -1,0 +1,20 @@
+summary: Deploy a local charm then deploy from pre-deployed archive
+
+execute: |
+  . "$TESTSLIB/spread-env.sh"
+  . "$TESTSLIB/charmcraft.sh"
+
+  model_name="test-deploy-local-predeployed-charm"
+  ensure "${model_name}" "${TEST_DIR}/${model_name}.log"
+
+  juju download ubuntu-lite --revision=4
+  juju deploy ./ubuntu-lite_r4.charm
+  wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+
+  juju deploy local:ubuntu-lite-0 another-ubuntu-lite-app
+  wait_for "another-ubuntu-lite-app" "$(idle_condition "another-ubuntu-lite-app")"
+  wait_for "active" '.applications["another-ubuntu-lite-app"] | ."application-status".current'
+
+restore: |
+  . "$TESTSLIB/spread-env.sh"
+  destroy_model "test-deploy-local-predeployed-charm" || true
