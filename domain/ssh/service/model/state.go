@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	coressh "github.com/juju/juju/core/ssh"
 	domainssh "github.com/juju/juju/domain/ssh"
 	sshstate "github.com/juju/juju/domain/ssh/state/model"
 )
@@ -14,6 +15,10 @@ import (
 // State describes model-scoped persistence for SSH virtual host keys and SSH
 // connection requests.
 type State interface {
+	// GetPublicKeysForUser returns the public keys the named user is authorized
+	// to use in the supplied model.
+	GetPublicKeysForUser(context.Context, string, string) ([]coressh.PublicKey, error)
+
 	// GetModelInfo returns the model metadata needed to route SSH destinations.
 	GetModelInfo(context.Context) (sshstate.ModelInfo, error)
 

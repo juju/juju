@@ -4,7 +4,6 @@
 package sshserver
 
 import (
-	"bytes"
 	"context"
 	"time"
 
@@ -328,33 +327,11 @@ func (s sshService) HasSSHAccessToModel(ctx context.Context, username string, de
 // so a key that was accepted at authentication time may not be associated with
 // the model the user is trying to reach.
 func (s sshService) PublicKeyInModel(ctx context.Context, username string, key gossh.PublicKey, destination virtualhostname.Info) (bool, error) {
-	name, err := user.NewName(username)
+	sshService, err := s.getSSHService(ctx, s.domainServicesGetter, destination.ModelUUID())
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	domainServices, err := s.domainServicesGetter.ServicesForModel(ctx, destination.ModelUUID())
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	userUUID, err := domainServices.Access().GetUserUUIDByName(ctx, name)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-
-	keys, err := domainServices.KeyManager().ListPublicKeysForUser(ctx, userUUID)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	for _, modelKey := range keys {
-		parsedKey, _, _, _, err := gossh.ParseAuthorizedKey([]byte(modelKey.Key))
-		if err != nil {
-			return false, errors.Annotatef(err, "parsing public key for user %q", username)
-		}
-		if bytes.Equal(key.Marshal(), parsedKey.Marshal()) {
-			return true, nil
-		}
-	}
-	return false, nil
+	return sshService.PublicKeyInModel(ctx, username, key)
 }
 
 // ResolveK8sExecInfo resolves the Kubernetes namespace and pod name for a destination.
