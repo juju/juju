@@ -205,6 +205,32 @@ Dependency Engine Report
 working: true`[1:])
 }
 
+func (s *introspectionSuite) TestEngineReporterTimeout(c *tc.C) {
+	// We need to make sure the existing worker is shut down
+	// so we can connect to the socket.
+	workertest.CleanKill(c, s.worker)
+	blocking := make(chan struct{})
+	defer close(blocking)
+	s.depEngine = &depEngine{block: blocking}
+	s.startWorker(c)
+
+	response := s.call(c, "/depengine?timeout=10ms")
+	defer response.Body.Close()
+	c.Assert(response.StatusCode, tc.Equals, http.StatusServiceUnavailable)
+	s.assertBodyContains(c, response, "dependency engine report abandoned after 10ms")
+}
+
+func (s *introspectionSuite) TestEngineReporterInvalidTimeout(c *tc.C) {
+	workertest.CleanKill(c, s.worker)
+	s.depEngine = &depEngine{}
+	s.startWorker(c)
+
+	response := s.call(c, "/depengine?timeout=soon")
+	defer response.Body.Close()
+	c.Assert(response.StatusCode, tc.Equals, http.StatusBadRequest)
+	s.assertBodyContains(c, response, `invalid timeout "soon"`)
+}
+
 func (s *introspectionSuite) TestPrometheusMetrics(c *tc.C) {
 	response := s.call(c, "/metrics")
 	defer response.Body.Close()
@@ -217,9 +243,15 @@ func (s *introspectionSuite) TestPrometheusMetrics(c *tc.C) {
 
 type depEngine struct {
 	values map[string]any
+	// block, if set, is waited on before reporting, mimicking a worker with a
+	// Report method that doesn't honour the context.
+	block chan struct{}
 }
 
 func (r *depEngine) Report(ctx context.Context) map[string]any {
+	if r.block != nil {
+		<-r.block
+	}
 	return r.values
 }
 
