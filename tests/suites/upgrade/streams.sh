@@ -80,7 +80,12 @@ exec_simplestream_metadata() {
 		--config agent-metadata-url="http://${server_address}:8666/" 2>&1 | OUTPUT "${file}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
-	juju add-model test-upgrade-"${test_name}"
+	# The workload model needs the same agent-metadata-url as the controller
+	# model so upgrade-model can find the locally built agent binaries. The
+	# 4.x binary lookup is per-model; without it the mirror is invisible and
+	# upgrade-model silently reports up-to-date.
+	juju add-model test-upgrade-"${test_name}" \
+		--config agent-metadata-url="http://${server_address}:8666/"
 	juju deploy ubuntu-lite
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
@@ -109,6 +114,13 @@ exec_simplestream_metadata() {
 
 	sleep 10
 	juju switch test-upgrade-"${test_name}"
+	# Re-read CURRENT on the new model. On older controllers the machine
+	# agent version can be null (full status did not report it), so the
+	# value captured before the upgrade is unreliable. After the controller
+	# upgrade the version is reported again, and comparing a stale null
+	# against it would exit the loop below immediately, without verifying
+	# that the version actually changed.
+	CURRENT=$(juju machines -m test-upgrade-"${test_name}" --format=json | yq -r '.machines | .["0"] | .["juju-status"] | .version')
 	juju upgrade-model
 	while true; do
 		UPDATED=$(timeout 30 juju machines --format=json | yq -r '.machines | .["0"] | .["juju-status"] | .version' || echo "${CURRENT}")
