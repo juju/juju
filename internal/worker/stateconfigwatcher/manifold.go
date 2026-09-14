@@ -23,8 +23,6 @@ var logger = internallogger.GetLogger("juju.worker.stateconfigwatcher")
 type ManifoldConfig struct {
 	AgentName          string
 	AgentConfigChanged *voyeur.Value
-	// MachineAgentOnly forces the effective controller role to false.
-	MachineAgentOnly bool
 }
 
 // Manifold returns a dependency.Manifold which wraps the machine
@@ -60,7 +58,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			w := &stateConfigWatcher{
 				agent:              a,
 				agentConfigChanged: config.AgentConfigChanged,
-				machineAgentOnly:   config.MachineAgentOnly,
 			}
 			w.tomb.Go(w.loop)
 			return w, nil
@@ -89,14 +86,9 @@ type stateConfigWatcher struct {
 	tomb               tomb.Tomb
 	agent              agent.Agent
 	agentConfigChanged *voyeur.Value
-	// machineAgentOnly forces the effective controller role to false.
-	machineAgentOnly bool
 }
 
 func (w *stateConfigWatcher) isControllerAgent() bool {
-	if w.machineAgentOnly {
-		return false
-	}
 	config := w.agent.CurrentConfig()
 	if config.Tag().Kind() == names.ControllerAgentTagKind {
 		return true
