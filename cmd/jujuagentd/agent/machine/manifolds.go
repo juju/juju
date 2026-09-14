@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/api/base"
 	proxyconfig "github.com/juju/juju/api/proxy/config"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/cmd/jujuagentd/util"
 	"github.com/juju/juju/core/flightrecorder"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/instance"
@@ -77,7 +76,6 @@ import (
 	"github.com/juju/juju/internal/worker/reboot"
 	"github.com/juju/juju/internal/worker/sshkeyupdater"
 	"github.com/juju/juju/internal/worker/sshsession"
-	"github.com/juju/juju/internal/worker/stateconfigwatcher"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/internal/worker/terminationworker"
 	"github.com/juju/juju/internal/worker/trace"
@@ -297,12 +295,6 @@ type ManifoldsConfig struct {
 	// MachineStartup is passed to the machine manifold. It does
 	// machine setup work which relies on an API connection.
 	MachineStartup func(context.Context, api.Connection, corelogger.Logger) error
-
-	// MachineAgentOnly, when true, suppresses in-process controller
-	// workers even when the agent configuration contains
-	// ControllerAgentInfo. It is false by default and is set via the
-	// --machine-agent-only flag on the machine agent command.
-	MachineAgentOnly bool
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -359,11 +351,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		flightRecorderName: workerflightrecorder.Manifold(config.FlightRecorder),
 
-		// Each machine agent has a flag manifold/worker which
-		// reports whether or not the agent is a controller.
-		isControllerFlagName:    util.IsControllerFlagManifold(stateConfigWatcherName, true),
-		isNotControllerFlagName: util.IsControllerFlagManifold(stateConfigWatcherName, false),
-
 		// Controller agent config manifold watches the controller
 		// agent config and bounces if it changes. It deliberately runs
 		// on every machine (not just controllers) so that it creates
@@ -377,17 +364,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewSocketListener: controlleragentconfig.NewSocketListener,
 			SocketName:        config.ConfigChangeSocketPath,
 			ReadyUnlocker:     config.ControllerAgentConfigReadyLock,
-		}),
-
-		// The stateconfigwatcher manifold watches the machine agent's
-		// configuration and reports if state serving info is
-		// present. It will bounce itself if state serving info is
-		// added or removed. It is intended as a dependency just for
-		// the state manifold.
-		stateConfigWatcherName: stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
-			AgentName:          agentName,
-			AgentConfigChanged: config.AgentConfigChanged,
-			MachineAgentOnly:   config.MachineAgentOnly,
 		}),
 
 		// The api-config-watcher manifold monitors the API server
@@ -497,12 +473,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:             internallogger.GetLogger("juju.worker.lokiendpointupdater"),
 		})),
 
-		traceConfigUpdaterName: ifNotController(ifNotMigrating(traceconfigupdater.Manifold(traceconfigupdater.ManifoldConfig{
+		traceConfigUpdaterName: ifNotMigrating(traceconfigupdater.Manifold(traceconfigupdater.ManifoldConfig{
 			AgentName:          agentName,
 			APICallerName:      apiCallerName,
 			AgentConfigChanged: config.AgentConfigChanged,
 			Logger:             internallogger.GetLogger("juju.worker.traceconfigupdater"),
-		}))),
+		})),
 
 		// The log router owns the buffered log stream and forwards records to
 		// one active backend at a time.
@@ -596,7 +572,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	manifolds := dependency.Manifolds{
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
 		// proxy settings for non-controller agents using the API server.
-		proxyConfigUpdater: ifNotController(ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
+		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
 			AgentName:           agentName,
 			APICallerName:       apiCallerName,
 			Logger:              internallogger.GetLogger("juju.worker.proxyupdater"),
@@ -605,7 +581,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ExternalUpdate:      lxd.ConfigureLXDProxies,
 			InProcessUpdate:     proxyconfig.DefaultConfig.Set,
 			RunFunc:             proxyupdater.RunWithStdIn,
-		}))),
+		})),
 
 		sshKeyUpdaterWorkerName: ifNotMigrating(sshkeyupdater.Manifold(sshkeyupdater.Output)),
 
@@ -667,7 +643,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                config.Clock,
 		}),
 
-		upgradeAgentStepsName: ifNotController(upgradestepsagent.Manifold(upgradestepsagent.ManifoldConfig{
+		upgradeAgentStepsName: upgradestepsagent.Manifold(upgradestepsagent.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
@@ -677,7 +653,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewAgentWorker:       upgradestepsagent.NewAgentWorker,
 			Logger:               internallogger.GetLogger("juju.worker.upgradestepsagent"),
 			Clock:                config.Clock,
-		})),
+		}),
 
 		// The deployer worker is primarily for deploying and recalling unit
 		// agents, according to changes in a set of state units; and for the
@@ -752,7 +728,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
 		// proxy settings for non-controller agents using the API server.
-		proxyConfigUpdater: ifNotController(ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
+		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
 			AgentName:           agentName,
 			APICallerName:       apiCallerName,
 			Logger:              internallogger.GetLogger("juju.worker.proxyupdater"),
@@ -761,7 +737,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ExternalUpdate:      func(proxy.Settings) error { return nil },
 			InProcessUpdate:     proxyconfig.DefaultConfig.Set,
 			RunFunc:             proxyupdater.RunWithStdIn,
-		}))),
+		})),
 
 		// TODO(caas) - when we support HA, only want this on primary
 		upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
@@ -772,7 +748,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PreviousAgentVersion: config.PreviousAgentVersion,
 		}),
 
-		upgradeAgentStepsName: ifNotController(upgradestepsagent.Manifold(upgradestepsagent.ManifoldConfig{
+		upgradeAgentStepsName: upgradestepsagent.Manifold(upgradestepsagent.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
@@ -782,7 +758,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewAgentWorker:       upgradestepsagent.NewAgentWorker,
 			Logger:               internallogger.GetLogger("juju.worker.upgradestepsagent"),
 			Clock:                config.Clock,
-		})),
+		}),
 	})
 }
 
@@ -813,12 +789,6 @@ var ifNotMigrating = engine.Housing{
 		migrationInactiveFlagName,
 	},
 	Occupy: migrationFortressName,
-}.Decorate
-
-var ifNotController = engine.Housing{
-	Flags: []string{
-		isNotControllerFlagName,
-	},
 }.Decorate
 
 var ifCredentialValid = engine.Housing{
@@ -857,13 +827,12 @@ type ControllerStartupValueProvider interface {
 }
 
 const (
-	agentName              = "agent"
-	terminationName        = "termination-signal-handler"
-	stateConfigWatcherName = "state-config-watcher"
-	apiCallerName          = "api-caller"
-	apiConfigWatcherName   = "api-config-watcher"
-	clockName              = "clock"
-	flightRecorderName     = "flight-recorder"
+	agentName            = "agent"
+	terminationName      = "termination-signal-handler"
+	apiCallerName        = "api-caller"
+	apiConfigWatcherName = "api-config-watcher"
+	clockName            = "clock"
+	flightRecorderName   = "flight-recorder"
 
 	upgraderName          = "upgrader"
 	upgradeAgentStepsName = "upgrade-agent-steps-runner"
@@ -886,8 +855,6 @@ const (
 	diskManagerName                    = "disk-manager"
 	hostKeyReporterName                = "host-key-reporter"
 	httpClientName                     = "http-client"
-	isControllerFlagName               = "is-controller-flag"
-	isNotControllerFlagName            = "is-not-controller-flag"
 	loggingConfigUpdaterName           = "logging-config-updater"
 	lokiEndpointUpdaterName            = "loki-endpoint-updater"
 	traceConfigUpdaterName             = "trace-config-updater"

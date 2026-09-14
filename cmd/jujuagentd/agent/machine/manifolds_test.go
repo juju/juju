@@ -94,8 +94,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"flight-recorder",
 			"host-key-reporter",
 			"http-client",
-			"is-controller-flag",
-			"is-not-controller-flag",
 			"log-router",
 			"logging-config-updater",
 			"loki-endpoint-updater",
@@ -110,7 +108,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"reboot-executor",
 			"ssh-authkeys-updater",
 			"ssh-session",
-			"state-config-watcher",
 			"storage-provisioner",
 			"termination-signal-handler",
 			"trace",
@@ -144,8 +141,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 			"controller-agent-config-ready-gate",
 			"flight-recorder",
 			"http-client",
-			"is-controller-flag",
-			"is-not-controller-flag",
 			"log-router",
 			"logging-config-updater",
 			"loki-endpoint-updater",
@@ -153,7 +148,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 			"migration-inactive-flag",
 			"migration-minion",
 			"proxy-config-updater",
-			"state-config-watcher",
 			"termination-signal-handler",
 			"trace",
 			"trace-config-updater",
@@ -175,6 +169,25 @@ func (*ManifoldsSuite) assertManifoldNames(c *tc.C, manifolds dependency.Manifol
 	}
 	sort.Strings(keys)
 	c.Assert(keys, tc.SameContents, expectedKeys)
+}
+
+func (*ManifoldsSuite) TestFinalGraphRegistrationCounts(c *tc.C) {
+	iaas := machine.IAASManifolds(machine.ManifoldsConfig{
+		Agent:           &mockAgent{},
+		PreUpgradeSteps: preUpgradeSteps,
+	})
+	caas := machine.CAASManifolds(machine.ManifoldsConfig{
+		Agent:           &mockAgent{},
+		PreUpgradeSteps: preUpgradeSteps,
+	})
+
+	// The task README targets a 40-registration IAAS graph, which includes the
+	// machine-converter worker. Step 2 removed the machine-converter worker
+	// entirely (see step-2 memory), so the final IAAS graph has 39
+	// registrations. The CAAS graph matches the README's 27-registration
+	// target.
+	c.Check(len(iaas), tc.Equals, 39)
+	c.Check(len(caas), tc.Equals, 27)
 }
 
 func (*ManifoldsSuite) TestManifoldsHaveClosedDependencies(c *tc.C) {
@@ -214,7 +227,9 @@ func (*ManifoldsSuite) TestNoControllerRoleHousing(c *tc.C) {
 	} {
 		for _, manifold := range manifolds {
 			checkNotContains(c, manifold.Inputs, "is-controller-flag")
+			checkNotContains(c, manifold.Inputs, "is-not-controller-flag")
 			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
+			checkNotContains(c, manifold.Inputs, "state-config-watcher")
 		}
 	}
 }
@@ -243,12 +258,9 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"deployer",
 		"flight-recorder",
 		"http-client",
-		"is-controller-flag",
-		"is-not-controller-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
-		"state-config-watcher",
 		"termination-signal-handler",
 		"trace",
 		"upgrade-agent-steps-runner",

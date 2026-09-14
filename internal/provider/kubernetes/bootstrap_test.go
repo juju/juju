@@ -1012,7 +1012,7 @@ services:
         summary: Juju machine agent
         startup: enabled
         override: replace
-        command: /bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec $JUJU_TOOLS_DIR/jujuagentd machine --data-dir "$JUJU_DATA_DIR" --controller-id "${controller_id}" --machine-id "${controller_id}" --machine-agent-only --log-to-stderr --debug'
+        command: /bin/sh -c 'machine_id="${HOSTNAME##*-}"; exec $JUJU_TOOLS_DIR/jujuagentd machine --data-dir "$JUJU_DATA_DIR" --machine-id "${machine_id}" --log-to-stderr --debug'
         environment:
             JUJU_DEV_FEATURE_FLAGS: developer-mode
     jujud:
@@ -1470,7 +1470,7 @@ fi
 
 func (s *bootstrapSuite) TestSplitControllerPebbleLayer(c *tc.C) {
 	controllerCmd := "$JUJU_TOOLS_DIR/jujud controller --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr"
-	machineCmd := "$JUJU_TOOLS_DIR/jujuagentd machine --data-dir $JUJU_DATA_DIR --controller-id 0 --machine-agent-only --log-to-stderr"
+	machineCmd := "$JUJU_TOOLS_DIR/jujuagentd machine --data-dir $JUJU_DATA_DIR --machine-id 0 --log-to-stderr"
 	env := map[string]string{"JUJU_DEV_FEATURE_FLAGS": "developer-mode"}
 
 	layer, err := kubernetes.SplitControllerPebbleLayer(controllerCmd, machineCmd, env)
@@ -1480,7 +1480,7 @@ func (s *bootstrapSuite) TestSplitControllerPebbleLayer(c *tc.C) {
 	c.Check(strings.Contains(content, "summary: split controller services"), tc.IsTrue)
 	c.Check(strings.Contains(content, "jujud controller"), tc.IsTrue)
 	c.Check(strings.Contains(content, "jujuagentd machine"), tc.IsTrue)
-	c.Check(strings.Contains(content, "machine-agent-only"), tc.IsTrue)
+	c.Check(strings.Contains(content, "machine-agent-only"), tc.IsFalse)
 	c.Check(strings.Contains(content, "startup: enabled"), tc.IsTrue)
 	c.Check(strings.Contains(content, "override: replace"), tc.IsTrue)
 	c.Check(strings.Contains(content, "JUJU_DEV_FEATURE_FLAGS: developer-mode"), tc.IsTrue)
@@ -1488,7 +1488,7 @@ func (s *bootstrapSuite) TestSplitControllerPebbleLayer(c *tc.C) {
 
 func (s *bootstrapSuite) TestSplitControllerPebbleLayerNoEnv(c *tc.C) {
 	controllerCmd := "$JUJU_TOOLS_DIR/jujud controller --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr"
-	machineCmd := "$JUJU_TOOLS_DIR/jujuagentd machine --data-dir $JUJU_DATA_DIR --controller-id 0 --machine-agent-only --log-to-stderr"
+	machineCmd := "$JUJU_TOOLS_DIR/jujuagentd machine --data-dir $JUJU_DATA_DIR --machine-id 0 --log-to-stderr"
 
 	layer, err := kubernetes.SplitControllerPebbleLayer(controllerCmd, machineCmd, nil)
 	c.Assert(err, tc.ErrorIsNil)

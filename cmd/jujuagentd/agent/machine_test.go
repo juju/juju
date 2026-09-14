@@ -8,16 +8,14 @@ import (
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
-	agentconfig "github.com/juju/juju/agent/config"
+	"github.com/juju/juju/agent"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
-type MachineSuite struct {
-}
+type MachineSuite struct{}
 
 func TestMachineSuite(t *testing.T) {
 	tc.Run(t, &MachineSuite{})
@@ -42,89 +40,84 @@ func (s *MachineSuite) TestStub(c *tc.C) {
 `)
 }
 
-func (s *MachineSuite) TestMachineAgentOnlyFlagAbsent(c *tc.C) {
+func (s *MachineSuite) TestMachineCommandRequiresMachineID(c *tc.C) {
 	cmd := &machineAgentCommand{
 		agentInitializer: &mockAgentInitializer{},
+		controllerId:     "0",
 	}
-	f := gnuflag.NewFlagSet("test", gnuflag.ContinueOnError)
-	cmd.SetFlags(f)
-	err := f.Parse(false, []string{})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(cmd.machineAgentOnly, tc.IsFalse)
+	err := cmd.Init(nil)
+	c.Assert(err, tc.ErrorMatches, "--machine-id must be set")
 }
 
-func (s *MachineSuite) TestMachineAgentOnlyFlagPresent(c *tc.C) {
-	cmd := &machineAgentCommand{
-		agentInitializer: &mockAgentInitializer{},
-	}
-	f := gnuflag.NewFlagSet("test", gnuflag.ContinueOnError)
-	cmd.SetFlags(f)
-	err := f.Parse(false, []string{"--machine-agent-only"})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(cmd.machineAgentOnly, tc.IsTrue)
-}
-
-func (s *MachineSuite) TestMachineAgentOnlyFlagPassedToMachineAgent(c *tc.C) {
+func (s *MachineSuite) TestMachineCommandIdentity(c *tc.C) {
 	for _, test := range []struct {
 		name string
 		args []string
-		want bool
 	}{
-		{name: "absent"},
-		{name: "present", args: []string{"--machine-agent-only"}, want: true},
+		{name: "machine-id only", args: []string{"--machine-id", "0"}},
+		{name: "legacy controller-id no-op", args: []string{"--machine-id", "0", "--controller-id", "0"}},
 	} {
 		c.Logf("testing %s", test.name)
-		func() {
-			machineAgent := &MachineAgent{
-				AgentConfigWriter: &failingAgentConfigWriter{},
-				agentTag:          names.NewMachineTag("0"),
-				dead:              make(chan struct{}),
-			}
-			command := &machineAgentCommand{
-				agentInitializer: &mockAgentInitializer{},
-				agentTag:         names.NewMachineTag("0"),
-				machineAgentFactory: func(names.Tag, bool) (*MachineAgent, error) {
-					return machineAgent, nil
-				},
-			}
-			flags := gnuflag.NewFlagSet("test", gnuflag.ContinueOnError)
-			command.SetFlags(flags)
-			c.Assert(flags.Parse(false, test.args), tc.ErrorIsNil)
+		cmd := &machineAgentCommand{
+			agentInitializer: &mockAgentInitializer{},
+			currentConfig:    &machineCommandConfigWriter{config: &fakeMachineConfig{}},
+		}
+		f := gnuflag.NewFlagSet("test", gnuflag.ContinueOnError)
+		cmd.SetFlags(f)
+		c.Assert(f.Parse(false, test.args), tc.ErrorIsNil)
+		// SetFlags resets logToStdErr to its default; set it after parsing so
+		// Init skips the lumberjack log-file branch (which needs a full config
+		// and a command context).
+		cmd.logToStdErr = true
 
-			err := command.Run(nil)
-			c.Check(err, tc.ErrorMatches, "cannot read agent configuration: test config read failed")
-			c.Check(machineAgent.machineAgentOnly, tc.Equals, test.want)
-		}()
+		err := cmd.Init(nil)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(cmd.agentTag.String(), tc.Equals, "machine-0")
 	}
+}
+
+func (s *MachineSuite) TestMachineCommandRejectsInvalidMachineID(c *tc.C) {
+	cmd := &machineAgentCommand{
+		agentInitializer: &mockAgentInitializer{},
+		machineId:        "not-a-machine",
+	}
+	err := cmd.Init(nil)
+	c.Assert(err, tc.ErrorMatches, "--machine-id option must be a non-negative integer")
+}
+
+func (s *MachineSuite) TestMachineCommandRejectsMachineAgentOnly(c *tc.C) {
+	// The --machine-agent-only flag has been removed. Supplying it must fail to
+	// parse rather than silently being accepted.
+	cmd := &machineAgentCommand{
+		agentInitializer: &mockAgentInitializer{},
+	}
+	f := gnuflag.NewFlagSet("test", gnuflag.ContinueOnError)
+	cmd.SetFlags(f)
+	err := f.Parse(false, []string{"--machine-id", "0", "--machine-agent-only"})
+	c.Assert(err, tc.NotNil)
 }
 
 func (s *MachineSuite) TestControllerAgentConfigReadyLock(c *tc.C) {
-	for _, test := range []struct {
-		name             string
-		isController     bool
-		machineAgentOnly bool
-		wantUnlocked     bool
-	}{
-		{name: "controller", isController: true},
-		{name: "non-controller", wantUnlocked: true},
-		{name: "machine-agent-only", isController: true, machineAgentOnly: true, wantUnlocked: true},
-	} {
-		c.Logf("testing %s", test.name)
-		func() {
-			machineAgent := &MachineAgent{machineAgentOnly: test.machineAgentOnly}
-			machineAgent.initControllerAgentConfigReadyLock(&fakeMachineConfig{
-				controllerInfoFound: test.isController,
-			})
+	machineAgent := &MachineAgent{}
+	machineAgent.initControllerAgentConfigReadyLock()
 
-			select {
-			case <-machineAgent.controllerAgentConfigReadyLock.Unlocked():
-				c.Check(test.wantUnlocked, tc.IsTrue)
-			default:
-				c.Check(test.wantUnlocked, tc.IsFalse)
-			}
-		}()
+	select {
+	case <-machineAgent.controllerAgentConfigReadyLock.Unlocked():
+		c.Check(true, tc.IsTrue)
+	default:
+		c.Fatal("expected controller agent config ready lock to be pre-unlocked")
 	}
 }
+
+type machineCommandConfigWriter struct {
+	config agent.Config
+}
+
+func (w *machineCommandConfigWriter) ReadConfig(string) error { return nil }
+
+func (w *machineCommandConfigWriter) ChangeConfig(agent.ConfigMutator) error { return nil }
+
+func (w *machineCommandConfigWriter) CurrentConfig() agent.Config { return w.config }
 
 type mockAgentInitializer struct{}
 
@@ -137,14 +130,6 @@ func (m *mockAgentInitializer) CheckArgs([]string) error {
 
 func (m *mockAgentInitializer) DataDir() string {
 	return ""
-}
-
-type failingAgentConfigWriter struct {
-	agentconfig.AgentConfigWriter
-}
-
-func (*failingAgentConfigWriter) ReadConfig(string) error {
-	return jujuerrors.New("test config read failed")
 }
 
 func (s *MachineSuite) TestIntegrationStub(c *tc.C) {
