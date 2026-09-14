@@ -15,10 +15,12 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/blockcommand"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/removal"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
@@ -39,6 +41,7 @@ type Services struct {
 	ModelConfigService      ModelConfigService
 	NetworkService          NetworkService
 	RemovalService          RemovalService
+	StorageService          StorageService
 }
 
 // ControllerConfigService defines a method for getting the controller config.
@@ -141,6 +144,27 @@ type ApplicationService interface {
 	// The following errors may be returned:
 	// - [applicationerrors.MachineNotFound] if the machine does not exist
 	GetUnitNamesOnMachine(context.Context, coremachine.Name) ([]coreunit.Name, error)
+
+	// GetUnitNamesAndUUIDsOnMachine returns a slice of the unit names and UUIDs on the given machine.
+	// The following errors may be returned:
+	// - [applicationerrors.MachineNotFound] if the machine does not exist
+	GetUnitNamesAndUUIDsOnMachine(context.Context, coremachine.Name) ([]domainapplication.UnitNameAndUUID, error)
+
+	// GetUnitUUID returns the UUID for the named unit.
+	GetUnitUUID(context.Context, coreunit.Name) (coreunit.UUID, error)
+}
+
+// StorageService defines the subset of the storage service that the machine
+// manager requires in order to classify the storage attached to the units of
+// a machine being removed.
+type StorageService interface {
+	// GetStorageClassificationForUnits returns, keyed by unit UUID, the
+	// storage instances attached to the input units, along with the minimal
+	// information needed to classify each as destroyed or detached when its
+	// unit is removed.
+	GetStorageClassificationForUnits(
+		ctx context.Context, unitUUIDs []coreunit.UUID,
+	) (map[coreunit.UUID][]domainstorage.StorageInstanceClassification, error)
 }
 
 // CharmhubClient represents a way for querying the charmhub api for information

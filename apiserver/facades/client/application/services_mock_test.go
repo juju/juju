@@ -369,6 +369,7 @@ type MockApplicationServiceMockRecorder struct {
 	getUnitK8sPodInfoExpects                   []*gomock.Call2_2[context.Context, unit.Name, application0.K8sPodInfo, error]
 	getUnitLifeExpects                         []*gomock.Call2_2[context.Context, unit.Name, life.Value, error]
 	getUnitMachineNameExpects                  []*gomock.Call2_2[context.Context, unit.Name, machine.Name, error]
+	getUnitNamesAndUUIDsForApplicationExpects  []*gomock.Call2_2[context.Context, string, []application0.UnitNameAndUUID, error]
 	getUnitNamesForApplicationExpects          []*gomock.Call2_2[context.Context, string, []unit.Name, error]
 	getUnitUUIDExpects                         []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
 	getUnitWorkloadVersionExpects              []*gomock.Call2_2[context.Context, unit.Name, string, error]
@@ -835,6 +836,24 @@ func (mr *MockApplicationServiceMockRecorder) GetUnitMachineName(ctx, unitName a
 // MockApplicationServiceGetUnitMachineNameCall is the typed call wrapper for GetUnitMachineName.
 type MockApplicationServiceGetUnitMachineNameCall = gomock.Call2_2[context.Context, unit.Name, machine.Name, error]
 
+// GetUnitNamesAndUUIDsForApplication mocks base method.
+func (m *MockApplicationService) GetUnitNamesAndUUIDsForApplication(arg0 context.Context, arg1 string) ([]application0.UnitNameAndUUID, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getUnitNamesAndUUIDsForApplicationExpects, m.ctrl, m, "GetUnitNamesAndUUIDsForApplication", arg0, arg1)
+}
+
+// GetUnitNamesAndUUIDsForApplication indicates an expected call of GetUnitNamesAndUUIDsForApplication.
+func (mr *MockApplicationServiceMockRecorder) GetUnitNamesAndUUIDsForApplication(arg0, arg1 any) *MockApplicationServiceGetUnitNamesAndUUIDsForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, []application0.UnitNameAndUUID, error](mr.mock.ctrl.T, mr.mock, "GetUnitNamesAndUUIDsForApplication", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getUnitNamesAndUUIDsForApplicationExpects = append(mr.getUnitNamesAndUUIDsForApplicationExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockApplicationServiceGetUnitNamesAndUUIDsForApplicationCall is the typed call wrapper for GetUnitNamesAndUUIDsForApplication.
+type MockApplicationServiceGetUnitNamesAndUUIDsForApplicationCall = gomock.Call2_2[context.Context, string, []application0.UnitNameAndUUID, error]
+
 // GetUnitNamesForApplication mocks base method.
 func (m *MockApplicationService) GetUnitNamesForApplication(arg0 context.Context, arg1 string) ([]unit.Name, error) {
 	m.ctrl.T.Helper()
@@ -1280,11 +1299,12 @@ type MockStorageService struct {
 
 // MockStorageServiceMockRecorder is the mock recorder for MockStorageService.
 type MockStorageServiceMockRecorder struct {
-	mock                                *MockStorageService
-	getStorageInstanceUUIDForIDExpects  []*gomock.Call2_2[context.Context, string, storage.StorageInstanceUUID, error]
-	getStorageInstanceUUIDsByIDsExpects []*gomock.Call2_2[context.Context, []string, map[string]storage.StorageInstanceUUID, error]
-	getStoragePoolUUIDExpects           []*gomock.Call2_2[context.Context, string, storage.StoragePoolUUID, error]
-	getStoragePoolUUIDsByNameExpects    []*gomock.Call2_2[context.Context, []string, map[string]storage.StoragePoolUUID, error]
+	mock                                    *MockStorageService
+	getStorageClassificationForUnitsExpects []*gomock.Call2_2[context.Context, []unit.UUID, map[unit.UUID][]storage.StorageInstanceClassification, error]
+	getStorageInstanceUUIDForIDExpects      []*gomock.Call2_2[context.Context, string, storage.StorageInstanceUUID, error]
+	getStorageInstanceUUIDsByIDsExpects     []*gomock.Call2_2[context.Context, []string, map[string]storage.StorageInstanceUUID, error]
+	getStoragePoolUUIDExpects               []*gomock.Call2_2[context.Context, string, storage.StoragePoolUUID, error]
+	getStoragePoolUUIDsByNameExpects        []*gomock.Call2_2[context.Context, []string, map[string]storage.StoragePoolUUID, error]
 }
 
 // NewMockStorageService creates a new mock instance.
@@ -1298,6 +1318,24 @@ func NewMockStorageService(ctrl *gomock.Controller) *MockStorageService {
 func (m *MockStorageService) EXPECT() *MockStorageServiceMockRecorder {
 	return m.recorder
 }
+
+// GetStorageClassificationForUnits mocks base method.
+func (m *MockStorageService) GetStorageClassificationForUnits(ctx context.Context, unitUUIDs []unit.UUID) (map[unit.UUID][]storage.StorageInstanceClassification, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getStorageClassificationForUnitsExpects, m.ctrl, m, "GetStorageClassificationForUnits", ctx, unitUUIDs)
+}
+
+// GetStorageClassificationForUnits indicates an expected call of GetStorageClassificationForUnits.
+func (mr *MockStorageServiceMockRecorder) GetStorageClassificationForUnits(ctx, unitUUIDs any) *MockStorageServiceGetStorageClassificationForUnitsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, []unit.UUID, map[unit.UUID][]storage.StorageInstanceClassification, error](mr.mock.ctrl.T, mr.mock, "GetStorageClassificationForUnits", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitUUIDs))
+	mr.getStorageClassificationForUnitsExpects = append(mr.getStorageClassificationForUnitsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStorageServiceGetStorageClassificationForUnitsCall is the typed call wrapper for GetStorageClassificationForUnits.
+type MockStorageServiceGetStorageClassificationForUnitsCall = gomock.Call2_2[context.Context, []unit.UUID, map[unit.UUID][]storage.StorageInstanceClassification, error]
 
 // GetStorageInstanceUUIDForID mocks base method.
 func (m *MockStorageService) GetStorageInstanceUUIDForID(arg0 context.Context, arg1 string) (storage.StorageInstanceUUID, error) {

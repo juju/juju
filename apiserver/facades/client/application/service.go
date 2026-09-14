@@ -226,6 +226,12 @@ type ApplicationService interface {
 	// - [applicationerrors.ApplicationNotFound] if the application does not exist
 	GetUnitNamesForApplication(context.Context, string) ([]unit.Name, error)
 
+	// GetUnitNamesAndUUIDsForApplication returns a slice of the unit names and UUIDs for the given application.
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationIsDead] if the application is dead
+	// - [applicationerrors.ApplicationNotFound] if the application does not exist
+	GetUnitNamesAndUUIDsForApplication(context.Context, string) ([]application.UnitNameAndUUID, error)
+
 	// GetUnitWorkloadVersion returns the workload version for the given unit.
 	GetUnitWorkloadVersion(ctx context.Context, unitName unit.Name) (string, error)
 
@@ -435,6 +441,14 @@ type StorageService interface {
 	// GetStoragePoolUUIDsByName returns pool UUIDs keyed by pool name for
 	// the supplied names. Unknown names are omitted.
 	GetStoragePoolUUIDsByName(ctx context.Context, names []string) (map[string]domainstorage.StoragePoolUUID, error)
+
+	// GetStorageClassificationForUnits returns, keyed by unit UUID, the
+	// storage instances attached to the input units, along with the minimal
+	// information needed to classify each as destroyed or detached when its
+	// unit is removed.
+	GetStorageClassificationForUnits(
+		ctx context.Context, unitUUIDs []unit.UUID,
+	) (map[unit.UUID][]domainstorage.StorageInstanceClassification, error)
 
 	// GetStorageInstanceUUIDForID returns the StorageInstanceUUID for the given
 	// storage ID.

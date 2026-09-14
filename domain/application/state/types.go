@@ -117,6 +117,11 @@ type unitName struct {
 	Name string `db:"name"`
 }
 
+type unitNameAndUUID struct {
+	Name string `db:"name"`
+	UUID string `db:"uuid"`
+}
+
 type unitNameLife struct {
 	Name   string `db:"name"`
 	LifeID int    `db:"life_id"`
