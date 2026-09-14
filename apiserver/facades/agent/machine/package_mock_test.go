@@ -33,7 +33,6 @@ type MockNetworkService struct {
 // MockNetworkServiceMockRecorder is the mock recorder for MockNetworkService.
 type MockNetworkServiceMockRecorder struct {
 	mock                       *MockNetworkService
-	addSubnetExpects           []*gomock.Call2_2[context.Context, network.SubnetInfo, network.Id, error]
 	getAllSpacesExpects        []*gomock.Call1_2[context.Context, network.SpaceInfos, error]
 	getAllSubnetsExpects       []*gomock.Call1_2[context.Context, network.SubnetInfos, error]
 	setMachineNetConfigExpects []*gomock.Call3_1[context.Context, machine.UUID, []network0.NetInterface, error]
@@ -50,24 +49,6 @@ func NewMockNetworkService(ctrl *gomock.Controller) *MockNetworkService {
 func (m *MockNetworkService) EXPECT() *MockNetworkServiceMockRecorder {
 	return m.recorder
 }
-
-// AddSubnet mocks base method.
-func (m *MockNetworkService) AddSubnet(ctx context.Context, args network.SubnetInfo) (network.Id, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.addSubnetExpects, m.ctrl, m, "AddSubnet", ctx, args)
-}
-
-// AddSubnet indicates an expected call of AddSubnet.
-func (mr *MockNetworkServiceMockRecorder) AddSubnet(ctx, args any) *MockNetworkServiceAddSubnetCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, network.SubnetInfo, network.Id, error](mr.mock.ctrl.T, mr.mock, "AddSubnet", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(args))
-	mr.addSubnetExpects = append(mr.addSubnetExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockNetworkServiceAddSubnetCall is the typed call wrapper for AddSubnet.
-type MockNetworkServiceAddSubnetCall = gomock.Call2_2[context.Context, network.SubnetInfo, network.Id, error]
 
 // GetAllSpaces mocks base method.
 func (m *MockNetworkService) GetAllSpaces(ctx context.Context) (network.SpaceInfos, error) {
