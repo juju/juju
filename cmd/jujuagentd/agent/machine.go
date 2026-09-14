@@ -269,18 +269,15 @@ type machineAgentCommand struct {
 	machineId string
 	// TODO(controlleragent) - this will be in a new controller agent command
 	controllerId string
-
-	// machineAgentOnly suppresses controller workers for this process.
-	machineAgentOnly bool
 }
 
 // Init is called by the cmd system to initialize the structure for
 // running.
 func (a *machineAgentCommand) Init(args []string) error {
-	if a.machineId == "" && a.controllerId == "" {
-		return errors.New("either machine-id or controller-id must be set")
+	if a.machineId == "" {
+		return errors.New("--machine-id must be set")
 	}
-	if a.machineId != "" && !names.IsValidMachine(a.machineId) {
+	if !names.IsValidMachine(a.machineId) {
 		return errors.Errorf("--machine-id option must be a non-negative integer")
 	}
 	if a.controllerId != "" && !names.IsValidControllerAgent(a.controllerId) {
@@ -296,11 +293,7 @@ func (a *machineAgentCommand) Init(args []string) error {
 	// lines of all logging in the log file.
 	_, _ = loggo.RemoveWriter("logfile")
 
-	if a.machineId != "" {
-		a.agentTag = names.NewMachineTag(a.machineId)
-	} else {
-		a.agentTag = names.NewControllerAgentTag(a.controllerId)
-	}
+	a.agentTag = names.NewMachineTag(a.machineId)
 	if err := agentconfig.ReadAgentConfig(a.currentConfig, a.agentTag.Id()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
@@ -332,7 +325,6 @@ func (a *machineAgentCommand) Run(c *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	machineAgent.machineAgentOnly = a.machineAgentOnly
 	return machineAgent.Run(c)
 }
 
@@ -342,7 +334,6 @@ func (a *machineAgentCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&a.machineId, "machine-id", "", "id of the machine to run")
 	f.StringVar(&a.controllerId, "controller-id", "", "id of the controller to run")
 	f.BoolVar(&a.logToStdErr, "log-to-stderr", false, "log to stderr instead of logsink.log")
-	f.BoolVar(&a.machineAgentOnly, "machine-agent-only", false, "suppress in-process controller workers")
 }
 
 // Info returns usage information for the command.
@@ -482,9 +473,6 @@ type MachineAgent struct {
 
 	isCaasAgent bool
 	cmdRunner   CommandRunner
-
-	// machineAgentOnly suppresses controller workers for this process.
-	machineAgentOnly bool
 }
 
 // Wait waits for the machine agent to finish.
@@ -626,7 +614,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 
 	a.upgradeDBLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
 	a.upgradeStepsLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
-	a.initControllerAgentConfigReadyLock(agentConfig)
+	a.initControllerAgentConfigReadyLock()
 
 	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion(), bufferedLogger, legacyLogSinkWriter, logSink)
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
@@ -648,12 +636,14 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	return cmdutil.AgentDone(logger, err)
 }
 
-func (a *MachineAgent) initControllerAgentConfigReadyLock(agentConfig agent.Config) {
+func (a *MachineAgent) initControllerAgentConfigReadyLock() {
+	// jujuagentd is always a machine agent with no controller runtime role,
+	// so the transitional controller-agent-config readiness lock is always
+	// pre-unlocked. The controlleragentconfig worker still runs on every
+	// machine and creates the historical configchange.socket, but the
+	// deployer no longer waits on a controller role to observe it.
 	a.controllerAgentConfigReadyLock = gate.NewLock()
-	_, isController := agentConfig.ControllerAgentInfo()
-	if !isController || a.machineAgentOnly {
-		a.controllerAgentConfigReadyLock.Unlock()
-	}
+	a.controllerAgentConfigReadyLock.Unlock()
 }
 
 func (a *MachineAgent) makeEngineCreator(
@@ -735,7 +725,6 @@ func (a *MachineAgent) makeEngineCreator(
 			MuxShutdownWait:                   1 * time.Minute,
 			NewBrokerFunc:                     newBroker,
 			MachineStartup:                    a.machineStartup,
-			MachineAgentOnly:                  a.machineAgentOnly,
 			UnitEngineConfig: func() dependency.EngineConfig {
 				return agentengine.DependencyEngineConfig(
 					controllerMetricsSink,

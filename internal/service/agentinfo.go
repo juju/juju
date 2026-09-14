@@ -90,9 +90,6 @@ func (ai AgentInfo) cmd(renderer shell.Renderer) string {
 		idOptions[ai.Kind], ai.ID,
 		"--debug",
 	}
-	if ai.Kind == AgentKindMachine {
-		parts = append(parts, "--machine-agent-only")
-	}
 	return strings.Join(parts, " ")
 }
 
@@ -104,9 +101,6 @@ func (ai AgentInfo) execArgs(renderer shell.Renderer) []string {
 		"--data-dir", renderer.FromSlash(ai.DataDir),
 		idOptions[ai.Kind], ai.ID,
 		"--debug",
-	}
-	if ai.Kind == AgentKindMachine {
-		args = append(args, "--machine-agent-only")
 	}
 	return args
 }
