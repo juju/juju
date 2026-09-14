@@ -366,7 +366,27 @@ func (d *connectionDialer) DialController(
 	}
 	go gossh.DiscardRequests(reqs)
 
-	return sshconn.NewChannelConn(ch), nil
+	// The tunnel channel and its carrying client share the same lifetime:
+	// close the channel first so the controller sees a clean SSH-level
+	// close, then the client to release the TCP connection.
+	return &tunnelConn{
+		ChanConn: *sshconn.NewChannelConn(ch),
+		client:   client,
+	}, nil
+}
+
+// tunnelConn couples the tunnel channel to the SSH client that carries it.
+type tunnelConn struct {
+	sshconn.ChanConn
+
+	client *gossh.Client
+}
+
+// Close closes the tunnel channel and the underlying SSH client, ensuring the channel
+// is closed first for a clean SSH-level close.
+func (c *tunnelConn) Close() error {
+	defer c.client.Close()
+	return c.ChanConn.Close()
 }
 
 // DialLocalSSHD performs a standard TCP dial to the sshd running on the
