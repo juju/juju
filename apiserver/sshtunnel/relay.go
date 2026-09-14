@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/lestrrat-go/jwx/v3/jwt"
-	ssh "github.com/tailscale/gliderssh"
 
 	authjwt "github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/core/logger"
@@ -118,11 +117,6 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The bearer JWT already authenticated the user, so the terminating
-	// server accepts the user's key as presented.
-	server.PublicKeyHandler = func(_ ssh.Context, _ ssh.PublicKey) error {
-		return nil
-	}
 	server.HandleConn(conn)
 }
 
