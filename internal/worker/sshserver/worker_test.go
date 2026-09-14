@@ -53,7 +53,7 @@ func newServerWrapperWorkerConfig(
 func setMockServerDependencies(ctrl *gomock.Controller, cfg *ServerWrapperWorkerConfig) {
 	cfg.Authenticator = NewMockAuthenticator(ctrl)
 	cfg.Authorizer = NewMockAuthorizer(ctrl)
-	cfg.Resolver = NewMockResolver(ctrl)
+	cfg.ServerFactory = NewMockTerminatingServerFactory(ctrl)
 }
 
 func (s *workerSuite) TestValidate(c *tc.C) {
@@ -93,12 +93,12 @@ func (s *workerSuite) TestValidate(c *tc.C) {
 	)
 	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*is required.*")
 
-	// Test no Resolver.
+	// Test no ServerFactory.
 	cfg = newServerWrapperWorkerConfig(
 		c,
 		ctrl,
 		func(cfg *ServerWrapperWorkerConfig) {
-			cfg.Resolver = nil
+			cfg.ServerFactory = nil
 		},
 	)
 	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*is required.*")

@@ -5,17 +5,21 @@ package sshtunnel
 
 import (
 	"context"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/lestrrat-go/jwx/v3/jwt"
+	ssh "github.com/tailscale/gliderssh"
 
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/sshproxy"
 )
 
 const testModelUUID = "8419cd78-4993-4c3a-928e-c646226beeee"
@@ -27,14 +31,52 @@ func TestRelaySuite(t *testing.T) {
 }
 
 func (s *relaySuite) TestAdminAccessAuthorizes(c *tc.C) {
-	resolver := &stubResolver{termination: sshproxy.Termination{}}
-	w := s.serveRelay(c, resolver, testModelUUID, string(permission.AdminAccess))
+	factory := &stubServerFactory{}
+	w := s.serveRelay(c, factory, testModelUUID, string(permission.AdminAccess))
 
-	// Authorization passed: the resolver was called. The handler then
-	// attempts to hijack the connection, which httptest.NewRecorder
-	// does not support, so it logs and returns without writing a status.
+	// Authorization passed: the handler attempts to hijack the connection,
+	// which httptest.NewRecorder does not support, so it logs and returns
+	// without writing a status. Resolution happens after the upgrade, so
+	// the factory is not reached here.
 	c.Check(w.Code, tc.Not(tc.Equals), http.StatusForbidden)
-	c.Check(resolver.called, tc.IsTrue)
+	c.Check(factory.called, tc.IsFalse)
+}
+
+func (s *relaySuite) TestResolveErrorWrittenToConn(c *tc.C) {
+	factory := &stubServerFactory{err: errors.New("no such destination")}
+	handler := s.newHandler(c, factory)
+
+	// Inject the verified JWT into the request context server-side, as the
+	// apiserver's HTTP authentication layer would.
+	token := newRelayToken(c, testModelUUID, string(permission.AdminAccess))
+	injectJWT := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), RelayJWTKey{}, token)
+		handler.ServeHTTP(w, r.WithContext(ctx))
+	})
+	server := httptest.NewServer(injectJWT)
+	c.Cleanup(server.Close)
+
+	destination := newMachineDestination(c, testModelUUID)
+	req, err := http.NewRequest(http.MethodGet, server.URL+"/ssh-relay/"+destination.String(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	req.Header.Set("Connection", "Upgrade")
+	req.Header.Set("Upgrade", RelayUpgradeToken)
+	req.URL.RawQuery = ":virtualHostname=" + destination.String()
+
+	// Write the upgrade request over a raw connection. After the 101
+	// response the hijacked connection stays open on the server side,
+	// which writes the resolve error as pre-banner text before closing.
+	conn, err := net.Dial("tcp", server.Listener.Addr().String())
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = conn.Close() }()
+	err = req.Write(conn)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	out, err := io.ReadAll(conn)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(out), tc.Contains, "juju ssh relay: no such destination")
+	c.Check(factory.called, tc.IsTrue)
 }
 
 func (s *relaySuite) TestRelayAuthorization(c *tc.C) {
@@ -50,26 +92,26 @@ func (s *relaySuite) TestRelayAuthorization(c *tc.C) {
 		{"invalid permission rejected", testModelUUID, string(permission.SuperuserAccess), http.StatusInternalServerError},
 	} {
 		c.Run(test.name, func(t *testing.T) {
-			resolver := &stubResolver{}
-			w := s.serveRelay(c, resolver, test.modelUUID, test.access)
+			factory := &stubServerFactory{}
+			w := s.serveRelay(c, factory, test.modelUUID, test.access)
 			tc.Check(t, w.Code, tc.Equals, test.wantCode)
-			tc.Check(t, resolver.called, tc.IsFalse)
+			tc.Check(t, factory.called, tc.IsFalse)
 		})
 	}
 }
 
 func (s *relaySuite) TestMissingJWTUnauthorized(c *tc.C) {
-	resolver := &stubResolver{}
-	w := s.serveRelay(c, resolver, testModelUUID, "")
+	factory := &stubServerFactory{}
+	w := s.serveRelay(c, factory, testModelUUID, "")
 	c.Check(w.Code, tc.Equals, http.StatusUnauthorized)
-	c.Check(resolver.called, tc.IsFalse)
+	c.Check(factory.called, tc.IsFalse)
 }
 
-func (s *relaySuite) newHandler(c *tc.C, resolver *stubResolver) *RelayHandler {
+func (s *relaySuite) newHandler(c *tc.C, factory *stubServerFactory) *RelayHandler {
 	handler, err := NewRelayHandler(RelayHandlerConfig{
-		Logger:   loggertesting.WrapCheckLog(c),
-		Resolver: resolver,
-		Metrics:  &stubMetrics{},
+		Logger:        loggertesting.WrapCheckLog(c),
+		ServerFactory: factory,
+		Metrics:       &stubMetrics{},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return handler
@@ -77,7 +119,7 @@ func (s *relaySuite) newHandler(c *tc.C, resolver *stubResolver) *RelayHandler {
 
 // serveRelay dispatches a relay request and returns the response recorder.
 // An empty access produces no JWT, testing the missing-token path.
-func (s *relaySuite) serveRelay(c *tc.C, resolver *stubResolver, modelUUID, access string) *httptest.ResponseRecorder {
+func (s *relaySuite) serveRelay(c *tc.C, factory *stubServerFactory, modelUUID, access string) *httptest.ResponseRecorder {
 	var token jwt.Token
 	if access != "" {
 		token = newRelayToken(c, modelUUID, access)
@@ -90,7 +132,7 @@ func (s *relaySuite) serveRelay(c *tc.C, resolver *stubResolver, modelUUID, acce
 	r.URL.RawQuery = ":virtualHostname=" + destination.String()
 
 	w := httptest.NewRecorder()
-	s.newHandler(c, resolver).ServeHTTP(w, r)
+	s.newHandler(c, factory).ServeHTTP(w, r)
 	return w
 }
 
@@ -110,15 +152,18 @@ func newMachineDestination(c *tc.C, modelUUID string) virtualhostname.Info {
 	return info
 }
 
-type stubResolver struct {
-	termination sshproxy.Termination
-	err         error
-	called      bool
+type stubServerFactory struct {
+	server *ssh.Server
+	err    error
+	called bool
 }
 
-func (r *stubResolver) Resolve(_ context.Context, _ virtualhostname.Info) (sshproxy.Termination, error) {
+func (r *stubServerFactory) New(_ context.Context, _ virtualhostname.Info) (*ssh.Server, error) {
 	r.called = true
-	return r.termination, r.err
+	if r.server != nil {
+		return r.server, nil
+	}
+	return &ssh.Server{}, r.err
 }
 
 type stubMetrics struct {

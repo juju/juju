@@ -74,9 +74,8 @@ type ServerWorkerConfig struct {
 	Authenticator Authenticator
 	// Authorizer checks whether an authenticated user may access a destination.
 	Authorizer Authorizer
-	// Resolver resolves per-destination proxy handlers and terminating host
-	// keys in one call.
-	Resolver sshproxy.Resolver
+	// ServerFactory builds the per-destination terminating SSH server.
+	ServerFactory sshproxy.TerminatingServerFactory
 	// Metrics collects connection and authentication metrics.
 	Metrics *Collector
 }
@@ -101,8 +100,8 @@ func (c ServerWorkerConfig) Validate() error {
 	if c.Authorizer == nil {
 		return errors.NotValidf("missing Authorizer")
 	}
-	if c.Resolver == nil {
-		return errors.NotValidf("missing Resolver")
+	if c.ServerFactory == nil {
+		return errors.NotValidf("missing ServerFactory")
 	}
 	return nil
 }
@@ -259,15 +258,12 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 		return
 	}
 
-	termination, err := s.config.Resolver.Resolve(ctx, destination)
+	server, err := s.config.ServerFactory.New(ctx, destination)
 	if err != nil {
 		s.config.Logger.Errorf(ctx, "failed to resolve destination: %v", err)
 		s.rejectChannel(ctx, newChan, fmt.Sprintf("failed to resolve destination: %v", err))
 		return
 	}
-
-	server := sshproxy.NewTerminatingSSHServer(termination.Handlers)
-	server.AddHostKey(termination.Signer)
 
 	ch, reqs, err := newChan.Accept()
 	if err != nil {
@@ -300,8 +296,7 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 			if err != nil {
 				s.config.Logger.Errorf(context.TODO(), "failed to set write deadline: %v", err)
 			}
-			_, err = conn.Write([]byte("too many connections.\n"))
-			if err != nil {
+			if err := sshproxy.WritePreBannerError(conn, "too many connections."); err != nil {
 				s.config.Logger.Errorf(context.TODO(), "failed to write to connection: %v", err)
 			}
 			// The connection is closed before returning, otherwise

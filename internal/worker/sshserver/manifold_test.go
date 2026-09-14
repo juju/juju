@@ -188,13 +188,13 @@ func (s *manifoldSuite) TestOutputFunc(c *tc.C) {
 	result := s.startManifold(c)
 	defer workertest.DirtyKill(c, result)
 
-	var resolver sshproxy.Resolver
-	c.Assert(outputFunc(result, &resolver), tc.ErrorIsNil)
-	c.Check(resolver, tc.NotNil)
+	var factory sshproxy.TerminatingServerFactory
+	c.Assert(outputFunc(result, &factory), tc.ErrorIsNil)
+	c.Check(factory, tc.NotNil)
 
 	var wrong string
 	c.Assert(outputFunc(result, &wrong), tc.ErrorMatches,
-		`out should be \*sshproxy\.Resolver; got \*string`)
+		`out should be \*sshproxy\.TerminatingServerFactory; got \*string`)
 }
 
 func (s *manifoldSuite) startManifold(c *tc.C) worker.Worker {

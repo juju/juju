@@ -35,7 +35,7 @@ type sshServerSuite struct {
 	userSigner    ssh.Signer
 	authenticator *MockAuthenticator
 	authorizer    *MockAuthorizer
-	resolver      *MockResolver
+	serverFactory *MockTerminatingServerFactory
 	proxyHandlers *MockProxyHandlers
 }
 
@@ -62,7 +62,7 @@ func (s *sshServerSuite) SetUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.authenticator = NewMockAuthenticator(ctrl)
 	s.authorizer = NewMockAuthorizer(ctrl)
-	s.resolver = NewMockResolver(ctrl)
+	s.serverFactory = NewMockTerminatingServerFactory(ctrl)
 	s.proxyHandlers = NewMockProxyHandlers(ctrl)
 	return ctrl
 }
@@ -78,7 +78,7 @@ func (s *sshServerSuite) newServer(c *tc.C) (*ServerWorker, *bufconn.Listener, f
 		MaxConcurrentConnections: maxConcurrentConnections,
 		Authenticator:            s.authenticator,
 		Authorizer:               s.authorizer,
-		Resolver:                 s.resolver,
+		ServerFactory:            s.serverFactory,
 		Metrics:                  NewMetricsCollector(),
 	}
 
@@ -150,11 +150,14 @@ func (s *sshServerSuite) testSSHServerSession(c *tc.C, auth gossh.AuthMethod, us
 	destination, err := virtualhostname.Parse(testVirtualHostname)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Authorize the user and setup the resolver and handlers.
+	// Authorize the user and setup the factory and handlers. The handler
+	// expectations must precede server construction, which consumes them.
 	s.authorizer.EXPECT().Authorize(gomock.Any(), destination).Return(true, nil)
-	s.resolver.EXPECT().Resolve(gomock.Any(), destination).Return(sshproxy.Termination{Handlers: s.proxyHandlers, Signer: s.userSigner}, nil)
 	s.proxyHandlers.EXPECT().DirectTCPIPHandler().Return(rejectDirectTCPIP)
 	s.proxyHandlers.EXPECT().SFTPHandler().Return(rejectSFTP)
+	terminatingServer := sshproxy.NewTerminatingSSHServer(s.proxyHandlers)
+	terminatingServer.AddHostKey(s.userSigner)
+	s.serverFactory.EXPECT().New(gomock.Any(), destination).Return(terminatingServer, nil)
 
 	sessionOutput := fmt.Sprintf("Your final destination is: %s\n", testVirtualHostname)
 	s.proxyHandlers.EXPECT().SessionHandler(gomock.Any()).Do(func(session ssh.Session) {
@@ -200,7 +203,7 @@ func (s *sshServerSuite) TestValidate(c *tc.C) {
 	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *ServerWorkerConfig) {
 		cfg.Authenticator = s.authenticator
 		cfg.Authorizer = s.authorizer
-		cfg.Resolver = s.resolver
+		cfg.ServerFactory = s.serverFactory
 		cfg.Metrics = nil
 	})
 	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*missing Metrics.*")
@@ -235,9 +238,9 @@ func (s *sshServerSuite) TestValidate(c *tc.C) {
 	})
 	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
-	// Test no Resolver.
+	// Test no ServerFactory.
 	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *ServerWorkerConfig) {
-		cfg.Resolver = nil
+		cfg.ServerFactory = nil
 	})
 	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
@@ -286,7 +289,7 @@ func (s *sshServerSuite) TestTerminatingSSHServerReportsFactoryError(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.authenticator.EXPECT().PublicKeyAuthentication(gomock.Any(), s.userSigner.PublicKey()).Return(true, nil)
 	s.authorizer.EXPECT().Authorize(gomock.Any(), destination).Return(true, nil)
-	s.resolver.EXPECT().Resolve(gomock.Any(), destination).Return(sshproxy.Termination{}, errors.New("factory failed"))
+	s.serverFactory.EXPECT().New(gomock.Any(), destination).Return(nil, errors.New("factory failed"))
 
 	_, listener, cleanup := s.newServer(c)
 	defer cleanup()
@@ -330,7 +333,7 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *tc.C) {
 		SSHService:               stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Authenticator:            s.authenticator,
 		Authorizer:               s.authorizer,
-		Resolver:                 s.resolver,
+		ServerFactory:            s.serverFactory,
 		Metrics:                  NewMetricsCollector(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -422,7 +425,7 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *tc.C) {
 		SSHService:               stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Authenticator:            s.authenticator,
 		Authorizer:               s.authorizer,
-		Resolver:                 s.resolver,
+		ServerFactory:            s.serverFactory,
 		Metrics:                  NewMetricsCollector(),
 	})
 	c.Assert(err, tc.ErrorIsNil)

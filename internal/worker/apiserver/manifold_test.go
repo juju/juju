@@ -21,6 +21,7 @@ import (
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
 	"github.com/prometheus/client_golang/prometheus"
+	ssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
 
 	coreapiserver "github.com/juju/juju/apiserver"
@@ -37,7 +38,6 @@ import (
 	accessservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/sshproxy"
 	internalTunneler "github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -192,7 +192,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 		"object-store":        s.objectStoreGetter,
 		"jwt-parser":          s.jwtParser,
 		"ssh-tunneler":        stubTunnelTracker{},
-		"ssh-server":          stubResolver{},
+		"ssh-server":          stubServerFactory{},
 		"watcher-registry":    s.watcherRegistryGetter,
 		"flight-recorder":     s.flightRecorder,
 		"provider-tracker":    s.providerFactory,
@@ -213,10 +213,10 @@ func (stubTunnelTracker) PushTunnel(context.Context, string, net.Conn) (<-chan s
 	return nil, nil
 }
 
-type stubResolver struct{}
+type stubServerFactory struct{}
 
-func (stubResolver) Resolve(context.Context, virtualhostname.Info) (sshproxy.Termination, error) {
-	return sshproxy.Termination{}, nil
+func (stubServerFactory) New(context.Context, virtualhostname.Info) (*ssh.Server, error) {
+	return &ssh.Server{}, nil
 }
 
 type mockModelLogger struct {

@@ -33,9 +33,8 @@ type RelayHandler struct {
 type RelayHandlerConfig struct {
 	// Logger is used for logging.
 	Logger logger.Logger
-	// Resolver resolves per-destination proxy handlers and terminating host
-	// keys in one call.
-	Resolver sshproxy.Resolver
+	// ServerFactory builds the per-destination terminating SSH server.
+	ServerFactory sshproxy.TerminatingServerFactory
 	// Metrics collects connection metrics.
 	Metrics MetricsCollector
 }
@@ -45,8 +44,8 @@ func (cfg RelayHandlerConfig) Validate() error {
 	if cfg.Logger == nil {
 		return errors.New("nil Logger")
 	}
-	if cfg.Resolver == nil {
-		return errors.New("nil Resolver")
+	if cfg.ServerFactory == nil {
+		return errors.New("nil ServerFactory")
 	}
 	if cfg.Metrics == nil {
 		return errors.New("nil Metrics")
@@ -97,15 +96,6 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Resolve the destination's proxy handlers and terminating host key
-	// before upgrading, so failures reach JIMM as HTTP errors.
-	termination, err := h.config.Resolver.Resolve(ctx, destination)
-	if err != nil {
-		h.config.Logger.Errorf(ctx, "resolving destination: %v", err)
-		http.Error(w, "failed to resolve destination", http.StatusInternalServerError)
-		return
-	}
-
 	conn, err := hijack(w, r, RelayUpgradeToken)
 	if err != nil {
 		h.config.Logger.Errorf(ctx, "upgrading relay connection: %v", err)
@@ -117,15 +107,22 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer stop()
 	defer func() { _ = conn.Close() }()
 
-	// Terminate the relayed user SSH session here. JIMM cannot read the
-	// session bytes, the embedded server handles them end to end.
-	// HTTP authentication already happened via the bearer JWT, so the
-	// terminating server accepts the user's key as presented.
-	server := sshproxy.NewTerminatingSSHServer(termination.Handlers)
+	// Resolve after the upgrade. Failures reach the user's client as SSH
+	// pre-banner text through JIMM's blind relay.
+	server, err := h.config.ServerFactory.New(ctx, destination)
+	if err != nil {
+		h.config.Logger.Errorf(ctx, "resolving destination: %v", err)
+		if werr := sshproxy.WritePreBannerError(conn, "juju ssh relay: "+err.Error()); werr != nil {
+			h.config.Logger.Errorf(ctx, "writing resolve error to connection: %v", werr)
+		}
+		return
+	}
+
+	// The bearer JWT already authenticated the user, so the terminating
+	// server accepts the user's key as presented.
 	server.PublicKeyHandler = func(_ ssh.Context, _ ssh.PublicKey) error {
 		return nil
 	}
-	server.AddHostKey(termination.Signer)
 	server.HandleConn(conn)
 }
 

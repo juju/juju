@@ -288,9 +288,8 @@ type SSHTunnelConfig struct {
 	// agents. It is the sshtunneler worker's output, local to this
 	// controller node.
 	TunnelTracker sshtunnel.TunnelTracker
-	// Resolver resolves per-destination proxy handlers and terminating host
-	// keys for the relay endpoint's embedded terminating SSH server.
-	Resolver sshproxy.Resolver
+	// ServerFactory builds the per-destination terminating SSH server.
+	ServerFactory sshproxy.TerminatingServerFactory
 	// Metrics collects connection metrics for the SSH tunnel and relay
 	// upgrade endpoints.
 	Metrics sshtunnel.MetricsCollector
@@ -1023,9 +1022,9 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		sshTunnelHandler = srv.sshTunnelRequestWrapper(tunnelHandler)
 
 		relayHandler, err := sshtunnel.NewRelayHandler(sshtunnel.RelayHandlerConfig{
-			Logger:   logger.Child("sshtunnel"),
-			Resolver: srv.sshTunnelConfig.Resolver,
-			Metrics:  srv.sshTunnelConfig.Metrics,
+			Logger:        logger.Child("sshtunnel"),
+			ServerFactory: srv.sshTunnelConfig.ServerFactory,
+			Metrics:       srv.sshTunnelConfig.Metrics,
 		})
 		if err != nil {
 			return nil, errors.Trace(err)

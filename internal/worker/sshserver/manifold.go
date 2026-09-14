@@ -157,8 +157,8 @@ func (config ManifoldConfig) Validate() error {
 }
 
 // Manifold returns a dependency.Manifold that will run an embedded SSH server
-// worker. The manifold outputs the sshproxy.Resolver needed by the apiserver's
-// relay endpoint.
+// worker. The manifold outputs the sshproxy.TerminatingServerFactory
+// needed by the apiserver's relay endpoint.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.DomainServicesName, config.SSHTunnelerName},
@@ -231,8 +231,8 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 			access: sshService,
 			logger: config.Logger,
 		},
-		Resolver: sshproxy.NewResolver(proxyFactory, sshService),
-		Metrics:  metricsCollector,
+		ServerFactory: sshproxy.NewTerminatingServerFactory(proxyFactory, sshService),
+		Metrics:       metricsCollector,
 	})
 	if err != nil {
 		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
@@ -257,10 +257,10 @@ func outputFunc(in worker.Worker, out any) error {
 	}
 
 	switch outPointer := out.(type) {
-	case *sshproxy.Resolver:
-		*outPointer = inWorker.config.Resolver
+	case *sshproxy.TerminatingServerFactory:
+		*outPointer = inWorker.config.ServerFactory
 	default:
-		return errors.Errorf("out should be *sshproxy.Resolver; got %T", out)
+		return errors.Errorf("out should be *sshproxy.TerminatingServerFactory; got %T", out)
 	}
 	return nil
 }

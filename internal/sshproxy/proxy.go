@@ -4,6 +4,10 @@
 package sshproxy
 
 import (
+	"fmt"
+	"net"
+	"strings"
+
 	ssh "github.com/tailscale/gliderssh"
 
 	"github.com/juju/juju/core/virtualhostname"
@@ -43,4 +47,16 @@ func NewTerminatingSSHServer(handlers ProxyHandlers) *ssh.Server {
 			"sftp": handlers.SFTPHandler(),
 		},
 	}
+}
+
+// WritePreBannerError writes msg as SSH pre-banner text (RFC 4253
+// section 4.2), which OpenSSH clients display before the version banner.
+// The message is flattened to one CRLF-terminated line, capped in length.
+func WritePreBannerError(conn net.Conn, msg string) error {
+	msg = strings.ReplaceAll(msg, "\n", " ")
+	if len(msg) > 200 {
+		msg = msg[:200]
+	}
+	_, err := fmt.Fprintf(conn, "%s\r\n", msg)
+	return err
 }

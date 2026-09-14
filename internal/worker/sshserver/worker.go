@@ -35,7 +35,7 @@ type ServerWrapperWorkerConfig struct {
 	Logger                  logger.Logger
 	Authenticator           Authenticator
 	Authorizer              Authorizer
-	Resolver                sshproxy.Resolver
+	ServerFactory           sshproxy.TerminatingServerFactory
 
 	Metrics *Collector
 }
@@ -63,8 +63,8 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	if c.Authorizer == nil {
 		return errors.NotValidf("Authorizer is required")
 	}
-	if c.Resolver == nil {
-		return errors.NotValidf("Resolver is required")
+	if c.ServerFactory == nil {
+		return errors.NotValidf("ServerFactory is required")
 	}
 	return nil
 }
@@ -169,7 +169,7 @@ func (ssw *serverWrapperWorker) loop() error {
 		SSHService:               ssw.config.SSHService,
 		Authenticator:            ssw.config.Authenticator,
 		Authorizer:               ssw.config.Authorizer,
-		Resolver:                 ssw.config.Resolver,
+		ServerFactory:            ssw.config.ServerFactory,
 		Metrics:                  ssw.config.Metrics,
 	})
 	ssw.addWorkerReporter("ssh-server", srv)

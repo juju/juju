@@ -346,11 +346,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	// Fetch the relay resolver from the sshserver worker's manifold
-	// output. Relay authorization happens in the relay handler using
-	// the verified JWT.
-	var relayResolver sshproxy.Resolver
-	if err := getter.Get(config.SSHServerName, &relayResolver); err != nil {
+	// Fetch the terminating server factory from the sshserver worker's
+	// manifold output. Relay authorization happens in the relay handler
+	// using the verified JWT.
+	var serverFactory sshproxy.TerminatingServerFactory
+	if err := getter.Get(config.SSHServerName, &serverFactory); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -396,7 +396,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		EphemeralProviderFactory:          providerFactory,
 		SSHTunnel: &apiserver.SSHTunnelConfig{
 			TunnelTracker: tunnelTracker,
-			Resolver:      relayResolver,
+			ServerFactory: serverFactory,
 			Metrics:       sshTunnelMetrics,
 		},
 	})
