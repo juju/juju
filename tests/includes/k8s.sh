@@ -58,6 +58,75 @@ wait_for_namespace_gone() {
 	echo "[+] $(green 'Namespace removed:') $(green "${name}")"
 }
 
+# wait_for_pvc_present polls until the given PVC is visible in the cluster.
+# It fails the test if the PVC is not present after the timeout (an integer
+# number of seconds). PVC finalizer-driven creation can take a few seconds
+# after `kubectl create` returns.
+#
+# ```
+# wait_for_pvc_present <name> <namespace> [<timeout>]
+# ```
+wait_for_pvc_present() {
+	local name namespace timeout
+
+	name=${1}
+	namespace=${2}
+	timeout=${3:-60} # default timeout: 60s
+
+	attempt=0
+	start_time="$(date -u +%s)"
+	until kubectl get pvc "${name}" -n "${namespace}" >/dev/null 2>&1; do
+		echo "[+] (attempt ${attempt}) polling for PVC ${namespace}/${name} to appear"
+		sleep "${SHORT_TIMEOUT}"
+
+		elapsed=$(date -u +%s)-$start_time
+		if [[ ${elapsed} -ge ${timeout} ]]; then
+			echo "[-] $(red 'timed out waiting for PVC') $(red "${namespace}/${name}") $(red 'to appear')"
+			kubectl get pvc "${name}" -n "${namespace}" 2>&1 | sed 's/^/    | /g'
+			exit 1
+		fi
+
+		attempt=$((attempt + 1))
+	done
+
+	echo "[+] $(green 'PVC present:') $(green "${namespace}/${name}")"
+}
+
+# wait_for_pvc_absent polls until the given PVC has been removed from the
+# cluster. It fails the test if the PVC is still present after the timeout
+# (an integer number of seconds). PVC deletion is asynchronous in Kubernetes
+# (the controller must clear finalizers before the object disappears), so an
+# immediate `kubectl get pvc` check is racy.
+#
+# ```
+# wait_for_pvc_absent <name> <namespace> [<timeout>]
+# ```
+wait_for_pvc_absent() {
+	local name namespace timeout
+
+	name=${1}
+	namespace=${2}
+	timeout=${3:-180} # default timeout: 180s = 3m
+
+	attempt=0
+	start_time="$(date -u +%s)"
+	while kubectl get pvc "${name}" -n "${namespace}" >/dev/null 2>&1; do
+		echo "[+] (attempt ${attempt}) polling for PVC ${namespace}/${name} to be removed"
+		sleep "${SHORT_TIMEOUT}"
+
+		elapsed=$(date -u +%s)-$start_time
+		if [[ ${elapsed} -ge ${timeout} ]]; then
+			echo "[-] $(red 'timed out waiting for PVC') $(red "${namespace}/${name}") $(red 'to be removed')"
+			kubectl get pvc "${name}" -n "${namespace}" 2>&1 | sed 's/^/    | /g'
+			exit 1
+		fi
+
+		attempt=$((attempt + 1))
+	done
+
+	echo "[+] $(green 'PVC removed:') $(green "${namespace}/${name}")"
+}
+
 default_k8s() {
 	if command -v minikube >/dev/null 2>&1 && [[ "Stopped" != "$(minikube status -o json | yq .APIServer)" ]]; then
 		printf "minikube"

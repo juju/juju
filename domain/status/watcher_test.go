@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
@@ -234,9 +235,15 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 		return s.ModelTxnRunner(), nil
 	}
 
+	ctrl := gomock.NewController(c)
+
+	leaderGetter := NewMockLeaderGetter(ctrl)
+	leaderGetter.EXPECT().ApplicationLeader(gomock.Any()).Return("", nil).AnyTimes()
+
 	return service.NewWatchableService(
 		statemodel.NewModelState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		nil,
+		leaderGetter,
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),

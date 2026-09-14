@@ -43,8 +43,23 @@ func NewFileStorageReader(path string) (reader storage.StorageReader, err error)
 	return &fileStorageReader{p}, nil
 }
 
-func (f *fileStorageReader) fullPath(name string) string {
-	return filepath.Join(f.path, name)
+func (f *fileStorageReader) fullPath(name string) (string, error) {
+	fullpath := filepath.Join(f.path, name)
+	if err := f.ensureWithinRoot(fullpath); err != nil {
+		return "", err
+	}
+	return fullpath, nil
+}
+
+// ensureWithinRoot returns a NotValid error if path is not contained within the
+// storage directory. f.path is absolute and cleaned by NewFileStorageReader, so
+// a prefix check on the cleaned join result is enough to catch ".." components
+// in a name that would otherwise escape the storage directory.
+func (f *fileStorageReader) ensureWithinRoot(path string) error {
+	if path == f.path || strings.HasPrefix(path, f.path+string(os.PathSeparator)) {
+		return nil
+	}
+	return errors.NotValidf("file name %q", path)
 }
 
 // Get implements storage.StorageReader.Get.
@@ -56,7 +71,10 @@ func (f *fileStorageReader) Get(name string) (io.ReadCloser, error) {
 			Err:  os.ErrNotExist,
 		}
 	}
-	filename := f.fullPath(name)
+	filename, err := f.fullPath(name)
+	if err != nil {
+		return nil, err
+	}
 	fi, err := os.Stat(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -88,9 +106,12 @@ func (f *fileStorageReader) List(prefix string) ([]string, error) {
 	if isInternalPath(prefix) {
 		return names, nil
 	}
-	prefix = filepath.Join(f.path, prefix)
+	prefix, err := f.fullPath(prefix)
+	if err != nil {
+		return nil, err
+	}
 	dir := filepath.Dir(prefix)
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -108,7 +129,11 @@ func (f *fileStorageReader) List(prefix string) ([]string, error) {
 
 // URL implements storage.StorageReader.URL.
 func (f *fileStorageReader) URL(name string) (string, error) {
-	return utils.MakeFileURL(filepath.Join(f.path, name)), nil
+	fullpath, err := f.fullPath(name)
+	if err != nil {
+		return "", err
+	}
+	return utils.MakeFileURL(fullpath), nil
 }
 
 // DefaultConsistencyStrategy implements storage.StorageReader.ConsistencyStrategy.
@@ -144,7 +169,10 @@ func (f *fileStorageWriter) Put(name string, r io.Reader, length int64) error {
 			Err:  os.ErrPermission,
 		}
 	}
-	fullpath := f.fullPath(name)
+	fullpath, err := f.fullPath(name)
+	if err != nil {
+		return err
+	}
 	dir := filepath.Dir(fullpath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
@@ -170,8 +198,11 @@ func (f *fileStorageWriter) Put(name string, r io.Reader, length int64) error {
 }
 
 func (f *fileStorageWriter) Remove(name string) error {
-	fullpath := f.fullPath(name)
-	err := os.Remove(fullpath)
+	fullpath, err := f.fullPath(name)
+	if err != nil {
+		return err
+	}
+	err = os.Remove(fullpath)
 	if os.IsNotExist(err) {
 		err = nil
 	}

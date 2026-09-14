@@ -419,6 +419,59 @@ func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *tc.C
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestDrainRoleCanCreateSecrets verifies that the role created for a drain
+// token grants the "create" verb on secrets. When draining secrets back to
+// the k8s backend, the drain worker rewrites a secret at the same revision
+// path it was read from, which may not yet exist and so must be created.
+func (s *providerSuite) TestDrainRoleCanCreateSecrets(c *tc.C) {
+	defer s.setupK8s(c)()
+
+	tag := secrets.Accessor{
+		Kind: secrets.UnitAccessor,
+		ID:   "gitlab/0",
+	}
+	ownedURI := secrets.NewURI()
+
+	p, err := provider.Provider(kubernetes.BackendType)
+	c.Assert(err, tc.ErrorIsNil)
+	adminCfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig:  s.backendConfig(),
+	}
+
+	issuedTokenUUID := "some-uuid"
+	_, err = p.RestrictedConfig(
+		c.Context(),
+		adminCfg, true, true,
+		issuedTokenUUID, tag,
+		[]string{ownedURI.ID},
+		provider.SecretRevisions{ownedURI.ID: set.NewStrings(ownedURI.Name(1))},
+		nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	roles, err := s.k8sClient.RbacV1().Roles(s.namespace).List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(roles.Items, tc.HasLen, 1)
+	c.Assert(roles.Items[0].Rules, tc.DeepEquals, []rbacv1.PolicyRule{{
+		APIGroups:     []string{rbacv1.APIGroupAll},
+		Resources:     []string{"namespaces"},
+		Verbs:         []string{"get", "list"},
+		ResourceNames: []string{s.namespace},
+	}, {
+		APIGroups: []string{rbacv1.APIGroupAll},
+		Resources: []string{"secrets"},
+		Verbs:     []string{"create"},
+	}, {
+		APIGroups:     []string{rbacv1.APIGroupAll},
+		Resources:     []string{"secrets"},
+		Verbs:         []string{"get", "patch", "update", "replace", "delete"},
+		ResourceNames: []string{ownedURI.Name(1), ownedURI.Name(2)},
+	}})
+}
+
 func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *tc.C) {
 	defer s.setupK8s(c)()
 
