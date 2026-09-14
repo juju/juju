@@ -462,13 +462,6 @@ func (mm *MachineManagerAPI) calculateDestroyResult(ctx context.Context, machine
 	return info, nil
 }
 
-// destroyStorageForMachine indicates that machine destruction has no
-// CLI/API --destroy-storage option today (see
-// [rpc/params.DestroyMachinesParams]). Storage attached to units being
-// destroyed by machine destroy is therefore always classified as detached,
-// never as destroyed. If a destroy-storage option is ever exposed for
-// `juju remove-machine`, this constant should be replaced with a parameter
-// threaded through [MachineManagerAPI.destroyResultForMachine].
 const destroyStorageForMachine = false
 
 func (mm *MachineManagerAPI) destroyResultForMachine(ctx context.Context, machineName coremachine.Name) (params.DestroyMachineInfo, error) {
