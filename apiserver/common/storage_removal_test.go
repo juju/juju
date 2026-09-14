@@ -132,12 +132,14 @@ func (s *storageRemovalSuite) TestClassifyStorageRemovalDeduplicatesShared(c *tc
 	c.Check(detached, tc.DeepEquals, []params.Entity{{Tag: "storage-db-dir-0"}})
 }
 
-// TestClassifyStorageRemovalError asserts that an error from the storage getter
-// is propagated to the caller.
+// TestClassifyStorageRemovalError asserts that an error from the storage
+// getter is propagated to the caller without being wrapped again: the state
+// layer already adds the "getting storage classification" context, so the
+// classifier must not repeat that prefix.
 func (s *storageRemovalSuite) TestClassifyStorageRemovalError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	boom := stderrors.New("boom")
+	boom := stderrors.New("getting storage classification: boom")
 
 	s.storageService.EXPECT().GetStorageClassificationForUnits(c.Context(), []coreunit.UUID{unitUUID}).Return(
 		nil, boom,
@@ -146,7 +148,7 @@ func (s *storageRemovalSuite) TestClassifyStorageRemovalError(c *tc.C) {
 	destroyed, detached, err := common.ClassifyStorageRemoval(
 		c.Context(), s.storageService, []coreunit.UUID{unitUUID}, false,
 	)
-	c.Check(err, tc.ErrorIs, boom)
+	c.Check(err, tc.ErrorMatches, `getting storage classification: boom`)
 	c.Check(destroyed, tc.IsNil)
 	c.Check(detached, tc.IsNil)
 }

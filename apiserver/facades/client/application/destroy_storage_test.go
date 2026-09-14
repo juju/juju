@@ -312,7 +312,9 @@ func (s *applicationSuite) TestDestroyUnitStorageServiceError(c *tc.C) {
 	s.expectDestroyCharm(c)
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	boom := errors.New("boom")
+	// The state layer wraps classification errors with this context before
+	// they reach the facade, so the mock must return it already applied.
+	boom := errors.New("getting storage classification: boom")
 
 	s.applicationService.EXPECT().IsSubordinateApplicationByName(gomock.Any(), "foo").Return(false, nil)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID, nil)

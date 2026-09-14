@@ -257,8 +257,10 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval
 	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("0")).Return(
 		[]domainapplication.UnitNameAndUUID{{Name: "foo/0", UUID: unitUUID}}, nil,
 	).Times(1)
+	// The state layer wraps classification errors with this context before
+	// they reach the facade, so the mock must return it already applied.
 	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID}).Return(
-		nil, errors.New("boom"),
+		nil, errors.New("getting storage classification: boom"),
 	)
 
 	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
@@ -295,8 +297,10 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrieva
 	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("1")).Return(
 		[]domainapplication.UnitNameAndUUID{{Name: "foo/1", UUID: unitUUID1}}, nil,
 	).Times(1)
+	// The state layer wraps classification errors with this context before
+	// they reach the facade, so the mock must return it already applied.
 	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID1}).Return(
-		nil, errors.New("boom"),
+		nil, errors.New("getting storage classification: boom"),
 	)
 
 	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
@@ -334,8 +338,10 @@ func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRet
 	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("1")).Return(
 		[]domainapplication.UnitNameAndUUID{{Name: "foo/1", UUID: unitUUID1}}, nil,
 	).Times(1)
+	// The state layer wraps classification errors with this context before
+	// they reach the facade, so the mock must return it already applied.
 	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID1}).Return(
-		nil, errors.New("boom"),
+		nil, errors.New("getting storage classification: boom"),
 	)
 
 	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{

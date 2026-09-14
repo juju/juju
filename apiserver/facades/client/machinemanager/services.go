@@ -158,8 +158,8 @@ type ApplicationService interface {
 // manager requires in order to classify the storage attached to the units of
 // a machine being removed.
 type StorageService interface {
-	// GetStorageClassificationForUnits returns,keyed by unit UUID,the
-	// storage instances attached to the input units,along with the minimal
+	// GetStorageClassificationForUnits returns, keyed by unit UUID, the
+	// storage instances attached to the input units, along with the minimal
 	// information needed to classify each as destroyed or detached when its
 	// unit is removed.
 	GetStorageClassificationForUnits(

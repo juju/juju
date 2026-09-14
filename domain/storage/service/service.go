@@ -64,14 +64,13 @@ type State interface {
 	) (internal.StorageInstanceInfo, error)
 
 	// GetStorageClassificationForUnits returns the storage instances attached to
-	// the input units,keyed by unit UUID,along with the minimal information
+	// the input units, keyed by unit UUID, along with the minimal information
 	// needed to classify each instance as destroyed or detached when its unit
 	// is removed. Units with no attached storage are absent from the returned
-	//map.
+	// map.
 	//
-	// This method deliberately does not verify that the input units exist;the
+	// This method deliberately does not verify that the input units exist; the
 	// caller is expected to have resolved the units first.
-
 	GetStorageClassificationForUnits(
 		context.Context, []string,
 	) (map[string][]internal.StorageInstanceClassification, error)
