@@ -677,7 +677,7 @@ func (a *ControllerApplication) makeEngineCreator(
 		}
 		manifolds := agentcontroller.IAASManifolds(manifoldsCfg)
 		if controllerRuntimeConfig.IsK8SController {
-			manifolds = agentcontroller.CAASManifolds(manifoldsCfg)
+			manifolds = agentcontroller.K8sManifolds(manifoldsCfg)
 		}
 		if err := dependency.Install(eng, manifolds); err != nil {
 			if err := worker.Stop(eng); err != nil {

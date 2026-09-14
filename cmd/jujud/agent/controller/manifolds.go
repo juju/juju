@@ -566,6 +566,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			TraceName:              controllerTraceName,
 			ObjectStoreName:        objectStoreFacadeName,
 			JWTParserName:          jwtParserName,
+			SSHTunnelerName:        sshTunnelerName,
 			WatcherRegistryName:    watcherRegistryName,
 			FlightRecorderName:     flightRecorderName,
 			ProviderTrackerName:    providerTrackerName,
@@ -1032,11 +1033,11 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	})
 }
 
-// CAASManifolds returns the CAAS-specific controller manifolds merged with the
+// K8sManifolds returns the CAAS-specific controller manifolds merged with the
 // shared controller manifolds.
-func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
+func K8sManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
-		bootstrapName: ifControllerProxyReady(ifDatabaseUpgradeComplete(bootstrap.Manifold(NewCAASBootstrapManifoldConfig(config)))),
+		bootstrapName: ifControllerProxyReady(ifDatabaseUpgradeComplete(bootstrap.Manifold(NewK8sBootstrapManifoldConfig(config)))),
 
 		// The controller proxy config updater uses local domain services
 		// instead of calling back through the controller API server.
@@ -1093,7 +1094,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 // NewIAASBootstrapManifoldConfig returns the IAAS-specific bootstrap config.
 func NewIAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldConfig {
 	return bootstrap.ManifoldConfig{
-		ObjectStoreName:               objectStoreFacadeName,
 		DomainServicesName:            domainServicesName,
 		HTTPClientName:                httpClientName,
 		BootstrapGateName:             isBootstrapGateName,
@@ -1102,7 +1102,7 @@ func NewIAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldCo
 		APIPort:                       config.APIPort,
 		AgentPassword:                 config.AgentPassword,
 		RequiresBootstrap:             bootstrap.RequiresBootstrap,
-		PopulateControllerCharm:       bootstrap.PopulateIAASControllerCharm,
+		PopulateControllerCharm:       internalbootstrap.PopulateControllerCharm,
 		StatusHistory:                 domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),
 		Logger:                        internallogger.GetLogger("juju.worker.bootstrap"),
 		Clock:                         config.Clock,
@@ -1116,10 +1116,9 @@ func NewIAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldCo
 	}
 }
 
-// NewCAASBootstrapManifoldConfig returns the CAAS-specific bootstrap config.
-func NewCAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldConfig {
+// NewK8sBootstrapManifoldConfig returns the K8S-specific bootstrap config.
+func NewK8sBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldConfig {
 	return bootstrap.ManifoldConfig{
-		ObjectStoreName:               objectStoreFacadeName,
 		DomainServicesName:            domainServicesName,
 		HTTPClientName:                httpClientName,
 		BootstrapGateName:             isBootstrapGateName,
@@ -1128,16 +1127,16 @@ func NewCAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldCo
 		APIPort:                       config.APIPort,
 		AgentPassword:                 config.AgentPassword,
 		RequiresBootstrap:             bootstrap.RequiresBootstrap,
-		PopulateControllerCharm:       bootstrap.PopulateCAASControllerCharm,
+		PopulateControllerCharm:       internalbootstrap.PopulateControllerCharm,
 		StatusHistory:                 domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),
 		Logger:                        internallogger.GetLogger("juju.worker.bootstrap"),
 		Clock:                         config.Clock,
-		AgentBinaryUploader:           bootstrap.CAASAgentBinaryUploader,
-		ControllerCharmDeployer:       bootstrap.CAASControllerCharmUploader,
-		ControllerApplicationPassword: bootstrap.CAASControllerApplicationPassword,
-		ControllerUnitPassword:        bootstrap.CAASControllerUnitPassword,
-		BootstrapAddressFinderGetter:  bootstrap.CAASAddressFinder,
-		AgentFinalizer:                bootstrap.CAASAgentFinalizer,
+		AgentBinaryUploader:           bootstrap.K8sAgentBinaryUploader,
+		ControllerCharmDeployer:       bootstrap.K8sControllerCharmUploader,
+		ControllerApplicationPassword: bootstrap.K8sControllerApplicationPassword,
+		ControllerUnitPassword:        bootstrap.K8sControllerUnitPassword,
+		BootstrapAddressFinderGetter:  bootstrap.K8sAddressFinder,
+		AgentFinalizer:                bootstrap.K8sAgentFinalizer,
 		RemoveBootstrapSSHKeys:        bootstrap.NoopRemoveBootstrapSSHKeys,
 	}
 }

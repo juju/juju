@@ -238,7 +238,7 @@ func getManifolds(useModel bool, modelType string, agent string) dependency.Mani
 				PreUpgradeSteps: preUpgradeSteps,
 			})
 		case "caas":
-			return jjudcontroller.CAASManifolds(jjudcontroller.ManifoldsConfig{
+			return jjudcontroller.K8sManifolds(jjudcontroller.ManifoldsConfig{
 				PreUpgradeSteps: preUpgradeSteps,
 			})
 		default:
