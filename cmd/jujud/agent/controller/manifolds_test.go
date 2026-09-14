@@ -20,6 +20,7 @@ import (
 	agentcontroller "github.com/juju/juju/cmd/jujud/agent/controller"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/model"
+	internalbootstrap "github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/worker/bootstrap"
@@ -48,7 +49,7 @@ func (s *ManifoldsSuite) TestStartFuncs(c *tc.C) {
 		c.Check(manifold.Start, tc.NotNil)
 	}
 
-	manifolds = agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+	manifolds = agentcontroller.K8sManifolds(agentcontroller.ManifoldsConfig{
 		PreUpgradeSteps: preUpgradeSteps,
 		ControllerTag:   testing.ControllerTag,
 	})
@@ -313,7 +314,7 @@ func (*ManifoldsSuite) TestChangeStreamDirectInputs(c *tc.C) {
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
-		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+		agentcontroller.K8sManifolds(agentcontroller.ManifoldsConfig{
 			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
@@ -333,7 +334,7 @@ func (*ManifoldsSuite) TestControllerOnlyWorkerDirectInputs(c *tc.C) {
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
-		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+		agentcontroller.K8sManifolds(agentcontroller.ManifoldsConfig{
 			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
@@ -414,7 +415,7 @@ func (*ManifoldsSuite) TestObjectStoreDirectInputs(c *tc.C) {
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
-		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+		agentcontroller.K8sManifolds(agentcontroller.ManifoldsConfig{
 			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
@@ -439,7 +440,7 @@ func (*ManifoldsSuite) TestControllerLogRouterDirectInputs(c *tc.C) {
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
-		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+		agentcontroller.K8sManifolds(agentcontroller.ManifoldsConfig{
 			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
@@ -458,7 +459,7 @@ func (*ManifoldsSuite) TestObjectStoreServicesDirectInputs(c *tc.C) {
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
-		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+		agentcontroller.K8sManifolds(agentcontroller.ManifoldsConfig{
 			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
@@ -476,7 +477,7 @@ func (*ManifoldsSuite) TestObjectStoreDrainerDirectInputs(c *tc.C) {
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
-		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+		agentcontroller.K8sManifolds(agentcontroller.ManifoldsConfig{
 			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
@@ -500,7 +501,7 @@ func (*ManifoldsSuite) TestControllerProxyConfigUpdaterRegisteredAndOrdered(c *t
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
-		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+		agentcontroller.K8sManifolds(agentcontroller.ManifoldsConfig{
 			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
@@ -549,7 +550,7 @@ func (*ManifoldsSuite) TestLeaseExpiryDirectInputs(c *tc.C) {
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
-		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+		agentcontroller.K8sManifolds(agentcontroller.ManifoldsConfig{
 			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
@@ -570,7 +571,7 @@ func (*ManifoldsSuite) TestLeaseManagerDirectInputs(c *tc.C) {
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
-		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+		agentcontroller.K8sManifolds(agentcontroller.ManifoldsConfig{
 			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
@@ -591,7 +592,7 @@ func (*ManifoldsSuite) TestOutOfScopeWorkersUseControllerUpgradeGate(c *tc.C) {
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
-		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+		agentcontroller.K8sManifolds(agentcontroller.ManifoldsConfig{
 			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
@@ -628,20 +629,20 @@ func (*ManifoldsSuite) TestBootstrapManifoldConfigUsesProviderSpecificHelpers(c 
 		ControllerTag: testing.ControllerTag,
 	}
 	iaasCfg := agentcontroller.NewIAASBootstrapManifoldConfig(manifoldsCfg)
-	caasCfg := agentcontroller.NewCAASBootstrapManifoldConfig(manifoldsCfg)
+	caasCfg := agentcontroller.NewK8sBootstrapManifoldConfig(manifoldsCfg)
 
-	c.Check(reflect.ValueOf(iaasCfg.PopulateControllerCharm).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.PopulateIAASControllerCharm).Pointer())
-	c.Check(reflect.ValueOf(caasCfg.PopulateControllerCharm).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.PopulateCAASControllerCharm).Pointer())
+	c.Check(reflect.ValueOf(iaasCfg.PopulateControllerCharm).Pointer(), tc.Equals, reflect.ValueOf(internalbootstrap.PopulateControllerCharm).Pointer())
+	c.Check(reflect.ValueOf(caasCfg.PopulateControllerCharm).Pointer(), tc.Equals, reflect.ValueOf(internalbootstrap.PopulateControllerCharm).Pointer())
 	c.Check(reflect.ValueOf(iaasCfg.AgentBinaryUploader).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.IAASAgentBinaryUploader).Pointer())
-	c.Check(reflect.ValueOf(caasCfg.AgentBinaryUploader).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.CAASAgentBinaryUploader).Pointer())
+	c.Check(reflect.ValueOf(caasCfg.AgentBinaryUploader).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.K8sAgentBinaryUploader).Pointer())
 	c.Check(reflect.ValueOf(iaasCfg.ControllerCharmDeployer).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.IAASControllerCharmUploader).Pointer())
-	c.Check(reflect.ValueOf(caasCfg.ControllerCharmDeployer).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.CAASControllerCharmUploader).Pointer())
+	c.Check(reflect.ValueOf(caasCfg.ControllerCharmDeployer).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.K8sControllerCharmUploader).Pointer())
 	c.Check(reflect.ValueOf(iaasCfg.ControllerUnitPassword).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.IAASControllerUnitPassword).Pointer())
-	c.Check(reflect.ValueOf(caasCfg.ControllerUnitPassword).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.CAASControllerUnitPassword).Pointer())
+	c.Check(reflect.ValueOf(caasCfg.ControllerUnitPassword).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.K8sControllerUnitPassword).Pointer())
 	c.Check(reflect.ValueOf(iaasCfg.BootstrapAddressFinderGetter).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.IAASAddressFinder).Pointer())
-	c.Check(reflect.ValueOf(caasCfg.BootstrapAddressFinderGetter).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.CAASAddressFinder).Pointer())
+	c.Check(reflect.ValueOf(caasCfg.BootstrapAddressFinderGetter).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.K8sAddressFinder).Pointer())
 	c.Check(reflect.ValueOf(iaasCfg.AgentFinalizer).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.IAASAgentFinalizer).Pointer())
-	c.Check(reflect.ValueOf(caasCfg.AgentFinalizer).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.CAASAgentFinalizer).Pointer())
+	c.Check(reflect.ValueOf(caasCfg.AgentFinalizer).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.K8sAgentFinalizer).Pointer())
 }
 
 func assertGate(c *tc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
@@ -769,6 +770,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-services",
 		"provider-tracker",
 		"query-logger",
+		"ssh-tunneler",
 		"storage-registry",
 		"trace-services",
 		"upgrade-database-flag",
@@ -1090,6 +1092,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-services",
 		"provider-tracker",
 		"query-logger",
+		"ssh-tunneler",
 		"storage-registry",
 		"trace-services",
 		"upgrade-database-flag",
