@@ -167,7 +167,11 @@ func (w *socketListener) RegisterHTTPHandlers(
 	handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
 	handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 	handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
-	handle("/depengine", depengineHandler{reporter: w.depEngine, timeout: defaultReportTimeout})
+	handle("/depengine", depengineHandler{
+		reporter: w.depEngine,
+		timeout:  defaultReportTimeout,
+		running:  make(chan struct{}, 1),
+	})
 	handle("/metrics", promhttp.HandlerFor(w.prometheusGatherer, promhttp.HandlerOpts{}))
 	handle("/machinelock", machineLockHandler{lock: w.machineLock})
 	// The trailing slash is kept for metrics because we don't want to
@@ -202,6 +206,12 @@ const defaultReportTimeout = 30 * time.Second
 type depengineHandler struct {
 	reporter DependencyEngine
 	timeout  time.Duration
+	// running admits one report at a time. The engine serializes report
+	// requests anyway, so a second one in flight gains nothing, and a worker
+	// that ignores the context leaves the abandoned report's goroutine parked
+	// inside Report. The slot is held until that goroutine finishes, so
+	// polling the endpoint during a hang can't pile them up.
+	running chan struct{}
 }
 
 // ServeHTTP is part of the http.Handler interface.
@@ -218,7 +228,18 @@ func (h depengineHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("invalid timeout %q: %v", v, err), http.StatusBadRequest)
 			return
 		}
+		if d <= 0 {
+			http.Error(w, fmt.Sprintf("invalid timeout %q: must be positive", v), http.StatusBadRequest)
+			return
+		}
 		timeout = d
+	}
+
+	select {
+	case h.running <- struct{}{}:
+	default:
+		http.Error(w, "error: a report is already in progress", http.StatusServiceUnavailable)
+		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), timeout)
@@ -228,6 +249,7 @@ func (h depengineHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// ignores the context can't hold the request open indefinitely.
 	reported := make(chan map[string]any, 1)
 	go func() {
+		defer func() { <-h.running }()
 		reported <- h.reporter.Report(ctx)
 	}()
 

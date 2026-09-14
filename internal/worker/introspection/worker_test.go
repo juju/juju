@@ -220,15 +220,76 @@ func (s *introspectionSuite) TestEngineReporterTimeout(c *tc.C) {
 	s.assertBodyContains(c, response, "dependency engine report abandoned after 10ms")
 }
 
+func (s *introspectionSuite) TestEngineReporterTimeoutOverride(c *tc.C) {
+	workertest.CleanKill(c, s.worker)
+	s.depEngine = &depEngine{
+		values: map[string]any{
+			"working": true,
+		},
+	}
+	s.startWorker(c)
+
+	response := s.call(c, "/depengine?timeout=1m")
+	defer response.Body.Close()
+	c.Assert(response.StatusCode, tc.Equals, http.StatusOK)
+	s.assertBody(c, response, `
+Dependency Engine Report
+
+working: true`[1:])
+}
+
 func (s *introspectionSuite) TestEngineReporterInvalidTimeout(c *tc.C) {
 	workertest.CleanKill(c, s.worker)
 	s.depEngine = &depEngine{}
 	s.startWorker(c)
 
-	response := s.call(c, "/depengine?timeout=soon")
-	defer response.Body.Close()
-	c.Assert(response.StatusCode, tc.Equals, http.StatusBadRequest)
-	s.assertBodyContains(c, response, `invalid timeout "soon"`)
+	for _, value := range []string{"soon", "0", "-5m"} {
+		response := s.call(c, "/depengine?timeout="+value)
+		c.Assert(response.StatusCode, tc.Equals, http.StatusBadRequest)
+		s.assertBodyContains(c, response, fmt.Sprintf("invalid timeout %q", value))
+		response.Body.Close()
+	}
+}
+
+func (s *introspectionSuite) TestEngineReporterOneReportAtATime(c *tc.C) {
+	workertest.CleanKill(c, s.worker)
+	blocking := make(chan struct{})
+	reporting := make(chan struct{}, 1)
+	s.depEngine = &depEngine{block: blocking, reporting: reporting}
+	s.startWorker(c)
+
+	// The first request is abandoned, but a worker ignoring the context leaves
+	// its goroutine parked inside Report. Asking again while that is the case
+	// must not start another one.
+	first := s.call(c, "/depengine?timeout=10ms")
+	defer first.Body.Close()
+	c.Assert(first.StatusCode, tc.Equals, http.StatusServiceUnavailable)
+	select {
+	case <-reporting:
+	case <-time.After(testhelpers.LongWait):
+		c.Fatal("timed out waiting for the report to start")
+	}
+
+	second := s.call(c, "/depengine")
+	defer second.Body.Close()
+	c.Assert(second.StatusCode, tc.Equals, http.StatusServiceUnavailable)
+	s.assertBodyContains(c, second, "a report is already in progress")
+
+	// Once the wedged worker returns, reports are accepted again. The slot is
+	// given up by the abandoned goroutine, so it isn't free the instant the
+	// worker unblocks.
+	close(blocking)
+	var third *http.Response
+	for deadline := time.Now().Add(testhelpers.LongWait); ; {
+		third = s.call(c, "/depengine")
+		if third.StatusCode == http.StatusOK || time.Now().After(deadline) {
+			break
+		}
+		third.Body.Close()
+		time.Sleep(time.Millisecond)
+	}
+	defer third.Body.Close()
+	c.Assert(third.StatusCode, tc.Equals, http.StatusOK)
 }
 
 func (s *introspectionSuite) TestPrometheusMetrics(c *tc.C) {
@@ -246,9 +307,17 @@ type depEngine struct {
 	// block, if set, is waited on before reporting, mimicking a worker with a
 	// Report method that doesn't honour the context.
 	block chan struct{}
+	// reporting, if set, is signalled once Report has been entered.
+	reporting chan struct{}
 }
 
 func (r *depEngine) Report(ctx context.Context) map[string]any {
+	if r.reporting != nil {
+		select {
+		case r.reporting <- struct{}{}:
+		default:
+		}
+	}
 	if r.block != nil {
 		<-r.block
 	}
