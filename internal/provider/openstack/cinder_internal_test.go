@@ -62,3 +62,44 @@ func (r *testAuthClient) TenantId() string {
 func (r *testAuthClient) EndpointsForRegion(region string) identity.ServiceURLs {
 	return r.regionEndpoints[region]
 }
+
+type cinderConfigSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&cinderConfigSuite{})
+
+func (s *cinderConfigSuite) TestNewCinderConfigEmpty(c *gc.C) {
+	cfg, err := newCinderConfig(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg, jc.DeepEquals, &cinderConfig{})
+}
+
+func (s *cinderConfigSuite) TestNewCinderConfigVolumeType(c *gc.C) {
+	cfg, err := newCinderConfig(map[string]interface{}{
+		"volume-type": "Ceph",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg, jc.DeepEquals, &cinderConfig{volumeType: "Ceph"})
+}
+
+func (s *cinderConfigSuite) TestNewCinderConfigFull(c *gc.C) {
+	cfg, err := newCinderConfig(map[string]interface{}{
+		"volume-type": "Ceph",
+		"disk-bus":    "scsi",
+		"tag":         "root",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg, jc.DeepEquals, &cinderConfig{
+		volumeType: "Ceph",
+		diskBus:    "scsi",
+		tag:        "root",
+	})
+}
+
+func (s *cinderConfigSuite) TestNewCinderConfigInvalidDiskBus(c *gc.C) {
+	_, err := newCinderConfig(map[string]interface{}{
+		"disk-bus": "pcie",
+	})
+	c.Assert(err, gc.ErrorMatches, "validating Cinder storage config: .*")
+}

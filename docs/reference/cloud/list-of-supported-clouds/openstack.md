@@ -168,7 +168,7 @@ The controller runs on a Nova instance provisioned using the same mechanisms as 
 
 **Storage**
 
-- **Root disk**: Local ephemeral disk or Cinder boot volume based on `root-disk-source` constraint.
+- **Root disk**: Local ephemeral disk or Cinder boot volume based on `root-disk-source` constraint. Configurable volume type, tag, and disk bus.
 
 (openstack-model)=
 ## Models
@@ -233,7 +233,7 @@ The constraints `instance-type` and `[mem, root-disk, cores]` are mutually exclu
 **Storage**
 
 - {ref}`constraint-root-disk`
-- {ref}`constraint-root-disk-source`. Values: `local` (ephemeral disk, default) or `volume` (Cinder boot volume).
+- {ref}`constraint-root-disk-source`. Values: `local` (ephemeral disk, default) or `volume` (Cinder boot volume) or `<storage-pool name>` (Cinder boot volume with additional configuration for volume type, tag, and disk bus).
 
 (openstack-machine-placement-directives)=
 ### Placement directives
@@ -281,8 +281,7 @@ Applies to all machines, including controller machines. Controller-specific diff
 ```{ibnote}
 See also: {ref}`storage-provider-cinder` for the Cinder storage provider configuration options.
 ```
-
-- **Root disk**: Local ephemeral disk by default. Use `root-disk-source=volume` constraint to boot from a Cinder volume instead.
+- **Root disk**: Local ephemeral disk by default. Use `root-disk-source=volume` constraint to boot from a generic Cinder volume instead, or specify a storage pool. Volume type, tag and disk bus are configurable via the pool.
 - **Additional volumes**: Cinder block volumes created on demand when storage is specified via storage constraints.
 - **AZ constraint**: Availability zone is matched to the instance's AZ when possible.
 - **Device path**: Auto-assigned by OpenStack.

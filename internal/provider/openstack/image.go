@@ -48,11 +48,11 @@ func findInstanceSpec(
 		return nil, err
 	}
 
-	if ic.Constraints.HasRootDiskSource() && *ic.Constraints.RootDiskSource == "volume" {
-		// When the root disk is a volume (i.e. cinder block volume)
-		// we don't want to match on RootDisk size. If an instance requires
-		// a very large root disk we don't want to select a larger instance type
-		// to fit a disk that won't be local to the instance.
+	if ic.Constraints.HasRootDiskSource() && *ic.Constraints.RootDiskSource != rootDiskSourceLocal {
+		// When the root disk is a cinder block volume we don't want to match on
+		// RootDisk size. If an instance requires a very large root disk we
+		// don't want to select a larger instance type to fit a disk that won't
+		// be local to the instance.
 		ic.Constraints.RootDisk = nil
 	}
 
