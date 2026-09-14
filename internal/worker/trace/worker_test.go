@@ -271,8 +271,140 @@ func (s *workerSuite) TestGetTracerDisabled(c *tc.C) {
 	worker := w
 	tracer, err := worker.GetTracer(c.Context(), coretrace.Namespace("agent", "anything"))
 	c.Assert(err, tc.ErrorIsNil)
-	_, ok := tracer.(coretrace.NoopTracer)
-	c.Check(ok, tc.IsTrue)
+	c.Check(tracer.Enabled(), tc.IsFalse)
+}
+
+func (s *workerSuite) TestGetTracerWaitsForInitialRuntimeConfig(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+
+	configReadStarted := make(chan struct{})
+	allowConfigRead := make(chan struct{})
+	var initialConfigRead sync.Once
+	done := make(chan struct{})
+	s.trackedTracer.EXPECT().Kill().AnyTimes()
+	s.trackedTracer.EXPECT().Wait().DoAndReturn(func() error {
+		<-done
+		return nil
+	}).AnyTimes()
+
+	w, err := newWorker(WorkerConfig{
+		Clock:  s.clock,
+		Logger: s.logger,
+		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, string, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
+			atomic.AddInt64(&s.called, 1)
+			return s.trackedTracer, nil
+		},
+		Tag:  names.NewMachineTag("0"),
+		Kind: coretrace.KindUnit,
+		RuntimeConfigProvider: testRuntimeConfigProvider{
+			getConfig: func(context.Context) (RuntimeConfig, error) {
+				initialConfigRead.Do(func() {
+					close(configReadStarted)
+					<-allowConfigRead
+				})
+				return RuntimeConfig{
+					Enabled:               true,
+					HTTPEndpoint:          "https://meshuggah.com",
+					SampleRatio:           defaultOpenTelemetrySampleRatio,
+					TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
+				}, nil
+			},
+			watchConfig: func(context.Context) (watcher.NotifyWatcher, error) {
+				return watcher.TODO[struct{}](), nil
+			},
+		},
+	}, s.states)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	select {
+	case <-configReadStarted:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for initial runtime config read")
+	}
+
+	cancelledCtx, cancel := context.WithCancel(c.Context())
+	cancel()
+	tracer, err := w.GetTracer(cancelledCtx, coretrace.Namespace("agent", "anything"))
+	c.Assert(err, tc.ErrorIs, context.Canceled)
+	c.Check(tracer, tc.IsNil)
+
+	close(allowConfigRead)
+	s.ensureStartup(c)
+
+	tracer, err = w.GetTracer(c.Context(), coretrace.Namespace("agent", "anything"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(tracer.Enabled(), tc.IsTrue)
+	c.Check(atomic.LoadInt64(&s.called), tc.Equals, int64(1))
+
+	close(done)
+}
+
+func (s *workerSuite) TestTracerReloadsWhenRuntimeConfigIsEnabled(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+
+	watcherChanges := make(chan struct{}, 1)
+	currentConfig := RuntimeConfig{}
+	var configMu sync.Mutex
+	runtimeConfigProvider := testRuntimeConfigProvider{
+		getConfig: func(context.Context) (RuntimeConfig, error) {
+			configMu.Lock()
+			defer configMu.Unlock()
+			return currentConfig, nil
+		},
+		watchConfig: func(context.Context) (watcher.NotifyWatcher, error) {
+			return watchertest.NewMockNotifyWatcher(watcherChanges), nil
+		},
+	}
+
+	done := make(chan struct{})
+	s.trackedTracer.EXPECT().Kill().AnyTimes()
+	s.trackedTracer.EXPECT().Wait().DoAndReturn(func() error {
+		<-done
+		return nil
+	}).AnyTimes()
+
+	w := s.newControllerWorker(c, runtimeConfigProvider).(*tracerWorker)
+	defer workertest.CleanKill(c, w)
+	s.ensureStartup(c)
+
+	tracer, err := w.GetTracer(c.Context(), coretrace.Namespace("agent", "anything"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(tracer.Enabled(), tc.IsFalse)
+
+	configMu.Lock()
+	currentConfig = RuntimeConfig{
+		Enabled:               true,
+		HTTPEndpoint:          "https://meshuggah.com",
+		SampleRatio:           defaultOpenTelemetrySampleRatio,
+		TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
+	}
+	configMu.Unlock()
+	select {
+	case watcherChanges <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending runtime config change")
+	}
+
+	waitForEnabled := time.NewTicker(time.Millisecond)
+	defer waitForEnabled.Stop()
+	for !tracer.Enabled() {
+		select {
+		case <-waitForEnabled.C:
+		case <-c.Context().Done():
+			c.Fatalf("timed out waiting for enabled runtime config")
+		}
+	}
+
+	s.trackedTracer.EXPECT().Start(gomock.Any(), "foo")
+	tracer.Start(c.Context(), "foo")
+	c.Check(atomic.LoadInt64(&s.called), tc.Equals, int64(1))
+
+	close(done)
 }
 
 func (s *workerSuite) TestControllerTracingConfigChangeDuringStartup(c *tc.C) {
@@ -343,7 +475,7 @@ func (s *workerSuite) TestControllerTracingConfigChangeDuringStartup(c *tc.C) {
 
 	// Wait for both the initial read and the follow-up read triggered by the
 	// watcher event.
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		select {
 		case <-getConfigCalled:
 		case <-c.Context().Done():
@@ -352,8 +484,17 @@ func (s *workerSuite) TestControllerTracingConfigChangeDuringStartup(c *tc.C) {
 	}
 
 	worker := w
-	_, err = worker.GetTracer(c.Context(), coretrace.Namespace("agent", "anything"))
-	c.Assert(err, tc.ErrorIsNil)
+	tracerReady := time.NewTicker(time.Millisecond)
+	defer tracerReady.Stop()
+	for atomic.LoadInt64(&s.called) == 0 {
+		_, err = worker.GetTracer(c.Context(), coretrace.Namespace("agent", "anything"))
+		c.Assert(err, tc.ErrorIsNil)
+		select {
+		case <-tracerReady.C:
+		case <-c.Context().Done():
+			c.Fatalf("timed out waiting for enabled tracer")
+		}
+	}
 	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(1))
 
 	close(done)
