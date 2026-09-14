@@ -75,6 +75,7 @@ type Machine struct {
 	HardwareCharacteristics instance.HardwareCharacteristics
 	LXDProfiles             []string
 	ClusterInfo             *MachineClusterInfo
+	AgentVersion            string
 }
 
 // MachineClusterInfo represents the cluster information of a controller

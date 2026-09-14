@@ -2200,10 +2200,12 @@ SELECT
   ct.value AS &machineStatusDetails.constraint_container_type,
   c.virt_type AS &machineStatusDetails.constraint_virt_type,
   c.allocate_public_ip AS &machineStatusDetails.constraint_allocate_public_ip,
-  c.image_id AS &machineStatusDetails.constraint_image_id
+  c.image_id AS &machineStatusDetails.constraint_image_id,
+  mav.version AS &machineStatusDetails.agent_version
 FROM machine AS m
 LEFT JOIN machine_status AS ms ON ms.machine_uuid = m.uuid
 LEFT JOIN v_machine_status AS vms ON vms.machine_uuid = m.uuid
+LEFT JOIN v_machine_agent_version AS mav ON mav.machine_uuid = m.uuid
 LEFT JOIN machine_platform AS p ON p.machine_uuid = m.uuid
 LEFT JOIN machine_cloud_instance AS mci ON mci.machine_uuid = m.uuid
 LEFT JOIN machine_cloud_instance_status mcis ON mcis.machine_uuid = m.uuid
@@ -2336,15 +2338,23 @@ LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
 			present = s.MachinePresent.V
 		}
 
+		// By default, the verion is NOT NULL. However, it is still better to guard
+		// agains LEFT JOIN, which can potentially produce a NULL column.
+		var agentVersion string
+		if s.AgentVersion.Valid {
+			agentVersion = s.AgentVersion.V
+		}
+
 		result[s.Name] = status.Machine{
-			UUID:        s.UUID,
-			Life:        s.LifeID,
-			Hostname:    hostname,
-			InstanceID:  instanceID,
-			DisplayName: displayName,
-			DNSName:     dnsName,
-			IPAddresses: ipAddresses,
-			Platform:    platform,
+			UUID:         s.UUID,
+			Life:         s.LifeID,
+			Hostname:     hostname,
+			InstanceID:   instanceID,
+			DisplayName:  displayName,
+			DNSName:      dnsName,
+			IPAddresses:  ipAddresses,
+			Platform:     platform,
+			AgentVersion: agentVersion,
 			MachineStatus: status.MachineStatusInfo[status.MachineStatusType]{
 				StatusInfo: status.StatusInfo[status.MachineStatusType]{
 					Status:  s.MachineStatusID,
