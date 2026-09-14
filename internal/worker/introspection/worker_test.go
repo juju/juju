@@ -235,6 +235,32 @@ Dependency Engine Report
 working: true`[1:])
 }
 
+func (s *introspectionSuite) TestEngineReporterTimeout(c *gc.C) {
+	// We need to make sure the existing worker is shut down
+	// so we can connect to the socket.
+	workertest.CleanKill(c, s.worker)
+	blocking := make(chan struct{})
+	defer close(blocking)
+	s.reporter = &reporter{block: blocking}
+	s.startWorker(c)
+
+	response := s.call(c, "/depengine?timeout=10ms")
+	defer response.Body.Close()
+	c.Assert(response.StatusCode, gc.Equals, http.StatusServiceUnavailable)
+	s.assertBody(c, response, "error: dependency engine report abandoned after 10ms, a worker is not reporting")
+}
+
+func (s *introspectionSuite) TestEngineReporterBadTimeout(c *gc.C) {
+	workertest.CleanKill(c, s.worker)
+	s.reporter = &reporter{}
+	s.startWorker(c)
+
+	response := s.call(c, "/depengine?timeout=soon")
+	defer response.Body.Close()
+	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
+	s.assertBodyContains(c, response, `invalid timeout "soon"`)
+}
+
 func (s *introspectionSuite) TestMissingPresenceReporter(c *gc.C) {
 	response := s.call(c, "/presence")
 	defer response.Body.Close()
@@ -398,9 +424,15 @@ func (s *introspectionSuite) TestUnitStatusTimeout(c *gc.C) {
 
 type reporter struct {
 	values map[string]interface{}
+	// block, if set, is waited on before reporting, mimicking a worker with a
+	// Report method that blocks forever.
+	block chan struct{}
 }
 
 func (r *reporter) Report() map[string]interface{} {
+	if r.block != nil {
+		<-r.block
+	}
 	return r.values
 }
 

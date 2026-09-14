@@ -185,7 +185,7 @@ func (w *socketListener) RegisterHTTPHandlers(
 	handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
 	handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 	handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
-	handle("/depengine", depengineHandler{w.depEngine})
+	handle("/depengine", depengineHandler{reporter: w.depEngine, timeout: defaultReportTimeout})
 	handle("/metrics", promhttp.HandlerFor(w.prometheusGatherer, promhttp.HandlerOpts{}))
 	handle("/machinelock", machineLockHandler{w.machineLock})
 	// The trailing slash is kept for metrics because we don't want to
@@ -234,8 +234,15 @@ func (h notSupportedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, fmt.Sprintf("%q introspection not supported", h.name), http.StatusNotFound)
 }
 
+// defaultReportTimeout is how long the dependency engine is given to produce a
+// report before the request gives up on it. The engine asks every worker in
+// turn for its report, so one worker with a Report method that blocks would
+// otherwise hang the request forever.
+const defaultReportTimeout = 30 * time.Second
+
 type depengineHandler struct {
 	reporter DepEngineReporter
+	timeout  time.Duration
 }
 
 // ServeHTTP is part of the http.Handler interface.
@@ -244,7 +251,35 @@ func (h depengineHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing dependency engine reporter", http.StatusNotFound)
 		return
 	}
-	bytes, err := yaml.Marshal(h.reporter.Report())
+
+	timeout := h.timeout
+	if v := r.URL.Query().Get("timeout"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("invalid timeout %q: %v", v, err), http.StatusBadRequest)
+			return
+		}
+		timeout = d
+	}
+
+	// Report can't be cancelled, so it is gathered on its own goroutine and
+	// abandoned if it takes too long. The buffered channel means that
+	// goroutine can still finish and exit if the worker holding things up
+	// eventually returns.
+	reported := make(chan map[string]interface{}, 1)
+	go func() {
+		reported <- h.reporter.Report()
+	}()
+
+	var report map[string]interface{}
+	select {
+	case report = <-reported:
+	case <-time.After(timeout):
+		http.Error(w, fmt.Sprintf("error: dependency engine report abandoned after %s, a worker is not reporting", timeout), http.StatusServiceUnavailable)
+		return
+	}
+
+	bytes, err := yaml.Marshal(report)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error: %v", err), http.StatusInternalServerError)
 		return
