@@ -84,6 +84,7 @@ type MockStateMockRecorder struct {
 	listCharmSecretsExpects                                     []*gomock.Call3_3[context.Context, secret.ApplicationOwners, secret.UnitOwners, []*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error]
 	listCharmSecretsToDrainExpects                              []*gomock.Call3_2[context.Context, secret.ApplicationOwners, secret.UnitOwners, []*secrets.SecretMetadataForDrain, error]
 	listGrantedSecretsForBackendExpects                         []*gomock.Call4_2[context.Context, string, []secret.AccessParams, []secret.Role, []*secrets.SecretRevisionRef, error]
+	listGrantedSecretsForDrainExpects                           []*gomock.Call3_2[context.Context, []secret.AccessParams, []secret.Role, []*secrets.SecretRevisionRef, error]
 	listSecretsByLabelsExpects                                  []*gomock.Call3_3[context.Context, secret.Labels, *int, []*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error]
 	listUserSecretsToDrainExpects                               []*gomock.Call1_2[context.Context, []*secrets.SecretMetadataForDrain, error]
 	namespaceForWatchSecretMetadataExpects                      []*gomock.Call0_1[string]
@@ -958,6 +959,24 @@ func (mr *MockStateMockRecorder) ListGrantedSecretsForBackend(ctx, backendID, ac
 
 // MockStateListGrantedSecretsForBackendCall is the typed call wrapper for ListGrantedSecretsForBackend.
 type MockStateListGrantedSecretsForBackendCall = gomock.Call4_2[context.Context, string, []secret.AccessParams, []secret.Role, []*secrets.SecretRevisionRef, error]
+
+// ListGrantedSecretsForDrain mocks base method.
+func (m *MockState) ListGrantedSecretsForDrain(ctx context.Context, accessors []secret.AccessParams, roles []secret.Role) ([]*secrets.SecretRevisionRef, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.listGrantedSecretsForDrainExpects, m.ctrl, m, "ListGrantedSecretsForDrain", ctx, accessors, roles)
+}
+
+// ListGrantedSecretsForDrain indicates an expected call of ListGrantedSecretsForDrain.
+func (mr *MockStateMockRecorder) ListGrantedSecretsForDrain(ctx, accessors, roles any) *MockStateListGrantedSecretsForDrainCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, []secret.AccessParams, []secret.Role, []*secrets.SecretRevisionRef, error](mr.mock.ctrl.T, mr.mock, "ListGrantedSecretsForDrain", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(accessors), gomock.EnsureMatcher(roles))
+	mr.listGrantedSecretsForDrainExpects = append(mr.listGrantedSecretsForDrainExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateListGrantedSecretsForDrainCall is the typed call wrapper for ListGrantedSecretsForDrain.
+type MockStateListGrantedSecretsForDrainCall = gomock.Call3_2[context.Context, []secret.AccessParams, []secret.Role, []*secrets.SecretRevisionRef, error]
 
 // ListSecretsByLabels mocks base method.
 func (m *MockState) ListSecretsByLabels(ctx context.Context, labels secret.Labels, revision *int) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {

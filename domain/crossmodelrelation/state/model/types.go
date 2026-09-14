@@ -29,6 +29,15 @@ type nameAndUUID struct {
 	Name string `db:"name"`
 }
 
+// insertOffer is used to insert a row into the offer table. The
+// description is nullable: an empty description is stored as NULL so
+// that the offer falls back to the charm metadata description.
+type insertOffer struct {
+	UUID        string           `db:"uuid"`
+	Name        string           `db:"name"`
+	Description sql.Null[string] `db:"description"`
+}
+
 // offerEndpoint represent a row in the offer_endpoint table.
 type offerEndpoint struct {
 	OfferUUID    string `db:"offer_uuid"`

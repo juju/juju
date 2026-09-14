@@ -106,8 +106,8 @@ func (s *SecretsManagerAPI) getBackendConfigForDrain(ctx context.Context, arg pa
 	appName, _ := names.UnitApplication(s.authTag.Id())
 	token := s.leadershipChecker.LeadershipCheck(appName, s.authTag.Id())
 	cfgInfo, err := s.secretBackendService.DrainBackendConfigInfo(ctx, secretbackendservice.DrainBackendConfigParams{
-		GrantedSecretsGetter: s.secretService.ListGrantedSecretsForBackend,
-		LeaderToken:          token,
+		GrantedSecretsForDrainGetter: s.secretService.ListGrantedSecretsForDrain,
+		LeaderToken:                  token,
 		Accessor: secret.SecretAccessor{
 			Kind: secret.UnitAccessor,
 			ID:   s.authTag.Id(),

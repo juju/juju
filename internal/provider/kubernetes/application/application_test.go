@@ -568,6 +568,26 @@ func (s *applicationSuite) TestEnsurePreservesControllerBootstrapPodExtensions(c
 	}
 }
 
+func (s *applicationSuite) TestEnsureControllerDoesNotAddApplicationUUIDToPodTemplate(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	var config caas.ApplicationConfig
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func(got *caas.ApplicationConfig) {
+		config = *got
+		config.Controller = true
+	}, func() {}, nil)
+
+	config.ResourceTags = map[string]string{
+		k8sutils.AnnotationKeyApplicationUUID(constants.LastLabelVersion): "application-uuid",
+	}
+	c.Assert(app.Ensure(config), tc.ErrorIsNil)
+
+	statefulSet, err := s.client.AppsV1().StatefulSets(s.namespace).Get(c.Context(), s.appName, metav1.GetOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(statefulSet.Annotations[k8sutils.AnnotationKeyApplicationUUID(constants.LastLabelVersion)], tc.Equals, "uniqid")
+	_, ok := statefulSet.Spec.Template.Annotations[k8sutils.AnnotationKeyApplicationUUID(constants.LastLabelVersion)]
+	c.Check(ok, tc.IsFalse)
+}
+
 func (s *applicationSuite) TestEnsureRemovesContainerRemovedByCharmRefresh(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	var config caas.ApplicationConfig

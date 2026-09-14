@@ -212,11 +212,20 @@ type ControllerState interface {
 	GetControllerNodeIDs(ctx context.Context) ([]status.ControllerNode, error)
 }
 
+// LeaderGetter returns the leader unit name for an application.
+type LeaderGetter interface {
+	// ApplicationLeader returns the name of the leader unit for the
+	// specified application. If the application has no elected leader, an
+	// empty name and a nil error are returned.
+	ApplicationLeader(appName string) (string, error)
+}
+
 // Service provides the API for working with the statuses of applications and
 // units and the model.
 type Service struct {
 	modelState            ModelState
 	controllerState       ControllerState
+	leaderGetter          LeaderGetter
 	clusterDescriber      database.ClusterDescriber
 	statusHistory         StatusHistory
 	statusHistoryReaderFn StatusHistoryReaderFunc
@@ -228,6 +237,7 @@ type Service struct {
 func NewService(
 	modelState ModelState,
 	controllerState ControllerState,
+	leaderGetter LeaderGetter,
 	clusterDescriber database.ClusterDescriber,
 	statusHistory StatusHistory,
 	statusHistoryReaderFn StatusHistoryReaderFunc,
@@ -237,6 +247,7 @@ func NewService(
 	return &Service{
 		modelState:            modelState,
 		controllerState:       controllerState,
+		leaderGetter:          leaderGetter,
 		clusterDescriber:      clusterDescriber,
 		statusHistory:         statusHistory,
 		statusHistoryReaderFn: statusHistoryReaderFn,
@@ -367,7 +378,19 @@ func (s *Service) getApplicationDisplayStatus(ctx context.Context, appID coreapp
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
 
-	derivedApplicationStatus, err := applicationDisplayStatusFromUnits(fullUnitStatuses)
+	var leaderUnit coreunit.Name
+	var appName string
+	for u := range fullUnitStatuses {
+		appName = u.Application()
+		break
+	}
+	if appName != "" {
+		if leader, err := s.leaderGetter.ApplicationLeader(appName); err == nil {
+			leaderUnit, _ = coreunit.NewName(leader)
+		}
+	}
+
+	derivedApplicationStatus, err := applicationDisplayStatusFromUnits(fullUnitStatuses, leaderUnit)
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
@@ -656,7 +679,7 @@ func (s *Service) GetApplicationAndUnitStatuses(ctx context.Context) (map[string
 
 	results := make(map[string]Application, len(statuses))
 	for appName, app := range statuses {
-		decoded, err := s.decodeApplicationStatusDetails(app)
+		decoded, err := s.decodeApplicationStatusDetails(appName, app)
 		if err != nil {
 			return nil, errors.Errorf("decoding application status for %q: %w", appName, err)
 		}
@@ -1152,7 +1175,7 @@ func (s *Service) SetRemoteRelationStatus(
 	return s.modelState.SetRemoteRelationStatus(ctx, relationUUID, relationStatus)
 }
 
-func (s *Service) decodeApplicationStatusDetails(app status.Application) (Application, error) {
+func (s *Service) decodeApplicationStatusDetails(appName string, app status.Application) (Application, error) {
 	life, err := app.Life.Value()
 	if err != nil {
 		return Application{}, errors.Errorf("decoding application life: %w", err)
@@ -1173,7 +1196,15 @@ func (s *Service) decodeApplicationStatusDetails(app status.Application) (Applic
 				Present:        u.Present,
 			}
 		})
-		decodedStatus, err = applicationDisplayStatusFromUnits(unitStatuses)
+		// No need to look up the leader if the application has no units;
+		// the derived status is unknown in that case.
+		var leaderUnit coreunit.Name
+		if appName != "" && len(unitStatuses) > 0 {
+			if leader, err := s.leaderGetter.ApplicationLeader(appName); err == nil {
+				leaderUnit, _ = coreunit.NewName(leader)
+			}
+		}
+		decodedStatus, err = applicationDisplayStatusFromUnits(unitStatuses, leaderUnit)
 		if err != nil {
 			return Application{}, errors.Errorf("decoding application status from units: %w", err)
 		}

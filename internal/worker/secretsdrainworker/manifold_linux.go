@@ -122,6 +122,7 @@ type secretService interface {
 	ChangeSecretBackend(context.Context, *coresecrets.URI, int, secretservice.ChangeSecretBackendParams) error
 	GetSecretValue(context.Context, *coresecrets.URI, int, secret.SecretAccessor) (coresecrets.SecretValue, *coresecrets.ValueRef, error)
 	ListGrantedSecretsForBackend(context.Context, string, coresecrets.SecretRole, ...secret.SecretAccessor) ([]*coresecrets.SecretRevisionRef, error)
+	ListGrantedSecretsForDrain(context.Context, coresecrets.SecretRole, ...secret.SecretAccessor) ([]*coresecrets.SecretRevisionRef, error)
 }
 
 // secretBackendService is the subset of the domain secret backend service
@@ -207,10 +208,10 @@ func (c *localJujuAPIClient) GetBackendConfigForDrain(ctx context.Context, backe
 		ID:   c.modelUUID.String(),
 	}
 	info, err := c.backendSvc.DrainBackendConfigInfo(ctx, secretbackendservice.DrainBackendConfigParams{
-		GrantedSecretsGetter: c.secretSvc.ListGrantedSecretsForBackend,
-		Accessor:             accessor,
-		ModelUUID:            c.modelUUID,
-		BackendID:            bid,
+		GrantedSecretsForDrainGetter: c.secretSvc.ListGrantedSecretsForDrain,
+		Accessor:                     accessor,
+		ModelUUID:                    c.modelUUID,
+		BackendID:                    bid,
 	})
 	if err != nil {
 		return nil, "", errors.Trace(err)
