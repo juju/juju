@@ -157,8 +157,8 @@ AND    (unn.is_caas = 1
 	return addrs, nil
 }
 
-// GetControllerK8sServiceAddresses returns addresses associated with the
-// controller application's Kubernetes Services.
+// GetControllerK8sServiceAddresses returns addresses associated with net nodes
+// belonging to the controller application in the controller model.
 func (st *State) GetControllerK8sServiceAddresses(ctx context.Context) (corenetwork.SpaceAddresses, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -170,20 +170,23 @@ func (st *State) GetControllerK8sServiceAddresses(ctx context.Context) (corenetw
 		Scope   string `db:"scope"`
 	}
 	stmt, err := st.Prepare(`
-WITH service_addresses AS (
+WITH controller_net_nodes AS (
+    SELECT u.net_node_uuid AS net_node_uuid
+    FROM   unit AS u
+    JOIN   application_controller AS ac ON ac.application_uuid = u.application_uuid
+    JOIN   model AS m ON m.is_controller_model = TRUE
+), service_addresses AS (
     SELECT fqa.address AS address,
            nas.name AS scope
-    FROM   application_controller AS ac
-    JOIN   k8s_service AS ks ON ks.application_uuid = ac.application_uuid
-    JOIN   net_node_fqdn_address AS nnfa ON nnfa.net_node_uuid = ks.net_node_uuid
+    FROM   controller_net_nodes AS cnn
+    JOIN   net_node_fqdn_address AS nnfa ON nnfa.net_node_uuid = cnn.net_node_uuid
     JOIN   fqdn_address AS fqa ON fqa.uuid = nnfa.address_uuid
     JOIN   network_address_scope AS nas ON nas.id = fqa.scope_id
     UNION ALL
     SELECT ipa.address_value AS address,
            ias.name AS scope
-    FROM   application_controller AS ac
-    JOIN   k8s_service AS ks ON ks.application_uuid = ac.application_uuid
-    JOIN   ip_address AS ipa ON ipa.net_node_uuid = ks.net_node_uuid
+    FROM   controller_net_nodes AS cnn
+    JOIN   ip_address AS ipa ON ipa.net_node_uuid = cnn.net_node_uuid
     JOIN   ip_address_scope AS ias ON ias.id = ipa.scope_id
 )
 SELECT sa.address AS &serviceFQDNAddress.address,

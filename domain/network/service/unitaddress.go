@@ -141,9 +141,8 @@ func (s *Service) GetControllerAPIAddresses(
 	return addrs, nil
 }
 
-// GetControllerK8sServiceAddresses returns addresses for the controller's
-// normal Kubernetes Service, including public load balancer hostnames when
-// present.
+// GetControllerK8sServiceAddresses returns addresses for net nodes belonging
+// to the controller application in the controller model.
 func (s *Service) GetControllerK8sServiceAddresses(ctx context.Context) (network.SpaceAddresses, error) {
 	return s.st.GetControllerK8sServiceAddresses(ctx)
 }

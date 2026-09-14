@@ -42,8 +42,8 @@ type ControllerNodeService interface {
 	// controller nodes.
 	WatchControllerNodes(ctx context.Context) (watcher.NotifyWatcher, error)
 
-	// GetControllerIDs returns the list of controller IDs from the controller node
-	// records.
+	// GetControllerIDs returns the list of controller IDs from the controller
+	// node records.
 	GetControllerIDs(ctx context.Context) ([]string, error)
 
 	// SetAPIAddresses sets the provided addresses associated with the provided
@@ -79,11 +79,11 @@ type NetworkService interface {
 		unitName unit.Name,
 		managementSpace *network.SpaceInfo,
 	) (network.SpaceAddresses, error)
-	// GetControllerK8sServiceAddresses returns endpoints for the normal
-	// controller Kubernetes Service.
+	// GetControllerK8sServiceAddresses returns endpoints for net nodes
+	// belonging to the controller application in the controller model.
 	GetControllerK8sServiceAddresses(ctx context.Context) (network.SpaceAddresses, error)
-	// SpaceByName returns a space from state that matches the input name. If the
-	// space is not found, an error is returned matching
+	// SpaceByName returns a space from state that matches the input name. If
+	// the space is not found, an error is returned matching
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 	SpaceByName(ctx context.Context, name network.SpaceName) (*network.SpaceInfo, error)
 }
