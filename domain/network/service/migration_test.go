@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"maps"
 	"slices"
 	"testing"
@@ -866,7 +865,7 @@ func (m k8sServiceLLDMatcher) Matches(x any) bool {
 			IsAutoStart:     true,
 			IsEnabled:       true,
 			NetNodeUUID:     expected.NetNodeUUID,
-			Name:            fmt.Sprintf("placeholder for %q cloud service", expected.ApplicationName),
+			Name:            "",
 			Type:            network.DeviceTypeUnknown,
 			VirtualPortType: corenetwork.NonVirtualPort,
 		})

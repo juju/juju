@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"strings"
 
@@ -318,11 +317,15 @@ func (s *MigrationService) getPlaceholderLinkLayerDevices(
 		}
 
 		device := internal.ImportLinkLayerDevice{
-			UUID:            service.DeviceUUID,
-			IsAutoStart:     true,
-			IsEnabled:       true,
-			NetNodeUUID:     service.NetNodeUUID,
-			Name:            fmt.Sprintf("placeholder for %q cloud service", service.ApplicationName),
+			UUID:        service.DeviceUUID,
+			IsAutoStart: true,
+			IsEnabled:   true,
+			NetNodeUUID: service.NetNodeUUID,
+			// The device name is intentionally left empty. This is a
+			// placeholder device for a k8s service, not a real network
+			// interface, and must not leak an internal name via tools
+			// like network-get.
+			Name:            "",
 			Type:            network.DeviceTypeUnknown,
 			VirtualPortType: corenetwork.NonVirtualPort,
 			Addresses:       transformedAddresses,
