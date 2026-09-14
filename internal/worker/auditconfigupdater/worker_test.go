@@ -31,11 +31,10 @@ func TestWorkerSuite(t *stdtesting.T) {
 func (s *workerSuite) TestNewWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cfg := auditlog.Config{}
-
 	s.expectControllerConfigWatcher(c)
+	s.expectControllerConfig()
 
-	worker, err := s.newWorker(cfg, nil)
+	worker, err := s.newWorker(nil)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
 
@@ -44,13 +43,22 @@ func (s *workerSuite) TestNewWorker(c *tc.C) {
 	workertest.CleanKill(c, worker)
 }
 
-func (s *workerSuite) TestNewWorkerUpdatedCurrentConfig(c *tc.C) {
+// TestChangeAfterReadyUpdatesConfig verifies that a controller config change
+// arriving after the watcher readiness barrier is properly caught and applied.
+// This exercises the race between watcher subscription and the initial state
+// query: the worker must not miss changes that arrive after the subscription
+// becomes active.
+func (s *workerSuite) TestChangeAfterReadyUpdatesConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-
-	cfg := auditlog.Config{}
 
 	ch := s.expectControllerConfigWatcher(c)
 
+	// First ControllerConfig call returns default config (initial read
+	// after watcher subscription is established).
+	s.expectControllerConfig()
+
+	// Second ControllerConfig call returns modified config (triggered by
+	// the change event below).
 	controllerConfig := testing.FakeControllerConfig()
 	controllerConfig[controller.AuditingEnabled] = true
 	controllerConfig[controller.AuditLogCaptureArgs] = true
@@ -59,7 +67,7 @@ func (s *workerSuite) TestNewWorkerUpdatedCurrentConfig(c *tc.C) {
 	controllerConfig[controller.AuditLogExcludeMethods] = "foo,bar"
 	s.expectControllerConfigWithConfig(controllerConfig)
 
-	worker, err := s.newWorker(cfg, func(c auditlog.Config) auditlog.AuditLog {
+	worker, err := s.newWorker(func(c auditlog.Config) auditlog.AuditLog {
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -87,8 +95,8 @@ func (s *workerSuite) TestNewWorkerUpdatedCurrentConfig(c *tc.C) {
 	workertest.CleanKill(c, worker)
 }
 
-func (s *workerSuite) newWorker(initial auditlog.Config, logFactory AuditLogFactory) (*updater, error) {
-	return newWorker(s.controllerConfigService, initial, logFactory, s.states)
+func (s *workerSuite) newWorker(logFactory AuditLogFactory) (*updater, error) {
+	return newWorker(s.controllerConfigService, logFactory, s.states)
 }
 
 func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
