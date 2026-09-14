@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentbinary"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainapplication "github.com/juju/juju/domain/application"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
@@ -242,32 +242,6 @@ func TestDestroyMachineManagerSuite(t *testing.T) {
 	tc.Run(t, &DestroyMachineManagerSuite{})
 }
 
-// TestDestroyMachineFailedSomeUnitStorageRetrieval asserts that when
-// resolving a unit UUID fails with UnitNotFound during machine destroy,
-// a NotFound-coded error is returned for that machine.
-func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetrieval(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	machineUUID := machinetesting.GenUUID(c)
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(machineUUID, nil).MaxTimes(1)
-	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID).Return(nil, nil)
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), coremachine.Name("0")).Return(
-		[]coreunit.Name{"foo/0"}, nil,
-	).Times(1)
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(
-		coreunit.UUID(""), applicationerrors.UnitNotFound,
-	)
-
-	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
-		MachineTags: []string{"machine-0"},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results.Results, tc.HasLen, 1)
-	c.Check(results.Results[0].Info, tc.IsNil)
-	c.Check(results.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
-}
-
 // TestDestroyMachineFailedAllStorageRetrieval asserts that when storage
 // classification fails during machine destroy, the error is reported
 // and the machine is not removed.
@@ -278,12 +252,11 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval
 	machineUUID := machinetesting.GenUUID(c)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(machineUUID, nil).MaxTimes(1)
 	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID).Return(nil, nil)
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), coremachine.Name("0")).Return(
-		[]coreunit.Name{"foo/0"}, nil,
-	).Times(1)
 
 	unitUUID := s.unitUUID(c, "foo/0")
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID, nil)
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("0")).Return(
+		[]domainapplication.UnitNameAndUUID{{Name: "foo/0", UUID: unitUUID}}, nil,
+	).Times(1)
 	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID}).Return(
 		nil, errors.New("boom"),
 	)
@@ -314,15 +287,14 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrieva
 	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID1).Return(nil, nil)
 
 	// Machine 0 succeeds with no units.
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), coremachine.Name("0")).Return(nil, nil).Times(1)
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("0")).Return(nil, nil).Times(1)
 	s.removalService.EXPECT().RemoveMachine(gomock.Any(), machineUUID0, false, gomock.Any()).Return("", nil).Times(1)
 
 	// Machine 1 fails storage classification.
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), coremachine.Name("1")).Return(
-		[]coreunit.Name{"foo/1"}, nil,
-	).Times(1)
 	unitUUID1 := s.unitUUID(c, "foo/1")
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/1")).Return(unitUUID1, nil)
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("1")).Return(
+		[]domainapplication.UnitNameAndUUID{{Name: "foo/1", UUID: unitUUID1}}, nil,
+	).Times(1)
 	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID1}).Return(
 		nil, errors.New("boom"),
 	)
@@ -354,15 +326,14 @@ func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRet
 	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID1).Return(nil, nil)
 
 	// Machine 0 succeeds with no units.
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), coremachine.Name("0")).Return(nil, nil).Times(1)
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("0")).Return(nil, nil).Times(1)
 	s.removalService.EXPECT().RemoveMachine(gomock.Any(), machineUUID0, true, gomock.Any()).Return("", nil).Times(1)
 
 	// Machine 1 fails storage classification.
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), coremachine.Name("1")).Return(
-		[]coreunit.Name{"foo/1"}, nil,
-	).Times(1)
 	unitUUID1 := s.unitUUID(c, "foo/1")
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/1")).Return(unitUUID1, nil)
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("1")).Return(
+		[]domainapplication.UnitNameAndUUID{{Name: "foo/1", UUID: unitUUID1}}, nil,
+	).Times(1)
 	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID1}).Return(
 		nil, errors.New("boom"),
 	)
@@ -448,17 +419,17 @@ func (s *DestroyMachineManagerSuite) expectCalculateDestroyResult(
 	if unitNames == nil {
 		unitNames = []coreunit.Name{"foo/0", "foo/1", "foo/2"}
 	}
-	for _, container := range containers {
-		s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), container).Return(unitNames, nil)
-	}
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return(unitNames, nil).Times(1)
-
+	units := make([]domainapplication.UnitNameAndUUID, 0, len(unitNames))
 	unitUUIDs := make([]coreunit.UUID, 0, len(unitNames))
 	for _, unitName := range unitNames {
 		unitUUID := s.unitUUID(c, unitName)
 		unitUUIDs = append(unitUUIDs, unitUUID)
-		s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil).AnyTimes()
+		units = append(units, domainapplication.UnitNameAndUUID{Name: unitName, UUID: unitUUID})
 	}
+	for _, container := range containers {
+		s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), container).Return(units, nil)
+	}
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), machineName).Return(units, nil).Times(1)
 	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), unitUUIDs).Return(nil, nil).AnyTimes()
 }
 
@@ -665,14 +636,14 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineClassifiesStorage(c *tc.C
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(machineUUID, nil).MaxTimes(1)
 
 	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID).Return(nil, nil)
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), coremachine.Name("0")).Return(
-		[]coreunit.Name{"foo/0", "foo/1"}, nil,
-	).Times(1)
-
 	unitUUID0 := s.unitUUID(c, "foo/0")
 	unitUUID1 := s.unitUUID(c, "foo/1")
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID0, nil).AnyTimes()
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/1")).Return(unitUUID1, nil).AnyTimes()
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("0")).Return(
+		[]domainapplication.UnitNameAndUUID{
+			{Name: "foo/0", UUID: unitUUID0},
+			{Name: "foo/1", UUID: unitUUID1},
+		}, nil,
+	).Times(1)
 
 	nonPersistent := s.newStorageInstance(c, "single-fs/0", false)
 	shared := s.newStorageInstance(c, "db-dir/0", true)
@@ -720,13 +691,11 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineClassifiesStorageContaine
 	)
 
 	// The machine itself has no units, but its container has one.
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), coremachine.Name("0")).Return(nil, nil).Times(1)
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), coremachine.Name("0/lxd/0")).Return(
-		[]coreunit.Name{"foo/0"}, nil,
-	).Times(1)
-
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("0")).Return(nil, nil).Times(1)
 	unitUUID := s.unitUUID(c, "foo/0")
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID, nil).AnyTimes()
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("0/lxd/0")).Return(
+		[]domainapplication.UnitNameAndUUID{{Name: "foo/0", UUID: unitUUID}}, nil,
+	).Times(1)
 
 	persistent := s.newStorageInstance(c, "db-dir/0", true)
 	s.storageService.EXPECT().GetStorageClassificationForUnits(

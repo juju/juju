@@ -1665,6 +1665,52 @@ WHERE application_uuid = $entityUUID.uuid AND c.source_id < 2`
 	}), nil
 }
 
+// GetUnitNamesAndUUIDsForApplication returns a slice of the unit names and UUIDs for the given application.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationIsDead] if the application is dead
+// - [applicationerrors.ApplicationNotFound] if the application does not exist
+func (st *State) GetUnitNamesAndUUIDsForApplication(ctx context.Context, uuid coreapplication.UUID) ([]application.UnitNameAndUUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	appUUID := entityUUID{UUID: uuid.String()}
+	query := `
+SELECT unit.name AS &unitNameAndUUID.name,
+       unit.uuid AS &unitNameAndUUID.uuid
+FROM unit
+JOIN charm AS c ON unit.charm_uuid = c.uuid
+WHERE application_uuid = $entityUUID.uuid AND c.source_id < 2`
+	stmt, err := st.Prepare(query, unitNameAndUUID{}, appUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []unitNameAndUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result = nil
+		err := st.checkApplicationNotDead(ctx, tx, uuid)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, stmt, appUUID).GetAll(&result)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return transform.Slice(result, func(r unitNameAndUUID) application.UnitNameAndUUID {
+		return application.UnitNameAndUUID{
+			Name: coreunit.Name(r.Name),
+			UUID: coreunit.UUID(r.UUID),
+		}
+	}), nil
+}
+
 // GetUnitUUIDAndNetNodeForName returns the unit uuid and net node uuid for a
 // unit matching the supplied name.
 //
@@ -1733,6 +1779,69 @@ func (st *State) GetUnitNamesForNetNode(ctx context.Context, uuid string) ([]cor
 	return transform.Slice(unitNames, func(n string) coreunit.Name {
 		return coreunit.Name(n)
 	}), nil
+}
+
+// GetUnitNamesAndUUIDsForMachine returns a slice of the unit names and UUIDs
+// for the given machine.
+// The following errors may be returned:
+// - [applicationerrors.MachineNotFound] if the machine does not exist
+func (st *State) GetUnitNamesAndUUIDsForMachine(ctx context.Context, name coremachine.Name) ([]application.UnitNameAndUUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var units []unitNameAndUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		units = nil
+		netNodeUUID, err := st.getMachineNetNodeUUIDFromName(ctx, tx, name)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		units, err = st.getUnitNamesAndUUIDsForNetNode(ctx, tx, netNodeUUID)
+		return err
+	})
+	if err != nil {
+		return nil, errors.Errorf("querying unit names and UUIDs for machine %q: %w", name, err)
+	}
+	return transform.Slice(units, func(u unitNameAndUUID) application.UnitNameAndUUID {
+		return application.UnitNameAndUUID{
+			Name: coreunit.Name(u.Name),
+			UUID: coreunit.UUID(u.UUID),
+		}
+	}), nil
+}
+
+func (st *State) getUnitNamesAndUUIDsForNetNode(ctx context.Context, tx *sqlair.TX, uuid string) ([]unitNameAndUUID, error) {
+	netNodeUUID := netNodeUUID{NetNodeUUID: uuid}
+	verifyExistsQuery := `SELECT COUNT(*) AS &countResult.count FROM net_node WHERE uuid = $netNodeUUID.uuid`
+	verifyExistsStmt, err := st.Prepare(verifyExistsQuery, countResult{}, netNodeUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	query := `SELECT &unitNameAndUUID.* FROM unit WHERE net_node_uuid = $netNodeUUID.uuid`
+	stmt, err := st.Prepare(query, unitNameAndUUID{}, netNodeUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var count countResult
+	if err := tx.Query(ctx, verifyExistsStmt, netNodeUUID).Get(&count); err != nil {
+		return nil, errors.Capture(err)
+	}
+	if count.Count == 0 {
+		return nil, applicationerrors.NetNodeNotFound
+	}
+
+	var result []unitNameAndUUID
+	err = tx.Query(ctx, stmt, netNodeUUID).GetAll(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return []unitNameAndUUID{}, nil
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return result, nil
 }
 
 func (st *State) getUnitNamesForNetNode(ctx context.Context, tx *sqlair.TX, uuid string) ([]string, error) {

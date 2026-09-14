@@ -369,6 +369,7 @@ type MockApplicationServiceMockRecorder struct {
 	getUnitK8sPodInfoExpects                   []*gomock.Call2_2[context.Context, unit.Name, application0.K8sPodInfo, error]
 	getUnitLifeExpects                         []*gomock.Call2_2[context.Context, unit.Name, life.Value, error]
 	getUnitMachineNameExpects                  []*gomock.Call2_2[context.Context, unit.Name, machine.Name, error]
+	getUnitNamesAndUUIDsForApplicationExpects  []*gomock.Call2_2[context.Context, string, []application0.UnitNameAndUUID, error]
 	getUnitNamesForApplicationExpects          []*gomock.Call2_2[context.Context, string, []unit.Name, error]
 	getUnitUUIDExpects                         []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
 	getUnitWorkloadVersionExpects              []*gomock.Call2_2[context.Context, unit.Name, string, error]
@@ -834,6 +835,24 @@ func (mr *MockApplicationServiceMockRecorder) GetUnitMachineName(ctx, unitName a
 
 // MockApplicationServiceGetUnitMachineNameCall is the typed call wrapper for GetUnitMachineName.
 type MockApplicationServiceGetUnitMachineNameCall = gomock.Call2_2[context.Context, unit.Name, machine.Name, error]
+
+// GetUnitNamesAndUUIDsForApplication mocks base method.
+func (m *MockApplicationService) GetUnitNamesAndUUIDsForApplication(arg0 context.Context, arg1 string) ([]application0.UnitNameAndUUID, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getUnitNamesAndUUIDsForApplicationExpects, m.ctrl, m, "GetUnitNamesAndUUIDsForApplication", arg0, arg1)
+}
+
+// GetUnitNamesAndUUIDsForApplication indicates an expected call of GetUnitNamesAndUUIDsForApplication.
+func (mr *MockApplicationServiceMockRecorder) GetUnitNamesAndUUIDsForApplication(arg0, arg1 any) *MockApplicationServiceGetUnitNamesAndUUIDsForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, []application0.UnitNameAndUUID, error](mr.mock.ctrl.T, mr.mock, "GetUnitNamesAndUUIDsForApplication", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getUnitNamesAndUUIDsForApplicationExpects = append(mr.getUnitNamesAndUUIDsForApplicationExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockApplicationServiceGetUnitNamesAndUUIDsForApplicationCall is the typed call wrapper for GetUnitNamesAndUUIDsForApplication.
+type MockApplicationServiceGetUnitNamesAndUUIDsForApplicationCall = gomock.Call2_2[context.Context, string, []application0.UnitNameAndUUID, error]
 
 // GetUnitNamesForApplication mocks base method.
 func (m *MockApplicationService) GetUnitNamesForApplication(arg0 context.Context, arg1 string) ([]unit.Name, error) {

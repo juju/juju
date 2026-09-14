@@ -472,7 +472,7 @@ func (mm *MachineManagerAPI) calculateDestroyResult(ctx context.Context, machine
 const destroyStorageForMachine = false
 
 func (mm *MachineManagerAPI) destroyResultForMachine(ctx context.Context, machineName coremachine.Name) (params.DestroyMachineInfo, error) {
-	unitNames, err := mm.applicationService.GetUnitNamesOnMachine(ctx, machineName)
+	units, err := mm.applicationService.GetUnitNamesAndUUIDsOnMachine(ctx, machineName)
 	if errors.Is(err, applicationerrors.MachineNotFound) {
 		return params.DestroyMachineInfo{}, errors.NotFoundf("machine %s", machineName)
 	} else if err != nil {
@@ -481,18 +481,11 @@ func (mm *MachineManagerAPI) destroyResultForMachine(ctx context.Context, machin
 	info := params.DestroyMachineInfo{
 		MachineId: machineName.String(),
 	}
-	unitUUIDs := make([]coreunit.UUID, 0, len(unitNames))
-	for _, unitName := range unitNames {
-		unitTag := names.NewUnitTag(unitName.String())
+	unitUUIDs := make([]coreunit.UUID, 0, len(units))
+	for _, u := range units {
+		unitTag := names.NewUnitTag(u.Name.String())
 		info.DestroyedUnits = append(info.DestroyedUnits, params.Entity{Tag: unitTag.String()})
-
-		unitUUID, err := mm.applicationService.GetUnitUUID(ctx, unitName)
-		if errors.Is(err, applicationerrors.UnitNotFound) {
-			return params.DestroyMachineInfo{}, errors.NotFoundf("unit %q", unitName)
-		} else if err != nil {
-			return params.DestroyMachineInfo{}, internalerrors.Errorf("getting UUID for unit %q: %w", unitName, err)
-		}
-		unitUUIDs = append(unitUUIDs, unitUUID)
+		unitUUIDs = append(unitUUIDs, u.UUID)
 	}
 
 	info.DestroyedStorage, info.DetachedStorage, err = common.ClassifyStorageRemoval(

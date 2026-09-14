@@ -1135,7 +1135,7 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 			return nil, errors.NotSupportedf("removing the controller application")
 		}
 
-		unitNames, err := api.applicationService.GetUnitNamesForApplication(ctx, tag.Id())
+		units, err := api.applicationService.GetUnitNamesAndUUIDsForApplication(ctx, tag.Id())
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return nil, errors.NotFoundf("application %q", tag.Id())
 		} else if err != nil {
@@ -1143,21 +1143,14 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 		}
 
 		var info params.DestroyApplicationInfo
-		unitUUIDs := make([]coreunit.UUID, 0, len(unitNames))
-		for _, unitName := range unitNames {
-			unitTag := names.NewUnitTag(unitName.String())
+		unitUUIDs := make([]coreunit.UUID, 0, len(units))
+		for _, u := range units {
+			unitTag := names.NewUnitTag(u.Name.String())
 			info.DestroyedUnits = append(
 				info.DestroyedUnits,
 				params.Entity{Tag: unitTag.String()},
 			)
-
-			unitUUID, err := api.applicationService.GetUnitUUID(ctx, unitName)
-			if errors.Is(err, applicationerrors.UnitNotFound) {
-				return nil, errors.NotFoundf("unit %q", unitName)
-			} else if err != nil {
-				return nil, errors.Trace(err)
-			}
-			unitUUIDs = append(unitUUIDs, unitUUID)
+			unitUUIDs = append(unitUUIDs, u.UUID)
 		}
 
 		info.DestroyedStorage, info.DetachedStorage, err = api.classifyStorageRemoval(

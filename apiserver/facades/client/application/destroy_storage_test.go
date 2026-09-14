@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	coreunit "github.com/juju/juju/core/unit"
+	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/removal"
@@ -164,11 +165,12 @@ func (s *applicationSuite) TestDestroyApplicationClassifiesStorage(c *tc.C) {
 	shared := s.newStorageInstance(c, "db-dir/0", true)
 	nonPersistent := s.newStorageInstance(c, "single-fs/0", false)
 
-	s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), "foo").Return(
-		[]coreunit.Name{"foo/0", "foo/1"}, nil,
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsForApplication(gomock.Any(), "foo").Return(
+		[]domainapplication.UnitNameAndUUID{
+			{Name: "foo/0", UUID: unitUUID1},
+			{Name: "foo/1", UUID: unitUUID2},
+		}, nil,
 	)
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID1, nil)
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/1")).Return(unitUUID2, nil)
 	s.storageService.EXPECT().GetStorageClassificationForUnits(
 		gomock.Any(), []coreunit.UUID{unitUUID1, unitUUID2},
 	).Return(
@@ -213,10 +215,11 @@ func (s *applicationSuite) TestDestroyApplicationDryRunClassifiesStorage(c *tc.C
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	nonPersistent := s.newStorageInstance(c, "single-fs/0", false)
 
-	s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), "foo").Return(
-		[]coreunit.Name{"foo/0"}, nil,
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsForApplication(gomock.Any(), "foo").Return(
+		[]domainapplication.UnitNameAndUUID{
+			{Name: "foo/0", UUID: unitUUID},
+		}, nil,
 	)
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID, nil)
 	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID}).Return(
 		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
 			unitUUID: {nonPersistent},
@@ -251,10 +254,11 @@ func (s *applicationSuite) TestDestroyApplicationCAASSkipsStorageClassification(
 	s.expectDestroyCharm(c)
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), "foo").Return(
-		[]coreunit.Name{"foo/0"}, nil,
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsForApplication(gomock.Any(), "foo").Return(
+		[]domainapplication.UnitNameAndUUID{
+			{Name: "foo/0", UUID: unitUUID},
+		}, nil,
 	)
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID, nil)
 
 	appUUID := tc.Must(c, application.NewUUID)
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
@@ -272,33 +276,6 @@ func (s *applicationSuite) TestDestroyApplicationCAASSkipsStorageClassification(
 	c.Check(res.Results[0].Info, tc.DeepEquals, &params.DestroyApplicationInfo{
 		DestroyedUnits: []params.Entity{{Tag: "unit-foo-0"}},
 	})
-}
-
-// TestDestroyApplicationUnitNotFound asserts that when a unit of the
-// application disappears mid-loop, DestroyApplication reports a NotFound error.
-func (s *applicationSuite) TestDestroyApplicationUnitNotFound(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.setupAPI(c)
-	s.expectDestroyCharm(c)
-
-	unitUUID0 := tc.Must(c, coreunit.NewUUID)
-	s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), "foo").Return(
-		[]coreunit.Name{"foo/0", "foo/1"}, nil,
-	)
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID0, nil)
-	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/1")).Return(
-		coreunit.UUID(""), applicationerrors.UnitNotFound,
-	)
-
-	res, err := s.api.DestroyApplication(c.Context(), params.DestroyApplicationsParams{
-		Applications: []params.DestroyApplicationParams{{
-			ApplicationTag: names.NewApplicationTag("foo").String(),
-		}},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(res.Results, tc.HasLen, 1)
-	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
 // TestDestroyUnitDryRunUnitNotFound asserts that DestroyUnit on dry run
@@ -391,7 +368,7 @@ func (s *applicationSuite) TestDestroyApplicationNoUnits(c *tc.C) {
 	s.setupAPI(c)
 	s.expectDestroyCharm(c)
 
-	s.applicationService.EXPECT().GetUnitNamesForApplication(gomock.Any(), "foo").Return(
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsForApplication(gomock.Any(), "foo").Return(
 		nil, nil,
 	)
 	appUUID := tc.Must(c, application.NewUUID)

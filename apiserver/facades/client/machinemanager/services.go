@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/blockcommand"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineservice "github.com/juju/juju/domain/machine/service"
@@ -143,6 +144,11 @@ type ApplicationService interface {
 	// The following errors may be returned:
 	// - [applicationerrors.MachineNotFound] if the machine does not exist
 	GetUnitNamesOnMachine(context.Context, coremachine.Name) ([]coreunit.Name, error)
+
+	// GetUnitNamesAndUUIDsOnMachine returns a slice of the unit names and UUIDs on the given machine.
+	// The following errors may be returned:
+	// - [applicationerrors.MachineNotFound] if the machine does not exist
+	GetUnitNamesAndUUIDsOnMachine(context.Context, coremachine.Name) ([]domainapplication.UnitNameAndUUID, error)
 
 	// GetUnitUUID returns the UUID for the named unit.
 	GetUnitUUID(context.Context, coreunit.Name) (coreunit.UUID, error)

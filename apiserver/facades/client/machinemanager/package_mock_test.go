@@ -23,6 +23,7 @@ import (
 	unit "github.com/juju/juju/core/unit"
 	agentbinary "github.com/juju/juju/domain/agentbinary"
 	service "github.com/juju/juju/domain/agentbinary/service"
+	application "github.com/juju/juju/domain/application"
 	blockcommand "github.com/juju/juju/domain/blockcommand"
 	machine0 "github.com/juju/juju/domain/machine"
 	service0 "github.com/juju/juju/domain/machine/service"
@@ -405,9 +406,10 @@ type MockApplicationService struct {
 
 // MockApplicationServiceMockRecorder is the mock recorder for MockApplicationService.
 type MockApplicationServiceMockRecorder struct {
-	mock                         *MockApplicationService
-	getUnitNamesOnMachineExpects []*gomock.Call2_2[context.Context, machine.Name, []unit.Name, error]
-	getUnitUUIDExpects           []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
+	mock                                 *MockApplicationService
+	getUnitNamesAndUUIDsOnMachineExpects []*gomock.Call2_2[context.Context, machine.Name, []application.UnitNameAndUUID, error]
+	getUnitNamesOnMachineExpects         []*gomock.Call2_2[context.Context, machine.Name, []unit.Name, error]
+	getUnitUUIDExpects                   []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
 }
 
 // NewMockApplicationService creates a new mock instance.
@@ -421,6 +423,24 @@ func NewMockApplicationService(ctrl *gomock.Controller) *MockApplicationService 
 func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
+
+// GetUnitNamesAndUUIDsOnMachine mocks base method.
+func (m *MockApplicationService) GetUnitNamesAndUUIDsOnMachine(arg0 context.Context, arg1 machine.Name) ([]application.UnitNameAndUUID, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getUnitNamesAndUUIDsOnMachineExpects, m.ctrl, m, "GetUnitNamesAndUUIDsOnMachine", arg0, arg1)
+}
+
+// GetUnitNamesAndUUIDsOnMachine indicates an expected call of GetUnitNamesAndUUIDsOnMachine.
+func (mr *MockApplicationServiceMockRecorder) GetUnitNamesAndUUIDsOnMachine(arg0, arg1 any) *MockApplicationServiceGetUnitNamesAndUUIDsOnMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, machine.Name, []application.UnitNameAndUUID, error](mr.mock.ctrl.T, mr.mock, "GetUnitNamesAndUUIDsOnMachine", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getUnitNamesAndUUIDsOnMachineExpects = append(mr.getUnitNamesAndUUIDsOnMachineExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockApplicationServiceGetUnitNamesAndUUIDsOnMachineCall is the typed call wrapper for GetUnitNamesAndUUIDsOnMachine.
+type MockApplicationServiceGetUnitNamesAndUUIDsOnMachineCall = gomock.Call2_2[context.Context, machine.Name, []application.UnitNameAndUUID, error]
 
 // GetUnitNamesOnMachine mocks base method.
 func (m *MockApplicationService) GetUnitNamesOnMachine(arg0 context.Context, arg1 machine.Name) ([]unit.Name, error) {

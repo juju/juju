@@ -226,6 +226,12 @@ type ApplicationService interface {
 	// - [applicationerrors.ApplicationNotFound] if the application does not exist
 	GetUnitNamesForApplication(context.Context, string) ([]unit.Name, error)
 
+	// GetUnitNamesAndUUIDsForApplication returns a slice of the unit names and UUIDs for the given application.
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationIsDead] if the application is dead
+	// - [applicationerrors.ApplicationNotFound] if the application does not exist
+	GetUnitNamesAndUUIDsForApplication(context.Context, string) ([]application.UnitNameAndUUID, error)
+
 	// GetUnitWorkloadVersion returns the workload version for the given unit.
 	GetUnitWorkloadVersion(ctx context.Context, unitName unit.Name) (string, error)
 

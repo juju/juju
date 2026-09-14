@@ -194,8 +194,20 @@ type UnitState interface {
 	// - [applicationerrors.ApplicationNotFound] if the application does not exist
 	GetUnitNamesForApplication(context.Context, coreapplication.UUID) ([]coreunit.Name, error)
 
+	// GetUnitNamesAndUUIDsForApplication returns a slice of the unit names and UUIDs for the given application.
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationIsDead] if the application is dead
+	// - [applicationerrors.ApplicationNotFound] if the application does not exist
+	GetUnitNamesAndUUIDsForApplication(context.Context, coreapplication.UUID) ([]application.UnitNameAndUUID, error)
+
 	// GetUnitNamesForNetNode returns a slice of the unit names for the given net node
 	GetUnitNamesForNetNode(context.Context, string) ([]coreunit.Name, error)
+
+	// GetUnitNamesAndUUIDsForMachine returns a slice of the unit names and UUIDs
+	// for the given machine.
+	// The following errors may be returned:
+	// - [applicationerrors.MachineNotFound] if the machine does not exist
+	GetUnitNamesAndUUIDsForMachine(context.Context, coremachine.Name) ([]application.UnitNameAndUUID, error)
 
 	// GetUnitNamesWithPrincipalForMachine returns the name of every unit on the
 	// given machine together with its optional principal unit name.
@@ -1313,6 +1325,25 @@ func (s *Service) GetUnitNamesForApplication(ctx context.Context, appName string
 	return names, nil
 }
 
+// GetUnitNamesAndUUIDsForApplication returns a slice of the unit names and UUIDs for the given application.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationIsDead] if the application is dead
+// - [applicationerrors.ApplicationNotFound] if the application does not exist
+func (s *Service) GetUnitNamesAndUUIDsForApplication(ctx context.Context, appName string) ([]application.UnitNameAndUUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	units, err := s.st.GetUnitNamesAndUUIDsForApplication(ctx, appUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return units, nil
+}
+
 // GetUnitNamesOnMachine returns a slice of the unit names on the given machine.
 // The following errors may be returned:
 // - [applicationerrors.MachineNotFound] if the machine does not exist
@@ -1333,6 +1364,24 @@ func (s *Service) GetUnitNamesOnMachine(ctx context.Context, machineName coremac
 		return nil, errors.Capture(err)
 	}
 	return names, nil
+}
+
+// GetUnitNamesAndUUIDsOnMachine returns a slice of the unit names and UUIDs on the given machine.
+// The following errors may be returned:
+// - [applicationerrors.MachineNotFound] if the machine does not exist
+func (s *Service) GetUnitNamesAndUUIDsOnMachine(ctx context.Context, machineName coremachine.Name) ([]application.UnitNameAndUUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	units, err := s.st.GetUnitNamesAndUUIDsForMachine(ctx, machineName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return units, nil
 }
 
 // GetUnitNamesWithPrincipalOnMachine returns a slice of the unit names and
