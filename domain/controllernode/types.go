@@ -27,6 +27,9 @@ type SetAPIAddressArgs struct {
 	AgentAddresses *APIAddresses
 	// ClientAddresses replaces general client endpoints when non-nil.
 	ClientAddresses *APIAddresses
+	// ControllerClientAddresses replaces controller-specific client endpoints
+	// when non-nil.
+	ControllerClientAddresses *map[string]APIAddresses
 }
 
 // APIAddress represents one of the API addresses, accessible for clients

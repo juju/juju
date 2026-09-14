@@ -1150,14 +1150,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DomainServicesName:         domainServicesName,
 		})),
 
-		apiAddressSetterName: ifPrimaryController(apiaddresssetter.Manifold(apiaddresssetter.ManifoldConfig{
-			DomainServicesName:          domainServicesName,
-			GetDomainServices:           apiaddresssetter.GetDomainServices,
-			GetControllerDomainServices: apiaddresssetter.GetControllerDomainServices,
-			NewWorker:                   apiaddresssetter.New,
-			Logger:                      internallogger.GetLogger("juju.worker.apiaddresssetter"),
-		})),
-
 		undertakerName: ifController(undertaker.Manifold(undertaker.ManifoldConfig{
 			DBAccessorName:            dbAccessorName,
 			DomainServicesName:        domainServicesName,
@@ -1423,6 +1415,15 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineStartup: config.MachineStartup,
 			Logger:         internallogger.GetLogger("juju.worker.machinesetup"),
 		})),
+
+		apiAddressSetterName: ifPrimaryController(apiaddresssetter.Manifold(apiaddresssetter.ManifoldConfig{
+			DomainServicesName:          domainServicesName,
+			GetDomainServices:           apiaddresssetter.GetDomainServices,
+			GetControllerDomainServices: apiaddresssetter.GetControllerDomainServices,
+			NewWorker:                   apiaddresssetter.New,
+			PopulateAPIAddresses:        apiaddresssetter.NoopPopulateAPIAddresses,
+			Logger:                      internallogger.GetLogger("juju.worker.apiaddresssetter"),
+		})),
 	}
 
 	return mergeManifolds(config, manifolds)
@@ -1532,6 +1533,15 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewAgentWorker:       upgradestepsagent.NewAgentWorker,
 			Logger:               internallogger.GetLogger("juju.worker.upgradestepsagent"),
 			Clock:                config.Clock,
+		})),
+
+		apiAddressSetterName: ifPrimaryController(apiaddresssetter.Manifold(apiaddresssetter.ManifoldConfig{
+			DomainServicesName:          domainServicesName,
+			GetDomainServices:           apiaddresssetter.GetDomainServices,
+			GetControllerDomainServices: apiaddresssetter.GetControllerDomainServices,
+			NewWorker:                   apiaddresssetter.New,
+			PopulateAPIAddresses:        apiaddresssetter.PopulateK8sAPIAddresses,
+			Logger:                      internallogger.GetLogger("juju.worker.apiaddresssetter"),
 		})),
 	})
 }

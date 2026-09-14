@@ -141,17 +141,11 @@ func (s *Service) GetControllerAPIAddresses(
 	return addrs, nil
 }
 
-// GetControllerK8sServiceAddresses returns FQDNs for the controller's normal
-// Kubernetes Service, including public load balancer hostnames when present.
-func (s *Service) GetControllerK8sServiceAddresses(
-	ctx context.Context,
-	unitName unit.Name,
-) (network.SpaceAddresses, error) {
-	unitUUID, err := s.st.GetControllerUnitUUIDByName(ctx, unitName.String())
-	if err != nil {
-		return nil, errors.Errorf("getting controller unit UUID for %q: %w", unitName, err)
-	}
-	return s.st.GetControllerK8sServiceAddresses(ctx, unitUUID)
+// GetControllerK8sServiceAddresses returns addresses for the controller's
+// normal Kubernetes Service, including public load balancer hostnames when
+// present.
+func (s *Service) GetControllerK8sServiceAddresses(ctx context.Context) (network.SpaceAddresses, error) {
+	return s.st.GetControllerK8sServiceAddresses(ctx)
 }
 
 // selectControllerAPIAddresses selects the preferred client addresses from all

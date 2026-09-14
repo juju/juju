@@ -14,6 +14,7 @@ import (
 	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/controller"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
@@ -86,6 +87,7 @@ func (s *workerSuite) TestWorkerCleanKill(c *tc.C) {
 		ApplicationService:      s.applicationService,
 		ControllerNodeService:   s.controllerNodeService,
 		NetworkService:          s.networkService,
+		PopulateAPIAddresses:    NoopPopulateAPIAddresses,
 		APIPort:                 17070,
 		Logger:                  loggertesting.WrapCheckLog(c),
 	}
@@ -99,6 +101,22 @@ func (s *workerSuite) TestWorkerCleanKill(c *tc.C) {
 		c.Fatalf("timed out waiting for worker to start")
 	}
 	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestNewMissingPopulateAPIAddresses(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	_, err := New(Config{
+		ControllerConfigService: s.controllerConfigService,
+		ApplicationService:      s.applicationService,
+		ControllerNodeService:   s.controllerNodeService,
+		NetworkService:          s.networkService,
+		APIPort:                 17070,
+		Logger:                  loggertesting.WrapCheckLog(c),
+	})
+
+	c.Check(err, tc.ErrorMatches, "nil PopulateAPIAddresses not valid")
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestNewControllerNode tests that when there is an event on the controller
@@ -125,19 +143,22 @@ func (s *workerSuite) TestNewControllerNode(c *tc.C) {
 	addrs := network.SpaceAddresses{
 		{
 			MachineAddress: network.MachineAddress{
-				Value: "10.0.0.1/24",
+				Value: "controller-1.controller-service-endpoints.controller-test.svc.cluster.local",
+				Type:  network.HostName,
+				Scope: network.ScopeCloudLocal,
 			},
 			SpaceID: "space0",
 		},
 	}
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
 		controller.JujuManagementSpace: "space0",
+		controller.PublicDNSAddress:    "controller.example.com:17070",
 	}, nil)
 	sp := &network.SpaceInfo{
 		ID: "space0",
 	}
 	s.networkService.EXPECT().GetControllerAPIAddresses(gomock.Any(), unit.Name("controller/1"), sp).Return(addrs, nil)
-	s.networkService.EXPECT().GetControllerK8sServiceAddresses(gomock.Any(), unit.Name("controller/0")).Return(network.SpaceAddresses{
+	s.networkService.EXPECT().GetControllerK8sServiceAddresses(gomock.Any()).Return(network.SpaceAddresses{
 		network.NewSpaceAddress("10.152.183.193", network.WithScope(network.ScopeCloudLocal)),
 		network.NewSpaceAddress("api.example.com", network.WithScope(network.ScopePublic)),
 	}, nil)
@@ -150,32 +171,27 @@ func (s *workerSuite) TestNewControllerNode(c *tc.C) {
 		APIAddresses: map[string]network.SpaceHostPorts{
 			"1": hostPorts,
 		},
-		AgentAddresses: &controllernode.APIAddresses{{
-			Address: "controller-service.controller-test.svc.cluster.local:17070",
-			IsAgent: true,
-			Scope:   network.ScopeCloudLocal,
-		}, {
-			Address:  "10.152.183.193:17070",
-			IsAgent:  true,
-			IsClient: true,
-			Scope:    network.ScopeCloudLocal,
-		}, {
-			Address:  "api.example.com:17070",
-			IsAgent:  true,
-			IsClient: true,
-			Scope:    network.ScopePublic,
-		}},
+		AgentAddresses: &controllernode.APIAddresses{},
 		ClientAddresses: &controllernode.APIAddresses{{
 			Address:  "10.152.183.193:17070",
-			IsAgent:  true,
 			IsClient: true,
 			Scope:    network.ScopeCloudLocal,
 		}, {
 			Address:  "api.example.com:17070",
-			IsAgent:  true,
+			IsClient: true,
+			Scope:    network.ScopePublic,
+		}, {
+			Address:  "controller.example.com:17070",
 			IsClient: true,
 			Scope:    network.ScopePublic,
 		}},
+		ControllerClientAddresses: &map[string]controllernode.APIAddresses{
+			"1": {{
+				Address:  "controller-1.controller-service-endpoints.controller-test.svc.cluster.local:17070",
+				IsClient: true,
+				Scope:    network.ScopeCloudLocal,
+			}},
+		},
 	}
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
 		close(sync)
@@ -187,8 +203,8 @@ func (s *workerSuite) TestNewControllerNode(c *tc.C) {
 		ApplicationService:      s.applicationService,
 		ControllerNodeService:   s.controllerNodeService,
 		NetworkService:          s.networkService,
+		PopulateAPIAddresses:    PopulateK8sAPIAddresses,
 		APIPort:                 17070,
-		ControllerName:          "test",
 		Logger:                  loggertesting.WrapCheckLog(c),
 	}
 	w, err := New(cfg)
@@ -249,6 +265,7 @@ func (s *workerSuite) TestRemovedControllerNodeRefreshesBeforeRetryingAPIAddress
 		ApplicationService:      s.applicationService,
 		ControllerNodeService:   s.controllerNodeService,
 		NetworkService:          s.networkService,
+		PopulateAPIAddresses:    NoopPopulateAPIAddresses,
 		APIPort:                 17070,
 		Logger:                  loggertesting.WrapCheckLog(c),
 	})
@@ -322,6 +339,11 @@ func (s *workerSuite) TestUnchangedControllerNodes(c *tc.C) {
 		APIAddresses: map[string]network.SpaceHostPorts{
 			"1": hostPorts,
 		},
+		ClientAddresses: &controllernode.APIAddresses{{
+			Address:  "api.example.com:17070",
+			IsClient: true,
+			Scope:    network.ScopePublic,
+		}},
 	}
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
 		close(sync)
@@ -333,8 +355,16 @@ func (s *workerSuite) TestUnchangedControllerNodes(c *tc.C) {
 		ApplicationService:      s.applicationService,
 		ControllerNodeService:   s.controllerNodeService,
 		NetworkService:          s.networkService,
-		APIPort:                 17070,
-		Logger:                  loggertesting.WrapCheckLog(c),
+		PopulateAPIAddresses: func(_ context.Context, _ NetworkService, _ PopulateAPIAddressesParams) (PopulateAPIAddressesResult, error) {
+			clientAddresses := controllernode.APIAddresses{{
+				Address:  "api.example.com:17070",
+				IsClient: true,
+				Scope:    network.ScopePublic,
+			}}
+			return PopulateAPIAddressesResult{ClientAddresses: &clientAddresses}, nil
+		},
+		APIPort: 17070,
+		Logger:  loggertesting.WrapCheckLog(c),
 	}
 	w, err := New(cfg)
 	c.Assert(err, tc.ErrorIsNil)
@@ -444,6 +474,7 @@ func (s *workerSuite) TestConfigChange(c *tc.C) {
 		ApplicationService:      s.applicationService,
 		ControllerNodeService:   s.controllerNodeService,
 		NetworkService:          s.networkService,
+		PopulateAPIAddresses:    NoopPopulateAPIAddresses,
 		APIPort:                 17070,
 		Logger:                  loggertesting.WrapCheckLog(c),
 	}
@@ -566,6 +597,7 @@ func (s *workerSuite) TestNodeAddressChange(c *tc.C) {
 		ApplicationService:      s.applicationService,
 		ControllerNodeService:   s.controllerNodeService,
 		NetworkService:          s.networkService,
+		PopulateAPIAddresses:    NoopPopulateAPIAddresses,
 		APIPort:                 17070,
 		Logger:                  loggertesting.WrapCheckLog(c),
 	}

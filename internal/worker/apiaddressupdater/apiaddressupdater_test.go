@@ -142,6 +142,39 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *tc.C) {
 	}
 }
 
+func (s *APIAddressUpdaterSuite) TestHostNameAddressesArePreserved(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{}
+	client := mocks.NewMockAPIAddresser(ctrl)
+	client.EXPECT().WatchAPIHostPorts(gomock.Any()).Return(watchertest.NewMockNotifyWatcher(ch), nil)
+	addresses := corenetwork.ProviderHostPorts{{
+		ProviderAddress: corenetwork.NewMachineAddress(
+			"controller-1.controller-service-endpoints.test.svc.cluster.local",
+		).AsProviderAddress(),
+		NetPort: 17070,
+	}}
+	client.EXPECT().APIHostPorts(gomock.Any()).Return([]corenetwork.ProviderHostPorts{addresses}, nil)
+	setter := &apiAddressSetter{servers: make(chan []corenetwork.HostPorts, 1)}
+
+	w, err := apiaddressupdater.NewAPIAddressUpdater(apiaddressupdater.Config{
+		Addresser: client,
+		Setter:    setter,
+		Logger:    loggertesting.WrapCheckLog(c),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	select {
+	case servers := <-setter.servers:
+		c.Check(servers, tc.DeepEquals, []corenetwork.HostPorts{addresses.HostPorts()})
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for hostname address update")
+	}
+}
+
 func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

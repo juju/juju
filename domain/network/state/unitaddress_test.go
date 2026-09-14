@@ -88,19 +88,20 @@ func (s *unitAddressSuite) TestGetControllerK8sServiceAddressesIncludesServiceIP
 
 	charmUUID := s.addCharm(c)
 	appUUID := s.addApplication(c, charmUUID, spaceUUID)
-	unitUUID := s.addUnit(c, appUUID, charmUUID, podNodeUUID)
+	s.addControllerApplication(c, appUUID)
 	s.addK8sService(c, svcNodeUUID, appUUID)
-	s.query(c, `UPDATE k8s_service SET provider_id = (SELECT name FROM unit WHERE uuid = ?) WHERE application_uuid = ?`, unitUUID.String(), appUUID)
+	s.query(c, `UPDATE k8s_service SET provider_id = ? WHERE net_node_uuid = ?`, "controller-provider-id", svcNodeUUID)
 	otherServiceNodeUUID := s.addNetNode(c)
 	otherServiceDeviceUUID := s.addLinkLayerDevice(c, otherServiceNodeUUID)
 	s.addKubernetesIPAddress(c, otherServiceNodeUUID, otherServiceDeviceUUID, subnetUUID, 2, 1)
 	s.addK8sService(c, otherServiceNodeUUID, appUUID)
 
-	addresses, err := s.state.GetControllerK8sServiceAddresses(c.Context(), unitUUID.String())
+	addresses, err := s.state.GetControllerK8sServiceAddresses(c.Context())
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addresses, tc.DeepEquals, corenetwork.SpaceAddresses{
+	c.Check(addresses, tc.SameContents, corenetwork.SpaceAddresses{
 		corenetwork.NewSpaceAddress(svcAddr, corenetwork.WithScope(corenetwork.ScopePublic)),
+		corenetwork.NewSpaceAddress(svcAddr, corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
 	})
 }
 

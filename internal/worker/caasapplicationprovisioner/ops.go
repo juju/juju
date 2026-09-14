@@ -507,6 +507,10 @@ func updateState(
 			Address:    &u.Address,
 			Ports:      &u.Ports,
 		}
+		if u.FQDN != "" {
+			fqdn := u.FQDN
+			args.FQDN = &fqdn
+		}
 		args.AgentStatus, args.K8sPodStatus = updateStatus(u.Status, clk)
 
 		lastStatus, ok := lastReportedStatus[unitName]

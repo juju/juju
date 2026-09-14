@@ -178,9 +178,10 @@ func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
 		network.WithScope(network.ScopeCloudLocal),
 	).AsProviderAddresses()
 	s.serviceManager.EXPECT().GetService(gomock.Any(), bootstrap.ControllerApplicationName, true).Return(&caas.Service{
+		Id:        "controller-service-id",
 		Addresses: serviceAddresses,
 	}, nil)
-	s.caasApplicationService.EXPECT().UpdateK8sService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), serviceAddresses).Return(nil)
+	s.caasApplicationService.EXPECT().UpdateK8sService(gomock.Any(), bootstrap.ControllerApplicationName, "controller-service-id", serviceAddresses).Return(nil)
 	s.caasApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
 		ProviderID: new("controller-0"),
 	})
@@ -201,9 +202,10 @@ func (s *deployerCAASSuite) TestCompleteCAASProcessSetsFQDN(c *tc.C) {
 	unitName := unit.Name("controller/0")
 
 	s.serviceManager.EXPECT().GetService(gomock.Any(), bootstrap.ControllerApplicationName, true).Return(&caas.Service{
+		Id:        "controller-service-id",
 		Addresses: network.NewMachineAddresses([]string{"10.152.183.53"}).AsProviderAddresses(),
 	}, nil)
-	s.caasApplicationService.EXPECT().UpdateK8sService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), gomock.Any()).Return(nil)
+	s.caasApplicationService.EXPECT().UpdateK8sService(gomock.Any(), bootstrap.ControllerApplicationName, "controller-service-id", gomock.Any()).Return(nil)
 	// The controller FQDN is persisted in the same flow that upserts the k8s
 	// pod (provider id), i.e. via UpdateCAASUnit.
 	s.caasApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{

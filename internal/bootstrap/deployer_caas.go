@@ -184,8 +184,8 @@ func (d *CAASDeployer) CompleteCAASProcess(ctx context.Context) error {
 		return jujuerrors.NotProvisionedf("k8s controller service address")
 	}
 
-	d.logger.Debugf(ctx, "creating cloud service for k8s controller %q", providerID)
-	err = d.applicationService.UpdateK8sService(ctx, bootstrap.ControllerApplicationName, providerID, svc.Addresses)
+	d.logger.Debugf(ctx, "creating cloud service for k8s controller %q", svc.Id)
+	err = d.applicationService.UpdateK8sService(ctx, bootstrap.ControllerApplicationName, svc.Id, svc.Addresses)
 	if err != nil {
 		return errors.Capture(err)
 	}

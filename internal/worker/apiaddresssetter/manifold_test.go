@@ -56,6 +56,11 @@ func (s *manifoldConfigSuite) TestMissingNewWorker(c *tc.C) {
 	s.checkNotValid(c, "nil NewWorker not valid")
 }
 
+func (s *manifoldConfigSuite) TestMissingPopulateAPIAddresses(c *tc.C) {
+	s.config.PopulateAPIAddresses = nil
+	s.checkNotValid(c, "nil PopulateAPIAddresses not valid")
+}
+
 func (s *manifoldConfigSuite) TestMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	s.checkNotValid(c, "nil Logger not valid")
@@ -73,6 +78,7 @@ func validConfig(c *tc.C) ManifoldConfig {
 		GetDomainServices:           GetDomainServices,
 		GetControllerDomainServices: GetControllerDomainServices,
 		NewWorker:                   func(Config) (worker.Worker, error) { return noWorker{}, nil },
+		PopulateAPIAddresses:        NoopPopulateAPIAddresses,
 		Logger:                      loggertesting.WrapCheckLog(c),
 	}
 }
@@ -135,7 +141,8 @@ func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 			}
 			return noWorker{}, nil
 		},
-		Logger: loggertesting.WrapCheckLog(c),
+		PopulateAPIAddresses: NoopPopulateAPIAddresses,
+		Logger:               loggertesting.WrapCheckLog(c),
 	}
 
 	w, err := Manifold(cfg).Start(c.Context(), noGetter{})

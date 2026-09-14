@@ -157,9 +157,9 @@ AND    (unn.is_caas = 1
 	return addrs, nil
 }
 
-// GetControllerK8sServiceAddresses returns FQDN addresses associated with the
+// GetControllerK8sServiceAddresses returns addresses associated with the
 // controller application's Kubernetes Services.
-func (st *State) GetControllerK8sServiceAddresses(ctx context.Context, unitUUID string) (corenetwork.SpaceAddresses, error) {
+func (st *State) GetControllerK8sServiceAddresses(ctx context.Context) (corenetwork.SpaceAddresses, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -173,36 +173,31 @@ func (st *State) GetControllerK8sServiceAddresses(ctx context.Context, unitUUID 
 WITH service_addresses AS (
     SELECT fqa.address AS address,
            nas.name AS scope
-    FROM   unit AS u
-    JOIN   k8s_service AS ks ON ks.application_uuid = u.application_uuid
+    FROM   application_controller AS ac
+    JOIN   k8s_service AS ks ON ks.application_uuid = ac.application_uuid
     JOIN   net_node_fqdn_address AS nnfa ON nnfa.net_node_uuid = ks.net_node_uuid
     JOIN   fqdn_address AS fqa ON fqa.uuid = nnfa.address_uuid
     JOIN   network_address_scope AS nas ON nas.id = fqa.scope_id
-    WHERE  u.uuid = $entityUUID.uuid
-    AND    ks.provider_id = REPLACE(u.name, '/', '-')
     UNION ALL
     SELECT ipa.address_value AS address,
            ias.name AS scope
-    FROM   unit AS u
-    JOIN   k8s_service AS ks ON ks.application_uuid = u.application_uuid
+    FROM   application_controller AS ac
+    JOIN   k8s_service AS ks ON ks.application_uuid = ac.application_uuid
     JOIN   ip_address AS ipa ON ipa.net_node_uuid = ks.net_node_uuid
     JOIN   ip_address_scope AS ias ON ias.id = ipa.scope_id
-    WHERE  u.uuid = $entityUUID.uuid
-    AND    ks.provider_id = REPLACE(u.name, '/', '-')
 )
 SELECT sa.address AS &serviceFQDNAddress.address,
        sa.scope AS &serviceFQDNAddress.scope
 FROM   service_addresses AS sa
 ORDER BY sa.address
-`, serviceFQDNAddress{}, entityUUID{})
+`, serviceFQDNAddress{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	var addresses []serviceFQDNAddress
-	ident := entityUUID{UUID: unitUUID}
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, ident).GetAll(&addresses)
+		err := tx.Query(ctx, stmt).GetAll(&addresses)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}

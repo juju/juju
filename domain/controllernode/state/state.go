@@ -856,7 +856,8 @@ func encodeAPIAddresses(controllerAddrs map[string]controllernode.APIAddresses) 
 			}
 			if addr.IsAgent {
 				agentAddresses = append(agentAddresses, address)
-			} else {
+			}
+			if addr.IsClient {
 				clientAddresses = append(clientAddresses, address)
 			}
 		}

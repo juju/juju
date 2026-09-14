@@ -5,7 +5,6 @@ package apiaddresssetter
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"strconv"
 	"time"
@@ -24,7 +23,6 @@ import (
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
@@ -81,9 +79,9 @@ type NetworkService interface {
 		unitName unit.Name,
 		managementSpace *network.SpaceInfo,
 	) (network.SpaceAddresses, error)
-	// GetControllerK8sServiceAddresses returns FQDN endpoints for the normal
+	// GetControllerK8sServiceAddresses returns endpoints for the normal
 	// controller Kubernetes Service.
-	GetControllerK8sServiceAddresses(ctx context.Context, unitName unit.Name) (network.SpaceAddresses, error)
+	GetControllerK8sServiceAddresses(ctx context.Context) (network.SpaceAddresses, error)
 	// SpaceByName returns a space from state that matches the input name. If the
 	// space is not found, an error is returned matching
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
@@ -111,9 +109,49 @@ type Config struct {
 	ApplicationService      ApplicationService
 	ControllerNodeService   ControllerNodeService
 	NetworkService          NetworkService
+	PopulateAPIAddresses    PopulateAPIAddressesFunc
 	APIPort                 int
-	ControllerName          string
 	Logger                  logger.Logger
+}
+
+// PopulateAPIAddressesFunc returns substrate-specific general agent and client
+// API addresses. Nil address sets leave the corresponding existing address
+// selection unchanged.
+type PopulateAPIAddressesFunc func(
+	context.Context,
+	NetworkService,
+	PopulateAPIAddressesParams,
+) (PopulateAPIAddressesResult, error)
+
+// PopulateAPIAddressesParams contains the data required to populate
+// substrate-specific API addresses.
+type PopulateAPIAddressesParams struct {
+	ControllerAPIAddresses map[string]network.SpaceHostPorts
+	APIPort                int
+	PublicDNSAddress       string
+}
+
+// PopulateAPIAddressesResult contains the general API address sets produced
+// for a substrate. Nil address sets leave the corresponding existing address
+// selection unchanged.
+type PopulateAPIAddressesResult struct {
+	AgentAddresses            *controllernode.APIAddresses
+	ClientAddresses           *controllernode.APIAddresses
+	ControllerClientAddresses *map[string]controllernode.APIAddresses
+}
+
+// NoopPopulateAPIAddresses leaves general address selection unchanged.
+func NoopPopulateAPIAddresses(_ context.Context, _ NetworkService, _ PopulateAPIAddressesParams) (PopulateAPIAddressesResult, error) {
+	return PopulateAPIAddressesResult{}, nil
+}
+
+func containsAPIAddress(addresses controllernode.APIAddresses, address string) bool {
+	for _, candidate := range addresses {
+		if candidate.Address == address {
+			return true
+		}
+	}
+	return false
 }
 
 // Validate validates the worker configuration.
@@ -129,6 +167,9 @@ func (config Config) Validate() error {
 	}
 	if config.NetworkService == nil {
 		return errors.New("nil NetworkService not valid").Add(coreerrors.NotValid)
+	}
+	if config.PopulateAPIAddresses == nil {
+		return errors.New("nil PopulateAPIAddresses not valid").Add(coreerrors.NotValid)
 	}
 	if config.APIPort <= 0 {
 		return errors.New("non-positive APIPort not valid").Add(coreerrors.NotValid)
@@ -402,42 +443,67 @@ func (w *apiAddressSetterWorker) updateAPIAddresses(ctx context.Context) error {
 		}
 		args.APIAddresses[controllerID] = hostPorts
 	}
-	if w.config.ControllerName != "" {
-		serviceAddress := fmt.Sprintf(
-			constants.ControllerServiceFQDNTemplate,
-			w.config.ControllerName,
-		)
-		sharedAddresses := controllernode.APIAddresses{{
-			Address:  net.JoinHostPort(serviceAddress, strconv.Itoa(w.config.APIPort)),
-			IsAgent:  true,
-			IsClient: false,
-			Scope:    network.ScopeCloudLocal,
-		}}
-		serviceFQDNs, err := w.config.NetworkService.GetControllerK8sServiceAddresses(ctx, unit.Name("controller/0"))
-		if err != nil {
-			return errors.Capture(err)
-		}
-		for _, address := range serviceFQDNs {
-			sharedAddresses = append(sharedAddresses, controllernode.APIAddress{
-				Address: net.JoinHostPort(address.Host(), strconv.Itoa(w.config.APIPort)),
-				IsAgent: true,
-				// The ClusterIP is retained as a bootstrap fallback. DNS-only
-				// Service names are internal agent endpoints.
-				IsClient: address.Scope == network.ScopePublic || address.AddressType() != network.HostName,
-				Scope:    address.Scope,
-			})
-		}
-		clientAddresses := make(controllernode.APIAddresses, 0, len(sharedAddresses))
-		for _, address := range sharedAddresses {
-			if address.IsClient {
-				clientAddresses = append(clientAddresses, address)
-			}
-		}
-		args.AgentAddresses = &sharedAddresses
-		args.ClientAddresses = &clientAddresses
+	populatedAddresses, err := w.config.PopulateAPIAddresses(ctx, w.config.NetworkService, PopulateAPIAddressesParams{
+		ControllerAPIAddresses: args.APIAddresses,
+		APIPort:                w.config.APIPort,
+		PublicDNSAddress:       cfg.PublicDNSAddress(),
+	})
+	if err != nil {
+		return errors.Capture(err)
 	}
+	args.AgentAddresses = populatedAddresses.AgentAddresses
+	args.ClientAddresses = populatedAddresses.ClientAddresses
+	args.ControllerClientAddresses = populatedAddresses.ControllerClientAddresses
 	if err := w.config.ControllerNodeService.SetAPIAddresses(ctx, args); err != nil {
 		return errors.Capture(err)
 	}
 	return nil
+}
+
+// PopulateK8sAPIAddresses returns the general agent and client addresses for a
+// Kubernetes controller.
+func PopulateK8sAPIAddresses(ctx context.Context, networkService NetworkService, params PopulateAPIAddressesParams) (PopulateAPIAddressesResult, error) {
+	controllerClientAddresses := make(map[string]controllernode.APIAddresses, len(params.ControllerAPIAddresses))
+	for controllerID, hostPorts := range params.ControllerAPIAddresses {
+		for _, hostPort := range hostPorts {
+			address := net.JoinHostPort(hostPort.Host(), strconv.Itoa(hostPort.Port()))
+			controllerClientAddresses[controllerID] = append(controllerClientAddresses[controllerID], controllernode.APIAddress{
+				Address:  address,
+				IsClient: true,
+				Scope:    hostPort.Scope,
+			})
+		}
+	}
+
+	serviceAddresses, err := networkService.GetControllerK8sServiceAddresses(ctx)
+	if err != nil {
+		return PopulateAPIAddressesResult{}, errors.Capture(err)
+	}
+	clientAddresses := make(controllernode.APIAddresses, 0, len(serviceAddresses)+1)
+	for _, address := range serviceAddresses {
+		serviceAddress := net.JoinHostPort(address.Host(), strconv.Itoa(params.APIPort))
+		if containsAPIAddress(clientAddresses, serviceAddress) {
+			continue
+		}
+		clientAddresses = append(clientAddresses, controllernode.APIAddress{
+			Address:  serviceAddress,
+			IsClient: true,
+			Scope:    address.Scope,
+		})
+	}
+	if params.PublicDNSAddress != "" && !containsAPIAddress(clientAddresses, params.PublicDNSAddress) {
+		clientAddresses = append(clientAddresses, controllernode.APIAddress{
+			Address:  params.PublicDNSAddress,
+			IsClient: true,
+			Scope:    network.ScopePublic,
+		})
+	}
+
+	return PopulateAPIAddressesResult{
+		// Clear general agent addresses so callers preserve controller-specific
+		// pod FQDN grouping when they retrieve agent topology.
+		AgentAddresses:            &controllernode.APIAddresses{},
+		ClientAddresses:           &clientAddresses,
+		ControllerClientAddresses: &controllerClientAddresses,
+	}, nil
 }

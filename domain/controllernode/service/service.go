@@ -193,6 +193,11 @@ func (s *Service) SetAPIAddresses(ctx context.Context, args controllernode.SetAP
 	for controllerID, addrs := range args.APIAddresses {
 		addresses[controllerID] = s.encodeAPIAddresses(ctx, args.MgmtSpace, addrs)
 	}
+	if args.ControllerClientAddresses != nil {
+		for controllerID, clientAddresses := range *args.ControllerClientAddresses {
+			addresses[controllerID] = append(addresses[controllerID], clientAddresses...)
+		}
+	}
 	if args.AgentAddresses == nil && args.ClientAddresses == nil {
 		return s.st.SetAPIAddresses(ctx, addresses)
 	}
@@ -213,9 +218,10 @@ func (s *Service) encodeAPIAddresses(ctx context.Context, mgmtSpace *network.Spa
 		// Join the address host and port to a string "host:port".
 		address := net.JoinHostPort(spHostPort.Host(), strconv.Itoa(spHostPort.Port()))
 		addresses = append(addresses, controllernode.APIAddress{
-			Address: address,
-			IsAgent: isAvailableForAgents,
-			Scope:   spHostPort.Scope,
+			Address:  address,
+			IsAgent:  isAvailableForAgents,
+			IsClient: !isAvailableForAgents,
+			Scope:    spHostPort.Scope,
 		})
 		emptyAgentAddresses = emptyAgentAddresses && !isAvailableForAgents
 	}

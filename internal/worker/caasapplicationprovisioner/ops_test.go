@@ -105,6 +105,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 	units := []caas.Unit{{
 		Id:       "a",
 		Address:  "1.2.3.5",
+		FQDN:     "controller-0.controller-service-endpoints.controller-test.svc.cluster.local",
 		Ports:    []string{"80", "443"},
 		Stateful: true,
 		Status: status.StatusInfo{
@@ -144,6 +145,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 	unit0Update := applicationservice.UpdateCAASUnitParams{
 		ProviderID: new("a"),
 		Address:    new("1.2.3.5"),
+		FQDN:       new("controller-0.controller-service-endpoints.controller-test.svc.cluster.local"),
 		Ports:      new([]string{"80", "443"}),
 		AgentStatus: &status.StatusInfo{
 			Status: status.Idle,
@@ -168,6 +170,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 		applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unit.Name("test/0"), gomock.Any()).DoAndReturn(func(_ context.Context, _ unit.Name, args applicationservice.UpdateCAASUnitParams) error {
 			c.Check(args.ProviderID, tc.DeepEquals, unit0Update.ProviderID)
 			c.Check(args.Address, tc.DeepEquals, unit0Update.Address)
+			c.Check(args.FQDN, tc.DeepEquals, unit0Update.FQDN)
 			c.Check(args.Ports, tc.DeepEquals, unit0Update.Ports)
 			c.Assert(args.AgentStatus, tc.NotNil, tc.Commentf("AgentStatus should not be nil"))
 			c.Assert(args.AgentStatus.Since, tc.NotNil, tc.Commentf("AgentStatus.Since should not be nil"))
@@ -203,6 +206,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 		"test/0": {
 			ProviderID: new("a"),
 			Address:    new("1.2.3.5"),
+			FQDN:       new("controller-0.controller-service-endpoints.controller-test.svc.cluster.local"),
 			Ports:      new([]string{"80", "443"}),
 			AgentStatus: &status.StatusInfo{
 				Status: status.Idle,
