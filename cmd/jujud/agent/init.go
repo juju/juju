@@ -63,10 +63,6 @@ func (c *initCommand) Init(args []string) error {
 	return nil
 }
 
-const (
-	controllerAgentDir = "agents/controller-0"
-)
-
 var osGetenv = os.Getenv
 
 func (c *initCommand) Run(ctx *cmd.Context) error {
@@ -98,7 +94,7 @@ func (c *initCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "resolving staged runtime.conf")
 	}
-	runtimeDst := filepath.Join(snapData, controllerAgentDir, runtimeconf.Filename)
+	runtimeDst := filepath.Join(snapData, runtimeconf.Filename)
 	if err := runtimeconf.WriteControllerRuntimeConfig(runtimeDst, resolvedCfg); err != nil {
 		return errors.Annotate(err, "writing resolved runtime.conf")
 	}

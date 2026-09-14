@@ -1477,3 +1477,17 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 }
 
 func preUpgradeSteps(model.ModelType) upgrades.PreUpgradeStepsFunc { return nil }
+
+func (*ManifoldsSuite) TestControllerAgentConfigReadyGate(c *tc.C) {
+	lock := gate.NewLock()
+	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
+		PreUpgradeSteps:                preUpgradeSteps,
+		ControllerTag:                  testing.ControllerTag,
+		ControllerAgentConfigReadyLock: lock,
+	})
+	manifold, ok := manifolds["controller-agent-config"]
+	c.Assert(ok, tc.IsTrue)
+	c.Check(manifold.Start, tc.NotNil)
+
+	c.Check(lock.IsUnlocked(), tc.IsFalse)
+}

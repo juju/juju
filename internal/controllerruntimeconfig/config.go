@@ -171,11 +171,8 @@ type ControllerRuntimeConfig struct {
 	// must be owned by root:juju with mode 0750.
 	SocketDir string `yaml:"socket-dir,omitempty"`
 
-	// SharedAgentDir is the directory for charm-written configuration
-	// files (controller.conf). When set, the controller.conf path is
-	// derived from this directory instead of
-	// DataDir/agents/controller-<id>/. The directory must be owned by
-	// root:juju with mode 0750.
+	// SharedAgentDir is the directory for charm-written files (controller.conf).
+	// The directory must be owned by root:juju with mode 0750.
 	SharedAgentDir string `yaml:"shared-agent-dir,omitempty"`
 }
 
@@ -384,7 +381,7 @@ func RenderStagedControllerRuntimeConfig(cfg ControllerRuntimeConfig) StagedCont
 	staged.DataDir = TokenSnapData
 	staged.LogDir = TokenSnapCommon + "/logs"
 	staged.SocketDir = TokenSnapCommon + "/sockets"
-	staged.SharedAgentDir = TokenSnapCommon + "/agents/controller-0"
+	staged.SharedAgentDir = TokenSnapCommon
 	return staged
 }
 

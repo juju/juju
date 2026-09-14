@@ -103,6 +103,7 @@ services:
         command: '/charm/bin/containeragent unit --data-dir /var/lib/juju --append-env "PATH=$PATH:/charm/bin" --show-log '
         environment:
             HTTP_PROBE_PORT: "65301"
+            PEBBLE_SOCKET: /var/lib/pebble/default/.pebble.socket
         kill-delay: 30m0s
         on-success: ignore
         on-failure: shutdown
@@ -194,6 +195,7 @@ services:
         command: /charm/bin/containeragent unit --data-dir /var/lib/juju --append-env "PATH=$PATH:/charm/bin" --show-log --controller
         environment:
             HTTP_PROBE_PORT: "65301"
+            PEBBLE_SOCKET: /var/lib/pebble/default/.pebble.socket
         kill-delay: 30m0s
         on-success: ignore
         on-failure: restart

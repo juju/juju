@@ -877,6 +877,7 @@ type MockConfigSetterMockRecorder struct {
 	setAPIHostPortsExpects                       []*gomock.Call1_1[[]network.HostPorts, error]
 	setCACertExpects                             []*gomock.Call1_0[string]
 	setControllerAgentInfoExpects                []*gomock.Call1_0[controller.ControllerAgentInfo]
+	setDataDirExpects                            []*gomock.Call1_0[string]
 	setDqliteBusyTimeoutExpects                  []*gomock.Call1_0[time.Duration]
 	setLoggingConfigExpects                      []*gomock.Call1_0[string]
 	setLokiConfigExpects                         []*gomock.Call4_0[string, *string, *bool, string]
@@ -1561,6 +1562,24 @@ func (mr *MockConfigSetterMockRecorder) SetControllerAgentInfo(info any) *MockCo
 
 // MockConfigSetterSetControllerAgentInfoCall is the typed call wrapper for SetControllerAgentInfo.
 type MockConfigSetterSetControllerAgentInfoCall = gomock.Call1_0[controller.ControllerAgentInfo]
+
+// SetDataDir mocks base method.
+func (m *MockConfigSetter) SetDataDir(arg0 string) {
+	m.ctrl.T.Helper()
+	gomock.Dispatch1_0(&m.recorder.setDataDirExpects, m.ctrl, m, "SetDataDir", arg0)
+}
+
+// SetDataDir indicates an expected call of SetDataDir.
+func (mr *MockConfigSetterMockRecorder) SetDataDir(arg0 any) *MockConfigSetterSetDataDirCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_0[string](mr.mock.ctrl.T, mr.mock, "SetDataDir", gomock.EnsureMatcher(arg0))
+	mr.setDataDirExpects = append(mr.setDataDirExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigSetterSetDataDirCall is the typed call wrapper for SetDataDir.
+type MockConfigSetterSetDataDirCall = gomock.Call1_0[string]
 
 // SetDqliteBusyTimeout mocks base method.
 func (m *MockConfigSetter) SetDqliteBusyTimeout(arg0 time.Duration) {

@@ -30,10 +30,11 @@ import (
 
 type IntrospectCommand struct {
 	cmd.CommandBase
-	dataDir string
-	agent   string
-	path    string
-	listen  string
+	dataDir       string
+	controllerDir string
+	agent         string
+	path          string
+	listen        string
 
 	verbose bool
 	post    bool
@@ -65,6 +66,11 @@ unit agent on the machine, you can specify the
 agent using --agent. e.g.
 
     juju-introspect --agent=unit-mysql-0 metrics
+
+To introspect a standalone controller application, use
+--controller-dir with the controller data directory:
+
+    juju-introspect --controller-dir "$SNAP_DATA" metrics
 `
 
 // Info returns usage information for the command.
@@ -80,6 +86,7 @@ func (c *IntrospectCommand) Info() *cmd.Info {
 func (c *IntrospectCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 	f.StringVar(&c.dataDir, "data-dir", config.DataDir, "Juju base data directory")
+	f.StringVar(&c.controllerDir, "controller-dir", "", "controller data directory for standalone controller introspection")
 	f.StringVar(&c.agent, "agent", "", "agent to introspect (defaults to machine agent)")
 	f.StringVar(&c.listen, "listen", "", "address on which to expose the introspection socket")
 	f.BoolVar(&c.post, "post", false, "perform a POST action rather than a GET")
@@ -120,12 +127,16 @@ func (c *IntrospectCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	tag, err := c.getAgentTag()
-	if err != nil {
-		return err
+	var socketName string
+	if c.controllerDir != "" {
+		socketName = path.Join(c.controllerDir, addons.IntrospectionSocketName)
+	} else {
+		tag, err := c.getAgentTag()
+		if err != nil {
+			return err
+		}
+		socketName = path.Join(agent.Dir(c.dataDir, tag), addons.IntrospectionSocketName)
 	}
-
-	socketName := path.Join(agent.Dir(c.dataDir, tag), addons.IntrospectionSocketName)
 	if c.listen != "" {
 		listener, err := net.Listen("tcp", c.listen)
 		if err != nil {

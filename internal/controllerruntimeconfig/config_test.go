@@ -376,8 +376,7 @@ func (s *configSuite) TestWriteAndReadRoundTrip_AllNodeManagerFields(c *tc.C) {
 // creates the parent directory if it does not exist.
 func (s *configSuite) TestWrite_CreatesParentDirectory(c *tc.C) {
 	dir := c.MkDir()
-	path := filepath.Join(dir, "agents", "controller-0",
-		controllerruntimeconfig.Filename)
+	path := filepath.Join(dir, controllerruntimeconfig.Filename)
 	cfg := validConfig()
 
 	err := controllerruntimeconfig.WriteControllerRuntimeConfig(path, cfg)
@@ -545,7 +544,7 @@ func (s *configSuite) TestResolveStagedControllerRuntimeConfig_ResolvesPathField
 	c.Check(resolved.DataDir, tc.Equals, snapData)
 	c.Check(resolved.LogDir, tc.Equals, snapCommon+"/logs")
 	c.Check(resolved.SocketDir, tc.Equals, snapCommon+"/sockets")
-	c.Check(resolved.SharedAgentDir, tc.Equals, snapCommon+"/agents/controller-0")
+	c.Check(resolved.SharedAgentDir, tc.Equals, snapCommon)
 
 	// Non-path fields are unchanged.
 	c.Check(resolved.CACert, tc.Equals, cfg.CACert)

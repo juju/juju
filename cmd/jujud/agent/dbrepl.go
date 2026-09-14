@@ -82,9 +82,9 @@ func (a *dbReplAgentCommand) Init(args []string) error {
 	_, _ = loggo.RemoveWriter("logfile")
 
 	a.agentTag = names.NewControllerAgentTag(a.controllerId)
-	runtimeConfigPath := controllerruntimeconfig.ConfigPath(filepath.Join(
-		a.agentInitializer.DataDir(), "agents", "controller-"+a.agentTag.Id(),
-	))
+	runtimeConfigPath := filepath.Join(
+		a.agentInitializer.DataDir(), controllerruntimeconfig.Filename,
+	)
 	runtimeConfig, err := controllerruntimeconfig.ReadControllerRuntimeConfig(runtimeConfigPath)
 	if err != nil {
 		return errors.Annotate(err, "cannot read controller runtime configuration")

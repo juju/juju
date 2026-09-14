@@ -120,3 +120,13 @@ func IsUnsupportedBaseError(err error) bool {
 	_, ok := err.(*unsupportedBaseError)
 	return ok
 }
+
+// IsLocalCharmPath reports whether the given path refers to a local charm
+// or bundle rather than a charmhub identifier. A path is considered local if
+// it is empty or starts with "/", "./", or "../".
+func IsLocalCharmPath(path string) bool {
+	return path == "" ||
+		strings.HasPrefix(path, "/") ||
+		strings.HasPrefix(path, "./") ||
+		strings.HasPrefix(path, "../")
+}

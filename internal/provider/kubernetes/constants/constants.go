@@ -63,9 +63,8 @@ const (
 	// controller introduction nonce is placed on the shared data directory
 	// by the controller-config-seed init container. The init container
 	// selects the nonce for its ordinal from the ConfigMap and copies it
-	// to this path. This mirrors the machine nonce at
-	// /var/lib/juju/nonce.txt.
-	ControllerNonceFilePath = "/var/lib/juju/nonce.txt"
+	// to this path.
+	ControllerNonceFilePath = "/var/lib/juju/controller/nonce.txt"
 
 	// CAASProviderType is the provider type for k8s.
 	CAASProviderType = "kubernetes"

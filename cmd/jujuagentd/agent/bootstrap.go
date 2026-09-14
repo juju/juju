@@ -7,9 +7,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
-	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,12 +39,12 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/controllerruntimeconfig"
 	"github.com/juju/juju/internal/database"
 	internallogger "github.com/juju/juju/internal/logger"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/tools"
 )
 
@@ -96,7 +97,10 @@ func (c *BootstrapCommand) Init(args []string) error {
 }
 
 func copyFile(dest, source string) error {
-	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600)
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		return errors.Trace(err)
+	}
+	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0o600)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -112,39 +116,6 @@ func copyFile(dest, source string) error {
 	return errors.Trace(err)
 }
 
-func copyFileFromTemplate(to, from string) (err error) {
-	if _, err := os.Stat(to); os.IsNotExist(err) {
-		logger.Debugf(context.TODO(), "copying file from %q to %s", from, to)
-		if err := copyFile(to, from); err != nil {
-			return errors.Trace(err)
-		}
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-func (c *BootstrapCommand) ensureConfigFilesForCaas() error {
-	tag := names.NewControllerAgentTag(agent.BootstrapControllerId)
-	for _, v := range []struct {
-		to, from string
-	}{
-		{
-			// ensure agent.conf
-			to: agent.ConfigPath(c.AgentConf.DataDir(), tag),
-			from: filepath.Join(
-				agent.Dir(c.AgentConf.DataDir(), tag),
-				k8sconstants.TemplateFileNameAgentConf,
-			),
-		},
-	} {
-		if err := copyFileFromTemplate(v.to, v.from); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
 var (
 	environsNewIAAS = environs.New
 	environsNewCAAS = caas.New
@@ -152,7 +123,7 @@ var (
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
-	bootstrapParamsData, err := os.ReadFile(path.Join(c.DataDir(), controllerruntimeconfig.FileNameBootstrapParams))
+	bootstrapParamsData, err := os.ReadFile(bootstrap.BootstrapParamsPath(c.DataDir()))
 	if err != nil {
 		return errors.Annotate(err, "reading bootstrap params file")
 	}
@@ -177,12 +148,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	}
 
 	isCAAS := args.ControllerCloud.Type == cloud.CloudTypeKubernetes
-
-	if isCAAS {
-		if err := c.ensureConfigFilesForCaas(); err != nil {
-			return errors.Trace(err)
-		}
-	}
 
 	// Get the bootstrap machine's addresses from the provider.
 	cloudSpec, err := environscloudspec.MakeCloudSpec(
@@ -259,6 +224,14 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
+	// For CAAS, bootstrap-state reads controller startup values from
+	// runtime.conf (staged by the seed container) and never creates or
+	// reads a controller agent.conf. The IAAS path below continues to
+	// use agent.conf.
+	if isCAAS {
+		return c.runCAASFromRuntimeConf(ctx, args, env, controllerModelConfigAttrs)
+	}
+
 	if err := agentconfig.ReadAgentConfig(c, agent.BootstrapControllerId); err != nil {
 		return errors.Annotate(err, "cannot read config")
 	}
@@ -330,6 +303,123 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		return bootstrap.Initialize(ctx)
 	})
 	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// runCAASFromRuntimeConf runs bootstrap state initialization for CAAS
+// controllers. It reads the controller startup configuration from
+// runtime.conf (staged by the Kubernetes seed container) and persists
+// mutations back to that file. It never reads, writes, or creates a
+// controller agent.conf under agents/controller-<id>.
+func (c *BootstrapCommand) runCAASFromRuntimeConf(
+	ctx *cmd.Context,
+	args instancecfg.StateInitializationParams,
+	env environs.BootstrapEnviron,
+	controllerModelConfigAttrs map[string]any,
+) error {
+	runtimeCfgPath := filepath.Join(c.DataDir(), controllerruntimeconfig.Filename)
+
+	runtimeCfg, err := controllerruntimeconfig.ReadControllerRuntimeConfig(runtimeCfgPath)
+	if err != nil {
+		return errors.Annotate(err, "reading controller runtime config")
+	}
+
+	// Build the ControllerAgentInfo from runtime.conf values. This is the
+	// narrow in-memory state required by AgentBootstrap.
+	info := controller.ControllerAgentInfo{
+		Cert:           runtimeCfg.ControllerCert,
+		PrivateKey:     runtimeCfg.ControllerPrivateKey,
+		CAPrivateKey:   runtimeCfg.CAPrivateKey,
+		APIPort:        runtimeCfg.APIPort,
+		SystemIdentity: runtimeCfg.SystemIdentity,
+	}
+
+	if err := ensureKeys(true /* isCAAS */, &args, &info); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ensureSSHServerHostKey(&args); err != nil {
+		return errors.Trace(err)
+	}
+	addrs, err := bootstrapControllerAddresses(
+		ctx, env, args.BootstrapMachineInstanceId,
+	)
+	if err != nil {
+		return errors.Annotate(err, "getting bootstrap controller addresses")
+	}
+
+	// Persist the key and address mutations back to runtime.conf.
+	apiAddrs := make([]string, 0, len(addrs))
+	apiPort := strconv.Itoa(info.APIPort)
+	for _, host := range addrs.Values() {
+		apiAddrs = append(apiAddrs, net.JoinHostPort(host, apiPort))
+	}
+	if err := controllerruntimeconfig.ChangeControllerRuntimeConfig(runtimeCfgPath, func(cfg *controllerruntimeconfig.ControllerRuntimeConfig) error {
+		cfg.ControllerCert = info.Cert
+		cfg.ControllerPrivateKey = info.PrivateKey
+		cfg.CAPrivateKey = info.CAPrivateKey
+		cfg.SystemIdentity = info.SystemIdentity
+		cfg.APIAddresses = apiAddrs
+		cfg.QueryTracingEnabled = args.ControllerConfig.QueryTracingEnabled()
+		cfg.QueryTracingThreshold = args.ControllerConfig.QueryTracingThreshold()
+		cfg.DqliteBusyTimeout = args.ControllerConfig.DqliteBusyTimeout()
+		return nil
+	}); err != nil {
+		return errors.Annotate(err, "persisting key mutations to runtime config")
+	}
+
+	// Build the in-memory agent.ConfigSetterWriter from runtime.conf values.
+	controllerTag := names.NewControllerTag(runtimeCfg.ControllerUUID)
+	modelTag := names.NewModelTag(runtimeCfg.ControllerModelUUID)
+	controllerAgentTag := names.NewControllerAgentTag(runtimeCfg.ControllerID)
+
+	agentConfigParams := agent.AgentConfigParams{
+		Paths: agent.Paths{
+			DataDir: runtimeCfg.DataDir,
+			LogDir:  runtimeCfg.LogDir,
+		},
+		Tag:                   controllerAgentTag,
+		UpgradedToVersion:     jujuversion.Current,
+		Password:              runtimeCfg.AgentPassword,
+		Controller:            controllerTag,
+		Model:                 modelTag,
+		APIAddresses:          apiAddrs,
+		CACert:                runtimeCfg.CACert,
+		QueryTracingEnabled:   args.ControllerConfig.QueryTracingEnabled(),
+		QueryTracingThreshold: args.ControllerConfig.QueryTracingThreshold(),
+		DqliteBusyTimeout:     args.ControllerConfig.DqliteBusyTimeout(),
+	}
+	agentCfgWriter, err := agent.NewStateMachineConfig(agentConfigParams, info)
+	if err != nil {
+		return errors.Annotate(err, "building in-memory controller agent config")
+	}
+
+	// Write the system identity file to the controller DataDir.
+	if err := agent.WriteSystemIdentityFile(agentCfgWriter); err != nil {
+		return errors.Trace(err)
+	}
+
+	controllerModelCfg, err := env.Config().Apply(controllerModelConfigAttrs)
+	if err != nil {
+		return errors.Annotate(err, "failed to update model config")
+	}
+	args.ControllerModelConfig = controllerModelCfg
+
+	adminTag := names.NewLocalUserTag(coreuser.AdminUserName.Name())
+	bootstrapAgent, err := c.BootstrapAgent(agentbootstrap.AgentBootstrapArgs{
+		AgentConfig:               agentCfgWriter,
+		BootstrapEnviron:          env,
+		AdminUser:                 adminTag,
+		StateInitializationParams: args,
+		BootstrapMachineAddresses: addrs,
+		BootstrapDqlite:           c.DqliteInitializer,
+		Logger:                    internallogger.GetLogger("juju.agent.bootstrap"),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := bootstrapAgent.Initialize(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

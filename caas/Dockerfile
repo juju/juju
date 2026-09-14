@@ -20,5 +20,12 @@ COPY ${TARGETOS}_${TARGETARCH}/bin/jujud \
      ${TARGETOS}_${TARGETARCH}/bin/jujuc \
      ${TARGETOS}_${TARGETARCH}/bin/containeragent \
      ${TARGETOS}_${TARGETARCH}/bin/pebble /opt/
+COPY controller-wrappers/ /usr/bin/
+
+# jujud dispatches on argv[0] to run the introspect command when
+# invoked as "juju-introspect" (see cmd/jujud/run.go). The CAAS
+# controller wrappers rely on this symlink, mirroring the IAAS snap
+# which creates the same link in snapcraft.yaml.
+RUN ln -s jujud /opt/juju-introspect
 
 ENTRYPOINT ["sh", "-c"]

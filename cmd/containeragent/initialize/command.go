@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/agent"
+	agentconstants "github.com/juju/juju/agent/constants"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/caasapplication"
 	jujucmd "github.com/juju/juju/cmd"
@@ -193,7 +195,7 @@ func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 	if c.isController && unitConfig.ControllerAgentTag.Id() != "" {
-		controllerConfigPath := agent.ConfigPath(c.dataDir, unitConfig.ControllerAgentTag)
+		controllerConfigPath := filepath.Join(c.dataDir, "agents", "machine-"+unitConfig.ControllerAgentTag.Id(), agentconstants.AgentConfigFilename)
 		if err := c.fileReaderWriter.MkdirAll(path.Dir(controllerConfigPath), 0775); err != nil {
 			return errors.Trace(err)
 		}
@@ -283,6 +285,7 @@ func (c *initCommand) writeContainerAgentPebbleConfig() error {
 				},
 				Environment: map[string]string{
 					constants.EnvHTTPProbePort: constants.DefaultHTTPProbePort,
+					"PEBBLE_SOCKET":            pebble.DefaultPebbleSocket,
 				},
 			},
 		},
