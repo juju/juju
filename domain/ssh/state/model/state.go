@@ -12,7 +12,9 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
+	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/domain"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -26,6 +28,72 @@ import (
 type State struct {
 	*domain.StateBase
 	controllerState *domain.StateBase
+}
+
+// GetPublicKeysForUser returns the public keys the named user is authorized to
+// use in the supplied model.
+func (st *State) GetPublicKeysForUser(ctx context.Context, modelUUID, username string) ([]coressh.PublicKey, error) {
+	db, err := st.controllerState.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	userArg := entityName{Name: username}
+	modelArg := modelUUIDValue{UUID: modelUUID}
+	userStmt, err := st.controllerState.Prepare(`
+SELECT uuid AS &entityUUID.uuid
+FROM user
+WHERE name = $entityName.name
+  AND removed = FALSE`, entityUUID{}, userArg)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	modelStmt, err := st.controllerState.Prepare(`
+SELECT uuid AS &entityUUID.uuid
+FROM model
+WHERE uuid = $modelUUID.uuid`, entityUUID{}, modelArg)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	keysStmt, err := st.controllerState.Prepare(`
+SELECT upsk.public_key AS &userPublicKey.public_key
+FROM user_public_ssh_key AS upsk
+JOIN model_authorized_keys AS mak
+  ON mak.user_public_ssh_key_id = upsk.id
+WHERE upsk.user_uuid = $entityUUID.uuid
+  AND mak.model_uuid = $modelUUID.uuid`, userPublicKey{}, entityUUID{}, modelArg)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var keys []userPublicKey
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var user entityUUID
+		if err := tx.Query(ctx, userStmt, userArg).Get(&user); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("user %q: %w", username, accesserrors.UserNotFound)
+		} else if err != nil {
+			return errors.Errorf("getting user %q: %w", username, err)
+		}
+		var model entityUUID
+		if err := tx.Query(ctx, modelStmt, modelArg).Get(&model); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("model %q: %w", modelUUID, modelerrors.NotFound)
+		} else if err != nil {
+			return errors.Errorf("getting model %q: %w", modelUUID, err)
+		}
+		if err := tx.Query(ctx, keysStmt, user, modelArg).GetAll(&keys); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting public SSH keys for user %q: %w", username, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make([]coressh.PublicKey, 0, len(keys))
+	for _, key := range keys {
+		result = append(result, coressh.PublicKey{Key: key.Key})
+	}
+	return result, nil
 }
 
 // NewState returns a new model-scoped SSH state.

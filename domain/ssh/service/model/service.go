@@ -4,10 +4,12 @@
 package model
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
+	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -120,6 +122,32 @@ func NewService(state State, modelUUID coremodel.UUID, clk clock.Clock) *Service
 		modelUUID: modelUUID,
 		clock:     clk,
 	}
+}
+
+// PublicKeyInModel reports whether key is authorized for username in this
+// model.
+func (s *Service) PublicKeyInModel(ctx context.Context, username string, key gossh.PublicKey) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.modelUUID.Validate(); err != nil {
+		return false, errors.Errorf("validating model UUID %q: %w", s.modelUUID, err)
+	}
+
+	keys, err := s.state.GetPublicKeysForUser(ctx, s.modelUUID.String(), username)
+	if err != nil {
+		return false, errors.Errorf("getting public SSH keys for user %q: %w", username, err)
+	}
+	for _, modelKey := range keys {
+		parsedKey, _, _, _, err := gossh.ParseAuthorizedKey([]byte(modelKey.Key))
+		if err != nil {
+			return false, errors.Errorf("parsing public key for user %q: %w", username, err)
+		}
+		if bytes.Equal(key.Marshal(), parsedKey.Marshal()) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // InsertSSHConnRequest stores a one-shot SSH connection request for this

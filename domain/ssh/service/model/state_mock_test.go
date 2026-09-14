@@ -14,7 +14,8 @@ import (
 	time "time"
 
 	gomock "github.com/canonical/gomock/gomock"
-	ssh "github.com/juju/juju/domain/ssh"
+	ssh "github.com/juju/juju/core/ssh"
+	ssh0 "github.com/juju/juju/domain/ssh"
 	model "github.com/juju/juju/domain/ssh/state/model"
 )
 
@@ -37,12 +38,13 @@ type MockStateMockRecorder struct {
 	getMachineUUIDByNameExpects                     []*gomock.Call2_2[context.Context, string, string, error]
 	getMachineVirtualHostKeyByMachineNameExpects    []*gomock.Call2_3[context.Context, string, string, bool, error]
 	getModelInfoExpects                             []*gomock.Call1_2[context.Context, model.ModelInfo, error]
-	getSSHConnRequestExpects                        []*gomock.Call4_2[context.Context, string, string, time.Time, ssh.SSHConnRequest, error]
+	getPublicKeysForUserExpects                     []*gomock.Call3_2[context.Context, string, string, []ssh.PublicKey, error]
+	getSSHConnRequestExpects                        []*gomock.Call4_2[context.Context, string, string, time.Time, ssh0.SSHConnRequest, error]
 	getUnitK8sPodInfoExpects                        []*gomock.Call2_2[context.Context, string, string, error]
 	getUnitMachineNameExpects                       []*gomock.Call2_2[context.Context, string, string, error]
 	getUnitVirtualHostKeyByUnitNameExpects          []*gomock.Call2_3[context.Context, string, string, bool, error]
 	initialWatchSSHConnRequestsStatementExpects     []*gomock.Call0_2[string, string]
-	insertSSHConnRequestExpects                     []*gomock.Call3_1[context.Context, ssh.SSHConnRequest, time.Time, error]
+	insertSSHConnRequestExpects                     []*gomock.Call3_1[context.Context, ssh0.SSHConnRequest, time.Time, error]
 	pruneExpiredSSHConnRequestsExpects              []*gomock.Call2_1[context.Context, time.Time, error]
 	removeSSHConnRequestExpects                     []*gomock.Call2_1[context.Context, string, error]
 }
@@ -221,8 +223,26 @@ func (mr *MockStateMockRecorder) GetModelInfo(arg0 any) *MockStateGetModelInfoCa
 // MockStateGetModelInfoCall is the typed call wrapper for GetModelInfo.
 type MockStateGetModelInfoCall = gomock.Call1_2[context.Context, model.ModelInfo, error]
 
+// GetPublicKeysForUser mocks base method.
+func (m *MockState) GetPublicKeysForUser(arg0 context.Context, arg1, arg2 string) ([]ssh.PublicKey, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.getPublicKeysForUserExpects, m.ctrl, m, "GetPublicKeysForUser", arg0, arg1, arg2)
+}
+
+// GetPublicKeysForUser indicates an expected call of GetPublicKeysForUser.
+func (mr *MockStateMockRecorder) GetPublicKeysForUser(arg0, arg1, arg2 any) *MockStateGetPublicKeysForUserCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, string, []ssh.PublicKey, error](mr.mock.ctrl.T, mr.mock, "GetPublicKeysForUser", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
+	mr.getPublicKeysForUserExpects = append(mr.getPublicKeysForUserExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetPublicKeysForUserCall is the typed call wrapper for GetPublicKeysForUser.
+type MockStateGetPublicKeysForUserCall = gomock.Call3_2[context.Context, string, string, []ssh.PublicKey, error]
+
 // GetSSHConnRequest mocks base method.
-func (m *MockState) GetSSHConnRequest(arg0 context.Context, arg1, arg2 string, arg3 time.Time) (ssh.SSHConnRequest, error) {
+func (m *MockState) GetSSHConnRequest(arg0 context.Context, arg1, arg2 string, arg3 time.Time) (ssh0.SSHConnRequest, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch4_2(&m.recorder.getSSHConnRequestExpects, m.ctrl, m, "GetSSHConnRequest", arg0, arg1, arg2, arg3)
 }
@@ -230,14 +250,14 @@ func (m *MockState) GetSSHConnRequest(arg0 context.Context, arg1, arg2 string, a
 // GetSSHConnRequest indicates an expected call of GetSSHConnRequest.
 func (mr *MockStateMockRecorder) GetSSHConnRequest(arg0, arg1, arg2, arg3 any) *MockStateGetSSHConnRequestCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_2[context.Context, string, string, time.Time, ssh.SSHConnRequest, error](mr.mock.ctrl.T, mr.mock, "GetSSHConnRequest", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), gomock.EnsureMatcher(arg3))
+	call := gomock.NewCall4_2[context.Context, string, string, time.Time, ssh0.SSHConnRequest, error](mr.mock.ctrl.T, mr.mock, "GetSSHConnRequest", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), gomock.EnsureMatcher(arg3))
 	mr.getSSHConnRequestExpects = append(mr.getSSHConnRequestExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateGetSSHConnRequestCall is the typed call wrapper for GetSSHConnRequest.
-type MockStateGetSSHConnRequestCall = gomock.Call4_2[context.Context, string, string, time.Time, ssh.SSHConnRequest, error]
+type MockStateGetSSHConnRequestCall = gomock.Call4_2[context.Context, string, string, time.Time, ssh0.SSHConnRequest, error]
 
 // GetUnitK8sPodInfo mocks base method.
 func (m *MockState) GetUnitK8sPodInfo(arg0 context.Context, arg1 string) (string, error) {
@@ -312,7 +332,7 @@ func (mr *MockStateMockRecorder) InitialWatchSSHConnRequestsStatement() *MockSta
 type MockStateInitialWatchSSHConnRequestsStatementCall = gomock.Call0_2[string, string]
 
 // InsertSSHConnRequest mocks base method.
-func (m *MockState) InsertSSHConnRequest(arg0 context.Context, arg1 ssh.SSHConnRequest, arg2 time.Time) error {
+func (m *MockState) InsertSSHConnRequest(arg0 context.Context, arg1 ssh0.SSHConnRequest, arg2 time.Time) error {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch3_1(&m.recorder.insertSSHConnRequestExpects, m.ctrl, m, "InsertSSHConnRequest", arg0, arg1, arg2)
 }
@@ -320,14 +340,14 @@ func (m *MockState) InsertSSHConnRequest(arg0 context.Context, arg1 ssh.SSHConnR
 // InsertSSHConnRequest indicates an expected call of InsertSSHConnRequest.
 func (mr *MockStateMockRecorder) InsertSSHConnRequest(arg0, arg1, arg2 any) *MockStateInsertSSHConnRequestCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, ssh.SSHConnRequest, time.Time, error](mr.mock.ctrl.T, mr.mock, "InsertSSHConnRequest", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
+	call := gomock.NewCall3_1[context.Context, ssh0.SSHConnRequest, time.Time, error](mr.mock.ctrl.T, mr.mock, "InsertSSHConnRequest", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
 	mr.insertSSHConnRequestExpects = append(mr.insertSSHConnRequestExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateInsertSSHConnRequestCall is the typed call wrapper for InsertSSHConnRequest.
-type MockStateInsertSSHConnRequestCall = gomock.Call3_1[context.Context, ssh.SSHConnRequest, time.Time, error]
+type MockStateInsertSSHConnRequestCall = gomock.Call3_1[context.Context, ssh0.SSHConnRequest, time.Time, error]
 
 // PruneExpiredSSHConnRequests mocks base method.
 func (m *MockState) PruneExpiredSSHConnRequests(arg0 context.Context, arg1 time.Time) error {
