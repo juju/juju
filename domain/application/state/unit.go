@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"slices"
 	"strings"
 
@@ -804,7 +803,11 @@ func (st *State) getUnitDetails(ctx context.Context, tx *sqlair.TX, unitName str
 	return &unit, nil
 }
 
-func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
+// makeCloudContainerArg builds the cloud container argument for a unit.
+// This mirrors makeCloudContainerArg in
+// domain/application/service/migration.go; the two must stay in
+// lockstep, apart from the Scope handling documented below.
+func makeCloudContainerArg(cloudContainer application.CloudContainerParams) *application.CloudContainer {
 	result := &application.CloudContainer{
 		ProviderID: cloudContainer.ProviderID,
 		Ports:      cloudContainer.Ports,
@@ -819,7 +822,7 @@ func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.Cl
 			// to tie the address to the net node corresponding to the
 			// cloud container.
 			Device: application.ContainerDevice{
-				Name:              fmt.Sprintf("placeholder for %q cloud container", unitName),
+				Name:              network.PlaceholderDeviceName,
 				DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
 				VirtualPortTypeID: domainnetwork.NonVirtualPortType,
 			},
@@ -828,6 +831,8 @@ func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.Cl
 			// The k8s container must have the lowest scope. This is needed to
 			// ensure that these are correctly matched with respect to k8s
 			// service addresses when retrieving unit public/private addresses.
+			// Note that unlike the migration.go version, the scope is not
+			// taken from the address itself.
 			Scope:      ipaddress.MarshallScope(network.ScopeMachineLocal),
 			Origin:     ipaddress.MarshallOrigin(network.OriginProvider),
 			ConfigType: ipaddress.MarshallConfigType(network.ConfigDHCP),
@@ -860,7 +865,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 		origin := network.OriginProvider
 		cloudContainerParams.AddressOrigin = &origin
 	}
-	cloudContainer := makeCloudContainerArg(arg.UnitName, cloudContainerParams)
+	cloudContainer := makeCloudContainerArg(cloudContainerParams)
 
 	now := new(st.clock.Now().UTC())
 	addUnitArg := application.AddCAASUnitArg{
@@ -1150,7 +1155,7 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 			origin := network.OriginProvider
 			cloudContainerParams.AddressOrigin = &origin
 		}
-		cloudContainer = makeCloudContainerArg(unitName, cloudContainerParams)
+		cloudContainer = makeCloudContainerArg(cloudContainerParams)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
