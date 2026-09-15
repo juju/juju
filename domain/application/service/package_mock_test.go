@@ -15,7 +15,6 @@ import (
 
 	gomock "github.com/canonical/gomock/gomock"
 	set "github.com/juju/collections/set"
-
 	caas "github.com/juju/juju/caas"
 	application "github.com/juju/juju/core/application"
 	assumes "github.com/juju/juju/core/assumes"

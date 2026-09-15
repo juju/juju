@@ -49,6 +49,7 @@ type MockExtCAASBrokerMockRecorder struct {
 	destroyControllerExpects               []*gomock.Call2_1[context.Context, string, error]
 	ensureImageRepoSecretExpects           []*gomock.Call2_1[context.Context, docker.ImageRepoDetails, error]
 	ensureModelOperatorExpects             []*gomock.Call4_1[context.Context, string, string, *caas.ModelOperatorConfig, error]
+	getControllerServiceExpects            []*gomock.Call3_2[context.Context, string, bool, *caas.Service, error]
 	getModelOperatorDeploymentImageExpects []*gomock.Call1_2[context.Context, string, error]
 	getSecretTokenExpects                  []*gomock.Call2_2[context.Context, string, string, error]
 	getServiceExpects                      []*gomock.Call3_2[context.Context, string, bool, *caas.Service, error]
@@ -321,6 +322,24 @@ func (mr *MockExtCAASBrokerMockRecorder) EnsureModelOperator(ctx, modelUUID, age
 
 // MockExtCAASBrokerEnsureModelOperatorCall is the typed call wrapper for EnsureModelOperator.
 type MockExtCAASBrokerEnsureModelOperatorCall = gomock.Call4_1[context.Context, string, string, *caas.ModelOperatorConfig, error]
+
+// GetControllerService mocks base method.
+func (m *MockExtCAASBroker) GetControllerService(ctx context.Context, controllerName string, includeClusterIP bool) (*caas.Service, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.getControllerServiceExpects, m.ctrl, m, "GetControllerService", ctx, controllerName, includeClusterIP)
+}
+
+// GetControllerService indicates an expected call of GetControllerService.
+func (mr *MockExtCAASBrokerMockRecorder) GetControllerService(ctx, controllerName, includeClusterIP any) *MockExtCAASBrokerGetControllerServiceCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, bool, *caas.Service, error](mr.mock.ctrl.T, mr.mock, "GetControllerService", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(controllerName), gomock.EnsureMatcher(includeClusterIP))
+	mr.getControllerServiceExpects = append(mr.getControllerServiceExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockExtCAASBrokerGetControllerServiceCall is the typed call wrapper for GetControllerService.
+type MockExtCAASBrokerGetControllerServiceCall = gomock.Call3_2[context.Context, string, bool, *caas.Service, error]
 
 // GetModelOperatorDeploymentImage mocks base method.
 func (m *MockExtCAASBroker) GetModelOperatorDeploymentImage(ctx context.Context) (string, error) {
