@@ -122,6 +122,7 @@ exec_simplestream_metadata() {
 	# that the version actually changed.
 	CURRENT=$(juju machines -m test-upgrade-"${test_name}" --format=json | yq -r '.machines | .["0"] | .["juju-status"] | .version')
 	juju upgrade-model
+	attempt=0
 	while true; do
 		UPDATED=$(timeout 30 juju machines --format=json | yq -r '.machines | .["0"] | .["juju-status"] | .version' || echo "${CURRENT}")
 		if [ "$CURRENT" != "$UPDATED" ]; then

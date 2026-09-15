@@ -24,8 +24,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     }
 
 
-socketserver.TCPServer.allow_reuse_address = True
-with socketserver.TCPServer(("", 8666), Handler) as httpd:
+class Server(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
+with Server(("", 8666), Handler) as httpd:
     httpd.serve_forever()
 '
 
