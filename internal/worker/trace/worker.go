@@ -300,17 +300,43 @@ func (w *tracerWorker) GetTracer(ctx context.Context, namespace coretrace.Tracer
 
 // runtimeTracer resolves the current tracer for each span so consumers that
 // retain this handle begin tracing when the runtime configuration is enabled.
+// To avoid calling getTracer (which takes locks and may block on the worker
+// loop channel) on every span start on the hot path, the resolved tracked
+// tracer is cached and re-resolved only when the runtime config changes.
 type runtimeTracer struct {
 	worker    *tracerWorker
 	namespace coretrace.TaggedTracerNamespace
+
+	mu           sync.Mutex
+	cached       coretrace.Tracer
+	cachedConfig RuntimeConfig
 }
 
 // Start implements coretrace.Tracer.
 func (t *runtimeTracer) Start(ctx context.Context, name string, options ...coretrace.Option) (context.Context, coretrace.Span) {
-	tracer, err := t.worker.getTracer(ctx, t.namespace)
+	cfg := t.worker.getRuntimeConfig()
+
+	t.mu.Lock()
+	tracer := t.cached
+	cachedCfg := t.cachedConfig
+	t.mu.Unlock()
+
+	if tracer != nil && cachedCfg == cfg {
+		return tracer.Start(ctx, name, options...)
+	}
+
+	var err error
+	tracer, err = t.worker.getTracer(ctx, t.namespace)
 	if err != nil {
+		t.worker.cfg.Logger.Warningf(ctx, "failed to get tracer, falling back to noop tracer: %v", err)
 		return coretrace.NoopTracer{}.Start(ctx, name, options...)
 	}
+
+	t.mu.Lock()
+	t.cached = tracer
+	t.cachedConfig = cfg
+	t.mu.Unlock()
+
 	return tracer.Start(ctx, name, options...)
 }
 

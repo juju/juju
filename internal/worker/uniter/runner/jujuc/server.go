@@ -237,6 +237,9 @@ func badReqErrorf(format string, v ...any) error {
 
 // Main runs the Command specified by req, and fills in resp. A single command
 // is run at a time.
+//
+// The j.ctx field must not be nil. It is populated by NewServer using the
+// runner's context which includes the trace context for the hook or action.
 func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 	if req.CommandName == "" {
 		return badReqErrorf("command not specified")

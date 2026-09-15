@@ -327,9 +327,6 @@ func (runner *runner) runCharmHookWithLocation(ctx stdcontext.Context, hookName,
 	// spans of the charm span rather than as siblings.
 	ctx, span := trace.Start(ctx, trace.Name("charm."+hookName))
 	defer func() {
-		if err != nil {
-			span.RecordError(err)
-		}
 		span.End()
 	}()
 
@@ -346,11 +343,19 @@ func (runner *runner) runCharmHookWithLocation(ctx stdcontext.Context, hookName,
 	}
 	env = append(env, "JUJU_DISPATCH_PATH="+charmLocation+"/"+hookName)
 
+	// Capture the hook execution error before the flush defer so the
+	// span can record it explicitly as a distinct event from any
+	// subsequent flush error, without relying on defer ordering to
+	// propagate the error value.
+	var hookErr error
 	defer func() {
+		if hookErr != nil {
+			span.RecordError(hookErr)
+		}
+		err = runner.context.Flush(ctx, hookName, err)
 		if err != nil {
 			span.RecordError(err)
 		}
-		err = runner.context.Flush(ctx, hookName, err)
 	}()
 
 	logger := runner.logger()
@@ -362,22 +367,26 @@ func (runner *runner) runCharmHookWithLocation(ctx stdcontext.Context, hookName,
 		if session.DebugAt() != "" {
 			if hookHandlerType == InvalidHookHandler {
 				logger.Infof(ctx, "debug-code active, but hook %s not implemented (skipping)", hookName)
+				hookErr = err
 				return InvalidHookHandler, err
 			}
 			logger.Infof(ctx, "executing %s via debug-code; %s", hookName, hookHandlerType)
 		} else {
 			logger.Infof(ctx, "executing %s via debug-hooks; %s", hookName, hookHandlerType)
 		}
-		return hookHandlerType, session.RunHook(hookName, runner.paths.GetCharmDir(), env, hookScript)
+		hookErr = session.RunHook(hookName, runner.paths.GetCharmDir(), env, hookScript)
+		return hookHandlerType, hookErr
 	}
 
 	charmDir := runner.paths.GetCharmDir()
 	hookHandlerType, hookScript, err := runner.discoverHookHandler(hookName, charmDir, charmLocation)
 	if err != nil {
+		hookErr = err
 		return InvalidHookHandler, err
 	}
 
 	err = runner.runCharmProcessOnLocal(hookScript, hookName, charmDir, env)
+	hookErr = err
 
 	return hookHandlerType, err
 }

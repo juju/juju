@@ -1294,13 +1294,9 @@ func (srv *Server) serveConn(
 		ctx,
 		coretrace.Namespace("apiserver", modelUUID.String()),
 	)
-	// Do not fall back to a NoopTracer here. The tracer is stored on the
-	// apiHandler for the lifetime of the connection; if we silently ignore
-	// an error, the connection will emit no spans at all, which masks
-	// trace-backend problems. Propagate the error so the connection fails
-	// clearly instead of recording telemetry into the void.
 	if err != nil {
-		return nil, false, errors.Annotatef(err, "getting tracer for model %q", modelUUID)
+		logger.Errorf(ctx, "failed to get tracer for model %q, falling back to noop tracer: %v", modelUUID, err)
+		tracer = coretrace.NoopTracer{}
 	}
 
 	// Grab the object store for the model.

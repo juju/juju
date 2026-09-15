@@ -685,6 +685,7 @@ func (s *RunMockContextSuite) TestRunHookStartsTraceSpan(c *tc.C) {
 
 	c.Assert(tracer.startedNames(), tc.DeepEquals, []string{"charm.install"})
 	c.Assert(tracer.recordedErrors(), tc.HasLen, 1)
+	c.Assert(tracer.recordedErrors()[0], tc.ErrorMatches, ".*/hooks/install does not exist")
 }
 
 func (s *RunMockContextSuite) TestRunHookRecordsSpanError(c *tc.C) {
@@ -706,4 +707,5 @@ func (s *RunMockContextSuite) TestRunHookRecordsSpanError(c *tc.C) {
 
 	c.Assert(tracer.startedNames(), tc.DeepEquals, []string{"charm.failing-hook"})
 	c.Assert(tracer.recordedErrors(), tc.HasLen, 1)
+	c.Assert(tracer.recordedErrors()[0], tc.ErrorMatches, "exit status 42")
 }
