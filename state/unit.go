@@ -2081,9 +2081,9 @@ func (u *Unit) assignToNewMachineOps(
 		// regardless of its child.
 		parentParams := template
 		parentParams.Jobs = []MachineJob{JobHostUnits}
-		mdoc, ops, err = u.st.addMachineInsideNewMachineOps(template, parentParams, containerType)
+		mdoc, ops, err = u.st.addMachineInsideNewMachineOps(template, parentParams, containerType, "")
 	default:
-		mdoc, ops, err = u.st.addMachineInsideMachineOps(template, parentId, containerType)
+		mdoc, ops, err = u.st.addMachineInsideMachineOps(template, parentId, containerType, "")
 	}
 	if err != nil {
 		return nil, nil, err
