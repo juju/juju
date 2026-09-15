@@ -98,12 +98,21 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Capture(err)
 	}
 
+	// The agent's API info carries the credentials and CA certificate the
+	// tunnel upgrade dialer needs to authenticate and validate the
+	// controller.
+	apiInfo, ok := thisAgent.CurrentConfig().APIInfo()
+	if !ok {
+		return nil, errors.Errorf("API info not available").Add(coreerrors.NotValid)
+	}
+
 	w, err := config.NewWorker(WorkerConfig{
 		Logger:               config.Logger,
 		MachineName:          machineTag.Id(),
+		ModelUUID:            thisAgent.CurrentConfig().Model().Id(),
 		FacadeClient:         config.NewFacadeClient(apiCaller),
 		EphemeralKeysUpdater: ephemeralKeysUpdater,
-		ConnectionDialer:     newConnectionDialer(config.Logger),
+		ConnectionDialer:     newConnectionDialer(config.Logger, apiInfo),
 	})
 	if err != nil {
 		return nil, errors.Errorf("cannot start sshsession worker: %w", err)

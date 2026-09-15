@@ -64,6 +64,10 @@ type Config struct {
 	ObjectStoreGetter       objectstore.ObjectStoreGetter
 	ControllerConfigService ControllerConfigService
 	ModelService            ModelService
+
+	// SSHTunnel holds the dependencies for the SSH tunnel and relay
+	// upgrade endpoints.
+	SSHTunnel *apiserver.SSHTunnelConfig
 }
 
 type HTTPClient interface {
@@ -148,6 +152,9 @@ func (config Config) Validate() error {
 	if config.EphemeralProviderFactory == nil {
 		return errors.NotValidf("nil EphemeralProviderFactory")
 	}
+	if config.SSHTunnel == nil {
+		return errors.NotValidf("nil SSHTunnel")
+	}
 	return nil
 }
 
@@ -206,6 +213,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		ObjectStoreGetter:             config.ObjectStoreGetter,
 		WatcherRegistryGetter:         config.WatcherRegistryGetter,
 		EphemeralProviderFactory:      config.EphemeralProviderFactory,
+		SSHTunnelConfig:               config.SSHTunnel,
 	}
 	return config.NewServer(ctx, serverConfig)
 }

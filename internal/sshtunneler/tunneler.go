@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/watcher"
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/pki/ssh"
@@ -31,10 +30,7 @@ var (
 )
 
 const (
-	tokenIssuer      = "sshtunneler"
-	tokenSubject     = "reverse-tunnel"
-	tunnelIDClaimKey = "tunnelID"
-	defaultUser      = "ubuntu"
+	defaultUser = "ubuntu"
 )
 
 // ConnRequestState defines an interface to write SSH connection requests to
@@ -79,7 +75,6 @@ type SSHDial interface {
 type Tracker struct {
 	catacomb catacomb.Catacomb
 
-	authn        tunnelAuthentication
 	connReqState ConnRequestState
 	machines     MachineState
 	controller   ControllerInfo
@@ -124,14 +119,8 @@ func NewTracker(args TrackerArgs) (*Tracker, error) {
 		return nil, err
 	}
 
-	authn, err := newTunnelAuthentication(args.Clock)
-	if err != nil {
-		return nil, err
-	}
-
 	tt := &Tracker{
 		tracker:      make(map[string]chan (net.Conn)),
-		authn:        authn,
 		controller:   args.ControllerInfo,
 		clock:        args.Clock,
 		connReqState: args.ConnRequestState,
@@ -231,18 +220,14 @@ func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.C
 		return nil, err
 	}
 
-	// We use the same expiry for the password and the state entry.
-	// The state's expiry is used to clean up any dangling requests.
-	// The password expiry is used to invalidate old passwords.
+	// The state entry's expiry is used to clean up any dangling
+	// requests. Authentication of the machine now happens at the
+	// HTTP layer on the tunnel upgrade endpoint, so no SSH
+	// credentials are minted here.
 	now := tt.clock.Now()
 	ctx, cancel := context.WithDeadline(ctx, now.Add(maxTimeout))
 	defer cancel()
 	deadline, _ := ctx.Deadline()
-
-	password, err := tt.authn.generatePassword(tunnelID.String(), now, deadline)
-	if err != nil {
-		return nil, err
-	}
 
 	privateKey, publicKey, err := tt.generateEphemeralSSHKey()
 	if err != nil {
@@ -265,8 +250,6 @@ func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.C
 		TunnelID:            tunnelID.String(),
 		MachineName:         req.MachineID,
 		Expires:             deadline,
-		SSHUsername:         coressh.ReverseTunnelUser,
-		SSHPassword:         password,
 		ControllerAddresses: controllerAddresses,
 		UnitPort:            0, // Allow the unit worker to determine the port.
 		EphemeralPublicKey:  publicKey.Marshal(),
@@ -299,46 +282,51 @@ func (tt *Tracker) delete(tunnelID string) {
 	delete(tt.tracker, tunnelID)
 }
 
-// AuthenticateTunnel authenticates an SSH request for a tunnel.
-//
-// An SSH server is expected to call this method to validate that
-// the connection is a valid tunnel request.
-//
-// If the request is valid, the provided tunnelID should be
-// stored and provided alongside the network connection to PushTunnel.
-func (tt *Tracker) AuthenticateTunnel(username, password string) (tunnelID string, err error) {
-	if username != coressh.ReverseTunnelUser {
-		return "", errors.New("invalid username")
-	}
-
-	return tt.authn.validatePassword(password)
-}
-
 // PushTunnel publishes a network connection for a tunnel.
-// This method should only be called after AuthenticateTunnel
-// which will provide the tunnelID.
+// The tunnel ID must have been created by a call to RequestTunnel
+// on this tracker; tunnel IDs from other controller nodes are
+// rejected to preserve origin controller affinity.
 //
 // If an error is returned, e.g. because the tunnel ID is
 // not valid, the caller should close the connection.
 //
 // If the error is nil, the caller should not close the connection.
 //
+// The returned channel is closed when the pushed connection is closed,
+// so the caller can detect tunnel teardown without polling.
+//
 // This method blocks unless a consumer is blocked waiting in a call
 // to RequestTunnel(). Use context.WithTimeout to control the
 // maximum time to wait.
-func (tt *Tracker) PushTunnel(ctx context.Context, tunnelID string, conn net.Conn) error {
+func (tt *Tracker) PushTunnel(ctx context.Context, tunnelID string, conn net.Conn) (<-chan struct{}, error) {
 	ctx = tt.catacomb.Context(ctx)
 
 	recv, ok := tt.get(tunnelID)
 	if !ok {
-		return errors.New("tunnel not found")
+		return nil, errors.New("tunnel not found")
 	}
+	done := make(chan struct{})
+	wrapped := &closeNotifyConn{Conn: conn, done: done}
 	select {
-	case recv <- conn:
-		return nil
+	case recv <- wrapped:
+		return done, nil
 	case <-ctx.Done():
-		return errors.Annotate(ctx.Err(), "no one waiting for tunnel")
+		return nil, errors.Annotate(ctx.Err(), "no one waiting for tunnel")
 	}
+}
+
+// closeNotifyConn wraps a net.Conn so that Close closes a done channel,
+// letting PushTunnel callers detect teardown without polling.
+type closeNotifyConn struct {
+	net.Conn
+	done chan struct{}
+	once sync.Once
+}
+
+// Close closes the underlying connection and the done channel.
+func (c *closeNotifyConn) Close() error {
+	c.once.Do(func() { close(c.done) })
+	return c.Conn.Close()
 }
 
 // wait blocks until a TCP tunnel to the target unit is established and the

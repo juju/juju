@@ -2,8 +2,6 @@ CREATE TABLE ssh_connection_request (
     tunnel_id TEXT NOT NULL PRIMARY KEY,
     machine_uuid TEXT NOT NULL,
     expires_at DATETIME NOT NULL,
-    username TEXT NOT NULL,
-    password TEXT NOT NULL,
     controller_addresses TEXT NOT NULL,
     unit_port INT NOT NULL,
     ephemeral_public_key BLOB NOT NULL,

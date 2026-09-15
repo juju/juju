@@ -18,8 +18,8 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
-	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/virtualhostname"
+	coressh "github.com/juju/juju/internal/ssh"
 )
 
 // SessionHandler is an interface that proxies SSH sessions to a target unit/machine.
@@ -34,10 +34,6 @@ type Authenticator interface {
 	// Returns true if the public key is valid for the user.
 	// Handles auth for user public keys.
 	PublicKeyAuthentication(ssh.Context, ssh.PublicKey) (bool, error)
-	// PasswordAuthentication authenticates a jump SSH connection using a password.
-	// Returns true if the password is valid for the user.
-	// Handles auth for external-auth and reverse-tunnel connections.
-	PasswordAuthentication(ssh.Context, string) (bool, error)
 }
 
 // Authorizer checks whether an authenticated user may access a destination.
@@ -75,10 +71,8 @@ type ServerWorkerConfig struct {
 	Authenticator Authenticator
 	// Authorizer checks whether an authenticated user may access a destination.
 	Authorizer Authorizer
-	// ProxyFactory creates target-specific session, forwarding, and SFTP handlers.
-	ProxyFactory ProxyFactory
-	// TunnelTracker accepts incoming reverse SSH tunnel connections.
-	TunnelTracker TunnelTracker
+	// ServerFactory builds the per-destination terminating SSH server.
+	ServerFactory TerminatingServerFactory
 	// Metrics collects connection and authentication metrics.
 	Metrics *Collector
 }
@@ -103,11 +97,8 @@ func (c ServerWorkerConfig) Validate() error {
 	if c.Authorizer == nil {
 		return errors.NotValidf("missing Authorizer")
 	}
-	if c.ProxyFactory == nil {
-		return errors.NotValidf("missing ProxyFactory")
-	}
-	if c.TunnelTracker == nil {
-		return errors.NotValidf("missing TunnelTracker")
+	if c.ServerFactory == nil {
+		return errors.NotValidf("missing ServerFactory")
 	}
 	return nil
 }
@@ -204,20 +195,9 @@ func (s *ServerWorker) NewJumpServer() *ssh.Server {
 			}
 			return nil
 		},
-		PasswordHandler: func(ctx ssh.Context, password string) bool {
-			ok, err := s.config.Authenticator.PasswordAuthentication(ctx, password)
-			if err != nil {
-				s.config.Metrics.authenticationFailures.WithLabelValues("password").Inc()
-				s.config.Logger.Warningf(ctx, "failed to authenticate password: %v", err)
-				return false
-			}
-			return ok
-		},
 		ChannelHandlers: map[string]ssh.ChannelHandler{
 			// Handle direct-tcpip channels for jump server connections from users.
 			"direct-tcpip": s.directTCPIPHandler,
-			// Handle reverse-tunnel channels for machine sshsession workers.
-			coressh.JujuTunnelChannel: s.reverseTunnelHandler,
 		},
 	}
 
@@ -275,23 +255,10 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 		return
 	}
 
-	server, err := s.newTerminatingSSHServer(ctx, destination)
+	server, err := s.config.ServerFactory.New(ctx, destination)
 	if err != nil {
-		s.config.Logger.Errorf(ctx, "failed to create embedded server: %v", err)
-		s.rejectChannel(ctx, newChan, fmt.Sprintf("failed to create embedded server: %v", err))
-		return
-	}
-
-	terminatingHostKey, err := s.config.SSHService.VirtualHostKey(ctx, destination)
-	if err != nil {
-		s.config.Logger.Errorf(ctx, "failed to resolve host key: %v", err)
-		s.rejectChannel(ctx, newChan, fmt.Sprintf("failed to resolve host key: %v", err))
-		return
-	}
-	signer, err := gossh.ParsePrivateKey([]byte(terminatingHostKey))
-	if err != nil {
-		s.config.Logger.Errorf(ctx, "failed to parse host key: %v", err)
-		s.rejectChannel(ctx, newChan, fmt.Sprintf("failed to parse host key: %v", err))
+		s.config.Logger.Errorf(ctx, "failed to resolve destination: %v", err)
+		s.rejectChannel(ctx, newChan, fmt.Sprintf("failed to resolve destination: %v", err))
 		return
 	}
 
@@ -306,33 +273,7 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 	// the raw data channel, so it can discard these requests.
 	go gossh.DiscardRequests(reqs)
 
-	server.AddHostKey(signer)
 	server.HandleConn(newChannelConn(ch))
-}
-
-// reverseTunnelHandler accepts a reverse SSH tunnel established by a machine
-// sshsession worker. Ownership of a successfully pushed connection transfers
-// to the tunnel tracker.
-func (s *ServerWorker) reverseTunnelHandler(_ *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
-	tunnelID, _ := ctx.Value(tunnelIDKey{}).(string)
-	if tunnelID == "" {
-		s.rejectChannel(ctx, newChan, "missing tunnel ID")
-		return
-	}
-
-	channel, requests, err := newChan.Accept()
-	if err != nil {
-		s.config.Logger.Errorf(ctx, "accepting reverse tunnel channel: %v", err)
-		return
-	}
-	go gossh.DiscardRequests(requests)
-
-	pushCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := s.config.TunnelTracker.PushTunnel(pushCtx, tunnelID, newChannelConn(channel)); err != nil {
-		s.config.Logger.Errorf(ctx, "pushing reverse tunnel: %v", err)
-		_ = channel.Close()
-	}
 }
 
 // connCallback returns a connCallback function that limits the number of concurrent connections.
@@ -352,8 +293,7 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 			if err != nil {
 				s.config.Logger.Errorf(context.TODO(), "failed to set write deadline: %v", err)
 			}
-			_, err = conn.Write([]byte("too many connections.\n"))
-			if err != nil {
+			if err := coressh.WritePreBannerError(conn, "too many connections."); err != nil {
 				s.config.Logger.Errorf(context.TODO(), "failed to write to connection: %v", err)
 			}
 			// The connection is closed before returning, otherwise
@@ -371,29 +311,6 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 		}(now)
 		return conn
 	}
-}
-
-// newTerminatingSSHServer creates an embedded SSH server that terminates the
-// user's SSH connection and proxies it to the routed target.
-func (s *ServerWorker) newTerminatingSSHServer(ctx ssh.Context, destination virtualhostname.Info) (*ssh.Server, error) {
-	handlers, err := s.config.ProxyFactory.New(destination)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	server := &ssh.Server{
-		ChannelHandlers: map[string]ssh.ChannelHandler{
-			"session":      ssh.DefaultSessionHandler,
-			"direct-tcpip": handlers.DirectTCPIPHandler(),
-		},
-		Handler: func(session ssh.Session) {
-			handlers.SessionHandler(session)
-		},
-		SubsystemHandlers: map[string]ssh.SubsystemHandler{
-			"sftp": handlers.SFTPHandler(),
-		},
-	}
-
-	return server, nil
 }
 
 // Report returns a map of metrics from the server worker.
