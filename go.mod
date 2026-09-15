@@ -1,6 +1,6 @@
 module github.com/juju/juju
 
-go 1.26.6
+go 1.27.1
 
 require (
 	cloud.google.com/go/compute v1.65.0
@@ -133,18 +133,6 @@ require (
 )
 
 require (
-	github.com/cosiner/argv v0.1.0 // indirect
-	github.com/derekparker/trie/v3 v3.2.0 // indirect
-	github.com/frankban/quicktest v1.14.6 // indirect
-	github.com/go-delve/liner v1.2.3-0.20231231155935-4726ab1d7f62 // indirect
-	github.com/google/go-dap v0.12.0 // indirect
-	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
-	github.com/spf13/cobra v1.10.2 // indirect
-	gopkg.in/fsnotify.v1 v1.4.7 // indirect
-)
-
-require (
 	cloud.google.com/go/auth v0.22.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
@@ -177,12 +165,16 @@ require (
 	github.com/cilium/ebpf v0.11.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cloudflare/circl v1.6.4 // indirect
+	github.com/cosiner/argv v0.1.0 // indirect
 	github.com/creack/pty v1.1.24 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1 // indirect
+	github.com/derekparker/trie/v3 v3.2.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
+	github.com/frankban/quicktest v1.14.6 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.2 // indirect
+	github.com/go-delve/liner v1.2.3-0.20231231155935-4726ab1d7f62 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-macaroon-bakery/macaroonpb v1.0.0 // indirect
@@ -204,6 +196,7 @@ require (
 	github.com/gofrs/flock v0.13.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
+	github.com/google/go-dap v0.12.0 // indirect
 	github.com/google/renameio v1.0.1 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.18 // indirect
@@ -218,6 +211,7 @@ require (
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.7 // indirect
 	github.com/hashicorp/hcl v1.0.1-vault-7 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/juju/go4 v0.0.0-20160222163258-40d72ab9641a // indirect
 	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
@@ -259,6 +253,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/term v1.1.0 // indirect
 	github.com/pkg/xattr v0.4.12 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
@@ -270,6 +265,7 @@ require (
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/sony/gobreaker/v2 v2.4.0 // indirect
+	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/std-uritemplate/std-uritemplate/go/v2 v2.0.3 // indirect
 	github.com/valyala/fastjson v1.6.10 // indirect
@@ -300,6 +296,7 @@ require (
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
+	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/juju/environschema.v1 v1.0.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
@@ -321,3 +318,5 @@ replace go.opencensus.io => github.com/census-instrumentation/opencensus-go v0.2
 
 // Needed to work around a broken transitive dependency of lxd, testcontainers-go/docker.
 replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.3
+
+replace github.com/juju/description/v12 v12.0.0-20260410024407-3471e9106dd1 => github.com/SimonRichardson/description/v12 v12.0.0-20260915194052-b8db12b0db12
