@@ -88,14 +88,16 @@ func (s *deployerSuite) TestValidate(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (s *deployerSuite) TestControllerCharmArchWithDefaultArch(c *tc.C) {
+func (s *deployerSuite) TestControllerCharmArchWithoutConstraint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 
 	cfg := s.newConfig(c)
 	deployer := makeBaseDeployer(cfg)
 
-	arch := deployer.ControllerCharmArch()
-	c.Assert(arch, tc.Equals, "amd64")
+	result := deployer.ControllerCharmArch()
+	c.Check(result, tc.Equals, arch.ARM64)
 }
 
 func (s *deployerSuite) TestControllerCharmArch(c *tc.C) {

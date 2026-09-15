@@ -223,11 +223,10 @@ func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 // ControllerCharmArch returns the architecture used for deploying the
 // controller charm.
 func (b *baseDeployer) ControllerCharmArch() string {
-	arch := corearch.DefaultArchitecture
 	if b.constraints.HasArch() {
-		arch = *b.constraints.Arch
+		return *b.constraints.Arch
 	}
-	return arch
+	return corearch.HostArch()
 }
 
 // DeployLocalCharm deploys the controller charm from the local charm
