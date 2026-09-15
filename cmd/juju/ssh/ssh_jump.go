@@ -14,6 +14,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -40,10 +41,10 @@ import (
 // finalDestinationUser is the user used on the terminating target.
 const finalDestinationUser = "ubuntu"
 
-const openSSHTemplate = `ssh -o "ProxyCommand=ssh -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.DestinationUser}}@{{.VirtualHostname}}{{if .Args}} {{.Args}}{{end}}
+const openSSHTemplate = `ssh -o "ProxyCommand=ssh{{if .JumpKey}} -o IdentitiesOnly=yes -i {{.JumpKey}}{{end}} -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.DestinationUser}}@{{.VirtualHostname}}{{if .Args}} {{.Args}}{{end}}
 `
 
-const openSCPTemplate = `scp -o "ProxyCommand=ssh -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.Args}}
+const openSCPTemplate = `scp -o "ProxyCommand=ssh{{if .JumpKey}} -o IdentitiesOnly=yes -i {{.JumpKey}}{{end}} -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.Args}}
 `
 
 const minSSHJumpFacadeVersion = 6
@@ -79,6 +80,9 @@ type sshJump struct {
 	// jumpUser is the Juju user used to authenticate against the jump server.
 	jumpUser string
 
+	// jumpKey is the private key used to authenticate against the jump server.
+	jumpKey string
+
 	// jumpServerHostKey is the public host key of the jump server.
 	jumpServerHostKey []byte
 
@@ -96,6 +100,7 @@ type sshJump struct {
 // SetFlags registers flags specific to the SSH jump provider.
 func (p *sshJump) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&p.showCommand, "show-command", false, "Print the OpenSSH command instead of executing it")
+	f.StringVar(&p.jumpKey, "ssh-key", "", "SSH private key to use when connecting through the controller")
 }
 
 // initRun initializes the SSH jump provider for a model command.
@@ -335,17 +340,35 @@ func (p *sshJump) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*ss
 		knownHostsPath = os.DevNull
 	}
 
-	var options ssh.Options
-	// -o ProxyCommand is a substitute for the -J option, due to a limitation
-	// in the github.com/juju/utils/v4/ssh package.
-	options.SetProxyCommand(
+	proxyArgs := []string{
 		"ssh",
-		"-o", "StrictHostKeyChecking="+strictHostKeyChecking,
-		"-o", "UserKnownHostsFile="+knownHostsPath,
+		"-o", "StrictHostKeyChecking=" + strictHostKeyChecking,
+		"-o", "UserKnownHostsFile=" + knownHostsPath,
+	}
+	if p.jumpKey != "" {
+		// Set IdentitiesOnly=yes to enforce that we ONLY use the configured
+		// key rather than any other identity the SSH client would otherwise
+		// try. This caters for the fact that the SSH server does a deferred
+		// check whether the user's key is associated with the model which
+		// has poor UX when you present multiple keys.
+		proxyArgs = append(proxyArgs,
+			"-o", "IdentitiesOnly=yes",
+			"-i", p.jumpKey,
+		)
+	} else {
+		// No key was specified, so offer the Juju client keys followed by the
+		// default OpenSSH identity files.
+		proxyArgs = append(proxyArgs, jumpIdentityArgs()...)
+	}
+	proxyArgs = append(proxyArgs,
 		"-W", "%h:%p",
 		"-p", strconv.Itoa(p.jumpHostPort),
 		targets[0].via.userHost(),
 	)
+	var options ssh.Options
+	// -o ProxyCommand is a substitute for the -J option, due to a limitation
+	// in the github.com/juju/utils/v4/ssh package.
+	options.SetProxyCommand(proxyArgs...)
 	if p.noHostKeyChecks {
 		options.SetStrictHostKeyChecking(ssh.StrictHostChecksNo)
 	} else {
@@ -356,6 +379,41 @@ func (p *sshJump) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*ss
 		options.EnablePTY()
 	}
 	return &options, nil
+}
+
+// defaultSSHIdentityFiles mirrors the OpenSSH client's default identity
+// files. Identity files passed to ssh with -i suppress these defaults, so the
+// ones that exist are offered alongside the Juju client keys.
+var defaultSSHIdentityFiles = []string{
+	"~/.ssh/identity",
+	"~/.ssh/id_rsa",
+	"~/.ssh/id_dsa",
+	"~/.ssh/id_ecdsa",
+	"~/.ssh/id_ed25519",
+}
+
+// jumpIdentityArgs returns the -i identity arguments for the ssh command
+// combining user keys in ~/.ssh with the Juju client keys.
+func jumpIdentityArgs() []string {
+	identities := append([]string{}, ssh.PrivateKeyFiles()...)
+	if len(identities) == 0 {
+		return nil
+	}
+	sort.Strings(identities)
+	for _, identity := range defaultSSHIdentityFiles {
+		path, err := utils.NormalizePath(identity)
+		if err != nil {
+			continue
+		}
+		if _, err := os.Stat(path); err == nil {
+			identities = append(identities, path)
+		}
+	}
+	args := make([]string, 0, len(identities)*2)
+	for _, identity := range identities {
+		args = append(args, "-i", identity)
+	}
+	return args
 }
 
 // ssh performs the SSH operation for the given target.
@@ -406,6 +464,7 @@ func (p *sshJump) copy(ctx Context) error {
 func (p *sshJump) showSSHCommand(w io.Writer, target *resolvedTarget, args []string) error {
 	return p.sshOutputTemplate.Execute(w, map[string]string{
 		"JumpPort":        strconv.Itoa(p.jumpHostPort),
+		"JumpKey":         p.jumpKey,
 		"JumpUser":        target.via.user,
 		"JumpHost":        target.via.host,
 		"DestinationUser": target.user,
@@ -417,6 +476,7 @@ func (p *sshJump) showSSHCommand(w io.Writer, target *resolvedTarget, args []str
 func (p *sshJump) showSCPCommand(w io.Writer, proxyTarget *resolvedTarget, args []string) error {
 	return p.scpOutputTemplate.Execute(w, map[string]string{
 		"JumpPort": strconv.Itoa(p.jumpHostPort),
+		"JumpKey":  p.jumpKey,
 		"JumpUser": proxyTarget.via.user,
 		"JumpHost": proxyTarget.via.host,
 		"Args":     utils.CommandString(args...),

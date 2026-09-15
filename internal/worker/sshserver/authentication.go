@@ -10,13 +10,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/lestrrat-go/jwx/v3/jwt"
 	ssh "github.com/tailscale/gliderssh"
-	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/logger"
 	coressh "github.com/juju/juju/core/ssh"
 )
 
-type authenticatedViaPublicKey struct{}
+// authenticatedPublicKey holds the public key that was used to authenticate
+// the user. It is absent if the user did not authenticate with a public key.
+// It is used later, once the target model is known, to verify that the key is
+// associated with the model being accessed.
+type authenticatedPublicKey struct{}
 
 type userJWT struct{}
 type tunnelIDKey struct{}
@@ -36,7 +39,7 @@ type TunnelAuthenticator interface {
 
 // UserPublicKeyService retrieves the public keys registered for a user.
 type UserPublicKeyService interface {
-	PublicKeys(context.Context, string) ([]gossh.PublicKey, error)
+	PublicKeys(context.Context, string) ([]publicKeyWithComment, error)
 }
 
 // authenticator implements the Authenticator interface for the SSH server.
@@ -60,7 +63,7 @@ func (a authenticator) PublicKeyAuthentication(ctx ssh.Context, key ssh.PublicKe
 
 	for _, authorizedKey := range keys {
 		if bytes.Equal(key.Marshal(), authorizedKey.Marshal()) {
-			ctx.SetValue(authenticatedViaPublicKey{}, true)
+			ctx.SetValue(authenticatedPublicKey{}, authorizedKey)
 			return true, nil
 		}
 	}
@@ -73,8 +76,6 @@ func (a authenticator) PublicKeyAuthentication(ctx ssh.Context, key ssh.PublicKe
 // 1. Decoding a JWT as the password for external-auth.
 // 2. Reverse-tunnel authentication for machine agents.
 func (a authenticator) PasswordAuthentication(ctx ssh.Context, password string) (bool, error) {
-	ctx.SetValue(authenticatedViaPublicKey{}, false)
-
 	switch ctx.User() {
 	case externalAuthUser:
 		token, err := a.jwtParser.Parse(ctx, password)

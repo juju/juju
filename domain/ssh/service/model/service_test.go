@@ -18,6 +18,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	coressh "github.com/juju/juju/core/ssh"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher"
@@ -165,6 +166,30 @@ func (s *serviceSuite) TestMachineForDestination(c *tc.C) {
 	machineName, err := svc.MachineForDestination(c.Context(), info)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(machineName, tc.Equals, coremachine.Name("1"))
+}
+
+func (s *serviceSuite) TestPublicKeyInModel(c *tc.C) {
+	signer, err := gossh.ParsePrivateKey([]byte(testPrivateKey))
+	c.Assert(err, tc.ErrorIsNil)
+	publicKey := gossh.MarshalAuthorizedKey(signer.PublicKey())
+	state := NewMockState(gomock.NewController(c))
+	state.EXPECT().GetPublicKeysForUser(gomock.Any(), testModelUUID, "alice").
+		Return([]coressh.PublicKey{{Key: string(publicKey)}}, nil)
+	svc := modelsshservice.NewService(state, coremodel.UUID(testModelUUID), clock.WallClock)
+
+	found, err := svc.PublicKeyInModel(c.Context(), "alice", signer.PublicKey())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(found, tc.IsTrue)
+}
+
+func (s *serviceSuite) TestPublicKeyInModelInvalidStoredKey(c *tc.C) {
+	state := NewMockState(gomock.NewController(c))
+	state.EXPECT().GetPublicKeysForUser(gomock.Any(), testModelUUID, "alice").
+		Return([]coressh.PublicKey{{Key: "not an SSH key"}}, nil)
+	svc := modelsshservice.NewService(state, coremodel.UUID(testModelUUID), clock.WallClock)
+
+	_, err := svc.PublicKeyInModel(c.Context(), "alice", nil)
+	c.Assert(err, tc.ErrorMatches, `parsing public key for user "alice": .*`)
 }
 
 func (s *serviceSuite) TestInsertSSHConnRequest(c *tc.C) {
