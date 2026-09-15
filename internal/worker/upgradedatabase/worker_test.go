@@ -185,6 +185,79 @@ func (s *workerSuite) TestChangeAfterReadyUpgradeCompletes(c *tc.C) {
 	c.Check(err, tc.ErrorIs, dependency.ErrUninstall)
 }
 
+// TestChangeDuringStartupUpgradeCompletes verifies that a DBCompleted
+// transition arriving during the subscription window is not lost. The
+// completion event is pre-seeded on a buffered channel alongside the initial
+// event. The worker consumes the initial event as a readiness barrier, reads
+// UpgradeInfo, then processes the completion event in the main loop. This
+// exercises the race between watcher construction, subscription, and the
+// initial query (rule 6).
+func (s *workerSuite) TestChangeDuringStartupUpgradeCompletes(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerNodeService.EXPECT().SetControllerNodeReportedAgentVersion(
+		gomock.Any(),
+		"0",
+		coreagentbinary.Version{
+			Number: jujuversion.Current,
+			Arch:   arch.HostArch(),
+		},
+	)
+
+	// Ensure that the update hasn't already happened.
+	s.lock.EXPECT().IsUnlocked().Return(false)
+
+	cfg := s.getConfig()
+
+	// Pre-seed the completed watcher channel with the initial event AND
+	// the DBCompleted change event on a buffered channel. The initial
+	// event is consumed by addWatcher (readiness barrier); the completion
+	// event is processed in the main loop after UpgradeInfo is read.
+	chCompleted := make(chan struct{}, 2)
+	chCompleted <- struct{}{}
+	chCompleted <- struct{}{}
+	completedWatcher := watchertest.NewMockNotifyWatcher(chCompleted)
+	defer workertest.DirtyKill(c, completedWatcher)
+
+	chFailed := make(chan struct{})
+	failedWatcher := watchertest.NewMockNotifyWatcher(chFailed)
+	defer workertest.DirtyKill(c, failedWatcher)
+
+	srv := s.upgradeService.EXPECT()
+	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.AlreadyExists)
+	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
+
+	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.DBCompleted).Return(completedWatcher, nil)
+	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
+
+	srv.UpgradeInfo(gomock.Any(), s.upgradeUUID).Return(upgrade.Info{State: upgrade.Created}, nil)
+	srv.SetControllerReady(gomock.Any(), s.upgradeUUID, "0").Return(nil)
+
+	done := make(chan struct{})
+
+	// We expect the lock to be unlocked when the upgrade completes.
+	s.lock.EXPECT().Unlock().Do(func() {
+		defer close(done)
+	})
+
+	w, err := NewUpgradeDatabaseWorker(cfg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Dispatch the failed watcher initial event (readiness barrier).
+	// The completed watcher initial event and the completion event are
+	// already pre-seeded on the buffered channel.
+	s.dispatchChange(c, chFailed)
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for unlock")
+	}
+
+	err = workertest.CheckKill(c, w)
+	c.Check(err, tc.ErrorIs, dependency.ErrUninstall)
+}
+
 func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReady(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -306,7 +379,7 @@ func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReadyError(c *t
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	// Dispatch the initial event.
+	// Dispatch the initial events for both watchers (consumed by addWatcher).
 	s.dispatchChange(c, chCompleted)
 	s.dispatchChange(c, chFailed)
 
@@ -582,7 +655,7 @@ func (s *workerSuite) TestUpgradeController(c *tc.C) {
 
 	cfg := s.getConfig()
 
-	ch := make(chan struct{})
+	ch := make(chan struct{}, 1)
 
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 	defer workertest.DirtyKill(c, watcher)
@@ -590,8 +663,8 @@ func (s *workerSuite) TestUpgradeController(c *tc.C) {
 	// Walk through the upgrade process:
 	//  - Create Upgrade.
 	//  - Set the controller ready for upgrade.
-	//  - Wait for the upgrade to be ready. This means, all the controller nodes
-	//    are synced and ready to be upgraded.
+	//  - Watch for the upgrade to be ready. The first event on Changes()
+	//    signals that all controllers are ready (no addWatcher barrier).
 	//  - Start the upgrade, we're the leader.
 	//  - Upgrade the controller db.
 	//  - Set the db upgrade complete.
@@ -612,8 +685,7 @@ func (s *workerSuite) TestUpgradeController(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	// Dispatch the initial event.
-	s.dispatchChange(c, ch)
+	// Dispatch the upgrade-ready event (consumed by the loop).
 	s.dispatchChange(c, ch)
 
 	select {
@@ -643,7 +715,7 @@ func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *tc.C) {
 
 	cfg := s.getConfig()
 
-	ch := make(chan struct{})
+	ch := make(chan struct{}, 1)
 
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 	defer workertest.DirtyKill(c, watcher)
@@ -651,8 +723,8 @@ func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *tc.C) {
 	// Walk through the upgrade process:
 	//  - Create Upgrade.
 	//  - Set the controller ready for upgrade.
-	//  - Wait for the upgrade to be ready. This means, all the controller nodes
-	//    are synced and ready to be upgraded.
+	//  - Watch for the upgrade to be ready. The first event on Changes()
+	//    signals that all controllers are ready (no addWatcher barrier).
 	//  - Start the upgrade, we're the leader.
 	//  - Upgrade the controller db.
 	//  - Set the db upgrade complete.
@@ -680,8 +752,7 @@ func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	// Dispatch the initial event.
-	s.dispatchChange(c, ch)
+	// Dispatch the upgrade-ready event (consumed by the loop).
 	s.dispatchChange(c, ch)
 
 	select {
@@ -711,7 +782,7 @@ func (s *workerSuite) TestUpgradeModels(c *tc.C) {
 
 	cfg := s.getConfig()
 
-	ch := make(chan struct{})
+	ch := make(chan struct{}, 1)
 
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 	defer workertest.DirtyKill(c, watcher)
@@ -719,8 +790,8 @@ func (s *workerSuite) TestUpgradeModels(c *tc.C) {
 	// Walk through the upgrade process:
 	//  - Create Upgrade.
 	//  - Set the controller ready for upgrade.
-	//  - Wait for the upgrade to be ready. This means, all the controller nodes
-	//    are synced and ready to be upgraded.
+	//  - Watch for the upgrade to be ready. The first event on Changes()
+	//    signals that all controllers are ready (no addWatcher barrier).
 	//  - Start the upgrade, we're the leader.
 	//  - Upgrade the controller db.
 	//  - Upgrade all the model dbs.
@@ -746,8 +817,7 @@ func (s *workerSuite) TestUpgradeModels(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	// Dispatch the initial event.
-	s.dispatchChange(c, ch)
+	// Dispatch the upgrade-ready event (consumed by the loop).
 	s.dispatchChange(c, ch)
 
 	select {
@@ -777,7 +847,7 @@ func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *tc.C) {
 
 	cfg := s.getConfig()
 
-	ch := make(chan struct{})
+	ch := make(chan struct{}, 1)
 
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 	defer workertest.CheckKill(c, watcher)
@@ -785,8 +855,8 @@ func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *tc.C) {
 	// Walk through the upgrade process:
 	//  - Create Upgrade.
 	//  - Set the controller ready for upgrade.
-	//  - Wait for the upgrade to be ready. This means, all the controller nodes
-	//    are synced and ready to be upgraded.
+	//  - Watch for the upgrade to be ready. The first event on Changes()
+	//    signals that all controllers are ready (no addWatcher barrier).
 	//  - Start the upgrade, we're the leader.
 	//  - Upgrade the controller db.
 	//  - Upgrade all the model dbs.
@@ -818,8 +888,7 @@ func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	// Dispatch the initial event.
-	s.dispatchChange(c, ch)
+	// Dispatch the upgrade-ready event (consumed by the loop).
 	s.dispatchChange(c, ch)
 
 	select {
@@ -849,24 +918,24 @@ func (s *workerSuite) TestUpgradeFailsWhenKilled(c *tc.C) {
 
 	cfg := s.getConfig()
 
-	ch := make(chan struct{})
+	ch := make(chan struct{}, 1)
 
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 	defer workertest.CheckKill(c, watcher)
 
 	// Walk through the upgrade process:
 	//  - Create Upgrade.
-	//  - Watch for the upgrade ready
-	//  - Dispatch the initial event.
-	//  - Set the controller ready, but kill the worker at the same time.
-	//  - Ensure that kill the worker also sets the upgrade to failed.
+	//  - Set the controller ready — blocks, worker is killed during this call.
+	//  - Ensure that killing the worker also sets the upgrade to failed.
 
 	done := make(chan struct{})
 	kill := make(chan worker.Worker)
 
 	srv := s.upgradeService.EXPECT()
 	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(s.upgradeUUID, nil)
-	srv.WatchForUpgradeReady(gomock.Any(), s.upgradeUUID).Return(watcher, nil)
+	// SetControllerReady is now called before WatchForUpgradeReady (the
+	// controller registers readiness first, then subscribes). The
+	// DoAndReturn blocks until the test sends the kill signal.
 	srv.SetControllerReady(gomock.Any(), s.upgradeUUID, "0").DoAndReturn(func(ctx context.Context, uuid domainupgrade.UUID, controllerID string) error {
 		select {
 		case w := <-kill:
@@ -877,14 +946,12 @@ func (s *workerSuite) TestUpgradeFailsWhenKilled(c *tc.C) {
 		}
 		return nil
 	})
+	srv.WatchForUpgradeReady(gomock.Any(), s.upgradeUUID).Return(watcher, nil)
 	srv.SetDBUpgradeFailed(gomock.Any(), s.upgradeUUID).Return(nil)
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
-
-	// Dispatch the initial event.
-	s.dispatchChange(c, ch)
 
 	select {
 	case kill <- w:
@@ -941,7 +1008,7 @@ func (s *workerSuite) TestUpgradeModelsWithUpgradeSteps(c *tc.C) {
 
 	cfg := s.getConfig()
 
-	ch := make(chan struct{})
+	ch := make(chan struct{}, 1)
 
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 	defer workertest.DirtyKill(c, watcher)
@@ -949,8 +1016,8 @@ func (s *workerSuite) TestUpgradeModelsWithUpgradeSteps(c *tc.C) {
 	// Walk through the upgrade process:
 	//  - Create Upgrade.
 	//  - Set the controller ready for upgrade.
-	//  - Wait for the upgrade to be ready. This means, all the controller nodes
-	//    are synced and ready to be upgraded.
+	//  - Watch for the upgrade to be ready. The first event on Changes()
+	//    signals that all controllers are ready (no addWatcher barrier).
 	//  - Start the upgrade, we're the leader.
 	//  - Upgrade the controller db.
 	//  - Upgrade all the model dbs with upgrade steps.
@@ -993,8 +1060,7 @@ func (s *workerSuite) TestUpgradeModelsWithUpgradeSteps(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	// Dispatch the initial event.
-	s.dispatchChange(c, ch)
+	// Dispatch the upgrade-ready event (consumed by the loop).
 	s.dispatchChange(c, ch)
 
 	select {
@@ -1032,7 +1098,7 @@ func (s *workerSuite) TestUpgradeModelsWithUpgradeStepsMultipleModels(c *tc.C) {
 
 	cfg := s.getConfig()
 
-	ch := make(chan struct{})
+	ch := make(chan struct{}, 1)
 
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 	defer workertest.DirtyKill(c, watcher)
@@ -1078,8 +1144,7 @@ func (s *workerSuite) TestUpgradeModelsWithUpgradeStepsMultipleModels(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	// Dispatch the initial event.
-	s.dispatchChange(c, ch)
+	// Dispatch the upgrade-ready event (consumed by the loop).
 	s.dispatchChange(c, ch)
 
 	select {
@@ -1111,7 +1176,7 @@ func (s *workerSuite) TestUpgradeModelsWithUpgradeStepFailure(c *tc.C) {
 
 	cfg := s.getConfig()
 
-	ch := make(chan struct{})
+	ch := make(chan struct{}, 1)
 
 	watcher := watchertest.NewMockNotifyWatcher(ch)
 	defer workertest.DirtyKill(c, watcher)
@@ -1149,8 +1214,7 @@ func (s *workerSuite) TestUpgradeModelsWithUpgradeStepFailure(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	// Dispatch the initial event.
-	s.dispatchChange(c, ch)
+	// Dispatch the upgrade-ready event (consumed by the loop).
 	s.dispatchChange(c, ch)
 
 	select {
@@ -1184,6 +1248,8 @@ func (s *workerSuite) expectStartUpgrade(from, to semversion.Number, watcher wat
 	srv.CreateUpgrade(gomock.Any(), from, to).Return(s.upgradeUUID, nil)
 	srv.SetControllerReady(gomock.Any(), s.upgradeUUID, "0").Return(nil)
 	srv.WatchForUpgradeReady(gomock.Any(), s.upgradeUUID).Return(watcher, nil)
+	// StartUpgrade is called after the first Changes() event on the ready
+	// watcher, which signals that all controllers are registered and ready.
 	srv.StartUpgrade(gomock.Any(), s.upgradeUUID).Return(nil)
 }
 

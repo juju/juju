@@ -377,27 +377,40 @@ func (w *upgradeDBWorker) runUpgrade(ctx context.Context, upgradeUUID domainupgr
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	// Watch for the upgrade to be ready. This should ensure that all
-	// controllers are sync'd and waiting for the leader to start the upgrade.
+	// Mark this controller as ready BEFORE subscribing to the ready
+	// watcher. This ensures the controller is registered in the database
+	// before the watcher's mapper checks AllProvisionedControllersReady.
+	// If SetControllerReady is a no-op (already registered from a previous
+	// run), the mapper will still correctly see all ready controllers when
+	// the subscription becomes active.
+	if err := w.upgradeService.SetControllerReady(ctx, upgradeUUID, w.controllerID); err != nil {
+		w.logger.Errorf(ctx, "failed to set controller ready: %v", err)
+		return w.abortWithError(ctx, upgradeUUID, err)
+	}
+	w.logger.Infof(ctx, "marking the controller ready for upgrade")
+
+	// Watch for the upgrade to be ready. The watcher's mapper checks
+	// AllProvisionedControllersReady — the first event dispatched on
+	// Changes() signals that all controllers are registered and ready.
 	watcher, err := w.upgradeService.WatchForUpgradeReady(ctx, upgradeUUID)
 	if err != nil {
 		return w.abortWithError(ctx, upgradeUUID, err)
 	}
 
-	if err := w.addWatcher(ctx, watcher); err != nil {
+	// Add the watcher to the catacomb, but do NOT consume the initial
+	// event via addWatcher. Unlike state watchers (DBCompleted, Error)
+	// where the initial event is an empty readiness signal, this
+	// watcher uses a mapper that only dispatches when
+	// AllProvisionedControllersReady is true. The NotifyWatcher
+	// implementation drains the subscription's initial event internally
+	// (without the mapper), so the first event on Changes() is the
+	// first mapper-matched "all controllers ready" signal. Consuming it
+	// via addWatcher/ConsumeInitialEvent would discard this signal and
+	// cause the upgrade to hang waiting for an event that will never
+	// come.
+	if err := w.catacomb.Add(watcher); err != nil {
 		return w.abortWithError(ctx, upgradeUUID, err)
 	}
-
-	// Ensure we mark this controller as ready to start the upgrade. We do this
-	// after we've added the watcher, so that we don't miss any events.
-	if err := w.upgradeService.SetControllerReady(ctx, upgradeUUID, w.controllerID); err != nil {
-		// If the set controller ready fails, we'll abort the upgrade. This will
-		// cause the upgrade to be marked as failed, and the next time the agent
-		// restarts, it will try again.
-		w.logger.Errorf(ctx, "failed to set controller ready: %v", err)
-		return w.abortWithError(ctx, upgradeUUID, err)
-	}
-	w.logger.Infof(ctx, "marking the controller ready for upgrade")
 
 	for {
 		select {
