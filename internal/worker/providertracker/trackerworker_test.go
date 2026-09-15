@@ -61,7 +61,11 @@ func (s *trackerWorkerSuite) TestWorkerStartup(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackerWorkerSuite) TestWorkerStartupModelDeath(c *tc.C) {
+// TestChangeAfterReadyModelDeath verifies that a model death notification
+// arriving after the watcher readiness barrier causes the worker to stop.
+// This exercises the race between watcher subscription and the initial
+// state query.
+func (s *trackerWorkerSuite) TestChangeAfterReadyModelDeath(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure we can startup with a normal environ.
@@ -98,7 +102,11 @@ func (s *trackerWorkerSuite) TestWorkerStartupModelDeath(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *trackerWorkerSuite) TestWorkerStartupModelNotFound(c *tc.C) {
+// TestChangeAfterReadyModelNotFound verifies that a model removal
+// notification arriving after the watcher readiness barrier causes the
+// worker to stop. This exercises the race between watcher subscription and
+// the initial state query.
+func (s *trackerWorkerSuite) TestChangeAfterReadyModelNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure we can startup with a normal environ.
@@ -149,6 +157,11 @@ func (s *trackerWorkerSuite) TestWorkerStartupWithCloudSpec(c *tc.C) {
 
 	s.expectModelCloudCredentialWatcher(c, uuid)
 
+	// The startup sync reads the cloud spec once after subscribing the
+	// credential watcher. Since no credential change occurred, the spec
+	// matches and no SetCloudSpec is called.
+	s.expectCloudSpecRead(c)
+
 	// We call InvalidateCredential in the mock setup
 	// to ensure it's wired up.
 	s.expectInvalidateCredential(c)
@@ -164,7 +177,11 @@ func (s *trackerWorkerSuite) TestWorkerStartupWithCloudSpec(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackerWorkerSuite) TestWorkerModelConfigUpdatesEnviron(c *tc.C) {
+// TestChangeAfterReadyUpdatesConfig verifies that a model config change
+// arriving after the watcher readiness barrier is caught and applied to the
+// provider. This exercises the race between watcher subscription and the
+// initial state query.
+func (s *trackerWorkerSuite) TestChangeAfterReadyUpdatesConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure we can startup with a normal environ.
@@ -199,7 +216,11 @@ func (s *trackerWorkerSuite) TestWorkerModelConfigUpdatesEnviron(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackerWorkerSuite) TestWorkerCloudUpdatesEnviron(c *tc.C) {
+// TestChangeAfterReadyUpdatesCloudSpec verifies that a cloud credential
+// change arriving after the watcher readiness barrier triggers a cloud spec
+// update on the provider. This exercises the race between watcher
+// subscription and the initial state query.
+func (s *trackerWorkerSuite) TestChangeAfterReadyUpdatesCloudSpec(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure we can startup with a normal environ.
@@ -214,6 +235,11 @@ func (s *trackerWorkerSuite) TestWorkerCloudUpdatesEnviron(c *tc.C) {
 	// cloud and credentials.
 
 	ch := s.expectModelCloudCredentialWatcher(c, uuid)
+
+	// The startup sync reads the cloud spec once after subscribing the
+	// credential watcher. Since no credential change occurred, the spec
+	// matches and no SetCloudSpec is called.
+	s.expectCloudSpecRead(c)
 
 	// We call InvalidateCredential in the mock setup
 	// to ensure it's wired up.
@@ -241,7 +267,11 @@ func (s *trackerWorkerSuite) TestWorkerCloudUpdatesEnviron(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackerWorkerSuite) TestWorkerCredentialUpdatesEnviron(c *tc.C) {
+// TestChangeAfterReadyUpdatesCredentials verifies that a credential
+// notification arriving after the watcher readiness barrier triggers a cloud
+// spec update on the provider. This exercises the race between watcher
+// subscription and the initial state query.
+func (s *trackerWorkerSuite) TestChangeAfterReadyUpdatesCredentials(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure we can startup with a normal environ.
@@ -256,6 +286,11 @@ func (s *trackerWorkerSuite) TestWorkerCredentialUpdatesEnviron(c *tc.C) {
 	// cloud and credentials.
 
 	ch := s.expectModelCloudCredentialWatcher(c, uuid)
+
+	// The startup sync reads the cloud spec once after subscribing the
+	// credential watcher. Since no credential change occurred, the spec
+	// matches and no SetCloudSpec is called.
+	s.expectCloudSpecRead(c)
 
 	// We call InvalidateCredential in the mock setup
 	// to ensure it's wired up.
@@ -279,6 +314,146 @@ func (s *trackerWorkerSuite) TestWorkerCredentialUpdatesEnviron(c *tc.C) {
 	case <-c.Context().Done():
 		c.Fatalf("timed out sending config change")
 	}
+
+	workertest.CleanKill(c, w)
+}
+
+// TestChangeDuringStartupConfigChange verifies that a model config change
+// arriving during the subscription window (before the initial event is
+// consumed) is not lost. The change is pre-seeded on a buffered channel
+// alongside the initial event. The worker consumes the initial event as a
+// readiness barrier, builds the provider, then processes the change event in
+// the main loop. This exercises the race between watcher construction,
+// subscription, and the initial query (rule 6).
+func (s *trackerWorkerSuite) TestChangeDuringStartupConfigChange(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectModel(c)
+	cfg := s.newCloudSpec(c)
+	s.expectCloudSpec(c, cfg)
+
+	// Pre-seed the config watcher channel with the initial event AND a
+	// config change event on a buffered channel. The initial event is
+	// consumed by addStringsWatcher (readiness barrier); the change event
+	// is processed in the main loop after the provider is built.
+	ch := make(chan []string, 2)
+	ch <- []string{}
+	ch <- []string{"foo"}
+	configWatcher := watchertest.NewMockStringsWatcher(ch)
+	s.configService.EXPECT().Watch(gomock.Any()).Return(configWatcher, nil)
+
+	s.expectModelWatcher(c)
+
+	// Expect the config change to be processed: ModelConfig is re-read
+	// and SetConfig is called on the environ. Use DoAndReturn on
+	// SetConfig to signal when the change has been processed, avoiding
+	// a race with CleanKill.
+	s.configService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
+	setConfigDone := make(chan struct{})
+	s.environ.EXPECT().SetConfig(gomock.Any(), cfg).DoAndReturn(func(context.Context, *config.Config) error {
+		close(setConfigDone)
+		return nil
+	})
+
+	s.expectInvalidateCredential(c)
+
+	w, err := s.newWorker(c, s.environ)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	// Wait for the config change to be processed by the loop.
+	select {
+	case <-setConfigDone:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for config change to be processed")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+// TestChangeDuringStartupModelDeath verifies that a model death notification
+// arriving during the subscription window is not lost. The death event is
+// pre-seeded on a buffered channel alongside the initial event. This
+// exercises the race between watcher construction, subscription, and the
+// initial query (rule 6).
+func (s *trackerWorkerSuite) TestChangeDuringStartupModelDeath(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectModel(c)
+	cfg := s.newCloudSpec(c)
+	s.expectCloudSpec(c, cfg)
+	s.expectConfigWatcher(c)
+
+	// Pre-seed the model watcher channel with the initial event AND a
+	// model change event on a buffered channel. The initial event is
+	// consumed by addNotifyWatcher (readiness barrier); the change event
+	// is processed in the main loop after the provider is built.
+	ch := make(chan struct{}, 2)
+	ch <- struct{}{}
+	ch <- struct{}{}
+	modelWatcher := watchertest.NewMockNotifyWatcher(ch)
+	s.modelService.EXPECT().WatchModel(gomock.Any()).Return(modelWatcher, nil)
+
+	// When the change event is processed, the model is read again and
+	// found to be dead, causing the worker to stop.
+	s.modelService.EXPECT().Model(gomock.Any()).Return(coremodel.ModelInfo{
+		Life: corelife.Dead,
+	}, nil)
+
+	s.expectInvalidateCredential(c)
+
+	w, err := s.newWorker(c, s.environ)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	err = workertest.CheckKilled(c, w)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestChangeDuringStartupCredentialChange verifies that a credential change
+// occurring between building the provider and subscribing the credential
+// watcher is caught by the startup sync. The credential service returns a
+// revoked credential for the startup sync (different from the initial build),
+// causing updateCloudSpec to call SetCloudSpec during startup. This exercises
+// the race between the initial state query and the credential watcher
+// subscription (rule 6).
+func (s *trackerWorkerSuite) TestChangeDuringStartupCredentialChange(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := s.expectModel(c)
+	cfg := s.newCloudSpec(c)
+	s.expectCloudSpec(c, cfg)
+	s.expectConfigWatcher(c)
+	s.expectModelWatcher(c)
+
+	s.expectModelCloudCredentialWatcher(c, uuid)
+
+	// The startup sync reads the cloud spec and finds the credential has
+	// been revoked since the initial build. This causes SetCloudSpec to
+	// be called during startup, catching the credential change that
+	// occurred between the provider build and the credential watcher
+	// subscription.
+	s.cloudService.EXPECT().Cloud(gomock.Any(), "cloud").Return(&cloud.Cloud{}, nil)
+	s.credentialService.EXPECT().CloudCredential(gomock.Any(), credential.Key{
+		Cloud: "cloud",
+		Owner: usertesting.GenNewName(c, "owner"),
+		Name:  "name",
+	}).Return(cloud.Credential{
+		Revoked: true,
+	}, nil)
+	s.cloudSpecSetter.EXPECT().SetCloudSpec(gomock.Any(), gomock.Any()).Return(nil)
+
+	s.expectInvalidateCredential(c)
+
+	w, err := s.newWorker(c, s.newCloudSpecEnviron())
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
 
 	workertest.CleanKill(c, w)
 }
@@ -347,6 +522,19 @@ func (s *trackerWorkerSuite) expectInvalidateCredential(c *tc.C) {
 
 func (s *trackerWorkerSuite) expectCloudSpec(c *tc.C, cfg *config.Config) {
 	s.environ.EXPECT().Config().Return(cfg)
+}
+
+// expectCloudSpecRead sets up expectations for one CloudSpec read (Cloud +
+// CloudCredential) returning the initial non-revoked credential. This is
+// used for the startup sync in tests where the provider implements
+// CloudSpecSetter.
+func (s *trackerWorkerSuite) expectCloudSpecRead(c *tc.C) {
+	s.cloudService.EXPECT().Cloud(gomock.Any(), "cloud").Return(&cloud.Cloud{}, nil)
+	s.credentialService.EXPECT().CloudCredential(gomock.Any(), credential.Key{
+		Cloud: "cloud",
+		Owner: usertesting.GenNewName(c, "owner"),
+		Name:  "name",
+	}).Return(cloud.Credential{}, nil)
 }
 
 func (s *trackerWorkerSuite) expectEnvironSetConfig(c *tc.C, cfg *config.Config) {
