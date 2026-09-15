@@ -6,6 +6,7 @@ package apiaddresssetter
 import (
 	"context"
 	"net"
+	"sort"
 	"strconv"
 	"time"
 
@@ -463,6 +464,39 @@ func (w *apiAddressSetterWorker) updateAPIAddresses(ctx context.Context) error {
 		return errors.Capture(err)
 	}
 	return nil
+}
+
+// PopulateMachineAPIAddresses returns general agent and client addresses for
+// every controller node in a machine controller.
+func PopulateMachineAPIAddresses(_ context.Context, _ NetworkService, params PopulateAPIAddressesParams) (PopulateAPIAddressesResult, error) {
+	controllerIDs := make([]string, 0, len(params.ControllerAPIAddresses))
+	for controllerID := range params.ControllerAPIAddresses {
+		controllerIDs = append(controllerIDs, controllerID)
+	}
+	sort.Strings(controllerIDs)
+
+	addresses := make(controllernode.APIAddresses, 0)
+	for _, controllerID := range controllerIDs {
+		for _, hostPort := range params.ControllerAPIAddresses[controllerID] {
+			address := net.JoinHostPort(hostPort.Host(), strconv.Itoa(hostPort.Port()))
+			if containsAPIAddress(addresses, address) {
+				continue
+			}
+			addresses = append(addresses, controllernode.APIAddress{
+				Address:  address,
+				IsAgent:  true,
+				IsClient: true,
+				Scope:    hostPort.Scope,
+			})
+		}
+	}
+
+	agentAddresses := append(controllernode.APIAddresses(nil), addresses...)
+	clientAddresses := append(controllernode.APIAddresses(nil), addresses...)
+	return PopulateAPIAddressesResult{
+		AgentAddresses:  &agentAddresses,
+		ClientAddresses: &clientAddresses,
+	}, nil
 }
 
 // PopulateK8sAPIAddresses returns the general client addresses for a

@@ -119,6 +119,46 @@ func (s *workerSuite) TestNewMissingPopulateAPIAddresses(c *tc.C) {
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
+func (s *workerSuite) TestPopulateMachineAPIAddresses(c *tc.C) {
+	result, err := PopulateMachineAPIAddresses(c.Context(), nil, PopulateAPIAddressesParams{
+		ControllerAPIAddresses: map[string]network.SpaceHostPorts{
+			"1": {{
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.0.0.2",
+						Scope: network.ScopeCloudLocal,
+					},
+				},
+				NetPort: 17070,
+			}},
+			"0": {{
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.0.0.1",
+						Scope: network.ScopeCloudLocal,
+					},
+				},
+				NetPort: 17070,
+			}},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	expected := controllernode.APIAddresses{{
+		Address:  "10.0.0.1:17070",
+		IsAgent:  true,
+		IsClient: true,
+		Scope:    network.ScopeCloudLocal,
+	}, {
+		Address:  "10.0.0.2:17070",
+		IsAgent:  true,
+		IsClient: true,
+		Scope:    network.ScopeCloudLocal,
+	}}
+	c.Check(result.AgentAddresses, tc.DeepEquals, &expected)
+	c.Check(result.ClientAddresses, tc.DeepEquals, &expected)
+}
+
 // TestNewControllerNode tests that when there is an event on the controller
 // node watcher (i.e. a new controller node is added or removed), the worker
 // will start tracking the new controller node, and since we mock a new

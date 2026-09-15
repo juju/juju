@@ -1421,7 +1421,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetDomainServices:           apiaddresssetter.GetDomainServices,
 			GetControllerDomainServices: apiaddresssetter.GetControllerDomainServices,
 			NewWorker:                   apiaddresssetter.New,
-			PopulateAPIAddresses:        apiaddresssetter.NoopPopulateAPIAddresses,
+			PopulateAPIAddresses:        apiaddresssetter.PopulateMachineAPIAddresses,
 			Logger:                      internallogger.GetLogger("juju.worker.apiaddresssetter"),
 		})),
 	}
