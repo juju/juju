@@ -282,12 +282,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	)
 	jujud.Register(agentcmd.NewMachineAgentCommand(ctx, machineAgentFactory, agentConf, agentConf))
 
-	safeModeMachineAgentFactory := agentcmd.SafeModeMachineAgentFactoryFn(
-		agentConf,
-		dbaccessor.NewTrackedDBWorker,
-	)
-	jujud.Register(agentcmd.NewSafeModeAgentCommand(ctx, safeModeMachineAgentFactory, agentConf, agentConf))
-
 	dbReplModeMachineAgentFactory := agentcmd.DBReplMachineAgentFactoryFn(
 		agentConf,
 		dbreplaccessor.NewTrackedDBWorker,
