@@ -568,11 +568,22 @@ func restrictAPIRootDuringMaintenance(
 	return apiRoot, nil
 }
 
+// startRequestTrace derives a span name from the request's Type and Action
+// fields (e.g. "Client.FullStatus") and starts a trace span. Falls back to
+// the calling function name if the request fields are empty.
+func startRequestTrace(ctx context.Context, tr trace.Tracer, req rpc.Request) (context.Context, trace.Span) {
+	ctx = trace.WithTracer(ctx, tr)
+	name := trace.NameFromFunc()
+	if req.Type != "" && req.Action != "" {
+		name = trace.Name(req.Type + "." + req.Action)
+	}
+	return trace.Start(ctx, name)
+}
+
 // StartTrace starts a trace based on the underlying given context, that
 // is in the context of the apiserver.
-func (r *apiRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
-	ctx = trace.WithTracer(ctx, r.tracer)
-	return trace.Start(ctx, trace.NameFromFunc())
+func (r *apiRoot) StartTrace(ctx context.Context, req rpc.Request) (context.Context, trace.Span) {
+	return startRequestTrace(ctx, r.tracer, req)
 }
 
 func (r *apiRoot) FlightRecorder() flightrecorder.FlightRecorder {
@@ -703,9 +714,8 @@ func newAdminRoot(h *apiHandler, adminAPIs map[int]any) *adminRoot {
 
 // StartTrace starts a trace based on the underlying given context, that
 // is in the context of the apiserver.
-func (r *adminRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
-	ctx = trace.WithTracer(ctx, r.tracer)
-	return trace.Start(ctx, trace.NameFromFunc())
+func (r *adminRoot) StartTrace(ctx context.Context, req rpc.Request) (context.Context, trace.Span) {
+	return startRequestTrace(ctx, r.tracer, req)
 }
 
 func (r *adminRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {

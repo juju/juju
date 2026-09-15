@@ -367,7 +367,7 @@ func (c customMethodCaller) Call(ctx context.Context, objId string, arg reflect.
 
 func (cc *CustomRoot) Kill() {}
 
-func (cc *CustomRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
+func (cc *CustomRoot) StartTrace(ctx context.Context, _ rpc.Request) (context.Context, trace.Span) {
 	return ctx, trace.NoopSpan{}
 }
 

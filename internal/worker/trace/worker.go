@@ -122,11 +122,12 @@ type traceRequest struct {
 }
 
 type tracerWorker struct {
-	internalStates chan string
-	cfg            WorkerConfig
-	configMu       sync.RWMutex
-	runtimeConfig  RuntimeConfig
-	catacomb       catacomb.Catacomb
+	internalStates      chan string
+	cfg                 WorkerConfig
+	configMu            sync.RWMutex
+	runtimeConfig       RuntimeConfig
+	initialConfigLoaded chan struct{}
+	catacomb            catacomb.Catacomb
 
 	tracerRunner *worker.Runner
 
@@ -160,8 +161,9 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*tracerWorker, err
 	}
 
 	w := &tracerWorker{
-		internalStates: internalStates,
-		cfg:            cfg,
+		internalStates:      internalStates,
+		cfg:                 cfg,
+		initialConfigLoaded: make(chan struct{}),
 		runtimeConfig: RuntimeConfig{
 			Enabled:               cfg.Enabled,
 			GRPCEndpoint:          cfg.GRPCEndpoint,
@@ -198,10 +200,10 @@ func (w *tracerWorker) loop() (err error) {
 
 	ctx := w.catacomb.Context(context.Background())
 
-	if err := w.reloadRuntimeConfig(ctx); err != nil {
-		return errors.Trace(err)
-	}
-
+	// Install the watcher before reading the initial runtime config so that
+	// any config changes published while we are setting up are captured and
+	// applied. Duplicate events are harmless because applyConfig only acts
+	// when the config actually changes.
 	runtimeConfigWatcher, err := w.cfg.RuntimeConfigProvider.WatchRuntimeConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -210,6 +212,11 @@ func (w *tracerWorker) loop() (err error) {
 	if err := w.catacomb.Add(runtimeConfigWatcher); err != nil {
 		return errors.Trace(err)
 	}
+
+	if err := w.reloadRuntimeConfig(ctx); err != nil {
+		return errors.Trace(err)
+	}
+	close(w.initialConfigLoaded)
 
 	// Report the initial started state only once the runtime config has been
 	// loaded and the watcher is installed. This ensures that GetTracer
@@ -269,11 +276,80 @@ func (w *tracerWorker) Wait() error {
 
 // GetTracer returns a tracer for the given namespace.
 func (w *tracerWorker) GetTracer(ctx context.Context, namespace coretrace.TracerNamespace) (coretrace.Tracer, error) {
+	// The trace manifold can be available before the initial config read has
+	// completed. Do not hand out a NoopTracer from the zero-value config, as
+	// consumers such as the uniter retain it for their entire lifetime.
+	select {
+	case <-w.initialConfigLoaded:
+	case <-w.catacomb.Dying():
+		return nil, coretrace.ErrTracerDying
+	case <-ctx.Done():
+		return nil, errors.Trace(ctx.Err())
+	}
+
 	ns := namespace.WithTagAndKind(w.cfg.Tag, w.cfg.Kind)
+	if _, err := w.getTracer(ctx, ns); err != nil {
+		return nil, err
+	}
+
+	return &runtimeTracer{
+		worker:    w,
+		namespace: ns,
+	}, nil
+}
+
+// runtimeTracer resolves the current tracer for each span so consumers that
+// retain this handle begin tracing when the runtime configuration is enabled.
+// To avoid calling getTracer (which takes locks and may block on the worker
+// loop channel) on every span start on the hot path, the resolved tracked
+// tracer is cached and re-resolved only when the runtime config changes.
+type runtimeTracer struct {
+	worker    *tracerWorker
+	namespace coretrace.TaggedTracerNamespace
+
+	mu           sync.Mutex
+	cached       coretrace.Tracer
+	cachedConfig RuntimeConfig
+}
+
+// Start implements coretrace.Tracer.
+func (t *runtimeTracer) Start(ctx context.Context, name string, options ...coretrace.Option) (context.Context, coretrace.Span) {
+	cfg := t.worker.getRuntimeConfig()
+
+	t.mu.Lock()
+	tracer := t.cached
+	cachedCfg := t.cachedConfig
+	t.mu.Unlock()
+
+	if tracer != nil && cachedCfg == cfg {
+		return tracer.Start(ctx, name, options...)
+	}
+
+	var err error
+	tracer, err = t.worker.getTracer(ctx, t.namespace)
+	if err != nil {
+		t.worker.cfg.Logger.Warningf(ctx, "failed to get tracer, falling back to noop tracer: %v", err)
+		return coretrace.NoopTracer{}.Start(ctx, name, options...)
+	}
+
+	t.mu.Lock()
+	t.cached = tracer
+	t.cachedConfig = cfg
+	t.mu.Unlock()
+
+	return tracer.Start(ctx, name, options...)
+}
+
+// Enabled implements coretrace.Tracer.
+func (t *runtimeTracer) Enabled() bool {
+	return t.worker.getRuntimeConfig().IsEnabled()
+}
+
+func (w *tracerWorker) getTracer(ctx context.Context, namespace coretrace.TaggedTracerNamespace) (coretrace.Tracer, error) {
 	// First check if we've already got the tracer worker already running. If
 	// we have, then return out quickly. The tracerRunner is the cache, so there
 	// is no need to have an in-memory cache here.
-	if tracer, err := w.workerFromCache(ns); err != nil {
+	if tracer, err := w.workerFromCache(namespace); err != nil {
 		if errors.Is(err, w.catacomb.ErrDying()) {
 			return nil, coretrace.ErrTracerDying
 		}
@@ -286,7 +362,7 @@ func (w *tracerWorker) GetTracer(ctx context.Context, namespace coretrace.Tracer
 	// Enqueue the request as it's either starting up and we need to wait longer
 	// or it's not running and we need to start it.
 	req := traceRequest{
-		namespace: ns,
+		namespace: namespace,
 		done:      make(chan error, 1),
 	}
 	select {
@@ -313,7 +389,7 @@ func (w *tracerWorker) GetTracer(ctx context.Context, namespace coretrace.Tracer
 
 	// This will return a not found error if the request was not honoured.
 	// The error will be logged - we don't crash this worker for bad calls.
-	tracked, err := w.tracerRunner.Worker(ns.String(), w.catacomb.Dying())
+	tracked, err := w.tracerRunner.Worker(namespace.String(), w.catacomb.Dying())
 	if errors.Is(err, errors.NotFound) {
 		// This can happen if the worker was swapped out after the request was
 		// processed. In this case, it's better to return a noop tracer than to
