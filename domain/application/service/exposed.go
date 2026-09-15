@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 
-	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
@@ -77,14 +76,18 @@ func (s *Service) UnsetExposeSettings(ctx context.Context, appName string, expos
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if appName == coreapplication.ControllerApplicationName {
-		return errors.New("unexposing the controller application not supported").
-			Add(coreerrors.NotSupported)
-	}
-
 	appID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return errors.Capture(err)
+	}
+
+	isController, err := s.st.IsControllerApplication(ctx, appID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if isController {
+		return errors.New("unexposing the controller application not supported").
+			Add(coreerrors.NotSupported)
 	}
 
 	return errors.Capture(s.st.UnsetExposeSettings(ctx, appID, exposedEndpoints))
