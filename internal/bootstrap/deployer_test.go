@@ -131,11 +131,11 @@ func (s *deployerSuite) TestDeployLocalCharm(c *tc.C) {
 	cfg := s.newConfig(c)
 	archivePath, archiveSize := s.ensureControllerCharm(c, cfg.DataDir)
 
-	hash := "a6b7b481f0e452ecf77fc65bcab7504caeb56c274c54649cd2fdaf2247b8a00b"
+	hash := "7efe541c8c298451f10897bb3ee8820fb0e33772bb763e973f3c66723c3a36f8"
 
 	s.applicationService.EXPECT().ResolveControllerCharmDownload(gomock.Any(), domainapplication.ResolveControllerCharmDownload{
 		SHA256: hash,
-		SHA384: "35549bf6887fe51afad516064b6b07bc429f766d464295fa632aa6040d041e11143fce549626681531fd923900a9b66c",
+		SHA384: "c23e0e69b538d2ad42faf510549922ecfa2693a1ddf195833ade5976f22c9aacd05402d9258937b1407146b9b75c57c8",
 		Path:   archivePath,
 		Size:   archiveSize,
 	}).Return(domainapplication.ResolvedControllerCharmDownload{
