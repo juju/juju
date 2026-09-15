@@ -345,7 +345,8 @@ func (s *bootstrapSuite) TestControllerSpecWaitsForLocalControllerCharm(c *tc.C)
 	startup := apiServer.Args[1]
 	c.Check(startup, tc.Contains, "mkdir -p $JUJU_CONTROLLER_DIR/charms")
 	c.Check(startup, tc.Contains, "until test -e $JUJU_CONTROLLER_DIR/charms/controller.charm; do sleep 1; done")
-	c.Check(startup, tc.Contains, "$JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_CONTROLLER_DIR --debug --timeout 10m0s")
+	c.Check(startup, tc.Contains, "$JUJU_TOOLS_DIR/jujud bootstrap-state --data-dir $JUJU_CONTROLLER_DIR --debug --timeout 10m0s")
+	c.Check(startup, tc.Not(tc.Contains), "$JUJU_TOOLS_DIR/jujuagentd bootstrap-state")
 	c.Check(startup, tc.Not(tc.Contains), "test -e $JUJU_CONTROLLER_DIR/agents/controller-0/agent.conf ||")
 	c.Check(startup, tc.Contains, "test -e $JUJU_CONTROLLER_DIR/system-identity")
 	c.Check(startup, tc.Not(tc.Contains), "agents/controller-")
@@ -1001,7 +1002,7 @@ mkdir -p $JUJU_TOOLS_DIR
 cp /opt/jujud $JUJU_TOOLS_DIR/jujud
 cp /opt/jujuagentd $JUJU_TOOLS_DIR/jujuagentd
 
-export JUJU_BOOTSTRAP_PARAMS_PATH="$JUJU_DATA_DIR/bootstrap-params"; controller_id="${HOSTNAME##*-}"; if [ "${controller_id}" = "0" ]; then if ! test -e $JUJU_CONTROLLER_DIR/system-identity; then mkdir -p $JUJU_CONTROLLER_DIR/charms; until test -e $JUJU_CONTROLLER_DIR/charms/controller.charm; do sleep 1; done; JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_CONTROLLER_DIR --debug --timeout 10m0s; fi; else until test -e "$JUJU_CONTROLLER_DIR/runtime.conf"; do sleep 1; done; fi
+export JUJU_BOOTSTRAP_PARAMS_PATH="$JUJU_DATA_DIR/bootstrap-params"; controller_id="${HOSTNAME##*-}"; if [ "${controller_id}" = "0" ]; then if ! test -e $JUJU_CONTROLLER_DIR/system-identity; then mkdir -p $JUJU_CONTROLLER_DIR/charms; until test -e $JUJU_CONTROLLER_DIR/charms/controller.charm; do sleep 1; done; JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud bootstrap-state --data-dir $JUJU_CONTROLLER_DIR --debug --timeout 10m0s; fi; else until test -e "$JUJU_CONTROLLER_DIR/runtime.conf"; do sleep 1; done; fi
 
 mkdir -p /var/lib/pebble/default/layers
 cat > /var/lib/pebble/default/layers/001-controller.yaml <<EOF
