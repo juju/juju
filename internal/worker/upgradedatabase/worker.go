@@ -274,6 +274,31 @@ func (w *upgradeDBWorker) watchUpgrade(ctx context.Context) error {
 		return w.abortWithError(ctx, upgradeUUID, err)
 	}
 
+	// Subscribe to both state watchers first. The initial event from each
+	// watcher serves as the readiness barrier — the subscription is active
+	// after we receive and consume it. Any state transition after that
+	// point will be caught by the watcher.
+	completedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, upgradeUUID, upgrade.DBCompleted)
+	if err != nil {
+		return w.abortWithError(ctx, upgradeUUID, errors.Annotate(err, "watch completed upgrade"))
+	}
+
+	if err := w.addWatcher(ctx, completedWatcher); err != nil {
+		return w.abortWithError(ctx, upgradeUUID, err)
+	}
+
+	failedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, upgradeUUID, upgrade.Error)
+	if err != nil {
+		return w.abortWithError(ctx, upgradeUUID, errors.Annotate(err, "watch failed upgrade"))
+	}
+
+	if err := w.addWatcher(ctx, failedWatcher); err != nil {
+		return w.abortWithError(ctx, upgradeUUID, err)
+	}
+
+	// Now that both watchers are subscribed (readiness barriers passed),
+	// read the current upgrade state. Any transition to DBCompleted or
+	// Error after this point will be caught by the watchers above.
 	info, err := w.upgradeService.UpgradeInfo(ctx, upgradeUUID)
 	if err != nil {
 		if errors.Is(err, upgradeerrors.NotFound) {
@@ -293,24 +318,6 @@ func (w *upgradeDBWorker) watchUpgrade(ctx context.Context) error {
 		// problem and restart the agent.
 		w.logger.Errorf(ctx, "database upgrade failed, already in an error state, check logs for details")
 		return nil
-	}
-
-	completedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, upgradeUUID, upgrade.DBCompleted)
-	if err != nil {
-		return w.abortWithError(ctx, upgradeUUID, errors.Annotate(err, "watch completed upgrade"))
-	}
-
-	if err := w.addWatcher(ctx, completedWatcher); err != nil {
-		return w.abortWithError(ctx, upgradeUUID, err)
-	}
-
-	failedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, upgradeUUID, upgrade.Error)
-	if err != nil {
-		return w.abortWithError(ctx, upgradeUUID, errors.Annotate(err, "watch failed upgrade"))
-	}
-
-	if err := w.addWatcher(ctx, failedWatcher); err != nil {
-		return w.abortWithError(ctx, upgradeUUID, err)
 	}
 
 	// Mark this controller as ready to start the upgrade. We do this after
