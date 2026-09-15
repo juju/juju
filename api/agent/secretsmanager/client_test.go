@@ -401,7 +401,7 @@ func (s *SecretsSuite) TestSecretMetadata(c *tc.C) {
 					{
 						TargetTag: "application-gitlab",
 						ScopeTag:  coretesting.ModelTag.Id(),
-						Role:      coresecrets.RoleView,
+						Role:      params.SecretRole(coresecrets.RoleView),
 					},
 				},
 			}},
