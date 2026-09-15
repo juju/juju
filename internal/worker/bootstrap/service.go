@@ -170,6 +170,9 @@ type ModelService interface {
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
 type NetworkService interface {
+	// GetControllerK8sServiceAddresses returns endpoints for net nodes
+	// belonging to the controller application in the controller model.
+	GetControllerK8sServiceAddresses(ctx context.Context) (network.SpaceAddresses, error)
 	// SpaceByName returns a space from state that matches the input name.
 	// An error is returned that satisfied errors.NotFound if the space was not found
 	// or an error static any problems fetching the given space.

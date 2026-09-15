@@ -69,6 +69,51 @@ func (s *workerSuite) TestDeleteBootstrapSSHKeysEmpty(c *tc.C) {
 	c.Assert(DeleteBootstrapSSHKeys(nil), tc.ErrorIsNil)
 }
 
+func (s *workerSuite) TestInitAPIHostPortsCAASUsesControllerServiceForClients(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	worker := &bootstrapWorker{cfg: WorkerConfig{
+		ControllerNodeService: s.controllerNodeService,
+		NetworkService:        s.networkService,
+		PopulateAPIAddresses:  PopulateK8sAPIAddresses,
+	}}
+	addresses := network.NewMachineAddresses(
+		[]string{"controller-0.controller-service-endpoints.controller-test.svc.cluster.local"},
+		network.WithScope(network.ScopeCloudLocal),
+	).AsProviderAddresses()
+	serviceAddresses := network.SpaceAddresses{network.NewSpaceAddress(
+		"10.152.183.205",
+		network.WithScope(network.ScopeCloudLocal),
+	)}
+	generalAddresses := controllernode.APIAddresses{{
+		Address:  "controller-0.controller-service-endpoints.controller-test.svc.cluster.local:17070",
+		IsAgent:  true,
+		IsClient: true,
+		Scope:    network.ScopeCloudLocal,
+	}}
+	clientAddresses := controllernode.APIAddresses{{
+		Address:  "10.152.183.205:17070",
+		IsClient: true,
+		Scope:    network.ScopeCloudLocal,
+	}}
+
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(nil, nil)
+	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("")).Return(nil, nil)
+	s.networkService.EXPECT().GetControllerK8sServiceAddresses(gomock.Any()).Return(serviceAddresses, nil)
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
+		APIAddresses: map[string]network.SpaceHostPorts{
+			"0": network.SpaceAddressesWithPort(network.SpaceAddresses{network.NewSpaceAddress(
+				"controller-0.controller-service-endpoints.controller-test.svc.cluster.local",
+				network.WithScope(network.ScopeCloudLocal),
+			)}, 17070),
+		},
+		AgentAddresses:  &generalAddresses,
+		ClientAddresses: &clientAddresses,
+	}).Return(nil)
+
+	c.Assert(worker.initAPIHostPorts(c.Context(), controller.Config{}, addresses, 17070), tc.ErrorIsNil)
+}
+
 func (s *workerSuite) TestKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -314,9 +359,10 @@ func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc Con
 		AgentFinalizer: func(ctx context.Context, aps AgentPasswordService, ms MachineService, sip instancecfg.StateInitializationParams, password string) error {
 			return nil
 		},
-		StatusHistory: s.statusHistory,
-		Logger:        s.logger,
-		Clock:         clock.WallClock,
+		StatusHistory:        s.statusHistory,
+		PopulateAPIAddresses: PopulateMachineAPIAddresses,
+		Logger:               s.logger,
+		Clock:                clock.WallClock,
 	}, s.states)
 	c.Assert(err, tc.ErrorIsNil)
 	return w
@@ -424,6 +470,9 @@ func (s *workerSuite) expectSetAPIHostPorts() {
 			"0": {},
 		},
 	}
+	addresses := controllernode.APIAddresses{}
+	args.AgentAddresses = &addresses
+	args.ClientAddresses = &addresses
 	s.networkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(mgmtSpace, nil)
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args)
 

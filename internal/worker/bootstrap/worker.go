@@ -49,6 +49,49 @@ const (
 
 var bootstrapSSHUser = "ubuntu"
 
+// PopulateAPIAddressesFunc returns the initial general agent and client API
+// address sets for a controller substrate.
+type PopulateAPIAddressesFunc func(
+	context.Context,
+	NetworkService,
+	controllernode.APIAddresses,
+	int,
+) (controllernode.APIAddresses, controllernode.APIAddresses, error)
+
+// PopulateMachineAPIAddresses uses the controller node addresses for both
+// agent and client connectivity.
+func PopulateMachineAPIAddresses(
+	_ context.Context,
+	_ NetworkService,
+	addresses controllernode.APIAddresses,
+	_ int,
+) (controllernode.APIAddresses, controllernode.APIAddresses, error) {
+	return addresses, addresses, nil
+}
+
+// PopulateK8sAPIAddresses keeps controller pod addresses for agents and uses
+// the routable controller Service for clients.
+func PopulateK8sAPIAddresses(
+	ctx context.Context,
+	networkService NetworkService,
+	agentAddresses controllernode.APIAddresses,
+	apiPort int,
+) (controllernode.APIAddresses, controllernode.APIAddresses, error) {
+	serviceAddresses, err := networkService.GetControllerK8sServiceAddresses(ctx)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	clientAddresses := make(controllernode.APIAddresses, 0, len(serviceAddresses))
+	for _, address := range serviceAddresses {
+		clientAddresses = append(clientAddresses, controllernode.APIAddress{
+			Address:  net.JoinHostPort(address.Host(), strconv.Itoa(apiPort)),
+			IsClient: true,
+			Scope:    address.Scope,
+		})
+	}
+	return agentAddresses, clientAddresses, nil
+}
+
 // DeleteBootstrapSSHKeys removes bootstrap-only keys from an IAAS bootstrap
 // machine's standard Ubuntu authorized_keys file.
 func DeleteBootstrapSSHKeys(keys []string) error {
@@ -106,6 +149,7 @@ type WorkerConfig struct {
 	UnitPassword               string
 	ServiceManagerGetter       ServiceManagerGetterFunc
 	StatusHistory              StatusHistory
+	PopulateAPIAddresses       PopulateAPIAddressesFunc
 	Logger                     logger.Logger
 	Clock                      clock.Clock
 }
@@ -186,6 +230,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.StatusHistory == nil {
 		return errors.NotValidf("nil StatusHistory")
+	}
+	if c.PopulateAPIAddresses == nil {
+		return errors.NotValidf("nil PopulateAPIAddresses")
 	}
 	if c.BootstrapAddressFinder == nil {
 		return errors.NotValidf("nil BootstrapAddressFinder")
@@ -528,13 +575,19 @@ func (w *bootstrapWorker) initAPIHostPorts(ctx context.Context, controllerConfig
 			Scope:    hostPort.Scope,
 		})
 	}
+	agentAddresses, clientAddresses, err := w.cfg.PopulateAPIAddresses(
+		ctx, w.cfg.NetworkService, generalAddresses, apiPort,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	args := controllernode.SetAPIAddressArgs{
 		MgmtSpace: mgmtSpace,
 		APIAddresses: map[string]network.SpaceHostPorts{
 			"0": hostPorts,
 		},
-		AgentAddresses:  &generalAddresses,
-		ClientAddresses: &generalAddresses,
+		AgentAddresses:  &agentAddresses,
+		ClientAddresses: &clientAddresses,
 	}
 	return w.cfg.ControllerNodeService.SetAPIAddresses(ctx, args)
 }
