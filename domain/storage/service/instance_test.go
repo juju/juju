@@ -20,6 +20,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storage/internal"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -618,15 +619,44 @@ func (s *instanceSuite) TestGetStorageClassificationForUnitsEmptyInput(c *tc.C) 
 	c.Check(res, tc.DeepEquals, map[coreunit.UUID][]domainstorage.StorageInstanceClassification{})
 }
 
+// TestGetStorageClassificationForUnitsStateError asserts that an error
+// returned by state is propagated to the caller by
+// [Service.GetStorageClassificationForUnits].
+func (s *instanceSuite) TestGetStorageClassificationForUnitsStateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	s.state.EXPECT().GetStorageClassificationForUnits(
+		gomock.Any(), []string{unitUUID.String()},
+	).Return(nil, errors.New("boom"))
+
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
+	)
+	_, err := svc.GetStorageClassificationForUnits(c.Context(), []coreunit.UUID{unitUUID})
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
 // TestGetStorageClassificationForUnits tests the happy path for
 // [Service.GetStorageClassificationForUnits], asserting that the minimal
-// storage information for each unit is mapped and returned.
+// storage information for each unit is mapped and detachability is derived
+// correctly according to ownership scope rules.
 func (s *instanceSuite) TestGetStorageClassificationForUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	unitUUID1 := tc.Must(c, coreunit.NewUUID)
 	unitUUID2 := tc.Must(c, coreunit.NewUUID)
-	blockInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	filesystemInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	modelVolUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	machineFsUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	modelFsUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	volBackedFsUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	machineVolUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	modelFsMachineVolUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	corruptVolUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	emptyInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+
+	modelScope := domainstorage.ProvisionScopeModel
+	machineScope := domainstorage.ProvisionScopeMachine
+	invalidScope := domainstorage.ProvisionScope(99)
 
 	s.state.EXPECT().GetStorageClassificationForUnits(
 		gomock.Any(), []string{unitUUID1.String(), unitUUID2.String()},
@@ -634,14 +664,47 @@ func (s *instanceSuite) TestGetStorageClassificationForUnits(c *tc.C) {
 		map[string][]internal.StorageInstanceClassification{
 			unitUUID1.String(): {
 				{
-					Persistent:  true,
-					StorageID:   "single-blk/0",
-					StorageUUID: blockInstanceUUID.String(),
+					StorageID:            "single-blk/0",
+					StorageUUID:          modelVolUUID.String(),
+					VolumeProvisionScope: &modelScope,
 				},
 				{
-					Persistent:  false,
-					StorageID:   "single-fs/0",
-					StorageUUID: filesystemInstanceUUID.String(),
+					FilesystemProvisionScope: &machineScope,
+					StorageID:                "rootfs-fs/0",
+					StorageUUID:              machineFsUUID.String(),
+				},
+				{
+					FilesystemProvisionScope: &modelScope,
+					StorageID:                "lxd-fs/0",
+					StorageUUID:              modelFsUUID.String(),
+				},
+			},
+			unitUUID2.String(): {
+				{
+					FilesystemProvisionScope: &machineScope,
+					StorageID:                "ebs-fs/0",
+					StorageUUID:              volBackedFsUUID.String(),
+					VolumeProvisionScope:     &modelScope,
+				},
+				{
+					StorageID:            "loop-vol/0",
+					StorageUUID:          machineVolUUID.String(),
+					VolumeProvisionScope: &machineScope,
+				},
+				{
+					FilesystemProvisionScope: &modelScope,
+					StorageID:                "model-fs-machine-vol/0",
+					StorageUUID:              modelFsMachineVolUUID.String(),
+					VolumeProvisionScope:     &machineScope,
+				},
+				{
+					StorageID:            "corrupt-vol/0",
+					StorageUUID:          corruptVolUUID.String(),
+					VolumeProvisionScope: &invalidScope,
+				},
+				{
+					StorageID:   "orphan/0",
+					StorageUUID: emptyInstanceUUID.String(),
 				},
 			},
 		}, nil,
@@ -655,14 +718,46 @@ func (s *instanceSuite) TestGetStorageClassificationForUnits(c *tc.C) {
 	c.Check(res, tc.DeepEquals, map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
 		unitUUID1: {
 			{
+				Detachable: true,
 				ID:         "single-blk/0",
-				Persistent: true,
-				UUID:       blockInstanceUUID,
+				UUID:       modelVolUUID,
 			},
 			{
-				ID:         "single-fs/0",
-				Persistent: false,
-				UUID:       filesystemInstanceUUID,
+				Detachable: false,
+				ID:         "rootfs-fs/0",
+				UUID:       machineFsUUID,
+			},
+			{
+				Detachable: true,
+				ID:         "lxd-fs/0",
+				UUID:       modelFsUUID,
+			},
+		},
+		unitUUID2: {
+			{
+				Detachable: true,
+				ID:         "ebs-fs/0",
+				UUID:       volBackedFsUUID,
+			},
+			{
+				Detachable: false,
+				ID:         "loop-vol/0",
+				UUID:       machineVolUUID,
+			},
+			{
+				Detachable: false,
+				ID:         "model-fs-machine-vol/0",
+				UUID:       modelFsMachineVolUUID,
+			},
+			{
+				Detachable: false,
+				ID:         "corrupt-vol/0",
+				UUID:       corruptVolUUID,
+			},
+			{
+				Detachable: false,
+				ID:         "orphan/0",
+				UUID:       emptyInstanceUUID,
 			},
 		},
 	})

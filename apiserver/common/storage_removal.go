@@ -30,9 +30,9 @@ type StorageRemovalClassifier interface {
 // input units into those that will be destroyed and those that will be
 // detached when the units are removed. If destroyStorage is true, every
 // attached storage instance is classified as destroyed. Otherwise a
-// storage instance is classified as detached when it is persistent, as
-// its life cycle outlives the units it is attached to, and destroyed when it
-// is not.
+// storage instance is classified as detached when it is detachable (i.e.
+// model-scoped, so its life cycle outlives the units it is attached to), and
+// destroyed when it is not (machine-scoped).
 //
 // Storage instances attached to more than one removed unit are only
 // reported once. Units are processed in the input order, and the storage
@@ -62,7 +62,7 @@ func ClassifyStorageRemoval(
 			// Storage can be shared by multiple units, so we must only
 			// report each storage instance once.
 			//
-			// Persistent is a property of the storage instance itself, not
+			// Detachability is a property of the storage instance itself, not
 			// of the unit-attachment, so the first unit that reports a
 			// shared instance always agrees with any later one. There is
 			// no need to merge or vote across units; first-writer-wins.
@@ -72,7 +72,7 @@ func ClassifyStorageRemoval(
 			seen[instance.UUID.String()] = true
 
 			entity := params.Entity{Tag: names.NewStorageTag(instance.ID).String()}
-			if destroyStorage || !instance.Persistent {
+			if destroyStorage || !instance.Detachable {
 				destroyed = append(destroyed, entity)
 			} else {
 				detached = append(detached, entity)

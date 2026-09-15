@@ -34,16 +34,16 @@ func (s *applicationSuite) expectDestroyCharm(c *tc.C) {
 	s.applicationService.EXPECT().GetCharmMetadataName(gomock.Any(), charmLocator).Return("foo", nil)
 }
 
-func (s *applicationSuite) newStorageInstance(c *tc.C, id string, persistent bool) domainstorage.StorageInstanceClassification {
+func (s *applicationSuite) newStorageInstance(c *tc.C, id string, detachable bool) domainstorage.StorageInstanceClassification {
 	return domainstorage.StorageInstanceClassification{
+		Detachable: detachable,
 		ID:         id,
-		Persistent: persistent,
 		UUID:       tc.Must(c, domainstorage.NewStorageInstanceUUID),
 	}
 }
 
 // TestDestroyUnitClassifiesStorage asserts that destroying an IAAS unit
-// reports its non persistent storage as destroyed and its persistent storage
+// reports its non-detachable storage as destroyed and its detachable storage
 // as detached.
 func (s *applicationSuite) TestDestroyUnitClassifiesStorage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -52,14 +52,14 @@ func (s *applicationSuite) TestDestroyUnitClassifiesStorage(c *tc.C) {
 	s.expectDestroyCharm(c)
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	nonPersistent := s.newStorageInstance(c, "single-fs/0", false)
-	persistent := s.newStorageInstance(c, "single-blk/0", true)
+	nonDetachable := s.newStorageInstance(c, "loop-vol/0", false)
+	detachable := s.newStorageInstance(c, "lxd-fs/0", true)
 
 	s.applicationService.EXPECT().IsSubordinateApplicationByName(gomock.Any(), "foo").Return(false, nil)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID, nil)
 	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID}).Return(
 		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-			unitUUID: {nonPersistent, persistent},
+			unitUUID: {nonDetachable, detachable},
 		}, nil,
 	)
 	removalUUID := tc.Must(c, removal.NewUUID)
@@ -74,8 +74,8 @@ func (s *applicationSuite) TestDestroyUnitClassifiesStorage(c *tc.C) {
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Check(res.Results[0].Error, tc.IsNil)
 	c.Check(res.Results[0].Info, tc.DeepEquals, &params.DestroyUnitInfo{
-		DestroyedStorage: []params.Entity{{Tag: "storage-single-fs-0"}},
-		DetachedStorage:  []params.Entity{{Tag: "storage-single-blk-0"}},
+		DestroyedStorage: []params.Entity{{Tag: "storage-loop-vol-0"}},
+		DetachedStorage:  []params.Entity{{Tag: "storage-lxd-fs-0"}},
 	})
 }
 
@@ -88,14 +88,14 @@ func (s *applicationSuite) TestDestroyUnitDestroyStorage(c *tc.C) {
 	s.expectDestroyCharm(c)
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	nonPersistent := s.newStorageInstance(c, "single-fs/0", false)
-	persistent := s.newStorageInstance(c, "single-blk/0", true)
+	nonDetachable := s.newStorageInstance(c, "single-fs/0", false)
+	detachable := s.newStorageInstance(c, "single-blk/0", true)
 
 	s.applicationService.EXPECT().IsSubordinateApplicationByName(gomock.Any(), "foo").Return(false, nil)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID, nil)
 	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID}).Return(
 		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-			unitUUID: {persistent, nonPersistent},
+			unitUUID: {detachable, nonDetachable},
 		}, nil,
 	)
 	removalUUID := tc.Must(c, removal.NewUUID)
@@ -127,13 +127,13 @@ func (s *applicationSuite) TestDestroyUnitDryRunClassifiesStorage(c *tc.C) {
 	s.expectDestroyCharm(c)
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	persistent := s.newStorageInstance(c, "single-blk/0", true)
+	detachable := s.newStorageInstance(c, "single-blk/0", true)
 
 	s.applicationService.EXPECT().IsSubordinateApplicationByName(gomock.Any(), "foo").Return(false, nil)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID, nil)
 	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID}).Return(
 		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-			unitUUID: {persistent},
+			unitUUID: {detachable},
 		}, nil,
 	)
 
@@ -163,7 +163,7 @@ func (s *applicationSuite) TestDestroyApplicationClassifiesStorage(c *tc.C) {
 	unitUUID1 := tc.Must(c, coreunit.NewUUID)
 	unitUUID2 := tc.Must(c, coreunit.NewUUID)
 	shared := s.newStorageInstance(c, "db-dir/0", true)
-	nonPersistent := s.newStorageInstance(c, "single-fs/0", false)
+	nonDetachable := s.newStorageInstance(c, "single-fs/0", false)
 
 	s.applicationService.EXPECT().GetUnitNamesAndUUIDsForApplication(gomock.Any(), "foo").Return(
 		[]domainapplication.UnitNameAndUUID{
@@ -175,7 +175,7 @@ func (s *applicationSuite) TestDestroyApplicationClassifiesStorage(c *tc.C) {
 		gomock.Any(), []coreunit.UUID{unitUUID1, unitUUID2},
 	).Return(
 		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-			unitUUID1: {nonPersistent, shared},
+			unitUUID1: {nonDetachable, shared},
 			unitUUID2: {shared},
 		}, nil,
 	)
@@ -213,7 +213,7 @@ func (s *applicationSuite) TestDestroyApplicationDryRunClassifiesStorage(c *tc.C
 	s.expectDestroyCharm(c)
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	nonPersistent := s.newStorageInstance(c, "single-fs/0", false)
+	nonDetachable := s.newStorageInstance(c, "single-fs/0", false)
 
 	s.applicationService.EXPECT().GetUnitNamesAndUUIDsForApplication(gomock.Any(), "foo").Return(
 		[]domainapplication.UnitNameAndUUID{
@@ -222,7 +222,7 @@ func (s *applicationSuite) TestDestroyApplicationDryRunClassifiesStorage(c *tc.C
 	)
 	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID}).Return(
 		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-			unitUUID: {nonPersistent},
+			unitUUID: {nonDetachable},
 		}, nil,
 	)
 
