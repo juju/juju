@@ -50,7 +50,11 @@ func (s *relaySuite) TestResolveErrorWrittenToConn(c *tc.C) {
 		Return(nil, errors.New("no such destination"))
 	metrics := NewMockMetricsCollector(ctrl)
 	metrics.EXPECT().IncConnectionCount("relay")
-	metrics.EXPECT().DecConnectionCount("relay")
+	// The deferred Dec runs after conn.Close(), so wait for it explicitly.
+	decCalled := make(chan struct{})
+	metrics.EXPECT().DecConnectionCount("relay").Do(func(string) {
+		close(decCalled)
+	})
 	handler, err := NewRelayHandler(RelayHandlerConfig{
 		Logger:        loggertesting.WrapCheckLog(c),
 		ServerFactory: factory,
@@ -88,6 +92,11 @@ func (s *relaySuite) TestResolveErrorWrittenToConn(c *tc.C) {
 	out, err := io.ReadAll(conn)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(out), tc.Contains, "juju ssh relay: no such destination")
+	select {
+	case <-decCalled:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for DecConnectionCount")
+	}
 	ctrl.Finish()
 }
 
