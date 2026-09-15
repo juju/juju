@@ -1432,8 +1432,16 @@ func (w *srvSecretsRevisionWatcher) translateChanges(changes []string) ([]params
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		// The URI emitted by the state watcher for secrets offered
+		// in this model does not include the source model UUID;
+		// qualify it before serialising so the consuming model can
+		// correctly update its cross model consumer docs.
+		qualified := *uri
+		if qualified.SourceUUID == "" {
+			qualified.SourceUUID = w.st.ModelUUID()
+		}
 		result = append(result, params.SecretRevisionChange{
-			URI:      uri.String(),
+			URI:      qualified.String(),
 			Revision: md.LatestRevision,
 		})
 	}
