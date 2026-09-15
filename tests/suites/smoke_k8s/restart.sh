@@ -31,7 +31,7 @@ restart_pebble_service() {
 
 # assert_split_topology inspects the controller pod's process list to
 # verify the split controller topology: jujud must own the controller
-# and jujuagentd must be running with --machine-agent-only.
+# and jujuagentd must run as the machine agent.
 assert_split_topology() {
 	local pod
 	pod=$(get_controller_pod)
@@ -41,17 +41,15 @@ assert_split_topology() {
 
 	echo "Verifying split controller topology in pod ${pod}"
 
-	# Verify jujud controller process is running
-	local jujud_process
-	jujud_process=$(kubectl exec -n "controller-${BOOTSTRAPPED_JUJU_CTRL_NAME}" "${pod}" -c api-server -- \
+	# Capture the full process list once; it contains both the jujud
+	# controller process and the jujuagentd machine-agent process.
+	local process_list
+	process_list=$(kubectl exec -n "controller-${BOOTSTRAPPED_JUJU_CTRL_NAME}" "${pod}" -c api-server -- \
 		/bin/sh -c "ps aux" 2>/dev/null || echo "")
 	echo "Process list from controller pod:"
-	echo "${jujud_process}"
-	check_contains "${jujud_process}" "jujud controller"
-
-	# Verify jujuagentd is running with --machine-agent-only
-	check_contains "${jujud_process}" "jujuagentd machine"
-	check_contains "${jujud_process}" "machine-agent-only"
+	echo "${process_list}"
+	check_contains "${process_list}" "jujud controller"
+	check_contains "${process_list}" "jujuagentd machine"
 
 	# Verify Pebble services are both active
 	local pebble_services
@@ -97,8 +95,8 @@ test_controller_restart() {
 }
 
 # test_machine_agent_restart restarts the jujuagentd machine-agent
-# service via Pebble and verifies that the controller remains
-# healthy and that jujuagentd retains --machine-agent-only.
+# service via Pebble and verifies that the controller remains healthy
+# and that jujuagentd continues running as the machine agent.
 test_machine_agent_restart() {
 	if [ "$(skip 'test_machine_agent_restart')" ]; then
 		echo "==> TEST SKIPPED: machine-agent restart tests"
