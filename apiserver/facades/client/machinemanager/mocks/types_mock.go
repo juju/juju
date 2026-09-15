@@ -603,32 +603,18 @@ func (mr *MockMachineMockRecorder) CreateUpgradeSeriesLock(arg0, arg1 any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateUpgradeSeriesLock", reflect.TypeOf((*MockMachine)(nil).CreateUpgradeSeriesLock), arg0, arg1)
 }
 
-// Destroy mocks base method.
-func (m *MockMachine) Destroy() error {
+// DestroyWithParams mocks base method.
+func (m *MockMachine) DestroyWithParams(arg0, arg1 bool, arg2 time.Duration) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Destroy")
+	ret := m.ctrl.Call(m, "DestroyWithParams", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Destroy indicates an expected call of Destroy.
-func (mr *MockMachineMockRecorder) Destroy() *gomock.Call {
+// DestroyWithParams indicates an expected call of DestroyWithParams.
+func (mr *MockMachineMockRecorder) DestroyWithParams(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockMachine)(nil).Destroy))
-}
-
-// ForceDestroy mocks base method.
-func (m *MockMachine) ForceDestroy(arg0 time.Duration) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ForceDestroy", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ForceDestroy indicates an expected call of ForceDestroy.
-func (mr *MockMachineMockRecorder) ForceDestroy(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForceDestroy", reflect.TypeOf((*MockMachine)(nil).ForceDestroy), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyWithParams", reflect.TypeOf((*MockMachine)(nil).DestroyWithParams), arg0, arg1, arg2)
 }
 
 // GetUpgradeSeriesMessages mocks base method.
