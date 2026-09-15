@@ -1203,7 +1203,7 @@ WHERE  lld.net_node_uuid = $k8sService.net_node_uuid
 		return errors.Errorf("querying cloud service link layer device for application %q: %w", serviceInfo.ApplicationUUID, err)
 	} else if errors.Is(err, sqlair.ErrNoRows) {
 		// Ensure the address link layer device is inserted.
-		lldUUID, err := st.insertK8sServiceDevice(ctx, tx, applicationName, serviceInfo.NetNodeUUID)
+		lldUUID, err := st.insertK8sServiceDevice(ctx, tx, serviceInfo.NetNodeUUID)
 		if err != nil {
 			return errors.Errorf("inserting cloud service link layer device for application %q: %w", serviceInfo.ApplicationUUID, err)
 		}
@@ -1224,7 +1224,7 @@ WHERE  lld.net_node_uuid = $k8sService.net_node_uuid
 }
 
 func (st *State) insertK8sServiceDevice(
-	ctx context.Context, tx *sqlair.TX, applicationName, netNodeUUID string,
+	ctx context.Context, tx *sqlair.TX, netNodeUUID string,
 ) (uuid.UUID, error) {
 	// For cloud services, the device is a placeholder without
 	// a MAC address and once inserted, not updated. It just exists
@@ -1235,8 +1235,12 @@ func (st *State) insertK8sServiceDevice(
 		return uuid.UUID{}, errors.Capture(err)
 	}
 	k8sServiceDeviceInfo := k8sServiceDevice{
-		UUID:              devUUID.String(),
-		Name:              fmt.Sprintf("placeholder for %q k8s service", applicationName),
+		UUID: devUUID.String(),
+		// The device name is intentionally left empty. This is a
+		// placeholder device for a k8s service, not a real network
+		// interface, and must not leak an internal name via tools
+		// like network-get.
+		Name:              "",
 		DeviceTypeID:      int(domainnetwork.DeviceTypeUnknown),
 		VirtualPortTypeID: int(domainnetwork.NonVirtualPortType),
 		NetNodeID:         netNodeUUID,

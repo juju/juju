@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"slices"
 	"strings"
 
@@ -804,7 +803,7 @@ func (st *State) getUnitDetails(ctx context.Context, tx *sqlair.TX, unitName str
 	return &unit, nil
 }
 
-func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
+func makeCloudContainerArg(cloudContainer application.CloudContainerParams) *application.CloudContainer {
 	result := &application.CloudContainer{
 		ProviderID: cloudContainer.ProviderID,
 		Ports:      cloudContainer.Ports,
@@ -819,7 +818,11 @@ func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.Cl
 			// to tie the address to the net node corresponding to the
 			// cloud container.
 			Device: application.ContainerDevice{
-				Name:              fmt.Sprintf("placeholder for %q cloud container", unitName),
+				// The device name is intentionally left empty. This is a
+				// placeholder device for a cloud container, not a real
+				// network interface, and must not leak an internal name
+				// via tools like network-get.
+				Name:              "",
 				DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
 				VirtualPortTypeID: domainnetwork.NonVirtualPortType,
 			},
@@ -860,7 +863,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 		origin := network.OriginProvider
 		cloudContainerParams.AddressOrigin = &origin
 	}
-	cloudContainer := makeCloudContainerArg(arg.UnitName, cloudContainerParams)
+	cloudContainer := makeCloudContainerArg(cloudContainerParams)
 
 	now := new(st.clock.Now().UTC())
 	addUnitArg := application.AddCAASUnitArg{
@@ -1150,7 +1153,7 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 			origin := network.OriginProvider
 			cloudContainerParams.AddressOrigin = &origin
 		}
-		cloudContainer = makeCloudContainerArg(unitName, cloudContainerParams)
+		cloudContainer = makeCloudContainerArg(cloudContainerParams)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
