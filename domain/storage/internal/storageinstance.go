@@ -123,9 +123,13 @@ type StorageInstanceInfoAttachmentMachine struct {
 }
 
 // StorageInstanceInfoAttachmentVolume contains volume-specific details for a
-// storage attachment, including device name links (symlinks) to the block
-// device.
+// storage attachment, including the block device name and device name links
+// (symlinks) to the block device.
 type StorageInstanceInfoAttachmentVolume struct {
+	// DeviceName is the OS-specific name of the block device backing the
+	// volume (e.g. "loop0" or "sdb").
+	DeviceName string
+
 	// DeviceNameLinks is a list of device name symlinks
 	// (e.g., /dev/disk/by-id/*) that point to the block device on the attached
 	// Unit's Machine.

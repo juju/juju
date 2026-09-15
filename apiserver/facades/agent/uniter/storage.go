@@ -265,8 +265,10 @@ func (s *StorageAPI) StorageAttachments(ctx context.Context, args params.Storage
 			return params.StorageAttachment{}, internalerrors.Capture(err)
 		}
 
-		devLink := blockdevice.IDLink(blockDevice.DeviceLinks)
-		if devLink == "" {
+		location := blockdevice.AttachmentLocation(
+			blockDevice.DeviceLinks, blockDevice.DeviceName,
+		)
+		if location == "" {
 			return params.StorageAttachment{}, internalerrors.Errorf(
 				"block device link for storage attachment %q for unit %q missing",
 				arg.StorageTag, unitTag.Id(),
@@ -274,7 +276,7 @@ func (s *StorageAPI) StorageAttachments(ctx context.Context, args params.Storage
 		}
 
 		sa.Kind = params.StorageKindBlock
-		sa.Location = devLink
+		sa.Location = location
 
 		return sa, nil
 	}
