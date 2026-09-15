@@ -5,6 +5,7 @@ package uniter
 
 import (
 	"context"
+	"path"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -266,6 +267,12 @@ func (s *StorageAPI) StorageAttachments(ctx context.Context, args params.Storage
 		}
 
 		devLink := blockdevice.IDLink(blockDevice.DeviceLinks)
+		if devLink == "" && blockDevice.DeviceName != "" {
+			// Devices without an ID link, such as loop backed volumes on
+			// LXD VMs, only report a device name, so fall back to the
+			// /dev device path (e.g. /dev/loop0).
+			devLink = path.Join("/dev", blockDevice.DeviceName)
+		}
 		if devLink == "" {
 			return params.StorageAttachment{}, internalerrors.Errorf(
 				"block device link for storage attachment %q for unit %q missing",

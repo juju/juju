@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"path"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/trace"
@@ -94,10 +95,13 @@ func (s *Service) GetStorageInstanceInfo(
 			internalAttachment.Filesystem != nil {
 			attachment.Location = internalAttachment.Filesystem.MountPoint
 		} else if retVal.Kind == domainstorage.StorageKindBlock &&
-			// If the storage kind is Block and we have device links from the
-			// volume set the location based off of the device link.
 			internalAttachment.Volume != nil {
 			loc := domainblockdevice.IDLink(internalAttachment.Volume.DeviceNameLinks)
+			if loc == "" && internalAttachment.Volume.DeviceName != "" {
+				// Devices without an ID link, such as loop backed volumes on LXD
+				// VMs, fall back to the /dev device name path (e.g. /dev/loop0).
+				loc = path.Join("/dev", internalAttachment.Volume.DeviceName)
+			}
 			attachment.Location = loc
 		}
 

@@ -288,6 +288,61 @@ func (s *storageSuite) TestStorageAttachmentsForVolume(c *tc.C) {
 	})
 }
 
+func (s *storageSuite) TestStorageAttachmentsForVolumeWithDeviceNameOnly(c *tc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	unitTag := names.NewUnitTag("wordpress/0")
+	unitName, err := coreunit.NewName(unitTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
+	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
+	bdUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+
+	// Loop backed block volumes only have a device name, there is no stable
+	// /dev/disk/by-id link to derive the location from.
+	blockDevice := coreblockdevice.BlockDevice{
+		DeviceName: "loop0",
+	}
+
+	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentUUIDForUnit(
+		gomock.Any(), "foo/1", unitUUID,
+	).Return(saUUID, nil)
+
+	s.mockStorageProvisioningService.EXPECT().GetUnitStorageAttachmentInfo(
+		gomock.Any(), saUUID,
+	).Return(storageprovisioning.StorageAttachmentInfo{
+		Kind:            domainstorage.StorageKindBlock,
+		Life:            domainlife.Alive,
+		BlockDeviceUUID: bdUUID,
+	}, nil)
+
+	s.mockBlockDeviceService.EXPECT().GetBlockDevice(
+		gomock.Any(), bdUUID).Return(blockDevice, nil)
+
+	results, err := api.StorageAttachments(c.Context(), params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{
+			{
+				StorageTag: "storage-foo-1",
+				UnitTag:    unitTag.String(),
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result, tc.Equals, params.StorageAttachmentResult{
+		Result: params.StorageAttachment{
+			StorageTag: "storage-foo-1",
+			UnitTag:    unitTag.String(),
+			Kind:       params.StorageKindBlock,
+			Location:   "/dev/loop0",
+			Life:       corelife.Alive,
+		},
+	})
+}
+
 func (s *storageSuite) TestStorageAttachmentsForVolumeWithNoBlockDevice(c *tc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()

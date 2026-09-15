@@ -13,6 +13,7 @@ import (
 type storageInstanceInfoAttachment struct {
 	UUID                                  string           `db:"uuid"`
 	LifeID                                int              `db:"life_id"`
+	BlockDeviceName                       sql.Null[string] `db:"block_device_name"`
 	StorageFilesystemAttachmentUUID       sql.Null[string] `db:"storage_filesystem_attachment_uuid"`
 	StorageFilesystemAttachmentMountPoint sql.Null[string] `db:"storage_filesystem_attachment_mount_point"`
 	StorageVolumeAttachmentUUID           sql.Null[string] `db:"storage_volume_attachment_uuid"`
