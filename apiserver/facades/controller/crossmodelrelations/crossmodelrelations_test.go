@@ -957,7 +957,7 @@ func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, len(args.Args))
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results[0].Changes, jc.DeepEquals, []params.SecretRevisionChange{{
-		URI:      "secret:9m4e2mr0ui3e8a215n4g",
+		URI:      "secret://" + s.st.ModelUUID() + "/9m4e2mr0ui3e8a215n4g",
 		Revision: 666,
 	}})
 	c.Assert(results.Results[1].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)

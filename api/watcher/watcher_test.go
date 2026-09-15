@@ -840,7 +840,9 @@ func (s *watcherSuite) setupSecretsRevisionWatcher(
 				break
 			}
 			c.Assert(changes, gc.HasLen, 1)
-			c.Assert(changes[0].URI.String(), gc.Equals, uri.String())
+			qualified := *uri
+			qualified.SourceUUID = s.State.ModelUUID()
+			c.Assert(changes[0].URI.String(), gc.Equals, qualified.String())
 			c.Assert(changes[0].Revision, gc.Equals, rev)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("watcher didn't emit an event")
