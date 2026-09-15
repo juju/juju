@@ -237,14 +237,15 @@ func (addrs APIAddresses) ToNoProxyString() string {
 		if addr.Scope == network.ScopeMachineLocal || addr.Scope == network.ScopeLinkLocal {
 			continue
 		}
-		addrPort, err := netip.ParseAddrPort(addr.Address)
+		host, _, err := net.SplitHostPort(addr.Address)
 		if err != nil {
 			// This shouldn't happen, but log it just in case.
 			logger.GetLogger("juju.services.controllernode").Errorf(
 				context.Background(),
 				"parsing address and port %q for proxy string: %w", addr.Address, err)
+			continue
 		}
-		noProxySet.Add(addrPort.Addr().String())
+		noProxySet.Add(host)
 	}
 	return strings.Join(noProxySet.SortedValues(), ",")
 }

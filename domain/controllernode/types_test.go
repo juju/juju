@@ -125,6 +125,15 @@ var toNoProxyStringTests = []selectNoProxyStringTest{
 			{Address: "0.1.2.4:17070", Scope: network.ScopePublic},
 		},
 		expected: "0.1.2.3,0.1.2.4,0.1.2.5",
+	}, {
+		about: "controller pod FQDN",
+		addresses: APIAddresses{
+			{
+				Address: "controller-2.controller-service-endpoints.controller-test.svc.cluster.local:17070",
+				Scope:   network.ScopeCloudLocal,
+			},
+		},
+		expected: "controller-2.controller-service-endpoints.controller-test.svc.cluster.local",
 	},
 }
 
