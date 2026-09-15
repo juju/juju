@@ -2338,8 +2338,8 @@ LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
 			present = s.MachinePresent.V
 		}
 
-		// By default, the verion is NOT NULL. However, it is still better to guard
-		// agains LEFT JOIN, which can potentially produce a NULL column.
+		// By default, the version is NOT NULL. However, it is still better
+		// to guard against the LEFT JOIN, which can produce a NULL column.
 		var agentVersion string
 		if s.AgentVersion.Valid {
 			agentVersion = s.AgentVersion.V
