@@ -57,9 +57,10 @@ func (s *applicationSuite) TestDestroyUnitClassifiesStorage(c *tc.C) {
 
 	s.applicationService.EXPECT().IsSubordinateApplicationByName(gomock.Any(), "foo").Return(false, nil)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID, nil)
-	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID}).Return(
-		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-			unitUUID: {nonDetachable, detachable},
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(gomock.Any(), []coreunit.UUID{unitUUID}, false).Return(
+		domainstorage.StorageRemovalClassification{
+			Destroyed: []domainstorage.StorageInstanceClassification{nonDetachable},
+			Detached:  []domainstorage.StorageInstanceClassification{detachable},
 		}, nil,
 	)
 	removalUUID := tc.Must(c, removal.NewUUID)
@@ -93,9 +94,9 @@ func (s *applicationSuite) TestDestroyUnitDestroyStorage(c *tc.C) {
 
 	s.applicationService.EXPECT().IsSubordinateApplicationByName(gomock.Any(), "foo").Return(false, nil)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID, nil)
-	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID}).Return(
-		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-			unitUUID: {detachable, nonDetachable},
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(gomock.Any(), []coreunit.UUID{unitUUID}, true).Return(
+		domainstorage.StorageRemovalClassification{
+			Destroyed: []domainstorage.StorageInstanceClassification{detachable, nonDetachable},
 		}, nil,
 	)
 	removalUUID := tc.Must(c, removal.NewUUID)
@@ -131,9 +132,9 @@ func (s *applicationSuite) TestDestroyUnitDryRunClassifiesStorage(c *tc.C) {
 
 	s.applicationService.EXPECT().IsSubordinateApplicationByName(gomock.Any(), "foo").Return(false, nil)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID, nil)
-	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID}).Return(
-		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-			unitUUID: {detachable},
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(gomock.Any(), []coreunit.UUID{unitUUID}, false).Return(
+		domainstorage.StorageRemovalClassification{
+			Detached: []domainstorage.StorageInstanceClassification{detachable},
 		}, nil,
 	)
 
@@ -152,8 +153,8 @@ func (s *applicationSuite) TestDestroyUnitDryRunClassifiesStorage(c *tc.C) {
 }
 
 // TestDestroyApplicationClassifiesStorage asserts that destroying an IAAS
-// application reports the storage of all of its units, deduplicating storage
-// that is shared between units.
+// application renders the storage classification of all of its units as
+// reported by the storage service.
 func (s *applicationSuite) TestDestroyApplicationClassifiesStorage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -171,12 +172,12 @@ func (s *applicationSuite) TestDestroyApplicationClassifiesStorage(c *tc.C) {
 			{Name: "foo/1", UUID: unitUUID2},
 		}, nil,
 	)
-	s.storageService.EXPECT().GetStorageClassificationForUnits(
-		gomock.Any(), []coreunit.UUID{unitUUID1, unitUUID2},
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(
+		gomock.Any(), []coreunit.UUID{unitUUID1, unitUUID2}, false,
 	).Return(
-		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-			unitUUID1: {nonDetachable, shared},
-			unitUUID2: {shared},
+		domainstorage.StorageRemovalClassification{
+			Destroyed: []domainstorage.StorageInstanceClassification{nonDetachable},
+			Detached:  []domainstorage.StorageInstanceClassification{shared},
 		}, nil,
 	)
 
@@ -220,9 +221,9 @@ func (s *applicationSuite) TestDestroyApplicationDryRunClassifiesStorage(c *tc.C
 			{Name: "foo/0", UUID: unitUUID},
 		}, nil,
 	)
-	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID}).Return(
-		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-			unitUUID: {nonDetachable},
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(gomock.Any(), []coreunit.UUID{unitUUID}, false).Return(
+		domainstorage.StorageRemovalClassification{
+			Destroyed: []domainstorage.StorageInstanceClassification{nonDetachable},
 		}, nil,
 	)
 
@@ -318,8 +319,8 @@ func (s *applicationSuite) TestDestroyUnitStorageServiceError(c *tc.C) {
 
 	s.applicationService.EXPECT().IsSubordinateApplicationByName(gomock.Any(), "foo").Return(false, nil)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID, nil)
-	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID}).Return(
-		nil, boom,
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(gomock.Any(), []coreunit.UUID{unitUUID}, false).Return(
+		domainstorage.StorageRemovalClassification{}, boom,
 	)
 
 	res, err := s.api.DestroyUnit(c.Context(), params.DestroyUnitsParams{
@@ -344,8 +345,8 @@ func (s *applicationSuite) TestDestroyUnitNoStorage(c *tc.C) {
 
 	s.applicationService.EXPECT().IsSubordinateApplicationByName(gomock.Any(), "foo").Return(false, nil)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID, nil)
-	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID}).Return(
-		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{}, nil,
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(gomock.Any(), []coreunit.UUID{unitUUID}, false).Return(
+		domainstorage.StorageRemovalClassification{}, nil,
 	)
 	removalUUID := tc.Must(c, removal.NewUUID)
 	s.removalService.EXPECT().RemoveUnit(gomock.Any(), unitUUID, false, false, time.Duration(0)).Return(removalUUID, nil)

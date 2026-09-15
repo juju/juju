@@ -1207,7 +1207,16 @@ func (api *APIBase) classifyStorageRemoval(
 	if api.modelType == model.CAAS {
 		return nil, nil, nil
 	}
-	return common.ClassifyStorageRemoval(ctx, api.storageService, unitUUIDs, destroyStorage)
+	if len(unitUUIDs) == 0 {
+		return nil, nil, nil
+	}
+
+	classification, err := api.storageService.ClassifyStorageForUnitRemoval(ctx, unitUUIDs, destroyStorage)
+	if err != nil {
+		return nil, nil, internalerrors.Capture(err)
+	}
+	return common.StorageEntities(classification.Destroyed),
+		common.StorageEntities(classification.Detached), nil
 }
 
 // DestroyConsumedApplications removes a given set of consumed (remote) applications.

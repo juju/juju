@@ -259,8 +259,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval
 	).Times(1)
 	// The state layer wraps classification errors with this context before
 	// they reach the facade, so the mock must return it already applied.
-	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID}).Return(
-		nil, errors.New("getting storage classification: boom"),
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(gomock.Any(), []coreunit.UUID{unitUUID}, false).Return(
+		domainstorage.StorageRemovalClassification{}, errors.New("getting storage classification: boom"),
 	)
 
 	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
@@ -299,8 +299,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrieva
 	).Times(1)
 	// The state layer wraps classification errors with this context before
 	// they reach the facade, so the mock must return it already applied.
-	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID1}).Return(
-		nil, errors.New("getting storage classification: boom"),
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(gomock.Any(), []coreunit.UUID{unitUUID1}, false).Return(
+		domainstorage.StorageRemovalClassification{}, errors.New("getting storage classification: boom"),
 	)
 
 	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
@@ -340,8 +340,8 @@ func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRet
 	).Times(1)
 	// The state layer wraps classification errors with this context before
 	// they reach the facade, so the mock must return it already applied.
-	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), []coreunit.UUID{unitUUID1}).Return(
-		nil, errors.New("getting storage classification: boom"),
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(gomock.Any(), []coreunit.UUID{unitUUID1}, false).Return(
+		domainstorage.StorageRemovalClassification{}, errors.New("getting storage classification: boom"),
 	)
 
 	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
@@ -436,7 +436,9 @@ func (s *DestroyMachineManagerSuite) expectCalculateDestroyResult(
 		s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), container).Return(units, nil)
 	}
 	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), machineName).Return(units, nil).Times(1)
-	s.storageService.EXPECT().GetStorageClassificationForUnits(gomock.Any(), unitUUIDs).Return(nil, nil).AnyTimes()
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(gomock.Any(), unitUUIDs, false).Return(
+		domainstorage.StorageRemovalClassification{}, nil,
+	).AnyTimes()
 }
 
 func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *tc.C) {
@@ -631,9 +633,8 @@ func (s *DestroyMachineManagerSuite) newStorageInstance(c *tc.C, id string, deta
 }
 
 // TestDestroyMachineClassifiesStorage asserts that the destroy result of a
-// machine reports the storage attached to its units, deduplicating storage
-// shared between units: non-detachable storage as destroyed and detachable
-// storage as detached.
+// machine renders the storage classification of its units: destroyed and
+// detached storage as reported by the storage service.
 func (s *DestroyMachineManagerSuite) TestDestroyMachineClassifiesStorage(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -653,12 +654,12 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineClassifiesStorage(c *tc.C
 
 	nonDetachable := s.newStorageInstance(c, "single-fs/0", false)
 	shared := s.newStorageInstance(c, "db-dir/0", true)
-	s.storageService.EXPECT().GetStorageClassificationForUnits(
-		gomock.Any(), []coreunit.UUID{unitUUID0, unitUUID1},
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(
+		gomock.Any(), []coreunit.UUID{unitUUID0, unitUUID1}, false,
 	).Return(
-		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-			unitUUID0: {nonDetachable, shared},
-			unitUUID1: {shared},
+		domainstorage.StorageRemovalClassification{
+			Destroyed: []domainstorage.StorageInstanceClassification{nonDetachable},
+			Detached:  []domainstorage.StorageInstanceClassification{shared},
 		}, nil,
 	).AnyTimes()
 
@@ -704,11 +705,11 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineClassifiesStorageContaine
 	).Times(1)
 
 	detachable := s.newStorageInstance(c, "db-dir/0", true)
-	s.storageService.EXPECT().GetStorageClassificationForUnits(
-		gomock.Any(), []coreunit.UUID{unitUUID},
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(
+		gomock.Any(), []coreunit.UUID{unitUUID}, false,
 	).Return(
-		map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-			unitUUID: {detachable},
+		domainstorage.StorageRemovalClassification{
+			Detached: []domainstorage.StorageInstanceClassification{detachable},
 		}, nil,
 	).AnyTimes()
 

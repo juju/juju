@@ -93,6 +93,20 @@ type StorageInstanceClassification struct {
 	UUID StorageInstanceUUID
 }
 
+// StorageRemovalClassification reports, for a set of units being removed,
+// which of their attached storage instances will be destroyed and which
+// will be detached.
+type StorageRemovalClassification struct {
+	// Destroyed lists the storage instances that will be destroyed when
+	// the units are removed, either because they are not detachable or
+	// because destruction was explicitly requested.
+	Destroyed []StorageInstanceClassification
+
+	// Detached lists the storage instances that will be detached from the
+	// units being removed, as their life cycle outlives those units.
+	Detached []StorageInstanceClassification
+}
+
 // StorageInstanceMachineAttachment describes an attachment of a StorageInstance
 // onto a Machine in the model. StorageInstances are not directly attached to
 // machines. It is via their realised composition of Volumes and Filesystems
