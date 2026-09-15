@@ -206,17 +206,24 @@ func (s *workerSuite) TestStateAdapterMachineHostKeysInvalidModelUUID(c *tc.C) {
 
 // TestControllerInfoAdapterLocalAddresses verifies that only the hosts from
 // the local controller node's API endpoints are returned as SpaceAddresses.
+// A controller pod FQDN is retained so the reverse tunnel reaches that
+// controller rather than the load-balanced controller Service.
 func (s *workerSuite) TestControllerInfoAdapterLocalAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerNodeService.EXPECT().GetAPIHostPortsForControllerIDForAgents(gomock.Any(), "0").Return(
-		network.NewMachineHostPorts(17070, "10.0.0.1", "2001:db8::1").HostPorts(), nil,
+		network.NewMachineHostPorts(
+			17070,
+			"controller-0.controller-service-endpoints.controller-test.svc.cluster.local",
+		).HostPorts(), nil,
 	)
 
 	adapter := &controllerInfoAdapter{controllerNodeService: s.controllerNodeService}
 	addrs, err := adapter.LocalAddresses(c.Context(), "0")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addrs, tc.DeepEquals, network.NewSpaceAddresses("10.0.0.1", "2001:db8::1"))
+	c.Check(addrs, tc.DeepEquals, network.NewSpaceAddresses(
+		"controller-0.controller-service-endpoints.controller-test.svc.cluster.local",
+	))
 }
 
 // TestControllerInfoAdapterLocalAddressesUnknownNode verifies that an error

@@ -115,6 +115,7 @@ type ManifoldConfig struct {
 	BootstrapAddressFinderGetter  BootstrapAddressFinderGetter
 	AgentFinalizer                AgentFinalizerFunc
 	RemoveBootstrapSSHKeys        RemoveBootstrapSSHKeysFunc
+	PopulateAPIAddresses          PopulateAPIAddressesFunc
 	StatusHistory                 StatusHistory
 
 	Logger logger.Logger
@@ -174,6 +175,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.RemoveBootstrapSSHKeys == nil {
 		return errors.NotValidf("nil RemoveBootstrapSSHKeys")
+	}
+	if cfg.PopulateAPIAddresses == nil {
+		return errors.NotValidf("nil PopulateAPIAddresses")
 	}
 	if cfg.StatusHistory == nil {
 		return errors.NotValidf("nil StatusHistory")
@@ -302,6 +306,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				PopulateControllerCharm:    config.PopulateControllerCharm,
 				AgentFinalizer:             config.AgentFinalizer,
 				RemoveBootstrapSSHKeys:     config.RemoveBootstrapSSHKeys,
+				PopulateAPIAddresses:       config.PopulateAPIAddresses,
 				AgentPassword:              config.AgentPassword,
 				ApplicationPassword:        applicationPassword,
 				CharmhubHTTPClient:         charmhubHTTPClient,

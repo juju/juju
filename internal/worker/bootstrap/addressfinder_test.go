@@ -11,13 +11,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs"
 	instances "github.com/juju/juju/environs/instances"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -104,7 +102,6 @@ func (s *iaasAddressFinderSuite) TestIAASAddressFinder(c *tc.C) {
 }
 
 type caasAddressFinderSuite struct {
-	serviceManager  *MockServiceManager
 	providerFactory *MockProviderFactory
 }
 
@@ -116,7 +113,6 @@ func TestCAASAddressFinderSuite(t *testing.T) {
 
 func (s *caasAddressFinderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.serviceManager = NewMockServiceManager(ctrl)
 	s.providerFactory = NewMockProviderFactory(ctrl)
 	return ctrl
 }
@@ -132,7 +128,7 @@ func (s *caasAddressFinderSuite) TestCAASAddressFinderNoProvider(c *tc.C) {
 	)
 
 	_, err := CAASAddressFinder(s.providerFactory, "controller-test")(c.Context(), instance.Id("12345"))
-	c.Check(err, tc.ErrorMatches, "cannot get service manager from provider for finding bootstrap addresses.*")
+	c.Check(err, tc.ErrorMatches, "cannot get bootstrap address finder from provider.*")
 }
 
 // TestCAASAddressFinderProviderError is asserting that if getting a
@@ -142,12 +138,9 @@ func (s *caasAddressFinderSuite) TestCAASAddressFinderProviderError(c *tc.C) {
 	defer ctrl.Finish()
 
 	boom := errors.New("boom")
-	s.serviceManager.EXPECT().GetService(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-		nil, boom,
-	)
 	s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), "controller-test").Return(
 		&caasStubProvider{
-			serviceManager: s.serviceManager,
+			bootstrapAddressesErr: boom,
 		}, nil,
 	)
 
@@ -161,16 +154,13 @@ func (s *caasAddressFinderSuite) TestCAASAddressFinder(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	addresses := network.NewMachineAddresses([]string{
-		"2001:0DB8::BEEF:FACE",
-	}).AsProviderAddresses()
-	svc := &caas.Service{
-		Addresses: addresses,
-	}
-	s.serviceManager.EXPECT().GetService(gomock.Any(), k8sconstants.JujuControllerStackName, true).Return(svc, nil)
+	addresses := network.NewMachineAddresses(
+		[]string{"controller-0.controller-service-endpoints.controller-test.svc.cluster.local"},
+		network.WithScope(network.ScopeCloudLocal),
+	).AsProviderAddresses()
 	s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), "controller-test").Return(
 		&caasStubProvider{
-			serviceManager: s.serviceManager,
+			bootstrapAddresses: addresses,
 		}, nil,
 	)
 
@@ -189,14 +179,13 @@ func (f *iaasStubProvider) Instances(ctx context.Context, ids []instance.Id) ([]
 	return f.instanceLister.Instances(ctx, ids)
 }
 
-// GetService(ctx context.Context, appName string, includeClusterIP bool) (*Service, error)
-
 type caasStubProvider struct {
 	providertracker.Provider
-	serviceManager caas.ServiceManager
+	bootstrapAddresses    network.ProviderAddresses
+	bootstrapAddressesErr error
 }
 
-// GetService implements caas.ServiceManager.
-func (f *caasStubProvider) GetService(ctx context.Context, appName string, includeClusterIP bool) (*caas.Service, error) {
-	return f.serviceManager.GetService(ctx, appName, includeClusterIP)
+// BootstrapControllerAddresses implements environs.BootstrapAddressFinder.
+func (f *caasStubProvider) BootstrapControllerAddresses(context.Context) (network.ProviderAddresses, error) {
+	return f.bootstrapAddresses, f.bootstrapAddressesErr
 }

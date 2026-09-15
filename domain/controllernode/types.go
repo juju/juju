@@ -5,6 +5,7 @@ package controllernode
 
 import (
 	"context"
+	"net"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -22,6 +23,13 @@ type SetAPIAddressArgs struct {
 	MgmtSpace *network.SpaceInfo
 	// APIAddresses maps a controller ID to its SpaceHostPorts.
 	APIAddresses map[string]network.SpaceHostPorts
+	// AgentAddresses replaces general agent endpoints when non-nil.
+	AgentAddresses *APIAddresses
+	// ClientAddresses replaces general client endpoints when non-nil.
+	ClientAddresses *APIAddresses
+	// ControllerClientAddresses replaces controller-specific client endpoints
+	// when non-nil.
+	ControllerClientAddresses *map[string]APIAddresses
 }
 
 // APIAddress represents one of the API addresses, accessible for clients
@@ -31,6 +39,8 @@ type APIAddress struct {
 	Address string
 	// IsAgent indicates whether the address is available for agents.
 	IsAgent bool
+	// IsClient indicates whether the address is available for external clients.
+	IsClient bool
 	// Scope is the address scope.
 	Scope network.Scope
 }
@@ -47,6 +57,24 @@ func (addrs APIAddresses) PrioritizedForScope(getMatcher ScopeMatchFunc) []strin
 		out[i] = addrs[index].Address
 	}
 	return out
+}
+
+// BestMatchingForScope returns only the first non-empty scope tier matching
+// the supplied matcher.
+func (addrs APIAddresses) BestMatchingForScope(getMatcher ScopeMatchFunc) APIAddresses {
+	matches := filterAndCollateAddressIndexes(addrs, getMatcher)
+	for _, matchType := range scopeMatchHierarchy() {
+		indexes := matches[matchType]
+		if len(indexes) == 0 {
+			continue
+		}
+		result := make(APIAddresses, len(indexes))
+		for i, index := range indexes {
+			result[i] = addrs[index]
+		}
+		return result
+	}
+	return nil
 }
 
 // ToHostPortsNoMachineLocal transforms APIAddresses into network HostPorts,
@@ -117,25 +145,21 @@ func filterAndCollateAddressIndexes(addrs APIAddresses, matchFunc ScopeMatchFunc
 // accessibility from within the local cloud.
 // Machine-only addresses do not satisfy this matcher.
 func ScopeMatchCloudLocal(addr APIAddress) ScopeMatch {
-	addrPort, err := netip.ParseAddrPort(addr.Address)
-	if err != nil {
-		// TODO - log error
-		return invalidScope
-	}
+	addrPort, isIP := parseAddrPort(addr.Address)
 
 	switch addr.Scope {
 	case network.ScopeCloudLocal:
-		if addrPort.Addr().Is4() {
+		if isIP && addrPort.Addr().Is4() {
 			return exactScopeIPv4
 		}
 		return exactScope
 	case network.ScopeFanLocal:
-		if addrPort.Addr().Is4() {
+		if isIP && addrPort.Addr().Is4() {
 			return firstFallbackScopeIPv4
 		}
 		return firstFallbackScope
 	case network.ScopePublic, network.ScopeUnknown:
-		if addrPort.Addr().Is4() {
+		if isIP && addrPort.Addr().Is4() {
 			return secondFallbackScopeIPv4
 		}
 		return secondFallbackScope
@@ -148,29 +172,31 @@ func ScopeMatchCloudLocal(addr APIAddress) ScopeMatch {
 // accessibility.
 func ScopeMatchPublic(addr APIAddress) ScopeMatch {
 	scope := addr.Scope
-
-	// If this call fails, we have a hostname, thus safe
-	// to ignore the error.
-	addrPort, _ := netip.ParseAddrPort(addr.Address)
+	addrPort, isIP := parseAddrPort(addr.Address)
 
 	switch scope {
 	case network.ScopePublic:
-		if addrPort.Addr().Is4() {
+		if isIP && addrPort.Addr().Is4() {
 			return exactScopeIPv4
 		}
 		return exactScope
 	case network.ScopeCloudLocal:
-		if addrPort.Addr().Is4() {
+		if isIP && addrPort.Addr().Is4() {
 			return firstFallbackScopeIPv4
 		}
 		return firstFallbackScope
 	case network.ScopeFanLocal, network.ScopeUnknown:
-		if addrPort.Addr().Is4() {
+		if isIP && addrPort.Addr().Is4() {
 			return secondFallbackScopeIPv4
 		}
 		return secondFallbackScope
 	}
 	return invalidScope
+}
+
+func parseAddrPort(address string) (netip.AddrPort, bool) {
+	addrPort, err := netip.ParseAddrPort(address)
+	return addrPort, err == nil
 }
 
 // ScopeMatchFunc is an alias for a function that accepts an Address,
@@ -207,14 +233,15 @@ func (addrs APIAddresses) ToNoProxyString() string {
 		if addr.Scope == network.ScopeMachineLocal || addr.Scope == network.ScopeLinkLocal {
 			continue
 		}
-		addrPort, err := netip.ParseAddrPort(addr.Address)
+		host, _, err := net.SplitHostPort(addr.Address)
 		if err != nil {
 			// This shouldn't happen, but log it just in case.
 			logger.GetLogger("juju.services.controllernode").Errorf(
 				context.Background(),
 				"parsing address and port %q for proxy string: %w", addr.Address, err)
+			continue
 		}
-		noProxySet.Add(addrPort.Addr().String())
+		noProxySet.Add(host)
 	}
 	return strings.Join(noProxySet.SortedValues(), ",")
 }

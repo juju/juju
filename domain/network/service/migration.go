@@ -317,6 +317,9 @@ func (s *MigrationService) getPlaceholderLinkLayerDevices(
 	for _, service := range services {
 		transformedAddresses := make([]internal.ImportIPAddress, 0, len(service.Addresses))
 		for _, addr := range service.Addresses {
+			if corenetwork.AddressType(addr.Type) == corenetwork.HostName {
+				continue
+			}
 			transformedAddr, err := s.transformK8sServiceAddress(addr, subnetUUIDByAddressType)
 			if err != nil {
 				return nil, errors.Errorf("converting address %q for %q k8s service: %w",

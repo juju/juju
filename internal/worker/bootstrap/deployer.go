@@ -32,6 +32,9 @@ type ServiceManager interface {
 	// GetService returns the service for the specified application.
 	GetService(ctx context.Context, appName string, includeClusterIP bool) (*caas.Service, error)
 
+	// GetControllerService returns the routable API Service for a controller.
+	GetControllerService(ctx context.Context, controllerName string, includeClusterIP bool) (*caas.Service, error)
+
 	// ControllerUnitFQDN returns the stable, cluster-resolvable per-pod DNS
 	// name for the controller unit with the given ordinal.
 	ControllerUnitFQDN(ordinal int) string

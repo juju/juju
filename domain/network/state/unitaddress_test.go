@@ -42,6 +42,7 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(
 	appUUID := s.addApplication(c, charmUUID, spaceUUID)
 	unitUUID := s.addUnit(c, appUUID, charmUUID, podNodeUUID)
 	s.addK8sService(c, svcNodeUUID, appUUID)
+	s.query(c, `UPDATE k8s_service SET provider_id = (SELECT name FROM unit WHERE uuid = ?) WHERE application_uuid = ?`, unitUUID.String(), appUUID)
 
 	// Act
 	addr, err := s.state.GetUnitAndK8sServiceAddresses(c.Context(), unitUUID)
@@ -72,6 +73,60 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesIncludingK8sService(
 			},
 		},
 	})
+}
+
+func (s *unitAddressSuite) TestGetControllerK8sServiceAddressesReturnsControllerServiceAddresses(c *tc.C) {
+	s.query(c, `INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type, is_controller_model)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, s.ModelUUID(), "controller-uuid", "controller", "admin", "caas", "cloud", "kubernetes", true)
+
+	podNodeUUID := s.addNetNode(c)
+	podDeviceUUID := s.addLinkLayerDevice(c, podNodeUUID)
+	svcNodeUUID := s.addNetNode(c)
+	svcDeviceUUID := s.addLinkLayerDevice(c, svcNodeUUID)
+
+	spaceUUID := s.addSpace(c)
+	subnetUUID, _ := s.addsubnet(c, spaceUUID)
+	s.addKubernetesIPAddress(c, podNodeUUID, podDeviceUUID, subnetUUID, 3, 0)
+	s.query(c, `UPDATE ip_address SET address_value = ? WHERE net_node_uuid = ?`, "10.0.0.10", podNodeUUID)
+	s.addKubernetesIPAddress(c, svcNodeUUID, svcDeviceUUID, subnetUUID, 1, 1)
+	s.query(c, `UPDATE ip_address SET address_value = ? WHERE net_node_uuid = ?`, "10.0.0.20", svcNodeUUID)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	s.addControllerApplication(c, appUUID)
+	s.addUnit(c, appUUID, charmUUID, podNodeUUID)
+	s.addK8sService(c, svcNodeUUID, appUUID)
+	s.query(c, `UPDATE k8s_service SET provider_id = ? WHERE net_node_uuid = ?`, "controller-provider-id", svcNodeUUID)
+	s.addFQDNAddress(c, svcNodeUUID, "controller-service.example.test")
+
+	addresses, err := s.state.GetControllerK8sServiceAddresses(c.Context())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addresses, tc.SameContents, corenetwork.SpaceAddresses{
+		corenetwork.NewSpaceAddress("10.0.0.20", corenetwork.WithScope(corenetwork.ScopePublic)),
+		corenetwork.NewSpaceAddress("controller-service.example.test", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
+	})
+}
+
+func (s *unitAddressSuite) TestGetControllerK8sServiceAddressesRequiresControllerModel(c *tc.C) {
+	s.query(c, `INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type, is_controller_model)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, s.ModelUUID(), "controller-uuid", "model", "admin", "caas", "cloud", "kubernetes", false)
+
+	nodeUUID := s.addNetNode(c)
+	deviceUUID := s.addLinkLayerDevice(c, nodeUUID)
+	spaceUUID := s.addSpace(c)
+	subnetUUID, _ := s.addsubnet(c, spaceUUID)
+	s.addKubernetesIPAddress(c, nodeUUID, deviceUUID, subnetUUID, 3, 0)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	s.addControllerApplication(c, appUUID)
+	s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	addresses, err := s.state.GetControllerK8sServiceAddresses(c.Context())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addresses, tc.HasLen, 0)
 }
 
 func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesWithoutK8sService(c *tc.C) {

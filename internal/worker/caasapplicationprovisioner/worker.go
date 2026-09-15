@@ -142,6 +142,7 @@ type ApplicationService interface {
 type CAASBroker interface {
 	Application(string, caas.DeploymentType) caas.Application
 	AnnotateUnit(ctx context.Context, appName string, podName string, unit names.UnitTag) error
+	GetControllerService(ctx context.Context, controllerName string, includeClusterIP bool) (*caas.Service, error)
 	Units(ctx context.Context, appName string) ([]caas.Unit, error)
 }
 

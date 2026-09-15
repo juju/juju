@@ -1588,6 +1588,34 @@ func (s *watcherSuite) TestWatchUnitAddresses(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
+func (s *watcherSuite) TestWatchUnitAddressesK8sServiceAddressChange(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "ip_address")
+	svc := s.setupService(c, factory)
+
+	appName := "foo"
+	s.createCAASApplication(c, svc, appName, service.AddUnitArg{})
+	err := svc.UpdateK8sService(c.Context(), appName, "provider-id", network.ProviderAddresses{{
+		MachineAddress: network.NewMachineAddress("10.0.0.1"),
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.AssertChangeStreamIdle(c, "before watcher start")
+	watcher, err := svc.WatchUnitAddresses(c.Context(), unit.Name("foo/0"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+	harness.AddTest(c, func(c *tc.C) {
+		err := svc.UpdateK8sService(c.Context(), appName, "provider-id", network.ProviderAddresses{{
+			MachineAddress: network.NewMachineAddress("10.0.0.2"),
+		}})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
 func (s *watcherSuite) getApplicationConfigHash(c *tc.C, db changestream.WatchableDB, appUUID coreapplication.UUID) string {
 	var hash string
 	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

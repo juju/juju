@@ -105,6 +105,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 	units := []caas.Unit{{
 		Id:       "a",
 		Address:  "1.2.3.5",
+		FQDN:     "controller-0.controller-service-endpoints.controller-test.svc.cluster.local",
 		Ports:    []string{"80", "443"},
 		Stateful: true,
 		Status: status.StatusInfo{
@@ -144,6 +145,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 	unit0Update := applicationservice.UpdateCAASUnitParams{
 		ProviderID: new("a"),
 		Address:    new("1.2.3.5"),
+		FQDN:       new("controller-0.controller-service-endpoints.controller-test.svc.cluster.local"),
 		Ports:      new([]string{"80", "443"}),
 		AgentStatus: &status.StatusInfo{
 			Status: status.Idle,
@@ -158,6 +160,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 
 	gomock.InOrder(
 		app.EXPECT().Service().Return(service, nil),
+		applicationService.EXPECT().IsControllerApplication(gomock.Any(), appId).Return(false, nil),
 		applicationService.EXPECT().UpdateK8sService(gomock.Any(), "test", "provider-id", network.ProviderAddresses{{
 			MachineAddress: network.NewMachineAddress("1.2.3.4"),
 			SpaceName:      "space-name",
@@ -168,6 +171,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 		applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unit.Name("test/0"), gomock.Any()).DoAndReturn(func(_ context.Context, _ unit.Name, args applicationservice.UpdateCAASUnitParams) error {
 			c.Check(args.ProviderID, tc.DeepEquals, unit0Update.ProviderID)
 			c.Check(args.Address, tc.DeepEquals, unit0Update.Address)
+			c.Check(args.FQDN, tc.DeepEquals, unit0Update.FQDN)
 			c.Check(args.Ports, tc.DeepEquals, unit0Update.Ports)
 			c.Assert(args.AgentStatus, tc.NotNil, tc.Commentf("AgentStatus should not be nil"))
 			c.Assert(args.AgentStatus.Since, tc.NotNil, tc.Commentf("AgentStatus.Since should not be nil"))
@@ -203,6 +207,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 		"test/0": {
 			ProviderID: new("a"),
 			Address:    new("1.2.3.5"),
+			FQDN:       new("controller-0.controller-service-endpoints.controller-test.svc.cluster.local"),
 			Ports:      new([]string{"80", "443"}),
 			AgentStatus: &status.StatusInfo{
 				Status: status.Idle,
@@ -230,6 +235,53 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 			},
 		},
 	})
+}
+
+func (s *OpsSuite) TestUpdateStateUsesControllerAPIService(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appID, err := application.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	app := caasmocks.NewMockApplication(ctrl)
+	broker := mocks.NewMockCAASBroker(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	statusService := mocks.NewMockStatusService(ctrl)
+	clk := testclock.NewClock(time.Now())
+	workloadService := &caas.Service{
+		Id: "workload-service-id",
+		Status: status.StatusInfo{
+			Status: status.Active,
+		},
+	}
+	apiService := &caas.Service{
+		Id: "controller-service-id",
+		Addresses: network.ProviderAddresses{
+			network.NewMachineAddress("10.152.183.188", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
+		},
+	}
+
+	gomock.InOrder(
+		app.EXPECT().Service().Return(workloadService, nil),
+		applicationService.EXPECT().IsControllerApplication(gomock.Any(), appID).Return(true, nil),
+		broker.EXPECT().GetControllerService(gomock.Any(), "controller", true).Return(apiService, nil),
+		applicationService.EXPECT().UpdateK8sService(gomock.Any(), "controller", apiService.Id, apiService.Addresses).Return(nil),
+		statusService.EXPECT().SetOperatorStatus(gomock.Any(), "controller", gomock.Any()).DoAndReturn(
+			func(_ context.Context, _ string, info status.StatusInfo) error {
+				c.Check(info.Status, tc.Equals, workloadService.Status.Status)
+				return nil
+			},
+		),
+		applicationService.EXPECT().GetAllUnitK8sPodIDsForApplication(gomock.Any(), appID).Return(nil, nil),
+		app.EXPECT().Units().Return(nil, nil),
+	)
+
+	got, err := caasapplicationprovisioner.AppOps.UpdateState(
+		c.Context(), "controller", appID, app, nil, broker, applicationService, statusService, clk, s.logger,
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, caasapplicationprovisioner.UpdateStatusState{})
 }
 
 func (s *OpsSuite) TestRefreshOperatorStatusChurningAllocating(c *tc.C) {

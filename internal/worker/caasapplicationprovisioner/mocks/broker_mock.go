@@ -26,10 +26,11 @@ type MockCAASBroker struct {
 
 // MockCAASBrokerMockRecorder is the mock recorder for MockCAASBroker.
 type MockCAASBrokerMockRecorder struct {
-	mock                *MockCAASBroker
-	annotateUnitExpects []*gomock.Call4_1[context.Context, string, string, names.UnitTag, error]
-	applicationExpects  []*gomock.Call2_1[string, caas.DeploymentType, caas.Application]
-	unitsExpects        []*gomock.Call2_2[context.Context, string, []caas.Unit, error]
+	mock                        *MockCAASBroker
+	annotateUnitExpects         []*gomock.Call4_1[context.Context, string, string, names.UnitTag, error]
+	applicationExpects          []*gomock.Call2_1[string, caas.DeploymentType, caas.Application]
+	getControllerServiceExpects []*gomock.Call3_2[context.Context, string, bool, *caas.Service, error]
+	unitsExpects                []*gomock.Call2_2[context.Context, string, []caas.Unit, error]
 }
 
 // NewMockCAASBroker creates a new mock instance.
@@ -79,6 +80,24 @@ func (mr *MockCAASBrokerMockRecorder) Application(arg0, arg1 any) *MockCAASBroke
 
 // MockCAASBrokerApplicationCall is the typed call wrapper for Application.
 type MockCAASBrokerApplicationCall = gomock.Call2_1[string, caas.DeploymentType, caas.Application]
+
+// GetControllerService mocks base method.
+func (m *MockCAASBroker) GetControllerService(ctx context.Context, controllerName string, includeClusterIP bool) (*caas.Service, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.getControllerServiceExpects, m.ctrl, m, "GetControllerService", ctx, controllerName, includeClusterIP)
+}
+
+// GetControllerService indicates an expected call of GetControllerService.
+func (mr *MockCAASBrokerMockRecorder) GetControllerService(ctx, controllerName, includeClusterIP any) *MockCAASBrokerGetControllerServiceCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, bool, *caas.Service, error](mr.mock.ctrl.T, mr.mock, "GetControllerService", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(controllerName), gomock.EnsureMatcher(includeClusterIP))
+	mr.getControllerServiceExpects = append(mr.getControllerServiceExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockCAASBrokerGetControllerServiceCall is the typed call wrapper for GetControllerService.
+type MockCAASBrokerGetControllerServiceCall = gomock.Call3_2[context.Context, string, bool, *caas.Service, error]
 
 // Units mocks base method.
 func (m *MockCAASBroker) Units(ctx context.Context, appName string) ([]caas.Unit, error) {

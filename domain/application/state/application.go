@@ -1070,6 +1070,19 @@ AND    provider_id = $k8sService.provider_id`, k8sService{})
 	if err != nil {
 		return errors.Capture(err)
 	}
+	deleteStaleControllerServicesStmt, err := st.Prepare(`
+DELETE FROM k8s_service AS ks
+WHERE  ks.application_uuid = $k8sService.application_uuid
+AND    ks.provider_id != $k8sService.provider_id
+AND    EXISTS (
+    SELECT 1
+    FROM   application_controller AS ac
+    WHERE  ac.application_uuid = ks.application_uuid
+)
+`, k8sService{})
+	if err != nil {
+		return errors.Capture(err)
+	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		appDetails, err := st.getApplicationDetails(ctx, tx, applicationName)
@@ -1084,6 +1097,9 @@ AND    provider_id = $k8sService.provider_id`, k8sService{})
 		serviceInfoToUpsert := k8sService{
 			ProviderID:      providerID,
 			ApplicationUUID: appDetails.UUID,
+		}
+		if err := tx.Query(ctx, deleteStaleControllerServicesStmt, serviceInfoToUpsert).Run(); err != nil {
+			return errors.Errorf("removing stale controller cloud services: %w", err)
 		}
 		err = tx.Query(ctx, queryExistingStmt, serviceInfoToUpsert).Get(&serviceInfoToUpsert)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
@@ -1320,6 +1336,37 @@ WHERE device_uuid IN lld_uuids;
 	if err := tx.Query(ctx, deleteAddressStmt, k8sService).Run(); err != nil {
 		return errors.Errorf("removing cloud service addresses for application %q and providerID %q: %w", appUUID, providerID, err)
 	}
+	deleteFQDNLinksStmt, err := st.Prepare(`
+DELETE FROM net_node_fqdn_address
+WHERE net_node_uuid IN (
+    SELECT ks.net_node_uuid
+    FROM   k8s_service AS ks
+    WHERE  ks.application_uuid = $k8sService.application_uuid
+    AND    ks.provider_id = $k8sService.provider_id
+)
+`, k8sService)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, deleteFQDNLinksStmt, k8sService).Run(); err != nil {
+		return errors.Errorf("removing cloud service FQDN links for application %q and providerID %q: %w", appUUID, providerID, err)
+	}
+	deleteOrphanedFQDNsStmt, err := st.Prepare(`
+WITH orphaned_fqdn AS (
+    SELECT fqa.uuid
+    FROM   fqdn_address AS fqa
+    LEFT JOIN net_node_fqdn_address AS nnfa ON nnfa.address_uuid = fqa.uuid
+    WHERE  nnfa.address_uuid IS NULL
+)
+DELETE FROM fqdn_address
+WHERE uuid IN (SELECT of.uuid FROM orphaned_fqdn AS of)
+`)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, deleteOrphanedFQDNsStmt).Run(); err != nil {
+		return errors.Errorf("removing orphaned cloud service FQDNs for application %q and providerID %q: %w", appUUID, providerID, err)
+	}
 	return nil
 }
 
@@ -1344,13 +1391,33 @@ func (st *State) insertK8sServiceAddresses(
 		return nil
 	}
 
+	providerIPAddresses := make(network.ProviderAddresses, 0, len(addresses))
+	for _, address := range addresses {
+		if address.AddressType() == network.HostName {
+			if err := st.ensureNetNodeFQDNAddress(
+				ctx,
+				tx,
+				netNodeUUID,
+				address.Host(),
+				networkAddressScopeID(address.AddressScope()),
+			); err != nil {
+				return errors.Errorf("inserting cloud service FQDN %q: %w", address.Host(), err)
+			}
+			continue
+		}
+		providerIPAddresses = append(providerIPAddresses, address)
+	}
+	if len(providerIPAddresses) == 0 {
+		return nil
+	}
+
 	subnetUUIDs, err := st.k8sSubnetUUIDsByAddressType(ctx, tx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	ipAddresses := make([]ipAddress, len(addresses))
-	for i, address := range addresses {
+	ipAddresses := make([]ipAddress, len(providerIPAddresses))
+	for i, address := range providerIPAddresses {
 		// Create a UUID for new addresses.
 		addrUUID, err := uuid.NewUUID()
 		if err != nil {
@@ -1390,6 +1457,13 @@ VALUES ($ipAddress.*);
 		}
 	}
 	return nil
+}
+
+func networkAddressScopeID(scope network.Scope) int {
+	if scope == network.ScopePublic {
+		return 2
+	}
+	return networkAddressScopeLocalCloud
 }
 
 // InitialWatchStatementApplicationsWithPendingCharms returns the initial
@@ -3382,6 +3456,12 @@ func (*State) NamespaceForWatchUnitForLegacyUniter() (string, string, string) {
 // net node address changes, which is the ip_address table.
 func (*State) NamespaceForWatchNetNodeAddress() string {
 	return "ip_address"
+}
+
+// NamespaceForWatchNetNodeFQDNAddress returns the namespace identifier for
+// net node FQDN address changes.
+func (*State) NamespaceForWatchNetNodeFQDNAddress() string {
+	return "net_node_fqdn_address"
 }
 
 // decodeConstraints flattens and maps the list of rows of applicatioConstraint

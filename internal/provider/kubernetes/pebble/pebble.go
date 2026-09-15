@@ -50,14 +50,15 @@ func ReadinessHandler(port string) corev1.ProbeHandler {
 }
 
 // APIServerReadinessHandler returns a probe handler that checks whether the
-// API server is accepting TCP connections on the given port. This is used as
-// the readiness probe for the controller api-server container so that the pod
-// is not added to the service endpoint until the jujuagentd has started and
-// the API server is listening.
+// API server is running on the given port. This is used as the readiness probe
+// for the controller api-server container so that the pod is not added to the
+// service endpoint until jujuagentd has started and can serve API requests.
 func APIServerReadinessHandler(apiPort int) corev1.ProbeHandler {
 	return corev1.ProbeHandler{
-		TCPSocket: &corev1.TCPSocketAction{
-			Port: intstr.FromInt(apiPort),
+		HTTPGet: &corev1.HTTPGetAction{
+			Path:   "/health",
+			Port:   intstr.FromInt(apiPort),
+			Scheme: corev1.URISchemeHTTPS,
 		},
 	}
 }

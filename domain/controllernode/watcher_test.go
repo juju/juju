@@ -53,7 +53,7 @@ func (s *watcherSuite) TestControllerNodes(c *tc.C) {
 
 	// Ensure that we get the update controller node event.
 	harness.AddTest(c, func(c *tc.C) {
-		err := svc.AddDqliteNode(ctx, "0", uint64(1), "10.0.0.2")
+		err := svc.AddDqliteNode(ctx, "0", uint64(2), "10.0.0.2")
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
@@ -61,7 +61,7 @@ func (s *watcherSuite) TestControllerNodes(c *tc.C) {
 
 	// Ensure that we get a new controller node.
 	harness.AddTest(c, func(c *tc.C) {
-		err := svc.AddDqliteNode(ctx, "0", uint64(2), "10.0.0.3")
+		err := svc.AddDqliteNode(ctx, "1", uint64(3), "10.0.0.3")
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
@@ -71,7 +71,7 @@ func (s *watcherSuite) TestControllerNodes(c *tc.C) {
 }
 
 func (s *watcherSuite) TestControllerAPIAddresses(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "controller_api_address")
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "api_address_agent_by_controller")
 
 	ctx := c.Context()
 	svc := s.setupService(c, factory)

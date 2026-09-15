@@ -144,7 +144,8 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		RemoveBootstrapSSHKeys: func([]string) error {
 			return nil
 		},
-		StatusHistory: s.statusHistory,
+		PopulateAPIAddresses: PopulateMachineAPIAddresses,
+		StatusHistory:        s.statusHistory,
 	}
 }
 

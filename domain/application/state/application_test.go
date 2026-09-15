@@ -1176,6 +1176,53 @@ func (s *applicationStateSuite) TestUpsertK8sServiceExisting(c *tc.C) {
 	c.Assert(providerID, tc.Equals, "provider-id")
 }
 
+func (s *applicationStateSuite) TestUpsertK8sServiceFQDNAddresses(c *tc.C) {
+	s.createCAASApplication(c, "foo", life.Alive)
+	addresses := func(c *tc.C) []string {
+		var result []string
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			rows, err := tx.QueryContext(ctx, `
+WITH application_uuid AS (
+    SELECT uuid
+    FROM   application
+    WHERE  name = 'foo'
+)
+SELECT fqa.address
+FROM   fqdn_address AS fqa
+JOIN   net_node_fqdn_address AS nnfa ON nnfa.address_uuid = fqa.uuid
+JOIN   k8s_service AS ks ON ks.net_node_uuid = nnfa.net_node_uuid
+JOIN   application_uuid AS au ON au.uuid = ks.application_uuid
+ORDER BY fqa.address`)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = rows.Close() }()
+			for rows.Next() {
+				var address string
+				if err := rows.Scan(&address); err != nil {
+					return err
+				}
+				result = append(result, address)
+			}
+			return rows.Err()
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		return result
+	}
+
+	err := s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
+		network.NewMachineAddress("api.example.com", network.WithScope(network.ScopePublic)).AsProviderAddress(),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addresses(c), tc.DeepEquals, []string{"api.example.com"})
+
+	err = s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
+		network.NewMachineAddress("api-replacement.example.com", network.WithScope(network.ScopePublic)).AsProviderAddress(),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addresses(c), tc.DeepEquals, []string{"api-replacement.example.com"})
+}
+
 func (s *applicationStateSuite) TestUpsertK8sServiceAnother(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 	s.createCAASApplication(c, "bar", life.Alive)
@@ -1204,6 +1251,39 @@ func (s *applicationStateSuite) TestUpsertK8sServiceAnother(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(providerIds, tc.SameContents, []string{"provider-id", "another-provider-id"})
+}
+
+func (s *applicationStateSuite) TestUpsertK8sServiceReplacesStaleControllerService(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "controller", life.Alive)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`INSERT INTO application_controller (application_uuid) VALUES (?)`, appUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.UpsertK8sService(c.Context(), "controller", "controller-workload-service-uuid", network.ProviderAddresses{})
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.UpsertK8sService(c.Context(), "controller", "controller-service-uuid", network.ProviderAddresses{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var providerIDs []string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `SELECT provider_id FROM k8s_service WHERE application_uuid = ?`, appUUID)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var providerID string
+			if err := rows.Scan(&providerID); err != nil {
+				return err
+			}
+			providerIDs = append(providerIDs, providerID)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(providerIDs, tc.DeepEquals, []string{"controller-service-uuid"})
 }
 
 // TestUpsertAnotherK8sServiceNotWipingIpAddresses is a regression test where

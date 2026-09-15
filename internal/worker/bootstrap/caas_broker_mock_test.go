@@ -25,8 +25,9 @@ type MockServiceManager struct {
 
 // MockServiceManagerMockRecorder is the mock recorder for MockServiceManager.
 type MockServiceManagerMockRecorder struct {
-	mock              *MockServiceManager
-	getServiceExpects []*gomock.Call3_2[context.Context, string, bool, *caas.Service, error]
+	mock                        *MockServiceManager
+	getControllerServiceExpects []*gomock.Call3_2[context.Context, string, bool, *caas.Service, error]
+	getServiceExpects           []*gomock.Call3_2[context.Context, string, bool, *caas.Service, error]
 }
 
 // NewMockServiceManager creates a new mock instance.
@@ -40,6 +41,24 @@ func NewMockServiceManager(ctrl *gomock.Controller) *MockServiceManager {
 func (m *MockServiceManager) EXPECT() *MockServiceManagerMockRecorder {
 	return m.recorder
 }
+
+// GetControllerService mocks base method.
+func (m *MockServiceManager) GetControllerService(ctx context.Context, controllerName string, includeClusterIP bool) (*caas.Service, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.getControllerServiceExpects, m.ctrl, m, "GetControllerService", ctx, controllerName, includeClusterIP)
+}
+
+// GetControllerService indicates an expected call of GetControllerService.
+func (mr *MockServiceManagerMockRecorder) GetControllerService(ctx, controllerName, includeClusterIP any) *MockServiceManagerGetControllerServiceCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, bool, *caas.Service, error](mr.mock.ctrl.T, mr.mock, "GetControllerService", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(controllerName), gomock.EnsureMatcher(includeClusterIP))
+	mr.getControllerServiceExpects = append(mr.getControllerServiceExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockServiceManagerGetControllerServiceCall is the typed call wrapper for GetControllerService.
+type MockServiceManagerGetControllerServiceCall = gomock.Call3_2[context.Context, string, bool, *caas.Service, error]
 
 // GetService mocks base method.
 func (m *MockServiceManager) GetService(ctx context.Context, appName string, includeClusterIP bool) (*caas.Service, error) {

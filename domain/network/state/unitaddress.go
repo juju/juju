@@ -157,6 +157,68 @@ AND    (unn.is_caas = 1
 	return addrs, nil
 }
 
+// GetControllerK8sServiceAddresses returns addresses associated with Kubernetes
+// Services belonging to the controller application in the controller model.
+func (st *State) GetControllerK8sServiceAddresses(ctx context.Context) (corenetwork.SpaceAddresses, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type serviceFQDNAddress struct {
+		Address string `db:"address"`
+		Scope   string `db:"scope"`
+	}
+	stmt, err := st.Prepare(`
+WITH controller_service_net_nodes AS (
+    SELECT ks.net_node_uuid AS net_node_uuid
+    FROM   k8s_service AS ks
+    JOIN   application_controller AS ac ON ac.application_uuid = ks.application_uuid
+    JOIN   model AS m ON m.is_controller_model = TRUE
+), service_addresses AS (
+    SELECT fqa.address AS address,
+           nas.name AS scope
+    FROM   controller_service_net_nodes AS csnn
+    JOIN   net_node_fqdn_address AS nnfa ON nnfa.net_node_uuid = csnn.net_node_uuid
+    JOIN   fqdn_address AS fqa ON fqa.uuid = nnfa.address_uuid
+    JOIN   network_address_scope AS nas ON nas.id = fqa.scope_id
+    UNION ALL
+    SELECT ipa.address_value AS address,
+           ias.name AS scope
+    FROM   controller_service_net_nodes AS csnn
+    JOIN   ip_address AS ipa ON ipa.net_node_uuid = csnn.net_node_uuid
+    JOIN   ip_address_scope AS ias ON ias.id = ipa.scope_id
+)
+SELECT sa.address AS &serviceFQDNAddress.address,
+       sa.scope AS &serviceFQDNAddress.scope
+FROM   service_addresses AS sa
+ORDER BY sa.address
+`, serviceFQDNAddress{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var addresses []serviceFQDNAddress
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&addresses)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Capture(err)
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(corenetwork.SpaceAddresses, len(addresses))
+	for i, address := range addresses {
+		result[i] = corenetwork.NewSpaceAddress(
+			address.Address,
+			corenetwork.WithScope(corenetwork.Scope(address.Scope)),
+		)
+	}
+	return result, nil
+}
+
 // GetUnitAddresses returns the addresses of the specified unit.
 //
 // The following errors may be returned:

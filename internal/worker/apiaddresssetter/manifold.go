@@ -62,6 +62,10 @@ type ManifoldConfig struct {
 	// NewWorker creates and returns a apiaddressetter worker.
 	NewWorker func(Config) (worker.Worker, error)
 
+	// PopulateAPIAddresses fills substrate-specific API addresses in the final
+	// controller-node address arguments.
+	PopulateAPIAddresses PopulateAPIAddressesFunc
+
 	// Logger logs stuff.
 	Logger logger.Logger
 }
@@ -80,6 +84,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewWorker == nil {
 		return errors.New("nil NewWorker not valid").Add(coreerrors.NotValid)
+	}
+	if config.PopulateAPIAddresses == nil {
+		return errors.New("nil PopulateAPIAddresses not valid").Add(coreerrors.NotValid)
 	}
 	if config.Logger == nil {
 		return errors.New("nil Logger not valid").Add(coreerrors.NotValid)
@@ -129,6 +136,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ApplicationService:      applicationService,
 				ControllerNodeService:   controllerNodeService,
 				NetworkService:          networkService,
+				PopulateAPIAddresses:    config.PopulateAPIAddresses,
 				APIPort:                 controllerConfig.APIPort(),
 				Logger:                  config.Logger,
 			})

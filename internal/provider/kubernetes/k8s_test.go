@@ -885,6 +885,30 @@ func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *tc.C) {
 	c.Assert(caasSvc, tc.DeepEquals, &caas.Service{})
 }
 
+func (s *K8sBrokerSuite) TestGetControllerServiceUsesControllerAPIService(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	service := &core.Service{
+		ObjectMeta: v1.ObjectMeta{Name: "controller-service", UID: "controller-service-uuid"},
+		Spec: core.ServiceSpec{
+			Type:      core.ServiceTypeClusterIP,
+			ClusterIP: "10.152.183.170",
+		},
+	}
+	s.mockServices.EXPECT().Get(gomock.Any(), "controller-service", v1.GetOptions{}).Return(service, nil)
+
+	got, err := s.broker.GetControllerService(c.Context(), "controller", true)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, &caas.Service{
+		Id: "controller-service-uuid",
+		Addresses: network.ProviderAddresses{
+			network.NewMachineAddress("10.152.183.170", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
+		},
+	})
+}
+
 // TestGetServiceSkipsLabelledHeadlessService verifies that GetService excludes
 // a headless service identified by the LabelJujuServiceType label, even when
 // its name does not carry the legacy "-endpoints" suffix, and returns the

@@ -38,11 +38,17 @@ AND life_id = 0`, node)
 		return errors.Errorf("preparing controller node dying transition: %w", err)
 	}
 
-	deleteAPIAddressesStmt, err := st.Prepare(`
-DELETE FROM controller_api_address
+	deleteAgentAPIAddressesStmt, err := st.Prepare(`
+DELETE FROM api_address_agent_by_controller
 WHERE controller_id = $controllerNode.controller_id`, node)
 	if err != nil {
 		return errors.Errorf("preparing controller api address deletion: %w", err)
+	}
+	deleteClientAPIAddressesStmt, err := st.Prepare(`
+DELETE FROM api_address_client_by_controller
+WHERE controller_id = $controllerNode.controller_id`, node)
+	if err != nil {
+		return errors.Errorf("preparing controller client api address deletion: %w", err)
 	}
 	deleteAgentVersionStmt, err := st.Prepare(`
 DELETE FROM controller_node_agent_version
@@ -71,8 +77,7 @@ WHERE controller_node_id = $controllerNode.controller_id`, node)
 	markNodeDeadStmt, err := st.Prepare(`
 UPDATE controller_node
 SET life_id = 2,
-    dqlite_node_id = NULL,
-    dqlite_bind_address = NULL
+    dqlite_node_id = NULL
 WHERE controller_id = $controllerNode.controller_id
 AND life_id < 2`, node)
 	if err != nil {
@@ -91,8 +96,11 @@ AND life_id < 2`, node)
 			return errors.Errorf("marking controller node %q dying: %w", controllerID, err)
 		}
 
-		if err := tx.Query(ctx, deleteAPIAddressesStmt, node).Run(); err != nil {
-			return errors.Errorf("deleting controller api addresses for %q: %w", controllerID, err)
+		if err := tx.Query(ctx, deleteAgentAPIAddressesStmt, node).Run(); err != nil {
+			return errors.Errorf("deleting controller agent api addresses for %q: %w", controllerID, err)
+		}
+		if err := tx.Query(ctx, deleteClientAPIAddressesStmt, node).Run(); err != nil {
+			return errors.Errorf("deleting controller client api addresses for %q: %w", controllerID, err)
 		}
 		if err := tx.Query(ctx, deleteAgentVersionStmt, node).Run(); err != nil {
 			return errors.Errorf("deleting controller agent version for %q: %w", controllerID, err)

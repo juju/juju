@@ -724,7 +724,8 @@ func (k *kubernetesClient) GetService(ctx context.Context, appName string, inclu
 		return nil, errors.Trace(err)
 	}
 	if err == nil {
-		// The total number of nodes that should be running the daemon pod (including nodes correctly running the daemon pod).
+		// The total number of nodes that should be running the daemon pod
+		// (including nodes correctly running the daemon pod).
 		scale := int(ds.Status.DesiredNumberScheduled)
 		result.Scale = &scale
 
@@ -740,6 +741,26 @@ func (k *kubernetesClient) GetService(ctx context.Context, appName string, inclu
 		}
 	}
 	return &result, nil
+}
+
+// GetControllerService returns the routable API Service for the controller.
+// It intentionally does not use GetService: the controller application also
+// has an ordinary workload Service, which is not an API endpoint.
+func (k *kubernetesClient) GetControllerService(ctx context.Context, controllerName string, includeClusterIP bool) (*caas.Service, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
+
+	serviceName := getBootstrapResourceName(controllerName, "service")
+	svc, err := k.client().CoreV1().Services(k.namespace).Get(ctx, serviceName, v1.GetOptions{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &caas.Service{
+		Id:        string(svc.GetUID()),
+		Addresses: utils.GetSvcAddresses(svc, includeClusterIP),
+	}, nil
 }
 
 func (k *kubernetesClient) ensureDeployment(ctx context.Context, spec *apps.Deployment) error {
@@ -1003,7 +1024,8 @@ func (k *kubernetesClient) ControllerUnitFQDN(ordinal int) string {
 }
 
 // BootstrapControllerAddresses returns the stable provider addresses for the
-// initial controller.
+// initial controller node. The headless Service FQDN resolves directly to the
+// controller pod, allowing Dqlite to bind to the pod network address.
 func (k *kubernetesClient) BootstrapControllerAddresses(
 	_ context.Context,
 ) (network.ProviderAddresses, error) {

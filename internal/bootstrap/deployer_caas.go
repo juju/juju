@@ -23,8 +23,8 @@ import (
 
 // ServiceManager provides the API to manipulate services.
 type ServiceManager interface {
-	// GetService returns the service for the specified application.
-	GetService(ctx context.Context, appName string, includeClusterIP bool) (*caas.Service, error)
+	// GetControllerService returns the routable API Service for a controller.
+	GetControllerService(ctx context.Context, controllerName string, includeClusterIP bool) (*caas.Service, error)
 }
 
 // CAASDeployerConfig holds the configuration for a CAASDeployer.
@@ -173,13 +173,23 @@ func (d *CAASDeployer) CompleteCAASProcess(ctx context.Context) error {
 		return errors.Errorf("setting controller unit password: %w", err)
 	}
 
-	// Insert the k8s service with its addresses.
-	d.logger.Debugf(ctx, "creating cloud service for k8s controller %q", providerID)
-	err = d.applicationService.UpdateK8sService(ctx, bootstrap.ControllerApplicationName, providerID, d.bootstrapAddresses)
+	// The bootstrap address identifies the controller node for Dqlite. Persist
+	// the normal Kubernetes Service addresses separately so clients use the
+	// load-balanced Service rather than the controller pod endpoint.
+	svc, err := d.serviceManager.GetControllerService(ctx, bootstrap.ControllerApplicationName, true)
+	if err != nil {
+		return errors.Errorf("getting k8s controller service: %w", err)
+	}
+	if svc == nil || len(svc.Addresses) == 0 {
+		return jujuerrors.NotProvisionedf("k8s controller service address")
+	}
+
+	d.logger.Debugf(ctx, "creating cloud service for k8s controller %q", svc.Id)
+	err = d.applicationService.UpdateK8sService(ctx, bootstrap.ControllerApplicationName, svc.Id, svc.Addresses)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	d.logger.Debugf(ctx, "created cloud service with addresses %v for controller", d.bootstrapAddresses)
+	d.logger.Debugf(ctx, "created cloud service with addresses %v for controller", svc.Addresses)
 
 	return nil
 }

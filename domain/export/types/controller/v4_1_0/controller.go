@@ -15,6 +15,29 @@ type AgentBinaryStore struct {
 	ObjectStoreUUID string `db:"object_store_uuid" json:"object_store_uuid" yaml:"object_store_uuid"`
 }
 
+type ApiAddressAgent struct {
+	Address     string `db:"address" json:"address" yaml:"address"`
+	IsAgentOnly bool   `db:"is_agent_only" json:"is_agent_only" yaml:"is_agent_only"`
+	Scope       string `db:"scope" json:"scope" yaml:"scope"`
+}
+
+type ApiAddressAgentByController struct {
+	ControllerID string `db:"controller_id" json:"controller_id" yaml:"controller_id"`
+	Address      string `db:"address" json:"address" yaml:"address"`
+	Scope        any    `db:"scope" json:"scope" yaml:"scope"`
+}
+
+type ApiAddressClient struct {
+	Address string `db:"address" json:"address" yaml:"address"`
+	Scope   string `db:"scope" json:"scope" yaml:"scope"`
+}
+
+type ApiAddressClientByController struct {
+	ControllerID string `db:"controller_id" json:"controller_id" yaml:"controller_id"`
+	Address      string `db:"address" json:"address" yaml:"address"`
+	Scope        any    `db:"scope" json:"scope" yaml:"scope"`
+}
+
 type Architecture struct {
 	ID   *int64 `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
@@ -169,23 +192,15 @@ type Controller struct {
 	SystemIdentity *string `db:"system_identity" json:"system_identity" yaml:"system_identity"`
 }
 
-type ControllerApiAddress struct {
-	ControllerID string `db:"controller_id" json:"controller_id" yaml:"controller_id"`
-	Address      string `db:"address" json:"address" yaml:"address"`
-	IsAgent      *bool  `db:"is_agent" json:"is_agent" yaml:"is_agent"`
-	Scope        any    `db:"scope" json:"scope" yaml:"scope"`
-}
-
 type ControllerConfig struct {
 	Key   string  `db:"key" json:"key" yaml:"key"`
 	Value *string `db:"value" json:"value" yaml:"value"`
 }
 
 type ControllerNode struct {
-	ControllerID      string  `db:"controller_id" json:"controller_id" yaml:"controller_id"`
-	LifeID            int64   `db:"life_id" json:"life_id" yaml:"life_id"`
-	DqliteNodeID      *string `db:"dqlite_node_id" json:"dqlite_node_id" yaml:"dqlite_node_id"`
-	DqliteBindAddress *string `db:"dqlite_bind_address" json:"dqlite_bind_address" yaml:"dqlite_bind_address"`
+	ControllerID string  `db:"controller_id" json:"controller_id" yaml:"controller_id"`
+	LifeID       int64   `db:"life_id" json:"life_id" yaml:"life_id"`
+	DqliteNodeID *string `db:"dqlite_node_id" json:"dqlite_node_id" yaml:"dqlite_node_id"`
 }
 
 type ControllerNodeAgentVersion struct {
@@ -609,6 +624,10 @@ type WorkloadTracingConfig struct {
 // ControllerExport aggregates all exported controller database row types.
 type ControllerExport struct {
 	AgentBinaryStore                            []AgentBinaryStore                            `json:"agent_binary_store" yaml:"agent_binary_store"`
+	ApiAddressAgent                             []ApiAddressAgent                             `json:"api_address_agent" yaml:"api_address_agent"`
+	ApiAddressAgentByController                 []ApiAddressAgentByController                 `json:"api_address_agent_by_controller" yaml:"api_address_agent_by_controller"`
+	ApiAddressClient                            []ApiAddressClient                            `json:"api_address_client" yaml:"api_address_client"`
+	ApiAddressClientByController                []ApiAddressClientByController                `json:"api_address_client_by_controller" yaml:"api_address_client_by_controller"`
 	Architecture                                []Architecture                                `json:"architecture" yaml:"architecture"`
 	AuthType                                    []AuthType                                    `json:"auth_type" yaml:"auth_type"`
 	AutocertCache                               []AutocertCache                               `json:"autocert_cache" yaml:"autocert_cache"`
@@ -630,7 +649,6 @@ type ControllerExport struct {
 	CloudRegionDefaults                         []CloudRegionDefaults                         `json:"cloud_region_defaults" yaml:"cloud_region_defaults"`
 	CloudType                                   []CloudType                                   `json:"cloud_type" yaml:"cloud_type"`
 	Controller                                  []Controller                                  `json:"controller" yaml:"controller"`
-	ControllerApiAddress                        []ControllerApiAddress                        `json:"controller_api_address" yaml:"controller_api_address"`
 	ControllerConfig                            []ControllerConfig                            `json:"controller_config" yaml:"controller_config"`
 	ControllerNode                              []ControllerNode                              `json:"controller_node" yaml:"controller_node"`
 	ControllerNodeAgentVersion                  []ControllerNodeAgentVersion                  `json:"controller_node_agent_version" yaml:"controller_node_agent_version"`

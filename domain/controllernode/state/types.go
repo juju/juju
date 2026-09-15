@@ -14,10 +14,6 @@ type dbControllerNode struct {
 	// DqliteNodeID is the uint64 from Dqlite NodeInfo, stored as text (due to
 	// db issues when the high bit is set).
 	DqliteNodeID string `db:"dqlite_node_id"`
-
-	// DqliteBindAddress is the hostname or IP address (no port) that Dqlite is
-	// bound to.
-	DqliteBindAddress string `db:"dqlite_bind_address"`
 }
 
 type dbControllerNodeCount struct {
@@ -42,17 +38,33 @@ type controllerNodeAgentVersion struct {
 	ArchitectureID int    `db:"architecture_id"`
 }
 
-// controllerAPIAddress is the database representation of a controller api
-// address with the controller id and whether it is for agents or clients.
-type controllerAPIAddress struct {
+// controllerNodeAPIAddress is the database representation of an address for a
+// specific controller node.
+type controllerNodeAPIAddress struct {
 	// ControllerID is the controller node id.
 	ControllerID string `db:"controller_id"`
 	// Address is the address of the controller node.
 	Address string `db:"address"`
-	// IsAgent is whether the address is for agents as well as for clients.
-	IsAgent bool `db:"is_agent"`
 	// Scope is the address scope.
 	Scope string `db:"scope"`
+}
+
+// controllerAPIAddress is retained for address-delta unit tests.
+type controllerAPIAddress struct {
+	ControllerID string
+	Address      string
+	IsAgent      bool
+}
+
+type agentAPIAddress struct {
+	Address     string `db:"address"`
+	IsAgentOnly bool   `db:"is_agent_only"`
+	Scope       string `db:"scope"`
+}
+
+type clientAPIAddress struct {
+	Address string `db:"address"`
+	Scope   string `db:"scope"`
 }
 
 // countResult is the database representation of a count result.
@@ -63,13 +75,6 @@ type countResult struct {
 // controllerID is the database representation of a controller node id.
 type controllerID struct {
 	ID string `db:"controller_id"`
-}
-
-// controllerAPIAddressStr is the database representation of a controller api
-// address alone.
-type controllerAPIAddressStr struct {
-	// Address is the address of the controller node.
-	Address string `db:"address"`
 }
 
 type controllerIDs []string

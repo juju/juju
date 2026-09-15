@@ -131,6 +131,10 @@ type NetConfigState interface {
 	// - [uniterrors.UnitNotFound] if the unit does not exist.
 	GetControllerAPIAddresses(ctx context.Context, uuid string) (domainnetwork.ControllerAPIAddresses, error)
 
+	// GetControllerK8sServiceAddresses returns addresses linked to net nodes
+	// belonging to the controller application in the controller model.
+	GetControllerK8sServiceAddresses(ctx context.Context) (network.SpaceAddresses, error)
+
 	// GetUnitAddresses returns the addresses of the specified unit.
 	//
 	// The following errors may be returned:

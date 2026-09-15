@@ -1150,14 +1150,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DomainServicesName:         domainServicesName,
 		})),
 
-		apiAddressSetterName: ifPrimaryController(apiaddresssetter.Manifold(apiaddresssetter.ManifoldConfig{
-			DomainServicesName:          domainServicesName,
-			GetDomainServices:           apiaddresssetter.GetDomainServices,
-			GetControllerDomainServices: apiaddresssetter.GetControllerDomainServices,
-			NewWorker:                   apiaddresssetter.New,
-			Logger:                      internallogger.GetLogger("juju.worker.apiaddresssetter"),
-		})),
-
 		undertakerName: ifController(undertaker.Manifold(undertaker.ManifoldConfig{
 			DBAccessorName:            dbAccessorName,
 			DomainServicesName:        domainServicesName,
@@ -1204,6 +1196,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ControllerApplicationPassword: bootstrap.IAASControllerApplicationPassword,
 			ControllerUnitPassword:        bootstrap.IAASControllerUnitPassword,
 			BootstrapAddressFinderGetter:  bootstrap.IAASAddressFinder,
+			PopulateAPIAddresses:          bootstrap.PopulateMachineAPIAddresses,
 			AgentFinalizer:                bootstrap.IAASAgentFinalizer,
 			RemoveBootstrapSSHKeys:        bootstrap.DeleteBootstrapSSHKeys,
 		}))),
@@ -1423,6 +1416,15 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineStartup: config.MachineStartup,
 			Logger:         internallogger.GetLogger("juju.worker.machinesetup"),
 		})),
+
+		apiAddressSetterName: ifPrimaryController(apiaddresssetter.Manifold(apiaddresssetter.ManifoldConfig{
+			DomainServicesName:          domainServicesName,
+			GetDomainServices:           apiaddresssetter.GetDomainServices,
+			GetControllerDomainServices: apiaddresssetter.GetControllerDomainServices,
+			NewWorker:                   apiaddresssetter.New,
+			PopulateAPIAddresses:        apiaddresssetter.PopulateMachineAPIAddresses,
+			Logger:                      internallogger.GetLogger("juju.worker.apiaddresssetter"),
+		})),
 	}
 
 	return mergeManifolds(config, manifolds)
@@ -1453,6 +1455,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ControllerApplicationPassword: bootstrap.CAASControllerApplicationPassword,
 			ControllerUnitPassword:        bootstrap.CAASControllerUnitPassword,
 			BootstrapAddressFinderGetter:  bootstrap.CAASAddressFinder,
+			PopulateAPIAddresses:          bootstrap.PopulateK8sAPIAddresses,
 			AgentFinalizer:                bootstrap.CAASAgentFinalizer,
 			RemoveBootstrapSSHKeys:        func([]string) error { return nil },
 		}))),
@@ -1532,6 +1535,15 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewAgentWorker:       upgradestepsagent.NewAgentWorker,
 			Logger:               internallogger.GetLogger("juju.worker.upgradestepsagent"),
 			Clock:                config.Clock,
+		})),
+
+		apiAddressSetterName: ifPrimaryController(apiaddresssetter.Manifold(apiaddresssetter.ManifoldConfig{
+			DomainServicesName:          domainServicesName,
+			GetDomainServices:           apiaddresssetter.GetDomainServices,
+			GetControllerDomainServices: apiaddresssetter.GetControllerDomainServices,
+			NewWorker:                   apiaddresssetter.New,
+			PopulateAPIAddresses:        apiaddresssetter.PopulateK8sAPIAddresses,
+			Logger:                      internallogger.GetLogger("juju.worker.apiaddresssetter"),
 		})),
 	})
 }
