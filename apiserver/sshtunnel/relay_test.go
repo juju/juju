@@ -12,14 +12,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/lestrrat-go/jwx/v3/jwt"
-	ssh "github.com/tailscale/gliderssh"
 
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/sshproxy"
 )
 
 const testModelUUID = "8419cd78-4993-4c3a-928e-c646226beeee"
@@ -31,7 +32,8 @@ func TestRelaySuite(t *testing.T) {
 }
 
 func (s *relaySuite) TestAdminAccessAuthorizes(c *tc.C) {
-	factory := &stubServerFactory{}
+	ctrl := gomock.NewController(c)
+	factory := NewMockTerminatingServerFactory(ctrl)
 	w := s.serveRelay(c, factory, testModelUUID, string(permission.AdminAccess))
 
 	// Authorization passed: the handler attempts to hijack the connection,
@@ -39,12 +41,23 @@ func (s *relaySuite) TestAdminAccessAuthorizes(c *tc.C) {
 	// without writing a status. Resolution happens after the upgrade, so
 	// the factory is not reached here.
 	c.Check(w.Code, tc.Not(tc.Equals), http.StatusForbidden)
-	c.Check(factory.called, tc.IsFalse)
+	ctrl.Finish()
 }
 
 func (s *relaySuite) TestResolveErrorWrittenToConn(c *tc.C) {
-	factory := &stubServerFactory{err: errors.New("no such destination")}
-	handler := s.newHandler(c, factory)
+	ctrl := gomock.NewController(c)
+	factory := NewMockTerminatingServerFactory(ctrl)
+	factory.EXPECT().New(gomock.Any(), gomock.Any()).
+		Return(nil, errors.New("no such destination"))
+	metrics := NewMockMetricsCollector(ctrl)
+	metrics.EXPECT().IncConnectionCount("relay")
+	metrics.EXPECT().DecConnectionCount("relay")
+	handler, err := NewRelayHandler(RelayHandlerConfig{
+		Logger:        loggertesting.WrapCheckLog(c),
+		ServerFactory: factory,
+		Metrics:       metrics,
+	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Inject the verified JWT into the request context server-side, as the
 	// apiserver's HTTP authentication layer would.
@@ -76,7 +89,7 @@ func (s *relaySuite) TestResolveErrorWrittenToConn(c *tc.C) {
 	out, err := io.ReadAll(conn)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(out), tc.Contains, "juju ssh relay: no such destination")
-	c.Check(factory.called, tc.IsTrue)
+	ctrl.Finish()
 }
 
 func (s *relaySuite) TestRelayAuthorization(c *tc.C) {
@@ -92,26 +105,28 @@ func (s *relaySuite) TestRelayAuthorization(c *tc.C) {
 		{"invalid permission rejected", testModelUUID, string(permission.SuperuserAccess), http.StatusInternalServerError},
 	} {
 		c.Run(test.name, func(t *testing.T) {
-			factory := &stubServerFactory{}
+			ctrl := gomock.NewController(t)
+			factory := NewMockTerminatingServerFactory(ctrl)
 			w := s.serveRelay(c, factory, test.modelUUID, test.access)
 			tc.Check(t, w.Code, tc.Equals, test.wantCode)
-			tc.Check(t, factory.called, tc.IsFalse)
+			ctrl.Finish()
 		})
 	}
 }
 
 func (s *relaySuite) TestMissingJWTUnauthorized(c *tc.C) {
-	factory := &stubServerFactory{}
+	ctrl := gomock.NewController(c)
+	factory := NewMockTerminatingServerFactory(ctrl)
 	w := s.serveRelay(c, factory, testModelUUID, "")
 	c.Check(w.Code, tc.Equals, http.StatusUnauthorized)
-	c.Check(factory.called, tc.IsFalse)
+	ctrl.Finish()
 }
 
-func (s *relaySuite) newHandler(c *tc.C, factory *stubServerFactory) *RelayHandler {
+func (s *relaySuite) newHandler(c *tc.C, factory sshproxy.TerminatingServerFactory) *RelayHandler {
 	handler, err := NewRelayHandler(RelayHandlerConfig{
 		Logger:        loggertesting.WrapCheckLog(c),
 		ServerFactory: factory,
-		Metrics:       &stubMetrics{},
+		Metrics:       NewMockMetricsCollector(gomock.NewController(c)),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return handler
@@ -119,7 +134,7 @@ func (s *relaySuite) newHandler(c *tc.C, factory *stubServerFactory) *RelayHandl
 
 // serveRelay dispatches a relay request and returns the response recorder.
 // An empty access produces no JWT, testing the missing-token path.
-func (s *relaySuite) serveRelay(c *tc.C, factory *stubServerFactory, modelUUID, access string) *httptest.ResponseRecorder {
+func (s *relaySuite) serveRelay(c *tc.C, factory sshproxy.TerminatingServerFactory, modelUUID, access string) *httptest.ResponseRecorder {
 	var token jwt.Token
 	if access != "" {
 		token = newRelayToken(c, modelUUID, access)
@@ -151,24 +166,3 @@ func newMachineDestination(c *tc.C, modelUUID string) virtualhostname.Info {
 	c.Assert(err, tc.ErrorIsNil)
 	return info
 }
-
-type stubServerFactory struct {
-	server *ssh.Server
-	err    error
-	called bool
-}
-
-func (r *stubServerFactory) New(_ context.Context, _ virtualhostname.Info) (*ssh.Server, error) {
-	r.called = true
-	if r.server != nil {
-		return r.server, nil
-	}
-	return &ssh.Server{}, r.err
-}
-
-type stubMetrics struct {
-	count int
-}
-
-func (m *stubMetrics) IncConnectionCount(string) { m.count++ }
-func (m *stubMetrics) DecConnectionCount(string) { m.count-- }
