@@ -45,24 +45,24 @@ type updater struct {
 	mu         sync.Mutex
 	current    auditlog.Config
 	logFactory AuditLogFactory
+	ready      chan struct{}
 }
 
 // NewWorker returns a worker that will keep an up-to-date audit log config.
-func NewWorker(controllerConfigService ControllerConfigService, initial auditlog.Config, logFactory AuditLogFactory) (worker.Worker, error) {
-	return newWorker(controllerConfigService, initial, logFactory, nil)
+func NewWorker(controllerConfigService ControllerConfigService, logFactory AuditLogFactory) (worker.Worker, error) {
+	return newWorker(controllerConfigService, logFactory, nil)
 }
 
 func newWorker(
 	controllerConfigService ControllerConfigService,
-	initial auditlog.Config,
 	logFactory AuditLogFactory,
 	internalStates chan string,
 ) (*updater, error) {
 	u := &updater{
 		internalStates:          internalStates,
 		controllerConfigService: controllerConfigService,
-		current:                 initial,
 		logFactory:              logFactory,
+		ready:                   make(chan struct{}),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Name: "audit-config-updater",
@@ -93,6 +93,19 @@ func (u *updater) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// Read the initial config now that the watcher subscription is
+	// active. This guarantees we won't miss any configuration changes
+	// that occurred between the watcher subscription being established
+	// and reading the initial state.
+	initialCfg, err := u.newConfig(ctx)
+	if err != nil {
+		return errors.Annotate(err, "getting initial config")
+	}
+	u.mu.Lock()
+	u.current = initialCfg
+	u.mu.Unlock()
+	close(u.ready)
 
 	// Report the initial started state.
 	u.reportInternalState(stateStarted)
@@ -144,12 +157,18 @@ func (u *updater) update(newConfig auditlog.Config) {
 	defer u.mu.Unlock()
 	u.current = newConfig
 
-	// Report the initial started state.
 	u.reportInternalState(stateChanged)
 }
 
 // CurrentConfig returns the updater's up-to-date audit config.
+// It blocks until the initial config has been loaded by loop(), or the
+// worker is dying, so callers never see a zero-value config during
+// startup.
 func (u *updater) CurrentConfig() auditlog.Config {
+	select {
+	case <-u.ready:
+	case <-u.catacomb.Dying():
+	}
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	return u.current
