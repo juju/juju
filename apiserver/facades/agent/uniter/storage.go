@@ -13,13 +13,13 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	"github.com/juju/juju/core/blockdevice"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/blockdevice"
 	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
 	"github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
@@ -265,16 +265,16 @@ func (s *StorageAPI) StorageAttachments(ctx context.Context, args params.Storage
 			return params.StorageAttachment{}, internalerrors.Capture(err)
 		}
 
-		devLink := blockdevice.IDLink(blockDevice.DeviceLinks)
-		if devLink == "" {
+		devPath, err := blockdevice.BlockDevicePath(blockDevice)
+		if err != nil {
 			return params.StorageAttachment{}, internalerrors.Errorf(
-				"block device link for storage attachment %q for unit %q missing",
-				arg.StorageTag, unitTag.Id(),
+				"determining block device path for storage attachment %q for unit %q: %w",
+				arg.StorageTag, unitTag.Id(), err,
 			).Add(coreerrors.NotProvisioned)
 		}
 
 		sa.Kind = params.StorageKindBlock
-		sa.Location = devLink
+		sa.Location = devPath
 
 		return sa, nil
 	}
