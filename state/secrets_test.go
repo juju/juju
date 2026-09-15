@@ -3852,17 +3852,6 @@ func (s *SecretsConsumedWatcherSuite) TestUpdateSecretConsumerOperationCrossMode
 	c.Check(md.CurrentRevision, gc.Equals, 1)
 }
 
-func (s *SecretsConsumedWatcherSuite) TestUpdateSecretConsumerOperationNoConsumers(c *gc.C) {
-	uri := secrets.NewURI()
-	uri.SourceUUID = "9f2e2e8a-1111-2222-3333-444455556666"
-	sourceLess := *uri
-	sourceLess.SourceUUID = ""
-	op, err := s.State.UpdateSecretConsumerOperation(&sourceLess, 2)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.ApplyOperation(op)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-}
-
 type SecretsRemoteConsumerWatcherSuite struct {
 	testing.StateSuite
 	store state.SecretsStore

@@ -2382,18 +2382,7 @@ func (u *updateSecretConsumerOperation) Build(attempt int) ([]txn.Op, error) {
 	if attempt > 0 {
 		return nil, errors.NotFoundf("secret consumers for secret %q", u.uri)
 	}
-	ops, err := u.st.secretUpdateConsumersOps(secretConsumersC, u.uri, u.latestRevision)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(ops) == 0 {
-		// This is for observability only; the remote relations worker
-		// will treat this as a missing local consumer and move on.
-		// The worker logs a debug message.
-		return nil, errors.NewNotFound(nil,
-			fmt.Sprintf("no consumers for secret %q; secret change event dropped", u.uri))
-	}
-	return ops, nil
+	return u.st.secretUpdateConsumersOps(secretConsumersC, u.uri, u.latestRevision)
 }
 
 // Done implements ModelOperation.
