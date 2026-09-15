@@ -43,7 +43,6 @@ import (
 	_ "github.com/juju/juju/internal/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/worker/dbaccessor"
-	"github.com/juju/juju/internal/worker/dbreplaccessor"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	jujunames "github.com/juju/juju/juju/names"
@@ -281,12 +280,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		"",
 	)
 	jujud.Register(agentcmd.NewMachineAgentCommand(ctx, machineAgentFactory, agentConf, agentConf))
-
-	dbReplModeMachineAgentFactory := agentcmd.DBReplMachineAgentFactoryFn(
-		agentConf,
-		dbreplaccessor.NewTrackedDBWorker,
-	)
-	jujud.Register(agentcmd.NewDBReplAgentCommand(ctx, dbReplModeMachineAgentFactory, agentConf, agentConf))
 
 	jujud.Register(agentcmd.NewCheckConnectionCommand(agentConf, agentcmd.ConnectAsAgent))
 
