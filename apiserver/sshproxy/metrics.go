@@ -1,13 +1,13 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package sshtunnel
+package sshproxy
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-const metricsNamespace = "juju_sshtunnel"
+const metricsNamespace = "juju_sshproxy"
 
 // Collector collects SSH tunnel and relay upgrade connection metrics.
 type Collector struct {

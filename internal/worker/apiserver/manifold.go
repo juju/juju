@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
-	"github.com/juju/juju/apiserver/sshtunnel"
+	"github.com/juju/juju/apiserver/sshproxy"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
 	coredependency "github.com/juju/juju/core/dependency"
@@ -356,7 +356,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 	// SSH tunnel and relay endpoints have their own metrics collector,
 	// distinct from the sshserver listener metrics.
-	sshTunnelMetrics := sshtunnel.NewMetricsCollector()
+	sshTunnelMetrics := sshproxy.NewMetricsCollector()
 	if err := config.PrometheusRegisterer.Register(sshTunnelMetrics); err != nil {
 		return nil, errors.Trace(err)
 	}

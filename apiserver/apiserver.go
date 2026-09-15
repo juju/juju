@@ -42,7 +42,7 @@ import (
 	resourcesdownload "github.com/juju/juju/apiserver/internal/handlers/resources/download"
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/apiserver/sshtunnel"
+	"github.com/juju/juju/apiserver/sshproxy"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/controller"
@@ -286,12 +286,12 @@ type SSHTunnelConfig struct {
 	// TunnelTracker accepts reverse tunnel connections pushed by machine
 	// agents. It is the sshtunneler worker's output, local to this
 	// controller node.
-	TunnelTracker sshtunnel.TunnelTracker
+	TunnelTracker sshproxy.TunnelTracker
 	// ServerFactory builds the per-destination terminating SSH server.
-	ServerFactory sshtunnel.TerminatingServerFactory
+	ServerFactory sshproxy.TerminatingServerFactory
 	// Metrics collects connection metrics for the SSH tunnel and relay
 	// upgrade endpoints.
-	Metrics sshtunnel.MetricsCollector
+	Metrics sshproxy.MetricsCollector
 }
 
 // Validate validates the API server configuration.
@@ -1009,7 +1009,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	// watch the apiserver dying signal inside the handler.
 	var sshTunnelHandler, sshRelayHandler http.Handler
 	if srv.sshTunnelConfig != nil {
-		tunnelHandler, err := sshtunnel.NewTunnelHandler(sshtunnel.TunnelHandlerConfig{
+		tunnelHandler, err := sshproxy.NewTunnelHandler(sshproxy.TunnelHandlerConfig{
 			Logger:                logger.Child("sshtunnel"),
 			Tracker:               srv.sshTunnelConfig.TunnelTracker,
 			SSHConnRequestService: sshTunnelRequestServiceGetter{ctxt: httpCtxt},
@@ -1020,7 +1020,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		}
 		sshTunnelHandler = srv.sshTunnelRequestWrapper(tunnelHandler)
 
-		relayHandler, err := sshtunnel.NewRelayHandler(sshtunnel.RelayHandlerConfig{
+		relayHandler, err := sshproxy.NewRelayHandler(sshproxy.RelayHandlerConfig{
 			Logger:        logger.Child("sshtunnel"),
 			ServerFactory: srv.sshTunnelConfig.ServerFactory,
 			Metrics:       srv.sshTunnelConfig.Metrics,
@@ -1207,8 +1207,8 @@ func (srv *Server) sshTunnelRequestWrapper(h http.Handler) http.Handler {
 			return
 		}
 		machineName := machineTag.Id()
-		ctx := context.WithValue(r.Context(), sshtunnel.AuthenticatedMachineNameKey{}, machineName)
-		ctx = context.WithValue(ctx, sshtunnel.DyingKey{}, srv.catacomb.Dying())
+		ctx := context.WithValue(r.Context(), sshproxy.AuthenticatedMachineNameKey{}, machineName)
+		ctx = context.WithValue(ctx, sshproxy.DyingKey{}, srv.catacomb.Dying())
 		h.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -1230,8 +1230,8 @@ func (srv *Server) sshRelayRequestWrapper(h http.Handler) http.Handler {
 		}
 		// delegator.Token was signature-verified by the JWT
 		// authenticator, so the relay handler trusts it as-is.
-		ctx := context.WithValue(r.Context(), sshtunnel.RelayJWTKey{}, delegator.Token)
-		ctx = context.WithValue(ctx, sshtunnel.DyingKey{}, srv.catacomb.Dying())
+		ctx := context.WithValue(r.Context(), sshproxy.RelayJWTKey{}, delegator.Token)
+		ctx = context.WithValue(ctx, sshproxy.DyingKey{}, srv.catacomb.Dying())
 		h.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -1245,16 +1245,16 @@ type sshTunnelRequestServiceGetter struct {
 
 // GetSSHConnRequest returns the SSH connection request for the supplied
 // tunnel ID, scoped to the named machine.
-func (g sshTunnelRequestServiceGetter) GetSSHConnRequest(ctx context.Context, machineName string, tunnelID string) (sshtunnel.SSHConnRequest, error) {
+func (g sshTunnelRequestServiceGetter) GetSSHConnRequest(ctx context.Context, machineName string, tunnelID string) (sshproxy.SSHConnRequest, error) {
 	domainServices, err := g.ctxt.domainServicesForRequestContext(ctx)
 	if err != nil {
-		return sshtunnel.SSHConnRequest{}, errors.Trace(err)
+		return sshproxy.SSHConnRequest{}, errors.Trace(err)
 	}
 	req, err := domainServices.SSH().GetSSHConnRequest(ctx, coremachine.Name(machineName), tunnelID)
 	if err != nil {
-		return sshtunnel.SSHConnRequest{}, errors.Trace(err)
+		return sshproxy.SSHConnRequest{}, errors.Trace(err)
 	}
-	return sshtunnel.SSHConnRequest{MachineName: req.MachineName}, nil
+	return sshproxy.SSHConnRequest{MachineName: req.MachineName}, nil
 }
 
 // trackRequests wraps a http.Handler, incrementing and decrementing

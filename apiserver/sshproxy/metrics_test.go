@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package sshtunnel
+package sshproxy
 
 import (
 	"bytes"
@@ -30,15 +30,15 @@ func (s *metricsSuite) TestMetricsAreCollected(c *tc.C) {
 	collector.DecConnectionCount("tunnel")
 
 	expected := bytes.NewBuffer([]byte(`
-# HELP juju_sshtunnel_connection_count The number of active SSH tunnel or relay upgrade connections.
-# TYPE juju_sshtunnel_connection_count gauge
-juju_sshtunnel_connection_count{endpoint="relay"} 1
-juju_sshtunnel_connection_count{endpoint="tunnel"} 1
+# HELP juju_sshproxy_connection_count The number of active SSH tunnel or relay upgrade connections.
+# TYPE juju_sshproxy_connection_count gauge
+juju_sshproxy_connection_count{endpoint="relay"} 1
+juju_sshproxy_connection_count{endpoint="tunnel"} 1
 `[1:]))
 
 	err := testutil.CollectAndCompare(
 		collector, expected,
-		"juju_sshtunnel_connection_count",
+		"juju_sshproxy_connection_count",
 	)
 	if !c.Check(err, tc.ErrorIsNil) {
 		c.Logf("\nerror:\n%v", err)

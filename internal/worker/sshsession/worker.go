@@ -20,7 +20,7 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/sshtunnel"
+	"github.com/juju/juju/apiserver/sshproxy"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	coressh "github.com/juju/juju/core/ssh"
@@ -392,13 +392,13 @@ func (d *connectionDialer) upgrade(
 		return nil, errors.Errorf("building upgrade request: %w", err)
 	}
 	req.Header.Set("Connection", "Upgrade")
-	req.Header.Set("Upgrade", sshtunnel.TunnelUpgradeToken)
+	req.Header.Set("Upgrade", sshproxy.TunnelUpgradeToken)
 	if err := api.AuthHTTPRequest(req, d.apiInfo); err != nil {
 		_ = rawConn.Close()
 		return nil, errors.Errorf("authenticating upgrade request: %w", err)
 	}
 
-	conn, err := sshtunnel.PerformUpgrade(req, rawConn)
+	conn, err := sshproxy.PerformUpgrade(req, rawConn)
 	if err != nil {
 		_ = rawConn.Close()
 		return nil, errors.Capture(err)
