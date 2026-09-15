@@ -2382,7 +2382,18 @@ func (u *updateSecretConsumerOperation) Build(attempt int) ([]txn.Op, error) {
 	if attempt > 0 {
 		return nil, errors.NotFoundf("secret consumers for secret %q", u.uri)
 	}
-	return u.st.secretUpdateConsumersOps(secretConsumersC, u.uri, u.latestRevision)
+	ops, err := u.st.secretUpdateConsumersOps(secretConsumersC, u.uri, u.latestRevision)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(ops) == 0 {
+		// This is for observability only; the remote relations worker
+		// will treat this as a missing local consumer and move on.
+		// The worker logs a debug message.
+		return nil, errors.NewNotFound(nil,
+			fmt.Sprintf("no consumers for secret %q; secret change event dropped", u.uri))
+	}
+	return ops, nil
 }
 
 // Done implements ModelOperation.
@@ -2612,7 +2623,11 @@ func (st *State) secretUpdateConsumersOps(coll string, uri *secrets.URI, newRevi
 		ops []txn.Op
 	)
 	key := st.secretConsumerKey(uri, "")
-	q := bson.D{{"_id", bson.D{{"$regex", fmt.Sprintf("^%s:%s", st.ModelUUID(), key)}}}}
+	// A change delivered from an older controller may not include the
+	// source UUID in the URI, in which case the key only has the ID,
+	// ie "<id>#..." rather than "<source-uuid>:<id>#...".
+	// Match both key forms, anchored to this model's UUID.
+	q := bson.D{{"_id", bson.D{{"$regex", fmt.Sprintf("^%s:(.+/)?%s", st.ModelUUID(), regexp.QuoteMeta(key))}}}}
 	iter := secretConsumersCollection.Find(q).Iter()
 	for iter.Next(&doc) {
 		ops = append(ops, txn.Op{
