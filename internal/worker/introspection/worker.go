@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"runtime"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
@@ -166,7 +167,11 @@ func (w *socketListener) RegisterHTTPHandlers(
 	handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
 	handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 	handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
-	handle("/depengine", depengineHandler{reporter: w.depEngine})
+	handle("/depengine", depengineHandler{
+		reporter: w.depEngine,
+		timeout:  defaultReportTimeout,
+		running:  make(chan struct{}, 1),
+	})
 	handle("/metrics", promhttp.HandlerFor(w.prometheusGatherer, promhttp.HandlerOpts{}))
 	handle("/machinelock", machineLockHandler{lock: w.machineLock})
 	// The trailing slash is kept for metrics because we don't want to
@@ -193,8 +198,20 @@ func (h notSupportedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, fmt.Sprintf("%q introspection not supported", h.name), http.StatusNotFound)
 }
 
+// defaultReportTimeout is how long the dependency engine is given to produce
+// a report before the request is abandoned. The engine asks every worker to
+// report, and a worker with a badly behaved Report method would otherwise hang the request forever.
+const defaultReportTimeout = 30 * time.Second
+
 type depengineHandler struct {
 	reporter DependencyEngine
+	timeout  time.Duration
+	// running admits one report at a time. The engine serializes report
+	// requests anyway, so a second one in flight gains nothing, and a worker
+	// that ignores the context leaves the abandoned report's goroutine parked
+	// inside Report. The slot is held until that goroutine finishes, so
+	// polling the endpoint during a hang can't pile them up.
+	running chan struct{}
 }
 
 // ServeHTTP is part of the http.Handler interface.
@@ -203,7 +220,48 @@ func (h depengineHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing dependency engine reporter", http.StatusNotFound)
 		return
 	}
-	bytes, err := yaml.Marshal(h.reporter.Report(r.Context()))
+
+	timeout := h.timeout
+	if v := r.URL.Query().Get("timeout"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("invalid timeout %q: %v", v, err), http.StatusBadRequest)
+			return
+		}
+		if d <= 0 {
+			http.Error(w, fmt.Sprintf("invalid timeout %q: must be positive", v), http.StatusBadRequest)
+			return
+		}
+		timeout = d
+	}
+
+	select {
+	case h.running <- struct{}{}:
+	default:
+		http.Error(w, "error: a report is already in progress", http.StatusServiceUnavailable)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), timeout)
+	defer cancel()
+
+	// The report is gathered in a goroutine so that a worker that blocks and
+	// ignores the context can't hold the request open indefinitely.
+	reported := make(chan map[string]any, 1)
+	go func() {
+		defer func() { <-h.running }()
+		reported <- h.reporter.Report(ctx)
+	}()
+
+	var report map[string]any
+	select {
+	case report = <-reported:
+	case <-ctx.Done():
+		http.Error(w, fmt.Sprintf("error: dependency engine report abandoned after %s: %v", timeout, ctx.Err()), http.StatusServiceUnavailable)
+		return
+	}
+
+	bytes, err := yaml.Marshal(report)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error: %v", err), http.StatusInternalServerError)
 		return
