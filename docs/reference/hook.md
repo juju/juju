@@ -41,6 +41,41 @@ All hooks get a common set of environment variables; in addition, some hooks (or
 See more: {ref}`list-of-hooks`
 ```
 
+(hook-execution-guarantees)=
+## Hook execution guarantees
+
+The charm has no in-process memory of previous runs: everything it needs arrives via
+hook commands, on demand, from the controller database. While a hook runs, Juju
+maintains four invariants:
+
+- **One hook at a time per machine.** A machine-level lock covers the whole run, so
+  hooks of different units on the same machine never interleave. Different machines
+  run independently with no ordering guaranteed.
+- **Config is a stable snapshot.** Read once at hook start; does not change
+  mid-hook.
+- **Writes are all-or-nothing.** Relation data, secrets, and charm state are
+  buffered and flushed together on clean exit -- discarded on failure.
+  `status-set` is the one exception: it takes effect immediately.
+- **Leadership is a lease, not a lock.** A successful leadership check guarantees
+  leadership for about 30 seconds; it can change mid-hook.
+
+These invariants are independent: none builds on another, and none implies ordering
+across machines or across hooks of different units.
+
+The controller stores per model: application configuration, relations (data bags),
+secrets, application and unit status, leadership, and optionally charm state. Timing
+of access within a hook follows directly from the invariants:
+
+| State | When read | When written |
+|---|---|---|
+| Configuration | Once on first use, then cached | Not written by hooks |
+| Relation data | Lazily, on demand | Buffered; flushed on clean exit |
+| Secrets | Lazily, on demand | Buffered; flushed on clean exit |
+| Charm state | Lazily, on demand | Buffered; flushed on clean exit |
+| Action results | — | Buffered; flushed on clean exit |
+| Status | — | Immediate on each `status-set` |
+| Leadership | Fresh each check, never cached | Not written by hooks |
+
 ## Hook ordering
 
 A charm's lifecycle consists of distinct **phases**:

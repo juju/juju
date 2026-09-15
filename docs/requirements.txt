@@ -36,3 +36,5 @@ vale
 sphinxext-rediraffe
 sphinx-new-tab-link
 sphinxcontrib.lightbox2
+sphinxcontrib-mermaid
+
