@@ -130,6 +130,13 @@ func (a *firewallerAPIAdapter) ModelFirewallRules(ctx context.Context) (firewall
 			network.MustParsePortRange(strconv.Itoa(ctrlCfg.APIPort())),
 			"0.0.0.0/0", "::/0",
 		))
+		// Open the controller's embedded SSH server (jump host) port so
+		// users can reach it. Also opened at bootstrap time (see
+		// openControllerModelPorts) to avoid a window where it is closed.
+		rules = append(rules, firewall.NewIngressRule(
+			network.MustParsePortRange(strconv.Itoa(ctrlCfg.SSHServerPort())),
+			"0.0.0.0/0", "::/0",
+		))
 	}
 	if isController && ctrlCfg.AutocertDNSName() != "" {
 		rules = append(rules, firewall.NewIngressRule(
