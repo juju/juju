@@ -278,7 +278,8 @@ func (s *backupsSuite) TestCreateControllerNodesFailure(c *tc.C) {
 	// foreign keys.
 	for _, table := range []string{
 		"controller_node_agent_version",
-		"controller_api_address",
+		"api_address_agent_by_controller",
+		"api_address_client_by_controller",
 		"controller_node_password",
 		"upgrade_info_controller_node",
 		"controller_node",

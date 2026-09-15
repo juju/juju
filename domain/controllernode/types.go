@@ -196,11 +196,7 @@ func ScopeMatchPublic(addr APIAddress) ScopeMatch {
 
 func parseAddrPort(address string) (netip.AddrPort, bool) {
 	addrPort, err := netip.ParseAddrPort(address)
-	if err != nil {
-		_, _, err = net.SplitHostPort(address)
-		return netip.AddrPort{}, false
-	}
-	return addrPort, true
+	return addrPort, err == nil
 }
 
 // ScopeMatchFunc is an alias for a function that accepts an Address,
