@@ -463,8 +463,19 @@ func updateState(
 		return nil, errors.Trace(err)
 	}
 	if svc != nil {
-		err := applicationService.UpdateK8sService(
-			ctx, appName, svc.Id, svc.Addresses)
+		serviceToPersist := svc
+		isController, err := applicationService.IsControllerApplication(ctx, appUUID)
+		if err != nil {
+			return nil, errors.Annotate(err, "checking if controller application")
+		}
+		if isController {
+			serviceToPersist, err = broker.GetControllerService(ctx, appName, true)
+			if err != nil {
+				return nil, errors.Annotate(err, "getting controller API service")
+			}
+		}
+		err = applicationService.UpdateK8sService(
+			ctx, appName, serviceToPersist.Id, serviceToPersist.Addresses)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

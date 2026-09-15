@@ -7,13 +7,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
 // BootstrapAddressFinderFunc is responsible for finding the network provider
@@ -84,32 +82,31 @@ func CAASAddressFinder(
 ) BootstrapAddressFinderFunc {
 	return func(
 		ctx context.Context,
-		bootstrapInstance instance.Id,
+		_ instance.Id,
 	) (network.ProviderAddresses, error) {
-		providerGetter := providertracker.ProviderRunner[caas.ServiceManager](
+		providerGetter := providertracker.ProviderRunner[environs.BootstrapAddressFinder](
 			providerFactory, namespace,
 		)
 
-		svcManager, err := providerGetter(ctx)
+		addressFinder, err := providerGetter(ctx)
 		if err != nil {
 			return network.ProviderAddresses{}, fmt.Errorf(
-				"cannot get service manager from provider for finding bootstrap addresses: %w",
+				"cannot get bootstrap address finder from provider: %w",
 				err,
 			)
 		}
 
-		// Retrieve the k8s service from the k8s broker.
-		svc, err := svcManager.GetService(ctx, k8sconstants.JujuControllerStackName, true)
+		addresses, err := addressFinder.BootstrapControllerAddresses(ctx)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		if svc == nil || len(svc.Addresses) == 0 {
+		if len(addresses) == 0 {
 			// If no addresses are returned from the K8s broker, we return
 			// the loopback address, this guarantees that the bootstrap instance
 			// will be able to connect to the controller service.
 			return network.NewMachineAddresses([]string{"127.0.0.1"}).AsProviderAddresses(), nil
 		}
 
-		return svc.Addresses, nil
+		return addresses, nil
 	}
 }

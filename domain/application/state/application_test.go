@@ -1253,6 +1253,39 @@ func (s *applicationStateSuite) TestUpsertK8sServiceAnother(c *tc.C) {
 	c.Assert(providerIds, tc.SameContents, []string{"provider-id", "another-provider-id"})
 }
 
+func (s *applicationStateSuite) TestUpsertK8sServiceReplacesStaleControllerService(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "controller", life.Alive)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`INSERT INTO application_controller (application_uuid) VALUES (?)`, appUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.UpsertK8sService(c.Context(), "controller", "controller-workload-service-uuid", network.ProviderAddresses{})
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.UpsertK8sService(c.Context(), "controller", "controller-service-uuid", network.ProviderAddresses{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var providerIDs []string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `SELECT provider_id FROM k8s_service WHERE application_uuid = ?`, appUUID)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var providerID string
+			if err := rows.Scan(&providerID); err != nil {
+				return err
+			}
+			providerIDs = append(providerIDs, providerID)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(providerIDs, tc.DeepEquals, []string{"controller-service-uuid"})
+}
+
 // TestUpsertAnotherK8sServiceNotWipingIpAddresses is a regression test where
 // calling UpsertK8sService on an application would wipe out any IP address.
 func (s *applicationStateSuite) TestUpsertAnotherK8sServiceNotWipingIpAddresses(c *tc.C) {

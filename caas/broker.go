@@ -276,6 +276,9 @@ type ProxyManager interface {
 type ServiceManager interface {
 	// GetService returns the service for the specified application.
 	GetService(ctx context.Context, appName string, includeClusterIP bool) (*Service, error)
+
+	// GetControllerService returns the routable API Service for a controller.
+	GetControllerService(ctx context.Context, controllerName string, includeClusterIP bool) (*Service, error)
 }
 
 // Service represents information about the status of a caas service entity.

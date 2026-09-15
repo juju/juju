@@ -1070,6 +1070,19 @@ AND    provider_id = $k8sService.provider_id`, k8sService{})
 	if err != nil {
 		return errors.Capture(err)
 	}
+	deleteStaleControllerServicesStmt, err := st.Prepare(`
+DELETE FROM k8s_service AS ks
+WHERE  ks.application_uuid = $k8sService.application_uuid
+AND    ks.provider_id != $k8sService.provider_id
+AND    EXISTS (
+    SELECT 1
+    FROM   application_controller AS ac
+    WHERE  ac.application_uuid = ks.application_uuid
+)
+`, k8sService{})
+	if err != nil {
+		return errors.Capture(err)
+	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		appDetails, err := st.getApplicationDetails(ctx, tx, applicationName)
@@ -1084,6 +1097,9 @@ AND    provider_id = $k8sService.provider_id`, k8sService{})
 		serviceInfoToUpsert := k8sService{
 			ProviderID:      providerID,
 			ApplicationUUID: appDetails.UUID,
+		}
+		if err := tx.Query(ctx, deleteStaleControllerServicesStmt, serviceInfoToUpsert).Run(); err != nil {
+			return errors.Errorf("removing stale controller cloud services: %w", err)
 		}
 		err = tx.Query(ctx, queryExistingStmt, serviceInfoToUpsert).Get(&serviceInfoToUpsert)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {

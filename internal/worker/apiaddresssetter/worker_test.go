@@ -165,11 +165,10 @@ func (s *workerSuite) TestNewControllerNode(c *tc.C) {
 	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("space0")).Return(sp, nil)
 	// Synchronization point to ensure the worker processes the event.
 	sync := make(chan struct{})
-	hostPorts := network.SpaceAddressesWithPort(addrs, 17070)
 	args := controllernode.SetAPIAddressArgs{
 		MgmtSpace: sp,
 		APIAddresses: map[string]network.SpaceHostPorts{
-			"1": hostPorts,
+			"1": network.SpaceAddressesWithPort(addrs, 17070),
 		},
 		AgentAddresses: &controllernode.APIAddresses{},
 		ClientAddresses: &controllernode.APIAddresses{{
@@ -185,13 +184,6 @@ func (s *workerSuite) TestNewControllerNode(c *tc.C) {
 			IsClient: true,
 			Scope:    network.ScopePublic,
 		}},
-		ControllerClientAddresses: &map[string]controllernode.APIAddresses{
-			"1": {{
-				Address:  "controller-1.controller-service-endpoints.controller-test.svc.cluster.local:17070",
-				IsClient: true,
-				Scope:    network.ScopeCloudLocal,
-			}},
-		},
 	}
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
 		close(sync)

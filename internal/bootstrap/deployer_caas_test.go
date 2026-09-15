@@ -177,7 +177,7 @@ func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
 		[]string{"controller-0.controller-service-endpoints.controller-test.svc.cluster.local"},
 		network.WithScope(network.ScopeCloudLocal),
 	).AsProviderAddresses()
-	s.serviceManager.EXPECT().GetService(gomock.Any(), bootstrap.ControllerApplicationName, true).Return(&caas.Service{
+	s.serviceManager.EXPECT().GetControllerService(gomock.Any(), bootstrap.ControllerApplicationName, true).Return(&caas.Service{
 		Id:        "controller-service-id",
 		Addresses: serviceAddresses,
 	}, nil)
@@ -201,7 +201,7 @@ func (s *deployerCAASSuite) TestCompleteCAASProcessSetsFQDN(c *tc.C) {
 
 	unitName := unit.Name("controller/0")
 
-	s.serviceManager.EXPECT().GetService(gomock.Any(), bootstrap.ControllerApplicationName, true).Return(&caas.Service{
+	s.serviceManager.EXPECT().GetControllerService(gomock.Any(), bootstrap.ControllerApplicationName, true).Return(&caas.Service{
 		Id:        "controller-service-id",
 		Addresses: network.NewMachineAddresses([]string{"10.152.183.53"}).AsProviderAddresses(),
 	}, nil)

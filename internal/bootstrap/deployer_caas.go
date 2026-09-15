@@ -23,8 +23,8 @@ import (
 
 // ServiceManager provides the API to manipulate services.
 type ServiceManager interface {
-	// GetService returns the service for the specified application.
-	GetService(ctx context.Context, appName string, includeClusterIP bool) (*caas.Service, error)
+	// GetControllerService returns the routable API Service for a controller.
+	GetControllerService(ctx context.Context, controllerName string, includeClusterIP bool) (*caas.Service, error)
 }
 
 // CAASDeployerConfig holds the configuration for a CAASDeployer.
@@ -176,7 +176,7 @@ func (d *CAASDeployer) CompleteCAASProcess(ctx context.Context) error {
 	// The bootstrap address identifies the controller node for Dqlite. Persist
 	// the normal Kubernetes Service addresses separately so clients use the
 	// load-balanced Service rather than the controller pod endpoint.
-	svc, err := d.serviceManager.GetService(ctx, bootstrap.ControllerApplicationName, true)
+	svc, err := d.serviceManager.GetControllerService(ctx, bootstrap.ControllerApplicationName, true)
 	if err != nil {
 		return errors.Errorf("getting k8s controller service: %w", err)
 	}

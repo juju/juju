@@ -131,10 +131,12 @@ type PopulateAPIAddressesParams struct {
 	PublicDNSAddress       string
 }
 
-// PopulateAPIAddressesResult contains the general API address sets produced
-// for a substrate. Nil address sets leave the corresponding existing address
+// PopulateAPIAddressesResult contains the API address sets produced for a
+// substrate. Nil address sets leave the corresponding existing address
 // selection unchanged.
 type PopulateAPIAddressesResult struct {
+	// ControllerAPIAddresses replaces controller-specific address candidates.
+	ControllerAPIAddresses    *map[string]network.SpaceHostPorts
 	AgentAddresses            *controllernode.APIAddresses
 	ClientAddresses           *controllernode.APIAddresses
 	ControllerClientAddresses *map[string]controllernode.APIAddresses
@@ -451,6 +453,9 @@ func (w *apiAddressSetterWorker) updateAPIAddresses(ctx context.Context) error {
 	if err != nil {
 		return errors.Capture(err)
 	}
+	if populatedAddresses.ControllerAPIAddresses != nil {
+		args.APIAddresses = *populatedAddresses.ControllerAPIAddresses
+	}
 	args.AgentAddresses = populatedAddresses.AgentAddresses
 	args.ClientAddresses = populatedAddresses.ClientAddresses
 	args.ControllerClientAddresses = populatedAddresses.ControllerClientAddresses
@@ -460,21 +465,9 @@ func (w *apiAddressSetterWorker) updateAPIAddresses(ctx context.Context) error {
 	return nil
 }
 
-// PopulateK8sAPIAddresses returns the general agent and client addresses for a
-// Kubernetes controller.
+// PopulateK8sAPIAddresses returns the general client addresses for a
+// Kubernetes controller. Agent addresses remain controller-specific pod FQDNs.
 func PopulateK8sAPIAddresses(ctx context.Context, networkService NetworkService, params PopulateAPIAddressesParams) (PopulateAPIAddressesResult, error) {
-	controllerClientAddresses := make(map[string]controllernode.APIAddresses, len(params.ControllerAPIAddresses))
-	for controllerID, hostPorts := range params.ControllerAPIAddresses {
-		for _, hostPort := range hostPorts {
-			address := net.JoinHostPort(hostPort.Host(), strconv.Itoa(hostPort.Port()))
-			controllerClientAddresses[controllerID] = append(controllerClientAddresses[controllerID], controllernode.APIAddress{
-				Address:  address,
-				IsClient: true,
-				Scope:    hostPort.Scope,
-			})
-		}
-	}
-
 	serviceAddresses, err := networkService.GetControllerK8sServiceAddresses(ctx)
 	if err != nil {
 		return PopulateAPIAddressesResult{}, errors.Capture(err)
@@ -482,14 +475,13 @@ func PopulateK8sAPIAddresses(ctx context.Context, networkService NetworkService,
 	clientAddresses := make(controllernode.APIAddresses, 0, len(serviceAddresses)+1)
 	for _, address := range serviceAddresses {
 		serviceAddress := net.JoinHostPort(address.Host(), strconv.Itoa(params.APIPort))
-		if containsAPIAddress(clientAddresses, serviceAddress) {
-			continue
+		if !containsAPIAddress(clientAddresses, serviceAddress) {
+			clientAddresses = append(clientAddresses, controllernode.APIAddress{
+				Address:  serviceAddress,
+				IsClient: true,
+				Scope:    address.Scope,
+			})
 		}
-		clientAddresses = append(clientAddresses, controllernode.APIAddress{
-			Address:  serviceAddress,
-			IsClient: true,
-			Scope:    address.Scope,
-		})
 	}
 	if params.PublicDNSAddress != "" && !containsAPIAddress(clientAddresses, params.PublicDNSAddress) {
 		clientAddresses = append(clientAddresses, controllernode.APIAddress{
@@ -498,12 +490,11 @@ func PopulateK8sAPIAddresses(ctx context.Context, networkService NetworkService,
 			Scope:    network.ScopePublic,
 		})
 	}
-
+	// Clear general agent endpoints. Otherwise existing Service-derived rows
+	// take precedence over controller-specific pod FQDNs.
+	agentAddresses := controllernode.APIAddresses{}
 	return PopulateAPIAddressesResult{
-		// Clear general agent addresses so callers preserve controller-specific
-		// pod FQDN grouping when they retrieve agent topology.
-		AgentAddresses:            &controllernode.APIAddresses{},
-		ClientAddresses:           &clientAddresses,
-		ControllerClientAddresses: &controllerClientAddresses,
+		AgentAddresses:  &agentAddresses,
+		ClientAddresses: &clientAddresses,
 	}, nil
 }
