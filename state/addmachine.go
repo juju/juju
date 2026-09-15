@@ -11,8 +11,10 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
+	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/constraints"
+	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -112,32 +114,17 @@ type HostFilesystemParams struct {
 // of the given type inside another new machine. The two given templates
 // specify the form of the child and parent respectively.
 func (st *State) AddMachineInsideNewMachine(template, parentTemplate MachineTemplate, containerType instance.ContainerType) (*Machine, error) {
-	mdoc, ops, err := st.addMachineInsideNewMachineOps(template, parentTemplate, containerType)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot add a new machine")
-	}
-	return st.addMachine(mdoc, ops)
+	return st.addMachine(func(containerId string) (*machineDoc, []txn.Op, error) {
+		return st.addMachineInsideNewMachineOps(template, parentTemplate, containerType, containerId)
+	})
 }
 
 // AddMachineInsideMachine adds a machine inside a container of the
 // given type on the existing machine with id=parentId.
 func (st *State) AddMachineInsideMachine(template MachineTemplate, parentId string, containerType instance.ContainerType) (*Machine, error) {
-	mdoc, ops, err := st.addMachineInsideMachineOps(template, parentId, containerType)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot add a new machine")
-	}
-	machine, err := st.addMachine(mdoc, ops)
-	if errors.Cause(err) == txn.ErrAborted {
-		parent, parentErr := st.Machine(parentId)
-		if parentErr != nil {
-			return nil, errors.Annotate(parentErr, "cannot add a new machine")
-		}
-		if parentErr := validateContainerHost(parent); parentErr != nil {
-			return nil, errors.Annotate(parentErr, "cannot add a new machine")
-		}
-		return nil, errors.Annotate(err, "unexpected error adding a new machine")
-	}
-	return machine, err
+	return st.addMachine(func(containerId string) (*machineDoc, []txn.Op, error) {
+		return st.addMachineInsideMachineOps(template, parentId, containerType, containerId)
+	})
 }
 
 // AddMachine adds a machine with the given series and jobs.
@@ -168,47 +155,82 @@ func (st *State) AddOneMachine(template MachineTemplate) (*Machine, error) {
 func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add a new machine")
 	var ms []*Machine
-	var ops []txn.Op
-	var controllerIds []string
-	for _, template := range templates {
-		mdoc, addOps, err := st.addMachineOps(template)
+	// Retain IDs across retries: the bootstrap controller must be machine 0.
+	machineIds := make([]string, len(templates))
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 && len(ms) > 0 {
+			if err := refreshCreatedMachines(ms...); err != nil {
+				return nil, err
+			}
+		}
+		if err := checkModelActive(st); err != nil {
+			return nil, errors.Trace(err)
+		}
+		ms = nil
+		var ops []txn.Op
+		var controllerIds []string
+		for i, template := range templates {
+			mdoc, addOps, err := st.addMachineWithIdOps(template, machineIds[i])
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			machineIds[i] = mdoc.Id
+			if isController(mdoc) {
+				controllerIds = append(controllerIds, mdoc.Id)
+			}
+			ms = append(ms, newMachine(st, mdoc))
+			ops = append(ops, addOps...)
+		}
+		ssOps, err := st.maintainControllersOps(controllerIds, true)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if isController(mdoc) {
-			controllerIds = append(controllerIds, mdoc.Id)
-		}
-		ms = append(ms, newMachine(st, mdoc))
-		ops = append(ops, addOps...)
+		ops = append(ops, ssOps...)
+		return append(ops, assertModelActiveOp(st.ModelUUID())), nil
 	}
-	ssOps, err := st.maintainControllersOps(controllerIds, true)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, ssOps...)
-	ops = append(ops, assertModelActiveOp(st.ModelUUID()))
-	if err := st.db().RunTransaction(ops); err != nil {
-		if errors.Cause(err) == txn.ErrAborted {
-			if err := checkModelActive(st); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
+	if err := st.db().Run(buildTxn); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return ms, nil
 }
 
-func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
-	ops = append([]txn.Op{assertModelActiveOp(st.ModelUUID())}, ops...)
-	if err := st.db().RunTransaction(ops); err != nil {
-		if errors.Cause(err) == txn.ErrAborted {
-			if err := checkModelActive(st); err != nil {
-				return nil, errors.Trace(err)
+func (st *State) addMachine(buildOps func(string) (*machineDoc, []txn.Op, error)) (*Machine, error) {
+	var machine *Machine
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var machineId string
+		if attempt > 0 {
+			if err := refreshCreatedMachines(machine); err != nil {
+				return nil, err
 			}
+			machineId = machine.Id()
 		}
+		if err := checkModelActive(st); err != nil {
+			return nil, errors.Trace(err)
+		}
+		doc, ops, err := buildOps(machineId)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot add a new machine")
+		}
+		machine = newMachine(st, doc)
+		return append([]txn.Op{assertModelActiveOp(st.ModelUUID())}, ops...), nil
+	}
+	if err := st.db().Run(buildTxn); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newMachine(st, mdoc), nil
+	return machine, nil
+}
+
+// refreshCreatedMachines returns ErrNoOperations if a previous creation attempt
+// committed despite returning an error. Machine IDs are retained across retries.
+func refreshCreatedMachines(machines ...*Machine) error {
+	for _, machine := range machines {
+		if err := machine.Refresh(); errors.IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return jujutxn.ErrNoOperations
 }
 
 func (st *State) resolveMachineConstraints(cons constraints.Value) (constraints.Value, error) {
@@ -272,6 +294,12 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowController boo
 // based on the given template. It also returns the machine document
 // that will be inserted.
 func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op, error) {
+	return st.addMachineWithIdOps(template, "")
+}
+
+// addMachineWithIdOps builds operations using machineId, or allocates an ID
+// if empty.
+func (st *State) addMachineWithIdOps(template MachineTemplate, machineId string) (*machineDoc, []txn.Op, error) {
 	template, err := st.effectiveMachineTemplate(template, st.IsController())
 	if err != nil {
 		return nil, nil, err
@@ -290,11 +318,14 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 			return nil, nil, err
 		}
 	}
-	seq, err := sequence(st, "machine")
-	if err != nil {
-		return nil, nil, err
+	if machineId == "" {
+		seq, err := sequence(st, "machine")
+		if err != nil {
+			return nil, nil, err
+		}
+		machineId = strconv.Itoa(seq)
 	}
-	mdoc := st.machineDocForTemplate(template, strconv.Itoa(seq))
+	mdoc := st.machineDocForTemplate(template, machineId)
 	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -361,7 +392,9 @@ func validateContainerHost(parent *Machine) error {
 
 // addMachineInsideMachineOps returns operations to add a machine inside
 // a container of the given type on an existing machine.
-func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId string, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
+func (st *State) addMachineInsideMachineOps(
+	template MachineTemplate, parentId string, containerType instance.ContainerType, containerId string,
+) (*machineDoc, []txn.Op, error) {
 	if template.InstanceId != "" {
 		return nil, nil, errors.New("cannot specify instance id for a new container")
 	}
@@ -395,11 +428,13 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 		return nil, nil, errors.Errorf("machine %s is locked for series upgrade", parentId)
 	}
 
-	newId, err := st.newContainerId(parentId, containerType)
-	if err != nil {
-		return nil, nil, err
+	if containerId == "" {
+		containerId, err = st.newContainerId(parentId, containerType)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
-	mdoc := st.machineDocForTemplate(template, newId)
+	mdoc := st.machineDocForTemplate(template, containerId)
 	mdoc.ContainerType = string(containerType)
 	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template)
 	if err != nil {
@@ -434,15 +469,21 @@ func (st *State) newContainerId(parentId string, containerType instance.Containe
 // machine within a container of the given type inside another
 // new machine. The two given templates specify the form
 // of the child and parent respectively.
-func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineTemplate, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
+func (st *State) addMachineInsideNewMachineOps(
+	template, parentTemplate MachineTemplate, containerType instance.ContainerType, containerId string,
+) (*machineDoc, []txn.Op, error) {
 	if template.InstanceId != "" || parentTemplate.InstanceId != "" {
 		return nil, nil, errors.New("cannot specify instance id for a new container")
 	}
-	seq, err := sequence(st, "machine")
-	if err != nil {
-		return nil, nil, err
+	parentId := corecontainer.ParentId(containerId)
+	if containerId == "" {
+		seq, err := sequence(st, "machine")
+		if err != nil {
+			return nil, nil, err
+		}
+		parentId = strconv.Itoa(seq)
 	}
-	parentTemplate, err = st.effectiveMachineTemplate(parentTemplate, false)
+	parentTemplate, err := st.effectiveMachineTemplate(parentTemplate, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -464,16 +505,18 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 		}
 	}
 
-	parentDoc := st.machineDocForTemplate(parentTemplate, strconv.Itoa(seq))
-	newId, err := st.newContainerId(parentDoc.Id, containerType)
-	if err != nil {
-		return nil, nil, err
+	parentDoc := st.machineDocForTemplate(parentTemplate, parentId)
+	if containerId == "" {
+		containerId, err = st.newContainerId(parentDoc.Id, containerType)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	template, err = st.effectiveMachineTemplate(template, false)
 	if err != nil {
 		return nil, nil, err
 	}
-	mdoc := st.machineDocForTemplate(template, newId)
+	mdoc := st.machineDocForTemplate(template, containerId)
 	mdoc.ContainerType = string(containerType)
 	parentPrereqOps, parentOp, err := st.insertNewMachineOps(parentDoc, parentTemplate)
 	if err != nil {

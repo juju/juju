@@ -941,6 +941,184 @@ func (s *StateSuite) TestAddMachinesModelMigrating(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testmodel" is being migrated`)
 }
 
+func (s *StateSuite) testAddMachinesRetry(c *gc.C, add func() ([]*state.Machine, error), expectedIds []string) {
+	before, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	updatedConstraints := constraints.MustParse("mem=2G")
+	// Abort the first transaction, then restore the model so the next
+	// attempt can succeed. Both transaction hooks must be consumed.
+	defer state.SetTestHooks(c, s.State, jujutxn.TestHook{
+		Before: func() {
+			c.Assert(s.Model.SetMigrationMode(state.MigrationModeExporting), jc.ErrorIsNil)
+		},
+		After: func() {
+			c.Assert(s.Model.SetMigrationMode(state.MigrationModeNone), jc.ErrorIsNil)
+			c.Assert(s.State.SetModelConstraints(updatedConstraints), jc.ErrorIsNil)
+		},
+	}, jujutxn.TestHook{}).Check()
+
+	machines, err := add()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, len(expectedIds))
+	for i, machine := range machines {
+		c.Check(machine.Id(), gc.Equals, expectedIds[i])
+		c.Assert(machine.Refresh(), jc.ErrorIsNil)
+		cons, err := machine.Constraints()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(cons.Mem, gc.DeepEquals, updatedConstraints.Mem)
+	}
+	after, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(after, gc.HasLen, len(before)+len(expectedIds))
+}
+
+func (s *StateSuite) TestAddMachinesRetry(c *gc.C) {
+	template := state.MachineTemplate{Base: state.UbuntuBase("22.04"), Jobs: []state.MachineJob{state.JobHostUnits}}
+	s.testAddMachinesRetry(c, func() ([]*state.Machine, error) {
+		return s.State.AddMachines(template, template)
+	}, []string{"0", "1"})
+}
+
+func (s *StateSuite) TestAddMachinesEmptyRetry(c *gc.C) {
+	s.testAddMachinesRetry(c, func() ([]*state.Machine, error) {
+		return s.State.AddMachines()
+	}, nil)
+}
+
+func (s *StateSuite) TestAddBootstrapMachineRetry(c *gc.C) {
+	s.testAddMachinesRetry(c, func() ([]*state.Machine, error) {
+		return s.State.AddMachines(state.MachineTemplate{
+			Base: state.UbuntuBase("22.04"),
+			Jobs: []state.MachineJob{state.JobManageModel},
+		})
+	}, []string{"0"})
+	ids, err := s.State.ControllerIds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ids, gc.DeepEquals, []string{"0"})
+}
+
+func (s *StateSuite) TestAddContainerRetry(c *gc.C) {
+	parent := s.Factory.MakeMachine(c, nil)
+	template := state.MachineTemplate{Base: state.UbuntuBase("22.04"), Jobs: []state.MachineJob{state.JobHostUnits}}
+	s.testAddMachinesRetry(c, func() ([]*state.Machine, error) {
+		machine, err := s.State.AddMachineInsideMachine(template, parent.Id(), instance.LXD)
+		return []*state.Machine{machine}, err
+	}, []string{parent.Id() + "/lxd/0"})
+	children, err := parent.Containers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(children, gc.DeepEquals, []string{parent.Id() + "/lxd/0"})
+}
+
+func (s *StateSuite) TestAddContainerInsideNewMachineRetry(c *gc.C) {
+	template := state.MachineTemplate{Base: state.UbuntuBase("22.04"), Jobs: []state.MachineJob{state.JobHostUnits}}
+	s.testAddMachinesRetry(c, func() ([]*state.Machine, error) {
+		child, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXD)
+		if err != nil {
+			return nil, err
+		}
+		parentId, ok := child.ParentId()
+		c.Assert(ok, jc.IsTrue)
+		parent, err := s.State.Machine(parentId)
+		if err != nil {
+			return nil, err
+		}
+		children, err := parent.Containers()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(children, gc.DeepEquals, []string{child.Id()})
+		return []*state.Machine{parent, child}, nil
+	}, []string{"0", "0/lxd/0"})
+}
+
+func (s *StateSuite) TestAddContainerModelUnavailable(c *gc.C) {
+	for _, existingParent := range []bool{false, true} {
+		for _, migrating := range []bool{false, true} {
+			for _, concurrent := range []bool{false, true} {
+				c.Logf("existing parent: %v, migrating: %v, concurrent: %v", existingParent, migrating, concurrent)
+				st := s.Factory.MakeModel(c, nil)
+				defer st.Close()
+				model, err := st.Model()
+				c.Assert(err, jc.ErrorIsNil)
+				template := state.MachineTemplate{Base: state.UbuntuBase("22.04"), Jobs: []state.MachineJob{state.JobHostUnits}}
+				var parent *state.Machine
+				if existingParent {
+					parent, err = st.AddOneMachine(template)
+					c.Assert(err, jc.ErrorIsNil)
+				}
+				changeModel := func() {
+					if migrating {
+						c.Assert(model.SetMigrationMode(state.MigrationModeExporting), jc.ErrorIsNil)
+					} else {
+						c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+					}
+				}
+				if concurrent {
+					defer state.SetBeforeHooks(c, st, changeModel).Check()
+				} else {
+					changeModel()
+				}
+				if existingParent {
+					_, err = st.AddMachineInsideMachine(template, parent.Id(), instance.LXD)
+				} else {
+					_, err = st.AddMachineInsideNewMachine(template, template, instance.LXD)
+				}
+				if migrating {
+					c.Assert(err, gc.ErrorMatches, `model ".*" is being migrated`)
+				} else {
+					c.Assert(err, gc.ErrorMatches, `model ".*" is dying`)
+				}
+				machines, err := st.AllMachines()
+				c.Assert(err, jc.ErrorIsNil)
+				if existingParent {
+					c.Assert(machines, gc.HasLen, 1)
+					children, err := parent.Containers()
+					c.Assert(err, jc.ErrorIsNil)
+					c.Check(children, gc.HasLen, 0)
+				} else {
+					c.Check(machines, gc.HasLen, 0)
+				}
+			}
+		}
+	}
+}
+
+func (s *StateSuite) TestAddMachinesExcessiveContention(c *gc.C) {
+	parent := s.Factory.MakeMachine(c, nil)
+	template := state.MachineTemplate{Base: state.UbuntuBase("22.04"), Jobs: []state.MachineJob{state.JobHostUnits}}
+	state.SetMaxTxnAttempts(c, s.State, 1)
+	for i, add := range []func() error{
+		func() error {
+			_, err := s.State.AddMachines(template)
+			return err
+		},
+		func() error {
+			_, err := s.State.AddMachineInsideMachine(template, parent.Id(), instance.LXD)
+			return err
+		},
+		func() error {
+			_, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXD)
+			return err
+		},
+	} {
+		c.Logf("creation variant: %d", i)
+		check := state.SetTestHooks(c, s.State, jujutxn.TestHook{
+			Before: func() {
+				c.Assert(s.Model.SetMigrationMode(state.MigrationModeExporting), jc.ErrorIsNil)
+			},
+			After: func() {
+				c.Assert(s.Model.SetMigrationMode(state.MigrationModeNone), jc.ErrorIsNil)
+			},
+		})
+		c.Check(add(), jc.ErrorIs, jujutxn.ErrExcessiveContention)
+		check.Check()
+	}
+	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(machines, gc.HasLen, 1)
+	children, err := parent.Containers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(children, gc.HasLen, 0)
+}
+
 func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	err := s.State.SetModelConstraints(constraints.MustParse("mem=4G"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -1191,6 +1369,19 @@ func (s *StateSuite) TestAddContainerToMachineRemovalRace(c *gc.C) {
 	_, err = s.addLXDContainer(host.Id())
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine is not found or not alive")
 	s.assertMachineContainers(c, host, nil)
+}
+
+func (s *StateSuite) TestAddContainerToRemovedMachineRace(c *gc.C) {
+	parent := s.Factory.MakeMachine(c, nil)
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(parent.EnsureDead(), jc.ErrorIsNil)
+		c.Assert(parent.Remove(), jc.ErrorIsNil)
+	}).Check()
+	_, err := s.addLXDContainer(parent.Id())
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(machines, gc.HasLen, 0)
 }
 
 func (s *StateSuite) TestAddContainerToEvacuatingMachine(c *gc.C) {
