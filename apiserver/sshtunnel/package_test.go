@@ -3,5 +3,5 @@
 
 package sshtunnel
 
-//go:generate go run github.com/canonical/gomock/mockgen -package sshtunnel -destination package_mock_test.go github.com/juju/juju/internal/sshproxy TerminatingServerFactory
+//go:generate go run github.com/canonical/gomock/mockgen -package sshtunnel -destination package_mock_test.go github.com/juju/juju/apiserver/sshtunnel TerminatingServerFactory
 //go:generate go run github.com/canonical/gomock/mockgen -package sshtunnel -destination metrics_mock_test.go github.com/juju/juju/apiserver/sshtunnel MetricsCollector

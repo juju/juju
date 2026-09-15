@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/sshproxy"
 )
 
 const testModelUUID = "8419cd78-4993-4c3a-928e-c646226beeee"
@@ -122,7 +121,7 @@ func (s *relaySuite) TestMissingJWTUnauthorized(c *tc.C) {
 	ctrl.Finish()
 }
 
-func (s *relaySuite) newHandler(c *tc.C, factory sshproxy.TerminatingServerFactory) *RelayHandler {
+func (s *relaySuite) newHandler(c *tc.C, factory TerminatingServerFactory) *RelayHandler {
 	handler, err := NewRelayHandler(RelayHandlerConfig{
 		Logger:        loggertesting.WrapCheckLog(c),
 		ServerFactory: factory,
@@ -134,7 +133,7 @@ func (s *relaySuite) newHandler(c *tc.C, factory sshproxy.TerminatingServerFacto
 
 // serveRelay dispatches a relay request and returns the response recorder.
 // An empty access produces no JWT, testing the missing-token path.
-func (s *relaySuite) serveRelay(c *tc.C, factory sshproxy.TerminatingServerFactory, modelUUID, access string) *httptest.ResponseRecorder {
+func (s *relaySuite) serveRelay(c *tc.C, factory TerminatingServerFactory, modelUUID, access string) *httptest.ResponseRecorder {
 	var token jwt.Token
 	if access != "" {
 		token = newRelayToken(c, modelUUID, access)

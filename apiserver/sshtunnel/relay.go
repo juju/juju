@@ -4,16 +4,18 @@
 package sshtunnel
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/lestrrat-go/jwx/v3/jwt"
+	ssh "github.com/tailscale/gliderssh"
 
 	authjwt "github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/sshproxy"
+	coressh "github.com/juju/juju/internal/ssh"
 )
 
 // RelayHandler implements the JIMM relay upgrade endpoint:
@@ -33,7 +35,7 @@ type RelayHandlerConfig struct {
 	// Logger is used for logging.
 	Logger logger.Logger
 	// ServerFactory builds the per-destination terminating SSH server.
-	ServerFactory sshproxy.TerminatingServerFactory
+	ServerFactory TerminatingServerFactory
 	// Metrics collects connection metrics.
 	Metrics MetricsCollector
 }
@@ -50,6 +52,15 @@ func (cfg RelayHandlerConfig) Validate() error {
 		return errors.New("nil Metrics")
 	}
 	return nil
+}
+
+// TerminatingServerFactory builds terminating SSH servers for routed
+// destinations. It is satisfied by the SSH server worker's factory, whose
+// output the apiserver manifold consumes.
+type TerminatingServerFactory interface {
+	// New returns a terminating SSH server for the destination, with proxy
+	// handlers and the destination's host key configured.
+	New(ctx context.Context, destination virtualhostname.Info) (*ssh.Server, error)
 }
 
 // NewRelayHandler returns a new JIMM relay endpoint handler.
@@ -111,7 +122,7 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	server, err := h.config.ServerFactory.New(ctx, destination)
 	if err != nil {
 		h.config.Logger.Errorf(ctx, "resolving destination: %v", err)
-		if werr := sshproxy.WritePreBannerError(conn, "juju ssh relay: "+err.Error()); werr != nil {
+		if werr := coressh.WritePreBannerError(conn, "juju ssh relay: "+err.Error()); werr != nil {
 			h.config.Logger.Errorf(ctx, "writing resolve error to connection: %v", werr)
 		}
 		return

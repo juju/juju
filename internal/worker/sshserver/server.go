@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/virtualhostname"
-	"github.com/juju/juju/internal/sshproxy"
+	coressh "github.com/juju/juju/internal/ssh"
 )
 
 // SessionHandler is an interface that proxies SSH sessions to a target unit/machine.
@@ -66,13 +66,13 @@ type ServerWorkerConfig struct {
 	MaxConcurrentConnections int
 
 	// SSHService resolves terminating SSH host keys for virtual destinations.
-	SSHService sshproxy.SSHService
+	SSHService SSHService
 	// Authenticator authenticates jump and terminating SSH connections.
 	Authenticator Authenticator
 	// Authorizer checks whether an authenticated user may access a destination.
 	Authorizer Authorizer
 	// ServerFactory builds the per-destination terminating SSH server.
-	ServerFactory sshproxy.TerminatingServerFactory
+	ServerFactory TerminatingServerFactory
 	// Metrics collects connection and authentication metrics.
 	Metrics *Collector
 }
@@ -293,7 +293,7 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 			if err != nil {
 				s.config.Logger.Errorf(context.TODO(), "failed to set write deadline: %v", err)
 			}
-			if err := sshproxy.WritePreBannerError(conn, "too many connections."); err != nil {
+			if err := coressh.WritePreBannerError(conn, "too many connections."); err != nil {
 				s.config.Logger.Errorf(context.TODO(), "failed to write to connection: %v", err)
 			}
 			// The connection is closed before returning, otherwise

@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki/test"
-	"github.com/juju/juju/internal/sshproxy"
 	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
@@ -155,7 +154,7 @@ func (s *sshServerSuite) testSSHServerSession(c *tc.C, auth gossh.AuthMethod, us
 	s.authorizer.EXPECT().Authorize(gomock.Any(), destination).Return(true, nil)
 	s.proxyHandlers.EXPECT().DirectTCPIPHandler().Return(rejectDirectTCPIP)
 	s.proxyHandlers.EXPECT().SFTPHandler().Return(rejectSFTP)
-	terminatingServer := sshproxy.NewTerminatingSSHServer(s.proxyHandlers)
+	terminatingServer := NewTerminatingSSHServer(s.proxyHandlers)
 	terminatingServer.AddHostKey(s.userSigner)
 	s.serverFactory.EXPECT().New(gomock.Any(), destination).Return(terminatingServer, nil)
 

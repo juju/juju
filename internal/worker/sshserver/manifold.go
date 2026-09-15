@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/environs/cloudspec"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/sshproxy"
 	internalTunneler "github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/juju/internal/worker/common"
 	workerTunneler "github.com/juju/juju/internal/worker/sshtunneler"
@@ -157,8 +156,8 @@ func (config ManifoldConfig) Validate() error {
 }
 
 // Manifold returns a dependency.Manifold that will run an embedded SSH server
-// worker. The manifold outputs the sshproxy.TerminatingServerFactory
-// needed by the apiserver's relay endpoint.
+// worker. The manifold outputs the TerminatingServerFactory needed by the
+// apiserver's relay endpoint.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.DomainServicesName, config.SSHTunnelerName},
@@ -231,7 +230,7 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 			access: sshService,
 			logger: config.Logger,
 		},
-		ServerFactory: sshproxy.NewTerminatingServerFactory(proxyFactory, sshService),
+		ServerFactory: NewTerminatingServerFactory(proxyFactory, sshService),
 		Metrics:       metricsCollector,
 	})
 	if err != nil {
@@ -257,10 +256,10 @@ func outputFunc(in worker.Worker, out any) error {
 	}
 
 	switch outPointer := out.(type) {
-	case *sshproxy.TerminatingServerFactory:
+	case *TerminatingServerFactory:
 		*outPointer = inWorker.config.ServerFactory
 	default:
-		return errors.Errorf("out should be *sshproxy.TerminatingServerFactory; got %T", out)
+		return errors.Errorf("out should be *TerminatingServerFactory; got %T", out)
 	}
 	return nil
 }

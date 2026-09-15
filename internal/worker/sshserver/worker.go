@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/internal/sshproxy"
 )
 
 // ControllerConfigService is the interface that the worker uses to get the
@@ -30,12 +29,12 @@ type ControllerConfigService interface {
 // ServerWrapperWorkerConfig holds the configuration required by the server wrapper worker.
 type ServerWrapperWorkerConfig struct {
 	ControllerConfigService ControllerConfigService
-	SSHService              sshproxy.SSHService
+	SSHService              SSHService
 	NewServerWorker         func(ServerWorkerConfig) (worker.Worker, error)
 	Logger                  logger.Logger
 	Authenticator           Authenticator
 	Authorizer              Authorizer
-	ServerFactory           sshproxy.TerminatingServerFactory
+	ServerFactory           TerminatingServerFactory
 
 	Metrics *Collector
 }

@@ -68,7 +68,6 @@ import (
 	"github.com/juju/juju/internal/resource"
 	resourcecharmhub "github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/sshproxy"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc"
@@ -289,7 +288,7 @@ type SSHTunnelConfig struct {
 	// controller node.
 	TunnelTracker sshtunnel.TunnelTracker
 	// ServerFactory builds the per-destination terminating SSH server.
-	ServerFactory sshproxy.TerminatingServerFactory
+	ServerFactory sshtunnel.TerminatingServerFactory
 	// Metrics collects connection metrics for the SSH tunnel and relay
 	// upgrade endpoints.
 	Metrics sshtunnel.MetricsCollector

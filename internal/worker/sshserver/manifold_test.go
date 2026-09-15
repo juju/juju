@@ -30,7 +30,6 @@ import (
 	modelsshservice "github.com/juju/juju/domain/ssh/service/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/sshproxy"
 	internalTunneler "github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -188,13 +187,13 @@ func (s *manifoldSuite) TestOutputFunc(c *tc.C) {
 	result := s.startManifold(c)
 	defer workertest.DirtyKill(c, result)
 
-	var factory sshproxy.TerminatingServerFactory
+	var factory TerminatingServerFactory
 	c.Assert(outputFunc(result, &factory), tc.ErrorIsNil)
 	c.Check(factory, tc.NotNil)
 
 	var wrong string
 	c.Assert(outputFunc(result, &wrong), tc.ErrorMatches,
-		`out should be \*sshproxy\.TerminatingServerFactory; got \*string`)
+		`out should be \*TerminatingServerFactory; got \*string`)
 }
 
 func (s *manifoldSuite) startManifold(c *tc.C) worker.Worker {
