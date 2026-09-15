@@ -66,6 +66,8 @@ github.com/ProtonMail/go-crypto v1.4.1 h1:9RfcZHqEQUvP8RzecWEUafnZVtEvrBVL9BiF67
 github.com/ProtonMail/go-crypto v1.4.1/go.mod h1:e1OaTyu5SYVrO9gKOEhTc+5UcXtTUa+P3uLudwcgPqo=
 github.com/Rican7/retry v0.3.1 h1:scY4IbO8swckzoA/11HgBwaZRJEyY9vaNJshcdhp1Mc=
 github.com/Rican7/retry v0.3.1/go.mod h1:CxSDrhAyXmTMeEuRAnArMu1FHu48vtfjLREWqVl7Vw0=
+github.com/SimonRichardson/description/v12 v12.0.0-20260915194052-b8db12b0db12 h1:xAexDMc6ADgYl6m7NPdCyPo8LDg3PKQJPVbAiXUoeus=
+github.com/SimonRichardson/description/v12 v12.0.0-20260915194052-b8db12b0db12/go.mod h1:KtFg1SUMpfAJxgEoomDiCfIbFeRgx2JQHL/9o2vrJbQ=
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be h1:9AeTilPcZAjCFIImctFaOjnTIavg87rW78vTPkQqLI8=
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be/go.mod h1:ySMOLuWl6zY27l47sB3qLNK6tF2fkHG55UZxx8oIVo4=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPdPJAN/hZIm0C4OItdklCFmMRWYpio=
@@ -398,8 +400,6 @@ github.com/juju/collections v0.0.0-20220203020748-febd7cad8a7a/go.mod h1:JWeZdyt
 github.com/juju/collections v1.0.0/go.mod h1:JWeZdyttIEbkR51z2S13+J+aCuHVe0F6meRy+P0YGDo=
 github.com/juju/collections v1.0.4 h1:GjL+aN512m2rVDqhPII7P6qB0e+iYFubz8sqBhZaZtk=
 github.com/juju/collections v1.0.4/go.mod h1:hVrdB0Zwq9wIU1Fl6ItD2+UETeNeOEs+nGvJufVe+0c=
-github.com/juju/description/v12 v12.0.0-20260410024407-3471e9106dd1 h1:9lI/qZ4HF1yFERpoDF2wkBZ3Ai9bmXWn/BFbFJKwEzo=
-github.com/juju/description/v12 v12.0.0-20260410024407-3471e9106dd1/go.mod h1:Wkxg1UGfbDmez6y4bg8DRybgLwc8tWte3ma/vW/Vfok=
 github.com/juju/errors v0.0.0-20150916125642-1b5e39b83d18/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20200330140219-3fe23663418f/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20210818161939-5560c4c073ff/go.mod h1:i1eL7XREII6aHpQ2gApI/v6FkVUDEBremNkcBCKYAcY=
