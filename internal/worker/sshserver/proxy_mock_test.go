@@ -13,9 +13,8 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
-	ssh "github.com/tailscale/gliderssh"
-
 	virtualhostname "github.com/juju/juju/core/virtualhostname"
+	ssh "github.com/tailscale/gliderssh"
 )
 
 // MockProxyFactory is a mock of ProxyFactory interface.
