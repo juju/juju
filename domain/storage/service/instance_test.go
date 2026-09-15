@@ -506,6 +506,81 @@ func (s *instanceSuite) TestGetStorageInstanceInfoBlockVolume(c *tc.C) {
 	})
 }
 
+// TestGetStorageInstanceInfoBlockVolumeNoDeviceLink tests that
+// [Service.GetStorageInstanceInfo] falls back to the block device name when a
+// block storage instance backed by a volume has no stable device link. This is
+// the case for loop backed volumes (e.g. on LXD VMs), where the attachment
+// location should be the device path (e.g. /dev/loop0).
+func (s *instanceSuite) TestGetStorageInstanceInfoBlockVolumeNoDeviceLink(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	siUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
+	vUUID := tc.Must(c, domainstorage.NewVolumeUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	machineUUID := tc.Must(c, coremachine.NewUUID)
+
+	stateExp := s.state.EXPECT()
+	stateExp.GetStorageInstanceInfo(c.Context(), siUUID).Return(
+		internal.StorageInstanceInfo{
+			Attachments: []internal.StorageInstanceInfoAttachment{
+				{
+					Life: domainlife.Alive,
+					Machine: &internal.StorageInstanceInfoAttachmentMachine{
+						Name: "machine-0",
+						UUID: machineUUID,
+					},
+					Volume: &internal.StorageInstanceInfoAttachmentVolume{
+						DeviceName: "loop0",
+					},
+					UnitName: "foo/0",
+					UnitUUID: unitUUID,
+					UUID:     saUUID,
+				},
+			},
+			Life:      domainlife.Alive,
+			Kind:      domainstorage.StorageKindBlock,
+			StorageID: "456",
+			UnitOwner: &internal.StorageInstanceInfoUnitOwner{
+				Name: "foo/0",
+				UUID: unitUUID,
+			},
+			UUID: siUUID,
+			Volume: &internal.StorageInstanceInfoVolume{
+				UUID: vUUID,
+			},
+		}, nil,
+	)
+
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
+	)
+	res, err := svc.GetStorageInstanceInfo(c.Context(), siUUID)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, domainstorage.StorageInstanceInfo{
+		ID:   "456",
+		Life: domainlife.Alive,
+		Kind: domainstorage.StorageKindBlock,
+		UnitAttachments: []domainstorage.StorageInstanceUnitAttachmentInfo{
+			{
+				Life:     domainlife.Alive,
+				Location: "/dev/loop0",
+				MachineAttachment: &domainstorage.StorageInstanceMachineAttachment{
+					MachineName: "machine-0",
+					MachineUUID: machineUUID,
+				},
+				UnitName: "foo/0",
+				UnitUUID: unitUUID,
+				UUID:     saUUID,
+			},
+		},
+		UnitOwner: &domainstorage.StorageInstanceUnitOwner{
+			Name: "foo/0",
+			UUID: unitUUID,
+		},
+		UUID: siUUID,
+	})
+}
+
 // TestGetStorageInstanceUUIDsByIDsNotFound tests that when calling
 // [Service.GetStorageInstanceUUIDsByIDs] with storage IDs that do not exist,
 // the caller gets back an empty map.

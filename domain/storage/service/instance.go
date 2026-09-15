@@ -6,10 +6,10 @@ package service
 import (
 	"context"
 
+	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
-	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 )
@@ -92,11 +92,18 @@ func (s *Service) GetStorageInstanceInfo(
 			internalAttachment.Filesystem != nil {
 			attachment.Location = internalAttachment.Filesystem.MountPoint
 		} else if retVal.Kind == domainstorage.StorageKindBlock &&
-			// If the storage kind is Block and we have device links from the
-			// volume set the location based off of the device link.
+			// If the storage kind is Block and we have a volume set the
+			// location based off of the block device path. This falls back to
+			// the device name (e.g. /dev/loop0) when no stable device link is
+			// available.
 			internalAttachment.Volume != nil {
-			loc := domainblockdevice.IDLink(internalAttachment.Volume.DeviceNameLinks)
-			attachment.Location = loc
+			loc, err := coreblockdevice.BlockDevicePath(coreblockdevice.BlockDevice{
+				DeviceName:  internalAttachment.Volume.DeviceName,
+				DeviceLinks: internalAttachment.Volume.DeviceNameLinks,
+			})
+			if err == nil {
+				attachment.Location = loc
+			}
 		}
 
 		retVal.UnitAttachments = append(retVal.UnitAttachments, attachment)
