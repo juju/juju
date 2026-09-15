@@ -28,7 +28,7 @@ END;
 -- update trigger for ApiAddressAgent
 CREATE TRIGGER trg_log_api_address_agent_update
 AFTER UPDATE ON api_address_agent FOR EACH ROW
-WHEN
+WHEN 
 	NEW.address != OLD.address OR
 	NEW.is_agent_only != OLD.is_agent_only OR
 	NEW.scope != OLD.scope
@@ -65,7 +65,7 @@ END;
 -- update trigger for ApiAddressAgentByController
 CREATE TRIGGER trg_log_api_address_agent_by_controller_update
 AFTER UPDATE ON api_address_agent_by_controller FOR EACH ROW
-WHEN
+WHEN 
 	NEW.controller_id != OLD.controller_id OR
 	NEW.address != OLD.address OR
 	NEW.scope != OLD.scope
@@ -82,6 +82,7 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
+
 // ChangeLogTriggersForApiAddressClient generates the triggers for the
 // api_address_client table.
 func ChangeLogTriggersForApiAddressClient(columnName string, namespaceID int) func() schema.Patch {
@@ -101,7 +102,7 @@ END;
 -- update trigger for ApiAddressClient
 CREATE TRIGGER trg_log_api_address_client_update
 AFTER UPDATE ON api_address_client FOR EACH ROW
-WHEN
+WHEN 
 	NEW.address != OLD.address OR
 	NEW.scope != OLD.scope
 BEGIN
@@ -137,7 +138,7 @@ END;
 -- update trigger for ApiAddressClientByController
 CREATE TRIGGER trg_log_api_address_client_by_controller_update
 AFTER UPDATE ON api_address_client_by_controller FOR EACH ROW
-WHEN
+WHEN 
 	NEW.controller_id != OLD.controller_id OR
 	NEW.address != OLD.address OR
 	NEW.scope != OLD.scope
@@ -264,3 +265,4 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
+
