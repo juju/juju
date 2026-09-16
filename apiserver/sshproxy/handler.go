@@ -86,7 +86,7 @@ func watchDying(conn net.Conn, dying <-chan struct{}, logger logger.Logger) (sto
 	go func() {
 		select {
 		case <-dying:
-			logger.Debugf(context.TODO(), "apiserver dying, closing upgraded connection")
+			logger.Debugf(context.Background(), "apiserver dying, closing upgraded connection")
 			_ = conn.Close()
 		case <-done:
 		}
