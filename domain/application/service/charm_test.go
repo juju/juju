@@ -1412,14 +1412,14 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImporting(c *tc.C
 			c.Assert(err, tc.ErrorIsNil)
 
 			return store.StoreFromReaderResult{
-					Charm:           file,
-					ObjectStoreUUID: objectStoreUUID,
-					UniqueName:      "unique-name",
-				}, store.Digest{
-					SHA256: "sha-256",
-					SHA384: "sha-384",
-					Size:   stat.Size(),
-				}, nil
+				Charm:           file,
+				ObjectStoreUUID: objectStoreUUID,
+				UniqueName:      "unique-name",
+			}, store.Digest{
+				SHA256: "sha-256",
+				SHA384: "sha-384",
+				Size:   stat.Size(),
+			}, nil
 		})
 	s.state.EXPECT().AddCharm(gomock.Any(), gomock.Any(), downloadInfo, true).DoAndReturn(func(_ context.Context, ch charm.Charm, _ *charm.DownloadInfo, _ bool) (corecharm.ID, charm.CharmLocator, error) {
 		c.Check(ch.Metadata.Name, tc.Equals, "dummy")
@@ -1498,14 +1498,14 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedAd
 			c.Assert(err, tc.ErrorIsNil)
 
 			return store.StoreFromReaderResult{
-					Charm:           file,
-					ObjectStoreUUID: objectStoreUUID,
-					UniqueName:      "unique-name",
-				}, store.Digest{
-					SHA256: "sha-256",
-					SHA384: "sha-384",
-					Size:   stat.Size(),
-				}, nil
+				Charm:           file,
+				ObjectStoreUUID: objectStoreUUID,
+				UniqueName:      "unique-name",
+			}, store.Digest{
+				SHA256: "sha-256",
+				SHA384: "sha-384",
+				Size:   stat.Size(),
+			}, nil
 		})
 	s.state.EXPECT().AddCharm(gomock.Any(), gomock.Any(), downloadInfo, true).DoAndReturn(func(_ context.Context, _ charm.Charm, _ *charm.DownloadInfo, _ bool) (corecharm.ID, charm.CharmLocator, error) {
 		return charmID, charm.CharmLocator{}, errors.Errorf("failed to set charm %w", coreerrors.NotValid)
@@ -1551,14 +1551,14 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImporting(c *tc.C) {
 			c.Assert(err, tc.ErrorIsNil)
 
 			return store.StoreFromReaderResult{
-					Charm:           file,
-					ObjectStoreUUID: objectStoreUUID,
-					UniqueName:      "unique-name",
-				}, store.Digest{
-					SHA256: "sha-256",
-					SHA384: "sha-384",
-					Size:   stat.Size(),
-				}, nil
+				Charm:           file,
+				ObjectStoreUUID: objectStoreUUID,
+				UniqueName:      "unique-name",
+			}, store.Digest{
+				SHA256: "sha-256",
+				SHA384: "sha-384",
+				Size:   stat.Size(),
+			}, nil
 		})
 	s.state.EXPECT().ResolveMigratingUploadedCharm(gomock.Any(), charmID, charm.ResolvedMigratingUploadedCharm{
 		ObjectStoreUUID: objectStoreUUID,
@@ -1673,14 +1673,14 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedResol
 			c.Assert(err, tc.ErrorIsNil)
 
 			return store.StoreFromReaderResult{
-					Charm:           file,
-					ObjectStoreUUID: objectStoreUUID,
-					UniqueName:      "unique-name",
-				}, store.Digest{
-					SHA256: "sha-256",
-					SHA384: "sha-384",
-					Size:   stat.Size(),
-				}, nil
+				Charm:           file,
+				ObjectStoreUUID: objectStoreUUID,
+				UniqueName:      "unique-name",
+			}, store.Digest{
+				SHA256: "sha-256",
+				SHA384: "sha-384",
+				Size:   stat.Size(),
+			}, nil
 		})
 	s.state.EXPECT().ResolveMigratingUploadedCharm(gomock.Any(), charmID, charm.ResolvedMigratingUploadedCharm{
 		ObjectStoreUUID: objectStoreUUID,
