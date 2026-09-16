@@ -42,6 +42,7 @@ jobs:
             expect \
             libdqlite-dev \
             libsqlite3-dev \
+            python3-yaml \
             sqlite3
           go install golang.org/x/vuln/cmd/govulncheck@latest
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/main/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.11.3
@@ -55,6 +56,9 @@ jobs:
 
       - name: "Static Analysis"
         run: make static-analysis
+
+      - name: "Cleanup Script Tests"
+        run: python3 scripts/test_check-db-orphans.py
 
   conventional-commits:
     name: Check conventional commits

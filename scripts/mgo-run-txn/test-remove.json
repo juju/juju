@@ -1,0 +1,14 @@
+[
+  {
+    "c": "relationscopes",
+    "d": "a647f4b3-91e4-4be7-8f0a-bec2efeca53b:r#55#requirer#otelcol-aggregator/0",
+    "a": "d+",
+    "r": true
+  },
+  {
+    "c": "settings",
+    "d": "a647f4b3-91e4-4be7-8f0a-bec2efeca53b:r#55#provider#traefik-aggregator/0",
+    "a": "d+",
+    "r": true
+  }
+]
