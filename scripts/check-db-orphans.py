@@ -49,13 +49,11 @@
 # 2 usage/input error.
 
 from __future__ import print_function
-# Run with --cleanup to also emit
-# a JSON ops file suitable for scripts/mgo-run-txn, which executes the
-# removals through Juju's transaction machinery so that txn-revnos
-# and the txns recovery log stay consistent.
 
 import argparse
+import collections
 import json
+import os
 import re
 import sys
 import textwrap
@@ -170,6 +168,7 @@ class ModelState(object):
         # collection -> {raw_id: doc}
         self.docs = {}
         self.findings = []
+        self.repair_plan = None
 
     def add_finding(self, severity, kind, collection, raw_id, ref, detail=""):
         self.findings.append(
@@ -222,6 +221,16 @@ def build_models(dump, findings):
                     "ORPHAN", "foreign-id", collection, raw_id,
                     "<unknown-model>",
                     "doc _id is not prefixed with any model uuid"))
+                continue
+            if not isinstance(raw_id, str):
+                # A doc whose _id is not a string (missing, or a raw
+                # ObjectId/int) cannot be looked up or referenced by the
+                # other checks; report it and skip.
+                findings.append(Finding(
+                    "ORPHAN", "foreign-id", collection, raw_id,
+                    "<no-string-id>",
+                    "doc has no string _id (%r); attributed to model %s "
+                    "only via model-uuid" % (raw_id, uid)))
                 continue
             model = models[uid]
             model.docs.setdefault(collection, {})[raw_id] = doc
@@ -797,6 +806,21 @@ def check_cross_model_relations(models):
                         "for consuming model %s" % consumer_uuid)
 
 
+def relation_counts(relations):
+    """Number of relations per endpoint application name."""
+    counts = collections.Counter()
+    for rdoc in relations.values():
+        seen = set()
+        for ep in rdoc.get("endpoints", []):
+            if not isinstance(ep, dict):
+                continue
+            ep_app = ep.get("ApplicationName", ep.get("applicationname"))
+            if isinstance(ep_app, str) and ep_app not in seen:
+                seen.add(ep_app)
+                counts[ep_app] += 1
+    return counts
+
+
 def check_remote_applications(model):
     """Verify remote application relationcount against actual relations.
 
@@ -811,19 +835,11 @@ def check_remote_applications(model):
     docs = model.docs.get("remoteApplications", {})
     if not docs:
         return
-    relations = model.docs.get("relations", {})
+    counts = relation_counts(model.docs.get("relations", {}))
     for raw_id, doc in docs.items():
         local = strip_prefix(raw_id, model.uuid) or raw_id
         name = doc.get("name", local)
-        actual = 0
-        for rdoc in relations.values():
-            for ep in rdoc.get("endpoints", []):
-                if not isinstance(ep, dict):
-                    continue
-                ep_app = ep.get("ApplicationName", ep.get("applicationname"))
-                if ep_app == name:
-                    actual += 1
-                    break
+        actual = counts.get(name, 0)
         count = doc.get("relationcount")
         if not isinstance(count, int) or count == actual:
             continue
@@ -847,19 +863,11 @@ def check_application_relationcount(model):
     docs = model.docs.get("applications", {})
     if not docs:
         return
-    relations = model.docs.get("relations", {})
+    counts = relation_counts(model.docs.get("relations", {}))
     for raw_id, doc in docs.items():
         local = strip_prefix(raw_id, model.uuid) or raw_id
         name = doc.get("name", local)
-        actual = 0
-        for rdoc in relations.values():
-            for ep in rdoc.get("endpoints", []):
-                if not isinstance(ep, dict):
-                    continue
-                ep_app = ep.get("ApplicationName", ep.get("applicationname"))
-                if ep_app == name:
-                    actual += 1
-                    break
+        actual = counts.get(name, 0)
         count = doc.get("relationcount")
         if not isinstance(count, int) or count == actual:
             continue
@@ -930,8 +938,10 @@ def classify_findings(models, findings):
 
 
 def revno_assert(doc, use_revno):
-    if use_revno and isinstance(doc.get("txn-revno"), int):
-        return {"txn-revno": doc["txn-revno"]}
+    revno = doc.get("txn-revno")
+    if use_revno and isinstance(revno, int) and \
+            not isinstance(revno, bool):
+        return {"txn-revno": revno}
     return "d+"
 
 
@@ -980,32 +990,29 @@ def repair_decisions(model):
     FULL_DOC_KINDS, excluding CRASH docs); ``updated`` holds docs with
     stashed field corrections (excluding removed docs).  This is the
     single source of truth for cleanup op generation and for the
-    auto/manual split in the report.
+    auto/manual split in the report.  Computed once per model and
+    cached, since every report phase calls it.
     """
+    if model.repair_plan is not None:
+        return model.repair_plan
     crash_docs = {
         (finding.collection, finding.doc_id)
         for finding in model.findings if finding.severity == "CRASH"
     }
-    removed = set()
-    for collection, docs in model.docs.items():
-        if collection == "models" or collection == "_cleanup":
-            continue
-        for raw_id in docs:
-            if (collection, raw_id) in crash_docs:
-                continue
-            if any(finding.collection == collection and
-                   finding.doc_id == raw_id and
-                   finding.severity == "ORPHAN" and
-                   finding.kind in FULL_DOC_KINDS
-                   for finding in model.findings):
-                removed.add((collection, raw_id))
+    removed = {
+        (finding.collection, finding.doc_id)
+        for finding in model.findings
+        if finding.severity == "ORPHAN" and
+        finding.kind in FULL_DOC_KINDS
+    } - crash_docs
     updated = set()
     for coll in ("unitstates", "remoteApplications",
                  "applicationOfferConnections", "applications"):
         for raw_id in model.docs.get("_cleanup", {}).get(coll, {}):
             if (coll, raw_id) not in removed:
                 updated.add((coll, raw_id))
-    return crash_docs, removed, updated
+    model.repair_plan = (crash_docs, removed, updated)
+    return model.repair_plan
 
 
 def cleanup_ops(models, use_revno):
@@ -1119,9 +1126,11 @@ def manual_cleanup_ops(models, use_revno):
     relation.go) minus the application lifecycle conditionals: the
     relation doc, its relationscopes and settings, its status doc, its
     relationNetworks, remoteEntities and secretPermissions docs (all
-    keyed by the relation tag), its offer connections, a relationcount
-    decrement and, for Dying applications, a cleanupApplication insert,
-    plus the stale relation-state keys in unitstates.  Documents the
+    keyed by the relation tag), its offer connections, relationcount
+    decrements for the local and remote endpoint applications (mirroring
+    removeLocalEndpointOps and removeRemoteEndpointOps) and, for Dying
+    applications, a cleanupApplication insert, plus the stale
+    relation-state keys in unitstates.  Documents the
     regular --cleanup ops would remove or update are left to those
     ops.  The consuming model's half of a cross-model relation is not
     visible in this dump and must be cleaned separately.
@@ -1218,40 +1227,61 @@ def manual_cleanup_ops(models, use_revno):
                 if not isinstance(ep, dict):
                     continue
                 ep_app = relation_endpoint_app(ep)
-                if not isinstance(ep_app, str) or \
-                        ep_app not in model.applications or \
-                        ep_app in seen_apps:
+                if not isinstance(ep_app, str) or ep_app in seen_apps:
                     continue
-                seen_apps.add(ep_app)
-                app_raw = model.uuid + ":" + ep_app
-                app_doc = model.docs.get("applications", {}).get(app_raw)
-                if app_doc is None or \
-                        ("applications", app_raw) in touched:
-                    continue
-                # Mirror removeLocalEndpointOps: decrement the local
-                # application's relationcount (state/relation.go) so
-                # juju remove-application's len(rels) == RelationCount
-                # assertion is not broken by the teardown.
-                ops.append({
-                    "c": "applications",
-                    "d": app_raw,
-                    "a": revno_assert(app_doc, use_revno),
-                    "u": {"$inc": {"relationcount": -1}},
-                })
-                if isinstance(app_doc.get("life"), int) and \
-                        app_doc["life"] != 0:
-                    # Mirror the cleanupApplication op Juju queues when
-                    # a Dying application loses its last relation
-                    # (state/relation.go removeLocalEndpointOps).
+                if ep_app in model.applications:
+                    seen_apps.add(ep_app)
+                    app_raw = model.uuid + ":" + ep_app
+                    app_doc = model.docs.get("applications", {}).get(app_raw)
+                    if app_doc is None or \
+                            ("applications", app_raw) in touched:
+                        continue
+                    # Mirror removeLocalEndpointOps: decrement the local
+                    # application's relationcount (state/relation.go) so
+                    # juju remove-application's len(rels) == RelationCount
+                    # assertion is not broken by the teardown.
                     ops.append({
-                        "c": "cleanups",
-                        "d": "%s:%s" % (model.uuid, uuid.uuid4().hex),
-                        "a": "d+",
-                        "i": {
-                            "kind": "application",
-                            "prefix": ep_app,
-                            "model-uuid": model.uuid,
-                        },
+                        "c": "applications",
+                        "d": app_raw,
+                        "a": revno_assert(app_doc, use_revno),
+                        "u": {"$inc": {"relationcount": -1}},
+                    })
+                    if isinstance(app_doc.get("life"), int) and \
+                            app_doc["life"] != 0:
+                        # Mirror the cleanupApplication op Juju queues
+                        # when a Dying application loses its last
+                        # relation (state/relation.go
+                        # removeLocalEndpointOps).
+                        ops.append({
+                            "c": "cleanups",
+                            "d": "%s:%s" % (model.uuid,
+                                            uuid.uuid4().hex),
+                            "a": "d-",
+                            "i": {
+                                "kind": "application",
+                                "prefix": ep_app,
+                                "model-uuid": model.uuid,
+                                "args": [False, False],
+                            },
+                        })
+                elif ep_app in model.remote_apps:
+                    # Mirror removeRemoteEndpointOps
+                    # (state/relation.go): decrement the remote
+                    # application's relationcount too, so a surviving
+                    # apps's refcount agrees with the relations that
+                    # remain.
+                    seen_apps.add(ep_app)
+                    proxy_raw = model.uuid + ":" + ep_app
+                    proxy_doc = model.docs.get(
+                        "remoteApplications", {}).get(proxy_raw)
+                    if proxy_doc is None or \
+                            ("remoteApplications", proxy_raw) in touched:
+                        continue
+                    ops.append({
+                        "c": "remoteApplications",
+                        "d": proxy_raw,
+                        "a": revno_assert(proxy_doc, use_revno),
+                        "u": {"$inc": {"relationcount": -1}},
                     })
             for raw_id, udoc in model.docs.get("unitstates", {}).items():
                 if ("unitstates", raw_id) in touched:
@@ -1298,10 +1328,13 @@ def write_op_groups(groups, path, chunk_size):
     def chunk_path(base, index):
         if index == 0:
             return base
-        stem, ext = base.rsplit(".", 1) if "." in base else (base, "")
+        dirname, basename = os.path.split(base)
+        stem, ext = os.path.splitext(basename)
         if ext:
-            return "%s-%d.%s" % (stem, index, ext)
-        return "%s-%d" % (stem, index)
+            name = "%s-%d%s" % (stem, index, ext)
+        else:
+            name = "%s-%d" % (stem, index)
+        return os.path.join(dirname, name) if dirname else name
 
     for group in groups:
         if chunk and len(chunk) + len(group) > chunk_size:
@@ -1324,6 +1357,8 @@ def write_op_groups(groups, path, chunk_size):
 
 
 def strip_uuid_prefix(raw_id, uuids):
+    if not isinstance(raw_id, str):
+        return raw_id
     for uid in uuids:
         prefix = uid + ":"
         if raw_id.startswith(prefix):
@@ -1539,12 +1574,13 @@ def main(argv=None):
                         help="do not assert txn-revno in cleanup ops")
     args = parser.parse_args(argv)
 
+    loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
     try:
         if args.dump:
             with open(args.dump) as f:
-                data = yaml.safe_load(f)
+                data = yaml.load(f, Loader=loader)
         else:
-            data = yaml.safe_load(sys.stdin)
+            data = yaml.load(sys.stdin, Loader=loader)
     except IOError as e:
         parser.error("cannot read dump: %s" % e)
         return 2

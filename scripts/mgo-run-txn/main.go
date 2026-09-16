@@ -94,7 +94,7 @@ Where txn is a JSON encoded list of transaction operations taking the form:
 	flags.StringVar(&args.TLSCAFile, "ca-file", defaultSnapCAFile, "CA certificate file (PEM) used to verify the server")
 	flags.StringVar(&args.TLSCertFile, "cert-file", "", "client certificate and key file (PEM) to present to the server")
 	flags.StringVar(&args.TLSServerName, "server-name", defaultArgs.TLSServerName, "TLS server name to verify against")
-	flags.BoolVar(&args.TLSInsecure, "tls-insecure", false, "skip server certificate verification (default when no --ca-file is given)")
+	flags.BoolVar(&args.TLSInsecure, "tls-insecure", false, "skip server certificate verification")
 	flags.BoolVar(&args.Legacy, "legacy", false, "connect without the juju-db 4.4.30+ client certificate (for older mongos)")
 	flags.BoolVar(&args.Verbose, "v", defaultArgs.Verbose, "print transaction before running it")
 	return args
@@ -117,48 +117,73 @@ func buildTLSConfig(args *Args) (*tls.Config, error) {
 	if useSnap {
 		// Running on a controller with the juju-db snap: present the
 		// shared server certificate so the 4.4.30+ mutual-TLS
-		// requirement is satisfied out of the box.
-		if _, err := os.Stat(defaultSnapCAFile); err != nil {
-			return nil, fmt.Errorf("default CA file %q not found (unreadable without root?)%s", defaultSnapCAFile, rootHint)
-		}
-		if _, err := os.Stat(defaultSnapCertFile); err != nil {
-			return nil, fmt.Errorf("default client certificate file %q not found (unreadable without root?)%s", defaultSnapCertFile, rootHint)
+		// requirement is satisfied out of the box.  With --tls-insecure
+		// the CA file is not needed, so the snap files are only
+		// best-effort there.
+		if !args.TLSInsecure {
+			if _, err := os.Stat(defaultSnapCAFile); err != nil {
+				return nil, fmt.Errorf("default CA file %q not found (unreadable without root?)%s", defaultSnapCAFile, rootHint)
+			}
+			if _, err := os.Stat(defaultSnapCertFile); err != nil {
+				return nil, fmt.Errorf("default client certificate file %q not found (unreadable without root?)%s", defaultSnapCertFile, rootHint)
+			}
 		}
 		certFile = defaultSnapCertFile
 	}
-	pem, err := os.ReadFile(caFile)
-	if err != nil {
-		return nil, fmt.Errorf("reading CA file: %v%s", err, rootHint)
-	}
-	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM(pem) {
-		return nil, fmt.Errorf("no certificates found in CA file %q", caFile)
-	}
 	cfg := &tls.Config{
-		RootCAs:    pool,
 		ServerName: args.TLSServerName,
+	}
+	if args.TLSInsecure {
+		cfg.InsecureSkipVerify = true
+	} else {
+		pem, err := os.ReadFile(caFile)
+		if err != nil {
+			return nil, fmt.Errorf("reading CA file: %w%s", err, rootHint)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(pem) {
+			return nil, fmt.Errorf("no certificates found in CA file %q", caFile)
+		}
+		cfg.RootCAs = pool
 	}
 	if certFile != "" {
 		srvPEM, err := os.ReadFile(certFile)
 		if err != nil {
-			return nil, fmt.Errorf("reading certificate file: %v%s", err, rootHint)
+			if args.TLSInsecure && useSnap && certFile == defaultSnapCertFile {
+				// --tls-insecure renders the client certificate
+				// optional; servers that do not require client
+				// certificates still accept the connection.
+				return cfg, nil
+			}
+			return nil, fmt.Errorf("reading certificate file: %w%s", err, rootHint)
 		}
 		cert, err := tls.X509KeyPair(srvPEM, srvPEM)
 		if err != nil {
-			return nil, fmt.Errorf("parsing certificate file: %v", err)
+			return nil, fmt.Errorf("parsing certificate file: %w", err)
 		}
 		cfg.Certificates = []tls.Certificate{cert}
 	}
 	return cfg, nil
 }
 
+const dialTimeout = 10 * time.Second
+
 func dialTLS(addr *mgo.ServerAddr, cfg *tls.Config) (net.Conn, error) {
-	c, err := net.Dial("tcp", addr.String())
+	c, err := net.DialTimeout("tcp", addr.String(), dialTimeout)
 	if err != nil {
 		return nil, err
 	}
 	cc := tls.Client(c, cfg)
+	if err := cc.SetDeadline(time.Now().Add(dialTimeout)); err != nil {
+		cc.Close()
+		return nil, err
+	}
 	if err := cc.Handshake(); err != nil {
+		cc.Close()
+		return nil, err
+	}
+	if err := cc.SetDeadline(time.Time{}); err != nil {
+		cc.Close()
 		return nil, err
 	}
 	return cc, nil
@@ -172,21 +197,24 @@ const agentConfGlob = "/var/lib/juju/agents/machine-*/agent.conf"
 // password) from a local juju machine agent.conf, so the tool can run on
 // a controller without requiring --user/--password. The file is
 // root-owned; run the tool as root (or with `sudo -n`) to read it.
-func readAgentConf() (user, password string, err error) {
-	matches, gerr := filepath.Glob(agentConfGlob)
-	if gerr != nil {
-		return "", "", gerr
+// Returns the credentials of the first file that yields both fields;
+// user and password are never mixed across different files.
+func readAgentConf() (string, string, error) {
+	matches, err := filepath.Glob(agentConfGlob)
+	if err != nil {
+		return "", "", err
 	}
 	if len(matches) == 0 {
 		return "", "", fmt.Errorf("no agent.conf files match %q", agentConfGlob)
 	}
 	var readErr error
 	for _, path := range matches {
-		data, rerr := os.ReadFile(path)
-		if rerr != nil {
-			readErr = rerr
+		data, err := os.ReadFile(path)
+		if err != nil {
+			readErr = err
 			continue
 		}
+		var user, password string
 		for _, line := range strings.Split(string(data), "\n") {
 			line = strings.TrimSpace(line)
 			switch {
@@ -207,11 +235,7 @@ func readAgentConf() (user, password string, err error) {
 	if readErr == nil {
 		readErr = fmt.Errorf("no tag/statepassword found in %v", matches)
 	}
-	if user == "" && password == "" {
-		return "", "", readErr
-	}
-	// Partial parse: return what we have, the caller will fill the rest.
-	return user, password, nil
+	return "", "", readErr
 }
 
 func main() {
@@ -244,16 +268,10 @@ func main() {
 		fmt.Printf("Parsed transaction:\n%s\n", pretty.Sprint(ops))
 	}
 
-	tlsConfig, err := buildTLSConfig(args)
-	if err != nil {
-		fmt.Printf("error building TLS config:\n%v\n", err)
-		os.Exit(1)
-	}
-
 	if args.Username == "" || args.Password == "" {
-		user, pass, aerr := readAgentConf()
-		if aerr != nil {
-			fmt.Printf("error reading machine agent.conf for mongo credentials: %v\n", aerr)
+		user, pass, err := readAgentConf()
+		if err != nil {
+			fmt.Printf("error reading machine agent.conf for mongo credentials: %v\n", err)
 			fmt.Printf("the agent.conf is root-owned; run as root or with `sudo -n`, or pass --user and --password explicitly\n")
 			os.Exit(1)
 		}
@@ -280,9 +298,13 @@ func main() {
 		DialServer: nil, // func(addr *ServerAddr) (net.Conn, error)
 	}
 	if args.TLS {
-		server := tlsConfig
+		tlsConfig, err := buildTLSConfig(args)
+		if err != nil {
+			fmt.Printf("error building TLS config:\n%v\n", err)
+			os.Exit(1)
+		}
 		dialInfo.DialServer = func(addr *mgo.ServerAddr) (net.Conn, error) {
-			return dialTLS(addr, server)
+			return dialTLS(addr, tlsConfig)
 		}
 	}
 	session, err := mgo.DialWithInfo(dialInfo)
