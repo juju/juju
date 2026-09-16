@@ -130,6 +130,16 @@ func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info De
 		return errors.Errorf("creating CAAS controller application: %w", err)
 	}
 
+	// Expose the controller application so that the ports opened by the
+	// controller charm are reachable. Operators can subsequently narrow
+	// access with "juju expose controller --to-cidrs".
+	if err := b.applicationService.MergeExposeSettings(ctx,
+		bootstrap.ControllerApplicationName,
+		controllerExposedEndpoints(),
+	); err != nil {
+		return errors.Errorf("exposing CAAS controller application: %w", err)
+	}
+
 	return nil
 }
 

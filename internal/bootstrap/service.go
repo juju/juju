@@ -45,6 +45,13 @@ type IAASApplicationService interface {
 		context.Context, string, charm.Charm, corecharm.Origin,
 		applicationservice.AddApplicationArgs, ...applicationservice.AddIAASUnitArg,
 	) (coreapplication.UUID, error)
+
+	// MergeExposeSettings marks the application as exposed and merges the
+	// provided expose settings into the current set of settings.
+	MergeExposeSettings(
+		ctx context.Context, appName string,
+		exposedEndpoints map[string]application.ExposedEndpoint,
+	) error
 }
 
 // CAASApplicationService instances create an IAAS application.
@@ -55,6 +62,13 @@ type CAASApplicationService interface {
 		context.Context, string, charm.Charm, corecharm.Origin,
 		applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg,
 	) (coreapplication.UUID, error)
+
+	// MergeExposeSettings marks the application as exposed and merges the
+	// provided expose settings into the current set of settings.
+	MergeExposeSettings(
+		ctx context.Context, appName string,
+		exposedEndpoints map[string]application.ExposedEndpoint,
+	) error
 
 	// UpdateApplication updates the application with the given name.
 	UpdateCAASUnit(ctx context.Context, unitName unit.Name, params applicationservice.UpdateCAASUnitParams) error

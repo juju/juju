@@ -334,6 +334,11 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 			Nonce: new(agent.BootstrapNonce),
 		},
 	)
+	s.iaasApplicationService.EXPECT().MergeExposeSettings(
+		gomock.Any(),
+		bootstrap.ControllerApplicationName,
+		controllerExposedEndpoints(),
+	)
 
 	deployer, err := NewIAASDeployer(IAASDeployerConfig{
 		BaseDeployerConfig: cfg,

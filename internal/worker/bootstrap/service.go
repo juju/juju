@@ -87,6 +87,13 @@ type ApplicationService interface {
 	// UpdateK8sService updates the cloud service for the specified application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 	UpdateK8sService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
+
+	// MergeExposeSettings marks the application as exposed and merges the
+	// provided expose settings into the current set of settings.
+	MergeExposeSettings(
+		ctx context.Context, appName string,
+		exposedEndpoints map[string]application.ExposedEndpoint,
+	) error
 }
 
 // BakeryConfigService describes the service used to initialise the

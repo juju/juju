@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/retry"
 
 	"github.com/juju/juju/api"
@@ -29,6 +30,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -485,6 +487,12 @@ func (b *baseDeployer) createCharmSettings() (charm.Config, error) {
 	}
 	cfg["identity-provider-url"] = b.controllerConfig.IdentityURL()
 
+	// The controller's externally-reachable ports (API, SSH server and the
+	// optional autocert port) are a property of the controller charm (jujud is
+	// the charm's workload). They are therefore owned by the charm config and
+	// sourced from the charm's own defaults; the deployer deliberately does not
+	// seed them here.
+
 	// Attempt to set the controller URL on to the controller charm config.
 	addr := b.controllerConfig.PublicDNSAddress()
 	if addr == "" {
@@ -496,6 +504,22 @@ func (b *baseDeployer) createCharmSettings() (charm.Config, error) {
 		cfg["controller-url"] = api.ControllerAPIURL(addr, b.controllerConfig.APIPort())
 	}
 	return cfg, nil
+}
+
+// controllerExposedEndpoints returns the expose settings used to expose the
+// controller application at bootstrap. The controller's ports (opened by the
+// charm) must be reachable by default, so the wildcard endpoint is exposed to
+// all networks. Operators can subsequently narrow access with
+// "juju expose controller --to-cidrs".
+func controllerExposedEndpoints() map[string]domainapplication.ExposedEndpoint {
+	return map[string]domainapplication.ExposedEndpoint{
+		network.WildcardEndpoint: {
+			ExposeToCIDRs: set.NewStrings(
+				firewall.AllNetworksIPV4CIDR,
+				firewall.AllNetworksIPV6CIDR,
+			),
+		},
+	}
 }
 
 func (b *baseDeployer) controllerDownloadInfo(schema string, info *corecharm.DownloadInfo) (*applicationcharm.DownloadInfo, error) {

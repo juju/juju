@@ -113,6 +113,11 @@ func (s *deployerCAASSuite) TestAddCAASControllerApplication(c *tc.C) {
 		},
 		applicationservice.AddUnitArg{},
 	)
+	s.caasApplicationService.EXPECT().MergeExposeSettings(
+		gomock.Any(),
+		bootstrap.ControllerApplicationName,
+		controllerExposedEndpoints(),
+	)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 
