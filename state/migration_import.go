@@ -196,6 +196,9 @@ func (ctrl *Controller) Import(model description.Model) (_ *State, err error) {
 	if err := restore.relations(); err != nil {
 		return nil, errors.Annotate(err, "relations")
 	}
+	if err := restore.offerConnections(); err != nil {
+		return nil, errors.Annotate(err, "offerconnections")
+	}
 	if err := restore.remoteEntities(); err != nil {
 		return nil, errors.Annotate(err, "remoteentitites")
 	}
@@ -1663,6 +1666,8 @@ func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *
 		Bindings:        app.Bindings(),
 		Macaroon:        app.Macaroon(),
 		Version:         app.ConsumeVersion(),
+		Life:            Alive,
+		RelationCount:   i.relationCount(app.Name()),
 	}
 	if !doc.IsConsumerProxy {
 		doc.OfferUUID = app.OfferUUID()
@@ -1823,6 +1828,26 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 		doc.UnitCount += ep.UnitCount()
 	}
 	return doc
+}
+
+func (i *importer) offerConnections() error {
+	i.logger.Debugf("importing offer connections")
+	migration := &ImportStateMigration{
+		src: i.model,
+		dst: i.st.db(),
+	}
+	migration.Add(func() error {
+		m := ImportOfferConnections{}
+		return m.Execute(stateModelNamspaceShim{
+			Model: migration.src,
+			st:    i.st,
+		}, migration.dst)
+	})
+	if err := migration.Run(); err != nil {
+		return errors.Trace(err)
+	}
+	i.logger.Debugf("importing offer connections succeeded")
+	return nil
 }
 
 func (i *importer) remoteEntities() error {

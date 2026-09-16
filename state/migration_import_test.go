@@ -2787,6 +2787,16 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	err = remoteApp.SetStatus(status.StatusInfo{Status: status.Active})
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Give the remote application a relation so the imported record's
+	// relationcount can be verified.
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	remoteEP, err := remoteApp.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(remoteEP, wordpressEP)
+	c.Assert(err, jc.ErrorIsNil)
+
 	service := state.NewExternalControllers(s.State)
 	err = service.Save(crossmodel.ControllerInfo{
 		ControllerTag: s.Model.ControllerTag(),
@@ -2813,6 +2823,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 
 	remoteApplication := remoteApplications[0]
 	c.Assert(remoteApplication.Name(), gc.Equals, "gravy-rainbow")
+	c.Assert(remoteApplication.Life(), gc.Equals, state.Alive)
 	c.Assert(remoteApplication.ConsumeVersion(), gc.Equals, 1)
 
 	url, _ := remoteApplication.URL()
@@ -2825,6 +2836,11 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 
 	s.assertRemoteApplicationEndpoints(c, remoteApp, remoteApplication)
 	s.assertRemoteApplicationSpaces(c, remoteApp, remoteApplication)
+
+	rels, err := remoteApplication.Relations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rels, gc.HasLen, 1)
+	c.Assert(remoteApplication.RelationCount(), gc.Equals, 1)
 }
 
 func (s *MigrationImportSuite) TestRemoteApplicationsConsumerProxy(c *gc.C) {
@@ -3607,4 +3623,62 @@ func (m swapModel) Applications() []description.Application {
 	m.c.Assert(len(values), gc.Equals, 2)
 	values[0], values[1] = values[1], values[0]
 	return values
+}
+
+func (s *MigrationImportSuite) TestOfferConnections(c *gc.C) {
+	ch := s.AddTestingCharm(c, "wordpress")
+	wordpress := s.AddTestingApplication(c, "wordpress", ch)
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+
+	rapp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "remote-consumer",
+		SourceModel:     s.Model.ModelTag(),
+		OfferUUID:       "offer-uuid",
+		IsConsumerProxy: true,
+		Token:           "consumer-token",
+		ConsumeVersion:  1,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	remoteEP, err := rapp.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(remoteEP, wordpressEP)
+	c.Assert(err, jc.ErrorIsNil)
+	stConn, err := s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		SourceModelUUID: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+		OfferUUID:       "offer-uuid",
+		Username:        "fred",
+		RelationId:      rel.Id(),
+		RelationKey:     rel.String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	out, err := s.State.Export(map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.OfferConnections(), gc.HasLen, 1)
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+	newSt, err := s.Controller.Import(in)
+	if err == nil {
+		defer func() { _ = newSt.Close() }()
+	}
+	c.Assert(err, jc.ErrorIsNil)
+
+	conns, err := newSt.AllOfferConnections()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conns, gc.HasLen, 1)
+	conn := conns[0]
+	c.Assert(conn.OfferUUID(), gc.Equals, stConn.OfferUUID())
+	c.Assert(conn.UserName(), gc.Equals, stConn.UserName())
+	c.Assert(conn.RelationId(), gc.Equals, stConn.RelationId())
+	c.Assert(conn.RelationKey(), gc.Equals, stConn.RelationKey())
+	c.Assert(conn.SourceModelUUID(), gc.Equals, stConn.SourceModelUUID())
 }

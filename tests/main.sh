@@ -49,6 +49,7 @@ TEST_NAMES="agents \
             charmhub \
             cli \
             cloud_azure \
+            cmr \
             constraints \
             controller \
             coslite \
