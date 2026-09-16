@@ -420,6 +420,44 @@ func (f OfferFilter) Empty() bool {
 		len(f.OfferUUIDs) == 0
 }
 
+// UpdateOfferPermissionArgs are the arguments for updating offer permissions.
+type UpdateOfferPermissionArgs struct {
+	// Username is the name of the user whose permission is being changed.
+	Username user.Name
+
+	// OfferUUID is the UUID of the offer.
+	OfferUUID string
+
+	// Access is the target access level for the permission.
+	Access permission.Access
+
+	// Change indicates whether to grant or revoke.
+	Change permission.AccessChange
+}
+
+func (a UpdateOfferPermissionArgs) Validate() error {
+	if a.Username.IsZero() {
+		return errors.Errorf("empty username %w", coreerrors.NotValid)
+	}
+	if a.OfferUUID == "" {
+		return errors.Errorf("empty offer UUID %w", coreerrors.NotValid)
+	}
+	if a.Change != permission.Grant && a.Change != permission.Revoke {
+		return errors.Errorf("change %q %w", a.Change, coreerrors.NotValid)
+	}
+	spec := permission.AccessSpec{
+		Target: permission.ID{
+			ObjectType: permission.Offer,
+			Key:        a.OfferUUID,
+		},
+		Access: a.Access,
+	}
+	if err := spec.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	return nil
+}
+
 // EmptyModuloEndpoints does the same as Empty, but not including endpoints.
 func (f OfferFilter) EmptyModuloEndpoints() bool {
 	return f.OfferName == "" &&

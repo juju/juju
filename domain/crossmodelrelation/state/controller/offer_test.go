@@ -14,7 +14,9 @@ import (
 
 	"github.com/juju/juju/core/offer"
 	corepermission "github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -319,4 +321,239 @@ func (s *controllerOfferSuite) readPermissions(c *tc.C) []permission {
 		foundPermissions = append(foundPermissions, p)
 	}
 	return foundPermissions
+}
+
+// setupUpdateOfferPermission seeds an admin user (used as the creator of
+// all other users) and a target user, returning the target user's name
+// and UUID.
+func (s *controllerOfferSuite) setupUpdateOfferPermission(c *tc.C) (coreuser.Name, string) {
+	ownerUUID := uuid.MustNewUUID()
+	s.ensureUser(c, ownerUUID.String(), "admin", ownerUUID.String(), false, false, false)
+
+	userName := usertesting.GenNewName(c, "fred")
+	userUUID := uuid.MustNewUUID().String()
+	s.ensureUser(c, userUUID, userName.Name(), ownerUUID.String(), false, false, false)
+	return userName, userUUID
+}
+
+func (s *controllerOfferSuite) TestUpdateOfferPermissionGrantNewUser(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange
+	userName, userUUID := s.setupUpdateOfferPermission(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.ConsumeAccess,
+		Change:    corepermission.Grant,
+	}
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), uuid.MustNewUUID().String(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	obtained := s.readPermissions(c)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].UUID, tc.Not(tc.Equals), "")
+	c.Check(obtained[0].GrantTo, tc.Equals, userUUID)
+	c.Check(obtained[0].GrantOn, tc.Equals, offerUUID.String())
+	c.Check(obtained[0].AccessType, tc.Equals, corepermission.ConsumeAccess.String())
+	c.Check(obtained[0].ObjectType, tc.Equals, corepermission.Offer.String())
+}
+
+// TestUpdateOfferPermissionGrantNewUserUUID tests that the permission
+// UUID supplied by the service layer is persisted when a new permission
+// is inserted.
+func (s *controllerOfferSuite) TestUpdateOfferPermissionGrantNewUserUUID(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange
+	userName, _ := s.setupUpdateOfferPermission(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.ConsumeAccess,
+		Change:    corepermission.Grant,
+	}
+	permissionUUID := uuid.MustNewUUID().String()
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), permissionUUID, args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	obtained := s.readPermissions(c)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].UUID, tc.Equals, permissionUUID)
+}
+
+func (s *controllerOfferSuite) TestUpdateOfferPermissionGrantUpgrade(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange: the user already has read access on the offer.
+	userName, userUUID := s.setupUpdateOfferPermission(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	s.addOfferPermission(c, userUUID, offerUUID.String(), 0 /* read */)
+
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.ConsumeAccess,
+		Change:    corepermission.Grant,
+	}
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), uuid.MustNewUUID().String(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	obtained := s.readPermissions(c)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].AccessType, tc.Equals, corepermission.ConsumeAccess.String())
+}
+
+func (s *controllerOfferSuite) TestUpdateOfferPermissionGrantEqual(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange: the user already has consume access on the offer.
+	userName, userUUID := s.setupUpdateOfferPermission(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	s.addOfferPermission(c, userUUID, offerUUID.String(), 2 /* consume */)
+
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.ConsumeAccess,
+		Change:    corepermission.Grant,
+	}
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), uuid.MustNewUUID().String(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, accesserrors.PermissionAccessGreater)
+	obtained := s.readPermissions(c)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].AccessType, tc.Equals, corepermission.ConsumeAccess.String())
+}
+
+func (s *controllerOfferSuite) TestUpdateOfferPermissionGrantLower(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange: the user already has consume access on the offer.
+	userName, userUUID := s.setupUpdateOfferPermission(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	s.addOfferPermission(c, userUUID, offerUUID.String(), 2 /* consume */)
+
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.ReadAccess,
+		Change:    corepermission.Grant,
+	}
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), uuid.MustNewUUID().String(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, accesserrors.PermissionAccessGreater)
+	obtained := s.readPermissions(c)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].AccessType, tc.Equals, corepermission.ConsumeAccess.String())
+}
+
+func (s *controllerOfferSuite) TestUpdateOfferPermissionRevokeConsume(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange: the user has consume access on the offer.
+	userName, userUUID := s.setupUpdateOfferPermission(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	s.addOfferPermission(c, userUUID, offerUUID.String(), 2 /* consume */)
+
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.ConsumeAccess,
+		Change:    corepermission.Revoke,
+	}
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), uuid.MustNewUUID().String(), args)
+
+	// Assert: revoking consume downgrades the user to read.
+	c.Assert(err, tc.ErrorIsNil)
+	obtained := s.readPermissions(c)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].AccessType, tc.Equals, corepermission.ReadAccess.String())
+}
+
+func (s *controllerOfferSuite) TestUpdateOfferPermissionRevokeAdmin(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange: the user has admin access on the offer.
+	userName, userUUID := s.setupUpdateOfferPermission(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	s.addOfferPermission(c, userUUID, offerUUID.String(), 3 /* admin */)
+
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.AdminAccess,
+		Change:    corepermission.Revoke,
+	}
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), uuid.MustNewUUID().String(), args)
+
+	// Assert: revoking admin downgrades the user to consume.
+	c.Assert(err, tc.ErrorIsNil)
+	obtained := s.readPermissions(c)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].AccessType, tc.Equals, corepermission.ConsumeAccess.String())
+}
+
+func (s *controllerOfferSuite) TestUpdateOfferPermissionRevokeRead(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange: the user has read access on the offer.
+	userName, userUUID := s.setupUpdateOfferPermission(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	s.addOfferPermission(c, userUUID, offerUUID.String(), 0 /* read */)
+
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.ReadAccess,
+		Change:    corepermission.Revoke,
+	}
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), uuid.MustNewUUID().String(), args)
+
+	// Assert: revoking read removes the permission entirely.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.readPermissions(c), tc.HasLen, 0)
+}
+
+func (s *controllerOfferSuite) TestUpdateOfferPermissionUserNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange: no users are seeded.
+	userName := usertesting.GenNewName(c, "ghost")
+	offerUUID := tc.Must(c, offer.NewUUID)
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.ConsumeAccess,
+		Change:    corepermission.Grant,
+	}
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), uuid.MustNewUUID().String(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `looking up user "ghost": "ghost": user not found`)
 }

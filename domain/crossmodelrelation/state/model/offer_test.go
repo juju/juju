@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/offer"
+	corerelation "github.com/juju/juju/core/relation"
 	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
@@ -1369,4 +1370,151 @@ func (s *modelOfferSuite) TestValidateApplicationAndEndpointsForOfferMixedScope(
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `can only offer endpoints with global scope, provided scope "container"`)
+}
+
+// addSuspensionConnection adds an offer connection for the given username
+// against the given offer, backed by a new relation. The relation starts
+// out not suspended. It returns the relation UUID.
+func (s *modelOfferSuite) addSuspensionConnection(
+	c *tc.C, offerUUID string, username string,
+) corerelation.UUID {
+	relUUID := s.addRelation(c)
+	s.query(c, `
+INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
+VALUES (?, ?, ?, ?)`, internaluuid.MustNewUUID().String(), offerUUID, relUUID.String(), username)
+	return relUUID
+}
+
+// readRelationSuspension returns the suspended flag and suspension reason
+// of the given relation.
+func (s *modelOfferSuite) readRelationSuspension(c *tc.C, relUUID string) (bool, string) {
+	c.Helper()
+	var (
+		suspended bool
+		reason    sql.NullString
+	)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT suspended, suspended_reason
+FROM   relation
+WHERE  uuid = ?
+`, relUUID).Scan(&suspended, &reason)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	if reason.Valid {
+		return suspended, reason.String
+	}
+	return suspended, ""
+}
+
+// assertRelationSuspendStatus asserts the relation has a status of
+// suspending with the given message.
+func (s *modelOfferSuite) assertRelationSuspendStatus(c *tc.C, relUUID, message string) {
+	c.Helper()
+	var (
+		statusID int
+		gotMsg   sql.NullString
+		updated  sql.NullTime
+	)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT relation_status_type_id, message, updated_at
+FROM   relation_status
+WHERE  relation_uuid = ?
+`, relUUID).Scan(&statusID, &gotMsg, &updated)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	expectedStatusID := tc.Must1(c, domainstatus.EncodeRelationStatus,
+		domainstatus.RelationStatusTypeSuspending)
+	c.Check(statusID, tc.Equals, expectedStatusID)
+	c.Check(gotMsg.String, tc.Equals, message)
+	c.Check(updated.Valid, tc.IsTrue)
+}
+
+// assertNoRelationStatus asserts the relation has no status row.
+func (s *modelOfferSuite) assertNoRelationStatus(c *tc.C, relUUID string) {
+	c.Helper()
+	var count int
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM   relation_status
+WHERE  relation_uuid = ?
+`, relUUID).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+func (s *modelOfferSuite) TestSuspendOfferConnectionsForUser(c *tc.C) {
+	// Arrange
+	offerUUID := s.addOffer(c, "test-offer", nil).String()
+
+	// simon's live relation against the offer, with an existing
+	// status row that must be overwritten.
+	relLive := s.addSuspensionConnection(c, offerUUID, "simon")
+	s.query(c, `
+INSERT INTO relation_status (relation_uuid, relation_status_type_id, message, updated_at)
+VALUES (?, '1', 'joined', '2025-06-15T10:30:00Z')`, relLive.String())
+
+	// simon's relation that is already suspended, it must be skipped.
+	relAlready := s.addSuspensionConnection(c, offerUUID, "simon")
+	s.query(c, `
+UPDATE relation SET suspended = TRUE, suspended_reason = 'previous' WHERE uuid = ?`,
+		relAlready.String())
+
+	// another user's relation against the same offer, it must be left
+	// untouched.
+	relOtherUser := s.addSuspensionConnection(c, offerUUID, "other")
+
+	// simon's relation against another offer, it must be left
+	// untouched.
+	otherOfferUUID := s.addOffer(c, "other-offer", nil).String()
+	relOtherOffer := s.addSuspensionConnection(c, otherOfferUUID, "simon")
+
+	// Act
+	err := s.state.SuspendOfferConnectionsForUser(
+		c.Context(), offerUUID, "simon", "offer access revoked",
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	suspended, reason := s.readRelationSuspension(c, relLive.String())
+	c.Check(suspended, tc.IsTrue)
+	c.Check(reason, tc.Equals, "offer access revoked")
+	s.assertRelationSuspendStatus(c, relLive.String(), "offer access revoked")
+
+	suspended, reason = s.readRelationSuspension(c, relAlready.String())
+	c.Check(suspended, tc.IsTrue)
+	c.Check(reason, tc.Equals, "previous")
+	s.assertNoRelationStatus(c, relAlready.String())
+
+	suspended, reason = s.readRelationSuspension(c, relOtherUser.String())
+	c.Check(suspended, tc.IsFalse)
+	c.Check(reason, tc.Equals, "")
+	s.assertNoRelationStatus(c, relOtherUser.String())
+
+	suspended, reason = s.readRelationSuspension(c, relOtherOffer.String())
+	c.Check(suspended, tc.IsFalse)
+	c.Check(reason, tc.Equals, "")
+	s.assertNoRelationStatus(c, relOtherOffer.String())
+}
+
+func (s *modelOfferSuite) TestSuspendOfferConnectionsForUserNoConnections(c *tc.C) {
+	// Arrange: an offer with no connections.
+	offerUUID := s.addOffer(c, "test-offer", nil).String()
+	relUUID := s.addRelation(c)
+
+	// Act
+	err := s.state.SuspendOfferConnectionsForUser(
+		c.Context(), offerUUID, "simon", "offer access revoked",
+	)
+
+	// Assert: no error and the relation is left untouched.
+	c.Assert(err, tc.ErrorIsNil)
+	suspended, reason := s.readRelationSuspension(c, relUUID.String())
+	c.Check(suspended, tc.IsFalse)
+	c.Check(reason, tc.Equals, "")
 }
