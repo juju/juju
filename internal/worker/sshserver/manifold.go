@@ -322,16 +322,14 @@ func (s sshService) HasSSHAccessToModel(ctx context.Context, username string, de
 	return domainServices.Access().HasSSHAccessToModel(ctx, name, destination.ModelUUID(), s.controllerUUID)
 }
 
-// PublicKeyInModel reports whether the given public key is registered for the
-// user on the model identified by the destination. Keys are managed per model,
-// so a key that was accepted at authentication time may not be associated with
-// the model the user is trying to reach.
+// PublicKeyInModel reports whether the given public key is authorized for the
+// user in the model identified by the destination.
 func (s sshService) PublicKeyInModel(ctx context.Context, username string, key gossh.PublicKey, destination virtualhostname.Info) (bool, error) {
-	sshService, err := s.getSSHService(ctx, s.domainServicesGetter, destination.ModelUUID())
+	name, err := user.NewName(username)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return sshService.PublicKeyInModel(ctx, username, key)
+	return s.controllerSSHService.PublicKeyInModel(ctx, destination.ModelUUID(), name, key)
 }
 
 // ResolveK8sExecInfo resolves the Kubernetes namespace and pod name for a destination.

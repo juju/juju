@@ -26,10 +26,11 @@ type MockState struct {
 
 // MockStateMockRecorder is the mock recorder for MockState.
 type MockStateMockRecorder struct {
-	mock                             *MockState
-	getPublicKeysForUserExpects      []*gomock.Call2_2[context.Context, user.Name, []ssh.PublicKey, error]
-	getSSHServerHostKeyExpects       []*gomock.Call1_2[context.Context, string, error]
-	getSSHServerHostPublicKeyExpects []*gomock.Call1_2[context.Context, []byte, error]
+	mock                               *MockState
+	getPublicKeysForUserExpects        []*gomock.Call2_2[context.Context, user.Name, []ssh.PublicKey, error]
+	getPublicKeysForUserInModelExpects []*gomock.Call3_2[context.Context, string, string, []ssh.PublicKey, error]
+	getSSHServerHostKeyExpects         []*gomock.Call1_2[context.Context, string, error]
+	getSSHServerHostPublicKeyExpects   []*gomock.Call1_2[context.Context, []byte, error]
 }
 
 // NewMockState creates a new mock instance.
@@ -61,6 +62,24 @@ func (mr *MockStateMockRecorder) GetPublicKeysForUser(arg0, arg1 any) *MockState
 
 // MockStateGetPublicKeysForUserCall is the typed call wrapper for GetPublicKeysForUser.
 type MockStateGetPublicKeysForUserCall = gomock.Call2_2[context.Context, user.Name, []ssh.PublicKey, error]
+
+// GetPublicKeysForUserInModel mocks base method.
+func (m *MockState) GetPublicKeysForUserInModel(arg0 context.Context, arg1, arg2 string) ([]ssh.PublicKey, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.getPublicKeysForUserInModelExpects, m.ctrl, m, "GetPublicKeysForUserInModel", arg0, arg1, arg2)
+}
+
+// GetPublicKeysForUserInModel indicates an expected call of GetPublicKeysForUserInModel.
+func (mr *MockStateMockRecorder) GetPublicKeysForUserInModel(arg0, arg1, arg2 any) *MockStateGetPublicKeysForUserInModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, string, []ssh.PublicKey, error](mr.mock.ctrl.T, mr.mock, "GetPublicKeysForUserInModel", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
+	mr.getPublicKeysForUserInModelExpects = append(mr.getPublicKeysForUserInModelExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetPublicKeysForUserInModelCall is the typed call wrapper for GetPublicKeysForUserInModel.
+type MockStateGetPublicKeysForUserInModelCall = gomock.Call3_2[context.Context, string, string, []ssh.PublicKey, error]
 
 // GetSSHServerHostKey mocks base method.
 func (m *MockState) GetSSHServerHostKey(arg0 context.Context) (string, error) {

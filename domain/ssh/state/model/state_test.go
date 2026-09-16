@@ -13,7 +13,6 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
-	coressh "github.com/juju/juju/core/ssh"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -56,36 +55,6 @@ func (s *stateSuite) addControllerConfig(c *tc.C, key, value string) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *stateSuite) addControllerModel(c *tc.C, uuid, name string) {
-	_, err := s.controllerDB.ExecContext(c.Context(), `
-INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
-VALUES (?, ?, 0, '', FALSE)`, "cloud-"+uuid, "cloud-"+name)
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = s.controllerDB.ExecContext(c.Context(), `
-INSERT INTO model (uuid, activated, cloud_uuid, model_type_id, life_id, name, qualifier)
-VALUES (?, TRUE, ?, 0, 0, ?, 'prod')`, uuid, "cloud-"+uuid, name)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *stateSuite) addControllerUser(c *tc.C, username string) string {
-	userUUID := internaluuid.MustNewUUID().String()
-	_, err := s.controllerDB.ExecContext(c.Context(), `
-INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
-VALUES (?, ?, ?, FALSE, FALSE, ?, ?)`, userUUID, username, username, userUUID, time.Now())
-	c.Assert(err, tc.ErrorIsNil)
-	return userUUID
-}
-
-func (s *stateSuite) addControllerUserPublicKey(c *tc.C, userUUID, key string) int64 {
-	var keyID int64
-	err := s.controllerDB.QueryRowContext(c.Context(), `
-INSERT INTO user_public_ssh_key (comment, fingerprint_hash_algorithm_id, fingerprint, public_key, user_uuid)
-VALUES ('test-key', 1, ?, ?, ?) RETURNING id`, key, key, userUUID).Scan(&keyID)
-	c.Assert(err, tc.ErrorIsNil)
-	return keyID
-}
-
 func (s *stateSuite) TestGetModelInfo(c *tc.C) {
 	st := s.newState()
 	_, err := s.DB().ExecContext(c.Context(), `
@@ -119,31 +88,6 @@ func (s *stateSuite) TestGetControllerName(c *tc.C) {
 func (s *stateSuite) TestGetControllerNameNotFound(c *tc.C) {
 	_, err := s.newState().GetControllerName(c.Context())
 	c.Assert(err, tc.ErrorMatches, `controller name not found`)
-}
-
-func (s *stateSuite) TestGetPublicKeysForUser(c *tc.C) {
-	modelUUID := s.ModelUUID()
-	s.addControllerModel(c, modelUUID, "test-model")
-	s.addControllerModel(c, "other-model-uuid", "other-model")
-	userUUID := s.addControllerUser(c, "alice")
-	keyID := s.addControllerUserPublicKey(c, userUUID, "ssh-ed25519 AAAAtest-key")
-	otherKeyID := s.addControllerUserPublicKey(c, userUUID, "ssh-ed25519 AAAAother-key")
-
-	_, err := s.controllerDB.ExecContext(c.Context(), `
-INSERT INTO model_authorized_keys (model_uuid, user_public_ssh_key_id)
-VALUES (?, ?), (?, ?)`, modelUUID, keyID, "other-model-uuid", otherKeyID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	keys, err := s.newState().GetPublicKeysForUser(c.Context(), modelUUID, "alice")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(keys, tc.DeepEquals, []coressh.PublicKey{{Key: "ssh-ed25519 AAAAtest-key"}})
-}
-
-func (s *stateSuite) TestGetPublicKeysForUserModelNotFound(c *tc.C) {
-	s.addControllerUser(c, "alice")
-
-	_, err := s.newState().GetPublicKeysForUser(c.Context(), "missing-model", "alice")
-	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *stateSuite) TestGetUnitK8sPodInfo(c *tc.C) {

@@ -13,6 +13,8 @@ import (
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
+	accesserrors "github.com/juju/juju/domain/access/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/errors"
 )
@@ -143,6 +145,72 @@ WHERE userAuth.name = $userName.name
 	return keys, nil
 }
 
+// GetPublicKeysForUserInModel returns the public keys the named user is
+// authorized to use in the supplied model.
+func (st *State) GetPublicKeysForUserInModel(ctx context.Context, modelUUID, username string) ([]coressh.PublicKey, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	userArg := entityName{Name: username}
+	modelArg := modelUUIDValue{UUID: modelUUID}
+	userStmt, err := st.Prepare(`
+SELECT uuid AS &entityUUID.uuid
+FROM user
+WHERE name = $entityName.name
+  AND removed = FALSE`, entityUUID{}, userArg)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	modelStmt, err := st.Prepare(`
+SELECT uuid AS &entityUUID.uuid
+FROM model
+WHERE uuid = $modelUUIDValue.uuid`, entityUUID{}, modelArg)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	keysStmt, err := st.Prepare(`
+SELECT upsk.public_key AS &modelAuthorizedPublicKey.public_key
+FROM user_public_ssh_key AS upsk
+JOIN model_authorized_keys AS mak
+  ON mak.user_public_ssh_key_id = upsk.id
+WHERE upsk.user_uuid = $entityUUID.uuid
+  AND mak.model_uuid = $modelUUIDValue.uuid`, modelAuthorizedPublicKey{}, entityUUID{}, modelArg)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var keys []modelAuthorizedPublicKey
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var user entityUUID
+		if err := tx.Query(ctx, userStmt, userArg).Get(&user); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("user %q: %w", username, accesserrors.UserNotFound)
+		} else if err != nil {
+			return errors.Errorf("getting user %q: %w", username, err)
+		}
+		var model entityUUID
+		if err := tx.Query(ctx, modelStmt, modelArg).Get(&model); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("model %q: %w", modelUUID, modelerrors.NotFound)
+		} else if err != nil {
+			return errors.Errorf("getting model %q: %w", modelUUID, err)
+		}
+		if err := tx.Query(ctx, keysStmt, user, modelArg).GetAll(&keys); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting public SSH keys for user %q: %w", username, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make([]coressh.PublicKey, 0, len(keys))
+	for _, key := range keys {
+		result = append(result, coressh.PublicKey{Key: key.Key})
+	}
+	return result, nil
+}
+
 type controllerSSHHostKey struct {
 	ID              string `db:"id"`
 	AlgorithmTypeID int    `db:"algorithm_type_id"`
@@ -161,4 +229,20 @@ type userName struct {
 type userPublicSSHKey struct {
 	Comment   string `db:"comment"`
 	PublicKey string `db:"public_key"`
+}
+
+type entityName struct {
+	Name string `db:"name"`
+}
+
+type entityUUID struct {
+	UUID string `db:"uuid"`
+}
+
+type modelUUIDValue struct {
+	UUID string `db:"uuid"`
+}
+
+type modelAuthorizedPublicKey struct {
+	Key string `db:"public_key"`
 }

@@ -18,14 +18,6 @@ type entityUUID struct {
 	UUID string `db:"uuid"`
 }
 
-type modelUUIDValue struct {
-	UUID string `db:"uuid"`
-}
-
-type userPublicKey struct {
-	Key string `db:"public_key"`
-}
-
 type machineExists struct {
 	UUID   string          `db:"uuid"`
 	LifeID domainlife.Life `db:"life_id"`

@@ -327,6 +327,10 @@ func (stubControllerSSHState) GetPublicKeysForUser(context.Context, user.Name) (
 	return nil, nil
 }
 
+func (s stubControllerSSHState) GetPublicKeysForUserInModel(_ context.Context, modelUUID, username string) ([]coressh.PublicKey, error) {
+	return nil, nil
+}
+
 func (stubDomainServicesGetter) ServicesForModel(context.Context, model.UUID) (services.DomainServices, error) {
 	return nil, errors.NotImplementedf("unexpected ServicesForModel call")
 }
