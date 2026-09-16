@@ -50,8 +50,9 @@ func BackupDirToUse(configuredDir string) string {
 }
 
 // GetFilesToBackUp returns the paths that should be included in the
-// backup archive.
-func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
+// backup archive. It is a variable so tests can replace the filesystem
+// walk with a deterministic list, mirroring [SSHDir].
+var GetFilesToBackUp = func(rootDir string, paths *Paths) ([]string, error) {
 	glob := filepath.Join(rootDir, paths.DataDir, agentsDir, agentsConfs)
 	agentConfs, err := filepath.Glob(glob)
 	if err != nil {

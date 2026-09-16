@@ -14,7 +14,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	domainexport "github.com/juju/juju/domain/export"
-	exportservice "github.com/juju/juju/domain/export/service"
 	environsconfig "github.com/juju/juju/environs/config"
 )
 
@@ -24,11 +23,17 @@ type ControllerExportService interface {
 	Export(ctx context.Context) (*domainexport.ControllerExport, error)
 }
 
+// ModelExportService describes the ability to acquire a model export.
+type ModelExportService interface {
+	// Export returns a complete representation of the model database.
+	Export(ctx context.Context) (*domainexport.ModelExport, error)
+}
+
 // ModelExportDomainServices provides access to the model export service.
 // It is satisfied by [services.DomainServices].
 type ModelExportDomainServices interface {
 	// Export returns the model export service.
-	Export() *exportservice.Service
+	Export() ModelExportService
 }
 
 // ModelServicesForFunc returns the export services for a given model UUID.
