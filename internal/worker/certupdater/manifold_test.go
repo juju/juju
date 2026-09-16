@@ -86,6 +86,7 @@ type manifoldSuite struct {
 	getter         dependency.Getter
 	domainServices *MockControllerDomainServices
 	controllerNode *MockControllerNodeService
+	network        *MockControllerNetworkService
 }
 
 func TestManifoldSuite(t *testing.T) {
@@ -98,10 +99,12 @@ func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerNode = NewMockControllerNodeService(ctrl)
+	s.network = NewMockControllerNetworkService(ctrl)
 	s.domainServices = NewMockControllerDomainServices(ctrl)
 
 	c.Cleanup(func() {
 		s.controllerNode = nil
+		s.network = nil
 		s.domainServices = nil
 	})
 
@@ -160,6 +163,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 
 	// Arrange
 	s.domainServices.EXPECT().ControllerNode().Return(s.controllerNode)
+	s.domainServices.EXPECT().Network().Return(s.network)
 	manifold := s.newManifold(c)
 
 	// Act

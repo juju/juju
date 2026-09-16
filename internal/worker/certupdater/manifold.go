@@ -22,6 +22,8 @@ import (
 type ControllerDomainServices interface {
 	// ControllerNode returns the controller node service.
 	ControllerNode() ControllerNodeService
+	// Network returns controller-model network identities used in TLS SANs.
+	Network() ControllerNetworkService
 }
 
 // ManifoldConfig holds the information necessary to run a certupdater
@@ -84,6 +86,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	return config.NewWorker(Config{
 		Authority:             authority,
 		ControllerNodeService: controllerDomainServices.ControllerNode(),
+		ControllerNetwork:     controllerDomainServices.Network(),
 		Logger:                config.Logger,
 	})
 }
@@ -91,18 +94,25 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 // GetControllerDomainServices retrieves the controller domain services
 // from the dependency getter.
 func GetControllerDomainServices(getter dependency.Getter, name string) (ControllerDomainServices, error) {
-	return coredependency.GetDependencyByName(getter, name, func(s services.ControllerDomainServices) ControllerDomainServices {
+	return coredependency.GetDependencyByName(getter, name, func(s services.DomainServices) ControllerDomainServices {
 		return controllerDomainServices{
 			controllerNodeService: s.ControllerNode(),
+			controllerNetwork:     s.Network(),
 		}
 	})
 }
 
 type controllerDomainServices struct {
 	controllerNodeService ControllerNodeService
+	controllerNetwork     ControllerNetworkService
 }
 
 // ControllerNode returns the controller node service.
 func (s controllerDomainServices) ControllerNode() ControllerNodeService {
 	return s.controllerNodeService
+}
+
+// Network returns controller-model network identities used in TLS SANs.
+func (s controllerDomainServices) Network() ControllerNetworkService {
+	return s.controllerNetwork
 }

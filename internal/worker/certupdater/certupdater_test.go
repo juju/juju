@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
+	pkitest "github.com/juju/juju/internal/pki/test"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -26,6 +27,7 @@ type certUpdaterSuite struct {
 	testhelpers.IsolationSuite
 
 	controllerNodeService *MockControllerNodeService
+	controllerNetwork     *MockControllerNetworkService
 	authority             *MockAuthority
 	leafRequest           *MockLeafRequest
 }
@@ -68,7 +70,7 @@ func (s *certUpdaterSuite) TestWorkerCleanKill(c *tc.C) {
 	case <-time.After(jujutesting.LongWait):
 		c.Fatalf("timed out waiting for worker to start")
 	}
-	workertest.CleanKill(c, w)
+	workertest.DirtyKill(c, w)
 }
 
 func (s *certUpdaterSuite) TestInitialAddress(c *tc.C) {
@@ -86,7 +88,7 @@ func (s *certUpdaterSuite) TestInitialAddress(c *tc.C) {
 	w := s.newUpdater(c)
 	defer workertest.DirtyKill(c, w)
 
-	workertest.CleanKill(c, w)
+	workertest.DirtyKill(c, w)
 }
 
 func (s *certUpdaterSuite) TestInitialAddressAsHostname(c *tc.C) {
@@ -104,7 +106,99 @@ func (s *certUpdaterSuite) TestInitialAddressAsHostname(c *tc.C) {
 	w := s.newUpdater(c)
 	defer workertest.DirtyKill(c, w)
 
-	workertest.CleanKill(c, w)
+	workertest.DirtyKill(c, w)
+}
+
+func (s *certUpdaterSuite) TestInitialAddressIncludesControllerPodFQDN(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	addressChanges := make(chan struct{}, 1)
+	addressChanges <- struct{}{}
+	addressWatcher := watchertest.NewMockNotifyWatcher(addressChanges)
+	networkChanges := make(chan struct{}, 1)
+	networkChanges <- struct{}{}
+	networkWatcher := watchertest.NewMockNotifyWatcher(networkChanges)
+	fqdn := "controller-0.controller-service-endpoints.controller.svc.cluster.local"
+	s.controllerNodeService.EXPECT().GetAllCloudLocalAPIAddresses(gomock.Any()).Return([]string{"3.4.5.6"}, nil)
+	s.controllerNetwork.EXPECT().GetControllerPodFQDNs(gomock.Any()).Return([]string{fqdn}, nil)
+	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(addressWatcher, nil)
+	s.controllerNetwork.EXPECT().WatchControllerRemoteEndpoints(gomock.Any()).Return(networkWatcher, nil)
+
+	s.authority.EXPECT().LeafRequestForGroup(pki.ControllerIPLeafGroup).Return(s.leafRequest)
+	s.leafRequest.EXPECT().AddIPAddresses(net.ParseIP("3.4.5.6"))
+	s.leafRequest.EXPECT().AddDNSNames(fqdn)
+	s.leafRequest.EXPECT().Commit().Return(nil, nil)
+
+	w := s.newUpdaterWithNetwork(c)
+	defer workertest.DirtyKill(c, w)
+
+	workertest.DirtyKill(c, w)
+}
+
+func (s *certUpdaterSuite) TestControllerPodFQDNCertificateVerification(c *tc.C) {
+	authority, err := pkitest.NewTestAuthority()
+	c.Assert(err, tc.ErrorIsNil)
+	fqdn := "controller-0.controller-service-endpoints.controller.svc.cluster.local"
+	updater := CertificateUpdater{authority: authority, logger: loggertesting.WrapCheckLog(c)}
+
+	err = updater.updateCertificate(c.Context(), []string{fqdn})
+
+	c.Assert(err, tc.ErrorIsNil)
+	leaf, err := authority.LeafForGroup(pki.ControllerIPLeafGroup)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(leaf.Certificate().VerifyHostname(fqdn), tc.ErrorIsNil)
+}
+
+func (s *certUpdaterSuite) TestControllerPodFQDNChangeRenewsCertificate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	addressChanges := make(chan struct{}, 1)
+	addressChanges <- struct{}{}
+	addressWatcher := watchertest.NewMockNotifyWatcher(addressChanges)
+	networkChanges := make(chan struct{}, 1)
+	networkChanges <- struct{}{}
+	networkWatcher := watchertest.NewMockNotifyWatcher(networkChanges)
+	firstFQDN := "controller-0.controller-service-endpoints.controller.svc.cluster.local"
+	secondFQDN := "controller-0.controller-service-endpoints.other.svc.cluster.local"
+	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(addressWatcher, nil)
+	s.controllerNetwork.EXPECT().WatchControllerRemoteEndpoints(gomock.Any()).Return(networkWatcher, nil)
+
+	renewed := make(chan struct{})
+	gomock.InOrder(
+		s.controllerNodeService.EXPECT().GetAllCloudLocalAPIAddresses(gomock.Any()).Return([]string{"3.4.5.6"}, nil),
+		s.controllerNetwork.EXPECT().GetControllerPodFQDNs(gomock.Any()).Return([]string{firstFQDN}, nil),
+		s.authority.EXPECT().LeafRequestForGroup(pki.ControllerIPLeafGroup).Return(s.leafRequest),
+		s.leafRequest.EXPECT().AddIPAddresses(net.ParseIP("3.4.5.6")),
+		s.leafRequest.EXPECT().AddDNSNames(firstFQDN),
+		s.leafRequest.EXPECT().Commit().Return(nil, nil),
+		s.controllerNodeService.EXPECT().GetAllCloudLocalAPIAddresses(gomock.Any()).Return([]string{"3.4.5.6"}, nil),
+		s.controllerNetwork.EXPECT().GetControllerPodFQDNs(gomock.Any()).Return([]string{secondFQDN}, nil),
+		s.authority.EXPECT().LeafRequestForGroup(pki.ControllerIPLeafGroup).Return(s.leafRequest),
+		s.leafRequest.EXPECT().AddIPAddresses(net.ParseIP("3.4.5.6")),
+		s.leafRequest.EXPECT().AddDNSNames(secondFQDN),
+		s.leafRequest.EXPECT().Commit().DoAndReturn(func() (pki.Leaf, error) {
+			close(renewed)
+			return nil, nil
+		}),
+		s.controllerNodeService.EXPECT().GetAllCloudLocalAPIAddresses(gomock.Any()).Return([]string{"3.4.5.6"}, nil),
+		s.controllerNetwork.EXPECT().GetControllerPodFQDNs(gomock.Any()).Return([]string{secondFQDN}, nil),
+	)
+
+	w := s.newUpdaterWithNetwork(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case networkChanges <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting to send controller FQDN change")
+	}
+	select {
+	case <-renewed:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for controller certificate renewal")
+	}
+
+	workertest.DirtyKill(c, w)
 }
 
 func (s *certUpdaterSuite) TestAddressChange(c *tc.C) {
@@ -146,13 +240,32 @@ func (s *certUpdaterSuite) TestAddressChange(c *tc.C) {
 		c.Fatalf("timed out waiting for leaf request commit")
 	}
 
-	workertest.CleanKill(c, w)
+	workertest.DirtyKill(c, w)
 }
 
 func (s *certUpdaterSuite) newUpdater(c *tc.C) worker.Worker {
+	s.controllerNetwork.EXPECT().GetControllerPodFQDNs(gomock.Any()).Return(nil, nil).AnyTimes()
+	s.controllerNetwork.EXPECT().WatchControllerRemoteEndpoints(gomock.Any()).DoAndReturn(
+		func(context.Context) (watcher.NotifyWatcher, error) {
+			changes := make(chan struct{}, 1)
+			changes <- struct{}{}
+			return watchertest.NewMockNotifyWatcher(changes), nil
+		}).AnyTimes()
 	w, err := NewCertificateUpdater(Config{
 		Authority:             s.authority,
 		ControllerNodeService: s.controllerNodeService,
+		ControllerNetwork:     s.controllerNetwork,
+		Logger:                loggertesting.WrapCheckLog(c),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return w
+}
+
+func (s *certUpdaterSuite) newUpdaterWithNetwork(c *tc.C) worker.Worker {
+	w, err := NewCertificateUpdater(Config{
+		Authority:             s.authority,
+		ControllerNodeService: s.controllerNodeService,
+		ControllerNetwork:     s.controllerNetwork,
 		Logger:                loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -164,11 +277,13 @@ func (s *certUpdaterSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.authority = NewMockAuthority(ctrl)
 	s.controllerNodeService = NewMockControllerNodeService(ctrl)
+	s.controllerNetwork = NewMockControllerNetworkService(ctrl)
 	s.leafRequest = NewMockLeafRequest(ctrl)
 
 	c.Cleanup(func() {
 		s.authority = nil
 		s.controllerNodeService = nil
+		s.controllerNetwork = nil
 		s.leafRequest = nil
 	})
 

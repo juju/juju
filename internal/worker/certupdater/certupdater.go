@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/pki"
 )
@@ -32,6 +33,7 @@ type ControllerConfigGetter interface {
 type CertificateUpdater struct {
 	authority             pki.Authority
 	controllerNodeService ControllerNodeService
+	controllerNetwork     ControllerNetworkService
 	addresses             []string
 	logger                logger.Logger
 }
@@ -48,10 +50,18 @@ type ControllerNodeService interface {
 	WatchControllerAPIAddresses(ctx context.Context) (watcher.NotifyWatcher, error)
 }
 
+// ControllerNetworkService returns controller pod DNS identities from the
+// controller model for direct controller-to-controller TLS connections.
+type ControllerNetworkService interface {
+	GetControllerPodFQDNs(context.Context) ([]string, error)
+	WatchControllerRemoteEndpoints(context.Context) (watcher.NotifyWatcher, error)
+}
+
 // Config holds the configuration for the certificate updater worker.
 type Config struct {
 	Authority             pki.Authority
 	ControllerNodeService ControllerNodeService
+	ControllerNetwork     ControllerNetworkService
 	Logger                logger.Logger
 }
 
@@ -61,6 +71,9 @@ func (c *Config) Validate() error {
 	}
 	if c.ControllerNodeService == nil {
 		return errors.New("nil ControllerNodeService").Add(coreerrors.NotValid)
+	}
+	if c.ControllerNetwork == nil {
+		return errors.New("nil ControllerNetwork").Add(coreerrors.NotValid)
 	}
 	if c.Logger == nil {
 		return errors.New("nil Logger").Add(coreerrors.NotValid)
@@ -72,10 +85,14 @@ func (c *Config) Validate() error {
 // machine addresses and then generates a new controller certificate with those
 // addresses in the certificate's SAN value.
 func NewCertificateUpdater(config Config) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
 	return watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: &CertificateUpdater{
 			authority:             config.Authority,
 			controllerNodeService: config.ControllerNodeService,
+			controllerNetwork:     config.ControllerNetwork,
 			logger:                config.Logger,
 		},
 	})
@@ -83,20 +100,34 @@ func NewCertificateUpdater(config Config) (worker.Worker, error) {
 
 // SetUp is defined on the NotifyWatchHandler interface.
 func (c *CertificateUpdater) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
+	// TODO: move CertificateUpdater to a catacomb worker so it can own both
+	// watchers directly instead of combining them for watcher.NewNotifyWorker.
 	// Populate certificate SAN with any addresses we know about now.
-	initialSANAddresses, err := c.controllerNodeService.GetAllCloudLocalAPIAddresses(ctx)
+	initialSANAddresses, err := c.sanAddresses(ctx)
 	if err != nil {
 		return nil, errors.Errorf("retrieving initial server addresses: %w", err)
 	}
 	if err := c.updateCertificate(ctx, initialSANAddresses); err != nil {
 		return nil, errors.Errorf("setting initial certificate SAN list: %w", err)
 	}
-	return c.controllerNodeService.WatchControllerAPIAddresses(ctx)
+	addressWatcher, err := c.controllerNodeService.WatchControllerAPIAddresses(ctx)
+	if err != nil {
+		return addressWatcher, errors.Capture(err)
+	}
+	networkWatcher, err := c.controllerNetwork.WatchControllerRemoteEndpoints(ctx)
+	if err != nil {
+		addressWatcher.Kill()
+		if waitErr := addressWatcher.Wait(); waitErr != nil {
+			c.logger.Errorf(ctx, "waiting for controller API address watcher: %v", waitErr)
+		}
+		return nil, errors.Capture(err)
+	}
+	return eventsource.NewMultiNotifyWatcher(ctx, addressWatcher, networkWatcher)
 }
 
 // Handle is defined on the NotifyWatchHandler interface.
 func (c *CertificateUpdater) Handle(ctx context.Context) error {
-	addresses, err := c.controllerNodeService.GetAllCloudLocalAPIAddresses(ctx)
+	addresses, err := c.sanAddresses(ctx)
 	if err != nil {
 		return errors.Errorf("retrieving cloud local api addresses: %w", err)
 	}
@@ -108,6 +139,18 @@ func (c *CertificateUpdater) Handle(ctx context.Context) error {
 		return nil
 	}
 	return c.updateCertificate(ctx, addresses)
+}
+
+func (c *CertificateUpdater) sanAddresses(ctx context.Context) ([]string, error) {
+	addresses, err := c.controllerNodeService.GetAllCloudLocalAPIAddresses(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	fqdns, err := c.controllerNetwork.GetControllerPodFQDNs(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return append(addresses, fqdns...), nil
 }
 
 func (c *CertificateUpdater) updateCertificate(ctx context.Context, addresses []string) error {

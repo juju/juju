@@ -52,6 +52,31 @@ func (s *Service) GetControllerRemoteAPIAddresses(ctx context.Context, apiPort i
 	return result, nil
 }
 
+// GetControllerPodFQDNs returns the validated CAAS controller pod identities
+// required as DNS SANs for direct controller-to-controller TLS traffic.
+func (s *Service) GetControllerPodFQDNs(ctx context.Context) ([]string, error) {
+	endpoints, err := s.st.GetControllerRemoteEndpoints(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var result []string
+	for _, endpoint := range endpoints {
+		if !endpoint.IsCAAS {
+			continue
+		}
+		id, err := strconv.Atoi(endpoint.ControllerID)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		fqdn, err := controllerPodFQDN(id, endpoint.FQDNs)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		result = append(result, fqdn)
+	}
+	return result, nil
+}
+
 // GetUnitPrivateAddress returns the private address for the specified unit.
 // For k8s provider, it will return the first private address of the cloud
 // service if any, the first private address of the cloud container otherwise.

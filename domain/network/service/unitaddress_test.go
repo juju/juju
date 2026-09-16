@@ -120,6 +120,21 @@ func (s *unitAddressSuite) TestGetControllerRemoteAPIAddressesRejectsMalformedCa
 		"invalid controller pod FQDN \"controller-service.controller.svc.cluster.local\"")
 }
 
+func (s *unitAddressSuite) TestGetControllerPodFQDNs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fqdn := "controller-1.controller-service-endpoints.controller.svc.cluster.local"
+	s.st.EXPECT().GetControllerRemoteEndpoints(gomock.Any()).Return([]domainnetwork.ControllerRemoteEndpoint{
+		{ControllerID: "0", Addresses: []string{"10.0.0.1"}},
+		{ControllerID: "1", IsCAAS: true, FQDNs: []string{fqdn}},
+	}, nil)
+
+	fqdns, err := s.service(c).GetControllerPodFQDNs(c.Context())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(fqdns, tc.DeepEquals, []string{fqdn})
+}
+
 func (s *unitAddressSuite) TestGetPublicAddressUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
