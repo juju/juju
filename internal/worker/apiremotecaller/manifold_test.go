@@ -4,6 +4,7 @@
 package apiremotecaller
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/clock"
@@ -12,12 +13,12 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
-	dt "github.com/juju/worker/v5/dependency/testing"
+	dependencytesting "github.com/juju/worker/v5/dependency/testing"
 
 	"github.com/juju/juju/api"
-	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/watcher"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -70,41 +71,72 @@ func (s *ManifoldSuite) TestValidateRequiresOrigin(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestNewWorkerArgs(c *tc.C) {
-	clock := s.config.Clock
+	c.Check(s.config.Validate(), tc.ErrorIsNil)
+}
 
-	var config WorkerConfig
-	s.config.NewWorker = func(c WorkerConfig) (worker.Worker, error) {
-		config = c
+func (s *ManifoldSuite) TestStartUsesControllerNetworkServiceAndAPIPort(c *tc.C) {
+	network := &stubControllerNetworkService{}
+	services := stubRemoteCallerServices{
+		config:  controller.Config{"api-port": 17071},
+		network: network,
+	}
+	config := s.config
+	config.GetRemoteCallerServices = func(getter dependency.Getter, name string) (RemoteCallerServices, error) {
+		c.Check(name, tc.Equals, config.ObjectStoreServicesName)
+		return services, nil
+	}
+	config.NewWorker = func(cfg WorkerConfig) (worker.Worker, error) {
+		c.Check(cfg.ControllerNetworkService, tc.Equals, network)
+		c.Check(cfg.APIPort, tc.Equals, 17071)
 		return &fakeWorker{}, nil
 	}
 
-	getter := dt.StubGetter(map[string]any{
-		"object-store-services": objectStoreServices{},
-	})
+	_, err := Manifold(config).Start(c.Context(), dependencytesting.StubGetter(nil))
 
-	worker, err := s.manifold().Start(c.Context(), getter)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(worker, tc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
+}
 
-	c.Check(config.Origin, tc.Equals, names.NewControllerAgentTag("0"))
-	c.Check(config.Clock, tc.Equals, clock)
-	c.Check(config.ControllerNodeService, tc.DeepEquals, &controllernodeservice.WatchableService{})
-	apiInfo, err := config.APIInfo.APIInfo()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(apiInfo.CACert, tc.Equals, "cert")
-	c.Check(config.NewRemote, tc.NotNil)
+func (s *ManifoldSuite) TestStartPropagatesControllerConfigError(c *tc.C) {
+	config := s.config
+	config.GetRemoteCallerServices = func(dependency.Getter, string) (RemoteCallerServices, error) {
+		return stubRemoteCallerServices{err: errors.New("boom")}, nil
+	}
+	config.NewWorker = func(WorkerConfig) (worker.Worker, error) {
+		c.Fatalf("NewWorker should not be called")
+		return nil, nil
+	}
+
+	_, err := Manifold(config).Start(c.Context(), dependencytesting.StubGetter(nil))
+
+	c.Check(err, tc.ErrorMatches, "boom")
 }
 
 func (s *ManifoldSuite) manifold() dependency.Manifold {
 	return Manifold(s.config)
 }
 
-type objectStoreServices struct {
-	services.ObjectStoreServices
+type stubRemoteCallerServices struct {
+	config  controller.Config
+	network ControllerNetworkService
+	err     error
 }
 
-func (d objectStoreServices) ControllerNode() *controllernodeservice.WatchableService {
-	return &controllernodeservice.WatchableService{}
+func (s stubRemoteCallerServices) ControllerConfig(context.Context) (controller.Config, error) {
+	return s.config, s.err
+}
+
+func (s stubRemoteCallerServices) Network() ControllerNetworkService {
+	return s.network
+}
+
+type stubControllerNetworkService struct{}
+
+func (*stubControllerNetworkService) GetControllerRemoteAPIAddresses(context.Context, int) (map[string][]string, error) {
+	return nil, nil
+}
+
+func (*stubControllerNetworkService) WatchControllerRemoteEndpoints(context.Context) (watcher.NotifyWatcher, error) {
+	return nil, nil
 }
 
 type fakeWorker struct {

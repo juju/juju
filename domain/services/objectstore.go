@@ -4,18 +4,21 @@
 package services
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/changestream"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	controllerservice "github.com/juju/juju/domain/controller/service"
 	controllerstate "github.com/juju/juju/domain/controller/state"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
-	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
-	controllernodestate "github.com/juju/juju/domain/controllernode/state"
 	modelobjectstoreservice "github.com/juju/juju/domain/model/service/objectstore"
 	statemodel "github.com/juju/juju/domain/model/state/model"
+	networkservice "github.com/juju/juju/domain/network/service"
+	networkstate "github.com/juju/juju/domain/network/state"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 )
@@ -66,15 +69,6 @@ func (s *ObjectStoreServices) ControllerConfig() *controllerconfigservice.Watcha
 	)
 }
 
-// ControllerNode returns the controller node service.
-func (s *ObjectStoreServices) ControllerNode() *controllernodeservice.WatchableService {
-	return controllernodeservice.NewWatchableService(
-		controllernodestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		s.controllerWatcherFactory("controllernode"),
-		s.logger.Child("controllernode"),
-	)
-}
-
 // AgentObjectStore returns the object store service.
 func (s *ObjectStoreServices) AgentObjectStore() *objectstoreservice.WatchableDrainingService {
 	return objectstoreservice.NewWatchableDrainingService(
@@ -100,5 +94,20 @@ func (s *ObjectStoreServices) Model() *modelobjectstoreservice.ObjectStoreServic
 			s.logger.Child("modelinfo"),
 		),
 		s.modelWatcherFactory("model"),
+	)
+}
+
+// Network returns the controller model network service used for direct
+// controller object-store traffic.
+func (s *ObjectStoreServices) Network() *networkservice.WatchableService {
+	return networkservice.NewWatchableService(
+		networkstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("network")),
+		func(context.Context) (networkservice.ProviderWithNetworking, error) {
+			return nil, coreerrors.NotSupported
+		},
+		func(context.Context) (networkservice.ProviderWithZones, error) {
+			return nil, coreerrors.NotSupported
+		},
+		s.modelWatcherFactory("network"), s.logger.Child("network"),
 	)
 }

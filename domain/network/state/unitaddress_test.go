@@ -524,6 +524,84 @@ func (s *unitAddressSuite) TestGetControllerUnitUUIDByName(c *tc.C) {
 	c.Check(uuid, tc.Equals, unitUUID.String())
 }
 
+func (s *unitAddressSuite) TestGetControllerRemoteEndpoints(c *tc.C) {
+	spaceUUID := s.addSpace(c)
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	s.addControllerApplication(c, appUUID)
+
+	iaasNodeUUID := s.addNetNode(c)
+	iaasDeviceUUID := s.addLinkLayerDevice(c, iaasNodeUUID)
+	subnetUUID, _ := s.addsubnet(c, spaceUUID)
+	address := s.addIPAddress(c, iaasNodeUUID, iaasDeviceUUID, subnetUUID, 1, 1)
+	iaasUnitUUID := s.addUnit(c, appUUID, charmUUID, iaasNodeUUID)
+	s.query(c, `UPDATE unit SET name = ? WHERE uuid = ?`, "controller/1", iaasUnitUUID)
+
+	caasNodeUUID := s.addNetNode(c)
+	caasUnitUUID := s.addUnit(c, appUUID, charmUUID, caasNodeUUID)
+	s.query(c, `UPDATE unit SET name = ? WHERE uuid = ?`, "controller/2", caasUnitUUID)
+	s.query(c, `INSERT INTO k8s_pod (unit_uuid, provider_id) VALUES (?, ?)`, caasUnitUUID, "controller-2")
+	fqdn := "controller-2.controller-service-endpoints.controller.svc.cluster.local"
+	s.addFQDNAddress(c, caasNodeUUID, fqdn)
+
+	endpoints, err := s.state.GetControllerRemoteEndpoints(c.Context())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(endpoints, tc.DeepEquals, []domainnetwork.ControllerRemoteEndpoint{
+		{ControllerID: "1", Addresses: []string{address + "/24"}},
+		{ControllerID: "2", IsCAAS: true, FQDNs: []string{fqdn}},
+	})
+}
+
+func (s *unitAddressSuite) TestGetControllerRemoteEndpointsWithoutEndpoints(c *tc.C) {
+	endpoints, err := s.state.GetControllerRemoteEndpoints(c.Context())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(endpoints, tc.DeepEquals, []domainnetwork.ControllerRemoteEndpoint{})
+}
+
+func (s *unitAddressSuite) TestGetControllerRemoteEndpointsExcludesOtherAddressSources(c *tc.C) {
+	spaceUUID := s.addSpace(c)
+	charmUUID := s.addCharm(c)
+	controllerAppUUID := s.addApplication(c, charmUUID, spaceUUID)
+	s.addControllerApplication(c, controllerAppUUID)
+
+	controllerNodeUUID := s.addNetNode(c)
+	controllerDeviceUUID := s.addLinkLayerDevice(c, controllerNodeUUID)
+	subnetUUID, _ := s.addsubnet(c, spaceUUID)
+	s.addIPAddress(c, controllerNodeUUID, controllerDeviceUUID, subnetUUID, 1, 1)
+	controllerUnitUUID := s.addUnit(c, controllerAppUUID, charmUUID, controllerNodeUUID)
+	s.query(c, `UPDATE unit SET name = ? WHERE uuid = ?`, "controller/0", controllerUnitUUID)
+	s.query(c, `INSERT INTO k8s_pod (unit_uuid, provider_id) VALUES (?, ?)`, controllerUnitUUID, "controller-0")
+	fqdn := "controller-0.controller-service-endpoints.controller.svc.cluster.local"
+	s.addFQDNAddress(c, controllerNodeUUID, fqdn)
+
+	serviceNodeUUID := s.addNetNode(c)
+	serviceDeviceUUID := s.addLinkLayerDevice(c, serviceNodeUUID)
+	s.addIPAddress(c, serviceNodeUUID, serviceDeviceUUID, subnetUUID, 1, 1)
+	s.addK8sService(c, serviceNodeUUID, controllerAppUUID)
+
+	otherNodeUUID := s.addNetNode(c)
+	otherAppUUID := s.addApplicationWithName(c, charmUUID, spaceUUID, "controller")
+	otherUnitUUID := s.addUnit(c, otherAppUUID, charmUUID, otherNodeUUID)
+	s.query(c, `UPDATE unit SET name = ? WHERE uuid = ?`, "controller/1", otherUnitUUID)
+	s.addFQDNAddress(c, otherNodeUUID, "controller-1.controller-service-endpoints.controller.svc.cluster.local")
+
+	deadNodeUUID := s.addNetNode(c)
+	deadUnitUUID := s.addUnit(c, controllerAppUUID, charmUUID, deadNodeUUID)
+	s.query(c, `UPDATE unit SET name = ?, life_id = ? WHERE uuid = ?`, "controller/2", 2, deadUnitUUID)
+	s.addFQDNAddress(c, deadNodeUUID, "controller-2.controller-service-endpoints.controller.svc.cluster.local")
+
+	endpoints, err := s.state.GetControllerRemoteEndpoints(c.Context())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(endpoints, tc.DeepEquals, []domainnetwork.ControllerRemoteEndpoint{{
+		ControllerID: "0",
+		IsCAAS:       true,
+		FQDNs:        []string{fqdn},
+	}})
+}
+
 func (s *unitAddressSuite) TestGetControllerUnitUUIDByNameNotFound(c *tc.C) {
 	_, err := s.state.GetControllerUnitUUIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)

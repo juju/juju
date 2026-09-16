@@ -14,8 +14,8 @@ import (
 	model "github.com/juju/juju/core/model"
 	service "github.com/juju/juju/domain/controller/service"
 	service0 "github.com/juju/juju/domain/controllerconfig/service"
-	service1 "github.com/juju/juju/domain/controllernode/service"
 	objectstore "github.com/juju/juju/domain/model/service/objectstore"
+	service1 "github.com/juju/juju/domain/network/service"
 	service2 "github.com/juju/juju/domain/objectstore/service"
 	services "github.com/juju/juju/internal/services"
 )
@@ -33,8 +33,8 @@ type MockObjectStoreServicesMockRecorder struct {
 	agentObjectStoreExpects []*gomock.Call0_1[*service2.WatchableDrainingService]
 	controllerExpects       []*gomock.Call0_1[*service.Service]
 	controllerConfigExpects []*gomock.Call0_1[*service0.WatchableService]
-	controllerNodeExpects   []*gomock.Call0_1[*service1.WatchableService]
 	modelExpects            []*gomock.Call0_1[*objectstore.ObjectStoreService]
+	networkExpects          []*gomock.Call0_1[*service1.WatchableService]
 	objectStoreExpects      []*gomock.Call0_1[*service2.WatchableService]
 }
 
@@ -104,24 +104,6 @@ func (mr *MockObjectStoreServicesMockRecorder) ControllerConfig() *MockObjectSto
 // MockObjectStoreServicesControllerConfigCall is the typed call wrapper for ControllerConfig.
 type MockObjectStoreServicesControllerConfigCall = gomock.Call0_1[*service0.WatchableService]
 
-// ControllerNode mocks base method.
-func (m *MockObjectStoreServices) ControllerNode() *service1.WatchableService {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.controllerNodeExpects, m.ctrl, m, "ControllerNode")
-}
-
-// ControllerNode indicates an expected call of ControllerNode.
-func (mr *MockObjectStoreServicesMockRecorder) ControllerNode() *MockObjectStoreServicesControllerNodeCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[*service1.WatchableService](mr.mock.ctrl.T, mr.mock, "ControllerNode")
-	mr.controllerNodeExpects = append(mr.controllerNodeExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockObjectStoreServicesControllerNodeCall is the typed call wrapper for ControllerNode.
-type MockObjectStoreServicesControllerNodeCall = gomock.Call0_1[*service1.WatchableService]
-
 // Model mocks base method.
 func (m *MockObjectStoreServices) Model() *objectstore.ObjectStoreService {
 	m.ctrl.T.Helper()
@@ -139,6 +121,24 @@ func (mr *MockObjectStoreServicesMockRecorder) Model() *MockObjectStoreServicesM
 
 // MockObjectStoreServicesModelCall is the typed call wrapper for Model.
 type MockObjectStoreServicesModelCall = gomock.Call0_1[*objectstore.ObjectStoreService]
+
+// Network mocks base method.
+func (m *MockObjectStoreServices) Network() *service1.WatchableService {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.networkExpects, m.ctrl, m, "Network")
+}
+
+// Network indicates an expected call of Network.
+func (mr *MockObjectStoreServicesMockRecorder) Network() *MockObjectStoreServicesNetworkCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*service1.WatchableService](mr.mock.ctrl.T, mr.mock, "Network")
+	mr.networkExpects = append(mr.networkExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockObjectStoreServicesNetworkCall is the typed call wrapper for Network.
+type MockObjectStoreServicesNetworkCall = gomock.Call0_1[*service1.WatchableService]
 
 // ObjectStore mocks base method.
 func (m *MockObjectStoreServices) ObjectStore() *service2.WatchableService {

@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/watcher/watchertest"
-	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -27,7 +26,7 @@ import (
 type WorkerSuite struct {
 	baseSuite
 
-	controllerNodeService *MockControllerNodeService
+	controllerNodeService *MockControllerNetworkService
 
 	mutex    sync.Mutex
 	called   map[string]int
@@ -59,7 +58,7 @@ func (s *WorkerSuite) TestWorkerConfig(c *tc.C) {
 	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
-	cfg.ControllerNodeService = nil
+	cfg.ControllerNetworkService = nil
 	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
@@ -79,7 +78,7 @@ func (s *WorkerSuite) TestWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	watcher := watchertest.NewMockNotifyWatcher(make(<-chan struct{}))
-	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerRemoteEndpoints(gomock.Any()).Return(watcher, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -96,9 +95,9 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithNoServers(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerRemoteEndpoints(gomock.Any()).Return(watcher, nil)
 
-	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{}, nil)
+	s.controllerNodeService.EXPECT().GetControllerRemoteAPIAddresses(gomock.Any(), 17070).Return(map[string][]string{}, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -127,9 +126,9 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithNoServerError(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerRemoteEndpoints(gomock.Any()).Return(watcher, nil)
 
-	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{}, controllernodeerrors.EmptyAPIAddresses)
+	s.controllerNodeService.EXPECT().GetControllerRemoteAPIAddresses(gomock.Any(), 17070).Return(map[string][]string{}, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -158,9 +157,9 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWhilstMatchingOrigin(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerRemoteEndpoints(gomock.Any()).Return(watcher, nil)
 
-	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+	s.controllerNodeService.EXPECT().GetControllerRemoteAPIAddresses(gomock.Any(), 17070).Return(map[string][]string{
 		"0": {
 			"10.0.0.0:17070",
 		},
@@ -198,9 +197,9 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerRemoteEndpoints(gomock.Any()).Return(watcher, nil)
 
-	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+	s.controllerNodeService.EXPECT().GetControllerRemoteAPIAddresses(gomock.Any(), 17070).Return(map[string][]string{
 		"0": {
 			"10.0.0.0:17070",
 		},
@@ -274,13 +273,13 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesUpdatesAddress(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerRemoteEndpoints(gomock.Any()).Return(watcher, nil)
 
 	done1 := make(chan struct{})
 	done2 := make(chan struct{})
 
 	gomock.InOrder(
-		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetControllerRemoteAPIAddresses(gomock.Any(), 17070).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},
@@ -291,7 +290,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesUpdatesAddress(c *tc.C) {
 		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).Do(func(s []string) {
 			close(done1)
 		}),
-		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetControllerRemoteAPIAddresses(gomock.Any(), 17070).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},
@@ -345,6 +344,55 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesUpdatesAddress(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *WorkerSuite) TestWorkerAPIServerChangesUpdatesCaasFQDN(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+
+	changes := make(chan struct{})
+	watcher := watchertest.NewMockNotifyWatcher(changes)
+	s.controllerNodeService.EXPECT().WatchControllerRemoteEndpoints(gomock.Any()).Return(watcher, nil)
+
+	updated := make(chan struct{})
+	gomock.InOrder(
+		s.controllerNodeService.EXPECT().GetControllerRemoteAPIAddresses(gomock.Any(), 17070).Return(map[string][]string{
+			"0": {"controller-0.controller-service-endpoints.controller.svc.cluster.local:17070"},
+			"1": {"controller-1.controller-service-endpoints.controller.svc.cluster.local:17070"},
+		}, nil),
+		s.remote.EXPECT().UpdateAddresses([]string{
+			"controller-1.controller-service-endpoints.controller.svc.cluster.local:17070",
+		}),
+		s.controllerNodeService.EXPECT().GetControllerRemoteAPIAddresses(gomock.Any(), 17070).Return(map[string][]string{
+			"0": {"controller-0.controller-service-endpoints.controller.svc.cluster.local:17070"},
+			"1": {"controller-1.controller-service-endpoints.other.svc.cluster.local:17070"},
+		}, nil),
+		s.remote.EXPECT().UpdateAddresses([]string{
+			"controller-1.controller-service-endpoints.other.svc.cluster.local:17070",
+		}).Do(func([]string) { close(updated) }),
+	)
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+	select {
+	case changes <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for initial FQDN update")
+	}
+
+	select {
+	case changes <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for FQDN update")
+	}
+	select {
+	case <-updated:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for updated controller FQDN")
+	}
+}
+
 func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -352,13 +400,13 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerRemoteEndpoints(gomock.Any()).Return(watcher, nil)
 
 	done1 := make(chan struct{})
 	done2 := make(chan struct{})
 
 	gomock.InOrder(
-		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetControllerRemoteAPIAddresses(gomock.Any(), 17070).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},
@@ -369,7 +417,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).Do(func(s []string) {
 			close(done1)
 		}),
-		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetControllerRemoteAPIAddresses(gomock.Any(), 17070).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},
@@ -447,13 +495,13 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerRemoteEndpoints(gomock.Any()).Return(watcher, nil)
 
 	done1 := make(chan struct{})
 	done2 := make(chan struct{})
 
 	gomock.InOrder(
-		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetControllerRemoteAPIAddresses(gomock.Any(), 17070).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},
@@ -464,7 +512,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *tc.C) {
 		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).Do(func(s []string) {
 			close(done1)
 		}),
-		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetControllerRemoteAPIAddresses(gomock.Any(), 17070).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},
@@ -520,7 +568,7 @@ func (s *WorkerSuite) TestSubscribe(c *tc.C) {
 	s.expectClock()
 
 	watcher := watchertest.NewMockNotifyWatcher(make(chan struct{}))
-	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerRemoteEndpoints(gomock.Any()).Return(watcher, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -540,7 +588,7 @@ func (s *WorkerSuite) TestSubscribeUnsubscribeTwice(c *tc.C) {
 	s.expectClock()
 
 	watcher := watchertest.NewMockNotifyWatcher(make(chan struct{}))
-	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerRemoteEndpoints(gomock.Any()).Return(watcher, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -563,9 +611,9 @@ func (s *WorkerSuite) TestSubscribeWithNotify(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerRemoteEndpoints(gomock.Any()).Return(watcher, nil)
 
-	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+	s.controllerNodeService.EXPECT().GetControllerRemoteAPIAddresses(gomock.Any(), 17070).Return(map[string][]string{
 		"0": {
 			"10.0.0.0:17070",
 		},
@@ -622,7 +670,7 @@ func (s *WorkerSuite) TestSubscribeWithNotify(c *tc.C) {
 func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
-	s.controllerNodeService = NewMockControllerNodeService(ctrl)
+	s.controllerNodeService = NewMockControllerNetworkService(ctrl)
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -647,7 +695,8 @@ func (s *WorkerSuite) newConfig(c *tc.C) WorkerConfig {
 		APIOpener: func(ctx context.Context, i *api.Info, do api.DialOpts) (api.Connection, error) {
 			return s.connection, nil
 		},
-		ControllerNodeService: s.controllerNodeService,
+		ControllerNetworkService: s.controllerNodeService,
+		APIPort:                  17070,
 		NewRemote: func(rsc RemoteServerConfig) RemoteServer {
 			target := rsc.ControllerID
 

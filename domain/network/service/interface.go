@@ -131,6 +131,10 @@ type NetConfigState interface {
 	// - [uniterrors.UnitNotFound] if the unit does not exist.
 	GetControllerAPIAddresses(ctx context.Context, uuid string) (domainnetwork.ControllerAPIAddresses, error)
 
+	// GetControllerRemoteEndpoints returns direct controller endpoint source
+	// records for every ready controller unit in this model.
+	GetControllerRemoteEndpoints(ctx context.Context) ([]domainnetwork.ControllerRemoteEndpoint, error)
+
 	// GetUnitAddresses returns the addresses of the specified unit.
 	//
 	// The following errors may be returned:

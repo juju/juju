@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
-	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
@@ -27,27 +26,21 @@ const (
 	stateChanged = "changed"
 )
 
-// ControllerNodeService is an interface that represents the service
-// that provides information about the controller nodes. This is used to
-// determine which nodes are available for remote API calls.
-type ControllerNodeService interface {
-	// GetAPIAddressesByControllerIDForAgents returns a map of controller IDs to
-	// their API addresses that are available for agents. The map is keyed by
-	// controller ID, and the values are slices of strings representing the API
-	// addresses for each controller node.
-	GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
-	// WatchControllerAPIAddresses returns a watcher that observes changes to
-	// the controller api address changes.
-	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
+// ControllerNetworkService provides direct endpoint identities for controller
+// traffic. It intentionally does not expose agent API addresses.
+type ControllerNetworkService interface {
+	GetControllerRemoteAPIAddresses(context.Context, int) (map[string][]string, error)
+	WatchControllerRemoteEndpoints(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // WorkerConfig defines the configuration values that the pubsub worker needs
 // to operate.
 type WorkerConfig struct {
-	Origin                names.Tag
-	Clock                 clock.Clock
-	ControllerNodeService ControllerNodeService
-	Logger                logger.Logger
+	Origin                   names.Tag
+	Clock                    clock.Clock
+	ControllerNetworkService ControllerNetworkService
+	APIPort                  int
+	Logger                   logger.Logger
 
 	APIInfo   APIInfoProvider
 	APIOpener api.OpenFunc
@@ -62,8 +55,11 @@ func (c *WorkerConfig) Validate() error {
 	if c.Clock == nil {
 		return errors.NotValidf("missing Clock")
 	}
-	if c.ControllerNodeService == nil {
-		return errors.NotValidf("missing ControllerNodeService")
+	if c.ControllerNetworkService == nil {
+		return errors.NotValidf("missing ControllerNetworkService")
+	}
+	if c.APIPort <= 0 {
+		return errors.NotValidf("invalid APIPort")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("missing Logger")
@@ -209,7 +205,7 @@ func (w *remoteWorker) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	watcher, err := w.cfg.ControllerNodeService.WatchControllerAPIAddresses(ctx)
+	watcher, err := w.cfg.ControllerNetworkService.WatchControllerRemoteEndpoints(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -228,15 +224,8 @@ func (w *remoteWorker) loop() error {
 			w.cfg.Logger.Debugf(ctx, "remoteWorker API server change")
 
 			// Get the latest API addresses for all controller nodes.
-			servers, err := w.cfg.ControllerNodeService.GetAPIAddressesByControllerIDForAgents(ctx)
-			if errors.Is(err, controllernodeerrors.EmptyAPIAddresses) {
-				// There should be at least one controller address available
-				// (itself), so if we get an empty addresses error then we can't
-				// proceed. Yet we shouldn't stop the worker coming up, so we
-				// log the error and continue to wait for the next change.
-				w.cfg.Logger.Warningf(ctx, "no API addresses available for remote workers: %v", err)
-				continue
-			} else if err != nil {
+			servers, err := w.cfg.ControllerNetworkService.GetControllerRemoteAPIAddresses(ctx, w.cfg.APIPort)
+			if err != nil {
 				return errors.Trace(err)
 			}
 

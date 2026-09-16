@@ -7,6 +7,8 @@ import (
 	"context"
 	"database/sql"
 	"net"
+	"strconv"
+	"strings"
 
 	"github.com/canonical/sqlair"
 
@@ -17,6 +19,97 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
+
+// GetControllerRemoteEndpoints returns the direct network identities of ready
+// controller units. CAAS keeps its per-pod FQDN separate from service IPs;
+// IAAS uses addresses attached to the unit's own network node.
+func (st *State) GetControllerRemoteEndpoints(ctx context.Context) ([]domainnetwork.ControllerRemoteEndpoint, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	type controllerUnit struct {
+		UUID   string `db:"uuid"`
+		Name   string `db:"name"`
+		IsCAAS bool   `db:"is_caas"`
+	}
+	type address struct {
+		Address string `db:"address"`
+	}
+	unitsStmt, err := st.Prepare(`
+SELECT u.uuid AS &controllerUnit.uuid,
+       u.name AS &controllerUnit.name,
+       CASE WHEN EXISTS (SELECT 1 FROM k8s_pod AS kp WHERE kp.unit_uuid = u.uuid)
+           THEN TRUE ELSE FALSE END AS &controllerUnit.is_caas
+FROM unit AS u
+JOIN application_controller AS ac ON ac.application_uuid = u.application_uuid
+WHERE u.life_id = 0
+ORDER BY u.name`, controllerUnit{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	ipStmt, err := st.Prepare(`
+SELECT ipa.address_value AS &address.address
+FROM unit AS u
+JOIN ip_address AS ipa ON ipa.net_node_uuid = u.net_node_uuid
+JOIN link_layer_device AS lld ON lld.uuid = ipa.device_uuid
+JOIN link_layer_device_type AS lldt ON lldt.id = lld.device_type_id
+JOIN ip_address_scope AS ias ON ias.id = ipa.scope_id
+WHERE u.uuid = $entityUUID.uuid AND lldt.name != 'loopback' AND ias.name != 'local-machine'
+ORDER BY ipa.address_value`, address{}, entityUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	fqdnStmt, err := st.Prepare(`
+SELECT fqa.address AS &address.address
+FROM unit AS u
+JOIN net_node_fqdn_address AS nnfa ON nnfa.net_node_uuid = u.net_node_uuid
+JOIN fqdn_address AS fqa ON fqa.uuid = nnfa.address_uuid
+WHERE u.uuid = $entityUUID.uuid
+ORDER BY fqa.address`, address{}, entityUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var units []controllerUnit
+	var result []domainnetwork.ControllerRemoteEndpoint
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, unitsStmt).GetAll(&units); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		for _, unit := range units {
+			_, suffix, ok := strings.Cut(unit.Name, "/")
+			if !ok {
+				return errors.Errorf("invalid controller unit name %q", unit.Name)
+			}
+			id, err := strconv.Atoi(suffix)
+			if err != nil {
+				return errors.Errorf("invalid controller unit name %q: %w", unit.Name, err)
+			}
+			endpoint := domainnetwork.ControllerRemoteEndpoint{ControllerID: strconv.Itoa(id), IsCAAS: unit.IsCAAS}
+			var values []address
+			if unit.IsCAAS {
+				err = tx.Query(ctx, fqdnStmt, entityUUID{UUID: unit.UUID}).GetAll(&values)
+				for _, value := range values {
+					endpoint.FQDNs = append(endpoint.FQDNs, value.Address)
+				}
+			} else {
+				err = tx.Query(ctx, ipStmt, entityUUID{UUID: unit.UUID}).GetAll(&values)
+				for _, value := range values {
+					endpoint.Addresses = append(endpoint.Addresses, value.Address)
+				}
+			}
+			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Capture(err)
+			}
+			result = append(result, endpoint)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return result, nil
+}
 
 // GetUnitAndK8sServiceAddresses returns the addresses of the specified unit.
 // The addresses are taken from the union the net node UUIDs of the cloud service

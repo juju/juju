@@ -39,6 +39,87 @@ func (s *unitAddressSuite) service(c *tc.C) *Service {
 	return NewService(s.st, loggertesting.WrapCheckLog(c))
 }
 
+func (s *unitAddressSuite) TestGetControllerRemoteAPIAddressesIaas(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().GetControllerRemoteEndpoints(gomock.Any()).Return([]domainnetwork.ControllerRemoteEndpoint{{
+		ControllerID: "1",
+		Addresses:    []string{"10.0.0.2", "2001:db8::2"},
+	}}, nil)
+
+	addresses, err := s.service(c).GetControllerRemoteAPIAddresses(c.Context(), 17070)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addresses, tc.DeepEquals, map[string][]string{
+		"1": {"10.0.0.2:17070", "[2001:db8::2]:17070"},
+	})
+}
+
+func (s *unitAddressSuite) TestGetControllerRemoteAPIAddressesCaas(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fqdn := "controller-2.controller-service-endpoints.controller.svc.cluster.local"
+	s.st.EXPECT().GetControllerRemoteEndpoints(gomock.Any()).Return([]domainnetwork.ControllerRemoteEndpoint{{
+		ControllerID: "2",
+		IsCAAS:       true,
+		FQDNs:        []string{fqdn},
+	}}, nil)
+
+	addresses, err := s.service(c).GetControllerRemoteAPIAddresses(c.Context(), 17070)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addresses, tc.DeepEquals, map[string][]string{
+		"2": {fqdn + ":17070"},
+	})
+}
+
+func (s *unitAddressSuite) TestGetControllerRemoteAPIAddressesRejectsMissingCaasFQDN(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().GetControllerRemoteEndpoints(gomock.Any()).Return([]domainnetwork.ControllerRemoteEndpoint{{
+		ControllerID: "0",
+		IsCAAS:       true,
+	}}, nil)
+
+	_, err := s.service(c).GetControllerRemoteAPIAddresses(c.Context(), 17070)
+
+	c.Check(err, tc.ErrorMatches,
+		"expected exactly one controller pod FQDN for controller 0, got 0")
+}
+
+func (s *unitAddressSuite) TestGetControllerRemoteAPIAddressesRejectsMultipleCaasFQDNs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().GetControllerRemoteEndpoints(gomock.Any()).Return([]domainnetwork.ControllerRemoteEndpoint{{
+		ControllerID: "0",
+		IsCAAS:       true,
+		FQDNs: []string{
+			"controller-0.controller-service-endpoints.controller.svc.cluster.local",
+			"controller-0.controller-service-endpoints.other.svc.cluster.local",
+		},
+	}}, nil)
+
+	_, err := s.service(c).GetControllerRemoteAPIAddresses(c.Context(), 17070)
+
+	c.Check(err, tc.ErrorMatches,
+		"expected exactly one controller pod FQDN for controller 0, got 2")
+}
+
+func (s *unitAddressSuite) TestGetControllerRemoteAPIAddressesRejectsMalformedCaasFQDN(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().GetControllerRemoteEndpoints(gomock.Any()).Return([]domainnetwork.ControllerRemoteEndpoint{{
+		ControllerID: "0",
+		IsCAAS:       true,
+		FQDNs:        []string{"controller-service.controller.svc.cluster.local"},
+	}}, nil)
+
+	_, err := s.service(c).GetControllerRemoteAPIAddresses(c.Context(), 17070)
+
+	c.Check(err, tc.ErrorMatches,
+		"invalid controller pod FQDN \"controller-service.controller.svc.cluster.local\"")
+}
+
 func (s *unitAddressSuite) TestGetPublicAddressUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

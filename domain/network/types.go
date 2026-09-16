@@ -71,6 +71,16 @@ type ControllerAPIAddress struct {
 // candidates.
 type ControllerAPIAddresses []ControllerAPIAddress
 
+// ControllerRemoteEndpoint is the network identity used for direct
+// controller-to-controller traffic. Addresses are deliberately separate from
+// the controller API-address projection, which is intended for agents.
+type ControllerRemoteEndpoint struct {
+	ControllerID string
+	IsCAAS       bool
+	Addresses    []string
+	FQDNs        []string
+}
+
 // DeviceToBridge indicates a device on a known machine that should be bridged
 // in order to provision a container or virtual machine on it with appropriate
 // network connectivity.

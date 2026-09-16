@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run github.com/canonical/gomock/mockgen -package apiremotecaller -destination package_mocks_test.go github.com/juju/juju/internal/worker/apiremotecaller RemoteServer,ControllerNodeService
+//go:generate go run github.com/canonical/gomock/mockgen -package apiremotecaller -destination package_mocks_test.go github.com/juju/juju/internal/worker/apiremotecaller RemoteServer,ControllerNetworkService
 //go:generate go run github.com/canonical/gomock/mockgen -package apiremotecaller -destination clock_mocks_test.go github.com/juju/clock Clock
 //go:generate go run github.com/canonical/gomock/mockgen -package apiremotecaller -destination connection_mocks_test.go github.com/juju/juju/api Connection
 

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
@@ -53,6 +54,17 @@ type APIInfoProvider interface {
 	APIInfo() (*api.Info, error)
 }
 
+// RemoteCallerServices provides the controller-model services used to build
+// direct controller remote endpoints.
+type RemoteCallerServices interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+	Network() ControllerNetworkService
+}
+
+// GetRemoteCallerServices retrieves the services required by the remote
+// caller from the object store service factory.
+type GetRemoteCallerServices func(dependency.Getter, string) (RemoteCallerServices, error)
+
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
 type ManifoldConfig struct {
@@ -71,7 +83,8 @@ type ManifoldConfig struct {
 	Clock  clock.Clock
 	Logger logger.Logger
 
-	NewWorker func(WorkerConfig) (worker.Worker, error)
+	GetRemoteCallerServices GetRemoteCallerServices
+	NewWorker               func(WorkerConfig) (worker.Worker, error)
 }
 
 func (config ManifoldConfig) Validate() error {
@@ -97,6 +110,9 @@ func (config ManifoldConfig) Validate() error {
 }
 
 func Manifold(config ManifoldConfig) dependency.Manifold {
+	if config.GetRemoteCallerServices == nil {
+		config.GetRemoteCallerServices = getRemoteCallerServices
+	}
 	return dependency.Manifold{
 		Inputs: []string{
 			config.ObjectStoreServicesName,
@@ -106,19 +122,24 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var services services.ControllerObjectStoreServices
-			if err := getter.Get(config.ObjectStoreServicesName, &services); err != nil {
+			services, err := config.GetRemoteCallerServices(getter, config.ObjectStoreServicesName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			controllerConfig, err := services.ControllerConfig(ctx)
+			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			cfg := WorkerConfig{
-				ControllerNodeService: services.ControllerNode(),
-				APIInfo:               config.APIInfo,
-				APIOpener:             api.Open,
-				Origin:                config.Origin,
-				NewRemote:             NewRemoteServer,
-				Logger:                config.Logger,
-				Clock:                 config.Clock,
+				ControllerNetworkService: services.Network(),
+				APIPort:                  controllerConfig.APIPort(),
+				APIInfo:                  config.APIInfo,
+				APIOpener:                api.Open,
+				Origin:                   config.Origin,
+				NewRemote:                NewRemoteServer,
+				Logger:                   config.Logger,
+				Clock:                    config.Clock,
 			}
 
 			w, err := config.NewWorker(cfg)
@@ -129,6 +150,26 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		},
 		Output: remoteOutput,
 	}
+}
+
+type remoteCallerServices struct {
+	services services.ObjectStoreServices
+}
+
+func getRemoteCallerServices(getter dependency.Getter, name string) (RemoteCallerServices, error) {
+	var objectStoreServices services.ObjectStoreServices
+	if err := getter.Get(name, &objectStoreServices); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return remoteCallerServices{services: objectStoreServices}, nil
+}
+
+func (s remoteCallerServices) ControllerConfig(ctx context.Context) (controller.Config, error) {
+	return s.services.ControllerConfig().ControllerConfig(ctx)
+}
+
+func (s remoteCallerServices) Network() ControllerNetworkService {
+	return s.services.Network()
 }
 
 func remoteOutput(in worker.Worker, out any) error {

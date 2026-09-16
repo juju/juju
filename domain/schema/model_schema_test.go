@@ -777,6 +777,13 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_relation_network_egress_delete",
 		"trg_log_relation_network_egress_insert",
 		"trg_log_relation_network_egress_update",
+
+		"trg_log_fqdn_address_delete",
+		"trg_log_fqdn_address_insert",
+		"trg_log_fqdn_address_update",
+		"trg_log_net_node_fqdn_address_delete",
+		"trg_log_net_node_fqdn_address_insert",
+		"trg_log_net_node_fqdn_address_update",
 	)
 
 	// These are additional triggers that are not change log triggers, but

@@ -1035,12 +1035,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		objectStoreS3CallerName: ifDatabaseUpgradeComplete(objectstores3caller.Manifold(objectstores3caller.ManifoldConfig{
-			HTTPClientName:          httpClientName,
+			HTTPClientName:        httpClientName,
 			ObjectStoreServicesName: objectStoreServicesName,
-			NewClient:               objectstores3caller.NewS3Client,
-			Logger:                  internallogger.GetLogger("juju.worker.s3caller"),
-			GetObjectStoreService:   objectstores3caller.GetObjectStoreService,
-			NewWorker:               objectstores3caller.NewWorker,
+			NewClient:             objectstores3caller.NewS3Client,
+			Logger:                internallogger.GetLogger("juju.worker.s3caller"),
+			GetObjectStoreService: objectstores3caller.GetObjectStoreService,
+			NewWorker:             objectstores3caller.NewWorker,
 		})),
 
 		// Provider tracker manifold is not dependent on the

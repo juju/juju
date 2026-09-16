@@ -19,6 +19,11 @@ import (
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
+	// NewNotifyWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(context.Context, string, eventsource.FilterOption,
+		...eventsource.FilterOption) (watcher.NotifyWatcher, error)
 	// NewNamespaceMapperWatcher returns a new watcher that receives changes
 	// from the input base watcher's db/queue. Change-log events will be emitted
 	// only if the filter accepts them, and dispatching the notifications via
@@ -76,6 +81,20 @@ func (s *WatchableService) WatchSubnets(ctx context.Context, subnetUUIDsToWatch 
 		fmt.Sprintf("subnet watcher for %q", subnetUUIDsToWatch.SortedValues()),
 		eventsource.FilterEvents(filter),
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchSubnet(), changestream.All),
+	)
+}
+
+// WatchControllerRemoteEndpoints observes controller unit and address changes
+// which can alter direct controller-to-controller endpoint selection.
+func (s *WatchableService) WatchControllerRemoteEndpoints(ctx context.Context) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	return s.watcherFactory.NewNotifyWatcher(
+		ctx, "controller remote endpoints watcher",
+		eventsource.NamespaceFilter("unit", changestream.All),
+		eventsource.NamespaceFilter("ip_address", changestream.All),
+		eventsource.NamespaceFilter("fqdn_address", changestream.All),
+		eventsource.NamespaceFilter("net_node_fqdn_address", changestream.All),
 	)
 }
 

@@ -43,6 +43,7 @@ type MockStateMockRecorder struct {
 	getAllSubnetsExpects                        []*gomock.Call1_2[context.Context, network.SubnetInfos, error]
 	getContainerNetworkingMethodExpects         []*gomock.Call1_2[context.Context, string, error]
 	getControllerAPIAddressesExpects            []*gomock.Call2_2[context.Context, string, network0.ControllerAPIAddresses, error]
+	getControllerRemoteEndpointsExpects         []*gomock.Call1_2[context.Context, []network0.ControllerRemoteEndpoint, error]
 	getControllerUnitUUIDByNameExpects          []*gomock.Call2_2[context.Context, string, string, error]
 	getMachineAppBindingsExpects                []*gomock.Call2_2[context.Context, string, []internal.SpaceName, error]
 	getMachineNetNodeUUIDExpects                []*gomock.Call2_2[context.Context, string, string, error]
@@ -63,11 +64,11 @@ type MockStateMockRecorder struct {
 	getUnitFQDNsExpects                         []*gomock.Call2_2[context.Context, string, []string, error]
 	getUnitNetworkInfoExpects                   []*gomock.Call2_2[context.Context, string, internal.UnitNetworkInfo, error]
 	getUnitPublicAddressForEgressExpects        []*gomock.Call2_2[context.Context, string, string, error]
-	isControllerPeerRelationExpects             []*gomock.Call3_2[context.Context, string, string, bool, error]
 	getUnitRelationEndpointNameExpects          []*gomock.Call3_2[context.Context, string, string, string, error]
 	getUnitUUIDByNameExpects                    []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
 	importLinkLayerDevicesExpects               []*gomock.Call2_1[context.Context, []internal.ImportLinkLayerDevice, error]
 	isCaasUnitExpects                           []*gomock.Call2_2[context.Context, string, bool, error]
+	isControllerPeerRelationExpects             []*gomock.Call3_2[context.Context, string, string, bool, error]
 	isMachineUnmanagedExpects                   []*gomock.Call2_2[context.Context, string, bool, error]
 	mergeLinkLayerDeviceExpects                 []*gomock.Call3_1[context.Context, string, []network0.NetInterface, error]
 	moveSubnetsToSpaceExpects                   []*gomock.Call4_2[context.Context, []string, string, bool, []network0.MovedSubnets, error]
@@ -289,6 +290,24 @@ func (mr *MockStateMockRecorder) GetControllerAPIAddresses(ctx, uuid any) *MockS
 
 // MockStateGetControllerAPIAddressesCall is the typed call wrapper for GetControllerAPIAddresses.
 type MockStateGetControllerAPIAddressesCall = gomock.Call2_2[context.Context, string, network0.ControllerAPIAddresses, error]
+
+// GetControllerRemoteEndpoints mocks base method.
+func (m *MockState) GetControllerRemoteEndpoints(ctx context.Context) ([]network0.ControllerRemoteEndpoint, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getControllerRemoteEndpointsExpects, m.ctrl, m, "GetControllerRemoteEndpoints", ctx)
+}
+
+// GetControllerRemoteEndpoints indicates an expected call of GetControllerRemoteEndpoints.
+func (mr *MockStateMockRecorder) GetControllerRemoteEndpoints(ctx any) *MockStateGetControllerRemoteEndpointsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, []network0.ControllerRemoteEndpoint, error](mr.mock.ctrl.T, mr.mock, "GetControllerRemoteEndpoints", gomock.EnsureMatcher(ctx))
+	mr.getControllerRemoteEndpointsExpects = append(mr.getControllerRemoteEndpointsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetControllerRemoteEndpointsCall is the typed call wrapper for GetControllerRemoteEndpoints.
+type MockStateGetControllerRemoteEndpointsCall = gomock.Call1_2[context.Context, []network0.ControllerRemoteEndpoint, error]
 
 // GetControllerUnitUUIDByName mocks base method.
 func (m *MockState) GetControllerUnitUUIDByName(arg0 context.Context, arg1 string) (string, error) {
@@ -657,24 +676,6 @@ func (m *MockState) GetUnitRelationEndpointName(ctx context.Context, unitUUID, r
 	return gomock.Dispatch3_2(&m.recorder.getUnitRelationEndpointNameExpects, m.ctrl, m, "GetUnitRelationEndpointName", ctx, unitUUID, relationUUID)
 }
 
-// IsControllerPeerRelation mocks base method.
-func (m *MockState) IsControllerPeerRelation(ctx context.Context, unitUUID, relationUUID string) (bool, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.isControllerPeerRelationExpects, m.ctrl, m, "IsControllerPeerRelation", ctx, unitUUID, relationUUID)
-}
-
-// IsControllerPeerRelation indicates an expected call of IsControllerPeerRelation.
-func (mr *MockStateMockRecorder) IsControllerPeerRelation(ctx, unitUUID, relationUUID any) *MockStateIsControllerPeerRelationCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[context.Context, string, string, bool, error](mr.mock.ctrl.T, mr.mock, "IsControllerPeerRelation", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitUUID), gomock.EnsureMatcher(relationUUID))
-	mr.isControllerPeerRelationExpects = append(mr.isControllerPeerRelationExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateIsControllerPeerRelationCall is the typed call wrapper for IsControllerPeerRelation.
-type MockStateIsControllerPeerRelationCall = gomock.Call3_2[context.Context, string, string, bool, error]
-
 // GetUnitRelationEndpointName indicates an expected call of GetUnitRelationEndpointName.
 func (mr *MockStateMockRecorder) GetUnitRelationEndpointName(ctx, unitUUID, relationUUID any) *MockStateGetUnitRelationEndpointNameCall {
 	mr.mock.ctrl.T.Helper()
@@ -740,6 +741,24 @@ func (mr *MockStateMockRecorder) IsCaasUnit(ctx, unitUUID any) *MockStateIsCaasU
 
 // MockStateIsCaasUnitCall is the typed call wrapper for IsCaasUnit.
 type MockStateIsCaasUnitCall = gomock.Call2_2[context.Context, string, bool, error]
+
+// IsControllerPeerRelation mocks base method.
+func (m *MockState) IsControllerPeerRelation(ctx context.Context, unitUUID, relationUUID string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.isControllerPeerRelationExpects, m.ctrl, m, "IsControllerPeerRelation", ctx, unitUUID, relationUUID)
+}
+
+// IsControllerPeerRelation indicates an expected call of IsControllerPeerRelation.
+func (mr *MockStateMockRecorder) IsControllerPeerRelation(ctx, unitUUID, relationUUID any) *MockStateIsControllerPeerRelationCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, string, bool, error](mr.mock.ctrl.T, mr.mock, "IsControllerPeerRelation", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitUUID), gomock.EnsureMatcher(relationUUID))
+	mr.isControllerPeerRelationExpects = append(mr.isControllerPeerRelationExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateIsControllerPeerRelationCall is the typed call wrapper for IsControllerPeerRelation.
+type MockStateIsControllerPeerRelationCall = gomock.Call3_2[context.Context, string, string, bool, error]
 
 // IsMachineUnmanaged mocks base method.
 func (m *MockState) IsMachineUnmanaged(ctx context.Context, machineUUID string) (bool, error) {

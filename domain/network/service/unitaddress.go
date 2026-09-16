@@ -5,6 +5,9 @@ package service
 
 import (
 	"context"
+	"net"
+	"strconv"
+	"strings"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
@@ -12,6 +15,42 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
+
+// GetControllerRemoteAPIAddresses returns ready controller endpoints for
+// direct controller traffic. It must not use the generic agent address
+// projection: CAAS requires its stable pod FQDN while IAAS uses unit IPs.
+func (s *Service) GetControllerRemoteAPIAddresses(ctx context.Context, apiPort int) (map[string][]string, error) {
+	if apiPort <= 0 {
+		return nil, errors.Errorf("invalid API port %d", apiPort)
+	}
+	endpoints, err := s.st.GetControllerRemoteEndpoints(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	result := make(map[string][]string, len(endpoints))
+	for _, endpoint := range endpoints {
+		if endpoint.IsCAAS {
+			id, err := strconv.Atoi(endpoint.ControllerID)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			fqdn, err := controllerPodFQDN(id, endpoint.FQDNs)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			result[endpoint.ControllerID] = []string{net.JoinHostPort(fqdn, strconv.Itoa(apiPort))}
+			continue
+		}
+		for _, address := range endpoint.Addresses {
+			address, _, _ = strings.Cut(address, "/")
+			result[endpoint.ControllerID] = append(result[endpoint.ControllerID], net.JoinHostPort(address, strconv.Itoa(apiPort)))
+		}
+		if len(result[endpoint.ControllerID]) == 0 {
+			return nil, errors.Errorf("no remote addresses for controller %q", endpoint.ControllerID)
+		}
+	}
+	return result, nil
+}
 
 // GetUnitPrivateAddress returns the private address for the specified unit.
 // For k8s provider, it will return the first private address of the cloud

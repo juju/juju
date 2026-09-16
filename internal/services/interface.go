@@ -256,8 +256,9 @@ type ControllerObjectStoreServices interface {
 	// ControllerConfig returns the controller configuration service.
 	ControllerConfig() *controllerconfigservice.WatchableService
 
-	// ControllerNode returns the controller node service.
-	ControllerNode() *controllernodeservice.WatchableService
+	// Network returns controller-model network services used for direct
+	// controller endpoint selection.
+	Network() *networkservice.WatchableService
 
 	// AgentObjectStore returns the object store service.
 	// Primarily used for agent blob store. Although can be used for other
