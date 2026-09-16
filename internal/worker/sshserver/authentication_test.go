@@ -38,7 +38,9 @@ func (s *authenticationSuite) TestPasswordAuthenticationRejectsUnexpectedUser(c 
 func (s *authenticationSuite) TestPasswordAuthenticationAcceptsJIMMJWT(c *tc.C) {
 	token, err := jwt.NewBuilder().Subject("alice").Build()
 	c.Assert(err, tc.ErrorIsNil)
-	ctx := &stubAuthenticationContext{user: externalAuthUser, values: map[any]any{}}
+	ctx := &stubAuthenticationContext{user: externalAuthUser, values: map[any]any{
+		authenticatedPublicKey{}: publicKeyWithComment{PublicKey: newSigner(c).PublicKey()},
+	}}
 	parser := &stubJWTParser{token: token}
 
 	auth := authenticator{jwtParser: parser}
@@ -46,7 +48,19 @@ func (s *authenticationSuite) TestPasswordAuthenticationAcceptsJIMMJWT(c *tc.C) 
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(authenticated, tc.IsTrue)
 	c.Check(ctx.values[userJWT{}], tc.Equals, token)
+	c.Check(ctx.values[authenticatedPublicKey{}], tc.IsNil)
 	c.Check(parser.password, tc.Equals, "encoded-jwt")
+}
+
+func (s *authenticationSuite) TestPasswordAuthenticationClearsOfferedPublicKey(c *tc.C) {
+	ctx := &stubAuthenticationContext{user: "alice", values: map[any]any{
+		authenticatedPublicKey{}: publicKeyWithComment{PublicKey: newSigner(c).PublicKey()},
+	}}
+
+	authenticated, err := authenticator{}.PasswordAuthentication(ctx, "password")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(authenticated, tc.IsFalse)
+	c.Check(ctx.values[authenticatedPublicKey{}], tc.IsNil)
 }
 
 func (s *authenticationSuite) TestPasswordAuthenticationRejectsInvalidJIMMJWT(c *tc.C) {

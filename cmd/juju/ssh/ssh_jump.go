@@ -389,7 +389,9 @@ var defaultSSHIdentityFiles = []string{
 	"~/.ssh/id_rsa",
 	"~/.ssh/id_dsa",
 	"~/.ssh/id_ecdsa",
+	"~/.ssh/id_ecdsa_sk",
 	"~/.ssh/id_ed25519",
+	"~/.ssh/id_ed25519_sk",
 }
 
 // jumpIdentityArgs returns the -i identity arguments for the ssh command
@@ -464,7 +466,7 @@ func (p *sshJump) copy(ctx Context) error {
 func (p *sshJump) showSSHCommand(w io.Writer, target *resolvedTarget, args []string) error {
 	return p.sshOutputTemplate.Execute(w, map[string]string{
 		"JumpPort":        strconv.Itoa(p.jumpHostPort),
-		"JumpKey":         p.jumpKey,
+		"JumpKey":         quotedJumpKey(p.jumpKey),
 		"JumpUser":        target.via.user,
 		"JumpHost":        target.via.host,
 		"DestinationUser": target.user,
@@ -476,11 +478,24 @@ func (p *sshJump) showSSHCommand(w io.Writer, target *resolvedTarget, args []str
 func (p *sshJump) showSCPCommand(w io.Writer, proxyTarget *resolvedTarget, args []string) error {
 	return p.scpOutputTemplate.Execute(w, map[string]string{
 		"JumpPort": strconv.Itoa(p.jumpHostPort),
-		"JumpKey":  p.jumpKey,
+		"JumpKey":  quotedJumpKey(p.jumpKey),
 		"JumpUser": proxyTarget.via.user,
 		"JumpHost": proxyTarget.via.host,
 		"Args":     utils.CommandString(args...),
 	})
+}
+
+// shellQuote returns a POSIX shell-quoted argument. The result is embedded in
+// ProxyCommand and therefore evaluated by the SSH client's shell.
+func shellQuote(arg string) string {
+	return "'" + strings.ReplaceAll(arg, "'", "'\"'\"'") + "'"
+}
+
+func quotedJumpKey(key string) string {
+	if key == "" {
+		return ""
+	}
+	return shellQuote(key)
 }
 
 func (p *sshJump) copyCAAS(ctx Context) error {

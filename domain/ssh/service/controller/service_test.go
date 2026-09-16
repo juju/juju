@@ -92,7 +92,7 @@ func (s *serviceSuite) TestPublicKeyInModel(c *tc.C) {
 	username, err := user.NewName("alice")
 	c.Assert(err, tc.ErrorIsNil)
 	modelUUID := coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee")
-	keys := []coressh.PublicKey{{Key: string(gossh.MarshalAuthorizedKey(signer.PublicKey()))}}
+	keys := []coressh.PublicKey{{Fingerprint: gossh.FingerprintSHA256(signer.PublicKey())}}
 	controllerState := NewMockState(gomock.NewController(c))
 	controllerState.EXPECT().GetPublicKeysForUserInModel(gomock.Any(), modelUUID.String(), username.Name()).Return(keys, nil)
 
@@ -101,16 +101,19 @@ func (s *serviceSuite) TestPublicKeyInModel(c *tc.C) {
 	c.Check(found, tc.IsTrue)
 }
 
-func (s *serviceSuite) TestPublicKeyInModelInvalidStoredKey(c *tc.C) {
+func (s *serviceSuite) TestPublicKeyInModelRejectsNonMatchingFingerprint(c *tc.C) {
+	signer, err := gossh.ParsePrivateKey([]byte(testPrivateKey))
+	c.Assert(err, tc.ErrorIsNil)
 	username, err := user.NewName("alice")
 	c.Assert(err, tc.ErrorIsNil)
 	modelUUID := coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee")
 	controllerState := NewMockState(gomock.NewController(c))
 	controllerState.EXPECT().GetPublicKeysForUserInModel(gomock.Any(), modelUUID.String(), username.Name()).
-		Return([]coressh.PublicKey{{Key: "not an SSH key"}}, nil)
+		Return([]coressh.PublicKey{{Fingerprint: "SHA256:non-matching"}}, nil)
 
-	_, err = controllersshservice.NewService(controllerState).PublicKeyInModel(c.Context(), modelUUID, username, nil)
-	c.Assert(err, tc.ErrorMatches, `parsing public key for user "alice": .*`)
+	found, err := controllersshservice.NewService(controllerState).PublicKeyInModel(c.Context(), modelUUID, username, signer.PublicKey())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(found, tc.IsFalse)
 }
 
 const testPrivateKey = "-----BEGIN OPENSSH PRIVATE KEY-----\n" +

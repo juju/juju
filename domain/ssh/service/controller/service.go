@@ -4,7 +4,6 @@
 package controller
 
 import (
-	"bytes"
 	"context"
 
 	gossh "golang.org/x/crypto/ssh"
@@ -79,11 +78,7 @@ func (s *Service) PublicKeyInModel(ctx context.Context, modelUUID coremodel.UUID
 		return false, errors.Errorf("getting public SSH keys for user %q: %w", username, err)
 	}
 	for _, modelKey := range keys {
-		parsedKey, _, _, _, err := gossh.ParseAuthorizedKey([]byte(modelKey.Key))
-		if err != nil {
-			return false, errors.Errorf("parsing public key for user %q: %w", username, err)
-		}
-		if bytes.Equal(key.Marshal(), parsedKey.Marshal()) {
+		if modelKey.Fingerprint == gossh.FingerprintSHA256(key) {
 			return true, nil
 		}
 	}

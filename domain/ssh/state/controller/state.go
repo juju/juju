@@ -13,8 +13,6 @@ import (
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
-	accesserrors "github.com/juju/juju/domain/access/errors"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/errors"
 )
@@ -113,6 +111,7 @@ func (st *State) GetPublicKeysForUser(ctx context.Context, username user.Name) (
 	arg := userName{Name: username.Name()}
 	stmt, err := st.Prepare(`
 SELECT &userPublicSSHKey.comment,
+       &userPublicSSHKey.fingerprint,
        &userPublicSSHKey.public_key
 FROM user_public_ssh_key AS userPublicSSHKey
 JOIN v_user_auth AS userAuth ON userPublicSSHKey.user_uuid = userAuth.uuid
@@ -138,15 +137,16 @@ WHERE userAuth.name = $userName.name
 	keys := make([]coressh.PublicKey, 0, len(rows))
 	for _, row := range rows {
 		keys = append(keys, coressh.PublicKey{
-			Comment: row.Comment,
-			Key:     row.PublicKey,
+			Comment:     row.Comment,
+			Fingerprint: row.Fingerprint,
+			Key:         row.PublicKey,
 		})
 	}
 	return keys, nil
 }
 
-// GetPublicKeysForUserInModel returns the public keys the named user is
-// authorized to use in the supplied model.
+// GetPublicKeysForUserInModel returns the public key fingerprints the named
+// user is authorized to use in the supplied model.
 func (st *State) GetPublicKeysForUserInModel(ctx context.Context, modelUUID, username string) ([]coressh.PublicKey, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -155,47 +155,23 @@ func (st *State) GetPublicKeysForUserInModel(ctx context.Context, modelUUID, use
 
 	userArg := entityName{Name: username}
 	modelArg := modelUUIDValue{UUID: modelUUID}
-	userStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
-FROM user
-WHERE name = $entityName.name
-  AND removed = FALSE`, entityUUID{}, userArg)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	modelStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
-FROM model
-WHERE uuid = $modelUUIDValue.uuid`, entityUUID{}, modelArg)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
 	keysStmt, err := st.Prepare(`
-SELECT upsk.public_key AS &modelAuthorizedPublicKey.public_key
+SELECT upsk.fingerprint AS &modelAuthorizedPublicKey.fingerprint
 FROM user_public_ssh_key AS upsk
+JOIN user AS u ON upsk.user_uuid = u.uuid
 JOIN model_authorized_keys AS mak
   ON mak.user_public_ssh_key_id = upsk.id
-WHERE upsk.user_uuid = $entityUUID.uuid
-  AND mak.model_uuid = $modelUUIDValue.uuid`, modelAuthorizedPublicKey{}, entityUUID{}, modelArg)
+JOIN model AS m ON mak.model_uuid = m.uuid
+WHERE u.name = $entityName.name
+  AND u.removed = FALSE
+  AND m.uuid = $modelUUIDValue.uuid`, modelAuthorizedPublicKey{}, userArg, modelArg)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	var keys []modelAuthorizedPublicKey
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var user entityUUID
-		if err := tx.Query(ctx, userStmt, userArg).Get(&user); errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("user %q: %w", username, accesserrors.UserNotFound)
-		} else if err != nil {
-			return errors.Errorf("getting user %q: %w", username, err)
-		}
-		var model entityUUID
-		if err := tx.Query(ctx, modelStmt, modelArg).Get(&model); errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("model %q: %w", modelUUID, modelerrors.NotFound)
-		} else if err != nil {
-			return errors.Errorf("getting model %q: %w", modelUUID, err)
-		}
-		if err := tx.Query(ctx, keysStmt, user, modelArg).GetAll(&keys); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		if err := tx.Query(ctx, keysStmt, userArg, modelArg).GetAll(&keys); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("getting public SSH keys for user %q: %w", username, err)
 		}
 		return nil
@@ -206,7 +182,7 @@ WHERE upsk.user_uuid = $entityUUID.uuid
 
 	result := make([]coressh.PublicKey, 0, len(keys))
 	for _, key := range keys {
-		result = append(result, coressh.PublicKey{Key: key.Key})
+		result = append(result, coressh.PublicKey{Fingerprint: key.Fingerprint})
 	}
 	return result, nil
 }
@@ -227,16 +203,13 @@ type userName struct {
 }
 
 type userPublicSSHKey struct {
-	Comment   string `db:"comment"`
-	PublicKey string `db:"public_key"`
+	Comment     string `db:"comment"`
+	Fingerprint string `db:"fingerprint"`
+	PublicKey   string `db:"public_key"`
 }
 
 type entityName struct {
 	Name string `db:"name"`
-}
-
-type entityUUID struct {
-	UUID string `db:"uuid"`
 }
 
 type modelUUIDValue struct {
@@ -244,5 +217,5 @@ type modelUUIDValue struct {
 }
 
 type modelAuthorizedPublicKey struct {
-	Key string `db:"public_key"`
+	Fingerprint string `db:"fingerprint"`
 }

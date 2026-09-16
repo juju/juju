@@ -76,6 +76,11 @@ func (a authenticator) PublicKeyAuthentication(ctx ssh.Context, key ssh.PublicKe
 // 1. Decoding a JWT as the password for external-auth.
 // 2. Reverse-tunnel authentication for machine agents.
 func (a authenticator) PasswordAuthentication(ctx ssh.Context, password string) (bool, error) {
+	// PublicKeyAuthentication is also invoked for an unsigned public-key query.
+	// Do not let a key offered before password authentication influence
+	// subsequent authorization.
+	ctx.SetValue(authenticatedPublicKey{}, nil)
+
 	switch ctx.User() {
 	case externalAuthUser:
 		token, err := a.jwtParser.Parse(ctx, password)

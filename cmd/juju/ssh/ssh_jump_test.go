@@ -267,7 +267,7 @@ func (s *sshJumpSuite) TestSSHShowsJumpKey(c *tc.C) {
 	outputTemplate, err := template.New("output").Parse(openSSHTemplate)
 	c.Assert(err, tc.ErrorIsNil)
 	jump := sshJump{
-		jumpKey:           "/tmp/custom-key",
+		jumpKey:           "/tmp/custom key",
 		jumpHostPort:      17022,
 		showCommand:       true,
 		sshOutputTemplate: outputTemplate,
@@ -278,7 +278,13 @@ func (s *sshJumpSuite) TestSSHShowsJumpKey(c *tc.C) {
 	sshCtx.EXPECT().GetStdout().Return(buffer)
 
 	c.Assert(jump.ssh(sshCtx, false, target), tc.ErrorIsNil)
-	c.Check(buffer.String(), tc.Contains, "-o IdentitiesOnly=yes -i /tmp/custom-key -W")
+	c.Check(buffer.String(), tc.Contains, "-o IdentitiesOnly=yes -i '/tmp/custom key' -W")
+}
+
+func (*sshJumpSuite) TestDefaultSSHIdentityFilesIncludesSecurityKeys(c *tc.C) {
+	identityFiles := set.NewStrings(defaultSSHIdentityFiles...)
+	c.Check(identityFiles.Contains("~/.ssh/id_ecdsa_sk"), tc.IsTrue)
+	c.Check(identityFiles.Contains("~/.ssh/id_ed25519_sk"), tc.IsTrue)
 }
 
 // TestSSHUsesIdentitiesOnlyWithJumpKey ensures the proxy command only offers
@@ -325,6 +331,21 @@ func (s *sshJumpSuite) TestCopyShowsJumpCommand(c *tc.C) {
 	buffer := bytes.NewBuffer(nil)
 	c.Assert(jump.showSCPCommand(buffer, target, []string{"local file", "ubuntu@machine-0:/remote path"}), tc.ErrorIsNil)
 	c.Check(buffer.String(), tc.Equals, "scp -o \"ProxyCommand=ssh -W %h:%p -p 17022 fred@1.0.0.1\" \"local file\" \"ubuntu@machine-0:/remote path\"\n")
+}
+
+func (s *sshJumpSuite) TestCopyShowsJumpCommandQuotesJumpKey(c *tc.C) {
+	outputTemplate, err := template.New("output").Parse(openSCPTemplate)
+	c.Assert(err, tc.ErrorIsNil)
+	jump := sshJump{
+		jumpKey:           "/tmp/custom key",
+		jumpHostPort:      17022,
+		scpOutputTemplate: outputTemplate,
+	}
+	target := &resolvedTarget{via: &resolvedTarget{user: "fred", host: "1.0.0.1"}}
+
+	buffer := bytes.NewBuffer(nil)
+	c.Assert(jump.showSCPCommand(buffer, target, []string{"local", "ubuntu@machine-0:/remote"}), tc.ErrorIsNil)
+	c.Check(buffer.String(), tc.Contains, "-i '/tmp/custom key' -W")
 }
 
 func (s *sshJumpSuite) TestCopyShowsJumpCommandThroughCopy(c *tc.C) {
