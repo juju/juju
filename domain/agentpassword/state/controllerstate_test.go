@@ -42,6 +42,21 @@ func (s *controllerModelState) TestSetControllerNodePassword(c *tc.C) {
 	c.Assert(hash, tc.Equals, string(passwordHash))
 }
 
+func (s *controllerModelState) TestSetControllerNodePasswordWhenDying(c *tc.C) {
+	st := NewControllerState(s.TxnRunnerFactory())
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE controller_node SET life_id = 1 WHERE controller_id = '0'`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	passwordHash := s.genPasswordHash(c)
+	err = st.SetControllerNodePasswordHash(c.Context(), "0", passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+
+	valid, err := st.MatchesControllerNodePasswordHash(c.Context(), "0", passwordHash)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsTrue)
+}
+
 func (s *controllerModelState) TestSetControllerNodePasswordDoesNotExist(c *tc.C) {
 	st := NewControllerState(s.TxnRunnerFactory())
 
@@ -70,6 +85,19 @@ func (s *controllerModelState) TestSetControllerNodePasswordHashIfAbsent(c *tc.C
 	valid, err = st.MatchesControllerNodePasswordHash(c.Context(), "0", replacementHash)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(valid, tc.IsFalse)
+}
+
+func (s *controllerModelState) TestSetControllerNodePasswordHashIfAbsentWhenDying(c *tc.C) {
+	st := NewControllerState(s.TxnRunnerFactory())
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE controller_node SET life_id = 1 WHERE controller_id = '0'`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	inserted, err := st.SetControllerNodePasswordHashIfAbsent(
+		c.Context(), "0", s.genPasswordHash(c),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(inserted, tc.IsTrue)
 }
 
 func (s *controllerModelState) TestSetControllerNodePasswordHashIfAbsentNodeDoesNotExist(c *tc.C) {

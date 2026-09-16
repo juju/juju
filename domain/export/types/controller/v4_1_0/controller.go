@@ -183,6 +183,7 @@ type ControllerConfig struct {
 
 type ControllerNode struct {
 	ControllerID      string  `db:"controller_id" json:"controller_id" yaml:"controller_id"`
+	LifeID            int64   `db:"life_id" json:"life_id" yaml:"life_id"`
 	DqliteNodeID      *string `db:"dqlite_node_id" json:"dqlite_node_id" yaml:"dqlite_node_id"`
 	DqliteBindAddress *string `db:"dqlite_bind_address" json:"dqlite_bind_address" yaml:"dqlite_bind_address"`
 }

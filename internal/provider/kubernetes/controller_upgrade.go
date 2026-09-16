@@ -96,7 +96,6 @@ func inClusterCredentialUpgrade(
 	saName, cleanUps, err := ensureControllerServiceAccount(
 		ctx,
 		client,
-		extendedClient,
 		namespace,
 		controllerUUID,
 		labels,

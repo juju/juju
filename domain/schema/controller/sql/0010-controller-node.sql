@@ -1,7 +1,11 @@
 CREATE TABLE controller_node (
     controller_id TEXT NOT NULL PRIMARY KEY,
+    life_id INT NOT NULL DEFAULT 0,
     dqlite_node_id TEXT,              -- This is the uint64 from Dqlite NodeInfo, stored as text.
-    dqlite_bind_address TEXT          -- Hostname or IP address (no port) that Dqlite is bound to.
+    dqlite_bind_address TEXT,         -- Hostname or IP address (no port) that Dqlite is bound to.
+    CONSTRAINT fk_controller_node_life
+    FOREIGN KEY (life_id)
+    REFERENCES life (id)
 );
 
 CREATE UNIQUE INDEX idx_controller_node_dqlite_node

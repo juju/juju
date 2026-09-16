@@ -44,8 +44,8 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.state = NewState(s.TxnRunnerFactory())
 }
 
-func (s *stateSuite) TestAddControllerNode(c *tc.C) {
-	err := s.state.AddControllerNode(c.Context(), "1")
+func (s *stateSuite) TestAddDqliteNodeID(c *tc.C) {
+	err := s.state.AddDqliteNodeID(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	var controllerID string
@@ -56,9 +56,30 @@ SELECT controller_id FROM controller_node WHERE controller_id = '1'
 	c.Check(controllerID, tc.Equals, "1")
 }
 
-func (s *stateSuite) TestAddControllerNodeIsIdempotent(c *tc.C) {
-	c.Assert(s.state.AddControllerNode(c.Context(), "1"), tc.ErrorIsNil)
-	c.Assert(s.state.AddControllerNode(c.Context(), "1"), tc.ErrorIsNil)
+func (s *stateSuite) TestAddDqliteNodeIDIsIdempotent(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestAddDqliteNodeIDDoesNotReviveDeadNode(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE controller_node SET life_id = 2 WHERE controller_id = '1'`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.AddDqliteNodeID(c.Context(), "1")
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
+}
+
+func (s *stateSuite) TestIsControllerNodeWhenDying(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE controller_node SET life_id = 1 WHERE controller_id = '1'`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	isController, err := s.state.IsControllerNode(c.Context(), "1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isController, tc.IsTrue)
 }
 
 func (s *stateSuite) TestAddDqliteNode(c *tc.C) {
@@ -71,11 +92,13 @@ func (s *stateSuite) TestAddDqliteNode(c *tc.C) {
 
 	nodeID1 := uint64(15237855465837235027)
 	controllerID1 := "1"
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), controllerID1), tc.ErrorIsNil)
 	err = s.state.AddDqliteNode(c.Context(), controllerID1, nodeID1, "10.0.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	nodeID2 := uint64(15237855465837235026)
 	controllerID2 := "2"
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), controllerID2), tc.ErrorIsNil)
 	err = s.state.AddDqliteNode(c.Context(), controllerID2, nodeID2, "10.0.0.2")
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -102,6 +125,7 @@ func (s *stateSuite) TestUpdateDqliteNode(c *tc.C) {
 	// tried to pass it directly as a uint64 query parameter.
 	nodeID := uint64(15237855465837235027)
 	controllerID := "0"
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), controllerID), tc.ErrorIsNil)
 	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -118,6 +142,44 @@ func (s *stateSuite) TestUpdateDqliteNode(c *tc.C) {
 
 	c.Check(id, tc.Equals, nodeID)
 	c.Check(addr, tc.Equals, "192.168.5.60")
+}
+
+func (s *stateSuite) TestAddDqliteNodeDoesNotReviveDeadNode(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE controller_node SET life_id = 2 WHERE controller_id = '1'`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.AddDqliteNode(c.Context(), "1", 123, "10.0.0.1")
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
+
+	var (
+		lifeID int
+		nodeID sql.NullString
+	)
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT life_id, dqlite_node_id
+FROM controller_node
+WHERE controller_id = '1'`).Scan(&lifeID, &nodeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 2)
+	c.Check(nodeID.Valid, tc.IsFalse)
+}
+
+func (s *stateSuite) TestAddDqliteNodeDoesNotReviveDyingNode(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
+	_, err := s.DB().ExecContext(c.Context(), `
+UPDATE controller_node SET life_id = 1 WHERE controller_id = '1'`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.AddDqliteNode(c.Context(), "1", 123, "10.0.0.1")
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
+
+	var lifeID int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT life_id FROM controller_node WHERE controller_id = '1'`).Scan(&lifeID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeID, tc.Equals, 1)
 }
 
 // TestSelectDatabaseNamespace is testing success for existing namespaces and
@@ -708,6 +770,33 @@ func (s *stateSuite) TestSetAPIAddressControllerNodeNotFound(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorMatches, "controller nodes .* do not exist")
+}
+
+func (s *stateSuite) TestSetAPIAddressesOneControllerNodeNotFound(c *tc.C) {
+	const controllerID = "0"
+	c.Assert(s.state.AddDqliteNode(c.Context(), controllerID, 1, "10.0.0.1"), tc.ErrorIsNil)
+
+	err := s.state.SetAPIAddresses(
+		c.Context(),
+		map[string]controllernode.APIAddresses{
+			controllerID: {{
+				Address: "10.0.0.1:17070",
+				IsAgent: true,
+				Scope:   network.ScopeCloudLocal,
+			}},
+			"removed-controller": {{
+				Address: "10.0.0.2:17070",
+				IsAgent: true,
+				Scope:   network.ScopeCloudLocal,
+			}},
+		},
+	)
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
+
+	var count int
+	err = s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM controller_api_address").Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
 }
 
 func (s *stateSuite) TestGetControllerIDs(c *tc.C) {

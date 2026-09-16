@@ -211,7 +211,10 @@ func (fc facadeCaller) FacadeCall(ctx context.Context, request string, params, r
 	ctx = coretrace.InjectTracerIfRequired(ctx, fc.tracer)
 
 	// The following trace is used to track the call to the facade.
-	ctx, span := coretrace.Start(ctx, coretrace.NameFromFunc(), coretrace.WithAttributes(
+	// The span name uses the facade and request names (e.g.
+	// "Uniter.WatchRelationUnits") rather than the function name, so that
+	// spans are distinguishable in traces.
+	ctx, span := coretrace.Start(ctx, coretrace.Name(fc.facadeName+"."+request), coretrace.WithAttributes(
 		coretrace.StringAttr("call.facade", fc.facadeName),
 		coretrace.IntAttr("call.version", fc.bestVersion),
 		coretrace.StringAttr("call.request", request),

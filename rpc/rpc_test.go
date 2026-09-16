@@ -369,7 +369,7 @@ func (c customMethodCaller) Call(ctx context.Context, objId string, arg reflect.
 
 func (cc *CustomRoot) Kill() {}
 
-func (cc *CustomRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
+func (cc *CustomRoot) StartTrace(ctx context.Context, _ rpc.Request) (context.Context, trace.Span) {
 	return ctx, trace.NoopSpan{}
 }
 
@@ -2241,7 +2241,7 @@ func newTracingRoot(root any, span trace.Span) *tracingRoot {
 
 func (*tracingRoot) Kill() {}
 
-func (r *tracingRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
+func (r *tracingRoot) StartTrace(ctx context.Context, _ rpc.Request) (context.Context, trace.Span) {
 	return trace.WithSpan(ctx, r.span), r.span
 }
 

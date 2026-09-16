@@ -29,9 +29,8 @@ type MockState struct {
 // MockStateMockRecorder is the mock recorder for MockState.
 type MockStateMockRecorder struct {
 	mock                                           *MockState
-	addControllerNodeExpects                       []*gomock.Call2_1[context.Context, string, error]
 	addDqliteNodeExpects                           []*gomock.Call4_1[context.Context, string, uint64, string, error]
-	deleteDqliteNodesExpects                       []*gomock.Call2_1[context.Context, []string, error]
+	addDqliteNodeIDExpects                         []*gomock.Call2_1[context.Context, string, error]
 	getAPIAddressesForAgentsExpects                []*gomock.Call1_2[context.Context, map[string]controllernode.APIAddresses, error]
 	getAPIAddressesForClientsExpects               []*gomock.Call1_2[context.Context, map[string]controllernode.APIAddresses, error]
 	getAllCloudLocalAPIAddressesExpects            []*gomock.Call1_2[context.Context, []string, error]
@@ -55,24 +54,6 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// AddControllerNode mocks base method.
-func (m *MockState) AddControllerNode(ctx context.Context, controllerID string) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.addControllerNodeExpects, m.ctrl, m, "AddControllerNode", ctx, controllerID)
-}
-
-// AddControllerNode indicates an expected call of AddControllerNode.
-func (mr *MockStateMockRecorder) AddControllerNode(ctx, controllerID any) *MockStateAddControllerNodeCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "AddControllerNode", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(controllerID))
-	mr.addControllerNodeExpects = append(mr.addControllerNodeExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateAddControllerNodeCall is the typed call wrapper for AddControllerNode.
-type MockStateAddControllerNodeCall = gomock.Call2_1[context.Context, string, error]
-
 // AddDqliteNode mocks base method.
 func (m *MockState) AddDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error {
 	m.ctrl.T.Helper()
@@ -91,23 +72,23 @@ func (mr *MockStateMockRecorder) AddDqliteNode(ctx, controllerID, nodeID, addr a
 // MockStateAddDqliteNodeCall is the typed call wrapper for AddDqliteNode.
 type MockStateAddDqliteNodeCall = gomock.Call4_1[context.Context, string, uint64, string, error]
 
-// DeleteDqliteNodes mocks base method.
-func (m *MockState) DeleteDqliteNodes(ctx context.Context, delete []string) error {
+// AddDqliteNodeID mocks base method.
+func (m *MockState) AddDqliteNodeID(ctx context.Context, controllerID string) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.deleteDqliteNodesExpects, m.ctrl, m, "DeleteDqliteNodes", ctx, delete)
+	return gomock.Dispatch2_1(&m.recorder.addDqliteNodeIDExpects, m.ctrl, m, "AddDqliteNodeID", ctx, controllerID)
 }
 
-// DeleteDqliteNodes indicates an expected call of DeleteDqliteNodes.
-func (mr *MockStateMockRecorder) DeleteDqliteNodes(ctx, delete any) *MockStateDeleteDqliteNodesCall {
+// AddDqliteNodeID indicates an expected call of AddDqliteNodeID.
+func (mr *MockStateMockRecorder) AddDqliteNodeID(ctx, controllerID any) *MockStateAddDqliteNodeIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, []string, error](mr.mock.ctrl.T, mr.mock, "DeleteDqliteNodes", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(delete))
-	mr.deleteDqliteNodesExpects = append(mr.deleteDqliteNodesExpects, call)
+	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "AddDqliteNodeID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(controllerID))
+	mr.addDqliteNodeIDExpects = append(mr.addDqliteNodeIDExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockStateDeleteDqliteNodesCall is the typed call wrapper for DeleteDqliteNodes.
-type MockStateDeleteDqliteNodesCall = gomock.Call2_1[context.Context, []string, error]
+// MockStateAddDqliteNodeIDCall is the typed call wrapper for AddDqliteNodeID.
+type MockStateAddDqliteNodeIDCall = gomock.Call2_1[context.Context, string, error]
 
 // GetAPIAddressesForAgents mocks base method.
 func (m *MockState) GetAPIAddressesForAgents(ctx context.Context) (map[string]controllernode.APIAddresses, error) {

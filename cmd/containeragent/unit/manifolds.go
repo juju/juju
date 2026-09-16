@@ -137,11 +137,6 @@ type manifoldsConfig struct {
 	// ContainerNames this unit is running with.
 	ContainerNames []string
 
-	// ColocatedWithController is true when the unit agent is running on
-	// the same machine/pod as a Juju controller, where they share the same
-	// networking namespace in linux.
-	ColocatedWithController bool
-
 	// SignalCh is os.Signal channel to receive signals on.
 	SignalCh chan os.Signal
 }
@@ -485,19 +480,13 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		})),
 	}
 
-	// If the container agent is colocated with the controller for the controller charm, then it doesn't
-	// need the api address updater, http probe server or the cass prober workers.
-	// For every other deployment of the containeragent, these workers are required.
-	if !config.ColocatedWithController {
-		// The api address updater is a leaf worker that rewrites agent config
-		// as the controller addresses change. We should only need one of
-		// these in a consolidated agent.
-		dp[apiAddressUpdaterName] = ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Logger:        internallogger.GetLogger("juju.worker.apiaddressupdater"),
-		}))
-	}
+	// The API address updater rewrites agent config as controller addresses
+	// change, including when a colocated controller pod is removed.
+	dp[apiAddressUpdaterName] = ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
+		AgentName:     agentName,
+		APICallerName: apiCallerName,
+		Logger:        internallogger.GetLogger("juju.worker.apiaddressupdater"),
+	}))
 
 	return dp
 }

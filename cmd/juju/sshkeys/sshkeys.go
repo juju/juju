@@ -15,7 +15,6 @@ import (
 
 type SSHKeysBase struct {
 	modelcmd.ModelCommandBase
-	modelcmd.IAASOnlyCommand
 
 	apiRoot base.APICallCloser
 }

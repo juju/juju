@@ -5,6 +5,7 @@
 package jujuc_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -98,7 +99,7 @@ func (s *ServerSuite) osDependentSockPath(c *tc.C) sockets.Socket {
 func (s *ServerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.socket = s.osDependentSockPath(c)
-	srv, err := jujuc.NewServer(factory, s.socket)
+	srv, err := jujuc.NewServer(context.Background(), factory, s.socket)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(srv, tc.NotNil)
 	s.server = srv

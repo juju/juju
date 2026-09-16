@@ -49,7 +49,7 @@ type WorkerConfig struct {
 	ControllerNodeService ControllerNodeService
 	Logger                logger.Logger
 
-	APIInfo   *api.Info
+	APIInfo   APIInfoProvider
 	APIOpener api.OpenFunc
 	NewRemote func(RemoteServerConfig) RemoteServer
 }
@@ -305,10 +305,6 @@ func (w *remoteWorker) loop() error {
 }
 
 func (w *remoteWorker) newRemoteServer(ctx context.Context, controllerID string, addresses []string) (RemoteServer, error) {
-	// Create a new remote server APIInfo with the target and addresses.
-	apiInfo := *w.cfg.APIInfo
-	apiInfo.Addrs = addresses
-
 	// Start a new worker with the target and addresses.
 	err := w.runner.StartWorker(ctx, controllerID, func(ctx context.Context) (worker.Worker, error) {
 		w.cfg.Logger.Debugf(ctx, "starting remote worker for %q", controllerID)
@@ -317,7 +313,7 @@ func (w *remoteWorker) newRemoteServer(ctx context.Context, controllerID string,
 			Clock:        w.cfg.Clock,
 			Logger:       w.cfg.Logger,
 			ControllerID: controllerID,
-			APIInfo:      &apiInfo,
+			APIInfo:      w.cfg.APIInfo,
 			APIOpener:    w.newConnection,
 		}), nil
 	})

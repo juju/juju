@@ -2728,3 +2728,77 @@ func (s *serviceSuite) TestListGrantedSecretsForBackendInvalidAccessorKind(c *tc
 	)
 	c.Assert(err, tc.ErrorMatches, `consumer kind "invalid-kind" not valid`)
 }
+
+func (s *serviceSuite) TestListGrantedSecretsForDrainWithRoleView(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	expected := []*coresecrets.SecretRevisionRef{{
+		URI:        uri,
+		RevisionID: "rev-id",
+	}}
+
+	s.state.EXPECT().ListGrantedSecretsForDrain(
+		gomock.Any(),
+		[]domainsecret.AccessParams{{
+			SubjectTypeID: domainsecret.SubjectApplication,
+			SubjectID:     "mysql",
+		}},
+		[]domainsecret.Role{domainsecret.RoleView, domainsecret.RoleManage},
+	).Return(expected, nil)
+
+	result, err := s.service.ListGrantedSecretsForDrain(
+		c.Context(),
+		coresecrets.RoleView,
+		domainsecret.SecretAccessor{
+			Kind: domainsecret.ApplicationAccessor,
+			ID:   "mysql",
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, expected)
+}
+
+func (s *serviceSuite) TestListGrantedSecretsForDrainWithRoleManage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	expected := []*coresecrets.SecretRevisionRef{{
+		URI:        uri,
+		RevisionID: "rev-id",
+	}}
+
+	s.state.EXPECT().ListGrantedSecretsForDrain(
+		gomock.Any(),
+		[]domainsecret.AccessParams{{
+			SubjectTypeID: domainsecret.SubjectUnit,
+			SubjectID:     "mysql/0",
+		}},
+		[]domainsecret.Role{domainsecret.RoleManage},
+	).Return(expected, nil)
+
+	result, err := s.service.ListGrantedSecretsForDrain(
+		c.Context(),
+		coresecrets.RoleManage,
+		domainsecret.SecretAccessor{
+			Kind: domainsecret.UnitAccessor,
+			ID:   "mysql/0",
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, expected)
+}
+
+func (s *serviceSuite) TestListGrantedSecretsForDrainInvalidAccessorKind(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.ListGrantedSecretsForDrain(
+		c.Context(),
+		coresecrets.RoleView,
+		domainsecret.SecretAccessor{
+			Kind: "invalid-kind",
+			ID:   "some-id",
+		},
+	)
+	c.Assert(err, tc.ErrorMatches, `consumer kind "invalid-kind" not valid`)
+}

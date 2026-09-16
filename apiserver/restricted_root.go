@@ -27,8 +27,8 @@ type restrictedRoot struct {
 }
 
 // StartTrace implements rpc.Root.
-func (r *restrictedRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
-	return r.Root.StartTrace(ctx)
+func (r *restrictedRoot) StartTrace(ctx context.Context, req rpc.Request) (context.Context, trace.Span) {
+	return r.Root.StartTrace(ctx, req)
 }
 
 // FindMethod implements rpc.Root.

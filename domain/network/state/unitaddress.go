@@ -84,14 +84,12 @@ func (st *State) GetControllerAPIAddresses(
 	ident := entityUUID{UUID: unitUUID}
 
 	type apiAddressFilter struct {
-		VirtualEthernetDeviceType string `db:"virtual_ethernet_device_type"`
-		LoopbackDeviceType        string `db:"loopback_device_type"`
-		ScopeName                 string `db:"scope_name"`
+		LoopbackDeviceType string `db:"loopback_device_type"`
+		ScopeName          string `db:"scope_name"`
 	}
 	filter := apiAddressFilter{
-		VirtualEthernetDeviceType: corenetwork.VirtualEthernetDevice.String(),
-		LoopbackDeviceType:        corenetwork.LoopbackDevice.String(),
-		ScopeName:                 corenetwork.ScopeMachineLocal.String(),
+		LoopbackDeviceType: corenetwork.LoopbackDevice.String(),
+		ScopeName:          corenetwork.ScopeMachineLocal.String(),
 	}
 
 	queryUnitAPIAddressesStmt, err := st.Prepare(`
@@ -128,8 +126,7 @@ JOIN   ip_address_type AS iat ON ipa.type_id = iat.id
 JOIN   ip_address_origin AS iao ON ipa.origin_id = iao.id
 JOIN   ip_address_scope AS ias ON ipa.scope_id = ias.id
 LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
-WHERE  lldt.name != $apiAddressFilter.virtual_ethernet_device_type
-AND    lldt.name != $apiAddressFilter.loopback_device_type
+WHERE  lldt.name != $apiAddressFilter.loopback_device_type
 AND    (unn.is_caas = 1
         OR ias.name != $apiAddressFilter.scope_name)
 `, controllerAPIAddress{}, entityUUID{}, apiAddressFilter{})

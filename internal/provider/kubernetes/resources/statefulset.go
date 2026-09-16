@@ -96,7 +96,9 @@ func (ss *StatefulSet) Apply(ctx context.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	result, err = ss.client.Patch(ctx, ss.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
+	// JSON merge patches replace array fields, allowing pod template containers
+	// removed by a charm refresh to be removed from the StatefulSet.
+	result, err = ss.client.Patch(ctx, ss.Name, types.MergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsNotFound(err) {

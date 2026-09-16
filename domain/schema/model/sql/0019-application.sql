@@ -95,6 +95,7 @@ CREATE TABLE application_scale (
     scale INT,
     scale_target INT,
     scaling BOOLEAN DEFAULT FALSE,
+    start_ordinal INT NOT NULL DEFAULT 0,
     CONSTRAINT fk_application_endpoint_scale_application
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid)

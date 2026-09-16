@@ -136,7 +136,7 @@ type noopTracingRoot struct {
 	rpcreflect.Value
 }
 
-func (noopTracingRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
+func (noopTracingRoot) StartTrace(ctx context.Context, _ Request) (context.Context, trace.Span) {
 	return ctx, trace.NoopSpan{}
 }
 
@@ -560,8 +560,10 @@ type Root interface {
 	// FindMethod returns a MethodCaller for the given method name. The
 	// method will be associated with the given facade and version.
 	FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error)
-	// StartTrace starts a trace for a given request.
-	StartTrace(context.Context) (context.Context, trace.Span)
+	// StartTrace starts a trace for a given request. The request parameter
+	// can be used to derive a more useful span name (e.g. Type.Action)
+	// instead of the function name.
+	StartTrace(context.Context, Request) (context.Context, trace.Span)
 	// FlightRecorder returns a flight recorder associated with the root.
 	FlightRecorder() flightrecorder.FlightRecorder
 }
@@ -973,7 +975,7 @@ func (conn *Conn) withTrace(
 		return
 	}
 
-	ctx, span := cfg.root.StartTrace(ctx)
+	ctx, span := cfg.root.StartTrace(ctx, request)
 	var finishOnce sync.Once
 	finish := func(err error) {
 		finishOnce.Do(func() {

@@ -6,6 +6,8 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"slices"
+	"strings"
 
 	"github.com/juju/collections/set"
 
@@ -550,31 +552,57 @@ var statusSeverities = map[corestatus.Status]int{
 }
 
 // applicationDisplayStatusFromUnits returns the status to display for an status
-// based on both the workload and container statuses of its units.
+// based on both the workload and container statuses of its units. If a leader unit
+// is specified, its status is preferred when multiple units share the highest status severity.
+// Otherwise, it falls back to the lowest ordinal unit.
 func applicationDisplayStatusFromUnits(
 	fullUnitStatuses status.FullUnitStatuses,
+	leaderUnit unit.Name,
 ) (corestatus.StatusInfo, error) {
-	results := make([]corestatus.StatusInfo, 0, len(fullUnitStatuses))
+	if len(fullUnitStatuses) == 0 {
+		return corestatus.StatusInfo{
+			Status: corestatus.Unknown,
+		}, nil
+	}
 
-	for _, fullStatus := range fullUnitStatuses {
+	unitNames := make([]unit.Name, 0, len(fullUnitStatuses))
+	for name := range fullUnitStatuses {
+		unitNames = append(unitNames, name)
+	}
+	slices.SortFunc(unitNames, compareUnitDisplayOrder(leaderUnit))
+
+	var result corestatus.StatusInfo
+	for i, unitName := range unitNames {
+		fullStatus := fullUnitStatuses[unitName]
 		_, displayStatus, err := decodeUnitDisplayAndAgentStatus(fullStatus)
 		if err != nil {
 			return corestatus.StatusInfo{}, errors.Capture(err)
 		}
-		results = append(results, displayStatus)
-	}
-
-	// By providing an unknown default, we get a reasonable answer
-	// even if there are no units.
-	result := corestatus.StatusInfo{
-		Status: corestatus.Unknown,
-	}
-	for _, s := range results {
-		if statusSeverities[s.Status] > statusSeverities[result.Status] {
-			result = s
+		if i == 0 || statusSeverities[displayStatus.Status] > statusSeverities[result.Status] {
+			result = displayStatus
 		}
 	}
 	return result, nil
+}
+
+// compareUnitDisplayOrder returns a comparator that orders units for deriving
+// a deterministic application display status: the leader unit (if any) sorts
+// first, then units ascend by ordinal number.
+func compareUnitDisplayOrder(leaderUnit unit.Name) func(a, b unit.Name) int {
+	return func(a, b unit.Name) int {
+		if leaderUnit != "" {
+			switch {
+			case a == leaderUnit:
+				return -1
+			case b == leaderUnit:
+				return 1
+			}
+		}
+		if cmp := a.Number() - b.Number(); cmp != 0 {
+			return cmp
+		}
+		return strings.Compare(a.String(), b.String())
+	}
 }
 
 // encodeMachineStatusType converts a core status to a db unit workload

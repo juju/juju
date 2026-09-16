@@ -159,8 +159,9 @@ type UpdateCAASUnitParams struct {
 // ScalingState contains attributes that describes
 // the scaling state of a CAAS application.
 type ScalingState struct {
-	ScaleTarget int
-	Scaling     bool
+	StartOrdinal int
+	ScaleTarget  int
+	Scaling      bool
 }
 
 // ResolvedResources is a collection of ResolvedResource elements.

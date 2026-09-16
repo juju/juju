@@ -100,6 +100,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 		return service.NewService(
 			statemodel.NewModelState(scope.ModelDB(), i.clock, i.logger),
 			statecontroller.NewControllerState(scope.ControllerDB(), modelUUID),
+			leaderGetter{},
 			clusterDescriber{},
 			// TODO(jack): This is currently the wrong logger. We should
 			// construct the StatusHistory using the model logger, however, at
@@ -319,4 +320,12 @@ type clusterDescriber struct{}
 // migrations it's ok that this is a no-op.
 func (c clusterDescriber) ClusterDetails(ctx context.Context) ([]database.ClusterNodeInfo, error) {
 	return nil, nil
+}
+
+type leaderGetter struct{}
+
+// ApplicationLeader returns the leader unit name for the application. For
+// migrations it's ok that this returns no leader.
+func (leaderGetter) ApplicationLeader(string) (string, error) {
+	return "", nil
 }
