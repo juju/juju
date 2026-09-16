@@ -185,6 +185,11 @@ func (a *RemoteApplication) Life() Life {
 	return a.doc.Life
 }
 
+// RelationCount returns the of number of active relations for the application.
+func (a *RemoteApplication) RelationCount() int {
+	return a.doc.RelationCount
+}
+
 // StatusHistory returns a slice of at most filter.Size StatusInfo items
 // or items as old as filter.Date or items newer than now - filter.Delta time
 // representing past statuses for this remote application.

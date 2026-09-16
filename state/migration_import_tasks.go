@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -384,6 +385,52 @@ type RemoteEntitiesInput interface {
 
 	// OfferUUID returns the uuid for a given offer name.
 	OfferUUID(offerName string) (string, bool)
+}
+
+// OfferConnectionsDescription defines an in-place usage for reading offer
+// connections.
+type OfferConnectionsDescription interface {
+	OfferConnections() []description.OfferConnection
+}
+
+// OfferConnectionsInput describes the input used for migrating offer
+// connections.
+type OfferConnectionsInput interface {
+	DocModelNamespace
+	OfferConnectionsDescription
+}
+
+// ImportOfferConnections describes a way to execute a migration for
+// importing offer connections.
+type ImportOfferConnections struct{}
+
+// Execute the import on the offer connections description.
+func (im *ImportOfferConnections) Execute(src OfferConnectionsInput, runner TransactionRunner) error {
+	offerConnections := src.OfferConnections()
+	if len(offerConnections) == 0 {
+		return nil
+	}
+	ops := make([]txn.Op, len(offerConnections))
+	for i, offerConnection := range offerConnections {
+		docID := src.DocID(strconv.Itoa(offerConnection.RelationID()))
+		ops[i] = txn.Op{
+			C:      offerConnectionsC,
+			Id:     docID,
+			Assert: txn.DocMissing,
+			Insert: &offerConnectionDoc{
+				DocID:           docID,
+				SourceModelUUID: offerConnection.SourceModelUUID(),
+				OfferUUID:       offerConnection.OfferUUID(),
+				UserName:        offerConnection.UserName(),
+				RelationId:      offerConnection.RelationID(),
+				RelationKey:     offerConnection.RelationKey(),
+			},
+		}
+	}
+	if err := runner.RunTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // ImportRemoteEntities describes a way to import remote entities from a
