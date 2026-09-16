@@ -742,6 +742,23 @@ func (k *kubernetesClient) GetService(ctx context.Context, appName string, inclu
 	return &result, nil
 }
 
+// GetControllerService returns the controller API Service by its exact
+// Kubernetes resource name.
+func (k *kubernetesClient) GetControllerService(ctx context.Context, includeClusterIP bool) (*caas.Service, error) {
+	if k.namespace == "" {
+		return nil, errNoNamespace
+	}
+	serviceName := getControllerResourceName("service")
+	svc, err := k.client().CoreV1().Services(k.namespace).Get(ctx, serviceName, v1.GetOptions{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &caas.Service{
+		Id:        string(svc.GetUID()),
+		Addresses: utils.GetSvcAddresses(svc, includeClusterIP),
+	}, nil
+}
+
 func (k *kubernetesClient) ensureDeployment(ctx context.Context, spec *apps.Deployment) error {
 	if k.namespace == "" {
 		return errNoNamespace
@@ -1002,15 +1019,25 @@ func (k *kubernetesClient) ControllerUnitFQDN(ordinal int) string {
 	return utils.ControllerPodFQDN(podName, k.namespace)
 }
 
-// BootstrapControllerAddresses returns the stable provider addresses for the
-// initial controller.
+// BootstrapControllerAddresses returns the main controller Service ClusterIP
+// address for the initial controller.
 func (k *kubernetesClient) BootstrapControllerAddresses(
-	_ context.Context,
+	ctx context.Context,
 ) (network.ProviderAddresses, error) {
-	return network.NewMachineAddresses(
-		[]string{k.ControllerUnitFQDN(0)},
-		network.WithScope(network.ScopeCloudLocal),
-	).AsProviderAddresses(), nil
+	svc, err := k.GetControllerService(ctx, true)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return controllerServiceClusterIPAddresses(svc.Addresses)
+}
+
+func controllerServiceClusterIPAddresses(addresses network.ProviderAddresses) (network.ProviderAddresses, error) {
+	for _, address := range addresses {
+		if address.Scope == network.ScopeCloudLocal {
+			return network.ProviderAddresses{address}, nil
+		}
+	}
+	return nil, errors.NotFoundf("controller service ClusterIP address")
 }
 
 // ListPods filters a list of pods for the provided namespace and labels.

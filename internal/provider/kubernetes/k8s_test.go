@@ -236,19 +236,24 @@ func (s *K8sBrokerSuite) TestControllerUnitFQDN(c *tc.C) {
 	)
 }
 
-func (s *K8sBrokerSuite) TestBootstrapControllerAddresses(c *tc.C) {
+func (s *K8sBrokerSuite) TestBootstrapControllerAddressesUsesControllerService(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
+	s.mockServices.EXPECT().Get(
+		gomock.Any(), "controller-service", v1.GetOptions{},
+	).Return(&core.Service{Spec: core.ServiceSpec{
+		Type:      core.ServiceTypeClusterIP,
+		ClusterIP: "10.152.183.205",
+	}}, nil)
+
 	addresses, err := s.broker.BootstrapControllerAddresses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addresses, tc.DeepEquals, network.ProviderAddresses{{
-		MachineAddress: network.MachineAddress{
-			Value: "controller-0.controller-service-endpoints.test.svc.cluster.local",
-			Type:  network.HostName,
-			Scope: network.ScopeCloudLocal,
-		},
-	}})
+	c.Check(addresses, tc.DeepEquals, network.ProviderAddresses{
+		network.NewMachineAddress(
+			"10.152.183.205", network.WithScope(network.ScopeCloudLocal),
+		).AsProviderAddress(),
+	})
 }
 
 func (s *K8sBrokerSuite) TestConfig(c *tc.C) {

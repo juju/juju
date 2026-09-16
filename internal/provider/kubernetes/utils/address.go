@@ -58,6 +58,7 @@ func GetSvcAddresses(svc *core.Service, includeClusterIP bool) []network.Provide
 	case core.ServiceTypeClusterIP:
 		appendUniqueAddrs(network.ScopeCloudLocal, clusterIP)
 	case core.ServiceTypeExternalName:
+		appendUniqueAddrs(network.ScopePublic, svc.Spec.ExternalIPs...)
 		appendUniqueAddrs(network.ScopePublic, svc.Spec.ExternalName)
 	case core.ServiceTypeNodePort:
 		appendUniqueAddrs(network.ScopePublic, svc.Spec.ExternalIPs...)

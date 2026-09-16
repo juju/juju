@@ -278,6 +278,15 @@ type ServiceManager interface {
 	GetService(ctx context.Context, appName string, includeClusterIP bool) (*Service, error)
 }
 
+// ControllerServiceManager returns the controller API Service. It is kept
+// separate from ServiceManager because controller resource selection is not
+// generic application Service behavior.
+type ControllerServiceManager interface {
+	// GetControllerService returns the controller API Service by its exact
+	// provider resource name.
+	GetControllerService(ctx context.Context, includeClusterIP bool) (*Service, error)
+}
+
 // Service represents information about the status of a caas service entity.
 type Service struct {
 	Id         string

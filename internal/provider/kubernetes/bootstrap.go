@@ -318,8 +318,8 @@ func newControllerStack(
 		portSSHServer: pcfg.Bootstrap.ControllerConfig.SSHServerPort(),
 	}
 	cs.controllerExecClientFactory = cs.controllerExecClient
-	cs.resourceNameService = cs.getResourceName("service")
-	cs.resourceNameHeadlessService = cs.getResourceName("service-endpoints")
+	cs.resourceNameService = getControllerResourceName("service")
+	cs.resourceNameHeadlessService = getControllerResourceName("service-endpoints")
 	cs.resourceNameConfigMap = cs.getResourceName("configmap")
 	cs.resourceNameSecret = cs.getResourceName("secret")
 	cs.resourceNamedockerSecret = constants.CAASImageRepoSecretName
@@ -454,6 +454,10 @@ func (c *controllerStack) isPrivateRepo() bool {
 
 func getBootstrapResourceName(stackName string, name string) string {
 	return stackName + "-" + strings.Replace(name, ".", "-", -1)
+}
+
+func getControllerResourceName(name string) string {
+	return getBootstrapResourceName(constants.JujuControllerStackName, name)
 }
 
 func (c *controllerStack) getResourceName(name string) string {
@@ -736,8 +740,7 @@ func (c *controllerStack) createControllerService(ctx context.Context) error {
 	})
 
 	publicAddressPoller := func() error {
-		// get the service by app name;
-		svc, err := c.broker.GetService(ctx, c.stackName, false)
+		svc, err := c.broker.GetControllerService(ctx, false)
 		if err != nil {
 			return errors.Annotate(err, "getting controller service")
 		}

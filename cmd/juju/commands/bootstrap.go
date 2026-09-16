@@ -50,7 +50,6 @@ import (
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/naturalsort"
 	_ "github.com/juju/juju/internal/provider/all" // Import all the providers for bootstrap.
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"
 	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/internal/ssh"
@@ -1041,10 +1040,10 @@ func (c *bootstrapCommand) controllerDataRefresher(
 		if err != nil {
 			return errors.Trace(err)
 		}
-	} else if env, ok := environ.(caas.ServiceManager); ok {
+	} else if env, ok := environ.(caas.ControllerServiceManager); ok {
 		// CAAS.
 		var svc *caas.Service
-		svc, err = env.GetService(ctx, k8sconstants.JujuControllerStackName, false)
+		svc, err = env.GetControllerService(ctx, false)
 		if err != nil {
 			return errors.Trace(err)
 		}

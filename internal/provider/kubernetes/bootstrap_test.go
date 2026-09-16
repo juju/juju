@@ -648,7 +648,7 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 	s.ensureJujuNamespaceAnnotations(true, ns)
 	svcNotFullyProvisioned := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-service",
+			Name:        "controller-service",
 			Namespace:   s.namespace,
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
 			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
@@ -675,7 +675,7 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 	svcPublicIP := "1.1.1.1"
 	svcProvisioned := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-service",
+			Name:        "controller-service",
 			Namespace:   s.namespace,
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
 			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
@@ -702,7 +702,7 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 
 	headlessSvc := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test-service-endpoints",
+			Name:      "controller-service-endpoints",
 			Namespace: s.namespace,
 			Labels: map[string]string{
 				"app.kubernetes.io/managed-by": "juju",
@@ -732,7 +732,7 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 			"JUJU_K8S_APPLICATION":          []byte("controller"),
 			"JUJU_K8S_MODEL":                []byte(coretesting.ModelTag.Id()),
 			"JUJU_K8S_APPLICATION_PASSWORD": []byte(controllerStacker.GetControllerApplicationPassword()),
-			"JUJU_K8S_CONTROLLER_ADDRESSES": []byte("juju-controller-test-service:17777"),
+			"JUJU_K8S_CONTROLLER_ADDRESSES": []byte("controller-service:17777"),
 			"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(coretesting.CACert),
 		},
 	}
@@ -786,7 +786,7 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
 		},
 		Spec: apps.StatefulSetSpec{
-			ServiceName:         "juju-controller-test-service-endpoints",
+			ServiceName:         "controller-service-endpoints",
 			Replicas:            &numberOfPods,
 			PodManagementPolicy: apps.ParallelPodManagement,
 			Selector: &v1.LabelSelector{
@@ -1318,7 +1318,7 @@ fi
 				return
 			case <-serviceChanges:
 				// Ensure service address is available.
-				svc, err := s.mockServices.Get(c.Context(), "juju-controller-test-service", v1.GetOptions{})
+				svc, err := s.mockServices.Get(c.Context(), "controller-service", v1.GetOptions{})
 				c.Assert(err, tc.ErrorIsNil)
 				c.Assert(svc, tc.DeepEquals, svcNotFullyProvisioned)
 
@@ -1381,11 +1381,11 @@ fi
 			tc.UnorderedMatch[[]core.VolumeMount](tc.DeepEquals), tc.ExpectedValue)
 		c.Assert(ss, mc, statefulSetSpec)
 
-		svc, err := s.mockServices.Get(c.Context(), `juju-controller-test-service`, v1.GetOptions{})
+		svc, err := s.mockServices.Get(c.Context(), `controller-service`, v1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(svc, tc.DeepEquals, svcProvisioned)
 
-		headless, err := s.mockServices.Get(c.Context(), `juju-controller-test-service-endpoints`, v1.GetOptions{})
+		headless, err := s.mockServices.Get(c.Context(), `controller-service-endpoints`, v1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(headless, tc.DeepEquals, headlessSvc)
 

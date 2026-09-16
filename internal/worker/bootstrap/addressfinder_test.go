@@ -196,6 +196,18 @@ type caasStubProvider struct {
 	serviceManager caas.ServiceManager
 }
 
+// BootstrapControllerAddresses implements caasBootstrapAddressFinder.
+func (f *caasStubProvider) BootstrapControllerAddresses(ctx context.Context) (network.ProviderAddresses, error) {
+	svc, err := f.serviceManager.GetService(ctx, k8sconstants.JujuControllerStackName, true)
+	if err != nil {
+		return nil, err
+	}
+	if svc == nil {
+		return nil, nil
+	}
+	return svc.Addresses, nil
+}
+
 // GetService implements caas.ServiceManager.
 func (f *caasStubProvider) GetService(ctx context.Context, appName string, includeClusterIP bool) (*caas.Service, error) {
 	return f.serviceManager.GetService(ctx, appName, includeClusterIP)
