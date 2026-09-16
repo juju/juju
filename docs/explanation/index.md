@@ -16,6 +16,9 @@ Discussion and clarification of key topics, providing background information and
 
 Architecture <juju-architecture>
 Architecture (new draft) <architecture>
+Architecture: principles <architecture-principles>
+Architecture: principles v2 <architecture-principles-v2>
+Architecture: principles v3 <architecture-principles-v3>
 Security <juju-security>
 Performance <juju-performance>
 Application modelling <application-modelling>
@@ -28,6 +31,9 @@ About charming history <charming-history>
 
 - {ref}`Architecture <juju-architecture>`
 - {ref}`Architecture (new draft) <architecture>`
+- {ref}`Architecture: principles <architecture-principles>`
+- {ref}`Architecture: principles v2 <architecture-principles-v2>`
+- {ref}`Architecture: principles v3 <architecture-principles-v3>`
 - {ref}`Security <juju-security>`
 - {ref}`Performance <performance-with-juju>`
 

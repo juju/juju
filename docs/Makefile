@@ -157,6 +157,11 @@ clean-ggarch:
 	rm -rf $(SPHINX_DIR)/.doctrees
 	@echo "ggarch SVG cache cleared — next build will regenerate all diagrams"
 
+rebuild-ggarch: clean-ggarch
+	@echo "Running full rebuild after ggarch renderer change..."
+	. $(DOCS_VENV); $(SPHINX_BUILD) -b dirhtml -E "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS)
+	@echo "Done. Diagrams regenerated. Restart 'make run' if autobuild is active."
+
 linkcheck: install
 	. $(DOCS_VENV) ; $(SPHINX_BUILD) -b linkcheck -q "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS) || { grep --color -F "[broken]" "$(DOCS_BUILDDIR)/output.txt"; exit 1; }
 	exit 0

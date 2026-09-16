@@ -82,9 +82,9 @@ model "Principles" {
 
   edges {
     // --- Forced structure ---
-    user       -> client      [type: control]
+    user       -> client      [type: control, label: "sends commands to"]
     client     -> controller  [type: api,     label: "declares intent"]
-    controller -> agent_a     [type: stream,  label: "watcher"]
+    agent_a    -> controller  [type: stream,  label: "watches for changes on"]
     agent_a    -> workload_a  [type: control, label: "reconciles"]
     controller -> cloud_prov  [type: control, label: "provisions"]
     controller -> charmhub    [type: api,     label: "fetches charms"]
@@ -121,7 +121,7 @@ model "Principles" {
     charm_k8s   -> jujuc_k8s  [type: ipc,     label: "hook command"]
     jujuc_k8s   -> cont_agent [type: ipc,     label: "serves via agent"]
     charm_k8s   -> pebble     [type: api,     label: "Pebble API"]
-    pebble      -> workload   [type: control]
+    pebble      -> workload   [type: control, label: "supervises"]
   }
 
   behaviours {
@@ -165,17 +165,17 @@ diagram "Forced structure" from "Principles" {
     edges: type control type api type stream
   }
   positions {
-    user       left-of client      gap: 30
+    user       left-of client      gap: 20
     user       align-middle client
-    client     left-of controller  gap: 100
+    client     left-of controller  gap: 20
     client     align-middle controller
-    controller left-of agent_a     gap: 100
+    controller left-of agent_a     gap: 20
     controller align-middle agent_a
-    agent_a    left-of workload_a  gap: 100
+    agent_a    left-of workload_a  gap: 20
     agent_a    align-middle workload_a
-    cloud_prov above controller    gap: 60
+    cloud_prov above controller    gap: 20
     cloud_prov align-centre controller
-    charmhub   below controller    gap: 60
+    charmhub   below controller    gap: 20
     charmhub   align-centre controller
   }
   annotations {

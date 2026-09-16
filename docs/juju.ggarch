@@ -107,31 +107,65 @@ model "Juju" {
     machine_rec     [type: record, label: "machine / pod\n(constraints, provider ID)"]
     charm_rec       [type: record, label: "charm\n(source, revision, archive)"]
     relation_rec    [type: record, label: "relation\n(endpoints, data bags)"]
+
+    // -----------------------------------------------------------------------
+    // Intro diagrams: problem + Juju enters + unpacked
+    // -----------------------------------------------------------------------
+    // Problem diagram: three bare apps (user's world, no Juju yet)
+    bare_app1 [type: external, label: "application 1", scope: "cloud 1"]
+    bare_app2 [type: external, label: "application 2", scope: "cloud 1"]
+    bare_app3 [type: external, label: "application 3", scope: "cloud 2"]
+
+    // Juju enters: two clouds, charmhub, three charmed apps
+    cloud1   [type: external, label: "cloud 1"]
+    cloud2   [type: external, label: "cloud 2"]
+
+    // Three charmed apps -- scope chips encode cloud/model provenance
+    capp1 [type: charm,  label: "app 1", scope: "c1/m1"]
+    capp2 [type: charm,  label: "app 2", scope: "c1/m1"]
+    capp3 [type: charm,  label: "app 3", scope: "c2/m1"]
+
+    // Unpacked: three unit containers with scope chips
+    unit1 [type: container, label: "unit: app1/0", scope: "c1/m1"] {
+      ua1_u  [type: juju-software, label: "unit agent"]
+      charm1 [type: charm,         label: "charm",    lifecycle: ephemeral]
+      wl1    [type: external,      label: "workload"]
+    }
+    unit2 [type: container, label: "unit: app2/0", scope: "c1/m1"] {
+      ua2_u  [type: juju-software, label: "unit agent"]
+      charm2 [type: charm,         label: "charm",    lifecycle: ephemeral]
+      wl2    [type: external,      label: "workload"]
+    }
+    unit3 [type: container, label: "unit: app3/0", scope: "c2/m1"] {
+      ua3_u  [type: juju-software, label: "unit agent"]
+      charm3 [type: charm,         label: "charm",    lifecycle: ephemeral]
+      wl3    [type: external,      label: "workload"]
+    }
   }
 
   edges {
     // Intent chain
-    user   -> client     [type: control]
-    client -> controller [type: api]
-    controller -> agents [type: control]
-    agents -> world      [type: control]
-    agents -> apps       [type: control]
+    user   -> client     [type: control, label: "sends commands to"]
+    client -> controller [type: api,     label: "calls Juju API on"]
+    agents -> controller [type: stream, label: "watches for changes on"]
+    agents -> world      [type: control, label: "reconciles"]
+    agents -> apps       [type: control, label: "reconciles"]
 
     // Controller to clouds and charmhub
-    controller -> clouds   [type: control]
-    controller -> charmhub [type: api]
+    controller -> clouds   [type: control, label: "provisions on"]
+    controller -> charmhub [type: api,     label: "fetches charms"]
 
     // K8s topology
-    jujud          -> k8s            [type: control]
-    jujud          -> unit_agent     [type: api]
-    jujud          -> charmhub       [type: api, label: "fetches charm"]
-    charm          -> pebble         [type: api]
-    pebble         -> workload       [type: control]
+    jujud          -> k8s            [type: control, label: "provisions on"]
+    unit_agent -> jujud  [type: api,    label: "connects to"]
+    jujud          -> charmhub       [type: api,     label: "fetches charms"]
+    charm          -> pebble         [type: api,     label: "calls Pebble API"]
+    pebble         -> workload       [type: control, label: "supervises"]
 
     // Hook execution
     apiserver  -> unit_agent [type: stream,  label: "watcher"]
-    unit_agent -> charm      [type: control]
-    charm      -> unit_agent [type: ipc]
+    unit_agent -> charm      [type: control, label: "runs"]
+    charm      -> unit_agent [type: ipc,     label: "calls hook command on"]
     unit_agent -> apiserver  [type: api,     label: "serve / flush"]
 
     // Bootstrap K8s
@@ -158,14 +192,14 @@ model "Juju" {
     cloud      -> client     [type: api]
 
     // Integrate
-    controller -> ua1    [type: stream]
-    controller -> ua2    [type: stream]
+    ua1 -> controller [type: stream]
+    ua2 -> controller [type: stream]
     ua1        -> controller [type: api]
     ua2        -> controller [type: api]
 
     // Remove / destroy — user sends directly to controller
     user           -> controller  [type: event]
-    controller     -> unit_agent  [type: stream]
+    unit_agent -> controller [type: stream]
     unit_agent     -> controller  [type: api]
     // Model removal
     controller -> undertaker [type: stream]
@@ -176,6 +210,29 @@ model "Juju" {
     application_rec -> unit_rec     [type: data, label: "has units"]
     unit_rec        -> machine_rec  [type: data, label: "runs on"]
     relation_rec    -> application_rec [type: data, label: "connects"]
+
+    // Intro: problem
+    user -> bare_app1 [type: control, label: "operates"]
+    user -> bare_app2 [type: control, label: "operates"]
+    user -> bare_app3 [type: control, label: "operates"]
+
+    // Intro: Juju enters
+    controller -> cloud1  [type: control, label: "provisions on"]
+    controller -> cloud2  [type: control, label: "provisions on"]
+    capp1 -> controller [type: control, label: "converges toward"]
+    capp2 -> controller [type: control, label: "converges toward"]
+    capp3 -> controller [type: control, label: "converges toward"]
+
+    // Intro: unpacked
+    ua1_u -> controller [type: stream, label: "watches for\nchanges on"]
+    ua2_u -> controller [type: stream, label: "watches for\nchanges on"]
+    ua3_u -> controller [type: stream, label: "watches for\nchanges on"]
+    ua1_u  -> charm1 [type: control, label: "runs"]
+    ua2_u  -> charm2 [type: control, label: "runs"]
+    ua3_u  -> charm3 [type: control, label: "runs"]
+    charm1 -> wl1    [type: control, label: "operates"]
+    charm2 -> wl2    [type: control, label: "operates"]
+    charm3 -> wl3    [type: control, label: "operates"]
   }
 
   behaviours {
@@ -320,17 +377,17 @@ diagram "Juju overview" from "Juju" {
   select { nodes: user client controller agents apps clouds charmhub
            edges: type control type api }
   positions {
-    user       left-of client      gap: 30
+    user       left-of client
     user       align-middle client
-    client     left-of controller  gap: 40
+    client     left-of controller
     client     align-middle controller
-    controller left-of agents      gap: 40
+    controller left-of agents
     controller align-middle agents
-    agents     left-of apps        gap: 40
+    agents     left-of apps
     agents     align-middle apps
-    clouds     above controller    gap: 50
+    clouds     above controller    gap: 40
     clouds     align-centre controller
-    charmhub   below controller    gap: 50
+    charmhub   below controller    gap: 40
     charmhub   align-centre controller
   }
 }
@@ -349,8 +406,7 @@ diagram "K8s deployment topology" from "Juju" {
     controller_pod align-middle unit_pod
     k8s            above controller_pod  gap: 40
     k8s            align-centre controller_pod
-    charmhub       below controller_pod  gap: 40
-    charmhub       align-centre controller_pod
+    charmhub       below controller_pod  gap: 60
     jujud          align-middle unit_agent
     unit_pod       direction: right
     charm_container    same-width workload_container
@@ -416,4 +472,73 @@ sequence "Unit removal" from "Juju" {
 
 sequence "Model removal" from "Juju" {
   select { behaviour: "Model removal" }
+}
+
+// --------------------------------------------------------------------------
+// Intro diagram 1: The problem
+// --------------------------------------------------------------------------
+
+diagram "Intro: the problem" from "Juju" {
+  select {
+    nodes: user bare_app1 bare_app2 bare_app3
+    edges: type control
+  }
+  positions {
+    user       left-of bare_app1
+    user       align-middle bare_app2
+    bare_app1  above bare_app2
+    bare_app1  align-centre bare_app2
+    bare_app3  below bare_app2
+    bare_app3  align-centre bare_app2
+  }
+}
+
+// --------------------------------------------------------------------------
+// Intro diagram 2: Juju enters
+// Controller in centre. Clouds fanned above. Charmhub below. Apps fanned right.
+// --------------------------------------------------------------------------
+
+diagram "Intro: Juju enters" from "Juju" {
+  select {
+    nodes: user client controller cloud1 cloud2 charmhub capp1 capp2 capp3
+    edges: type control type api
+  }
+  positions {
+    // Horizontal spine
+    user       left-of client
+    user       align-middle client
+    client     left-of controller
+    client     align-middle controller
+    // Clouds fanned above controller, centred on it
+    fan [cloud1 cloud2] above controller    gap: 40
+    // Charmhub below controller
+    charmhub   below controller    gap: 40
+    charmhub   align-centre controller
+    // Apps fanned to the right of controller
+    fan [capp1 capp2 capp3] right-of controller gap: 60
+  }
+}
+
+// --------------------------------------------------------------------------
+// Intro diagram 3: Juju unpacked
+// Same layout; unit containers expose agent → charm → workload.
+// Scope chips on each unit container.
+// --------------------------------------------------------------------------
+
+diagram "Intro: Juju unpacked" from "Juju" {
+  select {
+    nodes: user client controller unit1 unit2 unit3
+    edges: type control type stream type api
+  }
+  positions {
+    user       left-of client
+    user       align-middle client
+    client     left-of controller
+    client     align-middle controller
+    // Units fanned to the right of controller
+    fan [unit1 unit2 unit3] right-of controller gap: 20
+    unit1      direction: right
+    unit2      direction: right
+    unit3      direction: right
+  }
 }
