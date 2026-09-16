@@ -12,8 +12,9 @@ import (
 
 // Probe constants
 const (
-	alivePath = "/v1/health?level=alive"
-	readyPath = "/v1/health?level=ready"
+	alivePath          = "/v1/health?level=alive"
+	readyPath          = "/v1/health?level=ready"
+	apiServerReadyPath = "/health"
 )
 
 func StartupHandler(port string) corev1.ProbeHandler {
@@ -50,14 +51,16 @@ func ReadinessHandler(port string) corev1.ProbeHandler {
 }
 
 // APIServerReadinessHandler returns a probe handler that checks whether the
-// API server is accepting TCP connections on the given port. This is used as
-// the readiness probe for the controller api-server container so that the pod
-// is not added to the service endpoint until the jujuagentd has started and
-// the API server is listening.
+// API server is ready to serve requests on the given port. This is used as the
+// readiness probe for the controller api-server container so that the pod is
+// not added to the service endpoint until jujuagentd has started the API
+// server.
 func APIServerReadinessHandler(apiPort int) corev1.ProbeHandler {
 	return corev1.ProbeHandler{
-		TCPSocket: &corev1.TCPSocketAction{
-			Port: intstr.FromInt(apiPort),
+		HTTPGet: &corev1.HTTPGetAction{
+			Path:   apiServerReadyPath,
+			Port:   intstr.FromInt(apiPort),
+			Scheme: corev1.URISchemeHTTPS,
 		},
 	}
 }
