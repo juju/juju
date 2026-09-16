@@ -185,6 +185,13 @@ diagram "Forced structure" from "Principles" {
     box [nodes: "agent_a workload_a",
          label: "execution",
          style: "dashed", color: "#888"]
+    legend [position: "bottom-right",
+            person: "operator",
+            juju-software: "Juju process",
+            external: "cloud / external",
+            control: "manages / drives",
+            api: "API call",
+            stream: "watch (async)"]
   }
 }
 
@@ -223,6 +230,10 @@ diagram "Star topology" from "Principles" {
     box [nodes: "ctrl_rel",
          label: "all relation data lives here",
          style: "dashed", color: "#E95420"]
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            data: "write relation data",
+            event: "notify (async)"]
   }
 }
 
@@ -244,8 +255,19 @@ diagram "Execution chain IAAS" from "Principles" {
     machine_agent direction: down
     unit_agent_iaas direction: right
   }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine",
+            charm: "charm",
+            workload: "workload",
+            external: "cloud / external",
+            control: "manages / drives",
+            stream: "watch (async)",
+            ipc: "hook command (Unix socket)",
+            event: "async notification"]
+  }
 }
-
 // --------------------------------------------------------------------------
 // 6. Execution chain — Kubernetes
 // --------------------------------------------------------------------------
@@ -262,5 +284,19 @@ diagram "Execution chain K8s" from "Principles" {
     k8s_cloud align-centre ctrl_k8s
     unit_pod  direction: down
     cont_agent direction: right
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned pod",
+            charm: "charm",
+            pebble: "Pebble supervisor",
+            workload: "workload",
+            external: "cloud / external",
+            control: "manages / drives",
+            api: "API call",
+            stream: "watch (async)",
+            ipc: "hook command (Unix socket)",
+            event: "async notification"]
   }
 }

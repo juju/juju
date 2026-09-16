@@ -14,7 +14,7 @@ Discussion and clarification of key topics, providing background information and
 :hidden:
 :glob:
 
-Architecture <juju-architecture>
+Diagram preview <diagrams>
 Architecture (new draft) <architecture>
 Architecture: principles <architecture-principles>
 Architecture: principles v2 <architecture-principles-v2>
@@ -30,7 +30,7 @@ About charming history <charming-history>
 
 
 - {ref}`Architecture <juju-architecture>`
-- {ref}`Architecture (new draft) <architecture>`
+- {ref}`Diagram preview <diagrams>`
 - {ref}`Architecture: principles <architecture-principles>`
 - {ref}`Architecture: principles v2 <architecture-principles-v2>`
 - {ref}`Architecture: principles v3 <architecture-principles-v3>`

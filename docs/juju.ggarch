@@ -75,12 +75,12 @@ model "Juju" {
     // -----------------------------------------------------------------------
     // Hook execution participants
     // -----------------------------------------------------------------------
-    apiserver  [type: juju-software, label: "API-server"]
+    apiserver  [type: juju-software, label: "API server"]
 
     // -----------------------------------------------------------------------
     // Deploy K8s — containeragent as the concrete unit agent on K8s
     // -----------------------------------------------------------------------
-    containeragent [type: juju-software, label: "containeragent (unit)"]
+    containeragent [type: juju-software, label: "Unit agent\n(containeragent)"]
 
     // -----------------------------------------------------------------------
     // Integrate — two distinct unit agents
@@ -90,14 +90,13 @@ model "Juju" {
 
     // Remove — undertaker worker
     // -----------------------------------------------------------------------
-    undertaker [type: juju-software, label: "Undertaker worker"]
-
+    undertaker [type: juju-software, label: "Undertaker\n(controller worker)"]
     // -----------------------------------------------------------------------
     // Machine cloud — controller machine and unit agent (both jujud)
     // -----------------------------------------------------------------------
     controller_machine [type: container, label: "Controller machine",
                         abstracts: "controller"]
-    machine_agent      [type: juju-software, label: "jujud (unit agent)"]
+    machine_agent      [type: juju-software, label: "Unit agent\n(jujud)"]
 
     // -----------------------------------------------------------------------
     // Data model — Dqlite record nodes (model database)
@@ -207,7 +206,7 @@ model "Juju" {
 
     // Data model schema relationships
     application_rec -> charm_rec    [type: data, label: "uses"]
-    application_rec -> unit_rec     [type: data, label: "has units"]
+    application_rec -> unit_rec     [type: data, label: "has"]
     unit_rec        -> machine_rec  [type: data, label: "runs on"]
     relation_rec    -> application_rec [type: data, label: "connects"]
 
@@ -375,7 +374,7 @@ model "Juju" {
 
 diagram "Juju overview" from "Juju" {
   select { nodes: user client controller agents apps clouds charmhub
-           edges: type control type api }
+           edges: type control type api type stream }
   positions {
     user       left-of client
     user       align-middle client
@@ -389,6 +388,16 @@ diagram "Juju overview" from "Juju" {
     clouds     align-centre controller
     charmhub   below controller    gap: 40
     charmhub   align-centre controller
+  }
+  annotations {
+    legend [position: "bottom-right",
+            person: "operator",
+            juju-software: "Juju process",
+            external: "cloud / external",
+            charm: "charm",
+            control: "manages / drives",
+            api: "API call",
+            stream: "watch (async)"]
   }
 }
 
@@ -406,13 +415,25 @@ diagram "K8s deployment topology" from "Juju" {
     controller_pod align-middle unit_pod
     k8s            above controller_pod  gap: 40
     k8s            align-centre controller_pod
-    charmhub       below controller_pod  gap: 60
+    charmhub       below controller_pod  gap: 80
     jujud          align-middle unit_agent
     unit_pod       direction: right
     charm_container    same-width workload_container
     unit_agent         same-width charm
     pebble             same-width workload
     jujud              min-width: 160
+    charm_container    left-of workload_container  gap: 80
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine or pod",
+            charm: "charm",
+            pebble: "Pebble supervisor",
+            workload: "workload",
+            external: "cloud / external",
+            control: "manages / drives",
+            api: "API call"]
   }
 }
 
@@ -434,6 +455,11 @@ diagram "Data model" from "Juju" {
     charm_rec       align-centre application_rec
     relation_rec    below application_rec    gap: 50
     relation_rec    align-centre application_rec
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema relationship"]
   }
 }
 
@@ -517,6 +543,15 @@ diagram "Intro: Juju enters" from "Juju" {
     // Apps fanned to the right of controller
     fan [capp1 capp2 capp3] right-of controller gap: 60
   }
+  annotations {
+    legend [position: "bottom-right",
+            person: "operator",
+            juju-software: "Juju process",
+            external: "cloud / external",
+            charm: "charmed application",
+            control: "manages / drives",
+            api: "API call"]
+  }
 }
 
 // --------------------------------------------------------------------------
@@ -540,5 +575,16 @@ diagram "Intro: Juju unpacked" from "Juju" {
     unit1      direction: right
     unit2      direction: right
     unit3      direction: right
+  }
+  annotations {
+    legend [position: "bottom-right",
+            person: "operator",
+            juju-software: "Juju process",
+            container: "unit (machine or pod)",
+            charm: "charm",
+            workload: "workload",
+            control: "manages / drives",
+            stream: "watch (async)",
+            api: "API call"]
   }
 }
