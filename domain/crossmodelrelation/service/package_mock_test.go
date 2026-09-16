@@ -41,6 +41,7 @@ type MockControllerStateMockRecorder struct {
 	getOfferUUIDsForUsersWithConsumeExpects []*gomock.Call2_2[context.Context, []string, []string, error]
 	getUserUUIDByNameExpects                []*gomock.Call2_2[context.Context, user.Name, uuid.UUID, error]
 	getUsersForOfferUUIDsExpects            []*gomock.Call2_2[context.Context, []string, map[string][]crossmodelrelation.OfferUser, error]
+	updateOfferPermissionExpects            []*gomock.Call3_1[context.Context, string, crossmodelrelation.UpdateOfferPermissionArgs, error]
 }
 
 // NewMockControllerState creates a new mock instance.
@@ -127,6 +128,24 @@ func (mr *MockControllerStateMockRecorder) GetUsersForOfferUUIDs(arg0, arg1 any)
 // MockControllerStateGetUsersForOfferUUIDsCall is the typed call wrapper for GetUsersForOfferUUIDs.
 type MockControllerStateGetUsersForOfferUUIDsCall = gomock.Call2_2[context.Context, []string, map[string][]crossmodelrelation.OfferUser, error]
 
+// UpdateOfferPermission mocks base method.
+func (m *MockControllerState) UpdateOfferPermission(ctx context.Context, permissionUUID string, args crossmodelrelation.UpdateOfferPermissionArgs) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.updateOfferPermissionExpects, m.ctrl, m, "UpdateOfferPermission", ctx, permissionUUID, args)
+}
+
+// UpdateOfferPermission indicates an expected call of UpdateOfferPermission.
+func (mr *MockControllerStateMockRecorder) UpdateOfferPermission(ctx, permissionUUID, args any) *MockControllerStateUpdateOfferPermissionCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, string, crossmodelrelation.UpdateOfferPermissionArgs, error](mr.mock.ctrl.T, mr.mock, "UpdateOfferPermission", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(permissionUUID), gomock.EnsureMatcher(args))
+	mr.updateOfferPermissionExpects = append(mr.updateOfferPermissionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateUpdateOfferPermissionCall is the typed call wrapper for UpdateOfferPermission.
+type MockControllerStateUpdateOfferPermissionCall = gomock.Call3_1[context.Context, string, crossmodelrelation.UpdateOfferPermissionArgs, error]
+
 // MockModelState is a mock of ModelState interface.
 type MockModelState struct {
 	ctrl     *gomock.Controller
@@ -186,6 +205,7 @@ type MockModelStateMockRecorder struct {
 	saveMacaroonForRelationExpects                                              []*gomock.Call3_1[context.Context, string, []byte, error]
 	saveRemoteSecretConsumerExpects                                             []*gomock.Call6_1[context.Context, *secrets.URI, string, secrets.SecretConsumerMetadata, string, string, error]
 	saveSecretRemoteConsumerExpects                                             []*gomock.Call4_1[context.Context, *secrets.URI, string, secrets.SecretConsumerMetadata, error]
+	suspendOfferConnectionsForUserExpects                                       []*gomock.Call4_1[context.Context, string, string, string, error]
 	updateRemoteSecretRevisionExpects                                           []*gomock.Call4_1[context.Context, *secrets.URI, int, string, error]
 	validateApplicationAndEndpointsForOfferExpects                              []*gomock.Call3_2[context.Context, string, []string, string, error]
 }
@@ -1086,6 +1106,24 @@ func (mr *MockModelStateMockRecorder) SaveSecretRemoteConsumer(ctx, uri, unitNam
 
 // MockModelStateSaveSecretRemoteConsumerCall is the typed call wrapper for SaveSecretRemoteConsumer.
 type MockModelStateSaveSecretRemoteConsumerCall = gomock.Call4_1[context.Context, *secrets.URI, string, secrets.SecretConsumerMetadata, error]
+
+// SuspendOfferConnectionsForUser mocks base method.
+func (m *MockModelState) SuspendOfferConnectionsForUser(ctx context.Context, offerUUID, username, reason string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4_1(&m.recorder.suspendOfferConnectionsForUserExpects, m.ctrl, m, "SuspendOfferConnectionsForUser", ctx, offerUUID, username, reason)
+}
+
+// SuspendOfferConnectionsForUser indicates an expected call of SuspendOfferConnectionsForUser.
+func (mr *MockModelStateMockRecorder) SuspendOfferConnectionsForUser(ctx, offerUUID, username, reason any) *MockModelStateSuspendOfferConnectionsForUserCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall4_1[context.Context, string, string, string, error](mr.mock.ctrl.T, mr.mock, "SuspendOfferConnectionsForUser", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(offerUUID), gomock.EnsureMatcher(username), gomock.EnsureMatcher(reason))
+	mr.suspendOfferConnectionsForUserExpects = append(mr.suspendOfferConnectionsForUserExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateSuspendOfferConnectionsForUserCall is the typed call wrapper for SuspendOfferConnectionsForUser.
+type MockModelStateSuspendOfferConnectionsForUserCall = gomock.Call4_1[context.Context, string, string, string, error]
 
 // UpdateRemoteSecretRevision mocks base method.
 func (m *MockModelState) UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int, applicationUUID string) error {

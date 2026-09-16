@@ -75,6 +75,16 @@ type ControllerState interface {
 	// GetUserUUIDByName returns the UUID of the user provided exists, has not
 	// been removed and is not disabled.
 	GetUserUUIDByName(ctx context.Context, name user.Name) (uuid.UUID, error)
+
+	// UpdateOfferPermission updates the access permission for the specified
+	// user on the given offer in the controller database. It handles both
+	// granting and revoking access. The permissionUUID is persisted when
+	// granting access to a user with no existing permission on the offer.
+	UpdateOfferPermission(
+		ctx context.Context,
+		permissionUUID string,
+		args crossmodelrelation.UpdateOfferPermissionArgs,
+	) error
 }
 
 // WatcherFactory instances return watchers for a given namespace and UUID.

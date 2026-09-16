@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/permission"
 	relationtesting "github.com/juju/juju/core/relation/testing"
+	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -1068,4 +1069,242 @@ func (s *offerServiceSuite) TestGetOfferUUIDByRelationUUID(c *tc.C) {
 	got, err := s.service(c).GetOfferUUIDByRelationUUID(c.Context(), relUUID)
 	c.Assert(err, tc.IsNil)
 	c.Assert(got, tc.Equals, offerUUID)
+}
+
+// permissionUUIDMatcher matches a non-empty permission UUID, asserting
+// that the service generates one before calling the controller state.
+type permissionUUIDMatcher struct{}
+
+func (permissionUUIDMatcher) Matches(x any) bool {
+	uuidStr, ok := x.(string)
+	if !ok {
+		return false
+	}
+	_, err := uuid.UUIDFromString(uuidStr)
+	return err == nil
+}
+
+func (permissionUUIDMatcher) String() string {
+	return "valid permission UUID"
+}
+
+func (s *offerServiceSuite) TestUpdateOfferPermissionGrant(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	username := usertesting.GenNewName(c, "simon")
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  username,
+		OfferUUID: uuid.MustNewUUID().String(),
+		Access:    permission.ConsumeAccess,
+		Change:    permission.Grant,
+	}
+	s.controllerState.EXPECT().UpdateOfferPermission(
+		gomock.Any(), permissionUUIDMatcher{}, args,
+	).Return(nil)
+
+	// Act
+	err := s.service(c).UpdateOfferPermission(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestUpdateOfferPermissionRevokeConsume tests that revoking consume
+// access suspends the user's relations against the offer before the
+// permission is downgraded.
+func (s *offerServiceSuite) TestUpdateOfferPermissionRevokeConsume(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	username := usertesting.GenNewName(c, "simon")
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  username,
+		OfferUUID: uuid.MustNewUUID().String(),
+		Access:    permission.ConsumeAccess,
+		Change:    permission.Revoke,
+	}
+	gomock.InOrder(
+		s.modelState.EXPECT().SuspendOfferConnectionsForUser(
+			gomock.Any(), args.OfferUUID, username.Name(), "offer access revoked",
+		).Return(nil),
+		s.controllerState.EXPECT().UpdateOfferPermission(
+			gomock.Any(), permissionUUIDMatcher{}, args,
+		).Return(nil),
+	)
+
+	// Act
+	err := s.service(c).UpdateOfferPermission(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestUpdateOfferPermissionRevokeRead tests that revoking read access
+// suspends the user's relations, as it removes all access including
+// the ability to consume.
+func (s *offerServiceSuite) TestUpdateOfferPermissionRevokeRead(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	username := usertesting.GenNewName(c, "simon")
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  username,
+		OfferUUID: uuid.MustNewUUID().String(),
+		Access:    permission.ReadAccess,
+		Change:    permission.Revoke,
+	}
+	gomock.InOrder(
+		s.modelState.EXPECT().SuspendOfferConnectionsForUser(
+			gomock.Any(), args.OfferUUID, username.Name(), "offer access revoked",
+		).Return(nil),
+		s.controllerState.EXPECT().UpdateOfferPermission(
+			gomock.Any(), permissionUUIDMatcher{}, args,
+		).Return(nil),
+	)
+
+	// Act
+	err := s.service(c).UpdateOfferPermission(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestUpdateOfferPermissionRevokeAdmin tests that revoking admin access
+// leaves the user with consume access, so no relations are suspended.
+func (s *offerServiceSuite) TestUpdateOfferPermissionRevokeAdmin(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	username := usertesting.GenNewName(c, "simon")
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  username,
+		OfferUUID: uuid.MustNewUUID().String(),
+		Access:    permission.AdminAccess,
+		Change:    permission.Revoke,
+	}
+	s.controllerState.EXPECT().UpdateOfferPermission(
+		gomock.Any(), permissionUUIDMatcher{}, args,
+	).Return(nil)
+
+	// Act
+	err := s.service(c).UpdateOfferPermission(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *offerServiceSuite) TestUpdateOfferPermissionSuspendError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	username := usertesting.GenNewName(c, "simon")
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  username,
+		OfferUUID: uuid.MustNewUUID().String(),
+		Access:    permission.ConsumeAccess,
+		Change:    permission.Revoke,
+	}
+	s.modelState.EXPECT().SuspendOfferConnectionsForUser(
+		gomock.Any(), args.OfferUUID, username.Name(), "offer access revoked",
+	).Return(errors.New("boom"))
+
+	// Act
+	err := s.service(c).UpdateOfferPermission(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `suspending relations for user "simon" on offer ".*": boom`)
+}
+
+func (s *offerServiceSuite) TestUpdateOfferPermissionControllerError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	username := usertesting.GenNewName(c, "simon")
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  username,
+		OfferUUID: uuid.MustNewUUID().String(),
+		Access:    permission.ConsumeAccess,
+		Change:    permission.Grant,
+	}
+	s.controllerState.EXPECT().UpdateOfferPermission(
+		gomock.Any(), permissionUUIDMatcher{}, args,
+	).Return(errors.New("boom"))
+
+	// Act
+	err := s.service(c).UpdateOfferPermission(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `updating offer permission for "simon" on ".*": boom`)
+}
+
+func (s *offerServiceSuite) TestUpdateOfferPermissionValidate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	username := usertesting.GenNewName(c, "simon")
+	offerUUID := uuid.MustNewUUID().String()
+	validArgs := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  username,
+		OfferUUID: offerUUID,
+		Access:    permission.ConsumeAccess,
+		Change:    permission.Grant,
+	}
+
+	invalidArgs := []struct {
+		name string
+		args crossmodelrelation.UpdateOfferPermissionArgs
+		err  string
+	}{
+		{
+			name: "empty username",
+			args: func() crossmodelrelation.UpdateOfferPermissionArgs {
+				args := validArgs
+				args.Username = user.Name{}
+				return args
+			}(),
+			err: `empty username not valid`,
+		},
+		{
+			name: "empty offer UUID",
+			args: func() crossmodelrelation.UpdateOfferPermissionArgs {
+				args := validArgs
+				args.OfferUUID = ""
+				return args
+			}(),
+			err: `empty offer UUID not valid`,
+		},
+		{
+			name: "unsupported change",
+			args: func() crossmodelrelation.UpdateOfferPermissionArgs {
+				args := validArgs
+				args.Change = permission.AccessChange("bogus")
+				return args
+			}(),
+			err: `change "bogus" not valid`,
+		},
+		{
+			name: "access not valid for offers",
+			args: func() crossmodelrelation.UpdateOfferPermissionArgs {
+				args := validArgs
+				args.Access = permission.WriteAccess
+				return args
+			}(),
+			err: `"write" offer access not valid`,
+		},
+		{
+			name: "unknown access",
+			args: func() crossmodelrelation.UpdateOfferPermissionArgs {
+				args := validArgs
+				args.Access = permission.Access("bogus")
+				return args
+			}(),
+			err: `"bogus" offer access not valid`,
+		},
+	}
+
+	for _, test := range invalidArgs {
+		c.Assert(test.args.Validate(), tc.ErrorMatches, test.err, tc.Commentf("subtest %q", test.name))
+	}
+	c.Assert(validArgs.Validate(), tc.ErrorIsNil)
 }
