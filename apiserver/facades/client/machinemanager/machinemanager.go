@@ -481,11 +481,15 @@ func (mm *MachineManagerAPI) destroyResultForMachine(ctx context.Context, machin
 		unitUUIDs = append(unitUUIDs, u.UUID)
 	}
 
-	info.DestroyedStorage, info.DetachedStorage, err = common.ClassifyStorageRemoval(
-		ctx, mm.storageService, unitUUIDs, destroyStorageForMachine,
-	)
-	if err != nil {
-		return params.DestroyMachineInfo{}, internalerrors.Errorf("classifying storage for machine %q: %w", machineName, err)
+	if len(unitUUIDs) > 0 {
+		classification, err := mm.storageService.ClassifyStorageForUnitRemoval(
+			ctx, unitUUIDs, destroyStorageForMachine,
+		)
+		if err != nil {
+			return params.DestroyMachineInfo{}, internalerrors.Errorf("classifying storage for machine %q: %w", machineName, err)
+		}
+		info.DestroyedStorage = common.StorageEntities(classification.Destroyed)
+		info.DetachedStorage = common.StorageEntities(classification.Detached)
 	}
 
 	return info, nil

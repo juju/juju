@@ -158,13 +158,14 @@ type ApplicationService interface {
 // manager requires in order to classify the storage attached to the units of
 // a machine being removed.
 type StorageService interface {
-	// GetStorageClassificationForUnits returns, keyed by unit UUID, the
-	// storage instances attached to the input units, along with the minimal
-	// information needed to classify each as destroyed or detached when its
-	// unit is removed.
-	GetStorageClassificationForUnits(
-		ctx context.Context, unitUUIDs []coreunit.UUID,
-	) (map[coreunit.UUID][]domainstorage.StorageInstanceClassification, error)
+	// ClassifyStorageForUnitRemoval classifies the storage instances
+	// attached to the input units into those that will be destroyed and
+	// those that will be detached when the units are removed. If
+	// destroyStorage is true, every attached storage instance is
+	// classified as destroyed.
+	ClassifyStorageForUnitRemoval(
+		ctx context.Context, unitUUIDs []coreunit.UUID, destroyStorage bool,
+	) (domainstorage.StorageRemovalClassification, error)
 }
 
 // CharmhubClient represents a way for querying the charmhub api for information

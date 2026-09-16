@@ -20,6 +20,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storage/internal"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -590,43 +591,73 @@ func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsPartial(c *tc.C) {
 	})
 }
 
-// TestGetStorageClassificationForUnitsUUIDNotValid tests that
-// [Service.GetStorageClassificationForUnits] returns an error satisfying
+// TestClassifyStorageForUnitRemovalUUIDNotValid tests that
+// [Service.ClassifyStorageForUnitRemoval] returns an error satisfying
 // [coreerrors.NotValid] when called with an invalid unit UUID. The test
 // verifies that UUID validation occurs before any state operations.
-func (s *instanceSuite) TestGetStorageClassificationForUnitsUUIDNotValid(c *tc.C) {
+func (s *instanceSuite) TestClassifyStorageForUnitRemovalUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	invalidUUID := coreunit.UUID("invalid")
 
 	svc := NewService(
 		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
-	_, err := svc.GetStorageClassificationForUnits(c.Context(), []coreunit.UUID{invalidUUID})
+	_, err := svc.ClassifyStorageForUnitRemoval(c.Context(), []coreunit.UUID{invalidUUID}, false)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-// TestGetStorageClassificationForUnitsEmptyInput asserts that an empty slice
-// of unit UUIDs returns an empty map without querying state.
-func (s *instanceSuite) TestGetStorageClassificationForUnitsEmptyInput(c *tc.C) {
+// TestClassifyStorageForUnitRemovalEmptyInput asserts that an empty slice
+// of unit UUIDs returns an empty classification without querying state.
+func (s *instanceSuite) TestClassifyStorageForUnitRemovalEmptyInput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(
 		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
-	res, err := svc.GetStorageClassificationForUnits(c.Context(), nil)
+	res, err := svc.ClassifyStorageForUnitRemoval(c.Context(), nil, false)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(res, tc.DeepEquals, map[coreunit.UUID][]domainstorage.StorageInstanceClassification{})
+	c.Check(res, tc.DeepEquals, domainstorage.StorageRemovalClassification{})
 }
 
-// TestGetStorageClassificationForUnits tests the happy path for
-// [Service.GetStorageClassificationForUnits], asserting that the minimal
-// storage information for each unit is mapped and returned.
-func (s *instanceSuite) TestGetStorageClassificationForUnits(c *tc.C) {
+// TestClassifyStorageForUnitRemovalStateError asserts that an error
+// returned by state is propagated to the caller by
+// [Service.ClassifyStorageForUnitRemoval].
+func (s *instanceSuite) TestClassifyStorageForUnitRemovalStateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	s.state.EXPECT().GetStorageClassificationForUnits(
+		gomock.Any(), []string{unitUUID.String()},
+	).Return(nil, errors.New("boom"))
+
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
+	)
+	_, err := svc.ClassifyStorageForUnitRemoval(c.Context(), []coreunit.UUID{unitUUID}, false)
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+// TestClassifyStorageForUnitRemoval tests the happy path for
+// [Service.ClassifyStorageForUnitRemoval], asserting that detachability is
+// derived correctly according to ownership scope rules and that the
+// instances are partitioned into destroyed and detached, reported in the
+// input unit order.
+func (s *instanceSuite) TestClassifyStorageForUnitRemoval(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	unitUUID1 := tc.Must(c, coreunit.NewUUID)
 	unitUUID2 := tc.Must(c, coreunit.NewUUID)
-	blockInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	filesystemInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	modelVolUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	machineFsUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	modelFsUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	volBackedFsUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	machineVolUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	modelFsMachineVolUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	corruptVolUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	emptyInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+
+	modelScope := domainstorage.ProvisionScopeModel
+	machineScope := domainstorage.ProvisionScopeMachine
+	invalidScope := domainstorage.ProvisionScope(99)
 
 	s.state.EXPECT().GetStorageClassificationForUnits(
 		gomock.Any(), []string{unitUUID1.String(), unitUUID2.String()},
@@ -634,14 +665,47 @@ func (s *instanceSuite) TestGetStorageClassificationForUnits(c *tc.C) {
 		map[string][]internal.StorageInstanceClassification{
 			unitUUID1.String(): {
 				{
-					Persistent:  true,
-					StorageID:   "single-blk/0",
-					StorageUUID: blockInstanceUUID.String(),
+					StorageID:            "single-blk/0",
+					StorageUUID:          modelVolUUID.String(),
+					VolumeProvisionScope: &modelScope,
 				},
 				{
-					Persistent:  false,
-					StorageID:   "single-fs/0",
-					StorageUUID: filesystemInstanceUUID.String(),
+					FilesystemProvisionScope: &machineScope,
+					StorageID:                "rootfs-fs/0",
+					StorageUUID:              machineFsUUID.String(),
+				},
+				{
+					FilesystemProvisionScope: &modelScope,
+					StorageID:                "lxd-fs/0",
+					StorageUUID:              modelFsUUID.String(),
+				},
+			},
+			unitUUID2.String(): {
+				{
+					FilesystemProvisionScope: &machineScope,
+					StorageID:                "ebs-fs/0",
+					StorageUUID:              volBackedFsUUID.String(),
+					VolumeProvisionScope:     &modelScope,
+				},
+				{
+					StorageID:            "loop-vol/0",
+					StorageUUID:          machineVolUUID.String(),
+					VolumeProvisionScope: &machineScope,
+				},
+				{
+					FilesystemProvisionScope: &modelScope,
+					StorageID:                "model-fs-machine-vol/0",
+					StorageUUID:              modelFsMachineVolUUID.String(),
+					VolumeProvisionScope:     &machineScope,
+				},
+				{
+					StorageID:            "corrupt-vol/0",
+					StorageUUID:          corruptVolUUID.String(),
+					VolumeProvisionScope: &invalidScope,
+				},
+				{
+					StorageID:   "orphan/0",
+					StorageUUID: emptyInstanceUUID.String(),
 				},
 			},
 		}, nil,
@@ -650,19 +714,159 @@ func (s *instanceSuite) TestGetStorageClassificationForUnits(c *tc.C) {
 	svc := NewService(
 		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
-	res, err := svc.GetStorageClassificationForUnits(c.Context(), []coreunit.UUID{unitUUID1, unitUUID2})
+	res, err := svc.ClassifyStorageForUnitRemoval(c.Context(), []coreunit.UUID{unitUUID1, unitUUID2}, false)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(res, tc.DeepEquals, map[coreunit.UUID][]domainstorage.StorageInstanceClassification{
-		unitUUID1: {
+	c.Check(res, tc.DeepEquals, domainstorage.StorageRemovalClassification{
+		Destroyed: []domainstorage.StorageInstanceClassification{
 			{
-				ID:         "single-blk/0",
-				Persistent: true,
-				UUID:       blockInstanceUUID,
+				Detachable: false,
+				ID:         "rootfs-fs/0",
+				UUID:       machineFsUUID,
 			},
 			{
-				ID:         "single-fs/0",
-				Persistent: false,
-				UUID:       filesystemInstanceUUID,
+				Detachable: false,
+				ID:         "loop-vol/0",
+				UUID:       machineVolUUID,
+			},
+			{
+				Detachable: false,
+				ID:         "model-fs-machine-vol/0",
+				UUID:       modelFsMachineVolUUID,
+			},
+			{
+				Detachable: false,
+				ID:         "corrupt-vol/0",
+				UUID:       corruptVolUUID,
+			},
+			{
+				Detachable: false,
+				ID:         "orphan/0",
+				UUID:       emptyInstanceUUID,
+			},
+		},
+		Detached: []domainstorage.StorageInstanceClassification{
+			{
+				Detachable: true,
+				ID:         "single-blk/0",
+				UUID:       modelVolUUID,
+			},
+			{
+				Detachable: true,
+				ID:         "lxd-fs/0",
+				UUID:       modelFsUUID,
+			},
+			{
+				Detachable: true,
+				ID:         "ebs-fs/0",
+				UUID:       volBackedFsUUID,
+			},
+		},
+	})
+}
+
+// TestClassifyStorageForUnitRemovalDestroyStorage asserts that when destroy
+// storage is requested, every attached storage instance is classified as
+// destroyed regardless of its detachability.
+func (s *instanceSuite) TestClassifyStorageForUnitRemovalDestroyStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	detachableUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	nonDetachableUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+
+	modelScope := domainstorage.ProvisionScopeModel
+	machineScope := domainstorage.ProvisionScopeMachine
+
+	s.state.EXPECT().GetStorageClassificationForUnits(
+		gomock.Any(), []string{unitUUID.String()},
+	).Return(
+		map[string][]internal.StorageInstanceClassification{
+			unitUUID.String(): {
+				{
+					FilesystemProvisionScope: &modelScope,
+					StorageID:                "lxd-fs/0",
+					StorageUUID:              detachableUUID.String(),
+				},
+				{
+					StorageID:            "loop-vol/0",
+					StorageUUID:          nonDetachableUUID.String(),
+					VolumeProvisionScope: &machineScope,
+				},
+			},
+		}, nil,
+	)
+
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
+	)
+	res, err := svc.ClassifyStorageForUnitRemoval(c.Context(), []coreunit.UUID{unitUUID}, true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, domainstorage.StorageRemovalClassification{
+		Destroyed: []domainstorage.StorageInstanceClassification{
+			{
+				Detachable: true,
+				ID:         "lxd-fs/0",
+				UUID:       detachableUUID,
+			},
+			{
+				Detachable: false,
+				ID:         "loop-vol/0",
+				UUID:       nonDetachableUUID,
+			},
+		},
+	})
+}
+
+// TestClassifyStorageForUnitRemovalDeduplicatesShared asserts that a
+// storage instance shared by several removed units is only reported once,
+// attributed to the first unit that reports it in the input order.
+func (s *instanceSuite) TestClassifyStorageForUnitRemovalDeduplicatesShared(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	unitUUID1 := tc.Must(c, coreunit.NewUUID)
+	unitUUID2 := tc.Must(c, coreunit.NewUUID)
+	sharedUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	otherUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+
+	modelScope := domainstorage.ProvisionScopeModel
+	machineScope := domainstorage.ProvisionScopeMachine
+
+	shared := internal.StorageInstanceClassification{
+		FilesystemProvisionScope: &modelScope,
+		StorageID:                "db-dir/0",
+		StorageUUID:              sharedUUID.String(),
+	}
+	other := internal.StorageInstanceClassification{
+		StorageID:            "loop-vol/0",
+		StorageUUID:          otherUUID.String(),
+		VolumeProvisionScope: &machineScope,
+	}
+
+	s.state.EXPECT().GetStorageClassificationForUnits(
+		gomock.Any(), []string{unitUUID1.String(), unitUUID2.String()},
+	).Return(
+		map[string][]internal.StorageInstanceClassification{
+			unitUUID1.String(): {shared, other},
+			unitUUID2.String(): {shared},
+		}, nil,
+	)
+
+	svc := NewService(
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
+	)
+	res, err := svc.ClassifyStorageForUnitRemoval(c.Context(), []coreunit.UUID{unitUUID1, unitUUID2}, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, domainstorage.StorageRemovalClassification{
+		Destroyed: []domainstorage.StorageInstanceClassification{
+			{
+				Detachable: false,
+				ID:         "loop-vol/0",
+				UUID:       otherUUID,
+			},
+		},
+		Detached: []domainstorage.StorageInstanceClassification{
+			{
+				Detachable: true,
+				ID:         "db-dir/0",
+				UUID:       sharedUUID,
 			},
 		},
 	})

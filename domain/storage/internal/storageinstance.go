@@ -51,13 +51,13 @@ type StorageInstanceInfo struct {
 
 // StorageInstanceClassification contains the minimal information about a
 // storage instance that the storage removal classifier consumes: the storage
-// identifier, its persistence, and its UUID. This intentionally avoids the
-// heavier per-instance queries behind [StorageInstanceInfo].
+// identifier, its UUID, and the provisioning scopes of its backing volume
+// and filesystem (if present). This intentionally avoids the heavier
+// per-instance queries behind [StorageInstanceInfo].
 type StorageInstanceClassification struct {
-	// Persistent is sourced from storage_volume.persistent;
-	// filesystem-backed storage has no persistence column today
-	// and is therefore always false.
-	Persistent bool
+	// FilesystemProvisionScope is the provision scope of the backing filesystem,
+	// or nil if the storage instance has no filesystem.
+	FilesystemProvisionScope *domainstorage.ProvisionScope
 
 	// StorageID is the unique human readable identifier for the Storage
 	// Instance.
@@ -65,6 +65,10 @@ type StorageInstanceClassification struct {
 
 	// StorageUUID is the UUID of the Storage Instance.
 	StorageUUID string
+
+	// VolumeProvisionScope is the provision scope of the backing volume,
+	// or nil if the storage instance has no volume.
+	VolumeProvisionScope *domainstorage.ProvisionScope
 }
 
 // StorageInstanceInfoAttachment represents an attachment of a storage instance
