@@ -31,7 +31,7 @@ import (
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/controller"
+	domaincontroller "github.com/juju/juju/domain/controller"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
@@ -70,9 +70,10 @@ type OffersAPI struct {
 	modelUUID      model.UUID
 	logger         corelogger.Logger
 
-	accessService     AccessService
-	controllerService ControllerService
-	modelService      ModelService
+	accessService           AccessService
+	controllerService       ControllerService
+	controllerConfigService ControllerConfigService
+	modelService            ModelService
 
 	crossModelRelationServiceGetter func(c context.Context, modelUUID model.UUID) (CrossModelRelationService, error)
 	removalServiceGetter            func(c context.Context, modelUUID model.UUID) (RemovalService, error)
@@ -86,6 +87,7 @@ func createOffersAPI(
 	modelUUID model.UUID,
 	accessService AccessService,
 	controllerService ControllerService,
+	controllerConfigService ControllerConfigService,
 	modelService ModelService,
 	crossModelRelationServiceGetter func(c context.Context, modelUUID model.UUID) (CrossModelRelationService, error),
 	removalServiceGetter func(c context.Context, modelUUID model.UUID) (RemovalService, error),
@@ -102,6 +104,7 @@ func createOffersAPI(
 		modelUUID:                       modelUUID,
 		accessService:                   accessService,
 		controllerService:               controllerService,
+		controllerConfigService:         controllerConfigService,
 		modelService:                    modelService,
 		crossModelRelationServiceGetter: crossModelRelationServiceGetter,
 		removalServiceGetter:            removalServiceGetter,
@@ -1000,10 +1003,10 @@ func (api *OffersAPI) GetConsumeDetails(ctx context.Context, args params.Consume
 	return api.getConsumeDetails(ctx, controllerInfo, user, args.OfferURLs)
 }
 
-func (api *OffersAPI) getControllerInfo(ctx context.Context) (controller.ControllerInfo, error) {
+func (api *OffersAPI) getControllerInfo(ctx context.Context) (domaincontroller.ControllerInfo, error) {
 	c, err := api.controllerService.GetControllerInfo(ctx)
 	if err != nil {
-		return controller.ControllerInfo{}, errors.Errorf("getting controller info: %w", err)
+		return domaincontroller.ControllerInfo{}, errors.Errorf("getting controller info: %w", err)
 	}
 	return c, nil
 }
@@ -1048,13 +1051,27 @@ func parseOfferURLs(apiUserTag names.UserTag, in []string) ([]corecrossmodel.Off
 
 func (api *OffersAPI) getConsumeDetails(
 	ctx context.Context,
-	controllerInfo controller.ControllerInfo,
+	controllerInfo domaincontroller.ControllerInfo,
 	apiUser names.UserTag,
 	urls params.OfferURLs,
 ) (params.ConsumeOfferDetailsResults, error) {
+	addrs := controllerInfo.APIAddresses
+	// If the controller has a public DNS address configured, prepend it so
+	// that consumers learn a reachable address even when the raw API
+	// addresses are not routable from their network.
+	if api.controllerConfigService != nil {
+		controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
+		if err != nil {
+			return params.ConsumeOfferDetailsResults{}, errors.Errorf("getting controller config: %w", err)
+		}
+		if publicAddr := controllerConfig.PublicDNSAddress(); publicAddr != "" {
+			addrs = append([]string{publicAddr}, addrs...)
+		}
+	}
+
 	externalControllerInfo := &params.ExternalControllerInfo{
 		ControllerTag: names.NewControllerTag(controllerInfo.UUID).String(),
-		Addrs:         controllerInfo.APIAddresses,
+		Addrs:         addrs,
 		CACert:        controllerInfo.CACert,
 	}
 

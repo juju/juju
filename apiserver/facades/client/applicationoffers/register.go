@@ -69,6 +69,7 @@ func makeOffersAPI(ctx facade.MultiModelContext) (*OffersAPI, error) {
 		ctx.ModelUUID(),
 		domainServices.Access(),
 		domainServices.Controller(),
+		domainServices.ControllerConfig(),
 		domainServices.Model(),
 		crossModelRelationServiceGetter,
 		removalServiceGetter,

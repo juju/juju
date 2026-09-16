@@ -6,13 +6,14 @@ package applicationoffers
 import (
 	"context"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
-	"github.com/juju/juju/domain/controller"
+	domaincontroller "github.com/juju/juju/domain/controller"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 )
@@ -96,5 +97,12 @@ type RemovalService interface {
 // domain.
 type ControllerService interface {
 	// GetControllerInfo returns the controller information.
-	GetControllerInfo(ctx context.Context) (controller.ControllerInfo, error)
+	GetControllerInfo(ctx context.Context) (domaincontroller.ControllerInfo, error)
+}
+
+// ControllerConfigService defines the interface for retrieving the
+// controller configuration.
+type ControllerConfigService interface {
+	// ControllerConfig returns the controller configuration.
+	ControllerConfig(ctx context.Context) (controller.Config, error)
 }
