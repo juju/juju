@@ -846,6 +846,17 @@ func (s *serviceSuite) TestGetModelUserBadUUID(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
+func (s *serviceSuite) TestGetModelUserNotFound(c *tc.C) {
+	uuid := tc.Must(c, coremodel.NewUUID)
+	bobName := usertesting.GenNewName(c, "bob")
+	s.state.users = map[user.UUID]user.Name{
+		"123": bobName,
+	}
+	svc := s.newStubService(c)
+	_, err := svc.GetModelUser(c.Context(), uuid, usertesting.GenNewName(c, "jim"))
+	c.Assert(err, tc.ErrorIs, modelerrors.UserNotFoundOnModel)
+}
+
 func (s *serviceSuite) TestGetModelUserZeroUserName(c *tc.C) {
 	svc := s.newStubService(c)
 	_, err := svc.GetModelUser(c.Context(), tc.Must(c, coremodel.NewUUID), user.Name{})
