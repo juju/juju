@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -488,4 +489,45 @@ func setSinceToNil(c *gc.C, goalState *params.GoalState) {
 		}
 		goalState.Relations[endPoint] = gs
 	}
+}
+
+func (s *uniterGoalStateSuite) TestGoalStatesSkipsRelationWithMissingApplication(c *gc.C) {
+	rapp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-wordpress",
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	remoteEP, err := rapp.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlEP, err := s.mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(remoteEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Delete just the remote application document.
+	coll := s.State.MongoSession().DB("juju").C("remoteApplications")
+	err = coll.RemoveId(s.State.ModelUUID() + ":remote-wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+	}}
+	results, err := s.uniter.GoalStates(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	gs := results.Results[0].Result
+	setSinceToNil(c, gs)
+	c.Assert(gs.Units, gc.DeepEquals, expectedUnitMysql)
+	// The dangling relation contributes nothing to the goal state.
+	c.Assert(gs.Relations, gc.HasLen, 0)
 }

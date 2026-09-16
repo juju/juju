@@ -2339,6 +2339,14 @@ func (u *UniterAPI) goalStateRelations(appName, principalName string, allRelatio
 				logger.Debugf("application %q must be a remote application.", e.ApplicationName)
 				remoteApplication, err := u.st.RemoteApplication(e.ApplicationName)
 				if err != nil {
+					if errors.Is(err, errors.NotFound) {
+						// The application document is gone but the relation
+						// remains - likely an unclean cross-model teardown.
+						// Report the goal state for the remaining relations
+						// rather than failing the entire call.
+						logger.Warningf("goal state: skipping relation %q endpoint %q: application document missing", r.String(), e.ApplicationName)
+						continue
+					}
 					return nil, err
 				}
 				var ok bool
