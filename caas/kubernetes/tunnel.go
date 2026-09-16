@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"strconv"
 	"sync"
@@ -15,9 +14,9 @@ import (
 
 	"github.com/juju/errors"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -95,35 +94,46 @@ func (t *Tunnel) ForwardError() error {
 	}
 }
 
-// findSuitablePodForService when tunneling to a kubernetes service we need to
-// introspection.
+// findSuitablePodForService selects a ready, serving, non-terminating pod
+// currently published by the target Service's EndpointSlices.
 func (t *Tunnel) findSuitablePodForService(ctx context.Context) (*corev1.Pod, error) {
 	clientSet := kubernetes.New(t.client)
-	service, err := clientSet.CoreV1().Services(t.Namespace).
-		Get(ctx, t.Target, meta.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NewNotFound(err, "can't find service "+t.Target)
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	pods, err := clientSet.CoreV1().Pods(t.Namespace).
+	endpointSlices, err := clientSet.DiscoveryV1().EndpointSlices(t.Namespace).
 		List(ctx, meta.ListOptions{
-			LabelSelector: labels.SelectorFromSet(service.Spec.Selector).String(),
+			LabelSelector: discoveryv1.LabelServiceName + "=" + t.Target,
 		})
-
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	podCount := len(pods.Items)
-	if podCount == 0 {
-		return nil, errors.NotFoundf("pods for service %s", t.Target)
-	} else if podCount == 1 {
-		return &pods.Items[0], nil
+	for _, podName := range readyServingPodNames(endpointSlices.Items) {
+		pod, err := clientSet.CoreV1().Pods(t.Namespace).Get(ctx, podName, meta.GetOptions{})
+		if k8serrors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return pod, nil
 	}
+	return nil, errors.NotFoundf("ready pods for service %s", t.Target)
+}
 
-	return &pods.Items[rand.Intn(podCount-1)], nil
+func readyServingPodNames(endpointSlices []discoveryv1.EndpointSlice) []string {
+	var podNames []string
+	for _, endpointSlice := range endpointSlices {
+		for _, endpoint := range endpointSlice.Endpoints {
+			if endpoint.TargetRef == nil || endpoint.TargetRef.Kind != "Pod" || endpoint.TargetRef.Name == "" {
+				continue
+			}
+			if endpoint.Conditions.Ready == nil || !*endpoint.Conditions.Ready ||
+				endpoint.Conditions.Serving == nil || !*endpoint.Conditions.Serving ||
+				endpoint.Conditions.Terminating != nil && *endpoint.Conditions.Terminating {
+				continue
+			}
+			podNames = append(podNames, endpoint.TargetRef.Name)
+		}
+	}
+	return podNames
 }
 
 // ForwardPort starts forwarding RemotePort to an assigned IPv4 localhost port.

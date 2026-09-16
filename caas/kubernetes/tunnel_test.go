@@ -10,6 +10,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
+	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/tools/portforward"
 
@@ -175,6 +178,37 @@ func (s *tunnelSuite) TestForwardPortReportsPostReadyFailure(c *tc.C) {
 	close(release)
 	assertDone(c, done)
 	assertForwardError(c, tunnel, "lost connection to pod")
+}
+
+func (s *tunnelSuite) TestReadyServingPodNames(c *tc.C) {
+	trueValue := true
+	falseValue := false
+	podNames := readyServingPodNames([]discoveryv1.EndpointSlice{{
+		Endpoints: []discoveryv1.Endpoint{
+			{
+				TargetRef:  &corev1.ObjectReference{Kind: "Pod", Name: "ready-pod"},
+				Conditions: discoveryv1.EndpointConditions{Ready: &trueValue, Serving: &trueValue},
+			},
+			{
+				TargetRef:  &corev1.ObjectReference{Kind: "Pod", Name: "not-ready-pod"},
+				Conditions: discoveryv1.EndpointConditions{Ready: &falseValue, Serving: &trueValue},
+			},
+			{
+				TargetRef:  &corev1.ObjectReference{Kind: "Pod", Name: "not-serving-pod"},
+				Conditions: discoveryv1.EndpointConditions{Ready: &trueValue, Serving: &falseValue},
+			},
+			{
+				TargetRef: &corev1.ObjectReference{Kind: "Pod", Name: "terminating-pod"},
+				Conditions: discoveryv1.EndpointConditions{
+					Ready: &trueValue, Serving: &trueValue, Terminating: &trueValue,
+				},
+			},
+			{TargetRef: &corev1.ObjectReference{Kind: "Service", Name: "not-a-pod"}},
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: "controller-service-slice"},
+	}})
+
+	c.Check(podNames, tc.DeepEquals, []string{"ready-pod"})
 }
 
 type fakePortForwarder struct {
