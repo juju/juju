@@ -63,9 +63,9 @@ WHERE     ua.unit_uuid = $entityUUID.uuid
 // GetControllerAPIAddresses returns address candidates which can be used as
 // controller API addresses for the specified unit.
 //
-// The addresses are taken from the net node UUID of the unit. A controller node
-// must advertise its own address: using the Kubernetes Service address would
-// load-balance a controller-specific request to a different controller.
+// IAAS addresses are taken from the controller unit's net node. CAAS addresses
+// are taken from the controller application's stored Service net node so agents
+// use the routable controller Service rather than a pod address.
 //
 // Machine-local addresses are excluded because they are not suitable for
 // advertised ingress. Device types are returned with the addresses so that the
@@ -93,8 +93,9 @@ func (st *State) GetControllerAPIAddresses(
 	}
 
 	queryUnitAPIAddressesStmt, err := st.Prepare(`
-WITH unit_net_node AS (
-    SELECT u.net_node_uuid,
+WITH controller_unit AS (
+    SELECT u.net_node_uuid AS unit_net_node_uuid,
+           u.application_uuid,
            EXISTS (
                SELECT 1
                FROM   k8s_service AS ks
@@ -102,12 +103,23 @@ WITH unit_net_node AS (
            ) AS is_caas
     FROM   unit AS u
     WHERE  u.uuid = $entityUUID.uuid
+), address_net_nodes AS (
+    SELECT cu.unit_net_node_uuid AS net_node_uuid,
+           cu.is_caas
+    FROM   controller_unit AS cu
+    WHERE  cu.is_caas = 0
+    UNION ALL
+    SELECT ks.net_node_uuid,
+           cu.is_caas
+    FROM   controller_unit AS cu
+    JOIN   k8s_service AS ks ON ks.application_uuid = cu.application_uuid
+    WHERE  cu.is_caas = 1
 )
 SELECT ipa.address_value AS &controllerAPIAddress.address_value,
        iact.name AS &controllerAPIAddress.config_type_name,
        iat.name AS &controllerAPIAddress.type_name,
        iao.name AS &controllerAPIAddress.origin_name,
-       CASE WHEN unn.is_caas = 1
+        CASE WHEN ann.is_caas = 1
             THEN 'local-cloud'
             ELSE ias.name
        END AS &controllerAPIAddress.scope_name,
@@ -115,11 +127,11 @@ SELECT ipa.address_value AS &controllerAPIAddress.address_value,
        sn.space_uuid AS &controllerAPIAddress.space_uuid,
        sn.cidr AS &controllerAPIAddress.cidr,
        lld.device_type_id AS &controllerAPIAddress.device_type_id
-FROM   unit_net_node AS unn
-JOIN   ip_address AS ipa ON unn.net_node_uuid = ipa.net_node_uuid
+FROM   address_net_nodes AS ann
+JOIN   ip_address AS ipa ON ann.net_node_uuid = ipa.net_node_uuid
 JOIN   link_layer_device AS lld
-       ON ipa.device_uuid = lld.uuid
-       AND unn.net_node_uuid = lld.net_node_uuid
+        ON ipa.device_uuid = lld.uuid
+        AND ann.net_node_uuid = lld.net_node_uuid
 JOIN   link_layer_device_type AS lldt ON lld.device_type_id = lldt.id
 JOIN   ip_address_config_type AS iact ON ipa.config_type_id = iact.id
 JOIN   ip_address_type AS iat ON ipa.type_id = iat.id
@@ -127,7 +139,7 @@ JOIN   ip_address_origin AS iao ON ipa.origin_id = iao.id
 JOIN   ip_address_scope AS ias ON ipa.scope_id = ias.id
 LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
 WHERE  lldt.name != $apiAddressFilter.loopback_device_type
-AND    (unn.is_caas = 1
+AND    (ann.is_caas = 1
         OR ias.name != $apiAddressFilter.scope_name)
 `, controllerAPIAddress{}, entityUUID{}, apiAddressFilter{})
 	if err != nil {

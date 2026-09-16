@@ -213,7 +213,7 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesReturnsDeviceTypes(c *tc
 	})
 }
 
-func (s *unitAddressSuite) TestGetControllerAPIAddressesUsesK8sPodAddress(c *tc.C) {
+func (s *unitAddressSuite) TestGetControllerAPIAddressesUsesK8sServiceAddress(c *tc.C) {
 	// Arrange
 	podNodeUUID := s.addNetNode(c)
 	podDeviceUUID := s.linkLayerBaseSuite.addLinkLayerDevice(
@@ -234,7 +234,7 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesUsesK8sPodAddress(c *tc.
 	subnetUUID, cidr := s.addsubnet(c, spaceUUID)
 	s.addIPAddressWithSubnetAndScope(
 		c, podDeviceUUID, podNodeUUID, subnetUUID, "10.0.0.1",
-		corenetwork.ScopeMachineLocal,
+		corenetwork.ScopeCloudLocal,
 	)
 	s.addIPAddressWithSubnetAndScope(
 		c, svcDeviceUUID, svcNodeUUID, subnetUUID, "10.0.0.2",
@@ -256,7 +256,57 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesUsesK8sPodAddress(c *tc.
 			SpaceID: corenetwork.SpaceUUID(spaceUUID),
 			Origin:  corenetwork.OriginProvider,
 			MachineAddress: corenetwork.MachineAddress{
-				Value:      "10.0.0.1",
+				Value:      "10.0.0.2",
+				CIDR:       cidr,
+				Type:       corenetwork.IPv4Address,
+				Scope:      corenetwork.ScopeCloudLocal,
+				ConfigType: corenetwork.ConfigStatic,
+			},
+		},
+		DeviceType: domainnetwork.DeviceTypeUnknown,
+	}})
+}
+
+func (s *unitAddressSuite) TestGetControllerAPIAddressesCaasUsesSharedServiceForEveryUnit(c *tc.C) {
+	svcNodeUUID := s.addNetNode(c)
+	svcDeviceUUID := s.linkLayerBaseSuite.addLinkLayerDevice(
+		c, svcNodeUUID, "placeholder", "00:11:22:33:44:66", corenetwork.EthernetDevice,
+	)
+
+	spaceUUID := s.addSpace(c)
+	subnetUUID, cidr := s.addsubnet(c, spaceUUID)
+	s.addIPAddressWithSubnetAndScope(
+		c, svcDeviceUUID, svcNodeUUID, subnetUUID, "10.0.0.10", corenetwork.ScopeCloudLocal,
+	)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	s.addK8sService(c, svcNodeUUID, appUUID)
+
+	firstPodNodeUUID := s.addNetNode(c)
+	firstPodDeviceUUID := s.linkLayerBaseSuite.addLinkLayerDevice(
+		c, firstPodNodeUUID, "eth0", "00:11:22:33:44:55", corenetwork.EthernetDevice,
+	)
+	s.addIPAddressWithSubnetAndScope(
+		c, firstPodDeviceUUID, firstPodNodeUUID, subnetUUID, "10.0.0.1", corenetwork.ScopeCloudLocal,
+	)
+	firstUnitUUID := s.addUnit(c, appUUID, charmUUID, firstPodNodeUUID)
+
+	secondPodNodeUUID := s.addNetNode(c)
+	secondPodDeviceUUID := s.linkLayerBaseSuite.addLinkLayerDevice(
+		c, secondPodNodeUUID, "eth1", "00:11:22:33:44:77", corenetwork.EthernetDevice,
+	)
+	s.addIPAddressWithSubnetAndScope(
+		c, secondPodDeviceUUID, secondPodNodeUUID, subnetUUID, "10.0.0.2", corenetwork.ScopeCloudLocal,
+	)
+	secondUnitUUID := s.addUnit(c, appUUID, charmUUID, secondPodNodeUUID)
+
+	expected := domainnetwork.ControllerAPIAddresses{{
+		SpaceAddress: corenetwork.SpaceAddress{
+			SpaceID: corenetwork.SpaceUUID(spaceUUID),
+			Origin:  corenetwork.OriginProvider,
+			MachineAddress: corenetwork.MachineAddress{
+				Value:      "10.0.0.10",
 				CIDR:       cidr,
 				Type:       corenetwork.IPv4Address,
 				Scope:      corenetwork.ScopeCloudLocal,
@@ -264,7 +314,15 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesUsesK8sPodAddress(c *tc.
 			},
 		},
 		DeviceType: domainnetwork.DeviceTypeEthernet,
-	}})
+	}}
+
+	first, err := s.state.GetControllerAPIAddresses(c.Context(), firstUnitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(first, tc.DeepEquals, expected)
+
+	second, err := s.state.GetControllerAPIAddresses(c.Context(), secondUnitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(second, tc.DeepEquals, expected)
 }
 
 func (s *unitAddressSuite) TestGetControllerAPIAddressesExcludesLoopback(c *tc.C) {
@@ -336,7 +394,7 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesExcludesAllMachineLocal(
 	c.Assert(addr, tc.DeepEquals, domainnetwork.ControllerAPIAddresses{})
 }
 
-func (s *unitAddressSuite) TestGetControllerAPIAddressesCaasMachineLocalPodIncluded(c *tc.C) {
+func (s *unitAddressSuite) TestGetControllerAPIAddressesCaasServiceWithoutAddress(c *tc.C) {
 	podNodeUUID := s.addNetNode(c)
 	podDeviceUUID := s.linkLayerBaseSuite.addLinkLayerDevice(
 		c, podNodeUUID, "eth0", "00:11:22:33:44:55",
@@ -344,16 +402,40 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesCaasMachineLocalPodInclu
 	)
 
 	spaceUUID := s.addSpace(c)
-	subnetUUID, cidr := s.addsubnet(c, spaceUUID)
-	s.addIPAddressWithSubnetAndScope(
-		c, podDeviceUUID, podNodeUUID, subnetUUID, "10.0.0.1",
-		corenetwork.ScopeMachineLocal,
-	)
+	subnetUUID, _ := s.addsubnet(c, spaceUUID)
+	s.addIPAddressWithSubnetAndScope(c, podDeviceUUID, podNodeUUID, subnetUUID, "10.0.0.1", corenetwork.ScopeCloudLocal)
 
 	charmUUID := s.addCharm(c)
 	appUUID := s.addApplication(c, charmUUID, spaceUUID)
 	unitUUID := s.addUnit(c, appUUID, charmUUID, podNodeUUID)
 	s.addK8sService(c, s.addNetNode(c), appUUID)
+
+	addr, err := s.state.GetControllerAPIAddresses(c.Context(), unitUUID.String())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addr, tc.DeepEquals, domainnetwork.ControllerAPIAddresses{})
+}
+
+func (s *unitAddressSuite) TestGetControllerAPIAddressesCaasServiceAddressIncluded(c *tc.C) {
+	svcNodeUUID := s.addNetNode(c)
+	svcDeviceUUID := s.linkLayerBaseSuite.addLinkLayerDevice(
+		c, svcNodeUUID, "placeholder", "00:11:22:33:44:66",
+		corenetwork.EthernetDevice,
+	)
+
+	podNodeUUID := s.addNetNode(c)
+
+	spaceUUID := s.addSpace(c)
+	subnetUUID, cidr := s.addsubnet(c, spaceUUID)
+	s.addIPAddressWithSubnetAndScope(
+		c, svcDeviceUUID, svcNodeUUID, subnetUUID, "10.0.0.1",
+		corenetwork.ScopePublic,
+	)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, podNodeUUID)
+	s.addK8sService(c, svcNodeUUID, appUUID)
 
 	addr, err := s.state.GetControllerAPIAddresses(c.Context(), unitUUID.String())
 
@@ -366,39 +448,12 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesCaasMachineLocalPodInclu
 				Value:      "10.0.0.1",
 				CIDR:       cidr,
 				Type:       corenetwork.IPv4Address,
-				Scope:      corenetwork.Scope("local-cloud"),
+				Scope:      corenetwork.ScopeCloudLocal,
 				ConfigType: corenetwork.ConfigStatic,
 			},
 		},
 		DeviceType: domainnetwork.DeviceTypeEthernet,
 	}})
-}
-
-func (s *unitAddressSuite) TestGetControllerAPIAddressesCaasServiceAddressOmitted(c *tc.C) {
-	svcNodeUUID := s.addNetNode(c)
-	svcDeviceUUID := s.linkLayerBaseSuite.addLinkLayerDevice(
-		c, svcNodeUUID, "placeholder", "00:11:22:33:44:66",
-		corenetwork.EthernetDevice,
-	)
-
-	podNodeUUID := s.addNetNode(c)
-
-	spaceUUID := s.addSpace(c)
-	subnetUUID, _ := s.addsubnet(c, spaceUUID)
-	s.addIPAddressWithSubnetAndScope(
-		c, svcDeviceUUID, svcNodeUUID, subnetUUID, "10.0.0.1",
-		corenetwork.ScopeCloudLocal,
-	)
-
-	charmUUID := s.addCharm(c)
-	appUUID := s.addApplication(c, charmUUID, spaceUUID)
-	unitUUID := s.addUnit(c, appUUID, charmUUID, podNodeUUID)
-	s.addK8sService(c, svcNodeUUID, appUUID)
-
-	addr, err := s.state.GetControllerAPIAddresses(c.Context(), unitUUID.String())
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(addr, tc.DeepEquals, domainnetwork.ControllerAPIAddresses{})
 }
 
 func (s *unitAddressSuite) TestGetUnitAddresses(c *tc.C) {
