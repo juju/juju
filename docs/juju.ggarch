@@ -35,7 +35,7 @@ model "Juju" {
     // -----------------------------------------------------------------------
     // Unit pod (K8s deployment — detailed)
     // -----------------------------------------------------------------------
-    unit_pod [type: container, label: "Unit pod (one per unit)"] {
+    unit_pod [type: container, label: "Unit pod"] {
       charm_container [type: container, label: "Charm container"] {
         unit_agent [type: juju-software, label: "Unit agent",
                     abstracts: "unit_rec"]
@@ -156,7 +156,7 @@ model "Juju" {
 
     // K8s topology
     jujud          -> k8s            [type: control, label: "provisions on"]
-    unit_agent -> jujud  [type: api,    label: "connects to"]
+    unit_agent -> jujud  [type: api,    label: "Juju API"]
     jujud          -> charmhub       [type: api,     label: "fetches charms"]
     charm          -> pebble         [type: api,     label: "calls Pebble API"]
     pebble         -> workload       [type: control, label: "supervises"]
@@ -416,6 +416,7 @@ diagram "K8s deployment topology" from "Juju" {
     k8s            above controller_pod  gap: 40
     k8s            align-centre controller_pod
     charmhub       below controller_pod  gap: 80
+    charmhub       align-centre jujud
     jujud          align-middle unit_agent
     unit_pod       direction: right
     charm_container    same-width workload_container
@@ -429,9 +430,7 @@ diagram "K8s deployment topology" from "Juju" {
             juju-software: "Juju process",
             container: "Juju-owned machine or pod",
             charm: "charm",
-            pebble: "Pebble supervisor",
-            workload: "workload",
-            external: "cloud / external",
+            workload: "workload / external",
             control: "manages / drives",
             api: "API call"]
   }
