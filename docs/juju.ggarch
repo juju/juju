@@ -155,7 +155,7 @@ model "Juju" {
     controller -> charmhub [type: api,     label: "fetches charms"]
 
     // K8s topology
-    jujud          -> k8s            [type: control]
+    jujud          -> k8s            [type: control, label: "provisions on"]
     unit_agent -> jujud  [type: api,    label: "connects via"]
     jujud          -> charmhub       [type: api,     label: "fetches charms"]
     charm          -> pebble         [type: api,     label: "calls Pebble API"]
