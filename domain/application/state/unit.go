@@ -812,7 +812,7 @@ func (st *State) getUnitDetails(ctx context.Context, tx *sqlair.TX, unitName str
 // forbids local-host.
 const networkAddressScopeLocalCloud = 1
 
-func makeK8sPodArg(unitName coreunit.Name, k8sPod application.K8sPodParams) *application.K8sPod {
+func makeK8sPodArg(unitName coreunit.Name, k8sPod application.K8sPodParams) (*application.K8sPod, error) {
 	result := &application.K8sPod{
 		ProviderID: k8sPod.ProviderID,
 		Ports:      k8sPod.Ports,
@@ -851,7 +851,7 @@ func makeK8sPodArg(unitName coreunit.Name, k8sPod application.K8sPodParams) *app
 			result.Address.Origin = ipaddress.MarshallOrigin(*k8sPod.AddressOrigin)
 		}
 	}
-	return result
+	return result, nil
 }
 
 // RegisterCAASUnit registers the specified CAAS application unit.
@@ -876,7 +876,10 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 		origin := network.OriginProvider
 		k8sPodParams.AddressOrigin = &origin
 	}
-	k8sPod := makeK8sPodArg(arg.UnitName, k8sPodParams)
+	k8sPod, err := makeK8sPodArg(arg.UnitName, k8sPodParams)
+	if err != nil {
+		return err
+	}
 
 	now := new(st.clock.Now().UTC())
 	addUnitArg := application.AddCAASUnitArg{
@@ -1167,7 +1170,10 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 			origin := network.OriginProvider
 			k8sPodParams.AddressOrigin = &origin
 		}
-		k8sPod = makeK8sPodArg(unitName, k8sPodParams)
+		k8sPod, err = makeK8sPodArg(unitName, k8sPodParams)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {

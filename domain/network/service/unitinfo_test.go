@@ -289,6 +289,7 @@ func (s *infoSuite) TestGetUnitRelationNetworksLoadsCaasFQDNsOnce(c *tc.C) {
 	s.st.EXPECT().GetUnitFQDNs(
 		gomock.Any(), unitUUID.String(),
 	).Return([]string{fqdn}, nil)
+	s.st.EXPECT().IsControllerPeerRelation(gomock.Any(), unitUUID.String(), gomock.Any()).Return(false, nil).Times(2)
 	s.st.EXPECT().GetUnitEndpointNetworkInfo(
 		gomock.Any(), unitUUID.String(), []string{endpointName1},
 	).Return([]networkinternal.EndpointNetworkInfo{{EndpointName: endpointName1}}, nil)
@@ -306,10 +307,36 @@ func (s *infoSuite) TestGetUnitRelationNetworksLoadsCaasFQDNsOnce(c *tc.C) {
 	c.Assert(infoMap, tc.HasLen, 2)
 	c.Check(providerCalls, tc.Equals, 1)
 	for _, relationUUID := range []corerelation.UUID{relationUUID1, relationUUID2} {
-		c.Assert(infoMap[relationUUID].DeviceInfos, tc.HasLen, 1)
-		c.Check(infoMap[relationUUID].DeviceInfos[0].Addresses, tc.DeepEquals,
-			[]domainnetwork.AddressInfo{{Hostname: fqdn, Value: fqdn, CIDR: "0.0.0.0/0"}})
+		c.Check(infoMap[relationUUID].DeviceInfos, tc.HasLen, 0)
+		c.Check(infoMap[relationUUID].IngressAddresses, tc.HasLen, 0)
 	}
+}
+
+func (s *infoSuite) TestGetUnitRelationNetworksControllerPeerRequiresFQDN(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("controller/0")
+	unitUUID := coreunit.UUID("unit-uuid-123")
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+
+	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.st.EXPECT().GetUnitRelationEndpointName(
+		gomock.Any(), unitUUID.String(), relationUUID.String(),
+	).Return("dbcluster", nil)
+	s.st.EXPECT().GetRelationEgressSubnets(
+		gomock.Any(), relationUUID.String(),
+	).Return([]string{"10.0.0.0/24"}, nil)
+	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(true, nil)
+	s.st.EXPECT().GetUnitFQDNs(gomock.Any(), unitUUID.String()).Return(nil, nil)
+	s.st.EXPECT().IsControllerPeerRelation(
+		gomock.Any(), unitUUID.String(), relationUUID.String(),
+	).Return(true, nil)
+
+	service := NewProviderService(s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c))
+	_, err := service.GetUnitRelationNetworks(c.Context(), unitName, []corerelation.UUID{relationUUID})
+
+	c.Check(err, tc.ErrorMatches,
+		"expected exactly one controller pod FQDN for controller 0, got 0")
 }
 
 func (s *infoSuite) TestGetUnitRelationNetworksFallsBackToModelEgressSubnets(c *tc.C) {
@@ -611,12 +638,6 @@ func (s *infoSuite) TestGetUnitEndpointNetworksCaasUsesServiceAddressForIngress(
 	c.Check(infos[0], tc.DeepEquals, domainnetwork.UnitNetwork{
 		EndpointName: "db",
 		DeviceInfos: []domainnetwork.DeviceInfo{{
-			Addresses: []domainnetwork.AddressInfo{{
-				Hostname: "controller-0.example.test",
-				Value:    "controller-0.example.test",
-				CIDR:     "0.0.0.0/0",
-			}},
-		}, {
 			Name:       "eth0",
 			MACAddress: "aa:bb:cc:dd:ee:ff",
 			Addresses: []domainnetwork.AddressInfo{{
@@ -630,7 +651,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksCaasUsesServiceAddressForIngress(
 	})
 }
 
-func (s *infoSuite) TestGetControllerEndpointNetworksCaasUsesFQDNForIngress(c *tc.C) {
+func (s *infoSuite) TestGetControllerEndpointNetworksDoesNotUseFQDNForGenericIngress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("controller/0")
@@ -652,13 +673,66 @@ func (s *infoSuite) TestGetControllerEndpointNetworksCaasUsesFQDNForIngress(c *t
 	infos, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(infos, tc.HasLen, 1)
-	c.Check(infos[0].IngressAddresses, tc.DeepEquals, []string{fqdn})
-	c.Assert(infos[0].DeviceInfos, tc.HasLen, 1)
-	c.Check(infos[0].DeviceInfos[0].Addresses, tc.DeepEquals, []domainnetwork.AddressInfo{{
-		Hostname: fqdn,
-		Value:    fqdn,
-		CIDR:     "0.0.0.0/0",
-	}})
+	c.Check(infos[0].IngressAddresses, tc.DeepEquals, []string{"10.0.0.2"})
+	c.Check(infos[0].DeviceInfos, tc.HasLen, 0)
+}
+
+func (s *infoSuite) TestControllerPodFQDN(c *tc.C) {
+	for _, test := range []struct {
+		about    string
+		unitName coreunit.Name
+		fqdns    []string
+		want     string
+		err      string
+	}{
+		{
+			about:    "first controller",
+			unitName: coreunit.Name("controller/0"),
+			fqdns: []string{
+				"controller-0.controller-service-endpoints.controller.svc.cluster.local",
+			},
+			want: "controller-0.controller-service-endpoints.controller.svc.cluster.local",
+		}, {
+			about:    "scaled controller",
+			unitName: coreunit.Name("controller/2"),
+			fqdns: []string{
+				"controller-2.controller-service-endpoints.controller.svc.cluster.local",
+			},
+			want: "controller-2.controller-service-endpoints.controller.svc.cluster.local",
+		}, {
+			about:    "missing FQDN",
+			unitName: coreunit.Name("controller/0"),
+			err:      "expected exactly one controller pod FQDN for controller 0, got 0",
+		}, {
+			about:    "multiple FQDNs",
+			unitName: coreunit.Name("controller/0"),
+			fqdns:    []string{"one", "two"},
+			err:      "expected exactly one controller pod FQDN for controller 0, got 2",
+		}, {
+			about:    "wrong controller ordinal",
+			unitName: coreunit.Name("controller/1"),
+			fqdns: []string{
+				"controller-0.controller-service-endpoints.controller.svc.cluster.local",
+			},
+			err: `invalid controller pod FQDN "controller-0.controller-service-endpoints.controller.svc.cluster.local"`,
+		}, {
+			about:    "malformed namespace",
+			unitName: coreunit.Name("controller/0"),
+			fqdns: []string{
+				"controller-0.controller-service-endpoints.invalid.namespace.svc.cluster.local",
+			},
+			err: `invalid controller pod FQDN "controller-0.controller-service-endpoints.invalid.namespace.svc.cluster.local"`,
+		},
+	} {
+		c.Log(test.about)
+		got, err := controllerPodFQDN(test.unitName.Number(), test.fqdns)
+		if test.err != "" {
+			c.Check(err, tc.ErrorMatches, test.err)
+			continue
+		}
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(got, tc.Equals, test.want)
+	}
 }
 
 func (s *infoSuite) TestBuildUnitNetworkPreservesDeviceAndAddressOrder(c *tc.C) {
@@ -674,7 +748,7 @@ func (s *infoSuite) TestBuildUnitNetworkPreservesDeviceAndAddressOrder(c *tc.C) 
 			corenetwork.EthernetDevice),
 	}
 
-	info := buildUnitNetworkWithIngressAddresses(addresses, nil, nil, false)
+	info := buildUnitNetworkWithIngressAddresses(addresses, nil, false)
 
 	c.Check(info.DeviceInfos, tc.DeepEquals, []domainnetwork.DeviceInfo{{
 		Name:       "eth1",
@@ -709,30 +783,22 @@ func (s *infoSuite) TestBuildUnitNetworkCaasDoesNotEmitEmptyDevices(c *tc.C) {
 			corenetwork.LoopbackDevice),
 	}
 
-	info := buildUnitNetworkWithIngressAddresses(addresses, []string{"10.0.0.2/24"}, nil, true)
+	info := buildUnitNetworkWithIngressAddresses(addresses, []string{"10.0.0.2/24"}, true)
 
 	c.Check(info.DeviceInfos, tc.HasLen, 0)
 	c.Check(info.IngressAddresses, tc.DeepEquals, []string{"10.0.0.2"})
 }
 
-func (s *infoSuite) TestBuildUnitNetworkCaasPrependsFQDNs(c *tc.C) {
+func (s *infoSuite) TestBuildUnitNetworkCaasDoesNotExposeFQDNs(c *tc.C) {
 	addresses := []networkinternal.UnitAddress{
 		unitAddress("10.0.0.1", "10.0.0.0/24", "eth0",
 			"aa:bb:cc:dd:ee:01", corenetwork.ScopeMachineLocal,
 			corenetwork.EthernetDevice),
 	}
 
-	info := buildUnitNetworkWithIngressAddresses(
-		addresses, nil, []string{"controller-0.example.test"}, true,
-	)
+	info := buildUnitNetworkWithIngressAddresses(addresses, nil, true)
 
 	c.Check(info.DeviceInfos, tc.DeepEquals, []domainnetwork.DeviceInfo{{
-		Addresses: []domainnetwork.AddressInfo{{
-			Hostname: "controller-0.example.test",
-			Value:    "controller-0.example.test",
-			CIDR:     "0.0.0.0/0",
-		}},
-	}, {
 		Name:       "eth0",
 		MACAddress: "aa:bb:cc:dd:ee:01",
 		Addresses: []domainnetwork.AddressInfo{{
@@ -743,10 +809,8 @@ func (s *infoSuite) TestBuildUnitNetworkCaasPrependsFQDNs(c *tc.C) {
 	}})
 }
 
-func (s *infoSuite) TestBuildUnitNetworkIaasIgnoresFQDNs(c *tc.C) {
-	info := buildUnitNetworkWithIngressAddresses(
-		nil, nil, []string{"ignored.example.test"}, false,
-	)
+func (s *infoSuite) TestBuildUnitNetworkIaasHasNoFQDNs(c *tc.C) {
+	info := buildUnitNetworkWithIngressAddresses(nil, nil, false)
 
 	c.Check(info.DeviceInfos, tc.HasLen, 0)
 }
@@ -849,7 +913,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedCaasSkipsServiceAddre
 	}})
 }
 
-func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedCaasPrependsFQDNs(c *tc.C) {
+func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedCaasDoesNotExposeFQDNs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("mysql/0")
@@ -880,16 +944,6 @@ func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedCaasPrependsFQDNs(c *
 	c.Check(infos, tc.DeepEquals, []domainnetwork.UnitNetwork{{
 		EndpointName: "db",
 		DeviceInfos: []domainnetwork.DeviceInfo{{
-			Addresses: []domainnetwork.AddressInfo{{
-				Hostname: "controller-0.example.test",
-				Value:    "controller-0.example.test",
-				CIDR:     "0.0.0.0/0",
-			}, {
-				Hostname: "controller-1.example.test",
-				Value:    "controller-1.example.test",
-				CIDR:     "0.0.0.0/0",
-			}},
-		}, {
 			Name:       "eth0",
 			MACAddress: "aa:bb:cc:dd:ee:01",
 			Addresses: []domainnetwork.AddressInfo{{
@@ -903,7 +957,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedCaasPrependsFQDNs(c *
 	}})
 }
 
-func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedCaasUsesFQDNWithoutPodIP(c *tc.C) {
+func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedCaasDoesNotUseFQDNWithoutPodIP(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("mysql/0")
@@ -924,14 +978,8 @@ func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedCaasUsesFQDNWithoutPo
 	infos, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(infos, tc.DeepEquals, []domainnetwork.UnitNetwork{{
-		EndpointName: "db",
-		DeviceInfos: []domainnetwork.DeviceInfo{{
-			Addresses: []domainnetwork.AddressInfo{{
-				Hostname: "controller-0.example.test",
-				Value:    "controller-0.example.test",
-				CIDR:     "0.0.0.0/0",
-			}},
-		}},
+		EndpointName:     "db",
+		DeviceInfos:      nil,
 		IngressAddresses: []string{},
 	}})
 }

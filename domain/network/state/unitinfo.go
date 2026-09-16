@@ -72,6 +72,50 @@ AND    u.uuid = $relationUnit.unit_uuid
 	return endpoint.Name, nil
 }
 
+// IsControllerPeerRelation reports whether the relation belongs to the
+// controller application and is a peer relation.
+func (st *State) IsControllerPeerRelation(ctx context.Context, unitUUID, relationUUID string) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	type relationUnit struct {
+		RelationUUID string `db:"relation_uuid"`
+		UnitUUID     string `db:"unit_uuid"`
+	}
+	type result struct {
+		IsControllerPeer bool `db:"is_controller_peer"`
+	}
+
+	arg := relationUnit{RelationUUID: relationUUID, UnitUUID: unitUUID}
+	stmt, err := st.Prepare(`
+SELECT TRUE AS &result.is_controller_peer
+FROM   unit AS u
+JOIN   application_controller AS ac ON ac.application_uuid = u.application_uuid
+JOIN   application_endpoint AS ae ON ae.application_uuid = u.application_uuid
+JOIN   relation_endpoint AS re ON re.endpoint_uuid = ae.uuid
+JOIN   charm_relation AS cr ON cr.uuid = ae.charm_relation_uuid
+JOIN   charm_relation_role AS crr ON crr.id = cr.role_id
+WHERE  u.uuid = $relationUnit.unit_uuid
+AND    re.relation_uuid = $relationUnit.relation_uuid
+AND    crr.name = 'peer'
+`, result{}, relationUnit{})
+	if err != nil {
+		return false, errors.Errorf("preparing controller peer relation statement: %w", err)
+	}
+
+	var value result
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, arg).Get(&value)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	return value.IsControllerPeer, errors.Capture(err)
+}
+
 // GetUnitEndpointNetworkInfo retrieves raw unit addresses and selected ingress
 // addresses for the specified endpoints.
 func (st *State) GetUnitEndpointNetworkInfo(

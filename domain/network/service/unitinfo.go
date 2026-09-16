@@ -5,11 +5,11 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/juju/collections/transform"
 
-	coreapplication "github.com/juju/juju/core/application"
 	corenetwork "github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
@@ -76,10 +76,24 @@ func (s *ProviderService) GetUnitRelationNetworks(
 			propertiesLoaded = true
 		}
 
+		controllerFQDN := ""
+		if isCaas {
+			isControllerPeer, err := s.st.IsControllerPeerRelation(ctx, unitUUID.String(), relationUUID.String())
+			if err != nil {
+				return nil, internalerrors.Errorf("checking controller peer relation: %w", err)
+			}
+			if isControllerPeer {
+				controllerFQDN, err = controllerPodFQDN(unitName.Number(), fqdns)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+
 		infos, err := s.getUnitEndpointNetworks(
 			ctx, unitUUID.String(), []string{endpointName}, egressSubnets,
 			supportsNetworking, isCaas, fqdns,
-			unitName.Application() == coreapplication.ControllerApplicationName,
+			controllerFQDN,
 		)
 		if err != nil {
 			return nil, internalerrors.Errorf("getting unit endpoint networks: %w", err)
@@ -137,7 +151,7 @@ func (s *ProviderService) GetUnitEndpointNetworks(
 	return s.getUnitEndpointNetworks(
 		ctx, unitUUID.String(), endpointNames, defaultEgressSubnets,
 		supportsNetworking, isCaas, fqdns,
-		unitName.Application() == coreapplication.ControllerApplicationName,
+		"",
 	)
 }
 
@@ -179,12 +193,12 @@ func (s *ProviderService) getUnitEndpointNetworks(
 	supportsNetworking bool,
 	isCaas bool,
 	fqdns []string,
-	useFQDNIngress bool,
+	controllerPodFQDN string,
 ) ([]domainnetwork.UnitNetwork, error) {
 	if !supportsNetworking {
 		return s.getUnitEndpointNetworksWithoutProviderNetworking(
 			ctx, unitUUID, endpointNames, fqdns, isCaas, defaultEgressSubnets,
-			useFQDNIngress,
+			controllerPodFQDN,
 		)
 	}
 
@@ -198,21 +212,12 @@ func (s *ProviderService) getUnitEndpointNetworks(
 		info := buildUnitNetworkWithIngressAddresses(
 			endpointNetwork.Addresses,
 			endpointNetwork.IngressAddresses,
-			fqdns,
 			isCaas,
 		)
-		if useFQDNIngress && len(fqdns) > 0 {
-			// Controller unit network information must use the headless-Service
-			// FQDN as its ingress address. The controller charm consumes this
-			// value as the Dqlite bind address for the dbcluster relation.
-			//
-			// A Kubernetes controller Service has one shared ClusterIP, so using
-			// it here would make every controller advertise the same Dqlite
-			// address. The StatefulSet controller pods instead need their unique,
-			// stable FQDNs (controller-<ordinal>.<headless-service>...) to join
-			// the Dqlite cluster. The FQDN is persisted separately in
-			// fqdn_address; do not replace it with a pod or Service IP.
-			info.IngressAddresses = []string{fqdns[0]}
+		if controllerPodFQDN != "" {
+			// Dqlite members require their own stable headless-Service identity.
+			// Do not expose it through generic controller ingress.
+			info.IngressAddresses = []string{controllerPodFQDN}
 		}
 		info.EndpointName = endpointNetwork.EndpointName
 		info.EgressSubnets = defaultEgressSubnets
@@ -273,26 +278,44 @@ func (s *ProviderService) getUnitPublicEgressSubnets(
 	return corenetwork.SubnetsForAddresses([]string{normaliseAddress(address)}), nil
 }
 
+func (s *ProviderService) getUnitEndpointNetworksWithoutProviderNetworking(
+	ctx context.Context,
+	unitUUID string,
+	endpointNames []string,
+	fqdns []string,
+	isCaas bool,
+	defaultEgressSubnets []string,
+	controllerPodFQDN string,
+) ([]domainnetwork.UnitNetwork, error) {
+	unitNetwork, err := s.st.GetUnitNetworkInfo(ctx, unitUUID)
+	if err != nil {
+		return nil, internalerrors.Errorf("getting unit network info: %w", err)
+	}
+	info := buildUnitNetworkWithIngressAddresses(
+		unitNetwork.Addresses, unitNetwork.IngressAddresses, isCaas,
+	)
+	info.EgressSubnets = defaultEgressSubnets
+	if len(info.EgressSubnets) == 0 {
+		info.EgressSubnets = subnetsForAddresses(info.IngressAddresses)
+	}
+
+	infos := make([]domainnetwork.UnitNetwork, len(endpointNames))
+	for i, endpointName := range endpointNames {
+		infos[i] = info
+		infos[i].EndpointName = endpointName
+		if controllerPodFQDN != "" {
+			infos[i].IngressAddresses = []string{controllerPodFQDN}
+		}
+	}
+	return infos, nil
+}
+
 func buildUnitNetworkWithIngressAddresses(
 	addresses []networkinternal.UnitAddress,
 	ingressAddresses []string,
-	fqdns []string,
 	isCaas bool,
 ) domainnetwork.UnitNetwork {
 	var devices []domainnetwork.DeviceInfo
-	// TODO: IAAS FQDNs require separate selection and device-association
-	// semantics and will be handled in future work.
-	if isCaas && len(fqdns) > 0 {
-		devices = []domainnetwork.DeviceInfo{{
-			Addresses: transform.Slice(fqdns, func(fqdn string) domainnetwork.AddressInfo {
-				return domainnetwork.AddressInfo{
-					Hostname: fqdn,
-					Value:    fqdn,
-					CIDR:     "0.0.0.0/0",
-				}
-			}),
-		}}
-	}
 	deviceIndex := make(map[string]int)
 	for _, addr := range addresses {
 		// The purpose of the method is to get connectivity information for
@@ -346,35 +369,22 @@ func subnetsForAddresses(addrs []string) []string {
 	return nil
 }
 
-func (s *ProviderService) getUnitEndpointNetworksWithoutProviderNetworking(
-	ctx context.Context,
-	unitUUID string,
-	endpointNames []string,
-	fqdns []string,
-	isCaas bool,
-	defaultEgressSubnets []string,
-	useFQDNIngress bool,
-) ([]domainnetwork.UnitNetwork, error) {
-	unitNetwork, err := s.st.GetUnitNetworkInfo(ctx, unitUUID)
-	if err != nil {
-		return nil, internalerrors.Errorf("getting unit network info: %w", err)
-	}
-	info := buildUnitNetworkWithIngressAddresses(
-		unitNetwork.Addresses, unitNetwork.IngressAddresses, fqdns, isCaas,
-	)
-	if useFQDNIngress && len(fqdns) > 0 {
-		// See the equivalent branch for providers with endpoint networking.
-		info.IngressAddresses = []string{fqdns[0]}
-	}
-	info.EgressSubnets = defaultEgressSubnets
-	if len(info.EgressSubnets) == 0 {
-		info.EgressSubnets = subnetsForAddresses(info.IngressAddresses)
+func controllerPodFQDN(unitNumber int, fqdns []string) (string, error) {
+	if len(fqdns) != 1 {
+		return "", internalerrors.Errorf(
+			"expected exactly one controller pod FQDN for controller %d, got %d", unitNumber, len(fqdns),
+		)
 	}
 
-	infos := make([]domainnetwork.UnitNetwork, len(endpointNames))
-	for i, endpointName := range endpointNames {
-		infos[i] = info
-		infos[i].EndpointName = endpointName
+	fqdn := fqdns[0]
+	prefix := fmt.Sprintf("controller-%d.controller-service-endpoints.", unitNumber)
+	suffix := ".svc.cluster.local"
+	if !strings.HasPrefix(fqdn, prefix) || !strings.HasSuffix(fqdn, suffix) {
+		return "", internalerrors.Errorf("invalid controller pod FQDN %q", fqdn)
 	}
-	return infos, nil
+	namespace := strings.TrimSuffix(strings.TrimPrefix(fqdn, prefix), suffix)
+	if namespace == "" || strings.Contains(namespace, ".") {
+		return "", internalerrors.Errorf("invalid controller pod FQDN %q", fqdn)
+	}
+	return fqdn, nil
 }

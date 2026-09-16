@@ -289,16 +289,17 @@ func (s *unitStateSuite) TestRegisterCAASUnitOrdinalRange(c *tc.C) {
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnitWithFQDN(c *tc.C) {
-	s.createCAASScalingApplication(c, "bar", life.Alive, 1)
+	appUUID := s.createCAASScalingApplication(c, "controller", life.Alive, 1)
+	s.markControllerApplication(c, appUUID)
 
 	// Allow scaling.
-	err := s.state.SetApplicationScalingState(c.Context(), "bar", 1, true)
+	err := s.state.SetApplicationScalingState(c.Context(), "controller", 1, true)
 	c.Assert(err, tc.ErrorIsNil)
 
 	fqdn := "controller-0.controller-service-endpoints.controller-foo.svc.cluster.local"
 	p := application.RegisterCAASUnitArg{
 		UnitUUID:     tc.Must(c, coreunit.NewUUID),
-		UnitName:     "bar/0",
+		UnitName:     "controller/0",
 		PasswordHash: "passwordhash",
 		ProviderID:   "some-id",
 		Address:      new("10.6.6.6/8"),
@@ -307,7 +308,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitWithFQDN(c *tc.C) {
 		OrderedId:    0,
 		FQDN:         &fqdn,
 	}
-	err = s.state.RegisterCAASUnit(c.Context(), "bar", p)
+	err = s.state.RegisterCAASUnit(c.Context(), "controller", p)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The FQDN is persisted as a local-cloud fqdn_address row linked to the
@@ -323,7 +324,7 @@ SELECT fa.address, fa.scope_id, 1
 FROM   fqdn_address AS fa
 JOIN   net_node_fqdn_address AS nnfa ON nnfa.address_uuid = fa.uuid
 JOIN   unit AS u ON u.net_node_uuid = nnfa.net_node_uuid
-WHERE  u.name = ?`, "bar/0").Scan(&gotAddress, &gotScopeID, &gotLinked)
+		WHERE  u.name = ?`, "controller/0").Scan(&gotAddress, &gotScopeID, &gotLinked)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotAddress, tc.Equals, fqdn)
@@ -331,13 +332,23 @@ WHERE  u.name = ?`, "bar/0").Scan(&gotAddress, &gotScopeID, &gotLinked)
 	c.Check(gotLinked, tc.IsTrue)
 }
 
+func (s *unitStateSuite) markControllerApplication(c *tc.C, appUUID coreapplication.UUID) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			"INSERT INTO application_controller (application_uuid) VALUES (?)", appUUID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // TestRegisterCAASUnitDuplicateFQDN verifies that persisting a unit FQDN that
 // collides with an existing fqdn_address (globally unique) is surfaced as an
 // error rather than silently reused: a given FQDN identifies exactly one unit.
 func (s *unitStateSuite) TestRegisterCAASUnitDuplicateFQDN(c *tc.C) {
-	s.createCAASScalingApplication(c, "bar", life.Alive, 1)
+	appUUID := s.createCAASScalingApplication(c, "controller", life.Alive, 1)
+	s.markControllerApplication(c, appUUID)
 
-	err := s.state.SetApplicationScalingState(c.Context(), "bar", 1, true)
+	err := s.state.SetApplicationScalingState(c.Context(), "controller", 1, true)
 	c.Assert(err, tc.ErrorIsNil)
 
 	fqdn := "controller-0.controller-service-endpoints.controller-foo.svc.cluster.local"
@@ -354,7 +365,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitDuplicateFQDN(c *tc.C) {
 
 	p := application.RegisterCAASUnitArg{
 		UnitUUID:     tc.Must(c, coreunit.NewUUID),
-		UnitName:     "bar/0",
+		UnitName:     "controller/0",
 		PasswordHash: "passwordhash",
 		ProviderID:   "some-id",
 		Address:      new("10.6.6.6/8"),
@@ -363,7 +374,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitDuplicateFQDN(c *tc.C) {
 		OrderedId:    0,
 		FQDN:         &fqdn,
 	}
-	err = s.state.RegisterCAASUnit(c.Context(), "bar", p)
+	err = s.state.RegisterCAASUnit(c.Context(), "controller", p)
 	c.Assert(err, tc.ErrorMatches, `.*fqdn address ".*" already exists.*`)
 }
 
@@ -377,7 +388,8 @@ func (s *unitStateSuite) TestUpdateCAASUnitSetsFQDN(c *tc.C) {
 			ProviderID: "some-id",
 		},
 	}
-	appUUID := s.createCAASApplication(c, "foo", life.Alive, u)
+	appUUID := s.createCAASApplication(c, "controller", life.Alive, u)
+	s.markControllerApplication(c, appUUID)
 
 	unitNames, err := s.state.GetUnitNamesForApplication(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -415,6 +427,13 @@ WHERE  un.name = ?`, unitNames[0].String()).Scan(&gotAddress, &gotScopeID, &gotC
 	// again) rather than an error.
 	err = s.state.UpdateCAASUnit(c.Context(), unitNames[0], params)
 	c.Assert(err, tc.ErrorIsNil)
+	assertFQDN()
+
+	otherFQDN := "controller-0.controller-service-endpoints.other.svc.cluster.local"
+	params.FQDN = &otherFQDN
+	err = s.state.UpdateCAASUnit(c.Context(), unitNames[0], params)
+	c.Check(err, tc.ErrorMatches,
+		`.*controller unit "controller/0" already has a different pod FQDN`)
 	assertFQDN()
 }
 

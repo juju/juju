@@ -421,11 +421,72 @@ WHERE unit_uuid = $k8sPod.unit_uuid
 		}
 	}
 	if cc.FQDN != nil && *cc.FQDN != "" {
+		if err := st.ensureControllerPodFQDN(ctx, tx, unitName, netNodeUUID, *cc.FQDN); err != nil {
+			return err
+		}
 		if err := st.ensureNetNodeFQDNAddress(ctx, tx, netNodeUUID, *cc.FQDN, cc.FQDNScope); err != nil {
 			return errors.Errorf("creating fqdn address for unit %q: %w", unitName, err)
 		}
 	}
 	return nil
+}
+
+func (st *State) ensureControllerPodFQDN(
+	ctx context.Context, tx *sqlair.TX, unitName, netNodeUUID, fqdn string,
+) error {
+	type name struct {
+		Name string `db:"name"`
+	}
+	type result struct {
+		IsController bool `db:"is_controller"`
+	}
+
+	arg := name{Name: unitName}
+	stmt, err := st.Prepare(`
+SELECT TRUE AS &result.is_controller
+FROM   unit AS u
+JOIN   application_controller AS ac ON ac.application_uuid = u.application_uuid
+WHERE  u.name = $name.name
+`, name{}, result{})
+	if err != nil {
+		return errors.Errorf("preparing controller application check: %w", err)
+	}
+	var value result
+	err = tx.Query(ctx, stmt, arg).Get(&value)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("pod FQDN is only supported for controller units")
+	}
+	if err != nil {
+		return errors.Errorf("checking controller application: %w", err)
+	}
+	if !value.IsController {
+		return errors.Errorf("pod FQDN is only supported for controller units")
+	}
+	type netNode struct {
+		UUID string `db:"uuid"`
+	}
+	type existingFQDN struct {
+		Address string `db:"address"`
+	}
+
+	existingStmt, err := st.Prepare(`
+SELECT fa.address AS &existingFQDN.address
+FROM   fqdn_address AS fa
+JOIN   net_node_fqdn_address AS nnfa ON nnfa.address_uuid = fa.uuid
+WHERE  nnfa.net_node_uuid = $netNode.uuid
+`, netNode{}, existingFQDN{})
+	if err != nil {
+		return errors.Errorf("preparing controller pod FQDN lookup: %w", err)
+	}
+	var existing []existingFQDN
+	err = tx.Query(ctx, existingStmt, netNode{UUID: netNodeUUID}).GetAll(&existing)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("querying controller pod FQDNs: %w", err)
+	}
+	if len(existing) == 0 || (len(existing) == 1 && existing[0].Address == fqdn) {
+		return nil
+	}
+	return errors.Errorf("controller unit %q already has a different pod FQDN", unitName)
 }
 
 func (st *State) upsertK8sPodAddress(

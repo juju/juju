@@ -11,8 +11,11 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 
+	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	coredatabase "github.com/juju/juju/core/database"
 	corenetwork "github.com/juju/juju/core/network"
+	deploymentcharm "github.com/juju/juju/domain/deployment/charm"
 	networkinternal "github.com/juju/juju/domain/network/internal"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/environs/config"
@@ -84,6 +87,36 @@ func (s *infoSuite) TestGetUnitEndpointNetworkInfo(c *tc.C) {
 		}},
 		IngressAddresses: []string{expectedAddr},
 	}})
+}
+
+func (s *infoSuite) TestIsControllerPeerRelation(c *tc.C) {
+	nodeUUID := s.addNetNode(c)
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, corenetwork.AlphaSpaceId.String())
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+	s.query(c, `INSERT INTO application_controller (application_uuid) VALUES (?)`, appUUID)
+
+	peerCharmRelationUUID := s.addCharmRelation(c, corecharm.ID(charmUUID), deploymentcharm.Relation{
+		Name: "controller-peer", Role: deploymentcharm.RolePeer, Interface: "juju-db", Scope: deploymentcharm.ScopeGlobal,
+	})
+	peerEndpointUUID := s.linkLayerBaseSuite.addApplicationEndpoint(c, coreapplication.UUID(appUUID), peerCharmRelationUUID, "")
+	peerRelationUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, peerRelationUUID, peerEndpointUUID)
+
+	isControllerPeer, err := s.state.IsControllerPeerRelation(c.Context(), string(unitUUID), peerRelationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isControllerPeer, tc.IsTrue)
+
+	nonPeerCharmRelationUUID := s.addCharmRelation(c, corecharm.ID(charmUUID), deploymentcharm.Relation{
+		Name: "controller-provider", Role: deploymentcharm.RoleProvider, Interface: "juju-db", Scope: deploymentcharm.ScopeGlobal,
+	})
+	nonPeerEndpointUUID := s.linkLayerBaseSuite.addApplicationEndpoint(c, coreapplication.UUID(appUUID), nonPeerCharmRelationUUID, "")
+	nonPeerRelationUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, nonPeerRelationUUID, nonPeerEndpointUUID)
+
+	isControllerPeer, err = s.state.IsControllerPeerRelation(c.Context(), string(unitUUID), nonPeerRelationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isControllerPeer, tc.IsFalse)
 }
 
 func (s *infoSuite) TestGetUnitEndpointNetworkInfoOrdersIngress(c *tc.C) {

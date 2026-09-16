@@ -63,6 +63,7 @@ type MockStateMockRecorder struct {
 	getUnitFQDNsExpects                         []*gomock.Call2_2[context.Context, string, []string, error]
 	getUnitNetworkInfoExpects                   []*gomock.Call2_2[context.Context, string, internal.UnitNetworkInfo, error]
 	getUnitPublicAddressForEgressExpects        []*gomock.Call2_2[context.Context, string, string, error]
+	isControllerPeerRelationExpects             []*gomock.Call3_2[context.Context, string, string, bool, error]
 	getUnitRelationEndpointNameExpects          []*gomock.Call3_2[context.Context, string, string, string, error]
 	getUnitUUIDByNameExpects                    []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
 	importLinkLayerDevicesExpects               []*gomock.Call2_1[context.Context, []internal.ImportLinkLayerDevice, error]
@@ -655,6 +656,24 @@ func (m *MockState) GetUnitRelationEndpointName(ctx context.Context, unitUUID, r
 	m.ctrl.T.Helper()
 	return gomock.Dispatch3_2(&m.recorder.getUnitRelationEndpointNameExpects, m.ctrl, m, "GetUnitRelationEndpointName", ctx, unitUUID, relationUUID)
 }
+
+// IsControllerPeerRelation mocks base method.
+func (m *MockState) IsControllerPeerRelation(ctx context.Context, unitUUID, relationUUID string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.isControllerPeerRelationExpects, m.ctrl, m, "IsControllerPeerRelation", ctx, unitUUID, relationUUID)
+}
+
+// IsControllerPeerRelation indicates an expected call of IsControllerPeerRelation.
+func (mr *MockStateMockRecorder) IsControllerPeerRelation(ctx, unitUUID, relationUUID any) *MockStateIsControllerPeerRelationCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, string, bool, error](mr.mock.ctrl.T, mr.mock, "IsControllerPeerRelation", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitUUID), gomock.EnsureMatcher(relationUUID))
+	mr.isControllerPeerRelationExpects = append(mr.isControllerPeerRelationExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateIsControllerPeerRelationCall is the typed call wrapper for IsControllerPeerRelation.
+type MockStateIsControllerPeerRelationCall = gomock.Call3_2[context.Context, string, string, bool, error]
 
 // GetUnitRelationEndpointName indicates an expected call of GetUnitRelationEndpointName.
 func (mr *MockStateMockRecorder) GetUnitRelationEndpointName(ctx, unitUUID, relationUUID any) *MockStateGetUnitRelationEndpointNameCall {

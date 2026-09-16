@@ -190,6 +190,10 @@ type NetworkInfoState interface {
 		ctx context.Context, unitUUID, relationUUID string,
 	) (string, error)
 
+	// IsControllerPeerRelation reports whether the relation is a peer relation
+	// on the controller application identified by its persisted UUID.
+	IsControllerPeerRelation(ctx context.Context, unitUUID, relationUUID string) (bool, error)
+
 	// GetRelationEgressSubnets retrieves the egress subnets for the specified
 	// relation.
 	GetRelationEgressSubnets(ctx context.Context, relationUUID string) ([]string, error)
