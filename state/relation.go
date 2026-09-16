@@ -621,6 +621,17 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.O
 	}}, nil
 }
 
+// countRelationsForApplication returns the number of relations whose endpoints
+// reference the named application.
+func countRelationsForApplication(st *State, appName string) (int, error) {
+	relations, closer, err := st.db().GetCollection(relationsC)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	defer closer()
+	return relations.Find(bson.M{"endpoints.applicationname": appName}).Count()
+}
+
 // Id returns the integer internal relation key. This is exposed
 // because the unit agent needs to expose a value derived from this
 // (as JUJU_RELATION_ID) to allow relation hooks to differentiate
