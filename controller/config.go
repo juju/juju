@@ -518,6 +518,10 @@ var (
 		DqliteBusyTimeout,
 
 		SSHMaxConcurrentConnections,
+		// SSHServerPort is updatable after bootstrap because the controller
+		// charm owns the SSH server port and pushes changes to the controller
+		// agent via the control socket.
+		SSHServerPort,
 	)
 
 	methodNameRE = regexp.MustCompile(`[[:alpha:]][[:alnum:]]*\.[[:alpha:]][[:alnum:]]*`)
