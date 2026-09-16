@@ -2612,7 +2612,11 @@ func (st *State) secretUpdateConsumersOps(coll string, uri *secrets.URI, newRevi
 		ops []txn.Op
 	)
 	key := st.secretConsumerKey(uri, "")
-	q := bson.D{{"_id", bson.D{{"$regex", fmt.Sprintf("^%s:%s", st.ModelUUID(), key)}}}}
+	// A change delivered from an older controller may not include the
+	// source UUID in the URI, in which case the key only has the ID,
+	// ie "<id>#..." rather than "<source-uuid>:<id>#...".
+	// Match both key forms, anchored to this model's UUID.
+	q := bson.D{{"_id", bson.D{{"$regex", fmt.Sprintf("^%s:(.+/)?%s", st.ModelUUID(), regexp.QuoteMeta(key))}}}}
 	iter := secretConsumersCollection.Find(q).Iter()
 	for iter.Next(&doc) {
 		ops = append(ops, txn.Op{

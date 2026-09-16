@@ -3755,6 +3755,103 @@ func (s *SecretsConsumedWatcherSuite) TestWatchConsumedDeleted(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *SecretsConsumedWatcherSuite) TestUpdateSecretConsumerOperationCrossModelSourceLessURI(c *gc.C) {
+	uri := secrets.NewURI()
+	uri.SourceUUID = "9f2e2e8a-1111-2222-3333-444455556666"
+	err := s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+		LatestRevision:  1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	sourceLess := *uri
+	sourceLess.SourceUUID = ""
+	op, err := s.State.UpdateSecretConsumerOperation(&sourceLess, 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.State.ApplyOperation(op), jc.ErrorIsNil)
+
+	md, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(md.LatestRevision, gc.Equals, 2)
+	c.Check(md.CurrentRevision, gc.Equals, 1)
+}
+
+func (s *SecretsConsumedWatcherSuite) TestUpdateSecretConsumerOperationCrossModelIsolated(c *gc.C) {
+	uri := secrets.NewURI()
+	uri.SourceUUID = "9f2e2e8a-1111-2222-3333-444455556666"
+	uri2 := secrets.NewURI()
+	uri2.SourceUUID = "9f2e2e8a-aaaa-bbbb-cccc-ddddeeeeffff"
+	for _, u := range []*secrets.URI{uri, uri2} {
+		err := s.State.SaveSecretConsumer(u, names.NewUnitTag("mariadb/0"), &secrets.SecretConsumerMetadata{
+			CurrentRevision: 1,
+			LatestRevision:  1,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	sourceLess := *uri
+	sourceLess.SourceUUID = ""
+	op, err := s.State.UpdateSecretConsumerOperation(&sourceLess, 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.State.ApplyOperation(op), jc.ErrorIsNil)
+
+	md, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(md.LatestRevision, gc.Equals, 2)
+	c.Check(md.CurrentRevision, gc.Equals, 1)
+
+	md, err = s.State.GetSecretConsumer(uri2, names.NewUnitTag("mariadb/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(md.LatestRevision, gc.Equals, 1)
+}
+
+func (s *SecretsConsumedWatcherSuite) TestUpdateSecretConsumerOperationLocalFormURI(c *gc.C) {
+	uri := secrets.NewURI()
+	_, err := s.store.CreateSecret(uri, state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+		LatestRevision:  1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	op, err := s.State.UpdateSecretConsumerOperation(uri, 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.State.ApplyOperation(op), jc.ErrorIsNil)
+
+	md, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(md.LatestRevision, gc.Equals, 2)
+	c.Check(md.CurrentRevision, gc.Equals, 1)
+}
+
+func (s *SecretsConsumedWatcherSuite) TestUpdateSecretConsumerOperationCrossModelQualifiedURI(c *gc.C) {
+	uri := secrets.NewURI()
+	uri.SourceUUID = "9f2e2e8a-1111-2222-3333-444455556666"
+	err := s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+		LatestRevision:  1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	op, err := s.State.UpdateSecretConsumerOperation(uri, 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.State.ApplyOperation(op), jc.ErrorIsNil)
+
+	md, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(md.LatestRevision, gc.Equals, 2)
+	c.Check(md.CurrentRevision, gc.Equals, 1)
+}
+
 type SecretsRemoteConsumerWatcherSuite struct {
 	testing.StateSuite
 	store state.SecretsStore
