@@ -80,9 +80,12 @@ func (s *schemaBaseSuite) assertExecSQLError(c *tc.C, q string, errMsg string, a
 }
 
 var (
+	// internalTableNames are the tables that are not part of the schema
+	// itself, but that still show up when enumerating it. Tables that SQLite
+	// maintains for itself, such as sqlite_sequence, are not listed here
+	// because readEntityNames filters them out.
 	internalTableNames = set.NewStrings(
 		"schema",
-		"sqlite_sequence",
 	)
 )
 
@@ -144,7 +147,7 @@ func readEntityNames(c *tc.C, db *sql.DB, entity_type string) []string {
 	tx, err := db.BeginTx(ctx, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	rows, err := tx.QueryContext(ctx, `SELECT DISTINCT name FROM sqlite_master WHERE type = ? ORDER BY name ASC;`, entity_type)
+	rows, err := tx.QueryContext(ctx, `SELECT DISTINCT name FROM sqlite_master WHERE type = ? AND name NOT LIKE 'sqlite_%' ORDER BY name ASC;`, entity_type)
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rows.Close() }()
 
