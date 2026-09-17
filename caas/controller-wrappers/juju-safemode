@@ -1,7 +1,5 @@
 #!/bin/sh
 
-set -e
-
 runtime_conf="/var/lib/juju/controller/runtime.conf"
 if [ ! -f "$runtime_conf" ]; then
   echo "controller not yet initialized (runtime.conf not found)" >&2
@@ -16,4 +14,50 @@ with open('$runtime_conf') as f:
 if [ -z "$controller_id" ]; then
   controller_id=0
 fi
-exec /opt/jujud safe-mode --data-dir /var/lib/juju/controller --controller-id "$controller_id" "$@"
+
+# Stop the Pebble-managed jujud service before starting safe-mode,
+# so the two processes don't compete for the Dqlite database.
+#
+# Pebble lives at /opt/pebble and is not on PATH inside the container.
+# The jujud layer has startup:enabled, so pebble stop alone is
+# insufficient: Pebble restarts the service immediately. We add a
+# transient layer that disables auto-restart, then undo it after
+# safe-mode exits.
+pebble=/opt/pebble
+safemode_layer=/var/lib/pebble/default/layers/002-safemode.yaml
+if [ -x "$pebble" ]; then
+  set -e
+  # Clean up any stale disable layer from a previous interrupted run.
+  rm -f "$safemode_layer"
+  cat >"$safemode_layer" <<'EOF'
+services:
+  jujud:
+    override: replace
+    startup: disabled
+EOF
+  if $pebble services jujud 2>/dev/null | grep -q active; then
+    echo "stopping jujud pebble service" >&2
+    $pebble stop jujud
+    # Poll until Pebble confirms the service is fully stopped.
+    for i in $(seq 1 10); do
+      if ! $pebble services jujud 2>/dev/null | grep -qE "active|backoff"; then
+        break
+      fi
+      sleep 1
+    done
+  fi
+  set +e
+fi
+
+# Run safe-mode. Catch SIGINT/SIGTERM so the script is not killed
+# before it can remove the disable layer and restart jujud.
+trap 'kill -INT $jujud_pid 2>/dev/null' INT
+trap 'kill -TERM $jujud_pid 2>/dev/null' TERM
+/opt/jujud safe-mode --data-dir /var/lib/juju/controller --controller-id "$controller_id" "$@" &
+jujud_pid=$!
+wait $jujud_pid
+trap - INT TERM
+
+rm -f "$safemode_layer"
+echo "restarting jujud service" >&2
+$pebble start jujud
