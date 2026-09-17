@@ -111,6 +111,39 @@ model "Juju" {
                         records: "machine_rec"]
 
     // -----------------------------------------------------------------------
+    // Worker tree — the controller dependency engine
+    // (cmd/jujud-controller/agent/{machine,model}/manifolds.go)
+    // -----------------------------------------------------------------------
+    agent_worker [type: juju-software, label: "Agent\n(config)",
+                  ground: "cmd/jujud-controller/agent/machine/manifolds.go:317"]
+    db_accessor [type: juju-software, label: "DB accessor\n(runs local Dqlite)",
+                 ground: "cmd/jujud-controller/agent/machine/manifolds.go:1057"]
+    change_stream [type: juju-software, label: "Change stream",
+                   ground: "cmd/jujud-controller/agent/machine/manifolds.go:666"]
+    domain_services [type: juju-software, label: "Domain services\n(controller + model)",
+                     ground: "cmd/jujud-controller/agent/machine/manifolds.go:627"]
+    provider_services [type: juju-software, label: "Provider services",
+                       ground: "cmd/jujud-controller/agent/machine/manifolds.go:645"]
+    provider_tracker [type: juju-software, label: "Provider tracker\n(cloud handles)",
+                      ground: "cmd/jujud-controller/agent/machine/manifolds.go:831"]
+    lease_manager [type: juju-software, label: "Lease manager",
+                   ground: "cmd/jujud-controller/agent/machine/manifolds.go:704"]
+    primary_flag [type: juju-software, label: "Primary election\n(lease flag)",
+                  ground: "cmd/jujud-controller/agent/machine/manifolds.go:509"]
+    lease_expiry [type: juju-software, label: "Lease expiry\n(primary only)",
+                  ground: "cmd/jujud-controller/agent/machine/manifolds.go:694"]
+    object_store [type: juju-software, label: "Object store\n(blob store)",
+                  ground: "cmd/jujud-controller/agent/machine/manifolds.go:780"]
+    api_server [type: juju-software, label: "API server\n(facades)",
+                ground: "cmd/jujud-controller/agent/machine/manifolds.go:580"]
+    http_server [type: juju-software, label: "HTTP server\n(TLS mux)",
+                 ground: "cmd/jujud-controller/agent/machine/manifolds.go:557"]
+    model_worker_manager [type: juju-software, label: "Model worker manager\n(per-model runners)",
+                          ground: "cmd/jujud-controller/agent/machine/manifolds.go:611"]
+    provisioner [type: juju-software, label: "Compute provisioner\n(model worker)",
+                 ground: "cmd/jujud-controller/agent/model/manifolds.go:41"]
+
+    // -----------------------------------------------------------------------
     // Data model — Dqlite record nodes (model database)
     // -----------------------------------------------------------------------
     application_rec [type: record, label: "application\n(name, charm ref, config)",
@@ -319,6 +352,28 @@ model "Juju" {
     machine_agent -> unit_agent [type: control, label: "hosts (nested)"]
     unit_agent    -> uniter     [type: control, label: "runs hooks via"]
     uniter        -> charm      [type: control, label: "dispatches"]
+
+
+    // Worker tree — the controller dependency engine. Edge direction is
+    // consumer -> provider: the source worker depends on the capability
+    // the target provides (dependency.Manifolds Inputs).
+    db_accessor     -> agent_worker     [type: control, label: "agent config"]
+    change_stream   -> db_accessor     [type: stream,  label: "watches"]
+    domain_services -> db_accessor     [type: control, label: "database handle"]
+    domain_services -> change_stream    [type: control, label: "change log"]
+    lease_manager   -> db_accessor     [type: control, label: "lease storage"]
+    primary_flag    -> lease_manager   [type: control, label: "leader lease"]
+    lease_expiry    -> primary_flag    [type: control, label: "primary only"]
+    object_store    -> lease_manager   [type: control, label: "lease-guarded"]
+    api_server      -> domain_services [type: control, label: "facade services"]
+    api_server      -> object_store    [type: control, label: "blobs"]
+    http_server     -> api_server      [type: control, label: "serves"]
+    provider_services -> change_stream [type: control, label: "watch-backed"]
+    provider_tracker  -> provider_services [type: control, label: "cloud handles"]
+    undertaker      -> domain_services [type: control, label: "model teardown"]
+    model_worker_manager -> domain_services    [type: control, label: "model services"]
+    model_worker_manager -> provider_services  [type: control, label: "provider factories"]
+    provisioner     -> model_worker_manager [type: control, label: "runs under"]
 
     // Uniter operation executor — transitions
     uop_idle       -> uop_preparing  [type: control]
@@ -646,6 +701,78 @@ diagram "Worker tree (machine cloud)" from "Juju" {
     legend [position: "bottom-right",
             juju-software: "Juju process",
             control: "drives / hosts / dispatches"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Worker tree — the controller dependency engine
+// --------------------------------------------------------------------------
+
+diagram "Worker tree (controller)" from "Juju" {
+  select {
+    // First node anchors the layout at (0, 0) — the top-left corner.
+    nodes: provider_tracker provider_services
+           provisioner model_worker_manager
+           undertaker
+           agent_worker db_accessor change_stream domain_services
+           api_server http_server
+           object_store
+           lease_manager primary_flag lease_expiry
+  }
+  positions {
+    // Spine — the capability ladder, packed top to bottom.
+    agent_worker     above db_accessor     gap: 60
+    agent_worker     align-centre db_accessor
+    db_accessor      above change_stream   gap: 60
+    db_accessor      align-centre change_stream
+    change_stream    above domain_services gap: 60
+    change_stream    align-centre domain_services
+    domain_services  above api_server      gap: 60
+    domain_services  align-centre api_server
+    api_server       above http_server     gap: 60
+    api_server       align-centre http_server
+    // Direct pair (the domain-services -> db-accessor edge skips a rung);
+    // declared so its label gap resolves on the vertical axis only.
+    db_accessor      above domain_services gap: 180
+
+    // Provider column (far left) — cloud handles, packed.
+    provider_tracker above provider_services gap: 60
+    provider_tracker align-centre provider_services
+
+    // Model column — per-model workers, packed.
+    provisioner      above model_worker_manager gap: 60
+    provisioner      align-centre model_worker_manager
+
+    // Lease column (far right) — manager at the base, election above.
+    primary_flag     above lease_manager gap: 60
+    primary_flag     align-centre lease_manager
+    lease_expiry     above primary_flag gap: 60
+    lease_expiry     align-centre primary_flag
+
+    // Wings — single nodes tied to their spine row.
+    undertaker       left-of domain_services gap: 120
+    undertaker       align-middle domain_services
+    object_store     left-of lease_manager   gap: 110
+    object_store     align-middle api_server
+
+    // Column order: providers | models | undertaker | spine | store | leases.
+    provider_tracker    left-of provisioner          gap: 60
+    provisioner         left-of undertaker           gap: 60
+    undertaker          left-of agent_worker         gap: 100
+    api_server          left-of object_store         gap: 150
+    lease_manager       right-of db_accessor         gap: 150
+    provider_services   left-of change_stream        gap: 150
+    provider_services   left-of model_worker_manager gap: 140
+    model_worker_manager left-of domain_services     gap: 150
+  }
+  annotations {
+    box [nodes: "provisioner model_worker_manager",
+         label: "model workers\n(one set per model)",
+         style: "dashed", color: "#888"]
+    legend [position: "bottom-right",
+            juju-software: "worker (dependency engine)",
+            control: "depends on (capability)",
+            stream: "watches"]
   }
 }
 

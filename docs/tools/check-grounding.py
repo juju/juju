@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 from ggarch import parse, validate
-from ggarch.model import EdgeType
+
 
 REPO = Path(__file__).resolve().parents[2]
 DDL = {
@@ -105,7 +105,7 @@ def main(path: str) -> int:
     for model in f.models:
         walk_nodes(model.nodes, problems)
         for e in model.edges:
-            if e.type == EdgeType.DATA:
+            if e.type == "data":
                 ground = e.properties.get("ground", "")
                 if not ground:
                     problems.append(

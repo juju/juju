@@ -61,8 +61,18 @@ All views produced by `juju3.ggarch` — the grounded twin. Every record node an
 :file: ../juju3.ggarch
 :view: Worker tree (machine cloud)
 :no-legend:
-:caption: The execution chain as a worker tree — the controller drives the machine agent, which hosts the unit agent, which runs the uniter (internal/worker/uniter), which dispatches the charm. The controller-side manifold tree (the full dependency engine) remains unillustrated.
+:caption: The execution chain as a worker tree — the controller drives the machine agent, which hosts the unit agent, which runs the uniter (internal/worker/uniter), which dispatches the charm. See [Worker tree (controller)](#worker-tree-controller) for the controller-side dependency engine.
 :alt: Vertical chain, top to bottom: controller, machine agent, unit agent, uniter, charm, each connected by control arrows labelled drives, hosts, runs hooks via, dispatches.
+```
+
+### Worker tree (controller)
+
+```{ggarch}
+:file: ../juju3.ggarch
+:view: Worker tree (controller)
+:no-legend:
+:caption: The controller's dependency engine, grounded in cmd/jujud-controller/agent/{machine,model}/manifolds.go — every manifold is a worker; arrows run consumer → provider. The centre spine is the capability ladder from agent config through the Dqlite-backed DB accessor, change stream, and domain services up to the API and HTTP servers. Left: the per-model runners (the model worker manager hosts the compute provisioner) and the provider tracker that holds cloud connections. Right: lease manager, primary election, and lease expiry (HA leadership), plus the lease-guarded object store. Every node carries a ground pointer to its manifold source.
+:alt: Five columns of worker boxes. Far left: provider tracker above provider services. Left: compute provisioner above model worker manager, both inside a dashed box labelled model workers (one set per model), undertaker below. Centre spine, top to bottom: agent, DB accessor, change stream, domain services, API server, HTTP server. Right: object store, lease manager below with primary election and lease expiry stacked above. Control arrows connect consumers to providers; the change stream watches the DB accessor.
 ```
 
 ### Cross-model integration (records)
