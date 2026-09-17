@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/clock"
 
@@ -542,7 +541,7 @@ func makeCAASUnitArgs(units []ImportCAASUnitArg, charmUUID corecharm.ID) ([]appl
 
 		var cloudContainer *application.CloudContainer
 		if u.CloudContainer != nil {
-			cloudContainer = makeCloudContainerArg(u.UnitName, *u.CloudContainer)
+			cloudContainer = makeCloudContainerArg(*u.CloudContainer)
 		}
 
 		unitArgs[i] = application.ImportCAASUnitArg{
@@ -553,7 +552,7 @@ func makeCAASUnitArgs(units []ImportCAASUnitArg, charmUUID corecharm.ID) ([]appl
 	return unitArgs, nil
 }
 
-func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
+func makeCloudContainerArg(cloudContainer application.CloudContainerParams) *application.CloudContainer {
 	result := &application.CloudContainer{
 		ProviderID: cloudContainer.ProviderID,
 		Ports:      cloudContainer.Ports,
@@ -568,7 +567,7 @@ func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.Cl
 			// to tie the address to the net node corresponding to the
 			// cloud container.
 			Device: application.ContainerDevice{
-				Name:              fmt.Sprintf("placeholder for %q cloud container", unitName),
+				Name:              network.PlaceholderDeviceName,
 				DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
 				VirtualPortTypeID: domainnetwork.NonVirtualPortType,
 			},
