@@ -6,11 +6,11 @@ package agent
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
-	"strings"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -31,7 +31,6 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
-	jujunames "github.com/juju/juju/juju/names"
 )
 
 // NewSafeModeApplicationCommand creates a Command that handles parsing
@@ -103,7 +102,7 @@ func (a *safeModeApplicationCommand) Init(args []string) error {
 
 // Run instantiates a SafeModeControllerApplication and runs it.
 func (a *safeModeApplicationCommand) Run(c *cmd.Context) error {
-	if err := ensuringControllerNotRunning(a.agentTag); err != nil {
+	if err := ensuringControllerNotRunning(a.runtimeConfig.APIPort); err != nil {
 		if errors.Is(err, errors.AlreadyExists) {
 			_, _ = fmt.Fprint(os.Stderr, safeModeControllerWarning)
 			return nil
@@ -152,8 +151,9 @@ you to connect to the database and perform recovery operations.
 Use at your own risk.
 `
 	safeModeControllerWarning = `
-Running in safe mode while the controller is running is dangerous. Please
-stop the controller service before running in safe mode.
+The controller appears to be running. Please stop it before starting safe-mode.
+
+ snap stop jujud.jujud
 `
 )
 
@@ -310,7 +310,7 @@ func (a *SafeModeControllerApplication) makeEngineCreator() func(ctx context.Con
 			ControllerStartupValues: safeModeStartupValueProvider,
 			ControllerID:            a.Tag().Id(),
 			LogDir:                  a.runtimeConfig.LogDir,
-			ConfigChangeSocketPath:  path.Join(a.runtimeConfig.EffectiveSocketDir(), "configchange.socket"),
+			ConfigChangeSocketPath:  path.Join(a.runtimeConfig.EffectiveSocketDir(), "safemode-configchange.socket"),
 			Clock:                   clock.WallClock,
 		}
 
@@ -326,27 +326,19 @@ func (a *SafeModeControllerApplication) makeEngineCreator() func(ctx context.Con
 	}
 }
 
-// ensuringControllerNotRunning checks that the normal controller
-// service is not active.  If it is, safe-mode must not start, because
-// the two processes would compete for the Dqlite database.
-func ensuringControllerNotRunning(tag names.Tag) error {
-	svcName := fmt.Sprintf(
-		"%s-controller-%s.service",
-		jujunames.JujuController,
-		tag.Id(),
-	)
-	c := exec.Command("systemctl", "check", svcName)
-	output, err := c.CombinedOutput()
-	if err != nil {
-		// Exit code 3 is ESRCH — no such process / unit not active.
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) && exitErr.ExitCode() == 3 {
-			return nil
-		}
-		return errors.Annotatef(err, "systemctl check failed")
-	}
-	if strings.TrimSpace(string(output)) != "active" {
+// ensuringControllerNotRunning probes the controller API port to check
+// whether the controller agent is active. This works inside snap
+// confinement, unlike systemctl. If the port is not set in runtime.conf
+// the check is skipped.
+func ensuringControllerNotRunning(apiPort int) error {
+	if apiPort == 0 {
 		return nil
 	}
+	addr := fmt.Sprintf("127.0.0.1:%d", apiPort)
+	conn, err := net.DialTimeout("tcp", addr, 500*time.Millisecond)
+	if err != nil {
+		return nil
+	}
+	conn.Close()
 	return errors.AlreadyExistsf("controller is running")
 }

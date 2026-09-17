@@ -88,6 +88,8 @@ apps:
       - network
   safemode:
     command: wrappers/juju-safemode
+    plugs:
+      - network-bind
 
 hooks:
   install: {}
