@@ -28,11 +28,13 @@ import (
 	"github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/agentbinary"
+	domainapplication "github.com/juju/juju/domain/application"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/modelmigration"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -235,6 +237,8 @@ type DestroyMachineManagerSuite struct {
 	applicationService  *MockApplicationService
 	blockCommandService *MockBlockCommandService
 	removalService      *MockRemovalService
+	storageService      *MockStorageService
+	unitUUIDs           map[coreunit.Name]coreunit.UUID
 }
 
 func TestDestroyMachineManagerSuite(t *testing.T) {
@@ -263,6 +267,8 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.machineService = NewMockMachineService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
+	s.storageService = NewMockStorageService(ctrl)
+	s.unitUUIDs = map[coreunit.Name]coreunit.UUID{}
 
 	s.blockCommandService = NewMockBlockCommandService(ctrl)
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
@@ -281,17 +287,29 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller {
 			BlockCommandService: s.blockCommandService,
 			MachineService:      s.machineService,
 			RemovalService:      s.removalService,
+			StorageService:      s.storageService,
 		},
 	)
 
 	c.Cleanup(func() {
 		s.blockCommandService = nil
 		s.machineService = nil
+		s.storageService = nil
+		s.unitUUIDs = nil
 		s.api = nil
 		s.api = nil
 	})
 
 	return ctrl
+}
+
+func (s *DestroyMachineManagerSuite) unitUUID(c *tc.C, unitName coreunit.Name) coreunit.UUID {
+	if uuid, ok := s.unitUUIDs[unitName]; ok {
+		return uuid
+	}
+	uuid := tc.Must(c, coreunit.NewUUID)
+	s.unitUUIDs[unitName] = uuid
+	return uuid
 }
 
 func (s *DestroyMachineManagerSuite) expectCalculateDestroyResult(
@@ -301,10 +319,20 @@ func (s *DestroyMachineManagerSuite) expectCalculateDestroyResult(
 	if unitNames == nil {
 		unitNames = []coreunit.Name{"foo/0", "foo/1", "foo/2"}
 	}
-	for _, container := range containers {
-		s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), container).Return(unitNames, nil)
+	units := make([]domainapplication.UnitNameAndUUID, 0, len(unitNames))
+	unitUUIDs := make([]coreunit.UUID, 0, len(unitNames))
+	for _, unitName := range unitNames {
+		unitUUID := s.unitUUID(c, unitName)
+		unitUUIDs = append(unitUUIDs, unitUUID)
+		units = append(units, domainapplication.UnitNameAndUUID{Name: unitName, UUID: unitUUID})
 	}
-	s.applicationService.EXPECT().GetUnitNamesOnMachine(gomock.Any(), machineName).Return(unitNames, nil).Times(1)
+	for _, container := range containers {
+		s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), container).Return(units, nil)
+	}
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), machineName).Return(units, nil).Times(1)
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(gomock.Any(), unitUUIDs, false).Return(
+		domainstorage.StorageRemovalClassification{}, nil,
+	).AnyTimes()
 }
 
 func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *tc.C) {

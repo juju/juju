@@ -101,9 +101,10 @@ func (s *fullStatusSuite) TestFullStatusNetworkInterfaces(c *tc.C) {
 
 	s.statusService.EXPECT().GetMachineFullStatuses(gomock.Any()).Return(map[machine.Name]service.Machine{
 		"0": {
-			Name:        "0",
-			IPAddresses: []string{"172.16.0.0"},
-			InstanceID:  "i-12345",
+			Name:         "0",
+			IPAddresses:  []string{"172.16.0.0"},
+			InstanceID:   "i-12345",
+			AgentVersion: "4.0.15",
 		},
 	}, nil)
 
@@ -166,6 +167,7 @@ func (s *fullStatusSuite) TestFullStatusNetworkInterfaces(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	machine0 := output.Machines["0"]
 
+	c.Check(machine0.AgentStatus.Version, tc.Equals, "4.0.15")
 	c.Check(machine0.NetworkInterfaces, tc.DeepEquals,
 		map[string]params.NetworkInterface{
 			"eth0": {

@@ -67,6 +67,7 @@ func makeFacade(ctx facade.ModelContext) (*MachineManagerAPI, error) {
 		ModelConfigService:      domainServices.Config(),
 		NetworkService:          domainServices.Network(),
 		RemovalService:          domainServices.Removal(),
+		StorageService:          domainServices.Storage(),
 		UpgradeService:          domainServices.Upgrade(),
 	}
 

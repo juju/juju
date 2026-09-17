@@ -51,6 +51,9 @@ func (s *stateSuite) TestControllerConfigRead(c *tc.C) {
 	err := st.UpdateControllerConfig(c.Context(), ctrlConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
+	// The API port set at bootstrap is preserved by unrelated updates.
+	ctrlConfig[controller.APIPort] = strconv.Itoa(controller.DefaultAPIPort)
+
 	controllerConfig, err := st.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(controllerConfig, tc.DeepEquals, ctrlConfig)
@@ -112,6 +115,9 @@ func (s *stateSuite) TestControllerConfigUpdateTwice(c *tc.C) {
 	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
+	// The API port set at bootstrap is preserved by unrelated updates.
+	ctrlConfig[controller.APIPort] = strconv.Itoa(controller.DefaultAPIPort)
+
 	controllerConfig, err := st.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(controllerConfig, tc.DeepEquals, ctrlConfig)
@@ -136,6 +142,9 @@ func (s *stateSuite) TestControllerConfigUpdate(c *tc.C) {
 
 	err = st.UpdateControllerConfig(c.Context(), ctrlConfig, nil)
 	c.Assert(err, tc.ErrorIsNil)
+
+	// The API port set at bootstrap is preserved by unrelated updates.
+	ctrlConfig[controller.APIPort] = strconv.Itoa(controller.DefaultAPIPort)
 
 	controllerConfig, err := st.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -253,6 +262,36 @@ func (s *stateSuite) TestUpdateControllerUpsertAndReplaceAPIPort(c *tc.C) {
 	c.Assert(row.Err(), tc.ErrorIsNil)
 }
 
+// TestUpdateControllerConfigUnrelatedKeyLeavesAPIPortAlone is a regression
+// test for the bug where updating any controller config key that is not
+// api-port would clobber controller.api_port to NULL, because the
+// UPDATE controller SET api_port statement ran unconditionally with a
+// zero (NULL) value.
+func (s *stateSuite) TestUpdateControllerConfigUnrelatedKeyLeavesAPIPortAlone(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Set the API port to a non-default value, so that the test also
+	// guards against the port being reset to the default rather than
+	// preserved.
+	err := st.UpdateControllerConfig(c.Context(), map[string]string{
+		controller.APIPort: "17071",
+	}, nil, alwaysValid)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Now update an unrelated key. The API port must be left alone.
+	err = st.UpdateControllerConfig(c.Context(), map[string]string{
+		controller.QueryTracingEnabled: "true",
+	}, nil, alwaysValid)
+	c.Assert(err, tc.ErrorIsNil)
+
+	row := s.DB().QueryRow("SELECT api_port FROM controller")
+	var apiPort *string
+	err = row.Scan(&apiPort)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(apiPort, tc.NotNil)
+	c.Check(*apiPort, tc.Equals, "17071")
+}
+
 func (s *stateSuite) TestUpdateControllerRemoveAPIPort(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -276,6 +315,40 @@ func (s *stateSuite) TestUpdateControllerRemoveAPIPort(c *tc.C) {
 	c.Check(cfg[controller.APIPort], tc.Equals, "")
 
 	// Ensure that the API port is *not* in the controller config table.
+	row := s.DB().QueryRow("SELECT api_port FROM controller")
+	var apiPort *string
+	err = row.Scan(&apiPort)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiPort, tc.IsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
+}
+
+// TestUpdateControllerRemoveAPIPortOnly verifies that removing api-port
+// without any accompanying updates still clears controller.api_port. This
+// exercises the remove-branch guard in isolation, which marks api_port for
+// update only when api-port appears in removeAttrs.
+func (s *stateSuite) TestUpdateControllerRemoveAPIPortOnly(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Initial values.
+	err := st.UpdateControllerConfig(c.Context(), map[string]string{
+		controller.APIPort: "1234",
+	}, nil, alwaysValid)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cfg, err := st.ControllerConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg[controller.APIPort], tc.Equals, "1234")
+
+	// Remove api-port with no accompanying updates.
+	err = st.UpdateControllerConfig(c.Context(), nil, []string{controller.APIPort}, alwaysValid)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cfg, err = st.ControllerConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg[controller.APIPort], tc.Equals, "")
+
+	// Ensure that the API port is *not* in the controller table.
 	row := s.DB().QueryRow("SELECT api_port FROM controller")
 	var apiPort *string
 	err = row.Scan(&apiPort)
@@ -313,6 +386,7 @@ func (s *stateSuite) TestControllerConfigRemove(c *tc.C) {
 	controllerConfig, err := st.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(controllerConfig, tc.DeepEquals, map[string]string{
+		controller.APIPort:            strconv.Itoa(controller.DefaultAPIPort),
 		controller.ControllerUUIDKey:  jujutesting.ControllerTag.Id(),
 		controller.CACertKey:          jujutesting.CACert,
 		controller.AuditingEnabled:    "1",
@@ -349,6 +423,7 @@ func (s *stateSuite) TestControllerConfigRemoveWithAdditionalValues(c *tc.C) {
 	controllerConfig, err := st.ControllerConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(controllerConfig, tc.DeepEquals, map[string]string{
+		controller.APIPort:            strconv.Itoa(controller.DefaultAPIPort),
 		controller.ControllerUUIDKey:  jujutesting.ControllerTag.Id(),
 		controller.CACertKey:          jujutesting.CACert,
 		controller.AuditingEnabled:    "1",

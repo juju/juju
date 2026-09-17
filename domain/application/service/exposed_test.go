@@ -112,6 +112,7 @@ func (s *exposedServiceSuite) TestUnsetExposeSettings(c *tc.C) {
 
 	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+	s.state.EXPECT().IsControllerApplication(gomock.Any(), applicationUUID).Return(false, nil)
 	exposedEndpoints := set.NewStrings("endpoint0", "endpoint1")
 	s.state.EXPECT().UnsetExposeSettings(gomock.Any(), applicationUUID, exposedEndpoints).Return(nil)
 
@@ -122,9 +123,29 @@ func (s *exposedServiceSuite) TestUnsetExposeSettings(c *tc.C) {
 func (s *exposedServiceSuite) TestUnsetExposeSettingsControllerApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	applicationUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUIDByName(
+		gomock.Any(), coreapplication.ControllerApplicationName,
+	).Return(applicationUUID, nil)
+	s.state.EXPECT().IsControllerApplication(gomock.Any(), applicationUUID).Return(true, nil)
 	exposedEndpoints := set.NewStrings("endpoint0", "endpoint1")
-	err := s.service.UnsetExposeSettings(c.Context(), "controller", exposedEndpoints)
+	err := s.service.UnsetExposeSettings(c.Context(), coreapplication.ControllerApplicationName, exposedEndpoints)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
+}
+
+func (s *exposedServiceSuite) TestUnsetExposeSettingsNonControllerModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUIDByName(
+		gomock.Any(), coreapplication.ControllerApplicationName,
+	).Return(applicationUUID, nil)
+	s.state.EXPECT().IsControllerApplication(gomock.Any(), applicationUUID).Return(false, nil)
+	exposedEndpoints := set.NewStrings("endpoint0", "endpoint1")
+	s.state.EXPECT().UnsetExposeSettings(gomock.Any(), applicationUUID, exposedEndpoints).Return(nil)
+
+	err := s.service.UnsetExposeSettings(c.Context(), coreapplication.ControllerApplicationName, exposedEndpoints)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *exposedServiceSuite) TestMergeExposeSettingsNotFound(c *tc.C) {

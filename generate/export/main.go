@@ -186,6 +186,21 @@ type templateData struct {
 
 	// StructNames are the row struct names, parallel to TableNames.
 	StructNames []string
+
+	ExportTables []exportTable
+}
+
+type nullableColumn struct {
+	Name      string
+	FieldName string
+}
+
+type exportTable struct {
+	Name            string
+	StructName      string
+	NullTypeName    string
+	Query           string
+	NullableColumns []nullableColumn
 }
 
 // generate introspects the pass's schema, builds a row struct per exported
@@ -224,8 +239,11 @@ func generate(ctx context.Context, runner *txnRunner, pass generatorPass) error 
 		}
 
 		data.Structs = append(data.Structs, structDef)
-		data.StructNames = append(data.StructNames, toCamelCase(tableName))
+		structName := toCamelCase(tableName)
+		data.StructNames = append(data.StructNames, structName)
 		data.TableNames = append(data.TableNames, tableName)
+		data.ExportTables = append(data.ExportTables,
+			newExportTable(tableName, structName, columns))
 		for _, imp := range requiredImports {
 			imports[imp] = struct{}{}
 		}
@@ -249,6 +267,52 @@ func generate(ctx context.Context, runner *txnRunner, pass generatorPass) error 
 		return nil
 	}
 	return pass.postGenerate(pass.versions)
+}
+
+// newExportTable adds null markers for types whose NULL values dqlite remaps
+// according to the column's declared type. The markers allow the generated
+// exporter to restore nil pointers after scanning each row.
+func newExportTable(tableName, structName string, columns []column) exportTable {
+	table := exportTable{
+		Name:         tableName,
+		StructName:   structName,
+		NullTypeName: "nullable" + structName,
+	}
+	for _, col := range columns {
+		if isAffectedNullableType(col) {
+			table.NullableColumns = append(table.NullableColumns, nullableColumn{
+				Name:      col.Name,
+				FieldName: toCamelCase(col.Name),
+			})
+		}
+	}
+
+	table.Query = fmt.Sprintf(`SELECT &%s.* FROM %q`, structName, tableName)
+	if len(table.NullableColumns) == 0 {
+		return table
+	}
+
+	var nullProjections []string
+	for _, col := range table.NullableColumns {
+		nullProjections = append(nullProjections, fmt.Sprintf(
+			`t.%q IS NULL AS &%s.%s_is_null`,
+			col.Name, table.NullTypeName, col.Name))
+	}
+	table.Query = fmt.Sprintf("SELECT &%s.*,\n       %s\nFROM   %q AS t",
+		structName, strings.Join(nullProjections, ",\n       "), tableName)
+	return table
+}
+
+func isAffectedNullableType(col column) bool {
+	if col.NotNull {
+		return false
+	}
+	switch strings.ToUpper(col.Type) {
+	case "BOOLEAN", "DATETIME", "DATE", "TIMESTAMP":
+		return true
+	default:
+		return false
+	}
 }
 
 // renderFile executes one template against data and writes the gofmt-ed

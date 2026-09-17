@@ -70,6 +70,7 @@ type Machine struct {
 	Constraints             constraints.Constraints
 	HardwareCharacteristics instance.HardwareCharacteristics
 	LXDProfiles             []string
+	AgentVersion            string
 }
 
 // StorageInstance represents the status of a storage instance.

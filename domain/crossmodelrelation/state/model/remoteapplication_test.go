@@ -2075,7 +2075,7 @@ WHERE ae.application_uuid = ? AND cr.name = ?`, applicationUUID, endpointName).S
 	return epUUID
 }
 
-func (s *modelRemoteApplicationSuite) setupRelationStatus(c *tc.C, appName, appName2 string, statusID int) {
+func (s *modelRemoteApplicationSuite) setupRelationSuspended(c *tc.C, appName, appName2 string, suspended bool) corerelation.UUID {
 	charmUUID := s.addCharm(c)
 	s.addCharmMetadata(c, charmUUID, false)
 	relation := internalcharm.Relation{
@@ -2111,12 +2111,14 @@ INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
 VALUES (?, ?, ?)`, internaluuid.MustNewUUID().String(), relUUID, localEndpointUUID)
 
 	s.query(c, `
-INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
-VALUES (?, ?, 0)`, relUUID, statusID)
+UPDATE relation SET suspended = ? WHERE uuid = ?`, suspended, relUUID)
+	return relUUID
 }
 
+// TestIsRelationWithEndpointIdentifiersSuspendedTrue checks that a relation
+// with its suspended flag set is reported as suspended.
 func (s *modelRemoteApplicationSuite) TestIsRelationWithEndpointIdentifiersSuspendedTrue(c *tc.C) {
-	s.setupRelationStatus(c, "test", "remote-test", 4)
+	s.setupRelationSuspended(c, "test", "remote-test", true)
 	isSuspended, err := s.state.IsRelationWithEndpointIdentifiersSuspended(
 		c.Context(),
 		corerelation.EndpointIdentifier{
@@ -2133,8 +2135,10 @@ func (s *modelRemoteApplicationSuite) TestIsRelationWithEndpointIdentifiersSuspe
 	c.Assert(isSuspended, tc.IsTrue)
 }
 
+// TestIsRelationWithEndpointIdentifiersSuspendedFalse checks that a relation
+// without its suspended flag set is not reported as suspended.
 func (s *modelRemoteApplicationSuite) TestIsRelationWithEndpointIdentifiersSuspendedFalse(c *tc.C) {
-	s.setupRelationStatus(c, "test", "remote-test", 0)
+	s.setupRelationSuspended(c, "test", "remote-test", false)
 	isSuspended, err := s.state.IsRelationWithEndpointIdentifiersSuspended(
 		c.Context(),
 		corerelation.EndpointIdentifier{
@@ -2149,6 +2153,33 @@ func (s *modelRemoteApplicationSuite) TestIsRelationWithEndpointIdentifiersSuspe
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(isSuspended, tc.IsFalse)
+}
+
+// TestIsRelationWithEndpointIdentifiersSuspendedStatusSuspending checks that
+// the suspended state is determined from the relation's suspended flag, not
+// its status. The status lags behind the flag: suspend-relation sets the
+// flag and the suspending status synchronously, while the suspended status
+// is only set later, once the offer-side unit has run relation-broken.
+func (s *modelRemoteApplicationSuite) TestIsRelationWithEndpointIdentifiersSuspendedStatusSuspending(c *tc.C) {
+	relUUID := s.setupRelationSuspended(c, "test", "remote-test", true)
+	s.query(c, `
+INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
+VALUES (?, ?, 0)`, relUUID, 3)
+
+	isSuspended, err := s.state.IsRelationWithEndpointIdentifiersSuspended(
+		c.Context(),
+		corerelation.EndpointIdentifier{
+			ApplicationName: "test",
+			EndpointName:    "db",
+		},
+		corerelation.EndpointIdentifier{
+			ApplicationName: "remote-test",
+			EndpointName:    "database",
+		},
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isSuspended, tc.IsTrue)
 }
 
 func (s *modelRemoteApplicationSuite) TestIsRelationWithEndpointIdentifiersSuspendedRelationNotFound(c *tc.C) {
