@@ -140,6 +140,22 @@ model "Juju" {
       charm3 [type: charm,         label: "charm",    lifecycle: ephemeral]
       wl3    [type: external,      label: "workload"]
     }
+
+    // -----------------------------------------------------------------------
+    // HA controller — three controller nodes for the replicaset diagram
+    // -----------------------------------------------------------------------
+    ha_ctrl1 [type: container, label: "Controller 1"] {
+      ha_agent1  [type: juju-software, label: "controller agent\n(jujud)"]
+      ha_dqlite1 [type: database,      label: "Dqlite"]
+    }
+    ha_ctrl2 [type: container, label: "Controller 2"] {
+      ha_agent2  [type: juju-software, label: "controller agent\n(jujud)"]
+      ha_dqlite2 [type: database,      label: "Dqlite"]
+    }
+    ha_ctrl3 [type: container, label: "Controller 3"] {
+      ha_agent3  [type: juju-software, label: "controller agent\n(jujud)"]
+      ha_dqlite3 [type: database,      label: "Dqlite"]
+    }
   }
 
   edges {
@@ -232,6 +248,11 @@ model "Juju" {
     charm1 -> wl1    [type: control, label: "operates"]
     charm2 -> wl2    [type: control, label: "operates"]
     charm3 -> wl3    [type: control, label: "operates"]
+
+    // HA controller — Raft sync between Dqlite nodes
+    ha_dqlite1 -> ha_dqlite2 [type: stream, label: "Raft sync"]
+    ha_dqlite2 -> ha_dqlite3 [type: stream, label: "Raft sync"]
+    ha_dqlite3 -> ha_dqlite1 [type: stream, label: "Raft sync"]
   }
 
   behaviours {
@@ -585,5 +606,35 @@ diagram "Intro: Juju unpacked" from "Juju" {
             control: "manages / drives",
             stream: "watch (async)",
             api: "API call"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// HA controller — Dqlite replicaset
+// --------------------------------------------------------------------------
+
+diagram "HA controller: Dqlite replicaset" from "Juju" {
+  select {
+    nodes: ha_ctrl1 ha_ctrl2 ha_ctrl3
+    edges: type stream
+  }
+  positions {
+    ha_ctrl1 left-of ha_ctrl2  gap: 60
+    ha_ctrl1 align-middle ha_ctrl2
+    ha_ctrl2 left-of ha_ctrl3  gap: 60
+    ha_ctrl2 align-middle ha_ctrl3
+    ha_ctrl1 direction: down
+    ha_ctrl2 direction: down
+    ha_ctrl3 direction: down
+  }
+  annotations {
+    box [nodes: "ha_dqlite1 ha_dqlite2 ha_dqlite3",
+         label: "Raft replicaset (strongly consistent)",
+         style: "dashed", color: "#888", label-position: bottom]
+    legend [position: "bottom-right",
+            container: "controller node",
+            juju-software: "controller agent",
+            database: "Dqlite",
+            stream: "Raft sync"]
   }
 }

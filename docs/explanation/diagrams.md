@@ -65,6 +65,16 @@ All views produced by `juju.ggarch`.
 :alt: Five record nodes: charm at top connected to application, application connected to unit, unit connected to machine/pod, relation connected to application.
 ```
 
+### HA controller: Dqlite replicaset
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: HA controller: Dqlite replicaset
+:no-legend:
+:caption: In a high-availability controller deployment, three controller nodes each run an agent and a Dqlite instance. The three Dqlite nodes form a Raft replicaset -- the dashed box cuts across the container boundaries to show the database layer as a single strongly-consistent unit. This is the persistence guarantee behind "declare state once; any component can restart and recover".
+:alt: Three controller containers side by side, each holding a controller agent and a Dqlite database node. A dashed annotation box encloses all three Dqlite nodes across the container boundaries, labelled "Raft replicaset (strongly consistent)". Dashed arrows between the Dqlite nodes indicate Raft sync.
+```
+
 ## Sequences
 
 ### Hook execution
