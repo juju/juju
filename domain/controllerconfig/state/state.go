@@ -98,6 +98,10 @@ VALUES ($KeyValue.*)
 	var (
 		updateKeyValues  []KeyValue
 		controllerValues controllerValues
+		// updateAPIPort indicates whether api_port should be written to the
+		// controller table. It is only true when api-port is being explicitly
+		// set or removed, so that unrelated config updates don't clobber it.
+		updateAPIPort bool
 	)
 	for k, v := range updateAttrs {
 		// Although not strictly necessary here, as it's solved in the service
@@ -108,6 +112,7 @@ VALUES ($KeyValue.*)
 			continue
 		case controller.APIPort:
 			controllerValues.APIPort = sql.Null[string]{V: v, Valid: true}
+			updateAPIPort = true
 		default:
 			updateKeyValues = append(updateKeyValues, KeyValue{
 				Key:   k,
@@ -125,6 +130,7 @@ VALUES ($KeyValue.*)
 			// Force this back to not valid, just in case it was updated and
 			// removed at the same time.
 			controllerValues.APIPort = sql.Null[string]{}
+			updateAPIPort = true
 			break
 		}
 	}
@@ -159,9 +165,13 @@ SET api_port = $controllerValues.api_port
 			}
 		}
 
-		// The controller table needs to be updated with the new API port.
-		if err := tx.Query(ctx, updateControllerStmt, controllerValues).Run(); err != nil {
-			return errors.Capture(err)
+		// The controller table only needs its API port updated when it is
+		// actually being set or removed. Updating it unconditionally would
+		// clobber it to NULL for any other config change.
+		if updateAPIPort {
+			if err := tx.Query(ctx, updateControllerStmt, controllerValues).Run(); err != nil {
+				return errors.Capture(err)
+			}
 		}
 
 		// Remove the attributes
