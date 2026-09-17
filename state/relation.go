@@ -529,7 +529,7 @@ func (r *Relation) removeOps(ignoreApplication string, departingUnitName string,
 			op.AddError(err)
 		} else {
 			if app.IsRemote() {
-				epOps, err := r.removeRemoteEndpointOps(ep, departingUnitName != "")
+				epOps, err := r.removeRemoteEndpointOps(ep, departingUnitName != "", op.Force)
 				if err != nil {
 					op.AddError(err)
 				}
@@ -594,7 +594,7 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string,
 		return err == nil && s == ep.ApplicationName
 	}
 	var cleanupOps []txn.Op
-	if departingUnitName == "" {
+	if departingUnitName == "" && !op.Force {
 		// We're constructing a destroy operation, either of the relation
 		// or one of its applications, and can therefore be assured that both
 		// applications are Alive.
@@ -617,6 +617,9 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string,
 		asserts = append(bson.D{}, hasRelation...)
 		var appDoc applicationDoc
 		if err := applications.FindId(ep.ApplicationName).One(&appDoc); err == nil {
+			if op.Force {
+				asserts = append(asserts, bson.DocElem{"life", appDoc.Life})
+			}
 			if appDoc.Life != Alive {
 				cleanupOps = append(cleanupOps, newCleanupOp(
 					cleanupApplication,
@@ -637,7 +640,7 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string,
 	}}, cleanupOps...), nil
 }
 
-func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.Op, error) {
+func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying, force bool) ([]txn.Op, error) {
 	applications, closer, err := r.st.db().GetCollection(remoteApplicationsC)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -658,7 +661,7 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.O
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if unitDying && refCount == 1 && (app.doc.Life != Alive || app.doc.IsConsumerProxy) {
+	if (unitDying || force) && refCount == 1 && (app.doc.Life != Alive || app.doc.IsConsumerProxy) {
 		// Remove the proxy together with its final relation. Assert on
 		// txn-revno rather than the relationcount so a concurrent change
 		// aborts the removal.
@@ -708,7 +711,7 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.O
 			}}, stateerrors.NewRelationCountCorruptError(
 				app.Name(), app.doc.RelationCount, refCount)
 	}
-	if !unitDying {
+	if !unitDying && !force {
 		// We're constructing a destroy operation, either of the relation
 		// or one of its application, and can therefore be assured that the
 		// remote application is Alive.
