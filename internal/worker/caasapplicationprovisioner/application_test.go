@@ -142,7 +142,6 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *tc.C) {
 
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),
-		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(false, nil),
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dead, nil),
 		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x).Return(nil),
@@ -187,7 +186,6 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),
-		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(false, nil),
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
 
@@ -287,90 +285,6 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 	workertest.CheckKill(c, appWorker)
 }
 
-func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	x := gomock.Any()
-
-	broker := mocks.NewMockCAASBroker(ctrl)
-	app := caasmocks.NewMockApplication(ctrl)
-	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
-	ops := mocks.NewMockApplicationOps(ctrl)
-	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
-	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
-	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
-	resourceOpenerGetter := mocks.NewMockResourceOpenerGetter(ctrl)
-	done := make(chan struct{})
-
-	clk := testclock.NewDilatedWallClock(time.Millisecond)
-
-	scaleChan := make(chan struct{}, 1)
-	settingsChan := make(chan struct{}, 1)
-	provisioningInfoChan := make(chan struct{}, 1)
-	appUnitsChan := make(chan []string, 1)
-	appChan := make(chan struct{}, 1)
-	appReplicasChan := make(chan struct{}, 1)
-
-	ops.EXPECT().RefreshOperatorStatus(x, "con-troll-er", s.appUUID, app, x, x, x, x).Return(nil).AnyTimes()
-	ops.EXPECT().EnsureScale(
-		x, "con-troll-er", s.appUUID, app, life.Alive, facade,
-		applicationService, agentPasswordService, s.logger,
-	).Return(nil).AnyTimes()
-
-	gomock.InOrder(
-		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("con-troll-er", nil),
-		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(true, nil),
-		broker.EXPECT().Application("con-troll-er", caas.DeploymentStateful).Return(app),
-		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
-
-		applicationService.EXPECT().WatchApplicationScale(x, "con-troll-er").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
-		applicationService.EXPECT().WatchApplicationSettings(x, "con-troll-er").Return(watchertest.NewMockNotifyWatcher(settingsChan), nil),
-		applicationService.EXPECT().WatchApplicationUnitLife(x, "con-troll-er").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
-
-		// handleChange
-		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
-		applicationService.EXPECT().GetApplicationScalingState(x, "con-troll-er").Return(applicationservice.ScalingState{Scaling: true, ScaleTarget: 1}, nil),
-		facade.EXPECT().WatchProvisioningInfo(x, "con-troll-er").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
-		app.EXPECT().Watch(x).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
-		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
-			appChan <- struct{}{}
-			return watchertest.NewMockNotifyWatcher(appReplicasChan), nil
-		}),
-
-		// appChan fired
-		ops.EXPECT().UpdateState(x, "con-troll-er", s.appUUID, app, x, broker, applicationService, statusService, clk, s.logger).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, UpdateStatusState, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) (UpdateStatusState, error) {
-			appReplicasChan <- struct{}{}
-			return nil, nil
-		}),
-		// appReplicasChan fired
-		ops.EXPECT().UpdateState(x, "con-troll-er", s.appUUID, app, x, broker, applicationService, statusService, clk, s.logger).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, UpdateStatusState, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) (UpdateStatusState, error) {
-			provisioningInfoChan <- struct{}{}
-			return nil, nil
-		}),
-
-		// provisioningInfoChan fired
-		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).DoAndReturn(func(ctx context.Context, i application.UUID) (life.Value, error) {
-			provisioningInfoChan <- struct{}{}
-			return life.Alive, nil
-		}),
-		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).DoAndReturn(func(ctx context.Context, i application.UUID) (life.Value, error) {
-			provisioningInfoChan <- struct{}{}
-			return life.Dying, nil
-		}),
-		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).DoAndReturn(func(ctx context.Context, i application.UUID) (life.Value, error) {
-			provisioningInfoChan <- struct{}{}
-			close(done)
-			return life.Dead, nil
-		}),
-	)
-
-	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
-	s.waitDone(c, done)
-	workertest.CheckKill(c, appWorker)
-}
-
 func (s *ApplicationWorkerSuite) TestWorkerRefreshTimerResetOnUnitsChurning(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -401,7 +315,6 @@ func (s *ApplicationWorkerSuite) TestWorkerRefreshTimerResetOnUnitsChurning(c *t
 
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),
-		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(false, nil),
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
 
@@ -482,7 +395,6 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),
-		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(false, nil),
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
 

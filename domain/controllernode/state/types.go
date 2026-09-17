@@ -8,6 +8,9 @@ type dbControllerNode struct {
 	// ControllerID is the nodes controller ID.
 	ControllerID string `db:"controller_id"`
 
+	// LifeID is the lifecycle state of the controller node.
+	LifeID int `db:"life_id"`
+
 	// DqliteNodeID is the uint64 from Dqlite NodeInfo, stored as text (due to
 	// db issues when the high bit is set).
 	DqliteNodeID string `db:"dqlite_node_id"`

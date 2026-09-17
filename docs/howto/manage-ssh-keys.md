@@ -11,10 +11,8 @@ myst:
 See also: {ref}`ssh-key`
 ```
 
-If you've bootstrapped a controller, Juju has automatically created an SSH key
-for you that yon use to SSH into the machines or units provisioned through
-Juju. This document covers the other case where you want to add further SSH
-keys to Juju.
+This document covers how to manage the SSH keys used to access the machines
+or units provisioned through Juju.
 
 (add-an-ssh-key)=
 ## Add an SSH key

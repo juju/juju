@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"net"
 	"path"
 	"strconv"
@@ -23,7 +24,6 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
@@ -561,7 +562,6 @@ func (c *controllerStack) Deploy(ctx context.Context) (err error) {
 	saName, saCleanUps, err := ensureControllerServiceAccount(
 		ctx,
 		c.broker.client(),
-		c.broker.extendedClient(),
 		c.broker.Namespace(),
 		c.broker.ControllerUUID(),
 		c.stackLabels,
@@ -919,6 +919,17 @@ func (c *controllerStack) ensureControllerApplicationSecret(ctx context.Context)
 		controllerUnitPassword = apiInfo.Password
 	}
 
+	secretData := application.ApplicationConfigSecretData(
+		environsbootstrap.ControllerApplicationName,
+		c.broker.ModelUUID(),
+		caas.ApplicationConfig{
+			IntroductionSecret:   c.applicationPassword,
+			ControllerAddresses:  net.JoinHostPort(c.resourceNameService, strconv.Itoa(c.portAPIServer)),
+			ControllerCertBundle: c.pcfg.APIInfo.CACert,
+		},
+	)
+	secretData[constants.EnvJujuK8sUnitPassword] = []byte(controllerUnitPassword)
+
 	secret := &core.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        c.appSecretName(),
@@ -927,10 +938,7 @@ func (c *controllerStack) ensureControllerApplicationSecret(ctx context.Context)
 			Annotations: c.stackAnnotations,
 		},
 		Type: core.SecretTypeOpaque,
-		Data: map[string][]byte{
-			constants.EnvJujuK8sUnitPassword:        []byte(controllerUnitPassword),
-			constants.EnvJujuK8sApplicationPassword: []byte(c.applicationPassword),
-		},
+		Data: secretData,
 	}
 	cleanUp, err := c.broker.ensureSecret(ctx, secret)
 	c.addCleanUp(func() {
@@ -946,7 +954,6 @@ func (c *controllerStack) ensureControllerApplicationSecret(ctx context.Context)
 func ensureControllerServiceAccount(
 	ctx context.Context,
 	client kubernetes.Interface,
-	extendedClient clientset.Interface,
 	namespace string,
 	controllerUUID string,
 	labels map[string]string,
@@ -997,6 +1004,9 @@ func ensureControllerServiceAccount(
 
 func (c *controllerStack) createControllerStatefulset(ctx context.Context) error {
 	numberOfPods := int32(1) // TODO(caas): HA mode!
+	templateAnnotations := maps.Clone(c.stackAnnotations)
+	templateAnnotations[providerutils.AnnotationVersionKey(constants.LastLabelVersion)] = c.pcfg.JujuVersion.String()
+	templateAnnotations[providerutils.AnnotationModelUUIDKey(constants.LastLabelVersion)] = c.broker.ModelUUID()
 	controllerStatefulSet := &apps.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: c.stackName,
@@ -1008,8 +1018,9 @@ func (c *controllerStack) createControllerStatefulset(ctx context.Context) error
 			Annotations: c.stackAnnotations,
 		},
 		Spec: apps.StatefulSetSpec{
-			ServiceName: c.resourceNameHeadlessService,
-			Replicas:    &numberOfPods,
+			ServiceName:         c.resourceNameHeadlessService,
+			Replicas:            &numberOfPods,
+			PodManagementPolicy: apps.ParallelPodManagement,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: c.selectorLabels,
 			},
@@ -1021,7 +1032,7 @@ func (c *controllerStack) createControllerStatefulset(ctx context.Context) error
 					),
 					Name:        c.pcfg.GetPodName(), // This really should not be set.
 					Namespace:   c.broker.Namespace(),
-					Annotations: c.stackAnnotations,
+					Annotations: templateAnnotations,
 				},
 			},
 		},
@@ -1557,14 +1568,23 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		return nil, errors.Annotate(err, "getting image for base")
 	}
 
+	controllerConstraints := c.pcfg.Bootstrap.BootstrapMachineConstraints
+	if !controllerConstraints.HasArch() {
+		// Match application-domain architecture normalization: an application
+		// without an explicit architecture uses its selected charm architecture.
+		arch := corearch.DefaultArchitecture
+		controllerConstraints.Arch = &arch
+	}
+
 	cfg := caas.ApplicationConfig{
+		Controller:           true,
 		AgentVersion:         c.pcfg.JujuVersion,
 		AgentImagePath:       controllerImage,
 		CharmBaseImagePath:   charmBaseImage,
 		IsPrivateImageRepo:   repo.IsPrivate(),
 		CharmModifiedVersion: 0,
 		InitialScale:         1,
-		Constraints:          c.pcfg.Bootstrap.BootstrapMachineConstraints,
+		Constraints:          controllerConstraints,
 		ExistingContainers:   []string{apiServerContainerName},
 		// TODO(wallyworld) - use storage so the volumes don't need to be manually set up
 		// Filesystems: nil,
@@ -1653,34 +1673,6 @@ fi
 			}
 		}
 		ct.VolumeMounts = append(ct.VolumeMounts, dataDirMount)
-		ct.Env = append(ct.Env,
-			core.EnvVar{
-				Name:  "JUJU_K8S_APPLICATION",
-				Value: environsbootstrap.ControllerApplicationName,
-			},
-			core.EnvVar{
-				Name:  "JUJU_K8S_MODEL",
-				Value: c.broker.ModelUUID(),
-			},
-			core.EnvVar{
-				Name: constants.EnvJujuK8sApplicationPassword,
-				ValueFrom: &core.EnvVarSource{
-					SecretKeyRef: &core.SecretKeySelector{
-						LocalObjectReference: core.LocalObjectReference{Name: c.appSecretName()},
-						Key:                  constants.EnvJujuK8sApplicationPassword,
-					},
-				},
-			},
-			core.EnvVar{
-				Name:  "JUJU_K8S_CONTROLLER_ADDRESSES",
-				Value: net.JoinHostPort(c.resourceNameService, strconv.Itoa(c.portAPIServer)),
-			},
-			core.EnvVar{
-				Name:  "JUJU_K8S_CONTROLLER_CA_CERT",
-				Value: c.pcfg.APIInfo.CACert,
-			},
-		)
-		ct.Args = append(ct.Args, "--controller")
 		spec.InitContainers[i] = ct
 	}
 	for i, ct := range spec.Containers {
@@ -1698,16 +1690,6 @@ fi
 		}
 		ct.VolumeMounts = append(ct.VolumeMounts, dataDirMount)
 
-		// Remove probes to prevent controller death.
-		ct.LivenessProbe = nil
-		ct.ReadinessProbe = nil
-		ct.StartupProbe = nil
-		for j, env := range ct.Env {
-			if env.Name == constants.EnvAgentHTTPProbePort {
-				ct.Env = append(ct.Env[:j], ct.Env[j+1:]...)
-				break
-			}
-		}
 		spec.Containers[i] = ct
 	}
 	return spec, nil

@@ -87,7 +87,9 @@ func NewAgentPresence(cfg AgentPresenceConfig) *AgentPresence {
 func (n *AgentPresence) Login(ctx context.Context, entity names.Tag, modelTag names.ModelTag, modelUUID model.UUID, fromController bool, userData string) {
 	n.BaseObserver.Login(ctx, entity, modelTag, modelUUID, fromController, userData)
 
-	if !n.IsAgent() {
+	// Controller connections to workload models must not update presence for
+	// workload agents with the same tag.
+	if !n.IsAgent() || n.FromController() {
 		return
 	}
 
@@ -117,7 +119,8 @@ func (n *AgentPresence) Login(ctx context.Context, entity names.Tag, modelTag na
 func (n *AgentPresence) Leave(ctx context.Context) {
 	// This guards against the case where the agent has not logged in and
 	// the agent tag is nil.
-	if !n.IsAgent() {
+	// Controller connections must not remove workload agent presence.
+	if !n.IsAgent() || n.FromController() {
 		return
 	}
 

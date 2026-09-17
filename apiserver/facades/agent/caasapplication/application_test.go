@@ -208,7 +208,7 @@ func (s *CAASApplicationSuite) TestControllerUnitIntroductionCreatesControllerId
 		PrivateKey:   coretesting.ServerKey,
 		CAPrivateKey: coretesting.CAKey,
 	}, nil)
-	s.controllerNodeService.EXPECT().AddControllerNode(gomock.Any(), "2")
+	s.controllerNodeService.EXPECT().AddDqliteNodeID(gomock.Any(), "2")
 
 	var storedPassword string
 	s.agentPasswordService.EXPECT().SetControllerNodePassword(gomock.Any(), "2", gomock.Any()).

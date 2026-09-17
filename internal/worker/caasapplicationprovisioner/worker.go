@@ -88,6 +88,10 @@ type ApplicationService interface {
 	// SetApplicationScalingState sets the scaling state for an application.
 	SetApplicationScalingState(ctx context.Context, name string, scaleTarget int, scaling bool) error
 
+	// SetApplicationScalingStateWithStart sets the scaling state and StatefulSet
+	// ordinal range for an application.
+	SetApplicationScalingStateWithStart(ctx context.Context, name string, scaleTarget, startOrdinal int, scaling bool) error
+
 	// GetApplicationScalingState returns the scaling state for an application.
 	GetApplicationScalingState(ctx context.Context, name string) (applicationservice.ScalingState, error)
 

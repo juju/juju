@@ -276,7 +276,9 @@ func (s *MigrationService) ImportCAASApplication(ctx context.Context, name strin
 	// Improve the efficiency of importing caas applications by touching
 	// the application_scale table once, instead of three times. Once in
 	// st.ImportApplication and the following two methods.
-	if err := s.st.SetApplicationScalingState(ctx, name, args.ScaleState.ScaleTarget, args.ScaleState.Scaling); err != nil {
+	if err := s.st.SetApplicationScalingStateWithStart(
+		ctx, name, args.ScaleState.ScaleTarget, args.ScaleState.StartOrdinal,
+		args.ScaleState.Scaling); err != nil {
 		return errors.Errorf("setting scale state for application %q: %w", name, err)
 	}
 	if err := s.st.SetDesiredApplicationScale(ctx, args.UUID, args.ScaleState.Scale); err != nil {

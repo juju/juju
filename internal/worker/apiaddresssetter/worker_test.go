@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/controllernode"
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -177,6 +178,64 @@ func (s *workerSuite) TestNewControllerNode(c *tc.C) {
 		c.Fatalf("timed out waiting for API address update")
 	}
 
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestRemovedControllerNodeRefreshesBeforeRetryingAPIAddresses(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	nodeCh := make(chan struct{})
+	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watchertest.NewMockNotifyWatcher(nodeCh), nil)
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(watchertest.NewMockStringsWatcher(make(chan []string)), nil)
+
+	refreshed := make(chan struct{})
+	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1"}, nil)
+	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).DoAndReturn(func(context.Context) ([]string, error) {
+		close(refreshed)
+		return nil, nil
+	})
+	s.applicationService.EXPECT().WatchUnitAddresses(gomock.Any(), unit.Name("controller/1")).Return(watchertest.NewMockNotifyWatcher(make(chan struct{})), nil)
+
+	sp := &network.SpaceInfo{ID: "space0"}
+	addrs := network.SpaceAddresses{{
+		MachineAddress: network.MachineAddress{Value: "10.0.0.1/24"},
+		SpaceID:        "space0",
+	}}
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
+		controller.JujuManagementSpace: "space0",
+	}, nil)
+	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("space0")).Return(sp, nil)
+	s.networkService.EXPECT().GetControllerAPIAddresses(gomock.Any(), unit.Name("controller/1"), sp).Return(addrs, nil)
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
+		MgmtSpace: sp,
+		APIAddresses: map[string]network.SpaceHostPorts{
+			"1": network.SpaceAddressesWithPort(addrs, 17070),
+		},
+	}).Return(controllernodeerrors.NotFound)
+
+	w, err := New(Config{
+		ControllerConfigService: s.controllerConfigService,
+		ApplicationService:      s.applicationService,
+		ControllerNodeService:   s.controllerNodeService,
+		NetworkService:          s.networkService,
+		APIPort:                 17070,
+		Logger:                  loggertesting.WrapCheckLog(c),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case nodeCh <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("sending controller node event: %v", c.Context().Err())
+	}
+	select {
+	case <-refreshed:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for controller-node refresh: %v", c.Context().Err())
+	}
+
+	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 }
 

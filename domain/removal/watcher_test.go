@@ -48,6 +48,12 @@ type watcherSuite struct {
 	changestreamtesting.ModelSuite
 }
 
+type noopLeadershipRevoker struct{}
+
+func (noopLeadershipRevoker) RevokeLeadership(string, unit.Name) error {
+	return nil
+}
+
 func TestWatcherSuite(t *testing.T) {
 	tc.Run(t, &watcherSuite{})
 }
@@ -125,7 +131,7 @@ func (s *watcherSuite) TestWatchEntityRemovals(c *tc.C) {
 		statecontroller.NewState(func(ctx context.Context) (database.TxnRunner, error) { return s.NoopTxnRunner(), nil }, log),
 		modelState,
 		domain.NewWatcherFactory(factory, log),
-		nil,
+		noopLeadershipRevoker{},
 		nil,
 		model.UUID(s.ModelUUID()),
 		clock.WallClock,

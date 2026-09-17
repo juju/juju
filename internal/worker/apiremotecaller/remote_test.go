@@ -5,6 +5,7 @@ package apiremotecaller
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"sync"
 	"sync/atomic"
@@ -108,6 +109,43 @@ func (s *RemoteSuite) TestConnect(c *tc.C) {
 
 	c.Assert(conn, tc.NotNil)
 	c.Check(conn.Addr().String(), tc.DeepEquals, addr.String())
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *RemoteSuite) TestConnectRefreshesAPIInfoAfterPasswordChange(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+	retry := make(chan time.Time, 1)
+	s.expectClockAfter(retry)
+
+	var calls atomic.Int32
+	config := s.newConfig(c)
+	config.APIInfo = apiInfoProviderFunc(func() (*api.Info, error) {
+		if calls.Add(1) == 1 {
+			return &api.Info{Password: "stale-password"}, nil
+		}
+		return &api.Info{Password: "current-password"}, nil
+	})
+
+	var passwords []string
+	config.APIOpener = func(_ context.Context, info *api.Info, _ api.DialOpts) (api.Connection, error) {
+		passwords = append(passwords, info.Password)
+		if len(passwords) == 1 {
+			retry <- time.Now()
+			return nil, errors.New("unauthorized")
+		}
+		return s.apiConnection, nil
+	}
+
+	w := newRemoteServer(config, s.states)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+	_, err := w.(*remoteServer).connect(c.Context(), []string{"10.0.0.1:17070"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(passwords, tc.DeepEquals, []string{"stale-password", "current-password"})
 
 	workertest.CleanKill(c, w)
 }
@@ -640,7 +678,7 @@ func (s *RemoteSuite) newConfig(c *tc.C) RemoteServerConfig {
 	return RemoteServerConfig{
 		Clock:        s.clock,
 		Logger:       loggertesting.WrapCheckLog(c),
-		APIInfo:      &api.Info{},
+		APIInfo:      apiInfoProviderFunc(func() (*api.Info, error) { return &api.Info{}, nil }),
 		ControllerID: "0",
 		APIOpener: func(ctx context.Context, i *api.Info, do api.DialOpts) (api.Connection, error) {
 			err := s.apiConnectHandler(ctx)
@@ -650,6 +688,12 @@ func (s *RemoteSuite) newConfig(c *tc.C) RemoteServerConfig {
 			return s.apiConnection, nil
 		},
 	}
+}
+
+type apiInfoProviderFunc func() (*api.Info, error)
+
+func (f apiInfoProviderFunc) APIInfo() (*api.Info, error) {
+	return f()
 }
 
 func (s *RemoteSuite) expectClockAfter(ch <-chan time.Time) {

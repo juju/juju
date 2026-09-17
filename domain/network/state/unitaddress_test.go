@@ -181,7 +181,7 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesReturnsDeviceTypes(c *tc
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addr, tc.DeepEquals, domainnetwork.ControllerAPIAddresses{
+	c.Check(addr, tc.SameContents, domainnetwork.ControllerAPIAddresses{
 		{
 			SpaceAddress: corenetwork.SpaceAddress{
 				SpaceID: corenetwork.SpaceUUID(spaceUUID),
@@ -195,6 +195,20 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesReturnsDeviceTypes(c *tc
 				},
 			},
 			DeviceType: domainnetwork.DeviceTypeEthernet,
+		},
+		{
+			SpaceAddress: corenetwork.SpaceAddress{
+				SpaceID: corenetwork.SpaceUUID(spaceUUID),
+				Origin:  corenetwork.OriginProvider,
+				MachineAddress: corenetwork.MachineAddress{
+					Value:      "10.0.0.2",
+					CIDR:       cidr,
+					Type:       corenetwork.IPv4Address,
+					Scope:      corenetwork.ScopeCloudLocal,
+					ConfigType: corenetwork.ConfigStatic,
+				},
+			},
+			DeviceType: domainnetwork.DeviceTypeVeth,
 		},
 	})
 }

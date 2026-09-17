@@ -919,7 +919,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 
 			if appScale.Scaling {
 				// While scaling, we use the scaling target.
-				if arg.OrderedId >= appScale.ScaleTarget {
+				if arg.OrderedId < appScale.StartOrdinal || arg.OrderedId >= appScale.StartOrdinal+appScale.ScaleTarget {
 					return errors.Errorf("unrequired unit %s is not assigned", arg.UnitName).Add(applicationerrors.UnitNotAssigned)
 				}
 			} else {

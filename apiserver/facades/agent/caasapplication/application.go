@@ -40,8 +40,8 @@ type ControllerConfigService interface {
 
 // ControllerNodeService represents a way to get controller api addresses.
 type ControllerNodeService interface {
-	// AddControllerNode ensures a controller node exists for the supplied ID.
-	AddControllerNode(ctx context.Context, controllerID string) error
+	// AddDqliteNodeID ensures a controller node exists for the supplied ID.
+	AddDqliteNodeID(ctx context.Context, controllerID string) error
 	// GetAllAPIAddressesForAgents returns a string of api
 	// addresses available for agents ordered to prefer local-cloud scoped
 	// addresses and IPv4 over IPv6 for each machine.
@@ -374,7 +374,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	if err != nil {
 		return errResp(errors.Annotate(err, "rendering controller agent config"))
 	}
-	if err := f.controllerNodeService.AddControllerNode(ctx, controllerID); err != nil {
+	if err := f.controllerNodeService.AddDqliteNodeID(ctx, controllerID); err != nil {
 		return errResp(err)
 	}
 	// The nonce validation above proves this pod is the legitimate owner of

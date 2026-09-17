@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/client-go/kubernetes/typed/apps/v1"
@@ -42,6 +43,11 @@ func (s *deploymentSuite) TestApply(c *tc.C) {
 			Name:      "deployment1",
 			Namespace: "test",
 		},
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "removed"}}},
+			},
+		},
 	}
 	// Create.
 	deploymentResource := resources.NewDeployment(s.client.AppsV1().Deployments(deployment.Namespace), "test", "deployment1", deployment)
@@ -50,8 +56,9 @@ func (s *deploymentSuite) TestApply(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
-	// Update.
+	// Update removes the container and adds an annotation.
 	deployment.SetAnnotations(map[string]string{"a": "b"})
+	deployment.Spec.Template.Spec.Containers = nil
 	deploymentResource = resources.NewDeployment(s.client.AppsV1().Deployments(deployment.Namespace), "test", "deployment1", deployment)
 	c.Assert(deploymentResource.Apply(c.Context()), tc.ErrorIsNil)
 
@@ -60,6 +67,7 @@ func (s *deploymentSuite) TestApply(c *tc.C) {
 	c.Assert(result.GetName(), tc.Equals, `deployment1`)
 	c.Assert(result.GetNamespace(), tc.Equals, `test`)
 	c.Assert(result.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
+	c.Check(result.Spec.Template.Spec.Containers, tc.HasLen, 0)
 }
 
 func (s *deploymentSuite) TestGet(c *tc.C) {

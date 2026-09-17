@@ -466,13 +466,34 @@ func (u *updaterWorker) pollGroupMembers(ctx context.Context, groupType pollGrou
 		}
 	}
 
+	// Persist provider statuses before looking up networking, so a network
+	// failure cannot leave stale provisioning statuses on the polled instances.
+	providerStatuses := make([]status.Status, len(infoList))
+	canSyncNetwork := make([]bool, len(infoList))
+	for idx, info := range infoList {
+		entry := entryByInstanceID[allInstances[idx]]
+		if info == nil {
+			// Back off instances missing from a partial provider response.
+			u.config.Logger.Warningf(ctx, "unable to retrieve instance information for instance: %q", entry.instanceID)
+			if groupType == shortPollGroup {
+				entry.bumpShortPollInterval(u.config.Clock)
+			}
+			continue
+		}
+
+		providerStatuses[idx], canSyncNetwork[idx], err = u.processProviderInfo(ctx, entry, info)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	var netList []network.InterfaceInfos
 	if len(instanceWithDevices) > 0 {
 		var err error
 		netList, err = u.config.Environ.NetworkInterfaces(ctx, instanceWithDevices)
 		if err != nil && !isPartialOrNoInstancesError(err) {
-			// NOTE(achilleasa): 2022-01-24: all existing providers (with the
-			// exception of "manual" which we don't care about in this context)
+			// NOTE(achilleasa): 2022-01-24: all existing providers
+			// (except unmanaged, which we don't care about in this context)
 			// implement the NetworkInterfaces method.
 			//
 			// This error is meant as a hint to folks working on new providers
@@ -486,12 +507,21 @@ func (u *updaterWorker) pollGroupMembers(ctx context.Context, groupType pollGrou
 	}
 
 	for idx, info := range infoList {
+		if info == nil {
+			continue
+		}
 		var nics network.InterfaceInfos
 		if netList != nil && idx < len(instanceWithDevices) {
 			nics = netList[idx]
 		}
 
-		if err := u.processOneInstance(ctx, entryByInstanceID[allInstances[idx]], info, nics, groupType); err != nil {
+		if err := u.processOneInstance(
+			ctx, entryByInstanceID[allInstances[idx]],
+			providerStatuses[idx],
+			canSyncNetwork[idx],
+			nics,
+			groupType,
+		); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -501,26 +531,16 @@ func (u *updaterWorker) pollGroupMembers(ctx context.Context, groupType pollGrou
 
 func (u *updaterWorker) processOneInstance(
 	ctx context.Context,
-	entry *pollGroupEntry, info instances.Instance,
-	nics network.InterfaceInfos, groupType pollGroupType,
+	entry *pollGroupEntry,
+	providerStatus status.Status,
+	canSyncNetwork bool,
+	nics network.InterfaceInfos,
+	groupType pollGroupType,
 ) error {
-
-	// If we received ErrPartialInstances, and this ID is one of those not found,
-	// and we're in the short poll group, back off the poll interval.
-	// This will ensure that instances that have gone away do not cause excessive
-	// provider call volumes.
-	if info == nil {
-		u.config.Logger.Warningf(ctx, "unable to retrieve instance information for instance: %q", entry.instanceID)
-
-		if groupType == shortPollGroup {
-			entry.bumpShortPollInterval(u.config.Clock)
+	if canSyncNetwork && len(nics) > 0 {
+		if err := u.syncProviderAddresses(ctx, entry, nics); err != nil {
+			return errors.Trace(err)
 		}
-		return nil
-	}
-
-	providerStatus, err := u.processProviderInfo(ctx, entry, info, nics)
-	if err != nil {
-		return errors.Trace(err)
 	}
 
 	machineStatus, err := u.config.StatusService.GetMachineStatus(ctx, entry.machineName)
@@ -532,15 +552,12 @@ func (u *updaterWorker) processOneInstance(
 	return nil
 }
 
-// processProviderInfo updates an entry's machine status and set of provider
-// addresses based on the information collected from the provider. It returns
-// the *instance* status and the number of provider addresses currently
-// known for the machine.
+// processProviderInfo updates an entry's provider-reported instance status.
+// It also reports whether network reconciliation can proceed: machines with
+// unreadable statuses or dead/removed machines must not have networks updated.
 func (u *updaterWorker) processProviderInfo(
-	ctx context.Context,
-	entry *pollGroupEntry, info instances.Instance,
-	providerInterfaces network.InterfaceInfos,
-) (status.Status, error) {
+	ctx context.Context, entry *pollGroupEntry, info instances.Instance,
+) (status.Status, bool, error) {
 	curStatus, err := u.config.StatusService.GetInstanceStatus(ctx, entry.machineName)
 	if err != nil {
 		// This should never occur since the machine is provisioned. If
@@ -549,7 +566,7 @@ func (u *updaterWorker) processProviderInfo(
 		u.config.Logger.Warningf(ctx, "cannot get current instance status for machine %v (instance ID %q): %v",
 			entry.machineName, entry.instanceID, err)
 
-		return status.Unknown, nil
+		return status.Unknown, false, nil
 	}
 
 	// Check for status changes
@@ -568,7 +585,7 @@ func (u *updaterWorker) processProviderInfo(
 			Message: providerStatus.Message,
 		}); err != nil {
 			u.config.Logger.Errorf(ctx, "cannot set instance status on %q: %v", entry.machineName, err)
-			return status.Unknown, errors.Trace(err)
+			return status.Unknown, false, errors.Trace(err)
 		}
 
 		// If the instance is now running, we should reset the poll
@@ -583,21 +600,12 @@ func (u *updaterWorker) processProviderInfo(
 	// process the following machine watcher events.
 	life, err := u.config.MachineService.GetMachineLife(ctx, entry.machineName)
 	if life == corelife.Dead || errors.Is(err, machineerrors.MachineNotFound) {
-		return status.Unknown, nil
+		return status.Unknown, false, nil
 	} else if err != nil {
-		return status.Unknown, err
+		return status.Unknown, false, err
 	}
 
-	if len(providerInterfaces) > 0 {
-		// Check whether the provider addresses for this machine need to be
-		// updated.
-		err = u.syncProviderAddresses(ctx, entry, providerInterfaces)
-		if err != nil {
-			return status.Unknown, err
-		}
-	}
-
-	return providerStatus.Status, nil
+	return providerStatus.Status, true, nil
 }
 
 // syncProviderAddresses updates the provider addresses for this entry's machine
@@ -630,27 +638,29 @@ func (u *updaterWorker) maybeSwitchPollGroup(
 		return
 	}
 
-	// If the machine is currently in the long poll group and it has an
+	// If the machine is currently in the long poll group, and it has an
 	// unknown status or suddenly has no network addresses, move it back to
 	// the short poll group.
 	if curGroup == longPollGroup && (curProviderStatus == status.Unknown || providerNicCount == 0) {
 		u.moveEntryToPollGroup(shortPollGroup, entry)
-		u.config.Logger.Debugf(ctx, "moving machine %q (instance ID %q) back to short poll group", entry.machineName, entry.instanceID)
+		u.config.Logger.Debugf(
+			ctx, "moving machine %q (instance ID %q) back to short poll group", entry.machineName, entry.instanceID)
 		return
 	}
 
-	// The machine has started and we have at least one address; move to
+	// The machine has started, and we have at least one address; move to
 	// the long poll group
 	if providerNicCount > 0 && curMachineStatus == status.Started {
 		u.moveEntryToPollGroup(longPollGroup, entry)
 		if curGroup != longPollGroup {
-			u.config.Logger.Debugf(ctx, "moving machine %q (instance ID %q) to long poll group", entry.machineName, entry.instanceID)
+			u.config.Logger.Debugf(
+				ctx, "moving machine %q (instance ID %q) to long poll group", entry.machineName, entry.instanceID)
 		}
 		return
 	}
 
 	// If we are in the short poll group apply exponential backoff to the
-	// poll frequency allow time for the machine to boot up.
+	// poll frequency to allow time for the machine to boot up.
 	if curGroup == shortPollGroup {
 		entry.bumpShortPollInterval(u.config.Clock)
 	}

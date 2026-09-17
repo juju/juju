@@ -26,16 +26,13 @@ import (
 // State describes retrieval and persistence
 // methods for controller node concerns.
 type State interface {
-	// AddControllerNode ensures a controller node exists for the supplied ID.
-	AddControllerNode(ctx context.Context, controllerID string) error
+	// AddDqliteNodeID ensures a controller node exists for the supplied ID.
+	AddDqliteNodeID(ctx context.Context, controllerID string) error
 
 	// AddDqliteNode adds the Dqlite node ID and bind address for the input
 	// controller ID. If the controller ID already exists, it updates the
 	// Dqlite node ID and bind address.
 	AddDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error
-
-	// DeleteDqliteNodes removes controller nodes from the controller_node table.
-	DeleteDqliteNodes(ctx context.Context, delete []string) error
 
 	// SelectDatabaseNamespace returns the database namespace for the supplied
 	// namespace.
@@ -97,15 +94,15 @@ func NewService(st State, logger logger.Logger) *Service {
 	}
 }
 
-// AddControllerNode ensures a controller node exists for the supplied ID.
-func (s *Service) AddControllerNode(ctx context.Context, controllerID string) error {
+// AddDqliteNodeID ensures a controller node exists for the supplied ID.
+func (s *Service) AddDqliteNodeID(ctx context.Context, controllerID string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if controllerID == "" {
 		return errors.Errorf("controller ID is empty: %w", coreerrors.NotValid)
 	}
-	if err := s.st.AddControllerNode(ctx, controllerID); err != nil {
+	if err := s.st.AddDqliteNodeID(ctx, controllerID); err != nil {
 		return errors.Errorf("adding controller node %q: %w", controllerID, err)
 	}
 	return nil
@@ -120,18 +117,6 @@ func (s *Service) AddDqliteNode(ctx context.Context, controllerID string, nodeID
 
 	if err := s.st.AddDqliteNode(ctx, controllerID, nodeID, addr); err != nil {
 		return errors.Errorf("adding Dqlite node details for %q: %w", controllerID, err)
-	}
-	return nil
-}
-
-// DeleteDqliteNodes deletes the Dqlite node ID and bind address for the input
-// controller ID.
-func (s *Service) DeleteDqliteNodes(ctx context.Context, controllerIDs []string) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := s.st.DeleteDqliteNodes(ctx, controllerIDs); err != nil {
-		return errors.Errorf("deleting Dqlite node details for %q: %w", controllerIDs, err)
 	}
 	return nil
 }

@@ -50,7 +50,7 @@ func (s *baseSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *baseSuite) readOffers(c *tc.C) []nameAndUUID {
-	rows, err := s.DB().QueryContext(c.Context(), `SELECT * FROM offer`)
+	rows, err := s.DB().QueryContext(c.Context(), `SELECT uuid, name FROM offer`)
 	c.Assert(err, tc.IsNil)
 	defer func() { _ = rows.Close() }()
 	foundOffers := []nameAndUUID{}

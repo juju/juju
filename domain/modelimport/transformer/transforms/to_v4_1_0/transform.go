@@ -19,8 +19,12 @@ import (
 // Engineers implement this interface in deltas.go; the package will not
 // compile until every method has a receiver.
 type Deltas interface {
+	// ApplicationScale: struct shape changed in 4.1.0.
+	ApplicationScale(ctx context.Context, src []v4_0_12.ApplicationScale) ([]v4_1_0.ApplicationScale, error)
 	// Constraint: struct shape changed in 4.1.0.
 	Constraint(ctx context.Context, src []v4_0_12.Constraint) ([]v4_1_0.Constraint, error)
+	// Offer: struct shape changed in 4.1.0.
+	Offer(ctx context.Context, src []v4_0_12.Offer) ([]v4_1_0.Offer, error)
 	// Operation: struct shape changed in 4.1.0.
 	Operation(ctx context.Context, src []v4_0_12.Operation) ([]v4_1_0.Operation, error)
 	// RelationApplicationSetting: struct shape changed in 4.1.0.
@@ -191,11 +195,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.ApplicationResource = make([]v4_1_0.ApplicationResource, len(src.ApplicationResource))
 		for i := range src.ApplicationResource {
 			dst.ApplicationResource[i] = v4_1_0.ApplicationResource(src.ApplicationResource[i])
-		}
-
-		dst.ApplicationScale = make([]v4_1_0.ApplicationScale, len(src.ApplicationScale))
-		for i := range src.ApplicationScale {
-			dst.ApplicationScale[i] = v4_1_0.ApplicationScale(src.ApplicationScale[i])
 		}
 
 		dst.ApplicationSetting = make([]v4_1_0.ApplicationSetting, len(src.ApplicationSetting))
@@ -711,11 +710,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.ObjectStorePlacement = make([]v4_1_0.ObjectStorePlacement, len(src.ObjectStorePlacement))
 		for i := range src.ObjectStorePlacement {
 			dst.ObjectStorePlacement[i] = v4_1_0.ObjectStorePlacement(src.ObjectStorePlacement[i])
-		}
-
-		dst.Offer = make([]v4_1_0.Offer, len(src.Offer))
-		for i := range src.Offer {
-			dst.Offer[i] = v4_1_0.Offer(src.Offer[i])
 		}
 
 		dst.OfferConnection = make([]v4_1_0.OfferConnection, len(src.OfferConnection))
@@ -1248,8 +1242,16 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.WorkloadStatusValue[i] = v4_1_0.WorkloadStatusValue(src.WorkloadStatusValue[i])
 		}
 
+		if dst.ApplicationScale, err = d.ApplicationScale(ctx, src.ApplicationScale); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationScale delta: %w", err)
+		}
+
 		if dst.Constraint, err = d.Constraint(ctx, src.Constraint); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("Constraint delta: %w", err)
+		}
+
+		if dst.Offer, err = d.Offer(ctx, src.Offer); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("Offer delta: %w", err)
 		}
 
 		if dst.Operation, err = d.Operation(ctx, src.Operation); err != nil {

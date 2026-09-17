@@ -1295,7 +1295,7 @@ func (srv *Server) serveConn(
 		coretrace.Namespace("apiserver", modelUUID.String()),
 	)
 	if err != nil {
-		logger.Tracef(ctx, "failed to get tracer for model %q: %v", modelUUID, err)
+		logger.Errorf(ctx, "failed to get tracer for model %q, falling back to noop tracer: %v", modelUUID, err)
 		tracer = coretrace.NoopTracer{}
 	}
 

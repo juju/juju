@@ -22,11 +22,17 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// LeaderEnsurer describes leadership verification and lookup capabilities.
+type LeaderEnsurer interface {
+	leadership.Ensurer
+	LeaderGetter
+}
+
 // LeadershipService provides the API for working with the statuses of applications
 // and units, including the API handlers that require leadership checks.
 type LeadershipService struct {
 	*WatchableService
-	leaderEnsurer leadership.Ensurer
+	leaderEnsurer LeaderEnsurer
 }
 
 // NewLeadershipService returns a new leadership service reference wrapping the
@@ -34,7 +40,7 @@ type LeadershipService struct {
 func NewLeadershipService(
 	modelState ModelState,
 	controllerState ControllerState,
-	leaderEnsurer leadership.Ensurer,
+	leaderEnsurer LeaderEnsurer,
 	clusterDescriber database.ClusterDescriber,
 	watcherFactory WatcherFactory,
 	modelUUID model.UUID,
@@ -47,6 +53,7 @@ func NewLeadershipService(
 		WatchableService: NewWatchableService(
 			modelState,
 			controllerState,
+			leaderEnsurer,
 			watcherFactory,
 			clusterDescriber,
 			statusHistory,
@@ -163,7 +170,7 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 	}
 
 	if applicationStatus.Status == status.WorkloadStatusUnset {
-		applicationDisplayStatus, err = applicationDisplayStatusFromUnits(fullUnitStatuses)
+		applicationDisplayStatus, err = applicationDisplayStatusFromUnits(fullUnitStatuses, unitName)
 		if err != nil {
 			return corestatus.StatusInfo{}, nil, errors.Capture(err)
 		}
