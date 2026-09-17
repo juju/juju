@@ -195,9 +195,14 @@ test_destroy_model_with_detached_storage() {
 	juju import-filesystem kubernetes "${PV}" data
 	wait_for_storage "detached" '.storage["data/1"]["status"].current'
 
-	# 1. destroy-model without flags should fail with persistent
-	#    storage error.
-	check "has persistent storage" <<<"$(juju destroy-model "${model_name}" --no-prompt 2>&1 || true)"
+	# 1. destroy-model without flags should fail fast with a persistent
+	#    storage error naming the detached filesystem. The CLI learns
+	#    about the storage from the ModelStatus API, so the message
+	#    listing "1 filesystem" proves the server/client persistent
+	#    storage views agree (juju/juju#22963).
+	output=$(juju destroy-model "${model_name}" --no-prompt 2>&1 || true)
+	check "has persistent storage" <<<"${output}"
+	check_contains "${output}" "1 filesystem"
 
 	# 2. destroy-model with --destroy-storage should succeed and
 	#    remove the PV.

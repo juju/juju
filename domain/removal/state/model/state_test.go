@@ -1273,6 +1273,69 @@ func (s *baseSuite) addModelProvisionedVolume(c *tc.C) string {
 	return volUUID
 }
 
+// addMachineScopedFilesystem inserts a machine-scoped storage filesystem.
+// Machine-scoped storage dies with its machine and never blocks model
+// teardown.
+func (s *baseSuite) addMachineScopedFilesystem(c *tc.C) string {
+	ctx := c.Context()
+
+	fsUUID := "some-machine-fs-uuid"
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)",
+		fsUUID, "some-machine-fs", 0, 1,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem_status (filesystem_uuid, status_id) VALUES (?, ?)",
+		fsUUID, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return fsUUID
+}
+
+// addMachineScopedVolume inserts a machine-scoped storage volume.
+// Machine-scoped storage dies with its machine and never blocks model
+// teardown.
+func (s *baseSuite) addMachineScopedVolume(c *tc.C) string {
+	ctx := c.Context()
+
+	volUUID := "some-machine-vol-uuid"
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id, persistent) VALUES (?, ?, ?, ?, ?)",
+		volUUID, "some-machine-vol", 0, 1, false,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume_status (volume_uuid, status_id) VALUES (?, ?)",
+		volUUID, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return volUUID
+}
+
+// addDeadModelScopedVolume inserts a dead model-scoped storage volume.
+// Dead storage does not block model teardown: the persistent-storage
+// guard only counts non-dead storage (life_id < 2).
+func (s *baseSuite) addDeadModelScopedVolume(c *tc.C) string {
+	ctx := c.Context()
+
+	volUUID := "some-dead-vol-uuid"
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id, persistent) VALUES (?, ?, ?, ?, ?)",
+		volUUID, "some-dead-vol", int(life.Dead), 0, true,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume_status (volume_uuid, status_id) VALUES (?, ?)",
+		volUUID, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return volUUID
+}
+
 type stubCharm struct {
 	name        string
 	subordinate bool
@@ -1601,14 +1664,16 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 	return storageInstance
 }
 
-// addEphemeralVolume inserts a non-persistent storage volume.
+// addEphemeralVolume inserts a machine-scoped (non-persistent) storage
+// volume. Machine-scoped storage dies with its machine and never blocks
+// model teardown.
 func (s *baseSuite) addEphemeralVolume(c *tc.C) string {
 	ctx := c.Context()
 
 	volUUID := "some-ephemeral-vol-uuid"
 	_, err := s.DB().ExecContext(ctx,
 		"INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id, persistent) VALUES (?, ?, ?, ?, ?)",
-		volUUID, "some-ephemeral-vol", 0, 0, false,
+		volUUID, "some-ephemeral-vol", 0, 1, false,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.DB().ExecContext(ctx,

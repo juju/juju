@@ -277,6 +277,11 @@ type StatusService interface {
 	// - [modelerrors.NotFound]: When the model does not exist.
 	GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error)
 
+	// GetModelStorageStatuses returns the filesystems and volumes of the
+	// model with the minimal information required by the model status
+	// payload.
+	GetModelStorageStatuses(ctx context.Context) (status.ModelStorageStatus, error)
+
 	// GetModelStatus returns the current status of the model.
 	//
 	// The following error types can be expected to be returned:
