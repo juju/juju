@@ -6,7 +6,6 @@ package applicationoffers
 import (
 	"context"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
@@ -103,6 +102,7 @@ type ControllerService interface {
 // ControllerConfigService defines the interface for retrieving the
 // controller configuration.
 type ControllerConfigService interface {
-	// ControllerConfig returns the controller configuration.
-	ControllerConfig(ctx context.Context) (controller.Config, error)
+	// GetPublicDNSAddress returns the public DNS address of the
+	// controller, or an empty string if it is not configured.
+	GetPublicDNSAddress(ctx context.Context) (string, error)
 }

@@ -103,6 +103,19 @@ func (s *Service) ControllerConfig(ctx context.Context) (controller.Config, erro
 	return ctrlConfig, nil
 }
 
+// GetPublicDNSAddress returns the public DNS address of the controller,
+// or an empty string if it is not configured.
+func (s *Service) GetPublicDNSAddress(ctx context.Context) (string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	ctrlConfigMap, err := s.st.ControllerConfig(ctx)
+	if err != nil {
+		return "", errors.Errorf("unable to get controller config: %w", err)
+	}
+	return ctrlConfigMap[controller.PublicDNSAddress], nil
+}
+
 // UpdateControllerConfig updates the controller config.
 func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs controller.Config, removeAttrs []string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())

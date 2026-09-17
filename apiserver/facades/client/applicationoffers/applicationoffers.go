@@ -1059,14 +1059,12 @@ func (api *OffersAPI) getConsumeDetails(
 	// If the controller has a public DNS address configured, prepend it so
 	// that consumers learn a reachable address even when the raw API
 	// addresses are not routable from their network.
-	if api.controllerConfigService != nil {
-		controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
-		if err != nil {
-			return params.ConsumeOfferDetailsResults{}, errors.Errorf("getting controller config: %w", err)
-		}
-		if publicAddr := controllerConfig.PublicDNSAddress(); publicAddr != "" {
-			addrs = append([]string{publicAddr}, addrs...)
-		}
+	publicAddr, err := api.controllerConfigService.GetPublicDNSAddress(ctx)
+	if err != nil {
+		return params.ConsumeOfferDetailsResults{}, errors.Errorf("getting public DNS address: %w", err)
+	}
+	if publicAddr != "" {
+		addrs = append([]string{publicAddr}, addrs...)
 	}
 
 	externalControllerInfo := &params.ExternalControllerInfo{
