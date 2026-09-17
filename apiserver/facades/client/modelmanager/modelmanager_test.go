@@ -322,7 +322,7 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 }
 
 func (s *modelManagerSuite) TestCreateModelQualifierMismatch(c *tc.C) {
-	charlie := names.NewUserTag("add-model-charlie")
+	charlie := names.NewUserTag("add-model-cloud-dummy")
 	defer s.setUpAPIWithUser(c, charlie).Finish()
 
 	s.modelService.EXPECT().DefaultModelCloudInfo(
@@ -1019,6 +1019,73 @@ func (s *modelManagerSuite) TestModelInfoDBDeadTranslated(c *tc.C) {
 	c.Assert(results.Results[0].Result, tc.IsNil)
 	c.Assert(results.Results[0].Error, tc.NotNil)
 	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+// TestModelInfoNonAdminNoLocalPermission asserts that ModelInfo succeeds
+// for a non-admin caller with no local model permission row, reporting the
+// access level resolved from the authorizer. This is the JWT-authenticated
+// external user (JIMM) case, whose grants live outside the controller's
+// local tables.
+func (s *modelManagerSuite) TestModelInfoNonAdminNoLocalPermission(c *tc.C) {
+	modelUUID, modelTag := generateModelUUIDAndTag(c)
+
+	// The caller's only grant is authorizer-derived: the fake authorizer
+	// grants read access on this model based on the username.
+	userTag := names.NewUserTag("read-" + modelTag.String())
+	ctrl := s.setUpAPIWithUser(c, userTag)
+	defer ctrl.Finish()
+
+	modelDomainServices := NewMockModelDomainServices(ctrl)
+	modelInfoService := NewMockModelInfoService(ctrl)
+	modelAgentService := NewMockModelAgentService(ctrl)
+	statusService := NewMockStatusService(ctrl)
+
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(
+		gomock.Any(), modelUUID,
+	).Return(modelDomainServices, nil).Times(1)
+	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
+		ControllerUUID: s.controllerUUID,
+		Cloud:          "dummy",
+		CloudType:      "dummy",
+	}, nil)
+	s.modelService.EXPECT().Model(gomock.Any(), modelUUID).Return(coremodel.Model{
+		Name:      "test-model",
+		UUID:      modelUUID,
+		Qualifier: coremodel.Qualifier("admin"),
+		ModelType: coremodel.IAAS,
+		Cloud:     "dummy",
+		CloudType: "dummy",
+	}, nil)
+	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
+	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		jujuversion.Current, nil,
+	)
+	modelDomainServices.EXPECT().Status().Return(statusService).Times(1)
+	now := time.Now()
+	statusService.EXPECT().GetModelStatus(gomock.Any()).Return(corestatus.StatusInfo{
+		Status: corestatus.Available,
+		Since:  &now,
+	}, nil)
+	// The caller has no local permission row: GetModelUser returns a
+	// sparse row with an empty access level.
+	s.modelService.EXPECT().GetModelUser(gomock.Any(), modelUUID, coreuser.NameFromTag(userTag)).Return(coremodel.ModelUserInfo{
+		Name:        coreuser.NameFromTag(userTag),
+		DisplayName: userTag.Id(),
+		Access:      permission.NoAccess,
+	}, nil)
+
+	results, err := s.api.ModelInfo(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: modelTag.String()}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[0].Result, tc.NotNil)
+	// The reported access is the gate-derived level, not the empty local
+	// one.
+	c.Assert(results.Results[0].Result.Users, tc.HasLen, 1)
+	c.Check(results.Results[0].Result.Users[0].Access, tc.Equals, params.ModelReadAccess)
 }
 
 func (s *modelManagerSuite) TestDestroyModelsBlockCheckerDBNotFoundTranslated(c *tc.C) {

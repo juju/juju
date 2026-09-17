@@ -415,10 +415,6 @@ func (api *UserManagerAPI) infoForUser(ctx context.Context, tag names.UserTag, u
 	return result
 }
 
-func (api *UserManagerAPI) checkCanRead(ctx context.Context, modelTag names.Tag) error {
-	return api.authorizer.HasPermission(ctx, permission.ReadAccess, modelTag)
-}
-
 // ModelUserInfo returns information on all users in the model.
 func (api *UserManagerAPI) ModelUserInfo(ctx context.Context, args params.Entities) (params.ModelUserInfoResults, error) {
 	var result params.ModelUserInfoResults
@@ -438,18 +434,34 @@ func (api *UserManagerAPI) ModelUserInfo(ctx context.Context, args params.Entiti
 
 func (api *UserManagerAPI) modelUserInfo(ctx context.Context, modelTag names.ModelTag) ([]params.ModelUserInfoResult, error) {
 	var results []params.ModelUserInfoResult
-	if err := api.checkCanRead(ctx, modelTag); err != nil {
-		return results, err
+
+	// Resolve the caller's access level from the authorizer, probing from
+	// the highest level down. This both gates the call (no access at all
+	// is an error) and reports the caller's access in the response when
+	// their grants live outside the controller's local tables (for
+	// example a JWT-authenticated external user).
+	access := permission.NoAccess
+	for _, level := range []permission.Access{
+		permission.AdminAccess,
+		permission.WriteAccess,
+		permission.ReadAccess,
+	} {
+		if err := api.authorizer.HasPermission(ctx, level, modelTag); err == nil {
+			access = level
+			break
+		}
+	}
+	if access == permission.NoAccess {
+		return results, apiservererrors.ErrPerm
 	}
 
-	// If the user is a controller superuser, they are considered a model
-	// admin.
 	modelUserInfo, err := commonmodel.ModelUserInfo(
 		ctx,
 		api.modelService,
 		modelTag,
 		api.apiUser.Name,
-		api.isModelAdmin(ctx, modelTag),
+		api.isAdmin || access == permission.AdminAccess,
+		access,
 	)
 	if err != nil {
 		return results, errors.Trace(err)
@@ -570,13 +582,4 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 		)
 	}
 	return result, nil
-}
-
-// isModelAdmin checks if the user is a controller superuser or admin on the
-// model.
-func (api *UserManagerAPI) isModelAdmin(ctx context.Context, modelTag names.ModelTag) bool {
-	if api.isAdmin {
-		return true
-	}
-	return api.authorizer.HasPermission(ctx, permission.AdminAccess, modelTag) == nil
 }
