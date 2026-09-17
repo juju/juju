@@ -285,19 +285,16 @@ func (op *RemoveOfferOperation) Build(attempt int) (ops []txn.Op, err error) {
 // Done is part of the ModelOperation interface.
 func (op *RemoveOfferOperation) Done(err error) error {
 	if err != nil {
-		if !op.Force {
-			if errors.Cause(err) == jujutxn.ErrExcessiveContention {
-				relCount, err := op.countOfferRelations(op.offer)
-				if err != nil {
-					return errors.Annotatef(err, "cannot delete application offer %q", op.offerName)
-				}
-				if relCount > 0 {
-					return errors.Errorf("cannot delete application offer %q since its underlying application still has %d relations", op.offerName, relCount)
-				}
+		if !op.Force && errors.Cause(err) == jujutxn.ErrExcessiveContention {
+			relCount, err := op.countOfferRelations(op.offer)
+			if err != nil {
+				return errors.Annotatef(err, "cannot delete application offer %q", op.offerName)
 			}
-			return errors.Annotatef(err, "cannot delete application offer %q", op.offerName)
+			if relCount > 0 {
+				return errors.Errorf("cannot delete application offer %q since its underlying application still has %d relations", op.offerName, relCount)
+			}
 		}
-		op.AddError(errors.Errorf("forced offer %v removal but proceeded despite encountering ERROR %v", op.offerName, err))
+		return errors.Annotatef(err, "cannot delete application offer %q", op.offerName)
 	}
 	for _, remoteProxyOp := range op.associatedAppProxies {
 		// Final cleanup of consuming app proxy is best effort.
