@@ -251,10 +251,7 @@ func (op *DestroyRelationOperation) Build(attempt int) ([]txn.Op, error) {
 // Done is part of the ModelOperation interface.
 func (op *DestroyRelationOperation) Done(err error) error {
 	if err != nil {
-		if !op.Force {
-			return errors.Annotatef(err, "cannot destroy relation %q", op.r)
-		}
-		op.AddError(errors.Errorf("forcefully destroying relation %v proceeded despite encountering ERROR %v", op.r, err))
+		return errors.Annotatef(err, "cannot destroy relation %q", op.r)
 	}
 	return nil
 }

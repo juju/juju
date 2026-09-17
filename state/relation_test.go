@@ -12,6 +12,7 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
+	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
@@ -1296,7 +1297,7 @@ func (s *RelationSuite) assertForceDestroyConcurrentDyingEndpointWithoutScopes(c
 
 	opErrs, err := rel.DestroyWithForce(true, 0)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(opErrs, gc.HasLen, 0)
+	c.Check(opErrs, gc.HasLen, 0)
 	c.Check(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
 	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
 	c.Check(refresh(), jc.Satisfies, errors.IsNotFound)
@@ -1305,20 +1306,96 @@ func (s *RelationSuite) assertForceDestroyConcurrentDyingEndpointWithoutScopes(c
 }
 
 func (s *RelationSuite) TestDestroyForceWithoutScopesPreservesZeroRemoteRelationCount(c *gc.C) {
-	_, remote, rel := s.makeDyingRelationWithoutScopes(c, false, state.Dying)
-	coll, closer := state.GetCollection(s.State, "remoteApplications")
+	s.assertForceDestroyWithZeroEndpointRelationCount(c, false)
+}
+
+func (s *RelationSuite) TestDestroyRemoteApplicationForcePreservesZeroLocalRelationCount(c *gc.C) {
+	s.assertForceDestroyWithZeroEndpointRelationCount(c, true)
+}
+
+func (s *RelationSuite) assertForceDestroyWithZeroEndpointRelationCount(c *gc.C, destroyRemote bool) {
+	app, remote, rel := s.makeDyingRelationWithoutScopes(c, false, state.Dying)
+	collection, name := "remoteApplications", remote.Name()
+	destroy, relationCount := rel.DestroyWithForce, remote.RelationCount
+	if destroyRemote {
+		collection, name = "applications", app.Name()
+		destroy, relationCount = remote.DestroyWithForce, app.RelationCount
+	}
+	coll, closer := state.GetCollection(s.State, collection)
 	defer closer()
-	err := coll.Writeable().UpdateId(state.DocID(s.State, remote.Name()), bson.M{
+	err := coll.Writeable().UpdateId(state.DocID(s.State, name), bson.M{
 		"$set": bson.M{"relationcount": 0},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	opErrs, err := rel.DestroyWithForce(true, 0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(opErrs, gc.HasLen, 1)
+	opErrs, err := destroy(true, 0)
+	c.Assert(err, jc.ErrorIs, jujutxn.ErrExcessiveContention)
+	c.Check(err, gc.ErrorMatches, `cannot destroy .*: state changing too quickly; try again soon`)
+	c.Check(opErrs, gc.HasLen, 0)
 	c.Check(rel.Refresh(), jc.ErrorIsNil)
 	c.Assert(remote.Refresh(), jc.ErrorIsNil)
-	c.Check(remote.RelationCount(), gc.Equals, 0)
+	c.Assert(app.Refresh(), jc.ErrorIsNil)
+	c.Check(relationCount(), gc.Equals, 0)
+}
+
+func (s *RelationSuite) TestForceCleanupModelContinuesAfterSaasFailure(c *gc.C) {
+	s.assertCleanupModelAfterSaasFailure(c, true)
+}
+
+func (s *RelationSuite) TestCleanupModelStopsAfterSaasFailure(c *gc.C) {
+	s.assertCleanupModelAfterSaasFailure(c, false)
+}
+
+func (s *RelationSuite) assertCleanupModelAfterSaasFailure(c *gc.C, force bool) {
+	app, remote, rel := s.makeDyingRelationWithoutScopes(c, false, state.Alive)
+	// A terminated SaaS also attempts removal when the model is not forced.
+	c.Assert(remote.SetStatus(status.StatusInfo{Status: status.Terminated}), jc.ErrorIsNil)
+	otherRemote, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-wordpress-other",
+		SourceModel: remote.SourceModel(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	healthy := s.AddTestingApplication(c, "healthy", s.AddTestingCharm(c, "wordpress"))
+
+	coll, closer := state.GetCollection(s.State, "applications")
+	defer closer()
+	setRelationCount := func(count int) {
+		err := coll.Writeable().UpdateId(state.DocID(s.State, app.Name()), bson.M{
+			"$set": bson.M{"relationcount": count},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	setRelationCount(0)
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Destroy(state.DestroyModelParams{Force: &force}), jc.ErrorIsNil)
+
+	localCleanupQueries := s.State.TrackQueries("removeApplicationsForDyingModel")
+	for i := 0; i < 2; i++ {
+		localCleanupQueries.Reset()
+		c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+		if force {
+			c.Check(otherRemote.Refresh(), jc.Satisfies, errors.IsNotFound)
+			// A local application can also fail, so check that its cleanup
+			// phase was attempted without assuming application query order.
+			c.Check(localCleanupQueries.ReadCount(), gc.Not(gc.Equals), 0)
+		} else {
+			c.Check(localCleanupQueries.ReadCount(), gc.Equals, 0)
+			assertLife(c, healthy, state.Alive)
+		}
+		assertLife(c, remote, state.Alive)
+		c.Check(rel.Refresh(), jc.ErrorIsNil)
+		state.AssertCleanupsWithKind(c, s.State, "applications")
+	}
+
+	setRelationCount(1)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	c.Check(remote.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Check(otherRemote.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Check(app.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Check(healthy.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Check(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
+	state.AssertNoCleanupsWithKind(c, s.State, "applications")
 }
 
 func (s *RelationSuite) assertForceDestroyDyingApplicationsWithoutScopes(c *gc.C, target string, consumerProxy bool) {
@@ -1338,7 +1415,7 @@ func (s *RelationSuite) assertForceDestroyDyingApplicationsWithoutScopes(c *gc.C
 		opErrs, err = remote.DestroyWithForce(true, 0)
 	}
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(opErrs, gc.HasLen, 0)
+	c.Check(opErrs, gc.HasLen, 0)
 	c.Check(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
 	c.Check(remote.Refresh(), jc.Satisfies, errors.IsNotFound)
 	_, err = state.ControllerRefCount(s.State, "controller-uuid")

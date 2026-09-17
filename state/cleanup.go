@@ -677,10 +677,15 @@ func (st *State) cleanupApplicationsForDyingModel(cleanupArgs []bson.Raw, secret
 	if err := st.removeOffersForDyingModel(); err != nil {
 		return err
 	}
-	if err := st.removeRemoteApplicationsForDyingModel(args); err != nil {
+	force := args.Force != nil && *args.Force
+	err = st.removeRemoteApplicationsForDyingModel(args)
+	if err != nil && !force {
 		return err
 	}
-	return st.removeApplicationsForDyingModel(args, secretContentDeleter)
+	if appErr := st.removeApplicationsForDyingModel(args, secretContentDeleter); appErr != nil {
+		return appErr
+	}
+	return err
 }
 
 func (st *State) removeApplicationsForDyingModel(args DestroyModelParams, secretContentDeleter SecretContentDeleter) (err error) {
@@ -738,15 +743,20 @@ func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) 
 
 	force := args.Force != nil && *args.Force
 	for iter.Next(&remoteApp.doc) {
-		errs, err := remoteApp.DestroyWithForce(force, args.MaxWait)
+		errs, destroyErr := remoteApp.DestroyWithForce(force, args.MaxWait)
 		if len(errs) != 0 {
 			logger.Warningf("operational errors removing remote application %v for dying model %v: %v", remoteApp.Name(), st.ModelUUID(), errs)
 		}
-		if err != nil {
-			return errors.Trace(err)
+		if destroyErr != nil {
+			if !force {
+				return errors.Trace(destroyErr)
+			}
+			logger.Warningf("error removing remote application %v for dying model %v: %v",
+				remoteApp.Name(), st.ModelUUID(), destroyErr)
+			err = destroyErr
 		}
 	}
-	return nil
+	return errors.Trace(err)
 }
 
 func (st *State) removeOffersForDyingModel() (err error) {
