@@ -439,7 +439,7 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 		for _, rel := range rels {
 			// If the remote app has been terminated, we may have been offline
 			// and not noticed so need to clean up any exiting relation units.
-			destroyRelUnitOps, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, op.app, rel, true)
+			destroyRelUnitOps, _, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, op.app, rel, true)
 			if err != nil && err != jujutxn.ErrNoOperations {
 				return nil, errors.Trace(err)
 			}
@@ -634,7 +634,7 @@ func (op *terminateRemoteApplicationOperation) Build(attempt int) ([]txn.Op, err
 	// relations on the consuming side.
 	// Destroying each relation also forces remote units to leave scope.
 	for _, rel := range rels {
-		relOps, err := destroyCrossModelRelationUnitsOps(&ForcedOperation{Force: true}, op.app, rel, false)
+		relOps, _, err := destroyCrossModelRelationUnitsOps(&ForcedOperation{Force: true}, op.app, rel, false)
 		if err != nil && err != jujutxn.ErrNoOperations {
 			return nil, errors.Annotatef(err, "removing relation %q", rel)
 		}

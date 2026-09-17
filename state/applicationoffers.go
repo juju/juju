@@ -414,7 +414,7 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 			}
 
 			// Force any remote units to leave scope so the offer can be cleaned up.
-			destroyRelUnitOps, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, remoteApp, rel, false)
+			destroyRelUnitOps, _, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, remoteApp, rel, false)
 			if err != nil && err != jujutxn.ErrNoOperations {
 				return nil, errors.Trace(err)
 			}
