@@ -10,21 +10,45 @@ import sys
 
 # This lists the collections and fields in those collections that need to be sanitized
 to_sanitize = [
-    ('users', ['passwordhash', 'passwordsalt']),
+    ('users', ['secretkey', 'passwordhash', 'passwordsalt']),
     ('units', ['passwordhash']),
     ('machines', ['passwordhash']),
+    ('applications', ['metric-credentials', 'passwordhash']),
+    ('models', ['passwordhash', 'sla']),
+    ('controllerNodes', ['password-hash']),
     ('settings', ['settings']),
-    ('controllers', ['settings', 'cert', 'privatekey', 'caprivatekey', 'sharedsecret', 'systemidentity']),
+    ('controllers', [
+        'settings', 'cert', 'privatekey', 'caprivatekey', 'sharedsecret',
+        'systemidentity', 'key', 'local-users-key', 'local-users-thirdparty-key',
+        'external-users-thirdparty-key', 'offers-thirdparty-key',
+    ]),
     ('actions', ['parameters', 'message', 'results']),
     ('cloudCredentials', ['attributes']),
-    ('statuses', ['statusinfo']),
+    ('dockerResources', ['password']),
+    ('sshrequests', ['password']),
+    ('virtualhostkeys', ['hostkey']),
+    ('autocertCache', ['data']),
+    ('bakeryStorageItems', ['rootkey', 'item']),
+    ('remoteEntities', ['token', 'macaroon']),
+    ('remoteApplications', ['macaroon']),
+    ('migrations', ['target-password', 'target-macaroons', 'target-token']),
+    ('secretRevisions', ['data']),
+    ('secretBackends', ['config']),
+]
+low_sensitivity_data_to_sanitize = [
+    ('actions', ['messages']),
+    ('statuses', ['statusinfo', 'statusdata']),
+    ('statuseshistory', ['statusinfo', 'statusdata']),
 ]
 
-def generateScript():
+def generateScript(sanitize_low_sensitivity_data=True):
     # Create an index on the transactions so that the updates go faster
     yield 'print(new Date().toLocaleString())'
     yield 'db.txns.createIndex({"o.c": 1})'
-    for collection, attributes in to_sanitize:
+    collections = to_sanitize
+    if sanitize_low_sensitivity_data:
+        collections = to_sanitize + low_sensitivity_data_to_sanitize
+    for collection, attributes in collections:
         # First we generate the sanitization of the collection itself
         # (we don't use .format() because {} is used all the time in Javascript
         yield 'print(new Date().toLocaleString())'
@@ -50,6 +74,13 @@ def generateScript():
             yield 'print(db.txns.update({"o.c": "%s", "o.u.$set.%s": {"$exists": 1}}, {"$unset": {' % (collection, attribute)
             yield '    "o.$.u.$set.%s": "1"}' % (attribute,)
             yield '}, {"multi": 1}))'
+            if collection == 'actions' and attribute == 'messages':
+                # Action logs are appended with $push instead of updated with $set.
+                yield 'print(new Date().toLocaleString())'
+                yield 'print("updating push txns for %s %s")' % (collection, attribute)
+                yield 'print(db.txns.update({"o.c": "%s", "o.u.$push.%s": {"$exists": 1}}, {"$unset": {' % (collection, attribute)
+                yield '    "o.$.u.$push.%s": "1"}' % (attribute,)
+                yield '}, {"multi": 1}))'
         yield ''
     yield 'db.txns.dropIndex({"o.c": 1})'
     yield 'print(new Date().toLocaleString())'
@@ -64,11 +95,16 @@ updated or created them. Fields that are sensitive are either converted to
 REDACTED or removed. (we are unable to REDACT some of the update transactions,
 because of limitations with $ characters.)
 """, epilog="""
-Example: ./sanitize-db.py | mongo CONNECT_ARGS
+Example: ./sanitise-db.py | mongo CONNECT_ARGS
 """)
+    p.add_argument(
+        "--keep-low-sensitivity-data",
+        action="store_true",
+        help="do not redact action logs or status data",
+    )
     opts = p.parse_args(args)
 
-    for line in generateScript():
+    for line in generateScript(not opts.keep_low_sensitivity_data):
         print(line)
 
 
