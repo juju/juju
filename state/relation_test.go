@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -1257,6 +1258,145 @@ func (s *RelationSuite) TestDestroyForceIsFineIfUnitsAlreadyLeft(c *gc.C) {
 	// If the cleanup had failed because the relation had gone, it
 	// would be left in the collection.
 	s.assertNoCleanups(c)
+}
+
+func (s *RelationSuite) TestDestroyForceDyingApplicationsWithoutScopes(c *gc.C) {
+	s.assertForceDestroyDyingApplicationsWithoutScopes(c, "relation", false)
+}
+
+func (s *RelationSuite) TestDestroyApplicationForceDyingApplicationsWithoutScopes(c *gc.C) {
+	s.assertForceDestroyDyingApplicationsWithoutScopes(c, "application", false)
+}
+
+func (s *RelationSuite) TestDestroyRemoteApplicationForceDyingApplicationsWithoutScopes(c *gc.C) {
+	s.assertForceDestroyDyingApplicationsWithoutScopes(c, "remote-application", false)
+}
+
+func (s *RelationSuite) TestDestroyForceDyingConsumerProxyWithoutScopes(c *gc.C) {
+	s.assertForceDestroyDyingApplicationsWithoutScopes(c, "relation", true)
+}
+
+func (s *RelationSuite) TestDestroyForceConcurrentDyingApplicationWithoutScopes(c *gc.C) {
+	s.assertForceDestroyConcurrentDyingEndpointWithoutScopes(c, "application")
+}
+
+func (s *RelationSuite) TestDestroyForceConcurrentDyingRemoteApplicationWithoutScopes(c *gc.C) {
+	s.assertForceDestroyConcurrentDyingEndpointWithoutScopes(c, "remote-application")
+}
+
+func (s *RelationSuite) assertForceDestroyConcurrentDyingEndpointWithoutScopes(c *gc.C, target string) {
+	app, remote, rel := s.makeDyingRelationWithoutScopes(c, false, state.Alive)
+	destroy, refresh := app.Destroy, app.Refresh
+	if target == "remote-application" {
+		destroy, refresh = remote.Destroy, remote.Refresh
+	}
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(destroy(), jc.ErrorIsNil)
+	}).Check()
+
+	opErrs, err := rel.DestroyWithForce(true, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.HasLen, 0)
+	c.Check(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	c.Check(refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	s.assertNoCleanups(c)
+}
+
+func (s *RelationSuite) TestDestroyForceWithoutScopesPreservesZeroRemoteRelationCount(c *gc.C) {
+	_, remote, rel := s.makeDyingRelationWithoutScopes(c, false, state.Dying)
+	coll, closer := state.GetCollection(s.State, "remoteApplications")
+	defer closer()
+	err := coll.Writeable().UpdateId(state.DocID(s.State, remote.Name()), bson.M{
+		"$set": bson.M{"relationcount": 0},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	opErrs, err := rel.DestroyWithForce(true, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(opErrs, gc.HasLen, 1)
+	c.Check(rel.Refresh(), jc.ErrorIsNil)
+	c.Assert(remote.Refresh(), jc.ErrorIsNil)
+	c.Check(remote.RelationCount(), gc.Equals, 0)
+}
+
+func (s *RelationSuite) assertForceDestroyDyingApplicationsWithoutScopes(c *gc.C, target string, consumerProxy bool) {
+	app, remote, rel := s.makeDyingRelationWithoutScopes(c, consumerProxy, state.Dying)
+	var err error
+
+	var opErrs []error
+	switch target {
+	case "relation":
+		opErrs, err = rel.DestroyWithForce(true, 0)
+	case "application":
+		op := app.DestroyOperation()
+		op.Force = true
+		err = s.State.ApplyOperation(op)
+		opErrs = op.Errors
+	case "remote-application":
+		opErrs, err = remote.DestroyWithForce(true, 0)
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.HasLen, 0)
+	c.Check(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Check(remote.Refresh(), jc.Satisfies, errors.IsNotFound)
+	_, err = state.ControllerRefCount(s.State, "controller-uuid")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+
+	// Removing the last relation must also finish application teardown.
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	c.Check(app.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	s.assertNoCleanups(c)
+}
+
+func (s *RelationSuite) makeDyingRelationWithoutScopes(c *gc.C, consumerProxy bool, endpointLife state.Life) (*state.Application, *state.RemoteApplication, *state.Relation) {
+	remote, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:                   "remote-wordpress",
+		SourceModel:            names.NewModelTag("source-model"),
+		ExternalControllerUUID: "controller-uuid",
+		IsConsumerProxy:        consumerProxy,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	app := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints(app.Name(), remote.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Reproduce interrupted teardown with no units or scopes remaining.
+	for collection, id := range map[string]string{
+		"applications":       app.Name(),
+		"remoteApplications": remote.Name(),
+		"relations":          rel.String(),
+	} {
+		life := endpointLife
+		if collection == "relations" {
+			life = state.Dying
+		}
+		coll, closer := state.GetCollection(s.State, collection)
+		err := coll.Writeable().UpdateId(state.DocID(s.State, id), bson.M{
+			"$set": bson.M{"life": life},
+		})
+		closer()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	c.Assert(app.Refresh(), jc.ErrorIsNil)
+	c.Assert(remote.Refresh(), jc.ErrorIsNil)
+	c.Assert(rel.Refresh(), jc.ErrorIsNil)
+	c.Check(app.UnitCount(), gc.Equals, 0)
+	c.Check(app.RelationCount(), gc.Equals, 1)
+	c.Check(remote.RelationCount(), gc.Equals, 1)
+	c.Check(rel.UnitCount(), gc.Equals, 0)
+
+	return app, remote, rel
 }
 
 func (s *RelationSuite) assertRelationCleanedUp(c *gc.C, rel *state.Relation, relUnits []*state.RelationUnit) {
