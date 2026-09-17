@@ -435,21 +435,13 @@ func (api *UserManagerAPI) ModelUserInfo(ctx context.Context, args params.Entiti
 func (api *UserManagerAPI) modelUserInfo(ctx context.Context, modelTag names.ModelTag) ([]params.ModelUserInfoResult, error) {
 	var results []params.ModelUserInfoResult
 
-	// Resolve the caller's access level from the authorizer, probing from
-	// the highest level down. This both gates the call (no access at all
-	// is an error) and reports the caller's access in the response when
-	// their grants live outside the controller's local tables (for
-	// example a JWT-authenticated external user).
-	access := permission.NoAccess
-	for _, level := range []permission.Access{
+	access, err := common.HighestAccess(ctx, api.authorizer, modelTag, []permission.Access{
 		permission.AdminAccess,
 		permission.WriteAccess,
 		permission.ReadAccess,
-	} {
-		if err := api.authorizer.HasPermission(ctx, level, modelTag); err == nil {
-			access = level
-			break
-		}
+	})
+	if err != nil {
+		return results, errors.Trace(err)
 	}
 	if access == permission.NoAccess {
 		return results, apiservererrors.ErrPerm
