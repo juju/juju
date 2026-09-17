@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -1690,6 +1691,34 @@ func (s *CleanupSuite) TestForceDestroyRelationIncorrectUnitCount(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	s.assertCleanupCount(c, 0)
+}
+
+func (s *CleanupSuite) TestForceDestroyRelationRetainsCleanupOnTransactionFailure(c *gc.C) {
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	prr.allEnterScope(c)
+	opErrs, err := prr.rel.DestroyWithForce(true, dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(opErrs, gc.HasLen, 0)
+	state.RemoveUnitRelations(c, prr.rel)
+
+	coll, closer := state.GetCollection(s.State, "applications")
+	defer closer()
+	err = coll.Writeable().UpdateId(state.DocID(s.State, prr.papp.Name()), bson.M{
+		"$set": bson.M{"relationcount": 0},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCleanupRuns(c)
+	s.assertNeedsCleanup(c)
+	c.Check(prr.rel.Refresh(), jc.ErrorIsNil)
+
+	err = coll.Writeable().UpdateId(state.DocID(s.State, prr.papp.Name()), bson.M{
+		"$set": bson.M{"relationcount": 1},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCleanupRuns(c)
+	c.Check(prr.rel.Refresh(), jc.Satisfies, errors.IsNotFound)
+	s.assertCleanupRuns(c)
+	s.assertDoesNotNeedCleanup(c)
 }
 
 func (s *CleanupSuite) assertCleanupRuns(c *gc.C) {
