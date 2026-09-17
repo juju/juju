@@ -428,6 +428,7 @@ type ControllerApplication struct {
 	upgradeSteps    UpgradeStepsFunc
 
 	bootstrapLock         gate.Lock
+	proxyReadyLock        gate.Lock
 	controllerUpgradeLock gate.Lock
 	upgradeDBLock         gate.Waiter
 	upgradeStepsLock      gate.Lock
@@ -556,6 +557,7 @@ func (a *ControllerApplication) Run(ctx *cmd.Context) (err error) {
 
 func (a *ControllerApplication) initStandaloneControllerLocks() {
 	a.bootstrapLock = gate.NewLock()
+	a.proxyReadyLock = gate.NewLock()
 	a.controllerAgentConfigReadyLock = gate.NewLock()
 	// Controller upgrade and migration flows are still out of scope for the
 	// standalone controller, so the corresponding workers are disabled
@@ -648,6 +650,7 @@ func (a *ControllerApplication) makeEngineCreator(
 			AgentPassword:                     controllerRuntimeConfig.AgentPassword,
 			RootDir:                           a.rootDir,
 			BootstrapLock:                     a.bootstrapLock,
+			ProxyReadyLock:                    a.proxyReadyLock,
 			ControllerUpgradeLock:             a.controllerUpgradeLock,
 			ControllerAgentConfigReadyLock:    a.controllerAgentConfigReadyLock,
 			UpgradeDBLock:                     a.upgradeDBLock,

@@ -9,13 +9,16 @@ import (
 	"sort"
 	stdtesting "testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/juju/worker/v5/workertest"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent/agenttest"
 	agentcontroller "github.com/juju/juju/cmd/jujud/agent/controller"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades"
@@ -78,10 +81,10 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		"change-stream-pruner",
 		"control-socket",
 		"controller-agent-config",
-		"log-router",
-		"log-sink",
-		"loki-config-updater",
 		"controller-presence",
+		"controller-proxy-config-updater",
+		"controller-proxy-ready-flag",
+		"controller-proxy-ready-gate",
 		"controller-trace",
 		"controller-upgrade-flag",
 		"controller-upgrade-gate",
@@ -99,7 +102,10 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		"jwt-parser",
 		"lease-expiry",
 		"lease-manager",
+		"log-router",
+		"log-sink",
 		"logging-controller-config-updater",
+		"loki-config-updater",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
@@ -166,10 +172,13 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"controller-upgrade-gate",
 		"control-socket",
 		"controller-agent-config",
+		"controller-presence",
+		"controller-proxy-config-updater",
+		"controller-proxy-ready-flag",
+		"controller-proxy-ready-gate",
 		"log-router",
 		"log-sink",
 		"loki-config-updater",
-		"controller-presence",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -479,10 +488,60 @@ func (*ManifoldsSuite) TestObjectStoreDrainerDirectInputs(c *tc.C) {
 			"object-store",
 			"object-store-services",
 			"object-store-s3-caller",
+			"is-primary-controller-flag",
 		})
 		checkNotContains(c, manifold.Inputs, "agent")
 		checkNotContains(c, manifold.Inputs, "clock")
 	}
+}
+
+func (*ManifoldsSuite) TestControllerProxyConfigUpdaterRegisteredAndOrdered(c *tc.C) {
+	for _, manifolds := range []dependency.Manifolds{
+		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+			ControllerTag:   testing.ControllerTag,
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+	} {
+		updater, ok := manifolds["controller-proxy-config-updater"]
+		c.Assert(ok, tc.IsTrue)
+		checkContains(c, updater.Inputs, "domain-services")
+		checkContains(c, updater.Inputs, "controller-proxy-ready-gate")
+		checkContains(c, updater.Inputs, "upgrade-database-flag")
+
+		proxyReadyGate, ok := manifolds["controller-proxy-ready-gate"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(proxyReadyGate.Start, tc.NotNil)
+
+		bootstrapManifold, ok := manifolds["bootstrap"]
+		c.Assert(ok, tc.IsTrue)
+		checkContains(c, bootstrapManifold.Inputs, "controller-proxy-ready-flag")
+	}
+}
+
+func (*ManifoldsSuite) TestHTTPClientConfiguresLokiClient(c *tc.C) {
+	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
+		PreUpgradeSteps:      preUpgradeSteps,
+		ControllerTag:        testing.ControllerTag,
+		Clock:                clock.WallClock,
+		PrometheusRegisterer: prometheus.NewRegistry(),
+	})
+	manifold, ok := manifolds["http-client"]
+	c.Assert(ok, tc.IsTrue)
+
+	w, err := manifold.Start(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	var getter corehttp.HTTPClientGetter
+	err = manifold.Output(w, &getter)
+	c.Assert(err, tc.ErrorIsNil)
+
+	client, err := getter.GetHTTPClient(c.Context(), corehttp.LokiPurpose)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(client, tc.NotNil)
 }
 
 func (*ManifoldsSuite) TestLeaseExpiryDirectInputs(c *tc.C) {
@@ -748,6 +807,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-proxy-ready-flag",
+		"controller-proxy-ready-gate",
 		"controller-trace",
 		"db-accessor",
 		"domain-services",
@@ -891,6 +952,37 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
+
+	"controller-proxy-config-updater": {
+		"api-remote-caller",
+		"change-stream",
+		"controller-agent-config",
+		"controller-proxy-ready-gate",
+		"controller-trace",
+		"db-accessor",
+		"domain-services",
+		"file-notify-watcher",
+		"http-client",
+		"lease-manager",
+		"log-router",
+		"log-sink",
+		"object-store",
+		"object-store-facade",
+		"object-store-fortress",
+		"object-store-s3-caller",
+		"object-store-services",
+		"provider-services",
+		"provider-tracker",
+		"query-logger",
+		"storage-registry",
+		"trace-services",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
+	},
+
+	"controller-proxy-ready-flag": {"controller-proxy-ready-gate"},
+
+	"controller-proxy-ready-gate": {},
 
 	"controller-trace": {
 		"change-stream",
@@ -1232,6 +1324,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"db-accessor",
 		"file-notify-watcher",
 		"http-client",
+		"is-primary-controller-flag",
 		"lease-manager",
 		"object-store",
 		"object-store-fortress",

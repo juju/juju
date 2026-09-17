@@ -12,6 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/proxy"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/crosscontroller"
+	proxyconfig "github.com/juju/juju/api/proxy/config"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/flightrecorder"
 	corehttp "github.com/juju/juju/core/http"
@@ -32,6 +34,7 @@ import (
 	"github.com/juju/juju/environs"
 	internalbootstrap "github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/container/lxd"
 	internalhttp "github.com/juju/juju/internal/http"
 	internallease "github.com/juju/juju/internal/lease"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -80,6 +83,7 @@ import (
 	"github.com/juju/juju/internal/worker/objectstoreservices"
 	"github.com/juju/juju/internal/worker/providerservices"
 	"github.com/juju/juju/internal/worker/providertracker"
+	"github.com/juju/juju/internal/worker/proxyupdater"
 	"github.com/juju/juju/internal/worker/querylogger"
 	"github.com/juju/juju/internal/worker/secretbackendrotate"
 	"github.com/juju/juju/internal/worker/singular"
@@ -181,6 +185,10 @@ type ManifoldsConfig struct {
 	// workers that should not do anything until the bootstrap worker
 	// is done.
 	BootstrapLock gate.Lock
+
+	// ProxyReadyLock is passed to the proxy ready gate to coordinate workers
+	// that should not do anything until the proxyupdater worker is done.
+	ProxyReadyLock gate.Lock
 
 	// UpgradeDBLock is passed to the upgrade database gate to
 	// coordinate workers that should not do anything until the
@@ -303,6 +311,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		isBootstrapGateName: gate.ManifoldEx(config.BootstrapLock),
 		isBootstrapFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
 			GateName:  isBootstrapGateName,
+			NewWorker: gate.NewFlagWorker,
+		}),
+
+		// The proxy ready gate coordinates workers that should not do
+		// anything until the controller proxyupdater worker has finished
+		// applying the initial proxy configuration.
+		controllerProxyReadyGateName: gate.ManifoldEx(config.ProxyReadyLock),
+		controllerProxyReadyFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  controllerProxyReadyGateName,
 			NewWorker: gate.NewFlagWorker,
 		}),
 
@@ -745,7 +762,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// other workers so they can't accidentally interfere with a
 		// draining in progress.
 		objectStoreFortressName: fortress.Manifold(),
-		objectStoreDrainerName: objectstoredrainer.Manifold(objectstoredrainer.ManifoldConfig{
+		objectStoreDrainerName: ifPrimaryController(objectstoredrainer.Manifold(objectstoredrainer.ManifoldConfig{
 			S3ClientName:                    objectStoreS3CallerName,
 			ObjectStoreName:                 objectStoreName,
 			ObjectStoreServicesName:         objectStoreServicesName,
@@ -762,7 +779,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                       objectstoredrainer.NewWorker,
 			Clock:                           config.Clock,
 			Logger:                          internallogger.GetLogger("juju.worker.objectstoredrainer"),
-		}),
+		})),
 
 		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
 			TraceName:                  controllerTraceName,
@@ -870,6 +887,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 				case corehttp.SimpleStreamPurpose:
 					logger := internallogger.GetLogger("juju.simplestream", corelogger.SIMPLESTREAM)
 					opts = append(opts, internalhttp.WithLogger(logger))
+
+				case corehttp.LokiPurpose:
+					l := internallogger.GetLogger("juju.loki")
+					opts = append(opts, internalhttp.WithLogger(l))
 				}
 
 				return internalhttp.NewClient(opts...)
@@ -948,7 +969,22 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
 		// Bootstrap worker is responsible for setting up the initial
 		// controller.
-		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(NewIAASBootstrapManifoldConfig(config))),
+		bootstrapName: ifControllerProxyReady(ifDatabaseUpgradeComplete(bootstrap.Manifold(NewIAASBootstrapManifoldConfig(config)))),
+
+		// The controller proxy config updater uses local domain services
+		// instead of calling back through the controller API server.
+		controllerProxyConfigUpdater: ifDatabaseUpgradeComplete(proxyupdater.ControllerManifold(proxyupdater.ControllerManifoldConfig{
+			DomainServicesName:          domainServicesName,
+			ProxyReadyGateName:          controllerProxyReadyGateName,
+			Logger:                      internallogger.GetLogger("juju.worker.proxyupdater"),
+			WorkerFunc:                  proxyupdater.NewWorker,
+			GetControllerDomainServices: proxyupdater.GetControllerDomainServices,
+			GetDomainServices:           proxyupdater.GetDomainServices,
+			SupportLegacyValues:         true,
+			ExternalUpdate:              lxd.ConfigureLXDProxies,
+			InProcessUpdate:             proxyconfig.DefaultConfig.Set,
+			RunFunc:                     proxyupdater.RunWithStdIn,
+		})),
 
 		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
 			AuthorityName:               certificateWatcherName,
@@ -1000,7 +1036,22 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 // shared controller manifolds.
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
-		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(NewCAASBootstrapManifoldConfig(config))),
+		bootstrapName: ifControllerProxyReady(ifDatabaseUpgradeComplete(bootstrap.Manifold(NewCAASBootstrapManifoldConfig(config)))),
+
+		// The controller proxy config updater uses local domain services
+		// instead of calling back through the controller API server.
+		controllerProxyConfigUpdater: ifDatabaseUpgradeComplete(proxyupdater.ControllerManifold(proxyupdater.ControllerManifoldConfig{
+			DomainServicesName:          domainServicesName,
+			ProxyReadyGateName:          controllerProxyReadyGateName,
+			Logger:                      internallogger.GetLogger("juju.worker.proxyupdater"),
+			WorkerFunc:                  proxyupdater.NewWorker,
+			GetControllerDomainServices: proxyupdater.GetControllerDomainServices,
+			GetDomainServices:           proxyupdater.GetDomainServices,
+			SupportLegacyValues:         false,
+			ExternalUpdate:              func(proxy.Settings) error { return nil },
+			InProcessUpdate:             proxyconfig.DefaultConfig.Set,
+			RunFunc:                     proxyupdater.RunWithStdIn,
+		})),
 
 		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
 			AuthorityName:               certificateWatcherName,
@@ -1156,6 +1207,12 @@ var ifDatabaseUpgradeComplete = engine.Housing{
 	},
 }.Decorate
 
+var ifControllerProxyReady = engine.Housing{
+	Flags: []string{
+		controllerProxyReadyFlagName,
+	},
+}.Decorate
+
 // ControllerStartupValueProvider is the set of methods required to provide
 // startup values to controller-only workers. This is implemented by the
 // config.StartupValueProvider, which is passed to the manifolds in the config.
@@ -1177,6 +1234,10 @@ const (
 	bootstrapName       = "bootstrap"
 	isBootstrapGateName = "is-bootstrap-gate"
 	isBootstrapFlagName = "is-bootstrap-flag"
+
+	controllerProxyConfigUpdater = "controller-proxy-config-updater"
+	controllerProxyReadyGateName = "controller-proxy-ready-gate"
+	controllerProxyReadyFlagName = "controller-proxy-ready-flag"
 
 	controllerUpgradeGateName = "controller-upgrade-gate"
 	controllerUpgradeFlagName = "controller-upgrade-flag"
