@@ -278,18 +278,31 @@ type DestroyMachinesParamsV9 struct {
 	Force       bool     `json:"force,omitempty"`
 	Keep        bool     `json:"keep,omitempty"`
 
+	// MaxWait specifies the amount of time that each step in the machine destroy
+	// process will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
+}
+
+// DestroyMachinesParams holds parameters for machine removal calls.
+type DestroyMachinesParams struct {
+	MachineTags []string `json:"machine-tags"`
+	Force       bool     `json:"force,omitempty"`
+	Keep        bool     `json:"keep,omitempty"`
+	DryRun      bool     `json:"dry-run,omitempty"`
+
 	// MaxWait specifies the amount of time that each step in machine destroy process
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
 	MaxWait *time.Duration `json:"max-wait,omitempty"`
 }
 
-// DestroyMachinesParams holds parameters for the latest DestroyMachinesWithParams call.
-type DestroyMachinesParams struct {
+// DestroyMachinesWithHostedUnitsParams holds parameters for removing machines
+// with their hosted units and containers.
+type DestroyMachinesWithHostedUnitsParams struct {
 	MachineTags []string `json:"machine-tags"`
-	Force       bool     `json:"force,omitempty"`
 	Keep        bool     `json:"keep,omitempty"`
-	DryRun      bool     `json:"dry-run,omitempty"`
+	Force       bool     `json:"force,omitempty"`
 
 	// MaxWait specifies the amount of time that each step in machine destroy process
 	// will wait before forcing the next step to kick-off. This parameter

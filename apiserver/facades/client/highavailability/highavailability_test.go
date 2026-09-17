@@ -449,7 +449,7 @@ func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
-	c.Assert(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
+	c.Assert(s.State.RemoveControllerReference(node.Id()), jc.ErrorIsNil)
 	c.Assert(machines[2].EnsureDead(), jc.ErrorIsNil)
 	enableHAResult, err = s.enableHA(c, 0, emptyCons, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -492,7 +492,7 @@ func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
-	c.Assert(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
+	c.Assert(s.State.RemoveControllerReference(node.Id()), jc.ErrorIsNil)
 	c.Assert(machines[4].EnsureDead(), jc.ErrorIsNil)
 
 	// Keeping all alive but one, will bring up 1 more server to preserve 5
