@@ -57,7 +57,7 @@ require (
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/clock v1.1.1
 	github.com/juju/collections v1.0.4
-	github.com/juju/description/v12 v12.0.0-20260410024407-3471e9106dd1
+	github.com/juju/description/v12 v12.0.0
 	github.com/juju/errors v1.0.0
 	github.com/juju/gnuflag v1.0.0
 	github.com/juju/gojsonschema v1.0.0
@@ -318,5 +318,3 @@ replace go.opencensus.io => github.com/census-instrumentation/opencensus-go v0.2
 
 // Needed to work around a broken transitive dependency of lxd, testcontainers-go/docker.
 replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.3
-
-replace github.com/juju/description/v12 v12.0.0-20260410024407-3471e9106dd1 => github.com/SimonRichardson/description/v12 v12.0.0-20260915194052-b8db12b0db12
