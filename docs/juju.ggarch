@@ -631,7 +631,9 @@ diagram "HA controller: Dqlite replicaset" from "Juju" {
     box [nodes: "ha_dqlite1 ha_dqlite2 ha_dqlite3",
          label: "Raft replicaset (strongly consistent)",
          style: "dashed", color: "#888",
-         padding: 30, label-position: inside-bottom]
+         padding-top: 10, padding-bottom: 10,
+         padding-left: 30, padding-right: 30,
+         label-position: inside-bottom]
     legend [position: "bottom-right",
             container: "controller node",
             juju-software: "controller agent",
