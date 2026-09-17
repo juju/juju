@@ -108,10 +108,10 @@ func nameBasedHasPermission(name string, operation permission.Access, target nam
 	switch {
 	case strings.HasPrefix(name, string(permission.SuperuserAccess)):
 		return operation == permission.SuperuserAccess
-	case strings.HasPrefix(name, string(permission.AddModelAccess)):
-		return operation == permission.AddModelAccess
 	case strings.HasPrefix(name, string(permission.LoginAccess)):
 		return operation == permission.LoginAccess
+	case strings.HasPrefix(name, string(permission.AddModelAccess)):
+		perm = permission.AddModelAccess
 	case strings.HasPrefix(name, string(permission.AdminAccess)):
 		perm = permission.AdminAccess
 	case strings.HasPrefix(name, string(permission.WriteAccess)):

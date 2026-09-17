@@ -863,6 +863,16 @@ func (s *serviceSuite) TestGetModelUserZeroUserName(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, accesserrors.UserNameNotValid)
 }
 
+func (s *serviceSuite) TestGetModelUserUserNotFound(c *tc.C) {
+	uuid := tc.Must(c, coremodel.NewUUID)
+	s.state.users = map[user.UUID]user.Name{
+		"123": usertesting.GenNewName(c, "bob"),
+	}
+	svc := s.newStubService(c)
+	_, err := svc.GetModelUser(c.Context(), uuid, usertesting.GenNewName(c, "missing"))
+	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound)
+}
+
 // setupDefaultStateExpects establishes a common set of well know responses to
 // state calls for mock testing.
 func (s *serviceSuite) setupDefaultStateExpects(c *tc.C) {
