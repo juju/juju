@@ -70,10 +70,9 @@ type OffersAPI struct {
 	modelUUID      model.UUID
 	logger         corelogger.Logger
 
-	accessService           AccessService
-	controllerService       ControllerService
-	controllerConfigService ControllerConfigService
-	modelService            ModelService
+	accessService     AccessService
+	controllerService ControllerService
+	modelService      ModelService
 
 	crossModelRelationServiceGetter func(c context.Context, modelUUID model.UUID) (CrossModelRelationService, error)
 	removalServiceGetter            func(c context.Context, modelUUID model.UUID) (RemovalService, error)
@@ -87,7 +86,6 @@ func createOffersAPI(
 	modelUUID model.UUID,
 	accessService AccessService,
 	controllerService ControllerService,
-	controllerConfigService ControllerConfigService,
 	modelService ModelService,
 	crossModelRelationServiceGetter func(c context.Context, modelUUID model.UUID) (CrossModelRelationService, error),
 	removalServiceGetter func(c context.Context, modelUUID model.UUID) (RemovalService, error),
@@ -104,7 +102,6 @@ func createOffersAPI(
 		modelUUID:                       modelUUID,
 		accessService:                   accessService,
 		controllerService:               controllerService,
-		controllerConfigService:         controllerConfigService,
 		modelService:                    modelService,
 		crossModelRelationServiceGetter: crossModelRelationServiceGetter,
 		removalServiceGetter:            removalServiceGetter,
@@ -1059,11 +1056,7 @@ func (api *OffersAPI) getConsumeDetails(
 	// If the controller has a public DNS address configured, prepend it so
 	// that consumers learn a reachable address even when the raw API
 	// addresses are not routable from their network.
-	publicAddr, err := api.controllerConfigService.GetPublicDNSAddress(ctx)
-	if err != nil {
-		return params.ConsumeOfferDetailsResults{}, errors.Errorf("getting public DNS address: %w", err)
-	}
-	if publicAddr != "" {
+	if publicAddr := controllerInfo.PublicDNSAddress; publicAddr != "" {
 		addrs = append([]string{publicAddr}, addrs...)
 	}
 

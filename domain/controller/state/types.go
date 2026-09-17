@@ -27,3 +27,15 @@ type namespace struct {
 type controllerUUID struct {
 	UUID string `db:"uuid"`
 }
+
+// configKey is the database representation of a controller config key.
+type configKey struct {
+	Key string `db:"key"`
+}
+
+// configValue is the database representation of a controller config
+// value. The controller config is a generic key-value store, so the
+// value has no more specific type.
+type configValue struct {
+	Value string `db:"value"`
+}

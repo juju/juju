@@ -158,37 +158,6 @@ func (s *serviceSuite) TestUpdateControllerValidationIgnored(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestGetPublicDNSAddress(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().ControllerConfig(gomock.Any()).Return(map[string]string{
-		controller.PublicDNSAddress: "controller.test.com:1234",
-	}, nil)
-
-	addr, err := NewService(s.state).GetPublicDNSAddress(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addr, tc.Equals, "controller.test.com:1234")
-}
-
-func (s *serviceSuite) TestGetPublicDNSAddressNotConfigured(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().ControllerConfig(gomock.Any()).Return(map[string]string{}, nil)
-
-	addr, err := NewService(s.state).GetPublicDNSAddress(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addr, tc.Equals, "")
-}
-
-func (s *serviceSuite) TestGetPublicDNSAddressError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().ControllerConfig(gomock.Any()).Return(nil, errors.New("boom"))
-
-	_, err := NewService(s.state).GetPublicDNSAddress(c.Context())
-	c.Assert(err, tc.ErrorMatches, "unable to get controller config: boom")
-}
-
 func (s *serviceSuite) TestWatchControllerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

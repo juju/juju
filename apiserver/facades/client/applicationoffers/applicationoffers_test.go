@@ -47,7 +47,6 @@ type offerSuite struct {
 	crossModelAuthContext     *MockCrossModelAuthContext
 	removalService            *MockRemovalService
 	controllerService         *MockControllerService
-	controllerConfigService   *MockControllerConfigService
 }
 
 func TestOfferSuite(t *testing.T) {
@@ -1991,7 +1990,6 @@ func (s *offerSuite) TestGetConsumeDetails(c *tc.C) {
 		CACert:       "i am a ca cert",
 		APIAddresses: []string{"10.0.0.1:17070"},
 	}, nil)
-	s.controllerConfigService.EXPECT().GetPublicDNSAddress(gomock.Any()).Return("", nil)
 
 	adminTag := s.setupAuthUser(user.AdminUserName.Name())
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.AssignableToTypeOf(names.ControllerTag{})).Return(nil)
@@ -2007,7 +2005,6 @@ func (s *offerSuite) TestGetConsumeDetailsUserIsModelAdmin(c *tc.C) {
 		CACert:       "i am a ca cert",
 		APIAddresses: []string{"10.0.0.1:17070"},
 	}, nil)
-	s.controllerConfigService.EXPECT().GetPublicDNSAddress(gomock.Any()).Return("", nil)
 
 	adminTag := s.setupAuthUser(user.AdminUserName.Name())
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.AssignableToTypeOf(names.ControllerTag{})).Return(authentication.ErrorEntityMissingPermission)
@@ -2079,11 +2076,11 @@ func (s *offerSuite) TestGetConsumeDetailsWithPublicDNSAddress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerService.EXPECT().GetControllerInfo(gomock.Any()).Return(domaincontroller.ControllerInfo{
-		UUID:         s.controllerUUID,
-		CACert:       "i am a ca cert",
-		APIAddresses: []string{"10.0.0.1:17070"},
+		UUID:             s.controllerUUID,
+		CACert:           "i am a ca cert",
+		APIAddresses:     []string{"10.0.0.1:17070"},
+		PublicDNSAddress: "my-ingress.example.com:17070",
 	}, nil)
-	s.controllerConfigService.EXPECT().GetPublicDNSAddress(gomock.Any()).Return("my-ingress.example.com:17070", nil)
 
 	adminTag := s.setupAuthUser(user.AdminUserName.Name())
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.AssignableToTypeOf(names.ControllerTag{})).Return(nil)
@@ -2155,7 +2152,6 @@ func (s *offerSuite) TestGetConsumeDetailsUser(c *tc.C) {
 		CACert:       "i am a ca cert",
 		APIAddresses: []string{"10.0.0.1:17070"},
 	}, nil)
-	s.controllerConfigService.EXPECT().GetPublicDNSAddress(gomock.Any()).Return("", nil)
 
 	userTag := names.NewUserTag("mary")
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.AssignableToTypeOf(names.ControllerTag{})).Return(nil)
@@ -2259,7 +2255,6 @@ func (s *offerSuite) TestGetConsumeDetailsNoOffers(c *tc.C) {
 		CACert:       "i am a ca cert",
 		APIAddresses: []string{"10.0.0.1:17070"},
 	}, nil)
-	s.controllerConfigService.EXPECT().GetPublicDNSAddress(gomock.Any()).Return("", nil)
 
 	s.setupAuthUser(user.AdminUserName.Name())
 
@@ -2304,7 +2299,6 @@ func (s *offerSuite) TestGetConsumeDetailsInvalidOfferURLEndpoint(c *tc.C) {
 		CACert:       "i am a ca cert",
 		APIAddresses: []string{"10.0.0.1:17070"},
 	}, nil)
-	s.controllerConfigService.EXPECT().GetPublicDNSAddress(gomock.Any()).Return("", nil)
 
 	s.setupAuthUser(user.AdminUserName.Name())
 
@@ -2334,7 +2328,6 @@ func (s *offerSuite) TestGetConsumeDetailsInvalidOfferURLSource(c *tc.C) {
 		CACert:       "i am a ca cert",
 		APIAddresses: []string{"10.0.0.1:17070"},
 	}, nil)
-	s.controllerConfigService.EXPECT().GetPublicDNSAddress(gomock.Any()).Return("", nil)
 
 	s.setupAuthUser(user.AdminUserName.Name())
 
@@ -2939,7 +2932,6 @@ func (s *offerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.crossModelAuthContext = NewMockCrossModelAuthContext(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
 	s.controllerService = NewMockControllerService(ctrl)
-	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 
 	c.Cleanup(func() {
 		s.accessService = nil
@@ -2998,14 +2990,13 @@ func (s *offerSuite) expectEntityHasPermissionMissingPermission(userTag names.Us
 
 func (s *offerSuite) offerAPI(_ *tc.C) *OffersAPI {
 	return &OffersAPI{
-		controllerUUID:          s.controllerUUID,
-		modelUUID:               s.modelUUID,
-		authorizer:              s.authorizer,
-		accessService:           s.accessService,
-		crossModelAuthContext:   s.crossModelAuthContext,
-		modelService:            s.modelService,
-		controllerService:       s.controllerService,
-		controllerConfigService: s.controllerConfigService,
+		controllerUUID:        s.controllerUUID,
+		modelUUID:             s.modelUUID,
+		authorizer:            s.authorizer,
+		accessService:         s.accessService,
+		crossModelAuthContext: s.crossModelAuthContext,
+		modelService:          s.modelService,
+		controllerService:     s.controllerService,
 		crossModelRelationServiceGetter: func(_ context.Context, _ model.UUID) (CrossModelRelationService, error) {
 			return s.crossModelRelationService, nil
 		},

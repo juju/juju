@@ -98,11 +98,3 @@ type ControllerService interface {
 	// GetControllerInfo returns the controller information.
 	GetControllerInfo(ctx context.Context) (domaincontroller.ControllerInfo, error)
 }
-
-// ControllerConfigService defines the interface for retrieving the
-// controller configuration.
-type ControllerConfigService interface {
-	// GetPublicDNSAddress returns the public DNS address of the
-	// controller, or an empty string if it is not configured.
-	GetPublicDNSAddress(ctx context.Context) (string, error)
-}

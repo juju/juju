@@ -10,7 +10,7 @@ import (
 )
 
 //go:generate go run github.com/canonical/gomock/mockgen -package applicationoffers -destination facade_mock_test.go github.com/juju/juju/apiserver/facade Authorizer
-//go:generate go run github.com/canonical/gomock/mockgen -package applicationoffers -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/applicationoffers AccessService,ModelService,CrossModelRelationService,RemovalService,CrossModelAuthContext,ControllerService,ControllerConfigService
+//go:generate go run github.com/canonical/gomock/mockgen -package applicationoffers -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/applicationoffers AccessService,ModelService,CrossModelRelationService,RemovalService,CrossModelAuthContext,ControllerService
 
 func newMacaroon(c *tc.C, id string) *macaroon.Macaroon {
 	mac, err := macaroon.New(nil, []byte(id), "", macaroon.LatestVersion)
