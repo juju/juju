@@ -147,19 +147,10 @@ func (api *CloudAPI) canAccessCloud(ctx context.Context, cloud string, access pe
 // cloudAccessLevel resolves the caller's access level for the cloud from
 // the authorizer, probing from the highest level down.
 func (api *CloudAPI) cloudAccessLevel(ctx context.Context, tag names.CloudTag) (permission.Access, error) {
-	for _, access := range []permission.Access{
+	return common.HighestAccess(ctx, api.authorizer, tag, []permission.Access{
 		permission.AdminAccess,
 		permission.AddModelAccess,
-	} {
-		canAccess, err := api.canAccessCloud(ctx, tag.Id(), access)
-		if err != nil {
-			return permission.NoAccess, errors.Trace(err)
-		}
-		if canAccess {
-			return access, nil
-		}
-	}
-	return permission.NoAccess, nil
+	})
 }
 
 // hasOwnCloudUserEntry reports whether the caller's own entry is present

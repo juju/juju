@@ -13,6 +13,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/common"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -883,30 +884,19 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 		Results: make([]params.ModelInfoResult, len(args.Entities)),
 	}
 
-	// modelAccess returns the caller's access level for the model, as
-	// resolved by the authorizer. This is used both to gate the call and
-	// to report the caller's access in the response, so a caller whose
-	// grants live outside the controller's local tables (for example a
-	// JWT-authenticated external user) is reported correctly.
-	modelAccess := func(tag names.ModelTag) permission.Access {
-		for _, access := range []permission.Access{
-			permission.AdminAccess,
-			permission.WriteAccess,
-			permission.ReadAccess,
-		} {
-			if err := m.authorizer.HasPermission(ctx, access, tag); err == nil {
-				return access
-			}
-		}
-		return permission.NoAccess
-	}
-
 	getModelInfo := func(arg params.Entity) (params.ModelInfo, error) {
 		tag, err := names.ParseModelTag(arg.Tag)
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
-		access := modelAccess(tag)
+		access, err := common.HighestAccess(ctx, m.authorizer, tag, []permission.Access{
+			permission.AdminAccess,
+			permission.WriteAccess,
+			permission.ReadAccess,
+		})
+		if err != nil {
+			return params.ModelInfo{}, errors.Trace(err)
+		}
 		if access == permission.NoAccess {
 			// If the logged in user does not have at least read
 			// permission, we return an error.
