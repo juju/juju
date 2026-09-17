@@ -68,7 +68,7 @@ CREATE TABLE k8s_service (
 CREATE UNIQUE INDEX idx_k8s_service_provider
 ON k8s_service (provider_id);
 
-CREATE INDEX idx_k8s_service_application
+CREATE UNIQUE INDEX idx_k8s_service_application
 ON k8s_service (application_uuid);
 
 CREATE UNIQUE INDEX idx_k8s_service_net_node
