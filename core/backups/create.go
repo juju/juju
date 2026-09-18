@@ -57,7 +57,9 @@ type CreateArgs struct {
 // Create builds a new backup archive file in args.DestinationDir,
 // named after meta.Started using FilenameTemplate. It updates the
 // metadata with the file info and returns the archive filename.
-func Create(meta *Metadata, args CreateArgs) (string, error) {
+// It is a variable so tests can replace the archive creation with a
+// stub, mirroring [GetFilesToBackUp].
+var Create = func(meta *Metadata, args CreateArgs) (string, error) {
 	if args.Clock == nil {
 		return "", errors.New("missing clock")
 	}
@@ -315,8 +317,9 @@ const (
 // CheckSpaceFor errors when the free space in dir is less than the
 // expected archive size plus a safety margin. The margin is the larger
 // of the smaller of 5GiB or 10% of the total disk size, and 20% of the
-// expected size.
-func CheckSpaceFor(dir string, expectedSize int64) error {
+// expected size. It is a variable so tests can trigger the
+// insufficient-space failure, mirroring [Create].
+var CheckSpaceFor = func(dir string, expectedSize int64) error {
 	total, err := diskTotal(dir)
 	if err != nil {
 		return errors.Capture(err)
