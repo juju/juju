@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -100,6 +101,40 @@ VALUES (?, ?)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return volumeID
+}
+
+// newOrphanModelFilesystem inserts a model-scoped filesystem with no
+// storage-instance link. The removal guard counts such rows directly from
+// storage_filesystem, so the model status must report them too.
+func (s *modelStorageStatusSuite) newOrphanModelFilesystem(
+	c *tc.C,
+) (storage.FilesystemUUID, string) {
+	fsUUID := tc.Must(c, storage.NewFilesystemUUID)
+	fsID := "orphan-fs/" + fsUUID.String()
+
+	_, err := s.DB().Exec(`
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, 0)
+`, fsUUID.String(), fsID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return fsUUID, fsID
+}
+
+// newOrphanModelVolume inserts a model-scoped volume with no
+// storage-instance link. The removal guard counts such rows directly from
+// storage_volume, so the model status must report them too.
+func (s *modelStorageStatusSuite) newOrphanModelVolume(c *tc.C) (storage.VolumeUUID, string) {
+	volumeUUID := tc.Must(c, storage.NewVolumeUUID)
+	volumeID := strconv.FormatUint(s.nextSequenceNumber(c, "volume"), 10)
+
+	_, err := s.DB().Exec(`
+INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id, persistent)
+VALUES (?, ?, 0, 0, true)
+`, volumeUUID.String(), volumeID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return volumeUUID, volumeID
 }
 
 // TestGetModelStorageStatusesEmpty asserts that a model without storage
@@ -203,4 +238,31 @@ func (s *modelStorageStatusSuite) TestGetModelStorageStatuses(c *tc.C) {
 	}
 	c.Check(machineVolumeFound, tc.IsTrue)
 	c.Check(detachableVolumeCount, tc.Equals, 2)
+}
+
+// TestGetModelStorageStatusesOrphanStorage asserts that model-scoped
+// filesystems and volumes with no storage-instance link are still
+// reported. The removal cascade's persistent-storage guard counts those
+// rows directly from storage_filesystem/storage_volume and refuses model
+// teardown because of them, so the client view must see them too: if it
+// did not, destroy-controller would refuse server-side while the model
+// status showed no storage at all.
+func (s *modelStorageStatusSuite) TestGetModelStorageStatusesOrphanStorage(c *tc.C) {
+	_, orphanFSID := s.newOrphanModelFilesystem(c)
+	_, orphanVolumeID := s.newOrphanModelVolume(c)
+
+	st := s.newModelState(c)
+	statuses, err := st.GetModelStorageStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Both orphans are reported, and both are detachable: they are
+	// model-scoped, exactly what the guard refuses on.
+	c.Check(statuses.Filesystems, tc.DeepEquals, []status.ModelStorageFilesystemStatus{{
+		ID:         orphanFSID,
+		Detachable: true,
+	}})
+	c.Check(statuses.Volumes, tc.DeepEquals, []status.ModelStorageVolumeStatus{{
+		ID:         orphanVolumeID,
+		Detachable: true,
+	}})
 }
