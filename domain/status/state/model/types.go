@@ -614,3 +614,17 @@ func decodeConstraints(
 	}
 	return cons
 }
+
+// modelStorageStatusRow represents one row of the joined
+// storage-instance/filesystem/volume/status tables used to build the model
+// status storage entries.
+type modelStorageStatusRow struct {
+	FilesystemID             sql.Null[string] `db:"filesystem_id"`
+	FilesystemProviderID     sql.Null[string] `db:"filesystem_provider_id"`
+	FilesystemStatus         sql.Null[string] `db:"filesystem_status"`
+	FilesystemProvisionScope sql.Null[int]    `db:"filesystem_provision_scope_id"`
+	VolumeID                 sql.Null[string] `db:"volume_id"`
+	VolumeProviderID         sql.Null[string] `db:"volume_provider_id"`
+	VolumeProvisionScope     sql.Null[int]    `db:"volume_provision_scope_id"`
+	VolumeStatus             sql.Null[string] `db:"volume_status"`
+}

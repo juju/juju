@@ -216,17 +216,33 @@ func (st *State) EnsureModelNotAliveCascade(
 		return removal.ModelArtifacts{}, errors.Errorf("preparing update storage attachments query: %w", err)
 	}
 
-	// persistentStorageStmt counts non-dead persistent storage in the model.
-	// Only storage_filesystem (always persistent in K8s) and
-	// storage_volume with persistent = true are checked. Ephemeral volumes
-	// do not require --destroy-storage or --release-storage to remove.
+	// persistentStorageStmt counts non-dead model-scoped storage in the
+	// model. Model-scoped storage (provision_scope_id = 0, i.e.
+	// [github.com/juju/juju/domain/storage.ProvisionScopeModel])
+	// outlives the model if not explicitly destroyed or released, so it
+	// must block teardown when destroyStorage is unspecified.
+	//
+	// Note that this deliberately includes unprovisioned model-scoped
+	// rows (provider_id IS NULL), not just provisioned ones: this matches
+	// Juju 3.6, where ModelStatus reported every volume/filesystem in the
+	// model and detachability was HostId == "", so pending storage was
+	// counted as persistent storage too. The model status view
+	// (GetModelStorageStatuses) applies the same model-scope rule, so the
+	// CLI's persistent-storage count agrees with this guard. The queries
+	// are anchored on the same tables for the same reason: storage with
+	// no storage-instance link is counted here and reported there.
+	//
+	// Machine-scoped storage (provision_scope_id = 1) dies with its
+	// machine and never blocks.
 	persistentStorageStmt, err := st.Prepare(`
 WITH counts AS (
-	SELECT COUNT(*) AS n FROM storage_filesystem WHERE life_id < 2
+	SELECT COUNT(*) AS n FROM storage_filesystem AS sfs
+	WHERE sfs.life_id < 2 AND sfs.provision_scope_id = 0
 	UNION ALL
-	SELECT COUNT(*) AS n FROM storage_volume WHERE persistent = true AND life_id < 2
+	SELECT COUNT(*) AS n FROM storage_volume AS sv
+	WHERE sv.life_id < 2 AND sv.provision_scope_id = 0
 )
-SELECT SUM(n) AS &count.count FROM counts
+SELECT SUM(n) AS &count.count FROM counts AS c
 `, count{})
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing persistent storage count query: %w", err)

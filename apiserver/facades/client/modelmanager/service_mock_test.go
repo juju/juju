@@ -1267,6 +1267,7 @@ type MockStatusServiceMockRecorder struct {
 	getApplicationAndUnitModelStatusesExpects []*gomock.Call1_2[context.Context, map[string]int, error]
 	getModelStatusExpects                     []*gomock.Call1_2[context.Context, status.StatusInfo, error]
 	getModelStatusInfoExpects                 []*gomock.Call1_2[context.Context, status0.ModelStatusInfo, error]
+	getModelStorageStatusesExpects            []*gomock.Call1_2[context.Context, status0.ModelStorageStatus, error]
 }
 
 // NewMockStatusService creates a new mock instance.
@@ -1352,6 +1353,24 @@ func (mr *MockStatusServiceMockRecorder) GetModelStatusInfo(ctx any) *MockStatus
 
 // MockStatusServiceGetModelStatusInfoCall is the typed call wrapper for GetModelStatusInfo.
 type MockStatusServiceGetModelStatusInfoCall = gomock.Call1_2[context.Context, status0.ModelStatusInfo, error]
+
+// GetModelStorageStatuses mocks base method.
+func (m *MockStatusService) GetModelStorageStatuses(ctx context.Context) (status0.ModelStorageStatus, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getModelStorageStatusesExpects, m.ctrl, m, "GetModelStorageStatuses", ctx)
+}
+
+// GetModelStorageStatuses indicates an expected call of GetModelStorageStatuses.
+func (mr *MockStatusServiceMockRecorder) GetModelStorageStatuses(ctx any) *MockStatusServiceGetModelStorageStatusesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, status0.ModelStorageStatus, error](mr.mock.ctrl.T, mr.mock, "GetModelStorageStatuses", gomock.EnsureMatcher(ctx))
+	mr.getModelStorageStatusesExpects = append(mr.getModelStorageStatusesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStatusServiceGetModelStorageStatusesCall is the typed call wrapper for GetModelStorageStatuses.
+type MockStatusServiceGetModelStorageStatusesCall = gomock.Call1_2[context.Context, status0.ModelStorageStatus, error]
 
 // MockRemovalService is a mock of RemovalService interface.
 type MockRemovalService struct {

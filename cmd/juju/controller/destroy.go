@@ -178,6 +178,19 @@ func (c *destroyCommand) Info() *cmd.Info {
 
 const unsetTimeout = -1 * time.Second
 
+// maxPersistentStorageAttempts bounds the number of times the destroy loop
+// retries after the server reports persistent storage that the model status
+// does not show. Without this bound a server/client disagreement about what
+// counts as persistent storage would spin forever printing
+// "Destroying controller".
+const maxPersistentStorageAttempts = 5
+
+// persistentStorageRetryDelay paces the persistent-storage retries so a
+// transient server/client disagreement (e.g. storage mid-detachment) does
+// not burn all attempts in a tight loop. The wait goes through the command
+// clock, which tests replace with a fast fake.
+const persistentStorageRetryDelay = 2 * time.Second
+
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.destroyCommandBase.SetFlags(f)
@@ -289,6 +302,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
+	persistentStorageAttempts := 0
 	for {
 		// Attempt to destroy the controller.
 		ctx.Infof("Destroying controller")
@@ -355,6 +369,17 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			if err := c.checkNoPersistentStorage(modelStatus); err != nil {
 				return errors.Trace(err)
 			}
+			persistentStorageAttempts++
+			if persistentStorageAttempts >= maxPersistentStorageAttempts {
+				// The server keeps refusing because it sees persistent
+				// storage that the model status does not report. Retrying
+				// forever would just hang, so surface the mismatch.
+				return errors.Errorf(`the controller reports persistent storage that the model status does not show
+
+Re-run with "--destroy-storage" or "--release-storage" to proceed.`)
+			}
+			// Pace retries through the clock instead of spinning.
+			<-c.clock.After(persistentStorageRetryDelay)
 			// When we called DestroyController before, we were
 			// informed that there was persistent storage remaining.
 			// When we checked just now, there was none. We should
