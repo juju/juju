@@ -94,8 +94,8 @@ func (s stateBackend) RemoveSSHProxyArtefacts() error {
 }
 
 // FixRemoteApplicationCounts runs an upgrade to repair remote application
-// relationcount drift (negative values clamped to 0, mismatches reported).
-// The step is idempotent.
+// relationcount drift: it resets relationcount to the number of relations
+// whose endpoints reference the application. The step is idempotent.
 func (s stateBackend) FixRemoteApplicationCounts() error {
 	return state.FixRemoteApplicationCounts(s.pool)
 }

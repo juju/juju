@@ -115,6 +115,67 @@ func defaultModelArgs(modelArgs *ModelArgs, cfg *config.Config, owner names.User
 	return *modelArgs
 }
 
+// makeRemoteApplication creates a remote application with a "db" provider
+// endpoint, as used by the cross-model relation repair upgrade tests.
+func (s *upgradesSuite) makeRemoteApplication(c *gc.C, name string) *RemoteApplication {
+	app, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        name,
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   "offer-" + name,
+		Token:       name + "-token",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+		ConsumeVersion: 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return app
+}
+
+// mkRel creates a relation between the remote application proxy and a
+// fresh local application named appName, and puts a unit of the local
+// application in scope (generating scope and settings docs).
+func (s *upgradesSuite) mkRel(c *gc.C, ch *Charm, appName string, proxy *RemoteApplication) (*Relation, *Unit) {
+	wp := AddTestingApplication(c, s.state, appName, ch)
+	proxyEP, err := proxy.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	wpEP, err := wp.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.state.AddRelation(proxyEP, wpEP)
+	c.Assert(err, jc.ErrorIsNil)
+	wpUnit, err := wp.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel.Unit(wpUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ru.EnterScope(nil), jc.ErrorIsNil)
+	return rel, wpUnit
+}
+
+func (s *upgradesSuite) relPrefix(rel *Relation) string {
+	return fmt.Sprintf("r#%d#", rel.Id())
+}
+
+func (s *upgradesSuite) countDocs(c *gc.C, collName, prefix string) int {
+	coll, closer, err := s.state.db().GetRawCollection(collName)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	n, err := coll.Find(bson.M{"_id": bson.M{"$regex": "^" + s.state.docID(prefix)}}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	return n
+}
+
+func (s *upgradesSuite) setRemoteCount(c *gc.C, name string, count int) {
+	coll, closer, err := s.state.db().GetRawCollection(remoteApplicationsC)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	err = coll.UpdateId(s.state.docID(name), bson.M{"$set": bson.M{"relationcount": count}})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *upgradesSuite) TestSplitMigrationStatusMessages(c *gc.C) {
 	model := s.makeModel(c, "m", coretesting.Attrs{}, ModelArgs{Type: ModelTypeIAAS})
 	defer func() { _ = model.Close() }()
@@ -781,79 +842,25 @@ func (s *upgradesSuite) TestRemoveSSHProxyArtefactsClosesControllerPort(c *gc.C)
 }
 
 func (s *upgradesSuite) TestFixRemoteApplicationCounts(c *gc.C) {
-	makeRemoteApplication := func(name string) *RemoteApplication {
-		app, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-			Name:        name,
-			SourceModel: names.NewModelTag("source-model"),
-			OfferUUID:   "offer-" + name,
-			Token:       name + "-token",
-			Endpoints: []charm.Relation{{
-				Interface: "mysql",
-				Limit:     1,
-				Name:      "db",
-				Role:      charm.RoleProvider,
-				Scope:     charm.ScopeGlobal,
-			}},
-			ConsumeVersion: 1,
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		return app
-	}
-	// Creates a relation between the app and a local wordpress app
-	// with a local unit in scope (generating scope and settings docs).
-	ch := AddTestingCharm(c, s.state, "wordpress")
-	mkRel := func(appName string, proxy *RemoteApplication) *Relation {
-		wp := AddTestingApplication(c, s.state, appName, ch)
-		proxyEP, err := proxy.Endpoint("db")
-		c.Assert(err, jc.ErrorIsNil)
-		wpEP, err := wp.Endpoint("db")
-		c.Assert(err, jc.ErrorIsNil)
-		rel, err := s.state.AddRelation(proxyEP, wpEP)
-		c.Assert(err, jc.ErrorIsNil)
-		wpUnit, err := wp.AddUnit(AddUnitParams{})
-		c.Assert(err, jc.ErrorIsNil)
-		ru, err := rel.Unit(wpUnit)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ru.EnterScope(nil), jc.ErrorIsNil)
-		return rel
-	}
-	relPrefix := func(rel *Relation) string {
-		return fmt.Sprintf("r#%d#", rel.Id())
-	}
-	countDocs := func(collName, prefix string) int {
-		coll, closer, err := s.state.db().GetRawCollection(collName)
-		c.Assert(err, jc.ErrorIsNil)
-		defer closer()
-		n, err := coll.Find(bson.M{"_id": bson.M{"$regex": "^" + s.state.docID(prefix)}}).Count()
-		c.Assert(err, jc.ErrorIsNil)
-		return n
-	}
-	setCount := func(name string, count int) {
-		coll, closer, err := s.state.db().GetRawCollection("remoteApplications")
-		c.Assert(err, jc.ErrorIsNil)
-		defer closer()
-		err = coll.UpdateId(s.state.docID(name), bson.M{"$set": bson.M{"relationcount": count}})
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
 	// negative count, no relations -> must be set to 0.
-	clamp := makeRemoteApplication("clamp")
-	setCount(clamp.Name(), -1)
+	clamp := s.makeRemoteApplication(c, "clamp")
+	s.setRemoteCount(c, clamp.Name(), -1)
 	// live: intact relation -> must be left completely alone.
-	live := makeRemoteApplication("live")
-	liveRel := mkRel("wp-live", live)
+	live := s.makeRemoteApplication(c, "live")
+	ch := AddTestingCharm(c, s.state, "wordpress")
+	liveRel, _ := s.mkRel(c, ch, "wp-live", live)
 	_ = liveRel // keeps the relation alive with scope/settings
 	// orphan: relation document dropped -> the app's count must be
 	// corrected to the actual (zero) relations. Stranded scopes/settings
 	// are removed by RemoveOrphanedRelationDocs, not by this step.
-	orphan := makeRemoteApplication("orphan")
-	orphanRel := mkRel("wp-orphan", orphan)
+	orphan := s.makeRemoteApplication(c, "orphan")
+	orphanRel, _ := s.mkRel(c, ch, "wp-orphan", orphan)
 	relColl, closer, err := s.state.db().GetRawCollection("relations")
 	c.Assert(err, jc.ErrorIsNil)
 	err = relColl.RemoveId(s.state.docID(orphanRel.Tag().Id()))
 	closer()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(countDocs("relationscopes", relPrefix(orphanRel)), gc.Equals, 1)
+	c.Assert(s.countDocs(c, "relationscopes", s.relPrefix(orphanRel)), gc.Equals, 1)
 
 	// Run twice to verify idempotency.
 	for i := 0; i < 2; i++ {
@@ -875,13 +882,13 @@ func (s *upgradesSuite) TestFixRemoteApplicationCounts(c *gc.C) {
 	// live relation untouched (scope and settings still present, count 1).
 	_, err = s.state.Relation(liveRel.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(countDocs("relationscopes", relPrefix(liveRel)), gc.Equals, 1)
-	c.Assert(countDocs("settings", relPrefix(liveRel)), gc.Equals, 3)
+	c.Assert(s.countDocs(c, "relationscopes", s.relPrefix(liveRel)), gc.Equals, 1)
+	c.Assert(s.countDocs(c, "settings", s.relPrefix(liveRel)), gc.Equals, 3)
 
 	// The orphan app's recorded count is corrected to the actual (zero)
 	// relations. Its stranded scope is still present: removing it is the
 	// job of RemoveOrphanedRelationDocs.
-	c.Assert(countDocs("relationscopes", relPrefix(orphanRel)), gc.Equals, 1)
+	c.Assert(s.countDocs(c, "relationscopes", s.relPrefix(orphanRel)), gc.Equals, 1)
 	orphanDoc := struct {
 		RelationCount int `bson:"relationcount"`
 	}{}
@@ -894,69 +901,22 @@ func (s *upgradesSuite) TestFixRemoteApplicationCounts(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestRemoveOrphanedRelationDocs(c *gc.C) {
-	makeRemoteApplication := func(name string) *RemoteApplication {
-		app, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-			Name:        name,
-			SourceModel: names.NewModelTag("source-model"),
-			OfferUUID:   "offer-" + name,
-			Token:       name + "-token",
-			Endpoints: []charm.Relation{{
-				Interface: "mysql",
-				Limit:     1,
-				Name:      "db",
-				Role:      charm.RoleProvider,
-				Scope:     charm.ScopeGlobal,
-			}},
-			ConsumeVersion: 1,
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		return app
-	}
-	// Creates a relation between the remote app and a local wordpress app
-	// with a local unit in scope (generating scope and settings docs).
-	ch := AddTestingCharm(c, s.state, "wordpress")
-	mkRel := func(appName string, proxy *RemoteApplication) *Relation {
-		wp := AddTestingApplication(c, s.state, appName, ch)
-		proxyEP, err := proxy.Endpoint("db")
-		c.Assert(err, jc.ErrorIsNil)
-		wpEP, err := wp.Endpoint("db")
-		c.Assert(err, jc.ErrorIsNil)
-		rel, err := s.state.AddRelation(proxyEP, wpEP)
-		c.Assert(err, jc.ErrorIsNil)
-		wpUnit, err := wp.AddUnit(AddUnitParams{})
-		c.Assert(err, jc.ErrorIsNil)
-		ru, err := rel.Unit(wpUnit)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ru.EnterScope(nil), jc.ErrorIsNil)
-		return rel
-	}
-	relPrefix := func(rel *Relation) string {
-		return fmt.Sprintf("r#%d#", rel.Id())
-	}
-	countDocs := func(collName, prefix string) int {
-		coll, closer, err := s.state.db().GetRawCollection(collName)
-		c.Assert(err, jc.ErrorIsNil)
-		defer closer()
-		n, err := coll.Find(bson.M{"_id": bson.M{"$regex": "^" + s.state.docID(prefix)}}).Count()
-		c.Assert(err, jc.ErrorIsNil)
-		return n
-	}
-
 	// live: intact relation -> scope/settings must be left alone.
-	live := makeRemoteApplication("live")
-	liveRel := mkRel("wp-live", live)
+	live := s.makeRemoteApplication(c, "live")
+	ch := AddTestingCharm(c, s.state, "wordpress")
+	liveRel, _ := s.mkRel(c, ch, "wp-live", live)
 	_ = liveRel
-	// orphan: relation document dropped, scopes/settings stranded ->
+	// orphan: relation document dropped, scopes/settings orphaned ->
 	// must be removed.
-	orphan := makeRemoteApplication("orphan")
-	orphanRel := mkRel("wp-orphan", orphan)
+	orphan := s.makeRemoteApplication(c, "orphan")
+	orphanRel, _ := s.mkRel(c, ch, "wp-orphan", orphan)
 	relColl, closer, err := s.state.db().GetRawCollection("relations")
 	c.Assert(err, jc.ErrorIsNil)
 	err = relColl.RemoveId(s.state.docID(orphanRel.Tag().Id()))
 	closer()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(countDocs("relationscopes", relPrefix(orphanRel)), gc.Equals, 1)
-	c.Assert(countDocs("settings", relPrefix(orphanRel)), gc.Equals, 3)
+	c.Assert(s.countDocs(c, "relationscopes", s.relPrefix(orphanRel)), gc.Equals, 1)
+	c.Assert(s.countDocs(c, "settings", s.relPrefix(orphanRel)), gc.Equals, 3)
 
 	// Run twice to verify idempotency.
 	for i := 0; i < 2; i++ {
@@ -967,12 +927,12 @@ func (s *upgradesSuite) TestRemoveOrphanedRelationDocs(c *gc.C) {
 	// live relation untouched (scope and settings still present).
 	_, err = s.state.Relation(liveRel.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(countDocs("relationscopes", relPrefix(liveRel)), gc.Equals, 1)
-	c.Assert(countDocs("settings", relPrefix(liveRel)), gc.Equals, 3)
+	c.Assert(s.countDocs(c, "relationscopes", s.relPrefix(liveRel)), gc.Equals, 1)
+	c.Assert(s.countDocs(c, "settings", s.relPrefix(liveRel)), gc.Equals, 3)
 
 	// orphan docs removed.
-	c.Assert(countDocs("relationscopes", relPrefix(orphanRel)), gc.Equals, 0)
-	c.Assert(countDocs("settings", relPrefix(orphanRel)), gc.Equals, 0)
+	c.Assert(s.countDocs(c, "relationscopes", s.relPrefix(orphanRel)), gc.Equals, 0)
+	c.Assert(s.countDocs(c, "settings", s.relPrefix(orphanRel)), gc.Equals, 0)
 
 	// A second model with a live relation must be left untouched, and its
 	// own orphaned scopes must be cleaned - proving per-model isolation.
@@ -1025,7 +985,7 @@ func (s *upgradesSuite) TestRemoveOrphanedRelationDocs(c *gc.C) {
 	// ...and model 1 (the primary) still has its live relation intact.
 	_, err = s.state.Relation(liveRel.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(countDocs("relationscopes", relPrefix(liveRel)), gc.Equals, 1)
+	c.Assert(s.countDocs(c, "relationscopes", s.relPrefix(liveRel)), gc.Equals, 1)
 }
 
 func (s *upgradesSuite) TestFixRemoteApplicationCountsNoRecurrence(c *gc.C) {
@@ -1638,54 +1598,145 @@ func (s *upgradesSuite) TestRemoveOrphanedUnitStateRelations(c *gc.C) {
 	})
 }
 
+func (s *upgradesSuite) TestRemoveOrphanedUnitStateRelationsMultipleStale(c *gc.C) {
+	// Create a relation and a unit, then record persisted unit state
+	// for it plus two stale (deleted) relation ids.
+	rwp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        "remote-wordpress",
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	rwpEP, err := rwp.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	ch := AddTestingCharm(c, s.state, "mysql")
+	mysql := AddTestingApplication(c, s.state, "mysql", ch)
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.state.AddRelation(rwpEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+	relID := rel.Id()
+	unit, err := mysql.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Persist unit state with two stale relation ids that never existed.
+	us := NewUnitState()
+	us.SetRelationState(map[int]string{relID: "checkpoint"})
+	err = unit.SetState(us, UnitStateSizeLimits{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	coll, closer, err := s.state.db().GetRawCollection("unitstates")
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.UpdateId(s.state.docID(unit.globalKey()), bson.M{"$set": bson.M{
+		"relation-state": bson.M{
+			strconv.Itoa(relID): "checkpoint",
+			"99999999":          "stale checkpoint",
+			"99999998":          "stale checkpoint 2",
+		},
+	}})
+	closer()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Run the upgrade step. Both stale ids must be removed; the live one
+	// kept.
+	err = RemoveOrphanedUnitStateRelations(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uState, err := unit.State()
+	c.Assert(err, jc.ErrorIsNil)
+	rst, found := uState.RelationState()
+	c.Assert(found, jc.IsTrue)
+	c.Assert(rst, gc.DeepEquals, map[int]string{
+		relID: "checkpoint",
+	})
+}
+
+func (s *upgradesSuite) TestRemoveOrphanedRelationDocsLeavesDanglingEndpointDocs(c *gc.C) {
+	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        "remote-missing",
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   "offer-missing",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	remoteEP, err := rapp.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	ch := AddTestingCharm(c, s.state, "mysql")
+	mysql := AddTestingApplication(c, s.state, "mysql", ch)
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.state.AddRelation(remoteEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlUnit, err := mysql.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel.Unit(mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ru.EnterScope(nil), jc.ErrorIsNil)
+	prefix := s.relPrefix(rel)
+	c.Assert(s.countDocs(c, "relationscopes", prefix), gc.Equals, 1)
+	c.Assert(s.countDocs(c, "settings", prefix), gc.Equals, 3)
+
+	// Drop the remote endpoint's application settings doc.
+	settingsColl, closer, err := s.state.db().GetRawCollection("settings")
+	c.Assert(err, jc.ErrorIsNil)
+	err = settingsColl.RemoveId(s.state.docID(fmt.Sprintf("r#%d#remote-missing", rel.Id())))
+	closer()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.countDocs(c, "settings", prefix), gc.Equals, 2)
+
+	// The remote application document disappears, the relation is left
+	// dying, and the surviving application's relationcount drifts to 0.
+	relColl, closer, err := s.state.db().GetRawCollection("relations")
+	c.Assert(err, jc.ErrorIsNil)
+	err = relColl.UpdateId(s.state.docID(rel.Tag().Id()), bson.M{"$set": bson.M{"life": Dying}})
+	closer()
+	c.Assert(err, jc.ErrorIsNil)
+	appsColl, appsCloser, err := s.state.db().GetRawCollection("remoteApplications")
+	c.Assert(err, jc.ErrorIsNil)
+	err = appsColl.RemoveId(s.state.docID("remote-missing"))
+	appsCloser()
+	c.Assert(err, jc.ErrorIsNil)
+	appColl, appCloser, err := s.state.db().GetRawCollection("applications")
+	c.Assert(err, jc.ErrorIsNil)
+	err = appColl.UpdateId(s.state.docID("mysql"), bson.M{"$set": bson.M{"relationcount": 0}})
+	appCloser()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The orphaned relation's removal aborts on the count assertion; the
+	// relation and its docs are left for manual repair.
+	err = RemoveOrphanedApplicationRelations(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+	cur, err := s.state.Relation(rel.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cur.Life(), gc.Equals, Dying)
+	c.Assert(s.countDocs(c, "relationscopes", prefix), gc.Equals, 1)
+	c.Assert(s.countDocs(c, "settings", prefix), gc.Equals, 2)
+
+	// The orphaned endpoint warning path must leave the docs untouched,
+	// including the still-missing remote application settings doc.
+	err = RemoveOrphanedRelationDocs(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.state.Relation(rel.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.countDocs(c, "relationscopes", prefix), gc.Equals, 1)
+	c.Assert(s.countDocs(c, "settings", prefix), gc.Equals, 2)
+}
+
 func (s *upgradesSuite) TestUpgradeRepairsBrokenDB(c *gc.C) {
-	makeRemoteApplication := func(name string) *RemoteApplication {
-		app, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-			Name:        name,
-			SourceModel: names.NewModelTag("source-model"),
-			OfferUUID:   "offer-" + name,
-			Token:       name + "-token",
-			Endpoints: []charm.Relation{{
-				Interface: "mysql",
-				Limit:     1,
-				Name:      "db",
-				Role:      charm.RoleProvider,
-				Scope:     charm.ScopeGlobal,
-			}},
-			ConsumeVersion: 1,
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		return app
-	}
-	// mkRel creates a relation between the remote app and a local app with a
-	// local unit in scope (generating scope and settings docs).
 	ch := AddTestingCharm(c, s.state, "wordpress")
-	mkRel := func(appName string, proxy *RemoteApplication) (*Relation, *Unit) {
-		wp := AddTestingApplication(c, s.state, appName, ch)
-		proxyEP, err := proxy.Endpoint("db")
-		c.Assert(err, jc.ErrorIsNil)
-		wpEP, err := wp.Endpoint("db")
-		c.Assert(err, jc.ErrorIsNil)
-		rel, err := s.state.AddRelation(proxyEP, wpEP)
-		c.Assert(err, jc.ErrorIsNil)
-		wpUnit, err := wp.AddUnit(AddUnitParams{})
-		c.Assert(err, jc.ErrorIsNil)
-		ru, err := rel.Unit(wpUnit)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ru.EnterScope(nil), jc.ErrorIsNil)
-		return rel, wpUnit
-	}
-	relPrefix := func(rel *Relation) string {
-		return fmt.Sprintf("r#%d#", rel.Id())
-	}
-	countDocs := func(collName, prefix string) int {
-		coll, closer, err := s.state.db().GetRawCollection(collName)
-		c.Assert(err, jc.ErrorIsNil)
-		defer closer()
-		n, err := coll.Find(bson.M{"_id": bson.M{"$regex": "^" + s.state.docID(prefix)}}).Count()
-		c.Assert(err, jc.ErrorIsNil)
-		return n
-	}
 	removeIds := func(collName string, ids ...string) {
 		coll, closer, err := s.state.db().GetRawCollection(collName)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1710,24 +1761,17 @@ func (s *upgradesSuite) TestUpgradeRepairsBrokenDB(c *gc.C) {
 		}
 		return ids
 	}
-	setRemoteCount := func(name string, count int) {
-		coll, closer, err := s.state.db().GetRawCollection("remoteApplications")
-		c.Assert(err, jc.ErrorIsNil)
-		defer closer()
-		err = coll.UpdateId(s.state.docID(name), bson.M{"$set": bson.M{"relationcount": count}})
-		c.Assert(err, jc.ErrorIsNil)
-	}
 
 	// remote application relationcount drift.
-	counter := makeRemoteApplication("counter")
-	setRemoteCount(counter.Name(), -4)
-	counterLive := makeRemoteApplication("counter-live")
-	counterRel, _ := mkRel("counter-wp", counterLive)
+	counter := s.makeRemoteApplication(c, "counter")
+	s.setRemoteCount(c, counter.Name(), -4)
+	counterLive := s.makeRemoteApplication(c, "counter-live")
+	counterRel, _ := s.mkRel(c, ch, "counter-wp", counterLive)
 
 	// orphaned relation scopes/settings docs, parent
 	// relation deleted.
-	orphan := makeRemoteApplication("orphan")
-	orphanRel, _ := mkRel("orphan-wp", orphan)
+	orphan := s.makeRemoteApplication(c, "orphan")
+	orphanRel, _ := s.mkRel(c, ch, "orphan-wp", orphan)
 	relColl, closer, err := s.state.db().GetRawCollection("relations")
 	c.Assert(err, jc.ErrorIsNil)
 	err = relColl.RemoveId(s.state.docID(orphanRel.Tag().Id()))
@@ -1750,17 +1794,17 @@ func (s *upgradesSuite) TestUpgradeRepairsBrokenDB(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	closer()
-	c.Assert(countDocs("relationscopes", relPrefix(orphanRel)), gc.Equals, 1)
-	c.Assert(countDocs("settings", relPrefix(orphanRel)), gc.Equals, 3)
+	c.Assert(s.countDocs(c, "relationscopes", s.relPrefix(orphanRel)), gc.Equals, 1)
+	c.Assert(s.countDocs(c, "settings", s.relPrefix(orphanRel)), gc.Equals, 3)
 
 	// relation scope without its settings document.
-	watcher := makeRemoteApplication("watcher-proxy")
-	watcherRel, watcherUnit := mkRel("watcher", watcher)
-	watcherSettings := idsWithPrefix("settings", relPrefix(watcherRel))
+	watcher := s.makeRemoteApplication(c, "watcher-proxy")
+	watcherRel, watcherUnit := s.mkRel(c, ch, "watcher", watcher)
+	watcherSettings := idsWithPrefix("settings", s.relPrefix(watcherRel))
 	c.Assert(len(watcherSettings), gc.Equals, 3)
 	removeIds("settings", watcherSettings...)
-	c.Assert(countDocs("relationscopes", relPrefix(watcherRel)), gc.Equals, 1)
-	c.Assert(countDocs("settings", relPrefix(watcherRel)), gc.Equals, 0)
+	c.Assert(s.countDocs(c, "relationscopes", s.relPrefix(watcherRel)), gc.Equals, 1)
+	c.Assert(s.countDocs(c, "settings", s.relPrefix(watcherRel)), gc.Equals, 0)
 
 	// unitstates relation-state referencing a removed relation.
 	us := NewUnitState()
@@ -1780,8 +1824,8 @@ func (s *upgradesSuite) TestUpgradeRepairsBrokenDB(c *gc.C) {
 
 	// relation whose remote application document is gone
 	// while the relation stayed alive.
-	dangling := makeRemoteApplication("dangling")
-	danglingRel, danglingUnit := mkRel("dangling-wp", dangling)
+	dangling := s.makeRemoteApplication(c, "dangling")
+	danglingRel, danglingUnit := s.mkRel(c, ch, "dangling-wp", dangling)
 	// The bad relation's unit also has persisted relation state; it
 	// must be cleared along with the relation itself, even though the
 	// relation's removal is deferred to the force destroy cleanup.
@@ -1832,19 +1876,19 @@ func (s *upgradesSuite) TestUpgradeRepairsBrokenDB(c *gc.C) {
 	c.Assert(checkCount("remoteApplications", "counter"), gc.Equals, 0)
 	c.Assert(checkCount("remoteApplications", "counter-live"), gc.Equals, 1)
 	// Orphaned scope/settings removed.
-	c.Assert(countDocs("relationscopes", relPrefix(orphanRel)), gc.Equals, 0)
-	c.Assert(countDocs("settings", relPrefix(orphanRel)), gc.Equals, 0)
-	c.Assert(countDocs("relationscopes", "r#990002#"), gc.Equals, 0)
-	c.Assert(countDocs("settings", "r#990001#"), gc.Equals, 0)
+	c.Assert(s.countDocs(c, "relationscopes", s.relPrefix(orphanRel)), gc.Equals, 0)
+	c.Assert(s.countDocs(c, "settings", s.relPrefix(orphanRel)), gc.Equals, 0)
+	c.Assert(s.countDocs(c, "relationscopes", "r#990002#"), gc.Equals, 0)
+	c.Assert(s.countDocs(c, "settings", "r#990001#"), gc.Equals, 0)
 	// Scope is left on its live relation.
-	c.Assert(countDocs("relationscopes", relPrefix(watcherRel)), gc.Equals, 1)
+	c.Assert(s.countDocs(c, "relationscopes", s.relPrefix(watcherRel)), gc.Equals, 1)
 	// The relation's missing settings docs are recreated, including
 	// the unit-scoped settings paired with the scope and the
 	// application-level settings for both endpoint applications that
 	// the relation units watcher watches.
-	c.Assert(countDocs("settings", relPrefix(watcherRel)), gc.Equals, 3)
-	c.Assert(countDocs("relationscopes", relPrefix(counterRel)), gc.Equals, 1)
-	c.Assert(countDocs("settings", relPrefix(counterRel)), gc.Equals, 3)
+	c.Assert(s.countDocs(c, "settings", s.relPrefix(watcherRel)), gc.Equals, 3)
+	c.Assert(s.countDocs(c, "relationscopes", s.relPrefix(counterRel)), gc.Equals, 1)
+	c.Assert(s.countDocs(c, "settings", s.relPrefix(counterRel)), gc.Equals, 3)
 	// The stale unitstates key is gone, the live one kept.
 	uState, err := watcherUnit.State()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1857,8 +1901,8 @@ func (s *upgradesSuite) TestUpgradeRepairsBrokenDB(c *gc.C) {
 	// local application's count reflects the removal.
 	_, err = s.state.Relation(danglingRel.Id())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(countDocs("relationscopes", relPrefix(danglingRel)), gc.Equals, 0)
-	c.Assert(countDocs("settings", relPrefix(danglingRel)), gc.Equals, 0)
+	c.Assert(s.countDocs(c, "relationscopes", s.relPrefix(danglingRel)), gc.Equals, 0)
+	c.Assert(s.countDocs(c, "settings", s.relPrefix(danglingRel)), gc.Equals, 0)
 	c.Assert(checkCount("applications", "dangling-wp"), gc.Equals, 0)
 	// The dangling relation's unit state is cleared as well; the
 	// deferred force cleanup runs only after the upgrade, so the step
