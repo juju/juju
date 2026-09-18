@@ -215,19 +215,17 @@ func (m *mockUniterClient) WatchUpdateStatusHookInterval(context.Context) (watch
 
 type mockUnit struct {
 	api.Unit
-	tag                              names.UnitTag
-	life                             life.Value
-	providerID                       string
-	resolved                         params.ResolvedMode
-	application                      mockApplication
-	unitWatcher                      *mockNotifyWatcher
-	unitResolveWatcher               *mockNotifyWatcher
-	addressesWatcher                 *mockStringsWatcher
-	configSettingsWatcher            *mockStringsWatcher
-	applicationConfigSettingsWatcher *mockStringsWatcher
-	storageWatcher                   *mockStringsWatcher
-	actionWatcher                    *mockStringsWatcher
-	relationsWatcher                 *mockStringsWatcher
+	tag                   names.UnitTag
+	life                  life.Value
+	providerID            string
+	resolved              params.ResolvedMode
+	application           mockApplication
+	unitWatcher           *mockNotifyWatcher
+	addressesWatcher      *mockStringsWatcher
+	configSettingsWatcher *mockStringsWatcher
+	storageWatcher        *mockStringsWatcher
+	actionWatcher         *mockStringsWatcher
+	relationsWatcher      *mockStringsWatcher
 }
 
 func (u *mockUnit) Life() life.Value {
@@ -242,8 +240,8 @@ func (u *mockUnit) ProviderID() string {
 	return u.providerID
 }
 
-func (u *mockUnit) Resolved(context.Context) (params.ResolvedMode, error) {
-	return u.resolved, nil
+func (u *mockUnit) ResolvedMode() params.ResolvedMode {
+	return u.resolved
 }
 
 func (u *mockUnit) Application(context.Context) (api.Application, error) {
@@ -258,20 +256,12 @@ func (u *mockUnit) Watch(context.Context) (watcher.NotifyWatcher, error) {
 	return u.unitWatcher, nil
 }
 
-func (u *mockUnit) WatchResolveMode(context.Context) (watcher.NotifyWatcher, error) {
-	return u.unitResolveWatcher, nil
-}
-
 func (u *mockUnit) WatchAddressesHash(_ context.Context) (watcher.StringsWatcher, error) {
 	return u.addressesWatcher, nil
 }
 
 func (u *mockUnit) WatchConfigSettingsHash(_ context.Context) (watcher.StringsWatcher, error) {
 	return u.configSettingsWatcher, nil
-}
-
-func (u *mockUnit) WatchTrustConfigSettingsHash(_ context.Context) (watcher.StringsWatcher, error) {
-	return u.applicationConfigSettingsWatcher, nil
 }
 
 func (u *mockUnit) WatchStorage(_ context.Context) (watcher.StringsWatcher, error) {
