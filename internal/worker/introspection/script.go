@@ -128,6 +128,10 @@ juju_goroutines () {
   juju_agent debug/pprof/goroutine?debug=1
 }
 
+juju_goroutine_leak () {
+  juju_agent debug/pprof/goroutineleak
+}
+
 juju_cpu_profile () {
   N=30
   if test -n "$1"; then
@@ -246,6 +250,7 @@ if [ "$shell" = "bash" ]; then
   export -f juju_application_agent_name
   export -f juju_agent
   export -f juju_goroutines
+  export -f juju_goroutine_leak
   export -f juju_cpu_profile
   export -f juju_heap_profile
   export -f juju_engine_report

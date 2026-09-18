@@ -27,10 +27,10 @@ func (i *IAMServer) CreateRole(
 
 	if role, exists := i.roles[*input.RoleName]; exists {
 		return &iam.CreateRoleOutput{
-				Role: role,
-			}, &types.EntityAlreadyExistsException{
-				Message: aws.String(fmt.Sprintf("role %s", *input.RoleName)),
-			}
+			Role: role,
+		}, &types.EntityAlreadyExistsException{
+			Message: aws.String(fmt.Sprintf("role %s", *input.RoleName)),
+		}
 	}
 
 	createDate := time.Now()

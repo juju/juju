@@ -322,7 +322,7 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *tc.C) {
 		SecretUpdates: []params.UpdateSecretArg{{
 			URI: uri.String(),
 			UpsertSecretArg: params.UpsertSecretArg{
-				RotatePolicy: new(secrets.RotateDaily),
+				RotatePolicy: new(params.SecretRotatePolicy(secrets.RotateDaily)),
 				Description:  new("a secret"),
 				Label:        new("foobar"),
 				Content: params.SecretContentParams{

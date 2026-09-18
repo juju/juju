@@ -179,17 +179,17 @@ func (s *CharmStore) StoreFromReader(ctx context.Context, reader io.Reader, hash
 	}
 
 	return StoreFromReaderResult{
-			Charm: &charmReaderCloser{
-				file:   file,
-				logger: s.logger,
-			},
-			UniqueName:      uniqueName,
-			ObjectStoreUUID: uuid,
-		}, Digest{
-			SHA256: sha256,
-			SHA384: sha384,
-			Size:   size,
-		}, nil
+		Charm: &charmReaderCloser{
+			file:   file,
+			logger: s.logger,
+		},
+		UniqueName:      uniqueName,
+		ObjectStoreUUID: uuid,
+	}, Digest{
+		SHA256: sha256,
+		SHA384: sha384,
+		Size:   size,
+	}, nil
 }
 
 // Get retrieves a ReadCloser for the charm archive at the give path from

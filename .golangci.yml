@@ -72,7 +72,13 @@ linters:
           disabled: false
     modernize:
       disable:
+        - atomictypes
+        - embedlit
+        - errorsastype
         - omitzero
+        - reflecttypeassert
+        - slicesbackward
+        - stringscut
   exclusions:
     generated: lax
     presets:
