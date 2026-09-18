@@ -19,6 +19,7 @@ import (
 	"github.com/juju/worker/v5/workertest"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
+	"github.com/juju/juju/controller"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -38,10 +39,11 @@ import (
 )
 
 type workerSuite struct {
-	accessService      *MockAccessService
-	tracingService     *MockTracingService
-	loggingService     *MockLoggingService
-	objectStoreService *MockControllerObjectStoreService
+	accessService           *MockAccessService
+	tracingService          *MockTracingService
+	loggingService          *MockLoggingService
+	objectStoreService      *MockControllerObjectStoreService
+	controllerConfigService *MockControllerConfigService
 
 	controllerModelID permission.ID
 	metricsUserName   coreuser.Name
@@ -81,6 +83,14 @@ func (s *workerSuite) TestConfigValidateNilObjectStoreService(c *tc.C) {
 
 	cfg := s.newValidConfig(c)
 	cfg.ObjectStoreService = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *workerSuite) TestConfigValidateNilControllerConfigService(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newValidConfig(c)
+	cfg.ControllerConfigService = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -1395,18 +1405,99 @@ func (s *workerSuite) TestRemoveLokiEndpointError(c *tc.C) {
 	})
 }
 
+func (s *workerSuite) TestSetSSHServerPort(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// The handler persists the port to controller config, which the SSH server
+	// worker watches and reacts to.
+	s.controllerConfigService.EXPECT().UpdateControllerConfig(gomock.Any(), controller.Config{
+		controller.SSHServerPort: 17099,
+	}, nil).Return(nil)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/ssh-server-port",
+		body:       `{"port":17099}`,
+		statusCode: http.StatusOK,
+		response:   ".*updated ssh server port to 17099.*",
+	})
+}
+
+func (s *workerSuite) TestSetSSHServerPortInvalidPort(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// An out-of-range port is rejected before touching controller config.
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/ssh-server-port",
+		body:       `{"port":70000}`,
+		statusCode: http.StatusBadRequest,
+		response:   ".*invalid ssh server port.*",
+	})
+}
+
+func (s *workerSuite) TestSetSSHServerPortMissingBody(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/ssh-server-port",
+		body:       "",
+		statusCode: http.StatusBadRequest,
+		response:   ".*missing request body.*",
+	})
+}
+
+func (s *workerSuite) TestSetSSHServerPortServiceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerConfigService.EXPECT().UpdateControllerConfig(gomock.Any(), controller.Config{
+		controller.SSHServerPort: 17099,
+	}, nil).Return(internalerrors.New("database error"))
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/ssh-server-port",
+		body:       `{"port":17099}`,
+		statusCode: http.StatusInternalServerError,
+		response:   ".*saving ssh server port.*",
+	})
+}
+
 func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.accessService = NewMockAccessService(ctrl)
 	s.tracingService = NewMockTracingService(ctrl)
 	s.loggingService = NewMockLoggingService(ctrl)
 	s.objectStoreService = NewMockControllerObjectStoreService(ctrl)
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 
 	c.Cleanup(func() {
 		s.accessService = nil
 		s.tracingService = nil
 		s.loggingService = nil
 		s.objectStoreService = nil
+		s.controllerConfigService = nil
 	})
 
 	return ctrl
@@ -1428,15 +1519,16 @@ type handlerTest struct {
 
 func (s *workerSuite) newValidConfig(c *tc.C) Config {
 	return Config{
-		AccessService:       s.accessService,
-		TracingService:      s.tracingService,
-		LoggingService:      s.loggingService,
-		ObjectStoreService:  s.objectStoreService,
-		Logger:              loggertesting.WrapCheckLog(c),
-		MetricsCollector:    NewMetricsCollector(),
-		SocketName:          "/tmp/test.socket",
-		NewSocketListener:   NewSocketListener,
-		ControllerModelUUID: model.UUID(jujujujutesting.ModelTag.Id()),
+		AccessService:           s.accessService,
+		TracingService:          s.tracingService,
+		LoggingService:          s.loggingService,
+		ObjectStoreService:      s.objectStoreService,
+		ControllerConfigService: s.controllerConfigService,
+		Logger:                  loggertesting.WrapCheckLog(c),
+		MetricsCollector:        NewMetricsCollector(),
+		SocketName:              "/tmp/test.socket",
+		NewSocketListener:       NewSocketListener,
+		ControllerModelUUID:     model.UUID(jujujujutesting.ModelTag.Id()),
 	}
 }
 
@@ -1449,15 +1541,16 @@ func (s *workerSuite) newSocket(c *tc.C) string {
 
 func (s *workerSuite) newWorker(c *tc.C, socket string) *Worker {
 	w, err := NewWorker(Config{
-		AccessService:       s.accessService,
-		TracingService:      s.tracingService,
-		LoggingService:      s.loggingService,
-		ObjectStoreService:  s.objectStoreService,
-		Logger:              loggertesting.WrapCheckLog(c),
-		MetricsCollector:    NewMetricsCollector(),
-		SocketName:          socket,
-		NewSocketListener:   NewSocketListener,
-		ControllerModelUUID: model.UUID(jujujujutesting.ModelTag.Id()),
+		AccessService:           s.accessService,
+		TracingService:          s.tracingService,
+		LoggingService:          s.loggingService,
+		ObjectStoreService:      s.objectStoreService,
+		ControllerConfigService: s.controllerConfigService,
+		Logger:                  loggertesting.WrapCheckLog(c),
+		MetricsCollector:        NewMetricsCollector(),
+		SocketName:              socket,
+		NewSocketListener:       NewSocketListener,
+		ControllerModelUUID:     model.UUID(jujujujutesting.ModelTag.Id()),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 

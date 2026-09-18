@@ -19,6 +19,7 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
+	"github.com/juju/juju/controller"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -119,6 +120,13 @@ type LoggingService interface {
 	DeleteLokiConfig(ctx context.Context) error
 }
 
+// ControllerConfigService is the interface for updating controller config.
+type ControllerConfigService interface {
+	// UpdateControllerConfig updates the controller config, applying the given
+	// update attributes and removing the given attributes.
+	UpdateControllerConfig(ctx context.Context, updateAttrs controller.Config, removeAttrs []string) error
+}
+
 // Config represents configuration for the controlsocket worker.
 type Config struct {
 	// AccessService is the user access service for the model.
@@ -129,6 +137,9 @@ type Config struct {
 	LoggingService LoggingService
 	// ObjectStoreService is the object store service for the controller.
 	ObjectStoreService ControllerObjectStoreService
+	// ControllerConfigService is the controller config service, used to persist
+	// the SSH server port pushed by the controller charm.
+	ControllerConfigService ControllerConfigService
 	// SocketName is the socket file descriptor.
 	SocketName string
 	// NewSocketListener is the function that creates a new socket listener.
@@ -149,6 +160,9 @@ func (config Config) Validate() error {
 	}
 	if config.ObjectStoreService == nil {
 		return internalerrors.New("nil ObjectStoreService").Add(coreerrors.NotValid)
+	}
+	if config.ControllerConfigService == nil {
+		return internalerrors.New("nil ControllerConfigService").Add(coreerrors.NotValid)
 	}
 	if config.ControllerModelUUID == "" {
 		return internalerrors.New("empty ControllerModelUUID").Add(coreerrors.NotValid)
@@ -172,10 +186,11 @@ func (config Config) Validate() error {
 type Worker struct {
 	catacomb catacomb.Catacomb
 
-	accessService      AccessService
-	tracingService     TracingService
-	loggingService     LoggingService
-	objectStoreService ControllerObjectStoreService
+	accessService           AccessService
+	tracingService          TracingService
+	loggingService          LoggingService
+	objectStoreService      ControllerObjectStoreService
+	controllerConfigService ControllerConfigService
 
 	controllerModelUUID model.UUID
 	userCreatorName     user.Name
@@ -196,12 +211,13 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 
 	w := &Worker{
-		accessService:       config.AccessService,
-		tracingService:      config.TracingService,
-		loggingService:      config.LoggingService,
-		objectStoreService:  config.ObjectStoreService,
-		controllerModelUUID: config.ControllerModelUUID,
-		userCreatorName:     userCreatorName,
+		accessService:           config.AccessService,
+		tracingService:          config.TracingService,
+		loggingService:          config.LoggingService,
+		objectStoreService:      config.ObjectStoreService,
+		controllerConfigService: config.ControllerConfigService,
+		controllerModelUUID:     config.ControllerModelUUID,
+		userCreatorName:         userCreatorName,
 
 		logger:  config.Logger,
 		metrics: config.MetricsCollector,
@@ -335,6 +351,21 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.Handle("/loki-endpoint", w.withMetrics("/loki-endpoint", http.HandlerFunc(w.handleRemoveLokiEndpoint))).
 		Methods(http.MethodDelete)
+
+	// ssh-server-port endpoint for updating the controller's embedded SSH
+	// server port. This is a POST endpoint that accepts a JSON body with the
+	// following format:
+	//
+	// {
+	//   "port": <int>,
+	// }
+	//
+	// The controller charm owns the SSH server port; when its config changes
+	// it pushes the new value here. The worker persists it to controller
+	// config, which the SSH server worker watches and reacts to by restarting
+	// on the new port.
+	r.Handle("/ssh-server-port", w.withMetrics("/ssh-server-port", w.handleJSONPost(w.handleSetSSHServerPort))).
+		Methods(http.MethodPost)
 }
 
 func (w *Worker) withMetrics(endpoint string, handler http.Handler) http.Handler {
@@ -675,6 +706,51 @@ func (w *Worker) handleRemoveLokiEndpoint(resp http.ResponseWriter, req *http.Re
 	}
 
 	w.writeResponse(ctx, resp, http.StatusOK, infof("removed loki endpoint"))
+}
+
+type sshServerPortRequest struct {
+	Port int `json:"port"`
+}
+
+func (w *Worker) handleSetSSHServerPort(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
+	var parsedBody sshServerPortRequest
+	if err := json.NewDecoder(req.Body).Decode(&parsedBody); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		switch {
+		case internalerrors.Is(err, io.EOF):
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.New("missing request body"))
+		case internalerrors.As(err, &maxBytesErr):
+			w.writeErrorResponse(ctx, resp, http.StatusRequestEntityTooLarge,
+				internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
+		default:
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.Errorf("request body is not valid JSON: %w", err))
+		}
+		return
+	}
+
+	if parsedBody.Port <= 0 || parsedBody.Port > 65535 {
+		w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+			internalerrors.Errorf("invalid ssh server port %d", parsedBody.Port))
+		return
+	}
+
+	// Persist the port to controller config. The SSH server worker watches
+	// controller config and restarts the server on the new port.
+	if err := w.controllerConfigService.UpdateControllerConfig(ctx, controller.Config{
+		controller.SSHServerPort: parsedBody.Port,
+	}, nil); internalerrors.Is(err, coreerrors.NotValid) {
+		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid ssh server port: %w", err))
+		return
+	} else if err != nil {
+		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, internalerrors.Errorf("saving ssh server port: %w", err))
+		return
+	}
+
+	w.writeResponse(ctx, resp, http.StatusOK, infof("updated ssh server port to %d", parsedBody.Port))
 }
 
 func (w *Worker) handleJSONPost(fn func(http.ResponseWriter, *http.Request)) http.Handler {
