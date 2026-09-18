@@ -589,6 +589,12 @@ type ApplicationStorageDirectiveOverride struct {
 	Size *uint64
 }
 
+// UnitNameAndUUID pairs a unit name with its UUID.
+type UnitNameAndUUID struct {
+	Name coreunit.Name
+	UUID coreunit.UUID
+}
+
 // AddUnitStorageOverride represents override instructions in the application
 // domain for adding storage to a unit.
 type AddUnitStorageOverride struct {

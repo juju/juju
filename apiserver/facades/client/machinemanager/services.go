@@ -15,11 +15,13 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/blockcommand"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/domain/removal"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
@@ -41,7 +43,16 @@ type Services struct {
 	ModelConfigService      ModelConfigService
 	NetworkService          NetworkService
 	RemovalService          RemovalService
+	StorageService          StorageService
 	UpgradeService          UpgradeService
+}
+
+// StorageService defines the subset of the storage service that the machine
+// manager requires in order to classify the storage attached to removed units.
+type StorageService interface {
+	ClassifyStorageForUnitRemoval(
+		ctx context.Context, unitUUIDs []coreunit.UUID, destroyStorage bool,
+	) (domainstorage.StorageRemovalClassification, error)
 }
 
 // ControllerConfigService defines a method for getting the controller config.
@@ -150,6 +161,10 @@ type ApplicationService interface {
 	// The following errors may be returned:
 	// - [applicationerrors.MachineNotFound] if the machine does not exist
 	GetUnitNamesOnMachine(context.Context, coremachine.Name) ([]coreunit.Name, error)
+
+	// GetUnitNamesAndUUIDsOnMachine returns the names and UUIDs of units on a
+	// machine.
+	GetUnitNamesAndUUIDsOnMachine(context.Context, coremachine.Name) ([]domainapplication.UnitNameAndUUID, error)
 }
 
 // CharmhubClient represents a way for querying the charmhub api for information

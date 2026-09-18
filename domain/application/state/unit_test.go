@@ -1605,6 +1605,119 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNode(c *tc.C) {
 	c.Assert(names, tc.DeepEquals, []coreunit.Name{"foo/0", "foo/1"})
 }
 
+func (s *unitStateSuite) TestGetUnitNamesAndUUIDsForApplicationNotFound(c *tc.C) {
+	_, err := s.state.GetUnitNamesAndUUIDsForApplication(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *unitStateSuite) TestGetUnitNamesAndUUIDsForApplicationDead(c *tc.C) {
+	appUUID := s.createIAASApplication(c, "deadapp", life.Dead)
+	_, err := s.state.GetUnitNamesAndUUIDsForApplication(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationIsDead)
+}
+
+func (s *unitStateSuite) TestGetUnitNamesAndUUIDsForApplicationNoUnits(c *tc.C) {
+	appUUID := s.createIAASApplication(c, "foo", life.Alive)
+	units, err := s.state.GetUnitNamesAndUUIDsForApplication(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.DeepEquals, []application.UnitNameAndUUID{})
+}
+
+func (s *unitStateSuite) TestGetUnitNamesAndUUIDsForApplication(c *tc.C) {
+	appUUID, fooUnitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 3)
+
+	expected := make([]application.UnitNameAndUUID, 0, len(fooUnitUUIDs))
+	for _, uuid := range fooUnitUUIDs {
+		n, err := s.state.GetUnitNameForUUID(c.Context(), uuid)
+		c.Assert(err, tc.ErrorIsNil)
+		expected = append(expected, application.UnitNameAndUUID{
+			Name: n,
+			UUID: uuid,
+		})
+	}
+
+	got, err := s.state.GetUnitNamesAndUUIDsForApplication(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.SameContents, expected)
+}
+
+func (s *unitStateSuite) TestGetUnitNamesAndUUIDsForMachineNotFound(c *tc.C) {
+	_, err := s.state.GetUnitNamesAndUUIDsForMachine(c.Context(), coremachine.Name("666"))
+	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
+}
+
+func (s *unitStateSuite) TestGetUnitNamesAndUUIDsForMachineNoUnits(c *tc.C) {
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	var machineNames []coremachine.Name
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		placeMachineArgs := domainmachine.PlaceMachineArgs{
+			Directive: deployment.Placement{
+				Type: deployment.PlacementTypeUnset,
+			},
+			MachineUUID: machinetesting.GenUUID(c),
+			NetNodeUUID: netNodeUUID,
+		}
+		machineNames, err = machinestate.PlaceMachine(ctx, tx, s.state, clock.WallClock, placeMachineArgs)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	units, err := s.state.GetUnitNamesAndUUIDsForMachine(c.Context(), machineNames[0])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.DeepEquals, []application.UnitNameAndUUID{})
+}
+
+func (s *unitStateSuite) TestGetUnitNamesAndUUIDsForMachine(c *tc.C) {
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	altNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	unitUUID0 := tc.Must(c, coreunit.NewUUID)
+	unitUUID1 := tc.Must(c, coreunit.NewUUID)
+	s.createIAASApplication(c, "foo", life.Alive,
+		application.AddIAASUnitArg{
+			MachineUUID:        machineUUID,
+			MachineNetNodeUUID: netNodeUUID,
+			AddUnitArg: application.AddUnitArg{
+				UnitUUID:    unitUUID0,
+				NetNodeUUID: netNodeUUID,
+				Placement: deployment.Placement{
+					Directive: "0",
+				},
+			},
+		},
+		application.AddIAASUnitArg{
+			MachineUUID:        machineUUID,
+			MachineNetNodeUUID: netNodeUUID,
+			AddUnitArg: application.AddUnitArg{
+				UnitUUID:    unitUUID1,
+				NetNodeUUID: netNodeUUID,
+				Placement: deployment.Placement{
+					Type:      deployment.PlacementTypeMachine,
+					Directive: "0",
+				},
+			},
+		},
+		application.AddIAASUnitArg{
+			MachineUUID:        machinetesting.GenUUID(c),
+			MachineNetNodeUUID: altNetNodeUUID,
+			AddUnitArg: application.AddUnitArg{
+				UnitUUID:    tc.Must(c, coreunit.NewUUID),
+				NetNodeUUID: altNetNodeUUID,
+				Placement: deployment.Placement{
+					Directive: "1",
+				},
+			},
+		})
+
+	units, err := s.state.GetUnitNamesAndUUIDsForMachine(c.Context(), coremachine.Name("0"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.DeepEquals, []application.UnitNameAndUUID{
+		{Name: "foo/0", UUID: unitUUID0},
+		{Name: "foo/1", UUID: unitUUID1},
+	})
+}
+
 func (s *unitStateSuite) TestGetUnitWorkloadVersion(c *tc.C) {
 	unitName, _ := s.createNamedIAASUnit(c)
 

@@ -28,3 +28,24 @@ func (s *generatorSuite) TestExportGeneratorDoesNotOwnImportTemplates(c *tc.C) {
 		c.Assert(err, tc.ErrorIs, os.ErrNotExist)
 	}
 }
+
+func (s *generatorSuite) TestNewExportTableAddsNullMarkers(c *tc.C) {
+	table := newExportTable("some_table", "SomeTable", []column{
+		{Name: "uuid", Type: "TEXT", NotNull: true},
+		{Name: "enabled", Type: "BOOLEAN"},
+		{Name: "updated_at", Type: "DATETIME"},
+	})
+
+	c.Check(table.NullableColumns, tc.DeepEquals, []nullableColumn{
+		{Name: "enabled", FieldName: "Enabled"},
+		{Name: "updated_at", FieldName: "UpdatedAt"},
+	})
+}
+
+func (s *generatorSuite) TestAffectedNullableTypes(c *tc.C) {
+	for _, columnType := range []string{"BOOLEAN", "DATETIME", "DATE", "TIMESTAMP"} {
+		c.Check(isAffectedNullableType(column{Type: columnType}), tc.IsTrue)
+	}
+	c.Check(isAffectedNullableType(column{Type: "TEXT"}), tc.IsFalse)
+	c.Check(isAffectedNullableType(column{Type: "BOOLEAN", NotNull: true}), tc.IsFalse)
+}

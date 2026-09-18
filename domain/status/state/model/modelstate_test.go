@@ -2571,6 +2571,15 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 	err = s.state.SetMachinePresence(c.Context(), mName0)
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Seed a reported agent version for the first machine.
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			"INSERT INTO machine_agent_version (machine_uuid, version, architecture_id) VALUES (?, ?, ?)",
+			uuid0, "4.0.15", 0)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
 	// Act
 	statuses, err := s.state.GetMachineFullStatuses(c.Context())
 
@@ -2600,11 +2609,12 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 
 	c.Check(statuses, tc.DeepEquals, map[coremachine.Name]status.Machine{
 		mName0: {
-			UUID:        uuid0,
-			InstanceID:  instance.Id(mName0),
-			DisplayName: mName0.String(),
-			DNSName:     "2.51.45.181",
-			IPAddresses: []string{"2.51.45.181", "10.0.0.154"},
+			UUID:         uuid0,
+			InstanceID:   instance.Id(mName0),
+			DisplayName:  mName0.String(),
+			DNSName:      "2.51.45.181",
+			IPAddresses:  []string{"2.51.45.181", "10.0.0.154"},
+			AgentVersion: "4.0.15",
 			MachineStatus: status.MachineStatusInfo[status.MachineStatusType]{
 				StatusInfo: status.StatusInfo[status.MachineStatusType]{
 					Status:  status.MachineStatusStarted,
