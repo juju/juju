@@ -435,6 +435,12 @@ func (s *Service) UpdateOfferPermission(
 			Access: args.Access,
 		}
 		if !spec.RevokeAccess().EqualOrGreaterOfferAccessThan(permission.ConsumeAccess) {
+			// The resulting access drops below Consume, so the user can no longer
+			// consume the offer; suspend their relations against it before the
+			// permission is downgraded.
+			s.logger.Debugf(ctx,
+				"revoking %q access for user %q on offer %q drops below consume, suspending their relations",
+				args.Access, args.Username, args.OfferUUID)
 			if err := s.modelState.SuspendOfferConnectionsForUser(
 				ctx, args.OfferUUID, args.Username.Name(), "offer access revoked",
 			); err != nil {

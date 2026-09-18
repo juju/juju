@@ -293,6 +293,62 @@ func (s *localConsumerWorkerSuite) TestStartWatchOfferStatusFailed(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `watching status for offer: not valid`)
 }
 
+// TestStartWatchOfferStatusPermissionRevoked tests that when the offer
+// permission is revoked at worker startup, the macaroon cannot be discharged
+// and the worker runs in a degraded mode instead of crash looping.
+func (s *localConsumerWorkerSuite) TestStartWatchOfferStatusPermissionRevoked(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := make(chan struct{})
+
+	s.crossModelService.EXPECT().
+		WatchRelationsLifeSuspendedStatusForApplication(gomock.Any(), s.applicationUUID).
+		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
+			ch := make(chan []string)
+			return watchertest.NewMockStringsWatcher(ch), nil
+		})
+
+	s.remoteRelationClientGetter.EXPECT().
+		GetRemoteRelationClient(gomock.Any(), s.offererModelUUID).
+		Return(s.remoteModelRelationClient, nil)
+
+	s.remoteModelRelationClient.EXPECT().
+		WatchOfferStatus(gomock.Any(), params.OfferArg{
+			OfferUUID:     s.offerUUID,
+			Macaroons:     macaroon.Slice{s.macaroon},
+			BakeryVersion: bakery.LatestVersion,
+		}).
+		DoAndReturn(func(ctx context.Context, oa params.OfferArg) (watcher.OfferStatusWatcher, error) {
+			return nil, params.Error{
+				Code:    params.CodeDischargeRequired,
+				Message: "discharge required",
+			}
+		})
+
+	s.crossModelService.EXPECT().
+		SetRemoteApplicationOffererStatus(gomock.Any(), s.applicationName, gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ string, sts status.StatusInfo) error {
+			c.Check(sts.Status, tc.Equals, status.Error)
+			defer close(done)
+			return nil
+		})
+
+	w, err := NewLocalConsumerWorker(s.newLocalConsumerWorkerConfig(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for WatchOfferStatus to be called")
+	}
+
+	// The worker stays alive in a degraded mode rather than crash looping, as
+	// the permission cannot be re-acquired until it is re-granted.
+	workertest.CheckAlive(c, w)
+	workertest.CleanKill(c, w)
+}
+
 func (s *localConsumerWorkerSuite) TestWatchApplicationStatusChanged(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -304,7 +360,6 @@ func (s *localConsumerWorkerSuite) TestWatchApplicationStatusChanged(c *tc.C) {
 	s.crossModelService.EXPECT().
 		WatchRelationsLifeSuspendedStatusForApplication(gomock.Any(), s.applicationUUID).
 		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
-
 			return watchertest.NewMockStringsWatcher(ch), nil
 		})
 	s.remoteRelationClientGetter.EXPECT().
@@ -597,7 +652,102 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerRelationChange(c *tc.C) {
 	}
 
 	s.waitForAllWorkersStarted(c)
+}
 
+// TestHandleConsumerRelationChangePermissionRevoked tests that when the offer
+// permission is revoked, registering a relation with the offering model fails
+// to discharge the macaroon and the relation is suspended locally, with the
+// worker left running in a degraded mode.
+func (s *localConsumerWorkerSuite) TestHandleConsumerRelationChangePermissionRevoked(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup()
+
+	consumingRelationUUID := tc.Must(c, relation.NewUUID)
+	arg := params.RegisterConsumingRelationArg{
+		ConsumerApplicationToken: s.consumerApplicationUUID.String(),
+		SourceModelTag:           names.NewModelTag(s.consumerModelUUID.String()).String(),
+		RelationToken:            consumingRelationUUID.String(),
+		OfferUUID:                s.offerUUID,
+		Macaroons:                macaroon.Slice{s.macaroon},
+		ConsumerApplicationEndpoint: params.RemoteEndpoint{
+			Name:      "blog",
+			Role:      charm.RoleRequirer,
+			Interface: "blog",
+		},
+		OfferEndpointName: "db",
+		ConsumeVersion:    1,
+		BakeryVersion:     bakery.LatestVersion,
+	}
+
+	s.crossModelService.EXPECT().
+		GetApplicationUUIDByName(gomock.Any(), "bar").
+		Return(s.consumerApplicationUUID, nil)
+
+	s.remoteModelRelationClient.EXPECT().
+		RegisterRemoteRelations(gomock.Any(), arg).
+		Return(nil, params.Error{
+			Code:    params.CodeDischargeRequired,
+			Message: "discharge required",
+		})
+
+	s.crossModelService.EXPECT().GetRelationDetails(gomock.Any(), consumingRelationUUID).Return(domainrelation.RelationDetails{
+		UUID: consumingRelationUUID,
+		Life: life.Alive,
+		ID:   1,
+		Key:  corerelationtesting.GenNewKey(c, "blog:blog foo:db"),
+		Endpoints: []domainrelation.Endpoint{{
+			ApplicationName: "foo",
+			Relation: charm.Relation{
+				Name:      "db",
+				Role:      charm.RoleProvider,
+				Interface: "db",
+			},
+		}, {
+			ApplicationName: "bar",
+			Relation: charm.Relation{
+				Name:      "blog",
+				Role:      charm.RoleRequirer,
+				Interface: "blog",
+			},
+		}},
+		Suspended:    false,
+		InScopeUnits: 0,
+	}, nil)
+
+	suspended := make(chan struct{})
+	s.crossModelService.EXPECT().
+		SetRemoteRelationSuspendedState(gomock.Any(), consumingRelationUUID, true, "Offer permission revoked").
+		DoAndReturn(func(context.Context, relation.UUID, bool, string) error {
+			defer close(suspended)
+			return nil
+		})
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	select {
+	case s.relationLifeChanges <- []string{consumingRelationUUID.String()}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending relation change")
+	}
+
+	select {
+	case <-suspended:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for relation to be suspended")
+	}
+
+	// The relation is suspended locally and the worker stays alive in a degraded
+	// mode; no relation workers are started against the offering model while the
+	// permission is revoked.
+	workertest.CheckAlive(c, w)
 }
 
 func (s *localConsumerWorkerSuite) TestHandleConsumerRelationChangeApplicationNotFound(c *tc.C) {
@@ -2121,7 +2271,9 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 		ConsumerApplicationUUID: s.consumerApplicationUUID,
 		Macaroon:                s.macaroon,
 	})
-	c.Assert(params.ErrCode(err) == params.CodeDischargeRequired, tc.IsTrue)
+	// The relation is suspended locally and the worker continues in a degraded
+	// state rather than propagating the discharge error.
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeDyingRelation(c *tc.C) {

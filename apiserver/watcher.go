@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/application"
+	corelogger "github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/unit"
@@ -369,6 +370,7 @@ type srvRelationStatusWatcher struct {
 	watcherCommon
 	watcher         crossmodelrelations.RelationStatusWatcher
 	relationService RelationService
+	logger          corelogger.Logger
 }
 
 func newRelationStatusWatcher(ctx context.Context, context facade.ModelContext) (facade.Facade, error) {
@@ -395,6 +397,7 @@ func newRelationStatusWatcher(ctx context.Context, context facade.ModelContext) 
 	return &srvRelationStatusWatcher{
 		watcherCommon:   newWatcherCommon(context),
 		relationService: context.DomainServices().Relation(),
+		logger:          context.Logger(),
 		watcher:         watcher,
 	}, nil
 }
@@ -422,6 +425,9 @@ func (w *srvRelationStatusWatcher) Next(ctx context.Context) (params.RelationLif
 				Error: apiservererrors.ServerError(err),
 			}, nil
 		}
+
+		w.logger.Debugf(ctx, "relation status watcher change for relation %q: life=%q suspended=%t reason=%q",
+			relationUUID, change.Life, change.Suspended, change.SuspendedReason)
 
 		return params.RelationLifeSuspendedStatusWatchResult{
 			Changes: []params.RelationLifeSuspendedStatusChange{
