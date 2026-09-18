@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/version"
@@ -84,6 +85,10 @@ func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info De
 	}
 
 	origin := *info.Origin
+	controllerConstraints, err := normalizeControllerConstraints(b.constraints, origin.Platform.Architecture)
+	if err != nil {
+		return err
+	}
 
 	cfg, err := b.createCharmSettings()
 	if err != nil {
@@ -112,6 +117,7 @@ func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info De
 				Status: status.Unset,
 				Since:  new(b.clock.Now()),
 			},
+			Constraints:  controllerConstraints,
 			IsController: true,
 		},
 		applicationservice.AddUnitArg{},
@@ -120,6 +126,20 @@ func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info De
 	}
 
 	return nil
+}
+
+// normalizeControllerConstraints follows application-domain architecture
+// normalization: an explicit constraint must match the charm platform, and an
+// absent constraint uses the selected charm architecture.
+func normalizeControllerConstraints(cons constraints.Value, charmArch string) (constraints.Value, error) {
+	if cons.HasArch() && charmArch != "" && *cons.Arch != charmArch {
+		return constraints.Value{}, errors.Errorf("arch %q in constraints does not match controller charm platform arch %q",
+			*cons.Arch, charmArch)
+	}
+	if !cons.HasArch() {
+		cons.Arch = &charmArch
+	}
+	return cons, nil
 }
 
 // CompleteCAASProcess is called when the bootstrap process is complete.
