@@ -82,7 +82,7 @@ type ControllerCharmDeployer interface {
 	DeployCharmhubCharm(context.Context, string, corebase.Base) (DeployCharmInfo, error)
 
 	// EnsureControllerApplication creates the controller application if needed
-	// and completes its substrate-specific setup, including on retries.
+	// and completes its setup, including exposure. It is safe to retry.
 	EnsureControllerApplication(context.Context, DeployCharmInfo) error
 
 	// ControllerCharmBase returns the base used for deploying the controller
@@ -464,6 +464,25 @@ func (b *baseDeployer) createCharmSettings() (charm.Config, error) {
 		cfg["controller-url"] = api.ControllerAPIURL(addr, b.controllerConfig.APIPort())
 	}
 	return cfg, nil
+}
+
+// ensureControllerApplicationExposed seeds exposure during bootstrap. A retry
+// must finish a failed exposure without overwriting existing exposure settings.
+func (b *baseDeployer) ensureControllerApplicationExposed(ctx context.Context) error {
+	exposed, err := b.applicationService.IsApplicationExposed(ctx, bootstrap.ControllerApplicationName)
+	if err != nil {
+		return errors.Errorf("checking controller application exposure: %w", err)
+	}
+	if exposed {
+		return nil
+	}
+
+	// Let the application service supply the default wildcard endpoint and
+	// IPv4/IPv6 CIDRs for ports opened by the controller charm.
+	if err := b.applicationService.MergeExposeSettings(ctx, bootstrap.ControllerApplicationName, nil); err != nil {
+		return errors.Errorf("exposing controller application: %w", err)
+	}
+	return nil
 }
 
 func (b *baseDeployer) controllerDownloadInfo(schema string, info *corecharm.DownloadInfo) (*applicationcharm.DownloadInfo, error) {
