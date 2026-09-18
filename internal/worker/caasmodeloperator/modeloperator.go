@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
@@ -51,7 +52,6 @@ type ModelOperatorProvisioningInfo struct {
 // ModelOperatorManager defines the worker used for managing model operators in
 // caas
 type ModelOperatorManager struct {
-	dataDir        string
 	logDir         string
 	controllerTag  names.ControllerTag
 	configProvider ConfigProvider
@@ -62,6 +62,11 @@ type ModelOperatorManager struct {
 	logger         logger.Logger
 	modelUUID      string
 }
+
+// modelOperatorAgentDataDir is the data directory used by the model operator
+// agent in its pod; the deployment startup script always sets JUJU_DATA_DIR
+// to this value, so the template mount and rendered agent config must match it.
+var modelOperatorAgentDataDir = paths.DataDir(paths.OSUnixLike)
 
 const (
 	// DefaultModelOperatorPort is the default port used for the api server on
@@ -184,7 +189,7 @@ func (m *ModelOperatorManager) update(ctx context.Context) error {
 	err = m.broker.EnsureModelOperator(
 		ctx,
 		m.modelUUID,
-		m.dataDir,
+		modelOperatorAgentDataDir,
 		&caas.ModelOperatorConfig{
 			AgentConf:    agentConfBuf,
 			ImageDetails: info.ImageDetails,
@@ -204,14 +209,12 @@ func NewModelOperatorManager(
 	api ModelOperatorAPI,
 	broker ModelOperatorBroker,
 	modelUUID string,
-	dataDir string,
 	logDir string,
 	controllerTag names.ControllerTag,
 	configProvider ConfigProvider,
 	tracingService TracingService,
 ) (*ModelOperatorManager, error) {
 	m := &ModelOperatorManager{
-		dataDir:        dataDir,
 		logDir:         logDir,
 		controllerTag:  controllerTag,
 		configProvider: configProvider,
@@ -257,7 +260,7 @@ func (m *ModelOperatorManager) updateAgentConf(
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths: agent.Paths{
-				DataDir: m.dataDir,
+				DataDir: modelOperatorAgentDataDir,
 				LogDir:  m.logDir,
 			},
 			Tag:          modelTag,
