@@ -303,10 +303,10 @@ func ExposeControllerApplication(pool *StatePool) error {
 func PopulateApplicationStorageUniqueID(
 	pool *StatePool,
 	getStorageUniqueIDs func(
-		ctx context.Context,
-		applications []AppAndStorageID,
-		model *Model,
-	) ([]AppAndStorageID, error),
+	ctx context.Context,
+	applications []AppAndStorageID,
+	model *Model,
+) ([]AppAndStorageID, error),
 ) error {
 	// Run for each model because we want to backfill for every application.
 	return runForAllModelStates(pool, func(st *State) error {
@@ -663,47 +663,63 @@ func (st *State) removeSSHProxyCleanupDocs() error {
 	return errors.Trace(st.runRawTransaction(ops))
 }
 
-// FixRemoteApplicationCounts repairs remote application relationcount
-// drift caused by force removing cross model relations. It resets
-// relationcount to the number of relations whose endpoints reference the
-// application.
-func FixRemoteApplicationCounts(pool *StatePool) error {
+// FixApplicationCounts repairs remote and local application
+// relationcount drift caused by force removing cross model relations. It
+// resets relationcount to the number of relations whose endpoints
+// reference the application. Local application counts are repaired too:
+// removing an orphaned relation asserts on the relationcount of the
+// endpoint application, whichever collection it belongs to.
+func FixApplicationCounts(pool *StatePool) error {
 	return runForAllModelStates(pool, func(st *State) error {
-		apps, closer, err := st.db().GetCollection(remoteApplicationsC)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		defer closer()
-
-		var docs []struct {
-			DocID         string `bson:"_id"`
-			Name          string `bson:"name"`
-			RelationCount int    `bson:"relationcount"`
-		}
-		if err := apps.Find(nil).Select(bson.M{"_id": 1, "name": 1, "relationcount": 1}).All(&docs); err != nil {
-			return errors.Trace(err)
-		}
-		// The fix-up is best effort: each application is updated in
-		// its own transaction, logging a warning on failure, so a
-		// bad document cannot abort the whole upgrade step.
-		for _, doc := range docs {
-			refCount, err := countRelationsForApplication(st, doc.Name)
+		var repaired, failed []string
+		for _, collName := range []string{remoteApplicationsC, applicationsC} {
+			apps, closer, err := st.db().GetCollection(collName)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if doc.RelationCount == refCount {
-				continue
+			var docs []struct {
+				DocID         string `bson:"_id"`
+				Name          string `bson:"name"`
+				RelationCount int    `bson:"relationcount"`
 			}
-			logger.Debugf("repairing remote application %q: relationcount %d != %d actual relations", doc.Name, doc.RelationCount, refCount)
-			err = st.runRawTransaction([]txn.Op{{
-				C:      remoteApplicationsC,
-				Id:     doc.DocID,
-				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{{"relationcount", refCount}}}},
-			}})
+			err = apps.Find(nil).Select(bson.M{"_id": 1, "name": 1, "relationcount": 1}).All(&docs)
+			closer()
 			if err != nil {
-				logger.Warningf("cannot repair relationcount for remote application %q: %v (manual repair required)", doc.Name, err)
+				return errors.Trace(err)
 			}
+			// The fix-up is best effort: each application is updated
+			// in its own transaction, logging a warning on failure,
+			// so a bad document cannot abort the whole upgrade step.
+			for _, doc := range docs {
+				refCount, err := countRelationsForApplication(st, doc.Name)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if doc.RelationCount == refCount {
+					continue
+				}
+				logger.Debugf("repairing application %q: relationcount %d != %d actual relations", doc.Name, doc.RelationCount, refCount)
+				err = st.runRawTransaction([]txn.Op{{
+					C:      collName,
+					Id:     doc.DocID,
+					Assert: txn.DocExists,
+					Update: bson.D{{"$set", bson.D{{"relationcount", refCount}}}},
+				}})
+				if err != nil {
+					logger.Warningf("cannot repair relationcount for application %q: %v (manual repair required)", doc.Name, err)
+					failed = append(failed, doc.Name)
+					continue
+				}
+				repaired = append(repaired, doc.Name)
+			}
+		}
+		if len(repaired) > 0 {
+			logger.Infof("repaired relationcount for %d application(s) in model %q: %v",
+				len(repaired), st.ModelUUID(), repaired)
+		}
+		if len(failed) > 0 {
+			logger.Warningf("%d application(s) left for manual repair in model %q: %v",
+				len(failed), st.ModelUUID(), failed)
 		}
 		return nil
 	})
@@ -738,6 +754,19 @@ func RemoveOrphanedApplicationRelations(pool *StatePool) error {
 				return nil, errors.Trace(err)
 			}
 			return ids, nil
+		}
+
+		// appendRemoveOps appends to ops a Remove op for every
+		// document matching sel in the named collection.
+		appendRemoveOps := func(ops []txn.Op, collName string, sel bson.M) ([]txn.Op, error) {
+			ids, err := collectIDs(collName, sel)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			for _, id := range ids {
+				ops = append(ops, txn.Op{C: collName, Id: id, Remove: true})
+			}
+			return ops, nil
 		}
 
 		// apps holds every endpoint application that currently has a document.
@@ -789,6 +818,7 @@ func RemoveOrphanedApplicationRelations(pool *StatePool) error {
 			Select(bson.M{"_id": 1, "key": 1, "id": 1, "endpoints": 1}).
 			Iter()
 		defer iter.Close()
+		var removed, failed []int
 		for iter.Next(&doc) {
 			var ops []txn.Op
 			orphaned := false
@@ -829,29 +859,24 @@ func RemoveOrphanedApplicationRelations(pool *StatePool) error {
 			// scope and settings docs, persisted unit relation state,
 			// and any queued cleanups that reference it.
 			prefix := "r#" + strconv.Itoa(doc.Id) + "#"
-			ids, err := collectIDs(relationScopesC, bson.M{"_id": bson.M{"$regex": "^" + st.docID(prefix)}})
+			prefixSel := bson.M{"_id": bson.M{"$regex": "^" + st.docID(prefix)}}
+			ops, err := appendRemoveOps(ops, relationScopesC, prefixSel)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			for _, id := range ids {
-				ops = append(ops, txn.Op{C: relationScopesC, Id: id, Remove: true})
-			}
-			ids, err = collectIDs(settingsC, bson.M{"_id": bson.M{"$regex": "^" + st.docID(prefix)}})
+			ops, err = appendRemoveOps(ops, settingsC, prefixSel)
 			if err != nil {
 				return errors.Trace(err)
-			}
-			for _, id := range ids {
-				ops = append(ops, txn.Op{C: settingsC, Id: id, Remove: true})
 			}
 			relState := "relation-state." + strconv.Itoa(doc.Id)
-			ids, err = collectIDs(unitStatesC, bson.M{relState: bson.M{"$exists": true}})
+			ids, err := collectIDs(unitStatesC, bson.M{relState: bson.M{"$exists": true}})
 			if err != nil {
 				return errors.Trace(err)
 			}
 			for _, id := range ids {
 				ops = append(ops, txn.Op{C: unitStatesC, Id: id, Update: bson.D{{"$unset", bson.D{{relState, ""}}}}})
 			}
-			ids, err = collectIDs(cleanupsC, bson.M{"$or": []bson.M{{
+			ops, err = appendRemoveOps(ops, cleanupsC, bson.M{"$or": []bson.M{{
 				"kind":   cleanupForceDestroyedRelation,
 				"prefix": strconv.Itoa(doc.Id),
 			}, {
@@ -860,9 +885,6 @@ func RemoveOrphanedApplicationRelations(pool *StatePool) error {
 			}}})
 			if err != nil {
 				return errors.Trace(err)
-			}
-			for _, id := range ids {
-				ops = append(ops, txn.Op{C: cleanupsC, Id: id, Remove: true})
 			}
 
 			// Also clears the relation's status, relation network,
@@ -873,12 +895,9 @@ func RemoveOrphanedApplicationRelations(pool *StatePool) error {
 				Id:     st.docID("r#" + strconv.Itoa(doc.Id)),
 				Remove: true,
 			})
-			ids, err = collectIDs(relationNetworksC, bson.M{"relation-key": doc.Key})
+			ops, err = appendRemoveOps(ops, relationNetworksC, bson.M{"relation-key": doc.Key})
 			if err != nil {
 				return errors.Trace(err)
-			}
-			for _, id := range ids {
-				ops = append(ops, txn.Op{C: relationNetworksC, Id: id, Remove: true})
 			}
 			ops = append(ops, txn.Op{
 				C:      offerConnectionsC,
@@ -891,26 +910,35 @@ func RemoveOrphanedApplicationRelations(pool *StatePool) error {
 				Id:     st.docID(tag),
 				Remove: true,
 			})
-			ids, err = collectIDs(secretPermissionsC, bson.M{"scope-tag": tag})
+			ops, err = appendRemoveOps(ops, secretPermissionsC, bson.M{"scope-tag": tag})
 			if err != nil {
 				return errors.Trace(err)
-			}
-			for _, id := range ids {
-				ops = append(ops, txn.Op{C: secretPermissionsC, Id: id, Remove: true})
 			}
 
 			ops = append(ops, txn.Op{
 				C:      relationsC,
 				Id:     doc.DocID,
+				Assert: txn.DocExists,
 				Remove: true,
 			})
 			logger.Debugf("removing orphaned relation %v: an endpoint application has no document", doc.Id)
 			if err := st.runRawTransaction(ops); err != nil {
 				logger.Warningf("cannot remove orphaned relation %d: %v (manual repair required)", doc.Id, err)
+				failed = append(failed, doc.Id)
+			} else {
+				removed = append(removed, doc.Id)
 			}
 		}
 		if err := iter.Close(); err != nil {
 			return errors.Trace(err)
+		}
+		if len(removed) > 0 {
+			logger.Infof("removed %d orphaned relation(s) in model %q: %v",
+				len(removed), st.ModelUUID(), removed)
+		}
+		if len(failed) > 0 {
+			logger.Warningf("%d orphaned relation(s) left for manual repair in model %q: %v",
+				len(failed), st.ModelUUID(), failed)
 		}
 		return nil
 	})
@@ -1031,6 +1059,7 @@ func RemoveOrphanedRelationDocs(pool *StatePool) error {
 		// Removal and repair are best effort: each relation's ops run
 		// in their own transaction, logging a warning on failure, so a
 		// bad relation cannot abort the repair of the others.
+		var repaired, failed []int
 		for id := range orphans {
 			var ops []txn.Op
 			if !existing[id] {
@@ -1055,6 +1084,7 @@ func RemoveOrphanedRelationDocs(pool *StatePool) error {
 				}
 				if !appsOK {
 					logger.Warningf("relation %d has dangling endpoint applications, leaving its docs for manual repair", id)
+					failed = append(failed, id)
 					continue
 				}
 				settingsAt := make(map[string]bool)
@@ -1112,7 +1142,18 @@ func RemoveOrphanedRelationDocs(pool *StatePool) error {
 			}
 			if err := st.runRawTransaction(ops); err != nil {
 				logger.Warningf("cannot repair relation %d docs: %v (manual repair required)", id, err)
+				failed = append(failed, id)
+			} else {
+				repaired = append(repaired, id)
 			}
+		}
+		if len(repaired) > 0 {
+			logger.Infof("repaired relation documents for %d relation(s) in model %q: %v",
+				len(repaired), st.ModelUUID(), repaired)
+		}
+		if len(failed) > 0 {
+			logger.Warningf("%d relation(s) left for manual repair in model %q: %v",
+				len(failed), st.ModelUUID(), failed)
 		}
 		return nil
 	})
@@ -1183,6 +1224,7 @@ func RemoveOrphanedUnitStateRelations(pool *StatePool) error {
 		// updated in its own transaction, logging a warning on
 		// failure, so a stale document cannot abort the whole upgrade
 		// step.
+		var repaired, failed []string
 		for _, unitDoc := range docs {
 			var unset bson.D
 			for k := range unitDoc.RelationState {
@@ -1201,7 +1243,18 @@ func RemoveOrphanedUnitStateRelations(pool *StatePool) error {
 				Update: bson.D{{"$unset", unset}},
 			}}); err != nil {
 				logger.Warningf("cannot clear orphaned relation states for %v: %v (manual repair required)", unitDoc.DocID, err)
+				failed = append(failed, unitDoc.DocID)
+			} else {
+				repaired = append(repaired, unitDoc.DocID)
 			}
+		}
+		if len(repaired) > 0 {
+			logger.Infof("cleared orphaned relation states for %d unit state document(s) in model %q: %v",
+				len(repaired), st.ModelUUID(), repaired)
+		}
+		if len(failed) > 0 {
+			logger.Warningf("%d unit state document(s) left for manual repair in model %q: %v",
+				len(failed), st.ModelUUID(), failed)
 		}
 		return nil
 	})

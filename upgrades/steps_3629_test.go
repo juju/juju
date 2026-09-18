@@ -20,7 +20,7 @@ type steps3629Suite struct {
 
 var _ = gc.Suite(&steps3629Suite{})
 
-func (s *steps3629Suite) TestFixRemoteApplicationCounts(c *gc.C) {
+func (s *steps3629Suite) TestFixApplicationCounts(c *gc.C) {
 	step := findStateStep(c, v3629, "repair remote application relation counts")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }

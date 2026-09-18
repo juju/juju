@@ -12,7 +12,7 @@ func stateStepsFor3629() []Step {
 			description: "repair remote application relation counts",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return context.State().FixRemoteApplicationCounts()
+				return context.State().FixApplicationCounts()
 			},
 		},
 		&upgradeStep{

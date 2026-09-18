@@ -176,6 +176,18 @@ func (s *upgradesSuite) setRemoteCount(c *gc.C, name string, count int) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *upgradesSuite) localRelationCount(c *gc.C, name string) int {
+	coll, closer, err := s.state.db().GetRawCollection(applicationsC)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	var doc struct {
+		RelationCount int `bson:"relationcount"`
+	}
+	err = coll.FindId(s.state.docID(name)).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	return doc.RelationCount
+}
+
 func (s *upgradesSuite) TestSplitMigrationStatusMessages(c *gc.C) {
 	model := s.makeModel(c, "m", coretesting.Attrs{}, ModelArgs{Type: ModelTypeIAAS})
 	defer func() { _ = model.Close() }()
@@ -841,7 +853,7 @@ func (s *upgradesSuite) TestRemoveSSHProxyArtefactsClosesControllerPort(c *gc.C)
 	}
 }
 
-func (s *upgradesSuite) TestFixRemoteApplicationCounts(c *gc.C) {
+func (s *upgradesSuite) TestFixApplicationCounts(c *gc.C) {
 	// negative count, no relations -> must be set to 0.
 	clamp := s.makeRemoteApplication(c, "clamp")
 	s.setRemoteCount(c, clamp.Name(), -1)
@@ -864,7 +876,7 @@ func (s *upgradesSuite) TestFixRemoteApplicationCounts(c *gc.C) {
 
 	// Run twice to verify idempotency.
 	for i := 0; i < 2; i++ {
-		err := FixRemoteApplicationCounts(s.pool)
+		err := FixApplicationCounts(s.pool)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -898,6 +910,9 @@ func (s *upgradesSuite) TestFixRemoteApplicationCounts(c *gc.C) {
 	orphanCloser()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(orphanDoc.RelationCount, gc.Equals, 0)
+
+	c.Assert(s.localRelationCount(c, "wp-orphan"), gc.Equals, 0)
+	c.Assert(s.localRelationCount(c, "wp-live"), gc.Equals, 1)
 }
 
 func (s *upgradesSuite) TestRemoveOrphanedRelationDocs(c *gc.C) {
@@ -988,7 +1003,7 @@ func (s *upgradesSuite) TestRemoveOrphanedRelationDocs(c *gc.C) {
 	c.Assert(s.countDocs(c, "relationscopes", s.relPrefix(liveRel)), gc.Equals, 1)
 }
 
-func (s *upgradesSuite) TestFixRemoteApplicationCountsNoRecurrence(c *gc.C) {
+func (s *upgradesSuite) TestFixApplicationCountsNoRecurrence(c *gc.C) {
 	app, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
 		Name:        "cycle",
 		SourceModel: names.NewModelTag("source-model"),
@@ -1016,7 +1031,7 @@ func (s *upgradesSuite) TestFixRemoteApplicationCountsNoRecurrence(c *gc.C) {
 	c.Assert(wpru.EnterScope(nil), jc.ErrorIsNil)
 
 	// A no-op on this healthy state.
-	c.Assert(FixRemoteApplicationCounts(s.pool), jc.ErrorIsNil)
+	c.Assert(FixApplicationCounts(s.pool), jc.ErrorIsNil)
 
 	// Tear the relation down then leave the last
 	// unit. The consumer proxy is removed on its final relation.
@@ -1030,7 +1045,7 @@ func (s *upgradesSuite) TestFixRemoteApplicationCountsNoRecurrence(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Re-run the upgrade: must be a clean no-op, no orphans, no negatives.
-	c.Assert(FixRemoteApplicationCounts(s.pool), jc.ErrorIsNil)
+	c.Assert(FixApplicationCounts(s.pool), jc.ErrorIsNil)
 	scopes, closer, err := s.state.db().GetRawCollection("relationscopes")
 	c.Assert(err, jc.ErrorIsNil)
 	n, err := scopes.Find(bson.M{"_id": bson.M{"$regex": "^" + s.state.docID("r#")}}).Count()
@@ -1847,7 +1862,7 @@ func (s *upgradesSuite) TestUpgradeRepairsBrokenDB(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i := 0; i < 2; i++ {
-		c.Assert(FixRemoteApplicationCounts(s.pool), jc.ErrorIsNil)
+		c.Assert(FixApplicationCounts(s.pool), jc.ErrorIsNil)
 		c.Assert(RemoveOrphanedApplicationRelations(s.pool), jc.ErrorIsNil)
 		c.Assert(RemoveOrphanedRelationDocs(s.pool), jc.ErrorIsNil)
 		c.Assert(RemoveOrphanedUnitStateRelations(s.pool), jc.ErrorIsNil)
@@ -1912,7 +1927,7 @@ func (s *upgradesSuite) TestUpgradeRepairsBrokenDB(c *gc.C) {
 	drst, dfound := danglingUState.RelationState()
 	c.Assert(dfound, jc.IsTrue)
 	c.Assert(drst, gc.HasLen, 0)
-	// Explicit non-scenario - a drifted local application count is not
-	// repaired by these steps (fixed upstream at migration import).
-	c.Assert(checkCount("applications", "watcher"), gc.Equals, 9)
+	// The drifted local application count is repaired to the actual
+	// number of relations.
+	c.Assert(checkCount("applications", "watcher"), gc.Equals, 1)
 }

@@ -26,7 +26,7 @@ type StateBackend interface {
 	ConvertScalingToCurrentOperationEnumField() error
 	ExposeControllerApplication() error
 	RemoveSSHProxyArtefacts() error
-	FixRemoteApplicationCounts() error
+	FixApplicationCounts() error
 	RemoveOrphanedApplicationRelations() error
 	RemoveOrphanedRelationDocs() error
 	RemoveOrphanedUnitStateRelations() error
@@ -93,11 +93,11 @@ func (s stateBackend) RemoveSSHProxyArtefacts() error {
 	return state.RemoveSSHProxyArtefacts(s.pool)
 }
 
-// FixRemoteApplicationCounts runs an upgrade to repair remote application
+// FixApplicationCounts runs an upgrade to repair application
 // relationcount drift: it resets relationcount to the number of relations
 // whose endpoints reference the application. The step is idempotent.
-func (s stateBackend) FixRemoteApplicationCounts() error {
-	return state.FixRemoteApplicationCounts(s.pool)
+func (s stateBackend) FixApplicationCounts() error {
+	return state.FixApplicationCounts(s.pool)
 }
 
 // RemoveOrphanedApplicationRelations runs an upgrade to destroy relations
