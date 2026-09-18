@@ -1185,7 +1185,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	manifolds := dependency.Manifolds{
 		// Bootstrap worker is responsible for setting up the initial machine.
 		bootstrapName: ifControllerProxyReady(ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
-			ObjectStoreName:         objectStoreFacadeName,
 			DomainServicesName:      domainServicesName,
 			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,
@@ -1434,7 +1433,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
 		// Bootstrap worker is responsible for setting up the initial machine.
 		bootstrapName: ifControllerProxyReady(ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
-			ObjectStoreName:         objectStoreFacadeName,
 			DomainServicesName:      domainServicesName,
 			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,

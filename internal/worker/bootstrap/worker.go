@@ -73,7 +73,6 @@ type WorkerConfig struct {
 	// machine.
 	RemoveBootstrapSSHKeys func([]string) error
 
-	ObjectStoreGetter          ObjectStoreGetter
 	ControllerAgentBinaryStore AgentBinaryStore
 	ControllerConfigService    ControllerConfigService
 	ControllerNodeService      ControllerNodeService
@@ -110,9 +109,6 @@ type WorkerConfig struct {
 
 // Validate ensures that the config values are valid.
 func (c *WorkerConfig) Validate() error {
-	if c.ObjectStoreGetter == nil {
-		return errors.NotValidf("nil ObjectStoreGetter")
-	}
 	if c.ControllerAgentBinaryStore == nil {
 		return errors.NotValidf("nil ControllerAgentBinaryStore")
 	}
@@ -534,19 +530,10 @@ func (w *bootstrapWorker) scopedContext() (context.Context, context.CancelFunc) 
 }
 
 func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) (func(), error) {
-	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(
-		ctx,
-		w.cfg.ControllerModel.UUID.String(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get object store: %w", err)
-	}
-
 	cleanup, err := w.cfg.AgentBinaryUploader(
 		ctx,
 		dataDir,
 		w.cfg.ControllerAgentBinaryStore,
-		objectStore,
 		w.cfg.Logger.Child("agentbinary"),
 	)
 	if err != nil {
@@ -567,21 +554,12 @@ func (w *bootstrapWorker) seedControllerCharm(
 		return errors.Trace(err)
 	}
 
-	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(
-		ctx,
-		w.cfg.ControllerModel.UUID.String(),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get object store: %w", err)
-	}
-
 	// Controller charm seeder will populate the charm for the controller.
 	deployer, err := w.cfg.ControllerCharmDeployer(ctx, ControllerCharmDeployerConfig{
 		AgentPasswordService:        w.cfg.AgentPasswordService,
 		ApplicationService:          w.cfg.ApplicationService,
 		Model:                       w.cfg.ControllerModel,
 		ModelConfigService:          w.cfg.ModelConfigService,
-		ObjectStore:                 objectStore,
 		ControllerConfig:            controllerConfig,
 		DataDir:                     dataDir,
 		BootstrapMachineConstraints: bootstrapArgs.BootstrapMachineConstraints,

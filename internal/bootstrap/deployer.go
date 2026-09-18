@@ -126,7 +126,6 @@ type BaseDeployerConfig struct {
 	ApplicationService   ApplicationService
 	AgentPasswordService AgentPasswordService
 	ModelConfigService   ModelConfigService
-	ObjectStore          objectstore.ObjectStore
 	Constraints          constraints.Value
 	BootstrapAddresses   network.ProviderAddresses
 	ControllerConfig     controller.Config
@@ -149,9 +148,6 @@ func (c BaseDeployerConfig) Validate() error {
 	}
 	if c.ModelConfigService == nil {
 		return errors.Errorf("ModelConfigService").Add(coreerrors.NotValid)
-	}
-	if c.ObjectStore == nil {
-		return errors.Errorf("ObjectStore").Add(coreerrors.NotValid)
 	}
 	if c.BootstrapAddresses == nil {
 		return errors.Errorf("BootstrapAddresses").Add(coreerrors.NotValid)
@@ -182,7 +178,6 @@ type baseDeployer struct {
 	applicationService  ApplicationService
 	passwordService     AgentPasswordService
 	modelConfigService  ModelConfigService
-	objectStore         objectstore.ObjectStore
 	bootstrapAddresses  network.ProviderAddresses
 	constraints         constraints.Value
 	controllerConfig    controller.Config
@@ -201,7 +196,6 @@ func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 		applicationService:  config.ApplicationService,
 		passwordService:     config.AgentPasswordService,
 		modelConfigService:  config.ModelConfigService,
-		objectStore:         config.ObjectStore,
 		bootstrapAddresses:  config.BootstrapAddresses,
 		constraints:         config.Constraints,
 		controllerConfig:    config.ControllerConfig,

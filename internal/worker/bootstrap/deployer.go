@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/objectstore"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/deployment/charm/charmdownloader"
@@ -45,7 +44,6 @@ type AgentBinaryBootstrapFunc func(
 	context.Context,
 	string,
 	AgentBinaryStore,
-	objectstore.ObjectStore,
 	logger.Logger,
 ) (func(), error)
 
@@ -56,7 +54,6 @@ type ControllerCharmDeployerConfig struct {
 	ApplicationService          ApplicationService
 	Model                       coremodel.Model
 	ModelConfigService          ModelConfigService
-	ObjectStore                 objectstore.ObjectStore
 	ControllerConfig            controller.Config
 	DataDir                     string
 	BootstrapAddresses          network.ProviderAddresses
@@ -73,32 +70,32 @@ type ControllerCharmDeployerConfig struct {
 // K8sControllerUnitPassword is the function that is used to get the unit
 // password for K8s. This is currently retrieved from the environment
 // variable.
-func K8sControllerUnitPassword(context.Context) (string, error) {
+func K8sControllerUnitPassword() (string, error) {
 	return os.Getenv(k8sconstants.EnvJujuK8sUnitPassword), nil
 }
 
 // K8sControllerApplicationPassword returns the password used by controller
 // pods to introduce themselves to the controller application.
-func K8sControllerApplicationPassword(context.Context) (string, error) {
+func K8sControllerApplicationPassword() (string, error) {
 	return os.Getenv(k8sconstants.EnvJujuK8sApplicationPassword), nil
 }
 
 // IAASControllerUnitPassword is the function that is used to get the unit
 // password for IAAS.
-func IAASControllerUnitPassword(context.Context) (string, error) {
+func IAASControllerUnitPassword() (string, error) {
 	// IAAS doesn't need a unit password.
 	return "", nil
 }
 
 // IAASControllerApplicationPassword returns no application password because
 // IAAS controllers do not use K8s unit introduction.
-func IAASControllerApplicationPassword(context.Context) (string, error) {
+func IAASControllerApplicationPassword() (string, error) {
 	return "", nil
 }
 
 // K8sAgentBinaryUploader is the function that is used to populate the tools
 // for K8s.
-func K8sAgentBinaryUploader(context.Context, string, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
+func K8sAgentBinaryUploader(context.Context, string, AgentBinaryStore, logger.Logger) (func(), error) {
 	// K8s doesn't need to populate the tools.
 	return func() {}, nil
 }
@@ -109,7 +106,6 @@ func IAASAgentBinaryUploader(
 	ctx context.Context,
 	dataDir string,
 	agentBinaryStore AgentBinaryStore,
-	objectStore objectstore.ObjectStore,
 	logger logger.Logger,
 ) (func(), error) {
 	return bootstrap.PopulateAgentBinary(ctx, dataDir, agentBinaryStore, logger)
@@ -148,7 +144,6 @@ func IAASControllerCharmUploader(ctx context.Context, cfg ControllerCharmDeploye
 func makeBaseDeployerConfig(cfg ControllerCharmDeployerConfig) bootstrap.BaseDeployerConfig {
 	return bootstrap.BaseDeployerConfig{
 		DataDir:              cfg.DataDir,
-		ObjectStore:          cfg.ObjectStore,
 		ApplicationService:   cfg.ApplicationService,
 		AgentPasswordService: cfg.AgentPasswordService,
 		ModelConfigService:   cfg.ModelConfigService,

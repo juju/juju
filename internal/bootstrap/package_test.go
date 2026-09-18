@@ -21,7 +21,6 @@ import (
 )
 
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStore,ControllerCharmDeployer,HTTPClient,ApplicationService,IAASApplicationService,K8sApplicationService,ModelConfigService,Downloader,AgentPasswordService,ServiceManager
-//go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination core_charm_mock_test.go github.com/juju/juju/core/charm Repository
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination internal_charm_mock_test.go github.com/juju/juju/domain/deployment/charm Charm
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination clock_mock_test.go github.com/juju/clock Clock
@@ -32,7 +31,6 @@ type baseSuite struct {
 	agentBinaryStore       *MockAgentBinaryStore
 	deployer               *MockControllerCharmDeployer
 	httpClient             *MockHTTPClient
-	objectStore            *MockObjectStore
 	agentPasswordService   *MockAgentPasswordService
 	applicationService     *MockApplicationService
 	iaasApplicationService *MockIAASApplicationService
@@ -51,7 +49,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.agentBinaryStore = NewMockAgentBinaryStore(ctrl)
 	s.deployer = NewMockControllerCharmDeployer(ctrl)
 	s.httpClient = NewMockHTTPClient(ctrl)
-	s.objectStore = NewMockObjectStore(ctrl)
 
 	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
@@ -75,7 +72,6 @@ func (s *baseSuite) newConfig(c *tc.C) BaseDeployerConfig {
 		AgentPasswordService: s.agentPasswordService,
 		ApplicationService:   s.applicationService,
 		ModelConfigService:   s.modelConfigService,
-		ObjectStore:          s.objectStore,
 		Constraints:          constraints.Value{},
 		ControllerConfig: controller.Config{
 			controller.ControllerUUIDKey: controllerUUID.String(),
