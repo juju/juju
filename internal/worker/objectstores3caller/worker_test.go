@@ -142,13 +142,20 @@ func (s *workerSuite) TestSessionErrorPropagated(c *tc.C) {
 	workertest.CleanKill(c, worker)
 }
 
-func (s *workerSuite) TestSessionIsChangedByWatcher(c *tc.C) {
+// TestChangeAfterReadyUpdatesSession verifies that a backend change arriving
+// after the watcher readiness barrier triggers a session refresh. This
+// exercises the race between watcher subscription and the initial state query:
+// the worker must not miss backend changes that arrive after the subscription
+// becomes active.
+func (s *workerSuite) TestChangeAfterReadyUpdatesSession(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	changes := make(chan []string)
+	changes := make(chan []string, 1)
+	// Seed the initial event for the readiness barrier.
+	changes <- []string{}
 
-	s.expectGetActiveBackendS3(c)
 	s.expectWatchObjectStoreBackendWithChanges(changes)
+	s.expectGetActiveBackendS3(c)
 
 	triggerDone := make(chan struct{})
 	s.expectGetActiveBackendS3WithDone(triggerDone)
@@ -195,13 +202,19 @@ func (s *workerSuite) TestSessionIsChangedByWatcher(c *tc.C) {
 	workertest.CleanKill(c, worker)
 }
 
-func (s *workerSuite) TestSessionBecomesNilOnFileBackendChange(c *tc.C) {
+// TestChangeAfterReadySessionBecomesNil verifies that a backend change from
+// S3 to file storage arriving after the watcher readiness barrier properly
+// nils out the session. This exercises the race between watcher subscription
+// and the initial state query.
+func (s *workerSuite) TestChangeAfterReadySessionBecomesNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	changes := make(chan []string)
+	changes := make(chan []string, 1)
+	// Seed the initial event for the readiness barrier.
+	changes <- []string{}
 
-	s.expectGetActiveBackendS3(c)
 	s.expectWatchObjectStoreBackendWithChanges(changes)
+	s.expectGetActiveBackendS3(c)
 
 	triggerDone := make(chan struct{})
 	// After the watcher fires, the backend returns file (no S3 creds).
@@ -244,13 +257,18 @@ func (s *workerSuite) TestSessionBecomesNilOnFileBackendChange(c *tc.C) {
 	workertest.CleanKill(c, worker)
 }
 
-func (s *workerSuite) TestSessionStableWhileFnInFlight(c *tc.C) {
+// TestChangeAfterReadyStableWhileFnInFlight verifies that an in-flight
+// Session callback sees a stable session even when a backend change arrives
+// after the watcher readiness barrier and replaces the session concurrently.
+func (s *workerSuite) TestChangeAfterReadyStableWhileFnInFlight(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	changes := make(chan []string)
+	changes := make(chan []string, 1)
+	// Seed the initial event for the readiness barrier.
+	changes <- []string{}
 
-	s.expectGetActiveBackendS3(c)
 	s.expectWatchObjectStoreBackendWithChanges(changes)
+	s.expectGetActiveBackendS3(c)
 
 	triggerDone := make(chan struct{})
 	// After the watcher fires, the backend returns file (session becomes nil).
@@ -330,24 +348,27 @@ func (s *workerSuite) TestSessionStableWhileFnInFlight(c *tc.C) {
 func (s *workerSuite) TestGetActiveBackendError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectWatchObjectStoreBackend(c)
 	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).
 		Return(objectstoreservice.BackendInfo{}, errors.Errorf("backend error"))
 
-	_, err := newWorker(s.getConfig(), s.states)
+	worker := s.newWorker(c)
+	defer workertest.DirtyKill(c, worker)
+
+	err := workertest.CheckKilled(c, worker)
 	c.Assert(err, tc.ErrorMatches, `backend error`)
 }
 
 func (s *workerSuite) TestWatchObjectStoreBackendError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectGetActiveBackendS3(c)
 	s.objectStoreService.EXPECT().WatchObjectStoreBackend(gomock.Any()).
 		Return(nil, errors.Errorf("watch error"))
 
 	worker := s.newWorker(c)
 	defer workertest.DirtyKill(c, worker)
 
-	err := workertest.CheckKill(c, worker)
+	err := workertest.CheckKilled(c, worker)
 	c.Assert(err, tc.ErrorMatches, `watch error`)
 }
 

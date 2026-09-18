@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/s3client"
@@ -67,6 +68,7 @@ type s3Worker struct {
 
 	mutex   sync.RWMutex
 	session objectstore.Session
+	ready   chan struct{}
 }
 
 // NewWorker returns a new worker that wraps an S3 Session.
@@ -85,17 +87,13 @@ func newWorker(config workerConfig, internalStates chan string) (*s3Worker, erro
 	w := &s3Worker{
 		internalStates: internalStates,
 		config:         config,
+		ready:          make(chan struct{}),
 	}
 
-	// Before we start the catacomb we need to create the initial session.
-	client, err := w.makeNewClient(context.Background())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	w.session = client
-
-	// Now start the catacomb once we have the initial session.
+	// Start the catacomb. The initial session is created inside loop()
+	// after the watcher subscription is established to avoid missing
+	// backend changes that occur between session creation and the
+	// watcher becoming active.
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "object-store-s3",
 		Site: &w.catacomb,
@@ -120,6 +118,17 @@ func newWorker(config workerConfig, internalStates chan string) (*s3Worker, erro
 func (w *s3Worker) Session(ctx context.Context, fn func(context.Context, objectstore.Session) error) error {
 	ctx, trace := coretrace.Start(ctx, coretrace.NameFromFunc())
 	defer trace.End()
+
+	// Wait for the initial session to be established before serving
+	// requests. This prevents returning NotSupported during the
+	// transient startup window before loop() creates the first session.
+	select {
+	case <-w.ready:
+	case <-w.catacomb.Dying():
+		return w.catacomb.ErrDying()
+	case <-ctx.Done():
+		return errors.Trace(ctx.Err())
+	}
 
 	w.mutex.RLock()
 	session := w.session
@@ -153,6 +162,26 @@ func (w *s3Worker) loop() (err error) {
 	if err := w.catacomb.Add(watcher); err != nil {
 		return errors.Trace(err)
 	}
+
+	// Consume the initial event from the watcher as the readiness
+	// barrier. This ensures the subscription is active before we read
+	// the current backend state.
+	if _, err := eventsource.ConsumeInitialEvent[[]string](ctx, watcher); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Create the initial session now that the watcher subscription is
+	// active. Any backend changes after this point will be caught by
+	// the watcher.
+	client, err := w.makeNewClient(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	w.mutex.Lock()
+	w.session = client
+	w.mutex.Unlock()
+	close(w.ready)
 
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
