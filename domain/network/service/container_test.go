@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/network/internal"
+	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalnetwork "github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/testhelpers"
@@ -356,6 +357,48 @@ func (s *containerSuite) TestDevicesToBridgeLocalMethodDefaultBridgeInSpace(c *t
 	c.Assert(nics, tc.HasLen, 0)
 }
 
+func (s *containerSuite) TestDevicesToBridgeLocalMethodInSpaceBridgeNoDefaultBridge(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	// The default LXD bridge has not been observed on the host, but a
+	// bridge in the required space satisfies the requirement, so no host
+	// devices are selected for bridging and no error is reported.
+	s.expectContainerNetworking(c,
+		[]internal.SpaceName{{UUID: "positive-space-uuid", Name: "positive-space"}},
+		map[string][]network.NetInterface{
+			"positive-space-uuid": {{
+				Name: "br-eth0",
+				Type: corenetwork.BridgeDevice,
+			}},
+		},
+		containermanager.NetworkingMethodLocal.String(),
+	)
+
+	nics, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(nics, tc.HasLen, 0)
+}
+
+func (s *containerSuite) TestDevicesToBridgeNetworkingMethodError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	methodErr := internalerrors.New("boom")
+
+	exp := s.st.EXPECT()
+	exp.GetMachineSpaceConstraints(c.Context(), s.guestUUID.String()).Return(nil, nil, nil)
+	exp.GetMachineAppBindings(c.Context(), s.guestUUID.String()).Return(nil, nil)
+	exp.GetMachineNetNodeUUID(c.Context(), s.hostUUID.String()).Return(s.nodeUUID, nil)
+	exp.NICsInSpaces(c.Context(), s.nodeUUID).Return(nil, nil)
+	exp.GetContainerNetworkingMethod(c.Context()).Return("", methodErr)
+
+	_, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIs, methodErr)
+}
+
 func (s *containerSuite) TestDevicesForGuestBridgeFoundNoContainerAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -609,11 +652,13 @@ func (s *containerSuite) TestDevicesForGuestLocalMethodMixedBridges(c *tc.C) {
 	s.setupServiceAndMachines(c)
 
 	// One space is served by an existing bridge; the other falls back to
-	// the default LXD bridge with DHCP.
+	// the default LXD bridge with DHCP. The spaces are listed in reverse
+	// name order, to verify that requirements are satisfied in sorted
+	// space name order.
 	s.expectContainerNetworking(c,
 		[]internal.SpaceName{
-			{UUID: "one-space-uuid", Name: "one-space"},
 			{UUID: "two-space-uuid", Name: "two-space"},
+			{UUID: "one-space-uuid", Name: "one-space"},
 		},
 		map[string][]network.NetInterface{
 			"one-space-uuid": {{
@@ -650,6 +695,114 @@ func (s *containerSuite) TestDevicesForGuestLocalMethodMixedBridges(c *tc.C) {
 	c.Assert(localDev.Addrs, tc.HasLen, 1)
 	c.Check(localDev.Addrs[0].AddressValue, tc.Equals, "")
 	c.Check(localDev.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+}
+
+func (s *containerSuite) TestDevicesForGuestLocalMethodDefaultBridgeInSpace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	// The default LXD bridge is observed in the required space, because
+	// its subnet is registered with Juju. The in-space bridge is used for
+	// the guest device, and its registered CIDR is looked up, rather than
+	// falling back to the local-networking bridge with DHCP.
+	s.expectContainerNetworking(c,
+		[]internal.SpaceName{{UUID: "positive-space-uuid", Name: "positive-space"}},
+		map[string][]network.NetInterface{
+			"positive-space-uuid": {{
+				Name: internalnetwork.DefaultLXDBridge,
+				Type: corenetwork.BridgeDevice,
+			}},
+		},
+		containermanager.NetworkingMethodLocal.String(),
+	)
+	s.st.EXPECT().GetSubnetCIDRForDevice(c.Context(), s.nodeUUID, internalnetwork.DefaultLXDBridge, "positive-space-uuid").
+		Return("10.0.0.0/24", nil)
+
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
+
+	nics, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(nics, tc.HasLen, 1)
+	nic := nics[0]
+
+	c.Check(nic.Name, tc.Equals, "eth0")
+	c.Check(nic.ParentDeviceName, tc.Equals, internalnetwork.DefaultLXDBridge)
+	c.Assert(nic.Addrs, tc.HasLen, 1)
+	c.Check(nic.Addrs[0].AddressValue, tc.Equals, "10.0.0.0/24")
+	c.Check(nic.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+}
+
+func (s *containerSuite) TestDevicesForGuestLocalMethodInSpaceBridgeNoDefaultBridge(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	// The default LXD bridge has not been observed on the host, but the
+	// bridge in the required space is used for the guest device, and the
+	// "not observed" error path is not taken.
+	s.expectContainerNetworking(c,
+		[]internal.SpaceName{{UUID: "positive-space-uuid", Name: "positive-space"}},
+		map[string][]network.NetInterface{
+			"positive-space-uuid": {{
+				Name: "br-eth0",
+				Type: corenetwork.BridgeDevice,
+			}},
+		},
+		containermanager.NetworkingMethodLocal.String(),
+	)
+	s.st.EXPECT().GetSubnetCIDRForDevice(c.Context(), s.nodeUUID, "br-eth0", "positive-space-uuid").
+		Return("10.10.10.0/24", nil)
+
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
+
+	nics, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(nics, tc.HasLen, 1)
+	nic := nics[0]
+
+	c.Check(nic.ParentDeviceName, tc.Equals, "br-eth0")
+	c.Assert(nic.Addrs, tc.HasLen, 1)
+	c.Check(nic.Addrs[0].AddressValue, tc.Equals, "10.10.10.0/24")
+}
+
+func (s *containerSuite) TestDevicesForGuestNetworkingMethodError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	methodErr := internalerrors.New("boom")
+
+	exp := s.st.EXPECT()
+	exp.GetMachineSpaceConstraints(c.Context(), s.guestUUID.String()).Return(nil, nil, nil)
+	exp.GetMachineAppBindings(c.Context(), s.guestUUID.String()).Return(nil, nil)
+	exp.GetMachineNetNodeUUID(c.Context(), s.hostUUID.String()).Return(s.nodeUUID, nil)
+	exp.NICsInSpaces(c.Context(), s.nodeUUID).Return(nil, nil)
+	exp.GetContainerNetworkingMethod(c.Context()).Return("", methodErr)
+
+	_, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIs, methodErr)
+}
+
+func (s *containerSuite) TestDevicesForGuestNoSpaces(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	// No space requirements: no guest devices are created.
+	s.expectContainerNetworking(c,
+		nil,
+		nil,
+		containermanager.NetworkingMethodLocal.String(),
+	)
+
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
+
+	nics, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(nics, tc.HasLen, 0)
 }
 
 func (s *containerSuite) TestAllocateContainerAddresses(c *tc.C) {
