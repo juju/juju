@@ -142,6 +142,19 @@ func (st *State) EnsureModelNotAliveCascade(
 	// - All storage filesystems in the model.
 	// - All storage volumes in the model.
 	// - All storage attachments in the model.
+	// Machines are selected regardless of their life, including rows that
+	// are already dead. Machines are the only entities whose life can be
+	// advanced to dead from outside a removal job: the machiner and
+	// provisioner workers mark machines dead via the EnsureDead facades
+	// when their agents shut down, without scheduling a removal job. If
+	// the removal of a dying machine could not be scheduled at initiation
+	// time (e.g. the machine still hosted units or containers), a dead
+	// machine row would otherwise never be scheduled for removal, and
+	// would block the model from ever being marked as dead, as the model
+	// removal checks that no machine rows remain. Units, relations and
+	// applications cannot be stranded in this way: they only reach dead
+	// from within their own removal job, and their rows do not prevent
+	// the model removal.
 	selectUnits, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM unit WHERE life_id < 2`, eUUID)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select units query: %w", err)
@@ -154,7 +167,7 @@ func (st *State) EnsureModelNotAliveCascade(
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select relations query: %w", err)
 	}
-	selectMachines, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM machine WHERE life_id < 2`, eUUID)
+	selectMachines, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM machine`, eUUID)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select machines query: %w", err)
 	}

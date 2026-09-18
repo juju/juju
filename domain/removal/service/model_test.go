@@ -727,6 +727,42 @@ func (s *modelSuite) TestExecuteJobForModel(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *modelSuite) TestExecuteJobForModelIncompleteSchedulesArtifacts(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newModelJob(c)
+
+	when := time.Now()
+
+	cExp := s.controllerState.EXPECT()
+	cExp.ModelExists(gomock.Any(), j.EntityUUID).Return(true, nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.GetModelLife(gomock.Any(), j.EntityUUID).Return(1, nil)
+	mExp.IsControllerModel(gomock.Any(), j.EntityUUID).Return(false, nil)
+
+	// The model cannot be marked as dead yet, because a machine row still
+	// exists: the machine was marked dead by the machiner when its agent
+	// shut down, without a removal job ever having been scheduled for it.
+	mExp.MarkModelAsDead(gomock.Any(), j.EntityUUID, false).Return(removalerrors.RemovalJobIncomplete)
+
+	// The job re-schedules the removal of the remaining artifacts, so that
+	// the machine row is removed and a later run of this job can complete.
+	destroyStorage := false
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), j.EntityUUID, &destroyStorage).Return(removal.ModelArtifacts{
+		MachineUUIDs: []string{"some-machine-id"},
+	}, nil)
+	mExp.MachineExists(gomock.Any(), "some-machine-id").Return(true, nil)
+	mExp.EnsureMachineNotAliveCascade(gomock.Any(), "some-machine-id", false).Return(removalinternal.CascadedMachineLives{}, nil)
+	s.clock.EXPECT().Now().Return(when)
+	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-machine-id", false, when.UTC()).Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	// The removal job is not deleted: it stays to be retried once the
+	// scheduled machine removal has completed.
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *modelSuite) TestExecuteJobForModelControllerModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
