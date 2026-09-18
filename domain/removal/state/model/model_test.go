@@ -144,6 +144,65 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeRetryReturnsDyingArtifacts(c 
 	s.checkApplicationLife(c, secondArtifacts.ApplicationUUIDs[0], life.Dying)
 }
 
+func (s *modelSuite) TestEnsureModelNotAliveCascadeReturnsDeadMachines(c *tc.C) {
+	svc := s.setupApplicationService(c)
+
+	s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	modelUUID := s.getModelUUID(c)
+	destroyStorage := true
+
+	firstArtifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, &destroyStorage)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(len(firstArtifacts.UnitUUIDs), tc.Equals, 1)
+	c.Check(len(firstArtifacts.ApplicationUUIDs), tc.Equals, 1)
+	c.Check(len(firstArtifacts.MachineUUIDs), tc.Equals, 1)
+
+	// Simulate the machiner marking the machine dead when the machine agent
+	// shuts down, without a removal job having been scheduled for it. The
+	// unit dies first, otherwise the machine cannot be marked as dead.
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			`UPDATE unit SET life_id = 2 WHERE uuid = ?`, firstArtifacts.UnitUUIDs[0])
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkMachineAsDead(c.Context(), firstArtifacts.MachineUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkMachineLife(c, firstArtifacts.MachineUUIDs[0], life.Dead)
+
+	// Dead machine rows must still be returned by the cascade, so that
+	// removal jobs can be scheduled for them: machines are the only
+	// entities that can reach dead without a removal job, and rows that
+	// are never removed block the model removal from completing. The
+	// application is only dying, so it is still returned too.
+	secondArtifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, &destroyStorage)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(secondArtifacts.MachineUUIDs, tc.DeepEquals, firstArtifacts.MachineUUIDs)
+	c.Check(secondArtifacts.ApplicationUUIDs, tc.DeepEquals, firstArtifacts.ApplicationUUIDs)
+	c.Check(secondArtifacts.UnitUUIDs, tc.HasLen, 0)
+
+	// For contrast: applications only ever reach dead from within their
+	// own removal job, and dead application rows are not returned by the
+	// cascade, unlike machines.
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			`UPDATE application SET life_id = 2 WHERE uuid = ?`, firstArtifacts.ApplicationUUIDs[0])
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	thirdArtifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, &destroyStorage)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(thirdArtifacts.MachineUUIDs, tc.DeepEquals, firstArtifacts.MachineUUIDs)
+	c.Check(thirdArtifacts.ApplicationUUIDs, tc.HasLen, 0)
+
+	s.checkModelLife(c, modelUUID, life.Dying)
+	s.checkMachineLife(c, thirdArtifacts.MachineUUIDs[0], life.Dead)
+}
+
 func (s *modelSuite) TestEnsureModelNotAliveCascadeRetryReturnsDyingRelations(c *tc.C) {
 	relUUID := s.createRelation(c)
 

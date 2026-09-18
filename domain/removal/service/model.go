@@ -191,13 +191,12 @@ func (s *Service) removeModel(
 
 	// Either the model in the controller database or the model database exists,
 	// so we can proceed with the removal.
-	artifacts, err := s.modelState.EnsureModelNotAliveCascade(ctx, modelUUID.String(), destroyStorage)
-	if err != nil {
+
+	// Cascade the model artifacts to dying where applicable, and schedule
+	// removal jobs for all artifact rows that still exist.
+	if err := s.scheduleModelArtifactsRemoval(ctx, modelUUID, force, wait, destroyStorage); err != nil {
 		return "", errors.Capture(err)
 	}
-
-	// From here on, we can assume that the model and any associated model
-	// artifacts (machines, applications, units, etc) are not alive.
 
 	if force {
 		if wait > 0 {
@@ -219,10 +218,45 @@ func (s *Service) removeModel(
 	modelJobUUID, err := s.modelScheduleRemoval(ctx, modelUUID, force, wait)
 	if err != nil {
 		return "", errors.Capture(err)
-	} else if artifacts.Empty() {
-		// If there are no units or models to update, we can return early.
-		return modelJobUUID, nil
 	}
+	return modelJobUUID, nil
+}
+
+// scheduleModelArtifactsRemoval cascades the lives of the model's artifacts
+// (units, applications, relations, machines and storage) to dying where
+// applicable, and schedules removal jobs for every artifact row that still
+// exists in the model database.
+//
+// Artifacts that are already dead are included: a machine (or application)
+// row can reach dead without a removal job ever having been scheduled for
+// it, for example when the provisioner marks a machine dead after its
+// removal could not be scheduled. Dead rows that are never scheduled for
+// removal would block the model removal from ever completing.
+//
+// It is safe to call this multiple times for the same model: artifacts that
+// already have a removal job may be scheduled again, which is harmless, as
+// duplicate jobs complete immediately when the entity no longer exists.
+func (s *Service) scheduleModelArtifactsRemoval(
+	ctx context.Context,
+	modelUUID model.UUID,
+	force bool,
+	wait time.Duration,
+	destroyStorage *bool,
+) error {
+	// For non-forced removals the wait duration is ignored: artifacts are
+	// scheduled for removal immediately. The model removal job itself
+	// applies the wait duration.
+	if !force && wait > 0 {
+		wait = 0
+	}
+
+	artifacts, err := s.modelState.EnsureModelNotAliveCascade(ctx, modelUUID.String(), destroyStorage)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// From here on, we can assume that the model and any associated model
+	// artifacts (machines, applications, units, etc) are not alive.
 
 	if len(artifacts.RelationUUIDs) > 0 {
 		// If there are any relations that are not dead, we need to schedule
@@ -281,7 +315,7 @@ func (s *Service) removeModel(
 		s.removeStorageAttachments(ctx, artifacts.StorageAttachmentUUIDs, force, wait)
 	}
 
-	return modelJobUUID, nil
+	return nil
 }
 
 // DeleteModel removes the model with the given UUID from the controller
@@ -414,6 +448,26 @@ func (s *Service) processModelJob(ctx context.Context, job removal.Job) error {
 	// Marking the models as dead will also ensure that we're not deleting
 	// non-dead entities within the model, unless force is used.
 	if err := s.modelState.MarkModelAsDead(ctx, job.EntityUUID, job.Force); err != nil && !errors.Is(err, modelerrors.NotFound) {
+		if !errors.Is(err, removalerrors.RemovalJobIncomplete) {
+			return errors.Errorf("marking model %q as dead: %w", job.EntityUUID, err)
+		}
+
+		// The model still contains artifacts that have not been removed.
+		// Some of them may have been stranded by an earlier removal cascade
+		// that failed to schedule their removal: for example machines that
+		// still hosted units or containers at the time, or machines that
+		// were marked dead by the provisioner without a removal job. Re-run
+		// the scheduling here, so that removal jobs are created for them and
+		// a later run of this job can complete.
+		// Storage destruction is not re-evaluated here: that decision was
+		// made when the model removal was first scheduled.
+		noDestroyStorage := false
+		if err := s.scheduleModelArtifactsRemoval(
+			ctx, model.UUID(job.EntityUUID), job.Force, 0, &noDestroyStorage,
+		); err != nil {
+			return errors.Errorf("scheduling removal of remaining model artifacts: %w", err)
+		}
+
 		return errors.Errorf("marking model %q as dead: %w", job.EntityUUID, err)
 	}
 

@@ -39,7 +39,11 @@ type ContainerState interface {
 	GetMachineAppBindings(ctx context.Context, machineUUID string) ([]internal.SpaceName, error)
 
 	// NICsInSpaces returns the link-layer devices on the machine with the
-	// input net node UUID, indexed by the spaces that they are in.
+	// input net node UUID, indexed by the UUIDs of the spaces that they
+	// are in. Devices that are not associated with any space, e.g. because
+	// their subnet is not registered with Juju, are indexed under the
+	// empty-string key. This convention is relied upon to locate the
+	// default LXD bridge when using local container networking.
 	NICsInSpaces(ctx context.Context, nodeUUID string) (map[string][]network.NetInterface, error)
 
 	// GetContainerNetworkingMethod returns the model's configured value
@@ -57,6 +61,12 @@ type ContainerState interface {
 // parents of the guest's virtual network devices.
 // This determination is made based on the guest's space constraints, bindings
 // of applications to run on the guest, and any host bridges that already exist.
+// When the container networking method is "local", the default LXD bridge
+// satisfies all space requirements, wherever its addresses are reported, and
+// no host devices are selected for bridging.
+// Note that negative space constraints are not enforced in this mode: the
+// default LXD bridge is used regardless of whether the space (if any) in
+// which its addresses are reported is negatively constrained.
 func (s *Service) DevicesToBridge(
 	ctx context.Context, hostUUID, guestUUID machine.UUID,
 ) ([]network.DeviceToBridge, error) {
@@ -101,6 +111,12 @@ func (s *ProviderService) AllocateContainerAddresses(ctx context.Context,
 
 // DevicesForGuest returns the network devices that should be configured in the
 // guest machine with the input UUID, based on the host machine's bridges.
+// When the container networking method is "local", the default LXD bridge is
+// used for spaces that have no in-space bridge. Devices attached to it are
+// configured for DHCP, as no subnet CIDR is registered for the bridge.
+// Note that negative space constraints are not enforced in this mode: the
+// default LXD bridge is used regardless of whether the space (if any) in
+// which its addresses are reported is negatively constrained.
 func (s *ProviderService) DevicesForGuest(
 	ctx context.Context, hostUUID, guestUUID machine.UUID,
 ) ([]network.NetInterface, error) {
@@ -192,15 +208,28 @@ func (s *Service) spaceRequirementsForMachine(
 		}
 	}
 
+	// Sort the spaces by name, so that requirements are satisfied in a
+	// deterministic order and guest device naming is reproducible.
+	slices.SortFunc(positive, func(a, b internal.SpaceName) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
 	return positive, nil
 }
 
 func (s *Service) devicesToBridge(
 	ctx context.Context, mUUID machine.UUID, spaceUUIDs []string, nics map[string][]network.NetInterface,
 ) ([]network.DeviceToBridge, error) {
-	netMethod, err := s.st.GetContainerNetworkingMethod(ctx)
+	isLocal, lxdBridge, err := s.localContainerNetworking(ctx, nics)
 	if err != nil {
 		return nil, errors.Capture(err)
+	}
+
+	// When using local container networking, the default LXD bridge
+	// satisfies all space requirements, regardless of the space (if any)
+	// in which its addresses are reported. No host devices are bridged.
+	if isLocal && lxdBridge != nil {
+		return nil, nil
 	}
 
 	spacesLeftToSatisfy := set.NewStrings(spaceUUIDs...)
@@ -218,17 +247,24 @@ func (s *Service) devicesToBridge(
 
 		// Check all bridges first.
 		// If any of these satisfy the space requirement, no action is required.
-		// The default LXD bridge can only satisfy a space requirement if the
-		// container networking method is "local".
+		// The default LXD bridge is never selected here: with local
+		// networking all requirements are already satisfied by the check
+		// above, and with provider networking it is never a valid parent.
 		// For practical purposes, OVS devices are treated as bridges.
 		if slices.ContainsFunc(spaceNics, func(nic network.NetInterface) bool {
 			if nic.Type != corenetwork.BridgeDevice && nic.VirtualPortType != corenetwork.OvsPort {
 				return false
 			}
-			return netMethod == containermanager.NetworkingMethodLocal.String() ||
-				nic.Name != internalNetwork.DefaultLXDBridge
+			return nic.Name != internalNetwork.DefaultLXDBridge
 		}) {
 			spacesLeftToSatisfy.Remove(spaceUUID)
+			continue
+		}
+
+		// Host devices are never bridged when using local networking.
+		// Spaces that have no bridge remain unsatisfied and are reported
+		// below, so that the caller can retry.
+		if isLocal {
 			continue
 		}
 
@@ -309,6 +345,35 @@ func findParent(parentName string, nics map[string][]network.NetInterface) *netw
 	return nil
 }
 
+// localContainerNetworking reports whether the model uses the "local"
+// container networking method, and returns the default LXD bridge observed
+// on the host, in whatever space (if any) its addresses are reported.
+// This accommodates the common case where the subnet of the default LXD
+// bridge is not registered with Juju, so the device is not associated with
+// any space.
+// A nil bridge with a true result indicates that the bridge has not been
+// observed on the host.
+func (s *Service) localContainerNetworking(
+	ctx context.Context, nics map[string][]network.NetInterface,
+) (bool, *network.NetInterface, error) {
+	netMethod, err := s.st.GetContainerNetworkingMethod(ctx)
+	if err != nil {
+		return false, nil, errors.Capture(err)
+	}
+	if netMethod != containermanager.NetworkingMethodLocal.String() {
+		return false, nil, nil
+	}
+
+	for _, spaceNics := range nics {
+		if idx := slices.IndexFunc(spaceNics, func(nic network.NetInterface) bool {
+			return nic.Name == internalNetwork.DefaultLXDBridge
+		}); idx >= 0 {
+			return true, &spaceNics[idx], nil
+		}
+	}
+	return true, nil, nil
+}
+
 // bridgeNameForDevice returns a name to use for a new
 // device that bridges the device with the input name.
 //
@@ -347,7 +412,14 @@ func (s *ProviderService) guestDevices(
 		guestDevices []network.NetInterface
 		deviceIndex  int
 	)
-	spacesToSatisfy := set.NewStrings(spaceUUIDs...)
+
+	isLocal, lxdBridge, err := s.localContainerNetworking(ctx, nics)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	// A single device parented to the default LXD bridge suffices for all
+	// spaces without an in-space bridge.
+	lxdBridgeUsed := false
 
 	networkingProvider, err := s.providerWithNetworking(ctx)
 	if err != nil {
@@ -363,8 +435,17 @@ func (s *ProviderService) guestDevices(
 		configMethod = corenetwork.ConfigStatic
 	}
 
-	for spaceUUID, spaceNics := range nics {
-		if !spacesToSatisfy.Contains(spaceUUID) {
+	// Iterate the required spaces, so that requirements are satisfied in a
+	// deterministic order, and so that spaces without observed devices can
+	// still be satisfied by the default LXD bridge when using local
+	// networking.
+	for _, spaceUUID := range spaceUUIDs {
+		spaceNics := nics[spaceUUID]
+		if len(spaceNics) == 0 && !isLocal {
+			// Without local networking, spaces for which the host has no
+			// observed devices are not considered. With local networking,
+			// such spaces fall through to the default LXD bridge fallback
+			// below.
 			continue
 		}
 
@@ -378,11 +459,31 @@ func (s *ProviderService) guestDevices(
 			}
 		}
 
+		if bridgeToUse == nil && isLocal {
+			if lxdBridge == nil {
+				return nil, errors.Errorf(
+					"no bridge found in space %q for machine %q; the default LXD bridge %q has not been observed",
+					spaceUUID, mUUID, internalNetwork.DefaultLXDBridge,
+				).Add(domainerrors.SpaceRequirementsUnsatisfiable)
+			}
+			if lxdBridgeUsed {
+				// The device parented to the default LXD bridge satisfies
+				// the requirements of this space too.
+				continue
+			}
+			bridgeToUse = lxdBridge
+			lxdBridgeUsed = true
+		}
+
 		if bridgeToUse == nil {
 			return nil, errors.Errorf(
 				"no bridge found in space %q for machine %q", spaceUUID, mUUID,
 			).Add(domainerrors.SpaceRequirementsUnsatisfiable)
 		}
+
+		// Bridges found in the required space are loop variables, so the
+		// fallback bridge is the only one matched by pointer identity.
+		fromLocalBridge := bridgeToUse == lxdBridge
 
 		s.logger.Debugf(ctx, "found bridge %q in space %q for machine %q", bridgeToUse.Name, spaceUUID, mUUID)
 
@@ -404,16 +505,26 @@ func (s *ProviderService) guestDevices(
 		mac := corenetwork.GenerateVirtualMACAddress()
 		newDev.MACAddress = &mac
 
-		cidr, err := s.st.GetSubnetCIDRForDevice(ctx, nodeUUID, bridgeToUse.Name, spaceUUID)
-		if err != nil {
-			return nil, errors.Errorf(
-				"retrieving CIDR for device %q in space %q on machine %q: %w", bridgeToUse.Name, spaceUUID, mUUID, err)
-		}
+		if fromLocalBridge {
+			// The device is parented to the default LXD bridge selected
+			// via the local-networking fallback, so no CIDR is looked up
+			// for it. Addresses are obtained via DHCP served on the bridge
+			// itself.
+			newDev.Addrs = []network.NetAddr{{
+				ConfigType: corenetwork.ConfigDHCP,
+			}}
+		} else {
+			cidr, err := s.st.GetSubnetCIDRForDevice(ctx, nodeUUID, bridgeToUse.Name, spaceUUID)
+			if err != nil {
+				return nil, errors.Errorf(
+					"retrieving CIDR for device %q in space %q on machine %q: %w", bridgeToUse.Name, spaceUUID, mUUID, err)
+			}
 
-		newDev.Addrs = []network.NetAddr{{
-			AddressValue: cidr,
-			ConfigType:   configMethod,
-		}}
+			newDev.Addrs = []network.NetAddr{{
+				AddressValue: cidr,
+				ConfigType:   configMethod,
+			}}
+		}
 
 		deviceIndex++
 		guestDevices = append(guestDevices, newDev)
