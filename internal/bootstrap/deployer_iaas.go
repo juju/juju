@@ -12,6 +12,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/status"
 	domainapplication "github.com/juju/juju/domain/application"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/errors"
@@ -41,13 +42,14 @@ func (c IAASDeployerConfig) Validate() error {
 	return nil
 }
 
-// IAASDeployer is the interface that is used to deploy the controller charm
-// for IAAS workloads.
+// IAASDeployer deploys the controller charm for IAAS workloads.
 type IAASDeployer struct {
 	baseDeployer
 	applicationService IAASApplicationService
 	hostBaseFn         HostBaseFunc
 }
+
+var _ ControllerCharmDeployer = (*IAASDeployer)(nil)
 
 // NewIAASDeployer returns a new ControllerCharmDeployer for IAAS workloads.
 func NewIAASDeployer(config IAASDeployerConfig) (*IAASDeployer, error) {
@@ -72,8 +74,9 @@ func (d *IAASDeployer) ControllerCharmBase() (corebase.Base, error) {
 	return corebase.ParseBase(base.OS, base.Channel.String())
 }
 
-// AddIAASControllerApplication adds the IAAS controller application.
-func (b *IAASDeployer) AddIAASControllerApplication(ctx context.Context, info DeployCharmInfo) error {
+// EnsureControllerApplication creates the IAAS controller application if needed
+// and ensures it is exposed.
+func (b *IAASDeployer) EnsureControllerApplication(ctx context.Context, info DeployCharmInfo) error {
 	if err := info.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -113,9 +116,9 @@ func (b *IAASDeployer) AddIAASControllerApplication(ctx context.Context, info De
 		applicationservice.AddIAASUnitArg{
 			Nonce: new(agent.BootstrapNonce),
 		},
-	); err != nil {
+	); err != nil && !errors.Is(err, applicationerrors.ApplicationAlreadyExists) {
 		return errors.Errorf("creating IAAS controller application: %w", err)
 	}
 
-	return nil
+	return b.ensureControllerApplicationExposed(ctx)
 }

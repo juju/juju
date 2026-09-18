@@ -58,11 +58,6 @@ func (s *deployerSuite) TestValidate(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
-	cfg.ObjectStore = nil
-	err = cfg.Validate()
-	c.Assert(err, tc.ErrorIs, errors.NotValid)
-
-	cfg = s.newConfig(c)
 	cfg.ControllerConfig = nil
 	err = cfg.Validate()
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
@@ -144,7 +139,7 @@ func (s *deployerSuite) TestDeployLocalCharm(c *tc.C) {
 		ObjectStoreUUID: "1234",
 	}, nil)
 
-	deployer := s.newBaseDeployer(c, cfg)
+	deployer := makeBaseDeployer(cfg)
 
 	info, err := deployer.DeployLocalCharm(c.Context(), "arm64", corebase.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -173,7 +168,7 @@ func (s *deployerSuite) TestDeployCharmhubCharm(c *tc.C) {
 
 	s.expectDownloadAndResolve(c, "juju-controller")
 
-	deployer := s.newBaseDeployer(c, cfg)
+	deployer := makeBaseDeployer(cfg)
 
 	info, err := deployer.DeployCharmhubCharm(c.Context(), "arm64", corebase.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -216,7 +211,7 @@ func (s *deployerSuite) TestDeployCharmhubCharmRetriesTransientDownloadError(c *
 	)
 	s.expectResolveControllerCharmDownload(c, downloadResult)
 
-	deployer := s.newBaseDeployer(c, cfg)
+	deployer := makeBaseDeployer(cfg)
 
 	info, err := deployer.DeployCharmhubCharm(c.Context(), "arm64", corebase.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -235,7 +230,7 @@ func (s *deployerSuite) TestDeployCharmhubCharmDoesNotRetryPermanentDownloadErro
 	s.charmDownloader.EXPECT().Download(gomock.Any(), downloadURL, "sha-256").
 		Return(nil, stderrors.New("invalid digest"))
 
-	deployer := s.newBaseDeployer(c, cfg)
+	deployer := makeBaseDeployer(cfg)
 
 	_, err := deployer.DeployCharmhubCharm(c.Context(), "arm64", corebase.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, tc.ErrorMatches, `downloading "https://inferi.com": invalid digest`)
@@ -251,7 +246,7 @@ func (s *deployerSuite) TestDeployCharmhubCharmWithCustomName(c *tc.C) {
 
 	s.expectDownloadAndResolve(c, "inferi")
 
-	deployer := s.newBaseDeployer(c, cfg)
+	deployer := makeBaseDeployer(cfg)
 
 	info, err := deployer.DeployCharmhubCharm(c.Context(), "arm64", corebase.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -335,6 +330,8 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 		},
 	)
 
+	s.expectControllerApplicationExposure()
+
 	deployer, err := NewIAASDeployer(IAASDeployerConfig{
 		BaseDeployerConfig: cfg,
 		ApplicationService: s.iaasApplicationService,
@@ -356,7 +353,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 			Channel:      "22.04",
 		},
 	}
-	err = deployer.AddIAASControllerApplication(c.Context(), DeployCharmInfo{
+	err = deployer.EnsureControllerApplication(c.Context(), DeployCharmInfo{
 		URL:    charm.MustParseURL(curl),
 		Charm:  s.charm,
 		Origin: &origin,
@@ -369,6 +366,29 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 		ObjectStoreUUID: "1234",
 	})
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *deployerSuite) TestEnsureControllerApplicationPreservesExposure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// An exposed controller may already have restricted CIDRs or spaces.
+	// Bootstrap must leave those settings alone rather than merge defaults.
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), bootstrap.ControllerApplicationName).Return(true, nil)
+
+	deployer := makeBaseDeployer(s.newConfig(c))
+	err := deployer.ensureControllerApplicationExposed(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *deployerSuite) TestEnsureControllerApplicationExposureCheckFails(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expectedErr := stderrors.New("cannot read controller exposure")
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), bootstrap.ControllerApplicationName).Return(false, expectedErr)
+
+	deployer := makeBaseDeployer(s.newConfig(c))
+	err := deployer.ensureControllerApplicationExposed(c.Context())
+	c.Assert(err, tc.ErrorIs, expectedErr)
 }
 
 func (s *deployerSuite) ensureControllerCharm(c *tc.C, dataDir string) (string, int64) {
@@ -426,14 +446,6 @@ bases:
 	c.Assert(err, tc.ErrorIsNil)
 
 	return path, int64(size)
-}
-
-func (s *deployerSuite) newBaseDeployer(c *tc.C, cfg BaseDeployerConfig) baseDeployer {
-	deployer := makeBaseDeployer(cfg)
-
-	deployer.objectStore = s.objectStore
-
-	return deployer
 }
 
 func (s *deployerSuite) expectDownloadAndResolve(c *tc.C, name string) {

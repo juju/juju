@@ -19,7 +19,6 @@ import (
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/bootstrap"
@@ -35,12 +34,6 @@ import (
 type FlagService interface {
 	GetFlag(context.Context, string) (bool, error)
 	SetFlag(context.Context, string, bool, string) error
-}
-
-// ObjectStoreGetter is the interface that is used to get a object store.
-type ObjectStoreGetter interface {
-	// GetObjectStore returns a object store for the given namespace.
-	GetObjectStore(context.Context, string) (objectstore.ObjectStore, error)
 }
 
 // ControllerCharmDeployerFunc is the function that is used to upload the
@@ -65,11 +58,11 @@ type RemoveBootstrapSSHKeysFunc func([]string) error
 
 // ControllerUnitPasswordFunc is the function that is used to get the
 // controller unit password.
-type ControllerUnitPasswordFunc func(context.Context) (string, error)
+type ControllerUnitPasswordFunc func() (string, error)
 
 // ControllerApplicationPasswordFunc gets the controller application's unit
 // introduction password.
-type ControllerApplicationPasswordFunc func(context.Context) (string, error)
+type ControllerApplicationPasswordFunc func() (string, error)
 
 // RequiresBootstrapFunc is the function that is used to check if the bootstrap
 // process has completed.
@@ -91,7 +84,6 @@ type StatusHistory interface {
 
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
-	ObjectStoreName     string
 	BootstrapGateName   string
 	DomainServicesName  string
 	HTTPClientName      string
@@ -123,9 +115,6 @@ type ManifoldConfig struct {
 
 // Validate validates the manifold configuration.
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.ObjectStoreName == "" {
-		return errors.NotValidf("empty ObjectStoreName")
-	}
 	if cfg.BootstrapGateName == "" {
 		return errors.NotValidf("empty BootstrapGateName")
 	}
@@ -191,7 +180,6 @@ func (cfg ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.ObjectStoreName,
 			config.BootstrapGateName,
 			config.DomainServicesName,
 			config.HTTPClientName,
@@ -224,11 +212,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			// Locate the controller unit password.
-			unitPassword, err := config.ControllerUnitPassword(ctx)
+			unitPassword, err := config.ControllerUnitPassword()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			applicationPassword, err := config.ControllerApplicationPassword(ctx)
+			applicationPassword, err := config.ControllerApplicationPassword()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -249,11 +237,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			serviceManagerGetter := providertracker.ProviderRunner[ServiceManager](
 				providerFactory, controllerModel.UUID.String(),
 			)
-
-			var objectStoreGetter objectstore.ObjectStoreGetter
-			if err := getter.Get(config.ObjectStoreName, &objectStoreGetter); err != nil {
-				return nil, errors.Trace(err)
-			}
 
 			var httpClientGetter corehttp.HTTPClientGetter
 			if err := getter.Get(config.HTTPClientName, &httpClientGetter); err != nil {
@@ -277,7 +260,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			applicationService := controllerModelDomainServices.Application()
 
 			w, err := NewWorker(WorkerConfig{
-				ObjectStoreGetter:          objectStoreGetter,
 				ControllerAgentBinaryStore: controllerDomainServices.ControllerAgentBinaryStore(),
 				ControllerConfigService:    controllerDomainServices.ControllerConfig(),
 				ControllerNodeService:      controllerDomainServices.ControllerNode(),
@@ -330,18 +312,6 @@ func RequiresBootstrap(ctx context.Context, flagService FlagService) (bool, erro
 	return !bootstrapped, nil
 }
 
-// PopulateIAASControllerCharm is the function that is used to populate the
-// controller IAAS charm.
-func PopulateIAASControllerCharm(ctx context.Context, controllerCharmDeployer bootstrap.ControllerCharmDeployer) error {
-	return bootstrap.PopulateIAASControllerCharm(ctx, controllerCharmDeployer)
-}
-
-// PopulateCAASControllerCharm is the function that is used to populate the
-// controller CAAS charm.
-func PopulateCAASControllerCharm(ctx context.Context, controllerCharmDeployer bootstrap.ControllerCharmDeployer) error {
-	return bootstrap.PopulateCAASControllerCharm(ctx, controllerCharmDeployer)
-}
-
 // IAASAgentFinalizer is the function that is used to finalize the
 // IAAS agent during bootstrap.
 func IAASAgentFinalizer(
@@ -377,9 +347,9 @@ func IAASAgentFinalizer(
 	return nil
 }
 
-// CAASAgentFinalizer is the function that is used to finalize the
-// CAAS agent during bootstrap.
-func CAASAgentFinalizer(
+// K8sAgentFinalizer is the function that is used to finalize the
+// K8s agent during bootstrap.
+func K8sAgentFinalizer(
 	ctx context.Context,
 	agentPasswordService AgentPasswordService,
 	machineService MachineService,
