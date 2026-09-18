@@ -66,7 +66,7 @@ type ModelOperatorManager struct {
 // modelOperatorAgentDataDir is the data directory used by the model operator
 // agent in its pod; the deployment startup script always sets JUJU_DATA_DIR
 // to this value, so the template mount and rendered agent config must match it.
-var modelOperatorAgentDataDir = paths.DataDir(paths.OSUnixLike)
+func modelOperatorAgentDataDir() string { return paths.DataDir(paths.OSUnixLike) }
 
 const (
 	// DefaultModelOperatorPort is the default port used for the api server on
@@ -189,7 +189,7 @@ func (m *ModelOperatorManager) update(ctx context.Context) error {
 	err = m.broker.EnsureModelOperator(
 		ctx,
 		m.modelUUID,
-		modelOperatorAgentDataDir,
+		modelOperatorAgentDataDir(),
 		&caas.ModelOperatorConfig{
 			AgentConf:    agentConfBuf,
 			ImageDetails: info.ImageDetails,
@@ -260,7 +260,7 @@ func (m *ModelOperatorManager) updateAgentConf(
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths: agent.Paths{
-				DataDir: modelOperatorAgentDataDir,
+				DataDir: modelOperatorAgentDataDir(),
 				LogDir:  m.logDir,
 			},
 			Tag:          modelTag,
