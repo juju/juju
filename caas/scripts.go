@@ -46,7 +46,7 @@ cp /opt/jujuagentd $JUJU_TOOLS_DIR/jujuagentd
 %[2]s
 
 mkdir -p /var/lib/pebble/default/layers
-cat > /var/lib/pebble/default/layers/001-controller.yaml <<EOF
+cat > /var/lib/pebble/default/layers/001-controller.yaml <<'EOF'
 %[3]s
 EOF
 

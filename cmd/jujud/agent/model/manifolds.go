@@ -499,7 +499,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ConfigProvider:     config.StartupValueProvider,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.caasmodeloperator"),
 			ModelUUID:          config.ModelUUID,
-			DataDir:            config.DataDir,
 			LogDir:             config.LogDir,
 			ControllerTag:      config.ControllerTag,
 		})),
