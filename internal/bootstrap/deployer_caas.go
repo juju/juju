@@ -133,7 +133,8 @@ func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info De
 // absent constraint uses the selected charm architecture.
 func normalizeControllerConstraints(cons constraints.Value, charmArch string) (constraints.Value, error) {
 	if cons.HasArch() && charmArch != "" && *cons.Arch != charmArch {
-		return constraints.Value{}, errors.Errorf("arch in platform and constraints for controller do not match")
+		return constraints.Value{}, errors.Errorf("arch %q in constraints does not match controller charm platform arch %q",
+			*cons.Arch, charmArch)
 	}
 	if !cons.HasArch() {
 		cons.Arch = &charmArch

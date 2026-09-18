@@ -145,7 +145,7 @@ func (s *deployerCAASSuite) TestNormalizeControllerConstraints(c *tc.C) {
 
 func (s *deployerCAASSuite) TestNormalizeControllerConstraintsRejectsMismatchedArchitecture(c *tc.C) {
 	_, err := normalizeControllerConstraints(constraints.Value{Arch: new("arm64")}, "amd64")
-	c.Assert(err, tc.ErrorMatches, "arch in platform and constraints for controller do not match")
+	c.Assert(err, tc.ErrorMatches, "arch \"arm64\" in constraints does not match controller charm platform arch \"amd64\"")
 }
 
 func (s *deployerCAASSuite) TestAddCAASControllerApplicationRejectsMismatchedConstraints(c *tc.C) {
@@ -181,7 +181,7 @@ func (s *deployerCAASSuite) TestAddCAASControllerApplicationRejectsMismatchedCon
 		ArchivePath:     "path",
 		ObjectStoreUUID: "1234",
 	})
-	c.Assert(err, tc.ErrorMatches, "arch in platform and constraints for controller do not match")
+	c.Assert(err, tc.ErrorMatches, "arch \"amd64\" in constraints does not match controller charm platform arch \"arm64\"")
 }
 
 func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
