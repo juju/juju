@@ -594,7 +594,7 @@ Re-run with "--destroy-storage" or "--release-storage" to proceed.`)
 			destroyCalls++
 		}
 	}
-	c.Check(destroyCalls, tc.Equals, 5)
+	c.Check(destroyCalls, tc.Equals, controller.MaxPersistentStorageAttempts())
 	// Retries are paced through the clock rather than spinning hot; the
 	// delay must match the production persistentStorageRetryDelay.
 	c.Check(s.clock.wait, tc.Equals, 2*time.Second)
