@@ -374,7 +374,7 @@ func getTableNames(ctx context.Context, runner *txnRunner) ([]string, error) {
 	err := runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		tableNames = nil
 
-		rows, err := tx.QueryContext(ctx, "SELECT name FROM sqlite_master WHERE type='table'")
+		rows, err := tx.QueryContext(ctx, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
 		if err != nil {
 			return err
 		}
