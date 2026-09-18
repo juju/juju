@@ -23,4 +23,8 @@ type State interface {
 
 	// GetPublicKeysForUser returns all public keys registered for a user.
 	GetPublicKeysForUser(context.Context, user.Name) ([]coressh.PublicKey, error)
+
+	// GetPublicKeysForUserInModel returns the public keys the named user is
+	// authorized to use in the supplied model.
+	GetPublicKeysForUserInModel(context.Context, string, string) ([]coressh.PublicKey, error)
 }

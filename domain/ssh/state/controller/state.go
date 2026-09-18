@@ -110,7 +110,9 @@ func (st *State) GetPublicKeysForUser(ctx context.Context, username user.Name) (
 
 	arg := userName{Name: username.Name()}
 	stmt, err := st.Prepare(`
-SELECT &userPublicSSHKey.public_key
+SELECT &userPublicSSHKey.comment,
+       &userPublicSSHKey.fingerprint,
+       &userPublicSSHKey.public_key
 FROM user_public_ssh_key AS userPublicSSHKey
 JOIN v_user_auth AS userAuth ON userPublicSSHKey.user_uuid = userAuth.uuid
 WHERE userAuth.name = $userName.name
@@ -134,9 +136,55 @@ WHERE userAuth.name = $userName.name
 
 	keys := make([]coressh.PublicKey, 0, len(rows))
 	for _, row := range rows {
-		keys = append(keys, coressh.PublicKey{Key: row.PublicKey})
+		keys = append(keys, coressh.PublicKey{
+			Comment:     row.Comment,
+			Fingerprint: row.Fingerprint,
+			Key:         row.PublicKey,
+		})
 	}
 	return keys, nil
+}
+
+// GetPublicKeysForUserInModel returns the public key fingerprints the named
+// user is authorized to use in the supplied model.
+func (st *State) GetPublicKeysForUserInModel(ctx context.Context, modelUUID, username string) ([]coressh.PublicKey, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	userArg := entityName{Name: username}
+	modelArg := modelUUIDValue{UUID: modelUUID}
+	keysStmt, err := st.Prepare(`
+SELECT upsk.fingerprint AS &modelAuthorizedPublicKey.fingerprint
+FROM user_public_ssh_key AS upsk
+JOIN user AS u ON upsk.user_uuid = u.uuid
+JOIN model_authorized_keys AS mak
+  ON mak.user_public_ssh_key_id = upsk.id
+JOIN model AS m ON mak.model_uuid = m.uuid
+WHERE u.name = $entityName.name
+  AND u.removed = FALSE
+  AND m.uuid = $modelUUIDValue.uuid`, modelAuthorizedPublicKey{}, userArg, modelArg)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var keys []modelAuthorizedPublicKey
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, keysStmt, userArg, modelArg).GetAll(&keys); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting public SSH keys for user %q: %w", username, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make([]coressh.PublicKey, 0, len(keys))
+	for _, key := range keys {
+		result = append(result, coressh.PublicKey{Fingerprint: key.Fingerprint})
+	}
+	return result, nil
 }
 
 type controllerSSHHostKey struct {
@@ -155,5 +203,19 @@ type userName struct {
 }
 
 type userPublicSSHKey struct {
-	PublicKey string `db:"public_key"`
+	Comment     string `db:"comment"`
+	Fingerprint string `db:"fingerprint"`
+	PublicKey   string `db:"public_key"`
+}
+
+type entityName struct {
+	Name string `db:"name"`
+}
+
+type modelUUIDValue struct {
+	UUID string `db:"uuid"`
+}
+
+type modelAuthorizedPublicKey struct {
+	Fingerprint string `db:"fingerprint"`
 }
