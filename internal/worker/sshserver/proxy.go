@@ -34,6 +34,25 @@ type ProxyFactory interface {
 	New(virtualhostname.Info) (ProxyHandlers, error)
 }
 
+// NewTerminatingSSHServer returns an embedded SSH server that terminates an
+// SSH connection and proxies it to a routed target using the given handlers.
+// Callers may further configure the returned server (for example, adding a
+// PublicKeyHandler or host key) before serving a connection.
+func NewTerminatingSSHServer(handlers ProxyHandlers) *ssh.Server {
+	return &ssh.Server{
+		ChannelHandlers: map[string]ssh.ChannelHandler{
+			"session":      ssh.DefaultSessionHandler,
+			"direct-tcpip": handlers.DirectTCPIPHandler(),
+		},
+		Handler: func(session ssh.Session) {
+			handlers.SessionHandler(session)
+		},
+		SubsystemHandlers: map[string]ssh.SubsystemHandler{
+			"sftp": handlers.SFTPHandler(),
+		},
+	}
+}
+
 type proxyFactory struct {
 	k8sResolver k8s.Resolver
 	logger      logger.Logger

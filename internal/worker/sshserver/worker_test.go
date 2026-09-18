@@ -53,8 +53,7 @@ func newServerWrapperWorkerConfig(
 func setMockServerDependencies(ctrl *gomock.Controller, cfg *ServerWrapperWorkerConfig) {
 	cfg.Authenticator = NewMockAuthenticator(ctrl)
 	cfg.Authorizer = NewMockAuthorizer(ctrl)
-	cfg.ProxyFactory = NewMockProxyFactory(ctrl)
-	cfg.TunnelTracker = NewMockTunnelTracker(ctrl)
+	cfg.ServerFactory = NewMockTerminatingServerFactory(ctrl)
 }
 
 func (s *workerSuite) TestValidate(c *tc.C) {
@@ -94,12 +93,12 @@ func (s *workerSuite) TestValidate(c *tc.C) {
 	)
 	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*is required.*")
 
-	// Test no ProxyFactory.
+	// Test no ServerFactory.
 	cfg = newServerWrapperWorkerConfig(
 		c,
 		ctrl,
 		func(cfg *ServerWrapperWorkerConfig) {
-			cfg.ProxyFactory = nil
+			cfg.ServerFactory = nil
 		},
 	)
 	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*is required.*")

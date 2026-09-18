@@ -23,7 +23,6 @@ import (
 	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
 	modelsshservice "github.com/juju/juju/domain/ssh/service/model"
 	"github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/internal/jwtparser"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/services"
 	internalTunneler "github.com/juju/juju/internal/sshtunneler"
@@ -90,8 +89,6 @@ type ManifoldConfig struct {
 	DomainServicesName string
 	// SSHTunnelerName is the name of the SSH tunneler worker.
 	SSHTunnelerName string
-	// JWTParserName is the name of the JWT parser worker.
-	JWTParserName string
 	// ControllerID is the ID of the controller node.
 	ControllerID string
 	// ControllerUUID is the UUID of the controller entity.
@@ -124,9 +121,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.SSHTunnelerName == "" {
 		return errors.NotValidf("empty SSHTunnelerName")
-	}
-	if config.JWTParserName == "" {
-		return errors.NotValidf("empty JWTParserName")
 	}
 	if config.ControllerID == "" {
 		return errors.NotValidf("empty ControllerID")
@@ -162,10 +156,12 @@ func (config ManifoldConfig) Validate() error {
 }
 
 // Manifold returns a dependency.Manifold that will run an embedded SSH server
-// worker. The manifold has no outputs.
+// worker. The manifold outputs the TerminatingServerFactory needed by the
+// apiserver's relay endpoint.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.DomainServicesName, config.SSHTunnelerName, config.JWTParserName},
+		Inputs: []string{config.DomainServicesName, config.SSHTunnelerName},
+		Output: outputFunc,
 		Start:  config.startWrapperWorker,
 	}
 }
@@ -194,10 +190,6 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 	}
 	var tunnelTracker workerTunneler.TunnelTracker
 	if err := getter.Get(config.SSHTunnelerName, &tunnelTracker); err != nil {
-		return nil, errors.Trace(err)
-	}
-	var jwtParser *jwtparser.Parser
-	if err := getter.Get(config.JWTParserName, &jwtParser); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -229,18 +221,16 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 		SSHService:              sshService,
 		NewServerWorker:         config.NewServerWorker,
 		Logger:                  config.Logger,
+
 		Authenticator: authenticator{
-			logger:        config.Logger,
-			jwtParser:     jwtParser,
-			tunnelTracker: tunnelTracker,
-			publicKeys:    sshService,
+			logger:     config.Logger,
+			publicKeys: sshService,
 		},
 		Authorizer: authorizer{
 			access: sshService,
 			logger: config.Logger,
 		},
-		ProxyFactory:  proxyFactory,
-		TunnelTracker: tunnelTracker,
+		ServerFactory: NewTerminatingServerFactory(proxyFactory, sshService),
 		Metrics:       metricsCollector,
 	})
 	if err != nil {
@@ -250,6 +240,28 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 	return common.NewCleanupWorker(w, func() {
 		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
 	}), nil
+}
+
+// outputFunc extracts the relay dependencies from a serverWrapperWorker.
+// The apiserver manifold fetches these via getter.Get so it doesn't need to
+// re-compose the sshService and proxyFactory that the sshserver worker
+// already constructed.
+func outputFunc(in worker.Worker, out any) error {
+	if cw, ok := in.(*common.CleanupWorker); ok {
+		in = cw.Unwrap()
+	}
+	inWorker, _ := in.(*serverWrapperWorker)
+	if inWorker == nil {
+		return errors.Errorf("in should be a %T; got %T", inWorker, in)
+	}
+
+	switch outPointer := out.(type) {
+	case *TerminatingServerFactory:
+		*outPointer = inWorker.config.ServerFactory
+	default:
+		return errors.Errorf("out should be *TerminatingServerFactory; got %T", out)
+	}
+	return nil
 }
 
 // sshService wraps our ssh domain services to enable two things:
