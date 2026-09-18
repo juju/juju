@@ -22,8 +22,7 @@ import (
 )
 
 // expectDestroyCharm resolves the charm of the "foo" application through the
-// expectations required by [APIBase.DestroyUnit] and
-// [APIBase.DestroyApplication].
+// expectations required by [APIBase.DestroyApplication].
 func (s *applicationSuite) expectDestroyCharm(c *tc.C) {
 	charmLocator := applicationcharm.CharmLocator{
 		Name:     "foo",
@@ -49,7 +48,6 @@ func (s *applicationSuite) TestDestroyUnitClassifiesStorage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	s.expectDestroyCharm(c)
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	nonDetachable := s.newStorageInstance(c, "loop-vol/0", false)
@@ -86,7 +84,6 @@ func (s *applicationSuite) TestDestroyUnitDestroyStorage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	s.expectDestroyCharm(c)
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	nonDetachable := s.newStorageInstance(c, "single-fs/0", false)
@@ -125,7 +122,6 @@ func (s *applicationSuite) TestDestroyUnitDryRunClassifiesStorage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	s.expectDestroyCharm(c)
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	detachable := s.newStorageInstance(c, "single-blk/0", true)
@@ -285,7 +281,6 @@ func (s *applicationSuite) TestDestroyUnitDryRunUnitNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	s.expectDestroyCharm(c)
 
 	s.applicationService.EXPECT().IsSubordinateApplicationByName(gomock.Any(), "foo").Return(false, nil)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/9")).Return(
@@ -310,7 +305,6 @@ func (s *applicationSuite) TestDestroyUnitStorageServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	s.expectDestroyCharm(c)
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	// The state layer wraps classification errors with this context before
@@ -339,7 +333,6 @@ func (s *applicationSuite) TestDestroyUnitNoStorage(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	s.expectDestroyCharm(c)
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 

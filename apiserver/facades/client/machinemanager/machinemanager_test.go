@@ -245,13 +245,118 @@ func TestDestroyMachineManagerSuite(t *testing.T) {
 	tc.Run(t, &DestroyMachineManagerSuite{})
 }
 
-func (s *DestroyMachineManagerSuite) TestStub(c *tc.C) {
-	c.Skip(`This suite is missing the following tests:
-- TestForceDestroyMachineFailedSomeStorageRetrievalManyMachines
-- TestDestroyMachineFailedAllStorageRetrieval
-- TestDestroyMachineFailedSomeUnitStorageRetrieval
-- TestDestroyMachineFailedSomeStorageRetrievalManyMachines
-`)
+// TestDestroyMachineFailedAllStorageRetrieval asserts that when storage
+// classification fails during machine destroy, the error is reported
+// and the machine is not removed.
+func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(machineUUID, nil).MaxTimes(1)
+	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID).Return(nil, nil)
+
+	unitUUID := s.unitUUID(c, "foo/0")
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("0")).Return(
+		[]domainapplication.UnitNameAndUUID{{Name: "foo/0", UUID: unitUUID}}, nil,
+	).Times(1)
+	// The state layer wraps classification errors with this context before
+	// they reach the facade, so the mock must return it already applied.
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(gomock.Any(), []coreunit.UUID{unitUUID}, false).Return(
+		domainstorage.StorageRemovalClassification{}, errors.New("getting storage classification: boom"),
+	)
+
+	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
+		MachineTags: []string{"machine-0"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Info, tc.IsNil)
+	c.Check(results.Results[0].Error, tc.ErrorMatches, `.*classifying storage for machine "0": getting storage classification: boom.*`)
+}
+
+// TestDestroyMachineFailedSomeStorageRetrievalManyMachines asserts that when
+// destroying multiple machines and one fails storage classification, partial
+// failure is reported: the failing machine reports the error, while the
+// successful machine is removed.
+func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMachines(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	machineUUID0 := machinetesting.GenUUID(c)
+	machineUUID1 := machinetesting.GenUUID(c)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(machineUUID0, nil).MaxTimes(1)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("1")).Return(machineUUID1, nil).MaxTimes(1)
+
+	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID0).Return(nil, nil)
+	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID1).Return(nil, nil)
+
+	// Machine 0 succeeds with no units.
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("0")).Return(nil, nil).Times(1)
+	s.removalService.EXPECT().RemoveMachine(gomock.Any(), machineUUID0, false, gomock.Any()).Return("", nil).Times(1)
+
+	// Machine 1 fails storage classification.
+	unitUUID1 := s.unitUUID(c, "foo/1")
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("1")).Return(
+		[]domainapplication.UnitNameAndUUID{{Name: "foo/1", UUID: unitUUID1}}, nil,
+	).Times(1)
+	// The state layer wraps classification errors with this context before
+	// they reach the facade, so the mock must return it already applied.
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(gomock.Any(), []coreunit.UUID{unitUUID1}, false).Return(
+		domainstorage.StorageRemovalClassification{}, errors.New("getting storage classification: boom"),
+	)
+
+	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
+		MachineTags: []string{"machine-0", "machine-1"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Check(results.Results[0].Error, tc.IsNil)
+	c.Check(results.Results[0].Info, tc.DeepEquals, &params.DestroyMachineInfo{MachineId: "0"})
+	c.Check(results.Results[1].Info, tc.IsNil)
+	c.Check(results.Results[1].Error, tc.ErrorMatches, `.*classifying storage for machine "1": getting storage classification: boom.*`)
+}
+
+// TestForceDestroyMachineFailedSomeStorageRetrievalManyMachines asserts that
+// even when force destroying, a storage classification failure prevents
+// machine removal because calculateDestroyResult runs first.
+func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRetrievalManyMachines(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	machineUUID0 := machinetesting.GenUUID(c)
+	machineUUID1 := machinetesting.GenUUID(c)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(machineUUID0, nil).MaxTimes(1)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("1")).Return(machineUUID1, nil).MaxTimes(1)
+
+	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID0).Return(nil, nil)
+	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID1).Return(nil, nil)
+
+	// Machine 0 succeeds with no units.
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("0")).Return(nil, nil).Times(1)
+	s.removalService.EXPECT().RemoveMachine(gomock.Any(), machineUUID0, true, gomock.Any()).Return("", nil).Times(1)
+
+	// Machine 1 fails storage classification.
+	unitUUID1 := s.unitUUID(c, "foo/1")
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("1")).Return(
+		[]domainapplication.UnitNameAndUUID{{Name: "foo/1", UUID: unitUUID1}}, nil,
+	).Times(1)
+	// The state layer wraps classification errors with this context before
+	// they reach the facade, so the mock must return it already applied.
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(gomock.Any(), []coreunit.UUID{unitUUID1}, false).Return(
+		domainstorage.StorageRemovalClassification{}, errors.New("getting storage classification: boom"),
+	)
+
+	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
+		Force:       true,
+		MachineTags: []string{"machine-0", "machine-1"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Check(results.Results[0].Error, tc.IsNil)
+	c.Check(results.Results[0].Info, tc.DeepEquals, &params.DestroyMachineInfo{MachineId: "0"})
+	c.Check(results.Results[1].Info, tc.IsNil)
+	c.Check(results.Results[1].Error, tc.ErrorMatches, `.*classifying storage for machine "1": getting storage classification: boom.*`)
 }
 
 func (s *DestroyMachineManagerSuite) SetUpTest(c *tc.C) {
@@ -511,6 +616,117 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *tc.C) {
 							{Tag: "unit-foo-1"},
 							{Tag: "unit-foo-2"},
 						},
+					},
+				}},
+			},
+		}},
+	})
+}
+
+func (s *DestroyMachineManagerSuite) newStorageInstance(c *tc.C, id string, detachable bool) domainstorage.StorageInstanceClassification {
+	return domainstorage.StorageInstanceClassification{
+		Detachable: detachable,
+		ID:         id,
+		UUID:       tc.Must(c, domainstorage.NewStorageInstanceUUID),
+	}
+}
+
+// TestDestroyMachineClassifiesStorage asserts that the destroy result of a
+// machine renders the storage classification of its units: destroyed and
+// detached storage as reported by the storage service.
+func (s *DestroyMachineManagerSuite) TestDestroyMachineClassifiesStorage(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(machineUUID, nil).MaxTimes(1)
+
+	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID).Return(nil, nil)
+	unitUUID0 := s.unitUUID(c, "foo/0")
+	unitUUID1 := s.unitUUID(c, "foo/1")
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("0")).Return(
+		[]domainapplication.UnitNameAndUUID{
+			{Name: "foo/0", UUID: unitUUID0},
+			{Name: "foo/1", UUID: unitUUID1},
+		}, nil,
+	).Times(1)
+
+	nonDetachable := s.newStorageInstance(c, "single-fs/0", false)
+	shared := s.newStorageInstance(c, "db-dir/0", true)
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(
+		gomock.Any(), []coreunit.UUID{unitUUID0, unitUUID1}, false,
+	).Return(
+		domainstorage.StorageRemovalClassification{
+			Destroyed: []domainstorage.StorageInstanceClassification{nonDetachable},
+			Detached:  []domainstorage.StorageInstanceClassification{shared},
+		}, nil,
+	).AnyTimes()
+
+	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
+		MachineTags: []string{"machine-0"},
+		DryRun:      true,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
+		Results: []params.DestroyMachineResult{{
+			Info: &params.DestroyMachineInfo{
+				MachineId: "0",
+				DestroyedUnits: []params.Entity{
+					{Tag: "unit-foo-0"},
+					{Tag: "unit-foo-1"},
+				},
+				DestroyedStorage: []params.Entity{{Tag: "storage-single-fs-0"}},
+				DetachedStorage:  []params.Entity{{Tag: "storage-db-dir-0"}},
+			},
+		}},
+	})
+}
+
+// TestDestroyMachineClassifiesStorageContainers asserts that the destroy
+// result of a machine reports the storage of its containers too.
+func (s *DestroyMachineManagerSuite) TestDestroyMachineClassifiesStorageContainers(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(machineUUID, nil).MaxTimes(1)
+
+	s.machineService.EXPECT().GetMachineContainers(gomock.Any(), machineUUID).Return(
+		[]coremachine.Name{"0/lxd/0"}, nil,
+	)
+
+	// The machine itself has no units, but its container has one.
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("0")).Return(nil, nil).Times(1)
+	unitUUID := s.unitUUID(c, "foo/0")
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsOnMachine(gomock.Any(), coremachine.Name("0/lxd/0")).Return(
+		[]domainapplication.UnitNameAndUUID{{Name: "foo/0", UUID: unitUUID}}, nil,
+	).Times(1)
+
+	detachable := s.newStorageInstance(c, "db-dir/0", true)
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(
+		gomock.Any(), []coreunit.UUID{unitUUID}, false,
+	).Return(
+		domainstorage.StorageRemovalClassification{
+			Detached: []domainstorage.StorageInstanceClassification{detachable},
+		}, nil,
+	).AnyTimes()
+
+	results, err := s.api.DestroyMachineWithParams(c.Context(), params.DestroyMachinesParams{
+		MachineTags: []string{"machine-0"},
+		DryRun:      true,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
+		Results: []params.DestroyMachineResult{{
+			Info: &params.DestroyMachineInfo{
+				MachineId: "0",
+				DestroyedContainers: []params.DestroyMachineResult{{
+					Info: &params.DestroyMachineInfo{
+						MachineId:       "0/lxd/0",
+						DestroyedUnits:  []params.Entity{{Tag: "unit-foo-0"}},
+						DetachedStorage: []params.Entity{{Tag: "storage-db-dir-0"}},
 					},
 				}},
 			},

@@ -275,13 +275,13 @@ func (s *stateSuite) TestUpdateControllerConfigUnrelatedKeyLeavesAPIPortAlone(c 
 	// preserved.
 	err := st.UpdateControllerConfig(c.Context(), map[string]string{
 		controller.APIPort: "17071",
-	}, nil, alwaysValid)
+	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Now update an unrelated key. The API port must be left alone.
 	err = st.UpdateControllerConfig(c.Context(), map[string]string{
 		controller.QueryTracingEnabled: "true",
-	}, nil, alwaysValid)
+	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	row := s.DB().QueryRow("SELECT api_port FROM controller")
@@ -333,7 +333,7 @@ func (s *stateSuite) TestUpdateControllerRemoveAPIPortOnly(c *tc.C) {
 	// Initial values.
 	err := st.UpdateControllerConfig(c.Context(), map[string]string{
 		controller.APIPort: "1234",
-	}, nil, alwaysValid)
+	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err := st.ControllerConfig(c.Context())
@@ -341,7 +341,7 @@ func (s *stateSuite) TestUpdateControllerRemoveAPIPortOnly(c *tc.C) {
 	c.Check(cfg[controller.APIPort], tc.Equals, "1234")
 
 	// Remove api-port with no accompanying updates.
-	err = st.UpdateControllerConfig(c.Context(), nil, []string{controller.APIPort}, alwaysValid)
+	err = st.UpdateControllerConfig(c.Context(), nil, []string{controller.APIPort})
 	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err = st.ControllerConfig(c.Context())
