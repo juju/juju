@@ -44,7 +44,7 @@ const (
 	controllerCharmDownloadRetryDelay    = 20 * time.Second
 )
 
-// DeployCharmResult holds the result of deploying a charm.
+// DeployCharmInfo holds the result of deploying a charm.
 type DeployCharmInfo struct {
 	URL             *charm.URL
 	Charm           charm.Charm

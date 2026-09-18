@@ -28,17 +28,17 @@ type ServiceManager interface {
 	GetService(ctx context.Context, appName string, includeClusterIP bool) (*caas.Service, error)
 }
 
-// CAASDeployerConfig holds the configuration for a CAASDeployer.
-type CAASDeployerConfig struct {
+// K8sDeployerConfig holds the configuration for a K8sDeployer.
+type K8sDeployerConfig struct {
 	BaseDeployerConfig
-	ApplicationService CAASApplicationService
+	ApplicationService K8sApplicationService
 	ServiceManager     ServiceManager
 	UnitPassword       string
 	ControllerFQDN     string
 }
 
 // Validate validates the configuration.
-func (c CAASDeployerConfig) Validate() error {
+func (c K8sDeployerConfig) Validate() error {
 	if err := c.BaseDeployerConfig.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -51,24 +51,24 @@ func (c CAASDeployerConfig) Validate() error {
 	return nil
 }
 
-// CAASDeployer deploys the controller charm for CAAS workloads.
-type CAASDeployer struct {
+// K8sDeployer deploys the controller charm for K8s workloads.
+type K8sDeployer struct {
 	baseDeployer
-	applicationService CAASApplicationService
+	applicationService K8sApplicationService
 	serviceManager     ServiceManager
 	unitPassword       string
 	controllerFQDN     string
 }
 
-var _ ControllerCharmDeployer = (*CAASDeployer)(nil)
+var _ ControllerCharmDeployer = (*K8sDeployer)(nil)
 
-// NewCAASDeployer returns a new ControllerCharmDeployer for CAAS workloads.
-func NewCAASDeployer(config CAASDeployerConfig) (*CAASDeployer, error) {
+// NewK8sDeployer returns a new ControllerCharmDeployer for K8s workloads.
+func NewK8sDeployer(config K8sDeployerConfig) (*K8sDeployer, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	return &CAASDeployer{
+	return &K8sDeployer{
 		baseDeployer:       makeBaseDeployer(config.BaseDeployerConfig),
 		applicationService: config.ApplicationService,
 		serviceManager:     config.ServiceManager,
@@ -79,13 +79,13 @@ func NewCAASDeployer(config CAASDeployerConfig) (*CAASDeployer, error) {
 
 // ControllerCharmBase returns the base used for deploying the controller
 // charm.
-func (d *CAASDeployer) ControllerCharmBase() (corebase.Base, error) {
+func (d *K8sDeployer) ControllerCharmBase() (corebase.Base, error) {
 	return version.DefaultSupportedLTSBase(), nil
 }
 
-// EnsureControllerApplication creates the CAAS controller application if needed
+// EnsureControllerApplication creates the K8s controller application if needed
 // and completes its unit and service setup, even if the application exists.
-func (b *CAASDeployer) EnsureControllerApplication(ctx context.Context, info DeployCharmInfo) error {
+func (b *K8sDeployer) EnsureControllerApplication(ctx context.Context, info DeployCharmInfo) error {
 	if err := info.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -130,11 +130,11 @@ func (b *CAASDeployer) EnsureControllerApplication(ctx context.Context, info Dep
 		},
 		unitArg,
 	); err != nil && !errors.Is(err, applicationerrors.ApplicationAlreadyExists) {
-		return errors.Errorf("creating CAAS controller application: %w", err)
+		return errors.Errorf("creating K8s controller application: %w", err)
 	}
 
 	if err := b.completeControllerApplication(ctx); err != nil {
-		return errors.Errorf("completing CAAS controller application: %w", err)
+		return errors.Errorf("completing K8s controller application: %w", err)
 	}
 
 	return nil
@@ -153,7 +153,7 @@ func normalizeControllerConstraints(cons constraints.Value, charmArch string) (c
 	return cons, nil
 }
 
-func (d *CAASDeployer) completeControllerApplication(ctx context.Context) error {
+func (d *K8sDeployer) completeControllerApplication(ctx context.Context) error {
 	// We can deduce that the unit name must be controller/0 since we're
 	// currently bootstrapping the controller, so this unit is the first unit
 	// to be created.

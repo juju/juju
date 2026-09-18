@@ -53,7 +53,7 @@ func DeleteBootstrapSSHKeys(keys []string) error {
 	if len(keys) == 0 {
 		return nil
 	}
-	// IAAS bootstrap machines use the standard Ubuntu account and file. CAAS
+	// IAAS bootstrap machines use the standard Ubuntu account and file. K8s
 	// bootstrap does not call this helper because it has no Ubuntu host.
 	fingerprints := make([]string, 0, len(keys))
 	for _, key := range keys {

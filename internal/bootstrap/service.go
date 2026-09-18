@@ -47,8 +47,8 @@ type IAASApplicationService interface {
 	) (coreapplication.UUID, error)
 }
 
-// CAASApplicationService instances create an IAAS application.
-type CAASApplicationService interface {
+// K8sApplicationService creates and configures a Kubernetes application.
+type K8sApplicationService interface {
 	// CreateCAASApplication creates a new application with the given name and
 	// charm.
 	CreateCAASApplication(

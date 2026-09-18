@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-//go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStore,ControllerCharmDeployer,HTTPClient,ApplicationService,IAASApplicationService,CAASApplicationService,ModelConfigService,Downloader,AgentPasswordService,ServiceManager
+//go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStore,ControllerCharmDeployer,HTTPClient,ApplicationService,IAASApplicationService,K8sApplicationService,ModelConfigService,Downloader,AgentPasswordService,ServiceManager
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination core_charm_mock_test.go github.com/juju/juju/core/charm Repository
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination internal_charm_mock_test.go github.com/juju/juju/domain/deployment/charm Charm
@@ -36,7 +36,7 @@ type baseSuite struct {
 	agentPasswordService   *MockAgentPasswordService
 	applicationService     *MockApplicationService
 	iaasApplicationService *MockIAASApplicationService
-	caasApplicationService *MockCAASApplicationService
+	k8sApplicationService  *MockK8sApplicationService
 	modelConfigService     *MockModelConfigService
 	charmDownloader        *MockDownloader
 	charmRepo              *MockRepository
@@ -56,7 +56,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.iaasApplicationService = NewMockIAASApplicationService(ctrl)
-	s.caasApplicationService = NewMockCAASApplicationService(ctrl)
+	s.k8sApplicationService = NewMockK8sApplicationService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.charmDownloader = NewMockDownloader(ctrl)
 	s.charmRepo = NewMockRepository(ctrl)

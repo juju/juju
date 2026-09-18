@@ -365,9 +365,9 @@ func IAASAgentFinalizer(
 	return nil
 }
 
-// CAASAgentFinalizer is the function that is used to finalize the
-// CAAS agent during bootstrap.
-func CAASAgentFinalizer(
+// K8sAgentFinalizer is the function that is used to finalize the
+// K8s agent during bootstrap.
+func K8sAgentFinalizer(
 	ctx context.Context,
 	agentPasswordService AgentPasswordService,
 	machineService MachineService,

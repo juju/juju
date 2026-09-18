@@ -70,16 +70,16 @@ type ControllerCharmDeployerConfig struct {
 	Clock                       clock.Clock
 }
 
-// CAASControllerUnitPassword is the function that is used to get the unit
-// password for CAAS. This is currently retrieved from the environment
+// K8sControllerUnitPassword is the function that is used to get the unit
+// password for K8s. This is currently retrieved from the environment
 // variable.
-func CAASControllerUnitPassword(context.Context) (string, error) {
+func K8sControllerUnitPassword(context.Context) (string, error) {
 	return os.Getenv(k8sconstants.EnvJujuK8sUnitPassword), nil
 }
 
-// CAASControllerApplicationPassword returns the password used by controller
+// K8sControllerApplicationPassword returns the password used by controller
 // pods to introduce themselves to the controller application.
-func CAASControllerApplicationPassword(context.Context) (string, error) {
+func K8sControllerApplicationPassword(context.Context) (string, error) {
 	return os.Getenv(k8sconstants.EnvJujuK8sApplicationPassword), nil
 }
 
@@ -91,15 +91,15 @@ func IAASControllerUnitPassword(context.Context) (string, error) {
 }
 
 // IAASControllerApplicationPassword returns no application password because
-// IAAS controllers do not use CAAS unit introduction.
+// IAAS controllers do not use K8s unit introduction.
 func IAASControllerApplicationPassword(context.Context) (string, error) {
 	return "", nil
 }
 
-// CAASAgentBinaryUploader is the function that is used to populate the tools
-// for CAAS.
-func CAASAgentBinaryUploader(context.Context, string, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
-	// CAAS doesn't need to populate the tools.
+// K8sAgentBinaryUploader is the function that is used to populate the tools
+// for K8s.
+func K8sAgentBinaryUploader(context.Context, string, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
+	// K8s doesn't need to populate the tools.
 	return func() {}, nil
 }
 
@@ -115,15 +115,15 @@ func IAASAgentBinaryUploader(
 	return bootstrap.PopulateAgentBinary(ctx, dataDir, agentBinaryStore, logger)
 }
 
-// CAASControllerCharmUploader is the function that is used to upload the
-// controller charm for CAAS.
-func CAASControllerCharmUploader(ctx context.Context, cfg ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
+// K8sControllerCharmUploader is the function that is used to upload the
+// controller charm for K8s.
+func K8sControllerCharmUploader(ctx context.Context, cfg ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
 	serviceManager, err := cfg.ServiceManagerGetter(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return bootstrap.NewCAASDeployer(bootstrap.CAASDeployerConfig{
+	return bootstrap.NewK8sDeployer(bootstrap.K8sDeployerConfig{
 		BaseDeployerConfig: makeBaseDeployerConfig(cfg),
 		ApplicationService: cfg.ApplicationService,
 		UnitPassword:       cfg.UnitPassword,
@@ -136,7 +136,7 @@ func CAASControllerCharmUploader(ctx context.Context, cfg ControllerCharmDeploye
 }
 
 // IAASControllerCharmUploader is the function that is used to upload the
-// controller charm for CAAS.
+// controller charm for IAAS.
 func IAASControllerCharmUploader(ctx context.Context, cfg ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
 	return bootstrap.NewIAASDeployer(bootstrap.IAASDeployerConfig{
 		BaseDeployerConfig: makeBaseDeployerConfig(cfg),

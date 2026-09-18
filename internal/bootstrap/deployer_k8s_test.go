@@ -26,17 +26,17 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-type deployerCAASSuite struct {
+type deployerK8sSuite struct {
 	baseSuite
 	clock          *MockClock
 	serviceManager *MockServiceManager
 }
 
-func TestDeployerCAASSuite(t *testing.T) {
-	tc.Run(t, &deployerCAASSuite{})
+func TestDeployerK8sSuite(t *testing.T) {
+	tc.Run(t, &deployerK8sSuite{})
 }
 
-func (s *deployerCAASSuite) TestValidate(c *tc.C) {
+func (s *deployerK8sSuite) TestValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
@@ -49,7 +49,7 @@ func (s *deployerCAASSuite) TestValidate(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
-func (s *deployerCAASSuite) TestControllerCharmBase(c *tc.C) {
+func (s *deployerK8sSuite) TestControllerCharmBase(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	deployer := s.newDeployer(c)
@@ -58,7 +58,7 @@ func (s *deployerCAASSuite) TestControllerCharmBase(c *tc.C) {
 	c.Assert(base, tc.DeepEquals, version.DefaultSupportedLTSBase())
 }
 
-func (s *deployerCAASSuite) TestEnsureControllerApplication(c *tc.C) {
+func (s *deployerK8sSuite) TestEnsureControllerApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
@@ -82,7 +82,7 @@ func (s *deployerCAASSuite) TestEnsureControllerApplication(c *tc.C) {
 		},
 	}
 
-	s.caasApplicationService.EXPECT().CreateCAASApplication(
+	s.k8sApplicationService.EXPECT().CreateCAASApplication(
 		gomock.Any(),
 		bootstrap.ControllerApplicationName,
 		s.charm,
@@ -134,7 +134,7 @@ func (s *deployerCAASSuite) TestEnsureControllerApplication(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *deployerCAASSuite) TestNormalizeControllerConstraints(c *tc.C) {
+func (s *deployerK8sSuite) TestNormalizeControllerConstraints(c *tc.C) {
 	got, err := normalizeControllerConstraints(constraints.Value{}, "amd64")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got.Arch, tc.NotNil)
@@ -146,17 +146,17 @@ func (s *deployerCAASSuite) TestNormalizeControllerConstraints(c *tc.C) {
 	c.Check(*got.Arch, tc.Equals, "arm64")
 }
 
-func (s *deployerCAASSuite) TestNormalizeControllerConstraintsRejectsMismatchedArchitecture(c *tc.C) {
+func (s *deployerK8sSuite) TestNormalizeControllerConstraintsRejectsMismatchedArchitecture(c *tc.C) {
 	_, err := normalizeControllerConstraints(constraints.Value{Arch: new("arm64")}, "amd64")
 	c.Assert(err, tc.ErrorMatches, "arch in platform and constraints for controller do not match")
 }
 
-func (s *deployerCAASSuite) TestEnsureControllerApplicationServiceAddresses(c *tc.C) {
+func (s *deployerK8sSuite) TestEnsureControllerApplicationServiceAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
 	info := s.controllerCharmInfo()
-	s.caasApplicationService.EXPECT().CreateCAASApplication(
+	s.k8sApplicationService.EXPECT().CreateCAASApplication(
 		gomock.Any(), bootstrap.ControllerApplicationName, s.charm,
 		*info.Origin, gomock.Any(), gomock.Any(),
 	).Return("", nil)
@@ -180,8 +180,8 @@ func (s *deployerCAASSuite) TestEnsureControllerApplicationServiceAddresses(c *t
 		},
 	}
 
-	s.caasApplicationService.EXPECT().UpdateK8sService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), providerAddress).Return(nil)
-	s.caasApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
+	s.k8sApplicationService.EXPECT().UpdateK8sService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), providerAddress).Return(nil)
+	s.k8sApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
 		ProviderID: new("controller-0"),
 	})
 	s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword)
@@ -191,24 +191,24 @@ func (s *deployerCAASSuite) TestEnsureControllerApplicationServiceAddresses(c *t
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *deployerCAASSuite) TestEnsureControllerApplicationSetsFQDN(c *tc.C) {
+func (s *deployerK8sSuite) TestEnsureControllerApplicationSetsFQDN(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
 	const fqdn = "controller-0.controller-service-endpoints.controller-foo.svc.cluster.local"
 	cfg.ControllerFQDN = fqdn
 	info := s.controllerCharmInfo()
-	s.caasApplicationService.EXPECT().CreateCAASApplication(
+	s.k8sApplicationService.EXPECT().CreateCAASApplication(
 		gomock.Any(), bootstrap.ControllerApplicationName, s.charm,
 		*info.Origin, gomock.Any(), gomock.Any(),
 	).Return("", nil)
 
 	unitName := unit.Name("controller/0")
 
-	s.caasApplicationService.EXPECT().UpdateK8sService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), gomock.Any()).Return(nil)
+	s.k8sApplicationService.EXPECT().UpdateK8sService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), gomock.Any()).Return(nil)
 	// The controller FQDN is persisted in the same flow that upserts the k8s
 	// pod (provider id), i.e. via UpdateCAASUnit.
-	s.caasApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
+	s.k8sApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
 		ProviderID: new("controller-0"),
 		FQDN:       new(fqdn),
 	})
@@ -219,12 +219,12 @@ func (s *deployerCAASSuite) TestEnsureControllerApplicationSetsFQDN(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *deployerCAASSuite) TestEnsureControllerApplicationCreationFails(c *tc.C) {
+func (s *deployerK8sSuite) TestEnsureControllerApplicationCreationFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	info := s.controllerCharmInfo()
 	expectedErr := errors.New("cannot create controller application")
-	s.caasApplicationService.EXPECT().CreateCAASApplication(
+	s.k8sApplicationService.EXPECT().CreateCAASApplication(
 		gomock.Any(), bootstrap.ControllerApplicationName, s.charm,
 		*info.Origin, gomock.Any(), gomock.Any(),
 	).Return("", expectedErr)
@@ -233,7 +233,7 @@ func (s *deployerCAASSuite) TestEnsureControllerApplicationCreationFails(c *tc.C
 	c.Assert(err, tc.ErrorIs, expectedErr)
 }
 
-func (s *deployerCAASSuite) TestEnsureControllerApplicationRetriesCompletion(c *tc.C) {
+func (s *deployerK8sSuite) TestEnsureControllerApplicationRetriesCompletion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
@@ -241,7 +241,7 @@ func (s *deployerCAASSuite) TestEnsureControllerApplicationRetriesCompletion(c *
 	info := s.controllerCharmInfo()
 	deployer := s.newDeployerWithConfig(c, cfg)
 
-	s.caasApplicationService.EXPECT().CreateCAASApplication(
+	s.k8sApplicationService.EXPECT().CreateCAASApplication(
 		gomock.Any(), bootstrap.ControllerApplicationName, s.charm,
 		*info.Origin, gomock.Any(), gomock.Any(),
 	).Return("", nil)
@@ -253,7 +253,7 @@ func (s *deployerCAASSuite) TestEnsureControllerApplicationRetriesCompletion(c *
 
 	// Creation succeeded on the first attempt, so the retry must complete
 	// setup even though the application already exists.
-	s.caasApplicationService.EXPECT().CreateCAASApplication(
+	s.k8sApplicationService.EXPECT().CreateCAASApplication(
 		gomock.Any(), bootstrap.ControllerApplicationName, s.charm,
 		*info.Origin, gomock.Any(), gomock.Any(),
 	).Return("", errors.Annotate(applicationerrors.ApplicationAlreadyExists, "controller"))
@@ -263,7 +263,7 @@ func (s *deployerCAASSuite) TestEnsureControllerApplicationRetriesCompletion(c *
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *deployerCAASSuite) expectControllerApplicationCompletion(cfg CAASDeployerConfig, serviceErr error) {
+func (s *deployerK8sSuite) expectControllerApplicationCompletion(cfg K8sDeployerConfig, serviceErr error) {
 	unitName := unit.Name("controller/0")
 	params := applicationservice.UpdateCAASUnitParams{
 		ProviderID: new("controller-0"),
@@ -272,25 +272,25 @@ func (s *deployerCAASSuite) expectControllerApplicationCompletion(cfg CAASDeploy
 		params.FQDN = &cfg.ControllerFQDN
 	}
 	gomock.InOrder(
-		s.caasApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, params).Return(nil),
+		s.k8sApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, params).Return(nil),
 		s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword).Return(nil),
-		s.caasApplicationService.EXPECT().UpdateK8sService(
+		s.k8sApplicationService.EXPECT().UpdateK8sService(
 			gomock.Any(), bootstrap.ControllerApplicationName, "controller-0", cfg.BootstrapAddresses,
 		).Return(serviceErr),
 	)
 }
 
-func (s *deployerCAASSuite) newDeployer(c *tc.C) *CAASDeployer {
+func (s *deployerK8sSuite) newDeployer(c *tc.C) *K8sDeployer {
 	return s.newDeployerWithConfig(c, s.newConfig(c))
 }
 
-func (s *deployerCAASSuite) newDeployerWithConfig(c *tc.C, cfg CAASDeployerConfig) *CAASDeployer {
-	deployer, err := NewCAASDeployer(cfg)
+func (s *deployerK8sSuite) newDeployerWithConfig(c *tc.C, cfg K8sDeployerConfig) *K8sDeployer {
+	deployer, err := NewK8sDeployer(cfg)
 	c.Assert(err, tc.IsNil)
 	return deployer
 }
 
-func (s *deployerCAASSuite) setupMocks(c *tc.C) *gomock.Controller {
+func (s *deployerK8sSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.clock = NewMockClock(ctrl)
@@ -299,10 +299,10 @@ func (s *deployerCAASSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *deployerCAASSuite) newConfig(c *tc.C) CAASDeployerConfig {
-	return CAASDeployerConfig{
+func (s *deployerK8sSuite) newConfig(c *tc.C) K8sDeployerConfig {
+	return K8sDeployerConfig{
 		BaseDeployerConfig: s.baseSuite.newConfig(c),
-		ApplicationService: s.caasApplicationService,
+		ApplicationService: s.k8sApplicationService,
 		UnitPassword:       uuid.MustNewUUID().String(),
 		ServiceManager:     s.serviceManager,
 	}

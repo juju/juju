@@ -1448,12 +1448,12 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
 			Clock:                   config.Clock,
 
-			AgentBinaryUploader:           bootstrap.CAASAgentBinaryUploader,
-			ControllerCharmDeployer:       bootstrap.CAASControllerCharmUploader,
-			ControllerApplicationPassword: bootstrap.CAASControllerApplicationPassword,
-			ControllerUnitPassword:        bootstrap.CAASControllerUnitPassword,
-			BootstrapAddressFinderGetter:  bootstrap.CAASAddressFinder,
-			AgentFinalizer:                bootstrap.CAASAgentFinalizer,
+			AgentBinaryUploader:           bootstrap.K8sAgentBinaryUploader,
+			ControllerCharmDeployer:       bootstrap.K8sControllerCharmUploader,
+			ControllerApplicationPassword: bootstrap.K8sControllerApplicationPassword,
+			ControllerUnitPassword:        bootstrap.K8sControllerUnitPassword,
+			BootstrapAddressFinderGetter:  bootstrap.K8sAddressFinder,
+			AgentFinalizer:                bootstrap.K8sAgentFinalizer,
 			RemoveBootstrapSSHKeys:        func([]string) error { return nil },
 		}))),
 

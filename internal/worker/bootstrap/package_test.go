@@ -16,7 +16,7 @@ import (
 
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination addressfinder_mock_test.go github.com/juju/juju/environs InstanceLister
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination providertracker_mock_test.go github.com/juju/juju/core/providertracker ProviderFactory
-//go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination caas_broker_mock_test.go github.com/juju/juju/caas ServiceManager
+//go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination k8s_broker_mock_test.go github.com/juju/juju/caas ServiceManager
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination instance_mock_test.go github.com/juju/juju/environs/instances Instance
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run github.com/canonical/gomock/mockgen -package bootstrap -destination storage_mock_test.go github.com/juju/juju/core/storage StorageRegistryGetter

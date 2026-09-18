@@ -76,9 +76,9 @@ func IAASAddressFinder(
 	}
 }
 
-// CAASAddressFinder is responsible for finding the network addresses for a
+// K8sAddressFinder is responsible for finding the network addresses for a
 // bootstrap instance.
-func CAASAddressFinder(
+func K8sAddressFinder(
 	providerFactory providertracker.ProviderFactory, namespace string,
 	// providerGetter providertracker.ProviderGetter[caas.ServiceManager],
 ) BootstrapAddressFinderFunc {
