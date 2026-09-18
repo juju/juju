@@ -330,6 +330,8 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 		},
 	)
 
+	s.expectControllerApplicationExposure()
+
 	deployer, err := NewIAASDeployer(IAASDeployerConfig{
 		BaseDeployerConfig: cfg,
 		ApplicationService: s.iaasApplicationService,
@@ -364,6 +366,29 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 		ObjectStoreUUID: "1234",
 	})
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *deployerSuite) TestEnsureControllerApplicationPreservesExposure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// An exposed controller may already have restricted CIDRs or spaces.
+	// Bootstrap must leave those settings alone rather than merge defaults.
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), bootstrap.ControllerApplicationName).Return(true, nil)
+
+	deployer := makeBaseDeployer(s.newConfig(c))
+	err := deployer.ensureControllerApplicationExposed(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *deployerSuite) TestEnsureControllerApplicationExposureCheckFails(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expectedErr := stderrors.New("cannot read controller exposure")
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), bootstrap.ControllerApplicationName).Return(false, expectedErr)
+
+	deployer := makeBaseDeployer(s.newConfig(c))
+	err := deployer.ensureControllerApplicationExposed(c.Context())
+	c.Assert(err, tc.ErrorIs, expectedErr)
 }
 
 func (s *deployerSuite) ensureControllerCharm(c *tc.C, dataDir string) (string, int64) {

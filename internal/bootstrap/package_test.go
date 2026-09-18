@@ -15,6 +15,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/deployment/charm/repository"
+	"github.com/juju/juju/environs/bootstrap"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
@@ -106,6 +107,13 @@ func (s *baseSuite) newConfig(c *tc.C) BaseDeployerConfig {
 		Logger:             s.logger,
 		Clock:              clock.WallClock,
 	}
+}
+
+func (s *baseSuite) expectControllerApplicationExposure() {
+	gomock.InOrder(
+		s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), bootstrap.ControllerApplicationName).Return(false, nil),
+		s.applicationService.EXPECT().MergeExposeSettings(gomock.Any(), bootstrap.ControllerApplicationName, nil).Return(nil),
+	)
 }
 
 func (s *baseSuite) controllerCharmInfo() DeployCharmInfo {

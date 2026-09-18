@@ -74,7 +74,8 @@ func (d *IAASDeployer) ControllerCharmBase() (corebase.Base, error) {
 	return corebase.ParseBase(base.OS, base.Channel.String())
 }
 
-// EnsureControllerApplication creates the IAAS controller application if needed.
+// EnsureControllerApplication creates the IAAS controller application if needed
+// and ensures it is exposed.
 func (b *IAASDeployer) EnsureControllerApplication(ctx context.Context, info DeployCharmInfo) error {
 	if err := info.Validate(); err != nil {
 		return errors.Capture(err)
@@ -119,5 +120,5 @@ func (b *IAASDeployer) EnsureControllerApplication(ctx context.Context, info Dep
 		return errors.Errorf("creating IAAS controller application: %w", err)
 	}
 
-	return nil
+	return b.ensureControllerApplicationExposed(ctx)
 }

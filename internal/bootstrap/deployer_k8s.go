@@ -84,7 +84,7 @@ func (d *K8sDeployer) ControllerCharmBase() (corebase.Base, error) {
 }
 
 // EnsureControllerApplication creates the K8s controller application if needed
-// and completes its unit and service setup, even if the application exists.
+// and completes its unit, service and exposure setup, even if it already exists.
 func (b *K8sDeployer) EnsureControllerApplication(ctx context.Context, info DeployCharmInfo) error {
 	if err := info.Validate(); err != nil {
 		return errors.Capture(err)
@@ -137,7 +137,7 @@ func (b *K8sDeployer) EnsureControllerApplication(ctx context.Context, info Depl
 		return errors.Errorf("completing K8s controller application: %w", err)
 	}
 
-	return nil
+	return b.ensureControllerApplicationExposed(ctx)
 }
 
 // normalizeControllerConstraints follows application-domain architecture

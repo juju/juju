@@ -1,4 +1,4 @@
-// Copyright 2023 Canonical Ltd.
+// Copyright 2026 Canonical Ltd.
 // Licensed under the LGPLv3, see LICENCE file for details.
 
 package bootstrap
@@ -13,9 +13,9 @@ import (
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
-	network "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	unit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/version"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -115,6 +115,7 @@ func (s *deployerK8sSuite) TestEnsureControllerApplication(c *tc.C) {
 		applicationservice.AddUnitArg{},
 	)
 	s.expectControllerApplicationCompletion(cfg, nil)
+	s.expectControllerApplicationExposure()
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 
@@ -185,6 +186,7 @@ func (s *deployerK8sSuite) TestEnsureControllerApplicationServiceAddresses(c *tc
 		ProviderID: new("controller-0"),
 	})
 	s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword)
+	s.expectControllerApplicationExposure()
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	err := deployer.EnsureControllerApplication(c.Context(), info)
@@ -213,6 +215,7 @@ func (s *deployerK8sSuite) TestEnsureControllerApplicationSetsFQDN(c *tc.C) {
 		FQDN:       new(fqdn),
 	})
 	s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword)
+	s.expectControllerApplicationExposure()
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	err := deployer.EnsureControllerApplication(c.Context(), info)
@@ -258,6 +261,40 @@ func (s *deployerK8sSuite) TestEnsureControllerApplicationRetriesCompletion(c *t
 		*info.Origin, gomock.Any(), gomock.Any(),
 	).Return("", errors.Annotate(applicationerrors.ApplicationAlreadyExists, "controller"))
 	s.expectControllerApplicationCompletion(cfg, nil)
+	s.expectControllerApplicationExposure()
+
+	err = deployer.EnsureControllerApplication(c.Context(), info)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *deployerK8sSuite) TestEnsureControllerApplicationRetriesExposure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newConfig(c)
+	info := s.controllerCharmInfo()
+	deployer := s.newDeployerWithConfig(c, cfg)
+	s.k8sApplicationService.EXPECT().CreateCAASApplication(
+		gomock.Any(), bootstrap.ControllerApplicationName, s.charm,
+		*info.Origin, gomock.Any(), gomock.Any(),
+	).Return("", nil)
+	s.expectControllerApplicationCompletion(cfg, nil)
+	expectedErr := errors.New("cannot expose controller application")
+	gomock.InOrder(
+		s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), bootstrap.ControllerApplicationName).Return(false, nil),
+		s.applicationService.EXPECT().MergeExposeSettings(gomock.Any(), bootstrap.ControllerApplicationName, nil).Return(expectedErr),
+	)
+
+	err := deployer.EnsureControllerApplication(c.Context(), info)
+	c.Assert(err, tc.ErrorIs, expectedErr)
+
+	// Unit and service setup completed on the first attempt. The retry must
+	// still expose the existing application before bootstrap can finish.
+	s.k8sApplicationService.EXPECT().CreateCAASApplication(
+		gomock.Any(), bootstrap.ControllerApplicationName, s.charm,
+		*info.Origin, gomock.Any(), gomock.Any(),
+	).Return("", applicationerrors.ApplicationAlreadyExists)
+	s.expectControllerApplicationCompletion(cfg, nil)
+	s.expectControllerApplicationExposure()
 
 	err = deployer.EnsureControllerApplication(c.Context(), info)
 	c.Assert(err, tc.ErrorIsNil)

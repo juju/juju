@@ -32,9 +32,12 @@ type ApplicationService interface {
 		resolve application.ResolveControllerCharmDownload,
 	) (application.ResolvedControllerCharmDownload, error)
 
-	// UpdateK8sService updates the cloud service for the specified application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-	UpdateK8sService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
+	// IsApplicationExposed reports whether the application is exposed.
+	IsApplicationExposed(ctx context.Context, appName string) (bool, error)
+
+	// MergeExposeSettings exposes the application and merges endpoint settings.
+	// An empty map exposes all endpoints to all IPv4 and IPv6 networks.
+	MergeExposeSettings(ctx context.Context, appName string, endpoints map[string]application.ExposedEndpoint) error
 }
 
 // IAASApplicationService instances create an IAAS application.

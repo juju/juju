@@ -324,6 +324,8 @@ type MockApplicationServiceMockRecorder struct {
 	createCAASApplicationExpects          []*gomock.Call5V_2[context.Context, string, charm0.Charm, charm.Origin, service0.AddApplicationArgs, service0.AddUnitArg, application.UUID, error]
 	createIAASApplicationExpects          []*gomock.Call5V_2[context.Context, string, charm0.Charm, charm.Origin, service0.AddApplicationArgs, service0.AddIAASUnitArg, application.UUID, error]
 	getApplicationUUIDByNameExpects       []*gomock.Call2_2[context.Context, string, application.UUID, error]
+	isApplicationExposedExpects           []*gomock.Call2_2[context.Context, string, bool, error]
+	mergeExposeSettingsExpects            []*gomock.Call3_1[context.Context, string, map[string]application0.ExposedEndpoint, error]
 	resolveControllerCharmDownloadExpects []*gomock.Call2_2[context.Context, application0.ResolveControllerCharmDownload, application0.ResolvedControllerCharmDownload, error]
 	updateCAASUnitExpects                 []*gomock.Call3_1[context.Context, unit.Name, service0.UpdateCAASUnitParams, error]
 	updateK8sServiceExpects               []*gomock.Call4_1[context.Context, string, string, network.ProviderAddresses, error]
@@ -396,6 +398,42 @@ func (mr *MockApplicationServiceMockRecorder) GetApplicationUUIDByName(ctx, name
 
 // MockApplicationServiceGetApplicationUUIDByNameCall is the typed call wrapper for GetApplicationUUIDByName.
 type MockApplicationServiceGetApplicationUUIDByNameCall = gomock.Call2_2[context.Context, string, application.UUID, error]
+
+// IsApplicationExposed mocks base method.
+func (m *MockApplicationService) IsApplicationExposed(ctx context.Context, appName string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.isApplicationExposedExpects, m.ctrl, m, "IsApplicationExposed", ctx, appName)
+}
+
+// IsApplicationExposed indicates an expected call of IsApplicationExposed.
+func (mr *MockApplicationServiceMockRecorder) IsApplicationExposed(ctx, appName any) *MockApplicationServiceIsApplicationExposedCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "IsApplicationExposed", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appName))
+	mr.isApplicationExposedExpects = append(mr.isApplicationExposedExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockApplicationServiceIsApplicationExposedCall is the typed call wrapper for IsApplicationExposed.
+type MockApplicationServiceIsApplicationExposedCall = gomock.Call2_2[context.Context, string, bool, error]
+
+// MergeExposeSettings mocks base method.
+func (m *MockApplicationService) MergeExposeSettings(ctx context.Context, appName string, endpoints map[string]application0.ExposedEndpoint) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.mergeExposeSettingsExpects, m.ctrl, m, "MergeExposeSettings", ctx, appName, endpoints)
+}
+
+// MergeExposeSettings indicates an expected call of MergeExposeSettings.
+func (mr *MockApplicationServiceMockRecorder) MergeExposeSettings(ctx, appName, endpoints any) *MockApplicationServiceMergeExposeSettingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, string, map[string]application0.ExposedEndpoint, error](mr.mock.ctrl.T, mr.mock, "MergeExposeSettings", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appName), gomock.EnsureMatcher(endpoints))
+	mr.mergeExposeSettingsExpects = append(mr.mergeExposeSettingsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockApplicationServiceMergeExposeSettingsCall is the typed call wrapper for MergeExposeSettings.
+type MockApplicationServiceMergeExposeSettingsCall = gomock.Call3_1[context.Context, string, map[string]application0.ExposedEndpoint, error]
 
 // ResolveControllerCharmDownload mocks base method.
 func (m *MockApplicationService) ResolveControllerCharmDownload(ctx context.Context, resolve application0.ResolveControllerCharmDownload) (application0.ResolvedControllerCharmDownload, error) {
