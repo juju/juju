@@ -1338,6 +1338,7 @@ func (s *Service) decodeMachineStatusDetails(machineName machine.Name, machine s
 		Constraints:             constraints.EncodeConstraints(machine.Constraints),
 		HardwareCharacteristics: machine.HardwareCharacteristics,
 		LXDProfiles:             machine.LXDProfiles,
+		AgentVersion:            machine.AgentVersion,
 	}, nil
 }
 

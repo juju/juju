@@ -285,23 +285,12 @@ type unitStateKeyVal[T comparable] struct {
 
 type unitCharmStateKeyVal unitStateKeyVal[string]
 type unitRelationStateKeyVal unitStateKeyVal[int]
+type relationIDs []int
 
 func makeUnitCharmStateKeyVals(unitUUID entityUUID, kv map[string]string) []unitCharmStateKeyVal {
 	keyVals := make([]unitCharmStateKeyVal, 0, len(kv))
 	for k, v := range kv {
 		keyVals = append(keyVals, unitCharmStateKeyVal{
-			UUID:  unitUUID.UUID,
-			Key:   k,
-			Value: v,
-		})
-	}
-	return keyVals
-}
-
-func makeUnitRelationStateKeyVals(unitUUID entityUUID, kv map[int]string) []unitRelationStateKeyVal {
-	keyVals := make([]unitRelationStateKeyVal, 0, len(kv))
-	for k, v := range kv {
-		keyVals = append(keyVals, unitRelationStateKeyVal{
 			UUID:  unitUUID.UUID,
 			Key:   k,
 			Value: v,

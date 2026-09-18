@@ -444,6 +444,8 @@ type MockStateMockRecorder struct {
 	getUnitLifeExpects                                        []*gomock.Call2_2[context.Context, unit.Name, life.Life, error]
 	getUnitMachineNameExpects                                 []*gomock.Call2_2[context.Context, string, string, error]
 	getUnitMachineUUIDExpects                                 []*gomock.Call2_2[context.Context, string, string, error]
+	getUnitNamesAndUUIDsForApplicationExpects                 []*gomock.Call2_2[context.Context, application.UUID, []application0.UnitNameAndUUID, error]
+	getUnitNamesAndUUIDsForMachineExpects                     []*gomock.Call2_2[context.Context, machine.Name, []application0.UnitNameAndUUID, error]
 	getUnitNamesForApplicationExpects                         []*gomock.Call2_2[context.Context, application.UUID, []unit.Name, error]
 	getUnitNamesForNetNodeExpects                             []*gomock.Call2_2[context.Context, string, []unit.Name, error]
 	getUnitNamesWithPrincipalForMachineExpects                []*gomock.Call2_2[context.Context, string, []unit.NameWithPrincipal, error]
@@ -1946,6 +1948,42 @@ func (mr *MockStateMockRecorder) GetUnitMachineUUID(ctx, unitUUID any) *MockStat
 
 // MockStateGetUnitMachineUUIDCall is the typed call wrapper for GetUnitMachineUUID.
 type MockStateGetUnitMachineUUIDCall = gomock.Call2_2[context.Context, string, string, error]
+
+// GetUnitNamesAndUUIDsForApplication mocks base method.
+func (m *MockState) GetUnitNamesAndUUIDsForApplication(arg0 context.Context, arg1 application.UUID) ([]application0.UnitNameAndUUID, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getUnitNamesAndUUIDsForApplicationExpects, m.ctrl, m, "GetUnitNamesAndUUIDsForApplication", arg0, arg1)
+}
+
+// GetUnitNamesAndUUIDsForApplication indicates an expected call of GetUnitNamesAndUUIDsForApplication.
+func (mr *MockStateMockRecorder) GetUnitNamesAndUUIDsForApplication(arg0, arg1 any) *MockStateGetUnitNamesAndUUIDsForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, application.UUID, []application0.UnitNameAndUUID, error](mr.mock.ctrl.T, mr.mock, "GetUnitNamesAndUUIDsForApplication", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getUnitNamesAndUUIDsForApplicationExpects = append(mr.getUnitNamesAndUUIDsForApplicationExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetUnitNamesAndUUIDsForApplicationCall is the typed call wrapper for GetUnitNamesAndUUIDsForApplication.
+type MockStateGetUnitNamesAndUUIDsForApplicationCall = gomock.Call2_2[context.Context, application.UUID, []application0.UnitNameAndUUID, error]
+
+// GetUnitNamesAndUUIDsForMachine mocks base method.
+func (m *MockState) GetUnitNamesAndUUIDsForMachine(arg0 context.Context, arg1 machine.Name) ([]application0.UnitNameAndUUID, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getUnitNamesAndUUIDsForMachineExpects, m.ctrl, m, "GetUnitNamesAndUUIDsForMachine", arg0, arg1)
+}
+
+// GetUnitNamesAndUUIDsForMachine indicates an expected call of GetUnitNamesAndUUIDsForMachine.
+func (mr *MockStateMockRecorder) GetUnitNamesAndUUIDsForMachine(arg0, arg1 any) *MockStateGetUnitNamesAndUUIDsForMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, machine.Name, []application0.UnitNameAndUUID, error](mr.mock.ctrl.T, mr.mock, "GetUnitNamesAndUUIDsForMachine", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getUnitNamesAndUUIDsForMachineExpects = append(mr.getUnitNamesAndUUIDsForMachineExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetUnitNamesAndUUIDsForMachineCall is the typed call wrapper for GetUnitNamesAndUUIDsForMachine.
+type MockStateGetUnitNamesAndUUIDsForMachineCall = gomock.Call2_2[context.Context, machine.Name, []application0.UnitNameAndUUID, error]
 
 // GetUnitNamesForApplication mocks base method.
 func (m *MockState) GetUnitNamesForApplication(arg0 context.Context, arg1 application.UUID) ([]unit.Name, error) {

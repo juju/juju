@@ -235,13 +235,20 @@ func (s *relationSuite) TestDeleteRelationUnitsSuccess(c *tc.C) {
 }
 
 func (s *relationSuite) TestDeleteRelationUnitsInScopeFails(c *tc.C) {
-	rel, _, _ := s.addAppUnitRelationScope(c, domaincharm.CharmHubSource)
+	rel, unitUUID, _ := s.addAppUnitRelationScope(c, domaincharm.CharmHubSource)
+	s.addUnitRelationState(c, unitUUID, "42", "checkpoint")
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	err := st.DeleteRelation(c.Context(), rel)
 	c.Assert(err, tc.ErrorIs, removalerrors.UnitsStillInScope)
 	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	var checkpoint string
+	err = s.DB().QueryRow(`SELECT value FROM unit_state_relation WHERE unit_uuid = ? AND "key" = '42'`,
+		unitUUID).Scan(&checkpoint)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(checkpoint, tc.Equals, "checkpoint")
 }
 
 func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccess(c *tc.C) {
@@ -257,6 +264,78 @@ func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccess(c *tc.C) {
 
 	_, err = st.GetRelationLife(c.Context(), rel)
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationSuite) TestDeleteRelationRemovesUnitState(c *tc.C) {
+	rel, unitUUID, _ := s.addAppUnitRelationScope(c, domaincharm.CharmHubSource)
+	otherUnitUUID := s.addUnit(c, "some-charm-uuid")
+
+	_, err := s.DB().Exec(`
+INSERT INTO relation (uuid, life_id, relation_id, scope_id)
+VALUES ('other-relation-uuid', 0, 43, 0)`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	for _, u := range []string{unitUUID, otherUnitUUID} {
+		s.addUnitRelationState(c, u, "42", "removed checkpoint")
+		s.addUnitRelationState(c, u, "43", "retained checkpoint for "+u)
+	}
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	// Forced removal clears scope before finally deleting the relation.
+	// Checkpoints must be removed even for units no longer in scope.
+	err = st.DeleteRelationUnits(c.Context(), rel)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteRelation(c.Context(), rel)
+	c.Assert(err, tc.ErrorIsNil)
+
+	rows, err := s.DB().Query(`SELECT unit_uuid, "key", value FROM unit_state_relation`)
+	c.Assert(err, tc.ErrorIsNil)
+	defer rows.Close()
+	checkpoints := make(map[string]string)
+	for rows.Next() {
+		var u, key, value string
+		c.Assert(rows.Scan(&u, &key, &value), tc.ErrorIsNil)
+		c.Check(key, tc.Equals, "43")
+		checkpoints[u] = value
+	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
+	c.Check(checkpoints, tc.DeepEquals, map[string]string{
+		unitUUID:      "retained checkpoint for " + unitUUID,
+		otherUnitUUID: "retained checkpoint for " + otherUnitUUID,
+	})
+
+	_, err = st.GetRelationLife(c.Context(), rel)
+	c.Check(err, tc.ErrorIs, relationerrors.RelationNotFound)
+	_, err = st.GetRelationLife(c.Context(), "other-relation-uuid")
+	c.Check(err, tc.ErrorIsNil)
+}
+
+func (s *relationSuite) TestDeleteRelationRollsBackUnitState(c *tc.C) {
+	rel, unitUUID, _ := s.addAppUnitRelationScope(c, domaincharm.CharmHubSource)
+	s.addUnitRelationState(c, unitUUID, "42", "checkpoint")
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.DeleteRelationUnits(c.Context(), rel)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Fail the final deletion to check that checkpoint cleanup rolls back.
+	_, err = s.DB().Exec(`
+CREATE TRIGGER fail_relation_deletion BEFORE DELETE ON relation
+BEGIN
+    SELECT RAISE(ABORT, 'relation deletion failed');
+END`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteRelation(c.Context(), rel)
+	c.Assert(err, tc.ErrorMatches, ".*relation deletion failed.*")
+
+	var checkpoint string
+	err = s.DB().QueryRow(`SELECT value FROM unit_state_relation WHERE unit_uuid = ? AND "key" = '42'`,
+		unitUUID).Scan(&checkpoint)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(checkpoint, tc.Equals, "checkpoint")
+	_, err = st.GetRelationLife(c.Context(), rel)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccessHasSecretPermission(c *tc.C) {
@@ -561,6 +640,13 @@ func (s *relationSuite) TestIsUnitDyingAndBlockedDead(c *tc.C) {
 	}
 }
 
+func (s *relationSuite) addUnitRelationState(c *tc.C, unitUUID, key, value string) {
+	_, err := s.DB().Exec(`
+INSERT INTO unit_state_relation (unit_uuid, "key", value) VALUES (?, ?, ?)`,
+		unitUUID, key, value)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // addAppUnitRelationScope adds charm, application, unit and relation
 // infrastructure such that a single unit is in the scope of a single relation.
 // The relation, unit and relation-unit identifiers are returned.
@@ -603,7 +689,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`,
 
 	rel := "some-relation-uuid"
 	_, err = s.DB().Exec(
-		"INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, ?)", rel, 0, rel, 0)
+		"INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, ?)", rel, 0, 42, 0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	relEndpoint := "some-relation-endpoint-uuid"

@@ -226,6 +226,12 @@ type ApplicationService interface {
 	// - [applicationerrors.ApplicationNotFound] if the application does not exist
 	GetUnitNamesForApplication(context.Context, string) ([]unit.Name, error)
 
+	// GetUnitNamesAndUUIDsForApplication returns a slice of the unit names and UUIDs for the given application.
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationIsDead] if the application is dead
+	// - [applicationerrors.ApplicationNotFound] if the application does not exist
+	GetUnitNamesAndUUIDsForApplication(context.Context, string) ([]application.UnitNameAndUUID, error)
+
 	// GetUnitWorkloadVersion returns the workload version for the given unit.
 	GetUnitWorkloadVersion(ctx context.Context, unitName unit.Name) (string, error)
 
@@ -435,6 +441,15 @@ type StorageService interface {
 	// GetStoragePoolUUIDsByName returns pool UUIDs keyed by pool name for
 	// the supplied names. Unknown names are omitted.
 	GetStoragePoolUUIDsByName(ctx context.Context, names []string) (map[string]domainstorage.StoragePoolUUID, error)
+
+	// ClassifyStorageForUnitRemoval classifies the storage instances
+	// attached to the input units into those that will be destroyed and
+	// those that will be detached when the units are removed. If
+	// destroyStorage is true, every attached storage instance is
+	// classified as destroyed.
+	ClassifyStorageForUnitRemoval(
+		ctx context.Context, unitUUIDs []unit.UUID, destroyStorage bool,
+	) (domainstorage.StorageRemovalClassification, error)
 
 	// GetStorageInstanceUUIDForID returns the StorageInstanceUUID for the given
 	// storage ID.

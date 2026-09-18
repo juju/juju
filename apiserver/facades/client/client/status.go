@@ -1380,18 +1380,13 @@ func (c *statusContext) processRemoteApplicationOffererRelations(ctx context.Con
 // It also returns deprecated legacy status information.
 func (c *statusContext) processMachine(ctx context.Context, m statusservice.Machine) (params.DetailedStatus, params.DetailedStatus) {
 	agentStatus := params.DetailedStatus{
-		Status: m.MachineStatus.Status.String(),
-		Info:   m.MachineStatus.Message,
-		Data:   filterStatusData(m.MachineStatus.Data),
-		Since:  m.MachineStatus.Since,
-		Life:   m.Life,
+		Status:  m.MachineStatus.Status.String(),
+		Info:    m.MachineStatus.Message,
+		Data:    filterStatusData(m.MachineStatus.Data),
+		Since:   m.MachineStatus.Since,
+		Version: m.AgentVersion,
+		Life:    m.Life,
 	}
-
-	// TODO (stickupkid): Get the agent version from the machine service
-	// once the agent tools are available.
-	//if t, err := m.AgentTools(); err == nil {
-	// result.Version = t.Version.Number.String()
-	//}
 
 	instanceStatus := params.DetailedStatus{
 		Status: m.InstanceStatus.Status.String(),
