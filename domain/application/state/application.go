@@ -1053,6 +1053,8 @@ func (st *State) setApplicationScalingState(
 }
 
 // UpsertK8sService updates the cloud service for the specified application.
+// If Kubernetes recreates the service, its provider ID is updated while the
+// existing service record and net node are retained.
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 func (st *State) UpsertK8sService(ctx context.Context, applicationName, providerID string, sAddrs network.ProviderAddresses) error {
@@ -1061,12 +1063,18 @@ func (st *State) UpsertK8sService(ctx context.Context, applicationName, provider
 		return errors.Capture(err)
 	}
 
-	// Query any existing records for application and provider id.
+	// An application has one cloud service, independent of its provider ID.
 	queryExistingStmt, err := st.Prepare(`
-SELECT &k8sService.* 
-FROM   k8s_service
-WHERE  application_uuid = $k8sService.application_uuid
-AND    provider_id = $k8sService.provider_id`, k8sService{})
+SELECT ks.* AS &k8sService.*
+FROM k8s_service AS ks
+WHERE ks.application_uuid = $k8sService.application_uuid`, k8sService{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	updateProviderIDStmt, err := st.Prepare(`
+UPDATE k8s_service AS ks
+SET provider_id = $k8sService.provider_id
+WHERE ks.uuid = $k8sService.uuid`, k8sService{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1079,16 +1087,13 @@ AND    provider_id = $k8sService.provider_id`, k8sService{})
 			return errors.Errorf("cannot upsert cloud service for synthetic application %q", applicationName)
 		}
 
-		// First see if the cloud service for the app and provider id already exists.
-		// If so, it's a no-op.
 		serviceInfoToUpsert := k8sService{
 			ProviderID:      providerID,
 			ApplicationUUID: appDetails.UUID,
 		}
 		err = tx.Query(ctx, queryExistingStmt, serviceInfoToUpsert).Get(&serviceInfoToUpsert)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf(
-				"querying cloud service for application %q and provider id %q: %w", applicationName, providerID, err)
+			return errors.Errorf("querying cloud service: %w", err)
 		} else if errors.Is(err, sqlair.ErrNoRows) {
 			// Nothing already exists so create a new net node and the cloud
 			// service.
@@ -1098,6 +1103,11 @@ AND    provider_id = $k8sService.provider_id`, k8sService{})
 			}
 			serviceInfoToUpsert.NetNodeUUID = netNodeUUID.String()
 			serviceInfoToUpsert.UUID = k8sServiceUUID.String()
+		} else if serviceInfoToUpsert.ProviderID != providerID {
+			serviceInfoToUpsert.ProviderID = providerID
+			if err := tx.Query(ctx, updateProviderIDStmt, serviceInfoToUpsert).Run(); err != nil {
+				return errors.Errorf("updating cloud service provider ID: %w", err)
+			}
 		}
 
 		if len(sAddrs) > 0 {
