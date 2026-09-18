@@ -653,6 +653,9 @@ func (api *CrossModelRelationsAPIv3) WatchRelationsSuspendedStatus(
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		api.logger.Debugf(ctx,
+			"remote consumer watching life and suspended status of relation %q (initial: life=%q suspended=%t)",
+			relationUUID, relationChange.Life, relationChange.Suspended)
 		results.Results[i] = params.RelationLifeSuspendedStatusWatchResult{
 			RelationStatusWatcherId: watcherID,
 			Changes: []params.RelationLifeSuspendedStatusChange{

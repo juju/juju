@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v2"
@@ -86,6 +87,10 @@ func (c *Client) handleError(ctx context.Context, apiErr error) (macaroon.Slice,
 		}
 	}
 	if err != nil {
+		// DischargeAll wraps a refusal, so inspect its cause.
+		if httpbakery.IsDischargeError(errors.Cause(err)) {
+			return nil, errors.Annotatef(apiErr, "cannot discharge: %v", err)
+		}
 		return nil, errors.Wrap(apiErr, err)
 	}
 	return ms, err

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	domainrelation "github.com/juju/juju/domain/relation"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
@@ -344,6 +345,7 @@ func (s *relationStatusWatcherSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.api = &srvRelationStatusWatcher{
 		relationService: s.relationService,
 		watcher:         s.watcher,
+		logger:          loggertesting.WrapCheckLog(c),
 	}
 
 	c.Cleanup(func() {

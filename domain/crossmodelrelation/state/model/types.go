@@ -518,6 +518,35 @@ type remoteModelUUID struct {
 	UUID sql.NullString `db:"uuid"`
 }
 
+// suspensionFilter is used to identify offer connections to suspend.
+type suspensionFilter struct {
+	OfferUUID string `db:"offer_uuid"`
+	Username  string `db:"username"`
+}
+
+// suspendedRelation is a relation UUID that was suspended.
+type suspendedRelation struct {
+	UUID string `db:"uuid"`
+}
+
+// suspendedRelationUUIDs is a slice of relation UUID strings,
+// used in sqlair IN clauses for bulk suspension updates.
+type suspendedRelationUUIDs []string
+
+// relationSuspendedUpdate captures the columns to update on relation.
+type relationSuspendedUpdate struct {
+	Suspended bool   `db:"suspended"`
+	Reason    string `db:"suspended_reason"`
+}
+
+// relationSuspendStatus carries the status columns written to
+// relation_status for relations being suspended. The relation UUIDs
+// come from the relations being suspended, not from this type.
+type relationSuspendStatus struct {
+	Message   string    `db:"message"`
+	UpdatedAt time.Time `db:"updated_at"`
+}
+
 // remoteSecretGrant is used to insert secret_permission records for imported
 // remote secrets.
 type remoteSecretGrant struct {
