@@ -262,6 +262,7 @@ func (s *instanceSuite) TestStorageInstanceInfoFilesysteamVolumeBackedUnitAttach
 					UUID: machineUUID,
 				},
 				Volume: &internal.StorageInstanceInfoAttachmentVolume{
+					DeviceName: blockDeviceUUID.String(),
 					DeviceNameLinks: []string{
 						"/dev/disk/by-id/1", "/dev/disk/123",
 					},
@@ -342,6 +343,7 @@ func (s *instanceSuite) TestStorageInstanceInfoVolumeUnitAttach(c *tc.C) {
 					UUID: machineUUID,
 				},
 				Volume: &internal.StorageInstanceInfoAttachmentVolume{
+					DeviceName: blockDeviceUUID.String(),
 					DeviceNameLinks: []string{
 						"/dev/disk/by-id/123",
 					},
