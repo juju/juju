@@ -7,6 +7,7 @@ package upgrades
 // state directly.
 func stateStepsFor3629() []Step {
 	return []Step{
+		// Repair counts first since subsequent steps depend on correct counts.
 		&upgradeStep{
 			description: "repair remote application relation counts",
 			targets:     []Target{DatabaseMaster},

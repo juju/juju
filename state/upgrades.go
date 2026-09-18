@@ -736,27 +736,28 @@ func RemoveOrphanedApplicationRelations(pool *StatePool) error {
 		}
 
 		// findApp returns the collection and document id of an endpoint
-		// application, or empty values if the application has no document
-		// at all.
-		findApp := func(name string) (string, string, error) {
+		// application, along with its life, or empty values if the
+		// application has no document at all.
+		findApp := func(name string) (string, string, Life, error) {
 			for _, collName := range []string{remoteApplicationsC, applicationsC} {
 				coll, closer, err := st.db().GetCollection(collName)
 				if err != nil {
-					return "", "", errors.Trace(err)
+					return "", "", Alive, errors.Trace(err)
 				}
 				var doc struct {
 					DocID string `bson:"_id"`
+					Life  Life   `bson:"life"`
 				}
-				err = coll.FindId(name).Select(bson.M{"_id": 1}).One(&doc)
+				err = coll.FindId(name).Select(bson.M{"_id": 1, "life": 1}).One(&doc)
 				closer()
 				if err == nil {
-					return collName, doc.DocID, nil
+					return collName, doc.DocID, doc.Life, nil
 				}
 				if err != mgo.ErrNotFound {
-					return "", "", errors.Trace(err)
+					return "", "", Alive, errors.Trace(err)
 				}
 			}
-			return "", "", nil
+			return "", "", Alive, nil
 		}
 
 		relations, closer, err := st.db().GetCollection(relationsC)
@@ -783,7 +784,7 @@ func RemoveOrphanedApplicationRelations(pool *StatePool) error {
 			var ops []txn.Op
 			orphaned := false
 			for _, ep := range doc.Endpoints {
-				appColl, appDocID, err := findApp(ep.ApplicationName)
+				appColl, appDocID, life, err := findApp(ep.ApplicationName)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -802,6 +803,17 @@ func RemoveOrphanedApplicationRelations(pool *StatePool) error {
 					Assert: bson.D{{"relationcount", bson.D{{"$gt", 0}}}},
 					Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
 				})
+				if appColl == applicationsC && life != Alive {
+					// Mirror normal relation removal: a dying
+					// application whose last reference is removed
+					// must have a cleanup queued.
+					ops = append(ops, newCleanupOp(
+						cleanupApplication,
+						ep.ApplicationName,
+						false, // destroyStorage
+						false, // force
+					))
+				}
 			}
 			if !orphaned {
 				continue
@@ -944,6 +956,9 @@ func RemoveOrphanedRelationDocs(pool *StatePool) error {
 		}
 
 		// A doc whose parent relation still exists is not orphaned.
+		// The relations' endpoint applications are collected here as
+		// well, so that missing application settings docs can be
+		// recreated below.
 		var relQuery []int
 		for id := range orphans {
 			relQuery = append(relQuery, id)
@@ -953,16 +968,27 @@ func RemoveOrphanedRelationDocs(pool *StatePool) error {
 			return errors.Trace(err)
 		}
 		var relDocs []struct {
-			Id int `bson:"id"`
+			Id        int `bson:"id"`
+			Endpoints []struct {
+				ApplicationName string `bson:"applicationname"`
+			} `bson:"endpoints"`
 		}
-		if err := relations.Find(bson.D{{"id", bson.D{{"$in", relQuery}}}}).Select(bson.M{"id": 1}).All(&relDocs); err != nil {
+		if err := relations.Find(bson.D{{"id", bson.D{{"$in", relQuery}}}}).
+			Select(bson.M{"id": 1, "endpoints.applicationname": 1}).
+			All(&relDocs); err != nil {
 			closer()
 			return errors.Trace(err)
 		}
 		closer()
 		existing := make(map[int]bool)
+		relApps := make(map[int][]string)
 		for _, rel := range relDocs {
 			existing[rel.Id] = true
+			var apps []string
+			for _, ep := range rel.Endpoints {
+				apps = append(apps, ep.ApplicationName)
+			}
+			relApps[rel.Id] = apps
 		}
 
 		var ops []txn.Op
@@ -1007,6 +1033,28 @@ func RemoveOrphanedRelationDocs(pool *StatePool) error {
 						},
 					})
 				}
+			}
+
+			// The relation units watcher also watches an
+			// application settings doc for every endpoint
+			// application; it fails on a missing doc, so recreate
+			// any that are absent too.
+			for _, appName := range relApps[id] {
+				settingsID := st.docID(relationApplicationSettingsKey(id, appName))
+				if settingsAt[settingsID] {
+					continue
+				}
+				logger.Debugf("recreating missing application settings doc for relation %d application %q", id, appName)
+				ops = append(ops, txn.Op{
+					C:      settingsC,
+					Id:     settingsID,
+					Assert: txn.DocMissing,
+					Insert: &settingsDoc{
+						DocID:     settingsID,
+						ModelUUID: st.ModelUUID(),
+						Settings:  make(settingsMap),
+					},
+				})
 			}
 		}
 		if len(ops) == 0 {

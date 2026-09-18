@@ -1378,6 +1378,77 @@ func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsChildRecords(c *gc
 	c.Assert(countDocs("secretPermissions", bson.M{"_id": otherPermID}), gc.Equals, 1)
 }
 
+func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsDyingAppCleanup(c *gc.C) {
+	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        "remote-dangling",
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   "offer-dangling",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	remoteEP, err := rapp.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	ch := AddTestingCharm(c, s.state, "mysql")
+	mysql := AddTestingApplication(c, s.state, "mysql", ch)
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.state.AddRelation(remoteEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The surviving local application is dying with no units; the
+	// relation is its only remaining reference.
+	appColl, appCloser, err := s.state.db().GetRawCollection("applications")
+	c.Assert(err, jc.ErrorIsNil)
+	err = appColl.UpdateId(s.state.docID("mysql"), bson.M{"$set": bson.M{"life": Dying}})
+	appCloser()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The remote application document disappears while the relation
+	// stays alive.
+	appsColl, appsCloser, err := s.state.db().GetRawCollection("remoteApplications")
+	c.Assert(err, jc.ErrorIsNil)
+	err = appsColl.RemoveId(s.state.docID("remote-dangling"))
+	appsCloser()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(RemoveOrphanedApplicationRelations(s.pool), jc.ErrorIsNil)
+
+	// The relation is gone and the local application's count was
+	// decremented to zero.
+	_, err = s.state.Relation(rel.Id())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	var appDoc struct {
+		RelationCount int `bson:"relationcount"`
+	}
+	appColl, appCloser, err = s.state.db().GetRawCollection("applications")
+	c.Assert(err, jc.ErrorIsNil)
+	err = appColl.FindId(s.state.docID("mysql")).One(&appDoc)
+	appCloser()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appDoc.RelationCount, gc.Equals, 0)
+
+	// Normal relation removal queues an application cleanup when
+	// decrementing a dying application's references, so it is destroyed
+	// once it has none left; the upgrade step must do the same.
+	cleanupsColl, closer, err := s.state.db().GetRawCollection(cleanupsC)
+	c.Assert(err, jc.ErrorIsNil)
+	var cleanupDoc struct {
+		Kind   cleanupKind `bson:"kind"`
+		Prefix string      `bson:"prefix"`
+	}
+	err = cleanupsColl.Find(bson.M{"kind": cleanupApplication, "prefix": "mysql"}).One(&cleanupDoc)
+	closer()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cleanupDoc.Kind, gc.Equals, cleanupApplication)
+	c.Assert(cleanupDoc.Prefix, gc.Equals, "mysql")
+}
+
 func (s *upgradesSuite) TestRemoveOrphanedRelationDocsLeavesMissingUnitScopes(c *gc.C) {
 	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
 		Name:        "remote-wp",
@@ -1436,6 +1507,77 @@ func (s *upgradesSuite) TestRemoveOrphanedRelationDocsLeavesMissingUnitScopes(c 
 	cur, err := s.state.Relation(rel.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cur.UnitCount(), gc.Equals, 1)
+}
+
+func (s *upgradesSuite) TestRemoveOrphanedRelationDocsRecreatesApplicationSettings(c *gc.C) {
+	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        "remote-proxy",
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	rwpEP, err := rapp.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	ch := AddTestingCharm(c, s.state, "mysql")
+	mysql := AddTestingApplication(c, s.state, "mysql", ch)
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.state.AddRelation(rwpEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+	unit, err := mysql.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel.Unit(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ru.EnterScope(nil), jc.ErrorIsNil)
+
+	relPrefix := fmt.Sprintf("r#%d#", rel.Id())
+	idsWithPrefix := func(collName string) []string {
+		coll, closer, err := s.state.db().GetRawCollection(collName)
+		c.Assert(err, jc.ErrorIsNil)
+		defer closer()
+		var ids []string
+		iter := coll.Find(bson.M{
+			"_id": bson.M{"$regex": "^" + s.state.docID(relPrefix)},
+		}).Select(bson.M{"_id": 1}).Iter()
+		defer iter.Close()
+		var doc struct {
+			DocID string `bson:"_id"`
+		}
+		for iter.Next(&doc) {
+			ids = append(ids, doc.DocID)
+		}
+		return ids
+	}
+	// Delete all the relation's settings docs.
+	settings := idsWithPrefix("settings")
+	c.Assert(len(settings), gc.Equals, 3)
+	settingsColl, closer, err := s.state.db().GetRawCollection("settings")
+	c.Assert(err, jc.ErrorIsNil)
+	for _, id := range settings {
+		err = settingsColl.RemoveId(id)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	closer()
+	c.Assert(len(idsWithPrefix("relationscopes")), gc.Equals, 1)
+	c.Assert(len(idsWithPrefix("settings")), gc.Equals, 0)
+
+	// Run twice to verify idempotency.
+	for i := 0; i < 2; i++ {
+		err := RemoveOrphanedRelationDocs(s.pool)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// The scope is untouched, and all the settings docs the relation
+	// units watcher relies on are recreated empty.
+	c.Assert(len(idsWithPrefix("relationscopes")), gc.Equals, 1)
+	c.Assert(len(idsWithPrefix("settings")), gc.Equals, 3)
 }
 
 func (s *upgradesSuite) TestRemoveOrphanedUnitStateRelations(c *gc.C) {
@@ -1696,10 +1838,11 @@ func (s *upgradesSuite) TestUpgradeRepairsBrokenDB(c *gc.C) {
 	c.Assert(countDocs("settings", "r#990001#"), gc.Equals, 0)
 	// Scope is left on its live relation.
 	c.Assert(countDocs("relationscopes", relPrefix(watcherRel)), gc.Equals, 1)
-	// The scope's missing settings doc is recreated (empty) so the
-	// relation units watcher does not fail on the scope; the
-	// app-scoped settings stay gone.
-	c.Assert(countDocs("settings", relPrefix(watcherRel)), gc.Equals, 1)
+	// The relation's missing settings docs are recreated, including
+	// the unit-scoped settings paired with the scope and the
+	// application-level settings for both endpoint applications that
+	// the relation units watcher watches.
+	c.Assert(countDocs("settings", relPrefix(watcherRel)), gc.Equals, 3)
 	c.Assert(countDocs("relationscopes", relPrefix(counterRel)), gc.Equals, 1)
 	c.Assert(countDocs("settings", relPrefix(counterRel)), gc.Equals, 3)
 	// The stale unitstates key is gone, the live one kept.
