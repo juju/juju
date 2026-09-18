@@ -221,6 +221,17 @@ func (st *State) EnsureModelNotAliveCascade(
 	// [github.com/juju/juju/domain/storage.ProvisionScopeModel])
 	// outlives the model if not explicitly destroyed or released, so it
 	// must block teardown when destroyStorage is unspecified.
+	//
+	// Note that this deliberately includes unprovisioned model-scoped
+	// rows (provider_id IS NULL), not just provisioned ones: this matches
+	// Juju 3.6, where ModelStatus reported every volume/filesystem in the
+	// model and detachability was HostId == "", so pending storage was
+	// counted as persistent storage too. The model status view
+	// (GetModelStorageStatuses) applies the same model-scope rule, so the
+	// CLI's persistent-storage count agrees with this guard. The queries
+	// are anchored on the same tables for the same reason: storage with
+	// no storage-instance link is counted here and reported there.
+	//
 	// Machine-scoped storage (provision_scope_id = 1) dies with its
 	// machine and never blocks.
 	persistentStorageStmt, err := st.Prepare(`

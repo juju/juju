@@ -1237,6 +1237,10 @@ func (s *baseSuite) selectDistinctValues(c *tc.C, field, table string) []string 
 	return obtained
 }
 
+// addModelProvisionedFilesystem inserts a model-scoped filesystem row
+// without setting provider_id, so it also exercises the guard's treatment
+// of unprovisioned model-scoped storage, which blocks destroy just like
+// provisioned storage does (3.6 parity; see persistentStorageStmt).
 func (s *baseSuite) addModelProvisionedFilesystem(c *tc.C) string {
 	ctx := c.Context()
 
@@ -1255,6 +1259,10 @@ func (s *baseSuite) addModelProvisionedFilesystem(c *tc.C) string {
 	return fsUUID
 }
 
+// addModelProvisionedVolume inserts a model-scoped volume row without
+// setting provider_id, so it also exercises the guard's treatment of
+// unprovisioned model-scoped storage, which blocks destroy just like
+// provisioned storage does (3.6 parity; see persistentStorageStmt).
 func (s *baseSuite) addModelProvisionedVolume(c *tc.C) string {
 	ctx := c.Context()
 
