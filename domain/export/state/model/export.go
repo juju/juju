@@ -15,6 +15,116 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+type nullableApplication struct {
+	CharmUpgradeOnErrorIsNull bool `db:"charm_upgrade_on_error_is_null"`
+}
+type nullableApplicationRemoteOffererStatus struct {
+	UpdatedAtIsNull bool `db:"updated_at_is_null"`
+}
+type nullableApplicationScale struct {
+	ScalingIsNull bool `db:"scaling_is_null"`
+}
+type nullableApplicationSetting struct {
+	TrustIsNull bool `db:"trust_is_null"`
+}
+type nullableApplicationStatus struct {
+	UpdatedAtIsNull bool `db:"updated_at_is_null"`
+}
+type nullableBlockDevice struct {
+	InUseIsNull bool `db:"in_use_is_null"`
+}
+type nullableCharm struct {
+	AvailableIsNull bool `db:"available_is_null"`
+}
+type nullableCharmAction struct {
+	ParallelIsNull bool `db:"parallel_is_null"`
+}
+type nullableCharmRelation struct {
+	OptionalIsNull bool `db:"optional_is_null"`
+}
+type nullableCharmStorage struct {
+	ReadOnlyIsNull bool `db:"read_only_is_null"`
+}
+type nullableIpAddress struct {
+	IsSecondaryIsNull bool `db:"is_secondary_is_null"`
+	IsShadowIsNull    bool `db:"is_shadow_is_null"`
+}
+type nullableK8sPodStatus struct {
+	UpdatedAtIsNull bool `db:"updated_at_is_null"`
+}
+type nullableMachine struct {
+	ForceDestroyedIsNull bool `db:"force_destroyed_is_null"`
+	AgentStartedAtIsNull bool `db:"agent_started_at_is_null"`
+	KeepInstanceIsNull   bool `db:"keep_instance_is_null"`
+}
+type nullableMachineAgentPresence struct {
+	LastSeenIsNull bool `db:"last_seen_is_null"`
+}
+type nullableMachineCloudInstanceStatus struct {
+	UpdatedAtIsNull bool `db:"updated_at_is_null"`
+}
+type nullableMachineStatus struct {
+	UpdatedAtIsNull bool `db:"updated_at_is_null"`
+}
+type nullableModel struct {
+	IsControllerModelIsNull bool `db:"is_controller_model_is_null"`
+}
+type nullableOperation struct {
+	StartedAtIsNull   bool `db:"started_at_is_null"`
+	CompletedAtIsNull bool `db:"completed_at_is_null"`
+	ParallelIsNull    bool `db:"parallel_is_null"`
+}
+type nullableOperationTask struct {
+	StartedAtIsNull   bool `db:"started_at_is_null"`
+	CompletedAtIsNull bool `db:"completed_at_is_null"`
+}
+type nullableOperationTaskStatus struct {
+	UpdatedAtIsNull bool `db:"updated_at_is_null"`
+}
+type nullableOperatorStatus struct {
+	UpdatedAtIsNull bool `db:"updated_at_is_null"`
+}
+type nullableRelation struct {
+	SuspendedIsNull bool `db:"suspended_is_null"`
+}
+type nullableRelationStatus struct {
+	UpdatedAtIsNull bool `db:"updated_at_is_null"`
+}
+type nullableResource struct {
+	LastPolledIsNull bool `db:"last_polled_is_null"`
+}
+type nullableSecretRevision struct {
+	UpdateTimeIsNull bool `db:"update_time_is_null"`
+}
+type nullableStorageFilesystem struct {
+	ObliterateOnCleanupIsNull bool `db:"obliterate_on_cleanup_is_null"`
+}
+type nullableStorageFilesystemAttachment struct {
+	ReadOnlyIsNull bool `db:"read_only_is_null"`
+}
+type nullableStorageFilesystemStatus struct {
+	UpdatedAtIsNull bool `db:"updated_at_is_null"`
+}
+type nullableStorageVolume struct {
+	PersistentIsNull          bool `db:"persistent_is_null"`
+	ObliterateOnCleanupIsNull bool `db:"obliterate_on_cleanup_is_null"`
+}
+type nullableStorageVolumeAttachment struct {
+	ReadOnlyIsNull bool `db:"read_only_is_null"`
+}
+type nullableStorageVolumeStatus struct {
+	UpdatedAtIsNull bool `db:"updated_at_is_null"`
+}
+type nullableUnitAgentPresence struct {
+	LastSeenIsNull bool `db:"last_seen_is_null"`
+}
+type nullableUnitAgentStatus struct {
+	UpdatedAtIsNull bool `db:"updated_at_is_null"`
+}
+type nullableUnitWorkloadStatus struct {
+	UpdatedAtIsNull bool `db:"updated_at_is_null"`
+}
+
 // Export exports all model data for version 4.1.0.
 func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	var modelExport v4_1_0.ModelExport
@@ -65,7 +175,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing AnnotationUnit statement: %w", err)
 	}
-	stmtApplication, err := sqlair.Prepare(`SELECT &Application.* FROM "application"`, v4_1_0.Application{})
+	stmtApplication, err := sqlair.Prepare(`SELECT &Application.*,
+       t."charm_upgrade_on_error" IS NULL AS &nullableApplication.charm_upgrade_on_error_is_null
+FROM   "application" AS t`, v4_1_0.Application{}, nullableApplication{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Application statement: %w", err)
 	}
@@ -129,7 +241,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationRemoteOffererRelationMacaroon statement: %w", err)
 	}
-	stmtApplicationRemoteOffererStatus, err := sqlair.Prepare(`SELECT &ApplicationRemoteOffererStatus.* FROM "application_remote_offerer_status"`, v4_1_0.ApplicationRemoteOffererStatus{})
+	stmtApplicationRemoteOffererStatus, err := sqlair.Prepare(`SELECT &ApplicationRemoteOffererStatus.*,
+       t."updated_at" IS NULL AS &nullableApplicationRemoteOffererStatus.updated_at_is_null
+FROM   "application_remote_offerer_status" AS t`, v4_1_0.ApplicationRemoteOffererStatus{}, nullableApplicationRemoteOffererStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationRemoteOffererStatus statement: %w", err)
 	}
@@ -137,15 +251,21 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationResource statement: %w", err)
 	}
-	stmtApplicationScale, err := sqlair.Prepare(`SELECT &ApplicationScale.* FROM "application_scale"`, v4_1_0.ApplicationScale{})
+	stmtApplicationScale, err := sqlair.Prepare(`SELECT &ApplicationScale.*,
+       t."scaling" IS NULL AS &nullableApplicationScale.scaling_is_null
+FROM   "application_scale" AS t`, v4_1_0.ApplicationScale{}, nullableApplicationScale{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationScale statement: %w", err)
 	}
-	stmtApplicationSetting, err := sqlair.Prepare(`SELECT &ApplicationSetting.* FROM "application_setting"`, v4_1_0.ApplicationSetting{})
+	stmtApplicationSetting, err := sqlair.Prepare(`SELECT &ApplicationSetting.*,
+       t."trust" IS NULL AS &nullableApplicationSetting.trust_is_null
+FROM   "application_setting" AS t`, v4_1_0.ApplicationSetting{}, nullableApplicationSetting{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationSetting statement: %w", err)
 	}
-	stmtApplicationStatus, err := sqlair.Prepare(`SELECT &ApplicationStatus.* FROM "application_status"`, v4_1_0.ApplicationStatus{})
+	stmtApplicationStatus, err := sqlair.Prepare(`SELECT &ApplicationStatus.*,
+       t."updated_at" IS NULL AS &nullableApplicationStatus.updated_at_is_null
+FROM   "application_status" AS t`, v4_1_0.ApplicationStatus{}, nullableApplicationStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationStatus statement: %w", err)
 	}
@@ -177,7 +297,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing BlockCommandType statement: %w", err)
 	}
-	stmtBlockDevice, err := sqlair.Prepare(`SELECT &BlockDevice.* FROM "block_device"`, v4_1_0.BlockDevice{})
+	stmtBlockDevice, err := sqlair.Prepare(`SELECT &BlockDevice.*,
+       t."in_use" IS NULL AS &nullableBlockDevice.in_use_is_null
+FROM   "block_device" AS t`, v4_1_0.BlockDevice{}, nullableBlockDevice{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing BlockDevice statement: %w", err)
 	}
@@ -205,11 +327,15 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing ChangeLogWitness statement: %w", err)
 	}
-	stmtCharm, err := sqlair.Prepare(`SELECT &Charm.* FROM "charm"`, v4_1_0.Charm{})
+	stmtCharm, err := sqlair.Prepare(`SELECT &Charm.*,
+       t."available" IS NULL AS &nullableCharm.available_is_null
+FROM   "charm" AS t`, v4_1_0.Charm{}, nullableCharm{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Charm statement: %w", err)
 	}
-	stmtCharmAction, err := sqlair.Prepare(`SELECT &CharmAction.* FROM "charm_action"`, v4_1_0.CharmAction{})
+	stmtCharmAction, err := sqlair.Prepare(`SELECT &CharmAction.*,
+       t."parallel" IS NULL AS &nullableCharmAction.parallel_is_null
+FROM   "charm_action" AS t`, v4_1_0.CharmAction{}, nullableCharmAction{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmAction statement: %w", err)
 	}
@@ -261,7 +387,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmProvenance statement: %w", err)
 	}
-	stmtCharmRelation, err := sqlair.Prepare(`SELECT &CharmRelation.* FROM "charm_relation"`, v4_1_0.CharmRelation{})
+	stmtCharmRelation, err := sqlair.Prepare(`SELECT &CharmRelation.*,
+       t."optional" IS NULL AS &nullableCharmRelation.optional_is_null
+FROM   "charm_relation" AS t`, v4_1_0.CharmRelation{}, nullableCharmRelation{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmRelation statement: %w", err)
 	}
@@ -289,7 +417,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmSource statement: %w", err)
 	}
-	stmtCharmStorage, err := sqlair.Prepare(`SELECT &CharmStorage.* FROM "charm_storage"`, v4_1_0.CharmStorage{})
+	stmtCharmStorage, err := sqlair.Prepare(`SELECT &CharmStorage.*,
+       t."read_only" IS NULL AS &nullableCharmStorage.read_only_is_null
+FROM   "charm_storage" AS t`, v4_1_0.CharmStorage{}, nullableCharmStorage{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmStorage statement: %w", err)
 	}
@@ -353,7 +483,10 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing InstanceTag statement: %w", err)
 	}
-	stmtIpAddress, err := sqlair.Prepare(`SELECT &IpAddress.* FROM "ip_address"`, v4_1_0.IpAddress{})
+	stmtIpAddress, err := sqlair.Prepare(`SELECT &IpAddress.*,
+       t."is_secondary" IS NULL AS &nullableIpAddress.is_secondary_is_null,
+       t."is_shadow" IS NULL AS &nullableIpAddress.is_shadow_is_null
+FROM   "ip_address" AS t`, v4_1_0.IpAddress{}, nullableIpAddress{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing IpAddress statement: %w", err)
 	}
@@ -381,7 +514,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing K8sPodPort statement: %w", err)
 	}
-	stmtK8sPodStatus, err := sqlair.Prepare(`SELECT &K8sPodStatus.* FROM "k8s_pod_status"`, v4_1_0.K8sPodStatus{})
+	stmtK8sPodStatus, err := sqlair.Prepare(`SELECT &K8sPodStatus.*,
+       t."updated_at" IS NULL AS &nullableK8sPodStatus.updated_at_is_null
+FROM   "k8s_pod_status" AS t`, v4_1_0.K8sPodStatus{}, nullableK8sPodStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing K8sPodStatus statement: %w", err)
 	}
@@ -421,11 +556,17 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing LinkLayerDeviceType statement: %w", err)
 	}
-	stmtMachine, err := sqlair.Prepare(`SELECT &Machine.* FROM "machine"`, v4_1_0.Machine{})
+	stmtMachine, err := sqlair.Prepare(`SELECT &Machine.*,
+       t."force_destroyed" IS NULL AS &nullableMachine.force_destroyed_is_null,
+       t."agent_started_at" IS NULL AS &nullableMachine.agent_started_at_is_null,
+       t."keep_instance" IS NULL AS &nullableMachine.keep_instance_is_null
+FROM   "machine" AS t`, v4_1_0.Machine{}, nullableMachine{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Machine statement: %w", err)
 	}
-	stmtMachineAgentPresence, err := sqlair.Prepare(`SELECT &MachineAgentPresence.* FROM "machine_agent_presence"`, v4_1_0.MachineAgentPresence{})
+	stmtMachineAgentPresence, err := sqlair.Prepare(`SELECT &MachineAgentPresence.*,
+       t."last_seen" IS NULL AS &nullableMachineAgentPresence.last_seen_is_null
+FROM   "machine_agent_presence" AS t`, v4_1_0.MachineAgentPresence{}, nullableMachineAgentPresence{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineAgentPresence statement: %w", err)
 	}
@@ -437,7 +578,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineCloudInstance statement: %w", err)
 	}
-	stmtMachineCloudInstanceStatus, err := sqlair.Prepare(`SELECT &MachineCloudInstanceStatus.* FROM "machine_cloud_instance_status"`, v4_1_0.MachineCloudInstanceStatus{})
+	stmtMachineCloudInstanceStatus, err := sqlair.Prepare(`SELECT &MachineCloudInstanceStatus.*,
+       t."updated_at" IS NULL AS &nullableMachineCloudInstanceStatus.updated_at_is_null
+FROM   "machine_cloud_instance_status" AS t`, v4_1_0.MachineCloudInstanceStatus{}, nullableMachineCloudInstanceStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineCloudInstanceStatus statement: %w", err)
 	}
@@ -493,7 +636,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineSshHostKey statement: %w", err)
 	}
-	stmtMachineStatus, err := sqlair.Prepare(`SELECT &MachineStatus.* FROM "machine_status"`, v4_1_0.MachineStatus{})
+	stmtMachineStatus, err := sqlair.Prepare(`SELECT &MachineStatus.*,
+       t."updated_at" IS NULL AS &nullableMachineStatus.updated_at_is_null
+FROM   "machine_status" AS t`, v4_1_0.MachineStatus{}, nullableMachineStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineStatus statement: %w", err)
 	}
@@ -509,7 +654,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineVolume statement: %w", err)
 	}
-	stmtModel, err := sqlair.Prepare(`SELECT &Model.* FROM "model"`, v4_1_0.Model{})
+	stmtModel, err := sqlair.Prepare(`SELECT &Model.*,
+       t."is_controller_model" IS NULL AS &nullableModel.is_controller_model_is_null
+FROM   "model" AS t`, v4_1_0.Model{}, nullableModel{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Model statement: %w", err)
 	}
@@ -577,7 +724,11 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing OfferEndpoint statement: %w", err)
 	}
-	stmtOperation, err := sqlair.Prepare(`SELECT &Operation.* FROM "operation"`, v4_1_0.Operation{})
+	stmtOperation, err := sqlair.Prepare(`SELECT &Operation.*,
+       t."started_at" IS NULL AS &nullableOperation.started_at_is_null,
+       t."completed_at" IS NULL AS &nullableOperation.completed_at_is_null,
+       t."parallel" IS NULL AS &nullableOperation.parallel_is_null
+FROM   "operation" AS t`, v4_1_0.Operation{}, nullableOperation{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Operation statement: %w", err)
 	}
@@ -593,7 +744,10 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing OperationParameter statement: %w", err)
 	}
-	stmtOperationTask, err := sqlair.Prepare(`SELECT &OperationTask.* FROM "operation_task"`, v4_1_0.OperationTask{})
+	stmtOperationTask, err := sqlair.Prepare(`SELECT &OperationTask.*,
+       t."started_at" IS NULL AS &nullableOperationTask.started_at_is_null,
+       t."completed_at" IS NULL AS &nullableOperationTask.completed_at_is_null
+FROM   "operation_task" AS t`, v4_1_0.OperationTask{}, nullableOperationTask{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing OperationTask statement: %w", err)
 	}
@@ -605,7 +759,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing OperationTaskOutput statement: %w", err)
 	}
-	stmtOperationTaskStatus, err := sqlair.Prepare(`SELECT &OperationTaskStatus.* FROM "operation_task_status"`, v4_1_0.OperationTaskStatus{})
+	stmtOperationTaskStatus, err := sqlair.Prepare(`SELECT &OperationTaskStatus.*,
+       t."updated_at" IS NULL AS &nullableOperationTaskStatus.updated_at_is_null
+FROM   "operation_task_status" AS t`, v4_1_0.OperationTaskStatus{}, nullableOperationTaskStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing OperationTaskStatus statement: %w", err)
 	}
@@ -617,7 +773,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing OperationUnitTask statement: %w", err)
 	}
-	stmtOperatorStatus, err := sqlair.Prepare(`SELECT &OperatorStatus.* FROM "operator_status"`, v4_1_0.OperatorStatus{})
+	stmtOperatorStatus, err := sqlair.Prepare(`SELECT &OperatorStatus.*,
+       t."updated_at" IS NULL AS &nullableOperatorStatus.updated_at_is_null
+FROM   "operator_status" AS t`, v4_1_0.OperatorStatus{}, nullableOperatorStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing OperatorStatus statement: %w", err)
 	}
@@ -665,7 +823,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing ProviderSubnet statement: %w", err)
 	}
-	stmtRelation, err := sqlair.Prepare(`SELECT &Relation.* FROM "relation"`, v4_1_0.Relation{})
+	stmtRelation, err := sqlair.Prepare(`SELECT &Relation.*,
+       t."suspended" IS NULL AS &nullableRelation.suspended_is_null
+FROM   "relation" AS t`, v4_1_0.Relation{}, nullableRelation{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Relation statement: %w", err)
 	}
@@ -689,7 +849,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing RelationNetworkIngress statement: %w", err)
 	}
-	stmtRelationStatus, err := sqlair.Prepare(`SELECT &RelationStatus.* FROM "relation_status"`, v4_1_0.RelationStatus{})
+	stmtRelationStatus, err := sqlair.Prepare(`SELECT &RelationStatus.*,
+       t."updated_at" IS NULL AS &nullableRelationStatus.updated_at_is_null
+FROM   "relation_status" AS t`, v4_1_0.RelationStatus{}, nullableRelationStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing RelationStatus statement: %w", err)
 	}
@@ -725,7 +887,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing ResolveMode statement: %w", err)
 	}
-	stmtResource, err := sqlair.Prepare(`SELECT &Resource.* FROM "resource"`, v4_1_0.Resource{})
+	stmtResource, err := sqlair.Prepare(`SELECT &Resource.*,
+       t."last_polled" IS NULL AS &nullableResource.last_polled_is_null
+FROM   "resource" AS t`, v4_1_0.Resource{}, nullableResource{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Resource statement: %w", err)
 	}
@@ -809,7 +973,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretReservation statement: %w", err)
 	}
-	stmtSecretRevision, err := sqlair.Prepare(`SELECT &SecretRevision.* FROM "secret_revision"`, v4_1_0.SecretRevision{})
+	stmtSecretRevision, err := sqlair.Prepare(`SELECT &SecretRevision.*,
+       t."update_time" IS NULL AS &nullableSecretRevision.update_time_is_null
+FROM   "secret_revision" AS t`, v4_1_0.SecretRevision{}, nullableSecretRevision{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretRevision statement: %w", err)
 	}
@@ -865,15 +1031,21 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageAttachment statement: %w", err)
 	}
-	stmtStorageFilesystem, err := sqlair.Prepare(`SELECT &StorageFilesystem.* FROM "storage_filesystem"`, v4_1_0.StorageFilesystem{})
+	stmtStorageFilesystem, err := sqlair.Prepare(`SELECT &StorageFilesystem.*,
+       t."obliterate_on_cleanup" IS NULL AS &nullableStorageFilesystem.obliterate_on_cleanup_is_null
+FROM   "storage_filesystem" AS t`, v4_1_0.StorageFilesystem{}, nullableStorageFilesystem{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageFilesystem statement: %w", err)
 	}
-	stmtStorageFilesystemAttachment, err := sqlair.Prepare(`SELECT &StorageFilesystemAttachment.* FROM "storage_filesystem_attachment"`, v4_1_0.StorageFilesystemAttachment{})
+	stmtStorageFilesystemAttachment, err := sqlair.Prepare(`SELECT &StorageFilesystemAttachment.*,
+       t."read_only" IS NULL AS &nullableStorageFilesystemAttachment.read_only_is_null
+FROM   "storage_filesystem_attachment" AS t`, v4_1_0.StorageFilesystemAttachment{}, nullableStorageFilesystemAttachment{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageFilesystemAttachment statement: %w", err)
 	}
-	stmtStorageFilesystemStatus, err := sqlair.Prepare(`SELECT &StorageFilesystemStatus.* FROM "storage_filesystem_status"`, v4_1_0.StorageFilesystemStatus{})
+	stmtStorageFilesystemStatus, err := sqlair.Prepare(`SELECT &StorageFilesystemStatus.*,
+       t."updated_at" IS NULL AS &nullableStorageFilesystemStatus.updated_at_is_null
+FROM   "storage_filesystem_status" AS t`, v4_1_0.StorageFilesystemStatus{}, nullableStorageFilesystemStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageFilesystemStatus statement: %w", err)
 	}
@@ -917,11 +1089,16 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageUnitOwner statement: %w", err)
 	}
-	stmtStorageVolume, err := sqlair.Prepare(`SELECT &StorageVolume.* FROM "storage_volume"`, v4_1_0.StorageVolume{})
+	stmtStorageVolume, err := sqlair.Prepare(`SELECT &StorageVolume.*,
+       t."persistent" IS NULL AS &nullableStorageVolume.persistent_is_null,
+       t."obliterate_on_cleanup" IS NULL AS &nullableStorageVolume.obliterate_on_cleanup_is_null
+FROM   "storage_volume" AS t`, v4_1_0.StorageVolume{}, nullableStorageVolume{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageVolume statement: %w", err)
 	}
-	stmtStorageVolumeAttachment, err := sqlair.Prepare(`SELECT &StorageVolumeAttachment.* FROM "storage_volume_attachment"`, v4_1_0.StorageVolumeAttachment{})
+	stmtStorageVolumeAttachment, err := sqlair.Prepare(`SELECT &StorageVolumeAttachment.*,
+       t."read_only" IS NULL AS &nullableStorageVolumeAttachment.read_only_is_null
+FROM   "storage_volume_attachment" AS t`, v4_1_0.StorageVolumeAttachment{}, nullableStorageVolumeAttachment{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageVolumeAttachment statement: %w", err)
 	}
@@ -937,7 +1114,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageVolumeDeviceType statement: %w", err)
 	}
-	stmtStorageVolumeStatus, err := sqlair.Prepare(`SELECT &StorageVolumeStatus.* FROM "storage_volume_status"`, v4_1_0.StorageVolumeStatus{})
+	stmtStorageVolumeStatus, err := sqlair.Prepare(`SELECT &StorageVolumeStatus.*,
+       t."updated_at" IS NULL AS &nullableStorageVolumeStatus.updated_at_is_null
+FROM   "storage_volume_status" AS t`, v4_1_0.StorageVolumeStatus{}, nullableStorageVolumeStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageVolumeStatus statement: %w", err)
 	}
@@ -953,11 +1132,15 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing Unit statement: %w", err)
 	}
-	stmtUnitAgentPresence, err := sqlair.Prepare(`SELECT &UnitAgentPresence.* FROM "unit_agent_presence"`, v4_1_0.UnitAgentPresence{})
+	stmtUnitAgentPresence, err := sqlair.Prepare(`SELECT &UnitAgentPresence.*,
+       t."last_seen" IS NULL AS &nullableUnitAgentPresence.last_seen_is_null
+FROM   "unit_agent_presence" AS t`, v4_1_0.UnitAgentPresence{}, nullableUnitAgentPresence{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitAgentPresence statement: %w", err)
 	}
-	stmtUnitAgentStatus, err := sqlair.Prepare(`SELECT &UnitAgentStatus.* FROM "unit_agent_status"`, v4_1_0.UnitAgentStatus{})
+	stmtUnitAgentStatus, err := sqlair.Prepare(`SELECT &UnitAgentStatus.*,
+       t."updated_at" IS NULL AS &nullableUnitAgentStatus.updated_at_is_null
+FROM   "unit_agent_status" AS t`, v4_1_0.UnitAgentStatus{}, nullableUnitAgentStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitAgentStatus statement: %w", err)
 	}
@@ -1001,7 +1184,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitVirtualSshHostKey statement: %w", err)
 	}
-	stmtUnitWorkloadStatus, err := sqlair.Prepare(`SELECT &UnitWorkloadStatus.* FROM "unit_workload_status"`, v4_1_0.UnitWorkloadStatus{})
+	stmtUnitWorkloadStatus, err := sqlair.Prepare(`SELECT &UnitWorkloadStatus.*,
+       t."updated_at" IS NULL AS &nullableUnitWorkloadStatus.updated_at_is_null
+FROM   "unit_workload_status" AS t`, v4_1_0.UnitWorkloadStatus{}, nullableUnitWorkloadStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitWorkloadStatus statement: %w", err)
 	}
@@ -1024,6 +1209,8 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// The transaction can be retried, so discard rows from prior attempts.
+		modelExport = v4_1_0.ModelExport{}
 		if err := tx.Query(ctx, stmtAgentBinaryStore).GetAll(&modelExport.AgentBinaryStore); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying AgentBinaryStore (table agent_binary_store): %w", err)
 		}
@@ -1057,8 +1244,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtAnnotationUnit).GetAll(&modelExport.AnnotationUnit); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying AnnotationUnit (table annotation_unit): %w", err)
 		}
-		if err := tx.Query(ctx, stmtApplication).GetAll(&modelExport.Application); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableApplicationRows []nullableApplication
+		if err := tx.Query(ctx, stmtApplication).GetAll(&modelExport.Application, &nullableApplicationRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Application (table application): %w", err)
+		}
+		for i, nulls := range nullableApplicationRows {
+			if nulls.CharmUpgradeOnErrorIsNull {
+				modelExport.Application[i].CharmUpgradeOnError = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtApplicationAgent).GetAll(&modelExport.ApplicationAgent); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationAgent (table application_agent): %w", err)
@@ -1105,20 +1298,44 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtApplicationRemoteOffererRelationMacaroon).GetAll(&modelExport.ApplicationRemoteOffererRelationMacaroon); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationRemoteOffererRelationMacaroon (table application_remote_offerer_relation_macaroon): %w", err)
 		}
-		if err := tx.Query(ctx, stmtApplicationRemoteOffererStatus).GetAll(&modelExport.ApplicationRemoteOffererStatus); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableApplicationRemoteOffererStatusRows []nullableApplicationRemoteOffererStatus
+		if err := tx.Query(ctx, stmtApplicationRemoteOffererStatus).GetAll(&modelExport.ApplicationRemoteOffererStatus, &nullableApplicationRemoteOffererStatusRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationRemoteOffererStatus (table application_remote_offerer_status): %w", err)
+		}
+		for i, nulls := range nullableApplicationRemoteOffererStatusRows {
+			if nulls.UpdatedAtIsNull {
+				modelExport.ApplicationRemoteOffererStatus[i].UpdatedAt = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtApplicationResource).GetAll(&modelExport.ApplicationResource); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationResource (table application_resource): %w", err)
 		}
-		if err := tx.Query(ctx, stmtApplicationScale).GetAll(&modelExport.ApplicationScale); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableApplicationScaleRows []nullableApplicationScale
+		if err := tx.Query(ctx, stmtApplicationScale).GetAll(&modelExport.ApplicationScale, &nullableApplicationScaleRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationScale (table application_scale): %w", err)
 		}
-		if err := tx.Query(ctx, stmtApplicationSetting).GetAll(&modelExport.ApplicationSetting); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		for i, nulls := range nullableApplicationScaleRows {
+			if nulls.ScalingIsNull {
+				modelExport.ApplicationScale[i].Scaling = nil
+			}
+		}
+		var nullableApplicationSettingRows []nullableApplicationSetting
+		if err := tx.Query(ctx, stmtApplicationSetting).GetAll(&modelExport.ApplicationSetting, &nullableApplicationSettingRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationSetting (table application_setting): %w", err)
 		}
-		if err := tx.Query(ctx, stmtApplicationStatus).GetAll(&modelExport.ApplicationStatus); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		for i, nulls := range nullableApplicationSettingRows {
+			if nulls.TrustIsNull {
+				modelExport.ApplicationSetting[i].Trust = nil
+			}
+		}
+		var nullableApplicationStatusRows []nullableApplicationStatus
+		if err := tx.Query(ctx, stmtApplicationStatus).GetAll(&modelExport.ApplicationStatus, &nullableApplicationStatusRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationStatus (table application_status): %w", err)
+		}
+		for i, nulls := range nullableApplicationStatusRows {
+			if nulls.UpdatedAtIsNull {
+				modelExport.ApplicationStatus[i].UpdatedAt = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtApplicationStorageDirective).GetAll(&modelExport.ApplicationStorageDirective); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationStorageDirective (table application_storage_directive): %w", err)
@@ -1141,8 +1358,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtBlockCommandType).GetAll(&modelExport.BlockCommandType); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying BlockCommandType (table block_command_type): %w", err)
 		}
-		if err := tx.Query(ctx, stmtBlockDevice).GetAll(&modelExport.BlockDevice); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableBlockDeviceRows []nullableBlockDevice
+		if err := tx.Query(ctx, stmtBlockDevice).GetAll(&modelExport.BlockDevice, &nullableBlockDeviceRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying BlockDevice (table block_device): %w", err)
+		}
+		for i, nulls := range nullableBlockDeviceRows {
+			if nulls.InUseIsNull {
+				modelExport.BlockDevice[i].InUse = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtBlockDeviceLinkDevice).GetAll(&modelExport.BlockDeviceLinkDevice); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying BlockDeviceLinkDevice (table block_device_link_device): %w", err)
@@ -1162,11 +1385,23 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtChangeLogWitness).GetAll(&modelExport.ChangeLogWitness); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ChangeLogWitness (table change_log_witness): %w", err)
 		}
-		if err := tx.Query(ctx, stmtCharm).GetAll(&modelExport.Charm); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableCharmRows []nullableCharm
+		if err := tx.Query(ctx, stmtCharm).GetAll(&modelExport.Charm, &nullableCharmRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Charm (table charm): %w", err)
 		}
-		if err := tx.Query(ctx, stmtCharmAction).GetAll(&modelExport.CharmAction); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		for i, nulls := range nullableCharmRows {
+			if nulls.AvailableIsNull {
+				modelExport.Charm[i].Available = nil
+			}
+		}
+		var nullableCharmActionRows []nullableCharmAction
+		if err := tx.Query(ctx, stmtCharmAction).GetAll(&modelExport.CharmAction, &nullableCharmActionRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying CharmAction (table charm_action): %w", err)
+		}
+		for i, nulls := range nullableCharmActionRows {
+			if nulls.ParallelIsNull {
+				modelExport.CharmAction[i].Parallel = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtCharmCategory).GetAll(&modelExport.CharmCategory); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying CharmCategory (table charm_category): %w", err)
@@ -1204,8 +1439,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtCharmProvenance).GetAll(&modelExport.CharmProvenance); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying CharmProvenance (table charm_provenance): %w", err)
 		}
-		if err := tx.Query(ctx, stmtCharmRelation).GetAll(&modelExport.CharmRelation); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableCharmRelationRows []nullableCharmRelation
+		if err := tx.Query(ctx, stmtCharmRelation).GetAll(&modelExport.CharmRelation, &nullableCharmRelationRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying CharmRelation (table charm_relation): %w", err)
+		}
+		for i, nulls := range nullableCharmRelationRows {
+			if nulls.OptionalIsNull {
+				modelExport.CharmRelation[i].Optional = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtCharmRelationRole).GetAll(&modelExport.CharmRelationRole); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying CharmRelationRole (table charm_relation_role): %w", err)
@@ -1225,8 +1466,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtCharmSource).GetAll(&modelExport.CharmSource); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying CharmSource (table charm_source): %w", err)
 		}
-		if err := tx.Query(ctx, stmtCharmStorage).GetAll(&modelExport.CharmStorage); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableCharmStorageRows []nullableCharmStorage
+		if err := tx.Query(ctx, stmtCharmStorage).GetAll(&modelExport.CharmStorage, &nullableCharmStorageRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying CharmStorage (table charm_storage): %w", err)
+		}
+		for i, nulls := range nullableCharmStorageRows {
+			if nulls.ReadOnlyIsNull {
+				modelExport.CharmStorage[i].ReadOnly = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtCharmStorageKind).GetAll(&modelExport.CharmStorageKind); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying CharmStorageKind (table charm_storage_kind): %w", err)
@@ -1273,8 +1520,17 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtInstanceTag).GetAll(&modelExport.InstanceTag); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying InstanceTag (table instance_tag): %w", err)
 		}
-		if err := tx.Query(ctx, stmtIpAddress).GetAll(&modelExport.IpAddress); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableIpAddressRows []nullableIpAddress
+		if err := tx.Query(ctx, stmtIpAddress).GetAll(&modelExport.IpAddress, &nullableIpAddressRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying IpAddress (table ip_address): %w", err)
+		}
+		for i, nulls := range nullableIpAddressRows {
+			if nulls.IsSecondaryIsNull {
+				modelExport.IpAddress[i].IsSecondary = nil
+			}
+			if nulls.IsShadowIsNull {
+				modelExport.IpAddress[i].IsShadow = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtIpAddressConfigType).GetAll(&modelExport.IpAddressConfigType); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying IpAddressConfigType (table ip_address_config_type): %w", err)
@@ -1294,8 +1550,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtK8sPodPort).GetAll(&modelExport.K8sPodPort); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying K8sPodPort (table k8s_pod_port): %w", err)
 		}
-		if err := tx.Query(ctx, stmtK8sPodStatus).GetAll(&modelExport.K8sPodStatus); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableK8sPodStatusRows []nullableK8sPodStatus
+		if err := tx.Query(ctx, stmtK8sPodStatus).GetAll(&modelExport.K8sPodStatus, &nullableK8sPodStatusRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying K8sPodStatus (table k8s_pod_status): %w", err)
+		}
+		for i, nulls := range nullableK8sPodStatusRows {
+			if nulls.UpdatedAtIsNull {
+				modelExport.K8sPodStatus[i].UpdatedAt = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtK8sPodStatusValue).GetAll(&modelExport.K8sPodStatusValue); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying K8sPodStatusValue (table k8s_pod_status_value): %w", err)
@@ -1324,11 +1586,29 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtLinkLayerDeviceType).GetAll(&modelExport.LinkLayerDeviceType); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying LinkLayerDeviceType (table link_layer_device_type): %w", err)
 		}
-		if err := tx.Query(ctx, stmtMachine).GetAll(&modelExport.Machine); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableMachineRows []nullableMachine
+		if err := tx.Query(ctx, stmtMachine).GetAll(&modelExport.Machine, &nullableMachineRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Machine (table machine): %w", err)
 		}
-		if err := tx.Query(ctx, stmtMachineAgentPresence).GetAll(&modelExport.MachineAgentPresence); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		for i, nulls := range nullableMachineRows {
+			if nulls.ForceDestroyedIsNull {
+				modelExport.Machine[i].ForceDestroyed = nil
+			}
+			if nulls.AgentStartedAtIsNull {
+				modelExport.Machine[i].AgentStartedAt = nil
+			}
+			if nulls.KeepInstanceIsNull {
+				modelExport.Machine[i].KeepInstance = nil
+			}
+		}
+		var nullableMachineAgentPresenceRows []nullableMachineAgentPresence
+		if err := tx.Query(ctx, stmtMachineAgentPresence).GetAll(&modelExport.MachineAgentPresence, &nullableMachineAgentPresenceRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying MachineAgentPresence (table machine_agent_presence): %w", err)
+		}
+		for i, nulls := range nullableMachineAgentPresenceRows {
+			if nulls.LastSeenIsNull {
+				modelExport.MachineAgentPresence[i].LastSeen = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtMachineAgentVersion).GetAll(&modelExport.MachineAgentVersion); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying MachineAgentVersion (table machine_agent_version): %w", err)
@@ -1336,8 +1616,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtMachineCloudInstance).GetAll(&modelExport.MachineCloudInstance); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying MachineCloudInstance (table machine_cloud_instance): %w", err)
 		}
-		if err := tx.Query(ctx, stmtMachineCloudInstanceStatus).GetAll(&modelExport.MachineCloudInstanceStatus); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableMachineCloudInstanceStatusRows []nullableMachineCloudInstanceStatus
+		if err := tx.Query(ctx, stmtMachineCloudInstanceStatus).GetAll(&modelExport.MachineCloudInstanceStatus, &nullableMachineCloudInstanceStatusRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying MachineCloudInstanceStatus (table machine_cloud_instance_status): %w", err)
+		}
+		for i, nulls := range nullableMachineCloudInstanceStatusRows {
+			if nulls.UpdatedAtIsNull {
+				modelExport.MachineCloudInstanceStatus[i].UpdatedAt = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtMachineCloudInstanceStatusValue).GetAll(&modelExport.MachineCloudInstanceStatusValue); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying MachineCloudInstanceStatusValue (table machine_cloud_instance_status_value): %w", err)
@@ -1378,8 +1664,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtMachineSshHostKey).GetAll(&modelExport.MachineSshHostKey); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying MachineSshHostKey (table machine_ssh_host_key): %w", err)
 		}
-		if err := tx.Query(ctx, stmtMachineStatus).GetAll(&modelExport.MachineStatus); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableMachineStatusRows []nullableMachineStatus
+		if err := tx.Query(ctx, stmtMachineStatus).GetAll(&modelExport.MachineStatus, &nullableMachineStatusRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying MachineStatus (table machine_status): %w", err)
+		}
+		for i, nulls := range nullableMachineStatusRows {
+			if nulls.UpdatedAtIsNull {
+				modelExport.MachineStatus[i].UpdatedAt = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtMachineStatusValue).GetAll(&modelExport.MachineStatusValue); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying MachineStatusValue (table machine_status_value): %w", err)
@@ -1390,8 +1682,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtMachineVolume).GetAll(&modelExport.MachineVolume); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying MachineVolume (table machine_volume): %w", err)
 		}
-		if err := tx.Query(ctx, stmtModel).GetAll(&modelExport.Model); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableModelRows []nullableModel
+		if err := tx.Query(ctx, stmtModel).GetAll(&modelExport.Model, &nullableModelRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Model (table model): %w", err)
+		}
+		for i, nulls := range nullableModelRows {
+			if nulls.IsControllerModelIsNull {
+				modelExport.Model[i].IsControllerModel = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtModelAgent).GetAll(&modelExport.ModelAgent); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ModelAgent (table model_agent): %w", err)
@@ -1441,8 +1739,20 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtOfferEndpoint).GetAll(&modelExport.OfferEndpoint); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying OfferEndpoint (table offer_endpoint): %w", err)
 		}
-		if err := tx.Query(ctx, stmtOperation).GetAll(&modelExport.Operation); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableOperationRows []nullableOperation
+		if err := tx.Query(ctx, stmtOperation).GetAll(&modelExport.Operation, &nullableOperationRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Operation (table operation): %w", err)
+		}
+		for i, nulls := range nullableOperationRows {
+			if nulls.StartedAtIsNull {
+				modelExport.Operation[i].StartedAt = nil
+			}
+			if nulls.CompletedAtIsNull {
+				modelExport.Operation[i].CompletedAt = nil
+			}
+			if nulls.ParallelIsNull {
+				modelExport.Operation[i].Parallel = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtOperationAction).GetAll(&modelExport.OperationAction); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying OperationAction (table operation_action): %w", err)
@@ -1453,8 +1763,17 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtOperationParameter).GetAll(&modelExport.OperationParameter); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying OperationParameter (table operation_parameter): %w", err)
 		}
-		if err := tx.Query(ctx, stmtOperationTask).GetAll(&modelExport.OperationTask); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableOperationTaskRows []nullableOperationTask
+		if err := tx.Query(ctx, stmtOperationTask).GetAll(&modelExport.OperationTask, &nullableOperationTaskRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying OperationTask (table operation_task): %w", err)
+		}
+		for i, nulls := range nullableOperationTaskRows {
+			if nulls.StartedAtIsNull {
+				modelExport.OperationTask[i].StartedAt = nil
+			}
+			if nulls.CompletedAtIsNull {
+				modelExport.OperationTask[i].CompletedAt = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtOperationTaskLog).GetAll(&modelExport.OperationTaskLog); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying OperationTaskLog (table operation_task_log): %w", err)
@@ -1462,8 +1781,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtOperationTaskOutput).GetAll(&modelExport.OperationTaskOutput); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying OperationTaskOutput (table operation_task_output): %w", err)
 		}
-		if err := tx.Query(ctx, stmtOperationTaskStatus).GetAll(&modelExport.OperationTaskStatus); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableOperationTaskStatusRows []nullableOperationTaskStatus
+		if err := tx.Query(ctx, stmtOperationTaskStatus).GetAll(&modelExport.OperationTaskStatus, &nullableOperationTaskStatusRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying OperationTaskStatus (table operation_task_status): %w", err)
+		}
+		for i, nulls := range nullableOperationTaskStatusRows {
+			if nulls.UpdatedAtIsNull {
+				modelExport.OperationTaskStatus[i].UpdatedAt = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtOperationTaskStatusValue).GetAll(&modelExport.OperationTaskStatusValue); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying OperationTaskStatusValue (table operation_task_status_value): %w", err)
@@ -1471,8 +1796,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtOperationUnitTask).GetAll(&modelExport.OperationUnitTask); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying OperationUnitTask (table operation_unit_task): %w", err)
 		}
-		if err := tx.Query(ctx, stmtOperatorStatus).GetAll(&modelExport.OperatorStatus); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableOperatorStatusRows []nullableOperatorStatus
+		if err := tx.Query(ctx, stmtOperatorStatus).GetAll(&modelExport.OperatorStatus, &nullableOperatorStatusRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying OperatorStatus (table operator_status): %w", err)
+		}
+		for i, nulls := range nullableOperatorStatusRows {
+			if nulls.UpdatedAtIsNull {
+				modelExport.OperatorStatus[i].UpdatedAt = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtOs).GetAll(&modelExport.Os); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Os (table os): %w", err)
@@ -1507,8 +1838,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtProviderSubnet).GetAll(&modelExport.ProviderSubnet); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ProviderSubnet (table provider_subnet): %w", err)
 		}
-		if err := tx.Query(ctx, stmtRelation).GetAll(&modelExport.Relation); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableRelationRows []nullableRelation
+		if err := tx.Query(ctx, stmtRelation).GetAll(&modelExport.Relation, &nullableRelationRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Relation (table relation): %w", err)
+		}
+		for i, nulls := range nullableRelationRows {
+			if nulls.SuspendedIsNull {
+				modelExport.Relation[i].Suspended = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtRelationApplicationSetting).GetAll(&modelExport.RelationApplicationSetting); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying RelationApplicationSetting (table relation_application_setting): %w", err)
@@ -1525,8 +1862,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtRelationNetworkIngress).GetAll(&modelExport.RelationNetworkIngress); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying RelationNetworkIngress (table relation_network_ingress): %w", err)
 		}
-		if err := tx.Query(ctx, stmtRelationStatus).GetAll(&modelExport.RelationStatus); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableRelationStatusRows []nullableRelationStatus
+		if err := tx.Query(ctx, stmtRelationStatus).GetAll(&modelExport.RelationStatus, &nullableRelationStatusRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying RelationStatus (table relation_status): %w", err)
+		}
+		for i, nulls := range nullableRelationStatusRows {
+			if nulls.UpdatedAtIsNull {
+				modelExport.RelationStatus[i].UpdatedAt = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtRelationStatusType).GetAll(&modelExport.RelationStatusType); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying RelationStatusType (table relation_status_type): %w", err)
@@ -1552,8 +1895,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtResolveMode).GetAll(&modelExport.ResolveMode); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ResolveMode (table resolve_mode): %w", err)
 		}
-		if err := tx.Query(ctx, stmtResource).GetAll(&modelExport.Resource); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableResourceRows []nullableResource
+		if err := tx.Query(ctx, stmtResource).GetAll(&modelExport.Resource, &nullableResourceRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Resource (table resource): %w", err)
+		}
+		for i, nulls := range nullableResourceRows {
+			if nulls.LastPolledIsNull {
+				modelExport.Resource[i].LastPolled = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtResourceContainerImageMetadataStore).GetAll(&modelExport.ResourceContainerImageMetadataStore); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ResourceContainerImageMetadataStore (table resource_container_image_metadata_store): %w", err)
@@ -1615,8 +1964,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtSecretReservation).GetAll(&modelExport.SecretReservation); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying SecretReservation (table secret_reservation): %w", err)
 		}
-		if err := tx.Query(ctx, stmtSecretRevision).GetAll(&modelExport.SecretRevision); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableSecretRevisionRows []nullableSecretRevision
+		if err := tx.Query(ctx, stmtSecretRevision).GetAll(&modelExport.SecretRevision, &nullableSecretRevisionRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying SecretRevision (table secret_revision): %w", err)
+		}
+		for i, nulls := range nullableSecretRevisionRows {
+			if nulls.UpdateTimeIsNull {
+				modelExport.SecretRevision[i].UpdateTime = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtSecretRevisionExpire).GetAll(&modelExport.SecretRevisionExpire); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying SecretRevisionExpire (table secret_revision_expire): %w", err)
@@ -1657,14 +2012,32 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtStorageAttachment).GetAll(&modelExport.StorageAttachment); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying StorageAttachment (table storage_attachment): %w", err)
 		}
-		if err := tx.Query(ctx, stmtStorageFilesystem).GetAll(&modelExport.StorageFilesystem); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableStorageFilesystemRows []nullableStorageFilesystem
+		if err := tx.Query(ctx, stmtStorageFilesystem).GetAll(&modelExport.StorageFilesystem, &nullableStorageFilesystemRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying StorageFilesystem (table storage_filesystem): %w", err)
 		}
-		if err := tx.Query(ctx, stmtStorageFilesystemAttachment).GetAll(&modelExport.StorageFilesystemAttachment); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		for i, nulls := range nullableStorageFilesystemRows {
+			if nulls.ObliterateOnCleanupIsNull {
+				modelExport.StorageFilesystem[i].ObliterateOnCleanup = nil
+			}
+		}
+		var nullableStorageFilesystemAttachmentRows []nullableStorageFilesystemAttachment
+		if err := tx.Query(ctx, stmtStorageFilesystemAttachment).GetAll(&modelExport.StorageFilesystemAttachment, &nullableStorageFilesystemAttachmentRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying StorageFilesystemAttachment (table storage_filesystem_attachment): %w", err)
 		}
-		if err := tx.Query(ctx, stmtStorageFilesystemStatus).GetAll(&modelExport.StorageFilesystemStatus); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		for i, nulls := range nullableStorageFilesystemAttachmentRows {
+			if nulls.ReadOnlyIsNull {
+				modelExport.StorageFilesystemAttachment[i].ReadOnly = nil
+			}
+		}
+		var nullableStorageFilesystemStatusRows []nullableStorageFilesystemStatus
+		if err := tx.Query(ctx, stmtStorageFilesystemStatus).GetAll(&modelExport.StorageFilesystemStatus, &nullableStorageFilesystemStatusRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying StorageFilesystemStatus (table storage_filesystem_status): %w", err)
+		}
+		for i, nulls := range nullableStorageFilesystemStatusRows {
+			if nulls.UpdatedAtIsNull {
+				modelExport.StorageFilesystemStatus[i].UpdatedAt = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtStorageFilesystemStatusValue).GetAll(&modelExport.StorageFilesystemStatusValue); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying StorageFilesystemStatusValue (table storage_filesystem_status_value): %w", err)
@@ -1696,11 +2069,26 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtStorageUnitOwner).GetAll(&modelExport.StorageUnitOwner); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying StorageUnitOwner (table storage_unit_owner): %w", err)
 		}
-		if err := tx.Query(ctx, stmtStorageVolume).GetAll(&modelExport.StorageVolume); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableStorageVolumeRows []nullableStorageVolume
+		if err := tx.Query(ctx, stmtStorageVolume).GetAll(&modelExport.StorageVolume, &nullableStorageVolumeRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying StorageVolume (table storage_volume): %w", err)
 		}
-		if err := tx.Query(ctx, stmtStorageVolumeAttachment).GetAll(&modelExport.StorageVolumeAttachment); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		for i, nulls := range nullableStorageVolumeRows {
+			if nulls.PersistentIsNull {
+				modelExport.StorageVolume[i].Persistent = nil
+			}
+			if nulls.ObliterateOnCleanupIsNull {
+				modelExport.StorageVolume[i].ObliterateOnCleanup = nil
+			}
+		}
+		var nullableStorageVolumeAttachmentRows []nullableStorageVolumeAttachment
+		if err := tx.Query(ctx, stmtStorageVolumeAttachment).GetAll(&modelExport.StorageVolumeAttachment, &nullableStorageVolumeAttachmentRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying StorageVolumeAttachment (table storage_volume_attachment): %w", err)
+		}
+		for i, nulls := range nullableStorageVolumeAttachmentRows {
+			if nulls.ReadOnlyIsNull {
+				modelExport.StorageVolumeAttachment[i].ReadOnly = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtStorageVolumeAttachmentPlan).GetAll(&modelExport.StorageVolumeAttachmentPlan); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying StorageVolumeAttachmentPlan (table storage_volume_attachment_plan): %w", err)
@@ -1711,8 +2099,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtStorageVolumeDeviceType).GetAll(&modelExport.StorageVolumeDeviceType); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying StorageVolumeDeviceType (table storage_volume_device_type): %w", err)
 		}
-		if err := tx.Query(ctx, stmtStorageVolumeStatus).GetAll(&modelExport.StorageVolumeStatus); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableStorageVolumeStatusRows []nullableStorageVolumeStatus
+		if err := tx.Query(ctx, stmtStorageVolumeStatus).GetAll(&modelExport.StorageVolumeStatus, &nullableStorageVolumeStatusRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying StorageVolumeStatus (table storage_volume_status): %w", err)
+		}
+		for i, nulls := range nullableStorageVolumeStatusRows {
+			if nulls.UpdatedAtIsNull {
+				modelExport.StorageVolumeStatus[i].UpdatedAt = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtStorageVolumeStatusValue).GetAll(&modelExport.StorageVolumeStatusValue); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying StorageVolumeStatusValue (table storage_volume_status_value): %w", err)
@@ -1723,11 +2117,23 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtUnit).GetAll(&modelExport.Unit); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Unit (table unit): %w", err)
 		}
-		if err := tx.Query(ctx, stmtUnitAgentPresence).GetAll(&modelExport.UnitAgentPresence); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableUnitAgentPresenceRows []nullableUnitAgentPresence
+		if err := tx.Query(ctx, stmtUnitAgentPresence).GetAll(&modelExport.UnitAgentPresence, &nullableUnitAgentPresenceRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying UnitAgentPresence (table unit_agent_presence): %w", err)
 		}
-		if err := tx.Query(ctx, stmtUnitAgentStatus).GetAll(&modelExport.UnitAgentStatus); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		for i, nulls := range nullableUnitAgentPresenceRows {
+			if nulls.LastSeenIsNull {
+				modelExport.UnitAgentPresence[i].LastSeen = nil
+			}
+		}
+		var nullableUnitAgentStatusRows []nullableUnitAgentStatus
+		if err := tx.Query(ctx, stmtUnitAgentStatus).GetAll(&modelExport.UnitAgentStatus, &nullableUnitAgentStatusRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying UnitAgentStatus (table unit_agent_status): %w", err)
+		}
+		for i, nulls := range nullableUnitAgentStatusRows {
+			if nulls.UpdatedAtIsNull {
+				modelExport.UnitAgentStatus[i].UpdatedAt = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtUnitAgentStatusValue).GetAll(&modelExport.UnitAgentStatusValue); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying UnitAgentStatusValue (table unit_agent_status_value): %w", err)
@@ -1759,8 +2165,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtUnitVirtualSshHostKey).GetAll(&modelExport.UnitVirtualSshHostKey); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying UnitVirtualSshHostKey (table unit_virtual_ssh_host_key): %w", err)
 		}
-		if err := tx.Query(ctx, stmtUnitWorkloadStatus).GetAll(&modelExport.UnitWorkloadStatus); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		var nullableUnitWorkloadStatusRows []nullableUnitWorkloadStatus
+		if err := tx.Query(ctx, stmtUnitWorkloadStatus).GetAll(&modelExport.UnitWorkloadStatus, &nullableUnitWorkloadStatusRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying UnitWorkloadStatus (table unit_workload_status): %w", err)
+		}
+		for i, nulls := range nullableUnitWorkloadStatusRows {
+			if nulls.UpdatedAtIsNull {
+				modelExport.UnitWorkloadStatus[i].UpdatedAt = nil
+			}
 		}
 		if err := tx.Query(ctx, stmtUnitWorkloadVersion).GetAll(&modelExport.UnitWorkloadVersion); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying UnitWorkloadVersion (table unit_workload_version): %w", err)

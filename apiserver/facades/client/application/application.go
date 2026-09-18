@@ -1055,17 +1055,22 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 
 		var info params.DestroyUnitInfo
 
-		// TODO(storage): return detached / destroyed storage volumes/filesystems
-
-		if arg.DryRun {
-			return &info, nil
-		}
-
 		unitUUID, err := api.applicationService.GetUnitUUID(ctx, unitName)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
 			return nil, errors.NotFoundf("unit %q", unitName)
 		} else if err != nil {
 			return nil, errors.Trace(err)
+		}
+
+		info.DestroyedStorage, info.DetachedStorage, err = api.classifyStorageRemoval(
+			ctx, []coreunit.UUID{unitUUID}, arg.DestroyStorage,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if arg.DryRun {
+			return &info, nil
 		}
 		maxWait := time.Duration(0)
 		if arg.MaxWait != nil {
@@ -1119,7 +1124,7 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 			return nil, errors.NotSupportedf("removing the controller application")
 		}
 
-		unitNames, err := api.applicationService.GetUnitNamesForApplication(ctx, tag.Id())
+		units, err := api.applicationService.GetUnitNamesAndUUIDsForApplication(ctx, tag.Id())
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return nil, errors.NotFoundf("application %q", tag.Id())
 		} else if err != nil {
@@ -1127,14 +1132,21 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 		}
 
 		var info params.DestroyApplicationInfo
-		for _, unitName := range unitNames {
-			unitTag := names.NewUnitTag(unitName.String())
+		unitUUIDs := make([]coreunit.UUID, 0, len(units))
+		for _, u := range units {
+			unitTag := names.NewUnitTag(u.Name.String())
 			info.DestroyedUnits = append(
 				info.DestroyedUnits,
 				params.Entity{Tag: unitTag.String()},
 			)
+			unitUUIDs = append(unitUUIDs, u.UUID)
+		}
 
-			// TODO(storage): return detached / destroyed storage volumes/filesystems
+		info.DestroyedStorage, info.DetachedStorage, err = api.classifyStorageRemoval(
+			ctx, unitUUIDs, arg.DestroyStorage,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 
 		if arg.DryRun {
@@ -1170,6 +1182,30 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 	return params.DestroyApplicationResults{
 		Results: results,
 	}, nil
+}
+
+// classifyStorageRemoval reports which storage instances attached to the
+// input units will be destroyed or detached when those units are removed.
+//
+// Storage instances are only reported for IAAS models. Container models back
+// their storage with persistent volumes whose life cycle is not tied to that
+// of the removed units, so their classification would be misleading.
+func (api *APIBase) classifyStorageRemoval(
+	ctx context.Context, unitUUIDs []coreunit.UUID, destroyStorage bool,
+) (destroyed, detached []params.Entity, _ error) {
+	if api.modelType == model.CAAS {
+		return nil, nil, nil
+	}
+	if len(unitUUIDs) == 0 {
+		return nil, nil, nil
+	}
+
+	classification, err := api.storageService.ClassifyStorageForUnitRemoval(ctx, unitUUIDs, destroyStorage)
+	if err != nil {
+		return nil, nil, internalerrors.Capture(err)
+	}
+	return common.StorageEntities(classification.Destroyed),
+		common.StorageEntities(classification.Detached), nil
 }
 
 // DestroyConsumedApplications removes a given set of consumed (remote) applications.

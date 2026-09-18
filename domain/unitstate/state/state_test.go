@@ -12,7 +12,10 @@ import (
 	"github.com/juju/tc"
 
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
+	removalstate "github.com/juju/juju/domain/removal/state/model"
 	"github.com/juju/juju/domain/unitstate"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
@@ -24,6 +27,8 @@ func TestStateSuite(t *stdtesting.T) {
 }
 
 func (s *stateSuite) TestSetUnitState(c *tc.C) {
+	s.addRelation(c, 1, life.Alive)
+
 	agentState := unitstate.UnitState{
 		Name:          s.unitName,
 		CharmState:    new(map[string]string{"one-key": "one-value"}),
@@ -32,7 +37,8 @@ func (s *stateSuite) TestSetUnitState(c *tc.C) {
 		StorageState:  new("some-storage-state-yaml"),
 		SecretState:   new("some-secret-state-yaml"),
 	}
-	s.state.SetUnitState(c.Context(), agentState)
+	err := s.state.SetUnitState(c.Context(), agentState)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedAgentState := unitstate.RetrievedUnitState{
 		CharmState:    *agentState.CharmState,
@@ -45,6 +51,82 @@ func (s *stateSuite) TestSetUnitState(c *tc.C) {
 	state, err := s.state.GetUnitState(c.Context(), s.unitName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(state, tc.DeepEquals, expectedAgentState)
+}
+
+func (s *stateSuite) TestSetUnitStateFiltersMissingRelations(c *tc.C) {
+	// Departure hooks still need checkpoints for relations being removed.
+	s.addRelation(c, 0, life.Alive)
+	s.addRelation(c, 1, life.Dying)
+	s.addRelation(c, 2, life.Dead)
+	s.query(c, `INSERT INTO unit_state_relation (unit_uuid, "key", value) VALUES (?, ?, ?)`,
+		s.unitUUID, "3", "old checkpoint")
+
+	agentState := unitstate.UnitState{
+		Name: s.unitName,
+		RelationState: new(map[int]string{
+			0: "alive checkpoint",
+			1: "dying checkpoint",
+			2: "dead checkpoint",
+			3: "missing checkpoint",
+		}),
+		CharmState:   new(map[string]string{"key": "charm state"}),
+		UniterState:  new("uniter state"),
+		StorageState: new("storage state"),
+		SecretState:  new("secret state"),
+	}
+	err := s.state.SetUnitState(c.Context(), agentState)
+	c.Assert(err, tc.ErrorIsNil)
+
+	state, err := s.state.GetUnitState(c.Context(), s.unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(state, tc.DeepEquals, unitstate.RetrievedUnitState{
+		RelationState: map[int]string{
+			0: "alive checkpoint",
+			1: "dying checkpoint",
+			2: "dead checkpoint",
+		},
+		CharmState:   *agentState.CharmState,
+		UniterState:  *agentState.UniterState,
+		StorageState: *agentState.StorageState,
+		SecretState:  *agentState.SecretState,
+	})
+	// Filtering must not change the caller's checkpoint map.
+	c.Check(*agentState.RelationState, tc.DeepEquals, map[int]string{
+		0: "alive checkpoint",
+		1: "dying checkpoint",
+		2: "dead checkpoint",
+		3: "missing checkpoint",
+	})
+}
+
+func (s *stateSuite) TestSetUnitStateAfterRelationDeletion(c *tc.C) {
+	relationUUID := s.addRelation(c, 42, life.Dying)
+	agentState := unitstate.UnitState{
+		Name:          s.unitName,
+		RelationState: new(map[int]string{42: "checkpoint"}),
+	}
+	err := s.state.SetUnitState(c.Context(), agentState)
+	c.Assert(err, tc.ErrorIsNil)
+
+	removal := removalstate.NewState(s.TxnRunnerFactory(), s.state.logger)
+	err = removal.DeleteRelation(c.Context(), relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	state, err := s.state.GetUnitState(c.Context(), s.unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(state.RelationState, tc.HasLen, 0)
+
+	// A late write from the unit must not restore the deleted checkpoint,
+	// even when every relation in its snapshot has disappeared.
+	agentState.UniterState = new("updated uniter state")
+	err = s.state.SetUnitState(c.Context(), agentState)
+	c.Assert(err, tc.ErrorIsNil)
+
+	state, err = s.state.GetUnitState(c.Context(), s.unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(state, tc.DeepEquals, unitstate.RetrievedUnitState{
+		UniterState: *agentState.UniterState,
+	})
 }
 
 func (s *stateSuite) TestSetUnitStateJustUniterState(c *tc.C) {
@@ -225,9 +307,13 @@ func (s *stateSuite) TestUpdateUnitStateCharmEmptyMap(c *tc.C) {
 
 func (s *stateSuite) TestUpdateUnitStateRelation(c *tc.C) {
 	ctx := c.Context()
+	s.addRelation(c, 1, life.Alive)
+	s.addRelation(c, 2, life.Alive)
+	s.addRelation(c, 3, life.Alive)
 
 	// Set some initial state. This should be overwritten.
-	s.addUnitStateCharm(c, 1, "one-val")
+	s.query(c, `INSERT INTO unit_state_relation (unit_uuid, "key", value) VALUES (?, ?, ?)`,
+		s.unitUUID, "1", "one-val")
 
 	expState := map[int]string{
 		2: "two-val",
@@ -267,9 +353,11 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *tc.C) {
 
 func (s *stateSuite) TestUpdateUnitStateRelationEmptyMap(c *tc.C) {
 	ctx := c.Context()
+	s.addRelation(c, 1, life.Alive)
 
-	// Set some initial state. This should be overwritten.
-	s.addUnitStateCharm(c, 1, "one-val")
+	// Set some initial state. This should be deleted.
+	s.query(c, `INSERT INTO unit_state_relation (unit_uuid, "key", value) VALUES (?, ?, ?)`,
+		s.unitUUID, "1", "one-val")
 
 	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return s.state.setUnitStateRelation(ctx, tx, entityUUID{UUID: s.unitUUID}, map[int]string{})
@@ -295,4 +383,11 @@ func (s *stateSuite) TestUpdateUnitStateRelationEmptyMap(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(rowCount, tc.DeepEquals, 0)
+}
+
+func (s *stateSuite) addRelation(c *tc.C, relationID int, relationLife life.Life) string {
+	relationUUID := tc.Must(c, uuid.NewUUID).String()
+	s.query(c, `INSERT INTO relation (uuid, life_id, relation_id, scope_id) VALUES (?, ?, ?, 0)`,
+		relationUUID, relationLife, relationID)
+	return relationUUID
 }

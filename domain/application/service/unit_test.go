@@ -512,6 +512,80 @@ func (s *unitServiceSuite) TestGetUnitNamesOnMachine(c *tc.C) {
 	c.Assert(names, tc.DeepEquals, []coreunit.Name{"foo/666", "bar/667"})
 }
 
+func (s *unitServiceSuite) TestGetUnitNamesAndUUIDsForApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+	appID := tc.Must(c, coreapplication.NewUUID)
+	unitUUID1 := tc.Must(c, coreunit.NewUUID)
+	unitUUID2 := tc.Must(c, coreunit.NewUUID)
+	units := []application.UnitNameAndUUID{
+		{Name: "foo/666", UUID: unitUUID1},
+		{Name: "foo/667", UUID: unitUUID2},
+	}
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appID, nil)
+	s.state.EXPECT().GetUnitNamesAndUUIDsForApplication(gomock.Any(), appID).Return(units, nil)
+
+	got, err := s.service.GetUnitNamesAndUUIDsForApplication(c.Context(), appName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.SameContents, units)
+}
+
+func (s *unitServiceSuite) TestGetUnitNamesAndUUIDsForApplicationNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
+
+	_, err := s.service.GetUnitNamesAndUUIDsForApplication(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *unitServiceSuite) TestGetUnitNamesAndUUIDsForApplicationDead(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+	appID := tc.Must(c, coreapplication.NewUUID)
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appID, nil)
+	s.state.EXPECT().GetUnitNamesAndUUIDsForApplication(gomock.Any(), appID).Return(nil, applicationerrors.ApplicationIsDead)
+
+	_, err := s.service.GetUnitNamesAndUUIDsForApplication(c.Context(), appName)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationIsDead)
+}
+
+func (s *unitServiceSuite) TestGetUnitNamesAndUUIDsOnMachineNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetUnitNamesAndUUIDsForMachine(gomock.Any(), coremachine.Name("0")).Return(nil, applicationerrors.MachineNotFound)
+
+	_, err := s.service.GetUnitNamesAndUUIDsOnMachine(c.Context(), coremachine.Name("0"))
+	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
+}
+
+func (s *unitServiceSuite) TestGetUnitNamesAndUUIDsOnMachineInvalidMachineName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetUnitNamesAndUUIDsOnMachine(c.Context(), coremachine.Name(""))
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *unitServiceSuite) TestGetUnitNamesAndUUIDsOnMachine(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID1 := tc.Must(c, coreunit.NewUUID)
+	unitUUID2 := tc.Must(c, coreunit.NewUUID)
+	units := []application.UnitNameAndUUID{
+		{Name: "foo/666", UUID: unitUUID1},
+		{Name: "bar/667", UUID: unitUUID2},
+	}
+	s.state.EXPECT().GetUnitNamesAndUUIDsForMachine(gomock.Any(), coremachine.Name("0")).Return(units, nil)
+
+	got, err := s.service.GetUnitNamesAndUUIDsOnMachine(c.Context(), coremachine.Name("0"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, units)
+}
+
 func (s *unitServiceSuite) TestSetUnitWorkloadVersion(c *tc.C) {
 	var statusHistory *MockStatusHistory
 	defer s.setupMocksWithStatusHistory(c, func(ctrl *gomock.Controller) StatusHistory {

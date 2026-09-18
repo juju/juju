@@ -5,10 +5,11 @@ package modelmigration
 
 import (
 	"context"
-	"reflect"
+	"maps"
 
 	"github.com/juju/description/v12"
 
+	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/logger"
@@ -97,8 +98,18 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	if existing.AuthType() != cloud.AuthType(cred.AuthType()) {
 		return errors.Errorf("credential auth type mismatch: %q != %q", existing.AuthType(), cred.AuthType())
 	}
-	if !reflect.DeepEqual(existing.Attributes(), cred.Attributes()) {
-		return errors.Errorf("credential attribute mismatch: %v != %v", existing.Attributes(), cred.Attributes())
+	existingAttrs, importedAttrs := existing.Attributes(), maps.Clone(cred.Attributes())
+	if model.Type() == description.CAAS {
+		// Kubernetes uses rbac-id to label managed RBAC resources, not to
+		// authenticate. It may be absent or differ between controllers, so
+		// discard it before comparing attributes. existing.Attributes()
+		// already returns a copy, but cred.Attributes() exposes the
+		// migration export's internal map, hence the maps.Clone above.
+		delete(existingAttrs, k8scloud.RBACLabelKeyName)
+		delete(importedAttrs, k8scloud.RBACLabelKeyName)
+	}
+	if !maps.Equal(existingAttrs, importedAttrs) {
+		return errors.Errorf("credential attribute mismatch for %q", key)
 	}
 	if existing.Revoked {
 		return errors.Errorf("credential %q is revoked", key)

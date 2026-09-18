@@ -2036,10 +2036,11 @@ func (s *serviceSuite) TestGetMachineFullStatuses(c *tc.C) {
 
 	expectedStatuses := map[machine.Name]Machine{
 		"666": {
-			Name:        "666",
-			Life:        corelife.Alive,
-			DNSName:     "10.51.45.181",
-			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
+			Name:         "666",
+			Life:         corelife.Alive,
+			DNSName:      "10.51.45.181",
+			IPAddresses:  []string{"10.0.0.1", "10.51.45.181"},
+			AgentVersion: "4.0.15",
 			MachineStatus: corestatus.StatusInfo{
 				Status: corestatus.Started,
 				Data: map[string]any{
@@ -2096,9 +2097,10 @@ func (s *serviceSuite) TestGetMachineFullStatuses(c *tc.C) {
 	}
 	s.modelState.EXPECT().GetMachineFullStatuses(gomock.Any()).Return(map[machine.Name]status.Machine{
 		"666": {
-			Life:        life.Alive,
-			DNSName:     "10.51.45.181",
-			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
+			Life:         life.Alive,
+			DNSName:      "10.51.45.181",
+			IPAddresses:  []string{"10.0.0.1", "10.51.45.181"},
+			AgentVersion: "4.0.15",
 			MachineStatus: status.MachineStatusInfo[status.MachineStatusType]{
 				StatusInfo: status.StatusInfo[status.MachineStatusType]{
 					Status: status.MachineStatusStarted,
@@ -2165,6 +2167,7 @@ func (s *serviceSuite) TestGetMachineFullStatusesControllerModel(c *tc.C) {
 			DNSName:      "10.51.45.181",
 			IPAddresses:  []string{"10.0.0.1", "10.51.45.181"},
 			IsController: true,
+			AgentVersion: "4.0.15",
 			MachineStatus: corestatus.StatusInfo{
 				Status: corestatus.Started,
 				Data: map[string]any{
@@ -2218,9 +2221,10 @@ func (s *serviceSuite) TestGetMachineFullStatusesControllerModel(c *tc.C) {
 	}
 	s.modelState.EXPECT().GetMachineFullStatuses(gomock.Any()).Return(map[machine.Name]status.Machine{
 		"666": {
-			Life:        life.Alive,
-			DNSName:     "10.51.45.181",
-			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
+			Life:         life.Alive,
+			DNSName:      "10.51.45.181",
+			IPAddresses:  []string{"10.0.0.1", "10.51.45.181"},
+			AgentVersion: "4.0.15",
 			MachineStatus: status.MachineStatusInfo[status.MachineStatusType]{
 				StatusInfo: status.StatusInfo[status.MachineStatusType]{
 					Status: status.MachineStatusStarted,

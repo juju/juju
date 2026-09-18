@@ -63,7 +63,7 @@ poll `juju status --format=json` and evaluate readiness client-side.
 * **Juju status`--watch` flag is dropped**: it is no longer available on commands like `juju status`. The alternative is 
 to use any available watcher on the client side. For example: `watch -n 1 --color juju status --color`
 * **`private-address` removed**:  it is no longer automatically maintained in relation data. It was a copy
-of `ingres-address`, which is the only value that should be used now.
+of `ingress-address`, which is the only value that should be used now.
 * **`additionalProperties` default changed**: in action parameter configuration, the `additionalProperties` default 
 value no longer matches JSONSchema, and is instead `false`. Explicitly include `additionalProperties` rather than relying 
 on the default value to have consistency across Juju 3.6 and Juju 4.
