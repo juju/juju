@@ -148,6 +148,42 @@ func (s *deployerCAASSuite) TestNormalizeControllerConstraintsRejectsMismatchedA
 	c.Assert(err, tc.ErrorMatches, "arch in platform and constraints for controller do not match")
 }
 
+func (s *deployerCAASSuite) TestAddCAASControllerApplicationRejectsMismatchedConstraints(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newConfig(c)
+	cfg.Constraints = constraints.Value{Arch: new("amd64")}
+
+	origin := corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Type:     "charm",
+		Channel:  &charm.Channel{},
+		Revision: new(1),
+		Hash:     "sha-256",
+		Platform: corecharm.Platform{
+			Architecture: "arm64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
+		},
+	}
+
+	deployer := s.newDeployerWithConfig(c, cfg)
+
+	err := deployer.AddCAASControllerApplication(c.Context(), DeployCharmInfo{
+		URL:    charm.MustParseURL("ch:juju-controller-0"),
+		Charm:  s.charm,
+		Origin: &origin,
+		DownloadInfo: &corecharm.DownloadInfo{
+			CharmhubIdentifier: "abcd",
+			DownloadURL:        "https://inferi.com",
+			DownloadSize:       42,
+		},
+		ArchivePath:     "path",
+		ObjectStoreUUID: "1234",
+	})
+	c.Assert(err, tc.ErrorMatches, "arch in platform and constraints for controller do not match")
+}
+
 func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
