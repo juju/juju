@@ -12,7 +12,7 @@ import (
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
-	"github.com/juju/juju/domain/controller"
+	domaincontroller "github.com/juju/juju/domain/controller"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 )
@@ -96,5 +96,5 @@ type RemovalService interface {
 // domain.
 type ControllerService interface {
 	// GetControllerInfo returns the controller information.
-	GetControllerInfo(ctx context.Context) (controller.ControllerInfo, error)
+	GetControllerInfo(ctx context.Context) (domaincontroller.ControllerInfo, error)
 }
