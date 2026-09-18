@@ -189,6 +189,14 @@ run_deploy_lxd_to_container() {
 		yq -r '.applications["ubuntu-plus"].units["ubuntu-plus/0"].machine')
 	echo "${principal_machine}" | check "0/lxd/0"
 
+	# The container's eth0 device is parented to the default LXD bridge,
+	# as the suite bootstraps with container-networking-method "local".
+	# Assert that eth0 obtained an address, so that a container
+	# networking regression fails here deterministically, rather than
+	# manifesting only as a deployment timeout.
+	eth0_addr="$(juju_exec_output --machine 0/lxd/0 -- ip -4 addr show dev eth0)"
+	check_contains "${eth0_addr}" "inet"
+
 	destroy_model "${model_name}"
 }
 
