@@ -37,8 +37,9 @@ const (
 	ContentTypeXJS = "application/x-javascript"
 )
 
-// EncodeChecksum base64 encodes a sha256 checksum according to RFC 4648 and
-// returns a value that can be added to the "Digest" http header.
-func EncodeChecksum(checksum string) string {
-	return fmt.Sprintf("%s=%s", DigestSHA256, base64.StdEncoding.EncodeToString([]byte(checksum)))
+// EncodeChecksum base64 encodes raw SHA-256 digest bytes according to
+// RFC 4648 and returns a value that can be added to the "Digest" http
+// header, as described by RFC 3230.
+func EncodeChecksum(checksum []byte) string {
+	return fmt.Sprintf("%s=%s", DigestSHA256, base64.StdEncoding.EncodeToString(checksum))
 }
