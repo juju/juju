@@ -327,8 +327,15 @@ run_deploy_lxd_to_machine() {
 }
 
 run_deploy_lxd_to_container() {
-	# Ensure profiles get applied correctly to containers
-	# and 1 gets added if a subordinate is added.
+	# Deploy a charm and a subordinate to an LXD container on a machine
+	# hosted by a non-LXD provider, exercising container provisioning and
+	# subordinates on containers.
+	#
+	# The charm LXD profile assertions that used to run here were removed:
+	# charm LXD profile support was removed from Juju 4.0 in
+	# https://github.com/juju/juju/pull/21516 ("No agents pass LXD profiles
+	# with SetInstanceInfo in Juju 4.0"). Placement and container
+	# networking are asserted below instead.
 	echo
 
 	model_name="test-deploy-lxd-container"
@@ -346,68 +353,23 @@ run_deploy_lxd_to_container() {
 	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 	wait_for "lxd-profile-subordinate" "select(.applications) | .applications | keys[1]"
 
-	machine_0="$(machine_container_path 0 0/lxd/0)"
-	wait_for "lxd-profile-subordinate" "${machine_0}"
+	# Assert that the principal unit is placed in the LXD container on
+	# machine 0, and the subordinate is co-located with it. Unlike the
+	# profile assertions in the commented block below, these checks do not
+	# depend on LXD profile support (removed in Juju 4.0).
+	wait_for "0/lxd/0" '.applications | .["lxd-profile-alt"] | .units | .["lxd-profile-alt/0"] | .machine'
 
-	full_uuid=$(juju models --format json |
-		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
-	short_uuid="${full_uuid:0:6}"
+	# Subordinate units are nested under the principal unit in status
+	# output and report no machine of their own.
+	wait_for "lxd-profile-subordinate/0" '.applications | .["lxd-profile-alt"] | .units | .["lxd-profile-alt/0"] | .subordinates | keys[0]'
 
-	lxd_profile_name="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-alt"
-	lxd_profile_sub_name="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-subordinate"
-
-	juju status --format=json | yq "${machine_0}" | check "${lxd_profile_name}"
-	juju status --format=json | yq "${machine_0}" | check "${lxd_profile_sub_name}"
-
-	lxd_profile_0="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-alt-0"
-	lxd_profile_1="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-alt-1"
-
-	# Not using juju_exec_output: lxc profile commands are plain system
-	# commands that produce no stderr noise.
-	OUT=$(juju exec --machine 0 -- sh -c "sudo lxc profile show \"${lxd_profile_0}\"")
-	echo "${OUT}" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
-
-	juju refresh "lxd-profile-alt" --path ${charm}
-
-	# Ensure that an upgrade will be kicked off. This doesn't mean an upgrade
-	# has finished though, just started.
-	wait_for "lxd-profile-alt" "$(charm_rev "lxd-profile-alt" 1)"
-	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
-
-	attempt=0
-	while true; do
-		# Not using juju_exec_output: lxc profile commands are plain
-		# system commands that produce no stderr noise.
-		OUT=$(juju exec --machine 0 -- sh -c "sudo lxc profile show \"${lxd_profile_1}\"" || echo 'NOT FOUND')
-		if echo "${OUT}" | grep -E -q "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"; then
-			break
-		fi
-		attempt=$((attempt + 1))
-		if [ $attempt -eq 10 ]; then
-			# shellcheck disable=SC2046
-			echo $(red "timeout: waiting for lxc profile to show 50sec")
-			exit 5
-		fi
-		sleep 5
-	done
-
-	# Ensure that the old one is removed
-	attempt=0
-	while true; do
-		# Not using juju_exec_output: lxc profile commands are plain
-		# system commands that produce no stderr noise.
-		OUT=$(juju exec --machine 0 -- sh -c "sudo lxc profile list" || echo 'NOT FOUND')
-		if echo "${OUT}" | grep -v "${lxd_profile_0}"; then
-			break
-		fi
-		attempt=$((attempt + 1))
-		if [ $attempt -eq 10 ]; then
-			# shellcheck disable=SC2046
-			echo $(red "timeout: waiting for removal of lxc profile 50sec")
-			exit 5
-		fi
-		sleep 5
-	done
+	# The container's eth0 device is parented to the default LXD bridge,
+	# as this suite bootstraps with container-networking-method "local".
+	# Assert that eth0 obtained an address, so that a container
+	# networking regression fails here deterministically, rather than
+	# manifesting only as a deployment timeout.
+	eth0_addr="$(juju_exec_output --machine 0/lxd/0 -- ip -4 addr show dev eth0)"
+	check_contains "${eth0_addr}" "inet"
 
 	destroy_model "${model_name}"
 }
@@ -479,7 +441,11 @@ test_deploy_charms() {
 			echo "==> TEST SKIPPED: deploy_lxd_profile_charm - tests for LXD only"
 			echo "==> TEST SKIPPED: deploy_local_lxd_profile_charm - tests for LXD only"
 			run "run_deploy_lxd_to_container"
-			run "run_deploy_lxd_profile_charm_container"
+			# Charm LXD profile support was removed from Juju 4.0 in
+			# https://github.com/juju/juju/pull/21516, so this test, which
+			# asserts that charm profiles are applied to containers, can
+			# never succeed on 4.0.
+			echo "==> TEST SKIPPED: deploy_lxd_profile_charm_container - charm lxd profiles removed from Juju 4.0"
 			;;
 		esac
 	)
@@ -491,13 +457,4 @@ machine_path() {
 	machine=${1}
 
 	echo ".machines | .[\"${machine}\"] | select(.[\"lxd-profiles\"]) | .[\"lxd-profiles\"] | keys"
-}
-
-machine_container_path() {
-	local machine container
-
-	machine=${1}
-	container=${2}
-
-	echo ".machines | .[\"${machine}\"] | .containers | .[\"${container}\"] | select(.[\"lxd-profiles\"]) | .[\"lxd-profiles\"] | keys"
 }
