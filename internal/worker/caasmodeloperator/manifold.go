@@ -21,7 +21,7 @@ import (
 // ConfigProvider provides dynamic values that can change during a
 // worker's lifetime. The provider re-reads the backing config on
 // each method call so that bounced workers observe current values.
-// Static values that never change (DataDir, LogDir, ControllerTag)
+// Static values that never change (LogDir, ControllerTag)
 // are passed as direct ManifoldConfig fields, not through the
 // provider.
 type ConfigProvider interface {
@@ -55,8 +55,6 @@ type ManifoldConfig struct {
 	Logger logger.Logger
 	// ModelUUID is the id of the model this worker is operating on
 	ModelUUID string
-	// DataDir is the directory for agent data
-	DataDir string
 	// LogDir is the directory for agent logs
 	LogDir string
 	// ControllerTag identifies the controller
@@ -105,7 +103,6 @@ func (m ManifoldConfig) Start(context context.Context, getter dependency.Getter)
 		api,
 		broker,
 		m.ModelUUID,
-		m.DataDir,
 		m.LogDir,
 		m.ControllerTag,
 		m.ConfigProvider,
@@ -129,9 +126,6 @@ func (m ManifoldConfig) Validate() error {
 	}
 	if m.ModelUUID == "" {
 		return errors.NotValidf("empty ModelUUID")
-	}
-	if m.DataDir == "" {
-		return errors.NotValidf("empty DataDir")
 	}
 	if m.LogDir == "" {
 		return errors.NotValidf("empty LogDir")
