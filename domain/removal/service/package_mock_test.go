@@ -269,6 +269,8 @@ type MockModelDBStateMockRecorder struct {
 	mock                                                    *MockModelDBState
 	applicationExistsExpects                                []*gomock.Call2_2[context.Context, string, bool, error]
 	applicationScheduleRemovalExpects                       []*gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
+	charmExistsExpects                                      []*gomock.Call2_2[context.Context, string, bool, error]
+	charmScheduleRemovalExpects                             []*gomock.Call4_1[context.Context, string, string, time.Time, error]
 	checkStorageInstanceHasNoChildrenExpects                []*gomock.Call2_2[context.Context, string, bool, error]
 	checkVolumeBackedFilesystemCrossProvisionedExpects      []*gomock.Call2_2[context.Context, string, bool, error]
 	controllerModelScheduleRemovalExpects                   []*gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
@@ -337,6 +339,7 @@ type MockModelDBStateMockRecorder struct {
 	getStorageInstanceLifeExpects                           []*gomock.Call2_2[context.Context, string, life.Life, error]
 	getUnitLifeExpects                                      []*gomock.Call2_2[context.Context, string, life.Life, error]
 	getUnitOwnedSecretRevisionRefsExpects                   []*gomock.Call2_2[context.Context, string, []string, error]
+	getUnusedCharmUUIDsExpects                              []*gomock.Call2_2[context.Context, time.Time, []string, error]
 	getUserSecretRevisionRefsExpects                        []*gomock.Call2_2[context.Context, []string, []string, error]
 	getVolumeAttachmentLifeExpects                          []*gomock.Call2_2[context.Context, string, life.Life, error]
 	getVolumeAttachmentPlanLifeExpects                      []*gomock.Call2_2[context.Context, string, life.Life, error]
@@ -370,6 +373,7 @@ type MockModelDBStateMockRecorder struct {
 	relationWithRemoteOffererScheduleRemovalExpects         []*gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
 	remoteApplicationOffererExistsExpects                   []*gomock.Call2_2[context.Context, string, bool, error]
 	remoteApplicationOffererScheduleRemovalExpects          []*gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
+	rescheduleJobExpects                                    []*gomock.Call3_1[context.Context, string, time.Time, error]
 	setFilesystemStatusExpects                              []*gomock.Call3_1[context.Context, string, int, error]
 	setVolumeStatusExpects                                  []*gomock.Call3_1[context.Context, string, int, error]
 	storageAttachmentExistsExpects                          []*gomock.Call2_2[context.Context, string, bool, error]
@@ -430,6 +434,42 @@ func (mr *MockModelDBStateMockRecorder) ApplicationScheduleRemoval(ctx, removalU
 
 // MockModelDBStateApplicationScheduleRemovalCall is the typed call wrapper for ApplicationScheduleRemoval.
 type MockModelDBStateApplicationScheduleRemovalCall = gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
+
+// CharmExists mocks base method.
+func (m *MockModelDBState) CharmExists(ctx context.Context, charmUUID string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.charmExistsExpects, m.ctrl, m, "CharmExists", ctx, charmUUID)
+}
+
+// CharmExists indicates an expected call of CharmExists.
+func (mr *MockModelDBStateMockRecorder) CharmExists(ctx, charmUUID any) *MockModelDBStateCharmExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "CharmExists", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(charmUUID))
+	mr.charmExistsExpects = append(mr.charmExistsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelDBStateCharmExistsCall is the typed call wrapper for CharmExists.
+type MockModelDBStateCharmExistsCall = gomock.Call2_2[context.Context, string, bool, error]
+
+// CharmScheduleRemoval mocks base method.
+func (m *MockModelDBState) CharmScheduleRemoval(ctx context.Context, removalUUID, charmUUID string, when time.Time) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4_1(&m.recorder.charmScheduleRemovalExpects, m.ctrl, m, "CharmScheduleRemoval", ctx, removalUUID, charmUUID, when)
+}
+
+// CharmScheduleRemoval indicates an expected call of CharmScheduleRemoval.
+func (mr *MockModelDBStateMockRecorder) CharmScheduleRemoval(ctx, removalUUID, charmUUID, when any) *MockModelDBStateCharmScheduleRemovalCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall4_1[context.Context, string, string, time.Time, error](mr.mock.ctrl.T, mr.mock, "CharmScheduleRemoval", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(removalUUID), gomock.EnsureMatcher(charmUUID), gomock.EnsureMatcher(when))
+	mr.charmScheduleRemovalExpects = append(mr.charmScheduleRemovalExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelDBStateCharmScheduleRemovalCall is the typed call wrapper for CharmScheduleRemoval.
+type MockModelDBStateCharmScheduleRemovalCall = gomock.Call4_1[context.Context, string, string, time.Time, error]
 
 // CheckStorageInstanceHasNoChildren mocks base method.
 func (m *MockModelDBState) CheckStorageInstanceHasNoChildren(ctx context.Context, siUUID string) (bool, error) {
@@ -1655,6 +1695,24 @@ func (mr *MockModelDBStateMockRecorder) GetUnitOwnedSecretRevisionRefs(ctx, uUUI
 // MockModelDBStateGetUnitOwnedSecretRevisionRefsCall is the typed call wrapper for GetUnitOwnedSecretRevisionRefs.
 type MockModelDBStateGetUnitOwnedSecretRevisionRefsCall = gomock.Call2_2[context.Context, string, []string, error]
 
+// GetUnusedCharmUUIDs mocks base method.
+func (m *MockModelDBState) GetUnusedCharmUUIDs(ctx context.Context, olderThan time.Time) ([]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getUnusedCharmUUIDsExpects, m.ctrl, m, "GetUnusedCharmUUIDs", ctx, olderThan)
+}
+
+// GetUnusedCharmUUIDs indicates an expected call of GetUnusedCharmUUIDs.
+func (mr *MockModelDBStateMockRecorder) GetUnusedCharmUUIDs(ctx, olderThan any) *MockModelDBStateGetUnusedCharmUUIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, time.Time, []string, error](mr.mock.ctrl.T, mr.mock, "GetUnusedCharmUUIDs", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(olderThan))
+	mr.getUnusedCharmUUIDsExpects = append(mr.getUnusedCharmUUIDsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelDBStateGetUnusedCharmUUIDsCall is the typed call wrapper for GetUnusedCharmUUIDs.
+type MockModelDBStateGetUnusedCharmUUIDsCall = gomock.Call2_2[context.Context, time.Time, []string, error]
+
 // GetUserSecretRevisionRefs mocks base method.
 func (m *MockModelDBState) GetUserSecretRevisionRefs(ctx context.Context, revisionUUIDs []string) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -2248,6 +2306,24 @@ func (mr *MockModelDBStateMockRecorder) RemoteApplicationOffererScheduleRemoval(
 
 // MockModelDBStateRemoteApplicationOffererScheduleRemovalCall is the typed call wrapper for RemoteApplicationOffererScheduleRemoval.
 type MockModelDBStateRemoteApplicationOffererScheduleRemovalCall = gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
+
+// RescheduleJob mocks base method.
+func (m *MockModelDBState) RescheduleJob(ctx context.Context, jobUUID string, when time.Time) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.rescheduleJobExpects, m.ctrl, m, "RescheduleJob", ctx, jobUUID, when)
+}
+
+// RescheduleJob indicates an expected call of RescheduleJob.
+func (mr *MockModelDBStateMockRecorder) RescheduleJob(ctx, jobUUID, when any) *MockModelDBStateRescheduleJobCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, string, time.Time, error](mr.mock.ctrl.T, mr.mock, "RescheduleJob", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(jobUUID), gomock.EnsureMatcher(when))
+	mr.rescheduleJobExpects = append(mr.rescheduleJobExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelDBStateRescheduleJobCall is the typed call wrapper for RescheduleJob.
+type MockModelDBStateRescheduleJobCall = gomock.Call3_1[context.Context, string, time.Time, error]
 
 // SetFilesystemStatus mocks base method.
 func (m *MockModelDBState) SetFilesystemStatus(ctx context.Context, fsUUID string, status int) error {

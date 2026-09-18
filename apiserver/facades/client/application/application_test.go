@@ -1038,7 +1038,7 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 			"binding-1": "endpoint-1",
 			"binding-2": "endpoint-2",
 		},
-	}).Return(nil)
+	}).Return("", nil)
 
 	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
 		ApplicationName: "foo",
@@ -1064,6 +1064,61 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+}
+
+func (s *applicationSuite) TestSetCharmSchedulesRemovalForPriorCharm(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	priorCharmUUID := "prior-charm-uuid"
+	s.applicationService.EXPECT().SetApplicationCharm(gomock.Any(), "foo", gomock.Any(), gomock.Any()).
+		Return(priorCharmUUID, nil)
+	s.removalService.EXPECT().ScheduleCharmRemoval(gomock.Any(), priorCharmUUID).Return(nil)
+
+	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
+		ApplicationName: "foo",
+		CharmURL:        "ch:arm64/foo-42",
+		CharmOrigin: &params.CharmOrigin{
+			Type:   "charm",
+			Source: "charm-hub",
+			Base: params.Base{
+				Name:    "ubuntu",
+				Channel: "24.04",
+			},
+			Architecture: "arm64",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestSetCharmScheduleRemovalFailureDoesNotFail(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	priorCharmUUID := "prior-charm-uuid"
+	s.applicationService.EXPECT().SetApplicationCharm(gomock.Any(), "foo", gomock.Any(), gomock.Any()).
+		Return(priorCharmUUID, nil)
+	// A failure to schedule the charm removal is only logged; the SetCharm
+	// call still succeeds.
+	s.removalService.EXPECT().ScheduleCharmRemoval(gomock.Any(), priorCharmUUID).
+		Return(errors.Errorf("the front fell off"))
+
+	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
+		ApplicationName: "foo",
+		CharmURL:        "ch:arm64/foo-42",
+		CharmOrigin: &params.CharmOrigin{
+			Type:   "charm",
+			Source: "charm-hub",
+			Base: params.Base{
+				Name:    "ubuntu",
+				Channel: "24.04",
+			},
+			Architecture: "arm64",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationSuite) TestSetConfigsYAMLNotImplemented(c *tc.C) {

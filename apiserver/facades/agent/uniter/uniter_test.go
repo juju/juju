@@ -903,7 +903,64 @@ func (s *uniterSuite) TestSetCharm(c *tc.C) {
 	}
 	unitName := coreunit.Name("foo/0")
 
-	s.applicationService.EXPECT().UpdateUnitCharm(gomock.Any(), unitName, locator).Return(nil)
+	s.applicationService.EXPECT().UpdateUnitCharm(gomock.Any(), unitName, locator).Return("", nil)
+
+	res, err := s.uniter.SetCharm(c.Context(), params.EntitiesCharmURL{
+		Entities: []params.EntityCharmURL{{
+			Tag:      names.NewUnitTag(unitName.String()).String(),
+			CharmURL: charmURL,
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.IsNil)
+}
+
+func (s *uniterSuite) TestSetCharmSchedulesRemovalForPriorCharm(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	charmURL := "local:foo-43"
+	locator := domaincharm.CharmLocator{
+		Name:     "foo",
+		Source:   domaincharm.LocalSource,
+		Revision: 43,
+	}
+	unitName := coreunit.Name("foo/0")
+	priorCharmUUID := "prior-charm-uuid"
+
+	s.applicationService.EXPECT().UpdateUnitCharm(gomock.Any(), unitName, locator).Return(priorCharmUUID, nil)
+	s.removalService.EXPECT().ScheduleCharmRemoval(gomock.Any(), priorCharmUUID).Return(nil)
+
+	res, err := s.uniter.SetCharm(c.Context(), params.EntitiesCharmURL{
+		Entities: []params.EntityCharmURL{{
+			Tag:      names.NewUnitTag(unitName.String()).String(),
+			CharmURL: charmURL,
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.IsNil)
+}
+
+func (s *uniterSuite) TestSetCharmScheduleRemovalFailureDoesNotFail(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	charmURL := "local:foo-43"
+	locator := domaincharm.CharmLocator{
+		Name:     "foo",
+		Source:   domaincharm.LocalSource,
+		Revision: 43,
+	}
+	unitName := coreunit.Name("foo/0")
+	priorCharmUUID := "prior-charm-uuid"
+
+	s.applicationService.EXPECT().UpdateUnitCharm(gomock.Any(), unitName, locator).Return(priorCharmUUID, nil)
+	// A failure to schedule the charm removal is only logged; the SetCharm
+	// call still succeeds.
+	s.removalService.EXPECT().ScheduleCharmRemoval(gomock.Any(), priorCharmUUID).
+		Return(errors.Errorf("the front fell off"))
 
 	res, err := s.uniter.SetCharm(c.Context(), params.EntitiesCharmURL{
 		Entities: []params.EntityCharmURL{{
@@ -928,7 +985,7 @@ func (s *uniterSuite) TestSetCharmUnitNotFound(c *tc.C) {
 	}
 	unitName := coreunit.Name("foo/0")
 
-	s.applicationService.EXPECT().UpdateUnitCharm(gomock.Any(), unitName, locator).Return(applicationerrors.UnitNotFound)
+	s.applicationService.EXPECT().UpdateUnitCharm(gomock.Any(), unitName, locator).Return("", applicationerrors.UnitNotFound)
 
 	res, err := s.uniter.SetCharm(c.Context(), params.EntitiesCharmURL{
 		Entities: []params.EntityCharmURL{{
@@ -953,7 +1010,7 @@ func (s *uniterSuite) TestSetCharmCharmNotFound(c *tc.C) {
 	}
 	unitName := coreunit.Name("foo/0")
 
-	s.applicationService.EXPECT().UpdateUnitCharm(gomock.Any(), unitName, locator).Return(applicationerrors.CharmNotFound)
+	s.applicationService.EXPECT().UpdateUnitCharm(gomock.Any(), unitName, locator).Return("", applicationerrors.CharmNotFound)
 
 	res, err := s.uniter.SetCharm(c.Context(), params.EntitiesCharmURL{
 		Entities: []params.EntityCharmURL{{

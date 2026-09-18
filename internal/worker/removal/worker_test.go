@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/removal"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -35,7 +36,8 @@ func TestWorkerSuite(t *testing.T) {
 }
 
 func (s *workerSuite) TestWorkerStartStop(c *tc.C) {
-	defer s.setUpMocks(c).Finish()
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
 
 	ch := make(chan []string)
 	watch := watchertest.NewMockStringsWatcher(ch)
@@ -48,6 +50,7 @@ func (s *workerSuite) TestWorkerStartStop(c *tc.C) {
 		sync <- struct{}{}
 		return clock.WallClock.NewTimer(d)
 	})
+	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).Return(neverFiringTimer(ctrl))
 
 	cfg := Config{
 		RemovalService: s.svc,
@@ -71,7 +74,8 @@ func (s *workerSuite) TestWorkerStartStop(c *tc.C) {
 // - We query for jobs, receive two, but only one is due for execution,
 // - Only the due job is scheduled with the runner.
 func (s *workerSuite) TestWorkerNotifiedSchedulesDueJob(c *tc.C) {
-	defer s.setUpMocks(c).Finish()
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
 
 	ch := make(chan []string)
 	watch := watchertest.NewMockStringsWatcher(ch)
@@ -80,6 +84,9 @@ func (s *workerSuite) TestWorkerNotifiedSchedulesDueJob(c *tc.C) {
 	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).DoAndReturn(func(d time.Duration) clock.Timer {
 		return clock.WallClock.NewTimer(d)
 	})
+	// The scan timer never fires; watcher events must not trigger scans, so
+	// no ScheduleCharmRemovalsForUnusedCharms call is expected.
+	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).Return(neverFiringTimer(ctrl))
 
 	now := time.Now().UTC()
 	s.clk.EXPECT().Now().Return(now).Times(2)
@@ -150,6 +157,7 @@ func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *tc.C) {
 	timer.EXPECT().Reset(gomock.Any()).Return(true)
 	timer.EXPECT().Stop().Return(true)
 	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).Return(timer)
+	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).Return(neverFiringTimer(ctrl))
 
 	now := time.Now().UTC()
 	s.clk.EXPECT().Now().Return(now).AnyTimes()
@@ -223,7 +231,8 @@ func (s *workerSuite) TestWorkerTimerSchedulesOnlyRequiredJob(c *tc.C) {
 }
 
 func (s *workerSuite) TestWorkerReport(c *tc.C) {
-	defer s.setUpMocks(c).Finish()
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
 
 	ch := make(chan []string)
 	watch := watchertest.NewMockStringsWatcher(ch)
@@ -232,6 +241,7 @@ func (s *workerSuite) TestWorkerReport(c *tc.C) {
 	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).DoAndReturn(func(d time.Duration) clock.Timer {
 		return clock.WallClock.NewTimer(d)
 	})
+	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).Return(neverFiringTimer(ctrl))
 
 	cfg := Config{
 		RemovalService: s.svc,
@@ -349,4 +359,127 @@ func (s *workerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	s.clk = NewMockClock(ctrl)
 
 	return ctrl
+}
+
+// TestWorkerScanTimerSchedulesUnusedCharms tests that when the scan timer
+// fires, a scan for unused charms is run and the timer is reset to the
+// daily scan interval.
+func (s *workerSuite) TestWorkerScanTimerSchedulesUnusedCharms(c *tc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string)
+	watch := watchertest.NewMockStringsWatcher(ch)
+	s.svc.EXPECT().WatchRemovals(gomock.Any()).Return(watch, nil)
+
+	// The jobs timer never fires; the scan timer is fired manually below.
+	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).Return(neverFiringTimer(ctrl))
+
+	scanChan := make(chan time.Time)
+	scanTimer := NewMockTimer(ctrl)
+	scanTimer.EXPECT().Chan().Return(scanChan).AnyTimes()
+	scanTimer.EXPECT().Reset(charmScanInterval).Return(true)
+	scanTimer.EXPECT().Stop().Return(true)
+	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).Return(scanTimer)
+
+	// Use the scan as a synchronisation point below,
+	// so that we know we can kill the worker.
+	sync := make(chan struct{})
+	s.svc.EXPECT().ScheduleCharmRemovalsForUnusedCharms(gomock.Any()).DoAndReturn(func(context.Context) error {
+		sync <- struct{}{}
+		return nil
+	})
+
+	cfg := Config{
+		RemovalService: s.svc,
+		Clock:          s.clk,
+		Logger:         loggertesting.WrapCheckLog(c),
+	}
+	w, err := NewWorker(cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case scanChan <- time.Now().UTC():
+	case <-c.Context().Done():
+		c.Fatal("timed out firing scan timer")
+	}
+
+	select {
+	case <-sync:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for charm scan")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+// TestWorkerScanErrorDoesNotKillWorker tests that a failing charm scan is
+// logged but the worker keeps running and processing watcher events.
+func (s *workerSuite) TestWorkerScanErrorDoesNotKillWorker(c *tc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string)
+	watch := watchertest.NewMockStringsWatcher(ch)
+	s.svc.EXPECT().WatchRemovals(gomock.Any()).Return(watch, nil)
+
+	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).Return(neverFiringTimer(ctrl))
+
+	scanChan := make(chan time.Time)
+	scanTimer := NewMockTimer(ctrl)
+	scanTimer.EXPECT().Chan().Return(scanChan).AnyTimes()
+	scanTimer.EXPECT().Reset(charmScanInterval).Return(true)
+	scanTimer.EXPECT().Stop().Return(true)
+	s.clk.EXPECT().NewTimer(jobCheckMaxInterval).Return(scanTimer)
+
+	s.svc.EXPECT().ScheduleCharmRemovalsForUnusedCharms(gomock.Any()).Return(errors.Errorf("the front fell off"))
+
+	// Use the watcher-triggered job query as a synchronisation point after
+	// the failed scan, to prove the worker is still running.
+	sync := make(chan struct{})
+	s.svc.EXPECT().GetAllJobs(gomock.Any()).DoAndReturn(func(context.Context) ([]removal.Job, error) {
+		sync <- struct{}{}
+		return nil, nil
+	})
+
+	cfg := Config{
+		RemovalService: s.svc,
+		Clock:          s.clk,
+		Logger:         loggertesting.WrapCheckLog(c),
+	}
+	w, err := NewWorker(cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case scanChan <- time.Now().UTC():
+	case <-c.Context().Done():
+		c.Fatal("timed out firing scan timer")
+	}
+
+	select {
+	case ch <- []string{"some-job-uuid"}:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for watcher event consumption")
+	}
+
+	select {
+	case <-sync:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for job query after scan failure")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+// neverFiringTimer returns a mock timer that never fires, for the timer that
+// is not under test. Reset is allowed any number of times, as the loop
+// resets the jobs timer on every watcher event and timer fire.
+func neverFiringTimer(ctrl *gomock.Controller) *MockTimer {
+	timer := NewMockTimer(ctrl)
+	timer.EXPECT().Chan().Return(make(chan time.Time)).AnyTimes()
+	timer.EXPECT().Reset(gomock.Any()).Return(true).AnyTimes()
+	timer.EXPECT().Stop().Return(true)
+	return timer
 }

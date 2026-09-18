@@ -399,12 +399,6 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		return errors.Errorf("deleting unit: %w", err)
 	}
 
-	// Try to delete the charm if it is unused.
-	if err := s.modelState.DeleteCharmIfUnused(ctx, charmUUID); err != nil {
-		// Log the error but do not fail the removal job.
-		s.logger.Warningf(ctx, "deleting charm for unit %q: %v", job.EntityUUID, err)
-	}
-
 	// If the unit was the leader of an application, we revoke leadership.
 	// We do this last to expedite new leadership acquisition if the unit died
 	// sooner that the expiry of its last lease.
@@ -412,6 +406,14 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 	// relinquished naturally by expiry.
 	if err := s.leadershipRevoker.RevokeLeadership(applicationName, unit.Name(unitName)); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
 		return errors.Errorf("revoking leadership: %w", err)
+	}
+
+	// Schedule a job to remove the charm if it is no longer used.
+	// The unit's removal is complete at this point, so a failure to
+	// schedule is only logged; the periodic scan for unused charms is the
+	// backstop.
+	if err := s.ScheduleCharmRemoval(ctx, charmUUID); err != nil {
+		s.logger.Warningf(ctx, "scheduling removal for charm %q: %v", charmUUID, err)
 	}
 
 	return nil

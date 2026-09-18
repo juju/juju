@@ -23,6 +23,12 @@ import (
 // to see if any jobs need processing.
 const jobCheckMaxInterval = 10 * time.Second
 
+// charmScanInterval is the interval between scans for charms that are no
+// longer referenced by any application or unit. It discovers orphans that
+// the removal scheduling hooks cannot cover, such as charms orphaned before
+// the hooks existed.
+const charmScanInterval = 24 * time.Hour
+
 // Config holds configuration required to run the removal worker.
 type Config struct {
 
@@ -109,6 +115,11 @@ func (w *removalWorker) loop() (err error) {
 	timer := w.cfg.Clock.NewTimer(jobCheckMaxInterval)
 	defer timer.Stop()
 
+	// The first charm scan runs shortly after the worker starts, for prompt
+	// convergence on controller restart; subsequent scans run daily.
+	scanTimer := w.cfg.Clock.NewTimer(jobCheckMaxInterval)
+	defer scanTimer.Stop()
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -124,6 +135,12 @@ func (w *removalWorker) loop() (err error) {
 				return errors.Capture(err)
 			}
 			timer.Reset(jobCheckMaxInterval)
+		case <-scanTimer.Chan():
+			if err := w.cfg.RemovalService.ScheduleCharmRemovalsForUnusedCharms(ctx); err != nil {
+				// A scan failure is logged but never kills the worker.
+				w.cfg.Logger.Errorf(ctx, "scanning for unused charms: %v", err)
+			}
+			scanTimer.Reset(charmScanInterval)
 		}
 	}
 }

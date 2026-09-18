@@ -46,6 +46,13 @@ type entityUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// charmCutoff holds a charm creation time cutoff used to filter charm
+// records by age.
+type charmCutoff struct {
+	// CreateTime is the cutoff for charm creation time.
+	CreateTime time.Time `db:"create_time"`
+}
+
 // entityUUIDs is a slice of entityUUID, used to hold multiple UUIDs.
 type entityUUIDs []entityUUID
 

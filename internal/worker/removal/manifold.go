@@ -41,6 +41,10 @@ type RemovalService interface {
 
 	// ExecuteJob runs the appropriate removal logic for the input job.
 	ExecuteJob(ctx context.Context, job removal.Job) error
+
+	// ScheduleCharmRemovalsForUnusedCharms schedules removal jobs for all
+	// charms that are not referenced by any application or unit.
+	ScheduleCharmRemovalsForUnusedCharms(ctx context.Context) error
 }
 
 // Clock describes the ability get the current time and create timers.

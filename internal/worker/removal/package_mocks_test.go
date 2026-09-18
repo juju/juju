@@ -28,10 +28,11 @@ type MockRemovalService struct {
 
 // MockRemovalServiceMockRecorder is the mock recorder for MockRemovalService.
 type MockRemovalServiceMockRecorder struct {
-	mock                 *MockRemovalService
-	executeJobExpects    []*gomock.Call2_1[context.Context, removal.Job, error]
-	getAllJobsExpects    []*gomock.Call1_2[context.Context, []removal.Job, error]
-	watchRemovalsExpects []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
+	mock                                        *MockRemovalService
+	executeJobExpects                           []*gomock.Call2_1[context.Context, removal.Job, error]
+	getAllJobsExpects                           []*gomock.Call1_2[context.Context, []removal.Job, error]
+	scheduleCharmRemovalsForUnusedCharmsExpects []*gomock.Call1_1[context.Context, error]
+	watchRemovalsExpects                        []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
 }
 
 // NewMockRemovalService creates a new mock instance.
@@ -81,6 +82,24 @@ func (mr *MockRemovalServiceMockRecorder) GetAllJobs(ctx any) *MockRemovalServic
 
 // MockRemovalServiceGetAllJobsCall is the typed call wrapper for GetAllJobs.
 type MockRemovalServiceGetAllJobsCall = gomock.Call1_2[context.Context, []removal.Job, error]
+
+// ScheduleCharmRemovalsForUnusedCharms mocks base method.
+func (m *MockRemovalService) ScheduleCharmRemovalsForUnusedCharms(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_1(&m.recorder.scheduleCharmRemovalsForUnusedCharmsExpects, m.ctrl, m, "ScheduleCharmRemovalsForUnusedCharms", ctx)
+}
+
+// ScheduleCharmRemovalsForUnusedCharms indicates an expected call of ScheduleCharmRemovalsForUnusedCharms.
+func (mr *MockRemovalServiceMockRecorder) ScheduleCharmRemovalsForUnusedCharms(ctx any) *MockRemovalServiceScheduleCharmRemovalsForUnusedCharmsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_1[context.Context, error](mr.mock.ctrl.T, mr.mock, "ScheduleCharmRemovalsForUnusedCharms", gomock.EnsureMatcher(ctx))
+	mr.scheduleCharmRemovalsForUnusedCharmsExpects = append(mr.scheduleCharmRemovalsForUnusedCharmsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockRemovalServiceScheduleCharmRemovalsForUnusedCharmsCall is the typed call wrapper for ScheduleCharmRemovalsForUnusedCharms.
+type MockRemovalServiceScheduleCharmRemovalsForUnusedCharmsCall = gomock.Call1_1[context.Context, error]
 
 // WatchRemovals mocks base method.
 func (m *MockRemovalService) WatchRemovals(arg0 context.Context) (watcher.StringsWatcher, error) {

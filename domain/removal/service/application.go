@@ -414,16 +414,12 @@ func (s *Service) processApplicationRemovalJob(ctx context.Context, job removal.
 		return errors.Errorf("deleting application %q: %w", job.EntityUUID, err)
 	}
 
-	// Try to delete any orphaned resources associated with the charm.
-	if err := s.modelState.DeleteOrphanedResources(ctx, charmUUID); err != nil {
-		// Log the error but do not fail the removal job.
-		s.logger.Warningf(ctx, "deleting orphaned resources for application %q: %v", job.EntityUUID, err)
-	}
-
-	// Try to delete the charm if it is unused.
-	if err := s.modelState.DeleteCharmIfUnused(ctx, charmUUID); err != nil {
-		// Log the error but do not fail the removal job.
-		s.logger.Warningf(ctx, "deleting charm for application %q: %v", job.EntityUUID, err)
+	// Schedule a job to remove the charm if it is no longer used.
+	// The application's removal is complete at this point, so a failure to
+	// schedule is only logged; the periodic scan for unused charms is the
+	// backstop.
+	if err := s.ScheduleCharmRemoval(ctx, charmUUID); err != nil {
+		s.logger.Warningf(ctx, "scheduling removal for charm %q: %v", charmUUID, err)
 	}
 
 	return nil

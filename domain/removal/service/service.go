@@ -52,6 +52,7 @@ type ModelDBState interface {
 	RelationWithRemoteConsumer
 	OfferState
 	SecretModelState
+	CharmState
 
 	// GetAllJobs returns all removal jobs.
 	GetAllJobs(ctx context.Context) ([]removal.Job, error)
@@ -207,6 +208,9 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 
 	case removal.ObsoleteUserSecretRevisionsJob:
 		err = s.processObsoleteUserSecretRevisionsJob(ctx, job)
+
+	case removal.CharmJob:
+		err = s.processCharmRemovalJob(ctx, job)
 
 	default:
 		err = errors.Errorf("removal job type %q not supported", job.RemovalType).Add(

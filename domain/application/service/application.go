@@ -172,7 +172,8 @@ type ApplicationState interface {
 
 	// SetApplicationCharm sets a new charm for the specified application using
 	// the provided parameters and validates changes.
-	SetApplicationCharm(ctx context.Context, appUUID coreapplication.UUID, charmID corecharm.ID, params application.SetCharmStateParams) error
+	// The UUID of the application's prior charm is returned.
+	SetApplicationCharm(ctx context.Context, appUUID coreapplication.UUID, charmID corecharm.ID, params application.SetCharmStateParams) (string, error)
 
 	// GetApplicationUUIDByUnitName returns the application UUID for the named unit,
 	// returning an error satisfying [applicationerrors.UnitNotFound] if the
@@ -1632,21 +1633,23 @@ func overrideStorageDirectives(
 // SetApplicationCharm sets a new charm for the application, validating that aspects such
 // as storage are still viable with the new charm. It reconciles existing application
 // storage directives with the new charm's storage requirements.
-func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName string, charmLocator charm.CharmLocator, params application.SetCharmParams) error {
+// The UUID of the application's prior charm is returned, or an empty string
+// if the charm was unchanged.
+func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName string, charmLocator charm.CharmLocator, params application.SetCharmParams) (string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
-		return errors.Errorf("getting application UUID: %w", err)
+		return "", errors.Errorf("getting application UUID: %w", err)
 	}
 	charmID, err := s.st.GetCharmID(ctx, charmLocator.Name, charmLocator.Revision, charmLocator.Source)
 	if err != nil {
-		return errors.Errorf("getting charm ID: %w", err)
+		return "", errors.Errorf("getting charm ID: %w", err)
 	}
 
 	if err := s.validateCharmBaseCompatibility(ctx, appUUID, params); err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	// 1. Validate storage requirements between the existing and new charm.
@@ -1657,37 +1660,37 @@ func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName strin
 	// Get new charm's storage requirements.
 	newCharmMetadataStorage, err := s.st.GetCharmMetadataStorage(ctx, charmID)
 	if err != nil {
-		return errors.Errorf("getting charm storage metadata: %w", err)
+		return "", errors.Errorf("getting charm storage metadata: %w", err)
 	}
 	newCharmStorage, err := decodeMetadataStorage(newCharmMetadataStorage)
 	if err != nil {
-		return errors.Errorf("decoding charm storage: %w", err)
+		return "", errors.Errorf("decoding charm storage: %w", err)
 	}
 	// Initial validation for the new charm's storage requirements.
 	if err := validateCharmStorage(newCharmStorage); err != nil {
-		return errors.Errorf("validating charm storage: %w", err)
+		return "", errors.Errorf("validating charm storage: %w", err)
 	}
 	// Retrieve the current charm storage metadata.
 	currentCharm, err := s.st.GetCharmByApplicationUUID(ctx, appUUID)
 	if err != nil {
-		return errors.Errorf("getting current application charm ID: %w", err)
+		return "", errors.Errorf("getting current application charm ID: %w", err)
 	}
 	currentCharmMetadataStorage := currentCharm.Metadata.Storage
 	currentCharmStorage, err := decodeMetadataStorage(currentCharmMetadataStorage)
 	if err != nil {
-		return errors.Errorf("decoding current charm storage: %w", err)
+		return "", errors.Errorf("decoding current charm storage: %w", err)
 	}
 	// Validate new charm storage against existing charm storage.
 	modelType, err := s.st.GetModelType(ctx)
 	if err != nil {
-		return errors.Errorf("getting model type: %w", err)
+		return "", errors.Errorf("getting model type: %w", err)
 	}
 	if modelType == model.CAAS {
 		sameStorage := maps.EqualFunc(
 			newCharmStorage, currentCharmStorage, internalcharm.Storage.Equal,
 		)
 		if !sameStorage {
-			return errors.Errorf(
+			return "", errors.Errorf(
 				"updating storage directives on a k8s application %s",
 				"during charm upgrade is not supported",
 			).Add(coreerrors.NotSupported)
@@ -1695,7 +1698,7 @@ func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName strin
 	}
 	err = storage.ValidateNewCharmStorageAgainstExistingCharmStorage(newCharmStorage, currentCharmStorage)
 	if err != nil {
-		return errors.Errorf("validating new charm storage against existing charm storage: %w", err)
+		return "", errors.Errorf("validating new charm storage against existing charm storage: %w", err)
 	}
 
 	// 2. Reconcile existing storage directives with the new charm’s storage definitions
@@ -1704,12 +1707,12 @@ func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName strin
 	// Retrieve the current storage directives for the application.
 	storageDirectives, err := s.storageService.GetApplicationStorageDirectives(ctx, appUUID)
 	if err != nil {
-		return errors.Errorf("getting application storage directives: %w", err)
+		return "", errors.Errorf("getting application storage directives: %w", err)
 	}
 	// Reconcile storage directives between existing and new charm storage.
 	toCreate, toUpdate, err := s.storageService.ReconcileStorageDirectivesAgainstCharmStorage(ctx, storageDirectives, newCharmStorage)
 	if err != nil {
-		return errors.Errorf("reconciling storage directives: %w", err)
+		return "", errors.Errorf("reconciling storage directives: %w", err)
 	}
 
 	// 3. Validate and apply any user provided storage directive overrides.
@@ -1723,7 +1726,7 @@ func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName strin
 	if err := s.storageService.ValidateApplicationStorageDirectiveOverrides(
 		ctx, charmStorageDefsForValidation, userStorageDirectiveOverrides,
 	); err != nil {
-		return errors.Errorf("validating storage directives: %w", err)
+		return "", errors.Errorf("validating storage directives: %w", err)
 	}
 	// Apply user-provided overrides to the reconciled directives.
 	toCreate, toUpdate = overrideStorageDirectives(
@@ -1733,19 +1736,23 @@ func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName strin
 	// 4. Do a final sanity validation to ensure that the final storage directives are valid against the new charm storage requirements.
 	finalStorageDirectives := append(toCreate, toUpdate...)
 	if err := storage.ValidateApplicationStorageDirectives(newCharmStorage, finalStorageDirectives); err != nil {
-		return errors.Errorf("validating final storage directives against charm storage: %w", err)
+		return "", errors.Errorf("validating final storage directives against charm storage: %w", err)
 	}
 
 	paramsState, err := makeSetCharmStateArg(params, toCreate, toUpdate)
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
-	err = s.st.SetApplicationCharm(ctx, appUUID, charmID, paramsState)
+	priorCharmUUID, err := s.st.SetApplicationCharm(ctx, appUUID, charmID, paramsState)
 	if err != nil {
-		return errors.Errorf("setting application %q charm: %w", appName, err)
+		return "", errors.Errorf("setting application %q charm: %w", appName, err)
 	}
-	return nil
+	if priorCharmUUID == charmID.String() {
+		// The charm was not changed; nothing became unused.
+		return "", nil
+	}
+	return priorCharmUUID, nil
 }
 
 func (s *ProviderService) validateCharmBaseCompatibility(

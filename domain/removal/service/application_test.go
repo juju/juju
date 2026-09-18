@@ -507,14 +507,17 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingForceSkipsDeadGate(c
 	// With force, the service skips the dead-state gate entirely and
 	// proceeds directly to deletion. No GetModelType or MarkApplicationAsDead
 	// calls should occur.
+	charmUUID := tc.Must(c, coreapplication.NewUUID).String()
+
+	s.clock.EXPECT().Now().Return(time.Now().UTC())
+
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
-	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
+	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(charmUUID, nil)
 	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, true).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
-	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
+	exp.CharmScheduleRemoval(gomock.Any(), gomock.Any(), charmUUID, gomock.Any()).Return(nil)
 
 	sbCfg := &provider.ModelBackendConfig{
 		BackendConfig: provider.BackendConfig{
@@ -534,15 +537,18 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplication(c 
 
 	j := newApplicationJob(c)
 
+	charmUUID := tc.Must(c, coreapplication.NewUUID).String()
+
+	s.clock.EXPECT().Now().Return(time.Now().UTC())
+
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetModelType(gomock.Any()).Return(coremodel.IAAS, nil)
-	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
+	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(charmUUID, nil)
 	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
-	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
+	exp.CharmScheduleRemoval(gomock.Any(), gomock.Any(), charmUUID, gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	sbCfg := &provider.ModelBackendConfig{
@@ -558,10 +564,13 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplication(c 
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *applicationSuite) TestDeleteCharmForApplicationFails(c *tc.C) {
+func (s *applicationSuite) TestExecuteJobForApplicationScheduleCharmRemovalFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	j := newApplicationJob(c)
+	charmUUID := tc.Must(c, coreapplication.NewUUID).String()
+
+	s.clock.EXPECT().Now().Return(time.Now().UTC())
 
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
@@ -569,9 +578,11 @@ func (s *applicationSuite) TestDeleteCharmForApplicationFails(c *tc.C) {
 	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(errors.Errorf("the charm is still in use"))
-	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
+	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(charmUUID, nil)
+	// A failure to schedule the charm removal is only logged; the
+	// application removal job still completes.
+	exp.CharmScheduleRemoval(gomock.Any(), gomock.Any(), charmUUID, gomock.Any()).
+		Return(errors.Errorf("the front fell off"))
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	sbCfg := &provider.ModelBackendConfig{
@@ -598,10 +609,11 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingJujuSecretsDeleteApp
 	exp.DeleteApplicationOwnedSecretContent(gomock.Any(), j.EntityUUID)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(errors.Errorf("the charm is still in use"))
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
+	exp.CharmScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	s.clock.EXPECT().Now().Return(time.Now().UTC())
 
 	sbCfg := &provider.ModelBackendConfig{
 		BackendConfig: provider.BackendConfig{
@@ -627,10 +639,11 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingExternalSecretsDelet
 	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(secretExternalRefs, nil)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(errors.Errorf("the charm is still in use"))
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
+	exp.CharmScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	s.clock.EXPECT().Now().Return(time.Now().UTC())
 
 	sbCfg := &provider.ModelBackendConfig{
 		BackendConfig: provider.BackendConfig{

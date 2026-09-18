@@ -131,7 +131,7 @@ func (s *permBaseSuite) TestSetCharmValidOrigin(c *tc.C) {
 	s.expectHasWritePermission()
 
 	s.applicationService.EXPECT().SetApplicationCharm(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(applicationerrors.ApplicationNotFound)
+		Return("", applicationerrors.ApplicationNotFound)
 
 	s.newAPI(c)
 

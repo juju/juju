@@ -231,7 +231,9 @@ type ApplicationService interface {
 
 	// UpdateUnitCharm updates the currently running charm marker for the given
 	// unit.
-	UpdateUnitCharm(context.Context, coreunit.Name, charm.CharmLocator) error
+	// The UUID of the unit's prior charm is returned, or an empty string if
+	// the charm was unchanged.
+	UpdateUnitCharm(context.Context, coreunit.Name, charm.CharmLocator) (string, error)
 
 	// GetIAASUnitContext returns the unit context for a unit running on an IAAS
 	// provider.
@@ -584,6 +586,11 @@ type RelationService interface {
 }
 
 type RemovalService interface {
+	// ScheduleCharmRemoval schedules a removal job for the charm with the
+	// input UUID, for immediate execution. If the charm is still referenced
+	// when the job executes, the job completes without effect.
+	ScheduleCharmRemoval(ctx context.Context, charmUUID string) error
+
 	// RemoveUnit checks if a unit with the input name exists.
 	// If it does, the unit is guaranteed after this call to be:
 	//   - No longer alive.

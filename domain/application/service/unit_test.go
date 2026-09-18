@@ -74,7 +74,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharmCharmNotFound(c *tc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return("", applicationerrors.CharmNotFound)
 
-	err := s.service.UpdateUnitCharm(c.Context(), unitName, locator)
+	_, err := s.service.UpdateUnitCharm(c.Context(), unitName, locator)
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
@@ -117,7 +117,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharmUnitNotFound(c *tc.C) {
 		UnitStorage: storageArgs,
 	}).Return(applicationerrors.UnitNotFound)
 
-	err := s.service.UpdateUnitCharm(c.Context(), unitName, locator)
+	_, err := s.service.UpdateUnitCharm(c.Context(), unitName, locator)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -188,7 +188,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharm(c *tc.C) {
 		UnitStorage: storageArgs,
 	}).Return(nil)
 
-	err := s.service.UpdateUnitCharm(c.Context(), unitName, locator)
+	_, err := s.service.UpdateUnitCharm(c.Context(), unitName, locator)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -221,7 +221,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharmSameCharm(c *tc.C) {
 	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(currentID, nil)
 	s.state.EXPECT().GetUnitStorageRefreshArgs(gomock.Any(), unitUUID, currentID).Return(storageRefreshArgs, nil)
 
-	err := s.service.UpdateUnitCharm(c.Context(), unitName, locator)
+	_, err := s.service.UpdateUnitCharm(c.Context(), unitName, locator)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -308,7 +308,7 @@ func (s *unitServiceSuite) TestUpdateUnitCharmMachine(c *tc.C) {
 		},
 	}).Return(nil)
 
-	err := s.service.UpdateUnitCharm(c.Context(), unitName, locator)
+	_, err := s.service.UpdateUnitCharm(c.Context(), unitName, locator)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
