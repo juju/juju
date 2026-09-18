@@ -130,16 +130,6 @@ func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info De
 		return errors.Errorf("creating CAAS controller application: %w", err)
 	}
 
-	// Expose the controller application so that the ports opened by the
-	// controller charm are reachable. Operators can subsequently narrow
-	// access with "juju expose controller --to-cidrs".
-	if err := b.applicationService.MergeExposeSettings(ctx,
-		bootstrap.ControllerApplicationName,
-		controllerExposedEndpoints(),
-	); err != nil {
-		return errors.Errorf("exposing CAAS controller application: %w", err)
-	}
-
 	return nil
 }
 
@@ -158,6 +148,13 @@ func normalizeControllerConstraints(cons constraints.Value, charmArch string) (c
 
 // CompleteCAASProcess is called when the bootstrap process is complete.
 func (d *CAASDeployer) CompleteCAASProcess(ctx context.Context) error {
+	if err := d.applicationService.MergeExposeSettings(ctx,
+		bootstrap.ControllerApplicationName,
+		controllerExposedEndpoints(),
+	); err != nil {
+		return errors.Errorf("exposing CAAS controller application: %w", err)
+	}
+
 	// We can deduce that the unit name must be controller/0 since we're
 	// currently bootstrapping the controller, so this unit is the first unit
 	// to be created.

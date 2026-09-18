@@ -89,6 +89,10 @@ func (s *IAASControllerSuite) TestPopulateControllerAlreadyExists(c *tc.C) {
 		Origin: &origin,
 		Charm:  s.charm,
 	}).Return(applicationerrors.ApplicationAlreadyExists)
+	// Even when the application already exists (e.g. a retry after a previous
+	// attempt created the app but failed to expose it), the controller must
+	// still be exposed. This asserts the expose is not skipped on that path.
+	s.deployer.EXPECT().CompleteIAASProcess(gomock.Any()).Return(nil)
 	err := PopulateIAASControllerCharm(c.Context(), s.deployer)
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -128,6 +132,7 @@ func (s *IAASControllerSuite) expectAddApplication(origin corecharm.Origin) {
 		Origin: &origin,
 		Charm:  s.charm,
 	}).Return(nil)
+	s.deployer.EXPECT().CompleteIAASProcess(gomock.Any()).Return(nil)
 }
 
 type CAASControllerSuite struct {

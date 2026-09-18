@@ -117,9 +117,11 @@ func (b *IAASDeployer) AddIAASControllerApplication(ctx context.Context, info De
 		return errors.Errorf("creating IAAS controller application: %w", err)
 	}
 
-	// Expose the controller application so that the ports opened by the
-	// controller charm are reachable. Operators can subsequently narrow
-	// access with "juju expose controller --to-cidrs".
+	return nil
+}
+
+// CompleteIAASProcess is called when the bootstrap process is complete.
+func (b *IAASDeployer) CompleteIAASProcess(ctx context.Context) error {
 	if err := b.applicationService.MergeExposeSettings(ctx,
 		bootstrap.ControllerApplicationName,
 		controllerExposedEndpoints(),

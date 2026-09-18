@@ -97,6 +97,11 @@ type ControllerCharmDeployer interface {
 	// controller charm.
 	ControllerCharmArch() string
 
+	// CompleteIAASProcess is called when the IAAS bootstrap process is
+	// complete. It exposes the controller application so that the ports opened
+	// by the controller charm are reachable.
+	CompleteIAASProcess(context.Context) error
+
 	// CompleteCAASProcess is called when the bootstrap process is complete.
 	CompleteCAASProcess(context.Context) error
 }
@@ -454,6 +459,13 @@ func (b *baseDeployer) AddCAASControllerApplication(ctx context.Context, info De
 	return errors.Errorf("can not add CAAS controller application").Add(coreerrors.NotImplemented)
 }
 
+// CompleteIAASProcess is called when the IAAS bootstrap process is complete.
+func (b *baseDeployer) CompleteIAASProcess(context.Context) error {
+	// These are abstract methods that are expected to be implemented by
+	// concrete types.
+	return errors.Errorf("can not complete IAAS process").Add(coreerrors.NotImplemented)
+}
+
 // CompleteCAASProcess is called when the bootstrap process is complete.
 func (b *baseDeployer) CompleteCAASProcess(context.Context) error {
 	// These are abstract methods that are expected to be implemented by
@@ -486,12 +498,6 @@ func (b *baseDeployer) createCharmSettings() (charm.Config, error) {
 		"is-juju": true,
 	}
 	cfg["identity-provider-url"] = b.controllerConfig.IdentityURL()
-
-	// The controller's externally-reachable ports (API, SSH server and the
-	// optional autocert port) are a property of the controller charm (jujud is
-	// the charm's workload). They are therefore owned by the charm config and
-	// sourced from the charm's own defaults; the deployer deliberately does not
-	// seed them here.
 
 	// Attempt to set the controller URL on to the controller charm config.
 	addr := b.controllerConfig.PublicDNSAddress()

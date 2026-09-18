@@ -113,11 +113,6 @@ func (s *deployerCAASSuite) TestAddCAASControllerApplication(c *tc.C) {
 		},
 		applicationservice.AddUnitArg{},
 	)
-	s.caasApplicationService.EXPECT().MergeExposeSettings(
-		gomock.Any(),
-		bootstrap.ControllerApplicationName,
-		controllerExposedEndpoints(),
-	)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 
@@ -178,6 +173,11 @@ func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
 		},
 	}
 
+	s.caasApplicationService.EXPECT().MergeExposeSettings(
+		gomock.Any(),
+		bootstrap.ControllerApplicationName,
+		controllerExposedEndpoints(),
+	)
 	s.caasApplicationService.EXPECT().UpdateK8sService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), providerAddress).Return(nil)
 	s.caasApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
 		ProviderID: new("controller-0"),
@@ -198,6 +198,11 @@ func (s *deployerCAASSuite) TestCompleteCAASProcessSetsFQDN(c *tc.C) {
 
 	unitName := unit.Name("controller/0")
 
+	s.caasApplicationService.EXPECT().MergeExposeSettings(
+		gomock.Any(),
+		bootstrap.ControllerApplicationName,
+		controllerExposedEndpoints(),
+	)
 	s.caasApplicationService.EXPECT().UpdateK8sService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), gomock.Any()).Return(nil)
 	// The controller FQDN is persisted in the same flow that upserts the k8s
 	// pod (provider id), i.e. via UpdateCAASUnit.

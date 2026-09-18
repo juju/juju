@@ -334,11 +334,6 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 			Nonce: new(agent.BootstrapNonce),
 		},
 	)
-	s.iaasApplicationService.EXPECT().MergeExposeSettings(
-		gomock.Any(),
-		bootstrap.ControllerApplicationName,
-		controllerExposedEndpoints(),
-	)
 
 	deployer, err := NewIAASDeployer(IAASDeployerConfig{
 		BaseDeployerConfig: cfg,
@@ -373,6 +368,32 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 		ArchivePath:     "path",
 		ObjectStoreUUID: "1234",
 	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestCompleteIAASProcess verifies that completing the IAAS process exposes the
+// controller application so the charm-opened ports become reachable.
+func (s *deployerSuite) TestCompleteIAASProcess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newConfig(c)
+
+	s.iaasApplicationService.EXPECT().MergeExposeSettings(
+		gomock.Any(),
+		bootstrap.ControllerApplicationName,
+		controllerExposedEndpoints(),
+	)
+
+	deployer, err := NewIAASDeployer(IAASDeployerConfig{
+		BaseDeployerConfig: cfg,
+		ApplicationService: s.iaasApplicationService,
+		HostBaseFn: func() (corebase.Base, error) {
+			return corebase.MakeDefaultBase("ubuntu", "22.04"), nil
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = deployer.CompleteIAASProcess(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 

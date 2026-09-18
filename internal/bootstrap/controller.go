@@ -61,6 +61,13 @@ func PopulateIAASControllerCharm(ctx context.Context, deployer ControllerCharmDe
 		return errors.Errorf("adding controller application: %w", err)
 	}
 
+	// Complete the IAAS process (exposes the controller). This runs on both the
+	// fresh and already-exists paths, so a retry after a failed expose still
+	// exposes the controller.
+	if err := deployer.CompleteIAASProcess(ctx); err != nil {
+		return errors.Errorf("completing process: %w", err)
+	}
+
 	return nil
 }
 
