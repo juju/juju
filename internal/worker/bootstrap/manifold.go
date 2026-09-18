@@ -330,18 +330,6 @@ func RequiresBootstrap(ctx context.Context, flagService FlagService) (bool, erro
 	return !bootstrapped, nil
 }
 
-// PopulateIAASControllerCharm is the function that is used to populate the
-// controller IAAS charm.
-func PopulateIAASControllerCharm(ctx context.Context, controllerCharmDeployer bootstrap.ControllerCharmDeployer) error {
-	return bootstrap.PopulateIAASControllerCharm(ctx, controllerCharmDeployer)
-}
-
-// PopulateCAASControllerCharm is the function that is used to populate the
-// controller CAAS charm.
-func PopulateCAASControllerCharm(ctx context.Context, controllerCharmDeployer bootstrap.ControllerCharmDeployer) error {
-	return bootstrap.PopulateCAASControllerCharm(ctx, controllerCharmDeployer)
-}
-
 // IAASAgentFinalizer is the function that is used to finalize the
 // IAAS agent during bootstrap.
 func IAASAgentFinalizer(

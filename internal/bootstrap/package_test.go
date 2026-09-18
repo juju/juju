@@ -111,3 +111,19 @@ func (s *baseSuite) newConfig(c *tc.C) BaseDeployerConfig {
 		Clock:              clock.WallClock,
 	}
 }
+
+func (s *baseSuite) controllerCharmInfo() DeployCharmInfo {
+	return DeployCharmInfo{
+		URL:   charm.MustParseURL("local:juju-controller-0"),
+		Charm: s.charm,
+		Origin: &corecharm.Origin{
+			Source: corecharm.Local,
+			Type:   "charm",
+			Platform: corecharm.Platform{
+				Architecture: "amd64",
+				OS:           "ubuntu",
+				Channel:      "22.04",
+			},
+		},
+	}
+}

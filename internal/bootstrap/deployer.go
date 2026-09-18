@@ -81,11 +81,9 @@ type ControllerCharmDeployer interface {
 	// DeployCharmhubCharm deploys the controller charm from charm hub.
 	DeployCharmhubCharm(context.Context, string, corebase.Base) (DeployCharmInfo, error)
 
-	// AddIAASControllerApplication adds the controller application.
-	AddIAASControllerApplication(context.Context, DeployCharmInfo) error
-
-	// AddCAASControllerApplication adds the controller application.
-	AddCAASControllerApplication(context.Context, DeployCharmInfo) error
+	// EnsureControllerApplication creates the controller application if needed
+	// and completes its substrate-specific setup, including on retries.
+	EnsureControllerApplication(context.Context, DeployCharmInfo) error
 
 	// ControllerCharmBase returns the base used for deploying the controller
 	// charm.
@@ -94,9 +92,6 @@ type ControllerCharmDeployer interface {
 	// ControllerCharmArch returns the architecture used for deploying the
 	// controller charm.
 	ControllerCharmArch() string
-
-	// CompleteCAASProcess is called when the bootstrap process is complete.
-	CompleteCAASProcess(context.Context) error
 }
 
 // HTTPClient is the interface that is used to make HTTP requests.
@@ -436,27 +431,6 @@ func isTransientControllerCharmDownloadError(err error) bool {
 		return true
 	}
 	return false
-}
-
-// AddIAASControllerApplication adds the IAAS controller application.
-func (b *baseDeployer) AddIAASControllerApplication(ctx context.Context, info DeployCharmInfo) error {
-	// These are abstract methods that are expected to be implemented by
-	// concrete types.
-	return errors.Errorf("can not add IAAS controller application").Add(coreerrors.NotImplemented)
-}
-
-// AddIAASControllerApplication adds the IAAS controller application.
-func (b *baseDeployer) AddCAASControllerApplication(ctx context.Context, info DeployCharmInfo) error {
-	// These are abstract methods that are expected to be implemented by
-	// concrete types.
-	return errors.Errorf("can not add CAAS controller application").Add(coreerrors.NotImplemented)
-}
-
-// CompleteCAASProcess is called when the bootstrap process is complete.
-func (b *baseDeployer) CompleteCAASProcess(context.Context) error {
-	// These are abstract methods that are expected to be implemented by
-	// concrete types.
-	return errors.Errorf("can not complete CAAS process").Add(coreerrors.NotImplemented)
 }
 
 func (b *baseDeployer) calculateLocalCharmHashes(path string, expectedSize int64) (string, string, error) {

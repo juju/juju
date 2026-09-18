@@ -16,6 +16,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/version"
 	domainapplication "github.com/juju/juju/domain/application"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/errors"
@@ -50,8 +51,7 @@ func (c CAASDeployerConfig) Validate() error {
 	return nil
 }
 
-// CAASDeployer is the interface that is used to deploy the controller charm
-// for CAAS workloads.
+// CAASDeployer deploys the controller charm for CAAS workloads.
 type CAASDeployer struct {
 	baseDeployer
 	applicationService CAASApplicationService
@@ -59,6 +59,8 @@ type CAASDeployer struct {
 	unitPassword       string
 	controllerFQDN     string
 }
+
+var _ ControllerCharmDeployer = (*CAASDeployer)(nil)
 
 // NewCAASDeployer returns a new ControllerCharmDeployer for CAAS workloads.
 func NewCAASDeployer(config CAASDeployerConfig) (*CAASDeployer, error) {
@@ -81,8 +83,9 @@ func (d *CAASDeployer) ControllerCharmBase() (corebase.Base, error) {
 	return version.DefaultSupportedLTSBase(), nil
 }
 
-// AddCAASControllerApplication adds the CAAS controller application.
-func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info DeployCharmInfo) error {
+// EnsureControllerApplication creates the CAAS controller application if needed
+// and completes its unit and service setup, even if the application exists.
+func (b *CAASDeployer) EnsureControllerApplication(ctx context.Context, info DeployCharmInfo) error {
 	if err := info.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -126,8 +129,12 @@ func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info De
 			IsController: true,
 		},
 		unitArg,
-	); err != nil {
+	); err != nil && !errors.Is(err, applicationerrors.ApplicationAlreadyExists) {
 		return errors.Errorf("creating CAAS controller application: %w", err)
+	}
+
+	if err := b.completeControllerApplication(ctx); err != nil {
+		return errors.Errorf("completing CAAS controller application: %w", err)
 	}
 
 	return nil
@@ -146,8 +153,7 @@ func normalizeControllerConstraints(cons constraints.Value, charmArch string) (c
 	return cons, nil
 }
 
-// CompleteCAASProcess is called when the bootstrap process is complete.
-func (d *CAASDeployer) CompleteCAASProcess(ctx context.Context) error {
+func (d *CAASDeployer) completeControllerApplication(ctx context.Context) error {
 	// We can deduce that the unit name must be controller/0 since we're
 	// currently bootstrapping the controller, so this unit is the first unit
 	// to be created.

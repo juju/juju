@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/version"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/environs/bootstrap"
@@ -57,7 +58,7 @@ func (s *deployerCAASSuite) TestControllerCharmBase(c *tc.C) {
 	c.Assert(base, tc.DeepEquals, version.DefaultSupportedLTSBase())
 }
 
-func (s *deployerCAASSuite) TestAddCAASControllerApplication(c *tc.C) {
+func (s *deployerCAASSuite) TestEnsureControllerApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
@@ -113,6 +114,7 @@ func (s *deployerCAASSuite) TestAddCAASControllerApplication(c *tc.C) {
 		},
 		applicationservice.AddUnitArg{},
 	)
+	s.expectControllerApplicationCompletion(cfg, nil)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 
@@ -121,7 +123,7 @@ func (s *deployerCAASSuite) TestAddCAASControllerApplication(c *tc.C) {
 		DownloadURL:        "https://inferi.com",
 		DownloadSize:       42,
 	}
-	err := deployer.AddCAASControllerApplication(c.Context(), DeployCharmInfo{
+	err := deployer.EnsureControllerApplication(c.Context(), DeployCharmInfo{
 		URL:             charm.MustParseURL(curl),
 		Charm:           s.charm,
 		Origin:          &origin,
@@ -149,10 +151,15 @@ func (s *deployerCAASSuite) TestNormalizeControllerConstraintsRejectsMismatchedA
 	c.Assert(err, tc.ErrorMatches, "arch in platform and constraints for controller do not match")
 }
 
-func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
+func (s *deployerCAASSuite) TestEnsureControllerApplicationServiceAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
+	info := s.controllerCharmInfo()
+	s.caasApplicationService.EXPECT().CreateCAASApplication(
+		gomock.Any(), bootstrap.ControllerApplicationName, s.charm,
+		*info.Origin, gomock.Any(), gomock.Any(),
+	).Return("", nil)
 
 	unitName := unit.Name("controller/0")
 
@@ -180,16 +187,21 @@ func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
 	s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
-	err := deployer.CompleteCAASProcess(c.Context())
+	err := deployer.EnsureControllerApplication(c.Context(), info)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *deployerCAASSuite) TestCompleteCAASProcessSetsFQDN(c *tc.C) {
+func (s *deployerCAASSuite) TestEnsureControllerApplicationSetsFQDN(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
 	const fqdn = "controller-0.controller-service-endpoints.controller-foo.svc.cluster.local"
 	cfg.ControllerFQDN = fqdn
+	info := s.controllerCharmInfo()
+	s.caasApplicationService.EXPECT().CreateCAASApplication(
+		gomock.Any(), bootstrap.ControllerApplicationName, s.charm,
+		*info.Origin, gomock.Any(), gomock.Any(),
+	).Return("", nil)
 
 	unitName := unit.Name("controller/0")
 
@@ -203,8 +215,69 @@ func (s *deployerCAASSuite) TestCompleteCAASProcessSetsFQDN(c *tc.C) {
 	s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
-	err := deployer.CompleteCAASProcess(c.Context())
+	err := deployer.EnsureControllerApplication(c.Context(), info)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *deployerCAASSuite) TestEnsureControllerApplicationCreationFails(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	info := s.controllerCharmInfo()
+	expectedErr := errors.New("cannot create controller application")
+	s.caasApplicationService.EXPECT().CreateCAASApplication(
+		gomock.Any(), bootstrap.ControllerApplicationName, s.charm,
+		*info.Origin, gomock.Any(), gomock.Any(),
+	).Return("", expectedErr)
+
+	err := s.newDeployer(c).EnsureControllerApplication(c.Context(), info)
+	c.Assert(err, tc.ErrorIs, expectedErr)
+}
+
+func (s *deployerCAASSuite) TestEnsureControllerApplicationRetriesCompletion(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newConfig(c)
+	cfg.ControllerFQDN = "controller-0.controller-service-endpoints.controller-foo.svc.cluster.local"
+	info := s.controllerCharmInfo()
+	deployer := s.newDeployerWithConfig(c, cfg)
+
+	s.caasApplicationService.EXPECT().CreateCAASApplication(
+		gomock.Any(), bootstrap.ControllerApplicationName, s.charm,
+		*info.Origin, gomock.Any(), gomock.Any(),
+	).Return("", nil)
+	expectedErr := errors.New("cannot update controller service")
+	s.expectControllerApplicationCompletion(cfg, expectedErr)
+
+	err := deployer.EnsureControllerApplication(c.Context(), info)
+	c.Assert(err, tc.ErrorIs, expectedErr)
+
+	// Creation succeeded on the first attempt, so the retry must complete
+	// setup even though the application already exists.
+	s.caasApplicationService.EXPECT().CreateCAASApplication(
+		gomock.Any(), bootstrap.ControllerApplicationName, s.charm,
+		*info.Origin, gomock.Any(), gomock.Any(),
+	).Return("", errors.Annotate(applicationerrors.ApplicationAlreadyExists, "controller"))
+	s.expectControllerApplicationCompletion(cfg, nil)
+
+	err = deployer.EnsureControllerApplication(c.Context(), info)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *deployerCAASSuite) expectControllerApplicationCompletion(cfg CAASDeployerConfig, serviceErr error) {
+	unitName := unit.Name("controller/0")
+	params := applicationservice.UpdateCAASUnitParams{
+		ProviderID: new("controller-0"),
+	}
+	if cfg.ControllerFQDN != "" {
+		params.FQDN = &cfg.ControllerFQDN
+	}
+	gomock.InOrder(
+		s.caasApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, params).Return(nil),
+		s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword).Return(nil),
+		s.caasApplicationService.EXPECT().UpdateK8sService(
+			gomock.Any(), bootstrap.ControllerApplicationName, "controller-0", cfg.BootstrapAddresses,
+		).Return(serviceErr),
+	)
 }
 
 func (s *deployerCAASSuite) newDeployer(c *tc.C) *CAASDeployer {

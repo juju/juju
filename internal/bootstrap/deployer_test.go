@@ -356,7 +356,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
 			Channel:      "22.04",
 		},
 	}
-	err = deployer.AddIAASControllerApplication(c.Context(), DeployCharmInfo{
+	err = deployer.EnsureControllerApplication(c.Context(), DeployCharmInfo{
 		URL:    charm.MustParseURL(curl),
 		Charm:  s.charm,
 		Origin: &origin,

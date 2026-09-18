@@ -82,14 +82,12 @@ type MockControllerCharmDeployer struct {
 
 // MockControllerCharmDeployerMockRecorder is the mock recorder for MockControllerCharmDeployer.
 type MockControllerCharmDeployerMockRecorder struct {
-	mock                                *MockControllerCharmDeployer
-	addCAASControllerApplicationExpects []*gomock.Call2_1[context.Context, DeployCharmInfo, error]
-	addIAASControllerApplicationExpects []*gomock.Call2_1[context.Context, DeployCharmInfo, error]
-	completeCAASProcessExpects          []*gomock.Call1_1[context.Context, error]
-	controllerCharmArchExpects          []*gomock.Call0_1[string]
-	controllerCharmBaseExpects          []*gomock.Call0_2[base.Base, error]
-	deployCharmhubCharmExpects          []*gomock.Call3_2[context.Context, string, base.Base, DeployCharmInfo, error]
-	deployLocalCharmExpects             []*gomock.Call3_2[context.Context, string, base.Base, DeployCharmInfo, error]
+	mock                               *MockControllerCharmDeployer
+	controllerCharmArchExpects         []*gomock.Call0_1[string]
+	controllerCharmBaseExpects         []*gomock.Call0_2[base.Base, error]
+	deployCharmhubCharmExpects         []*gomock.Call3_2[context.Context, string, base.Base, DeployCharmInfo, error]
+	deployLocalCharmExpects            []*gomock.Call3_2[context.Context, string, base.Base, DeployCharmInfo, error]
+	ensureControllerApplicationExpects []*gomock.Call2_1[context.Context, DeployCharmInfo, error]
 }
 
 // NewMockControllerCharmDeployer creates a new mock instance.
@@ -103,60 +101,6 @@ func NewMockControllerCharmDeployer(ctrl *gomock.Controller) *MockControllerChar
 func (m *MockControllerCharmDeployer) EXPECT() *MockControllerCharmDeployerMockRecorder {
 	return m.recorder
 }
-
-// AddCAASControllerApplication mocks base method.
-func (m *MockControllerCharmDeployer) AddCAASControllerApplication(arg0 context.Context, arg1 DeployCharmInfo) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.addCAASControllerApplicationExpects, m.ctrl, m, "AddCAASControllerApplication", arg0, arg1)
-}
-
-// AddCAASControllerApplication indicates an expected call of AddCAASControllerApplication.
-func (mr *MockControllerCharmDeployerMockRecorder) AddCAASControllerApplication(arg0, arg1 any) *MockControllerCharmDeployerAddCAASControllerApplicationCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, DeployCharmInfo, error](mr.mock.ctrl.T, mr.mock, "AddCAASControllerApplication", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
-	mr.addCAASControllerApplicationExpects = append(mr.addCAASControllerApplicationExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockControllerCharmDeployerAddCAASControllerApplicationCall is the typed call wrapper for AddCAASControllerApplication.
-type MockControllerCharmDeployerAddCAASControllerApplicationCall = gomock.Call2_1[context.Context, DeployCharmInfo, error]
-
-// AddIAASControllerApplication mocks base method.
-func (m *MockControllerCharmDeployer) AddIAASControllerApplication(arg0 context.Context, arg1 DeployCharmInfo) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.addIAASControllerApplicationExpects, m.ctrl, m, "AddIAASControllerApplication", arg0, arg1)
-}
-
-// AddIAASControllerApplication indicates an expected call of AddIAASControllerApplication.
-func (mr *MockControllerCharmDeployerMockRecorder) AddIAASControllerApplication(arg0, arg1 any) *MockControllerCharmDeployerAddIAASControllerApplicationCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, DeployCharmInfo, error](mr.mock.ctrl.T, mr.mock, "AddIAASControllerApplication", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
-	mr.addIAASControllerApplicationExpects = append(mr.addIAASControllerApplicationExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockControllerCharmDeployerAddIAASControllerApplicationCall is the typed call wrapper for AddIAASControllerApplication.
-type MockControllerCharmDeployerAddIAASControllerApplicationCall = gomock.Call2_1[context.Context, DeployCharmInfo, error]
-
-// CompleteCAASProcess mocks base method.
-func (m *MockControllerCharmDeployer) CompleteCAASProcess(arg0 context.Context) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_1(&m.recorder.completeCAASProcessExpects, m.ctrl, m, "CompleteCAASProcess", arg0)
-}
-
-// CompleteCAASProcess indicates an expected call of CompleteCAASProcess.
-func (mr *MockControllerCharmDeployerMockRecorder) CompleteCAASProcess(arg0 any) *MockControllerCharmDeployerCompleteCAASProcessCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_1[context.Context, error](mr.mock.ctrl.T, mr.mock, "CompleteCAASProcess", gomock.EnsureMatcher(arg0))
-	mr.completeCAASProcessExpects = append(mr.completeCAASProcessExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockControllerCharmDeployerCompleteCAASProcessCall is the typed call wrapper for CompleteCAASProcess.
-type MockControllerCharmDeployerCompleteCAASProcessCall = gomock.Call1_1[context.Context, error]
 
 // ControllerCharmArch mocks base method.
 func (m *MockControllerCharmDeployer) ControllerCharmArch() string {
@@ -229,6 +173,24 @@ func (mr *MockControllerCharmDeployerMockRecorder) DeployLocalCharm(arg0, arg1, 
 
 // MockControllerCharmDeployerDeployLocalCharmCall is the typed call wrapper for DeployLocalCharm.
 type MockControllerCharmDeployerDeployLocalCharmCall = gomock.Call3_2[context.Context, string, base.Base, DeployCharmInfo, error]
+
+// EnsureControllerApplication mocks base method.
+func (m *MockControllerCharmDeployer) EnsureControllerApplication(arg0 context.Context, arg1 DeployCharmInfo) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.ensureControllerApplicationExpects, m.ctrl, m, "EnsureControllerApplication", arg0, arg1)
+}
+
+// EnsureControllerApplication indicates an expected call of EnsureControllerApplication.
+func (mr *MockControllerCharmDeployerMockRecorder) EnsureControllerApplication(arg0, arg1 any) *MockControllerCharmDeployerEnsureControllerApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, DeployCharmInfo, error](mr.mock.ctrl.T, mr.mock, "EnsureControllerApplication", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.ensureControllerApplicationExpects = append(mr.ensureControllerApplicationExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerCharmDeployerEnsureControllerApplicationCall is the typed call wrapper for EnsureControllerApplication.
+type MockControllerCharmDeployerEnsureControllerApplicationCall = gomock.Call2_1[context.Context, DeployCharmInfo, error]
 
 // MockHTTPClient is a mock of HTTPClient interface.
 type MockHTTPClient struct {
