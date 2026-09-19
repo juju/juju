@@ -21,10 +21,23 @@ test_cmr() {
 		test_offer_find_non_admin
 		test_offer_consume_migrate
 
-		destroy_controller "test-cmr"
+		if juju controllers --format=json 2>/dev/null |
+			yq -r 'select(.controllers) | .controllers | keys | .[]' |
+			grep "test-cmr" || juju models --format=json 2>/dev/null |
+			yq -r '.models | .[] | .["short-name"]' |
+			grep -x "test-cmr"; then
+			destroy_controller "test-cmr"
+		fi
 	fi
 
-	# test_offer_find_external_user bootstraps its own dedicated controller because it
-	# requires identity-url/identity-public-key config and the go toolchain.
-	test_offer_find_external_user
+	if [ -z "$(skip 'test_cmr_integrity')" ]; then
+		# test_cmr_integrity bootstraps its own dedicated controller.
+		test_cmr_integrity
+	fi
+
+	if [ -z "$(skip 'test_offer_find_external_user')" ]; then
+		# test_offer_find_external_user bootstraps its own dedicated controller because it
+		# requires identity-url/identity-public-key config and the go toolchain.
+		test_offer_find_external_user
+	fi
 }

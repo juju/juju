@@ -1282,13 +1282,37 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	}
 	us := state.NewUnitState()
 	us.SetCharmState(map[string]string{"payload": "b4dc0ffee"})
-	us.SetRelationState(map[int]string{42: "magic"})
-	us.SetUniterState("uniter state")
-	us.SetStorageState("storage state")
-	err := unit.SetState(us, state.UnitStateSizeLimits{})
+	app, err := unit.Application()
+	c.Assert(err, jc.ErrorIsNil)
+	ep, err := app.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 
 	dbModel, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	rapp, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-wordpress",
+		SourceModel: dbModel.ModelTag(),
+		OfferUUID:   "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	rep, err := rapp.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := st.AddRelation(ep, rep)
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel.Unit(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ru.EnterScope(nil), jc.ErrorIsNil)
+	us.SetRelationState(map[int]string{rel.Id(): "magic"})
+	us.SetUniterState("uniter state")
+	us.SetStorageState("storage state")
+	err = unit.SetState(us, state.UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	if dbModel.Type() == state.ModelTypeCAAS {
@@ -1336,7 +1360,7 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	c.Assert(exported.WorkloadVersion(), gc.Equals, "steven")
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 	c.Assert(exported.CharmState(), jc.DeepEquals, map[string]string{"payload": "b4dc0ffee"})
-	c.Assert(exported.RelationState(), jc.DeepEquals, map[int]string{42: "magic"})
+	c.Assert(exported.RelationState(), jc.DeepEquals, map[int]string{rel.Id(): "magic"})
 	c.Assert(exported.UniterState(), gc.Equals, "uniter state")
 	c.Assert(exported.StorageState(), gc.Equals, "storage state")
 	c.Assert(exported.MeterStatusState(), gc.Equals, "")

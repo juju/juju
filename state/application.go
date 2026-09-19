@@ -2113,7 +2113,7 @@ func (a *Application) UpdateApplicationBase(newBase Base, force bool) (err error
 			}
 		}
 
-		//Create the transaction operations
+		// Create the transaction operations
 		ops := []txn.Op{{
 			C:  applicationsC,
 			Id: a.doc.DocID,
@@ -4271,7 +4271,7 @@ func (a *Application) UnitCount() int {
 	return a.doc.UnitCount
 }
 
-// RelationCount returns the of number of active relations for this application.
+// RelationCount returns the number of active relations for this application.
 func (a *Application) RelationCount() int {
 	return a.doc.RelationCount
 
