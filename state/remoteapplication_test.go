@@ -4,11 +4,13 @@
 package state_test
 
 import (
+	"fmt"
 	"sort"
 	"time"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -20,6 +22,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -174,6 +177,362 @@ func (s *remoteApplicationSuite) TestStateApplicationRemoveExisting(c *gc.C) {
 	err = application.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application.ConsumeVersion(), gc.Equals, 668)
+}
+
+func (s *remoteApplicationSuite) TestStateApplicationRemoveExistingWithRelations(c *gc.C) {
+	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "hosted-mysql",
+		URL:             "me/model.mysql",
+		SourceModel:     s.Model.ModelTag(),
+		Token:           "app-token",
+		IsConsumerProxy: true,
+		ConsumeVersion:  666,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Relate the remote app to a local application and put both a local and a
+	// remote unit in scope.
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressUnit, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	proxyEP, err := app.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(proxyEP, wordpressEP)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlru, err := rel.Unit(wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysqlru.EnterScope(nil), jc.ErrorIsNil)
+	rru, err := rel.RemoteUnit("hosted-mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rru.EnterScope(nil), jc.ErrorIsNil)
+
+	// Re-consume with a newer version: the old remote app and its relations are
+	// torn down synchronously before the new remote app exists.
+	app, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "hosted-mysql",
+		URL:             "me/model.mysql",
+		SourceModel:     s.Model.ModelTag(),
+		Token:           "app-token",
+		IsConsumerProxy: true,
+		ConsumeVersion:  668,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app.ConsumeVersion(), gc.Equals, 668)
+
+	// The old relation is gone; its units are out of scope.
+	err = rel.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	inScope, err := mysqlru.InScope()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(inScope, jc.IsFalse)
+	inScope, err = rru.InScope()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(inScope, jc.IsFalse)
+
+	// The queued scopes/settings cleanups remove all leftover docs.
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	for _, collName := range []string{"relationscopes", "settings"} {
+		coll := s.Session.DB("juju").C(collName)
+		n, err := coll.Find(bson.M{"_id": bson.M{"$regex": "^" + state.DocID(s.State, "r#")}}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(n, gc.Equals, 0,
+			gc.Commentf("leftover %s docs for removed relation", collName))
+	}
+}
+
+func (s *remoteApplicationSuite) TestReplaceStaleProxyQueuesConvergenceCleanups(c *gc.C) {
+	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "hosted-mysql",
+		URL:             "me/model.mysql",
+		SourceModel:     s.Model.ModelTag(),
+		Token:           "app-token",
+		IsConsumerProxy: true,
+		ConsumeVersion:  666,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressUnit, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	proxyEP, err := app.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(proxyEP, wordpressEP)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlru, err := rel.Unit(wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysqlru.EnterScope(nil), jc.ErrorIsNil)
+	rru, err := rel.RemoteUnit("hosted-mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rru.EnterScope(nil), jc.ErrorIsNil)
+	oldRelID := rel.Id()
+
+	// Re-consume with a newer version.
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "hosted-mysql",
+		URL:             "me/model.mysql",
+		SourceModel:     s.Model.ModelTag(),
+		Token:           "app-token",
+		IsConsumerProxy: true,
+		ConsumeVersion:  668,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	coll := s.Session.DB("juju").C("cleanups")
+	n, err := coll.Find(bson.M{
+		"model-uuid": s.State.ModelUUID(),
+		"kind":       "forceDestroyRelation",
+		"prefix":     fmt.Sprintf("%d", oldRelID),
+	}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1,
+		gc.Commentf("fencing the old relation must queue a force destroy cleanup"))
+
+	// The queued cleanup is harmless once the replacement has completed:
+	// it finds the relation gone and only removes leftover docs.
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+}
+
+func (s *remoteApplicationSuite) TestReplaceStaleProxyDoesNotResurrectDying(c *gc.C) {
+	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "hosted-mysql",
+		URL:             "me/model.mysql",
+		SourceModel:     s.Model.ModelTag(),
+		Token:           "app-token",
+		IsConsumerProxy: true,
+		ConsumeVersion:  666,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Relate the proxy to a local application, with no units in scope.
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	proxyEP, err := app.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(proxyEP, wordpressEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Mark the proxy Dying directly, as a concurrent non-force
+	// remove-saas would while the relation teardown is deferred to
+	// queued cleanups.
+	coll := s.Session.DB("juju").C("remoteApplications")
+	err = coll.UpdateId(state.DocID(s.State, "hosted-mysql"),
+		bson.M{"$set": bson.M{"life": 1}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Re-consuming a newer version must not resurrect the Dying proxy:
+	// the replacement fails fast with a legible error instead of
+	// asserting the replaced app is Alive on every retry.
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "hosted-mysql",
+		URL:             "me/model.mysql",
+		SourceModel:     s.Model.ModelTag(),
+		Token:           "app-token",
+		IsConsumerProxy: true,
+		ConsumeVersion:  668,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
+	c.Assert(err, gc.ErrorMatches, `(?s)cannot add saas application "hosted-mysql": saas application "hosted-mysql" is being removed; retry the consume once the removal completes`)
+
+	// The proxy is still Dying with the old consume version.
+	got, err := s.State.RemoteApplication("hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got.Life(), gc.Equals, state.Dying)
+	c.Assert(got.ConsumeVersion(), gc.Equals, 666)
+}
+
+func (s *remoteApplicationSuite) TestReplaceStaleProxyRoundTripsFields(c *gc.C) {
+	mkSpace := func(name string) *environs.ProviderSpaceInfo {
+		return &environs.ProviderSpaceInfo{
+			SpaceInfo: network.SpaceInfo{
+				Name: network.SpaceName(name),
+			},
+		}
+	}
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "hosted-mysql",
+		URL:             "me/model.mysql",
+		SourceModel:     s.Model.ModelTag(),
+		Token:           "old-token",
+		IsConsumerProxy: true,
+		ConsumeVersion:  666,
+		Spaces:          []*environs.ProviderSpaceInfo{mkSpace("space-a")},
+		Bindings:        map[string]string{"db": "space-a"},
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Seed a macaroon on the old document directly; the new version
+	// does not carry one and the replacement must clear it.
+	coll := s.Session.DB("juju").C("remoteApplications")
+	err = coll.UpdateId(state.DocID(s.State, "hosted-mysql"),
+		bson.M{"$set": bson.M{"macaroon": "old-mac"}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Replace with a newer version that omits the URL and macaroon
+	// and changes endpoints and bindings.
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "hosted-mysql",
+		SourceModel:     s.Model.ModelTag(),
+		Token:           "new-token",
+		IsConsumerProxy: true,
+		ConsumeVersion:  668,
+		Spaces:          []*environs.ProviderSpaceInfo{mkSpace("space-a"), mkSpace("space-b")},
+		Bindings:        map[string]string{"dbadmin": "space-b"},
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     2,
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "mysql-root",
+			Limit:     1,
+			Name:      "dbadmin",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Every field of the new version must round trip. Consumer proxies
+	// never record an offer uuid on the document (the offer details live
+	// in the offer connection), so it stays empty across the swap.
+	got, err := s.State.RemoteApplication("hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	url, ok := got.URL()
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(url, gc.Equals, "")
+	c.Assert(got.OfferUUID(), gc.Equals, "")
+	c.Assert(got.ConsumeVersion(), gc.Equals, 668)
+	c.Assert(got.IsConsumerProxy(), jc.IsTrue)
+	c.Assert(got.Life(), gc.Equals, state.Alive)
+	c.Assert(got.RelationCount(), gc.Equals, 0)
+	c.Assert(got.Bindings(), jc.DeepEquals, map[string]string{"dbadmin": "space-b"})
+	_, err = got.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = got.Endpoint("dbadmin")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The omitted fields are omitted from the stored document.
+	var raw bson.M
+	err = coll.FindId(state.DocID(s.State, "hosted-mysql")).One(&raw)
+	c.Assert(err, jc.ErrorIsNil)
+	_, ok = raw["url"]
+	c.Assert(ok, jc.IsFalse)
+	_, ok = raw["macaroon"]
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *remoteApplicationSuite) TestStateApplicationRemoveExistingCorruptCountAborts(c *gc.C) {
+	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "hosted-mysql",
+		URL:             "me/model.mysql",
+		SourceModel:     s.Model.ModelTag(),
+		Token:           "app-token",
+		IsConsumerProxy: true,
+		ConsumeVersion:  666,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	proxyEP, err := app.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(proxyEP, wordpressEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Load a stale handle, then corrupt the recorded count in state.
+	stale, err := s.State.RemoteApplication("hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	coll := s.Session.DB("juju").C("remoteApplications")
+	err = coll.UpdateId(state.DocID(s.State, "hosted-mysql"),
+		bson.M{"$set": bson.M{"relationcount": 2}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stale.ConsumeVersion(), gc.Equals, 666)
+
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "hosted-mysql",
+		URL:             "me/model.mysql",
+		SourceModel:     s.Model.ModelTag(),
+		Token:           "app-token",
+		IsConsumerProxy: true,
+		ConsumeVersion:  668,
+	})
+	c.Assert(err, jc.ErrorIs, stateerrors.RelationCountCorruptError)
+	c.Assert(err, gc.ErrorMatches,
+		`(?s)cannot add saas application "hosted-mysql": cannot replace saas application "hosted-mysql": `+
+			`relation count for remote application "hosted-mysql" is corrupt: recorded 2, actual relations 1; `+
+			`force remove the saas application with 'juju remove-saas hosted-mysql --force' to clean up its relations`)
+
+	// Nothing changed: the old remote app and relation are intact.
+	app2, err := s.State.RemoteApplication("hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app2.ConsumeVersion(), gc.Equals, 666)
+	err = rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel.Life(), gc.Equals, state.Alive)
 }
 
 func (s *remoteApplicationSuite) TestConsumeVersion(c *gc.C) {

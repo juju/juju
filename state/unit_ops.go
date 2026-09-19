@@ -4,6 +4,8 @@
 package state
 
 import (
+	"strconv"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
@@ -65,20 +67,20 @@ func (op *unitSetStateOperation) buildTxn(attempt int) ([]txn.Op, error) {
 		}
 
 		// Create new doc and enforce quota limits
-		newDoc, err := op.newUnitStateDoc(unitGlobalKey)
+		newDoc, relationAsserts, err := op.newUnitStateDoc(unitGlobalKey)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return []txn.Op{unitNotDeadOp, {
+		return append([]txn.Op{unitNotDeadOp, {
 			C:      unitStatesC,
 			Id:     unitGlobalKey,
 			Assert: txn.DocMissing,
 			Insert: newDoc,
-		}}, nil
+		}}, relationAsserts...), nil
 	}
 
 	// We have an existing doc, see what changes need to be made.
-	setFields, unsetFields, err := op.fields(stDoc)
+	setFields, unsetFields, relationAsserts, err := op.fields(stDoc)
 	if err != nil {
 		return nil, errors.Trace(err)
 	} else if len(setFields) <= 0 && len(unsetFields) <= 0 {
@@ -92,17 +94,17 @@ func (op *unitSetStateOperation) buildTxn(attempt int) ([]txn.Op, error) {
 	if len(unsetFields) > 0 {
 		updateFields = append(updateFields, bson.DocElem{"$unset", unsetFields})
 	}
-	return []txn.Op{unitNotDeadOp, {
+	return append([]txn.Op{unitNotDeadOp, {
 		C:  unitStatesC,
 		Id: unitGlobalKey,
 		Assert: bson.D{
 			{"txn-revno", stDoc.TxnRevno},
 		},
 		Update: updateFields,
-	}}, nil
+	}}, relationAsserts...), nil
 }
 
-func (op *unitSetStateOperation) newUnitStateDoc(unitGlobalKey string) (unitStateDoc, error) {
+func (op *unitSetStateOperation) newUnitStateDoc(unitGlobalKey string) (unitStateDoc, []txn.Op, error) {
 	newStDoc := unitStateDoc{
 		DocID: unitGlobalKey,
 	}
@@ -116,12 +118,18 @@ func (op *unitSetStateOperation) newUnitStateDoc(unitGlobalKey string) (unitStat
 		quotaChecker := op.getCharmStateQuotaChecker()
 		quotaChecker.Check(newStDoc.CharmState)
 		if err := quotaChecker.Outcome(); err != nil {
-			return unitStateDoc{}, errors.Annotatef(err, "persisting charm state")
+			return unitStateDoc{}, nil, errors.Annotatef(err, "persisting charm state")
 		}
 	}
 
 	quotaChecker := op.getUniterStateQuotaChecker()
+	var relationAsserts []txn.Op
 	if rState, found := op.newState.relationStateBSONFriendly(); found {
+		var filterErr error
+		rState, relationAsserts, filterErr = op.filterExistingRelations(rState)
+		if filterErr != nil {
+			return unitStateDoc{}, nil, errors.Trace(filterErr)
+		}
 		newStDoc.RelationState = rState
 		quotaChecker.Check(rState)
 	}
@@ -138,20 +146,83 @@ func (op *unitSetStateOperation) newUnitStateDoc(unitGlobalKey string) (unitStat
 		quotaChecker.Check(secretState)
 	}
 	if err := quotaChecker.Outcome(); err != nil {
-		return unitStateDoc{}, errors.Annotatef(err, "persisting uniter state")
+		return unitStateDoc{}, nil, errors.Annotatef(err, "persisting uniter state")
 	}
-	return newStDoc, nil
+	return newStDoc, relationAsserts, nil
+}
+
+// filterExistingRelations drops relation state entries whose relations
+// no longer exist, and returns one existence assertion per retained
+// relation for the caller to append to the write transaction. The
+// filter runs outside the transaction: a relation could be removed
+// between the query and the commit, and if its queued relation-state
+// cleanup ran first, the stale key would be written back with nothing
+// left to remove it. Asserting existence in the write transaction
+// aborts on such a removal and retries with a fresh filter.
+func (op *unitSetStateOperation) filterExistingRelations(rState map[string]string) (map[string]string, []txn.Op, error) {
+	// The uniter writes relation state for the relations it believes it is
+	// part of. Relations can be removed by force (or removed while the unit
+	// agent was down), in which case the unitstate gets out of sync.
+	// Only persist relation state for relations that still exist.
+	ids := make([]int, 0, len(rState))
+	for k := range rState {
+		if id, err := strconv.Atoi(k); err == nil {
+			ids = append(ids, id)
+		} else {
+			// Should never happen.
+			unitLogger.Warningf("dropping non-numeric relation-state key %q for unit %q", k, op.u.Name())
+		}
+	}
+	if len(ids) == 0 {
+		return map[string]string{}, nil, nil
+	}
+	relations, closer, err := op.u.st.db().GetCollection(relationsC)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	defer closer()
+	var docs []struct {
+		Id  int    `bson:"id"`
+		Key string `bson:"key"`
+	}
+	if err := relations.Find(bson.M{"id": bson.M{"$in": ids}}).Select(bson.M{"id": 1, "key": 1}).All(&docs); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	existing := make(map[int]bool, len(docs))
+	relationAsserts := make([]txn.Op, len(docs))
+	for i, doc := range docs {
+		existing[doc.Id] = true
+		// Guard the relation against concurrent removal.
+		// Assert the numeric id as well as existence: remove and recreate
+		// of the same endpoint key reuses the document id with a new
+		// numeric id, which the existence assert alone would let through,
+		// persisting state under a deleted relation id.
+		relationAsserts[i] = txn.Op{
+			C:      relationsC,
+			Id:     op.u.st.docID(doc.Key),
+			Assert: bson.D{{"id", doc.Id}},
+		}
+	}
+	filtered := make(map[string]string, len(rState))
+	for k, v := range rState {
+		if id, err := strconv.Atoi(k); err == nil && existing[id] {
+			filtered[k] = v
+		}
+	}
+	return filtered, relationAsserts, nil
 }
 
 // fields returns set and unset bson required to update the unit state doc
-// based the current data stored compared to this operation.
-func (op *unitSetStateOperation) fields(currentDoc unitStateDoc) (bson.D, bson.D, error) {
+// based the current data stored compared to this operation, along with one
+// existence assertion per retained relation (see filterExistingRelations).
+func (op *unitSetStateOperation) fields(currentDoc unitStateDoc) (bson.D, bson.D, []txn.Op, error) {
 	// Handling fields of op.newState:
 	// If a pointer is nil, ignore it.
 	// If the value referenced by the pointer is empty, remove that thing.
 	// If there is a value referenced by the pointer, set the value if a string, or merge the data.
 	setFields := bson.D{}
 	unsetFields := bson.D{}
+	var relationAsserts []txn.Op
 
 	// Check if we need to update the charm state
 	if chState, found := op.newState.CharmState(); found {
@@ -170,9 +241,9 @@ func (op *unitSetStateOperation) fields(currentDoc unitStateDoc) (bson.D, bson.D
 				quotaChecker.Check(escapedCharmState)
 				if err := quotaChecker.Outcome(); err != nil {
 					if errors.IsQuotaLimitExceeded(err) {
-						return nil, nil, errors.Annotatef(err, "persisting charm state")
+						return nil, nil, nil, errors.Annotatef(err, "persisting charm state")
 					}
-					return nil, nil, errors.Trace(err)
+					return nil, nil, nil, errors.Trace(err)
 				}
 			}
 		}
@@ -195,9 +266,18 @@ func (op *unitSetStateOperation) fields(currentDoc unitStateDoc) (bson.D, bson.D
 	if rState, found := op.newState.relationStateBSONFriendly(); found {
 		if len(rState) == 0 {
 			unsetFields = append(unsetFields, bson.DocElem{Name: "relation-state"})
-		} else if matches := currentDoc.relationStateMatches(rState); !matches {
-			setFields = append(setFields, bson.DocElem{"relation-state", rState})
-			quotaChecker.Check(rState)
+		} else {
+			var filterErr error
+			rState, relationAsserts, filterErr = op.filterExistingRelations(rState)
+			if filterErr != nil {
+				return nil, nil, nil, errors.Trace(filterErr)
+			}
+			if len(rState) == 0 {
+				unsetFields = append(unsetFields, bson.DocElem{Name: "relation-state"})
+			} else if matches := currentDoc.relationStateMatches(rState); !matches {
+				setFields = append(setFields, bson.DocElem{"relation-state", rState})
+				quotaChecker.Check(rState)
+			}
 		}
 	} else {
 		quotaChecker.Check(currentDoc.RelationState)
@@ -223,12 +303,12 @@ func (op *unitSetStateOperation) fields(currentDoc unitStateDoc) (bson.D, bson.D
 
 	if err := quotaChecker.Outcome(); err != nil {
 		if errors.IsQuotaLimitExceeded(err) {
-			return nil, nil, errors.Annotatef(err, "persisting internal uniter state")
+			return nil, nil, nil, errors.Annotatef(err, "persisting internal uniter state")
 		}
-		return nil, nil, errors.Trace(err)
+		return nil, nil, nil, errors.Trace(err)
 	}
 
-	return setFields, unsetFields, nil
+	return setFields, unsetFields, relationAsserts, nil
 }
 
 func (op *unitSetStateOperation) getCharmStateQuotaChecker() quota.Checker {

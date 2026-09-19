@@ -196,6 +196,17 @@ func (ctrl *Controller) Import(model description.Model) (_ *State, err error) {
 	if err := restore.relations(); err != nil {
 		return nil, errors.Annotate(err, "relations")
 	}
+	// Unit states are written after relations so that the relation-state
+	// filter in the unitstate write path can consult the relations
+	// collection: at the applications phase it would be empty and every
+	// relation-state key would be dropped.
+	// Each phase commits its own transactions as it completes, so a
+	// failure here leaves the already imported applications and
+	// relations in the target model; the source controller's
+	// Abort call then removes those partial docs.
+	if err := restore.unitStates(); err != nil {
+		return nil, errors.Annotate(err, "unitstates")
+	}
 	if err := restore.offerConnections(); err != nil {
 		return nil, errors.Annotate(err, "offerconnections")
 	}
@@ -334,6 +345,19 @@ type importer struct {
 	// map of application name to the units of that application.
 	applicationUnits map[string]map[string]*Unit
 	charmOrigins     map[string]*CharmOrigin
+	// unitStateRecords pairs each imported unit with its source description
+	// unit. The unitstates documents cannot be written during the
+	// applications phase: the relation-state filter in the write path
+	// consults the relations collection, which is only populated when
+	// relations are imported afterwards. The records are imported once
+	// relations exist, so they can be filtered.
+	unitStateRecords []unitStateRecord
+}
+
+// unitStateRecord pairs an imported unit with its source description unit.
+type unitStateRecord struct {
+	unit *Unit
+	desc description.Unit
 }
 
 func (i *importer) modelExtras() error {
@@ -864,11 +888,6 @@ func (i *importer) makeAddresses(addrs []description.Address) []address {
 func (i *importer) applications() error {
 	i.logger.Debugf("importing applications")
 
-	ctrlCfg, err := i.st.ControllerConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	// Ensure we import principal applications first, so that
 	// subordinate units can refer to the principal ones.
 	var principals, subordinates []description.Application
@@ -883,7 +902,7 @@ func (i *importer) applications() error {
 	i.charmOrigins = make(map[string]*CharmOrigin, len(principals)+len(subordinates))
 
 	for _, s := range append(principals, subordinates...) {
-		if err := i.application(s, ctrlCfg); err != nil {
+		if err := i.application(s); err != nil {
 			i.logger.Errorf("error importing application %s: %s", s.Name(), err)
 			return errors.Annotate(err, s.Name())
 		}
@@ -943,7 +962,7 @@ func (i *importer) makeStatusDoc(statusVal description.Status) statusDoc {
 	return doc
 }
 
-func (i *importer) application(a description.Application, ctrlCfg controller.Config) error {
+func (i *importer) application(a description.Application) error {
 	// Import this application, then its units.
 	i.logger.Debugf("importing application %s", a.Name())
 
@@ -1046,7 +1065,7 @@ func (i *importer) application(a description.Application, ctrlCfg controller.Con
 	}
 
 	for _, unit := range a.Units() {
-		if err := i.unit(a, unit, ctrlCfg); err != nil {
+		if err := i.unit(a, unit); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1197,7 +1216,7 @@ func (i *importer) storageConstraints(cons map[string]description.StorageDirecti
 	return result
 }
 
-func (i *importer) unit(s description.Application, u description.Unit, ctrlCfg controller.Config) error {
+func (i *importer) unit(s description.Application, u description.Unit) error {
 	i.logger.Debugf("importing unit %s", u.Name())
 
 	// 1. construct a unitDoc
@@ -1303,11 +1322,29 @@ func (i *importer) unit(s description.Application, u description.Unit, ctrlCfg c
 	if err := i.importStatusHistory(unit.globalWorkloadVersionKey(), u.WorkloadVersionHistory()); err != nil {
 		return errors.Trace(err)
 	}
-	if err := i.importUnitState(unit, u, ctrlCfg); err != nil {
-		return errors.Trace(err)
-	}
+	// The unit state is not imported here; see unitStates.
+	i.unitStateRecords = append(i.unitStateRecords, unitStateRecord{unit: unit, desc: u})
 	if i.dbModel.Type() == ModelTypeIAAS {
 		if err := i.importUnitPayloads(unit, u.Payloads()); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// unitStates imports the persisted state of every unit. It runs *after* the
+// relations phase so that the relation state filter in the unitstate write
+// workflow sees the relations that exist in the imported model.
+// Relation state referencing relations missing from the source is
+// cleansed on the way in.
+func (i *importer) unitStates() error {
+	i.logger.Debugf("importing unit states")
+	ctrlCfg, err := i.st.ControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, seed := range i.unitStateRecords {
+		if err := i.importUnitState(seed.unit, seed.desc, ctrlCfg); err != nil {
 			return errors.Trace(err)
 		}
 	}

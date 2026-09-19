@@ -8,6 +8,11 @@
 #  3. The offering model is migrated to a third controller.
 #  4. The consumer consumes the offer again, this time from the new
 #     controller, and relates to it.
+#
+# A second scenario, run_offer_migrate_active_relation, tests migrating
+# an offering model while a cross-model relation is still live: the offer
+# connection must survive the migration and the relation must
+# re-establish data flow from the new controller.
 run_offer_consume_migrate() {
 	# Echo out to ensure nice output to the test suite.
 	echo
@@ -49,21 +54,23 @@ run_offer_consume_migrate() {
 	# model-offer-1 model UUID until it is explicitly moved.
 	juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer-2.offer-two"
 
-	# Set the source token so the relation is functional.
-	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}:model-offer-1"
-	juju config dummy-source token=foo-token
-	juju switch "cmr-consume:model-consume"
-	wait_for "foo-token" "$(workload_status "dummy-sink" 0).message"
+	echo "Remove the offer-one saas, then migrate its offering model"
+	juju remove-relation dummy-sink offer-one
+	juju remove-saas offer-one
+	# The offer-two saas is retained, so the offering controller record persists.
+	wait_for null '.applications["dummy-sink"] | .relations'
+	wait_for null '.["application-endpoints"]["offer-one"]'
 
-	# Wait for the offering model to show the active connection before
-	# migrating. The migration precheck requires both sides to be in scope.
+	# The cross-model relation must be fully torn down on the offering side as
+	# well, otherwise migration prechecks fail with a unit "hasn't joined
+	# relation" error (see the workaround in model/migration.sh).
 	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}:model-offer-1"
-	wait_for "1" '.offers["offer-one"]."total-connected-count"'
+	wait_for null '.relations'
+	wait_for null '.offers["offer-one"]."total-connected-count"'
 
-	# The offering model is migrated to a new controller while the
-	# consumer's relation and saas for offer-one are still live. The
-	# source controller redirects the consumer to the new controller,
-	# which updates the consumer's external controller record.
+	# The offering model is migrated to a new controller. The consumer has no
+	# saas for offer-one any more, so nothing updates its external controller info
+	# via a migration redirect.
 	echo "Migrate the offering model to the new controller"
 	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 	if ! migrate_out=$(juju migrate "model-offer-1" "cmr-migrate" 2>&1); then
@@ -85,29 +92,6 @@ run_offer_consume_migrate() {
 			exit 1
 		fi
 	done
-
-	echo "Verify the offer connection info"
-	juju switch "cmr-migrate:model-offer-1"
-	wait_for "1" '.offers["offer-one"]."total-connected-count"' 180
-
-	# Wait for the relation to re-establish data flow on the consumer:
-	# after the offering model has migrated its source unit must rejoin
-	# and republish its relation settings (including the token) from
-	# the new controller.
-	juju switch "cmr-consume:model-consume"
-	wait_for "foo-token" "$(workload_status "dummy-sink" 0).message" 180
-
-	# Now remove the relation and saas on the consumer so it can
-	# re-consume from the new controller.
-	echo "Remove the offer-one saas to re-consume from the new controller"
-	juju switch "cmr-consume:model-consume"
-	juju remove-relation dummy-sink offer-one
-	juju remove-saas offer-one
-	wait_for null '.applications["dummy-sink"] | .relations'
-	wait_for null '.["application-endpoints"]["offer-one"]'
-
-	juju switch "cmr-migrate:model-offer-1"
-	wait_for null '.offers["offer-one"]."total-connected-count"' 180
 
 	echo "Re-consume the offer from the new controller"
 	juju switch "cmr-consume:model-consume"
@@ -147,6 +131,124 @@ run_offer_consume_migrate() {
 	destroy_model "model-offer-2"
 }
 
+# Migrating an offering model with a live cross-model relation:
+#  1. A consumer relates to an offer, and the relation is verified
+#     functional (the offered token reaches the consuming unit).
+#  2. The offering model is migrated to a new controller while the
+#     relation is live.
+#  3. The offer connection survives the migration and the relation
+#     re-establishes data flow from the new controller, including new
+#     settings published after the migration.
+run_offer_migrate_active_relation() {
+	# Echo out to ensure nice output to the test suite.
+	echo
+
+	# The following ensures that a bootstrap juju exists.
+	file="${TEST_DIR}/test-offer-migrate-active-relation.log"
+	ensure "model-offer-live" "${file}"
+
+	echo "Bootstrap consumer and migration target controllers"
+	bootstrap_alt_controller "cmr-live-consume"
+	bootstrap_alt_controller "cmr-live-migrate"
+
+	echo "Deploy the offered application and create the offer"
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	juju deploy juju-qa-dummy-source --series jammy
+	juju offer dummy-source:sink live-offer
+	wait_for "dummy-source" "$(idle_condition "dummy-source")"
+
+	echo "Deploy workload in the consumer model and relate across models"
+	juju switch "cmr-live-consume"
+	add_model "model-consume-live"
+	juju deploy juju-qa-dummy-sink --series jammy
+	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
+
+	juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer-live.live-offer"
+	juju relate dummy-sink live-offer
+	# Wait for the relation to be joined before setting the token.
+	wait_for "live-offer" '.applications["dummy-sink"] | .relations.source[0]'
+
+	echo "Verify the relation is functional before migrating"
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}:model-offer-live"
+	juju config dummy-source token=foo-token
+	juju switch "cmr-live-consume:model-consume-live"
+	wait_for "foo-token" "$(workload_status "dummy-sink" 0).message"
+
+	echo "Migrate the offering model while the relation is live"
+	# The source migration prechecks fail with a unit "hasn't joined
+	# relation" error until the offering unit has fully joined the
+	# relation scope (see the same workaround in model/migration.sh).
+	# A precheck failure has no side effects, so poll the migrate
+	# command itself rather than sleeping for a fixed time.
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}:model-offer-live"
+	wait_for "1" '.offers["live-offer"].active-connected-count' 180
+
+	migrate_ok=false
+	attempt=0
+	until [ "${migrate_ok}" = "true" ]; do
+		attempt=$((attempt + 1))
+		if migrate_out=$(juju migrate "model-offer-live" "cmr-live-migrate" 2>&1); then
+			migrate_ok=true
+			continue
+		fi
+		if [ "${attempt}" -ge 30 ]; then
+			echo "$(red 'migrate failed')"
+			echo "${migrate_out}" | sed 's/^/    | /'
+			exit 1
+		fi
+		echo "[+] (attempt ${attempt}) waiting for the offering unit to join the relation before migrating"
+		sleep 5
+	done
+
+	# Wait for the model to appear on the target controller.
+	echo "Wait for the model to appear on the target controller"
+	attempt=0
+	until [ "$(juju models --controller cmr-live-migrate --format=json 2>/dev/null | yq -r '.models[] | .["short-name"]' | grep -E '^model-offer-live$')" ]; do
+		echo "[+] (attempt ${attempt}) waiting for migration of model-offer-live to cmr-live-migrate"
+		juju models --controller cmr-live-migrate 2>/dev/null | sed 's/^/    | /'
+		sleep 5
+		attempt=$((attempt + 1))
+		if [ "${attempt}" -ge 120 ]; then
+			echo "$(red 'timed out waiting for model-offer-live to migrate to cmr-live-migrate')"
+			exit 1
+		fi
+	done
+
+	echo "Verify the offer connection survived the migration"
+	juju switch "cmr-live-migrate:model-offer-live"
+	wait_for "1" '.offers["live-offer"].active-connected-count' 180
+
+	echo "Wait for the relation to re-establish data flow from the new controller"
+	# After the offering model has migrated, its source unit rejoins and
+	# republishes its relation settings (including the token) from the
+	# new controller.
+	juju switch "cmr-live-consume:model-consume-live"
+	wait_for "foo-token" "$(workload_status "dummy-sink" 0).message" 180
+
+	echo "Verify new settings flow through the migrated relation"
+	juju switch "cmr-live-migrate:model-offer-live"
+	juju config dummy-source token=yeah-boi
+	juju switch "cmr-live-consume:model-consume-live"
+	wait_for "yeah-boi" "$(workload_status "dummy-sink" 0).message"
+
+	echo "Clean up"
+	# Offers must be removed before controller destruction will work.
+	# See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
+	juju switch "cmr-live-consume:model-consume-live"
+	juju remove-relation dummy-sink live-offer
+	juju remove-saas live-offer
+
+	juju switch "cmr-live-migrate:model-offer-live"
+	wait_for null '.offers["live-offer"]."total-connected-count"'
+	juju remove-offer "cmr-live-migrate:admin/model-offer-live.live-offer" --force -y
+
+	destroy_controller "cmr-live-consume"
+	destroy_controller "cmr-live-migrate"
+
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	destroy_model "model-offer-live"
+}
+
 test_offer_consume_migrate() {
 	if [ "$(skip 'test_offer_consume_migrate')" ]; then
 		echo "==> TEST SKIPPED: offer consume migrate"
@@ -159,5 +261,6 @@ test_offer_consume_migrate() {
 		cd .. || exit
 
 		run "run_offer_consume_migrate"
+		run "run_offer_migrate_active_relation"
 	)
 }
