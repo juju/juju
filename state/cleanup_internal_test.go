@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
@@ -16,6 +17,31 @@ type cleanupInternalSuite struct {
 }
 
 var _ = gc.Suite(&cleanupInternalSuite{})
+
+func (s *cleanupInternalSuite) TestRemoveDyingRemoteApplicationOnForce(c *gc.C) {
+	remote, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        "remote",
+		SourceModel: names.NewModelTag("source-model"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	coll, closer, err := s.state.db().GetCollection(remoteApplicationsC)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	err = coll.Writeable().UpdateId(s.state.docID(remote.Name()), bson.M{
+		"$set": bson.M{"life": Dying},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	noForce := false
+	c.Assert(s.state.removeRemoteApplicationsForDyingModel(DestroyModelParams{Force: &noForce}), jc.ErrorIsNil)
+	c.Assert(remote.Refresh(), jc.ErrorIsNil)
+	c.Check(remote.Life(), gc.Equals, Dying)
+
+	force := true
+	c.Assert(s.state.removeRemoteApplicationsForDyingModel(DestroyModelParams{Force: &force}), jc.ErrorIsNil)
+	c.Check(remote.Refresh(), jc.Satisfies, errors.IsNotFound)
+}
 
 func (s *cleanupInternalSuite) TestRemoveRemoteApplicationsForDyingModelContinuesAfterFailure(c *gc.C) {
 	s.assertRemoveRemoteApplicationsAfterFailure(c, true)
