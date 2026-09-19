@@ -26,7 +26,7 @@ func (s *steps3629Suite) TestFixApplicationCounts(c *gc.C) {
 }
 
 func (s *steps3629Suite) TestRemoveOrphanedApplicationRelations(c *gc.C) {
-	step := findStateStep(c, v3629, "remove relations with dangling application references")
+	step := findStateStep(c, v3629, "remove relations with orphaned application references")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
 

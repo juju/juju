@@ -16,7 +16,7 @@ func stateStepsFor3629() []Step {
 			},
 		},
 		&upgradeStep{
-			description: "remove relations with dangling application references",
+			description: "remove relations with orphaned application references",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return context.State().RemoveOrphanedApplicationRelations()

@@ -116,10 +116,35 @@ func defaultModelArgs(modelArgs *ModelArgs, cfg *config.Config, owner names.User
 	return *modelArgs
 }
 
+// remoteAppOption overrides one aspect of the remote application created
+// by makeRemoteApplication.
+type remoteAppOption func(*AddRemoteApplicationParams)
+
+// withRemoteRole overrides the role of the remote application's "db"
+// endpoint.
+func withRemoteRole(role charm.RelationRole) remoteAppOption {
+	return func(params *AddRemoteApplicationParams) {
+		params.Endpoints[0].Role = role
+	}
+}
+
+// withConsumerProxy marks the remote application a consumer proxy.
+func withConsumerProxy(params *AddRemoteApplicationParams) {
+	params.IsConsumerProxy = true
+}
+
+// withRemoteEndpointLimit overrides the relation limit of the remote
+// application's "db" endpoint.
+func withRemoteEndpointLimit(limit int) remoteAppOption {
+	return func(params *AddRemoteApplicationParams) {
+		params.Endpoints[0].Limit = limit
+	}
+}
+
 // makeRemoteApplication creates a remote application with a "db" provider
 // endpoint, as used by the cross-model relation repair upgrade tests.
-func (s *upgradesSuite) makeRemoteApplication(c *gc.C, name string) *RemoteApplication {
-	app, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
+func (s *upgradesSuite) makeRemoteApplication(c *gc.C, name string, options ...remoteAppOption) *RemoteApplication {
+	params := AddRemoteApplicationParams{
 		Name:        name,
 		SourceModel: names.NewModelTag("source-model"),
 		OfferUUID:   "offer-" + name,
@@ -132,7 +157,11 @@ func (s *upgradesSuite) makeRemoteApplication(c *gc.C, name string) *RemoteAppli
 			Scope:     charm.ScopeGlobal,
 		}},
 		ConsumeVersion: 1,
-	})
+	}
+	for _, option := range options {
+		option(&params)
+	}
+	app, err := s.state.AddRemoteApplication(params)
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 }
@@ -154,6 +183,34 @@ func (s *upgradesSuite) mkRel(c *gc.C, ch *Charm, appName string, proxy *RemoteA
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ru.EnterScope(nil), jc.ErrorIsNil)
 	return rel, wpUnit
+}
+
+// mkRemoteRelation creates a remote application with a "db" requirer
+// endpoint and relates it to a fresh local "mysql" application. No unit
+// is added, so the relation has no scope or unit settings documents.
+func (s *upgradesSuite) mkRemoteRelation(c *gc.C, name string, options ...remoteAppOption) (*Relation, *Application) {
+	rapp := s.makeRemoteApplication(c, name,
+		append([]remoteAppOption{withRemoteRole(charm.RoleRequirer)}, options...)...)
+	remoteEP, err := rapp.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := AddTestingApplication(c, s.state, "mysql", AddTestingCharm(c, s.state, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.state.AddRelation(remoteEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+	return rel, mysql
+}
+
+// mkRemoteRelationWithUnit is mkRemoteRelation with a unit of the local
+// application entered into the relation scope.
+func (s *upgradesSuite) mkRemoteRelationWithUnit(c *gc.C, name string, options ...remoteAppOption) (*Relation, *Unit) {
+	rel, mysql := s.mkRemoteRelation(c, name, options...)
+	unit, err := mysql.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel.Unit(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ru.EnterScope(nil), jc.ErrorIsNil)
+	return rel, unit
 }
 
 func (s *upgradesSuite) relPrefix(rel *Relation) string {
@@ -1005,31 +1062,10 @@ func (s *upgradesSuite) TestRemoveOrphanedRelationDocs(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestFixApplicationCountsNoRecurrence(c *gc.C) {
-	app, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "cycle",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   "offer-cycle",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     1,
-			Name:      "db",
-			Role:      charm.RoleProvider,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	wp := AddTestingApplication(c, s.state, "wp", AddTestingCharm(c, s.state, "wordpress"))
-	proxyEP, err := app.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	wpEP, err := wp.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.state.AddRelation(proxyEP, wpEP)
-	c.Assert(err, jc.ErrorIsNil)
-	wpUnit, err := wp.AddUnit(AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	app := s.makeRemoteApplication(c, "cycle")
+	rel, wpUnit := s.mkRel(c, AddTestingCharm(c, s.state, "wordpress"), "wp", app)
 	wpru, err := rel.Unit(wpUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wpru.EnterScope(nil), jc.ErrorIsNil)
 
 	// A no-op on this healthy state.
 	c.Assert(FixApplicationCounts(s.pool), jc.ErrorIsNil)
@@ -1056,52 +1092,27 @@ func (s *upgradesSuite) TestFixApplicationCountsNoRecurrence(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestRemoveOrphanedApplicationRelations(c *gc.C) {
-	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "remote-dangling",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   "offer-dangling",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     1,
-			Name:      "db",
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	remoteEP, err := rapp.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	ch := AddTestingCharm(c, s.state, "mysql")
-	mysql := AddTestingApplication(c, s.state, "mysql", ch)
-	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.state.AddRelation(remoteEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
-	mysqlUnit, err := mysql.AddUnit(AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	ru, err := rel.Unit(mysqlUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ru.EnterScope(nil), jc.ErrorIsNil)
+	rel, mysqlUnit := s.mkRemoteRelationWithUnit(c, "remote-orphaned")
 
 	// Persist unit relation state for the relation which will be broken.
 	us := NewUnitState()
 	us.SetRelationState(map[int]string{rel.Id(): "checkpoint"})
-	err = mysqlUnit.SetState(us, UnitStateSizeLimits{})
+	err := mysqlUnit.SetState(us, UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The remote application document disappears while
 	// the relation stays alive.
 	appsColl, appsCloser, err := s.state.db().GetRawCollection("remoteApplications")
 	c.Assert(err, jc.ErrorIsNil)
-	err = appsColl.RemoveId(s.state.docID("remote-dangling"))
+	err = appsColl.RemoveId(s.state.docID("remote-orphaned"))
 	appsCloser()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(RemoveOrphanedApplicationRelations(s.pool), jc.ErrorIsNil)
 
-	// With a unit in scope the relation is torn down via the deferred
-	// force cleanup; run the cleanups to complete it (twice: the relation
-	// removal queues further scope/settings cleanups).
+	// The step removes the relation and its documents directly. Running
+	// the cleanups (twice, in case processing one queues another) ensures
+	// that no deferred work errors or re-creates them.
 	noopDeleter := func(*secrets.URI, int) error { return nil }
 	for i := 0; i < 2; i++ {
 		c.Assert(s.state.Cleanup(noopDeleter), jc.ErrorIsNil)
@@ -1134,8 +1145,8 @@ func (s *upgradesSuite) TestRemoveOrphanedApplicationRelations(c *gc.C) {
 	c.Assert(appDoc.RelationCount, gc.Equals, 0)
 
 	// The persisted unit relation state for the destroyed relation is
-	// cleared too, so the deferred force cleanup cannot recreate the
-	// stale reference after the upgrade completes.
+	// cleared too, and the step deletes the relation's queued cleanups
+	// so no deferred work can recreate the stale reference.
 	uState, err := mysqlUnit.State()
 	c.Assert(err, jc.ErrorIsNil)
 	rst, found := uState.RelationState()
@@ -1144,63 +1155,21 @@ func (s *upgradesSuite) TestRemoveOrphanedApplicationRelations(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsMalformedName(c *gc.C) {
-	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "remote-malformed",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   "offer-malformed",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     1,
-			Name:      "db",
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	remoteEP, err := rapp.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	ch := AddTestingCharm(c, s.state, "mysql")
-	mysql := AddTestingApplication(c, s.state, "mysql", ch)
-	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.state.AddRelation(remoteEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
+	rel, _ := s.mkRemoteRelation(c, "remote-malformed")
 
 	// Corrupt one endpoint's application name into something that can
 	// never be valid, directly in the DB.
 	s.corruptEndpointAppName(c, rel, "mysql", "bad name!")
 
 	// The step must remove the relation rather than error out.
-	err = RemoveOrphanedApplicationRelations(s.pool)
+	err := RemoveOrphanedApplicationRelations(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.state.Relation(rel.Id())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsDestroyFailed(c *gc.C) {
-	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "remote-missing",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   "offer-missing",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     1,
-			Name:      "db",
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	remoteEP, err := rapp.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	ch := AddTestingCharm(c, s.state, "mysql")
-	mysql := AddTestingApplication(c, s.state, "mysql", ch)
-	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-	mysqlUnit, err := mysql.AddUnit(AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.state.AddRelation(remoteEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
+	rel, mysqlUnit := s.mkRemoteRelationWithUnit(c, "remote-missing")
 
 	// Force remove relation op to fail.
 	appsColl, appsCloser, err := s.state.db().GetRawCollection("remoteApplications")
@@ -1242,34 +1211,14 @@ func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsDestroyFailed(c *g
 }
 
 func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsChildRecords(c *gc.C) {
-	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "remote-dangling",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   "offer-dangling",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     1,
-			Name:      "db",
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	remoteEP, err := rapp.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	ch := AddTestingCharm(c, s.state, "mysql")
-	mysql := AddTestingApplication(c, s.state, "mysql", ch)
-	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.state.AddRelation(remoteEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
+	rel, _ := s.mkRemoteRelation(c, "remote-orphaned")
 
 	relTag := names.NewRelationTag(rel.String()).String()
 	statusID := s.state.docID(fmt.Sprintf("r#%d", rel.Id()))
 	netID := s.state.docID(rel.String() + ":ingress:default")
 	entityID := s.state.docID(relTag)
 	connID := s.state.docID(strconv.Itoa(rel.Id()))
-	permID := s.state.docID("perm-dangling")
+	permID := s.state.docID("perm-orphaned")
 	otherPermID := s.state.docID("perm-other")
 	seed := func(collName, docID string, extra bson.M) {
 		coll, closer, err := s.state.db().GetRawCollection(collName)
@@ -1315,7 +1264,7 @@ func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsChildRecords(c *gc
 	// stays alive.
 	appsColl, appsCloser, err := s.state.db().GetRawCollection("remoteApplications")
 	c.Assert(err, jc.ErrorIsNil)
-	err = appsColl.RemoveId(s.state.docID("remote-dangling"))
+	err = appsColl.RemoveId(s.state.docID("remote-orphaned"))
 	appsCloser()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1335,27 +1284,7 @@ func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsChildRecords(c *gc
 }
 
 func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsDyingAppCleanup(c *gc.C) {
-	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "remote-dangling",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   "offer-dangling",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     1,
-			Name:      "db",
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	remoteEP, err := rapp.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	ch := AddTestingCharm(c, s.state, "mysql")
-	mysql := AddTestingApplication(c, s.state, "mysql", ch)
-	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.state.AddRelation(remoteEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
+	rel, _ := s.mkRemoteRelation(c, "remote-orphaned")
 
 	// The surviving local application is dying with no units; the
 	// relation is its only remaining reference.
@@ -1369,7 +1298,7 @@ func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsDyingAppCleanup(c 
 	// stays alive.
 	appsColl, appsCloser, err := s.state.db().GetRawCollection("remoteApplications")
 	c.Assert(err, jc.ErrorIsNil)
-	err = appsColl.RemoveId(s.state.docID("remote-dangling"))
+	err = appsColl.RemoveId(s.state.docID("remote-orphaned"))
 	appsCloser()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1417,27 +1346,7 @@ func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsDyingAppCleanup(c 
 }
 
 func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsDyingRemoteApp(c *gc.C) {
-	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "remote-dying",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   "offer-dying",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     1,
-			Name:      "db",
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	remoteEP, err := rapp.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	ch := AddTestingCharm(c, s.state, "mysql")
-	mysql := AddTestingApplication(c, s.state, "mysql", ch)
-	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.state.AddRelation(remoteEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
+	rel, _ := s.mkRemoteRelation(c, "remote-dying")
 
 	// The surviving remote application is dying and this relation is
 	// its last reference.
@@ -1462,28 +1371,7 @@ func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsDyingRemoteApp(c *
 }
 
 func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsConsumerProxyLastRelation(c *gc.C) {
-	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "remote-proxy",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   "offer-proxy",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     1,
-			Name:      "db",
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-		}},
-		IsConsumerProxy: true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	remoteEP, err := rapp.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	ch := AddTestingCharm(c, s.state, "mysql")
-	mysql := AddTestingApplication(c, s.state, "mysql", ch)
-	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.state.AddRelation(remoteEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
+	rel, _ := s.mkRemoteRelation(c, "remote-proxy", withConsumerProxy)
 
 	// The local endpoint's application name is corrupted.
 	s.corruptEndpointAppName(c, rel, "mysql", "bad name!")
@@ -1492,26 +1380,14 @@ func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsConsumerProxyLastR
 
 	// The relation is gone and the consumer proxy, whose last relation
 	// it was, is removed with it, mirroring normal relation removal.
-	_, err = s.state.Relation(rel.Id())
+	_, err := s.state.Relation(rel.Id())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.state.RemoteApplication("remote-proxy")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsDyingRemoteAppMultiple(c *gc.C) {
-	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "remote-dying",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   "offer-dying",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     2,
-			Name:      "db",
-			Role:      charm.RoleProvider,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	rapp := s.makeRemoteApplication(c, "remote-dying", withRemoteEndpointLimit(2))
 	remoteEP, err := rapp.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
 	ch := AddTestingCharm(c, s.state, "wordpress")
@@ -1578,27 +1454,7 @@ func (s *upgradesSuite) corruptEndpointAppName(c *gc.C, rel *Relation, appName, 
 }
 
 func (s *upgradesSuite) TestRemoveOrphanedRelationDocsRecreatesApplicationSettingsNoOtherDocs(c *gc.C) {
-	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "remote-bare",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   "offer-uuid",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     1,
-			Name:      "db",
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	remoteEP, err := rapp.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	ch := AddTestingCharm(c, s.state, "mysql")
-	mysql := AddTestingApplication(c, s.state, "mysql", ch)
-	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.state.AddRelation(remoteEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
+	rel, _ := s.mkRemoteRelation(c, "remote-bare")
 
 	// No unit ever enters scope, so the relation's only r#-prefixed
 	// documents are the two application settings docs.
@@ -1624,37 +1480,17 @@ func (s *upgradesSuite) TestRemoveOrphanedRelationDocsRecreatesApplicationSettin
 	c.Assert(s.countDocs(c, "settings", prefix), gc.Equals, 2)
 }
 
-func (s *upgradesSuite) TestRemoveOrphanedRelationDocsSkipsAppSettingsForDanglingApps(c *gc.C) {
-	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "remote-dangling",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   "offer-uuid",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     1,
-			Name:      "db",
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	remoteEP, err := rapp.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	ch := AddTestingCharm(c, s.state, "mysql")
-	mysql := AddTestingApplication(c, s.state, "mysql", ch)
-	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.state.AddRelation(remoteEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *upgradesSuite) TestRemoveOrphanedRelationDocsSkipsAppSettingsForOrphanedApps(c *gc.C) {
+	rel, _ := s.mkRemoteRelation(c, "remote-orphaned")
 
 	// Corrupt the local endpoint name and make the relation's removal
 	// fail (the remote application's relationcount is already zero), so
 	// the relation survives the orphaned application repair step with an
 	// orphaned endpoint.
 	s.corruptEndpointAppName(c, rel, "mysql", "bad name!")
-	s.setRemoteCount(c, "remote-dangling", 0)
+	s.setRemoteCount(c, "remote-orphaned", 0)
 	c.Assert(RemoveOrphanedApplicationRelations(s.pool), jc.ErrorIsNil)
-	_, err = s.state.Relation(rel.Id())
+	_, err := s.state.Relation(rel.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Delete the relation's application settings docs; no other r#
@@ -1670,7 +1506,7 @@ func (s *upgradesSuite) TestRemoveOrphanedRelationDocsSkipsAppSettingsForDanglin
 
 	c.Assert(RemoveOrphanedRelationDocs(s.pool), jc.ErrorIsNil)
 
-	// The relation has a dangling endpoint application, so its docs are
+	// The relation has a orphaned endpoint application, so its docs are
 	// left for manual repair: nothing is recreated.
 	c.Assert(s.countDocs(c, "settings", prefix), gc.Equals, 0)
 }
@@ -1697,32 +1533,7 @@ func (s *upgradesSuite) docIDsWithPrefix(c *gc.C, collName, prefix string) []str
 }
 
 func (s *upgradesSuite) TestRemoveOrphanedRelationDocsLeavesMissingUnitScopes(c *gc.C) {
-	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "remote-wp",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   "offer-uuid",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     1,
-			Name:      "db",
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	rwpEP, err := rapp.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	ch := AddTestingCharm(c, s.state, "mysql")
-	mysql := AddTestingApplication(c, s.state, "mysql", ch)
-	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.state.AddRelation(rwpEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
-	unit, err := mysql.AddUnit(AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	ru, err := rel.Unit(unit)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ru.EnterScope(nil), jc.ErrorIsNil)
+	rel, unit := s.mkRemoteRelationWithUnit(c, "remote-wp")
 
 	relPrefix := fmt.Sprintf("r#%d#", rel.Id())
 	countDocs := func(collName string) int {
@@ -1757,32 +1568,7 @@ func (s *upgradesSuite) TestRemoveOrphanedRelationDocsLeavesMissingUnitScopes(c 
 }
 
 func (s *upgradesSuite) TestRemoveOrphanedRelationDocsRecreatesApplicationSettings(c *gc.C) {
-	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "remote-proxy",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   "offer-uuid",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     1,
-			Name:      "db",
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	rwpEP, err := rapp.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	ch := AddTestingCharm(c, s.state, "mysql")
-	mysql := AddTestingApplication(c, s.state, "mysql", ch)
-	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.state.AddRelation(rwpEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
-	unit, err := mysql.AddUnit(AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	ru, err := rel.Unit(unit)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ru.EnterScope(nil), jc.ErrorIsNil)
+	rel, _ := s.mkRemoteRelationWithUnit(c, "remote-proxy")
 
 	relPrefix := fmt.Sprintf("r#%d#", rel.Id())
 	idsWithPrefix := func(collName string) []string {
@@ -1830,27 +1616,7 @@ func (s *upgradesSuite) TestRemoveOrphanedRelationDocsRecreatesApplicationSettin
 func (s *upgradesSuite) TestRemoveOrphanedUnitStateRelations(c *gc.C) {
 	// Create a relation and a unit in scope, then record persisted
 	// unit state for it plus a stale (deleted) relation id.
-	rwp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "remote-wordpress",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   "offer-uuid",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     1,
-			Name:      "db",
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	rwpEP, err := rwp.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	ch := AddTestingCharm(c, s.state, "mysql")
-	mysql := AddTestingApplication(c, s.state, "mysql", ch)
-	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.state.AddRelation(rwpEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
+	rel, mysql := s.mkRemoteRelation(c, "remote-wordpress")
 	relID := rel.Id()
 	unit, err := mysql.AddUnit(AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1888,27 +1654,7 @@ func (s *upgradesSuite) TestRemoveOrphanedUnitStateRelations(c *gc.C) {
 func (s *upgradesSuite) TestRemoveOrphanedUnitStateRelationsMultipleStale(c *gc.C) {
 	// Create a relation and a unit, then record persisted unit state
 	// for it plus two stale (deleted) relation ids.
-	rwp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "remote-wordpress",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   "offer-uuid",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     1,
-			Name:      "db",
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	rwpEP, err := rwp.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	ch := AddTestingCharm(c, s.state, "mysql")
-	mysql := AddTestingApplication(c, s.state, "mysql", ch)
-	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.state.AddRelation(rwpEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
+	rel, mysql := s.mkRemoteRelation(c, "remote-wordpress")
 	relID := rel.Id()
 	unit, err := mysql.AddUnit(AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1945,33 +1691,8 @@ func (s *upgradesSuite) TestRemoveOrphanedUnitStateRelationsMultipleStale(c *gc.
 	})
 }
 
-func (s *upgradesSuite) TestRemoveOrphanedRelationDocsLeavesDanglingEndpointDocs(c *gc.C) {
-	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
-		Name:        "remote-missing",
-		SourceModel: names.NewModelTag("source-model"),
-		OfferUUID:   "offer-missing",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     1,
-			Name:      "db",
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	remoteEP, err := rapp.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	ch := AddTestingCharm(c, s.state, "mysql")
-	mysql := AddTestingApplication(c, s.state, "mysql", ch)
-	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.state.AddRelation(remoteEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
-	mysqlUnit, err := mysql.AddUnit(AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	ru, err := rel.Unit(mysqlUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ru.EnterScope(nil), jc.ErrorIsNil)
+func (s *upgradesSuite) TestRemoveOrphanedRelationDocsLeavesOrphanedEndpointDocs(c *gc.C) {
+	rel, _ := s.mkRemoteRelationWithUnit(c, "remote-missing")
 	prefix := s.relPrefix(rel)
 	c.Assert(s.countDocs(c, "relationscopes", prefix), gc.Equals, 1)
 	c.Assert(s.countDocs(c, "settings", prefix), gc.Equals, 3)
@@ -2111,18 +1832,17 @@ func (s *upgradesSuite) TestUpgradeRepairsBrokenDB(c *gc.C) {
 
 	// relation whose remote application document is gone
 	// while the relation stayed alive.
-	dangling := s.makeRemoteApplication(c, "dangling")
-	danglingRel, danglingUnit := s.mkRel(c, ch, "dangling-wp", dangling)
-	// The bad relation's unit also has persisted relation state; it
-	// must be cleared along with the relation itself, even though the
-	// relation's removal is deferred to the force destroy cleanup.
-	danglingUS := NewUnitState()
-	danglingUS.SetRelationState(map[int]string{danglingRel.Id(): "checkpoint"})
-	err = danglingUnit.SetState(danglingUS, UnitStateSizeLimits{})
+	orphaned := s.makeRemoteApplication(c, "orphaned")
+	orphanedRel, orphanedUnit := s.mkRel(c, ch, "orphaned-wp", orphaned)
+	// The bad relation's unit also has persisted relation state; the
+	// step clears it along with the relation itself.
+	orphanedUS := NewUnitState()
+	orphanedUS.SetRelationState(map[int]string{orphanedRel.Id(): "checkpoint"})
+	err = orphanedUnit.SetState(orphanedUS, UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
 	appsColl, appsCloser, err := s.state.db().GetRawCollection("remoteApplications")
 	c.Assert(err, jc.ErrorIsNil)
-	err = appsColl.RemoveId(s.state.docID("dangling"))
+	err = appsColl.RemoveId(s.state.docID("orphaned"))
 	appsCloser()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2139,9 +1859,9 @@ func (s *upgradesSuite) TestUpgradeRepairsBrokenDB(c *gc.C) {
 		c.Assert(RemoveOrphanedRelationDocs(s.pool), jc.ErrorIsNil)
 		c.Assert(RemoveOrphanedUnitStateRelations(s.pool), jc.ErrorIsNil)
 	}
-	// The dangling relation is force-destroyed; complete the deferred
-	// scope/settings cleanups (twice: the removal queues further
-	// cleanups).
+	// The steps remove the orphaned relation and its documents directly.
+	// Running the cleanups (twice, in case processing one queues another)
+	// ensures that no deferred work errors or re-creates them.
 	noopDeleter := func(*secrets.URI, int) error { return nil }
 	for i := 0; i < 2; i++ {
 		c.Assert(s.state.Cleanup(noopDeleter), jc.ErrorIsNil)
@@ -2184,19 +1904,18 @@ func (s *upgradesSuite) TestUpgradeRepairsBrokenDB(c *gc.C) {
 	c.Assert(rst, gc.DeepEquals, map[int]string{
 		watcherRel.Id(): "checkpoint",
 	})
-	// The dangling relation and its satellites are destroyed and the
+	// The orphaned relation and its child records are destroyed and the
 	// local application's count reflects the removal.
-	_, err = s.state.Relation(danglingRel.Id())
+	_, err = s.state.Relation(orphanedRel.Id())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(s.countDocs(c, "relationscopes", s.relPrefix(danglingRel)), gc.Equals, 0)
-	c.Assert(s.countDocs(c, "settings", s.relPrefix(danglingRel)), gc.Equals, 0)
-	c.Assert(checkCount("applications", "dangling-wp"), gc.Equals, 0)
-	// The dangling relation's unit state is cleared as well; the
-	// deferred force cleanup runs only after the upgrade, so the step
-	// itself must remove the stale reference.
-	danglingUState, err := danglingUnit.State()
+	c.Assert(s.countDocs(c, "relationscopes", s.relPrefix(orphanedRel)), gc.Equals, 0)
+	c.Assert(s.countDocs(c, "settings", s.relPrefix(orphanedRel)), gc.Equals, 0)
+	c.Assert(checkCount("applications", "orphaned-wp"), gc.Equals, 0)
+	// The orphaned relation's unit state is cleared as well; the step
+	// removes the stale reference along with the relation itself.
+	orphanedUState, err := orphanedUnit.State()
 	c.Assert(err, jc.ErrorIsNil)
-	drst, dfound := danglingUState.RelationState()
+	drst, dfound := orphanedUState.RelationState()
 	c.Assert(dfound, jc.IsTrue)
 	c.Assert(drst, gc.HasLen, 0)
 	// The drifted local application count is repaired to the actual

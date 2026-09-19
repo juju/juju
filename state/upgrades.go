@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -302,10 +303,10 @@ func ExposeControllerApplication(pool *StatePool) error {
 func PopulateApplicationStorageUniqueID(
 	pool *StatePool,
 	getStorageUniqueIDs func(
-	ctx context.Context,
-	applications []AppAndStorageID,
-	model *Model,
-) ([]AppAndStorageID, error),
+		ctx context.Context,
+		applications []AppAndStorageID,
+		model *Model,
+	) ([]AppAndStorageID, error),
 ) error {
 	// Run for each model because we want to backfill for every application.
 	return runForAllModelStates(pool, func(st *State) error {
@@ -730,6 +731,11 @@ func FixApplicationCounts(pool *StatePool) error {
 // Note: this is best effort and does not guarantee that all orphaned
 // relations will be removed. Nor does it guarantee that all child data is
 // removed. The key thing is that the relation itself is removed.
+//
+// NB: the removal operations are bespoke rather than taken from
+// Relation.removeOps: those assert on life and unitcount values that
+// corrupted relations violate, and their endpoint lookups fail on the
+// missing application documents.
 func RemoveOrphanedApplicationRelations(pool *StatePool) error {
 	return runForAllModelStates(pool, func(st *State) error {
 		// collectIDs returns the document ids matched by selector, which
@@ -1058,17 +1064,11 @@ func RemoveOrphanedRelationDocs(pool *StatePool) error {
 
 		// appExists records which endpoint applications still have a
 		// document, in either the remote or the local applications
-		// collection.
+		// collection. Duplicate names in the $in query are harmless.
 		appExists := make(map[string]bool)
 		var appNames []string
-		seen := make(map[string]bool)
 		for _, apps := range relApps {
-			for _, appName := range apps {
-				if !seen[appName] {
-					seen[appName] = true
-					appNames = append(appNames, appName)
-				}
-			}
+			appNames = append(appNames, apps...)
 		}
 		if len(appNames) > 0 {
 			for _, collName := range []string{remoteApplicationsC, applicationsC} {
@@ -1102,7 +1102,33 @@ func RemoveOrphanedRelationDocs(pool *StatePool) error {
 		// Removal and repair are best effort: each relation's ops run
 		// in their own transaction, logging a warning on failure, so a
 		// bad relation cannot abort the repair of the others.
-		var repaired, failed []int
+		newSettingsOp := func(docID string) txn.Op {
+			return txn.Op{
+				C:      settingsC,
+				Id:     docID,
+				Assert: txn.DocMissing,
+				Insert: &settingsDoc{
+					DocID:     docID,
+					ModelUUID: st.ModelUUID(),
+					Settings:  make(settingsMap),
+				},
+			}
+		}
+		// A relation can be repaired both by the loop below and by the
+		// application settings work, so the ids are recorded in maps:
+		// each relation is counted once per list. A relation left in
+		// both lists has some documents repaired and some left for
+		// manual repair.
+		repaired := make(map[int]bool)
+		failed := make(map[int]bool)
+		sortedIDs := func(ids map[int]bool) []int {
+			sorted := make([]int, 0, len(ids))
+			for id := range ids {
+				sorted = append(sorted, id)
+			}
+			slices.Sort(sorted)
+			return sorted
+		}
 		for id := range orphans {
 			var ops []txn.Op
 			if _, exists := relApps[id]; !exists {
@@ -1123,7 +1149,7 @@ func RemoveOrphanedRelationDocs(pool *StatePool) error {
 				// its child records must not be recreated.
 				if !appsExist(relApps[id]) {
 					logger.Warningf("relation %d has dangling endpoint applications, leaving its docs for manual repair", id)
-					failed = append(failed, id)
+					failed[id] = true
 					continue
 				}
 				settingsAt := make(map[string]bool)
@@ -1141,16 +1167,7 @@ func RemoveOrphanedRelationDocs(pool *StatePool) error {
 						// the settings doc it guarantees must exist;
 						// recreate it empty to keep the watcher alive.
 						logger.Debugf("recreating missing settings doc for relation %d scope %v", id, doc.DocID)
-						ops = append(ops, txn.Op{
-							C:      settingsC,
-							Id:     doc.DocID,
-							Assert: txn.DocMissing,
-							Insert: &settingsDoc{
-								DocID:     doc.DocID,
-								ModelUUID: st.ModelUUID(),
-								Settings:  make(settingsMap),
-							},
-						})
+						ops = append(ops, newSettingsOp(doc.DocID))
 					}
 				}
 			}
@@ -1159,9 +1176,9 @@ func RemoveOrphanedRelationDocs(pool *StatePool) error {
 			}
 			if err := st.runRawTransaction(ops); err != nil {
 				logger.Warningf("cannot repair relation %d docs: %v (manual repair required)", id, err)
-				failed = append(failed, id)
+				failed[id] = true
 			} else {
-				repaired = append(repaired, id)
+				repaired[id] = true
 			}
 		}
 
@@ -1216,32 +1233,22 @@ func RemoveOrphanedRelationDocs(pool *StatePool) error {
 			var ops []txn.Op
 			for _, ref := range absent {
 				logger.Debugf("recreating missing application settings doc for relation %d application %q", id, ref.appName)
-				settingsID := st.docID(relationApplicationSettingsKey(id, ref.appName))
-				ops = append(ops, txn.Op{
-					C:      settingsC,
-					Id:     settingsID,
-					Assert: txn.DocMissing,
-					Insert: &settingsDoc{
-						DocID:     settingsID,
-						ModelUUID: st.ModelUUID(),
-						Settings:  make(settingsMap),
-					},
-				})
+				ops = append(ops, newSettingsOp(st.docID(relationApplicationSettingsKey(id, ref.appName))))
 			}
 			if err := st.runRawTransaction(ops); err != nil {
 				logger.Warningf("cannot repair relation %d docs: %v (manual repair required)", id, err)
-				failed = append(failed, id)
+				failed[id] = true
 			} else {
-				repaired = append(repaired, id)
+				repaired[id] = true
 			}
 		}
 		if len(repaired) > 0 {
 			logger.Infof("repaired relation documents for %d relation(s) in model %q: %v",
-				len(repaired), st.ModelUUID(), repaired)
+				len(repaired), st.ModelUUID(), sortedIDs(repaired))
 		}
 		if len(failed) > 0 {
 			logger.Warningf("%d relation(s) left for manual repair in model %q: %v",
-				len(failed), st.ModelUUID(), failed)
+				len(failed), st.ModelUUID(), sortedIDs(failed))
 		}
 		return nil
 	})
@@ -1255,15 +1262,13 @@ func RemoveOrphanedUnitStateRelations(pool *StatePool) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		var docs []struct {
+		type unitStateDoc struct {
 			DocID         string            `bson:"_id"`
 			RelationState map[string]string `bson:"relation-state"`
 		}
+		var docs []unitStateDoc
+		var doc unitStateDoc
 		iter := states.Find(nil).Select(bson.M{"relation-state": 1}).Iter()
-		var doc struct {
-			DocID         string            `bson:"_id"`
-			RelationState map[string]string `bson:"relation-state"`
-		}
 		for iter.Next(&doc) {
 			docs = append(docs, doc)
 		}
