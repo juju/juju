@@ -582,6 +582,48 @@ func (s *userManagerSuite) TestModelUsersInfo(c *tc.C) {
 	c.Assert(results, tc.DeepEquals, expected)
 }
 
+// TestModelUsersInfoNonAdminNoLocalPermission asserts that ModelUserInfo
+// succeeds for a non-admin caller with no local model permission row,
+// reporting the access level resolved from the authorizer. This is the
+// JWT-authenticated external user (JIMM) case, whose grants live outside
+// the controller's local tables.
+func (s *userManagerSuite) TestModelUsersInfoNonAdminNoLocalPermission(c *tc.C) {
+	controllerModelTag := names.NewModelTag(s.ApiServerSuite.ControllerModelUUID())
+	// The caller's only grant is authorizer-derived: the fake authorizer
+	// grants read access on this model based on the username.
+	s.setAPIUserAndAuth(c, "read-"+controllerModelTag.String())
+	defer s.setUpAPI(c).Finish()
+
+	// The caller has no local permission row: GetModelUser returns a
+	// sparse row with an empty access level.
+	s.modelService.EXPECT().GetModelUser(
+		gomock.Any(), coremodel.UUID(s.ApiServerSuite.ControllerModelUUID()), s.apiUser.Name,
+	).Return(coremodel.ModelUserInfo{
+		Name:        s.apiUser.Name,
+		DisplayName: s.apiUser.Name.Name(),
+		Access:      permission.NoAccess,
+	}, nil)
+
+	results, err := s.api.ModelUserInfo(c.Context(), params.Entities{Entities: []params.Entity{{
+		Tag: controllerModelTag.String(),
+	}}})
+	c.Assert(err, tc.ErrorIsNil)
+
+	expected := params.ModelUserInfoResults{
+		Results: []params.ModelUserInfoResult{{
+			Result: &params.ModelUserInfo{
+				ModelTag:    controllerModelTag.String(),
+				UserName:    s.apiUser.Name.Name(),
+				DisplayName: s.apiUser.Name.Name(),
+				// The reported access is the gate-derived level,
+				// not the empty local one.
+				Access: "read",
+			},
+		}},
+	}
+	c.Assert(results, tc.DeepEquals, expected)
+}
+
 // ByUserName implements sort.Interface for []params.ModelUserInfoResult based on
 // the Name field.
 type ByUserName []params.ModelUserInfoResult

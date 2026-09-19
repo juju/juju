@@ -166,15 +166,10 @@ func providerSchema(c *tc.C, providerType string) configschema.Fields {
 }
 
 func (s *cloudSuite) TestClouds(c *tc.C) {
-	bruce := names.NewUserTag("bruce")
+	// The caller's only grant is authorizer-derived: the fake authorizer
+	// grants add-model access on my-cloud based on the username.
+	bruce := names.NewUserTag("add-model-cloud-my-cloud")
 	defer s.setup(c, bruce).Finish()
-
-	cloudPermissionService := s.cloudAccessService.EXPECT()
-
-	cloudPermissionService.ReadUserAccessLevelForTarget(gomock.Any(),
-		user.NameFromTag(bruce), permission.ID{ObjectType: permission.Cloud, Key: "my-cloud"}).Return(permission.AddModelAccess, nil)
-	cloudPermissionService.ReadUserAccessLevelForTarget(gomock.Any(),
-		user.NameFromTag(bruce), permission.ID{ObjectType: permission.Cloud, Key: "your-cloud"}).Return(permission.NoAccess, nil)
 
 	backend := s.cloudService.EXPECT()
 	backend.ListAll(gomock.Any()).Return([]jujucloud.Cloud{
@@ -256,7 +251,9 @@ func (s *cloudSuite) TestCloudInfoAdmin(c *tc.C) {
 }
 
 func (s *cloudSuite) TestCloudInfoNonAdmin(c *tc.C) {
-	fredTag := names.NewUserTag("fred")
+	// The caller's only grant is authorizer-derived: the fake authorizer
+	// grants add-model access on my-cloud based on the username.
+	fredTag := names.NewUserTag("add-model-cloud-my-cloud")
 	ctrl := s.setup(c, fredTag)
 	defer ctrl.Finish()
 
@@ -265,10 +262,11 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *tc.C) {
 		ObjectType: permission.Cloud,
 		Key:        "my-cloud",
 	}
-	cloudPermissionService.ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(fredTag),
-		permID).Return(permission.AddModelAccess, nil)
+	// The caller has a local permission row under their own name, plus
+	// another user they must not see.
+	callerName := user.NameFromTag(fredTag)
 	userPerm := []permission.UserAccess{
-		{UserName: usertesting.GenNewName(c, "fred"), DisplayName: "display-fred", Access: permission.AddModelAccess},
+		{UserName: callerName, DisplayName: "display-fred", Access: permission.AddModelAccess},
 		{UserName: usertesting.GenNewName(c, "mary"), DisplayName: "display-mary", Access: permission.AdminAccess},
 	}
 	cloudPermissionService.ReadAllUserAccessForTarget(gomock.Any(), permID).Return(userPerm,
@@ -297,11 +295,57 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *tc.C) {
 					Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
 				},
 				Users: []params.CloudUserInfo{
-					{UserName: "fred", DisplayName: "display-fred", Access: "add-model"},
+					{UserName: callerName.Name(), DisplayName: "display-fred", Access: "add-model"},
 				},
 			},
 		}, {
 			Error: &params.Error{Message: `"machine-0" is not a valid cloud tag`},
+		},
+	})
+}
+
+// TestCloudInfoNonAdminNoLocalPermission asserts that CloudInfo succeeds
+// for a non-admin caller with no local cloud permission row, returning
+// their own entry with the authorizer-derived access level. This is the
+// JWT-authenticated external user (JIMM) case, whose grants live outside
+// the controller's local tables.
+func (s *cloudSuite) TestCloudInfoNonAdminNoLocalPermission(c *tc.C) {
+	// The caller's only grant is authorizer-derived: the fake authorizer
+	// grants add-model access on my-cloud based on the username.
+	fredTag := names.NewUserTag("add-model-cloud-my-cloud")
+	ctrl := s.setup(c, fredTag)
+	defer ctrl.Finish()
+
+	cloudPermissionService := s.cloudAccessService.EXPECT()
+	permID := permission.ID{
+		ObjectType: permission.Cloud,
+		Key:        "my-cloud",
+	}
+	// No local permission rows at all for this cloud.
+	cloudPermissionService.ReadAllUserAccessForTarget(gomock.Any(), permID).Return(nil, nil)
+
+	s.cloudService.EXPECT().Cloud(gomock.Any(), "my-cloud").Return(&jujucloud.Cloud{
+		Name:      "dummy",
+		Type:      "dummy",
+		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
+		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+	}, nil)
+
+	result, err := s.api.CloudInfo(c.Context(), params.Entities{Entities: []params.Entity{{
+		Tag: "cloud-my-cloud",
+	}}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+	c.Assert(result.Results[0].Result, tc.DeepEquals, &params.CloudInfo{
+		CloudDetails: params.CloudDetails{
+			Type:      "dummy",
+			AuthTypes: []string{"empty", "userpass"},
+			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
+		},
+		// The caller's own entry is filled from the authorizer.
+		Users: []params.CloudUserInfo{
+			{UserName: "add-model-cloud-my-cloud", Access: "add-model"},
 		},
 	})
 }
