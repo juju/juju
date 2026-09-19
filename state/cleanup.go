@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -34,6 +35,8 @@ var (
 const (
 	// SCHEMACHANGE: the names are expressive, the values not so much.
 	cleanupRelationSettings              cleanupKind = "settings"
+	cleanupRelationScopes                cleanupKind = "scopes"
+	cleanupRelationState                 cleanupKind = "relationstate"
 	cleanupForceDestroyedRelation        cleanupKind = "forceDestroyRelation"
 	cleanupUnitsForDyingApplication      cleanupKind = "units"
 	cleanupCharm                         cleanupKind = "charm"
@@ -204,7 +207,11 @@ func (st *State) Cleanup(secretContentDeleter SecretContentDeleter) (err error) 
 		}
 		switch doc.Kind {
 		case cleanupRelationSettings:
-			err = st.cleanupRelationSettings(doc.Prefix)
+			err = st.cleanupRelationSettings(relationIDFromCleanupPrefix(doc.Prefix))
+		case cleanupRelationScopes:
+			err = st.cleanupRelationScopes(relationIDFromCleanupPrefix(doc.Prefix))
+		case cleanupRelationState:
+			err = st.cleanupRelationState(doc.Prefix)
 		case cleanupForceDestroyedRelation:
 			err = st.cleanupForceDestroyedRelation(doc.Prefix)
 		case cleanupCharm:
@@ -289,12 +296,59 @@ func (st *State) cleanupResourceBlob(storagePath string) error {
 	return errors.Trace(err)
 }
 
-func (st *State) cleanupRelationSettings(prefix string) error {
-	change := relationSettingsCleanupChange{Prefix: st.docID(prefix)}
+func (st *State) cleanupRelationSettings(relID string) error {
+	change := relationSettingsCleanupChange{Prefix: st.docID(relationCleanupIDPrefix(relID))}
 	if err := Apply(st.database, change); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (st *State) cleanupRelationScopes(relID string) error {
+	change := relationScopesCleanupChange{Prefix: st.docID(relationCleanupIDPrefix(relID))}
+	if err := Apply(st.database, change); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (st *State) cleanupRelationState(relID string) error {
+	change := relationStateCleanupChange{Prefix: relID}
+	if err := Apply(st.database, change); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// relationCleanupIDPrefix returns the "r#<id>#" document-id prefix
+// embedded in relation scope and settings document ids for the
+// relation with the given id.
+func relationCleanupIDPrefix(relID string) string {
+	return fmt.Sprintf("r#%s#", relID)
+}
+
+// relationIDFromCleanupPrefix extracts the bare relation id recorded in
+// a scopes or settings cleanup document prefix. All versions record the
+// "r#<id>#" document-id fragment as the prefix for those cleanup kinds;
+// if a bare relation id is ever recorded instead, it passes through.
+func relationIDFromCleanupPrefix(prefix string) string {
+	rest := strings.TrimPrefix(prefix, "r#")
+	if hash := strings.Index(rest, "#"); hash > 0 {
+		return rest[:hash]
+	}
+	return prefix
+}
+
+// cleanupRelationDocsByID removes any relation scopes, settings and
+// unitstates relation-state left behind for the relation with the given id.
+func (st *State) cleanupRelationDocsByID(relID string) error {
+	if err := st.cleanupRelationScopes(relID); err != nil {
+		return errors.Trace(err)
+	}
+	if err := st.cleanupRelationSettings(relID); err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(st.cleanupRelationState(relID))
 }
 
 func (st *State) cleanupForceDestroyedRelation(prefix string) (err error) {
@@ -307,6 +361,20 @@ func (st *State) cleanupForceDestroyedRelation(prefix string) (err error) {
 		relation, err = st.KeyRelation(prefix)
 	}
 	if errors.IsNotFound(err) {
+		// The relation document is gone. A forced teardown may have
+		// orphaned scope documents, so remove them by prefix. Settings
+		// and unitstates relation-state for the relation are handled here
+		// as well: this is for teardowns whose queued cleanups cannot be
+		// assumed to have run.
+		if _, aerr := strconv.Atoi(prefix); aerr == nil {
+			return errors.Trace(st.cleanupRelationDocsByID(prefix))
+		}
+		// Legacy cleanups use the relation key rather than the id. No
+		// released version recorded a force-destroy cleanup prefix
+		// embedding the numeric id (the recorded shapes were the
+		// relation key and, later, the bare id), so the orphaned scopes
+		// and settings cannot be recovered from the key alone.
+		logger.Warningf("legacy cleanupForceDestroyedRelation with key %q: relation gone, scopes not recoverable via id", prefix)
 		return nil
 	} else if err != nil {
 		return errors.Annotatef(err, "getting relation %q", prefix)
@@ -337,6 +405,7 @@ func (st *State) cleanupForceDestroyedRelation(prefix string) (err error) {
 		for _, ep := range relation.Endpoints() {
 			if string(ep.Role) == role {
 				matchingEp = ep
+				break
 			}
 		}
 		if matchingEp.Role == "" {

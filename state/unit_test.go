@@ -117,9 +117,10 @@ func (s *UnitSuite) TestCharmStateQuotaLimit(c *gc.C) {
 
 func (s *UnitSuite) TestCombinedUnitStateQuotaLimit(c *gc.C) {
 	// Set initial state with a generous limit
+	relID := s.makeTestRelations(c, 1)[0]
 	newState := new(state.UnitState)
 	newState.SetUniterState("my state is legendary")
-	newState.SetRelationState(map[int]string{42: "some serialized blob"})
+	newState.SetRelationState(map[int]string{relID: "some serialized blob"})
 	newState.SetStorageState("storage is cheap")
 
 	err := s.unit.SetState(newState, state.UnitStateSizeLimits{
@@ -129,7 +130,7 @@ func (s *UnitSuite) TestCombinedUnitStateQuotaLimit(c *gc.C) {
 
 	// Try to set a new uniter state where the combined data will trip the quota limit check
 	newState.SetUniterState("state")
-	newState.SetRelationState(map[int]string{42: "a fresh serialized blob"})
+	newState.SetRelationState(map[int]string{relID: "a fresh serialized blob"})
 	newState.SetStorageState("storage")
 	err = s.unit.SetState(newState, state.UnitStateSizeLimits{
 		MaxAgentStateSize: 42,
@@ -140,9 +141,10 @@ func (s *UnitSuite) TestCombinedUnitStateQuotaLimit(c *gc.C) {
 func (s *UnitSuite) TestUnitStateWithDualQuotaLimits(c *gc.C) {
 	// Set state with dual quota limits and check that both limits are
 	// correctly enforced and do not interfere with each other.
+	relID := s.makeTestRelations(c, 1)[0]
 	newState := new(state.UnitState)
 	newState.SetUniterState("my state is legendary")
-	newState.SetRelationState(map[int]string{42: "some serialized blob"})
+	newState.SetRelationState(map[int]string{relID: "some serialized blob"})
 	newState.SetStorageState("storage is cheap")
 	newState.SetCharmState(map[string]string{
 		"charm-data": strings.Repeat("lol", 1024),
@@ -180,7 +182,8 @@ func (s *UnitSuite) TestUnitStateExistingDocAddNewRelationData(c *gc.C) {
 	err := s.unit.SetState(us, state.UnitStateSizeLimits{})
 	c.Assert(err, gc.IsNil)
 
-	newRelationState := map[int]string{3: "three"}
+	relID := s.makeTestRelations(c, 1)[0]
+	newRelationState := map[int]string{relID: "three"}
 	newUS := state.NewUnitState()
 	newUS.SetRelationState(newRelationState)
 	err = s.unit.SetState(newUS, state.UnitStateSizeLimits{})
@@ -259,10 +262,14 @@ func (s *UnitSuite) TestUnitStateMutateDeleteRelationState(c *gc.C) {
 	// Set initial state; this should create a new unitstate doc
 	initState := s.testUnitSuite(c)
 
-	// Mutate relation state again with an existing state doc
-	// by deleting value.
+	// Mutate relation state again with an existing state doc.
 	expectedRelationState := initState.relationState
-	delete(expectedRelationState, 2)
+	var deleteID int
+	for k := range expectedRelationState {
+		deleteID = k
+		break
+	}
+	delete(expectedRelationState, deleteID)
 	newUS := state.NewUnitState()
 	newUS.SetRelationState(expectedRelationState)
 	err := s.unit.SetState(newUS, state.UnitStateSizeLimits{})
@@ -345,11 +352,59 @@ func (s *UnitSuite) TestUnitStateDeleteRelationState(c *gc.C) {
 	assertUnitStateStorageState(c, uState, initState.storageState)
 }
 
+func (s *UnitSuite) TestUnitStateFiltersDeletedRelations(c *gc.C) {
+	// One relation exists; write state for it plus a second id that does
+	// not exist (999999).
+	relID := s.makeTestRelations(c, 1)[0]
+	state1 := state.NewUnitState()
+	state1.SetRelationState(map[int]string{
+		relID:  "existing blob",
+		999999: "stale blob",
+	})
+	err := s.unit.SetState(state1, state.UnitStateSizeLimits{})
+	c.Assert(err, gc.IsNil)
+
+	// The stale relation id must not be persisted.
+	uState, err := s.unit.State()
+	c.Assert(err, gc.IsNil)
+	rst, found := uState.RelationState()
+	c.Assert(found, jc.IsTrue)
+	c.Assert(rst, gc.DeepEquals, map[int]string{
+		relID: "existing blob",
+	})
+}
+
 type initialUnitState struct {
 	charmState    map[string]string
 	uniterState   string
 	relationState map[int]string
 	storageState  string
+}
+
+func (s *UnitSuite) makeTestRelations(c *gc.C, n int) []int {
+	mysqlCharm := s.AddTestingCharm(c, "mysql")
+	varnishCharm := s.AddTestingCharm(c, "varnish")
+	var ids []int
+	relIdx := 0
+	addRel := func(wpEpName string, ch *state.Charm, charmApp string, epName string) {
+		wpEP, err := s.application.Endpoint(wpEpName)
+		c.Assert(err, jc.ErrorIsNil)
+		appName := fmt.Sprintf("%s%d", charmApp, relIdx)
+		relIdx++
+		app := s.AddTestingApplication(c, appName, ch)
+		appEP, err := app.Endpoint(epName)
+		c.Assert(err, jc.ErrorIsNil)
+		rel, err := s.State.AddRelation(wpEP, appEP)
+		c.Assert(err, jc.ErrorIsNil)
+		ids = append(ids, rel.Id())
+	}
+	if n >= 1 {
+		addRel("db", mysqlCharm, "mysql", "server")
+	}
+	for i := 1; i < n; i++ {
+		addRel("cache", varnishCharm, "varnish", "webcache")
+	}
+	return ids
 }
 
 func (s *UnitSuite) testUnitSuite(c *gc.C) initialUnitState {
@@ -360,9 +415,13 @@ func (s *UnitSuite) testUnitSuite(c *gc.C) initialUnitState {
 		"key.with.$":   "must work to",
 	}
 	initialUniterState := "testing"
+	// The relation-state map keys are relation ids. SetUnitState filters
+	// out any id whose relation no longer exists, so create the relations
+	// the state refers to.
+	relIDs := s.makeTestRelations(c, 2)
 	initialRelationState := map[int]string{
-		1: "one",
-		2: "two",
+		relIDs[0]: "one",
+		relIDs[1]: "two",
 	}
 	initialStorageState := "gnitset"
 
@@ -430,10 +489,11 @@ func (s *UnitSuite) TestUnitStateNopMutation(c *gc.C) {
 		"key.with.$":   "must work to",
 	}
 	initialUniterState := "unit state"
+	relIDs := s.makeTestRelations(c, 3)
 	initialRelationState := map[int]string{
-		1: "one",
-		2: "two",
-		3: "three",
+		relIDs[0]: "one",
+		relIDs[1]: "two",
+		relIDs[2]: "three",
 	}
 	initialStorageState := "storage state"
 	iUnitState := state.NewUnitState()

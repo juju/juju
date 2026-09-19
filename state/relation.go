@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
+	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // relationKey returns a string describing the relation defined by
@@ -346,22 +347,34 @@ func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) 
 		// On the offering side, if this is the last relation to the consumer proxy, we may need to remove it also,
 		// but only if the unit count is already 0. This is just a backstop to allow force to fully clean up; normally
 		// unit count is not 0 so this doesn't get run.
-		if remoteApp.IsConsumerProxy() && remoteApp.doc.RelationCount <= 1 && (op.Force || rel.doc.UnitCount == 0) {
-			logger.Debugf("removing cross model consumer proxy and last relation %d: %v", op.r.doc.Id, op.r.doc.Key)
-			removeRelOps, err := rel.removeOps("", "", &op.ForcedOperation)
-			if err != nil && err != jujutxn.ErrNoOperations {
-				return nil, errors.Trace(err)
-			}
-			ops = append(ops, removeRelOps...)
-			var hasLastRefs bson.D
-			if !op.Force {
-				hasLastRefs = bson.D{{"life", remoteApp.doc.Life}, {"relationcount", remoteApp.doc.RelationCount}}
-			}
-			removeAppOps, err := remoteApp.removeOps(hasLastRefs)
+		// NB: the decision to use this to figure out if it's the last relation
+		// uses a query on the relations collection rather than the relationcount,
+		// so a corrupt count can never prematurely remove a remote app proxy
+		// that other relations still reference.
+		if remoteApp.IsConsumerProxy() && (op.Force || rel.doc.UnitCount == 0) {
+			refCount, err := countRelationsForApplication(op.r.st, remoteApp.Name())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return append(ops, removeAppOps...), nil
+			if refCount <= 1 {
+				logger.Debugf("removing cross model consumer proxy and last relation %d: %v", op.r.doc.Id, op.r.doc.Key)
+				// The remote app is removed by removeAppOps below; skip the remote
+				// endpoint here so removeRemoteEndpointOps does not also try
+				// to decrement (or double-remove) it.
+				removeRelOps, err := rel.removeOps(remoteApp.Name(), "", &op.ForcedOperation)
+				if err != nil && err != jujutxn.ErrNoOperations {
+					return nil, errors.Trace(err)
+				}
+				ops = append(ops, removeRelOps...)
+				// Assert on txn-revno rather than the possibly stale
+				// relationcount so a concurrent change (e.g. a new
+				// relation being added) aborts the remote app removal.
+				removeAppOps, err := remoteApp.removeOps(bson.D{{"txn-revno", remoteApp.doc.TxnRevno}})
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				return append(ops, removeAppOps...), nil
+			}
 		}
 	}
 
@@ -423,13 +436,7 @@ func (r *Relation) destroyOps(ignoreApplication string, op *ForcedOperation) (op
 		// as well as all operational errors encountered.
 		// If the 'force' is not set, any error will be fatal and no operations will be returned.
 		removeOps, err := r.removeOps(ignoreApplication, "", op)
-		if err != nil {
-			if !op.Force {
-				return nil, false, err
-			}
-			logger.Warningf("ignoring error (%v) while constructing relation %v destroy operations since force is used", err, r)
-		}
-		return removeOps, true, nil
+		return forceRelationRemoveOps(r, removeOps, err, op)
 	}
 
 	lifeAssert := isAliveDoc
@@ -447,6 +454,42 @@ func (r *Relation) destroyOps(ignoreApplication string, op *ForcedOperation) (op
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	})
 	return ops, false, nil
+}
+
+// forceTeardownCleanupOps returns ops queueing an asynchronous force
+// teardown of the relation. When the relation is Alive it is marked
+// Dying in the same transaction.
+func forceTeardownCleanupOps(r *Relation) []txn.Op {
+	var ops []txn.Op
+	if r.doc.Life == Alive {
+		ops = append(ops, txn.Op{
+			C:      relationsC,
+			Id:     r.doc.DocID,
+			Assert: isAliveDoc,
+			Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+		})
+	}
+	return append(ops, newCleanupOp(
+		cleanupForceDestroyedRelation,
+		strconv.Itoa(r.Id()),
+	))
+}
+
+// forceRelationRemoveOps decides the destroy ops for a relation whose
+// removal ops failed to build. Without force the error is fatal.
+// With force, the removal ops are discarded (an error means they are
+// an inconsistent set anyway) and an asynchronous force teardown is
+// queued instead so the relation is always cleaned up; the teardown
+// is idempotent, so a re-run after partial progress is safe.
+func forceRelationRemoveOps(r *Relation, removeOps []txn.Op, err error, op *ForcedOperation) ([]txn.Op, bool, error) {
+	if err == nil {
+		return removeOps, true, nil
+	}
+	if !op.Force {
+		return nil, false, err
+	}
+	logger.Warningf("ignoring error (%v) while constructing relation %v destroy operations since force is used", err, r)
+	return forceTeardownCleanupOps(r), true, nil
 }
 
 // removeOps returns the operations necessary to remove the relation. If
@@ -514,9 +557,20 @@ func (r *Relation) removeOps(ignoreApplication string, departingUnitName string,
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, secretPermissionsOps...)
-	// This cleanup does not need to be forced.
-	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
-	return append(ops, cleanupOp), nil
+	// This cleanup does not need to be forced. Settings and scopes are
+	// removed asynchronously by prefix. The cleanups are independent and
+	// safe in any order: the relation document is already gone by the
+	// time either runs, so no ordering dependency (and no reliance on the
+	// cleanups worker's document iteration order) is introduced. A
+	// relation state cleanup is also queued: unit agents may have
+	// persisted relation state referencing this relation, which would
+	// otherwise wedge their hooks until a restart.
+	cleanupOps := []txn.Op{
+		newCleanupOp(cleanupRelationScopes, fmt.Sprintf("r#%d#", r.Id())),
+		newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id())),
+		newCleanupOp(cleanupRelationState, strconv.Itoa(r.Id())),
+	}
+	return append(ops, cleanupOps...), nil
 }
 
 // When 'force' is set, this call will return both needed operations
@@ -550,7 +604,7 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string,
 		}
 		defer closer()
 
-		asserts = append(hasRelation)
+		asserts = append(bson.D{}, hasRelation...)
 		var appDoc applicationDoc
 		if err := applications.FindId(ep.ApplicationName).One(&appDoc); err == nil {
 			if appDoc.Life != Alive {
@@ -574,51 +628,97 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string,
 }
 
 func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.Op, error) {
-	var asserts bson.D
-	hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
-	if !unitDying {
-		// We're constructing a destroy operation, either of the relation
-		// or one of its application, and can therefore be assured that both
-		// applications are Alive.
-		asserts = append(hasRelation, isAliveDoc...)
-	} else {
-		// The remote application may require immediate removal if all relations are being
-		// removed and it's either dying or on the offering side as a consumer proxy.
-		applications, closer, err := r.st.db().GetCollection(remoteApplicationsC)
+	applications, closer, err := r.st.db().GetCollection(remoteApplicationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer closer()
+
+	app := &RemoteApplication{st: r.st}
+	if err := applications.FindId(ep.ApplicationName).One(&app.doc); err != nil {
+		if err == mgo.ErrNotFound {
+			// The remote application is already gone; nothing to do.
+			return nil, jujutxn.ErrNoOperations
+		}
+		return nil, err
+	}
+	// The relation currently being removed (or destroyed) still counts
+	// towards the count below; see countRelationsForApplication.
+	refCount, err := countRelationsForApplication(r.st, app.Name())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if unitDying && refCount == 1 && (app.doc.Life != Alive || app.doc.IsConsumerProxy) {
+		// Remove the proxy together with its final relation. Assert on
+		// txn-revno rather than the relationcount so a concurrent change
+		// aborts the removal.
+		removeOps, err := app.removeOps(bson.D{{"txn-revno", app.doc.TxnRevno}})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		defer closer()
-
-		app := &RemoteApplication{st: r.st}
-		hasLastRef := bson.D{{"relationcount", 1}}
-		shouldRemove := bson.D{{"$or", []bson.D{
-			{{"life", bson.D{{"$ne", Alive}}}},
-			{{"is-consumer-proxy", true}},
-		}}}
-
-		removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
-		removable = append(removable, shouldRemove...)
-		if err := applications.Find(removable).One(&app.doc); err == nil {
-			removeOps, err := app.removeOps(hasLastRef)
-			return removeOps, errors.Trace(err)
-		} else if err != mgo.ErrNotFound {
-			return nil, err
+		return removeOps, nil
+	}
+	// The stored count may be out of date. An application destroy can
+	// remove several relations referencing the same remote application
+	// in one transaction, so each removal must decrement the count by
+	// exactly one. Pre-existing corruption may have left the count
+	// inflated or low (stale), so decide from the actual relations: the
+	// recorded value is trusted only when it agrees with the relations
+	// that really reference the application (the relation being removed
+	// still counts towards both; see countRelationsForApplication).
+	var asserts bson.D
+	hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
+	if app.doc.RelationCount != refCount {
+		logger.Warningf("relation count for remote application %q is corrupt: recorded %d, actual relations %d",
+			app.Name(), app.doc.RelationCount, refCount)
+		if refCount == 1 {
+			// This is the final reference, count will be 0. Setting
+			// the count instead of decrementing it heals an inflated
+			// or low (stale) recorded value.
+			return []txn.Op{{
+				C:      remoteApplicationsC,
+				Id:     r.st.docID(ep.ApplicationName),
+				Assert: bson.D{{"txn-revno", app.doc.TxnRevno}},
+				Update: bson.D{{"$set", bson.D{{"relationcount", 0}}}},
+			}}, nil
 		}
-		// If not, we must check that this is still the case when the
-		// transaction is applied.
-		asserts = bson.D{{"$or", []bson.D{
-			{{"life", Alive}},
-			{{"is-consumer-proxy", false}},
-			{{"relationcount", bson.D{{"$gt", 1}}}},
-		}}}
+		// This removal might not be the final reference. Refuse to
+		// make things worse: decrementing could drive a low (stale)
+		// count negative and would leave an inflated count inflated,
+		// so the relation is removed without touching the count and
+		// the recorded value converges as the remaining references
+		// are removed (the final reference heals it above).
+		return nil, stateerrors.NewRelationCountCorruptError(
+			app.Name(), app.doc.RelationCount, refCount)
+	}
+	if !unitDying {
+		// We're constructing a destroy operation, either of the relation
+		// or one of its application, and can therefore be assured that the
+		// remote application is Alive.
+		asserts = append(bson.D{}, hasRelation...)
+		asserts = append(asserts, isAliveDoc...)
+	} else {
+		asserts = append(bson.D{}, hasRelation...)
 	}
 	return []txn.Op{{
 		C:      remoteApplicationsC,
 		Id:     r.st.docID(ep.ApplicationName),
-		Assert: asserts,
+		Assert: append(asserts, bson.DocElem{Name: "txn-revno", Value: app.doc.TxnRevno}),
 		Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
 	}}, nil
+}
+
+// countRelationsForApplication returns the number of relations whose endpoints
+// reference the named application. The relation currently being removed or
+// destroyed still counts towards the result, so callers treat a count of 1
+// as the final reference.
+func countRelationsForApplication(st *State, appName string) (int, error) {
+	relations, closer, err := st.db().GetCollection(relationsC)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	defer closer()
+	return relations.Find(bson.M{"endpoints.applicationname": appName}).Count()
 }
 
 // Id returns the integer internal relation key. This is exposed
@@ -830,6 +930,89 @@ func (change relationSettingsCleanupChange) Prepare(db Database) ([]txn.Op, erro
 	}
 	return ops, nil
 
+}
+
+// relationScopesCleanupChange removes the relation scope docs.
+type relationScopesCleanupChange struct {
+	Prefix string
+}
+
+// Prepare is part of the Change interface.
+func (change relationScopesCleanupChange) Prepare(db Database) ([]txn.Op, error) {
+	scopes, closer, err := db.GetCollection(relationScopesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer closer()
+	sel := bson.D{{"_id", bson.D{{"$regex", "^" + change.Prefix}}}}
+	var docs []struct {
+		DocID string `bson:"_id"`
+	}
+	err = scopes.Find(sel).Select(bson.D{{"_id", 1}}).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(docs) == 0 {
+		return nil, ErrChangeComplete
+	}
+
+	ops := make([]txn.Op, len(docs))
+	for i, doc := range docs {
+		ops[i] = txn.Op{
+			C:      relationScopesC,
+			Id:     doc.DocID,
+			Remove: true,
+		}
+	}
+	return ops, nil
+}
+
+// relationStateCleanupChange cleans up stale relation state from unitstates
+// documents after a relation is removed. Otherwise, when a relation is removed
+// by force (or while the unit agent was down), the persisted relation state
+// could still reference it.
+type relationStateCleanupChange struct {
+	Prefix string
+}
+
+// Prepare is part of the Change interface.
+func (change relationStateCleanupChange) Prepare(db Database) ([]txn.Op, error) {
+	states, closer, err := db.GetCollection(unitStatesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer closer()
+	relState := fmt.Sprintf("relation-state.%s", change.Prefix)
+	sel := bson.D{{relState, bson.D{{"$exists", true}}}}
+	var docs []struct {
+		DocID         string `bson:"_id"`
+		TxnRevno      int64  `bson:"txn-revno"`
+		RelationState bson.M `bson:"relation-state"`
+	}
+	err = states.Find(sel).Select(bson.D{{"_id", 1}, {"txn-revno", 1}, {"relation-state", 1}}).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(docs) == 0 {
+		return nil, ErrChangeComplete
+	}
+
+	ops := make([]txn.Op, len(docs))
+	for i, doc := range docs {
+		// Unsetting the embedded key alone would leave an empty
+		// relation-state map behind.
+		unset := relState
+		if len(doc.RelationState) == 1 {
+			unset = "relation-state"
+		}
+		ops[i] = txn.Op{
+			C:      unitStatesC,
+			Id:     doc.DocID,
+			Assert: bson.D{{"txn-revno", doc.TxnRevno}},
+			Update: bson.D{{"$unset", bson.D{{unset, 1}}}},
+		}
+	}
+	return ops, nil
 }
 
 func relationApplicationSettingsKey(id int, application string) string {

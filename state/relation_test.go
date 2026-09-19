@@ -9,6 +9,8 @@ import (
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -19,6 +21,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -455,6 +458,328 @@ func (s *RelationSuite) TestDestroyCrossModelRelationAppTerminated(c *gc.C) {
 	s.assertDestroyCrossModelRelation(c, &st)
 }
 
+func (s *RelationSuite) TestRemoveFinalRelationRemovesRemoteAppDespiteCorruptCount(c *gc.C) {
+	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "remote-wordpress",
+		SourceModel:     names.NewModelTag("source-model"),
+		OfferUUID:       "offer-uuid",
+		IsConsumerProxy: true,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := rwordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlUnit, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+
+	rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlru, err := rel.Unit(mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysqlru.EnterScope(nil), jc.ErrorIsNil)
+	rru, err := rel.RemoteUnit("remote-wordpress/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rru.EnterScope(nil), jc.ErrorIsNil)
+
+	// Corrupt the recorded count.
+	coll := s.Session.DB("juju").C("remoteApplications")
+	err = coll.UpdateId(state.DocID(s.State, "remote-wordpress"),
+		bson.M{"$set": bson.M{"relationcount": 0}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The removal path only fires for a dying relation; destroy it first
+	// (units are still in scope, so it becomes Dying).
+	err = rel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel.Life(), gc.Equals, state.Dying)
+
+	// Leave the remote unit first, then the local unit as the last one,
+	// which is what triggers the relation removal path.
+	c.Assert(rru.LeaveScope(), jc.ErrorIsNil)
+	c.Assert(mysqlru.LeaveScope(), jc.ErrorIsNil)
+
+	err = rel.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = rwordpress.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	s.assertInScope(c, mysqlru, false)
+	s.assertInScope(c, rru, false)
+
+	// The scopes/settings cleanups clear the leftover docs.
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	scopes := s.Session.DB("juju").C("relationscopes")
+	n, err := scopes.Find(bson.M{"_id": bson.M{"$regex": "^" + state.DocID(s.State, "r#")}}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 0)
+}
+
+func (s *RelationSuite) TestRemoveFinalRelationDespiteCorruptCountSkipsIsolated(c *gc.C) {
+	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "remote-wordpress",
+		SourceModel:     names.NewModelTag("source-model"),
+		OfferUUID:       "offer-uuid",
+		IsConsumerProxy: true,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     2,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := rwordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+
+	mkRel := func(appName string, ch *state.Charm, epName string) (*state.Relation, *state.RelationUnit, *state.RelationUnit) {
+		mysql := s.AddTestingApplication(c, appName, ch)
+		mysqlUnit, err := mysql.AddUnit(state.AddUnitParams{})
+		c.Assert(err, jc.ErrorIsNil)
+		mysqlEP, err := mysql.Endpoint(epName)
+		c.Assert(err, jc.ErrorIsNil)
+		rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
+		c.Assert(err, jc.ErrorIsNil)
+		mysqlru, err := rel.Unit(mysqlUnit)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(mysqlru.EnterScope(nil), jc.ErrorIsNil)
+		rru, err := rel.RemoteUnit(fmt.Sprintf("remote-wordpress/%d", rel.Id()))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(rru.EnterScope(nil), jc.ErrorIsNil)
+		return rel, mysqlru, rru
+	}
+	mysqlCh := s.AddTestingCharm(c, "mysql")
+	relA, mysqlruA, rruA := mkRel("mysql-a", mysqlCh, "server")
+	relB, mysqlruB, rruB := mkRel("mysql-b", mysqlCh, "server")
+
+	// Corrupt the recorded count so it no longer matches reality.
+	coll := s.Session.DB("juju").C("remoteApplications")
+	err = coll.UpdateId(state.DocID(s.State, "remote-wordpress"),
+		bson.M{"$set": bson.M{"relationcount": 0}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Mark both relations dying (units still in scope).
+	for _, rel := range []*state.Relation{relA, relB} {
+		err = rel.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(rel.Life(), gc.Equals, state.Alive)
+		err = rel.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+		err = rel.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(rel.Life(), gc.Equals, state.Dying)
+	}
+
+	remoteAppCount := func() int {
+		var doc struct {
+			RelationCount int `bson:"relationcount"`
+		}
+		err := coll.FindId(state.DocID(s.State, "remote-wordpress")).One(&doc)
+		c.Assert(err, jc.ErrorIsNil)
+		return doc.RelationCount
+	}
+
+	// Leave the remote units first (plain decrements).
+	for _, rru := range []*state.RelationUnit{rruA, rruB} {
+		c.Assert(rru.LeaveScope(), jc.ErrorIsNil)
+	}
+
+	err = relA.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Removing relation A's final unit must remove the remote app proxy
+	// (relation B still references it).
+	c.Assert(mysqlruA.LeaveScope(), jc.ErrorIsNil)
+	err = relA.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(remoteAppCount(), gc.Equals, 0)
+	err = rwordpress.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rwordpress.Life(), gc.Equals, state.Alive)
+
+	// Now relation B is the final reference: its removal must remove the
+	// remote app.
+	err = relB.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysqlruB.LeaveScope(), jc.ErrorIsNil)
+	err = relB.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = rwordpress.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *RelationSuite) TestScopeWatcherObservesCleanupLeft(c *gc.C) {
+	pr := newPeerRelation(c, s.State)
+	w := pr.ru0.WatchScope()
+	defer testing.AssertStop(c, w)
+
+	// Initial empty event.
+	select {
+	case ch := <-w.Changes():
+		c.Assert(ch.Entered, gc.HasLen, 0)
+		c.Assert(ch.Left, gc.HasLen, 0)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("no initial scope change")
+	}
+
+	// Another peer unit joins so the watcher has a counterpart to observe.
+	c.Assert(pr.ru1.EnterScope(nil), jc.ErrorIsNil)
+	select {
+	case ch := <-w.Changes():
+		c.Assert(ch.Entered, jc.DeepEquals, []string{pr.u1.Name()})
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("no joined change")
+	}
+
+	// Queue the scopes cleanup for the relation and run it.
+	err := s.Session.DB("juju").C("cleanups").Insert(bson.D{
+		{Name: "_id", Value: fmt.Sprintf("test-watch-%d", time.Now().UnixNano())},
+		{Name: "model-uuid", Value: s.State.ModelUUID()},
+		{Name: "kind", Value: "scopes"},
+		{Name: "prefix", Value: fmt.Sprintf("r#%d#", pr.rel.Id())},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	select {
+	case ch := <-w.Changes():
+		c.Assert(ch.Entered, gc.HasLen, 0)
+		c.Assert(ch.Left, jc.DeepEquals, []string{pr.u1.Name()})
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("no left change after scope cleanup")
+	}
+}
+
+func (s *RelationSuite) TestCleanupRelationScopesEmptyAndIdempotent(c *gc.C) {
+	queueScopesCleanup := func(prefix string) {
+		err := s.Session.DB("juju").C("cleanups").Insert(bson.D{
+			{Name: "_id", Value: fmt.Sprintf("test-%d", time.Now().UnixNano())},
+			{Name: "model-uuid", Value: s.State.ModelUUID()},
+			{Name: "kind", Value: "scopes"},
+			{Name: "prefix", Value: prefix},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	primed := func() int {
+		scopes := s.Session.DB("juju").C("relationscopes")
+		n, err := scopes.Find(bson.M{"_id": bson.M{"$regex": "^" + state.DocID(s.State, "r#")}}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		return n
+	}
+
+	// Empty prefix: running the cleanup is a no-op, no error.
+	queueScopesCleanup("r#99999999#")
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	c.Assert(primed(), gc.Equals, 0)
+
+	// Real prefix with a scope doc in it.
+	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-wordpress",
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := rwordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlUnit, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlru, err := rel.Unit(mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysqlru.EnterScope(nil), jc.ErrorIsNil)
+
+	prefix := fmt.Sprintf("r#%d#", rel.Id())
+	c.Assert(primed(), gc.Equals, 1)
+	queueScopesCleanup(prefix)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	c.Assert(primed(), gc.Equals, 0)
+	// Re-running with the same prefix again is still a no-op.
+	queueScopesCleanup(prefix)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	c.Assert(primed(), gc.Equals, 0)
+}
+
+func (s *RelationSuite) TestCleanupForceDestroyedRelationRemovesOrphanedScopes(c *gc.C) {
+	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-wordpress",
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := rwordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlUnit, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlru, err := rel.Unit(mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysqlru.EnterScope(nil), jc.ErrorIsNil)
+	rru, err := rel.RemoteUnit("remote-wordpress/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rru.EnterScope(nil), jc.ErrorIsNil)
+
+	// Force destroy schedules the deferred cleanup (relation stays Dying
+	// because units are still in scope).
+	opErrs, err := rel.DestroyWithForce(true, time.Minute)
+	c.Assert(opErrs, gc.HasLen, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel.Life(), gc.Equals, state.Dying)
+
+	// Simulate the teardown having already removed the relation document
+	// without the orphaned scopes being cleaned up.
+	coll := s.Session.DB("juju").C("relations")
+	err = coll.RemoveId(state.DocID(s.State, rel.Tag().Id()))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The local unit's scope is orphaned at this point (the remote unit
+	// was already forced out by the destroy).
+	scopes := s.Session.DB("juju").C("relationscopes")
+	n, err := scopes.Find(bson.M{"_id": bson.M{"$regex": "^" + state.DocID(s.State, "r#")}}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1)
+
+	// Running the cleanup must still remove the orphaned scopes.
+	s.Clock.Advance(time.Minute)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	n, err = scopes.Find(bson.M{"_id": bson.M{"$regex": "^" + state.DocID(s.State, "r#")}}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 0)
+}
+
 func (s *RelationSuite) TestForceDestroyCrossModelRelationOfferSide(c *gc.C) {
 	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:                   "remote-wordpress",
@@ -511,6 +836,346 @@ func (s *RelationSuite) TestForceDestroyCrossModelRelationOfferSide(c *gc.C) {
 
 	s.assertInScope(c, wpru, false)
 	s.assertInScope(c, mysqlru, true)
+}
+
+func (s *RelationSuite) TestBatchRemoveReferencesToRemoteAppCount(c *gc.C) {
+	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "remote-wordpress",
+		SourceModel:     names.NewModelTag("source-model"),
+		OfferUUID:       "offer-uuid",
+		IsConsumerProxy: true,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "mysql-root",
+			Limit:     1,
+			Name:      "dbadmin",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := rwordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressAdminEP, err := rwordpress.Endpoint("dbadmin")
+	c.Assert(err, jc.ErrorIsNil)
+
+	mysql := s.AddTestingApplication(c, "mysql-a", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlAdminEP, err := mysql.Endpoint("server-admin")
+	c.Assert(err, jc.ErrorIsNil)
+	rel1, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+	_ = rel1
+	rel2, err := s.State.AddRelation(wordpressAdminEP, mysqlAdminEP)
+	c.Assert(err, jc.ErrorIsNil)
+	_ = rel2
+
+	// Destroying the local application removes both of its relations to
+	// the remote application in a single transaction.
+	err = mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel1.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = rel2.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	var doc struct {
+		RelationCount int `bson:"relationcount"`
+	}
+	coll := s.Session.DB("juju").C("remoteApplications")
+	err = coll.FindId(state.DocID(s.State, "remote-wordpress")).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(doc.RelationCount, gc.Equals, 0)
+}
+
+func (s *RelationSuite) TestDestroyForceRemoteAppCorruptCountKeepsRemoteApp(c *gc.C) {
+	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "remote-wordpress",
+		SourceModel:     names.NewModelTag("source-model"),
+		OfferUUID:       "offer-uuid",
+		IsConsumerProxy: true,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     2,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := rwordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+
+	mysqlCh := s.AddTestingCharm(c, "mysql")
+	mkRel := func(appName string) *state.Relation {
+		mysql := s.AddTestingApplication(c, appName, mysqlCh)
+		mysqlEP, err := mysql.Endpoint("server")
+		c.Assert(err, jc.ErrorIsNil)
+		rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
+		c.Assert(err, jc.ErrorIsNil)
+		return rel
+	}
+	relA := mkRel("mysql-a")
+	relB := mkRel("mysql-b")
+
+	// Corrupt the recorded count.
+	coll := s.Session.DB("juju").C("remoteApplications")
+	err = coll.UpdateId(state.DocID(s.State, "remote-wordpress"),
+		bson.M{"$set": bson.M{"relationcount": 1}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Relation A has no units in scope; force-destroying must not
+	// remove its remote app. The count is stale-low (recorded 1,
+	// actual 2), so the removal refuses to touch the count rather
+	// than decrementing it; the recorded value (1) is left to
+	// converge as the remaining relations are removed.
+	_, err = relA.DestroyWithForce(true, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	err = relA.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = rwordpress.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rwordpress.Life(), gc.Equals, state.Alive)
+	// The corrupt count is left untouched.
+	var doc struct {
+		RelationCount int `bson:"relationcount"`
+	}
+	err = coll.FindId(state.DocID(s.State, "remote-wordpress")).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(doc.RelationCount, gc.Equals, 1)
+	// Relation B survives.
+	err = relB.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Destroying relation B converges the model: it is the final
+	// actual reference, so the relation and the remote app are
+	// removed together.
+	err = relB.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = relB.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = rwordpress.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = coll.FindId(state.DocID(s.State, "remote-wordpress")).One(&doc)
+	c.Assert(err, gc.Equals, mgo.ErrNotFound)
+}
+
+func (s *RelationSuite) TestDestroyForceRemoteAppCorruptCountRemovesRemoteApp(c *gc.C) {
+	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "remote-wordpress",
+		SourceModel:     names.NewModelTag("source-model"),
+		OfferUUID:       "offer-uuid",
+		IsConsumerProxy: true,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := rwordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlUnit, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlru, err := rel.Unit(mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysqlru.EnterScope(nil), jc.ErrorIsNil)
+
+	// Corrupt the recorded count with an inflated value; the relation
+	// being destroyed still must remove both the relation and the
+	// remote app.
+	coll := s.Session.DB("juju").C("remoteApplications")
+	err = coll.UpdateId(state.DocID(s.State, "remote-wordpress"),
+		bson.M{"$set": bson.M{"relationcount": 5}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Force-destroy with a single relation and a corrupt count: both the
+	// relation and the remote app are removed, with no operational
+	// errors accumulated along the way.
+	errs, err := rel.DestroyWithForce(true, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.HasLen, 0)
+	err = rel.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = rwordpress.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *RelationSuite) TestDestroyRemoteAppCorruptCountNonForceUnitCountZero(c *gc.C) {
+	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "remote-wordpress",
+		SourceModel:     names.NewModelTag("source-model"),
+		OfferUUID:       "offer-uuid",
+		IsConsumerProxy: true,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     2,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := rwordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlCh := s.AddTestingCharm(c, "mysql")
+	mkRel := func(appName string) *state.Relation {
+		mysql := s.AddTestingApplication(c, appName, mysqlCh)
+		mysqlEP, err := mysql.Endpoint("server")
+		c.Assert(err, jc.ErrorIsNil)
+		rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
+		c.Assert(err, jc.ErrorIsNil)
+		return rel
+	}
+	relA := mkRel("mysql-a")
+	relB := mkRel("mysql-b")
+	coll := s.Session.DB("juju").C("remoteApplications")
+	err = coll.UpdateId(state.DocID(s.State, "remote-wordpress"),
+		bson.M{"$set": bson.M{"relationcount": 0}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Non-force destroy with unit count = 0 and a corrupt-low count:
+	// the relation is removed and the corrupt count is reported as an
+	// operational error with force-removal guidance, rather than building
+	// an assert on relationcount > 0 that can never succeed and failing
+	// with excessive contention.
+	errs, err := relA.DestroyWithForce(false, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.HasLen, 1)
+	c.Assert(errs[0], jc.ErrorIs, stateerrors.RelationCountCorruptError)
+	c.Assert(errs[0], gc.ErrorMatches,
+		`relation count for remote application "remote-wordpress" is corrupt: recorded 0, actual relations 2; `+
+			`force remove the saas application with 'juju remove-saas remote-wordpress --force' to clean up its relations`)
+	err = relA.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// The remote app must remain, as must the other relation, and the
+	// corrupt count must be left untouched rather than decremented
+	// below zero.
+	err = rwordpress.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rwordpress.Life(), gc.Equals, state.Alive)
+	var doc struct {
+		RelationCount int `bson:"relationcount"`
+	}
+	err = coll.FindId(state.DocID(s.State, "remote-wordpress")).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(doc.RelationCount, gc.Equals, 0)
+	err = relB.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The remaining relation is the final reference: destroying it
+	// removes both the relation and the remote app, so the model
+	// converges without needing --force.
+	err = relB.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = relB.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = rwordpress.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *RelationSuite) TestDestroyRemoteAppNonForceFinalRelationCorruptCount(c *gc.C) {
+	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "remote-wordpress",
+		SourceModel:     names.NewModelTag("source-model"),
+		OfferUUID:       "offer-uuid",
+		IsConsumerProxy: true,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := rwordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Corrupt the recorded count.
+	coll := s.Session.DB("juju").C("remoteApplications")
+	err = coll.UpdateId(state.DocID(s.State, "remote-wordpress"),
+		bson.M{"$set": bson.M{"relationcount": 0}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Non-force destroy with no units in scope: the relation
+	// and remote app are removed.
+	err = rel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = rwordpress.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// No orphan scope/settings docs remain after the queued cleanup.
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	prefix := "^" + state.DocID(s.State, "r#")
+	for _, collName := range []string{"relationscopes", "settings"} {
+		scopeColl := s.Session.DB("juju").C(collName)
+		n, err := scopeColl.Find(bson.M{"_id": bson.M{"$regex": prefix}}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(n, gc.Equals, 0, gc.Commentf("leftover %s docs", collName))
+	}
+}
+
+func (s *RelationSuite) TestDestroyRemoteAppNonForceFinalRelationHappyPath(c *gc.C) {
+	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "remote-wordpress",
+		SourceModel:     names.NewModelTag("source-model"),
+		OfferUUID:       "offer-uuid",
+		IsConsumerProxy: true,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := rwordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// No corruption: the recorded count is 1, matching the single relation.
+	err = rel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = rwordpress.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	prefix := "^" + state.DocID(s.State, "r#")
+	for _, collName := range []string{"relationscopes", "settings"} {
+		scopeColl := s.Session.DB("juju").C(collName)
+		n, err := scopeColl.Find(bson.M{"_id": bson.M{"$regex": prefix}}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(n, gc.Equals, 0, gc.Commentf("leftover %s docs", collName))
+	}
 }
 
 func (s *RelationSuite) TestIsCrossModelYup(c *gc.C) {
