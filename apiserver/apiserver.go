@@ -868,6 +868,9 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		},
 		tagKindAuthorizer{names.ControllerAgentTagKind, names.MachineTagKind, names.ApplicationTagKind},
 	}
+	// Unit resources are only ever fetched by the agent of the unit, the same
+	// entities the ResourcesHookContext facade is restricted to.
+	unitResourcesAuthorizer := tagKindAuthorizer{names.UnitTagKind, names.ApplicationTagKind}
 	modelObjectsCharmsHTTPHandler := srv.monitoredHandler(objects.NewObjectsCharmHTTPHandler(
 		&applicationServiceGetter{ctxt: httpCtxt},
 		objects.CharmURLFromLocator,
@@ -923,9 +926,19 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		logger,
 	), "applications")
 	unitResourceNewOpenerFunc := resourceOpenerGetter(func(req *http.Request, tagKinds ...string) (coreresource.Opener, error) {
+		authTag, err := httpCtxt.authenticatedTagFromRequest(req, tagKinds...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		tagStr := req.URL.Query().Get(":unit")
 		tag, err := names.ParseUnitTag(tagStr)
 		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// The unit is named by the request URL, so it has to be tied back
+		// to the authenticated agent before any resource is opened for it.
+		if err := checkUnitResourceAccess(authTag, tag); err != nil {
 			return nil, errors.Trace(err)
 		}
 		unitName, err := coreunit.NewName(tag.Id())
@@ -1026,7 +1039,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}, {
 		pattern:    modelRoutePrefix + "/units/:unit/resources/:resource",
 		handler:    unitResourcesHandler,
-		authorizer: httpcontext.TODOAuthorizer,
+		authorizer: unitResourcesAuthorizer,
 	}, {
 		pattern:    "/migrate/charms/:object",
 		handler:    migrateObjectsCharmsHTTPHandler,
@@ -1603,4 +1616,23 @@ type resourceOpenerGetter func(r *http.Request, tagKinds ...string) (coreresourc
 
 func (rog resourceOpenerGetter) Opener(r *http.Request, tagKinds ...string) (coreresource.Opener, error) {
 	return rog(r, tagKinds...)
+}
+
+// checkUnitResourceAccess checks that the authenticated entity is allowed to
+// fetch resources on behalf of the supplied unit. A unit agent may only fetch
+// resources for itself, and an application agent only for the units of its
+// own application. Anything else gets [apiservererrors.ErrPerm].
+func checkUnitResourceAccess(authTag names.Tag, unitTag names.UnitTag) error {
+	switch authTag := authTag.(type) {
+	case names.UnitTag:
+		if authTag == unitTag {
+			return nil
+		}
+	case names.ApplicationTag:
+		appName, err := names.UnitApplication(unitTag.Id())
+		if err == nil && appName == authTag.Id() {
+			return nil
+		}
+	}
+	return apiservererrors.ErrPerm
 }
