@@ -120,6 +120,23 @@ func newCleanupAtOp(when time.Time, kind cleanupKind, prefix string, args ...int
 	}
 }
 
+// newModelScopedCleanupOp returns a cleanup op like newCleanupOp, but
+// suitable for inclusion in a raw transaction.
+func (st *State) newModelScopedCleanupOp(kind cleanupKind, prefix string, args ...interface{}) (txn.Op, error) {
+	op := newCleanupOp(kind, prefix, args...)
+	id, ok := op.Id.(string)
+	if !ok {
+		return txn.Op{}, errors.Errorf("unexpected cleanup id type %T", op.Id)
+	}
+	insert, err := mungeDocForMultiModel(op.Insert, st.ModelUUID(), modelUUIDRequired)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
+	op.Id = ensureModelUUID(st.ModelUUID(), id)
+	op.Insert = insert
+	return op, nil
+}
+
 type cancelCleanupOpsArg struct {
 	kind    cleanupKind
 	pattern bson.DocElem

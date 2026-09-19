@@ -502,21 +502,30 @@ func (r *Relation) removeOps(ignoreApplication string, departingUnitName string,
 			}
 		}
 	}
-	ops = append(ops, removeStatusOp(r.st, r.globalScope()))
-	ops = append(ops, removeRelationNetworksOps(r.st, r.doc.Key)...)
-	re := r.st.RemoteEntities()
-	tokenOps := re.removeRemoteEntityOps(r.Tag())
-	ops = append(ops, tokenOps...)
-	offerOps := removeOfferConnectionsForRelationOps(r.Id())
-	ops = append(ops, offerOps...)
-	secretPermissionsOps, err := r.st.removeScopedSecretPermissionOps(r.Tag())
+	removeChildRecordOps, err := removeRelationChildRecordOps(r.st, r.doc.Id, r.doc.Key)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ops = append(ops, secretPermissionsOps...)
+	ops = append(ops, removeChildRecordOps...)
 	// This cleanup does not need to be forced.
 	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
 	return append(ops, cleanupOp), nil
+}
+
+// removeRelationChildRecordOps returns the operations that remove the
+// child records of a relation: status, relation networks, offer
+// connection, remote entity, and scoped secret permissions.
+func removeRelationChildRecordOps(st *State, relID int, relationKey string) ([]txn.Op, error) {
+	ops := []txn.Op{removeStatusOp(st, relationGlobalScope(relID))}
+	ops = append(ops, removeRelationNetworksOps(st, relationKey)...)
+	tag := names.NewRelationTag(relationKey)
+	ops = append(ops, st.RemoteEntities().removeRemoteEntityOps(tag)...)
+	ops = append(ops, removeOfferConnectionsForRelationOps(st, relID)...)
+	secretPermissionsOps, err := st.removeScopedSecretPermissionOps(tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return append(ops, secretPermissionsOps...), nil
 }
 
 // When 'force' is set, this call will return both needed operations

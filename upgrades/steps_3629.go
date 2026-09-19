@@ -9,7 +9,7 @@ func stateStepsFor3629() []Step {
 	return []Step{
 		// Repair counts first since subsequent steps depend on correct counts.
 		&upgradeStep{
-			description: "repair remote application relation counts",
+			description: "repair application relation counts",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return context.State().FixApplicationCounts()

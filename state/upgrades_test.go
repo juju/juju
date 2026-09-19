@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
@@ -1167,27 +1168,7 @@ func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsMalformedName(c *g
 
 	// Corrupt one endpoint's application name into something that can
 	// never be valid, directly in the DB.
-	relColl, closer, err := s.state.db().GetRawCollection("relations")
-	c.Assert(err, jc.ErrorIsNil)
-	var relDoc struct {
-		Endpoints []struct {
-			ApplicationName string `bson:"applicationname"`
-		} `bson:"endpoints"`
-	}
-	err = relColl.FindId(s.state.docID(rel.Tag().Id())).One(&relDoc)
-	c.Assert(err, jc.ErrorIsNil)
-	idx := -1
-	for i, ep := range relDoc.Endpoints {
-		if ep.ApplicationName == "mysql" {
-			idx = i
-		}
-	}
-	c.Assert(idx >= 0, jc.IsTrue)
-	err = relColl.UpdateId(s.state.docID(rel.Tag().Id()), bson.M{"$set": bson.M{
-		fmt.Sprintf("endpoints.%d.applicationname", idx): "bad name!",
-	}})
-	closer()
-	c.Assert(err, jc.ErrorIsNil)
+	s.corruptEndpointAppName(c, rel, "mysql", "bad name!")
 
 	// The step must remove the relation rather than error out.
 	err = RemoveOrphanedApplicationRelations(s.pool)
@@ -1414,14 +1395,305 @@ func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsDyingAppCleanup(c 
 	cleanupsColl, closer, err := s.state.db().GetRawCollection(cleanupsC)
 	c.Assert(err, jc.ErrorIsNil)
 	var cleanupDoc struct {
-		Kind   cleanupKind `bson:"kind"`
-		Prefix string      `bson:"prefix"`
+		DocID     string      `bson:"_id"`
+		ModelUUID string      `bson:"model-uuid"`
+		Kind      cleanupKind `bson:"kind"`
+		Prefix    string      `bson:"prefix"`
 	}
 	err = cleanupsColl.Find(bson.M{"kind": cleanupApplication, "prefix": "mysql"}).One(&cleanupDoc)
 	closer()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cleanupDoc.Kind, gc.Equals, cleanupApplication)
 	c.Assert(cleanupDoc.Prefix, gc.Equals, "mysql")
+	c.Assert(strings.HasPrefix(cleanupDoc.DocID, s.state.ModelUUID()+":"), jc.IsTrue)
+	c.Assert(cleanupDoc.ModelUUID, gc.Equals, s.state.ModelUUID())
+
+	// Running the cleanups destroys the dying application, whose last
+	// reference (the orphaned relation) is gone.
+	noopDeleter := func(*secrets.URI, int) error { return nil }
+	c.Assert(s.state.Cleanup(noopDeleter), jc.ErrorIsNil)
+	_, err = s.state.Application("mysql")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsDyingRemoteApp(c *gc.C) {
+	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        "remote-dying",
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   "offer-dying",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	remoteEP, err := rapp.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	ch := AddTestingCharm(c, s.state, "mysql")
+	mysql := AddTestingApplication(c, s.state, "mysql", ch)
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.state.AddRelation(remoteEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The surviving remote application is dying and this relation is
+	// its last reference.
+	appsColl, appsCloser, err := s.state.db().GetRawCollection("remoteApplications")
+	c.Assert(err, jc.ErrorIsNil)
+	err = appsColl.UpdateId(s.state.docID("remote-dying"), bson.M{"$set": bson.M{"life": Dying}})
+	appsCloser()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Corrupt the local endpoint's application name.
+	s.corruptEndpointAppName(c, rel, "mysql", "bad name!")
+
+	c.Assert(RemoveOrphanedApplicationRelations(s.pool), jc.ErrorIsNil)
+
+	// The relation is gone and the dying remote application, whose
+	// last reference it was, is removed with it, mirroring normal
+	// relation removal.
+	_, err = s.state.Relation(rel.Id())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.state.RemoteApplication("remote-dying")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsConsumerProxyLastRelation(c *gc.C) {
+	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        "remote-proxy",
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   "offer-proxy",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+		IsConsumerProxy: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	remoteEP, err := rapp.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	ch := AddTestingCharm(c, s.state, "mysql")
+	mysql := AddTestingApplication(c, s.state, "mysql", ch)
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.state.AddRelation(remoteEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The local endpoint's application name is corrupted.
+	s.corruptEndpointAppName(c, rel, "mysql", "bad name!")
+
+	c.Assert(RemoveOrphanedApplicationRelations(s.pool), jc.ErrorIsNil)
+
+	// The relation is gone and the consumer proxy, whose last relation
+	// it was, is removed with it, mirroring normal relation removal.
+	_, err = s.state.Relation(rel.Id())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.state.RemoteApplication("remote-proxy")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsDyingRemoteAppMultiple(c *gc.C) {
+	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        "remote-dying",
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   "offer-dying",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     2,
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	remoteEP, err := rapp.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	ch := AddTestingCharm(c, s.state, "wordpress")
+	wp1 := AddTestingApplication(c, s.state, "wp1", ch)
+	wp1EP, err := wp1.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	wp2 := AddTestingApplication(c, s.state, "wp2", ch)
+	wp2EP, err := wp2.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	rel1, err := s.state.AddRelation(remoteEP, wp1EP)
+	c.Assert(err, jc.ErrorIsNil)
+	rel2, err := s.state.AddRelation(remoteEP, wp2EP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The surviving remote application is dying and these relations
+	// are its only references.
+	appsColl, appsCloser, err := s.state.db().GetRawCollection("remoteApplications")
+	c.Assert(err, jc.ErrorIsNil)
+	err = appsColl.UpdateId(s.state.docID("remote-dying"), bson.M{"$set": bson.M{"life": Dying}})
+	appsCloser()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Corrupt both local endpoints' application names so both
+	// relations are orphaned.
+	s.corruptEndpointAppName(c, rel1, "wp1", "bad name 1!")
+	s.corruptEndpointAppName(c, rel2, "wp2", "bad name 2!")
+
+	c.Assert(RemoveOrphanedApplicationRelations(s.pool), jc.ErrorIsNil)
+
+	// Both relations are gone and the dying remote application, whose
+	// last reference the second removal was, is removed with it.
+	_, err = s.state.Relation(rel1.Id())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.state.Relation(rel2.Id())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.state.RemoteApplication("remote-dying")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+// corruptEndpointAppName rewrites the named endpoint application's name
+// in the relation document directly in the DB.
+func (s *upgradesSuite) corruptEndpointAppName(c *gc.C, rel *Relation, appName, badName string) {
+	relColl, closer, err := s.state.db().GetRawCollection("relations")
+	c.Assert(err, jc.ErrorIsNil)
+	var relDoc struct {
+		Endpoints []struct {
+			ApplicationName string `bson:"applicationname"`
+		} `bson:"endpoints"`
+	}
+	err = relColl.FindId(s.state.docID(rel.Tag().Id())).One(&relDoc)
+	c.Assert(err, jc.ErrorIsNil)
+	idx := -1
+	for i, ep := range relDoc.Endpoints {
+		if ep.ApplicationName == appName {
+			idx = i
+		}
+	}
+	c.Assert(idx >= 0, jc.IsTrue)
+	err = relColl.UpdateId(s.state.docID(rel.Tag().Id()), bson.M{"$set": bson.M{
+		fmt.Sprintf("endpoints.%d.applicationname", idx): badName,
+	}})
+	closer()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) TestRemoveOrphanedRelationDocsRecreatesApplicationSettingsNoOtherDocs(c *gc.C) {
+	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        "remote-bare",
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	remoteEP, err := rapp.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	ch := AddTestingCharm(c, s.state, "mysql")
+	mysql := AddTestingApplication(c, s.state, "mysql", ch)
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.state.AddRelation(remoteEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// No unit ever enters scope, so the relation's only r#-prefixed
+	// documents are the two application settings docs.
+	prefix := s.relPrefix(rel)
+	settings := s.docIDsWithPrefix(c, "settings", prefix)
+	c.Assert(settings, gc.HasLen, 2)
+	settingsColl, closer, err := s.state.db().GetRawCollection("settings")
+	c.Assert(err, jc.ErrorIsNil)
+	for _, id := range settings {
+		err = settingsColl.RemoveId(id)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	closer()
+
+	// Run twice to verify idempotency.
+	for i := 0; i < 2; i++ {
+		err = RemoveOrphanedRelationDocs(s.pool)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// The application settings docs for both endpoint applications are
+	// recreated empty.
+	c.Assert(s.countDocs(c, "settings", prefix), gc.Equals, 2)
+}
+
+func (s *upgradesSuite) TestRemoveOrphanedRelationDocsSkipsAppSettingsForDanglingApps(c *gc.C) {
+	rapp, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        "remote-dangling",
+		SourceModel: names.NewModelTag("source-model"),
+		OfferUUID:   "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	remoteEP, err := rapp.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	ch := AddTestingCharm(c, s.state, "mysql")
+	mysql := AddTestingApplication(c, s.state, "mysql", ch)
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.state.AddRelation(remoteEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Corrupt the local endpoint name and make the relation's removal
+	// fail (the remote application's relationcount is already zero), so
+	// the relation survives the orphaned application repair step with an
+	// orphaned endpoint.
+	s.corruptEndpointAppName(c, rel, "mysql", "bad name!")
+	s.setRemoteCount(c, "remote-dangling", 0)
+	c.Assert(RemoveOrphanedApplicationRelations(s.pool), jc.ErrorIsNil)
+	_, err = s.state.Relation(rel.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Delete the relation's application settings docs; no other r#
+	// docs exist.
+	prefix := s.relPrefix(rel)
+	settingsColl, closer, err := s.state.db().GetRawCollection("settings")
+	c.Assert(err, jc.ErrorIsNil)
+	for _, id := range s.docIDsWithPrefix(c, "settings", prefix) {
+		err = settingsColl.RemoveId(id)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	closer()
+
+	c.Assert(RemoveOrphanedRelationDocs(s.pool), jc.ErrorIsNil)
+
+	// The relation has a dangling endpoint application, so its docs are
+	// left for manual repair: nothing is recreated.
+	c.Assert(s.countDocs(c, "settings", prefix), gc.Equals, 0)
+}
+
+// docIDsWithPrefix returns the raw ids of documents in the named
+// collection whose id starts with the model-prefixed prefix.
+func (s *upgradesSuite) docIDsWithPrefix(c *gc.C, collName, prefix string) []string {
+	coll, closer, err := s.state.db().GetRawCollection(collName)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	var ids []string
+	iter := coll.Find(bson.M{
+		"_id": bson.M{"$regex": "^" + s.state.docID(prefix)},
+	}).Select(bson.M{"_id": 1}).Iter()
+	defer iter.Close()
+	var doc struct {
+		DocID string `bson:"_id"`
+	}
+	for iter.Next(&doc) {
+		ids = append(ids, doc.DocID)
+	}
+	c.Assert(iter.Close(), jc.ErrorIsNil)
+	return ids
 }
 
 func (s *upgradesSuite) TestRemoveOrphanedRelationDocsLeavesMissingUnitScopes(c *gc.C) {

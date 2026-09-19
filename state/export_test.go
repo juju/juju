@@ -807,7 +807,7 @@ func RemoveEndpointBindingsForApplication(c *gc.C, app *Application) {
 }
 
 func RemoveOfferConnectionsForRelation(c *gc.C, rel *Relation) {
-	removeOps := removeOfferConnectionsForRelationOps(rel.Id())
+	removeOps := removeOfferConnectionsForRelationOps(rel.st, rel.Id())
 	txnError := rel.st.db().RunTransaction(removeOps)
 	err := onAbort(txnError, nil) // ignore ErrAborted as it asserts DocExists
 	c.Assert(err, jc.ErrorIsNil)
