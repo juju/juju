@@ -5,6 +5,9 @@ package state
 
 import (
 	"context"
+	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
@@ -658,4 +661,694 @@ func (st *State) removeSSHProxyCleanupDocs() error {
 		})
 	}
 	return errors.Trace(st.runRawTransaction(ops))
+}
+
+// FixApplicationCounts repairs remote and local application
+// relationcount drift caused by force removing cross model relations. It
+// resets relationcount to the number of relations whose endpoints
+// reference the application. Local application counts are repaired too:
+// removing an orphaned relation asserts on the relationcount of the
+// endpoint application, whichever collection it belongs to.
+func FixApplicationCounts(pool *StatePool) error {
+	return runForAllModelStates(pool, func(st *State) error {
+		var repaired, failed []string
+		for _, collName := range []string{remoteApplicationsC, applicationsC} {
+			apps, closer, err := st.db().GetCollection(collName)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			var docs []struct {
+				DocID         string `bson:"_id"`
+				Name          string `bson:"name"`
+				RelationCount int    `bson:"relationcount"`
+			}
+			err = apps.Find(nil).Select(bson.M{"_id": 1, "name": 1, "relationcount": 1}).All(&docs)
+			closer()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			// The fix-up is best effort: each application is updated
+			// in its own transaction, logging a warning on failure,
+			// so a bad document cannot abort the whole upgrade step.
+			for _, doc := range docs {
+				refCount, err := countRelationsForApplication(st, doc.Name)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if doc.RelationCount == refCount {
+					continue
+				}
+				logger.Debugf("repairing application %q: relationcount %d != %d actual relations", doc.Name, doc.RelationCount, refCount)
+				err = st.runRawTransaction([]txn.Op{{
+					C:      collName,
+					Id:     doc.DocID,
+					Assert: txn.DocExists,
+					Update: bson.D{{"$set", bson.D{{"relationcount", refCount}}}},
+				}})
+				if err != nil {
+					logger.Warningf("cannot repair relationcount for application %q: %v (manual repair required)", doc.Name, err)
+					failed = append(failed, doc.Name)
+					continue
+				}
+				repaired = append(repaired, doc.Name)
+			}
+		}
+		if len(repaired) > 0 {
+			logger.Infof("repaired relationcount for %d application(s) in model %q: %v",
+				len(repaired), st.ModelUUID(), repaired)
+		}
+		if len(failed) > 0 {
+			logger.Warningf("%d application(s) left for manual repair in model %q: %v",
+				len(failed), st.ModelUUID(), failed)
+		}
+		return nil
+	})
+}
+
+// RemoveOrphanedApplicationRelations destroys relations when an endpoint
+// remote application has no document in the model.
+// Only the remote end of a cross-model relation can be left dangling.
+// Note: this is best effort and does not guarantee that all orphaned
+// relations will be removed. Nor does it guarantee that all child data is
+// removed. The key thing is that the relation itself is removed.
+//
+// NB: the removal operations are bespoke rather than taken from
+// Relation.removeOps: those assert on life and unitcount values that
+// corrupted relations violate, and their endpoint lookups fail on the
+// missing application documents.
+func RemoveOrphanedApplicationRelations(pool *StatePool) error {
+	return runForAllModelStates(pool, func(st *State) error {
+		// collectIDs returns the document ids matched by selector, which
+		// runs model-scoped so only this model's documents are considered.
+		collectIDs := func(collName string, sel bson.M) ([]string, error) {
+			coll, closer, err := st.db().GetCollection(collName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			defer closer()
+			var ids []string
+			var doc struct {
+				DocID string `bson:"_id"`
+			}
+			iter := coll.Find(sel).Select(bson.M{"_id": 1}).Iter()
+			defer iter.Close()
+			for iter.Next(&doc) {
+				ids = append(ids, doc.DocID)
+			}
+			if err := iter.Close(); err != nil {
+				return nil, errors.Trace(err)
+			}
+			return ids, nil
+		}
+
+		// appendRemoveOps appends to ops a Remove op for every
+		// document matching sel in the named collection.
+		appendRemoveOps := func(ops []txn.Op, collName string, sel bson.M) ([]txn.Op, error) {
+			ids, err := collectIDs(collName, sel)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			for _, id := range ids {
+				ops = append(ops, txn.Op{C: collName, Id: id, Remove: true})
+			}
+			return ops, nil
+		}
+
+		// apps holds every endpoint application that currently has a document.
+		type endpointApp struct {
+			coll  string
+			docID string
+			life  Life
+			// relationCount, isConsumerProxy and sourceControllerUUID
+			// are only read for remote applications.
+			relationCount        int
+			isConsumerProxy      bool
+			sourceControllerUUID string
+		}
+		apps := make(map[string]endpointApp)
+		for _, collName := range []string{remoteApplicationsC, applicationsC} {
+			coll, closer, err := st.db().GetCollection(collName)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			var doc struct {
+				Name                 string `bson:"name"`
+				DocID                string `bson:"_id"`
+				Life                 Life   `bson:"life"`
+				RelationCount        int    `bson:"relationcount"`
+				IsConsumerProxy      bool   `bson:"is-consumer-proxy"`
+				SourceControllerUUID string `bson:"source-controller-uuid"`
+			}
+			iter := coll.Find(nil).Select(bson.M{
+				"_id": 1, "name": 1, "life": 1, "relationcount": 1,
+				"is-consumer-proxy": 1, "source-controller-uuid": 1,
+			}).Iter()
+			for iter.Next(&doc) {
+				if _, seen := apps[doc.Name]; seen {
+					continue
+				}
+				apps[doc.Name] = endpointApp{
+					coll:                 collName,
+					docID:                doc.DocID,
+					life:                 doc.Life,
+					relationCount:        doc.RelationCount,
+					isConsumerProxy:      doc.IsConsumerProxy,
+					sourceControllerUUID: doc.SourceControllerUUID,
+				}
+			}
+			err = iter.Close()
+			closer()
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+
+		relations, closer, err := st.db().GetCollection(relationsC)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer closer()
+
+		var doc struct {
+			DocID     string `bson:"_id"`
+			Key       string `bson:"key"`
+			Id        int    `bson:"id"`
+			Endpoints []struct {
+				ApplicationName string `bson:"applicationname"`
+			} `bson:"endpoints"`
+		}
+		iter := relations.Find(nil).
+			Select(bson.M{"_id": 1, "key": 1, "id": 1, "endpoints": 1}).
+			Iter()
+		defer iter.Close()
+		var removed, failed []int
+		// decremented tracks, per application, the relation count
+		// decrements this step has already applied, so that the count
+		// a later orphaned relation sees reflects the removals before
+		// it: several orphaned relations can reference the same dying
+		// remote application, and only the last one may remove it.
+		decremented := make(map[string]int)
+		for iter.Next(&doc) {
+			var ops []txn.Op
+			orphaned := false
+			for _, ep := range doc.Endpoints {
+				app, ok := apps[ep.ApplicationName]
+				if !ok {
+					orphaned = true
+					continue
+				}
+				if app.coll == remoteApplicationsC &&
+					(app.life != Alive || app.isConsumerProxy) &&
+					app.relationCount-decremented[ep.ApplicationName] == 1 {
+					// Mirror normal relation removal: a dying remote
+					// application (or a consumer proxy) whose last
+					// relation is removed must itself be removed; unlike
+					// local applications there is no cleanup mechanism
+					// to do it later.
+					remoteApp := &RemoteApplication{st: st, doc: remoteApplicationDoc{
+						DocID:                app.docID,
+						Name:                 ep.ApplicationName,
+						SourceControllerUUID: app.sourceControllerUUID,
+					}}
+					removeAppOps, err := remoteApp.removeOps(bson.D{{"relationcount", 1}})
+					if err != nil {
+						return errors.Trace(err)
+					}
+					ops = append(ops, removeAppOps...)
+					continue
+				}
+				// The endpoint application's relation count must
+				// reflect the removed relation. The assertion
+				// means a count that is already below one aborts the
+				// whole removal below, leaving the relation for manual
+				// repair.
+				ops = append(ops, txn.Op{
+					C:      app.coll,
+					Id:     app.docID,
+					Assert: bson.D{{"relationcount", bson.D{{"$gt", 0}}}},
+					Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
+				})
+				if app.coll == applicationsC && app.life != Alive {
+					// Mirror normal relation removal: a dying
+					// application whose last reference is removed
+					// must have a cleanup queued. The op is model
+					// scoped for the raw transaction below.
+					cleanupOp, err := st.newModelScopedCleanupOp(
+						cleanupApplication,
+						ep.ApplicationName,
+						false, // destroyStorage
+						false, // force
+					)
+					if err != nil {
+						return errors.Trace(err)
+					}
+					ops = append(ops, cleanupOp)
+				}
+			}
+			if !orphaned {
+				continue
+			}
+
+			// Removal of the relation and all the documents it owns:
+			// scope and settings docs, persisted unit relation state,
+			// and any queued cleanups that reference it.
+			prefix := "r#" + strconv.Itoa(doc.Id) + "#"
+			prefixSel := bson.M{"_id": bson.M{"$regex": "^" + st.docID(prefix)}}
+			ops, err := appendRemoveOps(ops, relationScopesC, prefixSel)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			ops, err = appendRemoveOps(ops, settingsC, prefixSel)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			relState := "relation-state." + strconv.Itoa(doc.Id)
+			ids, err := collectIDs(unitStatesC, bson.M{relState: bson.M{"$exists": true}})
+			if err != nil {
+				return errors.Trace(err)
+			}
+			for _, id := range ids {
+				ops = append(ops, txn.Op{C: unitStatesC, Id: id, Update: bson.D{{"$unset", bson.D{{relState, ""}}}}})
+			}
+			ops, err = appendRemoveOps(ops, cleanupsC, bson.M{"$or": []bson.M{{
+				"kind":   cleanupForceDestroyedRelation,
+				"prefix": strconv.Itoa(doc.Id),
+			}, {
+				"kind":   cleanupRelationSettings,
+				"prefix": prefix,
+			}}})
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			// Also clears the relation's status, relation network,
+			// remote entity, offer connection, and secret
+			// permission records.
+			removeChildRecordOps, err := removeRelationChildRecordOps(st, doc.Id, doc.Key)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			ops = append(ops, removeChildRecordOps...)
+
+			ops = append(ops, txn.Op{
+				C:      relationsC,
+				Id:     doc.DocID,
+				Assert: txn.DocExists,
+				Remove: true,
+			})
+			logger.Debugf("removing orphaned relation %v: an endpoint application has no document", doc.Id)
+			if err := st.runRawTransaction(ops); err != nil {
+				logger.Warningf("cannot remove orphaned relation %d: %v (manual repair required)", doc.Id, err)
+				failed = append(failed, doc.Id)
+			} else {
+				removed = append(removed, doc.Id)
+				for _, ep := range doc.Endpoints {
+					decremented[ep.ApplicationName]++
+				}
+			}
+		}
+		if err := iter.Close(); err != nil {
+			return errors.Trace(err)
+		}
+		if len(removed) > 0 {
+			logger.Infof("removed %d orphaned relation(s) in model %q: %v",
+				len(removed), st.ModelUUID(), removed)
+		}
+		if len(failed) > 0 {
+			logger.Warningf("%d orphaned relation(s) left for manual repair in model %q: %v",
+				len(failed), st.ModelUUID(), failed)
+		}
+		return nil
+	})
+}
+
+// RemoveOrphanedRelationDocs removes relation scope and settings documents
+// whose parent relation no longer exists, and repairs a scope whose
+// settings document is missing: the codebase treats a scope doc as a
+// guarantee that a settings doc with the same key exists and the relation
+// units watcher fails on such a scope. The relation units watcher also
+// watches an application settings doc for every endpoint application of
+// every relation, so missing ones are recreated wherever their endpoint
+// applications still exist.
+func RemoveOrphanedRelationDocs(pool *StatePool) error {
+	return runForAllModelStates(pool, func(st *State) error {
+		type relationOrphanDoc struct {
+			Coll  string
+			DocID string
+		}
+
+		// Relation scope and settings docs have "r#" prefixed local ids.
+		// Index them by their relation id so docs whose parent relation
+		// still exists can be told apart from orphaned ones.
+		orphans := make(map[int][]relationOrphanDoc)
+		sel := bson.M{"_id": bson.M{"$regex": "^" + st.docID("r#")}}
+		for _, collName := range []string{relationScopesC, settingsC} {
+			coll, closer, err := st.db().GetCollection(collName)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			var ids []struct {
+				DocID string `bson:"_id"`
+			}
+			if err := coll.Find(sel).Select(bson.M{"_id": 1}).All(&ids); err != nil {
+				closer()
+				return errors.Trace(err)
+			}
+			closer()
+			for _, id := range ids {
+				local := st.localID(id.DocID)
+				rest := local[2:]
+				idx := strings.Index(rest, "#")
+				if idx <= 0 {
+					continue
+				}
+				relID, err := strconv.Atoi(rest[:idx])
+				if err != nil {
+					continue
+				}
+				orphans[relID] = append(orphans[relID], relationOrphanDoc{Coll: collName, DocID: id.DocID})
+			}
+		}
+
+		// Collect the endpoint applications of every relation. Relation
+		// ids absent from the map no longer exist, and the applications
+		// are needed both to decide whether orphaned docs may be
+		// repaired and to recreate missing application settings docs
+		// below.
+		relApps := make(map[int][]string)
+		relations, closer, err := st.db().GetCollection(relationsC)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		var relDoc struct {
+			Id        int `bson:"id"`
+			Endpoints []struct {
+				ApplicationName string `bson:"applicationname"`
+			} `bson:"endpoints"`
+		}
+		iter := relations.Find(nil).
+			Select(bson.M{"id": 1, "endpoints.applicationname": 1}).
+			Iter()
+		for iter.Next(&relDoc) {
+			var apps []string
+			for _, ep := range relDoc.Endpoints {
+				apps = append(apps, ep.ApplicationName)
+			}
+			relApps[relDoc.Id] = apps
+		}
+		if err := iter.Close(); err != nil {
+			closer()
+			return errors.Trace(err)
+		}
+		closer()
+
+		// appExists records which endpoint applications still have a
+		// document, in either the remote or the local applications
+		// collection. Duplicate names in the $in query are harmless.
+		appExists := make(map[string]bool)
+		var appNames []string
+		for _, apps := range relApps {
+			appNames = append(appNames, apps...)
+		}
+		if len(appNames) > 0 {
+			for _, collName := range []string{remoteApplicationsC, applicationsC} {
+				coll, closer, err := st.db().GetCollection(collName)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				var docs []struct {
+					Name string `bson:"name"`
+				}
+				err = coll.Find(bson.M{"name": bson.M{"$in": appNames}}).
+					Select(bson.M{"name": 1}).All(&docs)
+				closer()
+				if err != nil {
+					return errors.Trace(err)
+				}
+				for _, doc := range docs {
+					appExists[doc.Name] = true
+				}
+			}
+		}
+		appsExist := func(apps []string) bool {
+			for _, appName := range apps {
+				if !appExists[appName] {
+					return false
+				}
+			}
+			return true
+		}
+
+		// Removal and repair are best effort: each relation's ops run
+		// in their own transaction, logging a warning on failure, so a
+		// bad relation cannot abort the repair of the others.
+		newSettingsOp := func(docID string) txn.Op {
+			return txn.Op{
+				C:      settingsC,
+				Id:     docID,
+				Assert: txn.DocMissing,
+				Insert: &settingsDoc{
+					DocID:     docID,
+					ModelUUID: st.ModelUUID(),
+					Settings:  make(settingsMap),
+				},
+			}
+		}
+		// A relation can be repaired both by the loop below and by the
+		// application settings work, so the ids are recorded in maps:
+		// each relation is counted once per list. A relation left in
+		// both lists has some documents repaired and some left for
+		// manual repair.
+		repaired := make(map[int]bool)
+		failed := make(map[int]bool)
+		sortedIDs := func(ids map[int]bool) []int {
+			sorted := make([]int, 0, len(ids))
+			for id := range ids {
+				sorted = append(sorted, id)
+			}
+			slices.Sort(sorted)
+			return sorted
+		}
+		for id := range orphans {
+			var ops []txn.Op
+			if _, exists := relApps[id]; !exists {
+				// The relation is gone; remove all its docs.
+				logger.Debugf("removing orphaned relation docs for relation %d", id)
+				for _, doc := range orphans[id] {
+					ops = append(ops, txn.Op{
+						C:      doc.Coll,
+						Id:     doc.DocID,
+						Remove: true,
+					})
+				}
+			} else {
+				// The relation still exists; its docs must form
+				// complete pairs. But if an endpoint application no
+				// longer has a document, the relation should have been
+				// destroyed by RemoveOrphanedApplicationRelations and
+				// its child records must not be recreated.
+				if !appsExist(relApps[id]) {
+					logger.Warningf("relation %d has dangling endpoint applications, leaving its docs for manual repair", id)
+					failed[id] = true
+					continue
+				}
+				settingsAt := make(map[string]bool)
+				for _, doc := range orphans[id] {
+					if doc.Coll == settingsC {
+						settingsAt[doc.DocID] = true
+					}
+				}
+				for _, doc := range orphans[id] {
+					if doc.Coll != relationScopesC {
+						continue
+					}
+					if !settingsAt[doc.DocID] {
+						// The scope documents a unit in the relation, so
+						// the settings doc it guarantees must exist;
+						// recreate it empty to keep the watcher alive.
+						logger.Debugf("recreating missing settings doc for relation %d scope %v", id, doc.DocID)
+						ops = append(ops, newSettingsOp(doc.DocID))
+					}
+				}
+			}
+			if len(ops) == 0 {
+				continue
+			}
+			if err := st.runRawTransaction(ops); err != nil {
+				logger.Warningf("cannot repair relation %d docs: %v (manual repair required)", id, err)
+				failed[id] = true
+			} else {
+				repaired[id] = true
+			}
+		}
+
+		// Every relation whose endpoint applications still exist must
+		// have an application settings doc per endpoint: the relation
+		// units watcher watches these docs too and fails when one is
+		// missing. A relation whose application settings docs are all
+		// missing has no r#-prefixed documents at all, so it is not
+		// visited by the loop above; scan all of them. One query
+		// collects the docs that already exist.
+		type appSettingsRef struct {
+			relID   int
+			appName string
+		}
+		missing := make(map[string]appSettingsRef)
+		for id, apps := range relApps {
+			if !appsExist(apps) {
+				continue
+			}
+			for _, appName := range apps {
+				settingsID := st.docID(relationApplicationSettingsKey(id, appName))
+				missing[settingsID] = appSettingsRef{relID: id, appName: appName}
+			}
+		}
+		if len(missing) > 0 {
+			settingsIDs := make([]string, 0, len(missing))
+			for settingsID := range missing {
+				settingsIDs = append(settingsIDs, settingsID)
+			}
+			settings, closer, err := st.db().GetCollection(settingsC)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			var docs []struct {
+				DocID string `bson:"_id"`
+			}
+			err = settings.Find(bson.M{"_id": bson.M{"$in": settingsIDs}}).
+				Select(bson.M{"_id": 1}).All(&docs)
+			closer()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			for _, doc := range docs {
+				delete(missing, doc.DocID)
+			}
+		}
+		perRelation := make(map[int][]appSettingsRef)
+		for _, ref := range missing {
+			perRelation[ref.relID] = append(perRelation[ref.relID], ref)
+		}
+		for id, absent := range perRelation {
+			var ops []txn.Op
+			for _, ref := range absent {
+				logger.Debugf("recreating missing application settings doc for relation %d application %q", id, ref.appName)
+				ops = append(ops, newSettingsOp(st.docID(relationApplicationSettingsKey(id, ref.appName))))
+			}
+			if err := st.runRawTransaction(ops); err != nil {
+				logger.Warningf("cannot repair relation %d docs: %v (manual repair required)", id, err)
+				failed[id] = true
+			} else {
+				repaired[id] = true
+			}
+		}
+		if len(repaired) > 0 {
+			logger.Infof("repaired relation documents for %d relation(s) in model %q: %v",
+				len(repaired), st.ModelUUID(), sortedIDs(repaired))
+		}
+		if len(failed) > 0 {
+			logger.Warningf("%d relation(s) left for manual repair in model %q: %v",
+				len(failed), st.ModelUUID(), sortedIDs(failed))
+		}
+		return nil
+	})
+}
+
+// RemoveOrphanedUnitStateRelations clears relation ids that have been
+// deleted from the relation-state maps persisted in unitstates documents.
+func RemoveOrphanedUnitStateRelations(pool *StatePool) error {
+	return runForAllModelStates(pool, func(st *State) error {
+		states, closer, err := st.db().GetCollection(unitStatesC)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		type unitStateDoc struct {
+			DocID         string            `bson:"_id"`
+			RelationState map[string]string `bson:"relation-state"`
+		}
+		var docs []unitStateDoc
+		var doc unitStateDoc
+		iter := states.Find(nil).Select(bson.M{"relation-state": 1}).Iter()
+		for iter.Next(&doc) {
+			docs = append(docs, doc)
+		}
+		if err := iter.Close(); err != nil {
+			closer()
+			return errors.Trace(err)
+		}
+		closer()
+
+		// Collect the distinct relation ids referenced by any unit's
+		// relation state, and drop the ones that no longer exist.
+		relIDs := make(map[int]bool)
+		for _, doc := range docs {
+			for k := range doc.RelationState {
+				if id, err := strconv.Atoi(k); err == nil {
+					relIDs[id] = true
+				}
+			}
+		}
+		if len(relIDs) == 0 {
+			return nil
+		}
+
+		var referenced []int
+		for id := range relIDs {
+			referenced = append(referenced, id)
+		}
+		relations, closer, err := st.db().GetCollection(relationsC)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		var relDocs []struct {
+			Id int `bson:"id"`
+		}
+		if err := relations.Find(bson.D{{"id", bson.D{{"$in", referenced}}}}).Select(bson.M{"id": 1}).All(&relDocs); err != nil {
+			closer()
+			return errors.Trace(err)
+		}
+		closer()
+		existing := make(map[int]bool)
+		for _, rel := range relDocs {
+			existing[rel.Id] = true
+		}
+
+		// The cleanup is best effort: each unit state document is
+		// updated in its own transaction, logging a warning on
+		// failure, so a stale document cannot abort the whole upgrade
+		// step.
+		var repaired, failed []string
+		for _, unitDoc := range docs {
+			var unset bson.D
+			for k := range unitDoc.RelationState {
+				id, err := strconv.Atoi(k)
+				if err != nil || existing[id] {
+					continue
+				}
+				unset = append(unset, bson.DocElem{Name: "relation-state." + k, Value: ""})
+			}
+			if len(unset) == 0 {
+				continue
+			}
+			if err := st.runRawTransaction([]txn.Op{{
+				C:      unitStatesC,
+				Id:     unitDoc.DocID,
+				Update: bson.D{{"$unset", unset}},
+			}}); err != nil {
+				logger.Warningf("cannot clear orphaned relation states for %v: %v (manual repair required)", unitDoc.DocID, err)
+				failed = append(failed, unitDoc.DocID)
+			} else {
+				repaired = append(repaired, unitDoc.DocID)
+			}
+		}
+		if len(repaired) > 0 {
+			logger.Infof("cleared orphaned relation states for %d unit state document(s) in model %q: %v",
+				len(repaired), st.ModelUUID(), repaired)
+		}
+		if len(failed) > 0 {
+			logger.Warningf("%d unit state document(s) left for manual repair in model %q: %v",
+				len(failed), st.ModelUUID(), failed)
+		}
+		return nil
+	})
 }
