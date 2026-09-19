@@ -21,6 +21,7 @@ VALE_CONFIG      ?= $(SPHINX_DIR)/vale.ini
 PA11Y_CMD        ?= $(SPHINX_DIR)/node_modules/pa11y/bin/pa11y.js --config $(SPHINX_DIR)/pa11y.json
 CONFIRM_SUDO     ?= N
 CHECK_PATH       ?= $(filter-out $(DOCS_VENVDIR),$(wildcard *))
+GGARCH_SRC       ?= $(HOME)/git/ggarch/src
 
 # Put it first so that "make" without argument is like "make help".
 help:
@@ -122,7 +123,9 @@ run: install convert-excalidraw-to-svg autogenerate-docs
 	. $(DOCS_VENV); $(DOCS_VENVDIR)/bin/sphinx-autobuild -b dirhtml --host $(SPHINX_HOST) --port $(SPHINX_PORT) \
 	 --pre-build "bash scripts/convert-excalidraw-to-svg-recursively.sh" \
 	 --pre-build "python3 scripts/autogenerate-docs.py" \
+	 --pre-build "bash scripts/ggarch-invalidate-if-changed.sh $(GGARCH_SRC)" \
 	 --watch "$(DOCS_SOURCEDIR)/juju.ggarch" \
+	 --watch "$(GGARCH_SRC)" \
 	 "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS)
 
 run-go: install convert-excalidraw-to-svg regenerate-docs
