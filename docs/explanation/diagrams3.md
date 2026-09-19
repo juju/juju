@@ -75,11 +75,11 @@ All views produced by `juju3.ggarch` — the grounded twin. Every record node an
 :alt: Five columns of worker boxes. Far left: provider tracker above provider services. Left: compute provisioner above model worker manager, both inside a dashed box labelled model workers (one set per model), undertaker below. Centre spine, top to bottom: agent, DB accessor, change stream, domain services, API server, HTTP server. Right: object store, lease manager below with primary election and lease expiry stacked above. Control arrows connect consumers to providers; the change stream watches the DB accessor.
 ```
 
-### Cross-model integration (records)
+### Cross-model relation (CMR)
 
 ```{ggarch}
 :file: ../juju3.ggarch
-:view: Cross-model integration (records)
+:view: Cross-model relation (CMR)
 :no-legend:
 :caption: Cross-model integration is record-shaped: an application publishes an offer; each consuming integration is an offer connection; the consuming model references the remote controller via an external controller record; and a synthetic remote application participates in a local relation. No unit-to-unit wire exists — the two controllers mediate. All tables grounded (offer, offer_connection, application_remote_offerer, external_controller).
 :alt: Nine record nodes. Top row: application, offer, offer connection. Middle row: relation, endpoint, remote application. Bottom: model and external controller. A dashed box around offer, offer connection, and external controller is labelled cross-model machinery.
