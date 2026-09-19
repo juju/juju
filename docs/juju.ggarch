@@ -1,0 +1,643 @@
+// Juju architecture — canonical ggarch model for the documentation.
+//
+// All diagrams in explanation/architecture.md reference this file via
+// :file: juju.ggarch  (path relative to the source document).
+//
+// Views are declared here too; diagrams in the .md files reference them
+// by name via :view: or :sequence:.
+
+model "Juju" {
+
+  nodes {
+    // -----------------------------------------------------------------------
+    // Actors
+    // -----------------------------------------------------------------------
+    user [type: person, label: "User"]
+
+    // -----------------------------------------------------------------------
+    // Client-side
+    // -----------------------------------------------------------------------
+    client [type: juju-software, label: "Client"]
+
+    // -----------------------------------------------------------------------
+    // Controller — abstract (used in high-level diagrams)
+    // -----------------------------------------------------------------------
+    controller [type: juju-software, label: "Controller"]
+
+    // -----------------------------------------------------------------------
+    // Controller pod (K8s deployment — detailed)
+    // -----------------------------------------------------------------------
+    controller_pod [type: container, label: "Controller pod",
+                    abstracts: "controller"] {
+      jujud [type: juju-software, label: "Controller agent\n(jujud, Dqlite)"]
+    }
+
+    // -----------------------------------------------------------------------
+    // Unit pod (K8s deployment — detailed)
+    // -----------------------------------------------------------------------
+    unit_pod [type: container, label: "Unit pod"] {
+      charm_container [type: container, label: "Charm container"] {
+        unit_agent [type: juju-software, label: "Unit agent",
+                    abstracts: "unit_rec"]
+        charm      [type: charm,         label: "Charm",
+                    abstracts: "charm_rec"]
+      }
+      workload_container [type: container, label: "Workload container"] {
+        pebble   [type: pebble,   label: "Pebble (init)"]
+        workload [type: workload, label: "Workload service(s)"]
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Agents — abstract (used in high-level diagrams)
+    // -----------------------------------------------------------------------
+    agents [type: juju-software, label: "Agents"]
+
+    // -----------------------------------------------------------------------
+    // External
+    // -----------------------------------------------------------------------
+    k8s      [type: external, label: "Kubernetes cloud"]
+    charmhub [type: external, label: "Charmhub"]
+    clouds   [type: external, label: "Clouds\n(AWS, GCP, K8s…)"]
+    cloud    [type: external, label: "Cloud"]   // generic cloud for machine sequences
+
+    // -----------------------------------------------------------------------
+    // Workload — abstract (used in high-level diagrams)
+    // -----------------------------------------------------------------------
+    world [type: workload, label: "Real world"]
+
+    // -----------------------------------------------------------------------
+    // Charmed applications — abstract
+    // -----------------------------------------------------------------------
+    apps [type: unit, label: "Charmed applications",
+          abstracts: "application_rec"]
+
+    // -----------------------------------------------------------------------
+    // Hook execution participants
+    // -----------------------------------------------------------------------
+    apiserver  [type: juju-software, label: "API server"]
+
+    // -----------------------------------------------------------------------
+    // Deploy K8s — containeragent as the concrete unit agent on K8s
+    // -----------------------------------------------------------------------
+    containeragent [type: juju-software, label: "Unit agent\n(containeragent)"]
+
+    // -----------------------------------------------------------------------
+    // Integrate — two distinct unit agents
+    // -----------------------------------------------------------------------
+    ua1 [type: juju-software, label: "Unit agent (app A)"]
+    ua2 [type: juju-software, label: "Unit agent (app B)"]
+
+    // Remove — undertaker worker
+    // -----------------------------------------------------------------------
+    undertaker [type: juju-software, label: "Undertaker\n(controller worker)"]
+    // -----------------------------------------------------------------------
+    // Machine cloud — controller machine and unit agent (both jujud)
+    // -----------------------------------------------------------------------
+    controller_machine [type: container, label: "Controller machine",
+                        abstracts: "controller"]
+    machine_agent      [type: juju-software, label: "Unit agent\n(jujud)"]
+
+    // -----------------------------------------------------------------------
+    // Data model — Dqlite record nodes (model database)
+    // -----------------------------------------------------------------------
+    application_rec [type: record, label: "application\n(name, charm ref, config)"]
+    unit_rec        [type: record, label: "unit\n(application, charm rev, lifecycle)"]
+    machine_rec     [type: record, label: "machine / pod\n(constraints, provider ID)"]
+    charm_rec       [type: record, label: "charm\n(source, revision, archive)"]
+    relation_rec    [type: record, label: "relation\n(endpoints, data bags)"]
+
+    // -----------------------------------------------------------------------
+    // Intro diagrams: problem + Juju enters + unpacked
+    // -----------------------------------------------------------------------
+    // Problem diagram: three bare apps (user's world, no Juju yet)
+    bare_app1 [type: external, label: "application 1", scope: "cloud 1"]
+    bare_app2 [type: external, label: "application 2", scope: "cloud 1"]
+    bare_app3 [type: external, label: "application 3", scope: "cloud 2"]
+
+    // Juju enters: two clouds, charmhub, three charmed apps
+    cloud1   [type: external, label: "cloud 1"]
+    cloud2   [type: external, label: "cloud 2"]
+
+    // Three charmed apps -- scope chips encode cloud/model provenance
+    capp1 [type: charm,  label: "app 1", scope: "c1/m1"]
+    capp2 [type: charm,  label: "app 2", scope: "c1/m1"]
+    capp3 [type: charm,  label: "app 3", scope: "c2/m1"]
+
+    // Unpacked: three unit containers with scope chips
+    unit1 [type: container, label: "unit: app1/0", scope: "c1/m1"] {
+      ua1_u  [type: juju-software, label: "unit agent"]
+      charm1 [type: charm,         label: "charm",    lifecycle: ephemeral]
+      wl1    [type: external,      label: "workload"]
+    }
+    unit2 [type: container, label: "unit: app2/0", scope: "c1/m1"] {
+      ua2_u  [type: juju-software, label: "unit agent"]
+      charm2 [type: charm,         label: "charm",    lifecycle: ephemeral]
+      wl2    [type: external,      label: "workload"]
+    }
+    unit3 [type: container, label: "unit: app3/0", scope: "c2/m1"] {
+      ua3_u  [type: juju-software, label: "unit agent"]
+      charm3 [type: charm,         label: "charm",    lifecycle: ephemeral]
+      wl3    [type: external,      label: "workload"]
+    }
+
+    // -----------------------------------------------------------------------
+    // HA controller — three controller nodes for the replicaset diagram
+    // -----------------------------------------------------------------------
+    ha_ctrl1 [type: container, label: "Controller 1"] {
+      ha_agent1  [type: juju-software, label: "controller agent\n(jujud)"]
+      ha_dqlite1 [type: database,      label: "Dqlite"]
+    }
+    ha_ctrl2 [type: container, label: "Controller 2"] {
+      ha_agent2  [type: juju-software, label: "controller agent\n(jujud)"]
+      ha_dqlite2 [type: database,      label: "Dqlite"]
+    }
+    ha_ctrl3 [type: container, label: "Controller 3"] {
+      ha_agent3  [type: juju-software, label: "controller agent\n(jujud)"]
+      ha_dqlite3 [type: database,      label: "Dqlite"]
+    }
+  }
+
+  edges {
+    // Intent chain
+    user   -> client     [type: control, label: "sends commands to"]
+    client -> controller [type: api,     label: "calls Juju API on"]
+    agents -> controller [type: stream, label: "watches for changes on"]
+    agents -> world      [type: control, label: "reconciles"]
+    agents -> apps       [type: control, label: "reconciles"]
+
+    // Controller to clouds and charmhub
+    controller -> clouds   [type: control, label: "provisions on"]
+    controller -> charmhub [type: api,     label: "fetches charms"]
+
+    // K8s topology
+    jujud          -> k8s            [type: control, label: "provisions on"]
+    unit_agent -> jujud  [type: api,    label: "connects via"]
+    jujud          -> charmhub       [type: api,     label: "fetches charms"]
+    charm          -> pebble         [type: api,     label: "calls Pebble API"]
+    pebble         -> workload       [type: control, label: "supervises"]
+
+    // Hook execution
+    apiserver  -> unit_agent [type: stream,  label: "watcher"]
+    unit_agent -> charm      [type: control, label: "runs"]
+    charm      -> unit_agent [type: ipc,     label: "calls hook command on"]
+    unit_agent -> apiserver  [type: api,     label: "serve / flush"]
+
+    // Bootstrap K8s
+    client         -> k8s            [type: api]
+    k8s            -> client         [type: api]
+    controller_pod -> client         [type: api, label: "API ready"]
+    // Deploy K8s
+    controller     -> k8s              [type: control]
+    controller     -> containeragent   [type: control]
+    containeragent -> controller       [type: api]
+
+    // Bootstrap machine
+    client             -> controller_machine  [type: control]
+    controller_machine -> client              [type: api]
+
+    // Deploy machine
+    controller    -> machine_agent  [type: control]
+    machine_agent -> controller     [type: api]
+
+    // Machine/unit removal and bootstrap machine — generic cloud
+    client     -> cloud  [type: api]
+    controller -> cloud  [type: control]
+    cloud      -> controller [type: control]
+    cloud      -> client     [type: api]
+
+    // Integrate
+    ua1 -> controller [type: stream]
+    ua2 -> controller [type: stream]
+    ua1        -> controller [type: api]
+    ua2        -> controller [type: api]
+
+    // Remove / destroy — user sends directly to controller
+    user           -> controller  [type: event]
+    unit_agent -> controller [type: stream]
+    unit_agent     -> controller  [type: api]
+    // Model removal
+    controller -> undertaker [type: stream]
+    undertaker -> controller [type: api]
+
+    // Data model schema relationships
+    application_rec -> charm_rec    [type: data, label: "uses"]
+    application_rec -> unit_rec     [type: data, label: "has"]
+    unit_rec        -> machine_rec  [type: data, label: "runs on"]
+    relation_rec    -> application_rec [type: data, label: "connects"]
+
+    // Intro: problem
+    user -> bare_app1 [type: control, label: "operates"]
+    user -> bare_app2 [type: control, label: "operates"]
+    user -> bare_app3 [type: control, label: "operates"]
+
+    // Intro: Juju enters
+    controller -> cloud1  [type: control, label: "provisions on"]
+    controller -> cloud2  [type: control, label: "provisions on"]
+    capp1 -> controller [type: control, label: "converges toward"]
+    capp2 -> controller [type: control, label: "converges toward"]
+    capp3 -> controller [type: control, label: "converges toward"]
+
+    // Intro: unpacked
+    ua1_u -> controller [type: stream, label: "watches for\nchanges on"]
+    ua2_u -> controller [type: stream, label: "watches for\nchanges on"]
+    ua3_u -> controller [type: stream, label: "watches for\nchanges on"]
+    ua1_u  -> charm1 [type: control, label: "runs"]
+    ua2_u  -> charm2 [type: control, label: "runs"]
+    ua3_u  -> charm3 [type: control, label: "runs"]
+    charm1 -> wl1    [type: control, label: "operates"]
+    charm2 -> wl2    [type: control, label: "operates"]
+    charm3 -> wl3    [type: control, label: "operates"]
+
+    // HA controller — Raft sync between Dqlite nodes
+    ha_dqlite1 -> ha_dqlite2 [type: stream, label: "Raft sync"]
+    ha_dqlite2 -> ha_dqlite3 [type: stream, label: "Raft sync"]
+    ha_dqlite3 -> ha_dqlite1 [type: stream]
+  }
+
+  behaviours {
+
+    behaviour "Hook execution" {
+      apiserver -> unit_agent: async "watcher fires"
+      unit_agent -> unit_agent: self "snapshot remote state"
+      unit_agent -> unit_agent: self "resolve next hook"
+      unit_agent -> charm: call "exec dispatch"
+      loop "during hook" {
+        charm -> unit_agent: call "hook command"
+        unit_agent -> apiserver: call "serve via API"
+        apiserver -> unit_agent: return
+        unit_agent -> charm: return
+      }
+      alt "exit 0" {
+        charm -> unit_agent: return "success"
+        unit_agent -> apiserver: call "flush writes"
+      } else "failure" {
+        charm -> unit_agent: return "failure"
+        unit_agent -> apiserver: call "discard writes, unit error"
+      }
+    }
+
+    behaviour "Bootstrap K8s" {
+      user           -> client:          call "juju bootstrap"
+      client         -> k8s:             call "Authenticate"
+      k8s            -> client:          return "OK"
+      client         -> k8s:             call "Create namespace + deploy controller pod"
+      k8s            -> client:          return "Pod scheduled"
+      controller_pod -> controller_pod:  self "Start jujud"
+      controller_pod -> controller_pod:  self "Start API server"
+      controller_pod -> controller_pod:  self "Initialise database"
+      controller_pod -> client:          return "API ready"
+      client         -> user:            return "Bootstrap complete"
+    }
+
+    behaviour "Deploy K8s" {
+      user           -> client:          call "juju deploy"
+      client         -> controller:      call "Deploy RPC call"
+      controller     -> controller:      self "Write application + unit records"
+      controller     -> k8s:             call "Schedule unit pod"
+      k8s            -> controller:      return "Pod running"
+      controller     -> containeragent:  call "Start containeragent"
+      containeragent -> controller:      call "install hook"
+      containeragent -> controller:      call "config-changed hook"
+      containeragent -> controller:      call "start hook"
+      containeragent -> controller:      return "unit active"
+      controller     -> client:          return "deploy complete"
+      client         -> user:            return "Application deployed"
+    }
+
+    behaviour "Integrate" {
+      user       -> client:      call "juju integrate A B"
+      client     -> controller:  call "Integrate RPC call"
+      controller -> controller:  self "Write relation record"
+      controller -> ua1:         async "watcher fires"
+      controller -> ua2:         async "watcher fires"
+      ua1        -> controller:  call "relation-created hook"
+      ua2        -> controller:  call "relation-created hook"
+      ua1        -> controller:  call "relation-joined hook"
+      ua2        -> controller:  call "relation-joined hook"
+      ua1        -> controller:  call "relation-changed hook"
+      ua2        -> controller:  call "relation-changed hook"
+      ua1        -> controller:  call "Write relation data (app A)"
+      controller -> ua2:         async "watcher fires (data changed)"
+      ua2        -> controller:  call "relation-changed hook"
+      ua2        -> controller:  call "Write relation data (app B)"
+      controller -> ua1:         async "watcher fires (data changed)"
+      ua1        -> controller:  call "relation-changed hook"
+    }
+
+    behaviour "Unit removal" {
+      user       -> controller:  call "juju remove-unit"
+      controller -> controller:  self "Mark unit Dying"
+      controller -> unit_agent:  async "watcher fires"
+      unit_agent -> controller:  call "stop hook"
+      unit_agent -> controller:  call "teardown hooks"
+      unit_agent -> controller:  call "remove hook"
+      unit_agent -> controller:  call "Mark unit Dead"
+      controller -> cloud:       call "Release machine"
+      controller -> controller:  self "Delete unit records"
+    }
+
+    behaviour "Model removal" {
+      user       -> controller:  call "juju destroy-model"
+      controller -> controller:  self "Mark model Dying"
+      controller -> undertaker:  async "watcher fires"
+      undertaker -> controller:  call "Destroy all applications"
+      controller -> cloud:       call "Release all machines"
+      controller -> controller:  self "Mark model Dead"
+      undertaker -> controller:  call "Delete model records"
+      undertaker -> controller:  call "Delete model Dqlite database"
+    }
+
+    behaviour "Bootstrap machine" {
+      user               -> client:             call "juju bootstrap"
+      client             -> cloud:              call "Authenticate"
+      cloud              -> client:             return "OK"
+      client             -> cloud:              call "Provision VM"
+      cloud              -> client:             return "VM ready"
+      client             -> controller_machine: call "Install jujud + seed config"
+      controller_machine -> controller_machine: self "Start controller agent"
+      controller_machine -> controller_machine: self "Start API server + database"
+      controller_machine -> client:             return "API ready"
+      client             -> user:               return "Bootstrap complete"
+    }
+
+    behaviour "Deploy machine" {
+      user          -> client:        call "juju deploy"
+      client        -> controller:    call "Deploy RPC call"
+      controller    -> controller:    self "Write application + unit records"
+      controller    -> cloud:         call "Provision machine"
+      cloud         -> controller:    return "Machine ready"
+      controller    -> machine_agent: call "Start jujud"
+      machine_agent -> controller:    call "install hook"
+      machine_agent -> controller:    call "config-changed hook"
+      machine_agent -> controller:    call "start hook"
+      machine_agent -> controller:    return "unit active"
+      controller    -> client:        return "deploy complete"
+      client        -> user:          return "Application deployed"
+    }
+
+
+  }
+
+  style {
+    extends: juju
+  }
+
+}
+
+// ==========================================================================
+// Views
+// ==========================================================================
+
+// --------------------------------------------------------------------------
+// Insight: overview with intent/execution chain
+// --------------------------------------------------------------------------
+
+diagram "Juju overview" from "Juju" {
+  select { nodes: user client controller agents apps clouds charmhub
+           edges: type control type api type stream }
+  positions {
+    user       left-of client
+    user       align-middle client
+    client     left-of controller
+    client     align-middle controller
+    controller left-of agents
+    controller align-middle agents
+    agents     left-of apps
+    agents     align-middle apps
+    clouds     above controller    gap: 40
+    clouds     align-centre controller
+    charmhub   below controller    gap: 40
+    charmhub   align-centre controller
+  }
+  annotations {
+    legend [position: "bottom-right",
+            person: "operator",
+            juju-software: "Juju process",
+            external: "cloud / external",
+            charm: "charm",
+            control: "manages / drives",
+            api: "API call",
+            stream: "watch (async)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Topology: K8s deployment
+// --------------------------------------------------------------------------
+
+diagram "K8s deployment topology" from "Juju" {
+  select {
+    nodes: k8s controller_pod unit_pod charmhub
+    edges: type api type control
+  }
+  positions {
+    controller_pod left-of unit_pod      gap: 60
+    controller_pod align-middle unit_pod
+    k8s            above controller_pod  gap: 40
+    k8s            align-centre controller_pod
+    charmhub       below controller_pod  gap: 80
+    charmhub       align-centre jujud
+    jujud          align-middle unit_agent
+    unit_pod       direction: right
+    charm_container    same-width workload_container
+    unit_agent         same-width charm
+    pebble             same-width workload
+    jujud              min-width: 160
+    charm_container    left-of workload_container  gap: 80
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine or pod",
+            charm: "charm",
+            workload: "workload / external",
+            control: "manages / drives",
+            api: "API call"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Data model: Dqlite records
+// --------------------------------------------------------------------------
+
+diagram "Data model" from "Juju" {
+  select {
+    nodes: application_rec unit_rec machine_rec charm_rec relation_rec
+  }
+  positions {
+    application_rec left-of unit_rec        gap: 60
+    application_rec align-middle unit_rec
+    unit_rec        right-of application_rec gap: 60
+    unit_rec        left-of machine_rec      gap: 60
+    unit_rec        align-middle machine_rec
+    charm_rec       above application_rec    gap: 50
+    charm_rec       align-centre application_rec
+    relation_rec    below application_rec    gap: 50
+    relation_rec    align-centre application_rec
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema relationship"]
+  }
+}
+
+
+// --------------------------------------------------------------------------
+// Sequence views
+// --------------------------------------------------------------------------
+
+sequence "Hook execution" from "Juju" {
+  select { behaviour: "Hook execution" }
+}
+
+sequence "Bootstrap K8s" from "Juju" {
+  select { behaviour: "Bootstrap K8s" }
+}
+
+sequence "Deploy K8s" from "Juju" {
+  select { behaviour: "Deploy K8s" }
+}
+
+sequence "Integrate" from "Juju" {
+  select { behaviour: "Integrate" }
+}
+
+sequence "Bootstrap machine" from "Juju" {
+  select { behaviour: "Bootstrap machine" }
+}
+
+sequence "Deploy machine" from "Juju" {
+  select { behaviour: "Deploy machine" }
+}
+
+sequence "Unit removal" from "Juju" {
+  select { behaviour: "Unit removal" }
+}
+
+sequence "Model removal" from "Juju" {
+  select { behaviour: "Model removal" }
+}
+
+// --------------------------------------------------------------------------
+// Intro diagram 1: The problem
+// --------------------------------------------------------------------------
+
+diagram "Intro: the problem" from "Juju" {
+  select {
+    nodes: user bare_app1 bare_app2 bare_app3
+    edges: type control
+  }
+  positions {
+    user       left-of bare_app1
+    user       align-middle bare_app2
+    bare_app1  above bare_app2
+    bare_app1  align-centre bare_app2
+    bare_app3  below bare_app2
+    bare_app3  align-centre bare_app2
+  }
+}
+
+// --------------------------------------------------------------------------
+// Intro diagram 2: Juju enters
+// Controller in centre. Clouds fanned above. Charmhub below. Apps fanned right.
+// --------------------------------------------------------------------------
+
+diagram "Intro: Juju enters" from "Juju" {
+  select {
+    nodes: user client controller cloud1 cloud2 charmhub capp1 capp2 capp3
+    edges: type control type api
+  }
+  positions {
+    // Horizontal spine
+    user       left-of client
+    user       align-middle client
+    client     left-of controller
+    client     align-middle controller
+    // Clouds fanned above controller, centred on it
+    fan [cloud1 cloud2] above controller    gap: 40
+    // Charmhub below controller
+    charmhub   below controller    gap: 40
+    charmhub   align-centre controller
+    // Apps fanned to the right of controller
+    fan [capp1 capp2 capp3] right-of controller gap: 60
+  }
+  annotations {
+    legend [position: "bottom-right",
+            person: "operator",
+            juju-software: "Juju process",
+            external: "cloud / external",
+            charm: "charmed application",
+            control: "manages / drives",
+            api: "API call"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Intro diagram 3: Juju unpacked
+// Same layout; unit containers expose agent → charm → workload.
+// Scope chips on each unit container.
+// --------------------------------------------------------------------------
+
+diagram "Intro: Juju unpacked" from "Juju" {
+  select {
+    nodes: user client controller unit1 unit2 unit3
+    edges: type control type stream type api
+  }
+  positions {
+    user       left-of client
+    user       align-middle client
+    client     left-of controller
+    client     align-middle controller
+    // Units fanned to the right of controller
+    fan [unit1 unit2 unit3] right-of controller gap: 20
+    unit1      direction: right
+    unit2      direction: right
+    unit3      direction: right
+  }
+  annotations {
+    legend [position: "bottom-right",
+            person: "operator",
+            juju-software: "Juju process",
+            container: "unit (machine or pod)",
+            charm: "charm",
+            workload: "workload",
+            control: "manages / drives",
+            stream: "watch (async)",
+            api: "API call"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// HA controller — Dqlite replicaset
+// --------------------------------------------------------------------------
+
+diagram "HA controller: Dqlite replicaset" from "Juju" {
+  select {
+    nodes: ha_ctrl1 ha_ctrl2 ha_ctrl3
+    edges: type stream
+  }
+  positions {
+    ha_ctrl1 left-of ha_ctrl2  gap: 100
+    ha_ctrl1 align-middle ha_ctrl2
+    ha_ctrl2 left-of ha_ctrl3  gap: 100
+    ha_ctrl2 align-middle ha_ctrl3
+    ha_ctrl1 direction: down
+    ha_ctrl2 direction: down
+    ha_ctrl3 direction: down
+  }
+  annotations {
+    box [nodes: "ha_dqlite1 ha_dqlite2 ha_dqlite3",
+         label: "Raft replicaset (strongly consistent)",
+         style: "dashed", color: "#888",
+         padding-top: 10, padding-bottom: 10,
+         padding-left: 30, padding-right: 30,
+         label-position: inside-bottom]
+    legend [position: "bottom-right",
+            container: "controller node",
+            juju-software: "controller agent",
+            database: "Dqlite",
+            stream: "Raft sync"]
+  }
+}
