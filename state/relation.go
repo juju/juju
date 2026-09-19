@@ -251,10 +251,7 @@ func (op *DestroyRelationOperation) Build(attempt int) ([]txn.Op, error) {
 // Done is part of the ModelOperation interface.
 func (op *DestroyRelationOperation) Done(err error) error {
 	if err != nil {
-		if !op.Force {
-			return errors.Annotatef(err, "cannot destroy relation %q", op.r)
-		}
-		op.AddError(errors.Errorf("forcefully destroying relation %v proceeded despite encountering ERROR %v", op.r, err))
+		return errors.Annotatef(err, "cannot destroy relation %q", op.r)
 	}
 	return nil
 }
@@ -348,7 +345,7 @@ func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) 
 		// unit count is not 0 so this doesn't get run.
 		if remoteApp.IsConsumerProxy() && remoteApp.doc.RelationCount <= 1 && (op.Force || rel.doc.UnitCount == 0) {
 			logger.Debugf("removing cross model consumer proxy and last relation %d: %v", op.r.doc.Id, op.r.doc.Key)
-			removeRelOps, err := rel.removeOps("", "", &op.ForcedOperation)
+			removeRelOps, err := rel.removeOps(remoteApp.Name(), "", &op.ForcedOperation)
 			if err != nil && err != jujutxn.ErrNoOperations {
 				return nil, errors.Trace(err)
 			}
@@ -485,7 +482,7 @@ func (r *Relation) removeOps(ignoreApplication string, departingUnitName string,
 			op.AddError(err)
 		} else {
 			if app.IsRemote() {
-				epOps, err := r.removeRemoteEndpointOps(ep, departingUnitName != "")
+				epOps, err := r.removeRemoteEndpointOps(ep, departingUnitName != "", op.Force)
 				if err != nil {
 					op.AddError(err)
 				}
@@ -530,7 +527,7 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string,
 		return err == nil && s == ep.ApplicationName
 	}
 	var cleanupOps []txn.Op
-	if departingUnitName == "" {
+	if departingUnitName == "" && !op.Force {
 		// We're constructing a destroy operation, either of the relation
 		// or one of its applications, and can therefore be assured that both
 		// applications are Alive.
@@ -553,6 +550,9 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string,
 		asserts = append(hasRelation)
 		var appDoc applicationDoc
 		if err := applications.FindId(ep.ApplicationName).One(&appDoc); err == nil {
+			if op.Force {
+				asserts = append(asserts, bson.DocElem{"life", appDoc.Life})
+			}
 			if appDoc.Life != Alive {
 				cleanupOps = append(cleanupOps, newCleanupOp(
 					cleanupApplication,
@@ -573,10 +573,10 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string,
 	}}, cleanupOps...), nil
 }
 
-func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.Op, error) {
+func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying, force bool) ([]txn.Op, error) {
 	var asserts bson.D
 	hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
-	if !unitDying {
+	if !unitDying && !force {
 		// We're constructing a destroy operation, either of the relation
 		// or one of its application, and can therefore be assured that both
 		// applications are Alive.
@@ -612,6 +612,12 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.O
 			{{"is-consumer-proxy", false}},
 			{{"relationcount", bson.D{{"$gt", 1}}}},
 		}}}
+		if force {
+			asserts = append(hasRelation, bson.DocElem{"$or", []bson.D{
+				{{"life", Alive}, {"is-consumer-proxy", false}},
+				{{"relationcount", bson.D{{"$gt", 1}}}},
+			}})
+		}
 	}
 	return []txn.Op{{
 		C:      remoteApplicationsC,
