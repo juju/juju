@@ -949,8 +949,10 @@ diagram "Intro: Juju enters" from "Juju" {
     user       align-middle client
     client     left-of controller
     client     align-middle controller
-    // Clouds fanned above controller, centred on it
-    fan [cloud_a cloud_b] above controller    gap: 40
+    // Clouds fanned above controller, centred on it: the spacing is
+    // sized for the two "provisions on" labels to clear each other
+    // (the default packs the fan into near-parallel arrows).
+    fan [cloud_a cloud_b] above controller    gap: 40 spacing: 120
     // Charmhub below controller
     charmhub   below controller    gap: 40
     charmhub   align-centre controller
