@@ -274,7 +274,7 @@ model "Juju" {
 
     // Machine/unit removal and bootstrap machine — generic cloud
     client     -> cloud  [type: api]
-    controller -> cloud  [type: control]
+    controller -> cloud  [type: control, label: "provisions on"]
     cloud      -> controller [type: control]
     cloud      -> client     [type: api]
 
