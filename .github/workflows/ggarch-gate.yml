@@ -43,6 +43,10 @@ jobs:
             ggarch check "$f"
           done
 
+      - name: Twin parity (juju4 generated from juju3)
+        working-directory: docs
+        run: python3 scripts/make-twin.py --check
+
       - name: Grounding (juju3)
         working-directory: docs
         run: python3 tools/check-grounding.py juju3.ggarch

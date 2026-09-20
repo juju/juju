@@ -1,16 +1,14 @@
 // ==========================================================================
-// juju4.ggarch -- the auto-layout twin (EXPERIMENTAL)
+// juju4.ggarch -- the auto-layout twin. GENERATED from juju3.ggarch by
+// scripts/make-twin.py -- do not edit the generated part by hand; edit
+// juju3.ggarch and regenerate (make twin). Everything after the
+// HAND-MAINTAINED marker below is hand-maintained and survives
+// regeneration.
 //
-// Identical model and views to juju3.ggarch, with every positions block
-// stripped. Nothing in this file declares manual placement: every
-// diagram is solved by ggarch's auto-layout (layered columns following
-// topological depth along the visible edges; inter-container edges
-// drive container placement; branch targets stack in their column).
-//
-// Previews: explanation/diagrams4.md -- compare with the authored
-// arrangements in diagrams3.md (position is content; this twin exists
-// to see what the synthesized floor produces and where it is not yet
-// good enough).
+// Identical model and views to juju3.ggarch, with every positions
+// block stripped: each diagram without a declared arrangement is
+// solved by pure synthesis. Views with declared constraints run in
+// ADR-007 refinement mode (synthesis fills the undeclared geometry).
 // ==========================================================================
 
 model "Juju" {
@@ -291,7 +289,7 @@ model "Juju" {
     // Remove / destroy — user sends directly to controller
     user           -> controller  [type: event]
     unit_agent -> controller [type: stream, label: "watches for\nchanges on"]
-    unit_agent     -> controller  [type: api]
+    unit_agent     -> controller  [type: api, label: "calls Juju API"]
     // Model removal
     controller -> undertaker [type: stream, label: "model removal events"]
     undertaker -> controller [type: api, label: "connects via Juju API"]
@@ -365,7 +363,6 @@ model "Juju" {
     machine_agent -> unit_agent [type: control, label: "hosts (nested)"]
     unit_agent    -> uniter     [type: control, label: "runs hooks via"]
     uniter        -> charm      [type: control, label: "dispatches"]
-
 
     // Worker tree — the controller dependency engine. Edge direction is
     // consumer -> provider: the source worker depends on the capability
@@ -518,8 +515,6 @@ model "Juju" {
       client        -> user:          return "Application deployed"
     }
 
-
-
     behaviour "juju status" {
       user        -> client:     call "juju status"
       client      -> controller: call "Status API call"
@@ -556,7 +551,7 @@ model "Juju" {
 diagram "Juju overview" from "Juju" {
   select { nodes: user client controller agents apps clouds charmhub
            edges: type control type api type stream }
-    annotations {
+  annotations {
     legend [position: "bottom-right",
             person: "operator",
             juju-software: "Juju process",
@@ -577,7 +572,7 @@ diagram "K8s deployment topology" from "Juju" {
     nodes: k8s controller_pod unit_pod charmhub
     edges: type api type control
   }
-    annotations {
+  annotations {
     legend [position: "bottom-right",
             juju-software: "Juju process",
             container: "Juju-owned machine or pod",
@@ -596,7 +591,7 @@ diagram "Data model" from "Juju" {
   select {
     nodes: application_rec unit_rec machine_rec charm_rec relation_rec endpoint_rec
   }
-    annotations {
+  annotations {
     legend [position: "bottom-right",
             record: "database record",
             data: "schema relationship"]
@@ -611,8 +606,13 @@ diagram "Data model (full spine)" from "Juju" {
   select {
     nodes: user_rec controller_rec cloud_rec credential_rec model_rec
            application_rec charm_rec unit_rec machine_rec relation_rec endpoint_rec
+  routing: orthogonal
   }
-    annotations {
+  annotations {
+    box [nodes: "user_rec controller_rec cloud_rec credential_rec model_rec",
+         label: "controller database", style: "dashed", color: "#888"]
+    box [nodes: "application_rec charm_rec unit_rec machine_rec relation_rec endpoint_rec",
+         label: "model database", style: "dashed", color: "#888"]
     legend [position: "bottom-right",
             record: "database record",
             data: "schema association (semantic direction, multiplicity in label)"]
@@ -626,8 +626,11 @@ diagram "Data model (full spine)" from "Juju" {
 diagram "Worker tree (machine cloud)" from "Juju" {
   select {
     nodes: controller machine_agent unit_agent uniter charm
+    // The chain only: who hosts and runs whom. The watch/upgrade
+    // channels and the hook-call round trip are sequence material.
+    except: machine_agent -> controller unit_agent -> controller [type: stream] unit_agent -> charm charm -> unit_agent
   }
-    annotations {
+  annotations {
     legend [position: "bottom-right",
             juju-software: "Juju process",
             control: "drives / hosts / dispatches"]
@@ -650,7 +653,10 @@ diagram "Worker tree (controller)" from "Juju" {
            object_store
            lease_manager primary_flag lease_expiry
   }
-    annotations {
+  annotations {
+    box [nodes: "provisioner model_worker_manager",
+         label: "model workers\n(one set per model)",
+         style: "dashed", color: "#888"]
     legend [position: "bottom-right",
             juju-software: "worker (dependency engine)",
             control: "depends on (capability)",
@@ -666,17 +672,19 @@ diagram "Cross-model relation (CMR)" from "Juju" {
   select {
     nodes: application_rec offer_rec offer_connection_rec remote_app_rec
            relation_rec endpoint_rec model_rec external_controller_rec
+    routing: orthogonal
     sizing: uniform
   }
-    annotations {
+  annotations {
     box [nodes: "offer_rec offer_connection_rec",
          label: "offering model (database)", style: "dashed", color: "#E95420"]
+    box [nodes: "application_rec endpoint_rec relation_rec remote_app_rec model_rec",
+         label: "consuming model (database)", style: "dashed", color: "#888"]
     legend [position: "bottom-right",
             record: "database record",
             data: "schema association (semantic direction, multiplicity in label)"]
   }
 }
-
 
 // --------------------------------------------------------------------------
 // Sequence views
@@ -730,18 +738,12 @@ diagram "Intro: the problem" from "Juju" {
   select {
     nodes: user bare_application
     edges: type control
+    sizing: uniform
     instances: bare_application [
       { id: app1, label: "application 1" },
       { id: app2, label: "application 2" },
       { id: app3, label: "application 3" }
     ]
-  }
-    annotations {
-    // Cloud grouping is view-level rhetoric (declared regions), not
-    // model facts: which cloud an illustration runs on is the story,
-    // drawn here as boxes rather than claimed as edges.
-    box [nodes: "app1 app2", label: "on cloud 1", style: "dashed", color: "#888"]
-    box [nodes: "app3", label: "on cloud 2", style: "dashed", color: "#888"]
   }
 }
 
@@ -757,10 +759,15 @@ diagram "Intro: Juju enters" from "Juju" {
     // The intro shows the delta over "the problem": Juju machinery
     // between the user and the applications. Bootstrap (client <-> cloud)
     // and the cloud -> controller provisioning return path are left to
-    // "Juju overview" and the sequence views. Twin parity with juju3
-    // (this copy had dropped the curation; restored).
+    // "Juju overview" and the sequence views.
     except: client -> cloud cloud -> client cloud -> controller
     sizing: uniform
+    // Model-membership boxes and record chips are OFF here pending a
+    // redesign (2026-09-20 reviewer call: the boxes crowd the app
+    // column and the chips collide with the fan labels; both come
+    // back when their placement design is worked out -- see HANDOFF
+    // known issues).
+    records: hidden
     instances: cloud [
       { id: cloud_a, label: "cloud 1" },
       { id: cloud_b, label: "cloud 2" }
@@ -771,12 +778,10 @@ diagram "Intro: Juju enters" from "Juju" {
       { id: app3, label: "app 3" }
     ]
   }
-    annotations {
-    // Model membership as declared rhetoric: one model per cloud
-    // (N:1, model.cloud_uuid) — the old "c2/m1" chip claimed a model
-    // on two clouds, which the schema forbids.
-    box [nodes: "app1 app2", label: "model 1 (on cloud 1)", style: "dashed", color: "#888"]
-    box [nodes: "app3", label: "model 2 (on cloud 2)", style: "dashed", color: "#888"]
+  annotations {
+    // Model-membership boxes removed 2026-09-20 (reviewer call: they
+    // crowd the app column) -- they return when the box placement
+    // design is reworked; see HANDOFF known issues.
     legend [position: "bottom-right",
             person: "operator",
             juju-software: "Juju process",
@@ -787,6 +792,69 @@ diagram "Intro: Juju enters" from "Juju" {
   }
 }
 
+// --------------------------------------------------------------------------
+// Intro diagram 3: Juju unpacked
+// Same layout; unit containers expose agent → charm → workload.
+// Scope chips on each unit container.
+// --------------------------------------------------------------------------
+
+diagram "Intro: Juju unpacked" from "Juju" {
+  select {
+    nodes: user client controller unit_pod
+    edges: type control type stream type api
+    // One arrow per path: the watch stream is the salient channel
+    // (communication always starts from the unit agent). The api
+    // duplicate belongs to the sequence views.
+    except: unit_agent -> controller [type: api]
+    instances: unit_pod [
+      { id: u_app1_0, label: "unit: app1/0" },
+      { id: u_app2_0, label: "unit: app2/0" },
+      { id: u_app3_0, label: "unit: app3/0" }
+    ]
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned pod",
+            charm: "charm code",
+            workload: "workload (external)",
+            control: "manages / drives",
+            stream: "watch (async)",
+            api: "API call"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// HA controller — Dqlite replicaset
+// --------------------------------------------------------------------------
+
+diagram "HA controller: Dqlite replicaset" from "Juju" {
+  select {
+    nodes: controller_node
+    edges: type stream
+    // Associative view: the RESULT of Raft sync (a replicaset in
+    // sync), not the interaction — the sync messages belong to a
+    // sequence view (review round 3: emergent state vs interaction).
+    except: ha_agent -> ha_agent
+    instances: controller_node [
+      { id: c1, label: "Controller 1" },
+      { id: c2, label: "Controller 2" },
+      { id: c3, label: "Controller 3" }
+    ]
+  }
+  annotations {
+    box [nodes: "c1 c2 c3",
+         label: "Raft replicaset (strongly consistent) — in sync",
+         style: "dashed", color: "#888",
+         padding: 24, label-position: inside-bottom]
+    legend [position: "bottom-right",
+            container: "controller node",
+            juju-software: "controller agent (embedded Dqlite)"]
+  }
+}
+
+
+// ==== HAND-MAINTAINED below — edit freely; `make twin` regenerates everything above ====
 // --------------------------------------------------------------------------
 // Intro diagram 2b: Juju enters (declared) -- the ADR-007 refinement
 // demonstration. Same view as "Intro: Juju enters", but the
@@ -835,56 +903,3 @@ diagram "Intro: Juju enters (declared)" from "Juju" {
   }
 }
 
-// --------------------------------------------------------------------------
-// Intro diagram 3: Juju unpacked
-// Same layout; unit containers expose agent → charm → workload.
-// Scope chips on each unit container.
-// --------------------------------------------------------------------------
-
-diagram "Intro: Juju unpacked" from "Juju" {
-  select {
-    nodes: user client controller unit_pod
-    edges: type control type stream type api
-    instances: unit_pod [
-      { id: u_app1_0, label: "unit: app1/0" },
-      { id: u_app2_0, label: "unit: app2/0" },
-      { id: u_app3_0, label: "unit: app3/0" }
-    ]
-  }
-    annotations {
-    legend [position: "bottom-right",
-            juju-software: "Juju process",
-            container: "Juju-owned pod",
-            charm: "charm code",
-            workload: "workload (external)",
-            control: "manages / drives",
-            stream: "watch (async)",
-            api: "API call"]
-  }
-}
-
-// --------------------------------------------------------------------------
-// HA controller — Dqlite replicaset
-// --------------------------------------------------------------------------
-
-diagram "HA controller: Dqlite replicaset" from "Juju" {
-  select {
-    nodes: controller_node
-    edges: type stream
-    // Associative view: the RESULT of Raft sync (a replicaset in
-    // sync), not the interaction — the sync messages belong to a
-    // sequence view (review round 3: emergent state vs interaction).
-    except: ha_agent -> ha_agent
-    instances: controller_node [
-      { id: c1, label: "Controller 1" },
-      { id: c2, label: "Controller 2" },
-      { id: c3, label: "Controller 3" }
-    ]
-  }
-  annotations {
-    box [nodes: "c1 c2 c3",
-         label: "Raft replicaset (strongly consistent) — in sync",
-         style: "dashed", color: "#888",
-         padding: 24, label-position: inside-bottom]
-  }
-}
