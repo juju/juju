@@ -117,33 +117,33 @@ model "Juju" {
     // (cmd/jujud-controller/agent/{machine,model}/manifolds.go)
     // -----------------------------------------------------------------------
     agent_worker [type: juju-software, label: "Agent\n(config)",
-                  ground: "cmd/jujud-controller/agent/machine/manifolds.go:317"]
+                  ground: "cmd/jujud-controller/agent/machine/manifolds.go:agentName"]
     db_accessor [type: juju-software, label: "DB accessor\n(runs local Dqlite)",
-                 ground: "cmd/jujud-controller/agent/machine/manifolds.go:1057"]
+                 ground: "cmd/jujud-controller/agent/machine/manifolds.go:dbAccessorName"]
     change_stream [type: juju-software, label: "Change stream",
-                   ground: "cmd/jujud-controller/agent/machine/manifolds.go:666"]
+                   ground: "cmd/jujud-controller/agent/machine/manifolds.go:changeStreamName"]
     domain_services [type: juju-software, label: "Domain services\n(controller + model)",
-                     ground: "cmd/jujud-controller/agent/machine/manifolds.go:627"]
+                     ground: "cmd/jujud-controller/agent/machine/manifolds.go:domainServicesName"]
     provider_services [type: juju-software, label: "Provider services",
-                       ground: "cmd/jujud-controller/agent/machine/manifolds.go:645"]
+                       ground: "cmd/jujud-controller/agent/machine/manifolds.go:providerDomainServicesName"]
     provider_tracker [type: juju-software, label: "Provider tracker\n(cloud handles)",
-                      ground: "cmd/jujud-controller/agent/machine/manifolds.go:831"]
+                      ground: "cmd/jujud-controller/agent/machine/manifolds.go:providerTrackerName"]
     lease_manager [type: juju-software, label: "Lease manager",
-                   ground: "cmd/jujud-controller/agent/machine/manifolds.go:704"]
+                   ground: "cmd/jujud-controller/agent/machine/manifolds.go:leaseManagerName"]
     primary_flag [type: juju-software, label: "Primary election\n(lease flag)",
-                  ground: "cmd/jujud-controller/agent/machine/manifolds.go:509"]
+                  ground: "cmd/jujud-controller/agent/machine/manifolds.go:isPrimaryControllerFlagName"]
     lease_expiry [type: juju-software, label: "Lease expiry\n(primary only)",
-                  ground: "cmd/jujud-controller/agent/machine/manifolds.go:694"]
+                  ground: "cmd/jujud-controller/agent/machine/manifolds.go:leaseExpiryName"]
     object_store [type: juju-software, label: "Object store\n(blob store)",
-                  ground: "cmd/jujud-controller/agent/machine/manifolds.go:780"]
+                  ground: "cmd/jujud-controller/agent/machine/manifolds.go:objectStoreName"]
     api_server [type: juju-software, label: "API server\n(facades)",
-                ground: "cmd/jujud-controller/agent/machine/manifolds.go:580"]
+                ground: "cmd/jujud-controller/agent/machine/manifolds.go:apiServerName"]
     http_server [type: juju-software, label: "HTTP server\n(TLS mux)",
-                 ground: "cmd/jujud-controller/agent/machine/manifolds.go:557"]
+                 ground: "cmd/jujud-controller/agent/machine/manifolds.go:httpServerName"]
     model_worker_manager [type: juju-software, label: "Model worker manager\n(per-model runners)",
-                          ground: "cmd/jujud-controller/agent/machine/manifolds.go:611"]
+                          ground: "cmd/jujud-controller/agent/machine/manifolds.go:modelWorkerManagerName"]
     provisioner [type: juju-software, label: "Compute provisioner\n(model worker)",
-                 ground: "cmd/jujud-controller/agent/model/manifolds.go:41"]
+                 ground: "cmd/jujud-controller/agent/model/manifolds.go:computeProvisionerName"]
 
     // -----------------------------------------------------------------------
     // Data model — Dqlite record nodes (model database)
@@ -197,7 +197,7 @@ model "Juju" {
     // -----------------------------------------------------------------------
     uniter [type: juju-software, label: "Uniter\n(hook execution engine)",
             records: "unit_rec",
-            ground: "internal/worker/uniter/manifold.go:210"]
+            ground: "internal/worker/uniter/manifold.go:NewOperationExecutor"]
     // Executor states: the labels are the verbatim strings from
     // internal/worker/uniter/operation/executor.go:28-30
     // (stepPrepare / stepExecute / stepCommit); guards: ErrHookFailed,
@@ -357,7 +357,7 @@ model "Juju" {
     // (pairing: mesh — every distinct pair, never a node with itself)
     ha_agent -> ha_agent [type: stream, label: "Raft sync", pairing: mesh,
                                 arrow: both,
-                                ground: "domain/controllernode/state/state.go:57"]
+                                ground: "domain/controllernode/state/state.go:AddDqliteNode"]
 
     // Worker tree — the machine-cloud execution chain
     machine_agent -> unit_agent [type: control, label: "hosts (nested)"]
