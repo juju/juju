@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Generate the synthesized view variants inside juju3.ggarch.
+"""Generate the synthesized view variants inside juju.ggarch.
 
 The authored views (with positions) and their pure-synthesis variants
 (same select and annotations, positions stripped, name suffixed
 "(synthesized)") live in ONE file: the model is shared, so the
 declared-vs-synthesized comparison is structural (one model, two
-views) and cannot drift the way the old juju3/juju4 file twins did.
+views) and cannot drift the way the old file twins did.
 Everything below the HAND-MAINTAINED marker is GENERATED: one
 "(synthesized)" variant per authored diagram. The refinement demo
 ("Intro: Juju enters (declared)") is hand-maintained above the marker.
@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 DOCS = Path(__file__).resolve().parent.parent
-FILE = DOCS / "juju3.ggarch"
+FILE = DOCS / "juju.ggarch"
 
 MARKER = "// ==== HAND-MAINTAINED below — edit freely; `make variants` regenerates everything above ===="
 

@@ -29,7 +29,7 @@ flowchart TB
 *The problem: operate a system of applications across any cloud -- deploy, configure, integrate, scale, upgrade, remove.*
 
 ```{ggarch}
-:file: ../juju3.ggarch
+:file: ../juju.ggarch
 :view: Intro: the problem
 :caption: The problem. User operates three applications across clouds -- no shared mechanism for provisioning, integration, or lifecycle management.
 :alt: User node on the left connected by "operates" arrows to three application nodes on the right, stacked vertically.
@@ -67,7 +67,7 @@ flowchart TB
 *Juju enters. Controller C1 sits in the middle: it manages two models on different clouds, fetches charms from Charmhub, and operates all charmed applications -- shown with orange borders. Each app's annotation shows its address in the hierarchy: `C1/c1/m1/a1` means controller C1, cloud c1, model m1, application a1. A cloud is registered on a controller, not exclusively owned -- the same cloud can be registered on multiple controllers.*
 
 ```{ggarch}
-:file: ../juju3.ggarch
+:file: ../juju.ggarch
 :view: Intro: Juju enters
 :caption: Juju enters. The controller sits in the centre. Cloud 1 and cloud 2 are wings above it; Charmhub below. Client to the left. Charmed applications to the right, grouped by model/cloud scope.
 :alt: User, client, controller in a horizontal spine. Cloud 1 and cloud 2 above the controller. Charmhub below. Three charmed apps to the right, with dashed boxes marking cloud 1 / model 1 (apps 1 and 2) and cloud 2 / model 1 (app 3).
@@ -137,7 +137,7 @@ flowchart TB
 *Juju unpacked. Three units, each a grey box containing unit agent → charm → workload. The subgraph label is the unit's full address in the hierarchy: `C1/c1/m1/a1/0` means controller C1, cloud c1, model m1, application a1, unit 0. Applications 1↔2 and 2↔3 are integrated -- all routed through the controller. Color key: orange fill = Juju software (this repo); white with orange border = Juju ecosystem (charm); blue fill = your workload.*
 
 ```{ggarch}
-:file: ../juju3.ggarch
+:file: ../juju.ggarch
 :view: Intro: Juju unpacked
 :caption: Juju unpacked. Each unit is a container holding a unit agent, a charm, and a workload. The controller drives all three agents. Dashed boxes show model/cloud scope membership.
 :alt: User, client, controller on the left. Three unit containers to the right, each with unit agent, charm, and workload inside. Dashed boxes group units by cloud and model scope.

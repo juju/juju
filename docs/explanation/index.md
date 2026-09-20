@@ -14,8 +14,7 @@ Discussion and clarification of key topics, providing background information and
 :hidden:
 :glob:
 
-Diagram preview (grounded) <diagrams3>
-Diagram preview (synthesized + declared) <diagrams4>
+Diagram POC <diagrams>
 Architecture (new draft) <architecture>
 Architecture: principles <architecture-principles>
 Architecture: principles v2 <architecture-principles-v2>
@@ -36,8 +35,7 @@ About charming history <charming-history>
 
 
 - {ref}`Architecture <juju-architecture>`
-- {ref}`Diagram preview (grounded) <diagrams3>`
-- {ref}`Diagram preview (synthesized + declared) <diagrams4>`
+- {ref}`Diagram POC <diagrams>`
 - {ref}`Architecture: principles <architecture-principles>`
 - {ref}`Architecture: principles v2 <architecture-principles-v2>`
 - {ref}`Architecture: principles v3 <architecture-principles-v3>`

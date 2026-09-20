@@ -172,7 +172,7 @@ rebuild-ggarch: clean-ggarch
 # (strip-crossings, residuals, diagonals, label clashes) ride the
 # report, not the exit code.
 GGARCH_FILES := $(wildcard *.ggarch)
-GGARCH_GATED  := juju3.ggarch juju4.ggarch principles.ggarch
+GGARCH_GATED  := juju.ggarch principles.ggarch
 
 check-ggarch:
 	@set -e; . $(DOCS_VENV); \
@@ -180,10 +180,10 @@ check-ggarch:
 	    echo "== ggarch check $$f"; \
 	    ggarch check $$f; \
 	done; \
-	echo "== synthesized-variant freshness (juju3 in-file)"; \
+	echo "== synthesized-variant freshness (in-file)"; \
 	python3 scripts/make-variants.py --check; \
-	echo "== check-grounding juju3.ggarch"; \
-	python3 tools/check-grounding.py juju3.ggarch; \
+	echo "== check-grounding juju.ggarch"; \
+	python3 tools/check-grounding.py juju.ggarch; \
 	echo "== audit-geometry --gate"; \
 	python3 $(GGARCH_SRC)/../scripts/audit-geometry.py \
 	    --gate $(GGARCH_GATED); \

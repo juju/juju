@@ -193,4 +193,4 @@ if __name__ == "__main__":
         for p in problems:
             print(p)
         sys.exit(1 if problems else 0)
-    main(args[0] if args else "juju3.ggarch")
+    main(args[0] if args else "juju.ggarch")
