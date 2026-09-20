@@ -927,6 +927,12 @@ diagram "Intro: Juju enters" from "Juju" {
     // "Juju overview" and the sequence views.
     except: client -> cloud cloud -> client cloud -> controller
     sizing: uniform
+    // Model-membership boxes and record chips are OFF here pending a
+    // redesign (2026-09-20 reviewer call: the boxes crowd the app
+    // column and the chips collide with the fan labels; both come
+    // back when their placement design is worked out -- see HANDOFF
+    // known issues).
+    records: hidden
     instances: cloud [
       { id: cloud_a, label: "cloud 1" },
       { id: cloud_b, label: "cloud 2" }
@@ -948,18 +954,15 @@ diagram "Intro: Juju enters" from "Juju" {
     // Charmhub below controller
     charmhub   below controller    gap: 40
     charmhub   align-centre controller
-    // Apps fanned to the right of controller, clear of the clouds fan
-    // (uniform sizing widened the app column; the undeclared
-    // app2/cloud_b pair overlapped)
-    fan [app1 app2 app3] right-of controller gap: 60
-    app1 right-of cloud_b gap: 40
+    // Apps fanned to the right of controller: the gap is sized for
+    // the labels -- three "converges toward" strokes into the
+    // mid-east face need the run for their labels to separate.
+    fan [app1 app2 app3] right-of controller gap: 140
   }
   annotations {
-    // Model membership as declared rhetoric: one model per cloud
-    // (N:1, model.cloud_uuid) — the old "c2/m1" chip claimed a model
-    // on two clouds, which the schema forbids.
-    box [nodes: "app1 app2", label: "model 1 (on cloud 1)", style: "dashed", color: "#888"]
-    box [nodes: "app3", label: "model 2 (on cloud 2)", style: "dashed", color: "#888"]
+    // Model-membership boxes removed 2026-09-20 (reviewer call: they
+    // crowd the app column) -- they return when the box placement
+    // design is reworked; see HANDOFF known issues.
     legend [position: "bottom-right",
             person: "operator",
             juju-software: "Juju process",
