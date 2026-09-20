@@ -349,10 +349,11 @@ model "Juju" {
 
     // Intro views — archetype edges; instances fan from these per view.
     // All technically true: the user operates pre-Juju applications
-    // directly; the controller operates every charmed application; the
-    // unit agent watches the controller for changes.
+    // directly; applications converge toward the controller's recorded
+    // goal state (reconciliation); the unit agent watches the controller
+    // for changes.
     user       -> bare_application [type: control, label: "operates"]
-    controller -> apps             [type: control, label: "operates"]
+    apps       -> controller       [type: control, label: "converges toward"]
 
     // HA controller — Raft sync between Dqlite nodes: full mesh
     // (pairing: mesh — every distinct pair, never a node with itself)
@@ -753,6 +754,13 @@ diagram "Intro: Juju enters" from "Juju" {
   select {
     nodes: user client controller cloud charmhub apps
     edges: type control type api
+    // The intro shows the delta over "the problem": Juju machinery
+    // between the user and the applications. Bootstrap (client <-> cloud)
+    // and the cloud -> controller provisioning return path are left to
+    // "Juju overview" and the sequence views. Twin parity with juju3
+    // (this copy had dropped the curation; restored).
+    except: client -> cloud cloud -> client cloud -> controller
+    sizing: uniform
     instances: cloud [
       { id: cloud_a, label: "cloud 1" },
       { id: cloud_b, label: "cloud 2" }
