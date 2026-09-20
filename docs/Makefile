@@ -180,8 +180,8 @@ check-ggarch:
 	    echo "== ggarch check $$f"; \
 	    ggarch check $$f; \
 	done; \
-	echo "== twin parity (juju4 generated from juju3)"; \
-	python3 scripts/make-twin.py --check; \
+	echo "== synthesized-variant freshness (juju3 in-file)"; \
+	python3 scripts/make-variants.py --check; \
 	echo "== check-grounding juju3.ggarch"; \
 	python3 tools/check-grounding.py juju3.ggarch; \
 	echo "== audit-geometry --gate"; \

@@ -43,9 +43,9 @@ jobs:
             ggarch check "$f"
           done
 
-      - name: Twin parity (juju4 generated from juju3)
+      - name: Synthesized-variant freshness (juju3 in-file)
         working-directory: docs
-        run: python3 scripts/make-twin.py --check
+        run: python3 scripts/make-variants.py --check
 
       - name: Grounding (juju3)
         working-directory: docs
@@ -53,4 +53,4 @@ jobs:
 
       - name: Geometry audit --gate (the twins)
         working-directory: docs
-        run: python3 ggarch/scripts/audit-geometry.py --gate juju3.ggarch juju4.ggarch principles.ggarch
+        run: python3 ggarch/scripts/audit-geometry.py --gate juju3.ggarch principles.ggarch
