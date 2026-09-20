@@ -58,12 +58,37 @@ def load_schema(ddl: Path) -> dict[str, set[str]]:
 SCHEMAS = {db: load_schema(ddl) for db, ddl in DDL.items()}
 
 
+def _code_ground_resolves(node_id: str, ground: str, problems: list) -> None:
+    """Code-path ground: "path/to/file.go:NN" (line) or
+    "path/to/file.go:Symbol" (2026-09-20, TODOS F2: symbols survive
+    code movement where line numbers rot — a line-only ground is
+    existence-verified and gross-drift-checked; a symbol ground must
+    appear in the file as a func declaration or a manifold-style
+    entry)."""
+    path_str, _, token = ground.partition(":")
+    path = REPO / path_str
+    if not path.exists():
+        problems.append(f"{node_id}: code path not found: {ground}")
+        return
+    if token.isdigit():
+        # Line ground: existence (above) plus a gross-drift bound —
+        # a ground past the end of file is rotted beyond usefulness.
+        if int(token) < 1 or int(token) > len(
+                path.read_text(errors="ignore").splitlines()):
+            problems.append(f"{node_id}: line {token} beyond end of "
+                            f"{path_str}")
+        return
+    text = path.read_text(errors="ignore")
+    pat = re.compile(rf"func [^{{]*\b{re.escape(token)}\(|^\s*{re.escape(token)}:",
+                     re.M)
+    if not pat.search(text):
+        problems.append(f"{node_id}: symbol {token!r} not found in "
+                        f"{path_str} (moved or renamed?)")
+
+
 def resolve_node_ground(node_id: str, ground: str, problems: list) -> None:
-    if "/" in ground and ":" not in ground.split("/")[0]:
-        # Code-path ground: "path/to/file.go:NN"
-        path = REPO / ground.split(":")[0]
-        if not path.exists():
-            problems.append(f"{node_id}: code path not found: {ground}")
+    if "/" in ground.split(":")[0]:
+        _code_ground_resolves(node_id, ground, problems)
         return
     if ":" not in ground or ground.split(":", 1)[0] not in SCHEMAS:
         problems.append(f"{node_id}: malformed ground: {ground}")
@@ -89,12 +114,9 @@ def resolve_edge_ground(src: str, tgt: str, ground: str, problems: list) -> None
 
 def walk_nodes(nodes, problems: list) -> None:
     for n in nodes:
-        if n.type == "record":
-            ground = n.properties.get("ground", "")
-            if not ground:
-                problems.append(f"{n.id}: record node without ground:")
-            else:
-                resolve_node_ground(n.id, ground, problems)
+        ground = n.properties.get("ground", "")
+        if ground:
+            resolve_node_ground(n.id, ground, problems)
         walk_nodes(n.children, problems)
 
 
@@ -121,5 +143,54 @@ def main(path: str) -> int:
     return 0
 
 
+
+
+def _symbol_at(path: Path, line_no: int) -> str | None:
+    """The symbol a ground line names: a manifold-style entry
+    ("agentName: agent.Manifold(...)" -> agentName) or the enclosing
+    func declaration. None when neither applies."""
+    lines = path.read_text(errors="ignore").splitlines()
+    if 1 <= line_no <= len(lines):
+        entry = re.match(r"^\s+(\w+):\s", lines[line_no - 1])
+        if entry:
+            return entry.group(1)
+    for i in range(min(line_no, len(lines)) - 1, -1, -1):
+        fn = re.match(r"^func [^({]*[ (\w\*\)\.]*\b(\w+)\(", lines[i])
+        if fn:
+            return fn.group(1)
+    return None
+
+
+def migrate(path_str: str, problems: list) -> None:
+    """Rewrite line grounds ("path.go:NN") to symbol grounds
+    ("path.go:Symbol") in the .ggarch file, in place. Symbols survive
+    code movement where line numbers rot (TODOS F2)."""
+    import ggarch  # noqa: F401  (the file is parsed by the caller)
+
+    text = Path(path_str).read_text()
+    path_str_repo = text  # placeholder to keep the closure readable
+    for m in re.finditer(r'ground: "([/\w\.\-]+\.go):(\d+)"', text):
+        go_path, line_no = m.group(1), int(m.group(2))
+        path = REPO / go_path
+        if not path.exists():
+            problems.append(f"{go_path}:{line_no}: file not found — "
+                            f"left as-is")
+            continue
+        symbol = _symbol_at(path, line_no)
+        if symbol is None:
+            problems.append(f"{go_path}:{line_no}: no symbol found — "
+                            f"left as-is")
+            continue
+        text = text.replace(f'ground: "{go_path}:{line_no}"',
+                            f'ground: "{go_path}:{symbol}"')
+    Path(path_str).write_text(text)
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1] if len(sys.argv) > 1 else "juju3.ggarch"))
+    args = [a for a in sys.argv[1:]]
+    if "--migrate" in args:
+        problems: list[str] = []
+        for f in [a for a in args if a != "--migrate"]:
+            migrate(f, problems)
+        for p in problems:
+            print(p)
+        sys.exit(1 if problems else 0)
+    main(args[0] if args else "juju3.ggarch")
