@@ -1,7 +1,7 @@
 (diagrams3)=
 # juju3.ggarch — diagram preview (grounded twin)
 
-All views produced by `juju3.ggarch` — the grounded twin. Every record node and schema association carries a `ground:` pointer to its codebase locus (DDL table / FK column, or code path), verified by `tools/check-grounding.py`: everything drawn exists in the schema; curation is declared, never silent. Compare with the [stable preview](diagrams.md) and the [spike preview](diagrams2.md).
+All views produced by `juju3.ggarch` — the grounded twin. Every record node and schema association carries a `ground:` pointer to its codebase locus (DDL table / FK column, or code path), verified by `tools/check-grounding.py`: everything drawn exists in the schema; curation is declared, never silent. Compare with the [synthesized preview](diagrams4.md).
 
 ## Diagrams
 

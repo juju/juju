@@ -49,7 +49,7 @@ you want; Juju stores that declaration as goal state and drives the real world
 toward it continuously -- through restarts, failures, and drift.
 
 ```{ggarch}
-:file: ../juju.ggarch
+:file: ../juju3.ggarch
 :view: Juju overview
 :alt: User, Client, Controller, Agents, and Charmed applications on the same horizontal plane left to right. Clouds above the Controller. Charmhub below the Controller.
 ```
@@ -77,7 +77,7 @@ See more: {ref}`controller`, {ref}`unit`, {ref}`machines-and-system-containers`
 ```
 
 ```{ggarch}
-:file: ../juju.ggarch
+:file: ../juju3.ggarch
 :view: K8s deployment topology
 :alt: Vertical stack on the left: Kubernetes cloud above, controller pod (running the controller agent jujud with Dqlite) in the middle, Charmhub below. Unit pod on the right. All horizontal arrows at the same height: controller agent to unit agent, unit agent to charm, charm to Pebble, Pebble to workload services. jujud also connects down to Charmhub.
 ```
@@ -145,7 +145,7 @@ behalf. On machine clouds the charm drives the workload directly, since charm an
 workload share the same machine.
 
 ```{ggarch}
-:file: ../juju.ggarch
+:file: ../juju3.ggarch
 :sequence: Hook execution
 :alt: API-server fires watcher to Unit agent. Unit agent snapshots state, resolves next hook, execs dispatch. During the hook loop: charm calls hook command, unit agent serves via API, controller responds, result returns to charm. On exit 0: charm returns success, unit agent flushes writes. On failure: charm returns failure, unit agent discards writes and sets unit error.
 ```
@@ -195,7 +195,7 @@ controller. This is what makes removal safe and observable: nothing is deleted
 until the agent has confirmed it is done.
 
 ```{ggarch}
-:file: ../juju.ggarch
+:file: ../juju3.ggarch
 :view: Data model
 :alt: Five record nodes: charm at top, application in the centre-left, unit to the right of application, machine/pod to the right of unit, relation below application. Arrows: application uses charm, application has units (unit), unit runs on machine/pod, relation connects application.
 ```
@@ -228,7 +228,7 @@ workload applications.
 ::::{tab-item} Kubernetes
 
 ```{ggarch}
-:file: ../juju.ggarch
+:file: ../juju3.ggarch
 :sequence: Bootstrap K8s
 :alt: User invokes juju bootstrap. CLI authenticates with K8s cluster. CLI creates namespace and deploys controller pod. jujud starts, initialises API server and database. jujud signals API ready to CLI. CLI reports bootstrap complete to User.
 ```
@@ -258,7 +258,7 @@ sequenceDiagram
 ::::{tab-item} Machine
 
 ```{ggarch}
-:file: ../juju.ggarch
+:file: ../juju3.ggarch
 :sequence: Bootstrap machine
 :alt: User invokes juju bootstrap. CLI authenticates with Cloud and provisions a VM. CLI installs jujud on the Controller machine. Controller machine starts the controller agent, API server, and database. Controller machine reports API ready. CLI reports Bootstrap complete to User.
 ```
@@ -324,7 +324,7 @@ sequence: `install`, `config-changed`, `start`.
 ::::{tab-item} Kubernetes
 
 ```{ggarch}
-:file: ../juju.ggarch
+:file: ../juju3.ggarch
 :sequence: Deploy K8s
 :alt: User invokes juju deploy. CLI sends Deploy RPC call to Controller. Controller writes application and unit records, schedules unit pod on Kubernetes cluster. K8s returns pod running. Controller starts containeragent. containeragent runs install, config-changed, start hooks. Controller reports deploy complete to CLI, CLI reports to User.
 ```
@@ -357,7 +357,7 @@ sequenceDiagram
 ::::{tab-item} Machine
 
 ```{ggarch}
-:file: ../juju.ggarch
+:file: ../juju3.ggarch
 :sequence: Deploy machine
 :alt: User invokes juju deploy. CLI sends Deploy RPC call to Controller. Controller writes application and unit records and provisions a machine via Cloud. Cloud returns Machine ready. Controller starts jujud unit agent. jujud runs install, config-changed, start hooks and reports unit active. Controller reports deploy complete to CLI, CLI reports to User.
 ```
@@ -405,7 +405,7 @@ controller is always the single source of truth for what two applications have
 agreed upon.
 
 ```{ggarch}
-:file: ../juju.ggarch
+:file: ../juju3.ggarch
 :sequence: Integrate
 :alt: User invokes juju integrate. CLI sends Integrate RPC call to Controller. Controller writes relation record. Controller fires watchers to both Unit agent (app A) and Unit agent (app B). Both agents run relation hooks in sequence. Each agent writes its relation data bag to the Controller. The Controller notifies the other agent via its watcher.
 ```
@@ -484,7 +484,7 @@ needed. A hook failure at any stage leaves the unit in `error` state and blocks
 further progress.
 
 ```{ggarch}
-:file: ../juju.ggarch
+:file: ../juju3.ggarch
 :sequence: Unit removal
 :alt: User invokes juju remove-unit. Controller marks unit Dying and fires watcher to Unit agent. Unit agent runs stop, teardown, and remove hooks, then marks unit Dead. Controller releases the machine and deletes unit records.
 ```
@@ -523,7 +523,7 @@ Dying and drives them through to deletion of both the model records and the mode
 Dqlite database.
 
 ```{ggarch}
-:file: ../juju.ggarch
+:file: ../juju3.ggarch
 :sequence: Model removal
 :alt: User invokes juju destroy-model. Controller marks model Dying and fires watcher to Undertaker worker. Undertaker destroys all applications. Controller releases all machines and marks model Dead. Undertaker deletes model records and Dqlite database.
 ```
