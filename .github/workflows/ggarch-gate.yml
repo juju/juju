@@ -1,0 +1,52 @@
+name: ggarch docs gate
+
+on:
+  push:
+    branches: ["4.0-docs-rewrite-juju-architecture-juju-9632"]
+    paths:
+      - "docs/*.ggarch"
+      - "docs/tools/check-grounding.py"
+      - "docs/Makefile"
+      - ".github/workflows/ggarch-gate.yml"
+  pull_request:
+    paths:
+      - "docs/*.ggarch"
+      - "docs/tools/check-grounding.py"
+      - "docs/Makefile"
+      - ".github/workflows/ggarch-gate.yml"
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out ggarch (layout/render engine)
+        uses: actions/checkout@v4
+        with:
+          repository: tmihoc/ggarch
+          ref: main
+          path: ggarch
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ggarch
+        run: pip install ./ggarch
+
+      - name: Validate every model
+        working-directory: docs
+        run: |
+          for f in *.ggarch; do
+            echo "== ggarch check $f"
+            ggarch check "$f"
+          done
+
+      - name: Grounding (juju3)
+        working-directory: docs
+        run: python3 tools/check-grounding.py juju3.ggarch
+
+      - name: Geometry audit --gate (the twins)
+        working-directory: docs
+        run: python3 ggarch/scripts/audit-geometry.py --gate juju3.ggarch juju4.ggarch

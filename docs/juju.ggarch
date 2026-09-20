@@ -556,12 +556,14 @@ diagram "Intro: Juju enters" from "Juju" {
     client     left-of controller
     client     align-middle controller
     // Clouds fanned above controller, centred on it
-    fan [cloud1 cloud2] above controller    gap: 40
+    // Spacing sized for the two provisioning labels to clear
+    fan [cloud1 cloud2] above controller    gap: 40 spacing: 120
     // Charmhub below controller
     charmhub   below controller    gap: 40
     charmhub   align-centre controller
     // Apps fanned to the right of controller
-    fan [capp1 capp2 capp3] right-of controller gap: 60
+    // Gap sized for the three convergence labels to separate
+    fan [capp1 capp2 capp3] right-of controller gap: 140
   }
   annotations {
     legend [position: "bottom-right",

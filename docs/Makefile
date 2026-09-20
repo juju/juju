@@ -165,6 +165,32 @@ rebuild-ggarch: clean-ggarch
 	. $(DOCS_VENV); $(SPHINX_BUILD) -b dirhtml -E "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS)
 	@echo "Done. Diagrams regenerated. Restart 'make run' if autobuild is active."
 
+# CI gate (TODOS F1): docs that cannot lie. Three commands, one exit:
+# grounding resolves, every model validates, the geometry audit holds
+# its hard invariants (arrows over boxes, node strikes, wall
+# crossings, >2-bend routes, >2x traceability). Accepted tensions
+# (strip-crossings, residuals, diagonals, label clashes) ride the
+# report, not the exit code.
+GGARCH_FILES := $(wildcard *.ggarch)
+# The audit gate covers the twins (at the bar). principles.ggarch is
+# newer and still report-only: the gate caught a 16x weave (Star
+# topology) and a strike/wall pair (Execution chain K8s) on its first
+# run -- bring it to the bar, then add it here.
+GGARCH_GATED  := juju3.ggarch juju4.ggarch
+
+check-ggarch:
+	@set -e; . $(DOCS_VENV); \
+	for f in $(GGARCH_FILES); do \
+	    echo "== ggarch check $$f"; \
+	    ggarch check $$f; \
+	done; \
+	echo "== check-grounding juju3.ggarch"; \
+	python3 tools/check-grounding.py juju3.ggarch; \
+	echo "== audit-geometry --gate"; \
+	python3 $(GGARCH_SRC)/../scripts/audit-geometry.py \
+	    --gate $(GGARCH_GATED); \
+	echo "check-ggarch: PASS"
+
 linkcheck: install
 	. $(DOCS_VENV) ; $(SPHINX_BUILD) -b linkcheck -q "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS) || { grep --color -F "[broken]" "$(DOCS_BUILDDIR)/output.txt"; exit 1; }
 	exit 0
