@@ -172,11 +172,7 @@ rebuild-ggarch: clean-ggarch
 # (strip-crossings, residuals, diagonals, label clashes) ride the
 # report, not the exit code.
 GGARCH_FILES := $(wildcard *.ggarch)
-# The audit gate covers the twins (at the bar). principles.ggarch is
-# newer and still report-only: the gate caught a 16x weave (Star
-# topology) and a strike/wall pair (Execution chain K8s) on its first
-# run -- bring it to the bar, then add it here.
-GGARCH_GATED  := juju3.ggarch juju4.ggarch
+GGARCH_GATED  := juju3.ggarch juju4.ggarch principles.ggarch
 
 check-ggarch:
 	@set -e; . $(DOCS_VENV); \

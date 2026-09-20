@@ -49,4 +49,4 @@ jobs:
 
       - name: Geometry audit --gate (the twins)
         working-directory: docs
-        run: python3 ggarch/scripts/audit-geometry.py --gate juju3.ggarch juju4.ggarch
+        run: python3 ggarch/scripts/audit-geometry.py --gate juju3.ggarch juju4.ggarch principles.ggarch

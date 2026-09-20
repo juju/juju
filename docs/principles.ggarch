@@ -221,10 +221,13 @@ diagram "Star topology" from "Principles" {
     edges: type data type event
   }
   positions {
-    ctrl_rel above ua_a        gap: 70
-    ctrl_rel align-centre ua_a
-    ua_b     right-of ua_a     gap: 80
-    ua_b     align-middle ua_a
+    // Controller centred above BOTH units (a fan, not chained to one
+    // side): each pair's strokes run near-vertical, so the two
+    // rotated labels of a pair stack side by side instead of
+    // overlapping on converging diagonals.
+    // Gap sized for the 'write relation data' label (110px) to
+    // fit its vertical stroke without overflowing the pair.
+    fan [ua_a ua_b] below ctrl_rel gap: 140 spacing: 60
   }
   annotations {
     box [nodes: "ctrl_rel",
@@ -253,6 +256,9 @@ diagram "Execution chain IAAS" from "Principles" {
     cloud_iaas   align-centre ctrl_iaas
     machine_host direction: down
     machine_agent direction: down
+    // Gap sized for the 'exec dispatch' label on the uniter->charm
+    // stroke and the 'hook command' label on the charm->jujuc stroke.
+    charm_proc below machine_agent gap: 60
     unit_agent_iaas direction: right
   }
   annotations {
@@ -284,6 +290,16 @@ diagram "Execution chain K8s" from "Principles" {
     k8s_cloud align-centre ctrl_k8s
     unit_pod  direction: down
     cont_agent direction: right
+    // Gap sized for the incident labels ('exec dispatch', 'hook
+    // command', 'serves via agent') to separate around the charm.
+    charm_k8s below cont_agent gap: 60
+    // jujuc offset right of the charm: its "serves via agent" edge to
+    // cont_agent runs up the clear right corridor instead of riding
+    // its label across the charm box; pebble stays in the left column
+    // under the charm so the Pebble API edge stays inside the pod.
+    jujuc_k8s right-of charm_k8s gap: 30
+    pebble    below charm_k8s    gap: 30
+    pebble    align-centre charm_k8s
   }
   annotations {
     legend [position: "bottom-right",
