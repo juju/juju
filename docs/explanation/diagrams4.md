@@ -3,19 +3,20 @@
 
 All views produced by `juju4.ggarch` — the auto-layout twin. The model
 and views are identical to `juju3.ggarch`; every `positions` block has
-been stripped. Nothing here declares manual placement: each diagram is
-solved by ggarch's auto-layout — layered columns following topological
-depth along the visible edges, inter-container edges driving container
-placement, branch targets stacked in their column.
+been stripped. Most diagrams here are solved by ggarch's pure
+synthesis: layered columns following topological depth along the
+visible edges, barycenter row ordering, corridor budgets for labels,
+and port discipline in the router (inter-column arrows bind
+east-to-west where bend-neutral).
 
 Position is content: the authored arrangements in the
 [grounded preview](diagrams3.md) are arguments, not boilerplate. This
-twin exists to see what the synthesized floor produces, and where it is
-not yet good enough. Measured findings (see the ggarch HANDOFF): the
-floor gives uniform, coherent flow; it does NOT fix edge routing (the
-HA Raft-mesh arrows still cross the middle controller) or edge-label
-placement (four of six "Raft sync" labels still float instead of
-interrupting the arrow) — those are router work, not layout work.
+twin exists to show what the engine produces when the author declares
+nothing — and, in one view below, what it produces under
+**refinement**: a declared arrangement sentence over the synthesized
+base (ADR-007). Compare "Intro: Juju enters" (zero declarations) with
+"Intro: Juju enters (declared)" (the two-plane sentence + fan
+spacings declared).
 
 All views produced by `juju3.ggarch` — the grounded twin. Every record node and schema association carries a `ground:` pointer to its codebase locus (DDL table / FK column, or code path), verified by `tools/check-grounding.py`: everything drawn exists in the schema; curation is declared, never silent. Compare with the [stable preview](diagrams.md) and the [spike preview](diagrams2.md).
 
@@ -39,6 +40,16 @@ All views produced by `juju3.ggarch` — the grounded twin. Every record node an
 :no-legend:
 :caption: Juju inserts a single controller between the operator and everything else. Clouds and charmed applications are instances of grounded archetypes (cloud_rec, application_rec); model membership is drawn as declared regions — one model per cloud, as the schema requires (model.cloud_uuid). Auto-layout — no positions declared.
 :alt: User and client on the left, controller in the centre, two cloud instances fanned above, Charmhub below, three charmed application instances fanned to the right, grouped by dashed boxes labelled model 1 (on cloud 1) and model 2 (on cloud 2).
+```
+
+### Intro: Juju enters (declared)
+
+```{ggarch}
+:file: ../juju4.ggarch
+:view: Intro: Juju enters (declared)
+:no-legend:
+:caption: The same view under ADR-007 refinement: the arrangement declared as a sentence — user, client and controller on one horizontal plane; cloud 1 and cloud 2 fanned above the controller from its mid-north face, spacing sized for the two "provisions on" labels; Charmhub below on the same axis; three applications fanned right, gap sized for the three "converges toward" labels. Synthesis fills every geometry the sentence leaves undeclared. Compare with the zero-declaration original above.
+:alt: User, client, controller on one horizontal line, two cloud boxes fanned above the controller from its top face, Charmhub below it, three application boxes fanned to the right with converging arrows into the controller's right face. The same arrangement as the authored juju3 preview, produced from declarations.
 ```
 
 ### Intro: Juju unpacked
