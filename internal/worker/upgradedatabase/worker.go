@@ -320,6 +320,15 @@ func (w *upgradeDBWorker) watchUpgrade(ctx context.Context) error {
 		return nil
 	}
 
+	if info.State == upgrade.DBCompleted {
+		// The upgrade is already complete. The watcher subscription emitted its
+		// event during ConsumeInitialEvent above, so we would never see it in the
+		// main loop. Unlock and uninstall directly.
+		w.logger.Infof(ctx, "database upgrade already completed")
+		w.dbUpgradeCompleteLock.Unlock()
+		return dependency.ErrUninstall
+	}
+
 	// Mark this controller as ready to start the upgrade. We do this after
 	// we've added the watchers, so that we don't miss any events. If this
 	// fails, the agent will restart and try again.
@@ -377,12 +386,12 @@ func (w *upgradeDBWorker) runUpgrade(ctx context.Context, upgradeUUID domainupgr
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	// Mark this controller as ready BEFORE subscribing to the ready
-	// watcher. This ensures the controller is registered in the database
-	// before the watcher's mapper checks AllProvisionedControllersReady.
-	// If SetControllerReady is a no-op (already registered from a previous
-	// run), the mapper will still correctly see all ready controllers when
-	// the subscription becomes active.
+	// Mark this controller as ready BEFORE subscribing to the ready watcher.
+	// This ensures the controller is registered in the database before the
+	// watcher's mapper checks AllProvisionedControllersReady. If
+	// SetControllerReady is a no-op (already registered from a previous run),
+	// the mapper will still correctly see all ready controllers when the
+	// subscription becomes active.
 	if err := w.upgradeService.SetControllerReady(ctx, upgradeUUID, w.controllerID); err != nil {
 		w.logger.Errorf(ctx, "failed to set controller ready: %v", err)
 		return w.abortWithError(ctx, upgradeUUID, err)
@@ -390,25 +399,24 @@ func (w *upgradeDBWorker) runUpgrade(ctx context.Context, upgradeUUID domainupgr
 	w.logger.Infof(ctx, "marking the controller ready for upgrade")
 
 	// Watch for the upgrade to be ready. The watcher's mapper checks
-	// AllProvisionedControllersReady — the first event dispatched on
-	// Changes() signals that all controllers are registered and ready.
-	watcher, err := w.upgradeService.WatchForUpgradeReady(ctx, upgradeUUID)
+	// AllProvisionedControllersReady — the first event dispatched on Changes()
+	// signals that all controllers are registered and ready.
+	upgradeWatcher, err := w.upgradeService.WatchForUpgradeReady(ctx, upgradeUUID)
 	if err != nil {
 		return w.abortWithError(ctx, upgradeUUID, err)
 	}
 
-	// Add the watcher to the catacomb, but do NOT consume the initial
-	// event via addWatcher. Unlike state watchers (DBCompleted, Error)
-	// where the initial event is an empty readiness signal, this
-	// watcher uses a mapper that only dispatches when
-	// AllProvisionedControllersReady is true. The NotifyWatcher
-	// implementation drains the subscription's initial event internally
-	// (without the mapper), so the first event on Changes() is the
-	// first mapper-matched "all controllers ready" signal. Consuming it
-	// via addWatcher/ConsumeInitialEvent would discard this signal and
-	// cause the upgrade to hang waiting for an event that will never
-	// come.
-	if err := w.catacomb.Add(watcher); err != nil {
+	// Unlike the DBCompleted/Error watchers in watchUpgrade, we do NOT call
+	// addWatcher here. addWatcher consumes the first event from Changes() (see
+	// eventsource.ConsumeInitialEvent) as a readiness barrier. That pattern
+	// works for watchers that emit an initial empty signal where discarding it
+	// is harmless.
+	//
+	// This watcher is different: its mapper only dispatches when
+	// AllProvisionedControllersReady returns true. The very first emission is
+	// the "all ready" signal we need. Consuming it would discard that signal and
+	// the upgrade would hang indefinitely.
+	if err := w.catacomb.Add(upgradeWatcher); err != nil {
 		return w.abortWithError(ctx, upgradeUUID, err)
 	}
 
@@ -425,7 +433,7 @@ func (w *upgradeDBWorker) runUpgrade(ctx context.Context, upgradeUUID domainupgr
 		case <-w.clock.After(defaultUpgradeTimeout):
 			return w.abort(ctx, upgradeUUID, errors.New("upgrade timed out"))
 
-		case <-watcher.Changes():
+		case <-upgradeWatcher.Changes():
 			w.logger.Infof(ctx, "database upgrade starting")
 
 			// Any errors within this block will need to set the upgrade as
