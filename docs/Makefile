@@ -178,6 +178,10 @@ GGARCH_GATED  := juju.ggarch principles.ggarch
 variants:
 	python3 scripts/make-variants.py
 
+elk-compare:
+	@. $(DOCS_VENV); python3 $(GGARCH_SRC)/../scripts/elk-compare.py juju.ggarch --out $(DOCS_BUILDDIR)/_images/elk-compare.html
+	@echo "wrote $(DOCS_BUILDDIR)/_images/elk-compare.html (floor | ELK per view)"
+
 check-ggarch:
 	@set -e; . $(DOCS_VENV); \
 	for f in $(GGARCH_FILES); do \

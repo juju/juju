@@ -1,117 +1,277 @@
 (diagrams)=
-# Diagram POC — one model, how each diagram was produced
+# Diagram POC — one model, every diagram, auto-layout vs declared
 
-Everything we've built, from one file (`juju.ggarch`). The captions on
-this page are about **production** — how each drawing was made:
-
-- **Auto-layout** (no positions declared): the engine decides —
-  layered columns, barycenter rows, corridor budgets, port discipline.
-- **Refinement** (declared planes/fans over the synthesized base):
-  the author states the arrangement as a sentence; synthesis fills
-  the rest (ADR-007).
-
+Everything we've built, from one file (`juju.ggarch`). Every diagram
+shows as a **side-by-side pair**: the **synthesized** variant (zero
+declared positions — the engine decides: typed hub planes, two-sided
+fans, port discipline) on the left, the **declared arrangement** (the
+author's `positions` sentence, ADR-007 refinement) on the right.
 Caption meaning comes later: diagrams embedded in real docs carry
-meaning captions; this page surfaces the catalogue.
+meaning captions; this page is the comparison catalogue. Click any
+diagram to expand it.
 
 ## Intro: the problem
 
+`````{grid} 2
+````{grid-item}
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Intro: the problem (synthesized)
 :no-legend:
-:caption: Without Juju, every application is its own island — the operator reaches across cloud boundaries manually. Three applications as instances of the one real archetype; the cloud grouping is drawn as declared regions, not claimed as model facts. Auto-layout — no positions declared.
+:caption: Auto-layout — no positions declared. The hub planes (user left, apps fanned from the controller) are the engine's typed-plane synthesis, not a declaration.
 :alt: A user with direct "operates" arrows to three application instances, grouped by dashed boxes labelled on cloud 1 and on cloud 2.
 ```
+````
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: Intro: the problem
+:no-legend:
+:caption: Declared arrangement — the author's positions block. Compare with the synthesized variant: same story, engine-chosen geometry on the left.
+:alt: A user with direct "operates" arrows to three application instances, grouped by dashed boxes labelled on cloud 1 and on cloud 2.
+```
+````
+`````
 
 ## Intro: Juju enters
 
+`````{grid} 2
+````{grid-item}
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Intro: Juju enters (synthesized)
 :no-legend:
-:caption: Juju inserts a single controller between the operator and everything else. Clouds and charmed applications are instances of grounded archetypes (cloud_rec, application_rec); model membership is drawn as declared regions — one model per cloud, as the schema requires (model.cloud_uuid). Auto-layout — no positions declared.
-:alt: User and client on the left, controller in the centre, two cloud instances fanned above, Charmhub below, three charmed application instances fanned to the right, grouped by dashed boxes labelled model 1 (on cloud 1) and model 2 (on cloud 2).
+:caption: Auto-layout — no positions declared. The typed hub planes found the declared structure on their own: spine on one row, clouds side by side in the band above, Charmhub below on the axis, apps centred on the hub's row to the east. The app fan anchors at member centres; app2's arrow is align-middle'ed with the controller.
+:alt: User and client on the left, controller in the centre, two cloud instances side by side above, Charmhub below, three charmed application instances in a column to the right with arrows converging into the controller's east face.
 ```
-
-## Intro: Juju enters (declared)
-
+````
+````{grid-item}
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Intro: Juju enters (declared)
 :no-legend:
-:caption: The same view under ADR-007 refinement: the arrangement declared as a sentence — user, client and controller on one horizontal plane; cloud 1 and cloud 2 fanned above the controller from its mid-north face, spacing sized for the two "provisions on" labels; Charmhub below on the same axis; three applications fanned right, gap sized for the three "converges toward" labels. Synthesis fills every geometry the sentence leaves undeclared. Compare with the zero-declaration original above.
-:alt: User, client, controller on one horizontal line, two cloud boxes fanned above the controller from its top face, Charmhub below it, three application boxes fanned to the right with converging arrows into the controller's right face. The same arrangement as the authored juju3 preview, produced from declarations.
+:caption: Declared arrangement — user, client and controller on one horizontal plane; the cloud fan from the controller's mid-north, symmetric about the face midpoint; Charmhub below on the same axis; the app fan right, gap sized for the three "converges toward" labels. Synthesis fills the rest (ADR-007).
+:alt: User, client, controller on one horizontal line, two cloud boxes fanned above the controller from its top face, Charmhub below it, three application boxes fanned to the right with converging arrows into the controller's right face.
+```
+````
+`````
+
+The authored original (both of the above derive from it):
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Intro: Juju enters
+:no-legend:
+:caption: The authored view — the arrangement as first drawn, with the model-membership boxes and record chips off (the 2026-09-20 reviewer call pending a placement design). The synthesized and declared variants above share this select exactly.
+:alt: User, client, controller on one horizontal line, two cloud boxes fanned above, Charmhub below, three application boxes fanned right.
 ```
 
 ## Intro: Juju unpacked
 
+`````{grid} 2
+````{grid-item}
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Intro: Juju unpacked (synthesized)
 :no-legend:
-:caption: Each unit is an instance of the real structure: a unit pod containing a charm container (unit agent + charm) and a workload container (Pebble + workload). Every wire is real — the agent watches the controller (stream) and calls it (API); the charm drives the workload through Pebble. No scope chips: provenance is the illustration's story, not a model fact. Auto-layout — no positions declared.
+:caption: Auto-layout — no positions declared. The unit containers sit east of the controller as the feeder plane; the spine stays one row.
 :alt: User, client, controller on the left. Three unit pod instances fanned to the right, each containing a unit agent and charm in a charm container, and Pebble and workload in a workload container. Each unit agent has watch and API arrows to the controller.
 ```
+````
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: Intro: Juju unpacked
+:no-legend:
+:caption: Declared arrangement — the author's positions. Compare with the synthesized variant: same story, engine-chosen geometry on the left.
+:alt: User, client, controller on the left. Three unit pod instances fanned to the right, each containing a unit agent and charm in a charm container, and Pebble and workload in a workload container.
+```
+````
+`````
+
+## Juju overview
+
+`````{grid} 2
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: Juju overview (synthesized)
+:no-legend:
+:caption: Auto-layout — no positions declared. The horizontal intent/execution chain from the engine's layering.
+:alt: Horizontal chain: user, client, controller, agent, applications and clouds, charmhub.
+```
+````
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: Juju overview
+:no-legend:
+:caption: Declared arrangement — the full bootstrap-and-run overview as first drawn. Compare with the synthesized variant.
+:alt: Horizontal chain: user, client, controller, agent, applications and clouds, charmhub.
+```
+````
+`````
+
+## K8s deployment topology
+
+`````{grid} 2
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: K8s deployment topology (synthesized)
+:no-legend:
+:caption: Auto-layout — no positions declared. The controller pod and unit pod as containers; charmhub below.
+:alt: Controller pod and unit pod side by side, each with their internal agents and containers, Charmhub below, API arrows between the pods.
+```
+````
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: K8s deployment topology
+:no-legend:
+:caption: Declared arrangement — the re-authored K8s topology (the planned closing gate for the doc-track frictions). Compare with the synthesized variant.
+:alt: Controller pod and unit pod side by side, each with their internal agents and containers, Charmhub below, API arrows between the pods.
+```
+````
+`````
 
 ## Data model
 
+`````{grid} 2
+````{grid-item}
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Data model (synthesized)
 :no-legend:
-:caption: The controller's database is the single source of truth for the entire deployment. Every runtime entity — application, unit, machine, charm, relation — has a record here; what you see in "juju status" is mostly these records, plus live agent liveness. Auto-layout — no positions declared.
+:caption: Auto-layout — no positions declared. The child-record stacking rule (charm under its application) is the typed hub planes' lone-sink spoke, not a declaration.
 :alt: Six record nodes: charm above application, application connected to unit, unit connected to machine/pod, relation below application connected to endpoint.
 ```
+````
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: Data model
+:no-legend:
+:caption: Declared arrangement — the FK portrait as first drawn. Compare with the synthesized variant.
+:alt: Six record nodes: charm above application, application connected to unit, unit connected to machine/pod, relation below application connected to endpoint.
+```
+````
+`````
 
 ## Data model (full spine)
 
+`````{grid} 2
+````{grid-item}
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Data model (full spine) (synthesized)
 :no-legend:
-:caption: The full record spine across both databases — controller DB (user, cloud, credential, model, controller) and model DB (application, charm, unit, machine, relation, endpoint). The provenance walk unit → application → model → cloud is traceable on one drawing; the relation-endpoint indirection is un-flattened. Every node and association here is grounded in the schema DDL (see tools/check-grounding.py). Auto-layout — no positions declared.
+:caption: Auto-layout — no positions declared. Dense typed web: where the plane heuristics contradict, the view falls back to the plain depth layout — the honest fallback.
 :alt: Two dashed boxes: controller database containing user, controller, cloud, credential, model records; model database containing application, charm, unit, machine, relation, endpoint records. Associations run in semantic direction with multiplicity labels.
 ```
+````
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: Data model (full spine)
+:no-legend:
+:caption: Declared arrangement — the full record spine across both databases as first drawn, grounded in the schema DDL. Compare with the synthesized variant.
+:alt: Two dashed boxes: controller database containing user, controller, cloud, credential, model records; model database containing application, charm, unit, machine, relation, endpoint records.
+```
+````
+`````
 
 ## Worker tree (machine cloud)
 
+`````{grid} 2
+````{grid-item}
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Worker tree (machine cloud) (synthesized)
 :no-legend:
-:caption: The execution chain as a worker tree — the controller drives the machine agent, which hosts the unit agent, which runs the uniter (internal/worker/uniter), which dispatches the charm. See [Worker tree (controller)](#worker-tree-controller) for the controller-side dependency engine. Auto-layout — no positions declared.
+:caption: Auto-layout — no positions declared.
 :alt: Vertical chain, top to bottom: controller, machine agent, unit agent, uniter, charm, each connected by control arrows labelled drives, hosts, runs hooks via, dispatches.
 ```
+````
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: Worker tree (machine cloud)
+:no-legend:
+:caption: Declared arrangement — the execution chain as first drawn. See [Worker tree (controller)](#worker-tree-controller) for the controller-side dependency engine. Compare with the synthesized variant.
+:alt: Vertical chain, top to bottom: controller, machine agent, unit agent, uniter, charm, each connected by control arrows labelled drives, hosts, runs hooks via, dispatches.
+```
+````
+`````
 
 ## Worker tree (controller)
 
+`````{grid} 2
+````{grid-item}
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Worker tree (controller) (synthesized)
 :no-legend:
-:caption: The controller's dependency engine, grounded in cmd/jujud-controller/agent/{machine,model}/manifolds.go — every manifold is a worker; arrows run consumer → provider. The centre spine is the capability ladder from agent config through the Dqlite-backed DB accessor, change stream, and domain services up to the API and HTTP servers. Left: the per-model runners (the model worker manager hosts the compute provisioner) and the provider tracker that holds cloud connections. Right: lease manager, primary election, and lease expiry (HA leadership), plus the lease-guarded object store. Every node carries a ground pointer to its manifold source. Auto-layout — no positions declared.
+:caption: Auto-layout — no positions declared. The typed hub planes restructure the dependency engine: spoke feeders fan east of their hub with RL arrows.
 :alt: Five columns of worker boxes. Far left: provider tracker above provider services. Left: compute provisioner above model worker manager, both inside a dashed box labelled model workers (one set per model), undertaker below. Centre spine, top to bottom: agent, DB accessor, change stream, domain services, API server, HTTP server. Right: object store, lease manager below with primary election and lease expiry stacked above. Control arrows connect consumers to providers; the change stream watches the DB accessor.
 ```
+````
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: Worker tree (controller)
+:no-legend:
+:caption: Declared arrangement — the controller's dependency engine, grounded in cmd/jujud-controller/agent/{machine,model}/manifolds.go. Every node carries a ground pointer to its manifold source. Compare with the synthesized variant.
+:alt: Five columns of worker boxes. Far left: provider tracker above provider services. Left: compute provisioner above model worker manager, both inside a dashed box labelled model workers (one set per model), undertaker below. Centre spine, top to bottom: agent, DB accessor, change stream, domain services, API server, HTTP server. Right: object store, lease manager below with primary election and lease expiry stacked above. Control arrows connect consumers to providers; the change stream watches the DB accessor.
+```
+````
+`````
 
 ## Cross-model relation (CMR)
 
+`````{grid} 2
+````{grid-item}
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Cross-model relation (CMR) (synthesized)
 :no-legend:
-:caption: Cross-model integration is record-shaped: an application publishes an offer; each consuming integration is an offer connection; the consuming model references the remote controller via an external controller record; and a synthetic remote application participates in a local relation. No unit-to-unit wire exists — the two controllers mediate. All tables grounded (offer, offer_connection, application_remote_offerer, external_controller). Auto-layout — no positions declared.
+:caption: Auto-layout — no positions declared.
 :alt: Nine record nodes. Top row: application, offer, offer connection. Middle row: relation, endpoint, remote application. Bottom: model and external controller. A dashed box around offer, offer connection, and external controller is labelled cross-model machinery.
 ```
+````
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: Cross-model relation (CMR)
+:no-legend:
+:caption: Declared arrangement — the cross-model machinery as first drawn, all tables grounded (offer, offer_connection, application_remote_offerer, external_controller). Compare with the synthesized variant.
+:alt: Nine record nodes. Top row: application, offer, offer connection. Middle row: relation, endpoint, remote application. Bottom: model and external controller. A dashed box around offer, offer connection, and external controller is labelled cross-model machinery.
+```
+````
+`````
 
 ## HA controller: Dqlite replicaset
 
+`````{grid} 2
+````{grid-item}
 ```{ggarch}
 :file: ../juju.ggarch
 :view: HA controller: Dqlite replicaset (synthesized)
 :no-legend:
-:caption: In a high-availability controller deployment, three controller nodes each run an agent and a Dqlite instance. The Dqlite nodes form a Raft replicaset, and the sync arrows are drawn as the full mesh — every node talks to every other, because that is what Raft replication actually is (the leader replicates to all peers). The dashed box cuts across the container boundaries to show the database layer as a single strongly-consistent unit — the persistence guarantee behind "declare state once; any component can restart and recover". Auto-layout — no positions declared.
+:caption: Auto-layout — no positions declared.
 :alt: Three controller node instances side by side, each containing a controller agent and a Dqlite database node. A dashed annotation box encloses all three Dqlite nodes, labelled "Raft replicaset (strongly consistent)". Dashed arrows run between every pair of Dqlite nodes — the full mesh of Raft sync.
 ```
+````
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: HA controller: Dqlite replicaset
+:no-legend:
+:caption: Declared arrangement — the three controller nodes with the cross-container Raft box (the per-side padding and inside-bottom label placement demo). Compare with the synthesized variant.
+:alt: Three controller node instances side by side, each containing a controller agent and a Dqlite database node. A dashed annotation box encloses all three Dqlite nodes, labelled "Raft replicaset (strongly consistent)".
+```
+````
+`````
 
 ## Sequences
 
