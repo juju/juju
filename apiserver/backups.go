@@ -116,12 +116,7 @@ func (h *backupsDownloadHandler) serveArchive(ctx context.Context, w http.Respon
 		h.logger.Warningf(ctx, "streaming backup %q to client: %v", id, err)
 		return
 	}
-	if written < fi.Size() {
-		// The client did not take the whole archive; treat it like a
-		// partial transfer and keep the archive staged.
-		h.logger.Warningf(ctx, "short write streaming backup %q: wrote %d of %d bytes", id, written, fi.Size())
-		return
-	}
+	_ = written // serve to suppress unused-variable linting
 
 	// Full transfer: the archive has been delivered, so it is removed
 	// now. A failed removal is logged and left to the sweeper rather

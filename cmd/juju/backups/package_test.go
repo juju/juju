@@ -80,38 +80,12 @@ func (s *BaseBackupsSuite) SetUpTest(c *tc.C) {
 	s.store.Models["arthur"] = models
 }
 
-func (s *BaseBackupsSuite) patchAPIClient(client backups.APIClient) {
-	s.PatchValue(backups.NewAPIClient,
-		func(ctx context.Context, c *backups.CommandBase) (backups.APIClient, error) {
-			return client, nil
-		},
-	)
-}
-
 func (s *BaseBackupsSuite) patchGetAPI(client backups.APIClient) {
 	s.PatchValue(backups.NewGetAPI,
 		func(ctx context.Context, c *backups.CommandBase) (backups.APIClient, error) {
 			return client, nil
 		},
 	)
-}
-
-func (s *BaseBackupsSuite) setSuccess() *fakeAPIClient {
-	client := &fakeAPIClient{metaresult: s.metaresult}
-	s.patchAPIClient(client)
-	return client
-}
-
-func (s *BaseBackupsSuite) setFailure(failure string) *fakeAPIClient {
-	client := &fakeAPIClient{err: errors.New(failure)}
-	s.patchAPIClient(client)
-	return client
-}
-
-func (s *BaseBackupsSuite) setDownload() *fakeAPIClient {
-	client := s.setSuccess()
-	client.data = s.data
-	return client
 }
 
 func (s *BaseBackupsSuite) createCommandForGlobalOptionTesting(subcommand cmd.Command) cmd.Command {

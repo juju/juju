@@ -12,8 +12,9 @@ import (
 )
 
 // Create sends a request to create a backup of juju's state. It
-// returns the metadata associated with the resulting backup, with
-// the archive contents inlined in the result.
+// returns the metadata for the backup, including the one-shot
+// download identifier (ID) used to retrieve the archive via
+// Download.
 func (c *Client) Create(ctx context.Context, notes string) (*params.BackupsMetadataResult, error) {
 	var result params.BackupsMetadataResult
 	args := params.BackupsCreateArgs{

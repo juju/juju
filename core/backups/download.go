@@ -70,7 +70,7 @@ func CleanExpiredOneShotArchives(backupDir string, ttl time.Duration, now time.T
 		if now.Sub(info.ModTime()) <= ttl {
 			continue
 		}
-		if err := os.Remove(filepath.Join(dir, entry.Name())); err != nil {
+		if err := os.Remove(filepath.Join(dir, entry.Name())); err != nil && !os.IsNotExist(err) {
 			errs = append(errs, errors.Errorf("removing expired one-shot backup %q: %w", entry.Name(), err))
 		}
 	}

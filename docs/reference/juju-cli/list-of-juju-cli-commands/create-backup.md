@@ -1,6 +1,5 @@
 (command-juju-create-backup)=
 # `juju create-backup`
-
 ## Summary
 Create a backup.
 
@@ -26,16 +25,13 @@ juju create-backup [options] [<notes>]
 This command requests that Juju creates a backup of its state.
 You may provide a note to associate with the backup.
 
-The backup archive is always downloaded to the local machine, to the
-file given by `--filename` (or a generated
-`juju-backup-<date>-<time>.tar.gz` name), and is verified against the
-recorded checksum before the download is considered complete.
+The backup archive is always downloaded to the local machine, and the
+copy written on the controller is removed once it has been delivered.
+The archive is verified against the recorded checksum before the
+download is considered complete.
 
-The archive is kept on the controller only until it has been downloaded,
-or for a short retention window, after which it is removed
-automatically: a backup can be downloaded exactly once, at creation
-time. The model config attribute `backup-dir` only serves as scratch
-space during backup creation; no archive is kept there once the command
+The model config attribute `backup-dir` only serves as scratch space
+during backup creation; no archive is kept there once the command
 finishes.
 
 Use `--verbose` to see extra information about backup.
