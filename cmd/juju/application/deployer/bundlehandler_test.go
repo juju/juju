@@ -958,6 +958,35 @@ relations:
 - - wordpress:db
   - mysql:db
    `
+const wordpressBundleWithBareCharmUpgrade = `
+series: jammy
+applications:
+  wordpress:
+    charm: wordpress
+    revision: 52
+    channel: stable
+    num_units: 1
+    options:
+      blog-title: new title
+    constraints: spaces=new cores=8
+    to:
+    - "1"
+  mysql:
+    charm: mysql
+    revision: 42
+    channel: stable
+    num_units: 1
+    storage:
+      database: mysql-pv,20M
+    to:
+    - "0"
+machines:
+  "0": {}
+  "1": {}
+relations:
+- - wordpress:db
+  - mysql:db
+`
 
 func (s *BundleDeployRepositorySuite) TestDeployBundleApplicationUpgrade(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -994,6 +1023,56 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleApplicationUpgrade(c *gc.C
 	s.expectSetConstraints("wordpress", "spaces=new cores=8")
 
 	s.runDeploy(c, wordpressBundleWithStorageUpgradeConstraints)
+
+	c.Assert(s.output.String(), gc.Equals, ""+
+		"Located charm \"mysql\" in charm-hub, channel stable\n"+
+		"Located charm \"wordpress\" in charm-hub, channel stable\n"+
+		"Executing changes:\n"+
+		"- upload charm mysql from charm-hub for base ubuntu@22.04/stable with revision 42 with architecture=amd64\n"+
+		"- upgrade mysql from charm-hub using charm mysql for base ubuntu@22.04/stable from channel stable\n"+
+		"- upload charm wordpress from charm-hub for base ubuntu@22.04/stable with revision 52 with architecture=amd64\n"+
+		"- upgrade wordpress from charm-hub using charm wordpress for base ubuntu@22.04/stable from channel stable\n"+
+		"- set application options for wordpress\n"+
+		"- set constraints for wordpress to \"spaces=new cores=8\"\n"+
+		"Deploy of bundle completed.\n",
+	)
+}
+
+func (s *BundleDeployRepositorySuite) TestDeployBundleApplicationUpgradeBareCharm(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectDeployerAPIStatusWordpressBundleWithRevisions()
+	s.expectEmptyModelRepresentation()
+	s.expectDeployerAPIModelGet(c)
+	s.expectWatchAll()
+	s.expectResolveCharm(nil)
+	s.expectResolveCharm(nil)
+
+	mysqlCurl := charm.MustParseURL("ch:mysql")
+	s.expectAddCharm(false)
+	s.expectSetCharm(c, "mysql")
+	charmInfo := &apicharms.CharmInfo{
+		URL: mysqlCurl.String(),
+		Meta: &charm.Meta{
+			Series: []string{"jammy", "focal"},
+		},
+	}
+	s.expectCharmInfo(mysqlCurl.String(), charmInfo)
+
+	wordpressCurl := charm.MustParseURL("ch:wordpress")
+	s.expectAddCharm(false)
+	s.expectSetCharm(c, "wordpress")
+	wpCharmInfo := &apicharms.CharmInfo{
+		URL: wordpressCurl.String(),
+		Meta: &charm.Meta{
+			Series: []string{"jammy", "focal"},
+		},
+	}
+	s.expectCharmInfo(wordpressCurl.String(), wpCharmInfo)
+
+	s.expectSetConfig(c, "wordpress", map[string]interface{}{"blog-title": "new title"})
+	s.expectSetConstraints("wordpress", "spaces=new cores=8")
+
+	s.runDeploy(c, wordpressBundleWithBareCharmUpgrade)
 
 	c.Assert(s.output.String(), gc.Equals, ""+
 		"Located charm \"mysql\" in charm-hub, channel stable\n"+
@@ -2294,6 +2373,51 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusWordpressBundle() {
 				CharmChannel: "stable",
 				Units: map[string]params.UnitStatus{
 					"mysql/0": {Machine: "1"},
+				},
+			},
+		},
+		RemoteApplications: nil,
+		Offers:             nil,
+		Relations: []params.RelationStatus{
+			{
+				Endpoints: []params.EndpointStatus{
+					{ApplicationName: "wordpress", Name: "db", Role: "requirer"},
+					{ApplicationName: "mysql", Name: "db", Role: "provider"},
+				},
+			},
+		},
+		ControllerTimestamp: nil,
+		Branches:            nil,
+	}
+	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
+}
+
+func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusWordpressBundleWithRevisions() {
+	status := &params.FullStatus{
+		Model: params.ModelStatusInfo{},
+		Machines: map[string]params.MachineStatus{
+			"0": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"1": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+		},
+		Applications: map[string]params.ApplicationStatus{
+			"mysql": {
+				Charm:        "ch:mysql-41",
+				CharmRev:     41,
+				Scale:        1,
+				Base:         params.Base{Name: "ubuntu", Channel: "18.04"},
+				CharmChannel: "stable",
+				Units: map[string]params.UnitStatus{
+					"mysql/0": {Machine: "0"},
+				},
+			},
+			"wordpress": {
+				Charm:        "ch:wordpress-51",
+				CharmRev:     51,
+				Scale:        1,
+				Base:         params.Base{Name: "ubuntu", Channel: "18.04"},
+				CharmChannel: "stable",
+				Units: map[string]params.UnitStatus{
+					"wordpress/0": {Machine: "1"},
 				},
 			},
 		},

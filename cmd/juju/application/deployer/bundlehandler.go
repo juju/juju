@@ -301,10 +301,8 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 				spec.Charm = app.Charm
 				continue
 			}
-			// If the charm matches, don't bother resolving.
-			if spec.Charm == app.Charm {
-				continue
-			}
+			// Resolve the charm even when it matches the existing application so
+			// that its origin is registered for subsequent changes.
 
 			var err error
 			cons, err = constraints.Parse(app.Constraints)
