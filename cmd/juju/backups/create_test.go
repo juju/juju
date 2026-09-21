@@ -246,6 +246,26 @@ func (s *createSuite) TestDownloadRetriedAfterCopyFailure(c *tc.C) {
 	s.checkArchive(c)
 }
 
+// TestDownloadPartialArchiveRemoved verifies that a transfer that
+// breaks part way through on every attempt leaves no partial archive
+// behind that could be mistaken for a complete backup.
+func (s *createSuite) TestDownloadPartialArchiveRemoved(c *tc.C) {
+	client := s.setDownload()
+	client.downloadHook = func(call int) (io.ReadCloser, error) {
+		return io.NopCloser(&flakyReader{data: s.data}), nil
+	}
+
+	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
+	c.Assert(err, tc.ErrorMatches,
+		`while copying to local archive file backup.tgz: connection reset by peer`)
+	client.CheckCalls(c, "Create", "Download", "Download", "Download")
+
+	_, err = os.Stat("backup.tgz")
+	c.Check(err, tc.Satisfies, os.IsNotExist)
+	_, err = os.Stat("backup.tgz.corrupt")
+	c.Check(err, tc.Satisfies, os.IsNotExist)
+}
+
 // TestDownloadRetriedAfterChecksumMismatch verifies that an archive
 // that arrives corrupt is fetched again rather than accepted.
 func (s *createSuite) TestDownloadRetriedAfterChecksumMismatch(c *tc.C) {

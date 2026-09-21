@@ -235,14 +235,25 @@ func (c *createCommand) fetchArchive(ctx *cmd.Context, client APIClient, id, che
 		return fmt.Errorf("while creating local archive file %v: %w%w",
 			archiveFilename, err, errors.Hide(errLocalArchiveFile))
 	}
-	defer archive.Close()
 
 	// The checksum is the base64-encoded SHA-1 sum of the archive as
 	// recorded when it was created; hash while streaming so the archive
 	// is only read once.
 	hasher := hash.NewHashingWriter(archive, sha1.New())
-	if _, err := io.Copy(hasher, resultArchive); err != nil {
-		return errors.Annotatef(err, "while copying to local archive file %v", archiveFilename)
+	_, copyErr := io.Copy(hasher, resultArchive)
+	// Close the archive before handling either failure, so that an
+	// incomplete archive can be removed even on platforms that cannot
+	// remove open files.
+	closeErr := archive.Close()
+	if copyErr != nil || closeErr != nil {
+		// The archive is incomplete: remove it so it cannot be
+		// mistaken for a complete backup. The removal is best effort:
+		// the copy or close failure is the more useful error.
+		_ = c.Filesystem().RemoveAll(archiveFilename)
+		if copyErr != nil {
+			return errors.Annotatef(copyErr, "while copying to local archive file %v", archiveFilename)
+		}
+		return errors.Annotatef(closeErr, "while closing local archive file %v", archiveFilename)
 	}
 	if hasher.Base64Sum() != checksum {
 		return errChecksumMismatch

@@ -84,6 +84,10 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 
 	w, err := Manifold(cfg).Start(c.Context(), dt.StubGetter(map[string]any{"domain-services": nil}))
 	c.Assert(err, tc.ErrorIsNil)
+	// The started worker must not outlive the test: the leak checker
+	// flags its goroutine otherwise. NewForeverWorker ignores Kill, so
+	// it must be stopped with ReallyKill.
+	defer w.(*workertest.ForeverWorker).ReallyKill()
 	c.Check(w, tc.NotNil)
 
 	// The controller model UUID from the config is what the domain
