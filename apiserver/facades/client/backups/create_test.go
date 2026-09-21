@@ -320,6 +320,20 @@ func (s *backupsSuite) TestCreateNotSuperuser(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.Forbidden)
 }
 
+// TestCreateNoDownload verifies that a request using the deprecated
+// no-download flag is rejected with a clear error: those semantics no
+// longer exist, and a silent success would discard the archive.
+func (s *backupsSuite) TestCreateNoDownload(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectSuperuser()
+
+	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(),
+		params.BackupsCreateArgs{NoDownload: true})
+	c.Assert(err, tc.ErrorMatches,
+		"--no-download is no longer supported; the archive is always downloaded")
+}
+
 // TestCreateGetFilesFailure verifies that a failure collecting the files
 // to back up aborts Create and leaves no archive behind.
 func (s *backupsSuite) TestCreateGetFilesFailure(c *tc.C) {

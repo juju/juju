@@ -29,11 +29,13 @@ const (
 )
 
 // backupsDownloadHandler streams one-shot downloads of backup archives
-// staged by the Backups facade. The request body holds the id returned by
-// the Create RPC. A full successful serve triggers removal of the
-// archive from disk; an interrupted transfer keeps the archive staged
-// for retry within the retention window, after which the sweeper
-// removes the archive. Concurrent requests for the same id are
+// staged by the Backups facade. The request body holds the id returned
+// by the Create RPC. The archive stays staged after the transfer: the
+// client verifies the received bytes against the checksum recorded at
+// creation, and a corrupted or interrupted transfer can be fetched
+// again with the same id. Only the sweeper removes the archive, once
+// its retention window (the backup-download-ttl model config
+// attribute) lapses. Concurrent requests for the same id are
 // possible: exclusivity is not claimed.
 type backupsDownloadHandler struct {
 	// resolveBackupDir returns the effective backup directory of the
@@ -84,13 +86,18 @@ func (h *backupsDownloadHandler) ServeHTTP(w http.ResponseWriter, req *http.Requ
 	h.serveArchive(ctx, w, req, args.ID, archivePath)
 }
 
-// serveArchive streams the staged archive at archivePath, removing it on
-// a full successful transfer.
+// serveArchive streams the staged archive at archivePath. The archive
+// is deliberately left staged afterwards: the client only verifies the
+// received bytes against the recorded checksum once the transfer
+// completes, so removing the archive here would destroy the only copy
+// whenever a transfer arrives corrupted. Removal is the sweeper's job,
+// once the retention window lapses.
 func (h *backupsDownloadHandler) serveArchive(ctx context.Context, w http.ResponseWriter, req *http.Request, id, archivePath string) {
 	if req.Header.Get("Range") != "" {
-		// One-shot semantics: partial reads would defeat the
-		// delete-after-download contract, so range requests are
-		// rejected rather than served partially.
+		// The client always fetches the whole archive and verifies it
+		// against the recorded checksum; partial reads are not part of
+		// that contract, so range requests are rejected rather than
+		// served partially.
 		h.sendError(ctx, w, errors.BadRequestf("range requests are not supported for backup downloads"))
 		return
 	}
@@ -99,7 +106,7 @@ func (h *backupsDownloadHandler) serveArchive(ctx context.Context, w http.Respon
 	if err != nil {
 		if os.IsNotExist(err) {
 			// The id is well-formed but nothing is staged for it: the
-			// archive was already downloaded or has expired.
+			// archive has expired.
 			h.sendError(ctx, w, errors.NotFoundf("backup %q", id))
 			return
 		}
@@ -118,19 +125,10 @@ func (h *backupsDownloadHandler) serveArchive(ctx context.Context, w http.Respon
 	w.Header().Set("Content-Length", strconv.FormatInt(fi.Size(), 10))
 	w.WriteHeader(http.StatusOK)
 
-	_, err = io.Copy(w, file)
-	if err != nil {
-		// Partial transfer: leave the archive staged so the client can
-		// retry within the retention window.
+	if _, err := io.Copy(w, file); err != nil {
+		// The transfer failed part way: leave the archive staged so
+		// the client can retry within the retention window.
 		h.logger.Warningf(ctx, "streaming backup %q to client: %v", id, err)
-		return
-	}
-
-	// Full transfer: the archive has been delivered, so it is removed
-	// now. A failed removal is logged and left to the sweeper rather
-	// than failing an otherwise successful download.
-	if err := os.Remove(archivePath); err != nil && !os.IsNotExist(err) {
-		h.logger.Warningf(ctx, "removing downloaded backup archive %q: %v", archivePath, err)
 	}
 }
 

@@ -86,23 +86,35 @@ func (s *backupsDownloadSuite) TestDownload(c *tc.C) {
 	c.Check(rec.Header().Get("Content-Length"), tc.Equals, "12")
 	c.Check(rec.Body.String(), tc.Equals, "archive data")
 
-	// One-shot: the archive is removed once it has been fully served.
+	// The archive stays staged: the client only verifies the received
+	// bytes once the transfer completes, so removal is left to the
+	// sweeper once the retention window lapses. Removing it here would
+	// destroy the only copy whenever a transfer arrives corrupted.
 	path, err := corebackups.OneShotArchivePath(s.backupDir, id)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = os.Stat(path)
-	c.Assert(err, tc.Satisfies, os.IsNotExist)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *backupsDownloadSuite) TestDownloadAlreadyDownloaded(c *tc.C) {
+// TestDownloadCanBeRetried verifies that a download whose transfer the
+// client received corrupt can be fetched again with the same id while
+// the archive is still within its retention window.
+func (s *backupsDownloadSuite) TestDownloadCanBeRetried(c *tc.C) {
 	id := s.stageArchive(c, "archive data")
 
 	rec := s.downloadRequest(c, id, nil)
 	c.Check(rec.Code, tc.Equals, http.StatusOK)
 
-	// A second download of the same id finds nothing.
+	// A re-download with the same id streams the archive again: the
+	// first serve did not remove it.
 	rec = s.downloadRequest(c, id, nil)
-	c.Check(rec.Code, tc.Equals, http.StatusNotFound)
-	c.Check(s.errorMessage(c, rec), tc.Matches, `backup ".*" not found`)
+	c.Check(rec.Code, tc.Equals, http.StatusOK)
+	c.Check(rec.Body.String(), tc.Equals, "archive data")
+
+	path, err := corebackups.OneShotArchivePath(s.backupDir, id)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = os.Stat(path)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *backupsDownloadSuite) TestDownloadUnknownID(c *tc.C) {

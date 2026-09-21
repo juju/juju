@@ -24,10 +24,12 @@ import (
 // of its state. The archive contains the controller database export and one
 // export per model, alongside the controller's data directory files.
 //
-// args.NoDownload is kept for client compatibility only; if a client
-// asks for it, the request fails loudly rather than silently losing
-// the staged archive (the sweeper would delete it once its retention
-// window lapses, and we must not silently eat that request).
+// args.NoDownload is kept for client compatibility only. Its old
+// semantics, keeping the archive on the controller instead of
+// downloading it, no longer exist: the archive is always staged for
+// download and removed once its retention window lapses. A request
+// that sets the flag fails loudly rather than silently discarding the
+// archive, which is what a silent success would amount to.
 //
 // The controller database and each model database are exported at different
 // points in time with no cross-database snapshot, so the archive is not a
@@ -44,13 +46,12 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 		return params.BackupsMetadataResult{}, errors.Capture(err)
 	}
 
-	// args.NoDownload is kept for client compatibility only. If set
-	// it means the client is running an old CLI; but the new
-	// implementation still creates the archive and removes it later,
-	// so a silent success would still lose the archive. Return an
-	// explicit error instead.
+	// args.NoDownload is kept for client compatibility only. Old
+	// clients set it to keep the archive on the controller; those
+	// semantics no longer exist, so accepting the request would
+	// silently discard the archive. Fail loudly instead.
 	if args.NoDownload {
-		return params.BackupsMetadataResult{}, errors.Errorf("--no-download is deprecated and no longer has an effect")
+		return params.BackupsMetadataResult{}, errors.Errorf("--no-download is no longer supported; the archive is always downloaded")
 	}
 
 	// The backup destination is resolved first because the database dumps
@@ -195,10 +196,12 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	}
 	a.logger.Infof(ctx, "created backup %q", filename)
 
-	// The archive is served for download exactly once: stage it under a
-	// server-minted UUID in the one-shot download directory and hand the
-	// id to the client. The archive is removed once it has been fully
-	// served, or by the one-shot sweeper when its retention window ends.
+	// The archive is staged for download under a server-minted UUID in
+	// the one-shot download directory and the id handed to the client.
+	// The archive stays staged after the transfer: the client verifies
+	// the received bytes against the recorded checksum and may need to
+	// fetch it again, so only the sweeper removes it, once its
+	// retention window ends.
 	//
 	// result.ID carries this server-minted download identifier: backup
 	// metadata has no persistent database id here, so the one-shot
@@ -211,7 +214,13 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 		return params.BackupsMetadataResult{}, errors.Errorf(
 			"creating one-shot backup download dir: %w", err)
 	}
-	oneShotPath := filepath.Join(corebackups.OneShotDir(backupDir), id.String()+".tar.gz")
+	// The id was minted above, so the UUID validation cannot fail; it
+	// is still checked so a future change to how ids are minted cannot
+	// silently bypass it.
+	oneShotPath, err := corebackups.OneShotArchivePath(backupDir, id.String())
+	if err != nil {
+		return params.BackupsMetadataResult{}, errors.Capture(err)
+	}
 
 	// If staging the archive fails, the original archive must be
 	// removed: it would otherwise sit in the backup dir forever,

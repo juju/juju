@@ -25,16 +25,15 @@ juju create-backup [options] [<notes>]
 This command requests that Juju creates a backup of its state.
 You may provide a note to associate with the backup.
 
-The backup archive is always downloaded to the local machine, and the
-copy written on the controller is removed once it has been delivered.
-The archive is verified against the recorded checksum before the
-download is considered complete.
+The backup archive is always downloaded to the local machine. The
+archive is verified against the recorded checksum before the download
+is considered complete, and a failed or corrupted transfer is retried
+automatically.
 
-If the transfer is interrupted, the staged archive is kept on the
-controller for the duration of the `backup-download-ttl` model config
-attribute (15 minutes by default) so the download can be retried;
-once that window lapses the staged copy is removed and the backup
-must be created again.
+The staged copy on the controller is kept for the duration of the
+`backup-download-ttl` model config attribute (15 minutes by
+default) so the retries have room to succeed; once that window lapses
+the copy is removed and the backup must be created again.
 
 The model config attribute `backup-dir` only serves as scratch space
 during backup creation; no archive is kept there once the command
