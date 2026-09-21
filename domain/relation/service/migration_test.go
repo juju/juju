@@ -203,7 +203,7 @@ func (s *migrationServiceSuite) expectImportPeerRelation(
 	id uint64,
 	scope charm.RelationScope,
 ) {
-	s.state.EXPECT().ImportPeerRelation(gomock.Any(), relUUID.String(), endpoint, id, scope).Return(nil)
+	s.state.EXPECT().ImportPeerRelation(gomock.Any(), relUUID.String(), endpoint, id, scope, false, "").Return(nil)
 }
 
 func (s *migrationServiceSuite) expectImportRelation(
@@ -212,7 +212,7 @@ func (s *migrationServiceSuite) expectImportRelation(
 	id uint64,
 	scope charm.RelationScope,
 ) {
-	s.state.EXPECT().ImportRelation(gomock.Any(), relUUID.String(), ep2, ep3, id, scope).Return(nil)
+	s.state.EXPECT().ImportRelation(gomock.Any(), relUUID.String(), ep2, ep3, id, scope, false, "").Return(nil)
 }
 
 func (s *migrationServiceSuite) expectGetApplicationUUIDByName(c *tc.C, name string) coreapplication.UUID {

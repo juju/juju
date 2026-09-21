@@ -28,6 +28,8 @@ type MigrationState interface {
 		ep corerelation.EndpointIdentifier,
 		id uint64,
 		scope charm.RelationScope,
+		suspended bool,
+		suspendedReason string,
 	) error
 
 	// ImportRelation establishes a relation between two endpoints identified
@@ -39,6 +41,8 @@ type MigrationState interface {
 		ep1, ep2 corerelation.EndpointIdentifier,
 		id uint64,
 		scope charm.RelationScope,
+		suspended bool,
+		suspendedReason string,
 	) error
 
 	// GetApplicationUUIDByName returns the application UUID of the given application.
@@ -116,12 +120,12 @@ func (s *MigrationService) importRelation(ctx context.Context, arg relation.Impo
 
 	switch len(eps) {
 	case 1:
-		err := s.st.ImportPeerRelation(ctx, arg.UUID.String(), eps[0], uint64(arg.ID), arg.Scope)
+		err := s.st.ImportPeerRelation(ctx, arg.UUID.String(), eps[0], uint64(arg.ID), arg.Scope, arg.Suspended, arg.SuspendedReason)
 		if err != nil {
 			return errors.Errorf("importing peer relation %d by endpoint %q: %w", arg.ID, eps[0], err)
 		}
 	case 2:
-		err := s.st.ImportRelation(ctx, arg.UUID.String(), eps[0], eps[1], uint64(arg.ID), arg.Scope)
+		err := s.st.ImportRelation(ctx, arg.UUID.String(), eps[0], eps[1], uint64(arg.ID), arg.Scope, arg.Suspended, arg.SuspendedReason)
 		if err != nil {
 			return errors.Errorf("importing relation %d between endpoints %q and %q: %w",
 				arg.ID, eps[0], eps[1], err)
@@ -132,6 +136,7 @@ func (s *MigrationService) importRelation(ctx context.Context, arg relation.Impo
 	return nil
 }
 
+// importRelationEndpoint imports the data of a single endpoint of a relation.
 func (s *MigrationService) importRelationEndpoint(ctx context.Context, relUUID corerelation.UUID, ep relation.ImportEndpoint) error {
 	appID, err := s.st.GetApplicationUUIDByName(ctx, ep.ApplicationName)
 	if err != nil {

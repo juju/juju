@@ -151,10 +151,12 @@ func (i *importOperation) createImportArg(rel description.Relation) (relation.Im
 	}
 
 	arg := relation.ImportRelationArg{
-		UUID:  uuid,
-		ID:    rel.Id(),
-		Key:   key,
-		Scope: charm.ScopeGlobal,
+		UUID:            uuid,
+		ID:              rel.Id(),
+		Key:             key,
+		Scope:           charm.ScopeGlobal,
+		Suspended:       rel.Suspended(),
+		SuspendedReason: rel.SuspendedReason(),
 	}
 
 	for _, v := range rel.Endpoints() {
@@ -219,12 +221,13 @@ func (i *importOperation) createRemoteImportArg(
 	if err != nil {
 		return relation.ImportRelationArg{}, errors.Errorf("finding relation UUID for relation with key %q: %w", key, err)
 	}
-
 	arg := relation.ImportRelationArg{
-		UUID:  relationUUID,
-		ID:    rel.Id(),
-		Key:   key,
-		Scope: charm.ScopeGlobal,
+		UUID:            relationUUID,
+		ID:              rel.Id(),
+		Key:             key,
+		Scope:           charm.ScopeGlobal,
+		Suspended:       rel.Suspended(),
+		SuspendedReason: rel.SuspendedReason(),
 	}
 
 	for _, v := range rel.Endpoints() {

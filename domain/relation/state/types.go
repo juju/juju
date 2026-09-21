@@ -42,10 +42,12 @@ type name struct {
 }
 
 type relation struct {
-	UUID    string          `db:"uuid"`
-	ID      uint64          `db:"relation_id"`
-	LifeID  domainlife.Life `db:"life_id"`
-	ScopeID uint8           `db:"scope_id"`
+	UUID            string          `db:"uuid"`
+	ID              uint64          `db:"relation_id"`
+	LifeID          domainlife.Life `db:"life_id"`
+	ScopeID         uint8           `db:"scope_id"`
+	Suspended       bool            `db:"suspended"`
+	SuspendedReason string          `db:"suspended_reason"`
 }
 
 type relationIDAndUUID struct {

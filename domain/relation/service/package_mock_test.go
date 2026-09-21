@@ -38,8 +38,8 @@ type MockMigrationStateMockRecorder struct {
 	enterScopeExpects                     []*gomock.Call4_2[context.Context, relation.UUID, unit.Name, map[string]string, internal.SubordinateUnitStatusHistoryData, error]
 	exportRelationsExpects                []*gomock.Call1_2[context.Context, []relation0.ExportRelation, error]
 	getApplicationUUIDByNameExpects       []*gomock.Call2_2[context.Context, string, application.UUID, error]
-	importPeerRelationExpects             []*gomock.Call5_1[context.Context, string, relation.EndpointIdentifier, uint64, charm.RelationScope, error]
-	importRelationExpects                 []*gomock.Call6_1[context.Context, string, relation.EndpointIdentifier, relation.EndpointIdentifier, uint64, charm.RelationScope, error]
+	importPeerRelationExpects             []*gomock.Call7_1[context.Context, string, relation.EndpointIdentifier, uint64, charm.RelationScope, bool, string, error]
+	importRelationExpects                 []*gomock.Call8_1[context.Context, string, relation.EndpointIdentifier, relation.EndpointIdentifier, uint64, charm.RelationScope, bool, string, error]
 	setRelationApplicationSettingsExpects []*gomock.Call4_1[context.Context, relation.UUID, application.UUID, map[string]string, error]
 }
 
@@ -110,40 +110,40 @@ func (mr *MockMigrationStateMockRecorder) GetApplicationUUIDByName(ctx, appName 
 type MockMigrationStateGetApplicationUUIDByNameCall = gomock.Call2_2[context.Context, string, application.UUID, error]
 
 // ImportPeerRelation mocks base method.
-func (m *MockMigrationState) ImportPeerRelation(ctx context.Context, uuid string, ep relation.EndpointIdentifier, id uint64, scope charm.RelationScope) error {
+func (m *MockMigrationState) ImportPeerRelation(ctx context.Context, uuid string, ep relation.EndpointIdentifier, id uint64, scope charm.RelationScope, suspended bool, suspendedReason string) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch5_1(&m.recorder.importPeerRelationExpects, m.ctrl, m, "ImportPeerRelation", ctx, uuid, ep, id, scope)
+	return gomock.Dispatch7_1(&m.recorder.importPeerRelationExpects, m.ctrl, m, "ImportPeerRelation", ctx, uuid, ep, id, scope, suspended, suspendedReason)
 }
 
 // ImportPeerRelation indicates an expected call of ImportPeerRelation.
-func (mr *MockMigrationStateMockRecorder) ImportPeerRelation(ctx, uuid, ep, id, scope any) *MockMigrationStateImportPeerRelationCall {
+func (mr *MockMigrationStateMockRecorder) ImportPeerRelation(ctx, uuid, ep, id, scope, suspended, suspendedReason any) *MockMigrationStateImportPeerRelationCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall5_1[context.Context, string, relation.EndpointIdentifier, uint64, charm.RelationScope, error](mr.mock.ctrl.T, mr.mock, "ImportPeerRelation", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid), gomock.EnsureMatcher(ep), gomock.EnsureMatcher(id), gomock.EnsureMatcher(scope))
+	call := gomock.NewCall7_1[context.Context, string, relation.EndpointIdentifier, uint64, charm.RelationScope, bool, string, error](mr.mock.ctrl.T, mr.mock, "ImportPeerRelation", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid), gomock.EnsureMatcher(ep), gomock.EnsureMatcher(id), gomock.EnsureMatcher(scope), gomock.EnsureMatcher(suspended), gomock.EnsureMatcher(suspendedReason))
 	mr.importPeerRelationExpects = append(mr.importPeerRelationExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockMigrationStateImportPeerRelationCall is the typed call wrapper for ImportPeerRelation.
-type MockMigrationStateImportPeerRelationCall = gomock.Call5_1[context.Context, string, relation.EndpointIdentifier, uint64, charm.RelationScope, error]
+type MockMigrationStateImportPeerRelationCall = gomock.Call7_1[context.Context, string, relation.EndpointIdentifier, uint64, charm.RelationScope, bool, string, error]
 
 // ImportRelation mocks base method.
-func (m *MockMigrationState) ImportRelation(ctx context.Context, uuid string, ep1, ep2 relation.EndpointIdentifier, id uint64, scope charm.RelationScope) error {
+func (m *MockMigrationState) ImportRelation(ctx context.Context, uuid string, ep1, ep2 relation.EndpointIdentifier, id uint64, scope charm.RelationScope, suspended bool, suspendedReason string) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch6_1(&m.recorder.importRelationExpects, m.ctrl, m, "ImportRelation", ctx, uuid, ep1, ep2, id, scope)
+	return gomock.Dispatch8_1(&m.recorder.importRelationExpects, m.ctrl, m, "ImportRelation", ctx, uuid, ep1, ep2, id, scope, suspended, suspendedReason)
 }
 
 // ImportRelation indicates an expected call of ImportRelation.
-func (mr *MockMigrationStateMockRecorder) ImportRelation(ctx, uuid, ep1, ep2, id, scope any) *MockMigrationStateImportRelationCall {
+func (mr *MockMigrationStateMockRecorder) ImportRelation(ctx, uuid, ep1, ep2, id, scope, suspended, suspendedReason any) *MockMigrationStateImportRelationCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall6_1[context.Context, string, relation.EndpointIdentifier, relation.EndpointIdentifier, uint64, charm.RelationScope, error](mr.mock.ctrl.T, mr.mock, "ImportRelation", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid), gomock.EnsureMatcher(ep1), gomock.EnsureMatcher(ep2), gomock.EnsureMatcher(id), gomock.EnsureMatcher(scope))
+	call := gomock.NewCall8_1[context.Context, string, relation.EndpointIdentifier, relation.EndpointIdentifier, uint64, charm.RelationScope, bool, string, error](mr.mock.ctrl.T, mr.mock, "ImportRelation", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid), gomock.EnsureMatcher(ep1), gomock.EnsureMatcher(ep2), gomock.EnsureMatcher(id), gomock.EnsureMatcher(scope), gomock.EnsureMatcher(suspended), gomock.EnsureMatcher(suspendedReason))
 	mr.importRelationExpects = append(mr.importRelationExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockMigrationStateImportRelationCall is the typed call wrapper for ImportRelation.
-type MockMigrationStateImportRelationCall = gomock.Call6_1[context.Context, string, relation.EndpointIdentifier, relation.EndpointIdentifier, uint64, charm.RelationScope, error]
+type MockMigrationStateImportRelationCall = gomock.Call8_1[context.Context, string, relation.EndpointIdentifier, relation.EndpointIdentifier, uint64, charm.RelationScope, bool, string, error]
 
 // SetRelationApplicationSettings mocks base method.
 func (m *MockMigrationState) SetRelationApplicationSettings(ctx context.Context, relationUUID relation.UUID, applicationID application.UUID, settings map[string]string) error {

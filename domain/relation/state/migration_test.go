@@ -4,6 +4,8 @@
 package state
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"testing"
 
@@ -82,12 +84,64 @@ func (s *migrationSuite) TestImportRelation(c *tc.C) {
 	}, corerelation.EndpointIdentifier{
 		ApplicationName: "application-2",
 		EndpointName:    "prov",
-	}, expectedRelID, charm.ScopeGlobal)
+	}, expectedRelID, charm.ScopeGlobal, false, "")
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	foundRelUUID := s.fetchRelationUUIDByRelationID(c, expectedRelID)
 	c.Assert(newRelationUUID, tc.Equals, foundRelUUID)
+}
+
+func (s *migrationSuite) TestImportRelationSuspended(c *tc.C) {
+	// Arrange
+	relProvider := charm.Relation{
+		Name:  "prov",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	}
+	relRequirer := charm.Relation{
+		Name:  "req",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	}
+
+	charm1 := s.addCharm(c)
+	charm2 := s.addCharm(c)
+
+	appUUID1 := s.addApplication(c, charm1, "application-1")
+	appUUID2 := s.addApplication(c, charm2, "application-2")
+	_ = s.addApplicationEndpointFromRelation(c, charm1, appUUID1, relProvider)
+	_ = s.addApplicationEndpointFromRelation(c, charm1, appUUID2, relRequirer)
+	_ = s.addApplicationEndpointFromRelation(c, charm2, appUUID2, relProvider)
+	_ = s.addApplicationEndpointFromRelation(c, charm2, appUUID1, relRequirer)
+	expectedRelID := uint64(42)
+	newRelationUUID := tc.Must(c, corerelation.NewUUID).String()
+
+	// Act
+	err := s.state.ImportRelation(c.Context(), newRelationUUID, corerelation.EndpointIdentifier{
+		ApplicationName: "application-1",
+		EndpointName:    "req",
+	}, corerelation.EndpointIdentifier{
+		ApplicationName: "application-2",
+		EndpointName:    "prov",
+	}, expectedRelID, charm.ScopeGlobal, true, "suspended for testing")
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	var (
+		suspended       bool
+		suspendedReason string
+	)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT suspended, COALESCE(suspended_reason, '')
+FROM   relation
+WHERE  relation_id = ?
+`, expectedRelID).Scan(&suspended, &suspendedReason)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(suspended, tc.IsTrue)
+	c.Check(suspendedReason, tc.Equals, "suspended for testing")
 }
 
 func (s *migrationSuite) TestImportRelationNotFound(c *tc.C) {
@@ -120,7 +174,7 @@ func (s *migrationSuite) TestImportRelationNotFound(c *tc.C) {
 	}, corerelation.EndpointIdentifier{
 		ApplicationName: "application-2",
 		EndpointName:    "prov",
-	}, expectedRelID, charm.ScopeGlobal)
+	}, expectedRelID, charm.ScopeGlobal, false, "")
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationEndpointNotFound)
@@ -145,7 +199,7 @@ func (s *migrationSuite) TestImportPeerRelation(c *tc.C) {
 	err := s.state.ImportPeerRelation(c.Context(), newRelationUUID, corerelation.EndpointIdentifier{
 		ApplicationName: "application-1",
 		EndpointName:    "peer",
-	}, expectedRelID, charm.ScopeGlobal)
+	}, expectedRelID, charm.ScopeGlobal, false, "")
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -164,7 +218,7 @@ func (s *migrationSuite) TestImportPeerRelationNotFound(c *tc.C) {
 	err := s.state.ImportPeerRelation(c.Context(), newRelationUUID, corerelation.EndpointIdentifier{
 		ApplicationName: "application-1",
 		EndpointName:    "peer",
-	}, expectedRelID, charm.ScopeGlobal)
+	}, expectedRelID, charm.ScopeGlobal, false, "")
 
 	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationEndpointNotFound)
 }

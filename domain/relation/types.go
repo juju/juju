@@ -291,6 +291,14 @@ type ImportRelationArg struct {
 	Key       corerelation.Key
 	Endpoints []ImportEndpoint
 	Scope     charm.RelationScope
+
+	// Suspended indicates if the relation is suspended. Cross model
+	// relations can be suspended, in which case the endpoints of the
+	// relation are unable to communicate until the relation is resumed.
+	Suspended bool
+
+	// SuspendedReason is the reason the relation was suspended, if any.
+	SuspendedReason string
 }
 
 // ImportEndpoint is a data to import for a single endpoint.

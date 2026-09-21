@@ -24,6 +24,8 @@ func (st *State) ImportPeerRelation(
 	epIdentifier corerelation.EndpointIdentifier,
 	id uint64,
 	scope charm.RelationScope,
+	suspended bool,
+	suspendedReason string,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -38,7 +40,7 @@ func (st *State) ImportPeerRelation(
 		}
 
 		// Insert a new relation with a new relation UUID.
-		if err := st.insertNewRelation(ctx, tx, relUUID, id, scope); err != nil {
+		if err := st.insertNewRelation(ctx, tx, relUUID, id, scope, suspended, suspendedReason); err != nil {
 			return errors.Errorf("inserting new relation: %w", err)
 		}
 
@@ -61,6 +63,8 @@ func (st *State) ImportRelation(
 	epIdentifier1, epIdentifier2 corerelation.EndpointIdentifier,
 	id uint64,
 	scope charm.RelationScope,
+	suspended bool,
+	suspendedReason string,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -79,7 +83,7 @@ func (st *State) ImportRelation(
 		}
 
 		// Insert a new relation with a new relation UUID.
-		if err := st.insertNewRelation(ctx, tx, relUUID, id, scope); err != nil {
+		if err := st.insertNewRelation(ctx, tx, relUUID, id, scope, suspended, suspendedReason); err != nil {
 			return errors.Errorf("inserting new relation: %w", err)
 		}
 

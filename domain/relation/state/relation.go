@@ -288,7 +288,7 @@ func (st *State) addRelation(
 	}
 
 	// Insert a new relation with a new relation UUID.
-	err = st.insertNewRelation(ctx, tx, relUUIDStr, id, scope)
+	err = st.insertNewRelation(ctx, tx, relUUIDStr, id, scope, false, "")
 	if err != nil {
 		return relUUID, errors.Errorf("inserting new relation: %w", err)
 	}
@@ -3668,6 +3668,7 @@ func (st *State) inferEndpoints(
 // its UUID or an error if the operation fails.
 func (st *State) insertNewRelation(
 	ctx context.Context, tx *sqlair.TX, relUUID string, id uint64, scope charm.RelationScope,
+	suspended bool, suspendedReason string,
 ) error {
 	scopeID, err := encodeScope(scope)
 	if err != nil {
@@ -3675,10 +3676,12 @@ func (st *State) insertNewRelation(
 	}
 
 	rel := relation{
-		UUID:    relUUID,
-		ID:      id,
-		LifeID:  domainlife.Alive,
-		ScopeID: scopeID,
+		UUID:            relUUID,
+		ID:              id,
+		LifeID:          domainlife.Alive,
+		ScopeID:         scopeID,
+		Suspended:       suspended,
+		SuspendedReason: suspendedReason,
 	}
 
 	stmtInsert, err := st.Prepare(`
