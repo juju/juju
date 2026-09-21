@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -eu
+
+relation-set unit-name="${JUJU_UNIT_NAME}"
+juju-log "reprovision-relations: hook=peers-relation-created"

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+set -eu
+
+juju-log "reprovision-relations: hook=config-changed machine=${JUJU_MACHINE_ID}"
