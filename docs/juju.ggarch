@@ -550,17 +550,15 @@ model "Juju" {
 // --------------------------------------------------------------------------
 
 diagram "Juju overview" from "Juju" {
-  select { nodes: user client controller agents apps clouds charmhub
+  select { nodes: user client controller apps clouds charmhub
            edges: type control type api type stream }
   positions {
     user       left-of client
     user       align-middle client
     client     left-of controller
     client     align-middle controller
-    controller left-of agents
-    controller align-middle agents
-    agents     left-of apps
-    agents     align-middle apps
+    apps       right-of controller
+    apps       align-middle controller
     clouds     above controller    gap: 40
     clouds     align-centre controller
     charmhub   below controller    gap: 40
@@ -1105,7 +1103,7 @@ diagram "Intro: Juju enters (declared)" from "Juju" {
 // --------------------------------------------------------------------------
 
 diagram "Juju overview (synthesized)" from "Juju" {
-  select { nodes: user client controller agents apps clouds charmhub
+  select { nodes: user client controller apps clouds charmhub
            edges: type control type api type stream }
   annotations {
     legend [position: "bottom-right",
