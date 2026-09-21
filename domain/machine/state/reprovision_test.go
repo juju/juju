@@ -10,6 +10,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -110,7 +111,7 @@ WHERE ms.machine_uuid = ?`, machineUUID.String()).Scan(
 		"SELECT name, net_node_uuid FROM machine WHERE uuid = ?", machineUUID.String(),
 	).Scan(&name, &preservedNetNode)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(name, tc.Equals, machineName.String())
+	c.Check(name, tc.Equals, "1")
 	c.Check(preservedNetNode, tc.Equals, netNodeUUID)
 	for table, count := range preservedCounts {
 		c.Check(s.rowCount(c, table), tc.Equals, count, tc.Commentf("table %s", table))
@@ -121,9 +122,38 @@ WHERE ms.machine_uuid = ?`, machineUUID.String()).Scan(
 	err = db.QueryRowContext(c.Context(), `
 SELECT machine_name
 FROM machine_reprovision
-WHERE machine_name = ?`, machineName.String()).Scan(&reprovisionMachineName)
+WHERE machine_name = ?`, "1").Scan(&reprovisionMachineName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(reprovisionMachineName, tc.Equals, machineName.String())
+	c.Check(reprovisionMachineName, tc.Equals, "1")
+}
+
+func (s *stateSuite) TestDetachLostMachineCloudInstanceAllocatesOrdinalAfterGaps(c *tc.C) {
+	_, _ = s.addMachine(c)
+	_, _ = s.addMachine(c)
+	machineUUID, machineName := s.addMachine(c)
+	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID.String(), "123", "", "nonce", nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	for _, name := range []string{"4", "6", "8"} {
+		netNodeUUID := "gap-net-node-" + name
+		s.runQuery(c, "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
+		s.runQuery(c, `
+INSERT INTO machine (uuid, name, net_node_uuid, life_id)
+VALUES (?, ?, ?, 0)`, "gap-machine-"+name, name, netNodeUUID)
+	}
+	s.runQuery(c, "UPDATE sequence SET value = 8 WHERE namespace = 'machine'")
+
+	err = s.state.DetachLostMachineCloudInstance(
+		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.rowCountWhere(c, "machine", "name = ?", "2"), tc.Equals, 0)
+	c.Check(s.rowCountWhere(c, "machine", "name = ?", "9"), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "machine_reprovision", "machine_name = ?", "9"), tc.Equals, 1)
+	for _, name := range []string{"0", "1", "4", "6", "8"} {
+		c.Check(s.rowCountWhere(c, "machine", "name = ?", name), tc.Equals, 1)
+	}
 }
 
 func (s *stateSuite) TestDetachLostMachineCloudInstanceDepartsRelationScopes(c *tc.C) {
@@ -203,10 +233,12 @@ func (s *stateSuite) TestReplacementPreservesMachineAndUnitIdentity(c *tc.C) {
 	machineUUID, machineName := s.ensureInstance(c)
 	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
 	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionUnitOnMachine(c, "second", netNodeUUID)
 	s.runQuery(c, `
 UPDATE machine
-SET hostname = ?, agent_started_at = ?
-WHERE uuid = ?`, "old-hostname", time.Now(), machineUUID.String())
+SET hostname = ?, agent_started_at = ?, password_hash_algorithm_id = 0,
+    password_hash = ?
+WHERE uuid = ?`, "old-hostname", time.Now(), "machine-password", machineUUID.String())
 
 	err := s.state.DetachLostMachineCloudInstance(
 		c.Context(), machineName.String(), "123", "reprovisioning requested",
@@ -227,23 +259,23 @@ WHERE uuid = ?`, "old-hostname", time.Now(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var (
-		name, preservedNetNode, instanceID, displayName, nonce, arch string
-		mem, cpuCores                                                uint64
-		hostname                                                     sql.Null[string]
-		agentStartedAt                                               sql.Null[time.Time]
+		name, preservedNetNode, instanceID, displayName, nonce, arch, passwordHash string
+		mem, cpuCores                                                              uint64
+		hostname                                                                   sql.Null[string]
+		agentStartedAt                                                             sql.Null[time.Time]
 	)
 	err = s.DB().QueryRowContext(c.Context(), `
 SELECT m.name, m.net_node_uuid, mci.instance_id, mci.display_name,
-       m.nonce, mci.arch, mci.mem, mci.cpu_cores, m.hostname,
-       m.agent_started_at
+		m.nonce, mci.arch, mci.mem, mci.cpu_cores, m.hostname,
+		m.agent_started_at, m.password_hash
 FROM machine AS m
 JOIN machine_cloud_instance AS mci ON mci.machine_uuid = m.uuid
 WHERE m.uuid = ?`, machineUUID.String()).Scan(
 		&name, &preservedNetNode, &instanceID, &displayName, &nonce, &arch,
-		&mem, &cpuCores, &hostname, &agentStartedAt,
+		&mem, &cpuCores, &hostname, &agentStartedAt, &passwordHash,
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(name, tc.Equals, machineName.String())
+	c.Check(name, tc.Equals, "1")
 	c.Check(preservedNetNode, tc.Equals, netNodeUUID)
 	c.Check(instanceID, tc.Equals, "replacement-instance")
 	c.Check(displayName, tc.Equals, "replacement-display-name")
@@ -253,6 +285,13 @@ WHERE m.uuid = ?`, machineUUID.String()).Scan(
 	c.Check(cpuCores, tc.Equals, uint64(8))
 	c.Check(hostname.Valid, tc.IsFalse)
 	c.Check(agentStartedAt.Valid, tc.IsFalse)
+	c.Check(passwordHash, tc.Equals, "machine-password")
+
+	replacementMachineUUID, err := s.state.GetMachineUUID(c.Context(), coremachine.Name("1"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(replacementMachineUUID, tc.Equals, machineUUID)
+	_, err = s.state.GetMachineUUID(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 
 	var unitUUID, unitName, unitNetNode string
 	var unitLife int
@@ -267,7 +306,9 @@ WHERE uuid = ?`, "reprovision-unit").Scan(
 	c.Check(unitName, tc.Equals, "reprovision/0")
 	c.Check(unitLife, tc.Equals, 0)
 	c.Check(unitNetNode, tc.Equals, netNodeUUID)
+	c.Check(s.rowCountWhere(c, "unit", "net_node_uuid = ?", netNodeUUID), tc.Equals, 2)
 	c.Check(s.rowCount(c, "machine_reprovision"), tc.Equals, 0)
+	c.Check(s.rowCountWhere(c, "machine", "name = ?", machineName.String()), tc.Equals, 0)
 	c.Check(s.rowCountWhere(c, "instance_tag", "machine_uuid = ? AND tag = ?",
 		machineUUID.String(), "replacement-tag"), tc.Equals, 1)
 	c.Check(s.rowCountWhere(c, "instance_tag", "machine_uuid = ? AND tag = ?",
@@ -316,7 +357,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRepeated(c *tc.C) {
 	err = s.state.DetachLostMachineCloudInstance(
 		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
 	)
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineReprovisionAlreadyExists)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 	s.checkInstanceID(c, machineUUID.String(), "")
 }
 
@@ -512,7 +553,7 @@ WHERE sv.uuid = ?`, "storage-volume").Scan(
 		s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c),
 	)
 	provisioningInfo, err := provisionerState.GetMachineProvisioningInfo(
-		c.Context(), machineName.String(), false,
+		c.Context(), "1", false,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(provisioningInfo.VolumeParams, tc.HasLen, 1)

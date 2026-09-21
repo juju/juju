@@ -20,9 +20,10 @@ import (
 
 // DetachLostMachineCloudInstance atomically rechecks the critical
 // reprovisioning preconditions, clears stale provider-observed state, and
-// moves the machine and its cloud instance back to pending. Machine-scoped
-// storage provider state is reset so the normal provisioning paths can create
-// empty replacement storage while preserving Juju identity and intent.
+// moves the machine and its cloud instance back to pending with a new ordinal.
+// Machine-scoped storage provider state is reset so the normal provisioning
+// paths can create empty replacement storage while preserving Juju identity
+// and intent.
 // Unsupported storage is rejected in the same transaction.
 func (st *State) DetachLostMachineCloudInstance(
 	ctx context.Context,
@@ -101,6 +102,14 @@ VALUES ($machineReprovision.*)
 	if err != nil {
 		return errors.Errorf("preparing reprovision statement: %w", err)
 	}
+	replaceMachineNameStmt, err := st.Prepare(`
+UPDATE machine
+SET    name = $reprovisionMachineRename.name
+WHERE  uuid = $reprovisionMachineRename.uuid
+`, reprovisionMachineRename{})
+	if err != nil {
+		return errors.Errorf("preparing machine ordinal replacement: %w", err)
+	}
 	storageResetStmts, err := st.prepareReprovisionStorageResetStatements()
 	if err != nil {
 		return errors.Errorf("preparing storage reset statements: %w", err)
@@ -127,6 +136,17 @@ VALUES ($machineReprovision.*)
 
 		if err := validateReprovisionDetachTarget(target, expectedInstanceID); err != nil {
 			return errors.Capture(err)
+		}
+		replacementMachineName, err := nextMachineSequence(ctx, tx, st)
+		if err != nil {
+			return errors.Errorf("getting replacement machine ordinal: %w", err)
+		}
+		replacement := reprovisionMachineRename{
+			UUID: target.UUID,
+			Name: replacementMachineName.String(),
+		}
+		if err := tx.Query(ctx, replaceMachineNameStmt, replacement).Run(); err != nil {
+			return errors.Errorf("setting replacement machine ordinal: %w", err)
 		}
 
 		storageParams := reprovisionStorageTargetParams{
@@ -186,7 +206,7 @@ VALUES ($machineReprovision.*)
 			return errors.Errorf("setting reprovisioning instance status: %w", err)
 		}
 		if err := tx.Query(ctx, reprovisionStmt, machineReprovision{
-			MachineName: mName,
+			MachineName: replacementMachineName.String(),
 			RequestedAt: updatedAt,
 		}).Run(); err != nil {
 			return errors.Errorf("recording reprovision wake-up: %w", err)
