@@ -27,4 +27,16 @@ type State interface {
 	// MatchesPublicKeyInModelForUser reports whether the supplied fingerprint
 	// belongs to a public key the named user is authorized to use in the model.
 	MatchesPublicKeyInModelForUser(context.Context, string, string, string) (bool, error)
+
+	// GetSSHServerPort returns the port the controller SSH jump server listens
+	// on. If no port has been set, it returns an error satisfying
+	// [github.com/juju/juju/core/errors.NotFound].
+	GetSSHServerPort(context.Context) (int, error)
+
+	// SetSSHServerPort sets the port the controller SSH jump server listens on.
+	SetSSHServerPort(context.Context, int) error
+
+	// NamespaceForWatchSSHServerPort returns the change-stream namespace used
+	// to watch for changes to the controller SSH server port.
+	NamespaceForWatchSSHServerPort() string
 }

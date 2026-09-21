@@ -109,8 +109,9 @@ type ControllerDomainServices interface {
 	Tracing() *tracingservice.WatchableService
 	// Logging returns the service for accessing logging configuration.
 	Logging() *loggingservice.WatchableService
-	// SSHServerHostKey returns the service for controller SSH server host keys.
-	SSHServerHostKey() *sshcontrollerservice.Service
+	// SSHServerHostKey returns the watchable service for controller SSH server
+	// host keys and the SSH server port.
+	SSHServerHostKey() *sshcontrollerservice.WatchableService
 	// ControllerExport returns the controller export service. It is named
 	// ControllerExport because [ModelDomainServices.Export] already occupies
 	// Export in the embedded [DomainServices] union.
