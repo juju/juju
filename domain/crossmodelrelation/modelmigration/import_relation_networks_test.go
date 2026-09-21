@@ -108,6 +108,51 @@ func (s *importRelationNetworksSuite) TestImportRelationNetworks(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// Remote offer applications with the same offer UUID and endpoints are
+// de-duplicated by the relation import, which rewrites the relation keys of
+// their relations to the primary remote application name. The relation
+// networks reference the relations by their original keys, so the keys are
+// rewritten the same way to locate the imported relations.
+func (s *importRelationNetworksSuite) TestImportRelationNetworksDeduplicatedRemoteApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:      "mysql",
+		OfferUUID: "deadbeef-0a0a-0a0a-0a0a-0a0a0a0a0a0a",
+	})
+	model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:      "mysql-staging",
+		OfferUUID: "deadbeef-0a0a-0a0a-0a0a-0a0a0a0a0a0a",
+	})
+
+	model.AddRelationNetwork(description.RelationNetworkArgs{
+		ID:          "mysql-staging:db wordpress:db:ingress:default",
+		RelationKey: "mysql-staging:db wordpress:db",
+		CIDRS:       []string{"10.0.0.0/24"},
+	})
+
+	expectedKey, err := relation.NewKeyFromString("mysql:db wordpress:db")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.importService.EXPECT().ImportRelationNetworks(gomock.Any(), []crossmodelrelation.RelationNetworkImport{
+		{
+			RelationKey: expectedKey,
+			Direction:   crossmodelrelation.RelationNetworkIngress,
+			CIDRs:       []string{"10.0.0.0/24"},
+		},
+	}).Return(nil)
+
+	op := importRelationNetworksOperation{
+		importService: s.importService,
+		logger:        loggertesting.WrapCheckLog(c),
+	}
+
+	err = op.Execute(c.Context(), model)
+
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *importRelationNetworksSuite) TestImportRelationNetworksRelationNotFoundSkipped(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
