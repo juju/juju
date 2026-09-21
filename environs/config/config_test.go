@@ -1336,6 +1336,39 @@ func (s *ConfigSuite) TestUpdateStatusHookIntervalConfigValue(c *tc.C) {
 	c.Assert(cfg.UpdateStatusHookInterval(), tc.Equals, 30*time.Minute)
 }
 
+func (s *ConfigSuite) TestBackupDownloadTTLConfigDefault(c *tc.C) {
+	cfg := newTestConfig(c, testing.Attrs{})
+	c.Assert(cfg.BackupDownloadTTL(), tc.Equals, 15*time.Minute)
+}
+
+func (s *ConfigSuite) TestBackupDownloadTTLConfigValue(c *tc.C) {
+	cfg := newTestConfig(c, testing.Attrs{
+		"backup-download-ttl": "2h",
+	})
+	c.Assert(cfg.BackupDownloadTTL(), tc.Equals, 2*time.Hour)
+}
+
+func (s *ConfigSuite) TestValidateBackupDownloadTTL(c *tc.C) {
+	for _, test := range []struct {
+		value string
+		err   string
+	}{{
+		value: "not-a-duration",
+		err:   `invalid backup download ttl in model configuration: .*`,
+	}, {
+		value: "30s",
+		err:   `backup download ttl 30s cannot be less than 1m`,
+	}} {
+		c.Logf("value %q", test.value)
+		_, err := config.New(config.UseDefaults, testing.Attrs{
+			"type": "my-type", "name": "my-name",
+			"uuid":                testing.ModelTag.Id(),
+			"backup-download-ttl": test.value,
+		})
+		c.Check(err, tc.ErrorMatches, test.err)
+	}
+}
+
 func (s *ConfigSuite) TestEgressSubnets(c *tc.C) {
 	cfg := newTestConfig(c, testing.Attrs{
 		"egress-subnets": "10.0.0.1/32, 192.168.1.1/16",

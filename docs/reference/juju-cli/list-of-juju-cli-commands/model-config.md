@@ -139,6 +139,10 @@ The following keys are available:
     backup-dir:
       type: string
       description: Directory used to store the backup working directory
+    backup-download-ttl:
+      type: string
+      description: How long a backup archive staged for download is retained on the controller
+        before it is removed
     charmhub-url:
       type: string
       description: The url for CharmHub API calls

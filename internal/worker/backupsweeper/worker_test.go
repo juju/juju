@@ -57,8 +57,10 @@ func (s *sweeperWorkerSuite) TestWorkerSweeps(c *tc.C) {
 	freshID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
+	defaultTTL, err := time.ParseDuration(environsconfig.DefaultBackupDownloadTTL)
+	c.Assert(err, tc.ErrorIsNil)
 	now := time.Now()
-	expiredPath := s.stageOneShot(c, backupDir, expiredID.String(), now.Add(-2*defaultArchiveTTL))
+	expiredPath := s.stageOneShot(c, backupDir, expiredID.String(), now.Add(-2*defaultTTL))
 	freshPath := s.stageOneShot(c, backupDir, freshID.String(), now)
 
 	s.expectClock()
@@ -78,6 +80,36 @@ func (s *sweeperWorkerSuite) TestWorkerSweeps(c *tc.C) {
 	_, err = os.Stat(expiredPath)
 	c.Assert(err, tc.Satisfies, os.IsNotExist)
 	_, err = os.Stat(freshPath)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *sweeperWorkerSuite) TestWorkerHonoursConfiguredTTL(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	id, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The archive is older than the 15-minute default but younger than
+	// the configured 2-hour TTL, so it must survive the sweep.
+	now := time.Now()
+	path := s.stageOneShot(c, backupDir, id.String(), now.Add(-30*time.Minute))
+
+	s.expectClock()
+	done := make(chan struct{})
+	s.expectTimerRepeated(1, done)
+	s.expectModelConfigWithTTL(c, backupDir, "2h")
+
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for the sweep to run")
+	}
+
+	_, err = os.Stat(path)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -115,12 +147,20 @@ func (s *sweeperWorkerSuite) stageOneShot(c *tc.C, backupDir, id string, modTime
 }
 
 func (s *sweeperWorkerSuite) expectModelConfig(c *tc.C, backupDir string) {
-	cfg, err := environsconfig.New(environsconfig.UseDefaults, map[string]any{
+	s.expectModelConfigWithTTL(c, backupDir, "")
+}
+
+func (s *sweeperWorkerSuite) expectModelConfigWithTTL(c *tc.C, backupDir, ttl string) {
+	attrs := map[string]any{
 		"backup-dir": backupDir,
 		"uuid":       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"type":       "manual",
 		"name":       "controller",
-	})
+	}
+	if ttl != "" {
+		attrs["backup-download-ttl"] = ttl
+	}
+	cfg, err := environsconfig.New(environsconfig.UseDefaults, attrs)
 	c.Assert(err, tc.ErrorIsNil)
 	s.modelConfig.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 }

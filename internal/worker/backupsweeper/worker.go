@@ -21,16 +21,6 @@ const (
 	// defaultSweepInterval is how often expired one-shot backup
 	// archives are swept off disk.
 	defaultSweepInterval = time.Minute
-
-	// defaultArchiveTTL is how long a one-shot backup archive is
-	// retained for download after it has been created. The rename
-	// preserves the ModTime, so the clock starts at creation time: a
-	// large archive over a slow link that fails mid-transfer still
-	// counts toward the same 15-minute window from creation, not
-	// from the last transfer attempt. The TTL is intentionally hardcoded
-	// rather than a model config option; it should only need tuning
-	// if the operator routinely backs up with unreliable network.
-	defaultArchiveTTL = 15 * time.Minute
 )
 
 // ModelConfigService provides the model configuration, used to resolve
@@ -125,16 +115,23 @@ func (w *Sweeper) loop() error {
 }
 
 // sweep removes expired one-shot archives from the backup directory.
-// The backup directory is resolved on every sweep so that model config
-// changes take effect; stale files in a previously-configured directory
-// are the operator's to clean.
+// The backup directory and the retention window are resolved on every
+// sweep so that model config changes take effect; stale files in a
+// previously-configured directory are the operator's to clean.
+//
+// The retention window starts at archive creation (the staging rename
+// preserves the ModTime), not at the last transfer attempt: a large
+// archive over a slow link that fails mid-transfer still counts toward
+// the same window from creation. Operators backing up over unreliable
+// networks can widen the window via the backup-download-ttl model
+// config attribute.
 func (w *Sweeper) sweep(ctx context.Context) error {
 	modelConfig, err := w.modelConfig.ModelConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	backupDir := corebackups.BackupDirToUse(modelConfig.BackupDir())
-	if err := corebackups.CleanExpiredOneShotArchives(backupDir, defaultArchiveTTL, w.clock.Now()); err != nil {
+	if err := corebackups.CleanExpiredOneShotArchives(backupDir, modelConfig.BackupDownloadTTL(), w.clock.Now()); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

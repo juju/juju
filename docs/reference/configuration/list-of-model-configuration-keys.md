@@ -190,6 +190,16 @@ Directory used to store the backup working directory.
 **Type:** string
 
 
+(model-config-backup-download-ttl)=
+## `backup-download-ttl`
+
+How long a backup archive staged for download is retained on the controller before it is removed.
+
+**Default value:** `15m`
+
+**Type:** string
+
+
 (model-config-charmhub-url)=
 ## `charmhub-url`
 

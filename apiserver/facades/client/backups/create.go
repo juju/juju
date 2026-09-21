@@ -26,8 +26,8 @@ import (
 //
 // args.NoDownload is kept for client compatibility only; if a client
 // asks for it, the request fails loudly rather than silently losing
-// the staged archive (a 15-minute TTL would delete it before it ever
-// got downloaded, and we must not silently eat that request).
+// the staged archive (the sweeper would delete it once its retention
+// window lapses, and we must not silently eat that request).
 //
 // The controller database and each model database are exported at different
 // points in time with no cross-database snapshot, so the archive is not a
