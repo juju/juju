@@ -723,7 +723,9 @@ func (s *importSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
 			},
 			Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 		},
-		RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+		RelationUUID:  "6049aa01-76c9-462d-8440-964a6e26aac2",
+		RelationID:    0,
+		RelationScope: charm.ScopeGlobal,
 		RelationKey: relation.Key{
 			relation.EndpointIdentifier{
 				ApplicationName: "dummy-source",
@@ -805,7 +807,7 @@ func (s *importSuite) TestImportRemoteApplicationConsumersMultipleRemoteApplicat
 	})
 	model.AddOfferConnection(description.OfferConnectionArgs{
 		OfferUUID:       "cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
-		RelationID:      0,
+		RelationID:      1,
 		RelationKey:     "dummy-source:sink remote-a50f295556314aa4803f766a8802e33a:source",
 		SourceModelUUID: "4ddd6454-931d-4278-8779-b0b7208994d9",
 		UserName:        "admin",
@@ -912,7 +914,9 @@ func (s *importSuite) TestImportRemoteApplicationConsumersMultipleRemoteApplicat
 			},
 			Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 		},
-		RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+		RelationUUID:  "6049aa01-76c9-462d-8440-964a6e26aac2",
+		RelationID:    0,
+		RelationScope: charm.ScopeGlobal,
 		RelationKey: relation.Key{
 			relation.EndpointIdentifier{
 				ApplicationName: "dummy-source",
@@ -943,7 +947,9 @@ func (s *importSuite) TestImportRemoteApplicationConsumersMultipleRemoteApplicat
 			},
 			Units: []string{"remote-a50f295556314aa4803f766a8802e33a/0"},
 		},
-		RelationUUID: "ed736d84-0007-438c-8c0e-eac6e0d6dadd",
+		RelationUUID:  "ed736d84-0007-438c-8c0e-eac6e0d6dadd",
+		RelationID:    1,
+		RelationScope: charm.ScopeGlobal,
 		RelationKey: relation.Key{
 			relation.EndpointIdentifier{
 				ApplicationName: "dummy-source",

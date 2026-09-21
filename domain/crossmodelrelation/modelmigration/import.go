@@ -119,7 +119,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("extracting relation UUIDs from remote entities: %w", err)
 	}
 
-	relationKeys, err := extractRelationKeys(model)
+	relationKeys, err := extractRelations(model)
 	if err != nil {
 		return errors.Errorf("extracting relation endpoints from relations: %w", err)
 	}
@@ -269,7 +269,7 @@ func (i *importOperation) importRemoteApplicationConsumers(
 	remoteAppUnits map[string][]string,
 	offerConnections []offerConnection,
 	relationRemoteEntities []relationRemoteEntity,
-	relationKeys map[string]relation.Key,
+	relationKeys map[string]importRelation,
 	applicationRemoteEntities map[string]string,
 ) error {
 	input := make([]service.RemoteApplicationConsumerImport, 0, len(remoteApps))
@@ -309,10 +309,18 @@ func (i *importOperation) importRemoteApplicationConsumers(
 				remoteApp.Name())
 		}
 
-		relationKey, ok := relationKeys[offerConnection.RelationKeyStr]
+		rel, ok := relationKeys[offerConnection.RelationKeyStr]
 		if !ok {
 			return errors.Errorf("no relation key found for %q with remote application %q",
 				offerConnection.RelationKeyStr, remoteApp.Name())
+		}
+
+		// The offer connection records the relation it was created for, along
+		// with the relation itself. The two must agree, otherwise the
+		// description is inconsistent.
+		if offerConnection.RelationID != rel.Rel.Id() {
+			return errors.Errorf("offer connection relation ID %d does not match relation ID %d for relation %q",
+				offerConnection.RelationID, rel.Rel.Id(), rel.Rel.Key())
 		}
 
 		input = append(input, service.RemoteApplicationConsumerImport{
@@ -325,7 +333,9 @@ func (i *importOperation) importRemoteApplicationConsumers(
 				Units:     remoteAppUnits[remoteApp.Name()],
 			},
 			RelationUUID:            relationUUID,
-			RelationKey:             relationKey,
+			RelationID:              rel.Rel.Id(),
+			RelationScope:           relationScopeFromEndpoints(rel.Rel),
+			RelationKey:             rel.Key,
 			ConsumerModelUUID:       remoteApp.SourceModelUUID(),
 			ConsumerApplicationUUID: consumerApplicationUUID,
 			UserName:                offerConnection.UserName,
@@ -339,6 +349,7 @@ func (i *importOperation) importRemoteApplicationConsumers(
 
 type offerConnection struct {
 	OfferUUID       string
+	RelationID      int
 	RelationKey     relation.Key
 	RelationKeyStr  string
 	SourceModelUUID string
@@ -357,6 +368,7 @@ func extractOfferConnections(model description.Model) ([]offerConnection, error)
 
 		offerConnections = append(offerConnections, offerConnection{
 			OfferUUID:       offerUUID,
+			RelationID:      rel.RelationID(),
 			RelationKey:     relationKey,
 			RelationKeyStr:  rel.RelationKey(),
 			SourceModelUUID: rel.SourceModelUUID(),
@@ -412,8 +424,15 @@ func extractRemoteEndpoints(remoteApp description.RemoteApplication) ([]crossmod
 	return endpoints, nil
 }
 
-func extractRelationKeys(model description.Model) (map[string]relation.Key, error) {
-	relationKeys := make(map[string]relation.Key)
+// importRelation holds the canonical relation key, along with the relation
+// description, for each relation of the model.
+type importRelation struct {
+	Key relation.Key
+	Rel description.Relation
+}
+
+func extractRelations(model description.Model) (map[string]importRelation, error) {
+	relations := make(map[string]importRelation)
 	for _, rel := range model.Relations() {
 		var key relation.Key
 		for _, ep := range rel.Endpoints() {
@@ -430,9 +449,24 @@ func extractRelationKeys(model description.Model) (map[string]relation.Key, erro
 		}
 
 		key = relationKeyOrdered(key)
-		relationKeys[rel.Key()] = key
+		relations[rel.Key()] = importRelation{
+			Key: key,
+			Rel: rel,
+		}
 	}
-	return relationKeys, nil
+	return relations, nil
+}
+
+// relationScopeFromEndpoints returns the scope of a relation from its
+// endpoints. A relation is container scoped if any of its endpoints is
+// container scoped, and global scoped otherwise.
+func relationScopeFromEndpoints(rel description.Relation) charm.RelationScope {
+	for _, ep := range rel.Endpoints() {
+		if ep.Scope() == string(charm.ScopeContainer) {
+			return charm.ScopeContainer
+		}
+	}
+	return charm.ScopeGlobal
 }
 
 func relationKeyOrdered(key relation.Key) relation.Key {

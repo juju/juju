@@ -140,6 +140,16 @@ type RemoteApplicationConsumerImport struct {
 	// application consumer.
 	RelationUUID string
 
+	// RelationID is the numeric ID of the relation created for this remote
+	// application consumer. It is imported from the source model, so that
+	// relation ids remain stable across the migration; unit agents rely on
+	// the numeric id to locate their relation state.
+	RelationID int
+
+	// RelationScope is the scope of the relation created for this remote
+	// application consumer.
+	RelationScope charm.RelationScope
+
 	// RelationKey is the key of the relation created for this remote
 	// application consumer.
 	RelationKey relation.Key
@@ -299,6 +309,14 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
 			"validating relation UUID: %w", err).Add(errors.NotValid)
 	}
+	if rApp.RelationID < 0 {
+		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
+			"validating relation ID %d: relation ID must not be negative", rApp.RelationID).Add(errors.NotValid)
+	}
+	if rApp.RelationScope != charm.ScopeGlobal && rApp.RelationScope != charm.ScopeContainer {
+		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
+			"validating relation scope %q: unknown relation scope", rApp.RelationScope).Add(errors.NotValid)
+	}
 	if err := offer.UUID(rApp.OfferUUID).Validate(); err != nil {
 		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
 			"validating offer UUID: %w", err).Add(errors.NotValid)
@@ -368,6 +386,8 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 			OffererApplicationUUID: offererApplicationUUID,
 		},
 		RelationUUID:                rApp.RelationUUID,
+		RelationID:                  rApp.RelationID,
+		RelationScope:               rApp.RelationScope,
 		ConsumerModelUUID:           rApp.ConsumerModelUUID,
 		ConsumerApplicationUUID:     rApp.ConsumerApplicationUUID,
 		ConsumerApplicationEndpoint: consumerApplicationEndpoint,

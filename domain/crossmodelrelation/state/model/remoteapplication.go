@@ -584,6 +584,47 @@ WHERE  name = $charmScope.name;`
 	return nil
 }
 
+// importSyntheticRelation creates the synthetic relation for a remote
+// application consumer being imported by migration. Unlike
+// insertSyntheticRelation, the relation identity is imported from the source
+// model, so the numeric relation ID is provided instead of being allocated
+// from the model sequence.
+func (st *State) importSyntheticRelation(
+	ctx context.Context,
+	tx *sqlair.TX,
+	consumerRelationUUID string,
+	relationID int,
+	scope charm.RelationScope,
+) error {
+	// The consuming model sends its own relation UUID when registering the
+	// remote relation, and we use the same UUID here to create a synthetic
+	// relation on the offering side. This is convenient, as it allows us to
+	// be able to call the CMR endpoints from the consuming side without
+	// having to retrieve the synthetic relation UUID first.
+	rel := relation{
+		UUID:       consumerRelationUUID,
+		LifeID:     int(life.Alive),
+		RelationID: uint64(relationID),
+	}
+	charmScope := charmScope{
+		Name: string(scope),
+	}
+	insertRelation := `
+INSERT INTO relation (uuid, life_id, relation_id, scope_id)
+SELECT $relation.uuid, $relation.life_id, $relation.relation_id, id
+FROM   charm_relation_scope
+WHERE  name = $charmScope.name;`
+	insertRelationStmt, err := st.Prepare(insertRelation, relation{}, charmScope)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, insertRelationStmt, rel, charmScope).Run(); err != nil {
+		return errors.Errorf("importing remote relation record: %w", err)
+	}
+	return nil
+}
+
 func (st *State) insertNewRelationStatus(ctx context.Context, tx *sqlair.TX, uuid string) error {
 	status := setRelationStatus{
 		RelationUUID: uuid,

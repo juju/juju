@@ -201,8 +201,13 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 		return errors.Capture(err)
 	}
 
-	// Create the synthetic relation for this consumer.
-	if err := st.insertSyntheticRelation(ctx, tx, consumer.RelationUUID); err != nil {
+	// Create the synthetic relation for this consumer, importing the relation
+	// identity from the source model.
+	if err := st.importSyntheticRelation(ctx, tx,
+		consumer.RelationUUID,
+		consumer.RelationID,
+		consumer.RelationScope,
+	); err != nil {
 		return errors.Capture(err)
 	}
 
