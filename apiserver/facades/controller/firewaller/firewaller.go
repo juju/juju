@@ -5,7 +5,6 @@ package firewaller
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/juju/collections/set"
 	jujuerrors "github.com/juju/errors"
@@ -17,7 +16,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
@@ -30,12 +28,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
-
-// ControllerConfigService is an interface that provides access to the
-// controller configuration.
-type ControllerConfigService interface {
-	ControllerConfig(context.Context) (controller.Config, error)
-}
 
 // ModelConfigService is an interface that provides access to the
 // model configuration.
@@ -63,9 +55,7 @@ type FirewallerAPI struct {
 	accessUnitApplicationOrMachineOrRelation common.GetAuthFunc
 	logger                                   corelogger.Logger
 
-	controllerConfigService ControllerConfigService
-	modelConfigService      ModelConfigService
-	modelInfoService        ModelInfoService
+	modelConfigService ModelConfigService
 }
 
 // NewStateFirewallerAPI creates a new server-side FirewallerAPIV7 facade.
@@ -74,11 +64,9 @@ func NewStateFirewallerAPI(
 	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 	controllerConfigAPI ControllerConfigAPI,
-	controllerConfigService ControllerConfigService,
 	modelConfigService ModelConfigService,
 	applicationService ApplicationService,
 	machineService MachineService,
-	modelInfoService ModelInfoService,
 	logger corelogger.Logger,
 ) (*FirewallerAPI, error) {
 	if !authorizer.AuthController() {
@@ -127,12 +115,10 @@ func NewStateFirewallerAPI(
 		accessUnit:                               accessUnit,
 		accessMachine:                            accessMachine,
 		accessUnitApplicationOrMachineOrRelation: accessUnitApplicationOrMachineOrRelation,
-		controllerConfigService:                  controllerConfigService,
 		modelConfigService:                       modelConfigService,
 		networkService:                           networkService,
 		applicationService:                       applicationService,
 		machineService:                           machineService,
-		modelInfoService:                         modelInfoService,
 		logger:                                   logger,
 	}, nil
 }
@@ -191,29 +177,12 @@ func (f *FirewallerAPI) ModelFirewallRules(ctx context.Context) (params.IngressR
 	if err != nil {
 		return params.IngressRulesResult{Error: apiservererrors.ServerError(err)}, nil
 	}
-	ctrlCfg, err := f.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return params.IngressRulesResult{Error: apiservererrors.ServerError(err)}, nil
-	}
-
-	isController, err := f.modelInfoService.IsControllerModel(ctx)
-	if err != nil {
-		return params.IngressRulesResult{Error: apiservererrors.ServerError(err)}, nil
-	}
 
 	var rules []params.IngressRule
 	sshAllow := cfg.SSHAllow()
 	if len(sshAllow) != 0 {
 		portRange := params.FromNetworkPortRange(network.MustParsePortRange("22"))
 		rules = append(rules, params.IngressRule{PortRange: portRange, SourceCIDRs: sshAllow})
-	}
-	if isController {
-		portRange := params.FromNetworkPortRange(network.MustParsePortRange(strconv.Itoa(ctrlCfg.APIPort())))
-		rules = append(rules, params.IngressRule{PortRange: portRange, SourceCIDRs: []string{"0.0.0.0/0", "::/0"}})
-	}
-	if isController && ctrlCfg.AutocertDNSName() != "" {
-		portRange := params.FromNetworkPortRange(network.MustParsePortRange("80"))
-		rules = append(rules, params.IngressRule{PortRange: portRange, SourceCIDRs: []string{"0.0.0.0/0", "::/0"}})
 	}
 	return params.IngressRulesResult{
 		Rules: rules,

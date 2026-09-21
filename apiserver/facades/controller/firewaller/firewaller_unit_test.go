@@ -14,7 +14,6 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/config"
@@ -54,12 +53,10 @@ type FirewallerSuite struct {
 	watcherRegistry     *facademocks.MockWatcherRegistry
 	api                 *firewaller.FirewallerAPI
 
-	controllerConfigService *MockControllerConfigService
-	modelConfigService      *MockModelConfigService
-	networkService          *MockNetworkService
-	applicationService      *MockApplicationService
-	machineService          *MockMachineService
-	modelInfoService        *MockModelInfoService
+	modelConfigService *MockModelConfigService
+	networkService     *MockNetworkService
+	applicationService *MockApplicationService
+	machineService     *MockMachineService
 }
 
 func (s *FirewallerSuite) SetUpTest(c *tc.C) {
@@ -77,12 +74,10 @@ func (s *FirewallerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 	s.controllerConfigAPI = NewMockControllerConfigAPI(ctrl)
 
-	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
-	s.modelInfoService = NewMockModelInfoService(ctrl)
 
 	return ctrl
 }
@@ -94,11 +89,9 @@ func (s *FirewallerSuite) setupAPI(c *tc.C) {
 		s.watcherRegistry,
 		s.authorizer,
 		s.controllerConfigAPI,
-		s.controllerConfigService,
 		s.modelConfigService,
 		s.applicationService,
 		s.machineService,
-		s.modelInfoService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -109,16 +102,10 @@ func (s *FirewallerSuite) TestModelFirewallRules(c *tc.C) {
 	defer ctrl.Finish()
 	s.setupAPI(c)
 
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]any{}))
-
 	modelAttrs := coretesting.FakeConfig().Merge(map[string]any{
 		config.SSHAllowKey: "192.168.0.0/24,192.168.1.0/24",
 	})
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, modelAttrs))
-
-	s.modelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(
-		false, nil,
-	)
 
 	rules, err := s.api.ModelFirewallRules(c.Context())
 
@@ -126,39 +113,6 @@ func (s *FirewallerSuite) TestModelFirewallRules(c *tc.C) {
 	c.Assert(rules, tc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
 		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("22")),
 		SourceCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
-	}}})
-}
-
-func (s *FirewallerSuite) TestModelFirewallRulesController(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-	s.setupAPI(c)
-
-	ctrlAttrs := map[string]any{
-		controller.APIPort:            17777,
-		controller.AutocertDNSNameKey: "example.com",
-	}
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, ctrlAttrs))
-
-	modelAttrs := coretesting.FakeConfig().Merge(map[string]any{
-		config.SSHAllowKey: "192.168.0.0/24,192.168.1.0/24",
-	})
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, modelAttrs))
-	s.modelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(
-		true, nil,
-	)
-	rules, err := s.api.ModelFirewallRules(c.Context())
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(rules, tc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
-		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("22")),
-		SourceCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
-	}, {
-		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("17777")),
-		SourceCIDRs: []string{"0.0.0.0/0", "::/0"},
-	}, {
-		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("80")),
-		SourceCIDRs: []string{"0.0.0.0/0", "::/0"},
 	}}})
 }
 

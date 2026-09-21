@@ -705,6 +705,259 @@ func (s *InstanceModeSuite) TestStartStopWithoutModelFirewaller(c *tc.C) {
 	s.waitForMachine(c, "0")
 }
 
+func (s *InstanceModeSuite) TestControllerMachineInstancePorts(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
+
+	app, _ := s.setupApplicationMocks(ctrl, "controller")
+	s.activateApplication("controller", true)
+	_, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+	s.setupInstanceMocks(c, ctrl, m)
+
+	s.firewaller.EXPECT().ControllerFirewallPorts(gomock.Any()).Return([]network.PortRange{
+		network.MustParsePortRange("17070/tcp"),
+		network.MustParsePortRange("17022/tcp"),
+	}, nil).AnyTimes()
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	s.startInstance(c, m)
+
+	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("17070/tcp"), firewall.AllNetworksIPV4CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("17022/tcp"), firewall.AllNetworksIPV4CIDR),
+	})
+}
+
+func (s *InstanceModeSuite) TestControllerMachineInstancePortsNotExposed(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
+
+	// Even when the controller application is not explicitly exposed (default state
+	// after bootstrap), the controller ports are still opened to the world on the
+	// instance firewall.
+	app, _ := s.setupApplicationMocks(ctrl, "controller")
+	s.activateApplication("controller", false)
+	_, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+	s.setupInstanceMocks(c, ctrl, m)
+
+	s.firewaller.EXPECT().ControllerFirewallPorts(gomock.Any()).Return([]network.PortRange{
+		network.MustParsePortRange("17070/tcp"),
+		network.MustParsePortRange("17022/tcp"),
+	}, nil).AnyTimes()
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	s.startInstance(c, m)
+
+	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("17070/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("17022/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+	})
+}
+
+func (s *InstanceModeSuite) TestControllerMachineInstancePortsExposedNamedEndpoint(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
+
+	// If the controller application is exposed with only a named endpoint,
+	// the controller ports are still opened with that endpoint's expose CIDRs.
+	app, _ := s.setupApplicationMocks(ctrl, "controller")
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "controller").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "controller").Return(map[string]application.ExposedEndpoint{
+		"api": {ExposeToCIDRs: set.NewStrings("10.5.0.0/24")},
+	}, nil)
+
+	_, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+	s.setupInstanceMocks(c, ctrl, m)
+
+	s.firewaller.EXPECT().ControllerFirewallPorts(gomock.Any()).Return([]network.PortRange{
+		network.MustParsePortRange("17070/tcp"),
+		network.MustParsePortRange("17022/tcp"),
+	}, nil).AnyTimes()
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	s.startInstance(c, m)
+
+	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("17070/tcp"), "10.5.0.0/24"),
+		firewall.NewIngressRule(network.MustParsePortRange("17022/tcp"), "10.5.0.0/24"),
+	})
+}
+
+func (s *InstanceModeSuite) TestControllerMachineInstancePortsAPIError(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
+
+	// If the firewaller API fails to report the controller firewall ports,
+	// the flush of the controller machine fails and the worker dies, with
+	// no instance ports opened for the controller machine.
+	app, _ := s.setupApplicationMocks(ctrl, "controller")
+	s.activateApplication("controller", false)
+	_, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+	s.setupInstanceMocks(c, ctrl, m)
+
+	portsErr := errors.New("failed to fetch controller firewall ports")
+	s.firewaller.EXPECT().ControllerFirewallPorts(gomock.Any()).Return(nil, portsErr)
+	fw := s.newFirewaller(c, ctrl)
+
+	s.startInstance(c, m)
+
+	err := workertest.CheckKilled(c, fw)
+	c.Assert(err, tc.ErrorIs, portsErr)
+
+	// No instance ports were opened for the controller machine.
+	c.Check(s.instancePorts[m.Tag().Id()], tc.IsNil)
+}
+
+func (s *InstanceModeSuite) TestControllerMachineInstancePortsExposedToSpaceWithoutSubnets(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
+
+	// The controller application is exposed, initially to all networks.
+	app, appCh := s.setupApplicationMocks(ctrl, "controller")
+	s.activateApplication("controller", true)
+	_, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+	s.setupInstanceMocks(c, ctrl, m)
+
+	s.firewaller.EXPECT().ControllerFirewallPorts(gomock.Any()).Return([]network.PortRange{
+		network.MustParsePortRange("17070/tcp"),
+		network.MustParsePortRange("17022/tcp"),
+	}, nil).AnyTimes()
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	s.startInstance(c, m)
+
+	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("17070/tcp"), firewall.AllNetworksIPV4CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("17022/tcp"), firewall.AllNetworksIPV4CIDR),
+	})
+
+	// Expose the controller to a space that contains no subnets. The
+	// exposed-rules computation yields no CIDRs; rather than closing the
+	// controller ports, they fall back to being opened to all networks so
+	// that API access is not lost.
+	spacesQueried := make(chan struct{})
+	s.firewaller.EXPECT().AllSpaceInfos(gomock.Any()).DoAndReturn(func(context.Context) (network.SpaceInfos, error) {
+		close(spacesQueried)
+		return network.SpaceInfos{{
+			ID:   "sp-1",
+			Name: "no-subnets-space",
+		}}, nil
+	})
+	s.subnetsCh <- []string{}
+	// The worker applies this query's result before processing another event.
+	// Wait before changing exposure to avoid testing the unknown-space path.
+	<-spacesQueried
+
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "controller").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "controller").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {ExposeToSpaceIDs: set.NewStrings("sp-1")},
+	}, nil)
+	appCh <- struct{}{}
+
+	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("17070/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("17022/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+	})
+}
+
+func (s *InstanceModeSuite) TestModelAPIPortClosedOnlyAfterInstancePortsOpened(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// Upgrade scenario: the model firewall still holds the API port opened
+	// at bootstrap by an older controller build, while the upgraded
+	// ModelFirewallRules facade only reports SSH.
+	s.modelIngressRules = firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+	}
+	s.envModelPorts = firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("17070"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+	}
+	s.ensureMocksWithoutMachine(ctrl)
+
+	s.firewaller.EXPECT().ModelFirewallRules(gomock.Any()).AnyTimes().DoAndReturn(func(context.Context) (firewall.IngressRules, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return s.modelIngressRules, nil
+	})
+	s.envModelFirewaller.EXPECT().ModelIngressRules(gomock.Any()).AnyTimes().DoAndReturn(func(context.Context) (firewall.IngressRules, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return slices.Clone(s.envModelPorts), nil
+	})
+	modelAPIClosedTooEarly := false
+	s.envModelFirewaller.EXPECT().CloseModelPorts(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(func(_ context.Context, rules firewall.IngressRules) error {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		// The controller instance must already hold the API port rule
+		// before the stale model-level rule is closed.
+		apiPortOpen := false
+		for _, r := range s.instancePorts["0"] {
+			if r.PortRange.String() == "17070/tcp" {
+				apiPortOpen = true
+				break
+			}
+		}
+		if !apiPortOpen {
+			modelAPIClosedTooEarly = true
+		}
+		s.envModelPorts = closePorts(s.envModelPorts, rules)
+		return nil
+	})
+
+	app, _ := s.setupApplicationMocks(ctrl, "controller")
+	s.activateApplication("controller", false)
+	_, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	// The controller unit is already assigned to the machine when the
+	// machine is watched.
+	unitsCh <- []string{u.Name()}
+	inst := s.setupInstanceMocks(c, ctrl, m)
+	inst.EXPECT().IngressRules(gomock.Any(), m.Tag().Id()).Return(nil, nil).AnyTimes()
+
+	s.firewaller.EXPECT().ControllerFirewallPorts(gomock.Any()).Return([]network.PortRange{
+		network.MustParsePortRange("17070/tcp"),
+		network.MustParsePortRange("17022/tcp"),
+	}, nil).AnyTimes()
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	// The initial model flush is skipped because there are no machines yet.
+	// The pending model flush is handled by the controller machine flush,
+	// which must open the instance ports before closing the model API port.
+	s.waitForSkipModelFlush(c)
+
+	s.startInstance(c, m)
+
+	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("17070/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("17022/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+	})
+	s.assertModelIngressRules(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("22"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+	})
+	c.Check(modelAPIClosedTooEarly, tc.IsFalse)
+}
+
 func (s *InstanceModeSuite) TestNotExposedApplication(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

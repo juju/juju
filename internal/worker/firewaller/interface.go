@@ -35,6 +35,7 @@ type FirewallerAPI interface {
 	WatchModelMachines(context.Context) (watcher.StringsWatcher, error)
 	WatchModelFirewallRules(context.Context) (watcher.NotifyWatcher, error)
 	ModelFirewallRules(context.Context) (firewall.IngressRules, error)
+	ControllerFirewallPorts(context.Context) ([]network.PortRange, error)
 	ModelConfig(context.Context) (*config.Config, error)
 	Machine(ctx context.Context, tag names.MachineTag) (Machine, error)
 	Unit(ctx context.Context, tag names.UnitTag) (Unit, error)

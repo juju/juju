@@ -133,6 +133,25 @@ func (c *Client) WatchModelFirewallRules(ctx context.Context) (watcher.NotifyWat
 	return w, nil
 }
 
+// ControllerFirewallPorts returns the port ranges that must be opened on the
+// instance firewall for the controller machines, namely the API port,
+// the SSH server port and, when autocert is configured, the HTTP port.
+// It derives these ranges from the existing ControllerConfig RPC.
+func (c *Client) ControllerFirewallPorts(ctx context.Context) ([]network.PortRange, error) {
+	cfg, err := c.ControllerConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ports := []network.PortRange{
+		{Protocol: "tcp", FromPort: cfg.APIPort(), ToPort: cfg.APIPort()},
+		{Protocol: "tcp", FromPort: cfg.SSHServerPort(), ToPort: cfg.SSHServerPort()},
+	}
+	if cfg.AutocertDNSName() != "" {
+		ports = append(ports, network.MustParsePortRange("80/tcp"))
+	}
+	return ports, nil
+}
+
 // Relation provides access to methods of a state.Relation through the
 // facade.
 func (c *Client) Relation(ctx context.Context, tag names.RelationTag) (*Relation, error) {
