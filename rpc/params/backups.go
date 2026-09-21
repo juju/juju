@@ -16,8 +16,10 @@ type BackupsCreateArgs struct {
 
 	// NoDownload is kept for compatibility with older clients only.
 	// The controller no longer supports keeping the archive instead of
-	// downloading it, so requests that set this field are rejected.
-	NoDownload bool `json:"no-download,omitempty"`
+	// downloading it, so requests that set this field are rejected. The
+	// field is still always serialized so the wire format of the
+	// shipped Backups facade versions is unchanged.
+	NoDownload bool `json:"no-download"`
 }
 
 // BackupsDownloadArgs holds the args for the HTTP backups download endpoint.
