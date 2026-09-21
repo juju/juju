@@ -8,10 +8,15 @@ import (
 
 	gossh "golang.org/x/crypto/ssh"
 
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/changestream"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -23,6 +28,34 @@ type Service struct {
 // NewService returns a new controller SSH service.
 func NewService(state State) *Service {
 	return &Service{state: state}
+}
+
+// GetSSHServerPort returns the port the controller SSH jump server listens on.
+// If no port has been set (e.g. before the controller charm has pushed a
+// value), the default SSH server port is returned.
+func (s *Service) GetSSHServerPort(ctx context.Context) (int, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	port, err := s.state.GetSSHServerPort(ctx)
+	if errors.Is(err, coreerrors.NotFound) {
+		return controller.DefaultSSHServerPort, nil
+	}
+	if err != nil {
+		return 0, errors.Errorf("getting controller SSH server port: %w", err)
+	}
+	return port, nil
+}
+
+// SetSSHServerPort sets the port the controller SSH jump server listens on.
+func (s *Service) SetSSHServerPort(ctx context.Context, port int) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.state.SetSSHServerPort(ctx, port); err != nil {
+		return errors.Errorf("setting controller SSH server port: %w", err)
+	}
+	return nil
 }
 
 // SSHServerHostKey returns the controller jump host key.
@@ -79,4 +112,44 @@ func (s *Service) PublicKeyInModel(ctx context.Context, modelUUID coremodel.UUID
 		return false, errors.Errorf("checking public SSH key for user %q: %w", username, err)
 	}
 	return found, nil
+}
+
+// WatcherFactory describes methods for creating watchers.
+type WatcherFactory interface {
+	// NewNotifyWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue.
+	NewNotifyWatcher(
+		ctx context.Context,
+		summary string,
+		filterOption eventsource.FilterOption,
+		filterOptions ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
+}
+
+// WatchableService provides controller-scoped SSH workflows plus the ability
+// to watch for changes to the SSH server configuration.
+type WatchableService struct {
+	*Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new watchable controller SSH service.
+func NewWatchableService(state State, watcherFactory WatcherFactory) *WatchableService {
+	return &WatchableService{
+		Service:        NewService(state),
+		watcherFactory: watcherFactory,
+	}
+}
+
+// WatchSSHServerPort returns a watcher that notifies when the controller SSH
+// server port changes.
+func (s *WatchableService) WatchSSHServerPort(ctx context.Context) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
+		"controller SSH server port watcher",
+		eventsource.NamespaceFilter(s.state.NamespaceForWatchSSHServerPort(), changestream.All),
+	)
 }

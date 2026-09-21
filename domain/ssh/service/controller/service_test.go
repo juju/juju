@@ -11,9 +11,12 @@ import (
 	"github.com/juju/tc"
 	gossh "golang.org/x/crypto/ssh"
 
+	"github.com/juju/juju/controller"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/core/watcher/watchertest"
 	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
 )
 
@@ -112,6 +115,65 @@ func (s *serviceSuite) TestPublicKeyInModelRejectsNonMatchingFingerprint(c *tc.C
 	found, err := controllersshservice.NewService(controllerState).PublicKeyInModel(c.Context(), modelUUID, username, signer.PublicKey())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(found, tc.IsFalse)
+}
+
+func (s *serviceSuite) TestGetSSHServerPortReturnsStored(c *tc.C) {
+	controllerState := NewMockState(gomock.NewController(c))
+	controllerState.EXPECT().GetSSHServerPort(gomock.Any()).Return(17099, nil)
+
+	port, err := controllersshservice.NewService(controllerState).GetSSHServerPort(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(port, tc.Equals, 17099)
+}
+
+func (s *serviceSuite) TestGetSSHServerPortDefaultsWhenMissing(c *tc.C) {
+	controllerState := NewMockState(gomock.NewController(c))
+	controllerState.EXPECT().GetSSHServerPort(gomock.Any()).Return(0, coreerrors.NotFound)
+
+	port, err := controllersshservice.NewService(controllerState).GetSSHServerPort(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(port, tc.Equals, controller.DefaultSSHServerPort)
+}
+
+func (s *serviceSuite) TestGetSSHServerPortErrors(c *tc.C) {
+	controllerState := NewMockState(gomock.NewController(c))
+	controllerState.EXPECT().GetSSHServerPort(gomock.Any()).Return(0, context.Canceled)
+
+	port, err := controllersshservice.NewService(controllerState).GetSSHServerPort(c.Context())
+	c.Check(port, tc.Equals, 0)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
+}
+
+func (s *serviceSuite) TestSetSSHServerPort(c *tc.C) {
+	controllerState := NewMockState(gomock.NewController(c))
+	controllerState.EXPECT().SetSSHServerPort(gomock.Any(), 17099).Return(nil)
+
+	err := controllersshservice.NewService(controllerState).SetSSHServerPort(c.Context(), 17099)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetSSHServerPortErrors(c *tc.C) {
+	controllerState := NewMockState(gomock.NewController(c))
+	controllerState.EXPECT().SetSSHServerPort(gomock.Any(), 17099).Return(context.Canceled)
+
+	err := controllersshservice.NewService(controllerState).SetSSHServerPort(c.Context(), 17099)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
+}
+
+func (s *serviceSuite) TestWatchSSHServerPort(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	controllerState := NewMockState(ctrl)
+	watcherFactory := NewMockWatcherFactory(ctrl)
+
+	controllerState.EXPECT().NamespaceForWatchSSHServerPort().Return("controller_ssh_server_port")
+
+	w := watchertest.NewMockNotifyWatcher(make(chan struct{}))
+	watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any(), gomock.Any()).Return(w, nil)
+
+	svc := controllersshservice.NewWatchableService(controllerState, watcherFactory)
+	got, err := svc.WatchSSHServerPort(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, w)
 }
 
 const testPrivateKey = "-----BEGIN OPENSSH PRIVATE KEY-----\n" +

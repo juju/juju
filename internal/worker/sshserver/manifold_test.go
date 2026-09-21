@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
 	modelsshservice "github.com/juju/juju/domain/ssh/service/model"
@@ -36,7 +37,7 @@ type manifoldSuite struct {
 	testhelpers.IsolationSuite
 
 	controllerConfigService *MockControllerConfigService
-	controllerSSHService    *controllersshservice.Service
+	controllerSSHService    *controllersshservice.WatchableService
 	sshService              *modelsshservice.WatchableService
 }
 
@@ -154,7 +155,7 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
 		},
-		GetControllerSSHService: func(getter dependency.Getter, name string) (*controllersshservice.Service, error) {
+		GetControllerSSHService: func(getter dependency.Getter, name string) (*controllersshservice.WatchableService, error) {
 			return s.controllerSSHService, nil
 		},
 		GetDomainServicesGetter: func(dependency.Getter, string) (services.DomainServicesGetter, error) {
@@ -215,7 +216,7 @@ func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
-	s.controllerSSHService = controllersshservice.NewService(stubControllerSSHState{})
+	s.controllerSSHService = controllersshservice.NewWatchableService(stubControllerSSHState{}, stubControllerSSHWatcherFactory{})
 	s.sshService = &modelsshservice.WatchableService{}
 
 	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
@@ -246,7 +247,7 @@ func (s *manifoldSuite) newManifoldConfig(c *tc.C, modifier func(cfg *ManifoldCo
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
 		},
-		GetControllerSSHService: func(getter dependency.Getter, name string) (*controllersshservice.Service, error) {
+		GetControllerSSHService: func(getter dependency.Getter, name string) (*controllersshservice.WatchableService, error) {
 			return s.controllerSSHService, nil
 		},
 		GetDomainServicesGetter: func(dependency.Getter, string) (services.DomainServicesGetter, error) {
@@ -281,7 +282,7 @@ func (s *manifoldSuite) TestManifoldMissingDependency(c *tc.C) {
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
 		},
-		GetControllerSSHService: func(getter dependency.Getter, name string) (*controllersshservice.Service, error) {
+		GetControllerSSHService: func(getter dependency.Getter, name string) (*controllersshservice.WatchableService, error) {
 			return s.controllerSSHService, nil
 		},
 		GetDomainServicesGetter: func(dependency.Getter, string) (services.DomainServicesGetter, error) {
@@ -331,6 +332,27 @@ func (stubControllerSSHState) GetPublicKeysForUser(context.Context, user.Name) (
 
 func (s stubControllerSSHState) MatchesPublicKeyInModelForUser(_ context.Context, modelUUID, username, fingerprint string) (bool, error) {
 	return false, nil
+}
+
+func (stubControllerSSHState) GetSSHServerPort(context.Context) (int, error) {
+	return controller.DefaultSSHServerPort, nil
+}
+
+func (stubControllerSSHState) SetSSHServerPort(context.Context, int) error {
+	return nil
+}
+
+func (stubControllerSSHState) NamespaceForWatchSSHServerPort() string {
+	return "controller_ssh_server_port"
+}
+
+type stubControllerSSHWatcherFactory struct{}
+
+func (stubControllerSSHWatcherFactory) NewNotifyWatcher(
+	_ context.Context, _ string,
+	_ eventsource.FilterOption, _ ...eventsource.FilterOption,
+) (watcher.NotifyWatcher, error) {
+	return watchertest.NewMockNotifyWatcher(make(chan struct{})), nil
 }
 
 func (stubDomainServicesGetter) ServicesForModel(context.Context, model.UUID) (services.DomainServices, error) {
