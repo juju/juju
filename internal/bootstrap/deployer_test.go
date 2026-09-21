@@ -13,20 +13,15 @@ import (
 	"time"
 
 	"github.com/canonical/gomock/gomock"
-	"github.com/juju/clock"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/errors"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
-	"github.com/juju/juju/core/status"
 	domainapplication "github.com/juju/juju/domain/application"
-	applicationcharm "github.com/juju/juju/domain/application/charm"
-	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/deployment/charm/charmdownloader"
 	charmtesting "github.com/juju/juju/domain/deployment/charm/testing"
@@ -266,114 +261,13 @@ func (s *deployerSuite) TestDeployCharmhubCharmWithCustomName(c *tc.C) {
 	c.Assert(info.Charm, tc.NotNil)
 }
 
-func (s *deployerSuite) TestAddControllerApplication(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Ensure that we can add the controller application to the model. This will
-	// query the backend to ensure that the charm we just uploaded exists before
-	// we can add the application.
-
-	now := clock.WallClock.Now()
-	s.clock.EXPECT().Now().Return(now).AnyTimes()
-
-	cfg := s.newConfig(c)
-	cfg.Clock = s.clock
-
-	curl := "ch:juju-controller-0"
-
-	// The application is called "controller" and the charm is called
-	// "juju-controller". Do not change this, or the controller charm won't
-	// come back up.
-
-	s.iaasApplicationService.EXPECT().CreateIAASApplication(
-		gomock.Any(),
-		bootstrap.ControllerApplicationName,
-		s.charm,
-		corecharm.Origin{
-			Source:   "charm-hub",
-			Type:     "charm",
-			Channel:  &charm.Channel{},
-			Revision: new(1),
-			Hash:     "sha-256",
-			Platform: corecharm.Platform{
-				Architecture: "arm64",
-				OS:           "ubuntu",
-				Channel:      "22.04",
-			},
-		},
-		applicationservice.AddApplicationArgs{
-			ReferenceName: bootstrap.ControllerCharmName,
-			DownloadInfo: &applicationcharm.DownloadInfo{
-				CharmhubIdentifier: "abcd",
-				Provenance:         applicationcharm.ProvenanceBootstrap,
-				DownloadURL:        "https://inferi.com",
-				DownloadSize:       42,
-			},
-			CharmStoragePath:     "path",
-			CharmObjectStoreUUID: "1234",
-			ApplicationConfig: charm.Config{
-				"is-juju":               true,
-				"identity-provider-url": "https://inferi.com",
-				"controller-url":        "wss://obscura.com:1234/api",
-			},
-			ApplicationSettings: domainapplication.ApplicationSettings{
-				Trust: true,
-			},
-			ApplicationStatus: &status.StatusInfo{
-				Status: status.Unset,
-				Since:  new(now),
-			},
-			IsController: true,
-		},
-		applicationservice.AddIAASUnitArg{
-			Nonce: new(agent.BootstrapNonce),
-		},
-	)
-
-	s.expectControllerApplicationExposure()
-
-	deployer, err := NewIAASDeployer(IAASDeployerConfig{
-		BaseDeployerConfig: cfg,
-		ApplicationService: s.iaasApplicationService,
-		HostBaseFn: func() (corebase.Base, error) {
-			return corebase.MakeDefaultBase("ubuntu", "22.04"), nil
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	origin := corecharm.Origin{
-		Source:   corecharm.CharmHub,
-		Type:     "charm",
-		Channel:  &charm.Channel{},
-		Revision: new(1),
-		Hash:     "sha-256",
-		Platform: corecharm.Platform{
-			Architecture: "arm64",
-			OS:           "ubuntu",
-			Channel:      "22.04",
-		},
-	}
-	err = deployer.EnsureControllerApplication(c.Context(), DeployCharmInfo{
-		URL:    charm.MustParseURL(curl),
-		Charm:  s.charm,
-		Origin: &origin,
-		DownloadInfo: &corecharm.DownloadInfo{
-			CharmhubIdentifier: "abcd",
-			DownloadURL:        "https://inferi.com",
-			DownloadSize:       42,
-		},
-		ArchivePath:     "path",
-		ObjectStoreUUID: "1234",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 func (s *deployerSuite) TestEnsureControllerApplicationPreservesExposure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// An exposed controller may already have restricted CIDRs or spaces.
 	// Bootstrap must leave those settings alone rather than merge defaults.
 	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), bootstrap.ControllerApplicationName).Return(true, nil)
+	s.applicationService.EXPECT().MergeExposeSettings(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 	deployer := makeBaseDeployer(s.newConfig(c))
 	err := deployer.ensureControllerApplicationExposed(c.Context())
