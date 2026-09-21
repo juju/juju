@@ -10,7 +10,6 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
-	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -111,7 +110,7 @@ WHERE ms.machine_uuid = ?`, machineUUID.String()).Scan(
 		"SELECT name, net_node_uuid FROM machine WHERE uuid = ?", machineUUID.String(),
 	).Scan(&name, &preservedNetNode)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(name, tc.Equals, "1")
+	c.Check(name, tc.Equals, machineName.String())
 	c.Check(preservedNetNode, tc.Equals, netNodeUUID)
 	for table, count := range preservedCounts {
 		c.Check(s.rowCount(c, table), tc.Equals, count, tc.Commentf("table %s", table))
@@ -122,37 +121,37 @@ WHERE ms.machine_uuid = ?`, machineUUID.String()).Scan(
 	err = db.QueryRowContext(c.Context(), `
 SELECT machine_name
 FROM machine_reprovision
-WHERE machine_name = ?`, "1").Scan(&reprovisionMachineName)
+WHERE machine_name = ?`, machineName.String()).Scan(&reprovisionMachineName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(reprovisionMachineName, tc.Equals, "1")
+	c.Check(reprovisionMachineName, tc.Equals, machineName.String())
 }
 
-func (s *stateSuite) TestDetachLostMachineCloudInstanceAllocatesOrdinalAfterGaps(c *tc.C) {
-	_, _ = s.addMachine(c)
-	_, _ = s.addMachine(c)
-	machineUUID, machineName := s.addMachine(c)
-	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID.String(), "123", "", "nonce", nil)
-	c.Assert(err, tc.ErrorIsNil)
+func (s *stateSuite) TestDetachLostMachineCloudInstanceAllocatesUnitOrdinalAfterGaps(c *tc.C) {
+	machineUUID, machineName := s.ensureInstance(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.runQuery(c, "UPDATE unit SET name = ? WHERE uuid = ?", "reprovision/2", "reprovision-unit")
 
-	for _, name := range []string{"4", "6", "8"} {
-		netNodeUUID := "gap-net-node-" + name
-		s.runQuery(c, "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
+	for _, ordinal := range []string{"1", "5", "6", "7"} {
+		unitUUID := "reprovision-unit-" + ordinal
+		nodeUUID := "reprovision-unit-net-node-" + ordinal
+		s.runQuery(c, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
 		s.runQuery(c, `
-INSERT INTO machine (uuid, name, net_node_uuid, life_id)
-VALUES (?, ?, ?, 0)`, "gap-machine-"+name, name, netNodeUUID)
+INSERT INTO unit
+    (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid)
+VALUES (?, ?, 0, ?, ?, ?)`, unitUUID, "reprovision/"+ordinal,
+			"reprovision-application", nodeUUID, "reprovision-charm")
 	}
-	s.runQuery(c, "UPDATE sequence SET value = 8 WHERE namespace = 'machine'")
+	s.runQuery(c, "UPDATE sequence SET value = ? WHERE namespace = ?", 8, "application_reprovision")
 
-	err = s.state.DetachLostMachineCloudInstance(
+	err := s.state.DetachLostMachineCloudInstance(
 		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(s.rowCountWhere(c, "machine", "name = ?", "2"), tc.Equals, 0)
-	c.Check(s.rowCountWhere(c, "machine", "name = ?", "9"), tc.Equals, 1)
-	c.Check(s.rowCountWhere(c, "machine_reprovision", "machine_name = ?", "9"), tc.Equals, 1)
-	for _, name := range []string{"0", "1", "4", "6", "8"} {
-		c.Check(s.rowCountWhere(c, "machine", "name = ?", name), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "unit", "uuid = ? AND name = ?", "reprovision-unit", "reprovision/9"), tc.Equals, 1)
+	for _, ordinal := range []string{"1", "5", "6", "7"} {
+		c.Check(s.rowCountWhere(c, "unit", "name = ?", "reprovision/"+ordinal), tc.Equals, 1)
 	}
 }
 
@@ -275,7 +274,7 @@ WHERE m.uuid = ?`, machineUUID.String()).Scan(
 		&mem, &cpuCores, &hostname, &agentStartedAt, &passwordHash,
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(name, tc.Equals, "1")
+	c.Check(name, tc.Equals, machineName.String())
 	c.Check(preservedNetNode, tc.Equals, netNodeUUID)
 	c.Check(instanceID, tc.Equals, "replacement-instance")
 	c.Check(displayName, tc.Equals, "replacement-display-name")
@@ -287,11 +286,9 @@ WHERE m.uuid = ?`, machineUUID.String()).Scan(
 	c.Check(agentStartedAt.Valid, tc.IsFalse)
 	c.Check(passwordHash, tc.Equals, "machine-password")
 
-	replacementMachineUUID, err := s.state.GetMachineUUID(c.Context(), coremachine.Name("1"))
+	replacementMachineUUID, err := s.state.GetMachineUUID(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(replacementMachineUUID, tc.Equals, machineUUID)
-	_, err = s.state.GetMachineUUID(c.Context(), machineName)
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 
 	var unitUUID, unitName, unitNetNode string
 	var unitLife int
@@ -303,12 +300,12 @@ WHERE uuid = ?`, "reprovision-unit").Scan(
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(unitUUID, tc.Equals, "reprovision-unit")
-	c.Check(unitName, tc.Equals, "reprovision/0")
+	c.Check(unitName, tc.Equals, "reprovision/1")
 	c.Check(unitLife, tc.Equals, 0)
 	c.Check(unitNetNode, tc.Equals, netNodeUUID)
 	c.Check(s.rowCountWhere(c, "unit", "net_node_uuid = ?", netNodeUUID), tc.Equals, 2)
 	c.Check(s.rowCount(c, "machine_reprovision"), tc.Equals, 0)
-	c.Check(s.rowCountWhere(c, "machine", "name = ?", machineName.String()), tc.Equals, 0)
+	c.Check(s.rowCountWhere(c, "machine", "name = ?", machineName.String()), tc.Equals, 1)
 	c.Check(s.rowCountWhere(c, "instance_tag", "machine_uuid = ? AND tag = ?",
 		machineUUID.String(), "replacement-tag"), tc.Equals, 1)
 	c.Check(s.rowCountWhere(c, "instance_tag", "machine_uuid = ? AND tag = ?",
@@ -357,7 +354,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRepeated(c *tc.C) {
 	err = s.state.DetachLostMachineCloudInstance(
 		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
 	)
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineReprovisionAlreadyExists)
 	s.checkInstanceID(c, machineUUID.String(), "")
 }
 
@@ -553,7 +550,7 @@ WHERE sv.uuid = ?`, "storage-volume").Scan(
 		s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c),
 	)
 	provisioningInfo, err := provisionerState.GetMachineProvisioningInfo(
-		c.Context(), "1", false,
+		c.Context(), machineName.String(), false,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(provisioningInfo.VolumeParams, tc.HasLen, 1)
@@ -783,6 +780,7 @@ func (s *stateSuite) addReprovisionUnit(c *tc.C, netNodeUUID string) {
 	s.runQuery(c, `
 INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
 VALUES (?, ?, ?, 0, ?)`, "reprovision-application", "reprovision-charm", "reprovision", network.AlphaSpaceId)
+	s.runQuery(c, "INSERT INTO sequence (namespace, value) VALUES (?, ?)", "application_reprovision", 0)
 	s.addReprovisionUnitOnMachine(c, "reprovision", netNodeUUID)
 }
 
