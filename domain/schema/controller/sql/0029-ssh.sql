@@ -23,3 +23,14 @@ CREATE TABLE controller_ssh_host_key (
 
 CREATE UNIQUE INDEX idx_singleton_controller_ssh_host_key
 ON controller_ssh_host_key ((1));
+
+-- controller_ssh_server_port holds the port the controller's embedded SSH
+-- jump server listens on. It is a singleton (only one row) and is owned by the
+-- controller charm, which pushes changes via the control socket. The SSH
+-- server worker watches this table and restarts on the configured port.
+CREATE TABLE controller_ssh_server_port (
+    port INT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_singleton_controller_ssh_server_port
+ON controller_ssh_server_port ((1));

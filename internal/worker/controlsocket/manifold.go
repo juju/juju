@@ -126,16 +126,16 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 
 	var w worker.Worker
 	w, err = cfg.NewWorker(Config{
-		AccessService:           domainServices.Access(),
-		TracingService:          domainServices.Tracing(),
-		LoggingService:          domainServices.Logging(),
-		ObjectStoreService:      controllerObjectStoreService,
-		ControllerConfigService: domainServices.ControllerConfig(),
-		Logger:                  cfg.Logger,
-		SocketName:              cfg.SocketName,
-		NewSocketListener:       cfg.NewSocketListener,
-		ControllerModelUUID:     controllerModelUUID,
-		MetricsCollector:        metricsCollector,
+		AccessService:       domainServices.Access(),
+		TracingService:      domainServices.Tracing(),
+		LoggingService:      domainServices.Logging(),
+		ObjectStoreService:  controllerObjectStoreService,
+		SSHServerService:    domainServices.SSHServerHostKey(),
+		Logger:              cfg.Logger,
+		SocketName:          cfg.SocketName,
+		NewSocketListener:   cfg.NewSocketListener,
+		ControllerModelUUID: controllerModelUUID,
+		MetricsCollector:    metricsCollector,
 	})
 	if err != nil {
 		cfg.PrometheusRegisterer.Unregister(metricsCollector)

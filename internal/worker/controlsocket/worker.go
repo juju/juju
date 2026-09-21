@@ -19,7 +19,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
-	"github.com/juju/juju/controller"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -120,11 +119,11 @@ type LoggingService interface {
 	DeleteLokiConfig(ctx context.Context) error
 }
 
-// ControllerConfigService is the interface for updating controller config.
-type ControllerConfigService interface {
-	// UpdateControllerConfig updates the controller config, applying the given
-	// update attributes and removing the given attributes.
-	UpdateControllerConfig(ctx context.Context, updateAttrs controller.Config, removeAttrs []string) error
+// SSHServerService is the interface for managing the controller SSH server
+// configuration.
+type SSHServerService interface {
+	// SetSSHServerPort sets the port the controller SSH jump server listens on.
+	SetSSHServerPort(ctx context.Context, port int) error
 }
 
 // Config represents configuration for the controlsocket worker.
@@ -137,9 +136,9 @@ type Config struct {
 	LoggingService LoggingService
 	// ObjectStoreService is the object store service for the controller.
 	ObjectStoreService ControllerObjectStoreService
-	// ControllerConfigService is the controller config service, used to persist
-	// the SSH server port pushed by the controller charm.
-	ControllerConfigService ControllerConfigService
+	// SSHServerService is the SSH server service, used to persist the SSH
+	// server port pushed by the controller charm.
+	SSHServerService SSHServerService
 	// SocketName is the socket file descriptor.
 	SocketName string
 	// NewSocketListener is the function that creates a new socket listener.
@@ -161,8 +160,8 @@ func (config Config) Validate() error {
 	if config.ObjectStoreService == nil {
 		return internalerrors.New("nil ObjectStoreService").Add(coreerrors.NotValid)
 	}
-	if config.ControllerConfigService == nil {
-		return internalerrors.New("nil ControllerConfigService").Add(coreerrors.NotValid)
+	if config.SSHServerService == nil {
+		return internalerrors.New("nil SSHServerService").Add(coreerrors.NotValid)
 	}
 	if config.ControllerModelUUID == "" {
 		return internalerrors.New("empty ControllerModelUUID").Add(coreerrors.NotValid)
@@ -186,11 +185,11 @@ func (config Config) Validate() error {
 type Worker struct {
 	catacomb catacomb.Catacomb
 
-	accessService           AccessService
-	tracingService          TracingService
-	loggingService          LoggingService
-	objectStoreService      ControllerObjectStoreService
-	controllerConfigService ControllerConfigService
+	accessService      AccessService
+	tracingService     TracingService
+	loggingService     LoggingService
+	objectStoreService ControllerObjectStoreService
+	sshServerService   SSHServerService
 
 	controllerModelUUID model.UUID
 	userCreatorName     user.Name
@@ -211,13 +210,13 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 
 	w := &Worker{
-		accessService:           config.AccessService,
-		tracingService:          config.TracingService,
-		loggingService:          config.LoggingService,
-		objectStoreService:      config.ObjectStoreService,
-		controllerConfigService: config.ControllerConfigService,
-		controllerModelUUID:     config.ControllerModelUUID,
-		userCreatorName:         userCreatorName,
+		accessService:       config.AccessService,
+		tracingService:      config.TracingService,
+		loggingService:      config.LoggingService,
+		objectStoreService:  config.ObjectStoreService,
+		sshServerService:    config.SSHServerService,
+		controllerModelUUID: config.ControllerModelUUID,
+		userCreatorName:     userCreatorName,
 
 		logger:  config.Logger,
 		metrics: config.MetricsCollector,
@@ -738,11 +737,9 @@ func (w *Worker) handleSetSSHServerPort(resp http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	// Persist the port to controller config. The SSH server worker watches
-	// controller config and restarts the server on the new port.
-	if err := w.controllerConfigService.UpdateControllerConfig(ctx, controller.Config{
-		controller.SSHServerPort: parsedBody.Port,
-	}, nil); internalerrors.Is(err, coreerrors.NotValid) {
+	// Persist the port to the SSH server service. The SSH server worker watches
+	// this value and restarts the server on the new port.
+	if err := w.sshServerService.SetSSHServerPort(ctx, parsedBody.Port); internalerrors.Is(err, coreerrors.NotValid) {
 		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid ssh server port: %w", err))
 		return
 	} else if err != nil {
