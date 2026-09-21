@@ -115,7 +115,7 @@ meaning captions; this page surfaces the catalogue.
 
 ## Sequences
 
-## juju status
+### juju status
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -125,7 +125,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: User calls juju status. Client sends a Status API call to the controller. The controller reads status records and derives agent liveness, then returns the projected status. Client shows the status output to the user.
 ```
 
-## Uniter operation (state machine)
+### Uniter operation (state machine)
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -135,7 +135,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: State machine: idle to preparing on hook queued, preparing to executing, executing to committing on hook exits 0, executing to error on hook fails, error to idle on retry, committing to idle on write complete.
 ```
 
-## Hook execution
+### Hook execution
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -145,7 +145,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: API server fires watcher to unit agent. Unit agent snapshots state and resolves hook. Loop: charm calls hook command, unit agent proxies it to API server. On success: flush writes. On failure: discard writes, set unit error.
 ```
 
-## Bootstrap K8s
+### Bootstrap K8s
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -155,7 +155,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: User calls juju bootstrap. Client authenticates with K8s and creates the controller pod namespace. Controller pod self-starts jujud, the API server, and the database. Controller pod signals API ready to Client. Client reports success to User.
 ```
 
-## Deploy K8s
+### Deploy K8s
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -165,7 +165,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: User calls juju deploy. Client sends Deploy RPC to Controller. Controller writes records and schedules pod on Kubernetes. K8s returns pod running. Controller starts containeragent. containeragent runs install, config-changed, start hooks and returns unit active. Controller signals deploy complete back to Client and User.
 ```
 
-## Integrate
+### Integrate
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -175,7 +175,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: User calls juju integrate. Client sends Integrate RPC to Controller. Controller writes relation record and fires watchers to both unit agents. Each agent runs relation-created, relation-joined, and relation-changed hooks and writes its relation data to the controller. The controller notifies the other agent after each write.
 ```
 
-## Unit removal
+### Unit removal
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -185,7 +185,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: User calls juju remove-unit. Controller marks unit Dying and fires watcher to unit agent. Unit agent runs stop, teardown, and remove hooks, then marks unit Dead. Controller releases machine and deletes unit records.
 ```
 
-## Model removal
+### Model removal
 
 ```{ggarch}
 :file: ../juju.ggarch
