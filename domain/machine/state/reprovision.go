@@ -105,6 +105,10 @@ VALUES ($machineReprovision.*)
 	if err != nil {
 		return errors.Errorf("preparing storage reset statements: %w", err)
 	}
+	relationScopeStmts, err := st.prepareReprovisionRelationScopeStatements()
+	if err != nil {
+		return errors.Errorf("preparing relation scope departure statements: %w", err)
+	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var existingReprovision machineReprovision
@@ -159,6 +163,9 @@ VALUES ($machineReprovision.*)
 		); err != nil {
 			return errors.Errorf("clearing machine-scoped storage: %w", err)
 		}
+		if err := runReprovisionStatements(ctx, tx, relationScopeStmts, machineUUID); err != nil {
+			return errors.Errorf("departing relation scopes: %w", err)
+		}
 
 		if err := runReprovisionStatements(ctx, tx, machineDataStmts, machineUUID); err != nil {
 			return errors.Errorf("clearing stale machine instance data: %w", err)
@@ -202,6 +209,71 @@ func validateReprovisionDetachTarget(target reprovisionDetachTarget, expectedIns
 		return machineerrors.MachineCloudInstanceChanged
 	}
 	return nil
+}
+
+func (st *State) prepareReprovisionRelationScopeStatements() ([]*sqlair.Statement, error) {
+	queries := []string{
+		// Preserve relation-get data before removing relation scope membership.
+		`
+WITH target_relation_units AS (
+    SELECT re.relation_uuid, u.name AS unit_name
+    FROM   relation_unit AS ru
+    JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+    JOIN   unit AS u ON ru.unit_uuid = u.uuid
+    JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
+    WHERE  m.uuid = $entityUUID.uuid
+)
+DELETE FROM relation_unit_setting_archive
+WHERE (relation_uuid, unit_name) IN (
+    SELECT tru.relation_uuid, tru.unit_name
+    FROM   target_relation_units AS tru
+)`,
+		`
+INSERT INTO relation_unit_setting_archive (relation_uuid, unit_name, "key", value)
+SELECT re.relation_uuid, u.name, rus."key", rus.value
+FROM   relation_unit AS ru
+JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+JOIN   unit AS u ON ru.unit_uuid = u.uuid
+JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
+JOIN   relation_unit_setting AS rus ON ru.uuid = rus.relation_unit_uuid
+WHERE  m.uuid = $entityUUID.uuid`,
+		`
+WITH target_relation_units AS (
+    SELECT ru.uuid
+    FROM   relation_unit AS ru
+    JOIN   unit AS u ON ru.unit_uuid = u.uuid
+    JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
+    WHERE  m.uuid = $entityUUID.uuid
+)
+DELETE FROM relation_unit_settings_hash
+WHERE relation_unit_uuid IN (
+    SELECT tru.uuid FROM target_relation_units AS tru
+)`,
+		`
+WITH target_relation_units AS (
+    SELECT ru.uuid
+    FROM   relation_unit AS ru
+    JOIN   unit AS u ON ru.unit_uuid = u.uuid
+    JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
+    WHERE  m.uuid = $entityUUID.uuid
+)
+DELETE FROM relation_unit_setting
+WHERE relation_unit_uuid IN (
+    SELECT tru.uuid FROM target_relation_units AS tru
+)`,
+		`
+WITH target_units AS (
+    SELECT u.uuid
+    FROM   unit AS u
+    JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
+    WHERE  m.uuid = $entityUUID.uuid
+)
+DELETE FROM relation_unit
+WHERE unit_uuid IN (
+    SELECT tu.uuid FROM target_units AS tu
+)`,
+	}
+	return st.prepareReprovisionStatements(queries, entityUUID{})
 }
 
 func (st *State) prepareReprovisionNetworkStatements() ([]*sqlair.Statement, error) {
