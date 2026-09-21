@@ -1,0 +1,5 @@
+#!/bin/bash
+
+set -eu
+
+juju-log "reprovision-hooks: hook=install machine=${JUJU_MACHINE_ID}"
