@@ -378,8 +378,13 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 
 Re-run with "--destroy-storage" or "--release-storage" to proceed.`)
 			}
-			// Pace retries through the clock instead of spinning.
-			<-c.clock.After(persistentStorageRetryDelay)
+			// Pace retries through the clock instead of spinning, but
+			// bail out promptly if the user cancels the command.
+			select {
+			case <-ctx.Done():
+				return errors.Annotate(ctx.Err(), "destroying controller")
+			case <-c.clock.After(persistentStorageRetryDelay):
+			}
 			// When we called DestroyController before, we were
 			// informed that there was persistent storage remaining.
 			// When we checked just now, there was none. We should

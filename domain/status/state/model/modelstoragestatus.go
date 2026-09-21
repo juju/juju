@@ -41,15 +41,7 @@ func (st *ModelState) GetModelStorageStatuses(
 	// precedence; its volume_id stays NULL so that each volume is emitted
 	// exactly once, by the volume branch.
 	stmt, err := st.Prepare(`
-SELECT fs_id AS &modelStorageStatusRow.filesystem_id,
-       fs_provider_id AS &modelStorageStatusRow.filesystem_provider_id,
-       fs_status AS &modelStorageStatusRow.filesystem_status,
-       fs_scope AS &modelStorageStatusRow.filesystem_provision_scope_id,
-       v_id AS &modelStorageStatusRow.volume_id,
-       v_provider_id AS &modelStorageStatusRow.volume_provider_id,
-       v_scope AS &modelStorageStatusRow.volume_provision_scope_id,
-       v_status AS &modelStorageStatusRow.volume_status
-FROM (
+WITH filesystems AS (
     SELECT sf.filesystem_id AS fs_id,
            sf.provider_id AS fs_provider_id,
            sfsv.status AS fs_status,
@@ -66,9 +58,7 @@ FROM (
     LEFT JOIN  storage_volume AS bsv ON bsv.uuid = siv.storage_volume_uuid
     AND        bsv.life_id < 2
     WHERE      sf.life_id < 2
-
-    UNION ALL
-
+), volumes AS (
     SELECT CAST(NULL AS TEXT) AS fs_id,
            CAST(NULL AS TEXT) AS fs_provider_id,
            CAST(NULL AS TEXT) AS fs_status,
@@ -81,6 +71,19 @@ FROM (
     LEFT JOIN  storage_volume_status AS svs ON svs.volume_uuid = sv.uuid
     LEFT JOIN  storage_volume_status_value AS svsv ON svsv.id = svs.status_id
     WHERE      sv.life_id < 2
+)
+SELECT fs_id AS &modelStorageStatusRow.filesystem_id,
+       fs_provider_id AS &modelStorageStatusRow.filesystem_provider_id,
+       fs_status AS &modelStorageStatusRow.filesystem_status,
+       fs_scope AS &modelStorageStatusRow.filesystem_provision_scope_id,
+       v_id AS &modelStorageStatusRow.volume_id,
+       v_provider_id AS &modelStorageStatusRow.volume_provider_id,
+       v_scope AS &modelStorageStatusRow.volume_provision_scope_id,
+       v_status AS &modelStorageStatusRow.volume_status
+FROM (
+    SELECT * FROM filesystems
+    UNION ALL
+    SELECT * FROM volumes
 )`, modelStorageStatusRow{})
 	if err != nil {
 		return status.ModelStorageStatus{}, errors.Capture(err)

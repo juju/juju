@@ -596,8 +596,11 @@ Re-run with "--destroy-storage" or "--release-storage" to proceed.`)
 	}
 	c.Check(destroyCalls, tc.Equals, controller.MaxPersistentStorageAttempts())
 	// Retries are paced through the clock rather than spinning hot; the
-	// delay must match the production persistentStorageRetryDelay.
+	// delay must match the production persistentStorageRetryDelay, and
+	// every retry must be paced: the bound exits on the 5th attempt
+	// without waiting, so exactly 4 waits must have occurred.
 	c.Check(s.clock.wait, tc.Equals, 2*time.Second)
+	c.Check(s.clock.waits, tc.Equals, controller.MaxPersistentStorageAttempts()-1)
 }
 
 func (s *DestroySuite) TestDestroyControllerGetFails(c *tc.C) {
