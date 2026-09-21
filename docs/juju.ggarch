@@ -231,6 +231,22 @@ model "Juju" {
   }
 
   edges {
+    // Parked observations (map-to-meaning audit, 2026-09-21) - things
+    // we are NOT drawing or rewording now, but might reconsider:
+    // 1. The pebble-notices channel is real and undrawn: pebble
+    //    notices reach the charm via the unit agent's pebblepoller/
+    //    pebblenotices workers (internal/worker/uniter/pebblepoller.
+    //    go) - pebble -> unit_agent -> charm.
+    // 2. The abstract controller -> charmhub edge could read
+    //    "downloads charm archives to its object store" - unit agents
+    //    never fetch from Charmhub; the controller fetches, stores the
+    //    blob, and serves the archive (apiserver object handlers).
+    // 3. The LXD container provisioner runs on the HOST machine agent
+    //    (internal/worker/containerprovisioner), not the controller -
+    //    the "clouds" edges cover machine instances only.
+    // 4. Unit agents never see Charmhub - they pull the archive from
+    //    the controller (UniterAPI.CharmArchiveSha256 + the object-
+    //    store GET); worth an edge if a view ever tells that story.
     // Intent chain
     user   -> client     [type: control, label: "sends commands to"]
     client -> controller [type: api,     label: "calls Juju API on"]
