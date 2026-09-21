@@ -5,6 +5,7 @@ package backups_test
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -196,7 +197,8 @@ func (s *createSuite) TestChecksumMismatch(c *tc.C) {
 
 	_, err := cmdtesting.RunCommand(c, s.wrappedCommand)
 	c.Assert(err, tc.ErrorMatches, `checksum mismatch for downloaded backup .*`)
-	client.Check(c, "backup-id", "", "Create", "Download")
+	// Every attempt fails the checksum, so all attempts are used up.
+	client.CheckCalls(c, "Create", "Download", "Download", "Download")
 
 	// The corrupt archive is kept under a suffix for inspection.
 	_, err = os.Stat("juju-backup-00010101-000000.tar.gz")
@@ -204,6 +206,94 @@ func (s *createSuite) TestChecksumMismatch(c *tc.C) {
 	data, err := os.ReadFile("juju-backup-00010101-000000.tar.gz.corrupt")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(data), tc.Equals, s.data)
+}
+
+// flakyReader returns its data once and then fails, simulating a
+// transfer that breaks part way through.
+type flakyReader struct {
+	data string
+	read bool
+}
+
+func (r *flakyReader) Read(p []byte) (int, error) {
+	if r.read {
+		return 0, errors.New("connection reset by peer")
+	}
+	r.read = true
+	return copy(p, r.data), nil
+}
+
+// TestDownloadRetriedAfterCopyFailure verifies that a transfer that
+// breaks part way through is retried with the same backup id.
+func (s *createSuite) TestDownloadRetriedAfterCopyFailure(c *tc.C) {
+	client := s.setDownload()
+	client.downloadHook = func(call int) (io.ReadCloser, error) {
+		if call == 0 {
+			return io.NopCloser(&flakyReader{data: s.data}), nil
+		}
+		return io.NopCloser(bytes.NewReader([]byte(s.data))), nil
+	}
+
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
+	c.Assert(err, tc.ErrorIsNil)
+
+	client.CheckCalls(c, "Create", "Download", "Download")
+	c.Check(cmdtesting.Stderr(ctx), tc.Matches,
+		`(?s)Retrying backup download \(attempt 2 of 3\):.*Downloaded to backup.tgz\n`)
+
+	s.filename = "backup.tgz"
+	c.Cleanup(func() { s.filename = "" })
+	s.checkArchive(c)
+}
+
+// TestDownloadRetriedAfterChecksumMismatch verifies that an archive
+// that arrives corrupt is fetched again rather than accepted.
+func (s *createSuite) TestDownloadRetriedAfterChecksumMismatch(c *tc.C) {
+	client := s.setDownload()
+	client.downloadHook = func(call int) (io.ReadCloser, error) {
+		if call == 0 {
+			return io.NopCloser(bytes.NewReader([]byte("corrupt archive data"))), nil
+		}
+		return io.NopCloser(bytes.NewReader([]byte(s.data))), nil
+	}
+
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
+	c.Assert(err, tc.ErrorIsNil)
+
+	client.CheckCalls(c, "Create", "Download", "Download")
+	s.filename = "backup.tgz"
+	c.Cleanup(func() { s.filename = "" })
+	s.checkArchive(c)
+
+	// A successful retry leaves no corrupt archive behind.
+	_, err = os.Stat("backup.tgz.corrupt")
+	c.Check(err, tc.Satisfies, os.IsNotExist)
+	c.Check(cmdtesting.Stderr(ctx), tc.Matches,
+		`(?s)Retrying backup download \(attempt 2 of 3\): checksum mismatch.*`)
+}
+
+// TestDownloadNotFoundNotRetried verifies that an id that is no longer
+// staged on the controller fails without burning the retries.
+func (s *createSuite) TestDownloadNotFoundNotRetried(c *tc.C) {
+	client := s.setDownload()
+	client.downloadHook = func(call int) (io.ReadCloser, error) {
+		return nil, errors.NotFoundf("backup %q", "backup-id")
+	}
+
+	_, err := cmdtesting.RunCommand(c, s.wrappedCommand)
+	c.Assert(err, tc.ErrorMatches, `backup "backup-id" not found`)
+	client.CheckCalls(c, "Create", "Download")
+}
+
+// TestNoChecksum verifies that a download id without a checksum, which
+// would make the downloaded archive unverifiable, fails closed.
+func (s *createSuite) TestNoChecksum(c *tc.C) {
+	client := s.setSuccess()
+
+	_, err := cmdtesting.RunCommand(c, s.wrappedCommand)
+	c.Assert(err, tc.ErrorMatches,
+		`controller returned no checksum for backup "backup-id", refusing to download it unverified`)
+	client.CheckCalls(c, "Create")
 }
 
 func (s *createSuite) TestNoBackupID(c *tc.C) {

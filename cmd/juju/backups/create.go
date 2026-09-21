@@ -25,16 +25,15 @@ const createDoc = `
 This command requests that Juju creates a backup of its state.
 You may provide a note to associate with the backup.
 
-The backup archive is always downloaded to the local machine, and the
-copy written on the controller is removed once it has been delivered.
-The archive is verified against the recorded checksum before the
-download is considered complete.
+The backup archive is always downloaded to the local machine. The
+archive is verified against the recorded checksum before the download
+is considered complete, and a failed or corrupted transfer is retried
+automatically.
 
-If the transfer is interrupted, the staged archive is kept on the
-controller for the duration of the ` + "`backup-download-ttl`" + ` model config
-attribute (15 minutes by default) so the download can be retried;
-once that window lapses the staged copy is removed and the backup
-must be created again.
+The staged copy on the controller is kept for the duration of the
+` + "`backup-download-ttl`" + ` model config attribute (15 minutes by
+default) so the retries have room to succeed; once that window lapses
+the copy is removed and the backup must be created again.
 
 The model config attribute ` + "`backup-dir`" + ` only serves as scratch space
 during backup creation; no archive is kept there once the command
@@ -129,6 +128,16 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 			result.Filename)
 	}
 
+	if result.Checksum == "" {
+		// A controller that returns a download id always records a
+		// checksum for the archive too, so an empty checksum means a
+		// malformed response. Fail closed rather than download an
+		// archive that cannot be verified.
+		return errors.Errorf(
+			"controller returned no checksum for backup %q, refusing to download it unverified",
+			result.ID)
+	}
+
 	filename := c.decideFilename(c.Filename, result.Started)
 	if err := c.download(ctx, client, result.ID, result.Checksum, filename); err != nil {
 		return errors.Trace(err)
@@ -145,10 +154,74 @@ func (c *createCommand) decideFilename(filename string, timestamp time.Time) str
 	return timestamp.Format(backups.FilenameTemplate)
 }
 
+// maxDownloadAttempts bounds how many times a failed archive download
+// is retried before the command gives up.
+const maxDownloadAttempts = 3
+
+var (
+	// errChecksumMismatch reports that the bytes received for a
+	// backup archive do not match the checksum recorded when the
+	// backup was created.
+	errChecksumMismatch = errors.ConstError("checksum mismatch")
+
+	// errLocalArchiveFile reports that the archive could not be
+	// written to the local machine. Fetching the archive again cannot
+	// fix a local filesystem problem, so download attempts that fail
+	// this way are not retried.
+	errLocalArchiveFile = errors.ConstError("local archive file failure")
+)
+
 // download streams the backup archive staged on the controller for the
 // given id, writing it to the local archiveFilename and verifying it
-// against the recorded checksum when one is available.
+// against the recorded checksum. A failed attempt is retried with the
+// same id: the controller keeps the archive staged until its retention
+// window (the backup-download-ttl model config attribute) lapses.
 func (c *createCommand) download(ctx *cmd.Context, client APIClient, id, checksum, archiveFilename string) error {
+	var err error
+	for attempt := 1; attempt <= maxDownloadAttempts; attempt++ {
+		if attempt > 1 {
+			ctx.Infof("Retrying backup download (attempt %d of %d): %v",
+				attempt, maxDownloadAttempts, err)
+		}
+		if err = c.fetchArchive(ctx, client, id, checksum, archiveFilename); err == nil {
+			ctx.Infof("Downloaded to %v", archiveFilename)
+			return nil
+		}
+		if !retriableDownloadFailure(err) {
+			break
+		}
+	}
+	if errors.Is(err, errChecksumMismatch) {
+		// Keep the corrupt archive under a suffix so the operator can
+		// inspect the damage, rather than silently removing it.
+		corruptName := archiveFilename + ".corrupt"
+		if rerr := c.Filesystem().Rename(archiveFilename, corruptName); rerr != nil {
+			return errors.Errorf("checksum mismatch for downloaded backup %q", archiveFilename)
+		}
+		return errors.Errorf(
+			"checksum mismatch for downloaded backup %q (renamed to %q for inspection)",
+			archiveFilename, corruptName)
+	}
+	return errors.Trace(err)
+}
+
+// retriableDownloadFailure reports whether a failed attempt may
+// succeed if the archive is fetched again with the same id. Failures
+// writing the archive locally, and an id that is no longer staged on
+// the controller, are permanent; anything else is worth another
+// attempt.
+func retriableDownloadFailure(err error) bool {
+	if errors.Is(err, errLocalArchiveFile) {
+		return false
+	}
+	return !errors.IsNotFound(err)
+}
+
+// fetchArchive performs one download attempt: it streams the staged
+// archive for id into archiveFilename, hashing it along the way, and
+// reports errChecksumMismatch when the received bytes do not match
+// the recorded checksum.
+func (c *createCommand) fetchArchive(ctx *cmd.Context, client APIClient, id, checksum, archiveFilename string) error {
 	resultArchive, err := client.Download(ctx, id)
 	if err != nil {
 		return errors.Trace(err)
@@ -157,7 +230,10 @@ func (c *createCommand) download(ctx *cmd.Context, client APIClient, id, checksu
 
 	archive, err := c.Filesystem().Create(archiveFilename)
 	if err != nil {
-		return errors.Annotatef(err, "while creating local archive file %v", archiveFilename)
+		// The failure is local, so mark it as such to keep the
+		// download from being retried.
+		return fmt.Errorf("while creating local archive file %v: %w%w",
+			archiveFilename, err, errors.Hide(errLocalArchiveFile))
 	}
 	defer archive.Close()
 
@@ -168,17 +244,8 @@ func (c *createCommand) download(ctx *cmd.Context, client APIClient, id, checksu
 	if _, err := io.Copy(hasher, resultArchive); err != nil {
 		return errors.Annotatef(err, "while copying to local archive file %v", archiveFilename)
 	}
-	if checksum != "" && hasher.Base64Sum() != checksum {
-		// Keep the corrupt archive under a suffix so the operator can
-		// inspect the damage, rather than silently removing it.
-		corruptName := archiveFilename + ".corrupt"
-		if err := c.Filesystem().Rename(archiveFilename, corruptName); err != nil {
-			return errors.Errorf("checksum mismatch for downloaded backup %q", archiveFilename)
-		}
-		return errors.Errorf(
-			"checksum mismatch for downloaded backup %q (renamed to %q for inspection)",
-			archiveFilename, corruptName)
+	if hasher.Base64Sum() != checksum {
+		return errChecksumMismatch
 	}
-	ctx.Infof("Downloaded to %v", archiveFilename)
 	return nil
 }

@@ -117,10 +117,17 @@ type fakeAPIClient struct {
 	data       string
 	err        error
 
-	calls []string
-	args  []string
-	idArg string
-	notes string
+	// downloadHook, when set, is called for each Download invocation
+	// with the zero-based Download call number; its result replaces
+	// the default response. It lets tests script per-attempt
+	// behaviour for the download retry logic.
+	downloadHook func(call int) (io.ReadCloser, error)
+
+	calls     []string
+	args      []string
+	idArg     string
+	notes     string
+	downloads int
 }
 
 func (f *fakeAPIClient) Check(c *tc.C, id, notes string, calls ...string) {
@@ -155,9 +162,14 @@ func (c *fakeAPIClient) Create(ctx context.Context, notes string) (*params.Backu
 }
 
 func (c *fakeAPIClient) Download(_ context.Context, id string) (io.ReadCloser, error) {
+	call := c.downloads
+	c.downloads++
 	c.calls = append(c.calls, "Download")
 	c.args = append(c.args, id)
 	c.idArg = id
+	if c.downloadHook != nil {
+		return c.downloadHook(call)
+	}
 	if c.err != nil {
 		return nil, c.err
 	}

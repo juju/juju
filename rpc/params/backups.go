@@ -14,9 +14,9 @@ import (
 type BackupsCreateArgs struct {
 	Notes string `json:"notes"`
 
-	// NoDownload is kept for compatibility with older clients; it has
-	// no effect because the controller always stages the archive for
-	// download.
+	// NoDownload is kept for compatibility with older clients only.
+	// The controller no longer supports keeping the archive instead of
+	// downloading it, so requests that set this field are rejected.
 	NoDownload bool `json:"no-download,omitempty"`
 }
 
