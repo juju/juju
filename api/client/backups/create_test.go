@@ -27,8 +27,7 @@ func (s *createSuite) TestCreate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	arg := params.BackupsCreateArgs{
-		Notes:      "important",
-		NoDownload: true,
+		Notes: "important",
 	}
 	meta := backupstesting.NewMetadata()
 	result := params.CreateResult(meta, "test-filename")
@@ -42,7 +41,7 @@ func (s *createSuite) TestCreate(c *tc.C) {
 	})
 
 	client := s.newClient()
-	got, err := client.Create(c.Context(), "important", true)
+	got, err := client.Create(c.Context(), "important")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Log(got)
 	resultMeta := backupstesting.UpdateNotes(meta, "important")

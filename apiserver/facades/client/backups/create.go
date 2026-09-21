@@ -7,8 +7,8 @@ import (
 	"context"
 	"os"
 	"path"
+	"path/filepath"
 
-	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	corebackups "github.com/juju/juju/core/backups"
@@ -16,30 +16,17 @@ import (
 	"github.com/juju/juju/core/permission"
 	coreversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
 // Create is the API method that requests juju to create a new backup
-// of its state.
+// of its state. The archive contains the controller database export and one
+// export per model, alongside the controller's data directory files.
 //
-// Dqlite-based backups are not delivered in the 4.1 release: until
-// delivery resumes, the facade answers with a not-implemented error,
-// as it did before the creation method was wired. The implementation
-// is kept in createBackup below and stays exercised by this package's
-// tests.
-func (a *API) Create(context.Context, params.BackupsCreateArgs) (params.BackupsMetadataResult, error) {
-	result := params.BackupsMetadataResult{}
-	return result, jujuerrors.NotImplementedf("Dqlite-based backups")
-}
-
-// createBackup implements the backup creation that the Create API
-// method exposes once backup delivery resumes. The archive contains the
-// controller database export and one export per model, alongside the
-// controller's data directory files.
-//
-// Only args.Notes is honored. args.NoDownload is accepted for client
-// compatibility but has no effect here: the archive is always written to the
-// controller's backup directory, and the download endpoint is not wired yet.
+// Only args.Notes is honored. The archive is not kept on the controller:
+// it is staged under a server-minted id for one-shot download and removed
+// once it has been fully served or its retention window expires.
 //
 // The controller database and each model database are exported at different
 // points in time with no cross-database snapshot, so the archive is not a
@@ -47,7 +34,7 @@ func (a *API) Create(context.Context, params.BackupsCreateArgs) (params.BackupsM
 // between the controller export and a given model export is not captured
 // consistently. This is inherent to backing up multiple independent dqlite
 // databases and is documented so restore logic does not assume otherwise.
-func (a *API) createBackup(ctx context.Context, args params.BackupsCreateArgs) (params.BackupsMetadataResult, error) {
+func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params.BackupsMetadataResult, error) {
 	// Creating a backup requires superuser access to the controller. This is
 	// the same gate Juju 3.6 applies to the Create method.
 	if err := a.authorizer.HasPermission(
@@ -198,5 +185,25 @@ func (a *API) createBackup(ctx context.Context, args params.BackupsCreateArgs) (
 	}
 	a.logger.Infof(ctx, "created backup %q", filename)
 
-	return params.CreateResult(meta, filename), nil
+	// The archive is served for download exactly once: stage it under a
+	// server-minted UUID in the one-shot download directory and hand the
+	// id to the client. The archive is removed once it has been fully
+	// served, or by the one-shot sweeper when its retention window ends.
+	id, err := uuid.NewUUID()
+	if err != nil {
+		return params.BackupsMetadataResult{}, errors.Capture(err)
+	}
+	if err := os.MkdirAll(corebackups.OneShotDir(backupDir), 0755); err != nil {
+		return params.BackupsMetadataResult{}, errors.Errorf(
+			"creating one-shot backup download dir: %w", err)
+	}
+	oneShotPath := filepath.Join(corebackups.OneShotDir(backupDir), id.String()+".tar.gz")
+	if err := os.Rename(filename, oneShotPath); err != nil {
+		return params.BackupsMetadataResult{}, errors.Errorf(
+			"staging backup archive for download: %w", err)
+	}
+
+	result := params.CreateResult(meta, filepath.Base(filename))
+	result.ID = id.String()
+	return result, nil
 }

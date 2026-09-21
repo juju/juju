@@ -6,7 +6,8 @@ package backups_test
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"crypto/sha1"
+	"encoding/base64"
 	"io"
 	"os"
 
@@ -38,7 +39,7 @@ model UUID:
 machine ID:             
 created on host:        
 
-checksum:               
+checksum:              YuLeCCL75ZT/frYSABmKhamUh58= 
 checksum format:        
 size (B):              0 
 stored:                0001-01-01 00:00:00 +0000 UTC 
@@ -109,7 +110,7 @@ func (s *BaseBackupsSuite) setFailure(failure string) *fakeAPIClient {
 
 func (s *BaseBackupsSuite) setDownload() *fakeAPIClient {
 	client := s.setSuccess()
-	client.archive = io.NopCloser(bytes.NewBufferString(s.data))
+	client.data = s.data
 	return client
 }
 
@@ -139,7 +140,7 @@ func (s *BaseBackupsSuite) checkArchive(c *tc.C) {
 // Replace this fakeAPIClient with MockAPIClient for all tests.
 type fakeAPIClient struct {
 	metaresult *params.BackupsMetadataResult
-	archive    io.ReadCloser
+	data       string
 	err        error
 
 	calls []string
@@ -161,26 +162,35 @@ func (f *fakeAPIClient) CheckCalls(c *tc.C, calls ...string) {
 func (f *fakeAPIClient) CheckArgs(c *tc.C, args ...string) {
 	c.Check(f.args, tc.DeepEquals, args)
 }
-
-func (c *fakeAPIClient) Create(ctx context.Context, notes string, noDownload bool) (*params.BackupsMetadataResult, error) {
+func (c *fakeAPIClient) Create(ctx context.Context, notes string) (*params.BackupsMetadataResult, error) {
 	c.calls = append(c.calls, "Create")
-	c.args = append(c.args, notes, fmt.Sprintf("%t", noDownload))
+	c.args = append(c.args, notes)
 	c.notes = notes
 	if c.err != nil {
 		return nil, c.err
 	}
-	createResult := c.metaresult
-
-	return createResult, nil
+	if c.data != "" {
+		// The archive checksum matches the download data unless the
+		// test set one explicitly.
+		if c.metaresult.Checksum == "" {
+			sum := sha1.Sum([]byte(c.data))
+			c.metaresult.Checksum = base64.StdEncoding.EncodeToString(sum[:])
+		}
+	}
+	return c.metaresult, nil
 }
 
 func (c *fakeAPIClient) Download(_ context.Context, id string) (io.ReadCloser, error) {
 	c.calls = append(c.calls, "Download")
 	c.args = append(c.args, id)
+	c.idArg = id
 	if c.err != nil {
 		return nil, c.err
 	}
-	return c.archive, nil
+	if c.idArg != c.metaresult.ID {
+		return nil, errors.Errorf("unexpected backup id %q", id)
+	}
+	return io.NopCloser(bytes.NewReader([]byte(c.data))), nil
 }
 
 func (c *fakeAPIClient) Close() error {

@@ -49,7 +49,6 @@ disable-user: 10198
 disabled-commands: 10220
 documentation: 10101
 download: 10134
-download-backup: 10240
 enable-command: 10111
 enable-destroy-controller: 10086
 enable-user: 10241

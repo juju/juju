@@ -850,6 +850,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		debuglogAuth,
 		srv.logDir,
 	), "log")
+	backupsDownloadHandler := srv.monitoredHandler(&backupsDownloadHandler{
+		resolveBackupDir: srv.resolveBackupDir,
+		logger:           logger,
+	}, "backups")
 	logSinkHandler := logsink.NewHTTPHandler(
 		newAgentLogWriteFunc(httpCtxt, srv.logSink),
 		httpCtxt.stop(),
@@ -1029,6 +1033,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:    logSinkHandler,
 		tracked:    true,
 		authorizer: logSinkAuthorizer,
+	}, {
+		pattern:    "/backups",
+		methods:    []string{http.MethodGet},
+		handler:    backupsDownloadHandler,
+		authorizer: controllerAdminAuthorizer,
 	}, {
 		pattern:         modelRoutePrefix + "/api",
 		handler:         mainAPIHandler,

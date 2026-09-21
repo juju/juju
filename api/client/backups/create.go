@@ -11,14 +11,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// Create sends a request to create a backup of juju's state.  It
-// returns the metadata associated with the resulting backup and a
-// filename for download.
-func (c *Client) Create(ctx context.Context, notes string, noDownload bool) (*params.BackupsMetadataResult, error) {
+// Create sends a request to create a backup of juju's state. It
+// returns the metadata associated with the resulting backup, with
+// the archive contents inlined in the result.
+func (c *Client) Create(ctx context.Context, notes string) (*params.BackupsMetadataResult, error) {
 	var result params.BackupsMetadataResult
 	args := params.BackupsCreateArgs{
-		Notes:      notes,
-		NoDownload: noDownload,
+		Notes: notes,
 	}
 
 	if err := c.facade.FacadeCall(ctx, "Create", args, &result); err != nil {
