@@ -174,6 +174,10 @@ rebuild-ggarch: clean-ggarch
 GGARCH_FILES := $(wildcard *.ggarch)
 GGARCH_GATED  := juju.ggarch principles.ggarch
 
+# Regenerate the synthesized view variants inside juju.ggarch.
+variants:
+	python3 scripts/make-variants.py
+
 check-ggarch:
 	@set -e; . $(DOCS_VENV); \
 	for f in $(GGARCH_FILES); do \
