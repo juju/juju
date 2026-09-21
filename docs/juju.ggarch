@@ -1342,31 +1342,3 @@ diagram "HA controller: Dqlite replicaset (synthesized)" from "Juju" {
   }
 }
 
-diagram "Intro: Juju enters (declared)" from "Juju" {
-  select {
-    nodes: user client controller cloud charmhub apps
-    edges: type control type api
-    except: client -> cloud cloud -> client cloud -> controller
-    sizing: uniform
-    records: hidden
-    instances: cloud [
-      { id: cloud_a, label: "cloud 1" },
-      { id: cloud_b, label: "cloud 2" }
-    ]
-    instances: apps [
-      { id: app1, label: "app 1" },
-      { id: app2, label: "app 2" },
-      { id: app3, label: "app 3" }
-    ]
-  }
-  annotations {
-    legend [position: "bottom-right",
-            person: "operator",
-            juju-software: "Juju process",
-            external: "cloud / external",
-            charm: "charmed application",
-            control: "manages / drives",
-            api: "API call"]
-  }
-}
-

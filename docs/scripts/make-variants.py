@@ -73,6 +73,17 @@ def generate() -> str:
         if not m or "positions {" not in chunk:
             continue  # model body, banners without diagrams, declared view
         name = m.group(1)
+        # The ADR-007 refinement demo is hand-maintained; it never gets
+        # a synthesized variant. Cut any swept-in declared view before
+        # stripping (the banner between the authored "Juju enters" and
+        # the demo once failed to split, sweeping both into one chunk:
+        # the demo shipped as a stripped twin, two views with one name
+        # — measured, 2026-09-21).
+        dm = re.search(r'diagram "[^"]*\(declared\)"', chunk)
+        if dm:
+            chunk = chunk[:dm.start()]
+        if "(declared)" in name:
+            continue
         variant = strip_positions_blocks(chunk)
         variant = variant.replace(f'diagram "{name}"',
                                   f'diagram "{name} (synthesized)"', 1)
