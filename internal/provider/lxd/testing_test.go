@@ -721,6 +721,18 @@ func (*StubClient) GetNetworkState(string) (*api.NetworkState, error) {
 	panic("this stub is deprecated; use mocks instead")
 }
 
+func (*StubClient) GetNetworkForwards(string) ([]api.NetworkForward, error) {
+	panic("this stub is deprecated; use mocks instead")
+}
+
+func (*StubClient) CreateNetworkForward(string, api.NetworkForwardsPost) (lxdclient.Operation, error) {
+	panic("this stub is deprecated; use mocks instead")
+}
+
+func (*StubClient) DeleteNetworkForward(string, string) (lxdclient.Operation, error) {
+	panic("this stub is deprecated; use mocks instead")
+}
+
 func (*StubClient) GetInstance(string) (*api.Instance, string, error) {
 	panic("this stub is deprecated; use mocks instead")
 }

@@ -37,11 +37,13 @@ type MockServerMockRecorder struct {
 	createCertificateExpects            []*gomock.Call1_1[api.CertificatesPost, error]
 	createClientCertificateExpects      []*gomock.Call1_1[*lxd0.Certificate, error]
 	createContainerFromSpecExpects      []*gomock.Call1_2[lxd0.ContainerSpec, *lxd0.Container, error]
+	createNetworkForwardExpects         []*gomock.Call2_2[string, api.NetworkForwardsPost, lxd.Operation, error]
 	createPoolExpects                   []*gomock.Call3_1[string, string, map[string]string, error]
 	createProfileExpects                []*gomock.Call1_1[api.ProfilesPost, error]
 	createProfileWithConfigExpects      []*gomock.Call2_1[string, map[string]string, error]
 	createVolumeExpects                 []*gomock.Call3_1[string, string, map[string]string, error]
 	deleteCertificateExpects            []*gomock.Call1_1[string, error]
+	deleteNetworkForwardExpects         []*gomock.Call2_2[string, string, lxd.Operation, error]
 	deleteProfileExpects                []*gomock.Call1_1[string, error]
 	deleteStoragePoolVolumeExpects      []*gomock.Call3_2[string, string, string, lxd.Operation, error]
 	enableHTTPSListenerExpects          []*gomock.Call0_1[error]
@@ -54,6 +56,7 @@ type MockServerMockRecorder struct {
 	getInstanceExpects                  []*gomock.Call1_3[string, *api.Instance, string, error]
 	getInstanceStateExpects             []*gomock.Call1_3[string, *api.InstanceState, string, error]
 	getNICsFromProfileExpects           []*gomock.Call1_2[string, map[string]map[string]string, error]
+	getNetworkForwardsExpects           []*gomock.Call1_2[string, []api.NetworkForward, error]
 	getNetworkNamesExpects              []*gomock.Call0_2[[]string, error]
 	getNetworkStateExpects              []*gomock.Call1_2[string, *api.NetworkState, error]
 	getNetworksExpects                  []*gomock.Call0_2[[]api.Network, error]
@@ -189,6 +192,24 @@ func (mr *MockServerMockRecorder) CreateContainerFromSpec(spec any) *MockServerC
 // MockServerCreateContainerFromSpecCall is the typed call wrapper for CreateContainerFromSpec.
 type MockServerCreateContainerFromSpecCall = gomock.Call1_2[lxd0.ContainerSpec, *lxd0.Container, error]
 
+// CreateNetworkForward mocks base method.
+func (m *MockServer) CreateNetworkForward(networkName string, forward api.NetworkForwardsPost) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.createNetworkForwardExpects, m.ctrl, m, "CreateNetworkForward", networkName, forward)
+}
+
+// CreateNetworkForward indicates an expected call of CreateNetworkForward.
+func (mr *MockServerMockRecorder) CreateNetworkForward(networkName, forward any) *MockServerCreateNetworkForwardCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[string, api.NetworkForwardsPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "CreateNetworkForward", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(forward))
+	mr.createNetworkForwardExpects = append(mr.createNetworkForwardExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockServerCreateNetworkForwardCall is the typed call wrapper for CreateNetworkForward.
+type MockServerCreateNetworkForwardCall = gomock.Call2_2[string, api.NetworkForwardsPost, lxd.Operation, error]
+
 // CreatePool mocks base method.
 func (m *MockServer) CreatePool(name, driver string, attrs map[string]string) error {
 	m.ctrl.T.Helper()
@@ -278,6 +299,24 @@ func (mr *MockServerMockRecorder) DeleteCertificate(fingerprint any) *MockServer
 
 // MockServerDeleteCertificateCall is the typed call wrapper for DeleteCertificate.
 type MockServerDeleteCertificateCall = gomock.Call1_1[string, error]
+
+// DeleteNetworkForward mocks base method.
+func (m *MockServer) DeleteNetworkForward(networkName, listenAddress string) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.deleteNetworkForwardExpects, m.ctrl, m, "DeleteNetworkForward", networkName, listenAddress)
+}
+
+// DeleteNetworkForward indicates an expected call of DeleteNetworkForward.
+func (mr *MockServerMockRecorder) DeleteNetworkForward(networkName, listenAddress any) *MockServerDeleteNetworkForwardCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[string, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteNetworkForward", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(listenAddress))
+	mr.deleteNetworkForwardExpects = append(mr.deleteNetworkForwardExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockServerDeleteNetworkForwardCall is the typed call wrapper for DeleteNetworkForward.
+type MockServerDeleteNetworkForwardCall = gomock.Call2_2[string, string, lxd.Operation, error]
 
 // DeleteProfile mocks base method.
 func (m *MockServer) DeleteProfile(arg0 string) error {
@@ -494,6 +533,24 @@ func (mr *MockServerMockRecorder) GetNICsFromProfile(profName any) *MockServerGe
 
 // MockServerGetNICsFromProfileCall is the typed call wrapper for GetNICsFromProfile.
 type MockServerGetNICsFromProfileCall = gomock.Call1_2[string, map[string]map[string]string, error]
+
+// GetNetworkForwards mocks base method.
+func (m *MockServer) GetNetworkForwards(networkName string) ([]api.NetworkForward, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getNetworkForwardsExpects, m.ctrl, m, "GetNetworkForwards", networkName)
+}
+
+// GetNetworkForwards indicates an expected call of GetNetworkForwards.
+func (mr *MockServerMockRecorder) GetNetworkForwards(networkName any) *MockServerGetNetworkForwardsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[string, []api.NetworkForward, error](mr.mock.ctrl.T, mr.mock, "GetNetworkForwards", gomock.EnsureMatcher(networkName))
+	mr.getNetworkForwardsExpects = append(mr.getNetworkForwardsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockServerGetNetworkForwardsCall is the typed call wrapper for GetNetworkForwards.
+type MockServerGetNetworkForwardsCall = gomock.Call1_2[string, []api.NetworkForward, error]
 
 // GetNetworkNames mocks base method.
 func (m *MockServer) GetNetworkNames() ([]string, error) {
