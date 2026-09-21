@@ -1185,7 +1185,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	manifolds := dependency.Manifolds{
 		// Bootstrap worker is responsible for setting up the initial machine.
 		bootstrapName: ifControllerProxyReady(ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
-			ObjectStoreName:         objectStoreFacadeName,
 			DomainServicesName:      domainServicesName,
 			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,
@@ -1194,7 +1193,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APIPort:                 config.APIPort,
 			AgentPassword:           config.AgentPassword,
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
-			PopulateControllerCharm: bootstrap.PopulateIAASControllerCharm,
+			PopulateControllerCharm: internalbootstrap.PopulateControllerCharm,
 			StatusHistory:           domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),
 			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
 			Clock:                   config.Clock,
@@ -1428,13 +1427,12 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, manifolds)
 }
 
-// CAASManifolds returns a set of co-configured manifolds covering the
-// various responsibilities of a CAAS machine agent.
-func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
+// K8sManifolds returns a set of co-configured manifolds covering the
+// various responsibilities of a K8s machine agent.
+func K8sManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
 		// Bootstrap worker is responsible for setting up the initial machine.
 		bootstrapName: ifControllerProxyReady(ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
-			ObjectStoreName:         objectStoreFacadeName,
 			DomainServicesName:      domainServicesName,
 			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,
@@ -1443,17 +1441,17 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APIPort:                 config.APIPort,
 			AgentPassword:           config.AgentPassword,
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
-			PopulateControllerCharm: bootstrap.PopulateCAASControllerCharm,
+			PopulateControllerCharm: internalbootstrap.PopulateControllerCharm,
 			StatusHistory:           domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),
 			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
 			Clock:                   config.Clock,
 
-			AgentBinaryUploader:           bootstrap.CAASAgentBinaryUploader,
-			ControllerCharmDeployer:       bootstrap.CAASControllerCharmUploader,
-			ControllerApplicationPassword: bootstrap.CAASControllerApplicationPassword,
-			ControllerUnitPassword:        bootstrap.CAASControllerUnitPassword,
-			BootstrapAddressFinderGetter:  bootstrap.CAASAddressFinder,
-			AgentFinalizer:                bootstrap.CAASAgentFinalizer,
+			AgentBinaryUploader:           bootstrap.K8sAgentBinaryUploader,
+			ControllerCharmDeployer:       bootstrap.K8sControllerCharmUploader,
+			ControllerApplicationPassword: bootstrap.K8sControllerApplicationPassword,
+			ControllerUnitPassword:        bootstrap.K8sControllerUnitPassword,
+			BootstrapAddressFinderGetter:  bootstrap.K8sAddressFinder,
+			AgentFinalizer:                bootstrap.K8sAgentFinalizer,
 			RemoveBootstrapSSHKeys:        func([]string) error { return nil },
 		}))),
 

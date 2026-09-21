@@ -60,6 +60,14 @@ type AgentBinaryStore interface {
 type ApplicationService interface {
 	// GetApplicationUUIDByName returns the UUID for the named application.
 	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
+
+	// IsApplicationExposed reports whether the application is exposed.
+	IsApplicationExposed(ctx context.Context, appName string) (bool, error)
+
+	// MergeExposeSettings exposes the application and merges endpoint settings.
+	// An empty map exposes all endpoints to all IPv4 and IPv6 networks.
+	MergeExposeSettings(ctx context.Context, appName string, endpoints map[string]application.ExposedEndpoint) error
+
 	// CreateIAASApplication creates a new IAAS application with the given name
 	// and charm.
 	CreateIAASApplication(

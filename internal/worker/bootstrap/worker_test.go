@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	accessservice "github.com/juju/juju/domain/access/service"
@@ -78,7 +77,6 @@ func (s *workerSuite) TestKilled(c *tc.C) {
 	s.expectUser(c)
 	s.expectAuthorizedKeys()
 	s.expectControllerConfig()
-	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
 	s.removeBootstrapSSHKeys = func(keys []string) error {
 		c.Check(keys, tc.DeepEquals, []string{"bootstrap-ssh-key"})
@@ -106,7 +104,6 @@ func (s *workerSuite) TestDeleteBootstrapSSHKeysError(c *tc.C) {
 	s.expectUser(c)
 	s.expectAuthorizedKeys()
 	s.expectControllerConfig()
-	s.expectObjectStoreGetter(2)
 	s.expectReloadSpaces()
 	s.expectSeedDefaultStoragePools()
 	s.expectInitialiseBakeryConfig(nil)
@@ -129,7 +126,6 @@ func (s *workerSuite) TestReloadSpacesBeforeControllerCharm(c *tc.C) {
 	s.expectUser(c)
 	s.expectAuthorizedKeys()
 	s.expectControllerConfig()
-	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
 	s.expectSetAPIHostPorts()
 	s.expectSeedDefaultStoragePools()
@@ -145,18 +141,12 @@ func (s *workerSuite) TestReloadSpacesBeforeControllerCharm(c *tc.C) {
 func (s *workerSuite) TestSeedAgentBinary(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Ensure that the ControllerModelUUID is used for the namespace for the
-	// object store. If it's not the controller model uuid, then the agent
-	// binary will not be found.
-
-	s.expectObjectStoreGetter(1)
-
+	// Agent binary seeding does not need the model object store.
 	var called bool
 	w := &bootstrapWorker{
 		internalStates: s.states,
 		cfg: WorkerConfig{
-			ObjectStoreGetter: s.objectStoreGetter,
-			AgentBinaryUploader: func(context.Context, string, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
+			AgentBinaryUploader: func(context.Context, string, AgentBinaryStore, logger.Logger) (func(), error) {
 				called = true
 				return func() {}, nil
 			},
@@ -172,8 +162,8 @@ func (s *workerSuite) TestSeedAgentBinary(c *tc.C) {
 	}
 	cleanup, err := w.seedAgentBinary(c.Context(), c.MkDir())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(called, tc.IsTrue)
-	c.Assert(cleanup, tc.NotNil)
+	c.Check(called, tc.IsTrue)
+	c.Check(cleanup, tc.NotNil)
 }
 
 // TestSeedAuthorizedNilKeys is asserting that if we add a nil slice of
@@ -238,10 +228,9 @@ func (s *workerSuite) TestSeedStoragePools(c *tc.C) {
 	w := &bootstrapWorker{
 		internalStates: s.states,
 		cfg: WorkerConfig{
-			ObjectStoreGetter: s.objectStoreGetter,
-			ModelInfoService:  s.modelInfoService,
-			StorageService:    s.storageService,
-			Logger:            s.logger,
+			ModelInfoService: s.modelInfoService,
+			StorageService:   s.storageService,
+			Logger:           s.logger,
 		},
 	}
 	err := w.seedStoragePools(c.Context(), map[string]storage.Attrs{
@@ -279,7 +268,6 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc ControllerCharmDeployerFunc) worker.Worker {
 	w, err := newWorker(WorkerConfig{
 		RemoveBootstrapSSHKeys:     s.removeBootstrapSSHKeys,
-		ObjectStoreGetter:          s.objectStoreGetter,
 		BootstrapUnlocker:          s.bootstrapUnlocker,
 		DataDir:                    s.dataDir,
 		APIPort:                    42,
@@ -303,7 +291,7 @@ func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc Con
 		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 			return nil
 		},
-		AgentBinaryUploader: func(context.Context, string, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
+		AgentBinaryUploader: func(context.Context, string, AgentBinaryStore, logger.Logger) (func(), error) {
 			return func() {}, nil
 		},
 		ControllerCharmDeployer: controllerCharmDeployerFunc,
@@ -394,10 +382,6 @@ func (s *workerSuite) expectReloadSpacesWithFunc(c *tc.C) ControllerCharmDeploye
 
 func (s *workerSuite) expectInitialiseBakeryConfig(err error) {
 	s.bakeryConfigService.EXPECT().InitialiseBakeryConfig(gomock.Any()).Return(err)
-}
-
-func (s *workerSuite) expectObjectStoreGetter(num int) {
-	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any(), gomock.Any()).Return(s.objectStore, nil).Times(num)
 }
 
 func (s *workerSuite) expectBootstrapFlagSet() {
