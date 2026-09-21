@@ -20,6 +20,7 @@ test_reprovisioning() {
 		cd .. || exit
 
 		run "run_reprovisioning_workload"
+		run "run_reprovisioning_hooks"
 		run "run_reprovisioning_model_storage_rejection"
 	)
 }
@@ -57,7 +58,7 @@ run_reprovisioning_workload() {
 	wait_for_provider_running_refusal "${machine_id}"
 
 	echo "Verify provider-running refusal did not mutate machine or unit identity"
-	assert_unit_identity_and_assignment "${unit_names}" "${unit_machine}"
+	assert_unit_identity_and_assignment "reprovision" "reprovision/0" "${unit_names}" "${unit_machine}"
 
 	echo "Externally terminate provider instance ${old_instance_id}"
 	aws_ec2 terminate-instances --instance-ids "${old_instance_id}"
@@ -68,16 +69,54 @@ run_reprovisioning_workload() {
 	output=$(juju reprovision-machine "${machine_id}")
 	check_contains "${output}" "reprovisioning machine ${machine_id}"
 
-	local replacement_info new_instance_id
-	replacement_info=$(wait_for_replacement_machine "${machine_id}")
+	local replacement_unit_name replacement_info new_instance_id
+	replacement_unit_name=$(wait_for_replacement_unit "reprovision" "reprovision/0" "${machine_id}")
+	replacement_info=$(juju show-machine "${machine_id}" --format json)
 	new_instance_id=$(printf '%s\n' "${replacement_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["instance-id"]')
 
 	wait_for "reprovision" "$(active_idle_condition "reprovision" 0)"
-	assert_unit_identity_and_assignment "${unit_names}" "${unit_machine}"
+	assert_replacement_unit_assignment "reprovision" "reprovision/0" "${replacement_unit_name}" "${machine_id}"
 
 	destroy_model "${model_name}"
 	wait_for_ec2_instance_absent "${new_instance_id}"
 	wait_for_ec2_model_resources_absent "${model_uuid}"
+}
+
+run_reprovisioning_hooks() {
+	local file model_name charm machine_id old_instance_id replacement_unit_name
+	local replacement_info new_instance_id hook_logs
+	model_name="reprovisioning-hooks"
+	file="${TEST_DIR}/test-${model_name}.log"
+
+	check_dependencies charmcraft
+	ensure "${model_name}" "${file}"
+
+	charm=$(pack_charm ./testcharms/charms/reprovision-hooks)
+	juju deploy "${charm}" reprovision-hooks
+	wait_for "reprovision-hooks" "$(active_idle_condition "reprovision-hooks" 0)"
+
+	machine_id=$(juju status --format json | yq -r '.applications."reprovision-hooks".units["reprovision-hooks/0"].machine')
+	old_instance_id=$(juju show-machine "${machine_id}" --format json | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["instance-id"]')
+
+	echo "Stop the machine agent and terminate provider instance ${old_instance_id}"
+	juju ssh "${machine_id}" -- sudo systemctl stop "jujuagentd-machine-${machine_id}.service"
+	wait_for_provider_running_refusal "${machine_id}"
+	aws_ec2 terminate-instances --instance-ids "${old_instance_id}"
+	wait_for_ec2_instance_absent "${old_instance_id}"
+
+	juju reprovision-machine "${machine_id}"
+	replacement_unit_name=$(wait_for_replacement_unit "reprovision-hooks" "reprovision-hooks/0" "${machine_id}")
+	wait_for "reprovision-hooks" "$(active_idle_condition "reprovision-hooks" 0)"
+
+	replacement_info=$(juju show-machine "${machine_id}" --format json)
+	new_instance_id=$(printf '%s\n' "${replacement_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["instance-id"]')
+	hook_logs=$(juju debug-log --no-tail --replay --include "unit-${replacement_unit_name//\//-}")
+	for hook in install config-changed start; do
+		check_contains "${hook_logs}" "reprovision-hooks: hook=${hook} machine=${machine_id}"
+	done
+
+	destroy_model "${model_name}"
+	wait_for_ec2_instance_absent "${new_instance_id}"
 }
 
 run_reprovisioning_model_storage_rejection() {
@@ -159,40 +198,73 @@ wait_for_provider_running_refusal() {
 	done
 }
 
-wait_for_replacement_machine() {
-	local machine_id=$1
-	local machine_info instance_id agent_status start_time elapsed
+wait_for_replacement_unit() {
+	local application_name old_unit_name machine_id
+	application_name=$1
+	old_unit_name=$2
+	machine_id=$3
+	local status unit_name unit_machine machine_info instance_id agent_status start_time elapsed
 	start_time=$(date -u +%s)
 
 	while true; do
-		machine_info=$(juju show-machine "${machine_id}" --format json 2>/dev/null || true)
-		instance_id=$(printf '%s\n' "${machine_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["instance-id"] // ""')
-		agent_status=$(printf '%s\n' "${machine_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["juju-status"].current // ""')
-		if [[ -n ${instance_id} && ${agent_status} == "started" ]]; then
-			printf '%s\n' "${machine_info}"
-			return
+		status=$(juju status --format json)
+		unit_name=$(printf '%s\n' "${status}" | application_name="${application_name}" old_unit_name="${old_unit_name}" yq -r '.applications[env(application_name)].units | keys[] | select(. != env(old_unit_name))')
+		if [[ -n ${unit_name} ]]; then
+			unit_machine=$(printf '%s\n' "${status}" | application_name="${application_name}" unit_name="${unit_name}" yq -r '.applications[env(application_name)].units[env(unit_name)].machine // ""')
+			if [[ ${unit_machine} != "${machine_id}" ]]; then
+				echo "ERROR: replacement unit ${unit_name} was assigned to ${unit_machine}, expected ${machine_id}" >&2
+				return 1
+			fi
+			machine_info=$(juju show-machine "${machine_id}" --format json 2>/dev/null || true)
+			instance_id=$(printf '%s\n' "${machine_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["instance-id"] // ""')
+			agent_status=$(printf '%s\n' "${machine_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["juju-status"].current // ""')
+			if [[ -n ${instance_id} && ${agent_status} == "started" ]]; then
+				printf '%s\n' "${unit_name}"
+				return
+			fi
 		fi
 
 		sleep "${SHORT_TIMEOUT}"
 		elapsed=$(($(date -u +%s) - start_time))
 		if [[ ${elapsed} -ge 900 ]]; then
-			echo "ERROR: timed out waiting for replacement machine ${machine_id}" >&2
-			juju show-machine "${machine_id}" >&2 || true
+			echo "ERROR: timed out waiting for replacement unit for ${old_unit_name}" >&2
+			juju status >&2 || true
 			return 1
 		fi
 	done
 }
 
-assert_unit_identity_and_assignment() {
-	local expected_unit_names=$1
-	local expected_unit_machine=$2
+assert_replacement_unit_assignment() {
+	local application_name old_unit_name new_unit_name expected_machine
+	application_name=$1
+	old_unit_name=$2
+	new_unit_name=$3
+	expected_machine=$4
 	local status unit_names unit_machine
 
 	status=$(juju status --format json)
-	unit_names=$(printf '%s\n' "${status}" | yq -r '.applications.reprovision.units | keys | sort | join(",")')
-	unit_machine=$(printf '%s\n' "${status}" | yq -r '.applications.reprovision.units["reprovision/0"].machine')
+	unit_names=$(printf '%s\n' "${status}" | application_name="${application_name}" yq -r '.applications[env(application_name)].units | keys | sort | join(",")')
+	unit_machine=$(printf '%s\n' "${status}" | application_name="${application_name}" unit_name="${new_unit_name}" yq -r '.applications[env(application_name)].units[env(unit_name)].machine')
 
-	if [[ ${unit_names} != "${expected_unit_names}" || ${unit_machine} != "${expected_unit_machine}" ]]; then
+	if [[ ${unit_names} != "${new_unit_name}" || ${unit_machine} != "${expected_machine}" ]]; then
+		echo "ERROR: replacement unit identity or assignment is incorrect" >&2
+		return 1
+	fi
+}
+
+assert_unit_identity_and_assignment() {
+	local application_name unit_name expected_unit_names expected_machine
+	application_name=$1
+	unit_name=$2
+	expected_unit_names=$3
+	expected_machine=$4
+	local status unit_names unit_machine
+
+	status=$(juju status --format json)
+	unit_names=$(printf '%s\n' "${status}" | application_name="${application_name}" yq -r '.applications[env(application_name)].units | keys | sort | join(",")')
+	unit_machine=$(printf '%s\n' "${status}" | application_name="${application_name}" unit_name="${unit_name}" yq -r '.applications[env(application_name)].units[env(unit_name)].machine')
+
+	if [[ ${unit_names} != "${expected_unit_names}" || ${unit_machine} != "${expected_machine}" ]]; then
 		echo "ERROR: unit identity or assignment changed unexpectedly" >&2
 		return 1
 	fi
