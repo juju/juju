@@ -42,6 +42,7 @@ import (
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // ApplicationState describes retrieval and persistence methods for
@@ -77,7 +78,7 @@ type ApplicationState interface {
 	// UpsertK8sService updates the cloud service for the specified application.
 	// The following errors may be returned:
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
-	UpsertK8sService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
+	UpsertK8sService(ctx context.Context, appName, providerID string, args application.UpsertK8sServiceArgs) error
 
 	// SetApplicationHasK8sResources records that the provisioner is managing
 	// k8s resources for the given application. This blocks removal until
@@ -862,7 +863,8 @@ func (s *Service) GetCharmByApplicationUUID(ctx context.Context, id coreapplicat
 	), locator, nil
 }
 
-// UpdateK8sService updates the cloud service for the specified application.
+// UpdateK8sService replaces the cloud Service address snapshot for an
+// application. An empty snapshot removes all previously recorded addresses.
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 func (s *Service) UpdateK8sService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error {
@@ -872,7 +874,33 @@ func (s *Service) UpdateK8sService(ctx context.Context, appName, providerID stri
 	if providerID == "" {
 		return errors.Errorf("empty provider ID %w", coreerrors.NotValid)
 	}
-	return errors.Capture(s.st.UpsertK8sService(ctx, appName, providerID, sAddrs))
+	args := application.UpsertK8sServiceArgs{}
+	ids := []*string{&args.ServiceUUID, &args.NetNodeUUID, &args.DeviceUUID}
+	for _, id := range ids {
+		value, err := uuid.NewUUID()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		*id = value.String()
+	}
+	for _, addr := range sAddrs {
+		if addr.AddressType() == network.HostName {
+			if addr.Scope != network.ScopeCloudLocal && addr.Scope != network.ScopePublic {
+				return errors.Errorf("unsupported Service hostname scope %q", addr.Scope).Add(coreerrors.NotValid)
+			}
+		}
+		id, err := uuid.NewUUID()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		args.Addresses = append(args.Addresses, application.K8sServiceAddress{
+			UUID: id.String(), ProviderAddress: addr,
+		})
+	}
+	if err := s.st.UpsertK8sService(ctx, appName, providerID, args); err != nil {
+		return errors.Errorf("updating cloud service for application %q: %w", appName, err)
+	}
+	return nil
 }
 
 // SetApplicationHasK8sResources records that the provisioner is managing k8s
