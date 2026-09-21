@@ -126,6 +126,79 @@ WHERE machine_name = ?`, machineName.String()).Scan(&reprovisionMachineName)
 	c.Check(reprovisionMachineName, tc.Equals, machineName.String())
 }
 
+func (s *stateSuite) TestDetachLostMachineCloudInstanceDepartsRelationScopes(c *tc.C) {
+	machineUUID, machineName := s.ensureInstance(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionRelationScope(c)
+	s.addReprovisionUnitOnMachine(c, "second", netNodeUUID)
+	s.addReprovisionRelationScopeForUnit(c, "second-relation", 2, "second-unit", "second-value")
+	s.runQuery(c, `
+INSERT INTO relation_unit_setting_archive (relation_uuid, unit_name, "key", value)
+VALUES (?, ?, ?, ?)`, "reprovision-relation", "reprovision/0", "private-address", "stale-value")
+	s.runQuery(c, `
+INSERT INTO relation_unit_setting_archive (relation_uuid, unit_name, "key", value)
+VALUES (?, ?, ?, ?)`, "reprovision-relation", "reprovision/0", "obsolete-key", "obsolete-value")
+
+	err := s.state.DetachLostMachineCloudInstance(
+		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	for _, relationUnit := range []string{"reprovision-relation-unit", "second-relation-unit"} {
+		c.Check(s.rowCountWhere(c, "relation_unit", "uuid = ?", relationUnit), tc.Equals, 0)
+		c.Check(s.rowCountWhere(c, "relation_unit_setting", "relation_unit_uuid = ?", relationUnit), tc.Equals, 0)
+		c.Check(s.rowCountWhere(c, "relation_unit_settings_hash", "relation_unit_uuid = ?", relationUnit), tc.Equals, 0)
+	}
+	c.Check(s.relationUnitSettingsArchive(c, "reprovision-relation", "reprovision/0"), tc.DeepEquals, map[string]string{
+		"private-address": "10.0.0.2",
+	})
+	c.Check(s.relationUnitSettingsArchive(c, "second-relation", "second/0"), tc.DeepEquals, map[string]string{
+		"private-address": "second-value",
+	})
+}
+
+func (s *stateSuite) TestDetachLostMachineCloudInstanceLeavesOtherMachineRelationScopes(c *tc.C) {
+	machineUUID, machineName := s.ensureInstance(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionRelationScope(c)
+
+	otherMachineUUID, _ := s.addMachine(c)
+	otherNetNodeUUID := s.machineNetNodeUUID(c, otherMachineUUID.String())
+	s.addReprovisionUnitOnMachine(c, "other", otherNetNodeUUID)
+	s.addReprovisionRelationScopeForUnit(c, "other-relation", 2, "other-unit", "other-value")
+
+	err := s.state.DetachLostMachineCloudInstance(
+		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.rowCountWhere(c, "relation_unit", "uuid = ?", "reprovision-relation-unit"), tc.Equals, 0)
+	c.Check(s.rowCountWhere(c, "relation_unit", "uuid = ?", "other-relation-unit"), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "relation_unit_setting", "relation_unit_uuid = ?", "other-relation-unit"), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "relation_unit_settings_hash", "relation_unit_uuid = ?", "other-relation-unit"), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "relation_unit_setting_archive", "relation_uuid = ?", "other-relation"), tc.Equals, 0)
+}
+
+func (s *stateSuite) TestDetachLostMachineCloudInstanceRemovesStaleArchiveForSettingsLessScope(c *tc.C) {
+	machineUUID, machineName := s.ensureInstance(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionRelationScopeForUnit(c, "settings-less-relation", 1, "reprovision-unit", "")
+	s.runQuery(c, `
+INSERT INTO relation_unit_setting_archive (relation_uuid, unit_name, "key", value)
+VALUES (?, ?, ?, ?)`, "settings-less-relation", "reprovision/0", "old-key", "old-value")
+
+	err := s.state.DetachLostMachineCloudInstance(
+		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.rowCountWhere(c, "relation_unit", "uuid = ?", "settings-less-relation-unit"), tc.Equals, 0)
+	c.Check(s.rowCountWhere(c, "relation_unit_setting_archive", "relation_uuid = ?", "settings-less-relation"), tc.Equals, 0)
+}
+
 func (s *stateSuite) TestReplacementPreservesMachineAndUnitIdentity(c *tc.C) {
 	machineUUID, machineName := s.ensureInstance(c)
 	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
@@ -582,6 +655,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRollsBack(c *tc.C) {
 	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
 	s.addReprovisionNetworkState(c, netNodeUUID)
 	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionRelationScope(c)
 	s.addReprovisionVolumeStorage(c, machineUUID.String(), netNodeUUID, 1, 1)
 	s.runQuery(c, `
 CREATE TRIGGER fail_reprovision_detach
@@ -611,6 +685,10 @@ END`)
 		c.Check(s.rowCount(c, table), tc.Equals, 1, tc.Commentf("table %s", table))
 	}
 	c.Check(s.rowCount(c, "machine_reprovision"), tc.Equals, 0)
+	c.Check(s.rowCountWhere(c, "relation_unit", "uuid = ?", "reprovision-relation-unit"), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "relation_unit_setting", "relation_unit_uuid = ?", "reprovision-relation-unit"), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "relation_unit_settings_hash", "relation_unit_uuid = ?", "reprovision-relation-unit"), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "relation_unit_setting_archive", "relation_uuid = ?", "reprovision-relation"), tc.Equals, 0)
 }
 
 func (s *stateSuite) machineNetNodeUUID(c *tc.C, machineUUID string) string {
@@ -664,11 +742,70 @@ func (s *stateSuite) addReprovisionUnit(c *tc.C, netNodeUUID string) {
 	s.runQuery(c, `
 INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
 VALUES (?, ?, ?, 0, ?)`, "reprovision-application", "reprovision-charm", "reprovision", network.AlphaSpaceId)
+	s.addReprovisionUnitOnMachine(c, "reprovision", netNodeUUID)
+}
+
+func (s *stateSuite) addReprovisionUnitOnMachine(c *tc.C, name, netNodeUUID string) {
 	s.runQuery(c, `
 INSERT INTO unit
     (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid)
-VALUES (?, ?, 0, ?, ?, ?)`, "reprovision-unit", "reprovision/0",
+VALUES (?, ?, 0, ?, ?, ?)`, name+"-unit", name+"/0",
 		"reprovision-application", netNodeUUID, "reprovision-charm")
+}
+
+func (s *stateSuite) addReprovisionRelationScope(c *tc.C) {
+	s.addReprovisionRelationScopeForUnit(c, "reprovision-relation", 1, "reprovision-unit", "10.0.0.2")
+}
+
+func (s *stateSuite) addReprovisionRelationScopeForUnit(
+	c *tc.C, relationUUID string, relationID int, unitUUID, value string,
+) {
+	charmRelationUUID := relationUUID + "-charm-relation"
+	applicationEndpointUUID := relationUUID + "-application-endpoint"
+	relationEndpointUUID := relationUUID + "-endpoint"
+	relationUnitUUID := relationUUID + "-unit"
+	s.runQuery(c, `
+INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, scope_id)
+VALUES (?, ?, ?, 0, 0)`, charmRelationUUID, "reprovision-charm", relationUUID)
+	s.runQuery(c, `
+INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid)
+VALUES (?, ?, ?)`, applicationEndpointUUID, "reprovision-application", charmRelationUUID)
+	s.runQuery(c, `
+INSERT INTO relation (uuid, life_id, relation_id, scope_id)
+VALUES (?, 0, ?, 0)`, relationUUID, relationID)
+	s.runQuery(c, `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES (?, ?, ?)`, relationEndpointUUID, relationUUID, applicationEndpointUUID)
+	s.runQuery(c, `
+INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
+VALUES (?, ?, ?)`, relationUnitUUID, relationEndpointUUID, unitUUID)
+	if value != "" {
+		s.runQuery(c, `
+INSERT INTO relation_unit_setting (relation_unit_uuid, "key", value)
+VALUES (?, ?, ?)`, relationUnitUUID, "private-address", value)
+	}
+	s.runQuery(c, `
+INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256)
+VALUES (?, ?)`, relationUnitUUID, relationUnitUUID+"-settings-hash")
+}
+
+func (s *stateSuite) relationUnitSettingsArchive(c *tc.C, relationUUID, unitName string) map[string]string {
+	rows, err := s.DB().QueryContext(c.Context(), `
+SELECT "key", value
+FROM relation_unit_setting_archive
+WHERE relation_uuid = ? AND unit_name = ?`, relationUUID, unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	defer rows.Close()
+
+	settings := make(map[string]string)
+	for rows.Next() {
+		var key, value string
+		err := rows.Scan(&key, &value)
+		c.Assert(err, tc.ErrorIsNil)
+		settings[key] = value
+	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
+	return settings
 }
 
 func (s *stateSuite) addReprovisionStorageIntent(c *tc.C, kind int) {
