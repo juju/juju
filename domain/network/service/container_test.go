@@ -307,7 +307,7 @@ func (s *containerSuite) TestDevicesToBridgeLocalMethodDefaultBridgeNoSpace(c *t
 
 	nics, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(nics, tc.HasLen, 0)
+	c.Check(nics, tc.HasLen, 0)
 }
 
 func (s *containerSuite) TestDevicesToBridgeLocalMethodDefaultBridgeNotObserved(c *tc.C) {
@@ -354,7 +354,7 @@ func (s *containerSuite) TestDevicesToBridgeLocalMethodDefaultBridgeInSpace(c *t
 
 	nics, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(nics, tc.HasLen, 0)
+	c.Check(nics, tc.HasLen, 0)
 }
 
 func (s *containerSuite) TestDevicesToBridgeLocalMethodInSpaceBridgeNoDefaultBridge(c *tc.C) {
@@ -378,7 +378,68 @@ func (s *containerSuite) TestDevicesToBridgeLocalMethodInSpaceBridgeNoDefaultBri
 
 	nics, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(nics, tc.HasLen, 0)
+	c.Check(nics, tc.HasLen, 0)
+}
+
+func (s *containerSuite) TestDevicesToBridgeLocalMethodMixedInSpaceAndUnsatisfiableSpaces(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	// One required space has an in-space bridge; the other has no observed
+	// devices, and the default LXD bridge has not been observed on the
+	// host. The error must name only the unsatisfiable space: it is the
+	// message operators see while waiting for lxdbr0 to be reported, and
+	// the space satisfied by its in-space bridge is not actionable.
+	s.expectContainerNetworking(c,
+		[]internal.SpaceName{
+			{UUID: "alpha-space-uuid", Name: "alpha-space"},
+			{UUID: "beta-space-uuid", Name: "beta-space"},
+		},
+		map[string][]network.NetInterface{
+			"alpha-space-uuid": {{
+				Name: "br-eth0",
+				Type: corenetwork.BridgeDevice,
+			}},
+			"beta-space-uuid": nil,
+		},
+		containermanager.NetworkingMethodLocal.String(),
+	)
+
+	_, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIs, errors.SpaceRequirementsUnsatisfiable)
+	c.Check(err, tc.ErrorMatches, ".*space\\(s\\) \\[beta-space-uuid\\]")
+	c.Check(err, tc.Not(tc.ErrorMatches), ".*alpha-space-uuid.*")
+}
+
+func (s *containerSuite) TestDevicesToBridgeLocalMethodNegativeConstraintNotEnforced(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	// The default LXD bridge is observed in a negatively constrained
+	// space. Local networking does not enforce negative space
+	// constraints: the bridge satisfies the guest's positive requirement
+	// regardless, and no host devices are selected for bridging.
+	exp := s.st.EXPECT()
+	exp.GetMachineSpaceConstraints(c.Context(), s.guestUUID.String()).Return(
+		[]internal.SpaceName{{UUID: "positive-space-uuid", Name: "positive-space"}},
+		[]internal.SpaceName{{UUID: "negative-space-uuid", Name: "negative-space"}},
+		nil,
+	)
+	exp.GetMachineAppBindings(c.Context(), s.guestUUID.String()).Return(nil, nil)
+	exp.GetMachineNetNodeUUID(c.Context(), s.hostUUID.String()).Return(s.nodeUUID, nil)
+	exp.NICsInSpaces(c.Context(), s.nodeUUID).Return(map[string][]network.NetInterface{
+		"negative-space-uuid": {{
+			Name: internalnetwork.DefaultLXDBridge,
+			Type: corenetwork.BridgeDevice,
+		}},
+	}, nil)
+	exp.GetContainerNetworkingMethod(c.Context()).Return(containermanager.NetworkingMethodLocal.String(), nil)
+
+	nics, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nics, tc.HasLen, 0)
 }
 
 func (s *containerSuite) TestDevicesToBridgeNetworkingMethodError(c *tc.C) {
@@ -396,7 +457,7 @@ func (s *containerSuite) TestDevicesToBridgeNetworkingMethodError(c *tc.C) {
 	exp.GetContainerNetworkingMethod(c.Context()).Return("", methodErr)
 
 	_, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
-	c.Assert(err, tc.ErrorIs, methodErr)
+	c.Check(err, tc.ErrorIs, methodErr)
 }
 
 func (s *containerSuite) TestDevicesForGuestBridgeFoundNoContainerAddresses(c *tc.C) {
@@ -734,6 +795,46 @@ func (s *containerSuite) TestDevicesForGuestLocalMethodDefaultBridgeInSpace(c *t
 	c.Check(nic.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
 }
 
+func (s *containerSuite) TestDevicesForGuestLocalMethodNegativeConstraintNotEnforced(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	// The default LXD bridge is observed in a negatively constrained
+	// space, and the guest's positive requirement is on a space in which
+	// no bridge is observed. Local networking does not enforce negative
+	// space constraints: the default LXD bridge still satisfies the
+	// positive requirement, parented with DHCP addressing.
+	exp := s.st.EXPECT()
+	exp.GetMachineSpaceConstraints(c.Context(), s.guestUUID.String()).Return(
+		[]internal.SpaceName{{UUID: "positive-space-uuid", Name: "positive-space"}},
+		[]internal.SpaceName{{UUID: "negative-space-uuid", Name: "negative-space"}},
+		nil,
+	)
+	exp.GetMachineAppBindings(c.Context(), s.guestUUID.String()).Return(nil, nil)
+	exp.GetMachineNetNodeUUID(c.Context(), s.hostUUID.String()).Return(s.nodeUUID, nil)
+	exp.NICsInSpaces(c.Context(), s.nodeUUID).Return(map[string][]network.NetInterface{
+		"negative-space-uuid": {{
+			Name: internalnetwork.DefaultLXDBridge,
+			Type: corenetwork.BridgeDevice,
+		}},
+	}, nil)
+	exp.GetContainerNetworkingMethod(c.Context()).Return(containermanager.NetworkingMethodLocal.String(), nil)
+
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
+
+	nics, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(nics, tc.HasLen, 1)
+	nic := nics[0]
+
+	c.Check(nic.Name, tc.Equals, "eth0")
+	c.Check(nic.ParentDeviceName, tc.Equals, internalnetwork.DefaultLXDBridge)
+	c.Assert(nic.Addrs, tc.HasLen, 1)
+	c.Check(nic.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+}
+
 func (s *containerSuite) TestDevicesForGuestLocalMethodInSpaceBridgeNoDefaultBridge(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -783,7 +884,7 @@ func (s *containerSuite) TestDevicesForGuestNetworkingMethodError(c *tc.C) {
 	exp.GetContainerNetworkingMethod(c.Context()).Return("", methodErr)
 
 	_, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
-	c.Assert(err, tc.ErrorIs, methodErr)
+	c.Check(err, tc.ErrorIs, methodErr)
 }
 
 func (s *containerSuite) TestDevicesForGuestNoSpaces(c *tc.C) {
@@ -802,7 +903,7 @@ func (s *containerSuite) TestDevicesForGuestNoSpaces(c *tc.C) {
 
 	nics, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(nics, tc.HasLen, 0)
+	c.Check(nics, tc.HasLen, 0)
 }
 
 func (s *containerSuite) TestAllocateContainerAddresses(c *tc.C) {
