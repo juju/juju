@@ -43,14 +43,14 @@ jobs:
             ggarch check "$f"
           done
 
-      - name: Synthesized-variant freshness (juju3 in-file)
+      - name: Synthesized-variant freshness (in-file)
         working-directory: docs
         run: python3 scripts/make-variants.py --check
 
-      - name: Grounding (juju3)
+      - name: Grounding
         working-directory: docs
-        run: python3 tools/check-grounding.py juju3.ggarch
+        run: python3 tools/check-grounding.py juju.ggarch
 
       - name: Geometry audit --gate (the twins)
         working-directory: docs
-        run: python3 ggarch/scripts/audit-geometry.py --gate juju3.ggarch principles.ggarch
+        run: python3 ggarch/scripts/audit-geometry.py --gate juju.ggarch principles.ggarch
