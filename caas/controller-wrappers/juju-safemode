@@ -1,7 +1,5 @@
 #!/bin/sh
 
-set -e
-
 runtime_conf="/var/lib/juju/controller/runtime.conf"
 if [ ! -f "$runtime_conf" ]; then
   echo "controller not yet initialized (runtime.conf not found)" >&2
@@ -16,4 +14,128 @@ with open('$runtime_conf') as f:
 if [ -z "$controller_id" ]; then
   controller_id=0
 fi
-exec /opt/jujud safe-mode --data-dir /var/lib/juju/controller --controller-id "$controller_id" "$@"
+
+# Use a lockfile to prevent concurrent safe-mode instances and avoid
+# the TOCTOU race of the previous ps-grep guard. The Go-side snap
+# entry point (cmd/jujud/agent/safemode.go) also probes the controller
+# API port, but the lockfile defends against races between the wrapper
+# and the Go guard.
+safemode_lock=/var/lib/juju/controller/safemode.lock
+if ! mkdir "$safemode_lock" 2>/dev/null; then
+  echo "safe-mode is already running; stop it first" >&2
+  exit 1
+fi
+
+# Stop the Pebble-managed jujud service before starting safe-mode,
+# so the two processes don't compete for the Dqlite database.
+#
+# Pebble lives at /opt/pebble and is not on PATH inside the container.
+# The jujud layer has startup:enabled, so pebble stop alone is
+# insufficient: Pebble restarts the service immediately. We add a
+# transient layer that disables auto-restart, then undo it after
+# safe-mode exits.
+pebble=/opt/pebble
+safemode_layer=/var/lib/pebble/default/layers/002-safemode.yaml
+
+# cleanup_on_exit removes the disable layer, waits for the Dqlite
+# abstract socket to be released, restarts jujud, and releases the
+# lockfile. It runs on every exit path (normal, signal, or error) so
+# the controller is never left permanently disabled.
+cleanup_on_exit() {
+  rmdir "$safemode_lock" 2>/dev/null || true
+  rm -f "$safemode_layer"
+  # Wait for the Dqlite abstract socket to be released before
+  # restarting the controller; if safe-mode is still holding it,
+  # jujud fails to create its Dqlite node ("failed to set bind
+  # address") and crash-loops. If the socket lingers past the
+  # timeout, abort loudly rather than silently crash-loop.
+  socket_cleared=false
+  for _ in $(seq 1 30); do
+    # grepping /proc/net/unix for any @dqlite- socket is sufficient
+    # because this pod runs a single controller and no other process
+    # holds a Dqlite abstract socket during safe-mode.
+    if ! grep -q "@dqlite-" /proc/net/unix 2>/dev/null; then
+      socket_cleared=true
+      break
+    fi
+    sleep 1
+  done
+  if ! $socket_cleared; then
+    echo "Dqlite socket still held after 30s; refusing to restart jujud to avoid crash-loop" >&2
+    return 1
+  fi
+  echo "restarting jujud service" >&2
+  $pebble start jujud
+}
+
+if [ -x "$pebble" ]; then
+  set -e
+  # Clean up any stale disable layer from a previous interrupted run.
+  rm -f "$safemode_layer"
+  cat >"$safemode_layer" <<'EOF'
+services:
+  jujud:
+    override: replace
+    startup: disabled
+EOF
+  # Use an anchored pattern that does not match "inactive".
+  if $pebble services jujud 2>/dev/null | grep -qE '(^|[[:space:]])active([[:space:]]|$)'; then
+    echo "stopping jujud pebble service" >&2
+    $pebble stop jujud
+    # Poll until Pebble confirms the service is fully stopped.
+    for _ in $(seq 1 10); do
+      if ! $pebble services jujud 2>/dev/null | grep -qE '(^|[[:space:]])(active|backoff)([[:space:]]|$)'; then
+        break
+      fi
+      sleep 1
+    done
+  fi
+  trap cleanup_on_exit EXIT
+  set +e
+fi
+
+# Run safe-mode. Catch SIGINT/SIGTERM/SIGHUP so the script is not killed
+# before it can remove the disable layer and restart jujud.
+#
+# A background job started by a non-interactive shell inherits SIGINT
+# set to ignored, and the Go runtime honors the inherited ignore, so
+# safe-mode can never be interrupted with SIGINT. Always terminate it
+# with SIGTERM, escalating to SIGKILL on the third signal or when the
+# 30s deadline is reached, whichever comes first. Wait is called only
+# after the pid is no longer alive so that the real exit status of
+# safe-mode can be captured and propagated.
+signal_safemode() {
+  if [ -z "$kill_deadline" ]; then
+    kill_deadline=$(( $(date +%s) + 30 ))
+    signal_count=1
+  else
+    signal_count=$(( signal_count + 1 ))
+  fi
+  if [ "$signal_count" -ge 3 ] || [ "$(date +%s)" -ge "$kill_deadline" ]; then
+    kill -KILL "$jujud_pid" 2>/dev/null
+  else
+    kill -TERM "$jujud_pid" 2>/dev/null
+  fi
+}
+trap signal_safemode INT TERM HUP
+/opt/jujud safe-mode --data-dir /var/lib/juju/controller --controller-id "$controller_id" "$@" &
+jujud_pid=$!
+kill_deadline=""
+while kill -0 "$jujud_pid" 2>/dev/null; do
+  if [ -n "$kill_deadline" ] && [ "$(date +%s)" -ge "$kill_deadline" ]; then
+    echo "safe-mode did not exit within 30s, sending SIGKILL" >&2
+    kill -KILL "$jujud_pid" 2>/dev/null
+    break
+  fi
+  sleep 1
+done
+wait "$jujud_pid" 2>/dev/null
+safemode_exit_code=$?
+trap - INT TERM HUP
+
+# The EXIT trap (set above) handles cleanup: releasing the lockfile,
+# removing the disable layer, waiting for the Dqlite socket, and
+# restarting jujud. Discard the INT/TERM/HUP trap so only the EXIT
+# trap runs on the way out, propagating the captured safe-mode exit
+# status.
+exit $safemode_exit_code

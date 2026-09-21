@@ -1005,7 +1005,7 @@ cp /opt/jujuagentd $JUJU_TOOLS_DIR/jujuagentd
 export JUJU_BOOTSTRAP_PARAMS_PATH="$JUJU_DATA_DIR/bootstrap-params"; controller_id="${HOSTNAME##*-}"; if [ "${controller_id}" = "0" ]; then if ! test -e $JUJU_CONTROLLER_DIR/system-identity; then mkdir -p $JUJU_CONTROLLER_DIR/charms; until test -e $JUJU_CONTROLLER_DIR/charms/controller.charm; do sleep 1; done; JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud bootstrap-state --data-dir $JUJU_CONTROLLER_DIR --debug --timeout 10m0s; fi; else until test -e "$JUJU_CONTROLLER_DIR/runtime.conf"; do sleep 1; done; fi
 
 mkdir -p /var/lib/pebble/default/layers
-cat > /var/lib/pebble/default/layers/001-controller.yaml <<EOF
+cat > /var/lib/pebble/default/layers/001-controller.yaml <<'EOF'
 summary: split controller services
 services:
     jujuagentd:
