@@ -244,7 +244,7 @@ model "Juju" {
 
     // K8s topology
     jujud          -> k8s            [type: control, label: "provisions on"]
-    unit_agent -> jujud  [type: api,    label: "connects to"]
+    unit_agent -> jujud  [type: api,    label: "makes API calls to"]
     jujud          -> charmhub       [type: api,     label: "fetches charms"]
     charm          -> pebble         [type: api,     label: "calls Pebble API"]
     pebble         -> workload       [type: control, label: "supervises"]
@@ -262,7 +262,7 @@ model "Juju" {
     // Deploy K8s
     controller     -> k8s              [type: control]
     controller     -> containeragent   [type: control]
-    containeragent -> controller       [type: api]
+    containeragent -> controller       [type: api, label: "makes API calls to"]
 
     // Bootstrap machine
     client             -> controller_machine  [type: control]
@@ -270,7 +270,7 @@ model "Juju" {
 
     // Deploy machine
     controller    -> machine_agent  [type: control, label: "deploys and upgrades"]
-    machine_agent -> controller     [type: api, label: "connects via Juju API"]
+    machine_agent -> controller     [type: api, label: "makes API calls to"]
 
     // Machine/unit removal and bootstrap machine — generic cloud
     client     -> cloud  [type: api]
@@ -287,10 +287,10 @@ model "Juju" {
     // Remove / destroy — user sends directly to controller
     user           -> controller  [type: event]
     unit_agent -> controller [type: stream, label: "watches for\nchanges on"]
-    unit_agent     -> controller  [type: api, label: "calls Juju API"]
+    unit_agent     -> controller  [type: api, label: "makes API calls to"]
     // Model removal
     controller -> undertaker [type: stream, label: "model removal events"]
-    undertaker -> controller [type: api, label: "connects via Juju API"]
+    undertaker -> controller [type: api, label: "makes API calls to"]
 
     // Schema associations — semantic direction, multiplicity in the
     // label (on the many end) until crow's-foot glyphs land (SPEC Phase 9).
