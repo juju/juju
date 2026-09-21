@@ -23,6 +23,7 @@ environment:
   AWS_ACCESS_KEY_ID: '$(HOST: echo "${AWS_ACCESS_KEY_ID:-}")'
   AWS_SECRET_ACCESS_KEY: '$(HOST: echo "${AWS_SECRET_ACCESS_KEY:-}")'
   AWS_DEFAULT_REGION: '$(HOST: echo "${AWS_DEFAULT_REGION:-}")'
+  EC2_INSTANCE_TYPE: '$(HOST: echo "${EC2_INSTANCE_TYPE:-m5.xlarge}")'
   AZURE_SUBSCRIPTION_ID: '$(HOST: echo "${AZURE_SUBSCRIPTION_ID:-}")'
   AZURE_CLIENT_ID: '$(HOST: echo "${AZURE_CLIENT_ID:-}")'
   AZURE_CLIENT_SECRET: '$(HOST: echo "${AZURE_CLIENT_SECRET:-}")'
@@ -99,6 +100,189 @@ backends:
           ;;
       esac
 
+    systems:
+      - ubuntu-22.04:
+          username: spread
+          workers: 1
+      - ubuntu-24.04:
+          username: spread
+          workers: 1
+
+  ec2:
+    type: adhoc
+    allocate: |
+      REGION="${AWS_DEFAULT_REGION:-us-east-1}"
+      PREFIX="spread-ci-$(head -c 6 /dev/urandom | xxd -p)"
+
+      # Cleanup resources on failure during allocation.
+      ALLOCATE_OK=false
+      cleanup_allocate() {
+        if [ "$ALLOCATE_OK" = true ]; then return; fi
+        if [ -n "${INSTANCE_ID:-}" ]; then
+          aws ec2 terminate-instances --region "$REGION" --instance-ids "$INSTANCE_ID" 2>/dev/null || true
+        fi
+        if [ -n "${SG_ID:-}" ]; then
+          sleep 5
+          aws ec2 delete-security-group --region "$REGION" --group-id "$SG_ID" 2>/dev/null || true
+        fi
+        if [ -n "${PREFIX:-}" ]; then
+          aws ec2 delete-key-pair --region "$REGION" --key-name "$PREFIX" 2>/dev/null || true
+        fi
+        rm -f "/tmp/${PREFIX}.pem"
+      }
+      trap cleanup_allocate EXIT
+
+      # Map system name to Ubuntu AMI filter.
+      case "${SPREAD_SYSTEM}" in
+      *22.04*)
+        AMI_FILTER="ubuntu/images/hvm-ssd*/ubuntu-jammy-22.04-amd64-server-*"
+        ;;
+      *24.04*)
+        AMI_FILTER="ubuntu/images/hvm-ssd*/ubuntu-noble-24.04-amd64-server-*"
+        ;;
+      *)
+        FATAL "No AMI mapping for system ${SPREAD_SYSTEM}"
+        ;;
+      esac
+
+      echo "====> Looking up latest AMI for ${SPREAD_SYSTEM}..."
+      AMI_ID=$(aws ec2 describe-images --region "$REGION" \
+        --owners 099720109477 \
+        --filters "Name=name,Values=${AMI_FILTER}" "Name=state,Values=available" \
+        --query 'sort_by(Images, &CreationDate)[-1].ImageId' \
+        --output text)
+      if [ -z "$AMI_ID" ] || [ "$AMI_ID" = "None" ]; then
+        FATAL "No AMI found for ${SPREAD_SYSTEM} in ${REGION}"
+      fi
+      echo "====> Using AMI: ${AMI_ID}"
+
+      echo "====> Creating key pair ${PREFIX}..."
+      KEY_MATERIAL=$(aws ec2 create-key-pair --region "$REGION" \
+        --key-name "$PREFIX" --query 'KeyMaterial' --output text 2>&1)
+      if [ -z "$KEY_MATERIAL" ]; then
+        FATAL "Failed to create key pair ${PREFIX}"
+      fi
+      printf '%s\n' "$KEY_MATERIAL" > "/tmp/${PREFIX}.pem"
+      chmod 600 "/tmp/${PREFIX}.pem"
+
+      echo "====> Creating security group ${PREFIX}-sg..."
+      SG_ID=$(aws ec2 create-security-group --region "$REGION" \
+        --group-name "${PREFIX}-sg" \
+        --description "Spread test ${PREFIX}" \
+        --query 'GroupId' --output text)
+      aws ec2 authorize-security-group-ingress --region "$REGION" \
+        --group-id "$SG_ID" --protocol tcp --port 22 --cidr 0.0.0.0/0
+
+      # Build cloud-config user-data with the spread password.
+      cloud_config="$(mktemp)"
+      sed "s|SPREAD_PASSWORD|${SPREAD_PASSWORD}|g" \
+        tests/spread/cloud-config.yaml > "$cloud_config"
+
+      # Resolve the host's effective AWS credentials (env vars, credentials
+      # file, or config file) and inject them into the instance so that
+      # `juju bootstrap aws` inside the runner can authenticate.
+      AWS_AK="${AWS_ACCESS_KEY_ID:-$(aws configure get aws_access_key_id 2>/dev/null || true)}"
+      AWS_SK="${AWS_SECRET_ACCESS_KEY:-$(aws configure get aws_secret_access_key 2>/dev/null || true)}"
+      AWS_ST="${AWS_SESSION_TOKEN:-$(aws configure get aws_session_token 2>/dev/null || true)}"
+      if [ -n "$AWS_AK" ] && [ -n "$AWS_SK" ]; then
+        creds_file="$(mktemp)"
+        printf '[default]\naws_access_key_id = %s\naws_secret_access_key = %s\n' \
+          "$AWS_AK" "$AWS_SK" > "$creds_file"
+        if [ -n "$AWS_ST" ]; then
+          printf 'aws_session_token = %s\n' "$AWS_ST" >> "$creds_file"
+        fi
+        creds_b64="$(base64 -w0 < "$creds_file")"
+        rm -f "$creds_file"
+        printf 'write_files:\n  - path: /root/.aws/credentials\n    permissions: "0600"\n    owner: root:root\n    encoding: b64\n    content: %s\n' \
+          "$creds_b64" >> "$cloud_config"
+      fi
+
+      USER_DATA="$(base64 -w0 < "$cloud_config")"
+      rm -f "$cloud_config"
+
+      echo "====> Launching EC2 instance (${SPREAD_SYSTEM})..."
+      INSTANCE_ID=$(aws ec2 run-instances --region "$REGION" \
+        --image-id "$AMI_ID" \
+        --instance-type "${EC2_INSTANCE_TYPE:-m5.xlarge}" \
+        --key-name "$PREFIX" \
+        --security-group-ids "$SG_ID" \
+        --block-device-mappings '[{"DeviceName":"/dev/sda1","Ebs":{"VolumeSize":40,"VolumeType":"gp3"}}]' \
+        --user-data "$USER_DATA" \
+        --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=${PREFIX}},{Key=SpreadPrefix,Value=${PREFIX}}]" \
+        --query 'Instances[0].InstanceId' \
+        --output text)
+      echo "====> Launched instance: ${INSTANCE_ID}"
+
+      aws ec2 wait instance-running --region "$REGION" --instance-ids "$INSTANCE_ID"
+
+      IP=$(aws ec2 describe-instances --region "$REGION" \
+        --instance-ids "$INSTANCE_ID" \
+        --query 'Reservations[0].Instances[0].PublicIpAddress' \
+        --output text)
+      if [ -z "$IP" ] || [ "$IP" = "None" ]; then
+        FATAL "Instance ${INSTANCE_ID} has no public IP"
+      fi
+
+      # Wait for cloud-init to create the spread user.
+      echo "====> Waiting for cloud-init on ${IP}..."
+      for _ in $(seq 1 60); do
+        if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
+          -o UserKnownHostsFile=/dev/null \
+          -i "/tmp/${PREFIX}.pem" "ubuntu@${IP}" \
+          'id -u spread' &>/dev/null; then
+          break
+        fi
+        sleep 5
+      done
+
+      rm -f "/tmp/${PREFIX}.pem"
+      trap - EXIT
+      ADDRESS "${IP}"
+    discard: |
+      export PATH="/snap/bin:/usr/local/bin:$PATH"
+      REGION="${AWS_DEFAULT_REGION:-us-east-1}"
+      ADDR="${SPREAD_SYSTEM_ADDRESS%%:*}"
+
+      INSTANCE_ID=$(aws ec2 describe-instances --region "$REGION" \
+        --filters "Name=ip-address,Values=${ADDR}" \
+                  "Name=instance-state-name,Values=running,pending,stopping,stopped" \
+        --query 'Reservations[0].Instances[0].InstanceId' \
+        --output text 2>/dev/null)
+
+      if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "None" ]; then
+        echo "No EC2 instance found for ${ADDR}; skipping cleanup"
+        exit 0
+      fi
+
+      PREFIX=$(aws ec2 describe-instances --region "$REGION" \
+        --instance-ids "$INSTANCE_ID" \
+        --query 'Reservations[0].Instances[0].Tags[?Key==`SpreadPrefix`].Value | [0]' \
+        --output text 2>/dev/null)
+
+      echo "====> Terminating EC2 instance ${INSTANCE_ID}..."
+      aws ec2 terminate-instances --region "$REGION" --instance-ids "$INSTANCE_ID"
+      aws ec2 wait instance-terminated --region "$REGION" --instance-ids "$INSTANCE_ID"
+
+      if [ -n "$PREFIX" ] && [ "$PREFIX" != "None" ]; then
+        echo "====> Cleaning up key pair and security group for ${PREFIX}..."
+        aws ec2 delete-key-pair --region "$REGION" --key-name "$PREFIX" 2>/dev/null || true
+        SG_ID=$(aws ec2 describe-security-groups --region "$REGION" \
+          --filters "Name=group-name,Values=${PREFIX}-sg" \
+          --query 'SecurityGroups[0].GroupId' --output text 2>/dev/null)
+        if [ -n "$SG_ID" ] && [ "$SG_ID" != "None" ]; then
+          aws ec2 delete-security-group --region "$REGION" --group-id "$SG_ID" 2>/dev/null || true
+        fi
+      fi
+    prepare: |
+      export PATH="$SPREAD_PATH/../go/bin:$PATH"
+
+      snap install aws-cli --classic 2>/dev/null || true
+      # AWS credentials are injected into /root/.aws/credentials by the
+      # allocate step via cloud-init write_files. Juju's AWS provider
+      # reads from the standard SDK credential chain including that file.
+    environment:
+      BOOTSTRAP_PROVIDER: ec2
+      BOOTSTRAP_CLOUD: aws
     systems:
       - ubuntu-22.04:
           username: spread

@@ -1,8 +1,9 @@
 # Spread integration tests
 
 This directory contains Juju's integration tests written for
-[spread](https://github.com/canonical/spread) (the `adhoc`/LXD backend). They
-are the migration target for the legacy bash suites under `tests/suites/`.
+[spread](https://github.com/canonical/spread) using the `lxd` and `ec2`
+backends. They are the migration target for the legacy bash suites under
+`tests/suites/`.
 
 Each subdirectory of a suite (e.g. `deploy/deploy-charm/`) is one *task*; a
 `task.yaml` file defines the task's `execute` (and optional `prepare`/`restore`
@@ -161,6 +162,7 @@ Most knobs are overridable via environment variables (see `spread.yaml`):
 | `BOOTSTRAP_ARCH` / `MODEL_ARCH` | Architecture constraints | *(empty)* |
 | `BASE` | Base image of the runner instance (`noble`, `jammy`, …) | `noble` |
 | `DISK` / `CPU` / `MEM` | Runner instance sizing | `40` / `8` / `16` |
+| `EC2_INSTANCE_TYPE` | EC2 instance type for the `ec2` backend | `m5.xlarge` |
 
 Example: run the deploy suite with an explicit runner image:
 
@@ -172,11 +174,42 @@ These variables are exported into the runner instance (via the `$(HOST: ...)`
 expressions in `spread.yaml`), so they can be set on the host before invoking
 `spread`. No spread-specific config file is needed beyond `spread.yaml`.
 
-## Running against AWS (local proof-of-concept)
+## Running against AWS
 
-The `lxd` backend runner instance is only the *runner*; Juju boots the
-controller wherever `BOOTSTRAP_PROVIDER` points. To run a test against AWS,
-set the provider and pass the credentials on the command line:
+There are two ways to run tests against AWS:
+
+### 1. Native `ec2` backend (recommended)
+
+The `ec2` backend provisions EC2 instances as runner VMs via spread. This is
+the preferred approach because the runner is on real AWS infrastructure:
+
+```sh
+AWS_ACCESS_KEY_ID=... \
+AWS_SECRET_ACCESS_KEY=... \
+AWS_DEFAULT_REGION=us-east-1 \
+spread -v ec2:ubuntu-22.04:tests/spread/deploy/deploy-charm
+```
+
+The backend creates an EC2 key pair, security group, and Ubuntu AMI instance
+for each job, and tears them down on completion. Set `EC2_INSTANCE_TYPE` to
+override the default `m5.xlarge`.
+
+The `ec2` backend automatically sets `BOOTSTRAP_PROVIDER=ec2` and
+`BOOTSTRAP_CLOUD=aws`, so the Juju controller is bootstrapped onto AWS natively.
+The `deploy-charm` test runs on both backends:
+
+```sh
+# LXD runner → Juju on LXD
+spread -v lxd:ubuntu-22.04:tests/spread/deploy/deploy-charm
+
+# EC2 runner → Juju on AWS
+spread -v ec2:ubuntu-22.04:tests/spread/deploy/deploy-charm
+```
+
+### 2. LXD runner bootstrapping Juju onto AWS
+
+The `lxd` backend can also bootstrap a Juju controller on AWS from inside the
+LXD runner instance:
 
 ```sh
 BOOTSTRAP_PROVIDER=ec2 \
@@ -187,13 +220,22 @@ AWS_DEFAULT_REGION=... \
 spread -reuse -v lxd:ubuntu-22.04:tests/spread/deploy/deploy-charm
 ```
 
-Notes:
+This is useful for testing the cloud bootstrap path without needing a native
+EC2 runner.
+
+### CI
+
+The `spread.yml` workflow has both `spread-lxd` and `spread-ec2` jobs. The
+`ec2` job requires `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and
+`AWS_DEFAULT_REGION` repository secrets.
+
+### Notes
 
 - The AWS-specific bash tests (bundle `image-id` variants) are **not yet
-  ported** to `tests/spread/deploy/`; the above runs a generic test against a
-  cloud-bootstrapped controller, which validates the non-lxd code path.
-- Never commit AWS credentials. CI credentials are still to be arranged (see
-  the migration plan, Step 5).
+  ported** to `tests/spread/deploy/`.
+- Never commit AWS credentials.
+- Keep `-reuse` for multiple iterations to avoid repeated EC2 provisioning
+  overhead.
 
 ## Notes
 

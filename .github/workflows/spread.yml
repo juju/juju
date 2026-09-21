@@ -62,8 +62,8 @@ jobs:
             .spread-bin/jujud
             .spread-bin/spread
 
-  spread:
-    name: "spread (${{ matrix.system }}): ${{ matrix.suite }}"
+  spread-lxd:
+    name: "spread-lxd (${{ matrix.system }}): ${{ matrix.suite }}"
     needs: build-binaries
     runs-on:
       - self-hosted
@@ -105,3 +105,44 @@ jobs:
       - name: Run spread
         run: |
           .spread-bin/spread -v lxd:${{ matrix.system }}:${{ matrix.suite }}
+
+  spread-ec2:
+    name: "spread-ec2 (${{ matrix.system }}): ${{ matrix.suite }}"
+    needs: build-binaries
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - aws
+      - xxlarge
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        system: [ubuntu-22.04]
+        suite: [tests/spread/deploy/deploy-charm]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Download prebuilt binaries
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: spread-bin
+          path: .spread-bin
+
+      - name: Restore binary permissions
+        run: chmod +x .spread-bin/juju .spread-bin/jujud .spread-bin/spread
+
+      - name: Verify aws-cli is available
+        run: which aws
+
+      - name: Run spread on ec2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          BOOTSTRAP_PROVIDER: ec2
+          BOOTSTRAP_CLOUD: aws
+        run: |
+          .spread-bin/spread -v ec2:${{ matrix.system }}:${{ matrix.suite }}
