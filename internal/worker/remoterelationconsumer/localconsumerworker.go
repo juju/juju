@@ -335,6 +335,19 @@ func (w *localConsumerWorker) loop() (err error) {
 		offerStatusWatcherChanges = offerStatusWatcher.Changes()
 	}
 
+	// When in degraded mode, periodically re-attempt to establish the
+	// offer status watcher so the worker can recover once the permission
+	// is re-granted.
+	var retryTimer clock.Timer
+	var retryTimerChan <-chan time.Time
+	var retryDuration time.Duration
+
+	if offerStatusWatcher == nil {
+		retryDuration = 30 * time.Second
+		retryTimer = w.clock.NewTimer(retryDuration)
+		retryTimerChan = retryTimer.Chan()
+	}
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -438,6 +451,29 @@ func (w *localConsumerWorker) loop() (err error) {
 					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.offererModelUUID)
 				}
 			}
+		case <-retryTimerChan:
+			w.logger.Infof(ctx, "retrying to establish offer status watcher for %q", w.offerUUID)
+
+			watcher, err := w.watchRemoteOfferStatus(ctx)
+			if err != nil {
+				return errors.Annotatef(err, "retrying offer status watcher for %q", w.offerUUID)
+			}
+			if watcher != nil {
+				offerStatusWatcherChanges = watcher.Changes()
+				retryTimer.Stop()
+				retryTimer = nil
+				retryTimerChan = nil
+				w.logger.Infof(ctx, "offer status watcher re-established for %q", w.offerUUID)
+			} else {
+				w.logger.Debugf(
+					ctx, "offer permission still revoked for %q, next retry in %v", w.offerUUID, retryDuration)
+				retryDuration *= 2
+				if retryDuration > 5*time.Minute {
+					retryDuration = 5 * time.Minute
+				}
+				retryTimer.Reset(retryDuration)
+			}
+
 		case changes, ok := <-w.secretChanges:
 			if !ok {
 				select {
@@ -1146,7 +1182,7 @@ func (w *localConsumerWorker) processDischargeRequiredError(ctx context.Context,
 	// changes to the relation without mirroring them to the offerer side.
 	w.logger.Warningf(ctx, "discharge required for relation %q, suspending local consumer relation: %v",
 		relationUUID, err)
-	if err := w.crossModelService.SetRemoteRelationSuspendedState(ctx, relationUUID, true, "Offer permission revoked"); err != nil {
+	if err := w.crossModelService.SetRemoteRelationSuspendedState(ctx, relationUUID, true, "offer access revoked"); err != nil {
 		return errors.Annotatef(err, "setting relation %q to suspended after discharge error", relationUUID)
 	}
 

@@ -417,6 +417,14 @@ func encodeOfferFilterEndpoints(in EndpointFilterTerm) crossmodelrelation.Endpoi
 // below-Consume level, all cross-model relations that the user has
 // against the offer are suspended first, ensuring safety ordering
 // (suspension before permission downgrade).
+//
+// Transactional boundary note: the relation suspension (model DB) and
+// the permission update (controller DB) run in separate transactions
+// with no coordination. If the suspension succeeds but the controller
+// write fails, the user's relations remain suspended while the user
+// retains consume access. The suspend-first ordering is the fail-safe
+// direction, but recovery from this state requires the admin to retry
+// the revoke operation.
 func (s *Service) UpdateOfferPermission(
 	ctx context.Context,
 	args crossmodelrelation.UpdateOfferPermissionArgs,

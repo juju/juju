@@ -426,9 +426,6 @@ func (w *srvRelationStatusWatcher) Next(ctx context.Context) (params.RelationLif
 			}, nil
 		}
 
-		w.logger.Debugf(ctx, "relation status watcher change for relation %q: life=%q suspended=%t reason=%q",
-			relationUUID, change.Life, change.Suspended, change.SuspendedReason)
-
 		return params.RelationLifeSuspendedStatusWatchResult{
 			Changes: []params.RelationLifeSuspendedStatusChange{
 				{

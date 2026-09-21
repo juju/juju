@@ -717,7 +717,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerRelationChangePermissionRev
 
 	suspended := make(chan struct{})
 	s.crossModelService.EXPECT().
-		SetRemoteRelationSuspendedState(gomock.Any(), consumingRelationUUID, true, "Offer permission revoked").
+		SetRemoteRelationSuspendedState(gomock.Any(), consumingRelationUUID, true, "offer access revoked").
 		DoAndReturn(func(context.Context, relation.UUID, bool, string) error {
 			defer close(suspended)
 			return nil
@@ -2243,7 +2243,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangePublishRelationCh
 		})
 
 	s.crossModelService.EXPECT().
-		SetRemoteRelationSuspendedState(gomock.Any(), relationUUID, true, "Offer permission revoked").
+		SetRemoteRelationSuspendedState(gomock.Any(), relationUUID, true, "offer access revoked").
 		Return(nil)
 
 	w := s.newLocalConsumerWorker(c)

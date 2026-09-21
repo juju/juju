@@ -229,6 +229,29 @@ func (st *State) revokeOfferPermission(
 	tx *sqlair.TX,
 	args crossmodelrelation.UpdateOfferPermissionArgs,
 ) error {
+	inOut := permInOut{
+		Name:    args.Username.Name(),
+		GrantOn: args.OfferUUID,
+	}
+	readStmt, err := st.Prepare(`
+SELECT p.access_type AS &permInOut.access_type
+FROM   v_permission_offer AS p
+JOIN   v_user_auth AS u ON p.grant_to = u.uuid
+WHERE  u.name = $permInOut.name
+AND    u.disabled = false
+AND    u.removed = false
+AND    p.grant_on = $permInOut.grant_on
+`, inOut)
+	if err != nil {
+		return errors.Errorf("preparing read current offer permission: %w", err)
+	}
+	err = tx.Query(ctx, readStmt, inOut).Get(&inOut)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("offer permission for %q on %q %w", args.Username, args.OfferUUID, accesserrors.PermissionNotFound)
+	} else if err != nil {
+		return errors.Errorf("reading current offer permission: %w", err)
+	}
+
 	spec := corepermission.AccessSpec{
 		Target: corepermission.ID{
 			ObjectType: corepermission.Offer,
@@ -295,8 +318,10 @@ DELETE FROM permission
 WHERE  grant_on = $permInOut.grant_on
 AND    grant_to IN (
            SELECT uuid
-           FROM   user
+           FROM   v_user_auth
            WHERE  name = $permInOut.name
+           AND    removed = false
+           AND    disabled = false
        )
 `, inOut)
 	if err != nil {
