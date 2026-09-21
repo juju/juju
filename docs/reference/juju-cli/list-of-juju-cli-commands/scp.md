@@ -19,6 +19,7 @@ juju scp [options] <source> <destination>
 | `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
 | `--proxy` | false | Proxy through the API server |
 | `--show-command` | false | Print the OpenSSH command instead of executing it |
+| `--ssh-key` |  | SSH private key to use when connecting through the controller |
 
 ## Examples
 

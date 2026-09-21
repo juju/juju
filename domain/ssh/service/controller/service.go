@@ -6,6 +6,9 @@ package controller
 import (
 	"context"
 
+	gossh "golang.org/x/crypto/ssh"
+
+	coremodel "github.com/juju/juju/core/model"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
@@ -59,4 +62,21 @@ func (s *Service) GetPublicKeysForUser(ctx context.Context, username user.Name) 
 		return nil, errors.Errorf("getting public SSH keys for user %q: %w", username, err)
 	}
 	return keys, nil
+}
+
+// PublicKeyInModel reports whether key is authorized for username in modelUUID.
+func (s *Service) PublicKeyInModel(ctx context.Context, modelUUID coremodel.UUID, username user.Name, key gossh.PublicKey) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := modelUUID.Validate(); err != nil {
+		return false, errors.Errorf("validating model UUID %q: %w", modelUUID, err)
+	}
+
+	fingerprint := gossh.FingerprintSHA256(key)
+	found, err := s.state.MatchesPublicKeyInModelForUser(ctx, modelUUID.String(), username.Name(), fingerprint)
+	if err != nil {
+		return false, errors.Errorf("checking public SSH key for user %q: %w", username, err)
+	}
+	return found, nil
 }
