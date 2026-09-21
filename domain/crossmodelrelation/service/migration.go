@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"maps"
+	"net"
 	"slices"
 
 	"github.com/juju/collections/transform"
@@ -46,6 +47,14 @@ type ModelMigrationState interface {
 	// GetRelationUUIDByRelationKey retrieves the UUID of a relation using its
 	// relation key.
 	GetRelationUUIDByRelationKey(ctx context.Context, key relation.Key) (string, error)
+
+	// AddRelationNetworkIngress adds ingress network CIDRs for the specified
+	// relation.
+	AddRelationNetworkIngress(ctx context.Context, relationUUID string, cidrs []string) error
+
+	// AddRelationNetworkEgress adds egress network CIDRs for the specified
+	// relation.
+	AddRelationNetworkEgress(ctx context.Context, relationUUID string, cidrs []string) error
 
 	// ImportRemoteApplicationSecretGrants imports secrets granted by offerer applications
 	// to consumer applications in the offerer model.
@@ -286,6 +295,54 @@ func (s *MigrationService) ImportRemoteApplicationConsumers(ctx context.Context,
 		return internalerrors.Capture(err)
 	}
 
+	return nil
+}
+
+// ImportRelationNetworks adds the relation networks being migrated to the
+// current model. The relation networks are imported after the relations of
+// the model exist, as the networks are located by relation key.
+func (s *MigrationService) ImportRelationNetworks(ctx context.Context, imports []crossmodelrelation.RelationNetworkImport) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	for _, network := range imports {
+		if err := network.RelationKey.Validate(); err != nil {
+			return internalerrors.Errorf(
+				"validating relation key: %w", err).Add(errors.NotValid)
+		}
+		if len(network.RelationKey) != 2 {
+			return internalerrors.Errorf(
+				"invalid relation key length %d for relation networks", len(network.RelationKey)).Add(errors.NotValid)
+		}
+		for _, cidr := range network.CIDRs {
+			if _, _, err := net.ParseCIDR(cidr); err != nil {
+				return internalerrors.Errorf(
+					"validating CIDR %q for relation %q: %w", cidr, network.RelationKey, err).Add(errors.NotValid)
+			}
+		}
+
+		relationUUID, err := s.modelState.GetRelationUUIDByRelationKey(ctx, network.RelationKey)
+		if err != nil {
+			return internalerrors.Errorf(
+				"getting relation UUID for relation with key %q: %w", network.RelationKey, err)
+		}
+
+		switch network.Direction {
+		case crossmodelrelation.RelationNetworkIngress:
+			if err := s.modelState.AddRelationNetworkIngress(ctx, relationUUID, network.CIDRs); err != nil {
+				return internalerrors.Errorf(
+					"adding relation network ingress for relation with key %q: %w", network.RelationKey, err)
+			}
+		case crossmodelrelation.RelationNetworkEgress:
+			if err := s.modelState.AddRelationNetworkEgress(ctx, relationUUID, network.CIDRs); err != nil {
+				return internalerrors.Errorf(
+					"adding relation network egress for relation with key %q: %w", network.RelationKey, err)
+			}
+		default:
+			return internalerrors.Errorf(
+				"unknown relation network direction %d", network.Direction).Add(errors.NotValid)
+		}
+	}
 	return nil
 }
 

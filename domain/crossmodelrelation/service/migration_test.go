@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	deploymentcharm "github.com/juju/juju/domain/deployment/charm"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -360,6 +361,111 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
 	c.Check(got[1].ConsumerApplicationEndpoint, tc.Equals, "source")
 	c.Check(got[1].OffererApplicationEndpoint, tc.Equals, "sink")
 	c.Check(got[1].UserName, tc.Equals, "admin")
+}
+
+func (s *migrationSuite) TestImportRelationNetworks(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	key, err := relation.NewKeyFromString("mysql:db remote-13ea:db")
+	c.Assert(err, tc.ErrorIsNil)
+
+	input := []crossmodelrelation.RelationNetworkImport{
+		{
+			RelationKey: key,
+			Direction:   crossmodelrelation.RelationNetworkIngress,
+			CIDRs:       []string{"10.0.0.0/24"},
+		}, {
+			RelationKey: key,
+			Direction:   crossmodelrelation.RelationNetworkEgress,
+			CIDRs:       []string{"192.168.0.0/16", "192.168.1.0/24"},
+		},
+	}
+
+	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), key).
+		Return("6049aa01-76c9-462d-8440-964a6e26aac2", nil).Times(2)
+	s.modelMigrationState.EXPECT().AddRelationNetworkIngress(
+		gomock.Any(), "6049aa01-76c9-462d-8440-964a6e26aac2", []string{"10.0.0.0/24"}).Return(nil)
+	s.modelMigrationState.EXPECT().AddRelationNetworkEgress(
+		gomock.Any(), "6049aa01-76c9-462d-8440-964a6e26aac2", []string{"192.168.0.0/16", "192.168.1.0/24"}).Return(nil)
+
+	// Act
+	err = s.service(c).ImportRelationNetworks(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *migrationSuite) TestImportRelationNetworksInvalidCIDR(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	key, err := relation.NewKeyFromString("mysql:db remote-13ea:db")
+	c.Assert(err, tc.ErrorIsNil)
+
+	input := []crossmodelrelation.RelationNetworkImport{
+		{
+			RelationKey: key,
+			Direction:   crossmodelrelation.RelationNetworkIngress,
+			CIDRs:       []string{"not-a-cidr"},
+		},
+	}
+
+	// Act
+	err = s.service(c).ImportRelationNetworks(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `.*validating CIDR "not-a-cidr".*`)
+}
+
+func (s *migrationSuite) TestImportRelationNetworksUnknownDirection(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	key, err := relation.NewKeyFromString("mysql:db remote-13ea:db")
+	c.Assert(err, tc.ErrorIsNil)
+
+	input := []crossmodelrelation.RelationNetworkImport{
+		{
+			RelationKey: key,
+			Direction:   crossmodelrelation.RelationNetworkDirection(42),
+			CIDRs:       []string{"10.0.0.0/24"},
+		},
+	}
+
+	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), key).
+		Return("6049aa01-76c9-462d-8440-964a6e26aac2", nil)
+
+	// Act
+	err = s.service(c).ImportRelationNetworks(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, ".*unknown relation network direction 42.*")
+}
+
+func (s *migrationSuite) TestImportRelationNetworksRelationNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	key, err := relation.NewKeyFromString("mysql:db remote-13ea:db")
+	c.Assert(err, tc.ErrorIsNil)
+
+	input := []crossmodelrelation.RelationNetworkImport{
+		{
+			RelationKey: key,
+			Direction:   crossmodelrelation.RelationNetworkIngress,
+			CIDRs:       []string{"10.0.0.0/24"},
+		},
+	}
+
+	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), key).
+		Return("", relationerrors.RelationNotFound)
+
+	// Act
+	err = s.service(c).ImportRelationNetworks(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
 func (s *migrationSuite) TestImportRemoteApplicationConsumersApplicationError(c *tc.C) {

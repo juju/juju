@@ -11,6 +11,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/permission"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
@@ -238,6 +239,34 @@ type RemoteApplicationConsumerImport struct {
 	// representing the remote application, on the consuming model. This is used
 	// to link the synthetic charm to the remote application consumer.
 	SyntheticCharmUUID string
+}
+
+// RelationNetworkDirection describes the direction of the networks of a
+// relation, either ingress or egress.
+type RelationNetworkDirection int
+
+const (
+	// RelationNetworkIngress indicates the networks are ingress networks for
+	// the relation, being the CIDRs from which the remote side of the relation
+	// connects.
+	RelationNetworkIngress RelationNetworkDirection = iota + 1
+
+	// RelationNetworkEgress indicates the networks are egress networks for
+	// the relation, being the CIDRs from which the local side of the relation
+	// connects to the remote side.
+	RelationNetworkEgress
+)
+
+// RelationNetworkImport contains the networks of a single relation and
+// direction, to import during migration.
+type RelationNetworkImport struct {
+	RelationKey corerelation.Key
+
+	// Direction is the direction of the networks.
+	Direction RelationNetworkDirection
+
+	// CIDRs are the network CIDRs of the relation for the direction.
+	CIDRs []string
 }
 
 // RemoteApplicationConsumer represents a remote application

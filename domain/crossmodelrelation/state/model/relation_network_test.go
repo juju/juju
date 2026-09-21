@@ -458,6 +458,69 @@ ORDER BY cidr`, relationUUID)
 	return cidrs
 }
 
+func (s *relationNetworkStateSuite) TestAddRelationNetworkEgress(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	cidrs := []string{"192.0.2.0/24", "198.51.100.0/24"}
+
+	// Act
+	err := s.state.AddRelationNetworkEgress(c.Context(), relationUUID.String(), cidrs)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	obtainedCIDRs := s.readRelationNetworkEgress(c, relationUUID.String())
+	c.Check(obtainedCIDRs, tc.SameContents, cidrs)
+}
+
+func (s *relationNetworkStateSuite) TestAddRelationNetworkEgressDuplicateCIDR(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	cidr := []string{"192.0.2.0/24"}
+
+	// Act - First insertion
+	err := s.state.AddRelationNetworkEgress(c.Context(), relationUUID.String(), cidr)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act - Second insertion of the same CIDR is idempotent, matching the
+	// runtime behaviour of adding egress networks for a relation.
+	err = s.state.AddRelationNetworkEgress(c.Context(), relationUUID.String(), cidr)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	obtainedCIDRs := s.readRelationNetworkEgress(c, relationUUID.String())
+	c.Check(obtainedCIDRs, tc.DeepEquals, cidr)
+}
+
+func (s *relationNetworkStateSuite) TestAddRelationNetworkEgressInvalidRelation(c *tc.C) {
+	// Arrange
+	nonExistentRelationUUID := internaluuid.MustNewUUID().String()
+	cidr := []string{"192.0.2.0/24"}
+
+	// Act
+	err := s.state.AddRelationNetworkEgress(c.Context(), nonExistentRelationUUID, cidr)
+
+	// Assert - Should return RelationNotFound
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationNetworkStateSuite) readRelationNetworkEgress(c *tc.C, relationUUID string) []string {
+	rows, err := s.DB().QueryContext(c.Context(), `
+SELECT cidr FROM relation_network_egress
+WHERE relation_uuid = ?
+ORDER BY cidr`, relationUUID)
+	c.Assert(err, tc.IsNil)
+	defer func() { _ = rows.Close() }()
+
+	var cidrs []string
+	for rows.Next() {
+		var cidr string
+		err = rows.Scan(&cidr)
+		c.Assert(err, tc.IsNil)
+		cidrs = append(cidrs, cidr)
+	}
+	return cidrs
+}
+
 func (s *relationNetworkStateSuite) TestGetRelationNetworkEgress(c *tc.C) {
 	// Arrange
 	relationUUID := s.createTestRelation(c)
