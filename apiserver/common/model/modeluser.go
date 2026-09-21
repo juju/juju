@@ -20,9 +20,10 @@ type modelService interface {
 	// GetModelUsers will retrieve basic information about users with
 	// permissions on the given model UUID.
 	GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error)
-	// GetModelUser will retrieve basic information about the specified model
-	// user.
-	GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name user.Name) (coremodel.ModelUserInfo, error)
+	// GetModelUserInfo retrieves basic information about the specified
+	// model user. A user with no local permission row is still returned,
+	// with an empty access level.
+	GetModelUserInfo(ctx context.Context, modelUUID coremodel.UUID, name user.Name) (coremodel.ModelUserInfo, error)
 }
 
 // ModelUserInfo gets model user info from the modelService and converts it
@@ -37,7 +38,7 @@ func ModelUserInfo(ctx context.Context, service modelService, modelTag names.Mod
 		userInfo, err = service.GetModelUsers(ctx, coremodel.UUID(modelTag.Id()))
 	} else {
 		var ui coremodel.ModelUserInfo
-		ui, err = service.GetModelUser(ctx, coremodel.UUID(modelTag.Id()), apiUser)
+		ui, err = service.GetModelUserInfo(ctx, coremodel.UUID(modelTag.Id()), apiUser)
 		if err == nil && ui.Access == permission.NoAccess {
 			ui.Access = fallbackAccess
 		}

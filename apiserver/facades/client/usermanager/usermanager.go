@@ -62,14 +62,14 @@ type ModelService interface {
 	// [github.com/juju/juju/domain/model/errors.NotFound].
 	GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error)
 
-	// GetModelUser will retrieve basic information about the specified model
-	// user. Unlike GetModelUsers this returns a user with no local
-	// permission row on the model, with an empty access level.
+	// GetModelUserInfo retrieves basic information about the specified
+	// model user. Unlike GetModelUsers, a user with no local permission
+	// row is still returned, with an empty access level.
 	// If the model cannot be found it will return
 	// [github.com/juju/juju/domain/model/errors.NotFound].
 	// If the user cannot be found it will return
 	// [github.com/juju/juju/domain/access/errors.UserNotFound].
-	GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name coreuser.Name) (coremodel.ModelUserInfo, error)
+	GetModelUserInfo(ctx context.Context, modelUUID coremodel.UUID, name coreuser.Name) (coremodel.ModelUserInfo, error)
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete

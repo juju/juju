@@ -594,9 +594,9 @@ func (s *userManagerSuite) TestModelUsersInfoNonAdminNoLocalPermission(c *tc.C) 
 	s.setAPIUserAndAuth(c, "read-"+controllerModelTag.String())
 	defer s.setUpAPI(c).Finish()
 
-	// The caller has no local permission row: GetModelUser returns a
+	// The caller has no local permission row: GetModelUserInfo returns a
 	// sparse row with an empty access level.
-	s.modelService.EXPECT().GetModelUser(
+	s.modelService.EXPECT().GetModelUserInfo(
 		gomock.Any(), coremodel.UUID(s.ApiServerSuite.ControllerModelUUID()), s.apiUser.Name,
 	).Return(coremodel.ModelUserInfo{
 		Name:        s.apiUser.Name,

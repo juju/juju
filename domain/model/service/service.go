@@ -173,13 +173,12 @@ type State interface {
 	// If the model cannot be found it will return modelerrors.NotFound.
 	GetModelUsers(context.Context, coremodel.UUID) ([]coremodel.ModelUserInfo, error)
 
-	// GetModelUser will retrieve basic information about the specified user
-	// on the given model UUID. Unlike GetModelUsers this returns a user
-	// with no local permission row on the model, with an empty access
-	// level.
+	// GetModelUserInfo retrieves basic information about the specified
+	// user on the given model UUID. Unlike GetModelUsers, a user with no
+	// local permission row is still returned, with an empty access level.
 	// If the model cannot be found it will return modelerrors.NotFound.
 	// If the user cannot be found it will return accesserrors.UserNotFound.
-	GetModelUser(context.Context, coremodel.UUID, coreuser.Name) (coremodel.ModelUserInfo, error)
+	GetModelUserInfo(context.Context, coremodel.UUID, coreuser.Name) (coremodel.ModelUserInfo, error)
 
 	// UpdateCredential updates a model's cloud credential.
 	UpdateCredential(context.Context, coremodel.UUID, credential.Key) error
@@ -628,13 +627,13 @@ func (s *Service) GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) (
 	return modelUserInfo, nil
 }
 
-// GetModelUser will retrieve basic information about the specified model user.
+// GetModelUserInfo retrieves basic information about the specified
+// model user. A user with no local permission row is still returned,
+// with an empty access level, which supports callers whose grants live
+// in an external store (for example JWT-authenticated JIMM users).
 // If the model cannot be found it will return [modelerrors.NotFound].
 // If the user cannot be found it will return [accesserrors.UserNotFound].
-// A user with no local permission row on the model is still returned, with
-// an empty access level; this supports callers whose grants live in an
-// external store (for example JWT-authenticated JIMM users).
-func (s *Service) GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name coreuser.Name) (coremodel.ModelUserInfo, error) {
+func (s *Service) GetModelUserInfo(ctx context.Context, modelUUID coremodel.UUID, name coreuser.Name) (coremodel.ModelUserInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -646,7 +645,7 @@ func (s *Service) GetModelUser(ctx context.Context, modelUUID coremodel.UUID, na
 	if err := modelUUID.Validate(); err != nil {
 		return coremodel.ModelUserInfo{}, errors.Capture(err)
 	}
-	modelUserInfo, err := s.st.GetModelUser(ctx, modelUUID, name)
+	modelUserInfo, err := s.st.GetModelUserInfo(ctx, modelUUID, name)
 	if err != nil {
 		return coremodel.ModelUserInfo{}, errors.Errorf(
 			"getting info of user %q on model %q: %w",

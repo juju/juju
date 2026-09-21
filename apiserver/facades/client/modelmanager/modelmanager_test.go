@@ -1067,9 +1067,9 @@ func (s *modelManagerSuite) TestModelInfoNonAdminNoLocalPermission(c *tc.C) {
 		Status: corestatus.Available,
 		Since:  &now,
 	}, nil)
-	// The caller has no local permission row: GetModelUser returns a
+	// The caller has no local permission row: GetModelUserInfo returns a
 	// sparse row with an empty access level.
-	s.modelService.EXPECT().GetModelUser(gomock.Any(), modelUUID, coreuser.NameFromTag(userTag)).Return(coremodel.ModelUserInfo{
+	s.modelService.EXPECT().GetModelUserInfo(gomock.Any(), modelUUID, coreuser.NameFromTag(userTag)).Return(coremodel.ModelUserInfo{
 		Name:        coreuser.NameFromTag(userTag),
 		DisplayName: userTag.Id(),
 		Access:      permission.NoAccess,

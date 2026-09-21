@@ -445,7 +445,7 @@ func (d *dummyState) GetModelUsers(_ context.Context, _ coremodel.UUID) ([]corem
 	return rval, nil
 }
 
-func (d *dummyState) GetModelUser(_ context.Context, _ coremodel.UUID, name user.Name) (coremodel.ModelUserInfo, error) {
+func (d *dummyState) GetModelUserInfo(_ context.Context, _ coremodel.UUID, name user.Name) (coremodel.ModelUserInfo, error) {
 	for _, userName := range d.users {
 		if userName == name {
 			return coremodel.ModelUserInfo{
