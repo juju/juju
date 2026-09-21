@@ -8,6 +8,7 @@ import (
 	"net"
 	"strings"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
@@ -307,15 +308,24 @@ func (s *MigrationService) getPlaceholderLinkLayerDevices(
 	ctx context.Context,
 	services []internal.ImportK8sService,
 ) ([]internal.ImportLinkLayerDevice, error) {
-	subnetUUIDByAddressType, err := s.getPlaceholderSubnetUUIDByAddressType(ctx)
-	if err != nil {
-		return nil, errors.Errorf("getting placeholder subnet UUIDs: %w", err)
-	}
-
+	var subnetUUIDByAddressType map[corenetwork.AddressType]string
 	devices := make([]internal.ImportLinkLayerDevice, 0, len(services))
 	for _, service := range services {
 		transformedAddresses := make([]internal.ImportIPAddress, 0, len(service.Addresses))
 		for _, addr := range service.Addresses {
+			if corenetwork.AddressType(addr.Type) == corenetwork.HostName {
+				if addr.Scope != string(corenetwork.ScopeCloudLocal) && addr.Scope != string(corenetwork.ScopePublic) {
+					return nil, errors.Errorf("unsupported Service hostname scope %q", addr.Scope).Add(coreerrors.NotValid)
+				}
+				continue
+			}
+			if subnetUUIDByAddressType == nil {
+				var err error
+				subnetUUIDByAddressType, err = s.getPlaceholderSubnetUUIDByAddressType(ctx)
+				if err != nil {
+					return nil, errors.Errorf("getting placeholder subnet UUIDs: %w", err)
+				}
+			}
 			transformedAddr, err := s.transformK8sServiceAddress(addr, subnetUUIDByAddressType)
 			if err != nil {
 				return nil, errors.Errorf("converting address %q for %q k8s service: %w",
