@@ -251,25 +251,25 @@ model "Juju" {
 
     // Hook execution
     apiserver  -> unit_agent [type: stream,  label: "watcher"]
-    unit_agent -> charm      [type: control, label: "runs"]
+    unit_agent -> charm      [type: control, label: "executes hooks from"]
     charm      -> unit_agent [type: ipc,     label: "calls hook command on"]
-    unit_agent -> apiserver  [type: api,     label: "serve / flush"]
+    unit_agent -> apiserver  [type: api,     label: "flushes hook changes to"]
 
     // Bootstrap K8s
     client         -> k8s            [type: api]
-    k8s            -> client         [type: api]
-    controller_pod -> client         [type: api, label: "API ready"]
+    k8s            -> client         [type: stream]
+    client         -> controller_pod [type: api, label: "polls the API until ready"]
     // Deploy K8s
-    controller     -> k8s              [type: control]
-    controller     -> containeragent   [type: control]
+    controller     -> k8s              [type: control, label: "creates unit pods on"]
+    controller     -> containeragent   [type: control, label: "starts via the k8s pod spec"]
     containeragent -> controller       [type: api, label: "makes API calls to"]
 
     // Bootstrap machine
-    client             -> controller_machine  [type: control]
-    controller_machine -> client              [type: api]
+    client             -> controller_machine  [type: control, label: "ssh-installs the controller agent on"]
+    client             -> controller_machine  [type: api, label: "polls the API until initialised"]
 
     // Deploy machine
-    controller    -> machine_agent  [type: control, label: "deploys and upgrades"]
+    controller    -> machine_agent  [type: control, label: "provisions with user data, serves agent binaries"]
     machine_agent -> controller     [type: api, label: "makes API calls to"]
 
     // Machine/unit removal and bootstrap machine — generic cloud
@@ -290,7 +290,7 @@ model "Juju" {
     unit_agent     -> controller  [type: api, label: "makes API calls to"]
     // Model removal
     controller -> undertaker [type: stream, label: "model removal events"]
-    undertaker -> controller [type: api, label: "makes API calls to"]
+    undertaker -> controller [type: control, label: "purges dead models and their databases from"]
 
     // Schema associations — semantic direction, multiplicity in the
     // label (on the many end) until crow's-foot glyphs land (SPEC Phase 9).
@@ -349,7 +349,7 @@ model "Juju" {
     // goal state (reconciliation); the unit agent watches the controller
     // for changes.
     user       -> bare_application [type: control, label: "operates"]
-    apps       -> controller       [type: control, label: "converges toward"]
+    apps       -> controller       [type: control, label: "state recorded in"]
 
     // HA controller — Raft sync between Dqlite nodes: full mesh
     // (pairing: mesh — every distinct pair, never a node with itself)
@@ -366,21 +366,21 @@ model "Juju" {
     // Worker tree — the controller dependency engine. Edge direction is
     // consumer -> provider: the source worker depends on the capability
     // the target provides (dependency.Manifolds Inputs).
-    db_accessor     -> agent_worker     [type: control, label: "serves the agent config"]
+    agent_worker     -> db_accessor     [type: control, label: "provides the agent config and its change notifications"]
     change_stream   -> db_accessor     [type: stream,  label: "watches the database"]
-    domain_services -> db_accessor     [type: control, label: "opens the database"]
-    domain_services -> change_stream    [type: control, label: "reads the change log"]
+    domain_services -> db_accessor     [type: control, label: "reads the dqlite cluster description from"]
+    domain_services -> change_stream    [type: control, label: "creates change watchers over"]
     lease_manager   -> db_accessor     [type: control, label: "stores its leases"]
-    primary_flag    -> lease_manager   [type: control, label: "acquires the leader lease"]
+    primary_flag    -> lease_manager   [type: control, label: "claims the controller-ownership lease"]
     lease_expiry    -> primary_flag    [type: control, label: "runs only when primary"]
     object_store    -> lease_manager   [type: control, label: "guards access by lease"]
     api_server      -> domain_services [type: control, label: "exposes domain services"]
     api_server      -> object_store    [type: control, label: "stores and serves blobs"]
-    http_server     -> api_server      [type: control, label: "routes API traffic"]
-    provider_services -> change_stream [type: control, label: "watches for changes"]
+    http_server     -> api_server      [type: control, label: "serves the shared mux for"]
+    provider_services -> change_stream [type: control, label: "late-binds per-model provider services via"]
     provider_tracker  -> provider_services [type: control, label: "fetches cloud handles"]
     undertaker      -> domain_services [type: control, label: "tears models down"]
-    model_worker_manager -> domain_services    [type: control, label: "starts model workers"]
+    model_worker_manager -> domain_services    [type: control, label: "watches activated models to start workers"]
     model_worker_manager -> provider_services  [type: control, label: "gets provider factories"]
     provisioner     -> model_worker_manager [type: control, label: "runs as a model worker"]
 
