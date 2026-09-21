@@ -1259,6 +1259,46 @@ WHERE ks.application_uuid = ?`, appUUID).Scan(
 	c.Check(podInfo.Address, tc.Equals, "10.0.0.2")
 }
 
+func (s *applicationStateSuite) TestUpsertK8sServiceProviderIDCollision(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+	otherAppUUID := s.createCAASApplication(c, "bar", life.Alive)
+	err := s.state.UpsertK8sService(c.Context(), "foo", "foo-provider-id", network.ProviderAddresses{
+		{MachineAddress: network.NewMachineAddress("10.0.0.1")},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.UpsertK8sService(c.Context(), "bar", "bar-provider-id", network.ProviderAddresses{
+		{MachineAddress: network.NewMachineAddress("10.0.0.2")},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	type serviceWithAddress struct {
+		k8sService
+		Address string
+	}
+	readService := func(appUUID coreapplication.UUID) serviceWithAddress {
+		var svc serviceWithAddress
+		err := s.DB().QueryRowContext(c.Context(), `
+SELECT ks.uuid, ks.application_uuid, ks.net_node_uuid, ks.provider_id,
+       ip.address_value
+FROM k8s_service AS ks
+JOIN ip_address AS ip ON ip.net_node_uuid = ks.net_node_uuid
+WHERE ks.application_uuid = ?`, appUUID).Scan(
+			&svc.UUID, &svc.ApplicationUUID, &svc.NetNodeUUID, &svc.ProviderID, &svc.Address)
+		c.Assert(err, tc.ErrorIsNil)
+		return svc
+	}
+	serviceBefore := readService(appUUID)
+	otherServiceBefore := readService(otherAppUUID)
+
+	// A failed provider-ID change must retain both Services and their addresses.
+	err = s.state.UpsertK8sService(c.Context(), "foo", "bar-provider-id", network.ProviderAddresses{
+		{MachineAddress: network.NewMachineAddress("10.0.0.3")},
+	})
+	c.Check(err, tc.ErrorMatches, `updating cloud service for application "foo": updating cloud service provider ID: .*UNIQUE constraint failed: k8s_service.provider_id.*`)
+	c.Check(readService(appUUID), tc.Equals, serviceBefore)
+	c.Check(readService(otherAppUUID), tc.Equals, otherServiceBefore)
+}
+
 func (s *applicationStateSuite) TestK8sServiceUniqueApplication(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 	err := s.state.UpsertK8sService(c.Context(), "foo", "provider-id", nil)

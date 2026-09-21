@@ -1092,9 +1092,7 @@ WHERE ks.uuid = $k8sService.uuid`, k8sService{})
 			ApplicationUUID: appDetails.UUID,
 		}
 		err = tx.Query(ctx, queryExistingStmt, serviceInfoToUpsert).Get(&serviceInfoToUpsert)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("querying cloud service: %w", err)
-		} else if errors.Is(err, sqlair.ErrNoRows) {
+		if errors.Is(err, sqlair.ErrNoRows) {
 			// Nothing already exists so create a new net node and the cloud
 			// service.
 			netNodeUUID, k8sServiceUUID, err := st.createK8sService(ctx, tx, serviceInfoToUpsert)
@@ -1103,6 +1101,8 @@ WHERE ks.uuid = $k8sService.uuid`, k8sService{})
 			}
 			serviceInfoToUpsert.NetNodeUUID = netNodeUUID.String()
 			serviceInfoToUpsert.UUID = k8sServiceUUID.String()
+		} else if err != nil {
+			return errors.Errorf("querying cloud service: %w", err)
 		} else if serviceInfoToUpsert.ProviderID != providerID {
 			serviceInfoToUpsert.ProviderID = providerID
 			if err := tx.Query(ctx, updateProviderIDStmt, serviceInfoToUpsert).Run(); err != nil {
