@@ -6,6 +6,7 @@ package apiserver
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -60,9 +61,7 @@ func (s *backupsDownloadSuite) downloadRequest(c *tc.C, id string, header http.H
 	c.Assert(err, tc.ErrorIsNil)
 
 	req := httptest.NewRequest(http.MethodGet, "/backups", strings.NewReader(string(body)))
-	for name, values := range header {
-		req.Header[name] = values
-	}
+	maps.Copy(req.Header, header)
 	rec := httptest.NewRecorder()
 	s.handler.ServeHTTP(rec, req)
 	return rec

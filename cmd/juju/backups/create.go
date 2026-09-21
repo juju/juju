@@ -4,7 +4,6 @@
 package backups
 
 import (
-	"context"
 	"crypto/sha1"
 	"fmt"
 	"io"
@@ -18,7 +17,6 @@ import (
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/backups"
-	"github.com/juju/juju/rpc/params"
 )
 
 const notset = backups.FilenamePrefix + "<date>-<time>.tar.gz"
@@ -103,21 +101,21 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	metadataResult, err := c.create(ctx, client)
+	result, err := client.Create(ctx, c.Notes)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	if !c.quiet {
-		fmt.Fprintln(ctx.Stdout, c.metadata(metadataResult))
+		fmt.Fprintln(ctx.Stdout, c.metadata(result))
 	}
 
-	if metadataResult.ID == "" {
+	if result.ID == "" {
 		return errors.Errorf("controller did not provide a backup id for download")
 	}
 
-	filename := c.decideFilename(c.Filename, metadataResult.Started)
-	if err := c.download(ctx, client, metadataResult.ID, metadataResult.Checksum, filename); err != nil {
+	filename := c.decideFilename(c.Filename, result.Started)
+	if err := c.download(ctx, client, result.ID, result.Checksum, filename); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -163,13 +161,4 @@ func (c *createCommand) download(ctx *cmd.Context, client APIClient, id, checksu
 	}
 	ctx.Infof("Downloaded to %v", archiveFilename)
 	return nil
-}
-
-func (c *createCommand) create(ctx context.Context, client APIClient) (*params.BackupsMetadataResult, error) {
-	result, err := client.Create(ctx, c.Notes)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return result, err
 }

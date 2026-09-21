@@ -189,6 +189,10 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	// server-minted UUID in the one-shot download directory and hand the
 	// id to the client. The archive is removed once it has been fully
 	// served, or by the one-shot sweeper when its retention window ends.
+	//
+	// result.ID carries this server-minted download identifier: 4.x has
+	// no persistent ID for backups (MarkComplete no longer exists), so
+	// the one-shot id is the only identifier.
 	id, err := uuid.NewUUID()
 	if err != nil {
 		return params.BackupsMetadataResult{}, errors.Capture(err)
@@ -198,10 +202,24 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 			"creating one-shot backup download dir: %w", err)
 	}
 	oneShotPath := filepath.Join(corebackups.OneShotDir(backupDir), id.String()+".tar.gz")
+
+	// If staging the archive fails, the original archive must be
+	// removed: it would otherwise sit in the backup dir forever,
+	// violating the invariant that the controller never keeps archives.
+	var staged bool
+	defer func() {
+		if !staged {
+			if err := os.Remove(filename); err != nil && !os.IsNotExist(err) {
+				a.logger.Warningf(ctx, "removing orphan backup archive %q: %v",
+					filename, err)
+			}
+		}
+	}()
 	if err := os.Rename(filename, oneShotPath); err != nil {
 		return params.BackupsMetadataResult{}, errors.Errorf(
 			"staging backup archive for download: %w", err)
 	}
+	staged = true
 
 	result := params.CreateResult(meta, filepath.Base(filename))
 	result.ID = id.String()

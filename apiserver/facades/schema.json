@@ -4134,6 +4134,9 @@
                 "BackupsCreateArgs": {
                     "type": "object",
                     "properties": {
+                        "no-download": {
+                            "type": "boolean"
+                        },
                         "notes": {
                             "type": "string"
                         }

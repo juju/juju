@@ -13,6 +13,11 @@ import (
 // BackupsCreateArgs holds the args for the API Create method.
 type BackupsCreateArgs struct {
 	Notes string `json:"notes"`
+
+	// NoDownload is kept for compatibility with older clients; it has
+	// no effect because the controller always returns the archive
+	// inline now.
+	NoDownload bool `json:"no-download,omitempty"`
 }
 
 // BackupsDownloadArgs holds the args for the HTTP backups download endpoint.
