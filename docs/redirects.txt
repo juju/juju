@@ -212,7 +212,6 @@ user/reference/juju-cli/list-of-juju-cli-commands/disable-command reference/juju
 user/reference/juju-cli/list-of-juju-cli-commands/disable-user reference/juju-cli/list-of-juju-cli-commands/disable-user
 user/reference/juju-cli/list-of-juju-cli-commands/disabled-commands reference/juju-cli/list-of-juju-cli-commands/disabled-commands
 user/reference/juju-cli/list-of-juju-cli-commands/documentation reference/juju-cli/list-of-juju-cli-commands/documentation
-user/reference/juju-cli/list-of-juju-cli-commands/download-backup reference/juju-cli/list-of-juju-cli-commands/download-backup
 user/reference/juju-cli/list-of-juju-cli-commands/download reference/juju-cli/list-of-juju-cli-commands/download
 user/reference/juju-cli/list-of-juju-cli-commands/enable-command reference/juju-cli/list-of-juju-cli-commands/enable-command
 user/reference/juju-cli/list-of-juju-cli-commands/enable-destroy-controller reference/juju-cli/list-of-juju-cli-commands/enable-destroy-controller

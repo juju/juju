@@ -24,10 +24,11 @@ import (
 // the backups command.
 type APIClient interface {
 	io.Closer
-	// Create sends an RPC request to create a new backup.
-	Create(nctx context.Context, otes string, noDownload bool) (*params.BackupsMetadataResult, error)
-	// Download pulls the backup archive file.
-	Download(ctx context.Context, filename string) (io.ReadCloser, error)
+	// Create sends an RPC request to create a new backup. The result
+	// carries the id of the staged archive and its checksum.
+	Create(ctx context.Context, notes string) (*params.BackupsMetadataResult, error)
+	// Download streams the backup archive staged for the given id.
+	Download(ctx context.Context, id string) (io.ReadCloser, error)
 }
 
 // CommandBase is the base type for backups sub-commands.

@@ -5,7 +5,6 @@ package backups_test
 
 import (
 	"bytes"
-	"io"
 	"os"
 	"strings"
 	"testing"
@@ -67,7 +66,7 @@ func (s *createSuite) setFailure(failure string) *fakeAPIClient {
 
 func (s *createSuite) setDownload() *fakeAPIClient {
 	client := s.setSuccess()
-	client.archive = io.NopCloser(bytes.NewBufferString(s.data))
+	client.data = s.data
 	return client
 }
 
@@ -95,52 +94,39 @@ func (s *createSuite) checkDownload(c *tc.C, ctx *cmd.Context) {
 }
 
 type createBackupArgParsing struct {
-	title      string
-	args       []string
-	errMatch   string
-	filename   string
-	noDownload bool
-	notes      string
+	title    string
+	args     []string
+	errMatch string
+	filename string
+	notes    string
 }
 
 var testCreateBackupArgParsing = []createBackupArgParsing{
 	{
-		title:      "no args",
-		args:       []string{},
-		filename:   backups.NotSet,
-		noDownload: false,
-		notes:      "",
+		title:    "no args",
+		args:     []string{},
+		filename: backups.NotSet,
+		notes:    "",
 	},
 	{
-		title:      "filename",
-		args:       []string{"--filename", "testname"},
-		filename:   "testname",
-		noDownload: false,
-		notes:      "",
+		title:    "filename",
+		args:     []string{"--filename", "testname"},
+		filename: "testname",
+		notes:    "",
 	},
 	{
-		title:      "filename flag, no name",
-		args:       []string{"--filename"},
-		errMatch:   "option needs an argument: --filename",
-		filename:   backups.NotSet,
-		noDownload: false,
-		notes:      "",
+		title:    "filename flag, no name",
+		args:     []string{"--filename"},
+		errMatch: "option needs an argument: --filename",
+		filename: backups.NotSet,
+		notes:    "",
 	},
 	{
-		title:      "filename && no-download",
-		args:       []string{"--filename", "testname", "--no-download"},
-		errMatch:   "cannot mix --no-download and --filename",
-		filename:   backups.NotSet,
-		noDownload: false,
-		notes:      "",
-	},
-	{
-		title:      "notes",
-		args:       []string{"note for the backup"},
-		errMatch:   "",
-		filename:   backups.NotSet,
-		noDownload: false,
-		notes:      "note for the backup",
+		title:    "notes",
+		args:     []string{"note for the backup"},
+		errMatch: "",
+		filename: backups.NotSet,
+		notes:    "note for the backup",
 	},
 }
 
@@ -151,21 +137,19 @@ func (s *createSuite) TestArgParsing(c *tc.C) {
 		if test.errMatch == "" {
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(s.command.Filename, tc.Equals, test.filename)
-			c.Assert(s.command.NoDownload, tc.Equals, test.noDownload)
 			c.Assert(s.command.Notes, tc.Equals, test.notes)
 		} else {
 			c.Assert(err, tc.ErrorMatches, test.errMatch)
 		}
 	}
 }
-
 func (s *createSuite) TestDefault(c *tc.C) {
 	client := s.setDownload()
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
 	c.Assert(err, tc.ErrorIsNil)
 
-	client.CheckCalls(c, "Create", "Download")
-	client.CheckArgs(c, "", "false", "backup-filename")
+	client.Check(c, "backup-id", "", "Create", "Download")
+	client.CheckArgs(c, "", "backup-id")
 	s.checkDownload(c, ctx)
 	c.Check(s.command.Filename, tc.Equals, backups.NotSet)
 }
@@ -175,8 +159,8 @@ func (s *createSuite) TestDefaultQuiet(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.createCommandForGlobalOptionTesting(s.wrappedCommand), "create-backup", "--quiet")
 	c.Assert(err, tc.ErrorIsNil)
 
-	client.CheckCalls(c, "Create", "Download")
-	client.CheckArgs(c, "", "false", "backup-filename")
+	client.Check(c, "backup-id", "", "Create", "Download")
+	client.CheckArgs(c, "", "backup-id")
 
 	c.Check(ctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "")
 	c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, "")
@@ -187,8 +171,8 @@ func (s *createSuite) TestNotes(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "test notes")
 	c.Assert(err, tc.ErrorIsNil)
 
-	client.CheckCalls(c, "Create", "Download")
-	client.CheckArgs(c, "test notes", "false", "backup-filename")
+	client.Check(c, "backup-id", "test notes", "Create", "Download")
+	client.CheckArgs(c, "test notes", "backup-id")
 	s.checkDownload(c, ctx)
 }
 
@@ -197,8 +181,8 @@ func (s *createSuite) TestFilename(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
 	c.Assert(err, tc.ErrorIsNil)
 
-	client.CheckCalls(c, "Create", "Download")
-	client.CheckArgs(c, "", "false", "backup-filename")
+	client.Check(c, "backup-id", "", "Create", "Download")
+	client.CheckArgs(c, "", "backup-id")
 	s.expectedErr = `
 Downloaded to backup.tgz
 `[1:]
@@ -206,28 +190,30 @@ Downloaded to backup.tgz
 	c.Check(s.command.Filename, tc.Equals, "backup.tgz")
 }
 
-func (s *createSuite) TestNoDownload(c *tc.C) {
-	client := s.setSuccess()
-	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--no-download")
-	c.Assert(err, tc.ErrorIsNil)
+func (s *createSuite) TestChecksumMismatch(c *tc.C) {
+	client := s.setDownload()
+	client.metaresult.Checksum = "wrong-checksum"
 
-	client.CheckCalls(c, "Create")
-	client.CheckArgs(c, "", "true")
-	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "Remote backup stored on the controller as backup-filename\n")
-	c.Check(cmdtesting.Stdout(ctx), tc.Equals, s.expectedOut)
-	c.Check(s.command.Filename, tc.Equals, backups.NotSet)
+	_, err := cmdtesting.RunCommand(c, s.wrappedCommand)
+	c.Assert(err, tc.ErrorMatches, `checksum mismatch for downloaded backup .*`)
+	client.Check(c, "backup-id", "", "Create", "Download")
+
+	// The corrupt archive is not left behind.
+	_, err = os.Stat("juju-backup-00010101-000000.tar.gz")
+	c.Check(err, tc.Satisfies, os.IsNotExist)
 }
 
-func (s *createSuite) TestFilenameAndNoDownload(c *tc.C) {
-	s.setSuccess()
-	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--no-download", "--filename", "backup.tgz")
+func (s *createSuite) TestNoBackupID(c *tc.C) {
+	client := s.setDownload()
+	client.metaresult.ID = ""
 
-	c.Check(err, tc.ErrorMatches, "cannot mix --no-download and --filename")
+	_, err := cmdtesting.RunCommand(c, s.wrappedCommand)
+	c.Assert(err, tc.ErrorMatches, "controller did not provide a backup id for download")
+	client.CheckCalls(c, "Create")
 }
 
 func (s *createSuite) TestError(c *tc.C) {
 	s.setFailure("failed!")
 	_, err := cmdtesting.RunCommand(c, s.wrappedCommand)
-
 	c.Check(errors.Cause(err), tc.ErrorMatches, "failed!")
 }

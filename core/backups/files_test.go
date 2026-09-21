@@ -146,32 +146,3 @@ func (s *filesSuite) TestBackupDirToUse(c *tc.C) {
 	c.Check(backups.BackupDirToUse("/some/dir"), tc.Equals, "/some/dir")
 	c.Check(backups.BackupDirToUse(""), tc.Equals, os.TempDir())
 }
-
-func (s *filesSuite) TestIsValidBackupFilepath(c *tc.C) {
-	dir := c.MkDir()
-	valid := filepath.Join(dir, backups.FilenamePrefix+"2020.tar.gz")
-	s.writeFile(c, valid, "archive data")
-
-	ok, err := backups.IsValidBackupFilepath(dir, valid)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(ok, tc.IsTrue)
-
-	// A backup file in a subdirectory of root is rejected: only files
-	// directly under root are served.
-	nested := filepath.Join(dir, "sub", backups.FilenamePrefix+"nested.tar.gz")
-	s.writeFile(c, nested, "archive data")
-
-	for _, invalid := range []struct {
-		name  string
-		path_ string
-	}{
-		{"relative", "juju-backup-foo.tar.gz"},
-		{"absolute missing file", filepath.Join(dir, "juju-backup-missing.tar.gz")},
-		{"prefix-refusing", filepath.Join(dir, "other.tar.gz")},
-		{"nested", nested},
-	} {
-		ok, err = backups.IsValidBackupFilepath(dir, invalid.path_)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(ok, tc.IsFalse, tc.Commentf("case %q", invalid.name))
-	}
-}

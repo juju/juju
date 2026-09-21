@@ -50,6 +50,7 @@ type backupsSuite struct {
 
 	// Captured by the patched core archive creation.
 	archiveFilename string
+	archiveData     []byte
 	createdMeta     *corebackups.Metadata
 	createdArgs     corebackups.CreateArgs
 	createdDumps    []string
@@ -184,6 +185,7 @@ func (s *backupsSuite) expectFilesToBackUp(c *tc.C, backupDir string) []string {
 // while their readers are still open.
 func (s *backupsSuite) expectArchiveCreation(c *tc.C, backupDir string) {
 	s.archiveFilename = filepath.Join(backupDir, "juju-backup-test.tar.gz")
+	s.archiveData = []byte("test archive data")
 	s.PatchValue(&corebackups.Create, func(meta *corebackups.Metadata, args corebackups.CreateArgs) (string, error) {
 		s.createdMeta = meta
 		s.createdArgs = args
@@ -193,6 +195,10 @@ func (s *backupsSuite) expectArchiveCreation(c *tc.C, backupDir string) {
 			c.Assert(err, tc.ErrorIsNil)
 			s.createdDumps = append(s.createdDumps, string(data))
 		}
+		// The facade reads the archive back and removes it, so the
+		// stub must write a real file.
+		err := os.WriteFile(s.archiveFilename, s.archiveData, 0600)
+		c.Assert(err, tc.ErrorIsNil)
 		return s.archiveFilename, nil
 	})
 }
@@ -251,7 +257,18 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 	c.Check(result.Notes, tc.Equals, "test")
 	c.Check(result.FormatVersion, tc.Equals, int64(2))
 	c.Check(result.HANodes, tc.Equals, int64(2))
-	c.Check(result.Filename, tc.Equals, s.archiveFilename)
+	c.Check(result.Filename, tc.Equals, filepath.Base(s.archiveFilename))
+
+	// The archive is staged under the returned one-shot download id,
+	// and the original archive file is gone.
+	stagedPath, err := corebackups.OneShotArchivePath(backupDir, result.ID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.ID, tc.Not(tc.Equals), "")
+	staged, err := os.ReadFile(stagedPath)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(staged, tc.DeepEquals, s.archiveData)
+	_, err = os.Stat(s.archiveFilename)
+	c.Assert(err, tc.Satisfies, os.IsNotExist)
 
 	// The metadata is assembled from the request and the services.
 	c.Check(s.createdMeta.Notes, tc.Equals, "test")
@@ -283,8 +300,12 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(modelEnvelope.Version, tc.Equals, domainexport.LatestSupportedPayloadVersion())
 
-	// The staged dumps are cleaned up once archive creation returns.
-	s.assertNoArchive(c, backupDir)
+	// The staged dumps are cleaned up once archive creation returns, and
+	// the only thing left is the archive staged for download.
+	entries, err := os.ReadDir(corebackups.OneShotDir(backupDir))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(entries, tc.HasLen, 1)
+	c.Check(entries[0].Name(), tc.Equals, result.ID+".tar.gz")
 }
 
 func (s *backupsSuite) TestCreateNotSuperuser(c *tc.C) {
@@ -451,7 +472,10 @@ func (s *backupsSuite) TestCreateNoModels(c *tc.C) {
 	c.Assert(s.createdArgs.DumpEntries, tc.HasLen, 1)
 	c.Check(s.createdArgs.DumpEntries[0].Name, tc.Equals, "controller.yaml")
 
-	s.assertNoArchive(c, backupDir)
+	// Only the staged one-shot archive is left behind.
+	entries, err := os.ReadDir(corebackups.OneShotDir(backupDir))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(entries, tc.HasLen, 1)
 }
 
 // TestCreateControllerExportFailure verifies that a failure exporting the
@@ -550,7 +574,12 @@ func (s *backupsSuite) TestCreateMissingBackupFile(c *tc.C) {
 
 	result, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result.Filename, tc.Equals, s.archiveFilename)
+	c.Check(result.Filename, tc.Equals, filepath.Base(s.archiveFilename))
+	stagedPath, err := corebackups.OneShotArchivePath(backupDir, result.ID)
+	c.Assert(err, tc.ErrorIsNil)
+	staged, err := os.ReadFile(stagedPath)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(staged, tc.DeepEquals, s.archiveData)
 }
 
 // TestCreateArchiveFailure verifies that a failure creating the archive
@@ -573,9 +602,35 @@ func (s *backupsSuite) TestCreateArchiveFailure(c *tc.C) {
 	s.PatchValue(&corebackups.Create, func(*corebackups.Metadata, corebackups.CreateArgs) (string, error) {
 		return "", boom
 	})
-
 	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
+}
+
+// TestCreateArchiveStagingFailure verifies that a failure staging the
+// created archive for one-shot download fails Create and leaves no
+// archive behind.
+func (s *backupsSuite) TestCreateArchiveStagingFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	missing := filepath.Join(backupDir, "vanished.tar.gz")
+
+	s.expectFilesToBackUp(c, backupDir)
+	s.expectSuperuser()
+	s.expectModelConfig(c, backupDir)
+	s.expectControllerExport()
+	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{}, nil)
+	s.PatchValue(&corebackups.Create, func(*corebackups.Metadata, corebackups.CreateArgs) (string, error) {
+		return missing, nil
+	})
+
+	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	c.Assert(err, tc.ErrorMatches, `staging backup archive for download.*`)
+
+	// The one-shot download dir exists but holds no archive.
+	entries, err := os.ReadDir(corebackups.OneShotDir(backupDir))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entries, tc.HasLen, 0)
 }

@@ -12,11 +12,12 @@ import (
 
 // BackupsCreateArgs holds the args for the API Create method.
 type BackupsCreateArgs struct {
-	Notes      string `json:"notes"`
-	NoDownload bool   `json:"no-download"`
+	Notes string `json:"notes"`
 }
 
-// BackupsDownloadArgs holds the args for the API Download method.
+// BackupsDownloadArgs holds the args for the HTTP backups download endpoint.
+// The ID is an opaque server-minted identifier; it is never treated as a
+// filesystem path.
 type BackupsDownloadArgs struct {
 	ID string `json:"id"`
 }

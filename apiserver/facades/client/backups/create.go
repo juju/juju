@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/juju/names/v6"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	coreversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -22,9 +24,9 @@ import (
 // of its state. The archive contains the controller database export and one
 // export per model, alongside the controller's data directory files.
 //
-// Only args.Notes is honored. args.NoDownload is accepted for client
-// compatibility but has no effect here: the archive is always written to the
-// controller's backup directory, and the download endpoint is not wired yet.
+// Only args.Notes is honored. The archive is not kept on the controller:
+// it is staged under a server-minted id for one-shot download and removed
+// once it has been fully served or its retention window expires.
 //
 // The controller database and each model database are exported at different
 // points in time with no cross-database snapshot, so the archive is not a
@@ -183,5 +185,25 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	}
 	a.logger.Infof(ctx, "created backup %q", filename)
 
-	return params.CreateResult(meta, filename), nil
+	// The archive is served for download exactly once: stage it under a
+	// server-minted UUID in the one-shot download directory and hand the
+	// id to the client. The archive is removed once it has been fully
+	// served, or by the one-shot sweeper when its retention window ends.
+	id, err := uuid.NewUUID()
+	if err != nil {
+		return params.BackupsMetadataResult{}, errors.Capture(err)
+	}
+	if err := os.MkdirAll(corebackups.OneShotDir(backupDir), 0755); err != nil {
+		return params.BackupsMetadataResult{}, errors.Errorf(
+			"creating one-shot backup download dir: %w", err)
+	}
+	oneShotPath := filepath.Join(corebackups.OneShotDir(backupDir), id.String()+".tar.gz")
+	if err := os.Rename(filename, oneShotPath); err != nil {
+		return params.BackupsMetadataResult{}, errors.Errorf(
+			"staging backup archive for download: %w", err)
+	}
+
+	result := params.CreateResult(meta, filepath.Base(filename))
+	result.ID = id.String()
+	return result, nil
 }
