@@ -54,3 +54,8 @@ type permInOut struct {
 	GrantOn string `db:"grant_on"`
 	Access  string `db:"access_type"`
 }
+
+// modelUUID represents a model UUID used for admin checks.
+type modelUUID struct {
+	ModelUUID string `db:"model_uuid"`
+}

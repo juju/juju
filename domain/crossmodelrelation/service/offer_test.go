@@ -1125,6 +1125,10 @@ func (s *offerServiceSuite) TestUpdateOfferPermissionRevokeConsume(c *tc.C) {
 		Change:    permission.Revoke,
 	}
 	gomock.InOrder(
+		s.modelState.EXPECT().ModelUUID().Return(s.modelUUID),
+		s.controllerState.EXPECT().IsUserControllerOrModelAdmin(
+			gomock.Any(), username, s.modelUUID,
+		).Return(false, nil),
 		s.modelState.EXPECT().SuspendOfferConnectionsForUser(
 			gomock.Any(), args.OfferUUID, username.Name(), "offer access revoked",
 		).Return(nil),
@@ -1155,6 +1159,10 @@ func (s *offerServiceSuite) TestUpdateOfferPermissionRevokeRead(c *tc.C) {
 		Change:    permission.Revoke,
 	}
 	gomock.InOrder(
+		s.modelState.EXPECT().ModelUUID().Return(s.modelUUID),
+		s.controllerState.EXPECT().IsUserControllerOrModelAdmin(
+			gomock.Any(), username, s.modelUUID,
+		).Return(false, nil),
 		s.modelState.EXPECT().SuspendOfferConnectionsForUser(
 			gomock.Any(), args.OfferUUID, username.Name(), "offer access revoked",
 		).Return(nil),
@@ -1205,6 +1213,10 @@ func (s *offerServiceSuite) TestUpdateOfferPermissionSuspendError(c *tc.C) {
 		Access:    permission.ConsumeAccess,
 		Change:    permission.Revoke,
 	}
+	s.modelState.EXPECT().ModelUUID().Return(s.modelUUID)
+	s.controllerState.EXPECT().IsUserControllerOrModelAdmin(
+		gomock.Any(), username, s.modelUUID,
+	).Return(false, nil)
 	s.modelState.EXPECT().SuspendOfferConnectionsForUser(
 		gomock.Any(), args.OfferUUID, username.Name(), "offer access revoked",
 	).Return(errors.New("boom"))

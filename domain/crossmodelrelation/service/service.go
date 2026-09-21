@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
@@ -85,6 +86,10 @@ type ControllerState interface {
 		permissionUUID string,
 		args crossmodelrelation.UpdateOfferPermissionArgs,
 	) error
+
+	// IsUserControllerOrModelAdmin returns true if the user has superuser
+	// access on the controller or admin access on the given model.
+	IsUserControllerOrModelAdmin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) (bool, error)
 }
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
