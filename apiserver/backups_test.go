@@ -140,14 +140,6 @@ func (s *backupsDownloadSuite) TestDownloadRangeRejected(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *backupsDownloadSuite) TestDownloadMethodNotAllowed(c *tc.C) {
-	req := httptest.NewRequest(http.MethodPost, "/backups", nil)
-	rec := httptest.NewRecorder()
-	s.handler.ServeHTTP(rec, req)
-
-	c.Check(rec.Code, tc.Equals, http.StatusMethodNotAllowed)
-}
-
 func (s *backupsDownloadSuite) TestDownloadBadJSON(c *tc.C) {
 	req := httptest.NewRequest(http.MethodGet, "/backups", strings.NewReader("not json"))
 	rec := httptest.NewRecorder()

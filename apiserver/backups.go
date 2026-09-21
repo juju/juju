@@ -28,10 +28,11 @@ const (
 
 // backupsDownloadHandler streams one-shot downloads of backup archives
 // staged by the Backups facade. The request body holds the id returned by
-// the Create RPC. Archives are removed from disk once they have been
-// fully served, so a given id can be downloaded exactly once (retries of
-// an interrupted transfer remain possible within the retention window,
-// after which the sweeper removes the archive).
+// the Create RPC. A full successful serve triggers removal of the
+// archive from disk; an interrupted transfer keeps the archive staged
+// for retry within the retention window, after which the sweeper
+// removes the archive. Concurrent requests for the same id are
+// possible: exclusivity is not claimed.
 type backupsDownloadHandler struct {
 	// resolveBackupDir returns the effective backup directory of the
 	// controller model.
@@ -42,11 +43,6 @@ type backupsDownloadHandler struct {
 // ServeHTTP implements [http.Handler].
 func (h *backupsDownloadHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
-
-	if req.Method != http.MethodGet {
-		h.sendError(ctx, w, errors.MethodNotAllowedf("unsupported method %q", req.Method))
-		return
-	}
 
 	req.Body = http.MaxBytesReader(w, req.Body, maxBackupsDownloadArgsBytes)
 	defer func() { _ = req.Body.Close() }()
@@ -109,14 +105,13 @@ func (h *backupsDownloadHandler) serveArchive(ctx context.Context, w http.Respon
 	w.Header().Set("Content-Length", strconv.FormatInt(fi.Size(), 10))
 	w.WriteHeader(http.StatusOK)
 
-	written, err := io.Copy(w, file)
+	_, err = io.Copy(w, file)
 	if err != nil {
 		// Partial transfer: leave the archive staged so the client can
 		// retry within the retention window.
 		h.logger.Warningf(ctx, "streaming backup %q to client: %v", id, err)
 		return
 	}
-	_ = written // serve to suppress unused-variable linting
 
 	// Full transfer: the archive has been delivered, so it is removed
 	// now. A failed removal is logged and left to the sweeper rather

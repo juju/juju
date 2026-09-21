@@ -4,6 +4,7 @@
 package backupsweeper
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/errors"
@@ -72,7 +73,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	var gotUUID model.UUID
 	var gotCfg WorkerConfig
 	cfg := s.getConfig(c)
-	cfg.GetModelConfigService = func(getter dependency.Getter, name string, controllerModelUUID model.UUID) (ModelConfigService, error) {
+	cfg.GetModelConfigService = func(ctx context.Context, getter dependency.Getter, name string, controllerModelUUID model.UUID) (ModelConfigService, error) {
 		gotUUID = controllerModelUUID
 		return s.modelConfig, nil
 	}
@@ -103,7 +104,7 @@ func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 		NewWorker: func(WorkerConfig) (worker.Worker, error) {
 			return nil, nil
 		},
-		GetModelConfigService: func(getter dependency.Getter, name string, controllerModelUUID model.UUID) (ModelConfigService, error) {
+		GetModelConfigService: func(ctx context.Context, getter dependency.Getter, name string, controllerModelUUID model.UUID) (ModelConfigService, error) {
 			return nil, nil
 		},
 	}

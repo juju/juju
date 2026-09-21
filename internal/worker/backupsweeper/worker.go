@@ -23,8 +23,13 @@ const (
 	defaultSweepInterval = time.Minute
 
 	// defaultArchiveTTL is how long a one-shot backup archive is
-	// retained for download after it has been created. Once it elapses,
-	// the archive is removed and its id is no longer valid.
+	// retained for download after it has been created. The rename
+	// preserves the ModTime, so the clock starts at creation time: a
+	// large archive over a slow link that fails mid-transfer still
+	// counts toward the same 15-minute window from creation, not
+	// from the last transfer attempt. The TTL is intentionally hardcoded
+	// rather than a model config option; it should only need tuning
+	// if the operator routinely backs up with unreliable network.
 	defaultArchiveTTL = 15 * time.Minute
 )
 
