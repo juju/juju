@@ -81,11 +81,15 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressDuplicateCIDR(c
 	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidr)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Act - Second insertion of same CIDR
+	// Act - Second insertion of the same CIDR is idempotent, matching the
+	// egress behaviour, so that re-published or legacy network lists
+	// containing duplicates do not fail the insert.
 	err = s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidr)
 
-	// Assert - Should fail due to primary key constraint
-	c.Assert(err, tc.ErrorMatches, `.*inserting relation network ingress for relation.*`)
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	obtainedCIDRs := s.readRelationNetworkIngress(c, relationUUID.String())
+	c.Check(obtainedCIDRs, tc.DeepEquals, cidr)
 }
 
 func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressMultipleRelations(c *tc.C) {
@@ -149,19 +153,38 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkIngressTransactional(c
 	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), existingCIDR)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Try to add multiple CIDRs where one is a duplicate
-	cidrs := []string{"198.51.100.0/24", "203.0.113.0/24"}
-	cidrs = append(cidrs, existingCIDR...)
+	// Add multiple CIDRs where one is a duplicate; the duplicate is ignored
+	// and the remaining CIDRs are inserted.
+	newCIDRs := []string{"198.51.100.0/24", "203.0.113.0/24"}
+	cidrs := append(append([]string{}, newCIDRs...), existingCIDR...)
 
 	// Act
 	err = s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs)
 
-	// Assert - Should fail
-	c.Assert(err, tc.ErrorMatches, `.*inserting relation network ingress for relation.*`)
-
-	// Verify that the transaction was rolled back and no new CIDRs were added
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
 	obtainedCIDRs := s.readRelationNetworkIngress(c, relationUUID.String())
-	c.Check(obtainedCIDRs, tc.DeepEquals, existingCIDR)
+	c.Check(obtainedCIDRs, tc.SameContents, append(append([]string{}, existingCIDR...), newCIDRs...))
+}
+
+// A CIDR list containing duplicates, as found in legacy exported data, is
+// inserted once for both directions.
+func (s *relationNetworkStateSuite) TestAddRelationNetworksDuplicateCIDRsWithinList(c *tc.C) {
+	// Arrange
+	relationUUID := s.createTestRelation(c)
+	cidrs := []string{"192.0.2.0/24", "192.0.2.0/24"}
+
+	// Act
+	err := s.state.AddRelationNetworkIngress(c.Context(), relationUUID.String(), cidrs)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.AddRelationNetworkEgress(c.Context(), relationUUID.String(), cidrs)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	obtainedIngressCIDRs := s.readRelationNetworkIngress(c, relationUUID.String())
+	c.Check(obtainedIngressCIDRs, tc.DeepEquals, []string{"192.0.2.0/24"})
+	obtainedEgressCIDRs := s.readRelationNetworkEgress(c, relationUUID.String())
+	c.Check(obtainedEgressCIDRs, tc.DeepEquals, []string{"192.0.2.0/24"})
 }
 
 func (s *relationNetworkStateSuite) createTestRelation(c *tc.C) internaluuid.UUID {

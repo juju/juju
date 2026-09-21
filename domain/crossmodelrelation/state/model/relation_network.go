@@ -33,6 +33,7 @@ func (st *State) AddRelationNetworkIngress(ctx context.Context, relationUUID str
 	insertStmt, err := st.Prepare(`
 INSERT INTO relation_network_ingress (*)
 VALUES ($relationNetworkIngress.*)
+ON CONFLICT (relation_uuid, cidr) DO NOTHING
 `, relationNetworkIngress{})
 	if err != nil {
 		return errors.Errorf("preparing insert relation network ingress query: %w", err)
@@ -91,6 +92,9 @@ ON CONFLICT (relation_uuid, cidr) DO NOTHING
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// The not-alive guard is defensive, copied from
+		// AddRelationNetworkIngress for parity; it is not reachable during
+		// migration import, as imported relations are always created alive.
 		relationLife, err := st.getRelationLife(ctx, tx, relationUUID)
 		if err != nil {
 			return errors.Capture(err)
