@@ -484,7 +484,15 @@ func (s *ProviderService) guestDevices(
 			).Add(domainerrors.SpaceRequirementsUnsatisfiable)
 		}
 
-		s.logger.Debugf(ctx, "found bridge %q in space %q for machine %q", bridgeToUse.Name, spaceUUID, mUUID)
+		if fromLocalBridge {
+			// The fallback was used, so no bridge was observed in the
+			// space itself: "found" would be misleading here.
+			s.logger.Debugf(ctx, "using default LXD bridge %q for space %q for machine %q; no in-space bridge observed",
+				bridgeToUse.Name, spaceUUID, mUUID)
+		} else {
+			s.logger.Debugf(ctx, "found bridge %q in space %q for machine %q",
+				bridgeToUse.Name, spaceUUID, mUUID)
+		}
 
 		newDev := network.NetInterface{
 			Name: fmt.Sprintf("eth%d", deviceIndex),
