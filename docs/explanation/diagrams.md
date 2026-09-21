@@ -13,7 +13,7 @@ this page are about **production** — how each drawing was made:
 Caption meaning comes later: diagrams embedded in real docs carry
 meaning captions; this page surfaces the catalogue.
 
-### Intro: the problem
+## Intro: the problem
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -23,7 +23,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: A user with direct "operates" arrows to three application instances, grouped by dashed boxes labelled on cloud 1 and on cloud 2.
 ```
 
-### Intro: Juju enters
+## Intro: Juju enters
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -33,7 +33,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: User and client on the left, controller in the centre, two cloud instances fanned above, Charmhub below, three charmed application instances fanned to the right, grouped by dashed boxes labelled model 1 (on cloud 1) and model 2 (on cloud 2).
 ```
 
-### Intro: Juju enters (declared)
+## Intro: Juju enters (declared)
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -43,7 +43,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: User, client, controller on one horizontal line, two cloud boxes fanned above the controller from its top face, Charmhub below it, three application boxes fanned to the right with converging arrows into the controller's right face. The same arrangement as the authored juju3 preview, produced from declarations.
 ```
 
-### Intro: Juju unpacked
+## Intro: Juju unpacked
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -53,7 +53,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: User, client, controller on the left. Three unit pod instances fanned to the right, each containing a unit agent and charm in a charm container, and Pebble and workload in a workload container. Each unit agent has watch and API arrows to the controller.
 ```
 
-### Data model
+## Data model
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -63,7 +63,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: Six record nodes: charm above application, application connected to unit, unit connected to machine/pod, relation below application connected to endpoint.
 ```
 
-### Data model (full spine)
+## Data model (full spine)
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -73,7 +73,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: Two dashed boxes: controller database containing user, controller, cloud, credential, model records; model database containing application, charm, unit, machine, relation, endpoint records. Associations run in semantic direction with multiplicity labels.
 ```
 
-### Worker tree (machine cloud)
+## Worker tree (machine cloud)
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -83,7 +83,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: Vertical chain, top to bottom: controller, machine agent, unit agent, uniter, charm, each connected by control arrows labelled drives, hosts, runs hooks via, dispatches.
 ```
 
-### Worker tree (controller)
+## Worker tree (controller)
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -93,7 +93,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: Five columns of worker boxes. Far left: provider tracker above provider services. Left: compute provisioner above model worker manager, both inside a dashed box labelled model workers (one set per model), undertaker below. Centre spine, top to bottom: agent, DB accessor, change stream, domain services, API server, HTTP server. Right: object store, lease manager below with primary election and lease expiry stacked above. Control arrows connect consumers to providers; the change stream watches the DB accessor.
 ```
 
-### Cross-model relation (CMR)
+## Cross-model relation (CMR)
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -103,7 +103,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: Nine record nodes. Top row: application, offer, offer connection. Middle row: relation, endpoint, remote application. Bottom: model and external controller. A dashed box around offer, offer connection, and external controller is labelled cross-model machinery.
 ```
 
-### HA controller: Dqlite replicaset
+## HA controller: Dqlite replicaset
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -115,7 +115,7 @@ meaning captions; this page surfaces the catalogue.
 
 ## Sequences
 
-### juju status
+## juju status
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -125,7 +125,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: User calls juju status. Client sends a Status API call to the controller. The controller reads status records and derives agent liveness, then returns the projected status. Client shows the status output to the user.
 ```
 
-### Uniter operation (state machine)
+## Uniter operation (state machine)
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -135,7 +135,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: State machine: idle to preparing on hook queued, preparing to executing, executing to committing on hook exits 0, executing to error on hook fails, error to idle on retry, committing to idle on write complete.
 ```
 
-### Hook execution
+## Hook execution
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -145,7 +145,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: API server fires watcher to unit agent. Unit agent snapshots state and resolves hook. Loop: charm calls hook command, unit agent proxies it to API server. On success: flush writes. On failure: discard writes, set unit error.
 ```
 
-### Bootstrap K8s
+## Bootstrap K8s
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -155,7 +155,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: User calls juju bootstrap. Client authenticates with K8s and creates the controller pod namespace. Controller pod self-starts jujud, the API server, and the database. Controller pod signals API ready to Client. Client reports success to User.
 ```
 
-### Deploy K8s
+## Deploy K8s
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -165,7 +165,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: User calls juju deploy. Client sends Deploy RPC to Controller. Controller writes records and schedules pod on Kubernetes. K8s returns pod running. Controller starts containeragent. containeragent runs install, config-changed, start hooks and returns unit active. Controller signals deploy complete back to Client and User.
 ```
 
-### Integrate
+## Integrate
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -175,7 +175,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: User calls juju integrate. Client sends Integrate RPC to Controller. Controller writes relation record and fires watchers to both unit agents. Each agent runs relation-created, relation-joined, and relation-changed hooks and writes its relation data to the controller. The controller notifies the other agent after each write.
 ```
 
-### Unit removal
+## Unit removal
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -185,7 +185,7 @@ meaning captions; this page surfaces the catalogue.
 :alt: User calls juju remove-unit. Controller marks unit Dying and fires watcher to unit agent. Unit agent runs stop, teardown, and remove hooks, then marks unit Dead. Controller releases machine and deletes unit records.
 ```
 
-### Model removal
+## Model removal
 
 ```{ggarch}
 :file: ../juju.ggarch
