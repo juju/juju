@@ -25,22 +25,6 @@ FILE = DOCS / "juju.ggarch"
 
 MARKER = "// ==== HAND-MAINTAINED below — edit freely; `make variants` regenerates everything above ===="
 
-TWIN_HEADER = """// ==========================================================================
-// juju4.ggarch -- the auto-layout twin. GENERATED from juju3.ggarch by
-// scripts/make-twin.py -- do not edit the generated part by hand; edit
-// juju3.ggarch and regenerate (make twin). Everything after the
-// HAND-MAINTAINED marker below is hand-maintained and survives
-// regeneration.
-//
-// Identical model and views to juju3.ggarch, with every positions
-// block stripped: each diagram without a declared arrangement is
-// solved by pure synthesis. Views with declared constraints run in
-// ADR-007 refinement mode (synthesis fills the undeclared geometry).
-// ==========================================================================
-
-"""
-
-
 def strip_positions_blocks(text: str) -> str:
     """Remove every `positions { ... }` block (brace-matched, so nested
     braces inside the block are honoured)."""
@@ -112,7 +96,7 @@ def main() -> int:
 
     if "--check" in sys.argv:
         if result != current:
-            print("juju3.ggarch synthesized variants are stale — "
+            print("juju.ggarch synthesized variants are stale — "
                   "regenerate with `make variants`", file=sys.stderr)
             return 1
         return 0
