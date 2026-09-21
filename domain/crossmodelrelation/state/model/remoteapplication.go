@@ -587,14 +587,16 @@ WHERE  name = $charmScope.name;`
 // importSyntheticRelation creates the synthetic relation for a remote
 // application consumer being imported by migration. Unlike
 // insertSyntheticRelation, the relation identity is imported from the source
-// model, so the numeric relation ID is provided instead of being allocated
-// from the model sequence.
+// model, so the numeric relation ID and the suspended state are provided
+// instead of being allocated or defaulted.
 func (st *State) importSyntheticRelation(
 	ctx context.Context,
 	tx *sqlair.TX,
 	consumerRelationUUID string,
 	relationID int,
 	scope charm.RelationScope,
+	suspended bool,
+	suspendedReason string,
 ) error {
 	// The consuming model sends its own relation UUID when registering the
 	// remote relation, and we use the same UUID here to create a synthetic
@@ -602,16 +604,18 @@ func (st *State) importSyntheticRelation(
 	// be able to call the CMR endpoints from the consuming side without
 	// having to retrieve the synthetic relation UUID first.
 	rel := relation{
-		UUID:       consumerRelationUUID,
-		LifeID:     int(life.Alive),
-		RelationID: uint64(relationID),
+		UUID:            consumerRelationUUID,
+		LifeID:          int(life.Alive),
+		RelationID:      uint64(relationID),
+		Suspended:       suspended,
+		SuspendedReason: suspendedReason,
 	}
 	charmScope := charmScope{
 		Name: string(scope),
 	}
 	insertRelation := `
-INSERT INTO relation (uuid, life_id, relation_id, scope_id)
-SELECT $relation.uuid, $relation.life_id, $relation.relation_id, id
+INSERT INTO relation (uuid, life_id, relation_id, suspended, suspended_reason, scope_id)
+SELECT $relation.uuid, $relation.life_id, $relation.relation_id, $relation.suspended, $relation.suspended_reason, id
 FROM   charm_relation_scope
 WHERE  name = $charmScope.name;`
 	insertRelationStmt, err := st.Prepare(insertRelation, relation{}, charmScope)

@@ -433,31 +433,42 @@ func (s *baseSuite) assertRelation(c *tc.C, relationUUID string, relationID int)
 	c.Helper()
 
 	var (
-		gotUUID            string
-		gotID              int
-		gotLifID           int
-		gotScopeID         int
-		gotSuspended       bool
-		gotSuspendedReason sql.Null[string]
+		gotUUID    string
+		gotID      int
+		gotLifID   int
+		gotScopeID int
 	)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, `
-SELECT uuid, relation_id, life_id, scope_id, suspended, suspended_reason
+		return tx.QueryRowContext(ctx, `
+SELECT uuid, relation_id, life_id, scope_id
 FROM relation WHERE relation_id=?
 `, relationID).
-			Scan(&gotUUID, &gotID, &gotLifID, &gotScopeID, &gotSuspended, &gotSuspendedReason)
-		if err != nil {
-			return err
-		}
-		return nil
+			Scan(&gotUUID, &gotID, &gotLifID, &gotScopeID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotUUID, tc.Equals, relationUUID)
 	c.Check(gotID, tc.Equals, relationID)
 	c.Check(gotLifID, tc.Equals, 0)   // life.Alive
 	c.Check(gotScopeID, tc.Equals, 0) // scope.Global
-	c.Check(gotSuspended, tc.Equals, false)
-	c.Check(gotSuspendedReason.V, tc.Equals, "")
+}
+
+func (s *baseSuite) assertRelationSuspended(c *tc.C, relationUUID string, suspended bool, reason string) {
+	c.Helper()
+
+	var (
+		gotSuspended       bool
+		gotSuspendedReason string
+	)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT suspended, COALESCE(suspended_reason, '')
+FROM relation WHERE uuid=?
+`, relationUUID).
+			Scan(&gotSuspended, &gotSuspendedReason)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotSuspended, tc.Equals, suspended)
+	c.Check(gotSuspendedReason, tc.Equals, reason)
 }
 
 func (s *baseSuite) assertRelationEndpoints(c *tc.C, relationUUID, app1UUID, app2UUID string) {

@@ -226,6 +226,14 @@ type RemoteApplicationConsumerImport struct {
 	// application consumer.
 	RelationScope charm.RelationScope
 
+	// RelationSuspended indicates if the relation created for this remote
+	// application consumer is suspended.
+	RelationSuspended bool
+
+	// RelationSuspendedReason is the reason the relation created for this
+	// remote application consumer was suspended, if any.
+	RelationSuspendedReason string
+
 	// ConsumerModelUUID is the UUID of the model consuming the application.
 	ConsumerModelUUID string
 

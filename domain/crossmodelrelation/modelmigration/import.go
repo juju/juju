@@ -335,6 +335,8 @@ func (i *importOperation) importRemoteApplicationConsumers(
 			RelationUUID:            relationUUID,
 			RelationID:              rel.Rel.Id(),
 			RelationScope:           relationScopeFromEndpoints(rel.Rel),
+			RelationSuspended:       rel.Rel.Suspended(),
+			RelationSuspendedReason: rel.Rel.SuspendedReason(),
 			RelationKey:             rel.Key,
 			ConsumerModelUUID:       remoteApp.SourceModelUUID(),
 			ConsumerApplicationUUID: consumerApplicationUUID,

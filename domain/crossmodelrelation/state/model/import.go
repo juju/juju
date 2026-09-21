@@ -207,6 +207,8 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 		consumer.RelationUUID,
 		consumer.RelationID,
 		consumer.RelationScope,
+		consumer.RelationSuspended,
+		consumer.RelationSuspendedReason,
 	); err != nil {
 		return errors.Capture(err)
 	}

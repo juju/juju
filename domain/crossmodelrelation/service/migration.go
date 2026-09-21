@@ -150,6 +150,14 @@ type RemoteApplicationConsumerImport struct {
 	// application consumer.
 	RelationScope charm.RelationScope
 
+	// RelationSuspended indicates if the relation created for this remote
+	// application consumer is suspended.
+	RelationSuspended bool
+
+	// RelationSuspendedReason is the reason the relation created for this
+	// remote application consumer was suspended, if any.
+	RelationSuspendedReason string
+
 	// RelationKey is the key of the relation created for this remote
 	// application consumer.
 	RelationKey relation.Key
@@ -388,6 +396,8 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 		RelationUUID:                rApp.RelationUUID,
 		RelationID:                  rApp.RelationID,
 		RelationScope:               rApp.RelationScope,
+		RelationSuspended:           rApp.RelationSuspended,
+		RelationSuspendedReason:     rApp.RelationSuspendedReason,
 		ConsumerModelUUID:           rApp.ConsumerModelUUID,
 		ConsumerApplicationUUID:     rApp.ConsumerApplicationUUID,
 		ConsumerApplicationEndpoint: consumerApplicationEndpoint,
