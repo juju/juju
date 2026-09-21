@@ -384,8 +384,8 @@ type MockAccessService struct {
 // MockAccessServiceMockRecorder is the mock recorder for MockAccessService.
 type MockAccessServiceMockRecorder struct {
 	mock                       *MockAccessService
+	hasPublicKeyInModelExpects []*gomock.Call4_2[context.Context, string, ssh0.PublicKey, virtualhostname.Info, bool, error]
 	hasSSHAccessToModelExpects []*gomock.Call3_2[context.Context, string, virtualhostname.Info, bool, error]
-	publicKeyInModelExpects    []*gomock.Call4_2[context.Context, string, ssh0.PublicKey, virtualhostname.Info, bool, error]
 }
 
 // NewMockAccessService creates a new mock instance.
@@ -399,6 +399,24 @@ func NewMockAccessService(ctrl *gomock.Controller) *MockAccessService {
 func (m *MockAccessService) EXPECT() *MockAccessServiceMockRecorder {
 	return m.recorder
 }
+
+// HasPublicKeyInModel mocks base method.
+func (m *MockAccessService) HasPublicKeyInModel(arg0 context.Context, arg1 string, arg2 ssh0.PublicKey, arg3 virtualhostname.Info) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4_2(&m.recorder.hasPublicKeyInModelExpects, m.ctrl, m, "HasPublicKeyInModel", arg0, arg1, arg2, arg3)
+}
+
+// HasPublicKeyInModel indicates an expected call of HasPublicKeyInModel.
+func (mr *MockAccessServiceMockRecorder) HasPublicKeyInModel(arg0, arg1, arg2, arg3 any) *MockAccessServiceHasPublicKeyInModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall4_2[context.Context, string, ssh0.PublicKey, virtualhostname.Info, bool, error](mr.mock.ctrl.T, mr.mock, "HasPublicKeyInModel", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), gomock.EnsureMatcher(arg3))
+	mr.hasPublicKeyInModelExpects = append(mr.hasPublicKeyInModelExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockAccessServiceHasPublicKeyInModelCall is the typed call wrapper for HasPublicKeyInModel.
+type MockAccessServiceHasPublicKeyInModelCall = gomock.Call4_2[context.Context, string, ssh0.PublicKey, virtualhostname.Info, bool, error]
 
 // HasSSHAccessToModel mocks base method.
 func (m *MockAccessService) HasSSHAccessToModel(arg0 context.Context, arg1 string, arg2 virtualhostname.Info) (bool, error) {
@@ -417,21 +435,3 @@ func (mr *MockAccessServiceMockRecorder) HasSSHAccessToModel(arg0, arg1, arg2 an
 
 // MockAccessServiceHasSSHAccessToModelCall is the typed call wrapper for HasSSHAccessToModel.
 type MockAccessServiceHasSSHAccessToModelCall = gomock.Call3_2[context.Context, string, virtualhostname.Info, bool, error]
-
-// HasPublicKeyInModel mocks base method.
-func (m *MockAccessService) HasPublicKeyInModel(arg0 context.Context, arg1 string, arg2 ssh0.PublicKey, arg3 virtualhostname.Info) (bool, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch4_2(&m.recorder.publicKeyInModelExpects, m.ctrl, m, "PublicKeyInModel", arg0, arg1, arg2, arg3)
-}
-
-// PublicKeyInModel indicates an expected call of PublicKeyInModel.
-func (mr *MockAccessServiceMockRecorder) PublicKeyInModel(arg0, arg1, arg2, arg3 any) *MockAccessServicePublicKeyInModelCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_2[context.Context, string, ssh0.PublicKey, virtualhostname.Info, bool, error](mr.mock.ctrl.T, mr.mock, "PublicKeyInModel", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), gomock.EnsureMatcher(arg3))
-	mr.publicKeyInModelExpects = append(mr.publicKeyInModelExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockAccessServicePublicKeyInModelCall is the typed call wrapper for PublicKeyInModel.
-type MockAccessServicePublicKeyInModelCall = gomock.Call4_2[context.Context, string, ssh0.PublicKey, virtualhostname.Info, bool, error]

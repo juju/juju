@@ -65,7 +65,7 @@ func (s *authorizationSuite) TestPublicKeyAccessAllowed(c *tc.C) {
 	}}
 	access := NewMockAccessService(s.ctrl)
 	access.EXPECT().HasSSHAccessToModel(gomock.Any(), "alice", destination).Return(true, nil)
-	access.EXPECT().PublicKeyInModel(gomock.Any(), "alice", signer.PublicKey(), destination).Return(true, nil)
+	access.EXPECT().HasPublicKeyInModel(gomock.Any(), "alice", signer.PublicKey(), destination).Return(true, nil)
 
 	authorizer := authorizer{access: access, logger: loggertesting.WrapCheckLog(c)}
 	authorized, err := authorizer.Authorize(ctx, destination)
@@ -106,7 +106,7 @@ func (s *authorizationSuite) TestPublicKeyNotInModelRejected(c *tc.C) {
 	}}
 	access := NewMockAccessService(s.ctrl)
 	access.EXPECT().HasSSHAccessToModel(gomock.Any(), "alice", destination).Return(true, nil)
-	access.EXPECT().PublicKeyInModel(gomock.Any(), "alice", gomock.Any(), destination).Return(false, nil)
+	access.EXPECT().HasPublicKeyInModel(gomock.Any(), "alice", gomock.Any(), destination).Return(false, nil)
 
 	authorizer := authorizer{access: access, logger: loggertesting.WrapCheckLog(c)}
 	authorized, err := authorizer.Authorize(ctx, destination)
@@ -126,7 +126,7 @@ func (s *authorizationSuite) TestPublicKeyModelKeyCheckError(c *tc.C) {
 	}}
 	access := NewMockAccessService(s.ctrl)
 	access.EXPECT().HasSSHAccessToModel(gomock.Any(), "alice", destination).Return(true, nil)
-	access.EXPECT().PublicKeyInModel(gomock.Any(), "alice", gomock.Any(), destination).Return(false, errors.New("boom"))
+	access.EXPECT().HasPublicKeyInModel(gomock.Any(), "alice", gomock.Any(), destination).Return(false, errors.New("boom"))
 
 	authorizer := authorizer{access: access, logger: loggertesting.WrapCheckLog(c)}
 	authorized, err := authorizer.Authorize(ctx, destination)
