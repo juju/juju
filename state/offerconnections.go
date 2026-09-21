@@ -65,10 +65,10 @@ func (oc *OfferConnection) RelationKey() string {
 	return oc.doc.RelationKey
 }
 
-func removeOfferConnectionsForRelationOps(relId int) []txn.Op {
+func removeOfferConnectionsForRelationOps(st *State, relId int) []txn.Op {
 	op := txn.Op{
 		C:      offerConnectionsC,
-		Id:     fmt.Sprintf("%d", relId),
+		Id:     st.docID(fmt.Sprintf("%d", relId)),
 		Remove: true,
 	}
 	return []txn.Op{op}

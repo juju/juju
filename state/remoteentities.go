@@ -210,12 +210,12 @@ func (r *RemoteEntities) RemoveRemoteEntity(entity names.Tag) error {
 	return r.st.db().Run(ops)
 }
 
-// removeRemoteEntityOpa returns the txn.Ops to remove the remote entity
+// removeRemoteEntityOps returns the txn.Ops to remove the remote entity
 // document. It also removes any token document for exported entities.
 func (r *RemoteEntities) removeRemoteEntityOps(entity names.Tag) []txn.Op {
 	ops := []txn.Op{{
 		C:      remoteEntitiesC,
-		Id:     entity.String(),
+		Id:     r.st.docID(entity.String()),
 		Remove: true,
 	}}
 	return ops

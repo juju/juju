@@ -26,6 +26,10 @@ type StateBackend interface {
 	ConvertScalingToCurrentOperationEnumField() error
 	ExposeControllerApplication() error
 	RemoveSSHProxyArtefacts() error
+	FixApplicationCounts() error
+	RemoveOrphanedApplicationRelations() error
+	RemoveOrphanedRelationDocs() error
+	RemoveOrphanedUnitStateRelations() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -87,6 +91,33 @@ func (s stateBackend) ExposeControllerApplication() error {
 // config keys are deleted. The step is idempotent.
 func (s stateBackend) RemoveSSHProxyArtefacts() error {
 	return state.RemoveSSHProxyArtefacts(s.pool)
+}
+
+// FixApplicationCounts runs an upgrade to repair application
+// relationcount drift: it resets relationcount to the number of relations
+// whose endpoints reference the application. The step is idempotent.
+func (s stateBackend) FixApplicationCounts() error {
+	return state.FixApplicationCounts(s.pool)
+}
+
+// RemoveOrphanedApplicationRelations runs an upgrade to destroy relations
+// whose endpoint application documents are missing. The step is idempotent.
+func (s stateBackend) RemoveOrphanedApplicationRelations() error {
+	return state.RemoveOrphanedApplicationRelations(s.pool)
+}
+
+// RemoveOrphanedRelationDocs runs an upgrade to remove relation scope and
+// settings documents whose parent relation no longer exists. The step is
+// idempotent.
+func (s stateBackend) RemoveOrphanedRelationDocs() error {
+	return state.RemoveOrphanedRelationDocs(s.pool)
+}
+
+// RemoveOrphanedUnitStateRelations runs an upgrade to clear relation ids
+// that have been deleted from the relation-state maps persisted in
+// unitstates documents. The step is idempotent.
+func (s stateBackend) RemoveOrphanedUnitStateRelations() error {
+	return state.RemoveOrphanedUnitStateRelations(s.pool)
 }
 
 // newK8sClient initializes a new k8s client for a given model.
