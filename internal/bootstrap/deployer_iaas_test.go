@@ -6,7 +6,7 @@ package bootstrap
 import (
 	"testing"
 
-	gomock "github.com/canonical/gomock/gomock"
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 

@@ -1427,9 +1427,9 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, manifolds)
 }
 
-// CAASManifolds returns a set of co-configured manifolds covering the
-// various responsibilities of a CAAS machine agent.
-func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
+// K8sManifolds returns a set of co-configured manifolds covering the
+// various responsibilities of a K8s machine agent.
+func K8sManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
 		// Bootstrap worker is responsible for setting up the initial machine.
 		bootstrapName: ifControllerProxyReady(ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{

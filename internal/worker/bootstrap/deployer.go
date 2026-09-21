@@ -70,27 +70,27 @@ type ControllerCharmDeployerConfig struct {
 // K8sControllerUnitPassword is the function that is used to get the unit
 // password for K8s. This is currently retrieved from the environment
 // variable.
-func K8sControllerUnitPassword() (string, error) {
-	return os.Getenv(k8sconstants.EnvJujuK8sUnitPassword), nil
+func K8sControllerUnitPassword() string {
+	return os.Getenv(k8sconstants.EnvJujuK8sUnitPassword)
 }
 
 // K8sControllerApplicationPassword returns the password used by controller
 // pods to introduce themselves to the controller application.
-func K8sControllerApplicationPassword() (string, error) {
-	return os.Getenv(k8sconstants.EnvJujuK8sApplicationPassword), nil
+func K8sControllerApplicationPassword() string {
+	return os.Getenv(k8sconstants.EnvJujuK8sApplicationPassword)
 }
 
 // IAASControllerUnitPassword is the function that is used to get the unit
 // password for IAAS.
-func IAASControllerUnitPassword() (string, error) {
+func IAASControllerUnitPassword() string {
 	// IAAS doesn't need a unit password.
-	return "", nil
+	return ""
 }
 
 // IAASControllerApplicationPassword returns no application password because
 // IAAS controllers do not use K8s unit introduction.
-func IAASControllerApplicationPassword() (string, error) {
-	return "", nil
+func IAASControllerApplicationPassword() string {
+	return ""
 }
 
 // K8sAgentBinaryUploader is the function that is used to populate the tools

@@ -58,11 +58,11 @@ type RemoveBootstrapSSHKeysFunc func([]string) error
 
 // ControllerUnitPasswordFunc is the function that is used to get the
 // controller unit password.
-type ControllerUnitPasswordFunc func() (string, error)
+type ControllerUnitPasswordFunc func() string
 
 // ControllerApplicationPasswordFunc gets the controller application's unit
 // introduction password.
-type ControllerApplicationPasswordFunc func() (string, error)
+type ControllerApplicationPasswordFunc func() string
 
 // RequiresBootstrapFunc is the function that is used to check if the bootstrap
 // process has completed.
@@ -212,14 +212,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			// Locate the controller unit password.
-			unitPassword, err := config.ControllerUnitPassword()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			applicationPassword, err := config.ControllerApplicationPassword()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+			unitPassword := config.ControllerUnitPassword()
+			applicationPassword := config.ControllerApplicationPassword()
 
 			var providerFactory providertracker.ProviderFactory
 			if err := getter.Get(config.ProviderFactoryName, &providerFactory); err != nil {

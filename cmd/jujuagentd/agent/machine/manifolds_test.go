@@ -46,8 +46,8 @@ func (s *ManifoldsSuite) TestStartFuncsIAAS(c *tc.C) {
 	}))
 }
 
-func (s *ManifoldsSuite) TestStartFuncsCAAS(c *tc.C) {
-	s.assertStartFuncs(c, machine.CAASManifolds(machine.ManifoldsConfig{
+func (s *ManifoldsSuite) TestStartFuncsK8s(c *tc.C) {
+	s.assertStartFuncs(c, machine.K8sManifolds(machine.ManifoldsConfig{
 		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
 	}))
@@ -60,7 +60,7 @@ func (s *ManifoldsSuite) TestDependencyGraphsAreAcyclic(c *tc.C) {
 	}
 	for _, manifolds := range []dependency.Manifolds{
 		machine.IAASManifolds(config),
-		machine.CAASManifolds(config),
+		machine.K8sManifolds(config),
 	} {
 		c.Check(dependency.Validate(manifolds), tc.ErrorIsNil)
 	}
@@ -185,10 +185,10 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 	)
 }
 
-func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
+func (s *ManifoldsSuite) TestManifoldNamesK8s(c *tc.C) {
 	s.assertManifoldNames(
 		c,
-		machine.CAASManifolds(machine.ManifoldsConfig{
+		machine.K8sManifolds(machine.ManifoldsConfig{
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
@@ -626,7 +626,7 @@ func (*ManifoldsSuite) TestControllerOnlyWorkerDirectInputs(c *tc.C) {
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
-		machine.CAASManifolds(machine.ManifoldsConfig{
+		machine.K8sManifolds(machine.ManifoldsConfig{
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
@@ -695,7 +695,7 @@ func (*ManifoldsSuite) TestObjectStoreDirectInputs(c *tc.C) {
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
-		machine.CAASManifolds(machine.ManifoldsConfig{
+		machine.K8sManifolds(machine.ManifoldsConfig{
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
@@ -721,7 +721,7 @@ func (*ManifoldsSuite) TestObjectStoreServicesDirectInputs(c *tc.C) {
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
-		machine.CAASManifolds(machine.ManifoldsConfig{
+		machine.K8sManifolds(machine.ManifoldsConfig{
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
@@ -740,7 +740,7 @@ func (*ManifoldsSuite) TestLeaseManagerDirectInputs(c *tc.C) {
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
-		machine.CAASManifolds(machine.ManifoldsConfig{
+		machine.K8sManifolds(machine.ManifoldsConfig{
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
@@ -762,7 +762,7 @@ func (*ManifoldsSuite) TestObjectStoreDrainerDirectInputs(c *tc.C) {
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
-		machine.CAASManifolds(machine.ManifoldsConfig{
+		machine.K8sManifolds(machine.ManifoldsConfig{
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
@@ -787,7 +787,7 @@ func (*ManifoldsSuite) TestLeaseExpiryDirectInputs(c *tc.C) {
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
-		machine.CAASManifolds(machine.ManifoldsConfig{
+		machine.K8sManifolds(machine.ManifoldsConfig{
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
@@ -884,14 +884,14 @@ func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *tc.C) {
 	)
 }
 
-func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *tc.C) {
+func (s *ManifoldsSuite) TestManifoldsDependenciesK8s(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(
 		c,
-		machine.CAASManifolds(machine.ManifoldsConfig{
+		machine.K8sManifolds(machine.ManifoldsConfig{
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
-		expectedMachineManifoldsWithDependenciesCAAS,
+		expectedMachineManifoldsWithDependenciesK8s,
 	)
 }
 
@@ -2508,7 +2508,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"state-config-watcher",
 	},
 }
-var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
+var expectedMachineManifoldsWithDependenciesK8s = map[string][]string{
 	"api-address-updater": {
 		"agent",
 		"api-caller",

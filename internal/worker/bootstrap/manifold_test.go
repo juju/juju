@@ -117,14 +117,14 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		ControllerCharmDeployer: func(context.Context, ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
 			return nil, nil
 		},
-		ControllerApplicationPassword: func() (string, error) {
-			return "", nil
+		ControllerApplicationPassword: func() string {
+			return ""
 		},
 		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 			return nil
 		},
-		ControllerUnitPassword: func() (string, error) {
-			return "", nil
+		ControllerUnitPassword: func() string {
+			return ""
 		},
 		BootstrapAddressFinderGetter: func(providerFactory providertracker.ProviderFactory, namespace string) BootstrapAddressFinderFunc {
 			return nil
