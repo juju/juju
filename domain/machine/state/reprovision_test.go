@@ -24,6 +24,9 @@ func (s *stateSuite) TestDetachLostMachineCloudInstance(c *tc.C) {
 	s.addReprovisionNetworkState(c, netNodeUUID)
 	s.addReprovisionBlockDeviceState(c, machineUUID.String(), netNodeUUID)
 	s.addReprovisionUnit(c, netNodeUUID)
+	s.runQuery(c, `
+INSERT INTO unit_state (unit_uuid, uniter_state, storage_state, secret_state)
+VALUES (?, ?, ?, ?)`, "reprovision-unit", "installed: true\nstarted: true\n", "storage", "secrets")
 	preservedCounts := map[string]int{
 		"application":        s.rowCount(c, "application"),
 		"unit":               s.rowCount(c, "unit"),
@@ -116,6 +119,15 @@ WHERE ms.machine_uuid = ?`, machineUUID.String()).Scan(
 		c.Check(s.rowCount(c, table), tc.Equals, count, tc.Commentf("table %s", table))
 	}
 	c.Check(s.rowCountWhere(c, "unit", "net_node_uuid = ?", netNodeUUID), tc.Equals, 1)
+	var uniterState, storageState, secretState string
+	err = db.QueryRowContext(c.Context(), `
+SELECT uniter_state, storage_state, secret_state
+FROM unit_state
+WHERE unit_uuid = ?`, "reprovision-unit").Scan(&uniterState, &storageState, &secretState)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uniterState, tc.Equals, "")
+	c.Check(storageState, tc.Equals, "storage")
+	c.Check(secretState, tc.Equals, "secrets")
 
 	var reprovisionMachineName string
 	err = db.QueryRowContext(c.Context(), `
@@ -303,6 +315,12 @@ WHERE uuid = ?`, "reprovision-unit").Scan(
 	c.Check(unitName, tc.Equals, "reprovision/1")
 	c.Check(unitLife, tc.Equals, 0)
 	c.Check(unitNetNode, tc.Equals, netNodeUUID)
+
+	var secondUnitName string
+	err = s.DB().QueryRowContext(c.Context(), "SELECT name FROM unit WHERE uuid = ?", "second-unit").Scan(&secondUnitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(secondUnitName, tc.Equals, "reprovision/2")
+
 	c.Check(s.rowCountWhere(c, "unit", "net_node_uuid = ?", netNodeUUID), tc.Equals, 2)
 	c.Check(s.rowCount(c, "machine_reprovision"), tc.Equals, 0)
 	c.Check(s.rowCountWhere(c, "machine", "name = ?", machineName.String()), tc.Equals, 1)

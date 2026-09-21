@@ -127,6 +127,14 @@ WHERE  uuid = $reprovisionUnitRename.uuid
 	if err != nil {
 		return errors.Errorf("preparing reprovision unit rename: %w", err)
 	}
+	resetUnitUniterStateStmt, err := st.Prepare(`
+UPDATE unit_state
+SET    uniter_state = ''
+WHERE  unit_uuid = $reprovisionUnitRename.uuid
+`, reprovisionUnitRename{})
+	if err != nil {
+		return errors.Errorf("preparing reprovision unit state reset: %w", err)
+	}
 	storageResetStmts, err := st.prepareReprovisionStorageResetStatements()
 	if err != nil {
 		return errors.Errorf("preparing storage reset statements: %w", err)
@@ -191,7 +199,9 @@ WHERE  uuid = $reprovisionUnitRename.uuid
 		if err := runReprovisionStatements(ctx, tx, relationScopeStmts, machineUUID); err != nil {
 			return errors.Errorf("departing relation scopes: %w", err)
 		}
-		if err := st.renameReprovisionUnits(ctx, tx, targetUnitsStmt, renameUnitStmt, machineUUID); err != nil {
+		if err := st.renameReprovisionUnits(
+			ctx, tx, targetUnitsStmt, renameUnitStmt, resetUnitUniterStateStmt, machineUUID,
+		); err != nil {
 			return errors.Errorf("allocating replacement unit ordinals: %w", err)
 		}
 
@@ -226,7 +236,7 @@ WHERE  uuid = $reprovisionUnitRename.uuid
 func (st *State) renameReprovisionUnits(
 	ctx context.Context,
 	tx *sqlair.TX,
-	targetUnitsStmt, renameUnitStmt *sqlair.Statement,
+	targetUnitsStmt, renameUnitStmt, resetUnitUniterStateStmt *sqlair.Statement,
 	machineUUID entityUUID,
 ) error {
 	var units []reprovisionUnit
@@ -254,6 +264,11 @@ func (st *State) renameReprovisionUnits(
 			Name: name.String(),
 		}).Run(); err != nil {
 			return errors.Errorf("renaming unit %q: %w", unit.UUID, err)
+		}
+		if err := tx.Query(ctx, resetUnitUniterStateStmt, reprovisionUnitRename{
+			UUID: unit.UUID,
+		}).Run(); err != nil {
+			return errors.Errorf("resetting unit state %q: %w", unit.UUID, err)
 		}
 	}
 
