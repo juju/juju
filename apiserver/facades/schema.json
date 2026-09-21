@@ -4143,7 +4143,8 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "notes"
+                        "notes",
+                        "no-download"
                     ]
                 },
                 "BackupsMetadataResult": {
