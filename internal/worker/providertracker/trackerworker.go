@@ -135,6 +135,8 @@ func newTrackerWorker(ctx context.Context, config TrackerConfig, internalStates 
 	case <-t.providerReady:
 	case <-t.catacomb.Dying():
 		return nil, t.catacomb.ErrDying()
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 
 	return t, nil
@@ -161,7 +163,7 @@ func (t *trackerWorker) Wait() error {
 	return t.catacomb.Wait()
 }
 
-func (t *trackerWorker) Report(ctx context.Context) map[string]any {
+func (t *trackerWorker) Report(_ context.Context) map[string]any {
 	report := map[string]any{
 		"model": t.model.UUID,
 		"type":  t.model.Type,
@@ -195,24 +197,19 @@ func (t *trackerWorker) loop() (err error) {
 
 	modelConfigWatcher, err := t.config.ConfigService.Watch(ctx)
 	if err != nil {
-		t.signalProviderReady()
 		return errors.Annotate(err, "watching model config")
 	}
 	if err := t.addStringsWatcher(ctx, modelConfigWatcher); err != nil {
-		t.signalProviderReady()
 		return errors.Trace(err)
 	}
 
 	modelWatcher, err := t.config.ModelService.WatchModel(ctx)
 	if errors.Is(err, modelerrors.NotFound) {
-		t.signalProviderReady()
 		return nil
 	} else if err != nil {
-		t.signalProviderReady()
 		return errors.Annotate(err, "watching model")
 	}
 	if err := t.addNotifyWatcher(ctx, modelWatcher); err != nil {
-		t.signalProviderReady()
 		return errors.Trace(err)
 	}
 
@@ -229,7 +226,6 @@ func (t *trackerWorker) loop() (err error) {
 	}
 	newProviderType, err := t.config.GetProviderForType(t.model.Type)
 	if err != nil {
-		t.signalProviderReady()
 		return errors.Trace(err)
 	}
 
@@ -242,7 +238,6 @@ func (t *trackerWorker) loop() (err error) {
 	}
 	provider, spec, err := newProviderType(ctx, getter, invalidateCredential)
 	if err != nil {
-		t.signalProviderReady()
 		return errors.Trace(err)
 	}
 
@@ -266,11 +261,9 @@ func (t *trackerWorker) loop() (err error) {
 	if ok {
 		cloudSpecChanges, err = t.watchCloudSpecChanges(ctx)
 		if err != nil {
-			t.signalProviderReady()
 			return errors.Annotate(err, "watching credential")
 		}
 		if err := t.updateCloudSpec(ctx, cloudSpecSetter); err != nil {
-			t.signalProviderReady()
 			return errors.Annotate(err, "syncing cloud spec")
 		}
 	} else {
