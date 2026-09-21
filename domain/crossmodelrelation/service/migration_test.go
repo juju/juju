@@ -496,6 +496,96 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumerInvalidRelationUUID(
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
+func (s *migrationSuite) TestImportRemoteApplicationConsumerNegativeRelationID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	input := []RemoteApplicationConsumerImport{
+		{
+			RemoteApplicationImport: RemoteApplicationImport{
+				Name:      "remote-13ea27915e7840d888c5e9451444b45d",
+				OfferUUID: "cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
+				URL:       "",
+				Macaroon:  "",
+				Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
+					{
+						Name:      "source",
+						Role:      charm.RoleProvider,
+						Interface: "dummy-token",
+					},
+				},
+				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
+			},
+			RelationUUID:  "6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationID:    -1,
+			RelationScope: charm.ScopeGlobal,
+			RelationKey: relation.Key{
+				relation.EndpointIdentifier{
+					ApplicationName: "dummy-source",
+					EndpointName:    "sink",
+					Role:            deploymentcharm.RoleRequirer,
+				},
+				relation.EndpointIdentifier{
+					ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d",
+					EndpointName:    "source",
+					Role:            deploymentcharm.RoleProvider,
+				},
+			},
+			ConsumerModelUUID:       "4ddd6454-931d-4278-8779-b0b7208994d9",
+			ConsumerApplicationUUID: "13ea2791-5e78-40d8-88c5-e9451444b45d",
+			UserName:                "admin",
+		},
+	}
+
+	err := s.service(c).ImportRemoteApplicationConsumers(c.Context(), input)
+	c.Assert(err, tc.ErrorMatches, ".*validating relation ID -1.*")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *migrationSuite) TestImportRemoteApplicationConsumerInvalidRelationScope(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	input := []RemoteApplicationConsumerImport{
+		{
+			RemoteApplicationImport: RemoteApplicationImport{
+				Name:      "remote-13ea27915e7840d888c5e9451444b45d",
+				OfferUUID: "cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
+				URL:       "",
+				Macaroon:  "",
+				Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
+					{
+						Name:      "source",
+						Role:      charm.RoleProvider,
+						Interface: "dummy-token",
+					},
+				},
+				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
+			},
+			RelationUUID:  "6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationID:    0,
+			RelationScope: charm.RelationScope("bogus"),
+			RelationKey: relation.Key{
+				relation.EndpointIdentifier{
+					ApplicationName: "dummy-source",
+					EndpointName:    "sink",
+					Role:            deploymentcharm.RoleRequirer,
+				},
+				relation.EndpointIdentifier{
+					ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d",
+					EndpointName:    "source",
+					Role:            deploymentcharm.RoleProvider,
+				},
+			},
+			ConsumerModelUUID:       "4ddd6454-931d-4278-8779-b0b7208994d9",
+			ConsumerApplicationUUID: "13ea2791-5e78-40d8-88c5-e9451444b45d",
+			UserName:                "admin",
+		},
+	}
+
+	err := s.service(c).ImportRemoteApplicationConsumers(c.Context(), input)
+	c.Assert(err, tc.ErrorMatches, `.*validating relation scope "bogus".*`)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
 func (s *migrationSuite) TestImportRemoteApplicationConsumerInvalidOfferUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

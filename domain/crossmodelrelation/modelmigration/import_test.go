@@ -676,9 +676,10 @@ func (s *importSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
 	})
 
 	rel := model.AddRelation(description.RelationArgs{
-		Id:        0,
-		Key:       "dummy-source:sink remote-13ea27915e7840d888c5e9451444b45d:source",
-		Suspended: false,
+		Id:              0,
+		Key:             "dummy-source:sink remote-13ea27915e7840d888c5e9451444b45d:source",
+		Suspended:       true,
+		SuspendedReason: "waiting for the consumer model",
 	})
 	ep0 := rel.AddEndpoint(description.EndpointArgs{
 		ApplicationName: "dummy-source",
@@ -723,9 +724,11 @@ func (s *importSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
 			},
 			Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 		},
-		RelationUUID:  "6049aa01-76c9-462d-8440-964a6e26aac2",
-		RelationID:    0,
-		RelationScope: charm.ScopeGlobal,
+		RelationUUID:            "6049aa01-76c9-462d-8440-964a6e26aac2",
+		RelationID:              0,
+		RelationScope:           charm.ScopeGlobal,
+		RelationSuspended:       true,
+		RelationSuspendedReason: "waiting for the consumer model",
 		RelationKey: relation.Key{
 			relation.EndpointIdentifier{
 				ApplicationName: "dummy-source",
@@ -753,6 +756,73 @@ func (s *importSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// The offer connection records the relation it was created for, along with
+// the relation itself. The two must agree, otherwise the description is
+// inconsistent and the import fails instead of importing the relation with
+// an identity that does not match the relation the offer connection was
+// created for.
+func (s *importSuite) TestImportRemoteApplicationConsumersRelationIDMismatch(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	remoteApp := model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "remote-13ea27915e7840d888c5e9451444b45d",
+		SourceModelUUID: "4ddd6454-931d-4278-8779-b0b7208994d9",
+		IsConsumerProxy: true,
+		ConsumeVersion:  1,
+		URL:             "",
+		OfferUUID:       "",
+	})
+	remoteApp.AddEndpoint(description.RemoteEndpointArgs{
+		Name:      "source",
+		Role:      "provider",
+		Interface: "dummy-token",
+	})
+
+	// The offer connection records relation ID 1, while the relation it
+	// points at has ID 0.
+	model.AddOfferConnection(description.OfferConnectionArgs{
+		OfferUUID:       "cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
+		RelationID:      1,
+		RelationKey:     "dummy-source:sink remote-13ea27915e7840d888c5e9451444b45d:source",
+		SourceModelUUID: "4ddd6454-931d-4278-8779-b0b7208994d9",
+		UserName:        "admin",
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "application-remote-13ea27915e7840d888c5e9451444b45d",
+		Token: "13ea2791-5e78-40d8-88c5-e9451444b45d",
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-dummy-source.sink#remote-13ea27915e7840d888c5e9451444b45d.source",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	rel := model.AddRelation(description.RelationArgs{
+		Id:  0,
+		Key: "dummy-source:sink remote-13ea27915e7840d888c5e9451444b45d:source",
+	})
+	rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "dummy-source",
+		Name:            "sink",
+		Role:            "requirer",
+		Scope:           "global",
+		Interface:       "dummy-token",
+	})
+	rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d",
+		Interface:       "dummy-token",
+		Name:            "source",
+		Role:            "provider",
+	})
+
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `.*offer connection relation ID 1 does not match relation ID 0 for relation "dummy-source:sink remote-13ea27915e7840d888c5e9451444b45d:source".*`)
 }
 
 func (s *importSuite) TestImportRemoteApplicationConsumersMultipleRemoteApplications(c *tc.C) {
