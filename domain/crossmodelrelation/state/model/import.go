@@ -213,11 +213,6 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 		return errors.Capture(err)
 	}
 
-	// Insert the joined status for the relation.
-	if err := st.insertNewRelationStatus(ctx, tx, consumer.RelationUUID); err != nil {
-		return errors.Capture(err)
-	}
-
 	// Create relation_Endpoints for the relation, maps relations to
 	// application_endpoints.
 	relEndpointArgs := addRelationEndpointArgs{
