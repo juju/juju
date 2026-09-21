@@ -73,14 +73,10 @@ func (s *Service) PublicKeyInModel(ctx context.Context, modelUUID coremodel.UUID
 		return false, errors.Errorf("validating model UUID %q: %w", modelUUID, err)
 	}
 
-	keys, err := s.state.GetPublicKeysForUserInModel(ctx, modelUUID.String(), username.Name())
+	fingerprint := gossh.FingerprintSHA256(key)
+	found, err := s.state.MatchesPublicKeyInModelForUser(ctx, modelUUID.String(), username.Name(), fingerprint)
 	if err != nil {
-		return false, errors.Errorf("getting public SSH keys for user %q: %w", username, err)
+		return false, errors.Errorf("checking public SSH key for user %q: %w", username, err)
 	}
-	for _, modelKey := range keys {
-		if modelKey.Fingerprint == gossh.FingerprintSHA256(key) {
-			return true, nil
-		}
-	}
-	return false, nil
+	return found, nil
 }

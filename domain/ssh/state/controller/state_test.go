@@ -102,7 +102,7 @@ func (s *stateSuite) TestGetSSHServerHostPublicKeyEmpty(c *tc.C) {
 	c.Check(got, tc.DeepEquals, []byte{})
 }
 
-func (s *stateSuite) TestGetPublicKeysForUserInModel(c *tc.C) {
+func (s *stateSuite) TestMatchesPublicKeyInModelForUser(c *tc.C) {
 	modelUUID := internaluuid.MustNewUUID().String()
 	otherModelUUID := internaluuid.MustNewUUID().String()
 	s.addModel(c, modelUUID, "test-model")
@@ -116,9 +116,13 @@ INSERT INTO model_authorized_keys (model_uuid, user_public_ssh_key_id)
 VALUES (?, ?), (?, ?)`, modelUUID, keyID, otherModelUUID, otherKeyID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	keys, err := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner())).GetPublicKeysForUserInModel(c.Context(), modelUUID, "alice")
+	found, err := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner())).MatchesPublicKeyInModelForUser(c.Context(), modelUUID, "alice", "ssh-ed25519 AAAAtest-key")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(keys, tc.DeepEquals, []coressh.PublicKey{{Fingerprint: "ssh-ed25519 AAAAtest-key"}})
+	c.Check(found, tc.IsTrue)
+
+	found, err = sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner())).MatchesPublicKeyInModelForUser(c.Context(), modelUUID, "alice", "ssh-ed25519 AAAAother-key")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(found, tc.IsFalse)
 }
 
 func (s *stateSuite) TestGetPublicKeysForUserIncludesFingerprint(c *tc.C) {
@@ -140,21 +144,21 @@ VALUES (?, FALSE)`, userUUID)
 	}})
 }
 
-func (s *stateSuite) TestGetPublicKeysForUserInModelMissingModel(c *tc.C) {
+func (s *stateSuite) TestMatchesPublicKeyInModelForUserMissingModel(c *tc.C) {
 	s.addUser(c, "alice")
 
-	keys, err := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner())).GetPublicKeysForUserInModel(c.Context(), internaluuid.MustNewUUID().String(), "alice")
+	found, err := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner())).MatchesPublicKeyInModelForUser(c.Context(), internaluuid.MustNewUUID().String(), "alice", "ssh-ed25519 AAAAtest-key")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(keys, tc.HasLen, 0)
+	c.Check(found, tc.IsFalse)
 }
 
-func (s *stateSuite) TestGetPublicKeysForUserInModelMissingUser(c *tc.C) {
+func (s *stateSuite) TestMatchesPublicKeyInModelForUserMissingUser(c *tc.C) {
 	modelUUID := internaluuid.MustNewUUID().String()
 	s.addModel(c, modelUUID, "test-model")
 
-	keys, err := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner())).GetPublicKeysForUserInModel(c.Context(), modelUUID, "alice")
+	found, err := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner())).MatchesPublicKeyInModelForUser(c.Context(), modelUUID, "alice", "ssh-ed25519 AAAAtest-key")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(keys, tc.HasLen, 0)
+	c.Check(found, tc.IsFalse)
 }
 
 func (s *stateSuite) addModel(c *tc.C, uuid, name string) {

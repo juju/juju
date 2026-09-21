@@ -92,9 +92,8 @@ func (s *serviceSuite) TestPublicKeyInModel(c *tc.C) {
 	username, err := user.NewName("alice")
 	c.Assert(err, tc.ErrorIsNil)
 	modelUUID := coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee")
-	keys := []coressh.PublicKey{{Fingerprint: gossh.FingerprintSHA256(signer.PublicKey())}}
 	controllerState := NewMockState(gomock.NewController(c))
-	controllerState.EXPECT().GetPublicKeysForUserInModel(gomock.Any(), modelUUID.String(), username.Name()).Return(keys, nil)
+	controllerState.EXPECT().MatchesPublicKeyInModelForUser(gomock.Any(), modelUUID.String(), username.Name(), gossh.FingerprintSHA256(signer.PublicKey())).Return(true, nil)
 
 	found, err := controllersshservice.NewService(controllerState).PublicKeyInModel(c.Context(), modelUUID, username, signer.PublicKey())
 	c.Assert(err, tc.ErrorIsNil)
@@ -108,8 +107,7 @@ func (s *serviceSuite) TestPublicKeyInModelRejectsNonMatchingFingerprint(c *tc.C
 	c.Assert(err, tc.ErrorIsNil)
 	modelUUID := coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee")
 	controllerState := NewMockState(gomock.NewController(c))
-	controllerState.EXPECT().GetPublicKeysForUserInModel(gomock.Any(), modelUUID.String(), username.Name()).
-		Return([]coressh.PublicKey{{Fingerprint: "SHA256:non-matching"}}, nil)
+	controllerState.EXPECT().MatchesPublicKeyInModelForUser(gomock.Any(), modelUUID.String(), username.Name(), gossh.FingerprintSHA256(signer.PublicKey())).Return(false, nil)
 
 	found, err := controllersshservice.NewService(controllerState).PublicKeyInModel(c.Context(), modelUUID, username, signer.PublicKey())
 	c.Assert(err, tc.ErrorIsNil)

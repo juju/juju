@@ -418,8 +418,8 @@ func (mr *MockAccessServiceMockRecorder) HasSSHAccessToModel(arg0, arg1, arg2 an
 // MockAccessServiceHasSSHAccessToModelCall is the typed call wrapper for HasSSHAccessToModel.
 type MockAccessServiceHasSSHAccessToModelCall = gomock.Call3_2[context.Context, string, virtualhostname.Info, bool, error]
 
-// PublicKeyInModel mocks base method.
-func (m *MockAccessService) PublicKeyInModel(arg0 context.Context, arg1 string, arg2 ssh0.PublicKey, arg3 virtualhostname.Info) (bool, error) {
+// HasPublicKeyInModel mocks base method.
+func (m *MockAccessService) HasPublicKeyInModel(arg0 context.Context, arg1 string, arg2 ssh0.PublicKey, arg3 virtualhostname.Info) (bool, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch4_2(&m.recorder.publicKeyInModelExpects, m.ctrl, m, "PublicKeyInModel", arg0, arg1, arg2, arg3)
 }

@@ -22,9 +22,9 @@ type AccessService interface {
 	// HasSSHAccessToModel checks if the given username has SSH access to the specified destination.
 	HasSSHAccessToModel(context.Context, string, virtualhostname.Info) (bool, error)
 
-	// PublicKeyInModel reports whether the given public key is registered for
+	// HasPublicKeyInModel reports whether the given public key is registered for
 	// the user on the model identified by the destination.
-	PublicKeyInModel(context.Context, string, gossh.PublicKey, virtualhostname.Info) (bool, error)
+	HasPublicKeyInModel(context.Context, string, gossh.PublicKey, virtualhostname.Info) (bool, error)
 }
 
 type authorizer struct {
@@ -53,7 +53,7 @@ func (a authorizer) Authorize(ctx ssh.Context, destination virtualhostname.Info)
 		// Now that the model is known, verify the key is associated with the model.
 		// Note that when a user has multiple keys there is poor UX. If they present
 		// one not associated with the model, they will get an error here.
-		inModel, err := a.access.PublicKeyInModel(ctx, ctx.User(), userKey.PublicKey, destination)
+		inModel, err := a.access.HasPublicKeyInModel(ctx, ctx.User(), userKey.PublicKey, destination)
 		if err != nil {
 			return false, errors.Annotate(err, "checking SSH key for model")
 		}

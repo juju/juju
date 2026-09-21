@@ -24,7 +24,7 @@ type State interface {
 	// GetPublicKeysForUser returns all public keys registered for a user.
 	GetPublicKeysForUser(context.Context, user.Name) ([]coressh.PublicKey, error)
 
-	// GetPublicKeysForUserInModel returns the public keys the named user is
-	// authorized to use in the supplied model.
-	GetPublicKeysForUserInModel(context.Context, string, string) ([]coressh.PublicKey, error)
+	// MatchesPublicKeyInModelForUser reports whether the supplied fingerprint
+	// belongs to a public key the named user is authorized to use in the model.
+	MatchesPublicKeyInModelForUser(context.Context, string, string, string) (bool, error)
 }

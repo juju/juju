@@ -322,9 +322,9 @@ func (s sshService) HasSSHAccessToModel(ctx context.Context, username string, de
 	return domainServices.Access().HasSSHAccessToModel(ctx, name, destination.ModelUUID(), s.controllerUUID)
 }
 
-// PublicKeyInModel reports whether the given public key is authorized for the
+// HasPublicKeyInModel reports whether the given public key is authorized for the
 // user in the model identified by the destination.
-func (s sshService) PublicKeyInModel(ctx context.Context, username string, key gossh.PublicKey, destination virtualhostname.Info) (bool, error) {
+func (s sshService) HasPublicKeyInModel(ctx context.Context, username string, key gossh.PublicKey, destination virtualhostname.Info) (bool, error) {
 	name, err := user.NewName(username)
 	if err != nil {
 		return false, errors.Trace(err)
