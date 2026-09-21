@@ -42,14 +42,16 @@ func (s *suite) TestReadinessHandler(c *tc.C) {
 
 func (s *suite) TestAPIServerReadinessHandler(c *tc.C) {
 	h := pebble.APIServerReadinessHandler(17070)
-	c.Check(h.TCPSocket, tc.NotNil)
-	c.Check(h.TCPSocket.Port, tc.Equals, intstr.FromInt(17070))
+	c.Check(h.HTTPGet, tc.NotNil)
+	c.Check(h.HTTPGet.Path, tc.Equals, "/health")
+	c.Check(h.HTTPGet.Port, tc.Equals, intstr.FromInt(17070))
+	c.Check(h.HTTPGet.Scheme, tc.Equals, corev1.URISchemeHTTPS)
 }
 
 func (s *suite) TestAPIServerReadinessHandlerDifferentPort(c *tc.C) {
 	h := pebble.APIServerReadinessHandler(17777)
-	c.Check(h.TCPSocket, tc.NotNil)
-	c.Check(h.TCPSocket.Port, tc.Equals, intstr.FromInt(17777))
+	c.Check(h.HTTPGet, tc.NotNil)
+	c.Check(h.HTTPGet.Port, tc.Equals, intstr.FromInt(17777))
 }
 
 func (s *suite) TestWorkloadHealthCheckPort(c *tc.C) {
@@ -70,7 +72,7 @@ func (s *suite) TestAPIServerReadinessHandlerNilOthers(c *tc.C) {
 	h := pebble.APIServerReadinessHandler(17070)
 	c.Check(h.Exec, tc.IsNil)
 	c.Check(h.GRPC, tc.IsNil)
-	c.Check(h.HTTPGet, tc.IsNil)
+	c.Check(h.TCPSocket, tc.IsNil)
 }
 
 func (s *suite) TestProbeHandlerFieldsConsistent(c *tc.C) {
@@ -86,10 +88,5 @@ func (s *suite) TestProbeHandlerFieldsConsistent(c *tc.C) {
 	checkHTTPOnly(pebble.LivenessHandler("38811"))
 	checkHTTPOnly(pebble.ReadinessHandler("38811"))
 
-	// TCP-based handler uses only TCPSocket.
-	h := pebble.APIServerReadinessHandler(17070)
-	c.Check(h.TCPSocket, tc.NotNil)
-	c.Check(h.Exec, tc.IsNil)
-	c.Check(h.HTTPGet, tc.IsNil)
-	c.Check(h.GRPC, tc.IsNil)
+	checkHTTPOnly(pebble.APIServerReadinessHandler(17070))
 }
