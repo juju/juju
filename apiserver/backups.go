@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/errors"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	corebackups "github.com/juju/juju/core/backups"
 	corelogger "github.com/juju/juju/core/logger"
@@ -133,9 +134,16 @@ func (h *backupsDownloadHandler) serveArchive(ctx context.Context, w http.Respon
 }
 
 // sendError logs the error and sends it to the client as a classified
-// JSON error.
+// JSON error. Server-side failures (5xx) are logged at error level:
+// the client only ever sees an opaque 500, so the controller log is
+// the only place the cause is recorded. Client errors (4xx) stay at
+// debug level: they are fully conveyed to the client.
 func (h *backupsDownloadHandler) sendError(ctx context.Context, w http.ResponseWriter, err error) {
-	h.logger.Debugf(ctx, "backups download: %v", err)
+	if _, status := apiservererrors.ServerErrorAndStatus(err); status >= http.StatusInternalServerError {
+		h.logger.Errorf(ctx, "backups download: %v", err)
+	} else {
+		h.logger.Debugf(ctx, "backups download: %v", err)
+	}
 	if serr := internalhttp.SendError(w, err, h.logger); serr != nil {
 		h.logger.Errorf(ctx, "sending backup download error to client: %v", serr)
 	}
