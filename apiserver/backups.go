@@ -9,7 +9,9 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 
@@ -64,6 +66,17 @@ func (h *backupsDownloadHandler) ServeHTTP(w http.ResponseWriter, req *http.Requ
 
 	archivePath, err := corebackups.OneShotArchivePath(backupDir, args.ID)
 	if err != nil {
+		// Pre-4.1 clients download by archive filename (a bare name or
+		// a full path); that client-supplied-path flow is removed. Tell
+		// the operator what to do rather than failing with an opaque
+		// invalid-id error. This is only string inspection: the id
+		// never reaches the filesystem.
+		if strings.HasPrefix(args.ID, corebackups.FilenamePrefix) ||
+			strings.HasPrefix(filepath.Base(args.ID), corebackups.FilenamePrefix) {
+			h.sendError(ctx, w, errors.BadRequestf(
+				"downloading backups by filename is not supported"))
+			return
+		}
 		h.sendError(ctx, w, errors.BadRequestf("%v", err))
 		return
 	}

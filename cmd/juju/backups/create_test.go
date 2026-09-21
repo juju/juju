@@ -198,9 +198,12 @@ func (s *createSuite) TestChecksumMismatch(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `checksum mismatch for downloaded backup .*`)
 	client.Check(c, "backup-id", "", "Create", "Download")
 
-	// The corrupt archive is not left behind.
+	// The corrupt archive is kept under a suffix for inspection.
 	_, err = os.Stat("juju-backup-00010101-000000.tar.gz")
 	c.Check(err, tc.Satisfies, os.IsNotExist)
+	data, err := os.ReadFile("juju-backup-00010101-000000.tar.gz.corrupt")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(data), tc.Equals, s.data)
 }
 
 func (s *createSuite) TestNoBackupID(c *tc.C) {

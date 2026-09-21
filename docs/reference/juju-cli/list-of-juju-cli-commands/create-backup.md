@@ -30,8 +30,18 @@ copy written on the controller is removed once it has been delivered.
 The archive is verified against the recorded checksum before the
 download is considered complete.
 
+If the transfer is interrupted, the staged archive is kept on the
+controller for the duration of the `backup-download-ttl` model config
+attribute (15 minutes by default) so the download can be retried;
+once that window lapses the staged copy is removed and the backup
+must be created again.
+
 The model config attribute `backup-dir` only serves as scratch space
 during backup creation; no archive is kept there once the command
-finishes.
+finishes. On an HA controller the archive is staged on the controller
+machine that served the request and downloaded over the same API
+connection, so a retry that reaches a different controller machine
+will not find it; point `backup-dir` at a filesystem shared by all
+controller machines if download retries must survive reconnection.
 
 Use `--verbose` to see extra information about backup.

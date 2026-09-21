@@ -125,6 +125,22 @@ func (s *backupsDownloadSuite) TestDownloadInvalidID(c *tc.C) {
 	}
 }
 
+func (s *backupsDownloadSuite) TestDownloadFilenameID(c *tc.C) {
+	// Pre-4.1 clients pass the archive filename (bare or as a full
+	// path) as the download id; they get an explicit upgrade message
+	// instead of an opaque invalid-id error.
+	for _, id := range []string{
+		"juju-backup-20260101-000000.tar.gz",
+		"/var/lib/juju/backups/juju-backup-20260101-000000.tar.gz",
+	} {
+		c.Logf("id %q", id)
+		rec := s.downloadRequest(c, id, nil)
+
+		c.Check(rec.Code, tc.Equals, http.StatusBadRequest)
+		c.Check(s.errorMessage(c, rec), tc.Matches, "downloading backups by filename is not supported.*")
+	}
+}
+
 func (s *backupsDownloadSuite) TestDownloadRangeRejected(c *tc.C) {
 	id := s.stageArchive(c, "archive data")
 

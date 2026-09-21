@@ -659,6 +659,11 @@ For example:
 		Type:        configschema.Tstring,
 		Group:       configschema.EnvironGroup,
 	},
+	BackupDownloadTTLKey: {
+		Description: "How long a backup archive staged for download is retained on the controller before it is removed",
+		Type:        configschema.Tstring,
+		Group:       configschema.EnvironGroup,
+	},
 	DefaultSpaceKey: {
 		Description: "The default network space used for application endpoints in this model",
 		Type:        configschema.Tstring,
