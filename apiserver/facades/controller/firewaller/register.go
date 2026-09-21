@@ -33,11 +33,9 @@ func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 		ctx.WatcherRegistry(),
 		ctx.Auth(),
 		controllerConfigAPI,
-		domainServices.ControllerConfig(),
 		domainServices.Config(),
 		domainServices.Application(),
 		domainServices.Machine(),
-		domainServices.ModelInfo(),
 		ctx.Logger().Child("firewaller"),
 	)
 }
