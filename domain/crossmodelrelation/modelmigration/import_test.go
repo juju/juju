@@ -372,8 +372,9 @@ func (s *importSuite) TestImportRemoteApplicationOfferersWithDifferentAppName(c 
 func (s *importSuite) TestImportRemoteApplicationOfferersNoRemoteEntity(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Arrange
-	defer s.setupMocks(c).Finish()
+	// A consumed offer with no relations yet has no application remote
+	// entity token in legacy models. The import must still proceed,
+	// generating a fresh application UUID for the synthetic application.
 
 	// Arrange
 	model := description.NewModel(description.ModelArgs{})
@@ -407,7 +408,21 @@ func (s *importSuite) TestImportRemoteApplicationOfferersNoRemoteEntity(c *tc.C)
 		Name:            "sink",
 		Role:            "requirer",
 	})
+	// No application remote entities at all.
 	remoteEntities := map[string]string{}
+
+	// Assert
+	s.importService.EXPECT().ImportRemoteApplicationOfferers(
+		gomock.Any(),
+		gomock.Cond(func(imports []service.RemoteApplicationOffererImport) bool {
+			if len(imports) != 1 {
+				return false
+			}
+			// The synthetic application must be seeded with a freshly
+			// generated valid UUID, not an empty one.
+			return uuid.IsValidUUIDString(imports[0].OffererApplicationUUID.String())
+		}),
+	).Return(nil)
 
 	// Act - no relations, so no units to extract
 	remoteAppUnits := make(map[string][]string)
@@ -415,7 +430,7 @@ func (s *importSuite) TestImportRemoteApplicationOfferersNoRemoteEntity(c *tc.C)
 		model.RemoteApplications(), remoteEntities, remoteAppUnits)
 
 	// Assert
-	c.Assert(err, tc.ErrorMatches, `.*no application UUID found for remote application with endpoints`)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImportRemoteApplicationOfferersEmpty(c *tc.C) {

@@ -239,10 +239,26 @@ func (i *importOperation) importRemoteApplicationOfferers(
 				primaryRemoteApp.Name(), err)
 		}
 
-		offererApplicationUUID, err := findApplicationUUIDFromRemoteEntities(remoteEntities, primaryRemoteApp.Name())
-		if err != nil {
-			return errors.Errorf("finding application UUID for remote application %q: %w",
-				primaryRemoteApp.Name(), err)
+		// The application remote entity token is only created in legacy
+		// models when a relation to the consumed offer is registered. A
+		// consumed offer with no relations yet is a valid state (after
+		// "juju consume" but before "juju integrate"), so fall back to a
+		// newly generated application UUID for the synthetic application
+		// when no token exists. This mirrors the application import
+		// operation, which does the same for local applications without a
+		// remote entity token. With no relations referencing the synthetic
+		// application, the generated UUID is purely local and safe.
+		var offererApplicationUUID coreapplication.UUID
+		if token, ok := remoteEntities[primaryRemoteApp.Name()]; ok {
+			offererApplicationUUID = coreapplication.UUID(token)
+		} else {
+			generated, err := coreapplication.NewUUID()
+			if err != nil {
+				return errors.Errorf(
+					"generating application UUID for remote application %q: %w",
+					primaryRemoteApp.Name(), err)
+			}
+			offererApplicationUUID = generated
 		}
 		input = append(input, service.RemoteApplicationOffererImport{
 			RemoteApplicationImport: service.RemoteApplicationImport{
@@ -483,15 +499,6 @@ func findRelationUUIDForKey(remoteEntities []relationRemoteEntity, relationKey r
 	}
 
 	return "", errors.Errorf("no relation UUID found for relation key %q", relationKey.String())
-}
-
-func findApplicationUUIDFromRemoteEntities(remoteEntities map[string]string, appName string) (coreapplication.UUID, error) {
-	appUUIDStr, ok := remoteEntities[appName]
-	if ok {
-		return coreapplication.UUID(appUUIDStr), nil
-	}
-
-	return "", errors.Errorf("no application UUID found for remote application with endpoints")
 }
 
 func relationTagSuffixToKey(s string) string {
