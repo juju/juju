@@ -244,7 +244,7 @@ model "Juju" {
 
     // K8s topology
     jujud          -> k8s            [type: control, label: "provisions on"]
-    unit_agent -> jujud  [type: api,    label: "connects via"]
+    unit_agent -> jujud  [type: api,    label: "connects to"]
     jujud          -> charmhub       [type: api,     label: "fetches charms"]
     charm          -> pebble         [type: api,     label: "calls Pebble API"]
     pebble         -> workload       [type: control, label: "supervises"]
