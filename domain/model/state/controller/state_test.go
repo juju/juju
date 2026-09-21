@@ -1723,7 +1723,7 @@ func (m *stateSuite) TestGetModelUser(c *tc.C) {
 
 	// A user with a local permission row comes back with the stored
 	// access level.
-	info, err := m.modelState.GetModelUserInfo(c.Context(), m.uuid, jimName)
+	info, err := m.modelState.GetModelUser(c.Context(), m.uuid, jimName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info, tc.DeepEquals, coremodel.ModelUserInfo{
 		Name:           jimName,
@@ -1745,7 +1745,7 @@ func (m *stateSuite) TestGetModelUser(c *tc.C) {
 	err = accessState.EnsureExternalUser(c.Context(), externalName)
 	c.Assert(err, tc.ErrorIsNil)
 
-	info, err = m.modelState.GetModelUserInfo(c.Context(), m.uuid, externalName)
+	info, err = m.modelState.GetModelUser(c.Context(), m.uuid, externalName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info, tc.DeepEquals, coremodel.ModelUserInfo{
 		Name:           externalName,
@@ -1759,7 +1759,7 @@ func (m *stateSuite) TestGetModelUserModelNotFound(c *tc.C) {
 	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
 	m.createModel(c, m.uuid, m.userUUID)
 
-	_, err := m.modelState.GetModelUserInfo(c.Context(), "bad-uuid", m.userName)
+	_, err := m.modelState.GetModelUser(c.Context(), "bad-uuid", m.userName)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -1768,8 +1768,8 @@ func (m *stateSuite) TestGetModelUserUserNotFound(c *tc.C) {
 	m.createModel(c, m.uuid, m.userUUID)
 
 	missingName := usertesting.GenNewName(c, "missing-user")
-	_, err := m.modelState.GetModelUserInfo(c.Context(), m.uuid, missingName)
-	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound)
+	_, err := m.modelState.GetModelUser(c.Context(), m.uuid, missingName)
+	c.Assert(err, tc.ErrorIs, modelerrors.UserNotFoundOnModel)
 }
 
 func (m *stateSuite) TestGetModelStateModelNotFound(c *tc.C) {

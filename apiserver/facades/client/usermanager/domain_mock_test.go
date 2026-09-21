@@ -245,7 +245,7 @@ type MockModelService struct {
 type MockModelServiceMockRecorder struct {
 	mock                   *MockModelService
 	controllerModelExpects []*gomock.Call1_2[context.Context, model.Model, error]
-	getModelUserInfoExpects    []*gomock.Call3_2[context.Context, model.UUID, user.Name, model.ModelUserInfo, error]
+	getModelUserExpects    []*gomock.Call3_2[context.Context, model.UUID, user.Name, model.ModelUserInfo, error]
 	getModelUsersExpects   []*gomock.Call2_2[context.Context, model.UUID, []model.ModelUserInfo, error]
 }
 
@@ -279,23 +279,23 @@ func (mr *MockModelServiceMockRecorder) ControllerModel(ctx any) *MockModelServi
 // MockModelServiceControllerModelCall is the typed call wrapper for ControllerModel.
 type MockModelServiceControllerModelCall = gomock.Call1_2[context.Context, model.Model, error]
 
-// GetModelUserInfo mocks base method.
-func (m *MockModelService) GetModelUserInfo(ctx context.Context, modelUUID model.UUID, name user.Name) (model.ModelUserInfo, error) {
+// GetModelUser mocks base method.
+func (m *MockModelService) GetModelUser(ctx context.Context, modelUUID model.UUID, name user.Name) (model.ModelUserInfo, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.getModelUserInfoExpects, m.ctrl, m, "GetModelUserInfo", ctx, modelUUID, name)
+	return gomock.Dispatch3_2(&m.recorder.getModelUserExpects, m.ctrl, m, "GetModelUser", ctx, modelUUID, name)
 }
 
-// GetModelUserInfo indicates an expected call of GetModelUserInfo.
-func (mr *MockModelServiceMockRecorder) GetModelUserInfo(ctx, modelUUID, name any) *MockModelServiceGetModelUserInfoCall {
+// GetModelUser indicates an expected call of GetModelUser.
+func (mr *MockModelServiceMockRecorder) GetModelUser(ctx, modelUUID, name any) *MockModelServiceGetModelUserCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[context.Context, model.UUID, user.Name, model.ModelUserInfo, error](mr.mock.ctrl.T, mr.mock, "GetModelUserInfo", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(name))
-	mr.getModelUserInfoExpects = append(mr.getModelUserInfoExpects, call)
+	call := gomock.NewCall3_2[context.Context, model.UUID, user.Name, model.ModelUserInfo, error](mr.mock.ctrl.T, mr.mock, "GetModelUser", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(name))
+	mr.getModelUserExpects = append(mr.getModelUserExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockModelServiceGetModelUserInfoCall is the typed call wrapper for GetModelUserInfo.
-type MockModelServiceGetModelUserInfoCall = gomock.Call3_2[context.Context, model.UUID, user.Name, model.ModelUserInfo, error]
+// MockModelServiceGetModelUserCall is the typed call wrapper for GetModelUser.
+type MockModelServiceGetModelUserCall = gomock.Call3_2[context.Context, model.UUID, user.Name, model.ModelUserInfo, error]
 
 // GetModelUsers mocks base method.
 func (m *MockModelService) GetModelUsers(ctx context.Context, modelUUID model.UUID) ([]model.ModelUserInfo, error) {

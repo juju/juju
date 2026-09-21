@@ -830,7 +830,7 @@ func (s *serviceSuite) TestGetModelUser(c *tc.C) {
 		"789": adminName,
 	}
 	svc := s.newStubService(c)
-	modelUserInfo, err := svc.GetModelUserInfo(c.Context(), uuid, bobName)
+	modelUserInfo, err := svc.GetModelUser(c.Context(), uuid, bobName)
 	c.Assert(err, tc.IsNil)
 	c.Check(modelUserInfo, tc.Equals, coremodel.ModelUserInfo{
 		Name:           bobName,
@@ -842,13 +842,13 @@ func (s *serviceSuite) TestGetModelUser(c *tc.C) {
 
 func (s *serviceSuite) TestGetModelUserBadUUID(c *tc.C) {
 	svc := s.newStubService(c)
-	_, err := svc.GetModelUserInfo(c.Context(), "bad-uuid", usertesting.GenNewName(c, "bob"))
+	_, err := svc.GetModelUser(c.Context(), "bad-uuid", usertesting.GenNewName(c, "bob"))
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestGetModelUserZeroUserName(c *tc.C) {
 	svc := s.newStubService(c)
-	_, err := svc.GetModelUserInfo(c.Context(), tc.Must(c, coremodel.NewUUID), user.Name{})
+	_, err := svc.GetModelUser(c.Context(), tc.Must(c, coremodel.NewUUID), user.Name{})
 	c.Assert(err, tc.ErrorIs, accesserrors.UserNameNotValid)
 }
 
@@ -858,8 +858,8 @@ func (s *serviceSuite) TestGetModelUserUserNotFound(c *tc.C) {
 		"123": usertesting.GenNewName(c, "bob"),
 	}
 	svc := s.newStubService(c)
-	_, err := svc.GetModelUserInfo(c.Context(), uuid, usertesting.GenNewName(c, "missing"))
-	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound)
+	_, err := svc.GetModelUser(c.Context(), uuid, usertesting.GenNewName(c, "missing"))
+	c.Assert(err, tc.ErrorIs, modelerrors.UserNotFoundOnModel)
 }
 
 // setupDefaultStateExpects establishes a common set of well know responses to

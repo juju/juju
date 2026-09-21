@@ -1391,15 +1391,15 @@ AND       u.removed = false
 	return userInfo, nil
 }
 
-// GetModelUserInfo retrieves basic information about the specified user
+// GetModelUser retrieves basic information about the specified user
 // on the given model UUID. Unlike [State.GetModelUsers] this query
 // left-joins the permission table, so a user with no local permission
 // row (for example a JWT-authenticated external user) is still returned,
 // with an empty access level.
 // The following error types can be expected to be returned:
 // - [modelerrors.NotFound] when the model is not found.
-// - [accesserrors.UserNotFound] when the user is not found.
-func (st *State) GetModelUserInfo(
+// - [modelerrors.UserNotFoundOnModel] when the user is not found.
+func (st *State) GetModelUser(
 	ctx context.Context,
 	modelUUID coremodel.UUID,
 	name user.Name,
@@ -1435,8 +1435,8 @@ AND       u.name = $dbUserName.name
 		err := tx.Query(ctx, stmt, uuid, userName).Get(&modelUser)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
-				"user %q not found", name,
-			).Add(accesserrors.UserNotFound)
+				"user %q not found on model", name,
+			).Add(modelerrors.UserNotFoundOnModel)
 		} else if err != nil {
 			return errors.Capture(err)
 		}
