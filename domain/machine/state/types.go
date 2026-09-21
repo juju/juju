@@ -593,3 +593,8 @@ type machineReprovision struct {
 	MachineName string    `db:"machine_name"`
 	RequestedAt time.Time `db:"requested_at"`
 }
+
+type reprovisionMachineRename struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
+}
