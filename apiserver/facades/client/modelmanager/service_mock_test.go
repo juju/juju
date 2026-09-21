@@ -88,7 +88,7 @@ type MockAccessService struct {
 type MockAccessServiceMockRecorder struct {
 	mock                     *MockAccessService
 	getUserUUIDByNameExpects []*gomock.Call2_2[context.Context, user.Name, user.UUID, error]
-	lastModelLoginExpects    []*gomock.Call3_2[context.Context, user.Name, model.UUID, time.Time, error]
+	lastModelLoginsExpects   []*gomock.Call3_2[context.Context, user.Name, []model.UUID, map[model.UUID]time.Time, error]
 	updatePermissionExpects  []*gomock.Call2_1[context.Context, access.UpdatePermissionArgs, error]
 }
 
@@ -122,23 +122,23 @@ func (mr *MockAccessServiceMockRecorder) GetUserUUIDByName(arg0, arg1 any) *Mock
 // MockAccessServiceGetUserUUIDByNameCall is the typed call wrapper for GetUserUUIDByName.
 type MockAccessServiceGetUserUUIDByNameCall = gomock.Call2_2[context.Context, user.Name, user.UUID, error]
 
-// LastModelLogin mocks base method.
-func (m *MockAccessService) LastModelLogin(arg0 context.Context, arg1 user.Name, arg2 model.UUID) (time.Time, error) {
+// LastModelLogins mocks base method.
+func (m *MockAccessService) LastModelLogins(arg0 context.Context, arg1 user.Name, arg2 []model.UUID) (map[model.UUID]time.Time, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.lastModelLoginExpects, m.ctrl, m, "LastModelLogin", arg0, arg1, arg2)
+	return gomock.Dispatch3_2(&m.recorder.lastModelLoginsExpects, m.ctrl, m, "LastModelLogins", arg0, arg1, arg2)
 }
 
-// LastModelLogin indicates an expected call of LastModelLogin.
-func (mr *MockAccessServiceMockRecorder) LastModelLogin(arg0, arg1, arg2 any) *MockAccessServiceLastModelLoginCall {
+// LastModelLogins indicates an expected call of LastModelLogins.
+func (mr *MockAccessServiceMockRecorder) LastModelLogins(arg0, arg1, arg2 any) *MockAccessServiceLastModelLoginsCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[context.Context, user.Name, model.UUID, time.Time, error](mr.mock.ctrl.T, mr.mock, "LastModelLogin", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
-	mr.lastModelLoginExpects = append(mr.lastModelLoginExpects, call)
+	call := gomock.NewCall3_2[context.Context, user.Name, []model.UUID, map[model.UUID]time.Time, error](mr.mock.ctrl.T, mr.mock, "LastModelLogins", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
+	mr.lastModelLoginsExpects = append(mr.lastModelLoginsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockAccessServiceLastModelLoginCall is the typed call wrapper for LastModelLogin.
-type MockAccessServiceLastModelLoginCall = gomock.Call3_2[context.Context, user.Name, model.UUID, time.Time, error]
+// MockAccessServiceLastModelLoginsCall is the typed call wrapper for LastModelLogins.
+type MockAccessServiceLastModelLoginsCall = gomock.Call3_2[context.Context, user.Name, []model.UUID, map[model.UUID]time.Time, error]
 
 // UpdatePermission mocks base method.
 func (m *MockAccessService) UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error {
