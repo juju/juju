@@ -208,7 +208,7 @@ func (s *createSuite) TestNoBackupID(c *tc.C) {
 	client.metaresult.ID = ""
 
 	_, err := cmdtesting.RunCommand(c, s.wrappedCommand)
-	c.Assert(err, tc.ErrorMatches, "controller did not provide a backup id for download")
+	c.Assert(err, tc.ErrorMatches, `controller did not provide a backup id for download \(archive may be present on the controller at .*`)
 	client.CheckCalls(c, "Create")
 }
 

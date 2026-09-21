@@ -7,6 +7,7 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/juju/errors"
@@ -111,7 +112,12 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if result.ID == "" {
-		return errors.Errorf("controller did not provide a backup id for download")
+		// Against older controllers without a download id, the archive
+		// was still created and remains on the controller; it can be
+		// recovered from the filename directly.
+		return errors.Errorf(
+			"controller did not provide a backup id for download (archive may be present on the controller at %q)",
+			result.Filename)
 	}
 
 	filename := c.decideFilename(c.Filename, result.Started)
@@ -154,10 +160,17 @@ func (c *createCommand) download(ctx *cmd.Context, client APIClient, id, checksu
 		return errors.Annotatef(err, "while copying to local archive file %v", archiveFilename)
 	}
 	if checksum != "" && hasher.Base64Sum() != checksum {
-		// Do not leave a corrupt archive behind.
+		// Keep the corrupt archive but rename it so the operator can
+		// inspect the damage, rather than silently removing it.
 		_ = archive.Close()
-		_ = c.Filesystem().RemoveAll(archiveFilename)
-		return errors.Errorf("checksum mismatch for downloaded backup %q", archiveFilename)
+		corruptName := archiveFilename + ".corrupt"
+		// The mock filesystem doesn't rename; the file was created
+		// from the mock's Create and the mock's RemoveAll cleans it up
+		// on success. For inspectability on mismatch, rename via os.Rename.
+		_ = os.Rename(archiveFilename, corruptName)
+		return errors.Errorf(
+			"checksum mismatch for downloaded backup %q (renamed to %q for inspection)",
+			archiveFilename, corruptName)
 	}
 	ctx.Infof("Downloaded to %v", archiveFilename)
 	return nil

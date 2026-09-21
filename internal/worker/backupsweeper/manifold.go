@@ -35,7 +35,7 @@ type ManifoldConfig struct {
 
 	// GetModelConfigService extracts the controller model's config
 	// service from the domain services dependency.
-	GetModelConfigService func(getter dependency.Getter, name string, controllerModelUUID model.UUID) (ModelConfigService, error)
+	GetModelConfigService func(ctx context.Context, getter dependency.Getter, name string, controllerModelUUID model.UUID) (ModelConfigService, error)
 }
 
 // Validate validates the manifold configuration.
@@ -75,7 +75,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			modelConfigService, err := config.GetModelConfigService(
-				getter, config.DomainServicesName, model.UUID(config.ControllerModelUUID))
+				ctx, getter, config.DomainServicesName, model.UUID(config.ControllerModelUUID))
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -95,12 +95,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // GetControllerModelConfigService extracts the controller model's config
 // service from the domain services dependency.
-func GetControllerModelConfigService(getter dependency.Getter, name string, controllerModelUUID model.UUID) (ModelConfigService, error) {
+func GetControllerModelConfigService(ctx context.Context, getter dependency.Getter, name string, controllerModelUUID model.UUID) (ModelConfigService, error) {
 	var servicesGetter services.DomainServicesGetter
 	if err := getter.Get(name, &servicesGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
-	domainServices, err := servicesGetter.ServicesForModel(context.Background(), controllerModelUUID)
+	domainServices, err := servicesGetter.ServicesForModel(ctx, controllerModelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

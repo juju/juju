@@ -15,8 +15,8 @@ type BackupsCreateArgs struct {
 	Notes string `json:"notes"`
 
 	// NoDownload is kept for compatibility with older clients; it has
-	// no effect because the controller always returns the archive
-	// inline now.
+	// no effect because the controller always stages the archive for
+	// download.
 	NoDownload bool `json:"no-download,omitempty"`
 }
 

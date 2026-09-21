@@ -24,9 +24,10 @@ import (
 // of its state. The archive contains the controller database export and one
 // export per model, alongside the controller's data directory files.
 //
-// Only args.Notes is honored. The archive is not kept on the controller:
-// it is staged under a server-minted id for one-shot download and removed
-// once it has been fully served or its retention window expires.
+// args.NoDownload is kept for client compatibility only; if a client
+// asks for it, the request fails loudly rather than silently losing
+// the staged archive (a 15-minute TTL would delete it before it ever
+// got downloaded, and we must not silently eat that request).
 //
 // The controller database and each model database are exported at different
 // points in time with no cross-database snapshot, so the archive is not a
@@ -35,12 +36,21 @@ import (
 // consistently. This is inherent to backing up multiple independent dqlite
 // databases and is documented so restore logic does not assume otherwise.
 func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params.BackupsMetadataResult, error) {
-	// Creating a backup requires superuser access to the controller. This is
-	// the same gate Juju 3.6 applies to the Create method.
+	// Creating a backup requires superuser access to the controller. This
+	// mirrors the long-standing access gate for backup creation.
 	if err := a.authorizer.HasPermission(
 		ctx, permission.SuperuserAccess, names.NewControllerTag(a.controllerUUID),
 	); err != nil {
 		return params.BackupsMetadataResult{}, errors.Capture(err)
+	}
+
+	// args.NoDownload is kept for client compatibility only. If set
+	// it means the client is running an old CLI; but the new
+	// implementation still creates the archive and removes it later,
+	// so a silent success would still lose the archive. Return an
+	// explicit error instead.
+	if args.NoDownload {
+		return params.BackupsMetadataResult{}, errors.Errorf("--no-download is deprecated and no longer has an effect")
 	}
 
 	// The backup destination is resolved first because the database dumps
@@ -190,14 +200,14 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	// id to the client. The archive is removed once it has been fully
 	// served, or by the one-shot sweeper when its retention window ends.
 	//
-	// result.ID carries this server-minted download identifier: 4.x has
-	// no persistent ID for backups (MarkComplete no longer exists), so
-	// the one-shot id is the only identifier.
+	// result.ID carries this server-minted download identifier: backup
+	// metadata has no persistent database id here, so the one-shot
+	// download id is the only identifier.
 	id, err := uuid.NewUUID()
 	if err != nil {
 		return params.BackupsMetadataResult{}, errors.Capture(err)
 	}
-	if err := os.MkdirAll(corebackups.OneShotDir(backupDir), 0755); err != nil {
+	if err := os.MkdirAll(corebackups.OneShotDir(backupDir), 0700); err != nil {
 		return params.BackupsMetadataResult{}, errors.Errorf(
 			"creating one-shot backup download dir: %w", err)
 	}
