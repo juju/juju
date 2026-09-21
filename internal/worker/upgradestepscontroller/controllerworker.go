@@ -132,7 +132,7 @@ func (w *controllerWorker) run() error {
 	defer cancel()
 
 	// Locate the active upgrade. As the prior worker was the upgrade database
-	// worker, this should have left us in a active upgrade state.
+	// worker, this should have left us in an active upgrade state.
 	upgradeUUID, err := w.upgradeService.ActiveUpgrade(ctx)
 	if err != nil {
 		return errors.Trace(err)

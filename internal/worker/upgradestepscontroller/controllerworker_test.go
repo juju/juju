@@ -195,6 +195,12 @@ func (s *controllerWorkerSuite) TestChangeDuringStartupFailure(c *tc.C) {
 	s.expectUpgradeInfo(c, upgrade.DBCompleted)
 	done := s.expectAbort(c)
 
+	// SetControllerDone races with the pre-seeded Error event on
+	// chFailed. If the steps worker completes first, the main loop
+	// calls SetControllerDone → continues → then processes the
+	// Error event and aborts. The mock must allow both orderings.
+	s.upgradeService.EXPECT().SetControllerDone(gomock.Any(), s.upgradeUUID, "0").Return(nil).AnyTimes()
+
 	s.expectRunUpdates(c)
 
 	w := s.newWorker(c, func(base *upgradesteps.BaseWorker) {
