@@ -1470,3 +1470,35 @@ func removeDuplicates[T comparable](uuids []T) []T {
 	}
 	return result
 }
+
+func (s *applicationSuite) TestDeleteCAASApplicationSharedServiceHostnames(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	foo := s.createCAASApplication(c, svc, "foo")
+	s.createCAASApplication(c, svc, "bar")
+	shared := corenetwork.ProviderAddresses{corenetwork.NewMachineAddress("shared.example.com", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress()}
+	for _, app := range []string{"foo", "bar"} {
+		c.Assert(svc.UpdateK8sService(c.Context(), app, app+"-service", shared), tc.ErrorIsNil)
+	}
+	c.Assert(svc.UpdateK8sService(c.Context(), "foo", "foo-service", corenetwork.ProviderAddresses{
+		shared[0],
+		corenetwork.NewMachineAddress("private.example.com", corenetwork.WithScope(corenetwork.ScopeCloudLocal)).AsProviderAddress(),
+	}), tc.ErrorIsNil)
+	s.advanceApplicationLife(c, foo, life.Dead)
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	c.Assert(st.DeleteApplication(c.Context(), foo.String(), false), tc.ErrorIsNil)
+	var address string
+	c.Assert(s.DB().QueryRowContext(c.Context(), "SELECT address FROM fqdn_address").Scan(&address), tc.ErrorIsNil)
+	c.Check(address, tc.Equals, "shared.example.com")
+	var count int
+	c.Assert(s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM fqdn_address").Scan(&count), tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+	c.Assert(s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM k8s_service").Scan(&count), tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+	c.Assert(s.DB().QueryRowContext(c.Context(), `SELECT COUNT(*) FROM net_node_fqdn_address AS nnfa JOIN k8s_service AS ks ON ks.net_node_uuid = nnfa.net_node_uuid`).Scan(&count), tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+	// Removing the final owner deletes the address; the same name can be reused.
+	c.Assert(svc.UpdateK8sService(c.Context(), "bar", "bar-service", nil), tc.ErrorIsNil)
+	c.Assert(s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM fqdn_address").Scan(&count), tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+	c.Assert(svc.UpdateK8sService(c.Context(), "bar", "bar-service", shared), tc.ErrorIsNil)
+}
