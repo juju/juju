@@ -91,6 +91,44 @@ model "Juju" {
     app_status      [type: juju-software, label: "Application status\n(leader sets; else computed\nfrom unit statuses)"]
     machine_status  [type: juju-software, label: "Machine status\n(pending, started, stopping,\nstopped, down, error)"]
     relation_status [type: juju-software, label: "Relation status\n(joining, joined, broken,\nsuspending, suspended, error)"]
+    // -----------------------------------------------------------------------
+    // Storage model records (model DB — domain/schema/model sql/0011-storage.sql)
+    // -----------------------------------------------------------------------
+    charm_storage_rec  [type: record, label: "charm storage\n(name, kind, count, size)",
+                        ground: "model:charm_storage"]
+    storage_directive_rec [type: record, label: "storage directive\n(application, pool, count, size)",
+                        ground: "model:application_storage_directive"]
+    storage_pool_rec   [type: record, label: "storage pool\n(name, provider type, origin)",
+                        ground: "model:storage_pool"]
+    storage_instance_rec [type: record, label: "storage instance\n(kind: block | filesystem, life)",
+                        ground: "model:storage_instance"]
+    storage_volume_rec [type: record, label: "volume\n(provider id, provision scope)",
+                        ground: "model:storage_volume"]
+    storage_fs_rec     [type: record, label: "filesystem\n(provider id, mount point)",
+                        ground: "model:storage_filesystem"]
+    storage_att_rec    [type: record, label: "storage attachment\n(instance, unit)",
+                        ground: "model:storage_attachment"]
+
+    // -----------------------------------------------------------------------
+    // Network spaces records (model DB — 0008-space.sql)
+    // -----------------------------------------------------------------------
+    net_node_rec   [type: record, label: "net node\n(machine | unit network identity)",
+                    ground: "model:net_node"]
+    space_rec      [type: record, label: "space\n(name, alpha default)",
+                    ground: "model:space"]
+    subnet_rec     [type: record, label: "subnet\n(cidr, vlan, provider id)",
+                    ground: "model:subnet"]
+
+    // -----------------------------------------------------------------------
+    // Relation databags (model DB — 0011/0023 relation tables)
+    // -----------------------------------------------------------------------
+    unit_bag_rec       [type: record, label: "unit databag\n(relation unit, key, value)",
+                        ground: "model:relation_unit_setting"]
+    app_bag_rec        [type: record, label: "application databag\n(relation endpoint, key, value)",
+                        ground: "model:relation_application_setting"]
+    own_unit_actor     [type: charm, label: "own unit"]
+    leader_actor       [type: charm, label: "leader unit"]
+    peer_actor         [type: charm, label: "peer / remote unit"]
 
     // -----------------------------------------------------------------------
     // Hook execution participants
@@ -356,6 +394,36 @@ model "Juju" {
                                         ground: "controller:model.cloud_uuid"]
     model_rec       -> credential_rec [type: data, label: "uses 0..1",
                                         ground: "controller:model.cloud_credential_uuid"]
+    // Storage model (0011-storage.sql)
+    charm_storage_rec  -> storage_directive_rec [type: data, label: "fulfilled by 1..N",
+                          ground: "model:application_storage_directive.storage_name"]
+    storage_directive_rec -> storage_pool_rec [type: data, label: "pins (one)",
+                          ground: "model:application_storage_directive.storage_pool_uuid"]
+    storage_instance_rec -> storage_pool_rec [type: data, label: "provisioned from (one)",
+                          ground: "model:storage_instance.storage_pool_uuid"]
+    storage_instance_rec -> storage_volume_rec [type: data, label: "backed by (one)",
+                          ground: "model:storage_instance_volume.storage_volume_uuid"]
+    storage_instance_rec -> storage_fs_rec [type: data, label: "backed by (one)",
+                          ground: "model:storage_instance_filesystem.storage_filesystem_uuid"]
+    storage_att_rec    -> storage_instance_rec [type: data, label: "attaches 1..1",
+                          ground: "model:storage_attachment.storage_instance_uuid"]
+    storage_volume_rec -> net_node_rec [type: data, label: "attached to 0..1",
+                          ground: "model:storage_volume_attachment.net_node_uuid"]
+    // Network spaces (0008-space.sql)
+    subnet_rec        -> space_rec    [type: data, label: "belongs to 0..1",
+                          ground: "model:subnet.space_uuid"]
+    application_rec   -> space_rec    [type: data, label: "default binding (one)",
+                          ground: "model:application.space_uuid"]
+    // Relation databags (domain/relation) — the permission matrix as
+    // FK associations: the unit bag stores the writing unit
+    // (relation_unit.unit_uuid); the application bag is keyed by the
+    // relation ENDPOINT (leader-gated writes).
+    own_unit_actor  -> unit_bag_rec [type: data, label: "writes (own, one)",
+                          ground: "model:relation_unit_setting"]
+    peer_actor      -> unit_bag_rec [type: data, label: "reads 0..N",
+                          ground: "model:relation_unit_setting"]
+    leader_actor    -> app_bag_rec  [type: data, label: "reads + writes (leader)",
+                          ground: "model:relation_application_setting"]
     // Model database
     // (model membership is by database — implicit, no FK; table-level ground)
     model_rec       -> application_rec [type: data, label: "contains 0..N",
@@ -1312,6 +1380,82 @@ diagram "Agent taxonomy" from "Juju" {
   }
 }
 
+// --------------------------------------------------------------------------
+// Reference: network spaces (docs/reference/space.md, subnet.md) —
+// space -> subnet -> provider identity; endpoint bindings (0008-space.sql).
+// --------------------------------------------------------------------------
+diagram "Network spaces" from "Juju" {
+  select {
+    nodes: application_rec space_rec subnet_rec
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    application_rec left-of space_rec  gap: 40
+    space_rec       left-of subnet_rec gap: 40
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: the storage data model (docs/reference/storage.md) —
+// charm storage name -> directive -> pool -> instance -> volume/filesystem
+// -> attachment (0011-storage.sql).
+// --------------------------------------------------------------------------
+diagram "Storage model" from "Juju" {
+  select {
+    nodes: charm_storage_rec storage_directive_rec storage_pool_rec storage_instance_rec storage_volume_rec storage_fs_rec storage_att_rec net_node_rec
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    charm_storage_rec   left-of storage_directive_rec gap: 30
+    storage_directive_rec left-of storage_pool_rec   gap: 30
+    storage_pool_rec    left-of storage_instance_rec  gap: 30
+    storage_volume_rec  right-of storage_instance_rec gap: 30
+    storage_volume_rec  align-middle storage_instance_rec
+    storage_fs_rec      below storage_instance_rec    gap: 30
+    storage_fs_rec      align-centre storage_instance_rec
+    storage_att_rec     below charm_storage_rec       gap: 30
+    net_node_rec        above storage_volume_rec      gap: 30
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: relation databags (docs/reference/relation.md) — who reads
+// and writes the unit vs application databags (domain/relation).
+// --------------------------------------------------------------------------
+diagram "Databag permissions" from "Juju" {
+  select {
+    nodes: own_unit_actor leader_actor peer_actor unit_bag_rec app_bag_rec
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    own_unit_actor  left-of leader_actor gap: 24
+    leader_actor    left-of peer_actor   gap: 24
+    unit_bag_rec    below own_unit_actor gap: 40
+    unit_bag_rec    align-centre own_unit_actor
+    app_bag_rec     below leader_actor   gap: 40
+    app_bag_rec     align-centre leader_actor
+    unit_bag_rec    left-of app_bag_rec  gap: 30
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
 // ==== HAND-MAINTAINED below — edit freely; `make variants` regenerates everything above ====
 
 // ==== GENERATED BELOW — synthesized variants of the
@@ -1605,6 +1749,48 @@ diagram "Agent taxonomy (synthesized)" from "Juju" {
     nodes: controller machine_agent unit_agent containeragent
     edges: type control type stream type api
     sizing: uniform
+  }
+}
+
+// --------------------------------------------------------------------------
+diagram "Network spaces (synthesized)" from "Juju" {
+  select {
+    nodes: application_rec space_rec subnet_rec
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+diagram "Storage model (synthesized)" from "Juju" {
+  select {
+    nodes: charm_storage_rec storage_directive_rec storage_pool_rec storage_instance_rec storage_volume_rec storage_fs_rec storage_att_rec net_node_rec
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+diagram "Databag permissions (synthesized)" from "Juju" {
+  select {
+    nodes: own_unit_actor leader_actor peer_actor unit_bag_rec app_bag_rec
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
   }
 }
 

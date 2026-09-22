@@ -445,6 +445,38 @@ applications. Each step is a scoped view over the same model.
 
 
 
+## Reference: data models (round 4 — grounded data-model views)
+
+### Storage model
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Storage model
+:no-legend:
+:caption: The storage walk, grounded in 0011-storage.sql: the charm defines storage names (kind block|filesystem, count, size); a directive pins one pool (user- or provider-default origin) per application; an instance carries the charm name, kind and requested size and is backed by exactly one volume or filesystem; attachments bind instances to units; volumes bind to net nodes (the machine or unit network identity). Provision scope: model = machine-independent, machine = dies with the machine.
+:alt: Record chain: charm storage to directive to pool to instance; volume to the right of instance, filesystem below, attachment below charm storage, net node above volume. Arrows carry multiplicities.
+```
+
+### Network spaces
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Network spaces
+:no-legend:
+:caption: A space groups subnets; a subnet belongs to 0..1 space (the alpha space exists by default); an application's default binding points at one space, and each charm-relation endpoint can bind 0..1 space of its own.
+:alt: Application record to space record to subnet record; arrows: subnet belongs to 0..1 space; application default binding (one).
+```
+
+### Databag permissions
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Databag permissions
+:no-legend:
+:caption: The relation databags, grounded in domain/relation: the unit databag stores the writing unit, so a unit writes only its own bag and reads every unit bag in the relation (peers and remotes); the application databag is keyed by the relation ENDPOINT and its writes are leader-gated. Remote applications read the local app bag's counterpart on their own side; users never touch databags directly.
+:alt: Own unit writes its unit databag; peer and remote units read all unit databags; the leader unit reads and writes the application databag.
+```
+
 ## Where each view is embedded (round 1 of the docs push)
 
 Every diagram above is duplicated here; the list below maps the views

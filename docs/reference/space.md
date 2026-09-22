@@ -20,6 +20,16 @@ A space is used to help segment network traffic for the purpose of:
 
 ## Spaces as constraints and bindings
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Network spaces
+:no-legend:
+:caption: A space groups subnets; a subnet belongs to 0..1 space (the alpha space exists by default); an application's default binding points at one space, and each charm-relation endpoint can bind 0..1 space of its own.
+:alt: Application record to space record to subnet record.
+```
+
+
+
 Spaces can be specified as {ref}`constraints <constraint>` -- to determine what subnets a machine is connected to -- or as application endpoint bindings -- to determine the subnets used by application relations.
 
 A binding associates an {ref}`application endpoint <application-endpoint>` with a space. This restricts traffic for the endpoint to the subnets in the space. By default, endpoints are bound to the space specified in the `default-space` model configuration value. The name of the default space is "alpha".
