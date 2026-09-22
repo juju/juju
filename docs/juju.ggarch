@@ -1713,14 +1713,8 @@ diagram "Charm origins" from "Juju" {
     unit_rec           align-middle application_rec
     charm_rec          right-of application_rec gap: 30
     charm_rec          align-middle application_rec
-    charm_metadata_rec above charm_rec          gap: 24
-    charm_metadata_rec align-centre charm_rec
-    charm_download_rec below charm_rec          gap: 24
-    charm_download_rec align-centre charm_rec
-    app_channel_rec    below application_rec    gap: 24
-    app_channel_rec    align-centre application_rec
-    app_platform_rec   left-of app_channel_rec  gap: 30
-    app_platform_rec   align-middle app_channel_rec
+    fan [charm_metadata_rec charm_download_rec] above charm_rec gap: 24
+    fan [app_channel_rec app_platform_rec] below application_rec gap: 24
   }
   annotations {
     legend [position: "bottom-right",
@@ -1741,9 +1735,10 @@ diagram "Credential chain" from "Juju" {
   }
   positions {
     user_rec      left-of credential_rec gap: 40
-    cloud_rec     above credential_rec   gap: 40
+    user_rec      align-middle credential_rec
+    cloud_rec     above credential_rec   gap: 56
     cloud_rec     align-centre credential_rec
-    model_rec     below credential_rec   gap: 40
+    model_rec     below credential_rec   gap: 56
     model_rec     align-centre credential_rec
   }
   annotations {
