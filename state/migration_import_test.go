@@ -1331,7 +1331,32 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 	c.Assert(err, jc.ErrorIsNil)
 	us := state.NewUnitState()
 	us.SetCharmState(map[string]string{"payload": "0xb4c0ffee"})
-	us.SetRelationState(map[int]string{42: "magic"})
+
+	app, err := exported.Application()
+	c.Assert(err, jc.ErrorIsNil)
+	ep, err := app.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	rapp, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-wordpress",
+		SourceModel: testModel.ModelTag(),
+		OfferUUID:   "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	rep, err := rapp.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := st.AddRelation(ep, rep)
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel.Unit(exported)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ru.EnterScope(nil), jc.ErrorIsNil)
+	us.SetRelationState(map[int]string{rel.Id(): "magic"})
 	us.SetUniterState("uniter state")
 	us.SetStorageState("storage state")
 	err = exported.SetState(us, state.UnitStateSizeLimits{})
@@ -1359,7 +1384,18 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 	s.primeStatusHistory(c, exported, status.Active, 5)
 	s.primeStatusHistory(c, exported.Agent(), status.Idle, 5)
 
-	newSt := s.importModel(c, st)
+	// Simulate a source controller predating the relation-state filter.
+	// The export has unit relation state referencing a deleted
+	// relation. The import must cleanse this stale key on the way in.
+	desc, err := st.Export(map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+	descUnits := desc.Applications()[0].Units()
+	c.Assert(descUnits, gc.HasLen, 1)
+	descRState := descUnits[0].RelationState()
+	descRState[99999999] = "stale checkpoint"
+	descUnits[0].SetRelationState(descRState)
+
+	newSt := s.importModelDescription(c, desc)
 	defer func() { _ = newSt.Close() }()
 
 	m, err := newSt.Model()
@@ -1414,7 +1450,7 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 	charmState, _ := unitState.CharmState()
 	c.Assert(charmState, jc.DeepEquals, map[string]string{"payload": "0xb4c0ffee"}, gc.Commentf("persisted charm state not migrated"))
 	relationState, _ := unitState.RelationState()
-	c.Assert(relationState, jc.DeepEquals, map[int]string{42: "magic"}, gc.Commentf("persisted relation state not migrated"))
+	c.Assert(relationState, jc.DeepEquals, map[int]string{rel.Id(): "magic"}, gc.Commentf("persisted relation state not migrated"))
 	uniterState, _ := unitState.UniterState()
 	c.Assert(uniterState, gc.Equals, "uniter state", gc.Commentf("persisted uniter state not migrated"))
 	storageState, _ := unitState.StorageState()

@@ -6,7 +6,9 @@ package state
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/juju/charm/v12"
@@ -22,6 +24,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	stateerrors "github.com/juju/juju/state/errors"
 )
 
 // RemoteApplication represents the state of an application hosted
@@ -44,6 +47,7 @@ type remoteApplicationDoc struct {
 	Bindings             map[string]string   `bson:"bindings"`
 	Life                 Life                `bson:"life"`
 	RelationCount        int                 `bson:"relationcount"`
+	TxnRevno             int64               `bson:"txn-revno"`
 	IsConsumerProxy      bool                `bson:"is-consumer-proxy"`
 	Version              int                 `bson:"version"`
 	Macaroon             string              `bson:"macaroon,omitempty"`
@@ -185,7 +189,7 @@ func (a *RemoteApplication) Life() Life {
 	return a.doc.Life
 }
 
-// RelationCount returns the of number of active relations for the application.
+// RelationCount returns the number of active relations for the application.
 func (a *RemoteApplication) RelationCount() int {
 	return a.doc.RelationCount
 }
@@ -451,8 +455,12 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 					Assert: bson.D{{"life", Dying}},
 				}}
 			} else if err != nil {
+				// The relation's destroy ops could not be built. Queue an
+				// asynchronous force teardown so the relation is not
+				// left behind ignored while its remote app document is removed.
 				op.AddError(err)
 				failRels = true
+				ops = append(ops, forceTeardownCleanupOps(rel)...)
 				continue
 			}
 			if isRemove {
@@ -932,35 +940,300 @@ func (p AddRemoteApplicationParams) Validate() error {
 	return nil
 }
 
-func (st *State) destroyExistingRemoteApplicationOps(attempt int, args AddRemoteApplicationParams) ([]txn.Op, func() error, error) {
+// replaceStaleConsumerProxyApplication replaces an older consumer proxy for
+// the same consumer app with the newer version passed in via appDoc.
+// The old proxy's relations are torn down and the proxy document is updated
+// in place.
+func (st *State) replaceStaleConsumerProxyApplication(args AddRemoteApplicationParams, appDoc *remoteApplicationDoc) (*RemoteApplication, error) {
 	if !args.IsConsumerProxy {
-		return nil, nil, nil
+		return nil, nil
 	}
 	existingRemoteApp, err := st.RemoteApplication(args.Name)
 	if errors.Is(err, errors.NotFound) {
-		return nil, nil, nil
+		return nil, nil
 	}
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	if existingRemoteApp.ConsumeVersion() < args.ConsumeVersion {
-		logger.Infof("consume newer version %d of remote app for offer %v: %v", args.ConsumeVersion, args.OfferUUID, args.Name)
-		destroyModelOp := existingRemoteApp.DestroyOperation(true)
-		destroyOps, err := destroyModelOp.Build(attempt)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
+	if existingRemoteApp.Life() != Alive {
+		// A concurrent removal is tearing the proxy down. Fail fast
+		// with a legible error rather than resurrecting it: the swap
+		// asserts the replaced app is Alive, so every retry would
+		// abort with excessive contention.
+		return nil, errors.WithType(errors.Errorf(
+			"saas application %q is being removed; retry the consume once the removal completes", args.Name),
+			errors.AlreadyExists)
+	}
+	if existingRemoteApp.ConsumeVersion() >= args.ConsumeVersion {
+		// Nothing stale to replace.
+		return nil, nil
+	}
+	// A concurrent re-consume that bumps the version between the pre-check
+	// and the replacement txn must abort.
+	replacedVersion := existingRemoteApp.ConsumeVersion()
+	logger.Infof("consume newer version %d of remote app for offer %v: %v", args.ConsumeVersion, args.OfferUUID, args.Name)
+
+	rels, err := existingRemoteApp.Relations()
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting relations for saas application %q", args.Name)
+	}
+	// The recorded relation count must agree with the actual relations,
+	// otherwise the remote app (or its relations) is corrupt and replacing
+	// it would inherit the corruption.
+	if len(rels) != existingRemoteApp.doc.RelationCount {
+		return nil, errors.Annotatef(
+			stateerrors.NewRelationCountCorruptError(args.Name, existingRemoteApp.doc.RelationCount, len(rels)),
+			"cannot replace saas application %q", args.Name)
+	}
+
+	// The teardown is a multi-step sequence: ensure the old relations
+	// remain Dying, force their units out of scope, then swap the remote
+	// app document. If the replacement is interrupted, the cleanup
+	// worker completes the teardown of the old relations (and with
+	// them the old remote app), and a later re-consume starts clean. If
+	// the replacement completes, the cleanups find the relations already
+	// gone and only delete leftover scopes, settings and unitstate
+	// relation-state, which is idempotent.
+	for _, rel := range rels {
+		buildTxn := func(attempt int) ([]txn.Op, error) {
+			current := rel
+			proxy := existingRemoteApp
+			if attempt > 0 {
+				var err error
+				proxy, err = st.RemoteApplication(args.Name)
+				if errors.IsNotFound(err) {
+					return nil, jujutxn.ErrNoOperations
+				} else if err != nil {
+					return nil, errors.Trace(err)
+				}
+				if proxy.Life() != Alive || proxy.ConsumeVersion() != replacedVersion {
+					return nil, errors.AlreadyExistsf("saas application %q", args.Name)
+				}
+				// The relation is asserted to be Alive; a concurrent
+				// destroy may have made it Dying (or removed it) since it
+				// was read above.
+				current, err = st.Relation(rel.Id())
+				if errors.IsNotFound(err) {
+					return nil, jujutxn.ErrNoOperations
+				} else if err != nil {
+					return nil, errors.Trace(err)
+				}
+			}
+			// Fence only relations belonging to the proxy we read. A
+			// newer consume may have replaced it and reused relation keys.
+			return append(forceTeardownCleanupOps(current), txn.Op{
+				C:  remoteApplicationsC,
+				Id: proxy.doc.DocID,
+				Assert: bson.D{
+					{"life", Alive},
+					{"version", replacedVersion},
+					{"txn-revno", proxy.doc.TxnRevno},
+				},
+			}), nil
 		}
-		ops := []txn.Op{{
+		if err := st.db().Run(buildTxn); err != nil {
+			if err == jujutxn.ErrNoOperations {
+				continue
+			}
+			return nil, errors.Annotatef(err, "fencing relation %v for replacement of saas application %q", rel, args.Name)
+		}
+	}
+
+	// Force every unit (local and remote) out of scope so the relations can
+	// be fully removed. Each leave-scope runs in its own txn (mirroring
+	// cleanupForceDestroyedRelation) and is idempotent.
+	for _, rel := range rels {
+		if err := forceRelationUnitsOutOfScope(st, rel); err != nil {
+			return nil, errors.Annotate(err, "forcing units out of scope")
+		}
+	}
+
+	// Tear down the relations and swap the proxy document in a single
+	// transaction.
+	op := existingRemoteApp.DestroyOperation(true)
+	app := newRemoteApplication(st, appDoc)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// The final leave-scope removes the last old relation
+		// together with the old remote app; when that has happened there is
+		// nothing to swap and the caller inserts the fresh app.
+		existing, rerr := st.RemoteApplication(args.Name)
+		if errors.IsNotFound(rerr) {
+			return nil, jujutxn.ErrNoOperations
+		} else if rerr != nil {
+			return nil, errors.Trace(rerr)
+		}
+		if existing.Life() != Alive {
+			// A concurrent removal marked the proxy Dying between
+			// the pre-check and this transaction; fail fast rather
+			// than asserting it is Alive on every retry.
+			return nil, errors.WithType(errors.Errorf(
+				"saas application %q is being removed; retry the consume once the removal completes", args.Name),
+				errors.AlreadyExists)
+		}
+		ops, err := op.Build(attempt)
+		if err != nil {
+			if err == jujutxn.ErrNoOperations {
+				// Pass back unwrapped.
+				return nil, jujutxn.ErrNoOperations
+			}
+			return nil, errors.Trace(err)
+		}
+		if err := replacementAbortError(op.Errors, args.Name); err != nil {
+			return nil, err
+		}
+		var swapOps []txn.Op
+		for _, one := range ops {
+			if one.C == remoteApplicationsC && one.Id == existingRemoteApp.doc.DocID && one.Remove {
+				continue
+			}
+			swapOps = append(swapOps, one)
+		}
+		// The new version has a new token; the destroy ops removed
+		// the old entity document.
+		if args.Token != "" {
+			swapOps = append(swapOps,
+				st.RemoteEntities().replaceRemoteEntityOps(app.Tag(), args.Token)...)
+		}
+		// Assert the replaced app's version and revision in the
+		// same transaction. The swap $sets every field of the new
+		// document, including life: Alive, so it must not resurrect
+		// an app concurrently marked Dying by a non-force removal;
+		// assert the old app is Alive instead of merely not Dead.
+		if replacedVersion != op.app.ConsumeVersion() {
+			return nil, errors.AlreadyExistsf("saas application %q", args.Name)
+		}
+		return append(swapOps, txn.Op{
 			C:  remoteApplicationsC,
 			Id: existingRemoteApp.doc.DocID,
-			Assert: append(notDeadDoc,
-				bson.DocElem{Name: "version", Value: existingRemoteApp.ConsumeVersion()}),
-		}}
-		return append(ops, destroyOps...), func() error {
-			return destroyModelOp.Done(err)
-		}, nil
+			Assert: append(append(isAliveDoc,
+				bson.DocElem{Name: "version", Value: op.app.ConsumeVersion()}),
+				bson.DocElem{Name: "txn-revno", Value: op.app.doc.TxnRevno}),
+			Update: remoteApplicationDocUpdateFields(appDoc),
+		}), nil
 	}
-	return nil, nil, nil
+	if err := st.db().Run(buildTxn); err != nil {
+		if err == jujutxn.ErrNoOperations {
+			return nil, nil
+		}
+		return nil, errors.Trace(err)
+	}
+	if err := op.Done(nil); err != nil {
+		return nil, errors.Annotatef(err, "cleaning up state remote application proxy for %q", args.Name)
+	}
+	// Return the freshly read replacement document.
+	replacedApp, rerr := st.RemoteApplication(args.Name)
+	if errors.Is(rerr, errors.NotFound) {
+		return nil, nil
+	}
+	return replacedApp, rerr
+}
+
+// remoteApplicationDocUpdateFields returns the update (a $set of every
+// document field except the _id and txn-revno, which the transaction
+// machinery manages) for a replacement $set. The fields are derived
+// from the remoteApplicationDoc bson tags.
+// Fields with an omitempty bson tag that are empty are $unset
+// instead, so the stored document ends up matching what an insert
+// of the same doc would have recorded.
+func remoteApplicationDocUpdateFields(appDoc *remoteApplicationDoc) bson.D {
+	setFields := bson.D{}
+	var unsetFields bson.D
+	doc := reflect.ValueOf(appDoc).Elem()
+	docType := doc.Type()
+	for i := 0; i < docType.NumField(); i++ {
+		field := docType.Field(i)
+		tag := field.Tag.Get("bson")
+		if tag == "-" {
+			continue
+		}
+		name := strings.Split(tag, ",")[0]
+		if name == "" {
+			name = strings.ToLower(field.Name)
+		}
+		if name == "_id" || name == "txn-revno" {
+			continue
+		}
+		if strings.Contains(tag, "omitempty") && doc.Field(i).IsZero() {
+			unsetFields = append(unsetFields, bson.DocElem{Name: name, Value: 1})
+			continue
+		}
+		setFields = append(setFields, bson.DocElem{Name: name, Value: doc.Field(i).Interface()})
+	}
+	update := bson.D{{"$set", setFields}}
+	if len(unsetFields) > 0 {
+		update = append(update, bson.DocElem{"$unset", unsetFields})
+	}
+	return update
+}
+
+// replacementAbortError converts accumulated force destroy errors into a
+// single error for the re-consume path. Using force, destroyOps
+// accumulates errors that are not fatal; so any NotFound is treated as benign.
+func replacementAbortError(errs []error, appName string) error {
+	for _, e := range errs {
+		if !errors.Is(e, errors.NotFound) {
+			return errors.Annotatef(e, "cannot fully remove saas application %q", appName)
+		}
+	}
+	return nil
+}
+
+// forceRelationUnitsOutOfScope forces all units (local and remote) of the
+// given relation out of scope, one txn per unit. Remote units exist only as
+// relation scope documents, so the scope keys are unpacked directly.
+func forceRelationUnitsOutOfScope(st *State, relation *Relation) (err error) {
+	scopes, closer, err := st.db().GetCollection(relationScopesC)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer closer()
+
+	sel := bson.M{"_id": bson.M{
+		"$regex": fmt.Sprintf("^%s#", st.docID(relation.globalScope())),
+	}}
+	iter := scopes.Find(sel).Iter()
+	defer closeIter(iter, &err, "reading relation scopes")
+
+	var doc struct {
+		Key string `bson:"key"`
+	}
+	for iter.Next(&doc) {
+		scope, role, unitName, err := unpackScopeKey(doc.Key)
+		if err != nil {
+			return errors.Annotatef(err, "unpacking scope key %q", doc.Key)
+		}
+		var matchingEp Endpoint
+		for _, ep := range relation.Endpoints() {
+			if string(ep.Role) == role {
+				matchingEp = ep
+				break
+			}
+		}
+		if matchingEp.Role == "" {
+			return errors.NotFoundf("endpoint matching %q", doc.Key)
+		}
+		ru := RelationUnit{
+			st:       st,
+			relation: relation,
+			unitName: unitName,
+			endpoint: matchingEp,
+			scope:    scope,
+		}
+		errs, err := ru.LeaveScopeWithForce(true, 0)
+		if len(errs) > 0 {
+			// Operational errors (other than NotFound) mean the
+			// unit may still be in scope.
+			for _, e := range errs {
+				if !errors.Is(e, errors.NotFound) {
+					return errors.Annotatef(e, "leaving scope for unit %q in relation %q", unitName, relation)
+				}
+			}
+		}
+		if err != nil {
+			return errors.Annotatef(err, "leaving scope for unit %q in relation %q", unitName, relation)
+		}
+	}
+	return err
 }
 
 // AddRemoteApplication creates a new remote application record,
@@ -1041,18 +1314,31 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		spaces[i].Subnets = subnets
 	}
 	appDoc.Spaces = spaces
+
+	// If there's an older existing consumer app proxy for the same consuming
+	// app, it is replaced in place with this newer version.
+	if args.IsConsumerProxy {
+		if replaced, err := st.replaceStaleConsumerProxyApplication(args, appDoc); err != nil {
+			// A replacement racing a remove-saas fails fast when the
+			// proxy is Dying, with an AlreadyExists error. Retrying it
+			// can never succeed: a Dying remote app proxy is only removed
+			// once its departing units leave scope, which takes arbitrarily
+			// long. Surface the failure instead; the error tells the user
+			// to retry the consume once the removal completes.
+			return nil, errors.Trace(err)
+		} else if replaced != nil {
+			return replaced, nil
+		}
+	}
+
 	app := newRemoteApplication(st, appDoc)
 
-	var destroyStaleDone func() error
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var destroyStaleOps []txn.Op
-		// If there's an older existing consumer app proxy for the same consuming app,
-		// it needs to be removed.
-		if destroyStaleOps, destroyStaleDone, err = st.destroyExistingRemoteApplicationOps(attempt, args); err != nil {
-			return nil, errors.Trace(err)
-		}
-		replaceExisting := len(destroyStaleOps) > 0
+	// Set when the retry path inside buildTxn replaces a
+	// concurrently-inserted stale remote app (buildTxn then returns
+	// ErrNoOperations as a no-op, and the insert is skipped).
+	var swapped *RemoteApplication
 
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// model may have been destroyed.
 		if attempt > 0 {
@@ -1065,42 +1351,48 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 			} else if localExists {
 				return nil, errors.AlreadyExistsf("local application with same name")
 			}
-			// Ensure a remote application with the same name doesn't exist
-			// but only if we are not replacing it.
-			if !replaceExisting {
-				if exists, err := isNotDead(st, remoteApplicationsC, args.Name); err != nil {
-					return nil, errors.Trace(err)
-				} else if exists {
-					return nil, errors.AlreadyExistsf("saas application")
+			// Ensure a remote application with the same name doesn't exist.
+			if exists, err := isNotDead(st, remoteApplicationsC, args.Name); err != nil {
+				return nil, errors.Trace(err)
+			} else if exists {
+				// A concurrent registration may have inserted a remote app for
+				// this consumer between the initial stale remote app check and
+				// this retry. If it is an older consume version, replace it.
+				//
+				// The replacement runs its own committed transactions from
+				// inside this build callback. That is safe because the outer
+				// transaction has applied nothing while its ops are being
+				// built, but a failure there must not surface as a failure
+				// of the insert itself: it is wrapped in a distinct error type.
+				// TODO - wire this error up through the api layer.
+				if args.IsConsumerProxy {
+					replaced, rerr := st.replaceStaleConsumerProxyApplication(args, appDoc)
+					if rerr != nil {
+						// Do not retry for AlreadyExists errors (the remote
+						// app proxy is being removed): the removal completes
+						// only when the departing units leave scope.
+						return nil, errors.WithType(
+							errors.Annotatef(rerr, "replacing existing saas application %q", args.Name),
+							stateerrors.RemoteApplicationReplaceFailedError)
+					} else if replaced != nil {
+						swapped = replaced
+						return nil, jujutxn.ErrNoOperations
+					}
 				}
+				return nil, errors.AlreadyExistsf("saas application")
 			}
 		}
 
-		ops := destroyStaleOps
-
-		if replaceExisting {
-			ops = append(ops, txn.Op{
-				C:      remoteApplicationsC,
-				Id:     appDoc.Name,
-				Insert: appDoc,
-			})
-			// If we know the token, import it.
-			if args.Token != "" {
-				importRemoteEntityOps := st.RemoteEntities().replaceRemoteEntityOps(app.Tag(), args.Token)
-				ops = append(ops, importRemoteEntityOps...)
-			}
-		} else {
-			ops = append(ops, txn.Op{
-				C:      remoteApplicationsC,
-				Id:     appDoc.Name,
-				Assert: txn.DocMissing,
-				Insert: appDoc,
-			})
-			// If we know the token, import it.
-			if args.Token != "" {
-				importRemoteEntityOps := st.RemoteEntities().importRemoteEntityOps(app.Tag(), args.Token)
-				ops = append(ops, importRemoteEntityOps...)
-			}
+		ops := []txn.Op{{
+			C:      remoteApplicationsC,
+			Id:     appDoc.Name,
+			Assert: txn.DocMissing,
+			Insert: appDoc,
+		}}
+		// If we know the token, import it.
+		if args.Token != "" {
+			importRemoteEntityOps := st.RemoteEntities().importRemoteEntityOps(app.Tag(), args.Token)
+			ops = append(ops, importRemoteEntityOps...)
 		}
 
 		ops = append(ops,
@@ -1130,12 +1422,13 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		return ops, nil
 	}
 	if err = st.db().Run(buildTxn); err != nil {
+		if swapped != nil {
+			return swapped, nil
+		}
 		return nil, errors.Trace(err)
 	}
-	if destroyStaleDone != nil {
-		if err := destroyStaleDone(); err != nil {
-			return nil, errors.Annotatef(err, "cleaning up state remote application proxy for %q", args.Name)
-		}
+	if swapped != nil {
+		return swapped, nil
 	}
 	return app, nil
 }
