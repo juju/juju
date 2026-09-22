@@ -477,6 +477,38 @@ applications. Each step is a scoped view over the same model.
 :alt: Own unit writes its unit databag; peer and remote units read all unit databags; the leader unit reads and writes the application databag.
 ```
 
+## Reference: processes and levels (round 5 — grounded views)
+
+### Bundle deploy (sequence)
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Bundle deploy
+:no-legend:
+:caption: juju deploy <bundle> --overlay reads the bundle as a YAML multidoc (first document = base, the rest = overlays: relations append, machines overwrite, an empty overlay application REMOVES the base app), snapshots the model status, builds the change graph and topologically sorts it, then applies each change in order (addCharm, deploy, addMachines, addRelation, addUnit, expose, setOptions, create/consume offers). Any error aborts the whole apply.
+:alt: User calls juju deploy; client merges overlay into base; controller returns model status snapshot; client builds the change graph and applies changes in order.
+```
+
+### Web CLI (sequence)
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Web CLI
+:no-legend:
+:caption: The dashboard serves the /commands websocket; each submitted command passes the 90-command whitelist (plugins doubly excluded, upgrade-controller unregistered), then runs as an embedded juju CLI IN the controller process, dialing its own API with the submitted credentials; stdout/stderr stream back as CLICommandStatus lines.
+:alt: The dashboard charm serves the websocket, filters through the whitelist, runs the embedded CLI in-process, and streams response lines.
+```
+
+### Configuration levels (where each lives)
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Configuration levels
+:no-legend:
+:caption: Three config levels, three homes: controller config lives in the controller DB (set by juju controller-config; bootstrap seeds it); model config lives in the model DB (set by juju model-config; defaults funnel from Juju -> provider -> cloud -> region); application config lives in per-application rows in the model DB (set by juju config -- there is NO config-set hook command; charms read via config-get). The application-level trust key is intercepted into its own boolean column and gates the uniter's cloud-credential access.
+:alt: User and controller above the three config records; charm beside application config (it reads, it cannot write).
+```
+
 ## Where each view is embedded (round 1 of the docs push)
 
 Every diagram above is duplicated here; the list below maps the views

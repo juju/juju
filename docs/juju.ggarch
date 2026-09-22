@@ -129,6 +129,13 @@ model "Juju" {
     own_unit_actor     [type: charm, label: "own unit"]
     leader_actor       [type: charm, label: "leader unit"]
     peer_actor         [type: charm, label: "peer / remote unit"]
+    // -----------------------------------------------------------------------
+    // Configuration levels (docs/reference/configuration.md) — where each
+    // level lives and who sets it (ConfigScout grounds).
+    // -----------------------------------------------------------------------
+    ctrl_config_rec   [type: record, label: "controller config\n(controller DB, key/value)"]
+    model_config_rec  [type: record, label: "model config\n(model DB, key/value)"]
+    app_config_rec    [type: charm, label: "application config\n(model DB, per-app rows)"]
 
     // -----------------------------------------------------------------------
     // Hook execution participants
@@ -685,6 +692,23 @@ behaviour "Secret lifecycle" {
       controller  -> client:     return "results"
     }
 
+    behaviour "Bundle deploy" {
+      user            -> client:     call "juju deploy <bundle> --overlay"
+      client          -> client:     self "merge overlay into base bundle"
+      client          -> controller: call "model status snapshot"
+      client          -> client:     self "build change graph (toposort)"
+      client          -> controller: call "apply changes in order"
+      controller      -> controller: self "deploy, add-machine, add-relation, add-unit, expose, set-options"
+      client          -> controller: call "create / consume offers"
+    }
+
+    behaviour "Web CLI" {
+      charm           -> charm:      self "serve /commands websocket"
+      charm           -> charm:      self "whitelist filter (plugins, upgrade-controller excluded)"
+      charm           -> charm:      self "run embedded juju CLI in-process"
+      charm           -> charm:      async "stream CLICommandStatus lines"
+    }
+
     behaviour "Log flow" {
       unit_agent    -> unit_agent:    self "buffer log records"
       machine_agent -> machine_agent: self "buffer log records"
@@ -1053,6 +1077,14 @@ state "Secret lifecycle" from "Juju" {
 
 sequence "Log flow" from "Juju" {
   select { behaviour: "Log flow" }
+}
+
+sequence "Bundle deploy" from "Juju" {
+  select { behaviour: "Bundle deploy" }
+}
+
+sequence "Web CLI" from "Juju" {
+  select { behaviour: "Web CLI" }
 }
 
 state "Uniter operation" from "Juju" {
@@ -1456,6 +1488,27 @@ diagram "Databag permissions" from "Juju" {
   }
 }
 
+// --------------------------------------------------------------------------
+// Reference: the three configuration levels (docs/reference/configuration.md)
+// --------------------------------------------------------------------------
+diagram "Configuration levels" from "Juju" {
+  select {
+    nodes: user controller ctrl_config_rec model_config_rec app_config_rec charm
+    edges: type control type api
+    sizing: uniform
+  }
+  positions {
+    user             left-of controller     gap: 30
+    charm            right-of app_config_rec gap: 30
+    ctrl_config_rec  below controller       gap: 30
+    ctrl_config_rec  align-centre controller
+    model_config_rec below ctrl_config_rec  gap: 30
+    model_config_rec align-left ctrl_config_rec
+    app_config_rec   below model_config_rec gap: 30
+    app_config_rec   align-left model_config_rec
+  }
+}
+
 // ==== HAND-MAINTAINED below — edit freely; `make variants` regenerates everything above ====
 
 // ==== GENERATED BELOW — synthesized variants of the
@@ -1791,6 +1844,15 @@ diagram "Databag permissions (synthesized)" from "Juju" {
     legend [position: "bottom-right",
             record: "database record",
             data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+diagram "Configuration levels (synthesized)" from "Juju" {
+  select {
+    nodes: user controller ctrl_config_rec model_config_rec app_config_rec charm
+    edges: type control type api
+    sizing: uniform
   }
 }
 
