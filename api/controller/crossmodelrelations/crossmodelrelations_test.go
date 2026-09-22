@@ -285,6 +285,79 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationDischargeRequired(c
 	jujutesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
 
+func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationDischargeFailed(c *tc.C) {
+	// The macaroon's third party caveat is not one the discharger accepts,
+	// so the discharge fails, as happens when the offer permission has
+	// been revoked.
+	mac, err := jujutesting.NewMacaroon("id")
+	c.Assert(err, tc.ErrorIsNil)
+	err = mac.AddThirdPartyCaveat(nil, []byte("denied caveat"), "third party location")
+	c.Assert(err, tc.ErrorIsNil)
+
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
+		resultErr := &params.Error{
+			Code: params.CodeDischargeRequired,
+			Info: params.DischargeRequiredErrorInfo{
+				Macaroon: mac,
+			}.AsMap(),
+		}
+		s.fillResponse(c, result, params.RegisterConsumingRelationResults{
+			Results: []params.RegisterConsumingRelationResult{{Error: resultErr}},
+		})
+		return nil
+	})
+	acquirer := &mockDischargeAcquirer{}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
+	results, err := client.RegisterRemoteRelations(c.Context(), params.RegisterConsumingRelationArg{
+		RelationToken: "token",
+		OfferUUID:     "offer-uuid"})
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Assert(results[0].Error, tc.Not(tc.IsNil))
+	// The discharge required code is preserved through the refused
+	// discharge, so callers can still detect that the macaroon could not
+	// be discharged.
+	c.Check(params.ErrCode(results[0].Error) == params.CodeDischargeRequired, tc.IsTrue)
+	c.Check(results[0].Error.Message, tc.Matches,
+		"cannot discharge: third party refused discharge: permission denied.*")
+}
+
+func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationDischargeTransportFailed(c *tc.C) {
+	// A transport failure while discharging the macaroon, for example a
+	// network error reaching the remote third-party discharger, must not
+	// be surfaced as a discharge-required error. Callers, such as the
+	// remote relation consumer worker, treat that code as revoked offer
+	// access and would suspend relations because of a transient error.
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
+		mac := s.newDischargeMacaroon(c)
+		resultErr := &params.Error{
+			Code: params.CodeDischargeRequired,
+			Info: params.DischargeRequiredErrorInfo{
+				Macaroon: mac,
+			}.AsMap(),
+		}
+		s.fillResponse(c, result, params.RegisterConsumingRelationResults{
+			Results: []params.RegisterConsumingRelationResult{{Error: resultErr}},
+		})
+		return nil
+	})
+	acquirer := &mockDischargeAcquirer{dischargeErr: errors.New("connection refused")}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
+	result, err := client.RegisterRemoteRelations(c.Context(), params.RegisterConsumingRelationArg{
+		RelationToken: "token",
+		OfferUUID:     "offer-uuid"})
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 1)
+	c.Assert(result[0].Error, tc.Not(tc.IsNil))
+	// The discharge-required code must not be preserved through the
+	// transport failure; only a refused discharge means revoked access.
+	c.Check(params.ErrCode(result[0].Error) == params.CodeDischargeRequired, tc.IsFalse)
+	// The transport error remains visible for diagnosis.
+	c.Check(result[0].Error.Message, tc.Matches, ".*connection refused.*")
+}
+
 func (s *CrossModelRelationsSuite) TestWatchRelationChanges(c *tc.C) {
 	remoteRelationToken := "token"
 	mac, err := jujutesting.NewMacaroon("id")
@@ -380,6 +453,66 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChangesDischargeRequired(c *
 	jujutesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
 
+func (s *CrossModelRelationsSuite) TestWatchRelationChangesDischargeFailed(c *tc.C) {
+	// The macaroon's third party caveat is not one the discharger accepts,
+	// so the discharge fails, as happens when the offer permission has
+	// been revoked.
+	mac, err := jujutesting.NewMacaroon("id")
+	c.Assert(err, tc.ErrorIsNil)
+	err = mac.AddThirdPartyCaveat(nil, []byte("denied caveat"), "third party location")
+	c.Assert(err, tc.ErrorIsNil)
+
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
+		resultErr := &params.Error{
+			Code: params.CodeDischargeRequired,
+			Info: params.DischargeRequiredErrorInfo{
+				Macaroon: mac,
+			}.AsMap(),
+		}
+		s.fillResponse(c, result, params.RemoteRelationWatchResults{
+			Results: []params.RemoteRelationWatchResult{{Error: resultErr}},
+		})
+		return nil
+	})
+	acquirer := &mockDischargeAcquirer{}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
+	_, err = client.WatchRelationChanges(c.Context(), "token", nil)
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+	// The discharge required code is preserved through the refused
+	// discharge, so callers can still detect that the macaroon could not
+	// be discharged.
+	c.Check(params.ErrCode(err) == params.CodeDischargeRequired, tc.IsTrue)
+	c.Check(err, tc.ErrorMatches,
+		"cannot discharge: third party refused discharge: permission denied.*")
+}
+
+func (s *CrossModelRelationsSuite) TestWatchRelationChangesDischargeTransportFailed(c *tc.C) {
+	// A transport failure while discharging the macaroon must not be
+	// surfaced as a discharge-required error; only a refused discharge
+	// means revoked offer access.
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
+		mac := s.newDischargeMacaroon(c)
+		resultErr := &params.Error{
+			Code: params.CodeDischargeRequired,
+			Info: params.DischargeRequiredErrorInfo{
+				Macaroon: mac,
+			}.AsMap(),
+		}
+		s.fillResponse(c, result, params.RemoteRelationWatchResults{
+			Results: []params.RemoteRelationWatchResult{{Error: resultErr}},
+		})
+		return nil
+	})
+	acquirer := &mockDischargeAcquirer{dischargeErr: errors.New("connection refused")}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
+	_, err := client.WatchRelationChanges(c.Context(), "token", nil)
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+	c.Check(params.ErrCode(err) == params.CodeDischargeRequired, tc.IsFalse)
+	c.Check(errors.Cause(err), tc.ErrorMatches, "connection refused")
+}
+
 func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *tc.C) {
 	remoteRelationToken := "token"
 	mac, err := jujutesting.NewMacaroon("id")
@@ -467,6 +600,66 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatusDischargeRequired(c *t
 	ms, ok := s.cache.Get("token")
 	c.Assert(ok, tc.IsTrue)
 	jujutesting.MacaroonEquals(c, ms[0], dischargeMac[0])
+}
+
+func (s *CrossModelRelationsSuite) TestWatchRelationStatusDischargeFailed(c *tc.C) {
+	// The macaroon's third party caveat is not one the discharger accepts,
+	// so the discharge fails, as happens when the offer permission has
+	// been revoked.
+	mac, err := jujutesting.NewMacaroon("id")
+	c.Assert(err, tc.ErrorIsNil)
+	err = mac.AddThirdPartyCaveat(nil, []byte("denied caveat"), "third party location")
+	c.Assert(err, tc.ErrorIsNil)
+
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
+		resultErr := &params.Error{
+			Code: params.CodeDischargeRequired,
+			Info: params.DischargeRequiredErrorInfo{
+				Macaroon: mac,
+			}.AsMap(),
+		}
+		s.fillResponse(c, result, params.RelationStatusWatchResults{
+			Results: []params.RelationLifeSuspendedStatusWatchResult{{Error: resultErr}},
+		})
+		return nil
+	})
+	acquirer := &mockDischargeAcquirer{}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
+	_, err = client.WatchRelationSuspendedStatus(c.Context(), params.RemoteEntityArg{Token: "token"})
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+	// The discharge required code is preserved through the refused
+	// discharge, so callers can still detect that the macaroon could not
+	// be discharged.
+	c.Check(params.ErrCode(err) == params.CodeDischargeRequired, tc.IsTrue)
+	c.Check(err, tc.ErrorMatches,
+		"cannot discharge: third party refused discharge: permission denied.*")
+}
+
+func (s *CrossModelRelationsSuite) TestWatchRelationStatusDischargeTransportFailed(c *tc.C) {
+	// A transport failure while discharging the macaroon must not be
+	// surfaced as a discharge-required error; only a refused discharge
+	// means revoked offer access.
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
+		mac := s.newDischargeMacaroon(c)
+		resultErr := &params.Error{
+			Code: params.CodeDischargeRequired,
+			Info: params.DischargeRequiredErrorInfo{
+				Macaroon: mac,
+			}.AsMap(),
+		}
+		s.fillResponse(c, result, params.RelationStatusWatchResults{
+			Results: []params.RelationLifeSuspendedStatusWatchResult{{Error: resultErr}},
+		})
+		return nil
+	})
+	acquirer := &mockDischargeAcquirer{dischargeErr: errors.New("connection refused")}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
+	_, err := client.WatchRelationSuspendedStatus(c.Context(), params.RemoteEntityArg{Token: "token"})
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+	c.Check(params.ErrCode(err) == params.CodeDischargeRequired, tc.IsFalse)
+	c.Check(errors.Cause(err), tc.ErrorMatches, "connection refused")
 }
 
 func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChange(c *tc.C) {
@@ -643,6 +836,66 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelationDischargeR
 	jujutesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
 
+func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelationDischargeFailed(c *tc.C) {
+	// The macaroon's third party caveat is not one the discharger accepts,
+	// so the discharge fails, as happens when the offer permission has
+	// been revoked.
+	mac, err := jujutesting.NewMacaroon("id")
+	c.Assert(err, tc.ErrorIsNil)
+	err = mac.AddThirdPartyCaveat(nil, []byte("denied caveat"), "third party location")
+	c.Assert(err, tc.ErrorIsNil)
+
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
+		resultErr := &params.Error{
+			Code: params.CodeDischargeRequired,
+			Info: params.DischargeRequiredErrorInfo{
+				Macaroon: mac,
+			}.AsMap(),
+		}
+		s.fillResponse(c, result, params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{Error: resultErr}},
+		})
+		return nil
+	})
+	acquirer := &mockDischargeAcquirer{}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
+	_, err = client.WatchEgressAddressesForRelation(c.Context(), params.RemoteEntityArg{Token: "token"})
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+	// The discharge required code is preserved through the refused
+	// discharge, so callers can still detect that the macaroon could not
+	// be discharged.
+	c.Check(params.ErrCode(err) == params.CodeDischargeRequired, tc.IsTrue)
+	c.Check(err, tc.ErrorMatches,
+		"cannot discharge: third party refused discharge: permission denied.*")
+}
+
+func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelationDischargeTransportFailed(c *tc.C) {
+	// A transport failure while discharging the macaroon must not be
+	// surfaced as a discharge-required error; only a refused discharge
+	// means revoked offer access.
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
+		mac := s.newDischargeMacaroon(c)
+		resultErr := &params.Error{
+			Code: params.CodeDischargeRequired,
+			Info: params.DischargeRequiredErrorInfo{
+				Macaroon: mac,
+			}.AsMap(),
+		}
+		s.fillResponse(c, result, params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{Error: resultErr}},
+		})
+		return nil
+	})
+	acquirer := &mockDischargeAcquirer{dischargeErr: errors.New("connection refused")}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
+	_, err := client.WatchEgressAddressesForRelation(c.Context(), params.RemoteEntityArg{Token: "token"})
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+	c.Check(params.ErrCode(err) == params.CodeDischargeRequired, tc.IsFalse)
+	c.Check(errors.Cause(err), tc.ErrorMatches, "connection refused")
+}
+
 func (s *CrossModelRelationsSuite) TestWatchOfferStatus(c *tc.C) {
 	offerUUID := "offer-uuid"
 	mac, err := jujutesting.NewMacaroon("id")
@@ -730,6 +983,69 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatusDischargeRequired(c *tc.C
 	ms, ok := s.cache.Get("offer-uuid")
 	c.Assert(ok, tc.IsTrue)
 	jujutesting.MacaroonEquals(c, ms[0], dischargeMac[0])
+}
+
+func (s *CrossModelRelationsSuite) TestWatchOfferStatusDischargeFailed(c *tc.C) {
+	// The macaroon's third party caveat is not one the discharger accepts,
+	// so the discharge fails, as happens when the offer permission has
+	// been revoked.
+	mac, err := jujutesting.NewMacaroon("id")
+	c.Assert(err, tc.ErrorIsNil)
+	err = mac.AddThirdPartyCaveat(nil, []byte("denied caveat"), "third party location")
+	c.Assert(err, tc.ErrorIsNil)
+
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
+		resultErr := &params.Error{
+			Code: params.CodeDischargeRequired,
+			Info: params.DischargeRequiredErrorInfo{
+				Macaroon: mac,
+			}.AsMap(),
+		}
+		s.fillResponse(c, result, params.OfferStatusWatchResults{
+			Results: []params.OfferStatusWatchResult{{Error: resultErr}},
+		})
+		return nil
+	})
+	acquirer := &mockDischargeAcquirer{}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
+	_, err = client.WatchOfferStatus(c.Context(), params.OfferArg{OfferUUID: "offer-uuid"})
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+	// The discharge required code is preserved through the refused
+	// discharge, so callers can still detect that the macaroon could not
+	// be discharged.
+	c.Check(params.ErrCode(err) == params.CodeDischargeRequired, tc.IsTrue)
+	c.Check(err, tc.ErrorMatches,
+		"cannot discharge: third party refused discharge: permission denied.*")
+}
+
+func (s *CrossModelRelationsSuite) TestWatchOfferStatusDischargeTransportFailed(c *tc.C) {
+	// A transport failure while discharging the macaroon, for example a
+	// network error reaching the remote third-party discharger, must not
+	// be surfaced as a discharge-required error. Callers, such as the
+	// remote relation consumer worker, treat that code as revoked offer
+	// access and would enter a degraded mode because of a transient
+	// error.
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
+		mac := s.newDischargeMacaroon(c)
+		resultErr := &params.Error{
+			Code: params.CodeDischargeRequired,
+			Info: params.DischargeRequiredErrorInfo{
+				Macaroon: mac,
+			}.AsMap(),
+		}
+		s.fillResponse(c, result, params.OfferStatusWatchResults{
+			Results: []params.OfferStatusWatchResult{{Error: resultErr}},
+		})
+		return nil
+	})
+	acquirer := &mockDischargeAcquirer{dischargeErr: errors.New("connection refused")}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
+	_, err := client.WatchOfferStatus(c.Context(), params.OfferArg{OfferUUID: "offer-uuid"})
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+	c.Check(params.ErrCode(err) == params.CodeDischargeRequired, tc.IsFalse)
+	c.Check(errors.Cause(err), tc.ErrorMatches, "connection refused")
 }
 
 func (s *CrossModelRelationsSuite) TestPublishRelationChangeDischargeFailed(c *tc.C) {
@@ -873,4 +1189,64 @@ func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChangesDischargeRequi
 	ms, ok := s.cache.Get("rel-token")
 	c.Assert(ok, tc.IsTrue)
 	jujutesting.MacaroonEquals(c, ms[0], dischargeMac[0])
+}
+
+func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChangesDischargeFailed(c *tc.C) {
+	// The macaroon's third party caveat is not one the discharger accepts,
+	// so the discharge fails, as happens when the offer permission has
+	// been revoked.
+	mac, err := jujutesting.NewMacaroon("id")
+	c.Assert(err, tc.ErrorIsNil)
+	err = mac.AddThirdPartyCaveat(nil, []byte("denied caveat"), "third party location")
+	c.Assert(err, tc.ErrorIsNil)
+
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
+		resultErr := &params.Error{
+			Code: params.CodeDischargeRequired,
+			Info: params.DischargeRequiredErrorInfo{
+				Macaroon: mac,
+			}.AsMap(),
+		}
+		s.fillResponse(c, result, params.SecretRevisionWatchResults{
+			Results: []params.SecretRevisionWatchResult{{Error: resultErr}},
+		})
+		return nil
+	})
+	acquirer := &mockDischargeAcquirer{}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
+	_, err = client.WatchConsumedSecretsChanges(c.Context(), "app-token", "rel-token", nil)
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+	// The discharge required code is preserved through the refused
+	// discharge, so callers can still detect that the macaroon could not
+	// be discharged.
+	c.Check(params.ErrCode(err) == params.CodeDischargeRequired, tc.IsTrue)
+	c.Check(err, tc.ErrorMatches,
+		"cannot discharge: third party refused discharge: permission denied.*")
+}
+
+func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChangesDischargeTransportFailed(c *tc.C) {
+	// A transport failure while discharging the macaroon must not be
+	// surfaced as a discharge-required error; only a refused discharge
+	// means revoked offer access.
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
+		mac := s.newDischargeMacaroon(c)
+		resultErr := &params.Error{
+			Code: params.CodeDischargeRequired,
+			Info: params.DischargeRequiredErrorInfo{
+				Macaroon: mac,
+			}.AsMap(),
+		}
+		s.fillResponse(c, result, params.SecretRevisionWatchResults{
+			Results: []params.SecretRevisionWatchResult{{Error: resultErr}},
+		})
+		return nil
+	})
+	acquirer := &mockDischargeAcquirer{dischargeErr: errors.New("connection refused")}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
+	_, err := client.WatchConsumedSecretsChanges(c.Context(), "app-token", "rel-token", nil)
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+	c.Check(params.ErrCode(err) == params.CodeDischargeRequired, tc.IsFalse)
+	c.Check(errors.Cause(err), tc.ErrorMatches, "connection refused")
 }

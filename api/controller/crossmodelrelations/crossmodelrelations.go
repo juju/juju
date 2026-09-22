@@ -232,7 +232,10 @@ func (c *Client) RegisterRemoteRelations(ctx context.Context, relations ...param
 		mac, err := c.handleError(ctx, res.Error)
 		if err != nil {
 			resCopy := res
-			resCopy.Error.Message = err.Error()
+			resCopy.Error = &params.Error{
+				Code:    params.ErrCode(err),
+				Message: err.Error(),
+			}
 			result[i] = resCopy
 			continue
 		}
@@ -297,8 +300,7 @@ func (c *Client) WatchRelationChanges(ctx context.Context, relationToken string,
 	if result.Error != nil {
 		mac, err := c.handleError(ctx, result.Error)
 		if err != nil {
-			result.Error.Message = err.Error()
-			return nil, result.Error
+			return nil, errors.Trace(err)
 		}
 		args.Args[0].Macaroons = mac
 		args.Args[0].BakeryVersion = bakery.LatestVersion
@@ -352,8 +354,7 @@ func (c *Client) WatchEgressAddressesForRelation(ctx context.Context, remoteRela
 	if result.Error != nil {
 		mac, err := c.handleError(ctx, result.Error)
 		if err != nil {
-			result.Error.Message = err.Error()
-			return nil, result.Error
+			return nil, errors.Trace(err)
 		}
 		args.Args[0].Macaroons = mac
 		args.Args[0].BakeryVersion = bakery.LatestVersion
@@ -405,8 +406,7 @@ func (c *Client) WatchRelationSuspendedStatus(ctx context.Context, arg params.Re
 	if result.Error != nil {
 		mac, err := c.handleError(ctx, result.Error)
 		if err != nil {
-			result.Error.Message = err.Error()
-			return nil, result.Error
+			return nil, errors.Trace(err)
 		}
 		args.Args[0].Macaroons = mac
 		args.Args[0].BakeryVersion = bakery.LatestVersion
@@ -458,8 +458,7 @@ func (c *Client) WatchOfferStatus(ctx context.Context, arg params.OfferArg) (wat
 	if result.Error != nil {
 		mac, err := c.handleError(ctx, result.Error)
 		if err != nil {
-			result.Error.Message = err.Error()
-			return nil, result.Error
+			return nil, errors.Trace(err)
 		}
 		args.Args[0].Macaroons = mac
 		c.cache.Upsert(args.Args[0].OfferUUID, mac)
@@ -521,8 +520,7 @@ func (c *Client) WatchConsumedSecretsChanges(ctx context.Context, applicationTok
 	if result.Error != nil {
 		mac, err := c.handleError(ctx, result.Error)
 		if err != nil {
-			result.Error.Message = err.Error()
-			return nil, result.Error
+			return nil, errors.Trace(err)
 		}
 		args.Args[0].Macaroons = mac
 		c.cache.Upsert(relationToken, mac)
