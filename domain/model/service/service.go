@@ -631,7 +631,7 @@ func (s *Service) GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) (
 // GetModelUser retrieves basic information about the specified
 // model user. A user with no local permission row is still returned,
 // with an empty access level, which supports callers whose grants live
-// in an external store (for example JWT-authenticated JIMM users).
+// in an external store (for example JWT-authenticated users).
 // If the model cannot be found it will return [modelerrors.NotFound].
 // If the user cannot be found it will return
 // [modelerrors.UserNotFoundOnModel].

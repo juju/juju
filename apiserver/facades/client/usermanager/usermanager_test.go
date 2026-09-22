@@ -585,8 +585,7 @@ func (s *userManagerSuite) TestModelUsersInfo(c *tc.C) {
 // TestModelUsersInfoNonAdminNoLocalPermission asserts that ModelUserInfo
 // succeeds for a non-admin caller with no local model permission row,
 // reporting the access level resolved from the authorizer. This is the
-// JWT-authenticated external user (JIMM) case, whose grants live outside
-// the controller's local tables.
+// external JWT case.
 func (s *userManagerSuite) TestModelUsersInfoNonAdminNoLocalPermission(c *tc.C) {
 	controllerModelTag := names.NewModelTag(s.ApiServerSuite.ControllerModelUUID())
 	// The caller's only grant is authorizer-derived: the fake authorizer
@@ -615,8 +614,8 @@ func (s *userManagerSuite) TestModelUsersInfoNonAdminNoLocalPermission(c *tc.C) 
 				ModelTag:    controllerModelTag.String(),
 				UserName:    s.apiUser.Name.Name(),
 				DisplayName: s.apiUser.Name.Name(),
-				// The reported access is the gate-derived level,
-				// not the empty local one.
+				// The reported access is the authorizer-resolved
+				// level, not the empty local one.
 				Access: "read",
 			},
 		}},

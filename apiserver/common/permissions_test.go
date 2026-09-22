@@ -227,9 +227,9 @@ func (r *PermissionSuite) TestUnknownTargetKindReturnsNoPermission(c *tc.C) {
 	c.Assert(hasPermission, tc.IsFalse)
 }
 
-// fakeAuthorizer answers HasPermission from a fixed set of granted access
-// levels for a target, so tests can drive HighestAccess without a real
-// authorizer implementation.
+// fakeAuthorizer answers HasPermission from a fixed set of granted
+// access levels, so tests can drive HighestAccess without a real
+// authorizer.
 type fakeAuthorizer struct {
 	facade.Authorizer
 
@@ -262,8 +262,8 @@ func (r *PermissionSuite) TestHighestAccessReturnsFirstMatchingLevel(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(access, tc.Equals, permission.WriteAccess)
-	// AdminAccess is probed and missed before WriteAccess is found; the
-	// lower ReadAccess level is never probed once a match is found.
+	// AdminAccess is checked and missed, then WriteAccess matches.
+	// ReadAccess is never checked once a match is found.
 	c.Check(authorizer.calls, tc.DeepEquals, []permission.Access{
 		permission.AdminAccess,
 		permission.WriteAccess,

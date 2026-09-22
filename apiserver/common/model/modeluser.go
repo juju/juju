@@ -27,10 +27,10 @@ type modelService interface {
 }
 
 // ModelUserInfo gets model user info from the modelService and converts it
-// into params.ModelUserInfo. For a non-admin caller whose local permission
-// row is absent (for example a JWT-authenticated external user), the
-// caller's access level is taken from fallbackAccess, which the caller
-// resolves from the authorizer while gating the call.
+// into params.ModelUserInfo. When a non-admin caller has no local
+// permission row (for example an external JWT user), their access level
+// is taken from fallbackAccess, which the caller resolves from the
+// authorizer.
 func ModelUserInfo(ctx context.Context, service modelService, modelTag names.ModelTag, apiUser user.Name, isAdmin bool, fallbackAccess permission.Access) ([]params.ModelUserInfo, error) {
 	var userInfo []coremodel.ModelUserInfo
 	var err error

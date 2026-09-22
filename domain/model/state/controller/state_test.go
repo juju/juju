@@ -1732,12 +1732,10 @@ func (m *stateSuite) TestGetModelUser(c *tc.C) {
 		LastModelLogin: time.Time{},
 	})
 
-	// A user with no permission row on the model still comes back, with
-	// an empty access level. This reproduces the JIMM failure: at login
-	// apiserver/admin.go calls EnsureExternalUser, which creates the user
-	// row but no permission row, so a JWT-authenticated JIMM caller has
-	// a user row and no local grant. everyone@external is seeded as at
-	// bootstrap, since it is the required creator of external users.
+	// A user row with no permission row still comes back, with an empty
+	// access level. This is the external-user case: EnsureExternalUser
+	// creates the user row but no grant. everyone@external is seeded
+	// first, as the required creator of external users.
 	everyoneUUID := tc.Must(c, user.NewUUID)
 	err = accessState.AddUser(c.Context(), everyoneUUID, permission.EveryoneUserName, "everyone@external", true, everyoneUUID)
 	c.Assert(err, tc.ErrorIsNil)

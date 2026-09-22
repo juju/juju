@@ -85,7 +85,7 @@ func HasPermission(
 // HighestAccess returns the first level in levels (given highest first)
 // that the authorizer grants the caller on target, or
 // [permission.NoAccess] if none match. Any error other than the caller
-// missing the probed permission is returned immediately.
+// missing the checked permission is returned immediately.
 func HighestAccess(
 	ctx context.Context,
 	authorizer facade.Authorizer,

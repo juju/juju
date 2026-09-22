@@ -131,10 +131,9 @@ func NewCloudAPI(
 }
 
 // canAccessCloud reports whether the caller has at least the requested
-// access on the cloud. The check is routed through the authorizer so that
-// callers whose grants live outside the controller's local tables (for
-// example JWT-authenticated external users) are answered from their token
-// rather than from a local permission row.
+// access on the cloud. Access is resolved through the authorizer so that
+// external (JWT) callers, whose grants live outside the controller's
+// local tables, are answered from their token, not a local permission row.
 func (api *CloudAPI) canAccessCloud(ctx context.Context, cloud string, access permission.Access) (bool, error) {
 	cloudTag := names.NewCloudTag(cloud)
 	err := api.authorizer.HasPermission(ctx, access, cloudTag)
@@ -268,8 +267,8 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 	isAdmin := err == nil
 
 	// If not a controller admin, resolve the caller's cloud access level
-	// once: it doubles as the cloud-admin check below and, if needed
-	// later, as the level used to fill in the caller's own entry.
+	// once. It serves both the cloud-admin check below and filling in the
+	// caller's own entry.
 	access := permission.AdminAccess
 	if !isAdmin {
 		access, err = common.HighestAccess(ctx, api.authorizer, tag, []permission.Access{
@@ -292,12 +291,9 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 		CloudDetails: cloudDetailsToParams(*aCloud),
 	}
 
-	// Gate the call on the caller's own access to the cloud, resolved by
-	// the authorizer above. Presence in the locally-sourced user list
-	// below is not a valid access check: a caller whose grants live
-	// outside the controller's local tables (for example a
-	// JWT-authenticated external user) has no local row but is still
-	// authorised.
+	// Reject the call unless the caller has access, resolved above.
+	// Presence in the local user list below cannot confirm access:
+	// external (JWT) callers have no local row but are still authorised.
 	if !isAdmin && access == permission.NoAccess {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
 	}
@@ -321,9 +317,9 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 		info.Users = append(info.Users, userInfo)
 	}
 
-	// The caller's own entry may be absent from the local list when their
-	// grants live in an external store. Fill it from the access level
-	// already resolved above so the response still reports their access.
+	// The caller's own entry may be absent from the local list when
+	// their grants live externally. Fill it from the resolved access
+	// level so the response still reports their access.
 	if !isAdmin && !api.hasOwnCloudUserEntry(info.Users) {
 		info.Users = append(info.Users, params.CloudUserInfo{
 			UserName: api.apiUser.Id(),

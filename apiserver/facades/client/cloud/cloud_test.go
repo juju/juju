@@ -307,8 +307,7 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *tc.C) {
 // TestCloudInfoNonAdminNoLocalPermission asserts that CloudInfo succeeds
 // for a non-admin caller with no local cloud permission row, returning
 // their own entry with the authorizer-derived access level. This is the
-// JWT-authenticated external user (JIMM) case, whose grants live outside
-// the controller's local tables.
+// external JWT case.
 func (s *cloudSuite) TestCloudInfoNonAdminNoLocalPermission(c *tc.C) {
 	// The caller's only grant is authorizer-derived: the fake authorizer
 	// grants add-model access on my-cloud based on the username.

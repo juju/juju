@@ -1023,9 +1023,8 @@ func (s *modelManagerSuite) TestModelInfoDBDeadTranslated(c *tc.C) {
 
 // TestModelInfoNonAdminNoLocalPermission asserts that ModelInfo succeeds
 // for a non-admin caller with no local model permission row, reporting the
-// access level resolved from the authorizer. This is the JWT-authenticated
-// external user (JIMM) case, whose grants live outside the controller's
-// local tables.
+// access level resolved from the authorizer. This is the external JWT
+// case.
 func (s *modelManagerSuite) TestModelInfoNonAdminNoLocalPermission(c *tc.C) {
 	modelUUID, modelTag := generateModelUUIDAndTag(c)
 
@@ -1082,8 +1081,8 @@ func (s *modelManagerSuite) TestModelInfoNonAdminNoLocalPermission(c *tc.C) {
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(results.Results[0].Error, tc.IsNil)
 	c.Assert(results.Results[0].Result, tc.NotNil)
-	// The reported access is the gate-derived level, not the empty local
-	// one.
+	// The reported access is the authorizer-resolved level, not the empty
+	// local one.
 	c.Assert(results.Results[0].Result.Users, tc.HasLen, 1)
 	c.Check(results.Results[0].Result.Users[0].Access, tc.Equals, params.ModelReadAccess)
 }
