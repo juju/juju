@@ -5,7 +5,6 @@ package backupsweeper
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -15,12 +14,6 @@ import (
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/logger"
 	environsconfig "github.com/juju/juju/environs/config"
-)
-
-const (
-	// defaultSweepInterval is how often expired one-shot backup
-	// archives are swept off disk.
-	defaultSweepInterval = time.Minute
 )
 
 // ModelConfigService provides the model configuration, used to resolve
@@ -95,7 +88,7 @@ func (w *Sweeper) Wait() error {
 func (w *Sweeper) loop() error {
 	ctx := w.tomb.Context(context.Background())
 
-	timer := w.clock.NewTimer(defaultSweepInterval)
+	timer := w.clock.NewTimer(corebackups.SweepInterval)
 	defer timer.Stop()
 
 	for {
@@ -103,7 +96,7 @@ func (w *Sweeper) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-timer.Chan():
-			timer.Reset(defaultSweepInterval)
+			timer.Reset(corebackups.SweepInterval)
 			if err := w.sweep(ctx); err != nil {
 				// A failed sweep is retried on the next tick: stale
 				// archives staying on disk is diagnosable from the

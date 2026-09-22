@@ -32,6 +32,11 @@ type BackupsDownloadArgs struct {
 // BackupsMetadataResult holds the metadata for a backup as returned by
 // an API backups method (such as Create).
 type BackupsMetadataResult struct {
+	// ID identifies the backup. For the Backups facade's Create method
+	// the field is overloaded: the controller returns the id of the
+	// one-shot download staged for the backup, a server-minted UUID
+	// that is valid only until the backup-download-ttl retention
+	// window lapses, not a persistent backup identity.
 	ID string `json:"id"`
 
 	Checksum       string    `json:"checksum"`

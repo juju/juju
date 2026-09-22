@@ -21,6 +21,12 @@ const (
 	// oneShotArchiveSuffix is the suffix of one-shot archive filenames.
 	// The base name is the backup ID: a UUID minted by the API server.
 	oneShotArchiveSuffix = ".tar.gz"
+
+	// SweepInterval is how often the backup archive sweeper runs. It is
+	// also the smallest retention window that can be honoured for a
+	// staged archive: the sweeper only runs this often, so model
+	// config validation rejects a shorter backup-download-ttl.
+	SweepInterval = time.Minute
 )
 
 // OneShotDir returns the path of the one-shot download directory under
