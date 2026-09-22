@@ -1117,35 +1117,19 @@ diagram "Intro: Juju enters (declared)" from "Juju" {
 
 
 // --------------------------------------------------------------------------
-// Tutorial: the progressive reveal -- setup (the machinery)
+// Tutorial: the progressive reveal -- ONE full diagram, printed in
+// three stages: each stage hides a subset ("print like nothing") and
+// keeps the solved slot, so the reveal is literally the same picture
+// with pieces appearing into reserved space. Identical canvas,
+// geometry and zoom across stages.
 // --------------------------------------------------------------------------
 diagram "Tutorial: setup" from "Juju" {
   select {
+    nodes: user client controller apps clouds charmhub
+    edges: type control type api type stream
     labels: hidden
+    hidden: user apps
     zoom: 1.3
-    nodes: client controller clouds charmhub
-    edges: type api type control
-    sizing: uniform
-  }
-  positions {
-    client     left-of controller
-    client     align-middle controller
-    clouds     above controller    gap: 40
-    clouds     align-centre controller
-    charmhub   below controller    gap: 40
-    charmhub   align-centre controller
-  }
-}
-
-// --------------------------------------------------------------------------
-// Tutorial: the progressive reveal -- auth (adds the user)
-// --------------------------------------------------------------------------
-diagram "Tutorial: auth" from "Juju" {
-  select {
-    labels: hidden
-    zoom: 1.3
-    nodes: user client controller clouds charmhub
-    edges: type control type api
     sizing: uniform
   }
   positions {
@@ -1153,6 +1137,8 @@ diagram "Tutorial: auth" from "Juju" {
     user       align-middle client
     client     left-of controller
     client     align-middle controller
+    apps       right-of controller
+    apps       align-middle controller
     clouds     above controller    gap: 40
     clouds     align-centre controller
     charmhub   below controller    gap: 40
@@ -1160,15 +1146,35 @@ diagram "Tutorial: auth" from "Juju" {
   }
 }
 
-// --------------------------------------------------------------------------
-// Tutorial: the progressive reveal -- deploy (adds the applications)
-// --------------------------------------------------------------------------
-diagram "Tutorial: provision & deploy" from "Juju" {
+diagram "Tutorial: auth" from "Juju" {
   select {
-    labels: hidden
-    zoom: 1.3
     nodes: user client controller apps clouds charmhub
     edges: type control type api type stream
+    labels: hidden
+    hidden: apps
+    zoom: 1.3
+    sizing: uniform
+  }
+  positions {
+    user       left-of client
+    user       align-middle client
+    client     left-of controller
+    client     align-middle controller
+    apps       right-of controller
+    apps       align-middle controller
+    clouds     above controller    gap: 40
+    clouds     align-centre controller
+    charmhub   below controller    gap: 40
+    charmhub   align-centre controller
+  }
+}
+
+diagram "Tutorial: provision & deploy" from "Juju" {
+  select {
+    nodes: user client controller apps clouds charmhub
+    edges: type control type api type stream
+    labels: hidden
+    zoom: 1.3
     sizing: uniform
   }
   positions {
@@ -1433,32 +1439,32 @@ diagram "HA controller: Dqlite replicaset (synthesized)" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Tutorial: setup (synthesized)" from "Juju" {
   select {
-    labels: hidden
-    zoom: 1.3
-    nodes: client controller clouds charmhub
-    edges: type api type control
-    sizing: uniform
-  }
-}
-
-// --------------------------------------------------------------------------
-diagram "Tutorial: auth (synthesized)" from "Juju" {
-  select {
-    labels: hidden
-    zoom: 1.3
-    nodes: user client controller clouds charmhub
-    edges: type control type api
-    sizing: uniform
-  }
-}
-
-// --------------------------------------------------------------------------
-diagram "Tutorial: provision & deploy (synthesized)" from "Juju" {
-  select {
-    labels: hidden
-    zoom: 1.3
     nodes: user client controller apps clouds charmhub
     edges: type control type api type stream
+    labels: hidden
+    hidden: user apps
+    zoom: 1.3
+    sizing: uniform
+  }
+}
+
+diagram "Tutorial: auth" from "Juju" {
+  select {
+    nodes: user client controller apps clouds charmhub
+    edges: type control type api type stream
+    labels: hidden
+    hidden: apps
+    zoom: 1.3
+    sizing: uniform
+  }
+}
+
+diagram "Tutorial: provision & deploy" from "Juju" {
+  select {
+    nodes: user client controller apps clouds charmhub
+    edges: type control type api type stream
+    labels: hidden
+    zoom: 1.3
     sizing: uniform
   }
 }
