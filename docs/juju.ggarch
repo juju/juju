@@ -119,25 +119,29 @@ model "Juju" {
     // units (their unit agents, on the charm's behalf via
     // relation-get/set) read and write them over the API. Each
     // application has ONE application databag (per relation endpoint)
-    // and unit databags (one per unit). Regular case: two sets, and
-    // the units of each application read all of the other
-    // application's databags. Peer case: one set — the application is
-    // related to itself — and the permissions turn inward.
+    // and ONE unit databag PER UNIT — each agent reads + writes only
+    // its own, and reads every other unit's bag. Regular case: two
+    // applications, two sets. Peer case: app A related to itself —
+    // one set, permissions turned inward (the non-leader unit reads
+    // the application databag too).
     a_ua_leader  [type: juju-software, label: "Unit agent\n(leader)"]
     a_ua_unit    [type: juju-software, label: "Unit agent"]
+    b_ua_leader  [type: juju-software, label: "Unit agent\n(leader)"]
+    b_ua_unit    [type: juju-software, label: "Unit agent"]
     a_db         [type: container, label: "the host model's database"] {
+      a_bag_leader [type: record, label: "unit databag\n(app A, leader)"]
       a_app_bag    [type: record, label: "application databag\n(app A)"]
-      a_unit_bags  [type: record, label: "unit databags\n(app A)"]
+      a_bag_unit   [type: record, label: "unit databag\n(app A, unit)"]
+      b_bag_leader [type: record, label: "unit databag\n(app B, leader)"]
       b_app_bag    [type: record, label: "application databag\n(app B)"]
-      b_unit_bags  [type: record, label: "unit databags\n(app B)"]
+      b_bag_unit   [type: record, label: "unit databag\n(app B, unit)"]
     }
-    b_units      [type: juju-software, label: "Unit agents\n(app B)"]
     c_ua_leader  [type: juju-software, label: "Unit agent\n(leader)"]
     c_ua_unit    [type: juju-software, label: "Unit agent"]
     c_db         [type: container, label: "the host model's database"] {
+      c_bag_leader [type: record, label: "unit databag\n(app A, leader)"]
       c_app_bag    [type: record, label: "application databag\n(app A)"]
-      c_bag_leader [type: record, label: "unit databag\n(leader)"]
-      c_bag_unit   [type: record, label: "unit databag\n(unit)"]
+      c_bag_unit   [type: record, label: "unit databag\n(app A, unit)"]
     }
     // -----------------------------------------------------------------------
     // Charm origin records (model DB — 0015-charm.sql: charm is
@@ -506,35 +510,44 @@ model "Juju" {
     // agents, on the charm's behalf via relation-get/relation-set:
     // jujuc RelationSetCommand -> the uniter facade's
     // SetRelationUnitSettings) read and write the bag records in the
-    // host model's database: each unit reads + writes its OWN unit
-    // bag (relation_unit stores the writing unit); the leader reads +
+    // host model's database. Each unit reads + writes ONLY the unit
+    // bag associated with its own unit (relation_unit stores the
+    // writing unit); the LEADER unit agent additionally reads +
     // writes its application's application bag (keyed by the relation
-    // ENDPOINT; writes leader-gated); ALL units of an application
-    // read all of the REMOTE application's databags
-    // (GetRelationUnitSettings for unit bags; GetRelationApplication-
-    // Settings for the remote application bag). Peer case: the
-    // watcher watches the OWN endpoint's app settings and all peers
-    // (related_unit_watcher.go:InitialWatchRelatedUnits) — every unit
-    // reads every bag, the application databag included, leader or
-    // not.
-    a_ua_leader -> a_unit_bags  [type: read_write, label: "reads + writes",
+    // ENDPOINT; writes leader-gated); every unit reads every OTHER
+    // unit's unit bag (GetRelationUnitSettings) and, in the regular
+    // case, all of the other application's databags
+    // (GetRelationApplicationSettings for the remote application
+    // bag). Peer case: the watcher watches the OWN endpoint's app
+    // settings and all peers
+    // (related_unit_watcher.go:InitialWatchRelatedUnits) — the
+    // non-leader unit also reads the application databag.
+    a_ua_leader -> a_bag_leader [type: read_write, label: "reads + writes",
                           ground: "model:relation_unit_setting"]
-    a_ua_unit   -> a_unit_bags  [type: read_write, label: "reads + writes",
+    a_ua_unit   -> a_bag_unit   [type: read_write, label: "reads + writes",
                           ground: "model:relation_unit_setting"]
     a_ua_leader -> a_app_bag    [type: read_write, label: "reads + writes",
                           ground: "model:relation_application_setting"]
+    a_ua_leader -> a_bag_unit   [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
+    a_ua_unit   -> a_bag_leader [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
     a_ua_unit   -> b_app_bag    [type: read_only, label: "reads",
                           ground: "domain/relation/service/relation.go:GetRelationApplicationSettings"]
-    a_ua_unit   -> b_unit_bags  [type: read_only, label: "reads",
+    a_ua_leader -> b_bag_unit   [type: read_only, label: "reads",
                           ground: "model:relation_unit_setting"]
-    b_units     -> b_unit_bags  [type: read_write, label: "reads + writes",
+    b_ua_leader -> b_bag_leader [type: read_write, label: "reads + writes",
                           ground: "model:relation_unit_setting"]
-    b_units     -> b_app_bag    [type: read_write, label: "reads + writes",
+    b_ua_unit   -> b_bag_unit   [type: read_write, label: "reads + writes",
+                          ground: "model:relation_unit_setting"]
+    b_ua_leader -> b_app_bag    [type: read_write, label: "reads + writes",
                           ground: "model:relation_application_setting"]
-    b_units     -> a_app_bag    [type: read_only, label: "reads",
-                          ground: "domain/relation/service/relation.go:GetRelationApplicationSettings"]
-    b_units     -> a_unit_bags  [type: read_only, label: "reads",
+    b_ua_unit   -> b_bag_leader [type: read_only, label: "reads",
                           ground: "model:relation_unit_setting"]
+    b_ua_leader -> a_bag_unit   [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
+    b_ua_unit   -> a_app_bag    [type: read_only, label: "reads",
+                          ground: "domain/relation/service/relation.go:GetRelationApplicationSettings"]
     c_ua_leader -> c_bag_leader [type: read_write, label: "reads + writes",
                           ground: "model:relation_unit_setting"]
     c_ua_unit   -> c_bag_unit   [type: read_write, label: "reads + writes",
@@ -542,6 +555,10 @@ model "Juju" {
     c_ua_leader -> c_app_bag    [type: read_write, label: "reads + writes",
                           ground: "model:relation_application_setting"]
     c_ua_unit   -> c_app_bag    [type: read_only, label: "reads",
+                          ground: "domain/relation/state/related_unit_watcher.go:InitialWatchRelatedUnits"]
+    c_ua_leader -> c_bag_unit   [type: read_only, label: "reads",
+                          ground: "domain/relation/state/related_unit_watcher.go:InitialWatchRelatedUnits"]
+    c_ua_unit   -> c_bag_leader [type: read_only, label: "reads",
                           ground: "domain/relation/state/related_unit_watcher.go:InitialWatchRelatedUnits"]
 
     // Charm origin (0015-charm.sql + 0019-application.sql)
@@ -1653,20 +1670,22 @@ diagram "Storage model" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Databag permissions" from "Juju" {
   select {
-    nodes: a_ua_leader a_ua_unit b_units a_db c_ua_leader c_ua_unit c_db
+    nodes: a_ua_leader a_ua_unit b_ua_leader b_ua_unit a_db c_ua_leader c_ua_unit c_db
     edges: type data type read_write type read_only
     sizing: uniform
   }
   positions {
     a_ua_leader  left-of a_ua_unit gap: 24
     a_ua_leader  align-middle a_ua_unit
+    b_ua_leader  right-of a_ua_unit gap: 120
+    b_ua_leader  align-middle a_ua_unit
+    b_ua_unit    right-of b_ua_leader gap: 24
+    b_ua_unit    align-middle b_ua_leader
     a_db         below a_ua_unit gap: 70
     a_db         align-centre a_ua_unit
     a_db         direction: right
-    b_units      right-of a_db gap: 110
-    b_units      align-middle a_ua_unit
     c_ua_leader  below a_db gap: 60
-    c_ua_leader  align-centre a_unit_bags
+    c_ua_leader  align-centre a_bag_leader
     c_ua_unit    right-of c_ua_leader gap: 24
     c_ua_unit    align-middle c_ua_leader
     c_db         below c_ua_unit gap: 70
@@ -1675,7 +1694,7 @@ diagram "Databag permissions" from "Juju" {
   }
   annotations {
     box [nodes: "a_ua_leader a_ua_unit", label: "app A's units", style: "dashed"]
-    box [nodes: "b_units", label: "app B's units", style: "dashed"]
+    box [nodes: "b_ua_leader b_ua_unit", label: "app B's units", style: "dashed"]
     box [nodes: "c_ua_leader c_ua_unit", label: "app A's units (peer relation)", style: "dashed"]
     legend [position: "bottom-right",
             record: "database record",
@@ -2125,13 +2144,13 @@ diagram "Storage model (synthesized)" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Databag permissions (synthesized)" from "Juju" {
   select {
-    nodes: a_ua_leader a_ua_unit b_units a_db c_ua_leader c_ua_unit c_db
+    nodes: a_ua_leader a_ua_unit b_ua_leader b_ua_unit a_db c_ua_leader c_ua_unit c_db
     edges: type data type read_write type read_only
     sizing: uniform
   }
   annotations {
     box [nodes: "a_ua_leader a_ua_unit", label: "app A's units", style: "dashed"]
-    box [nodes: "b_units", label: "app B's units", style: "dashed"]
+    box [nodes: "b_ua_leader b_ua_unit", label: "app B's units", style: "dashed"]
     box [nodes: "c_ua_leader c_ua_unit", label: "app A's units (peer relation)", style: "dashed"]
     legend [position: "bottom-right",
             record: "database record",
