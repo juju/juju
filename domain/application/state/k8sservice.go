@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/ipaddress"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
@@ -19,9 +20,19 @@ import (
 // UpsertK8sService replaces the addresses for an application's cloud Service.
 // A changed provider ID retains the existing Service record and net node.
 // An empty snapshot clears the addresses. It returns ApplicationNotFound if
-// the application does not exist.
+// the application does not exist. Hostname scopes must be validated by the
+// service layer before calling this method.
 func (st *State) UpsertK8sService(ctx context.Context, applicationName, providerID string, args application.UpsertK8sServiceArgs) error {
 	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	queryApplication, err := st.Prepare(`
+SELECT a.uuid AS &applicationDetails.uuid,
+       c.source_id = 2 AS &applicationDetails.is_application_synthetic
+FROM application AS a
+JOIN charm AS c ON c.uuid = a.charm_uuid
+WHERE a.name = $applicationDetails.name`, applicationDetails{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -40,29 +51,22 @@ WHERE ks.uuid = $k8sService.uuid`, k8sService{})
 		return errors.Capture(err)
 	}
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		app, err := st.getApplicationDetails(ctx, tx, applicationName)
-		if err != nil {
-			return errors.Capture(err)
+		app := applicationDetails{Name: applicationName}
+		if err := tx.Query(ctx, queryApplication, app).Get(&app); errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return errors.Errorf("querying application: %w", err)
 		}
 		if app.IsApplicationSynthetic {
 			return errors.New("cannot upsert cloud service for synthetic application")
 		}
 		svc := k8sService{ApplicationUUID: app.UUID, ProviderID: providerID}
-		err = tx.Query(ctx, queryService, svc).Get(&svc)
+		err := tx.Query(ctx, queryService, svc).Get(&svc)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			svc.UUID = args.ServiceUUID
 			svc.NetNodeUUID = args.NetNodeUUID
-			for _, query := range []string{
-				`INSERT INTO net_node (uuid) VALUES ($k8sService.net_node_uuid)`,
-				`INSERT INTO k8s_service (*) VALUES ($k8sService.*)`,
-			} {
-				stmt, err := st.Prepare(query, svc)
-				if err != nil {
-					return errors.Capture(err)
-				}
-				if err := tx.Query(ctx, stmt, svc).Run(); err != nil {
-					return errors.Errorf("creating cloud service: %w", err)
-				}
+			if err := st.createK8sService(ctx, tx, svc); err != nil {
+				return errors.Capture(err)
 			}
 		} else if err != nil {
 			return errors.Errorf("querying cloud service: %w", err)
@@ -96,6 +100,26 @@ WHERE ks.uuid = $k8sService.uuid`, k8sService{})
 	})
 }
 
+func (st *State) createK8sService(ctx context.Context, tx *sqlair.TX, svc k8sService) error {
+	insertNetNode, err := st.Prepare(`
+INSERT INTO net_node (uuid) VALUES ($k8sService.net_node_uuid)`, svc)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	insertService, err := st.Prepare(`
+INSERT INTO k8s_service (*) VALUES ($k8sService.*)`, svc)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, insertNetNode, svc).Run(); err != nil {
+		return errors.Errorf("creating cloud service net node: %w", err)
+	}
+	if err := tx.Query(ctx, insertService, svc).Run(); err != nil {
+		return errors.Errorf("creating cloud service: %w", err)
+	}
+	return nil
+}
+
 func (st *State) deleteK8sServiceAddresses(ctx context.Context, tx *sqlair.TX, netNodeUUID string) error {
 	node := dbUUID{UUID: netNodeUUID}
 	// Only remove orphaned FQDNs belonging to this Service. Other net nodes
@@ -123,19 +147,24 @@ WHERE nnfa.net_node_uuid = $dbUUID.uuid`, node)
 			return errors.Errorf("removing cloud service addresses: %w", err)
 		}
 	}
+	if len(oldFQDNs) == 0 {
+		return nil
+	}
+	addressUUIDs := make(uuids, len(oldFQDNs))
+	for i, addr := range oldFQDNs {
+		addressUUIDs[i] = addr.UUID
+	}
 	deleteOrphan, err := st.Prepare(`
 WITH referenced AS (
     SELECT nnfa.address_uuid AS uuid FROM net_node_fqdn_address AS nnfa
 )
-DELETE FROM fqdn_address
-WHERE uuid = $dbUUID.uuid AND uuid NOT IN referenced`, dbUUID{})
+DELETE FROM fqdn_address AS fa
+WHERE fa.uuid IN ($uuids[:]) AND fa.uuid NOT IN referenced`, addressUUIDs)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	for _, addr := range oldFQDNs {
-		if err := tx.Query(ctx, deleteOrphan, addr).Run(); err != nil {
-			return errors.Errorf("removing orphaned service hostname: %w", err)
-		}
+	if err := tx.Query(ctx, deleteOrphan, addressUUIDs).Run(); err != nil {
+		return errors.Errorf("removing orphaned service hostnames: %w", err)
 	}
 	return nil
 }
@@ -167,21 +196,6 @@ JOIN network_address_scope AS nas ON nas.id = fa.scope_id
 WHERE fa.address = $hostname.address AND nas.name = $hostname.scope
 ON CONFLICT DO NOTHING`, input)
 	if err != nil {
-		return errors.Capture(err)
-	}
-	// Verify the scope lookup succeeded before linking the hostname.
-	check, err := st.Prepare(`
-SELECT fa.uuid AS &hostname.uuid
-FROM fqdn_address AS fa
-JOIN network_address_scope AS nas ON nas.id = fa.scope_id
-WHERE fa.address = $hostname.address AND nas.name = $hostname.scope`, input)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	var found hostname
-	if err := tx.Query(ctx, check, input).Get(&found); errors.Is(err, sqlair.ErrNoRows) {
-		return errors.New("service hostname has an invalid scope")
-	} else if err != nil {
 		return errors.Capture(err)
 	}
 	return errors.Capture(tx.Query(ctx, link, input).Run())

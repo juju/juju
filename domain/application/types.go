@@ -128,7 +128,8 @@ type UpsertK8sServiceArgs struct {
 	Addresses   []K8sServiceAddress
 }
 
-// K8sServiceAddress associates a provider address with its new row UUID.
+// K8sServiceAddress associates a provider address with a UUID for a new row.
+// An existing hostname with the same scope retains its UUID instead.
 type K8sServiceAddress struct {
 	UUID string
 	network.ProviderAddress
