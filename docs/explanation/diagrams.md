@@ -391,6 +391,16 @@ applications. Each step is a scoped view over the same model.
 :alt: The user sends commands through the client to the controller; the controller provisions on clouds and fetches charms from Charmhub; the charmed applications record their state on the controller.
 ```
 
+### User authentication (the verification commands)
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: User authentication
+:no-legend:
+:caption: What the tutorial's verification commands actually do, grounded in cmd/juju: bootstrap created the admin user (agentbootstrap, superuser access) and cached the account in the client store (environs/bootstrap/prepare.go); juju whoami answers from that cache without an API call; juju show-user admin calls UserManager.UserInfo on the controller and reports access: superuser.
+:alt: User runs juju whoami; the client reads the admin account cached locally at bootstrap. User runs juju show-user admin; the client calls UserManager.UserInfo on the controller; the controller returns the user info with superuser access.
+```
+
 ## Reference: mechanisms (round 3 — grounded new views)
 
 ### Secret lifecycle (state machine)
@@ -575,8 +585,10 @@ replacing the excalidraw pairs -- the progressive reveal: setup, then
 | Tutorial: setup | tutorial/index.md (replaces tutorial-setup excalidraw) |
 | Tutorial: auth | tutorial/index.md (replaces tutorial-handle-auth excalidraw) |
 | Tutorial: provision & deploy | tutorial/index.md (replaces tutorial-provision-deploy excalidraw) |
+| User authentication (sequence) | tutorial/index.md; this catalogue |
 
 Pages still on hand-drawn visuals, pending round-2 views:
-reference/relation.md (relation taxonomy + databags excalidraws),
+reference/relation.md (the relation taxonomy excalidraw; the databags
+excalidraw is superseded by the Databag permissions view),
 reference/hook.md (hook-charm-lifecycle PNG — the
 Uniter operation machine above now covers its execution story).

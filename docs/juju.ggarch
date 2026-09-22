@@ -764,6 +764,22 @@ behaviour "Secret lifecycle" {
       controller    -> user:          return "tail logsink.log via the API"
     }
 
+    // Reference + tutorial: the verification story behind the
+    // tutorial's "Handle authentication and authorization" — grounded
+    // in cmd/juju/user/whoami.go (local client-store read, no API
+    // call), cmd/juju/user/info.go + the UserManager facade
+    // (apiserver/facades/client/usermanager), and
+    // environs/bootstrap/prepare.go (bootstrap caches the admin
+    // account client-side; agent/agentbootstrap creates it with
+    // superuser access server-side).
+    behaviour "User authentication" {
+      user          -> client:     call "juju whoami"
+      client        -> client:     self "read admin account (cached at bootstrap)"
+      user          -> client:     call "juju show-user admin"
+      client        -> controller: call "UserManager.UserInfo"
+      controller    -> client:     return "user info (access: superuser)"
+    }
+
   }
 
   style {
@@ -1135,6 +1151,10 @@ sequence "Bundle deploy" from "Juju" {
 
 sequence "Web CLI" from "Juju" {
   select { behaviour: "Web CLI" }
+}
+
+sequence "User authentication" from "Juju" {
+  select { behaviour: "User authentication" }
 }
 
 state "Uniter operation" from "Juju" {

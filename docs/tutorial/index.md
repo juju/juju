@@ -246,6 +246,14 @@ date-created: 3 hours ago
 last-connection: just now
 ```
 
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: User authentication
+:no-legend:
+:caption: What the verification actually does: bootstrap created the admin user (with `superuser` access) and cached the account in your client, so `juju whoami` answers from that local cache without an API call; `juju show-user admin` asks the controller for the same user and reports the access level.
+:alt: User runs juju whoami; the client reads the admin account cached locally at bootstrap. User runs juju show-user admin; the client calls UserManager.UserInfo on the controller; the controller returns the user info with superuser access.
+```
+
 At this point you could add further users and control their permissions. However, for the purpose of this tutorial, we will skip ahead and deploy our chat service!
 
 ## Provision infrastructure and operate applications
