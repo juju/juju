@@ -1734,12 +1734,9 @@ diagram "Credential chain" from "Juju" {
     sizing: uniform
   }
   positions {
+    fan [cloud_rec model_rec] above credential_rec gap: 56
     user_rec      left-of credential_rec gap: 40
     user_rec      align-middle credential_rec
-    cloud_rec     above credential_rec   gap: 56
-    cloud_rec     align-centre credential_rec
-    model_rec     below credential_rec   gap: 56
-    model_rec     align-centre credential_rec
   }
   annotations {
     legend [position: "bottom-right",
