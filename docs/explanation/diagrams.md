@@ -459,8 +459,8 @@ applications. Each step is a scoped view over the same model.
 :file: ../juju.ggarch
 :view: Machine designations
 :no-legend:
-:caption: What a machine designation names, grounded in domain/machine: machine 0 and its LXD container 0/lxd/0 are rows in the SAME machine table (the container linked by a machine-parent record; one nesting level only), so the designation is the containment path. The provisioning split: the controller's compute provisioner starts base machines (StartInstance); the host machine's agent provisions its own containers through the LXD broker (containerprovisioner on the machine agent) and watches them via the API (WatchContainers). Placement scope '#' = existing, 'lxd:' = new; --to is machine-cloud only.
-:alt: The controller's compute provisioner provisions machine 0; machine 0's agent provisions the LXD container 0/lxd/0 via the LXD broker and watches its containers through the controller API; the unit agent runs the unit inside the container.
+:caption: What a machine designation names, grounded in domain/machine: machine 0 and its LXD container are rows in the SAME machine table (the container linked by a machine-parent record; one nesting level only), so the designation is the containment path. The provisioning split: the controller (its compute provisioner) starts base machines (StartInstance); the host machine's agent provisions its own containers through the LXD broker (containerprovisioner on the machine agent) and watches them via the API (WatchContainers). Containers are machines: each runs its own machine agent, which hosts the unit agent. Placement scope '#' = existing, 'lxd:' = new; --to is machine-cloud only.
+:alt: The controller provisions machine 0; machine 0's agent provisions the LXD container via the LXD broker and watches its containers through the controller API; the container's own machine agent hosts the unit agent.
 ```
 
 
@@ -493,8 +493,8 @@ applications. Each step is a scoped view over the same model.
 :file: ../juju.ggarch
 :view: Databag permissions
 :no-legend:
-:caption: The relation databags, grounded in domain/relation + the cross-model facade: the unit databag stores the writing unit, so a unit reads + writes its own bag and reads every unit bag in the relation (peers and remotes); the application databag is keyed by the relation ENDPOINT and its writes are leader-gated (the leader reads it too). A REMOTE application receives a MIRROR of the local side's bags (the offering model streams app + unit settings over the cross-model facade) and reads them, never writes; users have read-only visibility via the API (juju show-unit). Remote applications read the local app bag's counterpart on their own side; peer relations turn the remote-side permissions inward.
-:alt: Own unit reads and writes its unit databag; peer and remote units read all unit databags; the leader unit reads and writes the application databag; the remote application reads mirrored copies of the local application and unit databags.
+:caption: The relation databags, grounded in domain/relation + the cross-model facade: every unit owns ONE unit databag per relation (reads + writes its own bag) and reads every other unit's bag; the application databag is keyed by the relation ENDPOINT (the leader reads + writes it). A REMOTE application reads mirrored copies -- the offering model streams the app + unit settings over the cross-model facade; the remote side can never write the local bags. Users have read-only visibility via the API (juju show-unit). In peer relations the remote-side permissions turn inward.
+:alt: Units of the application, each with its own unit databag directly beneath it; the leader unit also reads and writes the application databag; units read each other's unit databags; the remote application's units read mirrored copies.
 ```
 
 ## Reference: processes and levels (round 5 — grounded views)

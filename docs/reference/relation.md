@@ -111,8 +111,8 @@ When you create a relation between two applications, this results in the creatio
 :file: ../juju.ggarch
 :view: Databag permissions
 :no-legend:
-:caption: Given a unit involved in a relation, the unit's access to a databag depends on peer vs non-peer, leadership, and which application owns the bag. Grounded in domain/relation + the cross-model facade: the unit databag stores the writing unit (a unit reads + writes its own bag; units read every unit bag); the application databag is keyed by the relation ENDPOINT (writes leader-gated, the leader reads it); a REMOTE application receives a mirror of the local side's bags -- the offering model streams the application and unit settings over the cross-model facade and the remote units read those copies -- and can never write them; users have read-only visibility into the bags via the API (juju show-unit), never write. In peer relations the remote-side permissions turn inward.
-:alt: Own unit reads and writes its unit databag; peer and remote units read all unit databags; the leader unit reads and writes the application databag; the remote application reads mirrored copies of the local application and unit databags.
+:caption: Given a unit involved in a relation, the unit's access to a databag depends on peer vs non-peer, leadership, and which application owns the bag. Each unit owns ONE unit databag per relation (it reads + writes its own bag) and reads every other unit's bag; the application databag is keyed by the relation ENDPOINT (the leader reads + writes it). A REMOTE application reads mirrored copies of the local bags -- the offering model streams the application and unit settings over the cross-model facade -- and can never write them. Users have read-only visibility into the bags via the API (juju show-unit), never write. In peer relations the remote-side permissions turn inward.
+:alt: Units of the application, each with its own unit databag directly beneath it; the leader unit also reads and writes the application databag; units read each other's unit databags; the remote application's units read mirrored copies.
 ```
 
 While the relation is maintained,

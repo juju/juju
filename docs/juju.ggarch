@@ -25,16 +25,14 @@ model "Juju" {
     // -----------------------------------------------------------------------
     // Controller — abstract (used in high-level diagrams)
     // -----------------------------------------------------------------------
-    controller [type: juju-software, label: "Controller",
-                records: "controller_rec"]
+    controller [type: juju-software, label: "Controller"]
 
     // -----------------------------------------------------------------------
     // Controller pod (K8s deployment — detailed)
     // -----------------------------------------------------------------------
     controller_pod [type: container, label: "Controller pod",
                     abstracts: "controller"] {
-      jujud [type: juju-software, label: "Controller agent\n(jujud, Dqlite)",
-             records: "controller_rec"]
+      jujud [type: juju-software, label: "Controller agent\n(jujud, Dqlite)"]
     }
 
     // -----------------------------------------------------------------------
@@ -42,10 +40,8 @@ model "Juju" {
     // -----------------------------------------------------------------------
     unit_pod [type: container, label: "Unit pod"] {
       charm_container [type: container, label: "Charm container"] {
-        unit_agent [type: juju-software, label: "Unit agent",
-                    records: "unit_rec"]
-        charm      [type: charm,         label: "Charm",
-                    records: "charm_rec"]
+        unit_agent [type: juju-software, label: "Unit agent"]
+        charm      [type: charm,         label: "Charm"]
       }
       workload_container [type: container, label: "Workload container"] {
         pebble   [type: pebble,   label: "Pebble (init)"]
@@ -64,10 +60,8 @@ model "Juju" {
     k8s      [type: external, label: "Kubernetes cloud"]
     charmhub [type: external, label: "Charmhub"]
     clouds   [type: external, label: "Clouds\n(AWS, GCP, K8s…)",
-              collective: cloud,
-              records: "cloud_rec"]
-    cloud    [type: external, label: "Cloud",
-              records: "cloud_rec"]   // generic cloud for machine sequences
+              collective: cloud]
+    cloud    [type: external, label: "Cloud"]   // generic cloud for machine sequences
 
     // -----------------------------------------------------------------------
     // Workload — abstract (used in high-level diagrams)
@@ -78,10 +72,8 @@ model "Juju" {
     // Charmed applications — abstract
     // -----------------------------------------------------------------------
     apps [type: charm, label: "Charmed applications",
-          collective: application,
-          records: "application_rec"]
-    application [type: charm, label: "Charmed application",
-                 records: "application_rec"]   // the collective's base kind
+          collective: application]
+    application [type: charm, label: "Charmed application"]   // the collective's base kind
     // -----------------------------------------------------------------------
     // Status domains — reference/status.md (values verbatim from
     // core/status/status.go + domain/status/status.go enums)
@@ -122,14 +114,18 @@ model "Juju" {
     // -----------------------------------------------------------------------
     // Relation databags (model DB — 0011/0023 relation tables)
     // -----------------------------------------------------------------------
-    unit_bag_rec       [type: record, label: "unit databag\n(relation unit, key, value)",
-                        ground: "model:relation_unit_setting"]
-    app_bag_rec        [type: record, label: "application databag\n(relation endpoint, key, value)",
-                        ground: "model:relation_application_setting"]
-    own_unit_actor     [type: charm, label: "own unit"]
-    leader_actor       [type: charm, label: "leader unit"]
-    peer_actor         [type: charm, label: "peer / remote unit"]
-    remote_app_actor   [type: charm, label: "Remote application\n(units)"]
+    // Databag permission panels (docs/reference/relation.md) — each
+    // unit with its OWN bag directly beneath it (ownership is
+    // spatial); the remote panel's bags are the mirrors the offering
+    // model streams over the cross-model facade.
+    a_leader     [type: charm, label: "Unit (leader)"]
+    a_unit       [type: charm, label: "Unit"]
+    a_leader_bag [type: record, label: "unit databag\n(key, value)"]
+    a_unit_bag   [type: record, label: "unit databag\n(key, value)"]
+    a_app_bag    [type: record, label: "application databag\n(key, value)"]
+    b_units      [type: charm, label: "Units"]
+    b_unit_bag   [type: record, label: "unit databag\n(mirror)"]
+    b_app_bag    [type: record, label: "application databag\n(mirror)"]
     // -----------------------------------------------------------------------
     // Charm origin records (model DB — 0015-charm.sql: charm is
     // per-revision; channels are per-application; unit pins its own
@@ -168,22 +164,18 @@ model "Juju" {
     // -----------------------------------------------------------------------
     // Hook execution participants
     // -----------------------------------------------------------------------
-    apiserver  [type: juju-software, label: "API server",
-                records: "controller_rec"]
+    apiserver  [type: juju-software, label: "API server"]
 
     // -----------------------------------------------------------------------
     // Deploy K8s — containeragent as the concrete unit agent on K8s
     // -----------------------------------------------------------------------
-    containeragent [type: juju-software, label: "Unit agent\n(containeragent)",
-                    records: "unit_rec"]
+    containeragent [type: juju-software, label: "Unit agent\n(containeragent)"]
 
     // -----------------------------------------------------------------------
     // Integrate — two distinct unit agents
     // -----------------------------------------------------------------------
-    ua1 [type: juju-software, label: "Unit agent (app A)",
-         records: "unit_rec"]
-    ua2 [type: juju-software, label: "Unit agent (app B)",
-         records: "unit_rec"]
+    ua1 [type: juju-software, label: "Unit agent (app A)"]
+    ua2 [type: juju-software, label: "Unit agent (app B)"]
     // -----------------------------------------------------------------------
     // Secret lifecycle — actors
     // -----------------------------------------------------------------------
@@ -199,28 +191,25 @@ model "Juju" {
     // -----------------------------------------------------------------------
     controller_machine [type: container, label: "Controller machine",
                         abstracts: "controller"]
-    machine_agent      [type: juju-software, label: "Machine agent\n(jujud)",
-                        records: "machine_rec"]
+    machine_agent      [type: juju-software, label: "Machine agent\n(jujud)"]
 
     // -----------------------------------------------------------------------
     // Machine designations (docs/reference/machine.md) — one machine
-    // table, two provisioning paths: base machines by the controller's
-    // compute provisioner (cmd/jujud-controller/agent/model/
-    // manifolds.go:computeProvisionerName), containers by the HOST
-    // machine agent (internal/worker/containerprovisioner +
+    // table, two provisioning paths: base machines by the controller
+    // (its compute provisioner model worker, cmd/jujud-controller/
+    // agent/model/manifolds.go:computeProvisionerName), containers by
+    // the HOST machine agent (internal/worker/containerprovisioner +
     // cmd/jujud/agent/machine/manifolds.go lxdContainerProvisioner).
+    // Containers are machines: each runs its own jujud machine agent,
+    // which hosts the unit agent (deployer).
     // -----------------------------------------------------------------------
-    compute_provisioner0 [type: juju-software,
-                          label: "Compute provisioner\n(controller model worker)",
-                          ground: "cmd/jujud-controller/agent/model/manifolds.go:computeProvisionerName"]
     machine0 [type: container, label: "Machine 0\n(cloud instance)"] {
-      ma0 [type: juju-software,
-           label: "Machine agent\n(jujud, provisioners)",
-           records: "machine_rec"]
-      lxd0 [type: container, label: "LXD container\n0/lxd/0"] {
-        ua0   [type: juju-software, label: "Unit agent",
-               records: "unit_rec"]
-        unit0 [type: charm, label: "Unit\n(myapp/0)"]
+      ma0 [type: juju-software, label: "Machine agent\n(jujud)"]
+      lxd0 [type: container, label: "LXD container"] {
+        ma1 [type: juju-software, label: "Machine agent\n(jujud)"]
+        unit0 [type: container, label: "Unit"] {
+          ua0 [type: juju-software, label: "Unit agent"]
+        }
       }
     }
 
@@ -308,7 +297,6 @@ model "Juju" {
     // of its three-phase operation executor (prepare → execute → commit)
     // -----------------------------------------------------------------------
     uniter [type: juju-software, label: "Uniter\n(hook execution engine)",
-            records: "unit_rec",
             ground: "internal/worker/uniter/manifold.go:NewOperationExecutor"]
     // Executor states: the labels are the verbatim strings from
     // internal/worker/uniter/operation/executor.go:28-30
@@ -332,8 +320,8 @@ model "Juju" {
     // illustrations; the types and their edges are the product's actual
     // structure. Used by the intro views below:
     //   bare_application — pre-Juju workload (external, no Juju records)
-    //   cloud            — the generic cloud node (records: cloud_rec)
-    //   apps             — charmed application (records: application_rec)
+    //   cloud            — the generic cloud node for machine sequences
+    //   apps             — charmed application
     //   unit_pod         — the unit: agent + charm + workload (K8s truth)
     // -----------------------------------------------------------------------
     bare_application [type: external, label: "application"]
@@ -396,9 +384,11 @@ model "Juju" {
     // (machine.WatchContainers) and provisions them through the LXD
     // broker; unit placement hangs off the shared net_node
     // (domain/application/state/machine_placement.go:144-147).
-    compute_provisioner0 -> machine0 [type: control, label: "provisions\n(StartInstance)"]
-    ma0 -> controller                [type: api,     label: "watches containers on\n(WatchContainers)"]
-    ma0 -> lxd0                      [type: control, label: "provisions container\n(LXD broker)"]
+    controller -> machine0 [type: control, label: "provisions\n(StartInstance)",
+                          ground: "cmd/jujud-controller/agent/model/manifolds.go:computeProvisionerName"]
+    ma0 -> controller     [type: api,     label: "watches containers on\n(WatchContainers)"]
+    ma0 -> lxd0           [type: control, label: "provisions container\n(LXD broker)"]
+    ma1 -> ua0            [type: control, label: "hosts (deployer)"]
 
     // Bootstrap K8s
     client         -> k8s            [type: api]
@@ -480,24 +470,25 @@ model "Juju" {
                           ground: "model:subnet.space_uuid"]
     application_rec   -> space_rec    [type: data, label: "default binding (one)",
                           ground: "model:application.space_uuid"]
-    // Relation databags (domain/relation) — the permission matrix as
-    // FK associations: the unit bag stores the writing unit
-    // (relation_unit.unit_uuid); the application bag is keyed by the
-    // relation ENDPOINT (leader-gated writes).
-    own_unit_actor  -> unit_bag_rec [type: data, label: "reads + writes (own, one)",
+    // Relation databags (domain/relation) — the permission matrix:
+    // every unit reads + writes its OWN unit bag; units read each
+    // other's unit bags; the leader reads + writes the app bag
+    // (keyed by the relation ENDPOINT); the remote side reads
+    // mirrored copies streamed by the offering model
+    // (watchOneRelationChanges -> GetFullRelationUnitsChange).
+    a_leader -> a_leader_bag [type: data, label: "reads + writes (own)",
                           ground: "model:relation_unit_setting"]
-    peer_actor      -> unit_bag_rec [type: data, label: "reads 0..N",
+    a_unit   -> a_unit_bag   [type: data, label: "reads + writes (own)",
                           ground: "model:relation_unit_setting"]
-    leader_actor    -> app_bag_rec  [type: data, label: "reads + writes (leader)",
+    a_leader -> a_app_bag    [type: data, label: "reads + writes (leader)",
                           ground: "model:relation_application_setting"]
-    // The cross-model mirror: the offering model streams its app bag
-    // and all unit bags to the consuming model (watchOneRelationChanges
-    // -> GetFullRelationUnitsChange); the remote side reads those
-    // copies locally and can never write the local bags.
-    remote_app_actor -> app_bag_rec  [type: data, label: "reads (mirror)",
-                          ground: "apiserver/facades/controller/crossmodelrelations/crossmodelrelations.go:watchOneRelationChanges"]
-    remote_app_actor -> unit_bag_rec [type: data, label: "reads (mirror)",
+    a_unit   -> a_leader_bag [type: data, label: "reads (peer)",
+                          ground: "model:relation_unit_setting"]
+    b_units  -> a_unit_bag   [type: data, label: "reads (mirror, every bag)",
                           ground: "domain/relation/state/relation.go:GetFullRelationUnitsChange"]
+    b_units  -> a_app_bag    [type: data, label: "reads (mirror)",
+                          ground: "apiserver/facades/controller/crossmodelrelations/crossmodelrelations.go:watchOneRelationChanges"]
+
     // Charm origin (0015-charm.sql + 0019-application.sql)
     charm_metadata_rec -> charm_rec [type: data, label: "describes (one)",
                           ground: "model:charm_metadata.charm_uuid"]
@@ -1247,7 +1238,6 @@ diagram "Intro: Juju enters" from "Juju" {
     // column and the chips collide with the fan labels; both come
     // back when their placement design is worked out -- see HANDOFF
     // known issues).
-    records: hidden
     instances: cloud [
       { id: cloud_a, label: "cloud 1" },
       { id: cloud_b, label: "cloud 2" }
@@ -1379,7 +1369,6 @@ diagram "Intro: Juju enters (declared)" from "Juju" {
     edges: type control type api
     except: client -> cloud cloud -> client cloud -> controller
     sizing: uniform
-    records: hidden
     instances: cloud [
       { id: cloud_a, label: "cloud 1" },
       { id: cloud_b, label: "cloud 2" }
@@ -1533,16 +1522,17 @@ diagram "Agent taxonomy" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Machine designations" from "Juju" {
   select {
-    nodes: compute_provisioner0 machine0 controller
+    nodes: controller machine0
     edges: type control type api
     sizing: uniform
   }
   positions {
-    compute_provisioner0 left-of machine0  gap: 48
-    compute_provisioner0 align-middle machine0
-    lxd0                 align-middle ma0
-    controller           below ma0 gap: 48
-    controller           align-centre ma0
+    controller        left-of machine0 gap: 130
+    controller        align-middle machine0
+    ma0               left-of lxd0 gap: 24
+    ma0               align-middle lxd0
+    ma1               left-of unit0 gap: 24
+    ma1               align-middle unit0
   }
 }
 
@@ -1602,24 +1592,31 @@ diagram "Storage model" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Databag permissions" from "Juju" {
   select {
-    nodes: own_unit_actor leader_actor peer_actor remote_app_actor unit_bag_rec app_bag_rec
+    nodes: a_app_bag a_leader a_leader_bag a_unit a_unit_bag b_units b_unit_bag b_app_bag
     edges: type data
     sizing: uniform
   }
   positions {
-    own_unit_actor  left-of leader_actor gap: 24
-    leader_actor    left-of peer_actor   gap: 24
-    peer_actor      left-of remote_app_actor gap: 24
-    own_unit_actor  align-middle leader_actor
-    leader_actor    align-middle peer_actor
-    peer_actor      align-middle remote_app_actor
-    unit_bag_rec    below own_unit_actor gap: 40
-    unit_bag_rec    align-centre own_unit_actor
-    app_bag_rec     below leader_actor   gap: 40
-    app_bag_rec     align-centre leader_actor
-    unit_bag_rec    left-of app_bag_rec  gap: 30
+    a_leader     left-of a_unit gap: 24
+    a_leader     align-middle a_unit
+    b_units      right-of a_unit gap: 70
+    b_units      align-middle a_unit_bag
+    a_leader_bag below a_leader gap: 30
+    a_leader_bag align-centre a_leader
+    a_unit_bag   below a_unit gap: 30
+    a_unit_bag   align-centre a_unit
+    a_app_bag    left-of a_leader_bag gap: 30
+    a_app_bag    align-middle a_leader_bag
+    b_unit_bag   below b_units gap: 30
+    b_unit_bag   align-centre b_units
+    b_app_bag    right-of b_unit_bag gap: 24
+    b_app_bag    align-middle b_unit_bag
   }
   annotations {
+    box [nodes: "a_app_bag a_leader a_leader_bag a_unit a_unit_bag",
+         label: "Application", style: "dashed"]
+    box [nodes: "b_units b_unit_bag b_app_bag",
+         label: "Remote application", style: "dashed"]
     legend [position: "bottom-right",
             record: "database record",
             data: "schema association"]
@@ -1894,7 +1891,6 @@ diagram "Intro: Juju enters (synthesized)" from "Juju" {
     // column and the chips collide with the fan labels; both come
     // back when their placement design is worked out -- see HANDOFF
     // known issues).
-    records: hidden
     instances: cloud [
       { id: cloud_a, label: "cloud 1" },
       { id: cloud_b, label: "cloud 2" }
@@ -2028,7 +2024,7 @@ diagram "Agent taxonomy (synthesized)" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Machine designations (synthesized)" from "Juju" {
   select {
-    nodes: compute_provisioner0 machine0 controller
+    nodes: controller machine0
     edges: type control type api
     sizing: uniform
   }
@@ -2065,11 +2061,15 @@ diagram "Storage model (synthesized)" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Databag permissions (synthesized)" from "Juju" {
   select {
-    nodes: own_unit_actor leader_actor peer_actor remote_app_actor unit_bag_rec app_bag_rec
+    nodes: a_app_bag a_leader a_leader_bag a_unit a_unit_bag b_units b_unit_bag b_app_bag
     edges: type data
     sizing: uniform
   }
   annotations {
+    box [nodes: "a_app_bag a_leader a_leader_bag a_unit a_unit_bag",
+         label: "Application", style: "dashed"]
+    box [nodes: "b_units b_unit_bag b_app_bag",
+         label: "Remote application", style: "dashed"]
     legend [position: "bottom-right",
             record: "database record",
             data: "schema association"]
