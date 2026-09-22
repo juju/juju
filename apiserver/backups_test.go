@@ -6,6 +6,7 @@ package apiserver
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"maps"
 	"net/http"
 	"net/http/httptest"
@@ -13,54 +14,72 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 
 	corebackups "github.com/juju/juju/core/backups"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
-type backupsDownloadSuite struct {
+type backupSuite struct {
 	backupDir string
-	handler   http.Handler
+	handler   *backupHandler
+
+	// createArchiveStub scripts the archive creation; cleanupRan
+	// records that the returned cleanup ran.
+	createErr   error
+	cleanupRan  bool
+	archiveData string
 }
 
-func TestBackupsDownloadSuite(t *testing.T) {
-	tc.Run(t, &backupsDownloadSuite{})
+func TestBackupSuite(t *testing.T) {
+	tc.Run(t, &backupSuite{})
 }
 
-func (s *backupsDownloadSuite) SetUpTest(c *tc.C) {
+func (s *backupSuite) SetUpTest(c *tc.C) {
 	s.backupDir = c.MkDir()
-	s.handler = &backupsDownloadHandler{
-		resolveBackupDir: func(context.Context) (string, error) {
-			return s.backupDir, nil
-		},
-		logger: loggertesting.WrapCheckLog(c),
+	s.cleanupRan = false
+	s.createErr = nil
+	s.archiveData = "archive data"
+	s.handler = &backupHandler{
+		createArchive: s.createArchive,
+		logger:        loggertesting.WrapCheckLog(c),
 	}
 }
 
-// stageArchive stages an archive for one-shot download under a fresh id
-// and returns the id.
-func (s *backupsDownloadSuite) stageArchive(c *tc.C, content string) string {
-	id, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-	path, err := corebackups.OneShotArchivePath(s.backupDir, id.String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(os.MkdirAll(filepath.Dir(path), 0755), tc.ErrorIsNil)
-	c.Assert(os.WriteFile(path, []byte(content), 0600), tc.ErrorIsNil)
-	return id.String()
+// createArchive stubs archive creation: it writes a real archive into
+// a temporary directory under the backup dir and returns a cleanup
+// that removes it, mirroring the production creator.
+func (s *backupSuite) createArchive(ctx context.Context, notes string) (*corebackups.Metadata, string, func(), error) {
+	if s.createErr != nil {
+		return nil, "", nil, s.createErr
+	}
+	tmpDir, err := os.MkdirTemp(s.backupDir, "create-")
+	if err != nil {
+		return nil, "", nil, err
+	}
+	archivePath := filepath.Join(tmpDir, "juju-backup-test.tar.gz")
+	if err := os.WriteFile(archivePath, []byte(s.archiveData), 0600); err != nil {
+		return nil, "", nil, err
+	}
+	meta := corebackups.NewMetadata(time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC))
+	meta.Notes = notes
+	cleanup := func() {
+		s.cleanupRan = true
+		_ = os.RemoveAll(tmpDir)
+	}
+	return meta, archivePath, cleanup, nil
 }
 
-// downloadRequest serves a download request for the given id and returns
+// postRequest serves a create request with the given notes and returns
 // the recorded response.
-func (s *backupsDownloadSuite) downloadRequest(c *tc.C, id string, header http.Header) *httptest.ResponseRecorder {
-	body, err := json.Marshal(params.BackupsDownloadArgs{ID: id})
+func (s *backupSuite) postRequest(c *tc.C, notes string, header http.Header) *httptest.ResponseRecorder {
+	body, err := json.Marshal(params.BackupsCreateArgs{Notes: notes})
 	c.Assert(err, tc.ErrorIsNil)
 
-	req := httptest.NewRequest(http.MethodGet, "/backups", strings.NewReader(string(body)))
+	req := httptest.NewRequest(http.MethodPost, "/backup", strings.NewReader(string(body)))
 	maps.Copy(req.Header, header)
 	rec := httptest.NewRecorder()
 	s.handler.ServeHTTP(rec, req)
@@ -68,7 +87,7 @@ func (s *backupsDownloadSuite) downloadRequest(c *tc.C, id string, header http.H
 }
 
 // errorMessage extracts the message of the JSON error response.
-func (s *backupsDownloadSuite) errorMessage(c *tc.C, rec *httptest.ResponseRecorder) string {
+func (s *backupSuite) errorMessage(c *tc.C, rec *httptest.ResponseRecorder) string {
 	var result params.ErrorResult
 	err := json.Unmarshal(rec.Body.Bytes(), &result)
 	c.Assert(err, tc.ErrorIsNil)
@@ -76,77 +95,40 @@ func (s *backupsDownloadSuite) errorMessage(c *tc.C, rec *httptest.ResponseRecor
 	return result.Error.Message
 }
 
-func (s *backupsDownloadSuite) TestDownload(c *tc.C) {
-	id := s.stageArchive(c, "archive data")
-
-	rec := s.downloadRequest(c, id, nil)
+func (s *backupSuite) TestCreateAndServe(c *tc.C) {
+	rec := s.postRequest(c, "my notes", nil)
 
 	c.Check(rec.Code, tc.Equals, http.StatusOK)
 	c.Check(rec.Header().Get("Content-Type"), tc.Equals, params.ContentTypeRaw)
 	c.Check(rec.Header().Get("Content-Length"), tc.Equals, "12")
 	c.Check(rec.Body.String(), tc.Equals, "archive data")
 
-	// The archive is removed as soon as it has been fully served: the
-	// client keeps the local copy.
-	path, err := corebackups.OneShotArchivePath(s.backupDir, id)
+	// The metadata travels in the response header.
+	var result params.BackupsMetadataResult
+	err := json.Unmarshal([]byte(rec.Header().Get(params.BackupMetadataHeader)), &result)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = os.Stat(path)
-	c.Assert(err, tc.Satisfies, os.IsNotExist)
-}
+	c.Check(result.Notes, tc.Equals, "my notes")
+	c.Check(result.Filename, tc.Equals, "juju-backup-test.tar.gz")
+	c.Check(result.Started, tc.Equals, time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC))
 
-func (s *backupsDownloadSuite) TestDownloadUnknownID(c *tc.C) {
-	id, err := uuid.NewUUID()
+	// The archive is removed once the request ends.
+	c.Check(s.cleanupRan, tc.IsTrue)
+	entries, err := os.ReadDir(s.backupDir)
 	c.Assert(err, tc.ErrorIsNil)
-
-	rec := s.downloadRequest(c, id.String(), nil)
-
-	c.Check(rec.Code, tc.Equals, http.StatusNotFound)
-	c.Check(s.errorMessage(c, rec), tc.Matches, `backup ".*" not found`)
+	c.Check(entries, tc.HasLen, 0)
 }
 
-func (s *backupsDownloadSuite) TestDownloadInvalidID(c *tc.C) {
-	for _, id := range []string{"", "not-a-uuid", "../../etc/passwd", "0-0-0-0-0"} {
-		c.Logf("id %q", id)
-		rec := s.downloadRequest(c, id, nil)
+func (s *backupSuite) TestCreateFailure(c *tc.C) {
+	s.createErr = errors.New("cannot export controller")
 
-		c.Check(rec.Code, tc.Equals, http.StatusBadRequest)
-		c.Check(s.errorMessage(c, rec), tc.Matches, "invalid backup id.*")
-	}
+	rec := s.postRequest(c, "", nil)
+
+	c.Check(rec.Code, tc.Equals, http.StatusInternalServerError)
+	c.Check(s.errorMessage(c, rec), tc.Matches, "cannot export controller")
 }
 
-func (s *backupsDownloadSuite) TestDownloadFilenameID(c *tc.C) {
-	// Pre-4.1 clients pass the archive filename (bare or as a full
-	// path) as the download id; they get an explicit upgrade message
-	// instead of an opaque invalid-id error.
-	for _, id := range []string{
-		"juju-backup-20260101-000000.tar.gz",
-		"/var/lib/juju/backups/juju-backup-20260101-000000.tar.gz",
-	} {
-		c.Logf("id %q", id)
-		rec := s.downloadRequest(c, id, nil)
-
-		c.Check(rec.Code, tc.Equals, http.StatusBadRequest)
-		c.Check(s.errorMessage(c, rec), tc.Matches, "downloading backups by filename is not supported.*")
-	}
-}
-
-func (s *backupsDownloadSuite) TestDownloadRangeRejected(c *tc.C) {
-	id := s.stageArchive(c, "archive data")
-
-	rec := s.downloadRequest(c, id, http.Header{"Range": []string{"bytes=0-4"}})
-
-	c.Check(rec.Code, tc.Equals, http.StatusBadRequest)
-	c.Check(s.errorMessage(c, rec), tc.Matches, "range requests are not supported.*")
-
-	// A rejected request leaves the archive staged.
-	path, err := corebackups.OneShotArchivePath(s.backupDir, id)
-	c.Assert(err, tc.ErrorIsNil)
-	_, err = os.Stat(path)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *backupsDownloadSuite) TestDownloadBadJSON(c *tc.C) {
-	req := httptest.NewRequest(http.MethodGet, "/backups", strings.NewReader("not json"))
+func (s *backupSuite) TestCreateBadJSON(c *tc.C) {
+	req := httptest.NewRequest(http.MethodPost, "/backup", strings.NewReader("not json"))
 	rec := httptest.NewRecorder()
 	s.handler.ServeHTTP(rec, req)
 
@@ -154,23 +136,25 @@ func (s *backupsDownloadSuite) TestDownloadBadJSON(c *tc.C) {
 	c.Check(s.errorMessage(c, rec), tc.Matches, "reading request body.*")
 }
 
-func (s *backupsDownloadSuite) TestDownloadBackupDirResolutionFailure(c *tc.C) {
-	handler := &backupsDownloadHandler{
-		resolveBackupDir: func(context.Context) (string, error) {
-			return "", errors.New("boom")
-		},
-		logger: loggertesting.WrapCheckLog(c),
-	}
-	id := s.stageArchive(c, "archive data")
-
-	body, err := json.Marshal(params.BackupsDownloadArgs{ID: id})
+// TestGetRejected verifies that pre-4.1 clients, which download created
+// backups with a GET, get a clear upgrade error.
+func (s *backupSuite) TestGetRejected(c *tc.C) {
+	body, err := json.Marshal(params.BackupsDownloadArgs{ID: "juju-backup-20260101-000000.tar.gz"})
 	c.Assert(err, tc.ErrorIsNil)
 	req := httptest.NewRequest(http.MethodGet, "/backups", strings.NewReader(string(body)))
 	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
+	s.handler.ServeHTTP(rec, req)
 
-	c.Check(rec.Code, tc.Equals, http.StatusInternalServerError)
-	c.Check(s.errorMessage(c, rec), tc.Matches, "boom")
+	c.Check(s.errorMessage(c, rec), tc.Matches,
+		"downloading backups from clients older than 4.1 is not supported.*")
+}
+
+func (s *backupSuite) TestMethodNotAllowed(c *tc.C) {
+	req := httptest.NewRequest(http.MethodPut, "/backups", nil)
+	rec := httptest.NewRecorder()
+	s.handler.ServeHTTP(rec, req)
+
+	c.Check(rec.Code, tc.Equals, http.StatusMethodNotAllowed)
 }
 
 // failingWriter records the response headers and then fails after a
@@ -198,23 +182,18 @@ func (w *failingWriter) Write(p []byte) (int, error) {
 
 func (w *failingWriter) WriteHeader(int) {}
 
-func (s *backupsDownloadSuite) TestDownloadPartialTransferKeepsArchive(c *tc.C) {
-	id := s.stageArchive(c, "archive data")
-
-	path, err := corebackups.OneShotArchivePath(s.backupDir, id)
+// TestInterruptedTransferRemovesArchive verifies that a transfer that
+// breaks part way through still removes the archive: nothing is left
+// on the controller, however the request ends.
+func (s *backupSuite) TestInterruptedTransferRemovesArchive(c *tc.C) {
+	body, err := json.Marshal(params.BackupsCreateArgs{})
 	c.Assert(err, tc.ErrorIsNil)
-	content, err := os.ReadFile(path)
-	c.Assert(err, tc.ErrorIsNil)
-
-	body, err := json.Marshal(params.BackupsDownloadArgs{ID: id})
-	c.Assert(err, tc.ErrorIsNil)
-	req := httptest.NewRequest(http.MethodGet, "/backups", strings.NewReader(string(body)))
+	req := httptest.NewRequest(http.MethodPost, "/backup", strings.NewReader(string(body)))
 	w := &failingWriter{failAt: 0}
 	s.handler.ServeHTTP(w, req)
 
-	// The transfer failed part way, so the archive is left staged for a
-	// retry with the same id.
-	staged, err := os.ReadFile(path)
+	c.Check(s.cleanupRan, tc.IsTrue)
+	entries, err := os.ReadDir(s.backupDir)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(staged, tc.DeepEquals, content)
+	c.Check(entries, tc.HasLen, 0)
 }

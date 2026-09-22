@@ -29,14 +29,15 @@ type BackupsDownloadArgs struct {
 	ID string `json:"id"`
 }
 
+// BackupMetadataHeader is the response header the backups HTTP
+// endpoint uses to return the metadata of a freshly created backup
+// alongside the streamed archive.
+const BackupMetadataHeader = "X-Juju-Backup-Metadata"
+
 // BackupsMetadataResult holds the metadata for a backup as returned by
 // an API backups method (such as Create).
 type BackupsMetadataResult struct {
-	// ID identifies the backup. For the Backups facade's Create method
-	// the field is overloaded: the controller returns the id of the
-	// one-shot download staged for the backup, a server-minted UUID
-	// that stops being valid once the archive has been fully served,
-	// not a persistent backup identity.
+	// ID identifies the backup.
 	ID string `json:"id"`
 
 	Checksum       string    `json:"checksum"`

@@ -7,37 +7,26 @@ import (
 	"context"
 	"os"
 	"path"
-	"path/filepath"
 
+	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 
 	corebackups "github.com/juju/juju/core/backups"
 	coreerrors "github.com/juju/juju/core/errors"
+	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
 // Create is the API method that requests juju to create a new backup
-// of its state. The archive contains the controller database export and one
-// export per model, alongside the controller's data directory files.
-//
-// args.NoDownload is kept for client compatibility only. Its old
-// semantics, keeping the archive on the controller instead of
-// downloading it, no longer exist: the archive is always staged for
-// download and removed once it has been fully served. A request
-// that sets the flag fails loudly rather than silently discarding the
-// archive, which is what a silent success would amount to.
-//
-// The controller database and each model database are exported at different
-// points in time with no cross-database snapshot, so the archive is not a
-// single point-in-time view of the whole controller. State that changes
-// between the controller export and a given model export is not captured
-// consistently. This is inherent to backing up multiple independent dqlite
-// databases and is documented so restore logic does not assume otherwise.
+// of its state. As of 4.1 the RPC method no longer creates anything:
+// backup creation and download happen in a single request against the
+// controller's backups HTTP endpoint, so this method only remains for
+// older clients, which are rejected with a clear upgrade error before
+// any archive is created.
 func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params.BackupsMetadataResult, error) {
 	// Creating a backup requires superuser access to the controller. This
 	// mirrors the long-standing access gate for backup creation.
@@ -47,38 +36,99 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 		return params.BackupsMetadataResult{}, errors.Capture(err)
 	}
 
-	// args.NoDownload is kept for client compatibility only. Old
-	// clients set it to keep the archive on the controller; those
-	// semantics no longer exist, so accepting the request would
-	// silently discard the archive. Fail loudly instead.
-	if args.NoDownload {
-		return params.BackupsMetadataResult{}, errors.Errorf(
-			"keeping archives on the controller is no longer supported; the archive is always downloaded",
-		).Add(coreerrors.NotSupported)
-	}
+	return params.BackupsMetadataResult{}, errors.Errorf(
+		"create-backup from clients older than 4.1 is not supported; use a 4.1 or newer client",
+	).Add(coreerrors.NotSupported)
+}
 
+// Creator creates backup archives on demand. It is used by the
+// controller's backups HTTP endpoint, which streams the archive to the
+// client in the same request.
+type Creator struct {
+	controllerUUID      string
+	controllerModelUUID coremodel.UUID
+	machineID           string
+	dataDir             string
+	logDir              string
+
+	controllerExport ControllerExportService
+	modelServicesFor ModelServicesForFunc
+	modelConfig      ModelConfigService
+	controller       ControllerModelLister
+	controllerNodes  ControllerNodeLister
+	clock            clock.Clock
+	logger           corelogger.Logger
+}
+
+// NewCreator creates a new backup archive creator.
+func NewCreator(
+	machineTag names.Tag,
+	controllerUUID string,
+	controllerModelUUID coremodel.UUID,
+	dataDir, logDir string,
+	controllerExport ControllerExportService,
+	modelServicesFor ModelServicesForFunc,
+	modelConfig ModelConfigService,
+	controller ControllerModelLister,
+	controllerNodes ControllerNodeLister,
+	clock clock.Clock,
+	logger corelogger.Logger,
+) (*Creator, error) {
+	return &Creator{
+		controllerUUID:      controllerUUID,
+		controllerModelUUID: controllerModelUUID,
+		machineID:           machineTag.Id(),
+		dataDir:             dataDir,
+		logDir:              logDir,
+		controllerExport:    controllerExport,
+		modelServicesFor:    modelServicesFor,
+		modelConfig:         modelConfig,
+		controller:          controller,
+		controllerNodes:     controllerNodes,
+		clock:               clock,
+		logger:              logger,
+	}, nil
+}
+
+// Create builds a fresh backup archive in a per-request temporary
+// directory under the backup dir and returns its metadata and path.
+// The archive contains the controller database export and one export
+// per model, alongside the controller's data directory files.
+//
+// The caller owns the returned cleanup function, which removes the
+// archive and its temporary directory; it must be called once the
+// archive has been consumed, however the request ends.
+//
+// The controller database and each model database are exported at
+// different points in time with no cross-database snapshot, so the
+// archive is not a single point-in-time view of the whole controller.
+// State that changes between the controller export and a given model
+// export is not captured consistently. This is inherent to backing up
+// multiple independent dqlite databases and is documented so restore
+// logic does not assume otherwise.
+func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metadata, string, func(), error) {
 	// The backup destination is resolved first because the database dumps
 	// are staged as temporary files under it; staging keeps the archive from
 	// holding every model's dump in memory at once.
-	modelConfig, err := a.modelConfig.ModelConfig(ctx)
+	modelConfig, err := c.modelConfig.ModelConfig(ctx)
 	if err != nil {
-		return params.BackupsMetadataResult{}, errors.Capture(err)
+		return nil, "", nil, errors.Capture(err)
 	}
 	backupDir := corebackups.BackupDirToUse(modelConfig.BackupDir())
-	a.logger.Debugf(ctx, "creating backup in %q", backupDir)
+	c.logger.Debugf(ctx, "creating backup in %q", backupDir)
 
 	paths := corebackups.Paths{
 		BackupDir: backupDir,
-		DataDir:   a.dataDir,
-		LogsDir:   a.logDir,
+		DataDir:   c.dataDir,
+		LogsDir:   c.logDir,
 	}
 	files, err := corebackups.GetFilesToBackUp("", &paths)
 	if err != nil {
-		return params.BackupsMetadataResult{}, errors.Capture(err)
+		return nil, "", nil, errors.Capture(err)
 	}
-	controllerIDs, err := a.controllerNodes.GetControllerIDs(ctx)
+	controllerIDs, err := c.controllerNodes.GetControllerIDs(ctx)
 	if err != nil {
-		return params.BackupsMetadataResult{}, errors.Capture(err)
+		return nil, "", nil, errors.Capture(err)
 	}
 
 	// Controller dump first, then one dump per registered model namespace.
@@ -91,36 +141,36 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	// no partial archives.
 	var dumps []corebackups.NamedDump
 
-	controllerExport, err := a.controllerExport.Export(ctx)
+	controllerExport, err := c.controllerExport.Export(ctx)
 	if err != nil {
-		return params.BackupsMetadataResult{}, errors.Capture(err)
+		return nil, "", nil, errors.Capture(err)
 	}
 	dumps = append(dumps, corebackups.NamedDump{
 		Name:   "controller.yaml",
 		Export: corebackups.YAMLDump(controllerExport),
 	})
 
-	modelUUIDs, err := a.controller.GetModelNamespaces(ctx)
+	modelUUIDs, err := c.controller.GetModelNamespaces(ctx)
 	if err != nil {
-		return params.BackupsMetadataResult{}, errors.Capture(err)
+		return nil, "", nil, errors.Capture(err)
 	}
 	for _, modelUUID := range modelUUIDs {
 		if err := ctx.Err(); err != nil {
-			return params.BackupsMetadataResult{}, err
+			return nil, "", nil, err
 		}
-		modelServices, err := a.modelServicesFor(ctx, coremodel.UUID(modelUUID))
+		modelServices, err := c.modelServicesFor(ctx, coremodel.UUID(modelUUID))
 		if err != nil {
-			return params.BackupsMetadataResult{}, errors.Capture(err)
+			return nil, "", nil, errors.Capture(err)
 		}
 		modelExport, err := modelServices.Export().Export(ctx)
 		if err != nil {
-			return params.BackupsMetadataResult{}, errors.Capture(err)
+			return nil, "", nil, errors.Capture(err)
 		}
 		dumps = append(dumps, corebackups.NamedDump{
 			Name:   path.Join("models", modelUUID+".yaml"),
 			Export: corebackups.YAMLDump(modelExport),
 		})
-		a.logger.Tracef(ctx, "staged export for model %s", modelUUID)
+		c.logger.Tracef(ctx, "staged export for model %s", modelUUID)
 	}
 
 	// The dumps are staged as files inside the backup destination, so the
@@ -129,18 +179,18 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	// behind.
 	staging, err := corebackups.StageDumps(ctx, backupDir, dumps)
 	if err != nil {
-		return params.BackupsMetadataResult{}, errors.Capture(err)
+		return nil, "", nil, errors.Capture(err)
 	}
 	// Close cleans up the staged dumps on return. Its error is only logged:
 	// it must not mask the Create result.
 	defer func() {
 		if err := staging.Close(); err != nil {
-			a.logger.Debugf(ctx, "cleaning up staged backup dumps: %v", err)
+			c.logger.Debugf(ctx, "cleaning up staged backup dumps: %v", err)
 		}
 	}()
 	expected, err := staging.Size()
 	if err != nil {
-		return params.BackupsMetadataResult{}, errors.Capture(err)
+		return nil, "", nil, errors.Capture(err)
 	}
 
 	for _, file := range files {
@@ -153,7 +203,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 			// files, so one that is really gone fails Create with a
 			// clear error. Log it so an understated space check, and the
 			// disk-full failure it can turn into, is diagnosable.
-			a.logger.Warningf(ctx,
+			c.logger.Warningf(ctx,
 				"sizing backup file %q, excluded from the space estimate: %v",
 				file, err)
 			continue
@@ -162,7 +212,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	}
 
 	if err := corebackups.CheckSpaceFor(backupDir, expected); err != nil {
-		return params.BackupsMetadataResult{}, errors.Capture(err)
+		return nil, "", nil, errors.Capture(err)
 	}
 
 	// The hostname is recorded for provenance only. If it cannot be resolved
@@ -170,11 +220,11 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	// the error is intentionally not fatal.
 	hostname, _ := os.Hostname()
 
-	meta := corebackups.NewMetadata(a.clock.Now())
-	meta.Notes = args.Notes
+	meta := corebackups.NewMetadata(c.clock.Now())
+	meta.Notes = notes
 	meta.Origin = corebackups.Origin{
-		Model:    a.controllerModelUUID.String(),
-		Machine:  a.machineID,
+		Model:    c.controllerModelUUID.String(),
+		Machine:  c.machineID,
 		Hostname: hostname,
 		Version:  coreversion.Current,
 		// TODO(backups): resolve the controller machine's base when a cheap,
@@ -182,67 +232,38 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 		Base: "",
 	}
 	meta.Controller = corebackups.ControllerMetadata{
-		UUID:              a.controllerUUID,
-		MachineID:         a.machineID,
+		UUID:              c.controllerUUID,
+		MachineID:         c.machineID,
 		MachineInstanceID: corebackups.UnknownString,
 		HANodes:           int64(len(controllerIDs)),
 	}
 
-	filename, err := corebackups.Create(meta, corebackups.CreateArgs{
-		DestinationDir: backupDir,
-		FilesToBackUp:  files,
-		DumpEntries:    staging.Entries(),
-		Clock:          a.clock,
-	})
+	// The archive is written into a per-request temporary directory
+	// under the backup dir: its name is timestamp-based, so two
+	// concurrent requests could collide in the backup dir itself.
+	tmpDir, err := os.MkdirTemp(backupDir, "create-")
 	if err != nil {
-		return params.BackupsMetadataResult{}, errors.Capture(err)
+		return nil, "", nil, errors.Errorf("creating backup workspace: %w", err)
 	}
-	a.logger.Infof(ctx, "created backup %q", filename)
-
-	// The archive is staged for download under a server-minted UUID in
-	// the one-shot download directory and the id handed to the client.
-	// The download endpoint removes the archive once it has been fully
-	// served; a partial transfer leaves it staged so the client can
-	// retry.
-	//
-	// result.ID carries this server-minted download identifier: backup
-	// metadata has no persistent database id here, so the one-shot
-	// download id is the only identifier.
-	id, err := uuid.NewUUID()
-	if err != nil {
-		return params.BackupsMetadataResult{}, errors.Capture(err)
-	}
-	if err := os.MkdirAll(corebackups.OneShotDir(backupDir), 0700); err != nil {
-		return params.BackupsMetadataResult{}, errors.Errorf(
-			"creating one-shot backup download dir: %w", err)
-	}
-	// The id was minted above, so the UUID validation cannot fail; it
-	// is still checked so a future change to how ids are minted cannot
-	// silently bypass it.
-	oneShotPath, err := corebackups.OneShotArchivePath(backupDir, id.String())
-	if err != nil {
-		return params.BackupsMetadataResult{}, errors.Capture(err)
-	}
-
-	// If staging the archive fails, the original archive must be
-	// removed: it would otherwise sit in the backup dir forever,
-	// violating the invariant that the controller never keeps archives.
-	var staged bool
+	completed := false
 	defer func() {
-		if !staged {
-			if err := os.Remove(filename); err != nil && !os.IsNotExist(err) {
-				a.logger.Warningf(ctx, "removing orphan backup archive %q: %v",
-					filename, err)
-			}
+		if !completed {
+			_ = os.RemoveAll(tmpDir)
 		}
 	}()
-	if err := os.Rename(filename, oneShotPath); err != nil {
-		return params.BackupsMetadataResult{}, errors.Errorf(
-			"staging backup archive for download: %w", err)
-	}
-	staged = true
 
-	result := params.CreateResult(meta, filepath.Base(filename))
-	result.ID = id.String()
-	return result, nil
+	filename, err := corebackups.Create(meta, corebackups.CreateArgs{
+		DestinationDir: tmpDir,
+		FilesToBackUp:  files,
+		DumpEntries:    staging.Entries(),
+		Clock:          c.clock,
+	})
+	if err != nil {
+		return nil, "", nil, errors.Capture(err)
+	}
+	c.logger.Infof(ctx, "created backup %q", filename)
+
+	completed = true
+	cleanup := func() { _ = os.RemoveAll(tmpDir) }
+	return meta, filename, cleanup, nil
 }

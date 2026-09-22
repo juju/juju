@@ -8,8 +8,6 @@ import (
 	"reflect"
 
 	"github.com/juju/juju/apiserver/facade"
-	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/services"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -21,46 +19,9 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacade provides the required signature for facade registration.
 func newFacade(stdCtx context.Context, ctx facade.MultiModelContext) (*API, error) {
-	controllerModelUUID := ctx.ControllerModelUUID()
-	controllerServices, err := ctx.DomainServicesForModel(stdCtx, controllerModelUUID)
-	if err != nil {
-		return nil, err
-	}
-
-	modelServicesFor := ModelServicesForFunc(
-		func(stdCtx context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error) {
-			modelServices, err := ctx.DomainServicesForModel(stdCtx, modelUUID)
-			if err != nil {
-				return nil, err
-			}
-			return modelExportDomainServices{modelServices}, nil
-		},
-	)
-
 	return NewAPI(
 		ctx.Auth(),
-		ctx.MachineTag(),
 		ctx.ControllerUUID(),
-		controllerModelUUID,
-		ctx.DataDir(),
-		ctx.LogDir(),
-		controllerServices.ControllerExport(),
-		modelServicesFor,
-		controllerServices.Config(),
-		controllerServices.Controller(),
-		controllerServices.ControllerNode(),
-		ctx.Clock(),
 		ctx.Logger().Child("backups"),
 	)
-}
-
-// modelExportDomainServices adapts a [services.DomainServices] to the
-// facade's ModelExportDomainServices interface.
-type modelExportDomainServices struct {
-	domainServices services.DomainServices
-}
-
-// Export returns the model export service.
-func (s modelExportDomainServices) Export() ModelExportService {
-	return s.domainServices.Export()
 }

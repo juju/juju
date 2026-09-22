@@ -149,8 +149,8 @@ func (s *createSuite) TestDefault(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
 	c.Assert(err, tc.ErrorIsNil)
 
-	client.Check(c, "backup-id", "", "Create", "Download")
-	client.CheckArgs(c, "", "backup-id")
+	client.Check(c, "", "Create")
+	client.CheckArgs(c, "")
 	s.checkDownload(c, ctx)
 	c.Check(s.command.Filename, tc.Equals, backups.NotSet)
 }
@@ -160,8 +160,8 @@ func (s *createSuite) TestDefaultQuiet(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.createCommandForGlobalOptionTesting(s.wrappedCommand), "create-backup", "--quiet")
 	c.Assert(err, tc.ErrorIsNil)
 
-	client.Check(c, "backup-id", "", "Create", "Download")
-	client.CheckArgs(c, "", "backup-id")
+	client.Check(c, "", "Create")
+	client.CheckArgs(c, "")
 
 	c.Check(ctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "")
 	c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, "")
@@ -172,8 +172,8 @@ func (s *createSuite) TestNotes(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "test notes")
 	c.Assert(err, tc.ErrorIsNil)
 
-	client.Check(c, "backup-id", "test notes", "Create", "Download")
-	client.CheckArgs(c, "test notes", "backup-id")
+	client.Check(c, "test notes", "Create")
+	client.CheckArgs(c, "test notes")
 	s.checkDownload(c, ctx)
 }
 
@@ -182,8 +182,8 @@ func (s *createSuite) TestFilename(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
 	c.Assert(err, tc.ErrorIsNil)
 
-	client.Check(c, "backup-id", "", "Create", "Download")
-	client.CheckArgs(c, "", "backup-id")
+	client.Check(c, "", "Create")
+	client.CheckArgs(c, "")
 	s.expectedErr = `
 Downloaded to backup.tgz
 `[1:]
@@ -194,22 +194,10 @@ Downloaded to backup.tgz
 func (s *createSuite) TestChecksumMismatch(c *tc.C) {
 	client := s.setDownload()
 	client.metaresult.Checksum = "wrong-checksum"
-	// Model the controller's delete-after-full-serve: the first
-	// download is served, and any further request for the same id
-	// would 404.
-	client.downloadHook = func(call int) (io.ReadCloser, error) {
-		if call == 0 {
-			return io.NopCloser(bytes.NewReader([]byte(s.data))), nil
-		}
-		return nil, errors.NotFoundf("backup %q", "backup-id")
-	}
 
 	_, err := cmdtesting.RunCommand(c, s.wrappedCommand)
 	c.Assert(err, tc.ErrorMatches, `checksum mismatch for downloaded backup .*`)
-	// A mismatch is only detected after a fully-served transfer, by
-	// which point the controller has removed the archive, so the
-	// download is not retried.
-	client.CheckCalls(c, "Create", "Download")
+	client.CheckCalls(c, "Create")
 
 	// The corrupt archive is kept under a suffix for inspection.
 	_, err = os.Stat("juju-backup-00010101-000000.tar.gz")
@@ -234,42 +222,19 @@ func (r *flakyReader) Read(p []byte) (int, error) {
 	return copy(p, r.data), nil
 }
 
-// TestDownloadRetriedAfterCopyFailure verifies that a transfer that
-// breaks part way through is retried with the same backup id.
-func (s *createSuite) TestDownloadRetriedAfterCopyFailure(c *tc.C) {
+// TestPartialArchiveRemoved verifies that a transfer that breaks part
+// way through leaves no partial archive behind that could be mistaken
+// for a complete backup.
+func (s *createSuite) TestPartialArchiveRemoved(c *tc.C) {
 	client := s.setDownload()
-	client.downloadHook = func(call int) (io.ReadCloser, error) {
-		if call == 0 {
-			return io.NopCloser(&flakyReader{data: s.data}), nil
-		}
-		return io.NopCloser(bytes.NewReader([]byte(s.data))), nil
-	}
-
-	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
-	c.Assert(err, tc.ErrorIsNil)
-
-	client.CheckCalls(c, "Create", "Download", "Download")
-	c.Check(cmdtesting.Stderr(ctx), tc.Matches,
-		`(?s)Retrying backup download \(attempt 2 of 3\):.*Downloaded to backup.tgz\n`)
-
-	s.filename = "backup.tgz"
-	c.Cleanup(func() { s.filename = "" })
-	s.checkArchive(c)
-}
-
-// TestDownloadPartialArchiveRemoved verifies that a transfer that
-// breaks part way through on every attempt leaves no partial archive
-// behind that could be mistaken for a complete backup.
-func (s *createSuite) TestDownloadPartialArchiveRemoved(c *tc.C) {
-	client := s.setDownload()
-	client.downloadHook = func(call int) (io.ReadCloser, error) {
+	client.createHook = func() (io.ReadCloser, error) {
 		return io.NopCloser(&flakyReader{data: s.data}), nil
 	}
 
 	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
 	c.Assert(err, tc.ErrorMatches,
 		`while copying to local archive file backup.tgz: connection reset by peer`)
-	client.CheckCalls(c, "Create", "Download", "Download", "Download")
+	client.CheckCalls(c, "Create")
 
 	_, err = os.Stat("backup.tgz")
 	c.Check(err, tc.Satisfies, os.IsNotExist)
@@ -277,36 +242,14 @@ func (s *createSuite) TestDownloadPartialArchiveRemoved(c *tc.C) {
 	c.Check(err, tc.Satisfies, os.IsNotExist)
 }
 
-// TestDownloadNotFoundNotRetried verifies that an id that is no longer
-// staged on the controller fails without burning the retries.
-func (s *createSuite) TestDownloadNotFoundNotRetried(c *tc.C) {
-	client := s.setDownload()
-	client.downloadHook = func(call int) (io.ReadCloser, error) {
-		return nil, errors.NotFoundf("backup %q", "backup-id")
-	}
-
-	_, err := cmdtesting.RunCommand(c, s.wrappedCommand)
-	c.Assert(err, tc.ErrorMatches, `backup "backup-id" not found`)
-	client.CheckCalls(c, "Create", "Download")
-}
-
-// TestNoChecksum verifies that a download id without a checksum, which
+// TestNoChecksum verifies that a response without a checksum, which
 // would make the downloaded archive unverifiable, fails closed.
 func (s *createSuite) TestNoChecksum(c *tc.C) {
 	client := s.setSuccess()
 
 	_, err := cmdtesting.RunCommand(c, s.wrappedCommand)
 	c.Assert(err, tc.ErrorMatches,
-		`controller returned no checksum for backup "backup-id", refusing to download it unverified`)
-	client.CheckCalls(c, "Create")
-}
-
-func (s *createSuite) TestNoBackupID(c *tc.C) {
-	client := s.setDownload()
-	client.metaresult.ID = ""
-
-	_, err := cmdtesting.RunCommand(c, s.wrappedCommand)
-	c.Assert(err, tc.ErrorMatches, `controller did not provide a backup id for download \(archive may be present on the controller at .*`)
+		`controller returned no checksum for the backup, refusing to download it unverified`)
 	client.CheckCalls(c, "Create")
 }
 
