@@ -395,6 +395,25 @@ model "Juju" {
     ma0 -> lxd0           [type: control, label: "provisions container\n(LXD broker)"]
     ma1 -> ua0            [type: control, label: "hosts (deployer)"]
 
+    // Configuration levels (docs/reference/configuration.md —
+    // ConfigScout grounds): who sets and reads each level.
+    // juju controller-config (cmd/juju/controller/config.go),
+    // juju model-config (cmd/juju/model/config.go), juju config
+    // (cmd/juju/application/config.go), config-get (the hook tool;
+    // there is NO config-set hook command), and the controller's own
+    // config table (domain/schema/controller/4.0.13-controller-
+    // release.ddl:571).
+    user       -> ctrl_config_rec  [type: control, label: "sets\n(juju controller-config)",
+                            ground: "cmd/juju/controller/config.go:NewConfigCommand"]
+    user       -> model_config_rec [type: control, label: "sets\n(juju model-config)",
+                            ground: "cmd/juju/model/config.go:configCommand"]
+    user       -> app_config_rec   [type: control, label: "sets\n(juju config)",
+                            ground: "cmd/juju/application/config.go:NewConfigCommand"]
+    charm      -> app_config_rec   [type: api, label: "reads\n(config-get)",
+                            ground: "internal/worker/uniter/runner/jujuc/config-get.go:NewConfigGetCommand"]
+    controller -> ctrl_config_rec  [type: data, label: "keeps\n(controller DB)",
+                            ground: "controller:controller_config"]
+
     // Bootstrap K8s
     client         -> k8s            [type: api]
     k8s            -> client         [type: stream]
@@ -1661,18 +1680,20 @@ diagram "Databag permissions" from "Juju" {
 diagram "Configuration levels" from "Juju" {
   select {
     nodes: user controller ctrl_config_rec model_config_rec app_config_rec charm
-    edges: type control type api
+    edges: type control type api type data
     sizing: uniform
   }
   positions {
-    user             left-of controller     gap: 30
+    controller       above ctrl_config_rec  gap: 40
+    controller       align-centre ctrl_config_rec
+    user             left-of ctrl_config_rec gap: 60
+    user             align-middle model_config_rec
+    model_config_rec below ctrl_config_rec  gap: 48
+    model_config_rec align-centre ctrl_config_rec
+    app_config_rec   below model_config_rec gap: 48
+    app_config_rec   align-centre model_config_rec
     charm            right-of app_config_rec gap: 30
-    ctrl_config_rec  below controller       gap: 30
-    ctrl_config_rec  align-centre controller
-    model_config_rec below ctrl_config_rec  gap: 30
-    model_config_rec align-left ctrl_config_rec
-    app_config_rec   below model_config_rec gap: 30
-    app_config_rec   align-left model_config_rec
+    charm            align-middle app_config_rec
   }
 }
 
@@ -1688,13 +1709,18 @@ diagram "Charm origins" from "Juju" {
     sizing: uniform
   }
   positions {
-    charm_rec          left-of application_rec gap: 30
-    unit_rec           left-of charm_rec       gap: 30
-    charm_metadata_rec above charm_rec         gap: 24
+    unit_rec           left-of application_rec gap: 30
+    unit_rec           align-middle application_rec
+    charm_rec          right-of application_rec gap: 30
+    charm_rec          align-middle application_rec
+    charm_metadata_rec above charm_rec          gap: 24
     charm_metadata_rec align-centre charm_rec
-    charm_download_rec below charm_metadata_rec gap: 24
-    app_channel_rec    right-of application_rec gap: 30
-    app_platform_rec   right-of charm_rec      gap: 30
+    charm_download_rec below charm_rec          gap: 24
+    charm_download_rec align-centre charm_rec
+    app_channel_rec    below application_rec    gap: 24
+    app_channel_rec    align-centre application_rec
+    app_platform_rec   left-of app_channel_rec  gap: 30
+    app_platform_rec   align-middle app_channel_rec
   }
   annotations {
     legend [position: "bottom-right",
@@ -2114,7 +2140,7 @@ diagram "Databag permissions (synthesized)" from "Juju" {
 diagram "Configuration levels (synthesized)" from "Juju" {
   select {
     nodes: user controller ctrl_config_rec model_config_rec app_config_rec charm
-    edges: type control type api
+    edges: type control type api type data
     sizing: uniform
   }
 }
