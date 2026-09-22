@@ -349,6 +349,23 @@ func (s *cloudSuite) TestCloudInfoNonAdminNoLocalPermission(c *tc.C) {
 	})
 }
 
+// TestCloudInfoNoAccessDenied asserts that CloudInfo rejects a caller with
+// no access to the cloud, resolved via the authorizer, before ever
+// consulting the local user list.
+func (s *cloudSuite) TestCloudInfoNoAccessDenied(c *tc.C) {
+	// The fake authorizer grants this user no access to my-cloud.
+	ctrl := s.setup(c, names.NewUserTag("nobody"))
+	defer ctrl.Finish()
+
+	result, err := s.api.CloudInfo(c.Context(), params.Entities{Entities: []params.Entity{{
+		Tag: "cloud-my-cloud",
+	}}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Result, tc.IsNil)
+	c.Check(result.Results[0].Error, tc.ErrorMatches, "permission denied")
+}
+
 func (s *cloudSuite) TestCloudInfoNotFound(c *tc.C) {
 	defer s.setup(c, names.NewUserTag("admin")).Finish()
 

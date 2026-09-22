@@ -281,6 +281,12 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 		isAdmin = access == permission.AdminAccess
 	}
 
+	// Local user list presence doesn't confirm access (external callers
+	// have no local row), so reject explicitly using the resolved access.
+	if access == permission.NoAccess {
+		return nil, errors.Trace(apiservererrors.ErrPerm)
+	}
+
 	aCloud, err := api.cloudService.Cloud(ctx, tag.Id())
 	if errors.Is(err, clouderrors.NotFound) {
 		return nil, errors.NotFoundf("cloud %q", tag.Id())
@@ -289,13 +295,6 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 	}
 	info := params.CloudInfo{
 		CloudDetails: cloudDetailsToParams(*aCloud),
-	}
-
-	// Reject the call unless the caller has access, resolved above.
-	// Presence in the local user list below cannot confirm access:
-	// external (JWT) callers have no local row but are still authorised.
-	if !isAdmin && access == permission.NoAccess {
-		return nil, errors.Trace(apiservererrors.ErrPerm)
 	}
 
 	cloudUsers, err := api.cloudAccessService.ReadAllUserAccessForTarget(ctx, permission.ID{Key: tag.Id(), ObjectType: permission.Cloud})
@@ -321,6 +320,8 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 	// their grants live externally. Fill it from the resolved access
 	// level so the response still reports their access.
 	if !isAdmin && !api.hasOwnCloudUserEntry(info.Users) {
+		// No DisplayName. This entry comes from the authorizer, not a
+		// local permission row. There's no display name available.
 		info.Users = append(info.Users, params.CloudUserInfo{
 			UserName: api.apiUser.Id(),
 			Access:   string(access),
