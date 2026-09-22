@@ -27,13 +27,16 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential
 
-      - name: Build juju + jujud
+      - name: Build juju + jujuagentd
         # Built once and shared with the spread jobs via an artifact so each
         # spread job does not rebuild in the VM (~10-15 min per job).
         run: |
           mkdir -p .spread-bin
           GOBIN="$PWD/.spread-bin" make juju
-          GOBIN="$PWD/.spread-bin" make jujud-controller
+          GOBIN="$PWD/.spread-bin" make jujuagentd
+          # spread.yaml expects the agent binary as "jujud"; keep a
+          # compatibility name so the existing prepare script works.
+          cp .spread-bin/jujuagentd .spread-bin/jujud
 
       - name: Build patched spread
         # Upstream spread's SendTar emits 'tar --no-same-owner xz' which GNU tar
@@ -47,7 +50,7 @@ jobs:
 
       - name: Verify built binaries
         run: |
-          for binary in juju jujud spread; do
+          for binary in juju jujuagentd jujud spread; do
             test -x ".spread-bin/$binary"
             file ".spread-bin/$binary"
           done
@@ -59,12 +62,75 @@ jobs:
           if-no-files-found: error
           path: |
             .spread-bin/juju
+            .spread-bin/jujuagentd
             .spread-bin/jujud
             .spread-bin/spread
 
+  build-controller-snap:
+    name: Build controller snap
+    # Bootstrap of a dev build newer than the published controller snap
+    # builds the snap locally via snapcraft's LXD provider. That provider
+    # cannot run on GitHub-hosted runners (craft-providers network
+    # failures) nor inside the nested-LXD test VMs (snapd cannot start two
+    # levels down). The self-hosted runners already run LXD for the spread
+    # jobs and can run snapcraft's containerised builds.
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - aws
+      - xxlarge
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install snapcraft
+        run: |
+          snap list snapcraft >/dev/null 2>&1 || \
+            sudo snap install snapcraft --channel 9.x --classic
+
+      - name: Setup LXD
+        uses: canonical/setup-lxd@8c6a87bfb56aa48f3fb9b830baa18562d8bfd4ee # v1
+
+      - name: Wait for LXD
+        run: |
+          timeout=600
+          start=$SECONDS
+          while ! ip link show lxdbr0; do
+            if (( SECONDS - start > timeout )); then
+              echo "Timed out waiting for lxdbr0 after ${timeout}s"
+              exit 1
+            fi
+            echo "Waiting for lxdbr0..."
+            sleep 10
+          done
+
+      # Same recipe as .github/workflows/snap.yml: do not use the
+      # Makefile jujud-snap target here, its mv step derives the file
+      # name from `go env GOARCH` and this job has no Go installed.
+      - name: Build jujud controller snap
+        run: |
+          rm -rf snap _build/snap
+          mkdir -p snap _build/snap
+          cp -a snaps/jujud/. snap/
+          snapcraft --use-lxd --output _build/snap || {
+            log=$(ls -t "$HOME"/.local/state/snapcraft/log/*.log 2>/dev/null | head -1)
+            [ -n "$log" ] && tail -n 100 "$log"
+            exit 1
+          }
+          cp _build/snap/jujud_*.snap jujud-controller.snap
+
+      - name: Upload controller snap
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: jujud-controller-snap
+          if-no-files-found: error
+          path: jujud-controller.snap
+
   spread-lxd:
     name: "spread-lxd (${{ matrix.system }}): ${{ matrix.suite }}"
-    needs: build-binaries
+    needs: [build-binaries, build-controller-snap]
     runs-on:
       - self-hosted
       - linux
@@ -89,8 +155,14 @@ jobs:
           name: spread-bin
           path: .spread-bin
 
+      - name: Download controller snap
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: jujud-controller-snap
+          path: .spread-bin
+
       - name: Restore binary permissions
-        run: chmod +x .spread-bin/juju .spread-bin/jujud .spread-bin/spread
+        run: chmod +x .spread-bin/juju .spread-bin/jujuagentd .spread-bin/jujud .spread-bin/spread
 
       - name: Setup LXD
         uses: canonical/setup-lxd@8c6a87bfb56aa48f3fb9b830baa18562d8bfd4ee # v1
@@ -108,7 +180,7 @@ jobs:
 
   spread-ec2:
     name: "spread-ec2 (${{ matrix.system }}): ${{ matrix.suite }}"
-    needs: build-binaries
+    needs: [build-binaries, build-controller-snap]
     runs-on:
       - self-hosted
       - linux
@@ -131,11 +203,67 @@ jobs:
           name: spread-bin
           path: .spread-bin
 
+      - name: Download controller snap
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: jujud-controller-snap
+          path: .spread-bin
+
       - name: Restore binary permissions
-        run: chmod +x .spread-bin/juju .spread-bin/jujud .spread-bin/spread
+        run: chmod +x .spread-bin/juju .spread-bin/jujuagentd .spread-bin/jujud .spread-bin/spread
 
       - name: Verify aws-cli is available
         run: which aws
+
+      - name: Debug AWS context
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        run: |
+          if [ "${AWS_DEFAULT_REGION:-}" = "us-east-1" ]; then
+            echo "AWS_DEFAULT_REGION secret is us-east-1"
+          else
+            echo "AWS_DEFAULT_REGION secret is NOT us-east-1"
+          fi
+          env | grep -E '^AWS_(ENDPOINT|PROFILE)' || echo "no AWS_ENDPOINT*/AWS_PROFILE vars set"
+          aws configure list || true
+          aws sts get-caller-identity --region us-east-1 --output text --query 'Arn' || true
+          echo "====> Probing the exact allocate AMI lookup in us-east-1"
+          aws ec2 describe-images --region us-east-1 --owners 099720109477 \
+            --filters "Name=name,Values=ubuntu/images/hvm-ssd*/ubuntu-jammy-22.04-amd64-server-*" \
+                       "Name=state,Values=available" \
+            --query 'sort_by(Images, &CreationDate)[-1].ImageId' --output text || true
+
+          echo "====> SCP blast-radius probes"
+          echo "--- describe-images bare (no owner filter) ---"
+          aws ec2 describe-images --region us-east-1 --output text --query 'length(Images)' || true
+          echo "--- describe-images --owners self ---"
+          aws ec2 describe-images --region us-east-1 --owners self --output text --query 'length(Images)' || true
+          TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
+          RUNNER_AMI=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/ami-id || true)
+          echo "--- run-instances dry-run (runner ami: ${RUNNER_AMI:-unknown}) ---"
+          aws ec2 run-instances --region us-east-1 --image-id "${RUNNER_AMI:-ami-090de403efa988e2f}" \
+            --instance-type m5.xlarge --dry-run || true
+          echo "--- create-security-group dry-run ---"
+          aws ec2 create-security-group --region us-east-1 --group-name spread-scp-probe \
+            --description probe --dry-run || true
+          echo "--- ssm public parameter (ubuntu jammy amd64 ami) ---"
+          aws ssm get-parameter --region us-east-1 \
+            --name "/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2" \
+            --query 'Parameter.Value' --output text || true
+
+          echo "====> Runner AWS environment"
+          aws --version
+          test -f ~/.aws/config && echo "~/.aws/config exists" || echo "no ~/.aws/config"
+          if aws configure get endpoint_url >/dev/null 2>&1; then
+            echo "endpoint_url override IS set in config"
+          else
+            echo "no endpoint_url override in config"
+          fi
+          echo "--- ec2 endpoint resolution ---"
+          aws ec2 describe-images --region us-east-1 --owners 099720109477 --debug 2>&1 \
+            | grep -iE "endpoint" | head -5 || true
 
       - name: Run spread on ec2
         env:

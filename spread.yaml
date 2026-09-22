@@ -277,6 +277,11 @@ backends:
       export PATH="$SPREAD_PATH/../go/bin:$PATH"
 
       snap install aws-cli --classic 2>/dev/null || true
+      # snapcraft builds the controller snap via its LXD provider, so the
+      # runner VM needs LXD initialised before juju bootstrap can build it.
+      snap install lxd
+      lxd waitready --timeout=30
+      lxd init --auto
       # AWS credentials are injected into /root/.aws/credentials by the
       # allocate step via cloud-init write_files. Juju's AWS provider
       # reads from the standard SDK credential chain including that file.
@@ -347,6 +352,13 @@ prepare: |
   # Install charmcraft for tests that pack local charms.
   snap install charmcraft --classic
   snap install yq
+
+  # Bootstrapping a dev build that is newer than the published controller
+  # snap builds the controller snap locally via `make jujud-snap-build`,
+  # which needs snapcraft and make available in the VM.
+  snap install snapcraft --classic
+  apt-get update
+  apt-get install -y make
 
 restore: |
   export PATH="$SPREAD_PATH/../go/bin:$PATH"
