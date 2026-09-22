@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
@@ -4661,13 +4662,13 @@ func (s *applicationStateSuite) checkApplicationSequence(c *tc.C, appName string
 }
 
 func (s *applicationStateSuite) upsertK8sService(c *tc.C, appName, providerID string, addresses network.ProviderAddresses) error {
-	args := application.UpsertK8sServiceArgs{
+	args := applicationinternal.UpsertK8sServiceArgs{
 		ServiceUUID: tc.Must(c, uuid.NewUUID).String(),
 		NetNodeUUID: tc.Must(c, uuid.NewUUID).String(),
 		DeviceUUID:  tc.Must(c, uuid.NewUUID).String(),
 	}
 	for _, addr := range addresses {
-		args.Addresses = append(args.Addresses, application.K8sServiceAddress{UUID: tc.Must(c, uuid.NewUUID).String(), ProviderAddress: addr})
+		args.Addresses = append(args.Addresses, applicationinternal.K8sServiceAddress{UUID: tc.Must(c, uuid.NewUUID).String(), ProviderAddress: addr})
 	}
 	return s.state.UpsertK8sService(c.Context(), appName, providerID, args)
 }

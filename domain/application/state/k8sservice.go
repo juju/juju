@@ -10,8 +10,8 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/ipaddress"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
@@ -22,7 +22,7 @@ import (
 // An empty snapshot clears the addresses. It returns ApplicationNotFound if
 // the application does not exist. Hostname scopes must be validated by the
 // service layer before calling this method.
-func (st *State) UpsertK8sService(ctx context.Context, applicationName, providerID string, args application.UpsertK8sServiceArgs) error {
+func (st *State) UpsertK8sService(ctx context.Context, applicationName, providerID string, args applicationinternal.UpsertK8sServiceArgs) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -79,7 +79,7 @@ WHERE ks.uuid = $k8sService.uuid`, k8sService{})
 		if err := st.deleteK8sServiceAddresses(ctx, tx, svc.NetNodeUUID); err != nil {
 			return errors.Capture(err)
 		}
-		var ipAddresses []application.K8sServiceAddress
+		var ipAddresses []applicationinternal.K8sServiceAddress
 		for _, addr := range args.Addresses {
 			if addr.AddressType() != network.HostName {
 				ipAddresses = append(ipAddresses, addr)
@@ -169,7 +169,7 @@ WHERE fa.uuid IN ($uuids[:]) AND fa.uuid NOT IN referenced`, addressUUIDs)
 	return nil
 }
 
-func (st *State) insertK8sServiceFQDN(ctx context.Context, tx *sqlair.TX, netNodeUUID string, addr application.K8sServiceAddress) error {
+func (st *State) insertK8sServiceFQDN(ctx context.Context, tx *sqlair.TX, netNodeUUID string, addr applicationinternal.K8sServiceAddress) error {
 	type hostname struct {
 		UUID        string `db:"uuid"`
 		Address     string `db:"address"`
@@ -230,7 +230,7 @@ WHERE lld.net_node_uuid = $k8sServiceDevice.net_node_uuid`, device)
 	return device.UUID, nil
 }
 
-func (st *State) insertK8sServiceIPAddresses(ctx context.Context, tx *sqlair.TX, netNodeUUID, deviceUUID string, addresses []application.K8sServiceAddress) error {
+func (st *State) insertK8sServiceIPAddresses(ctx context.Context, tx *sqlair.TX, netNodeUUID, deviceUUID string, addresses []applicationinternal.K8sServiceAddress) error {
 	subnetUUIDs, err := st.k8sSubnetUUIDsByAddressType(ctx, tx)
 	if err != nil {
 		return errors.Capture(err)

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationstate "github.com/juju/juju/domain/crossmodelrelation/state/model"
@@ -419,26 +420,19 @@ func (s *baseSuite) setK8sServiceAddress(
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	appState := applicationstate.NewState(
-		s.TxnRunnerFactory(), coremodel.UUID(s.ModelUUID()),
-		testclock.NewClock(s.now), loggertesting.WrapCheckLog(c),
+	modelUUID := coremodel.UUID(s.ModelUUID())
+	clk := testclock.NewClock(s.now)
+	logger := loggertesting.WrapCheckLog(c)
+	appState := applicationstate.NewState(s.TxnRunnerFactory(), modelUUID, clk, logger)
+	appService := applicationservice.NewService(
+		appState, nil, nil, nil, modelUUID, clk, logger,
 	)
 
-	args := application.UpsertK8sServiceArgs{
-		ServiceUUID: tc.Must(c, uuid.NewUUID).String(),
-		NetNodeUUID: tc.Must(c, uuid.NewUUID).String(),
-		DeviceUUID:  tc.Must(c, uuid.NewUUID).String(),
-		Addresses:   make([]application.K8sServiceAddress, len(addresses)),
-	}
+	serviceAddresses := make(corenetwork.ProviderAddresses, len(addresses))
 	for i, address := range addresses {
-		args.Addresses[i] = application.K8sServiceAddress{
-			UUID: tc.Must(c, uuid.NewUUID).String(),
-			ProviderAddress: corenetwork.ProviderAddress{
-				MachineAddress: corenetwork.NewMachineAddress(address),
-			},
-		}
+		serviceAddresses[i] = corenetwork.NewMachineAddress(address).AsProviderAddress()
 	}
-	err = appState.UpsertK8sService(c.Context(), appName, providerID, args)
+	err = appService.UpdateK8sService(c.Context(), appName, providerID, serviceAddresses)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

@@ -78,7 +78,7 @@ type ApplicationState interface {
 	// UpsertK8sService updates the cloud service for the specified application.
 	// The following errors may be returned:
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
-	UpsertK8sService(ctx context.Context, appName, providerID string, args application.UpsertK8sServiceArgs) error
+	UpsertK8sService(ctx context.Context, appName, providerID string, args internal.UpsertK8sServiceArgs) error
 
 	// SetApplicationHasK8sResources records that the provisioner is managing
 	// k8s resources for the given application. This blocks removal until
@@ -886,7 +886,7 @@ func (s *Service) UpdateK8sService(ctx context.Context, appName, providerID stri
 	if err != nil {
 		return errors.Capture(err)
 	}
-	args := application.UpsertK8sServiceArgs{
+	args := internal.UpsertK8sServiceArgs{
 		ServiceUUID: serviceUUID.String(),
 		NetNodeUUID: netNodeUUID.String(),
 		DeviceUUID:  deviceUUID.String(),
@@ -901,7 +901,7 @@ func (s *Service) UpdateK8sService(ctx context.Context, appName, providerID stri
 		if err != nil {
 			return errors.Capture(err)
 		}
-		args.Addresses = append(args.Addresses, application.K8sServiceAddress{
+		args.Addresses = append(args.Addresses, internal.K8sServiceAddress{
 			UUID: id.String(), ProviderAddress: addr,
 		})
 	}

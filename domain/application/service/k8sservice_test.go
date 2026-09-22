@@ -11,7 +11,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/internal"
 )
 
 func (s *applicationServiceSuite) TestUpdateK8sServiceAllocatesUUIDs(c *tc.C) {
@@ -21,7 +21,7 @@ func (s *applicationServiceSuite) TestUpdateK8sServiceAllocatesUUIDs(c *tc.C) {
 		network.NewMachineAddress("lb.example.com", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 	}
 	s.state.EXPECT().UpsertK8sService(gomock.Any(), "foo", "provider", gomock.Any()).DoAndReturn(
-		func(_ context.Context, _, _ string, args application.UpsertK8sServiceArgs) error {
+		func(_ context.Context, _, _ string, args internal.UpsertK8sServiceArgs) error {
 			c.Check(args.ServiceUUID, tc.IsNonZeroUUID)
 			c.Check(args.NetNodeUUID, tc.IsNonZeroUUID)
 			c.Check(args.DeviceUUID, tc.IsNonZeroUUID)
