@@ -272,15 +272,30 @@ func (s *controllerSuite) TestSSHServerHostKey(c *tc.C) {
 	c.Check(result.Error, tc.IsNil)
 }
 
+func (s *controllerSuite) TestSSHServerPort(c *tc.C) {
+	s.controllerSSHService = &stubControllerSSHService{port: 17099}
+
+	result, err := s.controllerAPI(c).SSHServerPort(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Port, tc.Equals, 17099)
+	c.Check(result.Error, tc.IsNil)
+}
+
 type stubControllerSSHService struct {
 	publicKey []byte
 	err       error
 	called    bool
+	port      int
+	portErr   error
 }
 
 func (s *stubControllerSSHService) SSHServerHostPublicKey(context.Context) ([]byte, error) {
 	s.called = true
 	return s.publicKey, s.err
+}
+
+func (s *stubControllerSSHService) GetSSHServerPort(context.Context) (int, error) {
+	return s.port, s.portErr
 }
 
 func (s *controllerSuite) TestNewAPIRefusesNonClient(c *tc.C) {

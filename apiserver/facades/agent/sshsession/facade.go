@@ -23,27 +23,24 @@ type Facade struct {
 	// authorizer identifies the calling agent. The machine identity is always
 	// taken from authentication, never from the caller's arguments, so an agent
 	// can only observe and read connection requests targeting its own machine.
-	authorizer                  facade.Authorizer
-	service                     SSHConnRequestService
-	controllerConfigService     ControllerConfigService
-	controllerSSHHostKeyService ControllerSSHHostKeyService
-	watcherRegistry             facade.WatcherRegistry
+	authorizer           facade.Authorizer
+	service              SSHConnRequestService
+	controllerSSHService ControllerSSHService
+	watcherRegistry      facade.WatcherRegistry
 }
 
 // newFacade returns a new SSH session facade.
 func newFacade(
 	authorizer facade.Authorizer,
 	service SSHConnRequestService,
-	controllerConfigService ControllerConfigService,
-	controllerSSHHostKeyService ControllerSSHHostKeyService,
+	controllerSSHService ControllerSSHService,
 	watcherRegistry facade.WatcherRegistry,
 ) *Facade {
 	return &Facade{
-		authorizer:                  authorizer,
-		service:                     service,
-		controllerConfigService:     controllerConfigService,
-		controllerSSHHostKeyService: controllerSSHHostKeyService,
-		watcherRegistry:             watcherRegistry,
+		authorizer:           authorizer,
+		service:              service,
+		controllerSSHService: controllerSSHService,
+		watcherRegistry:      watcherRegistry,
 	}
 }
 
@@ -117,7 +114,7 @@ func (f *Facade) GetSSHConnRequest(ctx context.Context, arg params.SSHConnReques
 
 // ControllerSSHPort returns the port the controller SSH jump server listens on.
 func (f *Facade) ControllerSSHPort(ctx context.Context) (params.SSHControllerSSHPortResult, error) {
-	port, err := f.controllerConfigService.GetSSHServerPort(ctx)
+	port, err := f.controllerSSHService.GetSSHServerPort(ctx)
 	if err != nil {
 		return params.SSHControllerSSHPortResult{}, errors.Errorf("getting controller SSH server port: %w", err)
 	}
@@ -129,7 +126,7 @@ func (f *Facade) ControllerSSHPort(ctx context.Context) (params.SSHControllerSSH
 // reverse-dialling the controller. The public key is derived once at bootstrap
 // and stored in state, so the facade never handles private key material.
 func (f *Facade) ControllerPublicKey(ctx context.Context) (params.SSHControllerPublicKeyResult, error) {
-	publicKey, err := f.controllerSSHHostKeyService.SSHServerHostPublicKey(ctx)
+	publicKey, err := f.controllerSSHService.SSHServerHostPublicKey(ctx)
 	if err != nil {
 		return params.SSHControllerPublicKeyResult{}, errors.Errorf("getting controller SSH host public key: %w", err)
 	}

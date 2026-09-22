@@ -33,7 +33,6 @@ func makeFacade(ctx facade.ModelContext) (*Facade, error) {
 	return newFacade(
 		authorizer,
 		domainServices.SSH(),
-		domainServices.ControllerConfig(),
 		domainServices.SSHServerHostKey(),
 		ctx.WatcherRegistry(),
 	), nil

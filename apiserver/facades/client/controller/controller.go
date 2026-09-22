@@ -216,6 +216,22 @@ func (c *ControllerAPI) SSHServerHostKey(ctx context.Context) (params.SSHControl
 	}, nil
 }
 
+// SSHServerPort returns the port the controller's embedded SSH jump server
+// listens on. Clients read this rather than controller config because the port
+// is owned by the controller charm and pushed to the SSH domain at runtime, so
+// controller config may hold a stale value.
+func (c *ControllerAPI) SSHServerPort(ctx context.Context) (params.SSHControllerSSHPortResult, error) {
+	port, err := c.controllerSSHService.GetSSHServerPort(ctx)
+	if err != nil {
+		return params.SSHControllerSSHPortResult{
+			Error: apiservererrors.ServerError(err),
+		}, nil
+	}
+	return params.SSHControllerSSHPortResult{
+		Port: port,
+	}, nil
+}
+
 // IdentityProviderURL returns the URL of the configured external identity
 // provider for this controller or an empty string if no external identity
 // provider has been configured when the controller was bootstrapped.

@@ -8068,6 +8068,14 @@
                         }
                     }
                 },
+                "SSHServerPort": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/SSHControllerSSHPortResult"
+                        }
+                    }
+                },
                 "WatchAllModelSummaries": {
                     "type": "object",
                     "properties": {
@@ -8931,6 +8939,21 @@
                     "additionalProperties": false,
                     "required": [
                         "public-key"
+                    ]
+                },
+                "SSHControllerSSHPortResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "port": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "port"
                     ]
                 },
                 "StringResult": {

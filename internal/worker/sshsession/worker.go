@@ -150,13 +150,11 @@ func (w *sshSessionWorker) Wait() error {
 // machine.
 func (w *sshSessionWorker) loop() error {
 	ctx := w.catacomb.Context(context.Background())
-	// Fetch the controller SSH port and host public key once. These are stable
-	// per controller HA identity, and are used to reverse-dial and pin the host
-	// key for every connection request this worker handles.
-	controllerSSHPort, err := w.config.FacadeClient.ControllerSSHPort(ctx)
-	if err != nil {
-		return errors.Errorf("getting controller SSH port: %w", err)
-	}
+	// Fetch the controller host public key once: it is derived at bootstrap and
+	// stable for the controller's lifetime. The SSH server port is NOT fetched
+	// here because the controller charm can change it at runtime; it is read
+	// per connection in handleConnectionInternal so a port change is picked up
+	// without restarting this worker.
 	marshalledHostKey, err := w.config.FacadeClient.ControllerPublicKey(ctx)
 	if err != nil {
 		return errors.Errorf("getting controller public key: %w", err)
@@ -186,7 +184,7 @@ func (w *sshSessionWorker) loop() error {
 				return errors.Errorf("SSH connection request watcher closed")
 			}
 			for _, tunnelID := range changes {
-				w.handleConnection(ctx, tunnelID, controllerSSHPort, controllerHostPublicKey)
+				w.handleConnection(ctx, tunnelID, controllerHostPublicKey)
 			}
 		}
 	}
@@ -196,9 +194,9 @@ func (w *sshSessionWorker) loop() error {
 // goroutine. The handler uses the worker-scoped context, so it is cancelled
 // when the worker is dying, and is tracked by the worker's WaitGroup so it
 // drains on shutdown. A single failed request must not bring down the worker.
-func (w *sshSessionWorker) handleConnection(ctx context.Context, tunnelID string, controllerSSHPort int, controllerHostPublicKey gossh.PublicKey) {
+func (w *sshSessionWorker) handleConnection(ctx context.Context, tunnelID string, controllerHostPublicKey gossh.PublicKey) {
 	w.wg.Go(func() {
-		if err := w.handleConnectionInternal(ctx, tunnelID, controllerSSHPort, controllerHostPublicKey); err != nil {
+		if err := w.handleConnectionInternal(ctx, tunnelID, controllerHostPublicKey); err != nil {
 			w.config.Logger.Errorf(ctx, "failed to handle SSH connection request %q: %v", tunnelID, err)
 		}
 	})
@@ -206,10 +204,18 @@ func (w *sshSessionWorker) handleConnection(ctx context.Context, tunnelID string
 
 // handleConnectionInternal reads the request and, if it targets this machine,
 // establishes the reverse tunnel.
-func (w *sshSessionWorker) handleConnectionInternal(ctx context.Context, tunnelID string, controllerSSHPort int, controllerHostPublicKey gossh.PublicKey) error {
+func (w *sshSessionWorker) handleConnectionInternal(ctx context.Context, tunnelID string, controllerHostPublicKey gossh.PublicKey) error {
 	req, err := w.config.FacadeClient.GetSSHConnRequest(ctx, tunnelID)
 	if err != nil {
 		return errors.Errorf("getting SSH connection request %q: %w", tunnelID, err)
+	}
+
+	// Read the controller SSH server port for each connection: the controller
+	// charm can change it at runtime, so a value cached at worker start could be
+	// stale and cause the reverse-dial to hit a closed port.
+	controllerSSHPort, err := w.config.FacadeClient.ControllerSSHPort(ctx)
+	if err != nil {
+		return errors.Errorf("getting controller SSH port for request %q: %w", tunnelID, err)
 	}
 
 	if len(req.ControllerAddresses) == 0 {
