@@ -997,11 +997,21 @@ func (st *State) replaceStaleConsumerProxyApplication(args AddRemoteApplicationP
 	for _, rel := range rels {
 		buildTxn := func(attempt int) ([]txn.Op, error) {
 			current := rel
+			proxy := existingRemoteApp
 			if attempt > 0 {
+				var err error
+				proxy, err = st.RemoteApplication(args.Name)
+				if errors.IsNotFound(err) {
+					return nil, jujutxn.ErrNoOperations
+				} else if err != nil {
+					return nil, errors.Trace(err)
+				}
+				if proxy.Life() != Alive || proxy.ConsumeVersion() != replacedVersion {
+					return nil, errors.AlreadyExistsf("saas application %q", args.Name)
+				}
 				// The relation is asserted to be Alive; a concurrent
 				// destroy may have made it Dying (or removed it) since it
 				// was read above.
-				var err error
 				current, err = st.Relation(rel.Id())
 				if errors.IsNotFound(err) {
 					return nil, jujutxn.ErrNoOperations
@@ -1009,7 +1019,17 @@ func (st *State) replaceStaleConsumerProxyApplication(args AddRemoteApplicationP
 					return nil, errors.Trace(err)
 				}
 			}
-			return forceTeardownCleanupOps(current), nil
+			// Fence only relations belonging to the proxy we read. A
+			// newer consume may have replaced it and reused relation keys.
+			return append(forceTeardownCleanupOps(current), txn.Op{
+				C:  remoteApplicationsC,
+				Id: proxy.doc.DocID,
+				Assert: bson.D{
+					{"life", Alive},
+					{"version", replacedVersion},
+					{"txn-revno", proxy.doc.TxnRevno},
+				},
+			}), nil
 		}
 		if err := st.db().Run(buildTxn); err != nil {
 			if err == jujutxn.ErrNoOperations {

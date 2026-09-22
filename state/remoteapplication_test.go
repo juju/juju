@@ -389,6 +389,75 @@ func (s *remoteApplicationSuite) TestReplaceStaleProxyDoesNotResurrectDying(c *g
 	c.Assert(got.ConsumeVersion(), gc.Equals, 666)
 }
 
+func (s *remoteApplicationSuite) TestReplaceStaleProxyDoesNotFenceNewerRelation(c *gc.C) {
+	args := state.AddRemoteApplicationParams{
+		Name:            "hosted-mysql",
+		SourceModel:     s.Model.ModelTag(),
+		Token:           "token-v1",
+		IsConsumerProxy: true,
+		ConsumeVersion:  1,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	}
+	app, err := s.State.AddRemoteApplication(args)
+	c.Assert(err, jc.ErrorIsNil)
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	localEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	remoteEP, err := app.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	oldRelation, err := s.State.AddRelation(localEP, remoteEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var newRelation *state.Relation
+	var relationUnit *state.RelationUnit
+	defer state.SetBeforeHooks(c, s.State, func() {
+		// A newer consume wins before the older request fences its
+		// relations. Its new relation reuses the old relation's key.
+		newer := args
+		newer.ConsumeVersion = 3
+		newer.Token = "token-v3"
+		replacement, err := s.State.AddRemoteApplication(newer)
+		c.Assert(err, jc.ErrorIsNil)
+		ep, err := replacement.Endpoint("db")
+		c.Assert(err, jc.ErrorIsNil)
+		newRelation, err = s.State.AddRelation(localEP, ep)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(newRelation.String(), gc.Equals, oldRelation.String())
+		c.Check(newRelation.Id(), gc.Not(gc.Equals), oldRelation.Id())
+		relationUnit, err = newRelation.Unit(unit)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(relationUnit.EnterScope(nil), jc.ErrorIsNil)
+	}).Check()
+	args.ConsumeVersion = 2
+	args.Token = "token-v2"
+	_, err = s.State.AddRemoteApplication(args)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
+
+	// The losing request must not damage the winning proxy or relation,
+	// including when queued cleanup work runs afterwards.
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	current, err := s.State.RemoteApplication(args.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(current.ConsumeVersion(), gc.Equals, 3)
+	c.Check(current.RelationCount(), gc.Equals, 1)
+	token, err := s.State.RemoteEntities().GetToken(current.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(token, gc.Equals, "token-v3")
+	c.Assert(newRelation.Refresh(), jc.ErrorIsNil)
+	c.Check(newRelation.Life(), gc.Equals, state.Alive)
+	inScope, err := relationUnit.InScope()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(inScope, jc.IsTrue)
+}
+
 func (s *remoteApplicationSuite) TestReplaceStaleProxyRoundTripsFields(c *gc.C) {
 	mkSpace := func(name string) *environs.ProviderSpaceInfo {
 		return &environs.ProviderSpaceInfo{
