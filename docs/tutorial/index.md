@@ -71,21 +71,13 @@ At any point:
 
 ## Set up Juju
 
-```{figure} tutorial-setup.svg
-   :figclass: only-light
-   :align: center
-   :alt: Juju consists of a client and a controller and needs access to a cloud and to Charmhub
-
-   _Juju consists of at least a client and a controller, and needs access to a cloud (anything that can provide compute, networking, and storage) and to Charmhub (the charm store; otherwise, a local source of charms)._
+```{ggarch}
+:file: ../juju.ggarch
+:view: Intro: Juju enters
+:alt: A user operates a client which talks to the controller; the controller talks to clouds above it and to Charmhub below it. Arrows name what each connection does.
 ```
+_Juju consists of at least a client and a controller, and needs access to a cloud (anything that can provide compute, networking, and storage) and to Charmhub (the charm store; otherwise, a local source of charms). The arrows name what each connection actually carries -- the same picture the rest of this tutorial walks through._
 
-```{figure} tutorial-setup.dark.svg
-   :figclass: only-dark
-   :align: center
-   :alt: Juju consists of a client and a controller and needs access to a cloud and to Charmhub
-
-   _Juju consists of at least a client and a controller, and needs access to a cloud (anything that can provide compute, networking, and storage) and to Charmhub (the charm store; otherwise, a local source of charms)._
-```
 
 The way Juju works is that you use a client to talk to a controller; the controller talks to a cloud to provision infrastructure and to [Charmhub](https://charmhub.io/) (or a local source for charms) to get charms to deploy, configure, integrate, scale, upgrade, etc., applications on that infrastructure; and the controller itself must live on a cloud resource, so before you do any of that you must use the client to talk to a cloud and Charmhub to bootstrap the controller into the cloud. Let's prepare all those pieces and make sure your Juju is good to go!
 
@@ -267,21 +259,12 @@ At this point you could add further users and control their permissions. However
 
 ## Provision infrastructure and operate applications
 
-```{figure} tutorial-provision-deploy.svg
-   :figclass: only-light
-   :align: center
-   :alt: A user uses the client to talk to the controller to talk to the cloud and to Charmhub to provision infrastructure and to deploy and operate charmed applications.
-
-   _A user interacts with the client to reach the controller. The controller talks to the cloud and to Charmhub to provision infrastructure and to deploy charms. Next to a deployed charm there is always a Juju agent which periodically checks its internal state against the Juju controller and executes the deployed charm accordingly to install, configure, and otherwise manage applications._
+```{ggarch}
+:file: ../juju.ggarch
+:view: Juju overview
+:alt: The controller as the hub: user and client to its left, agents and charmed applications to its right, clouds above, Charmhub below. Arrows name what each connection does.
 ```
-
-```{figure} tutorial-provision-deploy.dark.svg
-   :figclass: only-dark
-   :align: center
-   :alt: A user uses the client to talk to the controller to talk to the cloud and to Charmhub to provision infrastructure and to deploy and operate charmed applications.
-
-   _A user interacts with the client to reach the controller. The controller talks to the cloud and to Charmhub to provision infrastructure and to deploy charms. Next to a deployed charm there is always a Juju agent which periodically checks its internal state against the Juju controller and executes the deployed charm accordingly to install, configure, and otherwise manage applications._
-```
+_A user interacts with the client to reach the controller. The controller talks to the cloud to provision infrastructure and to Charmhub to deploy charms. Next to a deployed charm there is always a Juju agent which periodically checks its internal state against the Juju controller and executes the deployed charm accordingly to install, configure, and otherwise manage applications._
 
 Anything you provision or deploy and operate with a Juju controller goes onto a workspace called a 'model'. Let's create the model that will hold our chat applications:
 

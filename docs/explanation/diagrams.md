@@ -354,3 +354,35 @@ The authored original (both of the above derive from it):
 :caption: Model destruction is coordinated by the Undertaker, a worker that runs inside the controller agent. The controller never deletes its own database — the Undertaker does, as the final act after all cloud resources have been released.
 :alt: User calls juju destroy-model. Controller marks model Dying and fires watcher to Undertaker. Undertaker destroys all applications. Controller releases all machines and marks model Dead. Undertaker deletes model records and Dqlite database.
 ```
+
+## Where each view is embedded (round 1 of the docs push)
+
+Every diagram above is duplicated here; the list below maps the views
+to the doc pages that now embed them, so the effects of ggarch
+updates are inspectable from this one page.
+
+| View / sequence | Embedded in |
+|---|---|
+| Intro: the problem | explanation/juju-architecture.md |
+| Intro: Juju enters | explanation/juju-architecture.md; **tutorial/index.md** (replaces tutorial-setup excalidraw) |
+| Intro: Juju unpacked | explanation/juju-architecture.md |
+| Juju overview | explanation/architecture.md; **tutorial/index.md** (replaces tutorial-provision-deploy) |
+| K8s deployment topology | explanation/architecture.md; **reference/containeragent.md**, **reference/jujuc.md**, **reference/pebble.md** |
+| Data model | explanation/architecture.md |
+| Data model (full spine) | **reference/database.md** |
+| Worker tree (machine cloud) | **reference/jujud.md** |
+| Worker tree (controller) | **reference/controller.md** |
+| Cross-model relation (CMR) | **reference/offer.md** |
+| HA controller: Dqlite replicaset | **reference/database.md**, **reference/high-availability.md**, **howto/manage-the-databases.md** |
+| Uniter operation (state machine) | **reference/hook.md** |
+| Hook execution | explanation/architecture.md |
+| Bootstrap K8s / Bootstrap machine / Deploy K8s / Deploy machine / Integrate | explanation/architecture.md |
+| Unit removal | explanation/architecture.md; **reference/removing-things.md** |
+| Model removal | explanation/architecture.md; **reference/removing-things.md** |
+| juju status | this catalogue |
+
+Pages still on hand-drawn visuals, pending round-2 views:
+**tutorial/index.md** (auth figure — needs the new auth sequence,
+round 3), reference/relation.md (relation taxonomy + databags
+excalidraws), reference/hook.md (hook-charm-lifecycle PNG — the
+Uniter operation machine above now covers its execution story).
