@@ -11,6 +11,15 @@ In Juju, **status** can describe the status of an application or a unit, where t
 
 ## Types of status
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Status domains
+:no-legend:
+:caption: Who sets each status domain: the unit agent sets its own status (the controller derives allocating and lost); the charm sets the workload status via status-set; the leader unit sets the application status via status-set --application, else Juju computes it from the unit statuses; the machine agent sets the machine status. Transitions are free-form enumerations except relation and storage (enforced machines).
+:alt: Actor nodes pointing at the status domains they set: charm to workload status, unit agent to unit agent status, machine agent to machine status, controller to relation status.
+```
+
+
 (application-status)=
 ### Application status
 

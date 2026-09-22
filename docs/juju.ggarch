@@ -82,6 +82,15 @@ model "Juju" {
           records: "application_rec"]
     application [type: charm, label: "Charmed application",
                  records: "application_rec"]   // the collective's base kind
+    // -----------------------------------------------------------------------
+    // Status domains — reference/status.md (values verbatim from
+    // core/status/status.go + domain/status/status.go enums)
+    // -----------------------------------------------------------------------
+    uas_status      [type: juju-software, label: "Unit agent status\n(allocating, executing, idle,\nerror, failed, rebooting)"]
+    workload_status [type: juju-software, label: "Workload status\n(active, maintenance, waiting,\nblocked, error, unknown, terminated)"]
+    app_status      [type: juju-software, label: "Application status\n(leader sets; else computed\nfrom unit statuses)"]
+    machine_status  [type: juju-software, label: "Machine status\n(pending, started, stopping,\nstopped, down, error)"]
+    relation_status [type: juju-software, label: "Relation status\n(joining, joined, broken,\nsuspending, suspended, error)"]
 
     // -----------------------------------------------------------------------
     // Hook execution participants
@@ -102,6 +111,12 @@ model "Juju" {
          records: "unit_rec"]
     ua2 [type: juju-software, label: "Unit agent (app B)",
          records: "unit_rec"]
+    // -----------------------------------------------------------------------
+    // Secret lifecycle — actors
+    // -----------------------------------------------------------------------
+    observer_charm [type: charm, label: "Observer charm\n(secret consumer)"]
+    secret_backend [type: external, label: "Secret content backend\n(juju database, Kubernetes, Vault)"]
+
 
     // Remove — undertaker worker
     // -----------------------------------------------------------------------
@@ -209,6 +224,12 @@ model "Juju" {
     uop_executing  [type: juju-software, label: "executing"]
     uop_committing [type: juju-software, label: "committing"]
     uop_error      [type: juju-software, label: "error"]
+    sec_reserved  [type: juju-software, label: "reserved"]
+    sec_active    [type: juju-software, label: "active (latest revision)"]
+    sec_rotate    [type: juju-software, label: "rotate due"]
+    sec_expired   [type: juju-software, label: "expiry due"]
+    sec_obsolete  [type: juju-software, label: "obsolete (pending delete)"]
+    sec_removed   [type: juju-software, label: "removed"]
 
     // -----------------------------------------------------------------------
     // Intro-view archetypes — real types rendered as N labelled instances
@@ -410,6 +431,12 @@ model "Juju" {
     uop_executing  -> uop_committing [type: control]
     uop_executing  -> uop_error      [type: control]
     uop_error      -> uop_idle      [type: control]
+    sec_reserved   -> sec_active        [type: control]
+    sec_active     -> sec_rotate        [type: control]
+    sec_rotate     -> sec_active        [type: control]
+    sec_active     -> sec_expired       [type: control]
+    sec_expired    -> sec_removed       [type: control]
+    sec_active     -> sec_removed       [type: control]
     uop_committing -> uop_idle       [type: control]
   }
 
@@ -553,6 +580,43 @@ model "Juju" {
       uop_error       -> uop_idle:      return "retry / escalate" [on: "retry"]
       uop_committing  -> uop_idle:      return "commit state"     [on: "write complete"]
     }
+
+behaviour "Secret lifecycle" {
+      sec_reserved  -> sec_active:        call "create"               [on: "secret-add | add-secret"]
+      sec_active    -> sec_active:        self "grant / revoke"       [on: "secret-grant | grant-secret"]
+      sec_active    -> sec_active:        self "publish new revision" [on: "secret-set | update-secret"]
+      sec_active    -> sec_rotate:    async "rotate due"          [guard: "rotate policy"]
+      sec_rotate -> sec_active:       call "new revision"         [on: "secret-rotate (leader)"]
+      sec_active    -> sec_expired:       async "expiry due"          [guard: "revision expiry"]
+      sec_expired   -> sec_removed:       call "retire revision"      [on: "secret-expired -> secret-remove"]
+      sec_active    -> sec_removed:      async "no consumer tracks it" [on: "revision superseded"]
+      sec_active -> sec_removed:       call "prune"                [on: "secret-remove | auto-prune"]
+      sec_active    -> sec_active:        self "notify consumers"     [on: "secret-changed"]
+    }
+
+    behaviour "Action run flow" {
+      user        -> client:     call "juju run <action> key=v"
+      client      -> controller: call "enqueue operation"
+      controller  -> controller: self "operation + per-unit tasks (pending)"
+      controller  -> unit_agent: async "watcher fires"
+      unit_agent  -> unit_agent: self "resolve next action"
+      unit_agent  -> controller: call "start task (pending -> running)"
+      unit_agent  -> charm:      call "run action (dispatch)"
+      loop "during action" {
+        charm     -> unit_agent: call "action-get / action-set / action-fail / action-log"
+      }
+      alt "cancel-task" {
+        controller -> unit_agent: async "aborting"
+        unit_agent -> unit_agent: self "kill charm process"
+        charm      -> unit_agent: return "aborted"
+      } else "runs to completion" {
+        charm      -> unit_agent: return "results (return-code, stdout, stderr)"
+      }
+      unit_agent  -> controller: call "finish task (completed | failed | aborted; results to object store)"
+      client      -> controller: call "poll results (GetActionResult)"
+      controller  -> client:     return "results"
+    }
+
   }
 
   style {
@@ -901,6 +965,14 @@ sequence "juju status" from "Juju" {
   select { behaviour: "juju status" }
 }
 
+sequence "Action run flow" from "Juju" {
+  select { behaviour: "Action run flow" }
+}
+
+state "Secret lifecycle" from "Juju" {
+  select { behaviour: "Secret lifecycle" }
+}
+
 state "Uniter operation" from "Juju" {
   select { behaviour: "Uniter operation" }
 }
@@ -1191,6 +1263,24 @@ diagram "Tutorial: provision & deploy" from "Juju" {
   }
 }
 
+// --------------------------------------------------------------------------
+// Reference: the status domains — who sets what (docs/reference/status.md)
+// --------------------------------------------------------------------------
+diagram "Status domains" from "Juju" {
+  select {
+    nodes: charm unit_agent machine_agent controller uas_status workload_status app_status machine_status relation_status
+    edges: type control type stream
+    sizing: uniform
+  }
+  positions {
+    charm        left-of workload_status   gap: 30
+    workload_status above controller       gap: 60
+    controller   left-of machine_status    gap: 30
+    machine_agent right-of machine_status  gap: 30
+    unit_agent   left-of uas_status        gap: 30
+  }
+}
+
 // ==== HAND-MAINTAINED below — edit freely; `make variants` regenerates everything above ====
 
 // ==== GENERATED BELOW — synthesized variants of the
@@ -1465,6 +1555,15 @@ diagram "Tutorial: provision & deploy" from "Juju" {
     edges: type control type api type stream
     labels: hidden
     zoom: 1.3
+    sizing: uniform
+  }
+}
+
+// --------------------------------------------------------------------------
+diagram "Status domains (synthesized)" from "Juju" {
+  select {
+    nodes: charm unit_agent machine_agent controller uas_status workload_status app_status machine_status relation_status
+    edges: type control type stream
     sizing: uniform
   }
 }

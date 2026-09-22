@@ -391,6 +391,38 @@ applications. Each step is a scoped view over the same model.
 :alt: The user sends commands through the client to the controller; the controller provisions on clouds and fetches charms from Charmhub; the charmed applications record their state on the controller.
 ```
 
+## Reference: mechanisms (round 3 — grounded new views)
+
+### Secret lifecycle (state machine)
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Secret lifecycle
+:no-legend:
+:caption: The life of a secret, grounded in domain/secret: reserved (URI minted) -> active (latest revision, content in a backend) -> granted (view | manage roles) -> superseded; a rotate policy fires secret-rotate (leader), expiry fires secret-expired; a revision no consumer tracks becomes obsolete (pending delete) and the owner charm retires it via secret-remove (or user secrets auto-prune). Consumers see secret-changed.
+:alt: State machine: reserved to active on create, active self-loops for grant/revoke and new-revision publication, active to rotate-due on the rotate policy and back via secret-rotate, active to expiry-due and on to removed via secret-expired then secret-remove, active to obsolete when superseded, obsolete to removed on prune.
+```
+
+### Action run flow (sequence)
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Action run flow
+:no-legend:
+:caption: juju run enqueues an operation; the controller records per-unit tasks (pending) and the unit agent's watcher resolves them; the task runs via the charm's dispatch script (action-get/set/fail/log during execution), and finishing stores results in the object store. juju cancel-task moves a running task to aborting; the process is killed and the task reports aborted.
+:alt: User calls juju run; client enqueues the operation on the controller; controller records operation and per-unit tasks pending; controller notifies unit agent; agent resolves and starts the task (running); agent runs the charm action with jujuc action commands; on cancel the agent aborts; otherwise results stream back and the task completes.
+```
+
+### Status domains (who sets what)
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Status domains
+:no-legend:
+:caption: Who sets each status domain: the unit agent sets its own status (the controller derives allocating and lost); the charm sets the workload status via status-set; the leader unit sets the application status via status-set --application, else Juju computes it from the unit statuses; the machine agent sets the machine status. Transitions are free-form enumerations except relation and storage (enforced machines).
+:alt: Actor nodes pointing at the status domains they set: charm to workload status, unit agent to unit agent status, machine agent to machine status, controller to relation status.
+```
+
 ## Where each view is embedded (round 1 of the docs push)
 
 Every diagram above is duplicated here; the list below maps the views

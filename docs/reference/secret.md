@@ -200,6 +200,14 @@ An entity -- unit/app or user -- that has created / owns the secret can **manage
 
 An entity that does not own the secret can only **view** it (call `secret-get`), and only if it has been granted access to it -- except for peer units or a model admin user, who get view access automatically.
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Secret lifecycle
+:no-legend:
+:caption: The life of a secret, grounded in domain/secret: reserved (URI minted) -> active (latest revision, content in a backend) -> granted (view | manage roles) -> superseded; a rotate policy fires secret-rotate (leader), expiry fires secret-expired; a revision no consumer tracks becomes obsolete (pending delete) and the owner charm retires it via secret-remove (or user secrets auto-prune). Consumers see secret-changed.
+:alt: State machine: reserved to active on create, active self-loops for grant/revoke and new-revision publication, active to rotate-due on the rotate policy and back via secret-rotate, active to expiry-due and on to removed via secret-expired then secret-remove, active to obsolete when superseded, obsolete to removed on prune.
+```
+
 ## Secret lifecycle
 
 ### Charm-secret lifecycle
