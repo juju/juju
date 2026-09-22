@@ -517,31 +517,31 @@ model "Juju" {
     // (related_unit_watcher.go:InitialWatchRelatedUnits) — every unit
     // reads every bag, the application databag included, leader or
     // not.
-    a_ua_leader -> a_unit_bags  [type: read_write, label: "reads + writes (own)",
+    a_ua_leader -> a_unit_bags  [type: read_write, label: "reads + writes",
                           ground: "model:relation_unit_setting"]
-    a_ua_unit   -> a_unit_bags  [type: read_write, label: "reads + writes (own)",
+    a_ua_unit   -> a_unit_bags  [type: read_write, label: "reads + writes",
                           ground: "model:relation_unit_setting"]
-    a_ua_leader -> a_app_bag    [type: read_write, label: "reads + writes (leader)",
+    a_ua_leader -> a_app_bag    [type: read_write, label: "reads + writes",
                           ground: "model:relation_application_setting"]
     a_ua_unit   -> b_app_bag    [type: read_only, label: "reads",
                           ground: "domain/relation/service/relation.go:GetRelationApplicationSettings"]
     a_ua_unit   -> b_unit_bags  [type: read_only, label: "reads",
                           ground: "model:relation_unit_setting"]
-    b_units     -> b_unit_bags  [type: read_write, label: "reads + writes (own)",
+    b_units     -> b_unit_bags  [type: read_write, label: "reads + writes",
                           ground: "model:relation_unit_setting"]
-    b_units     -> b_app_bag    [type: read_write, label: "reads + writes (leader)",
+    b_units     -> b_app_bag    [type: read_write, label: "reads + writes",
                           ground: "model:relation_application_setting"]
     b_units     -> a_app_bag    [type: read_only, label: "reads",
                           ground: "domain/relation/service/relation.go:GetRelationApplicationSettings"]
     b_units     -> a_unit_bags  [type: read_only, label: "reads",
                           ground: "model:relation_unit_setting"]
-    c_ua_leader -> c_bag_leader [type: read_write, label: "reads + writes (own)",
+    c_ua_leader -> c_bag_leader [type: read_write, label: "reads + writes",
                           ground: "model:relation_unit_setting"]
-    c_ua_unit   -> c_bag_unit   [type: read_write, label: "reads + writes (own)",
+    c_ua_unit   -> c_bag_unit   [type: read_write, label: "reads + writes",
                           ground: "model:relation_unit_setting"]
-    c_ua_leader -> c_app_bag    [type: read_write, label: "reads + writes (leader)",
+    c_ua_leader -> c_app_bag    [type: read_write, label: "reads + writes",
                           ground: "model:relation_application_setting"]
-    c_ua_unit   -> c_app_bag    [type: read_only, label: "reads (peer)",
+    c_ua_unit   -> c_app_bag    [type: read_only, label: "reads",
                           ground: "domain/relation/state/related_unit_watcher.go:InitialWatchRelatedUnits"]
 
     // Charm origin (0015-charm.sql + 0019-application.sql)
