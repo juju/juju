@@ -327,6 +327,35 @@ func (s *comparisonSuite) TestIDLinkNoIDLink(c *tc.C) {
 	c.Assert(idLink, tc.Equals, "")
 }
 
+func (s *comparisonSuite) TestAttachmentLocationWithIDLink(c *tc.C) {
+	devLinks := []string{
+		"/dev/disk/by-path/pci-0000:04:00.0-nvme-1-part2",
+		"/dev/disk/by-id/nvme-eui.000000000000000000bbbbbbbbbbbbbb-part2",
+	}
+	loc := AttachmentLocation(devLinks, "sdb")
+	c.Assert(loc, tc.Equals,
+		"/dev/disk/by-id/nvme-eui.000000000000000000bbbbbbbbbbbbbb-part2")
+}
+
+func (s *comparisonSuite) TestAttachmentLocationWithDeviceNameOnly(c *tc.C) {
+	loc := AttachmentLocation(nil, "loop0")
+	c.Assert(loc, tc.Equals, "/dev/loop0")
+}
+
+func (s *comparisonSuite) TestAttachmentLocationWithTransientLinksAndDeviceName(c *tc.C) {
+	devLinks := []string{
+		"/dev/disk/by-path/pci-0000:04:00.0-nvme-1-part2",
+		"/dev/disk/by-uuid/5af9dc70-4af6-4885-afea-008002e622d2",
+	}
+	loc := AttachmentLocation(devLinks, "sda")
+	c.Assert(loc, tc.Equals, "/dev/sda")
+}
+
+func (s *comparisonSuite) TestAttachmentLocationEmpty(c *tc.C) {
+	loc := AttachmentLocation(nil, "")
+	c.Assert(loc, tc.Equals, "")
+}
+
 func (s *comparisonSuite) TestSameDeviceByDevLinkAzure(c *tc.C) {
 	left := blockdevice.BlockDevice{
 		DeviceLinks: []string{
