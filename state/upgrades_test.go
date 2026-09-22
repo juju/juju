@@ -1370,6 +1370,70 @@ func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsDyingRemoteApp(c *
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsMissingControllerRefcount(c *gc.C) {
+	s.testRemoveOrphanedApplicationRelationsMissingControllerRefcount(c, true)
+}
+
+func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsMissingControllerRefcountNotOrphaned(c *gc.C) {
+	s.testRemoveOrphanedApplicationRelationsMissingControllerRefcount(c, false)
+}
+
+func (s *upgradesSuite) testRemoveOrphanedApplicationRelationsMissingControllerRefcount(c *gc.C, orphaned bool) {
+	controllerUUID := utils.MustNewUUID().String()
+	rel, _ := s.mkRemoteRelationWithUnit(c, "remote-dying", func(params *AddRemoteApplicationParams) {
+		params.ExternalControllerUUID = controllerUUID
+	})
+
+	// A dying remote application has one remaining relation, but the
+	// external controller's reference count document is missing.
+	apps, appsCloser, err := s.state.db().GetRawCollection(remoteApplicationsC)
+	c.Assert(err, jc.ErrorIsNil)
+	defer appsCloser()
+	err = apps.UpdateId(s.state.docID("remote-dying"), bson.M{"$set": bson.M{"life": Dying}})
+	c.Assert(err, jc.ErrorIsNil)
+	if orphaned {
+		s.corruptEndpointAppName(c, rel, "mysql", "missing-app")
+	}
+	refcounts, refcountsCloser, err := s.state.db().GetRawCollection(globalRefcountsC)
+	c.Assert(err, jc.ErrorIsNil)
+	defer refcountsCloser()
+	err = refcounts.RemoveId(externalControllerRefCountKey(controllerUUID))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Another orphaned relation can still be repaired in the same model.
+	otherApp := s.makeRemoteApplication(c, "remote-other")
+	otherRel, _ := s.mkRel(c, AddTestingCharm(c, s.state, "wordpress"), "wordpress", otherApp)
+	s.corruptEndpointAppName(c, otherRel, "wordpress", "missing-other-app")
+
+	prefix := s.relPrefix(rel)
+	scopes := s.countDocs(c, relationScopesC, prefix)
+	settings := s.countDocs(c, settingsC, prefix)
+	for i := 0; i < 2; i++ {
+		c.Assert(RemoveOrphanedApplicationRelations(s.pool), jc.ErrorIsNil)
+
+		// Leave the failed relation, its application, and child documents
+		// intact for manual repair, including on a repeated upgrade run.
+		c.Assert(rel.Refresh(), jc.ErrorIsNil)
+		c.Check(rel.Life(), gc.Equals, Alive)
+		app, err := s.state.RemoteApplication("remote-dying")
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(app.Life(), gc.Equals, Dying)
+		c.Check(app.doc.RelationCount, gc.Equals, 1)
+		c.Check(s.countDocs(c, relationScopesC, prefix), gc.Equals, scopes)
+		c.Check(s.countDocs(c, settingsC, prefix), gc.Equals, settings)
+
+		_, err = s.state.Relation(otherRel.Id())
+		c.Check(err, jc.Satisfies, errors.IsNotFound)
+		c.Assert(otherApp.Refresh(), jc.ErrorIsNil)
+		c.Check(otherApp.doc.RelationCount, gc.Equals, 0)
+	}
+	if orphaned {
+		c.Check(c.GetTestLog(), jc.Contains, "manual repair required")
+	} else {
+		c.Check(c.GetTestLog(), gc.Not(jc.Contains), "manual repair required")
+	}
+}
+
 func (s *upgradesSuite) TestRemoveOrphanedApplicationRelationsConsumerProxyLastRelation(c *gc.C) {
 	rel, _ := s.mkRemoteRelation(c, "remote-proxy", withConsumerProxy)
 
