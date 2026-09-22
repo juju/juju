@@ -27,7 +27,7 @@ import (
 // args.NoDownload is kept for client compatibility only. Its old
 // semantics, keeping the archive on the controller instead of
 // downloading it, no longer exist: the archive is always staged for
-// download and removed once its retention window lapses. A request
+// download and removed once it has been fully served. A request
 // that sets the flag fails loudly rather than silently discarding the
 // archive, which is what a silent success would amount to.
 //
@@ -51,7 +51,7 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	// semantics no longer exist, so accepting the request would
 	// silently discard the archive. Fail loudly instead.
 	if args.NoDownload {
-		return params.BackupsMetadataResult{}, errors.Errorf("--no-download is no longer supported; the archive is always downloaded")
+		return params.BackupsMetadataResult{}, errors.Errorf("keeping archives on the controller is no longer supported; the archive is always downloaded")
 	}
 
 	// The backup destination is resolved first because the database dumps
@@ -198,10 +198,9 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 
 	// The archive is staged for download under a server-minted UUID in
 	// the one-shot download directory and the id handed to the client.
-	// The archive stays staged after the transfer: the client verifies
-	// the received bytes against the recorded checksum and may need to
-	// fetch it again, so only the sweeper removes it, once its
-	// retention window ends.
+	// The download endpoint removes the archive once it has been fully
+	// served; a partial transfer leaves it staged so the client can
+	// retry.
 	//
 	// result.ID carries this server-minted download identifier: backup
 	// metadata has no persistent database id here, so the one-shot

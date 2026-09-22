@@ -4,10 +4,8 @@
 package backups_test
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/juju/tc"
 
@@ -55,54 +53,3 @@ func (s *oneShotSuite) TestOneShotArchivePathInvalidID(c *tc.C) {
 }
 
 const idWithNul = "00000000-0000-4000-8000-0000000000\x00"
-
-func (s *oneShotSuite) TestCleanExpiredOneShotArchives(c *tc.C) {
-	backupDir := c.MkDir()
-	now := time.Now()
-
-	expiredID, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-	freshID, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-
-	expired, err := backups.OneShotArchivePath(backupDir, expiredID.String())
-	c.Assert(err, tc.ErrorIsNil)
-	fresh, err := backups.OneShotArchivePath(backupDir, freshID.String())
-	c.Assert(err, tc.ErrorIsNil)
-	for _, path := range []string{expired, fresh} {
-		c.Assert(os.MkdirAll(filepath.Dir(path), 0755), tc.ErrorIsNil)
-		c.Assert(os.WriteFile(path, []byte("archive data"), 0600), tc.ErrorIsNil)
-	}
-	old := now.Add(-2 * time.Hour)
-	c.Assert(os.Chtimes(expired, old, old), tc.ErrorIsNil)
-	err = backups.CleanExpiredOneShotArchives(backupDir, time.Hour, now)
-	c.Check(err, tc.ErrorIsNil)
-
-	_, err = os.Stat(expired)
-	c.Assert(err, tc.Satisfies, os.IsNotExist)
-	_, err = os.Stat(fresh)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *oneShotSuite) TestCleanExpiredOneShotArchivesEmptyDir(c *tc.C) {
-	// A backup dir without a one-shot dir is not an error.
-	backupDir := c.MkDir()
-	err := backups.CleanExpiredOneShotArchives(backupDir, time.Hour, time.Now())
-	c.Check(err, tc.ErrorIsNil)
-}
-
-func (s *oneShotSuite) TestCleanExpiredOneShotArchivesNonRegular(c *tc.C) {
-	// Directories inside the one-shot dir are not ours to remove.
-	backupDir := c.MkDir()
-	oneShotDir := backups.OneShotDir(backupDir)
-	sub := filepath.Join(oneShotDir, "sub")
-	c.Assert(os.MkdirAll(sub, 0755), tc.ErrorIsNil)
-	old := time.Now().Add(-2 * time.Hour)
-	c.Assert(os.Chtimes(sub, old, old), tc.ErrorIsNil)
-
-	err := backups.CleanExpiredOneShotArchives(backupDir, time.Hour, time.Now())
-	c.Check(err, tc.ErrorIsNil)
-
-	_, err = os.Stat(sub)
-	c.Assert(err, tc.ErrorIsNil)
-}

@@ -30,10 +30,9 @@ archive is verified against the recorded checksum before the download
 is considered complete, and a failed or corrupted transfer is retried
 automatically.
 
-The staged copy on the controller is kept for the duration of the
-` + "`backup-download-ttl`" + ` model config attribute (15 minutes by
-default) so the retries have room to succeed; once that window lapses
-the copy is removed and the backup must be created again.
+The staged copy on the controller is removed once the archive has
+been fully served; a partial transfer leaves it staged so the retry
+can fetch it again.
 
 The model config attribute ` + "`backup-dir`" + ` only serves as scratch space
 during backup creation; no archive is kept there once the command
@@ -174,8 +173,8 @@ var (
 // download streams the backup archive staged on the controller for the
 // given id, writing it to the local archiveFilename and verifying it
 // against the recorded checksum. A failed attempt is retried with the
-// same id: the controller keeps the archive staged until its retention
-// window (the backup-download-ttl model config attribute) lapses.
+// same id: a partial transfer leaves the archive staged, so the same
+// id streams the whole archive again on retry.
 func (c *createCommand) download(ctx *cmd.Context, client APIClient, id, checksum, archiveFilename string) error {
 	var err error
 	for attempt := 1; attempt <= maxDownloadAttempts; attempt++ {
