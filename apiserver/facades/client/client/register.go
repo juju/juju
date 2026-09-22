@@ -53,6 +53,7 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 		relationService:           domainServices.Relation(),
 		statusService:             domainServices.Status(),
 		controllerConfigService:   domainServices.ControllerConfig(),
+		controllerSSHService:      domainServices.SSHServerHostKey(),
 
 		isControllerModel: ctx.IsControllerModelScoped(),
 	}

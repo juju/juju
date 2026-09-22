@@ -55,6 +55,7 @@ type fullStatusSuite struct {
 	relationService           *MockRelationService
 	statusService             *MockStatusService
 	controllerConfigService   *MockControllerConfigService
+	controllerSSHService      *MockControllerSSHService
 }
 
 type stubLeadershipReader struct {
@@ -305,6 +306,7 @@ func (s *fullStatusSuite) TestFullStatusUsesControllerFlagOnMachineStatus(c *tc.
 		controller.APIPort:       17070,
 		controller.SSHServerPort: 22,
 	}, nil)
+	s.controllerSSHService.EXPECT().GetSSHServerPort(gomock.Any()).Return(22, nil)
 	s.statusService.EXPECT().GetMachineFullStatuses(gomock.Any()).Return(map[machine.Name]service.Machine{
 		"0": {
 			Name:         "0",
@@ -347,6 +349,7 @@ func (s *fullStatusSuite) TestFullStatusControllerAppPortsAugmented(c *tc.C) {
 		controller.APIPort:       17777,
 		controller.SSHServerPort: 2222,
 	}, nil)
+	s.controllerSSHService.EXPECT().GetSSHServerPort(gomock.Any()).Return(2222, nil)
 	s.statusService.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(map[string]service.Application{
 		"controller": {
 			CharmLocator: charm.CharmLocator{
@@ -818,6 +821,7 @@ func (s *fullStatusSuite) client(isControllerModel bool) *Client {
 		relationService:           s.relationService,
 		statusService:             s.statusService,
 		controllerConfigService:   s.controllerConfigService,
+		controllerSSHService:      s.controllerSSHService,
 	}
 }
 
@@ -835,6 +839,7 @@ func (s *fullStatusSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.relationService = NewMockRelationService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.controllerSSHService = NewMockControllerSSHService(ctrl)
 
 	c.Cleanup(func() {
 		s.authorizer = nil
@@ -848,6 +853,7 @@ func (s *fullStatusSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.relationService = nil
 		s.statusService = nil
 		s.controllerConfigService = nil
+		s.controllerSSHService = nil
 	})
 
 	return ctrl
