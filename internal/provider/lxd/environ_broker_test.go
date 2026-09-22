@@ -4,6 +4,7 @@
 package lxd_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
@@ -100,6 +102,103 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.NotNil)
 	c.Assert(*res.Hardware.AvailabilityZone, tc.DeepEquals, "node01")
+}
+
+func (s *environBrokerSuite) TestStartInstanceOVNForwards(c *tc.C) {
+	s.testStartInstanceOVNForwards(c, nil, nil)
+}
+
+func (s *environBrokerSuite) TestStartInstanceOVNPartialAllocationFailure(c *tc.C) {
+	s.testStartInstanceOVNForwards(c, errors.New("no free addresses"), nil)
+}
+
+func (s *environBrokerSuite) TestStartInstanceOVNCleanupFailurePreservesCause(c *tc.C) {
+	s.testStartInstanceOVNForwards(c, errors.New("no free addresses"), errors.New("cleanup failed"))
+}
+
+func (s *environBrokerSuite) TestStartInstanceOVNCancellationStillCleansUp(c *tc.C) {
+	s.testStartInstanceOVNForwards(c, context.Canceled, nil)
+}
+
+func (s *environBrokerSuite) testStartInstanceOVNForwards(c *tc.C, allocationError, cleanupError error) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	ctx, cancel := context.WithCancel(c.Context())
+	defer cancel()
+	svr := lxd.NewMockServer(ctrl)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+	op := lxdtesting.NewMockOperation(ctrl)
+	container := &containerlxd.Container{Instance: api.Instance{
+		Name:     "juju-f75cba-0",
+		Location: "node01",
+		ExpandedDevices: map[string]map[string]string{
+			"eth0": {"type": "nic", "network": "ovn0"},
+			"eth1": {"type": "nic", "network": "ovn0"},
+		},
+	}}
+	exp := svr.EXPECT()
+	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
+		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, instance.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.ServerVersion().Return("5.21.0"),
+		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
+		exp.GetNICsFromProfile(modelProfileName).Return(nil, nil),
+		exp.CreateContainerFromSpec(gomock.Any()).Return(container, nil),
+		exp.GetNetworks().Return([]api.Network{{Name: "ovn0", Type: "ovn"}}, nil),
+		exp.GetInstanceState(container.Name).Return(&api.InstanceState{Network: map[string]api.InstanceStateNetwork{
+			"eth0": {Addresses: []api.InstanceStateNetworkAddress{{Family: "inet", Address: "10.0.0.2"}}},
+			"eth1": {Addresses: []api.InstanceStateNetworkAddress{{Family: "inet", Address: "10.0.0.3"}}},
+		}}, "", nil),
+		exp.GetNetworkForwards("ovn0").Return(nil, nil),
+		exp.CreateNetworkForward("ovn0", gomock.Any()).Return(op, nil),
+		op.EXPECT().WaitContext(ctx).Return(nil),
+		exp.GetNetworkForwards("ovn0").Return(nil, nil),
+		exp.CreateNetworkForward("ovn0", gomock.Any()).Do(func(string, api.NetworkForwardsPost) {
+			if errors.Is(allocationError, context.Canceled) {
+				cancel()
+			}
+		}).Return(op, allocationError),
+	)
+	if allocationError == nil {
+		op.EXPECT().WaitContext(ctx).Return(nil)
+		exp.HostArch().Return(arch.AMD64)
+	} else {
+		cleanupOp := lxdtesting.NewMockOperation(ctrl)
+		gomock.InOrder(
+			exp.HasExtension("network_forward").Return(true),
+			exp.GetNetworks().Return([]api.Network{{Name: "ovn0", Type: "ovn"}}, nil),
+			exp.GetNetworkForwards("ovn0").Return([]api.NetworkForward{{
+				ListenAddress: "192.0.2.1",
+				Config:        map[string]string{"user.juju-instance": container.Name},
+			}}, nil),
+			exp.DeleteNetworkForward("ovn0", "192.0.2.1").Return(cleanupOp, nil),
+			cleanupOp.EXPECT().WaitContext(gomock.Any()).DoAndReturn(func(cleanupCtx context.Context) error {
+				c.Check(cleanupCtx.Err(), tc.ErrorIsNil)
+				return cleanupError
+			}),
+		)
+		if cleanupError == nil {
+			exp.RemoveContainers([]string{container.Name}).Return(nil)
+		}
+	}
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
+	args := s.GetStartInstanceArgs(c)
+	var statuses []status.Status
+	args.StatusCallback = func(_ context.Context, st status.Status, _ string, _ map[string]any) error {
+		statuses = append(statuses, st)
+		return nil
+	}
+	res, err := env.StartInstance(ctx, args)
+	if allocationError != nil {
+		c.Assert(err, tc.ErrorIs, allocationError)
+		c.Check(res, tc.IsNil)
+		c.Check(statuses, tc.DeepEquals, []status.Status{status.Allocating, status.ProvisioningError})
+	} else {
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(res, tc.NotNil)
+		c.Check(string(res.Instance.Id()), tc.Equals, container.Name)
+		c.Check(statuses, tc.DeepEquals, []status.Status{status.Allocating, status.Running})
+	}
 }
 
 func (s *environBrokerSuite) TestStartInstanceUseZoneFromServerNameWhenContainerLocationIsNone(c *tc.C) {
@@ -1198,7 +1297,21 @@ func (s *environBrokerSuite) TestStopInstances(c *tc.C) {
 	svr := lxd.NewMockServer(ctrl)
 	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
 
-	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"})
+	op := lxdtesting.NewMockOperation(ctrl)
+	gomock.InOrder(
+		svr.EXPECT().HasExtension("network_forward").Return(true),
+		svr.EXPECT().GetNetworks().Return([]api.Network{{Name: "ovn0", Type: "ovn"}}, nil),
+		svr.EXPECT().GetNetworkForwards("ovn0").Return([]api.NetworkForward{
+			{ListenAddress: "192.0.2.1", Config: map[string]string{"user.juju-instance": "juju-f75cba-1"}},
+			{ListenAddress: "192.0.2.2", Config: map[string]string{"user.juju-instance": "juju-f75cba-2"}},
+			{ListenAddress: "192.0.2.3", Config: map[string]string{"user.juju-instance": "not-in-namespace-so-ignored"}},
+		}, nil),
+		svr.EXPECT().DeleteNetworkForward("ovn0", "192.0.2.1").Return(op, nil),
+		op.EXPECT().WaitContext(c.Context()).Return(nil),
+		svr.EXPECT().DeleteNetworkForward("ovn0", "192.0.2.2").Return(op, nil),
+		op.EXPECT().WaitContext(c.Context()).Return(nil),
+		svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"}),
+	)
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
 	err := env.StopInstances(c.Context(), "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
@@ -1213,11 +1326,26 @@ func (s *environBrokerSuite) TestStopInstancesInvalidCredentials(c *tc.C) {
 	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
 	invalidator.EXPECT().InvalidateCredentials(gomock.Any(), environs.CredentialInvalidReason("cloud denied access: not authorized")).Return(nil)
 
+	svr.EXPECT().HasExtension("network_forward").Return(false)
 	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"}).Return(fmt.Errorf("not authorized"))
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
 	err := env.StopInstances(c.Context(), "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
 	c.Assert(err, tc.ErrorMatches, "not authorized")
+}
+
+func (s *environBrokerSuite) TestStopInstancesForwardCleanupInvalidCredentials(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	svr := lxd.NewMockServer(ctrl)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+	svr.EXPECT().HasExtension("network_forward").Return(true)
+	svr.EXPECT().GetNetworks().Return(nil, errors.New("not authorized"))
+	invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
+
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
+	err := env.StopInstances(c.Context(), "juju-f75cba-1")
+	c.Assert(err, tc.ErrorMatches, ".*not authorized")
 }
 
 func (s *environBrokerSuite) TestImageSourcesDefault(c *tc.C) {

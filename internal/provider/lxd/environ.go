@@ -273,7 +273,7 @@ func (env *environ) destroyHostedModelResources(ctx context.Context, controllerU
 	}
 	logger.Debugf(ctx, "removing instances: %v", names)
 
-	return errors.Trace(env.server().RemoveContainers(names))
+	return errors.Trace(removeInstances(ctx, env.server(), names))
 }
 
 // DestroyProfiles deletes the LXD profiles associated with this model.

@@ -706,7 +706,8 @@ func (conn *StubClient) UseProject(string) {
 }
 
 func (*StubClient) HasExtension(_ string) bool {
-	panic("this stub is deprecated; use mocks instead")
+	// Legacy tests do not exercise optional API extensions.
+	return false
 }
 
 func (conn *StubClient) GetNetworkNames() ([]string, error) {

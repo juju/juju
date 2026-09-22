@@ -9,6 +9,7 @@ import (
 	"maps"
 	"strings"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
@@ -140,6 +141,13 @@ func (env *environ) newContainer(
 	container, err := target.CreateContainerFromSpec(cSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	if err := ensureOVNNetworkForwards(ctx, target, container, clock.WallClock); err != nil {
+		// Rollback must still run if provisioning was cancelled.
+		if removeErr := removeInstances(context.WithoutCancel(ctx), target, []string{container.Name}); removeErr != nil {
+			logger.Errorf(ctx, "removing container %q after OVN forward setup failed: %v", container.Name, removeErr)
+		}
+		return nil, errors.Annotatef(err, "ensuring OVN network forwards for container %q", container.Name)
 	}
 	_ = statusCallback(ctx, status.Running, "Container started", nil)
 	return container, nil
@@ -504,7 +512,7 @@ func (env *environ) StopInstances(ctx context.Context, instances ...instance.Id)
 		}
 	}
 
-	err := env.server().RemoveContainers(names)
+	err := removeInstances(ctx, env.server(), names)
 	if err != nil {
 		return env.HandleCredentialError(ctx, err)
 	}
