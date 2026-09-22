@@ -21,17 +21,17 @@ import (
 	machinemodelmigration "github.com/juju/juju/domain/machine/modelmigration"
 	"github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/machine/state"
+	domainnetwork "github.com/juju/juju/domain/network"
 	networkstate "github.com/juju/juju/domain/network/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type importSuite struct {
 	schematesting.ModelSuite
 
-	spaceUUID network.SpaceUUID
-	subnetID  network.Id
+	spaceUUID  network.SpaceUUID
+	subnetUUID domainnetwork.SubnetUUID
 }
 
 func TestImportSuite(t *testing.T) {
@@ -42,17 +42,17 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	s.spaceUUID = tc.Must(c, network.NewSpaceUUID)
-	s.subnetID = network.Id(tc.Must(c, uuid.NewUUID).String())
+	s.subnetUUID = tc.Must(c, domainnetwork.NewSubnetUUID)
 
 	networkState := networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := networkState.AddSpace(c.Context(), s.spaceUUID, "test-space", "provider-space-id", []string{})
 	c.Assert(err, tc.ErrorIsNil)
-	err = networkState.AddSubnet(c.Context(), network.SubnetInfo{
-		ID:                s.subnetID,
+	err = networkState.ImportSubnets(c.Context(), []domainnetwork.ImportSubnetArgs{{
+		UUID:              s.subnetUUID,
 		SpaceID:           s.spaceUUID,
 		CIDR:              "10.0.0.0/24",
 		AvailabilityZones: []string{"zone1", "zone2"},
-	})
+	}})
 	c.Assert(err, tc.ErrorIsNil)
 }
 

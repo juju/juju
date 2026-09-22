@@ -190,7 +190,7 @@ func (sp SpaceSubnetRows) ToSpaceInfos() corenetwork.SpaceInfos {
 
 	// Prepare structs for unique subnets for each space.
 	uniqueAZs := make(map[corenetwork.SpaceUUID]map[string]map[string]string)
-	uniqueSubnets := make(map[corenetwork.SpaceUUID]map[string]corenetwork.SubnetInfo)
+	uniqueSubnets := make(map[corenetwork.SpaceUUID]map[string]network.SubnetInfo)
 	uniqueSpaces := make(map[corenetwork.SpaceUUID]corenetwork.SpaceInfo)
 
 	for _, spaceSubnet := range sp {
@@ -204,10 +204,10 @@ func (sp SpaceSubnetRows) ToSpaceInfos() corenetwork.SpaceInfos {
 		}
 		uniqueSpaces[spaceSubnet.SpaceUUID] = spInfo
 
-		snInfo := spaceSubnet.ToSubnetInfo()
+		snInfo := spaceSubnet.SubnetRow.ToSubnetInfo()
 		if snInfo != nil {
 			if _, ok := uniqueSubnets[spaceSubnet.SpaceUUID]; !ok {
-				uniqueSubnets[spaceSubnet.SpaceUUID] = make(map[string]corenetwork.SubnetInfo)
+				uniqueSubnets[spaceSubnet.SpaceUUID] = make(map[string]network.SubnetInfo)
 			}
 
 			uniqueSubnets[spaceSubnet.SpaceUUID][spaceSubnet.UUID] = *snInfo
@@ -222,24 +222,41 @@ func (sp SpaceSubnetRows) ToSpaceInfos() corenetwork.SpaceInfos {
 		}
 	}
 
-	// Iterate through every space and flatten its subnets.
+	// Iterate through every space and flatten its subnets, converting
+	// from domain to core subnets at the boundary.
 	for spaceUUID, space := range uniqueSpaces {
-		space.Subnets = flattenAZs(uniqueSubnets[spaceUUID], uniqueAZs[spaceUUID])
+		domainSubnets := flattenDomainAZs(uniqueSubnets[spaceUUID], uniqueAZs[spaceUUID])
+		if len(domainSubnets) > 0 {
+			space.Subnets = make(corenetwork.SubnetInfos, len(domainSubnets))
+			for i, sn := range domainSubnets {
+				space.Subnets[i] = corenetwork.SubnetInfo{
+					ID:                corenetwork.Id(sn.UUID.String()),
+					CIDR:              sn.CIDR,
+					ProviderId:        sn.ProviderId,
+					ProviderSpaceId:   sn.ProviderSpaceId,
+					ProviderNetworkId: sn.ProviderNetworkId,
+					VLANTag:           sn.VLANTag,
+					AvailabilityZones: sn.AvailabilityZones,
+					SpaceID:           sn.SpaceID,
+					SpaceName:         sn.SpaceName,
+				}
+			}
+		}
 		res = append(res, space)
 	}
 
 	return res
 }
 
-// ToSubnetInfo deserializes a row containing subnet fields to a SubnetInfo
-// struct.
-func (s SubnetRow) ToSubnetInfo() *corenetwork.SubnetInfo {
+// ToSubnetInfo deserializes a row containing subnet fields to a domain
+// SubnetInfo struct.
+func (s SubnetRow) ToSubnetInfo() *network.SubnetInfo {
 	// Make sure we don't add empty rows as empty subnets.
 	if s.UUID == "" {
 		return nil
 	}
-	sInfo := corenetwork.SubnetInfo{
-		ID:                corenetwork.Id(s.UUID),
+	sInfo := network.SubnetInfo{
+		UUID:              network.SubnetUUID(s.UUID),
 		CIDR:              s.CIDR,
 		VLANTag:           s.VLANTag,
 		ProviderId:        corenetwork.Id(s.ProviderID),
@@ -262,10 +279,10 @@ func (s SubnetRow) ToSubnetInfo() *corenetwork.SubnetInfo {
 // This method makes sure only unique AZs are mapped and flattens them into
 // each subnet.
 // No sorting is applied.
-func (sn subnetRows) ToSubnetInfos() corenetwork.SubnetInfos {
+func (sn subnetRows) ToSubnetInfos() network.SubnetInfos {
 	// Prepare structs for unique subnets.
 	uniqueAZs := make(map[string]map[string]string)
-	uniqueSubnets := make(map[string]corenetwork.SubnetInfo)
+	uniqueSubnets := make(map[string]network.SubnetInfo)
 
 	for _, subnet := range sn {
 		subnetInfo := subnet.ToSubnetInfo()
@@ -279,15 +296,15 @@ func (sn subnetRows) ToSubnetInfos() corenetwork.SubnetInfos {
 		}
 	}
 
-	return flattenAZs(uniqueSubnets, uniqueAZs)
+	return flattenDomainAZs(uniqueSubnets, uniqueAZs)
 }
 
-// flattenAZs iterates over every subnet and flattens its AZs.
-func flattenAZs(
-	uniqueSubnets map[string]corenetwork.SubnetInfo,
+// flattenDomainAZs iterates over every subnet and flattens its AZs.
+func flattenDomainAZs(
+	uniqueSubnets map[string]network.SubnetInfo,
 	uniqueAZs map[string]map[string]string,
-) corenetwork.SubnetInfos {
-	var subnets corenetwork.SubnetInfos
+) network.SubnetInfos {
+	var subnets network.SubnetInfos
 
 	for subnetUUID, subnet := range uniqueSubnets {
 		var availabilityZones []string
