@@ -23,7 +23,7 @@ test_cmr() {
 
 		if juju controllers --format=json 2>/dev/null |
 			yq -r 'select(.controllers) | .controllers | keys | .[]' |
-			grep "test-cmr" || juju models --format=json 2>/dev/null |
+			grep -x "test-cmr" || juju models --format=json 2>/dev/null |
 			yq -r '.models | .[] | .["short-name"]' |
 			grep -x "test-cmr"; then
 			destroy_controller "test-cmr"
