@@ -377,8 +377,8 @@ applications. Each step is a scoped view over the same model.
 :file: ../juju.ggarch
 :view: Tutorial: auth
 :no-legend:
-:caption: The reveal adds the user: everything a user does in Juju is commands sent through the client to the controller, which authenticates and authorizes them.
-:alt: The user sends commands to the client, and the client calls the Juju API on the controller.
+:caption: The reveal adds the user; everything else stays. Everything a user does in Juju is commands sent through the client to the controller, which authenticates and authorizes them.
+:alt: The user sends commands to the client, the client calls the Juju API on the controller, and the controller still talks to the clouds above it and to Charmhub below it.
 ```
 
 ### Tutorial: provision & deploy

@@ -1136,7 +1136,7 @@ diagram "Tutorial: setup" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Tutorial: auth" from "Juju" {
   select {
-    nodes: user client controller
+    nodes: user client controller clouds charmhub
     edges: type control type api
     sizing: uniform
   }
@@ -1145,6 +1145,10 @@ diagram "Tutorial: auth" from "Juju" {
     user       align-middle client
     client     left-of controller
     client     align-middle controller
+    clouds     above controller    gap: 40
+    clouds     align-centre controller
+    charmhub   below controller    gap: 40
+    charmhub   align-centre controller
   }
 }
 
@@ -1428,7 +1432,7 @@ diagram "Tutorial: setup (synthesized)" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Tutorial: auth (synthesized)" from "Juju" {
   select {
-    nodes: user client controller
+    nodes: user client controller clouds charmhub
     edges: type control type api
     sizing: uniform
   }

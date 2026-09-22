@@ -216,11 +216,12 @@ At this point we could connect to it further clouds or set up the Juju dashboard
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Tutorial: auth
-:alt: The user sends commands to the client, and the client calls the Juju API on the controller. Arrows name what each connection does.
+:alt: The user sends commands to the client, the client calls the Juju API on the controller, and the controller still talks to the clouds above it and to Charmhub below it.
 ```
-_A user is any person that can log in to a Juju controller. Everything
-you do in Juju is the user sending commands through the client to the
-controller, which is what checks who you are and what you may do._
+_The reveal adds the user: everything you do in Juju is the user
+sending commands through the client to the controller, which checks
+who you are and what you may do. The controller's cloud and Charmhub
+access stays as it was._
 
 Your client and controller can already talk to a cloud and Charmhub, but they don't run on their own -- enter the user! In Juju, the user is any person that can log in to a controller, and what they can do can be controlled at the level of the controller or some of the smaller entities associated with that controller. As the entity that has bootstrapped the controller, you have automatically been logged in and given `superuser` access. Let's verify:
 
