@@ -848,13 +848,23 @@ func RemoveOrphanedApplicationRelations(pool *StatePool) error {
 		// it: several orphaned relations can reference the same dying
 		// remote application, and only the last one may remove it.
 		decremented := make(map[string]int)
+	nextRelation:
 		for iter.Next(&doc) {
-			var ops []txn.Op
 			orphaned := false
+			for _, ep := range doc.Endpoints {
+				if _, ok := apps[ep.ApplicationName]; !ok {
+					orphaned = true
+					break
+				}
+			}
+			if !orphaned {
+				continue
+			}
+
+			var ops []txn.Op
 			for _, ep := range doc.Endpoints {
 				app, ok := apps[ep.ApplicationName]
 				if !ok {
-					orphaned = true
 					continue
 				}
 				if app.coll == remoteApplicationsC &&
@@ -871,6 +881,14 @@ func RemoveOrphanedApplicationRelations(pool *StatePool) error {
 						SourceControllerUUID: app.sourceControllerUUID,
 					}}
 					removeAppOps, err := remoteApp.removeOps(bson.D{{"relationcount", 1}})
+					if errors.IsNotFound(err) {
+						// A missing external controller refcount must not
+						// block the upgrade. Leave the entire relation for
+						// manual repair rather than apply incomplete ops.
+						logger.Warningf("cannot remove orphaned relation %d: %v (manual repair required)", doc.Id, err)
+						failed = append(failed, doc.Id)
+						continue nextRelation
+					}
 					if err != nil {
 						return errors.Trace(err)
 					}
@@ -905,10 +923,6 @@ func RemoveOrphanedApplicationRelations(pool *StatePool) error {
 					ops = append(ops, cleanupOp)
 				}
 			}
-			if !orphaned {
-				continue
-			}
-
 			// Removal of the relation and all the documents it owns:
 			// scope and settings docs, persisted unit relation state,
 			// and any queued cleanups that reference it.
