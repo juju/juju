@@ -77,6 +77,7 @@ func ImportOperations(
 	modelconfig.RegisterImport(coordinator, modelDefaultsProvider, logger.Child("modelconfig"))
 	access.RegisterImport(coordinator, clock, logger.Child("access"))
 	network.RegisterImportSubnets(coordinator, logger.Child("subnets"))
+	model.RegisterModelConstraintsImport(coordinator, logger.Child("modelconstraints"))
 	machine.RegisterImport(coordinator, clock, logger.Child("machine"))
 	network.RegisterLinkLayerDevicesImport(coordinator, logger.Child("linklayerdevices"))
 	// Storage pools must be imported before applications so that application
