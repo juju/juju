@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 
@@ -204,7 +203,6 @@ ON CONFLICT DO NOTHING`, input)
 func (st *State) ensureK8sServiceDevice(ctx context.Context, tx *sqlair.TX, netNodeUUID, appName, deviceUUID string) (string, error) {
 	device := k8sServiceDevice{
 		UUID: deviceUUID, NetNodeID: netNodeUUID,
-		Name:              fmt.Sprintf("placeholder for %q k8s service", appName),
 		DeviceTypeID:      int(domainnetwork.DeviceTypeUnknown),
 		VirtualPortTypeID: int(domainnetwork.NonVirtualPortType),
 	}
