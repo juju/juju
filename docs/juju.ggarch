@@ -126,6 +126,11 @@ model "Juju" {
     b_units      [type: charm, label: "Units"]
     b_unit_bag   [type: record, label: "unit databag\n(mirror)"]
     b_app_bag    [type: record, label: "application databag\n(mirror)"]
+    c_leader     [type: charm, label: "Unit (leader)"]
+    c_unit       [type: charm, label: "Unit"]
+    c_leader_bag [type: record, label: "unit databag\n(key, value)"]
+    c_unit_bag   [type: record, label: "unit databag\n(key, value)"]
+    c_app_bag    [type: record, label: "application databag\n(key, value)"]
     // -----------------------------------------------------------------------
     // Charm origin records (model DB — 0015-charm.sql: charm is
     // per-revision; channels are per-application; unit pins its own
@@ -488,6 +493,21 @@ model "Juju" {
                           ground: "domain/relation/state/relation.go:GetFullRelationUnitsChange"]
     b_units  -> a_app_bag    [type: data, label: "reads (mirror)",
                           ground: "apiserver/facades/controller/crossmodelrelations/crossmodelrelations.go:watchOneRelationChanges"]
+
+    // Peer panel: the relation turns inward — the watcher watches the
+    // OWN endpoint's app settings and all peers (related_unit_watcher.
+    // go InitialWatchRelatedUnits), so EVERY unit reads the app bag,
+    // leader or not (relation-get --app is not leader-gated here).
+    c_leader -> c_leader_bag [type: data, label: "reads + writes (own)",
+                          ground: "model:relation_unit_setting"]
+    c_unit   -> c_unit_bag   [type: data, label: "reads + writes (own)",
+                          ground: "model:relation_unit_setting"]
+    c_leader -> c_app_bag    [type: data, label: "reads + writes (leader)",
+                          ground: "model:relation_application_setting"]
+    c_unit   -> c_app_bag    [type: data, label: "reads (peer)",
+                          ground: "domain/relation/state/related_unit_watcher.go:InitialWatchRelatedUnits"]
+    c_leader -> c_unit_bag   [type: data, label: "reads (peer)",
+                          ground: "domain/relation/state/related_unit_watcher.go:InitialWatchRelatedUnits"]
 
     // Charm origin (0015-charm.sql + 0019-application.sql)
     charm_metadata_rec -> charm_rec [type: data, label: "describes (one)",
@@ -1592,7 +1612,7 @@ diagram "Storage model" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Databag permissions" from "Juju" {
   select {
-    nodes: a_app_bag a_leader a_leader_bag a_unit a_unit_bag b_units b_unit_bag b_app_bag
+    nodes: a_app_bag a_leader a_leader_bag a_unit a_unit_bag b_units b_unit_bag b_app_bag c_leader c_leader_bag c_unit c_unit_bag c_app_bag
     edges: type data
     sizing: uniform
   }
@@ -1601,6 +1621,10 @@ diagram "Databag permissions" from "Juju" {
     a_leader     align-middle a_unit
     b_units      right-of a_unit gap: 70
     b_units      align-middle a_unit_bag
+    c_leader     below a_leader_bag gap: 60
+    c_leader     align-centre a_leader_bag
+    c_unit       right-of c_leader gap: 24
+    c_unit       align-middle c_leader
     a_leader_bag below a_leader gap: 30
     a_leader_bag align-centre a_leader
     a_unit_bag   below a_unit gap: 30
@@ -1611,12 +1635,20 @@ diagram "Databag permissions" from "Juju" {
     b_unit_bag   align-centre b_units
     b_app_bag    right-of b_unit_bag gap: 24
     b_app_bag    align-middle b_unit_bag
+    c_leader_bag below c_leader gap: 30
+    c_leader_bag align-centre c_leader
+    c_unit_bag   below c_unit gap: 30
+    c_unit_bag   align-centre c_unit
+    c_app_bag    left-of c_leader_bag gap: 30
+    c_app_bag    align-middle c_leader_bag
   }
   annotations {
     box [nodes: "a_app_bag a_leader a_leader_bag a_unit a_unit_bag",
          label: "Application", style: "dashed"]
     box [nodes: "b_units b_unit_bag b_app_bag",
          label: "Remote application", style: "dashed"]
+    box [nodes: "c_leader c_leader_bag c_unit c_unit_bag c_app_bag",
+         label: "Application (peer relation)", style: "dashed"]
     legend [position: "bottom-right",
             record: "database record",
             data: "schema association"]
@@ -2061,7 +2093,7 @@ diagram "Storage model (synthesized)" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Databag permissions (synthesized)" from "Juju" {
   select {
-    nodes: a_app_bag a_leader a_leader_bag a_unit a_unit_bag b_units b_unit_bag b_app_bag
+    nodes: a_app_bag a_leader a_leader_bag a_unit a_unit_bag b_units b_unit_bag b_app_bag c_leader c_leader_bag c_unit c_unit_bag c_app_bag
     edges: type data
     sizing: uniform
   }
@@ -2070,6 +2102,8 @@ diagram "Databag permissions (synthesized)" from "Juju" {
          label: "Application", style: "dashed"]
     box [nodes: "b_units b_unit_bag b_app_bag",
          label: "Remote application", style: "dashed"]
+    box [nodes: "c_leader c_leader_bag c_unit c_unit_bag c_app_bag",
+         label: "Application (peer relation)", style: "dashed"]
     legend [position: "bottom-right",
             record: "database record",
             data: "schema association"]

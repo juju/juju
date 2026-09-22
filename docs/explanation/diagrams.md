@@ -493,8 +493,8 @@ applications. Each step is a scoped view over the same model.
 :file: ../juju.ggarch
 :view: Databag permissions
 :no-legend:
-:caption: The relation databags, grounded in domain/relation + the cross-model facade: every unit owns ONE unit databag per relation (reads + writes its own bag) and reads every other unit's bag; the application databag is keyed by the relation ENDPOINT (the leader reads + writes it). A REMOTE application reads mirrored copies -- the offering model streams the app + unit settings over the cross-model facade; the remote side can never write the local bags. Users have read-only visibility via the API (juju show-unit). In peer relations the remote-side permissions turn inward.
-:alt: Units of the application, each with its own unit databag directly beneath it; the leader unit also reads and writes the application databag; units read each other's unit databags; the remote application's units read mirrored copies.
+:caption: The relation databags in three panels, grounded in domain/relation + the cross-model facade. Non-peer: every unit owns ONE unit databag (reads + writes its own) and reads every other unit's bag; the application databag is keyed by the relation ENDPOINT (the leader reads + writes it); a REMOTE application reads mirrored copies streamed over the cross-model facade, never writes; users have read-only visibility via the API (juju show-unit). Peer panel: the remote-side permissions turn inward -- the watcher watches the OWN endpoint's app settings and all peers, so every unit reads every bag, the application databag included, leader or not.
+:alt: Two application panels, each unit with its own unit databag beneath it and the leader also reading and writing the application databag; the non-leader unit reads the application databag only in the peer panel; the remote application's units read mirrored copies.
 ```
 
 ## Reference: processes and levels (round 5 — grounded views)

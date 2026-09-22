@@ -111,8 +111,8 @@ When you create a relation between two applications, this results in the creatio
 :file: ../juju.ggarch
 :view: Databag permissions
 :no-legend:
-:caption: Given a unit involved in a relation, the unit's access to a databag depends on peer vs non-peer, leadership, and which application owns the bag. Each unit owns ONE unit databag per relation (it reads + writes its own bag) and reads every other unit's bag; the application databag is keyed by the relation ENDPOINT (the leader reads + writes it). A REMOTE application reads mirrored copies of the local bags -- the offering model streams the application and unit settings over the cross-model facade -- and can never write them. Users have read-only visibility into the bags via the API (juju show-unit), never write. In peer relations the remote-side permissions turn inward.
-:alt: Units of the application, each with its own unit databag directly beneath it; the leader unit also reads and writes the application databag; units read each other's unit databags; the remote application's units read mirrored copies.
+:caption: Three panels, one permission story. Non-peer: each unit owns ONE unit databag per relation (reads + writes its own bag) and reads every other unit's bag; the application databag is keyed by the relation ENDPOINT (the leader reads + writes it); a REMOTE application reads mirrored copies of the local bags -- the offering model streams the settings over the cross-model facade -- and can never write them. In a PEER relation the remote-side permissions turn inward: every unit reads every bag, the application databag included, leader or not. Users have read-only visibility into the bags via the API (juju show-unit), never write.
+:alt: Two application panels, each unit with its own unit databag directly beneath it and the leader also reading and writing the application databag; the non-leader unit reads the application databag only in the peer panel; the remote application's units read mirrored copies.
 ```
 
 While the relation is maintained,
