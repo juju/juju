@@ -115,35 +115,29 @@ model "Juju" {
     // Relation databags (model DB — 0011/0023 relation tables)
     // -----------------------------------------------------------------------
     // Databag permissions (docs/reference/relation.md) — the bags are
-    // RECORDS in each model's database (on the controller); the units
-    // (through their unit agents, on the charm's behalf via
-    // relation-get/set) read and write those records over the API.
-    // In a cross-model relation EACH model's database holds its own
-    // bags plus mirrored copies of the counterpart's (both directions:
-    // watchOneRelationChanges streams the offering side's bags to the
-    // consumer; PublishRelationChanges writes the consumer's bags into
-    // the offering database). In a peer relation everything lives in
-    // the one database and every unit reads every bag.
+    // RECORDS in the host model's database (on the controller); the
+    // units (their unit agents, on the charm's behalf via
+    // relation-get/set) read and write them over the API. Each
+    // application has ONE application databag (per relation endpoint)
+    // and unit databags (one per unit). Regular case: two sets, and
+    // the units of each application read all of the other
+    // application's databags. Peer case: one set — the application is
+    // related to itself — and the permissions turn inward.
     a_ua_leader  [type: juju-software, label: "Unit agent\n(leader)"]
     a_ua_unit    [type: juju-software, label: "Unit agent"]
-    a_db         [type: container, label: "model database (application A)"] {
-      a_app_bag    [type: record, label: "application databag\n(relation endpoint)"]
-      a_bag_leader [type: record, label: "unit databag\n(leader)"]
-      a_bag_unit   [type: record, label: "unit databag\n(unit)"]
-      a_mirror_b   [type: record, label: "app B's bags\n(mirrored)"]
+    a_db         [type: container, label: "the host model's database"] {
+      a_app_bag    [type: record, label: "application databag\n(app A)"]
+      a_unit_bags  [type: record, label: "unit databags\n(app A)"]
+      b_app_bag    [type: record, label: "application databag\n(app B)"]
+      b_unit_bags  [type: record, label: "unit databags\n(app B)"]
     }
-    b_units      [type: juju-software, label: "Unit agents\n(application B)"]
-    b_db         [type: container, label: "model database (application B)"] {
-      b_app_bag    [type: record, label: "application databag\n(relation endpoint)"]
-      b_unit_bag   [type: record, label: "unit databags\n(application B)"]
-      b_mirror_a   [type: record, label: "app A's bags\n(mirrored)"]
-    }
+    b_units      [type: juju-software, label: "Unit agents\n(app B)"]
     c_ua_leader  [type: juju-software, label: "Unit agent\n(leader)"]
     c_ua_unit    [type: juju-software, label: "Unit agent"]
-    c_db         [type: container, label: "model database (peer relation)"] {
-      c_app_bag   [type: record, label: "application databag\n(relation endpoint)"]
+    c_db         [type: container, label: "the host model's database"] {
+      c_app_bag    [type: record, label: "application databag\n(app A)"]
       c_bag_leader [type: record, label: "unit databag\n(leader)"]
-      c_bag_unit  [type: record, label: "unit databag\n(unit)"]
+      c_bag_unit   [type: record, label: "unit databag\n(unit)"]
     }
     // -----------------------------------------------------------------------
     // Charm origin records (model DB — 0015-charm.sql: charm is
@@ -511,40 +505,39 @@ model "Juju" {
     // Relation databags (domain/relation) — the units (their unit
     // agents, on the charm's behalf via relation-get/relation-set:
     // jujuc RelationSetCommand -> the uniter facade's
-    // SetRelationUnitSettings) read and write the bag records in their
-    // controller's model database: every unit reads + writes its OWN
-    // unit bag (relation_unit stores the writing unit); units read
-    // every other unit's bag; the leader reads + writes the
-    // application bag (keyed by the relation ENDPOINT; writes
-    // leader-gated). In a cross-model relation EACH database also
-    // holds mirrored copies of the counterpart's bags — the facade
-    // streams both ways (watchOneRelationChanges; PublishRelation-
-    // Changes) — and the units read the copies from their own
-    // database (ReadRemoteSettings). In a PEER relation the watcher
-    // watches the OWN endpoint's app settings and all peers
+    // SetRelationUnitSettings) read and write the bag records in the
+    // host model's database: each unit reads + writes its OWN unit
+    // bag (relation_unit stores the writing unit); the leader reads +
+    // writes its application's application bag (keyed by the relation
+    // ENDPOINT; writes leader-gated); ALL units of an application
+    // read all of the REMOTE application's databags
+    // (GetRelationUnitSettings for unit bags; GetRelationApplication-
+    // Settings for the remote application bag). Peer case: the
+    // watcher watches the OWN endpoint's app settings and all peers
     // (related_unit_watcher.go:InitialWatchRelatedUnits) — every unit
     // reads every bag, the application databag included, leader or
     // not.
-    a_ua_leader -> a_bag_leader [type: read_write, label: "reads + writes (own)",
+    a_ua_leader -> a_unit_bags  [type: read_write, label: "reads + writes (own)",
                           ground: "model:relation_unit_setting"]
-    a_ua_unit   -> a_bag_unit   [type: read_write, label: "reads + writes (own)",
+    a_ua_unit   -> a_unit_bags  [type: read_write, label: "reads + writes (own)",
                           ground: "model:relation_unit_setting"]
     a_ua_leader -> a_app_bag    [type: read_write, label: "reads + writes (leader)",
                           ground: "model:relation_application_setting"]
-    a_ua_unit   -> a_bag_leader [type: read_only, label: "reads (peer)",
+    a_ua_unit   -> b_app_bag    [type: read_only, label: "reads",
+                          ground: "domain/relation/service/relation.go:GetRelationApplicationSettings"]
+    a_ua_unit   -> b_unit_bags  [type: read_only, label: "reads",
                           ground: "model:relation_unit_setting"]
-    a_ua_unit   -> a_mirror_b   [type: read_only, label: "reads (mirror)",
-                          ground: "domain/relation/state/relation.go:GetFullRelationUnitsChange"]
-    a_db        -> b_db        [type: data, label: "streams the bags\n(cross-model facade)",
-                          arrow: both,
-                          ground: "apiserver/facades/controller/crossmodelrelations/crossmodelrelations.go:watchOneRelationChanges"]
-    b_units     -> b_unit_bag   [type: read_write, label: "reads + writes (own)",
+    b_units     -> b_unit_bags  [type: read_write, label: "reads + writes (own)",
                           ground: "model:relation_unit_setting"]
-    b_units     -> b_mirror_a   [type: read_only, label: "reads (mirror)",
-                          ground: "domain/relation/state/relation.go:GetFullRelationUnitsChange"]
+    b_units     -> b_app_bag    [type: read_write, label: "reads + writes (leader)",
+                          ground: "model:relation_application_setting"]
+    b_units     -> a_app_bag    [type: read_only, label: "reads",
+                          ground: "domain/relation/service/relation.go:GetRelationApplicationSettings"]
+    b_units     -> a_unit_bags  [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
     c_ua_leader -> c_bag_leader [type: read_write, label: "reads + writes (own)",
                           ground: "model:relation_unit_setting"]
-    c_ua_unit   -> c_bag_unit   [type: data, label: "reads + writes (own)",
+    c_ua_unit   -> c_bag_unit   [type: read_write, label: "reads + writes (own)",
                           ground: "model:relation_unit_setting"]
     c_ua_leader -> c_app_bag    [type: read_write, label: "reads + writes (leader)",
                           ground: "model:relation_application_setting"]
@@ -1660,7 +1653,7 @@ diagram "Storage model" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Databag permissions" from "Juju" {
   select {
-    nodes: a_ua_leader a_ua_unit a_db b_units b_db c_ua_leader c_ua_unit c_db
+    nodes: a_ua_leader a_ua_unit b_units a_db c_ua_leader c_ua_unit c_db
     edges: type data type read_write type read_only
     sizing: uniform
   }
@@ -1670,12 +1663,10 @@ diagram "Databag permissions" from "Juju" {
     a_db         below a_ua_unit gap: 70
     a_db         align-centre a_ua_unit
     a_db         direction: right
-    b_db         right-of a_db gap: 70
-    b_db         direction: right
-    b_units      above b_db gap: 70
-    b_units      align-centre b_db
+    b_units      right-of a_db gap: 110
+    b_units      align-middle a_ua_unit
     c_ua_leader  below a_db gap: 60
-    c_ua_leader  align-centre a_bag_leader
+    c_ua_leader  align-centre a_unit_bags
     c_ua_unit    right-of c_ua_leader gap: 24
     c_ua_unit    align-middle c_ua_leader
     c_db         below c_ua_unit gap: 70
@@ -1683,9 +1674,9 @@ diagram "Databag permissions" from "Juju" {
     c_db         direction: right
   }
   annotations {
-    box [nodes: "a_ua_leader a_ua_unit", label: "application A's units", style: "dashed"]
-    box [nodes: "b_units", label: "application B's units", style: "dashed"]
-    box [nodes: "c_ua_leader c_ua_unit", label: "application A's units (peer relation)", style: "dashed"]
+    box [nodes: "a_ua_leader a_ua_unit", label: "app A's units", style: "dashed"]
+    box [nodes: "b_units", label: "app B's units", style: "dashed"]
+    box [nodes: "c_ua_leader c_ua_unit", label: "app A's units (peer relation)", style: "dashed"]
     legend [position: "bottom-right",
             record: "database record",
             read_write: "reads + writes",
@@ -2134,14 +2125,14 @@ diagram "Storage model (synthesized)" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Databag permissions (synthesized)" from "Juju" {
   select {
-    nodes: a_ua_leader a_ua_unit a_db b_units b_db c_ua_leader c_ua_unit c_db
+    nodes: a_ua_leader a_ua_unit b_units a_db c_ua_leader c_ua_unit c_db
     edges: type data type read_write type read_only
     sizing: uniform
   }
   annotations {
-    box [nodes: "a_ua_leader a_ua_unit", label: "application A's units", style: "dashed"]
-    box [nodes: "b_units", label: "application B's units", style: "dashed"]
-    box [nodes: "c_ua_leader c_ua_unit", label: "application A's units (peer relation)", style: "dashed"]
+    box [nodes: "a_ua_leader a_ua_unit", label: "app A's units", style: "dashed"]
+    box [nodes: "b_units", label: "app B's units", style: "dashed"]
+    box [nodes: "c_ua_leader c_ua_unit", label: "app A's units (peer relation)", style: "dashed"]
     legend [position: "bottom-right",
             record: "database record",
             read_write: "reads + writes",
