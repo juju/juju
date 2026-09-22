@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v6"
 
 	corebackups "github.com/juju/juju/core/backups"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreversion "github.com/juju/juju/core/version"
@@ -51,7 +52,9 @@ func (a *API) Create(ctx context.Context, args params.BackupsCreateArgs) (params
 	// semantics no longer exist, so accepting the request would
 	// silently discard the archive. Fail loudly instead.
 	if args.NoDownload {
-		return params.BackupsMetadataResult{}, errors.Errorf("keeping archives on the controller is no longer supported; the archive is always downloaded")
+		return params.BackupsMetadataResult{}, errors.Errorf(
+			"keeping archives on the controller is no longer supported; the archive is always downloaded",
+		).Add(coreerrors.NotSupported)
 	}
 
 	// The backup destination is resolved first because the database dumps
