@@ -28,6 +28,12 @@ func (s *stateSuite) TestDetachLostMachineCloudInstance(c *tc.C) {
 	s.runQuery(c, `
 INSERT INTO unit_state (unit_uuid, uniter_state, storage_state, secret_state)
 VALUES (?, ?, ?, ?)`, "reprovision-unit", "installed: true\nstarted: true\n", "storage", "secrets")
+	s.runQuery(c, `
+INSERT INTO unit_state_charm (unit_uuid, "key", value)
+VALUES (?, ?, ?)`, "reprovision-unit", "charm-state", "value")
+	s.runQuery(c, `
+INSERT INTO unit_state_relation (unit_uuid, "key", value)
+VALUES (?, ?, ?)`, "reprovision-unit", "relation-state", "value")
 	preservedCounts := map[string]int{
 		"application":        s.rowCount(c, "application"),
 		"unit":               s.rowCount(c, "unit"),
@@ -129,6 +135,8 @@ WHERE unit_uuid = ?`, "reprovision-unit").Scan(&uniterState, &storageState, &sec
 	c.Check(uniterState, tc.Equals, "")
 	c.Check(storageState, tc.Equals, "storage")
 	c.Check(secretState, tc.Equals, "secrets")
+	c.Check(s.rowCountWhere(c, "unit_state_charm", "unit_uuid = ?", "reprovision-unit"), tc.Equals, 0)
+	c.Check(s.rowCountWhere(c, "unit_state_relation", "unit_uuid = ?", "reprovision-unit"), tc.Equals, 0)
 
 	var reprovisionMachineName string
 	err = db.QueryRowContext(c.Context(), `

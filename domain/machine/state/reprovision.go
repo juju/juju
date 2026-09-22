@@ -145,6 +145,20 @@ WHERE  unit_uuid = $reprovisionUnitRename.uuid
 	if err != nil {
 		return errors.Errorf("preparing reprovision unit state reset: %w", err)
 	}
+	resetUnitCharmStateStmt, err := st.Prepare(`
+DELETE FROM unit_state_charm
+WHERE       unit_uuid = $reprovisionUnitRename.uuid
+`, reprovisionUnitRename{})
+	if err != nil {
+		return errors.Errorf("preparing reprovision unit charm state reset: %w", err)
+	}
+	resetUnitRelationStateStmt, err := st.Prepare(`
+DELETE FROM unit_state_relation
+WHERE       unit_uuid = $reprovisionUnitRename.uuid
+`, reprovisionUnitRename{})
+	if err != nil {
+		return errors.Errorf("preparing reprovision unit relation state reset: %w", err)
+	}
 	storageResetStmts, err := st.prepareReprovisionStorageResetStatements()
 	if err != nil {
 		return errors.Errorf("preparing storage reset statements: %w", err)
@@ -211,7 +225,8 @@ WHERE  unit_uuid = $reprovisionUnitRename.uuid
 		}
 		if err := st.renameReprovisionUnits(
 			ctx, tx, targetUnitsStmt, unitNameExistsStmt, renameUnitStmt,
-			resetUnitUniterStateStmt, machineUUID,
+			resetUnitUniterStateStmt, resetUnitCharmStateStmt,
+			resetUnitRelationStateStmt, machineUUID,
 		); err != nil {
 			return errors.Errorf("allocating replacement unit ordinals: %w", err)
 		}
@@ -247,7 +262,8 @@ WHERE  unit_uuid = $reprovisionUnitRename.uuid
 func (st *State) renameReprovisionUnits(
 	ctx context.Context,
 	tx *sqlair.TX,
-	targetUnitsStmt, unitNameExistsStmt, renameUnitStmt, resetUnitUniterStateStmt *sqlair.Statement,
+	targetUnitsStmt, unitNameExistsStmt, renameUnitStmt, resetUnitUniterStateStmt,
+	resetUnitCharmStateStmt, resetUnitRelationStateStmt *sqlair.Statement,
 	machineUUID entityUUID,
 ) error {
 	var units []reprovisionUnit
@@ -289,6 +305,16 @@ func (st *State) renameReprovisionUnits(
 			UUID: unit.UUID,
 		}).Run(); err != nil {
 			return errors.Errorf("resetting unit state %q: %w", unit.UUID, err)
+		}
+		if err := tx.Query(ctx, resetUnitCharmStateStmt, reprovisionUnitRename{
+			UUID: unit.UUID,
+		}).Run(); err != nil {
+			return errors.Errorf("resetting unit charm state %q: %w", unit.UUID, err)
+		}
+		if err := tx.Query(ctx, resetUnitRelationStateStmt, reprovisionUnitRename{
+			UUID: unit.UUID,
+		}).Run(); err != nil {
+			return errors.Errorf("resetting unit relation state %q: %w", unit.UUID, err)
 		}
 	}
 
