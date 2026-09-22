@@ -889,18 +889,22 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
-		access, err := common.HighestAccess(ctx, m.authorizer, tag, []permission.Access{
-			permission.AdminAccess,
-			permission.WriteAccess,
-			permission.ReadAccess,
-		})
-		if err != nil {
-			return params.ModelInfo{}, errors.Trace(err)
-		}
-		if access == permission.NoAccess {
-			// If the logged in user does not have at least read
-			// permission, we return an error.
-			return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
+		access := permission.AdminAccess
+		if !m.isAdmin {
+			var err error
+			access, err = common.HighestAccess(ctx, m.authorizer, tag, []permission.Access{
+				permission.AdminAccess,
+				permission.WriteAccess,
+				permission.ReadAccess,
+			})
+			if err != nil {
+				return params.ModelInfo{}, errors.Trace(err)
+			}
+			if access == permission.NoAccess {
+				// If the logged in user does not have at least read
+				// permission, we return an error.
+				return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
+			}
 		}
 
 		modelUUID := coremodel.UUID(tag.Id())
