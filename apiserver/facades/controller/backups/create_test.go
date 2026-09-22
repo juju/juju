@@ -332,6 +332,9 @@ func (s *backupsSuite) TestCreateNoDownload(c *tc.C) {
 		params.BackupsCreateArgs{NoDownload: true})
 	c.Assert(err, tc.ErrorMatches,
 		"keeping archives on the controller is no longer supported; the archive is always downloaded")
+	// The rejection is classified so the client can tell it apart from
+	// a transport failure.
+	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 // TestCreateGetFilesFailure verifies that a failure collecting the files
