@@ -111,8 +111,8 @@ When you create a relation between two applications, this results in the creatio
 :file: ../juju.ggarch
 :view: Databag permissions
 :no-legend:
-:caption: Given a unit involved in a relation, the unit's access to a databag depends on peer vs non-peer, leadership, and which application owns the bag. Grounded in domain/relation: the unit databag stores the writing unit (so a unit writes only its own bag and reads every unit bag); the application databag is keyed by the relation ENDPOINT and its writes are leader-gated; in peer relations the remote-side permissions turn inward and every unit reads every bag.
-:alt: Own unit writes its unit databag; peer and remote units read all unit databags; the leader unit reads and writes the application databag.
+:caption: Given a unit involved in a relation, the unit's access to a databag depends on peer vs non-peer, leadership, and which application owns the bag. Grounded in domain/relation + the cross-model facade: the unit databag stores the writing unit (a unit reads + writes its own bag; units read every unit bag); the application databag is keyed by the relation ENDPOINT (writes leader-gated, the leader reads it); a REMOTE application receives a mirror of the local side's bags -- the offering model streams the application and unit settings over the cross-model facade and the remote units read those copies -- and can never write them; users have read-only visibility into the bags via the API (juju show-unit), never write. In peer relations the remote-side permissions turn inward.
+:alt: Own unit reads and writes its unit databag; peer and remote units read all unit databags; the leader unit reads and writes the application databag; the remote application reads mirrored copies of the local application and unit databags.
 ```
 
 While the relation is maintained,

@@ -397,7 +397,7 @@ applications. Each step is a scoped view over the same model.
 :file: ../juju.ggarch
 :sequence: User authentication
 :no-legend:
-:caption: What the tutorial's verification commands actually do, grounded in cmd/juju: bootstrap created the admin user (agentbootstrap, superuser access) and cached the account in the client store (environs/bootstrap/prepare.go); juju whoami answers from that cache without an API call; juju show-user admin calls UserManager.UserInfo on the controller and reports access: superuser.
+:caption: What the tutorial's verification commands actually do, grounded in cmd/juju: bootstrap created the admin user (agentbootstrap, superuser access) and cached the account in the client store (environs/bootstrap/prepare.go); juju whoami answers from that cache without an API call; juju show-user admin calls UserManager.UserInfo on the controller and reports access: superuser. Home TBD — removed from the tutorial at reviewer direction (the tutorial only needs to signal user management); pending a reference home.
 :alt: User runs juju whoami; the client reads the admin account cached locally at bootstrap. User runs juju show-user admin; the client calls UserManager.UserInfo on the controller; the controller returns the user info with superuser access.
 ```
 
@@ -493,8 +493,8 @@ applications. Each step is a scoped view over the same model.
 :file: ../juju.ggarch
 :view: Databag permissions
 :no-legend:
-:caption: The relation databags, grounded in domain/relation: the unit databag stores the writing unit, so a unit writes only its own bag and reads every unit bag in the relation (peers and remotes); the application databag is keyed by the relation ENDPOINT and its writes are leader-gated. Remote applications read the local app bag's counterpart on their own side; users never touch databags directly.
-:alt: Own unit writes its unit databag; peer and remote units read all unit databags; the leader unit reads and writes the application databag.
+:caption: The relation databags, grounded in domain/relation + the cross-model facade: the unit databag stores the writing unit, so a unit reads + writes its own bag and reads every unit bag in the relation (peers and remotes); the application databag is keyed by the relation ENDPOINT and its writes are leader-gated (the leader reads it too). A REMOTE application receives a MIRROR of the local side's bags (the offering model streams app + unit settings over the cross-model facade) and reads them, never writes; users have read-only visibility via the API (juju show-unit). Remote applications read the local app bag's counterpart on their own side; peer relations turn the remote-side permissions inward.
+:alt: Own unit reads and writes its unit databag; peer and remote units read all unit databags; the leader unit reads and writes the application databag; the remote application reads mirrored copies of the local application and unit databags.
 ```
 
 ## Reference: processes and levels (round 5 — grounded views)
@@ -595,7 +595,7 @@ replacing the excalidraw pairs -- the progressive reveal: setup, then
 | Tutorial: setup | tutorial/index.md (replaces tutorial-setup excalidraw) |
 | Tutorial: auth | tutorial/index.md (replaces tutorial-handle-auth excalidraw) |
 | Tutorial: provision & deploy | tutorial/index.md (replaces tutorial-provision-deploy excalidraw) |
-| User authentication (sequence) | tutorial/index.md; this catalogue |
+| User authentication (sequence) | this catalogue (home TBD — pulled from the tutorial at reviewer direction) |
 
 Pages still on hand-drawn visuals, pending round-2 views:
 reference/relation.md (the relation taxonomy excalidraw; the databags

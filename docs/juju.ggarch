@@ -129,6 +129,7 @@ model "Juju" {
     own_unit_actor     [type: charm, label: "own unit"]
     leader_actor       [type: charm, label: "leader unit"]
     peer_actor         [type: charm, label: "peer / remote unit"]
+    remote_app_actor   [type: charm, label: "Remote application\n(units)"]
     // -----------------------------------------------------------------------
     // Charm origin records (model DB — 0015-charm.sql: charm is
     // per-revision; channels are per-application; unit pins its own
@@ -398,7 +399,6 @@ model "Juju" {
     compute_provisioner0 -> machine0 [type: control, label: "provisions\n(StartInstance)"]
     ma0 -> controller                [type: api,     label: "watches containers on\n(WatchContainers)"]
     ma0 -> lxd0                      [type: control, label: "provisions container\n(LXD broker)"]
-    ua0 -> unit0                     [type: control, label: "runs"]
 
     // Bootstrap K8s
     client         -> k8s            [type: api]
@@ -484,12 +484,20 @@ model "Juju" {
     // FK associations: the unit bag stores the writing unit
     // (relation_unit.unit_uuid); the application bag is keyed by the
     // relation ENDPOINT (leader-gated writes).
-    own_unit_actor  -> unit_bag_rec [type: data, label: "writes (own, one)",
+    own_unit_actor  -> unit_bag_rec [type: data, label: "reads + writes (own, one)",
                           ground: "model:relation_unit_setting"]
     peer_actor      -> unit_bag_rec [type: data, label: "reads 0..N",
                           ground: "model:relation_unit_setting"]
     leader_actor    -> app_bag_rec  [type: data, label: "reads + writes (leader)",
                           ground: "model:relation_application_setting"]
+    // The cross-model mirror: the offering model streams its app bag
+    // and all unit bags to the consuming model (watchOneRelationChanges
+    // -> GetFullRelationUnitsChange); the remote side reads those
+    // copies locally and can never write the local bags.
+    remote_app_actor -> app_bag_rec  [type: data, label: "reads (mirror)",
+                          ground: "apiserver/facades/controller/crossmodelrelations/crossmodelrelations.go:watchOneRelationChanges"]
+    remote_app_actor -> unit_bag_rec [type: data, label: "reads (mirror)",
+                          ground: "domain/relation/state/relation.go:GetFullRelationUnitsChange"]
     // Charm origin (0015-charm.sql + 0019-application.sql)
     charm_metadata_rec -> charm_rec [type: data, label: "describes (one)",
                           ground: "model:charm_metadata.charm_uuid"]
@@ -792,8 +800,9 @@ behaviour "Secret lifecycle" {
       unit_agent    -> controller:    call "ship logs (/logsink websocket)"
       machine_agent -> controller:    call "ship logs (/logsink websocket)"
       controller    -> controller:    self "batch JSON lines to logsink.log"
-      user          -> controller:    call "juju debug-log"
-      controller    -> user:          return "tail logsink.log via the API"
+      user          -> client:        call "juju debug-log"
+      client        -> controller:    call "tail logsink.log (Log API)"
+      controller    -> client:        return "log records"
     }
 
     // Reference + tutorial: the verification story behind the
@@ -1531,6 +1540,7 @@ diagram "Machine designations" from "Juju" {
   positions {
     compute_provisioner0 left-of machine0  gap: 48
     compute_provisioner0 align-middle machine0
+    lxd0                 align-middle ma0
     controller           below ma0 gap: 48
     controller           align-centre ma0
   }
@@ -1592,13 +1602,17 @@ diagram "Storage model" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Databag permissions" from "Juju" {
   select {
-    nodes: own_unit_actor leader_actor peer_actor unit_bag_rec app_bag_rec
+    nodes: own_unit_actor leader_actor peer_actor remote_app_actor unit_bag_rec app_bag_rec
     edges: type data
     sizing: uniform
   }
   positions {
     own_unit_actor  left-of leader_actor gap: 24
     leader_actor    left-of peer_actor   gap: 24
+    peer_actor      left-of remote_app_actor gap: 24
+    own_unit_actor  align-middle leader_actor
+    leader_actor    align-middle peer_actor
+    peer_actor      align-middle remote_app_actor
     unit_bag_rec    below own_unit_actor gap: 40
     unit_bag_rec    align-centre own_unit_actor
     app_bag_rec     below leader_actor   gap: 40
@@ -2051,7 +2065,7 @@ diagram "Storage model (synthesized)" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Databag permissions (synthesized)" from "Juju" {
   select {
-    nodes: own_unit_actor leader_actor peer_actor unit_bag_rec app_bag_rec
+    nodes: own_unit_actor leader_actor peer_actor remote_app_actor unit_bag_rec app_bag_rec
     edges: type data
     sizing: uniform
   }

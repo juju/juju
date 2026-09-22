@@ -11,16 +11,16 @@ Telemetry is the automatic recording and transmission of data from remote source
 
 The controller distributes the endpoint and related settings to the agents as part of the agent configuration, so a single controller-level setting governs the whole system.
 
-## Controller configuration keys
+## Telemetry configuration
 
 Tracing is configured with the following {ref}`controller configuration <list-of-controller-configuration-keys>` keys:
 
-* `open-telemetry-enabled`: whether tracing is enabled (default: `false`)
-* `open-telemetry-endpoint`: the OTLP endpoint the traces are pushed to (for example, a collector's gRPC or HTTP endpoint)
-* `open-telemetry-insecure`: whether the collector endpoint is insecure (useful for debug or local testing; default: `false`)
-* `open-telemetry-stack-traces`: whether stack traces are attached to spans
-* `open-telemetry-sample-ratio`: the sampling ratio for spans (default: `0.10`)
-* `open-telemetry-tail-sampling-threshold`: the tail sampling threshold, as a duration
+* {ref}`open-telemetry-enabled <controller-config-open-telemetry-enabled>`: whether tracing is enabled (default: `false`)
+* {ref}`open-telemetry-endpoint <controller-config-open-telemetry-endpoint>`: the OTLP endpoint the traces are pushed to (for example, a collector's gRPC or HTTP endpoint)
+* {ref}`open-telemetry-insecure <controller-config-open-telemetry-insecure>`: whether the collector endpoint is insecure (useful for debug or local testing; default: `false`)
+* {ref}`open-telemetry-stack-traces <controller-config-open-telemetry-stack-traces>`: whether stack traces are attached to spans
+* {ref}`open-telemetry-sample-ratio <controller-config-open-telemetry-sample-ratio>`: the sampling ratio for spans (default: `0.10`)
+* {ref}`open-telemetry-tail-sampling-threshold <controller-config-open-telemetry-tail-sampling-threshold>`: the tail sampling threshold, as a duration
 
 For example, to enable tracing against a local collector:
 
