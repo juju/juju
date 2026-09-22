@@ -130,6 +130,33 @@ model "Juju" {
     leader_actor       [type: charm, label: "leader unit"]
     peer_actor         [type: charm, label: "peer / remote unit"]
     // -----------------------------------------------------------------------
+    // Charm origin records (model DB — 0015-charm.sql: charm is
+    // per-revision; channels are per-application; unit pins its own
+    // charm revision)
+    // -----------------------------------------------------------------------
+    charm_metadata_rec [type: record, label: "charm metadata\n(name, subordinate,\nmin juju version)",
+                        ground: "model:charm_metadata"]
+    charm_download_rec [type: record, label: "charm download info\n(charmhub id, url, provenance)",
+                        ground: "model:charm_download_info"]
+    app_channel_rec    [type: record, label: "application channel\n(track, risk, branch)",
+                        ground: "model:application_channel"]
+    app_platform_rec   [type: record, label: "application platform\n(os, channel, architecture)",
+                        ground: "model:application_platform"]
+
+    // -----------------------------------------------------------------------
+    // Operation / task / action records (model DB — 0033-operation.sql)
+    // -----------------------------------------------------------------------
+    operation_rec      [type: record, label: "operation\n(summary, parallel, execution group)",
+                        ground: "model:operation"]
+    operation_task_rec [type: record, label: "task\n(task id, enqueued/started/completed)",
+                        ground: "model:operation_task"]
+    operation_action_rec [type: record, label: "operation action\n(1:1 when an action; absent for exec)",
+                        ground: "model:operation_action"]
+    op_unit_task_rec   [type: record, label: "unit task\n(task, unit)",
+                        ground: "model:operation_unit_task"]
+    op_status_rec      [type: record, label: "task status\n(error, running, pending, failed,\ncancelled, completed, aborting, aborted)",
+                        ground: "model:operation_task_status"]
+    // -----------------------------------------------------------------------
     // Configuration levels (docs/reference/configuration.md) — where each
     // level lives and who sets it (ConfigScout grounds).
     // -----------------------------------------------------------------------
@@ -431,6 +458,24 @@ model "Juju" {
                           ground: "model:relation_unit_setting"]
     leader_actor    -> app_bag_rec  [type: data, label: "reads + writes (leader)",
                           ground: "model:relation_application_setting"]
+    // Charm origin (0015-charm.sql + 0019-application.sql)
+    charm_metadata_rec -> charm_rec [type: data, label: "describes (one)",
+                          ground: "model:charm_metadata.charm_uuid"]
+    charm_download_rec -> charm_rec [type: data, label: "downloaded via 0..1",
+                          ground: "model:charm_download_info.charm_uuid"]
+    application_rec    -> app_channel_rec [type: data, label: "tracks 0..1",
+                          ground: "model:application_channel.application_uuid"]
+    application_rec    -> app_platform_rec [type: data, label: "pinned platform (one)",
+                          ground: "model:application_platform.application_uuid"]
+    // Operation / task / action (0033-operation.sql)
+    operation_task_rec -> operation_rec [type: data, label: "groups 1..N",
+                          ground: "model:operation_task.operation_uuid"]
+    operation_action_rec -> operation_rec [type: data, label: "marks the action (1:1)",
+                          ground: "model:operation_action.operation_uuid"]
+    op_unit_task_rec -> operation_task_rec [type: data, label: "runs on (one unit)",
+                          ground: "model:operation_unit_task.task_uuid"]
+    op_status_rec     -> operation_task_rec [type: data, label: "reports 0..1",
+                          ground: "model:operation_task_status.task_uuid"]
     // Model database
     // (model membership is by database — implicit, no FK; table-level ground)
     model_rec       -> application_rec [type: data, label: "contains 0..N",
@@ -833,6 +878,11 @@ diagram "Data model (full spine)" from "Juju" {
   select {
     nodes: user_rec controller_rec cloud_rec credential_rec model_rec
            application_rec charm_rec unit_rec machine_rec relation_rec endpoint_rec
+    // The unit-pin edge (unit.charm_uuid) is scoped to the Charm
+    // origins view: it landed after this declared view's geometry was
+    // tuned, and re-threading it here flips the synthesized variant
+    // into a cramped solve (measured: 2.24/2.14 detours).
+    except: unit_rec -> charm_rec
   routing: orthogonal
   }
   positions {
@@ -1509,6 +1559,83 @@ diagram "Configuration levels" from "Juju" {
   }
 }
 
+// --------------------------------------------------------------------------
+// Reference: charm origins (docs/reference/charm.md) — charm is
+// per-revision; channels/platform are per-application; each unit pins
+// its own charm revision (0015-charm.sql + 0019-application.sql).
+// --------------------------------------------------------------------------
+diagram "Charm origins" from "Juju" {
+  select {
+    nodes: application_rec unit_rec charm_rec charm_metadata_rec charm_download_rec app_channel_rec app_platform_rec
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    charm_rec          left-of application_rec gap: 30
+    unit_rec           left-of charm_rec       gap: 30
+    charm_metadata_rec above charm_rec         gap: 24
+    charm_metadata_rec align-centre charm_rec
+    charm_download_rec below charm_metadata_rec gap: 24
+    app_channel_rec    right-of application_rec gap: 30
+    app_platform_rec   right-of charm_rec      gap: 30
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: the credential chain (docs/reference/credential.md) —
+// user -> credential -> model -> cloud (controller DB).
+// --------------------------------------------------------------------------
+diagram "Credential chain" from "Juju" {
+  select {
+    nodes: user_rec cloud_rec credential_rec model_rec
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    user_rec      left-of credential_rec gap: 40
+    cloud_rec     above credential_rec   gap: 40
+    cloud_rec     align-centre credential_rec
+    model_rec     below credential_rec   gap: 40
+    model_rec     align-centre credential_rec
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: the operation/task/action hierarchy
+// (docs/reference/script.md) — the entity hierarchy behind the Action
+// run flow sequence (0033-operation.sql).
+// --------------------------------------------------------------------------
+diagram "Operation hierarchy" from "Juju" {
+  select {
+    nodes: operation_rec operation_task_rec operation_action_rec op_unit_task_rec op_status_rec unit_rec
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    operation_rec         left-of operation_task_rec gap: 40
+    operation_task_rec    left-of op_unit_task_rec   gap: 30
+    op_unit_task_rec      left-of unit_rec           gap: 30
+    op_status_rec         below operation_task_rec   gap: 30
+    operation_action_rec  above operation_rec        gap: 30
+    operation_action_rec  align-centre operation_rec
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
 // ==== HAND-MAINTAINED below — edit freely; `make variants` regenerates everything above ====
 
 // ==== GENERATED BELOW — synthesized variants of the
@@ -1568,6 +1695,11 @@ diagram "Data model (full spine) (synthesized)" from "Juju" {
   select {
     nodes: user_rec controller_rec cloud_rec credential_rec model_rec
            application_rec charm_rec unit_rec machine_rec relation_rec endpoint_rec
+    // The unit-pin edge (unit.charm_uuid) is scoped to the Charm
+    // origins view: it landed after this declared view's geometry was
+    // tuned, and re-threading it here flips the synthesized variant
+    // into a cramped solve (measured: 2.24/2.14 detours).
+    except: unit_rec -> charm_rec
   routing: orthogonal
   }
   annotations {
@@ -1853,6 +1985,48 @@ diagram "Configuration levels (synthesized)" from "Juju" {
     nodes: user controller ctrl_config_rec model_config_rec app_config_rec charm
     edges: type control type api
     sizing: uniform
+  }
+}
+
+// --------------------------------------------------------------------------
+diagram "Charm origins (synthesized)" from "Juju" {
+  select {
+    nodes: application_rec unit_rec charm_rec charm_metadata_rec charm_download_rec app_channel_rec app_platform_rec
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+diagram "Credential chain (synthesized)" from "Juju" {
+  select {
+    nodes: user_rec cloud_rec credential_rec model_rec
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+diagram "Operation hierarchy (synthesized)" from "Juju" {
+  select {
+    nodes: operation_rec operation_task_rec operation_action_rec op_unit_task_rec op_status_rec unit_rec
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
   }
 }
 

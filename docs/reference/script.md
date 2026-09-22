@@ -12,6 +12,14 @@ In Juju, a **script** refers to any script you execute on a {ref}`compute resour
 (task)=
 ## Script task
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Operation hierarchy
+:no-legend:
+:caption: The entity hierarchy: an operation groups 1..N tasks (one per receiver); the parallel and execution-group flags live on the operation, shared by all tasks; an operation_action row exists 1:1 only when the operation is an action (its absence = an exec, modelled as the predefined 'juju-exec' action); each task reports 0..1 status and runs on a unit or machine; results go to the object store.
+:alt: Operation record to task record to unit task to unit; operation action record above operation; task status below task.
+```
+
 In Juju, a **task** is the execution of a {ref}`script <script>` on a target {ref}`unit <unit>` (e.g., for actions, via {ref}`command-juju-run`, or, for other arbitrary scripts, via {ref}`command-juju-exec`).
 
 Action tasks are run as defined by the charm author (default: sequentially), whereas tasks related to other scripts are run as set by the charm user (default: parallel).

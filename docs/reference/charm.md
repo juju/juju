@@ -23,6 +23,14 @@ Charms are often published on [Charmhub](https://charmhub.io/).
 (charm-taxonomy)=
 ## Charm taxonomy
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Charm origins
+:no-legend:
+:caption: There is no charm-revision table: each charm REVISION is its own charm row (unique on source + reference name + revision); the application's charm_uuid is a mutable pointer refreshed on update; channels (track/risk/branch) are per-application, not per-charm; download provenance and the immutable charmhub hash hang off the charm row 1:1; every deployed unit pins its own charm revision.
+:alt: Application and unit records point at the charm record; charm metadata and download info hang off charm; application channel and platform records point at application.
+```
+
 (charm-taxonomy-by-substrate)=
 ### By substrate
 

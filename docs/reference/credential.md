@@ -23,6 +23,14 @@ When you create a  {ref}`model <model>` in Juju it must always be associated wit
 
 ## Credential definition
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Credential chain
+:no-legend:
+:caption: The credential chain lives in the controller DB: a user owns 0..N cloud credentials (cloud/owner/name is the natural key; 15 auth types); a cloud defines 0..N credentials; a model uses 0..1 credential and belongs to one cloud. The model DB carries only a read-only denormalised copy (credential owner/name as text). Access grants are a separate permission table (there is no credential object type; credential access is ownership plus cloud-level add-model/admin).
+:alt: User record, cloud record, credential record, and model record with FK arrows.
+```
+
 The structure of a credential and its supported authentication types depend on the cloud. See the relevant {ref}`cloud reference page <list-of-supported-clouds>` for details.
 
 ## Client vs. controller credential

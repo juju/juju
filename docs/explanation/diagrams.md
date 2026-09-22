@@ -509,6 +509,38 @@ applications. Each step is a scoped view over the same model.
 :alt: User and controller above the three config records; charm beside application config (it reads, it cannot write).
 ```
 
+## Reference: origins and chains (round 6 — grounded ER views)
+
+### Charm origins
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Charm origins
+:no-legend:
+:caption: There is no charm-revision table: each charm REVISION is its own charm row (unique on source + reference name + revision); the application's charm_uuid is a mutable pointer refreshed on update; channels (track/risk/branch) are per-application, not per-charm; download provenance and the immutable charmhub hash hang off the charm row 1:1; every deployed unit pins its own charm revision.
+:alt: Application and unit records point at the charm record; charm metadata and download info hang off charm; application channel and platform records point at application.
+```
+
+### Credential chain
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Credential chain
+:no-legend:
+:caption: The credential chain lives in the controller DB: a user owns 0..N cloud credentials (cloud/owner/name is the natural key; 15 auth types); a cloud defines 0..N credentials; a model uses 0..1 credential and belongs to one cloud. The model DB carries only a read-only denormalised copy (credential owner/name as text). Access grants are a separate permission table (object types cloud/controller/model/offer — there is no credential object type; credential access is ownership plus cloud-level add-model/admin).
+:alt: User record, cloud record, credential record, and model record with FK arrows: user owns credentials, cloud defines credentials, model uses one credential and is deployed on one cloud.
+```
+
+### Operation hierarchy
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Operation hierarchy
+:no-legend:
+:caption: The entity hierarchy behind the Action run flow: an operation groups 1..N tasks (one per receiver); the parallel and execution-group flags live on the operation, shared by all tasks; an operation_action row exists 1:1 only when the operation is an action (its absence = an exec, modelled as the predefined 'juju-exec' action); each task reports 0..1 status and runs on a unit or machine; results go to the object store.
+:alt: Operation record to task record to unit task to unit; operation action record above operation; task status below task.
+```
+
 ## Where each view is embedded (round 1 of the docs push)
 
 Every diagram above is duplicated here; the list below maps the views
