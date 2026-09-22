@@ -556,6 +556,7 @@ type MockSSHControllerAPIMockRecorder struct {
 	mock                    *MockSSHControllerAPI
 	controllerConfigExpects []*gomock.Call1_2[context.Context, controller.Config, error]
 	sSHServerHostKeyExpects []*gomock.Call1_2[context.Context, []byte, error]
+	sSHServerPortExpects    []*gomock.Call1_2[context.Context, int, error]
 }
 
 // NewMockSSHControllerAPI creates a new mock instance.
@@ -605,6 +606,24 @@ func (mr *MockSSHControllerAPIMockRecorder) SSHServerHostKey(arg0 any) *MockSSHC
 
 // MockSSHControllerAPISSHServerHostKeyCall is the typed call wrapper for SSHServerHostKey.
 type MockSSHControllerAPISSHServerHostKeyCall = gomock.Call1_2[context.Context, []byte, error]
+
+// SSHServerPort mocks base method.
+func (m *MockSSHControllerAPI) SSHServerPort(arg0 context.Context) (int, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.sSHServerPortExpects, m.ctrl, m, "SSHServerPort", arg0)
+}
+
+// SSHServerPort indicates an expected call of SSHServerPort.
+func (mr *MockSSHControllerAPIMockRecorder) SSHServerPort(arg0 any) *MockSSHControllerAPISSHServerPortCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, int, error](mr.mock.ctrl.T, mr.mock, "SSHServerPort", gomock.EnsureMatcher(arg0))
+	mr.sSHServerPortExpects = append(mr.sSHServerPortExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockSSHControllerAPISSHServerPortCall is the typed call wrapper for SSHServerPort.
+type MockSSHControllerAPISSHServerPortCall = gomock.Call1_2[context.Context, int, error]
 
 // MockStatusClientAPI is a mock of StatusClientAPI interface.
 type MockStatusClientAPI struct {
