@@ -46,13 +46,8 @@ See more: {ref}`list-of-hooks`
 :view: Uniter operation
 :no-legend:
 :alt: State machine: idle to preparing on hook queued, preparing to executing, executing to committing on hook exits 0, executing to error on hook fails, error to idle on retry, committing to idle on write complete.
+:caption: What running a hook means to the unit agent: every hook invocation is one pass of the uniter's operation executor — the agent prepares the hook context, executes the hook, then commits the recorded changes. A failing hook parks the operation in `error` until the failure is resolved; the labels are the verbatim state strings from `internal/worker/uniter/operation/executor.go`.
 ```
-*What running a hook means to the unit agent: every hook invocation is
-one pass of the uniter's operation executor — the agent prepares the
-hook context, executes the hook, then commits the recorded changes.
-A failing hook parks the operation in `error` until the failure is
-resolved; the labels are the verbatim state strings from
-`internal/worker/uniter/operation/executor.go`.*
 
 (hook-execution-guarantees)=
 ## Hook execution guarantees

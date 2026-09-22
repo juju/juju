@@ -19,10 +19,8 @@ See more: [Pebble documentation](https://canonical-pebble.readthedocs-hosted.com
 :file: ../juju.ggarch
 :view: K8s deployment topology
 :alt: The unit pod's workload container holds Pebble and the workload services; the charm container holds the charm and unit agent. The charm talks to Pebble over the Pebble API.
+:caption: Pebble's place in a unit: the workload container's in-process service manager. The charm drives the workload through Pebble's API rather than by starting processes itself.
 ```
-*Pebble's place in a unit: the workload container's in-process
-service manager. The charm drives the workload through Pebble's API
-rather than by starting processes itself.*
 
 ## Pebble notices
 

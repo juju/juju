@@ -47,22 +47,15 @@ The `--force` and `--no-wait` options should be regarded as tools to wield as a 
 :file: ../juju.ggarch
 :sequence: Unit removal
 :alt: User calls juju remove-unit. Controller marks unit Dying and fires watcher to unit agent. Unit agent runs stop, teardown, and remove hooks, then marks unit Dead. Controller releases machine and deletes unit records.
+:caption: Why removals can stall: removal is a cooperative shutdown. The controller only marks the entity Dying; the agent that owns it runs its teardown work and only then reports itself Dead. A hook error in that teardown is what the `--force` option overrides.
 ```
-*Why removals can stall: removal is a cooperative shutdown. The
-controller only marks the entity Dying; the agent that owns it runs
-its teardown work and only then reports itself Dead. A hook error in
-that teardown is what the `--force` option overrides.*
 
 ```{ggarch}
 :file: ../juju.ggarch
 :sequence: Model removal
 :alt: User calls juju destroy-model. Controller marks model Dying and fires watcher to Undertaker. Undertaker destroys all applications. Controller releases all machines and marks model Dead. Undertaker deletes model records and Dqlite database.
+:caption: Model destruction, the largest removal, runs the same pattern at scale: the Undertaker worker inside the controller agent tears everything down in dependency order. The controller never deletes its own database — the Undertaker does, as the final act after all cloud resources are released.
 ```
-*Model destruction, the largest removal, runs the same pattern at
-scale: the Undertaker worker inside the controller agent tears
-everything down in dependency order. The controller never deletes its
-own database — the Undertaker does, as the final act after all cloud
-resources are released.*
 
 
 As of `v.2.6.1`, this is the state of affairs for those commands that support at least the `--force` option:

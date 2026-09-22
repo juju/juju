@@ -259,8 +259,8 @@ model "Juju" {
     agents -> apps       [type: control, label: "reconciles"]
 
     // Controller to clouds and charmhub
-    controller -> clouds   [type: control, label: "provisions on"]
-    controller -> charmhub [type: api,     label: "fetches charms"]
+    controller -> clouds   [type: control, label: "gets nodes from"]
+    controller -> charmhub [type: api,     label: "fetches charms from"]
 
     // K8s topology
     jujud          -> k8s            [type: control, label: "provisions on"]
@@ -369,7 +369,7 @@ model "Juju" {
     // goal state (reconciliation); the unit agent watches the controller
     // for changes.
     user       -> bare_application [type: control, label: "operates"]
-    apps       -> controller       [type: control, label: "state recorded in"]
+    apps       -> controller       [type: control, label: "watch for changes on"]
 
     // HA controller — Raft sync between Dqlite nodes: full mesh
     // (pairing: mesh — every distinct pair, never a node with itself)
@@ -1121,6 +1121,7 @@ diagram "Intro: Juju enters (declared)" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Tutorial: setup" from "Juju" {
   select {
+    labels: hidden
     zoom: 1.3
     nodes: client controller clouds charmhub
     edges: type api type control
@@ -1141,6 +1142,7 @@ diagram "Tutorial: setup" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Tutorial: auth" from "Juju" {
   select {
+    labels: hidden
     zoom: 1.3
     nodes: user client controller clouds charmhub
     edges: type control type api
@@ -1163,6 +1165,7 @@ diagram "Tutorial: auth" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Tutorial: provision & deploy" from "Juju" {
   select {
+    labels: hidden
     zoom: 1.3
     nodes: user client controller apps clouds charmhub
     edges: type control type api type stream
@@ -1430,6 +1433,7 @@ diagram "HA controller: Dqlite replicaset (synthesized)" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Tutorial: setup (synthesized)" from "Juju" {
   select {
+    labels: hidden
     zoom: 1.3
     nodes: client controller clouds charmhub
     edges: type api type control
@@ -1440,6 +1444,7 @@ diagram "Tutorial: setup (synthesized)" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Tutorial: auth (synthesized)" from "Juju" {
   select {
+    labels: hidden
     zoom: 1.3
     nodes: user client controller clouds charmhub
     edges: type control type api
@@ -1450,6 +1455,7 @@ diagram "Tutorial: auth (synthesized)" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Tutorial: provision & deploy (synthesized)" from "Juju" {
   select {
+    labels: hidden
     zoom: 1.3
     nodes: user client controller apps clouds charmhub
     edges: type control type api type stream

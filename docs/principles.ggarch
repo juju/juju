@@ -161,6 +161,7 @@ model "Principles" {
 
 diagram "Forced structure" from "Principles" {
   select {
+    sizing: natural
     nodes: user client controller agent_a workload_a cloud_prov charmhub
     edges: type control type api type stream
   }
@@ -217,6 +218,7 @@ sequence "Initial event" from "Principles" {
 
 diagram "Star topology" from "Principles" {
   select {
+    sizing: natural
     nodes: ctrl_rel ua_a ua_b
     edges: type data type event
   }
@@ -246,6 +248,7 @@ diagram "Star topology" from "Principles" {
 
 diagram "Execution chain IAAS" from "Principles" {
   select {
+    sizing: natural
     nodes: ctrl_iaas cloud_iaas machine_host
     edges: type control type stream type ipc type event
   }
@@ -278,8 +281,10 @@ diagram "Execution chain IAAS" from "Principles" {
 // 6. Execution chain — Kubernetes
 // --------------------------------------------------------------------------
 
+
 diagram "Execution chain K8s" from "Principles" {
   select {
+    sizing: natural
     nodes: ctrl_k8s k8s_cloud unit_pod
     edges: type control type stream type ipc type event type api
   }

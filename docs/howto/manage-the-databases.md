@@ -87,11 +87,8 @@ See more: {ref}`juju-db-repl-describe-cluster`
 :file: ../juju.ggarch
 :view: HA controller: Dqlite replicaset
 :alt: Three machine nodes side by side, each running a controller agent with an embedded Dqlite database, connected by replicate-arrows between the databases.
+:caption: The cluster you are inspecting: every controller node runs Dqlite embedded in its agent process, and the three databases raft-replicate each other. `juju-db-repl` attaches to one of them with the controller or model namespace.
 ```
-*The cluster you are inspecting: every controller node runs Dqlite
-embedded in its agent process, and the three databases raft-replicate
-each other. `juju-db-repl` attaches to one of them with the
-controller or model namespace.*
 
 ## View all the model databases
 
