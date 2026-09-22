@@ -1004,6 +1004,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		methods:    []string{http.MethodGet},
 		handler:    backupsDownloadHandler,
 		authorizer: controllerAdminAuthorizer,
+		// Archive transfers are long-lived, potentially multi-GB
+		// streams: track them so shutdown can account for in-flight
+		// downloads instead of cutting them mid-stream unnoticed.
+		tracked: true,
 	}, {
 		pattern:         modelRoutePrefix + "/api",
 		handler:         mainAPIHandler,

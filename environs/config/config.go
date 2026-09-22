@@ -24,6 +24,7 @@ import (
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
+	corebackups "github.com/juju/juju/core/backups"
 	corebase "github.com/juju/juju/core/base"
 	coremodelconfig "github.com/juju/juju/core/modelconfig"
 	"github.com/juju/juju/core/semversion"
@@ -708,10 +709,10 @@ func Validate(_ctx context.Context, cfg, old *Config) error {
 		if err != nil {
 			return errors.Annotate(err, "invalid backup download ttl in model configuration")
 		}
-		// The sweeper ticks once a minute, so a shorter TTL cannot be
-		// honoured.
-		if duration < 1*time.Minute {
-			return errors.Errorf("backup download ttl %v cannot be less than 1m", duration)
+		// The sweeper only runs every corebackups.SweepInterval, so a
+		// shorter TTL cannot be honoured.
+		if duration < corebackups.SweepInterval {
+			return errors.Errorf("backup download ttl %v cannot be less than %v", duration, corebackups.SweepInterval)
 		}
 	}
 

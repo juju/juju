@@ -1357,7 +1357,7 @@ func (s *ConfigSuite) TestValidateBackupDownloadTTL(c *tc.C) {
 		err:   `invalid backup download ttl in model configuration: .*`,
 	}, {
 		value: "30s",
-		err:   `backup download ttl 30s cannot be less than 1m`,
+		err:   `backup download ttl 30s cannot be less than 1m0s`,
 	}} {
 		c.Logf("value %q", test.value)
 		_, err := config.New(config.UseDefaults, testing.Attrs{
