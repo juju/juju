@@ -11,7 +11,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/jujuclient"
@@ -117,22 +116,18 @@ type fakeAPIClient struct {
 	data       string
 	err        error
 
-	// downloadHook, when set, is called for each Download invocation
-	// with the zero-based Download call number; its result replaces
-	// the default response. It lets tests script per-attempt
-	// behaviour for the download retry logic.
-	downloadHook func(call int) (io.ReadCloser, error)
+	// createHook, when set, is called for the Create invocation and
+	// its reader replaces the default archive stream. It lets tests
+	// script transfer behaviour, e.g. a reader that fails part way.
+	createHook func() (io.ReadCloser, error)
 
-	calls     []string
-	args      []string
-	idArg     string
-	notes     string
-	downloads int
+	calls []string
+	args  []string
+	notes string
 }
 
-func (f *fakeAPIClient) Check(c *tc.C, id, notes string, calls ...string) {
+func (f *fakeAPIClient) Check(c *tc.C, notes string, calls ...string) {
 	c.Check(f.calls, tc.DeepEquals, calls)
-	c.Check(f.idArg, tc.Equals, id)
 	c.Check(f.notes, tc.Equals, notes)
 }
 
@@ -143,40 +138,30 @@ func (f *fakeAPIClient) CheckCalls(c *tc.C, calls ...string) {
 func (f *fakeAPIClient) CheckArgs(c *tc.C, args ...string) {
 	c.Check(f.args, tc.DeepEquals, args)
 }
-func (c *fakeAPIClient) Create(ctx context.Context, notes string) (*params.BackupsMetadataResult, error) {
+
+func (c *fakeAPIClient) Create(ctx context.Context, notes string) (params.BackupsMetadataResult, io.ReadCloser, error) {
 	c.calls = append(c.calls, "Create")
 	c.args = append(c.args, notes)
 	c.notes = notes
 	if c.err != nil {
-		return nil, c.err
+		return params.BackupsMetadataResult{}, nil, c.err
 	}
 	if c.data != "" {
-		// The archive checksum matches the download data unless the
+		// The archive checksum matches the streamed data unless the
 		// test set one explicitly.
 		if c.metaresult.Checksum == "" {
 			sum := sha1.Sum([]byte(c.data))
 			c.metaresult.Checksum = base64.StdEncoding.EncodeToString(sum[:])
 		}
 	}
-	return c.metaresult, nil
-}
-
-func (c *fakeAPIClient) Download(_ context.Context, id string) (io.ReadCloser, error) {
-	call := c.downloads
-	c.downloads++
-	c.calls = append(c.calls, "Download")
-	c.args = append(c.args, id)
-	c.idArg = id
-	if c.downloadHook != nil {
-		return c.downloadHook(call)
+	if c.createHook != nil {
+		rdr, err := c.createHook()
+		if err != nil {
+			return params.BackupsMetadataResult{}, nil, err
+		}
+		return *c.metaresult, rdr, nil
 	}
-	if c.err != nil {
-		return nil, c.err
-	}
-	if c.idArg != c.metaresult.ID {
-		return nil, errors.Errorf("unexpected backup id %q", id)
-	}
-	return io.NopCloser(bytes.NewReader([]byte(c.data))), nil
+	return *c.metaresult, io.NopCloser(bytes.NewReader([]byte(c.data))), nil
 }
 
 func (c *fakeAPIClient) Close() error {

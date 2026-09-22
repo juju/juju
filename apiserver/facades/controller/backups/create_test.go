@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	stdtesting "testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -49,11 +50,10 @@ type backupsSuite struct {
 	modelExport      *MockModelExportService
 
 	// Captured by the patched core archive creation.
-	archiveFilename string
-	archiveData     []byte
-	createdMeta     *corebackups.Metadata
-	createdArgs     corebackups.CreateArgs
-	createdDumps    []string
+	archiveData  []byte
+	createdMeta  *corebackups.Metadata
+	createdArgs  corebackups.CreateArgs
+	createdDumps []string
 }
 
 func TestBackupsSuite(t *stdtesting.T) {
@@ -99,11 +99,21 @@ func (s *backupsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-// newAPI returns a backups API wired to the suite's mocked dependencies
-// and the given model services resolver.
-func (s *backupsSuite) newAPI(c *tc.C, modelServicesFor ModelServicesForFunc) *API {
+// newAPI returns a backups API wired to the suite's authorizer mock.
+func (s *backupsSuite) newAPI(c *tc.C) *API {
 	api, err := NewAPI(
 		s.authorizer,
+		s.controllerUUID,
+		loggertesting.WrapCheckLog(c),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	return api
+}
+
+// newCreator returns a Creator wired to the suite's mocked dependencies
+// and the given model services resolver.
+func (s *backupsSuite) newCreator(c *tc.C, modelServicesFor ModelServicesForFunc) *Creator {
+	creator, err := NewCreator(
 		names.NewMachineTag("0"),
 		s.controllerUUID,
 		s.controllerModelUUID,
@@ -118,7 +128,7 @@ func (s *backupsSuite) newAPI(c *tc.C, modelServicesFor ModelServicesForFunc) *A
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	return api
+	return creator
 }
 
 // modelServicesFor returns a ModelServicesForFunc handing back the
@@ -162,7 +172,7 @@ func (s *backupsSuite) expectControllerExport() {
 }
 
 // expectFilesToBackUp patches the core file collection to return one
-// file, asserting the paths the facade assembled from its fields and
+// file, asserting the paths the creator assembled from its fields and
 // the model config.
 func (s *backupsSuite) expectFilesToBackUp(c *tc.C, backupDir string) []string {
 	blob := filepath.Join(c.MkDir(), "blob")
@@ -181,10 +191,11 @@ func (s *backupsSuite) expectFilesToBackUp(c *tc.C, backupDir string) []string {
 }
 
 // expectArchiveCreation patches the core archive creation to capture the
-// metadata and arguments the facade assembled, reading the staged dumps
-// while their readers are still open.
+// metadata and arguments the creator assembled, reading the staged dumps
+// while their readers are still open. The stub writes the archive into
+// the destination directory it is given, so the creator's temporary
+// workspace semantics are exercised for real.
 func (s *backupsSuite) expectArchiveCreation(c *tc.C, backupDir string) {
-	s.archiveFilename = filepath.Join(backupDir, "juju-backup-test.tar.gz")
 	s.archiveData = []byte("test archive data")
 	s.PatchValue(&corebackups.Create, func(meta *corebackups.Metadata, args corebackups.CreateArgs) (string, error) {
 		s.createdMeta = meta
@@ -195,11 +206,14 @@ func (s *backupsSuite) expectArchiveCreation(c *tc.C, backupDir string) {
 			c.Assert(err, tc.ErrorIsNil)
 			s.createdDumps = append(s.createdDumps, string(data))
 		}
-		// The facade reads the archive back and removes it, so the
-		// stub must write a real file.
-		err := os.WriteFile(s.archiveFilename, s.archiveData, 0600)
+		// The archive must land in a per-request temporary directory
+		// under the backup dir, never in the backup dir itself.
+		c.Check(args.DestinationDir, tc.Not(tc.Equals), backupDir)
+		c.Check(strings.HasPrefix(args.DestinationDir, backupDir), tc.IsTrue)
+		filename := filepath.Join(args.DestinationDir, "juju-backup-test.tar.gz")
+		err := os.WriteFile(filename, s.archiveData, 0600)
 		c.Assert(err, tc.ErrorIsNil)
-		return s.archiveFilename, nil
+		return filename, nil
 	})
 }
 
@@ -219,21 +233,37 @@ func (s *backupsSuite) TestNewAPINotClient(c *tc.C) {
 
 	api, err := NewAPI(
 		s.authorizer,
-		names.NewMachineTag("0"),
 		s.controllerUUID,
-		s.controllerModelUUID,
-		s.dataDirPath,
-		s.logDirPath,
-		s.controllerExport,
-		s.modelServicesFor(),
-		s.modelConfig,
-		s.controller,
-		s.controllerNodes,
-		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Check(api, tc.IsNil)
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+}
+
+// TestCreateRejected verifies that the RPC Create method rejects every
+// call: backup creation moved to the backups HTTP endpoint, so older
+// clients get a clear, classified upgrade error before any work runs.
+func (s *backupsSuite) TestCreateRejected(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectSuperuser()
+
+	_, err := s.newAPI(c).Create(c.Context(), params.BackupsCreateArgs{Notes: "test"})
+	c.Assert(err, tc.ErrorMatches,
+		"create-backup from clients older than 4.1 is not supported; use a 4.1 or newer client")
+	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
+}
+
+func (s *backupsSuite) TestCreateNotSuperuser(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.authorizer.EXPECT().AuthClient().Return(true).AnyTimes()
+	s.authorizer.EXPECT().HasPermission(
+		gomock.Any(), permission.SuperuserAccess, gomock.Any(),
+	).Return(coreerrors.Forbidden)
+
+	_, err := s.newAPI(c).Create(c.Context(), params.BackupsCreateArgs{})
+	c.Assert(err, tc.ErrorIs, coreerrors.Forbidden)
 }
 
 func (s *backupsSuite) TestCreate(c *tc.C) {
@@ -242,7 +272,6 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 	backupDir := c.MkDir()
 	files := s.expectFilesToBackUp(c, backupDir)
 	s.expectArchiveCreation(c, backupDir)
-	s.expectSuperuser()
 	s.expectModelConfig(c, backupDir)
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
@@ -251,24 +280,18 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 		Version: domainexport.LatestSupportedPayloadVersion(),
 	}, nil)
 
-	result, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{Notes: "test"})
+	meta, archivePath, cleanup, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "test")
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(result.Notes, tc.Equals, "test")
-	c.Check(result.FormatVersion, tc.Equals, int64(2))
-	c.Check(result.HANodes, tc.Equals, int64(2))
-	c.Check(result.Filename, tc.Equals, filepath.Base(s.archiveFilename))
+	c.Check(meta.Notes, tc.Equals, "test")
+	c.Check(meta.FormatVersion, tc.Equals, int64(2))
+	c.Check(meta.Controller.HANodes, tc.Equals, int64(2))
 
-	// The archive is staged under the returned one-shot download id,
-	// and the original archive file is gone.
-	stagedPath, err := corebackups.OneShotArchivePath(backupDir, result.ID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.ID, tc.Not(tc.Equals), "")
-	staged, err := os.ReadFile(stagedPath)
+	// The archive sits in the creator's temporary workspace until the
+	// caller cleans up.
+	staged, err := os.ReadFile(archivePath)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(staged, tc.DeepEquals, s.archiveData)
-	_, err = os.Stat(s.archiveFilename)
-	c.Assert(err, tc.Satisfies, os.IsNotExist)
 
 	// The metadata is assembled from the request and the services.
 	c.Check(s.createdMeta.Notes, tc.Equals, "test")
@@ -278,10 +301,9 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 	c.Check(s.createdMeta.Controller.MachineID, tc.Equals, "0")
 	c.Check(s.createdMeta.Controller.HANodes, tc.Equals, int64(2))
 
-	// The archive is created in the configured backup directory, with
-	// the collected files and one dump per database: the controller's
-	// plus one per registered model namespace.
-	c.Check(s.createdArgs.DestinationDir, tc.Equals, backupDir)
+	// The archive is created with the collected files and one dump per
+	// database: the controller's plus one per registered model
+	// namespace.
 	c.Check(s.createdArgs.FilesToBackUp, tc.DeepEquals, files)
 	c.Check(s.createdArgs.Clock, tc.NotNil)
 
@@ -300,41 +322,9 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(modelEnvelope.Version, tc.Equals, domainexport.LatestSupportedPayloadVersion())
 
-	// The staged dumps are cleaned up once archive creation returns, and
-	// the only thing left is the archive staged for download.
-	entries, err := os.ReadDir(corebackups.OneShotDir(backupDir))
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(entries, tc.HasLen, 1)
-	c.Check(entries[0].Name(), tc.Equals, result.ID+".tar.gz")
-}
-
-func (s *backupsSuite) TestCreateNotSuperuser(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.authorizer.EXPECT().AuthClient().Return(true).AnyTimes()
-	s.authorizer.EXPECT().HasPermission(
-		gomock.Any(), permission.SuperuserAccess, gomock.Any(),
-	).Return(coreerrors.Forbidden)
-
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
-	c.Assert(err, tc.ErrorIs, coreerrors.Forbidden)
-}
-
-// TestCreateNoDownload verifies that a request using the deprecated
-// no-download flag is rejected with a clear error: those semantics no
-// longer exist, and a silent success would discard the archive.
-func (s *backupsSuite) TestCreateNoDownload(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.expectSuperuser()
-
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(),
-		params.BackupsCreateArgs{NoDownload: true})
-	c.Assert(err, tc.ErrorMatches,
-		"keeping archives on the controller is no longer supported; the archive is always downloaded")
-	// The rejection is classified so the client can tell it apart from
-	// a transport failure.
-	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
+	// Cleanup removes the temporary workspace with the archive in it.
+	cleanup()
+	s.assertNoArchive(c, backupDir)
 }
 
 // TestCreateGetFilesFailure verifies that a failure collecting the files
@@ -345,13 +335,12 @@ func (s *backupsSuite) TestCreateGetFilesFailure(c *tc.C) {
 	backupDir := c.MkDir()
 	boom := errors.New("cannot list files")
 
-	s.expectSuperuser()
 	s.expectModelConfig(c, backupDir)
 	s.PatchValue(&corebackups.GetFilesToBackUp, func(string, *corebackups.Paths) ([]string, error) {
 		return nil, boom
 	})
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -369,12 +358,11 @@ func (s *backupsSuite) TestCreateModelServicesFailure(c *tc.C) {
 	})
 
 	s.expectFilesToBackUp(c, backupDir)
-	s.expectSuperuser()
 	s.expectModelConfig(c, backupDir)
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
 
-	_, err := s.newAPI(c, modelServicesFor).Create(c.Context(), params.BackupsCreateArgs{})
+	_, _, _, err := s.newCreator(c, modelServicesFor).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -389,12 +377,11 @@ func (s *backupsSuite) TestCreateModelNamespacesFailure(c *tc.C) {
 	boom := errors.New("cannot list models")
 
 	s.expectFilesToBackUp(c, backupDir)
-	s.expectSuperuser()
 	s.expectModelConfig(c, backupDir)
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return(nil, boom)
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -409,14 +396,13 @@ func (s *backupsSuite) TestCreateModelExportFailure(c *tc.C) {
 	boom := errors.New("cannot export model")
 
 	s.expectFilesToBackUp(c, backupDir)
-	s.expectSuperuser()
 	s.expectModelConfig(c, backupDir)
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
 	s.modelServices.EXPECT().Export().Return(s.modelExport)
 	s.modelExport.EXPECT().Export(gomock.Any()).Return(nil, boom)
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -432,12 +418,11 @@ func (s *backupsSuite) TestCreateContextCancelled(c *tc.C) {
 	cancel()
 
 	s.expectFilesToBackUp(c, backupDir)
-	s.expectSuperuser()
 	s.expectModelConfig(c, backupDir)
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(ctx, params.BackupsCreateArgs{})
+	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(ctx, "")
 	c.Assert(err, tc.ErrorIs, context.Canceled)
 
 	// No model export runs after cancellation.
@@ -455,7 +440,6 @@ func (s *backupsSuite) TestCreateStageDumpsFailure(c *tc.C) {
 	c.Assert(os.WriteFile(backupDir, nil, 0644), tc.ErrorIsNil)
 
 	s.expectFilesToBackUp(c, backupDir)
-	s.expectSuperuser()
 	s.expectModelConfig(c, backupDir)
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
@@ -465,7 +449,7 @@ func (s *backupsSuite) TestCreateStageDumpsFailure(c *tc.C) {
 		return "", errors.New("archive must not be created")
 	})
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorMatches, ".*not a directory")
 }
 
@@ -478,21 +462,20 @@ func (s *backupsSuite) TestCreateNoModels(c *tc.C) {
 
 	s.expectFilesToBackUp(c, backupDir)
 	s.expectArchiveCreation(c, backupDir)
-	s.expectSuperuser()
 	s.expectModelConfig(c, backupDir)
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{}, nil)
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, archivePath, cleanup, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.createdArgs.DumpEntries, tc.HasLen, 1)
 	c.Check(s.createdArgs.DumpEntries[0].Name, tc.Equals, "controller.yaml")
 
-	// Only the staged one-shot archive is left behind.
-	entries, err := os.ReadDir(corebackups.OneShotDir(backupDir))
+	_, err = os.Stat(archivePath)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(entries, tc.HasLen, 1)
+	cleanup()
+	s.assertNoArchive(c, backupDir)
 }
 
 // TestCreateControllerExportFailure verifies that a failure exporting the
@@ -504,12 +487,11 @@ func (s *backupsSuite) TestCreateControllerExportFailure(c *tc.C) {
 	boom := errors.New("cannot export controller")
 
 	s.expectFilesToBackUp(c, backupDir)
-	s.expectSuperuser()
 	s.expectModelConfig(c, backupDir)
 	s.controllerNodes.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"0"}, nil)
 	s.controllerExport.EXPECT().Export(gomock.Any()).Return(nil, boom)
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -523,10 +505,9 @@ func (s *backupsSuite) TestCreateModelConfigFailure(c *tc.C) {
 	backupDir := c.MkDir()
 	boom := errors.New("cannot read model config")
 
-	s.expectSuperuser()
 	s.modelConfig.EXPECT().ModelConfig(gomock.Any()).Return(nil, boom)
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -540,11 +521,10 @@ func (s *backupsSuite) TestCreateControllerNodesFailure(c *tc.C) {
 	backupDir := c.MkDir()
 
 	s.expectFilesToBackUp(c, backupDir)
-	s.expectSuperuser()
 	s.expectModelConfig(c, backupDir)
 	s.controllerNodes.EXPECT().GetControllerIDs(gomock.Any()).Return(nil, controllernodeerrors.EmptyControllerIDs)
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyControllerIDs)
 
 	s.assertNoArchive(c, backupDir)
@@ -559,7 +539,6 @@ func (s *backupsSuite) TestCreateNoSpaceFailure(c *tc.C) {
 	boom := errors.New("insufficient disk space")
 
 	s.expectFilesToBackUp(c, backupDir)
-	s.expectSuperuser()
 	s.expectModelConfig(c, backupDir)
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{}, nil)
@@ -567,7 +546,7 @@ func (s *backupsSuite) TestCreateNoSpaceFailure(c *tc.C) {
 		return boom
 	})
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -581,7 +560,6 @@ func (s *backupsSuite) TestCreateMissingBackupFile(c *tc.C) {
 
 	backupDir := c.MkDir()
 	s.expectArchiveCreation(c, backupDir)
-	s.expectSuperuser()
 	s.expectModelConfig(c, backupDir)
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{}, nil)
@@ -589,18 +567,16 @@ func (s *backupsSuite) TestCreateMissingBackupFile(c *tc.C) {
 		return []string{filepath.Join(c.MkDir(), "vanished")}, nil
 	})
 
-	result, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, archivePath, cleanup, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result.Filename, tc.Equals, filepath.Base(s.archiveFilename))
-	stagedPath, err := corebackups.OneShotArchivePath(backupDir, result.ID)
-	c.Assert(err, tc.ErrorIsNil)
-	staged, err := os.ReadFile(stagedPath)
+	staged, err := os.ReadFile(archivePath)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(staged, tc.DeepEquals, s.archiveData)
+	cleanup()
 }
 
 // TestCreateArchiveFailure verifies that a failure creating the archive
-// aborts Create and cleans up the staged dumps.
+// aborts Create and removes the temporary workspace.
 func (s *backupsSuite) TestCreateArchiveFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -608,7 +584,6 @@ func (s *backupsSuite) TestCreateArchiveFailure(c *tc.C) {
 	boom := errors.New("cannot create archive")
 
 	s.expectFilesToBackUp(c, backupDir)
-	s.expectSuperuser()
 	s.expectModelConfig(c, backupDir)
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
@@ -619,35 +594,8 @@ func (s *backupsSuite) TestCreateArchiveFailure(c *tc.C) {
 	s.PatchValue(&corebackups.Create, func(*corebackups.Metadata, corebackups.CreateArgs) (string, error) {
 		return "", boom
 	})
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
-}
-
-// TestCreateArchiveStagingFailure verifies that a failure staging the
-// created archive for one-shot download fails Create and leaves no
-// archive behind.
-func (s *backupsSuite) TestCreateArchiveStagingFailure(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	backupDir := c.MkDir()
-	missing := filepath.Join(backupDir, "vanished.tar.gz")
-
-	s.expectFilesToBackUp(c, backupDir)
-	s.expectSuperuser()
-	s.expectModelConfig(c, backupDir)
-	s.expectControllerExport()
-	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{}, nil)
-	s.PatchValue(&corebackups.Create, func(*corebackups.Metadata, corebackups.CreateArgs) (string, error) {
-		return missing, nil
-	})
-
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
-	c.Assert(err, tc.ErrorMatches, `staging backup archive for download.*`)
-
-	// The one-shot download dir exists but holds no archive.
-	entries, err := os.ReadDir(corebackups.OneShotDir(backupDir))
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(entries, tc.HasLen, 0)
 }

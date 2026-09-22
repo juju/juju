@@ -25,21 +25,18 @@ juju create-backup [options] [<notes>]
 This command requests that Juju creates a backup of its state.
 You may provide a note to associate with the backup.
 
-The backup archive is always downloaded to the local machine. The
-archive is verified against the recorded checksum before the download
-is considered complete, and an interrupted transfer is retried
-automatically with the same id. The staged copy on the controller is
-removed once the archive has been fully served; a partial transfer
-leaves it staged so the retry can fetch it again. If verification
-fails, the corrupt archive is kept locally under a `.corrupt` suffix
-for inspection and the backup must be created again.
+The backup archive is always downloaded to the local machine: the
+controller creates the archive and streams it back in the same
+request, and nothing is kept on the controller once the request ends.
+The archive is verified against the recorded checksum before the
+download is considered complete; if verification fails, the corrupt
+archive is kept locally under a `.corrupt` suffix for inspection and
+the backup must be created again. An interrupted transfer leaves no
+archive on either side: re-run the command to create the backup
+again.
 
 The model config attribute `backup-dir` only serves as scratch space
 during backup creation; no archive is kept there once the command
-finishes. On an HA controller the archive is staged on the controller
-machine that served the request and downloaded over the same API
-connection, so a retry that reaches a different controller machine
-will not find it; point `backup-dir` at a filesystem shared by all
-controller machines if download retries must survive reconnection.
+finishes.
 
 Use `--verbose` to see extra information about backup.
