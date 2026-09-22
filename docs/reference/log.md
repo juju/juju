@@ -15,6 +15,15 @@ A **log** is a computer-generated record about entities, activities, usage patte
 
 ## Juju agent logs - machines
 
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Log flow
+:no-legend:
+:caption: Agents buffer their log records in memory and ship them to the controller's /logsink websocket endpoint; the controller batches them as JSON lines into logsink.log, which juju debug-log tails through the API. On Kubernetes, agent logs also go to the container's stdout.
+:alt: Unit agent and machine agent buffer records and ship them to the controller; the controller batches them into logsink.log; the user tails via juju debug-log.
+```
+
+
 In machine deployments, Juju agent logs are organised into a number of files. These files are located on every machine that Juju creates, including the controller. Specifically, they can be found under `/var/log/juju`, and may include:
 
 ### Agent log files

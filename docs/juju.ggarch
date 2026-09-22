@@ -617,6 +617,16 @@ behaviour "Secret lifecycle" {
       controller  -> client:     return "results"
     }
 
+    behaviour "Log flow" {
+      unit_agent    -> unit_agent:    self "buffer log records"
+      machine_agent -> machine_agent: self "buffer log records"
+      unit_agent    -> controller:    call "ship logs (/logsink websocket)"
+      machine_agent -> controller:    call "ship logs (/logsink websocket)"
+      controller    -> controller:    self "batch JSON lines to logsink.log"
+      user          -> controller:    call "juju debug-log"
+      controller    -> user:          return "tail logsink.log via the API"
+    }
+
   }
 
   style {
@@ -973,6 +983,10 @@ state "Secret lifecycle" from "Juju" {
   select { behaviour: "Secret lifecycle" }
 }
 
+sequence "Log flow" from "Juju" {
+  select { behaviour: "Log flow" }
+}
+
 state "Uniter operation" from "Juju" {
   select { behaviour: "Uniter operation" }
 }
@@ -1281,6 +1295,23 @@ diagram "Status domains" from "Juju" {
   }
 }
 
+// --------------------------------------------------------------------------
+// Reference: the agent taxonomy (docs/reference/agent.md) — what each
+// of the four agent types runs, grounded in cmd/jujud + containeragent.
+// --------------------------------------------------------------------------
+diagram "Agent taxonomy" from "Juju" {
+  select {
+    nodes: controller machine_agent unit_agent containeragent
+    edges: type control type stream type api
+    sizing: uniform
+  }
+  positions {
+    controller        left-of machine_agent gap: 40
+    machine_agent     left-of unit_agent    gap: 40
+    unit_agent        left-of containeragent gap: 40
+  }
+}
+
 // ==== HAND-MAINTAINED below — edit freely; `make variants` regenerates everything above ====
 
 // ==== GENERATED BELOW — synthesized variants of the
@@ -1564,6 +1595,15 @@ diagram "Status domains (synthesized)" from "Juju" {
   select {
     nodes: charm unit_agent machine_agent controller uas_status workload_status app_status machine_status relation_status
     edges: type control type stream
+    sizing: uniform
+  }
+}
+
+// --------------------------------------------------------------------------
+diagram "Agent taxonomy (synthesized)" from "Juju" {
+  select {
+    nodes: controller machine_agent unit_agent containeragent
+    edges: type control type stream type api
     sizing: uniform
   }
 }

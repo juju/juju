@@ -423,6 +423,28 @@ applications. Each step is a scoped view over the same model.
 :alt: Actor nodes pointing at the status domains they set: charm to workload status, unit agent to unit agent status, machine agent to machine status, controller to relation status.
 ```
 
+### Agent taxonomy (who runs what)
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Agent taxonomy
+:no-legend:
+:caption: The four agent types and their channels: every agent makes API calls to the controller; the machine agent hosts unit agents on machine clouds; containeragent is the unit-agent role as a single Kubernetes binary.
+:alt: Controller, machine agent, unit agent, and containeragent in a row; arrows: machine agent hosts unit agent; each agent makes API calls to the controller.
+```
+
+### Log flow (sequence)
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Log flow
+:no-legend:
+:caption: Agents buffer their log records in memory and ship them to the controller's /logsink websocket endpoint; the controller batches them as JSON lines into logsink.log, which juju debug-log tails through the API. On Kubernetes, agent logs also go to the container's stdout.
+:alt: Unit agent and machine agent buffer records and ship them to the controller; the controller batches them into logsink.log; the user tails via juju debug-log.
+```
+
+
+
 ## Where each view is embedded (round 1 of the docs push)
 
 Every diagram above is duplicated here; the list below maps the views
