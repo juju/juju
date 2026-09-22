@@ -46,7 +46,7 @@ The audit log file can be found only on controller machines.
 
 ### The logsink log file
 
-The logsink file (`logsink.log`) contains all the agent logs shipped to the {ref}`controller <controller>`, in aggregated form. These logs will end up in Juju's internal database, MongoDB.
+The logsink file (`logsink.log`) contains all the agent logs shipped to the {ref}`controller <controller>`, in aggregated form. The controller writes the shipped records into this file, and the `juju debug-log` command reads them back through the API.
 
 ```{important}
 
