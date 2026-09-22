@@ -190,7 +190,6 @@ Directory used to store the backup working directory.
 **Type:** string
 
 
-
 (model-config-charmhub-url)=
 ## `charmhub-url`
 

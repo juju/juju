@@ -27,10 +27,12 @@ You may provide a note to associate with the backup.
 
 The backup archive is always downloaded to the local machine. The
 archive is verified against the recorded checksum before the download
-is considered complete, and a failed or corrupted transfer is retried
-automatically. The staged copy on the controller is removed once the
-archive has been fully served; a partial transfer leaves it staged so
-the retry can fetch it again.
+is considered complete, and an interrupted transfer is retried
+automatically with the same id. The staged copy on the controller is
+removed once the archive has been fully served; a partial transfer
+leaves it staged so the retry can fetch it again. If verification
+fails, the corrupt archive is kept locally under a `.corrupt` suffix
+for inspection and the backup must be created again.
 
 The model config attribute `backup-dir` only serves as scratch space
 during backup creation; no archive is kept there once the command

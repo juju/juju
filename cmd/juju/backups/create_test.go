@@ -194,11 +194,22 @@ Downloaded to backup.tgz
 func (s *createSuite) TestChecksumMismatch(c *tc.C) {
 	client := s.setDownload()
 	client.metaresult.Checksum = "wrong-checksum"
+	// Model the controller's delete-after-full-serve: the first
+	// download is served, and any further request for the same id
+	// would 404.
+	client.downloadHook = func(call int) (io.ReadCloser, error) {
+		if call == 0 {
+			return io.NopCloser(bytes.NewReader([]byte(s.data))), nil
+		}
+		return nil, errors.NotFoundf("backup %q", "backup-id")
+	}
 
 	_, err := cmdtesting.RunCommand(c, s.wrappedCommand)
 	c.Assert(err, tc.ErrorMatches, `checksum mismatch for downloaded backup .*`)
-	// Every attempt fails the checksum, so all attempts are used up.
-	client.CheckCalls(c, "Create", "Download", "Download", "Download")
+	// A mismatch is only detected after a fully-served transfer, by
+	// which point the controller has removed the archive, so the
+	// download is not retried.
+	client.CheckCalls(c, "Create", "Download")
 
 	// The corrupt archive is kept under a suffix for inspection.
 	_, err = os.Stat("juju-backup-00010101-000000.tar.gz")
@@ -264,32 +275,6 @@ func (s *createSuite) TestDownloadPartialArchiveRemoved(c *tc.C) {
 	c.Check(err, tc.Satisfies, os.IsNotExist)
 	_, err = os.Stat("backup.tgz.corrupt")
 	c.Check(err, tc.Satisfies, os.IsNotExist)
-}
-
-// TestDownloadRetriedAfterChecksumMismatch verifies that an archive
-// that arrives corrupt is fetched again rather than accepted.
-func (s *createSuite) TestDownloadRetriedAfterChecksumMismatch(c *tc.C) {
-	client := s.setDownload()
-	client.downloadHook = func(call int) (io.ReadCloser, error) {
-		if call == 0 {
-			return io.NopCloser(bytes.NewReader([]byte("corrupt archive data"))), nil
-		}
-		return io.NopCloser(bytes.NewReader([]byte(s.data))), nil
-	}
-
-	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
-	c.Assert(err, tc.ErrorIsNil)
-
-	client.CheckCalls(c, "Create", "Download", "Download")
-	s.filename = "backup.tgz"
-	c.Cleanup(func() { s.filename = "" })
-	s.checkArchive(c)
-
-	// A successful retry leaves no corrupt archive behind.
-	_, err = os.Stat("backup.tgz.corrupt")
-	c.Check(err, tc.Satisfies, os.IsNotExist)
-	c.Check(cmdtesting.Stderr(ctx), tc.Matches,
-		`(?s)Retrying backup download \(attempt 2 of 3\): checksum mismatch.*`)
 }
 
 // TestDownloadNotFoundNotRetried verifies that an id that is no longer
