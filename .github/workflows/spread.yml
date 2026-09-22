@@ -28,13 +28,16 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential
 
-      - name: Build juju + jujud
+      - name: Build juju + jujuagentd
         # Built once and shared with the spread jobs via an artifact so each
         # spread job does not rebuild in the VM (~10-15 min per job).
         run: |
           mkdir -p .spread-bin
           GOBIN="$PWD/.spread-bin" make juju
-          GOBIN="$PWD/.spread-bin" make jujud-controller
+          GOBIN="$PWD/.spread-bin" make jujuagentd
+          # spread.yaml expects the agent binary as "jujud"; keep a
+          # compatibility name so the existing prepare script works.
+          cp .spread-bin/jujuagentd .spread-bin/jujud
 
       - name: Build patched spread
         # Upstream spread's SendTar emits 'tar --no-same-owner xz' which GNU tar
@@ -48,7 +51,7 @@ jobs:
 
       - name: Verify built binaries
         run: |
-          for binary in juju jujud spread; do
+          for binary in juju jujuagentd jujud spread; do
             test -x ".spread-bin/$binary"
             file ".spread-bin/$binary"
           done
@@ -60,6 +63,7 @@ jobs:
           if-no-files-found: error
           path: |
             .spread-bin/juju
+            .spread-bin/jujuagentd
             .spread-bin/jujud
             .spread-bin/spread
 
@@ -91,7 +95,7 @@ jobs:
           path: .spread-bin
 
       - name: Restore binary permissions
-        run: chmod +x .spread-bin/juju .spread-bin/jujud .spread-bin/spread
+        run: chmod +x .spread-bin/juju .spread-bin/jujuagentd .spread-bin/jujud .spread-bin/spread
 
       - name: Setup LXD
         uses: canonical/setup-lxd@8c6a87bfb56aa48f3fb9b830baa18562d8bfd4ee # v1
@@ -133,7 +137,7 @@ jobs:
           path: .spread-bin
 
       - name: Restore binary permissions
-        run: chmod +x .spread-bin/juju .spread-bin/jujud .spread-bin/spread
+        run: chmod +x .spread-bin/juju .spread-bin/jujuagentd .spread-bin/jujud .spread-bin/spread
 
       - name: Verify aws-cli is available
         run: which aws

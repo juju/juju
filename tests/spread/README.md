@@ -73,7 +73,8 @@ first failure instead of continuing.
 
 ### Reusing the runner instance (important for speed)
 
-On a fresh runner instance, spread builds `juju` and `jujud-controller` inside
+On a fresh runner instance, spread builds `juju` and `jujuagentd` (the agent
+binary formerly known as `jujud`) inside
 it (~10–15 min). Keep an instance alive across runs to skip the rebuild:
 
 ```sh
