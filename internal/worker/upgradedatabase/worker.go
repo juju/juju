@@ -300,27 +300,23 @@ func (w *upgradeDBWorker) watchUpgrade(ctx context.Context) error {
 	// read the current upgrade state. Any transition to DBCompleted or
 	// Error after this point will be caught by the watchers above.
 	info, err := w.upgradeService.UpgradeInfo(ctx, upgradeUUID)
-	if err != nil {
-		if errors.Is(err, upgradeerrors.NotFound) {
-			// This currently no active upgrade, so we can't watch anything.
-			// If this happens, it's probably in a bad state. We can't really
-			// do anything about it, so we'll just bounce and hope that we
-			// see if we've performed the upgrade already and that
-			// we just didn't know about it in time.
-			return dependency.ErrBounce
-		}
+	switch {
+	case errors.Is(err, upgradeerrors.NotFound):
+		// This currently no active upgrade, so we can't watch anything.
+		// If this happens, it's probably in a bad state. We can't really
+		// do anything about it, so we'll just bounce and hope that we
+		// see if we've performed the upgrade already and that
+		// we just didn't know about it in time.
+		return dependency.ErrBounce
+	case err != nil:
 		return w.abortWithError(ctx, upgradeUUID, err)
-	}
-
-	if info.State == upgrade.Error {
+	case info.State == upgrade.Error:
 		// We're in an error state, so we can't do anything about it, so we'll
 		// make a note and kill the worker. It's then up to the user to fix the
 		// problem and restart the agent.
 		w.logger.Errorf(ctx, "database upgrade failed, already in an error state, check logs for details")
 		return nil
-	}
-
-	if info.State == upgrade.DBCompleted {
+	case info.State == upgrade.DBCompleted:
 		// The upgrade is already complete. The watcher subscription emitted its
 		// event during ConsumeInitialEvent above, so we would never see it in the
 		// main loop. Unlock and uninstall directly.

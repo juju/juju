@@ -154,19 +154,19 @@ func (w *s3Worker) Wait() error {
 func (w *s3Worker) loop() (err error) {
 	ctx := w.catacomb.Context(context.Background())
 
-	watcher, err := w.config.ObjectStoreService.WatchObjectStoreBackend(ctx)
+	osbWatcher, err := w.config.ObjectStoreService.WatchObjectStoreBackend(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := w.catacomb.Add(watcher); err != nil {
+	if err := w.catacomb.Add(osbWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Consume the initial event from the watcher as the readiness
 	// barrier. This ensures the subscription is active before we read
 	// the current backend state.
-	if _, err := eventsource.ConsumeInitialEvent[[]string](ctx, watcher); err != nil {
+	if _, err := eventsource.ConsumeInitialEvent(ctx, osbWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -191,7 +191,7 @@ func (w *s3Worker) loop() (err error) {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 
-		case <-watcher.Changes():
+		case <-osbWatcher.Changes():
 			client, err := w.makeNewClient(ctx)
 			if err != nil {
 				return errors.Trace(err)

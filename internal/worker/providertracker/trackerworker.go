@@ -6,7 +6,6 @@ package providertracker
 import (
 	"context"
 	"reflect"
-	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
@@ -75,8 +74,7 @@ type trackerWorker struct {
 	// providerReady is closed once the provider has been built inside loop().
 	// The constructor blocks on this channel so that Provider() is always
 	// usable when the worker is returned.
-	providerReady  chan struct{}
-	closeReadyOnce sync.Once
+	providerReady chan struct{}
 }
 
 // NewTrackerWorker loads a provider from the observer and returns a new Worker,
@@ -90,14 +88,6 @@ type invalidateCredentialFunc func(context.Context, environs.CredentialInvalidRe
 
 func (f invalidateCredentialFunc) InvalidateCredentials(ctx context.Context, reason environs.CredentialInvalidReason) error {
 	return f(ctx, reason)
-}
-
-// signalProviderReady closes the providerReady channel exactly once.
-// Called from loop() when the provider has been built (or on error).
-func (t *trackerWorker) signalProviderReady() {
-	t.closeReadyOnce.Do(func() {
-		close(t.providerReady)
-	})
 }
 
 func newTrackerWorker(ctx context.Context, config TrackerConfig, internalStates chan string) (*trackerWorker, error) {
@@ -187,7 +177,7 @@ func (t *trackerWorker) Report(_ context.Context) map[string]any {
 }
 
 func (t *trackerWorker) loop() (err error) {
-	ctx, cancel := t.scopedContext()
+	ctx, cancel := context.WithCancel(t.catacomb.Context(context.Background()))
 	defer cancel()
 
 	// Subscribe to watchers first. The initial event from each watcher
@@ -229,13 +219,7 @@ func (t *trackerWorker) loop() (err error) {
 		return errors.Trace(err)
 	}
 
-	var invalidateCredential invalidateCredentialFunc = func(ctx context.Context, reason environs.CredentialInvalidReason) error {
-		return t.config.CredentialService.InvalidateCredential(ctx, credential.Key{
-			Cloud: t.model.Cloud,
-			Owner: t.model.CredentialOwner,
-			Name:  t.model.CredentialName,
-		}, string(reason))
-	}
+	var invalidateCredential invalidateCredentialFunc = t.invalidateCredential
 	provider, spec, err := newProviderType(ctx, getter, invalidateCredential)
 	if err != nil {
 		return errors.Trace(err)
@@ -271,7 +255,7 @@ func (t *trackerWorker) loop() (err error) {
 	}
 
 	// Provider is ready — unblock the constructor.
-	t.signalProviderReady()
+	close(t.providerReady)
 
 	// Report the initial started state.
 	t.reportInternalState(stateStarted)
@@ -328,12 +312,12 @@ func (t *trackerWorker) loop() (err error) {
 	}
 }
 
-// scopedContext returns a context that is in the scope of the worker lifetime.
-// It returns a cancellable context that is cancelled when the action has
-// completed.
-func (t *trackerWorker) scopedContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	return t.catacomb.Context(ctx), cancel
+func (t *trackerWorker) invalidateCredential(ctx context.Context, reason environs.CredentialInvalidReason) error {
+	return t.config.CredentialService.InvalidateCredential(ctx, credential.Key{
+		Cloud: t.model.Cloud,
+		Owner: t.model.CredentialOwner,
+		Name:  t.model.CredentialName,
+	}, string(reason))
 }
 
 func (t *trackerWorker) reportInternalState(state string) {
