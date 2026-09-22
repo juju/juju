@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/clock"
 
@@ -544,7 +543,7 @@ func makeCAASUnitArgs(units []ImportCAASUnitArg, charmUUID corecharm.ID) ([]appl
 
 		var k8sPod *application.K8sPod
 		if u.K8sPod != nil {
-			k8sPod = makeK8sPodArg(u.UnitName, *u.K8sPod)
+			k8sPod = makeK8sPodArg(*u.K8sPod)
 		}
 
 		unitArgs[i] = application.ImportCAASUnitArg{
@@ -555,7 +554,7 @@ func makeCAASUnitArgs(units []ImportCAASUnitArg, charmUUID corecharm.ID) ([]appl
 	return unitArgs, nil
 }
 
-func makeK8sPodArg(unitName coreunit.Name, k8sPod application.K8sPodParams) *application.K8sPod {
+func makeK8sPodArg(k8sPod application.K8sPodParams) *application.K8sPod {
 	result := &application.K8sPod{
 		ProviderID: k8sPod.ProviderID,
 		Ports:      k8sPod.Ports,
@@ -570,7 +569,7 @@ func makeK8sPodArg(unitName coreunit.Name, k8sPod application.K8sPodParams) *app
 			// to tie the address to the net node corresponding to the
 			// k8s pod.
 			Device: application.K8sPodDevice{
-				Name:              fmt.Sprintf("placeholder for %q k8s pod", unitName),
+				Name:              network.PlaceholderDeviceName,
 				DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
 				VirtualPortTypeID: domainnetwork.NonVirtualPortType,
 			},

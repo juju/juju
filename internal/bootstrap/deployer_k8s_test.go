@@ -149,7 +149,7 @@ func (s *deployerK8sSuite) TestNormalizeControllerConstraints(c *tc.C) {
 
 func (s *deployerK8sSuite) TestNormalizeControllerConstraintsRejectsMismatchedArchitecture(c *tc.C) {
 	_, err := normalizeControllerConstraints(constraints.Value{Arch: new("arm64")}, "amd64")
-	c.Assert(err, tc.ErrorMatches, "arch in platform and constraints for controller do not match")
+	c.Assert(err, tc.ErrorMatches, "arch \"arm64\" in constraints does not match controller charm platform arch \"amd64\"")
 }
 
 func (s *deployerK8sSuite) TestEnsureControllerApplicationServiceAddresses(c *tc.C) {

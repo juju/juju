@@ -123,9 +123,27 @@ func (s *stateSuite) TestGetControllerInfo(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Arrange: a public DNS address in the controller config.
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO controller_config ("key", value) VALUES (?, ?)
+`, controller.PublicDNSAddress, "controller.test.com:1234")
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
 	info, err := st.GetControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.UUID, tc.Equals, "deadbeef-1bad-500d-9000-4b1d0d06f00d")
 	c.Check(info.CACert, tc.Equals, "test-ca-cert")
 	c.Check(info.APIAddresses, tc.SameContents, []string{"10.0.0.2:17070", "10.0.0.42:18080"})
+	c.Check(info.PublicDNSAddress, tc.Equals, "controller.test.com:1234")
+}
+
+func (s *stateSuite) TestGetControllerInfoWithoutPublicDNSAddress(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	info, err := st.GetControllerInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.PublicDNSAddress, tc.Equals, "")
 }

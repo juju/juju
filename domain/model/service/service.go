@@ -660,10 +660,7 @@ func (s *Service) GetModelUser(ctx context.Context, modelUUID coremodel.UUID, na
 			return mui, nil
 		}
 	}
-	return coremodel.ModelUserInfo{}, errors.Errorf(
-		"getting info of user %q on model %q: %w",
-		name, modelUUID, err,
-	)
+	return coremodel.ModelUserInfo{}, modelerrors.UserNotFoundOnModel
 }
 
 // UpdateCredential is responsible for updating the cloud credential
