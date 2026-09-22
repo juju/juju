@@ -27,12 +27,14 @@ You may provide a note to associate with the backup.
 
 The backup archive is always downloaded to the local machine. The
 archive is verified against the recorded checksum before the download
-is considered complete, and a failed or corrupted transfer is retried
-automatically.
+is considered complete, and an interrupted transfer is retried
+automatically with the same id.
 
 The staged copy on the controller is removed once the archive has
 been fully served; a partial transfer leaves it staged so the retry
-can fetch it again.
+can fetch it again. If verification fails, the corrupt archive is
+kept locally under a ".corrupt" suffix for inspection and the backup
+must be created again.
 
 The model config attribute ` + "`backup-dir`" + ` only serves as scratch space
 during backup creation; no archive is kept there once the command
@@ -172,9 +174,11 @@ var (
 
 // download streams the backup archive staged on the controller for the
 // given id, writing it to the local archiveFilename and verifying it
-// against the recorded checksum. A failed attempt is retried with the
-// same id: a partial transfer leaves the archive staged, so the same
-// id streams the whole archive again on retry.
+// against the recorded checksum. An interrupted transfer is retried
+// with the same id: a partial transfer leaves the archive staged, so
+// the same id streams the whole archive again on retry. A checksum
+// mismatch is not retried: it is only detected after a fully-served
+// transfer, by which point the controller has removed the archive.
 func (c *createCommand) download(ctx *cmd.Context, client APIClient, id, checksum, archiveFilename string) error {
 	var err error
 	for attempt := 1; attempt <= maxDownloadAttempts; attempt++ {
@@ -206,11 +210,13 @@ func (c *createCommand) download(ctx *cmd.Context, client APIClient, id, checksu
 
 // retriableDownloadFailure reports whether a failed attempt may
 // succeed if the archive is fetched again with the same id. Failures
-// writing the archive locally, and an id that is no longer staged on
-// the controller, are permanent; anything else is worth another
-// attempt.
+// writing the archive locally, an id that is no longer staged on the
+// controller, and a checksum mismatch are permanent: a mismatch is
+// only detected after a fully-served transfer, and the controller
+// removes the archive once it has been fully served, so a retry can
+// only 404. Anything else is worth another attempt.
 func retriableDownloadFailure(err error) bool {
-	if errors.Is(err, errLocalArchiveFile) {
+	if errors.Is(err, errLocalArchiveFile) || errors.Is(err, errChecksumMismatch) {
 		return false
 	}
 	return !errors.IsNotFound(err)

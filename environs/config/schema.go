@@ -659,7 +659,6 @@ For example:
 		Type:        configschema.Tstring,
 		Group:       configschema.EnvironGroup,
 	},
-
 	DefaultSpaceKey: {
 		Description: "The default network space used for application endpoints in this model",
 		Type:        configschema.Tstring,
