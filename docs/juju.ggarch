@@ -542,8 +542,10 @@ model "Juju" {
                           ground: "model:operation_task.operation_uuid"]
     operation_action_rec -> operation_rec [type: data, label: "marks the action (1:1)",
                           ground: "model:operation_action.operation_uuid"]
-    op_unit_task_rec -> operation_task_rec [type: data, label: "runs on (one unit)",
+    op_unit_task_rec -> operation_task_rec [type: data, label: "the task (one)",
                           ground: "model:operation_unit_task.task_uuid"]
+    op_unit_task_rec -> unit_rec       [type: data, label: "runs on (one unit)",
+                          ground: "model:operation_unit_task.unit_uuid"]
     op_status_rec     -> operation_task_rec [type: data, label: "reports 0..1",
                           ground: "model:operation_task_status.task_uuid"]
     // Model database
@@ -1758,10 +1760,14 @@ diagram "Operation hierarchy" from "Juju" {
   }
   positions {
     operation_rec         left-of operation_task_rec gap: 40
+    operation_rec         align-middle operation_task_rec
     operation_task_rec    left-of op_unit_task_rec   gap: 30
+    operation_task_rec    align-middle op_unit_task_rec
     op_unit_task_rec      left-of unit_rec           gap: 30
+    op_unit_task_rec      align-middle unit_rec
     op_status_rec         below operation_task_rec   gap: 30
-    operation_action_rec  above operation_rec        gap: 30
+    op_status_rec         align-centre operation_task_rec
+    operation_action_rec  below operation_rec        gap: 30
     operation_action_rec  align-centre operation_rec
   }
   annotations {
