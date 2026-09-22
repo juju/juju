@@ -596,6 +596,7 @@ type machineReprovision struct {
 
 type reprovisionUnit struct {
 	UUID            string `db:"uuid"`
+	Name            string `db:"name"`
 	ApplicationName string `db:"application_name"`
 }
 

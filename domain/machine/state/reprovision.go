@@ -19,6 +19,7 @@ import (
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	domainstatus "github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -109,6 +110,7 @@ VALUES ($machineReprovision.*)
 	}
 	targetUnitsStmt, err := st.Prepare(`
 SELECT u.uuid AS &reprovisionUnit.uuid,
+       u.name AS &reprovisionUnit.name,
        a.name AS &reprovisionUnit.application_name
 FROM   unit AS u
 JOIN   application AS a ON u.application_uuid = a.uuid
@@ -126,6 +128,14 @@ WHERE  uuid = $reprovisionUnitRename.uuid
 `, reprovisionUnitRename{})
 	if err != nil {
 		return errors.Errorf("preparing reprovision unit rename: %w", err)
+	}
+	unitNameExistsStmt, err := st.Prepare(`
+SELECT name AS &reprovisionUnitRename.name
+FROM   unit
+WHERE  name = $reprovisionUnitRename.name
+`, reprovisionUnitRename{})
+	if err != nil {
+		return errors.Errorf("preparing replacement unit name query: %w", err)
 	}
 	resetUnitUniterStateStmt, err := st.Prepare(`
 UPDATE unit_state
@@ -200,7 +210,8 @@ WHERE  unit_uuid = $reprovisionUnitRename.uuid
 			return errors.Errorf("departing relation scopes: %w", err)
 		}
 		if err := st.renameReprovisionUnits(
-			ctx, tx, targetUnitsStmt, renameUnitStmt, resetUnitUniterStateStmt, machineUUID,
+			ctx, tx, targetUnitsStmt, unitNameExistsStmt, renameUnitStmt,
+			resetUnitUniterStateStmt, machineUUID,
 		); err != nil {
 			return errors.Errorf("allocating replacement unit ordinals: %w", err)
 		}
@@ -236,7 +247,7 @@ WHERE  unit_uuid = $reprovisionUnitRename.uuid
 func (st *State) renameReprovisionUnits(
 	ctx context.Context,
 	tx *sqlair.TX,
-	targetUnitsStmt, renameUnitStmt, resetUnitUniterStateStmt *sqlair.Statement,
+	targetUnitsStmt, unitNameExistsStmt, renameUnitStmt, resetUnitUniterStateStmt *sqlair.Statement,
 	machineUUID entityUUID,
 ) error {
 	var units []reprovisionUnit
@@ -259,10 +270,19 @@ func (st *State) renameReprovisionUnits(
 		if err != nil {
 			return errors.Errorf("creating replacement unit name: %w", err)
 		}
-		if err := tx.Query(ctx, renameUnitStmt, reprovisionUnitRename{
+		rename := reprovisionUnitRename{
 			UUID: unit.UUID,
 			Name: name.String(),
-		}).Run(); err != nil {
+		}
+		var existing reprovisionUnitRename
+		if err := tx.Query(ctx, unitNameExistsStmt, rename).Get(&existing); err == nil {
+			return replacementUnitNameCollisionError(unit.Name, rename.Name)
+		} else if !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("checking replacement unit name %q: %w", rename.Name, err)
+		}
+		if err := tx.Query(ctx, renameUnitStmt, rename).Run(); database.IsErrConstraintUnique(err) {
+			return replacementUnitNameCollisionError(unit.Name, rename.Name)
+		} else if err != nil {
 			return errors.Errorf("renaming unit %q: %w", unit.UUID, err)
 		}
 		if err := tx.Query(ctx, resetUnitUniterStateStmt, reprovisionUnitRename{
@@ -273,6 +293,13 @@ func (st *State) renameReprovisionUnits(
 	}
 
 	return nil
+}
+
+func replacementUnitNameCollisionError(oldName, newName string) error {
+	return errors.Errorf(
+		"cannot rename reprovisioned unit %q to %q: replacement unit name already exists; the application unit sequence is behind existing unit names",
+		oldName, newName,
+	)
 }
 
 func validateReprovisionDetachTarget(target reprovisionDetachTarget, expectedInstanceID string) error {
