@@ -5,6 +5,7 @@ package state
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/juju/tc"
@@ -165,6 +166,32 @@ VALUES (?, ?, 0, ?, ?, ?)`, unitUUID, "reprovision/"+ordinal,
 	for _, ordinal := range []string{"1", "5", "6", "7"} {
 		c.Check(s.rowCountWhere(c, "unit", "name = ?", "reprovision/"+ordinal), tc.Equals, 1)
 	}
+}
+
+func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsReplacementUnitNameCollision(c *tc.C) {
+	machineUUID, machineName := s.ensureInstance(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+
+	otherMachineUUID, _ := s.addMachine(c)
+	otherNetNodeUUID := s.machineNetNodeUUID(c, otherMachineUUID.String())
+	s.addReprovisionUnitOnMachine(c, "collision", otherNetNodeUUID)
+	var sequenceValue int
+	err := s.DB().QueryRowContext(c.Context(), `
+SELECT value
+FROM   sequence
+WHERE  namespace = ?`, "application_reprovision").Scan(&sequenceValue)
+	c.Assert(err, tc.ErrorIsNil)
+	collisionName := fmt.Sprintf("reprovision/%d", sequenceValue+1)
+	s.runQuery(c, "UPDATE unit SET name = ? WHERE uuid = ?", collisionName, "collision-unit")
+
+	err = s.state.DetachLostMachineCloudInstance(
+		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
+	)
+	c.Assert(err, tc.ErrorMatches,
+		fmt.Sprintf(`allocating replacement unit ordinals: cannot rename reprovisioned unit "reprovision/0" to %q: replacement unit name already exists; the application unit sequence is behind existing unit names`, collisionName))
+
+	c.Check(s.rowCountWhere(c, "unit", "uuid = ? AND name = ?", "reprovision-unit", "reprovision/0"), tc.Equals, 1)
 }
 
 func (s *stateSuite) TestDetachLostMachineCloudInstanceDepartsRelationScopes(c *tc.C) {
