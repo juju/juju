@@ -874,14 +874,22 @@ func (s *Service) UpdateK8sService(ctx context.Context, appName, providerID stri
 	if providerID == "" {
 		return errors.Errorf("empty provider ID %w", coreerrors.NotValid)
 	}
-	args := application.UpsertK8sServiceArgs{}
-	ids := []*string{&args.ServiceUUID, &args.NetNodeUUID, &args.DeviceUUID}
-	for _, id := range ids {
-		value, err := uuid.NewUUID()
-		if err != nil {
-			return errors.Capture(err)
-		}
-		*id = value.String()
+	serviceUUID, err := uuid.NewUUID()
+	if err != nil {
+		return errors.Capture(err)
+	}
+	netNodeUUID, err := uuid.NewUUID()
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deviceUUID, err := uuid.NewUUID()
+	if err != nil {
+		return errors.Capture(err)
+	}
+	args := application.UpsertK8sServiceArgs{
+		ServiceUUID: serviceUUID.String(),
+		NetNodeUUID: netNodeUUID.String(),
+		DeviceUUID:  deviceUUID.String(),
 	}
 	for _, addr := range sAddrs {
 		if addr.AddressType() == network.HostName {
