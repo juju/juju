@@ -1133,15 +1133,15 @@ diagram "Tutorial: setup" from "Juju" {
     sizing: uniform
   }
   positions {
-    user       left-of client
+    user       left-of client      gap: 24
     user       align-middle client
-    client     left-of controller
+    client     left-of controller  gap: 24
     client     align-middle controller
-    apps       right-of controller
+    apps       right-of controller gap: 24
     apps       align-middle controller
-    clouds     above controller    gap: 40
+    clouds     above controller    gap: 24
     clouds     align-centre controller
-    charmhub   below controller    gap: 40
+    charmhub   below controller    gap: 24
     charmhub   align-centre controller
   }
 }
@@ -1156,15 +1156,15 @@ diagram "Tutorial: auth" from "Juju" {
     sizing: uniform
   }
   positions {
-    user       left-of client
+    user       left-of client      gap: 24
     user       align-middle client
-    client     left-of controller
+    client     left-of controller  gap: 24
     client     align-middle controller
-    apps       right-of controller
+    apps       right-of controller gap: 24
     apps       align-middle controller
-    clouds     above controller    gap: 40
+    clouds     above controller    gap: 24
     clouds     align-centre controller
-    charmhub   below controller    gap: 40
+    charmhub   below controller    gap: 24
     charmhub   align-centre controller
   }
 }
@@ -1178,15 +1178,15 @@ diagram "Tutorial: provision & deploy" from "Juju" {
     sizing: uniform
   }
   positions {
-    user       left-of client
+    user       left-of client      gap: 24
     user       align-middle client
-    client     left-of controller
+    client     left-of controller  gap: 24
     client     align-middle controller
-    apps       right-of controller
+    apps       right-of controller gap: 24
     apps       align-middle controller
-    clouds     above controller    gap: 40
+    clouds     above controller    gap: 24
     clouds     align-centre controller
-    charmhub   below controller    gap: 40
+    charmhub   below controller    gap: 24
     charmhub   align-centre controller
   }
 }
