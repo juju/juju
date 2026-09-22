@@ -258,11 +258,6 @@ type dbName struct {
 	Name string `db:"name"`
 }
 
-// dbUserName represents a user name.
-type dbUserName struct {
-	Name string `db:"name"`
-}
-
 type dbModelActivated struct {
 	Activated bool `db:"activated"`
 }

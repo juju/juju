@@ -1415,11 +1415,11 @@ LEFT JOIN v_permission p ON u.uuid = p.grant_to AND p.grant_on = $dbModelUUIDRef
 LEFT JOIN model_last_login mll ON mll.user_uuid = u.uuid AND mll.model_uuid = $dbModelUUIDRef.model_uuid
 WHERE     u.disabled = false
 AND       u.removed = false
-AND       u.name = $dbUserName.name
+AND       u.name = $dbName.name
 `
 
 	uuid := dbModelUUIDRef{ModelUUID: modelUUID.String()}
-	userName := dbUserName{Name: name.Name()}
+	userName := dbName{Name: name.Name()}
 	stmt, err := st.Prepare(q, dbModelUserInfo{}, uuid, userName)
 	if err != nil {
 		return coremodel.ModelUserInfo{}, errors.Capture(err)
