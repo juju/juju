@@ -424,15 +424,21 @@ func (s *baseSuite) setK8sServiceAddress(
 		testclock.NewClock(s.now), loggertesting.WrapCheckLog(c),
 	)
 
-	serviceAddresses := make(corenetwork.ProviderAddresses, len(addresses))
+	args := application.UpsertK8sServiceArgs{
+		ServiceUUID: tc.Must(c, uuid.NewUUID).String(),
+		NetNodeUUID: tc.Must(c, uuid.NewUUID).String(),
+		DeviceUUID:  tc.Must(c, uuid.NewUUID).String(),
+		Addresses:   make([]application.K8sServiceAddress, len(addresses)),
+	}
 	for i, address := range addresses {
-		serviceAddresses[i] = corenetwork.ProviderAddress{
-			MachineAddress: corenetwork.NewMachineAddress(address),
+		args.Addresses[i] = application.K8sServiceAddress{
+			UUID: tc.Must(c, uuid.NewUUID).String(),
+			ProviderAddress: corenetwork.ProviderAddress{
+				MachineAddress: corenetwork.NewMachineAddress(address),
+			},
 		}
 	}
-	err = appState.UpsertK8sService(c.Context(), appName, providerID,
-		serviceAddresses,
-	)
+	err = appState.UpsertK8sService(c.Context(), appName, providerID, args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
