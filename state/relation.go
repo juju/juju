@@ -458,14 +458,15 @@ func (r *Relation) destroyOps(ignoreApplication string, op *ForcedOperation) (op
 
 // forceTeardownCleanupOps returns ops queueing an asynchronous force
 // teardown of the relation. When the relation is Alive it is marked
-// Dying in the same transaction.
+// Dying in the same transaction. The numeric ID prevents a stale request
+// from fencing a recreated relation that has the same key.
 func forceTeardownCleanupOps(r *Relation) []txn.Op {
 	var ops []txn.Op
 	if r.doc.Life == Alive {
 		ops = append(ops, txn.Op{
 			C:      relationsC,
 			Id:     r.doc.DocID,
-			Assert: isAliveDoc,
+			Assert: bson.D{{"life", Alive}, {"id", r.Id()}},
 			Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 		})
 	}
@@ -697,8 +698,15 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.O
 		// so the relation is removed without touching the count and
 		// the recorded value converges as the remaining references
 		// are removed (the final reference heals it above).
-		return nil, stateerrors.NewRelationCountCorruptError(
-			app.Name(), app.doc.RelationCount, refCount)
+		// Keep the revision assertion even when leaving the count alone.
+		// If a concurrent add caused the mismatch between the two reads,
+		// the removal must abort and retry with the updated application.
+		return []txn.Op{{
+				C:      remoteApplicationsC,
+				Id:     app.doc.DocID,
+				Assert: bson.D{{"txn-revno", app.doc.TxnRevno}},
+			}}, stateerrors.NewRelationCountCorruptError(
+				app.Name(), app.doc.RelationCount, refCount)
 	}
 	if !unitDying {
 		// We're constructing a destroy operation, either of the relation

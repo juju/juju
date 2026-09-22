@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/mongo"
 )
 
 type RelationSuite struct{}
@@ -156,7 +157,7 @@ func (s *relationCleanupSuite) TestForceTeardownCleanupOps(c *gc.C) {
 	c.Assert(ops[0].C, gc.Equals, relationsC)
 	assert_, ok := ops[0].Assert.(bson.D)
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(assert_, gc.DeepEquals, isAliveDoc)
+	c.Check(assert_, gc.DeepEquals, bson.D{{"life", Alive}, {"id", rel.Id()}})
 	update, ok := ops[0].Update.(bson.D)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(update, gc.DeepEquals, bson.D{{"$set", bson.D{{"life", Dying}}}})
@@ -177,6 +178,107 @@ func (s *relationCleanupSuite) TestForceTeardownCleanupOps(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(doc.Kind, gc.Equals, cleanupForceDestroyedRelation)
 	c.Assert(doc.Prefix, gc.Equals, strconv.Itoa(rel.Id()))
+}
+
+func (s *relationCleanupSuite) TestForceTeardownCleanupOpsDoesNotFenceRecreatedRelation(c *gc.C) {
+	rel := s.setupRelation(c)
+	ops := forceTeardownCleanupOps(rel)
+	c.Assert(rel.Destroy(), jc.ErrorIsNil)
+
+	eps := rel.Endpoints()
+	recreated, err := s.state.AddRelation(eps[0], eps[1])
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(recreated.String(), gc.Equals, rel.String())
+	c.Check(recreated.Id(), gc.Not(gc.Equals), rel.Id())
+
+	err = s.state.db().RunTransaction(ops)
+	c.Assert(err, jc.ErrorIs, txn.ErrAborted)
+	c.Assert(recreated.Refresh(), jc.ErrorIsNil)
+	c.Check(recreated.Life(), gc.Equals, Alive)
+}
+
+func (s *relationCleanupSuite) TestRemoveRemoteEndpointRetriesConcurrentRelationCreation(c *gc.C) {
+	rel := s.setupRelation(c)
+	remote, err := s.state.RemoteApplication("remote-wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(remote.AddEndpoints([]charm.Relation{{
+		Name:      "admin",
+		Interface: "mysql-root",
+		Role:      charm.RoleRequirer,
+		Scope:     charm.ScopeGlobal,
+		Limit:     1,
+	}}), jc.ErrorIsNil)
+	remoteEP, err := remote.Endpoint("admin")
+	c.Assert(err, jc.ErrorIsNil)
+	local, err := s.state.Application("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	localEP, err := local.Endpoint("server-admin")
+	c.Assert(err, jc.ErrorIsNil)
+
+	var added *Relation
+	called := false
+	s.PatchValue(&s.state.database, &relationCountHookDatabase{
+		Database: s.state.database,
+		beforeCount: func() {
+			if called {
+				return
+			}
+			called = true
+			// Add a relation after the remote application was read but
+			// before its actual relations are counted.
+			var err error
+			added, err = s.state.AddRelation(localEP, remoteEP)
+			c.Assert(err, jc.ErrorIsNil)
+		},
+	})
+	c.Assert(rel.Destroy(), jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(remote.Refresh(), jc.ErrorIsNil)
+	remaining, err := remote.Relations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(remaining, gc.HasLen, 1)
+	c.Check(remote.RelationCount(), gc.Equals, len(remaining))
+	c.Assert(added.Refresh(), jc.ErrorIsNil)
+	c.Check(added.Life(), gc.Equals, Alive)
+	c.Check(rel.Refresh(), jc.ErrorIs, errors.NotFound)
+}
+
+// relationCountHookDatabase allows a real transaction between the application
+// read and the relation count query, making the interleaving deterministic.
+type relationCountHookDatabase struct {
+	Database
+	beforeCount func()
+}
+
+func (db *relationCountHookDatabase) GetCollection(name string) (mongo.Collection, SessionCloser, error) {
+	coll, closer, err := db.Database.GetCollection(name)
+	if err == nil && name == relationsC {
+		coll = &relationCountHookCollection{Collection: coll, beforeCount: db.beforeCount}
+	}
+	return coll, closer, err
+}
+
+type relationCountHookCollection struct {
+	mongo.Collection
+	beforeCount func()
+}
+
+func (coll *relationCountHookCollection) Find(selector interface{}) mongo.Query {
+	query := coll.Collection.Find(selector)
+	if fields, ok := selector.(bson.M); ok && fields["endpoints.applicationname"] != nil {
+		return &relationCountHookQuery{Query: query, beforeCount: coll.beforeCount}
+	}
+	return query
+}
+
+type relationCountHookQuery struct {
+	mongo.Query
+	beforeCount func()
+}
+
+func (query *relationCountHookQuery) Count() (int, error) {
+	query.beforeCount()
+	return query.Query.Count()
 }
 
 func (s *relationCleanupSuite) TestForceRelationRemoveOps(c *gc.C) {
