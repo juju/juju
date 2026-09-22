@@ -355,6 +355,42 @@ The authored original (both of the above derive from it):
 :alt: User calls juju destroy-model. Controller marks model Dying and fires watcher to Undertaker. Undertaker destroys all applications. Controller releases all machines and marks model Dead. Undertaker deletes model records and Dqlite database.
 ```
 
+## Tutorial: the progressive reveal
+
+The tutorial's figures reveal one element per section, the way the
+page teaches: the machinery first, then the user, then the
+applications. Each step is a scoped view over the same model.
+
+### Tutorial: setup
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Tutorial: setup
+:no-legend:
+:caption: What Juju consists of before anything runs: a client and a controller, with access to a cloud (compute, networking, storage) and to Charmhub. The arrows name what each connection carries.
+:alt: A client talks to the controller; the controller talks to clouds above it and to Charmhub below it.
+```
+
+### Tutorial: auth
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Tutorial: auth
+:no-legend:
+:caption: The reveal adds the user: everything a user does in Juju is commands sent through the client to the controller, which authenticates and authorizes them.
+:alt: The user sends commands to the client, and the client calls the Juju API on the controller.
+```
+
+### Tutorial: provision & deploy
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Tutorial: provision & deploy
+:no-legend:
+:caption: The reveal adds the charmed applications: the controller provisions infrastructure on the cloud and fetches charms from Charmhub; the applications record their state back to the controller.
+:alt: The user sends commands through the client to the controller; the controller provisions on clouds and fetches charms from Charmhub; the charmed applications record their state on the controller.
+```
+
 ## Where each view is embedded (round 1 of the docs push)
 
 Every diagram above is duplicated here; the list below maps the views
@@ -364,9 +400,9 @@ updates are inspectable from this one page.
 | View / sequence | Embedded in |
 |---|---|
 | Intro: the problem | explanation/juju-architecture.md |
-| Intro: Juju enters | explanation/juju-architecture.md; **tutorial/index.md** (replaces tutorial-setup excalidraw) |
+| Intro: Juju enters | explanation/juju-architecture.md |
 | Intro: Juju unpacked | explanation/juju-architecture.md |
-| Juju overview | explanation/architecture.md; **tutorial/index.md** (replaces tutorial-provision-deploy) |
+| Juju overview | explanation/architecture.md |
 | K8s deployment topology | explanation/architecture.md; **reference/containeragent.md**, **reference/jujuc.md**, **reference/pebble.md** |
 | Data model | explanation/architecture.md |
 | Data model (full spine) | **reference/database.md** |
@@ -381,8 +417,16 @@ updates are inspectable from this one page.
 | Model removal | explanation/architecture.md; **reference/removing-things.md** |
 | juju status | this catalogue |
 
+New tutorial views (all three also embedded in **tutorial/index.md**,
+replacing the excalidraw pairs -- the progressive reveal: setup, then
++user, then +applications):
+| View | Embedded in |
+|---|---|
+| Tutorial: setup | tutorial/index.md (replaces tutorial-setup excalidraw) |
+| Tutorial: auth | tutorial/index.md (replaces tutorial-handle-auth excalidraw) |
+| Tutorial: provision & deploy | tutorial/index.md (replaces tutorial-provision-deploy excalidraw) |
+
 Pages still on hand-drawn visuals, pending round-2 views:
-**tutorial/index.md** (auth figure — needs the new auth sequence,
-round 3), reference/relation.md (relation taxonomy + databags
-excalidraws), reference/hook.md (hook-charm-lifecycle PNG — the
+reference/relation.md (relation taxonomy + databags excalidraws),
+reference/hook.md (hook-charm-lifecycle PNG — the
 Uniter operation machine above now covers its execution story).

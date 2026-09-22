@@ -1111,6 +1111,66 @@ diagram "Intro: Juju enters (declared)" from "Juju" {
 }
 
 
+
+// --------------------------------------------------------------------------
+// Tutorial: the progressive reveal -- setup (the machinery)
+// --------------------------------------------------------------------------
+diagram "Tutorial: setup" from "Juju" {
+  select {
+    nodes: client controller clouds charmhub
+    edges: type api type control
+    sizing: uniform
+  }
+  positions {
+    client     left-of controller
+    client     align-middle controller
+    clouds     above controller    gap: 40
+    clouds     align-centre controller
+    charmhub   below controller    gap: 40
+    charmhub   align-centre controller
+  }
+}
+
+// --------------------------------------------------------------------------
+// Tutorial: the progressive reveal -- auth (adds the user)
+// --------------------------------------------------------------------------
+diagram "Tutorial: auth" from "Juju" {
+  select {
+    nodes: user client controller
+    edges: type control type api
+    sizing: uniform
+  }
+  positions {
+    user       left-of client
+    user       align-middle client
+    client     left-of controller
+    client     align-middle controller
+  }
+}
+
+// --------------------------------------------------------------------------
+// Tutorial: the progressive reveal -- deploy (adds the applications)
+// --------------------------------------------------------------------------
+diagram "Tutorial: provision & deploy" from "Juju" {
+  select {
+    nodes: user client controller apps clouds charmhub
+    edges: type control type api type stream
+    sizing: uniform
+  }
+  positions {
+    user       left-of client
+    user       align-middle client
+    client     left-of controller
+    client     align-middle controller
+    apps       right-of controller
+    apps       align-middle controller
+    clouds     above controller    gap: 40
+    clouds     align-centre controller
+    charmhub   below controller    gap: 40
+    charmhub   align-centre controller
+  }
+}
+
 // ==== HAND-MAINTAINED below — edit freely; `make variants` regenerates everything above ====
 
 // ==== GENERATED BELOW — synthesized variants of the
@@ -1353,6 +1413,33 @@ diagram "HA controller: Dqlite replicaset (synthesized)" from "Juju" {
     legend [position: "bottom-right",
             container: "controller node",
             juju-software: "controller agent (embedded Dqlite)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+diagram "Tutorial: setup (synthesized)" from "Juju" {
+  select {
+    nodes: client controller clouds charmhub
+    edges: type api type control
+    sizing: uniform
+  }
+}
+
+// --------------------------------------------------------------------------
+diagram "Tutorial: auth (synthesized)" from "Juju" {
+  select {
+    nodes: user client controller
+    edges: type control type api
+    sizing: uniform
+  }
+}
+
+// --------------------------------------------------------------------------
+diagram "Tutorial: provision & deploy (synthesized)" from "Juju" {
+  select {
+    nodes: user client controller apps clouds charmhub
+    edges: type control type api type stream
+    sizing: uniform
   }
 }
 
