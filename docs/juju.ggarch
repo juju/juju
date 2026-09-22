@@ -202,6 +202,28 @@ model "Juju" {
                         records: "machine_rec"]
 
     // -----------------------------------------------------------------------
+    // Machine designations (docs/reference/machine.md) — one machine
+    // table, two provisioning paths: base machines by the controller's
+    // compute provisioner (cmd/jujud-controller/agent/model/
+    // manifolds.go:computeProvisionerName), containers by the HOST
+    // machine agent (internal/worker/containerprovisioner +
+    // cmd/jujud/agent/machine/manifolds.go lxdContainerProvisioner).
+    // -----------------------------------------------------------------------
+    compute_provisioner0 [type: juju-software,
+                          label: "Compute provisioner\n(controller model worker)",
+                          ground: "cmd/jujud-controller/agent/model/manifolds.go:computeProvisionerName"]
+    machine0 [type: container, label: "Machine 0\n(cloud instance)"] {
+      ma0 [type: juju-software,
+           label: "Machine agent\n(jujud, provisioners)",
+           records: "machine_rec"]
+      lxd0 [type: container, label: "LXD container\n0/lxd/0"] {
+        ua0   [type: juju-software, label: "Unit agent",
+               records: "unit_rec"]
+        unit0 [type: charm, label: "Unit\n(myapp/0)"]
+      }
+    }
+
+    // -----------------------------------------------------------------------
     // Worker tree — the controller dependency engine
     // (cmd/jujud-controller/agent/{machine,model}/manifolds.go)
     // -----------------------------------------------------------------------
@@ -367,6 +389,16 @@ model "Juju" {
     unit_agent -> charm      [type: control, label: "executes hooks from"]
     charm      -> unit_agent [type: ipc,     label: "calls hook command on"]
     unit_agent -> apiserver  [type: api,     label: "flushes hook changes to"]
+
+    // Machine designations (docs/reference/machine.md — MachineScout
+    // grounds): the host machine agent watches its containers
+    // (machine.WatchContainers) and provisions them through the LXD
+    // broker; unit placement hangs off the shared net_node
+    // (domain/application/state/machine_placement.go:144-147).
+    compute_provisioner0 -> machine0 [type: control, label: "provisions\n(StartInstance)"]
+    ma0 -> controller                [type: api,     label: "watches containers on\n(WatchContainers)"]
+    ma0 -> lxd0                      [type: control, label: "provisions container\n(LXD broker)"]
+    ua0 -> unit0                     [type: control, label: "runs"]
 
     // Bootstrap K8s
     client         -> k8s            [type: api]
@@ -1483,6 +1515,28 @@ diagram "Agent taxonomy" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+// Reference: machine designations (docs/reference/machine.md) — one
+// machine table, two provisioning paths: base machines by the
+// controller's compute provisioner, containers by the host machine
+// agent (containerprovisioner + LXD broker); the designation is the
+// containment path (0/lxd/0 = container 0 on machine 0); units sit on
+// their host's shared net node.
+// --------------------------------------------------------------------------
+diagram "Machine designations" from "Juju" {
+  select {
+    nodes: compute_provisioner0 machine0 controller
+    edges: type control type api
+    sizing: uniform
+  }
+  positions {
+    compute_provisioner0 left-of machine0  gap: 48
+    compute_provisioner0 align-middle machine0
+    controller           below ma0 gap: 48
+    controller           align-centre ma0
+  }
+}
+
+// --------------------------------------------------------------------------
 // Reference: network spaces (docs/reference/space.md, subnet.md) —
 // space -> subnet -> provider identity; endpoint bindings (0008-space.sql).
 // --------------------------------------------------------------------------
@@ -1953,6 +2007,15 @@ diagram "Agent taxonomy (synthesized)" from "Juju" {
   select {
     nodes: controller machine_agent unit_agent containeragent
     edges: type control type stream type api
+    sizing: uniform
+  }
+}
+
+// --------------------------------------------------------------------------
+diagram "Machine designations (synthesized)" from "Juju" {
+  select {
+    nodes: compute_provisioner0 machine0 controller
+    edges: type control type api
     sizing: uniform
   }
 }

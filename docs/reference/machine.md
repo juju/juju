@@ -29,7 +29,7 @@ When you deploy an {ref}`application <application>` on a machine, there is usual
 (machines-and-system-containers)=
 ## Machines and system (LXD) containers
 
-In Juju, they are both essentially the same -- 'machines'.  For example, most `juju` CLI commands that target machines can actually target system containers in the exact same way.
+In Juju, they are both essentially the same -- 'machines'.  For example, most `juju` CLI commands that target machines can actually target system containers in the exact same way. The container is provisioned by its host machine's agent, not by the controller -- which is also why adding a container brings its host machine in as a machine of its own.
 
 ````{dropdown} Example
 
@@ -77,6 +77,21 @@ In Juju, many different commands have a machine argument. The shape of this argu
 | `lxd:25`| a new LXD container or (if specified with `virt-type=virtual-machine`) VM on machine 25|
 | `0/lxd/4`| LXD container `4` on machine `0`|
 |`3,0/lxd/2,lxd:5`| machine 3, LXD container 2 on machine 0, and a new LXD container on machine 5|
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Machine designations
+:no-legend:
+:caption: What a designation names: machine 0 and its LXD container 0/lxd/0 are rows in the same machine table, the container linked to its host by a machine-parent record -- the designation is that containment path. Two provisioning paths: the controller's compute provisioner starts base machines; the host machine's agent provisions its own containers through the LXD broker and watches them via the API.
+:alt: The controller's compute provisioner provisions machine 0; machine 0's agent provisions the LXD container 0/lxd/0 via the LXD broker and watches its containers through the controller API; the unit agent runs the unit inside the container.
+```
+
+A few rules the table does not show:
+
+- `0/lxd/4`-style entries address an *existing* container; `lxd` and `lxd:25` request a *new* one.
+- The numbers are `0` or positive integers without leading zeros (`0/lxd/01` is invalid).
+- Only one level of container nesting is supported (`0/lxd/0`).
+- These designations are for machine clouds only: the `--to` argument is rejected on Kubernetes models.
 
 (machine-customisation)=
 ## Machine customisation

@@ -453,6 +453,16 @@ applications. Each step is a scoped view over the same model.
 :alt: Unit agent and machine agent buffer records and ship them to the controller; the controller batches them into logsink.log; the user tails via juju debug-log.
 ```
 
+### Machine designations (two provisioning paths)
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Machine designations
+:no-legend:
+:caption: What a machine designation names, grounded in domain/machine: machine 0 and its LXD container 0/lxd/0 are rows in the SAME machine table (the container linked by a machine-parent record; one nesting level only), so the designation is the containment path. The provisioning split: the controller's compute provisioner starts base machines (StartInstance); the host machine's agent provisions its own containers through the LXD broker (containerprovisioner on the machine agent) and watches them via the API (WatchContainers). Placement scope '#' = existing, 'lxd:' = new; --to is machine-cloud only.
+:alt: The controller's compute provisioner provisions machine 0; machine 0's agent provisions the LXD container 0/lxd/0 via the LXD broker and watches its containers through the controller API; the unit agent runs the unit inside the container.
+```
+
 
 
 ## Reference: data models (round 4 — grounded data-model views)
