@@ -331,7 +331,7 @@ func (s *backupsSuite) TestCreateNoDownload(c *tc.C) {
 	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(),
 		params.BackupsCreateArgs{NoDownload: true})
 	c.Assert(err, tc.ErrorMatches,
-		"--no-download is no longer supported; the archive is always downloaded")
+		"keeping archives on the controller is no longer supported; the archive is always downloaded")
 }
 
 // TestCreateGetFilesFailure verifies that a failure collecting the files

@@ -24,7 +24,6 @@ import (
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
-	corebackups "github.com/juju/juju/core/backups"
 	corebase "github.com/juju/juju/core/base"
 	coremodelconfig "github.com/juju/juju/core/modelconfig"
 	"github.com/juju/juju/core/semversion"
@@ -258,10 +257,6 @@ const (
 	// BackupDirKey specifies the backup working directory.
 	BackupDirKey = "backup-dir"
 
-	// BackupDownloadTTLKey specifies how long a backup archive staged
-	// for download is retained on the controller before it is removed.
-	BackupDownloadTTLKey = "backup-download-ttl"
-
 	// ContainerInheritPropertiesKey is the key to specify a list of properties
 	// to be copied from a machine to a container during provisioning. The
 	// list will be comma separated.
@@ -441,10 +436,6 @@ const (
 
 	// DefaultSecretBackend is the default secret backend to use.
 	DefaultSecretBackend = "auto"
-
-	// DefaultBackupDownloadTTL is the default value for
-	// BackupDownloadTTLKey.
-	DefaultBackupDownloadTTL = "15m"
 )
 
 var defaultConfigValues = map[string]any{
@@ -493,7 +484,6 @@ var defaultConfigValues = map[string]any{
 	CloudInitUserDataKey:            "",
 	ContainerInheritPropertiesKey:   "",
 	BackupDirKey:                    "",
-	BackupDownloadTTLKey:            DefaultBackupDownloadTTL,
 	LXDSnapChannel:                  DefaultLxdSnapChannel,
 
 	CharmHubURLKey: charmhub.DefaultServerURL,
@@ -701,18 +691,6 @@ func Validate(_ctx context.Context, cfg, old *Config) error {
 		}
 		if duration > 60*time.Minute {
 			return errors.Annotatef(err, "update status hook frequency %v cannot be greater than 60m", duration)
-		}
-	}
-
-	if v, ok := cfg.defined[BackupDownloadTTLKey].(string); ok {
-		duration, err := time.ParseDuration(v)
-		if err != nil {
-			return errors.Annotate(err, "invalid backup download ttl in model configuration")
-		}
-		// The sweeper only runs every corebackups.SweepInterval, so a
-		// shorter TTL cannot be honoured.
-		if duration < corebackups.SweepInterval {
-			return errors.Errorf("backup download ttl %v cannot be less than %v", duration, corebackups.SweepInterval)
 		}
 	}
 
@@ -1291,18 +1269,6 @@ func (c *Config) BackupDir() string {
 	return c.asString(BackupDirKey)
 }
 
-// BackupDownloadTTL returns how long a backup archive staged for
-// download is retained on the controller before it is removed.
-func (c *Config) BackupDownloadTTL() time.Duration {
-	// Value has already been validated; fall back to the default if
-	// the key is somehow unset.
-	if val, err := time.ParseDuration(c.asString(BackupDownloadTTLKey)); err == nil {
-		return val
-	}
-	val, _ := time.ParseDuration(DefaultBackupDownloadTTL)
-	return val
-}
-
 // AutomaticallyRetryHooks returns whether we should automatically retry hooks.
 // By default this should be true.
 func (c *Config) AutomaticallyRetryHooks() bool {
@@ -1723,7 +1689,6 @@ var alwaysOptional = schema.Defaults{
 	CloudInitUserDataKey:            schema.Omit,
 	ContainerInheritPropertiesKey:   schema.Omit,
 	BackupDirKey:                    schema.Omit,
-	BackupDownloadTTLKey:            schema.Omit,
 	DefaultSpaceKey:                 schema.Omit,
 	LXDSnapChannel:                  schema.Omit,
 	CharmHubURLKey:                  schema.Omit,

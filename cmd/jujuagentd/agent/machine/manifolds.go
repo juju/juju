@@ -59,7 +59,6 @@ import (
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/internal/worker/apiservercertwatcher"
 	"github.com/juju/juju/internal/worker/auditconfigupdater"
-	"github.com/juju/juju/internal/worker/backupsweeper"
 	"github.com/juju/juju/internal/worker/bootstrap"
 	"github.com/juju/juju/internal/worker/caasupgrader"
 	"github.com/juju/juju/internal/worker/certupdater"
@@ -877,19 +876,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetChangeStreamService: changestreampruner.GetControllerChangeStreamService,
 		})),
 
-		// The backup sweeper removes one-shot backup download archives
-		// that have outlived their retention window. Backups are
-		// controller-local: every controller machine sweeps its own
-		// backup dir.
-		backupSweeperName: ifController(backupsweeper.Manifold(backupsweeper.ManifoldConfig{
-			DomainServicesName:    domainServicesName,
-			ControllerModelUUID:   config.ControllerModelUUID,
-			Clock:                 config.Clock,
-			Logger:                internallogger.GetLogger("juju.worker.backupsweeper"),
-			NewWorker:             backupsweeper.NewWorker,
-			GetModelConfigService: backupsweeper.GetControllerModelConfigService,
-		})),
-
 		auditConfigUpdaterName: ifDatabaseUpgradeComplete(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
 			LogDir:                     config.LogDir,
 			DomainServicesName:         domainServicesName,
@@ -1700,7 +1686,6 @@ const (
 	apiRemoteCallerName                = "api-remote-caller"
 	apiRemoteRelationCallerName        = "api-remote-relation-caller"
 	auditConfigUpdaterName             = "audit-config-updater"
-	backupSweeperName                  = "backup-sweeper"
 	sshKeyUpdaterWorkerName            = "ssh-authkeys-updater"
 	brokerTrackerName                  = "broker-tracker"
 	certificateUpdaterName             = "certificate-updater"
