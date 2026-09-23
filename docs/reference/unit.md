@@ -31,3 +31,18 @@ Every application is guaranteed to have at most one leader at any given time. {r
 Internally, even though the replica set shares the same user-provided configuration, each unit may be performing different roles within the replica set, as defined by the {ref}`charm <charm>`.
 
 The leader is denoted by an asterisk in the output to `juju status`.
+
+## Removal
+
+Removing a unit (`juju remove-unit`) is a cooperative shutdown, not a
+kill: the controller only marks the unit Dying; the unit's agent runs
+its teardown work and only then reports itself Dead. A hook error in
+that teardown is what the `--force` and `--no-wait` options of
+{ref}`removing things <removing-things>` override.
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Unit removal
+:alt: User calls juju remove-unit. Controller marks unit Dying and fires watcher to unit agent. Unit agent runs stop, teardown, and remove hooks, then marks unit Dead. Controller releases machine and deletes unit records.
+:caption: Removal is a cooperative shutdown. The controller only marks the entity Dying; the agent that owns it runs its teardown work and only then reports itself Dead. A hook error in that teardown is what the `--force` option overrides.
+```

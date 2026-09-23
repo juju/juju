@@ -7,7 +7,10 @@ doc each diagram is going to be inserted into: an h2 per doc kind
 the diagrams with **the section of that page where each goes** (the
 staging convention: a diagram belongs to the doc section that owns its
 topic — e.g. the bootstrap sequences under
-`reference/controller.md` → *Controller bootstrap*). Diagrams with no
+`reference/controller.md` → *Controller bootstrap*). An entity
+reference page may carry several layers — structure, mechanism,
+lifecycle: `reference/unit.md`'s *Removal* section is the unit's
+lifecycle layer, not part of its structure story. Diagrams with no
 home yet sit in **Other** at the bottom.
 
 Every entry shows as a **side-by-side pair**: the **synthesized**
@@ -353,6 +356,20 @@ concept pages — one mechanism, data model, or process per page.
 :alt: User calls juju bootstrap or juju deploy; the client tries the controller database, then the user-supplied metadata URL, then the provider locations, then streams.canonical.com, each attempted signed first then unsigned; the client verifies signatures with the shipped public keys and uses the first hit.
 ```
 
+### reference/model.md
+
+#### Model removal
+
+**Insert at:** § Removal. also: explanation/architecture.md § Remove.
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Model removal
+:no-legend:
+:caption: Model destruction is coordinated by the Undertaker, a worker that runs inside the controller agent. The controller never deletes its own database — the Undertaker does, as the final act after all cloud resources have been released.
+:alt: User calls juju destroy-model. Controller marks model Dying and fires watcher to Undertaker. Undertaker destroys all applications. Controller releases all machines and marks model Dead. Undertaker deletes model records and Dqlite database.
+```
+
 ### reference/offer.md
 
 #### Cross-model relation (CMR)
@@ -404,32 +421,6 @@ concept pages — one mechanism, data model, or process per page.
 :no-legend:
 :caption: The databags are records in the host model's database (on the controller), and the connection between applications runs through their units: each unit's AGENT reads and writes them over the API (relation-get/relation-set via the hook tools -> the unit agent's uniter facade). Each application has ONE application databag (per relation endpoint) and unit databags (one per unit). LEAN form (reviewer round 20): units, not unit agents (leadership is a property of the unit); no model-database box -- the caption says the bags are records in the host model's database. Red = reads + writes, green = reads; each unit reads + writes ONLY its own unit databag, the leader unit also its application's application databag; and all units -- leaders included -- read ALL of the other application's databags. The permission story is the same whether the applications share a model or not. Peer panel (app A related to itself): the permissions turn inward -- every unit reads every databag of its own application, the application databag included. Users have read-only visibility via the API (juju show-unit), never write.
 :alt: App A's units (appA/leader, appA/1) and app B's units (appB/leader, appB/1) above one row of databags; red arrows reading and writing within each set (own bags; the leader also the application databag), green arrows reading across to the other application's set; below, the peer panel with one set and inward green reads of every bag, the application databag included.
-```
-
-### reference/removing-things.md
-
-#### Unit removal
-
-**Insert at:** § Forcing removals. also: explanation/architecture.md.
-
-```{ggarch}
-:file: ../juju.ggarch
-:sequence: Unit removal
-:no-legend:
-:caption: Removal is a cooperative shutdown: the controller marks the unit Dying, the unit agent runs its teardown hooks in order, then marks itself Dead. Only after that does the controller release the underlying machine.
-:alt: User calls juju remove-unit. Controller marks unit Dying and fires watcher to unit agent. Unit agent runs stop, teardown, and remove hooks, then marks unit Dead. Controller releases machine and deletes unit records.
-```
-
-#### Model removal
-
-**Insert at:** § Forcing removals. also: explanation/architecture.md.
-
-```{ggarch}
-:file: ../juju.ggarch
-:sequence: Model removal
-:no-legend:
-:caption: Model destruction is coordinated by the Undertaker, a worker that runs inside the controller agent. The controller never deletes its own database — the Undertaker does, as the final act after all cloud resources have been released.
-:alt: User calls juju destroy-model. Controller marks model Dying and fires watcher to Undertaker. Undertaker destroys all applications. Controller releases all machines and marks model Dead. Undertaker deletes model records and Dqlite database.
 ```
 
 ### reference/script.md
@@ -500,6 +491,20 @@ concept pages — one mechanism, data model, or process per page.
 :no-legend:
 :caption: The storage walk, grounded in 0011-storage.sql: the charm defines storage names (kind block|filesystem, count, size); a directive pins one pool (user- or provider-default origin) per application; an instance carries the charm name, kind and requested size and is backed by exactly one volume or filesystem; attachments bind instances to units; volumes bind to net nodes (the machine or unit network identity). Provision scope: model = machine-independent, machine = dies with the machine.
 :alt: Record chain: charm storage to directive to pool to instance; volume to the right of instance, filesystem below, attachment below charm storage, net node above volume. Arrows carry multiplicities.
+```
+
+### reference/unit.md
+
+#### Unit removal
+
+**Insert at:** § Removal. also: explanation/architecture.md § Remove.
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Unit removal
+:no-legend:
+:caption: Removal is a cooperative shutdown: the controller marks the unit Dying, the unit agent runs its teardown hooks in order, then marks itself Dead. Only after that does the controller release the underlying machine.
+:alt: User calls juju remove-unit. Controller marks unit Dying and fires watcher to unit agent. Unit agent runs stop, teardown, and remove hooks, then marks unit Dead. Controller releases machine and deletes unit records.
 ```
 
 ### reference/upgrading-things.md

@@ -33,3 +33,20 @@ A model configuration is a rule or a set of rules that define the behavior of a 
 ```{ibnote}
 See more: {ref}`list-of-model-configuration-keys`,  {ref}`configure-a-model`
 ```
+
+## Removal
+
+A model is destroyed with `juju destroy-model`. Destruction is the
+largest removal and runs the same cooperative pattern at scale: the
+controller marks the model Dying and wakes the Undertaker worker,
+which tears the model down in dependency order -- applications first,
+then the machines, and the model's Dqlite database last, as the final
+act after all cloud resources are released. The controller never
+deletes its own database -- the Undertaker does.
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Model removal
+:alt: User calls juju destroy-model. Controller marks model Dying and fires watcher to Undertaker. Undertaker destroys all applications. Controller releases all machines and marks model Dead. Undertaker deletes model records and Dqlite database.
+:caption: Model destruction, the largest removal, runs the same pattern at scale: the Undertaker worker inside the controller agent tears everything down in dependency order. The controller never deletes its own database -- the Undertaker does, as the final act after all cloud resources are released.
+```
