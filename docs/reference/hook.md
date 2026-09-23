@@ -74,9 +74,8 @@ See more: {ref}`list-of-hooks`
 (hook-execution-guarantees)=
 ## Hook execution guarantees
 
-The charm has no in-process memory of previous runs: everything it needs arrives via
-hook commands, on demand, from the controller database. While a hook runs, Juju
-maintains four invariants:
+The cycle above runs under four invariants. The charm has no in-process memory of previous runs: everything it needs arrives via
+hook commands, on demand, from the controller database:
 
 - **One hook at a time per machine.** A machine-level lock covers the whole run, so
   hooks of different units on the same machine never interleave. Different machines
