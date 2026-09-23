@@ -420,30 +420,31 @@ func (s *UserService) SetLastModelLogin(ctx context.Context, name user.Name, mod
 	return nil
 }
 
-// LastModelLogin will return the last login time of the specified user.
-// The following error types are possible from this function:
+// LastModelLogins will return the last login times of the specified user for
+// each of the given models. Models for which the user has no login record are
+// omitted from the result. The following error types are possible from this
+// function:
 // - [accesserrors.UserNameNotValid] when the username is not valid.
 // - [accesserrors.UserNotFound] when the user cannot be found.
-// - [modelerrors.NotFound] if no model by the given modelUUID exists.
-// - [accesserrors.UserNeverAccessedModel] if there is no record of the user
-// accessing the model.
-func (s *UserService) LastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) (time.Time, error) {
+func (s *UserService) LastModelLogins(ctx context.Context, name user.Name, modelUUIDs []coremodel.UUID) (map[coremodel.UUID]time.Time, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if name.IsZero() {
-		return time.Time{}, errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
+		return nil, errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
 	}
 
-	if err := modelUUID.Validate(); err != nil {
-		return time.Time{}, errors.Errorf("getting last model connection for %q: bad uuid: %w", name, err)
+	for _, modelUUID := range modelUUIDs {
+		if err := modelUUID.Validate(); err != nil {
+			return nil, errors.Errorf("getting last model connection for %q: bad uuid: %w", name, err)
+		}
 	}
 
-	lastConnection, err := s.st.LastModelLogin(ctx, name, modelUUID)
+	lastConnections, err := s.st.LastModelLogins(ctx, name, modelUUIDs)
 	if err != nil {
-		return time.Time{}, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
-	return lastConnection, nil
+	return lastConnections, nil
 }
 
 // activationKeyLength is the number of bytes in an activation key.

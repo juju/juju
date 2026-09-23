@@ -208,9 +208,10 @@ type AccessService interface {
 	GetUserUUIDByName(context.Context, user.Name) (user.UUID, error)
 	// UpdatePermission updates the access level for a user of the model.
 	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
-	// LastModelLogin will return the last login time of the specified
-	// user.
-	LastModelLogin(context.Context, user.Name, coremodel.UUID) (time.Time, error)
+	// LastModelLogins will return the last login times of the specified
+	// user for each of the given models. Models for which the user has no
+	// login record are omitted from the result.
+	LastModelLogins(context.Context, user.Name, []coremodel.UUID) (map[coremodel.UUID]time.Time, error)
 }
 
 // ModelAgentService provides access to the Juju agent version for the model.
