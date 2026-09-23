@@ -13,7 +13,6 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
-
 	export "github.com/juju/juju/domain/export"
 	config "github.com/juju/juju/environs/config"
 )

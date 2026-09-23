@@ -14,17 +14,18 @@ import (
 type BackupsCreateArgs struct {
 	Notes string `json:"notes"`
 
-	// NoDownload is kept for compatibility with older clients only.
-	// The controller no longer supports keeping the archive instead of
-	// downloading it, so requests that set this field are rejected. The
-	// field is still always serialized so the wire format of the
-	// shipped Backups facade versions is unchanged.
+	// NoDownload is kept for compatibility with the shipped facade
+	// wire format only: it is always serialized, but never read. The
+	// controller always streams the archive, so the field is inert;
+	// pre-4.1 clients that set it are rejected earlier by the RPC
+	// and HTTP upgrade errors.
 	NoDownload bool `json:"no-download"`
 }
 
-// BackupsDownloadArgs holds the args for the HTTP backups download endpoint.
-// The ID is an opaque server-minted identifier; it is never treated as a
-// filesystem path.
+// BackupsDownloadArgs holds the args of the pre-4.1 HTTP backups
+// download endpoint, kept for wire compatibility only: the endpoint
+// rejects pre-4.1 clients with an upgrade error and never decodes
+// the id.
 type BackupsDownloadArgs struct {
 	ID string `json:"id"`
 }
