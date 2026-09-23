@@ -21,6 +21,7 @@ juju debug-code [options] <unit name> [hook or action names]
 | `--proxy` | false | Proxy through the API server |
 | `--pty` | &lt;auto&gt; | Enable pseudo-tty allocation |
 | `--show-command` | false | Print the OpenSSH command instead of executing it |
+| `--ssh-key` |  | SSH private key to use when connecting through the controller |
 
 ## Examples
 

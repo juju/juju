@@ -290,8 +290,8 @@ func (env *environ) assignContainerNICs(ctx context.Context, instStartParams env
 		return assignedNICs, nil
 	}
 
-	// Map each requested subnet to the LXD network (host bridge) that hosts it.
-	// The subnet's ProviderNetworkId identifies the bridge to attach for a
+	// Map each requested subnet to the LXD network that hosts it.
+	// The subnet's ProviderNetworkId identifies the network to attach for a
 	// subnet requested by space constraints.
 	requestedSubnetIDs := make([]corenetwork.Id, 0)
 	for _, subnetList := range instStartParams.SubnetsToZones {
@@ -299,23 +299,23 @@ func (env *environ) assignContainerNICs(ctx context.Context, instStartParams env
 			requestedSubnetIDs = append(requestedSubnetIDs, providerSubnetID)
 		}
 	}
-	subnets, err := env.Subnets(ctx, requestedSubnetIDs)
+	subnets, err := env.subnets(ctx, requestedSubnetIDs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	subnetBridges := make(map[corenetwork.Id]string, len(subnets))
+	subnetsByID := make(map[corenetwork.Id]providerSubnet, len(subnets))
 	for _, subnet := range subnets {
-		subnetBridges[subnet.ProviderId] = string(subnet.ProviderNetworkId)
+		subnetsByID[subnet.ProviderId] = subnet
 	}
 
 	// We use two sets to de-dup the required NICs and ensure that each
 	// additional NIC gets assigned a sequential ethX name.
-	requestedHostBridges := set.NewStrings()
+	requestedNetworks := set.NewStrings()
 	requestedNICNames := set.NewStrings()
 	for nicName, details := range assignedNICs {
 		requestedNICNames.Add(nicName)
 		netName := lxd.NetworkName(details)
-		requestedHostBridges.Add(netName)
+		requestedNetworks.Add(netName)
 	}
 
 	// Assign any extra NICs required to satisfy the subnet requirements
@@ -324,21 +324,22 @@ func (env *environ) assignContainerNICs(ctx context.Context, instStartParams env
 	var unsatisfied []string
 	for _, subnetList := range instStartParams.SubnetsToZones {
 		for providerSubnetID := range subnetList {
-			// Recover the host bridge that hosts this subnet. A subnet with
-			// no host bridge on this LXD host means we cannot provide the
+			// Recover the provider network that hosts this subnet. A subnet
+			// with no network on this LXD host means we cannot provide the
 			// requested connectivity, so we must fail rather than hand back
 			// an under-connected container.
-			hostBridge, ok := subnetBridges[providerSubnetID]
-			if !ok || hostBridge == "" {
+			subnet, ok := subnetsByID[providerSubnetID]
+			if !ok || subnet.ProviderNetworkId == "" {
 				unsatisfied = append(unsatisfied, string(providerSubnetID))
 				continue
 			}
 
+			networkName := string(subnet.ProviderNetworkId)
 			// A profile or generated device already attaches the container to
-			// the bridge hosting this subnet. Profile NICs are included in
+			// the network hosting this subnet. Profile NICs are included in
 			// assignedNICs above, so they can satisfy space subnet requirements
 			// without adding a duplicate device.
-			if requestedHostBridges.Contains(hostBridge) {
+			if requestedNetworks.Contains(networkName) {
 				continue
 			}
 
@@ -354,22 +355,27 @@ func (env *environ) assignContainerNICs(ctx context.Context, instStartParams env
 				break
 			}
 			hwaddr := corenetwork.GenerateVirtualMACAddress()
-			assignedNICs[devName] = map[string]string{
-				"name":    devName,
-				"type":    "nic",
-				"hwaddr":  hwaddr,
-				"nictype": "bridged",
-				"parent":  hostBridge,
+			nic := map[string]string{
+				"name":   devName,
+				"type":   "nic",
+				"hwaddr": hwaddr,
 			}
+			if subnet.networkType == networkTypeOVN {
+				nic["network"] = networkName
+			} else {
+				nic["nictype"] = "bridged"
+				nic["parent"] = networkName
+			}
+			assignedNICs[devName] = nic
 
-			requestedHostBridges.Add(hostBridge)
+			requestedNetworks.Add(networkName)
 			requestedNICNames.Add(devName)
 		}
 	}
 
 	if len(unsatisfied) > 0 {
 		return nil, errors.Errorf(
-			"cannot satisfy space requirements: no host bridge found for subnet(s) %q",
+			"cannot satisfy space requirements: no LXD network found for subnet(s) %q",
 			unsatisfied)
 	}
 

@@ -1,3 +1,6 @@
+// Copyright 2026 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+//
 // Copyright 2009 The Go Authors.
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -25,7 +28,8 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// This file is largely copied from the golang.org/x/crypto/ssh package.
+// This file (specifically the chanConn type and associated methods) is largely copied
+// from the golang.org/x/crypto/ssh package.
 // The original code is licensed under the BSD 3-Clause License with full license above.
 // The original code can be found at:
 // https://cs.opensource.google/go/x/crypto/+/refs/tags/v0.36.0:ssh/tcpip.go
@@ -39,6 +43,12 @@ import (
 	"github.com/juju/errors"
 	gossh "golang.org/x/crypto/ssh"
 )
+
+// publicKeyWithComment is a public SSH key used by the SSH server.
+type publicKeyWithComment struct {
+	gossh.PublicKey
+	Comment string
+}
 
 // chanConn fulfills the net.Conn interface without
 // the tcpChan having to hold laddr or raddr directly.

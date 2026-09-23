@@ -103,27 +103,27 @@ func (s *iaasAddressFinderSuite) TestIAASAddressFinder(c *tc.C) {
 	c.Check(foundAddresses, tc.DeepEquals, addresses)
 }
 
-type caasAddressFinderSuite struct {
+type k8sAddressFinderSuite struct {
 	serviceManager  *MockServiceManager
 	providerFactory *MockProviderFactory
 }
 
-func TestCAASAddressFinderSuite(t *testing.T) {
+func TestK8sAddressFinderSuite(t *testing.T) {
 	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
-		tc.Run(t, &caasAddressFinderSuite{})
+		tc.Run(t, &k8sAddressFinderSuite{})
 	})
 }
 
-func (s *caasAddressFinderSuite) setupMocks(c *tc.C) *gomock.Controller {
+func (s *k8sAddressFinderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.serviceManager = NewMockServiceManager(ctrl)
 	s.providerFactory = NewMockProviderFactory(ctrl)
 	return ctrl
 }
 
-// TestCAASAddressFinderNoProvider is asserting that if there is no
+// TestK8sAddressFinderNoProvider is asserting that if there is no
 // provider for the model that the error is returned.
-func (s *caasAddressFinderSuite) TestCAASAddressFinderNoProvider(c *tc.C) {
+func (s *k8sAddressFinderSuite) TestK8sAddressFinderNoProvider(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -131,13 +131,13 @@ func (s *caasAddressFinderSuite) TestCAASAddressFinderNoProvider(c *tc.C) {
 		nil, nil,
 	)
 
-	_, err := CAASAddressFinder(s.providerFactory, "controller-test")(c.Context(), instance.Id("12345"))
+	_, err := K8sAddressFinder(s.providerFactory, "controller-test")(c.Context(), instance.Id("12345"))
 	c.Check(err, tc.ErrorMatches, "cannot get service manager from provider for finding bootstrap addresses.*")
 }
 
-// TestCAASAddressFinderProviderError is asserting that if getting a
+// TestK8sAddressFinderProviderError is asserting that if getting a
 // provider produces an error that error is maintained back up the stack.
-func (s *caasAddressFinderSuite) TestCAASAddressFinderProviderError(c *tc.C) {
+func (s *k8sAddressFinderSuite) TestK8sAddressFinderProviderError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -146,18 +146,18 @@ func (s *caasAddressFinderSuite) TestCAASAddressFinderProviderError(c *tc.C) {
 		nil, boom,
 	)
 	s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), "controller-test").Return(
-		&caasStubProvider{
+		&k8sStubProvider{
 			serviceManager: s.serviceManager,
 		}, nil,
 	)
 
-	_, err := CAASAddressFinder(s.providerFactory, "controller-test")(c.Context(), instance.Id("12345"))
+	_, err := K8sAddressFinder(s.providerFactory, "controller-test")(c.Context(), instance.Id("12345"))
 	c.Check(err, tc.ErrorIs, boom)
 }
 
-// TestCAASAddressFinder is asserting the happy path of finding an instance
+// TestK8sAddressFinder is asserting the happy path of finding an instance
 // addresses via a provider.
-func (s *caasAddressFinderSuite) TestCAASAddressFinder(c *tc.C) {
+func (s *k8sAddressFinderSuite) TestK8sAddressFinder(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -169,12 +169,12 @@ func (s *caasAddressFinderSuite) TestCAASAddressFinder(c *tc.C) {
 	}
 	s.serviceManager.EXPECT().GetService(gomock.Any(), k8sconstants.JujuControllerStackName, true).Return(svc, nil)
 	s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), "controller-test").Return(
-		&caasStubProvider{
+		&k8sStubProvider{
 			serviceManager: s.serviceManager,
 		}, nil,
 	)
 
-	foundAddresses, err := CAASAddressFinder(s.providerFactory, "controller-test")(c.Context(), instance.Id("12345"))
+	foundAddresses, err := K8sAddressFinder(s.providerFactory, "controller-test")(c.Context(), instance.Id("12345"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(foundAddresses, tc.DeepEquals, addresses)
 }
@@ -191,12 +191,12 @@ func (f *iaasStubProvider) Instances(ctx context.Context, ids []instance.Id) ([]
 
 // GetService(ctx context.Context, appName string, includeClusterIP bool) (*Service, error)
 
-type caasStubProvider struct {
+type k8sStubProvider struct {
 	providertracker.Provider
 	serviceManager caas.ServiceManager
 }
 
 // GetService implements caas.ServiceManager.
-func (f *caasStubProvider) GetService(ctx context.Context, appName string, includeClusterIP bool) (*caas.Service, error) {
+func (f *k8sStubProvider) GetService(ctx context.Context, appName string, includeClusterIP bool) (*caas.Service, error) {
 	return f.serviceManager.GetService(ctx, appName, includeClusterIP)
 }

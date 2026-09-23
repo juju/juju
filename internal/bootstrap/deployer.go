@@ -44,7 +44,7 @@ const (
 	controllerCharmDownloadRetryDelay    = 20 * time.Second
 )
 
-// DeployCharmResult holds the result of deploying a charm.
+// DeployCharmInfo holds the result of deploying a charm.
 type DeployCharmInfo struct {
 	URL             *charm.URL
 	Charm           charm.Charm
@@ -81,11 +81,9 @@ type ControllerCharmDeployer interface {
 	// DeployCharmhubCharm deploys the controller charm from charm hub.
 	DeployCharmhubCharm(context.Context, string, corebase.Base) (DeployCharmInfo, error)
 
-	// AddIAASControllerApplication adds the controller application.
-	AddIAASControllerApplication(context.Context, DeployCharmInfo) error
-
-	// AddCAASControllerApplication adds the controller application.
-	AddCAASControllerApplication(context.Context, DeployCharmInfo) error
+	// EnsureControllerApplication creates the controller application if needed
+	// and completes its setup, including exposure. It is safe to retry.
+	EnsureControllerApplication(context.Context, DeployCharmInfo) error
 
 	// ControllerCharmBase returns the base used for deploying the controller
 	// charm.
@@ -94,9 +92,6 @@ type ControllerCharmDeployer interface {
 	// ControllerCharmArch returns the architecture used for deploying the
 	// controller charm.
 	ControllerCharmArch() string
-
-	// CompleteCAASProcess is called when the bootstrap process is complete.
-	CompleteCAASProcess(context.Context) error
 }
 
 // HTTPClient is the interface that is used to make HTTP requests.
@@ -131,7 +126,6 @@ type BaseDeployerConfig struct {
 	ApplicationService   ApplicationService
 	AgentPasswordService AgentPasswordService
 	ModelConfigService   ModelConfigService
-	ObjectStore          objectstore.ObjectStore
 	Constraints          constraints.Value
 	BootstrapAddresses   network.ProviderAddresses
 	ControllerConfig     controller.Config
@@ -154,9 +148,6 @@ func (c BaseDeployerConfig) Validate() error {
 	}
 	if c.ModelConfigService == nil {
 		return errors.Errorf("ModelConfigService").Add(coreerrors.NotValid)
-	}
-	if c.ObjectStore == nil {
-		return errors.Errorf("ObjectStore").Add(coreerrors.NotValid)
 	}
 	if c.BootstrapAddresses == nil {
 		return errors.Errorf("BootstrapAddresses").Add(coreerrors.NotValid)
@@ -187,7 +178,6 @@ type baseDeployer struct {
 	applicationService  ApplicationService
 	passwordService     AgentPasswordService
 	modelConfigService  ModelConfigService
-	objectStore         objectstore.ObjectStore
 	bootstrapAddresses  network.ProviderAddresses
 	constraints         constraints.Value
 	controllerConfig    controller.Config
@@ -206,7 +196,6 @@ func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 		applicationService:  config.ApplicationService,
 		passwordService:     config.AgentPasswordService,
 		modelConfigService:  config.ModelConfigService,
-		objectStore:         config.ObjectStore,
 		bootstrapAddresses:  config.BootstrapAddresses,
 		constraints:         config.Constraints,
 		controllerConfig:    config.ControllerConfig,
@@ -438,27 +427,6 @@ func isTransientControllerCharmDownloadError(err error) bool {
 	return false
 }
 
-// AddIAASControllerApplication adds the IAAS controller application.
-func (b *baseDeployer) AddIAASControllerApplication(ctx context.Context, info DeployCharmInfo) error {
-	// These are abstract methods that are expected to be implemented by
-	// concrete types.
-	return errors.Errorf("can not add IAAS controller application").Add(coreerrors.NotImplemented)
-}
-
-// AddIAASControllerApplication adds the IAAS controller application.
-func (b *baseDeployer) AddCAASControllerApplication(ctx context.Context, info DeployCharmInfo) error {
-	// These are abstract methods that are expected to be implemented by
-	// concrete types.
-	return errors.Errorf("can not add CAAS controller application").Add(coreerrors.NotImplemented)
-}
-
-// CompleteCAASProcess is called when the bootstrap process is complete.
-func (b *baseDeployer) CompleteCAASProcess(context.Context) error {
-	// These are abstract methods that are expected to be implemented by
-	// concrete types.
-	return errors.Errorf("can not complete CAAS process").Add(coreerrors.NotImplemented)
-}
-
 func (b *baseDeployer) calculateLocalCharmHashes(path string, expectedSize int64) (string, string, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -496,6 +464,25 @@ func (b *baseDeployer) createCharmSettings() (charm.Config, error) {
 		cfg["controller-url"] = api.ControllerAPIURL(addr, b.controllerConfig.APIPort())
 	}
 	return cfg, nil
+}
+
+// ensureControllerApplicationExposed seeds exposure during bootstrap. A retry
+// must finish a failed exposure without overwriting existing exposure settings.
+func (b *baseDeployer) ensureControllerApplicationExposed(ctx context.Context) error {
+	exposed, err := b.applicationService.IsApplicationExposed(ctx, bootstrap.ControllerApplicationName)
+	if err != nil {
+		return errors.Errorf("checking controller application exposure: %w", err)
+	}
+	if exposed {
+		return nil
+	}
+
+	// Let the application service supply the default wildcard endpoint and
+	// IPv4/IPv6 CIDRs for ports opened by the controller charm.
+	if err := b.applicationService.MergeExposeSettings(ctx, bootstrap.ControllerApplicationName, nil); err != nil {
+		return errors.Errorf("exposing controller application: %w", err)
+	}
+	return nil
 }
 
 func (b *baseDeployer) controllerDownloadInfo(schema string, info *corecharm.DownloadInfo) (*applicationcharm.DownloadInfo, error) {

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/internal/services"
@@ -27,7 +26,7 @@ type ManifoldConfig struct {
 	// LogDir is the controller log directory where audit logs are written.
 	LogDir                     string
 	DomainServicesName         string
-	NewWorker                  func(ControllerConfigService, auditlog.Config, AuditLogFactory) (worker.Worker, error)
+	NewWorker                  func(ControllerConfigService, AuditLogFactory) (worker.Worker, error)
 	GetControllerConfigService GetControllerConfigServiceFunc
 }
 
@@ -69,23 +68,12 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	logFactory := func(cfg auditlog.Config) auditlog.AuditLog {
 		return auditlog.NewLogFile(config.LogDir, cfg.MaxSizeMB, cfg.MaxBackups)
 	}
-	auditConfig, err := initialConfig(controllerConfig)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if auditConfig.Enabled {
-		auditConfig.Target = logFactory(auditConfig)
-	}
 
-	w, err := config.NewWorker(controllerConfigService, auditConfig, logFactory)
+	w, err := config.NewWorker(controllerConfigService, logFactory)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -110,17 +98,6 @@ func output(in worker.Worker, out any) error {
 	}
 	*target = w.CurrentConfig
 	return nil
-}
-
-func initialConfig(cfg controller.Config) (auditlog.Config, error) {
-	result := auditlog.Config{
-		Enabled:        cfg.AuditingEnabled(),
-		CaptureAPIArgs: cfg.AuditLogCaptureArgs(),
-		MaxSizeMB:      cfg.AuditLogMaxSizeMB(),
-		MaxBackups:     cfg.AuditLogMaxBackups(),
-		ExcludeMethods: cfg.AuditLogExcludeMethods(),
-	}
-	return result, nil
 }
 
 // GetControllerConfigService is a helper function that gets a service from the

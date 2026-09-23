@@ -70,6 +70,11 @@ type trackerWorker struct {
 	currentCloudSpec environscloudspec.CloudSpec
 
 	providerGetter trackerProviderGetter
+
+	// providerReady is closed once the provider has been built inside loop().
+	// The constructor blocks on this channel so that Provider() is always
+	// usable when the worker is returned.
+	providerReady chan struct{}
 }
 
 // NewTrackerWorker loads a provider from the observer and returns a new Worker,
@@ -90,45 +95,21 @@ func newTrackerWorker(ctx context.Context, config TrackerConfig, internalStates 
 		return nil, errors.Trace(err)
 	}
 
+	// Read model info early only to obtain the UUID needed for the
+	// credential watcher. The full provider is built inside loop()
+	// after all watcher subscriptions are active.
 	model, err := config.ModelService.Model(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	getter := trackerProviderGetter{
-		model:             model,
-		cloudService:      config.CloudService,
-		configService:     config.ConfigService,
-		credentialService: config.CredentialService,
-	}
-	// Given the model, we can now get the provider.
-	newProviderType, err := config.GetProviderForType(model.Type)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// invalidateCredential will invalidate the credential used to create the provider
-	// served by this tracker worker.
-	var invalidateCredential invalidateCredentialFunc = func(ctx context.Context, reason environs.CredentialInvalidReason) error {
-		return config.CredentialService.InvalidateCredential(ctx, credential.Key{
-			Cloud: model.Cloud,
-			Owner: model.CredentialOwner,
-			Name:  model.CredentialName,
-		}, string(reason))
-	}
-	provider, spec, err := newProviderType(ctx, getter, invalidateCredential)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	t := &trackerWorker{
-		internalStates:   internalStates,
-		config:           config,
-		model:            model,
-		provider:         provider,
-		currentCloudSpec: spec,
-		providerGetter:   getter,
+		internalStates: internalStates,
+		config:         config,
+		model:          model,
+		providerReady:  make(chan struct{}),
 	}
+
 	err = catacomb.Invoke(catacomb.Plan{
 		Name: "provider-tracker",
 		Site: &t.catacomb,
@@ -137,6 +118,17 @@ func newTrackerWorker(ctx context.Context, config TrackerConfig, internalStates 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// Block until the provider has been built inside loop(). This
+	// guarantees that Provider() is usable when the worker is returned.
+	select {
+	case <-t.providerReady:
+	case <-t.catacomb.Dying():
+		return nil, t.catacomb.ErrDying()
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
 	return t, nil
 }
 
@@ -161,7 +153,7 @@ func (t *trackerWorker) Wait() error {
 	return t.catacomb.Wait()
 }
 
-func (t *trackerWorker) Report(ctx context.Context) map[string]any {
+func (t *trackerWorker) Report(_ context.Context) map[string]any {
 	report := map[string]any{
 		"model": t.model.UUID,
 		"type":  t.model.Type,
@@ -185,11 +177,13 @@ func (t *trackerWorker) Report(ctx context.Context) map[string]any {
 }
 
 func (t *trackerWorker) loop() (err error) {
-	cfg := t.provider.Config()
-	defer errors.DeferredAnnotatef(&err, "model %q (%s)", cfg.Name(), cfg.UUID())
-
-	ctx, cancel := t.scopedContext()
+	ctx, cancel := context.WithCancel(t.catacomb.Context(context.Background()))
 	defer cancel()
+
+	// Subscribe to watchers first. The initial event from each watcher
+	// serves as the readiness barrier — the subscription is active after
+	// we receive and consume it. Any state change after that point will
+	// be caught by the watcher.
 
 	modelConfigWatcher, err := t.config.ConfigService.Watch(ctx)
 	if err != nil {
@@ -209,21 +203,59 @@ func (t *trackerWorker) loop() (err error) {
 		return errors.Trace(err)
 	}
 
-	// Empty channels block forever, so we can just return them here, then
-	// the caller can ignore them.
+	// Now that both config and model watchers are subscribed (readiness
+	// barriers passed), build the provider from fresh state. Any model
+	// config or credential change after the subscriptions above will be
+	// caught by the main loop.
+
+	getter := trackerProviderGetter{
+		model:             t.model,
+		cloudService:      t.config.CloudService,
+		configService:     t.config.ConfigService,
+		credentialService: t.config.CredentialService,
+	}
+	newProviderType, err := t.config.GetProviderForType(t.model.Type)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var invalidateCredential invalidateCredentialFunc = t.invalidateCredential
+	provider, spec, err := newProviderType(ctx, getter, invalidateCredential)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	t.provider = provider
+	t.currentCloudSpec = spec
+	t.providerGetter = getter
+
+	cfg := t.provider.Config()
+	defer errors.DeferredAnnotatef(&err, "model %q (%s)", cfg.Name(), cfg.UUID())
+
+	// If the provider supports dynamic cloud spec updates, subscribe
+	// to the credential watcher before signaling readiness. This
+	// ensures all watcher subscriptions are active before the
+	// constructor returns, so no credential change can be missed
+	// during the startup window. After subscribing, sync the cloud
+	// spec to catch any credential change that occurred between
+	// building the provider and subscribing the watcher.
 	var cloudSpecChanges <-chan struct{}
 
-	// Not every provider supports updating the cloud spec, we only want
-	// to get the cloud and credential watchers if the provider supports it.
 	cloudSpecSetter, ok := any(t.provider).(environs.CloudSpecSetter)
 	if ok {
 		cloudSpecChanges, err = t.watchCloudSpecChanges(ctx)
 		if err != nil {
 			return errors.Annotate(err, "watching credential")
 		}
+		if err := t.updateCloudSpec(ctx, cloudSpecSetter); err != nil {
+			return errors.Annotate(err, "syncing cloud spec")
+		}
 	} else {
 		t.config.Logger.Warningf(ctx, "cloud type %v doesn't support dynamic changing of cloud spec", cfg.Type())
 	}
+
+	// Provider is ready — unblock the constructor.
+	close(t.providerReady)
 
 	// Report the initial started state.
 	t.reportInternalState(stateStarted)
@@ -280,12 +312,12 @@ func (t *trackerWorker) loop() (err error) {
 	}
 }
 
-// scopedContext returns a context that is in the scope of the worker lifetime.
-// It returns a cancellable context that is cancelled when the action has
-// completed.
-func (t *trackerWorker) scopedContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	return t.catacomb.Context(ctx), cancel
+func (t *trackerWorker) invalidateCredential(ctx context.Context, reason environs.CredentialInvalidReason) error {
+	return t.config.CredentialService.InvalidateCredential(ctx, credential.Key{
+		Cloud: t.model.Cloud,
+		Owner: t.model.CredentialOwner,
+		Name:  t.model.CredentialName,
+	}, string(reason))
 }
 
 func (t *trackerWorker) reportInternalState(state string) {

@@ -1176,34 +1176,142 @@ func (s *applicationStateSuite) TestUpsertK8sServiceExisting(c *tc.C) {
 	c.Assert(providerID, tc.Equals, "provider-id")
 }
 
-func (s *applicationStateSuite) TestUpsertK8sServiceAnother(c *tc.C) {
-	appUUID := s.createCAASApplication(c, "foo", life.Alive)
-	s.createCAASApplication(c, "bar", life.Alive)
-	err := s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
-	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.UpsertK8sService(c.Context(), "foo", "another-provider-id", network.ProviderAddresses{})
-	c.Assert(err, tc.ErrorIsNil)
-	var providerIds []string
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		providerIds = nil
+func (s *applicationStateSuite) TestUpsertK8sServiceChangeProviderID(c *tc.C) {
+	s.testUpsertK8sServiceChangeProviderID(c, network.ProviderAddresses{
+		{MachineAddress: network.NewMachineAddress("10.0.0.4")},
+	}, "10.0.0.4")
+}
 
-		rows, err := tx.QueryContext(ctx, "SELECT provider_id FROM k8s_service WHERE application_uuid = ?", appUUID)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = rows.Close() }()
+func (s *applicationStateSuite) TestUpsertK8sServiceChangeProviderIDEmptyAddresses(c *tc.C) {
+	// Preserve the existing behavior for an update without addresses.
+	s.testUpsertK8sServiceChangeProviderID(c, nil, "10.0.0.1")
+}
 
-		for rows.Next() {
-			var providerId string
-			if err := rows.Scan(&providerId); err != nil {
-				return err
-			}
-			providerIds = append(providerIds, providerId)
-		}
-		return rows.Err()
+func (s *applicationStateSuite) testUpsertK8sServiceChangeProviderID(
+	c *tc.C, addresses network.ProviderAddresses, expectedAddress string,
+) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive, application.AddCAASUnitArg{})
+	otherAppUUID := s.createCAASApplication(c, "bar", life.Alive)
+	err := s.state.UpdateCAASUnit(c.Context(), "foo/0", application.UpdateCAASUnitParams{
+		ProviderID: new("unit-provider-id"),
+		Address:    new("10.0.0.2"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(providerIds, tc.SameContents, []string{"provider-id", "another-provider-id"})
+	err = s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
+		{MachineAddress: network.NewMachineAddress("10.0.0.1")},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.UpsertK8sService(c.Context(), "bar", "other-provider-id", network.ProviderAddresses{
+		{MachineAddress: network.NewMachineAddress("10.0.0.3")},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	readService := func(appUUID coreapplication.UUID) k8sService {
+		var svc k8sService
+		err := s.DB().QueryRowContext(c.Context(), `
+SELECT ks.uuid, ks.application_uuid, ks.net_node_uuid, ks.provider_id
+FROM k8s_service AS ks
+WHERE ks.application_uuid = ?`, appUUID).Scan(
+			&svc.UUID, &svc.ApplicationUUID, &svc.NetNodeUUID, &svc.ProviderID)
+		c.Assert(err, tc.ErrorIsNil)
+		return svc
+	}
+	service := readService(appUUID)
+	otherService := readService(otherAppUUID)
+	var nodeCountBefore int
+	err = s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM net_node AS nn").Scan(&nodeCountBefore)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A recreated Kubernetes Service changes its provider ID. Repeated
+	// reconciliation must keep the same Service record and network node.
+	for range 2 {
+		err = s.state.UpsertK8sService(c.Context(), "foo", "new-provider-id", addresses)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+	service.ProviderID = "new-provider-id"
+	c.Check(readService(appUUID), tc.Equals, service)
+	c.Check(readService(otherAppUUID), tc.Equals, otherService)
+
+	var serviceCount, nodeCount, addressCount int
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT COUNT(*) FROM k8s_service AS ks WHERE ks.application_uuid = ?", appUUID).Scan(&serviceCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(serviceCount, tc.Equals, 1)
+	err = s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM net_node AS nn").Scan(&nodeCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nodeCount, tc.Equals, nodeCountBefore)
+	err = s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM ip_address AS ip").Scan(&addressCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addressCount, tc.Equals, 3)
+
+	for nodeUUID, expected := range map[string]string{
+		service.NetNodeUUID:      expectedAddress,
+		otherService.NetNodeUUID: "10.0.0.3",
+	} {
+		var address string
+		err = s.DB().QueryRowContext(c.Context(),
+			"SELECT ip.address_value FROM ip_address AS ip WHERE ip.net_node_uuid = ?", nodeUUID).Scan(&address)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(address, tc.Equals, expected)
+	}
+	podInfo, err := s.state.GetUnitK8sPodInfo(c.Context(), "foo/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(podInfo.Address, tc.Equals, "10.0.0.2")
+}
+
+func (s *applicationStateSuite) TestUpsertK8sServiceProviderIDCollision(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+	otherAppUUID := s.createCAASApplication(c, "bar", life.Alive)
+	err := s.state.UpsertK8sService(c.Context(), "foo", "foo-provider-id", network.ProviderAddresses{
+		{MachineAddress: network.NewMachineAddress("10.0.0.1")},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.UpsertK8sService(c.Context(), "bar", "bar-provider-id", network.ProviderAddresses{
+		{MachineAddress: network.NewMachineAddress("10.0.0.2")},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	type serviceWithAddress struct {
+		k8sService
+		Address string
+	}
+	readService := func(appUUID coreapplication.UUID) serviceWithAddress {
+		var svc serviceWithAddress
+		err := s.DB().QueryRowContext(c.Context(), `
+SELECT ks.uuid, ks.application_uuid, ks.net_node_uuid, ks.provider_id,
+       ip.address_value
+FROM k8s_service AS ks
+JOIN ip_address AS ip ON ip.net_node_uuid = ks.net_node_uuid
+WHERE ks.application_uuid = ?`, appUUID).Scan(
+			&svc.UUID, &svc.ApplicationUUID, &svc.NetNodeUUID, &svc.ProviderID, &svc.Address)
+		c.Assert(err, tc.ErrorIsNil)
+		return svc
+	}
+	serviceBefore := readService(appUUID)
+	otherServiceBefore := readService(otherAppUUID)
+
+	// A failed provider-ID change must retain both Services and their addresses.
+	err = s.state.UpsertK8sService(c.Context(), "foo", "bar-provider-id", network.ProviderAddresses{
+		{MachineAddress: network.NewMachineAddress("10.0.0.3")},
+	})
+	c.Check(err, tc.ErrorMatches, `updating cloud service for application "foo": updating cloud service provider ID: .*UNIQUE constraint failed: k8s_service.provider_id.*`)
+	c.Check(readService(appUUID), tc.Equals, serviceBefore)
+	c.Check(readService(otherAppUUID), tc.Equals, otherServiceBefore)
+}
+
+func (s *applicationStateSuite) TestK8sServiceUniqueApplication(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+	err := s.state.UpsertK8sService(c.Context(), "foo", "provider-id", nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Other writers, including migration, must also obey the invariant.
+	nodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	_, err = s.DB().ExecContext(c.Context(), "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO k8s_service (uuid, application_uuid, net_node_uuid, provider_id)
+VALUES (?, ?, ?, ?)`, tc.Must(c, uuid.NewUUID).String(), appUUID, nodeUUID, "another-provider-id")
+	c.Check(err, tc.ErrorMatches, ".*UNIQUE constraint failed: k8s_service.application_uuid.*")
 }
 
 // TestUpsertAnotherK8sServiceNotWipingIpAddresses is a regression test where
@@ -1259,14 +1367,16 @@ func (s *applicationStateSuite) TestUpsertK8sServiceUpdateExistingEmptyAddresses
 
 	checkAddresses := func(c *tc.C, expectedAddresses ...string) {
 		var resultAddresses []string
+		var resultDeviceNames []string
 		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			resultAddresses = nil
+			resultDeviceNames = nil
 
 			rows, err := tx.QueryContext(ctx, `
-SELECT address_value
+SELECT address_value, lld.name
 FROM ip_address
-JOIN link_layer_device ON link_layer_device.uuid = ip_address.device_uuid
-JOIN net_node ON net_node.uuid = link_layer_device.net_node_uuid
+JOIN link_layer_device AS lld ON lld.uuid = ip_address.device_uuid
+JOIN net_node ON net_node.uuid = lld.net_node_uuid
 JOIN k8s_service ON k8s_service.net_node_uuid = net_node.uuid
 WHERE application_uuid = ?
 			`, appUUID)
@@ -1277,15 +1387,22 @@ WHERE application_uuid = ?
 
 			for rows.Next() {
 				var addressVal string
-				if err := rows.Scan(&addressVal); err != nil {
+				var deviceName string
+				if err := rows.Scan(&addressVal, &deviceName); err != nil {
 					return err
 				}
 				resultAddresses = append(resultAddresses, addressVal)
+				resultDeviceNames = append(resultDeviceNames, deviceName)
 			}
 			return rows.Err()
 		})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(resultAddresses, tc.SameContents, expectedAddresses)
+		// Placeholder devices for k8s services must never carry a name,
+		// otherwise it leaks via network-get.
+		for _, deviceName := range resultDeviceNames {
+			c.Check(deviceName, tc.Equals, "")
+		}
 	}
 
 	checkAddresses(c, "10.0.0.1/8", "10.0.0.2/8")
@@ -1322,14 +1439,16 @@ func (s *applicationStateSuite) TestUpsertK8sServiceUpdateExistingWithAddresses(
 
 	checkAddresses := func(c *tc.C, expectedAddresses ...string) {
 		var resultAddresses []string
+		var resultDeviceNames []string
 		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			resultAddresses = nil
+			resultDeviceNames = nil
 
 			rows, err := tx.QueryContext(ctx, `
-SELECT address_value
+SELECT address_value, lld.name
 FROM ip_address
-JOIN link_layer_device ON link_layer_device.uuid = ip_address.device_uuid
-JOIN net_node ON net_node.uuid = link_layer_device.net_node_uuid
+JOIN link_layer_device AS lld ON lld.uuid = ip_address.device_uuid
+JOIN net_node ON net_node.uuid = lld.net_node_uuid
 JOIN k8s_service ON k8s_service.net_node_uuid = net_node.uuid
 WHERE application_uuid = ?
 			`, appUUID)
@@ -1340,15 +1459,22 @@ WHERE application_uuid = ?
 
 			for rows.Next() {
 				var addressVal string
-				if err := rows.Scan(&addressVal); err != nil {
+				var deviceName string
+				if err := rows.Scan(&addressVal, &deviceName); err != nil {
 					return err
 				}
 				resultAddresses = append(resultAddresses, addressVal)
+				resultDeviceNames = append(resultDeviceNames, deviceName)
 			}
 			return rows.Err()
 		})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(resultAddresses, tc.SameContents, expectedAddresses)
+		// Placeholder devices for k8s services must never carry a name,
+		// otherwise it leaks via network-get.
+		for _, deviceName := range resultDeviceNames {
+			c.Check(deviceName, tc.Equals, "")
+		}
 	}
 
 	checkAddresses(c, "10.0.0.1/24", "10.0.0.2/24")

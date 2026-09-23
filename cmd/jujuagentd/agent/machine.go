@@ -213,7 +213,7 @@ var (
 
 	caasModelManifolds   = model.CAASManifolds
 	iaasModelManifolds   = model.IAASManifolds
-	caasMachineManifolds = machine.CAASManifolds
+	k8sMachineManifolds  = machine.K8sManifolds
 	iaasMachineManifolds = machine.IAASManifolds
 )
 
@@ -740,7 +740,7 @@ func (a *MachineAgent) makeEngineCreator(
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {
-			manifolds = caasMachineManifolds(manifoldsCfg)
+			manifolds = k8sMachineManifolds(manifoldsCfg)
 		}
 		if err := dependency.Install(eng, manifolds); err != nil {
 			if err := worker.Stop(eng); err != nil {

@@ -86,7 +86,9 @@ func (s *baseSuite) expectGetActiveBackendFile(c *tc.C) {
 
 func (s *baseSuite) expectWatchObjectStoreBackend(c *tc.C) {
 	s.objectStoreService.EXPECT().WatchObjectStoreBackend(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
-		ch := make(chan []string)
+		ch := make(chan []string, 1)
+		// Seed the initial event for the readiness barrier.
+		ch <- []string{}
 		return watchertest.NewMockStringsWatcher(ch), nil
 	})
 }

@@ -327,6 +327,10 @@ func (stubControllerSSHState) GetPublicKeysForUser(context.Context, user.Name) (
 	return nil, nil
 }
 
+func (s stubControllerSSHState) MatchesPublicKeyInModelForUser(_ context.Context, modelUUID, username, fingerprint string) (bool, error) {
+	return false, nil
+}
+
 func (stubDomainServicesGetter) ServicesForModel(context.Context, model.UUID) (services.DomainServices, error) {
 	return nil, errors.NotImplementedf("unexpected ServicesForModel call")
 }
