@@ -1,16 +1,80 @@
 (diagrams)=
-# Diagram POC — one model, every diagram, auto-layout vs declared
+# Diagram catalogue — one model, every diagram, grouped by target doc
 
-Everything we've built, from one file (`juju.ggarch`). Every diagram
-shows as a **side-by-side pair**: the **synthesized** variant (zero
-declared positions — the engine decides: typed hub planes, two-sided
-fans, port discipline) on the left, the **declared arrangement** (the
-author's `positions` sentence, ADR-007 refinement) on the right.
+
+Everything we've built, from one file (`juju.ggarch`), grouped by the
+doc each diagram is going to be inserted into: an h2 per doc kind
+(tutorial, reference, explanation), an h3 per doc page, and under it
+the diagrams with **the section of that page where each goes** (the
+staging convention: a diagram belongs to the doc section that owns its
+topic — e.g. the bootstrap sequences under
+`reference/controller.md` → *Controller bootstrap*). Diagrams with no
+home yet sit in **Other** at the bottom.
+
+Every entry shows as a **side-by-side pair**: the **synthesized**
+variant (zero declared positions — the engine decides: typed hub
+planes, two-sided fans, port discipline) on the left, the **declared
+arrangement** (the author's `positions` sentence, ADR-007 refinement)
+on the right — except sequence/state views, which render single.
 Caption meaning comes later: diagrams embedded in real docs carry
-meaning captions; this page is the comparison catalogue. Click any
-diagram to expand it.
+meaning captions; this page is the catalogue. Click any diagram to
+expand it.
 
-## Intro: the problem
+The per-doc readout (the point of this grouping): the tutorial carries
+the 3-step progressive reveal; the explanation pages carry the
+architecture narrative (Intros), the living architecture page
+(overview + topology + control flow + data model + the five
+mechanism sequences), and the principles drafts carry the topology
+demos; the reference pages carry 23 grounded views across 23 of 48
+concept pages — one mechanism, data model, or process per page.
+
+## Tutorial
+
+### tutorial/index.md
+
+#### Tutorial: setup
+
+**Insert at:** § Set up Juju.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Tutorial: setup
+:no-legend:
+:caption: What Juju consists of before anything runs: a client and a controller, with access to a cloud (compute, networking, storage) and to Charmhub. The arrows name what each connection carries.
+:alt: A client talks to the controller; the controller talks to clouds above it and to Charmhub below it.
+```
+
+#### Tutorial: auth
+
+**Insert at:** § Handle authentication and authorization.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Tutorial: auth
+:no-legend:
+:caption: The reveal adds the user; everything else stays. Everything a user does in Juju is commands sent through the client to the controller, which authenticates and authorizes them.
+:alt: The user sends commands to the client, the client calls the Juju API on the controller, and the controller still talks to the clouds above it and to Charmhub below it.
+```
+
+#### Tutorial: provision & deploy
+
+**Insert at:** § Provision infrastructure and operate applications.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Tutorial: provision & deploy
+:no-legend:
+:caption: The reveal adds the charmed applications: the controller provisions infrastructure on the cloud and fetches charms from Charmhub; the applications record their state back to the controller.
+:alt: The user sends commands through the client to the controller; the controller provisions on clouds and fetches charms from Charmhub; the charmed applications record their state on the controller.
+```
+
+## Explanation
+
+### explanation/juju-architecture.md
+
+#### Intro: the problem
+
+**Insert at:** top (the architecture narrative).
 
 `````{grid} 2
 ````{grid-item}
@@ -33,7 +97,9 @@ diagram to expand it.
 ````
 `````
 
-## Intro: Juju enters
+#### Intro: Juju enters
+
+**Insert at:** top (the architecture narrative).
 
 `````{grid} 2
 ````{grid-item}
@@ -66,7 +132,9 @@ The authored original (both of the above derive from it):
 :alt: User, client, controller on one horizontal line, two cloud boxes fanned above, Charmhub below, three application boxes fanned right.
 ```
 
-## Intro: Juju unpacked
+#### Intro: Juju unpacked
+
+**Insert at:** top (the architecture narrative).
 
 `````{grid} 2
 ````{grid-item}
@@ -89,7 +157,11 @@ The authored original (both of the above derive from it):
 ````
 `````
 
-## Juju overview
+### explanation/architecture.md
+
+#### Juju overview
+
+**Insert at:** § Insight.
 
 `````{grid} 2
 ````{grid-item}
@@ -112,7 +184,9 @@ The authored original (both of the above derive from it):
 ````
 `````
 
-## K8s deployment topology
+#### K8s deployment topology
+
+**Insert at:** § Topology. also embedded: reference/containeragent.md, reference/jujuc.md, reference/pebble.md.
 
 `````{grid} 2
 ````{grid-item}
@@ -135,7 +209,9 @@ The authored original (both of the above derive from it):
 ````
 `````
 
-## Data model
+#### Data model
+
+**Insert at:** § Data model.
 
 `````{grid} 2
 ````{grid-item}
@@ -158,7 +234,25 @@ The authored original (both of the above derive from it):
 ````
 `````
 
-## Data model (full spine)
+#### Hook execution
+
+**Insert at:** § Control flow.
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Hook execution
+:no-legend:
+:caption: Every hook runs the same cycle: the controller notifies, the agent snapshots remote state, resolves the next hook, and dispatches. Hook commands are served locally by the agent acting as a proxy — the charm never calls the controller directly.
+:alt: API server fires watcher to unit agent. Unit agent snapshots state and resolves hook. Loop: charm calls hook command, unit agent proxies it to API server. On success: flush writes. On failure: discard writes, set unit error.
+```
+
+## Reference
+
+### reference/database.md
+
+#### Data model (full spine)
+
+**Insert at:** § Model databases.
 
 `````{grid} 2
 ````{grid-item}
@@ -181,76 +275,9 @@ The authored original (both of the above derive from it):
 ````
 `````
 
-## Worker tree (machine cloud)
+#### HA controller: Dqlite replicaset
 
-`````{grid} 2
-````{grid-item}
-```{ggarch}
-:file: ../juju.ggarch
-:view: Worker tree (machine cloud) (synthesized)
-:no-legend:
-:caption: Auto-layout — no positions declared.
-:alt: Vertical chain, top to bottom: controller, machine agent, unit agent, uniter, charm, each connected by control arrows labelled drives, hosts, runs hooks via, dispatches.
-```
-````
-````{grid-item}
-```{ggarch}
-:file: ../juju.ggarch
-:view: Worker tree (machine cloud)
-:no-legend:
-:caption: Declared arrangement — the execution chain as first drawn. See [Worker tree (controller)](#worker-tree-controller) for the controller-side dependency engine. Compare with the synthesized variant.
-:alt: Vertical chain, top to bottom: controller, machine agent, unit agent, uniter, charm, each connected by control arrows labelled drives, hosts, runs hooks via, dispatches.
-```
-````
-`````
-
-## Worker tree (controller)
-
-`````{grid} 2
-````{grid-item}
-```{ggarch}
-:file: ../juju.ggarch
-:view: Worker tree (controller) (synthesized)
-:no-legend:
-:caption: Auto-layout — no positions declared. The typed hub planes restructure the dependency engine: spoke feeders fan east of their hub with RL arrows.
-:alt: Five columns of worker boxes. Far left: provider tracker above provider services. Left: compute provisioner above model worker manager, both inside a dashed box labelled model workers (one set per model), undertaker below. Centre spine, top to bottom: agent, DB accessor, change stream, domain services, API server, HTTP server. Right: object store, lease manager below with primary election and lease expiry stacked above. Control arrows connect consumers to providers; the change stream watches the DB accessor.
-```
-````
-````{grid-item}
-```{ggarch}
-:file: ../juju.ggarch
-:view: Worker tree (controller)
-:no-legend:
-:caption: Declared arrangement — the controller's dependency engine, grounded in cmd/jujud-controller/agent/{machine,model}/manifolds.go. Every node carries a ground pointer to its manifold source. Compare with the synthesized variant.
-:alt: Five columns of worker boxes. Far left: provider tracker above provider services. Left: compute provisioner above model worker manager, both inside a dashed box labelled model workers (one set per model), undertaker below. Centre spine, top to bottom: agent, DB accessor, change stream, domain services, API server, HTTP server. Right: object store, lease manager below with primary election and lease expiry stacked above. Control arrows connect consumers to providers; the change stream watches the DB accessor.
-```
-````
-`````
-
-## Cross-model relation (CMR)
-
-`````{grid} 2
-````{grid-item}
-```{ggarch}
-:file: ../juju.ggarch
-:view: Cross-model relation (CMR) (synthesized)
-:no-legend:
-:caption: Auto-layout — no positions declared.
-:alt: Nine record nodes. Top row: application, offer, offer connection. Middle row: relation, endpoint, remote application. Bottom: model and external controller. A dashed box around offer, offer connection, and external controller is labelled cross-model machinery.
-```
-````
-````{grid-item}
-```{ggarch}
-:file: ../juju.ggarch
-:view: Cross-model relation (CMR)
-:no-legend:
-:caption: Declared arrangement — the cross-model machinery as first drawn, all tables grounded (offer, offer_connection, application_remote_offerer, external_controller). Compare with the synthesized variant.
-:alt: Nine record nodes. Top row: application, offer, offer connection. Middle row: relation, endpoint, remote application. Bottom: model and external controller. A dashed box around offer, offer connection, and external controller is labelled cross-model machinery.
-```
-````
-`````
-
-## HA controller: Dqlite replicaset
+**Insert at:** § Database implementation. also: reference/high-availability.md, howto/manage-the-databases.md.
 
 `````{grid} 2
 ````{grid-item}
@@ -273,39 +300,63 @@ The authored original (both of the above derive from it):
 ````
 `````
 
-## Sequences
+### reference/jujud.md
 
-### juju status
+#### Worker tree (machine cloud)
 
+**Insert at:** page top.
+
+`````{grid} 2
+````{grid-item}
 ```{ggarch}
 :file: ../juju.ggarch
-:sequence: juju status
+:view: Worker tree (machine cloud) (synthesized)
 :no-legend:
-:caption: What "juju status" actually is: the controller reads the status records, derives live agent liveness from connection state, and projects both back. Status is records plus liveness — an overlap, not an identity.
-:alt: User calls juju status. Client sends a Status API call to the controller. The controller reads status records and derives agent liveness, then returns the projected status. Client shows the status output to the user.
+:caption: Auto-layout — no positions declared.
+:alt: Vertical chain, top to bottom: controller, machine agent, unit agent, uniter, charm, each connected by control arrows labelled drives, hosts, runs hooks via, dispatches.
 ```
-
-### Uniter operation (state machine)
-
+````
+````{grid-item}
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Uniter operation
+:view: Worker tree (machine cloud)
 :no-legend:
-:caption: The uniter's three-phase operation executor — idle → preparing → executing → committing — with the error path (hook fails) and the retry loop. The state labels are the verbatim strings from internal/worker/uniter/operation/executor.go; guards: ErrHookFailed, ErrNeedsReboot.
-:alt: State machine: idle to preparing on hook queued, preparing to executing, executing to committing on hook exits 0, executing to error on hook fails, error to idle on retry, committing to idle on write complete.
+:caption: Declared arrangement — the execution chain as first drawn. See [Worker tree (controller)](#worker-tree-controller) for the controller-side dependency engine. Compare with the synthesized variant.
+:alt: Vertical chain, top to bottom: controller, machine agent, unit agent, uniter, charm, each connected by control arrows labelled drives, hosts, runs hooks via, dispatches.
 ```
+````
+`````
 
-### Hook execution
+### reference/controller.md
 
+#### Worker tree (controller)
+
+**Insert at:** page top.
+
+`````{grid} 2
+````{grid-item}
 ```{ggarch}
 :file: ../juju.ggarch
-:sequence: Hook execution
+:view: Worker tree (controller) (synthesized)
 :no-legend:
-:caption: Every hook runs the same cycle: the controller notifies, the agent snapshots remote state, resolves the next hook, and dispatches. Hook commands are served locally by the agent acting as a proxy — the charm never calls the controller directly.
-:alt: API server fires watcher to unit agent. Unit agent snapshots state and resolves hook. Loop: charm calls hook command, unit agent proxies it to API server. On success: flush writes. On failure: discard writes, set unit error.
+:caption: Auto-layout — no positions declared. The typed hub planes restructure the dependency engine: spoke feeders fan east of their hub with RL arrows.
+:alt: Five columns of worker boxes. Far left: provider tracker above provider services. Left: compute provisioner above model worker manager, both inside a dashed box labelled model workers (one set per model), undertaker below. Centre spine, top to bottom: agent, DB accessor, change stream, domain services, API server, HTTP server. Right: object store, lease manager below with primary election and lease expiry stacked above. Control arrows connect consumers to providers; the change stream watches the DB accessor.
 ```
+````
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: Worker tree (controller)
+:no-legend:
+:caption: Declared arrangement — the controller's dependency engine, grounded in cmd/jujud-controller/agent/{machine,model}/manifolds.go. Every node carries a ground pointer to its manifold source. Compare with the synthesized variant.
+:alt: Five columns of worker boxes. Far left: provider tracker above provider services. Left: compute provisioner above model worker manager, both inside a dashed box labelled model workers (one set per model), undertaker below. Centre spine, top to bottom: agent, DB accessor, change stream, domain services, API server, HTTP server. Right: object store, lease manager below with primary election and lease expiry stacked above. Control arrows connect consumers to providers; the change stream watches the DB accessor.
+```
+````
+`````
 
-### Bootstrap K8s
+#### Bootstrap K8s
+
+**Insert at:** § Controller bootstrap (staged).
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -315,7 +366,9 @@ The authored original (both of the above derive from it):
 :alt: User calls juju bootstrap. Client authenticates with K8s and creates the controller pod namespace. Controller pod self-starts jujud, the API server, and the database. Controller pod signals API ready to Client. Client reports success to User.
 ```
 
-### Deploy K8s
+#### Deploy K8s
+
+**Insert at:** § Controller deploy (staged).
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -325,7 +378,52 @@ The authored original (both of the above derive from it):
 :alt: User calls juju deploy. Client sends Deploy RPC to Controller. Controller writes records and schedules pod on Kubernetes. K8s returns pod running. Controller starts containeragent. containeragent runs install, config-changed, start hooks and returns unit active. Controller signals deploy complete back to Client and User.
 ```
 
-### Integrate
+### reference/offer.md
+
+#### Cross-model relation (CMR)
+
+**Insert at:** page top.
+
+`````{grid} 2
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: Cross-model relation (CMR) (synthesized)
+:no-legend:
+:caption: Auto-layout — no positions declared.
+:alt: Nine record nodes. Top row: application, offer, offer connection. Middle row: relation, endpoint, remote application. Bottom: model and external controller. A dashed box around offer, offer connection, and external controller is labelled cross-model machinery.
+```
+````
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: Cross-model relation (CMR)
+:no-legend:
+:caption: Declared arrangement — the cross-model machinery as first drawn, all tables grounded (offer, offer_connection, application_remote_offerer, external_controller). Compare with the synthesized variant.
+:alt: Nine record nodes. Top row: application, offer, offer connection. Middle row: relation, endpoint, remote application. Bottom: model and external controller. A dashed box around offer, offer connection, and external controller is labelled cross-model machinery.
+```
+````
+`````
+
+### reference/hook.md
+
+#### Uniter operation (state machine)
+
+**Insert at:** § Hook execution.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Uniter operation
+:no-legend:
+:caption: The uniter's three-phase operation executor — idle → preparing → executing → committing — with the error path (hook fails) and the retry loop. The state labels are the verbatim strings from internal/worker/uniter/operation/executor.go; guards: ErrHookFailed, ErrNeedsReboot.
+:alt: State machine: idle to preparing on hook queued, preparing to executing, executing to committing on hook exits 0, executing to error on hook fails, error to idle on retry, committing to idle on write complete.
+```
+
+### reference/relation.md
+
+#### Integrate
+
+**Insert at:** § Integrating applications (staged). also: explanation/architecture.md § Integrate.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -335,159 +433,9 @@ The authored original (both of the above derive from it):
 :alt: User calls juju integrate. Client sends Integrate RPC to Controller. Controller writes relation record and fires watchers to both unit agents. Each agent runs relation-created, relation-joined, and relation-changed hooks and writes its relation data to the controller. The controller notifies the other agent after each write.
 ```
 
-### Unit removal
+#### Databag permissions
 
-```{ggarch}
-:file: ../juju.ggarch
-:sequence: Unit removal
-:no-legend:
-:caption: Removal is a cooperative shutdown: the controller marks the unit Dying, the unit agent runs its teardown hooks in order, then marks itself Dead. Only after that does the controller release the underlying machine.
-:alt: User calls juju remove-unit. Controller marks unit Dying and fires watcher to unit agent. Unit agent runs stop, teardown, and remove hooks, then marks unit Dead. Controller releases machine and deletes unit records.
-```
-
-### Model removal
-
-```{ggarch}
-:file: ../juju.ggarch
-:sequence: Model removal
-:no-legend:
-:caption: Model destruction is coordinated by the Undertaker, a worker that runs inside the controller agent. The controller never deletes its own database — the Undertaker does, as the final act after all cloud resources have been released.
-:alt: User calls juju destroy-model. Controller marks model Dying and fires watcher to Undertaker. Undertaker destroys all applications. Controller releases all machines and marks model Dead. Undertaker deletes model records and Dqlite database.
-```
-
-## Tutorial: the progressive reveal
-
-The tutorial's figures reveal one element per section, the way the
-page teaches: the machinery first, then the user, then the
-applications. Each step is a scoped view over the same model.
-
-### Tutorial: setup
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Tutorial: setup
-:no-legend:
-:caption: What Juju consists of before anything runs: a client and a controller, with access to a cloud (compute, networking, storage) and to Charmhub. The arrows name what each connection carries.
-:alt: A client talks to the controller; the controller talks to clouds above it and to Charmhub below it.
-```
-
-### Tutorial: auth
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Tutorial: auth
-:no-legend:
-:caption: The reveal adds the user; everything else stays. Everything a user does in Juju is commands sent through the client to the controller, which authenticates and authorizes them.
-:alt: The user sends commands to the client, the client calls the Juju API on the controller, and the controller still talks to the clouds above it and to Charmhub below it.
-```
-
-### Tutorial: provision & deploy
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Tutorial: provision & deploy
-:no-legend:
-:caption: The reveal adds the charmed applications: the controller provisions infrastructure on the cloud and fetches charms from Charmhub; the applications record their state back to the controller.
-:alt: The user sends commands through the client to the controller; the controller provisions on clouds and fetches charms from Charmhub; the charmed applications record their state on the controller.
-```
-
-### User authentication (the verification commands)
-
-```{ggarch}
-:file: ../juju.ggarch
-:sequence: User authentication
-:no-legend:
-:caption: What the tutorial's verification commands actually do, grounded in cmd/juju: bootstrap created the admin user (agentbootstrap, superuser access) and cached the account in the client store (environs/bootstrap/prepare.go); juju whoami answers from that cache without an API call; juju show-user admin calls UserManager.UserInfo on the controller and reports access: superuser. Home TBD — removed from the tutorial at reviewer direction (the tutorial only needs to signal user management); pending a reference home.
-:alt: User runs juju whoami; the client reads the admin account cached locally at bootstrap. User runs juju show-user admin; the client calls UserManager.UserInfo on the controller; the controller returns the user info with superuser access.
-```
-
-## Reference: mechanisms (round 3 — grounded new views)
-
-### Secret lifecycle (state machine)
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Secret lifecycle
-:no-legend:
-:caption: The life of a secret, grounded in domain/secret: reserved (URI minted) -> active (latest revision, content in a backend) -> granted (view | manage roles) -> superseded; a rotate policy fires secret-rotate (leader), expiry fires secret-expired; a revision no consumer tracks becomes obsolete (pending delete) and the owner charm retires it via secret-remove (or user secrets auto-prune). Consumers see secret-changed.
-:alt: State machine: reserved to active on create, active self-loops for grant/revoke and new-revision publication, active to rotate-due on the rotate policy and back via secret-rotate, active to expiry-due and on to removed via secret-expired then secret-remove, active to obsolete when superseded, obsolete to removed on prune.
-```
-
-### Action run flow (sequence)
-
-```{ggarch}
-:file: ../juju.ggarch
-:sequence: Action run flow
-:no-legend:
-:caption: juju run enqueues an operation; the controller records per-unit tasks (pending) and the unit agent's watcher resolves them; the task runs via the charm's dispatch script (action-get/set/fail/log during execution), and finishing stores results in the object store. juju cancel-task moves a running task to aborting; the process is killed and the task reports aborted.
-:alt: User calls juju run; client enqueues the operation on the controller; controller records operation and per-unit tasks pending; controller notifies unit agent; agent resolves and starts the task (running); agent runs the charm action with jujuc action commands; on cancel the agent aborts; otherwise results stream back and the task completes.
-```
-
-### Status domains (who sets what)
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Status domains
-:no-legend:
-:caption: Who sets each status domain: the unit agent sets its own status (the controller derives allocating and lost); the charm sets the workload status via status-set; the leader unit sets the application status via status-set --application and the relation lifecycle (joining, joined, broken), else Juju computes the application status from the unit statuses; the machine agent sets the machine status; the controller suspends/resumes cross-model relations (suspending, suspended, resume to joining). Transitions are free-form enumerations except relation and storage (enforced machines).
-:alt: Actor nodes pointing at the status domains they set: charm to workload status, unit agent to unit agent status, leader unit to application and relation status, machine agent to machine status, controller to relation status (suspends and resumes cross-model relations).
-```
-
-### Agent taxonomy (who runs what)
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Agent taxonomy
-:no-legend:
-:caption: The four agent types and their channels: every agent makes API calls to the controller; the machine agent hosts unit agents on machine clouds; containeragent is the unit-agent role as a single Kubernetes binary.
-:alt: Controller, machine agent, unit agent, and containeragent in a row; arrows: machine agent hosts unit agent; each agent makes API calls to the controller.
-```
-
-### Log flow (sequence)
-
-```{ggarch}
-:file: ../juju.ggarch
-:sequence: Log flow
-:no-legend:
-:caption: Agents buffer their log records in memory and ship them to the controller's /logsink websocket endpoint; the controller batches them as JSON lines into logsink.log, which juju debug-log tails through the API. On Kubernetes, agent logs also go to the container's stdout.
-:alt: Unit agent and machine agent buffer records and ship them to the controller; the controller batches them into logsink.log; the user tails via juju debug-log.
-```
-
-### Machine designations (two provisioning paths)
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Machine designations
-:no-legend:
-:caption: What a machine designation names, grounded in domain/machine: machine 0 and its LXD container are rows in the SAME machine table (the container linked by a machine-parent record; one nesting level only), so the designation is the containment path. The provisioning split: the controller (its compute provisioner) starts base machines (StartInstance); the host machine's agent provisions its own containers through the LXD broker (containerprovisioner on the machine agent) and watches them via the API (WatchContainers). Containers are machines: each runs its own machine agent, which hosts the unit agent. Placement scope '#' = existing, 'lxd:' = new; --to is machine-cloud only.
-:alt: The controller provisions machine 0; machine 0's agent provisions the LXD container via the LXD broker and watches its containers through the controller API; the container's own machine agent hosts the unit agent.
-```
-
-
-
-## Reference: data models (round 4 — grounded data-model views)
-
-### Storage model
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Storage model
-:no-legend:
-:caption: The storage walk, grounded in 0011-storage.sql: the charm defines storage names (kind block|filesystem, count, size); a directive pins one pool (user- or provider-default origin) per application; an instance carries the charm name, kind and requested size and is backed by exactly one volume or filesystem; attachments bind instances to units; volumes bind to net nodes (the machine or unit network identity). Provision scope: model = machine-independent, machine = dies with the machine.
-:alt: Record chain: charm storage to directive to pool to instance; volume to the right of instance, filesystem below, attachment below charm storage, net node above volume. Arrows carry multiplicities.
-```
-
-### Network spaces
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Network spaces
-:no-legend:
-:caption: A space groups subnets; a subnet belongs to 0..1 space (the alpha space exists by default); an application's default binding points at one space, and each charm-relation endpoint can bind 0..1 space of its own.
-:alt: Application record to space record to subnet record; arrows: subnet belongs to 0..1 space; application default binding (one).
-```
-
-### Databag permissions
+**Insert at:** § Permissions around relation databags.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -497,9 +445,149 @@ applications. Each step is a scoped view over the same model.
 :alt: App A's units (appA/leader, appA/1) and app B's units (appB/leader, appB/1) above one row of databags; red arrows reading and writing within each set (own bags; the leader also the application databag), green arrows reading across to the other application's set; below, the peer panel with one set and inward green reads of every bag, the application databag included.
 ```
 
-## Reference: processes and levels (round 5 — grounded views)
+### reference/removing-things.md
 
-### Bundle deploy (sequence)
+#### Unit removal
+
+**Insert at:** § Forcing removals. also: explanation/architecture.md.
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Unit removal
+:no-legend:
+:caption: Removal is a cooperative shutdown: the controller marks the unit Dying, the unit agent runs its teardown hooks in order, then marks itself Dead. Only after that does the controller release the underlying machine.
+:alt: User calls juju remove-unit. Controller marks unit Dying and fires watcher to unit agent. Unit agent runs stop, teardown, and remove hooks, then marks unit Dead. Controller releases machine and deletes unit records.
+```
+
+#### Model removal
+
+**Insert at:** § Forcing removals. also: explanation/architecture.md.
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Model removal
+:no-legend:
+:caption: Model destruction is coordinated by the Undertaker, a worker that runs inside the controller agent. The controller never deletes its own database — the Undertaker does, as the final act after all cloud resources have been released.
+:alt: User calls juju destroy-model. Controller marks model Dying and fires watcher to Undertaker. Undertaker destroys all applications. Controller releases all machines and marks model Dead. Undertaker deletes model records and Dqlite database.
+```
+
+### reference/secret.md
+
+#### Secret lifecycle (state machine)
+
+**Insert at:** § Permissions around secrets.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Secret lifecycle
+:no-legend:
+:caption: The life of a secret, grounded in domain/secret: reserved (URI minted) -> active (latest revision, content in a backend) -> granted (view | manage roles) -> superseded; a rotate policy fires secret-rotate (leader), expiry fires secret-expired; a revision no consumer tracks becomes obsolete (pending delete) and the owner charm retires it via secret-remove (or user secrets auto-prune). Consumers see secret-changed.
+:alt: State machine: reserved to active on create, active self-loops for grant/revoke and new-revision publication, active to rotate-due on the rotate policy and back via secret-rotate, active to expiry-due and on to removed via secret-expired then secret-remove, active to obsolete when superseded, obsolete to removed on prune.
+```
+
+### reference/action.md
+
+#### Action run flow (sequence)
+
+**Insert at:** § Action execution.
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Action run flow
+:no-legend:
+:caption: juju run enqueues an operation; the controller records per-unit tasks (pending) and the unit agent's watcher resolves them; the task runs via the charm's dispatch script (action-get/set/fail/log during execution), and finishing stores results in the object store. juju cancel-task moves a running task to aborting; the process is killed and the task reports aborted.
+:alt: User calls juju run; client enqueues the operation on the controller; controller records operation and per-unit tasks pending; controller notifies unit agent; agent resolves and starts the task (running); agent runs the charm action with jujuc action commands; on cancel the agent aborts; otherwise results stream back and the task completes.
+```
+
+### reference/status.md
+
+#### Status domains (who sets what)
+
+**Insert at:** § Types of status.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Status domains
+:no-legend:
+:caption: Who sets each status domain: the unit agent sets its own status (the controller derives allocating and lost); the charm sets the workload status via status-set; the leader unit sets the application status via status-set --application and the relation lifecycle (joining, joined, broken), else Juju computes the application status from the unit statuses; the machine agent sets the machine status; the controller suspends/resumes cross-model relations (suspending, suspended, resume to joining). Transitions are free-form enumerations except relation and storage (enforced machines).
+:alt: Actor nodes pointing at the status domains they set: charm to workload status, unit agent to unit agent status, leader unit to application and relation status, machine agent to machine status, controller to relation status (suspends and resumes cross-model relations).
+```
+
+### reference/agent.md
+
+#### Agent taxonomy (who runs what)
+
+**Insert at:** § Types of agents.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Agent taxonomy
+:no-legend:
+:caption: The four agent types and their channels: every agent makes API calls to the controller; the machine agent hosts unit agents on machine clouds; containeragent is the unit-agent role as a single Kubernetes binary.
+:alt: Controller, machine agent, unit agent, and containeragent in a row; arrows: machine agent hosts unit agent; each agent makes API calls to the controller.
+```
+
+### reference/log.md
+
+#### Log flow (sequence)
+
+**Insert at:** § Juju agent logs - machines.
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Log flow
+:no-legend:
+:caption: Agents buffer their log records in memory and ship them to the controller's /logsink websocket endpoint; the controller batches them as JSON lines into logsink.log, which juju debug-log tails through the API. On Kubernetes, agent logs also go to the container's stdout.
+:alt: Unit agent and machine agent buffer records and ship them to the controller; the controller batches them into logsink.log; the user tails via juju debug-log.
+```
+
+### reference/machine.md
+
+#### Machine designations (two provisioning paths)
+
+**Insert at:** § Machines and system (LXD) containers.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Machine designations
+:no-legend:
+:caption: What a machine designation names, grounded in domain/machine: machine 0 and its LXD container are rows in the SAME machine table (the container linked by a machine-parent record; one nesting level only), so the designation is the containment path. The provisioning split: the controller (its compute provisioner) starts base machines (StartInstance); the host machine's agent provisions its own containers through the LXD broker (containerprovisioner on the machine agent) and watches them via the API (WatchContainers). Containers are machines: each runs its own machine agent, which hosts the unit agent. Placement scope '#' = existing, 'lxd:' = new; --to is machine-cloud only.
+:alt: The controller provisions machine 0; machine 0's agent provisions the LXD container via the LXD broker and watches its containers through the controller API; the container's own machine agent hosts the unit agent.
+```
+
+### reference/storage.md
+
+#### Storage model
+
+**Insert at:** § Storage directive.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Storage model
+:no-legend:
+:caption: The storage walk, grounded in 0011-storage.sql: the charm defines storage names (kind block|filesystem, count, size); a directive pins one pool (user- or provider-default origin) per application; an instance carries the charm name, kind and requested size and is backed by exactly one volume or filesystem; attachments bind instances to units; volumes bind to net nodes (the machine or unit network identity). Provision scope: model = machine-independent, machine = dies with the machine.
+:alt: Record chain: charm storage to directive to pool to instance; volume to the right of instance, filesystem below, attachment below charm storage, net node above volume. Arrows carry multiplicities.
+```
+
+### reference/space.md
+
+#### Network spaces
+
+**Insert at:** § Spaces as constraints and bindings. also: reference/subnet.md.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Network spaces
+:no-legend:
+:caption: A space groups subnets; a subnet belongs to 0..1 space (the alpha space exists by default); an application's default binding points at one space, and each charm-relation endpoint can bind 0..1 space of its own.
+:alt: Application record to space record to subnet record; arrows: subnet belongs to 0..1 space; application default binding (one).
+```
+
+### reference/bundle.md
+
+#### Bundle deploy (sequence)
+
+**Insert at:** page top.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -509,7 +597,11 @@ applications. Each step is a scoped view over the same model.
 :alt: User calls juju deploy; client merges overlay into base; controller returns model status snapshot; client builds the change graph and applies changes in order.
 ```
 
-### Web CLI (sequence)
+### reference/juju-web-cli.md
+
+#### Web CLI (sequence)
+
+**Insert at:** § Features.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -519,7 +611,11 @@ applications. Each step is a scoped view over the same model.
 :alt: The dashboard charm serves the websocket, filters through the whitelist, runs the embedded CLI in-process, and streams response lines.
 ```
 
-### Simplestreams lookup (sequence)
+### reference/metadata.md
+
+#### Simplestreams lookup (sequence)
+
+**Insert at:** § Basic workflow.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -529,7 +625,11 @@ applications. Each step is a scoped view over the same model.
 :alt: User calls juju bootstrap or juju deploy; the client tries the controller database, then the user-supplied metadata URL, then the provider locations, then streams.canonical.com, each attempted signed first then unsigned; the client verifies signatures with the shipped public keys and uses the first hit.
 ```
 
-### Upgrade paths (sequence)
+### reference/upgrading-things.md
+
+#### Upgrade paths (sequence)
+
+**Insert at:** page top.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -539,7 +639,11 @@ applications. Each step is a scoped view over the same model.
 :alt: User asks to upgrade; the client refreshes the juju snap; then either upgrade-controller and upgrade-model in place (patch or pre-3.0 minor deltas) or bootstrap a new controller, migrate the models, and upgrade-model (major or post-3.0 minor deltas).
 ```
 
-### Configuration levels (where each lives)
+### reference/configuration.md
+
+#### Configuration levels (where each lives)
+
+**Insert at:** § Controller configuration.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -549,9 +653,11 @@ applications. Each step is a scoped view over the same model.
 :alt: User and controller above the three config records; charm beside application config (it reads, it cannot write).
 ```
 
-## Reference: origins and chains (round 6 — grounded ER views)
+### reference/charm.md
 
-### Charm origins
+#### Charm origins
+
+**Insert at:** § Charm taxonomy.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -561,7 +667,11 @@ applications. Each step is a scoped view over the same model.
 :alt: Application and unit records point at the charm record; charm metadata and download info hang off charm; application channel and platform records point at application.
 ```
 
-### Credential chain
+### reference/credential.md
+
+#### Credential chain
+
+**Insert at:** § Credential definition.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -571,7 +681,11 @@ applications. Each step is a scoped view over the same model.
 :alt: User record, cloud record, credential record, and model record with FK arrows: user owns credentials, cloud defines credentials, model uses one credential and is deployed on one cloud.
 ```
 
-### Operation hierarchy
+### reference/script.md
+
+#### Operation hierarchy
+
+**Insert at:** § Script task.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -581,44 +695,40 @@ applications. Each step is a scoped view over the same model.
 :alt: Operation record to task record to unit task to unit; operation action record above operation; task status below task.
 ```
 
-## Where each view is embedded (round 1 of the docs push)
+## Other
 
-Every diagram above is duplicated here; the list below maps the views
-to the doc pages that now embed them, so the effects of ggarch
-updates are inspectable from this one page.
+Diagrams with no confirmed home yet.
 
-| View / sequence | Embedded in |
-|---|---|
-| Intro: the problem | explanation/juju-architecture.md |
-| Intro: Juju enters | explanation/juju-architecture.md |
-| Intro: Juju unpacked | explanation/juju-architecture.md |
-| Juju overview | explanation/architecture.md |
-| K8s deployment topology | explanation/architecture.md; **reference/containeragent.md**, **reference/jujuc.md**, **reference/pebble.md** |
-| Data model | explanation/architecture.md |
-| Data model (full spine) | **reference/database.md** |
-| Worker tree (machine cloud) | **reference/jujud.md** |
-| Worker tree (controller) | **reference/controller.md** |
-| Cross-model relation (CMR) | **reference/offer.md** |
-| HA controller: Dqlite replicaset | **reference/database.md**, **reference/high-availability.md**, **howto/manage-the-databases.md** |
-| Uniter operation (state machine) | **reference/hook.md** |
-| Hook execution | explanation/architecture.md |
-| Bootstrap K8s / Bootstrap machine / Deploy K8s / Deploy machine / Integrate | explanation/architecture.md |
-| Unit removal | explanation/architecture.md; **reference/removing-things.md** |
-| Model removal | explanation/architecture.md; **reference/removing-things.md** |
-| juju status | this catalogue |
+### juju status
 
-New tutorial views (all three also embedded in **tutorial/index.md**,
-replacing the excalidraw pairs -- the progressive reveal: setup, then
-+user, then +applications):
-| View | Embedded in |
-|---|---|
-| Tutorial: setup | tutorial/index.md (replaces tutorial-setup excalidraw) |
-| Tutorial: auth | tutorial/index.md (replaces tutorial-handle-auth excalidraw) |
-| Tutorial: provision & deploy | tutorial/index.md (replaces tutorial-provision-deploy excalidraw) |
-| User authentication (sequence) | this catalogue (home TBD — pulled from the tutorial at reviewer direction) |
+*home TBD — this catalogue only, no doc embeds it.*
 
-Pages still on hand-drawn visuals, pending round-2 views:
-reference/relation.md (the relation taxonomy excalidraw; the databags
-excalidraw is superseded by the Databag permissions view),
-reference/hook.md (hook-charm-lifecycle PNG — the
-Uniter operation machine above now covers its execution story).
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: juju status
+:no-legend:
+:caption: What "juju status" actually is: the controller reads the status records, derives live agent liveness from connection state, and projects both back. Status is records plus liveness — an overlap, not an identity.
+:alt: User calls juju status. Client sends a Status API call to the controller. The controller reads status records and derives agent liveness, then returns the projected status. Client shows the status output to the user.
+```
+
+### User authentication (the verification commands)
+
+*home TBD (candidates: reference/user.md, howto/manage-users) — pulled from the tutorial at reviewer direction.*
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: User authentication
+:no-legend:
+:caption: What the tutorial's verification commands actually do, grounded in cmd/juju: bootstrap created the admin user (agentbootstrap, superuser access) and cached the account in the client store (environs/bootstrap/prepare.go); juju whoami answers from that cache without an API call; juju show-user admin calls UserManager.UserInfo on the controller and reports access: superuser. Home TBD — removed from the tutorial at reviewer direction (the tutorial only needs to signal user management); pending a reference home.
+:alt: User runs juju whoami; the client reads the admin account cached locally at bootstrap. User runs juju show-user admin; the client calls UserManager.UserInfo on the controller; the controller returns the user info with superuser access.
+```
+
+
+## Pending round-2 views
+
+Pages still on hand-drawn visuals: `reference/relation.md` (the
+relation taxonomy excalidraw — the databags excalidraw is superseded
+by the Databag permissions view), `reference/hook.md` (the
+hook-charm-lifecycle PNG — the Uniter operation machine covers its
+execution story). The remaining reference pages without a view are
+the coverage-round-2 opportunity map.
