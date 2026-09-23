@@ -218,8 +218,24 @@ model "Juju" {
     // Machine cloud — controller machine and unit agent (both jujud)
     // -----------------------------------------------------------------------
     controller_machine [type: container, label: "Controller machine",
-                        abstracts: "controller"]
+                        abstracts: "controller"] {
+      cm_agent [type: juju-software, label: "Controller agent\n(jujud, Dqlite)"]
+    }
     machine_agent      [type: juju-software, label: "Machine agent\n(jujud)"]
+
+    // Machine deployment topology — the unit-machine half. One jujud per
+    // machine: the unit machine's jujud is the machine agent, hosting the
+    // unit agent, which runs the charm, which drives the workload
+    // directly — charm and workload share the machine and there is NO
+    // Pebble (Pebble is injected only into K8s workload containers;
+    // architecture.md § Control flow). The controller-machine half is
+    // controller_machine + cm_agent above.
+    unit_machine [type: container, label: "Unit machine\n(cloud instance)"] {
+      um_ma       [type: juju-software, label: "Machine agent\n(jujud)"]
+      um_ua       [type: juju-software, label: "Unit agent"]
+      um_charm    [type: charm,    label: "Charm"]
+      um_workload [type: workload, label: "Workload"]
+    }
 
     // -----------------------------------------------------------------------
     // Machine designations (docs/reference/machine.md) — one machine
@@ -476,6 +492,23 @@ model "Juju" {
     // Bootstrap machine
     client             -> controller_machine  [type: control, label: "ssh-installs the controller agent on"]
     client             -> controller_machine  [type: api, label: "polls the API until initialised"]
+
+    // Machine deployment topology (the machine-cloud mirror of the K8s
+    // topology edges above). The controller machine's jujud provisions
+    // machines via its compute provisioner model worker (machine.md:
+    // base machines are the controller's, cmd/jujud-controller/agent/
+    // model/manifolds.go computeProvisionerName) and fetches + serves
+    // charm archives (the map-to-meaning audit: unit agents never see
+    // Charmhub); the unit machine's jujud phones home; it hosts the
+    // unit agent (jujud.md worker chain), which runs the charm, which
+    // drives the workload directly (architecture.md § Control flow:
+    // charm and workload share the machine, no Pebble).
+    cm_agent   -> cloud        [type: control, label: "provisions on"]
+    cm_agent   -> charmhub     [type: api,     label: "fetches charms"]
+    um_ma      -> cm_agent     [type: api,     label: "makes API calls to"]
+    um_ma      -> um_ua        [type: control, label: "hosts (nested)"]
+    um_ua      -> um_charm     [type: control, label: "runs"]
+    um_charm   -> um_workload  [type: control, label: "drives"]
 
     // Deploy machine
     controller    -> machine_agent  [type: control, label: "provisions with user data, serves agent binaries"]
@@ -1069,6 +1102,76 @@ diagram "K8s deployment topology" from "Juju" {
             workload: "workload / external",
             control: "manages / drives",
             api: "API call"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Topology: machine deployment (the machine-cloud mirror of the K8s
+// deployment topology) + the bootstrap result views (the controller
+// half alone — the state after `juju bootstrap`: one controller, one
+// model, no applications; the full topologies are the deploy beats'
+// results).
+// --------------------------------------------------------------------------
+
+diagram "Machine deployment topology" from "Juju" {
+  select {
+    nodes: cloud controller_machine unit_machine charmhub
+    edges: type api type control
+  }
+  positions {
+    controller_machine left-of unit_machine      gap: 60
+    controller_machine align-middle unit_machine
+    cloud              above controller_machine  gap: 40
+    cloud              align-centre controller_machine
+    charmhub           below controller_machine  gap: 80
+    charmhub           align-centre controller_machine
+    unit_machine       direction: down
+    cm_agent           align-middle um_ma
+    um_ma              align-centre um_ua
+    um_ua              align-centre um_charm
+    um_charm           align-centre um_workload
+    cm_agent           min-width: 160
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine or pod",
+            charm: "charm",
+            workload: "workload / external",
+            control: "manages / drives",
+            api: "API call"]
+  }
+}
+
+diagram "Bootstrap K8s result" from "Juju" {
+  select {
+    nodes: k8s controller_pod
+    edges: type control
+  }
+  positions {
+    k8s above controller_pod  gap: 40
+    k8s align-centre controller_pod
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine or pod"]
+  }
+}
+
+diagram "Bootstrap machine result" from "Juju" {
+  select {
+    nodes: cloud controller_machine
+    edges: type control
+  }
+  positions {
+    cloud above controller_machine  gap: 40
+    cloud align-centre controller_machine
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine or pod"]
   }
 }
 
@@ -1960,6 +2063,7 @@ diagram "Operation hierarchy" from "Juju" {
 
 // --------------------------------------------------------------------------
 
+
 diagram "Juju overview (synthesized)" from "Juju" {
   select { nodes: user client controller apps clouds charmhub
            edges: type control type api type stream }
@@ -1976,6 +2080,7 @@ diagram "Juju overview (synthesized)" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+
 
 diagram "K8s deployment topology (synthesized)" from "Juju" {
   select {
@@ -1995,6 +2100,50 @@ diagram "K8s deployment topology (synthesized)" from "Juju" {
 
 // --------------------------------------------------------------------------
 
+
+diagram "Machine deployment topology (synthesized)" from "Juju" {
+  select {
+    nodes: cloud controller_machine unit_machine charmhub
+    edges: type api type control
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine or pod",
+            charm: "charm",
+            workload: "workload / external",
+            control: "manages / drives",
+            api: "API call"]
+  }
+}
+
+diagram "Bootstrap K8s result (synthesized)" from "Juju" {
+  select {
+    nodes: k8s controller_pod
+    edges: type control
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine or pod"]
+  }
+}
+
+diagram "Bootstrap machine result (synthesized)" from "Juju" {
+  select {
+    nodes: cloud controller_machine
+    edges: type control
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine or pod"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
 diagram "Data model (synthesized)" from "Juju" {
   select {
     nodes: application_rec unit_rec machine_rec charm_rec relation_rec endpoint_rec
@@ -2007,6 +2156,7 @@ diagram "Data model (synthesized)" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+
 
 diagram "Data model (full spine) (synthesized)" from "Juju" {
   select {
@@ -2032,6 +2182,7 @@ diagram "Data model (full spine) (synthesized)" from "Juju" {
 
 // --------------------------------------------------------------------------
 
+
 diagram "Worker tree (machine cloud) (synthesized)" from "Juju" {
   select {
     nodes: controller machine_agent unit_agent uniter charm
@@ -2047,6 +2198,7 @@ diagram "Worker tree (machine cloud) (synthesized)" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+
 
 diagram "Worker tree (controller) (synthesized)" from "Juju" {
   select {
@@ -2073,6 +2225,7 @@ diagram "Worker tree (controller) (synthesized)" from "Juju" {
 
 // --------------------------------------------------------------------------
 
+
 diagram "Cross-model relation (CMR) (synthesized)" from "Juju" {
   select {
     nodes: application_rec offer_rec offer_connection_rec remote_app_rec
@@ -2093,6 +2246,7 @@ diagram "Cross-model relation (CMR) (synthesized)" from "Juju" {
 
 // --------------------------------------------------------------------------
 
+
 diagram "Intro: the problem (synthesized)" from "Juju" {
   select {
     nodes: user bare_application
@@ -2107,6 +2261,7 @@ diagram "Intro: the problem (synthesized)" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+
 
 diagram "Intro: Juju enters (synthesized)" from "Juju" {
   select {
@@ -2153,6 +2308,7 @@ diagram "Intro: Juju enters (synthesized)" from "Juju" {
 
 // --------------------------------------------------------------------------
 
+
 diagram "Intro: Juju unpacked (synthesized)" from "Juju" {
   select {
     nodes: user client controller unit_pod
@@ -2180,6 +2336,7 @@ diagram "Intro: Juju unpacked (synthesized)" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+
 
 diagram "HA controller: Dqlite replicaset (synthesized)" from "Juju" {
   select {
@@ -2211,6 +2368,8 @@ diagram "HA controller: Dqlite replicaset (synthesized)" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+
+
 diagram "Tutorial: setup (synthesized)" from "Juju" {
   select {
     nodes: user client controller apps clouds charmhub
@@ -2222,7 +2381,7 @@ diagram "Tutorial: setup (synthesized)" from "Juju" {
   }
 }
 
-diagram "Tutorial: auth" from "Juju" {
+diagram "Tutorial: auth (synthesized)" from "Juju" {
   select {
     nodes: user client controller apps clouds charmhub
     edges: type control type api type stream
@@ -2233,7 +2392,7 @@ diagram "Tutorial: auth" from "Juju" {
   }
 }
 
-diagram "Tutorial: provision & deploy" from "Juju" {
+diagram "Tutorial: provision & deploy (synthesized)" from "Juju" {
   select {
     nodes: user client controller apps clouds charmhub
     edges: type control type api type stream
@@ -2244,6 +2403,8 @@ diagram "Tutorial: provision & deploy" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+
+
 diagram "Status domains (synthesized)" from "Juju" {
   select {
     nodes: charm unit_agent machine_agent controller leader uas_status workload_status app_status machine_status relation_status
@@ -2253,6 +2414,8 @@ diagram "Status domains (synthesized)" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+
+
 diagram "Agent taxonomy (synthesized)" from "Juju" {
   select {
     nodes: controller machine_agent unit_agent containeragent
@@ -2262,6 +2425,8 @@ diagram "Agent taxonomy (synthesized)" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+
+
 diagram "Machine designations (synthesized)" from "Juju" {
   select {
     nodes: controller machine0
@@ -2271,6 +2436,8 @@ diagram "Machine designations (synthesized)" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+
+
 diagram "Network spaces (synthesized)" from "Juju" {
   select {
     nodes: application_rec space_rec subnet_rec
@@ -2285,6 +2452,8 @@ diagram "Network spaces (synthesized)" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+
+
 diagram "Storage model (synthesized)" from "Juju" {
   select {
     nodes: charm_storage_rec storage_directive_rec storage_pool_rec storage_instance_rec storage_volume_rec storage_fs_rec storage_att_rec net_node_rec
@@ -2299,6 +2468,8 @@ diagram "Storage model (synthesized)" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+
+
 diagram "Databag permissions (synthesized)" from "Juju" {
   select {
     nodes: a_unit_leader a_unit_1 b_unit_leader b_unit_1 a_app_bag a_bag_a0 a_bag_a1 b_app_bag b_bag_b0 b_bag_b1 c_unit_leader c_unit_1 c_app_bag c_bag_a0 c_bag_a1
@@ -2317,6 +2488,8 @@ diagram "Databag permissions (synthesized)" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+
+
 diagram "Configuration levels (synthesized)" from "Juju" {
   select {
     nodes: user controller ctrl_config_rec model_config_rec app_config_rec charm
@@ -2326,6 +2499,8 @@ diagram "Configuration levels (synthesized)" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+
+
 diagram "Charm origins (synthesized)" from "Juju" {
   select {
     nodes: application_rec unit_rec charm_rec charm_metadata_rec charm_download_rec app_channel_rec app_platform_rec
@@ -2340,6 +2515,8 @@ diagram "Charm origins (synthesized)" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+
+
 diagram "Credential chain (synthesized)" from "Juju" {
   select {
     nodes: user_rec cloud_rec credential_rec model_rec
@@ -2354,6 +2531,8 @@ diagram "Credential chain (synthesized)" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+
+
 diagram "Operation hierarchy (synthesized)" from "Juju" {
   select {
     nodes: operation_rec operation_task_rec operation_action_rec op_unit_task_rec op_status_rec unit_rec

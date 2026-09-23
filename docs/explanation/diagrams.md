@@ -186,7 +186,7 @@ The authored original (both of the above derive from it):
 
 #### K8s deployment topology
 
-**Insert at:** § Topology. also embedded: reference/containeragent.md, reference/jujuc.md, reference/pebble.md.
+**Insert at:** § Topology. also embedded: reference/containeragent.md, reference/jujuc.md, reference/pebble.md; and as the result slide of the deploy slideshow (§ Deploy, Kubernetes tab).
 
 `````{grid} 2
 ````{grid-item}
@@ -211,7 +211,7 @@ The authored original (both of the above derive from it):
 
 #### Data model
 
-**Insert at:** § Data model.
+**Insert at:** § Data model. also embedded as the seed slide of both deploy slideshows (§ Deploy, Kubernetes and Machine tabs).
 
 `````{grid} 2
 ````{grid-item}
@@ -233,6 +233,67 @@ The authored original (both of the above derive from it):
 ```
 ````
 `````
+
+#### Machine deployment topology
+
+**Insert at:** § Deploy (Machine tab) — the deploy slideshow's result slide. The machine-cloud mirror of the K8s deployment topology.
+
+`````{grid} 2
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: Machine deployment topology (synthesized)
+:no-legend:
+:caption: Auto-layout — no positions declared. The typed hub planes found the unit-machine chain as a horizontal row on their own.
+:alt: Controller machine and unit machine side by side; cloud above the controller machine, Charmhub below; the unit machine's machine agent phones home to the controller agent; inside the unit machine a chain machine agent, unit agent, charm, workload.
+```
+````
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: Machine deployment topology
+:no-legend:
+:caption: Declared arrangement — one jujud per machine: the controller machine's jujud runs the controller with Dqlite in-process; the unit machine's jujud hosts the unit agent, which runs the charm, which drives the workload directly (no Pebble on machine clouds — Pebble is injected only into K8s workload containers). Compare with the synthesized variant.
+:alt: Controller machine and unit machine side by side; cloud above the controller machine, Charmhub below; the unit machine's machine agent phones home to the controller agent; inside the unit machine a vertical chain machine agent, unit agent, charm, workload.
+```
+````
+`````
+
+#### Bootstrap K8s result
+
+**Insert at:** § Bootstrap (Kubernetes tab) — the bootstrap slideshow's result slide.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Bootstrap K8s result
+:no-legend:
+:caption: The state after `juju bootstrap` on Kubernetes: one controller, one model, no applications — the controller pod running jujud, the API server and Dqlite in-process.
+:alt: Kubernetes cloud above, controller pod below with the controller agent inside.
+```
+
+#### Bootstrap machine result
+
+**Insert at:** § Bootstrap (Machine tab) — the bootstrap slideshow's result slide.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Bootstrap machine result
+:no-legend:
+:caption: The state after `juju bootstrap` on a machine cloud: one controller, one model, no applications — the controller machine running jujud, the API server and Dqlite in-process.
+:alt: Cloud above, controller machine below with the controller agent inside.
+```
+
+#### juju status
+
+**Insert at:** § Deploy (both tabs) — the closing verification slide of both deploy slideshows.
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: juju status
+:no-legend:
+:caption: What "juju status" actually is: the controller reads the status records, derives live agent liveness from connection state, and projects both back. Status is records plus liveness — an overlap, not an identity.
+:alt: User calls juju status. Client sends a Status API call to the controller. The controller reads status records and derives agent liveness, then returns the projected status. Client shows the status output to the user.
+```
 
 #### Hook execution
 
@@ -698,18 +759,6 @@ The authored original (both of the above derive from it):
 ## Other
 
 Diagrams with no confirmed home yet.
-
-### juju status
-
-*home TBD — this catalogue only, no doc embeds it.*
-
-```{ggarch}
-:file: ../juju.ggarch
-:sequence: juju status
-:no-legend:
-:caption: What "juju status" actually is: the controller reads the status records, derives live agent liveness from connection state, and projects both back. Status is records plus liveness — an overlap, not an identity.
-:alt: User calls juju status. Client sends a Status API call to the controller. The controller reads status records and derives agent liveness, then returns the projected status. Client shows the status output to the user.
-```
 
 ### User authentication (the verification commands)
 

@@ -229,8 +229,10 @@ workload applications.
 
 ```{ggarch}
 :file: ../juju.ggarch
-:sequence: Bootstrap K8s
-:alt: User invokes juju bootstrap. CLI authenticates with K8s cluster. CLI creates namespace and deploys controller pod. jujud starts, initialises API server and database. jujud signals API ready to CLI. CLI reports bootstrap complete to User.
+:slides: Bootstrap K8s | Bootstrap K8s result
+:caption: Bootstrapping a controller on Kubernetes: the mechanism and the state it leaves.
+:slide-captions: The mechanism: the CLI authenticates with the Kubernetes cluster, creates the namespace and deploys the controller pod, and waits; once jujud has started the API server and initialised the database, the controller is autonomous. | The result: one controller, one model, no applications — the controller pod running jujud, the API server and Dqlite in-process.
+:alt: User invokes juju bootstrap. CLI authenticates with K8s cluster. CLI creates namespace and deploys controller pod. jujud starts, initialises API server and database. jujud signals API ready to CLI. CLI reports bootstrap complete to User. The resulting state is the controller pod alone: one controller, one model, no applications yet.
 ```
 
 ```{mermaid}
@@ -259,8 +261,10 @@ sequenceDiagram
 
 ```{ggarch}
 :file: ../juju.ggarch
-:sequence: Bootstrap machine
-:alt: User invokes juju bootstrap. CLI authenticates with Cloud and provisions a VM. CLI installs jujud on the Controller machine. Controller machine starts the controller agent, API server, and database. Controller machine reports API ready. CLI reports Bootstrap complete to User.
+:slides: Bootstrap machine | Bootstrap machine result
+:caption: Bootstrapping a controller on a machine cloud: the mechanism and the state it leaves.
+:slide-captions: The mechanism: the CLI authenticates against the cloud, provisions a virtual machine, installs jujud, and waits; the controller machine starts its controller agent, API server, and database, then reports the API ready. | The result: one controller, one model, no applications — the controller machine running jujud, the API server and Dqlite in-process.
+:alt: User invokes juju bootstrap. CLI authenticates with Cloud and provisions a VM. CLI installs jujud on the Controller machine. Controller machine starts the controller agent, API server, and database. Controller machine reports API ready. CLI reports Bootstrap complete to User. The resulting state is the controller machine alone: one controller, one model, no applications yet.
 ```
 
 ```{mermaid}
@@ -325,8 +329,10 @@ sequence: `install`, `config-changed`, `start`.
 
 ```{ggarch}
 :file: ../juju.ggarch
-:sequence: Deploy K8s
-:alt: User invokes juju deploy. CLI sends Deploy RPC call to Controller. Controller writes application and unit records, schedules unit pod on Kubernetes cluster. K8s returns pod running. Controller starts containeragent. containeragent runs install, config-changed, start hooks. Controller reports deploy complete to CLI, CLI reports to User.
+:slides: Data model | Deploy K8s | K8s deployment topology | juju status
+:caption: Deploying on Kubernetes: the records, the mechanism that creates them, the topology that results, and the command that verifies it.
+:slide-captions: The seed: the records a deployment consists of — charm, application, unit, machine/pod, relation, endpoint — and where the pointers live. | The mechanism: the controller writes the application and unit records, schedules the unit pod, and starts the containeragent, which runs the install hooks to unit active. | The result: the settled topology — the controller pod and the unit pod, each with their internal agents and containers. | The verification: juju status projects exactly those records plus live agent liveness — what you just deployed is what status reads.
+:alt: The data model records (charm, application, unit, machine/pod, relation, endpoint). Then: user invokes juju deploy; controller writes records and schedules the unit pod; containeragent runs the install hooks and reports active. The resulting topology: controller pod and unit pod with their internal agents and containers. Verification: juju status reads those records plus live agent liveness.
 ```
 
 ```{mermaid}
@@ -358,8 +364,10 @@ sequenceDiagram
 
 ```{ggarch}
 :file: ../juju.ggarch
-:sequence: Deploy machine
-:alt: User invokes juju deploy. CLI sends Deploy RPC call to Controller. Controller writes application and unit records and provisions a machine via Cloud. Cloud returns Machine ready. Controller starts jujud unit agent. jujud runs install, config-changed, start hooks and reports unit active. Controller reports deploy complete to CLI, CLI reports to User.
+:slides: Data model | Deploy machine | Machine deployment topology | juju status
+:caption: Deploying on a machine cloud: the records, the mechanism that creates them, the topology that results, and the command that verifies it.
+:slide-captions: The seed: the records a deployment consists of — charm, application, unit, machine/pod, relation, endpoint — and where the pointers live. | The mechanism: the controller writes the application and unit records, asks the cloud to provision a machine, and starts jujud, which runs the install hooks to unit active. | The result: one jujud per machine — the controller machine's jujud runs the controller with Dqlite in-process; the unit machine's jujud hosts the unit agent, which runs the charm, which drives the workload directly (no Pebble on machine clouds). | The verification: juju status projects exactly those records plus live agent liveness — what you just deployed is what status reads.
+:alt: The data model records (charm, application, unit, machine/pod, relation, endpoint). Then: user invokes juju deploy; controller writes records and provisions a machine; jujud runs the install hooks and reports active. The resulting topology: controller machine and unit machine, one jujud per machine. Verification: juju status reads those records plus live agent liveness.
 ```
 
 ```{mermaid}
