@@ -32,7 +32,7 @@ Internally, even though the replica set shares the same user-provided configurat
 
 The leader is denoted by an asterisk in the output to `juju status`.
 
-## Removal
+## Unit removal
 
 Removing a unit (`juju remove-unit`) is a cooperative shutdown, not a
 kill: the controller only marks the unit Dying; the unit's agent runs

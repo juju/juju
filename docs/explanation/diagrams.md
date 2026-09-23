@@ -360,7 +360,7 @@ concept pages — one mechanism, data model, or process per page.
 
 #### Model removal
 
-**Insert at:** § Removal. also: explanation/architecture.md § Remove.
+**Insert at:** § Model removal. also: explanation/architecture.md § Remove.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -497,7 +497,7 @@ concept pages — one mechanism, data model, or process per page.
 
 #### Unit removal
 
-**Insert at:** § Removal. also: explanation/architecture.md § Remove.
+**Insert at:** § Unit removal. also: explanation/architecture.md § Remove.
 
 ```{ggarch}
 :file: ../juju.ggarch
