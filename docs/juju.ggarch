@@ -503,6 +503,19 @@ model "Juju" {
                           ground: "model:subnet.space_uuid"]
     application_rec   -> space_rec    [type: data, label: "default binding (one)",
                           ground: "model:application.space_uuid"]
+    // PARKED rendering notes (sequence + fan work, reviewer rounds
+    // 20-23, recorded in ggarch TODOS.md):
+    // 1. Sequence BLOCK_PAD 8 -> ~24: the loop/alt borders cut
+    //    through first-inner-step labels and the alt bottom lands
+    //    flush on the repeated footer boxes.
+    // 2. Sequences ignore the topology edge-type vocabulary —
+    //    verified to match Mermaid/UML (dashed = return); if a
+    //    sequence ever needs channel types, a colour accent layers
+    //    on without touching the dashed-returns convention.
+    // 3. Machine designations: far-end port symmetry for the
+    //    through-pair (controller<->ma0) — the strokes converge at
+    //    the far ends and re-bow; label_side machinery is in
+    //    (ggarch c289732), far-end pairing is the remaining step.
     // Relation databags (domain/relation) — the units read and write
     // the bag records in the host model's database (their unit agents
     // do the API work: jujuc relation-get/set -> the uniter facade's
