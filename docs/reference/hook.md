@@ -31,37 +31,44 @@ See more: {ref}`list-of-hooks`
 (hook-execution)=
 ## Hook execution
 
-Hooks are run with environment variables set by Juju to expose relevant contextual configuration to the charm.
-
-The Juju environment variables are set in addition to those supplied by the execution environment itself.
-
-All hooks get a common set of environment variables; in addition, some hooks (or hook kinds) also get hook (hook kind) specific environment variables, as specified in the documentation for each hook.
-
-```{ibnote}
-See more: {ref}`list-of-hooks`
-```
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Uniter operation
-:no-legend:
-:alt: State machine: idle to preparing on hook queued, preparing to executing, executing to committing on hook exits 0, executing to error on hook fails, error to idle on retry, committing to idle on write complete.
-:caption: What running a hook means to the unit agent: every hook invocation is one pass of the uniter's operation executor — the agent prepares the hook context, executes the hook, then commits the recorded changes. A failing hook parks the operation in `error` until the failure is resolved; the labels are the verbatim state strings from `internal/worker/uniter/operation/executor.go`.
-```
-
-The runtime view of one pass: a state change on the controller wakes
-the unit agent's watcher; the agent snapshots remote state, resolves
-the next hook, and dispatches it. Every hook command the charm calls
-is served by the agent acting as a proxy for the controller API --
-the charm never calls the controller directly -- and the hook's
-writes are flushed all-or-nothing on a clean exit.
+A hook runs as one pass of a fixed cycle: a state change on the
+controller wakes the unit agent's watcher; the agent snapshots the
+remote state (reads the config, relation data, and secrets the hook
+will see into a local snapshot, which the hook then sees unchanged
+for its whole run), resolves the next hook, and dispatches it. Every
+hook command the charm calls is served by the agent acting as a
+proxy for the controller API -- the charm never calls the controller
+directly -- and the hook's writes are flushed all-or-nothing on a
+clean exit.
 
 ```{ggarch}
 :file: ../juju.ggarch
 :sequence: Hook execution
 :no-legend:
 :alt: Controller watcher fires to unit agent. Unit agent snapshots state and resolves hook, then runs the hook by dispatch. Loop: charm calls hook commands (config-get, relation-get, secret-get), the unit agent proxies them to the controller API and returns the exit code. On exit 0: flush writes. On failure: discard writes, set unit error.
-:caption: Every hook runs the same cycle: the controller notifies, the agent snapshots remote state, resolves the next hook, and dispatches. Hook commands are served locally by the agent acting as a proxy — the charm never calls the controller directly.
+:caption: Every hook runs the same cycle: the controller notifies, the agent snapshots remote state (reads the config, relation data, and secrets the hook will see into a local snapshot, which stays unchanged for the hook's whole run), resolves the next hook, and dispatches it. Hook commands are served locally by the agent acting as a proxy — the charm never calls the controller directly.
+```
+
+Seen from inside the unit agent, that same pass is the uniter's
+operation executor: prepare the hook context, execute the hook,
+commit the recorded changes.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Uniter operation
+:no-legend:
+:alt: State machine: idle to preparing on hook queued, preparing to executing, executing to committing on hook exits 0, executing to error on hook fails, error to idle on retry, committing to idle on write complete.
+:caption: The same pass as the uniter's executor states — prepare, execute, commit — with the error path: a failing hook parks the operation in `error` until the failure is resolved. The labels are the verbatim state strings from `internal/worker/uniter/operation/executor.go`.
+```
+
+The hook context the snapshot provides reaches the charm as
+environment variables set by Juju, in addition to those supplied by
+the execution environment itself. All hooks get a common set; some
+hooks (or hook kinds) also get hook (hook kind) specific environment
+variables, as specified in the documentation for each hook.
+
+```{ibnote}
+See more: {ref}`list-of-hooks`
 ```
 
 (hook-execution-guarantees)=

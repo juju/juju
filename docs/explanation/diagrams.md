@@ -276,7 +276,7 @@ concept pages — one mechanism, data model, or process per page.
 :file: ../juju.ggarch
 :sequence: Hook execution
 :no-legend:
-:caption: Every hook runs the same cycle: the controller notifies, the agent snapshots remote state, resolves the next hook, and dispatches. Hook commands are served locally by the agent acting as a proxy — the charm never calls the controller directly.
+:caption: Every hook runs the same cycle: the controller notifies, the agent snapshots remote state (reads the config, relation data, and secrets the hook will see into a local snapshot, which stays unchanged for the hook's whole run), resolves the next hook, and dispatches it. Hook commands are served locally by the agent acting as a proxy — the charm never calls the controller directly.
 :alt: Controller watcher fires to unit agent. Unit agent snapshots state and resolves hook. Loop: charm calls hook commands (config-get, relation-get, secret-get), the unit agent proxies them to the controller API and returns the exit code. On success: flush writes. On failure: discard writes, set unit error.
 ```
 
