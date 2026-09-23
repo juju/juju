@@ -33,8 +33,6 @@ In software design, a **controller** is an architectural component responsible f
 
 A Juju controller has two basic persistent storage needs: {ref}`database <database>` access and blob storage. By default, Juju will use the filesystem of the controller's supporting infrastructure.
 
-<!-- ADD BACK IN WHEN WE MOVE THOSE VALUES INTO SECRETS.
-
 However, either during bootstrap or later, you can (and, in a production-setting, should!) specify any S3-compatible object store you want (e.g., AWS S3, MicroCeph, MinIO, etc.) using the object-store-related controller configuration keys ({ref}`controller-config-object-store-type`, {ref}`controller-config-object-store-s3-endpoint`, {ref}`controller-config-object-store-s3-static-key`, {ref}`controller-config-object-store-s3-static-secret`, {ref}`controller-config-object-store-s3-static-session`, {ref}`controller-config-object-store-s3-region`).
 
 Also, Juju will apply default S3 policy permissions, but you are free to change them, so long as they satisfy the following as a minimum (at least, during model creation):
@@ -78,7 +76,7 @@ Also, Juju will apply default S3 policy permissions, but you are free to change 
       }
    ]
 }
-``` -->
+```
 
 
 

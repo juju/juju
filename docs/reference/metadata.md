@@ -137,11 +137,7 @@ and vice versa.
 
 2. User specified URLs
 
-These are initially specified in the environments.yaml file (and then subsequently copied to the
-jenv file when the model is bootstrapped). For images, use "image-metadata-url"; for agent binaries,
-use "agent-metadata-url". The URLs can point to a world readable container/bucket in the cloud,
-an address served by an HTTP server, or even a shared directory accessible by all node instances
-running in the cloud.
+These are set in the model configuration (`juju model-config`): for images, use `image-metadata-url`; for agent binaries, use `agent-metadata-url`. The URLs can point to a world readable container/bucket in the cloud, an address served by an HTTP server, or even a shared directory accessible by all node instances running in the cloud.
 
 For example, assume an Apache HTTP server with base URL `https://juju-metadata`, providing access to
 information at `<base>/images` and `<base>/tools`. The Juju model yaml file could have

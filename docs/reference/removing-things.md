@@ -58,7 +58,7 @@ The `--force` and `--no-wait` options should be regarded as tools to wield as a 
 ```
 
 
-As of `v.2.6.1`, this is the state of affairs for those commands that support at least the `--force` option:
+As of Juju 4, this is the state of affairs for those commands that support at least the `--force` option:
 
 command | `--force` | `--no-wait`
 ---------------|---------------|---------------

@@ -7,12 +7,6 @@ myst:
 (placement-directive)=
 # Placement directive
 
-<!--TO DOCS MAINTAINERS:
-To retrieve info about the keys, grep the `provider` directory in the code for `placement` (case insensitive); find all the providers that match; and go to each of those providers' `parsePlacement` method and look at the code. For example, here's the ec2 one: https://github.com/juju/juju/blob/137a772ed339b73b856e9adc0a5624976c2890b2/provider/ec2/environ.go#L389 (note the switch statement with two cases, `zone` and `subnet`). Then follow a couple of the functions through to get further details (e.g., about the ec2 subset query).
---->
-
-<!--  See also: {ref}`Binding <binding>`, {ref}`Constraint <constraint>`-->
-
 In Juju, a **placement directive** is an option based on the `--to` flag that can be passed to certain commands to specify a deploy location, where the commands include {ref}`command-juju-add-machine` ,  {ref}`command-juju-add-unit`,  {ref}`command-juju-bootstrap`,  {ref}`command-juju-deploy`, and the location is  (1) an existing or a new machine or (2) a key-value pair specifying a subnet, system ID, or an availability zone.
 
 Example: `juju add-machine --to 1`, `juju deploy --to zone=us-east-1a`

@@ -7,7 +7,7 @@ myst:
 (zone)=
 # Zone
 
-A(n availability) **`zone`** is a  {ref}`constraint <constraint>` or a {ref}`placement directive <placement-directive>` that can be used to customise where the hardware spawned by Juju is provisioned in order to prevent better redundancy in case of an outage.
+A(n availability) **`zone`** is a  {ref}`constraint <constraint>` or a {ref}`placement directive <placement-directive>` that can be used to customise where the hardware spawned by Juju is provisioned in order to achieve better redundancy in case of an outage.
 
 The value of the key consists of the zone(s) available for a given cloud.
 

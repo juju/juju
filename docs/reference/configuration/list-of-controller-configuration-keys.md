@@ -206,7 +206,7 @@ testing is
 ## `caas-image-repo`
 
 `caas-image-repo` sets the docker repo to use
-for the jujud operator and mongo images.
+for the jujud operator image.
 Note: the repository itself is read-only after bootstrap; only
 authentication credentials (for a private registry) can be updated.
 
@@ -393,8 +393,10 @@ permissions model.
 
 `max-agent-state-size` is the maximum allowed size of internal state
 data that agents can store to the controller in bytes. A value of 0
-disables the quota checks although in principle, mongo imposes a
-hard (but configurable) limit of 16M.
+disables the quota checks although in principle, Juju imposes a
+hard limit of 16M per document (the combined value of
+`max-agent-state-size` and `max-charm-state-size` must not exceed
+it).
 
 **Type:** integer
 
@@ -409,7 +411,8 @@ hard (but configurable) limit of 16M.
 `max-charm-state-size` is the maximum allowed size of charm-specific
 per-unit state data that charms can store to the controller in
 bytes. A value of 0 disables the quota checks although in
-principle, mongo imposes a hard (but configurable) limit of 16M.
+principle, Juju imposes a hard 16M per-document limit on the
+combined value of `max-agent-state-size` and `max-charm-state-size`.
 
 **Type:** integer
 
