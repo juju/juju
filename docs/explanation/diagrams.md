@@ -519,6 +519,16 @@ applications. Each step is a scoped view over the same model.
 :alt: The dashboard charm serves the websocket, filters through the whitelist, runs the embedded CLI in-process, and streams response lines.
 ```
 
+### Simplestreams lookup (sequence)
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Simplestreams lookup
+:no-legend:
+:caption: The metadata search path (reference/metadata.md): the client walks the four locations in priority order — the controller database (a running model), the user-supplied URL (agent-metadata-url / image-metadata-url), provider-specific locations (the keystone product-streams endpoints on Openstack), and streams.canonical.com — trying each location signed (.sjson) first, then unsigned, and using the first location that answers. Signed metadata is verified with the public keys Juju ships with.
+:alt: User calls juju bootstrap or juju deploy; the client tries the controller database, then the user-supplied metadata URL, then the provider locations, then streams.canonical.com, each attempted signed first then unsigned; the client verifies signatures with the shipped public keys and uses the first hit.
+```
+
 ### Configuration levels (where each lives)
 
 ```{ggarch}

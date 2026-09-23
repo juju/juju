@@ -64,6 +64,16 @@ model "Juju" {
     cloud    [type: external, label: "Cloud"]   // generic cloud for machine sequences
 
     // -----------------------------------------------------------------------
+    // Simplestreams — reference/metadata.md (the metadata search path:
+    // controller DB -> user URL -> provider locations ->
+    // streams.canonical.com; each tried signed (.sjson) then unsigned)
+    // -----------------------------------------------------------------------
+    streams         [type: external, label: "streams.canonical.com\n(signed metadata)",
+                     ground: "environs/tools/doc.go:20"]
+    metadata_mirror [type: external, label: "user metadata URL\n(agent/image-metadata-url)",
+                     ground: "environs/config/config.go:109"]
+
+    // -----------------------------------------------------------------------
     // Workload — abstract (used in high-level diagrams)
     // -----------------------------------------------------------------------
     world [type: workload, label: "Real world"]
@@ -411,6 +421,16 @@ model "Juju" {
                           ground: "domain/status/service/leaderservice.go:SetRelationStatus"]
     machine_agent -> machine_status  [type: control, label: "sets",
                           ground: "api/agent/provisioner/machine.go:SetStatus"]
+
+    // Simplestreams (reference/metadata.md) — the client walks the
+    // search path for image UUIDs and agent binary metadata; the
+    // controller DB is the first location for a running model (the
+    // agentbinary service serves what the controller fetched),
+    // external locations come signed-first (.sjson) then unsigned.
+    client        -> metadata_mirror [type: api, label: "searches the user-supplied URL for metadata",
+                          ground: "domain/agentbinary/service/service.go:GetExternalAgentBinary"]
+    client        -> streams         [type: api, label: "fetches metadata from",
+                          ground: "environs/tools/doc.go:20"]
 
     // Machine designations (docs/reference/machine.md — MachineScout
     // grounds): the host machine agent watches its containers
@@ -913,6 +933,26 @@ behaviour "Secret lifecycle" {
       controller    -> client:        return "log records"
     }
 
+    // Simplestreams lookup (reference/metadata.md, Basic workflow):
+    // the client walks the search path in priority order — controller
+    // DB, user-supplied URL, provider locations, streams.canonical.com
+    // — each location tried signed (.sjson) first, then unsigned; the
+    // shipped public keys verify the signed metadata.
+    behaviour "Simplestreams lookup" {
+      user       -> client:          call "juju bootstrap / juju deploy"
+      loop "each location of the search path, signed then unsigned" {
+        client   -> controller:      call "1. the controller DB (a running model)"
+        controller -> client:        return "agent binary metadata"
+        client   -> metadata_mirror: call "2. the user-supplied URL"
+        metadata_mirror -> client:  return "metadata | not found"
+        client   -> cloud:           call "3. provider locations (keystone product-streams)"
+        cloud    -> client:          return "metadata | not found"
+        client   -> streams:         call "4. streams.canonical.com/juju"
+        streams  -> client:          return "signed metadata"
+        client   -> client:          self "verify signature (Juju ships the public keys)"
+      }
+    }
+
     // Reference + tutorial: the verification story behind the
     // tutorial's "Handle authentication and authorization" — grounded
     // in cmd/juju/user/whoami.go (local client-store read, no API
@@ -1268,6 +1308,10 @@ sequence "Integrate" from "Juju" {
 
 sequence "Bootstrap machine" from "Juju" {
   select { behaviour: "Bootstrap machine" }
+}
+
+sequence "Simplestreams lookup" from "Juju" {
+  select { behaviour: "Simplestreams lookup" }
 }
 
 sequence "Deploy machine" from "Juju" {
