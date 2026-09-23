@@ -244,13 +244,10 @@ func (i *importOperation) importRemoteApplicationOfferers(
 		// consumed offer with no relations yet is a valid state (after
 		// "juju consume" but before "juju integrate"), so fall back to a
 		// newly generated application UUID for the synthetic application
-		// when no token exists. This mirrors the application import
-		// operation, which does the same for local applications without a
-		// remote entity token. With no relations referencing the synthetic
-		// application, the generated UUID is purely local and safe.
-		var offererApplicationUUID coreapplication.UUID
+		// when no token exists in the remote entities.
+		var syntheticApplicationUUID coreapplication.UUID
 		if token, ok := remoteEntities[primaryRemoteApp.Name()]; ok {
-			offererApplicationUUID = coreapplication.UUID(token)
+			syntheticApplicationUUID = coreapplication.UUID(token)
 		} else {
 			generated, err := coreapplication.NewUUID()
 			if err != nil {
@@ -258,7 +255,7 @@ func (i *importOperation) importRemoteApplicationOfferers(
 					"generating application UUID for remote application %q: %w",
 					primaryRemoteApp.Name(), err)
 			}
-			offererApplicationUUID = generated
+			syntheticApplicationUUID = generated
 		}
 		input = append(input, service.RemoteApplicationOffererImport{
 			RemoteApplicationImport: service.RemoteApplicationImport{
@@ -270,7 +267,7 @@ func (i *importOperation) importRemoteApplicationOfferers(
 				Units:           remoteAppUnits[primaryRemoteApp.Name()],
 				Endpoints:       endpoints,
 			},
-			OffererApplicationUUID: offererApplicationUUID,
+			OffererApplicationUUID: syntheticApplicationUUID,
 		})
 	}
 	if len(input) == 0 {

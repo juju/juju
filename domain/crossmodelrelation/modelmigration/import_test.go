@@ -391,38 +391,18 @@ func (s *importSuite) TestImportRemoteApplicationOfferersNoRemoteEntity(c *tc.C)
 		Role:      "requirer",
 		Interface: "dummy-token",
 	})
-
-	relation := model.AddRelation(description.RelationArgs{
-		Id:  0,
-		Key: "src:sink sink:source",
-	})
-	relation.AddEndpoint(description.EndpointArgs{
-		ApplicationName: "sink",
-		Interface:       "dummy-token",
-		Name:            "source",
-		Role:            "provider",
-	})
-	relation.AddEndpoint(description.EndpointArgs{
-		ApplicationName: "src",
-		Interface:       "dummy-token",
-		Name:            "sink",
-		Role:            "requirer",
-	})
 	// No application remote entities at all.
 	remoteEntities := map[string]string{}
 
 	// Assert
+	var imported []service.RemoteApplicationOffererImport
 	s.importService.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
-		gomock.Cond(func(imports []service.RemoteApplicationOffererImport) bool {
-			if len(imports) != 1 {
-				return false
-			}
-			// The synthetic application must be seeded with a freshly
-			// generated valid UUID, not an empty one.
-			return uuid.IsValidUUIDString(imports[0].OffererApplicationUUID.String())
-		}),
-	).Return(nil)
+		gomock.Any(),
+	).DoAndReturn(func(_ context.Context, imports []service.RemoteApplicationOffererImport) error {
+		imported = imports
+		return nil
+	})
 
 	// Act - no relations, so no units to extract
 	remoteAppUnits := make(map[string][]string)
@@ -431,6 +411,10 @@ func (s *importSuite) TestImportRemoteApplicationOfferersNoRemoteEntity(c *tc.C)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(imported, tc.HasLen, 1)
+	// The synthetic application must be seeded with a freshly generated
+	// valid UUID, not an empty one.
+	c.Check(imported[0].OffererApplicationUUID.Validate(), tc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImportRemoteApplicationOfferersEmpty(c *tc.C) {

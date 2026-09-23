@@ -342,6 +342,10 @@ func (s *importSuite) TestImportLegacyConsumedOfferWithoutRelation(c *tc.C) {
 	c.Check(offers[0].OffererModelUUID, tc.Equals, modelUUID)
 	c.Check(offers[0].OfferURL, tc.Equals, offerURL)
 	c.Check(offers[0].Macaroon, tc.DeepEquals, mac)
+	// The synthetic application must be seeded with a valid UUID and be
+	// alive so the consumed offer can be integrated post-migration.
+	c.Check(uuid.IsValidUUIDString(offers[0].ApplicationUUID), tc.IsTrue)
+	c.Check(offers[0].Life, tc.Equals, life.Alive)
 }
 
 // setupCoordinatorScopeAndService returns the coordinator, scope and service
