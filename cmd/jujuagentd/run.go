@@ -42,7 +42,6 @@ import (
 	_ "github.com/juju/juju/internal/provider/all"         // Import the providers.
 	_ "github.com/juju/juju/internal/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/internal/upgrades"
-	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	jujunames "github.com/juju/juju/juju/names"
@@ -269,7 +268,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	agentConf := agentconf.NewAgentConf("")
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		agentConf,
-		dbaccessor.NewTrackedDBWorker,
 		func(mt model.ModelType) upgrades.PreUpgradeStepsFunc {
 			if mt == model.CAAS {
 				return upgrades.PreUpgradeStepsCAAS

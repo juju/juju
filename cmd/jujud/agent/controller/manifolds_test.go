@@ -519,6 +519,14 @@ func (*ManifoldsSuite) TestControllerProxyConfigUpdaterRegisteredAndOrdered(c *t
 		c.Assert(ok, tc.IsTrue)
 		checkContains(c, bootstrapManifold.Inputs, "controller-proxy-ready-flag")
 	}
+
+	iaasConfig := agentcontroller.NewIAASControllerProxyConfigUpdaterConfig()
+	c.Check(iaasConfig.SupportLegacyValues, tc.IsTrue)
+	c.Check(iaasConfig.RunFunc, tc.NotNil)
+
+	caasConfig := agentcontroller.NewCAASControllerProxyConfigUpdaterConfig()
+	c.Check(caasConfig.SupportLegacyValues, tc.IsFalse)
+	c.Check(caasConfig.RunFunc, tc.IsNil)
 }
 
 func (*ManifoldsSuite) TestHTTPClientConfiguresLokiClient(c *tc.C) {

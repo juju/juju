@@ -973,18 +973,8 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The controller proxy config updater uses local domain services
 		// instead of calling back through the controller API server.
-		controllerProxyConfigUpdater: ifDatabaseUpgradeComplete(proxyupdater.ControllerManifold(proxyupdater.ControllerManifoldConfig{
-			DomainServicesName:          domainServicesName,
-			ProxyReadyGateName:          controllerProxyReadyGateName,
-			Logger:                      internallogger.GetLogger("juju.worker.proxyupdater"),
-			WorkerFunc:                  proxyupdater.NewWorker,
-			GetControllerDomainServices: proxyupdater.GetControllerDomainServices,
-			GetDomainServices:           proxyupdater.GetDomainServices,
-			SupportLegacyValues:         true,
-			ExternalUpdate:              lxd.ConfigureLXDProxies,
-			InProcessUpdate:             proxyconfig.DefaultConfig.Set,
-			RunFunc:                     proxyupdater.RunWithStdIn,
-		})),
+		controllerProxyConfigUpdater: ifDatabaseUpgradeComplete(proxyupdater.ControllerManifold(
+			NewIAASControllerProxyConfigUpdaterConfig())),
 
 		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
 			AuthorityName:               certificateWatcherName,
@@ -1040,18 +1030,8 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The controller proxy config updater uses local domain services
 		// instead of calling back through the controller API server.
-		controllerProxyConfigUpdater: ifDatabaseUpgradeComplete(proxyupdater.ControllerManifold(proxyupdater.ControllerManifoldConfig{
-			DomainServicesName:          domainServicesName,
-			ProxyReadyGateName:          controllerProxyReadyGateName,
-			Logger:                      internallogger.GetLogger("juju.worker.proxyupdater"),
-			WorkerFunc:                  proxyupdater.NewWorker,
-			GetControllerDomainServices: proxyupdater.GetControllerDomainServices,
-			GetDomainServices:           proxyupdater.GetDomainServices,
-			SupportLegacyValues:         false,
-			ExternalUpdate:              func(proxy.Settings) error { return nil },
-			InProcessUpdate:             proxyconfig.DefaultConfig.Set,
-			RunFunc:                     proxyupdater.RunWithStdIn,
-		})),
+		controllerProxyConfigUpdater: ifDatabaseUpgradeComplete(proxyupdater.ControllerManifold(
+			NewCAASControllerProxyConfigUpdaterConfig())),
 
 		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
 			AuthorityName:               certificateWatcherName,
@@ -1139,6 +1119,41 @@ func NewCAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldCo
 		BootstrapAddressFinderGetter:  bootstrap.CAASAddressFinder,
 		AgentFinalizer:                bootstrap.CAASAgentFinalizer,
 		RemoveBootstrapSSHKeys:        bootstrap.NoopRemoveBootstrapSSHKeys,
+	}
+}
+
+// NewIAASControllerProxyConfigUpdaterConfig returns the IAAS-specific
+// controller proxy updater config.
+func NewIAASControllerProxyConfigUpdaterConfig() proxyupdater.ControllerManifoldConfig {
+	return proxyupdater.ControllerManifoldConfig{
+		DomainServicesName:          domainServicesName,
+		ProxyReadyGateName:          controllerProxyReadyGateName,
+		Logger:                      internallogger.GetLogger("juju.worker.proxyupdater"),
+		WorkerFunc:                  proxyupdater.NewWorker,
+		GetControllerDomainServices: proxyupdater.GetControllerDomainServices,
+		GetDomainServices:           proxyupdater.GetDomainServices,
+		SupportLegacyValues:         true,
+		ExternalUpdate:              lxd.ConfigureLXDProxies,
+		InProcessUpdate:             proxyconfig.DefaultConfig.Set,
+		RunFunc:                     proxyupdater.RunWithStdIn,
+	}
+}
+
+// NewCAASControllerProxyConfigUpdaterConfig returns the CAAS-specific
+// controller proxy updater config. CAAS controllers run in containers that
+// have no snap or apt tooling, so RunFunc is left nil to disable the snap
+// store proxy and apt mirror commands.
+func NewCAASControllerProxyConfigUpdaterConfig() proxyupdater.ControllerManifoldConfig {
+	return proxyupdater.ControllerManifoldConfig{
+		DomainServicesName:          domainServicesName,
+		ProxyReadyGateName:          controllerProxyReadyGateName,
+		Logger:                      internallogger.GetLogger("juju.worker.proxyupdater"),
+		WorkerFunc:                  proxyupdater.NewWorker,
+		GetControllerDomainServices: proxyupdater.GetControllerDomainServices,
+		GetDomainServices:           proxyupdater.GetDomainServices,
+		SupportLegacyValues:         false,
+		ExternalUpdate:              func(proxy.Settings) error { return nil },
+		InProcessUpdate:             proxyconfig.DefaultConfig.Set,
 	}
 }
 
