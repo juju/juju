@@ -30,7 +30,7 @@ controller creates the archive and streams it back in the same
 request, and nothing is kept on the controller once the request ends.
 The archive is verified against the recorded checksum before the
 download is considered complete; if verification fails, the corrupt
-archive is kept locally under a `.corrupt` suffix for inspection and
+archive is kept locally under a ".corrupt" suffix for inspection and
 the backup must be created again. An interrupted transfer leaves no
 archive on either side: re-run the command to create the backup
 again.
