@@ -1007,7 +1007,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		// Archive transfers are long-lived, potentially multi-GB
 		// streams: track them so shutdown can account for in-flight
 		// downloads instead of cutting them mid-stream unnoticed.
-		tracked:    true,
+		tracked: true,
 	}, {
 		// The pre-4.1 download path: kept only so older clients get a
 		// clear upgrade error instead of a bare 404.
