@@ -429,8 +429,8 @@ applications. Each step is a scoped view over the same model.
 :file: ../juju.ggarch
 :view: Status domains
 :no-legend:
-:caption: Who sets each status domain: the unit agent sets its own status (the controller derives allocating and lost); the charm sets the workload status via status-set; the leader unit sets the application status via status-set --application and the relation status (both writes leader-gated), else Juju computes the application status from the unit statuses; the machine agent sets the machine status. Transitions are free-form enumerations except relation and storage (enforced machines).
-:alt: Actor nodes pointing at the status domains they set: charm to workload status, unit agent to unit agent status, leader unit to application and relation status, machine agent to machine status.
+:caption: Who sets each status domain: the unit agent sets its own status (the controller derives allocating and lost); the charm sets the workload status via status-set; the leader unit sets the application status via status-set --application and the relation lifecycle (joining, joined, broken), else Juju computes the application status from the unit statuses; the machine agent sets the machine status; the controller suspends/resumes cross-model relations (suspending, suspended, resume to joining). Transitions are free-form enumerations except relation and storage (enforced machines).
+:alt: Actor nodes pointing at the status domains they set: charm to workload status, unit agent to unit agent status, leader unit to application and relation status, machine agent to machine status, controller to relation status (suspends and resumes cross-model relations).
 ```
 
 ### Agent taxonomy (who runs what)

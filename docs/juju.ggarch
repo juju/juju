@@ -417,8 +417,10 @@ model "Juju" {
                           ground: "internal/worker/uniter/runner/jujuc/status-set.go:NewStatusSetCommand"]
     leader        -> app_status      [type: control, label: "sets (status-set)",
                           ground: "domain/status/service/leaderservice.go:SetApplicationStatusForUnitLeader"]
-    leader        -> relation_status [type: control, label: "sets",
+    leader        -> relation_status [type: control, label: "sets (lifecycle)",
                           ground: "domain/status/service/leaderservice.go:SetRelationStatus"]
+    controller    -> relation_status [type: control, label: "suspends / resumes\n(cross-model relations)",
+                          ground: "apiserver/facades/client/application/application.go:SetRelationsSuspended"]
     machine_agent -> machine_status  [type: control, label: "sets",
                           ground: "api/agent/provisioner/machine.go:SetStatus"]
 
