@@ -340,7 +340,7 @@ func (s *MigrationService) ImportRelationNetworks(ctx context.Context, imports [
 			}
 		default:
 			return internalerrors.Errorf(
-				"unknown relation network direction %d", network.Direction).Add(errors.NotValid)
+				"unknown relation network direction %q", network.Direction).Add(errors.NotValid)
 		}
 	}
 	return nil

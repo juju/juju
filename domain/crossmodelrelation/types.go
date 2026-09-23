@@ -243,18 +243,32 @@ type RemoteApplicationConsumerImport struct {
 
 // RelationNetworkDirection describes the direction of the networks of a
 // relation, either ingress or egress.
-type RelationNetworkDirection int
+type RelationNetworkDirection string
 
 const (
 	// RelationNetworkIngress indicates the networks are ingress networks for
 	// the relation, being the CIDRs from which the remote side of the relation
 	// connects.
-	RelationNetworkIngress RelationNetworkDirection = iota + 1
+	RelationNetworkIngress RelationNetworkDirection = "ingress"
 
 	// RelationNetworkEgress indicates the networks are egress networks for
 	// the relation, being the CIDRs from which the local side of the relation
 	// connects to the remote side.
-	RelationNetworkEgress
+	RelationNetworkEgress RelationNetworkDirection = "egress"
+)
+
+// RelationNetworkLabel describes the origin of the networks of a relation,
+// either the default networks of the source model or an admin override.
+type RelationNetworkLabel string
+
+const (
+	// RelationNetworkDefault indicates the networks are the default networks
+	// of the source model.
+	RelationNetworkDefault RelationNetworkLabel = "default"
+
+	// RelationNetworkOverride indicates the networks are an admin override of
+	// the default networks of the source model.
+	RelationNetworkOverride RelationNetworkLabel = "override"
 )
 
 // RelationNetworkImport contains the networks of a single relation and
@@ -262,7 +276,7 @@ const (
 type RelationNetworkImport struct {
 	RelationKey corerelation.Key
 
-	// Direction is the direction of the networks.
+	// Direction is the direction of the networks, either ingress or egress.
 	Direction RelationNetworkDirection
 
 	// CIDRs are the network CIDRs of the relation for the direction.

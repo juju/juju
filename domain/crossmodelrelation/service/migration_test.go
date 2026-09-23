@@ -428,7 +428,7 @@ func (s *migrationSuite) TestImportRelationNetworksUnknownDirection(c *tc.C) {
 	input := []crossmodelrelation.RelationNetworkImport{
 		{
 			RelationKey: key,
-			Direction:   crossmodelrelation.RelationNetworkDirection(42),
+			Direction:   crossmodelrelation.RelationNetworkDirection("invalid"),
 			CIDRs:       []string{"10.0.0.0/24"},
 		},
 	}
@@ -440,7 +440,7 @@ func (s *migrationSuite) TestImportRelationNetworksUnknownDirection(c *tc.C) {
 	err = s.service(c).ImportRelationNetworks(c.Context(), input)
 
 	// Assert
-	c.Assert(err, tc.ErrorMatches, ".*unknown relation network direction 42.*")
+	c.Assert(err, tc.ErrorMatches, `.*unknown relation network direction "invalid".*`)
 }
 
 func (s *migrationSuite) TestImportRelationNetworksRelationNotFound(c *tc.C) {

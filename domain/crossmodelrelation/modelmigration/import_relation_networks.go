@@ -132,13 +132,13 @@ func extractRelationNetworks(model description.Model, rewrites map[string]string
 		Direction   crossmodelrelation.RelationNetworkDirection
 	}
 	type networkValue struct {
-		Override bool
-		CIDRs    []string
+		Label crossmodelrelation.RelationNetworkLabel
+		CIDRs []string
 	}
 
 	networks := make(map[networkKey]networkValue)
 	for _, network := range model.RelationNetworks() {
-		direction, override, err := parseRelationNetworkID(network.ID())
+		direction, label, err := parseRelationNetworkID(network.ID())
 		if err != nil {
 			return nil, errors.Errorf("parsing relation network ID %q: %w", network.ID(), err)
 		}
@@ -147,12 +147,13 @@ func extractRelationNetworks(model description.Model, rewrites map[string]string
 			RelationKey: network.RelationKey(),
 			Direction:   direction,
 		}
-		if existing, ok := networks[key]; ok && existing.Override && !override {
+		if existing, ok := networks[key]; ok && existing.Label == crossmodelrelation.RelationNetworkOverride &&
+			label == crossmodelrelation.RelationNetworkDefault {
 			continue
 		}
 		networks[key] = networkValue{
-			Override: override,
-			CIDRs:    network.CIDRS(),
+			Label: label,
+			CIDRs: network.CIDRS(),
 		}
 	}
 
@@ -185,12 +186,16 @@ func extractRelationNetworks(model description.Model, rewrites map[string]string
 // "ingress" or "egress" and the label is either "default" or "override". The
 // relation key itself contains colons, so the direction and label are always
 // the last two colon separated parts of the ID.
-func parseRelationNetworkID(id string) (direction crossmodelrelation.RelationNetworkDirection, override bool, err error) {
+func parseRelationNetworkID(id string) (
+	direction crossmodelrelation.RelationNetworkDirection,
+	label crossmodelrelation.RelationNetworkLabel,
+	err error,
+) {
 	parts := strings.Split(id, ":")
 	if len(parts) < 3 {
-		return 0, false, errors.Errorf("expected at least 3 colon separated parts")
+		return "", "", errors.Errorf("expected at least 3 colon separated parts")
 	}
-	directionPart, label := parts[len(parts)-2], parts[len(parts)-1]
+	directionPart, labelPart := parts[len(parts)-2], parts[len(parts)-1]
 
 	switch directionPart {
 	case "ingress":
@@ -198,15 +203,16 @@ func parseRelationNetworkID(id string) (direction crossmodelrelation.RelationNet
 	case "egress":
 		direction = crossmodelrelation.RelationNetworkEgress
 	default:
-		return 0, false, errors.Errorf("unknown direction %q", directionPart)
+		return "", "", errors.Errorf("unknown direction %q", directionPart)
 	}
 
-	switch label {
+	switch labelPart {
 	case "override":
-		return direction, true, nil
+		label = crossmodelrelation.RelationNetworkOverride
 	case "default":
-		return direction, false, nil
+		label = crossmodelrelation.RelationNetworkDefault
 	default:
-		return 0, false, errors.Errorf("unknown label %q", label)
+		return "", "", errors.Errorf("unknown label %q", labelPart)
 	}
+	return direction, label, nil
 }
