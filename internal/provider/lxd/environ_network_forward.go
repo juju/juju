@@ -25,8 +25,10 @@ const (
 	jujuDeviceForwardKey   = lxd.UserNamespacePrefix + "juju-device"
 )
 
-// ensureOVNNetworkForwards allocates an external IPv4 address for each OVN
+// ensureOVNNetworkForwards allocates external addresses for each OVN
 // interface. Ownership tags allow repeated starts to reuse or replace forwards.
+// Only families enabled on the guest network and permitted for external
+// allocation are requested. All selected guest addresses must become ready.
 func ensureOVNNetworkForwards(ctx context.Context, srv Server, container *lxd.Container, clk clock.Clock) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -46,19 +48,36 @@ func ensureOVNNetworkForwards(ctx context.Context, srv Server, container *lxd.Co
 	if err != nil {
 		return errors.Annotate(err, "retrieving networks")
 	}
-	ovnNetworks := make(map[string]bool)
+	ovnNetworks := make(map[string]api.Network)
 	for _, network := range networks {
 		if network.Type == networkTypeOVN {
-			ovnNetworks[network.Name] = true
+			ovnNetworks[network.Name] = network
 		}
 	}
+	attachedNetworks := make(map[string]api.Network)
 	for name, device := range nics {
-		if !ovnNetworks[lxd.NetworkName(device)] {
+		networkName := lxd.NetworkName(device)
+		if network, ok := ovnNetworks[networkName]; ok {
+			attachedNetworks[networkName] = network
+		} else {
 			delete(nics, name)
 		}
 	}
 	if len(nics) == 0 {
 		return nil
+	}
+
+	// Check capabilities only for OVN, so bridge instances remain compatible
+	// with older servers. Automatic listen-address allocation is also required.
+	for _, extension := range []string{"network_forward", "network_allocate_external_ips"} {
+		if !srv.HasExtension(extension) {
+			return errors.NotSupportedf("OVN network forwards require the %q LXD API extension; upgrade LXD", extension)
+		}
+	}
+
+	families, err := ovnForwardFamilies(ctx, srv, attachedNetworks)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	// Wait for all guest addresses before allocating any external addresses.
@@ -82,13 +101,17 @@ func ensureOVNNetworkForwards(ctx context.Context, srv Server, container *lxd.Co
 			}
 			for name, device := range nics {
 				iface := ovnInterfaceName(name, device)
-				if interfaceIPv4Address(state.Network[iface]) == "" {
-					return errors.NotAssignedf("IPv4 address for OVN interface %q", iface)
+				for _, family := range families[lxd.NetworkName(device)] {
+					if interfaceForwardAddress(state.Network[iface], family) == "" {
+						return errors.NotAssignedf("IPv%d address for OVN interface %q", family.version, iface)
+					}
 				}
 			}
 			return nil
 		},
 	})
+	// retry.Call returns its own stopped error when Stop closes. Preserve the
+	// context's cancellation or deadline error for provisioning callers.
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -98,9 +121,11 @@ func ensureOVNNetworkForwards(ctx context.Context, srv Server, container *lxd.Co
 	for _, name := range slices.Sorted(maps.Keys(nics)) {
 		device := nics[name]
 		iface := ovnInterfaceName(name, device)
-		address := interfaceIPv4Address(state.Network[iface])
-		if err := ensureOVNNetworkForward(ctx, srv, lxd.NetworkName(device), container.Name, iface, address); err != nil {
-			return errors.Trace(err)
+		for _, family := range families[lxd.NetworkName(device)] {
+			address := interfaceForwardAddress(state.Network[iface], family)
+			if err := ensureOVNNetworkForward(ctx, srv, lxd.NetworkName(device), container.Name, iface, address); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 	return nil
@@ -113,11 +138,11 @@ func ovnInterfaceName(name string, device map[string]string) string {
 	return name
 }
 
-func interfaceIPv4Address(state api.InstanceStateNetwork) string {
+func interfaceForwardAddress(state api.InstanceStateNetwork, family ovnForwardFamily) string {
 	for _, address := range state.Addresses {
 		ip := net.ParseIP(address.Address)
-		if address.Family == "inet" && ip.To4() != nil && ip.IsGlobalUnicast() {
-			return address.Address
+		if ip.IsGlobalUnicast() && family.subnet.Contains(ip) {
+			return ip.String()
 		}
 	}
 	return ""
@@ -131,10 +156,16 @@ func ensureOVNNetworkForward(ctx context.Context, srv Server, networkName, insta
 	if err != nil {
 		return errors.Annotatef(err, "retrieving forwards for OVN network %q", networkName)
 	}
+	isIPv4 := net.ParseIP(address).To4() != nil
 	var found bool
 	for _, forward := range forwards {
 		if forward.Config[jujuInstanceForwardKey] != instanceName ||
 			forward.Config[jujuDeviceForwardKey] != iface {
+			continue
+		}
+		// IPv4 and IPv6 forwards for the same interface are independent.
+		listenIP := net.ParseIP(forward.ListenAddress)
+		if listenIP == nil || (listenIP.To4() != nil) != isIPv4 {
 			continue
 		}
 		if !found && forward.Config["target_address"] == address {
@@ -158,8 +189,12 @@ func ensureOVNNetworkForward(ctx context.Context, srv Server, networkName, insta
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	listenAddress := "::"
+	if isIPv4 {
+		listenAddress = "0.0.0.0"
+	}
 	forward := api.NetworkForwardsPost{
-		ListenAddress: "0.0.0.0",
+		ListenAddress: listenAddress,
 		NetworkForwardPut: api.NetworkForwardPut{
 			Description: fmt.Sprintf("Juju instance %s interface %s", instanceName, iface),
 			Config: map[string]string{

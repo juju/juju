@@ -6,13 +6,16 @@ package lxd
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/canonical/gomock/gomock"
+	lxdclient "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/clock"
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/tc"
 
@@ -26,6 +29,8 @@ type ovnForwardSuite struct {
 	srv       *MockServer
 	container *lxd.Container
 	state     *api.InstanceState
+	network   api.Network
+	uplink    *api.Network
 }
 
 func TestOVNForwardSuite(t *testing.T) {
@@ -44,6 +49,10 @@ func (s *ovnForwardSuite) SetUpTest(c *tc.C) {
 	s.state = &api.InstanceState{Network: map[string]api.InstanceStateNetwork{
 		"eth0": {Addresses: []api.InstanceStateNetworkAddress{{Family: "inet", Address: "10.0.0.2"}}},
 	}}
+	s.network = api.Network{Name: "ovn0", Type: "ovn", Config: map[string]string{
+		"network": "UPLINK", "ipv4.address": "10.0.0.1/24", "ipv6.address": "none",
+	}}
+	s.uplink = &api.Network{Config: map[string]string{"ipv4.routes": "192.0.2.0/24"}}
 }
 
 func (s *ovnForwardSuite) TestNoNICs(c *tc.C) {
@@ -57,6 +66,23 @@ func (s *ovnForwardSuite) TestNonOVN(c *tc.C) {
 	s.srv.EXPECT().GetNetworks().Return([]api.Network{{Name: "ovn0", Type: "bridge"}, {Name: "ovn1", Type: "ovn"}}, nil)
 	err := ensureOVNNetworkForwards(c.Context(), s.srv, s.container, clock.WallClock)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *ovnForwardSuite) TestNoForwardExtension(c *tc.C) {
+	s.srv.EXPECT().GetNetworks().Return([]api.Network{{Name: "ovn0", Type: "ovn"}}, nil)
+	s.srv.EXPECT().HasExtension("network_forward").Return(false)
+	err := ensureOVNNetworkForwards(c.Context(), s.srv, s.container, clock.WallClock)
+	c.Assert(err, tc.ErrorIs, jujuerrors.NotSupported)
+	c.Check(err, tc.ErrorMatches, `.*"network_forward" LXD API extension; upgrade LXD.*`)
+}
+
+func (s *ovnForwardSuite) TestNoAddressAllocationExtension(c *tc.C) {
+	s.srv.EXPECT().GetNetworks().Return([]api.Network{{Name: "ovn0", Type: "ovn"}}, nil)
+	s.srv.EXPECT().HasExtension("network_forward").Return(true)
+	s.srv.EXPECT().HasExtension("network_allocate_external_ips").Return(false)
+	err := ensureOVNNetworkForwards(c.Context(), s.srv, s.container, clock.WallClock)
+	c.Assert(err, tc.ErrorIs, jujuerrors.NotSupported)
+	c.Check(err, tc.ErrorMatches, `.*"network_allocate_external_ips" LXD API extension; upgrade LXD.*`)
 }
 
 func (s *ovnForwardSuite) TestAllocateForEachOVNNIC(c *tc.C) {
@@ -75,6 +101,88 @@ func (s *ovnForwardSuite) TestAllocateForEachOVNNIC(c *tc.C) {
 	s.expectCreate(c, "eth0", "10.0.0.2")
 	s.expectCreate(c, "eth1", "10.0.0.3")
 	err := ensureOVNNetworkForwards(c.Context(), s.srv, s.container, clock.WallClock)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *ovnForwardSuite) TestIPv6Only(c *tc.C) {
+	s.network.Config["ipv4.address"] = "none"
+	s.network.Config["ipv6.address"] = "fd42::1/64"
+	s.uplink.Config = map[string]string{"ipv6.routes": "2001:db8::/64"}
+	s.state.Network["eth0"] = api.InstanceStateNetwork{Addresses: []api.InstanceStateNetworkAddress{
+		{Family: "inet6", Address: "fe80::1"}, {Family: "inet6", Address: "fd42::2"},
+	}}
+	s.expectNetworksAndState()
+	s.srv.EXPECT().GetNetworkForwards("ovn0").Return(nil, nil)
+	request := s.request("eth0", "fd42::2")
+	request.ListenAddress = "::"
+	op := lxdtesting.NewMockOperation(s.ctrl)
+	s.srv.EXPECT().CreateNetworkForward("ovn0", request).Return(op, nil)
+	op.EXPECT().WaitContext(c.Context()).Return(nil)
+	err := ensureOVNNetworkForwards(c.Context(), s.srv, s.container, clock.WallClock)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *ovnForwardSuite) TestDualStackWithIPv4OnlyUplink(c *tc.C) {
+	s.network.Config["ipv6.address"] = "fd42::1/64"
+	// IPv6 is enabled internally but has no external range. Do not wait for
+	// an IPv6 guest address or attempt IPv6 allocation.
+	s.expectNetworksAndState()
+	s.srv.EXPECT().GetNetworkForwards("ovn0").Return(nil, nil)
+	s.expectCreate(c, "eth0", "10.0.0.2")
+	err := ensureOVNNetworkForwards(c.Context(), s.srv, s.container, clock.WallClock)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *ovnForwardSuite) TestDualStackWaitsThenAllocatesBothFamilies(c *tc.C) {
+	s.network.Config["ipv6.address"] = "fd42::1/64"
+	s.uplink.Config["ipv6.routes"] = "2001:db8::/64"
+	s.expectNetworks()
+	ready := &api.InstanceState{Network: map[string]api.InstanceStateNetwork{
+		"eth0": {Addresses: []api.InstanceStateNetworkAddress{
+			{Family: "inet", Address: "10.0.0.2"}, {Family: "inet6", Address: "fd42::2"},
+		}},
+	}}
+	clk := s.retryClock()
+	tick := make(chan time.Time, 1)
+	tick <- time.Now()
+	gomock.InOrder(
+		s.srv.EXPECT().GetInstanceState(s.container.Name).Return(s.state, "", nil),
+		clk.EXPECT().After(time.Second).Return(tick),
+		s.srv.EXPECT().GetInstanceState(s.container.Name).Return(ready, "", nil),
+		s.srv.EXPECT().GetNetworkForwards("ovn0").Return(nil, nil),
+	)
+	s.expectCreate(c, "eth0", "10.0.0.2")
+	// Reconciliation for IPv6 must leave the new IPv4 forward alone.
+	s.srv.EXPECT().GetNetworkForwards("ovn0").Return([]api.NetworkForward{s.forward("192.0.2.1", "10.0.0.2")}, nil)
+	request := s.request("eth0", "fd42::2")
+	request.ListenAddress = "::"
+	op := lxdtesting.NewMockOperation(s.ctrl)
+	s.srv.EXPECT().CreateNetworkForward("ovn0", request).Return(op, nil)
+	op.EXPECT().WaitContext(c.Context()).Return(nil)
+	err := ensureOVNNetworkForwards(c.Context(), s.srv, s.container, clk)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A repeated start keeps both forwards, with no creation or deletion.
+	s.state = ready
+	s.expectNetworksAndState()
+	s.srv.EXPECT().GetNetworkForwards("ovn0").Return([]api.NetworkForward{
+		s.forward("192.0.2.1", "10.0.0.2"), s.forward("2001:db8::1", "fd42::2"),
+	}, nil).Times(2)
+	err = ensureOVNNetworkForwards(c.Context(), s.srv, s.container, clock.WallClock)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *ovnForwardSuite) TestIPv6ReplacementPreservesIPv4(c *tc.C) {
+	s.srv.EXPECT().GetNetworkForwards("ovn0").Return([]api.NetworkForward{
+		s.forward("192.0.2.1", "10.0.0.2"), s.forward("2001:db8::1", "fd42::9"),
+		s.forward("2001:db8::2", "fd42::2"), s.forward("2001:db8::3", "fd42::2"),
+	}, nil)
+	for _, address := range []string{"2001:db8::1", "2001:db8::3"} {
+		op := lxdtesting.NewMockOperation(s.ctrl)
+		s.srv.EXPECT().DeleteNetworkForward("ovn0", address).Return(op, nil)
+		op.EXPECT().WaitContext(c.Context()).Return(nil)
+	}
+	err := ensureOVNNetworkForward(c.Context(), s.srv, "ovn0", s.container.Name, "eth0", "fd42::2")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -275,9 +383,14 @@ func (s *ovnForwardSuite) TestIPv4AddressFiltering(c *tc.C) {
 		{Family: "inet", Address: "0.0.0.0"},
 		{Family: "inet", Address: "224.0.0.1"},
 	}}
-	c.Check(interfaceIPv4Address(state), tc.Equals, "")
+	_, subnet, err := net.ParseCIDR("10.0.0.0/24")
+	c.Assert(err, tc.ErrorIsNil)
+	family := ovnForwardFamily{version: 4, subnet: subnet}
+	c.Check(interfaceForwardAddress(state, family), tc.Equals, "")
+	state.Addresses = append(state.Addresses, api.InstanceStateNetworkAddress{Family: "inet", Address: "10.9.0.2"})
+	c.Check(interfaceForwardAddress(state, family), tc.Equals, "")
 	state.Addresses = append(state.Addresses, api.InstanceStateNetworkAddress{Family: "inet", Address: "10.0.0.2"})
-	c.Check(interfaceIPv4Address(state), tc.Equals, "10.0.0.2")
+	c.Check(interfaceForwardAddress(state, family), tc.Equals, "10.0.0.2")
 }
 
 func (s *ovnForwardSuite) expectNetworksAndState() {
@@ -286,7 +399,12 @@ func (s *ovnForwardSuite) expectNetworksAndState() {
 }
 
 func (s *ovnForwardSuite) expectNetworks() {
-	s.srv.EXPECT().GetNetworks().Return([]api.Network{{Name: "ovn0", Type: "ovn"}, {Name: "br0", Type: "bridge"}}, nil)
+	s.srv.EXPECT().GetNetworks().Return([]api.Network{s.network, {Name: "br0", Type: "bridge"}}, nil)
+	s.srv.EXPECT().HasExtension("network_forward").Return(true)
+	s.srv.EXPECT().HasExtension("network_allocate_external_ips").Return(true)
+	s.srv.EXPECT().GetConnectionInfo().Return(&lxdclient.ConnectionInfo{Project: "default"}, nil)
+	s.srv.EXPECT().GetProject("default").Return(&api.Project{}, "", nil)
+	s.srv.EXPECT().GetNetworkInProject("UPLINK", "default").Return(s.uplink, "", nil)
 }
 
 func (s *ovnForwardSuite) retryClock() *mocks.MockClock {

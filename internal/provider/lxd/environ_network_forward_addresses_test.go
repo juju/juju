@@ -48,6 +48,7 @@ func (s *forwardAddressSuite) TestInstanceAddressesIncludePublicForwards(c *tc.C
 	s.expectNetworks()
 	s.srv.EXPECT().GetNetworkForwards("ovn0").Return([]api.NetworkForward{
 		addressForward("10.246.27.235", s.container.Name, "eth0"),
+		addressForward("2001:db8::235", s.container.Name, "eth0"),
 		addressForward("10.246.27.230", s.container.Name, "eth1"),
 	}, nil)
 
@@ -59,6 +60,7 @@ func (s *forwardAddressSuite) TestInstanceAddressesIncludePublicForwards(c *tc.C
 	c.Check(addresses, tc.DeepEquals, network.ProviderAddresses{
 		guest,
 		network.NewMachineAddress("10.246.27.235", network.WithScope(network.ScopePublic)).AsProviderAddress(),
+		network.NewMachineAddress("2001:db8::235", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 		network.NewMachineAddress("10.246.27.230", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 	})
 	public, ok := addresses.OneMatchingScope(network.ScopeMatchPublic)
@@ -83,6 +85,7 @@ func (s *forwardAddressSuite) TestNetworkInterfacesReportShadowAddresses(c *tc.C
 	s.expectNetworks()
 	s.srv.EXPECT().GetNetworkForwards("ovn0").Return([]api.NetworkForward{
 		addressForward("10.246.27.235", s.container.Name, "eth0"),
+		addressForward("2001:db8::235", s.container.Name, "eth0"),
 		addressForward("10.246.27.230", s.container.Name, "eth1"),
 	}, nil)
 
@@ -97,6 +100,8 @@ func (s *forwardAddressSuite) TestNetworkInterfacesReportShadowAddresses(c *tc.C
 			).AsProviderAddress()},
 			ShadowAddresses: network.ProviderAddresses{network.NewMachineAddress(
 				"10.246.27.235", network.WithScope(network.ScopePublic),
+			).AsProviderAddress(), network.NewMachineAddress(
+				"2001:db8::235", network.WithScope(network.ScopePublic),
 			).AsProviderAddress()},
 		},
 		{
@@ -117,15 +122,17 @@ func (s *forwardAddressSuite) TestOnlyOwnedUsableAddressesForAttachedInterfaces(
 	s.expectNetworks()
 	forwards := []api.NetworkForward{
 		addressForward("10.246.27.235", s.container.Name, "eth0"),
+		addressForward("2001:db8::235", s.container.Name, "eth0"),
 		addressForward("10.246.27.230", s.container.Name, "eth0"),
 		addressForward("10.246.27.235", s.container.Name, "eth0"),
+		addressForward("2001:db8::235", s.container.Name, "eth0"),
 		addressForward("10.246.27.231", "other-instance", "eth0"),
 		addressForward("10.246.27.232", s.container.Name, "detached"),
 		addressForward("10.246.27.233", s.container.Name, "eth2"),
 		addressForward("10.246.27.234", s.container.Name, ""),
 		{ListenAddress: "10.246.27.236"},
 	}
-	for _, invalid := range []string{"", "invalid", "0.0.0.0", "127.0.0.1", "169.254.0.1", "224.0.0.1", "255.255.255.255", "::", "2001:db8::1"} {
+	for _, invalid := range []string{"", "invalid", "0.0.0.0", "127.0.0.1", "169.254.0.1", "224.0.0.1", "255.255.255.255", "::", "::1", "fe80::1", "ff02::1"} {
 		forwards = append(forwards, addressForward(invalid, s.container.Name, "eth0"))
 	}
 	s.srv.EXPECT().GetNetworkForwards("ovn0").Return(forwards, nil)
@@ -136,6 +143,7 @@ func (s *forwardAddressSuite) TestOnlyOwnedUsableAddressesForAttachedInterfaces(
 		"eth0": {
 			network.NewMachineAddress("10.246.27.230", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 			network.NewMachineAddress("10.246.27.235", network.WithScope(network.ScopePublic)).AsProviderAddress(),
+			network.NewMachineAddress("2001:db8::235", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 		},
 	})
 }

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
+	lxdclient "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
 
@@ -105,22 +106,30 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *tc.C) {
 }
 
 func (s *environBrokerSuite) TestStartInstanceOVNForwards(c *tc.C) {
-	s.testStartInstanceOVNForwards(c, nil, nil)
+	s.testStartInstanceOVNForwards(c, false, nil, nil)
+}
+
+func (s *environBrokerSuite) TestStartInstanceOVNDualStackForwards(c *tc.C) {
+	s.testStartInstanceOVNForwards(c, true, nil, nil)
+}
+
+func (s *environBrokerSuite) TestStartInstanceOVNIPv6FailureCleansUpIPv4(c *tc.C) {
+	s.testStartInstanceOVNForwards(c, true, errors.New("no free IPv6 addresses"), nil)
 }
 
 func (s *environBrokerSuite) TestStartInstanceOVNPartialAllocationFailure(c *tc.C) {
-	s.testStartInstanceOVNForwards(c, errors.New("no free addresses"), nil)
+	s.testStartInstanceOVNForwards(c, false, errors.New("no free addresses"), nil)
 }
 
 func (s *environBrokerSuite) TestStartInstanceOVNCleanupFailurePreservesCause(c *tc.C) {
-	s.testStartInstanceOVNForwards(c, errors.New("no free addresses"), errors.New("cleanup failed"))
+	s.testStartInstanceOVNForwards(c, false, errors.New("no free addresses"), errors.New("cleanup failed"))
 }
 
 func (s *environBrokerSuite) TestStartInstanceOVNCancellationStillCleansUp(c *tc.C) {
-	s.testStartInstanceOVNForwards(c, context.Canceled, nil)
+	s.testStartInstanceOVNForwards(c, false, context.Canceled, nil)
 }
 
-func (s *environBrokerSuite) testStartInstanceOVNForwards(c *tc.C, allocationError, cleanupError error) {
+func (s *environBrokerSuite) testStartInstanceOVNForwards(c *tc.C, dualStack bool, allocationError, cleanupError error) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	ctx, cancel := context.WithCancel(c.Context())
@@ -136,6 +145,30 @@ func (s *environBrokerSuite) testStartInstanceOVNForwards(c *tc.C, allocationErr
 			"eth1": {"type": "nic", "network": "ovn0"},
 		},
 	}}
+	networkConfig := map[string]string{"network": "UPLINK", "ipv4.address": "10.0.0.1/24"}
+	uplinkConfig := map[string]string{"ipv4.routes": "192.0.2.0/24"}
+	state := &api.InstanceState{Network: map[string]api.InstanceStateNetwork{
+		"eth0": {Addresses: []api.InstanceStateNetworkAddress{{Family: "inet", Address: "10.0.0.2"}}},
+		"eth1": {Addresses: []api.InstanceStateNetworkAddress{{Family: "inet", Address: "10.0.0.3"}}},
+	}}
+	secondListen, secondTarget := "0.0.0.0", "10.0.0.3"
+	if dualStack {
+		delete(container.ExpandedDevices, "eth1")
+		delete(state.Network, "eth1")
+		networkConfig["ipv6.address"] = "fd42::1/64"
+		uplinkConfig["ipv6.routes"] = "2001:db8::/64"
+		state.Network["eth0"] = api.InstanceStateNetwork{Addresses: []api.InstanceStateNetworkAddress{
+			{Family: "inet", Address: "10.0.0.2"},
+			{Family: "inet6", Address: "fd42::2"},
+		}}
+		secondListen, secondTarget = "::", "fd42::2"
+	}
+	firstForward := api.NetworkForward{
+		ListenAddress: "192.0.2.1",
+		Config: map[string]string{
+			"target_address": "10.0.0.2", "user.juju-instance": container.Name, "user.juju-device": "eth0",
+		},
+	}
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
@@ -144,16 +177,23 @@ func (s *environBrokerSuite) testStartInstanceOVNForwards(c *tc.C, allocationErr
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		exp.GetNICsFromProfile(modelProfileName).Return(nil, nil),
 		exp.CreateContainerFromSpec(gomock.Any()).Return(container, nil),
-		exp.GetNetworks().Return([]api.Network{{Name: "ovn0", Type: "ovn"}}, nil),
-		exp.GetInstanceState(container.Name).Return(&api.InstanceState{Network: map[string]api.InstanceStateNetwork{
-			"eth0": {Addresses: []api.InstanceStateNetworkAddress{{Family: "inet", Address: "10.0.0.2"}}},
-			"eth1": {Addresses: []api.InstanceStateNetworkAddress{{Family: "inet", Address: "10.0.0.3"}}},
-		}}, "", nil),
+		exp.GetNetworks().Return([]api.Network{{Name: "ovn0", Type: "ovn", Config: networkConfig}}, nil),
+		exp.HasExtension("network_forward").Return(true),
+		exp.HasExtension("network_allocate_external_ips").Return(true),
+		exp.GetConnectionInfo().Return(&lxdclient.ConnectionInfo{Project: "default"}, nil),
+		exp.GetProject("default").Return(&api.Project{}, "", nil),
+		exp.GetNetworkInProject("UPLINK", "default").Return(&api.Network{Config: uplinkConfig}, "", nil),
+		exp.GetInstanceState(container.Name).Return(state, "", nil),
 		exp.GetNetworkForwards("ovn0").Return(nil, nil),
-		exp.CreateNetworkForward("ovn0", gomock.Any()).Return(op, nil),
+		exp.CreateNetworkForward("ovn0", gomock.Any()).Do(func(_ string, forward api.NetworkForwardsPost) {
+			c.Check(forward.ListenAddress, tc.Equals, "0.0.0.0")
+			c.Check(forward.Config["target_address"], tc.Equals, "10.0.0.2")
+		}).Return(op, nil),
 		op.EXPECT().WaitContext(ctx).Return(nil),
-		exp.GetNetworkForwards("ovn0").Return(nil, nil),
-		exp.CreateNetworkForward("ovn0", gomock.Any()).Do(func(string, api.NetworkForwardsPost) {
+		exp.GetNetworkForwards("ovn0").Return([]api.NetworkForward{firstForward}, nil),
+		exp.CreateNetworkForward("ovn0", gomock.Any()).Do(func(_ string, forward api.NetworkForwardsPost) {
+			c.Check(forward.ListenAddress, tc.Equals, secondListen)
+			c.Check(forward.Config["target_address"], tc.Equals, secondTarget)
 			if errors.Is(allocationError, context.Canceled) {
 				cancel()
 			}
@@ -167,10 +207,7 @@ func (s *environBrokerSuite) testStartInstanceOVNForwards(c *tc.C, allocationErr
 		gomock.InOrder(
 			exp.HasExtension("network_forward").Return(true),
 			exp.GetNetworks().Return([]api.Network{{Name: "ovn0", Type: "ovn"}}, nil),
-			exp.GetNetworkForwards("ovn0").Return([]api.NetworkForward{{
-				ListenAddress: "192.0.2.1",
-				Config:        map[string]string{"user.juju-instance": container.Name},
-			}}, nil),
+			exp.GetNetworkForwards("ovn0").Return([]api.NetworkForward{firstForward}, nil),
 			exp.DeleteNetworkForward("ovn0", "192.0.2.1").Return(cleanupOp, nil),
 			cleanupOp.EXPECT().WaitContext(gomock.Any()).DoAndReturn(func(cleanupCtx context.Context) error {
 				c.Check(cleanupCtx.Err(), tc.ErrorIsNil)

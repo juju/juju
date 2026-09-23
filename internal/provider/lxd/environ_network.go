@@ -185,6 +185,8 @@ func (e *environ) NetworkInterfaces(ctx context.Context, ids []instance.Id) ([]n
 		}
 		forwardAddresses, err := ovnForwardAddresses(ctx, srv, string(id))
 		if err != nil {
+			// An incomplete result could remove known public shadow addresses
+			// during polling. Propagate lookup errors so the poll is retried.
 			return nil, errors.Annotatef(err, "retrieving OVN forward addresses for instance %q", id)
 		}
 

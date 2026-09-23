@@ -144,8 +144,9 @@ func (env *environ) newContainer(
 	}
 	if err := ensureOVNNetworkForwards(ctx, target, container, clock.WallClock); err != nil {
 		// Rollback must still run if provisioning was cancelled.
-		if removeErr := removeInstances(context.WithoutCancel(ctx), target, []string{container.Name}); removeErr != nil {
-			logger.Errorf(ctx, "removing container %q after OVN forward setup failed: %v", container.Name, removeErr)
+		cleanupCtx := context.WithoutCancel(ctx)
+		if removeErr := removeInstances(cleanupCtx, target, []string{container.Name}); removeErr != nil {
+			logger.Errorf(cleanupCtx, "removing container %q after OVN forward setup failed: %v", container.Name, removeErr)
 		}
 		return nil, errors.Annotatef(err, "ensuring OVN network forwards for container %q", container.Name)
 	}
@@ -407,7 +408,11 @@ func (env *environ) getTargetServer(
 		return env.server(), nil
 
 	}
-	return env.server().UseTargetServer(ctx, zone)
+	srv, err := env.server().UseTargetServer(ctx, zone)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &providerServer{srv}, nil
 }
 
 type lxdPlacement struct {

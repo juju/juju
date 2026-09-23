@@ -705,9 +705,13 @@ func (conn *StubClient) UseProject(string) {
 	panic("this stub is deprecated; use mocks instead")
 }
 
-func (*StubClient) HasExtension(_ string) bool {
-	// Legacy tests do not exercise optional API extensions.
-	return false
+func (*StubClient) HasExtension(extension string) bool {
+	// Legacy address and removal tests model servers without network forwards.
+	// Keep the tripwire for other extensions; new tests must use mocks.
+	if extension == "network_forward" {
+		return false
+	}
+	panic("this stub is deprecated; use mocks instead")
 }
 
 func (conn *StubClient) GetNetworkNames() ([]string, error) {
@@ -719,6 +723,14 @@ func (conn *StubClient) GetNetworks() ([]api.Network, error) {
 }
 
 func (*StubClient) GetNetworkState(string) (*api.NetworkState, error) {
+	panic("this stub is deprecated; use mocks instead")
+}
+
+func (*StubClient) GetNetworkInProject(string, string) (*api.Network, string, error) {
+	panic("this stub is deprecated; use mocks instead")
+}
+
+func (*StubClient) GetProject(string) (*api.Project, string, error) {
 	panic("this stub is deprecated; use mocks instead")
 }
 

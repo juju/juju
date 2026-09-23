@@ -69,7 +69,7 @@ func ovnForwardAddresses(ctx context.Context, srv Server, instanceName string) (
 				continue
 			}
 			ip := net.ParseIP(forward.ListenAddress)
-			if ip.To4() == nil || !ip.IsGlobalUnicast() || seen.Contains(ip.String()) {
+			if !ip.IsGlobalUnicast() || seen.Contains(ip.String()) {
 				continue
 			}
 			seen.Add(ip.String())
