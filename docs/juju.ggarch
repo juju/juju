@@ -1651,10 +1651,6 @@ diagram "HA controller: Dqlite replicaset" from "Juju" {
     c2 align-middle c3
   }
   annotations {
-    box [nodes: "c1 c2 c3",
-         label: "Raft replicaset (strongly consistent) — in sync",
-         style: "dashed", color: "#888",
-         padding: 24, label-position: inside-bottom]
     legend [position: "bottom-right",
             container: "controller node",
             juju-software: "controller agent (embedded Dqlite)"]
@@ -2357,10 +2353,6 @@ diagram "HA controller: Dqlite replicaset (synthesized)" from "Juju" {
     ]
   }
   annotations {
-    box [nodes: "c1 c2 c3",
-         label: "Raft replicaset (strongly consistent) — in sync",
-         style: "dashed", color: "#888",
-         padding: 24, label-position: inside-bottom]
     legend [position: "bottom-right",
             container: "controller node",
             juju-software: "controller agent (embedded Dqlite)"]

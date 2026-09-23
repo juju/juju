@@ -254,7 +254,7 @@ concept pages — one mechanism, data model, or process per page.
 :view: HA controller: Dqlite replicaset (synthesized)
 :no-legend:
 :caption: Auto-layout — no positions declared.
-:alt: Three controller node instances side by side, each containing a controller agent and a Dqlite database node. A dashed annotation box encloses all three Dqlite nodes, labelled "Raft replicaset (strongly consistent)". Dashed arrows run between every pair of Dqlite nodes — the full mesh of Raft sync.
+:alt: Three controller node instances side by side, each containing a controller agent and a Dqlite database node. Dashed arrows run between every pair of Dqlite nodes — the full mesh of Raft sync.
 ```
 ````
 ````{grid-item}
@@ -262,8 +262,8 @@ concept pages — one mechanism, data model, or process per page.
 :file: ../juju.ggarch
 :view: HA controller: Dqlite replicaset
 :no-legend:
-:caption: Declared arrangement — the three controller nodes with the cross-container Raft box (the per-side padding and inside-bottom label placement demo). Compare with the synthesized variant.
-:alt: Three controller node instances side by side, each containing a controller agent and a Dqlite database node. A dashed annotation box encloses all three Dqlite nodes, labelled "Raft replicaset (strongly consistent)".
+:caption: Declared arrangement — the three controller nodes side by side with the cross-container Raft sync mesh. Compare with the synthesized variant.
+:alt: Three controller node instances side by side, each containing a controller agent and a Dqlite database node.
 ```
 ````
 `````
