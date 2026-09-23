@@ -9,8 +9,15 @@ staging convention: a diagram belongs to the doc section that owns its
 topic — e.g. the bootstrap sequences under
 `reference/controller.md` → *Controller bootstrap*). An entity
 reference page may carry several layers — structure, mechanism,
-lifecycle: `reference/unit.md`'s *Removal* section is the unit's
-lifecycle layer, not part of its structure story. Diagrams with no
+lifecycle: `reference/unit.md`'s *Unit removal* section is the unit's
+lifecycle layer, not part of its structure story. Lifecycle sections
+are named for the event, entity-scoped (*Unit removal*, *Relation
+creation*) — activity titles (*Integrating applications*) stay in the
+how-tos; when a page carries ≥2 lifecycle layers they group under an
+`<Entity> lifecycle` umbrella with event-named subsections (the
+`secret.md` precedent: *Secret lifecycle* → *Charm-secret lifecycle* /
+*User-secret lifecycle*). The umbrella is content-triggered — never an
+empty scaffold. Diagrams with no
 home yet sit in **Other** at the bottom.
 
 Every entry shows as a **side-by-side pair**: the **synthesized**
@@ -401,7 +408,7 @@ concept pages — one mechanism, data model, or process per page.
 
 #### Integrate
 
-**Insert at:** § Integrating applications (staged). also: explanation/architecture.md § Integrate.
+**Insert at:** § Relation creation (staged). also: explanation/architecture.md § Integrate.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -441,7 +448,7 @@ concept pages — one mechanism, data model, or process per page.
 
 #### Secret lifecycle (state machine)
 
-**Insert at:** § Permissions around secrets.
+**Insert at:** § Secret lifecycle.
 
 ```{ggarch}
 :file: ../juju.ggarch
