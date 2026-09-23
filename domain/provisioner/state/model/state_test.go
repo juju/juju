@@ -4,6 +4,9 @@
 package model
 
 import (
+	"context"
+	"database/sql"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network/ipfamily"
@@ -465,4 +468,228 @@ func (s *modelStateSuite) TestGetProvisioningInfoSubnetMultiAZ(c *tc.C) {
 		}
 	}
 	c.Assert(found, tc.IsTrue)
+}
+
+// addProvisionedModelScopedVolume inserts a provisioned model-scoped
+// storage volume (provider_id set, provision_scope_id = model) linked to a
+// block storage instance on the given pool. Returns the volume UUID.
+func (s *modelStateSuite) addProvisionedModelScopedVolume(
+	c *tc.C, netNodeUUID, poolUUID string, volumeID, providerID string,
+) string {
+	volUUID := uuid.MustNewUUID().String()
+	s.runQuery(c, `INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id, provider_id, size_mib) VALUES (?,?,?,0,?,1024)`,
+		volUUID, volumeID, life.Alive, providerID)
+
+	siUUID := uuid.MustNewUUID().String()
+	s.runQuery(c, `INSERT INTO storage_instance (uuid, storage_id, storage_kind_id, storage_pool_uuid, requested_size_mib, charm_name, storage_name, life_id) VALUES (?, ?, 0, ?, 1024, 'dummy-storage', 'single-blk', ?)`,
+		siUUID, volumeID+"-instance", poolUUID, life.Alive)
+	s.runQuery(c, `INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid) VALUES (?,?)`,
+		siUUID, volUUID)
+
+	s.runQuery(c, `INSERT INTO storage_volume_attachment (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id, read_only) VALUES (?,?,?,?,0,0)`,
+		uuid.MustNewUUID().String(), volUUID, netNodeUUID, life.Alive)
+
+	return volUUID
+}
+
+// addUnprovisionedModelScopedVolumeAttachment inserts an attachment row for
+// a model-scoped volume that has no provider ID. Such a volume must never
+// appear in the volume attachment provisioning params: it cannot be
+// re-attached until the storage provisioner has created it.
+func (s *modelStateSuite) addUnprovisionedModelScopedVolumeAttachment(
+	c *tc.C, netNodeUUID, poolUUID string, volumeID string,
+) string {
+	volUUID := uuid.MustNewUUID().String()
+	s.runQuery(c, `INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id, size_mib) VALUES (?,?,?,0,1024)`,
+		volUUID, volumeID, life.Alive)
+
+	siUUID := uuid.MustNewUUID().String()
+	s.runQuery(c, `INSERT INTO storage_instance (uuid, storage_id, storage_kind_id, storage_pool_uuid, requested_size_mib, charm_name, storage_name, life_id) VALUES (?, ?, 0, ?, 1024, 'dummy-storage', 'single-blk', ?)`,
+		siUUID, volumeID+"-instance", poolUUID, life.Alive)
+	s.runQuery(c, `INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid) VALUES (?,?)`,
+		siUUID, volUUID)
+
+	s.runQuery(c, `INSERT INTO storage_volume_attachment (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id, read_only) VALUES (?,?,?,?,0,0)`,
+		uuid.MustNewUUID().String(), volUUID, netNodeUUID, life.Alive)
+
+	return volUUID
+}
+
+// addProvisionedMachineScopedVolume inserts a provisioned machine-scoped
+// storage volume (provider_id set, provision_scope_id = machine) with an
+// attachment on the machine's net node. Returned is the volume UUID.
+func (s *modelStateSuite) addProvisionedMachineScopedVolume(
+	c *tc.C, netNodeUUID, poolUUID string, volumeID, providerID string,
+) string {
+	volUUID := uuid.MustNewUUID().String()
+	s.runQuery(c, `INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id, provider_id, size_mib) VALUES (?,?,?,1,?,1024)`,
+		volUUID, volumeID, life.Alive, providerID)
+
+	siUUID := uuid.MustNewUUID().String()
+	s.runQuery(c, `INSERT INTO storage_instance (uuid, storage_id, storage_kind_id, storage_pool_uuid, requested_size_mib, charm_name, storage_name, life_id) VALUES (?, ?, 0, ?, 1024, 'dummy-storage', 'single-blk', ?)`,
+		siUUID, volumeID+"-instance", poolUUID, life.Alive)
+	s.runQuery(c, `INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid) VALUES (?,?)`,
+		siUUID, volUUID)
+
+	s.runQuery(c, `INSERT INTO storage_volume_attachment (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id, read_only) VALUES (?,?,?,?,1,0)`,
+		uuid.MustNewUUID().String(), volUUID, netNodeUUID, life.Alive)
+
+	return volUUID
+}
+
+// addAttachedProvisionedModelScopedVolume inserts a provisioned
+// model-scoped storage volume (provider_id set, provision_scope_id = model)
+// with an attachment already bound to a block device on the machine's net
+// node. Such an attachment must never appear in the volume attachment
+// provisioning params (block_device_uuid IS NOT NULL). Returns the volume
+// UUID.
+func (s *modelStateSuite) addAttachedProvisionedModelScopedVolume(
+	c *tc.C, netNodeUUID, machineUUID, poolUUID string, volumeID, providerID string,
+) string {
+	volUUID := uuid.MustNewUUID().String()
+	s.runQuery(c, `INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id, provider_id, size_mib) VALUES (?,?,?,0,?,1024)`,
+		volUUID, volumeID, life.Alive, providerID)
+
+	siUUID := uuid.MustNewUUID().String()
+	s.runQuery(c, `INSERT INTO storage_instance (uuid, storage_id, storage_kind_id, storage_pool_uuid, requested_size_mib, charm_name, storage_name, life_id) VALUES (?, ?, 0, ?, 1024, 'dummy-storage', 'single-blk', ?)`,
+		siUUID, volumeID+"-instance", poolUUID, life.Alive)
+	s.runQuery(c, `INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid) VALUES (?,?)`,
+		siUUID, volUUID)
+
+	deviceUUID := uuid.MustNewUUID().String()
+	s.runQuery(c, `INSERT INTO block_device (uuid, machine_uuid, name) VALUES (?,?,?)`,
+		deviceUUID, machineUUID, "sda")
+	s.runQuery(c, `INSERT INTO storage_volume_attachment (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id, block_device_uuid, read_only) VALUES (?,?,?,?,0,?,0)`,
+		uuid.MustNewUUID().String(), volUUID, netNodeUUID, life.Alive, deviceUUID)
+
+	return volUUID
+}
+
+// TestGetProvisioningInfoWithProvisionedModelScopedVolumeAttachment
+// verifies that an attachment for an already-provisioned model-scoped
+// volume (e.g. a detached EBS volume being re-attached by
+// "deploy --attach-storage") is reported in the machine's volume
+// attachment provisioning params with its provider ID set. Providers use
+// this to constrain the availability zone of the new instance to the
+// volume's zone; without it AWS fails AttachVolume with
+// InvalidVolume.ZoneMismatch forever (juju/juju#22963).
+func (s *modelStateSuite) TestGetProvisioningInfoWithProvisionedModelScopedVolumeAttachment(c *tc.C) {
+	s.addModelInfo(c, "mymodel", "ec2", "us-east-1")
+	s.addStoragePool(c, "ebs", "ebs", nil)
+	netNodeUUID := s.addNetNode(c)
+	machineUUID := uuid.MustNewUUID().String()
+	s.runQuery(c, `INSERT INTO machine (uuid, name, life_id, net_node_uuid) VALUES (?,?,?,?)`,
+		machineUUID, "14", life.Alive, netNodeUUID)
+	s.runQuery(c, `INSERT INTO machine_platform (machine_uuid, os_id, channel, architecture_id) VALUES (?,0,?,0)`,
+		machineUUID, "22.04/stable")
+
+	var poolUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `SELECT uuid FROM storage_pool WHERE name = 'ebs'`).Scan(&poolUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.addProvisionedModelScopedVolume(c, netNodeUUID, poolUUID, "single-blk-0", "vol-00c5899a579f2387f")
+
+	info, err := s.state.GetMachineProvisioningInfo(c.Context(), "14", false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(info.VolumeAttachmentParams, tc.HasLen, 1)
+	attach := info.VolumeAttachmentParams[0]
+	c.Check(attach.VolumeID, tc.Equals, "single-blk-0")
+	c.Check(attach.VolumeProviderID, tc.Equals, "vol-00c5899a579f2387f")
+	c.Check(attach.Provider, tc.Equals, "ebs")
+	c.Check(attach.ReadOnly, tc.IsFalse)
+	c.Check(info.VolumeParams, tc.HasLen, 0)
+}
+
+// TestGetProvisioningInfoWithProvisionedMachineScopedVolumeAttachment
+// verifies that a provisioned machine-scoped volume attachment is also
+// reported in the volume attachment provisioning params.
+func (s *modelStateSuite) TestGetProvisioningInfoWithProvisionedMachineScopedVolumeAttachment(c *tc.C) {
+	s.addModelInfo(c, "mymodel", "ec2", "us-east-1")
+	s.addStoragePool(c, "ebs", "ebs", nil)
+	netNodeUUID := s.addNetNode(c)
+	machineUUID := uuid.MustNewUUID().String()
+	s.runQuery(c, `INSERT INTO machine (uuid, name, life_id, net_node_uuid) VALUES (?,?,?,?)`,
+		machineUUID, "15", life.Alive, netNodeUUID)
+	s.runQuery(c, `INSERT INTO machine_platform (machine_uuid, os_id, channel, architecture_id) VALUES (?,0,?,0)`,
+		machineUUID, "22.04/stable")
+
+	var poolUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `SELECT uuid FROM storage_pool WHERE name = 'ebs'`).Scan(&poolUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.addProvisionedMachineScopedVolume(c, netNodeUUID, poolUUID, "single-blk-1", "vol-11111111111111111")
+
+	info, err := s.state.GetMachineProvisioningInfo(c.Context(), "15", false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(info.VolumeAttachmentParams, tc.HasLen, 1)
+	attach := info.VolumeAttachmentParams[0]
+	c.Check(attach.VolumeID, tc.Equals, "single-blk-1")
+	c.Check(attach.VolumeProviderID, tc.Equals, "vol-11111111111111111")
+	c.Check(attach.Provider, tc.Equals, "ebs")
+}
+
+// TestGetProvisioningInfoExcludesUnprovisionedModelScopedVolume verifies
+// that an attachment for an unprovisioned model-scoped volume (no provider
+// ID) is not reported: such a volume cannot be re-attached until the
+// storage provisioner creates it.
+func (s *modelStateSuite) TestGetProvisioningInfoExcludesUnprovisionedModelScopedVolume(c *tc.C) {
+	s.addModelInfo(c, "mymodel", "ec2", "us-east-1")
+	s.addStoragePool(c, "ebs", "ebs", nil)
+	netNodeUUID := s.addNetNode(c)
+	machineUUID := uuid.MustNewUUID().String()
+	s.runQuery(c, `INSERT INTO machine (uuid, name, life_id, net_node_uuid) VALUES (?,?,?,?)`,
+		machineUUID, "16", life.Alive, netNodeUUID)
+	s.runQuery(c, `INSERT INTO machine_platform (machine_uuid, os_id, channel, architecture_id) VALUES (?,0,?,0)`,
+		machineUUID, "22.04/stable")
+
+	var poolUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `SELECT uuid FROM storage_pool WHERE name = 'ebs'`).Scan(&poolUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.addUnprovisionedModelScopedVolumeAttachment(c, netNodeUUID, poolUUID, "single-blk-2")
+
+	info, err := s.state.GetMachineProvisioningInfo(c.Context(), "16", false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(info.VolumeAttachmentParams, tc.HasLen, 0)
+	c.Check(info.VolumeParams, tc.HasLen, 0)
+}
+
+// TestGetProvisioningInfoExcludesAttachedVolume verifies that an attachment
+// already bound to a block device (block_device_uuid IS NOT NULL) is not
+// reported in the machine's volume attachment provisioning params: only
+// unprovisioned attachments flow into StartInstanceParams.VolumeAttachments.
+func (s *modelStateSuite) TestGetProvisioningInfoExcludesAttachedVolume(c *tc.C) {
+	s.addModelInfo(c, "mymodel", "ec2", "us-east-1")
+	s.addStoragePool(c, "ebs", "ebs", nil)
+	netNodeUUID := s.addNetNode(c)
+	machineUUID := uuid.MustNewUUID().String()
+	s.runQuery(c, `INSERT INTO machine (uuid, name, life_id, net_node_uuid) VALUES (?,?,?,?)`,
+		machineUUID, "17", life.Alive, netNodeUUID)
+	s.runQuery(c, `INSERT INTO machine_platform (machine_uuid, os_id, channel, architecture_id) VALUES (?,0,?,0)`,
+		machineUUID, "22.04/stable")
+
+	var poolUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `SELECT uuid FROM storage_pool WHERE name = 'ebs'`).Scan(&poolUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.addAttachedProvisionedModelScopedVolume(
+		c, netNodeUUID, machineUUID, poolUUID, "single-blk-3", "vol-02222222222222222",
+	)
+
+	info, err := s.state.GetMachineProvisioningInfo(c.Context(), "17", false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(info.VolumeAttachmentParams, tc.HasLen, 0)
+	c.Check(info.VolumeParams, tc.HasLen, 0)
 }

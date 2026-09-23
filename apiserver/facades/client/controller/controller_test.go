@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	stdtesting "testing"
+	"time"
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
@@ -927,26 +928,35 @@ func (s *accessSuite) TestAllModels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	testAdmin := names.NewUserTag("owner")
 
+	controllerModelUUID := tc.Must0(c, model.NewUUID)
+	noAccessModelUUID := tc.Must0(c, model.NewUUID)
+	ownedModelUUID := tc.Must0(c, model.NewUUID)
+	userModelUUID := tc.Must0(c, model.NewUUID)
+
 	models := []model.Model{
 		{
 			Name:      "controller",
 			Qualifier: "admin",
 			ModelType: model.IAAS,
+			UUID:      controllerModelUUID,
 		},
 		{
 			Name:      "no-access",
 			Qualifier: "user@remote",
 			ModelType: model.IAAS,
+			UUID:      noAccessModelUUID,
 		},
 		{
 			Name:      "owned",
 			Qualifier: "admin",
 			ModelType: model.IAAS,
+			UUID:      ownedModelUUID,
 		},
 		{
 			Name:      "user",
 			Qualifier: "user@remote",
 			ModelType: model.IAAS,
+			UUID:      userModelUUID,
 		},
 	}
 	s.modelService.EXPECT().GetAllModels(gomock.Any()).Return(
@@ -954,7 +964,12 @@ func (s *accessSuite) TestAllModels(c *tc.C) {
 	)
 
 	// api user owner is "owner"
-	s.accessService.EXPECT().LastModelLogin(gomock.Any(), user.NameFromTag(testAdmin), gomock.Any()).Times(4)
+	lastLogin := time.Now().UTC().Truncate(time.Second)
+	s.accessService.EXPECT().LastModelLogins(gomock.Any(), user.NameFromTag(testAdmin), gomock.Any()).Return(
+		map[model.UUID]time.Time{
+			ownedModelUUID: lastLogin,
+		}, nil,
+	)
 
 	response, err := s.controllerAPI(c).AllModels(c.Context())
 	slices.SortFunc(response.UserModels, func(x params.UserModel, y params.UserModel) int {
@@ -966,6 +981,13 @@ func (s *accessSuite) TestAllModels(c *tc.C) {
 		c.Assert(models[i].Name, tc.Equals, userModel.Name)
 		c.Assert(models[i].Qualifier.String(), tc.Equals, userModel.Qualifier)
 		c.Assert(models[i].ModelType.String(), tc.Equals, userModel.Type)
+
+		if models[i].UUID == ownedModelUUID {
+			c.Assert(userModel.LastConnection, tc.NotNil)
+			c.Check(*userModel.LastConnection, tc.Equals, lastLogin)
+		} else {
+			c.Assert(userModel.LastConnection, tc.IsNil)
+		}
 	}
 }
 

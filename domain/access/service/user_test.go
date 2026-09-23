@@ -591,29 +591,43 @@ func (s *userServiceSuite) TestSetLastModelLoginBadUsername(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, usererrors.UserNameNotValid)
 }
 
-// TestLastModelLogin tests the happy path for LastModelLogin.
-func (s *userServiceSuite) TestLastModelLogin(c *tc.C) {
+// TestLastModelLogins tests the happy path for LastModelLogins.
+func (s *userServiceSuite) TestLastModelLogins(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	modelUUID := tc.Must0(c, coremodel.NewUUID)
 	t := time.Now()
-	s.state.EXPECT().LastModelLogin(gomock.Any(), coreusertesting.GenNewName(c, "name"), modelUUID).Return(t, nil)
+	s.state.EXPECT().LastModelLogins(gomock.Any(), coreusertesting.GenNewName(c, "name"), []coremodel.UUID{modelUUID}).Return(
+		map[coremodel.UUID]time.Time{modelUUID: t}, nil)
 
-	lastConnection, err := s.service().LastModelLogin(c.Context(), coreusertesting.GenNewName(c, "name"), modelUUID)
+	lastConnections, err := s.service().LastModelLogins(c.Context(), coreusertesting.GenNewName(c, "name"), []coremodel.UUID{modelUUID})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(lastConnection, tc.Equals, t)
+	c.Assert(lastConnections, tc.DeepEquals, map[coremodel.UUID]time.Time{modelUUID: t})
 }
 
-// TestLastModelLoginBadUUID tests a bad UUID given to LastModelLogin.
-func (s *userServiceSuite) TestLastModelLoginBadUUID(c *tc.C) {
+// TestLastModelLoginsUserNeverAccessedModel tests that models with no
+// login record are omitted from the result.
+func (s *userServiceSuite) TestLastModelLoginsUserNeverAccessedModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	_, err := s.service().LastModelLogin(c.Context(), coreusertesting.GenNewName(c, "name"), "bad-uuid")
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	s.state.EXPECT().LastModelLogins(gomock.Any(), coreusertesting.GenNewName(c, "name"), []coremodel.UUID{modelUUID}).Return(
+		map[coremodel.UUID]time.Time{}, nil)
+
+	lastConnections, err := s.service().LastModelLogins(c.Context(), coreusertesting.GenNewName(c, "name"), []coremodel.UUID{modelUUID})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lastConnections, tc.HasLen, 0)
+}
+
+// TestLastModelLoginsBadUUID tests a bad UUID given to LastModelLogins.
+func (s *userServiceSuite) TestLastModelLoginsBadUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	_, err := s.service().LastModelLogins(c.Context(), coreusertesting.GenNewName(c, "name"), []coremodel.UUID{"bad-uuid"})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-// TestLastModelLoginBadUsername tests a bad username for LastModelLogin.
-func (s *userServiceSuite) TestLastModelLoginBadUsername(c *tc.C) {
+// TestLastModelLoginsBadUsername tests a bad username for LastModelLogins.
+func (s *userServiceSuite) TestLastModelLoginsBadUsername(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	_, err := s.service().LastModelLogin(c.Context(), user.Name{}, "")
+	_, err := s.service().LastModelLogins(c.Context(), user.Name{}, []coremodel.UUID{""})
 	c.Assert(err, tc.ErrorIs, usererrors.UserNameNotValid)
 }
 

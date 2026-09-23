@@ -61,6 +61,7 @@ type MockModelStateMockRecorder struct {
 	getMachineFullStatusesExpects                []*gomock.Call1_2[context.Context, map[machine.Name]status.Machine, error]
 	getMachineStatusExpects                      []*gomock.Call2_2[context.Context, string, status.MachineStatusInfo[status.MachineStatusType], error]
 	getModelStatusInfoExpects                    []*gomock.Call1_2[context.Context, status.ModelStatusInfo, error]
+	getModelStorageStatusesExpects               []*gomock.Call1_2[context.Context, status.ModelStorageStatus, error]
 	getRelationUUIDByIDExpects                   []*gomock.Call2_2[context.Context, int, relation.UUID, error]
 	getRemoteApplicationOffererStatusesExpects   []*gomock.Call1_2[context.Context, map[string]status.RemoteApplicationOfferer, error]
 	getRemoteApplicationOffererUUIDByNameExpects []*gomock.Call2_2[context.Context, string, remoteapplication.UUID, error]
@@ -608,6 +609,24 @@ func (mr *MockModelStateMockRecorder) GetModelStatusInfo(ctx any) *MockModelStat
 
 // MockModelStateGetModelStatusInfoCall is the typed call wrapper for GetModelStatusInfo.
 type MockModelStateGetModelStatusInfoCall = gomock.Call1_2[context.Context, status.ModelStatusInfo, error]
+
+// GetModelStorageStatuses mocks base method.
+func (m *MockModelState) GetModelStorageStatuses(ctx context.Context) (status.ModelStorageStatus, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getModelStorageStatusesExpects, m.ctrl, m, "GetModelStorageStatuses", ctx)
+}
+
+// GetModelStorageStatuses indicates an expected call of GetModelStorageStatuses.
+func (mr *MockModelStateMockRecorder) GetModelStorageStatuses(ctx any) *MockModelStateGetModelStorageStatusesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, status.ModelStorageStatus, error](mr.mock.ctrl.T, mr.mock, "GetModelStorageStatuses", gomock.EnsureMatcher(ctx))
+	mr.getModelStorageStatusesExpects = append(mr.getModelStorageStatusesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateGetModelStorageStatusesCall is the typed call wrapper for GetModelStorageStatuses.
+type MockModelStateGetModelStorageStatusesCall = gomock.Call1_2[context.Context, status.ModelStorageStatus, error]
 
 // GetRelationUUIDByID mocks base method.
 func (m *MockModelState) GetRelationUUIDByID(ctx context.Context, id int) (relation.UUID, error) {

@@ -70,9 +70,10 @@ type ControllerAccessService interface {
 	ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target permission.ID) (permission.Access, error)
 	// UpdatePermission updates the access level for a user for the controller.
 	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
-	// LastModelLogin gets the time the specified user last connected to the
-	// model.
-	LastModelLogin(context.Context, user.Name, coremodel.UUID) (time.Time, error)
+	// LastModelLogins gets the time the specified user last connected to each
+	// of the given models. Models for which the user has no login record are
+	// omitted from the result.
+	LastModelLogins(context.Context, user.Name, []coremodel.UUID) (map[coremodel.UUID]time.Time, error)
 }
 
 // ModelService provides access to information about running Juju agents.
@@ -154,6 +155,11 @@ type StatusService interface {
 	// The following error types can be expected to be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model does not exist.
 	GetModelStatusInfo(context.Context) (domainstatus.ModelStatusInfo, error)
+
+	// GetModelStorageStatuses returns the filesystems and volumes of the
+	// model with the minimal information required by the model status
+	// payload.
+	GetModelStorageStatuses(context.Context) (domainstatus.ModelStorageStatus, error)
 
 	// GetAllMachineStatuses returns all the machine statuses for the model, indexed
 	// by machine name.
