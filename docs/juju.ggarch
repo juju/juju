@@ -609,6 +609,11 @@ model "Juju" {
     // for changes.
     user       -> bare_application [type: control, label: "operates"]
     apps       -> controller       [type: control, label: "watch for changes on"]
+    // The base-kind twin of the collective edge: "Intro: Juju enters"
+    // individuates the applications (instances of `application`), and
+    // the star expansion pairs on the archetype the instances come
+    // from — this edge is the one that fans per copy there.
+    application -> controller      [type: control, label: "watch for changes on"]
 
     // HA controller — Raft sync between Dqlite nodes: full mesh
     // (pairing: mesh — every distinct pair, never a node with itself)
@@ -1296,7 +1301,7 @@ diagram "Intro: the problem" from "Juju" {
 
 diagram "Intro: Juju enters" from "Juju" {
   select {
-    nodes: user client controller cloud charmhub apps
+    nodes: user client controller cloud charmhub application
     edges: type control type api
     // The intro shows the delta over "the problem": Juju machinery
     // between the user and the applications. Bootstrap (client <-> cloud)
@@ -1313,7 +1318,11 @@ diagram "Intro: Juju enters" from "Juju" {
       { id: cloud_a, label: "cloud 1" },
       { id: cloud_b, label: "cloud 2" }
     ]
-    instances: apps [
+    // Instance from the base kind (application), not the collective
+    // (apps): the collective's stack glyph would contradict the
+    // individuated form the intro argues in ("like Intro: the
+    // problem").
+    instances: application [
       { id: app1, label: "app 1" },
       { id: app2, label: "app 2" },
       { id: app3, label: "app 3" }
@@ -1444,7 +1453,11 @@ diagram "Intro: Juju enters (declared)" from "Juju" {
       { id: cloud_a, label: "cloud 1" },
       { id: cloud_b, label: "cloud 2" }
     ]
-    instances: apps [
+    // Instance from the base kind (application), not the collective
+    // (apps): the collective's stack glyph would contradict the
+    // individuated form the intro argues in ("like Intro: the
+    // problem").
+    instances: application [
       { id: app1, label: "app 1" },
       { id: app2, label: "app 2" },
       { id: app3, label: "app 3" }
@@ -1966,7 +1979,7 @@ diagram "Intro: the problem (synthesized)" from "Juju" {
 
 diagram "Intro: Juju enters (synthesized)" from "Juju" {
   select {
-    nodes: user client controller cloud charmhub apps
+    nodes: user client controller cloud charmhub application
     edges: type control type api
     // The intro shows the delta over "the problem": Juju machinery
     // between the user and the applications. Bootstrap (client <-> cloud)
@@ -1983,7 +1996,11 @@ diagram "Intro: Juju enters (synthesized)" from "Juju" {
       { id: cloud_a, label: "cloud 1" },
       { id: cloud_b, label: "cloud 2" }
     ]
-    instances: apps [
+    // Instance from the base kind (application), not the collective
+    // (apps): the collective's stack glyph would contradict the
+    // individuated form the intro argues in ("like Intro: the
+    // problem").
+    instances: application [
       { id: app1, label: "app 1" },
       { id: app2, label: "app 2" },
       { id: app3, label: "app 3" }
