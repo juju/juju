@@ -274,27 +274,10 @@ func (w *upgradeDBWorker) watchUpgrade(ctx context.Context) error {
 		return w.abortWithError(ctx, upgradeUUID, err)
 	}
 
-	info, err := w.upgradeService.UpgradeInfo(ctx, upgradeUUID)
-	if err != nil {
-		if errors.Is(err, upgradeerrors.NotFound) {
-			// This currently no active upgrade, so we can't watch anything.
-			// If this happens, it's probably in a bad state. We can't really
-			// do anything about it, so we'll just bounce and hope that we
-			// see if we've performed the upgrade already and that
-			// we just didn't know about it in time.
-			return dependency.ErrBounce
-		}
-		return w.abortWithError(ctx, upgradeUUID, err)
-	}
-
-	if info.State == upgrade.Error {
-		// We're in an error state, so we can't do anything about it, so we'll
-		// make a note and kill the worker. It's then up to the user to fix the
-		// problem and restart the agent.
-		w.logger.Errorf(ctx, "database upgrade failed, already in an error state, check logs for details")
-		return nil
-	}
-
+	// Subscribe to both state watchers first. The initial event from each
+	// watcher serves as the readiness barrier — the subscription is active
+	// after we receive and consume it. Any state transition after that
+	// point will be caught by the watcher.
 	completedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, upgradeUUID, upgrade.DBCompleted)
 	if err != nil {
 		return w.abortWithError(ctx, upgradeUUID, errors.Annotate(err, "watch completed upgrade"))
@@ -311,6 +294,35 @@ func (w *upgradeDBWorker) watchUpgrade(ctx context.Context) error {
 
 	if err := w.addWatcher(ctx, failedWatcher); err != nil {
 		return w.abortWithError(ctx, upgradeUUID, err)
+	}
+
+	// Now that both watchers are subscribed (readiness barriers passed),
+	// read the current upgrade state. Any transition to DBCompleted or
+	// Error after this point will be caught by the watchers above.
+	info, err := w.upgradeService.UpgradeInfo(ctx, upgradeUUID)
+	switch {
+	case errors.Is(err, upgradeerrors.NotFound):
+		// This currently no active upgrade, so we can't watch anything.
+		// If this happens, it's probably in a bad state. We can't really
+		// do anything about it, so we'll just bounce and hope that we
+		// see if we've performed the upgrade already and that
+		// we just didn't know about it in time.
+		return dependency.ErrBounce
+	case err != nil:
+		return w.abortWithError(ctx, upgradeUUID, err)
+	case info.State == upgrade.Error:
+		// We're in an error state, so we can't do anything about it, so we'll
+		// make a note and kill the worker. It's then up to the user to fix the
+		// problem and restart the agent.
+		w.logger.Errorf(ctx, "database upgrade failed, already in an error state, check logs for details")
+		return nil
+	case info.State == upgrade.DBCompleted:
+		// The upgrade is already complete. The watcher subscription emitted its
+		// event during ConsumeInitialEvent above, so we would never see it in the
+		// main loop. Unlock and uninstall directly.
+		w.logger.Infof(ctx, "database upgrade already completed")
+		w.dbUpgradeCompleteLock.Unlock()
+		return dependency.ErrUninstall
 	}
 
 	// Mark this controller as ready to start the upgrade. We do this after
@@ -370,27 +382,39 @@ func (w *upgradeDBWorker) runUpgrade(ctx context.Context, upgradeUUID domainupgr
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	// Watch for the upgrade to be ready. This should ensure that all
-	// controllers are sync'd and waiting for the leader to start the upgrade.
-	watcher, err := w.upgradeService.WatchForUpgradeReady(ctx, upgradeUUID)
-	if err != nil {
-		return w.abortWithError(ctx, upgradeUUID, err)
-	}
-
-	if err := w.addWatcher(ctx, watcher); err != nil {
-		return w.abortWithError(ctx, upgradeUUID, err)
-	}
-
-	// Ensure we mark this controller as ready to start the upgrade. We do this
-	// after we've added the watcher, so that we don't miss any events.
+	// Mark this controller as ready BEFORE subscribing to the ready watcher.
+	// This ensures the controller is registered in the database before the
+	// watcher's mapper checks AllProvisionedControllersReady. If
+	// SetControllerReady is a no-op (already registered from a previous run),
+	// the mapper will still correctly see all ready controllers when the
+	// subscription becomes active.
 	if err := w.upgradeService.SetControllerReady(ctx, upgradeUUID, w.controllerID); err != nil {
-		// If the set controller ready fails, we'll abort the upgrade. This will
-		// cause the upgrade to be marked as failed, and the next time the agent
-		// restarts, it will try again.
 		w.logger.Errorf(ctx, "failed to set controller ready: %v", err)
 		return w.abortWithError(ctx, upgradeUUID, err)
 	}
 	w.logger.Infof(ctx, "marking the controller ready for upgrade")
+
+	// Watch for the upgrade to be ready. The watcher's mapper checks
+	// AllProvisionedControllersReady — the first event dispatched on Changes()
+	// signals that all controllers are registered and ready.
+	upgradeWatcher, err := w.upgradeService.WatchForUpgradeReady(ctx, upgradeUUID)
+	if err != nil {
+		return w.abortWithError(ctx, upgradeUUID, err)
+	}
+
+	// Unlike the DBCompleted/Error watchers in watchUpgrade, we do NOT call
+	// addWatcher here. addWatcher consumes the first event from Changes() (see
+	// eventsource.ConsumeInitialEvent) as a readiness barrier. That pattern
+	// works for watchers that emit an initial empty signal where discarding it
+	// is harmless.
+	//
+	// This watcher is different: its mapper only dispatches when
+	// AllProvisionedControllersReady returns true. The very first emission is
+	// the "all ready" signal we need. Consuming it would discard that signal and
+	// the upgrade would hang indefinitely.
+	if err := w.catacomb.Add(upgradeWatcher); err != nil {
+		return w.abortWithError(ctx, upgradeUUID, err)
+	}
 
 	for {
 		select {
@@ -405,7 +429,7 @@ func (w *upgradeDBWorker) runUpgrade(ctx context.Context, upgradeUUID domainupgr
 		case <-w.clock.After(defaultUpgradeTimeout):
 			return w.abort(ctx, upgradeUUID, errors.New("upgrade timed out"))
 
-		case <-watcher.Changes():
+		case <-upgradeWatcher.Changes():
 			w.logger.Infof(ctx, "database upgrade starting")
 
 			// Any errors within this block will need to set the upgrade as

@@ -51,8 +51,6 @@ func (s *manifoldSuite) TestInputs(c *tc.C) {
 func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectControllerConfig()
-
 	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
@@ -61,12 +59,10 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 func (s *manifoldSuite) TestStartConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectControllerConfig()
-
 	logDir := c.MkDir()
 	cfg := s.getConfig()
 	cfg.LogDir = logDir
-	cfg.NewWorker = func(_ ControllerConfigService, _ auditlog.Config, logFactory AuditLogFactory) (worker.Worker, error) {
+	cfg.NewWorker = func(_ ControllerConfigService, logFactory AuditLogFactory) (worker.Worker, error) {
 		auditLog := logFactory(auditlog.Config{})
 		c.Assert(auditLog.Close(), tc.ErrorIsNil)
 		info, err := os.Stat(filepath.Join(logDir, "audit.log"))
@@ -87,7 +83,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
 		},
-		NewWorker: func(ControllerConfigService, auditlog.Config, AuditLogFactory) (worker.Worker, error) {
+		NewWorker: func(ControllerConfigService, AuditLogFactory) (worker.Worker, error) {
 			return newStubWorker(), nil
 		},
 	}
