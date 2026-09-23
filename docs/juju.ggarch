@@ -1445,7 +1445,7 @@ diagram "HA controller: Dqlite replicaset" from "Juju" {
 
 diagram "Intro: Juju enters (declared)" from "Juju" {
   select {
-    nodes: user client controller cloud charmhub apps
+    nodes: user client controller cloud charmhub application
     edges: type control type api
     except: client -> cloud cloud -> client cloud -> controller
     sizing: uniform
