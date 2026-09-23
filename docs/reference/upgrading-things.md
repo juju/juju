@@ -22,6 +22,14 @@ See more:
 
 Upgrades to the client, the controller, and the model are typically related: You upgrade the client by refreshing the `juju` snap, then you upgrade the controller and the model, which is done as follows:
 
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Upgrade paths
+:no-legend:
+:caption: The upgrade order is client first (refresh the juju snap), then the controller and the model. For a patch-version delta, or a minor-version delta before Juju 3.0, the upgrade is in place: juju upgrade-controller then juju upgrade-model. For a major-version delta, or a minor-version delta after Juju 3.0, you bootstrap a new controller, migrate the models to it, and run juju upgrade-model there -- model migration is the safer path for risky upgrades. Mind the staged upgrade paths: e.g. from Juju v2.2 to v3.0, first upgrade to v2.9, then to v3.0. Application (charm) upgrades are independent of this.
+:alt: User asks to upgrade; the client refreshes the juju snap first; for patch or pre-3.0 minor deltas the client upgrades the controller and the model in place; for major or post-3.0 minor deltas the client bootstraps a new controller on the cloud, migrates the models, and upgrades the model there.
+```
+
 1. If you're upgrading between
    - patch versions (e.g. `2.9.25` &rarr; `2.9.26`)
    - minor versions before 3.0 (e.g. `2.7` &rarr; `2.8`)

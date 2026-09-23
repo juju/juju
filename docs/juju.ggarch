@@ -953,6 +953,25 @@ behaviour "Secret lifecycle" {
       }
     }
 
+    // Upgrade Juju (reference/upgrading-things.md): the client first
+    // (snap refresh), then the controller and the model — in place
+    // for patch and pre-3.0 minor deltas, bootstrap-and-migrate for
+    // major and post-3.0 minor deltas (model migration is the safer
+    // path for risky upgrades).
+    behaviour "Upgrade Juju" {
+      user    -> client:      call "upgrade Juju"
+      client  -> client:      self "refresh the juju snap (client first)"
+      alt "patch or pre-3.0 minor delta" {
+        client  -> controller: call "juju upgrade-controller (in place)"
+        controller -> client:  return "controllers upgraded"
+        client  -> controller: call "juju upgrade-model"
+      } else "major | post-3.0 minor delta" {
+        client  -> cloud:      call "juju bootstrap a new controller"
+        client  -> controller: call "juju migrate (models move to the new controller)"
+        client  -> controller: call "juju upgrade-model"
+      }
+    }
+
     // Reference + tutorial: the verification story behind the
     // tutorial's "Handle authentication and authorization" — grounded
     // in cmd/juju/user/whoami.go (local client-store read, no API
@@ -1312,6 +1331,10 @@ sequence "Bootstrap machine" from "Juju" {
 
 sequence "Simplestreams lookup" from "Juju" {
   select { behaviour: "Simplestreams lookup" }
+}
+
+sequence "Upgrade paths" from "Juju" {
+  select { behaviour: "Upgrade Juju" }
 }
 
 sequence "Deploy machine" from "Juju" {

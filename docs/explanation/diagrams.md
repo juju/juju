@@ -529,6 +529,16 @@ applications. Each step is a scoped view over the same model.
 :alt: User calls juju bootstrap or juju deploy; the client tries the controller database, then the user-supplied metadata URL, then the provider locations, then streams.canonical.com, each attempted signed first then unsigned; the client verifies signatures with the shipped public keys and uses the first hit.
 ```
 
+### Upgrade paths (sequence)
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Upgrade paths
+:no-legend:
+:caption: The upgrade order is client first (refresh the juju snap), then the controller and the model. Patch-version deltas (and minor-version deltas before Juju 3.0) upgrade in place: juju upgrade-controller then juju upgrade-model. Major-version deltas and minor-version deltas after 3.0 bootstrap a new controller and migrate the models to it before juju upgrade-model -- model migration is the safer path for risky upgrades, and the upgrade path may be staged (e.g. 2.2 -> 2.9 -> 3.0). Application (charm) upgrades are independent.
+:alt: User asks to upgrade; the client refreshes the juju snap; then either upgrade-controller and upgrade-model in place (patch or pre-3.0 minor deltas) or bootstrap a new controller, migrate the models, and upgrade-model (major or post-3.0 minor deltas).
+```
+
 ### Configuration levels (where each lives)
 
 ```{ggarch}
