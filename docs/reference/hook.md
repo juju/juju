@@ -49,6 +49,21 @@ See more: {ref}`list-of-hooks`
 :caption: What running a hook means to the unit agent: every hook invocation is one pass of the uniter's operation executor — the agent prepares the hook context, executes the hook, then commits the recorded changes. A failing hook parks the operation in `error` until the failure is resolved; the labels are the verbatim state strings from `internal/worker/uniter/operation/executor.go`.
 ```
 
+The runtime view of one pass: a state change on the controller wakes
+the unit agent's watcher; the agent snapshots remote state, resolves
+the next hook, and dispatches it. Every hook command the charm calls
+is served by the agent acting as a proxy for the controller API --
+the charm never calls the controller directly -- and the hook's
+writes are flushed all-or-nothing on a clean exit.
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Hook execution
+:no-legend:
+:alt: Controller watcher fires to unit agent. Unit agent snapshots state and resolves hook, then runs the hook by dispatch. Loop: charm calls hook commands (config-get, relation-get, secret-get), the unit agent proxies them to the controller API and returns the exit code. On exit 0: flush writes. On failure: discard writes, set unit error.
+:caption: Every hook runs the same cycle: the controller notifies, the agent snapshots remote state, resolves the next hook, and dispatches. Hook commands are served locally by the agent acting as a proxy — the charm never calls the controller directly.
+```
+
 (hook-execution-guarantees)=
 ## Hook execution guarantees
 

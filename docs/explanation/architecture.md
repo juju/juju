@@ -147,7 +147,7 @@ workload share the same machine.
 ```{ggarch}
 :file: ../juju.ggarch
 :sequence: Hook execution
-:alt: API-server fires watcher to Unit agent. Unit agent snapshots state, resolves next hook, execs dispatch. During the hook loop: charm calls hook command, unit agent serves via API, controller responds, result returns to charm. On exit 0: charm returns success, unit agent flushes writes. On failure: charm returns failure, unit agent discards writes and sets unit error.
+:alt: Controller watcher fires to Unit agent. Unit agent snapshots state, resolves next hook, runs the hook by dispatch. During the hook loop: charm calls hook commands (config-get, relation-get, secret-get), the unit agent proxies them to the controller API and returns the exit code. On exit 0: charm returns success, unit agent flushes writes. On failure: charm returns failure, unit agent discards writes and sets unit error.
 ```
 *The unit agent execs the charm's `dispatch` script. During the hook the charm calls
 hook commands; the unit agent serves each one against the controller. On clean exit

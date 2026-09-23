@@ -766,22 +766,22 @@ model "Juju" {
   behaviours {
 
     behaviour "Hook execution" {
-      apiserver -> unit_agent: async "watcher fires"
+      controller -> unit_agent: async "watcher fires (state change)"
       unit_agent -> unit_agent: self "snapshot remote state"
       unit_agent -> unit_agent: self "resolve next hook"
-      unit_agent -> charm: call "exec dispatch"
+      unit_agent -> charm: call "run hook (dispatch)"
       loop "during hook" {
-        charm -> unit_agent: call "hook command"
-        unit_agent -> apiserver: call "serve via API"
-        apiserver -> unit_agent: return "response"
+        charm -> unit_agent: call "hook command (config-get /\nrelation-get / secret-get …)"
+        unit_agent -> controller: call "serve (proxied via the API)"
+        controller -> unit_agent: return "response"
         unit_agent -> charm: return "exit code"
       }
       alt "exit 0" {
         charm -> unit_agent: return "success"
-        unit_agent -> apiserver: call "flush writes"
+        unit_agent -> controller: call "flush writes"
       } else "failure" {
         charm -> unit_agent: return "failure"
-        unit_agent -> apiserver: call "discard writes, unit error"
+        unit_agent -> controller: call "discard writes, unit error"
       }
     }
 

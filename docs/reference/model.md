@@ -34,7 +34,9 @@ A model configuration is a rule or a set of rules that define the behavior of a 
 See more: {ref}`list-of-model-configuration-keys`,  {ref}`configure-a-model`
 ```
 
-## Model removal
+## Model lifecycle
+
+### Model removal
 
 A model is destroyed with `juju destroy-model`. Destruction is the
 largest removal and runs the same cooperative pattern at scale: the

@@ -101,6 +101,24 @@ A **non-cross-model** relation is a {ref}`non-subordinate <non-subordinate-relat
 
 A relation is identified by a **relation ID** (assigned automatically by Juju; expressed in monotonically increasing numbers) or a **relation key** (derived from the endpoints, format: `application1:[endpoint] application2:[endpoint]`).
 
+## Relation lifecycle
+
+### Relation creation
+
+A relation is created by `juju integrate`. Creating the relation
+writes a relation record and wakes both sides: each unit's watcher
+fires, and the units run their relation hooks in lockstep --
+`relation-created`, then `relation-joined` and `relation-changed` --
+exchanging data through the databags as they go.
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Integrate
+:no-legend:
+:alt: User calls juju integrate A B. Controller writes relation record and fires watchers to both unit agents. Each runs relation-created, relation-joined, relation-changed hooks, writing relation data; each data write wakes the other side's watcher for a further relation-changed.
+:caption: Integrating two applications. The controller writes the relation record; the two units' hooks run in lockstep, each data write waking the other side for another relation-changed.
+```
+
 ## Relation databag
 
 When you create a relation between two applications, this results in the creation of relation databags. Databags are per relation and per application, and can be application-scoped or unit-scoped. Each unit involved in a relation gets a local copy of all the databags for that relation.

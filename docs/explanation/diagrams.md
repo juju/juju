@@ -13,10 +13,10 @@ lifecycle: `reference/unit.md`'s *Unit removal* section is the unit's
 lifecycle layer, not part of its structure story. Lifecycle sections
 are named for the event, entity-scoped (*Unit removal*, *Relation
 creation*) — activity titles (*Integrating applications*) stay in the
-how-tos; when a page carries ≥2 lifecycle layers they group under an
-`<Entity> lifecycle` umbrella with event-named subsections (the
-`secret.md` precedent: *Secret lifecycle* → *Charm-secret lifecycle* /
-*User-secret lifecycle*). The umbrella is content-triggered — never an
+how-tos; lifecycle sections group under an `<Entity> lifecycle`
+umbrella with event-named subsections (the `secret.md` precedent:
+*Secret lifecycle* → *Charm-secret lifecycle* / *User-secret
+lifecycle*). The umbrella is content-triggered — never an
 empty scaffold. Diagrams with no
 home yet sit in **Other** at the bottom.
 
@@ -268,6 +268,18 @@ concept pages — one mechanism, data model, or process per page.
 
 ### reference/hook.md
 
+#### Hook execution (sequence)
+
+**Insert at:** § Hook execution. also: explanation/architecture.md § Control flow.
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Hook execution
+:no-legend:
+:caption: Every hook runs the same cycle: the controller notifies, the agent snapshots remote state, resolves the next hook, and dispatches. Hook commands are served locally by the agent acting as a proxy — the charm never calls the controller directly.
+:alt: Controller watcher fires to unit agent. Unit agent snapshots state and resolves hook. Loop: charm calls hook commands (config-get, relation-get, secret-get), the unit agent proxies them to the controller API and returns the exit code. On success: flush writes. On failure: discard writes, set unit error.
+```
+
 #### Uniter operation (state machine)
 
 **Insert at:** § Hook execution.
@@ -367,7 +379,7 @@ concept pages — one mechanism, data model, or process per page.
 
 #### Model removal
 
-**Insert at:** § Model removal. also: explanation/architecture.md § Remove.
+**Insert at:** § Model lifecycle → § Model removal. also: explanation/architecture.md § Remove.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -408,7 +420,7 @@ concept pages — one mechanism, data model, or process per page.
 
 #### Integrate
 
-**Insert at:** § Relation creation (staged). also: explanation/architecture.md § Integrate.
+**Insert at:** § Relation lifecycle → § Relation creation. also: explanation/architecture.md § Integrate.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -504,7 +516,7 @@ concept pages — one mechanism, data model, or process per page.
 
 #### Unit removal
 
-**Insert at:** § Unit removal. also: explanation/architecture.md § Remove.
+**Insert at:** § Unit lifecycle → § Unit removal. also: explanation/architecture.md § Remove.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -666,18 +678,6 @@ concept pages — one mechanism, data model, or process per page.
 :no-legend:
 :caption: What "juju status" actually is: the controller reads the status records, derives live agent liveness from connection state, and projects both back. Status is records plus liveness — an overlap, not an identity.
 :alt: User calls juju status. Client sends a Status API call to the controller. The controller reads status records and derives agent liveness, then returns the projected status. Client shows the status output to the user.
-```
-
-#### Hook execution
-
-**Insert at:** § Control flow.
-
-```{ggarch}
-:file: ../juju.ggarch
-:sequence: Hook execution
-:no-legend:
-:caption: Every hook runs the same cycle: the controller notifies, the agent snapshots remote state, resolves the next hook, and dispatches. Hook commands are served locally by the agent acting as a proxy — the charm never calls the controller directly.
-:alt: API server fires watcher to unit agent. Unit agent snapshots state and resolves hook. Loop: charm calls hook command, unit agent proxies it to API server. On success: flush writes. On failure: discard writes, set unit error.
 ```
 
 ### explanation/juju-architecture.md
