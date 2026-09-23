@@ -58,7 +58,7 @@ commit the recorded changes.
 :view: Uniter operation
 :no-legend:
 :alt: State machine: idle to preparing on hook queued, preparing to executing, executing to committing on hook exits 0, executing to error on hook fails, error to idle on retry, committing to idle on write complete.
-:caption: The same pass as the uniter's executor states — prepare, execute, commit — with the error path: a failing hook parks the operation in `error` until the failure is resolved. The labels are the verbatim state strings from `internal/worker/uniter/operation/executor.go`.
+:caption: The same pass as the uniter's executor states — prepare, execute, commit — with the error path: a failing hook parks the operation in `error` until the failure is resolved.
 ```
 
 The hook context the snapshot provides reaches the charm as

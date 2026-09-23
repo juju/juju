@@ -288,7 +288,7 @@ concept pages — one mechanism, data model, or process per page.
 :file: ../juju.ggarch
 :view: Uniter operation
 :no-legend:
-:caption: The uniter's three-phase operation executor — idle → preparing → executing → committing — with the error path (hook fails) and the retry loop. The state labels are the verbatim strings from internal/worker/uniter/operation/executor.go; guards: ErrHookFailed, ErrNeedsReboot.
+:caption: The uniter's three-phase operation executor — idle → preparing → executing → committing — with the error path (hook fails) and the retry loop: a failing hook parks the operation in `error` until the failure is resolved.
 :alt: State machine: idle to preparing on hook queued, preparing to executing, executing to committing on hook exits 0, executing to error on hook fails, error to idle on retry, committing to idle on write complete.
 ```
 
