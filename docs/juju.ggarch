@@ -129,21 +129,21 @@ model "Juju" {
     // also reads + writes its application's bag (red); green reads
     // everywhere else. The permission story is the same whether the
     // applications share a model or not.
-    a_unit_leader [type: charm, label: "unit A/0", scope: "model M"]
-    a_unit_1      [type: charm, label: "unit A/1", scope: "model M"]
-    b_unit_leader [type: charm, label: "unit B/0", scope: "model M"]
-    b_unit_1      [type: charm, label: "unit B/1", scope: "model M"]
+    a_unit_leader [type: charm, label: "appA/leader"]
+    a_unit_1      [type: charm, label: "appA/1"]
+    b_unit_leader [type: charm, label: "appB/leader"]
+    b_unit_1      [type: charm, label: "appB/1"]
     a_app_bag     [type: record, label: "application databag\n(app A)"]
-    a_bag_a0      [type: record, label: "unit databag\n(A/0)"]
-    a_bag_a1      [type: record, label: "unit databag\n(A/1)"]
+    a_bag_a0      [type: record, label: "unit databag\n(appA/leader)"]
+    a_bag_a1      [type: record, label: "unit databag\n(appA/1)"]
     b_app_bag     [type: record, label: "application databag\n(app B)"]
-    b_bag_b0      [type: record, label: "unit databag\n(B/0)"]
-    b_bag_b1      [type: record, label: "unit databag\n(B/1)"]
-    c_unit_leader [type: charm, label: "unit A/0", scope: "model M"]
-    c_unit_1      [type: charm, label: "unit A/1", scope: "model M"]
+    b_bag_b0      [type: record, label: "unit databag\n(appB/leader)"]
+    b_bag_b1      [type: record, label: "unit databag\n(appB/1)"]
+    c_unit_leader [type: charm, label: "appA/leader"]
+    c_unit_1      [type: charm, label: "appA/1"]
     c_app_bag     [type: record, label: "application databag\n(app A)"]
-    c_bag_a0      [type: record, label: "unit databag\n(A/0)"]
-    c_bag_a1      [type: record, label: "unit databag\n(A/1)"]
+    c_bag_a0      [type: record, label: "unit databag\n(appA/leader)"]
+    c_bag_a1      [type: record, label: "unit databag\n(appA/1)"]
     // -----------------------------------------------------------------------
     // Charm origin records (model DB — 0015-charm.sql: charm is
     // per-revision; channels are per-application; unit pins its own
@@ -535,46 +535,59 @@ model "Juju" {
     //    through-pair (controller<->ma0) — the strokes converge at
     //    the far ends and re-bow; label_side machinery is in
     //    (ggarch c289732), far-end pairing is the remaining step.
-    // Relation databags (domain/relation) — the units read and write
-    // the bag records in the host model's database (their unit agents
-    // do the API work: jujuc relation-get/set -> the uniter facade's
-    // ReadSettings / SetRelationUnitSettings). Each unit reads +
-    // writes ONLY the unit bag associated with its own unit
-    // (relation_unit stores the writing unit); the LEADER unit also
-    // reads + writes its application's application bag (keyed by the
-    // relation ENDPOINT; writes leader-gated); every unit reads every
-    // OTHER unit's bag and, in the regular case, the other
-    // application's bags (GetRelationUnitSettings /
-    // GetRelationApplicationSettings). Peer case: the watcher watches
-    // the OWN endpoint's app settings and all peers
-    // (related_unit_watcher.go:InitialWatchRelatedUnits) — the
-    // non-leader unit also reads the application databag.
+    // Relation databags (domain/relation) — the permission law is
+    // reference/relation.md: each unit reads + writes its OWN unit
+    // bag; the LEADER unit also reads + writes its application's
+    // application bag (writes leader-gated); ALL units — leaders
+    // included — read ALL of the REMOTE application's databags
+    // (GetRelationUnitSettings / GetRelationApplicationSettings). A
+    // unit does NOT read its own application's other unit bags (in
+    // the regular case nothing turns inwards). Peer case: everything
+    // turns inwards — every unit reads every bag of its OWN
+    // application, the application databag included (the uniter's
+    // watcher watches the own endpoint's app settings and all peers,
+    // related_unit_watcher.go:InitialWatchRelatedUnits).
+    // Panel A (app A units): own bags rw; leader rw own app bag;
+    // ALL units read ALL remote (app B) bags.
     a_unit_leader -> a_bag_a0    [type: read_write, label: "reads + writes",
                           ground: "model:relation_unit_setting"]
     a_unit_1      -> a_bag_a1    [type: read_write, label: "reads + writes",
                           ground: "model:relation_unit_setting"]
     a_unit_leader -> a_app_bag   [type: read_write, label: "reads + writes",
                           ground: "model:relation_application_setting"]
-    a_unit_1      -> a_bag_a0    [type: read_only, label: "reads",
-                          ground: "model:relation_unit_setting"]
-    a_unit_leader -> a_bag_a1    [type: read_only, label: "reads",
-                          ground: "model:relation_unit_setting"]
     a_unit_1      -> b_app_bag   [type: read_only, label: "reads",
                           ground: "domain/relation/service/relation.go:GetRelationApplicationSettings"]
     a_unit_1      -> b_bag_b0    [type: read_only, label: "reads",
                           ground: "model:relation_unit_setting"]
+    a_unit_1      -> b_bag_b1    [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
+    a_unit_leader -> b_app_bag   [type: read_only, label: "reads",
+                          ground: "domain/relation/service/relation.go:GetRelationApplicationSettings"]
+    a_unit_leader -> b_bag_b0    [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
+    a_unit_leader -> b_bag_b1    [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
+    // Panel B (app B units): the mirror.
     b_unit_leader -> b_bag_b0    [type: read_write, label: "reads + writes",
                           ground: "model:relation_unit_setting"]
     b_unit_1      -> b_bag_b1    [type: read_write, label: "reads + writes",
                           ground: "model:relation_unit_setting"]
     b_unit_leader -> b_app_bag   [type: read_write, label: "reads + writes",
                           ground: "model:relation_application_setting"]
-    b_unit_1      -> b_bag_b0    [type: read_only, label: "reads",
-                          ground: "model:relation_unit_setting"]
     b_unit_1      -> a_app_bag   [type: read_only, label: "reads",
                           ground: "domain/relation/service/relation.go:GetRelationApplicationSettings"]
+    b_unit_1      -> a_bag_a0    [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
     b_unit_1      -> a_bag_a1    [type: read_only, label: "reads",
                           ground: "model:relation_unit_setting"]
+    b_unit_leader -> a_app_bag   [type: read_only, label: "reads",
+                          ground: "domain/relation/service/relation.go:GetRelationApplicationSettings"]
+    b_unit_leader -> a_bag_a0    [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
+    b_unit_leader -> a_bag_a1    [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
+    // Panel C (peer relation): everything turns inwards — every unit
+    // reads every bag of its own application, application bag included.
     c_unit_leader -> c_bag_a0    [type: read_write, label: "reads + writes",
                           ground: "model:relation_unit_setting"]
     c_unit_1      -> c_bag_a1    [type: read_write, label: "reads + writes",
