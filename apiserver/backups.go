@@ -65,6 +65,10 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		h.createAndServe(ctx, w, args.Notes)
 	case http.MethodGet:
+		// The legacy download id is not parsed — the flow no longer
+		// exists — but drain the body through the MaxBytesReader cap
+		// so the limit is enforced and the connection can be reused.
+		_, _ = io.Copy(io.Discard, req.Body)
 		h.sendError(ctx, w, internalerrors.Errorf(
 			"downloading backups from clients older than 4.1 is not supported; use a 4.1 or newer client",
 		).Add(coreerrors.NotSupported))

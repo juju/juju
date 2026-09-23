@@ -195,9 +195,14 @@ func (s *createSuite) TestChecksumMismatch(c *tc.C) {
 	client := s.setDownload()
 	client.metaresult.Checksum = "wrong-checksum"
 
-	_, err := cmdtesting.RunCommand(c, s.wrappedCommand)
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
 	c.Assert(err, tc.ErrorMatches, `checksum mismatch for downloaded backup .*`)
 	client.CheckCalls(c, "Create")
+
+	// The metadata must not reach stdout: the archive was never
+	// verified, so scripting the output cannot act on a backup
+	// that was not delivered.
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
 
 	// The corrupt archive is kept under a suffix for inspection.
 	_, err = os.Stat("juju-backup-00010101-000000.tar.gz")
@@ -231,10 +236,13 @@ func (s *createSuite) TestPartialArchiveRemoved(c *tc.C) {
 		return io.NopCloser(&flakyReader{data: s.data}), nil
 	}
 
-	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz")
 	c.Assert(err, tc.ErrorMatches,
 		`while copying to local archive file backup.tgz: connection reset by peer`)
 	client.CheckCalls(c, "Create")
+
+	// No metadata on stdout: the transfer failed.
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
 
 	_, err = os.Stat("backup.tgz")
 	c.Check(err, tc.Satisfies, os.IsNotExist)
@@ -247,10 +255,13 @@ func (s *createSuite) TestPartialArchiveRemoved(c *tc.C) {
 func (s *createSuite) TestNoChecksum(c *tc.C) {
 	client := s.setSuccess()
 
-	_, err := cmdtesting.RunCommand(c, s.wrappedCommand)
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
 	c.Assert(err, tc.ErrorMatches,
 		`controller returned no checksum for the backup, refusing to download it unverified`)
 	client.CheckCalls(c, "Create")
+
+	// No metadata on stdout: the download was refused.
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
 }
 
 func (s *createSuite) TestError(c *tc.C) {

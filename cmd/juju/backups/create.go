@@ -112,10 +112,6 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	}
 	defer archive.Close()
 
-	if !c.quiet {
-		fmt.Fprintln(ctx.Stdout, c.metadata(&result))
-	}
-
 	if result.Checksum == "" {
 		// The controller always records a checksum for the archive, so
 		// an empty checksum means a malformed response. Fail closed
@@ -127,6 +123,12 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	filename := c.decideFilename(c.Filename, result.Started)
 	if err := c.writeArchive(archive, result.Checksum, filename); err != nil {
 		return errors.Trace(err)
+	}
+	// Print the metadata only after the archive is verified and
+	// written, so a scripted consumer never sees a plausible
+	// report for a backup that was not delivered.
+	if !c.quiet {
+		fmt.Fprintln(ctx.Stdout, c.metadata(&result))
 	}
 	ctx.Infof("Downloaded to %v", filename)
 	return nil
