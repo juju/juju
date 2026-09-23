@@ -718,8 +718,8 @@ model "Juju" {
       loop "during hook" {
         charm -> unit_agent: call "hook command"
         unit_agent -> apiserver: call "serve via API"
-        apiserver -> unit_agent: return
-        unit_agent -> charm: return
+        apiserver -> unit_agent: return "response"
+        unit_agent -> charm: return "exit code"
       }
       alt "exit 0" {
         charm -> unit_agent: return "success"
@@ -1459,7 +1459,11 @@ diagram "HA controller: Dqlite replicaset" from "Juju" {
     // Associative view: the RESULT of Raft sync (a replicaset in
     // sync), not the interaction — the sync messages belong to a
     // sequence view (review round 3: emergent state vs interaction).
-    except: ha_agent -> ha_agent
+    // (The old `except: ha_agent -> ha_agent` here killed the WHOLE
+    // mesh: the expansion of the mesh self edge already renders only
+    // the cross-instance pairs, no self-loops — the except suppressed
+    // the model edge before stamping and the view drew three bare
+    // boxes. Found by the round-24 orphan check.)
     instances: controller_node [
       { id: c1, label: "Controller 1" },
       { id: c2, label: "Controller 2" },
@@ -2115,7 +2119,11 @@ diagram "HA controller: Dqlite replicaset (synthesized)" from "Juju" {
     // Associative view: the RESULT of Raft sync (a replicaset in
     // sync), not the interaction — the sync messages belong to a
     // sequence view (review round 3: emergent state vs interaction).
-    except: ha_agent -> ha_agent
+    // (The old `except: ha_agent -> ha_agent` here killed the WHOLE
+    // mesh: the expansion of the mesh self edge already renders only
+    // the cross-instance pairs, no self-loops — the except suppressed
+    // the model edge before stamping and the view drew three bare
+    // boxes. Found by the round-24 orphan check.)
     instances: controller_node [
       { id: c1, label: "Controller 1" },
       { id: c2, label: "Controller 2" },
