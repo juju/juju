@@ -26,6 +26,7 @@ to_sanitize = [
     ('cloudCredentials', ['attributes']),
     ('dockerResources', ['password']),
     ('sshrequests', ['password']),
+    # Removed in latest version of 3.6, but still present in earlier versions.
     ('virtualhostkeys', ['hostkey']),
     ('autocertCache', ['data']),
     ('bakeryStorageItems', ['rootkey', 'item']),
@@ -36,10 +37,15 @@ to_sanitize = [
     ('secretBackends', ['config']),
 ]
 low_sensitivity_data_to_sanitize = [
+    # Redacting messages replaces the entire array with the scalar "REDACTED".
     ('actions', ['messages']),
     ('statuses', ['statusinfo', 'statusdata']),
     ('statuseshistory', ['statusinfo', 'statusdata']),
 ]
+# Fields appended via $push rather than $set also need their push txns removed.
+# Since Juju 3, server-side transactions no longer write to txns;
+# this handles legacy records that may remain in upgraded databases, or in 2.x database dumps.
+push_collections = {('actions', 'messages')}
 
 def generateScript(sanitize_low_sensitivity_data=True):
     # Create an index on the transactions so that the updates go faster
@@ -74,8 +80,7 @@ def generateScript(sanitize_low_sensitivity_data=True):
             yield 'print(db.txns.update({"o.c": "%s", "o.u.$set.%s": {"$exists": 1}}, {"$unset": {' % (collection, attribute)
             yield '    "o.$.u.$set.%s": "1"}' % (attribute,)
             yield '}, {"multi": 1}))'
-            if collection == 'actions' and attribute == 'messages':
-                # Action logs are appended with $push instead of updated with $set.
+            if (collection, attribute) in push_collections:
                 yield 'print(new Date().toLocaleString())'
                 yield 'print("updating push txns for %s %s")' % (collection, attribute)
                 yield 'print(db.txns.update({"o.c": "%s", "o.u.$push.%s": {"$exists": 1}}, {"$unset": {' % (collection, attribute)
@@ -98,13 +103,13 @@ because of limitations with $ characters.)
 Example: ./sanitise-db.py | mongo CONNECT_ARGS
 """)
     p.add_argument(
-        "--keep-low-sensitivity-data",
+        "--keep-status-and-actions",
         action="store_true",
-        help="do not redact action logs or status data",
+        help="do not redact status data or action messages",
     )
     opts = p.parse_args(args)
 
-    for line in generateScript(not opts.keep_low_sensitivity_data):
+    for line in generateScript(not opts.keep_status_and_actions):
         print(line)
 
 
