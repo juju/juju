@@ -103,6 +103,13 @@ type StorageState interface {
 	GetAllAttachedBlockDeviceLinks(
 		ctx context.Context,
 	) (map[blockdevice.BlockDeviceUUID][]string, error)
+
+	// GetModelStorageStatuses returns the filesystems and volumes of the
+	// model with the minimal information required by the model status
+	// payload.
+	GetModelStorageStatuses(
+		ctx context.Context,
+	) (status.ModelStorageStatus, error)
 }
 
 // SetFilesystemStatus validates and sets the given filesystem status, overwriting any
@@ -353,6 +360,19 @@ func (s *Service) GetAllFilesystemStatuses(ctx context.Context) ([]Filesystem, e
 	}
 
 	return s.transformFilesystemResults(filesystems, filesystemAttachments)
+}
+
+// GetModelStorageStatuses returns the filesystems and volumes of the model
+// with the minimal information required by the model status payload,
+// including whether each is detachable (model-scoped, so its life cycle
+// outlives the units and machines it is attached to).
+func (s *Service) GetModelStorageStatuses(
+	ctx context.Context,
+) (status.ModelStorageStatus, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.modelState.GetModelStorageStatuses(ctx)
 }
 
 func (s *Service) transformFilesystemResults(

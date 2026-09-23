@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
-	accesserrors "github.com/juju/juju/domain/access/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/docker"
 	interrors "github.com/juju/juju/internal/errors"
@@ -265,6 +264,18 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+
+	modelUUIDs := make([]coremodel.UUID, len(models))
+	for i, model := range models {
+		modelUUIDs[i] = model.UUID
+	}
+
+	lastConnections, err := c.accessService.LastModelLogins(ctx, user.NameFromTag(c.apiUser), modelUUIDs)
+	if err != nil {
+		return result, errors.Annotatef(err,
+			"getting model last login times for user %q", c.apiUser.Name())
+	}
+
 	for _, model := range models {
 		userModel := params.UserModel{
 			Model: params.Model{
@@ -274,21 +285,7 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 				Type:      model.ModelType.String(),
 			},
 		}
-
-		lastConn, err := c.accessService.LastModelLogin(ctx, user.NameFromTag(c.apiUser), model.UUID)
-		if errors.Is(err, accesserrors.UserNeverAccessedModel) {
-			userModel.LastConnection = nil
-		} else if errors.Is(err, modelerrors.NotFound) {
-			// TODO (aflynn): Once models are fully in domain, replace the line
-			// below with a `continue`. When models are still in state, this
-			// case is triggered because the model cannot be found in the domain
-			// db. Generally, it should only be triggered if the model has been
-			// removed since we got the UUID.
-			userModel.LastConnection = nil
-		} else if err != nil {
-			return result, errors.Annotatef(err,
-				"getting model last login time for user %q on model %q", c.apiUser.Name(), model.Name)
-		} else {
+		if lastConn, ok := lastConnections[model.UUID]; ok {
 			userModel.LastConnection = &lastConn
 		}
 

@@ -150,14 +150,13 @@ type UserState interface {
 	// - modelerrors.NotFound: If no model by the given modelUUID exists.
 	UpdateLastModelLogin(context.Context, user.Name, coremodel.UUID, time.Time) error
 
-	// LastModelLogin will return the last login time of the specified user.
-	// The following error types are possible from this function:
+	// LastModelLogins will return the last login times of the specified user
+	// for each of the given models. Models for which the user has no login
+	// record are omitted from the result. The following error types are
+	// possible from this function:
 	// - accesserrors.UserNameNotValid: When the username is not valid.
 	// - accesserrors.UserNotFound: When the user cannot be found.
-	// - modelerrors.NotFound: If no model by the given modelUUID exists.
-	// - accesserrors.UserNeverAccessedModel: If there is no record of the user
-	// accessing the model.
-	LastModelLogin(context.Context, user.Name, coremodel.UUID) (time.Time, error)
+	LastModelLogins(context.Context, user.Name, []coremodel.UUID) (map[coremodel.UUID]time.Time, error)
 
 	// EnsureExternalUser ensures that the given external user exists in the
 	// database, creating them if necessary.

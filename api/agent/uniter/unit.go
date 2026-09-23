@@ -863,7 +863,7 @@ func (b *CommitHookParamsBuilder) AddSecretCreates(creates []SecretCreateArg) er
 		}
 		b.arg.SecretCreates[i] = params.CreateSecretArg{
 			UpsertSecretArg: params.UpsertSecretArg{
-				RotatePolicy: c.RotatePolicy,
+				RotatePolicy: (*params.SecretRotatePolicy)(c.RotatePolicy),
 				ExpireTime:   c.ExpireTime,
 				Description:  c.Description,
 				Label:        c.Label,
@@ -906,7 +906,7 @@ func (b *CommitHookParamsBuilder) AddSecretUpdates(updates []SecretUpsertArg) {
 
 		b.arg.SecretUpdates[i] = params.UpdateSecretArg{
 			UpsertSecretArg: params.UpsertSecretArg{
-				RotatePolicy: u.RotatePolicy,
+				RotatePolicy: (*params.SecretRotatePolicy)(u.RotatePolicy),
 				ExpireTime:   u.ExpireTime,
 				Description:  u.Description,
 				Label:        u.Label,

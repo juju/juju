@@ -193,3 +193,10 @@ func NewData(ctx context.Context, api destroyControllerAPI, ctrUUID string) (env
 var (
 	NoModelsMessage = noModelsMessage
 )
+
+// MaxPersistentStorageAttempts exports the persistent-storage retry bound
+// for tests in the controller_test package, so the CLI retry test asserts
+// against the real bound instead of a literal that can drift.
+func MaxPersistentStorageAttempts() int {
+	return maxPersistentStorageAttempts
+}
