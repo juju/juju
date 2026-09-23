@@ -31,6 +31,22 @@ See more: {ref}`list-of-hooks`
 (hook-execution)=
 ## Hook execution
 
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Hook execution
+:no-legend:
+:alt: Controller watcher fires to unit agent. Unit agent snapshots state and resolves hook, then runs the hook by dispatch. Loop: charm calls hook commands (config-get, relation-get, secret-get), the unit agent proxies them to the controller API and returns the exit code. On exit 0: flush writes. On failure: discard writes, set unit error.
+:caption: Every hook runs the same cycle: the controller notifies, the agent snapshots remote state (reads the config, relation data, and secrets the hook will see into a local snapshot, which stays unchanged for the hook's whole run), resolves the next hook, and dispatches it. Hook commands are served locally by the agent acting as a proxy — the charm never calls the controller directly.
+```
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Uniter operation
+:no-legend:
+:alt: State machine: idle to preparing on hook queued, preparing to executing, executing to committing on hook exits 0, executing to error on hook fails, error to idle on retry, committing to idle on write complete.
+:caption: The same pass as the uniter's executor states — prepare, execute, commit — with the error path: a failing hook parks the operation in `error` until the failure is resolved.
+```
+
 A hook runs as one pass of a fixed cycle: a state change on the
 controller wakes the unit agent's watcher; the agent snapshots the
 remote state (reads the config, relation data, and secrets the hook
@@ -41,25 +57,9 @@ proxy for the controller API -- the charm never calls the controller
 directly -- and the hook's writes are flushed all-or-nothing on a
 clean exit.
 
-```{ggarch}
-:file: ../juju.ggarch
-:sequence: Hook execution
-:no-legend:
-:alt: Controller watcher fires to unit agent. Unit agent snapshots state and resolves hook, then runs the hook by dispatch. Loop: charm calls hook commands (config-get, relation-get, secret-get), the unit agent proxies them to the controller API and returns the exit code. On exit 0: flush writes. On failure: discard writes, set unit error.
-:caption: Every hook runs the same cycle: the controller notifies, the agent snapshots remote state (reads the config, relation data, and secrets the hook will see into a local snapshot, which stays unchanged for the hook's whole run), resolves the next hook, and dispatches it. Hook commands are served locally by the agent acting as a proxy — the charm never calls the controller directly.
-```
-
 Seen from inside the unit agent, that same pass is the uniter's
 operation executor: prepare the hook context, execute the hook,
 commit the recorded changes.
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Uniter operation
-:no-legend:
-:alt: State machine: idle to preparing on hook queued, preparing to executing, executing to committing on hook exits 0, executing to error on hook fails, error to idle on retry, committing to idle on write complete.
-:caption: The same pass as the uniter's executor states — prepare, execute, commit — with the error path: a failing hook parks the operation in `error` until the failure is resolved.
-```
 
 The hook context the snapshot provides reaches the charm as
 environment variables set by Juju, in addition to those supplied by

@@ -105,12 +105,6 @@ A relation is identified by a **relation ID** (assigned automatically by Juju; e
 
 ### Relation creation
 
-A relation is created by `juju integrate`. Creating the relation
-writes a relation record and wakes both sides: each unit's watcher
-fires, and the units run their relation hooks in lockstep --
-`relation-created`, then `relation-joined` and `relation-changed` --
-exchanging data through the databags as they go.
-
 ```{ggarch}
 :file: ../juju.ggarch
 :sequence: Integrate
@@ -118,6 +112,13 @@ exchanging data through the databags as they go.
 :alt: User calls juju integrate A B. Controller writes relation record and fires watchers to both unit agents. Each runs relation-created, relation-joined, relation-changed hooks, writing relation data; each data write wakes the other side's watcher for a further relation-changed.
 :caption: Integrating two applications. The controller writes the relation record; the two units' hooks run in lockstep, each data write waking the other side for another relation-changed.
 ```
+
+
+A relation is created by `juju integrate`. Creating the relation
+writes a relation record and wakes both sides: each unit's watcher
+fires, and the units run their relation hooks in lockstep --
+`relation-created`, then `relation-joined` and `relation-changed` --
+exchanging data through the databags as they go.
 
 ## Relation databag
 

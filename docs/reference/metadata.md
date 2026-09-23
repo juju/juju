@@ -26,6 +26,15 @@ work (eg use a different Ubuntu image), need to pay closer attention.
 
 ## Basic workflow
 
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Simplestreams lookup
+:no-legend:
+:caption: The metadata search path: the client walks the four locations in priority order — the controller database (a running model), the user-supplied URL (agent-metadata-url / image-metadata-url), provider-specific locations (for example the keystone product-streams endpoints on Openstack), and streams.canonical.com — trying each location signed (.sjson) first, then unsigned, and using the first location that answers. Signed metadata is verified with the public keys Juju ships with.
+:alt: User calls juju bootstrap or juju deploy; the client tries the controller database, then the user-supplied metadata URL, then the provider locations, then streams.canonical.com, each attempted signed first then unsigned; the client verifies signatures with the shipped public keys and uses the first hit.
+```
+
+
 Whether images or agent binaries, Juju uses a search path to try and find suitable metadata.
 The path components (in order of lookup) are:
 
@@ -42,14 +51,6 @@ Juju ships with public keys used to validate the integrity of image and agent me
 from https://streams.canonical.com/juju. So out of the box, Juju will "Just Work" with any supported
 public cloud, using signed metadata. Setting up metadata for a private (eg Openstack) cloud requires
 metadata to be generated using tools which ship with Juju (more below).
-
-```{ggarch}
-:file: ../juju.ggarch
-:sequence: Simplestreams lookup
-:no-legend:
-:caption: The metadata search path: the client walks the four locations in priority order — the controller database (a running model), the user-supplied URL (agent-metadata-url / image-metadata-url), provider-specific locations (for example the keystone product-streams endpoints on Openstack), and streams.canonical.com — trying each location signed (.sjson) first, then unsigned, and using the first location that answers. Signed metadata is verified with the public keys Juju ships with.
-:alt: User calls juju bootstrap or juju deploy; the client tries the controller database, then the user-supplied metadata URL, then the provider locations, then streams.canonical.com, each attempted signed first then unsigned; the client verifies signatures with the shipped public keys and uses the first hit.
-```
 
 ## Image metadata contents
 

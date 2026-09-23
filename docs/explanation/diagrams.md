@@ -16,8 +16,10 @@ creation*) — activity titles (*Integrating applications*) stay in the
 how-tos; lifecycle sections group under an `<Entity> lifecycle`
 umbrella with event-named subsections (the `secret.md` precedent:
 *Secret lifecycle* → *Charm-secret lifecycle* / *User-secret
-lifecycle*). The umbrella is content-triggered — never an
-empty scaffold. Diagrams with no
+lifecycle). The umbrella is content-triggered — never an
+empty scaffold. Placement: a diagram (drawing + caption) sits at the
+TOP of its section, before the prose — a visual preview of the text
+it redundantly explains, the GitHub-README pattern. Diagrams with no
 home yet sit in **Other** at the bottom.
 
 Every entry shows as a **side-by-side pair**: the **synthesized**
