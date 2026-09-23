@@ -83,6 +83,10 @@ model "Juju" {
     app_status      [type: juju-software, label: "Application status\n(leader sets; else computed\nfrom unit statuses)"]
     machine_status  [type: juju-software, label: "Machine status\n(pending, started, stopping,\nstopped, down, error)"]
     relation_status [type: juju-software, label: "Relation status\n(joining, joined, broken,\nsuspending, suspended, error)"]
+    // The leader unit — application and relation status are
+    // leader-gated writes (domain/status/service/leaderservice.go);
+    // the leader is any unit of the application, not necessarily unit 0.
+    leader          [type: charm, label: "Leader unit"]
     // -----------------------------------------------------------------------
     // Storage model records (model DB — domain/schema/model sql/0011-storage.sql)
     // -----------------------------------------------------------------------
@@ -392,6 +396,21 @@ model "Juju" {
     unit_agent -> charm      [type: control, label: "executes hooks from"]
     charm      -> unit_agent [type: ipc,     label: "calls hook command on"]
     unit_agent -> apiserver  [type: api,     label: "flushes hook changes to"]
+
+    // Status domains (reference/status.md) — who sets what. Each of the
+    // five status domains has one owning writer. Relation status is
+    // leader-gated in 4.0 (the controller firewaller's SetRelationStatus
+    // is NotImplemented — cross-model relations are disabled).
+    unit_agent    -> uas_status      [type: control, label: "sets",
+                          ground: "internal/worker/uniter/agent.go:setAgentStatus"]
+    charm         -> workload_status [type: control, label: "sets (status-set)",
+                          ground: "internal/worker/uniter/runner/jujuc/status-set.go:NewStatusSetCommand"]
+    leader        -> app_status      [type: control, label: "sets (status-set)",
+                          ground: "domain/status/service/leaderservice.go:SetApplicationStatusForUnitLeader"]
+    leader        -> relation_status [type: control, label: "sets",
+                          ground: "domain/status/service/leaderservice.go:SetRelationStatus"]
+    machine_agent -> machine_status  [type: control, label: "sets",
+                          ground: "api/agent/provisioner/machine.go:SetStatus"]
 
     // Machine designations (docs/reference/machine.md — MachineScout
     // grounds): the host machine agent watches its containers
@@ -1579,16 +1598,29 @@ diagram "Tutorial: provision & deploy" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Status domains" from "Juju" {
   select {
-    nodes: charm unit_agent machine_agent controller uas_status workload_status app_status machine_status relation_status
+    nodes: charm unit_agent machine_agent controller leader uas_status workload_status app_status machine_status relation_status
     edges: type control type stream
     sizing: uniform
   }
   positions {
-    charm        left-of workload_status   gap: 30
-    workload_status above controller       gap: 60
-    controller   left-of machine_status    gap: 30
-    machine_agent right-of machine_status  gap: 30
-    unit_agent   left-of uas_status        gap: 30
+    controller    left-of machine_agent  gap: 140
+    controller    align-middle machine_agent
+    machine_agent left-of unit_agent     gap: 90
+    machine_agent align-middle unit_agent
+    unit_agent    left-of charm          gap: 90
+    unit_agent    align-middle charm
+    charm         left-of leader         gap: 90
+    charm         align-middle leader
+    machine_status  below machine_agent  gap: 60
+    machine_status  align-centre machine_agent
+    uas_status      below unit_agent     gap: 60
+    uas_status      align-centre unit_agent
+    workload_status below charm          gap: 60
+    workload_status align-centre charm
+    app_status      below leader         gap: 60
+    app_status      align-centre leader
+    relation_status below app_status     gap: 40
+    relation_status align-centre app_status
   }
 }
 
@@ -2124,7 +2156,7 @@ diagram "Tutorial: provision & deploy" from "Juju" {
 // --------------------------------------------------------------------------
 diagram "Status domains (synthesized)" from "Juju" {
   select {
-    nodes: charm unit_agent machine_agent controller uas_status workload_status app_status machine_status relation_status
+    nodes: charm unit_agent machine_agent controller leader uas_status workload_status app_status machine_status relation_status
     edges: type control type stream
     sizing: uniform
   }
