@@ -26,10 +26,11 @@ type MockState struct {
 
 // MockStateMockRecorder is the mock recorder for MockState.
 type MockStateMockRecorder struct {
-	mock                             *MockState
-	getPublicKeysForUserExpects      []*gomock.Call2_2[context.Context, user.Name, []ssh.PublicKey, error]
-	getSSHServerHostKeyExpects       []*gomock.Call1_2[context.Context, string, error]
-	getSSHServerHostPublicKeyExpects []*gomock.Call1_2[context.Context, []byte, error]
+	mock                                  *MockState
+	getPublicKeysForUserExpects           []*gomock.Call2_2[context.Context, user.Name, []ssh.PublicKey, error]
+	getSSHServerHostKeyExpects            []*gomock.Call1_2[context.Context, string, error]
+	getSSHServerHostPublicKeyExpects      []*gomock.Call1_2[context.Context, []byte, error]
+	matchesPublicKeyInModelForUserExpects []*gomock.Call4_2[context.Context, string, string, string, bool, error]
 }
 
 // NewMockState creates a new mock instance.
@@ -97,3 +98,21 @@ func (mr *MockStateMockRecorder) GetSSHServerHostPublicKey(arg0 any) *MockStateG
 
 // MockStateGetSSHServerHostPublicKeyCall is the typed call wrapper for GetSSHServerHostPublicKey.
 type MockStateGetSSHServerHostPublicKeyCall = gomock.Call1_2[context.Context, []byte, error]
+
+// MatchesPublicKeyInModelForUser mocks base method.
+func (m *MockState) MatchesPublicKeyInModelForUser(arg0 context.Context, arg1, arg2, arg3 string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4_2(&m.recorder.matchesPublicKeyInModelForUserExpects, m.ctrl, m, "MatchesPublicKeyInModelForUser", arg0, arg1, arg2, arg3)
+}
+
+// MatchesPublicKeyInModelForUser indicates an expected call of MatchesPublicKeyInModelForUser.
+func (mr *MockStateMockRecorder) MatchesPublicKeyInModelForUser(arg0, arg1, arg2, arg3 any) *MockStateMatchesPublicKeyInModelForUserCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall4_2[context.Context, string, string, string, bool, error](mr.mock.ctrl.T, mr.mock, "MatchesPublicKeyInModelForUser", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), gomock.EnsureMatcher(arg3))
+	mr.matchesPublicKeyInModelForUserExpects = append(mr.matchesPublicKeyInModelForUserExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateMatchesPublicKeyInModelForUserCall is the typed call wrapper for MatchesPublicKeyInModelForUser.
+type MockStateMatchesPublicKeyInModelForUserCall = gomock.Call4_2[context.Context, string, string, string, bool, error]

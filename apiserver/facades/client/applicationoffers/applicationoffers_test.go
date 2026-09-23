@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/controller"
+	domaincontroller "github.com/juju/juju/domain/controller"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
@@ -2033,7 +2033,7 @@ func (s *offerSuite) TestApplicationOfferURLAndFilterSource(c *tc.C) {
 func (s *offerSuite) TestGetConsumeDetails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerService.EXPECT().GetControllerInfo(gomock.Any()).Return(controller.ControllerInfo{
+	s.controllerService.EXPECT().GetControllerInfo(gomock.Any()).Return(domaincontroller.ControllerInfo{
 		UUID:         s.controllerUUID,
 		CACert:       "i am a ca cert",
 		APIAddresses: []string{"10.0.0.1:17070"},
@@ -2048,7 +2048,7 @@ func (s *offerSuite) TestGetConsumeDetails(c *tc.C) {
 func (s *offerSuite) TestGetConsumeDetailsUserIsModelAdmin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerService.EXPECT().GetControllerInfo(gomock.Any()).Return(controller.ControllerInfo{
+	s.controllerService.EXPECT().GetControllerInfo(gomock.Any()).Return(domaincontroller.ControllerInfo{
 		UUID:         s.controllerUUID,
 		CACert:       "i am a ca cert",
 		APIAddresses: []string{"10.0.0.1:17070"},
@@ -2117,10 +2117,85 @@ func (s *offerSuite) testGetConsumeDetails(c *tc.C, userID string) {
 	})
 }
 
+// TestGetConsumeDetailsWithPublicDNSAddress checks that a configured
+// public-dns-address is prepended to the controller addresses returned in
+// the consume details.
+func (s *offerSuite) TestGetConsumeDetailsWithPublicDNSAddress(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerService.EXPECT().GetControllerInfo(gomock.Any()).Return(domaincontroller.ControllerInfo{
+		UUID:             s.controllerUUID,
+		CACert:           "i am a ca cert",
+		APIAddresses:     []string{"10.0.0.1:17070"},
+		PublicDNSAddress: "my-ingress.example.com:17070",
+	}, nil)
+
+	adminTag := s.setupAuthUser(user.AdminUserName.Name())
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.AssignableToTypeOf(names.ControllerTag{})).Return(nil)
+
+	offerUUID := tc.Must(c, offer.NewUUID)
+
+	modelName := "test-model"
+	modelOwnerTag := names.NewUserTag("fred@external")
+	modelUUID := tc.Must0(c, model.NewUUID)
+
+	foundModel := model.Model{
+		Name:      modelName,
+		Qualifier: model.Qualifier(modelOwnerTag.Id()),
+		UUID:      modelUUID,
+	}
+	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
+
+	offerDetails := crossmodelrelation.ConsumeDetails{
+		OfferUUID: offerUUID.String(),
+		Endpoints: []crossmodelrelation.OfferEndpoint{
+			{Name: "endpoint"},
+		},
+	}
+	offerURL, _ := corecrossmodel.ParseOfferURL("fred@external/test-model.hosted-mysql")
+	s.crossModelRelationService.EXPECT().GetConsumeDetails(gomock.Any(), offerURL).Return(offerDetails, nil)
+
+	bakeryMacaroon := newBakeryMacaroon(c, "test")
+	macaroon := bakeryMacaroon.M()
+	s.crossModelAuthContext.EXPECT().CreateConsumeOfferMacaroon(gomock.Any(), modelUUID, offerUUID.String(), adminTag.Id(), bakery.Version(0)).Return(bakeryMacaroon, nil)
+
+	offerAPI := s.offerAPI(c)
+
+	details, err := offerAPI.GetConsumeDetails(c.Context(), params.ConsumeOfferDetailsArg{
+		OfferURLs: params.OfferURLs{
+			OfferURLs: []string{"fred@external/test-model.hosted-mysql"},
+		},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(details, tc.DeepEquals, params.ConsumeOfferDetailsResults{
+		Results: []params.ConsumeOfferDetailsResult{{
+			ConsumeOfferDetails: params.ConsumeOfferDetails{
+				ControllerInfo: &params.ExternalControllerInfo{
+					ControllerTag: names.NewControllerTag(s.controllerUUID).String(),
+					Addrs: []string{
+						"my-ingress.example.com:17070",
+						"10.0.0.1:17070",
+					},
+					CACert: "i am a ca cert",
+				},
+				Offer: &params.ApplicationOfferDetailsV5{
+					SourceModelTag: names.NewModelTag(modelUUID.String()).String(),
+					OfferURL:       offerURL.String(),
+					OfferUUID:      offerUUID.String(),
+					OfferName:      "hosted-mysql",
+					Endpoints:      []params.RemoteEndpoint{{Name: "endpoint"}},
+				},
+				Macaroon: macaroon,
+			},
+		}},
+	})
+}
+
 func (s *offerSuite) TestGetConsumeDetailsUser(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerService.EXPECT().GetControllerInfo(gomock.Any()).Return(controller.ControllerInfo{
+	s.controllerService.EXPECT().GetControllerInfo(gomock.Any()).Return(domaincontroller.ControllerInfo{
 		UUID:         s.controllerUUID,
 		CACert:       "i am a ca cert",
 		APIAddresses: []string{"10.0.0.1:17070"},
@@ -2224,7 +2299,7 @@ func (s *offerSuite) TestGetConsumeDetailsUserInvalidTag(c *tc.C) {
 func (s *offerSuite) TestGetConsumeDetailsNoOffers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerService.EXPECT().GetControllerInfo(gomock.Any()).Return(controller.ControllerInfo{
+	s.controllerService.EXPECT().GetControllerInfo(gomock.Any()).Return(domaincontroller.ControllerInfo{
 		UUID:         s.controllerUUID,
 		CACert:       "i am a ca cert",
 		APIAddresses: []string{"10.0.0.1:17070"},
@@ -2268,7 +2343,7 @@ func (s *offerSuite) TestGetConsumeDetailsNoOffers(c *tc.C) {
 func (s *offerSuite) TestGetConsumeDetailsInvalidOfferURLEndpoint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerService.EXPECT().GetControllerInfo(gomock.Any()).Return(controller.ControllerInfo{
+	s.controllerService.EXPECT().GetControllerInfo(gomock.Any()).Return(domaincontroller.ControllerInfo{
 		UUID:         s.controllerUUID,
 		CACert:       "i am a ca cert",
 		APIAddresses: []string{"10.0.0.1:17070"},
@@ -2297,7 +2372,7 @@ func (s *offerSuite) TestGetConsumeDetailsInvalidOfferURLEndpoint(c *tc.C) {
 func (s *offerSuite) TestGetConsumeDetailsInvalidOfferURLSource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerService.EXPECT().GetControllerInfo(gomock.Any()).Return(controller.ControllerInfo{
+	s.controllerService.EXPECT().GetControllerInfo(gomock.Any()).Return(domaincontroller.ControllerInfo{
 		UUID:         s.controllerUUID,
 		CACert:       "i am a ca cert",
 		APIAddresses: []string{"10.0.0.1:17070"},

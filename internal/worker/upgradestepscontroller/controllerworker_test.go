@@ -64,11 +64,32 @@ func (s *controllerWorkerSuite) TestInvalidState(c *tc.C) {
 	// Walk through the upgrade process:
 	// - Check if the upgrade if the state is valid
 
+	s.expectAnyClock(make(chan time.Time))
+	s.expectActiveUpgrade()
+
+	chCompleted := make(chan struct{})
+	chFailed := make(chan struct{})
+
+	completedWatcher := watchertest.NewMockNotifyWatcher(chCompleted)
+	defer workertest.DirtyKill(c, completedWatcher)
+
+	failedWatcher := watchertest.NewMockNotifyWatcher(chFailed)
+	defer workertest.DirtyKill(c, failedWatcher)
+
+	srv := s.upgradeService.EXPECT()
+	// Watchers are now subscribed before UpgradeInfo (readiness barriers).
+	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.StepsCompleted).Return(completedWatcher, nil)
+	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
+
 	s.expectUpgradeInfo(c, upgrade.Error)
 	done := s.expectAbort(c)
 
 	w := s.newWorker(c, nil)
 	defer workertest.DirtyKill(c, w)
+
+	// Dispatch the initial events for both watchers (consumed by addWatcher).
+	s.dispatchChange(c, chCompleted)
+	s.dispatchChange(c, chFailed)
 
 	select {
 	case <-done:
@@ -83,16 +104,14 @@ func (s *controllerWorkerSuite) TestWatchingFailures(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Walk through the upgrade process:
-	// - Check if the upgrade is already done
-	// - Register the watchers
+	// - Check if the upgrade is active
+	// - Subscribe to completed and failed watchers (readiness barriers)
+	// - Read upgrade info (state check)
 	// - Create an upgrade steps worker
 	// - Watch for any other nodes to fail to complete
 
 	s.expectAnyClock(make(chan time.Time))
-	s.expectUpgradeInfo(c, upgrade.DBCompleted)
-	done := s.expectAbort(c)
-
-	s.expectRunUpdates(c)
+	s.expectActiveUpgrade()
 
 	chCompleted := make(chan struct{})
 	chFailed := make(chan struct{})
@@ -107,6 +126,11 @@ func (s *controllerWorkerSuite) TestWatchingFailures(c *tc.C) {
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.StepsCompleted).Return(completedWatcher, nil)
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
 
+	s.expectUpgradeInfo(c, upgrade.DBCompleted)
+	done := s.expectAbort(c)
+
+	s.expectRunUpdates(c)
+
 	sync := make(chan struct{})
 
 	srv.SetControllerDone(gomock.Any(), s.upgradeUUID, "0").DoAndReturn(func(ctx context.Context, uuid domainupgrade.UUID, tag string) error {
@@ -117,7 +141,7 @@ func (s *controllerWorkerSuite) TestWatchingFailures(c *tc.C) {
 	w := s.newWorker(c, nil)
 	defer workertest.DirtyKill(c, w)
 
-	// Dispatch the initial event.
+	// Dispatch the initial events for both watchers (consumed by addWatcher).
 	s.dispatchChange(c, chCompleted)
 	s.dispatchChange(c, chFailed)
 
@@ -137,20 +161,81 @@ func (s *controllerWorkerSuite) TestWatchingFailures(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
+// TestChangeDuringStartupFailure verifies that an Error transition arriving
+// during the subscription window is not lost. The failure event is pre-seeded
+// on a buffered channel alongside the initial event. The worker consumes the
+// initial event as a readiness barrier, reads UpgradeInfo, starts the steps
+// worker, then processes the Error event in the main loop, causing an abort.
+// This exercises the race between watcher construction, subscription, and
+// the initial query (rule 6).
+func (s *controllerWorkerSuite) TestChangeDuringStartupFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyClock(make(chan time.Time))
+	s.expectActiveUpgrade()
+
+	// Pre-seed the failed watcher channel with the initial event AND the
+	// Error change event on a buffered channel. The initial event is
+	// consumed by addWatcher (readiness barrier); the Error event is
+	// processed in the main loop after the steps worker is started.
+	chFailed := make(chan struct{}, 2)
+	chFailed <- struct{}{}
+	chFailed <- struct{}{}
+	failedWatcher := watchertest.NewMockNotifyWatcher(chFailed)
+	defer workertest.DirtyKill(c, failedWatcher)
+
+	chCompleted := make(chan struct{})
+	completedWatcher := watchertest.NewMockNotifyWatcher(chCompleted)
+	defer workertest.DirtyKill(c, completedWatcher)
+
+	srv := s.upgradeService.EXPECT()
+	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.StepsCompleted).Return(completedWatcher, nil)
+	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
+
+	s.expectUpgradeInfo(c, upgrade.DBCompleted)
+	done := s.expectAbort(c)
+
+	// SetControllerDone races with the pre-seeded Error event on
+	// chFailed. If the steps worker completes first, the main loop
+	// calls SetControllerDone → continues → then processes the
+	// Error event and aborts. The mock must allow both orderings.
+	s.upgradeService.EXPECT().SetControllerDone(gomock.Any(), s.upgradeUUID, "0").Return(nil).AnyTimes()
+
+	s.expectRunUpdates(c)
+
+	w := s.newWorker(c, func(base *upgradesteps.BaseWorker) {
+		base.PreUpgradeSteps = func(_ agent.Config) error {
+			return nil
+		}
+	})
+	defer workertest.DirtyKill(c, w)
+
+	// Dispatch the completed watcher initial event (readiness barrier).
+	// The failed watcher initial event and the Error event are already
+	// pre-seeded on the buffered channel.
+	s.dispatchChange(c, chCompleted)
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting abort")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
 func (s *controllerWorkerSuite) TestWatchingCompleted(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Walk through the upgrade process:
-	// - Check if the upgrade is already done
-	// - Register the watchers
+	// - Check if the upgrade is active
+	// - Subscribe to completed and failed watchers (readiness barriers)
+	// - Read upgrade info (state check)
 	// - Create an upgrade steps worker
 	// - Watch for all other nodes to complete
 
 	s.expectAnyClock(make(chan time.Time))
-	s.expectUpgradeInfo(c, upgrade.DBCompleted)
-	done := s.expectComplete(c)
-
-	s.expectRunUpdates(c)
+	s.expectActiveUpgrade()
 
 	chCompleted := make(chan struct{})
 	chFailed := make(chan struct{})
@@ -165,6 +250,11 @@ func (s *controllerWorkerSuite) TestWatchingCompleted(c *tc.C) {
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.StepsCompleted).Return(completedWatcher, nil)
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
 
+	s.expectUpgradeInfo(c, upgrade.DBCompleted)
+	done := s.expectComplete(c)
+
+	s.expectRunUpdates(c)
+
 	sync := make(chan struct{})
 
 	srv.SetControllerDone(gomock.Any(), s.upgradeUUID, "0").DoAndReturn(func(ctx context.Context, uuid domainupgrade.UUID, tag string) error {
@@ -175,7 +265,7 @@ func (s *controllerWorkerSuite) TestWatchingCompleted(c *tc.C) {
 	w := s.newWorker(c, nil)
 	defer workertest.DirtyKill(c, w)
 
-	// Dispatch the initial event.
+	// Dispatch the initial events for both watchers (consumed by addWatcher).
 	s.dispatchChange(c, chCompleted)
 	s.dispatchChange(c, chFailed)
 
@@ -199,16 +289,14 @@ func (s *controllerWorkerSuite) TestUpgradeFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Walk through the upgrade process:
-	// - Check if the upgrade is already done
-	// - Register the watchers
+	// - Check if the upgrade is active
+	// - Subscribe to completed and failed watchers (readiness barriers)
+	// - Read upgrade info (state check)
 	// - Create an upgrade steps worker
 	// - Upgrades failed with generic error. This causes the worker to abort.
 
 	s.expectAnyClock(make(chan time.Time))
-	s.expectUpgradeInfo(c, upgrade.DBCompleted)
-	done := s.expectAbort(c)
-
-	s.expectRunUpdates(c)
+	s.expectActiveUpgrade()
 
 	chCompleted := make(chan struct{})
 	chFailed := make(chan struct{})
@@ -223,6 +311,11 @@ func (s *controllerWorkerSuite) TestUpgradeFailure(c *tc.C) {
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.StepsCompleted).Return(completedWatcher, nil)
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
 
+	s.expectUpgradeInfo(c, upgrade.DBCompleted)
+	done := s.expectAbort(c)
+
+	s.expectRunUpdates(c)
+
 	w := s.newWorker(c, func(base *upgradesteps.BaseWorker) {
 		base.PreUpgradeSteps = func(_ agent.Config) error {
 			return errors.New("boom")
@@ -230,7 +323,7 @@ func (s *controllerWorkerSuite) TestUpgradeFailure(c *tc.C) {
 	})
 	defer workertest.DirtyKill(c, w)
 
-	// Dispatch the initial event.
+	// Dispatch the initial events for both watchers (consumed by addWatcher).
 	s.dispatchChange(c, chCompleted)
 	s.dispatchChange(c, chFailed)
 
@@ -247,14 +340,14 @@ func (s *controllerWorkerSuite) TestUpgradeFailureWithAPILostError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Walk through the upgrade process:
-	// - Check if the upgrade is already done
-	// - Register the watchers
+	// - Check if the upgrade is active
+	// - Subscribe to completed and failed watchers (readiness barriers)
+	// - Read upgrade info (state check)
 	// - Create an upgrade steps worker
 	// - Upgrades failed with api lost error. This causes the worker to restart.
 
 	s.expectAnyClock(make(chan time.Time))
-	s.expectUpgradeInfo(c, upgrade.DBCompleted)
-	s.expectRunUpdates(c)
+	s.expectActiveUpgrade()
 
 	chCompleted := make(chan struct{})
 	chFailed := make(chan struct{})
@@ -269,6 +362,9 @@ func (s *controllerWorkerSuite) TestUpgradeFailureWithAPILostError(c *tc.C) {
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.StepsCompleted).Return(completedWatcher, nil)
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
 
+	s.expectUpgradeInfo(c, upgrade.DBCompleted)
+	s.expectRunUpdates(c)
+
 	w := s.newWorker(c, func(base *upgradesteps.BaseWorker) {
 		base.PreUpgradeSteps = func(_ agent.Config) error {
 			return upgradesteps.NewAPILostDuringUpgrade(errors.New("boom"))
@@ -276,7 +372,7 @@ func (s *controllerWorkerSuite) TestUpgradeFailureWithAPILostError(c *tc.C) {
 	})
 	defer workertest.DirtyKill(c, w)
 
-	// Dispatch the initial event.
+	// Dispatch the initial events for both watchers (consumed by addWatcher).
 	s.dispatchChange(c, chCompleted)
 	s.dispatchChange(c, chFailed)
 
@@ -302,18 +398,16 @@ func (s *controllerWorkerSuite) TestUpgradeStepsComplete(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Walk through the upgrade process:
-	// - Check if the upgrade is already done
-	// - Register the watchers
+	// - Check if the upgrade is active
+	// - Subscribe to completed and failed watchers (readiness barriers)
+	// - Read upgrade info (state check)
 	// - Create an upgrade steps worker
 	// - Upgrades performed.
 	// - Upgrade steps worker completes.
 	// - Dispatch the completed event.
 
 	s.expectAnyClock(make(chan time.Time))
-	s.expectUpgradeInfo(c, upgrade.DBCompleted)
-	done := s.expectComplete(c)
-
-	s.expectRunUpdates(c)
+	s.expectActiveUpgrade()
 
 	chCompleted := make(chan struct{})
 	chFailed := make(chan struct{})
@@ -329,6 +423,12 @@ func (s *controllerWorkerSuite) TestUpgradeStepsComplete(c *tc.C) {
 	srv := s.upgradeService.EXPECT()
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.StepsCompleted).Return(completedWatcher, nil)
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
+
+	s.expectUpgradeInfo(c, upgrade.DBCompleted)
+	done := s.expectComplete(c)
+
+	s.expectRunUpdates(c)
+
 	srv.SetControllerDone(gomock.Any(), s.upgradeUUID, "0").DoAndReturn(func(ctx context.Context, uuid domainupgrade.UUID, tag string) error {
 		defer close(sync)
 		return nil
@@ -337,7 +437,7 @@ func (s *controllerWorkerSuite) TestUpgradeStepsComplete(c *tc.C) {
 	w := s.newWorker(c, nil)
 	defer workertest.DirtyKill(c, w)
 
-	// Dispatch the initial event.
+	// Dispatch the initial events for both watchers (consumed by addWatcher).
 	s.dispatchChange(c, chCompleted)
 	s.dispatchChange(c, chFailed)
 
@@ -361,16 +461,15 @@ func (s *controllerWorkerSuite) TestUpgradeFailsWhenKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Walk through the upgrade process:
-	// - Check if the upgrade is already done
-	// - Check if the active and upgrade info is available
-	// - Register the watchers
-	// - Send initial events
+	// - Check if the upgrade is active
+	// - Subscribe to completed and failed watchers (readiness barriers)
+	// - Read upgrade info (state check)
+	// - Create an upgrade steps worker
 	// - When running the upgrade steps, kill the worker
 	// - Expect the upgrade to be marked as failed
 
 	s.expectAnyClock(make(chan time.Time))
-	s.expectUpgradeInfo(c, upgrade.DBCompleted)
-	s.expectRunUpdates(c)
+	s.expectActiveUpgrade()
 
 	chCompleted := make(chan struct{})
 	chFailed := make(chan struct{})
@@ -386,8 +485,12 @@ func (s *controllerWorkerSuite) TestUpgradeFailsWhenKilled(c *tc.C) {
 	releaseSteps := make(chan struct{})
 
 	srv := s.upgradeService.EXPECT()
+	// Watchers are subscribed before UpgradeInfo (readiness barriers).
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.StepsCompleted).Return(completedWatcher, nil)
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
+
+	s.expectUpgradeInfo(c, upgrade.DBCompleted)
+	s.expectRunUpdates(c)
 
 	srv.SetDBUpgradeFailed(gomock.Any(), s.upgradeUUID).DoAndReturn(func(context.Context, domainupgrade.UUID) error {
 		defer close(done)
@@ -407,7 +510,7 @@ func (s *controllerWorkerSuite) TestUpgradeFailsWhenKilled(c *tc.C) {
 	})
 	defer workertest.DirtyKill(c, w)
 
-	// Dispatch the initial event.
+	// Dispatch the initial events for both watchers (consumed by addWatcher).
 	s.dispatchChange(c, chCompleted)
 	s.dispatchChange(c, chFailed)
 
@@ -455,9 +558,12 @@ func (s *controllerWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *controllerWorkerSuite) expectUpgradeInfo(c *tc.C, state upgrade.State) {
+func (s *controllerWorkerSuite) expectActiveUpgrade() {
 	s.lock.EXPECT().IsUnlocked().Return(false)
 	s.upgradeService.EXPECT().ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
+}
+
+func (s *controllerWorkerSuite) expectUpgradeInfo(c *tc.C, state upgrade.State) {
 	s.upgradeService.EXPECT().UpgradeInfo(gomock.Any(), s.upgradeUUID).Return(upgrade.Info{
 		State: state,
 	}, nil)

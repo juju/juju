@@ -132,27 +132,16 @@ func (w *controllerWorker) run() error {
 	defer cancel()
 
 	// Locate the active upgrade. As the prior worker was the upgrade database
-	// worker, this should have left us in a active upgrade state.
+	// worker, this should have left us in an active upgrade state.
 	upgradeUUID, err := w.upgradeService.ActiveUpgrade(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Verify the active upgrade information is at the correct state.
-	info, err := w.upgradeService.UpgradeInfo(ctx, upgradeUUID)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// We're not in the right state, so we can't proceed.
-	if info.State != upgrade.DBCompleted {
-		w.logger.Errorf(ctx, "upgrade %q is not in the db completed state %q", upgradeUUID, info.State.String())
-		return w.abort(ctx, upgradeUUID, upgradesteps.ErrUpgradeStepsInvalidState)
-	}
-
-	// Watch for all the upgrade steps to be completed by all the controllers.
-	// Only when all the controllers have completed their upgrade steps can
-	// we proceed.
+	// Subscribe to both state watchers first. The initial event from each
+	// watcher serves as the readiness barrier — the subscription is active
+	// after we receive and consume it. Any state transition after this
+	// point will be caught by the watcher.
 	completedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, upgradeUUID, upgrade.StepsCompleted)
 	if err != nil {
 		return errors.Trace(err)
@@ -169,6 +158,20 @@ func (w *controllerWorker) run() error {
 
 	if err := w.addWatcher(ctx, failedWatcher); err != nil {
 		return errors.Trace(err)
+	}
+
+	// Now that both watchers are subscribed (readiness barriers passed),
+	// read the current upgrade state. Any transition to StepsCompleted or
+	// Error after this point will be caught by the watchers above.
+	info, err := w.upgradeService.UpgradeInfo(ctx, upgradeUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// We're not in the right state, so we can't proceed.
+	if info.State != upgrade.DBCompleted {
+		w.logger.Errorf(ctx, "upgrade %q is not in the db completed state %q", upgradeUUID, info.State.String())
+		return w.abort(ctx, upgradeUUID, upgradesteps.ErrUpgradeStepsInvalidState)
 	}
 
 	// Kick off the upgrade steps for the controller in a new managed context.

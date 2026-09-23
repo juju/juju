@@ -96,6 +96,36 @@ func (s *k8sServiceImportSuite) TestCreateK8sServices(c *tc.C) {
 		}})
 }
 
+func (s *k8sServiceImportSuite) TestCreateK8sServicesDuplicateApplication(c *tc.C) {
+	charmUUID := s.addCharm(c)
+	spaceUUID := s.addSpace(c)
+	s.addApplicationWithName(c, charmUUID, spaceUUID, "app")
+	args := []internal.ImportK8sService{
+		{
+			UUID:            "service-uuid-1",
+			NetNodeUUID:     "net-node-uuid-1",
+			ApplicationName: "app",
+			ProviderID:      "provider-id-1",
+		},
+		{
+			UUID:            "service-uuid-2",
+			NetNodeUUID:     "net-node-uuid-2",
+			ApplicationName: "app",
+			ProviderID:      "provider-id-2",
+		},
+	}
+
+	err := s.state.CreateK8sServices(c.Context(), args)
+	c.Check(err, tc.ErrorMatches, `inserting services: .*UNIQUE constraint failed: k8s_service.application_uuid.*`)
+
+	// Reject the entire batch, including the first Service and both net nodes.
+	var count int
+	err = s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM k8s_service AS ks").Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+	c.Check(s.fetchNetNodeUUIDs(c), tc.HasLen, 0)
+}
+
 func (s *k8sServiceImportSuite) fetchNetNodeUUIDs(c *tc.C) []string {
 	var nodes []string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

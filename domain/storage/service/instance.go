@@ -94,11 +94,13 @@ func (s *Service) GetStorageInstanceInfo(
 			internalAttachment.Filesystem != nil {
 			attachment.Location = internalAttachment.Filesystem.MountPoint
 		} else if retVal.Kind == domainstorage.StorageKindBlock &&
-			// If the storage kind is Block and we have device links from the
-			// volume set the location based off of the device link.
+			// If the storage kind is Block and we have a volume set the
+			// location based off of the block device attachment location.
 			internalAttachment.Volume != nil {
-			loc := domainblockdevice.IDLink(internalAttachment.Volume.DeviceNameLinks)
-			attachment.Location = loc
+			attachment.Location = domainblockdevice.AttachmentLocation(
+				internalAttachment.Volume.DeviceNameLinks,
+				internalAttachment.Volume.DeviceName,
+			)
 		}
 
 		retVal.UnitAttachments = append(retVal.UnitAttachments, attachment)

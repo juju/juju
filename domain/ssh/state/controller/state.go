@@ -110,7 +110,9 @@ func (st *State) GetPublicKeysForUser(ctx context.Context, username user.Name) (
 
 	arg := userName{Name: username.Name()}
 	stmt, err := st.Prepare(`
-SELECT &userPublicSSHKey.public_key
+SELECT &userPublicSSHKey.comment,
+       &userPublicSSHKey.fingerprint,
+       &userPublicSSHKey.public_key
 FROM user_public_ssh_key AS userPublicSSHKey
 JOIN v_user_auth AS userAuth ON userPublicSSHKey.user_uuid = userAuth.uuid
 WHERE userAuth.name = $userName.name
@@ -134,9 +136,58 @@ WHERE userAuth.name = $userName.name
 
 	keys := make([]coressh.PublicKey, 0, len(rows))
 	for _, row := range rows {
-		keys = append(keys, coressh.PublicKey{Key: row.PublicKey})
+		keys = append(keys, coressh.PublicKey{
+			Comment:     row.Comment,
+			Fingerprint: row.Fingerprint,
+			Key:         row.PublicKey,
+		})
 	}
 	return keys, nil
+}
+
+// MatchesPublicKeyInModelForUser reports whether the supplied fingerprint
+// belongs to a public key the named user is authorized to use in the model.
+func (st *State) MatchesPublicKeyInModelForUser(ctx context.Context, modelUUID, username, fingerprint string) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	userArg := entityName{Name: username}
+	modelArg := modelUUIDValue{UUID: modelUUID}
+	fingerprintArg := publicKeyFingerprint{Fingerprint: fingerprint}
+	keyStmt, err := st.Prepare(`
+SELECT upsk.fingerprint AS &matchedPublicKeyFingerprint.fingerprint
+FROM user_public_ssh_key AS upsk
+JOIN user AS u ON upsk.user_uuid = u.uuid
+JOIN model_authorized_keys AS mak
+  ON mak.user_public_ssh_key_id = upsk.id
+JOIN model AS m ON mak.model_uuid = m.uuid
+WHERE u.name = $entityName.name
+  AND u.removed = FALSE
+  AND m.uuid = $modelUUIDValue.uuid
+  AND upsk.fingerprint = $publicKeyFingerprint.fingerprint`, matchedPublicKeyFingerprint{}, userArg, modelArg, fingerprintArg)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	found := false
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		row := matchedPublicKeyFingerprint{}
+		err := tx.Query(ctx, keyStmt, userArg, modelArg, fingerprintArg).Get(&row)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf("checking public SSH key for user %q: %w", username, err)
+		}
+		found = true
+		return nil
+	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	return found, nil
 }
 
 type controllerSSHHostKey struct {
@@ -155,5 +206,23 @@ type userName struct {
 }
 
 type userPublicSSHKey struct {
-	PublicKey string `db:"public_key"`
+	Comment     string `db:"comment"`
+	Fingerprint string `db:"fingerprint"`
+	PublicKey   string `db:"public_key"`
+}
+
+type entityName struct {
+	Name string `db:"name"`
+}
+
+type modelUUIDValue struct {
+	UUID string `db:"uuid"`
+}
+
+type publicKeyFingerprint struct {
+	Fingerprint string `db:"fingerprint"`
+}
+
+type matchedPublicKeyFingerprint struct {
+	Fingerprint string `db:"fingerprint"`
 }

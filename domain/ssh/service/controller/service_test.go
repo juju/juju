@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 	gossh "golang.org/x/crypto/ssh"
 
+	coremodel "github.com/juju/juju/core/model"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
 	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
@@ -83,6 +84,34 @@ func (s *serviceSuite) TestGetPublicKeysForUser(c *tc.C) {
 	got, err := controllersshservice.NewService(controllerState).GetPublicKeysForUser(c.Context(), username)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, keys)
+}
+
+func (s *serviceSuite) TestPublicKeyInModel(c *tc.C) {
+	signer, err := gossh.ParsePrivateKey([]byte(testPrivateKey))
+	c.Assert(err, tc.ErrorIsNil)
+	username, err := user.NewName("alice")
+	c.Assert(err, tc.ErrorIsNil)
+	modelUUID := coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee")
+	controllerState := NewMockState(gomock.NewController(c))
+	controllerState.EXPECT().MatchesPublicKeyInModelForUser(gomock.Any(), modelUUID.String(), username.Name(), gossh.FingerprintSHA256(signer.PublicKey())).Return(true, nil)
+
+	found, err := controllersshservice.NewService(controllerState).PublicKeyInModel(c.Context(), modelUUID, username, signer.PublicKey())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(found, tc.IsTrue)
+}
+
+func (s *serviceSuite) TestPublicKeyInModelRejectsNonMatchingFingerprint(c *tc.C) {
+	signer, err := gossh.ParsePrivateKey([]byte(testPrivateKey))
+	c.Assert(err, tc.ErrorIsNil)
+	username, err := user.NewName("alice")
+	c.Assert(err, tc.ErrorIsNil)
+	modelUUID := coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee")
+	controllerState := NewMockState(gomock.NewController(c))
+	controllerState.EXPECT().MatchesPublicKeyInModelForUser(gomock.Any(), modelUUID.String(), username.Name(), gossh.FingerprintSHA256(signer.PublicKey())).Return(false, nil)
+
+	found, err := controllersshservice.NewService(controllerState).PublicKeyInModel(c.Context(), modelUUID, username, signer.PublicKey())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(found, tc.IsFalse)
 }
 
 const testPrivateKey = "-----BEGIN OPENSSH PRIVATE KEY-----\n" +

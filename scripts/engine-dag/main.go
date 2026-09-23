@@ -221,7 +221,7 @@ func getManifolds(useModel bool, modelType string, agent string) dependency.Mani
 			PreUpgradeSteps: preUpgradeSteps,
 		})
 	case "caas":
-		return machine.CAASManifolds(machine.ManifoldsConfig{
+		return machine.K8sManifolds(machine.ManifoldsConfig{
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		})

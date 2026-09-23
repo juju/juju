@@ -8,11 +8,25 @@ import (
 
 	jujuerrors "github.com/juju/errors"
 
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
 const controllerCharmURL = "juju-controller"
+
+// PopulateControllerCharm uses the local controller charm, falling back to
+// Charmhub if it is absent, and ensures the controller application is set up.
+func PopulateControllerCharm(ctx context.Context, deployer ControllerCharmDeployer) error {
+	deployInfo, err := populateControllerCharm(ctx, deployer)
+	if err != nil {
+		return errors.Errorf("populating controller charm: %w", err)
+	}
+
+	if err := deployer.EnsureControllerApplication(ctx, deployInfo); err != nil {
+		return errors.Errorf("ensuring controller application: %w", err)
+	}
+
+	return nil
+}
 
 func populateControllerCharm(ctx context.Context, deployer ControllerCharmDeployer) (DeployCharmInfo, error) {
 	arch := deployer.ControllerCharmArch()
@@ -39,55 +53,4 @@ func populateControllerCharm(ctx context.Context, deployer ControllerCharmDeploy
 	}
 
 	return deployInfo, nil
-}
-
-// PopulateIAASControllerCharm is the function that is used to populate the
-// controller charm.
-// When deploying a local charm, it is expected that the charm is located
-// in a certain location. If the charm is not located there, we'll get an
-// error indicating that the charm is not found.
-// If the errors is not found locally, we'll try to download it from
-// charm hub.
-// Once the charm is added, set up the controller application.
-func PopulateIAASControllerCharm(ctx context.Context, deployer ControllerCharmDeployer) error {
-	deployInfo, err := populateControllerCharm(ctx, deployer)
-	if err != nil {
-		return errors.Errorf("populating controller charm: %w", err)
-	}
-
-	// Once the charm is added, set up the controller application.
-	err = deployer.AddIAASControllerApplication(ctx, deployInfo)
-	if err != nil && !errors.Is(err, applicationerrors.ApplicationAlreadyExists) {
-		return errors.Errorf("adding controller application: %w", err)
-	}
-
-	return nil
-}
-
-// PopulateCAASControllerCharm is the function that is used to populate the
-// controller charm.
-// When deploying a local charm, it is expected that the charm is located
-// in a certain location. If the charm is not located there, we'll get an
-// error indicating that the charm is not found.
-// If the errors is not found locally, we'll try to download it from
-// charm hub.
-// Once the charm is added, set up the controller application.
-func PopulateCAASControllerCharm(ctx context.Context, deployer ControllerCharmDeployer) error {
-	deployInfo, err := populateControllerCharm(ctx, deployer)
-	if err != nil {
-		return errors.Errorf("populating controller charm: %w", err)
-	}
-
-	// Once the charm is added, set up the controller application.
-	err = deployer.AddCAASControllerApplication(ctx, deployInfo)
-	if err != nil && !errors.Is(err, applicationerrors.ApplicationAlreadyExists) {
-		return errors.Errorf("adding controller application: %w", err)
-	}
-
-	// Finally, complete the CAAS process.
-	if err := deployer.CompleteCAASProcess(ctx); err != nil {
-		return errors.Errorf("completing process: %w", err)
-	}
-
-	return nil
 }
