@@ -72,7 +72,7 @@ See more: {ref}`list-of-hooks`
 ```
 
 (hook-execution-guarantees)=
-## Hook execution guarantees
+### Hook execution guarantees
 
 The cycle above runs under four invariants. The charm has no in-process memory of previous runs: everything it needs arrives via
 hook commands, on demand, from the controller database:
