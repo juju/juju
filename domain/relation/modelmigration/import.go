@@ -197,6 +197,19 @@ func (i *importOperation) createRemoteImportArg(
 		return relation.ImportRelationArg{}, err
 	}
 
+	// Resolve the relation UUID from the remote entities using the original
+	// relation key, as exported by the source model. The remote entities are
+	// keyed by that original key, which may reference remote application names
+	// that have been de-duplicated. Resolving the token before the key is
+	// re-written below ensures that this relation is imported with its own
+	// token, rather than generating a new one, or resolving to the token of a
+	// different relation that shares the re-written key. If no remote entity
+	// matches, findRelationUUID falls back to generating a fresh UUID.
+	relationUUID, err := findRelationUUID(key, remoteEntities)
+	if err != nil {
+		return relation.ImportRelationArg{}, errors.Errorf("finding relation UUID for relation with key %q: %w", key, err)
+	}
+
 	// Re-write the relation key to use the remote application names, which are
 	// unique across the model, instead of the original application names, which
 	// may not be unique if there are multiple remote applications with the same
@@ -213,11 +226,6 @@ func (i *importOperation) createRemoteImportArg(
 				break
 			}
 		}
-	}
-
-	relationUUID, err := findRelationUUID(key, remoteEntities)
-	if err != nil {
-		return relation.ImportRelationArg{}, errors.Errorf("finding relation UUID for relation with key %q: %w", key, err)
 	}
 
 	arg := relation.ImportRelationArg{
@@ -238,10 +246,16 @@ func (i *importOperation) createRemoteImportArg(
 		// application names, which may not be unique if there are multiple
 		// remote applications with the same offer UUID that have been
 		// de-duplicated.
+		unitSettings := v.AllSettings()
 		if applicationName != primaryApplicationName {
 			for _, remoteApp := range remoteApps.Duplicates {
-				if v.ApplicationName() == remoteApp.Name() {
+				if applicationName == remoteApp.Name() {
 					applicationName = primaryApplicationName
+					// The unit settings are keyed by unit name, which embeds
+					// the application name. Re-key the settings so that they
+					// continue to address the units of the renamed endpoint.
+					unitSettings = renameUnitSettings(
+						unitSettings, remoteApp.Name(), primaryApplicationName)
 					break
 				}
 			}
@@ -251,11 +265,34 @@ func (i *importOperation) createRemoteImportArg(
 			ApplicationName:     applicationName,
 			EndpointName:        v.Name(),
 			ApplicationSettings: v.ApplicationSettings(),
-			UnitSettings:        v.AllSettings(),
+			UnitSettings:        unitSettings,
 		})
 	}
 
 	return arg, nil
+}
+
+// renameUnitSettings re-keys the unit settings so that unit names belonging to
+// the old application name are addressed to the new application name. Unit
+// settings are keyed by unit name, in the form
+// "<application name>/<unit number>". When a remote application alias is
+// renamed during import, its unit settings must follow the rename, otherwise
+// they are left keyed under a unit name that no longer matches the imported
+// endpoint's application name. The re-keyed unit names must match the
+// synthetic units that the crossmodelrelation domain import creates for the
+// renamed remote application.
+func renameUnitSettings(
+	settings map[string]map[string]any,
+	oldApplicationName, newApplicationName string,
+) map[string]map[string]any {
+	out := make(map[string]map[string]any, len(settings))
+	for unitName, unitSettings := range settings {
+		if appName, number, ok := strings.Cut(unitName, "/"); ok && appName == oldApplicationName {
+			unitName = newApplicationName + "/" + number
+		}
+		out[unitName] = unitSettings
+	}
+	return out
 }
 
 func getRemoteRelation(rel description.Relation, remoteApps map[string]domainmodelmigration.RemoteApplicationOfferer) (domainmodelmigration.RemoteApplicationOfferer, bool) {
