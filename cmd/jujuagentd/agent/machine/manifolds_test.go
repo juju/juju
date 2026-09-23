@@ -4,8 +4,14 @@
 package machine_test
 
 import (
+	"io/fs"
+	"os"
+	"path/filepath"
+	"reflect"
+	"runtime"
 	"slices"
 	"sort"
+	"strings"
 	stdtesting "testing"
 
 	"github.com/juju/collections/set"
@@ -301,6 +307,98 @@ func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *tc.C) {
 	// Check that when the api-caller maps non-recoverable errors to ErrTerminateAgent.
 	err := apiCaller.Filter(apicaller.ErrConnectImpossible)
 	c.Assert(err, tc.Equals, jworker.ErrTerminateAgent)
+}
+
+// removedManifoldsConfigFields lists the ManifoldsConfig fields that were
+// deleted along with the controller graph and Dqlite build closure. The
+// fields had no consumers in the machine graph; the test guards against
+// them being reintroduced unnoticed.
+var removedManifoldsConfigFields = []string{
+	"AgentName", "StartupValueProvider", "ControllerUUID",
+	"ControllerModelUUID", "ControllerAgentTag", "LogDir",
+	"ControlSocketPath", "DataDir", "APIPort", "AgentPassword",
+	"BootstrapLock", "ProxyReadyLock", "UpgradeDBLock",
+	"NewDBWorkerFunc", "LocalLogSink", "ControllerLeaseDuration",
+	"TransactionPruneInterval", "RegisterIntrospectionHTTPHandlers",
+	"NewModelWorker", "MuxShutdownWait", "DependencyEngineMetrics",
+	"NewEnvironFunc", "NewCAASBrokerFunc",
+}
+
+func (*ManifoldsSuite) TestManifoldsConfigHasNoControllerStartupPlumbing(c *tc.C) {
+	reflectType := reflect.TypeFor[machine.ManifoldsConfig]()
+	fields := set.NewStrings()
+	for field := range reflectType.Fields() {
+		fields.Add(field.Name)
+	}
+	for _, name := range removedManifoldsConfigFields {
+		c.Check(fields.Contains(name), tc.IsFalse, tc.Commentf(
+			"machine.ManifoldsConfig.%s was removed with the controller graph; do not reintroduce it", name))
+	}
+}
+
+// jujuagentdSourceRoot returns the cmd/jujuagentd source directory that
+// contains this test's package.
+func jujuagentdSourceRoot(c *tc.C) string {
+	_, file, _, ok := runtime.Caller(0)
+	c.Assert(ok, tc.IsTrue)
+	return filepath.Join(filepath.Dir(file), "..", "..")
+}
+
+// TestJujuagentdMachineSourceClosure proves the jujuagentd machine agent no
+// longer references the Dqlite/controller startup plumbing removed with the
+// controller graph. agent/model and agent/modeloperator still own model
+// worker wiring for the unit agent, so the machine-only identifiers are only
+// banned inside this package's source files.
+func (*ManifoldsSuite) TestJujuagentdMachineSourceClosure(c *tc.C) {
+	bannedAnywhere := []string{
+		"machineControllerStartupValueProvider",
+		"machineModelStartupValueProvider",
+		"bootstrapStartupValues",
+	}
+	bannedImports := []string{
+		`"github.com/juju/juju/internal/worker/dbaccessor"`,
+		`"github.com/juju/juju/apiserver"`,
+	}
+	bannedInMachinePackage := []string{
+		"StartupValueProvider",
+		"NewDBWorkerFunc",
+		"NewModelWorker",
+		"DependencyEngineMetrics",
+	}
+
+	root := jujuagentdSourceRoot(c)
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		for _, banned := range bannedAnywhere {
+			c.Check(strings.Contains(string(content), banned), tc.IsFalse, tc.Commentf(
+				"%s references removed symbol %s", rel, banned))
+		}
+		for _, bannedImport := range bannedImports {
+			c.Check(strings.Contains(string(content), bannedImport), tc.IsFalse, tc.Commentf(
+				"%s imports removed dependency %s", rel, bannedImport))
+		}
+		if strings.HasPrefix(rel, filepath.Join("agent", "machine")) {
+			for _, banned := range bannedInMachinePackage {
+				c.Check(strings.Contains(string(content), banned), tc.IsFalse, tc.Commentf(
+					"%s references removed machine-agent plumbing %s", rel, banned))
+			}
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func checkContains(c *tc.C, names []string, seek string) {
