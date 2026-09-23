@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/canonical/gomock/gomock"
 	lxdclient "github.com/canonical/lxd/client"
@@ -25,6 +26,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	containerlxd "github.com/juju/juju/internal/container/lxd"
+	"github.com/juju/juju/internal/container/lxd/mocks"
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
 	"github.com/juju/juju/internal/provider/lxd"
 )
@@ -43,6 +45,7 @@ func TestEnvironBrokerSuite(t *testing.T) {
 
 func (s *environBrokerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.Clock = nil
 	s.defaultProfile = &api.Profile{
 		Devices: map[string]map[string]string{
 			"eth0": {},
@@ -137,6 +140,12 @@ func (s *environBrokerSuite) testStartInstanceOVNForwards(c *tc.C, dualStack boo
 	svr := lxd.NewMockServer(ctrl)
 	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
 	op := lxdtesting.NewMockOperation(ctrl)
+	// Exercise the broker's address wait using its injected clock.
+	clk := mocks.NewMockClock(ctrl)
+	s.Clock = clk
+	clk.EXPECT().Now().Return(time.Now()).AnyTimes()
+	tick := make(chan time.Time, 1)
+	tick <- time.Now()
 	container := &containerlxd.Container{Instance: api.Instance{
 		Name:     "juju-f75cba-0",
 		Location: "node01",
@@ -183,6 +192,8 @@ func (s *environBrokerSuite) testStartInstanceOVNForwards(c *tc.C, dualStack boo
 		exp.GetConnectionInfo().Return(&lxdclient.ConnectionInfo{Project: "default"}, nil),
 		exp.GetProject("default").Return(&api.Project{}, "", nil),
 		exp.GetNetworkInProject("UPLINK", "default").Return(&api.Network{Config: uplinkConfig}, "", nil),
+		exp.GetInstanceState(container.Name).Return(&api.InstanceState{}, "", nil),
+		clk.EXPECT().After(time.Second).Return(tick),
 		exp.GetInstanceState(container.Name).Return(state, "", nil),
 		exp.GetNetworkForwards("ovn0").Return(nil, nil),
 		exp.CreateNetworkForward("ovn0", gomock.Any()).Do(func(_ string, forward api.NetworkForwardsPost) {
@@ -190,7 +201,6 @@ func (s *environBrokerSuite) testStartInstanceOVNForwards(c *tc.C, dualStack boo
 			c.Check(forward.Config["target_address"], tc.Equals, "10.0.0.2")
 		}).Return(op, nil),
 		op.EXPECT().WaitContext(ctx).Return(nil),
-		exp.GetNetworkForwards("ovn0").Return([]api.NetworkForward{firstForward}, nil),
 		exp.CreateNetworkForward("ovn0", gomock.Any()).Do(func(_ string, forward api.NetworkForwardsPost) {
 			c.Check(forward.ListenAddress, tc.Equals, secondListen)
 			c.Check(forward.Config["target_address"], tc.Equals, secondTarget)

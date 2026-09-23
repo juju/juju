@@ -9,7 +9,6 @@ import (
 	"maps"
 	"strings"
 
-	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
@@ -142,7 +141,7 @@ func (env *environ) newContainer(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := ensureOVNNetworkForwards(ctx, target, container, clock.WallClock); err != nil {
+	if err := ensureOVNNetworkForwards(ctx, target, container, env.clock); err != nil {
 		// Rollback must still run if provisioning was cancelled.
 		cleanupCtx := context.WithoutCancel(ctx)
 		if removeErr := removeInstances(cleanupCtx, target, []string{container.Name}); removeErr != nil {

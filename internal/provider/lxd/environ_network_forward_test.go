@@ -97,7 +97,7 @@ func (s *ovnForwardSuite) TestAllocateForEachOVNNIC(c *tc.C) {
 		Addresses: []api.InstanceStateNetworkAddress{{Family: "inet", Address: "10.0.0.3"}},
 	}
 	s.expectNetworksAndState()
-	s.srv.EXPECT().GetNetworkForwards("ovn0").Return(nil, nil).Times(2)
+	s.srv.EXPECT().GetNetworkForwards("ovn0").Return(nil, nil)
 	s.expectCreate(c, "eth0", "10.0.0.2")
 	s.expectCreate(c, "eth1", "10.0.0.3")
 	err := ensureOVNNetworkForwards(c.Context(), s.srv, s.container, clock.WallClock)
@@ -152,8 +152,7 @@ func (s *ovnForwardSuite) TestDualStackWaitsThenAllocatesBothFamilies(c *tc.C) {
 		s.srv.EXPECT().GetNetworkForwards("ovn0").Return(nil, nil),
 	)
 	s.expectCreate(c, "eth0", "10.0.0.2")
-	// Reconciliation for IPv6 must leave the new IPv4 forward alone.
-	s.srv.EXPECT().GetNetworkForwards("ovn0").Return([]api.NetworkForward{s.forward("192.0.2.1", "10.0.0.2")}, nil)
+	// Both families share the initial snapshot, without re-listing forwards.
 	request := s.request("eth0", "fd42::2")
 	request.ListenAddress = "::"
 	op := lxdtesting.NewMockOperation(s.ctrl)
@@ -167,22 +166,22 @@ func (s *ovnForwardSuite) TestDualStackWaitsThenAllocatesBothFamilies(c *tc.C) {
 	s.expectNetworksAndState()
 	s.srv.EXPECT().GetNetworkForwards("ovn0").Return([]api.NetworkForward{
 		s.forward("192.0.2.1", "10.0.0.2"), s.forward("2001:db8::1", "fd42::2"),
-	}, nil).Times(2)
+	}, nil)
 	err = ensureOVNNetworkForwards(c.Context(), s.srv, s.container, clock.WallClock)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ovnForwardSuite) TestIPv6ReplacementPreservesIPv4(c *tc.C) {
-	s.srv.EXPECT().GetNetworkForwards("ovn0").Return([]api.NetworkForward{
+	forwards := []api.NetworkForward{
 		s.forward("192.0.2.1", "10.0.0.2"), s.forward("2001:db8::1", "fd42::9"),
 		s.forward("2001:db8::2", "fd42::2"), s.forward("2001:db8::3", "fd42::2"),
-	}, nil)
+	}
 	for _, address := range []string{"2001:db8::1", "2001:db8::3"} {
 		op := lxdtesting.NewMockOperation(s.ctrl)
 		s.srv.EXPECT().DeleteNetworkForward("ovn0", address).Return(op, nil)
 		op.EXPECT().WaitContext(c.Context()).Return(nil)
 	}
-	err := ensureOVNNetworkForward(c.Context(), s.srv, "ovn0", s.container.Name, "eth0", "fd42::2")
+	err := ensureOVNNetworkForward(c.Context(), s.srv, "ovn0", s.container.Name, "eth0", "fd42::2", forwards)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -321,7 +320,7 @@ func (s *ovnForwardSuite) TestWaitForAllAddresses(c *tc.C) {
 		s.srv.EXPECT().GetInstanceState(s.container.Name).Return(s.state, "", nil),
 		clk.EXPECT().After(time.Second).Return(tick),
 		s.srv.EXPECT().GetInstanceState(s.container.Name).Return(ready, "", nil),
-		s.srv.EXPECT().GetNetworkForwards("ovn0").Return(nil, nil).Times(2),
+		s.srv.EXPECT().GetNetworkForwards("ovn0").Return(nil, nil),
 	)
 	s.expectCreate(c, "eth0", "10.0.0.2")
 	s.expectCreate(c, "eth1", "10.0.0.3")

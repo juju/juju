@@ -118,12 +118,25 @@ func ensureOVNNetworkForwards(ctx context.Context, srv Server, container *lxd.Co
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// Each interface/family reconciles a disjoint set of owned forwards, so
+	// one snapshot per network is sufficient for the entire instance.
+	forwards := make(map[string][]api.NetworkForward)
 	for _, name := range slices.Sorted(maps.Keys(nics)) {
 		device := nics[name]
 		iface := ovnInterfaceName(name, device)
-		for _, family := range families[lxd.NetworkName(device)] {
+		networkName := lxd.NetworkName(device)
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if _, ok := forwards[networkName]; !ok {
+			forwards[networkName], err = srv.GetNetworkForwards(networkName)
+			if err != nil {
+				return errors.Annotatef(err, "retrieving forwards for OVN network %q", networkName)
+			}
+		}
+		for _, family := range families[networkName] {
 			address := interfaceForwardAddress(state.Network[iface], family)
-			if err := ensureOVNNetworkForward(ctx, srv, lxd.NetworkName(device), container.Name, iface, address); err != nil {
+			if err := ensureOVNNetworkForward(ctx, srv, networkName, container.Name, iface, address, forwards[networkName]); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -148,13 +161,9 @@ func interfaceForwardAddress(state api.InstanceStateNetwork, family ovnForwardFa
 	return ""
 }
 
-func ensureOVNNetworkForward(ctx context.Context, srv Server, networkName, instanceName, iface, address string) error {
+func ensureOVNNetworkForward(ctx context.Context, srv Server, networkName, instanceName, iface, address string, forwards []api.NetworkForward) error {
 	if err := ctx.Err(); err != nil {
 		return err
-	}
-	forwards, err := srv.GetNetworkForwards(networkName)
-	if err != nil {
-		return errors.Annotatef(err, "retrieving forwards for OVN network %q", networkName)
 	}
 	isIPv4 := net.ParseIP(address).To4() != nil
 	var found bool

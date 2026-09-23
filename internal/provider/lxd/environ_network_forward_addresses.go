@@ -4,10 +4,12 @@
 package lxd
 
 import (
+	"cmp"
 	"context"
 	"net"
-	"sort"
+	"slices"
 
+	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
@@ -18,13 +20,32 @@ import (
 // ovnForwardAddresses returns public addresses by guest interface. Only
 // Juju-owned forwards on the instance's attached OVN networks are reported.
 func ovnForwardAddresses(ctx context.Context, srv Server, instanceName string) (map[string]network.ProviderAddresses, error) {
+	lookup := ovnForwardAddressLookup{srv: srv}
+	return lookup.addresses(ctx, instanceName)
+}
+
+// ovnForwardAddressLookup shares network and forward reads within one poll.
+// It is local to the caller so subsequent polls always observe fresh state.
+type ovnForwardAddressLookup struct {
+	srv              Server
+	extensionChecked bool
+	supported        bool
+	networks         set.Strings
+	forwards         map[string]map[string][]api.NetworkForward
+}
+
+func (l *ovnForwardAddressLookup) addresses(ctx context.Context, instanceName string) (map[string]network.ProviderAddresses, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if !srv.HasExtension("network_forward") {
+	if !l.extensionChecked {
+		l.supported = l.srv.HasExtension("network_forward")
+		l.extensionChecked = true
+	}
+	if !l.supported {
 		return nil, nil
 	}
-	container, _, err := srv.GetInstance(instanceName)
+	container, _, err := l.srv.GetInstance(instanceName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -45,34 +66,44 @@ func ovnForwardAddresses(ctx context.Context, srv Server, instanceName string) (
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	networks, err := srv.GetNetworks()
-	if err != nil {
-		return nil, errors.Annotate(err, "retrieving networks")
+	if l.networks == nil {
+		networks, err := l.srv.GetNetworks()
+		if err != nil {
+			return nil, errors.Annotate(err, "retrieving networks")
+		}
+		l.networks = set.NewStrings()
+		for _, details := range networks {
+			if details.Type == networkTypeOVN {
+				l.networks.Add(details.Name)
+			}
+		}
 	}
 	addresses := make(map[string]network.ProviderAddresses)
-	for _, details := range networks {
-		if details.Type != networkTypeOVN || interfaces[details.Name] == nil {
+	seen := make(map[string]set.Strings)
+	for _, name := range l.networks.SortedValues() {
+		if interfaces[name] == nil {
 			continue
 		}
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		forwards, err := srv.GetNetworkForwards(details.Name)
+		forwards, err := l.networkForwards(name)
 		if err != nil {
-			return nil, errors.Annotatef(err, "retrieving forwards for OVN network %q", details.Name)
+			return nil, errors.Trace(err)
 		}
-		seen := set.NewStrings()
-		for _, forward := range forwards {
+		for _, forward := range forwards[instanceName] {
 			iface := forward.Config[jujuDeviceForwardKey]
-			if forward.Config[jujuInstanceForwardKey] != instanceName ||
-				!interfaces[details.Name].Contains(iface) {
+			if !interfaces[name].Contains(iface) {
 				continue
+			}
+			if seen[iface] == nil {
+				seen[iface] = set.NewStrings()
 			}
 			ip := net.ParseIP(forward.ListenAddress)
-			if !ip.IsGlobalUnicast() || seen.Contains(ip.String()) {
+			if !ip.IsGlobalUnicast() || seen[iface].Contains(ip.String()) {
 				continue
 			}
-			seen.Add(ip.String())
+			seen[iface].Add(ip.String())
 			// The forward is an ingress address, even on a private uplink.
 			// It must not be selected for services binding inside the guest.
 			addresses[iface] = append(addresses[iface], network.NewMachineAddress(
@@ -84,7 +115,31 @@ func ovnForwardAddresses(ctx context.Context, srv Server, instanceName string) (
 		return nil, err
 	}
 	for _, addrs := range addresses {
-		sort.Slice(addrs, func(i, j int) bool { return addrs[i].Value < addrs[j].Value })
+		slices.SortFunc(addrs, func(a, b network.ProviderAddress) int {
+			return cmp.Compare(a.Value, b.Value)
+		})
 	}
 	return addresses, nil
+}
+
+func (l *ovnForwardAddressLookup) networkForwards(name string) (map[string][]api.NetworkForward, error) {
+	if forwards, ok := l.forwards[name]; ok {
+		return forwards, nil
+	}
+	forwards, err := l.srv.GetNetworkForwards(name)
+	if err != nil {
+		return nil, errors.Annotatef(err, "retrieving forwards for OVN network %q", name)
+	}
+	byInstance := make(map[string][]api.NetworkForward)
+	for _, forward := range forwards {
+		owner := forward.Config[jujuInstanceForwardKey]
+		if owner != "" {
+			byInstance[owner] = append(byInstance[owner], forward)
+		}
+	}
+	if l.forwards == nil {
+		l.forwards = make(map[string]map[string][]api.NetworkForward)
+	}
+	l.forwards[name] = byInstance
+	return byInstance, nil
 }

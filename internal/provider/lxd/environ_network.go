@@ -168,6 +168,7 @@ func (e *environ) NetworkInterfaces(ctx context.Context, ids []instance.Id) ([]n
 		srv     = e.server()
 		res     = make([]network.InterfaceInfos, len(ids))
 	)
+	forwardLookup := ovnForwardAddressLookup{srv: srv}
 
 	for instIdx, id := range ids {
 		if err := ctx.Err(); err != nil {
@@ -183,7 +184,7 @@ func (e *environ) NetworkInterfaces(ctx context.Context, ids []instance.Id) ([]n
 		} else if len(state.Network) == 0 {
 			continue
 		}
-		forwardAddresses, err := ovnForwardAddresses(ctx, srv, string(id))
+		forwardAddresses, err := forwardLookup.addresses(ctx, string(id))
 		if err != nil {
 			// An incomplete result could remove known public shadow addresses
 			// during polling. Propagate lookup errors so the poll is retried.

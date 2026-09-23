@@ -148,6 +148,104 @@ func (s *forwardAddressSuite) TestOnlyOwnedUsableAddressesForAttachedInterfaces(
 	})
 }
 
+func (s *forwardAddressSuite) TestNetworkInterfacesShareLookupsWithinEachPoll(c *tc.C) {
+	containers := []*api.Instance{s.container, {
+		Name: "juju-model-1",
+		ExpandedDevices: map[string]map[string]string{
+			"eth0": {"type": "nic", "network": "ovn0"},
+			"eth1": {"type": "nic", "network": "other-ovn"},
+		},
+	}, {
+		Name: "juju-model-2",
+		ExpandedDevices: map[string]map[string]string{
+			"eth0": {"type": "nic", "network": "other-ovn"},
+		},
+	}}
+	state := &api.InstanceState{Network: map[string]api.InstanceStateNetwork{
+		"eth0": {Type: "broadcast", Addresses: []api.InstanceStateNetworkAddress{
+			{Family: "inet", Address: "10.248.0.2", Netmask: "24"},
+		}},
+		"eth1": {Type: "broadcast", Addresses: []api.InstanceStateNetworkAddress{
+			{Family: "inet", Address: "10.248.1.2", Netmask: "24"},
+		}},
+	}}
+	// Each poll reads networks and each attached OVN network's forwards once,
+	// including empty results, while the next poll sees changed addresses.
+	for _, listen := range []string{"10.246.27.235", "10.246.27.236"} {
+		s.srv.EXPECT().HasExtension("network_forward").Return(true)
+		s.expectNetworks()
+		s.srv.EXPECT().GetNetworkForwards("ovn0").Return([]api.NetworkForward{
+			addressForward(listen, containers[0].Name, "eth0"),
+			addressForward("10.246.27.230", containers[1].Name, "eth0"),
+			// These tags match the instance but not its attached networks.
+			addressForward("10.246.27.231", containers[1].Name, "eth1"),
+			addressForward("10.246.27.232", containers[2].Name, "eth0"),
+			addressForward("10.246.27.233", "foreign-instance", "eth0"),
+		}, nil)
+		s.srv.EXPECT().GetNetworkForwards("other-ovn").Return(nil, nil)
+		var ids []instance.Id
+		for _, container := range containers {
+			ids = append(ids, instance.Id(container.Name))
+			s.srv.EXPECT().GetInstanceState(container.Name).Return(state, "", nil)
+			s.srv.EXPECT().GetInstance(container.Name).Return(container, "", nil)
+		}
+		infos, err := s.env.NetworkInterfaces(c.Context(), ids)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(infos, tc.HasLen, 3)
+		for _, interfaces := range infos {
+			c.Assert(interfaces, tc.HasLen, 2)
+			c.Check(interfaces[1].ShadowAddresses, tc.HasLen, 0)
+		}
+		c.Check(infos[0][0].ShadowAddresses, tc.DeepEquals, network.ProviderAddresses{
+			network.NewMachineAddress(listen, network.WithScope(network.ScopePublic)).AsProviderAddress(),
+		})
+		c.Check(infos[1][0].ShadowAddresses, tc.DeepEquals, network.ProviderAddresses{
+			network.NewMachineAddress("10.246.27.230", network.WithScope(network.ScopePublic)).AsProviderAddress(),
+		})
+		c.Check(infos[2][0].ShadowAddresses, tc.HasLen, 0)
+	}
+}
+
+func (s *forwardAddressSuite) TestDeduplicateAcrossNetworksPerInterface(c *tc.C) {
+	s.container.ExpandedDevices["device1"] = map[string]string{
+		"type": "nic", "network": "other-ovn", "name": "eth0",
+	}
+	s.expectInstance()
+	s.expectNetworks()
+	s.srv.EXPECT().GetNetworkForwards("ovn0").Return([]api.NetworkForward{
+		addressForward("2001:db8::1", s.container.Name, "eth0"),
+		addressForward("2001:db8::1", s.container.Name, "eth1"),
+	}, nil)
+	s.srv.EXPECT().GetNetworkForwards("other-ovn").Return([]api.NetworkForward{
+		addressForward("2001:0db8::1", s.container.Name, "eth0"),
+	}, nil)
+	addresses, err := ovnForwardAddresses(c.Context(), s.srv, s.container.Name)
+	c.Assert(err, tc.ErrorIsNil)
+	public := network.NewMachineAddress("2001:db8::1", network.WithScope(network.ScopePublic)).AsProviderAddress()
+	c.Check(addresses, tc.DeepEquals, map[string]network.ProviderAddresses{
+		"eth0": {public}, "eth1": {public},
+	})
+}
+
+func (s *forwardAddressSuite) TestNetworkInterfacesCheckExtensionOnce(c *tc.C) {
+	s.srv.EXPECT().HasExtension("network_forward").Return(false)
+	ids := []instance.Id{"instance0", "instance1"}
+	for _, id := range ids {
+		s.srv.EXPECT().GetInstanceState(string(id)).Return(&api.InstanceState{
+			Network: map[string]api.InstanceStateNetwork{"eth0": {
+				Addresses: []api.InstanceStateNetworkAddress{{Family: "inet", Address: "10.0.0.2", Netmask: "24"}},
+			}},
+		}, "", nil)
+	}
+	infos, err := s.env.NetworkInterfaces(c.Context(), ids)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(infos, tc.HasLen, 2)
+	for _, interfaces := range infos {
+		c.Assert(interfaces, tc.HasLen, 1)
+		c.Check(interfaces[0].ShadowAddresses, tc.HasLen, 0)
+	}
+}
+
 func (s *forwardAddressSuite) TestNoForwardExtension(c *tc.C) {
 	guest := network.NewMachineAddress("10.0.0.2").AsProviderAddress()
 	s.srv.EXPECT().ContainerAddresses(s.container.Name).Return([]network.ProviderAddress{guest}, nil)

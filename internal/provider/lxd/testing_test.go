@@ -786,6 +786,7 @@ func (m *MockClock) After(delay time.Duration) <-chan time.Time {
 
 type EnvironSuite struct {
 	testing.BaseSuite
+	Clock clock.Clock
 }
 
 func (s *EnvironSuite) NewEnviron(c *tc.C,
@@ -809,8 +810,13 @@ func (s *EnvironSuite) NewEnviron(c *tc.C,
 	namespace, err := instance.NewNamespace(cfg.UUID())
 	c.Assert(err, tc.ErrorIsNil)
 
+	clk := s.Clock
+	if clk == nil {
+		clk = clock.WallClock
+	}
 	return &environ{
 		CredentialInvalidator: common.NewCredentialInvalidator(invalidator, IsAuthorisationFailure),
+		clock:                 clk,
 		serverUnlocked:        srv,
 		ecfgUnlocked:          eCfg,
 		namespace:             namespace,
@@ -846,6 +852,7 @@ func (s *EnvironSuite) NewEnvironWithServerFactory(c *tc.C,
 
 	return &environ{
 		CredentialInvalidator: common.NewCredentialInvalidator(invalidator, IsAuthorisationFailure),
+		clock:                 clock.WallClock,
 		name:                  "controller",
 		provider:              &provid,
 		ecfgUnlocked:          eCfg,
