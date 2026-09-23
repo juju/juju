@@ -6,13 +6,10 @@ package machine
 import (
 	"context"
 	"maps"
-	"net/http"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v3"
-	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
@@ -24,7 +21,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	proxyconfig "github.com/juju/juju/api/proxy/config"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/flightrecorder"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/instance"
@@ -33,7 +29,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	coretrace "github.com/juju/juju/core/trace"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charmhub"
 	containerbroker "github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/lxd"
@@ -46,15 +41,11 @@ import (
 	"github.com/juju/juju/internal/worker/apiaddressupdater"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/apiconfigwatcher"
-	"github.com/juju/juju/internal/worker/apiremotecaller"
-	"github.com/juju/juju/internal/worker/apiserver"
-	"github.com/juju/juju/internal/worker/apiservercertwatcher"
 	"github.com/juju/juju/internal/worker/caasupgrader"
 	lxdbroker "github.com/juju/juju/internal/worker/containerbroker"
 	"github.com/juju/juju/internal/worker/containerprovisioner"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
-	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/deployer"
 	"github.com/juju/juju/internal/worker/diskmanager"
 	workerflightrecorder "github.com/juju/juju/internal/worker/flightrecorder"
@@ -70,8 +61,6 @@ import (
 	"github.com/juju/juju/internal/worker/machiner"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationminion"
-	"github.com/juju/juju/internal/worker/modelworkermanager"
-	"github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/internal/worker/proxyupdater"
 	"github.com/juju/juju/internal/worker/reboot"
 	"github.com/juju/juju/internal/worker/sshkeyupdater"
@@ -86,58 +75,14 @@ import (
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
 type ManifoldsConfig struct {
-	// AgentName is the name of the machine agent, like "machine-12".
-	// This will never change during the execution of an agent, and
-	// is used to provide this as config into a worker rather than
-	// making the worker get it from the agent worker itself.
-	AgentName string
-
 	// ControllerID is the numeric ID of the controller (e.g. "0" for
-	// controller-0). It is passed directly to controller-only manifolds
-	// that now take direct identity values instead of looking them up
-	// through the agent manifold.
+	// controller-0). It is passed directly to the controlleragentconfig
+	// manifold, which runs on every machine and owns the
+	// configchange.socket.
 	ControllerID string
-
-	// StartupValueProvider is used by workers that need to read values from the
-	// agent config at startup, e.g. to get the API server certificate for the
-	// apiservercertwatcher manifold. This is used instead of the agent manifold
-	// to avoid unnecessary coupling and to allow these workers to be started
-	// before the agent manifold.
-	StartupValueProvider ControllerStartupValueProvider
-
-	// ControllerUUID is the controller entity UUID. It is sourced from
-	// agentConfig.Controller().Id() in makeEngineCreator and passed
-	// directly to the lease-manager manifold instead of being looked
-	// up from agent config at worker start.
-	ControllerUUID string
-
-	// ControllerModelUUID is the controller model UUID. It is sourced
-	// from agentConfig.Model().Id() in makeEngineCreator and passed
-	// directly to the lease-manager manifold instead of being looked
-	// up from agent config at worker start.
-	ControllerModelUUID string
-
-	// ControllerAgentTag is the tag used for controller-agent log records.
-	ControllerAgentTag names.Tag
-
-	// LogDir is the controller process log directory for workers in this change
-	// area that still take a fixed local path.
-	LogDir string
 
 	// ConfigChangeSocketPath is the path to the config-change reload socket.
 	ConfigChangeSocketPath string
-
-	// ControlSocketPath is the path to the local controller control socket.
-	ControlSocketPath string
-
-	// DataDir is the agent data directory used by bootstrap.
-	DataDir string
-
-	// APIPort is the controller API port advertised during bootstrap.
-	APIPort int
-
-	// AgentPassword is the agent password used during bootstrap finalization.
-	AgentPassword string
 
 	// Agent contains the agent that will be wrapped and made available to
 	// its dependencies via a dependency.Engine.
@@ -156,20 +101,6 @@ type ManifoldsConfig struct {
 	// agent was running before the current restart.
 	PreviousAgentVersion semversion.Number
 
-	// BootstrapLock is passed to the bootstrap gate to coordinate
-	// workers that shouldn't do anything until the bootstrap worker
-	// is done.
-	BootstrapLock gate.Lock
-
-	// ProxyReadyLock is passed to the proxy ready gate to coordinate workers
-	// that shouldn't do anything until the proxyupdater worker is done.
-	ProxyReadyLock gate.Lock
-
-	// UpgradeDBLock is passed to the upgrade database gate to
-	// coordinate workers that shouldn't do anything until the
-	// upgrade-database worker is done.
-	UpgradeDBLock gate.Lock
-
 	// UpgradeStepsLock is passed to the upgrade steps gate to
 	// coordinate workers that shouldn't do anything until the
 	// upgrade-steps worker is done.
@@ -186,9 +117,6 @@ type ManifoldsConfig struct {
 	// on every machine and unlocks this lock once the configchange.socket
 	// is serving, so the deployer never starts before the socket exists.
 	ControllerAgentConfigReadyLock gate.Lock
-
-	// NewDBWorkerFunc returns a tracked db worker.
-	NewDBWorkerFunc dbaccessor.NewDBWorkerFunc
 
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
@@ -208,13 +136,6 @@ type ManifoldsConfig struct {
 	// records to the legacy log sink. It is managed by the logrouter
 	// based on the active backend mode.
 	LegacyLogSinkWriter loggo.Writer
-
-	// LocalLogSink is the primed local log sink used for
-	// controller-local log delivery. The controller-only model
-	// logrouter uses this in logsink mode so controller model
-	// loggers can switch away from the file sink without
-	// depending on the API caller.
-	LocalLogSink corelogger.LogSink
 
 	// NewDeployContext gives the tests the opportunity to create a
 	// deployer.Context that can be used for testing.
@@ -242,33 +163,10 @@ type ManifoldsConfig struct {
 	// NewAgentStatusSetter provides upgradesteps.StatusSetter.
 	NewAgentStatusSetter func(context.Context, base.APICaller) (jupgradesteps.StatusSetter, error)
 
-	// ControllerLeaseDuration defines for how long this agent will ask
-	// for controller administration rights.
-	ControllerLeaseDuration time.Duration
-
-	// TransactionPruneInterval defines how frequently mgo/txn transactions
-	// are pruned from the database.
-	TransactionPruneInterval time.Duration
-
-	// RegisterIntrospectionHTTPHandlers is a function that calls the
-	// supplied function to register introspection HTTP handlers. The
-	// function will be passed a path and a handler; the function may
-	// alter the path as it sees fit, e.g. by adding a prefix.
-	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
-
-	// NewModelWorker returns a new worker for managing the model with
-	// the specified UUID and type.
-	NewModelWorker modelworkermanager.NewModelWorkerFunc
-
 	// MachineLock is a central source for acquiring the machine lock.
 	// This is used by a number of workers to ensure serialisation of actions
 	// across the machine.
 	MachineLock machinelock.Lock
-
-	// MuxShutdownWait is the maximum time the http-server worker will wait
-	// for all mux clients to gracefully terminate before the http-worker
-	// exits regardless.
-	MuxShutdownWait time.Duration
 
 	// NewBrokerFunc is a function opens a instance broker (LXD/KVM)
 	NewBrokerFunc containerbroker.NewBrokerFunc
@@ -280,17 +178,6 @@ type ManifoldsConfig struct {
 	// SetupLogging is used by the deployer to initialize the logging
 	// context for the unit.
 	SetupLogging func(corelogger.LoggerContext, coreagent.Config)
-
-	// DependencyEngineMetrics creates a set of metrics for a model, so it's
-	// possible to know the lifecycle of the workers in the dependency engine.
-	DependencyEngineMetrics modelworkermanager.ModelMetrics
-
-	// NewEnvironFunc is a function opens a provider "environment"
-	// (typically environs.New).
-	NewEnvironFunc func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.Environ, error)
-
-	// NewCAASBrokerFunc is a function opens a CAAS broker.
-	NewCAASBrokerFunc func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (caas.Broker, error)
 
 	// MachineStartup is passed to the machine manifold. It does
 	// machine setup work which relies on an API connection.
@@ -813,18 +700,6 @@ var ifControllerAgentConfigNeededAndReady = engine.Housing{
 		controllerAgentConfigReadyFlagName,
 	},
 }.Decorate
-
-// ControllerStartupValueProvider is the set of methods required to provide
-// startup values to controller-only workers. This is implemented by the
-// config.StartupValueProvider, which is passed to the manifolds in the config.
-type ControllerStartupValueProvider interface {
-	objectstore.RootDirReader
-	dbaccessor.ControllerStartupValuesProvider
-	apiservercertwatcher.CertReader
-	apiserver.LocalConfigReader
-	apiremotecaller.APIInfoProvider
-	logrouter.LokiConfigProvider
-}
 
 const (
 	agentName            = "agent"

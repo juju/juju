@@ -5,13 +5,10 @@ package agent
 
 import (
 	"context"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -26,7 +23,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
@@ -37,13 +33,10 @@ import (
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/api/base"
-	coreapiserver "github.com/juju/juju/apiserver"
-	"github.com/juju/juju/caas"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujuagentd/agent/machine"
-	"github.com/juju/juju/cmd/jujuagentd/agent/model"
 	"github.com/juju/juju/cmd/jujuagentd/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujuagentd/util"
 	"github.com/juju/juju/controller"
@@ -55,7 +48,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/container/broker"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	"github.com/juju/juju/internal/flightrecorder"
@@ -68,126 +60,14 @@ import (
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
 	internalworker "github.com/juju/juju/internal/worker"
-	"github.com/juju/juju/internal/worker/apiserver"
-	"github.com/juju/juju/internal/worker/apiservercertwatcher"
-	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/deployer"
 	workerflightrecorder "github.com/juju/juju/internal/worker/flightrecorder"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/introspection"
-	"github.com/juju/juju/internal/worker/logrouter"
 	"github.com/juju/juju/internal/worker/logsender"
-	"github.com/juju/juju/internal/worker/migrationmaster"
-	"github.com/juju/juju/internal/worker/modelworkermanager"
-	"github.com/juju/juju/internal/wrench"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
 )
-
-// machineControllerStartupValueProvider supplies current controller-local
-// startup values for the transitional controller-on-machine path. It re-reads
-// current agent config on each call so bounced workers do not keep stale
-// values.
-type machineControllerStartupValueProvider struct {
-	agent *MachineAgent
-}
-
-// ControllerStartupValues returns the current controller-local dbaccessor
-// startup values from agent config.
-func (p machineControllerStartupValueProvider) ControllerStartupValues() (dbaccessor.ControllerStartupValues, error) {
-	cfg := p.agent.CurrentConfig()
-	info, _ := cfg.ControllerAgentInfo()
-	dqlitePort, _ := cfg.DqlitePort()
-	return dbaccessor.ControllerStartupValues{
-		ControllerID:          cfg.Tag().Id(),
-		DataDir:               cfg.DataDir(),
-		DqlitePort:            dqlitePort,
-		QueryTracingEnabled:   cfg.QueryTracingEnabled(),
-		QueryTracingThreshold: cfg.QueryTracingThreshold(),
-		DqliteBusyTimeout:     cfg.DqliteBusyTimeout(),
-		CACert:                cfg.CACert(),
-		ControllerCert:        info.Cert,
-		ControllerPrivateKey:  info.PrivateKey,
-	}, nil
-}
-
-// CertMaterial returns the current controller certificate material from agent
-// config.
-func (p machineControllerStartupValueProvider) CertMaterial() (apiservercertwatcher.CertMaterial, error) {
-	cfg := p.agent.CurrentConfig()
-	info, _ := cfg.ControllerAgentInfo()
-	return apiservercertwatcher.CertMaterial{
-		CACert:               cfg.CACert(),
-		CAPrivateKey:         info.CAPrivateKey,
-		ControllerCert:       info.Cert,
-		ControllerPrivateKey: info.PrivateKey,
-	}, nil
-}
-
-// LocalValues returns the current controller-local API server values from
-// agent config.
-func (p machineControllerStartupValueProvider) LocalValues() (apiserver.LocalValues, error) {
-	cfg := p.agent.CurrentConfig()
-	logSinkConfig, err := logSinkConfigFromAgentConfig(cfg)
-	if err != nil {
-		return apiserver.LocalValues{}, errors.Annotate(err, "getting log sink config")
-	}
-	return apiserver.LocalValues{
-		DataDir:       cfg.DataDir(),
-		LogDir:        cfg.LogDir(),
-		LogSinkConfig: logSinkConfig,
-	}, nil
-}
-
-// ObjectStoreRootDir returns the current local root dir for file-backed object
-// store workers.
-func (p machineControllerStartupValueProvider) ObjectStoreRootDir() (string, error) {
-	return p.agent.CurrentConfig().DataDir(), nil
-}
-
-// APIInfo returns the current API connection details from agent config. This
-// is used by the API server worker to determine whether to start up or not,
-// and if it does start up, what API info to use to connect to the controller.
-// It is called each time the worker starts so that bounced workers do not keep
-// stale values.
-func (p machineControllerStartupValueProvider) APIInfo() (*api.Info, error) {
-	info, ok := p.agent.CurrentConfig().APIInfo()
-	if !ok {
-		return nil, errors.NotFoundf("API info")
-	}
-	return info, nil
-}
-
-// CurrentLokiConfig returns the current logrouter backend configuration from
-// agent config. It re-reads current values on each call so bounced workers
-// see current logging destination settings.
-func (p machineControllerStartupValueProvider) CurrentLokiConfig() (logrouter.ConfigSnapshot, error) {
-	return logrouter.ConfigSnapshotFromAgentConfig(p.agent.CurrentConfig()), nil
-}
-
-// machineModelStartupValueProvider supplies current model-local startup
-// values. It re-reads current agent config on each call so bounced workers
-// do not keep stale values. This is a temporary adapter that will be
-// replaced in a follow-up step with a proper disk-re-reading provider.
-type machineModelStartupValueProvider struct {
-	agent agent.Agent
-}
-
-func (p machineModelStartupValueProvider) CACert() (string, error) {
-	return p.agent.CurrentConfig().CACert(), nil
-}
-
-func (p machineModelStartupValueProvider) ControllerAgentInfo() (controller.ControllerAgentInfo, error) {
-	info, ok := p.agent.CurrentConfig().ControllerAgentInfo()
-	if !ok {
-		return controller.ControllerAgentInfo{}, errors.NotFoundf("controller agent info")
-	}
-	return info, nil
-}
-
-func (p machineModelStartupValueProvider) LoggingOverride() (string, error) {
-	return p.agent.CurrentConfig().Value(agent.LoggingOverride), nil
-}
 
 type (
 	// The following allows the upgrade steps to be overridden by brittle
@@ -211,8 +91,6 @@ var (
 	// person! Juju Needs You.
 	getHostname = os.Hostname
 
-	caasModelManifolds   = model.CAASManifolds
-	iaasModelManifolds   = model.IAASManifolds
 	caasMachineManifolds = machine.CAASManifolds
 	iaasMachineManifolds = machine.IAASManifolds
 )
@@ -226,11 +104,6 @@ type AgentInitializer interface {
 	CheckArgs([]string) error
 	// DataDir returns the directory where this agent should store its data.
 	DataDir() string
-}
-
-// ModelMetrics defines a type for creating metrics for a given model.
-type ModelMetrics interface {
-	ForModel(model names.ModelTag) dependency.Metrics
 }
 
 // NewMachineAgentCommand creates a Command that handles parsing
@@ -348,7 +221,6 @@ func (a *machineAgentCommand) Info() *cmd.Info {
 // MachineAgent given a machineId.
 func MachineAgentFactoryFn(
 	agentConfWriter agentconfig.AgentConfigWriter,
-	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
 	preUpgradeSteps PreUpgradeStepsFunc,
 	upgradeSteps UpgradeStepsFunc,
 	rootDir string,
@@ -369,7 +241,6 @@ func MachineAgentFactoryFn(
 			agentConfWriter,
 			runner,
 			looputil.NewLoopDeviceManager(),
-			newDBWorkerFunc,
 			preUpgradeSteps,
 			upgradeSteps,
 			rootDir,
@@ -384,7 +255,6 @@ func NewMachineAgent(
 	agentConfWriter agentconfig.AgentConfigWriter,
 	runner *worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
-	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
 	preUpgradeSteps PreUpgradeStepsFunc,
 	upgradeSteps UpgradeStepsFunc,
 	rootDir string,
@@ -403,7 +273,6 @@ func NewMachineAgent(
 		runner:                      runner,
 		rootDir:                     rootDir,
 		initialUpgradeCheckComplete: gate.NewLock(),
-		newDBWorkerFunc:             newDBWorkerFunc,
 		loopDeviceManager:           loopDeviceManager,
 		prometheusRegistry:          prometheusRegistry,
 		preUpgradeSteps:             preUpgradeSteps,
@@ -450,8 +319,6 @@ type MachineAgent struct {
 	workersStarted chan struct{}
 	machineLock    machinelock.Lock
 
-	newDBWorkerFunc dbaccessor.NewDBWorkerFunc
-
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
 	// longer any immediately pending agent upgrades.
@@ -465,9 +332,6 @@ type MachineAgent struct {
 	preUpgradeSteps PreUpgradeStepsFunc
 	upgradeSteps    UpgradeStepsFunc
 
-	bootstrapLock                  gate.Lock
-	proxyReadyLock                 gate.Lock
-	upgradeDBLock                  gate.Lock
 	upgradeStepsLock               gate.Lock
 	controllerAgentConfigReadyLock gate.Lock
 
@@ -609,14 +473,10 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	}
 	a.machineLock = machineLock
 
-	a.bootstrapLock = gate.NewLock()
-	a.proxyReadyLock = gate.NewLock()
-
-	a.upgradeDBLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
 	a.upgradeStepsLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
 	a.initControllerAgentConfigReadyLock()
 
-	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion(), bufferedLogger, legacyLogSinkWriter, logSink)
+	createEngine := a.makeEngineCreator(agentConfig.UpgradedToVersion(), bufferedLogger, legacyLogSinkWriter)
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
 		return err
 	}
@@ -647,10 +507,9 @@ func (a *MachineAgent) initControllerAgentConfigReadyLock() {
 }
 
 func (a *MachineAgent) makeEngineCreator(
-	agentName string, previousAgentVersion semversion.Number,
+	previousAgentVersion semversion.Number,
 	bufferedLogger *logsender.BufferedLogWriter,
 	legacyLogSinkWriter loggo.Writer,
-	localLogSink corelogger.LogSink,
 ) func(context.Context) (worker.Worker, error) {
 	return func(ctx context.Context) (worker.Worker, error) {
 		agentConfig := a.CurrentConfig()
@@ -671,70 +530,40 @@ func (a *MachineAgent) makeEngineCreator(
 			})
 		}
 
-		registerIntrospectionHandlers := func(handle func(path string, h http.Handler)) {
-			handle("/metrics/", promhttp.HandlerFor(a.prometheusRegistry, promhttp.HandlerOpts{}))
-		}
-
 		c := clock.WallClock
 		flightRecorder := workerflightrecorder.New(flightrecorder.NewRecorder(c), "", internallogger.GetLogger("juju.flightrecorder"))
-		startupValueProvider := machineControllerStartupValueProvider{agent: a}
-		agentConfig = a.CurrentConfig()
-		bootstrapAPIPort, bootstrapAgentPassword := bootstrapStartupValues(agentConfig)
 
 		manifoldsCfg := machine.ManifoldsConfig{
-			PreviousAgentVersion:              previousAgentVersion,
-			AgentName:                         agentName,
-			ControllerID:                      agentConfig.Tag().Id(),
-			ControllerUUID:                    agentConfig.Controller().Id(),
-			ControllerModelUUID:               agentConfig.Model().Id(),
-			ControllerAgentTag:                agentConfig.Tag(),
-			LogDir:                            agentConfig.LogDir(),
-			StartupValueProvider:              startupValueProvider,
-			ConfigChangeSocketPath:            path.Join(agentConfig.DataDir(), "configchange.socket"),
-			ControlSocketPath:                 path.Join(agentConfig.DataDir(), "control.socket"),
-			DataDir:                           agentConfig.DataDir(),
-			APIPort:                           bootstrapAPIPort,
-			AgentPassword:                     bootstrapAgentPassword,
-			Agent:                             agent.APIHostPortsSetter{Agent: a},
-			RootDir:                           a.rootDir,
-			AgentConfigChanged:                a.configChangedVal,
-			BootstrapLock:                     a.bootstrapLock,
-			ProxyReadyLock:                    a.proxyReadyLock,
-			UpgradeDBLock:                     a.upgradeDBLock,
-			UpgradeStepsLock:                  a.upgradeStepsLock,
-			UpgradeCheckLock:                  a.initialUpgradeCheckComplete,
-			ControllerAgentConfigReadyLock:    a.controllerAgentConfigReadyLock,
-			NewDBWorkerFunc:                   a.newDBWorkerFunc,
-			PreUpgradeSteps:                   a.preUpgradeSteps,
-			UpgradeSteps:                      a.upgradeSteps,
-			LogSource:                         bufferedLogger.Logs(),
-			LegacyLogSinkWriter:               legacyLogSinkWriter,
-			LocalLogSink:                      localLogSink,
-			NewDeployContext:                  deployer.NewNestedContext,
-			Clock:                             c,
-			FlightRecorder:                    flightRecorder,
-			ValidateMigration:                 a.validateMigration,
-			PrometheusRegisterer:              a.prometheusRegistry,
-			UpdateLoggerConfig:                updateAgentConfLogging,
-			NewAgentStatusSetter:              a.statusSetter,
-			ControllerLeaseDuration:           time.Minute,
-			TransactionPruneInterval:          time.Hour,
-			MachineLock:                       a.machineLock,
-			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
-			NewModelWorker:                    a.startModelWorkers,
-			MuxShutdownWait:                   1 * time.Minute,
-			NewBrokerFunc:                     newBroker,
-			MachineStartup:                    a.machineStartup,
+			PreviousAgentVersion:           previousAgentVersion,
+			ControllerID:                   agentConfig.Tag().Id(),
+			ConfigChangeSocketPath:         path.Join(agentConfig.DataDir(), "configchange.socket"),
+			Agent:                          agent.APIHostPortsSetter{Agent: a},
+			RootDir:                        a.rootDir,
+			AgentConfigChanged:             a.configChangedVal,
+			UpgradeStepsLock:               a.upgradeStepsLock,
+			UpgradeCheckLock:               a.initialUpgradeCheckComplete,
+			ControllerAgentConfigReadyLock: a.controllerAgentConfigReadyLock,
+			PreUpgradeSteps:                a.preUpgradeSteps,
+			UpgradeSteps:                   a.upgradeSteps,
+			LogSource:                      bufferedLogger.Logs(),
+			LegacyLogSinkWriter:            legacyLogSinkWriter,
+			NewDeployContext:               deployer.NewNestedContext,
+			Clock:                          c,
+			FlightRecorder:                 flightRecorder,
+			ValidateMigration:              a.validateMigration,
+			PrometheusRegisterer:           a.prometheusRegistry,
+			UpdateLoggerConfig:             updateAgentConfLogging,
+			NewAgentStatusSetter:           a.statusSetter,
+			MachineLock:                    a.machineLock,
+			NewBrokerFunc:                  newBroker,
+			MachineStartup:                 a.machineStartup,
 			UnitEngineConfig: func() dependency.EngineConfig {
 				return agentengine.DependencyEngineConfig(
 					controllerMetricsSink,
 					internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
 				)
 			},
-			SetupLogging:            agentconf.SetupAgentLogging,
-			DependencyEngineMetrics: metrics,
-			NewEnvironFunc:          newEnvirons,
-			NewCAASBrokerFunc:       newCAASBroker,
+			SetupLogging: agentconf.SetupAgentLogging,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {
@@ -776,23 +605,6 @@ func (a *MachineAgent) makeEngineCreator(
 	}
 }
 
-func bootstrapStartupValues(config agent.Config) (int, string) {
-	var apiPort int
-	if servingInfo, ok := config.ControllerAgentInfo(); ok {
-		apiPort = servingInfo.APIPort
-	}
-
-	var password string
-	if apiInfo, ok := config.APIInfo(); ok {
-		password = apiInfo.Password
-	}
-	if password == "" {
-		password = config.OldPassword()
-	}
-
-	return apiPort, password
-}
-
 func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
 	// block until all units/containers are ready, and reboot/shutdown
 	finalize, err := reboot.NewRebootWaiter(a.CurrentConfig())
@@ -817,11 +629,7 @@ func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	return errors.Trace(err)
 }
 
-var (
-	newEnvirons   = environs.New
-	newCAASBroker = caas.New
-	newBroker     = broker.New
-)
+var newBroker = broker.New
 
 type noopStatusSetter struct{}
 
@@ -857,108 +665,6 @@ func (a *MachineAgent) validateMigration(ctx context.Context, apiCaller base.API
 		_, err = facade.Machine(ctx, a.agentTag.(names.MachineTag))
 	}
 	return errors.Trace(err)
-}
-
-// startModelWorkers starts the set of workers that run for every model
-// in each controller, both IAAS and CAAS.
-func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) (worker.Worker, error) {
-	currentConfig := a.CurrentConfig()
-
-	config := agentengine.DependencyEngineConfig(
-		cfg.ModelMetrics,
-		internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
-	)
-	config.IsFatal = model.IsFatal
-	config.WorstError = model.WorstError
-	config.Filter = model.IgnoreErrRemoved
-	engine, err := dependency.NewEngine(config)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	manifoldsCfg := model.ManifoldsConfig{
-		Authority:                     cfg.Authority,
-		Clock:                         clock.WallClock,
-		LoggingContext:                cfg.LoggerContext,
-		RunFlagDuration:               time.Minute,
-		CharmRevisionUpdateInterval:   24 * time.Hour,
-		NewEnvironFunc:                newEnvirons,
-		NewContainerBrokerFunc:        newCAASBroker,
-		NewMigrationMaster:            migrationmaster.NewWorker,
-		OperationPrunerInterval:       24 * time.Hour,
-		DomainServices:                cfg.DomainServices,
-		DomainServicesGetter:          cfg.DomainServicesGetter,
-		ProviderServicesGetter:        cfg.ProviderServicesGetter,
-		LeaseManager:                  cfg.LeaseManager,
-		HTTPClientGetter:              cfg.HTTPClientGetter,
-		APIRemoteRelationClientGetter: cfg.APIRemoteRelationClientGetter,
-
-		ModelUUID:            cfg.ModelUUID,
-		AgentTag:             currentConfig.Tag(),
-		ModelTag:             names.NewModelTag(cfg.ModelUUID),
-		DataDir:              currentConfig.DataDir(),
-		LogDir:               currentConfig.LogDir(),
-		ControllerTag:        currentConfig.Controller(),
-		StartupValueProvider: machineModelStartupValueProvider{agent: a},
-		UpdateLoggerConfig:   func(string) error { return nil },
-	}
-	if wrench.IsActive("charmrevision", "shortinterval") {
-		interval := 10 * time.Second
-		logger.Debugf(context.TODO(), "setting short charmrevision worker interval: %v", interval)
-		manifoldsCfg.CharmRevisionUpdateInterval = interval
-	}
-
-	applyTestingOverrides(currentConfig, &manifoldsCfg)
-
-	var manifolds dependency.Manifolds
-	if cfg.ModelType == coremodel.IAAS {
-		manifolds = iaasModelManifolds(manifoldsCfg)
-	} else {
-		manifolds = caasModelManifolds(manifoldsCfg)
-	}
-	if err := dependency.Install(engine, manifolds); err != nil {
-		if err := worker.Stop(engine); err != nil {
-			logger.Errorf(context.TODO(), "while stopping engine with bad manifolds: %v", err)
-		}
-		return nil, errors.Trace(err)
-	}
-
-	return &modelWorker{
-		Engine:    engine,
-		modelUUID: cfg.ModelUUID,
-		metrics:   cfg.ModelMetrics,
-	}, nil
-}
-
-func applyTestingOverrides(agentConfig agent.Config, manifoldsCfg *model.ManifoldsConfig) {
-	if v := agentConfig.Value(agent.CharmRevisionUpdateInterval); v != "" {
-		charmRevisionUpdateInterval, err := time.ParseDuration(v)
-		if err == nil {
-			manifoldsCfg.CharmRevisionUpdateInterval = charmRevisionUpdateInterval
-			logger.Infof(context.TODO(), "model worker charm revision update interval set to %v for testing",
-				charmRevisionUpdateInterval)
-		} else {
-			logger.Warningf(context.TODO(), "invalid charm revision update interval, using default %v: %v",
-				manifoldsCfg.CharmRevisionUpdateInterval, err)
-		}
-	}
-}
-
-type modelWorker struct {
-	*dependency.Engine
-	modelUUID string
-	metrics   agentengine.MetricSink
-}
-
-// Wait is the last thing that is called on the worker as it is being
-// removed.
-func (m *modelWorker) Wait() error {
-	err := m.Engine.Wait()
-
-	// When closing the model, ensure that we also close the metrics with the
-	// logger.
-	_ = m.metrics.Unregister()
-	return err
 }
 
 // WorkersStarted returns a channel that's closed once all top level workers
@@ -1077,27 +783,4 @@ func (a *MachineAgent) recordAgentStartInformation(ctx context.Context, apiConn 
 		return errors.Annotate(err, "cannot record agent start information")
 	}
 	return nil
-}
-
-// logSinkConfigFromAgentConfig builds an apiserver.LogSinkConfig from the
-// agent config values LOGSINK_RATELIMIT_BURST and LOGSINK_RATELIMIT_REFILL.
-// Absent values fall back to DefaultLogSinkConfig(); malformed values return
-// an error.
-func logSinkConfigFromAgentConfig(cfg agent.Config) (coreapiserver.LogSinkConfig, error) {
-	result := coreapiserver.DefaultLogSinkConfig()
-	if v := cfg.Value(agent.LogSinkRateLimitBurst); v != "" {
-		burst, err := strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			return result, errors.Annotatef(err, "parsing %s", agent.LogSinkRateLimitBurst)
-		}
-		result.RateLimitBurst = burst
-	}
-	if v := cfg.Value(agent.LogSinkRateLimitRefill); v != "" {
-		refill, err := time.ParseDuration(v)
-		if err != nil {
-			return result, errors.Annotatef(err, "parsing %s", agent.LogSinkRateLimitRefill)
-		}
-		result.RateLimitRefill = refill
-	}
-	return result, nil
 }
