@@ -49,7 +49,7 @@ func toGrantInfo(grants []params.AccessInfo) []secrets.AccessInfo {
 		result[i] = secrets.AccessInfo{
 			Target: g.TargetTag,
 			Scope:  g.ScopeTag,
-			Role:   g.Role,
+			Role:   secrets.SecretRole(g.Role),
 		}
 	}
 	return result
