@@ -149,6 +149,11 @@ type StatusService interface {
 	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model does not exist.
 	GetModelStatusInfo(context.Context) (domainstatus.ModelStatusInfo, error)
 
+	// GetModelStorageStatuses returns the filesystems and volumes of the
+	// model with the minimal information required by the model status
+	// payload.
+	GetModelStorageStatuses(context.Context) (domainstatus.ModelStorageStatus, error)
+
 	// GetAllMachineStatuses returns all the machine statuses for the model, indexed
 	// by machine name.
 	GetAllMachineStatuses(context.Context) (map[machine.Name]status.StatusInfo, error)
