@@ -154,6 +154,7 @@ func (st *State) GetControllerInfo(ctx context.Context) (domaincontroller.Contro
 	var (
 		uuid                string
 		cert                string
+		publicDNSAddress    string
 		controllerAddresses []controllerAPIAddress
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -167,16 +168,43 @@ func (st *State) GetControllerInfo(ctx context.Context) (domaincontroller.Contro
 		if cert, err = st.getCACert(ctx, tx); err != nil {
 			return err
 		}
+		if publicDNSAddress, err = st.getPublicDNSAddress(ctx, tx); err != nil {
+			return err
+		}
 		return nil
 	}); err != nil {
 		return domaincontroller.ControllerInfo{}, errors.Capture(err)
 	}
 
 	return domaincontroller.ControllerInfo{
-		UUID:         uuid,
-		CACert:       cert,
-		APIAddresses: decodeAPIAddresses(controllerAddresses),
+		UUID:             uuid,
+		CACert:           cert,
+		APIAddresses:     decodeAPIAddresses(controllerAddresses),
+		PublicDNSAddress: publicDNSAddress,
 	}, nil
+}
+
+// getPublicDNSAddress returns the public DNS address of the controller
+// from the controller config, or an empty string if it is not configured.
+func (st *State) getPublicDNSAddress(ctx context.Context, tx *sqlair.TX) (string, error) {
+	stmt, err := st.Prepare(`
+SELECT &configValue.*
+FROM   controller_config
+WHERE  key = $configKey.key
+`, configValue{}, configKey{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var value configValue
+	err = tx.Query(ctx, stmt, configKey{Key: controller.PublicDNSAddress}).Get(&value)
+	if errors.Is(err, sql.ErrNoRows) {
+		// The public DNS address is not configured.
+		return "", nil
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+	return value.Value, nil
 }
 
 func (st *State) getControllerUUID(ctx context.Context, tx *sqlair.TX) (string, error) {

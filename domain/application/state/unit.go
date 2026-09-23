@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"slices"
 	"strings"
 
@@ -812,7 +811,7 @@ func (st *State) getUnitDetails(ctx context.Context, tx *sqlair.TX, unitName str
 // forbids local-host.
 const networkAddressScopeLocalCloud = 1
 
-func makeK8sPodArg(unitName coreunit.Name, k8sPod application.K8sPodParams) *application.K8sPod {
+func makeK8sPodArg(k8sPod application.K8sPodParams) *application.K8sPod {
 	result := &application.K8sPod{
 		ProviderID: k8sPod.ProviderID,
 		Ports:      k8sPod.Ports,
@@ -834,7 +833,7 @@ func makeK8sPodArg(unitName coreunit.Name, k8sPod application.K8sPodParams) *app
 			// to tie the address to the net node corresponding to the
 			// k8s pod.
 			Device: application.K8sPodDevice{
-				Name:              fmt.Sprintf("placeholder for %q k8s pod", unitName),
+				Name:              network.PlaceholderDeviceName,
 				DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
 				VirtualPortTypeID: domainnetwork.NonVirtualPortType,
 			},
@@ -843,6 +842,8 @@ func makeK8sPodArg(unitName coreunit.Name, k8sPod application.K8sPodParams) *app
 			// The k8s container must have the lowest scope. This is needed to
 			// ensure that these are correctly matched with respect to k8s
 			// service addresses when retrieving unit public/private addresses.
+			// Note that unlike the migration.go version, the scope is not
+			// taken from the address itself.
 			Scope:      ipaddress.MarshallScope(network.ScopeMachineLocal),
 			Origin:     ipaddress.MarshallOrigin(network.OriginProvider),
 			ConfigType: ipaddress.MarshallConfigType(network.ConfigDHCP),
@@ -876,7 +877,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 		origin := network.OriginProvider
 		k8sPodParams.AddressOrigin = &origin
 	}
-	k8sPod := makeK8sPodArg(arg.UnitName, k8sPodParams)
+	k8sPod := makeK8sPodArg(k8sPodParams)
 
 	now := new(st.clock.Now().UTC())
 	addUnitArg := application.AddCAASUnitArg{
@@ -1167,7 +1168,7 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 			origin := network.OriginProvider
 			k8sPodParams.AddressOrigin = &origin
 		}
-		k8sPod = makeK8sPodArg(unitName, k8sPodParams)
+		k8sPod = makeK8sPodArg(k8sPodParams)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {

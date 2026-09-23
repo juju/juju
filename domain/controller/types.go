@@ -14,4 +14,7 @@ type ControllerInfo struct {
 	UUID         string
 	CACert       string
 	APIAddresses []string
+	// PublicDNSAddress is the public DNS address of the controller, or
+	// an empty string if it is not configured.
+	PublicDNSAddress string
 }
