@@ -162,7 +162,7 @@ func makeSubnetInfo(cidr, networkName string, availabilityZones network.Availabi
 // was no other error, it will return ErrNoInstances. If some but not all of
 // the instances were found, the returned slice will have some nil slots, and
 // an ErrPartialInstances error will be returned.
-func (e *environ) NetworkInterfaces(_ context.Context, ids []instance.Id) ([]network.InterfaceInfos, error) {
+func (e *environ) NetworkInterfaces(ctx context.Context, ids []instance.Id) ([]network.InterfaceInfos, error) {
 	var (
 		missing int
 		srv     = e.server()
@@ -170,6 +170,9 @@ func (e *environ) NetworkInterfaces(_ context.Context, ids []instance.Id) ([]net
 	)
 
 	for instIdx, id := range ids {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		state, _, err := srv.GetInstanceState(string(id))
 		if err != nil {
 			if isErrNotFound(err) {
@@ -179,6 +182,10 @@ func (e *environ) NetworkInterfaces(_ context.Context, ids []instance.Id) ([]net
 			return nil, errors.Annotatef(err, "retrieving network interface info for instance %q", id)
 		} else if len(state.Network) == 0 {
 			continue
+		}
+		forwardAddresses, err := ovnForwardAddresses(ctx, srv, string(id))
+		if err != nil {
+			return nil, errors.Annotatef(err, "retrieving OVN forward addresses for instance %q", id)
 		}
 
 		// Sort interfaces by name to ensure consistent device indexes
@@ -206,6 +213,7 @@ func (e *environ) NetworkInterfaces(_ context.Context, ids []instance.Id) ([]net
 			}
 
 			ni.DeviceIndex = devIdx
+			ni.ShadowAddresses = forwardAddresses[interfaceName]
 			devIdx++
 			res[instIdx] = append(res[instIdx], ni)
 		}

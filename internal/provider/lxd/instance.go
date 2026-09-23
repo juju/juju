@@ -5,6 +5,8 @@ package lxd
 
 import (
 	"context"
+	"maps"
+	"slices"
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
@@ -57,7 +59,21 @@ func (i *environInstance) Status(ctx context.Context) instance.Status {
 }
 
 // Addresses implements instances.Instance.
-func (i *environInstance) Addresses(_ context.Context) (network.ProviderAddresses, error) {
-	addrs, err := i.env.server().ContainerAddresses(i.container.Name)
-	return addrs, errors.Trace(err)
+func (i *environInstance) Addresses(ctx context.Context) (network.ProviderAddresses, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	srv := i.env.server()
+	addrs, err := srv.ContainerAddresses(i.container.Name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	forwardAddresses, err := ovnForwardAddresses(ctx, srv, i.container.Name)
+	if err != nil {
+		return nil, errors.Annotatef(err, "retrieving OVN forward addresses for instance %q", i.container.Name)
+	}
+	for _, iface := range slices.Sorted(maps.Keys(forwardAddresses)) {
+		addrs = append(addrs, forwardAddresses[iface]...)
+	}
+	return addrs, nil
 }
