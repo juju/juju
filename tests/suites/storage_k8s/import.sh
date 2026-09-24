@@ -89,6 +89,11 @@ test_force_import_filesystem() {
 	# does not override Juju's DB-side tracking.
 	juju remove-application dummy-k8s-storage --force --no-prompt
 	wait_for "{}" ".applications"
+	# A lingering workload pod would hold the PVC's pvc-protection finalizer
+	# and block the PVC deletion below, so gate on pod teardown. This turns
+	# an orphaned pod into an actionable failure instead of an opaque
+	# wait_for_pvc_absent timeout.
+	wait_for_pod_absent "dummy-k8s-storage-0" "${model_name}"
 	juju remove-storage data/0 --no-destroy
 	wait_for "{}" ".storage"
 

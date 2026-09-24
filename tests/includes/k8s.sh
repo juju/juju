@@ -118,6 +118,9 @@ wait_for_pvc_absent() {
 		if [[ ${elapsed} -ge ${timeout} ]]; then
 			echo "[-] $(red 'timed out waiting for PVC') $(red "${namespace}/${name}") $(red 'to be removed')"
 			kubectl get pvc "${name}" -n "${namespace}" 2>&1 | sed 's/^/    | /g'
+			# A lingering pod holds the pvc-protection finalizer and blocks
+			# PVC deletion, so dump the pods to show what is using it.
+			kubectl get pods -n "${namespace}" 2>&1 | sed 's/^/    | /g'
 			exit 1
 		fi
 
@@ -125,6 +128,41 @@ wait_for_pvc_absent() {
 	done
 
 	echo "[+] $(green 'PVC removed:') $(green "${namespace}/${name}")"
+}
+
+# wait_for_pod_absent polls until the given pod has been removed from the
+# cluster. It fails the test if the pod is still present after the timeout
+# (an integer number of seconds). A lingering workload pod holds the
+# pvc-protection finalizer, which blocks PVC deletion, so gating on pod
+# teardown turns that failure mode into an actionable message.
+#
+# ```
+# wait_for_pod_absent <name> <namespace> [<timeout>]
+# ```
+wait_for_pod_absent() {
+	local name namespace timeout
+
+	name=${1}
+	namespace=${2}
+	timeout=${3:-300} # default timeout: 300s = 5m
+
+	attempt=0
+	start_time="$(date -u +%s)"
+	while kubectl get pod "${name}" -n "${namespace}" >/dev/null 2>&1; do
+		echo "[+] (attempt ${attempt}) polling for pod ${namespace}/${name} to be removed"
+		sleep "${SHORT_TIMEOUT}"
+
+		elapsed=$(date -u +%s)-$start_time
+		if [[ ${elapsed} -ge ${timeout} ]]; then
+			echo "[-] $(red 'timed out waiting for pod') $(red "${namespace}/${name}") $(red 'to be removed')"
+			kubectl get pods,pvc -n "${namespace}" 2>&1 | sed 's/^/    | /g'
+			exit 1
+		fi
+
+		attempt=$((attempt + 1))
+	done
+
+	echo "[+] $(green 'Pod removed:') $(green "${namespace}/${name}")"
 }
 
 default_k8s() {
