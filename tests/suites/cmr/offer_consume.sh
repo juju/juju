@@ -129,12 +129,17 @@ run_offer_consume_same_app() {
 	juju relate -m yin yin-src:sink dummy-sink
 	juju switch yin
 	wait_for "dummy-sink" '.applications["yin-src"] | .relations.sink[0]'
+	juju switch yang
+	# Local endpoint visibility alone does not establish the remote connection.
+	wait_for 1 '.offers["dummy-sink"]."total-connected-count"'
+	juju switch yin
 
 	echo "Remove direction 2 relation and offer"
 	juju remove-relation -m yin yin-src:sink dummy-sink
-	juju remove-saas -m yin dummy-sink
 	juju switch yang
+	# Keep the SAAS worker and its credentials until remote teardown completes.
 	wait_for null '.offers["dummy-sink"]."total-connected-count"'
+	juju remove-saas -m yin dummy-sink
 	juju remove-offer yang.dummy-sink -y
 	wait_for null '.offers["dummy-sink"]'
 
@@ -144,6 +149,10 @@ run_offer_consume_same_app() {
 	juju relate -m yin yin-src:sink dummy-sink
 	juju switch yin
 	wait_for "dummy-sink" '.applications["yin-src"] | .relations.sink[0]'
+	juju switch yang
+	# Local endpoint visibility alone does not establish the remote connection.
+	wait_for 1 '.offers["dummy-sink"]."total-connected-count"'
+	juju switch yin
 
 	echo "Check direction 1's relation data still flows after adding back the relation"
 	juju config dummy-source token=phase-two
@@ -154,21 +163,22 @@ run_offer_consume_same_app() {
 	# This is the closest reliable observation possible with the dummy charms.
 	# This check will need to be re-written if the dummy charms ever change.
 	juju remove-relation -m yang dummy-sink src-offer
-	juju remove-saas -m yang src-offer
 	juju switch yin
 	# "Short" timeout so the failure can surface asap.
 	if ! (wait_for null '.offers["src-offer"]."total-connected-count"' 180); then
 		echo "remove-offer yang.dummy-sink did not drain the connection count in 3 minutes"
 		exit 1
 	fi
+	juju remove-saas -m yang src-offer
 	juju remove-offer yin.src-offer -y
 	wait_for null '.offers["src-offer"]'
 
 	echo "Clean up remaining direction 2 state before destroying models"
 	juju remove-relation -m yin yin-src:sink dummy-sink
-	juju remove-saas -m yin dummy-sink
 	juju switch yang
+	# Keep the SAAS worker and its credentials until remote teardown completes.
 	wait_for null '.offers["dummy-sink"]."total-connected-count"'
+	juju remove-saas -m yin dummy-sink
 	juju remove-offer yang.dummy-sink -y
 	wait_for null '.offers["dummy-sink"]'
 
