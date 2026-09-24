@@ -18,6 +18,13 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// maxContainerImageResourceSize is the maximum size accepted for a container
+// image resource blob. The blob is a marshalled docker.DockerImageDetails
+// value — a few hundred bytes — so 1MiB is a generous bound. It exists to
+// stop unbounded reads into memory from sources like model migration
+// uploads and charmhub downloads.
+const maxContainerImageResourceSize = 1 << 20
+
 // State provides methods for interacting
 // with the container image resource store.
 type State interface {
@@ -99,10 +106,15 @@ func (s *Service) Put(
 	defer span.End()
 
 	respBuf := new(bytes.Buffer)
-	bytesRead, err := respBuf.ReadFrom(r)
+	bytesRead, err := respBuf.ReadFrom(io.LimitReader(r, maxContainerImageResourceSize+1))
 	if err != nil {
 		return store.ID{}, 0, store.Fingerprint{}, errors.Errorf("reading container image resource: %w", err)
-	} else if bytesRead == 0 {
+	}
+	if bytesRead > maxContainerImageResourceSize {
+		return store.ID{}, 0, store.Fingerprint{}, errors.Errorf(
+			"container image resource exceeds maximum size of %d bytes", maxContainerImageResourceSize)
+	}
+	if bytesRead == 0 {
 		return store.ID{}, 0, store.Fingerprint{}, errors.Errorf("reading container image resource: zero bytes read")
 	}
 

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -167,6 +168,25 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutErr
 		resourcestore.Fingerprint{},
 	)
 	c.Assert(err, tc.ErrorIs, kaboom)
+}
+
+func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutOversized(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
+
+	storageKey := resourcetesting.GenResourceUUID(c).String()
+	// Build a body larger than the cap: 1 MiB + 1 byte.
+	oversized := io.NopCloser(strings.NewReader(strings.Repeat("x", 1<<20+1)))
+
+	_, _, _, err := store.Put(
+		c.Context(),
+		storageKey,
+		oversized,
+		0,
+		resourcestore.Fingerprint{},
+	)
+	c.Assert(err, tc.ErrorMatches, ".*exceeds maximum size.*")
 }
 
 func (s *containerImageResourceStoreSuite) TestFileResourceStoreGet(c *tc.C) {
