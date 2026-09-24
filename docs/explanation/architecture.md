@@ -178,7 +178,7 @@ Each model database holds the records for everything running in that model:
 - **Unit records** -- which application, which charm revision, current lifecycle
   state.
 - **Machine or pod records** -- hardware constraints, placement, provider ID.
-- **Relation records** -- which endpoints are connected; the data bags each side
+- **Relation records** -- which endpoints are connected; the settings each side
   has written.
 - **Secret records** -- secret metadata and, where the controller is the backend,
   the secret content.
@@ -201,7 +201,7 @@ until the agent has confirmed it is done.
 ```
 *Core records in the model database. `application` references a `charm`; each
 unit carries the charm revision it is running. `relation` records link two
-application endpoints and hold the data bags each side writes. The lifecycle
+application endpoints and hold the settings each side writes. The lifecycle
 state column (Alive → Dying → Dead) is on every record that can be removed.*
 
 ```{ibnote}
@@ -415,7 +415,7 @@ agreed upon.
 ```{ggarch}
 :file: ../juju.ggarch
 :sequence: Integrate
-:alt: User invokes juju integrate. CLI sends Integrate RPC call to Controller. Controller writes relation record. Controller fires watchers to both Unit agent (app A) and Unit agent (app B). Both agents run relation hooks in sequence. Each agent writes its relation data bag to the Controller. The Controller notifies the other agent via its watcher.
+:alt: User invokes juju integrate. CLI sends Integrate RPC call to Controller. Controller writes relation record. Controller fires watchers to both Unit agent (app A) and Unit agent (app B). Both agents run relation hooks in sequence. Each agent writes its relation settings to the Controller. The Controller notifies the other agent via its watcher.
 ```
 
 ```{mermaid}
@@ -444,7 +444,7 @@ sequenceDiagram
     Controller-->>UA1: watcher fires (data changed)
     UA1->>Controller: relation-changed hook
 ```
-*Integrating two applications. Every arrow passes through the controller -- UA1 and UA2 never communicate directly. The controller holds the relation record; each unit writes its data bag to the controller, which notifies the other via a watcher.*
+*Integrating two applications. Every arrow passes through the controller -- UA1 and UA2 never communicate directly. The controller holds the relation record; each unit writes its settings to the controller, which notifies the other via a watcher.*
 
 ```{ibnote}
 See more: {ref}`command-juju-integrate`, {ref}`relation`

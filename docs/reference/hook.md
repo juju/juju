@@ -91,7 +91,7 @@ hook commands, on demand, from the controller database:
 These invariants are independent: none builds on another, and none implies ordering
 across machines or across hooks of different units.
 
-The controller stores per model: application configuration, relations (data bags),
+The controller stores per model: application configuration, relations (their settings),
 secrets, application and unit status, leadership, and optionally charm state. Timing
 of access within a hook follows directly from the invariants:
 
@@ -315,16 +315,16 @@ Additionally, a unit will receive a `relation-changed` event every time another 
 
 ```python
 # in charm `foo`
-relation.data[self.unit]['foo'] = 'bar'  # set unit databag
+relation.data[self.unit]['foo'] = 'bar'  # set the unit's settings
 if self.unit.is_leader():
-    relation.data[self.app]['foo'] = 'baz'  # set app databag
+    relation.data[self.app]['foo'] = 'baz'  # set the application settings
 ```
 
 When the hook returns, `bar` will receive a `relation-changed` event.
 
-Note that units only receive `relation-changed` events for **other** units' changes. The one exception to this rule is for peer relations' application data bags.
-The application leader will receive a `relation-changed` event for the changes that it writes to a peer relation's application data bag. This allows all units
-of an application to use a common event handler to react to changes in the peer relation's application data bag, independent of whether the unit is the current leader.
+Note that units only receive `relation-changed` events for **other** units' changes. The one exception to this rule is for peer relations' application settings.
+The application leader will receive a `relation-changed` event for the changes that it writes to a peer relation's application settings. This allows all units
+of an application to use a common event handler to react to changes in the peer relation's application settings, independent of whether the unit is the current leader.
 
 > **When is data synchronized?** <br>
 > Relation data is sent to the controller at the end of the hook's execution. If a charm author writes to local relation data multiple times during the a single hook run, the net change will be sent to the controller after the local code has finished executing. The controller inspects the data and determines whether the relation data has been changed. Related units then get the `relation-changed` event the next time they check in with the controller.
@@ -421,7 +421,7 @@ By the time this event is emitted, the only available data concerning the relati
  - the name of the joining unit.
  - the `private-address` of the joining unit.
 
-In other words, when this event is emitted the remote unit has not yet had an opportunity to write any data to the relation databag. For that, you're going to have to wait for the first {ref}`relation-changed hook <hook-relation-changed>`.
+In other words, when this event is emitted the remote unit has not yet had an opportunity to write any data to the relation settings. For that, you're going to have to wait for the first {ref}`relation-changed hook <hook-relation-changed>`.
 
 From the perspective of an application called `foo`, which can relate to an application called `bar`:
 

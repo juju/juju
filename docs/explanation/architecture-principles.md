@@ -424,14 +424,14 @@ This "no peer communication" principle has a visible architectural consequence:
 When two applications integrate, their unit agents never communicate directly.
 The protocol is:
 
-1. Unit A writes its relation data bag to the controller (`relation-set` →
+1. Unit A writes its relation settings to the controller (`relation-set` →
    jujuc server → `UniterAPI.SetRelationUnitSettings` → controller DB).
 2. The controller fires a watcher notification to unit B.
 3. Unit B's watcher fires; it calls `relation-get` → jujuc server →
-   `UniterAPI.ReadSettings` → reads A's data bag from the controller DB.
-4. Unit B decides its next relation hook, runs it, and writes its own data bag
+   `UniterAPI.ReadSettings` → reads A's settings from the controller DB.
+4. Unit B decides its next relation hook, runs it, and writes its own settings
    back to the controller.
-5. The controller notifies A, and A reads B's data bag.
+5. The controller notifies A, and A reads B's settings.
 
 The controller is always in the middle. Unit A and unit B are never connected.
 This is not just an implementation detail -- it is a key architectural property.
@@ -450,11 +450,11 @@ because both sides speak only to their own controller).
      controller; B writes back; controller notifies A. No A→B edge.
      Emphasis on: relation data lives in controller DB, not in either agent.
      ggarch: this is a natural topology + annotation combination. The controller
-     sits in the middle. Annotation regions: "relation data bag (app A)" and
-     "relation data bag (app B)" inside the controller, not inside the unit
+     sits in the middle. Annotation regions: "relation settings (app A)" and
+     "relation settings (app B)" inside the controller, not inside the unit
      pods. Edge types: "data" for writes, "event" for watcher notifications,
      "api" for reads. This diagram would require ggarch to support small
-     "sub-node" labels or record-style nodes for the data bags -- a good
+     "sub-node" labels or record-style nodes for the settings -- a good
      expressive power test.
      Variant: show three integrated applications to make the star shape obvious
      (A-B-C all through controller, no direct A-C edge). -->

@@ -374,7 +374,7 @@ See more: {ref}`application`, {ref}`unit`, {ref}`machine`, {ref}`constraint`
 
 #### Integration cluster
 
-**Relation** -- Connects two applications so they can exchange data via relation data bags. A relation links to applications via `relation_endpoint → application_endpoint → application`. Relations can also cross model boundaries.
+**Relation** -- Connects two applications so they can exchange data via relation settings. A relation links to applications via `relation_endpoint → application_endpoint → application`. Relations can also cross model boundaries.
 
 **Offer** -- A named set of application endpoints published for cross-model consumption (`offer`, `offer_endpoint`). When a consumer integrates with an offer, an `offer_connection` record is created on the offering side and a synthetic remote application (`application_remote_offerer`) is created on the consuming side.
 
@@ -714,7 +714,7 @@ See more: {ref}`command-juju-deploy`
 
 Integrating connects one application to another so they can exchange data. When you integrate two applications, the controller writes a relation record; the unit agents on both sides are notified via their watchers and each runs the relation hooks in sequence.
 
-A key architectural point: in Juju, applications never communicate directly with each other. All integration is mediated by the controller in a **star topology** -- every arrow in the sequence diagram below goes from a unit agent to the controller or back, never from one unit agent to the other. The controller holds the relation record and the data bags; each unit reads and writes its side through the controller. This means the controller is always the single source of truth for what two applications have agreed upon.
+A key architectural point: in Juju, applications never communicate directly with each other. All integration is mediated by the controller in a **star topology** -- every arrow in the sequence diagram below goes from a unit agent to the controller or back, never from one unit agent to the other. The controller holds the relation record and the settings; each unit reads and writes its side through the controller. This means the controller is always the single source of truth for what two applications have agreed upon.
 
 ```{mermaid}
 sequenceDiagram
@@ -742,7 +742,7 @@ sequenceDiagram
     Controller-->>UA1: watcher fires (data changed)
     UA1->>Controller: relation-changed hook
 ```
-*Integrating two applications. Every arrow passes through the controller -- UA1 and UA2 never communicate directly. The controller holds the relation record; each unit writes its data bag to the controller, which notifies the other via a watcher. This is the star topology in practice.*
+*Integrating two applications. Every arrow passes through the controller -- UA1 and UA2 never communicate directly. The controller holds the relation record; each unit writes its settings to the controller, which notifies the other via a watcher. This is the star topology in practice.*
 
 ```{ibnote}
 See more: {ref}`command-juju-integrate`, {ref}`relation`
@@ -910,7 +910,7 @@ These invariants are independent: the guarantee of one does not build on another
 
 ##### What the controller stores
 
-The controller stores, per model: application configuration, relations (data bags), secrets, application and unit status, leadership, and optionally charm state.
+The controller stores, per model: application configuration, relations (their settings), secrets, application and unit status, leadership, and optionally charm state.
 
 ##### When state moves
 
@@ -1149,15 +1149,15 @@ flowchart LR
 healthy?) and workload status (is the application the charm manages healthy?).
 On Kubernetes there is a third: the pod status reported by the cluster.*
 
-### Relations and databags
+### Relations and relation settings
 
 How integration between applications is structured in the data model. All
 relation data flows through the controller -- there are no direct
 application-to-application connections. An application endpoint is the binding
 of a charm relation declaration to a space; a relation endpoint is the record
-that links a live relation to one of those application endpoints. Databags exist
-at two levels: one per participating application (written by the application
-leader) and one per participating unit.
+that links a live relation to one of those application endpoints. Relation
+settings exist at two levels: one per participating application (written by
+the application leader) and one per participating unit.
 
 ```{mermaid}
 %%{init: {"flowchart": {"htmlLabels": true}} }%%
@@ -1166,18 +1166,18 @@ flowchart TB
     APPLICATION_ENDPOINT -->|"binds"| CHARM_RELATION["CHARM RELATION"]
     RELATION -->|"is joined by"| RELATION_ENDPOINT["RELATION ENDPOINT"]
     RELATION_ENDPOINT -->|"references"| APPLICATION_ENDPOINT
-    RELATION_ENDPOINT -->|"has"| RELATION_APP_DATABAG["APPLICATION DATABAG"]
+    RELATION_ENDPOINT -->|"has"| RELATION_APP_SETTINGS["APPLICATION SETTINGS"]
     RELATION_ENDPOINT -->|"has"| RELATION_UNIT["RELATION UNIT"]
     RELATION_UNIT -->|"references"| UNIT
-    RELATION_UNIT -->|"has"| RELATION_UNIT_DATABAG["UNIT DATABAG"]
+    RELATION_UNIT -->|"has"| RELATION_UNIT_SETTINGS["UNIT SETTINGS"]
 
     APPLICATION -->|"publishes"| OFFER
     OFFER -->|"exposes"| APPLICATION_ENDPOINT
 ```
 *A relation connects two application endpoints (one per participating
 application, or one for a peer relation). Each application endpoint contributes
-one application-level databag (written by the leader) and one unit-level
-databag per participating unit. An offer publishes application endpoints for
+one application-level setting set (written by the leader) and one unit-level
+setting set per participating unit. An offer publishes application endpoints for
 cross-model consumption.*
 
 
