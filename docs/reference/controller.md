@@ -21,6 +21,23 @@ In software design, a **controller** is an architectural component responsible f
 - It is responsible for implementing all the changes defined by a Juju {ref}`user <user>` via a Juju client post-bootstrap.
 - It stores state in the internal Dqlite {ref}`database <database>`.
 
+(controller-bootstrap)=
+## Controller bootstrap
+
+A controller comes into being through the {ref}`bootstrap <bootstrap-a-controller>` process: `juju bootstrap` turns an empty cloud into a running control plane. The mechanism and the state it leaves:
+
+```{ggarch}
+:file: ../juju.ggarch
+:slides: Bootstrap machine | Bootstrap machine result
+:caption: Bootstrapping a controller on a machine cloud: the mechanism and the state it leaves.
+:slide-captions: Sequence diagram: The mechanism: the CLI authenticates against the cloud, provisions a virtual machine, installs jujud, and waits; the controller machine starts its controller agent, API server, and database, then reports the API ready. | Topology: The result: one controller, one model, no applications -- the controller machine running jujud, the API server and Dqlite in-process.
+:alt: User invokes juju bootstrap. CLI authenticates with Cloud and provisions a VM. CLI installs jujud on the Controller machine. Controller machine starts the controller agent, API server, and database. Controller machine reports API ready. CLI reports Bootstrap complete to User. The resulting state is the controller machine alone: one controller, one model, no applications yet.
+```
+
+```{ibnote}
+See more: {ref}`manage-controllers`
+```
+
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Worker tree (controller)

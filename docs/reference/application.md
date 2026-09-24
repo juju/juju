@@ -17,6 +17,48 @@ An application is always hosted within a {ref}`model <model>` and consists of on
 
 An application can have {ref}`resources <charm-resource>`, a {ref}`configuration <application-configuration>`, the ability to form {ref}`relations <relation>`, and {ref}`actions <action>`.
 
+(application-lifecycle)=
+## Application lifecycle
+
+(application-deployment)=
+### Application deployment
+
+Deploying an application adds its software to a {ref}`model <model>` and arranges for it to run on infrastructure. The intent -- the application name, the {ref}`charm <charm>`, the {ref}`constraints <constraint>` -- goes to the {ref}`controller <controller>` as an RPC call. The controller writes the application and {ref}`unit <unit>` records to the {ref}`database <database>`, then asks the cloud for resources (a virtual machine or a pod). Once the resource is ready the controller starts the {ref}`unit agent <unit-agent>`, which runs the install sequence: `install`, `config-changed`, `start`.
+
+The mechanism and the state it leaves, per cloud type:
+
+:::::{tab-set}
+
+::::{tab-item} Kubernetes
+
+```{ggarch}
+:file: ../juju.ggarch
+:slides: Data model | Deploy K8s | K8s deployment topology | juju status
+:caption: Deploying on Kubernetes: the records, the mechanism that creates them, the topology that results, and the command that verifies it.
+:slide-captions: Entity relationship diagram: The seed: the records a deployment consists of -- charm, application, unit, machine/pod, relation, endpoint -- and where the pointers live. | Sequence diagram: The mechanism: the controller writes the application and unit records, schedules the unit pod, and starts the containeragent, which runs the install hooks to unit active. | Topology: The result: the settled topology -- the controller pod and the unit pod, each with their internal agents and containers. | Sequence diagram: The verification: juju status projects exactly those records plus live agent liveness -- what you just deployed is what status reads.
+:alt: The data model records (charm, application, unit, machine/pod, relation, endpoint). Then: user invokes juju deploy; controller writes records and schedules the unit pod; containeragent runs the install hooks and reports active. The resulting topology: controller pod and unit pod with their internal agents and containers. Verification: juju status reads those records plus live agent liveness.
+```
+
+::::
+
+::::{tab-item} Machines
+
+```{ggarch}
+:file: ../juju.ggarch
+:slides: Data model | Deploy machine | Machine deployment topology | juju status
+:caption: Deploying on a machine cloud: the records, the mechanism that creates them, the topology that results, and the command that verifies it.
+:slide-captions: Entity relationship diagram: The seed: the records a deployment consists of -- charm, application, unit, machine/pod, relation, endpoint -- and where the pointers live. | Sequence diagram: The mechanism: the controller writes the application and unit records, asks the cloud to provision a machine, and starts jujud, which runs the install hooks to unit active. | Topology: The result: one jujud per machine -- the controller machine's jujud runs the controller with Dqlite in-process; the unit machine's jujud hosts the unit agent, which runs the charm, which drives the workload directly (no Pebble on machine clouds). | Sequence diagram: The verification: juju status projects exactly those records plus live agent liveness -- what you just deployed is what status reads.
+:alt: The data model records (charm, application, unit, machine/pod, relation, endpoint). Then: user invokes juju deploy; controller writes records and provisions a machine; jujud runs the install hooks and reports active. The resulting topology: controller machine and unit machine, one jujud per machine. Verification: juju status reads those records plus live agent liveness.
+```
+
+::::
+
+:::::
+
+```{ibnote}
+See more: {ref}`manage-applications`
+```
+
 (application-endpoint)=
 ## Application endpoint
 

@@ -123,6 +123,34 @@ concept pages — one mechanism, data model, or process per page.
 :alt: User calls juju deploy; client merges overlay into base; controller returns model status snapshot; client builds the change graph and applies changes in order.
 ```
 
+### reference/application.md
+
+#### Application deployment (deploy carousels)
+
+**Insert at:** new § Application lifecycle > Application deployment
+(homed; the architecture.md § Deploy carousels stay — the multi-home
+precedent). One tab-set, one carousel per cloud type; the full
+topologies are the ratified result beats (no bootstrap-result-style
+crops).
+
+```{ggarch}
+:file: ../juju.ggarch
+:slides: Data model | Deploy K8s | K8s deployment topology | juju status
+:no-legend:
+:caption: Deploying on Kubernetes: the records, the mechanism that creates them, the topology that results, and the command that verifies it.
+:slide-captions: Entity relationship diagram: The seed: the records a deployment consists of -- charm, application, unit, machine/pod, relation, endpoint -- and where the pointers live. | Sequence diagram: The mechanism: the controller writes the application and unit records, schedules the unit pod, and starts the containeragent, which runs the install hooks to unit active. | Topology: The result: the settled topology -- the controller pod and the unit pod, each with their internal agents and containers. | Sequence diagram: The verification: juju status projects exactly those records plus live agent liveness -- what you just deployed is what status reads.
+:alt: The data model records (charm, application, unit, machine/pod, relation, endpoint). Then: user invokes juju deploy; controller writes records and schedules the unit pod; containeragent runs the install hooks and reports active. The resulting topology: controller pod and unit pod with their internal agents and containers. Verification: juju status reads those records plus live agent liveness.
+```
+
+```{ggarch}
+:file: ../juju.ggarch
+:slides: Data model | Deploy machine | Machine deployment topology | juju status
+:no-legend:
+:caption: Deploying on a machine cloud: the records, the mechanism that creates them, the topology that results, and the command that verifies it.
+:slide-captions: Entity relationship diagram: The seed: the records a deployment consists of -- charm, application, unit, machine/pod, relation, endpoint -- and where the pointers live. | Sequence diagram: The mechanism: the controller writes the application and unit records, asks the cloud to provision a machine, and starts jujud, which runs the install hooks to unit active. | Topology: The result: one jujud per machine -- the controller machine's jujud runs the controller with Dqlite in-process; the unit machine's jujud hosts the unit agent, which runs the charm, which drives the workload directly (no Pebble on machine clouds). | Sequence diagram: The verification: juju status projects exactly those records plus live agent liveness -- what you just deployed is what status reads.
+:alt: The data model records (charm, application, unit, machine/pod, relation, endpoint). Then: user invokes juju deploy; controller writes records and provisions a machine; jujud runs the install hooks and reports active. The resulting topology: controller machine and unit machine, one jujud per machine. Verification: juju status reads those records plus live agent liveness.
+```
+
 ### reference/charm.md
 
 #### Charm origins
@@ -200,6 +228,21 @@ concept pages — one mechanism, data model, or process per page.
 :no-legend:
 :caption: Sequence diagram: Deploying to Kubernetes is a two-phase handoff: the controller writes intent into the database and schedules the pod, then the unit agent (containeragent) takes over and drives the charm lifecycle independently.
 :alt: User calls juju deploy. Client sends Deploy RPC to Controller. Controller writes records and schedules pod on Kubernetes. K8s returns pod running. Controller starts containeragent. containeragent runs install, config-changed, start hooks and returns unit active. Controller signals deploy complete back to Client and User.
+```
+
+#### Controller bootstrap (machines slideshow)
+
+**Insert at:** new § Controller bootstrap (homed; also on
+explanation/architecture.md § Bootstrap per the multi-home
+precedent).
+
+```{ggarch}
+:file: ../juju.ggarch
+:slides: Bootstrap machine | Bootstrap machine result
+:no-legend:
+:caption: Bootstrapping a controller on a machine cloud: the mechanism and the state it leaves.
+:slide-captions: Sequence diagram: The mechanism: the CLI authenticates against the cloud, provisions a virtual machine, installs jujud, and waits; the controller machine starts its controller agent, API server, and database, then reports the API ready. | Topology: The result: one controller, one model, no applications -- the controller machine running jujud, the API server and Dqlite in-process.
+:alt: User invokes juju bootstrap. CLI authenticates with Cloud and provisions a VM. CLI installs jujud on the Controller machine. Controller machine starts the controller agent, API server, and database. Controller machine reports API ready. CLI reports Bootstrap complete to User. The resulting state is the controller machine alone: one controller, one model, no applications yet.
 ```
 
 ### reference/credential.md
