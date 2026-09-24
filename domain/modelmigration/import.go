@@ -98,6 +98,9 @@ func ImportOperations(
 	agentpassword.RegisterImport(coordinator)
 	crossmodelrelation.RegisterImport(coordinator, clock, logger.Child("crossmodelrelation"))
 	relation.RegisterImport(coordinator, clock, logger.Child("relation"))
+	// Relation networks must be imported after relations, as they are
+	// located by relation key which requires the relations to exist.
+	crossmodelrelation.RegisterImportRelationNetworks(coordinator, clock, logger.Child("crossmodelrelation"))
 	access.RegisterOfferAccessImport(coordinator, clock, logger.Child("offeraccess"))
 	status.RegisterImport(coordinator, clock, logger.Child("status"))
 	resource.RegisterImport(coordinator, clock, logger.Child("resource"))

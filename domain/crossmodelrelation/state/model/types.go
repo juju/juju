@@ -463,6 +463,11 @@ type relationNetworkIngress struct {
 	CIDR         string `db:"cidr"`
 }
 
+type relationNetworkEgress struct {
+	RelationUUID string `db:"relation_uuid"`
+	CIDR         string `db:"cidr"`
+}
+
 type cidr struct {
 	CIDR string `db:"cidr"`
 }
