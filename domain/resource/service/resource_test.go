@@ -5,6 +5,7 @@ package service
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"testing"
 	"time"
@@ -439,6 +440,79 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorIs, expectedErr)
+}
+
+func (s *resourceServiceSuite) TestStoreResourceContainerImageClaimMismatchIsLogged(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Rebuild the service with a logger that records warnings, so the
+	// claim-vs-derived divergence can be asserted.
+	var warnings []string
+	s.service = NewService(s.state, s.resourceStoreGetter, loggertesting.WrapCheckLog(
+		loggertesting.RecordLog(func(msg string, a ...any) {
+			// RecordLog forwards the format args as a single []any element.
+			if len(a) == 1 {
+				if inner, ok := a[0].([]any); ok {
+					a = inner
+				}
+			}
+			warnings = append(warnings, fmt.Sprintf(msg, a...))
+		})))
+
+	resourceUUID := resourcetesting.GenResourceUUID(c)
+	resourceType := charmresource.TypeContainerImage
+
+	reader := bytes.NewBufferString("spamspamspam")
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, tc.ErrorIsNil)
+	storeFP := coreresourcestore.NewFingerprint(fp.Fingerprint)
+	size := int64(42)
+
+	// The store derives different values from the parsed container image
+	// metadata, as it does for container image resources migrated from
+	// Juju 3.6.
+	derivedSize := int64(7)
+	derivedCharmFP, err := charmresource.NewFingerprint(bytes.Repeat([]byte("0"), 48))
+	c.Assert(err, tc.ErrorIsNil)
+	derivedFP := coreresourcestore.NewFingerprint(derivedCharmFP.Fingerprint)
+
+	storageID := storetesting.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
+	s.state.EXPECT().GetResourceNameAndType(gomock.Any(), resourceUUID).Return(
+		"resource-name", resourceType.String(), nil,
+	)
+	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
+	s.resourceStore.EXPECT().Put(
+		gomock.Any(),
+		resourceUUID.String(),
+		reader,
+		size,
+		storeFP,
+	).Return(storageID, derivedSize, derivedFP, nil)
+	s.state.EXPECT().RecordStoredResource(gomock.Any(), resource.RecordStoredResourceArgs{
+		ResourceUUID:                  resourceUUID,
+		StorageID:                     storageID,
+		ResourceType:                  resourceType,
+		IncrementCharmModifiedVersion: false,
+		Size:                          derivedSize,
+		SHA384:                        derivedFP.String(),
+	})
+	s.state.EXPECT().GetResourceWithoutApplication(gomock.Any(), resourceUUID).Return(coreresource.Resource{}, nil)
+
+	_, err = s.service.StoreResource(
+		c.Context(),
+		resource.StoreResourceArgs{
+			ResourceUUID: resourceUUID,
+			Reader:       reader,
+			Size:         size,
+			Fingerprint:  fp,
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert:
+	c.Assert(warnings, tc.HasLen, 1)
+	c.Check(warnings[0], tc.Matches,
+		`.*WARNING.*stored resource "resource-name": stored size 7 and fingerprint .* differ from claimed size 42 and fingerprint .*; expected for container image resources migrated from Juju 3\.6`)
 }
 
 func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlobContainer(c *tc.C) {

@@ -481,6 +481,19 @@ func (s *Service) storeResource(
 	} else if err != nil {
 		return errors.Errorf("putting resource %q in store: %w", resName, err)
 	}
+
+	// The resource store derives the size and fingerprint from the blob
+	// itself. For file resources those always match the given values; for
+	// container image resources they are re-derived from the parsed
+	// DockerImageDetails, which can legitimately differ from the values
+	// claimed by the source of models exported from Juju 3.6. Log the
+	// divergence so operators can trace what is recorded in the database.
+	if size != args.Size || fingerprint.String() != args.Fingerprint.String() {
+		s.logger.Warningf(ctx,
+			"stored resource %q: stored size %d and fingerprint %s differ from claimed size %d and fingerprint %s; expected for container image resources migrated from Juju 3.6",
+			resName, size, fingerprint.String(), args.Size, args.Fingerprint.String())
+	}
+
 	defer func() {
 		// If any subsequent operation fails, remove the resource blob.
 		if err != nil {
