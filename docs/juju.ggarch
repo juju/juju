@@ -380,6 +380,21 @@ model "Juju" {
       ha_agent  [type: juju-software,
              label: "controller agent\n(jujud, embedded Dqlite)"]
     }
+
+    // -----------------------------------------------------------------------
+    // Relation kind taxonomy — the is-a trie (docs/reference/relation.md,
+    // § Types of relation; ADR-011 §2). Definition nodes: the kinds are
+    // the page's own discriminated subkinds, not code facts — no grounds
+    // (the definitions live on the page; the discriminators are the edge
+    // labels).
+    // -----------------------------------------------------------------------
+    rel_kind         [type: default, label: "Relation"]
+    rel_kind_peer    [type: default, label: "Peer relation"]
+    rel_kind_nonpeer [type: default, label: "Non-peer relation"]
+    rel_kind_sub     [type: default, label: "Subordinate relation"]
+    rel_kind_nonsub  [type: default, label: "Non-subordinate relation"]
+    rel_kind_cmr     [type: default, label: "Cross-model relation"]
+    rel_kind_noncmr  [type: default, label: "Non-cross-model relation"]
   }
 
   edges {
@@ -761,6 +776,18 @@ model "Juju" {
     sec_expired    -> sec_removed       [type: control]
     sec_active     -> sec_removed       [type: control]
     uop_committing -> uop_idle       [type: control]
+
+    // -----------------------------------------------------------------------
+    // Relation kind trie (ADR-011 §2): is-a edges — hollow triangle at
+    // the PARENT; the label is the discriminator that makes the child
+    // a child. Arrow reads child -> parent ("is a").
+    // -----------------------------------------------------------------------
+    rel_kind_peer    -> rel_kind        [type: generalization, label: "same application"]
+    rel_kind_nonpeer -> rel_kind        [type: generalization, label: "distinct applications"]
+    rel_kind_sub     -> rel_kind_nonpeer [type: generalization, label: "one side subordinate"]
+    rel_kind_nonsub  -> rel_kind_nonpeer [type: generalization, label: "both sides principal"]
+    rel_kind_cmr     -> rel_kind_nonsub  [type: generalization, label: "across models"]
+    rel_kind_noncmr  -> rel_kind_nonsub  [type: generalization, label: "same model"]
   }
 
   behaviours {
@@ -1952,6 +1979,43 @@ diagram "Databag permissions" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+// Reference: relation kind taxonomy (docs/reference/relation.md, § Types
+// of relation; ADR-011 §2) — the is-a trie. Right-spine tree: each kind
+// hangs left of its parent's spine; the hollow triangle lands on the
+// parent; the edge label is the discriminator. Declared positions (the
+// trie's shape IS the argument); retires the hand-drawn excalidraw.
+// --------------------------------------------------------------------------
+diagram "Types of relation" from "Juju" {
+  select {
+    routing: orthogonal
+    nodes: rel_kind rel_kind_peer rel_kind_nonpeer
+           rel_kind_sub rel_kind_nonsub
+           rel_kind_cmr rel_kind_noncmr
+    edges: type generalization
+    sizing: uniform
+  }
+  positions {
+    // The spine: relation -> non-peer -> non-subordinate -> non-CMR.
+    rel_kind         above rel_kind_nonpeer gap: 60
+    rel_kind         align-centre rel_kind_nonpeer
+    rel_kind_nonpeer above rel_kind_nonsub  gap: 60
+    rel_kind_nonpeer align-centre rel_kind_nonsub
+    rel_kind_nonsub  above rel_kind_noncmr  gap: 60
+    rel_kind_nonsub  align-centre rel_kind_noncmr
+    // Sibling rows: the left-hand kind hangs off its parent's rank.
+    rel_kind_peer    below rel_kind         gap: 60
+    rel_kind_peer    left-of rel_kind_nonpeer gap: 100
+    rel_kind_sub     below rel_kind_nonpeer gap: 60
+    rel_kind_sub     left-of rel_kind_nonsub gap: 100
+    rel_kind_cmr     below rel_kind_nonsub  gap: 60
+    rel_kind_cmr     left-of rel_kind_noncmr gap: 100
+  }
+  annotations {
+    legend [position: "bottom-right", generalization: "is a"]
+  }
+}
+
+// --------------------------------------------------------------------------
 // Reference: the three configuration levels (docs/reference/configuration.md)
 // --------------------------------------------------------------------------
 diagram "Configuration levels" from "Juju" {
@@ -2476,6 +2540,23 @@ diagram "Databag permissions (synthesized)" from "Juju" {
             record: "database record",
             read_write: "reads + writes",
             read_only: "reads"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Types of relation (synthesized)" from "Juju" {
+  select {
+    routing: orthogonal
+    nodes: rel_kind rel_kind_peer rel_kind_nonpeer
+           rel_kind_sub rel_kind_nonsub
+           rel_kind_cmr rel_kind_noncmr
+    edges: type generalization
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right", generalization: "is a"]
   }
 }
 

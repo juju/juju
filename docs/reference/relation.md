@@ -13,19 +13,13 @@ See also: {ref}`manage-relations`
 
 In Juju, a **relation** (**integration**) is a connection an {ref}`application <application>` supports by virtue of having a particular {ref}`endpoint <application-endpoint>`.
 
-## Relation taxonomy
+## Types of relation
 
-```{figure} relation-taxonomy.svg
-  :figclass: only-light
-  :align: center
-  :alt: Juju relation taxonomy
-  _A relation is between two applications. When the applications are such that one is principal and one is subordinate, the result is a subordinate relation. When the applications are on two separate models, the result is a cross-model relation. When the applications are identical -- that is, we are speaking of the relation an application has to itself -- the result is a peer relation._
-```
-```{figure} relation-taxonomy.dark.svg
-  :figclass: only-dark
-  :align: center
-  :alt: Juju relation taxonomy
-  _A relation is between two applications. When the applications are such that one is principal and one is subordinate, the result is a subordinate relation. When the applications are on two separate models, the result is a cross-model relation. When the applications are identical -- that is, we are speaking of the relation an application has to itself -- the result is a peer relation._
+```{ggarch}
+:file: ../juju.ggarch
+:view: Types of relation
+:alt: The relation kinds as a tree: Relation splits into Peer relation and Non-peer relation; Non-peer relation splits into Subordinate relation and Non-subordinate relation; Non-subordinate relation splits into Cross-model relation and Non-cross-model relation. Each edge is labelled with the discriminator that separates the two branches, and ends in a hollow triangle on the parent kind.
+:caption: Taxonomy tree: Every relation is a peer relation (the application relates to itself) or a non-peer relation (two distinct applications); a non-peer relation is subordinate when one side is subordinate, and a non-subordinate relation is cross-model when the two applications live in different models.
 ```
 
 (peer-relation)=

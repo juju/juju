@@ -420,6 +420,17 @@ concept pages — one mechanism, data model, or process per page.
 
 ### reference/relation.md
 
+#### Types of relation (taxonomy)
+
+**Insert at:** § Types of relation (renamed from § Relation taxonomy; the hand-drawn excalidraw retires).
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Types of relation
+:alt: The relation kinds as a tree: Relation splits into Peer relation and Non-peer relation; Non-peer relation splits into Subordinate relation and Non-subordinate relation; Non-subordinate relation splits into Cross-model relation and Non-cross-model relation. Each edge is labelled with the discriminator that separates the two branches, and ends in a hollow triangle on the parent kind.
+:caption: Taxonomy tree: Every relation is a peer relation (the application relates to itself) or a non-peer relation (two distinct applications); a non-peer relation is subordinate when one side is subordinate, and a non-subordinate relation is cross-model when the two applications live in different models.
+```
+
 #### Integrate
 
 **Insert at:** § Relation lifecycle → § Relation creation. also: explanation/architecture.md § Integrate.
@@ -787,9 +798,10 @@ Diagrams with no confirmed home yet.
 
 ## Pending round-2 views
 
-Pages still on hand-drawn visuals: `reference/relation.md` (the
-relation taxonomy excalidraw — the databags excalidraw is superseded
-by the Databag permissions view), `reference/hook.md` (the
+Pages still on hand-drawn visuals: `reference/hook.md` (the
 hook-charm-lifecycle PNG — the Uniter operation machine covers its
-execution story). The remaining reference pages without a view are
+execution story). The relation taxonomy excalidraw is retired (the
+"Types of relation" trie above is its replacement; the databags
+excalidraw was superseded by the Databag permissions view). The
+remaining reference pages without a view are
 the coverage-round-2 opportunity map.
