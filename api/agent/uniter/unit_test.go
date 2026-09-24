@@ -291,6 +291,7 @@ func (s *unitSuite) TestRefresh(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(unit.Life(), tc.Equals, life.Dying)
 	c.Check(unit.ProviderID(), tc.Equals, "666")
+	c.Check(unit.ResolvedMode(), tc.Equals, params.ResolvedRetryHooks)
 }
 
 func (s *unitSuite) TestRefreshNotImplemented(c *tc.C) {
