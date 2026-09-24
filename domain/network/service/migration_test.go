@@ -578,7 +578,7 @@ func (s *migrationSuite) TestImportK8sServicesGetAllSubnetsError(c *tc.C) {
 	// No calls to another state function.
 
 	// Act
-	err := s.migrationService(c).ImportK8sServices(c.Context(), []internal.ImportK8sService{})
+	err := s.migrationService(c).ImportK8sServices(c.Context(), []internal.ImportK8sService{{Addresses: []internal.ImportK8sServiceAddress{{Type: "ipv4", Value: "192.0.2.1"}}}})
 
 	// Assert: the error from GetAllSubnets is passed through to the caller
 	c.Assert(err, tc.ErrorMatches, ".*subnets error")
@@ -588,7 +588,6 @@ func (s *migrationSuite) TestImportK8sServicesCreateK8sServicesError(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(s.fallbackSubnetInfo(), nil)
 	s.st.EXPECT().CreateK8sServices(gomock.Any(), gomock.Any()).Return(errors.New("create services error"))
 	// No try to create LLD if creating k8s services fails
 
@@ -603,7 +602,6 @@ func (s *migrationSuite) TestImportK8sServicesImportLinkLayerDevicesError(c *tc.
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(s.fallbackSubnetInfo(), nil)
 	s.st.EXPECT().CreateK8sServices(gomock.Any(), gomock.Any()).Return(nil)
 	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), gomock.Any()).Return(errors.New("import devices error"))
 
@@ -635,6 +633,21 @@ func (s *migrationSuite) TestImportK8sServicesErrorGetSubnetNoSubnet(c *tc.C) {
 
 	err := s.migrationService(c).ImportK8sServices(c.Context(), services)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *migrationSuite) TestImportK8sServicesRejectsHostnameScope(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	for _, scope := range []corenetwork.Scope{corenetwork.ScopeMachineLocal, corenetwork.ScopeLinkLocal, ""} {
+		err := s.migrationService(c).ImportK8sServices(c.Context(), []internal.ImportK8sService{{
+			ApplicationName: "foo",
+			Addresses: []internal.ImportK8sServiceAddress{{
+				Value: "lb.example.com",
+				Type:  string(corenetwork.HostName),
+				Scope: string(scope),
+			}},
+		}})
+		c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	}
 }
 
 func (s *migrationSuite) TestImportK8sServicesIPv4AndIPv6Success(c *tc.C) {
@@ -914,7 +927,6 @@ func (m k8sServiceLLDMatcher) Matches(x any) bool {
 			IsAutoStart:     true,
 			IsEnabled:       true,
 			NetNodeUUID:     expected.NetNodeUUID,
-			Name:            "",
 			Type:            network.DeviceTypeUnknown,
 			VirtualPortType: corenetwork.NonVirtualPort,
 		})

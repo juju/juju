@@ -17,7 +17,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/model-triggers.gen.go -package=triggers -tables=model_config,model_migrating
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/secret-triggers.gen.go -package=triggers -tables=secret_metadata,secret_rotation,secret_revision,secret_revision_expire,secret_revision_obsolete,secret_reference,secret_deleted_value_ref
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/network-triggers.gen.go -package=triggers -tables=subnet,ip_address
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/network-triggers.gen.go -package=triggers -tables=subnet,ip_address,fqdn_address,net_node_fqdn_address,k8s_service
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine,machine_lxd_profile,machine_cloud_instance,machine_requires_reboot,machine_reprovision,machine_ssh_host_key
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/ssh-connection-request-triggers.gen.go -package=triggers -tables=ssh_connection_request
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,application_setting,charm,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
@@ -111,6 +111,9 @@ const (
 	tableModelMigrating
 	tableMachineReprovision
 	tableMachineSSHHostKey
+	tableFQDNAddress
+	tableNetNodeFQDNAddress
+	tableK8sService
 )
 
 // modelPostPatchFilesByVersion is used to categorise the post patch files
@@ -187,6 +190,9 @@ func ModelDDLForVersion(version semversion.Number) *schema.Schema {
 			tableRelation),
 		triggers.ChangeLogTriggersForRelationUnit("unit_uuid", tableRelationUnit),
 		triggers.ChangeLogTriggersForIpAddress("net_node_uuid", tableIPAddress),
+		triggers.ChangeLogTriggersForFqdnAddress("uuid", tableFQDNAddress),
+		triggers.ChangeLogTriggersForNetNodeFqdnAddress("net_node_uuid", tableNetNodeFQDNAddress),
+		triggers.ChangeLogTriggersForK8sService("application_uuid", tableK8sService),
 		triggers.ChangeLogTriggersForApplicationEndpoint("application_uuid", tableApplicationEndpoint),
 		triggers.ChangeLogTriggersForOperationTaskLog("task_uuid", tableOperationTaskLog),
 		triggers.ChangeLogTriggersForApplicationRemoteOfferer("uuid",

@@ -337,8 +337,8 @@ WHERE  u.name = ?`, "bar/0").Scan(&gotAddress, &gotScopeID, &gotLinked)
 }
 
 // TestRegisterCAASUnitDuplicateFQDN verifies that persisting a unit FQDN that
-// collides with an existing fqdn_address (globally unique) is surfaced as an
-// error rather than silently reused: a given FQDN identifies exactly one unit.
+// collides with an existing fqdn_address in the same scope is surfaced as an
+// error rather than silently reused: a given pod FQDN identifies one unit.
 func (s *unitStateSuite) TestRegisterCAASUnitDuplicateFQDN(c *tc.C) {
 	s.createCAASScalingApplication(c, "bar", life.Alive, 1)
 

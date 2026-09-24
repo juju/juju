@@ -509,7 +509,7 @@ type MockStateMockRecorder struct {
 	updateApplicationScaleExpects                             []*gomock.Call4_2[context.Context, application.UUID, int, int, int, error]
 	updateCAASUnitExpects                                     []*gomock.Call3_1[context.Context, unit.Name, application0.UpdateCAASUnitParams, error]
 	updateUnitCharmExpects                                    []*gomock.Call2_1[context.Context, internal.UpdateUnitCharmArg, error]
-	upsertK8sServiceExpects                                   []*gomock.Call4_1[context.Context, string, string, network.ProviderAddresses, error]
+	upsertK8sServiceExpects                                   []*gomock.Call4_1[context.Context, string, string, internal.UpsertK8sServiceArgs, error]
 }
 
 // NewMockState creates a new mock instance.
@@ -3122,22 +3122,22 @@ func (mr *MockStateMockRecorder) UpdateUnitCharm(ctx, arg any) *MockStateUpdateU
 type MockStateUpdateUnitCharmCall = gomock.Call2_1[context.Context, internal.UpdateUnitCharmArg, error]
 
 // UpsertK8sService mocks base method.
-func (m *MockState) UpsertK8sService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error {
+func (m *MockState) UpsertK8sService(ctx context.Context, appName, providerID string, args internal.UpsertK8sServiceArgs) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch4_1(&m.recorder.upsertK8sServiceExpects, m.ctrl, m, "UpsertK8sService", ctx, appName, providerID, sAddrs)
+	return gomock.Dispatch4_1(&m.recorder.upsertK8sServiceExpects, m.ctrl, m, "UpsertK8sService", ctx, appName, providerID, args)
 }
 
 // UpsertK8sService indicates an expected call of UpsertK8sService.
-func (mr *MockStateMockRecorder) UpsertK8sService(ctx, appName, providerID, sAddrs any) *MockStateUpsertK8sServiceCall {
+func (mr *MockStateMockRecorder) UpsertK8sService(ctx, appName, providerID, args any) *MockStateUpsertK8sServiceCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_1[context.Context, string, string, network.ProviderAddresses, error](mr.mock.ctrl.T, mr.mock, "UpsertK8sService", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appName), gomock.EnsureMatcher(providerID), gomock.EnsureMatcher(sAddrs))
+	call := gomock.NewCall4_1[context.Context, string, string, internal.UpsertK8sServiceArgs, error](mr.mock.ctrl.T, mr.mock, "UpsertK8sService", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appName), gomock.EnsureMatcher(providerID), gomock.EnsureMatcher(args))
 	mr.upsertK8sServiceExpects = append(mr.upsertK8sServiceExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateUpsertK8sServiceCall is the typed call wrapper for UpsertK8sService.
-type MockStateUpsertK8sServiceCall = gomock.Call4_1[context.Context, string, string, network.ProviderAddresses, error]
+type MockStateUpsertK8sServiceCall = gomock.Call4_1[context.Context, string, string, internal.UpsertK8sServiceArgs, error]
 
 // MockStatusHistory is a mock of StatusHistory interface.
 type MockStatusHistory struct {

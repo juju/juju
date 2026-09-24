@@ -567,9 +567,9 @@ func (st *State) deleteK8sServices(ctx context.Context, tx *sqlair.TX, aUUID str
 	// deleted before net_node (FK constraint), which would make the subquery
 	// return nothing.
 	selectNetNodeStmt, err := st.Prepare(`
-SELECT net_node_uuid AS &entityUUID.uuid
-FROM   k8s_service
-WHERE  application_uuid = $entityUUID.uuid`, app)
+SELECT ks.net_node_uuid AS &entityUUID.uuid
+FROM k8s_service AS ks
+WHERE ks.application_uuid = $entityUUID.uuid`, app)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -597,6 +597,9 @@ WHERE application_uuid = $entityUUID.uuid
 	// The net node and all the network entities it owns (IP addresses,
 	// link-layer devices, address junctions) belong to the network domain.
 	// Use the shared helper to clean them up.
+	if err := st.deleteNetNodesFQDNAddresses(ctx, tx, []string{netNode.UUID}); err != nil {
+		return errors.Capture(err)
+	}
 	if err := st.removeNetNode(ctx, tx, netNode.UUID); err != nil {
 		return errors.Errorf("removing net node for cloud service: %w", err)
 	}

@@ -287,8 +287,10 @@ CREATE TABLE fqdn_address (
     REFERENCES network_address_scope (id)
 );
 
+-- The same DNS name may be reported with different reachability scopes.
+-- Net nodes share a row only when both the name and scope agree.
 CREATE UNIQUE INDEX idx_fqdn_address_address
-ON fqdn_address (address);
+ON fqdn_address (address, scope_id);
 
 CREATE TABLE net_node_fqdn_address (
     net_node_uuid TEXT NOT NULL,

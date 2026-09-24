@@ -8,13 +8,15 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
 // CreateK8sServices creates cloud service in state.
 // It creates the associated net node uuid and links it to the application
-// through the provided application name.
+// through the provided application name. Hostname scopes must be validated by
+// the service layer before calling this method.
 func (st *State) CreateK8sServices(ctx context.Context, k8sServices []internal.ImportK8sService) error {
 
 	db, err := st.DB(ctx)
@@ -75,9 +77,49 @@ WHERE a.name = $service.application_name
 			} else if affected != 1 {
 				return errors.Errorf("inserting cloud services: expected 1 row affected, got %d", affected)
 			}
+			for _, addr := range svc.Addresses {
+				if network.AddressType(addr.Type) != network.HostName {
+					continue
+				}
+				if err := st.importK8sServiceFQDN(ctx, tx, svc.NetNodeUUID, addr); err != nil {
+					return errors.Capture(err)
+				}
+			}
 		}
 		return nil
 	})
 
 	return errors.Capture(err)
+}
+
+func (st *State) importK8sServiceFQDN(ctx context.Context, tx *sqlair.TX, netNodeUUID string, addr internal.ImportK8sServiceAddress) error {
+	type hostname struct {
+		UUID        string `db:"uuid"`
+		Address     string `db:"address"`
+		Scope       string `db:"scope"`
+		NetNodeUUID string `db:"net_node_uuid"`
+	}
+	input := hostname{UUID: addr.UUID, Address: addr.Value, Scope: addr.Scope, NetNodeUUID: netNodeUUID}
+	insert, err := st.Prepare(`
+INSERT INTO fqdn_address (uuid, address, scope_id)
+SELECT $hostname.uuid, $hostname.address, nas.id
+FROM network_address_scope AS nas WHERE nas.name = $hostname.scope
+ON CONFLICT (address, scope_id) DO NOTHING`, input)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, insert, input).Run(); err != nil {
+		return errors.Errorf("inserting service hostname: %w", err)
+	}
+	link, err := st.Prepare(`
+INSERT INTO net_node_fqdn_address (net_node_uuid, address_uuid)
+SELECT $hostname.net_node_uuid, fa.uuid
+FROM fqdn_address AS fa
+JOIN network_address_scope AS nas ON nas.id = fa.scope_id
+WHERE fa.address = $hostname.address AND nas.name = $hostname.scope
+ON CONFLICT DO NOTHING`, input)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return errors.Capture(tx.Query(ctx, link, input).Run())
 }
