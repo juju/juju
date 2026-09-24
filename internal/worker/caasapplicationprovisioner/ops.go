@@ -380,10 +380,24 @@ func appDying(
 	logger.Debugf(ctx, "application %q dying", appName)
 	err = ensureScale(ctx, appName, appUUID, app, appLife, facade, applicationService, logger)
 	if err != nil {
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			// The application rows are gone from state, for example after a
+			// forced removal that does not wait for provider cleanup. There
+			// is nothing left to scale; the caller still needs to delete the
+			// k8s resources via the dead cleanup path.
+			logger.Infof(ctx, "application %q no longer in state; skipping scale-down", appName)
+			return nil
+		}
 		return errors.Annotate(err, "cannot scale dying application to 0")
 	}
 	err = reconcileDeadUnitScale(ctx, appName, appUUID, app, facade, applicationService, logger)
 	if err != nil {
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			// As above: once the application is removed from state there are
+			// no units left to reconcile.
+			logger.Infof(ctx, "application %q no longer in state; skipping dead unit reconcile", appName)
+			return nil
+		}
 		return errors.Annotate(err, "cannot reconcile dead units in dying application")
 	}
 	return nil

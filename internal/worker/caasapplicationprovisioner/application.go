@@ -241,6 +241,18 @@ func (a *appWorker) loop() error {
 		retryDelay = 3 * time.Second
 	)
 
+	// appRemovedFromState reports whether err indicates the application rows
+	// are gone from state, for example after a forced removal that does not
+	// wait for provider cleanup. When that happens mid-flight the worker must
+	// still delete the k8s resources before exiting: ops errors carrying it
+	// are routed to the dead cleanup path (handleChange maps
+	// ApplicationNotFound to life.Dead) instead of killing the worker. If the
+	// worker died here, its restart would find no application record and
+	// return early, orphaning the statefulset and its pods.
+	appRemovedFromState := func(err error) bool {
+		return errors.Is(err, applicationerrors.ApplicationNotFound)
+	}
+
 	handleChange := func() error {
 		appLife, err := a.applicationService.GetApplicationLife(ctx, a.appUUID)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
@@ -396,6 +408,13 @@ func (a *appWorker) loop() error {
 			} else if errors.Is(err, tryAgain) {
 				scaleChan = a.clock.After(retryDelay)
 				shouldRefresh = false
+			} else if appRemovedFromState(err) {
+				// Run the dead cleanup path so k8s resources are removed.
+				if stateAppChangedChan == nil {
+					stateAppChangedChan = a.clock.After(0)
+				}
+				scaleChan = nil
+				shouldRefresh = false
 			} else if err != nil {
 				return errors.Trace(err)
 			} else {
@@ -428,6 +447,13 @@ func (a *appWorker) loop() error {
 				trustTries++
 				trustChan = a.clock.After(retryDelay)
 				shouldRefresh = false
+			} else if appRemovedFromState(err) {
+				// Run the dead cleanup path so k8s resources are removed.
+				if stateAppChangedChan == nil {
+					stateAppChangedChan = a.clock.After(0)
+				}
+				trustChan = nil
+				shouldRefresh = false
 			} else if err != nil {
 				return errors.Trace(err)
 			} else {
@@ -453,6 +479,13 @@ func (a *appWorker) loop() error {
 				shouldRefresh = false
 			} else if errors.Is(err, tryAgain) {
 				reconcileDeadChan = a.clock.After(retryDelay)
+				shouldRefresh = false
+			} else if appRemovedFromState(err) {
+				// Run the dead cleanup path so k8s resources are removed.
+				if stateAppChangedChan == nil {
+					stateAppChangedChan = a.clock.After(0)
+				}
+				reconcileDeadChan = nil
 				shouldRefresh = false
 			} else if err != nil {
 				return fmt.Errorf("reconciling dead unit scale: %w", err)
@@ -488,7 +521,13 @@ func (a *appWorker) loop() error {
 				ctx, name, a.appUUID, app, lastReportedStatus,
 				a.broker, a.applicationService,
 				a.statusService, a.clock, a.logger)
-			if err != nil {
+			if appRemovedFromState(err) {
+				// Run the dead cleanup path so k8s resources are removed.
+				if stateAppChangedChan == nil {
+					stateAppChangedChan = a.clock.After(0)
+				}
+				shouldRefresh = false
+			} else if err != nil {
 				return errors.Trace(err)
 			}
 		case <-replicaChanges:
@@ -497,7 +536,13 @@ func (a *appWorker) loop() error {
 				ctx, name, a.appUUID, app, lastReportedStatus,
 				a.broker, a.applicationService,
 				a.statusService, a.clock, a.logger)
-			if err != nil {
+			if appRemovedFromState(err) {
+				// Run the dead cleanup path so k8s resources are removed.
+				if stateAppChangedChan == nil {
+					stateAppChangedChan = a.clock.After(0)
+				}
+				shouldRefresh = false
+			} else if err != nil {
 				return errors.Trace(err)
 			}
 		case <-refreshTimer.Chan():

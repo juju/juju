@@ -287,6 +287,86 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 	workertest.CheckKill(c, appWorker)
 }
 
+// TestWorkerAppRemovedWhileOperating ensures the worker does not die when
+// the application rows vanish from state mid-operation (for example after a
+// forced removal, which does not wait for provider cleanup), and instead
+// runs the dead cleanup path so the k8s resources are removed. If the worker
+// died here, its restart would find no application record and exit without
+// cleanup, orphaning the statefulset and its pods.
+func (s *ApplicationWorkerSuite) TestWorkerAppRemovedWhileOperating(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	x := gomock.Any()
+
+	broker := mocks.NewMockCAASBroker(ctrl)
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	ops := mocks.NewMockApplicationOps(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	statusService := mocks.NewMockStatusService(ctrl)
+	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
+	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
+	resourceOpenerGetter := mocks.NewMockResourceOpenerGetter(ctrl)
+	done := make(chan struct{})
+
+	clk := testclock.NewDilatedWallClock(time.Millisecond)
+
+	scaleChan := make(chan struct{}, 1)
+	settingsChan := make(chan struct{}, 1)
+	provisioningInfoChan := make(chan struct{}, 1)
+	appUnitsChan := make(chan []string, 1)
+	appChan := make(chan struct{}, 1)
+	appReplicasChan := make(chan struct{}, 1)
+
+	ops.EXPECT().RefreshOperatorStatus(x, "test", s.appUUID, app, x, x, x, x).Return(nil).AnyTimes()
+
+	gomock.InOrder(
+		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),
+		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(false, nil),
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
+		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
+
+		agentPasswordService.EXPECT().SetApplicationPassword(x, s.appUUID, x).Return(nil),
+
+		applicationService.EXPECT().WatchApplicationScale(x, "test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
+		applicationService.EXPECT().WatchApplicationSettings(x, "test").Return(watchertest.NewMockNotifyWatcher(settingsChan), nil),
+		applicationService.EXPECT().WatchApplicationUnitLife(x, "test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
+
+		// handleChange
+		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
+		applicationService.EXPECT().GetApplicationScalingState(x, "test").Return(applicationservice.ScalingState{}, nil),
+		facade.EXPECT().WatchProvisioningInfo(x, "test").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil),
+		app.EXPECT().Watch(x).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
+		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
+			scaleChan <- struct{}{}
+			return watchertest.NewMockNotifyWatcher(appReplicasChan), nil
+		}),
+
+		// scaleChan fired: the application rows are gone from state while
+		// the worker operates on it. The worker must not die.
+		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x).
+			Return(applicationerrors.ApplicationNotFound),
+
+		// The dead cleanup path is triggered: handleChange maps
+		// ApplicationNotFound to life.Dead and removes the k8s resources.
+		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).
+			Return(life.Dead, applicationerrors.ApplicationNotFound),
+		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x).Return(nil),
+		ops.EXPECT().AppDead(x, "test", s.appUUID, app, applicationService, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, ApplicationService, clock.Clock, logger.Logger) error {
+			close(done)
+			return nil
+		}),
+	)
+
+	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
+	s.waitDone(c, done)
+	workertest.CheckKill(c, appWorker)
+}
+
 func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
