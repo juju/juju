@@ -176,23 +176,6 @@ func (s *Unit) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 	return apiwatcher.NewNotifyWatcher(s.client.facade.RawAPICaller(), result), nil
 }
 
-// WatchResolveMode returns a NotifyWatcher that will send notifications when
-// the resolve mode of the unit changes.
-func (s *Unit) WatchResolveMode(ctx context.Context) (watcher.NotifyWatcher, error) {
-	arg := params.Entity{Tag: s.tag.String()}
-	var result params.NotifyWatchResult
-
-	err := s.client.facade.FacadeCall(ctx, "WatchUnitResolveMode", arg, &result)
-	if err != nil {
-		return nil, errors.Trace(apiservererrors.RestoreError(err))
-	}
-
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return apiwatcher.NewNotifyWatcher(s.client.facade.RawAPICaller(), result), nil
-}
-
 // WatchRelations returns a StringsWatcher that notifies of changes to
 // the lifecycles of relations involving u.
 func (u *Unit) WatchRelations(ctx context.Context) (watcher.StringsWatcher, error) {
@@ -510,14 +493,6 @@ func (u *Unit) ClearResolved(ctx context.Context) error {
 // valid only while the unit's charm URL is not changed.
 func (u *Unit) WatchConfigSettingsHash(ctx context.Context) (watcher.StringsWatcher, error) {
 	return getHashWatcher(ctx, u, "WatchConfigSettingsHash")
-}
-
-// WatchTrustConfigSettingsHash returns a watcher for observing changes to
-// the unit's application configuration settings (with a hash of the
-// settings content so we can determine whether it has changed since
-// it was last seen by the uniter).
-func (u *Unit) WatchTrustConfigSettingsHash(ctx context.Context) (watcher.StringsWatcher, error) {
-	return getHashWatcher(ctx, u, "WatchTrustConfigSettingsHash")
 }
 
 func getHashWatcher(ctx context.Context, u *Unit, methodName string) (watcher.StringsWatcher, error) {

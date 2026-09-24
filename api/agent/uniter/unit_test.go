@@ -382,53 +382,6 @@ func (s *unitSuite) TestWatchNotImplemented(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestWatchResolveMode(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
-		if objType == "NotifyWatcher" {
-			if request != "Next" && request != "Stop" {
-				c.Fatalf("unexpected watcher request %q", request)
-			}
-			return nil
-		}
-		c.Assert(objType, tc.Equals, "Uniter")
-		c.Assert(request, tc.Equals, "WatchUnitResolveMode")
-		c.Assert(arg, tc.DeepEquals, params.Entity{Tag: "unit-mysql-0"})
-		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResult{})
-		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
-			NotifyWatcherId: "1",
-		}
-		return nil
-	})
-	tag := names.NewUnitTag("mysql/0")
-	client := uniter.NewClient(apiCaller, tag)
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	w, err := unit.WatchResolveMode(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w)
-	defer wc.AssertStops()
-
-	// Initial event.
-	select {
-	case _, ok := <-w.Changes():
-		c.Assert(ok, tc.IsTrue)
-	case <-time.After(testhelpers.LongWait):
-		c.Fatalf("watcher did not send change")
-	}
-}
-
-func (s *unitSuite) TestWatchResolveModeNotImplemented(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
-		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
-	})
-	tag := names.NewUnitTag("mysql/0")
-	client := uniter.NewClient(apiCaller, tag)
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	_, err := unit.WatchResolveMode(c.Context())
-	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
-}
-
 func (s *unitSuite) TestWatchRelations(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		if objType == "StringsWatcher" {
@@ -863,51 +816,6 @@ func (s *unitSuite) TestWatchConfigSettingsHashNotImplemented(c *tc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.WatchConfigSettingsHash(c.Context())
-	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
-}
-
-func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
-		if objType == "StringsWatcher" {
-			if request != "Next" && request != "Stop" {
-				c.Fatalf("unexpected watcher request %q", request)
-			}
-			return nil
-		}
-		c.Assert(objType, tc.Equals, "Uniter")
-		c.Assert(request, tc.Equals, "WatchTrustConfigSettingsHash")
-		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResults{})
-		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
-			Results: []params.StringsWatchResult{{
-				StringsWatcherId: "1",
-				Changes:          []string{"666"},
-			}},
-		}
-		return nil
-	})
-	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	w, err := unit.WatchTrustConfigSettingsHash(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w)
-	defer wc.AssertStops()
-
-	// Initial event.
-	wc.AssertChange("666")
-}
-
-func (s *unitSuite) TestWatchTrustConfigSettingsHashNotImplemented(c *tc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
-		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
-	})
-	tag := names.NewUnitTag("mysql/0")
-	client := uniter.NewClient(apiCaller, tag)
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-
-	_, err := unit.WatchTrustConfigSettingsHash(c.Context())
 	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
 }
 
