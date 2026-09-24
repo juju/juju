@@ -20,6 +20,7 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment/charm"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/domain/export"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelimport"
@@ -324,10 +325,10 @@ func UploadBinaries(ctx context.Context, config UploadBinariesConfig, logger cor
 	return nil
 }
 
-func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err error) {
+func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, _ int64, cleanup func(), err error) {
 	tempFile, err := os.CreateTemp("", "juju-migrate-binary")
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, 0, nil, errors.Trace(err)
 	}
 	defer func() {
 		if err != nil {
@@ -335,13 +336,13 @@ func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err er
 			_ = os.Remove(tempFile.Name())
 		}
 	}()
-	_, err = io.Copy(tempFile, r)
+	size, err := io.Copy(tempFile, r)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, 0, nil, errors.Trace(err)
 	}
 	_, err = tempFile.Seek(0, 0)
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "potentially corrupt binary")
+		return nil, 0, nil, errors.Annotatef(err, "potentially corrupt binary")
 	}
 	rmTempFile := func() {
 		filename := tempFile.Name()
@@ -349,7 +350,7 @@ func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err er
 		_ = os.Remove(filename)
 	}
 
-	return tempFile, rmTempFile, nil
+	return tempFile, size, rmTempFile, nil
 }
 
 func uploadCharms(ctx context.Context, config UploadBinariesConfig, logger corelogger.Logger) error {
@@ -468,14 +469,25 @@ func uploadAppResource(ctx context.Context, config UploadBinariesConfig, rev res
 	}
 	defer func() { _ = reader.Close() }()
 
-	// TODO(menn0) - validate that the downloaded revision matches
-	// the expected metadata. Check revision and fingerprint.
-
-	content, cleanup, err := streamThroughTempFile(reader)
+	// Verify that the opened blob matches the metadata we are about to send
+	// with it. The target validates file resource blobs against these claims
+	// before storing them, so catch any divergence on the source side with a
+	// precise error instead of failing the upload half-way.
+	hasher := charmresource.NewFingerprintHash()
+	content, size, cleanup, err := streamThroughTempFile(io.TeeReader(reader, hasher))
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer cleanup()
+
+	if size != rev.Size {
+		return errors.Errorf("resource %q of application %q: blob size %d does not match expected size %d",
+			rev.Name, rev.ApplicationName, size, rev.Size)
+	}
+	if fp := hasher.Fingerprint(); fp.Hex() != rev.Fingerprint.Hex() {
+		return errors.Errorf("resource %q of application %q: blob fingerprint %s does not match expected fingerprint %s",
+			rev.Name, rev.ApplicationName, fp.Hex(), rev.Fingerprint.Hex())
+	}
 
 	if err := config.ResourceUploader.UploadResource(ctx, rev, content); err != nil {
 		return errors.Annotate(err, "cannot upload resource")

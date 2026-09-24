@@ -992,6 +992,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	resourcesMigrationUploadHandler := srv.monitoredHandler(handlersresources.NewResourceMigrationUploadHandler(
 		&resourcesModelServiceGetter{domainServiceForRequest: httpCtxt.domainServicesDuringMigrationForRequest},
 		&resourcesResourceServiceGetter{domainServiceForRequest: httpCtxt.domainServicesDuringMigrationForRequest},
+		resourcesdownload.NewDownloader(logger.Child("resourcesmigrationdownloader"), resourcesdownload.DefaultFileSystem()),
 		logger,
 	), "applications")
 	registerHandler := srv.monitoredHandler(&registerUserHandler{

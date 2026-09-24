@@ -294,6 +294,58 @@ type fakeDownloader struct {
 	resources []string
 }
 
+func (s *ImportSuite) TestUploadResourcesFingerprintMismatch(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// The claims describe "contenx" but the downloader serves the resource
+	// name-based content with a different fingerprint of the same length.
+	res := resourcetesting.NewResource(c, nil, "contenx", "app0", "content").Resource
+	uploader := &fakeUploader{
+		resources: make(map[string]string),
+	}
+	downloader := &fakeDownloader{}
+	config := migration.UploadBinariesConfig{
+		CharmService:       struct{ migration.CharmService }{},
+		CharmUploader:      struct{ migration.CharmUploader }{},
+		AgentBinaryStore:   struct{ migration.AgentBinaryStore }{},
+		ToolsUploader:      struct{ migration.ToolsUploader }{},
+		Resources:          []resource.Resource{res},
+		ResourceDownloader: downloader,
+		ResourceUploader:   uploader,
+	}
+	err := migration.UploadBinaries(c.Context(), config, loggertesting.WrapCheckLog(c))
+	c.Assert(err, tc.ErrorMatches,
+		`cannot upload resources: resource "contenx" of application "app0": blob fingerprint .* does not match expected fingerprint .*`)
+	// The resource must not have been uploaded to the target.
+	c.Assert(uploader.resources, tc.HasLen, 0)
+}
+
+func (s *ImportSuite) TestUploadResourcesSizeMismatch(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// The claims describe "content" (7 bytes) but the downloader serves
+	// "abc" (3 bytes).
+	res := resourcetesting.NewResource(c, nil, "abc", "app0", "content").Resource
+	uploader := &fakeUploader{
+		resources: make(map[string]string),
+	}
+	downloader := &fakeDownloader{}
+	config := migration.UploadBinariesConfig{
+		CharmService:       struct{ migration.CharmService }{},
+		CharmUploader:      struct{ migration.CharmUploader }{},
+		AgentBinaryStore:   struct{ migration.AgentBinaryStore }{},
+		ToolsUploader:      struct{ migration.ToolsUploader }{},
+		Resources:          []resource.Resource{res},
+		ResourceDownloader: downloader,
+		ResourceUploader:   uploader,
+	}
+	err := migration.UploadBinaries(c.Context(), config, loggertesting.WrapCheckLog(c))
+	c.Assert(err, tc.ErrorMatches,
+		`cannot upload resources: resource "abc" of application "app0": blob size 3 does not match expected size 7`)
+	// The resource must not have been uploaded to the target.
+	c.Assert(uploader.resources, tc.HasLen, 0)
+}
+
 func (d *fakeDownloader) OpenURI(_ context.Context, uri string, query url.Values) (io.ReadCloser, error) {
 	if query != nil {
 		panic("query should be empty")

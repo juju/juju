@@ -4,6 +4,7 @@
 package resources
 
 import (
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -24,6 +25,7 @@ import (
 type resourcesMigrationUploadHandler struct {
 	resourceServiceGetter ResourceServiceGetter
 	modelService          ModelServiceGetter
+	downloader            Downloader
 	logger                logger.Logger
 }
 
@@ -32,11 +34,13 @@ type resourcesMigrationUploadHandler struct {
 func NewResourceMigrationUploadHandler(
 	modelService ModelServiceGetter,
 	resourceServiceGetter ResourceServiceGetter,
+	downloader Downloader,
 	logger logger.Logger,
 ) *resourcesMigrationUploadHandler {
 	return &resourcesMigrationUploadHandler{
 		modelService:          modelService,
 		resourceServiceGetter: resourceServiceGetter,
+		downloader:            downloader,
 		logger:                logger,
 	}
 }
@@ -150,18 +154,48 @@ func (h *resourcesMigrationUploadHandler) processPost(
 	}
 	retrievedBy, retrievedByType := determineRetrievedBy(query)
 
-	// Ideally we would verify that the hash and size of the blob in the request
-	// body matches the hash and size in the headers. However, there is a bug
-	// for container resources exported from 3.6 where the hash the header does
-	// not match the hash in the body. For this reason, we do not check it here.
+	// Container image resources are exempt from blob validation: models
+	// exported from Juju 3.6 carry container image fingerprints that do not
+	// match the blob bytes (commit 432c96a1c2 removed an earlier
+	// unconditional check for exactly this reason), and the container image
+	// resource store re-derives the size and fingerprint from the parsed
+	// DockerImageDetails. For every other type the blob must match the
+	// claimed size and fingerprint before it is stored. The stream is
+	// bounded at the claimed size so an over-long body fails the size check
+	// instead of being buffered in full; migration uploads are chunked, so
+	// r.ContentLength is not usable here.
+	var reader io.Reader = r.Body
+	if res.Type != charmresource.TypeContainerImage {
+		validated, err := h.downloader.Download(
+			r.Context(),
+			limitReadCloser(r.Body, details.size+1),
+			details.fingerprint.String(),
+			details.size,
+		)
+		if err != nil {
+			return empty, errors.BadRequestf("validating resource blob: %w", err)
+		}
+		defer validated.Close()
+		reader = validated
+	}
 	return resourceService.StoreResource(ctx, resource.StoreResourceArgs{
 		ResourceUUID:    resUUID,
-		Reader:          r.Body,
+		Reader:          reader,
 		RetrievedBy:     retrievedBy,
 		RetrievedByType: retrievedByType,
 		Size:            details.size,
 		Fingerprint:     details.fingerprint,
 	})
+}
+
+// limitReadCloser bounds the number of bytes read from r at n; reading past
+// n returns EOF, so an over-long body is detected by the size check instead
+// of being streamed to disk in full.
+func limitReadCloser(r io.ReadCloser, n int64) io.ReadCloser {
+	return struct {
+		io.Reader
+		io.Closer
+	}{io.LimitReader(r, n), r}
 }
 
 // determineRetrievedBy determines the entity that retrieved the resource using
