@@ -377,6 +377,21 @@ model "Juju" {
     mas_stopped     [type: juju-software, label: "stopped"]
     mas_error       [type: juju-software, label: "error (destroying machine)"]
 
+    // Action task states (docs/reference/action.md §4) — the task
+    // status vocabulary (operation_task_status_value: pending,
+    // running, completed, failed, cancelled, aborting, aborted,
+    // error). The write path: the agent starts/finishes via its
+    // facade (uniter BeginActions/FinishActions; machineactions
+    // Begin/Finish); the user cancels via the action facade
+    // (CancelTask: cancelled, or aborting when already running).
+    at_pending   [type: juju-software, label: "pending"]
+    at_running   [type: juju-software, label: "running"]
+    at_completed [type: juju-software, label: "completed"]
+    at_failed    [type: juju-software, label: "failed"]
+    at_cancelled [type: juju-software, label: "cancelled"]
+    at_aborting  [type: juju-software, label: "aborting"]
+    at_aborted   [type: juju-software, label: "aborted"]
+
     // Model migration (docs/reference/model.md § Model operations —
     // MigrationScout grounds): the target controller (its Migration
     // Target facade + the import coordinator) and the model's agents
@@ -1248,6 +1263,15 @@ model "Juju" {
     mas_started     -> mas_stopped    [type: control]
     mas_started     -> mas_error      [type: control]
 
+    // Action task states: the status transitions (each write names its
+    // owner — the agent facades or the user's cancel).
+    at_pending   -> at_running        [type: control]
+    at_running   -> at_completed      [type: control]
+    at_running   -> at_failed         [type: control]
+    at_pending   -> at_cancelled      [type: control]
+    at_running   -> at_aborting       [type: control]
+    at_aborting  -> at_aborted        [type: control]
+
     // Model migration (the phase machine's communication paths).
     controller -> migration_target [type: api]
     controller -> migration_minion [type: control]
@@ -1491,6 +1515,15 @@ model "Juju" {
       mis_allocating  -> mis_error:      async "provisioning failed"   [on: "broker error"]
       mis_error       -> mis_allocating: async "retry"                 [guard: "transient error (RetryProvisioning)"]
       mis_running     -> mis_running:    self "mirror provider status" [on: "instance poller"]
+    }
+
+    behaviour "Action task" {
+      at_pending  -> at_running:   call "start"                [on: "StartTask"]
+      at_running  -> at_completed: return "finish"             [on: "completion"]
+      at_running  -> at_failed:    async "error"               [on: "failure"]
+      at_pending  -> at_cancelled: async "cancel"              [on: "cancel-task (not yet started)"]
+      at_running  -> at_aborting:  async "cancel"              [guard: "already running"]
+      at_aborting -> at_aborted:   return "abort confirmed"    [on: "process killed"]
     }
 
     behaviour "Machine agent status" {
@@ -2160,6 +2193,10 @@ state "Uniter operation" from "Juju" {
 
 state "Machine provisioning" from "Juju" {
   select { behaviour: "Machine provisioning" }
+}
+
+state "Action task status" from "Juju" {
+  select { behaviour: "Action task" }
 }
 
 state "Machine agent status" from "Juju" {

@@ -83,6 +83,18 @@ concept pages — one mechanism, data model, or process per page.
 
 ### reference/action.md
 
+#### Operation hierarchy
+
+**Insert at:** § The action in the data model. (Single home: moved
+off script.md, whose task/operation prose now points here.)
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Operation hierarchy
+:no-legend:
+:caption: Topology: The entity hierarchy: an operation groups 1..N tasks (one per receiver); the parallel and execution-group flags live on the operation, shared by all tasks; an operation_action row exists 1:1 only when the operation is an action (its absence = an exec, modelled as the predefined 'juju-exec' action); each task reports 0..1 status and runs on a unit or machine; results go to the object store.
+:alt: Operation record to task record to unit task to unit; operation action record above operation; task status below task.
+```
 #### Action run flow (sequence)
 
 **Insert at:** § Action execution.
@@ -94,6 +106,19 @@ concept pages — one mechanism, data model, or process per page.
 :caption: Sequence diagram: juju run enqueues an operation; the controller records per-unit tasks (pending) and the unit agent's watcher resolves them; the task runs via the charm's dispatch script (action-get/set/fail/log during execution), and finishing stores results in the object store. juju cancel-task moves a running task to aborting; the process is killed and the task reports aborted.
 :alt: User calls juju run; client enqueues the operation on the controller; controller records operation and per-unit tasks pending; controller notifies unit agent; agent resolves and starts the task (running); agent runs the charm action with jujuc action commands; on cancel the agent aborts; otherwise results stream back and the task completes.
 ```
+
+#### Action task status (state machine)
+
+**Insert at:** § Action states.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Action task status
+:no-legend:
+:caption: State machine diagram: The task status as the run unfolds -- the agent starts its task (pending to running); it finishes it (completed, or failed with a message); the user's cancel marks a not-yet-started task cancelled and a running one aborting until the agent kills the charm process and reports it aborted.
+:alt: State machine: pending to running on the agent starting the task; running to completed or failed when the agent finishes it; pending to cancelled on cancel-task; running to aborting on cancel-task, aborting to aborted when the process is killed.
+```
+
 
 ### reference/agent.md
 
@@ -508,7 +533,7 @@ precedent).
 
 #### Cross-model relation (CMR)
 
-**Insert at:** page top.
+**Insert at:** § The offer record.
 
 `````{grid} 2
 ````{grid-item}
@@ -613,23 +638,13 @@ precedent).
 
 ### reference/script.md
 
-#### Operation hierarchy
 
-**Insert at:** § Script task.
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Operation hierarchy
-:no-legend:
-:caption: Topology: The entity hierarchy behind the Action run flow: an operation groups 1..N tasks (one per receiver); the parallel and execution-group flags live on the operation, shared by all tasks; an operation_action row exists 1:1 only when the operation is an action (its absence = an exec, modelled as the predefined 'juju-exec' action); each task reports 0..1 status and runs on a unit or machine; results go to the object store.
-:alt: Operation record to task record to unit task to unit; operation action record above operation; task status below task.
-```
 
 ### reference/secret.md
 
 #### Secret lifecycle (state machine)
 
-**Insert at:** § Secret lifecycle.
+**Insert at:** § Secret states.
 
 ```{ggarch}
 :file: ../juju.ggarch
