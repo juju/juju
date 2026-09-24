@@ -27,6 +27,13 @@ On machines, an agent is managed by `systemd`.
 
 On machine and Kubernetes clouds, a `jujud` process running workers responsible for a {ref}`controller <controller>`. This includes, among others, the `apiserver` worker, which is responsible for running the Juju API server.
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Worker tree (controller)
+:alt: The controller agent's worker tree: a Dqlite hub at the centre with workers arranged around it — API server, domain services, object store, lease manager, provider services, change stream, provisioner and others, each with the verb that names what it does.
+:caption: Topology: Inside the controller agent: its workers, arranged around the embedded Dqlite database each of them reads and writes. The API server fronts the {ref}`juju-cli` and the {ref}`unit-agent`; the domain services own models; the provider tracker mediates every cloud call.
+```
+
 (machine-agent)=
 ### Machine agent
 
