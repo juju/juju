@@ -5,8 +5,6 @@ package modelmigration
 
 import (
 	"context"
-	"sort"
-	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v12"
@@ -41,8 +39,8 @@ func RegisterImport(
 	})
 }
 
-// ImportService provides a subset of the resource domain service methods
-// needed for resource import.
+// ImportService provides a subset of the relation domain service methods
+// needed for relation import.
 type ImportService interface {
 	// ImportRelations sets relations imported in migration.
 	ImportRelations(ctx context.Context, args relation.ImportRelationsArgs) error
@@ -101,7 +99,8 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return err
 	}
 
-	relationRemoteEntities, err := extractRelationUUIDFromRemoteEntities(model)
+	relationRemoteEntities, err := domainmodelmigration.
+		ExtractRelationUUIDFromRemoteEntities(model)
 	if err != nil {
 		return errors.Errorf("extracting relation UUIDs from remote entities: %w", err)
 	}
@@ -112,10 +111,10 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	)
 	for _, rel := range model.Relations() {
 		// Relations with remote consumer proxy applications were created by
-		// the cross model relation import, as the relations are required by
-		// the offer connections that are also imported by that domain. Only
-		// the relation data is imported here, the relation itself already
-		// exists.
+		// the cross model relation import, which runs first, as the relations
+		// are required by the offer connections that are also imported by that
+		// domain. Only the relation data is imported here, the relation itself
+		// already exists.
 		if domainmodelmigration.ContainsRelationEndpointApplicationName(rel, consumerRemoteApplications) {
 			arg, err := i.createConsumerProxyImportArg(rel, relationRemoteEntities)
 			if err != nil {
@@ -206,7 +205,7 @@ func (i *importOperation) createImportArg(rel description.Relation) (relation.Im
 func (i *importOperation) createRemoteImportArg(
 	rel description.Relation,
 	remoteApps domainmodelmigration.RemoteApplicationOfferer,
-	remoteEntities []relationRemoteEntity,
+	remoteEntities []domainmodelmigration.RelationRemoteEntity,
 ) (relation.ImportRelationArg, error) {
 	if remoteApps.IsEmpty() {
 		// This is a programmatic error, as this function should only be called
@@ -245,6 +244,7 @@ func (i *importOperation) createRemoteImportArg(
 	if err != nil {
 		return relation.ImportRelationArg{}, errors.Errorf("finding relation UUID for relation with key %q: %w", key, err)
 	}
+
 	arg := relation.ImportRelationArg{
 		UUID:  relationUUID,
 		ID:    rel.Id(),
@@ -291,17 +291,15 @@ func (i *importOperation) createRemoteImportArg(
 // settings, unit settings and unit scope membership, is imported here.
 func (i *importOperation) createConsumerProxyImportArg(
 	rel description.Relation,
-	remoteEntities []relationRemoteEntity,
+	remoteEntities []domainmodelmigration.RelationRemoteEntity,
 ) (relation.ImportRelationArg, error) {
 	key, err := corerelation.NewKeyFromString(rel.Key())
 	if err != nil {
 		return relation.ImportRelationArg{}, err
 	}
 
-	// The relation UUID was already imported by the cross model relation
-	// domain using the relation token exported by the consuming model. Unlike
-	// findRelationUUID, a missing remote entity is an error here: silently
-	// generating a new UUID would drop the relation's data.
+	// The cross model relation domain already created this relation under the
+	// UUID of the relation token, so the data is attached to the same UUID.
 	relationUUID, err := findConsumerProxyRelationUUID(key, remoteEntities)
 	if err != nil {
 		return relation.ImportRelationArg{}, errors.Errorf("finding relation UUID for relation with key %q: %w", key, err)
@@ -346,89 +344,38 @@ func getRemoteRelation(rel description.Relation, remoteApps map[string]domainmod
 	return domainmodelmigration.RemoteApplicationOfferer{}, false
 }
 
-type relationRemoteEntity struct {
-	RelationKey  corerelation.Key
-	RelationUUID string
-}
-
-func extractRelationUUIDFromRemoteEntities(model description.Model) ([]relationRemoteEntity, error) {
-	var remoteEntities []relationRemoteEntity
-	for _, re := range model.RemoteEntities() {
-		// Handle only remote entities that are relation UUIDs.
-		remoteEntityID := re.ID()
-		if !strings.HasPrefix(remoteEntityID, "relation-") {
-			continue
-		}
-
-		key, err := corerelation.ParseKeyFromTagString(relationTagSuffixToKey(remoteEntityID))
-		if err != nil {
-			return nil, errors.Errorf("parsing relation key from remote entity id %q: %w", remoteEntityID, err)
-		}
-
-		// We shouldn't require the macaroon here, as no connections from the
-		// consumer side should be made to the offerer side.
-		remoteEntities = append(remoteEntities, relationRemoteEntity{
-			RelationKey:  key,
-			RelationUUID: re.Token(),
-		})
-	}
-	return remoteEntities, nil
-}
-
-func relationTagSuffixToKey(s string) string {
-	// Replace both "." with ":" and the "#" with " ".
-	s = strings.Replace(s, ".", ":", 2)
-	return strings.Replace(s, "#", " ", 1)
-}
-
-func findRelationUUID(key corerelation.Key, remoteEntities []relationRemoteEntity) (corerelation.UUID, error) {
-	for _, re := range remoteEntities {
-		if relationKeysEqual(re.RelationKey, key) {
-			return corerelation.UUID(re.RelationUUID), nil
-		}
+// findRelationUUID returns the relation token recorded in the remote entities
+// of the model for the given relation key. The token is the identity that both
+// sides of a cross model relation agreed on, so an imported relation keeps
+// using it as its relation UUID.
+//
+// A missing token is not an error: a relation that was never exported to
+// another model has no token to reuse, and gets a newly generated UUID.
+func findRelationUUID(
+	key corerelation.Key,
+	remoteEntities []domainmodelmigration.RelationRemoteEntity,
+) (corerelation.UUID, error) {
+	if token, ok := domainmodelmigration.FindRelationUUID(remoteEntities, key); ok {
+		return corerelation.UUID(token), nil
 	}
 	return corerelation.NewUUID()
 }
 
-// findConsumerProxyRelationUUID returns the UUID of a remote consumer
-// relation, located from the relation remote entities exported by the
-// consuming model. Unlike findRelationUUID, a missing remote entity is an
-// error: the cross model relation import that created the relation requires
-// the same token, so a miss means an inconsistent description and silently
-// generating a new UUID would drop the relation's data.
-func findConsumerProxyRelationUUID(key corerelation.Key, remoteEntities []relationRemoteEntity) (corerelation.UUID, error) {
-	for _, re := range remoteEntities {
-		if relationKeysEqual(re.RelationKey, key) {
-			return corerelation.UUID(re.RelationUUID), nil
-		}
+// findConsumerProxyRelationUUID returns the relation token recorded in the
+// remote entities of the model for the given relation key, for a relation of a
+// remote application consumer.
+//
+// Unlike findRelationUUID, a missing token is an error: the cross model
+// relation import that created the relation requires the same token, so a miss
+// means an inconsistent description, and silently generating a new UUID would
+// attach the relation data to a relation that does not exist.
+func findConsumerProxyRelationUUID(
+	key corerelation.Key,
+	remoteEntities []domainmodelmigration.RelationRemoteEntity,
+) (corerelation.UUID, error) {
+	token, ok := domainmodelmigration.FindRelationUUID(remoteEntities, key)
+	if !ok {
+		return "", errors.Errorf("no relation UUID found for relation with key %q", key)
 	}
-	return "", errors.Errorf("no relation UUID found for relation with key %q", key)
-}
-
-// relationKeysEqual compares two relation keys for equality, ignoring order.
-// Assumes both keys have exactly two endpoints and no scopes.
-func relationKeysEqual(a, b corerelation.Key) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	// Make defensive copies so that sorting does not mutate the caller's
-	// slices.
-	aCopy := append(corerelation.Key(nil), a...)
-	bCopy := append(corerelation.Key(nil), b...)
-
-	sort.Slice(aCopy, func(i, j int) bool {
-		return aCopy[i].String() < aCopy[j].String()
-	})
-	sort.Slice(bCopy, func(i, j int) bool {
-		return bCopy[i].String() < bCopy[j].String()
-	})
-
-	// Note: we ignore scope here, as cross model relations do not have scopes
-	// when being imported.
-	return endpointEquals(aCopy[0], bCopy[0]) && endpointEquals(aCopy[1], bCopy[1])
-}
-
-func endpointEquals(a, b corerelation.EndpointIdentifier) bool {
-	return a.ApplicationName == b.ApplicationName && a.EndpointName == b.EndpointName
+	return corerelation.UUID(token), nil
 }

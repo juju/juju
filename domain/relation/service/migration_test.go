@@ -16,6 +16,7 @@ import (
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/relation"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/relation/internal"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -167,6 +168,46 @@ func (s *migrationServiceSuite) TestImportRelationDataInvalidUUID(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "validating relation UUID for relation 7:.*")
+}
+
+// An import that failed part way through is retried, so a unit that is already
+// in the relation scope is not an error: it is in scope, with the settings it
+// was given when it first entered, which EnterScope records alongside the
+// scope membership.
+func (s *migrationServiceSuite) TestImportRelationDataUnitAlreadyInScope(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+	ep := key.EndpointIdentifiers()
+	relUUID := tc.Must(c, corerelation.NewUUID)
+
+	unitSettings := map[string]any{"request": "keep-unit-data"}
+	args := relation.ImportRelationsArgs{{
+		UUID: relUUID,
+		ID:   7,
+		Key:  key,
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName: ep[1].ApplicationName,
+			EndpointName:    ep[1].EndpointName,
+			UnitSettings: map[string]map[string]any{
+				"remote-13ea/0": unitSettings,
+			},
+		}},
+	}}
+
+	appID := s.expectGetApplicationUUIDByName(c, ep[1].ApplicationName)
+	s.expectSetRelationApplicationSettings(relUUID, appID, nil)
+	converted, _ := settingsMap(func(string) {}, unitSettings)
+	s.state.EXPECT().EnterScope(gomock.Any(), relUUID,
+		coreunittesting.GenNewName(c, "remote-13ea/0"), converted).
+		Return(internal.SubordinateUnitStatusHistoryData{},
+			relationerrors.RelationUnitAlreadyExists)
+
+	// Act
+	err := s.service.ImportRelationData(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *migrationServiceSuite) TestExportRelations(c *tc.C) {

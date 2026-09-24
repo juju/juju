@@ -98,6 +98,11 @@ func ImportOperations(
 	agentpassword.RegisterImport(coordinator)
 	crossmodelrelation.RegisterImport(coordinator, clock, logger.Child("crossmodelrelation"))
 	relation.RegisterImport(coordinator, clock, logger.Child("relation"))
+	// The relations of remote application consumers are created by the cross
+	// model relation import above, because the offer connections it imports
+	// need them. The relation domain does not create them, and imports only
+	// their data, being the endpoint application settings and the settings and
+	// scope membership of their units, so it must run after it.
 	// Relation networks must be imported after relations, as they are
 	// located by relation key which requires the relations to exist.
 	crossmodelrelation.RegisterImportRelationNetworks(coordinator, clock, logger.Child("crossmodelrelation"))

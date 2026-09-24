@@ -5,8 +5,6 @@ package modelmigration
 
 import (
 	"context"
-	"sort"
-	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
@@ -114,7 +112,8 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 	// Extract remote entities for application and relation UUIDs, or commonly
 	// called tokens in prior Juju versions.
-	relationRemoteEntities, err := extractRelationUUIDFromRemoteEntities(model)
+	relationRemoteEntities, err := domainmodelmigration.
+		ExtractRelationUUIDFromRemoteEntities(model)
 	if err != nil {
 		return errors.Errorf("extracting relation UUIDs from remote entities: %w", err)
 	}
@@ -281,7 +280,7 @@ func (i *importOperation) importRemoteApplicationConsumers(
 	remoteApps []description.RemoteApplication,
 	remoteAppUnits map[string][]string,
 	offerConnections []offerConnection,
-	relationRemoteEntities []relationRemoteEntity,
+	relationRemoteEntities []domainmodelmigration.RelationRemoteEntity,
 	relationKeys map[string]importRelation,
 	applicationRemoteEntities map[string]string,
 ) error {
@@ -393,35 +392,6 @@ func extractOfferConnections(model description.Model) ([]offerConnection, error)
 	return offerConnections, nil
 }
 
-type relationRemoteEntity struct {
-	RelationKey  relation.Key
-	RelationUUID string
-}
-
-func extractRelationUUIDFromRemoteEntities(model description.Model) ([]relationRemoteEntity, error) {
-	var remoteEntities []relationRemoteEntity
-	for _, re := range model.RemoteEntities() {
-		// Handle only remote entities that are relation UUIDs.
-		remoteEntityID := re.ID()
-		if !strings.HasPrefix(remoteEntityID, "relation-") {
-			continue
-		}
-
-		key, err := relation.ParseKeyFromTagString(relationTagSuffixToKey(remoteEntityID))
-		if err != nil {
-			return nil, errors.Errorf("parsing relation key from remote entity id %q: %w", remoteEntityID, err)
-		}
-
-		// We shouldn't require the macaroon here, as no connections from the
-		// consumer side should be made to the offerer side.
-		remoteEntities = append(remoteEntities, relationRemoteEntity{
-			RelationKey:  key,
-			RelationUUID: re.Token(),
-		})
-	}
-	return remoteEntities, nil
-}
-
 func extractRemoteEndpoints(remoteApp description.RemoteApplication) ([]crossmodelrelation.RemoteApplicationEndpoint, error) {
 	endpoints := make([]crossmodelrelation.RemoteApplicationEndpoint, 0, len(remoteApp.Endpoints()))
 	for _, ep := range remoteApp.Endpoints() {
@@ -519,53 +489,29 @@ func findOfferConnection(offerConns []offerConnection, appName, modelUUID string
 	return offerConnection{}, errors.Errorf("no offer connection contains application %q", appName)
 }
 
-func findRelationUUIDForKey(remoteEntities []relationRemoteEntity, relationKey relation.Key) (string, error) {
+// findRelationUUIDForKey returns the relation token recorded in the remote
+// entities of the model for the given relation key. The token is the identity
+// that both sides of the cross model relation agreed on, so the synthetic
+// relation created for a remote application consumer keeps using it as its
+// relation UUID.
+//
+// Unlike the relation domain, which generates a UUID when it has no token to
+// reuse, a missing token here is an error: the consumer of an offer always
+// registers its relation, so a description without the token is inconsistent,
+// and inventing a UUID would leave the two sides disagreeing.
+func findRelationUUIDForKey(
+	remoteEntities []domainmodelmigration.RelationRemoteEntity,
+	relationKey relation.Key,
+) (string, error) {
 	if len(relationKey) != 2 {
 		return "", errors.Errorf("expected relation key with 2 endpoints, got %d", len(relationKey))
 	}
 
-	for _, remoteEntity := range remoteEntities {
-		key := remoteEntity.RelationKey
-		if relationKeysEqual(key, relationKey) {
-			return remoteEntity.RelationUUID, nil
-		}
+	uuid, ok := domainmodelmigration.FindRelationUUID(remoteEntities, relationKey)
+	if !ok {
+		return "", errors.Errorf("no relation UUID found for relation key %q", relationKey.String())
 	}
-
-	return "", errors.Errorf("no relation UUID found for relation key %q", relationKey.String())
-}
-
-func relationTagSuffixToKey(s string) string {
-	// Replace both "." with ":" and the "#" with " ".
-	s = strings.Replace(s, ".", ":", 2)
-	return strings.Replace(s, "#", " ", 1)
-}
-
-// relationKeysEqual compares two relation keys for equality, ignoring order.
-// Assumes both keys have exactly two endpoints and no scopes.
-func relationKeysEqual(a, b relation.Key) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	// Make defensive copies so that sorting does not mutate the caller's
-	// slices.
-	aCopy := append(relation.Key(nil), a...)
-	bCopy := append(relation.Key(nil), b...)
-
-	sort.Slice(aCopy, func(i, j int) bool {
-		return aCopy[i].String() < aCopy[j].String()
-	})
-	sort.Slice(bCopy, func(i, j int) bool {
-		return bCopy[i].String() < bCopy[j].String()
-	})
-
-	// Note: we ignore scope here, as cross model relations do not have scopes
-	// when being imported.
-	return endpointEquals(aCopy[0], bCopy[0]) && endpointEquals(aCopy[1], bCopy[1])
-}
-
-func endpointEquals(a, b relation.EndpointIdentifier) bool {
-	return a.ApplicationName == b.ApplicationName && a.EndpointName == b.EndpointName
+	return uuid, nil
 }
 
 // parseRelationRole parses a string role to a charm.RelationRole.
