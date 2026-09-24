@@ -398,10 +398,10 @@ func (st *State) WatchApplications() StringsWatcher {
 	return newLifecycleWatcher(st, applicationsC, nil, isLocalID(st), nil)
 }
 
-// WatchRemoteApplications returns a StringsWatcher that notifies of changes to
-// the lifecycles of the remote applications in the model.
+// WatchRemoteApplications notifies of lifecycle and identity changes to remote
+// applications, including replacement without an observed lifecycle transition.
 func (st *State) WatchRemoteApplications() StringsWatcher {
-	return newLifecycleWatcher(st, remoteApplicationsC, nil, isLocalID(st), nil)
+	return newRemoteApplicationsWatcher(st)
 }
 
 // WatchApplicationCharms notifies when application charm URLs change.
