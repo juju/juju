@@ -192,7 +192,7 @@ crops).
 
 #### Charm origins
 
-**Insert at:** § Charm taxonomy.
+**Insert at:** § The charm record.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -200,6 +200,17 @@ crops).
 :no-legend:
 :caption: Topology: There is no charm-revision table: each charm REVISION is its own charm row (unique on source + reference name + revision); the application's charm_uuid is a mutable pointer refreshed on update; channels (track/risk/branch) are per-application, not per-charm; download provenance and the immutable charmhub hash hang off the charm row 1:1; every deployed unit pins its own charm revision.
 :alt: Application and unit records point at the charm record; charm metadata and download info hang off charm; application channel and platform records point at application.
+```
+
+#### Charm attributes (ERD slice)
+
+**Insert at:** § The charm in the data model.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Charm attributes
+:alt: The charm's stored tables as an entity-relationship slice: the charm row at the centre; its metadata and its download bookkeeping west; the charm-defined relations and config schema east; the actions south. Every arrow starts at the foreign-key column that stores the pointer.
+:caption: Entity relationship diagram: The charm's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The charm row is one record per revision; its metadata and its Charmhub download bookkeeping are 1:1 satellites; the relations (the endpoints), the config schema and the actions are the charm-defined payloads the application instantiates.
 ```
 
 ### reference/configuration.md
@@ -626,6 +637,17 @@ precedent).
 :no-legend:
 :caption: State machine diagram: The life of a secret, grounded in domain/secret: reserved (URI minted) -> active (latest revision, content in a backend) -> granted (view | manage roles) -> superseded; a rotate policy fires secret-rotate (leader), expiry fires secret-expired; a revision no consumer tracks becomes obsolete (pending delete) and the owner charm retires it via secret-remove (or user secrets auto-prune). Consumers see secret-changed.
 :alt: State machine: reserved to active on create, active self-loops for grant/revoke and new-revision publication, active to rotate-due on the rotate policy and back via secret-rotate, active to expiry-due and on to removed via secret-expired then secret-remove, active to obsolete when superseded, obsolete to removed on prune.
+```
+
+#### Secret attributes (ERD slice)
+
+**Insert at:** § The secret in the data model.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Secret attributes
+:alt: The secret's stored tables as an entity-relationship slice: the metadata record (keyed by the secret id) at the centre; the revision chain and its content west; the owner and the consumers east; the permission grants south. Every arrow starts at the foreign-key column that stores the pointer.
+:caption: Entity relationship diagram: The secret's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The metadata record is keyed by the secret ID; the owner (application | unit | model) and the consumers carry the labels; revisions chain off the secret, each storing its payload either inline or as a backend reference; permission grants hang off the secret itself.
 ```
 
 ### reference/space.md

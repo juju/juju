@@ -52,6 +52,14 @@ SYNTH_SKIP: set[str] = {
     # product surface.
     "Application attributes",
     "Unit attributes",
+    # "Charm attributes" (session 18, charm.md ADR-011 rollout): same
+    # failure class — ER hub slice with satellite fans (metadata +
+    # download west, relation + config east, actions south).
+    "Charm attributes",
+    # "Secret attributes" (session 18, secret.md ADR-011 rollout):
+    # same failure class — ER hub slice with satellite fans (revisions
+    # + content west, owner + consumer east, permissions south).
+    "Secret attributes",
 }
 
 def strip_positions_blocks(text: str) -> str:

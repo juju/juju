@@ -730,6 +730,131 @@ model "Juju" {
         updated_at [label: "updated_at", type: "time", null: true]
       }
     }
+
+    // -----------------------------------------------------------------------
+    // Charm attributes (ADR-011 §3, docs/reference/charm.md): the
+    // stored pointers. Every fk: field is the origin of exactly one
+    // data edge. DECLARED FLATTENINGS (one node/field covers its value
+    // lookups): charm_source (local | charmhub | cmr) as the source
+    // field; charm_hash (sha256) not drawn; the manifest base, storage,
+    // devices, containers, terms, tags and categories are charm-defined
+    // payloads, not drawn here. Not drawn: charm_provenance, the
+    // extra-binding and extra-endpoint records.
+    // -----------------------------------------------------------------------
+    ch_rec     [type: record, label: "charm", ground: "model:charm"] {
+      fields {
+        uuid          [label: "uuid", type: "uuid", pk: true]
+        reference_name [label: "reference name", type: "text"]
+        revision      [label: "revision", type: "int"]
+        source        [label: "source (local | charmhub | cmr)", type: "int"]
+        available     [label: "available?", type: "bool"]
+        archive_path  [label: "archive_path", type: "text", null: true]
+      }
+    }
+    ch_metadata [type: record, label: "charm_metadata", ground: "model:charm_metadata"] {
+      fields {
+        charm_uuid [label: "charm_uuid", type: "uuid", pk: true, fk: true]
+        name       [label: "name", type: "text"]
+        description [label: "description", type: "text", null: true]
+        subordinate [label: "subordinate?", type: "bool"]
+        min_juju_version [label: "min_juju_version", type: "text", null: true]
+      }
+    }
+    ch_download [type: record, label: "charm_download_info", ground: "model:charm_download_info"] {
+      fields {
+        charm_uuid [label: "charm_uuid", type: "uuid", pk: true, fk: true]
+        charmhub_identifier [label: "charmhub_identifier", type: "text", null: true]
+        download_url [label: "download_url", type: "text", null: true]
+        download_size [label: "download_size", type: "int", null: true]
+      }
+    }
+    ch_relation [type: record, label: "charm_relation", ground: "model:charm_relation"] {
+      fields {
+        charm_uuid [label: "charm_uuid", type: "uuid", fk: true]
+        name       [label: "name", type: "text", pk: true]
+        role       [label: "role (provides | requires | peers)", type: "int"]
+        scope      [label: "scope (global | container)", type: "int"]
+        interface  [label: "interface", type: "text"]
+      }
+    }
+    ch_config  [type: record, label: "charm_config", ground: "model:charm_config"] {
+      fields {
+        charm_uuid [label: "charm_uuid", type: "uuid", fk: true]
+        key        [label: "key", type: "text", pk: true]
+        type       [label: "type (string | int | float | boolean | secret)", type: "int"]
+        default_value [label: "default_value", type: "text", null: true]
+      }
+    }
+    ch_action  [type: record, label: "charm_action", ground: "model:charm_action"] {
+      fields {
+        charm_uuid [label: "charm_uuid", type: "uuid", fk: true]
+        key        [label: "key", type: "text", pk: true]
+        description [label: "description", type: "text", null: true]
+        parallel   [label: "parallel?", type: "bool", null: true]
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Secret attributes (ADR-011 §3, docs/reference/secret.md): the
+    // stored pointers. DECLARED FLATTENINGS (one node/field covers its
+    // value lookups): the id-only `secret` base row folded into
+    // secret_metadata (keyed by the same secret id); the three owner
+    // tables (secret_application_owner / secret_unit_owner /
+    // secret_model_owner) as one owner node; the consumer tables
+    // (secret_unit_consumer / secret_remote_unit_consumer /
+    // secret_reference) as one consumer node; the content stores
+    // (secret_content | secret_value_ref) as one content node; the
+    // revision's obsolete / pending-delete / expire-time flags as
+    // fields on the revision. Not drawn: the rotate-policy lookup, the
+    // rotation record, the deleted value refs, the controller-DB
+    // backend tables.
+    // -----------------------------------------------------------------------
+    s_meta     [type: record, label: "secret_metadata", ground: "model:secret_metadata"] {
+      fields {
+        secret_id  [label: "secret_id", type: "text", pk: true]
+        version    [label: "latest revision", type: "int"]
+        description [label: "description", type: "text", null: true]
+        rotate_policy [label: "rotate policy (never | hourly | daily | ...)", type: "int"]
+        auto_prune [label: "auto_prune?", type: "bool"]
+      }
+    }
+    s_owner    [type: record, label: "secret owner", ground: "model:secret_application_owner"] {
+      fields {
+        secret_id  [label: "secret_id", type: "uuid", pk: true, fk: true]
+        owner_uuid [label: "owner (application | unit | model)", type: "uuid"]
+        label      [label: "label (unique per owner)", type: "text", null: true]
+      }
+    }
+    s_consumer [type: record, label: "secret consumer", ground: "model:secret_unit_consumer"] {
+      fields {
+        secret_id  [label: "secret_id", type: "uuid", fk: true]
+        consumer_uuid [label: "consumer (unit | remote consumer)", type: "uuid"]
+        label      [label: "label", type: "text", null: true]
+      }
+    }
+    s_revision [type: record, label: "secret_revision", ground: "model:secret_revision"] {
+      fields {
+        uuid       [label: "uuid", type: "uuid", pk: true]
+        secret_id  [label: "secret_id", type: "text", fk: true]
+        revision   [label: "revision", type: "int"]
+        obsolete   [label: "obsolete?", type: "bool", null: true]
+        expire_time [label: "expire_time", type: "time", null: true]
+      }
+    }
+    s_content  [type: record, label: "secret content", ground: "model:secret_content"] {
+      fields {
+        revision_uuid [label: "revision_uuid", type: "uuid", pk: true, fk: true]
+        payload    [label: "payload (inline | backend ref)", type: "text"]
+      }
+    }
+    s_permission [type: record, label: "secret_permission", ground: "model:secret_permission"] {
+      fields {
+        secret_id  [label: "secret_id", type: "text", fk: true]
+        role       [label: "role (none | view | manage)", type: "int"]
+        subject    [label: "subject (unit | application | user | model)", type: "int"]
+        scope      [label: "scope (relation | application | model)", type: "int"]
+      }
+    }
   }
 
   edges {
@@ -1201,6 +1326,22 @@ model "Juju" {
     un_principal.principal_uuid    -> un_unit.uuid                [type: data, label: "principal (one)"]
     un_agent_status.unit_uuid      -> un_unit.uuid                [type: data, label: "agent reports (one)"]
     un_workload_status.unit_uuid   -> un_unit.uuid                [type: data, label: "workload reports (one)"]
+
+    // Charm attributes (ADR-011 §3): the stored pointers, one data
+    // edge per fk column.
+    ch_metadata.charm_uuid         -> ch_rec.uuid                 [type: data, label: "describes (one)"]
+    ch_download.charm_uuid         -> ch_rec.uuid                 [type: data, label: "downloaded via (one)"]
+    ch_relation.charm_uuid         -> ch_rec.uuid                 [type: data, label: "defines (0..N)"]
+    ch_config.charm_uuid           -> ch_rec.uuid                 [type: data, label: "configures (0..N keys)"]
+    ch_action.charm_uuid           -> ch_rec.uuid                 [type: data, label: "exposes (0..N)"]
+
+    // Secret attributes (ADR-011 §3): the stored pointers, one data
+    // edge per fk column.
+    s_revision.secret_id           -> s_meta.secret_id            [type: data, label: "carries revisions (0..N)"]
+    s_content.revision_uuid        -> s_revision.uuid             [type: data, label: "stores (one)"]
+    s_owner.secret_id              -> s_meta.secret_id            [type: data, label: "owns (one)"]
+    s_consumer.secret_id           -> s_meta.secret_id            [type: data, label: "tracks (0..N)"]
+    s_permission.secret_id         -> s_meta.secret_id            [type: data, label: "grants (0..N)"]
   }
 
   behaviours {
@@ -2461,6 +2602,66 @@ diagram "Unit attributes" from "Juju" {
     un_workload_status align-centre un_agent_status
     un_principal       below un_unit gap: 100
     un_principal       align-centre un_unit
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association (stored pointer; multiplicity in label)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: charm attributes (docs/reference/charm.md, ADR-011 §3) —
+// the charm's stored records: the charm row at the centre (one row per
+// revision); its metadata and its download bookkeeping west; the
+// charm-defined relations and config schema east; the actions south.
+// --------------------------------------------------------------------------
+diagram "Charm attributes" from "Juju" {
+  select {
+    nodes: ch_rec ch_metadata ch_download ch_relation ch_config ch_action
+    edges: type data
+  }
+  positions {
+    ch_metadata left-of ch_rec gap: 110
+    ch_metadata align-middle ch_rec
+    ch_download below ch_metadata gap: 60
+    ch_download align-centre ch_metadata
+    ch_relation right-of ch_rec gap: 90
+    ch_relation align-middle ch_rec
+    ch_config below ch_relation gap: 60
+    ch_config align-centre ch_relation
+    ch_action below ch_rec gap: 100
+    ch_action align-centre ch_rec
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association (stored pointer; multiplicity in label)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: secret attributes (docs/reference/secret.md, ADR-011 §3) —
+// the secret's stored records: the metadata row (keyed by the secret
+// id) at the centre; the revision chain and its content west; the
+// owner and the consumers east; the permission grants south.
+// --------------------------------------------------------------------------
+diagram "Secret attributes" from "Juju" {
+  select {
+    nodes: s_meta s_owner s_consumer s_revision s_content s_permission
+    edges: type data
+  }
+  positions {
+    s_revision  left-of s_meta gap: 110
+    s_revision  align-middle s_meta
+    s_content   below s_revision gap: 60
+    s_content   align-centre s_revision
+    s_owner     right-of s_meta gap: 90
+    s_owner     align-middle s_meta
+    s_consumer  below s_owner gap: 60
+    s_consumer  align-centre s_owner
+    s_permission below s_meta gap: 100
+    s_permission align-centre s_meta
   }
   annotations {
     legend [position: "bottom-right",
