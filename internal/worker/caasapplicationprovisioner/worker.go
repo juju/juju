@@ -70,7 +70,7 @@ type ApplicationService interface {
 	GetApplicationScale(ctx context.Context, appName string) (int, error)
 
 	// SetApplicationScalingState sets the scaling state for an application.
-	SetApplicationScalingState(ctx context.Context, name string, scaleTarget int, scaling bool) error
+	SetApplicationScalingState(ctx context.Context, name string, scaleTarget int, op coreapplication.ProvisioningOperation) error
 
 	// GetApplicationScalingState returns the scaling state for an application.
 	GetApplicationScalingState(ctx context.Context, name string) (applicationservice.ScalingState, error)

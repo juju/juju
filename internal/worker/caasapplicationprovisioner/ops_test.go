@@ -392,8 +392,8 @@ func (s *OpsSuite) TestReconcileDeadUnitScale(c *tc.C) {
 		"test/1": life.Dead,
 	}
 	ps := applicationservice.ScalingState{
-		Scaling:     true,
-		ScaleTarget: 1,
+		CurrentOperation: application.ScaleOperation,
+		ScaleTarget:      1,
 	}
 	appState := caas.ApplicationState{
 		Replicas: []string{
@@ -408,7 +408,7 @@ func (s *OpsSuite) TestReconcileDeadUnitScale(c *tc.C) {
 		app.EXPECT().Scale(1).Return(nil),
 		app.EXPECT().State().Return(appState, nil),
 		facade.EXPECT().RemoveUnit(gomock.Any(), "test/1").Return(nil),
-		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, false).Return(nil),
+		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, application.NoOperation).Return(nil),
 	)
 
 	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(c.Context(), "test",
@@ -432,8 +432,8 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleUp(c *tc.C) {
 		"test/1": life.Dead,
 	}
 	ps := applicationservice.ScalingState{
-		Scaling:     true,
-		ScaleTarget: 5, // Scale up to 5 units
+		CurrentOperation: application.ScaleOperation,
+		ScaleTarget:      5, // Scale up to 5 units
 	}
 
 	gomock.InOrder(
@@ -463,8 +463,8 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNotAllDead(c *tc.C) {
 		"test/3": life.Alive, // >= target
 	}
 	ps := applicationservice.ScalingState{
-		Scaling:     true,
-		ScaleTarget: 2, // Scale down to 2 units
+		CurrentOperation: application.ScaleOperation,
+		ScaleTarget:      2, // Scale down to 2 units
 	}
 
 	gomock.InOrder(
@@ -496,7 +496,7 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *tc.C) {
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationScale(gomock.Any(), "test").Return(1, nil),
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
-		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 1, true).Return(nil),
+		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 1, application.ScaleOperation).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
 		facade.EXPECT().DestroyUnits(gomock.Any(), unitsToDestroy).Return(nil),
 	)
@@ -516,8 +516,8 @@ func (s *OpsSuite) TestEnsureScaleAliveRetry(c *tc.C) {
 	applicationService := mocks.NewMockApplicationService(ctrl)
 
 	ps := applicationservice.ScalingState{
-		Scaling:     true,
-		ScaleTarget: 1,
+		CurrentOperation: application.ScaleOperation,
+		ScaleTarget:      1,
 	}
 	units := map[unit.Name]life.Value{
 		"test/0": life.Alive,
@@ -553,7 +553,7 @@ func (s *OpsSuite) TestEnsureScaleDyingDead(c *tc.C) {
 	}
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
-		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, true).Return(nil),
+		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, application.ScaleOperation).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
 	)
 
@@ -591,8 +591,8 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScale(gomock.Any(), "test").Return(2, nil),
 		// Test scenario where we need to scale up and have attached storage
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{
-			Scaling:     true,
-			ScaleTarget: 2,
+			CurrentOperation: application.ScaleOperation,
+			ScaleTarget:      2,
 		}, nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(units, nil),
 		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(provisioningInfo, nil),
@@ -602,7 +602,7 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *tc.C) {
 			Provider:    "kubernetes",
 		}}, gomock.Any(), storageUniqueID).Return(nil),
 		app.EXPECT().Scale(2).Return(nil),
-		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, false).Return(nil),
+		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, application.NoOperation).Return(nil),
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appUUID, app,
@@ -639,8 +639,8 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorageEnsurePVCsFails(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScale(gomock.Any(), "test").Return(2, nil),
 		// Test scenario where we need to scale up and have attached storage
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{
-			Scaling:     true,
-			ScaleTarget: 2,
+			CurrentOperation: application.ScaleOperation,
+			ScaleTarget:      2,
 		}, nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(units, nil),
 		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(provisioningInfo, nil),
@@ -824,12 +824,12 @@ func (s *OpsSuite) TestAppDying(c *tc.C) {
 
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
-		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, true).Return(nil),
+		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, application.ScaleOperation).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(nil, nil),
 		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(api.FilesystemProvisioningInfo{}, nil),
 		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), storageUniqueID).Return(nil),
 		app.EXPECT().Scale(0).Return(nil),
-		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, false).Return(nil),
+		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, application.NoOperation).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(nil, nil),
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
 	)

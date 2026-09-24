@@ -47,7 +47,7 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		ApplicationID: args.ApplicationUUID,
 		Scale:         args.Scale,
 	}
-	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
+	createScale := `INSERT INTO application_provisioning_state (*) VALUES ($applicationScale.*)`
 	createScaleStmt, err := st.Prepare(createScale, scaleInfo)
 	if err != nil {
 		return errors.Capture(err)
