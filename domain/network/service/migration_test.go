@@ -927,7 +927,6 @@ func (m k8sServiceLLDMatcher) Matches(x any) bool {
 			IsAutoStart:     true,
 			IsEnabled:       true,
 			NetNodeUUID:     expected.NetNodeUUID,
-			Name:            "",
 			Type:            network.DeviceTypeUnknown,
 			VirtualPortType: corenetwork.NonVirtualPort,
 		})

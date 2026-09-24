@@ -341,7 +341,6 @@ func (s *MigrationService) getPlaceholderLinkLayerDevices(
 			IsAutoStart:     true,
 			IsEnabled:       true,
 			NetNodeUUID:     service.NetNodeUUID,
-			Name:            corenetwork.PlaceholderDeviceName,
 			Type:            network.DeviceTypeUnknown,
 			VirtualPortType: corenetwork.NonVirtualPort,
 			Addresses:       transformedAddresses,
