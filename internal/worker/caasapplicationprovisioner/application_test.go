@@ -581,6 +581,85 @@ func (s *ApplicationWorkerSuite) TestWorkerAppRemovedDuringAlivePath(c *tc.C) {
 	workertest.CleanKill(c, appWorker)
 }
 
+// TestApplicationNotFoundDistinctFromK8sNotFound pins the branch-ordering
+// invariant the loop relies on: the loop checks errors.Is(err, errors.NotFound)
+// (a k8s broker NotFound) BEFORE appRemovedFromState and retries those, so
+// applicationerrors.ApplicationNotFound must NOT satisfy errors.NotFound. If
+// the two ever collapse, forced-removal errors are swallowed by the
+// retry-then-die branch and the orphaned-statefulset bug returns.
+func (s *ApplicationWorkerSuite) TestApplicationNotFoundDistinctFromK8sNotFound(c *tc.C) {
+	c.Assert(errors.Is(applicationerrors.ApplicationNotFound, errors.NotFound), tc.IsFalse)
+	c.Assert(errors.Is(applicationerrors.ApplicationNotFound, applicationerrors.ApplicationNotFound), tc.IsTrue)
+}
+
+// TestWorkerStatusOnlyAppRemovedDuringInitialHandleChange pins the
+// stateAppChangedChan hardening: for a status-only (controller)
+// application whose rows vanish during the initial handleChange, the
+// scaling-state write returns ApplicationNotFound and handleChange
+// surfaces it. The worker must reschedule handleChange rather than die;
+// the retry re-reads life, maps the removal to Dead, and exits cleanly
+// (status-only applications perform no k8s cleanup).
+func (s *ApplicationWorkerSuite) TestWorkerStatusOnlyAppRemovedDuringInitialHandleChange(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	x := gomock.Any()
+
+	done := make(chan struct{})
+
+	broker := mocks.NewMockCAASBroker(ctrl)
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	ops := mocks.NewMockApplicationOps(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	statusService := mocks.NewMockStatusService(ctrl)
+	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
+	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
+	resourceOpenerGetter := mocks.NewMockResourceOpenerGetter(ctrl)
+
+	clk := testclock.NewDilatedWallClock(time.Millisecond)
+
+	scaleChan := make(chan struct{}, 1)
+	settingsChan := make(chan struct{}, 1)
+	appUnitsChan := make(chan []string, 1)
+
+	ops.EXPECT().RefreshOperatorStatus(x, "test", s.appUUID, app, x, x, x, x).Return(nil).AnyTimes()
+
+	gomock.InOrder(
+		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),
+		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(true, nil),
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
+		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
+
+		applicationService.EXPECT().WatchApplicationScale(x, "test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
+		applicationService.EXPECT().WatchApplicationSettings(x, "test").Return(watchertest.NewMockNotifyWatcher(settingsChan), nil),
+		applicationService.EXPECT().WatchApplicationUnitLife(x, "test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
+
+		// handleChange 1: the rows vanish during the initial block; life
+		// is still Alive at entry and the scaling state is mid-flight, so
+		// the status-only scaling-state write observes the removal.
+		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
+		applicationService.EXPECT().GetApplicationScalingState(x, "test").
+			Return(applicationservice.ScalingState{Scaling: true, ScaleTarget: 1}, nil),
+		applicationService.EXPECT().SetApplicationScalingState(x, "test", 0, false).
+			Return(applicationerrors.ApplicationNotFound),
+
+		// handleChange 2 (rescheduled): the removal is observed, the Dead
+		// path is taken, and the status-only worker exits without cleanup.
+		// The initial block is one-shot, so there is no second scaling
+		// state read.
+		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).
+			DoAndReturn(func(ctx context.Context, i application.UUID) (life.Value, error) {
+				close(done)
+				return life.Dead, applicationerrors.ApplicationNotFound
+			}),
+	)
+
+	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
+	s.waitDone(c, done)
+	workertest.CleanKill(c, appWorker)
+}
+
 func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
