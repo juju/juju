@@ -397,7 +397,7 @@ precedent).
 
 #### Machine designations (two provisioning paths)
 
-**Insert at:** § Machines and system (LXD) containers.
+**Insert at:** § The machine record → § Machine designations.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -405,6 +405,41 @@ precedent).
 :no-legend:
 :caption: Topology: What a machine designation names, grounded in domain/machine: machine 0 and its LXD container are rows in the SAME machine table (the container linked by a machine-parent record; one nesting level only), so the designation is the containment path. The provisioning split: the controller (its compute provisioner) starts base machines (StartInstance); the host machine's agent provisions its own containers through the LXD broker (containerprovisioner on the machine agent) and watches them via the API (WatchContainers). Containers are machines: each runs its own machine agent, which hosts the unit agent. Placement scope '#' = existing, 'lxd:' = new; --to is machine-cloud only.
 :alt: The controller provisions machine 0; machine 0's agent provisions the LXD container via the LXD broker and watches its containers through the controller API; the container's own machine agent hosts the unit agent.
+```
+
+#### Machine attributes (ERD slice)
+
+**Insert at:** § The machine in the data model.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Machine attributes
+:alt: The machine's stored tables as an entity-relationship slice: the machine record at the centre; the parent table naming its child and its host; the status record and the net node beside it; the cloud instance below with its own status under it. Every arrow starts at the foreign-key column that stores the pointer.
+:caption: Entity relationship diagram: The machine's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The machine's container type, manual flag, life, base (os@channel + architecture) and the instance's availability zone are stored as fields on their records; the lookup tables behind them are not drawn.
+```
+
+#### Machine agent status (state machine)
+
+**Insert at:** § Machine states → § Machine status.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Machine agent status
+:no-legend:
+:caption: State machine diagram: The machine agent's status as it shuts its machine down -- the agent reports started at startup; when the life watcher fires (the machine is no longer alive) it reports stopped and asks the controller to have the machine marked dead, waiting until the units and storage assigned to it clear; a failed request parks the status in error.
+:alt: State machine: pending to started on machine agent startup; started to stopped when the life watcher fires; started to error when EnsureDead fails with units or storage still assigned; stopped internally waits for units and storage to clear, then dies.
+```
+
+#### Machine provisioning (state machine)
+
+**Insert at:** § Machine states → § Instance status.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Machine provisioning
+:no-legend:
+:caption: State machine diagram: The cloud instance's provisioning status -- the controller's compute provisioner moves a pending machine to allocating ('starting') when it asks the cloud for the instance, to running once the instance and its addresses are registered, and to provisioning error when the broker fails; a transient error is retried back into allocating. In steady state the instance poller mirrors the provider-reported status.
+:alt: State machine: pending to allocating on the compute provisioner starting the instance; allocating to running when instance and addresses are recorded; allocating to provisioning error on broker error; provisioning error back to allocating on a transient retry; running mirrors the provider status.
 ```
 
 ### reference/metadata.md

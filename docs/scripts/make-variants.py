@@ -36,6 +36,14 @@ SYNTH_SKIP: set[str] = {
     # not own ER forests yet. Parked with the synthesis-of-ER-forests
     # item; revisit when the solver grows an FK-direction plane.
     "Relation attributes",
+    # "Machine attributes" (session 16, machine.md ADR-011 rollout):
+    # same failure class. The twin layers the machine hub three ranks
+    # from its source leaves (parent pair, status, instance chain) and
+    # routes status -> machine through parent, plus a parent -> machine
+    # graze on instance — caught by the corpus zero-crossing tests. The
+    # declared view — the product surface — audits 0 crossings,
+    # max-ratio 1.03. Same parked item as above.
+    "Machine attributes",
 }
 
 def strip_positions_blocks(text: str) -> str:

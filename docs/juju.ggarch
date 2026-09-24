@@ -91,7 +91,7 @@ model "Juju" {
     uas_status      [type: juju-software, label: "Unit agent status\n(allocating, executing, idle,\nerror, failed, rebooting)"]
     workload_status [type: juju-software, label: "Workload status\n(active, maintenance, waiting,\nblocked, error, unknown, terminated)"]
     app_status      [type: juju-software, label: "Application status\n(leader sets; else computed\nfrom unit statuses)"]
-    machine_status  [type: juju-software, label: "Machine status\n(pending, started, stopping,\nstopped, down, error)"]
+    machine_status  [type: juju-software, label: "Machine status\n(pending, started,\nstopped, down, error)"]
     relation_status [type: juju-software, label: "Relation status\n(joining, joined, broken,\nsuspending, suspended, error)"]
     // The leader unit — application and relation status are
     // leader-gated writes (domain/status/service/leaderservice.go);
@@ -300,7 +300,7 @@ model "Juju" {
                      ground: "model:application"]
     unit_rec        [type: record, label: "unit\n(application, charm rev, lifecycle)",
                      ground: "model:unit"]
-    machine_rec     [type: record, label: "machine / pod\n(constraints, provider ID)",
+    machine_rec     [type: record, label: "machine\n(constraints, provider ID)",
                      ground: "model:machine"]
     charm_rec       [type: record, label: "charm\n(source, revision, archive)",
                      ground: "model:charm"]
@@ -360,6 +360,22 @@ model "Juju" {
     sec_expired   [type: juju-software, label: "expiry due"]
     sec_obsolete  [type: juju-software, label: "obsolete (pending delete)"]
     sec_removed   [type: juju-software, label: "removed"]
+
+    // Machine states (docs/reference/machine.md §4) — the two status
+    // vocabularies. Instance status (machine_cloud_instance_status_
+    // value: unknown, pending, allocating, running, provisioning
+    // error); machine status (machine_status_value: error, started,
+    // pending, stopped, down). `down` is NOT written by anyone — it
+    // is what a machine's status reads when its agent is not present
+    // (decodeMachineStatus, domain/status/service/status.go:643-651).
+    mis_pending     [type: juju-software, label: "pending"]
+    mis_allocating  [type: juju-software, label: "allocating"]
+    mis_running     [type: juju-software, label: "running"]
+    mis_error       [type: juju-software, label: "provisioning error"]
+    mas_pending     [type: juju-software, label: "pending"]
+    mas_started     [type: juju-software, label: "started"]
+    mas_stopped     [type: juju-software, label: "stopped"]
+    mas_error       [type: juju-software, label: "error (destroying machine)"]
 
     // -----------------------------------------------------------------------
     // Intro-view archetypes — real types rendered as N labelled instances
@@ -503,6 +519,73 @@ model "Juju" {
     ra_scope             [type: record, label: "charm_relation_scope", ground: "model:charm_relation_scope"] {
       fields {
         id [label: "id", type: "int", pk: true]
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Machine attributes (ADR-011 §3, docs/reference/machine.md): the
+    // stored pointers. Every fk: field is the origin of exactly one
+    // data edge. DECLARED FLATTENINGS (one node/field covers its
+    // value lookups): machine_status + machine_status_value;
+    // machine_cloud_instance_status + machine_cloud_instance_status_
+    // value; the two life_id columns + the shared life table (alive /
+    // dying / dead); machine_container_type + container_type; the
+    // machine_manual flag. machine_platform keeps its node — the base
+    // (os@channel + architecture) is a doc-facing record.
+    // -----------------------------------------------------------------------
+    ma_machine        [type: record, label: "machine", ground: "model:machine"] {
+      fields {
+        uuid          [label: "uuid",            type: "uuid", pk: true]
+        name          [label: "name (the designation)", type: "text"]
+        life_id       [label: "life (alive | dying | dead)", type: "int"]
+        net_node_uuid [label: "net_node_uuid",   type: "uuid", fk: true]
+        container_type [label: "container_type (none | lxd)", type: "int"]
+        manual        [label: "manual?",         type: "bool"]
+        os_channel   [label: "base (os@channel)", type: "text"]
+        architecture [label: "architecture", type: "text"]
+        agent_started_at [label: "agent_started_at", type: "time", null: true]
+        hostname      [label: "hostname",        type: "text", null: true]
+        keep_instance [label: "keep_instance",   type: "bool", null: true]
+      }
+    }
+    ma_instance       [type: record, label: "machine_cloud_instance", ground: "model:machine_cloud_instance"] {
+      // The instance record tracks the instance-creation process:
+      // instance_id stays empty until the cloud provider has created
+      // the instance (0017 DDL comment). DECLARED FLATTENING: the
+      // availability zone lookup (availability_zone_uuid ->
+      // availability_zone) — a value object, kept as a field.
+      fields {
+        machine_uuid [label: "machine_uuid", type: "uuid", pk: true, fk: true]
+        life_id      [label: "life (alive | dying | dead)", type: "int"]
+        instance_id  [label: "instance_id", type: "text", null: true]
+        arch         [label: "arch", type: "text", null: true]
+        availability_zone_uuid [label: "availability zone", type: "uuid", null: true]
+        cpu_cores    [label: "cpu_cores", type: "int", null: true]
+        mem          [label: "mem", type: "int", null: true]
+        root_disk    [label: "root_disk", type: "int", null: true]
+        virt_type    [label: "virt_type", type: "text", null: true]
+      }
+    }
+    ma_parent         [type: record, label: "machine_parent", ground: "model:machine_parent"] {
+      fields {
+        machine_uuid [label: "machine_uuid", type: "uuid", pk: true, fk: true]
+        parent_uuid  [label: "parent_uuid", type: "uuid", fk: true]
+      }
+    }
+    ma_status         [type: record, label: "machine_status", ground: "model:machine_status"] {
+      fields {
+        machine_uuid [label: "machine_uuid", type: "uuid", pk: true, fk: true]
+        status       [label: "status", type: "text"]
+        message      [label: "message", type: "text", null: true]
+        updated_at   [label: "updated_at", type: "time", null: true]
+      }
+    }
+    ma_instance_status [type: record, label: "machine_cloud_instance_status", ground: "model:machine_cloud_instance_status"] {
+      fields {
+        machine_uuid [label: "machine_uuid", type: "uuid", pk: true, fk: true]
+        status       [label: "status", type: "text"]
+        message      [label: "message", type: "text", null: true]
+        updated_at   [label: "updated_at", type: "time", null: true]
       }
     }
   }
@@ -886,7 +969,17 @@ model "Juju" {
     sec_rotate     -> sec_active        [type: control]
     sec_active     -> sec_expired       [type: control]
     sec_expired    -> sec_removed       [type: control]
-    sec_active     -> sec_removed       [type: control]
+    sec_active     -> sec_removed [type: control]
+
+    // Machine states: the provisioning machine and the agent-status
+    // machine (the write paths; `down` is derived, never written).
+    mis_pending     -> mis_allocating [type: control]
+    mis_allocating  -> mis_running    [type: control]
+    mis_allocating  -> mis_error      [type: control]
+    mis_error       -> mis_allocating [type: control]
+    mas_pending     -> mas_started    [type: control]
+    mas_started     -> mas_stopped    [type: control]
+    mas_started     -> mas_error      [type: control]
     uop_committing -> uop_idle       [type: control]
 
     // -----------------------------------------------------------------------
@@ -915,6 +1008,16 @@ model "Juju" {
     ra_app_setting.relation_endpoint_uuid -> ra_endpoint.uuid     [type: data, label: "belongs to (one)"]
     ra_status.relation_uuid        -> ra_relation.uuid            [type: data, label: "belongs to (one)"]
     ra_status.relation_status_type_id -> ra_status_type.id        [type: data, label: "typed as (one)"]
+
+    // Machine attributes (ADR-011 §3): the stored pointers, one data
+    // edge per fk column. Both machine_parent columns point at the
+    // machine table (self-referential containment).
+    ma_machine.net_node_uuid       -> net_node_rec                [type: data, label: "networked as (one)"]
+    ma_instance.machine_uuid       -> ma_machine.uuid             [type: data, label: "belongs to (one)"]
+    ma_parent.machine_uuid         -> ma_machine.uuid             [type: data, label: "child (one)"]
+    ma_parent.parent_uuid          -> ma_machine.uuid             [type: data, label: "host (one)"]
+    ma_status.machine_uuid         -> ma_machine.uuid             [type: data, label: "reports (one)"]
+    ma_instance_status.machine_uuid -> ma_instance.machine_uuid [type: data, label: "reports (one)"]
   }
 
   behaviours {
@@ -1056,6 +1159,21 @@ model "Juju" {
       uop_executing   -> uop_error:     async "fail"               [guard: "hook fails"]
       uop_error       -> uop_idle:      return "retry / escalate" [on: "retry"]
       uop_committing  -> uop_idle:      return "commit state"     [on: "write complete"]
+    }
+
+    behaviour "Machine provisioning" {
+      mis_pending     -> mis_allocating: async "start instance"        [on: "compute provisioner\n(StartInstance, 'starting')"]
+      mis_allocating  -> mis_running:    async "instance registered"   [on: "instance + addresses recorded"]
+      mis_allocating  -> mis_error:      async "provisioning failed"   [on: "broker error"]
+      mis_error       -> mis_allocating: async "retry"                 [guard: "transient error (RetryProvisioning)"]
+      mis_running     -> mis_running:    self "mirror provider status" [on: "instance poller"]
+    }
+
+    behaviour "Machine agent status" {
+      mas_pending -> mas_started: call  "report started"     [on: "machine agent startup"]
+      mas_started -> mas_stopped: async "life is not alive" [on: "life watcher fires"]
+      mas_started -> mas_error:   async "EnsureDead failed" [guard: "units or storage still assigned"]
+      mas_stopped -> mas_stopped: self  "EnsureDead: wait for units and storage to clear, then die"
     }
 
 behaviour "Secret lifecycle" {
@@ -1640,6 +1758,14 @@ state "Uniter operation" from "Juju" {
   select { behaviour: "Uniter operation" }
 }
 
+state "Machine provisioning" from "Juju" {
+  select { behaviour: "Machine provisioning" }
+}
+
+state "Machine agent status" from "Juju" {
+  select { behaviour: "Machine agent status" }
+}
+
 // --------------------------------------------------------------------------
 // Intro diagram 1: The problem
 // --------------------------------------------------------------------------
@@ -1977,6 +2103,44 @@ diagram "Agent taxonomy" from "Juju" {
     controller        left-of machine_agent gap: 40
     machine_agent     left-of unit_agent    gap: 40
     unit_agent        left-of containeragent gap: 40
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: the machine data model (docs/reference/machine.md §3,
+// ADR-011) — the stored pointers around the machine record. Grounds:
+// 0018-machine.sql + 0017-machine-cloud-instance.sql; net_node shared
+// with units (unit.net_node_uuid = machine.net_node_uuid).
+// --------------------------------------------------------------------------
+diagram "Machine attributes" from "Juju" {
+  select {
+    nodes: ma_machine ma_instance ma_parent ma_status
+           ma_instance_status net_node_rec
+    edges: type data
+  }
+  positions {
+    // West chain: parent adjacent to machine (its two edges take the
+    // west face); the net-node identity hangs BELOW the parent, so
+    // machine's edge to it drops under the parent instead of through.
+    ma_parent          left-of ma_machine gap: 110
+    ma_parent          align-middle ma_machine
+    net_node_rec       below ma_parent gap: 60
+    net_node_rec       align-centre ma_parent
+    // East chain: status adjacent (east face); the base hangs below
+    // the status, so machine's edge to it drops under the status.
+    ma_status          right-of ma_machine gap: 90
+    ma_status          align-middle ma_machine
+    // South chain: the instance under the machine; its own status
+    // under it; the availability zone beside the instance.
+    ma_instance        below ma_machine gap: 100
+    ma_instance        align-centre ma_machine
+    ma_instance_status below ma_instance gap: 100
+    ma_instance_status align-centre ma_instance
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association (stored pointer; multiplicity in label)"]
   }
 }
 
