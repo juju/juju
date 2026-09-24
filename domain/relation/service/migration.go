@@ -132,6 +132,33 @@ func (s *MigrationService) importRelation(ctx context.Context, arg relation.Impo
 	return nil
 }
 
+// ImportRelationData imports the endpoint data, being the application
+// settings, unit settings and unit scope membership, of relations that
+// already exist in the model. It is used by migration import for relations
+// that are created outside of the relation domain, such as the relations of
+// remote application consumers created by the cross model relation domain.
+func (s *MigrationService) ImportRelationData(ctx context.Context, args relation.ImportRelationsArgs) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	for _, arg := range args {
+		if err := arg.UUID.Validate(); err != nil {
+			return errors.Errorf("validating relation UUID for relation %d: %w", arg.ID, err)
+		}
+		if err := arg.Key.Validate(); err != nil {
+			return errors.Errorf("validating relation key for relation %d: %w", arg.ID, err)
+		}
+
+		for _, ep := range arg.Endpoints {
+			if err := s.importRelationEndpoint(ctx, arg.UUID, ep); err != nil {
+				return errors.Errorf("importing endpoint data for relation %d: %w", arg.ID, err)
+			}
+		}
+	}
+	return nil
+}
+
+// importRelationEndpoint imports the data of a single endpoint of a relation.
 func (s *MigrationService) importRelationEndpoint(ctx context.Context, relUUID corerelation.UUID, ep relation.ImportEndpoint) error {
 	appID, err := s.st.GetApplicationUUIDByName(ctx, ep.ApplicationName)
 	if err != nil {
