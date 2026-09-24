@@ -13,6 +13,10 @@ See also: {ref}`manage-relations`
 
 In Juju, a **relation** (**integration**) is a connection an {ref}`application <application>` supports by virtue of having a particular {ref}`endpoint <application-endpoint>`.
 
+## Relation identification
+
+A relation is identified by a **relation ID** (assigned automatically by Juju; expressed in monotonically increasing numbers) or a **relation key** (derived from the endpoints, format: `application1:[endpoint] application2:[endpoint]`).
+
 ## Types of relation
 
 ```{ggarch}
@@ -91,9 +95,43 @@ Note that application names are obfuscated (anonymised) to the offerer side:
 
 A **non-cross-model** relation is a {ref}`non-subordinate <non-subordinate-relation>` relation where the applications are on  the same model.
 
-## Relation identification
+## Relation attributes
 
-A relation is identified by a **relation ID** (assigned automatically by Juju; expressed in monotonically increasing numbers) or a **relation key** (derived from the endpoints, format: `application1:[endpoint] application2:[endpoint]`).
+A relation's state is spread across ten stored tables in the model
+database. The `relation` record carries the relation ID, its life,
+its scope, and the suspended flag with its reason. The
+`relation_endpoint` table links the relation to the application
+endpoints that realize it (two rows for a provider/requirer
+relation, one for a peer relation); `relation_unit` records the units
+that have entered scope, per endpoint.
+
+The databags live in four settings tables: unit-level settings in
+`relation_unit_setting` and application-level settings in
+`relation_application_setting`, each with a companion `sha256` hash
+table that lets watchers detect a settings change without reading the
+values. When a unit leaves scope, its settings are copied to
+`relation_unit_setting_archive`, where they stay readable for the
+lifetime of the relation -- even after the unit itself is gone; a
+`relation-get` for a departed unit is served from the archive.
+
+The relation's status is its own table pair: `relation_status` holds
+the current status, message and update time; `relation_status_type`
+is the status vocabulary (see {ref}`Relation status
+<relation-status>`).
+
+The services do not read these tables directly: they read them
+through four derived views (`v_application_endpoint`,
+`v_relation_endpoint`, `v_relation_endpoint_identifier`,
+`v_relation_status`) that join the stored rows into the shapes the
+domain speaks in. The views have no pointers of their own, so they do
+not appear in the diagram.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Relation attributes
+:alt: The relation tables as an entity-relationship slice: relation at the centre pointing to life and charm_relation_scope; relation_endpoint below it pointing back to relation and across to application_endpoint; relation_unit pointing to relation_endpoint and unit; the unit and application settings tables (with their sha256 hash columns) hanging under their owners; relation_status pointing to relation and relation_status_type; the settings archive pointing to relation. Every arrow starts at the foreign-key column that stores the pointer.
+:caption: Entity relationship diagram: The relation's ten stored tables and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The services read these tables through four derived views, which have no pointers of their own and are therefore not drawn.
+```
 
 ## Relation states and transitions
 

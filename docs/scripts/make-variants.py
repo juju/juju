@@ -25,6 +25,19 @@ FILE = DOCS / "juju.ggarch"
 
 MARKER = "// ==== HAND-MAINTAINED below — edit freely; `make variants` regenerates everything above ===="
 
+# Authored views that get NO synthesized variant. Each entry is a
+# parked synthesis gap with its reason on record — the declared view
+# remains the product surface (ADR-007: declared arrangement REQUIRED
+# outranks synthesis MEDIUM).
+SYNTH_SKIP: set[str] = {
+    # "Relation attributes" (session 13): the pure-synthesis twin
+    # reverses the FK reading (children left of parents) and routes
+    # unit -> unit_boundary THROUGH relation_endpoint — synthesis does
+    # not own ER forests yet. Parked with the synthesis-of-ER-forests
+    # item; revisit when the solver grows an FK-direction plane.
+    "Relation attributes",
+}
+
 def strip_positions_blocks(text: str) -> str:
     """Remove every `positions { ... }` block (brace-matched, so nested
     braces inside the block are honoured)."""
@@ -95,7 +108,7 @@ def generate() -> str:
             # sweeping both into one chunk: the demo shipped as a
             # stripped twin, two views with one name — measured,
             # 2026-09-21).
-            if "(declared)" in name:
+            if "(declared)" in name or name in SYNTH_SKIP:
                 continue
             variant = strip_positions_blocks(sub)
             variant = variant.replace(f'diagram "{name}"',

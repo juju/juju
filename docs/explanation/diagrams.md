@@ -431,6 +431,17 @@ concept pages — one mechanism, data model, or process per page.
 :caption: Taxonomy tree: Every relation is a peer relation (the application relates to itself) or a non-peer relation (two distinct applications); a non-peer relation is subordinate when one side is subordinate, and a non-subordinate relation is cross-model when the two applications live in different models.
 ```
 
+#### Relation attributes (ERD slice)
+
+**Insert at:** § Relation attributes.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Relation attributes
+:alt: The relation tables as an entity-relationship slice: relation at the centre pointing to life and charm_relation_scope; relation_endpoint below it pointing back to relation and across to application_endpoint; relation_unit pointing to relation_endpoint and unit; the unit and application settings tables (with their sha256 hash columns) hanging under their owners; relation_status pointing to relation and relation_status_type; the settings archive pointing to relation. Every arrow starts at the foreign-key column that stores the pointer.
+:caption: Entity relationship diagram: The relation's ten stored tables and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The services read these tables through four derived views, which have no pointers of their own and are therefore not drawn.
+```
+
 #### Integrate
 
 **Insert at:** § Working with relations → § Relation creation. also: explanation/architecture.md § Integrate.

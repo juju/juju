@@ -395,6 +395,108 @@ model "Juju" {
     rel_kind_nonsub  [type: default, label: "Non-subordinate relation"]
     rel_kind_cmr     [type: default, label: "Cross-model relation"]
     rel_kind_noncmr  [type: default, label: "Non-cross-model relation"]
+
+    // -----------------------------------------------------------------------
+    // Relation attributes — the persistence portrait (ADR-011 §3), sliced
+    // from domain/schema/model/sql/0024-relation.sql. Every fk: field is
+    // the origin of exactly one data edge — the arrow is where the pointer
+    // lives. The four derived views (v_application_endpoint,
+    // v_relation_endpoint, v_relation_endpoint_identifier,
+    // v_relation_status) are read models: no pointers of their own, so
+    // they are named in the caption, not drawn.
+    // Boundary nodes (unit, application_endpoint, life,
+    // charm_relation_scope) stand for the neighbouring tables the FKs
+    // point into; only their key column is drawn.
+    // -----------------------------------------------------------------------
+    ra_relation          [type: record, label: "relation", ground: "model:relation"] {
+      fields {
+        uuid            [label: "uuid",             type: "uuid", pk: true]
+        relation_id     [label: "relation_id",      type: "int"]
+        life_id         [label: "life_id",          type: "int",  fk: true]
+        scope_id        [label: "scope_id",         type: "int",  fk: true]
+        suspended       [label: "suspended",        type: "bool", null: true]
+        suspended_reason[label: "suspended_reason", type: "text", null: true]
+      }
+    }
+    ra_endpoint          [type: record, label: "relation_endpoint", ground: "model:relation_endpoint"] {
+      fields {
+        uuid            [label: "uuid",            type: "uuid", pk: true]
+        relation_uuid   [label: "relation_uuid",   type: "uuid", fk: true]
+        endpoint_uuid   [label: "endpoint_uuid",   type: "uuid", fk: true]
+      }
+    }
+    ra_unit              [type: record, label: "relation_unit", ground: "model:relation_unit"] {
+      fields {
+        uuid                 [label: "uuid",                  type: "uuid", pk: true]
+        relation_endpoint_uuid [label: "relation_endpoint_uuid", type: "uuid", fk: true]
+        unit_uuid            [label: "unit_uuid",             type: "uuid", fk: true]
+      }
+    }
+    ra_unit_setting      [type: record, label: "relation_unit_setting", ground: "model:relation_unit_setting"] {
+      // DECLARED FLATTENING: one node covers two real tables — the
+      // settings and the settings hash (relation_unit_settings_hash),
+      // the watcher's change-detection digest.
+      fields {
+        relation_unit_uuid [label: "relation_unit_uuid", type: "uuid", pk: true, fk: true]
+        key                [label: "key",               type: "text", pk: true]
+        value              [label: "value",             type: "text", null: true]
+        sha256             [label: "sha256 (hash)",     type: "text"]
+      }
+    }
+    ra_setting_archive   [type: record, label: "relation_unit_setting_archive", ground: "model:relation_unit_setting_archive"] {
+      fields {
+        relation_uuid [label: "relation_uuid", type: "uuid", pk: true, fk: true]
+        unit_name     [label: "unit_name",     type: "text", pk: true]
+        key           [label: "key",           type: "text", pk: true]
+        value         [label: "value",         type: "text", null: true]
+      }
+    }
+    ra_app_setting       [type: record, label: "relation_application_setting", ground: "model:relation_application_setting"] {
+      // DECLARED FLATTENING: one node covers two real tables — the
+      // settings and the settings hash
+      // (relation_application_settings_hash).
+      fields {
+        relation_endpoint_uuid [label: "relation_endpoint_uuid", type: "uuid", pk: true, fk: true]
+        key                    [label: "key",                   type: "text", pk: true]
+        value                  [label: "value",                 type: "text", null: true]
+        sha256                 [label: "sha256 (hash)",        type: "text"]
+      }
+    }
+    ra_status            [type: record, label: "relation_status", ground: "model:relation_status"] {
+      fields {
+        relation_uuid         [label: "relation_uuid",         type: "uuid", pk: true, fk: true]
+        relation_status_type_id [label: "relation_status_type_id", type: "text", fk: true]
+        message               [label: "message",              type: "text", null: true]
+        updated_at            [label: "updated_at",           type: "time", null: true]
+      }
+    }
+    ra_status_type       [type: record, label: "relation_status_type", ground: "model:relation_status_type"] {
+      fields {
+        id   [label: "id",   type: "text", pk: true]
+        name [label: "name", type: "text"]
+      }
+    }
+    // Boundary nodes — neighbouring tables the FKs point into.
+    ra_app_endpoint      [type: record, label: "application_endpoint", ground: "model:application_endpoint"] {
+      fields {
+        uuid [label: "uuid", type: "uuid", pk: true]
+      }
+    }
+    ra_unit_boundary     [type: record, label: "unit", ground: "model:unit"] {
+      fields {
+        uuid [label: "uuid", type: "uuid", pk: true]
+      }
+    }
+    ra_life              [type: record, label: "life", ground: "model:life"] {
+      fields {
+        id [label: "id", type: "int", pk: true]
+      }
+    }
+    ra_scope             [type: record, label: "charm_relation_scope", ground: "model:charm_relation_scope"] {
+      fields {
+        id [label: "id", type: "int", pk: true]
+      }
+    }
   }
 
   edges {
@@ -788,6 +890,23 @@ model "Juju" {
     rel_kind_nonsub  -> rel_kind_nonpeer [type: generalization, label: "both sides principal"]
     rel_kind_cmr     -> rel_kind_nonsub  [type: generalization, label: "across models"]
     rel_kind_noncmr  -> rel_kind_nonsub  [type: generalization, label: "same model"]
+
+    // -----------------------------------------------------------------------
+    // Relation attributes (ADR-011 §3): the stored pointers. Every fk:
+    // field of the slice is the origin of exactly one data edge; labels
+    // are child-first, the FK-stored half ("(one)" — non-null fk).
+    // -----------------------------------------------------------------------
+    ra_relation.life_id            -> ra_life.id                  [type: data, label: "typed as (one)"]
+    ra_relation.scope_id           -> ra_scope.id                 [type: data, label: "typed as (one)"]
+    ra_endpoint.relation_uuid      -> ra_relation.uuid            [type: data, label: "belongs to (one)"]
+    ra_endpoint.endpoint_uuid      -> ra_app_endpoint.uuid        [type: data, label: "binds to (one)"]
+    ra_unit.relation_endpoint_uuid -> ra_endpoint.uuid            [type: data, label: "enters through (one)"]
+    ra_unit.unit_uuid              -> ra_unit_boundary.uuid       [type: data, label: "belongs to (one)"]
+    ra_unit_setting.relation_unit_uuid -> ra_unit.uuid            [type: data, label: "belongs to (one)"]
+    ra_setting_archive.relation_uuid -> ra_relation.uuid          [type: data, label: "outlives (one)"]
+    ra_app_setting.relation_endpoint_uuid -> ra_endpoint.uuid     [type: data, label: "belongs to (one)"]
+    ra_status.relation_uuid        -> ra_relation.uuid            [type: data, label: "belongs to (one)"]
+    ra_status.relation_status_type_id -> ra_status_type.id        [type: data, label: "typed as (one)"]
   }
 
   behaviours {
@@ -2012,6 +2131,63 @@ diagram "Types of relation" from "Juju" {
   }
   annotations {
     legend [position: "bottom-right", generalization: "is a"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: relation attributes (docs/reference/relation.md, § Relation
+// attributes; ADR-011 §3) — the persistence portrait sliced from
+// domain/schema/model/sql/0024-relation.sql: the ten stored tables of the
+// relation story, every FK drawn exactly once from its fk: field to the
+// target's key. The four derived views (v_application_endpoint,
+// v_relation_endpoint, v_relation_endpoint_identifier, v_relation_status)
+// are read models with no pointers of their own — named in the caption,
+// not drawn. Declared positions: the FK spine reads parent-left /
+// child-right, settings clusters hang under their owner.
+// --------------------------------------------------------------------------
+diagram "Relation attributes" from "Juju" {
+  select {
+    routing: orthogonal
+    nodes: ra_relation ra_endpoint ra_unit ra_unit_setting
+           ra_setting_archive ra_app_setting ra_status ra_status_type
+           ra_app_endpoint ra_unit_boundary ra_life ra_scope
+    edges: type data
+  }
+  positions {
+    // The relation spine, top to bottom: relation -> endpoint -> unit.
+    ra_life            above ra_relation  gap: 100
+    ra_life            align-centre ra_relation
+    ra_endpoint        below ra_relation  gap: 100
+    ra_endpoint        align-centre ra_relation
+    ra_unit            below ra_status    gap: 50
+    ra_unit            align-centre ra_status
+    // Left: scope and the endpoint boundary flank the spine's west.
+    ra_scope           above ra_app_endpoint gap: 50
+    ra_scope           align-centre ra_app_endpoint
+    ra_app_endpoint    left-of ra_relation gap: 90
+    ra_app_endpoint    align-middle ra_relation
+    // Right of the spine: the status cluster, then the unit and its
+    // boundary; the wide gap leaves the hash-free lane at c4 clear.
+    ra_status          right-of ra_relation gap: 90
+    ra_status          align-middle ra_relation
+    ra_status_type     right-of ra_status gap: 80
+    ra_status_type     align-middle ra_status
+    ra_unit_boundary   right-of ra_unit gap: 80
+    ra_unit_boundary   align-middle ra_unit
+    // Settings hang under their owner. The archive sits on the top
+    // row beside life: its pointer targets the relation, and the top
+    // row gives the edge a clear horizontal into relation's west face.
+    ra_app_setting     below ra_endpoint gap: 100
+    ra_app_setting     align-centre ra_endpoint
+    ra_unit_setting    below ra_unit gap: 100
+    ra_unit_setting    align-centre ra_unit
+    ra_setting_archive right-of ra_life gap: 60
+    ra_setting_archive align-middle ra_life
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association (stored pointer; multiplicity in label)"]
   }
 }
 
