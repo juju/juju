@@ -38,7 +38,7 @@ deployed into the model, with its units and their machines or pods.
 ### The controller application
 
 The application that runs Juju itself in the
-{ref}`controller model <controller-model>` is marked by a dedicated
+{ref}`controller model <the-controller-model>` is marked by a dedicated
 singleton record -- one row, in one application, enforced by the
 schema. It is the application whose units host the controller's
 workers (see {ref}`the controller agent <controller-agent>`).

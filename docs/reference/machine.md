@@ -302,6 +302,7 @@ the target host, and the host's machine agent reports in -- the
 machine's record keeps the manual flag (see {ref}`Manual machine
 <manual-machine>`).
 
+(machine-watchers)=
 ## Machine watchers
 
 Nothing about a machine is polled by the things that act on it: they

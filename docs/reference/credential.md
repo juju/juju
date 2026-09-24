@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju credentials reference: authentication material for cloud access, credential types, storage, and model associations."
+    description: "Juju credentials reference: authentication material for cloud access, credential types, storage, and model associations. The credential record, types, states, operations, and rules."
 ---
 
 (credential)=
@@ -21,7 +21,20 @@ Clouds can have one or more sets of credentials associated with them.
 
 When you create a  {ref}`model <model>` in Juju it must always be associated with a cloud/credential pair -- the model needs that to create resources on the underlying cloud.
 
-## Credential definition
+(the-credential-record)=
+## The credential record
+
+A credential is a record in the **controller** database, identified by
+its natural key -- the {ref}`cloud <cloud>`, the owning
+{ref}`user <user>`, and its name -- plus its authentication type and
+its attributes (the key/value pairs the cloud's auth type requires).
+The record carries the credential's standing: whether it has been
+revoked, and whether it has been found **invalid**, with the reason.
+The model database keeps only a read-only, denormalised copy of the
+credential each model uses.
+
+(the-credential-in-the-data-model)=
+## The credential in the data model
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -31,12 +44,82 @@ When you create a  {ref}`model <model>` in Juju it must always be associated wit
 :alt: User record, cloud record, credential record, and model record with FK arrows.
 ```
 
-The structure of a credential and its supported authentication types depend on the cloud. See the relevant {ref}`cloud reference page <list-of-supported-clouds>` for details.
+(types-of-credential)=
+## Types of credential
 
-## Client vs. controller credential
+A credential's type is its **authentication type** -- the scheme the
+cloud authenticates with. Juju seeds one shared list of them:
+`access-key`, `instance-role`, `userpass`, `oauth1`, `oauth2`,
+`jsonfile`, `clientcertificate`, `httpsig`, `interactive`, `empty`,
+`certificate`, `oauth2withcert`, `service-principal-secret`,
+`managed-identity`, `service-account`. Which of these a given cloud
+admits -- and which attributes each requires -- is that cloud's
+business: see the relevant {ref}`cloud reference page
+<list-of-supported-clouds>` for details.
+
+(client-vs-controller-credential)=
+### Client vs. controller credential
 
 Juju credentials can be created for either the Juju client or the Juju controller or both -- where a **client credential** (previously known as a 'local credential') denotes a credential that the client is aware of and a **controller credential** (previously known as a 'remote credential') denotes a credential that a controller is aware of. When you bootstrap a controller and use a client credential, this credential gets automatically uploaded to the controller, so it becomes a controller credential also.
 
 ```{important}
 The set of client credentials and controller credentials can end up being the same. However, they don't have to.
 ```
+
+(the-credential-states)=
+## Credential states
+
+A credential carries two standing flags rather than a life cycle:
+**revoked** (the user withdrew it) and **invalid** (the cloud or the
+model checks found it unusable, with the reason recorded). Adding a
+credential already marked invalid is rejected; the real validity
+check is per model -- opening a provider connection with the
+credential is what proves it.
+
+(the-credential-operations)=
+## Credential operations
+
+Adding a credential (`juju add-credential`) inserts the record with
+its attributes; updating is an upsert of the same natural key;
+removing deletes it; invalidating marks it invalid with a reason and
+the models using it are told at their next check. The
+check-credentials operation validates, per model, that the model's
+credential actually opens the cloud.
+
+(the-credential-watchers)=
+## Credential watchers
+
+One watch surface: **a single credential's changes** -- the
+provisioning machinery of a model that uses the credential watches it
+and reconciles when the credential is updated or invalidated.
+
+Every watcher fires once immediately when it is created -- the
+initial query is the baseline snapshot -- and again on each qualifying
+change: database triggers feed the change stream, the watcher wakes,
+and the consumer fetches the current state and reconciles.
+
+(the-credential-rules-and-errors)=
+## Credential rules and errors
+
+- the natural key -- cloud, owner, name -- is unique: re-adding
+  updates, it does not duplicate;
+- the authentication type must be one the cloud admits, and the
+  attributes must satisfy it;
+- a credential recorded as invalid cannot be added;
+- access to credentials is not a permission object of its own:
+  ownership plus the cloud-level `add-model`/`admin` access is what
+  governs their use.
+
+The errors that encode them: `credential not found`,
+`credential model validation failed`, `model credential not set`,
+`unknown cloud`, `user not found`.
+
+(related-entities-credential)=
+## Related entities
+
+- **Clouds** are what a credential authenticates against, and they
+  define the admitted auth types (see {ref}`cloud <cloud>`).
+- **Users** own credentials -- the natural key's owner half (see
+  {ref}`user <user>`).
+- **Models** use exactly one cloud/credential pair, recorded on the
+  model (see {ref}`model <model>`).

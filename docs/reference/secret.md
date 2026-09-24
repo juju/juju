@@ -220,6 +220,7 @@ tracks become obsolete: the charm removes them (`secret-remove`) or,
 for secrets with auto-prune, Juju deletes them itself. Removing a
 secret deletes its records and its backend payloads.
 
+(secret-backend)=
 ### Secret backends
 
 ```{ibnote}
