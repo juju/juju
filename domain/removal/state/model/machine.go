@@ -455,6 +455,65 @@ AND    life_id = 1`, machineUUID)
 	}))
 }
 
+// ensureMachineRemovalScheduled ensures that a machine removal job is
+// scheduled for the machine with the input UUID. If a machine removal job
+// has already been scheduled for the machine, this does nothing:
+// scheduling is idempotent and duplicate jobs are never created here.
+// Jobs scheduled by this method are never qualified with force and are
+// actioned immediately. There is no risk of the machine row being deleted
+// prematurely: the job gates its deletion on the machine not being alive
+// and, unless forced, on its cloud instance being dead.
+// This must be called from within a transaction.
+func (st *State) ensureMachineRemovalScheduled(
+	ctx context.Context, tx *sqlair.TX, mUUID string,
+) error {
+	selectStmt, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   removal
+WHERE  removal_type_id = $removalTypeIDParam.id
+AND    entity_uuid = $entityUUID.uuid`, entityUUID{}, removalTypeIDParam{})
+	if err != nil {
+		return errors.Errorf("preparing machine removal job query: %w", err)
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO removal (uuid, removal_type_id, entity_uuid, force)
+VALUES ($machineRemovalJob.*)`, machineRemovalJob{})
+	if err != nil {
+		return errors.Errorf("preparing machine removal job insert: %w", err)
+	}
+
+	var existing entityUUID
+	err = tx.Query(
+		ctx, selectStmt, removalTypeIDParam{ID: uint64(removal.MachineJob)}, entityUUID{UUID: mUUID},
+	).Get(&existing)
+	switch {
+	case errors.Is(err, sqlair.ErrNoRows):
+		// No removal job has been scheduled for the machine yet.
+	case err != nil:
+		return errors.Errorf("checking for existing machine removal job: %w", err)
+	default:
+		// A removal job is already scheduled for the machine.
+		return nil
+	}
+
+	jobUUID, err := removal.NewUUID()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	job := machineRemovalJob{
+		UUID:          jobUUID.String(),
+		RemovalTypeID: uint64(removal.MachineJob),
+		EntityUUID:    mUUID,
+	}
+	if err := tx.Query(ctx, insertStmt, job).Run(); err != nil {
+		return errors.Errorf("scheduling machine removal: %w", err)
+	}
+
+	return nil
+}
+
 // MarkInstanceAsDead marks the machine cloud instance with the input UUID as
 // dead.
 // The following errors are returned:
@@ -499,7 +558,13 @@ AND    life_id = 1`, machineUUID)
 	}))
 }
 
-// DeleteMachine deletes the specified machine and any dependent child records.
+// DeleteMachine deletes the specified machine and any dependent child
+// records. If the machine is a child machine and its parent is now ready
+// for removal, a machine removal job is scheduled for the parent in the
+// same transaction: container hosts are refused by the model removal
+// cascade and skipped by the unit removal cascade while they host child
+// machines, so this is the point where their death is paired with a
+// removal job.
 func (st *State) DeleteMachine(ctx context.Context, mUUID string, force bool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -577,6 +642,15 @@ WHERE uuid = $machine.uuid;
 			}
 		}
 
+		// Capture the machine's parent before the machine_parent row is
+		// deleted as part of the basic machine data below, so the parent
+		// can be paired with a removal job if this machine was its last
+		// child machine.
+		parentUUID, err := st.getMachineParentUUID(ctx, tx, machineUUIDParam.UUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
 		// Remove all basic machine data associated with the machine.
 		if err := st.removeBasicMachineData(ctx, tx, machineUUIDParam.UUID); err != nil {
 			return errors.Errorf("removing basic machine data: %w", err)
@@ -598,12 +672,117 @@ WHERE uuid = $machine.uuid;
 			return errors.Errorf("removing machine network: %w", err)
 		}
 
+		// The machine removal job just removed a child machine: ensure
+		// its parent is paired with a removal job if it is now ready for
+		// removal.
+		if err := st.ensureParentMachineRemovalScheduled(ctx, tx, parentUUID); err != nil {
+			return errors.Capture(err)
+		}
+
 		return nil
 	})
 	if err != nil {
 		return errors.Errorf("deleting machine: %w", err)
 	}
 	return nil
+}
+
+// getMachineParentUUID returns the UUID of the parent machine of the
+// machine with the input UUID. An empty UUID is returned if the machine
+// has no parent. This must be called from within a transaction and before
+// the machine's machine_parent row is deleted.
+func (st *State) getMachineParentUUID(
+	ctx context.Context, tx *sqlair.TX, mUUID string,
+) (string, error) {
+	stmt, err := st.Prepare(`
+SELECT parent_uuid AS &entityUUID.uuid
+FROM   machine_parent
+WHERE  machine_uuid = $entityUUID.uuid;`, entityUUID{})
+	if err != nil {
+		return "", errors.Errorf("preparing machine parent query: %w", err)
+	}
+
+	var parent entityUUID
+	err = tx.Query(ctx, stmt, entityUUID{UUID: mUUID}).Get(&parent)
+	switch {
+	case errors.Is(err, sqlair.ErrNoRows):
+		// The machine has no parent.
+		return "", nil
+	case err != nil:
+		return "", errors.Errorf("getting parent machine: %w", err)
+	}
+	return parent.UUID, nil
+}
+
+// ensureParentMachineRemovalScheduled ensures that a machine removal job
+// is scheduled for the parent of a just-deleted child machine, if the
+// parent is now ready for removal: not alive, with no remaining child
+// machines and no alive units. Container hosts are refused by the model
+// removal cascade and skipped by the unit removal cascade while they host
+// child machines, so without this pairing their death would never be
+// scheduled for removal and their machine row would remain forever.
+// Scheduling is idempotent, so no duplicate jobs are created. This must
+// be called from within a transaction, after the child machine's
+// machine_parent row has been deleted.
+func (st *State) ensureParentMachineRemovalScheduled(
+	ctx context.Context, tx *sqlair.TX, parentUUID string,
+) error {
+	if parentUUID == "" {
+		// The deleted machine had no parent.
+		return nil
+	}
+
+	remainingChildrenStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM   machine_parent
+WHERE  parent_uuid = $entityUUID.uuid;`, count{}, entityUUID{})
+	if err != nil {
+		return errors.Errorf("preparing remaining child machines query: %w", err)
+	}
+
+	var remainingChildren count
+	err = tx.Query(ctx, remainingChildrenStmt, entityUUID{UUID: parentUUID}).Get(&remainingChildren)
+	if err != nil {
+		return errors.Errorf("counting child machines: %w", err)
+	} else if remainingChildren.Count > 0 {
+		// The parent still hosts other child machines.
+		return nil
+	}
+
+	// Only pair the parent's death with a removal job if the parent is
+	// not alive: removing child machines must never schedule the removal
+	// of a host machine that is still running.
+	parentLife, err := st.getMachineLife(ctx, tx, parentUUID)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf("getting parent machine life: %w", err)
+	} else if parentLife == life.Alive {
+		return nil
+	}
+
+	aliveUnitsStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM   unit
+JOIN   machine AS m ON m.net_node_uuid = unit.net_node_uuid
+WHERE  m.uuid = $entityUUID.uuid
+AND    unit.life_id = 0;`, count{}, entityUUID{})
+	if err != nil {
+		return errors.Errorf("preparing alive units query: %w", err)
+	}
+
+	var aliveUnits count
+	err = tx.Query(ctx, aliveUnitsStmt, entityUUID{UUID: parentUUID}).Get(&aliveUnits)
+	if err != nil {
+		return errors.Errorf("counting alive units: %w", err)
+	} else if aliveUnits.Count > 0 {
+		// The parent still hosts alive units: the unit removal cascade
+		// pairs the parent with a removal job when the last unit
+		// leaves.
+		return nil
+	}
+
+	return st.ensureMachineRemovalScheduled(ctx, tx, parentUUID)
 }
 
 func (st *State) checkNoMachineDependents(ctx context.Context, tx *sqlair.TX, machineUUIDParam entityUUID) error {
