@@ -69,8 +69,9 @@ type MockImportService struct {
 
 // MockImportServiceMockRecorder is the mock recorder for MockImportService.
 type MockImportServiceMockRecorder struct {
-	mock                   *MockImportService
-	importRelationsExpects []*gomock.Call2_1[context.Context, relation.ImportRelationsArgs, error]
+	mock                      *MockImportService
+	importRelationDataExpects []*gomock.Call2_1[context.Context, relation.ImportRelationsArgs, error]
+	importRelationsExpects    []*gomock.Call2_1[context.Context, relation.ImportRelationsArgs, error]
 }
 
 // NewMockImportService creates a new mock instance.
@@ -84,6 +85,24 @@ func NewMockImportService(ctrl *gomock.Controller) *MockImportService {
 func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 	return m.recorder
 }
+
+// ImportRelationData mocks base method.
+func (m *MockImportService) ImportRelationData(ctx context.Context, args relation.ImportRelationsArgs) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.importRelationDataExpects, m.ctrl, m, "ImportRelationData", ctx, args)
+}
+
+// ImportRelationData indicates an expected call of ImportRelationData.
+func (mr *MockImportServiceMockRecorder) ImportRelationData(ctx, args any) *MockImportServiceImportRelationDataCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, relation.ImportRelationsArgs, error](mr.mock.ctrl.T, mr.mock, "ImportRelationData", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(args))
+	mr.importRelationDataExpects = append(mr.importRelationDataExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockImportServiceImportRelationDataCall is the typed call wrapper for ImportRelationData.
+type MockImportServiceImportRelationDataCall = gomock.Call2_1[context.Context, relation.ImportRelationsArgs, error]
 
 // ImportRelations mocks base method.
 func (m *MockImportService) ImportRelations(ctx context.Context, args relation.ImportRelationsArgs) error {

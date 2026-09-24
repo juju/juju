@@ -107,6 +107,68 @@ func (s *migrationServiceSuite) TestImportRelations(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *migrationServiceSuite) TestImportRelationData(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+	ep := key.EndpointIdentifiers()
+	relUUID := tc.Must(c, corerelation.NewUUID)
+
+	args := relation.ImportRelationsArgs{
+		{
+			UUID: relUUID,
+			ID:   7,
+			Key:  key,
+			Endpoints: []relation.ImportEndpoint{
+				{
+					ApplicationName:     ep[0].ApplicationName,
+					EndpointName:        ep[0].EndpointName,
+					ApplicationSettings: map[string]any{"password": "keep-me"},
+				}, {
+					ApplicationName:     ep[1].ApplicationName,
+					EndpointName:        ep[1].EndpointName,
+					ApplicationSettings: map[string]any{"database": "keep-me-too"},
+					UnitSettings: map[string]map[string]any{
+						"remote-13ea/0": {"request": "keep-unit-data"},
+					},
+				},
+			},
+		},
+	}
+
+	app1ID := s.expectGetApplicationUUIDByName(c, args[0].Endpoints[0].ApplicationName)
+	app2ID := s.expectGetApplicationUUIDByName(c, args[0].Endpoints[1].ApplicationName)
+	s.expectSetRelationApplicationSettings(relUUID, app1ID, args[0].Endpoints[0].ApplicationSettings)
+	s.expectSetRelationApplicationSettings(relUUID, app2ID, args[0].Endpoints[1].ApplicationSettings)
+	s.expectEnterScope(relUUID, coreunittesting.GenNewName(c, "remote-13ea/0"), args[0].Endpoints[1].UnitSettings["remote-13ea/0"])
+
+	// The relation is not created by ImportRelationData, it already exists.
+	s.state.EXPECT().ImportRelation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+	s.state.EXPECT().ImportPeerRelation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+	// Act
+	err := s.service.ImportRelationData(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *migrationServiceSuite) TestImportRelationDataInvalidUUID(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+
+	// Act
+	err := s.service.ImportRelationData(c.Context(), relation.ImportRelationsArgs{{
+		UUID: "not-a-uuid",
+		ID:   7,
+		Key:  key,
+	}})
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "validating relation UUID for relation 7:.*")
+}
+
 func (s *migrationServiceSuite) TestExportRelations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
