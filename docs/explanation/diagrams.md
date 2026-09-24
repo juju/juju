@@ -470,6 +470,18 @@ precedent).
 :alt: User calls juju destroy-model. Controller marks model Dying and fires watcher to Undertaker. Undertaker destroys all applications. Controller releases all machines and marks model Dead. Undertaker deletes model records and Dqlite database.
 ```
 
+#### Model migration (sequence)
+
+**Insert at:** § Model operations → § Model migration.
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Model migration
+:no-legend:
+:caption: Sequence diagram: Moving a model between controllers. The source controller's migration master worker drives the phase machine: it locks the model's agents down (quiesce), sends the model envelope -- the YAML model export plus the controller-DB data -- to the target, whose ordered import operations run with rollback; the agents validate against the target and rewrite their agent configuration to re-orient; the source then activates the imported model, transfers logs, and reaps the source model, redirecting active users.
+:alt: User calls juju migrate; the source controller's migration master quiesces the model's agents, sends the model envelope to the target controller's import, the agents validate against the target and re-orient, and the source controller activates the imported model and reaps the source.
+```
+
 ### reference/offer.md
 
 #### Cross-model relation (CMR)

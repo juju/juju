@@ -377,6 +377,13 @@ model "Juju" {
     mas_stopped     [type: juju-software, label: "stopped"]
     mas_error       [type: juju-software, label: "error (destroying machine)"]
 
+    // Model migration (docs/reference/model.md § Model operations —
+    // MigrationScout grounds): the target controller (its Migration
+    // Target facade + the import coordinator) and the model's agents
+    // (their migrationminion workers — machine and unit agents).
+    migration_target [type: juju-software, label: "target controller\n(MigrationTarget)"]
+    migration_minion [type: juju-software, label: "model agents\n(migrationminion)"]
+
     // -----------------------------------------------------------------------
     // Intro-view archetypes — real types rendered as N labelled instances
     // per view (instances: notation, ggarch 0.22.0). The instances are
@@ -980,6 +987,12 @@ model "Juju" {
     mas_pending     -> mas_started    [type: control]
     mas_started     -> mas_stopped    [type: control]
     mas_started     -> mas_error      [type: control]
+
+    // Model migration (the phase machine's communication paths).
+    controller -> migration_target [type: api]
+    controller -> migration_minion [type: control]
+    migration_minion -> controller [type: api]
+    migration_minion -> migration_target [type: api]
     uop_committing -> uop_idle       [type: control]
 
     // -----------------------------------------------------------------------
@@ -1174,6 +1187,21 @@ model "Juju" {
       mas_started -> mas_stopped: async "life is not alive" [on: "life watcher fires"]
       mas_started -> mas_error:   async "EnsureDead failed" [guard: "units or storage still assigned"]
       mas_stopped -> mas_stopped: self  "EnsureDead: wait for units and storage to clear, then die"
+    }
+
+    behaviour "Model migration" {
+      user       -> client:           call "juju migrate"
+      client     -> controller:       call "InitiateMigration"
+      controller -> controller:       self  "prechecks; write the export record"
+      controller -> migration_minion: async "QUIESCE: fortress lockdown"
+      migration_minion -> controller: call "report quiesced"
+      controller -> migration_target: call "Prechecks + Import\n(the model envelope)"
+      migration_target -> migration_target: self "import (ordered operations, rollback on failure)"
+      controller -> migration_minion: async "VALIDATION"
+      migration_minion -> migration_target: call "validate (re-oriented agents)"
+      migration_minion -> controller: call "report success"
+      controller -> migration_target: call "Activate + AdoptResources"
+      controller -> controller: self "LOGTRANSFER, then REAP: purge the source model (redirect active users)"
     }
 
 behaviour "Secret lifecycle" {
@@ -1764,6 +1792,10 @@ state "Machine provisioning" from "Juju" {
 
 state "Machine agent status" from "Juju" {
   select { behaviour: "Machine agent status" }
+}
+
+sequence "Model migration" from "Juju" {
+  select { behaviour: "Model migration" }
 }
 
 // --------------------------------------------------------------------------

@@ -627,7 +627,7 @@ Authentication requests from a Juju unit agent to a Juju controller are rate-lim
 (controls-regular-backups)=
 ### Regular backups
 
-For machine controllers, Juju provides tools to help with controller backups. This can help restore healthy state in the case of an attack affecting data integrity.
+Juju 4.0 does not provide built-in controller backup tooling on the Dqlite architecture: the backup operation is not implemented (`juju create-backup` reports the operation as unsupported). Back up a controller's databases with external means instead. This can help restore healthy state in the case of an attack affecting data integrity.
 
 (controls-regular-updates)=
 ### Regular updates

@@ -34,6 +34,41 @@ A model configuration is a rule or a set of rules that define the behavior of a 
 See more: {ref}`list-of-model-configuration-keys`,  {ref}`configure-a-model`
 ```
 
+(model-operations)=
+## Model operations
+
+(model-migration)=
+### Model migration
+
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Model migration
+:alt: User calls juju migrate; the source controller's migration master quiesces the model's agents, sends the model envelope to the target controller's import, the agents validate against the target and re-orient, and the source controller activates the imported model and reaps the source.
+:caption: Sequence diagram: Moving a model between controllers. The source controller's migration master worker drives the phase machine: it locks the model's agents down (quiesce), sends the model envelope -- the YAML model export plus the controller-DB data -- to the target, whose ordered import operations run with rollback; the agents validate against the target and rewrite their agent configuration to re-orient; the source then activates the imported model, transfers logs, and reaps the source model, redirecting active users.
+```
+
+A model can be moved between controllers with the migrate operation
+(for example, `juju migrate <model> <target-controller>`). The
+migration is a phase machine driven by the source controller: the
+source's migration master worker quiesces the model's agents, sends
+the model envelope -- the YAML export of the model database plus the
+model's controller-DB data -- to the target controller, whose import
+runs as ordered operations with rollback, then lets the agents
+validate against the target and rewrite their agent configuration to
+re-orient to it. Once the agents report success, the source
+activates the imported model on the target, transfers the model's
+logs, and reaps the source model (active users are redirected). An
+aborted migration rolls the phases back on both sides.
+
+```{important}
+
+On Juju 4.0, migration targets a Juju 4.1 (or newer) controller: the
+target must support the migration envelope facade version the source
+sends. A 4.0 controller cannot yet be a migration target -- the
+prechecks reject the migration.
+
+```
+
 ## Model lifecycle
 
 ### Model removal
