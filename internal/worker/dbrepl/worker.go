@@ -385,7 +385,7 @@ func (w *dbReplWorker) execQueryForModels(ctx context.Context, args []string) {
 }
 
 func (w *dbReplWorker) execTables(ctx context.Context) {
-	if err := w.executeQuery(ctx, w.currentDB, "SELECT name AS table_name FROM sqlite_master WHERE type='table'"); err != nil {
+	if err := w.executeQuery(ctx, w.currentDB, "SELECT name AS table_name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"); err != nil {
 		w.cfg.Logger.Errorf(ctx, "failed to execute query: %v", err)
 	}
 }
@@ -593,13 +593,13 @@ func (w *dbReplWorker) execShowDDL(ctx context.Context, args []string) {
 }
 
 func (w *dbReplWorker) execTriggers(ctx context.Context) {
-	if err := w.executeQuery(ctx, w.currentDB, "SELECT name AS trigger_name FROM sqlite_master WHERE type='trigger'"); err != nil {
+	if err := w.executeQuery(ctx, w.currentDB, "SELECT name AS trigger_name FROM sqlite_master WHERE type='trigger' AND name NOT LIKE 'sqlite_%'"); err != nil {
 		w.cfg.Logger.Errorf(ctx, "failed to execute query: %v", err)
 	}
 }
 
 func (w *dbReplWorker) execViews(ctx context.Context) {
-	if err := w.executeQuery(ctx, w.currentDB, "SELECT name AS view_name FROM sqlite_master WHERE type='view'"); err != nil {
+	if err := w.executeQuery(ctx, w.currentDB, "SELECT name AS view_name FROM sqlite_master WHERE type='view' AND name NOT LIKE 'sqlite_%'"); err != nil {
 		w.cfg.Logger.Errorf(ctx, "failed to execute query: %v", err)
 	}
 }
