@@ -94,7 +94,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"application_exposed_endpoint_space",
 		"application_k8s_resources_managed",
 		"application_platform",
-		"application_scale",
+		"application_provisioning_state",
 		"application_setting",
 		"application_status",
 		"application_workload_version",
@@ -508,9 +508,9 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_application_exposed_endpoint_space_insert",
 		"trg_log_application_exposed_endpoint_space_update",
 
-		"trg_log_application_scale_delete",
-		"trg_log_application_scale_insert",
-		"trg_log_application_scale_update",
+		"trg_log_application_provisioning_state_delete",
+		"trg_log_application_provisioning_state_insert",
+		"trg_log_application_provisioning_state_update",
 
 		"trg_log_block_device_delete",
 		"trg_log_block_device_insert",

@@ -327,8 +327,8 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 
 		// handleChange
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
-		applicationService.EXPECT().GetApplicationScalingState(x, "con-troll-er").Return(applicationservice.ScalingState{Scaling: true, ScaleTarget: 1}, nil),
-		applicationService.EXPECT().SetApplicationScalingState(x, "con-troll-er", 0, false).Return(nil),
+		applicationService.EXPECT().GetApplicationScalingState(x, "con-troll-er").Return(applicationservice.ScalingState{CurrentOperation: application.ScaleOperation, ScaleTarget: 1}, nil),
+		applicationService.EXPECT().SetApplicationScalingState(x, "con-troll-er", 0, application.NoOperation).Return(nil),
 		facade.EXPECT().WatchProvisioningInfo(x, "con-troll-er").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
 		app.EXPECT().Watch(x).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {

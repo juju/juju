@@ -152,8 +152,13 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			Scale: app.DesiredScale(),
 		}
 
+		// The migration description only carries the legacy scaling boolean.
+		// Convert it to the equivalent provisioning operation; a missing
+		// or false scaling field results in no operation.
 		if provisioningState := app.ProvisioningState(); provisioningState != nil {
-			scaleState.Scaling = provisioningState.Scaling()
+			if provisioningState.Scaling() {
+				scaleState.CurrentOperation = coreapplication.ScaleOperation
+			}
 			scaleState.ScaleTarget = provisioningState.ScaleTarget()
 		}
 

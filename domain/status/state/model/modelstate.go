@@ -1683,7 +1683,7 @@ JOIN charm_metadata AS cm ON cm.charm_uuid = c.uuid
 LEFT JOIN application_status AS s ON s.application_uuid = a.uuid
 LEFT JOIN k8s_service AS k8s ON k8s.application_uuid = a.uuid
 LEFT JOIN selected_k8s_service_address AS svc_addr ON svc_addr.application_uuid = a.uuid
-LEFT JOIN application_scale AS aps ON aps.application_uuid = a.uuid
+LEFT JOIN application_provisioning_state AS aps ON aps.application_uuid = a.uuid
 LEFT JOIN v_relation_endpoint AS re ON re.application_uuid = a.uuid
 LEFT JOIN application_workload_version AS awv ON awv.application_uuid = a.uuid
 WHERE c.source_id < 2
