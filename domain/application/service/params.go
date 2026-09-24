@@ -154,8 +154,8 @@ type UpdateCAASUnitParams struct {
 // ScalingState contains attributes that describes
 // the scaling state of a CAAS application.
 type ScalingState struct {
-	ScaleTarget int
-	Scaling     bool
+	ScaleTarget      int
+	CurrentOperation coreapplication.ProvisioningOperation
 }
 
 // ResolvedResources is a collection of ResolvedResource elements.
@@ -287,8 +287,8 @@ type ImportCAASApplicationArgs struct {
 	// Units contains the CAAS units to import.
 	Units []ImportCAASUnitArg
 
-	// ScaleState is the scale state (including scaling, scale and scale
-	// target) of the application.
+	// ScaleState is the scale state (including the current operation, scale
+	// and scale target) of the application.
 	ScaleState application.ScaleState
 }
 

@@ -248,7 +248,7 @@ func (s *unitStateSuite) TestRegisterCAASUnit(c *tc.C) {
 	s.createCAASScalingApplication(c, "bar", life.Alive, 1)
 
 	// Allow scaling.
-	err := s.state.SetApplicationScalingState(c.Context(), "bar", 1, true)
+	err := s.state.SetApplicationScalingState(c.Context(), "bar", 1, coreapplication.ScaleOperation)
 	c.Assert(err, tc.ErrorIsNil)
 
 	p := application.RegisterCAASUnitArg{
@@ -294,7 +294,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitErrorOutsideTargetScale(c *tc.C) {
 	s.createCAASScalingApplication(c, "foo", life.Alive, 1)
 
 	// Allow scaling.
-	err := s.state.SetApplicationScalingState(c.Context(), "foo", 1, true)
+	err := s.state.SetApplicationScalingState(c.Context(), "foo", 1, coreapplication.ScaleOperation)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Try to create a unit with a higher ordinal number than the desired scale.
@@ -458,7 +458,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitExceedsScale(c *tc.C) {
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-UPDATE application_scale
+UPDATE application_provisioning_state
 SET scale = ?, scale_target = ?
 WHERE application_uuid = ?`, 1, 3, appUUID)
 		return err
@@ -485,9 +485,9 @@ func (s *unitStateSuite) TestRegisterCAASUnitExceedsScaleWhileScalingWithoutErro
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-UPDATE application_scale
-SET scaling = ?, scale = ?, scale_target = ?
-WHERE application_uuid = ?`, true, 1, 3, appUUID)
+UPDATE application_provisioning_state
+SET current_operation = ?, scale = ?, scale_target = ?
+WHERE application_uuid = ?`, "scale", 1, 3, appUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -512,9 +512,9 @@ func (s *unitStateSuite) TestRegisterCAASUnitExceedsScaleTarget(c *tc.C) {
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-UPDATE application_scale
-SET scaling = ?, scale = ?, scale_target = ?
-WHERE application_uuid = ?`, true, 3, 1, appUUID)
+UPDATE application_provisioning_state
+SET current_operation = ?, scale = ?, scale_target = ?
+WHERE application_uuid = ?`, "scale", 3, 1, appUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

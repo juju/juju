@@ -46,7 +46,7 @@ import (
 // vendor domain/export/types/v<prev>/ from the previous-minor branch and
 // delete the superseded types directory when a non-own entry moves.
 var exportVersionStrings = []string{
-	"4.0.12",
+	"4.0.16",
 }
 
 // ExportVersions lists each semantic version for which there is a new export

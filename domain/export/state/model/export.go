@@ -11,7 +11,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	"github.com/juju/juju/domain/export/types/v4_0_12"
+	"github.com/juju/juju/domain/export/types/v4_0_16"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -20,9 +20,6 @@ type nullableApplication struct {
 }
 type nullableApplicationRemoteOffererStatus struct {
 	UpdatedAtIsNull bool `db:"updated_at_is_null"`
-}
-type nullableApplicationScale struct {
-	ScalingIsNull bool `db:"scaling_is_null"`
 }
 type nullableApplicationSetting struct {
 	TrustIsNull bool `db:"trust_is_null"`
@@ -125,434 +122,432 @@ type nullableUnitWorkloadStatus struct {
 	UpdatedAtIsNull bool `db:"updated_at_is_null"`
 }
 
-// Export exports all model data for version 4.0.12.
-func (st *State) Export(ctx context.Context) (*v4_0_12.ModelExport, error) {
-	var modelExport v4_0_12.ModelExport
+// Export exports all model data for version 4.0.16.
+func (st *State) Export(ctx context.Context) (*v4_0_16.ModelExport, error) {
+	var modelExport v4_0_16.ModelExport
 	var err error
 
 	// Prepare statements first using the typed samples from the generated types package.
-	stmtAgentBinaryStore, err := sqlair.Prepare(`SELECT &AgentBinaryStore.* FROM "agent_binary_store"`, v4_0_12.AgentBinaryStore{})
+	stmtAgentBinaryStore, err := sqlair.Prepare(`SELECT &AgentBinaryStore.* FROM "agent_binary_store"`, v4_0_16.AgentBinaryStore{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing AgentBinaryStore statement: %w", err)
 	}
-	stmtAgentStream, err := sqlair.Prepare(`SELECT &AgentStream.* FROM "agent_stream"`, v4_0_12.AgentStream{})
+	stmtAgentStream, err := sqlair.Prepare(`SELECT &AgentStream.* FROM "agent_stream"`, v4_0_16.AgentStream{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing AgentStream statement: %w", err)
 	}
-	stmtAgentVersion, err := sqlair.Prepare(`SELECT &AgentVersion.* FROM "agent_version"`, v4_0_12.AgentVersion{})
+	stmtAgentVersion, err := sqlair.Prepare(`SELECT &AgentVersion.* FROM "agent_version"`, v4_0_16.AgentVersion{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing AgentVersion statement: %w", err)
 	}
-	stmtAnnotationApplication, err := sqlair.Prepare(`SELECT &AnnotationApplication.* FROM "annotation_application"`, v4_0_12.AnnotationApplication{})
+	stmtAnnotationApplication, err := sqlair.Prepare(`SELECT &AnnotationApplication.* FROM "annotation_application"`, v4_0_16.AnnotationApplication{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing AnnotationApplication statement: %w", err)
 	}
-	stmtAnnotationCharm, err := sqlair.Prepare(`SELECT &AnnotationCharm.* FROM "annotation_charm"`, v4_0_12.AnnotationCharm{})
+	stmtAnnotationCharm, err := sqlair.Prepare(`SELECT &AnnotationCharm.* FROM "annotation_charm"`, v4_0_16.AnnotationCharm{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing AnnotationCharm statement: %w", err)
 	}
-	stmtAnnotationMachine, err := sqlair.Prepare(`SELECT &AnnotationMachine.* FROM "annotation_machine"`, v4_0_12.AnnotationMachine{})
+	stmtAnnotationMachine, err := sqlair.Prepare(`SELECT &AnnotationMachine.* FROM "annotation_machine"`, v4_0_16.AnnotationMachine{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing AnnotationMachine statement: %w", err)
 	}
-	stmtAnnotationModel, err := sqlair.Prepare(`SELECT &AnnotationModel.* FROM "annotation_model"`, v4_0_12.AnnotationModel{})
+	stmtAnnotationModel, err := sqlair.Prepare(`SELECT &AnnotationModel.* FROM "annotation_model"`, v4_0_16.AnnotationModel{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing AnnotationModel statement: %w", err)
 	}
-	stmtAnnotationStorageFilesystem, err := sqlair.Prepare(`SELECT &AnnotationStorageFilesystem.* FROM "annotation_storage_filesystem"`, v4_0_12.AnnotationStorageFilesystem{})
+	stmtAnnotationStorageFilesystem, err := sqlair.Prepare(`SELECT &AnnotationStorageFilesystem.* FROM "annotation_storage_filesystem"`, v4_0_16.AnnotationStorageFilesystem{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing AnnotationStorageFilesystem statement: %w", err)
 	}
-	stmtAnnotationStorageInstance, err := sqlair.Prepare(`SELECT &AnnotationStorageInstance.* FROM "annotation_storage_instance"`, v4_0_12.AnnotationStorageInstance{})
+	stmtAnnotationStorageInstance, err := sqlair.Prepare(`SELECT &AnnotationStorageInstance.* FROM "annotation_storage_instance"`, v4_0_16.AnnotationStorageInstance{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing AnnotationStorageInstance statement: %w", err)
 	}
-	stmtAnnotationStorageVolume, err := sqlair.Prepare(`SELECT &AnnotationStorageVolume.* FROM "annotation_storage_volume"`, v4_0_12.AnnotationStorageVolume{})
+	stmtAnnotationStorageVolume, err := sqlair.Prepare(`SELECT &AnnotationStorageVolume.* FROM "annotation_storage_volume"`, v4_0_16.AnnotationStorageVolume{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing AnnotationStorageVolume statement: %w", err)
 	}
-	stmtAnnotationUnit, err := sqlair.Prepare(`SELECT &AnnotationUnit.* FROM "annotation_unit"`, v4_0_12.AnnotationUnit{})
+	stmtAnnotationUnit, err := sqlair.Prepare(`SELECT &AnnotationUnit.* FROM "annotation_unit"`, v4_0_16.AnnotationUnit{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing AnnotationUnit statement: %w", err)
 	}
 	stmtApplication, err := sqlair.Prepare(`SELECT &Application.*,
        t."charm_upgrade_on_error" IS NULL AS &nullableApplication.charm_upgrade_on_error_is_null
-FROM   "application" AS t`, v4_0_12.Application{}, nullableApplication{})
+FROM   "application" AS t`, v4_0_16.Application{}, nullableApplication{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Application statement: %w", err)
 	}
-	stmtApplicationAgent, err := sqlair.Prepare(`SELECT &ApplicationAgent.* FROM "application_agent"`, v4_0_12.ApplicationAgent{})
+	stmtApplicationAgent, err := sqlair.Prepare(`SELECT &ApplicationAgent.* FROM "application_agent"`, v4_0_16.ApplicationAgent{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationAgent statement: %w", err)
 	}
-	stmtApplicationChannel, err := sqlair.Prepare(`SELECT &ApplicationChannel.* FROM "application_channel"`, v4_0_12.ApplicationChannel{})
+	stmtApplicationChannel, err := sqlair.Prepare(`SELECT &ApplicationChannel.* FROM "application_channel"`, v4_0_16.ApplicationChannel{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationChannel statement: %w", err)
 	}
-	stmtApplicationConfig, err := sqlair.Prepare(`SELECT &ApplicationConfig.* FROM "application_config"`, v4_0_12.ApplicationConfig{})
+	stmtApplicationConfig, err := sqlair.Prepare(`SELECT &ApplicationConfig.* FROM "application_config"`, v4_0_16.ApplicationConfig{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationConfig statement: %w", err)
 	}
-	stmtApplicationConfigHash, err := sqlair.Prepare(`SELECT &ApplicationConfigHash.* FROM "application_config_hash"`, v4_0_12.ApplicationConfigHash{})
+	stmtApplicationConfigHash, err := sqlair.Prepare(`SELECT &ApplicationConfigHash.* FROM "application_config_hash"`, v4_0_16.ApplicationConfigHash{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationConfigHash statement: %w", err)
 	}
-	stmtApplicationConstraint, err := sqlair.Prepare(`SELECT &ApplicationConstraint.* FROM "application_constraint"`, v4_0_12.ApplicationConstraint{})
+	stmtApplicationConstraint, err := sqlair.Prepare(`SELECT &ApplicationConstraint.* FROM "application_constraint"`, v4_0_16.ApplicationConstraint{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationConstraint statement: %w", err)
 	}
-	stmtApplicationController, err := sqlair.Prepare(`SELECT &ApplicationController.* FROM "application_controller"`, v4_0_12.ApplicationController{})
+	stmtApplicationController, err := sqlair.Prepare(`SELECT &ApplicationController.* FROM "application_controller"`, v4_0_16.ApplicationController{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationController statement: %w", err)
 	}
-	stmtApplicationEndpoint, err := sqlair.Prepare(`SELECT &ApplicationEndpoint.* FROM "application_endpoint"`, v4_0_12.ApplicationEndpoint{})
+	stmtApplicationEndpoint, err := sqlair.Prepare(`SELECT &ApplicationEndpoint.* FROM "application_endpoint"`, v4_0_16.ApplicationEndpoint{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationEndpoint statement: %w", err)
 	}
-	stmtApplicationExposedEndpointCidr, err := sqlair.Prepare(`SELECT &ApplicationExposedEndpointCidr.* FROM "application_exposed_endpoint_cidr"`, v4_0_12.ApplicationExposedEndpointCidr{})
+	stmtApplicationExposedEndpointCidr, err := sqlair.Prepare(`SELECT &ApplicationExposedEndpointCidr.* FROM "application_exposed_endpoint_cidr"`, v4_0_16.ApplicationExposedEndpointCidr{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationExposedEndpointCidr statement: %w", err)
 	}
-	stmtApplicationExposedEndpointSpace, err := sqlair.Prepare(`SELECT &ApplicationExposedEndpointSpace.* FROM "application_exposed_endpoint_space"`, v4_0_12.ApplicationExposedEndpointSpace{})
+	stmtApplicationExposedEndpointSpace, err := sqlair.Prepare(`SELECT &ApplicationExposedEndpointSpace.* FROM "application_exposed_endpoint_space"`, v4_0_16.ApplicationExposedEndpointSpace{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationExposedEndpointSpace statement: %w", err)
 	}
-	stmtApplicationExtraEndpoint, err := sqlair.Prepare(`SELECT &ApplicationExtraEndpoint.* FROM "application_extra_endpoint"`, v4_0_12.ApplicationExtraEndpoint{})
+	stmtApplicationExtraEndpoint, err := sqlair.Prepare(`SELECT &ApplicationExtraEndpoint.* FROM "application_extra_endpoint"`, v4_0_16.ApplicationExtraEndpoint{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationExtraEndpoint statement: %w", err)
 	}
-	stmtApplicationK8sResourcesManaged, err := sqlair.Prepare(`SELECT &ApplicationK8sResourcesManaged.* FROM "application_k8s_resources_managed"`, v4_0_12.ApplicationK8sResourcesManaged{})
+	stmtApplicationK8sResourcesManaged, err := sqlair.Prepare(`SELECT &ApplicationK8sResourcesManaged.* FROM "application_k8s_resources_managed"`, v4_0_16.ApplicationK8sResourcesManaged{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationK8sResourcesManaged statement: %w", err)
 	}
-	stmtApplicationPlatform, err := sqlair.Prepare(`SELECT &ApplicationPlatform.* FROM "application_platform"`, v4_0_12.ApplicationPlatform{})
+	stmtApplicationPlatform, err := sqlair.Prepare(`SELECT &ApplicationPlatform.* FROM "application_platform"`, v4_0_16.ApplicationPlatform{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationPlatform statement: %w", err)
 	}
-	stmtApplicationRemoteConsumer, err := sqlair.Prepare(`SELECT &ApplicationRemoteConsumer.* FROM "application_remote_consumer"`, v4_0_12.ApplicationRemoteConsumer{})
+	stmtApplicationProvisioningState, err := sqlair.Prepare(`SELECT &ApplicationProvisioningState.* FROM "application_provisioning_state"`, v4_0_16.ApplicationProvisioningState{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing ApplicationProvisioningState statement: %w", err)
+	}
+	stmtApplicationRemoteConsumer, err := sqlair.Prepare(`SELECT &ApplicationRemoteConsumer.* FROM "application_remote_consumer"`, v4_0_16.ApplicationRemoteConsumer{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationRemoteConsumer statement: %w", err)
 	}
-	stmtApplicationRemoteOfferer, err := sqlair.Prepare(`SELECT &ApplicationRemoteOfferer.* FROM "application_remote_offerer"`, v4_0_12.ApplicationRemoteOfferer{})
+	stmtApplicationRemoteOfferer, err := sqlair.Prepare(`SELECT &ApplicationRemoteOfferer.* FROM "application_remote_offerer"`, v4_0_16.ApplicationRemoteOfferer{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationRemoteOfferer statement: %w", err)
 	}
-	stmtApplicationRemoteOffererRelationMacaroon, err := sqlair.Prepare(`SELECT &ApplicationRemoteOffererRelationMacaroon.* FROM "application_remote_offerer_relation_macaroon"`, v4_0_12.ApplicationRemoteOffererRelationMacaroon{})
+	stmtApplicationRemoteOffererRelationMacaroon, err := sqlair.Prepare(`SELECT &ApplicationRemoteOffererRelationMacaroon.* FROM "application_remote_offerer_relation_macaroon"`, v4_0_16.ApplicationRemoteOffererRelationMacaroon{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationRemoteOffererRelationMacaroon statement: %w", err)
 	}
 	stmtApplicationRemoteOffererStatus, err := sqlair.Prepare(`SELECT &ApplicationRemoteOffererStatus.*,
        t."updated_at" IS NULL AS &nullableApplicationRemoteOffererStatus.updated_at_is_null
-FROM   "application_remote_offerer_status" AS t`, v4_0_12.ApplicationRemoteOffererStatus{}, nullableApplicationRemoteOffererStatus{})
+FROM   "application_remote_offerer_status" AS t`, v4_0_16.ApplicationRemoteOffererStatus{}, nullableApplicationRemoteOffererStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationRemoteOffererStatus statement: %w", err)
 	}
-	stmtApplicationResource, err := sqlair.Prepare(`SELECT &ApplicationResource.* FROM "application_resource"`, v4_0_12.ApplicationResource{})
+	stmtApplicationResource, err := sqlair.Prepare(`SELECT &ApplicationResource.* FROM "application_resource"`, v4_0_16.ApplicationResource{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationResource statement: %w", err)
 	}
-	stmtApplicationScale, err := sqlair.Prepare(`SELECT &ApplicationScale.*,
-       t."scaling" IS NULL AS &nullableApplicationScale.scaling_is_null
-FROM   "application_scale" AS t`, v4_0_12.ApplicationScale{}, nullableApplicationScale{})
-	if err != nil {
-		return nil, fmt.Errorf("preparing ApplicationScale statement: %w", err)
-	}
 	stmtApplicationSetting, err := sqlair.Prepare(`SELECT &ApplicationSetting.*,
        t."trust" IS NULL AS &nullableApplicationSetting.trust_is_null
-FROM   "application_setting" AS t`, v4_0_12.ApplicationSetting{}, nullableApplicationSetting{})
+FROM   "application_setting" AS t`, v4_0_16.ApplicationSetting{}, nullableApplicationSetting{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationSetting statement: %w", err)
 	}
 	stmtApplicationStatus, err := sqlair.Prepare(`SELECT &ApplicationStatus.*,
        t."updated_at" IS NULL AS &nullableApplicationStatus.updated_at_is_null
-FROM   "application_status" AS t`, v4_0_12.ApplicationStatus{}, nullableApplicationStatus{})
+FROM   "application_status" AS t`, v4_0_16.ApplicationStatus{}, nullableApplicationStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationStatus statement: %w", err)
 	}
-	stmtApplicationStorageDirective, err := sqlair.Prepare(`SELECT &ApplicationStorageDirective.* FROM "application_storage_directive"`, v4_0_12.ApplicationStorageDirective{})
+	stmtApplicationStorageDirective, err := sqlair.Prepare(`SELECT &ApplicationStorageDirective.* FROM "application_storage_directive"`, v4_0_16.ApplicationStorageDirective{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationStorageDirective statement: %w", err)
 	}
-	stmtApplicationWorkloadVersion, err := sqlair.Prepare(`SELECT &ApplicationWorkloadVersion.* FROM "application_workload_version"`, v4_0_12.ApplicationWorkloadVersion{})
+	stmtApplicationWorkloadVersion, err := sqlair.Prepare(`SELECT &ApplicationWorkloadVersion.* FROM "application_workload_version"`, v4_0_16.ApplicationWorkloadVersion{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationWorkloadVersion statement: %w", err)
 	}
-	stmtArchitecture, err := sqlair.Prepare(`SELECT &Architecture.* FROM "architecture"`, v4_0_12.Architecture{})
+	stmtArchitecture, err := sqlair.Prepare(`SELECT &Architecture.* FROM "architecture"`, v4_0_16.Architecture{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Architecture statement: %w", err)
 	}
-	stmtAvailabilityZone, err := sqlair.Prepare(`SELECT &AvailabilityZone.* FROM "availability_zone"`, v4_0_12.AvailabilityZone{})
+	stmtAvailabilityZone, err := sqlair.Prepare(`SELECT &AvailabilityZone.* FROM "availability_zone"`, v4_0_16.AvailabilityZone{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing AvailabilityZone statement: %w", err)
 	}
-	stmtAvailabilityZoneSubnet, err := sqlair.Prepare(`SELECT &AvailabilityZoneSubnet.* FROM "availability_zone_subnet"`, v4_0_12.AvailabilityZoneSubnet{})
+	stmtAvailabilityZoneSubnet, err := sqlair.Prepare(`SELECT &AvailabilityZoneSubnet.* FROM "availability_zone_subnet"`, v4_0_16.AvailabilityZoneSubnet{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing AvailabilityZoneSubnet statement: %w", err)
 	}
-	stmtBlockCommand, err := sqlair.Prepare(`SELECT &BlockCommand.* FROM "block_command"`, v4_0_12.BlockCommand{})
+	stmtBlockCommand, err := sqlair.Prepare(`SELECT &BlockCommand.* FROM "block_command"`, v4_0_16.BlockCommand{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing BlockCommand statement: %w", err)
 	}
-	stmtBlockCommandType, err := sqlair.Prepare(`SELECT &BlockCommandType.* FROM "block_command_type"`, v4_0_12.BlockCommandType{})
+	stmtBlockCommandType, err := sqlair.Prepare(`SELECT &BlockCommandType.* FROM "block_command_type"`, v4_0_16.BlockCommandType{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing BlockCommandType statement: %w", err)
 	}
 	stmtBlockDevice, err := sqlair.Prepare(`SELECT &BlockDevice.*,
        t."in_use" IS NULL AS &nullableBlockDevice.in_use_is_null
-FROM   "block_device" AS t`, v4_0_12.BlockDevice{}, nullableBlockDevice{})
+FROM   "block_device" AS t`, v4_0_16.BlockDevice{}, nullableBlockDevice{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing BlockDevice statement: %w", err)
 	}
-	stmtBlockDeviceLinkDevice, err := sqlair.Prepare(`SELECT &BlockDeviceLinkDevice.* FROM "block_device_link_device"`, v4_0_12.BlockDeviceLinkDevice{})
+	stmtBlockDeviceLinkDevice, err := sqlair.Prepare(`SELECT &BlockDeviceLinkDevice.* FROM "block_device_link_device"`, v4_0_16.BlockDeviceLinkDevice{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing BlockDeviceLinkDevice statement: %w", err)
 	}
-	stmtBlockDeviceProvenance, err := sqlair.Prepare(`SELECT &BlockDeviceProvenance.* FROM "block_device_provenance"`, v4_0_12.BlockDeviceProvenance{})
+	stmtBlockDeviceProvenance, err := sqlair.Prepare(`SELECT &BlockDeviceProvenance.* FROM "block_device_provenance"`, v4_0_16.BlockDeviceProvenance{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing BlockDeviceProvenance statement: %w", err)
 	}
-	stmtChangeLog, err := sqlair.Prepare(`SELECT &ChangeLog.* FROM "change_log"`, v4_0_12.ChangeLog{})
+	stmtChangeLog, err := sqlair.Prepare(`SELECT &ChangeLog.* FROM "change_log"`, v4_0_16.ChangeLog{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ChangeLog statement: %w", err)
 	}
-	stmtChangeLogEditType, err := sqlair.Prepare(`SELECT &ChangeLogEditType.* FROM "change_log_edit_type"`, v4_0_12.ChangeLogEditType{})
+	stmtChangeLogEditType, err := sqlair.Prepare(`SELECT &ChangeLogEditType.* FROM "change_log_edit_type"`, v4_0_16.ChangeLogEditType{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ChangeLogEditType statement: %w", err)
 	}
-	stmtChangeLogNamespace, err := sqlair.Prepare(`SELECT &ChangeLogNamespace.* FROM "change_log_namespace"`, v4_0_12.ChangeLogNamespace{})
+	stmtChangeLogNamespace, err := sqlair.Prepare(`SELECT &ChangeLogNamespace.* FROM "change_log_namespace"`, v4_0_16.ChangeLogNamespace{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ChangeLogNamespace statement: %w", err)
 	}
-	stmtChangeLogWitness, err := sqlair.Prepare(`SELECT &ChangeLogWitness.* FROM "change_log_witness"`, v4_0_12.ChangeLogWitness{})
+	stmtChangeLogWitness, err := sqlair.Prepare(`SELECT &ChangeLogWitness.* FROM "change_log_witness"`, v4_0_16.ChangeLogWitness{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ChangeLogWitness statement: %w", err)
 	}
 	stmtCharm, err := sqlair.Prepare(`SELECT &Charm.*,
        t."available" IS NULL AS &nullableCharm.available_is_null
-FROM   "charm" AS t`, v4_0_12.Charm{}, nullableCharm{})
+FROM   "charm" AS t`, v4_0_16.Charm{}, nullableCharm{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Charm statement: %w", err)
 	}
 	stmtCharmAction, err := sqlair.Prepare(`SELECT &CharmAction.*,
        t."parallel" IS NULL AS &nullableCharmAction.parallel_is_null
-FROM   "charm_action" AS t`, v4_0_12.CharmAction{}, nullableCharmAction{})
+FROM   "charm_action" AS t`, v4_0_16.CharmAction{}, nullableCharmAction{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmAction statement: %w", err)
 	}
-	stmtCharmCategory, err := sqlair.Prepare(`SELECT &CharmCategory.* FROM "charm_category"`, v4_0_12.CharmCategory{})
+	stmtCharmCategory, err := sqlair.Prepare(`SELECT &CharmCategory.* FROM "charm_category"`, v4_0_16.CharmCategory{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmCategory statement: %w", err)
 	}
-	stmtCharmConfig, err := sqlair.Prepare(`SELECT &CharmConfig.* FROM "charm_config"`, v4_0_12.CharmConfig{})
+	stmtCharmConfig, err := sqlair.Prepare(`SELECT &CharmConfig.* FROM "charm_config"`, v4_0_16.CharmConfig{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmConfig statement: %w", err)
 	}
-	stmtCharmConfigType, err := sqlair.Prepare(`SELECT &CharmConfigType.* FROM "charm_config_type"`, v4_0_12.CharmConfigType{})
+	stmtCharmConfigType, err := sqlair.Prepare(`SELECT &CharmConfigType.* FROM "charm_config_type"`, v4_0_16.CharmConfigType{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmConfigType statement: %w", err)
 	}
-	stmtCharmContainer, err := sqlair.Prepare(`SELECT &CharmContainer.* FROM "charm_container"`, v4_0_12.CharmContainer{})
+	stmtCharmContainer, err := sqlair.Prepare(`SELECT &CharmContainer.* FROM "charm_container"`, v4_0_16.CharmContainer{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmContainer statement: %w", err)
 	}
-	stmtCharmContainerMount, err := sqlair.Prepare(`SELECT &CharmContainerMount.* FROM "charm_container_mount"`, v4_0_12.CharmContainerMount{})
+	stmtCharmContainerMount, err := sqlair.Prepare(`SELECT &CharmContainerMount.* FROM "charm_container_mount"`, v4_0_16.CharmContainerMount{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmContainerMount statement: %w", err)
 	}
-	stmtCharmDevice, err := sqlair.Prepare(`SELECT &CharmDevice.* FROM "charm_device"`, v4_0_12.CharmDevice{})
+	stmtCharmDevice, err := sqlair.Prepare(`SELECT &CharmDevice.* FROM "charm_device"`, v4_0_16.CharmDevice{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmDevice statement: %w", err)
 	}
-	stmtCharmDownloadInfo, err := sqlair.Prepare(`SELECT &CharmDownloadInfo.* FROM "charm_download_info"`, v4_0_12.CharmDownloadInfo{})
+	stmtCharmDownloadInfo, err := sqlair.Prepare(`SELECT &CharmDownloadInfo.* FROM "charm_download_info"`, v4_0_16.CharmDownloadInfo{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmDownloadInfo statement: %w", err)
 	}
-	stmtCharmExtraBinding, err := sqlair.Prepare(`SELECT &CharmExtraBinding.* FROM "charm_extra_binding"`, v4_0_12.CharmExtraBinding{})
+	stmtCharmExtraBinding, err := sqlair.Prepare(`SELECT &CharmExtraBinding.* FROM "charm_extra_binding"`, v4_0_16.CharmExtraBinding{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmExtraBinding statement: %w", err)
 	}
-	stmtCharmHash, err := sqlair.Prepare(`SELECT &CharmHash.* FROM "charm_hash"`, v4_0_12.CharmHash{})
+	stmtCharmHash, err := sqlair.Prepare(`SELECT &CharmHash.* FROM "charm_hash"`, v4_0_16.CharmHash{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmHash statement: %w", err)
 	}
-	stmtCharmManifestBase, err := sqlair.Prepare(`SELECT &CharmManifestBase.* FROM "charm_manifest_base"`, v4_0_12.CharmManifestBase{})
+	stmtCharmManifestBase, err := sqlair.Prepare(`SELECT &CharmManifestBase.* FROM "charm_manifest_base"`, v4_0_16.CharmManifestBase{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmManifestBase statement: %w", err)
 	}
-	stmtCharmMetadata, err := sqlair.Prepare(`SELECT &CharmMetadata.* FROM "charm_metadata"`, v4_0_12.CharmMetadata{})
+	stmtCharmMetadata, err := sqlair.Prepare(`SELECT &CharmMetadata.* FROM "charm_metadata"`, v4_0_16.CharmMetadata{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmMetadata statement: %w", err)
 	}
-	stmtCharmProvenance, err := sqlair.Prepare(`SELECT &CharmProvenance.* FROM "charm_provenance"`, v4_0_12.CharmProvenance{})
+	stmtCharmProvenance, err := sqlair.Prepare(`SELECT &CharmProvenance.* FROM "charm_provenance"`, v4_0_16.CharmProvenance{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmProvenance statement: %w", err)
 	}
 	stmtCharmRelation, err := sqlair.Prepare(`SELECT &CharmRelation.*,
        t."optional" IS NULL AS &nullableCharmRelation.optional_is_null
-FROM   "charm_relation" AS t`, v4_0_12.CharmRelation{}, nullableCharmRelation{})
+FROM   "charm_relation" AS t`, v4_0_16.CharmRelation{}, nullableCharmRelation{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmRelation statement: %w", err)
 	}
-	stmtCharmRelationRole, err := sqlair.Prepare(`SELECT &CharmRelationRole.* FROM "charm_relation_role"`, v4_0_12.CharmRelationRole{})
+	stmtCharmRelationRole, err := sqlair.Prepare(`SELECT &CharmRelationRole.* FROM "charm_relation_role"`, v4_0_16.CharmRelationRole{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmRelationRole statement: %w", err)
 	}
-	stmtCharmRelationScope, err := sqlair.Prepare(`SELECT &CharmRelationScope.* FROM "charm_relation_scope"`, v4_0_12.CharmRelationScope{})
+	stmtCharmRelationScope, err := sqlair.Prepare(`SELECT &CharmRelationScope.* FROM "charm_relation_scope"`, v4_0_16.CharmRelationScope{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmRelationScope statement: %w", err)
 	}
-	stmtCharmResource, err := sqlair.Prepare(`SELECT &CharmResource.* FROM "charm_resource"`, v4_0_12.CharmResource{})
+	stmtCharmResource, err := sqlair.Prepare(`SELECT &CharmResource.* FROM "charm_resource"`, v4_0_16.CharmResource{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmResource statement: %w", err)
 	}
-	stmtCharmResourceKind, err := sqlair.Prepare(`SELECT &CharmResourceKind.* FROM "charm_resource_kind"`, v4_0_12.CharmResourceKind{})
+	stmtCharmResourceKind, err := sqlair.Prepare(`SELECT &CharmResourceKind.* FROM "charm_resource_kind"`, v4_0_16.CharmResourceKind{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmResourceKind statement: %w", err)
 	}
-	stmtCharmRunAsKind, err := sqlair.Prepare(`SELECT &CharmRunAsKind.* FROM "charm_run_as_kind"`, v4_0_12.CharmRunAsKind{})
+	stmtCharmRunAsKind, err := sqlair.Prepare(`SELECT &CharmRunAsKind.* FROM "charm_run_as_kind"`, v4_0_16.CharmRunAsKind{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmRunAsKind statement: %w", err)
 	}
-	stmtCharmSource, err := sqlair.Prepare(`SELECT &CharmSource.* FROM "charm_source"`, v4_0_12.CharmSource{})
+	stmtCharmSource, err := sqlair.Prepare(`SELECT &CharmSource.* FROM "charm_source"`, v4_0_16.CharmSource{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmSource statement: %w", err)
 	}
 	stmtCharmStorage, err := sqlair.Prepare(`SELECT &CharmStorage.*,
        t."read_only" IS NULL AS &nullableCharmStorage.read_only_is_null
-FROM   "charm_storage" AS t`, v4_0_12.CharmStorage{}, nullableCharmStorage{})
+FROM   "charm_storage" AS t`, v4_0_16.CharmStorage{}, nullableCharmStorage{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmStorage statement: %w", err)
 	}
-	stmtCharmStorageKind, err := sqlair.Prepare(`SELECT &CharmStorageKind.* FROM "charm_storage_kind"`, v4_0_12.CharmStorageKind{})
+	stmtCharmStorageKind, err := sqlair.Prepare(`SELECT &CharmStorageKind.* FROM "charm_storage_kind"`, v4_0_16.CharmStorageKind{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmStorageKind statement: %w", err)
 	}
-	stmtCharmStorageProperty, err := sqlair.Prepare(`SELECT &CharmStorageProperty.* FROM "charm_storage_property"`, v4_0_12.CharmStorageProperty{})
+	stmtCharmStorageProperty, err := sqlair.Prepare(`SELECT &CharmStorageProperty.* FROM "charm_storage_property"`, v4_0_16.CharmStorageProperty{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmStorageProperty statement: %w", err)
 	}
-	stmtCharmTag, err := sqlair.Prepare(`SELECT &CharmTag.* FROM "charm_tag"`, v4_0_12.CharmTag{})
+	stmtCharmTag, err := sqlair.Prepare(`SELECT &CharmTag.* FROM "charm_tag"`, v4_0_16.CharmTag{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmTag statement: %w", err)
 	}
-	stmtCharmTerm, err := sqlair.Prepare(`SELECT &CharmTerm.* FROM "charm_term"`, v4_0_12.CharmTerm{})
+	stmtCharmTerm, err := sqlair.Prepare(`SELECT &CharmTerm.* FROM "charm_term"`, v4_0_16.CharmTerm{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing CharmTerm statement: %w", err)
 	}
-	stmtConstraint, err := sqlair.Prepare(`SELECT &Constraint.* FROM "constraint"`, v4_0_12.Constraint{})
+	stmtConstraint, err := sqlair.Prepare(`SELECT &Constraint.* FROM "constraint"`, v4_0_16.Constraint{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Constraint statement: %w", err)
 	}
-	stmtConstraintSpace, err := sqlair.Prepare(`SELECT &ConstraintSpace.* FROM "constraint_space"`, v4_0_12.ConstraintSpace{})
+	stmtConstraintSpace, err := sqlair.Prepare(`SELECT &ConstraintSpace.* FROM "constraint_space"`, v4_0_16.ConstraintSpace{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ConstraintSpace statement: %w", err)
 	}
-	stmtConstraintTag, err := sqlair.Prepare(`SELECT &ConstraintTag.* FROM "constraint_tag"`, v4_0_12.ConstraintTag{})
+	stmtConstraintTag, err := sqlair.Prepare(`SELECT &ConstraintTag.* FROM "constraint_tag"`, v4_0_16.ConstraintTag{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ConstraintTag statement: %w", err)
 	}
-	stmtConstraintZone, err := sqlair.Prepare(`SELECT &ConstraintZone.* FROM "constraint_zone"`, v4_0_12.ConstraintZone{})
+	stmtConstraintZone, err := sqlair.Prepare(`SELECT &ConstraintZone.* FROM "constraint_zone"`, v4_0_16.ConstraintZone{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ConstraintZone statement: %w", err)
 	}
-	stmtContainerType, err := sqlair.Prepare(`SELECT &ContainerType.* FROM "container_type"`, v4_0_12.ContainerType{})
+	stmtContainerType, err := sqlair.Prepare(`SELECT &ContainerType.* FROM "container_type"`, v4_0_16.ContainerType{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ContainerType statement: %w", err)
 	}
-	stmtDeviceConstraint, err := sqlair.Prepare(`SELECT &DeviceConstraint.* FROM "device_constraint"`, v4_0_12.DeviceConstraint{})
+	stmtDeviceConstraint, err := sqlair.Prepare(`SELECT &DeviceConstraint.* FROM "device_constraint"`, v4_0_16.DeviceConstraint{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing DeviceConstraint statement: %w", err)
 	}
-	stmtDeviceConstraintAttribute, err := sqlair.Prepare(`SELECT &DeviceConstraintAttribute.* FROM "device_constraint_attribute"`, v4_0_12.DeviceConstraintAttribute{})
+	stmtDeviceConstraintAttribute, err := sqlair.Prepare(`SELECT &DeviceConstraintAttribute.* FROM "device_constraint_attribute"`, v4_0_16.DeviceConstraintAttribute{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing DeviceConstraintAttribute statement: %w", err)
 	}
-	stmtFqdnAddress, err := sqlair.Prepare(`SELECT &FqdnAddress.* FROM "fqdn_address"`, v4_0_12.FqdnAddress{})
+	stmtFqdnAddress, err := sqlair.Prepare(`SELECT &FqdnAddress.* FROM "fqdn_address"`, v4_0_16.FqdnAddress{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing FqdnAddress statement: %w", err)
 	}
-	stmtHashKind, err := sqlair.Prepare(`SELECT &HashKind.* FROM "hash_kind"`, v4_0_12.HashKind{})
+	stmtHashKind, err := sqlair.Prepare(`SELECT &HashKind.* FROM "hash_kind"`, v4_0_16.HashKind{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing HashKind statement: %w", err)
 	}
-	stmtHostnameAddress, err := sqlair.Prepare(`SELECT &HostnameAddress.* FROM "hostname_address"`, v4_0_12.HostnameAddress{})
+	stmtHostnameAddress, err := sqlair.Prepare(`SELECT &HostnameAddress.* FROM "hostname_address"`, v4_0_16.HostnameAddress{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing HostnameAddress statement: %w", err)
 	}
-	stmtInstanceTag, err := sqlair.Prepare(`SELECT &InstanceTag.* FROM "instance_tag"`, v4_0_12.InstanceTag{})
+	stmtInstanceTag, err := sqlair.Prepare(`SELECT &InstanceTag.* FROM "instance_tag"`, v4_0_16.InstanceTag{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing InstanceTag statement: %w", err)
 	}
 	stmtIpAddress, err := sqlair.Prepare(`SELECT &IpAddress.*,
        t."is_secondary" IS NULL AS &nullableIpAddress.is_secondary_is_null,
        t."is_shadow" IS NULL AS &nullableIpAddress.is_shadow_is_null
-FROM   "ip_address" AS t`, v4_0_12.IpAddress{}, nullableIpAddress{})
+FROM   "ip_address" AS t`, v4_0_16.IpAddress{}, nullableIpAddress{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing IpAddress statement: %w", err)
 	}
-	stmtIpAddressConfigType, err := sqlair.Prepare(`SELECT &IpAddressConfigType.* FROM "ip_address_config_type"`, v4_0_12.IpAddressConfigType{})
+	stmtIpAddressConfigType, err := sqlair.Prepare(`SELECT &IpAddressConfigType.* FROM "ip_address_config_type"`, v4_0_16.IpAddressConfigType{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing IpAddressConfigType statement: %w", err)
 	}
-	stmtIpAddressOrigin, err := sqlair.Prepare(`SELECT &IpAddressOrigin.* FROM "ip_address_origin"`, v4_0_12.IpAddressOrigin{})
+	stmtIpAddressOrigin, err := sqlair.Prepare(`SELECT &IpAddressOrigin.* FROM "ip_address_origin"`, v4_0_16.IpAddressOrigin{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing IpAddressOrigin statement: %w", err)
 	}
-	stmtIpAddressScope, err := sqlair.Prepare(`SELECT &IpAddressScope.* FROM "ip_address_scope"`, v4_0_12.IpAddressScope{})
+	stmtIpAddressScope, err := sqlair.Prepare(`SELECT &IpAddressScope.* FROM "ip_address_scope"`, v4_0_16.IpAddressScope{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing IpAddressScope statement: %w", err)
 	}
-	stmtIpAddressType, err := sqlair.Prepare(`SELECT &IpAddressType.* FROM "ip_address_type"`, v4_0_12.IpAddressType{})
+	stmtIpAddressType, err := sqlair.Prepare(`SELECT &IpAddressType.* FROM "ip_address_type"`, v4_0_16.IpAddressType{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing IpAddressType statement: %w", err)
 	}
-	stmtK8sPod, err := sqlair.Prepare(`SELECT &K8sPod.* FROM "k8s_pod"`, v4_0_12.K8sPod{})
+	stmtK8sPod, err := sqlair.Prepare(`SELECT &K8sPod.* FROM "k8s_pod"`, v4_0_16.K8sPod{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing K8sPod statement: %w", err)
 	}
-	stmtK8sPodPort, err := sqlair.Prepare(`SELECT &K8sPodPort.* FROM "k8s_pod_port"`, v4_0_12.K8sPodPort{})
+	stmtK8sPodPort, err := sqlair.Prepare(`SELECT &K8sPodPort.* FROM "k8s_pod_port"`, v4_0_16.K8sPodPort{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing K8sPodPort statement: %w", err)
 	}
 	stmtK8sPodStatus, err := sqlair.Prepare(`SELECT &K8sPodStatus.*,
        t."updated_at" IS NULL AS &nullableK8sPodStatus.updated_at_is_null
-FROM   "k8s_pod_status" AS t`, v4_0_12.K8sPodStatus{}, nullableK8sPodStatus{})
+FROM   "k8s_pod_status" AS t`, v4_0_16.K8sPodStatus{}, nullableK8sPodStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing K8sPodStatus statement: %w", err)
 	}
-	stmtK8sPodStatusValue, err := sqlair.Prepare(`SELECT &K8sPodStatusValue.* FROM "k8s_pod_status_value"`, v4_0_12.K8sPodStatusValue{})
+	stmtK8sPodStatusValue, err := sqlair.Prepare(`SELECT &K8sPodStatusValue.* FROM "k8s_pod_status_value"`, v4_0_16.K8sPodStatusValue{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing K8sPodStatusValue statement: %w", err)
 	}
-	stmtK8sService, err := sqlair.Prepare(`SELECT &K8sService.* FROM "k8s_service"`, v4_0_12.K8sService{})
+	stmtK8sService, err := sqlair.Prepare(`SELECT &K8sService.* FROM "k8s_service"`, v4_0_16.K8sService{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing K8sService statement: %w", err)
 	}
-	stmtLife, err := sqlair.Prepare(`SELECT &Life.* FROM "life"`, v4_0_12.Life{})
+	stmtLife, err := sqlair.Prepare(`SELECT &Life.* FROM "life"`, v4_0_16.Life{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Life statement: %w", err)
 	}
-	stmtLinkLayerDevice, err := sqlair.Prepare(`SELECT &LinkLayerDevice.* FROM "link_layer_device"`, v4_0_12.LinkLayerDevice{})
+	stmtLinkLayerDevice, err := sqlair.Prepare(`SELECT &LinkLayerDevice.* FROM "link_layer_device"`, v4_0_16.LinkLayerDevice{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing LinkLayerDevice statement: %w", err)
 	}
-	stmtLinkLayerDeviceDnsAddress, err := sqlair.Prepare(`SELECT &LinkLayerDeviceDnsAddress.* FROM "link_layer_device_dns_address"`, v4_0_12.LinkLayerDeviceDnsAddress{})
+	stmtLinkLayerDeviceDnsAddress, err := sqlair.Prepare(`SELECT &LinkLayerDeviceDnsAddress.* FROM "link_layer_device_dns_address"`, v4_0_16.LinkLayerDeviceDnsAddress{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing LinkLayerDeviceDnsAddress statement: %w", err)
 	}
-	stmtLinkLayerDeviceDnsDomain, err := sqlair.Prepare(`SELECT &LinkLayerDeviceDnsDomain.* FROM "link_layer_device_dns_domain"`, v4_0_12.LinkLayerDeviceDnsDomain{})
+	stmtLinkLayerDeviceDnsDomain, err := sqlair.Prepare(`SELECT &LinkLayerDeviceDnsDomain.* FROM "link_layer_device_dns_domain"`, v4_0_16.LinkLayerDeviceDnsDomain{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing LinkLayerDeviceDnsDomain statement: %w", err)
 	}
-	stmtLinkLayerDeviceParent, err := sqlair.Prepare(`SELECT &LinkLayerDeviceParent.* FROM "link_layer_device_parent"`, v4_0_12.LinkLayerDeviceParent{})
+	stmtLinkLayerDeviceParent, err := sqlair.Prepare(`SELECT &LinkLayerDeviceParent.* FROM "link_layer_device_parent"`, v4_0_16.LinkLayerDeviceParent{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing LinkLayerDeviceParent statement: %w", err)
 	}
-	stmtLinkLayerDeviceRoute, err := sqlair.Prepare(`SELECT &LinkLayerDeviceRoute.* FROM "link_layer_device_route"`, v4_0_12.LinkLayerDeviceRoute{})
+	stmtLinkLayerDeviceRoute, err := sqlair.Prepare(`SELECT &LinkLayerDeviceRoute.* FROM "link_layer_device_route"`, v4_0_16.LinkLayerDeviceRoute{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing LinkLayerDeviceRoute statement: %w", err)
 	}
-	stmtLinkLayerDeviceType, err := sqlair.Prepare(`SELECT &LinkLayerDeviceType.* FROM "link_layer_device_type"`, v4_0_12.LinkLayerDeviceType{})
+	stmtLinkLayerDeviceType, err := sqlair.Prepare(`SELECT &LinkLayerDeviceType.* FROM "link_layer_device_type"`, v4_0_16.LinkLayerDeviceType{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing LinkLayerDeviceType statement: %w", err)
 	}
@@ -560,159 +555,159 @@ FROM   "k8s_pod_status" AS t`, v4_0_12.K8sPodStatus{}, nullableK8sPodStatus{})
        t."force_destroyed" IS NULL AS &nullableMachine.force_destroyed_is_null,
        t."agent_started_at" IS NULL AS &nullableMachine.agent_started_at_is_null,
        t."keep_instance" IS NULL AS &nullableMachine.keep_instance_is_null
-FROM   "machine" AS t`, v4_0_12.Machine{}, nullableMachine{})
+FROM   "machine" AS t`, v4_0_16.Machine{}, nullableMachine{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Machine statement: %w", err)
 	}
 	stmtMachineAgentPresence, err := sqlair.Prepare(`SELECT &MachineAgentPresence.*,
        t."last_seen" IS NULL AS &nullableMachineAgentPresence.last_seen_is_null
-FROM   "machine_agent_presence" AS t`, v4_0_12.MachineAgentPresence{}, nullableMachineAgentPresence{})
+FROM   "machine_agent_presence" AS t`, v4_0_16.MachineAgentPresence{}, nullableMachineAgentPresence{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineAgentPresence statement: %w", err)
 	}
-	stmtMachineAgentVersion, err := sqlair.Prepare(`SELECT &MachineAgentVersion.* FROM "machine_agent_version"`, v4_0_12.MachineAgentVersion{})
+	stmtMachineAgentVersion, err := sqlair.Prepare(`SELECT &MachineAgentVersion.* FROM "machine_agent_version"`, v4_0_16.MachineAgentVersion{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineAgentVersion statement: %w", err)
 	}
-	stmtMachineCloudInstance, err := sqlair.Prepare(`SELECT &MachineCloudInstance.* FROM "machine_cloud_instance"`, v4_0_12.MachineCloudInstance{})
+	stmtMachineCloudInstance, err := sqlair.Prepare(`SELECT &MachineCloudInstance.* FROM "machine_cloud_instance"`, v4_0_16.MachineCloudInstance{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineCloudInstance statement: %w", err)
 	}
 	stmtMachineCloudInstanceStatus, err := sqlair.Prepare(`SELECT &MachineCloudInstanceStatus.*,
        t."updated_at" IS NULL AS &nullableMachineCloudInstanceStatus.updated_at_is_null
-FROM   "machine_cloud_instance_status" AS t`, v4_0_12.MachineCloudInstanceStatus{}, nullableMachineCloudInstanceStatus{})
+FROM   "machine_cloud_instance_status" AS t`, v4_0_16.MachineCloudInstanceStatus{}, nullableMachineCloudInstanceStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineCloudInstanceStatus statement: %w", err)
 	}
-	stmtMachineCloudInstanceStatusValue, err := sqlair.Prepare(`SELECT &MachineCloudInstanceStatusValue.* FROM "machine_cloud_instance_status_value"`, v4_0_12.MachineCloudInstanceStatusValue{})
+	stmtMachineCloudInstanceStatusValue, err := sqlair.Prepare(`SELECT &MachineCloudInstanceStatusValue.* FROM "machine_cloud_instance_status_value"`, v4_0_16.MachineCloudInstanceStatusValue{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineCloudInstanceStatusValue statement: %w", err)
 	}
-	stmtMachineConstraint, err := sqlair.Prepare(`SELECT &MachineConstraint.* FROM "machine_constraint"`, v4_0_12.MachineConstraint{})
+	stmtMachineConstraint, err := sqlair.Prepare(`SELECT &MachineConstraint.* FROM "machine_constraint"`, v4_0_16.MachineConstraint{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineConstraint statement: %w", err)
 	}
-	stmtMachineContainerType, err := sqlair.Prepare(`SELECT &MachineContainerType.* FROM "machine_container_type"`, v4_0_12.MachineContainerType{})
+	stmtMachineContainerType, err := sqlair.Prepare(`SELECT &MachineContainerType.* FROM "machine_container_type"`, v4_0_16.MachineContainerType{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineContainerType statement: %w", err)
 	}
-	stmtMachineFilesystem, err := sqlair.Prepare(`SELECT &MachineFilesystem.* FROM "machine_filesystem"`, v4_0_12.MachineFilesystem{})
+	stmtMachineFilesystem, err := sqlair.Prepare(`SELECT &MachineFilesystem.* FROM "machine_filesystem"`, v4_0_16.MachineFilesystem{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineFilesystem statement: %w", err)
 	}
-	stmtMachineLxdProfile, err := sqlair.Prepare(`SELECT &MachineLxdProfile.* FROM "machine_lxd_profile"`, v4_0_12.MachineLxdProfile{})
+	stmtMachineLxdProfile, err := sqlair.Prepare(`SELECT &MachineLxdProfile.* FROM "machine_lxd_profile"`, v4_0_16.MachineLxdProfile{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineLxdProfile statement: %w", err)
 	}
-	stmtMachineManual, err := sqlair.Prepare(`SELECT &MachineManual.* FROM "machine_manual"`, v4_0_12.MachineManual{})
+	stmtMachineManual, err := sqlair.Prepare(`SELECT &MachineManual.* FROM "machine_manual"`, v4_0_16.MachineManual{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineManual statement: %w", err)
 	}
-	stmtMachineParent, err := sqlair.Prepare(`SELECT &MachineParent.* FROM "machine_parent"`, v4_0_12.MachineParent{})
+	stmtMachineParent, err := sqlair.Prepare(`SELECT &MachineParent.* FROM "machine_parent"`, v4_0_16.MachineParent{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineParent statement: %w", err)
 	}
-	stmtMachinePlacement, err := sqlair.Prepare(`SELECT &MachinePlacement.* FROM "machine_placement"`, v4_0_12.MachinePlacement{})
+	stmtMachinePlacement, err := sqlair.Prepare(`SELECT &MachinePlacement.* FROM "machine_placement"`, v4_0_16.MachinePlacement{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachinePlacement statement: %w", err)
 	}
-	stmtMachinePlacementScope, err := sqlair.Prepare(`SELECT &MachinePlacementScope.* FROM "machine_placement_scope"`, v4_0_12.MachinePlacementScope{})
+	stmtMachinePlacementScope, err := sqlair.Prepare(`SELECT &MachinePlacementScope.* FROM "machine_placement_scope"`, v4_0_16.MachinePlacementScope{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachinePlacementScope statement: %w", err)
 	}
-	stmtMachinePlatform, err := sqlair.Prepare(`SELECT &MachinePlatform.* FROM "machine_platform"`, v4_0_12.MachinePlatform{})
+	stmtMachinePlatform, err := sqlair.Prepare(`SELECT &MachinePlatform.* FROM "machine_platform"`, v4_0_16.MachinePlatform{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachinePlatform statement: %w", err)
 	}
-	stmtMachineRequiresReboot, err := sqlair.Prepare(`SELECT &MachineRequiresReboot.* FROM "machine_requires_reboot"`, v4_0_12.MachineRequiresReboot{})
+	stmtMachineRequiresReboot, err := sqlair.Prepare(`SELECT &MachineRequiresReboot.* FROM "machine_requires_reboot"`, v4_0_16.MachineRequiresReboot{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineRequiresReboot statement: %w", err)
 	}
-	stmtMachineSshHostKey, err := sqlair.Prepare(`SELECT &MachineSshHostKey.* FROM "machine_ssh_host_key"`, v4_0_12.MachineSshHostKey{})
+	stmtMachineSshHostKey, err := sqlair.Prepare(`SELECT &MachineSshHostKey.* FROM "machine_ssh_host_key"`, v4_0_16.MachineSshHostKey{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineSshHostKey statement: %w", err)
 	}
 	stmtMachineStatus, err := sqlair.Prepare(`SELECT &MachineStatus.*,
        t."updated_at" IS NULL AS &nullableMachineStatus.updated_at_is_null
-FROM   "machine_status" AS t`, v4_0_12.MachineStatus{}, nullableMachineStatus{})
+FROM   "machine_status" AS t`, v4_0_16.MachineStatus{}, nullableMachineStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineStatus statement: %w", err)
 	}
-	stmtMachineStatusValue, err := sqlair.Prepare(`SELECT &MachineStatusValue.* FROM "machine_status_value"`, v4_0_12.MachineStatusValue{})
+	stmtMachineStatusValue, err := sqlair.Prepare(`SELECT &MachineStatusValue.* FROM "machine_status_value"`, v4_0_16.MachineStatusValue{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineStatusValue statement: %w", err)
 	}
-	stmtMachineVolume, err := sqlair.Prepare(`SELECT &MachineVolume.* FROM "machine_volume"`, v4_0_12.MachineVolume{})
+	stmtMachineVolume, err := sqlair.Prepare(`SELECT &MachineVolume.* FROM "machine_volume"`, v4_0_16.MachineVolume{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineVolume statement: %w", err)
 	}
 	stmtModel, err := sqlair.Prepare(`SELECT &Model.*,
        t."is_controller_model" IS NULL AS &nullableModel.is_controller_model_is_null
-FROM   "model" AS t`, v4_0_12.Model{}, nullableModel{})
+FROM   "model" AS t`, v4_0_16.Model{}, nullableModel{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Model statement: %w", err)
 	}
-	stmtModelAgent, err := sqlair.Prepare(`SELECT &ModelAgent.* FROM "model_agent"`, v4_0_12.ModelAgent{})
+	stmtModelAgent, err := sqlair.Prepare(`SELECT &ModelAgent.* FROM "model_agent"`, v4_0_16.ModelAgent{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ModelAgent statement: %w", err)
 	}
-	stmtModelConfig, err := sqlair.Prepare(`SELECT &ModelConfig.* FROM "model_config"`, v4_0_12.ModelConfig{})
+	stmtModelConfig, err := sqlair.Prepare(`SELECT &ModelConfig.* FROM "model_config"`, v4_0_16.ModelConfig{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ModelConfig statement: %w", err)
 	}
-	stmtModelConstraint, err := sqlair.Prepare(`SELECT &ModelConstraint.* FROM "model_constraint"`, v4_0_12.ModelConstraint{})
+	stmtModelConstraint, err := sqlair.Prepare(`SELECT &ModelConstraint.* FROM "model_constraint"`, v4_0_16.ModelConstraint{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ModelConstraint statement: %w", err)
 	}
-	stmtModelLife, err := sqlair.Prepare(`SELECT &ModelLife.* FROM "model_life"`, v4_0_12.ModelLife{})
+	stmtModelLife, err := sqlair.Prepare(`SELECT &ModelLife.* FROM "model_life"`, v4_0_16.ModelLife{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ModelLife statement: %w", err)
 	}
-	stmtModelMigrating, err := sqlair.Prepare(`SELECT &ModelMigrating.* FROM "model_migrating"`, v4_0_12.ModelMigrating{})
+	stmtModelMigrating, err := sqlair.Prepare(`SELECT &ModelMigrating.* FROM "model_migrating"`, v4_0_16.ModelMigrating{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ModelMigrating statement: %w", err)
 	}
-	stmtModelStoragePool, err := sqlair.Prepare(`SELECT &ModelStoragePool.* FROM "model_storage_pool"`, v4_0_12.ModelStoragePool{})
+	stmtModelStoragePool, err := sqlair.Prepare(`SELECT &ModelStoragePool.* FROM "model_storage_pool"`, v4_0_16.ModelStoragePool{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ModelStoragePool statement: %w", err)
 	}
-	stmtNetNode, err := sqlair.Prepare(`SELECT &NetNode.* FROM "net_node"`, v4_0_12.NetNode{})
+	stmtNetNode, err := sqlair.Prepare(`SELECT &NetNode.* FROM "net_node"`, v4_0_16.NetNode{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing NetNode statement: %w", err)
 	}
-	stmtNetNodeFqdnAddress, err := sqlair.Prepare(`SELECT &NetNodeFqdnAddress.* FROM "net_node_fqdn_address"`, v4_0_12.NetNodeFqdnAddress{})
+	stmtNetNodeFqdnAddress, err := sqlair.Prepare(`SELECT &NetNodeFqdnAddress.* FROM "net_node_fqdn_address"`, v4_0_16.NetNodeFqdnAddress{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing NetNodeFqdnAddress statement: %w", err)
 	}
-	stmtNetNodeHostnameAddress, err := sqlair.Prepare(`SELECT &NetNodeHostnameAddress.* FROM "net_node_hostname_address"`, v4_0_12.NetNodeHostnameAddress{})
+	stmtNetNodeHostnameAddress, err := sqlair.Prepare(`SELECT &NetNodeHostnameAddress.* FROM "net_node_hostname_address"`, v4_0_16.NetNodeHostnameAddress{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing NetNodeHostnameAddress statement: %w", err)
 	}
-	stmtNetworkAddressScope, err := sqlair.Prepare(`SELECT &NetworkAddressScope.* FROM "network_address_scope"`, v4_0_12.NetworkAddressScope{})
+	stmtNetworkAddressScope, err := sqlair.Prepare(`SELECT &NetworkAddressScope.* FROM "network_address_scope"`, v4_0_16.NetworkAddressScope{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing NetworkAddressScope statement: %w", err)
 	}
-	stmtObjectStoreMetadata, err := sqlair.Prepare(`SELECT &ObjectStoreMetadata.* FROM "object_store_metadata"`, v4_0_12.ObjectStoreMetadata{})
+	stmtObjectStoreMetadata, err := sqlair.Prepare(`SELECT &ObjectStoreMetadata.* FROM "object_store_metadata"`, v4_0_16.ObjectStoreMetadata{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ObjectStoreMetadata statement: %w", err)
 	}
-	stmtObjectStoreMetadataPath, err := sqlair.Prepare(`SELECT &ObjectStoreMetadataPath.* FROM "object_store_metadata_path"`, v4_0_12.ObjectStoreMetadataPath{})
+	stmtObjectStoreMetadataPath, err := sqlair.Prepare(`SELECT &ObjectStoreMetadataPath.* FROM "object_store_metadata_path"`, v4_0_16.ObjectStoreMetadataPath{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ObjectStoreMetadataPath statement: %w", err)
 	}
-	stmtObjectStorePlacement, err := sqlair.Prepare(`SELECT &ObjectStorePlacement.* FROM "object_store_placement"`, v4_0_12.ObjectStorePlacement{})
+	stmtObjectStorePlacement, err := sqlair.Prepare(`SELECT &ObjectStorePlacement.* FROM "object_store_placement"`, v4_0_16.ObjectStorePlacement{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ObjectStorePlacement statement: %w", err)
 	}
-	stmtOffer, err := sqlair.Prepare(`SELECT &Offer.* FROM "offer"`, v4_0_12.Offer{})
+	stmtOffer, err := sqlair.Prepare(`SELECT &Offer.* FROM "offer"`, v4_0_16.Offer{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Offer statement: %w", err)
 	}
-	stmtOfferConnection, err := sqlair.Prepare(`SELECT &OfferConnection.* FROM "offer_connection"`, v4_0_12.OfferConnection{})
+	stmtOfferConnection, err := sqlair.Prepare(`SELECT &OfferConnection.* FROM "offer_connection"`, v4_0_16.OfferConnection{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing OfferConnection statement: %w", err)
 	}
-	stmtOfferEndpoint, err := sqlair.Prepare(`SELECT &OfferEndpoint.* FROM "offer_endpoint"`, v4_0_12.OfferEndpoint{})
+	stmtOfferEndpoint, err := sqlair.Prepare(`SELECT &OfferEndpoint.* FROM "offer_endpoint"`, v4_0_16.OfferEndpoint{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing OfferEndpoint statement: %w", err)
 	}
@@ -720,465 +715,465 @@ FROM   "model" AS t`, v4_0_12.Model{}, nullableModel{})
        t."started_at" IS NULL AS &nullableOperation.started_at_is_null,
        t."completed_at" IS NULL AS &nullableOperation.completed_at_is_null,
        t."parallel" IS NULL AS &nullableOperation.parallel_is_null
-FROM   "operation" AS t`, v4_0_12.Operation{}, nullableOperation{})
+FROM   "operation" AS t`, v4_0_16.Operation{}, nullableOperation{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Operation statement: %w", err)
 	}
-	stmtOperationAction, err := sqlair.Prepare(`SELECT &OperationAction.* FROM "operation_action"`, v4_0_12.OperationAction{})
+	stmtOperationAction, err := sqlair.Prepare(`SELECT &OperationAction.* FROM "operation_action"`, v4_0_16.OperationAction{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing OperationAction statement: %w", err)
 	}
-	stmtOperationMachineTask, err := sqlair.Prepare(`SELECT &OperationMachineTask.* FROM "operation_machine_task"`, v4_0_12.OperationMachineTask{})
+	stmtOperationMachineTask, err := sqlair.Prepare(`SELECT &OperationMachineTask.* FROM "operation_machine_task"`, v4_0_16.OperationMachineTask{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing OperationMachineTask statement: %w", err)
 	}
-	stmtOperationParameter, err := sqlair.Prepare(`SELECT &OperationParameter.* FROM "operation_parameter"`, v4_0_12.OperationParameter{})
+	stmtOperationParameter, err := sqlair.Prepare(`SELECT &OperationParameter.* FROM "operation_parameter"`, v4_0_16.OperationParameter{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing OperationParameter statement: %w", err)
 	}
 	stmtOperationTask, err := sqlair.Prepare(`SELECT &OperationTask.*,
        t."started_at" IS NULL AS &nullableOperationTask.started_at_is_null,
        t."completed_at" IS NULL AS &nullableOperationTask.completed_at_is_null
-FROM   "operation_task" AS t`, v4_0_12.OperationTask{}, nullableOperationTask{})
+FROM   "operation_task" AS t`, v4_0_16.OperationTask{}, nullableOperationTask{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing OperationTask statement: %w", err)
 	}
-	stmtOperationTaskLog, err := sqlair.Prepare(`SELECT &OperationTaskLog.* FROM "operation_task_log"`, v4_0_12.OperationTaskLog{})
+	stmtOperationTaskLog, err := sqlair.Prepare(`SELECT &OperationTaskLog.* FROM "operation_task_log"`, v4_0_16.OperationTaskLog{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing OperationTaskLog statement: %w", err)
 	}
-	stmtOperationTaskOutput, err := sqlair.Prepare(`SELECT &OperationTaskOutput.* FROM "operation_task_output"`, v4_0_12.OperationTaskOutput{})
+	stmtOperationTaskOutput, err := sqlair.Prepare(`SELECT &OperationTaskOutput.* FROM "operation_task_output"`, v4_0_16.OperationTaskOutput{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing OperationTaskOutput statement: %w", err)
 	}
 	stmtOperationTaskStatus, err := sqlair.Prepare(`SELECT &OperationTaskStatus.*,
        t."updated_at" IS NULL AS &nullableOperationTaskStatus.updated_at_is_null
-FROM   "operation_task_status" AS t`, v4_0_12.OperationTaskStatus{}, nullableOperationTaskStatus{})
+FROM   "operation_task_status" AS t`, v4_0_16.OperationTaskStatus{}, nullableOperationTaskStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing OperationTaskStatus statement: %w", err)
 	}
-	stmtOperationTaskStatusValue, err := sqlair.Prepare(`SELECT &OperationTaskStatusValue.* FROM "operation_task_status_value"`, v4_0_12.OperationTaskStatusValue{})
+	stmtOperationTaskStatusValue, err := sqlair.Prepare(`SELECT &OperationTaskStatusValue.* FROM "operation_task_status_value"`, v4_0_16.OperationTaskStatusValue{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing OperationTaskStatusValue statement: %w", err)
 	}
-	stmtOperationUnitTask, err := sqlair.Prepare(`SELECT &OperationUnitTask.* FROM "operation_unit_task"`, v4_0_12.OperationUnitTask{})
+	stmtOperationUnitTask, err := sqlair.Prepare(`SELECT &OperationUnitTask.* FROM "operation_unit_task"`, v4_0_16.OperationUnitTask{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing OperationUnitTask statement: %w", err)
 	}
 	stmtOperatorStatus, err := sqlair.Prepare(`SELECT &OperatorStatus.*,
        t."updated_at" IS NULL AS &nullableOperatorStatus.updated_at_is_null
-FROM   "operator_status" AS t`, v4_0_12.OperatorStatus{}, nullableOperatorStatus{})
+FROM   "operator_status" AS t`, v4_0_16.OperatorStatus{}, nullableOperatorStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing OperatorStatus statement: %w", err)
 	}
-	stmtOs, err := sqlair.Prepare(`SELECT &Os.* FROM "os"`, v4_0_12.Os{})
+	stmtOs, err := sqlair.Prepare(`SELECT &Os.* FROM "os"`, v4_0_16.Os{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Os statement: %w", err)
 	}
-	stmtPasswordHashAlgorithm, err := sqlair.Prepare(`SELECT &PasswordHashAlgorithm.* FROM "password_hash_algorithm"`, v4_0_12.PasswordHashAlgorithm{})
+	stmtPasswordHashAlgorithm, err := sqlair.Prepare(`SELECT &PasswordHashAlgorithm.* FROM "password_hash_algorithm"`, v4_0_16.PasswordHashAlgorithm{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing PasswordHashAlgorithm statement: %w", err)
 	}
-	stmtPendingApplicationResource, err := sqlair.Prepare(`SELECT &PendingApplicationResource.* FROM "pending_application_resource"`, v4_0_12.PendingApplicationResource{})
+	stmtPendingApplicationResource, err := sqlair.Prepare(`SELECT &PendingApplicationResource.* FROM "pending_application_resource"`, v4_0_16.PendingApplicationResource{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing PendingApplicationResource statement: %w", err)
 	}
-	stmtPortRange, err := sqlair.Prepare(`SELECT &PortRange.* FROM "port_range"`, v4_0_12.PortRange{})
+	stmtPortRange, err := sqlair.Prepare(`SELECT &PortRange.* FROM "port_range"`, v4_0_16.PortRange{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing PortRange statement: %w", err)
 	}
-	stmtProtocol, err := sqlair.Prepare(`SELECT &Protocol.* FROM "protocol"`, v4_0_12.Protocol{})
+	stmtProtocol, err := sqlair.Prepare(`SELECT &Protocol.* FROM "protocol"`, v4_0_16.Protocol{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Protocol statement: %w", err)
 	}
-	stmtProviderIpAddress, err := sqlair.Prepare(`SELECT &ProviderIpAddress.* FROM "provider_ip_address"`, v4_0_12.ProviderIpAddress{})
+	stmtProviderIpAddress, err := sqlair.Prepare(`SELECT &ProviderIpAddress.* FROM "provider_ip_address"`, v4_0_16.ProviderIpAddress{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ProviderIpAddress statement: %w", err)
 	}
-	stmtProviderLinkLayerDevice, err := sqlair.Prepare(`SELECT &ProviderLinkLayerDevice.* FROM "provider_link_layer_device"`, v4_0_12.ProviderLinkLayerDevice{})
+	stmtProviderLinkLayerDevice, err := sqlair.Prepare(`SELECT &ProviderLinkLayerDevice.* FROM "provider_link_layer_device"`, v4_0_16.ProviderLinkLayerDevice{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ProviderLinkLayerDevice statement: %w", err)
 	}
-	stmtProviderNetwork, err := sqlair.Prepare(`SELECT &ProviderNetwork.* FROM "provider_network"`, v4_0_12.ProviderNetwork{})
+	stmtProviderNetwork, err := sqlair.Prepare(`SELECT &ProviderNetwork.* FROM "provider_network"`, v4_0_16.ProviderNetwork{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ProviderNetwork statement: %w", err)
 	}
-	stmtProviderNetworkSubnet, err := sqlair.Prepare(`SELECT &ProviderNetworkSubnet.* FROM "provider_network_subnet"`, v4_0_12.ProviderNetworkSubnet{})
+	stmtProviderNetworkSubnet, err := sqlair.Prepare(`SELECT &ProviderNetworkSubnet.* FROM "provider_network_subnet"`, v4_0_16.ProviderNetworkSubnet{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ProviderNetworkSubnet statement: %w", err)
 	}
-	stmtProviderSpace, err := sqlair.Prepare(`SELECT &ProviderSpace.* FROM "provider_space"`, v4_0_12.ProviderSpace{})
+	stmtProviderSpace, err := sqlair.Prepare(`SELECT &ProviderSpace.* FROM "provider_space"`, v4_0_16.ProviderSpace{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ProviderSpace statement: %w", err)
 	}
-	stmtProviderSubnet, err := sqlair.Prepare(`SELECT &ProviderSubnet.* FROM "provider_subnet"`, v4_0_12.ProviderSubnet{})
+	stmtProviderSubnet, err := sqlair.Prepare(`SELECT &ProviderSubnet.* FROM "provider_subnet"`, v4_0_16.ProviderSubnet{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ProviderSubnet statement: %w", err)
 	}
 	stmtRelation, err := sqlair.Prepare(`SELECT &Relation.*,
        t."suspended" IS NULL AS &nullableRelation.suspended_is_null
-FROM   "relation" AS t`, v4_0_12.Relation{}, nullableRelation{})
+FROM   "relation" AS t`, v4_0_16.Relation{}, nullableRelation{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Relation statement: %w", err)
 	}
-	stmtRelationApplicationSetting, err := sqlair.Prepare(`SELECT &RelationApplicationSetting.* FROM "relation_application_setting"`, v4_0_12.RelationApplicationSetting{})
+	stmtRelationApplicationSetting, err := sqlair.Prepare(`SELECT &RelationApplicationSetting.* FROM "relation_application_setting"`, v4_0_16.RelationApplicationSetting{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing RelationApplicationSetting statement: %w", err)
 	}
-	stmtRelationApplicationSettingsHash, err := sqlair.Prepare(`SELECT &RelationApplicationSettingsHash.* FROM "relation_application_settings_hash"`, v4_0_12.RelationApplicationSettingsHash{})
+	stmtRelationApplicationSettingsHash, err := sqlair.Prepare(`SELECT &RelationApplicationSettingsHash.* FROM "relation_application_settings_hash"`, v4_0_16.RelationApplicationSettingsHash{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing RelationApplicationSettingsHash statement: %w", err)
 	}
-	stmtRelationEndpoint, err := sqlair.Prepare(`SELECT &RelationEndpoint.* FROM "relation_endpoint"`, v4_0_12.RelationEndpoint{})
+	stmtRelationEndpoint, err := sqlair.Prepare(`SELECT &RelationEndpoint.* FROM "relation_endpoint"`, v4_0_16.RelationEndpoint{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing RelationEndpoint statement: %w", err)
 	}
-	stmtRelationNetworkEgress, err := sqlair.Prepare(`SELECT &RelationNetworkEgress.* FROM "relation_network_egress"`, v4_0_12.RelationNetworkEgress{})
+	stmtRelationNetworkEgress, err := sqlair.Prepare(`SELECT &RelationNetworkEgress.* FROM "relation_network_egress"`, v4_0_16.RelationNetworkEgress{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing RelationNetworkEgress statement: %w", err)
 	}
-	stmtRelationNetworkIngress, err := sqlair.Prepare(`SELECT &RelationNetworkIngress.* FROM "relation_network_ingress"`, v4_0_12.RelationNetworkIngress{})
+	stmtRelationNetworkIngress, err := sqlair.Prepare(`SELECT &RelationNetworkIngress.* FROM "relation_network_ingress"`, v4_0_16.RelationNetworkIngress{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing RelationNetworkIngress statement: %w", err)
 	}
 	stmtRelationStatus, err := sqlair.Prepare(`SELECT &RelationStatus.*,
        t."updated_at" IS NULL AS &nullableRelationStatus.updated_at_is_null
-FROM   "relation_status" AS t`, v4_0_12.RelationStatus{}, nullableRelationStatus{})
+FROM   "relation_status" AS t`, v4_0_16.RelationStatus{}, nullableRelationStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing RelationStatus statement: %w", err)
 	}
-	stmtRelationStatusType, err := sqlair.Prepare(`SELECT &RelationStatusType.* FROM "relation_status_type"`, v4_0_12.RelationStatusType{})
+	stmtRelationStatusType, err := sqlair.Prepare(`SELECT &RelationStatusType.* FROM "relation_status_type"`, v4_0_16.RelationStatusType{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing RelationStatusType statement: %w", err)
 	}
-	stmtRelationUnit, err := sqlair.Prepare(`SELECT &RelationUnit.* FROM "relation_unit"`, v4_0_12.RelationUnit{})
+	stmtRelationUnit, err := sqlair.Prepare(`SELECT &RelationUnit.* FROM "relation_unit"`, v4_0_16.RelationUnit{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing RelationUnit statement: %w", err)
 	}
-	stmtRelationUnitSetting, err := sqlair.Prepare(`SELECT &RelationUnitSetting.* FROM "relation_unit_setting"`, v4_0_12.RelationUnitSetting{})
+	stmtRelationUnitSetting, err := sqlair.Prepare(`SELECT &RelationUnitSetting.* FROM "relation_unit_setting"`, v4_0_16.RelationUnitSetting{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing RelationUnitSetting statement: %w", err)
 	}
-	stmtRelationUnitSettingArchive, err := sqlair.Prepare(`SELECT &RelationUnitSettingArchive.* FROM "relation_unit_setting_archive"`, v4_0_12.RelationUnitSettingArchive{})
+	stmtRelationUnitSettingArchive, err := sqlair.Prepare(`SELECT &RelationUnitSettingArchive.* FROM "relation_unit_setting_archive"`, v4_0_16.RelationUnitSettingArchive{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing RelationUnitSettingArchive statement: %w", err)
 	}
-	stmtRelationUnitSettingsHash, err := sqlair.Prepare(`SELECT &RelationUnitSettingsHash.* FROM "relation_unit_settings_hash"`, v4_0_12.RelationUnitSettingsHash{})
+	stmtRelationUnitSettingsHash, err := sqlair.Prepare(`SELECT &RelationUnitSettingsHash.* FROM "relation_unit_settings_hash"`, v4_0_16.RelationUnitSettingsHash{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing RelationUnitSettingsHash statement: %w", err)
 	}
-	stmtRemoval, err := sqlair.Prepare(`SELECT &Removal.* FROM "removal"`, v4_0_12.Removal{})
+	stmtRemoval, err := sqlair.Prepare(`SELECT &Removal.* FROM "removal"`, v4_0_16.Removal{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Removal statement: %w", err)
 	}
-	stmtRemovalType, err := sqlair.Prepare(`SELECT &RemovalType.* FROM "removal_type"`, v4_0_12.RemovalType{})
+	stmtRemovalType, err := sqlair.Prepare(`SELECT &RemovalType.* FROM "removal_type"`, v4_0_16.RemovalType{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing RemovalType statement: %w", err)
 	}
-	stmtResolveMode, err := sqlair.Prepare(`SELECT &ResolveMode.* FROM "resolve_mode"`, v4_0_12.ResolveMode{})
+	stmtResolveMode, err := sqlair.Prepare(`SELECT &ResolveMode.* FROM "resolve_mode"`, v4_0_16.ResolveMode{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ResolveMode statement: %w", err)
 	}
 	stmtResource, err := sqlair.Prepare(`SELECT &Resource.*,
        t."last_polled" IS NULL AS &nullableResource.last_polled_is_null
-FROM   "resource" AS t`, v4_0_12.Resource{}, nullableResource{})
+FROM   "resource" AS t`, v4_0_16.Resource{}, nullableResource{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Resource statement: %w", err)
 	}
-	stmtResourceContainerImageMetadataStore, err := sqlair.Prepare(`SELECT &ResourceContainerImageMetadataStore.* FROM "resource_container_image_metadata_store"`, v4_0_12.ResourceContainerImageMetadataStore{})
+	stmtResourceContainerImageMetadataStore, err := sqlair.Prepare(`SELECT &ResourceContainerImageMetadataStore.* FROM "resource_container_image_metadata_store"`, v4_0_16.ResourceContainerImageMetadataStore{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ResourceContainerImageMetadataStore statement: %w", err)
 	}
-	stmtResourceFileStore, err := sqlair.Prepare(`SELECT &ResourceFileStore.* FROM "resource_file_store"`, v4_0_12.ResourceFileStore{})
+	stmtResourceFileStore, err := sqlair.Prepare(`SELECT &ResourceFileStore.* FROM "resource_file_store"`, v4_0_16.ResourceFileStore{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ResourceFileStore statement: %w", err)
 	}
-	stmtResourceImageStore, err := sqlair.Prepare(`SELECT &ResourceImageStore.* FROM "resource_image_store"`, v4_0_12.ResourceImageStore{})
+	stmtResourceImageStore, err := sqlair.Prepare(`SELECT &ResourceImageStore.* FROM "resource_image_store"`, v4_0_16.ResourceImageStore{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ResourceImageStore statement: %w", err)
 	}
-	stmtResourceOriginType, err := sqlair.Prepare(`SELECT &ResourceOriginType.* FROM "resource_origin_type"`, v4_0_12.ResourceOriginType{})
+	stmtResourceOriginType, err := sqlair.Prepare(`SELECT &ResourceOriginType.* FROM "resource_origin_type"`, v4_0_16.ResourceOriginType{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ResourceOriginType statement: %w", err)
 	}
-	stmtResourceRetrievedBy, err := sqlair.Prepare(`SELECT &ResourceRetrievedBy.* FROM "resource_retrieved_by"`, v4_0_12.ResourceRetrievedBy{})
+	stmtResourceRetrievedBy, err := sqlair.Prepare(`SELECT &ResourceRetrievedBy.* FROM "resource_retrieved_by"`, v4_0_16.ResourceRetrievedBy{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ResourceRetrievedBy statement: %w", err)
 	}
-	stmtResourceRetrievedByType, err := sqlair.Prepare(`SELECT &ResourceRetrievedByType.* FROM "resource_retrieved_by_type"`, v4_0_12.ResourceRetrievedByType{})
+	stmtResourceRetrievedByType, err := sqlair.Prepare(`SELECT &ResourceRetrievedByType.* FROM "resource_retrieved_by_type"`, v4_0_16.ResourceRetrievedByType{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ResourceRetrievedByType statement: %w", err)
 	}
-	stmtResourceState, err := sqlair.Prepare(`SELECT &ResourceState.* FROM "resource_state"`, v4_0_12.ResourceState{})
+	stmtResourceState, err := sqlair.Prepare(`SELECT &ResourceState.* FROM "resource_state"`, v4_0_16.ResourceState{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ResourceState statement: %w", err)
 	}
-	stmtSchema, err := sqlair.Prepare(`SELECT &Schema.* FROM "schema"`, v4_0_12.Schema{})
+	stmtSchema, err := sqlair.Prepare(`SELECT &Schema.* FROM "schema"`, v4_0_16.Schema{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Schema statement: %w", err)
 	}
-	stmtSecret, err := sqlair.Prepare(`SELECT &Secret.* FROM "secret"`, v4_0_12.Secret{})
+	stmtSecret, err := sqlair.Prepare(`SELECT &Secret.* FROM "secret"`, v4_0_16.Secret{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Secret statement: %w", err)
 	}
-	stmtSecretApplicationOwner, err := sqlair.Prepare(`SELECT &SecretApplicationOwner.* FROM "secret_application_owner"`, v4_0_12.SecretApplicationOwner{})
+	stmtSecretApplicationOwner, err := sqlair.Prepare(`SELECT &SecretApplicationOwner.* FROM "secret_application_owner"`, v4_0_16.SecretApplicationOwner{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretApplicationOwner statement: %w", err)
 	}
-	stmtSecretContent, err := sqlair.Prepare(`SELECT &SecretContent.* FROM "secret_content"`, v4_0_12.SecretContent{})
+	stmtSecretContent, err := sqlair.Prepare(`SELECT &SecretContent.* FROM "secret_content"`, v4_0_16.SecretContent{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretContent statement: %w", err)
 	}
-	stmtSecretDeletedValueRef, err := sqlair.Prepare(`SELECT &SecretDeletedValueRef.* FROM "secret_deleted_value_ref"`, v4_0_12.SecretDeletedValueRef{})
+	stmtSecretDeletedValueRef, err := sqlair.Prepare(`SELECT &SecretDeletedValueRef.* FROM "secret_deleted_value_ref"`, v4_0_16.SecretDeletedValueRef{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretDeletedValueRef statement: %w", err)
 	}
-	stmtSecretGrantScopeType, err := sqlair.Prepare(`SELECT &SecretGrantScopeType.* FROM "secret_grant_scope_type"`, v4_0_12.SecretGrantScopeType{})
+	stmtSecretGrantScopeType, err := sqlair.Prepare(`SELECT &SecretGrantScopeType.* FROM "secret_grant_scope_type"`, v4_0_16.SecretGrantScopeType{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretGrantScopeType statement: %w", err)
 	}
-	stmtSecretGrantSubjectType, err := sqlair.Prepare(`SELECT &SecretGrantSubjectType.* FROM "secret_grant_subject_type"`, v4_0_12.SecretGrantSubjectType{})
+	stmtSecretGrantSubjectType, err := sqlair.Prepare(`SELECT &SecretGrantSubjectType.* FROM "secret_grant_subject_type"`, v4_0_16.SecretGrantSubjectType{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretGrantSubjectType statement: %w", err)
 	}
-	stmtSecretMetadata, err := sqlair.Prepare(`SELECT &SecretMetadata.* FROM "secret_metadata"`, v4_0_12.SecretMetadata{})
+	stmtSecretMetadata, err := sqlair.Prepare(`SELECT &SecretMetadata.* FROM "secret_metadata"`, v4_0_16.SecretMetadata{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretMetadata statement: %w", err)
 	}
-	stmtSecretModelOwner, err := sqlair.Prepare(`SELECT &SecretModelOwner.* FROM "secret_model_owner"`, v4_0_12.SecretModelOwner{})
+	stmtSecretModelOwner, err := sqlair.Prepare(`SELECT &SecretModelOwner.* FROM "secret_model_owner"`, v4_0_16.SecretModelOwner{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretModelOwner statement: %w", err)
 	}
-	stmtSecretPermission, err := sqlair.Prepare(`SELECT &SecretPermission.* FROM "secret_permission"`, v4_0_12.SecretPermission{})
+	stmtSecretPermission, err := sqlair.Prepare(`SELECT &SecretPermission.* FROM "secret_permission"`, v4_0_16.SecretPermission{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretPermission statement: %w", err)
 	}
-	stmtSecretReference, err := sqlair.Prepare(`SELECT &SecretReference.* FROM "secret_reference"`, v4_0_12.SecretReference{})
+	stmtSecretReference, err := sqlair.Prepare(`SELECT &SecretReference.* FROM "secret_reference"`, v4_0_16.SecretReference{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretReference statement: %w", err)
 	}
-	stmtSecretRemoteUnitConsumer, err := sqlair.Prepare(`SELECT &SecretRemoteUnitConsumer.* FROM "secret_remote_unit_consumer"`, v4_0_12.SecretRemoteUnitConsumer{})
+	stmtSecretRemoteUnitConsumer, err := sqlair.Prepare(`SELECT &SecretRemoteUnitConsumer.* FROM "secret_remote_unit_consumer"`, v4_0_16.SecretRemoteUnitConsumer{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretRemoteUnitConsumer statement: %w", err)
 	}
-	stmtSecretReservation, err := sqlair.Prepare(`SELECT &SecretReservation.* FROM "secret_reservation"`, v4_0_12.SecretReservation{})
+	stmtSecretReservation, err := sqlair.Prepare(`SELECT &SecretReservation.* FROM "secret_reservation"`, v4_0_16.SecretReservation{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretReservation statement: %w", err)
 	}
 	stmtSecretRevision, err := sqlair.Prepare(`SELECT &SecretRevision.*,
        t."update_time" IS NULL AS &nullableSecretRevision.update_time_is_null
-FROM   "secret_revision" AS t`, v4_0_12.SecretRevision{}, nullableSecretRevision{})
+FROM   "secret_revision" AS t`, v4_0_16.SecretRevision{}, nullableSecretRevision{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretRevision statement: %w", err)
 	}
-	stmtSecretRevisionExpire, err := sqlair.Prepare(`SELECT &SecretRevisionExpire.* FROM "secret_revision_expire"`, v4_0_12.SecretRevisionExpire{})
+	stmtSecretRevisionExpire, err := sqlair.Prepare(`SELECT &SecretRevisionExpire.* FROM "secret_revision_expire"`, v4_0_16.SecretRevisionExpire{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretRevisionExpire statement: %w", err)
 	}
-	stmtSecretRevisionObsolete, err := sqlair.Prepare(`SELECT &SecretRevisionObsolete.* FROM "secret_revision_obsolete"`, v4_0_12.SecretRevisionObsolete{})
+	stmtSecretRevisionObsolete, err := sqlair.Prepare(`SELECT &SecretRevisionObsolete.* FROM "secret_revision_obsolete"`, v4_0_16.SecretRevisionObsolete{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretRevisionObsolete statement: %w", err)
 	}
-	stmtSecretRole, err := sqlair.Prepare(`SELECT &SecretRole.* FROM "secret_role"`, v4_0_12.SecretRole{})
+	stmtSecretRole, err := sqlair.Prepare(`SELECT &SecretRole.* FROM "secret_role"`, v4_0_16.SecretRole{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretRole statement: %w", err)
 	}
-	stmtSecretRotatePolicy, err := sqlair.Prepare(`SELECT &SecretRotatePolicy.* FROM "secret_rotate_policy"`, v4_0_12.SecretRotatePolicy{})
+	stmtSecretRotatePolicy, err := sqlair.Prepare(`SELECT &SecretRotatePolicy.* FROM "secret_rotate_policy"`, v4_0_16.SecretRotatePolicy{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretRotatePolicy statement: %w", err)
 	}
-	stmtSecretRotation, err := sqlair.Prepare(`SELECT &SecretRotation.* FROM "secret_rotation"`, v4_0_12.SecretRotation{})
+	stmtSecretRotation, err := sqlair.Prepare(`SELECT &SecretRotation.* FROM "secret_rotation"`, v4_0_16.SecretRotation{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretRotation statement: %w", err)
 	}
-	stmtSecretUnitConsumer, err := sqlair.Prepare(`SELECT &SecretUnitConsumer.* FROM "secret_unit_consumer"`, v4_0_12.SecretUnitConsumer{})
+	stmtSecretUnitConsumer, err := sqlair.Prepare(`SELECT &SecretUnitConsumer.* FROM "secret_unit_consumer"`, v4_0_16.SecretUnitConsumer{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretUnitConsumer statement: %w", err)
 	}
-	stmtSecretUnitOwner, err := sqlair.Prepare(`SELECT &SecretUnitOwner.* FROM "secret_unit_owner"`, v4_0_12.SecretUnitOwner{})
+	stmtSecretUnitOwner, err := sqlair.Prepare(`SELECT &SecretUnitOwner.* FROM "secret_unit_owner"`, v4_0_16.SecretUnitOwner{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretUnitOwner statement: %w", err)
 	}
-	stmtSecretValueRef, err := sqlair.Prepare(`SELECT &SecretValueRef.* FROM "secret_value_ref"`, v4_0_12.SecretValueRef{})
+	stmtSecretValueRef, err := sqlair.Prepare(`SELECT &SecretValueRef.* FROM "secret_value_ref"`, v4_0_16.SecretValueRef{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretValueRef statement: %w", err)
 	}
-	stmtSequence, err := sqlair.Prepare(`SELECT &Sequence.* FROM "sequence"`, v4_0_12.Sequence{})
+	stmtSequence, err := sqlair.Prepare(`SELECT &Sequence.* FROM "sequence"`, v4_0_16.Sequence{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Sequence statement: %w", err)
 	}
-	stmtSpace, err := sqlair.Prepare(`SELECT &Space.* FROM "space"`, v4_0_12.Space{})
+	stmtSpace, err := sqlair.Prepare(`SELECT &Space.* FROM "space"`, v4_0_16.Space{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Space statement: %w", err)
 	}
-	stmtStorageAttachment, err := sqlair.Prepare(`SELECT &StorageAttachment.* FROM "storage_attachment"`, v4_0_12.StorageAttachment{})
+	stmtStorageAttachment, err := sqlair.Prepare(`SELECT &StorageAttachment.* FROM "storage_attachment"`, v4_0_16.StorageAttachment{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageAttachment statement: %w", err)
 	}
 	stmtStorageFilesystem, err := sqlair.Prepare(`SELECT &StorageFilesystem.*,
        t."obliterate_on_cleanup" IS NULL AS &nullableStorageFilesystem.obliterate_on_cleanup_is_null
-FROM   "storage_filesystem" AS t`, v4_0_12.StorageFilesystem{}, nullableStorageFilesystem{})
+FROM   "storage_filesystem" AS t`, v4_0_16.StorageFilesystem{}, nullableStorageFilesystem{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageFilesystem statement: %w", err)
 	}
 	stmtStorageFilesystemAttachment, err := sqlair.Prepare(`SELECT &StorageFilesystemAttachment.*,
        t."read_only" IS NULL AS &nullableStorageFilesystemAttachment.read_only_is_null
-FROM   "storage_filesystem_attachment" AS t`, v4_0_12.StorageFilesystemAttachment{}, nullableStorageFilesystemAttachment{})
+FROM   "storage_filesystem_attachment" AS t`, v4_0_16.StorageFilesystemAttachment{}, nullableStorageFilesystemAttachment{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageFilesystemAttachment statement: %w", err)
 	}
 	stmtStorageFilesystemStatus, err := sqlair.Prepare(`SELECT &StorageFilesystemStatus.*,
        t."updated_at" IS NULL AS &nullableStorageFilesystemStatus.updated_at_is_null
-FROM   "storage_filesystem_status" AS t`, v4_0_12.StorageFilesystemStatus{}, nullableStorageFilesystemStatus{})
+FROM   "storage_filesystem_status" AS t`, v4_0_16.StorageFilesystemStatus{}, nullableStorageFilesystemStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageFilesystemStatus statement: %w", err)
 	}
-	stmtStorageFilesystemStatusValue, err := sqlair.Prepare(`SELECT &StorageFilesystemStatusValue.* FROM "storage_filesystem_status_value"`, v4_0_12.StorageFilesystemStatusValue{})
+	stmtStorageFilesystemStatusValue, err := sqlair.Prepare(`SELECT &StorageFilesystemStatusValue.* FROM "storage_filesystem_status_value"`, v4_0_16.StorageFilesystemStatusValue{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageFilesystemStatusValue statement: %w", err)
 	}
-	stmtStorageInstance, err := sqlair.Prepare(`SELECT &StorageInstance.* FROM "storage_instance"`, v4_0_12.StorageInstance{})
+	stmtStorageInstance, err := sqlair.Prepare(`SELECT &StorageInstance.* FROM "storage_instance"`, v4_0_16.StorageInstance{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageInstance statement: %w", err)
 	}
-	stmtStorageInstanceFilesystem, err := sqlair.Prepare(`SELECT &StorageInstanceFilesystem.* FROM "storage_instance_filesystem"`, v4_0_12.StorageInstanceFilesystem{})
+	stmtStorageInstanceFilesystem, err := sqlair.Prepare(`SELECT &StorageInstanceFilesystem.* FROM "storage_instance_filesystem"`, v4_0_16.StorageInstanceFilesystem{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageInstanceFilesystem statement: %w", err)
 	}
-	stmtStorageInstanceVolume, err := sqlair.Prepare(`SELECT &StorageInstanceVolume.* FROM "storage_instance_volume"`, v4_0_12.StorageInstanceVolume{})
+	stmtStorageInstanceVolume, err := sqlair.Prepare(`SELECT &StorageInstanceVolume.* FROM "storage_instance_volume"`, v4_0_16.StorageInstanceVolume{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageInstanceVolume statement: %w", err)
 	}
-	stmtStorageKind, err := sqlair.Prepare(`SELECT &StorageKind.* FROM "storage_kind"`, v4_0_12.StorageKind{})
+	stmtStorageKind, err := sqlair.Prepare(`SELECT &StorageKind.* FROM "storage_kind"`, v4_0_16.StorageKind{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageKind statement: %w", err)
 	}
-	stmtStoragePool, err := sqlair.Prepare(`SELECT &StoragePool.* FROM "storage_pool"`, v4_0_12.StoragePool{})
+	stmtStoragePool, err := sqlair.Prepare(`SELECT &StoragePool.* FROM "storage_pool"`, v4_0_16.StoragePool{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StoragePool statement: %w", err)
 	}
-	stmtStoragePoolAttribute, err := sqlair.Prepare(`SELECT &StoragePoolAttribute.* FROM "storage_pool_attribute"`, v4_0_12.StoragePoolAttribute{})
+	stmtStoragePoolAttribute, err := sqlair.Prepare(`SELECT &StoragePoolAttribute.* FROM "storage_pool_attribute"`, v4_0_16.StoragePoolAttribute{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StoragePoolAttribute statement: %w", err)
 	}
-	stmtStoragePoolOrigin, err := sqlair.Prepare(`SELECT &StoragePoolOrigin.* FROM "storage_pool_origin"`, v4_0_12.StoragePoolOrigin{})
+	stmtStoragePoolOrigin, err := sqlair.Prepare(`SELECT &StoragePoolOrigin.* FROM "storage_pool_origin"`, v4_0_16.StoragePoolOrigin{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StoragePoolOrigin statement: %w", err)
 	}
-	stmtStorageProvisionScope, err := sqlair.Prepare(`SELECT &StorageProvisionScope.* FROM "storage_provision_scope"`, v4_0_12.StorageProvisionScope{})
+	stmtStorageProvisionScope, err := sqlair.Prepare(`SELECT &StorageProvisionScope.* FROM "storage_provision_scope"`, v4_0_16.StorageProvisionScope{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageProvisionScope statement: %w", err)
 	}
-	stmtStorageUnitOwner, err := sqlair.Prepare(`SELECT &StorageUnitOwner.* FROM "storage_unit_owner"`, v4_0_12.StorageUnitOwner{})
+	stmtStorageUnitOwner, err := sqlair.Prepare(`SELECT &StorageUnitOwner.* FROM "storage_unit_owner"`, v4_0_16.StorageUnitOwner{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageUnitOwner statement: %w", err)
 	}
 	stmtStorageVolume, err := sqlair.Prepare(`SELECT &StorageVolume.*,
        t."persistent" IS NULL AS &nullableStorageVolume.persistent_is_null,
        t."obliterate_on_cleanup" IS NULL AS &nullableStorageVolume.obliterate_on_cleanup_is_null
-FROM   "storage_volume" AS t`, v4_0_12.StorageVolume{}, nullableStorageVolume{})
+FROM   "storage_volume" AS t`, v4_0_16.StorageVolume{}, nullableStorageVolume{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageVolume statement: %w", err)
 	}
 	stmtStorageVolumeAttachment, err := sqlair.Prepare(`SELECT &StorageVolumeAttachment.*,
        t."read_only" IS NULL AS &nullableStorageVolumeAttachment.read_only_is_null
-FROM   "storage_volume_attachment" AS t`, v4_0_12.StorageVolumeAttachment{}, nullableStorageVolumeAttachment{})
+FROM   "storage_volume_attachment" AS t`, v4_0_16.StorageVolumeAttachment{}, nullableStorageVolumeAttachment{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageVolumeAttachment statement: %w", err)
 	}
-	stmtStorageVolumeAttachmentPlan, err := sqlair.Prepare(`SELECT &StorageVolumeAttachmentPlan.* FROM "storage_volume_attachment_plan"`, v4_0_12.StorageVolumeAttachmentPlan{})
+	stmtStorageVolumeAttachmentPlan, err := sqlair.Prepare(`SELECT &StorageVolumeAttachmentPlan.* FROM "storage_volume_attachment_plan"`, v4_0_16.StorageVolumeAttachmentPlan{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageVolumeAttachmentPlan statement: %w", err)
 	}
-	stmtStorageVolumeAttachmentPlanAttr, err := sqlair.Prepare(`SELECT &StorageVolumeAttachmentPlanAttr.* FROM "storage_volume_attachment_plan_attr"`, v4_0_12.StorageVolumeAttachmentPlanAttr{})
+	stmtStorageVolumeAttachmentPlanAttr, err := sqlair.Prepare(`SELECT &StorageVolumeAttachmentPlanAttr.* FROM "storage_volume_attachment_plan_attr"`, v4_0_16.StorageVolumeAttachmentPlanAttr{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageVolumeAttachmentPlanAttr statement: %w", err)
 	}
-	stmtStorageVolumeDeviceType, err := sqlair.Prepare(`SELECT &StorageVolumeDeviceType.* FROM "storage_volume_device_type"`, v4_0_12.StorageVolumeDeviceType{})
+	stmtStorageVolumeDeviceType, err := sqlair.Prepare(`SELECT &StorageVolumeDeviceType.* FROM "storage_volume_device_type"`, v4_0_16.StorageVolumeDeviceType{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageVolumeDeviceType statement: %w", err)
 	}
 	stmtStorageVolumeStatus, err := sqlair.Prepare(`SELECT &StorageVolumeStatus.*,
        t."updated_at" IS NULL AS &nullableStorageVolumeStatus.updated_at_is_null
-FROM   "storage_volume_status" AS t`, v4_0_12.StorageVolumeStatus{}, nullableStorageVolumeStatus{})
+FROM   "storage_volume_status" AS t`, v4_0_16.StorageVolumeStatus{}, nullableStorageVolumeStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageVolumeStatus statement: %w", err)
 	}
-	stmtStorageVolumeStatusValue, err := sqlair.Prepare(`SELECT &StorageVolumeStatusValue.* FROM "storage_volume_status_value"`, v4_0_12.StorageVolumeStatusValue{})
+	stmtStorageVolumeStatusValue, err := sqlair.Prepare(`SELECT &StorageVolumeStatusValue.* FROM "storage_volume_status_value"`, v4_0_16.StorageVolumeStatusValue{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageVolumeStatusValue statement: %w", err)
 	}
-	stmtSubnet, err := sqlair.Prepare(`SELECT &Subnet.* FROM "subnet"`, v4_0_12.Subnet{})
+	stmtSubnet, err := sqlair.Prepare(`SELECT &Subnet.* FROM "subnet"`, v4_0_16.Subnet{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Subnet statement: %w", err)
 	}
-	stmtUnit, err := sqlair.Prepare(`SELECT &Unit.* FROM "unit"`, v4_0_12.Unit{})
+	stmtUnit, err := sqlair.Prepare(`SELECT &Unit.* FROM "unit"`, v4_0_16.Unit{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Unit statement: %w", err)
 	}
 	stmtUnitAgentPresence, err := sqlair.Prepare(`SELECT &UnitAgentPresence.*,
        t."last_seen" IS NULL AS &nullableUnitAgentPresence.last_seen_is_null
-FROM   "unit_agent_presence" AS t`, v4_0_12.UnitAgentPresence{}, nullableUnitAgentPresence{})
+FROM   "unit_agent_presence" AS t`, v4_0_16.UnitAgentPresence{}, nullableUnitAgentPresence{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitAgentPresence statement: %w", err)
 	}
 	stmtUnitAgentStatus, err := sqlair.Prepare(`SELECT &UnitAgentStatus.*,
        t."updated_at" IS NULL AS &nullableUnitAgentStatus.updated_at_is_null
-FROM   "unit_agent_status" AS t`, v4_0_12.UnitAgentStatus{}, nullableUnitAgentStatus{})
+FROM   "unit_agent_status" AS t`, v4_0_16.UnitAgentStatus{}, nullableUnitAgentStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitAgentStatus statement: %w", err)
 	}
-	stmtUnitAgentStatusValue, err := sqlair.Prepare(`SELECT &UnitAgentStatusValue.* FROM "unit_agent_status_value"`, v4_0_12.UnitAgentStatusValue{})
+	stmtUnitAgentStatusValue, err := sqlair.Prepare(`SELECT &UnitAgentStatusValue.* FROM "unit_agent_status_value"`, v4_0_16.UnitAgentStatusValue{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitAgentStatusValue statement: %w", err)
 	}
-	stmtUnitAgentVersion, err := sqlair.Prepare(`SELECT &UnitAgentVersion.* FROM "unit_agent_version"`, v4_0_12.UnitAgentVersion{})
+	stmtUnitAgentVersion, err := sqlair.Prepare(`SELECT &UnitAgentVersion.* FROM "unit_agent_version"`, v4_0_16.UnitAgentVersion{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitAgentVersion statement: %w", err)
 	}
-	stmtUnitPrincipal, err := sqlair.Prepare(`SELECT &UnitPrincipal.* FROM "unit_principal"`, v4_0_12.UnitPrincipal{})
+	stmtUnitPrincipal, err := sqlair.Prepare(`SELECT &UnitPrincipal.* FROM "unit_principal"`, v4_0_16.UnitPrincipal{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitPrincipal statement: %w", err)
 	}
-	stmtUnitResolved, err := sqlair.Prepare(`SELECT &UnitResolved.* FROM "unit_resolved"`, v4_0_12.UnitResolved{})
+	stmtUnitResolved, err := sqlair.Prepare(`SELECT &UnitResolved.* FROM "unit_resolved"`, v4_0_16.UnitResolved{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitResolved statement: %w", err)
 	}
-	stmtUnitResource, err := sqlair.Prepare(`SELECT &UnitResource.* FROM "unit_resource"`, v4_0_12.UnitResource{})
+	stmtUnitResource, err := sqlair.Prepare(`SELECT &UnitResource.* FROM "unit_resource"`, v4_0_16.UnitResource{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitResource statement: %w", err)
 	}
-	stmtUnitState, err := sqlair.Prepare(`SELECT &UnitState.* FROM "unit_state"`, v4_0_12.UnitState{})
+	stmtUnitState, err := sqlair.Prepare(`SELECT &UnitState.* FROM "unit_state"`, v4_0_16.UnitState{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitState statement: %w", err)
 	}
-	stmtUnitStateCharm, err := sqlair.Prepare(`SELECT &UnitStateCharm.* FROM "unit_state_charm"`, v4_0_12.UnitStateCharm{})
+	stmtUnitStateCharm, err := sqlair.Prepare(`SELECT &UnitStateCharm.* FROM "unit_state_charm"`, v4_0_16.UnitStateCharm{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitStateCharm statement: %w", err)
 	}
-	stmtUnitStateRelation, err := sqlair.Prepare(`SELECT &UnitStateRelation.* FROM "unit_state_relation"`, v4_0_12.UnitStateRelation{})
+	stmtUnitStateRelation, err := sqlair.Prepare(`SELECT &UnitStateRelation.* FROM "unit_state_relation"`, v4_0_16.UnitStateRelation{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitStateRelation statement: %w", err)
 	}
-	stmtUnitStorageDirective, err := sqlair.Prepare(`SELECT &UnitStorageDirective.* FROM "unit_storage_directive"`, v4_0_12.UnitStorageDirective{})
+	stmtUnitStorageDirective, err := sqlair.Prepare(`SELECT &UnitStorageDirective.* FROM "unit_storage_directive"`, v4_0_16.UnitStorageDirective{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitStorageDirective statement: %w", err)
 	}
 	stmtUnitWorkloadStatus, err := sqlair.Prepare(`SELECT &UnitWorkloadStatus.*,
        t."updated_at" IS NULL AS &nullableUnitWorkloadStatus.updated_at_is_null
-FROM   "unit_workload_status" AS t`, v4_0_12.UnitWorkloadStatus{}, nullableUnitWorkloadStatus{})
+FROM   "unit_workload_status" AS t`, v4_0_16.UnitWorkloadStatus{}, nullableUnitWorkloadStatus{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitWorkloadStatus statement: %w", err)
 	}
-	stmtUnitWorkloadVersion, err := sqlair.Prepare(`SELECT &UnitWorkloadVersion.* FROM "unit_workload_version"`, v4_0_12.UnitWorkloadVersion{})
+	stmtUnitWorkloadVersion, err := sqlair.Prepare(`SELECT &UnitWorkloadVersion.* FROM "unit_workload_version"`, v4_0_16.UnitWorkloadVersion{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitWorkloadVersion statement: %w", err)
 	}
-	stmtVirtualPortType, err := sqlair.Prepare(`SELECT &VirtualPortType.* FROM "virtual_port_type"`, v4_0_12.VirtualPortType{})
+	stmtVirtualPortType, err := sqlair.Prepare(`SELECT &VirtualPortType.* FROM "virtual_port_type"`, v4_0_16.VirtualPortType{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing VirtualPortType statement: %w", err)
 	}
-	stmtWorkloadStatusValue, err := sqlair.Prepare(`SELECT &WorkloadStatusValue.* FROM "workload_status_value"`, v4_0_12.WorkloadStatusValue{})
+	stmtWorkloadStatusValue, err := sqlair.Prepare(`SELECT &WorkloadStatusValue.* FROM "workload_status_value"`, v4_0_16.WorkloadStatusValue{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing WorkloadStatusValue statement: %w", err)
 	}
@@ -1190,7 +1185,7 @@ FROM   "unit_workload_status" AS t`, v4_0_12.UnitWorkloadStatus{}, nullableUnitW
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// The transaction can be retried, so discard rows from prior attempts.
-		modelExport = v4_0_12.ModelExport{}
+		modelExport = v4_0_16.ModelExport{}
 		if err := tx.Query(ctx, stmtAgentBinaryStore).GetAll(&modelExport.AgentBinaryStore); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying AgentBinaryStore (table agent_binary_store): %w", err)
 		}
@@ -1269,6 +1264,9 @@ FROM   "unit_workload_status" AS t`, v4_0_12.UnitWorkloadStatus{}, nullableUnitW
 		if err := tx.Query(ctx, stmtApplicationPlatform).GetAll(&modelExport.ApplicationPlatform); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationPlatform (table application_platform): %w", err)
 		}
+		if err := tx.Query(ctx, stmtApplicationProvisioningState).GetAll(&modelExport.ApplicationProvisioningState); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying ApplicationProvisioningState (table application_provisioning_state): %w", err)
+		}
 		if err := tx.Query(ctx, stmtApplicationRemoteConsumer).GetAll(&modelExport.ApplicationRemoteConsumer); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationRemoteConsumer (table application_remote_consumer): %w", err)
 		}
@@ -1289,15 +1287,6 @@ FROM   "unit_workload_status" AS t`, v4_0_12.UnitWorkloadStatus{}, nullableUnitW
 		}
 		if err := tx.Query(ctx, stmtApplicationResource).GetAll(&modelExport.ApplicationResource); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationResource (table application_resource): %w", err)
-		}
-		var nullableApplicationScaleRows []nullableApplicationScale
-		if err := tx.Query(ctx, stmtApplicationScale).GetAll(&modelExport.ApplicationScale, &nullableApplicationScaleRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("querying ApplicationScale (table application_scale): %w", err)
-		}
-		for i, nulls := range nullableApplicationScaleRows {
-			if nulls.ScalingIsNull {
-				modelExport.ApplicationScale[i].Scaling = nil
-			}
 		}
 		var nullableApplicationSettingRows []nullableApplicationSetting
 		if err := tx.Query(ctx, stmtApplicationSetting).GetAll(&modelExport.ApplicationSetting, &nullableApplicationSettingRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {

@@ -529,7 +529,7 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 	for _, table := range []string{
 		"DELETE FROM application_channel WHERE application_uuid = $entityUUID.uuid",
 		"DELETE FROM application_platform WHERE application_uuid = $entityUUID.uuid",
-		"DELETE FROM application_scale WHERE application_uuid = $entityUUID.uuid",
+		"DELETE FROM application_provisioning_state WHERE application_uuid = $entityUUID.uuid",
 		"DELETE FROM application_config WHERE application_uuid = $entityUUID.uuid",
 		"DELETE FROM application_config_hash WHERE application_uuid = $entityUUID.uuid",
 		"DELETE FROM application_constraint WHERE application_uuid = $entityUUID.uuid",

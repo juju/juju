@@ -191,6 +191,7 @@ var modelPostPatchFilesByVersion = []struct {
 	version: semversion.MustParse("4.0.16"),
 	files: []string{
 		"0064-machine-parent-delete-trigger.PATCH.sql",
+		"0065-application-current-operation.PATCH.sql",
 	},
 }}
 

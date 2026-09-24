@@ -956,8 +956,8 @@ func (s *baseSuite) assertApplication(
 		if err != nil {
 			return err
 		}
-		err = tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", gotUUID).
-			Scan(&gotScale.Scale, &gotScale.Scaling, &gotScale.ScaleTarget)
+		err = tx.QueryRowContext(ctx, "SELECT scale, current_operation, scale_target FROM application_provisioning_state WHERE application_uuid=?", gotUUID).
+			Scan(&gotScale.Scale, &gotScale.CurrentOperation, &gotScale.ScaleTarget)
 		if err != nil {
 			return err
 		}

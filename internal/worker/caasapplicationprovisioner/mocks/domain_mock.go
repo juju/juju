@@ -47,7 +47,7 @@ type MockApplicationServiceMockRecorder struct {
 	getUnitLifeExpects                               []*gomock.Call2_2[context.Context, unit.Name, life.Value, error]
 	isControllerApplicationExpects                   []*gomock.Call2_2[context.Context, application.UUID, bool, error]
 	setApplicationHasK8sResourcesExpects             []*gomock.Call2_1[context.Context, application.UUID, error]
-	setApplicationScalingStateExpects                []*gomock.Call4_1[context.Context, string, int, bool, error]
+	setApplicationScalingStateExpects                []*gomock.Call4_1[context.Context, string, int, application.ProvisioningOperation, error]
 	updateCAASUnitExpects                            []*gomock.Call3_1[context.Context, unit.Name, service.UpdateCAASUnitParams, error]
 	updateK8sServiceExpects                          []*gomock.Call4_1[context.Context, string, string, network.ProviderAddresses, error]
 	watchApplicationScaleExpects                     []*gomock.Call2_2[context.Context, string, watcher.NotifyWatcher, error]
@@ -285,22 +285,22 @@ func (mr *MockApplicationServiceMockRecorder) SetApplicationHasK8sResources(ctx,
 type MockApplicationServiceSetApplicationHasK8sResourcesCall = gomock.Call2_1[context.Context, application.UUID, error]
 
 // SetApplicationScalingState mocks base method.
-func (m *MockApplicationService) SetApplicationScalingState(ctx context.Context, name string, scaleTarget int, scaling bool) error {
+func (m *MockApplicationService) SetApplicationScalingState(ctx context.Context, name string, scaleTarget int, op application.ProvisioningOperation) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch4_1(&m.recorder.setApplicationScalingStateExpects, m.ctrl, m, "SetApplicationScalingState", ctx, name, scaleTarget, scaling)
+	return gomock.Dispatch4_1(&m.recorder.setApplicationScalingStateExpects, m.ctrl, m, "SetApplicationScalingState", ctx, name, scaleTarget, op)
 }
 
 // SetApplicationScalingState indicates an expected call of SetApplicationScalingState.
-func (mr *MockApplicationServiceMockRecorder) SetApplicationScalingState(ctx, name, scaleTarget, scaling any) *MockApplicationServiceSetApplicationScalingStateCall {
+func (mr *MockApplicationServiceMockRecorder) SetApplicationScalingState(ctx, name, scaleTarget, op any) *MockApplicationServiceSetApplicationScalingStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_1[context.Context, string, int, bool, error](mr.mock.ctrl.T, mr.mock, "SetApplicationScalingState", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(scaleTarget), gomock.EnsureMatcher(scaling))
+	call := gomock.NewCall4_1[context.Context, string, int, application.ProvisioningOperation, error](mr.mock.ctrl.T, mr.mock, "SetApplicationScalingState", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(scaleTarget), gomock.EnsureMatcher(op))
 	mr.setApplicationScalingStateExpects = append(mr.setApplicationScalingStateExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockApplicationServiceSetApplicationScalingStateCall is the typed call wrapper for SetApplicationScalingState.
-type MockApplicationServiceSetApplicationScalingStateCall = gomock.Call4_1[context.Context, string, int, bool, error]
+type MockApplicationServiceSetApplicationScalingStateCall = gomock.Call4_1[context.Context, string, int, application.ProvisioningOperation, error]
 
 // UpdateCAASUnit mocks base method.
 func (m *MockApplicationService) UpdateCAASUnit(arg0 context.Context, arg1 unit.Name, arg2 service.UpdateCAASUnitParams) error {

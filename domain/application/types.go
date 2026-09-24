@@ -111,9 +111,9 @@ type CharmOrigin struct {
 
 // ScaleState describes the scale status of a k8s application.
 type ScaleState struct {
-	Scaling     bool
-	Scale       int
-	ScaleTarget int
+	CurrentOperation application.ProvisioningOperation
+	Scale            int
+	ScaleTarget      int
 }
 
 // K8sService contains parameters for an application's cloud service.
