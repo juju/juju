@@ -18,6 +18,7 @@ A model is created on a {ref}`controller <controller>`.  Both the model and the 
 
 One can deploy multiple applications to the same model. Thus, models allow the logical grouping of applications and infrastructure that work together to deliver a service or product.  Moreover, one can apply common {ref}`configurations <configuration>` to a whole model. As such, models allow the low-level storage, compute, network and software components to be reasoned about as a single entity as well.
 
+(controller-model)=
 ## Model taxonomy
 
 Models are of two types:

@@ -625,6 +625,111 @@ model "Juju" {
         updated_at   [label: "updated_at", type: "time", null: true]
       }
     }
+
+    // -----------------------------------------------------------------------
+    // Application attributes (ADR-011 §3, docs/reference/application.md):
+    // the stored pointers. Every fk: field is the origin of exactly one
+    // data edge. DECLARED FLATTENINGS (one node/field covers its value
+    // lookups): application_status.status_id + workload_status_value;
+    // application_config.type_id + charm_config_type; the charm URL
+    // fields (the application stores only the charm's uuid; the URL is
+    // reconstructed from the charm's own fields). Not drawn: the
+    // controller marker (application_controller), K8s scale
+    // (application_scale), the expose tables, the config hash, the CMR
+    // remote-offerer pair, application_setting (a single trust
+    // boolean), application_workload_version, application_agent.
+    // -----------------------------------------------------------------------
+    app_charm   [type: record, label: "charm", ground: "model:charm"] {
+      fields {
+        uuid     [label: "uuid", type: "uuid", pk: true]
+        url_name [label: "url (reconstructed fields)", type: "text"]
+        revision [label: "revision", type: "int"]
+      }
+    }
+    app_rec     [type: record, label: "application", ground: "model:application"] {
+      fields {
+        uuid          [label: "uuid", type: "uuid", pk: true]
+        name          [label: "name (unique)", type: "text"]
+        life_id       [label: "life (alive | dying | dead)", type: "int"]
+        charm_uuid    [label: "charm_uuid", type: "uuid", fk: true]
+        charm_modified_version [label: "charm_modified_version", type: "int"]
+        space_uuid    [label: "default binding space", type: "uuid"]
+      }
+    }
+    app_status_rec [type: record, label: "application_status", ground: "model:application_status"] {
+      fields {
+        application_uuid [label: "application_uuid", type: "uuid", pk: true, fk: true]
+        status           [label: "status", type: "text"]
+        message          [label: "message", type: "text", null: true]
+        updated_at       [label: "updated_at", type: "time", null: true]
+      }
+    }
+    app_config  [type: record, label: "application_config", ground: "model:application_config"] {
+      fields {
+        application_uuid [label: "application_uuid", type: "uuid", fk: true]
+        key              [label: "key", type: "text", pk: true]
+        value            [label: "value", type: "text", null: true]
+      }
+    }
+    app_channel [type: record, label: "application_channel", ground: "model:application_channel"] {
+      fields {
+        application_uuid [label: "application_uuid", type: "uuid", pk: true, fk: true]
+        track            [label: "track", type: "text", null: true]
+        risk             [label: "risk", type: "text"]
+        branch           [label: "branch", type: "text", null: true]
+      }
+    }
+    app_endpoint [type: record, label: "application_endpoint", ground: "model:application_endpoint"] {
+      fields {
+        application_uuid  [label: "application_uuid", type: "uuid", fk: true]
+        charm_relation_uuid [label: "charm_relation_uuid (charm endpoint)", type: "uuid"]
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Unit attributes (ADR-011 §3, docs/reference/unit.md): the stored
+    // pointers. The unit pins its charm revision (charm_uuid) —
+    // flattened: the charm slice is charm.md's. DECLARED FLATTENINGS:
+    // unit_agent_status.status_id + unit_agent_status_value;
+    // unit_workload_status.status_id + workload_status_value (the
+    // application's own vocabulary). Not drawn: the unit_state /
+    // unit_state_charm / unit_state_relation triples (the charm's
+    // claimed state), unit_resolved, presence, workload versions,
+    // the password hash.
+    // -----------------------------------------------------------------------
+    un_unit     [type: record, label: "unit", ground: "model:unit"] {
+      fields {
+        uuid          [label: "uuid", type: "uuid", pk: true]
+        name          [label: "name (application/N)", type: "text"]
+        life_id       [label: "life (alive | dying | dead)", type: "int"]
+        application_uuid [label: "application_uuid", type: "uuid", fk: true]
+        net_node_uuid [label: "net_node_uuid", type: "uuid", fk: true]
+        charm_uuid    [label: "charm_uuid (the pinned revision)", type: "uuid"]
+        password_hash [label: "password_hash", type: "text", null: true]
+      }
+    }
+    un_principal [type: record, label: "unit_principal", ground: "model:unit_principal"] {
+      fields {
+        unit_uuid      [label: "unit_uuid (the subordinate)", type: "uuid", pk: true, fk: true]
+        principal_uuid [label: "principal_uuid", type: "uuid", fk: true]
+      }
+    }
+    un_agent_status [type: record, label: "unit_agent_status", ground: "model:unit_agent_status"] {
+      fields {
+        unit_uuid  [label: "unit_uuid", type: "uuid", pk: true, fk: true]
+        status     [label: "status", type: "text"]
+        message    [label: "message", type: "text", null: true]
+        updated_at [label: "updated_at", type: "time", null: true]
+      }
+    }
+    un_workload_status [type: record, label: "unit_workload_status", ground: "model:unit_workload_status"] {
+      fields {
+        unit_uuid  [label: "unit_uuid", type: "uuid", pk: true, fk: true]
+        status     [label: "status", type: "text"]
+        message    [label: "message", type: "text", null: true]
+        updated_at [label: "updated_at", type: "time", null: true]
+      }
+    }
   }
 
   edges {
@@ -1078,6 +1183,24 @@ model "Juju" {
     ma_parent.parent_uuid          -> ma_machine.uuid             [type: data, label: "host (one)"]
     ma_status.machine_uuid         -> ma_machine.uuid             [type: data, label: "reports (one)"]
     ma_instance_status.machine_uuid -> ma_instance.machine_uuid [type: data, label: "reports (one)"]
+
+    // Application attributes (ADR-011 §3): the stored pointers, one
+    // data edge per fk column.
+    app_rec.charm_uuid             -> app_charm.uuid              [type: data, label: "uses (one)"]
+    app_status_rec.application_uuid    -> app_rec.uuid                [type: data, label: "reports (one)"]
+    app_config.application_uuid    -> app_rec.uuid                [type: data, label: "configures (0..N keys)"]
+    app_channel.application_uuid   -> app_rec.uuid                [type: data, label: "pins origin (one)"]
+    app_endpoint.application_uuid  -> app_rec.uuid                [type: data, label: "exposes endpoint (0..N)"]
+
+    // Unit attributes (ADR-011 §3): the stored pointers, one data edge
+    // per fk column. Both unit_principal columns point at the unit
+    // table (the subordinate co-location pair).
+    un_unit.application_uuid       -> app_rec.uuid                [type: data, label: "belongs to (one)"]
+    un_unit.net_node_uuid          -> net_node_rec                [type: data, label: "networked as (one)"]
+    un_principal.unit_uuid         -> un_unit.uuid                [type: data, label: "subordinate (one)"]
+    un_principal.principal_uuid    -> un_unit.uuid                [type: data, label: "principal (one)"]
+    un_agent_status.unit_uuid      -> un_unit.uuid                [type: data, label: "agent reports (one)"]
+    un_workload_status.unit_uuid   -> un_unit.uuid                [type: data, label: "workload reports (one)"]
   }
 
   behaviours {
@@ -2276,6 +2399,68 @@ diagram "Machine attributes" from "Juju" {
     ma_instance        align-centre ma_machine
     ma_instance_status below ma_instance gap: 100
     ma_instance_status align-centre ma_instance
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association (stored pointer; multiplicity in label)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: application attributes (docs/reference/application.md,
+// ADR-011 §3) — the application's stored records and every foreign key
+// between them: the application row at the centre; the charm it
+// references west; the status record east; config, origin channel and
+// the charm's endpoints south.
+// --------------------------------------------------------------------------
+diagram "Application attributes" from "Juju" {
+  select {
+    nodes: app_rec app_charm app_status_rec app_config app_channel app_endpoint
+    edges: type data
+  }
+  positions {
+    app_charm    left-of app_rec gap: 110
+    app_charm    align-middle app_rec
+    app_channel  below app_charm gap: 60
+    app_channel  align-centre app_charm
+    app_status_rec right-of app_rec gap: 90
+    app_status_rec align-middle app_rec
+    app_endpoint below app_status_rec gap: 60
+    app_endpoint align-centre app_status_rec
+    app_config   below app_rec gap: 100
+    app_config   align-centre app_rec
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association (stored pointer; multiplicity in label)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: unit attributes (docs/reference/unit.md, ADR-011 §3) —
+// the unit's stored records: the unit row at the centre; the
+// application it belongs to west; the shared net node under it (the
+// unit and its machine share that network identity); the subordinate
+// co-location pair south; the two status records east.
+// --------------------------------------------------------------------------
+diagram "Unit attributes" from "Juju" {
+  select {
+    nodes: un_unit app_rec net_node_rec un_principal un_agent_status un_workload_status
+    edges: type data
+  }
+  positions {
+    app_rec            left-of un_unit gap: 110
+    app_rec            align-middle un_unit
+    net_node_rec       below app_rec gap: 60
+    net_node_rec       align-centre app_rec
+    un_agent_status    right-of un_unit gap: 90
+    un_agent_status    align-middle un_unit
+    un_workload_status below un_agent_status gap: 100
+    un_workload_status align-centre un_agent_status
+    un_principal       below un_unit gap: 100
+    un_principal       align-centre un_unit
   }
   annotations {
     legend [position: "bottom-right",

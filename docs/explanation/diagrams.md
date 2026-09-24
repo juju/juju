@@ -177,6 +177,17 @@ crops).
 :alt: The data model records (charm, application, unit, machine/pod, relation, endpoint). Then: user invokes juju deploy; controller writes records and provisions a machine; jujud runs the install hooks and reports active. The resulting topology: controller machine and unit machine, one jujud per machine. Verification: juju status reads those records plus live agent liveness.
 ```
 
+#### Application attributes (ERD slice)
+
+**Insert at:** § The application in the data model.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Application attributes
+:alt: The application's stored tables as an entity-relationship slice: the application record at the centre; the charm it references west with its origin channel below; the status record east with the endpoint record below it; the configuration keys south. Every arrow starts at the foreign-key column that stores the pointer.
+:caption: Entity relationship diagram: The application's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The application references the charm it deploys by UUID; its origin (track/risk/branch, with the base) and the endpoints it inherits from the charm are separate records; the status record and the config keys hang off the application itself.
+```
+
 ### reference/charm.md
 
 #### Charm origins
@@ -660,6 +671,17 @@ precedent).
 ```
 
 ### reference/unit.md
+
+#### Unit attributes (ERD slice)
+
+**Insert at:** § The unit in the data model.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Unit attributes
+:alt: The unit's stored tables as an entity-relationship slice: the unit record at the centre; the application it belongs to west with the shared net node below it; the agent and workload status records east; the subordinate co-location pair south. Every arrow starts at the foreign-key column that stores the pointer.
+:caption: Entity relationship diagram: The unit's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The unit belongs to its application and shares its machine's net node (that shared identity is what "runs on" means in the data model); the subordinate pair is a record of two unit pointers; the two status records -- the agent's and the workload's -- hang off the unit.
+```
 
 #### Unit removal
 

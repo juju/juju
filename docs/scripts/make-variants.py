@@ -44,6 +44,14 @@ SYNTH_SKIP: set[str] = {
     # declared view — the product surface — audits 0 crossings,
     # max-ratio 1.03. Same parked item as above.
     "Machine attributes",
+    # "Application attributes" / "Unit attributes" (session 18,
+    # application.md/unit.md ADR-011 rollout): same failure class as
+    # Relation/Machine attributes — ER hub slices with satellite fans
+    # (charm/status/config/endpoint west-east-south; the unit's
+    # principal pair and shared net node). The declared views are the
+    # product surface.
+    "Application attributes",
+    "Unit attributes",
 }
 
 def strip_positions_blocks(text: str) -> str:
