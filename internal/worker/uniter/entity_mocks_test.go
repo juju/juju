@@ -147,19 +147,11 @@ func (ctx *testContext) makeUnit(c tc.LikeC, unitTag names.UnitTag, l life.Value
 		return nil
 	}).AnyTimes()
 
-	u.EXPECT().Resolved(gomock.Any()).DoAndReturn(func(context.Context) (params.ResolvedMode, error) {
-		u.mu.Lock()
-		defer u.mu.Unlock()
-		return u.resolved, nil
-	}).AnyTimes()
 	u.EXPECT().ClearResolved(gomock.Any()).DoAndReturn(func(context.Context) error {
 		u.mu.Lock()
 		u.resolved = params.ResolvedNone
 		u.mu.Unlock()
-		ctx.channelMu.Lock()
-		ch := ctx.unitResolveCh
-		ctx.channelMu.Unlock()
-		ctx.sendNotify(c, ch, "send clear resolved event")
+		ctx.sendUnitNotify(c, "send clear resolved event")
 		return nil
 	}).AnyTimes()
 
