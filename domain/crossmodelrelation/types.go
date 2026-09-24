@@ -217,6 +217,24 @@ type RemoteApplicationConsumerImport struct {
 	// application consumer.
 	RelationUUID string
 
+	// RelationID is the numeric ID of the relation created for this remote
+	// application consumer. It is imported from the source model, so that
+	// relation ids remain stable across the migration; unit agents rely on
+	// the numeric id to locate their relation state.
+	RelationID int
+
+	// RelationScope is the scope of the relation created for this remote
+	// application consumer.
+	RelationScope charm.RelationScope
+
+	// RelationSuspended indicates if the relation created for this remote
+	// application consumer is suspended.
+	RelationSuspended bool
+
+	// RelationSuspendedReason is the reason the relation created for this
+	// remote application consumer was suspended, if any.
+	RelationSuspendedReason string
+
 	// ConsumerModelUUID is the UUID of the model consuming the application.
 	ConsumerModelUUID string
 
