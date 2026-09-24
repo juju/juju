@@ -1364,74 +1364,6 @@ func (s *importSuite) TestImportRemoteApplicationConsumersNormalizesRelationKey(
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestExtractRelationUUIDFromRemoteEntities(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	model := description.NewModel(description.ModelArgs{})
-
-	model.AddRemoteEntity(description.RemoteEntityArgs{
-		ID:    "relation-dummy-source.sink#remote-13ea27915e7840d888c5e9451444b45d.source",
-		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
-	})
-
-	entities, err := extractRelationUUIDFromRemoteEntities(model)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(entities, tc.DeepEquals, []relationRemoteEntity{{
-		RelationKey: relation.Key{{
-			ApplicationName: "dummy-source",
-			EndpointName:    "sink",
-			Role:            deploymentcharm.RoleRequirer,
-		}, {
-			ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d",
-			EndpointName:    "source",
-			Role:            deploymentcharm.RoleProvider,
-		}},
-		RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
-	}})
-}
-
-func (s *importSuite) TestExtractRelationUUIDFromRemoteEntitiesWithApplicationEntities(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	model := description.NewModel(description.ModelArgs{})
-
-	model.AddRemoteEntity(description.RemoteEntityArgs{
-		ID:    "relation-dummy-source.sink#remote-13ea27915e7840d888c5e9451444b45d.source",
-		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
-	})
-	model.AddRemoteEntity(description.RemoteEntityArgs{
-		ID:    "application-remote-13ea2791-5e78-40d8-88c5-e9451444b45d",
-		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
-	})
-
-	entities, err := extractRelationUUIDFromRemoteEntities(model)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(entities, tc.DeepEquals, []relationRemoteEntity{{
-		RelationKey: relation.Key{{
-			ApplicationName: "dummy-source",
-			EndpointName:    "sink",
-			Role:            deploymentcharm.RoleRequirer,
-		}, {
-			ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d",
-			EndpointName:    "source",
-			Role:            deploymentcharm.RoleProvider,
-		}},
-		RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
-	}})
-}
-
-func (s *importSuite) TestExtractRelationUUIDFromRemoteEntitiesNoEntities(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	model := description.NewModel(description.ModelArgs{})
-
-	entities, err := extractRelationUUIDFromRemoteEntities(model)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(entities, tc.HasLen, 0)
-}
-
 func (s *importSuite) TestFindRelationUUIDForKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1442,7 +1374,7 @@ func (s *importSuite) TestFindRelationUUIDForKey(c *tc.C) {
 		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
 	})
 
-	entities, err := extractRelationUUIDFromRemoteEntities(model)
+	entities, err := domainmodelmigration.ExtractRelationUUIDFromRemoteEntities(model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	uuid, err := findRelationUUIDForKey(entities, relation.Key{
@@ -1463,7 +1395,7 @@ func (s *importSuite) TestFindRelationUUIDForKeyIgnoresOrder(c *tc.C) {
 		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
 	})
 
-	entities, err := extractRelationUUIDFromRemoteEntities(model)
+	entities, err := domainmodelmigration.ExtractRelationUUIDFromRemoteEntities(model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	uuid, err := findRelationUUIDForKey(entities, relation.Key{
