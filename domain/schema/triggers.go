@@ -127,6 +127,16 @@ END;`[1:], namespace, tableName, field)
 
 func triggerMachineLifecycleWithDependants(namespace int) func() schema.Patch {
 	return func() schema.Patch {
+		// NOTE: the machine_parent delete trigger created below is broken:
+		// it fires after the child machine row is deleted, by which point
+		// the machine_parent row has already been removed by the machine
+		// removal job, so no change event is forwarded to the parent.
+		// It is corrected by the post-patch
+		// 0064-machine-parent-delete-trigger.PATCH.sql, which drops and
+		// recreates it on the machine_parent table. It cannot be fixed
+		// here: model schema patches are content-hashed and chained, so
+		// editing this statement would fail hash validation against
+		// every existing model database.
 		stmt := fmt.Sprintf(`
 INSERT INTO change_log_namespace VALUES (%[1]d, 'custom_machine_uuid_lifecycle_with_dependants', 'Changes to the lifecycle of machines, machine units and storage entities for the machine');
 
