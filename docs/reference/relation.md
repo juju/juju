@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju relation (integration) reference: application connections through endpoints. These include regular relations, peer relations, subordinate relations, and cross-model relations, and involve relation databags."
+    description: "Juju relation (integration) reference: application connections through endpoints. These include regular relations, peer relations, subordinate relations, and cross-model relations, and involve relation settings."
 ---
 
 (relation)=
@@ -13,9 +13,13 @@ See also: {ref}`manage-relations`
 
 In Juju, a **relation** (**integration**) is a connection an {ref}`application <application>` supports by virtue of having a particular {ref}`endpoint <application-endpoint>`.
 
-## Relation identification
+## The relation record
 
-A relation is identified by a **relation ID** (assigned automatically by Juju; expressed in monotonically increasing numbers) or a **relation key** (derived from the endpoints, format: `application1:[endpoint] application2:[endpoint]`).
+A relation is a record in the model database. It is identified by a
+**relation ID** (assigned automatically by Juju; expressed in
+monotonically increasing numbers) or a **relation key** (derived from
+the endpoints, format:
+`application1:[endpoint] application2:[endpoint]`).
 
 ## Types of relation
 
@@ -52,7 +56,7 @@ there are -- which is what clustering an application, and thus
 high availability, require.
 
 Because every relation results in the creation of unit and
-application databags in Juju's database, peer relations are also
+application settings in Juju's database, peer relations are also
 sometimes used by charm authors as a way to persist charm data.
 
 (subordinate-relation)=
@@ -83,7 +87,7 @@ The `juju-info` endpoint is the standard mechanism used by general-purpose machi
 
 The convention is for a subordinate to name its own `requires` endpoint `juju-info`, but any name can be used (for example: `info`, `general-info`); it just needs to use interface `juju-info`.
 
-You integrate against the implicit endpoint the same way as any other endpoint:
+The implicit endpoint is integrated against the same way as any other endpoint, for example:
 
 ```text
 juju integrate <subordinate> <principal>
@@ -127,7 +131,7 @@ Note that application names are obfuscated (anonymised) to the offerer side:
 - Applications that relate to the saas appear to the offerer as remote + token, e.g. `remote-76cd96ab50f146b284912afd1cc13a0e`.
 - For the consumer, the remote app names is the saas name, e.g. `prometheus`.
 
-## Relation attributes
+## The relation data model
 
 A relation's state is spread across ten stored tables in the model
 database. The `relation` record carries the relation ID, its life,
@@ -137,14 +141,26 @@ endpoints that realize it (two rows for a provider/requirer
 relation, one for a peer relation); `relation_unit` records the units
 that have entered scope, per endpoint.
 
-The databags live in four settings tables: unit-level settings in
-`relation_unit_setting` and application-level settings in
+The relation's payload lives in four settings tables: unit-level
+settings in `relation_unit_setting` and application-level settings in
 `relation_application_setting`, each with a companion `sha256` hash
 table that lets watchers detect a settings change without reading the
-values. When a unit leaves scope, its settings are copied to
-`relation_unit_setting_archive`, where they stay readable for the
-lifetime of the relation -- even after the unit itself is gone; a
-`relation-get` for a departed unit is served from the archive.
+values. Both are scoped to the relation, not to the application
+alone: the application-level table is keyed per relation endpoint, so
+an application that participates in several relations keeps an
+independent set of settings for each. When a unit leaves scope, its
+settings are copied to `relation_unit_setting_archive`, where they
+stay readable for the lifetime of the relation -- even after the unit
+itself is gone; a read of a departed unit's settings is served from
+the archive (`relation-get`, for example).
+
+These settings are often called *relation databags* in the charm
+community -- a name that stuck from the early charm-tooling days.
+Juju's own code never uses it: the tables, the service methods, the
+API facades and the hook context all say *settings* (`relation_unit_setting`,
+`Settings()`, `ApplicationSettings()`), so this document does too.
+The word is kept here as an alias so that readers arriving from charm
+documentation find the same concept.
 
 The relation's status is its own table pair: `relation_status` holds
 the current status, message and update time; `relation_status_type`
@@ -165,7 +181,55 @@ not appear in the diagram.
 :caption: Entity relationship diagram: The relation's ten stored tables and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The services read these tables through four derived views, which have no pointers of their own and are therefore not drawn.
 ```
 
-## Relation states and transitions
+(relation-settings)=
+### Relation settings
+
+Creating a relation creates its settings: one unit settings record
+per involved unit and one application settings record per involved
+application. The settings can be unit-scoped or application-scoped,
+and each unit involved in the relation gets a local copy of all the
+settings for that relation.
+
+#### Permissions around relation settings
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Relation settings permissions
+:no-legend:
+:caption: Topology: Each unit reads + writes only its own settings (red); the leader also writes the application settings; all units read the other application's settings (green). Peer case: permissions turn inward -- every unit reads all of its own application's settings, application settings included.
+:alt: App A's units (appA/leader, appA/1) and app B's units (appB/leader, appB/1) above one row of settings records; red arrows reading and writing the own records (own unit settings; the leader also the application settings), green arrows reading across to the other application's set; below, the peer panel: one application's units with red own/leader arrows and green reads of every record, the application settings included.
+```
+
+While the relation is maintained,
+
+- in an inter-application relation, whether regular or subordinate:
+    - each unit can read and write to its own unit settings;
+    - leader units can also read and write to the local application
+      settings;
+    - all units of an application can read all of the remote
+      application's settings.
+- in a peer relation:
+    - each unit can read and write to its own unit settings;
+    - leader units can also read and write to the application
+      settings;
+    - all units can read all of the application's settings. That is,
+      whether leader or not, every unit can read its own unit
+      settings as well as every other unit's unit settings as well as
+      the application settings.
+
+Note that, in peer relations, all permissions related to the remote
+application are turned inwards and become permissions related to the
+local application.
+
+The application settings are gated on leadership: only the leader
+unit may read or write them, and a non-leader that tries gets a
+permission error. Writes happen through the unit agent's hook
+machinery (`relation-set --app` commits application settings, for
+example), and the commit that carries application settings is wrapped
+in a leadership lease -- the unit committing them must hold
+leadership.
+
+## Relation states
 
 A relation carries two orthogonal state machines: its **life** -- the
 shared alive / dying / dead cycle every entity has -- and its
@@ -206,7 +270,7 @@ transition to `broken`; `joining` cannot follow `joined` or `broken`;
 `suspended` cannot follow `broken`; and `error` cannot be set without
 a message.
 
-## Working with relations
+## Relation operations
 
 ### Relation creation
 
@@ -219,45 +283,20 @@ a message.
 ```
 
 
-A relation is created by `juju integrate`. Creating the relation
-writes a relation record and wakes both sides: each unit's watcher
-fires, and the units run their relation hooks in lockstep --
-`relation-created`, then `relation-joined` and `relation-changed` --
-exchanging data through the databags as they go.
-
-### Relation databag
-
-When you create a relation between two applications, this results in the creation of relation databags. Databags are per relation and per application, and can be application-scoped or unit-scoped. Each unit involved in a relation gets a local copy of all the databags for that relation.
-
-#### Permissions around relation databags
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Databag permissions
-:no-legend:
-:caption: Topology: Each unit reads + writes only its own bag (red); the leader also writes the application bag; all units read the other application's bags (green). Peer case: permissions turn inward -- every unit reads every bag of its own application, application bag included.
-:alt: App A's units (appA/leader, appA/1) and app B's units (appB/leader, appB/1) above one row of databags; red arrows reading and writing the own bags (own unit bag; the leader also the application databag), green arrows reading across to the other application's set; below, the peer panel: one application's units with red own/leader arrows and green reads of every bag, the application databag included.
-```
-
-While the relation is maintained,
-
-- in a non-peer relation, whether regular or subordinate:
-    - each unit can read and write to its own databag;
-    - leader units can also read and write to the local application databag;
-    - all units of an application can read all of the remote application's databags.
-- in a peer relation:
-    - each unit can read and write to its own databag;
-    - leader units can also read and write to the application databag;
-    - all units can read all of the application's databags. That is, whether leader or not, every unit can read its own unit databag as well as every other unit's unit databag as well as the application databag.
-
-Note that, in peer relations, all permissions related to the remote application are turned inwards and become permissions related to the local application.
+A relation is created by the integrate operation -- for example,
+`juju integrate A B`. Creating the relation writes a relation record
+and wakes both sides: each unit's watcher fires, and the units run
+their relation hooks in lockstep -- `relation-created`, then
+`relation-joined` and `relation-changed` -- exchanging settings as
+they go.
 
 (relation-removal)=
 ### Relation removal
 
-A relation is removed with `juju remove-relation`. Removal follows the
-same cooperative pattern as every entity removal: the relation is
-marked dying, the units in scope leave as their agents notice, and the
+Removal is initiated through the remove-relation operation (for
+example, `juju remove-relation 0`). Removal follows the same
+cooperative pattern as every entity removal: the relation is marked
+dying, the units in scope leave as their agents notice, and the
 removal machinery schedules a removal job that finishes once nothing
 is left in scope. A forced removal (`--force`) skips the wait: the
 relation and its units' scope entries are torn down without waiting
@@ -271,14 +310,15 @@ half of the relation.
 ### Suspending and resuming
 
 Suspending pauses the data flow across a relation to an application
-offer (`juju suspend-relation`; `juju resume-relation` restores it).
-The relation records the suspended state and its reason, and the
-controller's firewaller closes the provider side's ingress for the
-suspended relation. On a cross-model relation the suspension is
-propagated to the remote model as well, so both halves agree on the
-suspended state.
+offer; the resume operation restores it (the `juju suspend-relation`
+and `juju resume-relation` commands, for example). The relation
+records the suspended state and its reason, and the controller's
+firewaller closes the provider side's ingress for the suspended
+relation. On a cross-model relation the suspension is propagated to
+the remote model as well, so both halves agree on the suspended
+state.
 
-## Watching relations
+## Relation watchers
 
 Nothing about a relation is polled: agents and clients watch it. The
 relation domain's watchable service exposes five watch surfaces:
@@ -295,7 +335,7 @@ relation domain's watchable service exposes five watch surfaces:
   the other units in the relation. This watcher watches three
   change-log namespaces at once: the relation's unit rows, the
   unit-side settings and the application-side settings, which is what
-  turns a databag write on one side into a `relation-changed` on the
+  turns a settings write on one side into a `relation-changed` on the
   other.
 - **The units in a given relation** -- notifies of changes to the
   units in the relation in the local model.
@@ -307,10 +347,12 @@ state and reconciles. When a relation is removed, key-based consumers
 receive one final change carrying the relation key, so they can clean
 up the state they hold under that key.
 
-## Rules and errors
+## Relation rules and errors
 
 The relation domain encodes its rules as a typed error taxonomy; each
-error names the rule it enforces.
+error names the rule it enforces. The rules matter to charm
+developers -- they are the errors a relation hook can meet -- and to
+Juju developers, who maintain them as the domain's validation law.
 
 The rules a **new relation** must satisfy:
 
@@ -337,7 +379,7 @@ The errors that encode them:
   existence errors (`relation not found`, `relation unit not found`,
   `unit not in relation`, `application endpoint not found`).
 
-## Related domains
+## Related entities
 
 - **Status** owns the relation status vocabulary and validates every
   transition (see {ref}`Relation status <relation-status>`).

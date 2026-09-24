@@ -126,34 +126,37 @@ model "Juju" {
                     ground: "model:subnet"]
 
     // -----------------------------------------------------------------------
-    // Relation databags (model DB — 0011/0023 relation tables)
+    // Relation settings (model DB — 0011/0023 relation tables;
+    // relation_unit_setting / relation_application_setting)
     // -----------------------------------------------------------------------
-    // Databag permissions (docs/reference/relation.md) — LEAN form
-    // (reviewer round 20): units, not unit agents (leadership is a
-    // property of the unit; the unit agent is the machinery doing the
-    // API work); no model-database box — the scope chips ("model M")
-    // carry the "records in the host model's database" context, and
-    // the caption says it. Same-kind fan semantics: one application
-    // databag per application, one unit databag per unit; each unit
-    // reads + writes ONLY its own unit bag (red); the leader unit
-    // also reads + writes its application's bag (red); green reads
-    // everywhere else. The permission story is the same whether the
-    // applications share a model or not.
+    // Relation settings permissions (docs/reference/relation.md; was
+    // "Databag permissions" — renamed with the round-26 settings
+    // naming decision, the codebase's own word). LEAN form (reviewer
+    // round 20): units, not unit agents (leadership is a property of
+    // the unit; the unit agent is the machinery doing the API work);
+    // no model-database box — the scope chips ("model M") carry the
+    // "records in the host model's database" context, and the caption
+    // says it. Same-kind fan semantics: one application settings
+    // record per application, one unit settings record per unit; each
+    // unit reads + writes ONLY its own unit settings (red); the
+    // leader unit also reads + writes its application's settings
+    // (red); green reads everywhere else. The permission story is the
+    // same whether the applications share a model or not.
     a_unit_leader [type: charm, label: "appA/leader"]
     a_unit_1      [type: charm, label: "appA/1"]
     b_unit_leader [type: charm, label: "appB/leader"]
     b_unit_1      [type: charm, label: "appB/1"]
-    a_app_bag     [type: record, label: "application databag\n(app A)"]
-    a_bag_a0      [type: record, label: "unit databag\n(appA/leader)"]
-    a_bag_a1      [type: record, label: "unit databag\n(appA/1)"]
-    b_app_bag     [type: record, label: "application databag\n(app B)"]
-    b_bag_b0      [type: record, label: "unit databag\n(appB/leader)"]
-    b_bag_b1      [type: record, label: "unit databag\n(appB/1)"]
+    a_app_bag     [type: record, label: "application settings\n(app A)"]
+    a_bag_a0      [type: record, label: "unit settings\n(appA/leader)"]
+    a_bag_a1      [type: record, label: "unit settings\n(appA/1)"]
+    b_app_bag     [type: record, label: "application settings\n(app B)"]
+    b_bag_b0      [type: record, label: "unit settings\n(appB/leader)"]
+    b_bag_b1      [type: record, label: "unit settings\n(appB/1)"]
     c_unit_leader [type: charm, label: "appA/leader"]
     c_unit_1      [type: charm, label: "appA/1"]
-    c_app_bag     [type: record, label: "application databag\n(app A)"]
-    c_bag_a0      [type: record, label: "unit databag\n(appA/leader)"]
-    c_bag_a1      [type: record, label: "unit databag\n(appA/1)"]
+    c_app_bag     [type: record, label: "application settings\n(app A)"]
+    c_bag_a0      [type: record, label: "unit settings\n(appA/leader)"]
+    c_bag_a1      [type: record, label: "unit settings\n(appA/1)"]
     // -----------------------------------------------------------------------
     // Charm origin records (model DB — 0015-charm.sql: charm is
     // per-revision; channels are per-application; unit pins its own
@@ -301,7 +304,7 @@ model "Juju" {
                      ground: "model:machine"]
     charm_rec       [type: record, label: "charm\n(source, revision, archive)",
                      ground: "model:charm"]
-    relation_rec    [type: record, label: "relation\n(endpoints, data bags)",
+    relation_rec    [type: record, label: "relation\n(endpoints, settings)",
                      ground: "model:relation"]
 
     // Controller database records — provenance spine (controller DB).
@@ -709,20 +712,21 @@ model "Juju" {
     //    through-pair (controller<->ma0) — the strokes converge at
     //    the far ends and re-bow; label_side machinery is in
     //    (ggarch c289732), far-end pairing is the remaining step.
-    // Relation databags (domain/relation) — the permission law is
+    // Relation settings (domain/relation) — the permission law is
     // reference/relation.md: each unit reads + writes its OWN unit
-    // bag; the LEADER unit also reads + writes its application's
-    // application bag (writes leader-gated); ALL units — leaders
-    // included — read ALL of the REMOTE application's databags
+    // settings; the LEADER unit also reads + writes its application's
+    // application settings (leader-gated); ALL units — leaders
+    // included — read ALL of the REMOTE application's settings
     // (GetRelationUnitSettings / GetRelationApplicationSettings). A
-    // unit does NOT read its own application's other unit bags (in
-    // the regular case nothing turns inwards). Peer case: everything
-    // turns inwards — every unit reads every bag of its OWN
-    // application, the application databag included (the uniter's
+    // unit does NOT read its own application's other unit settings
+    // (in the regular case nothing turns inwards). Peer case:
+    // everything turns inwards — every unit reads every settings
+    // record of its OWN application, the application settings
+    // included (the uniter's
     // watcher watches the own endpoint's app settings and all peers,
     // related_unit_watcher.go:InitialWatchRelatedUnits).
-    // Panel A (app A units): own bags rw; leader rw own app bag;
-    // ALL units read ALL remote (app B) bags.
+    // Panel A (app A units): own settings rw; leader rw own app settings;
+    // ALL units read ALL remote (app B) settings.
     a_unit_leader -> a_bag_a0    [type: read_write, label: "reads + writes",
                           ground: "model:relation_unit_setting"]
     a_unit_1      -> a_bag_a1    [type: read_write, label: "reads + writes",
@@ -761,7 +765,8 @@ model "Juju" {
     b_unit_leader -> a_bag_a1    [type: read_only, label: "reads",
                           ground: "model:relation_unit_setting"]
     // Panel C (peer relation): everything turns inwards — every unit
-    // reads every bag of its own application, application bag included.
+    // reads every settings record of its own application, application
+    // settings included.
     c_unit_leader -> c_bag_a0    [type: read_write, label: "reads + writes",
                           ground: "model:relation_unit_setting"]
     c_unit_1      -> c_bag_a1    [type: read_write, label: "reads + writes",
@@ -1175,7 +1180,7 @@ behaviour "Secret lifecycle" {
 
   style {
     extends: juju
-    // Databag permission semantics (reviewer round 16, the
+    // Relation settings permission semantics (reviewer round 16, the
     // excalidraw's red/green): read&write vs read-only.
     edge read_write { stroke: "#C0392B" }
     edge read_only  { stroke: "#1E8449" }
@@ -2049,10 +2054,11 @@ diagram "Storage model" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
-// Reference: relation databags (docs/reference/relation.md) — who reads
-// and writes the unit vs application databags (domain/relation).
+// Reference: relation settings permissions (docs/reference/relation.md)
+// — who reads and writes the unit vs application settings
+// (domain/relation).
 // --------------------------------------------------------------------------
-diagram "Databag permissions" from "Juju" {
+diagram "Relation settings permissions" from "Juju" {
   select {
     nodes: a_unit_leader a_unit_1 b_unit_leader b_unit_1 a_app_bag a_bag_a0 a_bag_a1 b_app_bag b_bag_b0 b_bag_b1 c_unit_leader c_unit_1 c_app_bag c_bag_a0 c_bag_a1
     edges: type data type read_write type read_only
@@ -2717,7 +2723,7 @@ diagram "Storage model (synthesized)" from "Juju" {
 // --------------------------------------------------------------------------
 
 
-diagram "Databag permissions (synthesized)" from "Juju" {
+diagram "Relation settings permissions (synthesized)" from "Juju" {
   select {
     nodes: a_unit_leader a_unit_1 b_unit_leader b_unit_1 a_app_bag a_bag_a0 a_bag_a1 b_app_bag b_bag_b0 b_bag_b1 c_unit_leader c_unit_1 c_app_bag c_bag_a0 c_bag_a1
     edges: type data type read_write type read_only

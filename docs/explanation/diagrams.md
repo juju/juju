@@ -476,7 +476,7 @@ precedent).
 
 #### Relation attributes (ERD slice)
 
-**Insert at:** § Relation attributes.
+**Insert at:** § The relation data model.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -487,7 +487,7 @@ precedent).
 
 #### Integrate
 
-**Insert at:** § Working with relations → § Relation creation. also: explanation/architecture.md § Integrate.
+**Insert at:** § Relation operations → § Relation creation. also: explanation/architecture.md § Integrate.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -497,16 +497,16 @@ precedent).
 :alt: User calls juju integrate. Client sends Integrate RPC to Controller. Controller writes relation record and fires watchers to both unit agents. Each agent runs relation-created, relation-joined, and relation-changed hooks and writes its relation data to the controller. The controller notifies the other agent after each write.
 ```
 
-#### Databag permissions
+#### Relation settings permissions
 
-**Insert at:** § Working with relations → § Relation databag → § Permissions around relation databags.
+**Insert at:** § The relation data model → § Relation settings → § Permissions around relation settings.
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Databag permissions
+:view: Relation settings permissions
 :no-legend:
-:caption: Topology: Each unit reads + writes only its own bag (red); the leader also writes the application bag; all units read the other application's bags (green). Peer case: permissions turn inward -- every unit reads every bag of its own application, application bag included.
-:alt: App A's units (appA/leader, appA/1) and app B's units (appB/leader, appB/1) above one row of databags; red arrows reading and writing within each set (own bags; the leader also the application databag), green arrows reading across to the other application's set; below, the peer panel with one set and inward green reads of every bag, the application databag included.
+:caption: Topology: Each unit reads + writes only its own settings (red); the leader also writes the application settings; all units read the other application's settings (green). Peer case: permissions turn inward -- every unit reads all of its own application's settings, application settings included.
+:alt: App A's units (appA/leader, appA/1) and app B's units (appB/leader, appB/1) above one row of settings records; red arrows reading and writing within each set (own unit settings; the leader also the application settings), green arrows reading across to the other application's set; below, the peer panel with one set and inward green reads of every record, the application settings included.
 ```
 
 ### reference/script.md
@@ -856,6 +856,7 @@ Pages still on hand-drawn visuals: `reference/hook.md` (the
 hook-charm-lifecycle PNG — the Uniter operation machine covers its
 execution story). The relation taxonomy excalidraw is retired (the
 "Types of relation" trie above is its replacement; the databags
-excalidraw was superseded by the Databag permissions view). The
+excalidraw was superseded by the Relation settings permissions view
+(renamed with the settings naming decision, round 26). The
 remaining reference pages without a view are
 the coverage-round-2 opportunity map.
