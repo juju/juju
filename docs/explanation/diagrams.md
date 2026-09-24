@@ -107,6 +107,32 @@ concept pages — one mechanism, data model, or process per page.
 :no-legend:
 :caption: Taxonomy tree: The four agent types and their channels: every agent makes API calls to the controller; the machine agent hosts unit agents on machine clouds; containeragent is the unit-agent role as a single Kubernetes binary.
 :alt: Controller, machine agent, unit agent, and containeragent in a row; arrows: machine agent hosts unit agent; each agent makes API calls to the controller.
+
+#### Worker tree (controller)
+
+**Insert at:** § Controller agent.
+
+`````{grid} 2
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: Worker tree (controller) (synthesized)
+:no-legend:
+:caption: Topology: Auto-layout — no positions declared. The typed hub planes restructure the dependency engine: spoke feeders fan east of their hub with RL arrows.
+:alt: Five columns of worker boxes. Far left: provider tracker above provider services. Left: compute provisioner above model worker manager, both inside a dashed box labelled model workers (one set per model), undertaker below. Centre spine, top to bottom: agent, DB accessor, change stream, domain services, API server, HTTP server. Right: object store, lease manager below with primary election and lease expiry stacked above. Control arrows connect consumers to providers; the change stream watches the DB accessor.
+```
+````
+````{grid-item}
+```{ggarch}
+:file: ../juju.ggarch
+:view: Worker tree (controller)
+:no-legend:
+:caption: Topology: Declared arrangement — the controller's dependency engine, grounded in cmd/jujud-controller/agent/{machine,model}/manifolds.go. Every node carries a ground pointer to its manifold source. Compare with the synthesized variant.
+:alt: Five columns of worker boxes. Far left: provider tracker above provider services. Left: compute provisioner above model worker manager, both inside a dashed box labelled model workers (one set per model), undertaker below. Centre spine, top to bottom: agent, DB accessor, change stream, domain services, API server, HTTP server. Right: object store, lease manager below with primary election and lease expiry stacked above. Control arrows connect consumers to providers; the change stream watches the DB accessor.
+```
+````
+`````
+
 ```
 
 ### reference/bundle.md
@@ -181,34 +207,9 @@ crops).
 
 ### reference/controller.md
 
-#### Worker tree (controller)
-
-**Insert at:** page top.
-
-`````{grid} 2
-````{grid-item}
-```{ggarch}
-:file: ../juju.ggarch
-:view: Worker tree (controller) (synthesized)
-:no-legend:
-:caption: Topology: Auto-layout — no positions declared. The typed hub planes restructure the dependency engine: spoke feeders fan east of their hub with RL arrows.
-:alt: Five columns of worker boxes. Far left: provider tracker above provider services. Left: compute provisioner above model worker manager, both inside a dashed box labelled model workers (one set per model), undertaker below. Centre spine, top to bottom: agent, DB accessor, change stream, domain services, API server, HTTP server. Right: object store, lease manager below with primary election and lease expiry stacked above. Control arrows connect consumers to providers; the change stream watches the DB accessor.
-```
-````
-````{grid-item}
-```{ggarch}
-:file: ../juju.ggarch
-:view: Worker tree (controller)
-:no-legend:
-:caption: Topology: Declared arrangement — the controller's dependency engine, grounded in cmd/jujud-controller/agent/{machine,model}/manifolds.go. Every node carries a ground pointer to its manifold source. Compare with the synthesized variant.
-:alt: Five columns of worker boxes. Far left: provider tracker above provider services. Left: compute provisioner above model worker manager, both inside a dashed box labelled model workers (one set per model), undertaker below. Centre spine, top to bottom: agent, DB accessor, change stream, domain services, API server, HTTP server. Right: object store, lease manager below with primary election and lease expiry stacked above. Control arrows connect consumers to providers; the change stream watches the DB accessor.
-```
-````
-`````
-
 #### Bootstrap K8s
 
-**Insert at:** § Controller bootstrap (staged).
+**Insert at:** § Controller bootstrap.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -220,7 +221,7 @@ crops).
 
 #### Deploy K8s
 
-**Insert at:** § Controller deploy (staged).
+**Insert at:** § Controller deploy.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -470,8 +471,8 @@ precedent).
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Types of relation
-:alt: The relation kinds as a tree: Relation at the top splits into Peer relation and Inter-application relation; Inter-application relation splits into Subordinate relation and Principal-to-principal relation; Principal-to-principal relation splits into Regular relation and Cross-model relation. Each edge is labelled with the discriminator that separates the two branches, and ends in a hollow triangle on the parent kind.
-:caption: Taxonomy tree: A relation is either a peer relation (the application relates to itself) or an inter-application relation (two distinct applications); an inter-application relation is subordinate when one side is subordinate and principal-to-principal when both sides are principal; a principal-to-principal relation is regular when the applications share a model and cross-model when they live in different models.
+:alt: The relation kinds as a star: Relation at the top, the four kinds in a row below, each connected to Relation by a straight is-a edge ending in a hollow triangle. The edges are labelled with the discriminating fact: the application relates to itself (Peer relation); one side subordinate (Subordinate relation); both principal, same model (Regular relation); different models (Cross-model relation).
+:caption: Taxonomy star: A relation is a peer relation when the application relates to itself; otherwise it connects two applications, and it is a subordinate relation when one side is subordinate (always same-model), a cross-model relation when the applications live in different models, and a regular relation when two principal applications share a model.
 ```
 
 #### Relation attributes (ERD slice)

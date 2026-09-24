@@ -190,7 +190,7 @@ model "Juju" {
     // -----------------------------------------------------------------------
     ctrl_config_rec   [type: record, label: "controller config\n(controller DB, key/value)"]
     model_config_rec  [type: record, label: "model config\n(model DB, key/value)"]
-    app_config_rec    [type: charm, label: "application config\n(model DB, per-app rows)"]
+    app_config_rec    [type: record, label: "application config\n(model DB, per-app rows)"]
 
     // -----------------------------------------------------------------------
     // Hook execution participants
@@ -389,17 +389,20 @@ model "Juju" {
     // § Types of relation; ADR-011 §2). Definition nodes: the kinds are
     // the page's own discriminated subkinds, not code facts — no grounds
     // (the definitions live on the page; the discriminators are the edge
-    // labels). POSITIVE names only (reviewer verdicts round 26 part 2):
-    // the "non-x" ladder is retired; every interior node names what its
-    // members ARE and every leaf is a self-standing page section.
+    // labels). POSITIVE names only (reviewer verdicts round 26 part 2);
+    // FLAT STAR (verdicts round 27): the interior groupings of the first
+    // round ("inter-application", "principal-to-principal") are terms
+    // nobody uses — the code's only kind dispatch is peer (one endpoint)
+    // vs everything else (migration.go) — so the four self-standing
+    // section kinds hang straight off the root, each edge label carrying
+    // the discriminating fact. Straight diagonal connectors (no
+    // `routing: orthogonal`): the is-a edge is a direct line, tree-shaped.
     // -----------------------------------------------------------------------
-    rel_kind          [type: default, label: "Relation"]
-    rel_kind_peer     [type: default, label: "Peer relation"]
-    rel_kind_interapp [type: default, label: "Inter-application relation"]
-    rel_kind_sub      [type: default, label: "Subordinate relation"]
-    rel_kind_p2p      [type: default, label: "Principal-to-principal relation"]
-    rel_kind_cmr      [type: default, label: "Cross-model relation"]
-    rel_kind_reg      [type: default, label: "Regular relation"]
+    rel_kind     [type: default, label: "Relation"]
+    rel_kind_peer[type: default, label: "Peer relation"]
+    rel_kind_sub [type: default, label: "Subordinate relation"]
+    rel_kind_reg [type: default, label: "Regular relation"]
+    rel_kind_cmr [type: default, label: "Cross-model relation"]
 
     // -----------------------------------------------------------------------
     // Relation attributes — the persistence portrait (ADR-011 §3), sliced
@@ -891,12 +894,10 @@ model "Juju" {
     // the PARENT; the label is the discriminator that makes the child
     // a child. Arrow reads child -> parent ("is a").
     // -----------------------------------------------------------------------
-    rel_kind_peer     -> rel_kind          [type: generalization, label: "same application"]
-    rel_kind_interapp -> rel_kind          [type: generalization, label: "distinct applications"]
-    rel_kind_sub      -> rel_kind_interapp [type: generalization, label: "one side subordinate"]
-    rel_kind_p2p      -> rel_kind_interapp [type: generalization, label: "both sides principal"]
-    rel_kind_cmr      -> rel_kind_p2p      [type: generalization, label: "different models"]
-    rel_kind_reg      -> rel_kind_p2p      [type: generalization, label: "same model"]
+    rel_kind_peer -> rel_kind [type: generalization, label: "the application relates to itself"]
+    rel_kind_sub  -> rel_kind [type: generalization, label: "one side subordinate"]
+    rel_kind_reg  -> rel_kind [type: generalization, label: "both principal, same model"]
+    rel_kind_cmr  -> rel_kind [type: generalization, label: "different models"]
 
     // -----------------------------------------------------------------------
     // Relation attributes (ADR-011 §3): the stored pointers. Every fk:
@@ -2108,47 +2109,26 @@ diagram "Relation settings permissions" from "Juju" {
 // --------------------------------------------------------------------------
 // Reference: relation kind taxonomy (docs/reference/relation.md, § Types
 // of relation; ADR-011 §2) — the is-a trie, POSITIVE discriminators
-// (reviewer verdicts round 26 part 2; the "non-x" ladder retired).
-// Root-apex tree per the SKILL.md "Tree silhouette" recipe: root at the
-// apex, ranks top-down, parents centred over their children (equal-gap
-// brackets); the hollow triangle lands on the parent; the edge label is
-// the discriminator. Declared positions (the trie's shape IS the
-// argument); retires the hand-drawn excalidraw.
+// (reviewer verdicts round 26 part 2) and a FLAT STAR (round 27): the
+// four self-standing kinds hang straight off the root, straight diagonal
+// connectors (no `routing: orthogonal`), root centred over the leaf row
+// by the equal-gap bracket. The hollow triangle lands on the parent; the
+// edge label is the discriminator. Declared positions (the trie's shape
+// IS the argument); retires the hand-drawn excalidraw.
 // --------------------------------------------------------------------------
 diagram "Types of relation" from "Juju" {
   select {
-    routing: orthogonal
-    nodes: rel_kind rel_kind_peer rel_kind_interapp
-           rel_kind_sub rel_kind_p2p
-           rel_kind_cmr rel_kind_reg
+    nodes: rel_kind rel_kind_peer rel_kind_sub
+           rel_kind_reg rel_kind_cmr
     edges: type generalization
     sizing: uniform
   }
   positions {
-    // Root-apex tree (SKILL.md "Tree silhouette"): root at the apex,
-    // ranks top-down, every parent CENTRED over its children via the
-    // equal-gap bracket (uniform sizing makes the centre exact). The
-    // right-spine ladder this replaces read right-to-left with no apex.
-    // Rank 0 -> 1: the root brackets its pair.
-    rel_kind_peer     below rel_kind gap: 60
-    rel_kind_interapp below rel_kind gap: 60
-    rel_kind_peer     left-of rel_kind_interapp gap: 100
-    rel_kind_peer     left-of rel_kind gap: 100
-    rel_kind          left-of rel_kind_interapp gap: 100
-    // Rank 1 -> 2: the inter-application node brackets its pair.
-    rel_kind_sub      below rel_kind_interapp gap: 60
-    rel_kind_p2p      below rel_kind_interapp gap: 60
-    rel_kind_sub      left-of rel_kind_p2p gap: 100
-    rel_kind_sub      left-of rel_kind_interapp gap: 100
-    rel_kind_interapp left-of rel_kind_p2p gap: 100
-    // Rank 2 -> 3: the principal-to-principal node brackets its pair
-    // (Regular on the left so the leaves read in the page's section
-    // order: peer, subordinate, regular, cross-model).
-    rel_kind_reg      below rel_kind_p2p gap: 60
-    rel_kind_cmr      below rel_kind_p2p gap: 60
-    rel_kind_reg      left-of rel_kind_cmr gap: 100
-    rel_kind_reg      left-of rel_kind_p2p gap: 100
-    rel_kind_p2p      left-of rel_kind_cmr gap: 100
+    // Root-apex star (verdicts round 27): the four kinds hang straight
+    // off the root — NO `routing: orthogonal`, every is-a edge is a
+    // direct diagonal. The `fan ... below` centres the leaf row on the
+    // root's exact cx (even-N: (cx3 + cx4) == 2 * cx(root)).
+    fan [rel_kind_peer rel_kind_sub rel_kind_reg rel_kind_cmr] below rel_kind gap: 60 spacing: 200
   }
   annotations {
     legend [position: "bottom-right", generalization: "is a"]
@@ -2745,10 +2725,8 @@ diagram "Relation settings permissions (synthesized)" from "Juju" {
 
 diagram "Types of relation (synthesized)" from "Juju" {
   select {
-    routing: orthogonal
-    nodes: rel_kind rel_kind_peer rel_kind_interapp
-           rel_kind_sub rel_kind_p2p
-           rel_kind_cmr rel_kind_reg
+    nodes: rel_kind rel_kind_peer rel_kind_sub
+           rel_kind_reg rel_kind_cmr
     edges: type generalization
     sizing: uniform
   }

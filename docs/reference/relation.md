@@ -26,8 +26,8 @@ the endpoints, format:
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Types of relation
-:alt: The relation kinds as a tree: Relation at the top splits into Peer relation and Inter-application relation; Inter-application relation splits into Subordinate relation and Principal-to-principal relation; Principal-to-principal relation splits into Regular relation and Cross-model relation. Each edge is labelled with the discriminator that separates the two branches, and ends in a hollow triangle on the parent kind.
-:caption: Taxonomy tree: A relation is either a peer relation (the application relates to itself) or an inter-application relation (two distinct applications); an inter-application relation is subordinate when one side is subordinate and principal-to-principal when both sides are principal; a principal-to-principal relation is regular when the applications share a model and cross-model when they live in different models.
+:alt: The relation kinds as a star: Relation at the top, the four kinds in a row below, each connected to Relation by a straight is-a edge ending in a hollow triangle. The edges are labelled with the discriminating fact: the application relates to itself (Peer relation); one side subordinate (Subordinate relation); both principal, same model (Regular relation); different models (Cross-model relation).
+:caption: Taxonomy star: A relation is a peer relation when the application relates to itself; otherwise it connects two applications, and it is a subordinate relation when one side is subordinate (always same-model), a cross-model relation when the applications live in different models, and a regular relation when two principal applications share a model.
 ```
 
 Every relation is one of four kinds. The kind follows from two facts:
@@ -202,7 +202,7 @@ settings for that relation.
 
 While the relation is maintained,
 
-- in an inter-application relation, whether regular or subordinate:
+- in a relation between two applications, whether regular or subordinate:
     - each unit can read and write to its own unit settings;
     - leader units can also read and write to the local application
       settings;

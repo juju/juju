@@ -566,7 +566,7 @@ This pattern applies to CLI tools, REPLs, and other interactive tools.
 Choose section titles that reflect whether you're describing **mutually exclusive alternatives** or **coexisting parts**:
 
 **Use "Types of \<entity\>" or "\<Entity\> taxonomy" when classifying alternatives:**
-- Types of relations: A relation is EITHER a peer relation OR an inter-application relation (mutually exclusive)
+- Types of relations: A relation is EITHER a peer relation (the application relates to itself) OR a relation between two applications (mutually exclusive)
 - Types of charms: A charm is EITHER subordinate OR principal (mutually exclusive)
 - Types of secrets: A secret is EITHER a charm secret OR a user secret (mutually exclusive)
 
