@@ -45,6 +45,7 @@ This can be done via the name of the OS followed by the `@` symbol and the chann
 
 A 'base' replaces the older notion of 'series'.
 
+(machine-designations)=
 ### Machine designations
 
 ```{ggarch}
@@ -266,6 +267,7 @@ the add-machine operation (for example, `juju add-machine`): the
 controller's machine manager writes the machine record, and the
 compute provisioner takes it from there.
 
+(machine-provisioning)=
 ### Machine provisioning
 
 The controller's compute provisioner is a model worker that watches
@@ -330,6 +332,7 @@ initial query is the baseline snapshot -- and again on each qualifying
 change: database triggers feed the change stream, the watcher wakes,
 and the consumer fetches the current state and reconciles.
 
+(machine-rules-and-errors)=
 ## Machine rules and errors
 
 The machine domain encodes its rules as a typed error taxonomy; each

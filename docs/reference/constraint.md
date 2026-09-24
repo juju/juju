@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju constraints reference: customize compute resources with specifications for CPU, memory, storage, networking, and instance types."
+    description: "Juju constraints reference: customize compute resources with specifications for CPU, memory, storage, networking, and instance types. The constraint value, where it is stored, and its rules."
 ---
 
 (constraint)=
@@ -11,15 +11,74 @@ In Juju, a **constraint** is a key-value pair that represents a specification th
 
 If the resource is a bare metal machine or a virtual machine, a constraint represents a minimum, whereas if the resource is a system container or a Kubernetes container it represents a maximum.
 
-For machine (non-Kubernetes) clouds, constraints can be set directly on individual {ref}`machines <machine>`. However, more commonly they are set at the level of the {ref}`controller <controller>`, {ref}`model <model>`, or {ref}`application <application>`. If you set constraints at multiple levels at once -- that is, with overlap -- the constraint applied at the more specific level takes precedence.
+(the-constraint-record)=
+## The constraint record
 
-The rest of this document describes all the existing constraints.
+A constraint is a **value, not an entity**: it has no life, no status
+and no watchers of its own -- it is a stored key/value whose meaning
+comes from the entity it constrains. The records: the
+{ref}`model <model>`'s constraints (its defaults for everything it
+spawns), an {ref}`application's <application>` constraints record
+(nullable -- an application may inherit), and a
+{ref}`machine's <machine>` constraints record (what that machine was
+provisioned with).
+
+(types-of-constraint)=
+## Types of constraint
+
+Not applicable -- constraints have no subtypes; each key below is one
+independent value.
+
+(the-constraint-in-the-data-model)=
+## The constraint in the data model
+
+The constraint records live where the constrained entity lives: the
+model's constraint record in the model database, the application's and
+the machines' in the model database beside their owners. If
+constraints are set at multiple levels at once -- that is, with
+overlap -- the constraint applied at the more specific level takes
+precedence (application over model, machine over application).
+
+(the-constraint-states)=
+## Constraint states
+
+Not applicable -- a constraint is a stored value: it is written when
+set and read at provisioning time; nothing transitions.
+
+(the-constraint-operations)=
+## Constraint operations
+
+Constraints are set at the level that should own them -- on the model
+(`juju set-model-constraints`), the application (`juju
+set-constraints`), or as deploy/add-machine flags -- and honoured when
+the compute provisioner asks the cloud for resources (see
+{ref}`machine provisioning <machine-provisioning>`). There is no
+constraint entity to update later: setting is a rewrite of the
+owner's constraint record.
+
+(the-constraint-watchers)=
+## Constraint watchers
+
+Not applicable -- no watch surface exposes constraint records;
+provisioning reads them at the moment it provisions.
+
+(the-constraint-rules-and-errors)=
+## Constraint rules and errors
 
 ```{caution}
 
 Some of these keys -- their availability and their meaning -- vary from one cloud to another. Below this is indicated with a generic note. For specifics see {ref}`list-of-supported-clouds` > `<cloud name>`.
 
 ```
+
+- a constraint key must be one of the known keys, and its value must
+  parse for that key (integers with M/G/T/P suffixes, name lists,
+  booleans); an unparseable or unknown constraint is rejected
+  (`invalid machine constraints` / `machine constraint violation` at
+  provisioning);
+- the `spaces` constraint names {ref}`spaces <space>` that must (or,
+  with the `^` prefix, must not) reach the machine, and the `zones`
+  constraint names {ref}`availability zones <zone>`;
 
 (list-of-constraints)=
 ## List of constraints
