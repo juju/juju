@@ -17,7 +17,7 @@ On machines, an agent is managed by `systemd`.
 :file: ../juju.ggarch
 :view: Agent taxonomy
 :no-legend:
-:caption: The four agent types and their channels: every agent makes API calls to the controller; the machine agent hosts unit agents on machine clouds; containeragent is the unit-agent role as a single Kubernetes binary.
+:caption: Taxonomy tree: The four agent types and their channels: every agent makes API calls to the controller; the machine agent hosts unit agents on machine clouds; containeragent is the unit-agent role as a single Kubernetes binary.
 :alt: Controller, machine agent, unit agent, and containeragent in a row; each agent makes API calls to the controller; the machine agent hosts the unit agent.
 ```
 

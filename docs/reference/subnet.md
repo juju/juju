@@ -15,7 +15,7 @@ See also: {ref}`manage-subnets`
 :file: ../juju.ggarch
 :view: Network spaces
 :no-legend:
-:caption: A subnet is a CIDR range that belongs to 0..1 space; the application default binding and per-endpoint bindings point at spaces.
+:caption: Topology: A subnet is a CIDR range that belongs to 0..1 space; the application default binding and per-endpoint bindings point at spaces.
 :alt: Application record to space record to subnet record.
 ```
 

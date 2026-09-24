@@ -110,7 +110,7 @@ A relation is identified by a **relation ID** (assigned automatically by Juju; e
 :sequence: Integrate
 :no-legend:
 :alt: User calls juju integrate A B. Controller writes relation record and fires watchers to both unit agents. Each runs relation-created, relation-joined, relation-changed hooks, writing relation data; each data write wakes the other side's watcher for a further relation-changed.
-:caption: Integrating two applications. The controller writes the relation record; the two units' hooks run in lockstep, each data write waking the other side for another relation-changed.
+:caption: Sequence diagram: Integrating two applications. The controller writes the relation record; the two units' hooks run in lockstep, each data write waking the other side for another relation-changed.
 ```
 
 
@@ -130,7 +130,7 @@ When you create a relation between two applications, this results in the creatio
 :file: ../juju.ggarch
 :view: Databag permissions
 :no-legend:
-:caption: Each unit reads + writes only its own bag (red); the leader also writes the application bag; all units read the other application's bags (green). Peer case: permissions turn inward -- every unit reads every bag of its own application, application bag included.
+:caption: Topology: Each unit reads + writes only its own bag (red); the leader also writes the application bag; all units read the other application's bags (green). Peer case: permissions turn inward -- every unit reads every bag of its own application, application bag included.
 :alt: App A's units (appA/leader, appA/1) and app B's units (appB/leader, appB/1) above one row of databags; red arrows reading and writing the own bags (own unit bag; the leader also the application databag), green arrows reading across to the other application's set; below, the peer panel: one application's units with red own/leader arrows and green reads of every bag, the application databag included.
 ```
 

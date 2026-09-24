@@ -43,7 +43,7 @@ consequence of this structure.
 ```{ggarch}
 :file: ../principles.ggarch
 :view: Forced structure
-:caption: Two separations define the structure. Intent and persistence live in the controller; execution lives in the agents. Cloud knowledge (provisioning) and application knowledge (charms) are kept separate from each other and from the controller.
+:caption: Topology: Two separations define the structure. Intent and persistence live in the controller; execution lives in the agents. Cloud knowledge (provisioning) and application knowledge (charms) are kept separate from each other and from the controller.
 :alt: User and client on the left. Controller in the centre, connected up to a cloud and down to Charmhub. Agent and workload on the right. Dashed boxes mark intent and persistence (client and controller) and execution (agent and workload).
 ```
 
@@ -80,7 +80,7 @@ reconciliation loop -- the same loop it runs for every subsequent change.
 ```{ggarch}
 :file: ../principles.ggarch
 :slides: Initial event | Notify then pull
-:slide-captions: On creation every watcher fires once immediately. A restarting agent subscribes, receives the baseline signal, and enters the same loop. | Normal cycle. The watcher fires a signal -- no data. The agent fetches current state and reconciles.
+:slide-captions: Sequence diagram: On creation every watcher fires once immediately. A restarting agent subscribes, receives the baseline signal, and enters the same loop. | Sequence diagram: Normal cycle. The watcher fires a signal -- no data. The agent fetches current state and reconciles.
 :alt: Watcher notification and pull sequence between controller DB and agent.
 ```
 
@@ -141,7 +141,7 @@ because each side speaks only to its own controller.
 ```{ggarch}
 :file: ../principles.ggarch
 :view: Star topology
-:caption: Every relation goes through the controller. The data bags live there; unit agents read and write through the controller API and receive watcher notifications from it.
+:caption: Topology: Every relation goes through the controller. The data bags live there; unit agents read and write through the controller API and receive watcher notifications from it.
 :alt: Controller in the centre top. Three unit agents below it. Each writes data up to the controller and receives event notifications down from it. No direct edges between agents.
 ```
 
@@ -228,7 +228,7 @@ hook's effects are atomic with respect to the unit's declared state.
 ```{ggarch}
 :file: ../principles.ggarch
 :slides: Execution chain IAAS | Execution chain K8s
-:slide-captions: Machine cloud. The charm process is ephemeral -- it runs for one hook then exits. The jujuc server is its lifetime peer, mediating all hook command calls. | Kubernetes. The containeragent combines machine and unit agent roles in one process inside the unit pod.
+:slide-captions: Topology: Machine cloud. The charm process is ephemeral -- it runs for one hook then exits. The jujuc server is its lifetime peer, mediating all hook command calls. | Topology: Kubernetes. The containeragent combines machine and unit agent roles in one process inside the unit pod.
 :alt: Execution chain from controller provisioner through to charm process and jujuc server.
 ```
 

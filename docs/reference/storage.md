@@ -24,7 +24,7 @@ Most storage can be dynamically added to, and removed from, a unit. However, by 
 :file: ../juju.ggarch
 :view: Storage model
 :no-legend:
-:caption: The storage walk in the model database: the charm defines storage names (kind block | filesystem, count, size); a directive pins one pool per application; an instance carries kind, life and requested size and is backed by exactly one volume or filesystem; attachments bind instances to units; volumes bind to net nodes. Provision scope model = machine-independent, machine = dies with the machine.
+:caption: Topology: The storage walk in the model database: the charm defines storage names (kind block | filesystem, count, size); a directive pins one pool per application; an instance carries kind, life and requested size and is backed by exactly one volume or filesystem; attachments bind instances to units; volumes bind to net nodes. Provision scope model = machine-independent, machine = dies with the machine.
 :alt: Record chain: charm storage, storage directive, storage pool, storage instance; volume to the right, filesystem below, attachment below charm storage, net node above volume.
 ```
 

@@ -33,7 +33,7 @@ When you deploy an {ref}`application <application>` on a machine, there is usual
 :file: ../juju.ggarch
 :view: Machine designations
 :no-legend:
-:caption: What a machine designation names: machine 0 and its LXD container are rows in the same machine table, the container linked to its host by a machine-parent record -- the designation is that containment path. Two provisioning paths: the controller (its compute provisioner) starts base machines; the host machine's agent provisions its own containers through the LXD broker and watches them via the API. Containers are machines: each runs its own machine agent, which hosts the unit agent.
+:caption: Topology: What a machine designation names: machine 0 and its LXD container are rows in the same machine table, the container linked to its host by a machine-parent record -- the designation is that containment path. Two provisioning paths: the controller (its compute provisioner) starts base machines; the host machine's agent provisions its own containers through the LXD broker and watches them via the API. Containers are machines: each runs its own machine agent, which hosts the unit agent.
 :alt: The controller provisions machine 0; machine 0's agent provisions the LXD container via the LXD broker and watches its containers through the controller API; the container's own machine agent hosts the unit agent.
 ```
 

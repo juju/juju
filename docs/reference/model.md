@@ -42,7 +42,7 @@ See more: {ref}`list-of-model-configuration-keys`,  {ref}`configure-a-model`
 :file: ../juju.ggarch
 :sequence: Model removal
 :alt: User calls juju destroy-model. Controller marks model Dying and fires watcher to Undertaker. Undertaker destroys all applications. Controller releases all machines and marks model Dead. Undertaker deletes model records and Dqlite database.
-:caption: Model destruction, the largest removal, runs the same pattern at scale: the Undertaker worker inside the controller agent tears everything down in dependency order. The controller never deletes its own database -- the Undertaker does, as the final act after all cloud resources are released.
+:caption: Sequence diagram: Model destruction, the largest removal, runs the same pattern at scale: the Undertaker worker inside the controller agent tears everything down in dependency order. The controller never deletes its own database -- the Undertaker does, as the final act after all cloud resources are released.
 ```
 
 

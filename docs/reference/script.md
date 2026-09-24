@@ -16,7 +16,7 @@ In Juju, a **script** refers to any script you execute on a {ref}`compute resour
 :file: ../juju.ggarch
 :view: Operation hierarchy
 :no-legend:
-:caption: The entity hierarchy: an operation groups 1..N tasks (one per receiver); the parallel and execution-group flags live on the operation, shared by all tasks; an operation_action row exists 1:1 only when the operation is an action (its absence = an exec, modelled as the predefined 'juju-exec' action); each task reports 0..1 status and runs on a unit or machine; results go to the object store.
+:caption: Topology: The entity hierarchy: an operation groups 1..N tasks (one per receiver); the parallel and execution-group flags live on the operation, shared by all tasks; an operation_action row exists 1:1 only when the operation is an action (its absence = an exec, modelled as the predefined 'juju-exec' action); each task reports 0..1 status and runs on a unit or machine; results go to the object store.
 :alt: Operation record to task record to unit task to unit; operation action record above operation; task status below task.
 ```
 

@@ -13,6 +13,6 @@ In Juju, `containeragent` is a binary that implements {ref}`agent <agent>` funct
 :file: ../juju.ggarch
 :view: K8s deployment topology
 :alt: Unit pod on the right: the charm container holds the container agent and charm code, the workload container holds Pebble and the workload services. Controller pod on the left runs the controller agent with Dqlite in-process and connects down to Charmhub.
-:caption: Where `containeragent` runs: one binary per unit pod, containing the unit agent. The charm container holds the agent plus the charm code; the workload container holds Pebble and the workload. The controller pod's agent (`jujud`) runs the controller instead.
+:caption: Topology: Where `containeragent` runs: one binary per unit pod, containing the unit agent. The charm container holds the agent plus the charm code; the workload container holds Pebble and the workload. The controller pod's agent (`jujud`) runs the controller instead.
 ```
 

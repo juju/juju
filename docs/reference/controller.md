@@ -25,7 +25,7 @@ In software design, a **controller** is an architectural component responsible f
 :file: ../juju.ggarch
 :view: Worker tree (controller)
 :alt: The controller agent's worker tree: a Dqlite hub at the centre with workers arranged around it — API server, domain services, object store, lease manager, provider services, change stream, provisioner and others, each with the verb that names what it does.
-:caption: Inside the controller agent: its workers, arranged around the embedded Dqlite database each of them reads and writes. The API server fronts the {ref}`juju-cli` and the {ref}`unit-agent`; the domain services own models; the provider tracker mediates every cloud call.
+:caption: Topology: Inside the controller agent: its workers, arranged around the embedded Dqlite database each of them reads and writes. The API server fronts the {ref}`juju-cli` and the {ref}`unit-agent`; the domain services own models; the provider tracker mediates every cloud call.
 ```
 
 (controller-storage)=
