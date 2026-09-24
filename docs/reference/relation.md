@@ -95,7 +95,48 @@ A **non-cross-model** relation is a {ref}`non-subordinate <non-subordinate-relat
 
 A relation is identified by a **relation ID** (assigned automatically by Juju; expressed in monotonically increasing numbers) or a **relation key** (derived from the endpoints, format: `application1:[endpoint] application2:[endpoint]`).
 
-## Relation lifecycle
+## Relation states and transitions
+
+A relation carries two orthogonal state machines: its **life** -- the
+shared alive / dying / dead cycle every entity has -- and its
+**relation status**, the relation-specific status the status domain
+validates.
+
+### Life
+
+A relation is created alive. It cannot stay alive if either of its
+applications stops being alive, and it cannot be declared dead until
+every relation unit has left scope. When the relation is removed, the
+removal machinery takes over: the relation is marked dying, the units
+in scope leave as their agents notice, and a scheduled removal job
+finishes the job once nothing is left in scope.
+
+(relation-status)=
+### Relation status
+
+The `relation_status` table records one of six status values:
+`joining`, `joined`, `suspending`, `suspended`, `broken`, `error`
+(defined in the model schema's `relation_status_type`).
+
+- A new relation starts as `joining`; the status row is written when
+  the relation record is created.
+- `joined` is set by the **leader unit's agent**: when a unit enters
+  the relation's scope, only the leader reports the relation as
+  joined.
+- `suspending` and `suspended` record a suspended relation (see
+  {ref}`Suspending and resuming <suspending-relations>`); the
+  controller's firewaller also writes relation status as it opens and
+  closes the provider's ingress.
+- `error` requires a status message.
+
+Each write goes through the status domain's `SetRelationStatus`, which
+validates the transition from the current status: every status may
+transition to `broken`; `joining` cannot follow `joined` or `broken`;
+`suspending` cannot follow `broken` or `suspended`; `joined` and
+`suspended` cannot follow `broken`; and `error` cannot be set without
+a message.
+
+## Working with relations
 
 ### Relation creation
 
@@ -114,11 +155,11 @@ fires, and the units run their relation hooks in lockstep --
 `relation-created`, then `relation-joined` and `relation-changed` --
 exchanging data through the databags as they go.
 
-## Relation databag
+### Relation databag
 
 When you create a relation between two applications, this results in the creation of relation databags. Databags are per relation and per application, and can be application-scoped or unit-scoped. Each unit involved in a relation gets a local copy of all the databags for that relation.
 
-### Permissions around relation databags
+#### Permissions around relation databags
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -140,3 +181,99 @@ While the relation is maintained,
     - all units can read all of the application's databags. That is, whether leader or not, every unit can read its own unit databag as well as every other unit's unit databag as well as the application databag.
 
 Note that, in peer relations, all permissions related to the remote application are turned inwards and become permissions related to the local application.
+
+(relation-removal)=
+### Relation removal
+
+A relation is removed with `juju remove-relation`. Removal follows the
+same cooperative pattern as every entity removal: the relation is
+marked dying, the units in scope leave as their agents notice, and the
+removal machinery schedules a removal job that finishes once nothing
+is left in scope. A forced removal (`--force`) skips the wait: the
+relation and its units' scope entries are torn down without waiting
+for the agents to leave gracefully.
+
+Cross-model relations are not removed by this path: the removal
+pre-check rejects them, because the local record is only the local
+half of the relation.
+
+(suspending-relations)=
+### Suspending and resuming
+
+Suspending pauses the data flow across a relation to an application
+offer (`juju suspend-relation`; `juju resume-relation` restores it).
+The relation records the suspended state and its reason, and the
+controller's firewaller closes the provider side's ingress for the
+suspended relation. On a cross-model relation the suspension is
+propagated to the remote model as well, so both halves agree on the
+suspended state.
+
+## Watching relations
+
+Nothing about a relation is polled: agents and clients watch it. The
+relation domain's watchable service exposes five watch surfaces:
+
+- **One relation's life and suspended state** -- notifies on changes
+  to the given relation's life or suspended status.
+- **A unit's relations' life and suspended state** -- notifies of
+  changes to the life or suspended status of any relation the unit's
+  application is part of (a subordinate watches through its principal
+  application). Notifications carry relation keys.
+- **An application's relations' life and suspended state** -- the same
+  surface per application; notifications carry relation UUIDs.
+- **A unit's counterparts in one relation** -- notifies of changes to
+  the other units in the relation. This watcher watches three
+  change-log namespaces at once: the relation's unit rows, the
+  unit-side settings and the application-side settings, which is what
+  turns a databag write on one side into a `relation-changed` on the
+  other.
+- **The units in a given relation** -- notifies of changes to the
+  units in the relation in the local model.
+
+Every watcher fires once immediately when it is created -- the initial
+query is the baseline snapshot -- and again on each qualifying change:
+the watcher is woken by the change log, the agent fetches the current
+state and reconciles. When a relation is removed, key-based consumers
+receive one final change carrying the relation key, so they can clean
+up the state they hold under that key.
+
+## Rules and errors
+
+The relation domain encodes its rules as a typed error taxonomy; each
+error names the rule it enforces.
+
+The rules a **new relation** must satisfy:
+
+- both applications must be alive;
+- the endpoints must be compatible: same interface, opposite
+  `provides` / `requires` roles;
+- if one endpoint is container-scoped, so must the other be, and then
+  one of the applications must be a subordinate;
+- the per-endpoint relation quota (`MaxRelationLimit`) must not be
+  exceeded.
+
+The errors that encode them:
+
+- *Endpoint matching*: `no compatible endpoints found between
+  applications` (nothing matched), `ambiguous relation` (several
+  endpoint pairs matched -- name the endpoints explicitly),
+  `already exists` (the same relation is already in place).
+- *Quota*: `quota limit exceeded`.
+- *Entering scope*: `cannot enter scope, unit or relation not alive`,
+  `cannot enter scope, subordinate unit exists but is not alive`,
+  `relation unit already exists` (entering scope is idempotent --
+  entering twice is this error, not a second membership).
+- *Lifecycle guards*: `relation is not alive`, `unit is dead`, and the
+  existence errors (`relation not found`, `relation unit not found`,
+  `unit not in relation`, `application endpoint not found`).
+
+## Related domains
+
+- **Status** owns the relation status vocabulary and validates every
+  transition (see {ref}`Relation status <relation-status>`).
+- **Removal** owns the scheduled teardown that takes a dying relation
+  to dead (see {ref}`Relation removal <relation-removal>`).
+- **Cross-model relations** are the cross-model half of the story:
+  the offerer's and consumer's models each hold their own records,
+  and the suspension state propagates across the two (see
+  {ref}`cross-model relation <cross-model-relation>`).

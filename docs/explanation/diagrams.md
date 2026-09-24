@@ -433,7 +433,7 @@ concept pages — one mechanism, data model, or process per page.
 
 #### Integrate
 
-**Insert at:** § Relation lifecycle → § Relation creation. also: explanation/architecture.md § Integrate.
+**Insert at:** § Working with relations → § Relation creation. also: explanation/architecture.md § Integrate.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -445,7 +445,7 @@ concept pages — one mechanism, data model, or process per page.
 
 #### Databag permissions
 
-**Insert at:** § Permissions around relation databags.
+**Insert at:** § Working with relations → § Relation databag → § Permissions around relation databags.
 
 ```{ggarch}
 :file: ../juju.ggarch
