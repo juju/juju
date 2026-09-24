@@ -22,31 +22,58 @@ A relation is identified by a **relation ID** (assigned automatically by Juju; e
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Types of relation
-:alt: The relation kinds as a tree: Relation splits into Peer relation and Non-peer relation; Non-peer relation splits into Subordinate relation and Non-subordinate relation; Non-subordinate relation splits into Cross-model relation and Non-cross-model relation. Each edge is labelled with the discriminator that separates the two branches, and ends in a hollow triangle on the parent kind.
-:caption: Taxonomy tree: Every relation is a peer relation (the application relates to itself) or a non-peer relation (two distinct applications); a non-peer relation is subordinate when one side is subordinate, and a non-subordinate relation is cross-model when the two applications live in different models.
+:alt: The relation kinds as a tree: Relation at the top splits into Peer relation and Inter-application relation; Inter-application relation splits into Subordinate relation and Principal-to-principal relation; Principal-to-principal relation splits into Regular relation and Cross-model relation. Each edge is labelled with the discriminator that separates the two branches, and ends in a hollow triangle on the parent kind.
+:caption: Taxonomy tree: A relation is either a peer relation (the application relates to itself) or an inter-application relation (two distinct applications); an inter-application relation is subordinate when one side is subordinate and principal-to-principal when both sides are principal; a principal-to-principal relation is regular when the applications share a model and cross-model when they live in different models.
 ```
+
+Every relation is one of four kinds. The kind follows from two facts:
+which applications the relation connects -- the same application, or
+two distinct ones -- and, for two distinct applications, whether one
+of them is subordinate and whether the two live in the same model.
 
 (peer-relation)=
 ### Peer relation
 
-A **peer** relation is a relation that an application has to itself (i.e., its units respond to one another) automatically by virtue of having a `peers` endpoint.
+A **peer** relation is a relation of an application to itself: its
+units relate to one another by virtue of the application having a
+`peers` endpoint. Juju creates the peer relation automatically at
+deployment time -- it is never added by a user -- and every unit the
+application ever has joins it as it starts.
 
-Because every relation results in the creation of unit and application databags in Juju's database, peer relations are sometimes used by charm authors as a way to persist charm data. When the application has multiple units, peer relations are also the mechanism behind {ref}`high availability <high-availability>`.
+This is what makes the peer relation the mechanism behind
+{ref}`scaling <scaling>` and
+{ref}`high availability <high-availability>`: scaling the application
+never duplicates the relation. Every new unit enters the scope of the
+one existing relation, and the relation gives the units both a shared
+store of application settings and a notification channel (each
+settings write wakes the other units). The units of the application
+therefore keep coordinating with one another however many of them
+there are -- which is what clustering an application, and thus
+high availability, require.
 
-(non-peer-relation)=
-### Non-peer relation
-
-A **non-peer** relation is a relation from one application to another, where the applications support the same endpoint interface and have opposite `provides` / `requires` endpoint roles.
+Because every relation results in the creation of unit and
+application databags in Juju's database, peer relations are also
+sometimes used by charm authors as a way to persist charm data.
 
 (subordinate-relation)=
-#### Subordinate relation
+### Subordinate relation
 
-A **subordinate** relation is a {ref}`non-peer <non-peer-relation>` relation where one application is principal and the other subordinate.
+A **subordinate** relation is a relation between a principal
+application and a {ref}`subordinate <subordinate-charm>`
+application. It is always a same-model relation: the relation is
+container-scoped, and the container scope is what places the
+subordinate's unit on the principal unit's own machine.
 
-A subordinate charm is by definition a charm deployed on the same machine as the principal charm it is intended to accompany. When you deploy a subordinate charm, it appears in your Juju model as an application with no unit. The subordinate relation helps the subordinate application acquire a unit. The subordinate application then scales automatically when the principal application does, by virtue of this relation.
+A subordinate charm is by definition a charm deployed on the same
+machine as the principal charm it is intended to accompany. When you
+deploy a subordinate charm, it appears in your Juju model as an
+application with no unit. The subordinate relation helps the
+subordinate application acquire a unit. The subordinate application
+then scales automatically when the principal application does, by
+virtue of this relation.
 
 (the-implicit-juju-info-relation-endpoint)=
-##### The implicit `juju-info` relation endpoint
+#### The implicit `juju-info` relation endpoint
 
 Every application in a model implicitly provides an extra endpoint named `juju-info`, with role `provides`, interface `juju-info`, and global scope. The endpoint is supplied by Juju itself: it does not need to be (and cannot be) declared in the charm's `metadata.yaml` / `charmcraft.yaml`, and it does not appear in `juju info <charm>` or on the charm's Charmhub page. It is supported on every kind of charm, but is only useful for {ref}`machine charms <machine-charm>`, since it exists to allow {ref}`subordinate charms <subordinate-charm>` to attach to a principal that does not otherwise expose a suitable interface.
 
@@ -68,19 +95,27 @@ If the subordinate also has explicit endpoints whose interfaces match endpoints 
 juju integrate <subordinate>:<requires-endpoint> <principal>:juju-info
 ```
 
-(non-subordinate-relation)=
-#### Non-subordinate relation
+(regular-relation)=
+### Regular relation
 
-A **non-subordinate** relation (aka 'regular') is a {ref}`non-peer <non-peer-relation>` relation where the applications are both principal.
+A **regular** relation is a relation between two principal
+applications that live in the same model. Both sides of the relation
+support the same endpoint interface and have opposite `provides` /
+`requires` endpoint roles.
 
 (cross-model-relation)=
-##### Cross-model relation
+### Cross-model relation
 
 ```{ibnote}
 See also: {ref}`manage-relations`
 ```
 
-A **cross-model** relation (aka 'CMR') is a {ref}`non-subordinate <non-subordinate-relation>` relation where the applications are on different models (+/- different controllers, +/- different clouds).
+A **cross-model** relation (aka 'CMR') is a relation between
+applications that live in different models (+/- different
+controllers, +/- different clouds). Each model holds its own half of
+the relation: the consuming model connects through a synthetic
+application that stands in for the offered application in the
+offering model.
 
 Cross-model relations enable, for example, scenarios where  your databases are hosted on bare metal, to take advantage of I/O performance, and your applications live within Kubernetes, to take advantage of scalability and application density.
 
@@ -91,9 +126,6 @@ A cross-model relation has two sides: the offering side (aka "offerer") and the 
 Note that application names are obfuscated (anonymised) to the offerer side:
 - Applications that relate to the saas appear to the offerer as remote + token, e.g. `remote-76cd96ab50f146b284912afd1cc13a0e`.
 - For the consumer, the remote app names is the saas name, e.g. `prometheus`.
-##### Non-cross-model relation
-
-A **non-cross-model** relation is a {ref}`non-subordinate <non-subordinate-relation>` relation where the applications are on  the same model.
 
 ## Relation attributes
 

@@ -470,8 +470,8 @@ precedent).
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Types of relation
-:alt: The relation kinds as a tree: Relation splits into Peer relation and Non-peer relation; Non-peer relation splits into Subordinate relation and Non-subordinate relation; Non-subordinate relation splits into Cross-model relation and Non-cross-model relation. Each edge is labelled with the discriminator that separates the two branches, and ends in a hollow triangle on the parent kind.
-:caption: Taxonomy tree: Every relation is a peer relation (the application relates to itself) or a non-peer relation (two distinct applications); a non-peer relation is subordinate when one side is subordinate, and a non-subordinate relation is cross-model when the two applications live in different models.
+:alt: The relation kinds as a tree: Relation at the top splits into Peer relation and Inter-application relation; Inter-application relation splits into Subordinate relation and Principal-to-principal relation; Principal-to-principal relation splits into Regular relation and Cross-model relation. Each edge is labelled with the discriminator that separates the two branches, and ends in a hollow triangle on the parent kind.
+:caption: Taxonomy tree: A relation is either a peer relation (the application relates to itself) or an inter-application relation (two distinct applications); an inter-application relation is subordinate when one side is subordinate and principal-to-principal when both sides are principal; a principal-to-principal relation is regular when the applications share a model and cross-model when they live in different models.
 ```
 
 #### Relation attributes (ERD slice)
