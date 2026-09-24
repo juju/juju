@@ -830,6 +830,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		debuglogAuth,
 		srv.logDir,
 	), "log")
+	backupHandler := srv.monitoredHandler(&backupHandler{
+		createArchive: srv.createBackupArchive,
+		logger:        logger,
+	}, "backup")
 	logSinkHandler := logsink.NewHTTPHandler(
 		newAgentLogWriteFunc(httpCtxt, srv.logSink),
 		httpCtxt.stop(),
@@ -995,6 +999,22 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:    logSinkHandler,
 		tracked:    true,
 		authorizer: logSinkAuthorizer,
+	}, {
+		pattern:    "/backup",
+		methods:    []string{http.MethodPost},
+		handler:    backupHandler,
+		authorizer: controllerAdminAuthorizer,
+		// Archive transfers are long-lived, potentially multi-GB
+		// streams: track them so shutdown can account for in-flight
+		// downloads instead of cutting them mid-stream unnoticed.
+		tracked: true,
+	}, {
+		// The pre-4.1 download path: kept only so older clients get a
+		// clear upgrade error instead of a bare 404.
+		pattern:    "/backups",
+		methods:    []string{http.MethodGet},
+		handler:    backupHandler,
+		authorizer: controllerAdminAuthorizer,
 	}, {
 		pattern:         modelRoutePrefix + "/api",
 		handler:         mainAPIHandler,

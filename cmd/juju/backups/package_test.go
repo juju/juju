@@ -6,11 +6,11 @@ package backups_test
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"crypto/sha1"
+	"encoding/base64"
 	"io"
 	"os"
 
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/jujuclient"
@@ -38,7 +38,7 @@ model UUID:
 machine ID:             
 created on host:        
 
-checksum:               
+checksum:              YuLeCCL75ZT/frYSABmKhamUh58= 
 checksum format:        
 size (B):              0 
 stored:                0001-01-01 00:00:00 +0000 UTC 
@@ -79,38 +79,12 @@ func (s *BaseBackupsSuite) SetUpTest(c *tc.C) {
 	s.store.Models["arthur"] = models
 }
 
-func (s *BaseBackupsSuite) patchAPIClient(client backups.APIClient) {
-	s.PatchValue(backups.NewAPIClient,
-		func(ctx context.Context, c *backups.CommandBase) (backups.APIClient, error) {
-			return client, nil
-		},
-	)
-}
-
 func (s *BaseBackupsSuite) patchGetAPI(client backups.APIClient) {
 	s.PatchValue(backups.NewGetAPI,
 		func(ctx context.Context, c *backups.CommandBase) (backups.APIClient, error) {
 			return client, nil
 		},
 	)
-}
-
-func (s *BaseBackupsSuite) setSuccess() *fakeAPIClient {
-	client := &fakeAPIClient{metaresult: s.metaresult}
-	s.patchAPIClient(client)
-	return client
-}
-
-func (s *BaseBackupsSuite) setFailure(failure string) *fakeAPIClient {
-	client := &fakeAPIClient{err: errors.New(failure)}
-	s.patchAPIClient(client)
-	return client
-}
-
-func (s *BaseBackupsSuite) setDownload() *fakeAPIClient {
-	client := s.setSuccess()
-	client.archive = io.NopCloser(bytes.NewBufferString(s.data))
-	return client
 }
 
 func (s *BaseBackupsSuite) createCommandForGlobalOptionTesting(subcommand cmd.Command) cmd.Command {
@@ -139,18 +113,21 @@ func (s *BaseBackupsSuite) checkArchive(c *tc.C) {
 // Replace this fakeAPIClient with MockAPIClient for all tests.
 type fakeAPIClient struct {
 	metaresult *params.BackupsMetadataResult
-	archive    io.ReadCloser
+	data       string
 	err        error
+
+	// createHook, when set, is called for the Create invocation and
+	// its reader replaces the default archive stream. It lets tests
+	// script transfer behaviour, e.g. a reader that fails part way.
+	createHook func() (io.ReadCloser, error)
 
 	calls []string
 	args  []string
-	idArg string
 	notes string
 }
 
-func (f *fakeAPIClient) Check(c *tc.C, id, notes string, calls ...string) {
+func (f *fakeAPIClient) Check(c *tc.C, notes string, calls ...string) {
 	c.Check(f.calls, tc.DeepEquals, calls)
-	c.Check(f.idArg, tc.Equals, id)
 	c.Check(f.notes, tc.Equals, notes)
 }
 
@@ -162,25 +139,29 @@ func (f *fakeAPIClient) CheckArgs(c *tc.C, args ...string) {
 	c.Check(f.args, tc.DeepEquals, args)
 }
 
-func (c *fakeAPIClient) Create(ctx context.Context, notes string, noDownload bool) (*params.BackupsMetadataResult, error) {
+func (c *fakeAPIClient) Create(ctx context.Context, notes string) (params.BackupsMetadataResult, io.ReadCloser, error) {
 	c.calls = append(c.calls, "Create")
-	c.args = append(c.args, notes, fmt.Sprintf("%t", noDownload))
+	c.args = append(c.args, notes)
 	c.notes = notes
 	if c.err != nil {
-		return nil, c.err
+		return params.BackupsMetadataResult{}, nil, c.err
 	}
-	createResult := c.metaresult
-
-	return createResult, nil
-}
-
-func (c *fakeAPIClient) Download(_ context.Context, id string) (io.ReadCloser, error) {
-	c.calls = append(c.calls, "Download")
-	c.args = append(c.args, id)
-	if c.err != nil {
-		return nil, c.err
+	if c.data != "" {
+		// The archive checksum matches the streamed data unless the
+		// test set one explicitly.
+		if c.metaresult.Checksum == "" {
+			sum := sha1.Sum([]byte(c.data))
+			c.metaresult.Checksum = base64.StdEncoding.EncodeToString(sum[:])
+		}
 	}
-	return c.archive, nil
+	if c.createHook != nil {
+		rdr, err := c.createHook()
+		if err != nil {
+			return params.BackupsMetadataResult{}, nil, err
+		}
+		return *c.metaresult, rdr, nil
+	}
+	return *c.metaresult, io.NopCloser(bytes.NewReader([]byte(c.data))), nil
 }
 
 func (c *fakeAPIClient) Close() error {

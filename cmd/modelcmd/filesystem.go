@@ -25,6 +25,7 @@ type Filesystem interface {
 	OpenFile(name string, flag int, perm os.FileMode) (*os.File, error)
 	Create(name string) (*os.File, error)
 	RemoveAll(path string) error
+	Rename(oldpath, newpath string) error
 }
 
 type osFilesystem struct{}
@@ -35,6 +36,10 @@ func (osFilesystem) Create(name string) (*os.File, error) {
 
 func (osFilesystem) RemoveAll(path string) error {
 	return os.RemoveAll(path)
+}
+
+func (osFilesystem) Rename(oldpath, newpath string) error {
+	return os.Rename(oldpath, newpath)
 }
 
 func (osFilesystem) Open(name string) (ReadSeekCloser, error) {
@@ -58,6 +63,10 @@ func (restrictedFilesystem) Create(string) (*os.File, error) {
 }
 
 func (restrictedFilesystem) RemoveAll(string) error {
+	return notSupported
+}
+
+func (restrictedFilesystem) Rename(string, string) error {
 	return notSupported
 }
 

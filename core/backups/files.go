@@ -7,14 +7,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/juju/juju/internal/errors"
 )
 
-// TODO(ericsnow) lp-1392876
-// Pull these from authoritative sources (see
-// github.com/juju/juju/juju/paths, etc.):
 const (
 	agentsDir      = "agents"
 	agentsConfs    = "machine-*"
@@ -123,29 +119,4 @@ var GetFilesToBackUp = func(rootDir string, paths *Paths) ([]string, error) {
 		}
 	}
 	return finalBackupFiles, nil
-}
-
-// IsValidBackupFilepath reports whether filePath names an existing regular
-// file directly under root whose base name starts with [FilenamePrefix].
-// Symlinks are followed, so a link to a regular backup file is accepted. It
-// is used by the download handler to reject arbitrary paths while allowing
-// absolute client-provided ids.
-func IsValidBackupFilepath(root string, filePath string) (bool, error) {
-	if !filepath.IsAbs(filePath) {
-		return false, nil
-	}
-	if filepath.Dir(filePath) != filepath.Clean(root) {
-		return false, nil
-	}
-	if !strings.HasPrefix(filepath.Base(filePath), FilenamePrefix) {
-		return false, nil
-	}
-	info, err := os.Stat(filePath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return false, nil
-		}
-		return false, errors.Capture(err)
-	}
-	return info.Mode().IsRegular(), nil
 }
