@@ -52,7 +52,9 @@ type MachineState interface {
 	MarkMachineAsDead(ctx context.Context, mUUID string) error
 
 	// DeleteMachine deletes the specified machine and any dependent child
-	// records.
+	// records. If the machine is a child machine and its parent is now
+	// ready for removal, a machine removal job is scheduled for the
+	// parent in the same transaction.
 	DeleteMachine(ctx context.Context, mName string, force bool) error
 
 	// MarkInstanceAsDead marks the machine cloud instance with the input UUID as
