@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/crossmodelrelation"
-	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -76,28 +75,22 @@ func (s *importRelationNetworksSuite) TestImportRelationNetworks(c *tc.C) {
 	// imported, along with the egress networks of the second relation. The
 	// default egress networks of the first relation are dropped in favour of
 	// the override.
-	s.importService.EXPECT().ImportRelationNetworks(gomock.Any(), []crossmodelrelation.RelationNetworkImport{
-		{
-			RelationKey: key,
-			Direction:   crossmodelrelation.RelationNetworkIngress,
-			CIDRs:       []string{"10.0.0.0/24"},
-		},
-	}).Return(nil)
-	s.importService.EXPECT().ImportRelationNetworks(gomock.Any(), []crossmodelrelation.RelationNetworkImport{
-		{
-			RelationKey: key,
-			Direction:   crossmodelrelation.RelationNetworkEgress,
-			CIDRs:       []string{"192.168.1.0/24"},
-		},
-	}).Return(nil)
-	s.importService.EXPECT().ImportRelationNetworks(gomock.Any(), []crossmodelrelation.RelationNetworkImport{
-		{
-			RelationKey: otherKey,
-			Direction:   crossmodelrelation.RelationNetworkEgress,
-			CIDRs:       []string{"10.1.0.0/16"},
-		},
-	}).Return(nil)
-
+	s.importService.EXPECT().ImportRelationNetworks(gomock.Any(), gomock.InAnyOrder(
+		[]crossmodelrelation.RelationNetworkImport{
+			{
+				RelationKey: key,
+				Direction:   crossmodelrelation.RelationNetworkIngress,
+				CIDRs:       []string{"10.0.0.0/24"},
+			}, {
+				RelationKey: key,
+				Direction:   crossmodelrelation.RelationNetworkEgress,
+				CIDRs:       []string{"192.168.1.0/24"},
+			}, {
+				RelationKey: otherKey,
+				Direction:   crossmodelrelation.RelationNetworkEgress,
+				CIDRs:       []string{"10.1.0.0/16"},
+			},
+		})).Return(nil)
 	op := importRelationNetworksOperation{
 		importService: s.importService,
 		logger:        loggertesting.WrapCheckLog(c),
@@ -153,38 +146,6 @@ func (s *importRelationNetworksSuite) TestImportRelationNetworksDeduplicatedRemo
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importRelationNetworksSuite) TestImportRelationNetworksRelationNotFoundSkipped(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	model := description.NewModel(description.ModelArgs{})
-	model.AddRelationNetwork(description.RelationNetworkArgs{
-		ID:          "mysql:db remote-13ea:db:ingress:default",
-		RelationKey: "mysql:db remote-13ea:db",
-		CIDRS:       []string{"10.0.0.0/24"},
-	})
-	model.AddRelationNetwork(description.RelationNetworkArgs{
-		ID:          "wordpress:db mysql:db:egress:default",
-		RelationKey: "wordpress:db mysql:db",
-		CIDRS:       []string{"10.1.0.0/16"},
-	})
-
-	// A network referencing a relation that was not migrated only skips that
-	// network; the remaining networks are still imported.
-	s.importService.EXPECT().ImportRelationNetworks(gomock.Any(), gomock.Any()).
-		Return(relationerrors.RelationNotFound)
-	s.importService.EXPECT().ImportRelationNetworks(gomock.Any(), gomock.Any()).
-		Return(nil)
-
-	op := importRelationNetworksOperation{
-		importService: s.importService,
-		logger:        loggertesting.WrapCheckLog(c),
-	}
-
-	err := op.Execute(c.Context(), model)
-
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 func (s *importRelationNetworksSuite) TestImportRelationNetworksError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -210,6 +171,11 @@ func (s *importRelationNetworksSuite) TestImportRelationNetworksError(c *tc.C) {
 
 func (s *importRelationNetworksSuite) TestImportRelationNetworksNoNetworks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
+
+	// The service is called with an empty slice of networks, which imports
+	// nothing.
+	s.importService.EXPECT().ImportRelationNetworks(gomock.Any(),
+		[]crossmodelrelation.RelationNetworkImport{}).Return(nil)
 
 	op := importRelationNetworksOperation{
 		importService: s.importService,

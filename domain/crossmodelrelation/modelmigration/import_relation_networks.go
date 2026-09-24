@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation/service"
 	modelstate "github.com/juju/juju/domain/crossmodelrelation/state/model"
 	domainmodelmigration "github.com/juju/juju/domain/modelmigration/modelmigration"
-	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -36,7 +35,8 @@ func RegisterImportRelationNetworks(coordinator Coordinator, clock clock.Clock, 
 // domain service methods needed for relation networks import.
 type RelationNetworkImportService interface {
 	// ImportRelationNetworks adds the relation networks being migrated to
-	// the current model.
+	// the current model. Networks referencing relations that were not
+	// migrated are skipped with a warning.
 	ImportRelationNetworks(ctx context.Context, networks []crossmodelrelation.RelationNetworkImport) error
 }
 
@@ -80,21 +80,8 @@ func (i *importRelationNetworksOperation) Execute(ctx context.Context, model des
 		return errors.Errorf("extracting relation networks: %w", err)
 	}
 
-	// Each network is imported on its own, so that a network referencing a
-	// relation that was not migrated, for example because the relation was
-	// removed from the source model before the export, only skips that
-	// network instead of failing the whole migration.
-	for _, network := range networks {
-		err := i.importService.ImportRelationNetworks(ctx, []crossmodelrelation.RelationNetworkImport{network})
-		if errors.Is(err, relationerrors.RelationNotFound) {
-			i.logger.Warningf(ctx, "skipping relation networks for relation %q: %v",
-				network.RelationKey, err)
-			continue
-		}
-		if err != nil {
-			return errors.Errorf("importing relation networks for relation %q: %w",
-				network.RelationKey, err)
-		}
+	if err := i.importService.ImportRelationNetworks(ctx, networks); err != nil {
+		return errors.Errorf("importing relation networks: %w", err)
 	}
 	return nil
 }

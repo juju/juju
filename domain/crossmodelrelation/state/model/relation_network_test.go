@@ -514,18 +514,6 @@ func (s *relationNetworkStateSuite) TestAddRelationNetworkEgressDuplicateCIDR(c 
 	c.Check(obtainedCIDRs, tc.DeepEquals, cidr)
 }
 
-func (s *relationNetworkStateSuite) TestAddRelationNetworkEgressInvalidRelation(c *tc.C) {
-	// Arrange
-	nonExistentRelationUUID := internaluuid.MustNewUUID().String()
-	cidr := []string{"192.0.2.0/24"}
-
-	// Act
-	err := s.state.AddRelationNetworkEgress(c.Context(), nonExistentRelationUUID, cidr)
-
-	// Assert - Should return RelationNotFound
-	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
-}
-
 func (s *relationNetworkStateSuite) readRelationNetworkEgress(c *tc.C, relationUUID string) []string {
 	rows, err := s.DB().QueryContext(c.Context(), `
 SELECT cidr FROM relation_network_egress

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -300,7 +301,10 @@ func (s *MigrationService) ImportRemoteApplicationConsumers(ctx context.Context,
 
 // ImportRelationNetworks adds the relation networks being migrated to the
 // current model. The relation networks are imported after the relations of
-// the model exist, as the networks are located by relation key.
+// the model exist, as the networks are located by relation key. A network
+// referencing a relation that was not migrated, for example because the
+// relation was removed from the source model before the export, only skips
+// that network with a warning instead of failing the migration.
 func (s *MigrationService) ImportRelationNetworks(ctx context.Context, imports []crossmodelrelation.RelationNetworkImport) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -322,7 +326,14 @@ func (s *MigrationService) ImportRelationNetworks(ctx context.Context, imports [
 		}
 
 		relationUUID, err := s.modelState.GetRelationUUIDByRelationKey(ctx, network.RelationKey)
-		if err != nil {
+		if internalerrors.Is(err, relationerrors.RelationNotFound) {
+			// The relation was not migrated, for example because it was
+			// removed from the source model before the export. Only this
+			// network is skipped, the remaining networks are still imported.
+			s.logger.Warningf(ctx, "skipping relation networks for relation %q: %v",
+				network.RelationKey, err)
+			continue
+		} else if err != nil {
 			return internalerrors.Errorf(
 				"getting relation UUID for relation with key %q: %w", network.RelationKey, err)
 		}

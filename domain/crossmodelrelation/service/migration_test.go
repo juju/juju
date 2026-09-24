@@ -449,23 +449,35 @@ func (s *migrationSuite) TestImportRelationNetworksRelationNotFound(c *tc.C) {
 	// Arrange
 	key, err := relation.NewKeyFromString("mysql:db remote-13ea:db")
 	c.Assert(err, tc.ErrorIsNil)
+	otherKey, err := relation.NewKeyFromString("wordpress:db remote-13ea:db")
+	c.Assert(err, tc.ErrorIsNil)
 
 	input := []crossmodelrelation.RelationNetworkImport{
 		{
 			RelationKey: key,
 			Direction:   crossmodelrelation.RelationNetworkIngress,
 			CIDRs:       []string{"10.0.0.0/24"},
+		}, {
+			RelationKey: otherKey,
+			Direction:   crossmodelrelation.RelationNetworkIngress,
+			CIDRs:       []string{"192.0.2.0/24"},
 		},
 	}
 
+	// The first relation was not migrated, so its networks are skipped and
+	// the remaining networks are still imported.
 	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), key).
 		Return("", relationerrors.RelationNotFound)
+	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), otherKey).
+		Return("ed736d84-0007-438c-8c0e-eac6e0d6dadd", nil)
+	s.modelMigrationState.EXPECT().AddRelationNetworkIngress(
+		gomock.Any(), "ed736d84-0007-438c-8c0e-eac6e0d6dadd", []string{"192.0.2.0/24"}).Return(nil)
 
 	// Act
 	err = s.service(c).ImportRelationNetworks(c.Context(), input)
 
 	// Assert
-	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *migrationSuite) TestImportRemoteApplicationConsumersApplicationError(c *tc.C) {

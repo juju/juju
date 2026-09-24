@@ -65,9 +65,8 @@ ON CONFLICT (relation_uuid, cidr) DO NOTHING
 }
 
 // AddRelationNetworkEgress adds egress network CIDRs for the specified
-// relation.
-// It returns a [relationerrors.RelationNotFound] if the provided relation does
-// not exist.
+// relation. The relation UUID is resolved by the caller, so it is expected
+// to exist; the insert is rejected by the foreign key constraint otherwise.
 func (st *State) AddRelationNetworkEgress(ctx context.Context, relationUUID string, cidrs []string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -92,16 +91,6 @@ ON CONFLICT (relation_uuid, cidr) DO NOTHING
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// The not-alive guard is defensive, copied from
-		// AddRelationNetworkIngress for parity; it is not reachable during
-		// migration import, as imported relations are always created alive.
-		relationLife, err := st.getRelationLife(ctx, tx, relationUUID)
-		if err != nil {
-			return errors.Capture(err)
-		} else if life.IsNotAlive(relationLife) {
-			return relationerrors.RelationNotAlive
-		}
-
 		if err := tx.Query(ctx, insertStmt, egress).Run(); err != nil {
 			return errors.Errorf("inserting relation network egress for relation %q with CIDR %v: %w", relationUUID, cidrs, err)
 		}
