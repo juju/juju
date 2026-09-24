@@ -318,11 +318,9 @@ func (s *localConsumerWorkerSuite) TestStartWatchOfferStatusPermissionRevoked(c 
 			Macaroons:     macaroon.Slice{s.macaroon},
 			BakeryVersion: bakery.LatestVersion,
 		}).
-		DoAndReturn(func(ctx context.Context, oa params.OfferArg) (watcher.OfferStatusWatcher, error) {
-			return nil, params.Error{
-				Code:    params.CodeDischargeRequired,
-				Message: "discharge required",
-			}
+		Return(nil, params.Error{
+			Code:    params.CodeDischargeRequired,
+			Message: "discharge required",
 		})
 
 	s.crossModelService.EXPECT().
@@ -331,6 +329,17 @@ func (s *localConsumerWorkerSuite) TestStartWatchOfferStatusPermissionRevoked(c 
 			c.Check(sts.Status, tc.Equals, status.Error)
 			defer close(done)
 			return nil
+		})
+
+	s.remoteModelRelationClient.EXPECT().
+		WatchOfferStatus(gomock.Any(), params.OfferArg{
+			OfferUUID:     s.offerUUID,
+			Macaroons:     macaroon.Slice{s.macaroon},
+			BakeryVersion: bakery.LatestVersion,
+		}).
+		DoAndReturn(func(ctx context.Context, oa params.OfferArg) (watcher.OfferStatusWatcher, error) {
+			ch := make(chan []watcher.OfferStatusChange)
+			return watchertest.NewMockWatcher(ch), nil
 		})
 
 	w, err := NewLocalConsumerWorker(s.newLocalConsumerWorkerConfig(c))
@@ -346,6 +355,70 @@ func (s *localConsumerWorkerSuite) TestStartWatchOfferStatusPermissionRevoked(c 
 	// The worker stays alive in a degraded mode rather than crash looping, as
 	// the permission cannot be re-acquired until it is re-granted.
 	workertest.CheckAlive(c, w)
+	workertest.CleanKill(c, w)
+}
+
+// TestStartWatchOfferStatusPermissionRevokedWorkerKill tests that when the
+// offer permission is revoked at worker startup and the degraded mode retry
+// loop never succeeds, the worker can still be cleanly killed. This validates
+// that the retry loop exits via context cancellation when the worker is
+// stopped.
+func (s *localConsumerWorkerSuite) TestStartWatchOfferStatusPermissionRevokedWorkerKill(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	retrying := make(chan struct{})
+
+	s.crossModelService.EXPECT().
+		WatchRelationsLifeSuspendedStatusForApplication(gomock.Any(), s.applicationUUID).
+		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
+			ch := make(chan []string)
+			return watchertest.NewMockStringsWatcher(ch), nil
+		})
+
+	s.remoteRelationClientGetter.EXPECT().
+		GetRemoteRelationClient(gomock.Any(), s.offererModelUUID).
+		Return(s.remoteModelRelationClient, nil)
+
+	// Every WatchOfferStatus call fails with CodeDischargeRequired, so the
+	// degraded mode retry loop never succeeds.
+	var retryAttempts int
+	s.remoteModelRelationClient.EXPECT().
+		WatchOfferStatus(gomock.Any(), params.OfferArg{
+			OfferUUID:     s.offerUUID,
+			Macaroons:     macaroon.Slice{s.macaroon},
+			BakeryVersion: bakery.LatestVersion,
+		}).
+		DoAndReturn(func(ctx context.Context, oa params.OfferArg) (watcher.OfferStatusWatcher, error) {
+			retryAttempts++
+			if retryAttempts > 1 {
+				select {
+				case <-retrying:
+				default:
+					close(retrying)
+				}
+			}
+			return nil, params.Error{
+				Code:    params.CodeDischargeRequired,
+				Message: "discharge required",
+			}
+		}).AnyTimes()
+
+	s.crossModelService.EXPECT().
+		SetRemoteApplicationOffererStatus(gomock.Any(), s.applicationName, gomock.Any()).
+		AnyTimes()
+
+	w, err := NewLocalConsumerWorker(s.newLocalConsumerWorkerConfig(c))
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Wait for the retry loop to be running.
+	select {
+	case <-retrying:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for degraded mode retry loop")
+	}
+
+	// The worker should be cleanly killable even though the retry loop
+	// is running and never succeeds.
 	workertest.CleanKill(c, w)
 }
 

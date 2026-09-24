@@ -15,6 +15,7 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/retry"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 	"gopkg.in/macaroon.v2"
@@ -43,12 +44,22 @@ const (
 	// whilst the relation is in a dying state. This is a terminal error and
 	// requires the worker to be restarted to recover.
 	ErrPermissionRevokedWhilstDying = internalerrors.ConstError("relation permission revoked whilst dying")
+
+	// ErrOfferStatusDischargeError is returned when the offer status watcher
+	// cannot be established due to a discharge (macaroon) failure. It signals
+	// the caller to enter degraded mode.
+	ErrOfferStatusDischargeError = internalerrors.ConstError("offer status watcher cannot be established")
 )
 
 const (
 	// defaultBakeryVersion is the default bakery version to use when
 	// communicating with the offerer model.
 	defaultBakeryVersion = bakery.LatestVersion
+
+	// degradedModeDelayDuration is the interval between retry attempts when the
+	// worker is in degraded mode (e.g. after a discharge failure) and
+	// periodically re-attempts to establish the offer status watcher.
+	degradedModeDelayDuration = 30 * time.Second
 )
 
 // LocalConsumerWorkerConfig defines the configuration for a local consumer
@@ -150,6 +161,9 @@ type localConsumerWorker struct {
 	offererRelationUnitChanges  chan offererunitrelations.RelationUnitChange
 	offererRelationChanges      chan offererrelations.RelationChange
 
+	// offerStatusWatcher watches for status changes on the remote offer. It may
+	// be nil during degraded mode and set later once a retry succeeds.
+	offerStatusWatcher   watcher.OfferStatusWatcher
 	secretChangesWatcher watcher.SecretsRevisionWatcher
 	secretChanges        watcher.SecretRevisionChannel
 
@@ -321,31 +335,50 @@ func (w *localConsumerWorker) loop() (err error) {
 		return errors.Trace(err)
 	}
 
-	offerStatusWatcher, err := w.watchRemoteOfferStatus(ctx)
-	if err != nil {
+	w.offerStatusWatcher, err = w.watchRemoteOfferStatus(ctx)
+	if err != nil && !errors.Is(err, ErrOfferStatusDischargeError) {
 		return errors.Trace(err)
-	}
+	} else if errors.Is(err, ErrOfferStatusDischargeError) {
+		// Offer status changes cannot be observed, so run in a degraded mode
+		// until connection is re-established. If this is caused by revoked
+		// permissions, the worker will not be able to recover until the
+		// permission is re-granted.
+		//
+		// When in degraded mode, periodically re-attempt to establish the offer
+		// status watcher so the worker can recover once the permission is
+		// re-granted.
+		err = retry.Call(retry.CallArgs{
+			Attempts: -1, // retry forever
+			Delay:    degradedModeDelayDuration,
+			Stop:     ctx.Done(),
+			Clock:    w.clock,
+			NotifyFunc: func(lastErr error, attempts int) {
+				w.logger.Infof(ctx, "failed to establish offer status watcher for %q: %v", w.offerUUID, lastErr)
+			},
+			IsFatalError: func(err error) bool {
+				return retry.IsRetryStopped(err) || errors.Is(err, context.Canceled)
+			},
+			Func: func() error {
+				w.logger.Infof(ctx, "retrying to establish offer status watcher for %q", w.offerUUID)
 
-	// The offer status watcher is nil when the offer has been removed, or when
-	// the offer permission has been revoked and the worker is running in a
-	// degraded mode. In that case there is no channel to select on and offer
-	// status changes are not observed.
-	var offerStatusWatcherChanges <-chan []watcher.OfferStatusChange
-	if offerStatusWatcher != nil {
-		offerStatusWatcherChanges = offerStatusWatcher.Changes()
-	}
-
-	// When in degraded mode, periodically re-attempt to establish the
-	// offer status watcher so the worker can recover once the permission
-	// is re-granted.
-	var retryTimer clock.Timer
-	var retryTimerChan <-chan time.Time
-	var retryDuration time.Duration
-
-	if offerStatusWatcher == nil {
-		retryDuration = 30 * time.Second
-		retryTimer = w.clock.NewTimer(retryDuration)
-		retryTimerChan = retryTimer.Chan()
+				watcher, err := w.watchRemoteOfferStatus(ctx)
+				if err != nil {
+					return errors.Annotatef(err, "retrying offer status watcher for %q", w.offerUUID)
+				}
+				w.offerStatusWatcher = watcher
+				return nil
+			},
+		})
+		if err != nil {
+			// If the retry was interrupted because the worker is dying,
+			// return ErrDying so the worker exits cleanly.
+			select {
+			case <-w.catacomb.Dying():
+				return w.catacomb.ErrDying()
+			default:
+				return errors.Trace(err)
+			}
+		}
 	}
 
 	for {
@@ -423,7 +456,7 @@ func (w *localConsumerWorker) loop() (err error) {
 				return errors.Annotatef(err, "handling offerer relation change for %q", change.ConsumerRelationUUID)
 			}
 
-		case changes, ok := <-offerStatusWatcherChanges:
+		case changes, ok := <-w.offerStatusWatcher.Changes():
 			if !ok {
 				select {
 				case <-w.catacomb.Dying():
@@ -450,28 +483,6 @@ func (w *localConsumerWorker) loop() (err error) {
 				if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, change.Status); err != nil {
 					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.offererModelUUID)
 				}
-			}
-		case <-retryTimerChan:
-			w.logger.Infof(ctx, "retrying to establish offer status watcher for %q", w.offerUUID)
-
-			watcher, err := w.watchRemoteOfferStatus(ctx)
-			if err != nil {
-				return errors.Annotatef(err, "retrying offer status watcher for %q", w.offerUUID)
-			}
-			if watcher != nil {
-				offerStatusWatcherChanges = watcher.Changes()
-				retryTimer.Stop()
-				retryTimer = nil
-				retryTimerChan = nil
-				w.logger.Infof(ctx, "offer status watcher re-established for %q", w.offerUUID)
-			} else {
-				w.logger.Debugf(
-					ctx, "offer permission still revoked for %q, next retry in %v", w.offerUUID, retryDuration)
-				retryDuration *= 2
-				if retryDuration > 5*time.Minute {
-					retryDuration = 5 * time.Minute
-				}
-				retryTimer.Reset(retryDuration)
 			}
 
 		case changes, ok := <-w.secretChanges:
@@ -538,7 +549,7 @@ func (w *localConsumerWorker) watchRemoteOfferStatus(ctx context.Context) (watch
 				w.logger.Errorf(ctx, "failed updating remote application %v status from remote model %v: %v",
 					w.applicationName, w.offererModelUUID, statusErr)
 			}
-			return nil, nil
+			return nil, ErrOfferStatusDischargeError
 		}
 		if statusErr := w.setApplicationOffererStatusMacaroonError(ctx, err); statusErr != nil {
 			w.logger.Errorf(ctx, "failed updating remote application %v status from remote model %v: %v", w.applicationName, w.offererModelUUID, statusErr)
