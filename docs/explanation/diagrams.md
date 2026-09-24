@@ -522,6 +522,38 @@ precedent).
 :caption: Taxonomy star: A relation is a peer relation when the application relates to itself; otherwise it connects two applications, and it is a subordinate relation when one side is subordinate (always same-model), a cross-model relation when the applications live in different models, and a regular relation when two principal applications share a model.
 ```
 
+#### Per-type relation shapes
+
+**Insert at:** one at the top of each kind's section — Peer shape → § Peer relation; Subordinate shape → § Subordinate relation; Regular shape → § Regular relation; Cross-model shape → § Cross-model relation.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Peer relation shape
+:alt: The application relating to itself: the peer relation has one endpoint, and the application's units fan into it -- every unit joins the same relation.
+:caption: Topology: The peer relation's shape: the application relates to itself -- the relation has one endpoint, created automatically at deployment, and every unit the application ever has joins it as it starts.
+```
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Subordinate relation shape
+:alt: A principal application and a subordinate application relating through a container-scoped relation; below, both the principal unit and the subordinate unit run on the principal unit's machine.
+:caption: Topology: The subordinate relation's shape: a principal application and a subordinate charm relate through a container-scoped relation; the relation is what places the subordinate's unit on the principal unit's own machine.
+```
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Regular relation shape
+:alt: Two principal applications -- one provides, one requires -- relating through a two-endpoint relation in the same model.
+:caption: Topology: The regular relation's shape: two principal applications in the same model relate through a two-endpoint relation -- opposite provides/requires roles on the same interface.
+```
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Cross-model relation shape
+:alt: Two model containers -- consuming model A with its application, offering model B with the saas synthetic application -- joined by a cross-model relation edge.
+:caption: Topology: The cross-model relation's shape: the two applications live in different models, each holding its own half; the consuming model integrates through a synthetic application (the saas) that stands in for the offered application.
+```
+
 #### Relation attributes (ERD slice)
 
 **Insert at:** § The relation data model.

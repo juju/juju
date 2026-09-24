@@ -385,6 +385,36 @@ model "Juju" {
     migration_minion [type: juju-software, label: "model agents\n(migrationminion)"]
 
     // -----------------------------------------------------------------------
+    // Per-type relation shapes (docs/reference/relation.md § Types of
+    // relation — one figure at the top of each kind's section).
+    // Definition nodes (the taxonomy-trie precedent): the shapes are
+    // the page's own illustrations, not code facts — the labels carry
+    // the discriminating facts, no grounds.
+    // -----------------------------------------------------------------------
+    peer_app   [type: juju-software, label: "the application"]
+    peer_rel   [type: record, label: "the peer relation\n(one endpoint)"]
+    peer_u1    [type: juju-software, label: "unit 1"]
+    peer_u2    [type: juju-software, label: "unit 2"]
+
+    sub_principal [type: juju-software, label: "principal\napplication"]
+    sub_sub       [type: juju-software, label: "subordinate\napplication"]
+    sub_rel       [type: record, label: "the subordinate relation\n(container scope)"]
+    sub_punit     [type: juju-software, label: "principal\nunit"]
+    sub_sunit     [type: juju-software, label: "subordinate\nunit"]
+    sub_machine   [type: container, label: "the principal unit's\nmachine"]
+
+    reg_a     [type: juju-software, label: "application A\n(provides)"]
+    reg_b     [type: juju-software, label: "application B\n(requires)"]
+    reg_rel   [type: record, label: "the regular relation\n(two endpoints)"]
+
+    cm_model_a [type: container, label: "model A\n(consuming)"] {
+      cm_app_a  [type: juju-software, label: "application A"]
+    }
+    cm_model_b [type: container, label: "model B\n(offer)"] {
+      cm_saas   [type: juju-software, label: "saas\n(synthetic application)"]
+    }
+
+    // -----------------------------------------------------------------------
     // Intro-view archetypes — real types rendered as N labelled instances
     // per view (instances: notation, ggarch 0.22.0). The instances are
     // illustrations; the types and their edges are the product's actual
@@ -993,6 +1023,23 @@ model "Juju" {
     controller -> migration_minion [type: control]
     migration_minion -> controller [type: api]
     migration_minion -> migration_target [type: api]
+
+    // Per-type relation shapes: the discriminating facts as edge
+    // labels (definition edges, no grounds — the taxonomy-trie
+    // precedent).
+    peer_app  -> peer_rel [type: data, label: "relates to itself"]
+    peer_u1   -> peer_rel [type: data, label: "every unit joins\nthe same relation"]
+    peer_u2   -> peer_rel [type: data, label: "every unit joins\nthe same relation"]
+
+    sub_principal -> sub_rel [type: data, label: "provides"]
+    sub_sub       -> sub_rel [type: data, label: "requires"]
+    sub_punit     -> sub_machine [type: data, label: "runs on"]
+    sub_sunit     -> sub_machine [type: data, label: "runs on (placed\nby the relation)"]
+
+    reg_a   -> reg_rel [type: data, label: "endpoint A"]
+    reg_b   -> reg_rel [type: data, label: "endpoint B"]
+
+    cm_app_a -> cm_saas [type: api, label: "cross-model relation\n(each model holds\nits own half)"]
     uop_committing -> uop_idle       [type: control]
 
     // -----------------------------------------------------------------------
@@ -1709,6 +1756,67 @@ diagram "Cross-model relation (CMR)" from "Juju" {
   }
 }
 
+
+// --------------------------------------------------------------------------
+// Per-type relation shapes (docs/reference/relation.md § Types of
+// relation): one small figure at the top of each kind's section, the
+// discriminating fact as the shape itself (reviewer PS, round 28).
+// Definition views — the shapes are the page's own illustrations.
+// --------------------------------------------------------------------------
+diagram "Peer relation shape" from "Juju" {
+  select {
+    nodes: peer_app peer_rel peer_u1 peer_u2
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    peer_u1    left-of peer_u2 gap: 40
+    peer_u1    align-middle peer_u2
+    fan [peer_u1 peer_u2] above peer_rel gap: 60
+    peer_app   right-of peer_rel gap: 130
+    peer_app   align-middle peer_rel
+  }
+}
+
+diagram "Subordinate relation shape" from "Juju" {
+  select {
+    nodes: sub_principal sub_sub sub_rel sub_punit sub_sunit sub_machine
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    fan [sub_principal sub_sub] above sub_rel gap: 70
+    fan [sub_punit sub_sunit] below sub_rel gap: 50
+    sub_machine below sub_punit gap: 60
+    sub_machine align-centre sub_punit
+  }
+}
+
+diagram "Regular relation shape" from "Juju" {
+  select {
+    nodes: reg_a reg_rel reg_b
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    reg_a      left-of reg_rel gap: 120
+    reg_a      align-middle reg_rel
+    reg_b      right-of reg_rel gap: 120
+    reg_b      align-middle reg_rel
+  }
+}
+
+diagram "Cross-model relation shape" from "Juju" {
+  select {
+    nodes: cm_model_a cm_model_b
+    edges: type data type api
+    sizing: uniform
+  }
+  positions {
+    cm_model_a left-of cm_model_b gap: 140
+    cm_model_a align-middle cm_model_b
+  }
+}
 
 // --------------------------------------------------------------------------
 // Sequence views
@@ -2674,6 +2782,41 @@ diagram "Cross-model relation (CMR) (synthesized)" from "Juju" {
     legend [position: "bottom-right",
             record: "database record",
             data: "schema association (semantic direction, multiplicity in label)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Peer relation shape (synthesized)" from "Juju" {
+  select {
+    nodes: peer_app peer_rel peer_u1 peer_u2
+    edges: type data
+    sizing: uniform
+  }
+}
+
+diagram "Subordinate relation shape (synthesized)" from "Juju" {
+  select {
+    nodes: sub_principal sub_sub sub_rel sub_punit sub_sunit sub_machine
+    edges: type data
+    sizing: uniform
+  }
+}
+
+diagram "Regular relation shape (synthesized)" from "Juju" {
+  select {
+    nodes: reg_a reg_rel reg_b
+    edges: type data
+    sizing: uniform
+  }
+}
+
+diagram "Cross-model relation shape (synthesized)" from "Juju" {
+  select {
+    nodes: cm_model_a cm_model_b
+    edges: type data type api
+    sizing: uniform
   }
 }
 

@@ -38,6 +38,13 @@ of them is subordinate and whether the two live in the same model.
 (peer-relation)=
 ### Peer relation
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Peer relation shape
+:alt: The application relating to itself: the peer relation has one endpoint, and the application's units fan into it -- every unit joins the same relation.
+:caption: Topology: The peer relation's shape: the application relates to itself -- the relation has one endpoint, created automatically at deployment, and every unit the application ever has joins it as it starts.
+```
+
 A **peer** relation is a relation of an application to itself: its
 units relate to one another by virtue of the application having a
 `peers` endpoint. Juju creates the peer relation automatically at
@@ -61,6 +68,13 @@ sometimes used by charm authors as a way to persist charm data.
 
 (subordinate-relation)=
 ### Subordinate relation
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Subordinate relation shape
+:alt: A principal application and a subordinate application relating through a container-scoped relation; below, both the principal unit and the subordinate unit run on the principal unit's machine.
+:caption: Topology: The subordinate relation's shape: a principal application and a subordinate charm relate through a container-scoped relation; the relation is what places the subordinate's unit on the principal unit's own machine.
+```
 
 A **subordinate** relation is a relation between a principal
 application and a {ref}`subordinate <subordinate-charm>`
@@ -102,6 +116,13 @@ juju integrate <subordinate>:<requires-endpoint> <principal>:juju-info
 (regular-relation)=
 ### Regular relation
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Regular relation shape
+:alt: Two principal applications -- one provides, one requires -- relating through a two-endpoint relation in the same model.
+:caption: Topology: The regular relation's shape: two principal applications in the same model relate through a two-endpoint relation -- opposite provides/requires roles on the same interface.
+```
+
 A **regular** relation is a relation between two principal
 applications that live in the same model. Both sides of the relation
 support the same endpoint interface and have opposite `provides` /
@@ -109,6 +130,13 @@ support the same endpoint interface and have opposite `provides` /
 
 (cross-model-relation)=
 ### Cross-model relation
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Cross-model relation shape
+:alt: Two model containers -- consuming model A with its application, offering model B with the saas synthetic application -- joined by a cross-model relation edge.
+:caption: Topology: The cross-model relation's shape: the two applications live in different models, each holding its own half; the consuming model integrates through a synthetic application (the saas) that stands in for the offered application.
+```
 
 ```{ibnote}
 See also: {ref}`manage-relations`
