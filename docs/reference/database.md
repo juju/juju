@@ -31,6 +31,7 @@ There is one controller database per controller. This is a separate global datab
 
 ### Model databases
 
+(data-model-full-spine)=
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Data model (full spine)
