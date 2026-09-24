@@ -265,7 +265,10 @@ func (a *appWorker) loop() error {
 		if initial {
 			initial = false
 			ps, err := a.applicationService.GetApplicationScalingState(ctx, name)
-			if err != nil {
+			// A forced removal can delete the rows mid-read; the zero
+			// scaling state skips this block and the Dead path below
+			// removes the k8s resources.
+			if err != nil && !appRemovedFromState(err) {
 				return errors.Trace(err)
 			}
 			if ps.Scaling {
@@ -303,18 +306,31 @@ func (a *appWorker) loop() error {
 					// State not ready for this application to be provisioned yet.
 					// Usually because the charm has not yet been downloaded.
 					return tryAgain
+				} else if appRemovedFromState(err) {
+					// The application rows were deleted mid-read (forced
+					// removal); the retry re-reads GetApplicationLife, which
+					// then observes the removal and takes the Dead path.
+					return tryAgain
 				} else if err != nil {
 					return errors.Annotatef(err, "failed to get provisioning info for %q", name)
 				}
 				// Signal that we are managing k8s resources for this app,
 				// blocking removal until we explicitly clear the flag.
 				if err := a.applicationService.SetApplicationHasK8sResources(ctx, a.appUUID); err != nil {
+					if appRemovedFromState(err) {
+						// Rows deleted mid-flight; the retry converges to
+						// the Dead path (see the comment above).
+						return tryAgain
+					}
 					return errors.Annotatef(err, "setting k8s resources managed for %q", name)
 				}
 				err = a.ops.AppAlive(ctx, name, a.appUUID, app, a.password,
 					&a.lastApplied, a.provisioningInfo, a.statusService,
 					a.clock, a.logger)
 				if err != nil {
+					if appRemovedFromState(err) {
+						return tryAgain
+					}
 					return errors.Trace(err)
 				}
 			}

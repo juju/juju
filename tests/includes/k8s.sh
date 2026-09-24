@@ -155,7 +155,9 @@ wait_for_pod_absent() {
 		elapsed=$(date -u +%s)-$start_time
 		if [[ ${elapsed} -ge ${timeout} ]]; then
 			echo "[-] $(red 'timed out waiting for pod') $(red "${namespace}/${name}") $(red 'to be removed')"
-			kubectl get pods,pvc -n "${namespace}" 2>&1 | sed 's/^/    | /g'
+			# The statefulset owns the pod, so its presence distinguishes
+			# "provisioner never deleted it" from "pod stuck Terminating".
+			kubectl get statefulset,pods,pvc -n "${namespace}" 2>&1 | sed 's/^/    | /g'
 			exit 1
 		fi
 
