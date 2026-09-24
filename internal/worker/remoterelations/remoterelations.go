@@ -184,9 +184,9 @@ func New(config Config) (*Worker, error) {
 		})
 	}
 	w := &Worker{
-		config:     config,
-		offerUUIDs: make(map[string]string),
-		runner:     runner,
+		config:                config,
+		applicationIdentities: make(map[string]remoteApplicationIdentity),
+		runner:                runner,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -206,8 +206,8 @@ type Worker struct {
 	runner *worker.Runner
 	mu     sync.Mutex
 
-	// offerUUIDs records the offer UUID used for each saas name.
-	offerUUIDs map[string]string
+	// applicationIdentities records the identity observed for each SAAS name.
+	applicationIdentities map[string]remoteApplicationIdentity
 }
 
 // Kill is defined on worker.Worker.
@@ -268,36 +268,44 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 	for i, result := range results {
 		name := applicationIds[i]
 
-		// The remote application may refer to an offer that has been removed from
-		// the offering model, or it may refer to a new offer with a different UUID.
-		// If it is for a new offer, we need to stop any current worker for the old offer.
+		// A name can be reused for a different offer or consume generation.
+		// Stop the old worker before starting one for the replacement.
 		appGone := result.Error != nil && params.IsCodeNotFound(result.Error)
 		if result.Error != nil && !appGone {
 			return errors.Annotatef(result.Error, "querying remote application %q", name)
 		}
 
 		var remoteApp *params.RemoteApplication
-		offerChanged := false
+		identityChanged := false
 		if !appGone {
 			remoteApp = result.Result
-			existingOfferUUID, ok := w.offerUUIDs[result.Result.Name]
+			existingIdentity, ok := w.applicationIdentities[name]
 			appGone = remoteApp.Status == string(status.Terminated) || remoteApp.Life == life.Dead
-			offerChanged = ok && existingOfferUUID != result.Result.OfferUUID
+			identityChanged = ok && existingIdentity != applicationIdentity(remoteApp)
 		}
-		if appGone || offerChanged {
+		if appGone || identityChanged {
 			// The remote application has been removed, stop its worker.
 			logger.Debugf("saas application %q gone from offering model", name)
 			err := w.runner.StopAndRemoveWorker(name, w.catacomb.Dying())
 			if err != nil && !errors.IsNotFound(err) {
 				w.logger.Warningf("error stopping saas worker for %q: %v", name, err)
 			}
-			delete(w.offerUUIDs, name)
+			delete(w.applicationIdentities, name)
 			if appGone {
 				continue
 			}
 		}
 
 		startFunc := func() (worker.Worker, error) {
+			// The runner retains this function across restarts. Read the current
+			// application instead of capturing the previous offer's credentials.
+			remoteApp, err := getRemoteApplication(w.config.RelationsFacade, name)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if remoteApp.Life == life.Dead || remoteApp.Status == string(status.Terminated) {
+				return nil, errors.NotFoundf("live remote application %q", name)
+			}
 			appWorker := &remoteApplicationWorker{
 				offerUUID:                         remoteApp.OfferUUID,
 				applicationName:                   remoteApp.Name,
@@ -324,7 +332,6 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 
 		logger.Debugf("starting watcher for remote application %q", name)
 		// Start the application worker to watch for things like new relations.
-		w.offerUUIDs[name] = remoteApp.OfferUUID
 		if err := w.runner.StartWorker(name, startFunc); err != nil {
 			if errors.IsAlreadyExists(err) {
 				w.logger.Debugf("already running remote application worker for %q", name)
@@ -332,9 +339,40 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 				return errors.Annotate(err, "error starting remote application worker")
 			}
 		}
-		w.offerUUIDs[name] = remoteApp.OfferUUID
+		w.applicationIdentities[name] = applicationIdentity(remoteApp)
 	}
 	return nil
+}
+
+type remoteApplicationIdentity struct {
+	offerUUID      string
+	consumeVersion int
+	modelUUID      string
+	consumerProxy  bool
+}
+
+func applicationIdentity(app *params.RemoteApplication) remoteApplicationIdentity {
+	return remoteApplicationIdentity{
+		offerUUID: app.OfferUUID, consumeVersion: app.ConsumeVersion,
+		modelUUID: app.ModelUUID, consumerProxy: app.IsConsumerProxy,
+	}
+}
+
+func getRemoteApplication(facade RemoteRelationsFacade, name string) (*params.RemoteApplication, error) {
+	results, err := facade.RemoteApplications([]string{name})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results) != 1 {
+		return nil, errors.Errorf("expected one remote application, got %d", len(results))
+	}
+	if results[0].Error != nil {
+		return nil, results[0].Error
+	}
+	if results[0].Result == nil {
+		return nil, errors.New("missing remote application result")
+	}
+	return results[0].Result, nil
 }
 
 // Report provides information for the engine report.
@@ -344,7 +382,7 @@ func (w *Worker) Report() map[string]interface{} {
 	defer w.mu.Unlock()
 
 	saasWorkers := make(map[string]interface{})
-	for name := range w.offerUUIDs {
+	for name := range w.applicationIdentities {
 		appWorker, err := w.runner.Worker(name, w.catacomb.Dying())
 		if err != nil {
 			saasWorkers[name] = fmt.Sprintf("ERROR: %v", err)
