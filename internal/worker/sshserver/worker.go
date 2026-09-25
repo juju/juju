@@ -13,7 +13,9 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	coresshproxy "github.com/juju/juju/core/sshproxy"
+	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -25,6 +27,20 @@ type ControllerConfigService interface {
 	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
 	// ControllerConfig returns the current controller configuration.
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// SSHService resolves controller host keys, user public keys, and terminating
+// host keys for routed destinations.
+type SSHService interface {
+	// VirtualHostKey returns the terminating host key for a routed destination.
+	VirtualHostKey(context.Context, virtualhostname.Info) (string, error)
+	// ResolveK8sExecInfo resolves Kubernetes execution information for a routed
+	// destination.
+	ResolveK8sExecInfo(context.Context, virtualhostname.Info) (namespace, podName string, err error)
+	// MachineForDestination resolves the machine for a routed destination.
+	MachineForDestination(context.Context, virtualhostname.Info) (coremachine.Name, error)
+	// SSHServerHostKey returns the controller's SSH server host key.
+	SSHServerHostKey(context.Context) (string, error)
 }
 
 // ServerWrapperWorkerConfig holds the configuration required by the server wrapper worker.
