@@ -66,6 +66,7 @@ TEST_NAMES="actions \
             kubeflow \
             machine \
             model \
+            modelmigration \
             network \
             ovs_maas \
             refresh \
