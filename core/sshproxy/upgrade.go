@@ -17,6 +17,10 @@ import (
 // pushing a reverse tunnel to the controller.
 const TunnelUpgradeToken = "juju-ssh-tunnel"
 
+// RelayUpgradeToken is the HTTP upgrade token used by JIMM to relay a
+// user's SSH session to the controller.
+const RelayUpgradeToken = "juju-ssh-relay"
+
 // PerformUpgrade writes req over conn, reads the response head, and returns
 // the connection on a 101 Switching Protocols response. Any bytes the
 // response reader buffered past the head (e.g. the server's SSH banner) are

@@ -7,12 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/lestrrat-go/jwx/v3/jwt"
 	ssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/virtualhostname"
 )
 
@@ -37,47 +35,36 @@ type authorizer struct {
 // any relevant claims in the context.
 func (a authorizer) Authorize(ctx ssh.Context, destination virtualhostname.Info) (bool, error) {
 	// If the context does not contain the user's key then they did
-	// not authenticate with a public key (e.g. JWT or reverse tunnel).
+	// not authenticate with a public key. Password authentication is
+	// removed: machine reverse tunnels and JIMM relay sessions
+	// authenticate at the HTTP layer on the API server's upgrade
+	// endpoints instead.
 	userKey, ok := ctx.Value(authenticatedPublicKey{}).(publicKeyWithComment)
-	if ok {
-		hasAccess, err := a.access.HasSSHAccessToModel(ctx, ctx.User(), destination)
-		if err != nil {
-			return false, errors.Annotate(err, "checking SSH access")
-		}
-		if !hasAccess {
-			return false, nil
-		}
-
-		// The key used during authentication is controller scoped, but keys are
-		// added per model and kept this way for compatibility with JIMM/Juju 3.
-		// Now that the model is known, verify the key is associated with the model.
-		// Note that when a user has multiple keys there is poor UX. If they present
-		// one not associated with the model, they will get an error here.
-		inModel, err := a.access.HasPublicKeyInModel(ctx, ctx.User(), userKey.PublicKey, destination)
-		if err != nil {
-			return false, errors.Annotate(err, "checking SSH key for model")
-		}
-		if !inModel {
-			return false, errors.Errorf(
-				"public key %q used to authenticate is not associated with model %q, add the key to the model or specify a different key",
-				userKey.Comment, destination.ModelUUID())
-		}
-		return true, nil
-	}
-
-	token, _ := ctx.Value(userJWT{}).(jwt.Token)
-	if token == nil {
-		return false, errors.New("SSH JWT is missing from connection context")
-	}
-
-	var rawClaims any
-	if err := token.Get("access", &rawClaims); err != nil {
-		return false, errors.New("invalid SSH JWT token, missing access claim")
-	}
-	claims, ok := rawClaims.(map[string]any)
 	if !ok {
-		return false, errors.New("invalid SSH JWT token, invalid access claim")
+		return false, errors.New("SSH connection is not authenticated via public key")
 	}
-	access, _ := claims["model-"+destination.ModelUUID().String()].(string)
-	return permission.Access(access).EqualOrGreaterModelAccessThan(permission.AdminAccess), nil
+
+	hasAccess, err := a.access.HasSSHAccessToModel(ctx, ctx.User(), destination)
+	if err != nil {
+		return false, errors.Annotate(err, "checking SSH access")
+	}
+	if !hasAccess {
+		return false, nil
+	}
+
+	// The key used during authentication is controller scoped, but keys are
+	// added per model and kept this way for compatibility with JIMM/Juju 3.
+	// Now that the model is known, verify the key is associated with the model.
+	// Note that when a user has multiple keys there is poor UX. If they present
+	// one not associated with the model, they will get an error here.
+	inModel, err := a.access.HasPublicKeyInModel(ctx, ctx.User(), userKey.PublicKey, destination)
+	if err != nil {
+		return false, errors.Annotate(err, "checking SSH key for model")
+	}
+	if !inModel {
+		return false, errors.Errorf(
+			"public key %q used to authenticate is not associated with model %q, add the key to the model or specify a different key",
+			userKey.Comment, destination.ModelUUID())
+	}
+	return true, nil
 }

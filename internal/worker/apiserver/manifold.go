@@ -26,6 +26,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
+	coresshproxy "github.com/juju/juju/core/sshproxy"
 	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
@@ -92,6 +93,7 @@ type ManifoldConfig struct {
 	ObjectStoreName    string
 	JWTParserName      string
 	SSHTunnelerName    string
+	SSHServerName      string
 
 	// Clock is the clock used for timekeeping within the manifold.
 	Clock clock.Clock
@@ -171,6 +173,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.SSHTunnelerName == "" {
 		return errors.NotValidf("empty SSHTunnelerName")
 	}
+	if config.SSHServerName == "" {
+		return errors.NotValidf("empty SSHServerName")
+	}
 	if config.ProviderTrackerName == "" {
 		return errors.NotValidf("empty ProviderTrackerName")
 	}
@@ -210,6 +215,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.LogSinkName,
 			config.JWTParserName,
 			config.SSHTunnelerName,
+			config.SSHServerName,
 			config.WatcherRegistryName,
 			config.ProviderTrackerName,
 		},
@@ -333,6 +339,14 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	// Fetch the terminating server factory from the sshserver worker's
+	// manifold output. Relay authorization happens in the relay handler
+	// using the verified JWT.
+	var serverFactory coresshproxy.TerminatingServerFactory
+	if err := getter.Get(config.SSHServerName, &serverFactory); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Register the metrics collector against the prometheus register.
 	metricsCollector := config.NewMetricsCollector()
 	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
@@ -368,6 +382,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		EphemeralProviderFactory:          providerFactory,
 		SSHTunnel: &apiserver.SSHTunnelConfig{
 			TunnelTracker: tunnelTracker,
+			ServerFactory: serverFactory,
 		},
 	})
 	if err != nil {

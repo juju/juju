@@ -26,6 +26,7 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
+	gliderssh "github.com/tailscale/gliderssh"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
@@ -51,6 +52,7 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/core/virtualhostname"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/domain/credential"
@@ -551,7 +553,7 @@ func DefaultServerConfig(c *tc.C, testclock clock.Clock) apiserver.ServerConfig 
 		ControllerUUID:             coretesting.ControllerTag.Id(),
 		ControllerModelUUID:        coremodel.UUID(coretesting.ModelTag.Id()),
 		WatcherRegistryGetter:      &stubWatcherRegistryGetter{},
-		SSHTunnelConfig:            apiserver.SSHTunnelConfig{TunnelTracker: &noopTunnelTracker{}},
+		SSHTunnelConfig:            apiserver.SSHTunnelConfig{TunnelTracker: &noopTunnelTracker{}, ServerFactory: &noopServerFactory{}},
 	}
 }
 
@@ -561,6 +563,12 @@ func (*noopTunnelTracker) PushTunnel(context.Context, string, string, net.Conn) 
 	ch := make(chan struct{})
 	close(ch)
 	return ch, nil
+}
+
+type noopServerFactory struct{}
+
+func (*noopServerFactory) New(context.Context, virtualhostname.Info) (*gliderssh.Server, error) {
+	return nil, errors.New("relay endpoint not supported in tests")
 }
 
 type stubDBGetter struct {

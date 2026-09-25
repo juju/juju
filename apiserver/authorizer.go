@@ -95,6 +95,32 @@ func (a machineAgentAuthorizer) Authorize(_ context.Context, authInfo authentica
 	return nil
 }
 
+// relayJWTAuthorizer checks that the authenticated entity is an externally
+// authenticated user (JIMM bearer JWT). It is the authorizer for the SSH
+// relay upgrade endpoint. The destination-specific access check happens
+// inside the relay handler using the JWT claims.
+//
+// relayJWTAuthorizer implements the [authentication.Authorizer] interface.
+type relayJWTAuthorizer struct{}
+
+// Authorize checks that the authorization request is for an externally
+// authenticated user carrying a JWT delegator.
+//
+// Authorize implements the [authentication.Authorizer] interface.
+func (a relayJWTAuthorizer) Authorize(_ context.Context, authInfo authentication.AuthInfo) error {
+	if !authInfo.IsExternallyAuthenticated {
+		return errors.New("authorization is not for an externally authenticated user").Add(
+			coreerrors.NotSupported,
+		)
+	}
+	if authInfo.Delegator == nil {
+		return errors.New("authorization is missing a permission delegator").Add(
+			coreerrors.NotSupported,
+		)
+	}
+	return nil
+}
+
 // modelPermissionAuthorizer checks that the authenticated user has the given
 // permission on a model.
 //

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
+	coresshproxy "github.com/juju/juju/core/sshproxy"
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher"
 )
@@ -50,7 +51,7 @@ type ServerWrapperWorkerConfig struct {
 	Logger                  logger.Logger
 	Authenticator           Authenticator
 	Authorizer              Authorizer
-	ProxyFactory            ProxyFactory
+	ServerFactory           coresshproxy.TerminatingServerFactory
 	Metrics                 *Collector
 }
 
@@ -77,8 +78,8 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	if c.Authorizer == nil {
 		return errors.NotValidf("Authorizer is required")
 	}
-	if c.ProxyFactory == nil {
-		return errors.NotValidf("ProxyFactory is required")
+	if c.ServerFactory == nil {
+		return errors.NotValidf("ServerFactory is required")
 	}
 	return nil
 }
@@ -183,7 +184,7 @@ func (ssw *serverWrapperWorker) loop() error {
 		SSHService:               ssw.config.SSHService,
 		Authenticator:            ssw.config.Authenticator,
 		Authorizer:               ssw.config.Authorizer,
-		ProxyFactory:             ssw.config.ProxyFactory,
+		ServerFactory:            ssw.config.ServerFactory,
 		Metrics:                  ssw.config.Metrics,
 	})
 	ssw.addWorkerReporter("ssh-server", srv)
