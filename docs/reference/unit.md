@@ -17,58 +17,23 @@ Simple applications may be deployed with a single unit, but it is possible for a
 
 A unit is always named on the pattern `<application>/<unit ID>`, where `<application>` is the name of the application and the `<unit ID>` is its ID number or, for the leader unit, the keyword `leader`. For example, `mysql/0` or `mysql/leader`. Note: the number designation is a static reference to a unique entity whereas the `leader` designation is a dynamic reference to whichever unit happens to be elected by Juju to be the leader.
 
+(the-units-records)=
+## The unit's records
+
 (the-unit-record)=
-## The unit record
+### The unit's identity
 
-A unit is a record in the model database. It is identified by its
-**name** -- unique per model, the application's name plus `/` and the
-unit number -- and it carries the unit's life (see
-{ref}`Unit states <the-unit-states>`), the application it belongs to,
-the network identity it shares with its machine (its net node), and
-the charm revision it runs: a unit pins its charm, so a
-{ref}`refresh <the-application-refresh>` leaves existing units on the
-old revision until they are individually refreshed.
-
-(types-of-unit)=
-## Types of unit
-
-The unit table has no type column: a unit's kind is derived, and the
-kinds are not mutually exclusive -- the leader is also just one of the
-application's units. Most units are **regular units**: one charm
-instance, running its hooks on its machine or pod.
-
-(leader-unit)=
-### Leader unit
-
-In Juju, a **leader** (or {ref}`application <application>` leader) is the application {ref}`unit <unit>` that is the authoritative source for an application's status and configuration.
-
-All units for a given application share the same charm code, the same relations, and the same user-provided configuration but the leader unit is different in that it is responsible for managing the lifecycle of the application as a whole.
-
-Every application is guaranteed to have at most one leader at any given time. {ref}`Unit agents <unit-agent>` will each seek to acquire leadership, and maintain it while they have it or wait for the current leader to drop out.
-
-Internally, even though the replica set shares the same user-provided configuration, each unit may be performing different roles within the replica set, as defined by the {ref}`charm <charm>`.
-
-The leader is denoted by an asterisk in the output to `juju status`.
-
-Leadership is not stored on the unit: it is a **lease** in the
-controller database, one per application, held by a unit until it
-expires or is revoked. The unit agents claim and renew the lease; the
-controller validates it on every leader-gated operation -- the
-application status write, the peer relation settings, secret access
-(see {ref}`Unit operations <the-unit-operations>` and
-{ref}`the unit agent <unit-agent>`).
-
-### Subordinate unit
-
-A **subordinate unit** is a unit of a
-{ref}`subordinate charm <subordinate-relation>`: it runs co-located
-with a principal unit on the same machine, and the pair is recorded in
-a dedicated principal record. Like the application's
-subordinate-ness, this is a role, not a type -- it is derived from the
-charm's metadata and the co-location record.
+In the model database, a unit is a record identified by its **name** --
+unique per model, the application's name plus `/` and the unit number
+-- carrying the unit's life (see {ref}`Unit states <the-unit-states>`),
+the application it belongs to, the network identity it shares with
+its machine (its net node), and the charm revision it runs: a unit
+pins its charm, so a {ref}`refresh <the-application-refresh>` leaves
+existing units on the old revision until they are individually
+refreshed.
 
 (the-unit-in-the-data-model)=
-## The unit in the data model
+### The unit in the data model
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -92,7 +57,7 @@ separate record the controller updates as the unit agent logs in and
 out (see {ref}`the unit agent <unit-agent>`).
 
 (the-unit-states)=
-## Unit states
+### Unit states
 
 A unit carries orthogonal state machines: its **life** -- the shared
 alive / dying / dead cycle every entity has -- and two status
@@ -103,7 +68,7 @@ status write is a membership check (the value must be known) followed
 by writer gates -- what constrains a unit is who writes which value,
 not a transition matrix.
 
-### Life
+#### Life
 
 A unit is created alive. The removal machinery marks it dying (guarded
 one-way) when the unit is removed, and declares it dead only once no
@@ -111,7 +76,7 @@ relation scopes and no storage attachments are left on it; a scheduled
 removal job then deletes the records (see
 {ref}`Unit removal <the-unit-removal>`).
 
-### Status
+#### Status
 
 The value vocabularies are documented in
 {ref}`unit status <unit-status>`; the who-writes story across all five
@@ -129,14 +94,59 @@ version, as it constrains the unit:
   reads as `unknown` unless the workload itself is in error or
   terminated.
 
+(types-of-unit)=
+### Types of unit
+
+The unit table has no type column: a unit's kind is derived, and the
+kinds are not mutually exclusive -- the leader is also just one of the
+application's units. Most units are **regular units**: one charm
+instance, running its hooks on its machine or pod.
+
+(leader-unit)=
+#### Leader unit
+
+In Juju, a **leader** (or {ref}`application <application>` leader) is the application {ref}`unit <unit>` that is the authoritative source for an application's status and configuration.
+
+All units for a given application share the same charm code, the same relations, and the same user-provided configuration but the leader unit is different in that it is responsible for managing the lifecycle of the application as a whole.
+
+Every application is guaranteed to have at most one leader at any given time. {ref}`Unit agents <unit-agent>` will each seek to acquire leadership, and maintain it while they have it or wait for the current leader to drop out.
+
+Internally, even though the replica set shares the same user-provided configuration, each unit may be performing different roles within the replica set, as defined by the {ref}`charm <charm>`.
+
+The leader is denoted by an asterisk in the output to `juju status`.
+
+Leadership is not stored on the unit: it is a **lease** in the
+controller database, one per application, held by a unit until it
+expires or is revoked. The unit agents claim and renew the lease; the
+controller validates it on every leader-gated operation -- the
+application status write, the peer relation settings, secret access
+(see {ref}`Unit operations <the-unit-operations>` and
+{ref}`the unit agent <unit-agent>`).
+
+#### Subordinate unit
+
+A **subordinate unit** is a unit of a
+{ref}`subordinate charm <subordinate-relation>`: it runs co-located
+with a principal unit on the same machine, and the pair is recorded in
+a dedicated principal record. Like the application's
+subordinate-ness, this is a role, not a type -- it is derived from the
+charm's metadata and the co-location record.
+
+(the-units-machinery)=
+## The unit's machinery
+
+A unit has machinery of its own: the unit agent runs on it -- claiming
+leadership and running the charm -- while in the controller, creation,
+hook-error resolution and removal act on the unit's records.
+
 (the-unit-operations)=
-## Unit operations
+### Unit operations
 
 Operations on units split by owner: the controller creates units and
 resolves their hook errors; the unit agents claim leadership and run
 the charm; the removal machinery tears units down.
 
-### Unit creation
+#### Unit creation
 
 Units are created implicitly by deploying an application or explicitly
 by adding units (for example, `juju add-unit mysql -n 2`): the
@@ -148,7 +158,7 @@ asks for (see {ref}`Application deployment
 manually started pod) is registered into the model rather than
 scheduled.
 
-### Leadership
+#### Leadership
 
 A unit agent claims the application's leadership lease when it wants
 to lead and renews it while it holds it; the lease expires if the unit
@@ -158,7 +168,7 @@ write, the peer relation settings read, and secret access all check
 leadership, and fail with a not-leader error if the unit no longer
 holds it.
 
-### Hook results and resolution
+#### Hook results and resolution
 
 The unit agent is the only writer of the unit's hook-claimed state
 (see {ref}`the unit agent <unit-agent>` and
@@ -169,7 +179,7 @@ leader) resolves it -- the resolution mode is recorded on the unit and
 honoured by the agent on the next run.
 
 (the-unit-removal)=
-### Unit removal
+#### Unit removal
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -187,7 +197,7 @@ of an application on a machine leaves, the machine is removed with it;
 the unit's leadership lease is revoked as part of the teardown.
 
 (the-unit-watchers)=
-## Unit watchers
+### Unit watchers
 
 Nothing about a unit is polled by the things that act on it: they
 watch it. The unit's watch surfaces are exposed by the application
@@ -248,7 +258,7 @@ The errors that encode them:
   `unit already has subordinate`.
 
 (related-entities-unit)=
-## Related entities
+## Entities related to the unit
 
 - **Applications** own their units -- one or more, sharing the charm,
   the configuration and the relations (see

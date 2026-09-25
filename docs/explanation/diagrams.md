@@ -178,7 +178,7 @@ off script.md, whose task/operation prose now points here.)
 
 #### Application deployment (deploy carousels)
 
-**Insert at:** new § Application lifecycle > Application deployment
+**Insert at:** § The application's machinery → § Application operations → § Application deployment
 (homed; the architecture.md § Deploy carousels stay — the multi-home
 precedent). One tab-set, one carousel per cloud type; the full
 topologies are the ratified result beats (no bootstrap-result-style
@@ -204,7 +204,7 @@ crops).
 
 #### Application attributes (ERD slice)
 
-**Insert at:** § The application in the data model.
+**Insert at:** § The application's records → § The application in the data model.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -560,7 +560,7 @@ precedent).
 
 #### Types of relation (taxonomy)
 
-**Insert at:** § Types of relation (renamed from § Relation taxonomy; the hand-drawn excalidraw retires).
+**Insert at:** § The relation's records → § Types of relation (renamed from § Relation taxonomy; the hand-drawn excalidraw retires).
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -571,7 +571,7 @@ precedent).
 
 #### Per-type relation shapes
 
-**Insert at:** one at the top of each kind's section — Peer shape → § Peer relation; Subordinate shape → § Subordinate relation; Regular shape → § Regular relation; Cross-model shape → § Cross-model relation.
+**Insert at:** one at the top of each kind's section (§ The relation's records → § Types of relation) — Peer shape → § Peer relation; Subordinate shape → § Subordinate relation; Regular shape → § Regular relation; Cross-model shape → § Cross-model relation.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -603,7 +603,7 @@ precedent).
 
 #### Relation attributes (ERD slice)
 
-**Insert at:** § The relation data model.
+**Insert at:** § The relation's records → § The relation in the data model.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -614,7 +614,7 @@ precedent).
 
 #### Integrate
 
-**Insert at:** § Relation operations → § Relation creation. also: explanation/architecture.md § Integrate.
+**Insert at:** § The relation's machinery → § Relation operations → § Relation creation. also: explanation/architecture.md § Integrate.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -626,7 +626,7 @@ precedent).
 
 #### Relation settings permissions
 
-**Insert at:** § The relation data model → § Relation settings → § Permissions around relation settings.
+**Insert at:** § The relation's records → § The relation in the data model → § Relation settings → § Permissions around relation settings.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -711,7 +711,7 @@ precedent).
 
 #### Unit attributes (ERD slice)
 
-**Insert at:** § The unit in the data model.
+**Insert at:** § The unit's records → § The unit in the data model.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -722,7 +722,7 @@ precedent).
 
 #### Unit removal
 
-**Insert at:** § Unit lifecycle → § Unit removal. also: explanation/architecture.md § Remove.
+**Insert at:** § The unit's machinery → § Unit operations → § Unit removal. also: explanation/architecture.md § Remove.
 
 ```{ggarch}
 :file: ../juju.ggarch

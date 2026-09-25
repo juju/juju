@@ -15,45 +15,22 @@ In Juju, an **application** is a running abstraction of a {ref}`charm <charm>` i
 
 An application consists of one or more {ref}`units <unit>`, and it can have {ref}`resources <charm-resource>`, {ref}`configuration <application-configuration>`, {ref}`relations <relation>` through its {ref}`endpoints <application-endpoint>`, and {ref}`actions <action>`.
 
+(the-applications-records)=
+## The application's records
+
 (the-application-record)=
-## The application record
+### The application's identity
 
-An application is a record in the model database. It is identified by
-its **name** -- unique per model, lowercase letters, digits and
-hyphens -- and it carries the application's life (see
-{ref}`Application states <the-application-states>`), the
-{ref}`charm <charm>` it was deployed from (stored as the charm's UUID,
-not its URL), the charm revision the application is pinned to, and the
-{ref}`space <space>` its endpoints bind to by default.
-
-(types-of-application)=
-## Types of application
-
-The application table has no type column: an application's kind is
-derived from the records around it, and the kinds are not mutually
-exclusive -- the controller application is also just an application.
-Most applications are **regular applications**: a {ref}`charm <charm>`
-deployed into the model, with its units and their machines or pods.
-
-### The controller application
-
-The application that runs Juju itself in the
-{ref}`controller model <the-controller-model>` is marked by a dedicated
-singleton record -- one row, in one application, enforced by the
-schema. It is the application whose units host the controller's
-workers (see {ref}`the controller agent <controller-agent>`).
-
-### The remote-offerer application
-
-The far half of a {ref}`cross-model relation <cross-model-relation>`
-is an application record the consuming model synthesises to stand for
-an application it cannot see: it pairs with a remote-offerer record
-carrying the far model's identity and the offer URL. Nothing is
-deployed behind it -- the units live in the offering model (see
-{ref}`offer <offer>`).
+In the model database, an application is a record identified by its
+**name** -- unique per model, lowercase letters, digits and hyphens --
+carrying the application's life (see {ref}`Application states
+<the-application-states>`), the {ref}`charm <charm>` it was deployed
+from (stored as the charm's UUID, not its URL), the charm revision the
+application is pinned to, and the {ref}`space <space>` its endpoints
+bind to by default.
 
 (the-application-in-the-data-model)=
-## The application in the data model
+### The application in the data model
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -86,7 +63,7 @@ remote-offerer pair -- all covered under
 {ref}`Application operations <the-application-operations>`.
 
 (application-endpoint)=
-### Application endpoint
+#### Application endpoint
 
 In Juju, an application **endpoint** is a struct defined in an
 {ref}`application <application>`'s {ref}`charm <charm>`'s
@@ -112,7 +89,7 @@ through the relation-endpoint record, and an extra-binding record can
 tie the endpoint to a specific {ref}`space <space>`.
 
 (the-application-states)=
-## Application states
+### Application states
 
 An application carries two orthogonal pieces of state: its **life** --
 the shared alive / dying / dead cycle every entity has -- and its
@@ -122,7 +99,7 @@ under the removal machinery, and a status write is a membership check
 (the value must be known) plus an owner check -- what constrains an
 application is who writes, not a transition matrix.
 
-### Life
+#### Life
 
 An application is created alive. The removal machinery marks it dying
 (guarded one-way, cascading to its units, relations and machines) when
@@ -131,7 +108,7 @@ and no relations are left; a scheduled removal job then deletes the
 records (see {ref}`Application removal
 <the-application-removal>`).
 
-### Status
+#### Status
 
 The application's status is its own record, written only by the
 application's **leader unit** (through its agent; the charm hook
@@ -144,8 +121,43 @@ the units share (see {ref}`workload / charm status
 <workload--charm-status>`); the who-writes story across all five
 status domains is the {ref}`Status domains <status>` view.
 
+(types-of-application)=
+### Types of application
+
+The application table has no type column: an application's kind is
+derived from the records around it, and the kinds are not mutually
+exclusive -- the controller application is also just an application.
+Most applications are **regular applications**: a {ref}`charm <charm>`
+deployed into the model, with its units and their machines or pods.
+
+#### The controller application
+
+The application that runs Juju itself in the
+{ref}`controller model <the-controller-model>` is marked by a dedicated
+singleton record -- one row, in one application, enforced by the
+schema. It is the application whose units host the controller's
+workers (see {ref}`the controller agent <controller-agent>`).
+
+#### The remote-offerer application
+
+The far half of a {ref}`cross-model relation <cross-model-relation>`
+is an application record the consuming model synthesises to stand for
+an application it cannot see: it pairs with a remote-offerer record
+carrying the far model's identity and the offer URL. Nothing is
+deployed behind it -- the units live in the offering model (see
+{ref}`offer <offer>`).
+
+(the-applications-machinery)=
+## The application's machinery
+
+An application has no machinery of its own -- its units' agents
+execute it; the model side is controller bookkeeping (deployment,
+configuration, scaling, refresh, exposure and removal are
+controller-API operations, and only the status write is the leader
+unit's).
+
 (the-application-operations)=
-## Application operations
+### Application operations
 
 Operations on applications split by concern: deployment creates the
 application and its units; configuration, scaling, refresh and
@@ -155,7 +167,7 @@ only owns the status write (see
 {ref}`Application states <the-application-states>`).
 
 (the-application-deployment)=
-### Application deployment
+#### Application deployment
 
 Deploying an application adds its software to a {ref}`model <model>` and arranges for it to run on infrastructure. The intent -- the application name, the {ref}`charm <charm>`, the {ref}`constraints <constraint>` -- goes to the {ref}`controller <controller>` as an RPC call. The controller writes the application and {ref}`unit <unit>` records to the {ref}`database <database>`, then asks the cloud for resources (a virtual machine or a pod). Once the resource is ready the controller starts the {ref}`unit agent <unit-agent>`, which runs the install sequence: `install`, `config-changed`, `start`.
 
@@ -194,7 +206,7 @@ See more: {ref}`manage-applications`
 ```
 
 (the-application-configuration)=
-### Application configuration
+#### Application configuration
 
 Setting configuration (for example, `juju config mysql tune=fast`)
 writes the application's config keys and values -- validated against
@@ -203,7 +215,7 @@ what the application's config watchers fire on. Clearing a key removes
 the row; the trust flag lives in its own one-boolean record.
 
 (the-application-scaling)=
-### Application scaling (Kubernetes)
+#### Application scaling (Kubernetes)
 
 On Kubernetes models the application carries a scale record -- the
 current scale, the target, and whether scaling is in progress. Setting
@@ -212,7 +224,7 @@ negative values and inconsistent scaling states; the provisioner
 reconciles the pod count to the target.
 
 (the-application-refresh)=
-### Application refresh
+#### Application refresh
 
 Refreshing (for example, `juju refresh mysql`) swaps the charm the
 application references: the controller validates the new charm's
@@ -222,7 +234,7 @@ force-base flag; a charm that does not match the application's is
 rejected.
 
 (the-application-exposure)=
-### Application exposure
+#### Application exposure
 
 Exposing an application (for example, `juju expose mysql`) opens its
 endpoints to the outside: the expose records grant access per endpoint
@@ -230,7 +242,7 @@ either to a {ref}`space <space>` or to a CIDR, an omitted endpoint
 meaning all of them. Un-exposing removes the grants.
 
 (the-application-removal)=
-### Application removal
+#### Application removal
 
 Removal (for example, `juju remove-application mysql`) is initiated
 through the remove-application operation. Removal follows the same
@@ -243,7 +255,7 @@ resource gates; on Kubernetes the application cannot be removed while
 the provisioner still manages its resources.
 
 (the-application-watchers)=
-## Application watchers
+### Application watchers
 
 Nothing about an application is polled by the things that act on it:
 they watch it. The application domain's watchable service exposes
@@ -317,7 +329,7 @@ The errors that encode them:
 - *Scaling*: `scale change invalid`, `scaling state inconsistent`.
 
 (related-entities-application)=
-## Related entities
+## Entities related to the application
 
 - **Charms** are what an application runs: the application references
   one charm by UUID and tracks its origin; a refresh swaps it

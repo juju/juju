@@ -13,153 +13,17 @@ See also: {ref}`manage-relations`
 
 In Juju, a **relation** (**integration**) is a connection an {ref}`application <application>` supports by virtue of having a particular {ref}`endpoint <application-endpoint>`.
 
-## The relation record
+(the-relations-records)=
+## The relation's records
 
-A relation is a record in the model database. It is identified by a
+### The relation's identity
+
+In the model database, a relation is a record identified by a
 **relation ID** (assigned automatically by Juju; expressed in
 monotonically increasing numbers) or a **relation key** (derived from
-the endpoints, format:
-`application1:[endpoint] application2:[endpoint]`).
+the endpoints, format: `application1:[endpoint] application2:[endpoint]`).
 
-## Types of relation
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Types of relation
-:alt: The relation kinds as a star: Relation at the top, the four kinds in a row below, each connected to Relation by a straight is-a edge ending in a hollow triangle. The edges are labelled with the discriminating fact: the application relates to itself (Peer relation); one side subordinate (Subordinate relation); both principal, same model (Regular relation); different models (Cross-model relation).
-:caption: Taxonomy star: A relation is a peer relation when the application relates to itself; otherwise it connects two applications, and it is a subordinate relation when one side is subordinate (always same-model), a cross-model relation when the applications live in different models, and a regular relation when two principal applications share a model.
-```
-
-Every relation is one of four kinds. The kind follows from two facts:
-which applications the relation connects -- the same application, or
-two distinct ones -- and, for two distinct applications, whether one
-of them is subordinate and whether the two live in the same model.
-
-(peer-relation)=
-### Peer relation
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Peer relation shape
-:alt: The application relating to itself: the peer relation has one endpoint, and the application's units fan into it -- every unit joins the same relation.
-:caption: Topology: The peer relation's shape: the application relates to itself -- the relation has one endpoint, created automatically at deployment, and every unit the application ever has joins it as it starts.
-```
-
-A **peer** relation is a relation of an application to itself: its
-units relate to one another by virtue of the application having a
-`peers` endpoint. Juju creates the peer relation automatically at
-deployment time -- it is never added by a user -- and every unit the
-application ever has joins it as it starts.
-
-This is what makes the peer relation the mechanism behind
-{ref}`scaling <scaling>` and
-{ref}`high availability <high-availability>`: scaling the application
-never duplicates the relation. Every new unit enters the scope of the
-one existing relation, and the relation gives the units both a shared
-store of application settings and a notification channel (each
-settings write wakes the other units). The units of the application
-therefore keep coordinating with one another however many of them
-there are -- which is what clustering an application, and thus
-high availability, require.
-
-Because every relation results in the creation of unit and
-application settings in Juju's database, peer relations are also
-sometimes used by charm authors as a way to persist charm data.
-
-(subordinate-relation)=
-### Subordinate relation
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Subordinate relation shape
-:alt: A principal application and a subordinate application relating through a container-scoped relation; below, both the principal unit and the subordinate unit run on the principal unit's machine.
-:caption: Topology: The subordinate relation's shape: a principal application and a subordinate charm relate through a container-scoped relation; the relation is what places the subordinate's unit on the principal unit's own machine.
-```
-
-A **subordinate** relation is a relation between a principal
-application and a {ref}`subordinate <subordinate-charm>`
-application. It is always a same-model relation: the relation is
-container-scoped, and the container scope is what places the
-subordinate's unit on the principal unit's own machine.
-
-A subordinate charm is by definition a charm deployed on the same
-machine as the principal charm it is intended to accompany. When you
-deploy a subordinate charm, it appears in your Juju model as an
-application with no unit. The subordinate relation helps the
-subordinate application acquire a unit. The subordinate application
-then scales automatically when the principal application does, by
-virtue of this relation.
-
-(the-implicit-juju-info-relation-endpoint)=
-#### The implicit `juju-info` relation endpoint
-
-Every application in a model implicitly provides an extra endpoint named `juju-info`, with role `provides`, interface `juju-info`, and global scope. The endpoint is supplied by Juju itself: it does not need to be (and cannot be) declared in the charm's `metadata.yaml` / `charmcraft.yaml`, and it does not appear in `juju info <charm>` or on the charm's Charmhub page. It is supported on every kind of charm, but is only useful for {ref}`machine charms <machine-charm>`, since it exists to allow {ref}`subordinate charms <subordinate-charm>` to attach to a principal that does not otherwise expose a suitable interface.
-
-The `juju-info` endpoint is intended to be consumed by a {ref}`subordinate charm <subordinate-charm>` whose `metadata.yaml` / `charmcraft.yaml` declares an explicit `requires` endpoint with interface `juju-info` (typically with name `juju-info` and `scope: container`). The container scope is what causes the subordinate's unit to be co-located on the same machine as the principal's unit.
-
-The `juju-info` endpoint is the standard mechanism used by general-purpose machine subordinates that need to ride along on every machine of a principal but do not have any application-specific data to exchange. For example, monitoring, logging, or system-administration agents such as [`ntp`](https://charmhub.io/ntp), [`telegraf`](https://charmhub.io/telegraf), [`nrpe`](https://charmhub.io/nrpe), and [`canonical-livepatch`](https://charmhub.io/canonical-livepatch).
-
-The convention is for a subordinate to name its own `requires` endpoint `juju-info`, but any name can be used (for example: `info`, `general-info`); it just needs to use interface `juju-info`.
-
-The implicit endpoint is integrated against the same way as any other endpoint, for example:
-
-```text
-juju integrate <subordinate> <principal>
-```
-
-If the subordinate also has explicit endpoints whose interfaces match endpoints on the principal, those explicit endpoints take precedence over the implicit `juju-info` one when Juju resolves the relation. To force the implicit endpoint, name it explicitly on either side:
-
-```text
-juju integrate <subordinate>:<requires-endpoint> <principal>:juju-info
-```
-
-(regular-relation)=
-### Regular relation
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Regular relation shape
-:alt: Two principal applications -- one provides, one requires -- relating through a two-endpoint relation in the same model.
-:caption: Topology: The regular relation's shape: two principal applications in the same model relate through a two-endpoint relation -- opposite provides/requires roles on the same interface.
-```
-
-A **regular** relation is a relation between two principal
-applications that live in the same model. Both sides of the relation
-support the same endpoint interface and have opposite `provides` /
-`requires` endpoint roles.
-
-(cross-model-relation)=
-### Cross-model relation
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Cross-model relation shape
-:alt: Two model containers -- consuming model A with its application, offering model B with the saas synthetic application -- joined by a cross-model relation edge.
-:caption: Topology: The cross-model relation's shape: the two applications live in different models, each holding its own half; the consuming model integrates through a synthetic application (the saas) that stands in for the offered application.
-```
-
-```{ibnote}
-See also: {ref}`manage-relations`
-```
-
-A **cross-model** relation (aka 'CMR') is a relation between
-applications that live in different models (+/- different
-controllers, +/- different clouds). Each model holds its own half of
-the relation: the consuming model connects through a synthetic
-application that stands in for the offered application in the
-offering model.
-
-Cross-model relations enable, for example, scenarios where  your databases are hosted on bare metal, to take advantage of I/O performance, and your applications live within Kubernetes, to take advantage of scalability and application density.
-
-If the network topology is anything other than flat, the Juju controllers will need to be bootstrapped with `--controller-external-ips`, `--controller-external-name`, or both, so that the controllers are able to communicate. Note that these config values can only be set at bootstrap time, and are read-only thereafter.
-
-A cross-model relation has two sides: the offering side (aka "offerer") and the consume side (aka 'saas'). It does not make a difference which side of the relation (provider or requirer) is the offerer and which is the saas - the two are interchangeable. However, the endpoint type does influence on how juju sets up firewall rules: it is assumed that a requirer is the client and the provider is the server, so ports are opened on the provider side.
-
-Note that application names are obfuscated (anonymised) to the offerer side:
-- Applications that relate to the saas appear to the offerer as remote + token, e.g. `remote-76cd96ab50f146b284912afd1cc13a0e`.
-- For the consumer, the remote app names is the saas name, e.g. `prometheus`.
-
-## The relation data model
+### The relation in the data model
 
 A relation's state is spread across ten stored tables in the model
 database. The `relation` record carries the relation ID, its life,
@@ -210,7 +74,7 @@ not appear in the diagram.
 ```
 
 (relation-settings)=
-### Relation settings
+#### Relation settings
 
 Creating a relation creates its settings: one unit settings record
 per involved unit and one application settings record per involved
@@ -218,7 +82,7 @@ application. The settings can be unit-scoped or application-scoped,
 and each unit involved in the relation gets a local copy of all the
 settings for that relation.
 
-#### Permissions around relation settings
+##### Permissions around relation settings
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -257,14 +121,14 @@ example), and the commit that carries application settings is wrapped
 in a leadership lease -- the unit committing them must hold
 leadership.
 
-## Relation states
+### Relation states
 
 A relation carries two orthogonal state machines: its **life** -- the
 shared alive / dying / dead cycle every entity has -- and its
 **relation status**, the relation-specific status the status domain
 validates.
 
-### Life
+#### Life
 
 A relation is created alive. It cannot stay alive if either of its
 applications stops being alive, and it cannot be declared dead until
@@ -274,7 +138,7 @@ in scope leave as their agents notice, and a scheduled removal job
 finishes the job once nothing is left in scope.
 
 (relation-status)=
-### Relation status
+#### Relation status
 
 The `relation_status` table records one of six status values:
 `joining`, `joined`, `suspending`, `suspended`, `broken`, `error`
@@ -298,9 +162,154 @@ transition to `broken`; `joining` cannot follow `joined` or `broken`;
 `suspended` cannot follow `broken`; and `error` cannot be set without
 a message.
 
-## Relation operations
+### Types of relation
 
-### Relation creation
+```{ggarch}
+:file: ../juju.ggarch
+:view: Types of relation
+:alt: The relation kinds as a star: Relation at the top, the four kinds in a row below, each connected to Relation by a straight is-a edge ending in a hollow triangle. The edges are labelled with the discriminating fact: the application relates to itself (Peer relation); one side subordinate (Subordinate relation); both principal, same model (Regular relation); different models (Cross-model relation).
+:caption: Taxonomy star: A relation is a peer relation when the application relates to itself; otherwise it connects two applications, and it is a subordinate relation when one side is subordinate (always same-model), a cross-model relation when the applications live in different models, and a regular relation when two principal applications share a model.
+```
+
+Every relation is one of four kinds. The kind follows from two facts:
+which applications the relation connects -- the same application, or
+two distinct ones -- and, for two distinct applications, whether one
+of them is subordinate and whether the two live in the same model.
+
+(peer-relation)=
+#### Peer relation
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Peer relation shape
+:alt: The application relating to itself: the peer relation has one endpoint, and the application's units fan into it -- every unit joins the same relation.
+:caption: Topology: The peer relation's shape: the application relates to itself -- the relation has one endpoint, created automatically at deployment, and every unit the application ever has joins it as it starts.
+```
+
+A **peer** relation is a relation of an application to itself: its
+units relate to one another by virtue of the application having a
+`peers` endpoint. Juju creates the peer relation automatically at
+deployment time -- it is never added by a user -- and every unit the
+application ever has joins it as it starts.
+
+This is what makes the peer relation the mechanism behind
+{ref}`scaling <scaling>` and
+{ref}`high availability <high-availability>`: scaling the application
+never duplicates the relation. Every new unit enters the scope of the
+one existing relation, and the relation gives the units both a shared
+store of application settings and a notification channel (each
+settings write wakes the other units). The units of the application
+therefore keep coordinating with one another however many of them
+there are -- which is what clustering an application, and thus
+high availability, require.
+
+Because every relation results in the creation of unit and
+application settings in Juju's database, peer relations are also
+sometimes used by charm authors as a way to persist charm data.
+
+(subordinate-relation)=
+#### Subordinate relation
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Subordinate relation shape
+:alt: A principal application and a subordinate application relating through a container-scoped relation; below, both the principal unit and the subordinate unit run on the principal unit's machine.
+:caption: Topology: The subordinate relation's shape: a principal application and a subordinate charm relate through a container-scoped relation; the relation is what places the subordinate's unit on the principal unit's own machine.
+```
+
+A **subordinate** relation is a relation between a principal
+application and a {ref}`subordinate <subordinate-charm>`
+application. It is always a same-model relation: the relation is
+container-scoped, and the container scope is what places the
+subordinate's unit on the principal unit's own machine.
+
+A subordinate charm is by definition a charm deployed on the same
+machine as the principal charm it is intended to accompany. When you
+deploy a subordinate charm, it appears in your Juju model as an
+application with no unit. The subordinate relation helps the
+subordinate application acquire a unit. The subordinate application
+then scales automatically when the principal application does, by
+virtue of this relation.
+
+(the-implicit-juju-info-relation-endpoint)=
+##### The implicit `juju-info` relation endpoint
+
+Every application in a model implicitly provides an extra endpoint named `juju-info`, with role `provides`, interface `juju-info`, and global scope. The endpoint is supplied by Juju itself: it does not need to be (and cannot be) declared in the charm's `metadata.yaml` / `charmcraft.yaml`, and it does not appear in `juju info <charm>` or on the charm's Charmhub page. It is supported on every kind of charm, but is only useful for {ref}`machine charms <machine-charm>`, since it exists to allow {ref}`subordinate charms <subordinate-charm>` to attach to a principal that does not otherwise expose a suitable interface.
+
+The `juju-info` endpoint is intended to be consumed by a {ref}`subordinate charm <subordinate-charm>` whose `metadata.yaml` / `charmcraft.yaml` declares an explicit `requires` endpoint with interface `juju-info` (typically with name `juju-info` and `scope: container`). The container scope is what causes the subordinate's unit to be co-located on the same machine as the principal's unit.
+
+The `juju-info` endpoint is the standard mechanism used by general-purpose machine subordinates that need to ride along on every machine of a principal but do not have any application-specific data to exchange. For example, monitoring, logging, or system-administration agents such as [`ntp`](https://charmhub.io/ntp), [`telegraf`](https://charmhub.io/telegraf), [`nrpe`](https://charmhub.io/nrpe), and [`canonical-livepatch`](https://charmhub.io/canonical-livepatch).
+
+The convention is for a subordinate to name its own `requires` endpoint `juju-info`, but any name can be used (for example: `info`, `general-info`); it just needs to use interface `juju-info`.
+
+The implicit endpoint is integrated against the same way as any other endpoint, for example:
+
+```text
+juju integrate <subordinate> <principal>
+```
+
+If the subordinate also has explicit endpoints whose interfaces match endpoints on the principal, those explicit endpoints take precedence over the implicit `juju-info` one when Juju resolves the relation. To force the implicit endpoint, name it explicitly on either side:
+
+```text
+juju integrate <subordinate>:<requires-endpoint> <principal>:juju-info
+```
+
+(regular-relation)=
+#### Regular relation
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Regular relation shape
+:alt: Two principal applications -- one provides, one requires -- relating through a two-endpoint relation in the same model.
+:caption: Topology: The regular relation's shape: two principal applications in the same model relate through a two-endpoint relation -- opposite provides/requires roles on the same interface.
+```
+
+A **regular** relation is a relation between two principal
+applications that live in the same model. Both sides of the relation
+support the same endpoint interface and have opposite `provides` /
+`requires` endpoint roles.
+
+(cross-model-relation)=
+#### Cross-model relation
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Cross-model relation shape
+:alt: Two model containers -- consuming model A with its application, offering model B with the saas synthetic application -- joined by a cross-model relation edge.
+:caption: Topology: The cross-model relation's shape: the two applications live in different models, each holding its own half; the consuming model integrates through a synthetic application (the saas) that stands in for the offered application.
+```
+
+```{ibnote}
+See also: {ref}`manage-relations`
+```
+
+A **cross-model** relation (aka 'CMR') is a relation between
+applications that live in different models (+/- different
+controllers, +/- different clouds). Each model holds its own half of
+the relation: the consuming model connects through a synthetic
+application that stands in for the offered application in the
+offering model.
+
+Cross-model relations enable, for example, scenarios where  your databases are hosted on bare metal, to take advantage of I/O performance, and your applications live within Kubernetes, to take advantage of scalability and application density.
+
+If the network topology is anything other than flat, the Juju controllers will need to be bootstrapped with `--controller-external-ips`, `--controller-external-name`, or both, so that the controllers are able to communicate. Note that these config values can only be set at bootstrap time, and are read-only thereafter.
+
+A cross-model relation has two sides: the offering side (aka "offerer") and the consume side (aka 'saas'). It does not make a difference which side of the relation (provider or requirer) is the offerer and which is the saas - the two are interchangeable. However, the endpoint type does influence on how juju sets up firewall rules: it is assumed that a requirer is the client and the provider is the server, so ports are opened on the provider side.
+
+Note that application names are obfuscated (anonymised) to the offerer side:
+- Applications that relate to the saas appear to the offerer as remote + token, e.g. `remote-76cd96ab50f146b284912afd1cc13a0e`.
+- For the consumer, the remote app names is the saas name, e.g. `prometheus`.
+
+(the-relations-machinery)=
+## The relation's machinery
+
+A relation has no machinery of its own -- its units' agents execute it:
+each side's units run their relation hooks in lockstep, and the model
+side is record bookkeeping (creating, suspending, resuming, removing).
+
+### Relation operations
+
+#### Relation creation
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -319,7 +328,7 @@ their relation hooks in lockstep -- `relation-created`, then
 they go.
 
 (relation-removal)=
-### Relation removal
+#### Relation removal
 
 Removal is initiated through the remove-relation operation (for
 example, `juju remove-relation 0`). Removal follows the same
@@ -335,7 +344,7 @@ pre-check rejects them, because the local record is only the local
 half of the relation.
 
 (suspending-relations)=
-### Suspending and resuming
+#### Suspending and resuming
 
 Suspending pauses the data flow across a relation to an application
 offer; the resume operation restores it (the `juju suspend-relation`
@@ -346,7 +355,7 @@ relation. On a cross-model relation the suspension is propagated to
 the remote model as well, so both halves agree on the suspended
 state.
 
-## Relation watchers
+### Relation watchers
 
 Nothing about a relation is polled: agents and clients watch it. The
 relation domain's watchable service exposes five watch surfaces:
@@ -407,7 +416,7 @@ The errors that encode them:
   existence errors (`relation not found`, `relation unit not found`,
   `unit not in relation`, `application endpoint not found`).
 
-## Related entities
+## Entities related to the relation
 
 - **Status** owns the relation status vocabulary and validates every
   transition (see {ref}`Relation status <relation-status>`).
