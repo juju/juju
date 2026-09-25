@@ -13,9 +13,15 @@ See also: {ref}`manage-the-databases`
 
 In Juju, the **database** is the persistent storage layer that maintains all state information about controllers, models, applications, units, relations, and other entities in a Juju deployment. It is the source of truth for the current state of your infrastructure.
 
-## Database architecture
+(the-databases-records)=
+## The database's records
 
-The Juju controller organizes data across multiple isolated databases:
+(the-database-record)=
+### The database's identity
+
+The database has no records of its own: it is where every entity's
+records live. The Juju controller organizes data across multiple
+isolated databases:
 
 ### Controller database
 
@@ -51,7 +57,13 @@ Each model (including the controller model) has its own **model database** conta
 
 Model databases are isolated -- changes in one model's database do not affect other models. They are accessed via the `model-<name>` namespace in the {ref}`juju-db-repl`.
 
-## Database implementation
+(the-databases-machinery)=
+## The database's machinery
+
+The database has machinery of its own: it is Dqlite, embedded
+in-process in every controller -- there is no separate database
+service; in a high-availability cluster the controllers raft-replicate
+one database among themselves.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -67,4 +79,10 @@ Starting with Juju 4.0, the database is implemented using [Dqlite](https://canon
 - **SQL interface**: Supports standard SQL queries for inspection and debugging.
 - **Transactional**: ACID-compliant transactions ensure data integrity.
 - **Replicated**: Automatically replicates across controller nodes in HA deployments.
+
+Database triggers feed the change stream every watcher in Juju draws
+on: the watcher wakes, and the consumer fetches the current state and
+reconciles. The {ref}`juju-db-repl` can show the change log it reads
+({ref}`.change-log <juju-db-repl-change-log>`,
+{ref}`.change-stream <juju-db-repl-change-stream>`).
 

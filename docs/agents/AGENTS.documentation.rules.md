@@ -484,8 +484,8 @@ This allows readers to understand the big picture before diving into specifics.
 
 **Example (Database reference):**
 1. What the database is (intro)
-2. Database architecture (controller database, model databases)
-3. Database implementation (Dqlite technical details)
+2. The database's records (controller database, model databases)
+3. The database's machinery (Dqlite technical details)
 
 **Cross-references:** Place "See also" links to related how-to guides upfront, before or immediately after the intro, so readers can quickly navigate to operational docs if needed.
 

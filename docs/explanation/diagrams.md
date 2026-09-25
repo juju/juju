@@ -311,7 +311,7 @@ precedent).
 
 #### Data model (full spine)
 
-**Insert at:** § Model databases.
+**Insert at:** § The database's records → § Model databases.
 
 `````{grid} 2
 ````{grid-item}
@@ -336,7 +336,7 @@ precedent).
 
 #### HA controller: Dqlite replicaset
 
-**Insert at:** § Database implementation. also: reference/high-availability.md, howto/manage-the-databases.md.
+**Insert at:** § The database's machinery. also: reference/high-availability.md, howto/manage-the-databases.md.
 
 `````{grid} 2
 ````{grid-item}
