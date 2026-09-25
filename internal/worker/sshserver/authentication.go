@@ -8,7 +8,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/lestrrat-go/jwx/v3/jwt"
 	ssh "github.com/tailscale/gliderssh"
 
 	"github.com/juju/juju/core/logger"
@@ -20,30 +19,19 @@ import (
 // associated with the model being accessed.
 type authenticatedPublicKey struct{}
 
-type userJWT struct{}
-
-const externalAuthUser = "external-auth"
-
-// JWTParser parses a JWT in the password authentication payload.
-type JWTParser interface {
-	// Parse parses the provided JWT string and returns a jwt.Token if valid.
-	Parse(context.Context, string) (jwt.Token, error)
-}
-
 // UserPublicKeyService retrieves the public keys registered for a user.
 type UserPublicKeyService interface {
 	PublicKeys(context.Context, string) ([]publicKeyWithComment, error)
 }
 
 // authenticator implements the Authenticator interface for the SSH server.
-// It handles:
-// 1. Public key authentication by users.
-// 2. JWT password authentication for external-auth.
-// Machine reverse tunnels authenticate at the HTTP layer on the API
-// server's SSH tunnel upgrade endpoint instead.
+// It handles public key authentication by users. Password authentication
+// is removed: machine reverse tunnels and JIMM relay sessions now
+// authenticate at the HTTP layer on the API server's upgrade endpoints,
+// so the jump server rejects all passwords and key-less users get a clean
+// public key rejection instead of an "enter password:" prompt.
 type authenticator struct {
 	logger     logger.Logger
-	jwtParser  JWTParser
 	publicKeys UserPublicKeyService
 }
 
@@ -61,27 +49,5 @@ func (a authenticator) PublicKeyAuthentication(ctx ssh.Context, key ssh.PublicKe
 		}
 	}
 
-	return false, nil
-}
-
-// PasswordAuthentication implements a password authentication handler.
-// It supports two types of password authentication:
-// 1. Decoding a JWT as the password for external-auth.
-// 2. Reverse-tunnel authentication for machine agents.
-func (a authenticator) PasswordAuthentication(ctx ssh.Context, password string) (bool, error) {
-	// PublicKeyAuthentication is also invoked for an unsigned public-key query.
-	// Do not let a key offered before password authentication influence
-	// subsequent authorization.
-	ctx.SetValue(authenticatedPublicKey{}, nil)
-
-	switch ctx.User() {
-	case externalAuthUser:
-		token, err := a.jwtParser.Parse(ctx, password)
-		if err != nil {
-			return false, errors.Annotate(err, "parsing SSH JWT")
-		}
-		ctx.SetValue(userJWT{}, token)
-		return true, nil
-	}
 	return false, nil
 }
