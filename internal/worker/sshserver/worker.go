@@ -5,7 +5,6 @@ package sshserver
 
 import (
 	"context"
-	"net"
 	"sync"
 
 	"github.com/juju/errors"
@@ -27,19 +26,6 @@ type ControllerConfigService interface {
 	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
 	// ControllerConfig returns the current controller configuration.
 	ControllerConfig(context.Context) (controller.Config, error)
-}
-
-// TunnelTracker authenticates and track reverse SSH tunnels.
-//
-// It authenticates the tunnel request to obtain a tunnel ID
-// that associates the tunnel with a request for a connection
-// to the specific machine.
-type TunnelTracker interface {
-	// AuthenticateTunnel authenticates a reverse SSH tunnel request and
-	// returns the tunnel ID that needs to be passed to PushTunnel.
-	AuthenticateTunnel(username, password string) (string, error)
-	// PushTunnel registers a reverse SSH tunnel connection with the given tunnel ID.
-	PushTunnel(context.Context, string, net.Conn) error
 }
 
 // SSHService resolves controller host keys, user public keys, and terminating
@@ -65,7 +51,6 @@ type ServerWrapperWorkerConfig struct {
 	Authenticator           Authenticator
 	Authorizer              Authorizer
 	ProxyFactory            ProxyFactory
-	TunnelTracker           TunnelTracker
 	Metrics                 *Collector
 }
 
@@ -94,9 +79,6 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	}
 	if c.ProxyFactory == nil {
 		return errors.NotValidf("ProxyFactory is required")
-	}
-	if c.TunnelTracker == nil {
-		return errors.NotValidf("TunnelTracker is required")
 	}
 	return nil
 }
@@ -202,7 +184,6 @@ func (ssw *serverWrapperWorker) loop() error {
 		Authenticator:            ssw.config.Authenticator,
 		Authorizer:               ssw.config.Authorizer,
 		ProxyFactory:             ssw.config.ProxyFactory,
-		TunnelTracker:            ssw.config.TunnelTracker,
 		Metrics:                  ssw.config.Metrics,
 	})
 	ssw.addWorkerReporter("ssh-server", srv)

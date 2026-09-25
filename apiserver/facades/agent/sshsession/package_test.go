@@ -3,5 +3,5 @@
 
 package sshsession
 
-//go:generate go run github.com/canonical/gomock/mockgen -package sshsession -destination service_mock_test.go github.com/juju/juju/apiserver/facades/agent/sshsession SSHConnRequestService,ControllerConfigService,ControllerSSHHostKeyService
+//go:generate go run github.com/canonical/gomock/mockgen -package sshsession -destination service_mock_test.go github.com/juju/juju/apiserver/facades/agent/sshsession SSHConnRequestService
 //go:generate go run github.com/canonical/gomock/mockgen -package sshsession -destination facade_mock_test.go github.com/juju/juju/apiserver/facade WatcherRegistry

@@ -19,11 +19,6 @@ type SSHConnRequest struct {
 	MachineName string
 	// Expires is the time at which the SSH connection request expires.
 	Expires time.Time
-	// SSHUsername contains the reverse tunnel username to use for the SSH connection.
-	SSHUsername string
-	// SSHPassword contains the reverse tunnel JWT, and is not actually
-	// a plaintext password.
-	SSHPassword string
 	// ControllerAddresses contains the controller addresses to use for the SSH connection.
 	ControllerAddresses network.SpaceAddresses
 	// UnitPort holds the port that the unit worker will forward traffic to on the machine.

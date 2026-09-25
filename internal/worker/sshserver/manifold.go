@@ -192,6 +192,10 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// The tunnel tracker is only used by the proxy factory's tunnel
+	// connector to request reverse tunnels for user jump sessions.
+	// Machine-pushed tunnels are accepted by the apiserver's SSH tunnel
+	// upgrade endpoint instead.
 	var tunnelTracker workerTunneler.TunnelTracker
 	if err := getter.Get(config.SSHTunnelerName, &tunnelTracker); err != nil {
 		return nil, errors.Trace(err)
@@ -230,18 +234,16 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 		NewServerWorker:         config.NewServerWorker,
 		Logger:                  config.Logger,
 		Authenticator: authenticator{
-			logger:        config.Logger,
-			jwtParser:     jwtParser,
-			tunnelTracker: tunnelTracker,
-			publicKeys:    sshService,
+			logger:     config.Logger,
+			jwtParser:  jwtParser,
+			publicKeys: sshService,
 		},
 		Authorizer: authorizer{
 			access: sshService,
 			logger: config.Logger,
 		},
-		ProxyFactory:  proxyFactory,
-		TunnelTracker: tunnelTracker,
-		Metrics:       metricsCollector,
+		ProxyFactory: proxyFactory,
+		Metrics:      metricsCollector,
 	})
 	if err != nil {
 		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
