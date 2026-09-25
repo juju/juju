@@ -9,8 +9,9 @@ import (
 	"strings"
 )
 
-// maxPreBannerLength caps the pre-banner message to one terminal line.
-const maxPreBannerLength = 80
+// maxPreBannerLength is the maximum length of the pre-banner message.
+// Per RFC 4253 section 4.2 <= 255 bytes.
+const maxPreBannerLength = 255
 
 // WritePreBannerError writes msg as SSH pre-banner text (RFC 4253
 // section 4.2), which OpenSSH clients display before the version banner.
@@ -18,8 +19,9 @@ const maxPreBannerLength = 80
 func WritePreBannerError(conn net.Conn, msg string) error {
 	msg = strings.ReplaceAll(msg, "\n", " ")
 	if len(msg) > maxPreBannerLength {
-		// Cap without splitting a multi-byte rune.
-		msg = strings.ToValidUTF8(msg[:maxPreBannerLength], "")
+		// Reserve 2 bytes for the terminating CR and LF, and cap without
+		// splitting a multi-byte rune.
+		msg = strings.ToValidUTF8(msg[:maxPreBannerLength-2], "")
 	}
 	_, err := fmt.Fprintf(conn, "%s\r\n", msg)
 	return err

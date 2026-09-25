@@ -78,17 +78,18 @@ func (*preBannerSuite) TestWritePreBannerErrorCapsLength(c *tc.C) {
 	}()
 
 	out := readPreBanner(c, client, done)
-	c.Check(out, tc.Equals, strings.Repeat("x", 80)+"\r\n")
+	// 255 bytes minus the 2-byte CR LF terminator.
+	c.Check(out, tc.Equals, strings.Repeat("x", 253)+"\r\n")
 }
 
 func (*preBannerSuite) TestWritePreBannerErrorCapsLengthOnRuneBoundary(c *tc.C) {
 	client, server := net.Pipe()
 	defer func() { _ = client.Close() }()
 
-	// é is two bytes in UTF-8. 41 runes are 82 bytes, so the byte cap
-	// at 80 would split the final rune; the backup to a rune boundary
-	// must drop it and emit 40 valid runes.
-	msg := strings.Repeat("é", 41)
+	// é is two bytes in UTF-8. 128 runes are 256 bytes, so the byte cap
+	// at 253 (255 minus the CR LF terminator) would split the final rune;
+	// the backup to a rune boundary must drop it and emit 126 valid runes.
+	msg := strings.Repeat("é", 128)
 
 	done := make(chan error, 1)
 	go func() {
@@ -97,7 +98,7 @@ func (*preBannerSuite) TestWritePreBannerErrorCapsLengthOnRuneBoundary(c *tc.C) 
 	}()
 
 	out := readPreBanner(c, client, done)
-	c.Check(out, tc.Equals, strings.Repeat("é", 40)+"\r\n")
+	c.Check(out, tc.Equals, strings.Repeat("é", 126)+"\r\n")
 	c.Check(utf8.ValidString(out), tc.IsTrue)
 }
 
