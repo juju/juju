@@ -705,7 +705,12 @@ func (conn *StubClient) UseProject(string) {
 	panic("this stub is deprecated; use mocks instead")
 }
 
-func (*StubClient) HasExtension(_ string) bool {
+func (*StubClient) HasExtension(extension string) bool {
+	// Legacy address and removal tests model servers without network forwards.
+	// Keep the tripwire for other extensions; new tests must use mocks.
+	if extension == "network_forward" {
+		return false
+	}
 	panic("this stub is deprecated; use mocks instead")
 }
 
@@ -718,6 +723,26 @@ func (conn *StubClient) GetNetworks() ([]api.Network, error) {
 }
 
 func (*StubClient) GetNetworkState(string) (*api.NetworkState, error) {
+	panic("this stub is deprecated; use mocks instead")
+}
+
+func (*StubClient) GetNetworkInProject(string, string) (*api.Network, string, error) {
+	panic("this stub is deprecated; use mocks instead")
+}
+
+func (*StubClient) GetProject(string) (*api.Project, string, error) {
+	panic("this stub is deprecated; use mocks instead")
+}
+
+func (*StubClient) GetNetworkForwards(string) ([]api.NetworkForward, error) {
+	panic("this stub is deprecated; use mocks instead")
+}
+
+func (*StubClient) CreateNetworkForward(string, api.NetworkForwardsPost) (lxdclient.Operation, error) {
+	panic("this stub is deprecated; use mocks instead")
+}
+
+func (*StubClient) DeleteNetworkForward(string, string) (lxdclient.Operation, error) {
 	panic("this stub is deprecated; use mocks instead")
 }
 
@@ -761,6 +786,7 @@ func (m *MockClock) After(delay time.Duration) <-chan time.Time {
 
 type EnvironSuite struct {
 	testing.BaseSuite
+	Clock clock.Clock
 }
 
 func (s *EnvironSuite) NewEnviron(c *tc.C,
@@ -784,8 +810,13 @@ func (s *EnvironSuite) NewEnviron(c *tc.C,
 	namespace, err := instance.NewNamespace(cfg.UUID())
 	c.Assert(err, tc.ErrorIsNil)
 
+	clk := s.Clock
+	if clk == nil {
+		clk = clock.WallClock
+	}
 	return &environ{
 		CredentialInvalidator: common.NewCredentialInvalidator(invalidator, IsAuthorisationFailure),
+		clock:                 clk,
 		serverUnlocked:        srv,
 		ecfgUnlocked:          eCfg,
 		namespace:             namespace,
@@ -821,6 +852,7 @@ func (s *EnvironSuite) NewEnvironWithServerFactory(c *tc.C,
 
 	return &environ{
 		CredentialInvalidator: common.NewCredentialInvalidator(invalidator, IsAuthorisationFailure),
+		clock:                 clock.WallClock,
 		name:                  "controller",
 		provider:              &provid,
 		ecfgUnlocked:          eCfg,

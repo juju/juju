@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/canonical/lxd/shared/api"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/arch"
@@ -51,6 +52,7 @@ type environ struct {
 
 	cloud    environscloudspec.CloudSpec
 	provider *environProvider
+	clock    clock.Clock
 
 	name string
 	uuid string
@@ -85,11 +87,15 @@ func newEnviron(
 	env := &environ{
 		CredentialInvalidator: common.NewCredentialInvalidator(invalidator, IsAuthorisationFailure),
 		provider:              p,
+		clock:                 p.Clock,
 		cloud:                 spec,
 		name:                  ecfg.Name(),
 		uuid:                  ecfg.UUID(),
 		namespace:             namespace,
 		ecfgUnlocked:          ecfg,
+	}
+	if env.clock == nil {
+		env.clock = clock.WallClock
 	}
 	env.base = common.DefaultProvider{Env: env}
 
@@ -273,7 +279,7 @@ func (env *environ) destroyHostedModelResources(ctx context.Context, controllerU
 	}
 	logger.Debugf(ctx, "removing instances: %v", names)
 
-	return errors.Trace(env.server().RemoveContainers(names))
+	return errors.Trace(removeInstances(ctx, env.server(), names))
 }
 
 // DestroyProfiles deletes the LXD profiles associated with this model.

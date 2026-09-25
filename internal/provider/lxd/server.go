@@ -83,8 +83,13 @@ type Server interface {
 	Name() string
 	HasExtension(extension string) (exists bool)
 	GetNetworks() ([]lxdapi.Network, error)
+	GetNetworkInProject(name, project string) (*lxdapi.Network, string, error)
+	GetProject(name string) (*lxdapi.Project, string, error)
 	GetNetworkNames() ([]string, error)
 	GetNetworkState(name string) (*lxdapi.NetworkState, error)
+	GetNetworkForwards(networkName string) ([]lxdapi.NetworkForward, error)
+	CreateNetworkForward(networkName string, forward lxdapi.NetworkForwardsPost) (lxdclient.Operation, error)
+	DeleteNetworkForward(networkName string, listenAddress string) (lxdclient.Operation, error)
 	GetInstance(name string) (*lxdapi.Instance, string, error)
 	GetInstanceState(name string) (*lxdapi.InstanceState, string, error)
 	GetProfileNames() (names []string, err error)
@@ -163,14 +168,32 @@ type serverFactory struct {
 func NewServerFactory(newHttpFn NewHTTPClientFunc) ServerFactory {
 	return &serverFactory{
 		newLocalServerFunc: func() (Server, error) {
-			return lxd.NewLocalServer()
+			srv, err := lxd.NewLocalServer()
+			if err != nil {
+				return nil, err
+			}
+			return &providerServer{srv}, nil
 		},
 		newRemoteServerFunc: func(spec lxd.ServerSpec) (Server, error) {
-			return lxd.NewRemoteServer(spec)
+			srv, err := lxd.NewRemoteServer(spec)
+			if err != nil {
+				return nil, err
+			}
+			return &providerServer{srv}, nil
 		},
 		interfaceAddress:  interfaceAddress{},
 		newHTTPClientFunc: newHttpFn,
 	}
+}
+
+// providerServer adds project-scoped reads without changing the project used
+// by the shared server for instance operations.
+type providerServer struct {
+	*lxd.Server
+}
+
+func (s *providerServer) GetNetworkInProject(name, project string) (*lxdapi.Network, string, error) {
+	return s.InstanceServer.UseProject(project).GetNetwork(name)
 }
 
 func (s *serverFactory) LocalServer() (Server, error) {
