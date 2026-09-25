@@ -118,26 +118,26 @@ that provide specific set-up and tear-down behaviour.
 
 There are four main suites:
 
-  * /testing.BaseSuite (testing/base.go)
-  * /testing.FakeHomeSuite (testing/environ.go)
-  * /testing.FakeJujuHomeSuite (testing/environ.go)
-  * /juju/testing.ApiServerSuite (juju/testing/apiserver.go)
+  * `testing.BaseSuite` (internal/testing/base.go)
+  * `testhelpers.FakeHomeSuite` (internal/testhelpers/home.go)
+  * `testing.FakeJujuXDGDataHomeSuite` (internal/testing/environ.go)
+  * `juju/testing.ApiServerSuite` (juju/testing/apiserver.go)
 
-The last three have the BaseSuite functionality included through
-composition.  The BaseSuite isolates a user's home directory from accidental
-modification (by setting $HOME to "") and errors if there is an attempt to do
-outgoing http access. It also clears the relevant $JUJU_* environment variables.
+The BaseSuite isolates a user's home directory from accidental
+modification, errors if there is an attempt to do outgoing http access, and
+clears the relevant $JUJU_* environment variables.
 The BaseSuite is also composed of the core LoggingSuite, and also LoggingSuite
 from  github.com/juju/juju/internal/testhelpers, which brings in the CleanupSuite from the same.
 The CleanupSuite has the functionality around patching environment variables
 and normal variables for the duration of a test. It also provides a clean-up
 stack that gets called when the test teardown happens.
 
-All test suites should embedd BaseSuite. Those that need the extra functionality
-can instead embedd one of the fake home suites:
+All test suites should embed BaseSuite. Those that need the extra functionality
+can instead embed one of the fake home suites:
 
 * FakeHomeSuite: creates a fake home directory with ~/.ssh and fake ssh keys.
-* FakeJujuHomeSuite: as above but also sets up a ~/.config/juju with a fake model.
+* FakeJujuXDGDataHomeSuite: isolates the user's home directory and sets up a
+  Juju home ($JUJU_DATA) with a sample environment and certificate.
 
 The ApiServerSuite does this and more. It also sets up a controller and api
 server.  This is one problem with the ApiServerSuite, it almost always does a
@@ -150,12 +150,12 @@ something like:
 
 ```go
 type ToolsSuite struct {
-	testhelpers.BaseSuite
+	testing.BaseSuite
 	dataDir string
 }
 
-func TestToolsSuite(t *testing.T) {
-  tc.Run(t, &ToolsSuite{})
+func TestToolsSuite(t *stdtesting.T) {
+	tc.Run(t, &ToolsSuite{})
 }
 
 ```
@@ -185,6 +185,67 @@ network access in it, it is a good idea to use the BaseSuite as a base:
  * it brings in something composed of the CleanupSuite
  * if someone does add logging later, it is captured and doesn't pollute
    the logging output
+
+### Write the tests in the suite
+
+Below the suite, add your test functions. You target some behavior (usually a
+function) in the code file, and write a test for it that follows the usual
+Given, When, Then logic.
+
+For example, suppose the package under test defines a simple function called
+`Sum`:
+
+```go
+func Sum(a, b int) int {
+	return a + b
+}
+```
+
+Then, in the test file you can write a test for it as follows (where
+`tc.Equals` is one of the checkers listed below):
+
+```go
+// GIVEN a equals 5 AND b equals 3
+// WHEN a and b are summed
+// THEN we get 8
+func (s *ToolsSuite) TestSum(c *tc.C) {
+	a := 5
+	b := 3
+
+	res := magic.Sum(a, b)
+
+	c.Assert(res, tc.Equals, 8)
+}
+```
+
+## Run the tests
+
+To run the tests in a package, do:
+
+```bash
+go test github.com/juju/juju/x/y/magic/
+```
+
+This runs all the tests registered in the `magic` package. Specific tests or
+suites can be selected with the usual `go test` flags (e.g. `-run`).
+
+### Debug a failing test
+
+If you need to reproduce a failing test but can't reproduce it easily, run it
+under stress: `juju/scripts/unit-test/stress-race.bash`.
+
+```{tip}
+**Where to run?** Running on a small or medium instance on AWS will likely help
+trigger races more quickly than your local hardware. Particularly useful are
+instances that share CPU time -- `t._n_` instances currently. If you locally
+build the test to stress you may still need to rsync over the build environment
+as some tests look for files in the build tree.
+```
+
+```{tip}
+**How many times to run?** It has been noticed that, if the test runs 100 times
+without failure, things are probably all right.
+```
 
 ## Patching variables and the environment
 

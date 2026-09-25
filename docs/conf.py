@@ -236,7 +236,11 @@ html_extra_path = ["robots.txt", "sitemapindex.xml"]
 
 redirects = {
 'user/reference/charm/charm-naming-guidelines/': 'https://canonical-charmcraft.readthedocs-hosted.com/en/stable/',
-'reference/charm/charm-naming-guidelines/': 'https://canonical-charmcraft.readthedocs-hosted.com/en/stable/'
+'reference/charm/charm-naming-guidelines/': 'https://canonical-charmcraft.readthedocs-hosted.com/en/stable/',
+# The contributor package pages were demoted to Go package docs
+# (doc.go); point their old paths at the rendered Go docs.
+'contributor/reference/agent': 'https://pkg.go.dev/github.com/juju/juju/cmd/jujud/agent',
+'contributor/reference/dependency-package': 'https://pkg.go.dev/github.com/juju/worker/v5/dependency',
 }
 
 ###########################

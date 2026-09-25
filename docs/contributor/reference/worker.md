@@ -9,9 +9,11 @@ myst:
 
 In Juju, a **worker** is any type that implements the `worker.Worker` interface.
 
-Examples of workers include {ref}`the dependency engine <newengine>`, instances run by the dependency
+Examples of workers include [the dependency
+engine](https://pkg.go.dev/github.com/juju/worker/v5/dependency#Engine),
+instances run by the dependency
 engine (the typical usage of the term "worker"),
 and [watchers](https://github.com/juju/juju/blob/HEAD/core/watcher/watcher.go).
 
-A Juju {ref}`agent <agent-cont>` runs one or more workers at the same time in parallel. A worker may run / be run by
+A Juju {ref}`agent <agent>` runs one or more workers at the same time in parallel. A worker may run / be run by
 another worker.
