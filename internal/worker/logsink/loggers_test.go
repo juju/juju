@@ -141,9 +141,20 @@ func (s *LoggersSuite) TestLoggerRebindsOnRefresh(c *tc.C) {
 
 	router.mu.Lock()
 	router.sink = newSink
+	router.rebound = make(chan struct{})
+	rebound := router.rebound
 	router.mu.Unlock()
 	close(oldSink.refresh)
 
+	// Wait for the loop goroutine to finish rebinding its writer
+	// before emitting the post-switch log record. Without this
+	// synchronisation the record can be silently dropped during
+	// the RemoveWriter/AddWriter window in bindWriter.
+	select {
+	case <-rebound:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for rebound")
+	}
 	fooLogger.Infof(c.Context(), "after switch")
 	newSink.waitForWrite(c)
 
@@ -216,6 +227,12 @@ func (s *LoggersSuite) setupMocks(c *tc.C) *gomock.Controller {
 type switchingLogSink struct {
 	mu   sync.Mutex
 	sink corelogger.LogSink
+
+	// rebound is closed by WatchRefresh after the model logger has
+	// finished rebinding its writer, allowing tests to wait for the
+	// rebind to complete before emitting log records that must go
+	// through the new sink.
+	rebound chan struct{}
 }
 
 func (s *switchingLogSink) Log(records []corelogger.LogRecord) error {
@@ -225,10 +242,20 @@ func (s *switchingLogSink) Log(records []corelogger.LogRecord) error {
 	return sink.Log(records)
 }
 
+// WatchRefresh returns the current sink's refresh channel and closes
+// the rebound channel if one is set, signalling that the writer has
+// been rebound to the new sink.
 func (s *switchingLogSink) WatchRefresh() <-chan struct{} {
 	s.mu.Lock()
 	sink := s.sink
+	rebound := s.rebound
+	s.rebound = nil
 	s.mu.Unlock()
+	// Signal after releasing the lock to avoid blocking the loop
+	// goroutine on a contended mutex.
+	if rebound != nil {
+		close(rebound)
+	}
 	return sink.WatchRefresh()
 }
 
