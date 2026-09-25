@@ -416,9 +416,4 @@ contributor/reference/testing/unit-testing contributor/howto/write-tests
 contributor/reference/testing/unit-testing/util-suite contributor/howto/write-tests
 contributor/reference/testing/unit-testing/checker contributor/howto/write-tests
 contributor/reference/testing/unit-testing/unit-test-suite contributor/howto/write-tests
-contributor/howto/write-a-unit-test contributor/howto/write-tests
-contributor/howto/create-a-unit-test-suite contributor/howto/write-tests
-contributor/reference/testing/integration-testing contributor/howto/write-an-integration-test
-contributor/reference/testing/integration-testing/integration-test-suite contributor/howto/write-an-integration-test
-contributor/reference/testing/integration-testing/test-include contributor/howto/write-an-integration-test
 contributor/reference/worker reference/worker

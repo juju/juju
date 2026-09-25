@@ -249,6 +249,15 @@ redirects = {
 # The forward-merge mechanics were folded into CONTRIBUTING.md
 # ("Merging patches forward", after the step list).
 'contributor/howto/merge-forward': 'https://github.com/juju/juju/blob/HEAD/CONTRIBUTING.md',
+# The test howtos were retired: the unit-test conventions live in the
+# repo-root AGENTS.md, the integration framework in tests/README.md.
+'contributor/howto/write-tests': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/howto/write-a-unit-test': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/howto/create-a-unit-test-suite': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/howto/write-an-integration-test': 'https://github.com/juju/juju/blob/HEAD/tests/README.md',
+'contributor/reference/testing/integration-testing': 'https://github.com/juju/juju/blob/HEAD/tests/README.md',
+'contributor/reference/testing/integration-testing/integration-test-suite': 'https://github.com/juju/juju/blob/HEAD/tests/README.md',
+'contributor/reference/testing/integration-testing/test-include': 'https://github.com/juju/juju/blob/HEAD/tests/README.md',
 }
 
 ###########################
