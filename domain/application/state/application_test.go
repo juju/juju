@@ -1696,6 +1696,46 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateNotScaling(c *tc.C
 	})
 }
 
+func (s *applicationStateSuite) TestSetApplicationScalingStateConflictingOperation(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+
+	// Set up the initial scale value.
+	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A storage update operation is allowed to start while no other
+	// operation is in progress.
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.StorageUpdateOperation)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A scale operation is rejected while a storage update operation is
+	// in progress.
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.ScaleOperation)
+	c.Assert(err, tc.ErrorIs, applicationerrors.OperationInProgress)
+
+	// Clearing the operation is always allowed.
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.NoOperation)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A scale operation is allowed once no other operation is in
+	// progress.
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.ScaleOperation)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A storage update operation is rejected while a scale operation is
+	// in progress and must not clobber the in-flight operation.
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.StorageUpdateOperation)
+	c.Assert(err, tc.ErrorIs, applicationerrors.OperationInProgress)
+
+	var got application.ScaleState
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT scale, current_operation, scale_target FROM application_provisioning_state WHERE application_uuid=?", appUUID).
+			Scan(&got.Scale, &got.CurrentOperation, &got.ScaleTarget)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got.CurrentOperation, tc.Equals, coreapplication.ScaleOperation)
+}
+
 func (s *applicationStateSuite) TestGetApplicationUnitLife(c *tc.C) {
 	_, fooUnits := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 2)
 	_, barUnits := s.createIAASApplicationWithNUnits(c, "bar", life.Alive, 1)

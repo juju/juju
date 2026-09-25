@@ -947,6 +947,9 @@ WHERE  application_uuid = $applicationScale.application_uuid
 
 // SetApplicationScalingState sets the scaling details for the given caas
 // application Scale is optional and is only set if not nil.
+// It returns an error satisfying [applicationerrors.OperationInProgress] if
+// a different provisioning operation is already in progress for the
+// application.
 func (st *State) SetApplicationScalingState(ctx context.Context, appName string, targetScale int, op coreapplication.ProvisioningOperation) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -976,6 +979,15 @@ WHERE  application_uuid = $applicationScale.application_uuid
 		currentScaleState, err := st.getApplicationScaleState(ctx, tx, appDetails.UUID)
 		if err != nil {
 			return errors.Capture(err)
+		}
+
+		// Reject a requested operation that conflicts with a different
+		// operation already in progress. Clearing the operation is
+		// always allowed.
+		if op != coreapplication.NoOperation &&
+			coreapplication.IsDifferentOperation(currentScaleState.CurrentOperation, op) {
+			return errors.Errorf("provisioning operation %q in progress", currentScaleState.CurrentOperation).
+				Add(applicationerrors.OperationInProgress)
 		}
 
 		var scale int
