@@ -41,11 +41,13 @@ DROP TABLE application_scale;
 CREATE TRIGGER trg_log_application_provisioning_state_insert
 AFTER INSERT ON application_provisioning_state FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, 10018, NEW.application_uuid, DATETIME('now', 'utc'));
+INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+VALUES (1, 10018, new.application_uuid, DATETIME('now', 'utc'));
 END;
 
 -- update trigger for ApplicationProvisioningState
+-- sqlfluff doesn't support TRIGGER statements
+-- noqa: disable=all
 CREATE TRIGGER trg_log_application_provisioning_state_update
 AFTER UPDATE ON application_provisioning_state FOR EACH ROW
 WHEN
@@ -57,11 +59,12 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, 10018, OLD.application_uuid, DATETIME('now', 'utc'));
 END;
+-- noqa: enable=all
 
 -- delete trigger for ApplicationProvisioningState
 CREATE TRIGGER trg_log_application_provisioning_state_delete
 AFTER DELETE ON application_provisioning_state FOR EACH ROW
 BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, 10018, OLD.application_uuid, DATETIME('now', 'utc'));
+INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+VALUES (4, 10018, old.application_uuid, DATETIME('now', 'utc'));
 END;
