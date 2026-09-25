@@ -1861,3 +1861,89 @@ func (s *remoteApplicationSuite) TestTerminateOperationLeavesScopes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(remoteRelUnits2, gc.HasLen, 0)
 }
+
+func (s *remoteApplicationSuite) TestTerminateOperationReplacedBeforeBuild(c *gc.C) {
+	op := s.application.TerminateOperation("old offer removed")
+	replacement := s.replaceTerminatingApplication(c)
+
+	err := s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+	s.checkReplacementAlive(c, replacement)
+}
+
+func (s *remoteApplicationSuite) TestTerminateOperationReconsumedBeforeBuild(c *gc.C) {
+	offerUUID, version := s.application.OfferUUID(), s.application.ConsumeVersion()
+	op := s.application.TerminateOperation("old consumption ended")
+	_, err := s.application.DestroyWithForce(true, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	replacement, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "mysql", OfferUUID: offerUUID, SourceModel: s.Model.ModelTag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(replacement.ConsumeVersion(), gc.Equals, version+1)
+	c.Assert(replacement.SetStatus(status.StatusInfo{
+		Status: status.Active, Message: "new offer",
+	}), jc.ErrorIsNil)
+	c.Assert(s.State.ApplyOperation(op), jc.ErrorIsNil)
+	s.checkReplacementAlive(c, replacement)
+}
+
+func (s *remoteApplicationSuite) TestTerminateOperationReplacedDuringBuild(c *gc.C) {
+	op := s.application.TerminateOperation("old offer removed")
+	var replacement *state.RemoteApplication
+	defer state.SetBeforeHooks(c, s.State, func() {
+		replacement = s.replaceTerminatingApplication(c)
+	}).Check()
+
+	err := s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+	s.checkReplacementAlive(c, replacement)
+}
+
+func (s *remoteApplicationSuite) TestTerminateOperationReplacedBeforeDone(c *gc.C) {
+	op := s.application.TerminateOperation("old offer removed")
+	var replacement *state.RemoteApplication
+	defer state.SetAfterHooks(c, s.State, func() {
+		replacement = s.replaceTerminatingApplication(c)
+	}).Check()
+
+	err := s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+	s.checkReplacementAlive(c, replacement)
+}
+
+func (s *remoteApplicationSuite) TestTerminateOperationReplacedDuringDone(c *gc.C) {
+	op := s.application.TerminateOperation("old offer removed")
+	var replacement *state.RemoteApplication
+	defer state.SetBeforeHooks(c, s.State, func() {}, func() {
+		replacement = s.replaceTerminatingApplication(c)
+	}).Check()
+
+	err := s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+	s.checkReplacementAlive(c, replacement)
+}
+
+func (s *remoteApplicationSuite) replaceTerminatingApplication(c *gc.C) *state.RemoteApplication {
+	_, err := s.application.DestroyWithForce(true, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "mysql",
+		OfferUUID:   utils.MustNewUUID().String(),
+		SourceModel: s.Model.ModelTag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.SetStatus(status.StatusInfo{Status: status.Active, Message: "new offer"})
+	c.Assert(err, jc.ErrorIsNil)
+	return app
+}
+
+func (s *remoteApplicationSuite) checkReplacementAlive(c *gc.C, app *state.RemoteApplication) {
+	c.Assert(app, gc.NotNil)
+	c.Assert(app.Refresh(), jc.ErrorIsNil)
+	c.Check(app.Life(), gc.Equals, state.Alive)
+	info, err := app.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(info.Status, gc.Equals, status.Active)
+	c.Check(info.Message, gc.Equals, "new offer")
+}

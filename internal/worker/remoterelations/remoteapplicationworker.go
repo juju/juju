@@ -103,7 +103,7 @@ func (w *remoteApplicationWorker) checkOfferPermissionDenied(err error, appToken
 	// If consume permission has been revoked for the offer, set the
 	// status of the local remote application entity.
 	if params.ErrCode(err) == params.CodeDischargeRequired {
-		if err := w.localModelFacade.SetRemoteApplicationStatus(w.applicationName, status.Error, err.Error()); err != nil {
+		if err := w.setRemoteApplicationStatus(status.Error, err.Error()); err != nil {
 			w.logger.Errorf(
 				"updating remote application %v status from remote model %v: %v",
 				w.applicationName, w.remoteModelUUID, err)
@@ -127,10 +127,37 @@ func (w *remoteApplicationWorker) checkOfferPermissionDenied(err error, appToken
 
 func (w *remoteApplicationWorker) remoteOfferRemoved() error {
 	w.logger.Debugf("remote offer for %s has been removed", w.applicationName)
-	if err := w.localModelFacade.SetRemoteApplicationStatus(w.applicationName, status.Terminated, "offer has been removed"); err != nil {
+	if err := w.setRemoteApplicationStatus(status.Terminated, "offer has been removed"); err != nil {
 		return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
 	}
 	return nil
+}
+
+// setRemoteApplicationStatus suppresses updates from an obsolete offer worker.
+// The existing status RPC identifies applications by name, so this check is a
+// mitigation: replacement can still occur between this read and the write.
+func (w *remoteApplicationWorker) setRemoteApplicationStatus(value status.Status, message string) error {
+	app, err := getRemoteApplication(w.localModelFacade, w.applicationName)
+	if isNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Annotate(err, "checking remote application identity")
+	}
+	identity := remoteApplicationIdentity{
+		offerUUID: w.offerUUID, consumeVersion: w.consumeVersion,
+		modelUUID: w.remoteModelUUID, consumerProxy: w.isConsumerProxy,
+	}
+	if app.Life == life.Dead || applicationIdentity(app) != identity {
+		w.logger.Debugf("ignoring stale status for remote application %q", w.applicationName)
+		return nil
+	}
+	select {
+	case <-w.catacomb.Dying():
+		return w.catacomb.ErrDying()
+	default:
+	}
+	return w.localModelFacade.SetRemoteApplicationStatus(w.applicationName, value, message)
 }
 
 // isNotFound allows either type of not found error
@@ -163,7 +190,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 	if !w.isConsumerProxy {
 		if err := w.newRemoteRelationsFacadeWithRedirect(); err != nil {
 			msg := fmt.Sprintf("cannot connect to external controller: %v", err.Error())
-			if err := w.localModelFacade.SetRemoteApplicationStatus(w.applicationName, status.Error, msg); err != nil {
+			if err := w.setRemoteApplicationStatus(status.Error, msg); err != nil {
 				return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
 			}
 			return errors.Annotate(err, "cannot connect to external controller")
@@ -272,7 +299,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 		case changes := <-offerStatusChanges:
 			w.logger.Debugf("offer status changed: %#v", changes)
 			for _, change := range changes {
-				if err := w.localModelFacade.SetRemoteApplicationStatus(w.applicationName, change.Status.Status, change.Status.Message); err != nil {
+				if err := w.setRemoteApplicationStatus(change.Status.Status, change.Status.Message); err != nil {
 					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
 				}
 				// If the offer is terminated the status watcher can be stopped immediately.

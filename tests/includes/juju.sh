@@ -421,7 +421,7 @@ post_add_model() {
 # destroy_model <model name> [<timeout>]
 # ```
 destroy_model() {
-	local name timeout
+	local name timeout result
 
 	name=${1}
 	timeout=${2:-30m}
@@ -437,12 +437,23 @@ destroy_model() {
 	output="${TEST_DIR}/${name}-destroy.log"
 
 	echo "====> Destroying juju model ${name}"
-	echo "${name}" | xargs -I % timeout "$timeout" juju destroy-model --no-prompt --destroy-storage % >"${output}" 2>&1 || true
+	if timeout "$timeout" juju destroy-model --no-prompt --destroy-storage "${name}" >"${output}" 2>&1; then
+		result=0
+	else
+		result=$?
+	fi
 	CHK=$(cat "${output}" | grep -e "^ERROR " || true)
-	if [[ -n ${CHK} ]]; then
-		printf '\nFound some issues destroying model\n'
+	if [[ ${result} -ne 0 || -n ${CHK} ]]; then
+		if [[ ${result} -eq 124 ]]; then
+			printf '\nTimed out after %s destroying model %s\n' "${timeout}" "${name}"
+		else
+			printf '\nFound some issues destroying model %s (exit %s)\n' "${name}" "${result}"
+		fi
 		cat "${output}"
-		exit 1
+		if [[ ${result} -eq 0 ]]; then
+			result=1
+		fi
+		return "${result}"
 	fi
 	echo "====> Destroyed juju model ${name}"
 }
@@ -510,7 +521,7 @@ destroy_controller() {
 			while IFS= read -r model_uuid; do
 				(
 					while [[ -f ${resolve_sentinel} ]]; do
-						timeout 30s juju resolve --no-retry --all -m "${model_uuid}" >/dev/null 2>&1 || true
+						timeout 30s juju resolve --no-retry --all -m "${name}:${model_uuid}" >/dev/null 2>&1 || true
 						sleep 5
 					done
 				) &

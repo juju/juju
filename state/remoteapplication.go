@@ -584,7 +584,9 @@ func (a *RemoteApplication) SetStatus(info status.StatusInfo) error {
 // scope as well.
 func (a *RemoteApplication) TerminateOperation(message string) ModelOperation {
 	return &terminateRemoteApplicationOperation{
-		app: a,
+		app:       &RemoteApplication{st: a.st, doc: a.doc},
+		offerUUID: a.doc.OfferUUID,
+		version:   a.doc.Version,
 		doc: statusDoc{
 			Status:     status.Terminated,
 			StatusInfo: message,
@@ -594,18 +596,20 @@ func (a *RemoteApplication) TerminateOperation(message string) ModelOperation {
 }
 
 type terminateRemoteApplicationOperation struct {
-	app *RemoteApplication
-	doc statusDoc
+	app       *RemoteApplication
+	doc       statusDoc
+	offerUUID string
+	version   int
+	skipped   bool
 }
 
 // Build is part of ModelOperation.
 func (op *terminateRemoteApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 	if attempt > 0 {
-		err := op.app.Refresh()
-		if err != nil && !errors.IsNotFound(err) {
+		if err := op.refresh(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		if err != nil || op.app.Life() == Dead {
+		if op.skipped {
 			return nil, jujutxn.ErrNoOperations
 		}
 	}
@@ -617,7 +621,7 @@ func (op *terminateRemoteApplicationOperation) Build(attempt int) ([]txn.Op, err
 	ops = append(ops, txn.Op{
 		C:      remoteApplicationsC,
 		Id:     op.app.doc.DocID,
-		Assert: notDeadDoc,
+		Assert: append(op.applicationAssertions(), notDeadDoc...),
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	})
 	name := op.app.Name()
@@ -644,15 +648,50 @@ func (op *terminateRemoteApplicationOperation) Done(err error) error {
 	if err != nil {
 		return errors.Annotatef(err, "terminating saas application %q", op.app.Name())
 	}
-	_, _ = probablyUpdateStatusHistory(op.app.st.db(), op.app.globalKey(), op.doc)
+	if op.skipped {
+		return nil
+	}
 	// Set the life to Dead so that the lifecycle watcher will trigger to inform the
-	// relevant workers that this application is gone.
-	ops := []txn.Op{{
-		C:      remoteApplicationsC,
-		Id:     op.app.doc.DocID,
-		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
-	}}
-	return op.app.st.db().RunTransaction(ops)
+	// relevant workers that this application is gone. The application may have
+	// been replaced since Build, so fence this transaction as well.
+	err = op.app.st.db().Run(func(int) ([]txn.Op, error) {
+		if err := op.refresh(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if op.skipped {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return []txn.Op{{
+			C:      remoteApplicationsC,
+			Id:     op.app.doc.DocID,
+			Assert: append(op.applicationAssertions(), bson.DocElem{Name: "life", Value: Dying}),
+			Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+		}}, nil
+	})
+	if err == nil && !op.skipped {
+		_, _ = probablyUpdateStatusHistory(op.app.st.db(), op.app.globalKey(), op.doc)
+	}
+	return errors.Trace(err)
+}
+
+func (op *terminateRemoteApplicationOperation) applicationAssertions() bson.D {
+	return bson.D{
+		{"offer-uuid", op.offerUUID},
+		{"version", op.version},
+		{"txn-revno", op.app.doc.TxnRevno},
+	}
+}
+
+// refresh stops an old termination operation from following a replacement
+// application with the same name when a transaction is retried.
+func (op *terminateRemoteApplicationOperation) refresh() error {
+	err := op.app.Refresh()
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	op.skipped = err != nil || op.app.Life() == Dead ||
+		op.app.doc.OfferUUID != op.offerUUID || op.app.doc.Version != op.version
+	return nil
 }
 
 // Endpoints returns the application's currently available relation endpoints.
